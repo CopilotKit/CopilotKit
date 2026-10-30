@@ -98,12 +98,9 @@ const headerTitle = computed(
     CopilotChatDefaultLabels.modalHeaderTitle,
 );
 const asideClass = computed(() => [
-  "cpk:fixed cpk:right-0 cpk:top-0 cpk:z-[1200] cpk:flex cpk:h-[100vh] cpk:h-[100dvh] cpk:max-h-screen cpk:w-full",
-  "cpk:border-l cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-xl",
-  "cpk:transition-transform cpk:duration-300 cpk:ease-out",
-  isSidebarOpen.value
-    ? "cpk:translate-x-0"
-    : "cpk:translate-x-full cpk:pointer-events-none",
+  "copilotKitSidebar copilotKitWindow cpk-sidebar-view",
+  // Slides off its edge when closed.
+  !isSidebarOpen.value && "cpk-sidebar-view-closed",
   attrs.class,
 ]);
 const asideAttrs = computed(() => {
@@ -275,6 +272,7 @@ onBeforeUnmount(() => {
     ref="sidebarRef"
     data-copilotkit
     data-copilot-sidebar
+    data-position="right"
     :class="asideClass"
     :style="asideStyle"
     :aria-label="
@@ -284,9 +282,7 @@ onBeforeUnmount(() => {
     role="complementary"
     v-bind="asideAttrs"
   >
-    <div
-      class="cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden"
-    >
+    <div class="cpk-sidebar-view-panel">
       <slot
         name="header"
         :title="headerTitle"
@@ -296,7 +292,7 @@ onBeforeUnmount(() => {
         <CopilotModalHeader :title="headerTitle" />
       </slot>
 
-      <div class="cpk:flex-1 cpk:overflow-hidden" data-sidebar-chat>
+      <div class="cpk-sidebar-view-chat" data-sidebar-chat>
         <CopilotChatView
           :messages="messages"
           :auto-scroll="autoScroll"

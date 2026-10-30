@@ -390,7 +390,11 @@ function resolveToolMessage(
 </script>
 
 <template>
-  <div data-copilotkit class="cpk:flex cpk:flex-col" v-bind="$attrs">
+  <div
+    data-copilotkit
+    class="copilotKitMessages cpk-message-view"
+    v-bind="$attrs"
+  >
     <template
       v-for="message in deduplicatedMessages"
       :key="rowRenderKeys.get(message.id) ?? message.id"
@@ -504,11 +508,13 @@ function resolveToolMessage(
       :cancel="interruptState.cancel"
     />
 
-    <slot v-if="showCursor" name="cursor">
-      <div
-        class="cpk:w-[11px] cpk:h-[11px] cpk:rounded-full cpk:bg-foreground cpk:animate-pulse cpk:ml-1"
-        data-testid="copilot-loading-cursor"
-      />
-    </slot>
+    <div v-if="showCursor" class="cpk-message-view-cursor-container">
+      <slot name="cursor">
+        <div
+          class="cpk-message-view-cursor"
+          data-testid="copilot-loading-cursor"
+        />
+      </slot>
+    </div>
   </div>
 </template>

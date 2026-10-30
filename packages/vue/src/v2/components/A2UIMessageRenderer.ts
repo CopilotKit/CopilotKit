@@ -1,4 +1,5 @@
-import { computed, defineComponent, h, type PropType } from "vue";
+import { computed, defineComponent, h } from "vue";
+import type { PropType } from "vue";
 import { z } from "zod";
 import type { VueActivityMessageRenderer } from "../types";
 import type { A2UITheme } from "../types";
@@ -18,6 +19,7 @@ export type A2UIMessageRendererOptions = {
  * `packages/react-core/src/v2/a2ui/A2UIMessageRenderer.tsx`:
  * an animated dot + "Generating UI..." label + three shimmer bars
  * (80% / 60% / 40% widths) with staggered `cpk-a2ui-pulse` opacity animation.
+ * Inline styles, like React's A2UI loading states, so it needs no stylesheet.
  */
 const DefaultA2UILoading = defineComponent({
   name: "DefaultA2UILoading",
@@ -27,36 +29,65 @@ const DefaultA2UILoading = defineComponent({
       h(
         "div",
         {
-          class:
-            "cpk:flex cpk:flex-col cpk:gap-3 cpk:rounded-xl cpk:border cpk:border-gray-100 cpk:bg-gray-50/50 cpk:p-5",
-          style: { minHeight: "120px" },
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.75rem",
+            minHeight: "120px",
+            border: "1px solid oklch(96.7% 0.003 264.542)",
+            borderRadius: "calc(var(--radius) + 4px)",
+            backgroundColor:
+              "color-mix(in oklab, oklch(98.5% 0.002 247.839) 50%, transparent)",
+            padding: "1.25rem",
+          },
           "data-testid": "a2ui-loading",
         },
         [
-          h("div", { class: "cpk:flex cpk:items-center cpk:gap-2" }, [
-            h("div", {
-              class: "cpk:h-3 cpk:w-3 cpk:rounded-full cpk:bg-gray-200",
-              style: {
-                animation: "cpk-a2ui-pulse 1.5s ease-in-out infinite",
-              },
-              "data-testid": "a2ui-loading-dot",
-            }),
-            h(
-              "span",
-              {
-                class: "cpk:text-xs cpk:font-medium cpk:text-gray-400",
-              },
-              "Generating UI...",
-            ),
-          ]),
           h(
             "div",
-            { class: "cpk:flex cpk:flex-col cpk:gap-2" },
+            { style: { display: "flex", alignItems: "center", gap: "0.5rem" } },
+            [
+              h("div", {
+                style: {
+                  width: "0.75rem",
+                  height: "0.75rem",
+                  borderRadius: "9999px",
+                  backgroundColor: "oklch(92.8% 0.006 264.531)",
+                  animation: "cpk-a2ui-pulse 1.5s ease-in-out infinite",
+                },
+                "data-testid": "a2ui-loading-dot",
+              }),
+              h(
+                "span",
+                {
+                  style: {
+                    fontSize: "0.75rem",
+                    lineHeight: "1rem",
+                    fontWeight: 500,
+                    color: "oklch(70.7% 0.022 261.325)",
+                  },
+                },
+                "Generating UI...",
+              ),
+            ],
+          ),
+          h(
+            "div",
+            {
+              style: {
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.5rem",
+              },
+            },
             barWidths.map((width, i) =>
               h("div", {
                 key: i,
-                class: "cpk:h-3 cpk:rounded cpk:bg-gray-200/70",
                 style: {
+                  height: "0.75rem",
+                  borderRadius: "0.25rem",
+                  backgroundColor:
+                    "color-mix(in oklab, oklch(92.8% 0.006 264.531) 70%, transparent)",
                   width: `${width * 100}%`,
                   animation: `cpk-a2ui-pulse 1.5s ease-in-out ${i * 0.15}s infinite`,
                 },

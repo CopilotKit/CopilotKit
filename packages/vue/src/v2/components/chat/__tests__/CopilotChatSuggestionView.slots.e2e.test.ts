@@ -88,7 +88,9 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
         renderInWrapper(Host);
         const containerEl = document.querySelector(".custom-container-class");
         expect(containerEl).toBeTruthy();
-        expect(containerEl?.classList.contains("cpk:flex-wrap")).toBe(true);
+        expect(containerEl?.classList.contains("cpk-suggestion-view")).toBe(
+          true,
+        );
       });
     });
 

@@ -61,12 +61,9 @@ const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 const copied = ref(false);
 let copiedResetTimeout: ReturnType<typeof setTimeout> | null = null;
 
-const toolbarButtonClass = [
-  "cpk:inline-flex cpk:h-8 cpk:w-8 cpk:items-center cpk:justify-center cpk:rounded-md cpk:p-0",
-  "cpk:cursor-pointer cpk:text-[rgb(93,93,93)] cpk:transition-colors cpk:hover:bg-[#E8E8E8]",
-  "cpk:hover:text-[rgb(93,93,93)] cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
-  "cpk:dark:hover:text-[rgb(243,243,243)] cpk:disabled:pointer-events-none cpk:disabled:opacity-50",
-].join(" ");
+// Styles live in @copilotkit/core (ui/button.css, user-message.css).
+const toolbarButtonClass =
+  "cpk-button cpk-button-assistant-message-toolbar cpk-button-size-default";
 
 function flattenUserMessageContent(content?: UserMessage["content"]): string {
   if (!content) {
@@ -204,7 +201,7 @@ onBeforeUnmount(() => {
     <div
       data-copilotkit
       data-testid="copilot-user-message"
-      class="cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-10"
+      class="copilotKitMessage copilotKitUserMessage cpk-user-message"
       :data-message-id="message.id"
       v-bind="$attrs"
     >
@@ -215,9 +212,8 @@ onBeforeUnmount(() => {
         :is-multiline="isMultiline"
       >
         <div
-          class="cpk:prose cpk:dark:prose-invert cpk:bg-muted cpk:relative cpk:max-w-[80%] cpk:rounded-[18px] cpk:px-4 cpk:py-1.5 cpk:inline-block cpk:whitespace-pre-wrap"
+          class="cpk-user-message-bubble"
           :data-multiline="isMultiline ? 'true' : undefined"
-          :class="{ 'cpk:py-3': isMultiline }"
         >
           {{ flattenedContent }}
         </div>
@@ -230,9 +226,10 @@ onBeforeUnmount(() => {
         :has-edit-action="hasEditAction"
       >
         <div
-          class="cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-[5px] cpk:mt-[4px] cpk:invisible cpk:group-hover:visible"
+          data-testid="copilot-user-toolbar"
+          class="cpk-user-message-toolbar"
         >
-          <div class="cpk:flex cpk:items-center cpk:gap-1 cpk:justify-end">
+          <div class="cpk-user-message-toolbar-items">
             <slot name="toolbar-items" />
 
             <slot
@@ -249,8 +246,11 @@ onBeforeUnmount(() => {
                 :title="labels.userMessageToolbarCopyMessageLabel"
                 @click="handleCopyMessage"
               >
-                <IconCheck v-if="copied" class="cpk:size-[18px]" />
-                <IconCopy v-else class="cpk:size-[18px]" />
+                <IconCheck
+                  v-if="copied"
+                  class="cpk-user-message-toolbar-icon"
+                />
+                <IconCopy v-else class="cpk-user-message-toolbar-icon" />
               </button>
             </slot>
 
@@ -267,7 +267,7 @@ onBeforeUnmount(() => {
                 :title="labels.userMessageToolbarEditMessageLabel"
                 @click="handleEditMessage"
               >
-                <IconEdit class="cpk:size-[18px]" />
+                <IconEdit class="cpk-user-message-toolbar-icon" />
               </button>
             </slot>
 
@@ -284,33 +284,34 @@ onBeforeUnmount(() => {
               :go-prev="goPrev"
               :go-next="goNext"
             >
-              <div class="cpk:flex cpk:items-center cpk:gap-1">
+              <div
+                data-testid="copilot-branch-navigation"
+                class="cpk-user-message-branch-navigation"
+              >
                 <button
                   type="button"
                   :class="toolbarButtonClass"
-                  class="cpk:h-6 cpk:w-6 cpk:p-0"
+                  class="cpk-user-message-branch-button"
                   :disabled="!canGoPrev"
                   :aria-label="labels.userMessageToolbarPreviousBranchLabel"
                   :title="labels.userMessageToolbarPreviousBranchLabel"
                   @click="goPrev"
                 >
-                  <IconChevronLeft class="cpk:size-[20px]" />
+                  <IconChevronLeft class="cpk-user-message-branch-icon" />
                 </button>
-                <span
-                  class="cpk:text-sm cpk:text-muted-foreground cpk:px-0 cpk:font-medium"
-                >
+                <span class="cpk-user-message-branch-counter">
                   {{ branchIndex + 1 }}/{{ numberOfBranches }}
                 </span>
                 <button
                   type="button"
                   :class="toolbarButtonClass"
-                  class="cpk:h-6 cpk:w-6 cpk:p-0"
+                  class="cpk-user-message-branch-button"
                   :disabled="!canGoNext"
                   :aria-label="labels.userMessageToolbarNextBranchLabel"
                   :title="labels.userMessageToolbarNextBranchLabel"
                   @click="goNext"
                 >
-                  <IconChevronRight class="cpk:size-[20px]" />
+                  <IconChevronRight class="cpk-user-message-branch-icon" />
                 </button>
               </div>
             </slot>

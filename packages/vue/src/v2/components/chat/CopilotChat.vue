@@ -38,6 +38,7 @@ import type { LastUserMessageState } from "./last-user-message-context";
 import type { Message } from "@ag-ui/core";
 import type { InputContent } from "@copilotkit/shared";
 import { useInspectorThreadOverride } from "../../providers/use-inspector-thread-override";
+import { CopilotKitStyles } from "../../styles/CopilotKitStyles";
 import type {
   CopilotChatInputSlotProps,
   CopilotChatProps,
@@ -887,6 +888,7 @@ const defaultChatViewBindings = computed(() => {
     :labels="resolvedLabels"
   >
     <div ref="attachmentContainerRef" style="display: contents">
+      <CopilotKitStyles />
       <input
         v-if="attachmentsEnabled"
         ref="fileInputRef"

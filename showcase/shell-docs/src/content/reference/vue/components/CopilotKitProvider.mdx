@@ -84,6 +84,14 @@ bearer token in core headers if those agents point at a third party.
   Indicates whether the user agent should send or receive cookies for cross-origin requests. Set to `"include"` to enable HTTP-only cookie authentication (configure CORS with credentials on your runtime endpoint to match).
 </PropertyReference>
 
+<PropertyReference name="nonce" type="string">
+  CSP nonce for the `<style>` tag CopilotKit adds. Set it when your Content-Security-Policy limits `style-src` to a nonce.
+</PropertyReference>
+
+<PropertyReference name="injectStyles" type="boolean" default="true">
+  Set to `false` when you import `@copilotkit/core/styles.css` yourself, so browsers cache the CSS as a file. CopilotKit then adds no `<style>` tag. See [Load the CSS as a cached file](/reference/vue#load-the-css-as-a-cached-file).
+</PropertyReference>
+
 <PropertyReference name="messageFilter" type="(messages: Message[], context: { agentId: string }) => Message[]">
   Rewrites the message list sent to the agent on every run.
 

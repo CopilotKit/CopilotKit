@@ -7,6 +7,7 @@ import {
 } from "@copilotkit/shared";
 import type { Attachment } from "@copilotkit/shared";
 import type { CopilotChatAttachmentQueueProps } from "./types";
+import { IconPlay, IconX } from "../icons";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
 
@@ -120,12 +121,12 @@ function closeLightbox() {
 
 function cardClassName(attachment: Attachment) {
   if (attachment.type === "image" || attachment.type === "video") {
-    return "cpk:w-[72px] cpk:h-[72px]";
+    return "cpk-attachment-queue-item-media";
   }
   if (attachment.type === "audio") {
-    return "cpk:min-w-[200px] cpk:max-w-[280px] cpk:flex-col cpk:p-1 cpk:pr-8";
+    return "cpk-attachment-queue-item-audio";
   }
-  return "cpk:p-2 cpk:px-3 cpk:pr-8 cpk:max-w-[240px]";
+  return "cpk-attachment-queue-item-document";
 }
 
 function isPdf(mimeType: string | undefined): boolean {
@@ -160,92 +161,87 @@ function createBlobUrl(
 <template>
   <div
     v-if="props.attachments.length > 0"
-    class="cpk:flex cpk:flex-wrap cpk:gap-2 cpk:p-2"
+    class="cpk-attachment-queue"
     :class="props.className"
     data-testid="copilot-chat-attachment-queue"
   >
     <div
       v-for="attachment in props.attachments"
       :key="attachment.id"
-      class="cpk:relative cpk:inline-flex cpk:rounded-lg cpk:overflow-hidden cpk:border cpk:border-border"
+      class="cpk-attachment-queue-item"
       :class="cardClassName(attachment)"
       data-testid="copilot-chat-attachment-item"
       :data-card-type="attachment.type"
     >
       <div
         v-if="attachment.status === 'uploading'"
-        class="cpk:absolute cpk:inset-0 cpk:flex cpk:items-center cpk:justify-center cpk:bg-black/40 cpk:z-10"
+        class="cpk-attachment-queue-uploading-overlay"
         data-testid="copilot-chat-attachment-uploading-overlay"
       >
-        <div
-          class="cpk:w-5 cpk:h-5 cpk:border-2 cpk:border-white cpk:border-t-transparent cpk:rounded-full cpk:animate-spin"
-        />
+        <div class="cpk-attachment-queue-uploading-spinner" />
       </div>
 
       <template v-if="attachment.status === 'ready'">
         <button
           v-if="attachment.type === 'image'"
           type="button"
-          class="cpk:w-full cpk:h-full cpk:border-none cpk:bg-transparent cpk:p-0 cpk:cursor-pointer"
+          class="cpk-attachment-queue-preview-button"
           data-testid="copilot-chat-attachment-image-button"
           @click="openLightbox(attachment)"
         >
           <img
             :src="getSourceUrl(attachment.source)"
             :alt="attachment.filename || 'Image attachment'"
-            class="cpk:w-full cpk:h-full cpk:object-cover"
+            class="cpk-attachment-queue-image"
             data-testid="copilot-chat-attachment-image-thumbnail"
           />
         </button>
 
-        <div
-          v-else-if="attachment.type === 'video'"
-          class="cpk:w-full cpk:h-full cpk:relative"
-        >
-          <img
-            v-if="attachment.thumbnail"
-            :src="attachment.thumbnail"
-            :alt="attachment.filename || 'Video thumbnail'"
-            class="cpk:w-full cpk:h-full cpk:object-cover"
-            data-testid="copilot-chat-attachment-video-thumbnail"
-          />
-          <video
-            v-else
-            :src="getSourceUrl(attachment.source)"
-            preload="metadata"
-            muted
-            class="cpk:w-full cpk:h-full cpk:object-cover"
-            data-testid="copilot-chat-attachment-video-fallback"
-          />
+        <template v-else-if="attachment.type === 'video'">
+          <div class="cpk-attachment-queue-video">
+            <img
+              v-if="attachment.thumbnail"
+              :src="attachment.thumbnail"
+              :alt="attachment.filename || 'Video thumbnail'"
+              class="cpk-attachment-queue-video-thumbnail"
+              data-testid="copilot-chat-attachment-video-thumbnail"
+            />
+            <video
+              v-else
+              :src="getSourceUrl(attachment.source)"
+              preload="metadata"
+              muted
+              class="cpk-attachment-queue-video-thumbnail"
+              data-testid="copilot-chat-attachment-video-fallback"
+            />
+          </div>
           <button
             type="button"
-            class="cpk:absolute cpk:inset-0 cpk:flex cpk:items-center cpk:justify-center cpk:z-10 cpk:cursor-pointer cpk:bg-black/20 cpk:border-none cpk:p-0"
+            class="cpk-attachment-queue-video-play-button"
             :aria-label="labels.attachmentPlayVideoButtonLabel"
             data-testid="copilot-chat-attachment-video-play"
             @click="openLightbox(attachment)"
           >
-            <div
-              class="cpk:w-8 cpk:h-8 cpk:rounded-full cpk:bg-black/60 cpk:flex cpk:items-center cpk:justify-center cpk:text-white cpk:text-xs cpk:font-semibold"
-            >
-              ▶
+            <div class="cpk-attachment-queue-video-play-badge">
+              <IconPlay class="cpk-attachment-queue-video-play-icon" />
             </div>
           </button>
-        </div>
+        </template>
 
         <div
           v-else-if="attachment.type === 'audio'"
-          class="cpk:flex cpk:flex-col cpk:gap-1 cpk:w-full"
+          class="cpk-attachment-queue-audio"
         >
           <audio
             :src="getSourceUrl(attachment.source)"
             controls
             preload="metadata"
-            class="cpk:w-full cpk:h-8"
+            class="cpk-attachment-queue-audio-player"
             data-testid="copilot-chat-attachment-audio-player"
           />
           <span
             v-if="attachment.filename"
-            class="cpk:text-xs cpk:font-medium cpk:overflow-hidden cpk:text-ellipsis cpk:whitespace-nowrap"
+            class="cpk-attachment-queue-audio-filename"
           >
             {{ attachment.filename }}
           </span>
@@ -254,13 +250,12 @@ function createBlobUrl(
         <button
           v-else
           type="button"
-          class="cpk:flex cpk:items-center cpk:gap-2 cpk:w-full cpk:border-none cpk:bg-transparent cpk:p-0 cpk:text-left"
-          :class="
-            isPdf(attachment.source.mimeType) ||
-            isText(attachment.source.mimeType)
-              ? 'cpk:cursor-pointer'
-              : 'cpk:cursor-default'
-          "
+          class="cpk-attachment-queue-preview-button cpk-attachment-queue-document"
+          :class="{
+            'cpk-attachment-queue-document-previewable':
+              isPdf(attachment.source.mimeType) ||
+              isText(attachment.source.mimeType),
+          }"
           data-testid="copilot-chat-attachment-document-button"
           @click="
             (isPdf(attachment.source.mimeType) ||
@@ -268,21 +263,19 @@ function createBlobUrl(
             openLightbox(attachment)
           "
         >
-          <div
-            class="cpk:w-8 cpk:h-8 cpk:rounded-md cpk:bg-primary cpk:text-primary-foreground cpk:flex cpk:items-center cpk:justify-center cpk:text-[10px] cpk:font-semibold cpk:shrink-0"
-          >
+          <div class="cpk-attachment-queue-document-icon">
             {{ getDocumentIcon(attachment.source.mimeType ?? "") }}
           </div>
-          <div class="cpk:flex cpk:flex-col cpk:min-w-0">
+          <div class="cpk-attachment-queue-document-info">
             <span
-              class="cpk:text-xs cpk:font-medium cpk:break-all cpk:leading-tight"
+              class="cpk-attachment-queue-document-name"
               data-testid="copilot-chat-attachment-document-filename"
             >
               {{ attachment.filename || "Document" }}
             </span>
             <span
               v-if="attachment.size != null"
-              class="cpk:text-[11px] cpk:text-muted-foreground"
+              class="cpk-attachment-queue-document-size"
             >
               {{ formatFileSize(attachment.size) }}
             </span>
@@ -292,13 +285,13 @@ function createBlobUrl(
 
       <div
         v-else
-        class="cpk:w-full cpk:h-full cpk:bg-muted-foreground/20"
+        class="cpk-attachment-queue-placeholder"
         data-testid="copilot-chat-attachment-placeholder"
       />
 
       <button
         type="button"
-        class="cpk:absolute cpk:bg-black/60 cpk:text-white cpk:border-none cpk:rounded-full cpk:w-5 cpk:h-5 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer cpk:text-[10px] cpk:z-20 cpk:top-1 cpk:right-1"
+        class="cpk-attachment-queue-remove-button"
         :aria-label="labels.attachmentRemoveButtonLabel"
         @click="emit('remove-attachment', attachment.id)"
       >
@@ -310,17 +303,17 @@ function createBlobUrl(
   <Teleport to="body">
     <div
       v-if="activeLightboxAttachment"
-      class="cpk:fixed cpk:inset-0 cpk:z-[9999] cpk:flex cpk:items-center cpk:justify-center cpk:bg-black/80"
+      class="cpk-attachment-lightbox"
       data-testid="copilot-chat-attachment-lightbox"
       @click="closeLightbox"
     >
       <button
         type="button"
-        class="cpk:absolute cpk:top-4 cpk:right-4 cpk:text-white cpk:bg-white/10 cpk:hover:bg-white/20 cpk:rounded-full cpk:w-10 cpk:h-10 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer cpk:border-none"
+        class="cpk-attachment-lightbox-close-button"
         :aria-label="labels.attachmentPreviewCloseButtonLabel"
         @click.stop="closeLightbox"
       >
-        ✕
+        <IconX class="cpk-attachment-lightbox-close-icon" />
       </button>
 
       <div data-testid="copilot-chat-attachment-lightbox-content" @click.stop>
@@ -328,7 +321,7 @@ function createBlobUrl(
           v-if="activeLightboxAttachment.type === 'image'"
           :src="getSourceUrl(activeLightboxAttachment.source)"
           :alt="activeLightboxAttachment.filename || 'Image attachment'"
-          class="cpk:max-w-[90vw] cpk:max-h-[90vh] cpk:object-contain cpk:rounded-lg"
+          class="cpk-attachment-queue-lightbox-image"
           data-testid="copilot-chat-attachment-lightbox-image"
         />
 
@@ -337,7 +330,7 @@ function createBlobUrl(
           :src="getSourceUrl(activeLightboxAttachment.source)"
           controls
           autoplay
-          class="cpk:max-w-[90vw] cpk:max-h-[90vh] cpk:rounded-lg"
+          class="cpk-attachment-queue-lightbox-video"
           data-testid="copilot-chat-attachment-lightbox-video"
         />
 
@@ -350,7 +343,7 @@ function createBlobUrl(
             "
             :src="lightboxDocumentSource"
             :title="activeLightboxAttachment.filename || 'PDF preview'"
-            class="cpk:w-[90vw] cpk:h-[90vh] cpk:max-w-[1000px] cpk:rounded-lg cpk:bg-white"
+            class="cpk-attachment-queue-pdf-preview"
             data-testid="copilot-chat-attachment-lightbox-document-iframe"
           />
 
@@ -359,11 +352,17 @@ function createBlobUrl(
               isPreviewableDocument &&
               isText(activeLightboxAttachment.source.mimeType)
             "
-            class="cpk:w-[90vw] cpk:max-w-[800px] cpk:max-h-[90vh] cpk:overflow-auto cpk:rounded-lg cpk:bg-white cpk:dark:bg-gray-900 cpk:p-6"
+            class="cpk-attachment-queue-text-preview"
           >
+            <div
+              v-if="activeLightboxAttachment.filename"
+              class="cpk-attachment-queue-text-preview-filename"
+            >
+              {{ activeLightboxAttachment.filename }}
+            </div>
             <pre
               v-if="decodedTextPreview !== null"
-              class="cpk:text-sm cpk:whitespace-pre-wrap cpk:wrap-break-word cpk:text-gray-800 cpk:dark:text-gray-200 cpk:font-mono cpk:m-0"
+              class="cpk-attachment-queue-text-preview-content"
               data-testid="copilot-chat-attachment-lightbox-document-text"
               >{{ decodedTextPreview }}</pre
             >
@@ -371,32 +370,26 @@ function createBlobUrl(
               v-else-if="lightboxDocumentSource"
               :src="lightboxDocumentSource"
               :title="activeLightboxAttachment.filename || 'Text preview'"
-              class="cpk:w-full cpk:h-[80vh] cpk:border-none"
+              class="cpk-attachment-queue-text-preview-frame"
               data-testid="copilot-chat-attachment-lightbox-document-iframe"
             />
           </div>
 
           <div
             v-else
-            class="cpk:flex cpk:flex-col cpk:items-center cpk:gap-4 cpk:p-8 cpk:rounded-lg cpk:bg-white cpk:dark:bg-gray-900"
+            class="cpk-attachment-queue-document-card"
             data-testid="copilot-chat-attachment-lightbox-document-fallback"
           >
-            <div
-              class="cpk:w-16 cpk:h-16 cpk:rounded-xl cpk:bg-primary cpk:text-primary-foreground cpk:flex cpk:items-center cpk:justify-center cpk:text-xl cpk:font-bold"
-            >
+            <div class="cpk-attachment-queue-document-card-icon">
               {{
                 getDocumentIcon(activeLightboxAttachment.source.mimeType ?? "")
               }}
             </div>
-            <div class="cpk:text-center">
-              <div
-                class="cpk:text-base cpk:font-medium cpk:text-gray-800 cpk:dark:text-gray-200"
-              >
+            <div class="cpk-attachment-queue-document-card-details">
+              <div class="cpk-attachment-queue-document-card-name">
                 {{ activeLightboxAttachment.filename || "Document" }}
               </div>
-              <div
-                class="cpk:text-sm cpk:text-gray-500 cpk:dark:text-gray-400 cpk:mt-1"
-              >
+              <div class="cpk-attachment-queue-document-card-meta">
                 {{ activeLightboxAttachment.source.mimeType || "Unknown type" }}
                 {{
                   activeLightboxAttachment.size != null
@@ -405,7 +398,7 @@ function createBlobUrl(
                 }}
               </div>
             </div>
-            <div class="cpk:text-xs cpk:text-gray-400 cpk:dark:text-gray-500">
+            <div class="cpk-attachment-queue-document-card-note">
               No preview available for this file type
             </div>
           </div>

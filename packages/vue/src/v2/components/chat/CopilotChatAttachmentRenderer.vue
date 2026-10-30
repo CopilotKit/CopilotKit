@@ -20,14 +20,14 @@ const documentLabel = computed(
     v-if="props.type === 'image' && !imageLoadFailed"
     :src="sourceUrl"
     alt="Image attachment"
-    class="cpk:max-w-full cpk:h-auto cpk:rounded-lg"
+    class="cpk-attachment-renderer cpk-attachment-renderer-image"
     :class="props.className"
     data-testid="copilot-chat-attachment-renderer-image"
     @error="imageLoadFailed = true"
   />
   <div
     v-else-if="props.type === 'image'"
-    class="cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:rounded-lg cpk:bg-muted cpk:p-4 cpk:text-sm cpk:text-muted-foreground"
+    class="cpk-attachment-renderer cpk-attachment-renderer-image-error"
     :class="props.className"
     data-testid="copilot-chat-attachment-renderer-image-fallback"
   >
@@ -36,7 +36,7 @@ const documentLabel = computed(
 
   <div
     v-else-if="props.type === 'audio'"
-    class="cpk:flex cpk:flex-col cpk:gap-1"
+    class="cpk-attachment-renderer cpk-attachment-renderer-audio"
     :class="props.className"
     data-testid="copilot-chat-attachment-renderer-audio"
   >
@@ -44,11 +44,11 @@ const documentLabel = computed(
       :src="sourceUrl"
       controls
       preload="metadata"
-      class="cpk:max-w-[300px] cpk:w-full cpk:h-10"
+      class="cpk-attachment-renderer-audio-player"
     />
     <span
       v-if="props.filename"
-      class="cpk:text-xs cpk:text-muted-foreground cpk:truncate cpk:max-w-[300px]"
+      class="cpk-attachment-renderer-audio-filename"
       data-testid="copilot-chat-attachment-renderer-audio-filename"
     >
       {{ props.filename }}
@@ -60,25 +60,25 @@ const documentLabel = computed(
     :src="sourceUrl"
     controls
     preload="metadata"
-    class="cpk:max-w-[400px] cpk:w-full cpk:rounded-lg"
+    class="cpk-attachment-renderer cpk-attachment-renderer-video"
     :class="props.className"
     data-testid="copilot-chat-attachment-renderer-video"
   />
 
   <div
     v-else
-    class="cpk:inline-flex cpk:items-center cpk:gap-2 cpk:px-3 cpk:py-2 cpk:border cpk:border-border cpk:rounded-lg cpk:bg-muted"
+    class="cpk-attachment-renderer cpk-attachment-renderer-document"
     :class="props.className"
     data-testid="copilot-chat-attachment-renderer-document"
   >
     <span
-      class="cpk:text-xs cpk:font-bold cpk:uppercase"
+      class="cpk-attachment-renderer-document-icon"
       data-testid="copilot-chat-attachment-renderer-document-icon"
     >
       {{ getDocumentIcon(props.source.mimeType ?? "") }}
     </span>
     <span
-      class="cpk:text-sm cpk:text-muted-foreground cpk:truncate"
+      class="cpk-attachment-renderer-document-name"
       data-testid="copilot-chat-attachment-renderer-document-label"
     >
       {{ documentLabel }}

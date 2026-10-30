@@ -43,7 +43,12 @@ import {
   MCPAppsActivityRenderer,
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
-import { CopilotKitKey, InspectorKey, SandboxFunctionsKey } from "./keys";
+import {
+  CopilotKitKey,
+  CopilotStyleOptionsKey,
+  InspectorKey,
+  SandboxFunctionsKey,
+} from "./keys";
 import type { VueInspectorOpenRequest } from "./keys";
 import { MARKDOWN_RENDERER_KEY } from "./markdown-renderer";
 import {
@@ -114,7 +119,14 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   a2ui: undefined,
   mcpApps: undefined,
   enableInspector: undefined,
+  nonce: undefined,
+  injectStyles: true,
 });
+
+provide(
+  CopilotStyleOptionsKey,
+  computed(() => ({ nonce: props.nonce, inject: props.injectStyles })),
+);
 
 const shouldRenderInspector = ref(false);
 

@@ -15,7 +15,7 @@ import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfi
 import { CopilotChatDefaultLabels } from "../../providers/types";
 import { useKeyboardHeight } from "../../hooks/use-keyboard-height";
 import { usePinToSend } from "../../hooks/use-pin-to-send";
-import { IconChevronDown } from "../icons";
+import { IconChevronDown, IconUpload } from "../icons";
 import CopilotChatInput from "./CopilotChatInput.vue";
 import CopilotChatAttachmentQueue from "./CopilotChatAttachmentQueue.vue";
 import CopilotChatMessageView from "./CopilotChatMessageView.vue";
@@ -441,8 +441,9 @@ onBeforeUnmount(() => {
 <template>
   <div
     data-copilotkit
-    class="copilotKitChat cpk:@container cpk:relative cpk:h-full"
+    class="copilotKitChat cpk-chat-view"
     data-testid="copilot-chat-view"
+    :data-copilot-running="isRunning ? 'true' : 'false'"
     v-bind="$attrs"
     @dragover="handleDragOver"
     @dragleave="handleDragLeave"
@@ -450,12 +451,13 @@ onBeforeUnmount(() => {
   >
     <div
       v-if="dragOver"
-      class="cpk:absolute cpk:inset-0 cpk:z-50 cpk:pointer-events-none cpk:flex cpk:items-center cpk:justify-center cpk:bg-primary/5 cpk:border-2 cpk:border-dashed cpk:border-primary/40 cpk:rounded-lg cpk:m-2"
+      class="cpk-chat-view-drop-overlay"
       data-testid="copilot-chat-drop-overlay"
     >
-      <span class="cpk:text-sm cpk:font-medium cpk:text-primary/70">
-        Drop files here
-      </span>
+      <div class="cpk-chat-view-drop-overlay-content">
+        <IconUpload class="cpk-chat-view-drop-overlay-icon" />
+        <span class="cpk-chat-view-drop-overlay-label">Drop files here</span>
+      </div>
     </div>
     <slot
       v-if="shouldShowWelcomeScreen"
@@ -481,27 +483,25 @@ onBeforeUnmount(() => {
       :on-select-suggestion="handleSelectSuggestion"
     >
       <div
-        class="cpk:flex cpk:h-full cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4"
+        class="cpk-chat-view-welcome-screen"
         data-testid="copilot-chat-view-welcome-screen"
       >
-        <div
-          class="cpk:w-full cpk:max-w-3xl cpk:flex cpk:flex-col cpk:items-center"
-        >
-          <div class="cpk:mb-6">
+        <div class="cpk-chat-view-welcome-screen-content">
+          <div class="cpk-chat-view-welcome-screen-message">
             <slot name="welcome-message">
-              <h1
-                class="cpk:text-xl cpk:sm:text-2xl cpk:font-medium cpk:text-foreground cpk:text-center"
-              >
+              <h1 class="cpk-chat-view-welcome-message">
                 {{ labels.welcomeMessageText }}
               </h1>
             </slot>
           </div>
 
-          <div class="cpk:w-full">
+          <div
+            class="cpk-chat-view-welcome-screen-input cpk-chat-view-welcome-input-group"
+          >
             <CopilotChatAttachmentQueue
               v-if="hasAttachments"
               :attachments="attachments ?? []"
-              class-name="cpk:mb-2"
+              class-name="cpk-chat-view-welcome-attachment-queue"
               @remove-attachment="
                 (id: string) => onRemoveAttachment && onRemoveAttachment(id)
               "
@@ -540,7 +540,7 @@ onBeforeUnmount(() => {
 
           <div
             v-if="hasSuggestions"
-            class="cpk:mt-4 cpk:flex cpk:justify-center"
+            class="cpk-chat-view-welcome-screen-suggestions"
           >
             <slot
               name="suggestion-view"
@@ -549,6 +549,7 @@ onBeforeUnmount(() => {
               :on-select-suggestion="handleSelectSuggestion"
             >
               <CopilotChatSuggestionView
+                class="cpk-chat-view-suggestion-view"
                 :suggestions="suggestions"
                 :loading-indexes="suggestionLoadingIndexes"
                 @select-suggestion="handleSelectSuggestion"
@@ -575,18 +576,16 @@ onBeforeUnmount(() => {
         <div
           ref="scrollContainerRef"
           data-testid="copilot-chat-view-scroll"
-          class="cpk:h-full cpk:max-h-full cpk:min-h-0 cpk:overflow-y-scroll cpk:overflow-x-hidden cpk:relative"
+          class="cpk-chat-view-scroll-area cpk-chat-view-scroll-viewport"
           @scroll="handleScroll"
         >
-          <div
-            class="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
-          >
+          <div class="cpk-chat-view-scroll-content">
             <div
               ref="scrollContentRef"
               data-testid="copilot-scroll-content"
               :style="{ paddingBottom: messagePaddingBottom }"
             >
-              <div class="cpk:max-w-3xl cpk:mx-auto">
+              <div class="cpk-chat-view-feed">
                 <slot
                   name="message-view"
                   :messages="messages"
@@ -605,10 +604,7 @@ onBeforeUnmount(() => {
                     </template>
                   </CopilotChatMessageView>
                 </slot>
-                <div
-                  v-if="hasSuggestions"
-                  class="cpk:mt-4 cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0"
-                >
+                <div v-if="hasSuggestions" class="cpk-chat-view-suggestions">
                   <slot
                     name="suggestion-view"
                     :suggestions="suggestions"
@@ -616,7 +612,7 @@ onBeforeUnmount(() => {
                     :on-select-suggestion="handleSelectSuggestion"
                   >
                     <CopilotChatSuggestionView
-                      class="cpk:mb-3 cpk:lg:ml-4 cpk:lg:mr-4 cpk:ml-0 cpk:mr-0"
+                      class="cpk-chat-view-suggestion-view"
                       :suggestions="suggestions"
                       :loading-indexes="suggestionLoadingIndexes"
                       @select-suggestion="handleSelectSuggestion"
@@ -653,7 +649,7 @@ onBeforeUnmount(() => {
 
       <div
         v-if="showScrollToBottomButton"
-        class="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
+        class="cpk-chat-view-scroll-to-bottom"
         :style="{ bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px` }"
       >
         <slot name="scroll-to-bottom-button" :on-click="() => scrollToBottom()">
@@ -661,12 +657,11 @@ onBeforeUnmount(() => {
             type="button"
             data-testid="copilot-chat-view-scroll-to-bottom"
             :aria-label="labels.chatScrollToBottomLabel"
-            class="cpk:rounded-full cpk:w-10 cpk:h-10 cpk:p-0 cpk:pointer-events-auto cpk:bg-white cpk:dark:bg-gray-900 cpk:shadow-lg cpk:border cpk:border-gray-200 cpk:dark:border-gray-700 cpk:hover:bg-gray-50 cpk:dark:hover:bg-gray-800 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer"
+            data-slot="button"
+            class="cpk-button cpk-button-outline cpk-button-size-sm cpk-chat-view-scroll-to-bottom-button"
             @click="scrollToBottom()"
           >
-            <IconChevronDown
-              class="cpk:w-4 cpk:h-4 cpk:text-gray-600 cpk:dark:text-white"
-            />
+            <IconChevronDown class="cpk-chat-view-scroll-to-bottom-icon" />
           </button>
         </slot>
       </div>
@@ -681,16 +676,13 @@ onBeforeUnmount(() => {
       -->
       <div
         ref="inputContainerRef"
-        class="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
+        class="cpk-chat-view-input-overlay"
         data-testid="copilot-input-overlay"
       >
-        <div
-          v-if="hasAttachments"
-          class="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto"
-        >
+        <div v-if="hasAttachments" class="cpk-chat-view-attachments">
           <CopilotChatAttachmentQueue
             :attachments="attachments ?? []"
-            class-name="cpk:px-4"
+            class-name="cpk-chat-view-attachment-queue"
             @remove-attachment="
               (id: string) => onRemoveAttachment && onRemoveAttachment(id)
             "

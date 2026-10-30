@@ -16,6 +16,7 @@ export * from "./components";
 export { vueBasicCatalog } from "./components/a2ui/catalog";
 export * from "./hooks";
 export * from "./providers";
+export { CopilotKitStyles } from "./styles/CopilotKitStyles";
 export * from "./types";
 export * from "./lib/vue-core";
 export * from "./lib/processPartialHtml";

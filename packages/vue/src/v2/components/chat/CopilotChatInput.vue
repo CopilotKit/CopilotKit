@@ -179,8 +179,8 @@ const sendDisabled = computed(() =>
 );
 
 const containerClass = computed(() => [
-  props.positioning === "absolute" &&
-    "cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none",
+  "cpk-chat-input",
+  props.positioning === "absolute" && "cpk-chat-input-absolute",
   attrs.class,
 ]);
 
@@ -959,9 +959,7 @@ onBeforeUnmount(() => {
     }"
     v-bind="rootAttrs"
   >
-    <div
-      class="cpk:pointer-events-auto cpk:mx-auto cpk:max-w-3xl cpk:px-4 cpk:py-0 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4"
-    >
+    <div class="cpk-chat-input-wrapper">
       <slot
         name="layout"
         :mode="mode"
@@ -986,27 +984,16 @@ onBeforeUnmount(() => {
         <div
           ref="shellRef"
           data-testid="copilot-chat-input-shell"
-          class="cpk:flex cpk:w-full cpk:cursor-text cpk:flex-col cpk:items-center cpk:justify-center cpk:overflow-visible cpk:rounded-[28px] cpk:bg-white cpk:bg-clip-padding cpk:shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] cpk:contain-inline-size cpk:dark:bg-[#303030]"
+          class="copilotKitInput cpk-chat-input-pill"
           :data-layout="isExpanded ? 'expanded' : 'compact'"
           @click="handleContainerClick"
         >
           <div
             ref="gridRef"
-            :class="[
-              'cpk:grid cpk:w-full cpk:gap-x-3 cpk:gap-y-3 cpk:px-3 cpk:py-2',
-              isExpanded
-                ? 'cpk:grid-cols-[auto_minmax(0,1fr)_auto] cpk:grid-rows-[auto_auto]'
-                : 'cpk:grid-cols-[auto_minmax(0,1fr)_auto] cpk:items-center',
-            ]"
+            class="cpk-chat-input-grid"
             :data-layout="isExpanded ? 'expanded' : 'compact'"
           >
-            <div
-              ref="addButtonContainerRef"
-              :class="[
-                'cpk:relative cpk:flex cpk:items-center cpk:col-start-1',
-                isExpanded ? 'cpk:row-start-2' : 'cpk:row-start-1',
-              ]"
-            >
+            <div ref="addButtonContainerRef" class="cpk-chat-input-start">
               <slot
                 name="add-menu-button"
                 :disabled="disabled || mode === 'transcribe' || !hasMenuItems"
@@ -1019,38 +1006,44 @@ onBeforeUnmount(() => {
                   data-testid="copilot-chat-input-add"
                   :aria-label="labels.chatInputToolbarAddButtonLabel"
                   :disabled="disabled || mode === 'transcribe' || !hasMenuItems"
-                  class="cpk:ml-1 cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-transparent cpk:text-[#444444] cpk:transition-colors cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333] cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:disabled:hover:bg-transparent cpk:disabled:hover:text-[#444444] cpk:dark:text-white cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF] cpk:dark:disabled:hover:bg-transparent cpk:dark:disabled:hover:text-[#CCCCCC]"
+                  class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-add-menu-button"
                   @click.stop="toggleAddMenu"
                 >
-                  <IconPlus class="cpk:size-[20px]" />
+                  <IconPlus class="cpk-chat-input-add-menu-icon" />
                 </button>
               </slot>
 
               <div
                 v-if="addMenuOpen && hasMenuItems"
                 ref="addMenuRef"
-                class="cpk:absolute cpk:bottom-full cpk:left-0 cpk:z-30 cpk:mb-2 cpk:min-w-[220px] cpk:overflow-hidden cpk:rounded-lg cpk:border cpk:border-border cpk:bg-white cpk:shadow-lg cpk:dark:border-[#3a3a3a] cpk:dark:bg-[#1f1f1f]"
+                class="cpk-dropdown-menu-content cpk-chat-input-add-menu"
+                role="menu"
+                data-state="open"
+                data-side="top"
                 data-testid="copilot-chat-input-add-menu"
               >
                 <template v-for="entry in menuDisplayItems" :key="entry.key">
                   <div
                     v-if="entry.type === 'separator'"
-                    class="cpk:my-1 cpk:h-px cpk:bg-border cpk:dark:bg-[#333333]"
+                    class="cpk-dropdown-menu-separator"
+                    role="separator"
                   />
                   <div
                     v-else-if="entry.type === 'label'"
-                    class="cpk:flex cpk:items-center cpk:gap-1 cpk:px-3 cpk:py-1.5 cpk:text-xs cpk:font-semibold cpk:text-muted-foreground"
-                    :style="{ paddingLeft: `${12 + entry.depth * 12}px` }"
+                    class="cpk-dropdown-menu-label"
+                    :style="{ paddingLeft: `${8 + entry.depth * 12}px` }"
                   >
                     <span>{{ entry.label }}</span>
-                    <IconChevronRight class="cpk:size-3" />
+                    <IconChevronRight
+                      class="cpk-chat-input-add-menu-group-icon"
+                    />
                   </div>
                   <button
                     v-else
                     type="button"
                     role="menuitem"
-                    class="cpk:w-full cpk:px-3 cpk:py-2 cpk:text-left cpk:text-sm cpk:transition-colors cpk:hover:bg-muted cpk:dark:hover:bg-[#2f2f2f]"
-                    :style="{ paddingLeft: `${12 + entry.depth * 12}px` }"
+                    class="cpk-dropdown-menu-item"
+                    :style="{ paddingLeft: `${8 + entry.depth * 12}px` }"
                     @click="handleMenuAction(entry.action)"
                   >
                     {{ entry.label }}
@@ -1059,26 +1052,15 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <div
-              :class="[
-                'cpk:relative cpk:flex cpk:min-h-[50px] cpk:min-w-0 cpk:flex-col cpk:justify-center',
-                isExpanded
-                  ? 'cpk:col-span-3 cpk:row-start-1'
-                  : 'cpk:col-start-2 cpk:row-start-1',
-              ]"
-            >
+            <div class="cpk-chat-input-field">
               <template v-if="mode === 'transcribe'">
                 <slot name="audio-recorder">
                   <CopilotChatAudioRecorder ref="audioRecorderRef" />
                 </slot>
               </template>
               <template v-else-if="mode === 'processing'">
-                <div
-                  class="cpk:flex cpk:w-full cpk:items-center cpk:justify-center cpk:px-5 cpk:py-3"
-                >
-                  <IconLoader2
-                    class="cpk:size-[26px] cpk:animate-spin cpk:text-muted-foreground"
-                  />
+                <div class="cpk-chat-input-processing">
+                  <IconLoader2 class="cpk-chat-input-processing-spinner" />
                 </div>
               </template>
               <template v-else>
@@ -1102,8 +1084,10 @@ onBeforeUnmount(() => {
                     :disabled="disabled"
                     rows="1"
                     :class="[
-                      'cpk:w-full cpk:bg-transparent cpk:py-3 cpk:text-[16px] cpk:font-normal cpk:leading-relaxed cpk:text-foreground cpk:antialiased cpk:outline-none cpk:placeholder:text-[#00000077] cpk:dark:placeholder:text-[#fffc]',
-                      isExpanded ? 'cpk:px-5' : 'cpk:pr-5',
+                      'cpk-chat-input-textarea',
+                      isExpanded
+                        ? 'cpk-chat-input-textarea-expanded'
+                        : 'cpk-chat-input-textarea-compact',
                     ]"
                     style="overflow: auto; resize: none"
                     @input="handleInput"
@@ -1119,12 +1103,12 @@ onBeforeUnmount(() => {
                   data-testid="copilot-slash-menu"
                   role="listbox"
                   :aria-label="labels.chatInputSlashMenuLabel"
-                  class="cpk:absolute cpk:bottom-full cpk:left-0 cpk:right-0 cpk:z-30 cpk:mb-2 cpk:max-h-64 cpk:overflow-y-auto cpk:rounded-lg cpk:border cpk:border-border cpk:bg-white cpk:shadow-lg cpk:dark:border-[#3a3a3a] cpk:dark:bg-[#1f1f1f]"
+                  class="cpk-chat-input-slash-menu"
                   :style="{ maxHeight: `${5 * 40}px` }"
                 >
                   <div
                     v-if="filteredCommands.length === 0"
-                    class="cpk:px-3 cpk:py-2 cpk:text-sm cpk:text-muted-foreground"
+                    class="cpk-chat-input-slash-menu-empty"
                   >
                     {{ labels.chatInputSlashMenuEmptyText }}
                   </div>
@@ -1139,12 +1123,7 @@ onBeforeUnmount(() => {
                     :data-active="
                       index === slashHighlightIndex ? 'true' : undefined
                     "
-                    :class="[
-                      'cpk:w-full cpk:px-3 cpk:py-2 cpk:text-left cpk:text-sm cpk:transition-colors cpk:hover:bg-muted cpk:dark:hover:bg-[#2f2f2f]',
-                      index === slashHighlightIndex
-                        ? 'cpk:bg-muted cpk:dark:bg-[#2f2f2f]'
-                        : 'cpk:bg-transparent',
-                    ]"
+                    class="cpk-chat-input-slash-menu-item"
                     @mouseenter="slashHighlightIndex = index"
                     @mousedown.prevent="runCommand(command)"
                   >
@@ -1154,15 +1133,7 @@ onBeforeUnmount(() => {
               </template>
             </div>
 
-            <div
-              ref="actionsContainerRef"
-              :class="[
-                'cpk:flex cpk:items-center cpk:justify-end cpk:gap-2',
-                isExpanded
-                  ? 'cpk:col-start-3 cpk:row-start-2'
-                  : 'cpk:col-start-3 cpk:row-start-1',
-              ]"
-            >
+            <div ref="actionsContainerRef" class="cpk-chat-input-actions">
               <template v-if="mode === 'transcribe'">
                 <slot
                   v-if="
@@ -1181,10 +1152,10 @@ onBeforeUnmount(() => {
                       labels.chatInputToolbarCancelTranscribeButtonLabel
                     "
                     :disabled="disabled"
-                    class="cpk:mr-2 cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-transparent cpk:text-[#444444] cpk:transition-colors cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333] cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:dark:text-white cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF]"
+                    class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-cancel-transcribe-button"
                     @click="emit('cancel-transcribe')"
                   >
-                    <IconX class="cpk:size-[18px]" />
+                    <IconX class="cpk-chat-input-toolbar-icon" />
                   </button>
                 </slot>
                 <slot
@@ -1204,10 +1175,10 @@ onBeforeUnmount(() => {
                       labels.chatInputToolbarFinishTranscribeButtonLabel
                     "
                     :disabled="disabled"
-                    class="cpk:mr-[10px] cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-transparent cpk:text-[#444444] cpk:transition-colors cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333] cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:dark:text-white cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF]"
+                    class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-finish-transcribe-button"
                     @click="handleFinishTranscribe"
                   >
-                    <IconCheck class="cpk:size-[18px]" />
+                    <IconCheck class="cpk-chat-input-toolbar-icon" />
                   </button>
                 </slot>
               </template>
@@ -1229,10 +1200,10 @@ onBeforeUnmount(() => {
                       labels.chatInputToolbarStartTranscribeButtonLabel
                     "
                     :disabled="disabled"
-                    class="cpk:mr-2 cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-transparent cpk:text-[#444444] cpk:transition-colors cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333] cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:disabled:hover:bg-transparent cpk:disabled:hover:text-[#444444] cpk:dark:text-white cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF] cpk:dark:disabled:hover:bg-transparent cpk:dark:disabled:hover:text-[#CCCCCC]"
+                    class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-start-transcribe-button"
                     @click="emit('start-transcribe')"
                   >
-                    <IconMic class="cpk:size-[18px]" />
+                    <IconMic class="cpk-chat-input-toolbar-icon" />
                   </button>
                 </slot>
                 <slot
@@ -1241,7 +1212,7 @@ onBeforeUnmount(() => {
                   :is-processing="isProcessing"
                   :on-click="handleSendButtonClick"
                 >
-                  <div class="cpk:mr-[10px]">
+                  <div class="cpk-chat-input-send">
                     <button
                       type="button"
                       data-testid="copilot-chat-input-send"
@@ -1251,14 +1222,14 @@ onBeforeUnmount(() => {
                           : labels.chatInputToolbarSendButtonLabel
                       "
                       :disabled="sendDisabled"
-                      class="cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-black cpk:text-white cpk:transition-colors cpk:hover:opacity-70 cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:disabled:bg-[#00000014] cpk:disabled:text-[rgb(13,13,13)] cpk:disabled:hover:opacity-100 cpk:dark:bg-white cpk:dark:text-black cpk:dark:disabled:bg-[#454545] cpk:dark:disabled:text-white"
+                      class="cpk-button cpk-button-chat-input-toolbar-primary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-send-button"
                       @click="handleSendButtonClick"
                     >
                       <IconSquare
                         v-if="isProcessing && hasStopAction"
-                        class="cpk:size-[18px] cpk:fill-current"
+                        class="cpk-chat-input-stop-icon"
                       />
-                      <IconArrowUp v-else class="cpk:size-[18px]" />
+                      <IconArrowUp v-else class="cpk-chat-input-send-icon" />
                     </button>
                   </div>
                 </slot>
@@ -1272,7 +1243,7 @@ onBeforeUnmount(() => {
     <slot v-if="shouldShowDisclaimer" name="disclaimer" :labels="labels">
       <p
         data-testid="copilot-chat-input-disclaimer"
-        class="cpk:mx-auto cpk:max-w-3xl cpk:px-4 cpk:py-3 cpk:text-center cpk:text-xs cpk:text-muted-foreground"
+        class="cpk-chat-input-disclaimer"
       >
         {{ labels.chatDisclaimerText }}
       </p>

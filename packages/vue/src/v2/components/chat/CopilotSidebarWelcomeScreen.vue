@@ -127,26 +127,23 @@ const inputEventProps = computed(() => {
   <slot name="layout" v-bind="layoutSlotProps">
     <div
       data-copilotkit
-      class="cpk:h-full cpk:flex cpk:flex-col"
+      class="cpk-sidebar-view-welcome-screen"
       data-testid="copilot-sidebar-welcome-screen"
     >
-      <div
-        class="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4"
-      >
+      <div class="cpk-sidebar-view-welcome-screen-message">
         <slot name="welcome-message">
-          <h1
-            class="cpk:text-xl cpk:sm:text-2xl cpk:font-medium cpk:text-foreground cpk:text-center"
-          >
+          <h1 class="cpk-chat-view-welcome-message">
             {{ labels.welcomeMessageText }}
           </h1>
         </slot>
       </div>
 
-      <div class="cpk:px-8 cpk:pb-4">
-        <div class="cpk:max-w-3xl cpk:mx-auto">
-          <div class="cpk:mb-4 cpk:flex cpk:justify-center">
+      <div class="cpk-sidebar-view-welcome-screen-footer">
+        <div class="cpk-sidebar-view-welcome-screen-content">
+          <div class="cpk-sidebar-view-welcome-screen-suggestions">
             <slot name="suggestion-view" v-bind="suggestionViewSlotProps">
               <CopilotChatSuggestionView
+                class="cpk-chat-view-suggestion-view"
                 :suggestions="suggestions"
                 :loading-indexes="loadingIndexes"
                 @select-suggestion="onSelectSuggestion"

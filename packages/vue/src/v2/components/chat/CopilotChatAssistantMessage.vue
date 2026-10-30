@@ -87,12 +87,9 @@ const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 const copied = ref(false);
 let copiedResetTimeout: ReturnType<typeof setTimeout> | null = null;
 
-const toolbarButtonClass = [
-  "cpk:inline-flex cpk:h-8 cpk:w-8 cpk:items-center cpk:justify-center cpk:rounded-md cpk:p-0",
-  "cpk:cursor-pointer cpk:text-[rgb(93,93,93)] cpk:transition-colors cpk:hover:bg-[#E8E8E8]",
-  "cpk:hover:text-[rgb(93,93,93)] cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
-  "cpk:dark:hover:text-[rgb(243,243,243)] cpk:disabled:pointer-events-none cpk:disabled:opacity-50",
-].join(" ");
+// Styles live in @copilotkit/core (ui/button.css, assistant-message.css).
+const toolbarButtonClass =
+  "cpk-button cpk-button-assistant-message-toolbar cpk-button-size-default";
 
 function normalizeContent(content: unknown): string {
   if (!content) {
@@ -237,23 +234,25 @@ onBeforeUnmount(() => {
     <div
       data-copilotkit
       data-testid="copilot-assistant-message"
-      class="cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert"
+      class="copilotKitMessage copilotKitAssistantMessage"
       :data-message-id="message.id"
       v-bind="$attrs"
     >
-      <slot
-        name="message-renderer"
-        :message="message"
-        :content="normalizedContent"
-      >
-        <component
-          :is="ActiveMarkdownRenderer"
-          v-if="hasContent"
-          v-bind="activeMarkdownConfig"
+      <div class="cpk-markdown cpk-assistant-message-markdown">
+        <slot
+          name="message-renderer"
+          :message="message"
           :content="normalizedContent"
-          :is-streaming="isRunning && isLatestAssistantMessage"
-        />
-      </slot>
+        >
+          <component
+            :is="ActiveMarkdownRenderer"
+            v-if="hasContent"
+            v-bind="activeMarkdownConfig"
+            :content="normalizedContent"
+            :is-streaming="isRunning && isLatestAssistantMessage"
+          />
+        </slot>
+      </div>
 
       <slot name="tool-calls-view" :message="message" :messages="messages">
         <CopilotChatToolCallsView :message="message" :messages="messages">
@@ -274,9 +273,10 @@ onBeforeUnmount(() => {
         :should-show-toolbar="shouldShowToolbar"
       >
         <div
-          class="cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:-ml-[5px] cpk:-mt-[0px]"
+          data-testid="copilot-assistant-toolbar"
+          class="cpk-assistant-message-toolbar"
         >
-          <div class="cpk:flex cpk:items-center cpk:gap-1">
+          <div class="cpk-assistant-message-toolbar-items">
             <slot
               name="copy-button"
               :on-copy="handleCopyMessage"
@@ -291,8 +291,11 @@ onBeforeUnmount(() => {
                 :title="labels.assistantMessageToolbarCopyMessageLabel"
                 @click="handleCopyMessage"
               >
-                <IconCheck v-if="copied" class="cpk:size-[18px]" />
-                <IconCopy v-else class="cpk:size-[18px]" />
+                <IconCheck
+                  v-if="copied"
+                  class="cpk-assistant-message-toolbar-icon"
+                />
+                <IconCopy v-else class="cpk-assistant-message-toolbar-icon" />
               </button>
             </slot>
 
@@ -309,7 +312,7 @@ onBeforeUnmount(() => {
                 :title="labels.assistantMessageToolbarThumbsUpLabel"
                 @click="handleThumbsUp"
               >
-                <IconThumbsUp class="cpk:size-[18px]" />
+                <IconThumbsUp class="cpk-assistant-message-toolbar-icon" />
               </button>
             </slot>
 
@@ -326,7 +329,7 @@ onBeforeUnmount(() => {
                 :title="labels.assistantMessageToolbarThumbsDownLabel"
                 @click="handleThumbsDown"
               >
-                <IconThumbsDown class="cpk:size-[18px]" />
+                <IconThumbsDown class="cpk-assistant-message-toolbar-icon" />
               </button>
             </slot>
 
@@ -343,7 +346,7 @@ onBeforeUnmount(() => {
                 :title="labels.assistantMessageToolbarReadAloudLabel"
                 @click="handleReadAloud"
               >
-                <IconVolume2 class="cpk:size-[20px]" />
+                <IconVolume2 class="cpk-assistant-message-read-aloud-icon" />
               </button>
             </slot>
 
@@ -360,7 +363,7 @@ onBeforeUnmount(() => {
                 :title="labels.assistantMessageToolbarRegenerateLabel"
                 @click="handleRegenerate"
               >
-                <IconRefreshCw class="cpk:size-[18px]" />
+                <IconRefreshCw class="cpk-assistant-message-toolbar-icon" />
               </button>
             </slot>
 

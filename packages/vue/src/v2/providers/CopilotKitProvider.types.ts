@@ -27,6 +27,17 @@ export interface CopilotKitProviderProps {
   headers?: CopilotKitHeadersSource;
   credentials?: RequestCredentials;
   /**
+   * CSP nonce for the `<style>` tag CopilotKit adds. Set it when your
+   * Content-Security-Policy limits `style-src` to a nonce.
+   */
+  nonce?: string;
+  /**
+   * Set to `false` when you import `@copilotkit/core/styles.css` yourself, so
+   * browsers cache the CSS as a file. CopilotKit then adds no `<style>` tag.
+   * @default true
+   */
+  injectStyles?: boolean;
+  /**
    * Rewrites the message list sent to runtime agents on every run.
    *
    * CopilotKit sends the whole thread each time. When your agent already

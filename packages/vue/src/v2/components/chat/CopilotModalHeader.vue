@@ -33,8 +33,7 @@ const resolvedTitle = computed(
     CopilotChatDefaultLabels.modalHeaderTitle,
 );
 const headerClass = computed(() => [
-  "cpk:flex cpk:items-center cpk:justify-between cpk:border-b cpk:border-border cpk:px-4 cpk:py-4",
-  "cpk:bg-background/95 cpk:backdrop-blur cpk:supports-[backdrop-filter]:bg-background/80",
+  "copilotKitHeader cpk-modal-header",
   attrs.class,
 ]);
 const headerAttrs = computed(() => {
@@ -99,13 +98,13 @@ function toggleDrawer() {
     v-bind="headerAttrs"
   >
     <slot name="layout" :title="resolvedTitle" :on-close="handleClose">
-      <div class="cpk:flex cpk:w-full cpk:items-center cpk:gap-2">
-        <div class="cpk:flex cpk:flex-1 cpk:justify-start">
+      <div class="cpk-modal-header-content">
+        <div class="cpk-modal-header-start">
           <button
             v-if="showDrawerLauncher"
             type="button"
             data-testid="drawer-launcher"
-            class="cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-full cpk:text-muted-foreground cpk:transition cpk:cursor-pointer cpk:hover:bg-muted cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring"
+            class="cpk-modal-header-drawer-launcher"
             :aria-expanded="config?.drawerOpen ?? false"
             :aria-label="
               config?.labels.modalHeaderThreadsButtonLabel ??
@@ -113,18 +112,21 @@ function toggleDrawer() {
             "
             @click="toggleDrawer"
           >
-            <IconPanelLeftOpen class="cpk:h-4 cpk:w-4" aria-hidden="true" />
+            <IconPanelLeftOpen
+              class="cpk-modal-header-drawer-launcher-icon"
+              aria-hidden="true"
+            />
           </button>
           <span v-else aria-hidden="true" />
         </div>
-        <div class="cpk:flex cpk:flex-1 cpk:justify-center cpk:text-center">
+        <div class="cpk-modal-header-center">
           <slot name="title-content" :title="resolvedTitle">
             <CopilotModalHeaderTitle>
               {{ resolvedTitle }}
             </CopilotModalHeaderTitle>
           </slot>
         </div>
-        <div class="cpk:flex cpk:flex-1 cpk:justify-end">
+        <div class="cpk-modal-header-end">
           <slot name="close-button" :on-close="handleClose">
             <CopilotModalHeaderCloseButton @click="handleClose" />
           </slot>

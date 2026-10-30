@@ -145,7 +145,10 @@ const DefaultToolCallRenderer = defineComponent({
         : isComplete
           ? "Done"
           : props.status;
+      const tone = isActive ? "running" : isComplete ? "done" : "other";
 
+      // Markup and classes match React's DefaultToolCallRenderer; styles live
+      // in @copilotkit/core (default-tool-call.css).
       return h(
         "div",
         {
@@ -155,77 +158,99 @@ const DefaultToolCallRenderer = defineComponent({
           "data-status": props.status,
           "data-args": safeStringifyForAttr(props.parameters),
           "data-result": safeStringifyForAttr(props.result),
-          style: { marginTop: "8px", paddingBottom: "8px" },
+          class: "cpk-default-tool-call",
         },
         [
-          h(
-            "div",
-            {
-              style: {
-                borderRadius: "12px",
-                border: "1px solid #e4e4e7",
-                backgroundColor: "#fafafa",
-                padding: "14px 16px",
-              },
-            },
-            [
-              h(
-                "button",
-                {
-                  type: "button",
-                  "aria-expanded": String(isExpanded.value),
-                  onClick: () => {
-                    isExpanded.value = !isExpanded.value;
-                  },
-                  style: {
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "10px",
-                    cursor: "pointer",
-                    border: "none",
-                    padding: 0,
-                    margin: 0,
-                    background: "transparent",
-                    textAlign: "left",
-                  },
+          h("div", { class: "cpk-default-tool-call-card" }, [
+            h(
+              "button",
+              {
+                type: "button",
+                "aria-expanded": String(isExpanded.value),
+                onClick: () => {
+                  isExpanded.value = !isExpanded.value;
                 },
-                [
+                class: "cpk-default-tool-call-header",
+                style: { font: "inherit" },
+              },
+              [
+                h("div", { class: "cpk-default-tool-call-title" }, [
+                  h(
+                    "svg",
+                    {
+                      class: [
+                        "cpk-default-tool-call-chevron",
+                        isExpanded.value &&
+                          "cpk-default-tool-call-chevron-open",
+                      ],
+                      fill: "none",
+                      viewBox: "0 0 24 24",
+                      "stroke-width": 2,
+                      stroke: "currentColor",
+                    },
+                    [
+                      h("path", {
+                        "stroke-linecap": "round",
+                        "stroke-linejoin": "round",
+                        d: "M8.25 4.5l7.5 7.5-7.5 7.5",
+                      }),
+                    ],
+                  ),
+                  h("span", {
+                    class: `cpk-default-tool-call-dot cpk-default-tool-call-dot-${tone}`,
+                  }),
                   h(
                     "span",
                     {
                       "data-testid": "copilot-tool-render-name",
-                      style: { fontWeight: "600" },
+                      class: "cpk-default-tool-call-name",
                     },
                     props.name,
                   ),
-                  h(
-                    "span",
-                    { "data-testid": "copilot-tool-render-status" },
-                    statusLabel,
-                  ),
-                ],
-              ),
-              isExpanded.value
-                ? h("div", { style: { marginTop: "12px" } }, [
-                    h("div", "Arguments"),
-                    h("pre", safeStringifyForPre(props.parameters ?? {})),
-                    props.result !== undefined
-                      ? h("div", [
-                          h("div", "Result"),
-                          h(
-                            "pre",
-                            typeof props.result === "string"
-                              ? props.result
-                              : safeStringifyForPre(props.result),
-                          ),
-                        ])
-                      : null,
-                  ])
-                : null,
-            ],
-          ),
+                ]),
+                h(
+                  "span",
+                  {
+                    "data-testid": "copilot-tool-render-status",
+                    class: `cpk-default-tool-call-badge cpk-default-tool-call-badge-${tone}`,
+                  },
+                  statusLabel,
+                ),
+              ],
+            ),
+            isExpanded.value
+              ? h("div", { class: "cpk-default-tool-call-details" }, [
+                  h("div", [
+                    h(
+                      "div",
+                      { class: "cpk-default-tool-call-label" },
+                      "Arguments",
+                    ),
+                    h(
+                      "pre",
+                      { class: "cpk-default-tool-call-code" },
+                      safeStringifyForPre(props.parameters ?? {}),
+                    ),
+                  ]),
+                  props.result !== undefined
+                    ? h("div", [
+                        h(
+                          "div",
+                          { class: "cpk-default-tool-call-label" },
+                          "Result",
+                        ),
+                        h(
+                          "pre",
+                          { class: "cpk-default-tool-call-code" },
+                          typeof props.result === "string"
+                            ? props.result
+                            : safeStringifyForPre(props.result),
+                        ),
+                      ])
+                    : null,
+                ])
+              : null,
+          ]),
         ],
       );
     };

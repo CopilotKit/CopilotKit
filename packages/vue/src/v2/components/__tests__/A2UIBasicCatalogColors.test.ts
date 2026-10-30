@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { ref } from "vue";
 import { render, waitFor } from "@testing-library/vue";
+import { stylesheet } from "@copilotkit/core/styles";
 import { createA2UIMessageRenderer } from "../A2UIMessageRenderer";
 import { CopilotKitKey } from "../../providers/keys";
 
@@ -173,16 +173,15 @@ describe("A2UI basic catalog colours", () => {
     );
   });
 
-  it("sets the variables from the dark theme in the chat stylesheet", () => {
-    const globalsCss = readFileSync("src/styles/globals.css", "utf8");
+  it("sets the variables from the dark theme in the injected stylesheet", () => {
     const darkBlock =
-      globalsCss.match(
-        /\.dark \[data-copilotkit\],\s*\[data-copilotkit\]\.dark \{([^}]*)\}/,
+      stylesheet.match(
+        /:where\(\.dark \[data-copilotkit\],\[data-copilotkit\]\.dark\)\{([^}]*)\}/,
       )?.[1] ?? "";
 
-    expect(darkBlock).toContain("--a2ui-color-surface: var(--card);");
-    expect(darkBlock).toContain("--a2ui-color-border: oklch(0.371 0 0);");
-    expect(darkBlock).toContain("--a2ui-color-muted: var(--muted-foreground);");
-    expect(darkBlock).toContain("--a2ui-color-error: #f87171;");
+    expect(darkBlock).toContain("--a2ui-color-surface: var(--card)");
+    expect(darkBlock).toContain("--a2ui-color-border: oklch(.371 0 0)");
+    expect(darkBlock).toContain("--a2ui-color-muted: var(--muted-foreground)");
+    expect(darkBlock).toContain("--a2ui-color-error: #f87171");
   });
 });
