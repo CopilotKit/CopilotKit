@@ -6,8 +6,9 @@
  * implementation that streams chunks via ReadableStream, enabling
  * CopilotKit's SSE-based agent communication.
  *
- * If native fetch already supports ReadableStream bodies (newer RN / Hermes),
- * the replacement is skipped entirely.
+ * A local URL probe checks the installed fetch's response body. If it
+ * supports ReadableStream, the original fetch is restored. Requests started
+ * during the probe wait for that decision and are sent only once.
  *
  * THREADING NOTE: In React Native, XHR callbacks (onprogress, onload, etc.)
  * may fire on a native networking thread. Pushing data into the ReadableStream
@@ -16,7 +17,8 @@
  * CATransaction". All stream-mutating operations are therefore deferred via
  * setTimeout(fn, 0) to bounce back to the JS thread (main thread in Hermes).
  *
- * Call `installStreamingFetch()` once at app startup after polyfills.
+ * Call `installStreamingFetch()` once at app startup after polyfills. Its
+ * promise can be awaited, but early fetch calls are safe without awaiting it.
  */
 
 declare const global: typeof globalThis;
@@ -47,35 +49,84 @@ function createAbortError(): DOMException {
   );
 }
 
-export function installStreamingFetch(): void {
-  // Skip if native fetch already supports ReadableStream body.
-  // Newer React Native versions (Hermes) may support this natively.
-  try {
-    const testResponse = new Response("");
-    if (
-      testResponse.body != null &&
-      typeof testResponse.body.getReader === "function"
-    ) {
-      return;
+const installations = new WeakMap<typeof fetch, Promise<void>>();
+
+/** How long the capability check may take, counted from the first probe request. */
+const PROBE_DEADLINE_MS = 2_000;
+
+/**
+ * Checks the installed fetch's response body rather than the global Response
+ * constructor, which Expo can leave unchanged when installing streaming fetch.
+ *
+ * Uses local URLs without an HTTP request. Expo's Android fetch rejects data
+ * URLs but returns a readable 404 for a missing file. Both attempts share one
+ * deadline that starts when the first request is issued, not at import: the JS
+ * thread can be busy for a second or more at app start, and the timer would
+ * otherwise run out before the probe was even sent. A missing reader, rejection,
+ * or timeout returns false.
+ */
+function supportsStreamingFetch(
+  fetchImplementation: typeof fetch,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const controller =
+      typeof AbortController === "function" ? new AbortController() : undefined;
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    /** Settles detection once, clears its deadline, and aborts the probe. */
+    function finish(supported: boolean) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      controller?.abort();
+      resolve(supported);
     }
-  } catch (e) {
-    // Response constructor unavailable — expected in older RN environments.
-    if (
-      __DEV__ &&
-      e instanceof Error &&
-      !(e instanceof ReferenceError) &&
-      !(e instanceof TypeError)
-    ) {
-      console.warn(
-        "[CopilotKit] Unexpected error during streaming fetch feature detection, " +
-          "installing XHR-based polyfill:",
-        e,
-      );
+
+    /** Tries a data URL, then a local file only if the data request rejects. */
+    async function probe() {
+      const init = { signal: controller?.signal };
+      timer = setTimeout(() => finish(false), PROBE_DEADLINE_MS);
+      let response: Response;
+      try {
+        response = await fetchImplementation.call(
+          global,
+          "data:text/plain,copilotkit",
+          init,
+        );
+      } catch {
+        if (settled) return;
+        response = await fetchImplementation.call(
+          global,
+          "file:///__copilotkit_streaming_fetch_probe__",
+          init,
+        );
+      }
+      finish(typeof response.body?.getReader === "function");
     }
-  }
+
+    Promise.resolve()
+      .then(probe)
+      .catch(() => finish(false));
+  });
+}
+
+/**
+ * Initializes streaming fetch support, preserving a supported original fetch
+ * or selecting the XHR fallback when the local capability check fails.
+ *
+ * Early requests wait for selection and are sent once. Repeated installation
+ * reuses the initialization promise, and an application replacement installed
+ * during detection is left intact.
+ *
+ * @returns A promise that resolves when capability detection and selection finish.
+ */
+export function installStreamingFetch(): Promise<void> {
+  const originalFetch = global.fetch;
+  const installed = installations.get(originalFetch);
+  if (installed) return installed;
 
   const IDLE_TIMEOUT_MS = 60_000;
-  const originalFetch = global.fetch;
   const TextEncoder = global.TextEncoder;
 
   const streamingFetch = function streamingFetch(
@@ -381,5 +432,25 @@ export function installStreamingFetch(): void {
 
   // Expose original fetch for opt-out (e.g., third-party libs that need native behavior)
   (streamingFetch as any).__originalFetch = originalFetch;
-  global.fetch = streamingFetch as typeof fetch;
+
+  let selectedFetch = streamingFetch as typeof fetch;
+  const ready: Promise<void> = supportsStreamingFetch(originalFetch).then(
+    (supported) => {
+      if (supported) {
+        selectedFetch = originalFetch;
+        installations.set(originalFetch, ready);
+      }
+      // Do not overwrite a fetch installed by the application during the probe.
+      if (global.fetch === pendingFetch) global.fetch = selectedFetch;
+    },
+  );
+  const pendingFetch: typeof fetch = (input, init) =>
+    ready.then(() => selectedFetch.call(global, input, init));
+  (pendingFetch as any).__originalFetch = originalFetch;
+  installations.set(pendingFetch, ready);
+  installations.set(streamingFetch, ready);
+  // Importing polyfills cannot await initialization. Queue early requests until
+  // the probe finishes, then send each request once through the chosen fetch.
+  global.fetch = pendingFetch;
+  return ready;
 }
