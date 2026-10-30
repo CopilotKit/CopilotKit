@@ -1,4 +1,4 @@
-import { satisfies, valid, validRange, prerelease } from "semver";
+import { satisfies, valid, validRange, prerelease } from "./semver.js";
 
 /** Versioned CDN notification contract. Keep the Intelligence copy and fixtures aligned. */
 export type NotificationFramework = "react" | "vue" | "angular";
