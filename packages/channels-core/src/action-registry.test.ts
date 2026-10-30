@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   ActionRegistry,
+  ActionAlreadyClaimedError,
   ActionContinuationMismatchError,
   ActionExpiredError,
 } from "./action-registry.js";
@@ -204,22 +205,77 @@ describe("ActionRegistry", () => {
       },
     };
 
+    const firstActionId = (tree: ChannelNode[]) =>
+      (
+        (tree[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
+          id: string;
+        }
+      ).id;
+
+    it("leaves the interrupt claimable when consuming the action fails", async () => {
+      const store = new InMemoryActionStore();
+      const reg = new ActionRegistry({ store, retentionMs: 60_000 });
+      reg.registerComponent("Confirm", Confirm as never);
+      const id = firstActionId(
+        await reg.bindTree("Confirm", { action: "approve" }, "conv1", {
+          ...continuation,
+        }),
+      );
+      const consume = store.consume.bind(store);
+      vi.spyOn(store, "consume").mockImplementationOnce(async (key) => {
+        if (key === id) throw new Error("store unavailable");
+        return consume(key);
+      });
+
+      await expect(reg.claimContinuation(id, continuation)).rejects.toThrow(
+        "store unavailable",
+      );
+
+      await expect(
+        reg.claimContinuation(id, continuation),
+      ).resolves.toMatchObject({ actionId: id });
+    });
+
+    it("gives a card rendered late in a run leg a gate that is still live", async () => {
+      vi.useFakeTimers();
+      try {
+        const store = new InMemoryActionStore();
+        const reg = new ActionRegistry({ store, retentionMs: 60_000 });
+        reg.registerComponent("Confirm", Confirm as never);
+        const chain = { ...continuation };
+        await reg.bindTree("Confirm", { action: "first" }, "conv1", chain);
+
+        vi.advanceTimersByTime(90_000);
+        const id = firstActionId(
+          await reg.bindTree("Confirm", { action: "late" }, "conv1", chain),
+        );
+        vi.advanceTimersByTime(45_000);
+
+        await expect(
+          reg.claimContinuation(id, continuation),
+        ).resolves.toMatchObject({ actionId: id });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("mints random capabilities and stores the trusted binding in the action snapshot", async () => {
       const store = new InMemoryActionStore();
       const reg = new ActionRegistry({ store, retentionMs: 60_000 });
       reg.registerComponent("Confirm", Confirm as never);
 
+      const chain = { ...continuation };
       const first = await reg.bindTree(
         "Confirm",
         { action: "approve" },
         "conv1",
-        continuation,
+        chain,
       );
       const second = await reg.bindTree(
         "Confirm",
         { action: "approve" },
         "conv1",
-        continuation,
+        chain,
       );
       const firstId = (
         (first[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
@@ -234,7 +290,7 @@ describe("ActionRegistry", () => {
 
       expect(firstId).not.toBe(secondId);
       expect(await store.get(firstId)).toMatchObject({
-        continuation: { ...continuation, actionId: firstId },
+        continuation: { ...chain, actionId: firstId },
       });
     });
 
@@ -248,7 +304,7 @@ describe("ActionRegistry", () => {
         "Confirm",
         { action: "approve" },
         "conv1",
-        continuation,
+        { ...continuation },
       );
       const id = (
         (tree[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
@@ -273,7 +329,7 @@ describe("ActionRegistry", () => {
             (outcome) => outcome.status === "rejected",
           ) as PromiseRejectedResult
         ).reason,
-      ).toBeInstanceOf(ActionExpiredError);
+      ).toBeInstanceOf(ActionAlreadyClaimedError);
     });
 
     it.each([
@@ -292,7 +348,7 @@ describe("ActionRegistry", () => {
           "Confirm",
           { action: "approve" },
           "conv1",
-          continuation,
+          { ...continuation },
         );
         const id = (
           (tree[0]!.props.children as ChannelNode[])[0]!.props.onClick as {

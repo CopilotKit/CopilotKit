@@ -388,3 +388,31 @@ describe("TeamsAdapter typing heartbeat", () => {
     }
   });
 });
+
+describe("TeamsAdapter.postEphemeral", () => {
+  it("replies in a personal chat, where only the clicker can see it", async () => {
+    const adapter = new TeamsAdapter({});
+    const ref = { id: "m1", conversationKey: "k" };
+    vi.spyOn(adapter, "post").mockResolvedValue(ref as never);
+    const target = {
+      conversationKey: "k",
+      reference: { conversation: { conversationType: "personal" } },
+    };
+    await expect(
+      adapter.postEphemeral(target as never, "u", []),
+    ).resolves.toEqual({ ok: true, usedFallback: false, ref });
+  });
+
+  it.each(["groupChat", "channel"])("declines in a %s", async (type) => {
+    const adapter = new TeamsAdapter({});
+    const post = vi.spyOn(adapter, "post");
+    const target = {
+      conversationKey: "k",
+      reference: { conversation: { conversationType: type } },
+    };
+    await expect(
+      adapter.postEphemeral(target as never, "u", []),
+    ).resolves.toBeNull();
+    expect(post).not.toHaveBeenCalled();
+  });
+});

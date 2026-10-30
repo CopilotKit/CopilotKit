@@ -83,6 +83,8 @@ export function Decision({ id }: { id: string }) {
             const value = action.value;
             if (value === undefined) return;
 
+            await thread.assertCanResume();
+
             if (message.ref.id) {
               try {
                 await thread.update(message.ref, `Approved ${value.id}.`);
@@ -102,8 +104,9 @@ export function Decision({ id }: { id: string }) {
 ```
 
 An interaction ref is updateable only when `message.ref.id` is non-empty.
-Always resume outside the update guard and error handler so an omitted ref or
-failed card update cannot strand the interrupted run.
+Call `assertCanResume` first so a refused click leaves the card untouched, and
+resume outside the update guard and error handler so an omitted ref or failed
+card update cannot strand the interrupted run.
 
 ## Reaction callback
 

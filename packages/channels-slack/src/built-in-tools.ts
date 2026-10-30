@@ -48,7 +48,6 @@ export const lookupSlackUserTool = defineChannelTool({
           userId: u.id,
           name: u.name,
           handle: u.handle,
-          email: u.email,
           mention: `<@${u.id}>`,
         }
       : { found: false, query };

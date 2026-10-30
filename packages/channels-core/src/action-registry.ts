@@ -52,6 +52,26 @@ export class ActionScopeMismatchError extends Error {
   }
 }
 
+/** An action limited to its initiator was used by another provider account. */
+export class ActionInitiatorMismatchError extends Error {
+  readonly code = "channel_action_not_initiator";
+
+  constructor() {
+    super("Only the initiator may use this action");
+    this.name = "ActionInitiatorMismatchError";
+  }
+}
+
+/** Another control of the same interrupt already resumed it. */
+export class ActionAlreadyClaimedError extends Error {
+  readonly code = "channel_action_already_claimed";
+
+  constructor() {
+    super("This interrupt has already been answered");
+    this.name = "ActionAlreadyClaimedError";
+  }
+}
+
 /**
  * Server-derived facts about where an interaction arrived, checked on dispatch.
  * Both come from the ingress event, never from the action payload.
@@ -144,6 +164,10 @@ export class ActionRegistry {
   // Ids this process revoked or claimed, so a re-scope racing with either
   // cannot write the action back (see `rescopeActions`).
   private retired: BoundedCache<string, true>;
+
+  // When each in-process continuation's gate was opened; kept off the
+  // continuation so it never reaches a stored snapshot.
+  private resumeGateOpenedAt = new WeakMap<ActionContinuationContext, number>();
 
   /** TTL of every stored snapshot and of every in-process cache entry. */
   private readonly retentionMs: number;
@@ -473,6 +497,7 @@ export class ActionRegistry {
             requireKeys && node.key !== undefined
               ? { key: node.key, eventProp: ep }
               : undefined;
+          if (continuation) await this.ensureResumeGate(continuation);
           // Every id is random and bound to its conversation: a content-derived
           // id would collide across conversations rendering the same card.
           // Continuation ids use the same format; the snapshot's
@@ -619,18 +644,26 @@ export class ActionRegistry {
       assertActionScope(hot, scope);
       if (hot.continuation && !(await this.store.get(id))) {
         this.hot.delete(id);
-        throw new ActionExpiredError(id);
+        throw await this.goneError(id, scope);
       }
       handler = hot.handler;
       value = hot.value;
     } else {
       const snap = await this.store.get(id);
-      if (!snap) throw new ActionExpiredError(id);
+      if (!snap) throw await this.goneError(id, scope);
       if (lacksConversationBinding(snap)) {
         warnLegacyBinding(`action ${id}`);
         throw new ActionExpiredError(id);
       }
       assertActionScope(snap, scope);
+      // A picker's owner map is per process: on any other replica, or after a
+      // restart, the snapshot is what still knows the owner.
+      if (
+        snap.ownerActorId !== undefined &&
+        snap.ownerActorId !== ctx.actor.id
+      ) {
+        throw new ActionInitiatorMismatchError();
+      }
       if (!snap.component) throw new ActionExpiredError(id);
       const registered = this.components.get(snap.component);
       if (!registered) throw new ActionExpiredError(id);
@@ -709,6 +742,24 @@ export class ActionRegistry {
   }
 
   /**
+   * @internal Persist the provider account a picker's controls are limited to.
+   * Runs before the controls are published, so no click can race the write.
+   * Ids without a snapshot (controls with no handler) are ignored.
+   */
+  async setActionOwner(ids: Iterable<string>, actorId: string): Promise<void> {
+    for (const id of ids) {
+      const snap = await this.store.get(id);
+      if (snap) {
+        await this.store.put(
+          id,
+          { ...snap, ownerActorId: actorId },
+          this.retentionMs,
+        );
+      }
+    }
+  }
+
+  /**
    * @internal Revoke actions so they can never be dispatched again (an
    * answered or abandoned picker's controls). Unknown ids are ignored.
    *
@@ -745,9 +796,49 @@ export class ActionRegistry {
     expected: ActionContinuationBinding,
   ): Promise<ActionContinuationSnapshot> {
     const available = await this.store.get(id);
-    if (!available?.continuation) throw new ActionExpiredError(id);
+    if (!available) throw await this.goneError(id);
+    if (!available.continuation) throw new ActionExpiredError(id);
     assertContinuationBinding(available.continuation, id, expected);
+    const { resumeGateId } = available.continuation;
+    if (resumeGateId && !(await this.store.get(resumeGateKey(resumeGateId)))) {
+      throw new ActionAlreadyClaimedError();
+    }
     return available.continuation;
+  }
+
+  /**
+   * Open the one-shot gate shared by every action a run leg renders, once, on
+   * the first of them. `ActionStore.consume` is the only atomic step every
+   * store has, so the gate is an entry to take rather than a marker to set. It
+   * outlives the actions (re-scoping renews their window), so a live action
+   * always finds it. A leg rendering past `retentionMs` gets a new gate rather
+   * than a renewed one: a `put` could bring back a consumed gate.
+   */
+  private async ensureResumeGate(
+    continuation: ActionContinuationContext,
+  ): Promise<void> {
+    const openedAt = this.resumeGateOpenedAt.get(continuation);
+    if (openedAt !== undefined && Date.now() - openedAt < this.retentionMs) {
+      return;
+    }
+    this.resumeGateOpenedAt.set(continuation, Date.now());
+    continuation.resumeGateId = mintActionId();
+    await this.store.put(
+      resumeGateKey(continuation.resumeGateId),
+      { path: [], conversationKey: "" },
+      this.retentionMs * 2,
+    );
+  }
+
+  /** Why an id with no snapshot is gone: spent by a resume, or expired. */
+  private async goneError(
+    id: string,
+    scope?: ActionDispatchScope,
+  ): Promise<Error> {
+    const spent = await this.store.get(spentKey(id));
+    if (!spent) return new ActionExpiredError(id);
+    if (scope) assertActionScope(spent, scope);
+    return new ActionAlreadyClaimedError();
   }
 
   /** Validate and atomically consume one continuation capability. */
@@ -755,13 +846,38 @@ export class ActionRegistry {
     id: string,
     expected: ActionContinuationBinding,
   ): Promise<ActionContinuationSnapshot> {
-    await this.getContinuation(id, expected);
+    const { resumeGateId } = await this.getContinuation(id, expected);
 
+    // The action goes first: if this fails nothing is spent and the click can
+    // retry, while a failed gate step below costs only this one action.
     const claimed = await this.store.consume(id);
-    if (!claimed?.continuation) throw new ActionExpiredError(id);
+    if (!claimed?.continuation) {
+      if (resumeGateId) throw new ActionAlreadyClaimedError();
+      throw new ActionExpiredError(id);
+    }
     this.retired.set(id, true);
     assertContinuationBinding(claimed.continuation, id, expected);
     this.hot.delete(id);
+    // Only a label for later clicks: the claim stands if this write fails.
+    await this.store
+      .put(
+        spentKey(id),
+        {
+          path: [],
+          conversationKey: claimed.conversationKey,
+          ...(claimed.platform ? { platform: claimed.platform } : {}),
+        },
+        this.retentionMs,
+      )
+      .catch((err: unknown) => {
+        console.warn("[channel] could not record a resumed action", err);
+      });
+    if (
+      resumeGateId &&
+      !(await this.store.consume(resumeGateKey(resumeGateId)))
+    ) {
+      throw new ActionAlreadyClaimedError();
+    }
     return claimed.continuation;
   }
 }
@@ -912,6 +1028,16 @@ function boundActionIds(root: readonly ChannelNode[]): string[] {
   };
   visit(root);
   return ids;
+}
+
+/** Store key for an interrupt's one-shot resume gate. */
+function resumeGateKey(id: string): string {
+  return `resume:${id}`;
+}
+
+/** Store key recording that a resume spent action `id`. */
+function spentKey(id: string): string {
+  return `resume:spent:${id}`;
 }
 
 /** Store key for a message's durable reaction snapshot (distinct from minted action ids). */

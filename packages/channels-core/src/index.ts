@@ -65,7 +65,12 @@ export {
   DEFAULT_AWAIT_CHOICE_TIMEOUT_MS,
   Thread,
 } from "./thread.js";
-export type { ChoiceControl, ChoiceWaiter, ThreadDeps } from "./thread.js";
+export type {
+  ChoiceControl,
+  ChoiceWaiter,
+  ResumeOptions,
+  ThreadDeps,
+} from "./thread.js";
 
 // Platform adapter boundary
 export type {
@@ -123,8 +128,10 @@ export type {
 // Action registry
 export {
   ActionRegistry,
+  ActionAlreadyClaimedError,
   ActionContinuationMismatchError,
   ActionExpiredError,
+  ActionInitiatorMismatchError,
   ActionScopeMismatchError,
   DEFAULT_ACTION_RETENTION_MS,
   DEFAULT_MAX_HOT_ACTIONS,

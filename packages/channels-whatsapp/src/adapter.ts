@@ -11,6 +11,7 @@ import type {
   ChannelNode,
   MessageRef,
   ProviderActor,
+  EphemeralResult,
   ThreadMessage,
 } from "@copilotkit/channels-ui";
 import type {
@@ -45,6 +46,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
     supportsTyping: true,
     supportsReactions: false,
     supportsStreaming: false,
+    supportsEphemeral: true,
   };
   readonly ackDeadlineMs = 5000;
   readonly conversationStore: ConversationStore;
@@ -124,6 +126,15 @@ export class WhatsAppAdapter implements PlatformAdapter {
       this.recordOutbound(target.to, outboundText(p), last);
     }
     return last;
+  }
+
+  /** Every conversation here is one-to-one, so a reply is already private. */
+  async postEphemeral(
+    target: ReplyTarget,
+    _user: ProviderActor | string,
+    ir: ChannelNode[],
+  ): Promise<EphemeralResult> {
+    return { ok: true, usedFallback: false, ref: await this.post(target, ir) };
   }
 
   async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {

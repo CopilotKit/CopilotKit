@@ -3,6 +3,19 @@ import { whatsapp, splitForWhatsApp } from "./adapter.js";
 import { InMemoryHistoryStore } from "./history-store.js";
 
 describe("whatsapp() adapter", () => {
+  it("replies privately because every conversation is one-to-one", async () => {
+    const a = whatsapp(opts);
+    const ref = { id: "wamid.out", to: "111", phoneNumberId: "PNID" };
+    const post = vi.spyOn(a, "post").mockResolvedValue(ref);
+    const target = { to: "111", phoneNumberId: "PNID" };
+    await expect(a.postEphemeral(target, "111", [])).resolves.toEqual({
+      ok: true,
+      usedFallback: false,
+      ref,
+    });
+    expect(post).toHaveBeenCalledWith(target, []);
+  });
+
   const opts = {
     accessToken: "TOK",
     phoneNumberId: "PNID",

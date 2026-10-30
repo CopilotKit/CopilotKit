@@ -54,6 +54,7 @@ branch first on `ok`.
 | ------------------------- | ---------------------------------- | ---------------------------------------------------------------- |
 | `runAgent(input?)`        | `Promise<MessageRef \| undefined>` | Run the thread's agent and render its output.                    |
 | `resume(value, options?)` | `Promise<MessageRef \| undefined>` | Consume the action continuation and re-enter an interrupted run. |
+| `assertCanResume(options?)` | `Promise<void>` | Refuse exactly as `resume` would, consuming nothing. |
 
 `runAgent` accepts:
 
@@ -98,7 +99,28 @@ await thread.resume(value, {
 `initiator` keeps the application user that started this HITL chain. `actor`
 uses the application user resolved for the current interaction. Project-only
 Memory needs no subject and carries no made-up user. A continuation expires
-with action retention and can start only one resumed run.
+with action retention. Each leg of a run can start only one resumed run: once
+a control posted during it resumes it, every other control from that leg, and
+the same control clicked again, is refused with
+`channel_action_already_claimed`, including while the resumed run is in
+progress. Cards posted before this limit existed are one-use per control.
+
+`resume` also takes `answerableBy`, which decides who may resume:
+
+- `"initiator"` (default) accepts only the provider account that started the
+  chain, matched by id, whatever its kind. A chain started by a bot can be
+  resumed only by that bot.
+- `"conversation"` accepts anyone in the conversation. Use it when people should
+  approve a bot-started run, or a run whose starting account has no id.
+
+`assertCanResume(options?)` takes the same options and throws what `resume`
+would throw, consuming nothing. Call it before updating a card, then call
+`resume`. Let either error propagate: the SDK refuses the click, and the action
+stays usable by anyone still allowed to use it. The person who clicked is told
+why on Slack, including managed Slack, on WhatsApp, and in a Teams personal
+chat; elsewhere the refusal is only logged. See
+[Choose who can approve](/channels/interactive#choose-who-can-approve) and the
+migration notes there.
 
 For the complete identity, group-conversation, and per-run Memory workflow, see
 [Identity and Memory for Slack](/slack/identity-and-memory) or
@@ -109,7 +131,9 @@ Memory and continuation failures expose stable codes:
 - `channel_memory_grant_invalid`, `channel_memory_user_required`, and
   `channel_memory_unavailable`
 - `channel_memory_subject_required`, `channel_continuation_required`,
-  `channel_continuation_mismatch`, and `channel_action_expired`
+  `channel_continuation_mismatch`, `channel_action_expired`,
+  `channel_action_not_initiator`, `channel_action_already_claimed`, and
+  `channel_choice_initiator_unknown`
 
 ## Conversation history and users
 

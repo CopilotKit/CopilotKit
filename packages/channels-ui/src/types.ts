@@ -201,8 +201,26 @@ export interface Thread {
         project?: "none" | "read" | "read-write";
       };
       subject?: "initiator" | "actor";
+      /**
+       * Who may resume. `"initiator"` (the default) refuses a click from any
+       * other account and leaves the action usable; `"conversation"` accepts
+       * anyone in the conversation.
+       */
+      answerableBy?: ChoiceAnswerableBy;
     },
   ): Promise<MessageRef | undefined>;
+  /**
+   * Refuse exactly as `resume` would, with the same options, and consume
+   * nothing. Call it before updating a card.
+   */
+  assertCanResume(options?: {
+    memory?: {
+      user?: "none" | "read" | "read-write";
+      project?: "none" | "read" | "read-write";
+    };
+    subject?: "initiator" | "actor";
+    answerableBy?: ChoiceAnswerableBy;
+  }): Promise<void>;
   stream(src: string | AsyncIterable<string>): Promise<MessageRef>;
   postFile(args: {
     bytes: Uint8Array;

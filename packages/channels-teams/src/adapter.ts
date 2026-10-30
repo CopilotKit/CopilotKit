@@ -15,6 +15,7 @@ import type {
   ConversationStore,
   MessageRef,
   ProviderActor,
+  EphemeralResult,
   UserQuery,
   IngressIdentityContext,
 } from "@copilotkit/channels-core";
@@ -108,6 +109,8 @@ export class TeamsAdapter implements PlatformAdapter {
       // Streamed by message edit (post-then-updateActivity), not native
       // token-by-token streaming, but the engine's streaming path is honored.
       supportsStreaming: true,
+      // In a personal chat only; see `postEphemeral`.
+      supportsEphemeral: true,
     };
   }
 
@@ -493,6 +496,21 @@ export class TeamsAdapter implements PlatformAdapter {
         ? await this.sendText(t, payload.text)
         : await this.sendCard(t, payload.card);
     return { id, conversationKey: t.conversationKey, context: t.context };
+  }
+
+  /**
+   * A personal chat has one person in it, so an ordinary reply is private.
+   * `Action.Submit` clicks arrive as Message activities with no invoke to
+   * answer, so a group chat or channel has no reply limited to the clicker.
+   */
+  async postEphemeral(
+    target: ReplyTarget,
+    _user: ProviderActor | string,
+    ir: ChannelNode[],
+  ): Promise<EphemeralResult | null> {
+    const t = target as TeamsReplyTarget;
+    if (t.reference.conversation?.conversationType !== "personal") return null;
+    return { ok: true, usedFallback: false, ref: await this.post(t, ir) };
   }
 
   async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {

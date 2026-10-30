@@ -13,7 +13,9 @@ import type {
 } from "./platform-adapter.js";
 import {
   ActionRegistry,
+  ActionAlreadyClaimedError,
   ActionExpiredError,
+  ActionInitiatorMismatchError,
   ActionScopeMismatchError,
   DEFAULT_ACTION_RETENTION_MS,
 } from "./action-registry.js";
@@ -28,7 +30,11 @@ import { normalizeCommandName, toCommandSpec } from "./commands.js";
 import type { ChannelCommand, CommandContext } from "./commands.js";
 import { Thread } from "./thread.js";
 import { isMintedActionId } from "./mint-id.js";
-import { ChannelChoiceSupersededError, choiceAnswer } from "./thread.js";
+import {
+  ChannelChoiceInitiatorUnknownError,
+  ChannelChoiceSupersededError,
+  choiceAnswer,
+} from "./thread.js";
 import type { ChoiceWaiter, ThreadDeps } from "./thread.js";
 import type { RenderConfig } from "./render/config.js";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -657,7 +663,7 @@ function conversationLogRef(conversationKey: string): string {
 /** Why an interaction did not run, as logged and as told to the clicker. */
 const INTERACTION_REFUSALS = {
   "not-initiator": {
-    log: "only the person who started the turn may answer this picker",
+    log: "only the person who started the turn may answer this",
     tell: "Only the person who started this can answer it.",
   },
   "value-not-offered": {
@@ -675,6 +681,14 @@ const INTERACTION_REFUSALS = {
   "not-open": {
     log: "the awaitChoice picker is still being posted",
     tell: "This choice is not open yet. Try again in a moment.",
+  },
+  "already-claimed": {
+    log: "another control already answered this interrupt",
+    tell: "This has already been answered.",
+  },
+  "initiator-unknown": {
+    log: 'the run has no known initiator; pass answerableBy: "conversation" to accept this click',
+    tell: "This can't be answered from here.",
   },
 } as const;
 
@@ -727,6 +741,16 @@ async function refuseInteraction(
       err,
     );
   }
+}
+
+/** The refusal a resume error stands for, if it is one. */
+function resumeRefusal(err: unknown): InteractionRefusal | undefined {
+  if (err instanceof ActionInitiatorMismatchError) return "not-initiator";
+  if (err instanceof ActionAlreadyClaimedError) return "already-claimed";
+  if (err instanceof ChannelChoiceInitiatorUnknownError) {
+    return "initiator-unknown";
+  }
+  return undefined;
 }
 
 function ingressPlatform(
@@ -1365,6 +1389,20 @@ export function createChannel<
               evt,
               identityContext.actor,
               "outside-conversation",
+            );
+            return;
+          }
+          // A refused click spends nothing, so a pending choice stays pending:
+          // the initiator can still answer it, and otherwise its timeout
+          // settles it.
+          const refusal = resumeRefusal(err);
+          if (refusal) {
+            await refuseInteraction(
+              adapter,
+              platform,
+              evt,
+              identityContext.actor,
+              refusal,
             );
             return;
           }
