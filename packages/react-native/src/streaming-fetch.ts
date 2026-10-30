@@ -51,13 +51,19 @@ function createAbortError(): DOMException {
 
 const installations = new WeakMap<typeof fetch, Promise<void>>();
 
+/** How long the capability check may take, counted from the first probe request. */
+const PROBE_DEADLINE_MS = 2_000;
+
 /**
  * Checks the installed fetch's response body rather than the global Response
  * constructor, which Expo can leave unchanged when installing streaming fetch.
  *
  * Uses local URLs without an HTTP request. Expo's Android fetch rejects data
- * URLs but returns a readable 404 for a missing file. Both attempts share a
- * one-second deadline; a missing reader, rejection, or timeout returns false.
+ * URLs but returns a readable 404 for a missing file. Both attempts share one
+ * deadline that starts when the first request is issued, not at import: the JS
+ * thread can be busy for a second or more at app start, and the timer would
+ * otherwise run out before the probe was even sent. A missing reader, rejection,
+ * or timeout returns false.
  */
 function supportsStreamingFetch(
   fetchImplementation: typeof fetch,
@@ -66,7 +72,7 @@ function supportsStreamingFetch(
     const controller =
       typeof AbortController === "function" ? new AbortController() : undefined;
     let settled = false;
-    const timer = setTimeout(() => finish(false), 1_000);
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
     /** Settles detection once, clears its deadline, and aborts the probe. */
     function finish(supported: boolean) {
@@ -80,6 +86,7 @@ function supportsStreamingFetch(
     /** Tries a data URL, then a local file only if the data request rejects. */
     async function probe() {
       const init = { signal: controller?.signal };
+      timer = setTimeout(() => finish(false), PROBE_DEADLINE_MS);
       let response: Response;
       try {
         response = await fetchImplementation.call(

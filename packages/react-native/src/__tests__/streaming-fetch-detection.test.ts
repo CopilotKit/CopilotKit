@@ -106,7 +106,7 @@ describe("streaming fetch capability detection", () => {
     void ready.then(() => {
       finished = true;
     });
-    await vi.advanceTimersByTimeAsync(999);
+    await vi.advanceTimersByTimeAsync(1_999);
     expect(finished).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
     await ready;
