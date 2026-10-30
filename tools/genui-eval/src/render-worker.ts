@@ -199,6 +199,8 @@ function reachableTypes(
   const types: string[] = [];
   const missing: string[] = [];
   const reached: string[] = [];
+  const renderedComponents: NonNullable<SurfaceCheck["renderedComponents"]> =
+    [];
   let interactive = false;
   const seen = new Set<string>();
   const queue: Array<{ id: string; base: string | undefined }> = [
@@ -240,6 +242,7 @@ function reachableTypes(
       string,
       unknown
     >;
+    renderedComponents.push({ id, component: found.type, props: resolved });
     for (const ref of definition.childRefs) {
       // childIdsAtRefs gives the ids; templates at a ref are expanded here.
       const at = ref.path.reduce<unknown>(
@@ -257,7 +260,13 @@ function reachableTypes(
       }
     }
   }
-  return { types, interactive, missing, reachable: reached };
+  return {
+    types,
+    interactive,
+    missing,
+    reachable: reached,
+    renderedComponents,
+  };
 }
 
 installDom();
@@ -406,6 +415,7 @@ async function check(
       components,
       missing: reach.missing,
       reachable: reach.reachable,
+      renderedComponents: reach.renderedComponents,
       proseOnly:
         !reach.interactive &&
         components.length > 0 &&

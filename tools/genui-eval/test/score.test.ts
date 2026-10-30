@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { loadCases } from "../src/cases";
 import { createFakeModel } from "../src/fake";
 import { runSample } from "../src/harness";
+import type { SampleOutput } from "../src/harness";
 import { RenderChecker } from "../src/render-check";
 import { scoreCode } from "../src/score";
 import type { Transport } from "../src/config";
@@ -23,6 +24,105 @@ async function score(id: string, transport: Transport = "markdown") {
 }
 
 describe("scoreCode with real rendering", () => {
+  it("fails raw validity for repaired JSON while recording successful recovery", async () => {
+    const c = {
+      ...cases["cafes-map"],
+      id: "repaired",
+      expect: { ui: true, components: ["Button"] },
+    };
+    const out = await runSample({
+      case: c,
+      transport: "markdown",
+      entry: { model: "fake:offline" },
+      model: createFakeModel("fake:offline"),
+    });
+    expect(out.parseErrors).toEqual([]);
+    expect(out.repairedLines).toHaveLength(1);
+    const checks = await checker.check(out.surfaces);
+    const scores = scoreCode(c, out, checks);
+    expect(scores.validity.pass).toBe(false);
+    expect(scores.validity.reasons).toContain("repaired fence line");
+    expect(scores.recoveredValidity).toEqual({ pass: true, reasons: [] });
+  });
+
+  it.each(["replaced", "unreachable", "bound-null", "bound-photo"])(
+    "checks expected props on final reachable instances: %s",
+    async (scenario) => {
+      const photo = "https://example.com/photo.png";
+      const card = { id: "card", component: "EntityCard", title: "Product" };
+      const out: SampleOutput = {
+        text: "",
+        visibleText: "",
+        toolCalls: [],
+        rejected: [],
+        parseErrors: [],
+        promptTokens: 0,
+        outputTokens: 0,
+        systemPrompt: "",
+        surfaces: [
+          {
+            surfaceId: "photos",
+            target: "chat",
+            status: "ready",
+            catalogId: "copilotkit://standard",
+            rejected: [],
+            operations: [
+              {
+                version: "v1.0",
+                createSurface: {
+                  surfaceId: "photos",
+                  dataModel: {
+                    photo: scenario === "bound-photo" ? photo : null,
+                  },
+                  components: [
+                    { id: "root", component: "Column", children: ["card"] },
+                    {
+                      ...card,
+                      image: scenario.startsWith("bound")
+                        ? { "@path": "/photo" }
+                        : photo,
+                    },
+                  ],
+                },
+              },
+              ...(scenario === "replaced" || scenario === "unreachable"
+                ? [
+                    {
+                      version: "v1.0" as const,
+                      updateComponents: {
+                        surfaceId: "photos",
+                        components:
+                          scenario === "replaced"
+                            ? [card]
+                            : [
+                                {
+                                  id: "root",
+                                  component: "EntityCard",
+                                  title: "No photo",
+                                },
+                              ],
+                      },
+                    },
+                  ]
+                : []),
+            ],
+          },
+        ],
+      };
+      const checks = await checker.check(out.surfaces);
+      expect(checks[0].errors).toEqual([]);
+      const scores = scoreCode(
+        {
+          ...cases["cafes-map"],
+          expect: { ui: true, components: ["EntityCard.image"] },
+        },
+        out,
+        checks,
+      );
+      expect(scores.fidelity.pass).toBe(scenario === "bound-photo");
+    },
+  );
+
   it("passes a valid map surface on every tier", async () => {
     const { checks, scores } = await score("cafes-map");
     expect(checks[0].components).toContain("Map");
@@ -372,14 +472,18 @@ describe("scoreCode with real rendering", () => {
     ).toContain('missing component: "missing"');
   });
 
-  it("counts a photo in an EntityCard for an Image|EntityCard.image expectation", () => {
-    const withCards = (image?: string) => ({
+  it("counts a photo in an EntityCard for an Image|EntityCard.image expectation", async () => {
+    const withCards = (image?: string): SampleOutput => ({
       text: "",
       visibleText: "",
       toolCalls: [],
       surfaces: [
         {
           surfaceId: "s",
+          target: "chat",
+          status: "ready",
+          catalogId: "copilotkit://standard",
+          rejected: [],
           operations: [
             {
               version: "v1.0",
@@ -397,7 +501,7 @@ describe("scoreCode with real rendering", () => {
               },
             },
           ],
-        } as never,
+        },
       ],
       rejected: [],
       parseErrors: [],
@@ -405,23 +509,18 @@ describe("scoreCode with real rendering", () => {
       outputTokens: 0,
       systemPrompt: "",
     });
-    const check = {
-      surfaceId: "s",
-      rendered: true,
-      errors: [],
-      rejected: [],
-      components: ["Column", "Map", "EntityCard"],
-      proseOnly: false,
-    };
     const c = {
       ...cases["cafes-map"],
       expect: { ui: true, components: ["Map", "Image|EntityCard.image"] },
     };
+    const photo = withCards("https://example.com/cafe.jpg");
+    const noPhoto = withCards(undefined);
     expect(
-      scoreCode(c, withCards("https://example.com/cafe.jpg"), [check]).fidelity,
+      scoreCode(c, photo, await checker.check(photo.surfaces)).fidelity,
     ).toEqual({ pass: true, reasons: [] });
     expect(
-      scoreCode(c, withCards(undefined), [check]).fidelity.reasons,
+      scoreCode(c, noPhoto, await checker.check(noPhoto.surfaces)).fidelity
+        .reasons,
     ).toEqual(["expected component not used: Image|EntityCard.image"]);
   });
 

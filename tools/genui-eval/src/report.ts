@@ -54,6 +54,7 @@ export interface ModelReport {
   promptTokens: Partial<Record<Transport, number>>;
   /** Samples cut at the output token cap: their validity is ungraded. */
   cut: number;
+  recoveredValidity: { train: Rate; heldout?: Rate; repairedLines: number };
   costUsd: number;
   costPerValidSurfaceUsd: number | null;
 }
@@ -70,6 +71,7 @@ export interface Report {
     | "stopped"
     | "spec"
     | "judge"
+    | "validityMode"
   >;
   models: ModelReport[];
   /** The weakest tags (training samples), by overall score. */
@@ -120,6 +122,12 @@ function modelReport(
   const valid = samples.filter((s) => s.surfaces > 0 && s.tiers.validity.pass);
   const validSurfaces = valid.reduce((sum, s) => sum + s.surfaces, 0);
   const cost = samples.reduce((sum, s) => sum + s.costUsd + s.judgeCostUsd, 0);
+  const recoveredRate = (rows: SampleRecord[]) => {
+    const graded = rows.flatMap((s) =>
+      s.recoveredValidity?.pass == null ? [] : [s.recoveredValidity],
+    );
+    return wilson(graded.filter((tier) => tier.pass).length, graded.length);
+  };
   return {
     model,
     modelName: samples[0]?.modelName ?? model,
@@ -149,6 +157,14 @@ function modelReport(
       ]),
     ),
     cut: samples.filter((s) => s.cut).length,
+    recoveredValidity: {
+      train: recoveredRate(train),
+      ...(heldout.length ? { heldout: recoveredRate(heldout) } : {}),
+      repairedLines: samples.reduce(
+        (total, s) => total + (s.repairedLines ?? 0),
+        0,
+      ),
+    },
     costUsd: cost,
     costPerValidSurfaceUsd: validSurfaces > 0 ? cost / validSurfaces : null,
   };
@@ -186,6 +202,7 @@ export function buildReport(
       ...(run.stopped ? { stopped: run.stopped } : {}),
       ...(run.spec ? { spec: run.spec } : {}),
       judge: run.judge,
+      ...(run.validityMode ? { validityMode: run.validityMode } : {}),
     },
     models,
     weakestTags: tags
@@ -217,6 +234,52 @@ export function buildReport(
     const myCases = caseSet(samples);
     const theirCases = caseSet(base.samples);
     const warnings: string[] = [];
+    const incompatible = new Set<string>();
+    const unverified = new Set<string>();
+    const parameters = (value: RunRecord["models"][number]["params"]) =>
+      JSON.stringify(
+        Object.entries(value ?? {}).sort(([a], [b]) => a.localeCompare(b)),
+      );
+    for (const id of ids) {
+      const mine = run.models.find((m) => m.id === id);
+      const theirs = base.run.models.find((m) => m.id === id);
+      if (!mine || !theirs) continue;
+      const names = (rows: SampleRecord[]) =>
+        [
+          ...new Set(
+            rows.filter((s) => s.model === id).map((s) => s.modelName),
+          ),
+        ].sort();
+      const changes = [
+        ...(mine.model !== theirs.model ||
+        JSON.stringify(names(samples)) !== JSON.stringify(names(base.samples))
+          ? ["model"]
+          : []),
+        ...(mine.provider !== theirs.provider ? ["provider"] : []),
+        ...(mine.params !== undefined &&
+        theirs.params !== undefined &&
+        parameters(mine.params) !== parameters(theirs.params)
+          ? ["params"]
+          : []),
+      ];
+      if (changes.length) {
+        incompatible.add(id);
+        warnings.push(
+          `${id}: ${changes.join(", ")} differ; no baseline comparison`,
+        );
+      }
+      if (mine.params === undefined || theirs.params === undefined) {
+        unverified.add(id);
+        warnings.push(
+          `${id}: generation parameters were not recorded in one or both runs; differences are not marked clear`,
+        );
+      }
+    }
+    const sameValidity = run.validityMode === base.run.validityMode;
+    if (!sameValidity)
+      warnings.push(
+        "validity definitions differ (raw vs legacy post-repair); no validity comparison",
+      );
     for (const r of [run, base.run]) {
       if (r.stopped) warnings.push(`run ${r.id} stopped early (${r.stopped})`);
     }
@@ -236,6 +299,7 @@ export function buildReport(
     }
     const delta: NonNullable<Report["base"]>["delta"] = [];
     for (const id of ids) {
+      if (incompatible.has(id)) continue;
       for (const split of ["train", "heldout"] as const) {
         const pick = (xs: readonly SampleRecord[]) =>
           xs.filter(
@@ -247,6 +311,7 @@ export function buildReport(
         const a = tierRates(mine);
         const b = tierRates(theirs);
         for (const tier of TIERS) {
+          if (tier === "validity" && !sameValidity) continue;
           const [ra, rb] = [a[tier].rate, b[tier].rate];
           // An empty tier on either side has nothing to compare.
           if (ra === null || rb === null) continue;
@@ -255,7 +320,7 @@ export function buildReport(
             split,
             tier,
             delta: ra - rb,
-            clear: clearlyDifferent(a[tier], b[tier]),
+            clear: !unverified.has(id) && clearlyDifferent(a[tier], b[tier]),
           });
         }
       }
@@ -296,6 +361,11 @@ export function formatReport(report: Report): string {
   lines.push("");
   lines.push("training cases");
   lines.push(
+    r.validityMode === "raw"
+      ? "validity: raw model output; recovery reported separately"
+      : "validity: legacy post-repair scoring",
+  );
+  lines.push(
     `${"model".padEnd(10)}${TIERS.map((t) => t.padEnd(12)).join("")}${"tokens md/tool".padEnd(16)}$/valid surface`,
   );
   for (const m of report.models) {
@@ -321,6 +391,11 @@ export function formatReport(report: Report): string {
     `overall (train) ${share(report.totals.overall)}${report.totals.heldoutOverall === null ? "" : `   held-out ${share(report.totals.heldoutOverall)}`}   samples ${report.totals.samples}   cost $${report.totals.costUsd.toFixed(2)}`,
   );
   for (const m of report.models) {
+    if (m.recoveredValidity.repairedLines > 0) {
+      lines.push(
+        `${m.model}: ${m.recoveredValidity.repairedLines} repaired lines; validity after recovery (train) ${share(m.recoveredValidity.train.rate)}${m.recoveredValidity.heldout ? `; held-out ${share(m.recoveredValidity.heldout.rate)}` : ""}`,
+      );
+    }
     if (m.cut > 0) {
       lines.push(
         `${m.model}: ${m.cut} replies cut at the output token cap (validity ungraded)`,
