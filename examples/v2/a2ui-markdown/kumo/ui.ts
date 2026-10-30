@@ -3,9 +3,11 @@ import {
   standardUI,
 } from "@copilotkit/react-core/v2/generative-ui";
 import { choiceOverrides } from "./choices";
+import { feedbackOverrides } from "./feedback";
 import { iconOverrides } from "./icons";
 import { inputOverrides } from "./inputs";
 import { layoutOverrides } from "./layout";
+import { overlayOverrides } from "./overlays";
 import { textOverrides } from "./text";
 
 /** Surfaces pin to this id. */
@@ -24,6 +26,8 @@ export const kumoUI = createGenerativeUI({
     ...textOverrides,
     ...inputOverrides,
     ...choiceOverrides,
+    ...overlayOverrides,
+    ...feedbackOverrides,
     ...iconOverrides,
   },
   components: {},

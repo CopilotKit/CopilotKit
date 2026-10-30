@@ -27,3 +27,42 @@ body > [data-base-ui-portal] > * {
   font-weight: revert-layer;
   line-height: revert-layer;
 }
+
+/* FlashcardFlip (./feedback.tsx): two faces that turn over. */
+.kumo-flashcard {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  perspective: 800px;
+}
+
+.kumo-flashcard-inner {
+  display: grid;
+  transform-style: preserve-3d;
+  transition: transform 0.45s ease;
+}
+
+.kumo-flashcard[aria-pressed="true"] .kumo-flashcard-inner {
+  transform: rotateY(180deg);
+}
+
+.kumo-flashcard-face {
+  grid-area: 1 / 1;
+  backface-visibility: hidden;
+}
+
+.kumo-flashcard-back {
+  transform: rotateY(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kumo-flashcard-inner {
+    transition: none;
+  }
+}

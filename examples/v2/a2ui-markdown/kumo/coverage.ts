@@ -61,11 +61,11 @@ export const KUMO_COVERAGE = {
   DateTimeInput: "composed",
   // Feedback
   PulseIndicator: "standard",
-  FlashcardFlip: "standard",
-  Popover: "standard",
-  PopoverTrigger: "standard",
-  PopoverContent: "standard",
-  Modal: "standard",
+  FlashcardFlip: "composed",
+  Popover: "kumo",
+  PopoverTrigger: "kumo",
+  PopoverContent: "kumo",
+  Modal: "kumo",
   // Data
   Table: "standard",
   TableSection: "standard",
