@@ -27,6 +27,7 @@ describe("@copilotkit/react-core/v2/headless runtime exports", () => {
       "useRenderToolCall",
       "useCapabilities",
       "useCopilotChatConfiguration",
+      "useLicenseContext",
     ];
     for (const name of hooks) {
       expect(
@@ -39,6 +40,7 @@ describe("@copilotkit/react-core/v2/headless runtime exports", () => {
   it("exports the provider, core class, and helpers as runtime values", () => {
     const values: (keyof typeof headless)[] = [
       "CopilotKitCoreReact",
+      "CopilotKitHeadlessProvider",
       "CopilotChatConfigurationProvider",
       "CopilotChatDefaultLabels",
       "defineToolCallRenderer",

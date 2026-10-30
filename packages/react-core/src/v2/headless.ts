@@ -22,8 +22,20 @@
 // The relative "./context" specifier is rewritten to the external package path
 // in the emitted declarations by the tsdown `build:done` hook (a relative
 // extensionless import is invalid in ESM declarations).
-export { CopilotKitCoreReact, useCopilotKit } from "./context";
+export {
+  CopilotKitCoreReact,
+  useCopilotKit,
+  useLicenseContext,
+} from "./context";
 export type { CopilotKitCoreReactConfig } from "./context";
+
+// Provider with the core setup, tools, context and license handling, and no
+// built-in UI. `CopilotKitProvider` in the main entry wraps it and adds the
+// built-in renderers, the Inspector and the license banner.
+export {
+  CopilotKitHeadlessProvider,
+  type CopilotKitHeadlessProviderProps,
+} from "./providers/CopilotKitHeadlessProvider";
 
 // Chat configuration provider (no UI, just context)
 export {
