@@ -1,3 +1,4 @@
+import { ɵresolveCustomMessageRenderers } from "@copilotkit/core";
 import { useCopilotChatConfiguration, useCopilotKit } from "../providers";
 import type { ReactCustomMessageRendererPosition } from "../types/react-custom-message-renderer";
 import type { Message } from "@ag-ui/core";
@@ -17,17 +18,10 @@ export function useRenderCustomMessages() {
 
   const { agentId, threadId } = config;
 
-  const customMessageRenderers = copilotkit.renderCustomMessages
-    .filter(
-      (renderer) =>
-        renderer.agentId === undefined || renderer.agentId === agentId,
-    )
-    .sort((a, b) => {
-      const aHasAgent = a.agentId !== undefined;
-      const bHasAgent = b.agentId !== undefined;
-      if (aHasAgent === bHasAgent) return 0;
-      return aHasAgent ? -1 : 1;
-    });
+  const customMessageRenderers = ɵresolveCustomMessageRenderers(
+    copilotkit.renderCustomMessages,
+    agentId,
+  );
 
   // No renderer can ever produce output, so hand the caller nothing rather
   // than a function that always returns null. Callers gate expensive work
