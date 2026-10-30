@@ -87,3 +87,44 @@ sample shows:
 The page needs no model and no API key. A scripted agent streams the
 surfaces in the browser (`app/catalog/catalog-agent.ts`). If a component has
 no sample, the page names it at the top.
+
+## The Kumo version
+
+`http://localhost:3011/kumo` and `http://localhost:3011/kumo/catalog` show
+the same example with the standard components drawn in
+[Kumo](https://kumo-ui.com), Cloudflare's design system. The **UI** links in
+the page header switch between the two.
+
+The model sees exactly the standard catalog. `kumo/ui.ts` extends
+`standardUI` and replaces only the React components with `overrides`, so
+the prompts, both transports and the agents stay the same.
+`kumo/coverage.ts` says how each of the 69 components is drawn, and
+`/kumo/catalog` shows it as a tag next to each name:
+
+| How                                | Count | Components                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kumo                               | 34    | Box (when it has a border, shadow or background), Grid, GridItem, Card, Tabs, Title, Text, Caption, Label, Bold, Italic, Underline, Strikethrough, Badge, Code, Link, Tooltip, Button, TextField, TextArea, Select, CheckBox, RadioGroup, Slider, SegmentedControl, Popover, PopoverTrigger, PopoverContent, Modal, Table, TableSection, TableRow, TableCell, Chart |
+| Composed from Kumo parts           | 12    | Radio, ChoicePicker, DateTimeInput, Icon (Phosphor, Kumo's icon set), LinkCard, Citation, FollowUp, EntityCard, ImageGrid, Blockquote, ShimmerText, FlashcardFlip                                                                                                                                                                                                   |
+| Base UI primitive with Kumo tokens | 2     | Divider, Form                                                                                                                                                                                                                                                                                                                                                       |
+| Standard (no Kumo counterpart)     | 21    | Column, Row, Spacer, Flow, FlowItem, Carousel, CarouselItem, CarouselMediaItem, Markdown, Math, Pressable, PulseIndicator, List, ListItem, Map, Image, Favicon, Svg, Video, AudioPlayer, HtmlView                                                                                                                                                                   |
+
+The standard components keep working on these pages: `kumo/theme.ts` sets
+every `--a2ui-*` variable to a Kumo token, so they use Kumo's colors,
+radii and chart palette.
+
+Notes:
+
+- Kumo's stylesheet is the standalone build, which has a global reset, so
+  only the `/kumo` pages load it (`app/kumo/layout.tsx`).
+- `kumo/kumo.css` hands heading sizes and control colors back to Kumo's
+  cascade layers, which the standard components' unlayered rules would
+  otherwise win over.
+- `kumo/day-picker.css` is copied from Kumo's Tailwind stylesheet, because
+  the standalone build of Kumo 2.16.0 leaves out the DatePicker styles.
+- Charts use Kumo's ECharts `Chart` for all six chart types, with Kumo's
+  categorical palette and legend.
+- Icons are Phosphor. The model writes lucide names, so `kumo/icons.tsx`
+  maps them; a name Phosphor does not have falls back to lucide.
+
+Run the tests of the Kumo components with
+`pnpm nx run @copilotkit/example-a2ui-markdown:test`.
