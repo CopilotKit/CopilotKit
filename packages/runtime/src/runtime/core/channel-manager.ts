@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import {
   ChannelConfigError,
   deriveChannelActivationConfig,
@@ -43,6 +42,7 @@ import {
   resolveLearningContainerSelector,
 } from "./learning";
 import type { CopilotRuntimeUser } from "./learning";
+import { bytesToBase64 } from "./web-crypto";
 
 /**
  * Lifecycle status of a single Channel activation, or of the manager overall.
@@ -972,7 +972,7 @@ async function hydrateManagedContent(
           ...part,
           source: {
             type: "data",
-            value: Buffer.from(asset.bytes).toString("base64"),
+            value: bytesToBase64(asset.bytes),
             mimeType:
               asset.mimeType ??
               ("mimeType" in part.source &&
@@ -996,7 +996,7 @@ async function hydrateManagedContent(
       ...content,
       source: {
         type: "data",
-        value: Buffer.from(asset.bytes).toString("base64"),
+        value: bytesToBase64(asset.bytes),
         mimeType:
           asset.mimeType ??
           ("mimeType" in content && typeof content.mimeType === "string"
@@ -1184,7 +1184,7 @@ export class ChannelManager implements ChannelsControl {
         ));
     this.mintRuntimeInstanceId =
       args.mintRuntimeInstanceId ??
-      (() => `rti_${randomUUID().replace(/-/g, "")}`);
+      (() => `rti_${globalThis.crypto.randomUUID().replace(/-/g, "")}`);
     this.stopHandleTimeoutMs =
       args.stopHandleTimeoutMs ?? DEFAULT_STOP_HANDLE_TIMEOUT_MS;
     this.reconnectLogIntervalMs =

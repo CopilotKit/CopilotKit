@@ -3,11 +3,11 @@ import type {
   GetLearnedSkillsSnapshotRequest,
   LearnedSkillsSnapshotResult,
 } from "../learned-skills";
-import { createHash } from "node:crypto";
 import { resolveRegistryConfig } from "./config";
 import type { SingleContainerConfig, SkillRegistryOptions } from "./config";
 import { SkillDeliveryError, invalidSnapshot } from "./errors";
 import type { SkillDeliveryErrorCode } from "./errors";
+import { sha256Hex } from "../../core/web-crypto";
 import { validateSnapshot } from "./snapshot";
 import type { VerifiedSnapshot } from "./snapshot";
 
@@ -308,24 +308,22 @@ export class SkillRegistry {
     this.#inFlight = Promise.all(
       this.#sources.map(({ registry }) => registry.acquireSnapshot()),
     )
-      .then((parts) => {
+      .then(async (parts) => {
         if (
           this.#snapshot &&
           parts.every((part, index) => part === this.#parts?.[index])
         ) {
           return this.#snapshot;
         }
-        const identity = createHash("sha256")
-          .update(
-            JSON.stringify(
-              parts.map((part, index) => [
-                this.#sources[index].id,
-                part.revision,
-                part.etag,
-              ]),
-            ),
-          )
-          .digest("hex");
+        const identity = await sha256Hex(
+          JSON.stringify(
+            parts.map((part, index) => [
+              this.#sources[index].id,
+              part.revision,
+              part.etag,
+            ]),
+          ),
+        );
         const skills = Object.freeze(
           parts.flatMap((part, index) =>
             part.skills.map((skill) =>

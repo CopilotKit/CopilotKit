@@ -116,17 +116,29 @@ type NodeModules = {
 
 let nodeModules: Promise<NodeModules> | undefined;
 
+type GetBuiltinModule = <T>(id: string) => T;
+
 // Loaded on first use so that importing the agent does not require Node
 // networking modules. Where they are not available (for example on an edge
 // runtime), downloads fail closed and the log says how to configure them.
+// `process.getBuiltinModule` (Node 20.16+) is used instead of `import("node:…")`
+// so that edge bundlers (Workers, Vercel Edge) never see a Node specifier.
 function loadNodeModules(): Promise<NodeModules> {
-  nodeModules ??= Promise.all([
-    import("node:dns/promises"),
-    import("node:http"),
-    import("node:https"),
-    import("node:net"),
-  ])
-    .then(([dns, http, https, net]) => ({ dns, http, https, net }))
+  nodeModules ??= Promise.resolve()
+    .then(() => {
+      const load = (
+        globalThis.process as
+          | { getBuiltinModule?: GetBuiltinModule }
+          | undefined
+      )?.getBuiltinModule;
+      if (!load) throw new Error("process.getBuiltinModule is not available");
+      return {
+        dns: load<typeof DnsPromises>("node:dns/promises"),
+        http: load<typeof Http>("node:http"),
+        https: load<typeof Https>("node:https"),
+        net: load<typeof Net>("node:net"),
+      };
+    })
     .catch((error: unknown) => {
       // Try again on the next download instead of failing forever.
       nodeModules = undefined;
