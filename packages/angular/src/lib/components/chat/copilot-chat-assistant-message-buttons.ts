@@ -50,29 +50,7 @@ export class CopilotChatAssistantMessageToolbarButton {
 
   computedClass = computed(() => {
     return cn(
-      // Flex centering with gap (from React button base styles)
-      "cpk:inline-flex cpk:items-center cpk:justify-center cpk:gap-2",
-      // Cursor
-      "cpk:cursor-pointer",
-      // Background and text
-      "cpk:p-0 cpk:text-[rgb(93,93,93)] cpk:hover:bg-[#E8E8E8]",
-      // Dark mode
-      "cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
-      // Shape and sizing
-      "cpk:h-8 cpk:w-8 cpk:rounded-md",
-      // Interactions
-      "cpk:transition-colors",
-      // Hover states
-      "cpk:hover:text-[rgb(93,93,93)]",
-      "cpk:dark:hover:text-[rgb(243,243,243)]",
-      // Focus states
-      "cpk:focus:outline-none cpk:focus:ring-2 cpk:focus:ring-offset-2",
-      // Disabled state
-      "cpk:disabled:opacity-50 cpk:disabled:cursor-not-allowed",
-      // SVG styling from React Button component
-      "cpk:[&_svg]:pointer-events-none cpk:[&_svg]:shrink-0",
-      // Ensure proper sizing
-      "cpk:shrink-0",
+      "cpk-button cpk-button-assistant-message-toolbar cpk-button-size-default",
       this.inputClass(),
     );
   });
@@ -93,9 +71,15 @@ export class CopilotChatAssistantMessageToolbarButton {
       (click)="handleCopy($event)"
     >
       @if (copied()) {
-        <copilot-icon [img]="CheckIcon" [size]="18"></copilot-icon>
+        <copilot-icon
+          [img]="CheckIcon"
+          iconClass="cpk-assistant-message-toolbar-icon"
+        ></copilot-icon>
       } @else {
-        <copilot-icon [img]="CopyIcon" [size]="18"></copilot-icon>
+        <copilot-icon
+          [img]="CopyIcon"
+          iconClass="cpk-assistant-message-toolbar-icon"
+        ></copilot-icon>
       }
     </button>
   `,
@@ -139,7 +123,10 @@ export class CopilotChatAssistantMessageCopyButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <copilot-icon [img]="ThumbsUpIcon" [size]="18"></copilot-icon>
+      <copilot-icon
+        [img]="ThumbsUpIcon"
+        iconClass="cpk-assistant-message-toolbar-icon"
+      ></copilot-icon>
     </button>
   `,
 })
@@ -173,7 +160,10 @@ export class CopilotChatAssistantMessageThumbsUpButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <copilot-icon [img]="ThumbsDownIcon" [size]="18"></copilot-icon>
+      <copilot-icon
+        [img]="ThumbsDownIcon"
+        iconClass="cpk-assistant-message-toolbar-icon"
+      ></copilot-icon>
     </button>
   `,
 })
@@ -207,7 +197,10 @@ export class CopilotChatAssistantMessageThumbsDownButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <copilot-icon [img]="Volume2Icon" [size]="20"></copilot-icon>
+      <copilot-icon
+        [img]="Volume2Icon"
+        iconClass="cpk-assistant-message-read-aloud-icon"
+      ></copilot-icon>
     </button>
   `,
 })
@@ -241,7 +234,10 @@ export class CopilotChatAssistantMessageReadAloudButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <copilot-icon [img]="RefreshCwIcon" [size]="18"></copilot-icon>
+      <copilot-icon
+        [img]="RefreshCwIcon"
+        iconClass="cpk-assistant-message-toolbar-icon"
+      ></copilot-icon>
     </button>
   `,
 })

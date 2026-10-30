@@ -33,6 +33,7 @@ export * from "./lib/directives/copilotkit-agent-context";
 export * from "./lib/directives/stick-to-bottom";
 export * from "./lib/directives/tooltip";
 
+export * from "./lib/components/copilot-kit-styles";
 export * from "./lib/components/chat/copilot-chat";
 export * from "./lib/components/chat/copilot-chat-assistant-message";
 export * from "./lib/components/chat/copilot-chat-assistant-message-buttons";

@@ -14,7 +14,7 @@ import {
     <button
       [disabled]="disabled"
       (click)="handleClick()"
-      class="cpk:rounded-full cpk:w-10 cpk:h-10 cpk:bg-blue-500 cpk:text-white cpk:hover:bg-blue-600 cpk:transition-colors cpk:mr-2 cpk:disabled:opacity-50 cpk:disabled:cursor-not-allowed"
+      class="story-send-button story-send-button-blue"
     >
       ✈️
     </button>

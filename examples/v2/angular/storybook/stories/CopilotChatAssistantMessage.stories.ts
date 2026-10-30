@@ -573,13 +573,13 @@ export const WithAdditionalToolbarItems: Story = {
             [additionalToolbarItems]="additionalItems">
             <ng-template #additionalItems>
               <button 
-                class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
+                class="story-toolbar-button"
                 (click)="onCustom1()"
                 title="Custom Action 1">
                 📌
               </button>
               <button 
-                class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
+                class="story-toolbar-button"
                 (click)="onCustom2()"
                 title="Custom Action 2">
                 ❤️
@@ -605,13 +605,13 @@ import { AssistantMessage } from '@ag-ui/client';
   template: \`
     <ng-template #additionalItems>
       <button 
-        class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
+        class="story-toolbar-button"
         (click)="onCustom1()"
         title="Custom Action 1">
         📌
       </button>
       <button 
-        class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
+        class="story-toolbar-button"
         (click)="onCustom2()"
         title="Custom Action 2">
         ❤️

@@ -36,22 +36,23 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
   (sync or async) to build them fresh. A builder runs when each request is
   sent, so a refreshed token is always used.
 
-  Cache inside the builder — a builder that calls the network every time adds
-  one call per request. If the builder throws or rejects, that request is not
-  sent and `onError` gets `header_resolution_failed`.
+Cache inside the builder — a builder that calls the network every time adds
+one call per request. If the builder throws or rejects, that request is not
+sent and `onError` gets `header_resolution_failed`.
 
-  Re-passing the same builder function is a no-op. On a user switch, pass a
-  new function (or a record) to `copilotKit.updateRuntime({ headers })` (see
-  the [`CopilotKit`](/reference/angular/services/CopilotKit) service), or
-  remount, so Inspector metadata and thread lists reload for the new user.
-  This does not refetch the runtime's `/info`.
+Re-passing the same builder function is a no-op. On a user switch, pass a
+new function (or a record) to `copilotKit.updateRuntime({ headers })` (see
+the [`CopilotKit`](/reference/angular/services/CopilotKit) service), or
+remount, so Inspector metadata and thread lists reload for the new user.
+This does not refetch the runtime's `/info`.
 
-  Core headers are also sent to any `selfManagedAgents` /
-  `agents__unsafe_dev_only` agent, including ones on other origins. Don't put
-  a bearer token in core headers if those agents point at a third party.
+Core headers are also sent to any `selfManagedAgents` /
+`agents__unsafe_dev_only` agent, including ones on other origins. Don't put
+a bearer token in core headers if those agents point at a third party.
 
-  If you pass a format-valid `licenseKey`, a `X-CopilotCloud-Public-Api-Key`
-  header is merged in automatically unless you already set one here.
+If you pass a format-valid `licenseKey`, a `X-CopilotCloud-Public-Api-Key`
+header is merged in automatically unless you already set one here.
+
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials">
@@ -107,6 +108,12 @@ passing the key explicitly as `undefined`.
   Controls the CopilotKit Inspector in development browser builds. It is shown
   by default unless set to `false`, and is never loaded in production or during
   server-side rendering, even when explicitly set to `true`.
+</PropertyReference>
+
+<PropertyReference name="injectStyles" type="boolean" default="true">
+  Set to `false` when you add `@copilotkit/core/styles.css` to the `styles` in
+  `angular.json`, so browsers cache the CSS as a file. CopilotKit then adds no
+  `<style>` tag. See [Styling](/reference/angular#styling).
 </PropertyReference>
 
 <PropertyReference name="agents" type="Record<string, AbstractAgent>">

@@ -21,8 +21,6 @@
     "highlight.js",
     "katex",
     "marked",
-    "dompurify",
-    "clsx",
-    "tailwind-merge"
+    "dompurify"
   ]
 }

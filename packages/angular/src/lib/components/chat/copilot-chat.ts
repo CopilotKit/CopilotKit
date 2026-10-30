@@ -14,6 +14,7 @@ import {
 } from "@angular/core";
 
 import { CopilotChatView } from "./copilot-chat-view";
+import { hostStyles } from "../host-styles";
 import { CopilotChatAttachmentsDirective } from "./copilot-chat-attachments.directive";
 
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
@@ -44,7 +45,8 @@ import { explicitEffect } from "../../explicit-effect";
   imports: [CopilotChatView, CopilotChatAttachmentsDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
-  host: { "data-copilotkit": "", class: "cpk:block cpk:h-full cpk:min-h-0" },
+  host: { "data-copilotkit": "" },
+  styles: [hostStyles],
   template: `
     <div
       style="display: contents"
@@ -56,7 +58,6 @@ import { explicitEffect } from "../../explicit-effect";
         [state]="agentState()"
         [agentId]="resolvedAgentId()"
         [autoScroll]="true"
-        [messageViewClass]="'cpk:w-full'"
         [showCursor]="showCursor()"
         [inputComponent]="inputComponent()"
         [assistantMessageComponent]="assistantMessageComponent()"

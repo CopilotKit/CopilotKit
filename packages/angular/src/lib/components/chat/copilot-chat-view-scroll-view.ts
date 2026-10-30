@@ -36,7 +36,7 @@ import { takeUntil } from "rxjs/operators";
  */
 @Component({
   selector: "copilot-chat-view-scroll-view",
-  host: { class: "cpk:block cpk:flex-1 cpk:min-h-0" },
+  host: { class: "cpk-chat-view-scroll-view" },
   imports: [
     ScrollingModule,
     NgTemplateOutlet,

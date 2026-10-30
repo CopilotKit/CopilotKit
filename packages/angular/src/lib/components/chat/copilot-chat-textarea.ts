@@ -70,19 +70,7 @@ export class CopilotChatTextarea implements AfterViewInit {
   disabled = computed(() => this.inputDisabled() ?? false);
 
   computedClass = computed(() => {
-    const baseClasses = cn(
-      // Layout and sizing
-      "cpk:w-full",
-      // Behavior
-      "cpk:outline-none cpk:resize-none",
-      // Background
-      "cpk:bg-transparent",
-      // Typography
-      "cpk:antialiased cpk:font-regular cpk:leading-relaxed cpk:text-[16px]",
-      // Placeholder styles
-      "cpk:placeholder:text-[#00000077] cpk:dark:placeholder:text-[#fffc]",
-    );
-    return cn(baseClasses, this.inputClass());
+    return cn("cpk-chat-input-textarea", this.inputClass());
   });
 
   constructor() {

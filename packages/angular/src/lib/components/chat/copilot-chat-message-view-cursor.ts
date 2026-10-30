@@ -23,11 +23,7 @@ import { cn } from "../../utils";
 export class CopilotChatMessageViewCursor {
   inputClass = input<string | undefined>();
 
-  // Computed class that matches React exactly, with the Angular package Tailwind prefix.
   computedClass = computed(() =>
-    cn(
-      "cpk:w-[11px] cpk:h-[11px] cpk:rounded-full cpk:bg-foreground cpk:animate-pulse-cursor cpk:ml-1",
-      this.inputClass(),
-    ),
+    cn("cpk-message-view-cursor", this.inputClass()),
   );
 }

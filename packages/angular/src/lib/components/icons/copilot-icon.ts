@@ -14,8 +14,7 @@ export type CopilotIconData = readonly CopilotIconNode[];
   host: { "aria-hidden": "true" },
   styles: `
     :host {
-      display: inline-flex;
-      line-height: 0;
+      display: contents;
     }
 
     svg {
@@ -33,6 +32,7 @@ export type CopilotIconData = readonly CopilotIconNode[];
       stroke-linejoin="round"
       focusable="false"
       aria-hidden="true"
+      [attr.class]="iconClass() ?? null"
       [attr.width]="size()"
       [attr.height]="size()"
     >
@@ -59,6 +59,8 @@ export type CopilotIconData = readonly CopilotIconNode[];
 export class CopilotIcon {
   readonly img = input.required<CopilotIconData>();
   readonly size = input(24);
+  /** Class for the `<svg>`. Its CSS width and height override `size`. */
+  readonly iconClass = input<string | undefined>();
 }
 
 function path(d: string): CopilotIconNode {
@@ -87,6 +89,10 @@ export const Edit: CopilotIconData = [
   path(
     "M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z",
   ),
+];
+export const Loader2: CopilotIconData = [path("M21 12a9 9 0 1 1-6.219-8.56")];
+export const MessageCircle: CopilotIconData = [
+  path("M7.9 20A9 9 0 1 0 4 16.1L2 22Z"),
 ];
 export const Mic: CopilotIconData = [
   path("M12 19v3"),

@@ -38,11 +38,12 @@ import {
 } from "./copilot-chat-assistant-message-buttons";
 import { CopilotChatAssistantMessageToolbar } from "./copilot-chat-assistant-message-toolbar";
 import { cn } from "../../utils";
+import { hostStyles } from "../host-styles";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 
 @Component({
   selector: "copilot-chat-assistant-message",
-  host: { "data-copilotkit": "", class: "cpk:block cpk:w-full" },
+  host: { "data-copilotkit": "" },
   imports: [
     CommonModule,
     CopilotSlot,
@@ -62,20 +63,22 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
       role="article"
     >
       <!-- Markdown Renderer -->
-      @if (markdownRendererTemplate || markdownRendererComponent()) {
-        <copilot-slot
-          [slot]="markdownRendererTemplate || markdownRendererComponent()"
-          [context]="markdownRendererContext()"
-          [defaultComponent]="CopilotChatAssistantMessageRenderer"
-        >
-        </copilot-slot>
-      } @else {
-        <copilot-chat-assistant-message-renderer
-          [content]="message().content || ''"
-          [inputClass]="markdownRendererClass()"
-        >
-        </copilot-chat-assistant-message-renderer>
-      }
+      <div class="cpk-markdown cpk-assistant-message-markdown">
+        @if (markdownRendererTemplate || markdownRendererComponent()) {
+          <copilot-slot
+            [slot]="markdownRendererTemplate || markdownRendererComponent()"
+            [context]="markdownRendererContext()"
+            [defaultComponent]="CopilotChatAssistantMessageRenderer"
+          >
+          </copilot-slot>
+        } @else {
+          <copilot-chat-assistant-message-renderer
+            [content]="message().content || ''"
+            [inputClass]="markdownRendererClass()"
+          >
+          </copilot-chat-assistant-message-renderer>
+        }
+      </div>
 
       <!-- Tool Calls View -->
       @if (toolCallsViewTemplate || toolCallsViewComponent()) {
@@ -106,7 +109,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
           </copilot-slot>
         } @else {
           <div copilotChatAssistantMessageToolbar [inputClass]="toolbarClass()">
-            <div class="cpk:flex cpk:items-center cpk:gap-1">
+            <div class="cpk-assistant-message-toolbar-items">
               <!-- Copy button -->
               @if (copyButtonTemplate || copyButtonComponent()) {
                 <copilot-slot
@@ -188,6 +191,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
     </div>
   `,
   styles: [
+    hostStyles,
     `
       /* Import KaTeX styles */
       @import "katex/dist/katex.min.css";
@@ -428,7 +432,7 @@ export class CopilotChatAssistantMessage {
   // Computed values
   computedClass = computed(() => {
     return cn(
-      "copilotKitMessage copilotKitAssistantMessage cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert",
+      "copilotKitMessage copilotKitAssistantMessage",
       this.customClass(),
     );
   });

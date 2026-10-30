@@ -23,6 +23,7 @@ import {
   createRowKeyStore,
   resolveRowRenderKeys,
 } from "@copilotkit/shared";
+import { hostStyles } from "../host-styles";
 
 /**
  * CopilotChatMessageView component - Angular port of the React component.
@@ -43,6 +44,7 @@ import {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
+  styles: [hostStyles],
   template: `
     <!-- Custom layout template support (render prop pattern) -->
     @if (customLayoutTemplate) {
@@ -123,17 +125,19 @@ import {
 
         <!-- Cursor - exactly like React's conditional rendering -->
         @if (showCursorValue()) {
-          @if (cursorComponent() || cursorTemplate()) {
-            <copilot-slot
-              [slot]="cursorTemplate() || cursorComponent()"
-              [context]="{ inputClass: cursorClass() }"
-              [defaultComponent]="defaultCursorComponent"
-            >
-            </copilot-slot>
-          } @else {
-            <copilot-chat-message-view-cursor [inputClass]="cursorClass()">
-            </copilot-chat-message-view-cursor>
-          }
+          <div class="cpk-message-view-cursor-container">
+            @if (cursorComponent() || cursorTemplate()) {
+              <copilot-slot
+                [slot]="cursorTemplate() || cursorComponent()"
+                [context]="{ inputClass: cursorClass() }"
+                [defaultComponent]="defaultCursorComponent"
+              >
+              </copilot-slot>
+            } @else {
+              <copilot-chat-message-view-cursor [inputClass]="cursorClass()">
+              </copilot-chat-message-view-cursor>
+            }
+          </div>
         }
       </div>
     }
@@ -222,7 +226,7 @@ export class CopilotChatMessageView {
 
   // Computed class matching React: twMerge("flex flex-col", className)
   computedClass = computed(() =>
-    cn("cpk:flex cpk:flex-col", this.inputClass()),
+    cn("copilotKitMessages cpk-message-view", this.inputClass()),
   );
 
   // Layout context for custom templates (render prop pattern)

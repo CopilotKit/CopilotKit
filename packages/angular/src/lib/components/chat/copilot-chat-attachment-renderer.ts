@@ -23,26 +23,27 @@ import { cn } from "../../utils";
       @case ("image") {
         @if (imageFailed()) {
           <div [class]="failedImageClass()">
-            <div class="copilotKitImageRenderingErrorMessage">
-              Failed to load image
-            </div>
+            <span>Failed to load image</span>
           </div>
         } @else {
-          <div [class]="imageWrapperClass()">
-            <img
-              [src]="sourceUrl()"
-              alt="Image attachment"
-              class="copilotKitImageRenderingImage"
-              (error)="imageFailed.set(true)"
-            />
-          </div>
+          <img
+            [src]="sourceUrl()"
+            alt="Image attachment"
+            [class]="imageClass()"
+            (error)="imageFailed.set(true)"
+          />
         }
       }
       @case ("audio") {
         <div [class]="audioClass()">
-          <audio [src]="sourceUrl()" controls preload="metadata"></audio>
+          <audio
+            [src]="sourceUrl()"
+            controls
+            preload="metadata"
+            class="cpk-attachment-renderer-audio-player"
+          ></audio>
           @if (filename()) {
-            <span class="copilotKitAttachmentFilename">
+            <span class="cpk-attachment-renderer-audio-filename">
               {{ filename() }}
             </span>
           }
@@ -58,12 +59,12 @@ import { cn } from "../../utils";
       }
       @default {
         <div [class]="documentClass()">
-          <div class="copilotKitAttachmentDocIcon">{{ documentIcon() }}</div>
-          <div class="copilotKitAttachmentDocInfo">
-            <span class="copilotKitAttachmentDocName">
-              {{ filename() || source().mimeType || "Unknown type" }}
-            </span>
-          </div>
+          <span class="cpk-attachment-renderer-document-icon">
+            {{ documentIcon() }}
+          </span>
+          <span class="cpk-attachment-renderer-document-name">
+            {{ filename() || source().mimeType || "Unknown type" }}
+          </span>
         </div>
       }
     }
@@ -81,22 +82,34 @@ export class CopilotChatAttachmentRenderer {
     getDocumentIcon(this.source().mimeType ?? ""),
   );
 
-  readonly imageWrapperClass = computed(() =>
-    cn("copilotKitImageRendering", this.inputClass()),
+  readonly imageClass = computed(() =>
+    cn(
+      "cpk-attachment-renderer cpk-attachment-renderer-image",
+      this.inputClass(),
+    ),
   );
   readonly failedImageClass = computed(() =>
     cn(
-      "copilotKitImageRendering copilotKitImageRenderingError",
+      "cpk-attachment-renderer cpk-attachment-renderer-image-error",
       this.inputClass(),
     ),
   );
   readonly audioClass = computed(() =>
-    cn("copilotKitAttachment copilotKitAttachmentAudio", this.inputClass()),
+    cn(
+      "cpk-attachment-renderer cpk-attachment-renderer-audio",
+      this.inputClass(),
+    ),
   );
   readonly videoClass = computed(() =>
-    cn("copilotKitAttachment copilotKitAttachmentVideo", this.inputClass()),
+    cn(
+      "cpk-attachment-renderer cpk-attachment-renderer-video",
+      this.inputClass(),
+    ),
   );
   readonly documentClass = computed(() =>
-    cn("copilotKitAttachment copilotKitAttachmentDocument", this.inputClass()),
+    cn(
+      "cpk-attachment-renderer cpk-attachment-renderer-document",
+      this.inputClass(),
+    ),
   );
 }
