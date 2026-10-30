@@ -1,5 +1,5 @@
 import { basicCatalog } from "./a2ui-react";
-import type { ComponentApi, Catalog } from "@a2ui/web_core/v0_9";
+import type { ComponentApi, Catalog, InlineCatalog } from "@a2ui/web_core/v0_9";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 const BASIC_CATALOG_ID =
@@ -98,8 +98,7 @@ export function buildCatalogContextValue(
  * name and uses `allOf` to compose ComponentCommon with component-specific
  * properties so the schema mirrors the flat wire format the LLM must produce.
  */
-export interface InlineCatalogSchema {
-  catalogId: string;
+export interface InlineCatalogSchema extends Omit<InlineCatalog, "components"> {
   components: Record<string, Record<string, unknown>>;
 }
 
@@ -124,9 +123,7 @@ export function extractCatalogComponentSchemas(
   const components: Record<string, Record<string, unknown>> = {};
 
   for (const [name, comp] of resolved.components) {
-    const zodSchema = zodToJsonSchema(comp.schema, {
-      target: "jsonSchema2019-09",
-    }) as { properties?: Record<string, unknown>; required?: string[] };
+    const zodSchema = serializeCatalogSchema(comp.schema);
 
     components[name] = {
       allOf: [
@@ -142,5 +139,63 @@ export function extractCatalogComponentSchemas(
     };
   }
 
-  return { catalogId: resolved.id, components };
+  const functions = Array.from(resolved.functions?.values() ?? [], (api) => ({
+    name: api.name,
+    description: api.schema.description,
+    returnType: api.returnType,
+    parameters: serializeCatalogSchema(api.schema),
+  }));
+  const theme = resolved.themeSchema
+    ? serializeCatalogSchema(resolved.themeSchema).properties
+    : undefined;
+
+  return {
+    catalogId: resolved.id,
+    components,
+    functions: functions.length > 0 ? functions : undefined,
+    theme,
+  };
+}
+
+function serializeCatalogSchema(schema: ComponentApi["schema"]) {
+  const jsonSchema = zodToJsonSchema(schema, {
+    target: "jsonSchema2019-09",
+    // The component envelope moves properties under allOf[1], and REF markers
+    // can replace an entire subtree (e.g. accessibility). Inline reused schemas
+    // first so neither operation leaves references to their former locations.
+    $refStrategy: "none",
+  }) as {
+    properties?: Record<string, Record<string, unknown>>;
+    required?: string[];
+  };
+  processCatalogRefs(jsonSchema);
+  return jsonSchema;
+}
+
+/**
+ * Adapted from MessageProcessor.processRefs in @a2ui/web_core 0.10.4,
+ * src/v0_9/processing/message-processor.js (Copyright 2025 Google LLC,
+ * Apache-2.0). Keep its REF: conversion semantics aligned with upstream.
+ *
+ * getClientCapabilities has no public schema-conversion hook or $refStrategy
+ * option, so it can leave aliases pointing into subtrees removed by REF tags.
+ * Replace this adapter with the public serializer when it supports inlining
+ * reused schemas before processing REF tags.
+ */
+function processCatalogRefs(node: unknown): void {
+  if (typeof node !== "object" || node === null) return;
+
+  const schema = node as Record<string, unknown>;
+  if (
+    typeof schema.description === "string" &&
+    schema.description.startsWith("REF:")
+  ) {
+    const [ref, description] = schema.description.slice(4).split("|");
+    for (const key of Object.keys(schema)) delete schema[key];
+    schema.$ref = ref;
+    if (description) schema.description = description;
+    return;
+  }
+
+  for (const child of Object.values(schema)) processCatalogRefs(child);
 }
