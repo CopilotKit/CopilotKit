@@ -23,16 +23,16 @@
 
 - [ ] Click the "Write a blog post" suggestion (the supervisor should delegate to research → writing → critique)
 - [ ] Within 5s of the run starting, verify `data-testid="supervisor-running"` appears next to the heading
-- [ ] Verify a `data-testid="delegation-entry"` for `Research` appears with the running task visible, then transitions from `running` to `completed` with a bulleted list of facts
-- [ ] Verify a `Writing` entry appears next, transitioning from `running` to `completed` with a polished paragraph in the result
-- [ ] Verify a `Critique` entry appears last, transitioning from `running` to `completed` with 2-3 actionable critiques
+- [ ] After the research tool returns, verify a `data-testid="delegation-entry"` for `Research` appears as `completed` with the task and a bulleted list of facts
+- [ ] After the writing tool returns, verify a `Writing` entry appears as `completed` with a polished paragraph in the result
+- [ ] After the critique tool returns, verify a `Critique` entry appears as `completed` with 2-3 actionable critiques
 - [ ] Verify `data-testid="delegation-count"` reads `3 calls` after the full sequence completes
 - [ ] Verify each entry's badge shows the correct sub-agent label and emoji (Research 🔎, Writing ✍️, Critique 🧐)
 
-#### Live Updates
+#### State Updates
 
-- [ ] While a delegation is in flight, verify the entry is visible with status `running` and the placeholder copy "Sub-agent is working..."
-- [ ] Verify entries are appended in order (#1, #2, #3) as the supervisor calls each sub-agent
+- [ ] Verify each entry appears after its tool returns. PydanticAI sends the state snapshot with the tool result, so an in-flight `running` entry is not expected
+- [ ] Verify entries are appended in order (#1, #2, #3) as the supervisor receives each tool result
 
 #### Multi-Turn Accumulation
 
@@ -53,7 +53,7 @@
 ## Expected Results
 
 - Page loads within 3 seconds
-- First delegation entry appears within 5 seconds of submitting a multi-step task
+- First delegation entry appears after the research tool returns
 - Each sub-agent completes within 30 seconds for short tasks
 - The full research → write → critique chain runs and the log shows 3 entries, all `completed`
 - Failed sub-agents render as `failed` (red) with a server-safe message; the supervisor does not pretend the work succeeded
