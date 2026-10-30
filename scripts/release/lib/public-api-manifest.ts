@@ -145,49 +145,7 @@ const HOST_FACTORIES: HostFactorySpec[] = [
   },
 ];
 
-const DEPRECATIONS: DeprecationSpec[] = [
-  {
-    importPath: "@copilotkit/runtime/node",
-    entrySource: "packages/runtime/src/node.ts",
-    symbol: "createNodeFetchHandler",
-    declarationPath:
-      "packages/runtime/src/runtime/endpoints/node-fetch-handler.ts",
-    replacement: {
-      importPath: "@copilotkit/runtime/node",
-      symbol: "createCopilotNodeHandler",
-    },
-  },
-  {
-    importPath: "@copilotkit/runtime",
-    entrySource: "packages/runtime/src/index.ts",
-    symbol: "CopilotKitRequestHandler",
-    declarationPath: "packages/runtime/src/runtime/index.ts",
-    replacement: {
-      importPath: "@copilotkit/runtime",
-      symbol: "CopilotRuntimeFetchHandler",
-    },
-  },
-  {
-    importPath: "@copilotkit/runtime",
-    entrySource: "packages/runtime/src/index.ts",
-    symbol: "BasicAgent",
-    declarationPath: "packages/runtime/src/agent/index.ts",
-    replacement: {
-      importPath: "@copilotkit/runtime",
-      symbol: "BuiltInAgent",
-    },
-  },
-  {
-    importPath: "@copilotkit/runtime",
-    entrySource: "packages/runtime/src/index.ts",
-    symbol: "BasicAgentConfiguration",
-    declarationPath: "packages/runtime/src/agent/index.ts",
-    replacement: {
-      importPath: "@copilotkit/runtime",
-      symbol: "BuiltInAgentClassicConfig",
-    },
-  },
-];
+const DEPRECATIONS: DeprecationSpec[] = [];
 
 function readJson<T>(path: string): T {
   try {
