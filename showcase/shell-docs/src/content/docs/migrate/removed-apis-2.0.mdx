@@ -40,7 +40,7 @@ The first three replacements take the same arguments, so the rename is the full 
 
 `CopilotRuntimeFetchHandler` takes the `Request` directly. Remove the `{ request }` object from each call:
 
-```ts title="Before"
+```ts ignore title="Before"
 import type { CopilotKitRequestHandler } from "@copilotkit/runtime";
 
 export function forward(handler: CopilotKitRequestHandler, request: Request) {
@@ -65,28 +65,44 @@ The `showDevConsole` prop on `CopilotKitProvider` had no effect. Delete it. The 
 To turn the Inspector on or off, set `enableInspector`:
 
 ```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit" enableInspector={false}>
-  {children}
-</CopilotKitProvider>
+"use client";
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" enableInspector={false}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ### `disclaimer` on `CopilotChatView`
 
 Move `disclaimer` into the `input` slot:
 
-```tsx title="Before"
+```tsx ignore title="Before"
 <CopilotChatView disclaimer={MyDisclaimer} />
 ```
 
 ```tsx title="After"
-<CopilotChatView input={{ disclaimer: MyDisclaimer }} />
+import { CopilotChatView } from "@copilotkit/react-core";
+
+function MyDisclaimer() {
+  return <p>Answers can contain mistakes.</p>;
+}
+
+export function Chat() {
+  return <CopilotChatView input={{ disclaimer: MyDisclaimer }} />;
+}
 ```
 
 ### `routes` in learning options
 
 The `routes` option had no effect, because capture keeps the raw URLs. Delete it from the `learning` prop and from `createCollector` options:
 
-```tsx title="Before"
+```tsx ignore title="Before"
 <CopilotKitProvider
   runtimeUrl="/api/copilotkit"
   learning={{ routes: ["/deals/:id"], ignoreUrls: ["/health"] }}
@@ -94,7 +110,17 @@ The `routes` option had no effect, because capture keeps the raw URLs. Delete it
 ```
 
 ```tsx title="After"
-<CopilotKitProvider runtimeUrl="/api/copilotkit" learning={{ ignoreUrls: ["/health"] }}>
+"use client";
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" learning={{ ignoreUrls: ["/health"] }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ## A2UI renderer
@@ -113,7 +139,7 @@ The `routes` option had no effect, because capture keeps the raw URLs. Delete it
 
 `createA2UICatalog` took one object, with the `props`, `description`, and `render` of each component. `createCatalog` takes the definitions and the renderers as two objects:
 
-```tsx title="Before"
+```tsx ignore title="Before"
 import { createA2UICatalog } from "@copilotkit/a2ui-renderer";
 import { z } from "zod";
 
@@ -145,7 +171,7 @@ const definitions = {
 } satisfies CatalogDefinitions;
 
 const renderers: CatalogRenderers<typeof definitions> = {
-  StatusBadge: ({ props }) => <span>{props.text}</span>,
+  StatusBadge: ({ props }) => <span>{String(props.text)}</span>,
 };
 
 export const catalog = createCatalog(definitions, renderers, {
@@ -159,7 +185,7 @@ If you called `extractA2UISchema(components)`, call `extractSchema(definitions)`
 
 `ImageData` is removed. To send an image to the agent, put an `ImageInputPart` in the `content` of the user message:
 
-```ts title="Before"
+```ts ignore title="Before"
 import type { ImageData } from "@copilotkit/shared";
 
 const image: ImageData = { format: "png", bytes: base64 };
@@ -168,10 +194,12 @@ const image: ImageData = { format: "png", bytes: base64 };
 ```ts title="After"
 import type { ImageInputPart } from "@copilotkit/shared";
 
-const image: ImageInputPart = {
-  type: "image",
-  source: { type: "data", value: base64, mimeType: "image/png" },
-};
+export function pngPart(base64: string): ImageInputPart {
+  return {
+    type: "image",
+    source: { type: "data", value: base64, mimeType: "image/png" },
+  };
+}
 ```
 
 The `image` field on `AIMessage` is also removed. An assistant message carries text in `content`. To let users attach images in the chat, see [multimodal attachments](/multimodal-attachments).
@@ -181,5 +209,12 @@ The `image` field on `AIMessage` is also removed. An assistant message carries t
 The `headers` property of the `cpk-thread-inspector` element is removed. Set `resolveHeaders` instead. The inspector calls it before each request, so a refreshed token is always used:
 
 ```ts
-inspector.resolveHeaders = () => ({ Authorization: `Bearer ${getToken()}` });
+import { THREAD_INSPECTOR_TAG, type CpkThreadInspector } from "@copilotkit/web-inspector";
+
+export function setInspectorToken(getToken: () => string) {
+  const inspector = document.querySelector<CpkThreadInspector>(THREAD_INSPECTOR_TAG);
+  if (inspector) {
+    inspector.resolveHeaders = () => ({ Authorization: `Bearer ${getToken()}` });
+  }
+}
 ```

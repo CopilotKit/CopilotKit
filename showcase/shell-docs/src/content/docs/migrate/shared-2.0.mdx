@@ -15,7 +15,7 @@ The codemod does not change this code. Use the sections below.
 
 `CopilotKitError` extends `Error` in 2.0, not `GraphQLError`. A check with `instanceof GraphQLError` now returns `false` for CopilotKit errors. Use `instanceof CopilotKitError`:
 
-```ts title="Before"
+```ts ignore title="Before"
 import { GraphQLError } from "graphql";
 
 if (error instanceof GraphQLError) {
@@ -26,8 +26,10 @@ if (error instanceof GraphQLError) {
 ```ts title="After"
 import { CopilotKitError } from "@copilotkit/shared";
 
-if (error instanceof CopilotKitError) {
-  console.error(error.extensions.code);
+export function logErrorCode(error: unknown) {
+  if (error instanceof CopilotKitError) {
+    console.error(error.extensions.code);
+  }
 }
 ```
 
@@ -44,7 +46,7 @@ if (error instanceof CopilotKitError) {
 
 `dataToUUID` made a v5 UUID from a string. To get the same IDs, use the same namespace that `dataToUUID` used:
 
-```ts title="Before"
+```ts ignore title="Before"
 import { dataToUUID, isValidUUID } from "@copilotkit/shared";
 
 const id = dataToUUID("order-42");
