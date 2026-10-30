@@ -145,7 +145,7 @@ jobs:
         compatibility: [minimum, latest]
         include:
           - project: intelligence-langgraph
-            node: "20.19.0"
+            node: "20.19.3"
           - project: intelligence-mastra
             node: "22.13.0"
         project: [intelligence-langgraph, intelligence-mastra]

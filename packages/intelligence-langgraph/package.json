@@ -50,7 +50,7 @@
     "@copilotkit/intelligence-delivery-core": "workspace:*"
   },
   "engines": {
-    "node": ">=20.19.0"
+    "node": "^20.19.3 || >=22.13.0"
   },
   "peerDependencies": {
     "@langchain/core": ">=1.2.10 <2",
