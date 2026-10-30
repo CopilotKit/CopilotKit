@@ -1,6 +1,8 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { render, act, waitFor } from "@testing-library/react";
+import { render, act, waitFor, fireEvent } from "@testing-library/react";
 import React, { useState } from "react";
+import { HttpAgent } from "@ag-ui/client";
+import type { ActivityMessage } from "@ag-ui/core";
 import type { Theme } from "@copilotkit/a2ui-renderer";
 
 // Imported statically, NOT with `await import()` inside each test.
@@ -818,6 +820,201 @@ describe("A2UIMessageRenderer — resolving which surface an operation addresses
     const messages = warn.mock.calls.map((call) => String(call[0]));
     expect(messages.filter((m) => m.includes("no surface by that id"))).toEqual(
       [],
+    );
+  });
+});
+
+describe("existing surface updates", () => {
+  const surfaceId = "parallel-batch-739";
+  const activity = (
+    id: string,
+    text: string,
+    create = false,
+  ): ActivityMessage => ({
+    id,
+    role: "activity",
+    activityType: "a2ui-surface",
+    content: {
+      a2ui_operations: [
+        ...(create
+          ? [
+              {
+                version: "v0.9",
+                createSurface: {
+                  surfaceId,
+                  catalogId:
+                    "https://a2ui.org/specification/v0_9/basic_catalog.json",
+                },
+              },
+            ]
+          : []),
+        {
+          version: "v0.9",
+          updateComponents: {
+            surfaceId,
+            components: [{ id: "root", component: "Text", text }],
+          },
+        },
+      ],
+    },
+  });
+
+  it("applies new update activities to the original mounted surface and replays one surface", async () => {
+    const original = activity("a2ui-surface-original", "Original", true);
+    const update = activity("a2ui-surface-update", "Updated");
+    const secondUpdate = activity("a2ui-surface-update-2", "Final");
+    const agent = new HttpAgent({ url: "http://unused.test" });
+    agent.setMessages([original]);
+    const Renderer = createA2UIMessageRenderer({ theme: {} as Theme }).render;
+    const { container, rerender, unmount } = render(
+      <Renderer
+        activityType="a2ui-surface"
+        message={original}
+        content={original.content}
+        agent={agent}
+      />,
+    );
+    await waitFor(() => expect(container.textContent).toContain("Original"));
+    const originalNode = container.querySelector("[data-surface-id]");
+    await act(async () => {
+      agent.setMessages([original, update, secondUpdate]);
+    });
+    await waitFor(() => expect(container.textContent).toContain("Final"));
+    expect(container.querySelector("[data-surface-id]")).toBe(originalNode);
+    rerender(
+      <>
+        {[original, update, secondUpdate].map((message) => (
+          <Renderer
+            key={message.id}
+            activityType="a2ui-surface"
+            message={message}
+            content={message.content}
+            agent={agent}
+          />
+        ))}
+      </>,
+    );
+    await waitFor(() =>
+      expect(container.querySelectorAll("[data-surface-id]")).toHaveLength(1),
+    );
+    expect(agent.messages).toEqual([original, update, secondUpdate]);
+    unmount();
+    const replay = render(
+      <>
+        {[original, update, secondUpdate].map((message) => (
+          <Renderer
+            key={message.id}
+            activityType="a2ui-surface"
+            message={message}
+            content={message.content}
+            agent={agent}
+          />
+        ))}
+      </>,
+    );
+    await waitFor(() =>
+      expect(replay.container.textContent).toContain("Final"),
+    );
+    expect(replay.container.querySelectorAll("[data-surface-id]")).toHaveLength(
+      1,
+    );
+  });
+});
+
+describe("surface model continuity", () => {
+  const surfaceId = "editable";
+  const owner = (
+    component: Record<string, unknown>,
+    data?: Record<string, unknown>,
+  ): ActivityMessage => ({
+    id: "owner",
+    role: "activity",
+    activityType: "a2ui-surface",
+    content: {
+      a2ui_operations: [
+        {
+          version: "v0.9",
+          createSurface: {
+            surfaceId,
+            catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
+          },
+        },
+        {
+          version: "v0.9",
+          updateComponents: {
+            surfaceId,
+            components: [{ id: "root", ...component }],
+          },
+        },
+        ...(data
+          ? [
+              {
+                version: "v0.9",
+                updateDataModel: { surfaceId, path: "/", value: data },
+              },
+            ]
+          : []),
+      ],
+    },
+  });
+  const update: ActivityMessage = {
+    id: "update",
+    role: "activity",
+    activityType: "a2ui-surface",
+    content: {
+      a2ui_operations: [
+        {
+          version: "v0.9",
+          updateDataModel: { surfaceId, path: "/extra", value: "Added" },
+        },
+      ],
+    },
+  };
+  it("does not replay original data over user edits when an unrelated update arrives", async () => {
+    const original = owner(
+      { component: "TextField", label: "Name", value: { path: "/name" } },
+      { name: "Alice" },
+    );
+    const agent = new HttpAgent({ url: "http://unused.test" });
+    agent.setMessages([original]);
+    const Renderer = createA2UIMessageRenderer({ theme: {} as Theme }).render;
+    const view = render(
+      <Renderer
+        activityType="a2ui-surface"
+        message={original}
+        content={original.content}
+        agent={agent}
+      />,
+    );
+    // Wait for the paint handoff: label queries also match the offscreen
+    // aria-hidden surface before its requestAnimationFrame makes it visible.
+    const field = await view.findByRole("textbox", { name: "Name" });
+    fireEvent.change(field, { target: { value: "Bob" } });
+    expect(view.getByRole("textbox")).toHaveProperty("value", "Bob");
+    await act(async () => {
+      agent.setMessages([original, update]);
+    });
+    expect(view.getByRole("textbox")).toHaveProperty("value", "Bob");
+  });
+  it("rebuilds the surface after history removes an update", async () => {
+    const original = owner({ component: "Text", text: { path: "/extra" } });
+    const agent = new HttpAgent({ url: "http://unused.test" });
+    agent.setMessages([original, update]);
+    const Renderer = createA2UIMessageRenderer({ theme: {} as Theme }).render;
+    const view = render(
+      <Renderer
+        activityType="a2ui-surface"
+        message={original}
+        content={original.content}
+        agent={agent}
+      />,
+    );
+    await waitFor(() => expect(view.container.textContent).toContain("Added"));
+    await act(async () => {
+      agent.setMessages([original]);
+    });
+    await waitFor(() =>
+      expect(view.container.textContent).not.toContain("Added"),
     );
   });
 });
