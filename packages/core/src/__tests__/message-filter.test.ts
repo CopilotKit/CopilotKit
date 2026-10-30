@@ -239,6 +239,113 @@ describe("ɵrepairToolCallPairs", () => {
       ɵrepairToolCallPairs([firstResult], full).map((message) => message.id),
     ).toEqual([firstCall.id, firstResult.id]);
   });
+
+  it("restores a result when the kept call is a structural copy", () => {
+    const call = createToolCallMessage("lookup");
+    const result = createToolResultMessage(toolCallIdOf(call), "done");
+    const full = [createMessage({ id: "u1" }), call, result];
+    const copy = structuredClone(full) as Message[];
+    const copyToOriginal = new Map(
+      copy.map((message, index) => [message, full[index]!] as const),
+    );
+
+    const repaired = ɵrepairToolCallPairs(
+      [copy[1]!],
+      full,
+      copyToOriginal,
+    );
+
+    expect(repaired[0]).toBe(copy[1]);
+    expect(repaired[1]).toBe(result);
+  });
+
+  it("restores the issuer when the kept result is a structural copy", () => {
+    const call = createToolCallMessage("lookup");
+    const result = createToolResultMessage(toolCallIdOf(call), "done");
+    const full = [createMessage({ id: "u1" }), call, result];
+    const copy = structuredClone(full) as Message[];
+    const copyToOriginal = new Map(
+      copy.map((message, index) => [message, full[index]!] as const),
+    );
+
+    const repaired = ɵrepairToolCallPairs(
+      [copy[2]!],
+      full,
+      copyToOriginal,
+    );
+
+    expect(repaired[0]).toBe(call);
+    expect(repaired[1]).toBe(copy[2]);
+  });
+
+  it("restores the issuer when a structural copy's id is shared", () => {
+    const call = createToolCallMessage("lookup", {}, { id: "dup" });
+    const result = createToolResultMessage(toolCallIdOf(call), "done", {
+      id: "dup",
+    });
+    const full = [createMessage({ id: "u1" }), call, result];
+    const copy = structuredClone(full) as Message[];
+    const copyToOriginal = new Map(
+      copy.map((message, index) => [message, full[index]!] as const),
+    );
+
+    const repaired = ɵrepairToolCallPairs([copy[2]!], full, copyToOriginal);
+
+    expect(repaired[0]).toBe(call);
+    expect(repaired[1]).toBe(copy[2]);
+  });
+
+  it("restores a result when a structural copy of the call shares its id", () => {
+    const call = createToolCallMessage("lookup", {}, { id: "dup" });
+    const result = createToolResultMessage(toolCallIdOf(call), "done", {
+      id: "dup",
+    });
+    const full = [createMessage({ id: "u1" }), call, result];
+    const copy = structuredClone(full) as Message[];
+    const copyToOriginal = new Map(
+      copy.map((message, index) => [message, full[index]!] as const),
+    );
+
+    const repaired = ɵrepairToolCallPairs([copy[1]!], full, copyToOriginal);
+
+    expect(repaired[0]).toBe(copy[1]);
+    expect(repaired[1]).toBe(result);
+    expect(repaired).toHaveLength(2);
+  });
+
+  it("keeps distinct messages that share an id", () => {
+    const first = { id: "same", role: "user", content: "first" } as Message;
+    const second = { id: "same", role: "user", content: "second" } as Message;
+
+    expect(ɵrepairToolCallPairs([first, second], [first, second])).toEqual([
+      first,
+      second,
+    ]);
+  });
+
+  it("does not collapse messages without an id", () => {
+    const first = { role: "user", content: "first" } as Message;
+    const second = { role: "user", content: "second" } as Message;
+
+    expect(ɵrepairToolCallPairs([first, second], [first, second])).toEqual([
+      first,
+      second,
+    ]);
+  });
+
+  it("pairs results for distinct assistant messages that share an id", () => {
+    const firstCall = reusedToolCall("a1");
+    const firstResult = createToolResultMessage("call_0", "first", {
+      id: "t1",
+    });
+    const secondCall = reusedToolCall("a1");
+    const secondResult = createToolResultMessage("call_0", "second", {
+      id: "t2",
+    });
+    const full = [firstCall, firstResult, secondCall, secondResult];
+
+    expect(ɵrepairToolCallPairs(full, full)).toEqual(full);
+  });
 });
 
 const userMsg = (id: string) => ({ id, role: "user", content: id }) as Message;
@@ -1725,9 +1832,10 @@ describe("ProxiedCopilotRuntimeAgent messageFilter", () => {
     expect(sent.some((m) => m.role === "tool")).toBe(false);
   });
 
-  it("never sends a message twice under an identity filter, even with a shared id", async () => {
+  it("keeps both distinct messages that share an id under an identity filter", async () => {
     // The filter hands back clones, so they cannot be matched to the store by
-    // reference; a kept call must not also be restored from the store.
+    // reference; the repair de-duplicates by object identity, not by id, so a
+    // kept text message that shares its id with the tool call still goes out.
     const call = createToolCallMessage("lookup", {}, { id: "x" });
     const result = createToolResultMessage(toolCallIdOf(call), "done");
     const agent = new ProxiedCopilotRuntimeAgent({
@@ -1747,14 +1855,11 @@ describe("ProxiedCopilotRuntimeAgent messageFilter", () => {
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const sent = sentMessages(init);
-    // ɵrepairToolCallPairs de-duplicates by message id, so the text message
-    // that shares the call's id ("same id") is not sent: a known limitation
-    // of the filter repair. Nothing is sent twice, which is what this test
-    // guards.
     expect(sent.map((m) => [m.id, m.role])).toEqual([
       ["u1", "user"],
       ["x", "assistant"],
       [result.id, "tool"],
+      ["x", "assistant"],
     ]);
     expect(toolCallIdsOf(sent[1]!)).toEqual([toolCallIdOf(call)]);
   });
