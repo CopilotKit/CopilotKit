@@ -138,6 +138,15 @@ const SINGLE_ROUTE_ENVELOPE_MESSAGE =
   'the transport, or mount the runtime with mode: "single-route" to serve ' +
   "this envelope.";
 
+/**
+ * Run requests carry the whole message history plus inline attachments, each up
+ * to 20 MiB before base64 by default, so this leaves room for several.
+ */
+const DEFAULT_MAX_BODY_BYTES = 64 * 1024 * 1024;
+
+/** Room for roughly two hours of recorded audio, base64-encoded. */
+const DEFAULT_MAX_TRANSCRIPTION_BODY_BYTES = 128 * 1024 * 1024;
+
 /* ------------------------------------------------------------------------------------------------
  * Public types
  * --------------------------------------------------------------------------------------------- */
@@ -174,6 +183,19 @@ export interface CopilotRuntimeHandlerOptions {
    * Lifecycle hooks for request processing.
    */
   hooks?: CopilotRuntimeHooks;
+
+  /**
+   * Largest request body, in bytes, the handler reads. Anything larger is
+   * answered with 413, including bodies that omit or understate Content-Length.
+   * Defaults to 64 MiB. Set `Infinity` to remove the limit.
+   */
+  maxBodyBytes?: number;
+
+  /**
+   * Same as {@link maxBodyBytes}, for transcription requests, which carry audio.
+   * Defaults to 128 MiB.
+   */
+  maxTranscriptionBodyBytes?: number;
 
   /**
    * Whether the handler builds the runtime's declared managed-Channel control
@@ -327,7 +349,15 @@ export function createCopilotRuntimeHandler(
 export function createCopilotRuntimeHandler(
   options: CopilotRuntimeHandlerOptions,
 ): CopilotRuntimeFetchHandler {
-  const { runtime, basePath, mode = "multi-route", cors, hooks } = options;
+  const {
+    runtime,
+    basePath,
+    mode = "multi-route",
+    cors,
+    hooks,
+    maxBodyBytes = DEFAULT_MAX_BODY_BYTES,
+    maxTranscriptionBodyBytes = DEFAULT_MAX_TRANSCRIPTION_BODY_BYTES,
+  } = options;
 
   fireInstanceCreatedTelemetry({ runtime });
 
@@ -353,6 +383,18 @@ export function createCopilotRuntimeHandler(
         if (preflight) return preflight;
       }
 
+      // Limit the body before anything can read it, hooks included. A
+      // single-route request names its method inside the body, so it is read up
+      // to the larger limit and checked against its own once parsed.
+      const readLimit =
+        mode === "single-route"
+          ? Math.max(maxBodyBytes, maxTranscriptionBodyBytes)
+          : matchRoute(path, basePath)?.method === "transcribe"
+            ? maxTranscriptionBodyBytes
+            : maxBodyBytes;
+      const bodyCount: BodyReadCount = { bytes: 0 };
+      limitRequestBody(request, readLimit, bodyCount);
+
       // 2. onRequest hook
       request = await runOnRequest(hooks, { ...baseCtx, request });
 
@@ -377,6 +419,9 @@ export function createCopilotRuntimeHandler(
         throw mwError;
       }
 
+      // A hook or middleware may have swapped in a new Request.
+      limitRequestBody(request, readLimit, bodyCount);
+
       // 4. Route matching
       let response: Response;
 
@@ -388,6 +433,11 @@ export function createCopilotRuntimeHandler(
           runtime.exposeMemoryRoutes === true,
         );
         route = resolved.route;
+        const methodLimit =
+          route.method === "transcribe"
+            ? maxTranscriptionBodyBytes
+            : maxBodyBytes;
+        if (bodyCount.bytes > methodLimit) throw payloadTooLarge(methodLimit);
         request = resolved.request;
         handlerPath = resolved.path;
         const { methodCall } = resolved;
@@ -447,7 +497,12 @@ export function createCopilotRuntimeHandler(
           // matches no route here. Say so, rather than leaving the developer
           // with a bare 404 and no way to tell a transport mismatch from a
           // wrong `basePath` (issue OSS-882).
-          const envelopeMethod = await detectSingleRouteEnvelope(request);
+          const atBasePath =
+            !basePath ||
+            path.replace(/\/$/, "") === basePath.replace(/\/$/, "");
+          const envelopeMethod = atBasePath
+            ? await detectSingleRouteEnvelope(request)
+            : null;
           if (envelopeMethod) {
             logger.warn(
               { url: request.url, path, method: envelopeMethod },
@@ -494,6 +549,9 @@ export function createCopilotRuntimeHandler(
           runtime,
           route,
         });
+
+        limitRequestBody(request, readLimit, bodyCount);
+        await bufferRequestBody(request);
 
         // 6. Handler dispatch
         response = await dispatchRoute(runtime, request, route, {
@@ -984,6 +1042,194 @@ function maybeAddCors(
 ): Response {
   if (!config) return response;
   return addCorsHeaders(response, config, requestOrigin);
+}
+
+function payloadTooLarge(maxBytes: number): Response {
+  return jsonResponse(
+    {
+      error: "payload_too_large",
+      message: `Request body exceeds the ${maxBytes}-byte limit`,
+    },
+    413,
+  );
+}
+
+/** Bytes read so far: the most any one reader of a request has seen. */
+interface BodyReadCount {
+  bytes: number;
+}
+
+const BODY_READERS = [
+  "arrayBuffer",
+  "blob",
+  "bytes",
+  "formData",
+  "json",
+  "text",
+] as const;
+
+const limitedRequests = new WeakSet<Request>();
+
+/**
+ * Serve a request's body through `read`, on the caller's own object: hooks keep
+ * subclass members such as NextRequest's `cookies`, and the abort signal is
+ * untouched. Nothing else on the Request changes.
+ */
+function overrideBody(
+  request: Request,
+  {
+    read,
+    body,
+    bodyUsed,
+    clone,
+  }: {
+    read: () => Response;
+    body: () => ReadableStream<Uint8Array> | null;
+    bodyUsed: () => boolean;
+    clone: () => Request;
+  },
+): void {
+  for (const reader of BODY_READERS) {
+    if (!(reader in request)) continue;
+    Object.defineProperty(request, reader, {
+      configurable: true,
+      value: () => (read() as any)[reader](),
+    });
+  }
+  Object.defineProperty(request, "clone", { configurable: true, value: clone });
+  Object.defineProperty(request, "body", {
+    configurable: true,
+    get: body,
+  });
+  Object.defineProperty(request, "bodyUsed", {
+    configurable: true,
+    get: bodyUsed,
+  });
+}
+
+function countBytes(
+  body: ReadableStream<Uint8Array>,
+  maxBytes: number,
+  count: BodyReadCount,
+): ReadableStream<Uint8Array> {
+  let received = 0;
+  // `preventCancel` leaves the source unread rather than cancelled: cancelling
+  // a Node request stream can destroy the socket before the 413 is written.
+  return body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        received += chunk.byteLength;
+        count.bytes = Math.max(count.bytes, received);
+        if (received > maxBytes) controller.error(payloadTooLarge(maxBytes));
+        else controller.enqueue(chunk);
+      },
+    }),
+    { preventCancel: true },
+  );
+}
+
+/**
+ * Reject a declared oversized body up front and count bytes on the rest, at the
+ * point each reader consumes them. Until something reads, the original stream
+ * is untouched, so `new Request(request, ...)` in a hook keeps working. An
+ * overrun errors the read with a {@link payloadTooLarge} Response, which reaches
+ * the handler's catch like any thrown Response.
+ */
+function limitRequestBody(
+  request: Request,
+  maxBytes: number,
+  count: BodyReadCount,
+): void {
+  if (limitedRequests.has(request)) return;
+  if (Number(request.headers.get("content-length")) > maxBytes) {
+    throw payloadTooLarge(maxBytes);
+  }
+
+  // Reads go through the request, not its prototype: Next.js wraps it in a
+  // Proxy, and native getters refuse a Proxy as receiver on engines with real
+  // private state. Removing the override lets the wrapper reach the native one.
+  const unshadowed = <T>(name: string, get: () => T): T => {
+    const own = Object.getOwnPropertyDescriptor(request, name);
+    if (own) Reflect.deleteProperty(request, name);
+    try {
+      return get();
+    } finally {
+      if (own) Object.defineProperty(request, name, own);
+    }
+  };
+  const original = <T>(name: string) =>
+    unshadowed(name, () => Reflect.get(request, name) as T);
+  if (!original<ReadableStream | null>("body")) return;
+  limitedRequests.add(request);
+
+  let counted: Response | undefined;
+  const read = () =>
+    (counted ??= new Response(countBytes(original("body"), maxBytes, count), {
+      headers: request.headers,
+    }));
+
+  // Only looking at `request.body` must not start the read, or a later clone
+  // could no longer split the original stream. Readers start on the first pull.
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  const body = new ReadableStream<Uint8Array>(
+    {
+      async pull(controller) {
+        reader ??= read().body!.getReader();
+        const { done, value } = await reader.read();
+        if (done) controller.close();
+        else controller.enqueue(value);
+      },
+      cancel: (reason) => reader?.cancel(reason),
+    },
+    { highWaterMark: 0 },
+  );
+
+  overrideBody(request, {
+    read,
+    body: () => body,
+    bodyUsed: () => counted?.bodyUsed ?? original<boolean>("bodyUsed"),
+    clone: () => {
+      const clone = unshadowed("clone", () => request.clone());
+      limitRequestBody(clone, maxBytes, count);
+      return clone;
+    },
+  });
+}
+
+/**
+ * Read the body once, so an overrun is a 413 here rather than whatever each
+ * reader's own error handling makes of it. Later readers and clones share these
+ * bytes instead of each holding a copy.
+ */
+async function bufferRequestBody(request: Request): Promise<void> {
+  if (!request.body || request.bodyUsed) return;
+  const bytes = new Uint8Array(await request.arrayBuffer());
+  const stream = () =>
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(bytes);
+        controller.close();
+      },
+    });
+
+  let response: Response | undefined;
+  const read = () =>
+    (response ??= new Response(stream(), { headers: request.headers }));
+  overrideBody(request, {
+    read,
+    body: () => read().body,
+    bodyUsed: () => response?.bodyUsed ?? false,
+    clone: () => {
+      if (response?.bodyUsed) throw new TypeError("Body is unusable");
+      return new Request(request.url, {
+        method: request.method,
+        headers: request.headers,
+        signal: request.signal,
+        body: stream(),
+        duplex: "half",
+      } as RequestInit);
+    },
+  });
 }
 
 function jsonResponse(

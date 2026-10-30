@@ -59,6 +59,10 @@ route answers `invalid_request`. As JSON, `mimeType` is required alongside the b
 `audio`, and a payload without it is rejected the same way.
 </Callout>
 
+<Callout type="info" title="Upload size">
+`/transcribe` accepts bodies up to 128 MiB by default and answers `413` above that. Change it with `maxTranscriptionBodyBytes`; see [Request body limits](/runtime-server-adapter#request-body-limits).
+</Callout>
+
 <WhenFrameworkHas flag="voice_backend_pattern" equals="adk-fastapi-agent-path">
 For the Google ADK showcase, agent runs take one more hop: this Next.js route registers the `voice-demo` agent with an `HttpAgent` pointed at `${AGENT_URL}/voice`. The Python `agent_server.py` mounts registered ADK agents with `add_adk_fastapi_endpoint(app, ..., path=f"/{agent_name}")`, so the browser talks to `/api/copilotkit-voice` while the Next.js runtime forwards voice-demo agent runs to the backend `/voice` endpoint.
 </WhenFrameworkHas>

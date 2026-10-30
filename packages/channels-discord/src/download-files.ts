@@ -93,6 +93,34 @@ function mediaPartType(
   return null;
 }
 
+/** Read a response body, stopping with null as soon as it passes `maxBytes`. */
+async function readBodyWithLimit(
+  res: Response,
+  maxBytes: number,
+): Promise<Uint8Array | null> {
+  if (Number(res.headers?.get("content-length")) > maxBytes) {
+    await res.body?.cancel();
+    return null;
+  }
+  const out: Uint8Array[] = [];
+  let total = 0;
+  const reader = res.body?.getReader();
+  if (!reader) {
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    return bytes.length > maxBytes ? null : bytes;
+  }
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) return Buffer.concat(out, total);
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      return null;
+    }
+    out.push(value);
+  }
+}
+
 /**
  * Download Discord message attachments and convert them to AG-UI content parts.
  *
@@ -169,14 +197,13 @@ export async function buildFileContentParts(
       continue;
     }
 
-    const bytes = new Uint8Array(await res.arrayBuffer());
-
-    // Double-check the actual downloaded size — the reported `att.size` can
-    // lie (or be absent), so re-gate on the real byte length.
-    if (bytes.length > maxBytes) {
+    // Re-gate on the real byte length while reading: the reported `att.size`
+    // can lie (or be absent).
+    const bytes = await readBodyWithLimit(res, maxBytes);
+    if (!bytes) {
       parts.push({
         type: "text",
-        text: `[attachment "${att.name}" skipped: ~${Math.round(bytes.length / 1e6)} MB exceeds the ${Math.round(maxBytes / 1e6)} MB limit]`,
+        text: `[attachment "${att.name}" skipped: exceeds the ${Math.round(maxBytes / 1e6)} MB limit]`,
       });
       continue;
     }
