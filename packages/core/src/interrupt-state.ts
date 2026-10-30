@@ -66,6 +66,7 @@ export class ɵInterruptState<TValue = unknown> {
   #adoptedContent = new Map<string, ɵInterruptToolResult["content"]>();
   #pending: ɵPendingInterrupt<TValue> | null = null;
   #sealed = false;
+  readonly #listeners = new Set<() => void>();
 
   /** Return the active normalized interrupt without exposing mutable state. */
   get pending(): ɵPendingInterrupt<TValue> | null {
@@ -74,6 +75,34 @@ export class ɵInterruptState<TValue = unknown> {
       return { kind: "standard", interrupts: [...pending.interrupts] };
     }
     return pending;
+  }
+
+  /** Observe shared decisions without taking ownership of continuation. */
+  subscribe(listener: () => void): () => void {
+    this.#listeners.add(listener);
+    return () => {
+      this.#listeners.delete(listener);
+    };
+  }
+
+  /** Select the first unanswered interrupt; reading never claims a continuation. */
+  nextInterrupt(messages: readonly Message[] = []): Interrupt | null {
+    if (this.#pending?.kind !== "standard" || this.#sealed) return null;
+    return (
+      this.#pending.interrupts.find(
+        (interrupt) =>
+          !Object.prototype.hasOwnProperty.call(
+            this.#responses,
+            interrupt.id,
+          ) && !this.isCompletedToolCall(interrupt.id, messages),
+      ) ?? null
+    );
+  }
+
+  #notify(): void {
+    // Listeners may unsubscribe and resubscribe while handling a decision.
+    const listeners = [...this.#listeners];
+    for (const listener of listeners) listener();
   }
 
   /** Replace the current interrupt with a legacy custom-event interrupt. */
@@ -176,29 +205,26 @@ export class ɵInterruptState<TValue = unknown> {
     }
   }
 
-  /** Let UI adapters ignore answers for exactly one successful frontend result. */
+  /** Let UI adapters ignore explicit answers for successful frontend results. */
   isCompletedToolCall(
     interruptId: string | undefined,
     messages: readonly Message[],
   ): boolean {
     const pending = this.#pending;
     if (pending?.kind !== "standard") return false;
-    const id = interruptId ?? pending.interrupts[0]?.id;
-    const interrupt = pending.interrupts.find((entry) => entry.id === id);
+    const interrupt = pending.interrupts.find(
+      (entry) => entry.id === interruptId,
+    );
     if (interrupt?.reason !== "tool_call" || !interrupt.toolCallId)
       return false;
     // Do not hide duplicate results: resolve/cancel still reaches #decide's error.
-    const results = messages.filter(
-      (message) =>
-        message.role === "tool" &&
-        message.toolCallId === interrupt.toolCallId &&
-        !isForwardedToClientPlaceholder(message.content),
-    );
+    const results = this.#toolResults(interrupt.toolCallId, messages);
     const result = results[0];
     return (
-      results.length === 1 &&
-      result?.role === "tool" &&
-      result.error === undefined
+      (results.length === 0 && this.#adoptedContent.has(interrupt.id)) ||
+      (results.length === 1 &&
+        result?.role === "tool" &&
+        result.error === undefined)
     );
   }
 
@@ -223,7 +249,16 @@ export class ɵInterruptState<TValue = unknown> {
     response: ResumeResponse,
     messages: readonly Message[],
   ): ɵInterruptDecision {
-    const id = interruptId ?? interrupts[0]?.id;
+    const id = interruptId ?? this.nextInterrupt(messages)?.id;
+    // No-action decisions must not hide ambiguous history. Explicit unknown IDs
+    // retain their existing ignored behavior; ordinary answers validate in #decide.
+    if (id === undefined && interruptId === undefined) {
+      this.validateToolCalls(messages);
+      for (const interrupt of interrupts) {
+        if (interrupt.reason !== "tool_call" || !interrupt.toolCallId) continue;
+        this.#validatedToolResult(interrupt.toolCallId, messages);
+      }
+    }
     if (!id || !interrupts.some((interrupt) => interrupt.id === id)) {
       return { kind: "ignored" };
     }
@@ -232,6 +267,22 @@ export class ɵInterruptState<TValue = unknown> {
       { ...this.#responses, [id]: response },
       messages,
     );
+  }
+
+  #toolResults(toolCallId: string, messages: readonly Message[]) {
+    return messages.filter(
+      (message): message is Extract<Message, { role: "tool" }> =>
+        message.role === "tool" &&
+        message.toolCallId === toolCallId &&
+        !isForwardedToClientPlaceholder(message.content),
+    );
+  }
+
+  #validatedToolResult(toolCallId: string, messages: readonly Message[]) {
+    const results = this.#toolResults(toolCallId, messages);
+    if (results.length > 1)
+      throw new Error(`Duplicate tool results for ${toolCallId}`);
+    return results[0];
   }
 
   /** Claim a complete batch once, preserving saved results and partial answers. */
@@ -247,15 +298,7 @@ export class ɵInterruptState<TValue = unknown> {
     const adoptedContent = new Map(this.#adoptedContent);
     for (const interrupt of interrupts) {
       if (interrupt.reason !== "tool_call" || !interrupt.toolCallId) continue;
-      const results = messages.filter(
-        (message): message is Extract<Message, { role: "tool" }> =>
-          message.role === "tool" &&
-          message.toolCallId === interrupt.toolCallId &&
-          !isForwardedToClientPlaceholder(message.content),
-      );
-      if (results.length > 1)
-        throw new Error(`Duplicate tool results for ${interrupt.toolCallId}`);
-      const result = results[0];
+      const result = this.#validatedToolResult(interrupt.toolCallId, messages);
       if (!result && !adoptedContent.has(interrupt.id)) continue;
       const response = Object.prototype.hasOwnProperty.call(
         responses,
@@ -296,6 +339,7 @@ export class ɵInterruptState<TValue = unknown> {
         Object.prototype.hasOwnProperty.call(responses, interrupt.id),
       )
     ) {
+      this.#notify();
       return { kind: "waiting" };
     }
 
@@ -306,6 +350,7 @@ export class ɵInterruptState<TValue = unknown> {
     );
     if (expired) {
       this.#sealed = true;
+      this.#notify();
       return { kind: "expired", interrupt: expired };
     }
 
@@ -328,6 +373,7 @@ export class ɵInterruptState<TValue = unknown> {
       ];
     });
     this.#sealed = true;
+    this.#notify();
     return { kind: "resume", resume, toolResults };
   }
 }

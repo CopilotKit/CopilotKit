@@ -387,3 +387,84 @@ describe("remaining review regressions", () => {
     });
   });
 });
+
+describe("implicit unanswered decisions", () => {
+  const saved: Message = {
+    id: "saved",
+    role: "tool",
+    toolCallId: "chart",
+    content: "raw result",
+  };
+  function batch() {
+    const state = new ɵInterruptState();
+    state.setStandard([
+      interrupt("chart-i", "chart", "tool_call"),
+      interrupt("a"),
+      interrupt("b"),
+    ]);
+    return state;
+  }
+  it("advances resolve and cancel while preserving explicit answers and canonical replay content", () => {
+    const state = batch();
+    expect(state.nextInterrupt([saved])?.id).toBe("a");
+    expect(state.resolve("approved", undefined, [saved])).toEqual({
+      kind: "waiting",
+    });
+    // Reconnect omits the locally completed frontend result.
+    expect(state.nextInterrupt([])?.id).toBe("b");
+    expect(state.isCompletedToolCall("chart-i", [])).toBe(true);
+    expect(state.cancel()).toEqual({
+      kind: "resume",
+      resume: [
+        { interruptId: "chart-i", status: "resolved", payload: "raw result" },
+        { interruptId: "a", status: "resolved", payload: "approved" },
+        { interruptId: "b", status: "cancelled" },
+      ],
+      toolResults: [{ toolCallId: "chart", content: "raw result" }],
+    });
+    expect(state.nextInterrupt()).toBeNull();
+    expect(state.resolve("extra")).toEqual({ kind: "ignored" });
+    expect(state.cancel()).toEqual({ kind: "ignored" });
+  });
+  it("does not claim continuation when all entries have saved answers", () => {
+    const state = new ɵInterruptState();
+    state.setStandard([interrupt("chart-i", "chart", "tool_call")]);
+    expect(state.nextInterrupt([saved])).toBeNull();
+    expect(state.resolve("overwrite", undefined, [saved])).toEqual({
+      kind: "ignored",
+    });
+    expect(state.cancel(undefined, [saved])).toEqual({ kind: "ignored" });
+    expect(state.resumeWithToolResults([saved]).kind).toBe("resume");
+    expect(state.resumeWithToolResults([saved]).kind).toBe("ignored");
+  });
+  it("leaves failed results and transport placeholders actionable", () => {
+    for (const message of [
+      { ...saved, error: "failed" },
+      { ...saved, content: "Forwarded to client" },
+    ]) {
+      const state = batch();
+      expect(state.nextInterrupt([message])?.id).toBe("chart-i");
+      expect(state.cancel(undefined, [message]).kind).toBe("waiting");
+      expect(state.nextInterrupt([message])?.id).toBe("a");
+    }
+  });
+  it("validates duplicate results even after their explicit answer was recorded", () => {
+    const state = batch();
+    state.resolve("raw result", "chart-i");
+    expect(() =>
+      state.cancel(undefined, [saved, { ...saved, id: "duplicate" }]),
+    ).toThrow(/Duplicate tool results/);
+  });
+  it("does not skip expiry, but allows implicit cancellation of an expired prompt", () => {
+    const state = new ɵInterruptState();
+    state.setStandard([
+      { ...interrupt("expired"), expiresAt: "2000-01-01T00:00:00Z" },
+    ]);
+    expect(state.nextInterrupt()?.id).toBe("expired");
+    expect(state.resolve().kind).toBe("expired");
+    state.setStandard([
+      { ...interrupt("expired"), expiresAt: "2000-01-01T00:00:00Z" },
+    ]);
+    expect(state.cancel().kind).toBe("resume");
+  });
+});
