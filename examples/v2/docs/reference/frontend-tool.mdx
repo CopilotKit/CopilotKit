@@ -54,7 +54,7 @@ special characters.
 }
 ```
 
-A special wildcard tool is available with the name `*`. This tool will handle any unmatched tool requests.
+A special wildcard tool is available with the name `*`. This tool will handle any unmatched tool requests. Without one, a call to a tool that was sent to the agent for the run but has since been removed is answered with a `Tool not found` error result, as long as the run finished normally. A call to a name that was not sent to the agent for that run is left unanswered.
 
 ### description
 

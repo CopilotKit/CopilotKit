@@ -266,6 +266,7 @@ See [Ensuring your agent reliably calls frontend tools](/integrations/langgraph/
 
 - **Duplicate detection**: If a tool with the same `name` is already registered, the hook logs a warning. Only one tool per name is active at a time.
 - **Mount/Unmount lifecycle**: The tool and its optional render component are registered on mount and removed on unmount.
+- **Calls after unmount**: If the agent calls the tool after it was removed (for example, the component unmounted while the run was in flight), CopilotKit answers the call with a `Tool not found` error result and reports a `TOOL_NOT_FOUND` error, so the conversation can continue. This applies only to tools that were sent to the agent for that run, and only when the run finishes normally; an interrupted, stopped or failed run leaves the call open. A call to a name that was not sent to the agent for that run stays unanswered; register a wildcard tool (`name: "*"`) to handle those.
 - **Dependency tracking**: When `deps` is provided, the tool registration is refreshed whenever a dependency changes. Plain data compares by value; functions and other objects compare by identity.
 - **WebMCP registration**: With `webmcp` set, the tool is also registered on `document.modelContext` and unregistered on unmount. The tool needs a `description` for this (WebMCP rejects tools without one).
 - **Render component lifecycle**: If a `render` function is provided, it is added to the internal render tool calls registry. It receives streaming `args` (partial during `InProgress`, complete during `Executing` and `Complete`).
