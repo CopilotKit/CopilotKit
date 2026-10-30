@@ -39,7 +39,16 @@ describe("thread handlers", () => {
       mode: "intelligence",
       generateThreadNames: false,
       identifyUser: options?.identifyUser ?? createIdentifyUser(),
-      intelligence: options?.intelligence,
+      // Events and state reads first confirm the thread through the
+      // user-scoped `getThread`; by default the user can see the thread.
+      intelligence: options?.intelligence && {
+        getThread: vi
+          .fn()
+          .mockImplementation(({ threadId }: { threadId: string }) =>
+            Promise.resolve({ id: threadId, name: null }),
+          ),
+        ...options.intelligence,
+      },
     }) as unknown as CopilotRuntime;
 
   const createMutationRequest = (
@@ -54,7 +63,10 @@ describe("thread handlers", () => {
     });
 
   it("returns empty thread list when intelligence is not configured for listThreads", async () => {
-    const runtime = new CopilotRuntime({ agents: {} });
+    const runtime = new CopilotRuntime({
+      agents: {},
+      threads: { access: "open" },
+    });
 
     const response = await handleListThreads({
       runtime,
@@ -134,6 +146,7 @@ describe("thread handlers", () => {
     const runtime = new CopilotRuntime({
       agents: {},
       runner: new InMemoryAgentRunner(),
+      threads: { access: "open" },
     });
 
     const response = await handleListThreads({
@@ -188,12 +201,12 @@ describe("thread handlers", () => {
       expect(intelligence.ɵsubscribeToThreads).not.toHaveBeenCalled();
       // The handler must log the auth failure so an operator looking at
       // the runtime logs sees why the request 500ed. Asserting the
-      // operation name ("identifying intelligence user") catches a
+      // operation name ("identifying user") catches a
       // regression that swaps the diagnostic for a generic placeholder.
       // The throw originates inside `resolveIntelligenceUser`, which
       // logs and returns 500 before `subscribeToThreads` is reached.
       expect(errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Error identifying intelligence user"),
+        expect.stringContaining("Error identifying user"),
         expect.any(Error),
       );
     } finally {
@@ -409,7 +422,10 @@ describe("thread handlers", () => {
   });
 
   it("returns 422 when intelligence is not configured for thread mutations", async () => {
-    const runtime = new CopilotRuntime({ agents: {} });
+    const runtime = new CopilotRuntime({
+      agents: {},
+      threads: { access: "open" },
+    });
     const buildRequest = (method: "PATCH" | "POST" | "DELETE") =>
       new Request("https://example.com/threads/thread-1", {
         method,
@@ -443,41 +459,34 @@ describe("thread handlers", () => {
   });
 
   describe("handleClearThreads", () => {
-    // handleClearThreads is intentionally synchronous — it has no I/O on
-    // either branch (in-memory map mutation or platform no-op), so it
-    // returns a plain Response rather than a Promise. The other handlers
-    // in this suite are awaited because they either parse JSON or hit
-    // CopilotKit Intelligence; this one does neither.
-    it("clears in-memory threads and returns 204 for InMemoryAgentRunner", () => {
+    it("clears the caller's in-memory threads and returns 204 for InMemoryAgentRunner", async () => {
       const runner = new InMemoryAgentRunner();
       const clearThreadsSpy = vi.spyOn(runner, "clearThreads");
-      const runtime = new CopilotRuntime({ agents: {}, runner });
+      const runtime = new CopilotRuntime({
+        agents: {},
+        runner,
+        threads: { access: "open" },
+      });
 
-      const response = handleClearThreads({
+      const response = await handleClearThreads({
         runtime,
         request: new Request("https://example.com/threads"),
       });
 
-      // Lock the synchronous contract: a regression that starts awaiting
-      // I/O inside this handler must update the call sites that rely on
-      // the synchronous return shape. Asserting `not.toBeInstanceOf(Promise)`
-      // catches that drift at runtime.
-      expect(response).not.toBeInstanceOf(Promise);
       expect(response.status).toBe(204);
       expect(clearThreadsSpy).toHaveBeenCalledTimes(1);
+      expect(clearThreadsSpy).toHaveBeenCalledWith({ ownerId: "" });
     });
 
-    it("returns 204 without touching state when intelligence runtime is configured", () => {
+    it("returns 204 without touching state when intelligence runtime is configured", async () => {
       const intelligence = { listThreads: vi.fn() };
       const runtime = createIntelligenceRuntime({ intelligence });
 
-      const response = handleClearThreads({
+      const response = await handleClearThreads({
         runtime,
         request: new Request("https://example.com/threads"),
       });
 
-      // Same synchronous-contract guard as the in-memory branch above.
-      expect(response).not.toBeInstanceOf(Promise);
       expect(response.status).toBe(204);
       expect(intelligence.listThreads).not.toHaveBeenCalled();
     });
@@ -490,7 +499,11 @@ describe("thread handlers", () => {
         { id: "m1", role: "user", content: "hello" } as never,
         { id: "m2", role: "assistant", content: "hi there" } as never,
       ]);
-      const runtime = new CopilotRuntime({ agents: {}, runner });
+      const runtime = new CopilotRuntime({
+        agents: {},
+        runner,
+        threads: { access: "open" },
+      });
 
       const response = await handleGetThreadMessages({
         runtime,
@@ -514,7 +527,10 @@ describe("thread handlers", () => {
     });
 
     it("returns empty messages for an unknown threadId", async () => {
-      const runtime = new CopilotRuntime({ agents: {} });
+      const runtime = new CopilotRuntime({
+        agents: {},
+        threads: { access: "open" },
+      });
 
       const response = await handleGetThreadMessages({
         runtime,
@@ -624,7 +640,11 @@ describe("thread handlers", () => {
         },
       ];
       vi.spyOn(runner, "getThreadMessages").mockReturnValue(messages);
-      const runtime = new CopilotRuntime({ agents: {}, runner });
+      const runtime = new CopilotRuntime({
+        agents: {},
+        runner,
+        threads: { access: "open" },
+      });
 
       const response = await handleGetThreadMessages({
         runtime,
@@ -653,7 +673,10 @@ describe("thread handlers", () => {
   });
 
   it("returns 422 when intelligence is not configured for thread subscription", async () => {
-    const runtime = new CopilotRuntime({ agents: {} });
+    const runtime = new CopilotRuntime({
+      agents: {},
+      threads: { access: "open" },
+    });
 
     const response = await handleSubscribeToThreads({
       runtime,
@@ -724,7 +747,11 @@ describe("thread handlers", () => {
         },
       ];
       vi.spyOn(runner, "getThreadEvents").mockReturnValue(fakeEvents as never);
-      const runtime = new CopilotRuntime({ agents: {}, runner });
+      const runtime = new CopilotRuntime({
+        agents: {},
+        runner,
+        threads: { access: "open" },
+      });
 
       const response = await handleGetThreadEvents({
         runtime,
@@ -739,7 +766,10 @@ describe("thread handlers", () => {
     });
 
     it("returns empty events for an unknown threadId via the in-memory runner", async () => {
-      const runtime = new CopilotRuntime({ agents: {} });
+      const runtime = new CopilotRuntime({
+        agents: {},
+        threads: { access: "open" },
+      });
 
       const response = await handleGetThreadEvents({
         runtime,
@@ -780,6 +810,7 @@ describe("thread handlers", () => {
       expect(response.status).toBe(200);
       expect(intelligence.getThreadEvents).toHaveBeenCalledWith({
         threadId: "thread-1",
+        userId: "user-1",
       });
       expect(identifyUser).toHaveBeenCalledTimes(1);
       const body = await response.json();
@@ -814,7 +845,11 @@ describe("thread handlers", () => {
       vi.spyOn(runner, "getThreadEvents").mockImplementation(() => {
         throw new Error("boom");
       });
-      const runtime = new CopilotRuntime({ agents: {}, runner });
+      const runtime = new CopilotRuntime({
+        agents: {},
+        runner,
+        threads: { access: "open" },
+      });
 
       const response = await handleGetThreadEvents({
         runtime,
@@ -831,7 +866,11 @@ describe("thread handlers", () => {
       const runner = new InMemoryAgentRunner();
       const snapshot = { counter: 3, label: "alpha" };
       vi.spyOn(runner, "getThreadState").mockReturnValue(snapshot as never);
-      const runtime = new CopilotRuntime({ agents: {}, runner });
+      const runtime = new CopilotRuntime({
+        agents: {},
+        runner,
+        threads: { access: "open" },
+      });
 
       const response = await handleGetThreadState({
         runtime,
@@ -845,7 +884,10 @@ describe("thread handlers", () => {
     });
 
     it("returns state:null when the runner has no snapshot for the thread", async () => {
-      const runtime = new CopilotRuntime({ agents: {} });
+      const runtime = new CopilotRuntime({
+        agents: {},
+        threads: { access: "open" },
+      });
 
       const response = await handleGetThreadState({
         runtime,
@@ -883,6 +925,7 @@ describe("thread handlers", () => {
       expect(response.status).toBe(200);
       expect(intelligence.getThreadState).toHaveBeenCalledWith({
         threadId: "thread-1",
+        userId: "user-1",
       });
       expect(identifyUser).toHaveBeenCalledTimes(1);
       const body = await response.json();
@@ -955,7 +998,11 @@ describe("thread handlers", () => {
       vi.spyOn(runner, "getThreadState").mockImplementation(() => {
         throw new Error("boom");
       });
-      const runtime = new CopilotRuntime({ agents: {}, runner });
+      const runtime = new CopilotRuntime({
+        agents: {},
+        runner,
+        threads: { access: "open" },
+      });
 
       const response = await handleGetThreadState({
         runtime,

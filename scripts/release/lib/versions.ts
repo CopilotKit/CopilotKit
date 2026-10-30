@@ -165,6 +165,44 @@ export function getPackagesForScope(scope: ReleaseScope): PublishablePackage[] {
 }
 
 /**
+ * Order packages so each one comes after the packages in the same list that it
+ * depends on, keeping the configured order otherwise.
+ *
+ * The stable publisher goes package by package and stops at the first failure,
+ * and `pnpm pack` turns `workspace:*` into an exact version. Publishing in the
+ * configured (alphabetical) order put `@copilotkit/core` on npm before the
+ * `@copilotkit/learning` and `@copilotkit/shared` versions it pins, so a failure
+ * between them left an uninstallable Core until a retry. A dependency cycle
+ * cannot be satisfied by any order; it is broken at the edge that closes it.
+ */
+export function orderByDependencies(
+  packages: PublishablePackage[],
+): PublishablePackage[] {
+  const byName = new Map(packages.map((p) => [p.name, p]));
+  const seen = new Set<string>();
+  const ordered: PublishablePackage[] = [];
+
+  const visit = (p: PublishablePackage) => {
+    if (seen.has(p.name)) return;
+    seen.add(p.name);
+    for (const field of [
+      "dependencies",
+      "peerDependencies",
+      "optionalDependencies",
+    ] as const) {
+      for (const name of Object.keys(p.pkg[field] ?? {})) {
+        const dependency = byName.get(name);
+        if (dependency) visit(dependency);
+      }
+    }
+    ordered.push(p);
+  };
+
+  packages.forEach(visit);
+  return ordered;
+}
+
+/**
  * The community packages (those under `community/`) in the given scopes, in
  * scope order, without duplicates. The publish workflow's root build only
  * reaches `packages/**` through nx, so these are the packages it must build

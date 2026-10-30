@@ -1,6 +1,10 @@
 export * from "./core/runtime";
 export * from "./endpoints";
 
+// Export experimental generative UI middleware and surface writer
+export { GenerativeUIMiddleware, createSurfaceWriter } from "./generative-ui";
+export type { GenerativeUISurfaceWriter } from "./generative-ui";
+
 // Export agent runners and base types
 export * from "./runner";
 
@@ -10,6 +14,7 @@ export * from "./transcription-service/transcription-service";
 // Export CopilotKit Intelligence client and types
 export {
   CopilotKitIntelligence,
+  PlatformRequestError,
   LearnedSkillsError,
   type LearnedSkillsErrorCode,
   type GetLearnedSkillsSnapshotRequest,
@@ -60,3 +65,5 @@ export type { ChannelsControl, ChannelStatus } from "./core/channel-manager";
 export type CopilotKitRequestHandler = (params: {
   request: Request;
 }) => Promise<Response>;
+
+export type { experimental } from "./intelligence-platform";

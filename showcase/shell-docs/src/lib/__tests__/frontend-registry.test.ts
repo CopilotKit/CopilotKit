@@ -17,5 +17,5 @@ it("derives frontend picker identities from the normalized registry", () => {
 it("exposes runnable frontend capability independently from backend support", () => {
   expect(isRunnableFrontend("react")).toBe(true);
   expect(isRunnableFrontend("angular")).toBe(true);
-  expect(isRunnableFrontend("vue")).toBe(false);
+  expect(isRunnableFrontend("vue")).toBe(true);
 });

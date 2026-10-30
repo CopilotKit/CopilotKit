@@ -12,7 +12,7 @@
     {
       "title": "Threads",
       "defaultOpen": true,
-      "pages": ["threads", "headless-threads"]
+      "pages": ["AG-UI-Streams", "headless-threads"]
     },
     "custom-look-and-feel",
     "programmatic-control",
@@ -28,6 +28,7 @@
     "---Deploy---",
     "deploy-agentcore",
     "---Intelligence---",
+    "threads-import",
     "---Troubleshooting---",
     "...troubleshooting",
     "---Other---",

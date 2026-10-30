@@ -163,7 +163,7 @@ describe("keyboard and pointer selection", () => {
     fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
 
     expect(pushed).toHaveLength(1);
-    expect(pushed[0].startsWith("/threads?")).toBe(true);
+    expect(pushed[0].startsWith("/AG-UI-Streams?")).toBe(true);
     expect(captured).toHaveLength(1);
     expect(captured[0].event).toBe("docs_conversion_clicked");
     expect(captured[0].props.surface).toBe("docs-search:threads:threads");
@@ -218,7 +218,7 @@ describe("the whole block is one clickable card", () => {
     // A real anchor with a real href: focusable, middle-clickable, and
     // "open in new tab" lands on the same attributed URL a click would.
     expect(primary.tagName).toBe("A");
-    expect(primary.getAttribute("href")).toContain("/threads?");
+    expect(primary.getAttribute("href")).toContain("/AG-UI-Streams?");
     expect(primary.getAttribute("href")).toContain(
       "utm_content=docs-search%3Athreads%3Athreads",
     );
@@ -281,6 +281,6 @@ describe("navigation and attribution", () => {
     fireEvent.click(primaryLink());
 
     expect(pushed).toHaveLength(1);
-    expect(pushed[0].startsWith("/threads?")).toBe(true);
+    expect(pushed[0].startsWith("/AG-UI-Streams?")).toBe(true);
   });
 });

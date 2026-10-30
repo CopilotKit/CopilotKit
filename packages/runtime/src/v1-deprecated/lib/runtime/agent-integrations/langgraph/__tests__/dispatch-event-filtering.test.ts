@@ -342,4 +342,146 @@ describe("langGraphDefaultMergeState", () => {
     expect(result.copilotkit.actions).toHaveLength(1);
     expect(result.copilotkit.actions[0].name).toBe("SharedTool");
   });
+
+  it("exposes nested function metadata at the action top level", () => {
+    const { agent } = createAgent();
+    const tool = {
+      type: "function",
+      function: {
+        name: "lookupWeather",
+        description: "Look up the weather",
+        parameters: {
+          type: "object",
+          properties: { city: { type: "string" } },
+        },
+      },
+    };
+
+    withMockedParentMerge(agent, {
+      "ag-ui": { tools: [tool], context: [] },
+      tools: [],
+      messages: [],
+    });
+
+    const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
+    expect(result.copilotkit.actions[0]).toMatchObject({
+      name: "lookupWeather",
+      description: "Look up the weather",
+      parameters: tool.function.parameters,
+    });
+    expect(result.copilotkit.actions[0].function).toEqual(tool.function);
+  });
+
+  it("backfills top-level null fields from nested ones", () => {
+    const { agent } = createAgent();
+    // Python None restored from a checkpoint arrives as null.
+    const tool = {
+      type: "function",
+      name: "lookupWeather",
+      description: null,
+      parameters: null,
+      function: {
+        name: "lookupWeather",
+        description: "Look up the weather",
+        parameters: { type: "object", properties: {} },
+      },
+    };
+
+    withMockedParentMerge(agent, {
+      "ag-ui": { tools: [tool], context: [] },
+      tools: [],
+      messages: [],
+    });
+
+    const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
+    expect(result.copilotkit.actions[0]).toMatchObject({
+      description: "Look up the weather",
+      parameters: { type: "object", properties: {} },
+    });
+  });
+
+  it("does not overwrite top-level fields with nested ones", () => {
+    const { agent } = createAgent();
+    const tool = {
+      type: "function",
+      name: "topLevelName",
+      description: "top-level description",
+      function: {
+        name: "nestedName",
+        description: "nested description",
+        parameters: { type: "object", properties: {} },
+      },
+    };
+
+    withMockedParentMerge(agent, {
+      "ag-ui": { tools: [tool], context: [] },
+      tools: [],
+      messages: [],
+    });
+
+    const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
+    expect(result.copilotkit.actions[0]).toMatchObject({
+      name: "topLevelName",
+      description: "top-level description",
+      parameters: { type: "object", properties: {} },
+    });
+  });
+
+  it("collapses a flat and a nested tool with the same name into one action", () => {
+    const { agent } = createAgent();
+    const flatTool = {
+      name: "lookupWeather",
+      description: "flat",
+      parameters: { type: "object", properties: {} },
+    };
+    const nestedTool = {
+      type: "function",
+      function: {
+        name: "lookupWeather",
+        description: "nested",
+        parameters: { type: "object", properties: {} },
+      },
+    };
+
+    withMockedParentMerge(agent, {
+      "ag-ui": { tools: [nestedTool], context: [] },
+      tools: [flatTool],
+      messages: [],
+    });
+
+    const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
+    expect(result.copilotkit.actions).toHaveLength(1);
+    // The later entry (ag-ui tools) wins.
+    expect(result.copilotkit.actions[0]).toMatchObject({
+      description: "nested",
+    });
+  });
+
+  it("exposes parameters for tools shaped by the real @ag-ui/langgraph merge", () => {
+    const { agent } = createAgent();
+    const parameters = {
+      type: "object",
+      properties: { severity: { type: "string" } },
+      required: ["severity"],
+    };
+
+    // No mock: the parent nests description and parameters under `function`.
+    const result = agent.langGraphDefaultMergeState(
+      { messages: [] } as any,
+      [],
+      {
+        tools: [
+          { name: "approveIncident", description: "Approve it", parameters },
+        ],
+        context: [],
+      } as any,
+    );
+
+    expect(result.copilotkit.actions).toHaveLength(1);
+    expect(result.copilotkit.actions[0]).toMatchObject({
+      name: "approveIncident",
+      description: "Approve it",
+      parameters,
+    });
+  });
 });

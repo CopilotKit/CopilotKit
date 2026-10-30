@@ -7,6 +7,7 @@ import {
   Hash,
   Lightbulb,
   MessagesSquare,
+  MousePointer2,
   SearchCheck,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
@@ -27,6 +28,7 @@ const FEATURE_ICONS = {
   threads: MessagesSquare,
   memories: Brain,
   learning: Lightbulb,
+  trajectories: MousePointer2,
   analytics: BarChart3,
   channels: Hash,
   inspector: SearchCheck,

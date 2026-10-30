@@ -1049,7 +1049,7 @@ export function normalizeSidebarNav(
   const threadUiChildren =
     authoredThreads?.type === "group" ? authoredThreads.children : [];
   const threadDeliverySlugs = [
-    "threads",
+    "AG-UI-Streams",
     "intelligence/bring-your-own-thread-system",
     "threads-import",
     "threads-lifecycle",
@@ -1177,7 +1177,7 @@ export function normalizeSidebarNav(
     "AG-UI Streams",
     "sidebar#ag-ui-streams",
     [
-      intelligencePage("threads", "Overview"),
+      intelligencePage("AG-UI-Streams", "Overview"),
       intelligencePage(
         "intelligence/bring-your-own-thread-system",
         "Bring your own thread system",
@@ -1230,6 +1230,17 @@ export function normalizeSidebarNav(
   const intelligenceCapturedData = intelligencePage(
     "intelligence/captured-data",
     "Captured data",
+  );
+  const intelligenceTrajectories = sidebarTopicGroup(
+    "Trajectories",
+    "intelligence/trajectories",
+    [
+      intelligencePage("intelligence/trajectories", "Overview"),
+      intelligencePage("intelligence/trajectories-quickstart", "Quickstart"),
+      intelligenceCapture,
+      intelligenceCapturedData,
+      intelligencePage("intelligence/trajectories-reference", "API reference"),
+    ].filter((node): node is NavNode => node !== null),
   );
   // Skill delivery is a step inside Automatic Learning, so it nests under
   // that page. The group shares the page's slug, and page-tree-bridge lifts
@@ -1357,9 +1368,8 @@ export function normalizeSidebarNav(
           intelligenceStreams,
           intelligenceLearningGroup,
           intelligenceMemory,
-          intelligenceCapture,
+          intelligenceTrajectories,
           intelligenceStandaloneCollector,
-          intelligenceCapturedData,
           intelligenceAnalytics,
           intelligenceChannels,
         ].filter((node): node is NavNode => node !== null),
@@ -1449,7 +1459,7 @@ function isRichThreadsGroup(
 ): node is Extract<NavNode, { type: "group" }> {
   return (
     node.type === "group" &&
-    hasPageSlug(node.children, "threads") &&
+    hasPageSlug(node.children, "AG-UI-Streams") &&
     node.title === "AG-UI Streams"
   );
 }

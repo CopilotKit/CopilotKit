@@ -19,7 +19,7 @@ import {
   RENDER_A2UI_TOOL_NAME,
 } from "./components/a2ui/a2ui-tool-types";
 import { A2UI_SCHEMA_CONTEXT_DESCRIPTION } from "./components/a2ui/a2ui-catalog-context";
-import { A2UICatalog } from "./components/a2ui/a2ui-types";
+import type { A2UICatalog } from "./components/a2ui/a2ui-types";
 import { Catalog } from "@a2ui/web_core/v0_9";
 import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
@@ -333,6 +333,7 @@ describe("CopilotKit", () => {
       expect.objectContaining({
         name: GENERATE_SANDBOXED_UI_TOOL_NAME,
         component: CopilotOpenGenerativeUIToolRenderer,
+        reconnectBehavior: "resume-pending",
         followUp: true,
       }),
     );
@@ -474,6 +475,66 @@ describe("CopilotKit", () => {
     ).toEqual([
       "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
     ]);
+  });
+
+  it("lists custom components by name only when includeSchema is false", () => {
+    const customCatalog: A2UICatalog = Object.assign(
+      new Catalog("copilotkit://custom-catalog", [
+        { name: "FlightCard", schema: z.object({ airline: z.string() }) },
+      ]),
+      { surfaceComponent: CopilotA2UIActivityRenderer },
+    );
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          a2ui: { catalog: customCatalog, includeSchema: false },
+        }),
+      ],
+    });
+
+    TestBed.inject(CopilotKit);
+
+    expect(mockAddContext.mock.calls.map(([context]) => context.value)).toEqual(
+      [
+        [
+          "Available A2UI catalog:",
+          "- copilotkit://custom-catalog",
+          "  Custom catalog (does NOT include all basic components).",
+          "  Custom components:",
+          "  - FlightCard",
+        ].join("\n"),
+      ],
+    );
+  });
+
+  it("includes custom component schemas in the catalog description by default", () => {
+    const customCatalog: A2UICatalog = Object.assign(
+      new Catalog("copilotkit://custom-catalog", [
+        { name: "FlightCard", schema: z.object({ airline: z.string() }) },
+      ]),
+      { surfaceComponent: CopilotA2UIActivityRenderer },
+    );
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({ licenseKey, a2ui: { catalog: customCatalog } }),
+      ],
+    });
+
+    TestBed.inject(CopilotKit);
+
+    expect(mockAddContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
+        value: expect.stringContaining("  - FlightCard:\n    {"),
+      }),
+    );
+    expect(mockAddContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        value: expect.stringContaining('"airline"'),
+      }),
+    );
   });
 
   it("advertises a provided A2UI catalog in initial and updated runtime properties", () => {

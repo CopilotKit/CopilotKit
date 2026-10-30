@@ -13,9 +13,13 @@
 // authored fenced blocks rendered through MDX, so the Code tab inside
 // InlineDemo looks identical to the rest of the page.
 
-"use client";
+// A server component on purpose: `demo-content.json` holds every showcase
+// demo's source (~39 MB). Imported from a client module, the whole file ships
+// to the browser, a ~40 MB chunk on most docs pages (#7821). Only the Fumadocs
+// code-block pieces below are client components, and they get plain props.
+// `client-data-imports.test.ts` guards this.
 
-import React, { useMemo } from "react";
+import React from "react";
 import {
   CodeBlockTab,
   CodeBlockTabs,
@@ -104,6 +108,21 @@ function tabValue(filename: string): string {
   return filename.toLowerCase().replace(/\s/, "-");
 }
 
+function selectFiles(all: DemoFile[], onlyHighlighted: boolean): DemoFile[] {
+  if (!onlyHighlighted) return all;
+  const flagged = all.filter((f) => f.highlighted);
+  if (flagged.length === 0) return all;
+  return [...flagged].sort((a, b) => {
+    const ao = a.highlightOrder;
+    const bo = b.highlightOrder;
+    if (ao === undefined && bo === undefined)
+      return a.filename.localeCompare(b.filename);
+    if (ao === undefined) return 1;
+    if (bo === undefined) return -1;
+    return ao - bo;
+  });
+}
+
 export function DemoSource({
   integration,
   demo,
@@ -112,21 +131,7 @@ export function DemoSource({
   const key = `${integration}::${demo}`;
   const record = demos[key];
 
-  const displayFiles: DemoFile[] = useMemo(() => {
-    const all = record?.files ?? [];
-    if (!onlyHighlighted) return all;
-    const flagged = all.filter((f) => f.highlighted);
-    if (flagged.length === 0) return all;
-    return [...flagged].sort((a, b) => {
-      const ao = a.highlightOrder;
-      const bo = b.highlightOrder;
-      if (ao === undefined && bo === undefined)
-        return a.filename.localeCompare(b.filename);
-      if (ao === undefined) return 1;
-      if (bo === undefined) return -1;
-      return ao - bo;
-    });
-  }, [record, onlyHighlighted]);
+  const displayFiles = selectFiles(record?.files ?? [], onlyHighlighted);
 
   if (!record) {
     return (

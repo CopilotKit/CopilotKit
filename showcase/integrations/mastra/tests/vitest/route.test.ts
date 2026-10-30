@@ -20,6 +20,7 @@
 // Removing either one reintroduces order-dependent test failures.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { NextRequest } from "next/server";
 
 // Stub the mastra module ahead of any imports that transitively load it,
 // so `@/mastra` resolves without needing a real Mastra runtime.
@@ -49,7 +50,7 @@ vi.mock("@copilotkit/runtime/v2", () => ({
 
 // next/server has no special behavior we need here, but route.ts imports types.
 vi.mock("next/server", () => ({
-  NextRequest: class {},
+  NextRequest: Request,
   NextResponse: {
     json: (body: unknown, init?: ResponseInit) =>
       new Response(JSON.stringify(body), {
@@ -81,6 +82,46 @@ function makeAgent(tag: string, resourceId?: string) {
   >;
 }
 
+// Match the required local-agent registrations in the real main route. Each
+// test gets fresh instances so cache/collision tests cannot share fixture state.
+function makeLocalAgents() {
+  return {
+    weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
+    headlessCompleteAgent: makeAgent(
+      "headless-complete",
+      "mastra-headlessCompleteAgent",
+    ),
+    sharedStateReadWriteAgent: makeAgent(
+      "shared-state-rw",
+      "mastra-sharedStateReadWriteAgent",
+    ),
+    sharedStateStreamingAgent: makeAgent(
+      "shared-state-streaming",
+      "mastra-sharedStateStreamingAgent",
+    ),
+    genUiAgent: makeAgent("gen-ui", "mastra-genUiAgent"),
+    subagentsSupervisorAgent: makeAgent(
+      "subagents-supervisor",
+      "mastra-subagentsSupervisorAgent",
+    ),
+    interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
+    multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
+    mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
+    byocHashbrownAgent: makeAgent(
+      "byoc-hashbrown",
+      "mastra-byocHashbrownAgent",
+    ),
+  };
+}
+
+function makeRequest(): NextRequest {
+  return new Request("http://localhost/api/copilotkit", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{}",
+  }) as NextRequest;
+}
+
 beforeEach(() => {
   vi.resetModules();
   mockedGetLocalAgents.mockReset();
@@ -106,24 +147,7 @@ describe("buildAgents", () => {
   });
 
   it("produces a unique resourceId for every demo name", async () => {
-    mockedGetLocalAgents.mockReturnValue({
-      weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
-      headlessCompleteAgent: makeAgent(
-        "headless-complete",
-        "mastra-headlessCompleteAgent",
-      ),
-      sharedStateReadWriteAgent: makeAgent(
-        "shared-state-rw",
-        "mastra-sharedStateReadWriteAgent",
-      ),
-      subagentsSupervisorAgent: makeAgent(
-        "subagents-supervisor",
-        "mastra-subagentsSupervisorAgent",
-      ),
-      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
-      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
-      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
-    });
+    mockedGetLocalAgents.mockReturnValue(makeLocalAgents());
     const seen: string[] = [];
     mockedGetLocalAgent.mockImplementation(({ resourceId }) => {
       seen.push(resourceId as string);
@@ -145,34 +169,20 @@ describe("buildAgents", () => {
       ...demoAgentNames.map((n) => `mastra-${n}`),
       "mastra-headlessCompleteAgent",
       "mastra-sharedStateReadWriteAgent",
+      "mastra-sharedStateStreamingAgent",
+      "mastra-genUiAgent",
       "mastra-subagentsSupervisorAgent",
       "mastra-interruptAgent",
       "mastra-multimodalAgent",
       "mastra-mcpAppsAgent",
+      "mastra-byocHashbrownAgent",
     ];
     expect(new Set(seen).size).toBe(seen.length);
     expect(seen.sort()).toEqual([...expected].sort());
   });
 
   it("throws when getLocalAgent returns null for any demo alias", async () => {
-    mockedGetLocalAgents.mockReturnValue({
-      weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
-      headlessCompleteAgent: makeAgent(
-        "headless-complete",
-        "mastra-headlessCompleteAgent",
-      ),
-      sharedStateReadWriteAgent: makeAgent(
-        "shared-state-rw",
-        "mastra-sharedStateReadWriteAgent",
-      ),
-      subagentsSupervisorAgent: makeAgent(
-        "subagents-supervisor",
-        "mastra-subagentsSupervisorAgent",
-      ),
-      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
-      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
-      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
-    });
+    mockedGetLocalAgents.mockReturnValue(makeLocalAgents());
     mockedGetLocalAgent.mockImplementation(({ resourceId }) => {
       if (resourceId === "mastra-agentic_chat") {
         return null as unknown as ReturnType<typeof getLocalAgent>;
@@ -188,19 +198,7 @@ describe("buildAgents", () => {
 
   it("fails loudly when a local agent name collides with a demo alias", async () => {
     mockedGetLocalAgents.mockReturnValue({
-      weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
-      headlessCompleteAgent: makeAgent(
-        "headless-complete",
-        "mastra-headlessCompleteAgent",
-      ),
-      sharedStateReadWriteAgent: makeAgent(
-        "shared-state-rw",
-        "mastra-sharedStateReadWriteAgent",
-      ),
-      subagentsSupervisorAgent: makeAgent(
-        "subagents-supervisor",
-        "mastra-subagentsSupervisorAgent",
-      ),
+      ...makeLocalAgents(),
       // Simulated future drift: Mastra adds a local agent named `agentic_chat`.
       agentic_chat: makeAgent("rogue", "some-other-id"),
     });
@@ -215,24 +213,7 @@ describe("buildAgents", () => {
   });
 
   it("does not collide on a clean Mastra config with the registered local agents", async () => {
-    mockedGetLocalAgents.mockReturnValue({
-      weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
-      headlessCompleteAgent: makeAgent(
-        "headless-complete",
-        "mastra-headlessCompleteAgent",
-      ),
-      sharedStateReadWriteAgent: makeAgent(
-        "shared-state-rw",
-        "mastra-sharedStateReadWriteAgent",
-      ),
-      subagentsSupervisorAgent: makeAgent(
-        "subagents-supervisor",
-        "mastra-subagentsSupervisorAgent",
-      ),
-      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
-      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
-      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
-    });
+    mockedGetLocalAgents.mockReturnValue(makeLocalAgents());
     mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
       makeAgent("demo", resourceId),
     );
@@ -244,24 +225,7 @@ describe("buildAgents", () => {
 
 describe("agent cache memoization", () => {
   it("getAgents (via POST) only calls buildAgents once across requests", async () => {
-    mockedGetLocalAgents.mockReturnValue({
-      weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
-      headlessCompleteAgent: makeAgent(
-        "headless-complete",
-        "mastra-headlessCompleteAgent",
-      ),
-      sharedStateReadWriteAgent: makeAgent(
-        "shared-state-rw",
-        "mastra-sharedStateReadWriteAgent",
-      ),
-      subagentsSupervisorAgent: makeAgent(
-        "subagents-supervisor",
-        "mastra-subagentsSupervisorAgent",
-      ),
-      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
-      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
-      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
-    });
+    mockedGetLocalAgents.mockReturnValue(makeLocalAgents());
     mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
       makeAgent("demo", resourceId),
     );
@@ -269,7 +233,7 @@ describe("agent cache memoization", () => {
     const route = await importRoute();
     route.__resetAgentsCacheForTests();
 
-    const fakeReq = {} as unknown as Parameters<typeof route.POST>[0];
+    const fakeReq = makeRequest();
     await route.POST(fakeReq);
     await route.POST(fakeReq);
     await route.POST(fakeReq);
@@ -279,24 +243,7 @@ describe("agent cache memoization", () => {
   });
 
   it("re-builds after __resetAgentsCacheForTests()", async () => {
-    mockedGetLocalAgents.mockReturnValue({
-      weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
-      headlessCompleteAgent: makeAgent(
-        "headless-complete",
-        "mastra-headlessCompleteAgent",
-      ),
-      sharedStateReadWriteAgent: makeAgent(
-        "shared-state-rw",
-        "mastra-sharedStateReadWriteAgent",
-      ),
-      subagentsSupervisorAgent: makeAgent(
-        "subagents-supervisor",
-        "mastra-subagentsSupervisorAgent",
-      ),
-      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
-      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
-      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
-    });
+    mockedGetLocalAgents.mockReturnValue(makeLocalAgents());
     mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
       makeAgent("demo", resourceId),
     );
@@ -304,7 +251,7 @@ describe("agent cache memoization", () => {
     const route = await importRoute();
     route.__resetAgentsCacheForTests();
 
-    const fakeReq = {} as unknown as Parameters<typeof route.POST>[0];
+    const fakeReq = makeRequest();
     await route.POST(fakeReq);
     route.__resetAgentsCacheForTests();
     await route.POST(fakeReq);
@@ -319,24 +266,7 @@ describe("agent cache memoization", () => {
   // buckets would reset silently on every process restart — data loss with no
   // error. This test is the sentinel.
   it("keeps resourceId stable across __resetAgentsCacheForTests() rebuilds", async () => {
-    mockedGetLocalAgents.mockReturnValue({
-      weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
-      headlessCompleteAgent: makeAgent(
-        "headless-complete",
-        "mastra-headlessCompleteAgent",
-      ),
-      sharedStateReadWriteAgent: makeAgent(
-        "shared-state-rw",
-        "mastra-sharedStateReadWriteAgent",
-      ),
-      subagentsSupervisorAgent: makeAgent(
-        "subagents-supervisor",
-        "mastra-subagentsSupervisorAgent",
-      ),
-      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
-      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
-      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
-    });
+    mockedGetLocalAgents.mockReturnValue(makeLocalAgents());
     mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
       makeAgent("demo", resourceId),
     );
@@ -365,24 +295,7 @@ describe("agent cache memoization", () => {
 
 describe("POST happy path", () => {
   it("instantiates CopilotRuntime with every demo agent and weatherAgent present", async () => {
-    mockedGetLocalAgents.mockReturnValue({
-      weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
-      headlessCompleteAgent: makeAgent(
-        "headless-complete",
-        "mastra-headlessCompleteAgent",
-      ),
-      sharedStateReadWriteAgent: makeAgent(
-        "shared-state-rw",
-        "mastra-sharedStateReadWriteAgent",
-      ),
-      subagentsSupervisorAgent: makeAgent(
-        "subagents-supervisor",
-        "mastra-subagentsSupervisorAgent",
-      ),
-      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
-      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
-      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
-    });
+    mockedGetLocalAgents.mockReturnValue(makeLocalAgents());
     mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
       makeAgent("demo", resourceId),
     );
@@ -390,7 +303,7 @@ describe("POST happy path", () => {
     const route = await importRoute();
     route.__resetAgentsCacheForTests();
 
-    const fakeReq = {} as unknown as Parameters<typeof route.POST>[0];
+    const fakeReq = makeRequest();
     await route.POST(fakeReq);
 
     // Build the shape of `agents` we expect the runtime to have seen.
@@ -419,7 +332,7 @@ describe("POST error handling", () => {
     const route = await importRoute();
     route.__resetAgentsCacheForTests();
 
-    const fakeReq = {} as unknown as Parameters<typeof route.POST>[0];
+    const fakeReq = makeRequest();
     const res = await route.POST(fakeReq);
     expect(res.status).toBe(500);
     const body = (await res.json()) as Record<string, unknown>;
@@ -448,7 +361,7 @@ describe("POST error handling", () => {
     const route = await importRoute();
     route.__resetAgentsCacheForTests();
 
-    const fakeReq = {} as unknown as Parameters<typeof route.POST>[0];
+    const fakeReq = makeRequest();
     const res = await route.POST(fakeReq);
 
     expect(res.status).toBe(500);
@@ -474,24 +387,7 @@ describe("POST error handling", () => {
   // the cancel never happened — the body just hung, waiting for a reader
   // that never arrived.
   it("cancels the upstream body and returns 500 when wrapStreamingResponse throws", async () => {
-    mockedGetLocalAgents.mockReturnValue({
-      weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
-      headlessCompleteAgent: makeAgent(
-        "headless-complete",
-        "mastra-headlessCompleteAgent",
-      ),
-      sharedStateReadWriteAgent: makeAgent(
-        "shared-state-rw",
-        "mastra-sharedStateReadWriteAgent",
-      ),
-      subagentsSupervisorAgent: makeAgent(
-        "subagents-supervisor",
-        "mastra-subagentsSupervisorAgent",
-      ),
-      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
-      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
-      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
-    });
+    mockedGetLocalAgents.mockReturnValue(makeLocalAgents());
     mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
       makeAgent("demo", resourceId),
     );
@@ -542,7 +438,7 @@ describe("POST error handling", () => {
     const route = await importRoute();
     route.__resetAgentsCacheForTests();
 
-    const fakeReq = {} as unknown as Parameters<typeof route.POST>[0];
+    const fakeReq = makeRequest();
     const res = await route.POST(fakeReq);
 
     // 500 JSON envelope, not a half-baked 200.
@@ -568,24 +464,7 @@ describe("POST error handling", () => {
   // fails silently: the error is swallowed by the ReadableStream and never
   // reaches console.error.
   it("logs mid-stream copilotHandler errors with an errorId (SSE/AG-UI failure path)", async () => {
-    mockedGetLocalAgents.mockReturnValue({
-      weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
-      headlessCompleteAgent: makeAgent(
-        "headless-complete",
-        "mastra-headlessCompleteAgent",
-      ),
-      sharedStateReadWriteAgent: makeAgent(
-        "shared-state-rw",
-        "mastra-sharedStateReadWriteAgent",
-      ),
-      subagentsSupervisorAgent: makeAgent(
-        "subagents-supervisor",
-        "mastra-subagentsSupervisorAgent",
-      ),
-      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
-      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
-      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
-    });
+    mockedGetLocalAgents.mockReturnValue(makeLocalAgents());
     mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
       makeAgent("demo", resourceId),
     );
@@ -619,7 +498,7 @@ describe("POST error handling", () => {
     const route = await importRoute();
     route.__resetAgentsCacheForTests();
 
-    const fakeReq = {} as unknown as Parameters<typeof route.POST>[0];
+    const fakeReq = makeRequest();
     const res = await route.POST(fakeReq);
 
     // The response headers are still 200 (streaming commitment) — we cannot

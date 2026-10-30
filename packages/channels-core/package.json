@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/channels-core",
-  "version": "0.11.1",
+  "version": "0.12.0",
   "description": "Platform-agnostic JSX channel engine for CopilotKit (createChannel, Thread, PlatformAdapter, ActionStore).",
   "license": "MIT",
   "repository": {
@@ -34,6 +34,10 @@
     "./testing": {
       "types": "./dist/testing/state-store-conformance.d.ts",
       "import": "./dist/testing/state-store-conformance.js"
+    },
+    "./takumi": {
+      "types": "./dist/render/takumi.d.ts",
+      "import": "./dist/render/takumi.js"
     },
     "./jsx-runtime": {
       "types": "./dist/jsx-runtime.d.ts",

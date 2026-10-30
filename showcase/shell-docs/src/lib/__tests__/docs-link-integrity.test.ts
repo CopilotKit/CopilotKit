@@ -8,6 +8,7 @@ import {
   extractInternalLinkTargets,
 } from "../searchable-pages";
 import { matchesSeoRedirectSource } from "../seo-redirects";
+import { catalogReferenceNameFromPath } from "@/components/standard-catalog/catalog-reference";
 import { resolveDocsHref } from "../docs-link-rewrite";
 import { CONTENT_DIR } from "../docs-render";
 import { FRONTEND_PAGE_IDS } from "../frontend-page-content";
@@ -107,6 +108,9 @@ describe("every internal docs link resolves", () => {
     if (matchesSeoRedirectSource(bare)) return true;
 
     const segments = bare.split("/").filter(Boolean);
+    // These pages share a template instead of having individual MDX files.
+    // Use the route's exact resolver, so unknown component URLs still fail.
+    if (catalogReferenceNameFromPath(segments.join("/"))) return true;
     // Frontend surfaces are routed at `/<frontend>/<topic>`.
     if (
       segments.length > 0 &&

@@ -132,7 +132,7 @@ Two more agent-side habits:
 
 ## Add persistent threads and memory (optional)
 
-[CopilotKit Intelligence](/intelligence/overview) adds persistent [threads](/threads) and durable cross-session memory. Handle a missing or unreachable platform without failing every request:
+[CopilotKit Intelligence](/intelligence/overview) adds persistent [threads](/AG-UI-Streams) and durable cross-session memory. Handle a missing or unreachable platform without failing every request:
 
 - **Auto-detect:** at startup, probe the platform health endpoint with a short timeout. If it is unreachable or unlicensed, fall back to an in-memory runner.
 - **Configurable endpoint:** use one base-URL environment variable for the runtime, the agent's memory client, and the health probe. Check the endpoint again after a restart.

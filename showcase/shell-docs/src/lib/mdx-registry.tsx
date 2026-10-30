@@ -29,6 +29,7 @@ import {
   TailoredContentOption as RealTailoredContentOption,
 } from "@/components/react/tailored-content";
 import { NewLookAndFeelPreview } from "@/components/react/component-previews/new-look-and-feel";
+import { StandardCatalog } from "@/components/standard-catalog/standard-catalog";
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import { ChannelsIntegrationPicker } from "@/components/channels-integration-picker";
@@ -50,6 +51,8 @@ import { AngularFeatureCatalog } from "@/components/angular-feature-catalog";
 import { AngularSnippet } from "@/components/angular-snippet";
 import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
+import { resolveFrontendDemoUrl } from "@/lib/frontend-demo-url";
+import frontendCatalogData from "@/data/frontend-catalog.json";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
 import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
 import {
@@ -95,6 +98,14 @@ interface InlineDemoCatalogCell {
   status: string;
 }
 
+interface FrontendCatalogCell {
+  frontend: string;
+  integration: string;
+  feature: string;
+  demo_route: string;
+  runnable: boolean;
+}
+
 const inlineDemoCatalogByKey: Map<string, InlineDemoCatalogCell> = (() => {
   const m = new Map<string, InlineDemoCatalogCell>();
   const cells =
@@ -104,6 +115,9 @@ const inlineDemoCatalogByKey: Map<string, InlineDemoCatalogCell> = (() => {
   }
   return m;
 })();
+
+const frontendCatalogCells =
+  (frontendCatalogData as { cells?: FrontendCatalogCell[] }).cells ?? [];
 
 const Callout = DocsCallout;
 
@@ -372,10 +386,12 @@ export const docsComponents = {
     integration,
     demo,
     showAllFiles,
+    frontend = "react",
   }: {
     integration?: string;
     demo?: string;
     showAllFiles?: boolean;
+    frontend?: string;
   }) => {
     if (!integration || !demo) {
       warnSilentNull(
@@ -410,7 +426,20 @@ export const docsComponents = {
         />
       );
     }
-    // Iframe the integration demo directly (its own backend host).
+    const demoResolution = resolveFrontendDemoUrl({
+      frontend,
+      integration,
+      feature: demo,
+      backendUrl: int.backend_url,
+      catalogCells: frontendCatalogCells,
+    });
+    if (demoResolution.kind === "unsupported") {
+      return <UnsupportedBox integrationName={int.name} featureName={demo} />;
+    }
+
+    // Iframe the integration demo directly (its own backend host). When the
+    // selected frontend has a generated catalog cell, its route owns the
+    // framework-specific path (`/demos`, `/angular`, or `/vue`).
     //
     // Visual treatment: a fixed-height wrapper (550px) + CSS scale on the
     // inner iframe to zoom the embedded content OUT. The iframe is sized
@@ -420,7 +449,7 @@ export const docsComponents = {
     // more demo content fits in the same visual footprint at a smaller
     // effective size: useful for chat surfaces where the composer,
     // suggested prompts, and early messages should all be visible at once.
-    const demoUrl = `${int.backend_url}/demos/${demo}`;
+    const demoUrl = demoResolution.url;
     const SCALE = 0.7;
     const WRAPPER_HEIGHT = 550;
     const wrapperStyle: React.CSSProperties = {
@@ -687,6 +716,7 @@ export const docsComponents = {
   CustomAgent: stubWithPartial("CustomAgent"),
   DebugMode: stubWithPartial("DebugMode"),
   NewLookAndFeelPreview,
+  StandardCatalog,
   Slots: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),

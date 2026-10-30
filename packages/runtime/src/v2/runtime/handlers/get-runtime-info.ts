@@ -17,6 +17,7 @@ import { VERSION } from "../core/runtime";
 import { PlatformRequestError } from "../intelligence-platform/client";
 import { isTelemetryDisabled } from "../telemetry/telemetry-client";
 import { supportsLocalThreadEndpoints } from "../runner/agent-runner";
+import { isThreadOperationAvailable } from "./shared/thread-access";
 
 function resolveLicenseStatus(
   runtime: CopilotRuntimeLike,
@@ -243,16 +244,20 @@ function resolveThreadEndpointInfo(
   runtime: CopilotRuntimeLike,
   threadEndpointsEnabled: boolean,
 ): ThreadEndpointRuntimeInfo {
-  const hasRestThreadBackend =
-    isIntelligenceRuntime(runtime) ||
-    supportsLocalThreadEndpoints(runtime.runner);
-  const restEndpointsAvailable = threadEndpointsEnabled && hasRestThreadBackend;
+  // A local route is advertised only when the Thread access policy lets it
+  // serve requests: without identity, list is refused by default while
+  // reading a Thread by id is not.
+  const available = (operation: "list" | "read") =>
+    threadEndpointsEnabled &&
+    (isIntelligenceRuntime(runtime) ||
+      (supportsLocalThreadEndpoints(runtime.runner) &&
+        isThreadOperationAvailable(runtime, operation)));
   const managedThreadMetadata =
     threadEndpointsEnabled && isIntelligenceRuntime(runtime);
 
   return {
-    list: restEndpointsAvailable,
-    inspect: restEndpointsAvailable,
+    list: available("list"),
+    inspect: available("read"),
     mutations: managedThreadMetadata,
     realtimeMetadata: managedThreadMetadata,
   };

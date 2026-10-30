@@ -31,6 +31,7 @@ import {
   ROOT_FRAMEWORK,
 } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
+import { catalogReferenceNameFromPath } from "@/components/standard-catalog/catalog-reference";
 
 // Force dynamic rendering so unknown slugs reliably return HTTP 404
 // from `notFound()` instead of being cached as a 200 with the not-found
@@ -79,7 +80,7 @@ export async function generateMetadata({
       `integrations/${getDocsFolder(HOME_DEFAULT_FRAMEWORK)}/${slugPath}`,
     ) ?? loadDoc(slugPath);
   return buildDocMetadata({
-    title: doc?.fm.title ?? slugPath,
+    title: catalogReferenceNameFromPath(slugPath) ?? doc?.fm.title ?? slugPath,
     description: doc?.fm.description,
     canonicalPath,
     ogPath: `/og${canonicalPath}/og.png`,

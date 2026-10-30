@@ -13,6 +13,7 @@ import {
   SERVICES,
   STAGING_ENV_ID,
 } from "./railway-envs";
+import * as docsVerification from "./verify-docs-deployment";
 
 describe("runRedeploy", () => {
   let consoleErrSpy: ReturnType<typeof vi.spyOn>;
@@ -48,6 +49,46 @@ describe("runRedeploy", () => {
   const appendSummary = (s: string) => {
     summary += s + "\n";
   };
+
+  it("retains the verified docs deployment receipt in the artifact records", async () => {
+    const result = await runRedeploy({
+      env: "staging",
+      services: ["docs"],
+      appendSummary,
+      redeploy: async () => ({
+        ok: true,
+        deploymentId: "fresh-docs",
+        imageDigest: "sha256:expected",
+        verified: true,
+      }),
+    });
+    expect(result.records).toEqual([
+      {
+        service: "docs",
+        status: "ok",
+        deploymentId: "fresh-docs",
+        imageDigest: "sha256:expected",
+        verified: true,
+      },
+    ]);
+  });
+
+  it("fails the staging build on a docs deployment failure while still attempting independent services", async () => {
+    const redeploy = vi.fn(async (serviceId: string) =>
+      serviceId === SERVICES.docs.serviceId
+        ? { ok: false as const, error: "wrong docs image" }
+        : { ok: true as const },
+    );
+    const result = await runRedeploy({
+      env: "staging",
+      services: ["docs", "showcase-mastra"],
+      appendSummary,
+      redeploy,
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.failed).toBe(1);
+    expect(result.succeeded).toBe(1);
+  });
 
   it("default staging scope = 41 CI-built services + their imageOf consumers (harness-workers)", async () => {
     const seenNames: string[] = [];
@@ -665,6 +706,7 @@ describe("makeLiveRedeploy", () => {
     // restoreAllMocks does NOT undo stubGlobal — unstub explicitly or the
     // fetch stub leaks into other files under fork reuse.
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   function stubFetch(
@@ -674,6 +716,89 @@ describe("makeLiveRedeploy", () => {
     vi.stubGlobal("fetch", fetchMock);
     return fetchMock;
   }
+
+  it("records the fresh deployment ID when CI verification rejects an old image", async () => {
+    vi.spyOn(docsVerification, "readExpectedDocsImage").mockReturnValue({
+      digests: [`sha256:${"a".repeat(64)}`],
+    });
+    const fetchMock = stubFetch(async (_url, init) => {
+      const { query } = JSON.parse(String(init?.body));
+      return new Response(
+        JSON.stringify({
+          data: query.includes("serviceInstanceDeployV2")
+            ? { serviceInstanceDeployV2: "fresh-docs" }
+            : {
+                deployment: {
+                  id: "fresh-docs",
+                  serviceId: SERVICES.docs.serviceId,
+                  environmentId: STAGING_ENV_ID,
+                  status: "SUCCESS",
+                  meta: { imageDigest: `sha256:${"b".repeat(64)}` },
+                },
+              },
+        }),
+      );
+    });
+    const outcome = await makeLiveRedeploy("test-token", {
+      docsExpectedImage: "built-image",
+    })(SERVICES.docs.serviceId, STAGING_ENV_ID);
+    expect(outcome).toMatchObject({
+      ok: false,
+      deploymentId: "fresh-docs",
+      error: expect.stringMatching(/image digest/),
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("creates a fresh staging docs deployment instead of replaying an old pinned image", async () => {
+    const fetchMock = stubFetch(async () => ({
+      ok: true,
+      json: async () => ({
+        data: {
+          serviceInstanceRedeploy: true,
+          serviceInstanceDeployV2: "fresh-docs-deployment",
+        },
+      }),
+    }));
+
+    const outcome = await makeLiveRedeploy("test-token")(
+      SERVICES.docs.serviceId,
+      STAGING_ENV_ID,
+    );
+
+    expect(outcome).toEqual({
+      ok: true,
+      deploymentId: "fresh-docs-deployment",
+    });
+    const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(request.query).toContain("serviceInstanceDeployV2");
+    expect(request.query).not.toContain("serviceInstanceRedeploy");
+    expect(request.variables).toEqual({
+      serviceId: SERVICES.docs.serviceId,
+      environmentId: STAGING_ENV_ID,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([undefined, null, "", " ", true])(
+    "rejects a missing or malformed fresh docs deployment ID (%s)",
+    async (deploymentId) => {
+      stubFetch(async () => ({
+        ok: true,
+        json: async () => ({
+          data: {
+            serviceInstanceRedeploy: true,
+            serviceInstanceDeployV2: deploymentId,
+          },
+        }),
+      }));
+      const outcome = await makeLiveRedeploy("test-token")(
+        SERVICES.docs.serviceId,
+        STAGING_ENV_ID,
+      );
+      expect(outcome.ok).toBe(false);
+    },
+  );
 
   it("passes an abort signal so a hung Railway API records a per-service FAIL", async () => {
     // Without a timeout signal a hung Railway API stalls the CI job until

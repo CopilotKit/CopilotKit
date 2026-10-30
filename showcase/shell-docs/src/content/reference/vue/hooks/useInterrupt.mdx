@@ -5,14 +5,15 @@ description: "Vue 3 composable for handling agent interrupt events and resuming 
 
 ## Overview
 
-`useInterrupt` is a Vue 3 composable that listens for agent custom events named `on_interrupt`, captures the latest interrupt payload for a run, and surfaces it once the run finalizes. Your UI calls `resolveInterrupt(response)` to resume the agent with a resume payload.
+`useInterrupt` is a Vue 3 composable for handling agent interrupts. It supports both the AG-UI standard interrupt flow and the legacy `on_interrupt` custom-event flow, then exposes the active interrupt as reactive state plus `resolve` and `cancel` methods for resuming execution.
 
-Unlike a render-prop API, the Vue composable does not return UI. Instead it returns reactive state (`interrupt`, `result`, `hasInterrupt`, `slotProps`) plus the `resolveInterrupt` function, and (by default) publishes that state into `<CopilotChat>` so you can render interrupts through the chat's `#interrupt` slot.
+By default, the composable publishes its state into [`CopilotChat`](/reference/vue/components/CopilotChat) so you can render the interrupt through the chat's `#interrupt` slot. Set `renderInChat: false` if you want to place the UI yourself.
 
-`event.value` is typed by the `TValue` type parameter (defaults to `unknown`), since the interrupt payload shape depends on your agent. Type-narrow it in your `handler` and `enabled` callbacks, or pass an explicit `TValue` when calling the composable.
+`event.value` is typed by the `TValue` type parameter, which defaults to `unknown`. Narrow it in your `handler` and `enabled` callbacks, or pass an explicit `TValue` when you call the composable.
 
 <Callout type="info">
-  By default (`renderInChat` omitted or `true`), the composable pushes interrupt state into `<CopilotChat>`, where you render it via the `#interrupt` slot. Set `renderInChat: false` to manage rendering yourself from the returned reactive refs.
+  `resolve` and `cancel` are the primary methods. `resolveInterrupt` and
+  `cancelInterrupt` remain as aliases for back-compat.
 </Callout>
 
 ## Signature
@@ -31,13 +32,29 @@ function useInterrupt<TValue = unknown, TResult = never>(
   Optional interrupt configuration.
 
   <PropertyReference name="handler" type="(props: InterruptHandlerProps<TValue>) => TResult | PromiseLike<TResult>">
-    Optional preprocessing callback. Runs when an interrupt becomes pending and can return sync or async data exposed as `result`. `TResult` is inferred from the handler's return type (a promise is unwrapped). If the handler returns a rejected promise, `result` is set to `null`; a synchronous `throw` is not caught (it surfaces from the watcher that runs the handler) and `result` is left unchanged. The callback receives:
-    - `event` -- the interrupt event (`{ name, value }`). `value` is typed as `TValue`.
-    - `resolve(response)` -- resumes the agent with `command.resume = response`.
+    Optional preprocessing callback. It runs when an interrupt becomes pending
+    and can return sync or async data that is exposed as `result`. `TResult` is
+    inferred from the handler's return type, with promises unwrapped. If the
+    handler returns a rejected promise, `result` becomes `null`. A synchronous
+    `throw` is not caught and leaves `result` unchanged.
+
+    The callback receives:
+
+    - `event` — the interrupt event (`{ name, value }`). `value` is typed as
+      `TValue`.
+    - `interrupt` — the primary interrupt object when the standard AG-UI flow
+      is active, otherwise `null`.
+    - `interrupts` — the full standard interrupt set, or `[]` for the legacy
+      flow.
+    - `resolve(response)` — resumes the agent.
+    - `cancel()` — cancels the current interrupt when the standard flow is
+      active.
   </PropertyReference>
 
   <PropertyReference name="enabled" type="(event: InterruptEvent<TValue>) => boolean">
-    Optional filter. Return `false` to ignore matching interrupts for this composable instance. When it returns `false`, `result` and `slotProps` stay `null` and nothing is published to chat.
+    Optional filter. Return `false` to ignore matching interrupts for this
+    composable instance. When it returns `false`, `result` and `slotProps` stay
+    `null` and nothing is published to chat.
   </PropertyReference>
 
   <PropertyReference name="agentId" type="string">
@@ -46,53 +63,83 @@ function useInterrupt<TValue = unknown, TResult = never>(
 
   <PropertyReference name="renderInChat" type="boolean" default="true">
     Controls whether interrupt state is published into `<CopilotChat>`:
-    - `true` (default): publishes `slotProps` into `<CopilotChat>` for rendering via the `#interrupt` slot.
-    - `false`: skips publishing; render the interrupt yourself from the returned refs.
+    - `true` (default): publishes `slotProps` into `<CopilotChat>` for
+      rendering via the `#interrupt` slot.
+    - `false`: skips publishing; render the interrupt yourself from the
+      returned refs.
   </PropertyReference>
 </PropertyReference>
 
 ## Return Value
 
 <PropertyReference name="object" type="UseInterruptResult<TValue, TResult>">
-  Reactive interrupt state and the resume function.
+  Reactive interrupt state and resume/cancel helpers.
 
   <PropertyReference name="interrupt" type="Ref<InterruptEvent<TValue> | null>">
-    The latest pending interrupt event (`{ name, value }`), or `null` when there is none. Cleared when a new run starts or when resolved. (A failed run only clears a not-yet-surfaced interrupt; it does not clear one already surfaced.)
+    The latest pending interrupt event (`{ name, value }`), or `null` when
+    there is none. Cleared when a new run starts or when resolved.
   </PropertyReference>
 
   <PropertyReference name="result" type="Ref<TResult | null>">
-    The value returned by `handler`, or `null` when there is no handler, the handler returned a rejected promise, or `enabled` filtered the interrupt out. (A synchronous `throw` in the handler is not caught and leaves `result` unchanged.)
+    The value returned by `handler`, or `null` when there is no handler, the
+    handler returned a rejected promise, or `enabled` filtered the interrupt
+    out.
   </PropertyReference>
 
   <PropertyReference name="hasInterrupt" type="ComputedRef<boolean>">
-    `true` when an interrupt is pending and passes the optional `enabled` filter, otherwise `false`.
+    `true` when an interrupt is pending and passes the optional `enabled`
+    filter, otherwise `false`.
   </PropertyReference>
 
-  <PropertyReference name="resolveInterrupt" type="(response: unknown) => void">
-    Resumes the agent, forwarding `command.resume = response` (along with the originating `interruptEvent`). Clears the pending interrupt. No-ops when no agent is resolved.
+  <PropertyReference name="resolve" type="InterruptResolveFn">
+    Primary resume method.
+
+    - Legacy flow: resumes with `command.resume = payload` and forwards the
+      originating interrupt event.
+    - Standard flow: records the response for the addressed interrupt. When
+      multiple interrupts are open, responses accumulate and the agent resumes
+      only after all are addressed. If you omit `interruptId` while more than
+      one interrupt is open, the hook warns and defaults to the first one.
+    - Expired standard interrupts are not resumed.
+  </PropertyReference>
+
+  <PropertyReference name="resolveInterrupt" type="InterruptResolveFn">
+    Back-compat alias of `resolve`.
+  </PropertyReference>
+
+  <PropertyReference name="cancel" type="InterruptCancelFn">
+    Cancels the pending interrupt.
+
+    - Standard flow: records a cancellation for the addressed interrupt.
+      Multiple open interrupts accumulate responses until all are addressed.
+      If you omit `interruptId` while more than one interrupt is open, the hook
+      warns and defaults to the first one.
+    - Legacy flow: dismisses the interrupt without resuming.
+  </PropertyReference>
+
+  <PropertyReference name="cancelInterrupt" type="InterruptCancelFn">
+    Back-compat alias of `cancel`.
   </PropertyReference>
 
   <PropertyReference name="slotProps" type="ComputedRef<InterruptRenderProps<TValue, TResult | null> | null>">
-    The props published to the `<CopilotChat>` `#interrupt` slot, or `null` when there is no active interrupt. Shape: `{ event, result, resolve }`.
+    The props published to the `<CopilotChat>` `#interrupt` slot, or `null`
+    when there is no active interrupt. Shape: `{ event, interrupt, interrupts,
+    result, resolve, cancel }`.
   </PropertyReference>
 </PropertyReference>
 
 ## Usage
 
-### In-chat interrupt UI (default)
-
-By default the composable publishes interrupt state into `<CopilotChat>`. Mount the composable, then render the interrupt through the chat's `#interrupt` slot.
+### In-chat interrupt UI
 
 ```vue
 <script setup lang="ts">
-import { useInterrupt } from "@copilotkit/vue/v2";
-import { CopilotChat } from "@copilotkit/vue/v2";
+import { CopilotChat, useInterrupt } from "@copilotkit/vue/v2";
 
 interface Approval {
   question: string;
 }
 
-// Publishes interrupt state into <CopilotChat>.
 useInterrupt<Approval>();
 </script>
 
@@ -100,7 +147,6 @@ useInterrupt<Approval>();
   <CopilotChat>
     <template #interrupt="{ event, resolve }">
       <div class="rounded border p-3">
-        <!-- `#interrupt` slot props are typed with `unknown` value; cast to your payload type. -->
         <p>{{ (event.value as Approval).question }}</p>
         <div class="mt-2 flex gap-2">
           <button @click="resolve({ approved: true })">Approve</button>
@@ -114,13 +160,11 @@ useInterrupt<Approval>();
 
 ### Manual placement with async preprocessing
 
-Set `renderInChat: false` and render directly from the returned reactive refs.
-
 ```vue
 <script setup lang="ts">
 import { useInterrupt } from "@copilotkit/vue/v2";
 
-const { interrupt, result, hasInterrupt, resolveInterrupt } = useInterrupt<
+const { interrupt, result, hasInterrupt, resolve } = useInterrupt<
   string,
   { label: string }
 >({
@@ -134,9 +178,7 @@ const { interrupt, result, hasInterrupt, resolveInterrupt } = useInterrupt<
   <aside v-if="hasInterrupt" class="rounded border p-3">
     <div class="font-medium">{{ result?.label ?? "" }}</div>
     <div class="mt-2">{{ interrupt?.value }}</div>
-    <button class="mt-2" @click="resolveInterrupt({ accepted: true })">
-      Continue
-    </button>
+    <button class="mt-2" @click="resolve({ accepted: true })">Continue</button>
   </aside>
 </template>
 ```
@@ -146,24 +188,27 @@ const { interrupt, result, hasInterrupt, resolveInterrupt } = useInterrupt<
 ```ts
 import { useInterrupt } from "@copilotkit/vue/v2";
 
-const { interrupt, hasInterrupt, result, resolveInterrupt } = useInterrupt({
+const { interrupt, hasInterrupt, result, cancel, resolve } = useInterrupt({
   handler: ({ event }) => ({ label: String(event.value) }),
 });
 
 // `interrupt` and `result` are reactive refs; `hasInterrupt` is a computed.
-// Call `resolveInterrupt(response)` to resume the agent.
+// Call `resolve(response)` or `cancel()` to address the interrupt.
 ```
 
 ## Behavior
 
-- Interrupts are collected from agent custom events named `on_interrupt`.
-- The pending interrupt is surfaced when the run finalizes (`onRunFinalized`).
-- Starting a new run (`onRunStartedEvent`) clears pending interrupt state, and a failed run (`onRunFailed`) discards the in-flight interrupt.
-- `event.value` is typed by `TValue` (defaults to `unknown`); narrow it in `handler` / `enabled` or pass an explicit `TValue`.
-- `result` is inferred from the `handler` return type and is always `TResult | null`. If `handler` returns a rejected promise, `result` is set to `null`; a synchronous `throw` is not caught (it surfaces from the watcher that runs the handler) and `result` is left unchanged.
+- Interrupts are collected from AG-UI standard interrupt events and from legacy `on_interrupt` custom events.
+- Standard interrupts win if both flows appear for the same run.
+- The pending interrupt is surfaced when the run finalizes.
+- Starting a new run clears pending interrupt state, and a failed run discards the in-flight interrupt.
+- When multiple standard interrupts are open, `resolve(payload, interruptId)` and `cancel(interruptId)` accumulate responses until every interrupt is addressed, then resume once.
+- Omitting `interruptId` while multiple standard interrupts are open defaults to the first interrupt and logs a warning.
+- Expired standard interrupts are not resumed.
+- `result` is inferred from the `handler` return type and is always `TResult | null`.
 - When `enabled` returns `false`, the interrupt is ignored: `result` and `slotProps` stay `null` and nothing is published to chat.
 - With `renderInChat` omitted or `true`, `slotProps` is published into `<CopilotChat>` for the `#interrupt` slot. With `renderInChat: false`, no chat publishing occurs and you render from the returned refs.
-- `resolveInterrupt(response)` resumes the agent via `runAgent` with `forwardedProps.command.resume = response` (along with the originating `interruptEvent`); it no-ops if no agent is resolved.
+- `cancel()` on legacy interrupts just dismisses without resuming.
 
 ## Related
 

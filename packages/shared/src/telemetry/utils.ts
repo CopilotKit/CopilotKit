@@ -1,5 +1,3 @@
-import chalk from "chalk";
-
 export function flattenObject(
   obj: Record<string, any>,
   parentKey = "",
@@ -14,30 +12,4 @@ export function flattenObject(
     }
   }
   return res;
-}
-
-export function printSecurityNotice(advisory: {
-  advisory: string | null;
-  message: string;
-  severity: "low" | "medium" | "high" | "none";
-}) {
-  const severityColor =
-    {
-      low: chalk.blue,
-      medium: chalk.yellow,
-      high: chalk.red,
-    }[advisory.severity.toLowerCase()] || chalk.white;
-
-  console.log();
-  console.log(
-    `━━━━━━━━━━━━━━━━━━ ${chalk.bold(`CopilotKit`)} ━━━━━━━━━━━━━━━━━━`,
-  );
-  console.log();
-  console.log(
-    `${chalk.bold(`Severity: ${severityColor(advisory.severity.toUpperCase())}`)}`,
-  );
-  console.log();
-  console.log(`${chalk.bold(advisory.message)}`);
-  console.log();
-  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 }

@@ -161,9 +161,9 @@ describe("ɵBoundedThreadStore — appendRun", () => {
   it("enforces maxRunsPerThread FIFO (drops oldest)", () => {
     const store = new ɵBoundedThreadStore(limits({ maxRunsPerThread: 2 }));
     store.getOrCreate("t1");
-    store.appendRun("t1", makeRun("t1", "r1"));
-    store.appendRun("t1", makeRun("t1", "r2"));
-    store.appendRun("t1", makeRun("t1", "r3"));
+    store.appendRun("t1", store.peek("t1"), makeRun("t1", "r1"));
+    store.appendRun("t1", store.peek("t1"), makeRun("t1", "r2"));
+    store.appendRun("t1", store.peek("t1"), makeRun("t1", "r3"));
     const runs = store.peek("t1")!.historicRuns;
     expect(runs.map((r) => r.runId)).toEqual(["r2", "r3"]);
   });
@@ -173,14 +173,16 @@ describe("ɵBoundedThreadStore — appendRun", () => {
       limits({ maxRunsPerThread: Infinity }),
     );
     store.getOrCreate("t1");
-    for (let i = 0; i < 500; i++) store.appendRun("t1", makeRun("t1", `r${i}`));
+    for (let i = 0; i < 500; i++)
+      store.appendRun("t1", store.peek("t1"), makeRun("t1", `r${i}`));
     expect(store.peek("t1")!.historicRuns.length).toBe(500);
   });
 
   it("maxRunsPerThread = 0 disables the run cap", () => {
     const store = new ɵBoundedThreadStore(limits({ maxRunsPerThread: 0 }));
     store.getOrCreate("t1");
-    for (let i = 0; i < 300; i++) store.appendRun("t1", makeRun("t1", `r${i}`));
+    for (let i = 0; i < 300; i++)
+      store.appendRun("t1", store.peek("t1"), makeRun("t1", `r${i}`));
     expect(store.peek("t1")!.historicRuns.length).toBe(300);
   });
 
@@ -190,8 +192,16 @@ describe("ɵBoundedThreadStore — appendRun", () => {
     // replaces the thread snapshot and stored runs never carry messages.
     const store = new ɵBoundedThreadStore(limits());
     const s = store.getOrCreate("t1");
-    store.appendRun("t1", makeRun("t1", "r1", { msgPad: 100 }));
-    store.appendRun("t1", makeRun("t1", "r2", { msgPad: 100 }));
+    store.appendRun(
+      "t1",
+      store.peek("t1"),
+      makeRun("t1", "r1", { msgPad: 100 }),
+    );
+    store.appendRun(
+      "t1",
+      store.peek("t1"),
+      makeRun("t1", "r2", { msgPad: 100 }),
+    );
     const runs = store.peek("t1")!.historicRuns;
     // No HistoricRun carries a message snapshot anymore.
     expect(runs[0]!.messages).toEqual([]);
@@ -215,7 +225,7 @@ describe("ɵBoundedThreadStore — appendRun", () => {
     const run = makeRun("t1", "r1", { msgPad: 10 });
     // Hold a reference to the exact Message object appendRun receives.
     const sharedMessage = run.messages[0] as { id: string; content: string };
-    store.appendRun("t1", run);
+    store.appendRun("t1", store.peek("t1"), run);
 
     expect(s.messagesSnapshot[0]!.id).toBe("r1-m");
     // Shallow copy: the stored element is the SAME object reference the caller passed.
@@ -228,12 +238,16 @@ describe("ɵBoundedThreadStore — appendRun", () => {
     // run and getThreadMessages returned []. Now it lives on the thread.
     const store = new ɵBoundedThreadStore(limits({ maxRunsPerThread: 1 }));
     const s = store.getOrCreate("t1");
-    store.appendRun("t1", makeRun("t1", "r1", { msgPad: 100 }));
+    store.appendRun(
+      "t1",
+      store.peek("t1"),
+      makeRun("t1", "r1", { msgPad: 100 }),
+    );
     // Empty-snapshot run (error path / non-array agent.messages). makeRun always
     // yields 1 msg, so build the empty-snapshot run directly.
     const empty = makeRun("t1", "r2");
     empty.messages = [];
-    store.appendRun("t1", empty);
+    store.appendRun("t1", store.peek("t1"), empty);
     // r1 evicted by the run cap, r2 is the only stored run ...
     expect(store.peek("t1")!.historicRuns.map((r) => r.runId)).toEqual(["r2"]);
     // ... yet the thread snapshot survives (still the non-empty r1 snapshot).
@@ -246,11 +260,19 @@ describe("ɵBoundedThreadStore — appendRun", () => {
     // snapshot nor cause the thread to account two snapshots at once.
     const store = new ɵBoundedThreadStore(limits());
     const s = store.getOrCreate("t1");
-    store.appendRun("t1", makeRun("t1", "r1", { msgPad: 1000 }));
+    store.appendRun(
+      "t1",
+      store.peek("t1"),
+      makeRun("t1", "r1", { msgPad: 1000 }),
+    );
     const empty = makeRun("t1", "r2");
     empty.messages = [];
-    store.appendRun("t1", empty);
-    store.appendRun("t1", makeRun("t1", "r3", { msgPad: 1000 }));
+    store.appendRun("t1", store.peek("t1"), empty);
+    store.appendRun(
+      "t1",
+      store.peek("t1"),
+      makeRun("t1", "r3", { msgPad: 1000 }),
+    );
     // Latest non-empty snapshot wins.
     expect(s.messagesSnapshot[0]!.id).toBe("r3-m");
     // Only a SINGLE snapshot is accounted (no over-count from the pinned older
@@ -267,6 +289,7 @@ describe("ɵBoundedThreadStore — appendRun", () => {
     store.getOrCreate("t1");
     store.appendRun(
       "t1",
+      store.peek("t1"),
       makeRun("t1", "r1", { eventPad: 1000, msgPad: 1000 }),
     );
     const afterFirst = store.byteTotal;
@@ -274,6 +297,7 @@ describe("ɵBoundedThreadStore — appendRun", () => {
     expect(afterFirst).toBeGreaterThan(2000);
     store.appendRun(
       "t1",
+      store.peek("t1"),
       makeRun("t1", "r2", { eventPad: 1000, msgPad: 1000 }),
     );
     // r1 evicted (cap 1); r2's events retained, thread snapshot replaced (not
@@ -288,9 +312,17 @@ describe("ɵBoundedThreadStore — appendRun", () => {
       limits({ maxBytes: 3000, maxThreads: 100 }),
     );
     store.getOrCreate("old");
-    store.appendRun("old", makeRun("old", "r1", { eventPad: 2000 }));
+    store.appendRun(
+      "old",
+      store.peek("old"),
+      makeRun("old", "r1", { eventPad: 2000 }),
+    );
     store.getOrCreate("new");
-    store.appendRun("new", makeRun("new", "r1", { eventPad: 2000 })); // over ceiling → evict LRU "old"
+    store.appendRun(
+      "new",
+      store.peek("new"),
+      makeRun("new", "r1", { eventPad: 2000 }),
+    ); // over ceiling → evict LRU "old"
     expect(store.peek("new")).toBeDefined();
     expect(store.peek("old")).toBeUndefined();
     expect(store.byteTotal).toBeLessThanOrEqual(3000 + 2100); // within one fat run of the ceiling
@@ -304,10 +336,18 @@ describe("ɵBoundedThreadStore — appendRun", () => {
       limits({ maxBytes: 3000, maxThreads: 100 }),
     );
     const live = store.getOrCreate("live");
-    store.appendRun("live", makeRun("live", "r1", { eventPad: 2000 }));
+    store.appendRun(
+      "live",
+      store.peek("live"),
+      makeRun("live", "r1", { eventPad: 2000 }),
+    );
     live.isRunning = true; // live is LRU but running
     store.getOrCreate("new");
-    store.appendRun("new", makeRun("new", "r1", { eventPad: 2000 })); // over ceiling
+    store.appendRun(
+      "new",
+      store.peek("new"),
+      makeRun("new", "r1", { eventPad: 2000 }),
+    ); // over ceiling
     // live can't be evicted (running) and "new" is the just-appended (protected)
     // thread → nothing evictable, overage accepted.
     expect(store.peek("live")).toBeDefined();
@@ -325,11 +365,19 @@ describe("ɵBoundedThreadStore — appendRun", () => {
       limits({ maxBytes: 3000, maxThreads: 100 }),
     );
     const live = store.getOrCreate("live");
-    store.appendRun("live", makeRun("live", "r1", { eventPad: 2000 }));
+    store.appendRun(
+      "live",
+      store.peek("live"),
+      makeRun("live", "r1", { eventPad: 2000 }),
+    );
     live.isRunning = false; // stop() cleared the running flag ...
     live.stopRequested = true; // ... but the run is still finalizing
     store.getOrCreate("new");
-    store.appendRun("new", makeRun("new", "r1", { eventPad: 2000 })); // over ceiling
+    store.appendRun(
+      "new",
+      store.peek("new"),
+      makeRun("new", "r1", { eventPad: 2000 }),
+    ); // over ceiling
     // live can't be evicted (finalizing) and "new" is protected → overage accepted.
     expect(store.peek("live")).toBeDefined(); // live survives → appendRun can still land
     expect(store.peek("new")).toBeDefined();
@@ -349,16 +397,16 @@ describe("ɵBoundedThreadStore — appendRun", () => {
     // First run establishes the thread's true creation time.
     const r1 = makeRun("t1", "r1");
     r1.createdAt = 1000;
-    store.appendRun("t1", r1);
+    store.appendRun("t1", store.peek("t1"), r1);
     expect(new Date(store.listThreads()[0]!.createdAt).getTime()).toBe(1000);
 
     // Drive the thread PAST maxRunsPerThread so the first run is FIFO-evicted.
     const r2 = makeRun("t1", "r2");
     r2.createdAt = 2000;
-    store.appendRun("t1", r2);
+    store.appendRun("t1", store.peek("t1"), r2);
     const r3 = makeRun("t1", "r3");
     r3.createdAt = 3000;
-    store.appendRun("t1", r3);
+    store.appendRun("t1", store.peek("t1"), r3);
 
     // r1 is gone from historicRuns (cap 2) — historicRuns[0] is now r2 @ 2000 ...
     expect(store.peek("t1")!.historicRuns.map((r) => r.runId)).toEqual([
@@ -376,7 +424,11 @@ describe("ɵBoundedThreadStore — appendRun", () => {
   it("clear resets byteTotal", () => {
     const store = new ɵBoundedThreadStore(limits());
     store.getOrCreate("t1");
-    store.appendRun("t1", makeRun("t1", "r1", { eventPad: 500 }));
+    store.appendRun(
+      "t1",
+      store.peek("t1"),
+      makeRun("t1", "r1", { eventPad: 500 }),
+    );
     store.clear();
     expect(store.byteTotal).toBe(0);
   });
@@ -407,8 +459,8 @@ describe("ɵBoundedThreadStore — guidance log", () => {
     try {
       const store = new ɵBoundedThreadStore(limits({ maxRunsPerThread: 1 }));
       store.getOrCreate("t1");
-      store.appendRun("t1", makeRun("t1", "r1"));
-      store.appendRun("t1", makeRun("t1", "r2")); // over cap → drops r1 → warn
+      store.appendRun("t1", store.peek("t1"), makeRun("t1", "r1"));
+      store.appendRun("t1", store.peek("t1"), makeRun("t1", "r2")); // over cap → drops r1 → warn
       expect(warn).toHaveBeenCalledTimes(1);
       expect(String(warn.mock.calls[0]?.[0])).toContain("evicted");
       expect(String(warn.mock.calls[0]?.[0])).toContain("Intelligence backend");
@@ -424,7 +476,7 @@ describe("ɵBoundedThreadStore — guidance log", () => {
       store.getOrCreate("t1");
       // Every append past the first trims a run, but the latch fires only once.
       for (let i = 0; i < 50; i++)
-        store.appendRun("t1", makeRun("t1", `r${i}`));
+        store.appendRun("t1", store.peek("t1"), makeRun("t1", `r${i}`));
       expect(store.peek("t1")!.historicRuns.length).toBe(1);
       expect(warn).toHaveBeenCalledTimes(1);
     } finally {
@@ -439,14 +491,14 @@ describe("ɵBoundedThreadStore — guidance log", () => {
       const disabled = new ɵBoundedThreadStore(limits({ maxRunsPerThread: 0 }));
       disabled.getOrCreate("t1");
       for (let i = 0; i < 10; i++)
-        disabled.appendRun("t1", makeRun("t1", `r${i}`));
+        disabled.appendRun("t1", disabled.peek("t1"), makeRun("t1", `r${i}`));
       expect(warn).not.toHaveBeenCalled();
 
       // Under the cap: nothing over the limit → silent.
       const underCap = new ɵBoundedThreadStore(limits({ maxRunsPerThread: 5 }));
       underCap.getOrCreate("t2");
-      underCap.appendRun("t2", makeRun("t2", "r1"));
-      underCap.appendRun("t2", makeRun("t2", "r2"));
+      underCap.appendRun("t2", underCap.peek("t2"), makeRun("t2", "r1"));
+      underCap.appendRun("t2", underCap.peek("t2"), makeRun("t2", "r2"));
       expect(warn).not.toHaveBeenCalled();
     } finally {
       warn.mockRestore();
@@ -601,10 +653,12 @@ describe("ɵBoundedThreadStore — invalid limits never reach enforcement loops"
     try {
       const store = new ɵBoundedThreadStore(limits({ maxRunsPerThread: -1 }));
       store.getOrCreate("t1");
-      expect(() => store.appendRun("t1", makeRun("t1", "r1"))).not.toThrow();
+      expect(() =>
+        store.appendRun("t1", store.peek("t1"), makeRun("t1", "r1")),
+      ).not.toThrow();
       // Clamped to the default cap (100), so appends are retained up to 100.
       for (let i = 0; i < 150; i++)
-        store.appendRun("t1", makeRun("t1", `r${i}`));
+        store.appendRun("t1", store.peek("t1"), makeRun("t1", `r${i}`));
       expect(store.peek("t1")!.historicRuns.length).toBe(100);
     } finally {
       warn.mockRestore();
@@ -619,7 +673,9 @@ describe("ɵBoundedThreadStore — invalid limits never reach enforcement loops"
           limits({ maxRunsPerThread: bad }),
         );
         store.getOrCreate("t1");
-        expect(() => store.appendRun("t1", makeRun("t1", "r1"))).not.toThrow();
+        expect(() =>
+          store.appendRun("t1", store.peek("t1"), makeRun("t1", "r1")),
+        ).not.toThrow();
       }
     } finally {
       warn.mockRestore();
@@ -634,7 +690,7 @@ describe("ɵBoundedThreadStore — invalid limits never reach enforcement loops"
       );
       store.getOrCreate("t1");
       for (let i = 0; i < 500; i++)
-        store.appendRun("t1", makeRun("t1", `r${i}`));
+        store.appendRun("t1", store.peek("t1"), makeRun("t1", `r${i}`));
       expect(store.peek("t1")!.historicRuns.length).toBe(500);
     }
   });
@@ -647,7 +703,7 @@ describe("ɵBoundedThreadStore — invalid limits never reach enforcement loops"
       store.setLimits(limits({ maxRunsPerThread: -5 }));
       store.getOrCreate("t1");
       for (let i = 0; i < 150; i++)
-        store.appendRun("t1", makeRun("t1", `r${i}`));
+        store.appendRun("t1", store.peek("t1"), makeRun("t1", `r${i}`));
       expect(store.peek("t1")!.historicRuns.length).toBe(100);
     } finally {
       warn.mockRestore();

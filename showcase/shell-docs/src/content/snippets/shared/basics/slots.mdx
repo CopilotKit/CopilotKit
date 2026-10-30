@@ -313,6 +313,7 @@ Available via `messageView={{ ... }}`:
 | `userMessage`      | Renders user messages. Has its own sub-slots (see below).                  |
 | `reasoningMessage` | Renders model reasoning/thinking steps. Has its own sub-slots (see below). |
 | `cursor`           | The streaming cursor indicator shown while the agent is responding.        |
+| `workSummary`      | The "Working… / Worked for 9s" line when `toolCallDisplay` is `"turn"`.     |
 
 ### `assistantMessage` sub-slots
 
@@ -327,7 +328,15 @@ Available via `messageView={{ assistantMessage: { ... } }}`:
 | `thumbsDownButton` | Thumbs down feedback button.       |
 | `readAloudButton`  | Read aloud button.                 |
 | `regenerateButton` | Regenerate response button.        |
-| `toolCallsView`    | Tool call visualization.           |
+| `toolCallsView`    | Tool call visualization. Has its own sub-slot (see below). |
+
+### `toolCallsView` sub-slots
+
+Available via `messageView={{ assistantMessage: { toolCallsView: { ... } } }}`:
+
+| Slot    | Description                                                                                                                         |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `group` | Tool calls the agent makes in a row, collapsed into one summary (grouped, line and stacked displays). See [`CopilotChatToolCallGroup`](/reference/components/CopilotChatToolCallGroup). |
 
 ### `userMessage` sub-slots
 

@@ -170,18 +170,20 @@ function UnlockCard({
               </p>
             ))}
 
-            <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">
-              {config.requestPrompt}{" "}
-              <a
-                href={config.requestUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="font-medium text-[var(--accent)] underline decoration-[color-mix(in_oklch,var(--accent)_40%,transparent)] underline-offset-[3px] transition-colors hover:decoration-[var(--accent)]"
-              >
-                {config.requestLinkLabel}
-              </a>
-              .
-            </p>
+            {config.requestUrl && config.requestLinkLabel && (
+              <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">
+                {config.requestPrompt}{" "}
+                <a
+                  href={config.requestUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-[var(--accent)] underline decoration-[color-mix(in_oklch,var(--accent)_40%,transparent)] underline-offset-[3px] transition-colors hover:decoration-[var(--accent)]"
+                >
+                  {config.requestLinkLabel}
+                </a>
+                .
+              </p>
+            )}
 
             <form onSubmit={handleSubmit} className="mt-5" noValidate>
               <label

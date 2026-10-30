@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.6.2",
+    "@copilotkit/react-core": "1.81.0",
     "@radix-ui/react-popover": "^1.1.15",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -27,6 +28,7 @@
     "fumadocs-ui": "^16.8.12",
     "gray-matter": "^4.0.3",
     "lucide-react": "^0.469.0",
+    "maplibre-gl": "5.24.0",
     "next": "^16.0.0",
     "next-mdx-remote": "^6.0.0",
     "next-themes": "^0.4.6",

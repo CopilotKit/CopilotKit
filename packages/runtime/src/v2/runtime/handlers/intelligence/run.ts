@@ -102,6 +102,14 @@ export async function handleIntelligenceRun({
     typeof proxyRequest === "object" &&
     (proxyRequest as { method?: unknown }).method === "resources/read";
 
+  // CopilotKit core sends one request ID across a request's follow-up runs
+  // and resumes. Older clients send none, and the platform then uses the run ID.
+  const forwardedRequestId = input.forwardedProps?.__copilotkitRequestId;
+  const requestId =
+    typeof forwardedRequestId === "string" && forwardedRequestId.length > 0
+      ? forwardedRequestId
+      : undefined;
+
   let learningContainerId: string | undefined;
   try {
     const selector = runtime.intelligence.ɵgetLearningContainerId?.();
@@ -220,6 +228,7 @@ export async function handleIntelligenceRun({
       userId,
       agentId,
       ...(learningContainerId !== undefined ? { learningContainerId } : {}),
+      ...(requestId !== undefined ? { requestId } : {}),
       ...(runtime.lockKeyPrefix !== undefined
         ? { lockKeyPrefix: runtime.lockKeyPrefix }
         : {}),
@@ -277,12 +286,11 @@ export async function handleIntelligenceRun({
   let persistedInputMessages: Message[] | undefined;
   if (Array.isArray(input.messages)) {
     try {
-      const history = await runtime.intelligence.getThreadMessages({
-        threadId: canonicalThreadId,
-        userId,
-      });
       const historicMessageIds = new Set(
-        history.messages.map((message) => message.id),
+        await runtime.intelligence.ɵgetThreadMessageIds({
+          threadId: canonicalThreadId,
+          userId,
+        }),
       );
       persistedInputMessages = input.messages.filter(
         (message) => !historicMessageIds.has(message.id),

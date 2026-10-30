@@ -26,20 +26,11 @@ import {
   pinPrereleaseDependencies,
 } from "./lib/versions.js";
 import type { PublishablePackage } from "./lib/versions.js";
-import {
-  ALL_SCOPES,
-  LEARNING_PREVIEW,
-  ROOT,
-  loadConfig,
-  resolveScopes,
-} from "./lib/config.js";
+import { ALL_SCOPES, ROOT, loadConfig, resolveScopes } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
 import { resolvePublishNpm } from "./lib/npm-cli.js";
-import {
-  publishPrereleasePackages,
-  verifyPackedLearningPreview,
-} from "./lib/learning-preview.js";
+import { mapWithConcurrency } from "./lib/concurrency.js";
 
 /**
  * How many packages to pack+publish at once. Each one is dominated by a registry
@@ -96,7 +87,7 @@ async function main() {
   const dryRun = argv.includes("--dry-run");
   const scopeIdx = argv.indexOf("--scope");
   const selector = scopeIdx !== -1 ? argv[scopeIdx + 1] : null;
-  const usage = `Usage: prerelease.ts --scope <${[...VALID_SCOPES, ALL_SCOPES, LEARNING_PREVIEW].join("|")}> [--dry-run]`;
+  const usage = `Usage: prerelease.ts --scope <${[...VALID_SCOPES, ALL_SCOPES].join("|")}> [--dry-run]`;
 
   if (!selector) {
     console.error(usage);
@@ -198,27 +189,13 @@ async function main() {
   console.log(
     `\nPublishing ${packages.length} package(s), ${PUBLISH_CONCURRENCY} at a time...`,
   );
-  if (selector === LEARNING_PREVIEW) {
-    console.log(
-      "Publishing Learning first; consumers follow only after it succeeds.",
-    );
-  }
-  const results = await publishPrereleasePackages(
-    selector,
+  const results = await mapWithConcurrency(
     packages,
     PUBLISH_CONCURRENCY,
     async (p) => {
       const label = `${p.name}@${p.pkg.version}`;
       const tarball = `${p.name.replace("@", "").replace("/", "-")}-${p.pkg.version}.tgz`;
       await runCaptured("pnpm", ["pack"], { cwd: p.dir });
-      if (selector === LEARNING_PREVIEW) {
-        const manifest = JSON.parse(
-          await runCaptured("tar", ["-xOf", tarball, "package/package.json"], {
-            cwd: p.dir,
-          }),
-        );
-        verifyPackedLearningPreview(selector, packages, manifest);
-      }
       await runCaptured(
         process.execPath,
         [

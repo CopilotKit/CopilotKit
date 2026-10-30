@@ -1,5 +1,6 @@
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import type { McpAppsServerConfig } from "../../core/runtime";
+import { describeEndpoint } from "../../../../v1-deprecated/lib/runtime/mcp-client-cache";
 
 const UNSUPPORTED_POLICY_KEYS = ["includeTools", "excludeTools"] as const;
 const MCP_APPS_POLICY_ISSUE =
@@ -23,7 +24,7 @@ export function resolveMcpAppsServers(
         config[key] !== undefined
       ) {
         violations.push(
-          `${key} at server[${index}] (${server.serverId ?? server.url})`,
+          `${key} at server[${index}] (${server.serverId ?? describeEndpoint(server.url)})`,
         );
       }
     }

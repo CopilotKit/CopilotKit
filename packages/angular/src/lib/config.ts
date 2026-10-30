@@ -31,6 +31,21 @@ export interface A2UIConfig {
   catalog?: A2UICatalog;
   /** Shown until the first surface renders. */
   loadingComponent?: Type<unknown>;
+  /**
+   * When true (the default), the full component schemas from the catalog are
+   * sent as agent context so the agent knows what components and props are
+   * available. The A2UI middleware can overwrite this with a server-side
+   * schema if configured.
+   *
+   * When false, the agent context still describes the catalog, but only by its
+   * catalog ID and the names of its custom components, without their JSON
+   * schemas. The component schema entry and the A2UI generation and design
+   * guidelines are not sent. With the CopilotKit LangGraph middleware's
+   * injected A2UI tool, the A2UI subagent then gets the component names only;
+   * a host can still give it a composition guide through the middleware's
+   * guidelines (`a2uiParams.guidelines.compositionGuide` in TypeScript,
+   * `a2ui_params["guidelines"]["composition_guide"]` in Python).
+   */
   includeSchema?: boolean;
   recovery?: A2UIRecoveryOptions;
 }

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   validateRelease,
@@ -8,6 +9,7 @@ import {
 import {
   BUILD_WORKFLOW,
   DEPLOY_WORKFLOW,
+  DEV_DEPLOY_WORKFLOW,
   POLICY,
   sha256,
   STAGING,
@@ -96,6 +98,39 @@ test("reviewed immutable build verifies even when artifact approved is false", a
   validateRelease(h.release);
   await verifyBuild(h.release, h.github, { verifyImage: async () => {} });
 });
+test("upgraded inspector policy supports ordinary deployments without permitting policy changes", () => {
+  const { release } = fixture();
+  const upgraded =
+    "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751";
+  for (const target of [release.baseline, release.candidate])
+    target.runtimeIdentity = {
+      ...target.runtimeIdentity,
+      policySha256: upgraded,
+    };
+  assert.doesNotThrow(() => validateRelease(release));
+  release.candidate.runtimeIdentity.policySha256 = POLICY;
+  assert.throws(() => validateRelease(release), /Incompatible runner update/);
+  release.candidate.runtimeIdentity.policySha256 = "f".repeat(64);
+  assert.throws(() => validateRelease(release), /Invalid runtime identity/);
+});
+test("release schema permits only reviewed policies including the checked-in release", async () => {
+  const schema = JSON.parse(
+    await readFile(new URL("./release.schema.json", import.meta.url)),
+  );
+  const release = JSON.parse(
+    await readFile(new URL("./releases/staging.json", import.meta.url)),
+  );
+  const policy = schema.$defs.identity.properties.policySha256;
+  assert.deepEqual(policy, {
+    enum: [
+      POLICY,
+      "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751",
+    ],
+  });
+  for (const target of [release.baseline, release.candidate])
+    assert.ok(policy.enum.includes(target.runtimeIdentity.policySha256));
+  assert.equal(policy.enum.includes("f".repeat(64)), false);
+});
 for (const field of [
   "attempt",
   "repository",
@@ -164,6 +199,45 @@ test("baseline uses verified actual final state from failed rollback run", async
   assert.deepEqual(await readBaselineReceipt(7, h.github), h.release.baseline);
   receipt.finalState.verified = false;
   await assert.rejects(readBaselineReceipt(7, h.github));
+});
+test("development baselines require the exact development workflow and branch prefix", async () => {
+  const h = fixture();
+  h.run.path = DEV_DEPLOY_WORKFLOW;
+  h.run.head_branch = "dev/railway-runner-branch-deploy";
+  h.github.receipt = async () => ({
+    schemaVersion: 1,
+    operationId: "github-655515393-7",
+    releaseSha256: "d".repeat(64),
+    run: {
+      id: 7,
+      attempt: 1,
+      sha: h.run.head_sha,
+      workflowPath: DEV_DEPLOY_WORKFLOW,
+    },
+    outcome: "deployed",
+    finalState: {
+      verified: true,
+      phase: "running",
+      deploymentId: "deployment",
+      image: h.release.baseline.image,
+      runtimeIdentity: h.release.baseline.runtimeIdentity,
+      templateSha256: "e".repeat(64),
+      volumeId: STAGING.volumeId,
+      volumeInstanceId: STAGING.volumeInstanceId,
+      mountPath: "/data",
+    },
+  });
+  assert.deepEqual(await readBaselineReceipt(7, h.github), h.release.baseline);
+  for (const [path, branch] of [
+    [DEV_DEPLOY_WORKFLOW, "main"],
+    [DEV_DEPLOY_WORKFLOW, "feature"],
+    [DEPLOY_WORKFLOW, "dev/railway-runner-branch-deploy"],
+    [".github/workflows/foreign.yml", "dev/railway-runner-branch-deploy"],
+  ]) {
+    h.run.path = path;
+    h.run.head_branch = branch;
+    await assert.rejects(readBaselineReceipt(7, h.github));
+  }
 });
 test("artifact created before selected run attempt is rejected", async () => {
   const h = fixture();

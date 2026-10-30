@@ -65,7 +65,7 @@ function makeIntelligenceRuntime(
       thread: { id: "thread-1", name: null },
       created: false,
     }),
-    getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+    ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
     ɵacquireThreadLock: vi.fn().mockResolvedValue({
       threadId: "thread-1",
       runId: "run-1",
@@ -471,7 +471,7 @@ describe("intelligence/run.ts — telemetry lifecycle", () => {
     [
       "thread history lookup fails",
       (runtime: any) => {
-        runtime.intelligence.getThreadMessages = vi
+        runtime.intelligence.ɵgetThreadMessageIds = vi
           .fn()
           .mockRejectedValue(new Error("history failed"));
       },

@@ -148,7 +148,7 @@ export const ROOT_FRAMEWORK = "built-in-agent";
 
 const DOCS_ONLY_INTEGRATIONS: Integration[] = [
   {
-    name: "Deep Agents",
+    name: "Langchain DeepAgents",
     slug: "deepagents",
     category: "popular",
     language: "python",

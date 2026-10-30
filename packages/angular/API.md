@@ -325,4 +325,5 @@ custom hosts, renderers, and protocol testing.
 <!-- public-api:mcp-apps:end -->
 
 The MCP Apps renderer uses the same inline `srcdoc` proxy, sandbox permissions,
-and resource-domain CSP as the React SDK.
+and resource-domain CSP as the React SDK. Widgets get an opaque origin unless
+`allowSameOriginFallback` is set.

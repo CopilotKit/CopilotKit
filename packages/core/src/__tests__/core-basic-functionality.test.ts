@@ -35,7 +35,9 @@ describe("CopilotKitCore.runAgent - Basic Functionality", () => {
 
     expect(result.newMessages).toEqual(messages);
     expect(agent.runAgentCalls).toHaveLength(1);
-    expect(agent.runAgentCalls[0].forwardedProps).toEqual({});
+    expect(agent.runAgentCalls[0].forwardedProps).toEqual({
+      __copilotkitRequestId: expect.any(String),
+    });
   });
 
   it("should forward properties to agent.runAgent", async () => {
@@ -49,7 +51,10 @@ describe("CopilotKitCore.runAgent - Basic Functionality", () => {
 
     await copilotKitCore.runAgent({ agent: agent as any });
 
-    expect(agent.runAgentCalls[0].forwardedProps).toEqual(properties);
+    expect(agent.runAgentCalls[0].forwardedProps).toEqual({
+      ...properties,
+      __copilotkitRequestId: expect.any(String),
+    });
   });
 
   it("should handle empty newMessages array", async () => {

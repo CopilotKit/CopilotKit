@@ -276,6 +276,9 @@ jobs:
       - name: Test the declaration-file validator
         run: pnpm exec vitest run scripts/__tests__/validate-dts-ambient.test.ts
 
+      - name: Test production verification without promotion
+        run: pnpm exec nx run repo-scripts:validate-production-verification
+
       - name: Test the published-import validators
         run: >-
           pnpm exec vitest run

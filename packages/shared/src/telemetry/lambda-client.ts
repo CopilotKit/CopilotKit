@@ -2,9 +2,9 @@
 //
 // Posts events to a CopilotKit-controlled telemetry-sink endpoint, which
 // fans out to Scarf, Reo, and any future destinations. Replaces the direct
-// per-vendor calls (scarf-client.ts) so that vendor changes don't require
-// SDK releases and so that downstream services we don't want exposed to
-// OSS readers (e.g. the email-enrichment service backing Reo) stay
+// per-vendor calls (formerly a Scarf-specific client) so that vendor changes
+// don't require SDK releases and so that downstream services we don't want
+// exposed to OSS readers (e.g. the email-enrichment service backing Reo) stay
 // private.
 //
 // Two attribution modes:

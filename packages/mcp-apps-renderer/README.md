@@ -47,9 +47,10 @@ await app.updateModelContext({
   entry; `structuredContent: {}` is a valid, empty state.
 - **Contents.** Text blocks (in order) and `structuredContent` go into one
   deterministic JSON value. Image, audio and resource blocks are refused with
-  a JSON-RPC error. A snapshot above `MCP_APPS_MODEL_CONTEXT_MAX_LENGTH`
-  characters (32 KiB) is refused too; a refused update leaves the previous
-  snapshot in place.
+  a JSON-RPC error. A snapshot whose serialized JSON is longer than
+  `MCP_APPS_MODEL_CONTEXT_MAX_LENGTH` (32,768 characters, measured on the
+  string's length, not its byte size) is refused too; a refused update leaves
+  the previous snapshot in place.
 - **Scope.** The entry is scoped to the agent and the conversation the widget
   was opened in, under a key the host builds (agent, thread, activity message,
   resource). An iframe still mounted after the shared agent moved to another

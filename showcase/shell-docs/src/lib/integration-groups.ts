@@ -11,8 +11,8 @@ export const PRIORITY_GROUPS: Pick<
   },
   {
     id: "deepagents",
-    name: "DeepAgents",
-    choices: [{ slug: "deepagents", name: "DeepAgents" }],
+    name: "Langchain DeepAgents",
+    choices: [{ slug: "deepagents", name: "Langchain DeepAgents" }],
   },
   {
     id: "langchain",

@@ -319,7 +319,7 @@ export class SuggestionEngine {
           // throwaway thread.
           context: friends.getContextForAgent(consumerAgentId, seededThreadId),
           forwardedProps: {
-            ...friends.properties,
+            ...friends.getPropertiesForAgent(consumerAgentId),
             toolChoice: {
               type: "function",
               function: { name: "copilotkitSuggest" },

@@ -477,6 +477,7 @@ export class BrowserPool {
   private shutdownSignal: Promise<void> = new Promise<void>((resolve) => {
     this.resolveShutdownSignal = resolve;
   });
+  private recoveryShutdownSubscribers = new Set<() => void>();
   private readonly logger?: PoolLogger;
   private readonly injectedLaunchBrowser?: LaunchBrowser;
   // cgroup PID-counter reader for the hot-path gauge AND the worker budget()
@@ -842,6 +843,11 @@ export class BrowserPool {
         chromium.launch({
           headless: true,
           args: ["--no-sandbox", "--disable-dev-shm-usage"],
+          // The harness owns TERM/INT drain and HUP reload. Keep Chromium alive
+          // until active work reports and the harness explicitly shuts the pool down.
+          handleSIGTERM: false,
+          handleSIGINT: false,
+          handleSIGHUP: false,
         });
     }
 
@@ -1439,6 +1445,23 @@ export class BrowserPool {
     });
   }
 
+  private async serveNextWaiterOrShutdown(): Promise<void> {
+    if (this.isShutdown) return;
+    let cancel!: () => void;
+    const cancelled = new Promise<void>((resolve) => {
+      cancel = resolve;
+    });
+    // Register before serving so a reentrant shutdown cannot miss this open.
+    // Remove completed serves instead of retaining reactions on shutdownSignal.
+    this.recoveryShutdownSubscribers.add(cancel);
+    try {
+      // The race observes a late serve rejection even when shutdown wins.
+      await Promise.race([this.serveNextWaiter(), cancelled]);
+    } finally {
+      this.recoveryShutdownSubscribers.delete(cancel);
+    }
+  }
+
   private async serveNextWaiter(): Promise<void> {
     if (this.waiters.length === 0) return;
     // SHUTDOWN GUARD: bail BEFORE shifting/reserving/opening once the pool is
@@ -1700,6 +1723,8 @@ export class BrowserPool {
     // snapshot's `onSnapshot` write is not racing the post-shutdown drain.
     this.snapshot("shutdown");
     this.isShutdown = true;
+    for (const cancel of this.recoveryShutdownSubscribers) cancel();
+    this.recoveryShutdownSubscribers.clear();
     // Wake any racing self-heal / backoff delay so it aborts promptly instead of
     // stalling shutdown for up to selfHealIntervalMs / relaunchBackoffMs.
     this.resolveShutdownSignal?.();
@@ -1920,7 +1945,11 @@ export class BrowserPool {
           entry.browser.isConnected()
         ) {
           const before = this.waiters.length;
-          await this.serveNextWaiter();
+          // A context open can need browser closure to settle. Let shutdown
+          // drain this recovery before its close pass; the raced serve remains
+          // observed and openContextOn closes any late result as an orphan.
+          await this.serveNextWaiterOrShutdown();
+          if (this.isShutdown) break;
           if (this.waiters.length >= before) break;
         }
       } catch (err) {
@@ -2196,7 +2225,10 @@ export class BrowserPool {
               fresh.isConnected()
             ) {
               const before = this.waiters.length;
-              await this.serveNextWaiter();
+              // As in recycle recovery, shutdown must reach browser close even
+              // if the queued context open has not settled yet.
+              await this.serveNextWaiterOrShutdown();
+              if (this.isShutdown) break;
               if (this.waiters.length >= before) break;
             }
           } catch (err) {

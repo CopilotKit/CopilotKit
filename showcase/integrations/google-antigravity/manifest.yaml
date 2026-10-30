@@ -198,6 +198,7 @@ demos:
       - src/agents/chat.py
       - src/app/demos/voice/page.tsx
       - src/app/demos/voice/sample-audio-button.tsx
+      - src/lib/transcription-service.ts
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
   - id: frontend-tools
     name: "Frontend Tools: In-app Actions"

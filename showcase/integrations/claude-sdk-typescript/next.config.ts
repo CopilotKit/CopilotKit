@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
         source: "/angular/:path*",
         destination: "/angular/index.html",
       },
+      {
+        source: "/vue/:path*",
+        destination: "/vue/index.html",
+      },
     ];
   },
   // The staged CVDIAG emitter (src/cvdiag/*) uses NodeNext-style relative

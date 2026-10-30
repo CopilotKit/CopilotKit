@@ -24,7 +24,7 @@ export const Divider = createReactComponent(DividerApi, ({ props }) => {
   const style: React.CSSProperties = {
     margin: LEAF_MARGIN,
     border: "none",
-    backgroundColor: "#ccc",
+    backgroundColor: "var(--a2ui-color-border, #ccc)",
   };
 
   if (isVertical) {

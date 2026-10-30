@@ -26,7 +26,9 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # A healthy run takes ~75s, but one stalled pnpm self-install fetch from
+    # npm can burn ~5 min on its own; 15 leaves room for that stall.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

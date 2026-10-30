@@ -1,0 +1,2 @@
+# These small platform icons must survive the CLI's sparse checkout.
+*.png -filter -diff -merge binary

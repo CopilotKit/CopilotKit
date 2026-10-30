@@ -4,6 +4,7 @@ import type {
   AgentSubscriber,
   BaseEvent,
   HttpAgentConfig,
+  Message,
   RunAgentInput,
   RunAgentParameters,
   RunAgentResult,
@@ -41,7 +42,10 @@ import type { RuntimeRequestInit } from "./utils/runtime-request";
 import type { ConnectionReplayLifecycle } from "./utils/connect-replay";
 import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
 import type { CopilotKitMessageFilter } from "./core/message-filter";
-import { ɵrepairToolCallPairs } from "./core/message-filter";
+import {
+  ɵkeepToolResultsWithCalls,
+  ɵrepairToolCallPairs,
+} from "./core/message-filter";
 
 type ResolvedRuntimeMode = RuntimeMode | "pending";
 
@@ -285,7 +289,21 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   }
 
   /**
-   * Narrow the outbound payload with the configured message filter.
+   * Build the outbound payload, keeping every tool result with the call that
+   * issued it.
+   *
+   * - **No filter** (or a filter whose output is unusable, which falls back to
+   *   the full thread): `ɵkeepToolResultsWithCalls` re-places tool results
+   *   that drifted from their call and changes nothing else. The client store
+   *   can detach them on its own when a `MESSAGES_SNAPSHOT` re-ids a tool
+   *   message, and a backend that rebuilds state from such a payload drops
+   *   every result it cannot pair.
+   * - **Filter**: `ɵrepairToolCallPairs(kept, full)` restores the call or the
+   *   results a filter trimmed. Its known limitations are tracked in
+   *   https://github.com/CopilotKit/CopilotKit/issues/7891.
+   * - **Filter repair throws**: the filter's output goes through
+   *   `ɵkeepToolResultsWithCalls` instead, keeping its trimming and
+   *   redaction; if that throws too, the output is sent as is.
    *
    * **Called from the HTTP paths only, and that placement is the Intelligence
    * exemption.** An earlier revision applied the filter in
@@ -308,38 +326,114 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
    * cannot reach the messages the UI renders no matter what it does with the
    * array it is handed. The filter gets a *second* deep clone on top of that,
    * because `input.messages` is also the repair baseline and the untrimmed
-   * fallback: sharing the message objects let a filter that mutates a kept
-   * message's `toolCallId` corrupt the baseline, and an orphaned tool result
-   * then went out on the wire — a payload the provider rejects, which is
-   * exactly the failure this whole mechanism exists to prevent.
+   * fallback: sharing the message objects let a filter that rewrote the tool
+   * call id of an assistant message it dropped hide that issuer from the
+   * repair, and the kept tool result then went out orphaned — a payload the
+   * provider rejects, which is exactly the failure this whole mechanism
+   * exists to prevent.
    */
-  #applyMessageFilter(input: RunAgentInput): RunAgentInput {
-    const filter = this._messageFilter;
-    if (!filter) return input;
+  #prepareOutboundMessages(input: RunAgentInput): RunAgentInput {
+    const full = input.messages;
+    const kept = this.#applyMessageFilter(full);
 
-    // A filter that throws, returns the wrong shape, or hands back entries the
-    // repair cannot read falls back to the untrimmed thread rather than
-    // failing the run. Trimming is an optimization, and taking the user's
-    // message down with it would be the worse outcome; the warning is what
-    // surfaces the bug.
+    // The pairing step is a best-effort fix-up, so it is guarded on its own
+    // and kept apart from the filter call: a bug here is reported as the
+    // repair failing, never as the app's filter failing. A successful filter
+    // repair changes more than pairing: it can add stored calls and results,
+    // reorder messages, drop messages that share an id or results under a
+    // reused call id, and replace a filter's edited copies with the stored
+    // originals (see above). If the repair throws, the payload goes out as
+    // it would have without it — the input unchanged when nothing was
+    // filtered, the filter's output with only drifted results moved when a
+    // filter ran.
+    const agentId = this.agentId ?? "";
     try {
-      const kept = filter(structuredClone_(input.messages), {
-        agentId: this.agentId ?? "",
-      });
-      if (!Array.isArray(kept)) {
+      const messages =
+        kept === undefined
+          ? ɵkeepToolResultsWithCalls(full)
+          : ɵrepairToolCallPairs(kept, full);
+      return { ...input, messages };
+    } catch (error) {
+      if (kept === undefined) {
         console.warn(
-          "ProxiedCopilotRuntimeAgent: messageFilter returned a non-array value; sending the full message history instead.",
+          `ProxiedCopilotRuntimeAgent: tool-call repair failed for agent "${agentId}"; sending the message history unrepaired instead.`,
+          error,
         );
         return input;
       }
-      return { ...input, messages: ɵrepairToolCallPairs(kept, input.messages) };
+      try {
+        const messages = ɵkeepToolResultsWithCalls(kept);
+        console.warn(
+          `ProxiedCopilotRuntimeAgent: tool-call repair failed for agent "${agentId}"; sending the filtered message history with only drifted tool results moved instead.`,
+          error,
+        );
+        return { ...input, messages };
+      } catch (moveError) {
+        console.warn(
+          `ProxiedCopilotRuntimeAgent: tool-call repair failed for agent "${agentId}"; sending the filtered message history unrepaired instead.`,
+          error,
+          moveError,
+        );
+        return { ...input, messages: kept };
+      }
+    }
+  }
+
+  /**
+   * Run the configured filter. Returns `undefined` when there is no filter,
+   * copying the thread for it fails, or the filter's output cannot be used,
+   * meaning "send the full thread".
+   *
+   * A filter that throws, returns a non-array, or returns an array with an
+   * entry that is not a message object (a hole or a nested array included)
+   * falls back to the untrimmed thread rather than failing the run. Trimming
+   * is an optimization, and taking the user's message down with it would be
+   * the worse outcome; the warning is what surfaces the bug.
+   */
+  #applyMessageFilter(full: Message[]): Message[] | undefined {
+    const filter = this._messageFilter;
+    if (!filter) return undefined;
+
+    // Copied outside the filter's guard, so a thread that cannot be cloned is
+    // reported as that, not as the app's filter failing.
+    let copy: Message[];
+    try {
+      copy = structuredClone_(full);
+    } catch (error) {
+      console.warn(
+        "ProxiedCopilotRuntimeAgent: could not copy the message history for messageFilter; sending the full message history instead.",
+        error,
+      );
+      return undefined;
+    }
+
+    let kept: unknown;
+    try {
+      kept = filter(copy, { agentId: this.agentId ?? "" });
     } catch (error) {
       console.warn(
         "ProxiedCopilotRuntimeAgent: messageFilter failed; sending the full message history instead.",
         error,
       );
-      return input;
+      return undefined;
     }
+    if (!Array.isArray(kept)) {
+      console.warn(
+        "ProxiedCopilotRuntimeAgent: messageFilter returned a non-array value; sending the full message history instead.",
+      );
+      return undefined;
+    }
+    // An index loop, not `every`: `every` skips the holes of a sparse array.
+    for (let index = 0; index < kept.length; index++) {
+      const entry: unknown = kept[index];
+      if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+        console.warn(
+          "ProxiedCopilotRuntimeAgent: messageFilter returned an entry that is not a message; sending the full message history instead.",
+        );
+        return undefined;
+      }
+    }
+    return kept as Message[];
   }
 
   override requestInit(input: RunAgentInput): RequestInit {
@@ -616,7 +710,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   }
 
   #connectViaHttp(unfiltered: RunAgentInput): Observable<BaseEvent> {
-    const input = this.#applyMessageFilter(unfiltered);
+    const input = this.#prepareOutboundMessages(unfiltered);
     this.activeRun = undefined;
     const routedId = this.routedAgentId();
     let httpEvents: ReturnType<typeof runHttpRequest>;
@@ -671,7 +765,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   }
 
   #runViaHttp(unfiltered: RunAgentInput): Observable<BaseEvent> {
-    const input = this.#applyMessageFilter(unfiltered);
+    const input = this.#prepareOutboundMessages(unfiltered);
     const activeRun = { threadId: input.threadId, runId: input.runId };
     // Hold this run's identity for as long as its stream lives. The identity
     // check keeps a late-finalizing stream from releasing a newer run.
@@ -759,9 +853,15 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         __copilotkitMcpResourceReadOnly: true,
       },
     };
-    return this.runtimeMode === RUNTIME_MODE_INTELLIGENCE
-      ? this.clone().runAgent(resourceParameters)
-      : this.runAgent(resourceParameters);
+    if (this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE) {
+      return this.runAgent(resourceParameters);
+    }
+    const resourceAgent = this.clone();
+    // A resource read does not resume the conversation. Only its disposable
+    // client skips the pending-interrupt gate; the original agent and ordinary
+    // clones must retain every approval for the next conversation run.
+    resourceAgent.pendingInterrupts = [];
+    return resourceAgent.runAgent(resourceParameters);
   }
 
   /**

@@ -80,9 +80,16 @@ const externalizeContext = {
 
 export default defineConfig([
   {
+    // `v2/generative-ui` is built here, next to `v2/index`, and not as its
+    // own build. One build puts the modules that both entries use (for
+    // example `generative-ui/runtime-context.ts`) in one shared chunk. A
+    // separate build would inline a second copy, and its `createContext()`
+    // would give a second context: `GenerativeUISurface` from the subpath
+    // would not see the runtime that `CopilotKitProvider` from `/v2` sets.
     entry: {
       index: "src/v1-deprecated-compatibility.ts",
       "v2/index": "src/v2/index.ts",
+      "v2/generative-ui": "src/v2/generative-ui/index.ts",
     },
     format: ["esm", "cjs"],
     dts: true,

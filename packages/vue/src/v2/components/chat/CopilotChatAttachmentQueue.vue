@@ -7,6 +7,8 @@ import {
 } from "@copilotkit/shared";
 import type { Attachment } from "@copilotkit/shared";
 import type { CopilotChatAttachmentQueueProps } from "./types";
+import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
+import { CopilotChatDefaultLabels } from "../../providers/types";
 
 const props = withDefaults(defineProps<CopilotChatAttachmentQueueProps>(), {
   attachments: () => [],
@@ -16,6 +18,9 @@ const props = withDefaults(defineProps<CopilotChatAttachmentQueueProps>(), {
 const emit = defineEmits<{
   "remove-attachment": [id: string];
 }>();
+
+const config = useCopilotChatConfiguration();
+const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 
 const activeLightboxAttachment = ref<Attachment | null>(null);
 const documentBlobUrl = ref<string | null>(null);
@@ -215,7 +220,7 @@ function createBlobUrl(
           <button
             type="button"
             class="cpk:absolute cpk:inset-0 cpk:flex cpk:items-center cpk:justify-center cpk:z-10 cpk:cursor-pointer cpk:bg-black/20 cpk:border-none cpk:p-0"
-            aria-label="Play video"
+            :aria-label="labels.attachmentPlayVideoButtonLabel"
             data-testid="copilot-chat-attachment-video-play"
             @click="openLightbox(attachment)"
           >
@@ -294,7 +299,7 @@ function createBlobUrl(
       <button
         type="button"
         class="cpk:absolute cpk:bg-black/60 cpk:text-white cpk:border-none cpk:rounded-full cpk:w-5 cpk:h-5 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer cpk:text-[10px] cpk:z-20 cpk:top-1 cpk:right-1"
-        aria-label="Remove attachment"
+        :aria-label="labels.attachmentRemoveButtonLabel"
         @click="emit('remove-attachment', attachment.id)"
       >
         ✕
@@ -312,7 +317,7 @@ function createBlobUrl(
       <button
         type="button"
         class="cpk:absolute cpk:top-4 cpk:right-4 cpk:text-white cpk:bg-white/10 cpk:hover:bg-white/20 cpk:rounded-full cpk:w-10 cpk:h-10 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer cpk:border-none"
-        aria-label="Close preview"
+        :aria-label="labels.attachmentPreviewCloseButtonLabel"
         @click.stop="closeLightbox"
       >
         ✕

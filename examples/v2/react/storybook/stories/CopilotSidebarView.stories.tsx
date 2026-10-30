@@ -4,9 +4,11 @@ import React from "react";
 import {
   CopilotModalHeader,
   CopilotSidebarView,
-  type CopilotSidebarViewProps,
 } from "@copilotkit/react-core/v2";
-import { CopilotStoryLayout } from "./CopilotStoryLayout";
+import type { CopilotSidebarViewProps } from "@copilotkit/react-core/v2";
+import { fn } from "storybook/test";
+import { starterSuggestions } from "./support/fixtures";
+import { HostPage } from "./support/HostPage";
 
 const meta = {
   title: "UI/CopilotSidebarView",
@@ -15,9 +17,9 @@ const meta = {
     layout: "fullscreen",
   },
   render: (args) => (
-    <CopilotStoryLayout>
+    <HostPage>
       <CopilotSidebarView {...(args as CopilotSidebarViewProps)} />
-    </CopilotStoryLayout>
+    </HostPage>
   ),
 } satisfies Meta<typeof CopilotSidebarView>;
 
@@ -69,5 +71,17 @@ export const CustomHeader: Story = {
         />
       ),
     },
+  },
+};
+
+/**
+ * No messages: the sidebar's welcome screen. The greeting, the suggestion
+ * cards (one column at sidebar width) and the input sit centered together.
+ */
+export const WelcomeScreen: Story = {
+  args: {
+    messages: [],
+    suggestions: starterSuggestions,
+    onSelectSuggestion: fn(),
   },
 };

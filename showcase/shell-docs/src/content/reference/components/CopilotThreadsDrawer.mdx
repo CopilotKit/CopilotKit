@@ -23,8 +23,13 @@ import "@copilotkit/react-core/v2/styles.css";
 ## Props
 
 <PropertyReference name="agentId" type="string">
-  The agent whose threads to list and manage. Defaults to the agent of the
-  surrounding chat configuration, or the platform default when none is set.
+  The agent whose threads to list and manage. The drawer lists one agent's
+  threads. When omitted, it uses the agent of the nearest
+  `CopilotChatConfigurationProvider`, then `agentId` on `CopilotKitProvider`,
+  then `"default"`. `CopilotKit` sets the chat configuration from its `agent`
+  prop (`"default"` when `agent` is omitted). Pass it
+  when your runtime registers several agents and the drawer should list a
+  different one.
 </PropertyReference>
 
 <PropertyReference name="onThreadSelect" type="(threadId: string) => void">

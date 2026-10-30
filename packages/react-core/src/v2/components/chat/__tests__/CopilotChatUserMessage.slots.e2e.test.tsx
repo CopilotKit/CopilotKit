@@ -630,4 +630,54 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
       expect(screen.getByText("This is my message content")).toBeDefined();
     });
   });
+
+  // The branch buttons show only a chevron, so their accessible names come
+  // from the labels config.
+  describe("branch navigation accessible names", () => {
+    it("names the previous and next buttons with the default labels", () => {
+      render(
+        <TestWrapper>
+          <CopilotChatUserMessage
+            message={createUserMessage("Hello")}
+            branchIndex={1}
+            numberOfBranches={3}
+            onSwitchToBranch={vi.fn()}
+          />
+        </TestWrapper>,
+      );
+
+      expect(
+        screen.getByRole("button", { name: "Previous branch" }),
+      ).toBeDefined();
+      expect(screen.getByRole("button", { name: "Next branch" })).toBeDefined();
+    });
+
+    it("uses the configured labels", () => {
+      render(
+        <CopilotKitProvider>
+          <CopilotChatConfigurationProvider
+            threadId="test-thread"
+            labels={{
+              userMessageToolbarPreviousBranchLabel: "Vorherige Antwort",
+              userMessageToolbarNextBranchLabel: "Nächste Antwort",
+            }}
+          >
+            <CopilotChatUserMessage
+              message={createUserMessage("Hello")}
+              branchIndex={1}
+              numberOfBranches={3}
+              onSwitchToBranch={vi.fn()}
+            />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>,
+      );
+
+      expect(
+        screen.getByRole("button", { name: "Vorherige Antwort" }),
+      ).toBeDefined();
+      expect(
+        screen.getByRole("button", { name: "Nächste Antwort" }),
+      ).toBeDefined();
+    });
+  });
 });
