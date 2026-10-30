@@ -4,6 +4,7 @@ import {
   CopilotChatConfigurationProvider,
   CopilotChatView,
   CopilotKitProvider,
+  CopilotKitStyles,
 } from "@copilotkit/react-core/v2";
 
 const params = new URLSearchParams(window.location.search);
@@ -75,6 +76,8 @@ function App() {
         style={{ display: hidden ? "none" : "block", height: 500, width: 700 }}
       >
         <CopilotKitProvider>
+          {/* CopilotChatView without CopilotChat needs the styles itself. */}
+          <CopilotKitStyles />
           {standalone ? (
             chat
           ) : (
