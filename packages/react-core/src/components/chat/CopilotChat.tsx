@@ -70,6 +70,9 @@ export type CopilotChatProps = Omit<
   | "onDragOver"
   | "onDragLeave"
   | "onDrop"
+  // CopilotChat defines its own agent-error `onError` below and never passes
+  // it to the view's <div>, so the DOM `onError` attribute is left out.
+  | "onError"
 > & {
   agentId?: string;
   threadId?: string;

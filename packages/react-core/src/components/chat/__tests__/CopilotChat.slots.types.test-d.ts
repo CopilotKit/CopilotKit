@@ -114,3 +114,59 @@ expectTypeOf<HeaderWithConflictingTitle>().not.toExtend<PopupHeaderSlot>();
 expectTypeOf<number>().not.toExtend<ChatViewInputSlot>();
 expectTypeOf<number>().not.toExtend<SidebarHeaderSlot>();
 expectTypeOf<number>().not.toExtend<PopupHeaderSlot>();
+
+// ── Message slots: messageView, assistantMessage, userMessage, reasoningMessage ──
+// Same widening as #7158. The docs replace these slots with plain components,
+// and renderSlot / resolveSlotComponent never read the default components'
+// statics (Cursor, Header, Toolbar, MarkdownRenderer, …).
+import type { CopilotChatMessageViewProps } from "../CopilotChatMessageView";
+import type { CopilotChatAssistantMessageProps } from "../CopilotChatAssistantMessage";
+import type { CopilotChatUserMessageProps } from "../CopilotChatUserMessage";
+import type { CopilotChatReasoningMessageProps } from "../CopilotChatReasoningMessage";
+import type CopilotChatMessageView from "../CopilotChatMessageView";
+import type CopilotChatAssistantMessage from "../CopilotChatAssistantMessage";
+import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+
+type MessageViewSlot = NonNullable<CopilotChatViewProps["messageView"]>;
+type AssistantMessageSlot = NonNullable<
+  CopilotChatMessageViewProps["assistantMessage"]
+>;
+type UserMessageSlot = NonNullable<CopilotChatMessageViewProps["userMessage"]>;
+type ReasoningMessageSlot = NonNullable<
+  CopilotChatMessageViewProps["reasoningMessage"]
+>;
+
+expectTypeOf<
+  React.FC<CopilotChatMessageViewProps>
+>().toExtend<MessageViewSlot>();
+expectTypeOf<
+  React.FC<CopilotChatAssistantMessageProps>
+>().toExtend<AssistantMessageSlot>();
+expectTypeOf<
+  React.FC<CopilotChatUserMessageProps>
+>().toExtend<UserMessageSlot>();
+expectTypeOf<
+  React.FC<CopilotChatReasoningMessageProps>
+>().toExtend<ReasoningMessageSlot>();
+
+// The defaults, class strings and prop overrides still assign.
+expectTypeOf<typeof CopilotChatMessageView>().toExtend<MessageViewSlot>();
+expectTypeOf<
+  typeof CopilotChatAssistantMessage
+>().toExtend<AssistantMessageSlot>();
+expectTypeOf<string>().toExtend<AssistantMessageSlot>();
+expectTypeOf<
+  Partial<CopilotChatAssistantMessageProps>
+>().toExtend<AssistantMessageSlot>();
+
+// ── onError: <CopilotChat> takes the agent-error handler, not the DOM one ──
+// A handler written for the agent error must assign. While the DOM `onError`
+// of the view's <div> was still in CopilotChatProps, the prop was the
+// intersection of both handler types and this failed.
+type ChatOnError = NonNullable<CopilotChatProps["onError"]>;
+type AgentErrorHandler = (event: {
+  error: Error;
+  code: CopilotKitCoreErrorCode;
+  context: Record<string, any>;
+}) => void;
+expectTypeOf<AgentErrorHandler>().toExtend<ChatOnError>();

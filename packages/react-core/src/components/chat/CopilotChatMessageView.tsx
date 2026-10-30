@@ -14,7 +14,12 @@ import { ScrollPinnedContext } from "./scroll-pinned-context";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot, isReactComponentType } from "../../lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
-import type { CopilotChatFeedbackMessage } from "./CopilotChatAssistantMessage";
+import type {
+  CopilotChatAssistantMessageProps,
+  CopilotChatFeedbackMessage,
+} from "./CopilotChatAssistantMessage";
+import type { CopilotChatUserMessageProps } from "./CopilotChatUserMessage";
+import type { CopilotChatReasoningMessageProps } from "./CopilotChatReasoningMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage";
 import {
@@ -479,9 +484,12 @@ const GROUP_ROW_KEY_PREFIX = "copilotkit-group:";
 export type CopilotChatMessageViewProps = Omit<
   WithSlots<
     {
-      assistantMessage: typeof CopilotChatAssistantMessage;
-      userMessage: typeof CopilotChatUserMessage;
-      reasoningMessage: typeof CopilotChatReasoningMessage;
+      // Props-based, like CopilotChatView's `input` (#7158): a plain FC
+      // assigns without the message components' namespace statics (Header,
+      // Toolbar, MarkdownRenderer, …), which resolveSlotComponent never reads.
+      assistantMessage: React.ComponentType<CopilotChatAssistantMessageProps>;
+      userMessage: React.ComponentType<CopilotChatUserMessageProps>;
+      reasoningMessage: React.ComponentType<CopilotChatReasoningMessageProps>;
       cursor: typeof CopilotChatMessageView.Cursor;
       intelligenceIndicator: typeof IntelligenceIndicatorView;
       /** The "Working… / Worked for 9s" line of the `"turn"` tool-call display. */
