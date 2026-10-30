@@ -8,6 +8,7 @@ import { iconOverrides } from "./icons";
 import { inputOverrides } from "./inputs";
 import { layoutOverrides } from "./layout";
 import { overlayOverrides } from "./overlays";
+import { tableOverrides } from "./table";
 import { textOverrides } from "./text";
 
 /** Surfaces pin to this id. */
@@ -28,6 +29,7 @@ export const kumoUI = createGenerativeUI({
     ...choiceOverrides,
     ...overlayOverrides,
     ...feedbackOverrides,
+    ...tableOverrides,
     ...iconOverrides,
   },
   components: {},
