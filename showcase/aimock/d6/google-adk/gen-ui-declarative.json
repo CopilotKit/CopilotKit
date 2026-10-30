@@ -1,10 +1,58 @@
 {
  "_meta": {
   "description": "D6 fixtures for google-adk / gen-ui-declarative (A2UI Dynamic Schema)",
-  "_note": "Agent plays a sales analyst for the fictional Vantage Threads company (OSS-136). Two-stage A2UI pattern: (1) outer agent has only one tool, `generate_a2ui` (no args); (2) `generate_a2ui` internally invokes a secondary LLM with tool_choice forced on the design tool, which emits the flat A2UI components payload; (3) after the tool returns, the outer agent emits a one-sentence narration. Fixtures cover three LLM calls per pill: (a) outer turn 1 -> generate_a2ui toolcall; (b) inner secondary call -> design toolcall (discriminated by toolName because the user prompt is identical across outer+inner calls); (c) outer turn 2 (matched by toolCallId) -> narration. Pill prompts are natural business questions; chart steering lives in the system prompt + sales-context.ts context entries. Keep userMessage matchers in sync with declarative-gen-ui/suggestions.ts and harness d5-gen-ui-declarative.ts.",
+  "_note": "Agent plays a sales analyst for the fictional Vantage Threads company (OSS-136). Two-stage A2UI pattern: (1) outer agent has only one tool, `generate_a2ui` (no args); (2) `generate_a2ui` internally invokes a secondary LLM with tool_choice forced on the design tool, which emits the flat A2UI components payload; (3) after the tool returns, the outer agent emits a one-sentence narration. Fixtures cover three LLM calls per pill: (a) outer turn 1 -> generate_a2ui toolcall; (b) inner secondary call -> design toolcall (discriminated by toolName because the user prompt is identical across outer+inner calls); (c) outer turn 2 (matched by toolCallId) -> narration. Pill prompts are natural business questions; chart steering lives in the system prompt + sales-context.ts context entries. Keep userMessage matchers in sync with declarative-gen-ui/suggestions.ts and harness d5-gen-ui-declarative.ts. Express fixtures return chunked raw model text matched by the actual official SDK prompt contract; no precompiled operations.",
   "created": "2026-06-11"
  },
  "fixtures": [
+  {
+   "_comment": "Express inner model: raw DSL text deltas, compiled by the official SDK. Direct JSON fixtures below remain unchanged.",
+   "match": {
+    "userMessage": "Show me my sales dashboard for this quarter.",
+    "systemMessage": "# A2UI Express DSL Output Contract"
+   },
+   "response": {
+    "content": "<a2ui>\nsurface(\"sales-dashboard\")\nroot = Column(gap=16, children=[Row(gap=16, children=[Metric(label=\"Quarterly Revenue\", value=\"$4.2M\", trend=\"up\", trendValue=\"+12% QoQ\"), Metric(label=\"New Customers\", value=\"186\", trend=\"up\", trendValue=\"+8%\"), Metric(label=\"Win Rate\", value=\"31%\", trend=\"down\", trendValue=\"-2 pts\"), Metric(label=\"Avg Deal Size\", value=\"$22.6k\", trend=\"up\", trendValue=\"+5%\")]), Row(gap=16, children=[PieChart(title=\"Revenue by Region\", description=\"Quarter revenue split across North America, EMEA, APAC, and LATAM.\", data=[{\"label\":\"North America\",\"value\":1900000},{\"label\":\"EMEA\",\"value\":1300000},{\"label\":\"APAC\",\"value\":720000},{\"label\":\"LATAM\",\"value\":280000}]), BarChart(title=\"Monthly Revenue\", description=\"Revenue trend from Jan through Jun.\", data=[{\"label\":\"Jan\",\"value\":1210000},{\"label\":\"Feb\",\"value\":1340000},{\"label\":\"Mar\",\"value\":1650000},{\"label\":\"Apr\",\"value\":1380000},{\"label\":\"May\",\"value\":1420000},{\"label\":\"Jun\",\"value\":1400000}])])])\n</a2ui>\nThe requested dashboard is ready."
+   },
+   "chunkSize": 96,
+   "latency": 12
+  },
+  {
+   "_comment": "Express inner model: raw DSL text deltas, compiled by the official SDK. Direct JSON fixtures below remain unchanged.",
+   "match": {
+    "userMessage": "How are our sales reps performing against quota?",
+    "systemMessage": "# A2UI Express DSL Output Contract"
+   },
+   "response": {
+    "content": "<a2ui>\nsurface(\"rep-quota-performance\")\nroot = Column(gap=16, children=[Text(text=\"Sales rep performance vs quota\"), Text(text=\"2 of 5 reps are above quota, 1 is near plan, and 2 are below target in Q2.\"), Row(gap=16, children=[Card(title=\"Rep attainment table\", child=DataTable(columns=[{\"key\":\"rep\",\"label\":\"Rep\"},{\"key\":\"attainment\",\"label\":\"Attainment\"},{\"key\":\"pipeline\",\"label\":\"Pipeline\"}], rows=[{\"rep\":\"Dana Whitfield\",\"attainment\":\"124%\",\"pipeline\":\"Leading team; biggest account Meridian Apparel Group has 4 open opps worth $210k\"},{\"rep\":\"Marcus Lee\",\"attainment\":\"108%\",\"pipeline\":\"Above plan\"},{\"rep\":\"Priya Sharma\",\"attainment\":\"97%\",\"pipeline\":\"Near quota\"},{\"rep\":\"Tom Okafor\",\"attainment\":\"88%\",\"pipeline\":\"Below plan\"},{\"rep\":\"Elena Vasquez\",\"attainment\":\"71%\",\"pipeline\":\"Furthest from quota\"}])), BarChart(title=\"Quota attainment by rep\", description=\"Q2 quota attainment percentages for all sales reps.\", data=[{\"label\":\"Dana Whitfield\",\"value\":124},{\"label\":\"Marcus Lee\",\"value\":108},{\"label\":\"Priya Sharma\",\"value\":97},{\"label\":\"Tom Okafor\",\"value\":88},{\"label\":\"Elena Vasquez\",\"value\":71}])])])\n</a2ui>\nThe requested dashboard is ready."
+   },
+   "chunkSize": 96,
+   "latency": 12
+  },
+  {
+   "_comment": "Express inner model: raw DSL text deltas, compiled by the official SDK. Direct JSON fixtures below remain unchanged.",
+   "match": {
+    "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+    "systemMessage": "# A2UI Express DSL Output Contract"
+   },
+   "response": {
+    "content": "<a2ui>\nsurface(\"risk-dashboard\")\nroot = Column(gap=16, children=[Row(gap=16, children=[Metric(label=\"ARR at risk\", value=\"$615k\", trend=\"down\", trendValue=\"3 accounts\"), Metric(label=\"Accounts at risk\", value=\"3\", trend=\"neutral\", trendValue=\"This quarter\"), Metric(label=\"Biggest exposure\", value=\"Northwind Retail\", trend=\"down\", trendValue=\"$340k renewal\")]), Row(gap=16, children=[Card(title=\"Northwind Retail\", subtitle=\"$340k ARR at stake\", child=Column(gap=8, children=[StatusBadge(text=\"High severity\", variant=\"error\"), Text(text=\"No contact in 6 weeks; next action: exec outreach this week to protect the renewal.\")])), Card(title=\"Cascadia Outfitters\", subtitle=\"$180k ARR at stake\", child=Column(gap=8, children=[StatusBadge(text=\"Medium severity\", variant=\"warning\"), Text(text=\"Champion left; next action: rebuild stakeholder map and secure a new sponsor.\")])), Card(title=\"Atlas Goods\", subtitle=\"$95k ARR at stake\", child=Column(gap=8, children=[StatusBadge(text=\"Medium severity\", variant=\"warning\"), Text(text=\"Legal review is stalled; next action: align procurement and legal on open terms.\")]))])])\n</a2ui>\nThe requested dashboard is ready."
+   },
+   "chunkSize": 96,
+   "latency": 12
+  },
+  {
+   "_comment": "Express inner model: raw DSL text deltas, compiled by the official SDK. Direct JSON fixtures below remain unchanged.",
+   "match": {
+    "userMessage": "Pull up the details on our biggest account.",
+    "systemMessage": "# A2UI Express DSL Output Contract"
+   },
+   "response": {
+    "content": "<a2ui>\nsurface(\"biggest-account-details\")\nroot = Row(gap=16, children=[Card(title=\"Meridian Apparel Group\", subtitle=\"Biggest account\", child=Column(gap=8, children=[InfoRow(label=\"Owner\", value=\"Dana Whitfield\"), InfoRow(label=\"Region\", value=\"North America\"), InfoRow(label=\"ARR\", value=\"$612k\"), InfoRow(label=\"Renewal date\", value=\"Sep 30\"), InfoRow(label=\"Last contact\", value=\"3 days ago\"), InfoRow(label=\"Health\", value=\"Green\"), InfoRow(label=\"Open opportunities\", value=\"4 opportunities worth $210k\")])), PieChart(title=\"Revenue by product line\", description=\"Meridian Apparel Group revenue mix across product lines.\", data=[{\"label\":\"Outerwear\",\"value\":260000},{\"label\":\"Footwear\",\"value\":180000},{\"label\":\"Accessories\",\"value\":112000},{\"label\":\"Custom\",\"value\":60000}])])\n</a2ui>\nThe requested dashboard is ready."
+   },
+   "chunkSize": 96,
+   "latency": 12
+  },
   {
    "_comment": "pill sales-dashboard hero \u2014 inner secondary LLM (tool_choice forced) emits the flat A2UI components. Discriminated by toolName so it wins over the outer generate_a2ui fixture whose userMessage matches the same prompt.",
    "match": {
