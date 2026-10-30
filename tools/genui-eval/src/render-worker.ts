@@ -164,9 +164,9 @@ function childrenOf(
     if (typeof componentId === "string" && typeof path === "string") {
       const listPath = resolvePath(path, base);
       const list = data.get(listPath);
-      // Every item: items can bind different children. At most 50, enough to see each type.
+      // Every item can bind different children or supply different expected props.
       return Array.isArray(list)
-        ? list.slice(0, 50).map((_, index) => ({
+        ? list.map((_, index) => ({
             id: componentId,
             base: `${listPath}/${index}`,
           }))
@@ -238,10 +238,13 @@ function reachableTypes(
         ),
       );
     }
-    const resolved = resolveBound(found.properties, data, base) as Record<
-      string,
-      unknown
-    >;
+    // Resolve props independently, as SurfaceView does. A failed unrelated
+    // value must not restore raw bindings that count as present scored props.
+    const resolved: Record<string, unknown> = {};
+    for (const [name, value] of Object.entries(found.properties)) {
+      const result = resolveDynamic?.(value, { data, basePath: base });
+      if (result?.ok) resolved[name] = result.value;
+    }
     renderedComponents.push({ id, component: found.type, props: resolved });
     for (const ref of definition.childRefs) {
       // childIdsAtRefs gives the ids; templates at a ref are expanded here.

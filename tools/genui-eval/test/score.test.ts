@@ -45,7 +45,13 @@ describe("scoreCode with real rendering", () => {
     expect(scores.recoveredValidity).toEqual({ pass: true, reasons: [] });
   });
 
-  it.each(["replaced", "unreachable", "bound-null", "bound-photo"])(
+  it.each([
+    "replaced",
+    "unreachable",
+    "bound-null",
+    "bound-photo",
+    "bound-null-invalid-accessibility",
+  ])(
     "checks expected props on final reachable instances: %s",
     async (scenario) => {
       const photo = "https://example.com/photo.png";
@@ -81,6 +87,16 @@ describe("scoreCode with real rendering", () => {
                       image: scenario.startsWith("bound")
                         ? { "@path": "/photo" }
                         : photo,
+                      ...(scenario === "bound-null-invalid-accessibility"
+                        ? {
+                            accessibility: {
+                              label: {
+                                "@call": "calc",
+                                args: { expression: "1 +" },
+                              },
+                            },
+                          }
+                        : {}),
                     },
                   ],
                 },
@@ -111,6 +127,7 @@ describe("scoreCode with real rendering", () => {
       };
       const checks = await checker.check(out.surfaces);
       expect(checks[0].errors).toEqual([]);
+      expect(checks[0].rendered).toBe(true);
       const scores = scoreCode(
         {
           ...cases["cafes-map"],
@@ -122,6 +139,67 @@ describe("scoreCode with real rendering", () => {
       expect(scores.fidelity.pass).toBe(scenario === "bound-photo");
     },
   );
+
+  it("checks expected props on template instances after the first 50", async () => {
+    const photo = "https://example.com/photo.png";
+    const out: SampleOutput = {
+      text: "",
+      visibleText: "",
+      toolCalls: [],
+      rejected: [],
+      parseErrors: [],
+      promptTokens: 0,
+      outputTokens: 0,
+      systemPrompt: "",
+      surfaces: [
+        {
+          surfaceId: "template-photos",
+          target: "chat",
+          status: "ready",
+          catalogId: "copilotkit://standard",
+          rejected: [],
+          operations: [
+            {
+              version: "v1.0",
+              createSurface: {
+                surfaceId: "template-photos",
+                dataModel: {
+                  items: Array.from({ length: 51 }, (_, index) => ({
+                    photo: index === 50 ? photo : null,
+                  })),
+                },
+                components: [
+                  {
+                    id: "root",
+                    component: "Column",
+                    children: { componentId: "card", path: "/items" },
+                  },
+                  {
+                    id: "card",
+                    component: "EntityCard",
+                    title: "Product",
+                    image: { "@path": "photo" },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const checks = await checker.check(out.surfaces);
+    expect(checks[0].errors).toEqual([]);
+    expect(checks[0].rendered).toBe(true);
+    const scores = scoreCode(
+      {
+        ...cases["cafes-map"],
+        expect: { ui: true, components: ["EntityCard.image"] },
+      },
+      out,
+      checks,
+    );
+    expect(scores.fidelity).toEqual({ pass: true, reasons: [] });
+  });
 
   it("passes a valid map surface on every tier", async () => {
     const { checks, scores } = await score("cafes-map");
