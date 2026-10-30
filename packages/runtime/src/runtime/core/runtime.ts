@@ -405,7 +405,13 @@ export interface CopilotRuntimeLike {
   intelligence?: CopilotKitIntelligence;
   identifyUser?: IdentifyUserCallback;
   mode: RuntimeMode;
-  licenseChecker?: LicenseChecker;
+  /**
+   * Resolve the license checker, verifying the token on the first call.
+   * Optional so external implementations of this published interface remain
+   * source-compatible; absent or resolving to `undefined` means no license
+   * gating.
+   */
+  getLicenseChecker?(): Promise<LicenseChecker | undefined>;
   debugEventBus?: DebugEventBus;
   debug: ResolvedDebugConfig;
   debugLogger?: CopilotRuntimeLogger;
@@ -474,7 +480,6 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
   public openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
   public generativeUI: CopilotRuntimeOptions["generativeUI"];
-  public licenseChecker?: LicenseChecker;
   public readonly debugEventBus?: DebugEventBus;
   public debug: ResolvedDebugConfig;
   public debugLogger?: CopilotRuntimeLogger;
@@ -488,13 +493,18 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   /**
    * License token resolved once with the env fallback, so telemetry
    * attribution (below) and subclass feature gating
-   * (CopilotIntelligenceRuntime's licenseChecker) read the exact same value
+   * (CopilotIntelligenceRuntime's getLicenseChecker) read the exact same value
    * instead of each re-applying `?? COPILOTKIT_LICENSE_TOKEN`.
    */
   protected readonly resolvedLicenseToken?: string;
 
   abstract readonly intelligence?: CopilotKitIntelligence;
   abstract readonly mode: RuntimeMode;
+
+  /** Runtimes without Intelligence do no license gating. */
+  getLicenseChecker(): Promise<LicenseChecker | undefined> {
+    return Promise.resolve(undefined);
+  }
 
   constructor(options: BaseCopilotRuntimeOptions, runner: AgentRunner) {
     logRuntimeTelemetryDisclosure();
@@ -637,6 +647,7 @@ export class CopilotIntelligenceRuntime
   readonly channels: Channel[];
   readonly learning?: CopilotRuntimeLearningConfig;
   readonly mode = RUNTIME_MODE_INTELLIGENCE;
+  private licenseCheckerPromise?: Promise<LicenseChecker>;
 
   /** Maximum allowed lock TTL in seconds (1 hour). */
   static readonly MAX_LOCK_TTL_SECONDS = 3_600;
@@ -756,10 +767,6 @@ export class CopilotIntelligenceRuntime
       ? (rawOptions.identifyUser as IdentifyUserCallback)
       : undefined;
     this.generateThreadNames = options.generateThreadNames ?? true;
-    // Telemetry attribution is handled by the base constructor for all modes;
-    // here we only need the token for feature gating. Reuse the base-resolved
-    // value so gating and attribution can never disagree.
-    this.licenseChecker = createLicenseChecker(this.resolvedLicenseToken ?? "");
     this.lockTtlSeconds = Math.min(
       options.lockTtlSeconds ?? 20,
       CopilotIntelligenceRuntime.MAX_LOCK_TTL_SECONDS,
@@ -788,6 +795,20 @@ export class CopilotIntelligenceRuntime
         );
       }
     }
+  }
+
+  /**
+   * Verify the license token on first use, then reuse the result. Not done in
+   * the constructor: edge-safe (Web Crypto) verification is async, and
+   * Cloudflare Workers forbid crypto work in global scope, where runtimes are
+   * usually constructed. Reuses the base-resolved token so feature gating and
+   * telemetry attribution can never disagree.
+   */
+  override getLicenseChecker(): Promise<LicenseChecker> {
+    this.licenseCheckerPromise ??= Promise.resolve().then(() =>
+      createLicenseChecker(this.resolvedLicenseToken ?? ""),
+    );
+    return this.licenseCheckerPromise;
   }
 }
 
@@ -999,8 +1020,8 @@ class CopilotRuntimeShim implements CopilotRuntime {
     return this.delegate.mode;
   }
 
-  get licenseChecker() {
-    return this.delegate.licenseChecker;
+  getLicenseChecker(): Promise<LicenseChecker | undefined> {
+    return this.delegate.getLicenseChecker();
   }
 
   get debugEventBus() {

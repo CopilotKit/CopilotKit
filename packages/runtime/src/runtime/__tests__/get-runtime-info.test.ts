@@ -107,7 +107,7 @@ async function requestRuntimeInfoWithLookup(
   options: { readonly licenseToken?: string } = {},
 ) {
   const runtime = createIntelligenceRuntimeLike({
-    licenseChecker:
+    getLicenseChecker: async () =>
       options.licenseToken === undefined
         ? undefined
         : createLicenseChecker(options.licenseToken),
