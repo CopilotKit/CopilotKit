@@ -23,6 +23,7 @@ The parameter schema becomes the tool's JSON schema and types the handler.
 ```ts title="tools.ts"
 import { defineChannelTool } from "@copilotkit/channels";
 import { z } from "zod";
+import { incidents } from "./incidents.js";
 
 export const getIncident = defineChannelTool({
   name: "get_incident",
@@ -42,8 +43,7 @@ Register it when you create the Channel:
 <FrontendOnly frontend="slack">
 
 ```ts title="channel.ts"
-import { createChannel } from "@copilotkit/channels";
-import { makeAgent } from "./agent.js";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 import { getIncident } from "./tools.js";
 
 function required(name: string): string {
@@ -55,7 +55,8 @@ function required(name: string): string {
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   tools: [getIncident],
 });
 ```
@@ -65,8 +66,7 @@ const channel = createChannel({
 <FrontendOnly frontend="teams">
 
 ```ts title="channel.ts"
-import { createChannel } from "@copilotkit/channels";
-import { makeAgent } from "./agent.js";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 import { getIncident } from "./tools.js";
 
 function required(name: string): string {
@@ -78,7 +78,8 @@ function required(name: string): string {
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   tools: [getIncident],
 });
 ```
@@ -102,8 +103,7 @@ Channel context is sent on every agent run:
 <FrontendOnly frontend="slack">
 
 ```ts title="channel.ts"
-import { createChannel } from "@copilotkit/channels";
-import { makeAgent } from "./agent.js";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -114,7 +114,8 @@ function required(name: string): string {
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   context: [
     {
       description: "Support policy",
@@ -134,8 +135,7 @@ const channel = createChannel({
 <FrontendOnly frontend="teams">
 
 ```ts title="channel.ts"
-import { createChannel } from "@copilotkit/channels";
-import { makeAgent } from "./agent.js";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -146,7 +146,8 @@ function required(name: string): string {
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   context: [
     {
       description: "Support policy",
@@ -175,6 +176,21 @@ channel-level tool's `ctx.platform` report the native origin (`"slack"` or
 Add native context when you run the agent:
 
 ```ts title="channel.ts"
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  identifyUser: "platform",
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
+});
+
 channel.onMessage(async ({ thread, message }) => {
   await thread.runAgent({
     prompt: message.contentParts?.length
@@ -200,14 +216,36 @@ If a tool must be scoped to the current person, define it inside the handler and
 pass it for that run. Its closure captures the trusted inbound identity:
 
 ```ts title="channel.ts"
+import {
+  createChannel,
+  defineChannelTool,
+  HttpAgent,
+} from "@copilotkit/channels";
+import { z } from "zod";
+import { approvals } from "./approvals.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  identifyUser: "platform",
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
+});
+
 channel.onMessage(async ({ thread, message }) => {
-  if (!message.user) return;
+  const user = message.user;
+  if (!user) return;
   const listMyApprovals = defineChannelTool({
     name: "list_my_approvals",
     description: "List approvals assigned to the requesting user.",
     parameters: z.object({}),
     async handler() {
-      return approvals.forApplicationUser(message.user.id);
+      return approvals.forApplicationUser(user.id);
     },
   });
 

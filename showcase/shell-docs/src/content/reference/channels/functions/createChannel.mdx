@@ -9,10 +9,26 @@ description: Declare a managed Slack or Teams Channel, its agent, handlers, tool
 ## Signature
 
 ```ts
-function createChannel<TStateSchema>(
+import {
+  createChannel,
+  type Channel,
+  type CreateChannelOptions,
+} from "@copilotkit/channels";
+import type { InferSchemaOutput, StandardSchemaV1 } from "@copilotkit/shared";
+
+createChannel satisfies <
+  TStateSchema extends StandardSchemaV1 | undefined = undefined,
+>(
   options: CreateChannelOptions<TStateSchema>,
-): Channel<ThreadStateOf<TStateSchema>>;
+) => Channel<
+  TStateSchema extends StandardSchemaV1
+    ? InferSchemaOutput<TStateSchema>
+    : unknown
+>;
 ```
+
+The Channel's state type is the output type of `store.state`, or `unknown`
+when no state schema is configured.
 
 Import it from the umbrella package:
 
@@ -23,10 +39,27 @@ import { createChannel } from "@copilotkit/channels";
 ## Managed example
 
 ```ts title="channel.ts"
+import {
+  createChannel,
+  defineChannelTool,
+  HttpAgent,
+} from "@copilotkit/channels";
+import { z } from "zod";
+
+const getIncident = defineChannelTool({
+  name: "get_incident",
+  description: "Read the current status of an incident by its id.",
+  parameters: z.object({ incidentId: z.string() }),
+  async handler({ incidentId }) {
+    return { incidentId, status: "investigating" };
+  },
+});
+
 const channel = createChannel({
   name: "support",
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   tools: [getIncident],
   context: [
     {
@@ -91,10 +124,13 @@ localized notice:
 | `truncationMarker` | Visible notice appended when the message limit is reached. |
 
 ```ts
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+
 const channel = createChannel({
   name: "support",
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   replyContinuation: {
     maxMessages: 8,
     truncationMarker: "\n\n_This reply was shortened for Slack._",

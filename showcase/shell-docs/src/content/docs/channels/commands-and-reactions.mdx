@@ -49,6 +49,10 @@ names. The portable outbound set is `thumbs_up`, `thumbs_down`, `heart`, `fire`,
 `eyes`, `refresh`, `thinking`, and `tada`.
 
 ```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+
+const channel = createChannel({ name: "support", identifyUser: "platform" });
+
 channel.onReaction("eyes", async ({ added, thread, user }) => {
   await thread.post(
     added
@@ -61,6 +65,11 @@ channel.onReaction("eyes", async ({ added, thread, user }) => {
 Omit the emoji argument to receive every added and removed reaction:
 
 ```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { audit } from "./audit";
+
+const channel = createChannel({ name: "support", identifyUser: "platform" });
+
 channel.onReaction(async ({ emoji, rawEmoji, added, thread }) => {
   audit.record({ emoji, rawEmoji, added });
   await thread.post("Reaction recorded.");
@@ -103,6 +112,7 @@ Use `Message.onReaction` when only one posted component should react:
 
 ```tsx title="feedback-card.tsx"
 import { Message, Section } from "@copilotkit/channels/ui";
+import { feedback } from "./feedback";
 
 export function FeedbackCard({ answerId }: { answerId: string }) {
   return (
@@ -130,6 +140,10 @@ Add or remove the bot's reaction with the delivery-scoped reference from the
 current message or transcript:
 
 ```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+
+const channel = createChannel({ name: "support", identifyUser: "platform" });
+
 channel.onMessage(async ({ message, thread }) => {
   await thread.react(message.ref, "eyes");
   await thread.unreact(message.ref, "eyes");

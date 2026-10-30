@@ -6,6 +6,12 @@ description: Configure per-thread state, the StateStore backend, transcripts, an
 `StoreConfig` is the `createChannel({ store })` value.
 
 ```ts
+import type {
+  IncomingMessage,
+  StateStore,
+  TranscriptsConfig,
+} from "@copilotkit/channels";
+
 interface StoreConfig<TStateSchema> {
   adapter?: StateStore;
   state?: TStateSchema;
@@ -47,14 +53,24 @@ interface StoreConfig<TStateSchema> {
 A configured **singleton** agent (`agent: sharedInstance`) is isolated per run via `agent.clone()` under the hood, so parallel mode does not mutate one shared agent object. Prefer an agent factory when you want explicit control:
 
 ```ts
-agent: (threadId) => {
-  const a = new HttpAgent({ url });
-  a.threadId = threadId;
-  return a;
-};
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+
+const channel = createChannel({
+  name: "support-slack",
+  identifyUser: "platform",
+  agent: (threadId) => {
+    const agent = new HttpAgent({ url: "http://localhost:8000/agent" });
+    agent.threadId = threadId;
+    return agent;
+  },
+});
 ```
 
 ```ts
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+import { z } from "zod";
+import { durableStateStore } from "./state-store.js";
+
 const stateSchema = z.object({
   stage: z.enum(["draft", "review", "done"]),
 });
@@ -62,7 +78,8 @@ const stateSchema = z.object({
 const channel = createChannel({
   name: "support-slack",
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   store: {
     adapter: durableStateStore,
     state: stateSchema,

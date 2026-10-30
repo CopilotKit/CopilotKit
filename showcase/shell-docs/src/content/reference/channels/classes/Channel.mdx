@@ -7,13 +7,13 @@ description: Reference for createChannel options, managed providers, handlers, t
 `CopilotRuntime({ channels })`.
 
 ```ts title="channel.ts"
-import { createChannel } from "@copilotkit/channels";
-import { makeAgent } from "./agent.js";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 
 const channel = createChannel({
   name: "support",
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
 });
 ```
 
@@ -129,6 +129,15 @@ if it is read before the runtime listener starts the Channel.
 ## Message handlers
 
 ```ts title="channel.ts"
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+
+const channel = createChannel({
+  name: "support",
+  identifyUser: "platform",
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
+});
+
 channel.onMessage(async ({ thread, message }) => {
   await thread.runAgent({
     prompt: message.contentParts?.length
@@ -173,6 +182,20 @@ See the [Slack interactive messages guide](/slack/interactive), the
 Pass tools in `createChannel({ tools })`, or add one before activation:
 
 ```ts title="channel.ts"
+import { createChannel, defineChannelTool } from "@copilotkit/channels";
+import { z } from "zod";
+
+const channel = createChannel({ name: "support", identifyUser: "platform" });
+
+const getIncident = defineChannelTool({
+  name: "get_incident",
+  description: "Read the current status of an incident by its id.",
+  parameters: z.object({ incidentId: z.string() }),
+  async handler({ incidentId }) {
+    return { incidentId, status: "investigating" };
+  },
+});
+
 channel.tool(getIncident);
 ```
 
@@ -203,10 +226,22 @@ Install shutdown handlers before waiting for readiness so a slow or incomplete
 provider setup cannot prevent graceful teardown:
 
 ```ts title="channel.ts"
-const listener = createCopilotNodeListener({ runtime });
+import { createChannel } from "@copilotkit/channels";
+import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
+const channel = createChannel({ name: "support", identifyUser: "platform" });
+
+const runtime = new CopilotRuntime({
+  agents: {},
+  intelligence: new CopilotKitIntelligence({
+    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+  }),
+  channels: [channel],
+});
+
+const listener = createCopilotNodeListener({ runtime });
 const channels = listener.channels;
-if (!channels) throw new Error("Channels were not configured.");
 
 const shutdown = async () => {
   await channels.stop();

@@ -9,12 +9,15 @@ description: Reuse a Channels interaction handler while binding a serializable v
 ## Signature
 
 ```ts
-function bind(handler: ClickHandler, args: unknown): ClickHandler;
+import { bind, type ClickHandler } from "@copilotkit/channels/ui";
+
+bind satisfies (handler: ClickHandler, args: unknown) => ClickHandler;
 ```
 
 ```tsx title="issue-actions.tsx"
 import { Actions, Button, bind } from "@copilotkit/channels/ui";
 import type { InteractionContext } from "@copilotkit/channels/ui";
+import { assignments } from "./assignments.js";
 
 async function assign({ thread, action }: InteractionContext) {
   if (typeof action.value !== "string") return;
@@ -33,10 +36,24 @@ export function IssueActions({ issueId }: { issueId: string }) {
 
 For a one-off button, the `value` prop is usually clearer:
 
-```tsx
-<Button value={issueId} onClick={assign}>
-  Assign to me
-</Button>
+```tsx title="assign-button.tsx"
+import { Button } from "@copilotkit/channels/ui";
+import { assignments } from "./assignments.js";
+
+export function AssignButton({ issueId }: { issueId: string }) {
+  return (
+    <Button
+      value={issueId}
+      onClick={async ({ thread, action }) => {
+        if (action.value === undefined) return;
+        await assignments.assign(action.value);
+        await thread.post(`Assigned ${action.value}.`);
+      }}
+    >
+      Assign to me
+    </Button>
+  );
+}
 ```
 
 Bound values and registered component props must be JSON-serializable if the

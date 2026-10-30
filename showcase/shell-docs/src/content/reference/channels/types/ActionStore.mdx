@@ -9,13 +9,15 @@ both are deprecated. New Channels code should configure
 `StateStore.kv` facet.
 
 ```ts title="channel.ts"
-import { createChannel } from "@copilotkit/channels";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+import { ApprovalCard } from "./approval-card.js";
 import { durableStateStore } from "./state-store.js";
 
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: "support",
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   components: [ApprovalCard],
   store: { adapter: durableStateStore },
 });
@@ -28,6 +30,8 @@ preserves the snapshot across process restarts.
 ## Deprecated contract
 
 ```ts
+import type { ActionSnapshot } from "@copilotkit/channels";
+
 interface ActionStore {
   put(id: string, snapshot: ActionSnapshot, ttlMs?: number): Promise<void>;
   get(id: string): Promise<ActionSnapshot | undefined>;

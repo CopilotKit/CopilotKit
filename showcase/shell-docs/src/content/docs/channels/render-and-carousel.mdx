@@ -8,30 +8,48 @@ You want native text plus React cards in one message. A header, a sale note, and
 
 Wrap each snapshot in `<Render alt>`. Group the slides in `<Carousel>`. The SDK draws each snapshot to a PNG and keeps the rest as native channel UI.
 
-```tsx
-<Message>
-  <Header>This week</Header>
-  <Carousel>
-    <CarouselCard>
-      <Header>Shoes</Header>
-      <Render alt="Red shoes" width={400}>
-        <ProductCard product={shoes} />
-      </Render>
-      <Section>On sale</Section>
-      <Button
-        value="buy-shoes"
-        onClick={async ({ thread }) => {
-          await thread.post("Added the red shoes to your cart.");
-        }}
-      >
-        Buy
-      </Button>
-    </CarouselCard>
-    <Render alt="Hat">
-      <ProductCard product={hat} />
-    </Render>
-  </Carousel>
-</Message>
+```tsx title="weekly-deals.tsx"
+import {
+  Button,
+  Carousel,
+  CarouselCard,
+  Header,
+  Message,
+  Render,
+  Section,
+} from "@copilotkit/channels/ui";
+import { ProductCard } from "./product-card.js";
+
+const shoes = { name: "Red shoes", price: "$89" };
+const hat = { name: "Hat", price: "$25" };
+
+export function WeeklyDeals() {
+  return (
+    <Message>
+      <Header>This week</Header>
+      <Carousel>
+        <CarouselCard>
+          <Header>Shoes</Header>
+          <Render alt="Red shoes" width={400}>
+            <ProductCard product={shoes} />
+          </Render>
+          <Section>On sale</Section>
+          <Button
+            value="buy-shoes"
+            onClick={async ({ thread }) => {
+              await thread.post("Added the red shoes to your cart.");
+            }}
+          >
+            Buy
+          </Button>
+        </CarouselCard>
+        <Render alt="Hat">
+          <ProductCard product={hat} />
+        </Render>
+      </Carousel>
+    </Message>
+  );
+}
 ```
 
 `alt` is required and must not be blank on `<Render>`. Its canvas inherits `render.width` and `render.height`, defaulting to 720 by 480 pixels. Set `width` and `height` on an individual `<Render>` to override them.

@@ -9,13 +9,22 @@ options when the provider supplies them.
 ## Signature
 
 ```ts
-function defineChannelCommand<Schema extends ObjectSchema>(
+import {
+  defineChannelCommand,
+  type ChannelCommand,
+  type ObjectSchema,
+} from "@copilotkit/channels";
+
+defineChannelCommand satisfies <Schema extends ObjectSchema>(
   command: ChannelCommand<Schema>,
-): ChannelCommand<Schema>;
+) => ChannelCommand<Schema>;
 ```
 
 ```ts
-interface ChannelCommand<Schema extends ObjectSchema> {
+import type { CommandContext, ObjectSchema } from "@copilotkit/channels";
+import type { InferSchemaOutput } from "@copilotkit/shared";
+
+interface ChannelCommand<Schema extends ObjectSchema = ObjectSchema> {
   name: string;
   description?: string;
   options?: Schema;
