@@ -1,6 +1,16 @@
 import { defineComponent, h, onMounted, ref, watch } from "vue";
 import type { PropType } from "vue";
-import { partialJSONParse } from "@copilotkit/shared";
+import {
+  ɵcountFailedToolCalls,
+  ɵformatLabel,
+  ɵgetArgumentPreview,
+  ɵstringifyToolCallPayload,
+} from "@copilotkit/core";
+import type {
+  CopilotChatLabels,
+  ToolCallEntry,
+  ɵToolCallRowStatus,
+} from "@copilotkit/core";
 import {
   IconCheck,
   IconChevronRight,
@@ -9,84 +19,40 @@ import {
   IconX,
 } from "../icons";
 import { useCopilotId } from "../ui/use-id";
-import type { ToolCallEntry } from "./tool-call-layout";
-
-/** A call that never got a result after the run ended (Stop, an error) is "stopped". */
-export type ToolCallStatusName = "running" | "done" | "failed" | "stopped";
+import { useChatLabels } from "./use-chat-labels";
 
 /**
- * A call without a result is running only while the group is active: once
- * the run has moved on or ended, its result is never coming.
+ * The label for a tool call's status ("Running", "Done", ...).
  * @internal
  */
-export const entryStatus = (
-  { toolMessage }: ToolCallEntry,
-  active: boolean,
-): ToolCallStatusName =>
-  toolMessage
-    ? toolMessage.error
-      ? "failed"
-      : "done"
-    : active
-      ? "running"
-      : "stopped";
-
-/** @internal */
-export const statusLabels: Record<ToolCallStatusName, string> = {
-  running: "Running",
-  done: "Done",
-  failed: "Failed",
-  stopped: "Stopped",
-};
-
-/** The first non-empty string argument: usually a command, path or query. */
-export function argumentPreview(parameters: unknown): string | undefined {
-  if (!parameters || typeof parameters !== "object") return undefined;
-  const value = Object.values(parameters).find(
-    (v): v is string => typeof v === "string" && v.trim().length > 0,
-  );
-  return value?.replace(/\s+/g, " ");
-}
-
-/** @internal */
-export const entryPreview = (entry: ToolCallEntry) =>
-  argumentPreview(partialJSONParse(entry.toolCall.function.arguments));
-
-/** "run_command ×2, read_file" */
-export function toolNames(calls: ToolCallEntry[]): string {
-  const counts = new Map<string, number>();
-  for (const { toolCall } of calls) {
-    const name = toolCall.function.name;
-    counts.set(name, (counts.get(name) ?? 0) + 1);
+export function toolCallStatusLabel(
+  labels: Readonly<CopilotChatLabels>,
+  status: ɵToolCallRowStatus,
+) {
+  switch (status) {
+    case "running":
+      return labels.toolCallStatusRunningLabel;
+    case "done":
+      return labels.toolCallStatusDoneLabel;
+    case "failed":
+      return labels.toolCallStatusFailedLabel;
+    case "stopped":
+      return labels.toolCallStatusStoppedLabel;
   }
-  return [...counts]
-    .map(([name, count]) => (count > 1 ? `${name} ×${count}` : name))
-    .join(", ");
 }
-
-/** @internal */
-export const pluralize = (count: number, noun: string) =>
-  `${count} ${noun}${count === 1 ? "" : "s"}`;
 
 /**
- * Guarded JSON.stringify for the payload blocks. A circular reference would
- * otherwise crash the render.
+ * A count with the label that fits it: the `...One` template for 1, the
+ * `...Other` template for any other count.
+ * @internal
  */
-function stringifyPayload(value: unknown): string {
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch (err) {
-    console.warn(
-      "[CopilotKit] Failed to JSON.stringify tool-call payload; falling back to String():",
-      err,
-    );
-    try {
-      return String(value);
-    } catch {
-      return "[unserializable]";
-    }
-  }
+export function formatCountLabel(
+  count: number,
+  templates: { one: string; other: string },
+) {
+  return ɵformatLabel(count === 1 ? templates.one : templates.other, {
+    count,
+  });
 }
 
 /**
@@ -125,7 +91,7 @@ export const ToolCallStatusIcon = defineComponent({
   name: "ToolCallStatusIcon",
   props: {
     status: {
-      type: String as PropType<ToolCallStatusName>,
+      type: String as PropType<ɵToolCallRowStatus>,
       required: true,
     },
   },
@@ -173,15 +139,14 @@ export const ToolCallFailedCount = defineComponent({
     calls: { type: Array as PropType<ToolCallEntry[]>, required: true },
   },
   setup(props) {
+    const labels = useChatLabels();
     return () => {
-      const failed = props.calls.filter(
-        (call) => call.toolMessage?.error,
-      ).length;
+      const failed = ɵcountFailedToolCalls(props.calls);
       if (!failed) return null;
       return h(
         "span",
         { class: "cpk-tool-call-failed-count" },
-        `${failed} failed`,
+        ɵformatLabel(labels.value.toolCallFailedCountLabel, { count: failed }),
       );
     };
   },
@@ -190,7 +155,11 @@ export const ToolCallFailedCount = defineComponent({
 function payload(label: string, value: unknown) {
   return h("div", [
     h("div", { class: "cpk-tool-call-payload-label" }, label),
-    h("pre", { class: "cpk-tool-call-payload-code" }, stringifyPayload(value)),
+    h(
+      "pre",
+      { class: "cpk-tool-call-payload-code" },
+      ɵstringifyToolCallPayload(value),
+    ),
   ]);
 }
 
@@ -206,7 +175,7 @@ export const ToolCallRow = defineComponent({
     parameters: { type: null, default: undefined },
     result: { type: null, default: undefined },
     status: {
-      type: String as PropType<ToolCallStatusName>,
+      type: String as PropType<ɵToolCallRowStatus>,
       required: true,
     },
     appearance: {
@@ -217,8 +186,9 @@ export const ToolCallRow = defineComponent({
   setup(props) {
     const open = ref(false);
     const detailsId = useCopilotId("cpk-tool-call-row");
+    const labels = useChatLabels();
     return () => {
-      const preview = argumentPreview(props.parameters);
+      const preview = ɵgetArgumentPreview(props.parameters);
       // Rows draw their own divider: a wrapper with `display: contents`
       // around each call would escape a parent's divide-y.
       return h(
@@ -261,7 +231,7 @@ export const ToolCallRow = defineComponent({
                   "data-testid": "copilot-tool-render-status",
                   class: "cpk-tool-call-row-status",
                 },
-                statusLabels[props.status],
+                toolCallStatusLabel(labels.value, props.status),
               ),
               h(IconChevronRight, {
                 "aria-hidden": "true",
@@ -278,9 +248,12 @@ export const ToolCallRow = defineComponent({
               "div",
               { class: "cpk-tool-call-payloads cpk-tool-call-row-payloads" },
               [
-                payload("Arguments", props.parameters ?? {}),
+                payload(
+                  labels.value.toolCallArgumentsLabel,
+                  props.parameters ?? {},
+                ),
                 props.result !== undefined
-                  ? payload("Result", props.result)
+                  ? payload(labels.value.toolCallResultLabel, props.result)
                   : null,
               ],
             ),

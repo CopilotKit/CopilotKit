@@ -11,8 +11,7 @@ import {
 import type { Message } from "@ag-ui/core";
 import type { Suggestion } from "@copilotkit/core";
 import type { Attachment } from "@copilotkit/shared";
-import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
-import { CopilotChatDefaultLabels } from "../../providers/types";
+import { useChatLabels } from "./use-chat-labels";
 import { useKeyboardHeight } from "../../hooks/use-keyboard-height";
 import { usePinToSend } from "../../hooks/use-pin-to-send";
 import { IconChevronDown, IconUpload } from "../icons";
@@ -127,8 +126,7 @@ const emit = defineEmits<{
   "finish-transcribe": [];
 }>();
 
-const config = useCopilotChatConfiguration();
-const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
+const labels = useChatLabels();
 const componentSlots = useSlots();
 
 const scrollContainerRef = ref<HTMLElement | null>(null);
@@ -457,7 +455,9 @@ onBeforeUnmount(() => {
     >
       <div class="cpk-chat-view-drop-overlay-content">
         <IconUpload class="cpk-chat-view-drop-overlay-icon" />
-        <span class="cpk-chat-view-drop-overlay-label">Drop files here</span>
+        <span class="cpk-chat-view-drop-overlay-label">{{
+          labels.chatDropFilesLabel
+        }}</span>
       </div>
     </div>
     <slot

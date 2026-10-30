@@ -15,6 +15,26 @@ import {
   createRowKeyStore,
   resolveRowRenderKeysById,
 } from "@copilotkit/shared";
+import {
+  ɵdeduplicateMessages,
+  ɵgetToolCallLayouts,
+  ɵgetToolCallRendererNames,
+  ɵgetTurnWork,
+  ɵgetWorkOpenState,
+  ɵisTurnWorkOpen,
+  ɵisTurnWorking,
+  ɵrecordWorkTime,
+  ɵresolveActivityRenderer,
+  ɵresolveCustomMessageRenderers,
+} from "@copilotkit/core";
+import type {
+  CopilotChatToolCallDisplay,
+  ToolCallEntry,
+  ɵToolCallDisplayContextValue,
+  ɵToolCallLayout,
+  ɵTurnWork,
+  ɵWorkTime,
+} from "@copilotkit/core";
 import type {
   InterruptRenderProps,
   VueCustomMessageRendererProps,
@@ -33,18 +53,6 @@ import {
 } from "./message-feedback";
 import type { MessageFeedbackScope } from "./message-feedback";
 import { ToolCallDisplayContextKey } from "./tool-call-display-context";
-import type { ToolCallDisplayContextValue } from "./tool-call-display-context";
-import {
-  getToolCallLayouts,
-  getToolCallRendererNames,
-  getTurnWork,
-} from "./tool-call-layout";
-import type {
-  CopilotChatToolCallDisplay,
-  ToolCallEntry,
-  ToolCallLayout,
-  TurnWork,
-} from "./tool-call-layout";
 import type { CopilotChatWorkSummarySlotProps } from "./types";
 
 interface MessageMetaProps {
@@ -203,47 +211,22 @@ watch(
   { immediate: true },
 );
 
-function deduplicateMessages(messages: Message[]): Message[] {
-  const byId = new Map<string, Message>();
-  for (const message of messages) {
-    const existing = byId.get(message.id);
-    if (
-      existing &&
-      message.role === "assistant" &&
-      existing.role === "assistant"
-    ) {
-      const content = message.content || existing.content;
-      const toolCalls = message.toolCalls ?? existing.toolCalls;
-      byId.set(message.id, {
-        ...existing,
-        ...message,
-        content,
-        toolCalls,
-      } as AssistantMessage);
-    } else {
-      byId.set(message.id, message);
-    }
-  }
-  return [...byId.values()];
-}
-
 const deduplicatedMessages = computed(() =>
-  deduplicateMessages(props.messages),
+  ɵdeduplicateMessages(props.messages),
 );
 
 // Groups of calls can span messages (an agent often sends each call as its
 // own message), so they're laid out here for the whole list and handed to
 // each message's tool calls view through provide/inject.
-const toolCallLayouts = computed<ReadonlyMap<string, ToolCallLayout>>(() =>
+const toolCallLayouts = computed<ReadonlyMap<string, ɵToolCallLayout>>(() =>
   props.toolCallDisplay === "separate"
     ? new Map()
-    : getToolCallLayouts(
+    : ɵgetToolCallLayouts(
         deduplicatedMessages.value,
         props.messages,
-        getToolCallRendererNames(
-          copilotkit.value.renderToolCalls,
-          forwardedSlotNames.value,
-        ),
+        ɵgetToolCallRendererNames(copilotkit.value.renderToolCalls, {
+          slotNames: forwardedSlotNames.value,
+        }),
       ),
 );
 const learningFeedbackEnabled = useLearningFeedbackEnabled(copilotkit);
@@ -265,11 +248,11 @@ provide(
 
 const turnWork = computed(() =>
   props.toolCallDisplay === "turn"
-    ? getTurnWork(deduplicatedMessages.value, toolCallLayouts.value)
+    ? ɵgetTurnWork(deduplicatedMessages.value, toolCallLayouts.value)
     : undefined,
 );
 const turnByFirstMessage = computed(() => {
-  const byFirst = new Map<string, TurnWork>();
+  const byFirst = new Map<string, ɵTurnWork>();
   for (const turn of turnWork.value?.values() ?? []) {
     byFirst.set(turn.firstMessageId, turn);
   }
@@ -287,23 +270,20 @@ const latestTurnKey = computed(() => {
   }
   return "start";
 });
-const isWorkingOn = (turnKey: string) =>
-  props.isRunning && turnKey === latestTurnKey.value;
 
 // Work shows while the agent is on it and folds once the reply is done,
 // unless the user has opened or closed it themselves.
 const toggledTurns = ref<ReadonlyMap<string, boolean>>(new Map());
-const isWorkOpen = (turnKey: string) =>
-  toggledTurns.value.get(turnKey) ?? isWorkingOn(turnKey);
+const turnOpenState = computed(() => ({
+  toggledTurns: toggledTurns.value,
+  isRunning: props.isRunning,
+  latestTurnKey: latestTurnKey.value,
+}));
 
-// How long the agent worked, for "Worked for 9s": the sum of its runs on the
-// reply, so waiting between them (say, for an approval) doesn't count. Only
-// known for replies this client watched start from the user's message; a
-// restored thread shows the tool count instead.
-const workTimes = new Map<
-  string,
-  { elapsedMs: number; workingSince?: number }
->();
+// How long the agent worked, for "Worked for 9s". Only known for replies this
+// client watched start from the user's message; a restored thread shows the
+// tool count instead.
+const workTimes = new Map<string, ɵWorkTime>();
 const workTimesVersion = ref(0);
 watch(
   [
@@ -314,42 +294,25 @@ watch(
   ],
   ([display, isRunning, turnKey, lastRole]) => {
     if (display !== "turn") return;
-    const now = Date.now();
-    if (isRunning) {
-      const times = workTimes.get(turnKey);
-      if (times) times.workingSince ??= now;
-      else if (lastRole === "user")
-        workTimes.set(turnKey, { elapsedMs: 0, workingSince: now });
-    } else {
-      for (const times of workTimes.values()) {
-        if (times.workingSince === undefined) continue;
-        times.elapsedMs += now - times.workingSince;
-        times.workingSince = undefined;
-      }
-    }
+    ɵrecordWorkTime(workTimes, {
+      isRunning,
+      latestTurnKey: turnKey,
+      lastMessageRole: lastRole,
+      now: Date.now(),
+    });
     workTimesVersion.value++;
   },
   { immediate: true },
 );
 
-// Whether each working-phase message's work shows. Text that ends the reply
-// stays out even when its message also calls a tool: it's the answer.
-const workOpenState = computed(() => {
-  const open = new Map<string, boolean>();
-  const textOpen = new Map<string, boolean>();
-  for (const turn of turnWork.value?.values() ?? []) {
-    const turnOpen = isWorkOpen(turn.key);
-    for (const id of turn.workMessageIds) {
-      open.set(id, turnOpen);
-      if (id !== turn.replyTextMessageId) textOpen.set(id, turnOpen);
-    }
-  }
-  return { workOpen: open, workTextOpen: textOpen };
-});
+// Whether each working-phase message's work, and its text, shows.
+const workOpenState = computed(() =>
+  ɵgetWorkOpenState(turnWork.value?.values() ?? [], turnOpenState.value),
+);
 
 provide(
   ToolCallDisplayContextKey,
-  computed<ToolCallDisplayContextValue>(() => ({
+  computed<ɵToolCallDisplayContextValue>(() => ({
     display: props.toolCallDisplay,
     isRunning: props.isRunning,
     layouts: toolCallLayouts.value,
@@ -364,8 +327,8 @@ const WorkSummaryRow: FunctionalComponent<{
   calls: ToolCallEntry[];
 }> = ({ turnKey, calls }) => {
   void workTimesVersion.value;
-  const isWorking = isWorkingOn(turnKey);
-  const isOpen = isWorkOpen(turnKey);
+  const isWorking = ɵisTurnWorking(turnKey, turnOpenState.value);
+  const isOpen = ɵisTurnWorkOpen(turnKey, turnOpenState.value);
   const times = workTimes.get(turnKey);
   const summaryProps: CopilotChatWorkSummarySlotProps = {
     isWorking,
@@ -534,21 +497,12 @@ function resolveCustomMessageRenderer(
     return null;
   }
 
-  const agentId = resolvedAgentId.value;
-  const renderers = [...copilotkit.value.renderCustomMessages]
-    .filter(
-      (renderer) =>
-        renderer.agentId === undefined || renderer.agentId === agentId,
-    )
-    .sort((a, b) => {
-      const aHasAgent = a.agentId !== undefined;
-      const bHasAgent = b.agentId !== undefined;
-      if (aHasAgent === bHasAgent) return 0;
-      return aHasAgent ? -1 : 1;
-    });
-
-  const selected = renderers[0];
-  if (!selected?.render) {
+  // Try each renderer in order and use the first that has something to draw.
+  const selected = ɵresolveCustomMessageRenderers(
+    copilotkit.value.renderCustomMessages,
+    resolvedAgentId.value,
+  ).find((renderer) => renderer.render);
+  if (!selected) {
     return null;
   }
 
@@ -563,44 +517,25 @@ function resolveActivityRenderer(
 ): { renderer: Component; props: ActivitySlotProps } | null {
   stateTick.value += 0;
 
-  const agentId = resolvedAgentId.value;
-  const renderer = [...copilotkit.value.renderActivityMessages]
-    .filter(
-      (entry) =>
-        entry.activityType === message.activityType &&
-        (entry.agentId === undefined || entry.agentId === agentId),
-    )
-    .sort((a, b) => {
-      const aScoped = a.agentId !== undefined;
-      const bScoped = b.agentId !== undefined;
-      if (aScoped === bScoped) return 0;
-      return aScoped ? -1 : 1;
-    })[0];
-
-  if (!renderer) return null;
-  const parsed = renderer.content.safeParse(message.content);
-  if (!parsed.success) return null;
+  const match = ɵresolveActivityRenderer(
+    copilotkit.value.renderActivityMessages,
+    {
+      activityType: message.activityType,
+      agentId: resolvedAgentId.value,
+      content: message.content,
+    },
+  );
+  if (!match) return null;
 
   return {
-    renderer: renderer.render as Component,
+    renderer: match.renderer.render as Component,
     props: {
       activityType: message.activityType,
-      content: parsed.data,
+      content: match.content,
       message,
       agent: resolvedThreadAgent.value,
     },
   };
-}
-
-function resolveToolMessage(
-  message: Message,
-  toolCallId: string,
-): ToolMessage | undefined {
-  return props.messages.find(
-    (candidate) =>
-      candidate.role === "tool" &&
-      (candidate as ToolMessage).toolCallId === toolCallId,
-  ) as ToolMessage | undefined;
 }
 </script>
 

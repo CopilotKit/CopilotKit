@@ -1,7 +1,7 @@
 import type { Message, ToolCall, ToolMessage } from "@ag-ui/core";
 import { contentToText } from "@ag-ui/core";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import { ToolCallStatus } from "@copilotkit/core";
+import { ToolCallStatus, ɵresolveToolCallRenderer } from "@copilotkit/core";
 import { partialJSONParse } from "@copilotkit/shared";
 import type { CopilotChatToolCallRenderSlotProps } from "./types";
 import type {
@@ -22,23 +22,6 @@ export function findToolMessage(
 
 export function getToolCallSlotName(toolName: string): `tool-call-${string}` {
   return `tool-call-${toolName}`;
-}
-
-export function getCoreRenderConfig(
-  toolCall: ToolCall,
-  renderToolCalls: readonly VueToolCallRenderer<unknown>[],
-  agentId: string,
-): VueToolCallRenderer<unknown> | undefined {
-  const exactMatches = renderToolCalls.filter(
-    (renderConfig) => renderConfig.name === toolCall.function.name,
-  );
-
-  return (
-    exactMatches.find((renderConfig) => renderConfig.agentId === agentId) ??
-    exactMatches.find((renderConfig) => !renderConfig.agentId) ??
-    exactMatches[0] ??
-    renderToolCalls.find((renderConfig) => renderConfig.name === "*")
-  );
 }
 
 export function getToolCallRenderProps(
@@ -122,6 +105,7 @@ export function getToolCallMemoDeps(
     toolCall.function.arguments,
     findToolMessage(messages, toolCall.id)?.content,
     executingToolCallIds.has(toolCall.id),
-    getCoreRenderConfig(toolCall, renderToolCalls, agentId)?.render,
+    ɵresolveToolCallRenderer(renderToolCalls, toolCall.function.name, agentId)
+      ?.render,
   ];
 }

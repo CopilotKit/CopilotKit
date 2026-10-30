@@ -15,13 +15,13 @@ import type {
   AttachmentModality,
   InputContentSource,
 } from "@copilotkit/shared";
-import type { CopilotChatLabels } from "../../providers/types";
-import type { InterruptEvent } from "../../types";
-import type { AutoScrollMode } from "./normalize-auto-scroll";
 import type {
+  CopilotChatLabels,
   CopilotChatToolCallDisplay,
   ToolCallEntry,
-} from "./tool-call-layout";
+} from "@copilotkit/core";
+import type { InterruptEvent } from "../../types";
+import type { AutoScrollMode } from "./normalize-auto-scroll";
 
 export type CopilotChatInputMode = "input" | "transcribe" | "processing";
 export type { Attachment, AttachmentsConfig, AttachmentModality };

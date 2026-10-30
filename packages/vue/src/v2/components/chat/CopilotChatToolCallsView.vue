@@ -3,6 +3,14 @@ import { computed, defineComponent, h, inject, provide, useSlots } from "vue";
 import type { PropType } from "vue";
 import type { Slots, VNode } from "vue";
 import type { AssistantMessage, Message } from "@ag-ui/core";
+import {
+  ɵgetToolCallLayouts,
+  ɵgetToolCallRendererNames,
+} from "@copilotkit/core";
+import type {
+  CopilotChatToolCallDisplay,
+  ToolCallEntry,
+} from "@copilotkit/core";
 import { useCopilotKit } from "../../providers/useCopilotKit";
 import type {
   CopilotChatToolCallGroupAppearance,
@@ -17,14 +25,6 @@ import {
   ToolCallGroupContextKey,
 } from "./tool-call-display-context";
 import type { ToolCallGroupContextValue } from "./tool-call-display-context";
-import {
-  getToolCallLayouts,
-  getToolCallRendererNames,
-} from "./tool-call-layout";
-import type {
-  CopilotChatToolCallDisplay,
-  ToolCallEntry,
-} from "./tool-call-layout";
 
 const props = withDefaults(
   defineProps<{
@@ -84,13 +84,15 @@ const layout = computed(() => {
   if (display.value === "separate") return undefined;
   const viewLayout = context?.value.layouts.get(props.message.id);
   if (viewLayout) return viewLayout;
-  const rendererNames = getToolCallRendererNames(
+  const rendererNames = ɵgetToolCallRendererNames(
     copilotkit.value.renderToolCalls,
-    getToolCallSlotNames(),
+    { slotNames: getToolCallSlotNames() },
   );
-  return getToolCallLayouts([props.message], props.messages, rendererNames).get(
-    props.message.id,
-  );
+  return ɵgetToolCallLayouts(
+    [props.message],
+    props.messages,
+    rendererNames,
+  ).get(props.message.id);
 });
 
 // Whether the agent may still finish a trailing group's calls. Without a

@@ -9,8 +9,7 @@ import type { Attachment } from "@copilotkit/shared";
 import type { CopilotChatAttachmentQueueProps } from "./types";
 import { IconPlay } from "../icons";
 import CopilotChatLightbox from "./CopilotChatLightbox.vue";
-import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
-import { CopilotChatDefaultLabels } from "../../providers/types";
+import { useChatLabels } from "./use-chat-labels";
 
 const props = withDefaults(defineProps<CopilotChatAttachmentQueueProps>(), {
   attachments: () => [],
@@ -21,8 +20,7 @@ const emit = defineEmits<{
   "remove-attachment": [id: string];
 }>();
 
-const config = useCopilotChatConfiguration();
-const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
+const labels = useChatLabels();
 
 const activeLightboxAttachment = ref<Attachment | null>(null);
 const documentBlobUrl = ref<string | null>(null);
@@ -372,7 +370,10 @@ function createBlobUrl(
             {{ activeLightboxAttachment.filename || "Document" }}
           </div>
           <div class="cpk-attachment-queue-document-card-meta">
-            {{ activeLightboxAttachment.source.mimeType || "Unknown type" }}
+            {{
+              activeLightboxAttachment.source.mimeType ||
+              labels.attachmentUnknownTypeText
+            }}
             {{
               activeLightboxAttachment.size != null
                 ? ` · ${formatFileSize(activeLightboxAttachment.size)}`

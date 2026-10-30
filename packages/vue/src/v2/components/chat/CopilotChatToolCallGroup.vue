@@ -10,8 +10,14 @@
  * a custom wildcard renderer draws whatever it draws.
  */
 import { computed, provide, ref } from "vue";
+import {
+  ɵformatLabel,
+  ɵformatToolNames,
+  ɵgetToolCallPreview,
+  ɵgetToolCallRowStatus,
+} from "@copilotkit/core";
+import type { ToolCallEntry, ɵToolCallRowStatus } from "@copilotkit/core";
 import { useCopilotId } from "../ui/use-id";
-import type { ToolCallEntry } from "./tool-call-layout";
 import { ToolCallGroupContextKey } from "./tool-call-display-context";
 import type { ToolCallGroupContextValue } from "./tool-call-display-context";
 import {
@@ -19,13 +25,10 @@ import {
   ToolCallChevron,
   ToolCallFailedCount,
   ToolCallStatusIcon,
-  entryPreview,
-  entryStatus,
-  pluralize,
-  statusLabels,
-  toolNames,
+  formatCountLabel,
+  toolCallStatusLabel,
 } from "./tool-call-group-parts";
-import type { ToolCallStatusName } from "./tool-call-group-parts";
+import { useChatLabels } from "./use-chat-labels";
 import type { CopilotChatToolCallGroupAppearance } from "./types";
 
 const props = withDefaults(
@@ -49,6 +52,7 @@ defineSlots<{
   call(props: { call: ToolCallEntry }): unknown;
 }>();
 
+const labels = useChatLabels();
 const open = ref(false);
 const bodyId = useCopilotId("cpk-tool-call-group");
 const toggle = () => {
@@ -64,13 +68,13 @@ const current = computed(() =>
     : undefined,
 );
 const preview = computed(() =>
-  current.value ? entryPreview(current.value) : undefined,
+  current.value ? ɵgetToolCallPreview(current.value) : undefined,
 );
 const done = computed(
   () => props.calls.filter((call) => call.toolMessage).length,
 );
 const statuses = computed(() =>
-  props.calls.map((call) => entryStatus(call, props.isActive)),
+  props.calls.map((call) => ɵgetToolCallRowStatus(call, props.isActive)),
 );
 const failedIds = computed(
   () =>
@@ -80,7 +84,7 @@ const failedIds = computed(
         .map((call) => call.toolCall.id),
     ),
 );
-const status = computed<ToolCallStatusName>(() =>
+const status = computed<ɵToolCallRowStatus>(() =>
   current.value
     ? "running"
     : failedIds.value.size > 0
@@ -108,10 +112,27 @@ const behind = computed(() =>
   open.value ? 0 : Math.min(props.calls.length - 1, 2),
 );
 const latestStatus = computed(() =>
-  latest.value ? entryStatus(latest.value, props.isActive) : "done",
+  latest.value ? ɵgetToolCallRowStatus(latest.value, props.isActive) : "done",
 );
 const latestPreview = computed(() =>
-  latest.value ? entryPreview(latest.value) : undefined,
+  latest.value ? ɵgetToolCallPreview(latest.value) : undefined,
+);
+const runningLabel = computed(() =>
+  current.value
+    ? ɵformatLabel(labels.value.toolCallRunningLabel, {
+        name: current.value.toolCall.function.name,
+      })
+    : "",
+);
+const usedToolsLabel = computed(() =>
+  formatCountLabel(props.calls.length, {
+    one: labels.value.toolCallUsedToolsOne,
+    other: labels.value.toolCallUsedToolsOther,
+  }),
+);
+const toolNames = computed(() => ɵformatToolNames(props.calls));
+const latestStatusLabel = computed(() =>
+  toolCallStatusLabel(labels.value, latestStatus.value),
 );
 const layer = "cpk-tool-call-group-stack-layer";
 </script>
@@ -144,20 +165,18 @@ const layer = "cpk-tool-call-group-stack-layer";
       @click="toggle"
     >
       <template v-if="current">
-        <span class="cpk-tool-call-group-running cpk-shimmer"
-          >Running {{ current.toolCall.function.name }}</span
-        >
+        <span class="cpk-tool-call-group-running cpk-shimmer">{{
+          runningLabel
+        }}</span>
         <span v-if="preview" class="cpk-tool-call-group-preview">{{
           preview
         }}</span>
       </template>
       <template v-else>
-        <span class="cpk-tool-call-group-line-summary"
-          >Used {{ pluralize(calls.length, "tool") }}</span
-        >
-        <span class="cpk-tool-call-group-line-names">{{
-          toolNames(calls)
+        <span class="cpk-tool-call-group-line-summary">{{
+          usedToolsLabel
         }}</span>
+        <span class="cpk-tool-call-group-line-names">{{ toolNames }}</span>
         <ToolCallFailedCount :calls="calls" />
       </template>
       <ToolCallChevron :open="open" />
@@ -206,10 +225,15 @@ const layer = "cpk-tool-call-group-stack-layer";
         @click="toggle"
       >
         <template v-if="open">
-          {{ pluralize(calls.length, "tool call") }}
+          {{
+            formatCountLabel(calls.length, {
+              one: labels.toolCallToolCallCountOne,
+              other: labels.toolCallToolCallCountOther,
+            })
+          }}
           <ToolCallFailedCount :calls="calls" />
           <span class="cpk-tool-call-group-stack-collapse">
-            Collapse
+            {{ labels.toolCallCollapseLabel }}
             <ToolCallChevron
               :open="true"
               class="cpk-tool-call-group-stack-collapse-icon"
@@ -236,13 +260,16 @@ const layer = "cpk-tool-call-group-stack-layer";
             >
             <!-- The status icon is decorative, so say the status. -->
             <span class="cpk-tool-call-group-stack-status">{{
-              statusLabels[latestStatus]
+              latestStatusLabel
             }}</span>
           </span>
           <span class="cpk-tool-call-group-stack-meta">
             <ToolCallFailedCount :calls="calls" />
             <span class="cpk-tool-call-group-stack-count">{{
-              pluralize(calls.length, "call")
+              formatCountLabel(calls.length, {
+                one: labels.toolCallCallCountOne,
+                other: labels.toolCallCallCountOther,
+              })
             }}</span>
             <ToolCallChevron
               :open="false"
@@ -255,9 +282,7 @@ const layer = "cpk-tool-call-group-stack-layer";
              call change ("read_file: Running", then "read_file: Done"); the
              button only names it. -->
       <span aria-live="polite" class="cpk-tool-call-group-stack-live">{{
-        open
-          ? ""
-          : `${latest.toolCall.function.name}: ${statusLabels[latestStatus]}`
+        open ? "" : `${latest.toolCall.function.name}: ${latestStatusLabel}`
       }}</span>
     </div>
     <!-- Each call gets the collapsed stack's card, easing out of the stack. -->
@@ -292,26 +317,24 @@ const layer = "cpk-tool-call-group-stack-layer";
     >
       <ToolCallStatusIcon :status="status" />
       <template v-if="current">
-        <span class="cpk-tool-call-group-running cpk-shimmer"
-          >Running {{ current.toolCall.function.name }}</span
-        >
+        <span class="cpk-tool-call-group-running cpk-shimmer">{{
+          runningLabel
+        }}</span>
         <span v-if="preview" class="cpk-tool-call-group-preview">{{
           preview
         }}</span>
       </template>
       <template v-else>
-        <span class="cpk-tool-call-group-card-summary"
-          >Used {{ pluralize(calls.length, "tool") }}</span
-        >
-        <span class="cpk-tool-call-group-card-names">{{
-          toolNames(calls)
+        <span class="cpk-tool-call-group-card-summary">{{
+          usedToolsLabel
         }}</span>
+        <span class="cpk-tool-call-group-card-names">{{ toolNames }}</span>
       </template>
       <span class="cpk-tool-call-group-card-meta">
         <ToolCallFailedCount v-if="status === 'failed'" :calls="calls" />
         <span v-else class="cpk-tool-call-group-card-status">{{
           status !== "running"
-            ? statusLabels[status]
+            ? toolCallStatusLabel(labels, status)
             : done > 0
               ? `${done} done`
               : ""

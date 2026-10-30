@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { Message, ToolCall } from "@ag-ui/core";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import { ɵresolveToolCallRenderer } from "@copilotkit/core";
 import { useCopilotKit } from "../../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import type { CopilotChatToolCallRenderSlotProps } from "./types";
 import {
-  getCoreRenderConfig,
   getCoreRenderProps,
   getToolCallMemoDeps,
   getToolCallRenderProps,
@@ -55,9 +55,9 @@ function getCoreProps() {
 
 function getRenderConfig() {
   const agentId = config.value?.agentId ?? DEFAULT_AGENT_ID;
-  return getCoreRenderConfig(
-    props.toolCall,
+  return ɵresolveToolCallRenderer(
     copilotkit.value.renderToolCalls,
+    props.toolCall.function.name,
     agentId,
   );
 }
