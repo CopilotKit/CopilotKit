@@ -54,6 +54,7 @@ import type { ɵGenerativeUIDebugSource } from "./generative-ui-debug";
 import type { ɵMemoryStore } from "../memory";
 import { HeaderSourceResolver, isHeaderResolutionError } from "./header-source";
 import type { CopilotKitHeadersSource } from "./header-source";
+import { shallowEqualRecord } from "../utils/shallow-equal";
 
 /**
  * Run properties that go only to the runs of some agents.
@@ -124,6 +125,14 @@ export interface CopilotKitCoreConfig {
    * {@link CopilotKitCore.setLearningConfig}.
    */
   learning?: LearningConfig;
+  /**
+   * @internal For framework adapters. Awaited after frontend tools run and
+   * before the follow-up run starts, so state updates that the tool handlers
+   * scheduled in the framework (and the context those updates register) land
+   * before the follow-up reads it. React passes a `setTimeout(0)` yield, Vue
+   * passes `nextTick`.
+   */
+  ɵwaitForFrameworkUpdates?: () => Promise<void>;
 }
 
 export type { CopilotKitMessageFilter } from "./message-filter";
@@ -482,6 +491,8 @@ export class CopilotKitCore {
   private _debug?: DebugConfig;
 
   private subscribers: Set<CopilotKitCoreSubscriber> = new Set();
+  private _disposed = false;
+  private readonly waitForFrameworkUpdates?: () => Promise<void>;
 
   // Delegate classes
   private agentRegistry: AgentRegistry;
@@ -523,7 +534,9 @@ export class CopilotKitCore {
     suggestionsConfig = [],
     debug,
     learning,
+    ɵwaitForFrameworkUpdates,
   }: CopilotKitCoreConfig) {
+    this.waitForFrameworkUpdates = ɵwaitForFrameworkUpdates;
     this.headerSource = new HeaderSourceResolver((error) => {
       void this.emitError({
         error,
@@ -647,6 +660,9 @@ export class CopilotKitCore {
     handler: (subscriber: CopilotKitCoreSubscriber) => void | Promise<void>,
     errorMessage: string,
   ): Promise<void> {
+    // Late async work (an `/info` reply, a finished run) must not reach
+    // subscribers of a disposed core.
+    if (this._disposed) return;
     await Promise.all(
       Array.from(this.subscribers).map(async (subscriber) => {
         try {
@@ -977,7 +993,12 @@ export class CopilotKitCore {
     );
   }
 
+  /**
+   * Set the credentials mode for runtime requests (for example `"include"`
+   * to send HTTP-only cookies). Passing the current value does nothing.
+   */
   setCredentials(credentials: RequestCredentials | undefined): void {
+    if (credentials === this._credentials) return;
     this._credentials = credentials;
     this.agentRegistry.applyCredentialsToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
@@ -990,9 +1011,11 @@ export class CopilotKitCore {
    *
    * Applies to agents already discovered as well as ones discovered later, so
    * a filter set before `/info` lands is not lost. Pass `undefined` to go back
-   * to sending the full thread.
+   * to sending the full thread. Passing the current filter function again
+   * does nothing.
    */
   setMessageFilter(messageFilter: CopilotKitMessageFilter | undefined): void {
+    if (messageFilter === this._messageFilter) return;
     this._messageFilter = messageFilter;
     this.agentRegistry.applyMessageFilterToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
@@ -1058,7 +1081,14 @@ export class CopilotKitCore {
     return merged;
   }
 
+  /**
+   * Replace the properties sent as `forwardedProps` with every run, and
+   * notify `onPropertiesChanged`. Passing an object with the same keys and
+   * values as the current one does nothing, so a fresh object literal on
+   * every render is safe.
+   */
   setProperties(properties: Record<string, unknown>): void {
+    if (shallowEqualRecord(properties, this._properties)) return;
     this._properties = properties;
     void this.notifySubscribers(
       (subscriber) =>
@@ -1071,7 +1101,10 @@ export class CopilotKitCore {
   }
 
   /**
-   * Agent management (delegated to AgentRegistry)
+   * Agent management (delegated to AgentRegistry).
+   *
+   * Replace the local (development) agents. Passing the same ids mapped to
+   * the same agent instances does nothing.
    */
   setAgents__unsafe_dev_only(agents: Record<string, AbstractAgent>): void {
     this.agentRegistry.setAgents__unsafe_dev_only(agents);
@@ -1404,14 +1437,37 @@ export class CopilotKitCore {
   }
 
   /**
-   * Tool management (delegated to RunHandler)
+   * Register a frontend tool. It shadows a provider tool (from the `tools`
+   * config or `setTools`) with the same name and agentId.
+   *
+   * A second registration with the same name and agentId shadows the first.
+   * Call the returned function to remove only this registration: the tool it
+   * shadowed becomes active again. Calling it more than once does nothing.
+   *
+   * @param tool - The tool to register.
+   * @returns A function that removes this registration.
+   *
+   * @example
+   * const unregister = copilotkit.addTool({
+   *   name: "showWeather",
+   *   handler: async ({ city }) => `Sunny in ${city}`,
+   * });
+   * // later
+   * unregister();
    */
   addTool<T extends Record<string, unknown> = Record<string, unknown>>(
     tool: FrontendTool<T>,
-  ): void {
-    this.runHandler.addTool(tool);
+  ) {
+    return this.runHandler.addTool(tool);
   }
 
+  /**
+   * Remove a tool by name, and by agentId when given. This removes every
+   * `addTool` registration with that name and agentId, and the provider tool
+   * with that name and agentId. Without an agentId, only global tools are
+   * removed. To remove one registration, call the function `addTool`
+   * returned.
+   */
   removeTool(id: string, agentId?: string): void {
     this.runHandler.removeTool(id, agentId);
   }
@@ -1783,9 +1839,54 @@ export class CopilotKitCore {
    * synchronously while the deferred updates are still pending, producing stale
    * context for the next agent turn.
    *
-   * Override in framework-specific subclasses to yield to the framework
-   * scheduler before the follow-up run. The base implementation is a no-op
-   * because non-React environments have no deferred state to flush.
+   * Awaits the `ɵwaitForFrameworkUpdates` config option when one is given.
+   * Without it there is nothing to wait for, because a plain JavaScript
+   * environment has no deferred state to flush. Framework subclasses that
+   * still override this method keep working.
    */
-  async waitForPendingFrameworkUpdates(): Promise<void> {}
+  async waitForPendingFrameworkUpdates(): Promise<void> {
+    await this.waitForFrameworkUpdates?.();
+  }
+
+  /**
+   * Stop everything this core started, so it can be dropped without leaks.
+   *
+   * Call it when you created a `CopilotKitCore` yourself and are done with it
+   * (for example when a page or test tears down). Framework providers call it
+   * for you.
+   *
+   * It does this, in order:
+   *
+   * - removes every subscriber, so no callback runs after this call;
+   * - stops agent runs in flight and aborts running frontend tools;
+   * - aborts suggestion generation;
+   * - clears runtime timers and aborts runtime requests it can cancel;
+   * - removes agent subscriptions, WebMCP tools, and the learning capture;
+   * - stops the memory store and every registered thread store.
+   *
+   * Calling it again does nothing. Do not use the core after this call.
+   *
+   * @example
+   * const copilotkit = new CopilotKitCore({ runtimeUrl: "/api/copilotkit" });
+   * // ... use it ...
+   * copilotkit.dispose();
+   */
+  dispose(): void {
+    if (this._disposed) return;
+    this._disposed = true;
+    this.subscribers.clear();
+    this.learningConfiguredListeners.clear();
+    this.generativeUIDebugListeners.clear();
+
+    this.runHandler.dispose(Object.values(this.agentRegistry.agents));
+    this.suggestionEngine.dispose();
+    this.agentRegistry.dispose();
+    this.stateManager.dispose();
+    this.stopTrajectory();
+    this._memoryStore?.stop();
+    const threadStores = Object.values(this.threadStoreRegistry.getAll());
+    for (const store of threadStores) {
+      store.stop();
+    }
+  }
 }

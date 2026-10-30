@@ -161,6 +161,12 @@ const MAX_REMEMBERED_REQUEST_IDS = 100;
  */
 const MAX_FOLLOW_UP_DEPTH = 100;
 
+/** One `addTool` call. Its identity is what the unregister function removes. */
+interface HookToolRegistration {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tool: FrontendTool<any>;
+}
+
 /**
  * Name of the catch-all frontend tool. A tool registered under this name
  * handles any tool call that has no exact match (see `executeWildcardTool`),
@@ -188,9 +194,14 @@ export class RunHandler {
    * one array before, so the `/info` response flipping `openGenerativeUI` (or
    * any other provider-prop change) silently dropped every hook-registered
    * tool (#4952). Key = `capabilityKey(name, agentId)`.
+   *
+   * Each key holds a stack of registrations. The last one is the active tool;
+   * removing it (via the function `addTool` returns) brings back the one
+   * below, and an empty stack lets the provider tool of that key show again.
+   * A registration is its own object, so removing one never removes another
+   * registration of the same tool object.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _hookTools: Map<string, FrontendTool<any>> = new Map();
+  private _hookTools: Map<string, HookToolRegistration[]> = new Map();
 
   /**
    * Memoized merge of both buckets, invalidated on every registry write.
@@ -257,6 +268,15 @@ export class RunHandler {
   private _runDepths = new WeakMap<AbstractAgent, number>();
 
   /**
+   * Agents with at least one run in flight (depth above 0), so
+   * {@link dispose} can stop them. Removed when the last run ends.
+   */
+  private _runningAgents = new Set<AbstractAgent>();
+
+  /** Set by {@link dispose}. Stops WebMCP from registering tools again. */
+  private _disposed = false;
+
+  /**
    * Each agent's own `abortRun`, saved while RunHandler's intercept is
    * installed. Restored only once none of the agent's runs is in flight, so an
    * overlapping run keeps the intercept after an earlier run finishes.
@@ -309,7 +329,9 @@ export class RunHandler {
   private _connectionGenerations = new WeakMap<AbstractAgent, object>();
   private _runGenerations = new WeakMap<AbstractAgent, object>();
 
-  private _interactionAbortControllers = new WeakMap<
+  // A Map, not a WeakMap, so `dispose` can reach every agent's interactions.
+  // Entries are deleted when their interactions settle or are aborted.
+  private _interactionAbortControllers = new Map<
     AbstractAgent,
     {
       threadId: string | null;
@@ -334,6 +356,33 @@ export class RunHandler {
       // reconnect restore it without waiting for its execution marker to clear.
       this._executingToolCalls.delete(agent);
     }
+  }
+
+  /**
+   * Stop every run chain and tool interaction this handler tracks, and every
+   * agent in `agents` that reports a run in flight, the same way `stopAgent`
+   * does. Then unregister all WebMCP tools. Called by `CopilotKitCore.dispose`.
+   */
+  dispose(agents: Iterable<AbstractAgent>): void {
+    this._disposed = true;
+    const candidates = new Set([
+      ...agents,
+      ...this._runningAgents,
+      ...this._interactionAbortControllers.keys(),
+    ]);
+    for (const agent of candidates) {
+      const hasActiveRun = agent.isRunning || this._runningAgents.has(agent);
+      try {
+        this.abortCurrentRun(agent);
+        if (hasActiveRun) agent.abortRun();
+      } catch (error) {
+        logger.error(
+          `Failed to stop agent '${agent.agentId ?? "(unknown agent)"}' on dispose:`,
+          error,
+        );
+      }
+    }
+    this._webmcpRegistry.sync(new Map());
   }
 
   private abortAgentRuns(agent: AbstractAgent): void {
@@ -399,8 +448,9 @@ export class RunHandler {
     for (const tool of this._propTools) {
       merged.set(this.capabilityKey(tool.name, tool.agentId), tool);
     }
-    for (const [key, tool] of this._hookTools) {
-      merged.set(key, tool);
+    for (const [key, stack] of this._hookTools) {
+      const active = stack[stack.length - 1];
+      if (active) merged.set(key, active.tool);
     }
     this._cachedMergedTools = Array.from(merged.values());
     return this._cachedMergedTools;
@@ -423,25 +473,53 @@ export class RunHandler {
   /**
    * Add a tool to the registry. Survives provider re-syncs ({@link setTools}),
    * and shadows a provider tool of the same name + agentId.
+   *
+   * Registrations of the same name + agentId stack: the most recent one is
+   * active. Call the returned function to remove exactly this registration;
+   * the previous registration (or the provider tool) becomes active again.
+   * Calling it more than once does nothing.
    */
   addTool<T extends Record<string, unknown> = Record<string, unknown>>(
     tool: FrontendTool<T>,
-  ): void {
+  ) {
     const key = this.capabilityKey(tool.name, tool.agentId);
+    const registration: HookToolRegistration = { tool };
+    const stack = this._hookTools.get(key);
 
-    // Only a competing imperative registration is a conflict. A provider tool
-    // of the same name is shadowed rather than treated as a duplicate — hooks
-    // mount after the provider and are the more specific registration.
-    if (this._hookTools.has(key)) {
-      logger.warn(
-        `Tool already exists: '${tool.name}' for agent '${tool.agentId || "global"}', skipping.`,
-      );
-      return;
+    // A provider tool of the same name is shadowed silently: hooks mount after
+    // the provider and are the more specific registration. Two imperative
+    // registrations of one key are usually two mounted components, so say so.
+    if (stack) {
+      if (process.env.NODE_ENV !== "production") {
+        logger.warn(
+          `Tool already exists: '${tool.name}' for agent '${tool.agentId || "global"}'. ` +
+            `The new registration shadows it until the new one is removed.`,
+        );
+      }
+      stack.push(registration);
+    } else {
+      this._hookTools.set(key, [registration]);
     }
 
-    this._hookTools.set(key, tool);
     this._cachedMergedTools = null;
     this.warnOnMissingToolParameters([tool]);
+    this.syncWebMCP();
+
+    return () => this.unregisterHookTool(key, registration);
+  }
+
+  /** Remove one `addTool` registration. Unknown registrations are ignored. */
+  private unregisterHookTool(
+    key: string,
+    registration: HookToolRegistration,
+  ): void {
+    const stack = this._hookTools.get(key);
+    const index = stack?.indexOf(registration) ?? -1;
+    if (!stack || index === -1) return;
+
+    stack.splice(index, 1);
+    if (stack.length === 0) this._hookTools.delete(key);
+    this._cachedMergedTools = null;
     this.syncWebMCP();
   }
 
@@ -490,7 +568,10 @@ export class RunHandler {
   }
 
   /**
-   * Remove a tool by name and optionally by agentId
+   * Remove a tool by name and optionally by agentId: every `addTool`
+   * registration of that key and the provider tool of that key. Without an
+   * agentId only global tools are removed. To remove one `addTool`
+   * registration and keep the others, call the function `addTool` returned.
    */
   removeTool(id: string, agentId?: string): void {
     this._hookTools.delete(this.capabilityKey(id, agentId));
@@ -840,6 +921,7 @@ export class RunHandler {
     }
 
     if (depth === 0) {
+      this._runningAgents.add(agent);
       // Intercept agent.abortRun() so that calling it directly (not via
       // stopAgent) also aborts in-flight tool execution and prevents
       // follow-up runs.
@@ -965,6 +1047,7 @@ export class RunHandler {
       // Restore the original abortRun only once none of the agent's runs is
       // in flight: an overlapping run on the same agent still needs it.
       if (remainingDepth === 0) {
+        this._runningAgents.delete(agent);
         const originalAbortRun = this._originalAbortRuns.get(agent);
         if (originalAbortRun) {
           agent.abortRun = originalAbortRun;
@@ -1902,6 +1985,7 @@ export class RunHandler {
    * agentId — a name collision across agentIds keeps the first registration.
    */
   private syncWebMCP(): void {
+    if (this._disposed) return;
     const desired = new Map<string, FrontendTool<any>>();
     const warnedCollisions = new Set<string>();
     for (const tool of this.tools) {

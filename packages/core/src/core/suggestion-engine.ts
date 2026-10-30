@@ -30,6 +30,19 @@ export class SuggestionEngine {
   private _suggestionsConfig: Record<string, SuggestionsConfig> = {};
   private _suggestions: Record<string, Record<string, Suggestion[]>> = {};
   private _runningSuggestions: Record<string, AbortableSuggestionRun[]> = {};
+  /**
+   * The last `getSuggestions` result per agent, with the per-generation
+   * arrays it was built from. Each generation's array is replaced (never
+   * mutated) on change, so comparing those references tells whether the
+   * cached result is still current.
+   */
+  private _snapshots = new Map<
+    string,
+    {
+      parts: Suggestion[][];
+      result: CopilotKitCoreGetSuggestionsResult;
+    }
+  >();
 
   constructor(private core: CopilotKitCore) {}
 
@@ -131,12 +144,32 @@ export class SuggestionEngine {
   }
 
   /**
-   * Get current suggestions for an agent
+   * Get current suggestions for an agent. Returns the same object until the
+   * agent's suggestions or loading state change.
    */
   public getSuggestions(agentId: string): CopilotKitCoreGetSuggestionsResult {
-    const suggestions = Object.values(this._suggestions[agentId] ?? {}).flat();
+    const parts = Object.values(this._suggestions[agentId] ?? {});
     const isLoading = (this._runningSuggestions[agentId]?.length ?? 0) > 0;
-    return { suggestions, isLoading };
+    const cached = this._snapshots.get(agentId);
+    const isUnchanged =
+      cached !== undefined &&
+      cached.result.isLoading === isLoading &&
+      cached.parts.length === parts.length &&
+      parts.every((part, index) => part === cached.parts[index]);
+    if (isUnchanged) return cached.result;
+
+    const result = { suggestions: parts.flat(), isLoading };
+    this._snapshots.set(agentId, { parts, result });
+    return result;
+  }
+
+  /** Abort every running suggestion generation. Called by `CopilotKitCore.dispose`. */
+  dispose(): void {
+    const runs = Object.values(this._runningSuggestions).flat();
+    this._runningSuggestions = {};
+    for (const run of runs) {
+      run.abortRun();
+    }
   }
 
   /**
