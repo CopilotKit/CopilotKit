@@ -7,12 +7,12 @@ import { mount } from "@vue/test-utils";
 import { defineComponent, h, nextTick } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HttpAgent } from "@ag-ui/client";
+import { ɵtranscribeAudio } from "@copilotkit/core";
 import type { CopilotKitHeadersSource } from "@copilotkit/core";
 import CopilotKitProvider from "../CopilotKitProvider.vue";
 import { useCopilotKit } from "../useCopilotKit";
 import { useAgent } from "../../hooks/use-agent";
 import { useThreads } from "../../hooks/use-threads";
-import { transcribeAudio } from "../../lib/transcription-client";
 import type { CopilotKitCoreVue } from "../../lib/vue-core";
 
 type Call = { url: string; auth: string | null; publicApiKey: string | null };
@@ -418,14 +418,14 @@ describe("CopilotKitProvider — headers builder evaluated at send time (#1937)"
     // Force an actual resolution while signed in, so the header source's
     // last snapshot is non-empty — otherwise a stale-merge bug has nothing
     // stale to leak, and the assertion below would pass vacuously.
-    await transcribeAudio(getCore(), new Blob(["a"], { type: "audio/webm" }));
+    await ɵtranscribeAudio(getCore(), new Blob(["a"], { type: "audio/webm" }));
     const firstCall = calls.find((c) => c.url.endsWith("/transcribe"));
     expect(firstCall?.auth).toBe("Bearer x");
 
     calls.length = 0;
     signedIn = false;
 
-    await transcribeAudio(getCore(), new Blob(["a"], { type: "audio/webm" }));
+    await ɵtranscribeAudio(getCore(), new Blob(["a"], { type: "audio/webm" }));
     const secondCall = calls.find((c) => c.url.endsWith("/transcribe"));
     expect(secondCall).toBeDefined();
     expect(secondCall!.auth).toBeNull();

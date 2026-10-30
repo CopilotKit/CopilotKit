@@ -1,4 +1,12 @@
-import { computed, defineComponent, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  defineComponent,
+  h,
+  nextTick,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import type { PropType } from "vue";
 import { screen, fireEvent, waitFor, cleanup } from "@testing-library/vue";
 import { afterEach, describe, expect, it } from "vitest";
@@ -27,6 +35,11 @@ import {
   textChunkEvent,
   testId,
 } from "../../__tests__/utils/test-helpers";
+import { mountWithProvider } from "../../__tests__/utils/mount";
+import {
+  StateCapturingAgent,
+  toolCallMessage,
+} from "../../__tests__/utils/agents";
 
 afterEach(() => {
   cleanup();
@@ -909,6 +922,54 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
 
       await agent.emit(runFinishedEvent());
       await agent.complete();
+    });
+  });
+
+  describe("Overriding a provider tool", () => {
+    it("brings the provider tool back after the overriding component unmounts", async () => {
+      const calls: string[] = [];
+      const lookupTool = (owner: string): VueFrontendTool => ({
+        name: "lookup",
+        parameters: z.object({}),
+        followUp: false,
+        handler: async () => {
+          calls.push(owner);
+          return owner;
+        },
+      });
+
+      const OverridingTool = defineComponent({
+        setup() {
+          useFrontendTool(lookupTool("component"));
+          return () => null;
+        },
+      });
+
+      const showOverride = ref(true);
+      const agent = new StateCapturingAgent(
+        [
+          { newMessages: [toolCallMessage("lookup")] },
+          { newMessages: [toolCallMessage("lookup")] },
+        ],
+        "test-agent",
+      );
+      const { getCore, wrapper } = mountWithProvider(
+        () => (showOverride.value ? h(OverridingTool) : h("div")),
+        {
+          frontendTools: [lookupTool("provider")],
+          agents__unsafe_dev_only: { "test-agent": agent },
+        },
+      );
+
+      await nextTick();
+      await getCore().runAgent({ agent });
+
+      showOverride.value = false;
+      await nextTick();
+      await getCore().runAgent({ agent });
+
+      expect(calls).toEqual(["component", "provider"]);
+      wrapper.unmount();
     });
   });
 
