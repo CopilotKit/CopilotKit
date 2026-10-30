@@ -1,10 +1,9 @@
 import { CdkTrapFocus } from "@angular/cdk/a11y";
 import { NgComponentOutlet } from "@angular/common";
+import type { ElementRef, Type } from "@angular/core";
 import {
   ChangeDetectionStrategy,
   Component,
-  ElementRef,
-  Type,
   afterNextRender,
   computed,
   input,
@@ -17,6 +16,7 @@ import { CopilotChat } from "../chat/copilot-chat";
 import { COPILOT_CHAT_WELCOME_LAYOUT } from "../chat/copilot-chat-welcome-layout";
 import { CopilotKitStyles } from "../copilot-kit-styles";
 import { CopilotIcon, MessageCircle, X } from "../icons/copilot-icon";
+import { injectChatLabels } from "../../chat-config";
 import { dimensionToCss } from "./modal-utils";
 
 /** Accessible, responsive floating chat surface with an explicit open model. */
@@ -36,7 +36,9 @@ import { dimensionToCss } from "./modal-utils";
       [attr.data-state]="open() ? 'open' : 'closed'"
       [attr.aria-controls]="dialogId"
       [attr.aria-expanded]="open()"
-      [attr.aria-label]="open() ? 'Close Copilot chat' : 'Open Copilot chat'"
+      [attr.aria-label]="
+        open() ? labels.chatToggleCloseLabel : labels.chatToggleOpenLabel
+      "
       [tabIndex]="open() ? -1 : 0"
       (click)="toggle()"
     >
@@ -75,7 +77,7 @@ import { dimensionToCss } from "./modal-utils";
           aria-modal="true"
           [attr.id]="dialogId"
           [attr.aria-labelledby]="headerComponent() ? null : titleId"
-          [attr.aria-label]="headerComponent() ? title() : null"
+          [attr.aria-label]="headerComponent() ? resolvedTitle() : null"
           [style.--copilot-popup-width]="resolvedWidth()"
           [style.--copilot-popup-height]="resolvedHeight()"
           (keydown.escape)="close()"
@@ -90,7 +92,7 @@ import { dimensionToCss } from "./modal-utils";
                   <ng-container [ngComponentOutlet]="header" />
                 } @else {
                   <h2 class="cpk-modal-header-title" [attr.id]="titleId">
-                    {{ title() }}
+                    {{ resolvedTitle() }}
                   </h2>
                 }
               </div>
@@ -100,7 +102,7 @@ import { dimensionToCss } from "./modal-utils";
                   type="button"
                   cdkFocusInitial
                   class="cpk-modal-header-close-button"
-                  aria-label="Close Copilot chat"
+                  [attr.aria-label]="labels.modalHeaderCloseButtonLabel"
                   (click)="close()"
                 >
                   <copilot-icon
@@ -169,7 +171,8 @@ import { dimensionToCss } from "./modal-utils";
 })
 export class CopilotPopup {
   readonly open = model(true);
-  readonly title = input("Copilot");
+  /** The header title. Default: `labels.modalHeaderTitle`. */
+  readonly title = input<string | undefined>();
   readonly width = input<number | string>(420);
   readonly height = input<number | string>(560);
   readonly clickOutsideToClose = input(false);
@@ -178,6 +181,10 @@ export class CopilotPopup {
 
   protected readonly MessageCircleIcon = MessageCircle;
   protected readonly XIcon = X;
+  protected readonly labels = injectChatLabels();
+  protected readonly resolvedTitle = computed(
+    () => this.title() ?? this.labels.modalHeaderTitle,
+  );
 
   protected readonly dialogId = `copilot-popup-${randomUUID()}`;
   protected readonly titleId = `${this.dialogId}-title`;

@@ -1,11 +1,10 @@
+import type { OnDestroy, Type, ElementRef } from "@angular/core";
 import {
   Component,
   TemplateRef,
   signal,
   computed,
   ChangeDetectionStrategy,
-  OnDestroy,
-  Type,
   ViewEncapsulation,
   contentChild,
   input,
@@ -15,12 +14,14 @@ import {
   afterRenderEffect,
   inject,
   DestroyRef,
-  ElementRef,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
+import { ɵcomposerButtonState, ɵresolveComposerKey } from "@copilotkit/core";
+import type { ɵComposerInput } from "@copilotkit/core";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { injectChatLabels } from "../../chat-config";
 import { ArrowUp, CopilotIcon, Loader2 } from "../icons/copilot-icon";
+import type { CopilotIconData } from "../icons/copilot-icon";
 import { CopilotChatTextarea } from "./copilot-chat-textarea";
 import { CopilotChatAudioRecorder } from "./copilot-chat-audio-recorder";
 import {
@@ -40,12 +41,26 @@ import { hostStyles } from "../host-styles";
 import { injectChatState } from "../../chat-state";
 import { explicitEffect } from "../../explicit-effect";
 import { CopilotKit } from "../../copilotkit";
+import { COPILOT_CHAT_RUN_CONTROL } from "./copilot-chat-run-control";
+
+/** Lucide's `square`, drawn filled on the button while the agent runs. */
+const StopIcon: CopilotIconData = [
+  {
+    tag: "rect",
+    attributes: { x: "3", y: "3", width: "18", height: "18", rx: "2" },
+  },
+];
 
 /**
  * Context provided to slot templates
  */
 export interface SendButtonContext {
+  /** Send the typed text. */
   send: () => void;
+  /** Stop the agent's run. Does nothing when no run can stop. */
+  stop: () => void;
+  /** What a click on the button does: send the text or stop the run. */
+  action: "send" | "stop";
   disabled: boolean;
   value: string;
 }
@@ -241,15 +256,26 @@ export interface ToolbarContext {
           <div class="cpk-chat-input-send">
             <button
               type="button"
-              [attr.aria-label]="labels.chatInputToolbarSendButtonLabel"
+              [attr.aria-label]="
+                showsStop()
+                  ? labels.chatInputToolbarStopButtonLabel
+                  : labels.chatInputToolbarSendButtonLabel
+              "
               [class]="sendButtonClass() || defaultButtonClass"
               [disabled]="sendButtonDisabled()"
-              (click)="send()"
+              (click)="handleSendButtonClick()"
             >
-              <copilot-icon
-                [img]="ArrowUpIcon"
-                iconClass="cpk-chat-input-send-icon"
-              ></copilot-icon>
+              @if (showsStop()) {
+                <copilot-icon
+                  [img]="StopIcon"
+                  iconClass="cpk-chat-input-stop-icon"
+                ></copilot-icon>
+              } @else {
+                <copilot-icon
+                  [img]="ArrowUpIcon"
+                  iconClass="cpk-chat-input-send-icon"
+                ></copilot-icon>
+              }
             </button>
           </div>
         }
@@ -374,6 +400,7 @@ export class CopilotChatInput implements OnDestroy {
 
   // Icons and default classes
   readonly ArrowUpIcon = ArrowUp;
+  readonly StopIcon = StopIcon;
   readonly Loader2Icon = Loader2;
   readonly defaultButtonClass =
     "cpk-button cpk-button-chat-input-toolbar-primary cpk-button-size-chat-input-toolbar-icon";
@@ -383,6 +410,8 @@ export class CopilotChatInput implements OnDestroy {
   // readonly chatConfig = injectChatConfig();
   readonly chatState = injectChatState();
   readonly copilotKit = inject(CopilotKit);
+  /** Run state from `CopilotChat`. Without it, the input never shows stop. */
+  readonly #runControl = inject(COPILOT_CHAT_RUN_CONTROL, { optional: true });
 
   // Signals
   modeSignal = signal<CopilotChatInputMode>("input");
@@ -438,12 +467,22 @@ export class CopilotChatInput implements OnDestroy {
       ? () => this.handleAddFile()
       : undefined,
   );
-  sendButtonDisabled = computed(
-    () =>
-      !this.computedValue().trim() ||
-      this.computedMode() === "processing" ||
-      this.chatState.attachmentsUploading(),
+  /** What the send/stop rules from `@copilotkit/core` read. */
+  readonly composerInput = computed<ɵComposerInput>(() => ({
+    mode: this.computedMode(),
+    isRunning: this.#runControl?.isRunning() ?? false,
+    value: this.computedValue(),
+    canSubmit: true,
+    canStop: this.#runControl?.canStop() ?? false,
+    disabled: this.computedMode() === "processing",
+    attachmentsUploading: this.chatState.attachmentsUploading(),
+  }));
+  readonly buttonState = computed(() =>
+    ɵcomposerButtonState(this.composerInput()),
   );
+  /** The button stops the run instead of sending. */
+  readonly showsStop = computed(() => this.buttonState().action === "stop");
+  sendButtonDisabled = computed(() => this.buttonState().disabled);
 
   computedClass = computed(() =>
     cn("copilotKitInput cpk-chat-input-pill", this.customClass()),
@@ -461,6 +500,8 @@ export class CopilotChatInput implements OnDestroy {
   // Context for slots (reactive via signals)
   sendButtonContext = computed<SendButtonContext>(() => ({
     send: () => this.send(),
+    stop: () => this.stopRun(),
+    action: this.buttonState().action,
     disabled: this.sendButtonDisabled(),
     value: this.computedValue(),
   }));
@@ -625,7 +666,10 @@ export class CopilotChatInput implements OnDestroy {
     clicked: () => this.handleStartTranscribe(),
   };
   // Support both `clicked` (idiomatic in our slots) and `click` (legacy)
-  sendButtonOutputs = { clicked: () => this.send(), click: () => this.send() };
+  sendButtonOutputs = {
+    clicked: () => this.handleSendButtonClick(),
+    click: () => this.handleSendButtonClick(),
+  };
 
   ngOnDestroy(): void {
     // Clean up any resources
@@ -635,17 +679,37 @@ export class CopilotChatInput implements OnDestroy {
     }
   }
 
+  /**
+   * Enter sends the text. Enter in an empty input while the agent runs stops
+   * the run. Shift+Enter adds a line break, and Enter during IME composition
+   * (for example CJK input) is left to the browser.
+   */
   handleKeyDown(event: KeyboardEvent): void {
-    // Skip key handling during IME composition (e.g. CJK input).
-    // The compositionend event will fire separately when composition ends.
-    if (event.isComposing || event.keyCode === 229) {
+    const isImeComposition = event.isComposing || event.keyCode === 229;
+    if (isImeComposition) return;
+
+    // Enter never adds a line break, also when there is nothing to send.
+    const isPlainEnter = event.key === "Enter" && !event.shiftKey;
+    if (isPlainEnter) event.preventDefault();
+
+    const action = ɵresolveComposerKey(event, this.composerInput());
+    if (action === "send") this.send();
+    if (action === "stop") this.stopRun();
+  }
+
+  /** While the agent runs, the button stops it. Otherwise it sends. */
+  handleSendButtonClick(): void {
+    if (this.buttonState().action === "stop") {
+      this.stopRun();
       return;
     }
+    this.send();
+  }
 
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      this.send();
-    }
+  /** Stop the agent's run, when one can stop. */
+  stopRun(): void {
+    if (!this.composerInput().canStop) return;
+    this.#runControl?.stop();
   }
 
   handleValueChange(value: string): void {
@@ -654,21 +718,20 @@ export class CopilotChatInput implements OnDestroy {
   }
 
   send(): void {
+    if (!this.buttonState().canSend) return;
     const trimmed = this.computedValue().trim();
-    if (trimmed && !this.chatState.attachmentsUploading()) {
-      this.submitMessage.emit(trimmed);
+    this.submitMessage.emit(trimmed);
 
-      this.chatState.submitInput(trimmed);
+    this.chatState.submitInput(trimmed);
 
-      if (this.chatState) this.chatState.changeInput("");
-      this.textAreaRef()?.setValue("");
+    if (this.chatState) this.chatState.changeInput("");
+    this.textAreaRef()?.setValue("");
 
-      // Refocus input
-      if (this.textAreaRef()) {
-        setTimeout(() => {
-          this.textAreaRef()?.focus();
-        });
-      }
+    // Refocus input
+    if (this.textAreaRef()) {
+      setTimeout(() => {
+        this.textAreaRef()?.focus();
+      });
     }
   }
 

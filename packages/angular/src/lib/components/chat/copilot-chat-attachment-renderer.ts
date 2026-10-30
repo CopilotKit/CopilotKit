@@ -12,6 +12,7 @@ import type {
 } from "@copilotkit/shared";
 import { getDocumentIcon, getSourceUrl } from "@copilotkit/shared";
 import { cn } from "../../utils";
+import { injectChatLabels } from "../../chat-config";
 import { injectLightbox } from "./copilot-chat-lightbox";
 
 @Component({
@@ -24,18 +25,20 @@ import { injectLightbox } from "./copilot-chat-lightbox";
       @case ("image") {
         @if (imageFailed()) {
           <div [class]="failedImageClass()">
-            <span>Failed to load image</span>
+            <span>{{ labels.attachmentImageLoadErrorText }}</span>
           </div>
         } @else {
           <button
             #thumbnail
             type="button"
             class="cpk-attachment-lightbox-trigger"
-            (click)="lightbox.open(imagePreview, 'Image attachment', thumbnail)"
+            (click)="
+              lightbox.open(imagePreview, labels.attachmentImageAltText, thumbnail)
+            "
           >
             <img
               [src]="sourceUrl()"
-              alt="Image attachment"
+              [alt]="labels.attachmentImageAltText"
               [class]="imageClass()"
               (error)="imageFailed.set(true)"
             />
@@ -44,7 +47,7 @@ import { injectLightbox } from "./copilot-chat-lightbox";
             <img
               [style.view-transition-name]="lightbox.transitionName"
               [src]="sourceUrl()"
-              alt="Image attachment"
+              [alt]="labels.attachmentImageAltText"
               class="cpk-attachment-renderer-lightbox-image"
             />
           </ng-template>
@@ -90,7 +93,9 @@ import { injectLightbox } from "./copilot-chat-lightbox";
             {{ documentIcon() }}
           </span>
           <span class="cpk-attachment-renderer-document-name">
-            {{ filename() || source().mimeType || "Unknown type" }}
+            {{
+              filename() || source().mimeType || labels.attachmentUnknownTypeText
+            }}
           </span>
         </a>
       }
@@ -104,6 +109,7 @@ export class CopilotChatAttachmentRenderer {
   readonly inputClass = input<string | undefined>();
 
   readonly imageFailed = signal(false);
+  readonly labels = injectChatLabels();
   /** Opens the image full screen. */
   readonly lightbox = injectLightbox();
   readonly sourceUrl = computed(() => getSourceUrl(this.source()));

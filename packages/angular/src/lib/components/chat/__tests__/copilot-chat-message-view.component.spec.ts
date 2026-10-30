@@ -154,6 +154,22 @@ describe("CopilotChatMessageView", () => {
     ).not.toBeNull();
   });
 
+  it("renders a message the agent lists twice as one row", () => {
+    const fixture = TestBed.createComponent(MessageViewHostComponent);
+    fixture.componentInstance.messages = [
+      userMessage,
+      assistantMessage,
+      { id: "assistant-1", role: "assistant", content: "" },
+    ];
+    fixture.detectChanges();
+
+    const rows = (fixture.nativeElement as HTMLElement).querySelectorAll(
+      '[data-testid="copilot-assistant-message"]',
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.textContent).toContain("Assistant reply");
+  });
+
   it("renders activity messages through the activity component", () => {
     const activity: ActivityMessage = {
       id: "activity-1",

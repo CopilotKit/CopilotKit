@@ -4,11 +4,14 @@ import {
   runInInjectionContext,
   signal,
 } from "@angular/core";
+import type { Provider } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotChatInput } from "../copilot-chat-input";
 import { ChatState } from "../../../chat-state";
 import { CopilotKit } from "../../../copilotkit";
+import { COPILOT_CHAT_RUN_CONTROL } from "../copilot-chat-run-control";
+import type { ChatRunControl } from "../copilot-chat-run-control";
 
 @Injectable()
 class ChatStateStub extends ChatState {
@@ -33,18 +36,24 @@ describe("CopilotChatInput", () => {
   let chatState: ChatStateStub;
   let copilotKit: CopilotKitStub;
 
-  beforeEach(() => {
+  /** Configures a fresh test module around the current stubs. */
+  function configure(providers: Provider[] = []) {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        { provide: ChatState, useClass: ChatStateStub },
-        { provide: CopilotKit, useClass: CopilotKitStub },
+        { provide: ChatState, useValue: chatState },
+        { provide: CopilotKit, useValue: copilotKit },
+        ...providers,
       ],
     });
+  }
+
+  beforeEach(() => {
+    chatState = new ChatStateStub();
+    copilotKit = new CopilotKitStub();
+    configure();
 
     injector = TestBed.inject(EnvironmentInjector);
-    chatState = TestBed.inject(ChatState) as ChatStateStub;
-    copilotKit = TestBed.inject(CopilotKit) as unknown as CopilotKitStub;
     component = runInInjectionContext(injector, () => new CopilotChatInput());
 
     const textAreaMock = {
@@ -56,8 +65,13 @@ describe("CopilotChatInput", () => {
       stop: vi.fn().mockResolvedValue(undefined),
       getState: () => "idle",
     };
-    (component as any).textAreaRef = () => textAreaMock;
-    (component as any).audioRecorderRef = () => audioRecorderMock;
+    // The component is not rendered, so stand in for its view queries.
+    Object.defineProperty(component, "textAreaRef", {
+      value: () => textAreaMock,
+    });
+    Object.defineProperty(component, "audioRecorderRef", {
+      value: () => audioRecorderMock,
+    });
   });
 
   it("switches between input and transcribe modes", () => {
@@ -149,10 +163,84 @@ describe("CopilotChatInput", () => {
   });
 
   it("exposes tools menu through computed signal", () => {
-    (component as any).toolsMenu = () => [
-      { label: "Example", onSelect: vi.fn() },
-    ];
-    expect(component.computedToolsMenu()).toHaveLength(1);
+    const fixture = TestBed.createComponent(CopilotChatInput);
+    fixture.componentRef.setInput("toolsMenu", [
+      { label: "Example", action: vi.fn() },
+    ]);
+    expect(fixture.componentInstance.computedToolsMenu()).toHaveLength(1);
+  });
+
+  describe("Enter key", () => {
+    function pressEnter(init: KeyboardEventInit) {
+      const fixture = TestBed.createComponent(CopilotChatInput);
+      fixture.detectChanges();
+      const textarea = (fixture.nativeElement as HTMLElement).querySelector(
+        "textarea",
+      )!;
+      const event = new KeyboardEvent("keydown", {
+        key: "Enter",
+        cancelable: true,
+        ...init,
+      });
+      textarea.dispatchEvent(event);
+      return event;
+    }
+
+    it("sends the text and keeps the line break out", () => {
+      chatState.inputValue.set("Hello");
+      const event = pressEnter({});
+      expect(event.defaultPrevented).toBe(true);
+      expect(chatState.submitInput).toHaveBeenCalledWith("Hello");
+    });
+
+    it("leaves Enter to the browser during IME composition", () => {
+      chatState.inputValue.set("にほんご");
+      const event = pressEnter({ isComposing: true });
+      expect(event.defaultPrevented).toBe(false);
+      expect(chatState.submitInput).not.toHaveBeenCalled();
+    });
+
+    it("adds a line break on Shift+Enter", () => {
+      chatState.inputValue.set("Hello");
+      const event = pressEnter({ shiftKey: true });
+      expect(event.defaultPrevented).toBe(false);
+      expect(chatState.submitInput).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("while the agent runs", () => {
+    function renderRunning(canStop: boolean) {
+      const runControl = {
+        isRunning: signal(true),
+        canStop: signal(canStop),
+        stop: vi.fn(),
+      } satisfies ChatRunControl;
+      configure([{ provide: COPILOT_CHAT_RUN_CONTROL, useValue: runControl }]);
+      const fixture = TestBed.createComponent(CopilotChatInput);
+      fixture.detectChanges();
+      const button = (fixture.nativeElement as HTMLElement).querySelector(
+        ".cpk-chat-input-send button",
+      ) as HTMLButtonElement;
+      return { fixture, button, runControl };
+    }
+
+    it("shows Stop and stops the run on click, also with text typed", () => {
+      chatState.inputValue.set("draft");
+      const { button, runControl } = renderRunning(true);
+      expect(button.getAttribute("aria-label")).toBe("Stop");
+      expect(button.querySelector(".cpk-chat-input-stop-icon")).not.toBeNull();
+
+      button.click();
+
+      expect(runControl.stop).toHaveBeenCalledTimes(1);
+      expect(chatState.submitInput).not.toHaveBeenCalled();
+    });
+
+    it("disables the button when the run cannot stop", () => {
+      const { button } = renderRunning(false);
+      expect(button.getAttribute("aria-label")).toBe("Send message");
+      expect(button.disabled).toBe(true);
+    });
   });
 
   it("treats an absent transcription capability as disabled", () => {

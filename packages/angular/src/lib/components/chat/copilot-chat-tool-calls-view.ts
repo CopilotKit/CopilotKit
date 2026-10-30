@@ -15,17 +15,22 @@ import { TOOL_CALL_DISPLAY_CONTEXT } from "./tool-call-display-context";
 import {
   getToolCallLayouts,
   getToolCallRendererNames,
-  type CopilotChatToolCallDisplay,
 } from "./tool-call-layout";
+import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
 
-const appearances: Record<
-  Exclude<CopilotChatToolCallDisplay, "separate">,
-  CopilotChatToolCallGroupAppearance
-> = {
+/**
+ * The group appearance for each display. Angular has no `"turn"` view yet, so
+ * a `"turn"` chat groups calls the same way as `"grouped"`.
+ */
+const appearances = {
   grouped: "card",
   line: "line",
   stacked: "stack",
-};
+  turn: "card",
+} satisfies Record<
+  Exclude<CopilotChatToolCallDisplay, "separate">,
+  CopilotChatToolCallGroupAppearance
+>;
 
 /**
  * An assistant message's tool calls, each drawn by its registered renderer.

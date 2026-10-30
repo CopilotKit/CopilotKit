@@ -8,8 +8,8 @@ import { CopilotKit } from "../../../copilotkit";
 import type { AngularToolCall, RenderToolCallConfig } from "../../../tools";
 import { CopilotChatMessageView } from "../copilot-chat-message-view";
 import { CopilotChatToolCallsView } from "../copilot-chat-tool-calls-view";
-import { getToolCallLayouts } from "../tool-call-layout";
 import type { CopilotChatToolCallDisplay } from "../tool-call-layout";
+import { provideCopilotChatLabels } from "../../../chat-config";
 
 const question: Message = { id: "u1", role: "user", content: "Why?" };
 
@@ -64,13 +64,6 @@ const weather: RenderToolCallConfig = {
   component: WeatherCard,
 };
 
-const names = {
-  named: new Set(["weather"]),
-  groupedNames: new Set<string>(),
-  wildcard: true,
-  wildcardGroups: true,
-};
-
 function provideKit(
   renderers: RenderToolCallConfig[] = [weather],
   defaultToolRendering = true,
@@ -113,43 +106,6 @@ function renderView(
   };
   return { fixture, root, group, toggle, click };
 }
-
-describe("getToolCallLayouts", () => {
-  it("groups calls made in a row across messages, owned by the first", () => {
-    const messages = [
-      question,
-      callMessage("a"),
-      result("a"),
-      callMessage("b"),
-      result("b"),
-    ];
-    const layouts = getToolCallLayouts(messages, messages, names);
-
-    const first = layouts.get("m-a")!.segments;
-    expect(first).toHaveLength(1);
-    expect(first[0]).toMatchObject({ kind: "group", trailing: true });
-    expect(
-      first[0]!.kind === "group" && first[0]!.calls.map((c) => c.toolCall.id),
-    ).toEqual(["a", "b"]);
-    expect(layouts.get("m-b")!.segments).toEqual([]);
-  });
-
-  it("starts a new group after text or a call with its own renderer", () => {
-    const messages = [
-      question,
-      callMessage("a"),
-      say("t", "Checking more."),
-      callMessage("b"),
-      callMessage("w", "weather"),
-      callMessage("c"),
-    ];
-    const layouts = getToolCallLayouts(messages, messages, names);
-    const kinds = ["m-a", "m-b", "m-w", "m-c"].map((id) =>
-      layouts.get(id)!.segments.map((segment) => segment.kind),
-    );
-    expect(kinds).toEqual([["group"], ["group"], ["call"], ["group"]]);
-  });
-});
 
 describe("CopilotChatMessageView toolCallDisplay", () => {
   afterEach(() => TestBed.resetTestingModule());
@@ -223,9 +179,32 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     expect(toggle().textContent).not.toContain("Done");
   });
 
+  it("reads its text from the chat labels", () => {
+    provideKit();
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotChatLabels({
+          toolCallUsedToolsOther: "{count} Tools benutzt",
+          toolCallFailedCountLabel: "{count} fehlgeschlagen",
+          toolCallStatusFailedLabel: "Fehler",
+        }),
+      ],
+    });
+    const { toggle } = renderView(burst);
+    expect(toggle().textContent).toContain("2 Tools benutzt");
+    expect(toggle().textContent).toContain("1 fehlgeschlagen");
+    expect(toggle().textContent).not.toContain("Used");
+
+    const stacked = renderView(burst, { display: "stacked" });
+    expect(
+      stacked.group().querySelector('[aria-live="polite"]')?.textContent,
+    ).toBe("run_command: Fehler");
+  });
+
   it.each([
     ["line", "line"],
     ["stacked", "stack"],
+    ["turn", "card"],
   ] as const)("draws %s groups", (display, appearance) => {
     provideKit();
     const { group } = renderView(burst, { display });

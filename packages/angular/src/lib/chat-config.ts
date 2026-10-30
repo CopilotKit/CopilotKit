@@ -1,99 +1,71 @@
 import type { Provider } from "@angular/core";
 import { inject, InjectionToken } from "@angular/core";
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import type { CopilotChatLabels } from "@copilotkit/core";
 
-// Type for chat labels
-export interface CopilotChatLabels {
-  chatInputPlaceholder: string;
-  chatInputToolbarStartTranscribeButtonLabel: string;
-  chatInputToolbarCancelTranscribeButtonLabel: string;
-  chatInputToolbarFinishTranscribeButtonLabel: string;
-  chatInputToolbarAddButtonLabel: string;
-  chatInputToolbarToolsButtonLabel: string;
-  chatInputToolbarSendButtonLabel: string;
-  assistantMessageToolbarCopyCodeLabel: string;
-  assistantMessageToolbarCopyCodeCopiedLabel: string;
-  assistantMessageToolbarCopyMessageLabel: string;
-  assistantMessageToolbarInspectorLabel: string;
-  assistantMessageToolbarInspectorDescription: string;
-  assistantMessageToolbarInspectorLocalOnlyLabel: string;
-  assistantMessageToolbarInspectorLocalOnlyDescription: string;
-  assistantMessageToolbarInspectorTitle: string;
-  assistantMessageToolbarInspectorHideLabel: string;
-  assistantMessageToolbarInspectorHideDescription: string;
-  assistantMessageToolbarThumbsUpLabel: string;
-  assistantMessageToolbarThumbsDownLabel: string;
-  assistantMessageToolbarReadAloudLabel: string;
-  assistantMessageToolbarRegenerateLabel: string;
-  userMessageToolbarCopyMessageLabel: string;
-  userMessageToolbarEditMessageLabel: string;
-  userMessageToolbarPreviousBranchLabel: string;
-  userMessageToolbarNextBranchLabel: string;
-  chatDisclaimerText: string;
-  chatScrollToBottomLabel: string;
-  welcomeMessageText: string;
-  reasoningMessageThinkingLabel: string;
-  attachmentRemoveButtonLabel: string;
-  attachmentPlayVideoButtonLabel: string;
-  attachmentPreviewCloseButtonLabel: string;
-}
+export type { CopilotChatLabels };
 
-// Default labels constant
-export const COPILOT_CHAT_DEFAULT_LABELS: CopilotChatLabels = {
-  chatInputPlaceholder: "Type a message...",
-  chatInputToolbarStartTranscribeButtonLabel: "Transcribe",
-  chatInputToolbarCancelTranscribeButtonLabel: "Cancel",
-  chatInputToolbarFinishTranscribeButtonLabel: "Finish",
-  chatInputToolbarAddButtonLabel: "Add photos or files",
-  chatInputToolbarToolsButtonLabel: "Tools",
-  chatInputToolbarSendButtonLabel: "Send message",
-  assistantMessageToolbarCopyCodeLabel: "Copy",
-  assistantMessageToolbarCopyCodeCopiedLabel: "Copied",
-  assistantMessageToolbarCopyMessageLabel: "Copy",
-  assistantMessageToolbarInspectorLabel: "View in Inspector",
-  assistantMessageToolbarInspectorDescription:
-    "Open this message in the Inspector",
-  assistantMessageToolbarInspectorLocalOnlyLabel: "Local only",
-  assistantMessageToolbarInspectorLocalOnlyDescription:
-    "Only visible on localhost or loopback hosts in development. Never shown in production.",
-  assistantMessageToolbarInspectorTitle: "CopilotKit Inspector",
-  assistantMessageToolbarInspectorHideLabel: "Hide this icon",
-  assistantMessageToolbarInspectorHideDescription: "Until you reload this page",
-  assistantMessageToolbarThumbsUpLabel: "Good response",
-  assistantMessageToolbarThumbsDownLabel: "Bad response",
-  assistantMessageToolbarReadAloudLabel: "Read aloud",
-  assistantMessageToolbarRegenerateLabel: "Regenerate",
-  userMessageToolbarCopyMessageLabel: "Copy",
-  userMessageToolbarEditMessageLabel: "Edit",
-  userMessageToolbarPreviousBranchLabel: "Previous message branch",
-  userMessageToolbarNextBranchLabel: "Next message branch",
-  chatDisclaimerText:
-    "AI can make mistakes. Please verify important information.",
-  chatScrollToBottomLabel: "Scroll to bottom",
-  welcomeMessageText: "How can I help you today?",
-  reasoningMessageThinkingLabel: "Thinking…",
-  attachmentRemoveButtonLabel: "Remove attachment",
-  attachmentPlayVideoButtonLabel: "Play video",
-  attachmentPreviewCloseButtonLabel: "Close preview",
-};
+/**
+ * The default English chat text. The same object as `CopilotChatDefaultLabels`
+ * from `@copilotkit/core`, so React, Vue and Angular show the same text.
+ */
+export const COPILOT_CHAT_DEFAULT_LABELS = CopilotChatDefaultLabels;
 
+/**
+ * The chat text in scope. Set it with {@link provideCopilotChatLabels}, and
+ * read it with {@link injectChatLabels}.
+ */
 export const COPILOT_CHAT_LABELS = new InjectionToken<CopilotChatLabels>(
   "COPILOT_CHAT_LABELS",
 );
 
-export function injectChatLabels(): CopilotChatLabels {
-  return (
-    inject(COPILOT_CHAT_LABELS, { optional: true }) ??
-    COPILOT_CHAT_DEFAULT_LABELS
-  );
+/**
+ * Get the chat text in scope: the labels from the nearest
+ * {@link provideCopilotChatLabels}, or the default English text when no
+ * provider is in scope.
+ *
+ * Call it in an injection context, such as a component field initializer.
+ *
+ * @example
+ * ```ts
+ * readonly labels = injectChatLabels();
+ * // labels.chatInputPlaceholder
+ * ```
+ */
+export function injectChatLabels() {
+  const labels: CopilotChatLabels =
+    inject(COPILOT_CHAT_LABELS, { optional: true }) ?? CopilotChatDefaultLabels;
+  return labels;
 }
 
+/**
+ * Change or translate the chat text. Keys you leave out keep their default
+ * English text.
+ *
+ * Some values are templates with `{name}` placeholders, such as
+ * `"Thought for {duration}"`. Keep the placeholders when you translate them.
+ *
+ * @param config - The labels to change, by key.
+ *
+ * @example
+ * ```ts
+ * bootstrapApplication(App, {
+ *   providers: [
+ *     provideCopilotChatLabels({
+ *       chatInputPlaceholder: "Frag mich etwas...",
+ *       toolCallUsedToolsOther: "{count} Tools benutzt",
+ *     }),
+ *   ],
+ * });
+ * ```
+ */
 export function provideCopilotChatLabels(
   config: Partial<CopilotChatLabels>,
 ): Provider {
   return {
     provide: COPILOT_CHAT_LABELS,
     useValue: {
-      ...COPILOT_CHAT_DEFAULT_LABELS,
+      ...CopilotChatDefaultLabels,
       ...config,
     },
   };

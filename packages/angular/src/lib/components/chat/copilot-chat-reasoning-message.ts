@@ -10,10 +10,40 @@ import {
 } from "@angular/core";
 import { hostStyles } from "../host-styles";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
+import { ɵformatLabel, ɵformatReasoningDuration } from "@copilotkit/core";
+import type { CopilotChatLabels } from "@copilotkit/core";
 import { cn } from "../../utils";
 import { CopilotChatAssistantMessageRenderer } from "./copilot-chat-assistant-message-renderer";
-import { formatReasoningDuration } from "./copilot-chat-reasoning-message-utils";
 import { injectChatLabels } from "../../chat-config";
+import { formatCountLabel } from "./format-count-label";
+
+/**
+ * The reasoning time as label text, such as "4 seconds" or "1m 5s".
+ *
+ * @param seconds - The elapsed time in seconds. It may have a fraction.
+ * @param labels - The chat labels that hold the duration texts.
+ */
+function formatDuration(seconds: number, labels: CopilotChatLabels) {
+  const duration = ɵformatReasoningDuration(seconds);
+  switch (duration.unit) {
+    case "fewSeconds":
+      return labels.reasoningMessageDurationFewSeconds;
+    case "seconds":
+      return ɵformatLabel(labels.reasoningMessageDurationSeconds, {
+        count: duration.seconds,
+      });
+    case "minutes":
+      return formatCountLabel(duration.minutes, {
+        one: labels.reasoningMessageDurationMinutesOne,
+        other: labels.reasoningMessageDurationMinutesOther,
+      });
+    case "minutesSeconds":
+      return ɵformatLabel(labels.reasoningMessageDurationMinutesSeconds, {
+        minutes: duration.minutes,
+        seconds: duration.seconds,
+      });
+  }
+}
 
 @Component({
   selector: "copilot-chat-reasoning-message",
@@ -130,12 +160,17 @@ export class CopilotChatReasoningMessage {
     () => this.message().content ?? "",
   );
 
-  /** `labels.reasoningMessageThinkingLabel` while streaming, then "Thought for …". */
+  /**
+   * `labels.reasoningMessageThinkingLabel` while streaming, then
+   * `labels.reasoningMessageThoughtForLabel` ("Thought for 4 seconds").
+   */
   protected readonly label = computed(() => {
     const start = this.startTime();
     if (this.isStreaming()) return this.labels.reasoningMessageThinkingLabel;
     const seconds = start === undefined ? 0 : (Date.now() - start) / 1000;
-    return `Thought for ${formatReasoningDuration(seconds)}`;
+    return ɵformatLabel(this.labels.reasoningMessageThoughtForLabel, {
+      duration: formatDuration(seconds, this.labels),
+    });
   });
 
   protected readonly computedClass = computed(() =>

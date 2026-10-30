@@ -1,16 +1,23 @@
-import { InjectionToken, type Signal } from "@angular/core";
+import { InjectionToken } from "@angular/core";
+import type { Signal } from "@angular/core";
+import type { CopilotChatLabels, ɵToolCallRowStatus } from "@copilotkit/core";
 
 /** A grouped call that never got a result after the run ended is "stopped". */
-export type ToolCallRowStatus = "running" | "done" | "failed" | "stopped";
+export type ToolCallRowStatus = ɵToolCallRowStatus;
 
 export type CopilotChatToolCallGroupAppearance = "card" | "line" | "stack";
 
-export const toolCallRowStatusLabels: Record<ToolCallRowStatus, string> = {
-  running: "Running",
-  done: "Done",
-  failed: "Failed",
-  stopped: "Stopped",
-};
+/**
+ * The label key for each row status, so a row's status reads from the chat
+ * labels in scope.
+ * @internal
+ */
+export const toolCallRowStatusLabelKeys = {
+  running: "toolCallStatusRunningLabel",
+  done: "toolCallStatusDoneLabel",
+  failed: "toolCallStatusFailedLabel",
+  stopped: "toolCallStatusStoppedLabel",
+} satisfies Record<ToolCallRowStatus, keyof CopilotChatLabels>;
 
 /**
  * Handed to each tool-call renderer through its injector, like React's
@@ -29,12 +36,3 @@ export interface ToolCallRenderContext {
 /** @internal */
 export const TOOL_CALL_RENDER_CONTEXT =
   new InjectionToken<ToolCallRenderContext>("TOOL_CALL_RENDER_CONTEXT");
-
-/** The first non-empty string argument: usually a command, path or query. */
-export function argumentPreview(parameters: unknown): string | undefined {
-  if (!parameters || typeof parameters !== "object") return undefined;
-  const value = Object.values(parameters).find(
-    (v): v is string => typeof v === "string" && v.trim().length > 0,
-  );
-  return value?.replace(/\s+/g, " ");
-}
