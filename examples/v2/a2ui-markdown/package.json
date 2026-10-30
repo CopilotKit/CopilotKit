@@ -7,19 +7,29 @@
     "example-build": "next build",
     "example-start": "next start -p 3011",
     "dev:agent": "cd agent && uv run main.py",
-    "install:agent": "cd agent && uv sync"
+    "install:agent": "cd agent && uv sync",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@cloudflare/kumo": "2.16.0",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
+    "@phosphor-icons/react": "^2.1.10",
+    "echarts": "^6.0.0",
     "next": "15.5.15",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.1.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "typescript": "^5"
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^25.0.1",
+    "typescript": "^5",
+    "vitest": "^3.2.0"
   }
 }
