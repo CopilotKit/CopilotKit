@@ -30,11 +30,6 @@ The built-in streaming renderer is now the default across **React, Vue, and Reac
 
 The built-in renderer escapes raw HTML and sanitizes link/image URLs (only `http(s)`, `mailto`, `tel`, relative, and non-SVG `data:image/*` URLs are allowed) to prevent XSS.
 
-## Minimum Version
-
-- **Built-in renderer + pluggable interface:** available from v1.60.0
-- **Streamdown removed from the default:** v1.60.0
-
 ## Do you need to do anything?
 
 - **If streaming GFM + animation is enough** (most apps): nothing. Your messages keep rendering with the new built-in streaming renderer — you just lose syntax-highlight colors, KaTeX math, mermaid diagrams, and the table/image/code action buttons that Streamdown provided.
