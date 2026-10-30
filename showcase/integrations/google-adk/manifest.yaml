@@ -372,6 +372,7 @@ demos:
     highlight:
       - src/agents/declarative_gen_ui_agent.py
       - src/app/demos/declarative-gen-ui/page.tsx
+      - _shared/ts/a2ui-format.tsx
       - src/app/demos/declarative-gen-ui/a2ui/catalog.ts
       - src/app/demos/declarative-gen-ui/a2ui/definitions.ts
       - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
@@ -386,9 +387,11 @@ demos:
     highlight:
       - src/agents/a2ui_fixed_agent.py
       - src/agents/a2ui_schemas/flight_schema.express
+      - scripts/export-a2ui-catalogs.ts
       - src/agents/a2ui_schemas/flight_schema.json
       - src/agents/a2ui_schemas/booked_schema.json
       - src/app/demos/a2ui-fixed-schema/page.tsx
+      - _shared/ts/a2ui-format.tsx
       - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
@@ -403,6 +406,7 @@ demos:
     highlight:
       - src/agents/recovery_agent.py
       - src/app/demos/a2ui-recovery/page.tsx
+      - _shared/ts/a2ui-format.tsx
       - src/app/demos/a2ui-recovery/suggestions.ts
       - src/app/api/copilotkit-a2ui-recovery/route.ts
   - id: readonly-state-agent-context

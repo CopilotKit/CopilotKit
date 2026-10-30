@@ -15,21 +15,21 @@
    "response": {
     "content": "<a2ui>\nroot = UnknownDashboard(title=\"Rejected first attempt\")\n</a2ui>"
    },
-   "chunkSize": 48,
-   "latency": 15
+   "chunkSize": 16,
+   "latency": 30
   },
   {
-   "_comment": "Raw Express model output; SDK syntax/schema validation drives the real recovery loop.",
+   "_comment": "Raw Express text stream: an early valid surface, then a same-surface update to the full dashboard before model completion. Official SDK compiles both blocks.",
    "match": {
     "userMessage": "Render my Q2 sales dashboard, recovering if the first attempt is malformed.",
     "systemMessage": "# A2UI Express DSL Output Contract",
     "sequenceIndex": 1
    },
    "response": {
-    "content": "<a2ui>\nroot = Column(gap=16, children=[Metric(label=\"Quarterly Revenue\", value=\"$4.2M\", trend=\"up\", trendValue=\"+12% QoQ\"), Metric(label=\"Win Rate\", value=\"31%\", trend=\"down\", trendValue=\"-2 pts\")])\n</a2ui>\nRecovered dashboard is ready."
+    "content": "<a2ui>\nroot = Metric(label=\"Quarterly Revenue\", value=\"$4.2M\", trend=\"up\", trendValue=\"+12% QoQ\")\n</a2ui>\n<a2ui>\nsurface(\"dynamic-surface\", update=true)\nroot = Column(gap=16, children=[Metric(label=\"Quarterly Revenue\", value=\"$4.2M\", trend=\"up\", trendValue=\"+12% QoQ\"), Metric(label=\"Win Rate\", value=\"31%\", trend=\"down\", trendValue=\"-2 pts\")])\n</a2ui>\nRecovered dashboard is ready."
    },
-   "chunkSize": 48,
-   "latency": 15
+   "chunkSize": 16,
+   "latency": 30
   },
   {
    "_comment": "Raw Express model output; SDK syntax/schema validation drives the real recovery loop.",
@@ -40,8 +40,8 @@
    "response": {
     "content": "<a2ui>\nroot = UnknownDashboard(title=\"Always rejected\")\n</a2ui>"
    },
-   "chunkSize": 48,
-   "latency": 15
+   "chunkSize": 16,
+   "latency": 30
   },
   {
    "_comment": "HEAL pill - inner render_a2ui: FREE-FORM args (components/data as JSON strings); middleware heals via parse_and_fix into a valid surface in one pass.",
