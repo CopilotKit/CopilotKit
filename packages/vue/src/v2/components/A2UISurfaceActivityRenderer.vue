@@ -1,24 +1,15 @@
 <script setup lang="ts">
-import {
-  computed,
-  h,
-  onBeforeUnmount,
-  shallowRef,
-  ref,
-  watch,
-  type VNode,
-} from "vue";
+import { computed, h, onBeforeUnmount, shallowRef, ref, watch } from "vue";
+import type { VNode } from "vue";
 import type { ActivityMessage } from "@ag-ui/core";
 import type { A2UITheme } from "../types";
 import type { A2UIOperation } from "./a2ui";
 import { getOperationSurfaceId } from "./a2ui";
 import { useCopilotKit } from "../providers";
-import { MessageProcessor, type SurfaceModel } from "@a2ui/web_core/v0_9";
-import {
-  vueBasicCatalog,
-  A2uiSurface,
-  type VueComponentImplementation,
-} from "./a2ui/index";
+import { MessageProcessor } from "@a2ui/web_core/v0_9";
+import type { SurfaceModel } from "@a2ui/web_core/v0_9";
+import { vueBasicCatalog, A2uiSurface } from "./a2ui/index";
+import type { VueComponentImplementation } from "./a2ui/index";
 
 const DEFAULT_SURFACE_ID = "default";
 
@@ -61,7 +52,7 @@ async function handleAction(message: unknown) {
   if (!props.agent) return;
   try {
     copilotkit.value.setProperties({
-      ...(copilotkit.value.properties ?? {}),
+      ...copilotkit.value.properties,
       a2uiAction: message,
     });
     await copilotkit.value.runAgent({ agent: props.agent as any });
@@ -160,24 +151,21 @@ const surfaceEntries = computed(() => {
     :data-activity-type="activityType"
     :data-message-id="message.id"
   >
-    <div
-      v-if="error"
-      class="cpk:rounded-lg cpk:border cpk:border-red-200 cpk:bg-red-50 cpk:p-3 cpk:text-sm cpk:text-red-700"
-    >
+    <div v-if="error" class="cpk-a2ui-message-error">
       A2UI render error: {{ error }}
     </div>
     <div
       v-else
-      class="cpk:flex cpk:min-h-0 cpk:flex-1 cpk:flex-col cpk:gap-6 cpk:overflow-auto cpk:py-6"
+      class="cpk-a2ui-message-surfaces"
       data-testid="a2ui-activity-renderer"
     >
       <div
         v-for="entry in surfaceEntries"
         :key="entry.surfaceId"
-        class="cpk:flex cpk:w-full cpk:flex-none cpk:flex-col cpk:gap-4"
+        class="cpk-a2ui-message-surface-host"
         :data-surface-id="entry.surfaceId"
       >
-        <div class="a2ui-surface cpk:flex cpk:flex-1">
+        <div class="a2ui-surface cpk-a2ui-message-surface">
           <A2uiSurface :surface="entry.surface" />
         </div>
       </div>

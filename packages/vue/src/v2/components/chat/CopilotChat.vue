@@ -38,6 +38,7 @@ import type { LastUserMessageState } from "./last-user-message-context";
 import type { Message } from "@ag-ui/core";
 import type { InputContent } from "@copilotkit/shared";
 import { useInspectorThreadOverride } from "../../providers/use-inspector-thread-override";
+import { CopilotKitStyles } from "../../styles/CopilotKitStyles";
 import type {
   CopilotChatInputSlotProps,
   CopilotChatProps,
@@ -51,6 +52,7 @@ defineOptions({ inheritAttrs: false });
 
 const props = withDefaults(defineProps<CopilotChatProps>(), {
   autoScroll: true,
+  messageFeedback: true,
   welcomeScreen: true,
   inputValue: undefined,
   inputMode: "input",
@@ -831,6 +833,8 @@ const chatViewSlotProps = computed<CopilotChatViewOverrideSlotProps>(() => ({
   inputToolsMenu: props.inputToolsMenu,
   isConnecting: isConnecting.value,
   hasExplicitThreadId: hasExplicitThreadId.value,
+  toolCallDisplay: props.toolCallDisplay,
+  messageFeedback: props.messageFeedback,
   canStop: shouldAllowStop.value,
   canAddFile: attachmentsEnabled.value,
   canTranscribe: showTranscription.value,
@@ -887,6 +891,7 @@ const defaultChatViewBindings = computed(() => {
     :labels="resolvedLabels"
   >
     <div ref="attachmentContainerRef" style="display: contents">
+      <CopilotKitStyles />
       <input
         v-if="attachmentsEnabled"
         ref="fileInputRef"
@@ -931,6 +936,8 @@ const defaultChatViewBindings = computed(() => {
           :input-tools-menu="chatViewSlotProps.inputToolsMenu"
           :is-connecting="chatViewSlotProps.isConnecting"
           :has-explicit-thread-id="chatViewSlotProps.hasExplicitThreadId"
+          :tool-call-display="chatViewSlotProps.toolCallDisplay"
+          :message-feedback="chatViewSlotProps.messageFeedback"
           :on-finish-transcribe-with-audio="
             chatViewSlotProps.onFinishTranscribeWithAudio
           "

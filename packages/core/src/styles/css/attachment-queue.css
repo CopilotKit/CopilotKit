@@ -72,6 +72,14 @@
   height: 100%;
 }
 
+/* A button around an image or document preview, so keyboard users can open
+   the lightbox. It fills the item and adds no look of its own. */
+:where(.cpk-attachment-queue-preview-button) {
+  width: 100%;
+  height: 100%;
+  text-align: start;
+}
+
 /* Image */
 :where(.cpk-attachment-queue-image) {
   width: 100%;

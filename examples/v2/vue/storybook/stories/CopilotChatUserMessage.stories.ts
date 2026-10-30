@@ -4,6 +4,7 @@ import {
   CopilotChatConfigurationProvider,
   CopilotChatUserMessage,
 } from "@copilotkit/vue";
+import { imageAttachment, pdfAttachment } from "./support/media";
 
 const handleEditMessage = (message: string) => () => window.alert(message);
 const handleEditMessageLog = (message: string) => () => console.log(message);
@@ -63,6 +64,21 @@ const shortMessage: UserMessage = {
   role: "user",
 };
 
+const attachmentMessage = {
+  id: "attachment-user-message",
+  role: "user",
+  content: [
+    { type: "text", text: "Can you compare these screenshots with the plan?" },
+    { type: "image", source: imageAttachment([260, 320]).source },
+    { type: "image", source: imageAttachment([20, 350]).source },
+    {
+      type: "document",
+      source: pdfAttachment.source,
+      metadata: { filename: pdfAttachment.filename },
+    },
+  ],
+} as UserMessage;
+
 const meta = {
   title: "UI/CopilotChatUserMessage",
   component: CopilotChatUserMessage,
@@ -100,6 +116,13 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+/** Images open in the lightbox; the document is a download link. */
+export const WithAttachments: Story = {
+  args: {
+    message: attachmentMessage,
+  },
+};
 
 export const LongMessage: Story = {
   args: {

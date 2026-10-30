@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, useSlots, watch } from "vue";
-import type { Component, FunctionalComponent, VNodeChild } from "vue";
+import { computed, h, onMounted, provide, ref, useSlots, watch } from "vue";
+import type { Component, FunctionalComponent, VNode, VNodeChild } from "vue";
 import type {
   ActivityMessage,
   AssistantMessage,
@@ -24,6 +24,28 @@ import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfi
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage.vue";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage.vue";
 import CopilotChatUserMessage from "./CopilotChatUserMessage.vue";
+import CopilotChatWorkSummary from "./CopilotChatWorkSummary.vue";
+import { CopilotChatCollapsible } from "./tool-call-group-parts";
+import { TurnWorkFold } from "./turn-work";
+import {
+  MessageFeedbackScopeKey,
+  useLearningFeedbackEnabled,
+} from "./message-feedback";
+import type { MessageFeedbackScope } from "./message-feedback";
+import { ToolCallDisplayContextKey } from "./tool-call-display-context";
+import type { ToolCallDisplayContextValue } from "./tool-call-display-context";
+import {
+  getToolCallLayouts,
+  getToolCallRendererNames,
+  getTurnWork,
+} from "./tool-call-layout";
+import type {
+  CopilotChatToolCallDisplay,
+  ToolCallEntry,
+  ToolCallLayout,
+  TurnWork,
+} from "./tool-call-layout";
+import type { CopilotChatWorkSummarySlotProps } from "./types";
 
 interface MessageMetaProps {
   message: Message;
@@ -56,10 +78,26 @@ const props = withDefaults(
   defineProps<{
     messages?: Message[];
     isRunning?: boolean;
+    /**
+     * How tool calls show. Defaults to `"grouped"`: calls made in a row
+     * share one card that opens to a row per call. `"line"` and `"stacked"`
+     * group them too; `"turn"` folds a reply's whole working phase into
+     * "Worked for 9s" once it's done; `"separate"` gives every call its own
+     * card. Calls with a renderer of their own always show on their own.
+     */
+    toolCallDisplay?: CopilotChatToolCallDisplay;
+    /**
+     * While Learning records this chat, the assistant thumbs record ratings
+     * and ask for a comment. Set `false` to leave the thumbs to the app's own
+     * handlers.
+     */
+    messageFeedback?: boolean;
   }>(),
   {
     messages: () => [],
     isRunning: false,
+    toolCallDisplay: "grouped",
+    messageFeedback: true,
   },
 );
 
@@ -81,6 +119,8 @@ defineSlots<{
   "activity-message"?: (props: ActivitySlotProps) => unknown;
   [key: string]: ((props: any) => unknown) | undefined;
   cursor?: () => unknown;
+  /** The "Working… / Worked for 9s" line of the `"turn"` tool-call display. */
+  "work-summary"?: (props: CopilotChatWorkSummarySlotProps) => unknown;
   "tool-call"?: (props: {
     name: string;
     args: unknown;
@@ -191,6 +231,169 @@ const deduplicatedMessages = computed(() =>
   deduplicateMessages(props.messages),
 );
 
+// Groups of calls can span messages (an agent often sends each call as its
+// own message), so they're laid out here for the whole list and handed to
+// each message's tool calls view through provide/inject.
+const toolCallLayouts = computed<ReadonlyMap<string, ToolCallLayout>>(() =>
+  props.toolCallDisplay === "separate"
+    ? new Map()
+    : getToolCallLayouts(
+        deduplicatedMessages.value,
+        props.messages,
+        getToolCallRendererNames(
+          copilotkit.value.renderToolCalls,
+          forwardedSlotNames.value,
+        ),
+      ),
+);
+const learningFeedbackEnabled = useLearningFeedbackEnabled(copilotkit);
+provide(
+  MessageFeedbackScopeKey,
+  computed<MessageFeedbackScope | null>(() =>
+    props.messageFeedback &&
+    learningFeedbackEnabled.value &&
+    config.value?.agentId !== undefined &&
+    config.value?.threadId !== undefined
+      ? {
+          copilotkit: copilotkit.value,
+          agentId: config.value.agentId,
+          threadId: config.value.threadId,
+        }
+      : null,
+  ),
+);
+
+const turnWork = computed(() =>
+  props.toolCallDisplay === "turn"
+    ? getTurnWork(deduplicatedMessages.value, toolCallLayouts.value)
+    : undefined,
+);
+const turnByFirstMessage = computed(() => {
+  const byFirst = new Map<string, TurnWork>();
+  for (const turn of turnWork.value?.values() ?? []) {
+    byFirst.set(turn.firstMessageId, turn);
+  }
+  return byFirst;
+});
+
+const lastRenderedMessage = computed(
+  () => deduplicatedMessages.value[deduplicatedMessages.value.length - 1],
+);
+// The latest reply is keyed by the user message it answers (see getTurnWork).
+const latestTurnKey = computed(() => {
+  const rendered = deduplicatedMessages.value;
+  for (let i = rendered.length - 1; i >= 0; i--) {
+    if (rendered[i]!.role === "user") return rendered[i]!.id;
+  }
+  return "start";
+});
+const isWorkingOn = (turnKey: string) =>
+  props.isRunning && turnKey === latestTurnKey.value;
+
+// Work shows while the agent is on it and folds once the reply is done,
+// unless the user has opened or closed it themselves.
+const toggledTurns = ref<ReadonlyMap<string, boolean>>(new Map());
+const isWorkOpen = (turnKey: string) =>
+  toggledTurns.value.get(turnKey) ?? isWorkingOn(turnKey);
+
+// How long the agent worked, for "Worked for 9s": the sum of its runs on the
+// reply, so waiting between them (say, for an approval) doesn't count. Only
+// known for replies this client watched start from the user's message; a
+// restored thread shows the tool count instead.
+const workTimes = new Map<
+  string,
+  { elapsedMs: number; workingSince?: number }
+>();
+const workTimesVersion = ref(0);
+watch(
+  [
+    () => props.toolCallDisplay,
+    () => props.isRunning,
+    latestTurnKey,
+    () => lastRenderedMessage.value?.role,
+  ],
+  ([display, isRunning, turnKey, lastRole]) => {
+    if (display !== "turn") return;
+    const now = Date.now();
+    if (isRunning) {
+      const times = workTimes.get(turnKey);
+      if (times) times.workingSince ??= now;
+      else if (lastRole === "user")
+        workTimes.set(turnKey, { elapsedMs: 0, workingSince: now });
+    } else {
+      for (const times of workTimes.values()) {
+        if (times.workingSince === undefined) continue;
+        times.elapsedMs += now - times.workingSince;
+        times.workingSince = undefined;
+      }
+    }
+    workTimesVersion.value++;
+  },
+  { immediate: true },
+);
+
+// Whether each working-phase message's work shows. Text that ends the reply
+// stays out even when its message also calls a tool: it's the answer.
+const workOpenState = computed(() => {
+  const open = new Map<string, boolean>();
+  const textOpen = new Map<string, boolean>();
+  for (const turn of turnWork.value?.values() ?? []) {
+    const turnOpen = isWorkOpen(turn.key);
+    for (const id of turn.workMessageIds) {
+      open.set(id, turnOpen);
+      if (id !== turn.replyTextMessageId) textOpen.set(id, turnOpen);
+    }
+  }
+  return { workOpen: open, workTextOpen: textOpen };
+});
+
+provide(
+  ToolCallDisplayContextKey,
+  computed<ToolCallDisplayContextValue>(() => ({
+    display: props.toolCallDisplay,
+    isRunning: props.isRunning,
+    layouts: toolCallLayouts.value,
+    workOpen: workOpenState.value.workOpen,
+    workTextOpen: workOpenState.value.workTextOpen,
+  })),
+);
+
+/** The `"turn"` display's summary line for a reply, or its slot. */
+const WorkSummaryRow: FunctionalComponent<{
+  turnKey: string;
+  calls: ToolCallEntry[];
+}> = ({ turnKey, calls }) => {
+  void workTimesVersion.value;
+  const isWorking = isWorkingOn(turnKey);
+  const isOpen = isWorkOpen(turnKey);
+  const times = workTimes.get(turnKey);
+  const summaryProps: CopilotChatWorkSummarySlotProps = {
+    isWorking,
+    isOpen,
+    calls,
+    elapsedMs: times?.elapsedMs,
+    workingSince: times?.workingSince,
+    onClick: () => {
+      toggledTurns.value = new Map(toggledTurns.value).set(turnKey, !isOpen);
+    },
+  };
+  const slot = componentSlots["work-summary"];
+  return h(
+    CopilotChatCollapsible,
+    { open: isWorking || calls.length > 0 },
+    () => [
+      h(
+        "div",
+        { class: "cpk-message-view-work-summary" },
+        slot
+          ? (slot(summaryProps) as VNode[])
+          : [h(CopilotChatWorkSummary, summaryProps)],
+      ),
+    ],
+  );
+};
+WorkSummaryRow.props = ["turnKey", "calls"];
+
 // Stable per-row keys. Backends can re-key a message mid-stream, and keying
 // rows by the canonical id tears the row down on that swap (the HITL chat
 // flash). See @copilotkit/shared row-render-keys for the mechanism.
@@ -209,8 +412,20 @@ watch(
   { flush: "post" },
 );
 const lastMessage = computed(() => props.messages[props.messages.length - 1]);
+// In the "turn" display the "Working" line at the top of the reply is the
+// progress indicator; before the reply's first message it sits where the
+// cursor would.
 const showCursor = computed(
-  () => props.isRunning && lastMessage.value?.role !== "reasoning",
+  () =>
+    props.isRunning &&
+    lastMessage.value?.role !== "reasoning" &&
+    props.toolCallDisplay !== "turn",
+);
+const pendingWorkSummary = computed(
+  () =>
+    props.toolCallDisplay === "turn" &&
+    props.isRunning &&
+    lastRenderedMessage.value?.role === "user",
 );
 
 watch(
@@ -390,11 +605,20 @@ function resolveToolMessage(
 </script>
 
 <template>
-  <div data-copilotkit class="cpk:flex cpk:flex-col" v-bind="$attrs">
+  <div
+    data-copilotkit
+    class="copilotKitMessages cpk-message-view"
+    v-bind="$attrs"
+  >
     <template
       v-for="message in deduplicatedMessages"
       :key="rowRenderKeys.get(message.id) ?? message.id"
     >
+      <WorkSummaryRow
+        v-if="turnByFirstMessage.get(message.id)"
+        :turn-key="turnByFirstMessage.get(message.id)!.key"
+        :calls="turnByFirstMessage.get(message.id)!.calls"
+      />
       <MessageMetaSlot
         v-if="componentSlots['message-before']"
         :render="componentSlots['message-before']"
@@ -444,19 +668,30 @@ function resolveToolMessage(
         </CopilotChatUserMessage>
       </slot>
 
-      <slot
+      <!-- Reasoning during a reply's working phase folds away with the work.
+           Always wrapped in this display, so reasoning that turns into work
+           keeps its node (and its "Thought for" timer) instead of remounting. -->
+      <TurnWorkFold
         v-else-if="message.role === 'reasoning'"
-        name="reasoning-message"
-        :message="message"
-        :messages="messages"
-        :is-running="isRunning"
+        :open="
+          toolCallDisplay === 'turn'
+            ? (workOpenState.workOpen.get(message.id) ?? true)
+            : undefined
+        "
       >
-        <CopilotChatReasoningMessage
+        <slot
+          name="reasoning-message"
           :message="message"
           :messages="messages"
           :is-running="isRunning"
-        />
-      </slot>
+        >
+          <CopilotChatReasoningMessage
+            :message="message"
+            :messages="messages"
+            :is-running="isRunning"
+          />
+        </slot>
+      </TurnWorkFold>
 
       <slot
         v-else-if="message.role === 'activity'"
@@ -504,11 +739,19 @@ function resolveToolMessage(
       :cancel="interruptState.cancel"
     />
 
-    <slot v-if="showCursor" name="cursor">
-      <div
-        class="cpk:w-[11px] cpk:h-[11px] cpk:rounded-full cpk:bg-foreground cpk:animate-pulse cpk:ml-1"
-        data-testid="copilot-loading-cursor"
-      />
-    </slot>
+    <WorkSummaryRow
+      v-if="pendingWorkSummary"
+      :turn-key="latestTurnKey"
+      :calls="[]"
+    />
+
+    <div v-if="showCursor" class="cpk-message-view-cursor-container">
+      <slot name="cursor">
+        <div
+          class="cpk-message-view-cursor"
+          data-testid="copilot-loading-cursor"
+        />
+      </slot>
+    </div>
   </div>
 </template>

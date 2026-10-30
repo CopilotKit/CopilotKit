@@ -11,6 +11,17 @@
   object-fit: cover;
   cursor: pointer;
 }
+/* Vue wraps the image in a button, so keyboard users can open the lightbox.
+   It adds no look of its own, also outside [data-copilotkit]. */
+:where(.cpk-attachment-renderer-image-button) {
+  display: block;
+  margin: 0;
+  border: 0;
+  border-radius: calc(var(--radius) + 4px);
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
 :where(.cpk-attachment-renderer-image-error) {
   display: flex;
   flex-direction: column;

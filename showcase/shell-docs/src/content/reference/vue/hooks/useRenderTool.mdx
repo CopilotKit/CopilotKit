@@ -35,6 +35,7 @@ useRenderTool(
     name: "*",
     render: ((props) => VNodeChild) | Component,
     agentId?: string,
+    group?: boolean,
   },
   deps?: WatchSource<unknown>[],
 ): void;
@@ -58,6 +59,7 @@ useRenderTool<S>(
     parameters: S, // a Zod / Standard Schema; parameters are inferred from it
     render: ((props: RenderToolProps<S>) => VNodeChild) | Component<RenderToolProps<S>>,
     agentId?: string,
+    group?: boolean,
   },
   deps?: WatchSource<unknown>[],
 ): void;
@@ -82,6 +84,10 @@ useRenderTool<S>(
 
   <PropertyReference name="agentId" type="string">
     Scope the renderer to a specific agent. Renderers are deduplicated per `agentId:name` key.
+  </PropertyReference>
+
+  <PropertyReference name="group" type="boolean" default="false">
+    Set `true` to let the chat put calls this renderer draws into its tool-call groups (see `toolCallDisplay` on [`CopilotChatMessageView`](/reference/vue/components/CopilotChatMessageView)). Inside a group, the chat shows a summary line and draws the call when the user opens the group. Leave it unset when your renderer draws something the user must see at once, or nothing: such calls always show on their own, and they split a group around them.
   </PropertyReference>
 </PropertyReference>
 

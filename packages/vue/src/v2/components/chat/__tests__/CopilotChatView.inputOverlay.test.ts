@@ -80,10 +80,11 @@ describe("CopilotChatView input overlay layout", () => {
     await waitForMount(screen);
 
     const overlay = screen.getByTestId("copilot-input-overlay");
-    // Class-level assertion — the cpk: prefix avoids false positives from
-    // consumer classes. Absolute + bottom-0 is the contract we care about.
-    expect(overlay.className).toMatch(/cpk:absolute/);
-    expect(overlay.className).toMatch(/cpk:bottom-0/);
+    // The shared stylesheet pins this class to the bottom of the chat
+    // (position: absolute; bottom: 0). jsdom loads no CSS, so assert the class.
+    expect(overlay.classList.contains("cpk-chat-view-input-overlay")).toBe(
+      true,
+    );
 
     // Input (send button) lives inside the overlay, not outside it.
     const sendButton = screen.getByTestId("copilot-chat-input-send");

@@ -37,6 +37,7 @@ const props = withDefaults(
   {
     messages: () => [],
     autoScroll: true,
+    messageFeedback: true,
     isRunning: false,
     suggestions: () => [],
     suggestionLoadingIndexes: () => [],
@@ -96,8 +97,8 @@ const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 const headerTitle = computed(() => labels.value.modalHeaderTitle);
 const popupAnimationClass = computed(() =>
   isPopupOpen.value && !isAnimatingOut.value
-    ? "cpk:pointer-events-auto cpk:translate-y-0 cpk:opacity-100 cpk:md:scale-100"
-    : "cpk:pointer-events-none cpk:translate-y-4 cpk:opacity-0 cpk:md:translate-y-5 cpk:md:scale-[0.95]",
+    ? "cpk-popup-view-window-open"
+    : undefined,
 );
 const popupStyle = computed(
   () =>
@@ -109,10 +110,6 @@ const popupStyle = computed(
       ),
       "--copilot-popup-max-width": "calc(100vw - 3rem)",
       "--copilot-popup-max-height": "calc(100dvh - 7.5rem)",
-      width: "var(--copilot-popup-width)",
-      height: "var(--copilot-popup-height)",
-      maxWidth: "var(--copilot-popup-max-width)",
-      maxHeight: "var(--copilot-popup-max-height)",
       paddingTop: "env(safe-area-inset-top)",
       paddingBottom: "env(safe-area-inset-bottom)",
       paddingLeft: "env(safe-area-inset-left)",
@@ -349,11 +346,7 @@ onBeforeUnmount(() => {
     <CopilotChatToggleButton />
   </slot>
 
-  <div
-    v-if="isRendered"
-    data-copilotkit
-    class="cpk:fixed cpk:inset-0 cpk:z-[1200] cpk:flex cpk:max-w-full cpk:flex-col cpk:items-stretch cpk:bg-transparent cpk:md:inset-auto cpk:md:bottom-24 cpk:md:right-6 cpk:md:items-end cpk:md:gap-4"
-  >
+  <div v-if="isRendered" data-copilotkit class="cpk-popup-view">
     <div
       ref="containerRef"
       tabindex="-1"
@@ -361,13 +354,7 @@ onBeforeUnmount(() => {
       :aria-label="labels.modalHeaderTitle"
       data-copilot-popup
       :class="[
-        'cpk:relative cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden cpk:bg-background cpk:text-foreground',
-        'cpk:origin-bottom cpk:focus:outline-none cpk:transform-gpu cpk:transition-transform cpk:transition-opacity cpk:duration-200 cpk:ease-out',
-        'cpk:md:transition-transform cpk:md:transition-opacity',
-        'cpk:rounded-none cpk:border cpk:border-border/0 cpk:shadow-none cpk:ring-0',
-        'cpk:md:h-[var(--copilot-popup-height)] cpk:md:w-[var(--copilot-popup-width)]',
-        'cpk:md:max-h-[var(--copilot-popup-max-height)] cpk:md:max-w-[var(--copilot-popup-max-width)]',
-        'cpk:md:origin-bottom-right cpk:md:rounded-2xl cpk:md:border-border cpk:md:shadow-xl cpk:md:ring-1 cpk:md:ring-border/40',
+        'copilotKitPopup copilotKitWindow cpk-popup-view-window',
         popupAnimationClass,
       ]"
       :style="popupStyle"
@@ -381,8 +368,9 @@ onBeforeUnmount(() => {
         <CopilotModalHeader :title="headerTitle" />
       </slot>
 
-      <div class="cpk:flex-1 cpk:overflow-hidden" data-popup-chat>
+      <div class="cpk-popup-view-chat" data-popup-chat>
         <CopilotChatView
+          class="cpk-popup-view-chat-view"
           :messages="messages"
           :auto-scroll="autoScroll"
           :is-running="isRunning"
@@ -392,6 +380,8 @@ onBeforeUnmount(() => {
           :input-value="inputValue"
           :input-mode="inputMode"
           :input-tools-menu="inputToolsMenu"
+          :tool-call-display="toolCallDisplay"
+          :message-feedback="messageFeedback"
           :on-finish-transcribe-with-audio="onFinishTranscribeWithAudio"
           v-bind="chatViewBindings"
         >
