@@ -1,6 +1,3 @@
-import { GraphQLError } from "graphql";
-import { COPILOTKIT_VERSION } from "../index";
-
 export enum Severity {
   CRITICAL = "critical", // Critical errors that block core functionality
   WARNING = "warning", // Configuration/setup issues that need attention
@@ -21,7 +18,6 @@ export const ERROR_NAMES = {
     "CopilotKitRemoteEndpointDiscoveryError",
   COPILOT_KIT_AGENT_DISCOVERY_ERROR: "CopilotKitAgentDiscoveryError",
   COPILOT_KIT_LOW_LEVEL_ERROR: "CopilotKitLowLevelError",
-  COPILOT_KIT_VERSION_MISMATCH_ERROR: "CopilotKitVersionMismatchError",
   RESOLVED_COPILOT_KIT_ERROR: "ResolvedCopilotKitError",
   CONFIGURATION_ERROR: "ConfigurationError",
   MISSING_PUBLIC_API_KEY_ERROR: "MissingPublicApiKeyError",
@@ -134,7 +130,19 @@ export const ERROR_CONFIG = {
   },
 };
 
-export class CopilotKitError extends GraphQLError {
+export interface CopilotKitErrorExtensions {
+  name: string;
+  statusCode: number;
+  code: CopilotKitErrorCode;
+  visibility: ErrorVisibility;
+  severity?: Severity;
+  troubleshootingUrl: string | null;
+  originalError: { message: string; stack?: string };
+}
+
+export class CopilotKitError extends Error {
+  /** Structured error details, kept in the shape GraphQL errors used in 1.x. */
+  extensions: CopilotKitErrorExtensions;
   code: CopilotKitErrorCode;
   statusCode: number;
   severity?: Severity;
@@ -159,22 +167,21 @@ export class CopilotKitError extends GraphQLError {
     const resolvedSeverity =
       severity ?? ("severity" in config ? config.severity : undefined);
 
-    super(message, {
-      extensions: {
-        name,
-        statusCode,
-        code,
-        visibility: resolvedVisibility,
-        severity: resolvedSeverity,
-        troubleshootingUrl:
-          "troubleshootingUrl" in config ? config.troubleshootingUrl : null,
-        originalError: {
-          message,
-          stack: new Error().stack,
-        },
-      },
-    });
+    super(message);
 
+    this.extensions = {
+      name,
+      statusCode,
+      code,
+      visibility: resolvedVisibility,
+      severity: resolvedSeverity,
+      troubleshootingUrl:
+        "troubleshootingUrl" in config ? config.troubleshootingUrl : null,
+      originalError: {
+        message,
+        stack: new Error().stack,
+      },
+    };
     this.code = code;
     this.name = name;
     this.statusCode = statusCode;
@@ -205,36 +212,6 @@ export class CopilotKitMisuseError extends CopilotKitError {
     const finalMessage = docsLink ? `${message}.\n\n${docsLink}` : message;
     super({ message: finalMessage, code });
     this.name = ERROR_NAMES.COPILOT_API_DISCOVERY_ERROR;
-  }
-}
-
-const getVersionMismatchErrorMessage = ({
-  reactCoreVersion,
-  runtimeVersion,
-  runtimeClientGqlVersion,
-}: VersionMismatchResponse) =>
-  `Version mismatch detected: @copilotkit/runtime@${runtimeVersion ?? ""} is not compatible with @copilotkit/react-core@${reactCoreVersion} and @copilotkit/runtime-client-gql@${runtimeClientGqlVersion}. Please ensure all installed copilotkit packages are on the same version.`;
-/**
- * Error thrown when CPK versions does not match
- *
- * @extends CopilotKitError
- */
-export class CopilotKitVersionMismatchError extends CopilotKitError {
-  constructor({
-    reactCoreVersion,
-    runtimeVersion,
-    runtimeClientGqlVersion,
-  }: VersionMismatchResponse) {
-    const code = CopilotKitErrorCode.VERSION_MISMATCH;
-    super({
-      message: getVersionMismatchErrorMessage({
-        reactCoreVersion,
-        runtimeVersion,
-        runtimeClientGqlVersion,
-      }),
-      code,
-    });
-    this.name = ERROR_NAMES.COPILOT_KIT_VERSION_MISMATCH_ERROR;
   }
 }
 
@@ -475,41 +452,6 @@ export function ensureStructuredError<T extends CopilotKitError>(
   converter: (error: any) => T,
 ): T | any {
   return isStructuredCopilotKitError(error) ? error : converter(error);
-}
-
-interface VersionMismatchResponse {
-  runtimeVersion?: string;
-  runtimeClientGqlVersion: string;
-  reactCoreVersion: string;
-}
-
-export async function getPossibleVersionMismatch({
-  runtimeVersion,
-  runtimeClientGqlVersion,
-}: {
-  runtimeVersion?: string;
-  runtimeClientGqlVersion: string;
-}) {
-  if (!runtimeVersion || runtimeVersion === "" || !runtimeClientGqlVersion)
-    return;
-  if (
-    COPILOTKIT_VERSION !== runtimeVersion ||
-    COPILOTKIT_VERSION !== runtimeClientGqlVersion ||
-    runtimeVersion !== runtimeClientGqlVersion
-  ) {
-    return {
-      runtimeVersion,
-      runtimeClientGqlVersion,
-      reactCoreVersion: COPILOTKIT_VERSION,
-      message: getVersionMismatchErrorMessage({
-        runtimeVersion,
-        runtimeClientGqlVersion,
-        reactCoreVersion: COPILOTKIT_VERSION,
-      }),
-    };
-  }
-
-  return;
 }
 
 const resolveLowLevelErrorMessage = ({
