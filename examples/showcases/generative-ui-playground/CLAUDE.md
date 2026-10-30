@@ -19,7 +19,7 @@ Generative UI playground showcasing three protocols for AI-powered interfaces.
               ▼                             ▼
 ┌─────────────────────────┐     ┌─────────────────────────┐
 │ "default" Agent         │     │ "a2ui" Agent            │
-│ BasicAgent + MCP Apps   │     │ HttpAgent → Python A2A  │
+│ BuiltInAgent + MCP Apps   │     │ HttpAgent → Python A2A  │
 │ Port: 3001 (MCP)        │     │ Port: 10002             │
 └─────────────────────────┘     └─────────────────────────┘
 ```
@@ -100,7 +100,7 @@ The legacy `ui-protocols-demo` Railway deployment is being retired. Do not use i
   "@copilotkit/react-ui": "CopilotSidebar component",
   "@copilotkit/a2ui-renderer": "A2UI message renderer",
   "@copilotkit/runtime": "CopilotRuntime backend",
-  "@copilotkit/runtime/v2": "BasicAgent class",
+  "@copilotkit/runtime/v2": "BuiltInAgent class",
   "@ag-ui/mcp-apps-middleware": "MCP Apps → AG-UI bridge"
 }
 ```
@@ -129,7 +129,7 @@ ui-protocols-demo/
 
 Frontend uses `useState` to toggle between agents:
 
-- `"default"`: Static GenUI + MCP Apps (BasicAgent + MCPAppsMiddleware)
+- `"default"`: Static GenUI + MCP Apps (BuiltInAgent + MCPAppsMiddleware)
 - `"a2ui"`: General-purpose UI generator (HttpAgent → Python A2A backend)
 
 The `agent` prop on CopilotKitProvider determines which backend agent handles requests.

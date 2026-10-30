@@ -2,16 +2,16 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   VERSION,
-  BasicAgent,
+  BuiltInAgent,
 } from "@copilotkit/runtime";
 import { serve } from "@hono/node-server";
 
 // Example: Creating a runtime instance
-// Note: BasicAgent is used here to verify the import works
+// Note: BuiltInAgent is used here to verify the import works
 // In practice, agents would be passed with proper AbstractAgent interface
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BasicAgent({
+    default: new BuiltInAgent({
       model: "openai/gpt-5-mini",
       maxSteps: 5,
       temperature: 0.7,

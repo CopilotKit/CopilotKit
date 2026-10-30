@@ -463,38 +463,3 @@ describe("Item 10: after-request middleware gets cloned response", () => {
     expect(body).toHaveProperty("version");
   });
 });
-
-/* ------------------------------------------------------------------------------------------------
- * Breaking Change: CopilotKitRequestHandler deprecated alias
- *
- * The CopilotKitRequestHandler type must still be importable for backward
- * compatibility, even though it's deprecated.
- * --------------------------------------------------------------------------------------------- */
-
-describe("Breaking change: CopilotKitRequestHandler type alias exists", () => {
-  it("CopilotKitRequestHandler is exported from the package index", async () => {
-    // Dynamic import to check the type exists at runtime
-    const exports = await import("../index");
-    // TypeScript types don't exist at runtime, but we can verify the module
-    // loads without errors. The type check is compile-time.
-    expect(exports).toBeDefined();
-  });
-});
-
-/* ------------------------------------------------------------------------------------------------
- * Item 13: Forward-reference code ordering in node-fetch-handler.ts
- *
- * createCopilotNodeHandler should be defined before createNodeFetchHandler
- * references it. This is a code quality fix — no runtime behavior change.
- * --------------------------------------------------------------------------------------------- */
-
-describe("Item 13: node-fetch-handler exports are both available", () => {
-  it("both createCopilotNodeHandler and createNodeFetchHandler are exported", async () => {
-    const { createCopilotNodeHandler, createNodeFetchHandler } =
-      await import("../endpoints/node-fetch-handler");
-    expect(typeof createCopilotNodeHandler).toBe("function");
-    expect(typeof createNodeFetchHandler).toBe("function");
-    // The deprecated alias should reference the same function
-    expect(createNodeFetchHandler).toBe(createCopilotNodeHandler);
-  });
-});

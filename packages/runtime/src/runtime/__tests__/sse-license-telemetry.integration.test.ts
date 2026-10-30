@@ -8,7 +8,7 @@ import { createCopilotNodeListener } from "../endpoints/node";
  * the gap this change closes: previously CopilotSseRuntime never called
  * telemetry.setLicenseToken, so these events reached the sink anonymously.
  *
- * Own file so the singleton mutation from the real setLicenseToken stays
+ * Own file so the telemetry singleton state stays
  * contained by Vitest's per-file module isolation.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";

@@ -2,7 +2,6 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import {
-  BasicAgent,
   BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
@@ -90,7 +89,7 @@ const builtInAgent = new BuiltInAgent({
 });
 
 // --- MCP Apps ---------------------------------------------------------------
-// Same scope as the React demo (examples/v2/react/demo): a BasicAgent wrapped in
+// Same scope as the React demo (examples/v2/react/demo): a BuiltInAgent wrapped in
 // MCPAppsMiddleware, pointed at the same ext-apps servers, so the Angular host
 // renders the same widgets.
 //
@@ -98,7 +97,7 @@ const builtInAgent = new BuiltInAgent({
 // page. Angular resolves `provideCopilotKit` from the root injector, so a
 // lazy-route override never takes effect; the agent is therefore registered by
 // name on the existing runtime and the page selects it with `[agentId]`.
-const mcpAgent = new BasicAgent({
+const mcpAgent = new BuiltInAgent({
   model: determineModel(),
   prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
   temperature: 0.7,

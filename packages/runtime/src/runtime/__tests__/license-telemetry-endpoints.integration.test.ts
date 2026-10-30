@@ -5,12 +5,12 @@ import { createCopilotRuntimeHandler } from "../core/fetch-handler";
  * endpoint adapter and BOTH runtime modes — not just SSE-via-Express (covered
  * in sse-license-telemetry.integration.test.ts).
  *
- * Each test constructs a *real* runtime (so the constructor's setLicenseToken
- * runs), drives a real request through the adapter, and asserts the token
+ * Each test constructs a *real* runtime (so the constructor's telemetry scope
+ * setup runs), drives a real request through the adapter, and asserts the token
  * reaches `lambdaClient.send` on `oss.runtime.copilot_request_created` — which
  * handle-run emits for both SSE and Intelligence modes.
  *
- * Own file so the singleton mutation from the real setLicenseToken stays
+ * Own file so any telemetry singleton state stays
  * contained by Vitest's per-file module isolation.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -116,7 +116,7 @@ describe("license token → telemetry sink across endpoints/modes (integration)"
 
   it("Intelligence mode forwards the token to the sink end-to-end", async () => {
     // A real CopilotIntelligenceRuntime so the constructor's (now base-class)
-    // setLicenseToken runs. Its real IntelligenceAgentRunner would open a
+    // telemetry scope setup runs. Its real IntelligenceAgentRunner would open a
     // WebSocket, so we swap in a stub runner whose observable completes
     // immediately — the request still flows through the real intelligence run
     // handler, which is what we want to exercise.

@@ -34,7 +34,9 @@ function setupRuntimeCapture(
   const randomSpy = vi.spyOn(Math, "random").mockReturnValue(randomValue);
   const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
   const client = new TelemetryClient({ telemetryDisabled: false });
-  client.setLicenseToken(jwtWithTelemetryId(telemetryId));
+  client.setTelemetryIdentity({
+    licenseToken: jwtWithTelemetryId(telemetryId),
+  });
 
   return {
     client,

@@ -59,10 +59,4 @@ export type { CopilotCorsConfig } from "./core/fetch-cors";
 // `handler.channels` (see `core/channel-manager.ts`).
 export type { ChannelsControl, ChannelStatus } from "./core/channel-manager";
 
-// Deprecated type aliases for backward compatibility
-/** @deprecated Use `CopilotRuntimeFetchHandler` instead. Note: the new type takes `Request` directly, not `{ request: Request }`. */
-export type CopilotKitRequestHandler = (params: {
-  request: Request;
-}) => Promise<Response>;
-
 export type { experimental } from "./intelligence-platform";

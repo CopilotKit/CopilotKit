@@ -136,8 +136,9 @@ export function parseTelemetryIdFromLicense(token?: string): string | null {
 // Parse the telemetry_id from a license token AND emit the rollout smoke
 // signal if the parse returned null. Returning the parsed id lets callers
 // cache it in one step (avoiding a second parseTelemetryIdFromLicense
-// pass) while keeping the warn text in lockstep between v1 (shared) and
-// v2 (runtime) TelemetryClient.setLicenseToken.
+// pass) while keeping the warn text in lockstep between the v1 (shared)
+// TelemetryClient.setLicenseToken and the v2 (runtime)
+// TelemetryClient.setTelemetryIdentity.
 export function parseAndWarnTelemetryId(licenseToken: string): string | null {
   const telemetryId = parseTelemetryIdFromLicense(licenseToken);
   if (!telemetryId) {

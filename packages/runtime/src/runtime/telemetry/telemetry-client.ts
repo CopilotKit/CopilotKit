@@ -113,11 +113,6 @@ export class TelemetryClient {
     this.licenseTelemetryId = resolvedIdentity.licenseTelemetryId;
   }
 
-  /** @deprecated Prefer {@link setTelemetryIdentity}. */
-  setLicenseToken(licenseToken: string): void {
-    this.setTelemetryIdentity({ licenseToken });
-  }
-
   /** Create an immutable capture scope for one Runtime instance. */
   createScope(identity: TelemetryIdentity): TelemetryCapture {
     const resolvedIdentity = this.resolveTelemetryIdentity(identity);

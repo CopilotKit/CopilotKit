@@ -2638,19 +2638,6 @@ export class BuiltInAgent extends AbstractAgent {
   }
 }
 
-/**
- * @deprecated Use BuiltInAgent instead
- */
-export class BasicAgent extends BuiltInAgent {
-  constructor(config: BuiltInAgentConfiguration) {
-    super(config);
-    console.warn("BasicAgent is deprecated, use BuiltInAgent instead");
-  }
-}
-
-/** @deprecated Use BuiltInAgentClassicConfig instead */
-export type BasicAgentConfiguration = BuiltInAgentClassicConfig;
-
 export * from "./converters";
 export { createSafeUrlDownload } from "./url-download";
 export type {

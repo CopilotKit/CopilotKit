@@ -59,9 +59,6 @@ export function createCopilotNodeHandler(
   };
 }
 
-/** @deprecated Use `createCopilotNodeHandler` instead. */
-export const createNodeFetchHandler = createCopilotNodeHandler;
-
 /**
  * Build a Fetch Request from a Node IncomingMessage whose body stream has
  * already been consumed by a body parser.

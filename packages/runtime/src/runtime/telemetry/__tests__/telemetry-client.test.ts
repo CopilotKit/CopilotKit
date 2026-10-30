@@ -59,7 +59,9 @@ describe("v2 TelemetryClient sampling metadata", () => {
     // what keeps the two populations separable, which is why it is stated
     // outright instead of inferred from sampleWeight === 1 (OSS-1018).
     const client = new TelemetryClient();
-    client.setLicenseToken(jwtWith({ telemetry_id: "abc-123" }));
+    client.setTelemetryIdentity({
+      licenseToken: jwtWith({ telemetry_id: "abc-123" }),
+    });
 
     await client.capture("oss.runtime.instance_created", baseInstanceEvent);
 
@@ -102,7 +104,7 @@ describe("v2 TelemetryClient sampling metadata", () => {
     // would ship a signed JWT to the analytics sink on every event.
     const token = jwtWith({ telemetry_id: "abc-123" });
     const client = new TelemetryClient();
-    client.setLicenseToken(token);
+    client.setTelemetryIdentity({ licenseToken: token });
 
     await client.capture("oss.runtime.instance_created", baseInstanceEvent);
 
