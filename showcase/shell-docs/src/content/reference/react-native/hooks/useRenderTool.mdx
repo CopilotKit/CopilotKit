@@ -23,16 +23,14 @@ only the import path differs.
 </Callout>
 
 <Callout type="warn" title="This used to be a different hook on React Native">
-  Before 1.68, `@copilotkit/react-native` exported a **local** hook under this
-  name whose whole body forwarded to `useFrontendTool`, so it shipped one
-  capability under the other's name — and `name: "*"` registered a frontend tool
-  literally called `*`. 1.68 replaced it with react-core's hook and kept the old
-  call shapes working behind a deprecated compatibility shim; the shim has since
-  been removed ([#6976](https://github.com/CopilotKit/CopilotKit/issues/6976)),
-  so `description` and `handler` no longer compile here and no longer register a
-  tool.
+  Early CopilotKit 1.x releases of `@copilotkit/react-native` exported a
+  **local** hook under this name whose whole body forwarded to
+  `useFrontendTool`, so it shipped one capability under the other's name — and
+  `name: "*"` registered a frontend tool literally called `*`. In CopilotKit 2,
+  the name is react-core's renderer-only hook, so `description` and `handler`
+  do not compile here and do not register a tool.
 
-  If you are upgrading from a version that predates 1.68, see [Migrating from
+  If you are upgrading an app that used the old hook, see [Migrating from
   the old React Native
   `useRenderTool`](#migrating-from-the-old-react-native-userendertool) for what
   to change and what the compiler will not catch for you.
@@ -460,17 +458,16 @@ function ToolCallStage({ agentId = "default" }: { agentId?: string }) {
 
 ## Migrating from the old React Native `useRenderTool`
 
-React Native used to export a **local** hook under this name. It was not
+Early CopilotKit 1.x releases of React Native exported a **local** hook under
+this name. It was not
 react-core's `useRenderTool`: its whole body forwarded to react-core's *other*
 hook, `useFrontendTool`, so it registered a tool **and** a renderer while
 carrying the renderer-only hook's name.
 
-1.68 deleted that hook and pointed the name at react-core's, behind a deprecated
-compatibility shim that routed an old-shaped call the way the old hook did and
-warned about it in development. **The shim is gone.** `@copilotkit/react-native`
-now re-exports react-core's `useRenderTool` itself and carries no render-tool
-implementation of its own, so this page describes the whole of what the name
-does.
+In CopilotKit 2, `@copilotkit/react-native` re-exports react-core's
+`useRenderTool` and carries no render-tool implementation of its own, so this
+page describes the whole of what the name does. There is no compatibility shim
+and no development warning for old-shaped calls.
 
 ### What to change
 
@@ -547,9 +544,8 @@ advertised to the model any more, and `handler` never runs again.
 They are also the shapes that look unchanged on screen. React-core's renderer
 bridge spreads `{ ...props, parameters: props.args }` into your renderer, so an
 old `render: ({ args }) => …` keeps painting exactly as it did. The UI is
-identical; the tool is gone. The deprecated shim that shipped between 1.68 and
-its removal warned about precisely this population in development — with the
-shim gone, nothing does. **Audit these by hand.**
+identical; the tool is gone. Nothing warns about these calls. **Audit these by
+hand.**
 
 1. **A hoisted config object.** Assign the config to a variable first and pass
    the variable, and the excess `description` is no longer excess:

@@ -14,7 +14,7 @@ The example is a **governed business assistant**: it triages operations queues, 
 <Accordion title="In a hurry? Build it with a coding agent — paste this prompt">
 
 ```text
-Add OpenBox runtime governance to a CopilotKit V2 + LangGraph agent so every
+Add OpenBox runtime governance to a CopilotKit + LangGraph agent so every
 tool call is evaluated against policies before it runs. Requirements:
 
 - A TypeScript LangGraph agent (graph id "openbox_copilotkit_agent") built with
@@ -26,7 +26,7 @@ tool call is evaluated against policies before it runs. Requirements:
   `createGovernedCopilotTool` from `@openbox-ai/openbox-sdk/copilotkit`, sharing
   one adapter with the middleware. Put `createOpenBoxGovernanceMiddleware()`
   FIRST in the middleware array, before `copilotkitMiddleware`.
-- A Next.js frontend whose `/api/copilotkit` route hosts a CopilotKit V2
+- A Next.js frontend whose `/api/copilotkit` route hosts a CopilotKit
   `CopilotRuntime` wrapped by `createOpenBoxCopilotRuntime`, with the same
   `selfGovernedToolNames` as the agent. Add a `/api/openbox/approvals/decide`
   route built with `createOpenBoxApprovalRoute` that validates a
@@ -346,6 +346,6 @@ export async function POST(request: Request) {
 
 ## Get the code
 
-Full source to follow — the runnable showcase (the `agent/` LangGraph service with OpenBox middleware and the `frontend/` CopilotKit V2 chat with the wrapped runtime and approval route) will be published under `examples/showcases/openbox-governed-copilotkit`.
+Full source to follow — the runnable showcase (the `agent/` LangGraph service with OpenBox middleware and the `frontend/` CopilotKit chat with the wrapped runtime and approval route) will be published under `examples/showcases/openbox-governed-copilotkit`.
 
 For the upstream OpenBox × CopilotKit integration this recipe is based on, see the reference repo: [OpenBox-AI/openbox-x-copilotkit](https://github.com/OpenBox-AI/openbox-x-copilotkit).

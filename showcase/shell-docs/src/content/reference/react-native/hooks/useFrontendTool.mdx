@@ -11,7 +11,7 @@ description: "React hook for registering client-side tool handlers with optional
   Re-exported from `@copilotkit/react-core`. It is identical to the [React `useFrontendTool`](/reference/hooks/useFrontendTool); only the import path differs.
 </Callout>
 
-The hook manages the full registration lifecycle: it warns if a tool with the same name already exists, registers the tool and its render component on mount, and cleans up both registrations on unmount. In v2, parameter schemas are defined using [Zod](https://zod.dev) instead of plain parameter arrays.
+The hook manages the full registration lifecycle: it warns if a tool with the same name already exists, registers the tool and its render component on mount, and cleans up both registrations on unmount. Parameter schemas use [Zod](https://zod.dev) or any other Standard Schema library.
 
 ## Signature
 

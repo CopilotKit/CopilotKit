@@ -1,7 +1,7 @@
 ---
 title: "Connecting Backend Emit APIs to Frontend Hooks"
 icon: "lucide/ArrowLeftRight"
-description: "End-to-end guide: how LangGraph SDK emit functions map to React v2 frontend hooks."
+description: "End-to-end guide: how LangGraph SDK emit functions map to React frontend hooks."
 ---
 
 ## What is this?
@@ -12,7 +12,7 @@ This page shows exactly how the two sides connect so you can build predictable, 
 
 ## The mapping at a glance
 
-| Backend (Python SDK) | Frontend (React v2) | What it does |
+| Backend (Python SDK) | Frontend (React) | What it does |
 |---|---|---|
 | `copilotkit_emit_tool_call(config, name, args)` | `useFrontendTool` | Agent manually fires a tool call; the registered handler runs in the browser |
 | LLM calls a frontend tool normally (via `bind_tools`) | `useFrontendTool` | Agent lets the LLM decide when to call the tool; same handler, same result |

@@ -18,7 +18,7 @@ The example is a personal **travel concierge**: it remembers your preferences ac
 - Memory is the glue: a `recall_memory` tool reads durable preferences from Oracle Agent Memory, and each turn is persisted after the response streams — then a small reconcile pass supersedes outdated facts so an updated preference wins next time.
 
 ```text
-CopilotKit (Next.js, V2) ──/api/copilotkit──▶ CopilotRuntime (HttpAgent)
+CopilotKit (Next.js) ──/api/copilotkit──▶ CopilotRuntime (HttpAgent)
                                                     │  AG-UI (SSE)
                                                     ▼
                                   Agent Spec JSON → ag_ui_agentspec (LangGraph)
@@ -53,8 +53,8 @@ the current conversation.
 - Docker (for the local Oracle AI Database) or your own Oracle AI Database
 - `OPENAI_API_KEY` (defaults use OpenAI via litellm)
 
-<Callout type="warning" title="Pre-release dependencies">
-This frontend uses CopilotKit **V2** pre-release builds so Agent Spec's human-in-the-loop renders, and the `ag_ui_agentspec` adapter is installed from the `ag-ui` repo (not PyPI). Both are pinned in the manifests.
+<Callout type="warning" title="Adapter installed from source">
+The `ag_ui_agentspec` adapter is installed from the `ag-ui` repo (not PyPI). It is pinned in the agent manifest.
 </Callout>
 
 ## Start the database and run the agent
@@ -166,4 +166,4 @@ Walk me through it step by step, starting with the agent.
 
 ## Get the code
 
-Full source: [`examples/showcases/oracle-agent-memory`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/oracle-agent-memory) — `agent/` (the Agent Spec agent) and `frontend/` (the CopilotKit V2 chat).
+Full source: [`examples/showcases/oracle-agent-memory`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/oracle-agent-memory) — `agent/` (the Agent Spec agent) and `frontend/` (the CopilotKit chat).
