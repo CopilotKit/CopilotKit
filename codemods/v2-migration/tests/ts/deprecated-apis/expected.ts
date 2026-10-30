@@ -5,7 +5,7 @@ import type { CopilotKitRequestHandler } from "@copilotkit/runtime";
 import { createCopilotNodeHandler } from "@copilotkit/runtime/node";
 // TODO(copilotkit-2.0): `createA2UICatalog` was removed in 2.0. Use `createCatalog(definitions, renderers)`. Put each component's `props` and `description` in `definitions`, and its `render` in `renderers`.
 import { createA2UICatalog, useA2UIContext } from "@copilotkit/a2ui-renderer";
-// TODO(copilotkit-2.0): `ImageData` was removed in 2.0. Use `InputContentSource`, and send images as `content` parts. See https://docs.copilotkit.ai/migration-guides/migrate-attachments
+// TODO(copilotkit-2.0): `ImageData` was removed in 2.0. Use `ImageInputPart`, and send images as `content` parts. See https://docs.copilotkit.ai/migrate/removed-apis-2.0
 import type { ImageData } from "@copilotkit/shared";
 
 const config: AgentConfig = { model: "openai/gpt-5" };

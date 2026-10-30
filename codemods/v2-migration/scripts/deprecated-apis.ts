@@ -52,7 +52,7 @@ const REMOVED: Record<string, Record<string, string>> = {
   },
   "@copilotkit/shared": {
     ImageData:
-      "Use `InputContentSource`, and send images as `content` parts. See https://docs.copilotkit.ai/migration-guides/migrate-attachments",
+      "Use `ImageInputPart`, and send images as `content` parts. See https://docs.copilotkit.ai/migrate/removed-apis-2.0",
   },
 };
 
