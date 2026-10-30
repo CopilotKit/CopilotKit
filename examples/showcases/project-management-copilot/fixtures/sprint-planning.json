@@ -1,0 +1,120 @@
+{
+  "name": "sprint-planning",
+  "description": "Sprint planning demo (mock mode). The chip auto-attaches /sprint-52.png as an image part on the user bubble; this fixture chain then narrates the agent's work: reading image -> transcribing -> planning tickets -> writing tickets, each rendered as an animated agentProgress card. After the four steps a final agentProgress 'complete' card mounts and collapses the prior four into a single 'Analysis and breakdown complete' summary. Then applyPlanningChanges mutates the board (ISS-101 to Done, ISS-111 + ISS-113 to Todo), enableAppMode opens the right pane, and a text confirmation closes the run. Every fixture is gated on systemMessage 'project-management copilot' so the BFF's auto-thread-title call doesn't accidentally match the userMessage substring. NOTE: toolCallId continuations are listed FIRST and the user-message entry-point fixture LAST. Without this ordering, the entry-point would re-fire on every mid-chain LLM call (its `userMessage` substring is still in history) and infinite-loop. We deliberately do NOT gate the entry-point on `hasToolResult: false` — aimock's `hasToolResult` checks whether ANY message in history is a tool result, so once an earlier flow ran on this thread the gate would never let sprint-planning fire again. Ordering is enough: every toolCallId fixture requires the LAST message to be a tool result with the matching id, so they can't accidentally win on a fresh user message.",
+  "fixtures": [
+    {
+      "match": {
+        "toolCallId": "call_progress_reading",
+        "systemMessage": "project-management copilot"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_progress_transcribing",
+            "name": "agentProgress",
+            "arguments": "{\"step\":\"transcribing\",\"detail\":\"Cycle goal, priorities, decisions, blockers\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_progress_transcribing",
+        "systemMessage": "project-management copilot"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_progress_planning",
+            "name": "agentProgress",
+            "arguments": "{\"step\":\"planning_tickets\",\"detail\":\"ISS-101 → Done, ISS-111 + ISS-113 → Todo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_progress_planning",
+        "systemMessage": "project-management copilot"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_progress_writing",
+            "name": "agentProgress",
+            "arguments": "{\"step\":\"writing_tickets\",\"detail\":\"3 changes\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_progress_writing",
+        "systemMessage": "project-management copilot"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_progress_complete",
+            "name": "agentProgress",
+            "arguments": "{\"step\":\"complete\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_progress_complete",
+        "systemMessage": "project-management copilot"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_apply_changes",
+            "name": "applyPlanningChanges",
+            "arguments": "{\"changes\":[{\"id\":\"ISS-101\",\"status\":\"Done\"},{\"id\":\"ISS-111\",\"status\":\"Todo\",\"assignee\":\"Jordan\"},{\"id\":\"ISS-113\",\"status\":\"Todo\",\"assignee\":\"Sarah\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_apply_changes",
+        "systemMessage": "project-management copilot"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_enable_app",
+            "name": "enableAppMode",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_enable_app",
+        "systemMessage": "project-management copilot"
+      },
+      "response": {
+        "content": "Done. Cycle 52 is loaded: **ISS-101** (Safari payment) marked Done, **ISS-111** (search pagination) pulled to Todo with Jordan, and **ISS-113** (GDPR data export) pulled to Todo with Sarah as the cycle headline. Carry-overs ISS-107 and ISS-118 stay in flight; everything else parked per the notes. Standup 10am PT, demo Friday."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Plan the next sprint",
+        "systemMessage": "project-management copilot"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_progress_reading",
+            "name": "agentProgress",
+            "arguments": "{\"step\":\"reading_image\",\"detail\":\"Sprint 52 Planning Notes.png\"}"
+          }
+        ]
+      }
+    }
+  ]
+}
