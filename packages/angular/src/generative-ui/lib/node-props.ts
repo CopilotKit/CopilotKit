@@ -6,6 +6,7 @@ import {
 import {
   formatIssues,
   isAsyncIssue,
+  isRecord,
   issueKey,
   validateSchemaSync,
   withoutRejectedNulls,
@@ -17,15 +18,11 @@ import {
 import type { GenerativeUIAccessibility } from "@copilotkit/core/generative-ui";
 import type { ResolvedGenerativeUIComponent } from "./catalog";
 
-// The data props of a node, in the same three steps as React's SurfaceView:
-// resolve the model-set props from the data model, check them with the
-// props schema, run the selectors, then parse all props. Pure functions and
-// one cache object; the signals around them are in node.ts.
+// The data props of a node: resolve the model-set props from the data model,
+// check them with the props schema, run the selectors, then parse all props.
+// Pure functions and one cache object; the signals around them are in node.ts.
 
-export function shallowEqual(
-  a: Record<string, unknown>,
-  b: Record<string, unknown>,
-) {
+function shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>) {
   if (a === b) return true;
   const keysA = Object.keys(a);
   const keysB = Object.keys(b);
@@ -139,7 +136,7 @@ export class ModelPropsResolver {
       units.push({ key, raw: properties[key] });
     }
     const a11y = properties.accessibility;
-    if (typeof a11y === "object" && a11y !== null && !Array.isArray(a11y)) {
+    if (isRecord(a11y)) {
       for (const [field, raw] of Object.entries(a11y)) {
         units.push({ key: `accessibility/${field}`, raw, field });
       }

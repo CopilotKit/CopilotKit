@@ -46,8 +46,8 @@ function manifestLines(manifest: Manifest) {
 /**
  * Every standard component rendered live from the operations a model would
  * write, next to the description and props the model sees, from the shared
- * catalog samples (showcase/shared/generative-ui-catalog). A scripted agent in the browser
- * streams the surfaces, so there is no model and no runtime.
+ * catalog samples. A scripted agent in the browser streams the surfaces, so
+ * there is no model and no runtime.
  */
 @Component({
   selector: "generative-ui-catalog",

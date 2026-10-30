@@ -39,15 +39,21 @@ export const appConfig: ApplicationConfig = {
 };
 ```
 
-On the server, set `generativeUI: true` on `CopilotRuntime`. The runtime gives
-the model the `render_ui` tool and streams each surface to the client. See
-[Transports](/generative-ui/components/transports) for the markdown transport,
-which needs nothing on the server.
+The runtime needs no change. When the provider sends the catalog, the
+runtime gives that run the `render_ui` tool and streams each surface to the
+client. Set `generativeUI: true` on `CopilotRuntime` only to add the tool to
+every run. See [Transports](/generative-ui/components/transports) for the
+markdown transport, which never uses the tool.
 
 Three standard components draw with optional libraries. Each has its own
 entry point, so the library stays out of apps that do not use it. Without the
 provider, the component shows a fallback: a data table for Chart, a list of
-places for Map, nothing for Icon.
+places for Map, nothing for Icon. Install the library of each provider you
+add:
+
+```bash
+npm install chart.js maplibre-gl lucide
+```
 
 ```ts title="src/app/app.config.ts"
 import { provideGenerativeUIChart } from "@copilotkit/angular/generative-ui/chart"; // chart.js
@@ -85,20 +91,18 @@ import {
 @Component({
   selector: "app-product-card",
   imports: [CopilotGenerativeUIChildren],
-  host: { "[attr.aria-label]": "aria()['aria-label']" },
+  host: { role: "article", "[attr.aria-label]": "aria()['aria-label'] ?? null" },
   template: `
-    <article>
-      <h3>{{ name() }}</h3>
-      <p>{{ "$" + price() }}</p>
-      <input type="number" [value]="quantity() ?? 1"
-        (input)="quantity.set(+$any($event.target).value)" />
-      @if (onAddToCart(); as addToCart) {
-        <button (click)="addToCart({ productId: productId(), quantity: quantity() ?? 1 })">
-          Add to cart
-        </button>
-      }
-      <ng-container *copilotGenerativeUIChildren="children()" />
-    </article>
+    <h3>{{ name() }}</h3>
+    <p>{{ "$" + price() }}</p>
+    <input type="number" [value]="quantity() ?? 1"
+      (input)="quantity.set(+$any($event.target).value)" />
+    @if (onAddToCart(); as addToCart) {
+      <button (click)="addToCart({ productId: productId(), quantity: quantity() ?? 1 })">
+        Add to cart
+      </button>
+    }
+    <ng-container *copilotGenerativeUIChildren="children()" />
   `,
 })
 export class ProductCard {
@@ -118,6 +122,9 @@ export class ProductCard {
 export const shopUI = createGenerativeUI({
   id: "acme/shop@1",
   extends: [standardUI],
+  state: {
+    cart: z.object({ count: z.number(), total: z.number() }),
+  },
   functions: {
     addToCart: {
       parameters: z.object({ productId: z.string(), quantity: z.number() }),
@@ -134,6 +141,8 @@ export const shopUI = createGenerativeUI({
         quantity: z.number().optional(),
       }),
       writable: ["quantity"],
+      // Matches the `addToCart` function, so it calls it with its parameters.
+      events: { onAddToCart: {} },
       slots: { children: "multiple" },
     },
   },
@@ -146,9 +155,9 @@ How the parts of a definition reach the component:
 | --- | --- |
 | A key of `props` | `input()` with that name. The value is the parsed schema output. |
 | A key in `writable` | `model()` with that name. A write goes to the surface data model when the agent bound the prop with `{ "@path" }`, else it stays local to the node. |
-| An event (`events`, or a function the event name matches, like `onAddToCart` and `addToCart`) | `input<GenerativeUIEventHandler<...>>()` with the event name. It holds a function only when the event is bound, so `@if` on it shows the button only then. |
+| A key of `events` | `input<GenerativeUIEventHandler<...>>()` with the event name. It holds a function only when the event is bound, so `@if` on it shows the button only then. An event whose name matches a function, like `onAddToCart` and `addToCart`, is always bound, calls the function, and can leave out `parameters`. |
 | A slot, or a `child()` / `childList()` in `props` | `input<GenerativeUIChildren>()`. Render it with `*copilotGenerativeUIChildren`. A `child()` inside a list arrives inside the parsed value, for example `tabs()[i].child`. |
-| The `accessibility` envelope | `injectGenerativeUIAccessibility()` gives the ARIA attributes to bind on the root element. |
+| The `accessibility` envelope | `injectGenerativeUIAccessibility()` gives the ARIA attributes to bind on the root element. Give that element a role, such as `article`, so a screen reader announces the label. |
 
 The host element is the one of the selector (`div[copilotGenerativeUIMap]`).
 A component whose tag depends on the node, the way a React component picks
@@ -251,7 +260,8 @@ provideGenerativeUI({
   // isStreaming, error, rejected). Render the surface with
   // <copilot-generative-ui-surface-view [surface]>.
   chatCard: MyChatCard,
-  // Replaces the per-component fallback (inputs: message, componentId).
+  // Replaces the per-component fallback (inputs: message, componentId, and
+  // retry after a render error if the component declares it).
   errorFallback: MyFallback,
   onError: (info) => console.warn(info.kind, info.surfaceId, info.error),
 });

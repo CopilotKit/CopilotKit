@@ -22,9 +22,7 @@ export {
   CopilotGenerativeUIPopover,
   CopilotGenerativeUIPopoverContent,
   CopilotGenerativeUIPopoverTrigger,
-  GENERATIVE_UI_POPOVER,
 } from "./popover";
-export type { GenerativeUIPopoverState } from "./popover";
 export { FEEDBACK_STYLE_ID } from "./styles";
 
 /**

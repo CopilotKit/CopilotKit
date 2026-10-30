@@ -229,7 +229,7 @@ export abstract class CopilotGenerativeUILayoutProps {
 /**
  * A flex container: the layout props, the accessibility of the envelope,
  * the `onVisible` event, the default gap of its depth in a Card, and an
- * extra style of its own. The counterpart of React's `container()`.
+ * extra style of its own.
  */
 @Directive({
   host: {
@@ -344,13 +344,14 @@ export class CopilotGenerativeUIRow extends CopilotGenerativeUILayoutContainer {
     <ng-container *copilotGenerativeUIChildren="child()" />
     <ng-container *copilotGenerativeUIChildren="children()" />
   `,
+  // Not provideCardContext(): a section passes the nesting from above through.
   providers: [
     {
       provide: GENERATIVE_UI_CARD_NESTING,
-      useFactory: () => {
-        const card = inject(CopilotGenerativeUICard);
-        return card.variant() === "section" ? card.isNested : true;
-      },
+      useFactory: () =>
+        inject(CopilotGenerativeUICard).variant() === "section"
+          ? inject(GENERATIVE_UI_CARD_NESTING, { skipSelf: true })
+          : true,
     },
     { provide: GENERATIVE_UI_CARD_DISTANCE, useValue: 0 },
   ],
@@ -364,11 +365,6 @@ export class CopilotGenerativeUICard extends CopilotGenerativeUILayoutContainer 
   readonly shadowStyle = input<CardProps["shadowStyle"]>();
   readonly size = input<CardProps["size"]>();
   readonly child = input<GenerativeUIChildren>();
-
-  /** For the nesting provider: whether this Card is inside another one. */
-  get isNested() {
-    return this.nested;
-  }
 
   protected override computeStyle(props: LayoutProps): StyleMap {
     const card: CardProps = {

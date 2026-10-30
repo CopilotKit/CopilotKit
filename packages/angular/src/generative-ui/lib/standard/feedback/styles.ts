@@ -1,5 +1,6 @@
 import { inject } from "@angular/core";
 import { GenerativeUIStyles } from "../../styles";
+import { FOCUS_RING } from "../style";
 import type { StyleMap } from "../style";
 
 export const FEEDBACK_STYLE_ID = "a2ui-standard-feedback";
@@ -14,7 +15,7 @@ export const FEEDBACK_STYLE_ID = "a2ui-standard-feedback";
 const FEEDBACK_CSS = [
   "@keyframes a2ui-pulse{0%{transform:scale(1);opacity:var(--a2ui-pulse-opacity,.6)}100%{transform:scale(var(--a2ui-pulse-scale,2.4));opacity:0}}",
   "@keyframes a2ui-pulse-fade{0%{opacity:var(--a2ui-pulse-opacity,.6)}100%{opacity:0}}",
-  "[data-a2ui-feedback-button]:focus-visible{outline:2px solid var(--a2ui-color-focus, #0285ff);outline-offset:2px}",
+  `[data-a2ui-feedback-button]:focus-visible{outline:${FOCUS_RING};outline-offset:2px}`,
   "@media (prefers-reduced-motion: reduce){[data-a2ui-pulse]{animation-name:a2ui-pulse-fade !important}}",
 ].join("\n");
 
@@ -33,6 +34,6 @@ export const BUTTON_RESET: StyleMap = {
   background: "none",
   font: "inherit",
   color: "inherit",
-  "text-align": "inherit",
+  textAlign: "inherit",
   cursor: "pointer",
 };

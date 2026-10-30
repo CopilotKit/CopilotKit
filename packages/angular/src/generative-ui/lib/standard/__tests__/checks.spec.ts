@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderSurface, updateDataModel } from "../../__tests__/render";
 import type { SurfaceRender } from "../../__tests__/render";
+import { buttonNamed, byLabel } from "../../__tests__/dom";
 import { standardUI } from "../index";
 
 const requiredName = {
@@ -10,28 +11,6 @@ const requiredName = {
   },
   message: "Name is required",
 };
-
-/** The control that `label` labels, through its `for`. */
-function byLabel<T extends HTMLElement>(view: SurfaceRender, label: string) {
-  const match = [...view.container.querySelectorAll("label")].find(
-    (el) => el.textContent?.trim() === label,
-  );
-  if (!match) throw new Error(`No label "${label}".`);
-  const id = match.getAttribute("for");
-  const control = id
-    ? view.container.querySelector<T>(`[id="${id}"]`)
-    : match.querySelector<T>("input, select, textarea");
-  if (!control) throw new Error(`Label "${label}" labels nothing.`);
-  return control;
-}
-
-function buttonNamed(view: SurfaceRender, name: string) {
-  const match = [...view.container.querySelectorAll("button")].find(
-    (button) => button.textContent?.trim() === name,
-  );
-  if (!match) throw new Error(`No button "${name}".`);
-  return match;
-}
 
 const alerts = (view: SurfaceRender) =>
   [...view.container.querySelectorAll("[role=alert]")].map((alert) =>
@@ -76,7 +55,7 @@ describe("standard catalog: checks", () => {
     );
     const form = v.container.querySelector("form")!;
     expect(form.checkValidity()).toBe(false);
-    v.act(() => buttonNamed(v, "M").click());
+    v.act(() => buttonNamed(v.container, "M")!.click());
     expect(form.checkValidity()).toBe(true);
   });
 
@@ -114,7 +93,7 @@ describe("standard catalog: checks", () => {
       ],
       { form: { name: "" } },
     );
-    const input = byLabel<HTMLInputElement>(v, "Name");
+    const input = byLabel<HTMLInputElement>(v.container, "Name");
     // A fresh form is not red.
     expect(alerts(v)).toEqual([]);
     expect(input.getAttribute("aria-invalid")).toBeNull();
@@ -173,13 +152,13 @@ describe("standard catalog: checks", () => {
       ],
       { form: { name: "" } },
     );
-    const button = buttonNamed(v, "Send");
+    const button = buttonNamed(v.container, "Send")!;
     expect(button.disabled).toBe(true);
     expect(button.getAttribute("title")).toBe("Name is required");
     v.act(() => button.click());
     await Promise.resolve();
     expect(v.forwardEvent).not.toHaveBeenCalled();
-    setValue(v, byLabel<HTMLInputElement>(v, "Name"), "Ada");
+    setValue(v, byLabel<HTMLInputElement>(v.container, "Name"), "Ada");
     expect(button.disabled).toBe(false);
     v.act(() => button.click());
     await vi.waitFor(() => expect(v.forwardEvent).toHaveBeenCalled());
@@ -221,9 +200,11 @@ describe("standard catalog: checks", () => {
     expect(status.getAttribute("data-a2ui-check-code")).toBe("EXPIRING");
     expect(alerts(v)).toEqual([]);
     expect(
-      byLabel<HTMLInputElement>(v, "Coupon").getAttribute("aria-invalid"),
+      byLabel<HTMLInputElement>(v.container, "Coupon").getAttribute(
+        "aria-invalid",
+      ),
     ).toBeNull();
-    const button = buttonNamed(v, "Apply");
+    const button = buttonNamed(v.container, "Apply")!;
     expect(button.disabled).toBe(false);
     expect(button.getAttribute("title")).toBe("This coupon expires today");
     // An error from the same data blocks again.
@@ -255,7 +236,7 @@ describe("standard catalog: checks", () => {
       ],
       { warn: { valid: false, message: "Expires soon", severity: "warning" } },
     );
-    const button = buttonNamed(v, "Apply");
+    const button = buttonNamed(v.container, "Apply")!;
     expect(button.disabled).toBe(true);
     expect(button.getAttribute("title")).toBe("Name is required");
   });
@@ -293,7 +274,7 @@ describe("standard catalog: checks", () => {
       ],
       { accepted: false, seats: 80 },
     );
-    const box = byLabel<HTMLInputElement>(v, "Accept the terms");
+    const box = byLabel<HTMLInputElement>(v.container, "Accept the terms");
     blur(v, box);
     expect(alerts(v)).toEqual(["Please accept", "At most 50"]);
     v.act(() => box.click());

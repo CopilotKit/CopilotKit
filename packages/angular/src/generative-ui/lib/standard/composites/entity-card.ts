@@ -17,9 +17,9 @@ import type {
 import type { z } from "zod";
 import { GenerativeUIStyles } from "../../styles";
 import type { GenerativeUIEventProp } from "../context";
-import { openUrl } from "../lightbox";
+import { lineClamp } from "../style";
 import type { StyleMap } from "../style";
-import { safeHref } from "../text";
+import { openUrl, safeHref } from "../url";
 import { PILL_BUTTON, SECONDARY_SM, SECONDARY_XS, TITLE_MD } from "./styles";
 
 type EntityCardProps = z.output<typeof entityCardSchema>;
@@ -138,14 +138,14 @@ export class CopilotGenerativeUIEntityCard {
     const isHorizontal = this.isHorizontal();
     return {
       display: "flex",
-      "flex-direction": isHorizontal ? "row" : "column",
+      flexDirection: isHorizontal ? "row" : "column",
       gap: isHorizontal ? spacing(3) : 0,
       width: spacing(this.width()) ?? "100%",
-      "max-width": "100%",
-      "min-width": 0,
-      "box-sizing": "border-box",
+      maxWidth: "100%",
+      minWidth: 0,
+      boxSizing: "border-box",
       border: `1px solid ${borderColor("default")}`,
-      "border-radius": radius("xl"),
+      borderRadius: radius("xl"),
       background: backgroundColor("surface"),
       overflow: "hidden",
       // A horizontal card keeps its content height inside a stretched grid
@@ -158,36 +158,36 @@ export class CopilotGenerativeUIEntityCard {
     const isHorizontal = this.isHorizontal();
     return {
       display: "block",
-      "object-fit": "cover",
+      objectFit: "cover",
       width: isHorizontal ? "120px" : "100%",
-      "aspect-ratio": isHorizontal
+      aspectRatio: isHorizontal
         ? "1 / 1"
         : (this.imageAspectRatio() ?? "4 / 3"),
-      "align-self": isHorizontal ? "start" : undefined,
+      alignSelf: isHorizontal ? "start" : undefined,
       flex: "none",
     };
   });
   protected readonly bodyStyle: StyleMap = {
     display: "flex",
-    "flex-direction": "column",
+    flexDirection: "column",
     gap: "4px",
     padding: spacing(3),
-    "min-width": 0,
+    minWidth: 0,
     flex: 1,
   };
   protected readonly subtitleStyle: StyleMap = {
     ...SECONDARY_XS,
     overflow: "hidden",
-    "text-overflow": "ellipsis",
-    "white-space": "nowrap",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   };
   protected readonly badgeStyle = computed<StyleMap>(() => {
     const color = this.badge()?.color;
     return {
       ...textFont("xs"),
-      "font-weight": FONT_WEIGHT.medium,
+      fontWeight: FONT_WEIGHT.medium,
       padding: "1px 8px",
-      "border-radius": "9999px",
+      borderRadius: "9999px",
       background: backgroundColor(color ?? "surface-secondary"),
       color: textColor(color ?? "default"),
       flex: "none",
@@ -196,28 +196,25 @@ export class CopilotGenerativeUIEntityCard {
   protected readonly titleStyle = TITLE_MD;
   protected readonly starsStyle: StyleMap = {
     display: "inline-flex",
-    "align-items": "center",
+    alignItems: "center",
     gap: "4px",
     ...SECONDARY_SM,
   };
   protected readonly descriptionStyle: StyleMap = {
     ...SECONDARY_SM,
-    display: "-webkit-box",
-    "-webkit-line-clamp": 3,
-    "-webkit-box-orient": "vertical",
-    overflow: "hidden",
+    ...lineClamp(3),
   };
   protected readonly metaStyle: StyleMap = {
     ...textFont("sm"),
-    "font-weight": FONT_WEIGHT.medium,
+    fontWeight: FONT_WEIGHT.medium,
     color: textColor("default"),
-    "margin-top": "2px",
+    marginTop: "2px",
   };
   protected readonly actionsStyle: StyleMap = {
     display: "flex",
-    "flex-wrap": "wrap",
+    flexWrap: "wrap",
     gap: spacing(2),
-    "margin-top": spacing(2),
+    marginTop: spacing(2),
   };
 
   constructor() {

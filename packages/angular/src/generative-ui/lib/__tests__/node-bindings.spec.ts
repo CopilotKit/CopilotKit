@@ -5,6 +5,7 @@ import { withoutRejectedNulls } from "@copilotkit/shared/generative-ui";
 import type { GenerativeUIInvokeResult } from "@copilotkit/shared/generative-ui";
 import { createGenerativeUI } from "../catalog";
 import { renderSurface, updateComponents, updateDataModel } from "./render";
+import { textOf } from "./dom";
 
 type Handler = (args?: unknown) => Promise<GenerativeUIInvokeResult>;
 
@@ -91,9 +92,6 @@ const ui = createGenerativeUI({
   },
 });
 
-const text = (container: HTMLElement, selector: string) =>
-  container.querySelector(selector)?.textContent?.trim();
-
 // The event bindings that the model sends (event and functionCall) and the
 // matched events are in surface-view.spec.ts; only the absence is here.
 describe("events", () => {
@@ -140,10 +138,6 @@ describe("writable props", () => {
     expect(view.dataAt("/value")).toBeUndefined();
   });
 });
-
-// The dynamic values of props have their own spec, as in React
-// (dynamic-values.spec.ts); the writable prop of a template item is in
-// surface-view.spec.ts under "template slots".
 
 describe("props set to null", () => {
   it("reads a literal null on an optional prop as an unset prop", () => {
@@ -201,11 +195,11 @@ describe("updates", () => {
     const view = renderSurface(ui, [
       { id: "root", component: "Text", text: "one" },
     ]);
-    expect(text(view.container, "[data-text]")).toBe("one");
+    expect(textOf(view.container, "[data-text]")).toBe("one");
     view.update(
       updateComponents({ id: "root", component: "Number", value: 2 }),
     );
     expect(view.container.querySelector("[data-text]")).toBeNull();
-    expect(text(view.container, "[data-number]")).toBe("2");
+    expect(textOf(view.container, "[data-number]")).toBe("2");
   });
 });

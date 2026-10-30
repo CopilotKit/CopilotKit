@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderSurface, updateDataModel } from "../../../__tests__/render";
+import { byText, lightbox, press } from "../../../__tests__/dom";
 import { standardUI } from "../../index";
-import { byText, dialog, lightbox, press, settle, ui } from "./helpers";
+import { dialog, settle, ui } from "./helpers";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -11,7 +12,7 @@ afterEach(() => {
 describe("Modal", () => {
   it("opens from the keyboard when the trigger is plain text, and keeps a Button trigger as the only control", () => {
     const view = renderSurface(ui, [
-      { id: "root", component: "Group", children: ["m1", "m2"] },
+      { id: "root", component: "Column", children: ["m1", "m2"] },
       {
         id: "m1",
         component: "Modal",
@@ -119,7 +120,7 @@ describe("Modal (standard catalog)", () => {
       { id: "c", component: "Text", text: "Body" },
     ]);
     settle(view);
-    const label = byText(view, "Press");
+    const label = byText(view.container, "Press");
     const wrapper = label.closest<HTMLElement>("[data-a2ui-modal-trigger]")!;
     expect(wrapper.getAttribute("role")).toBeNull();
     view.act(() => label.click());
@@ -171,7 +172,7 @@ describe("Modal (standard catalog)", () => {
       },
     ]);
     settle(view);
-    view.act(() => byText(view, "Open").click());
+    view.act(() => byText(view.container, "Open").click());
     settle(view);
     const opened = dialog()!;
     view.act(() =>

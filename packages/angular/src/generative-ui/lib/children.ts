@@ -51,7 +51,7 @@ export function childrenHandle(
     return { surface, basePath, ancestors, value };
   }
   if (Array.isArray(value)) {
-    // Dedupe so a repeated id renders once, as in React.
+    // Dedupe so a repeated id renders once.
     const ids = [
       ...new Set(value.filter((id): id is string => typeof id === "string")),
     ];

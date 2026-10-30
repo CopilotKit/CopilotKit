@@ -1,8 +1,9 @@
-import { signal } from "@angular/core";
+import { Component, input, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import type { ComponentFixture } from "@angular/core/testing";
 import { vi } from "vitest";
 import type { Mock } from "vitest";
+import { z } from "zod";
 import type {
   A2UIComponentNode,
   A2UIOperation,
@@ -14,9 +15,48 @@ import {
 } from "@copilotkit/core/generative-ui";
 import type { GenerativeUIErrorInfo } from "@copilotkit/shared/generative-ui";
 import type { GenerativeUI } from "../catalog";
+import type { GenerativeUIChildren } from "../children";
+import { CopilotGenerativeUIChildren } from "../children.directive";
 import { GENERATIVE_UI_RUNTIME } from "../runtime";
 import type { GenerativeUIRuntime } from "../runtime";
 import { CopilotGenerativeUISurfaceView } from "../surface-view";
+
+/** A text leaf, so the tests of a group need no other group. */
+@Component({
+  selector: "span[testLabel]",
+  template: `
+    {{ text() }}
+  `,
+  host: { "data-testid": "label" },
+})
+export class TestLabel {
+  readonly text = input<string | number>();
+}
+
+/** A container, so the tests of a group need no other group. */
+@Component({
+  selector: "div[testColumn]",
+  imports: [CopilotGenerativeUIChildren],
+  template: `
+    <ng-container *copilotGenerativeUIChildren="children()" />
+  `,
+  host: { style: "display: flex; flex-direction: column" },
+})
+export class TestColumn {
+  readonly children = input<GenerativeUIChildren>();
+}
+
+/** The catalog entries of `TestLabel` and `TestColumn`. */
+export const testComponents = {
+  Label: {
+    component: TestLabel,
+    props: z.object({ text: z.union([z.string(), z.number()]).optional() }),
+  },
+  Column: {
+    component: TestColumn,
+    slots: { children: "multiple" as const },
+  },
+};
 
 export const THREAD_ID = "thread";
 export const SURFACE_ID = "surface";

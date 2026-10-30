@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderSurface } from "../../../__tests__/render";
-import { key, lightbox, shownSrc, tick, ui } from "./helpers";
+import { lightbox, press, shownSrc, tick } from "../../../__tests__/dom";
+import { ui } from "./helpers";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -60,17 +61,13 @@ describe("standard catalog: composites", () => {
       .click();
     tick();
     expect(shownSrc()).toBe("https://example.com/3.png");
-    const key = (name: string) =>
-      document.body.dispatchEvent(
-        new KeyboardEvent("keydown", { key: name, bubbles: true }),
-      );
-    key("ArrowRight");
+    press(document.body, "ArrowRight");
     tick();
     expect(shownSrc()).toBe("https://example.com/1.png");
-    key("ArrowLeft");
+    press(document.body, "ArrowLeft");
     tick();
     expect(shownSrc()).toBe("https://example.com/3.png");
-    key("Escape");
+    press(document.body, "Escape");
     tick();
     expect(lightbox()).toBeNull();
   });

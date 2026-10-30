@@ -1,4 +1,11 @@
-import { Component, computed, input } from "@angular/core";
+import {
+  Component,
+  ElementRef,
+  afterRenderEffect,
+  computed,
+  input,
+  viewChild,
+} from "@angular/core";
 import type {
   InputSize,
   textFieldSchema,
@@ -153,6 +160,7 @@ function textAreaStyle(
       <label [attr.for]="id" [style]="labelStyle">{{ label }}</label>
     }
     <textarea
+      #area
       [id]="id"
       data-a2ui-input
       [attr.name]="name() ?? null"
@@ -196,11 +204,23 @@ export class CopilotGenerativeUITextArea extends CopilotGenerativeUIControl<stri
     ),
   );
 
+  private readonly area =
+    viewChild.required<ElementRef<HTMLTextAreaElement>>("area");
+
+  constructor() {
+    super();
+    // After the render: the value of the agent or the model must be in the
+    // element before its height can follow the text.
+    afterRenderEffect(() => {
+      this.valueText();
+      if (!this.autoResize()) return;
+      const element = this.area().nativeElement;
+      element.style.height = "auto";
+      element.style.height = `${element.scrollHeight}px`;
+    });
+  }
+
   protected onInput(event: Event) {
-    const element = event.target as HTMLTextAreaElement;
-    this.setValue(element.value);
-    if (!this.autoResize()) return;
-    element.style.height = "auto";
-    element.style.height = `${element.scrollHeight}px`;
+    this.setValue((event.target as HTMLTextAreaElement).value);
   }
 }

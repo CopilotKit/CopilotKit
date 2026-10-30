@@ -16,19 +16,11 @@ import type {
 import type { z } from "zod";
 import { injectGenerativeUIAccessibility } from "../../node-context";
 import type { GenerativeUIEventProp } from "../context";
-import { GenerativeUILightbox, openUrl } from "../lightbox";
+import { GenerativeUILightbox } from "../lightbox";
 import { radiusStyle } from "../style";
 import type { StyleMap } from "../style";
+import { faviconSrc, hostOf, openUrl } from "../url";
 import { CopilotGenerativeUIIcon } from "./icon";
-
-/** The host of a URL, with or without a scheme. */
-export function hostOf(url: string) {
-  try {
-    return new URL(url.includes("://") ? url : `https://${url}`).hostname;
-  } catch {
-    return undefined;
-  }
-}
 
 type ImageVariantStyle = Partial<
   Record<
@@ -61,8 +53,8 @@ const OBJECT_FIT = {
 type ImageProps = z.output<typeof imageSchema>;
 
 /**
- * An image from a URL. The host is `display: contents` around the `<img>`
- * (React renders the image alone); with an action overlay or hover zoom the
+ * An image from a URL. The host is `display: contents` around the `<img>`,
+ * so the image lays out alone; with an action overlay or hover zoom the
  * host is the wrapper, and after a failed load with `fallback` the host is
  * the fallback box itself.
  */
@@ -81,7 +73,7 @@ type ImageProps = z.output<typeof imageSchema>;
         [attr.aria-hidden]="imageAria()['aria-hidden'] ? 'true' : null"
         [attr.aria-live]="imageAria()['aria-live'] ?? null"
         loading="lazy"
-        (error)="failed.set(true)"
+        (error)="onError($event)"
         (click)="open()"
         [attr.data-a2ui-lightbox-trigger]="showsLightbox() ? '' : null"
         [style]="imageStyle()"
@@ -139,7 +131,11 @@ export class CopilotGenerativeUIImage {
   readonly onOverlayClick = input<GenerativeUIEventProp>();
 
   protected readonly aria = injectGenerativeUIAccessibility();
-  protected readonly failed = signal(false);
+  /** The src of the failed load: a new url starts unfailed. */
+  readonly #failedSrc = signal<string | null>(null);
+  protected readonly failed = computed(
+    () => this.#failedSrc() !== null && this.#failedSrc() === this.url(),
+  );
   protected readonly hovered = signal(false);
   readonly #lightbox = inject(GenerativeUILightbox);
   protected readonly overlayStyle: StyleMap = {
@@ -224,7 +220,7 @@ export class CopilotGenerativeUIImage {
           color: textColor("secondary"),
           fontSize: ".875em",
           textAlign: "center",
-          // Angular's style map adds no unit; React's 64 renders as 64px.
+          // A style map adds no unit to a number, so the default is "64px".
           minHeight: spacing(this.minHeight()) ?? "64px",
         };
       case "wrapper":
@@ -239,6 +235,12 @@ export class CopilotGenerativeUIImage {
         return { display: "contents" };
     }
   });
+
+  // The src of the element, not url(): an error that arrives late belongs to
+  // the src that was loading.
+  protected onError(event: Event) {
+    this.#failedSrc.set((event.target as HTMLImageElement).getAttribute("src"));
+  }
 
   protected open() {
     const url = this.url();
@@ -282,9 +284,7 @@ export class CopilotGenerativeUIFavicon {
   });
   protected readonly src = computed(() => {
     const host = this.host();
-    return host
-      ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`
-      : null;
+    return host ? faviconSrc(host) : null;
   });
   protected readonly style = computed<StyleMap>(() => ({
     display: this.inline() ? "inline-block" : "block",

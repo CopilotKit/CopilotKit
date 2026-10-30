@@ -3,7 +3,8 @@ import { renderSurface, updateDataModel } from "../../../__tests__/render";
 import { standardUI } from "../../index";
 import { layoutStyle } from "../../style";
 import { layoutComponents } from "../index";
-import { byText, labelOf, parentOf, spacing, ui } from "./helpers";
+import { byText } from "../../../__tests__/dom";
+import { labelOf, parentOf, spacing, ui } from "./helpers";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -374,10 +375,6 @@ describe("standard layout", () => {
   });
 });
 
-/**
- * Tests ported from the a2ui-renderer standard catalog, on the full
- * catalog, so the behaviour that catalog had is kept on the engine.
- */
 describe("standard catalog: layout (parity)", () => {
   it("centres Row children by default and keeps text from stretching", () => {
     const v = renderSurface(standardUI, [
@@ -393,7 +390,7 @@ describe("standard catalog: layout (parity)", () => {
       { id: "r2", component: "Row", align: "start", children: ["s"] },
       { id: "s", component: "Text", text: "top" },
     ]);
-    const value = byText(v, "$29.00");
+    const value = byText(v.container, "$29.00");
     const row = value.parentElement!;
     expect(row.style.alignItems).toBe("center");
     expect(row.dataset["a2uiRow"]).toBe("spaceBetween");
@@ -401,7 +398,9 @@ describe("standard catalog: layout (parity)", () => {
     expect(value.style.minWidth).toMatch(/^0(px)?$/);
     expect(value.style.width).toBe("");
     expect(value.style.fontVariantNumeric).toBe("tabular-nums");
-    expect(byText(v, "top").parentElement!.style.alignItems).toBe("flex-start");
+    expect(byText(v.container, "top").parentElement!.style.alignItems).toBe(
+      "flex-start",
+    );
   });
 });
 

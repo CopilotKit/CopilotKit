@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderSurface } from "../../../__tests__/render";
-import { buttons, byText, ui } from "./helpers";
+import { byText, click } from "../../../__tests__/dom";
+import { standardUI } from "../../index";
+import { buttons, ui } from "./helpers";
 
 describe("List", () => {
   it("renders items as a numbered list", () => {
@@ -120,10 +122,10 @@ describe("List", () => {
         markerSize: 48,
       },
     ]);
-    const wide = byText(view, "①");
+    const wide = byText(view.container, "①");
     expect(wide.style.minWidth).toBe("32px");
     expect(wide.style.maxWidth).toBe("32px");
-    expect(byText(view, "②").style.minWidth).toBe("48px");
+    expect(byText(view.container, "②").style.minWidth).toBe("48px");
   });
 
   it("sends the ListItem action when the user picks the item", async () => {
@@ -156,11 +158,32 @@ describe("List", () => {
         action: { event: { name: "pick" } },
       },
     ]);
-    const item = byText(view, "Sold out").closest("li")!;
+    const item = byText(view.container, "Sold out").closest("li")!;
     expect(item.getAttribute("aria-disabled")).toBe("true");
     expect(item.style.opacity).toBe("0.5");
     expect(item.querySelector("button")).toBeNull();
-    view.act(() => byText(view, "Sold out").click());
+    view.act(() => byText(view.container, "Sold out").click());
     expect(view.forwardEvent).not.toHaveBeenCalled();
+  });
+
+  it("ListItem action inside a Pressable dispatches only the ListItem action", async () => {
+    const v = renderSurface(standardUI, [
+      {
+        id: "root",
+        component: "Pressable",
+        children: ["li"],
+        onClick: { event: { name: "outer-a" } },
+      },
+      {
+        id: "li",
+        component: "ListItem",
+        label: "Row",
+        action: { event: { name: "item-a" } },
+      },
+    ]);
+    click(v, byText(v.container, "Row"));
+    await vi.waitFor(() => expect(v.forwardEvent).toHaveBeenCalled());
+    const names = v.forwardEvent.mock.calls.map(([event]) => event.name);
+    expect(names).toEqual(["item-a"]);
   });
 });

@@ -37,24 +37,40 @@ const notify = () => {
 
 function loadHighlighter() {
   if (highlighter || typeof window === "undefined") return highlighterLoading;
-  highlighterLoading ??= import("highlight.js/lib/common").then((module) => {
-    highlighter = module.default;
-    notify();
-  });
+  highlighterLoading ??= import("highlight.js/lib/common").then(
+    (module) => {
+      highlighter = module.default;
+      notify();
+    },
+    (error: unknown) => {
+      // A failed chunk load is not cached, so the next render tries again.
+      highlighterLoading = undefined;
+      throw error;
+    },
+  );
   return highlighterLoading;
 }
 
 function loadMath() {
   if (mathRenderer || typeof window === "undefined") return mathLoading;
-  mathLoading ??= import("katex").then((module) => {
-    const katex =
-      (module as { default?: { renderToString: MathRenderer } }).default ??
-      (module as unknown as { renderToString: MathRenderer });
-    mathRenderer = katex.renderToString.bind(katex);
-    notify();
-  });
+  mathLoading ??= import("katex").then(
+    (module) => {
+      const katex =
+        (module as { default?: { renderToString: MathRenderer } }).default ??
+        (module as unknown as { renderToString: MathRenderer });
+      mathRenderer = katex.renderToString.bind(katex);
+      notify();
+    },
+    (error: unknown) => {
+      mathLoading = undefined;
+      throw error;
+    },
+  );
   return mathLoading;
 }
+
+/** A load from a render keeps the plain fallback when it fails. */
+const ignoreFailure = () => undefined;
 
 /**
  * Calls `listener` when highlight.js or KaTeX has loaded, so a rendered
@@ -134,7 +150,7 @@ const mathExtension: TokenizerAndRendererExtension = {
   renderer: (token) => {
     if (!mathRenderer) {
       // The TeX source shows until KaTeX arrives.
-      void loadMath();
+      void loadMath()?.catch(ignoreFailure);
       return `<span class="katex-pending">${escapeHtml(token["raw"])}</span>`;
     }
     return mathRenderer(token["text"], {
@@ -159,7 +175,7 @@ function highlightCode(code: HTMLElement): string {
   const lang = /\blanguage-(\S+)/.exec(code.className)?.[1] ?? "";
   code.classList.add("hljs");
   if (!highlighter) {
-    void loadHighlighter();
+    void loadHighlighter()?.catch(ignoreFailure);
     return lang;
   }
   const language = highlighter.getLanguage(lang) ? lang : "plaintext";

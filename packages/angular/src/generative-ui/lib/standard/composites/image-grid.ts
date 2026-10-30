@@ -7,7 +7,8 @@ import type {
 import type { z } from "zod";
 import { injectGenerativeUIAccessibility } from "../../node-context";
 import { GenerativeUIStyles } from "../../styles";
-import { GenerativeUILightbox, openUrl } from "../lightbox";
+import { GenerativeUILightbox } from "../lightbox";
+import { openUrl } from "../url";
 import type { StyleMap } from "../style";
 import { SECONDARY_XS } from "./styles";
 
@@ -56,14 +57,14 @@ export class CopilotGenerativeUIImageGrid {
   protected readonly isBento = computed(
     () => this.layout() === "bento" && this.shownImages().length > 1,
   );
-  // React renders nothing without images; the host hides itself instead.
+  // A host element cannot be left out, so without images it hides itself.
   protected readonly style = computed<StyleMap>(() =>
     this.shownImages().length === 0
       ? { display: "none" }
       : {
           display: "grid",
-          "grid-template-columns": `repeat(${this.columnCount()}, minmax(0, 1fr))`,
-          "grid-auto-flow": this.isBento() ? "dense" : undefined,
+          gridTemplateColumns: `repeat(${this.columnCount()}, minmax(0, 1fr))`,
+          gridAutoFlow: this.isBento() ? "dense" : undefined,
           gap: spacing(this.gap() ?? 2),
           width: "100%",
         },
@@ -78,13 +79,13 @@ export class CopilotGenerativeUIImageGrid {
     const isLead = this.isBento() && index === 0;
     return {
       margin: 0,
-      "min-width": 0,
-      "grid-column": isLead
+      minWidth: 0,
+      gridColumn: isLead
         ? `span ${Math.min(2, this.columnCount())}`
         : undefined,
-      "grid-row": isLead ? "span 2" : undefined,
+      gridRow: isLead ? "span 2" : undefined,
       display: "flex",
-      "flex-direction": "column",
+      flexDirection: "column",
       gap: "4px",
     };
   }
@@ -95,9 +96,9 @@ export class CopilotGenerativeUIImageGrid {
       display: "block",
       width: "100%",
       height: "100%",
-      "aspect-ratio": isLead ? undefined : (this.aspectRatio() ?? "1 / 1"),
-      "object-fit": "cover",
-      "border-radius": radius("md"),
+      aspectRatio: isLead ? undefined : (this.aspectRatio() ?? "1 / 1"),
+      objectFit: "cover",
+      borderRadius: radius("md"),
       cursor: image.href ? "pointer" : "zoom-in",
     };
   }

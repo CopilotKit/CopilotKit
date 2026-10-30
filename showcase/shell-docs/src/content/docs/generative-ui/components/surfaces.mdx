@@ -187,12 +187,13 @@ Each component renders inside its own error boundary. One broken component shows
     provideGenerativeUI({
       ui: shopUI,
       onError: (info) => console.warn(info.kind, info.surfaceId, info.error.message),
-      // A component with the inputs `message` and `componentId`.
+      // A component with the inputs `message` and `componentId`, and
+      // `retry` if it declares it.
       errorFallback: MyFallback,
     });
     ```
 
-    Angular has no per-component error boundary. A component that throws while it is created shows the fallback and reports to `onError`; an error in a later change detection goes to the `ErrorHandler` of the app. There is no retry.
+    Angular has no per-component error boundary. A component that throws while it is created shows the fallback and reports to `onError`; an error in a later change detection goes to the `ErrorHandler` of the app. After a render error, the default fallback shows a Retry button that creates the component again with the current data. A custom `errorFallback` gets the same function in its `retry` input, if it declares one.
   </Tab>
 </Tabs>
 

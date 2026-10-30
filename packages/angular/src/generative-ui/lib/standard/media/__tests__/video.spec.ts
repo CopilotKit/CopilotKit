@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { videoSourceOf, youTubeIdOf } from "..";
-import { renderInColumn } from "./helpers";
+import { renderSurface, updateDataModel } from "../../../__tests__/render";
+import { renderInColumn, ui } from "./helpers";
 
 describe("Video", () => {
   it("embeds a YouTube link in privacy-enhanced mode once the user presses play", () => {
@@ -39,6 +40,22 @@ describe("Video", () => {
     );
     expect(frame.getAttribute("sandbox")).toBe(
       "allow-scripts allow-same-origin allow-presentation",
+    );
+  });
+
+  it("shows the poster again, without autoplay, when the url of a playing video changes", () => {
+    const view = renderSurface(
+      ui,
+      [{ id: "root", component: "Video", url: { "@path": "/url" } }],
+      { url: "https://youtu.be/dQw4w9WgXcQ" },
+    );
+    view.act(() => view.container.querySelector("button")!.click());
+    expect(view.container.querySelector("iframe")).not.toBeNull();
+    view.update(updateDataModel("/url", "https://youtu.be/abcDEF12345"));
+    expect(view.container.querySelector("iframe")).toBeNull();
+    view.act(() => view.container.querySelector("button")!.click());
+    expect(view.container.querySelector("iframe")!.getAttribute("src")).toBe(
+      "https://www.youtube-nocookie.com/embed/abcDEF12345?autoplay=1",
     );
   });
 

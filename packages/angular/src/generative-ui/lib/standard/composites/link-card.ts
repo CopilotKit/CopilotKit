@@ -7,37 +7,35 @@ import {
 } from "@copilotkit/shared/generative-ui";
 import { GenerativeUIStyles } from "../../styles";
 import type { GenerativeUIEventProp } from "../context";
-import { hostOf } from "../media";
 import type { StyleMap } from "../style";
-import { safeHref } from "../text";
+import { faviconSrc, hostOf, safeHref } from "../url";
 import {
   CLAMP_TWO,
   FAVICON_STYLE,
   SECONDARY_SM,
   SECONDARY_XS,
   TITLE_MD,
-  faviconSrc,
 } from "./styles";
 
 const LINK_STYLE: StyleMap = {
   display: "flex",
   gap: spacing(3),
-  "align-items": "flex-start",
+  alignItems: "flex-start",
   padding: spacing(3),
   border: `1px solid ${borderColor("default")}`,
-  "border-radius": radius("xl"),
+  borderRadius: radius("xl"),
   background: backgroundColor("surface"),
   color: "inherit",
-  "text-decoration": "none",
+  textDecoration: "none",
   width: "100%",
-  "box-sizing": "border-box",
+  boxSizing: "border-box",
   cursor: "pointer",
-  "text-align": "start",
+  textAlign: "start",
 };
 
 /**
  * A preview card of a URL: an `<a>`, or a `<button>` when `onClick` is
- * bound, as in React. The node renderer creates the host from `hostTag`.
+ * bound. The node renderer creates the host from `hostTag`.
  */
 @Component({
   selector: "[copilotGenerativeUILinkCard]",
@@ -118,8 +116,8 @@ export class CopilotGenerativeUILinkCard {
   protected readonly imageStyle: StyleMap = {
     width: "96px",
     height: "96px",
-    "object-fit": "cover",
-    "border-radius": radius("md"),
+    objectFit: "cover",
+    borderRadius: radius("md"),
     flex: "none",
   };
   protected readonly linkStyle = LINK_STYLE;

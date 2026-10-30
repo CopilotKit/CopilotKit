@@ -160,7 +160,7 @@ export class CopilotGenerativeUIMarkdownSurfaces {
     runtime.version();
     const messageId = this.messageId();
     // The fences are found by the message id, so without one they stay
-    // code, as in React's MarkdownRenderer.
+    // code.
     if (messageId === undefined) {
       return [{ kind: "markdown", key: "md", text: this.content() }];
     }

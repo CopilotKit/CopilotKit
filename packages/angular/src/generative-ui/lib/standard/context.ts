@@ -5,8 +5,7 @@ import type { GenerativeUIInvokeResult } from "@copilotkit/shared/generative-ui"
 /**
  * True inside a Card. A surface has only one bordered level (the outer
  * Card). Everything inside it becomes borderless columns or the one
- * near-white inner panel. The Angular counterpart of React's
- * `CardNestingContext`: a Card provides it, children inject it.
+ * near-white inner panel. A Card provides it, children inject it.
  */
 export const GENERATIVE_UI_CARD_NESTING = new InjectionToken<boolean>(
   "GENERATIVE_UI_CARD_NESTING",

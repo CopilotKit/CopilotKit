@@ -7,7 +7,7 @@ import type { z } from "zod";
 import { injectGenerativeUIAccessibility } from "../../node-context";
 import { GenerativeUIStyles } from "../../styles";
 import type { StyleMap } from "../style";
-import { hostOf } from "./image";
+import { hostOf } from "../url";
 
 /** A YouTube id is about 11 characters of [A-Za-z0-9_-]. Others are refused. */
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{6,20}$/;
@@ -76,9 +76,9 @@ export function videoSourceOf(url: string): "youtube" | "file" | "page" {
 
 /**
  * A video player for a file, the YouTube embed behind its poster, or a link
- * for a page the player cannot play. The host is `display: contents`: the
- * player, the poster button, the iframe or the link is the element React
- * renders at the root. The YouTube player is cross-origin
+ * for a page the player cannot play. The host is `display: contents`, so the
+ * player, the poster button, the iframe or the link lays out as the root.
+ * The YouTube player is cross-origin
  * (youtube-nocookie.com), so allow-same-origin only lets it use its own
  * origin; it cannot get to the host page.
  */
@@ -149,7 +149,7 @@ export function videoSourceOf(url: string): "youtube" | "file" | "page" {
           [attr.aria-description]="aria()['aria-description'] ?? null"
           [attr.aria-hidden]="aria()['aria-hidden'] ? 'true' : null"
           [attr.aria-live]="aria()['aria-live'] ?? null"
-          (click)="isPlaying.set(true)"
+          (click)="playingUrl.set(url())"
           [style]="posterStyle()"
         >
           <img
@@ -205,7 +205,8 @@ export class CopilotGenerativeUIVideo {
   readonly weight = input<number>();
 
   protected readonly aria = injectGenerativeUIAccessibility();
-  protected readonly isPlaying = signal(false);
+  /** The url the user pressed play on: a new url shows its poster first. */
+  protected readonly playingUrl = signal<string | undefined>(undefined);
   protected readonly failedUrl = signal<string | undefined>(undefined);
   readonly #sanitizer = inject(DomSanitizer);
 
@@ -221,7 +222,7 @@ export class CopilotGenerativeUIVideo {
     const source = videoSourceOf(url);
     if (source === "page" || this.failedUrl() === url) return "link";
     if (this.youTubeId() === undefined) return "file";
-    return this.isPlaying() ? "youtube" : "poster";
+    return this.playingUrl() === url ? "youtube" : "poster";
   });
   protected readonly host = computed(() => {
     const url = this.url();

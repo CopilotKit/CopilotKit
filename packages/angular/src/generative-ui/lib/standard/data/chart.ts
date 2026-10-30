@@ -233,8 +233,8 @@ function valueLabelsPlugin(
 }
 
 /**
- * The chart.js config of the props: the same marks, colors, axes, legend,
- * tooltip and value labels as the React chart draws with recharts.
+ * The chart.js config of the props: the marks, colors, axes, legend,
+ * tooltip and value labels.
  */
 export function chartConfig(
   props: ChartProps,
@@ -272,9 +272,13 @@ export function chartConfig(
             raw: unknown;
           }) => {
             const parsed = context.parsed;
+            // A horizontal layout puts the value on the x axis.
+            const valueKey = props.layout === "horizontal" ? "x" : "y";
             const value =
-              typeof parsed === "object" && parsed !== null && "y" in parsed
-                ? (parsed as { y: unknown }).y
+              typeof parsed === "object" &&
+              parsed !== null &&
+              valueKey in parsed
+                ? (parsed as Record<string, unknown>)[valueKey]
                 : parsed;
             const label = context.dataset.label;
             return `${label ? `${label}: ` : ""}${format(value)}`;

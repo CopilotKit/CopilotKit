@@ -105,10 +105,10 @@ export type CreateGenerativeUIConfig<
 
 /**
  * Experimental. Declares the components the model can render, the app state
- * they read, and the functions they call. Same rules as in React: a prop
- * named like a top-level state key is bound to it, `bind` binds a prop to a
- * selector, an event binds to the function with its name (or the name
- * without `on`), and `writable: ["value"]` makes `value` a two-way binding.
+ * they read, and the functions they call. A prop named like a top-level
+ * state key is bound to it, `bind` binds a prop to a selector, an event binds
+ * to the function with its name (or the name without `on`), and
+ * `writable: ["value"]` makes `value` a two-way binding.
  *
  * @example
  * ```ts

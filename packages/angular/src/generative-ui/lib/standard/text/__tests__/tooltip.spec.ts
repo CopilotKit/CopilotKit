@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { renderSurface } from "../../../__tests__/render";
+import { byText } from "../../../__tests__/dom";
 import { standardUI } from "../../index";
-import { byText, ui } from "./helpers";
+import { ui } from "./helpers";
 
 describe("standard text", () => {
   it("shows the Tooltip content on focus and on hover, and hides it on Escape", () => {

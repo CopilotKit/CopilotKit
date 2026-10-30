@@ -9,15 +9,15 @@ import {
   updateComponents,
   updateDataModel,
 } from "./render";
+import { textOf } from "./dom";
 import {
   RetryFallback,
   alertText,
+  allByText,
   alerts,
-  byText,
   grid,
   inputs,
   probes,
-  text,
   texts,
   type,
   ui,
@@ -48,7 +48,7 @@ describe("CopilotGenerativeUISurfaceView", () => {
       }),
     );
     const first = view.container.querySelector("[data-card]");
-    view.act(() => byText(view.container, "pick a")[0]!.click());
+    view.act(() => allByText(view.container, "pick a")[0]!.click());
     view.update(
       updateComponents({
         id: "b",
@@ -71,8 +71,8 @@ describe("CopilotGenerativeUISurfaceView", () => {
         name: "Alpha 2",
       }),
     );
-    expect(byText(view.container, "Alpha 2")).toHaveLength(1);
-    expect(text(view.container, '[data-clicks="a"]')).toBe("1");
+    expect(allByText(view.container, "Alpha 2")).toHaveLength(1);
+    expect(textOf(view.container, '[data-clicks="a"]')).toBe("1");
     expect(view.container.querySelector("[data-card]")).toBe(first);
     expect(
       view.container.querySelectorAll("[data-generative-ui-placeholder]"),
@@ -93,7 +93,7 @@ describe("CopilotGenerativeUISurfaceView", () => {
       },
     ]);
     view.runtime.dispatcher.register("addToCart", { current: handler });
-    byText(view.container, "pick root")[0]!.click();
+    allByText(view.container, "pick root")[0]!.click();
     await vi.waitFor(() => expect(handler).toHaveBeenCalled());
     expect(handler).toHaveBeenCalledExactlyOnceWith({
       productId: "root",
@@ -117,7 +117,7 @@ describe("CopilotGenerativeUISurfaceView", () => {
       ],
       { sel: "x" },
     );
-    byText(view.container, "pick root")[0]!.click();
+    allByText(view.container, "pick root")[0]!.click();
     await vi.waitFor(() => expect(view.forwardEvent).toHaveBeenCalled());
     expect(view.forwardEvent).toHaveBeenCalledExactlyOnceWith(
       {
@@ -152,15 +152,15 @@ describe("CopilotGenerativeUISurfaceView", () => {
         },
       ),
     );
-    expect(byText(view.container, "retry: exploded")).toHaveLength(1);
-    byText(view.container, "pick ok")[0]!.click();
+    expect(allByText(view.container, "retry: exploded")).toHaveLength(1);
+    allByText(view.container, "pick ok")[0]!.click();
     await vi.waitFor(() => expect(handler).toHaveBeenCalledOnce());
     expect(view.reportError).toHaveBeenCalledWith(
       expect.objectContaining({ kind: "render", componentId: "bomb" }),
     );
     probes.bombArmed = false;
-    view.act(() => byText(view.container, "retry: exploded")[0]!.click());
-    expect(byText(view.container, "survived b1")).toHaveLength(1);
+    view.act(() => allByText(view.container, "retry: exploded")[0]!.click());
+    expect(allByText(view.container, "survived b1")).toHaveLength(1);
   });
 
   it("resets a failed component when the agent sends a new revision of it", () => {
@@ -173,14 +173,14 @@ describe("CopilotGenerativeUISurfaceView", () => {
     view.update(
       updateComponents({ id: "root", component: "Bomb", label: "v2" }),
     );
-    expect(byText(view.container, "survived v2")).toHaveLength(1);
+    expect(allByText(view.container, "survived v2")).toHaveLength(1);
   });
 
   it("gives an @index prop outside of a template no value, without an error", () => {
     const view = renderSurface(ui, [
       { id: "root", component: "Position", index: { "@call": "@index" } },
     ]);
-    expect(text(view.container, "[data-position]")).toBe("none");
+    expect(textOf(view.container, "[data-position]")).toBe("none");
     expect(view.reportError).not.toHaveBeenCalled();
   });
 
@@ -233,7 +233,7 @@ describe("CopilotGenerativeUISurfaceView", () => {
       { id: "ok", component: "Card", productId: "ok", name: "Fine" },
     ]);
     expect(alertText(view.container)).toContain("cyclic reference to a");
-    expect(byText(view.container, "Fine")).toHaveLength(1);
+    expect(allByText(view.container, "Fine")).toHaveLength(1);
   });
 
   it("renders a repeated child id once without duplicate-key warnings", () => {
@@ -243,7 +243,7 @@ describe("CopilotGenerativeUISurfaceView", () => {
         { id: "root", component: "Grid", children: ["x", "x"] },
         { id: "x", component: "Card", productId: "x", name: "Once" },
       ]);
-      expect(byText(view.container, "Once")).toHaveLength(1);
+      expect(allByText(view.container, "Once")).toHaveLength(1);
       expect(errors).not.toHaveBeenCalled();
     } finally {
       errors.mockRestore();
@@ -270,7 +270,7 @@ describe("CopilotGenerativeUISurfaceView", () => {
     second.detectChanges();
     const names = () =>
       [view.container, second.nativeElement as HTMLElement].map((container) =>
-        text(container, "[data-card] span"),
+        textOf(container, "[data-card] span"),
       );
     expect(names()).toEqual(["Before", "Before"]);
     view.update(card("After"));
@@ -293,7 +293,7 @@ describe("CopilotGenerativeUISurfaceView", () => {
       ),
     );
     expect(probes.race).toBeUndefined();
-    expect(text(view.container, "[data-counter]")).toBe("9");
+    expect(textOf(view.container, "[data-counter]")).toBe("9");
   });
 
   it("keeps rendering when the host error reporter throws", () => {
@@ -414,7 +414,7 @@ describe("CopilotGenerativeUISurfaceView", () => {
         ],
         { items: [{ note: "I pick A" }, { note: "I pick B" }] },
       );
-      byText(view.container, "pick p1")[1]!.click();
+      allByText(view.container, "pick p1")[1]!.click();
       await vi.waitFor(() => expect(view.forwardEvent).toHaveBeenCalled());
       expect(view.forwardEvent).toHaveBeenCalledExactlyOnceWith(
         {
@@ -464,7 +464,7 @@ describe("CopilotGenerativeUISurfaceView", () => {
       );
       // a, then b and a for item 0, then b again for item 0: the cycle.
       expect(alertText(view.container)).toContain("cyclic reference to b");
-      expect(byText(grid(view.container), "A")).toHaveLength(1);
+      expect(allByText(grid(view.container), "A")).toHaveLength(1);
     });
   });
 });

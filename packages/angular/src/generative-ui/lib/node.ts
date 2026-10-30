@@ -58,7 +58,7 @@ import type { DataProps, ModelCheck, ModelData, Selection } from "./node-props";
 import type { GenerativeUIRuntime } from "./runtime";
 
 /** Where a node renders: which component of which surface, and in which template item. */
-export interface GenerativeUINodeInput {
+interface GenerativeUINodeInput {
   surface: ManagedSurface;
   componentId: string;
   /**
@@ -75,7 +75,7 @@ export interface GenerativeUINodeInput {
  * component once per item, so the item path is part of the id. A real cycle
  * repeats both.
  */
-export function scopedId(componentId: string, basePath: string | undefined) {
+function scopedId(componentId: string, basePath: string | undefined) {
   return `${basePath ?? ""}#${componentId}`;
 }
 
@@ -111,12 +111,11 @@ export class CopilotGenerativeUINodeFallback {
 }
 
 /**
- * A component whose host element depends on the node, the way a React
- * component picks its tag at render time (`h2` or `h3`, `th` or `td`). The
- * renderer creates that element as the host instead of the selector's tag,
- * and creates the component again when the tag changes.
+ * A component whose host element depends on the node, such as `h2` or `h3`,
+ * `th` or `td`. The renderer creates that element as the host instead of the
+ * selector's tag, and creates the component again when the tag changes.
  */
-export interface GenerativeUIHostTag {
+interface GenerativeUIHostTag {
   hostTag(props: Record<string, unknown>, injector: Injector): string;
 }
 
@@ -166,8 +165,7 @@ const hasOwn = (value: object, key: string) =>
 /**
  * Renders one component of a surface into a view container, and keeps it
  * current: the props it gets, the events it can send, the slots it renders
- * and the two-way bindings of its writable props. The Angular counterpart of
- * React's `NodeView`/`ResolvedNode`, with signals in place of hooks.
+ * and the two-way bindings of its writable props.
  *
  * The component is created once and recreated only when its type changes.
  * Its inputs are bound with getters, so they update in place. A component
@@ -190,7 +188,7 @@ export class GenerativeUINodeRenderer {
   /** The envelope attributes this node set on the host element. */
   #setAttributes = new Set<string>();
 
-  /** The component model of this node. Follows the manager, as in React. */
+  /** The component model of this node. Follows the manager. */
   readonly component = computed(() => {
     this.runtime.version();
     return this.node.surface.model.componentsModel.get(this.node.componentId);
@@ -251,10 +249,10 @@ export class GenerativeUINodeRenderer {
   });
 
   /**
-   * The bound props, from the app state. As in React, the selectors run
-   * again only when the state object or the checked model props change, and
-   * the result keeps its identity while shallow-equal: a selector that
-   * returns a new array on each call cannot cause an update loop.
+   * The bound props, from the app state. The selectors run again only when
+   * the state object or the checked model props change, and the result keeps
+   * its identity while shallow-equal: a selector that returns a new array on
+   * each call cannot cause an update loop.
    */
   readonly #selection = computed<Selection>(
     () => {
@@ -322,7 +320,7 @@ export class GenerativeUINodeRenderer {
 
   readonly #eventHandlers = computed(() => {
     const names = this.#boundEventNames();
-    const definition = untracked(this.definition);
+    const definition = this.definition();
     const handlers: Record<
       string,
       (args?: unknown) => Promise<GenerativeUIInvokeResult>
@@ -390,7 +388,13 @@ export class GenerativeUINodeRenderer {
         kind: "component",
         type: definition.component,
         definition,
-        tag: hostTagOf(definition.component, properties, this.injector),
+        // The props the component gets: a bound path resolved, and an event
+        // the app matched to a function present without a model binding.
+        tag: hostTagOf(
+          definition.component,
+          { ...this.#inputs(), ...this.#eventHandlers() },
+          this.injector,
+        ),
       };
     },
     { equal: sameOutcome },
@@ -409,8 +413,8 @@ export class GenerativeUINodeRenderer {
     this.#effects.push(
       effect(() => {
         const outcome = this.#outcome();
-        // A new agent revision renders a component that failed again, as
-        // React's boundary does; a data tick does not.
+        // A new agent revision renders a component that failed again; a
+        // data tick does not.
         this.properties();
         untracked(() => this.#apply(outcome));
       }, options),

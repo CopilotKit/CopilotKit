@@ -65,11 +65,11 @@ export class CopilotGenerativeUIFollowUp {
     }),
   );
   protected readonly gap = spacing(2);
-  // React renders nothing without items; the host hides itself instead.
+  // A host element cannot be left out, so without items it hides itself.
   protected readonly style = computed<StyleMap>(() =>
     this.entries().length === 0
       ? { display: "none" }
-      : { display: "flex", "flex-direction": "column", gap: spacing(2) },
+      : { display: "flex", flexDirection: "column", gap: spacing(2) },
   );
   protected readonly titleStyle = SECONDARY_SM;
   protected readonly pillStyle: StyleMap = {

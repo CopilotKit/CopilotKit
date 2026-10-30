@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { renderSurface } from "../../../__tests__/render";
-import { buttonNamed, ui } from "./helpers";
+import { buttonNamed } from "../../../__tests__/dom";
+import { ui } from "./helpers";
 
 describe("standard catalog: composites", () => {
   it("Citation shows its source on click", () => {
     const v = renderSurface(ui, [
-      { id: "root", component: "Row", children: ["t", "c"] },
+      { id: "root", component: "Column", children: ["t", "c"] },
       { id: "t", component: "Label", text: "Vienna has 1.9M people" },
       {
         id: "c",

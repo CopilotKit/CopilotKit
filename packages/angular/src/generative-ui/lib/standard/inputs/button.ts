@@ -28,10 +28,10 @@ import { injectGenerativeUIAccessibility } from "../../node-context";
 import { GenerativeUIStyles } from "../../styles";
 import type { GenerativeUIEventProp } from "../context";
 import { provideContainerContext } from "../context";
-import { openUrl } from "../lightbox";
 import { CopilotGenerativeUIIcon } from "../media";
 import { layoutStyle, px } from "../style";
 import type { StyleMap } from "../style";
+import { openUrl } from "../url";
 import { connectVisibleOnce } from "../visible-once";
 import { FONT_SIZE, HEIGHT, PAD_X, asText } from "./control";
 import { CopilotGenerativeUILayoutInputs } from "./layout-inputs";
@@ -245,7 +245,7 @@ export class CopilotGenerativeUIButton {
 @Component({
   selector: "div[copilotGenerativeUIPressable]",
   imports: [CopilotGenerativeUIChildren],
-  providers: provideContainerContext(),
+  providers: [provideContainerContext()],
   template: `
     <ng-container *copilotGenerativeUIChildren="children()" />
   `,

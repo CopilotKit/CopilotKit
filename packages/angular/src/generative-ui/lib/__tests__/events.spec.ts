@@ -9,8 +9,6 @@ import {
   setup,
 } from "./generative-ui.helpers";
 
-// Port of the forwardEvent tests of React's use-generative-ui-root.test.tsx.
-
 afterEach(() => vi.restoreAllMocks());
 
 describe("CopilotGenerativeUI", () => {

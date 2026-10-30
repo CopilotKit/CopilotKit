@@ -24,9 +24,10 @@ import type { GenerativeUIChildren } from "../../children";
 import { CopilotGenerativeUIChildren } from "../../children.directive";
 import { injectGenerativeUIAccessibility } from "../../node-context";
 import { GenerativeUIStyles } from "../../styles";
-import { VISUALLY_HIDDEN, px } from "../style";
+import { FOCUS_RING, VISUALLY_HIDDEN, lineClamp, px } from "../style";
 import type { StyleMap } from "../style";
-import { INLINE_MARKDOWN, safeHref, tokenizeInlineMarkdown } from "./markdown";
+import { safeHref } from "../url";
+import { INLINE_MARKDOWN, tokenizeInlineMarkdown } from "./markdown";
 
 type TypographyProps = z.output<typeof typographySchema>;
 type TextProps = z.output<typeof textSchema>;
@@ -34,7 +35,6 @@ type BadgeProps = z.output<typeof badgeSchema>;
 type BadgeSize = (typeof BADGE_SIZES)[number];
 type CaptionSize = (typeof CAPTION_SIZES)[number];
 
-const FOCUS_RING = "2px solid var(--a2ui-color-focus, #0285ff)";
 const TEXT_STYLE_ID = "a2ui-standard-text";
 const TEXT_CSS = [
   "@keyframes a2ui-shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}",
@@ -53,12 +53,7 @@ function typographyStyle(props: TypographyProps): StyleMap {
   const clamp: StyleMap = props.truncate
     ? { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
     : props.maxLines
-      ? {
-          display: "-webkit-box",
-          WebkitLineClamp: props.maxLines,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-        }
+      ? lineClamp(props.maxLines)
       : {};
   return {
     color: textColor(props.color),
@@ -114,8 +109,8 @@ const TITLE_TAG: Record<TitleSize, "h2" | "h3" | "h4"> = {
 };
 
 /**
- * A heading. The element changes with the size (h2, h3 or h4), as in React:
- * the node renderer creates the host from `hostTag`. Only what the model
+ * A heading. The element changes with the size (h2, h3 or h4): the node
+ * renderer creates the host from `hostTag`. Only what the model
  * set is inline; the rest comes from the heading styles of the host.
  */
 @Component({
@@ -198,7 +193,7 @@ export class CopilotGenerativeUIText extends Typography {
   readonly children = input<GenerativeUIChildren>();
 
   protected readonly aria = injectGenerativeUIAccessibility();
-  protected readonly hidden = VISUALLY_HIDDEN;
+  protected readonly visuallyHidden = VISUALLY_HIDDEN;
   protected readonly tokens = computed(() => {
     const text = this.text();
     return tokenizeInlineMarkdown(text === undefined ? "" : String(text));
@@ -277,7 +272,7 @@ export class CopilotGenerativeUICaption {
   readonly truncate = input<boolean>();
   readonly maxLines = input<number>();
 
-  protected readonly hidden = VISUALLY_HIDDEN;
+  protected readonly visuallyHidden = VISUALLY_HIDDEN;
   protected readonly tokens = computed(() =>
     tokenizeInlineMarkdown(String(this.text())),
   );
@@ -382,7 +377,7 @@ export class CopilotGenerativeUIStrikethrough {
 })
 export class CopilotGenerativeUIBlockquote {
   readonly text = input.required<string>();
-  protected readonly hidden = VISUALLY_HIDDEN;
+  protected readonly visuallyHidden = VISUALLY_HIDDEN;
   protected readonly tokens = computed(() =>
     tokenizeInlineMarkdown(this.text()),
   );
@@ -551,7 +546,7 @@ export class CopilotGenerativeUIShimmerText extends Typography {
   template: `
     <span [textContent]="label()"></span>
     @if (safe()) {
-      <span [style]="hidden" [textContent]="note"></span>
+      <span [style]="visuallyHidden" [textContent]="note"></span>
     }
   `,
   host: {
@@ -567,7 +562,7 @@ export class CopilotGenerativeUILink {
   readonly href = input.required<string>();
   readonly title = input<string>();
 
-  protected readonly hidden = VISUALLY_HIDDEN;
+  protected readonly visuallyHidden = VISUALLY_HIDDEN;
   protected readonly note = " (opens in a new tab)";
   protected readonly color = textColor("info");
   protected readonly safe = computed(() => safeHref(this.href()));

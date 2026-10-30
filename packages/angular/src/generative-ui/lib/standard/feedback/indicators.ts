@@ -91,7 +91,7 @@ export class CopilotGenerativeUIFlashcardFlip {
   protected readonly flipped = signal(false);
   protected readonly faceStyle: StyleMap = {
     ...textFont("lg"),
-    "font-weight": 600,
+    fontWeight: 600,
   };
   protected readonly hintStyle: StyleMap = {
     ...textFont("sm"),
@@ -100,17 +100,17 @@ export class CopilotGenerativeUIFlashcardFlip {
   protected readonly style = computed<StyleMap>(() => ({
     ...BUTTON_RESET,
     display: "flex",
-    "flex-direction": "column",
-    "align-items": "center",
-    "justify-content": "center",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
     gap: spacing(2),
-    "min-height": "140px",
+    minHeight: "140px",
     width: "100%",
     padding: spacing(5),
-    "box-sizing": "border-box",
-    "text-align": "center",
+    boxSizing: "border-box",
+    textAlign: "center",
     border: `1px solid ${borderColor("default")}`,
-    "border-radius": radius("xl"),
+    borderRadius: radius("xl"),
     background: backgroundColor(
       this.flipped() ? "surface-secondary" : "surface",
     ),

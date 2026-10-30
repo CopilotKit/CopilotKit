@@ -20,19 +20,13 @@ import {
   textFont,
 } from "@copilotkit/shared/generative-ui";
 import { GenerativeUIStyles } from "../../styles";
-import { hostOf } from "../media";
 import type { StyleMap } from "../style";
-import { safeHref } from "../text";
-import {
-  FAVICON_STYLE,
-  SECONDARY_SM,
-  SECONDARY_XS,
-  faviconSrc,
-} from "./styles";
+import { faviconSrc, hostOf, safeHref } from "../url";
+import { FAVICON_STYLE, SECONDARY_SM, SECONDARY_XS } from "./styles";
 
 /**
  * An inline source marker that shows the source on hover or click. The
- * panel sits in the flow, positioned against the marker, as in React.
+ * panel sits in the flow, positioned against the marker.
  */
 @Component({
   selector: "span[copilotGenerativeUICitation]",
@@ -118,39 +112,39 @@ export class CopilotGenerativeUICitation {
   protected readonly faviconStyle = FAVICON_STYLE;
   protected readonly markerStyle: StyleMap = {
     font: "inherit",
-    "font-size": ".75em",
-    "line-height": 1,
-    "font-weight": FONT_WEIGHT.medium,
+    fontSize: ".75em",
+    lineHeight: 1,
+    fontWeight: FONT_WEIGHT.medium,
     padding: "2px 6px",
     margin: "0 2px",
-    "border-radius": "9999px",
+    borderRadius: "9999px",
     border: "none",
     background: backgroundColor("surface-secondary"),
     color: textColor("secondary"),
     cursor: "pointer",
-    "vertical-align": "super",
+    verticalAlign: "super",
   };
   protected readonly panelStyle: StyleMap = {
     position: "absolute",
     top: "100%",
     left: 0,
-    "z-index": 50,
-    "margin-top": "6px",
+    zIndex: 50,
+    marginTop: "6px",
     width: "280px",
     display: "flex",
-    "flex-direction": "column",
+    flexDirection: "column",
     gap: "4px",
     padding: spacing(3),
     background: backgroundColor("surface-elevated"),
     border: `1px solid ${borderColor("default")}`,
-    "border-radius": radius("lg"),
-    "box-shadow": SHADOW_MD,
-    "text-align": "start",
+    borderRadius: radius("lg"),
+    boxShadow: SHADOW_MD,
+    textAlign: "start",
   };
   protected readonly sourceStyle = SECONDARY_XS;
   protected readonly titleStyle: StyleMap = {
     ...textFont("sm"),
-    "font-weight": FONT_WEIGHT.medium,
+    fontWeight: FONT_WEIGHT.medium,
     color: textColor("default"),
   };
   protected readonly snippetStyle = SECONDARY_SM;

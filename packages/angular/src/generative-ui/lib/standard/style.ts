@@ -11,9 +11,6 @@ import type {
   LayoutProps,
 } from "@copilotkit/shared/generative-ui";
 
-// The style helpers the standard groups share. The same as React's
-// (`standard/layout.tsx` and `standard/media.tsx`), so the output is identical.
-
 /** An inline style object, as `[style]` binds it. */
 export type StyleMap = Record<string, string | number | undefined>;
 
@@ -33,6 +30,19 @@ export const VISUALLY_HIDDEN: StyleMap = {
   whiteSpace: "nowrap",
   border: 0,
 };
+
+/** The outline of a focused control, for a `:focus-visible` rule. */
+export const FOCUS_RING = "2px solid var(--a2ui-color-focus, #0285ff)";
+
+/** Cuts the text after `lines` lines, with an ellipsis. */
+export function lineClamp(lines: number): StyleMap {
+  return {
+    display: "-webkit-box",
+    WebkitLineClamp: lines,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+  };
+}
 
 /** The `align-items` of each `align` value. */
 export const ALIGN_CSS: Record<(typeof ALIGN)[number], string> = {

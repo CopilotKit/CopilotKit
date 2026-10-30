@@ -1,19 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { updateDataModel } from "../../../__tests__/render";
+import { byLabel, click, query } from "../../../__tests__/dom";
 import {
   describeDateTime,
   splitDateTime,
   timeInRange,
   timeSlots,
 } from "../index";
-import {
-  byAriaLabel,
-  byLabel,
-  click,
-  query,
-  renderInputs,
-  setValue,
-} from "./helpers";
+import { byAriaLabel, renderInputs, setValue } from "./helpers";
 
 describe("standard inputs: DateTimeInput", () => {
   const inWords = (
@@ -85,13 +79,13 @@ describe("standard inputs: DateTimeInput", () => {
       ],
       { when: "" },
     );
-    const group = query(view, "[role=group]");
+    const group = query(view.container, "[role=group]");
     expect(
       view.container.querySelector(`#${group.getAttribute("aria-labelledby")}`)
         ?.textContent,
     ).toBe("Pickup");
-    const date = byAriaLabel<HTMLInputElement>(view, "Date");
-    const time = byAriaLabel<HTMLInputElement>(view, "Time");
+    const date = byAriaLabel<HTMLInputElement>(view.container, "Date");
+    const time = byAriaLabel<HTMLInputElement>(view.container, "Time");
     expect(date.type).toBe("date");
     expect(time.type).toBe("time");
     setValue(view, date, "2026-10-23");
@@ -102,7 +96,7 @@ describe("standard inputs: DateTimeInput", () => {
     setValue(view, time, "14:30");
     expect(view.dataAt("/when")).toBe("2026-10-23T14:30");
     expect(
-      query(view, "[data-a2ui-datetime-summary]").textContent?.trim(),
+      query(view.container, "[data-a2ui-datetime-summary]").textContent?.trim(),
     ).toBe(inWords("2026-10-23", "14:30", "datetime"));
     // Clearing the time clears the value and keeps the date.
     setValue(view, time, "");
@@ -125,12 +119,12 @@ describe("standard inputs: DateTimeInput", () => {
       ],
       { when: "2026-10-23T09:00" },
     );
-    const date = byAriaLabel<HTMLInputElement>(view, "Date");
-    const time = byAriaLabel<HTMLInputElement>(view, "Time");
+    const date = byAriaLabel<HTMLInputElement>(view.container, "Date");
+    const time = byAriaLabel<HTMLInputElement>(view.container, "Time");
     expect([date.value, time.value]).toEqual(["2026-10-23", "09:00"]);
     view.update(updateDataModel("/when", "2026-11-02T17:15"));
     expect([date.value, time.value]).toEqual(["2026-11-02", "17:15"]);
-    click(view, byAriaLabel(view, "Clear"));
+    click(view, byAriaLabel(view.container, "Clear"));
     expect(view.dataAt("/when")).toBe("");
     expect([date.value, time.value]).toEqual(["", ""]);
   });
@@ -151,8 +145,8 @@ describe("standard inputs: DateTimeInput", () => {
       ],
       { when: "2026-10-23T10:00" },
     );
-    const date = byAriaLabel<HTMLInputElement>(view, "Date");
-    const time = byAriaLabel<HTMLInputElement>(view, "Time");
+    const date = byAriaLabel<HTMLInputElement>(view.container, "Date");
+    const time = byAriaLabel<HTMLInputElement>(view.container, "Time");
     expect([date.min, date.max]).toEqual(["2026-10-23", "2026-10-30"]);
     expect([time.min, time.max]).toEqual(["09:00", ""]);
     setValue(view, date, "2026-10-30");
@@ -175,7 +169,7 @@ describe("standard inputs: DateTimeInput", () => {
       ],
       { at: "" },
     );
-    const select = byLabel<HTMLSelectElement>(view, "Call time");
+    const select = byLabel<HTMLSelectElement>(view.container, "Call time");
     expect(select.tagName).toBe("SELECT");
     expect([...select.options].map((o) => o.value)).toEqual([
       "",
@@ -237,19 +231,23 @@ describe("standard inputs: DateTimeInput", () => {
       ],
       { when: "2026-11-03T08:30" },
     );
-    const form = query<HTMLFormElement>(view, "form");
-    const time = byAriaLabel<HTMLSelectElement>(view, "Time");
+    const form = query<HTMLFormElement>(view.container, "form");
+    const time = byAriaLabel<HTMLSelectElement>(view.container, "Time");
     expect(time.tagName).toBe("SELECT");
     expect(time.options[1]!.textContent?.trim()).toBe(
       inWords("", "00:00", "time"),
     );
     // The day after the bound: 08:30 is fine.
     expect(form.checkValidity()).toBe(true);
-    setValue(view, byAriaLabel<HTMLInputElement>(view, "Date"), "2026-11-02");
+    setValue(
+      view,
+      byAriaLabel<HTMLInputElement>(view.container, "Date"),
+      "2026-11-02",
+    );
     expect(time.value).toBe("08:30");
     expect(time.getAttribute("aria-invalid")).toBe("true");
     expect(form.checkValidity()).toBe(false);
-    expect(query(view, "[role=alert]").textContent?.trim()).toBe(
+    expect(query(view.container, "[role=alert]").textContent?.trim()).toBe(
       `Pick a time from ${inWords("", "09:00", "time")} to the end of the day`,
     );
     setValue(view, time, "09:30");
@@ -298,10 +296,14 @@ describe("standard inputs: DateTimeInput", () => {
       ],
       { when: "" },
     );
-    const form = query<HTMLFormElement>(view, "form");
+    const form = query<HTMLFormElement>(view.container, "form");
     expect(form.checkValidity()).toBe(true);
-    const time = byAriaLabel<HTMLInputElement>(view, "Time");
-    setValue(view, byAriaLabel<HTMLInputElement>(view, "Date"), "2026-10-23");
+    const time = byAriaLabel<HTMLInputElement>(view.container, "Time");
+    setValue(
+      view,
+      byAriaLabel<HTMLInputElement>(view.container, "Date"),
+      "2026-10-23",
+    );
     expect(form.checkValidity()).toBe(false);
     expect(time.validationMessage).toBe("Pick a time too");
     setValue(view, time, "14:30");
@@ -323,7 +325,7 @@ describe("standard inputs: DateTimeInput", () => {
       ],
       { when: "" },
     );
-    const date = byAriaLabel<HTMLInputElement>(view, "Date");
+    const date = byAriaLabel<HTMLInputElement>(view.container, "Date");
     setValue(view, date, "2026-10-23");
     // The user owns the path now: a half-filled entry stays over an agent write.
     view.update(updateDataModel("/when", "2026-12-01T08:00"));
@@ -344,12 +346,12 @@ describe("standard inputs: DateTimeInput", () => {
       ],
       { alarm: "07:45" },
     );
-    const time = byLabel<HTMLInputElement>(view, "Alarm");
+    const time = byLabel<HTMLInputElement>(view.container, "Alarm");
     expect(time.type).toBe("time");
     expect(time.value).toBe("07:45");
     expect(view.container.querySelector("[role=group]")).toBeNull();
     expect(
-      query(view, "[data-a2ui-datetime-summary]").textContent?.trim(),
+      query(view.container, "[data-a2ui-datetime-summary]").textContent?.trim(),
     ).toBe(inWords("", "07:45", "time"));
   });
 });
