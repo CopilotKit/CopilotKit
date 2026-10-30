@@ -13,7 +13,7 @@ snippet_framework: langgraph-python
 CopilotKit has a variety of ways to customize the colors and structure of the
 Copilot UI components via plain CSS. You can:
 
-- Override CopilotKit CSS variables to re-tint the whole UI
+- Override the CopilotKit design tokens to re-tint the whole UI
 - Target the built-in class names (`.copilotKit...`) for structural tweaks
 - Swap fonts per surface (messages, input, bubbles)
 - Replace icons and labels via component props
@@ -36,56 +36,17 @@ into the rest of the app.
 ## CSS Variables (Easiest)
 
 The easiest way to change the colors used in the Copilot UI components is to
-override CopilotKit CSS variables. The demo sets them on the scope wrapper so
-they cascade into every nested chat component:
+override CSS variables. The demo defines its palette on the scope wrapper so
+it cascades into every nested chat component:
 
 <Snippet region="design-tokens" title="frontend/src/app/theme.css: design-token overrides" />
 
-Once you've found the right variable, you can also apply the overrides inline
-via the `CopilotKitCSSProperties` helper:
+## Design Tokens (shadcn)
 
-```tsx
-import { CopilotKitCSSProperties } from "@copilotkit/react-ui";
-
-<div
-  style={
-    {
-      "--copilot-kit-primary-color": "#222222",
-    } as CopilotKitCSSProperties
-  }
->
-  <CopilotSidebar />
-</div>
-```
-
-### Reference
-
-| CSS Variable | Description |
-|-------------|-------------|
-| `--copilot-kit-primary-color` | Main brand/action color for buttons and interactive elements |
-| `--copilot-kit-contrast-color` | Color that contrasts with primary, used for text on primary elements |
-| `--copilot-kit-background-color` | Main page/container background color |
-| `--copilot-kit-secondary-color` | Secondary background for cards, panels, and elevated surfaces |
-| `--copilot-kit-secondary-contrast-color` | Primary text color for main content |
-| `--copilot-kit-separator-color` | Border color for dividers and containers |
-| `--copilot-kit-muted-color` | Muted color for disabled/inactive states |
-| `--copilot-kit-shadow-sm` / `-md` / `-lg` | Elevation shadows for subtle surfaces, cards, and modals |
-
-<Callout type="info" title="Two token systems">
-  The `--copilot-kit-*` variables above style the **v1** component CSS
-  (`@copilotkit/react-ui`). The newer **v2** components
-  (`@copilotkit/react-core/v2`) are Tailwind + shadcn-based and use a
-  separate set of design tokens. See [v2 design
-  tokens](#v2-design-tokens-shadcn) below.
-</Callout>
-
-## v2 Design Tokens (shadcn)
-
-The v2 components (`@copilotkit/react-core/v2`) ship a Tailwind v4 theme built
-on the standard shadcn/ui token set. Instead of the `--copilot-kit-*`
-variables, they read [oklch](https://oklch.com) color tokens that are scoped to
+The chat components in `@copilotkit/react-core` ship a Tailwind v4 theme built
+on the standard shadcn/ui token set. They read [oklch](https://oklch.com) color tokens that are scoped to
 the `[data-copilotkit]` root and wired into Tailwind utilities through an
-`@theme inline` block. This means you can re-skin the entire v2 UI by
+`@theme inline` block. This means you can re-skin the entire chat UI by
 overriding a handful of CSS custom properties. Every component picks the
 change up automatically.
 
@@ -113,10 +74,10 @@ you would in a shadcn project:
 
 ### Reference
 
-These are the most commonly overridden v2 tokens. Each light value has a
+These are the most commonly overridden tokens. Each light value has a
 matching dark-mode value under `.dark [data-copilotkit]`. The full set
 (popover, accent, destructive, chart, and sidebar variants) lives in
-`@copilotkit/react-core/v2/styles.css`.
+`@copilotkit/react-core/styles.css`.
 
 | Token | Description |
 |-------|-------------|
@@ -132,7 +93,7 @@ matching dark-mode value under `.dark [data-copilotkit]`. The full set
 | `--radius` | Base corner radius; `--radius-sm/md/lg/xl` derive from it |
 
 <Callout type="info" title="oklch values">
-  v2 tokens use the `oklch()` color space, which keeps perceived lightness
+  The tokens use the `oklch()` color space, which keeps perceived lightness
   consistent across hues. You can still pass `hsl()`, `rgb()`, or hex; any
   valid CSS color works.
 </Callout>
@@ -169,6 +130,7 @@ that file:
 
 | CSS Class | Description |
 |-----------|-------------|
+| `.copilotKitChat` | Root container of the chat |
 | `.copilotKitMessages` | Main container for all chat messages |
 | `.copilotKitMessage` | Base class applied to every message bubble (user and assistant) |
 | `.copilotKitInput` | Text input container with typing area and send button |
@@ -176,9 +138,6 @@ that file:
 | `.copilotKitAssistantMessage` | Styling for AI responses |
 | `.copilotKitHeader` | Top bar of chat window containing title and controls |
 | `.copilotKitButton` | Primary chat toggle button |
-| `.copilotKitWindow` | Root container defining overall chat window dimensions |
-| `.copilotKitMarkdown` | Styles for rendered markdown content |
-| `.copilotKitCodeBlock` | Code snippet container with syntax highlighting |
 | `.copilotKitSidebar` | Styles for sidebar chat mode |
 | `.copilotKitPopup` | Styles for popup chat mode |
 
@@ -199,16 +158,34 @@ relevant CopilotKit classes:
 
 ## Custom Icons
 
-Customize icons by passing the `icons` prop to `CopilotSidebar`, `CopilotPopup`,
-or `CopilotChat`:
+Replace the launcher icons by passing `openIcon` and `closeIcon` to the
+`toggleButton` slot of `CopilotPopup` or `CopilotSidebar`:
 
 ```tsx
-<CopilotChat
-  icons={{
-    openIcon: <YourOpenIconComponent />,
-    closeIcon: <YourCloseIconComponent />,
-  }}
-/>
+import type { SVGProps } from "react";
+import { CopilotPopup } from "@copilotkit/react-core";
+
+function ChatIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+      <path d="M4 4h16v12H8l-4 4z" />
+    </svg>
+  );
+}
+
+function CloseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
+export function Chat() {
+  return (
+    <CopilotPopup toggleButton={{ openIcon: ChatIcon, closeIcon: CloseIcon }} />
+  );
+}
 ```
 
 ## Custom Labels
@@ -216,11 +193,17 @@ or `CopilotChat`:
 Customize all user-facing copy via the `labels` prop:
 
 ```tsx
-<CopilotChat
-  labels={{
-    welcomeMessageText: "Hello! How can I help you today?",
-    modalHeaderTitle: "My Copilot",
-    chatInputPlaceholder: "Ask me anything!",
-  }}
-/>
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return (
+    <CopilotChat
+      labels={{
+        welcomeMessageText: "Hello! How can I help you today?",
+        modalHeaderTitle: "My Copilot",
+        chatInputPlaceholder: "Ask me anything!",
+      }}
+    />
+  );
+}
 ```

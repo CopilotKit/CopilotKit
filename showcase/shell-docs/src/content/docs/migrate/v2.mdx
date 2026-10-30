@@ -1,59 +1,57 @@
 ---
-title: Migrate from v1 to v2
-description: Migration guide for replacing deprecated CopilotKit v1 JavaScript and TypeScript imports with v2 APIs
+title: Migrate from v1 to 2.0
+description: Migration guide for replacing the CopilotKit v1 JavaScript and TypeScript APIs with their CopilotKit 2.0 equivalents
 icon: "lucide/RefreshCw"
 ---
 
 ## Overview
 
-The CopilotKit v1 SDK is deprecated. Use v2 instead. V2 consolidates React
-hooks and UI components under `@copilotkit/react-core/v2`, and the current
-runtime API is available from `@copilotkit/runtime/v2`.
+CopilotKit 2.0 removes the v1 React and Runtime APIs. The React hooks and the
+chat components are exported from `@copilotkit/react-core`, and the runtime
+serves AG-UI agents from `@copilotkit/runtime`. The `@copilotkit/react-ui` and
+`@copilotkit/react-textarea` packages are deleted.
+
+If your app already used the `/v2` subpaths that CopilotKit 1.x shipped
+(`@copilotkit/react-core/v2`, `@copilotkit/runtime/v2`), the same APIs now
+import from the package root. 2.0 has no `/v2` subpaths for React or the runtime.
 
 This migration is not a global string replacement. Some exports kept their
-names, some were renamed, and some have no 1:1 replacement because v2 uses a
-different model. Use the IDE deprecation warning on every v1 import or consult
-the [complete v1 to v2 export map](/reference/v1/export-map) before changing a
-call site.
+names, some were renamed, and some have no 1:1 replacement because 2.0 uses a
+different model. Start with the codemod, then use the steps below for what it
+cannot migrate:
+
+```bash
+npx codemod @copilotkit/v2-migration
+```
 
 **What's changing:**
 
-| Before                                 | After                                     |
-| -------------------------------------- | ----------------------------------------- |
-| v1 hooks from `@copilotkit/react-core` | v2 hooks from `@copilotkit/react-core/v2` |
-| `@copilotkit/react-ui`                 | `@copilotkit/react-core/v2`               |
-| `@copilotkit/react-ui/styles.css`      | `@copilotkit/react-core/v2/styles.css`    |
-| `@copilotkit/runtime`                  | `@copilotkit/runtime/v2`                  |
-| `@copilotkit/vue`                      | `@copilotkit/vue/v2`                      |
-
-## Why v1 is deprecated. Use v2 instead
-
-V2 is the current CopilotKit SDK surface. Keeping overlapping v1 and v2 names
-available without strong migration signals causes developers and coding agents
-to select stale examples and combine incompatible API shapes. Deprecating every
-v1 export makes the correct v2 import and documentation visible at the point of
-use while preserving existing applications during migration.
-
-## Minimum version and coexistence
-
-The exhaustive IDE warnings are available starting in CopilotKit `1.68.2`.
-V1 and v2 continue to coexist in the same packages for backward compatibility
-for at least two minor releases. Removing v1 would be a separate major-version
-change with its own notice; this migration does not remove or silently change
-v1 runtime behavior.
+| Before (v1)                              | After (2.0)                           |
+| ---------------------------------------- | ------------------------------------- |
+| v1 hooks from `@copilotkit/react-core`   | 2.0 hooks from `@copilotkit/react-core` |
+| `<CopilotKit>`                           | `<CopilotKitProvider>`                |
+| `@copilotkit/react-ui`                   | `@copilotkit/react-core`              |
+| `@copilotkit/react-ui/styles.css`        | `@copilotkit/react-core/styles.css`   |
+| `@copilotkit/react-core/v2`              | `@copilotkit/react-core`              |
+| `@copilotkit/runtime` service adapters   | `BuiltInAgent` and `createCopilotRuntimeHandler` from `@copilotkit/runtime` |
+| `@copilotkit/runtime/v2`                 | `@copilotkit/runtime`                 |
+| `@copilotkit/vue`                        | `@copilotkit/vue/v2`                  |
+| `CopilotTextarea` (`@copilotkit/react-textarea`) | Removed. 2.0 has no equivalent. |
 
 ## Migration Steps
 
 <Steps>
 <Step>
-### Update v1 hook imports
+### Update the provider and hook imports
 
-Replace v1 hooks from `@copilotkit/react-core` with their v2 equivalents from `@copilotkit/react-core/v2`.
-Keep the `<CopilotKit>` provider name, but import it from `@copilotkit/react-core/v2`.
+Replace the v1 hooks with their 2.0 equivalents, and replace the `<CopilotKit>`
+provider with `<CopilotKitProvider>`. The provider's `agent` prop is `agentId`
+in 2.0.
 
 #### Before
 
-```tsx
+{/* kiira: ignore, shows the v1 code this guide migrates away from */}
+```tsx ignore
 import { CopilotKit } from "@copilotkit/react-core";
 import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 ```
@@ -61,40 +59,84 @@ import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 #### After
 
 ```tsx
-import { CopilotKit, useAgent } from "@copilotkit/react-core/v2";
+import {
+  CopilotKitProvider,
+  useAgentContext,
+  useFrontendTool,
+} from "@copilotkit/react-core";
 ```
 
-#### Hook mapping from v1 to v2
+#### Hook mapping
 
-Use this table to find the v2 replacement for each v1 hook:
+Use this table to find the 2.0 replacement for each v1 hook:
 
-| v1 hook                            | v2 hook                                                          |
-| ---------------------------------- | ---------------------------------------------------------------- |
-| `useCopilotAction`                 | `useFrontendTool`                                                |
-| `useCopilotReadable`               | `useAgentContext`                                                |
-| `useCopilotAdditionalInstructions` | `useAgentContext`                                                |
-| `useCoAgent`                       | `useAgent`                                                       |
-| `useCopilotChat`                   | `useAgent` (low-level headless chat: `useCopilotChatHeadless_c`) |
+| v1 hook                            | 2.0 hook                                                                   |
+| ---------------------------------- | -------------------------------------------------------------------------- |
+| `useCopilotAction`                 | [`useFrontendTool`](/reference/hooks/useFrontendTool), or [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) when the action waits for the user |
+| `useCopilotReadable`               | [`useAgentContext`](/reference/hooks/useAgentContext)                      |
+| `useCopilotAdditionalInstructions` | [`useAgentContext`](/reference/hooks/useAgentContext)                      |
+| `useCoAgent`                       | [`useAgent`](/reference/hooks/useAgent)                                    |
+| `useCoAgentStateRender`            | [`useAgent`](/reference/hooks/useAgent)                                    |
+| `useCopilotChat`                   | [`useAgent`](/reference/hooks/useAgent)                                    |
+| `useCopilotChatHeadless_c`         | [`useAgent`](/reference/hooks/useAgent)                                    |
+| `useCopilotChatSuggestions`        | [`useConfigureSuggestions`](/reference/hooks/useConfigureSuggestions)      |
+| `useLangGraphInterrupt`            | [`useInterrupt`](/reference/hooks/useInterrupt)                            |
+| `useRenderToolCall` (v1)           | [`useRenderTool`](/reference/hooks/useRenderTool)                          |
+| `useDefaultTool`                   | [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool)            |
 
-Chat-UI customization props were also renamed in v2:
+The tool hooks take a Standard Schema such as `z.object(...)` for `parameters`,
+not the v1 `Parameter[]` list:
 
-| v1 (component prop)    | v2 (slot / prop)                                   |
+{/* kiira: ignore, shows the v1 code this guide migrates away from */}
+```tsx ignore
+import { useCopilotAction } from "@copilotkit/react-core";
+
+function Greeter() {
+  useCopilotAction({
+    name: "sayHello",
+    description: "Greet the user by name",
+    parameters: [{ name: "name", type: "string", required: true }],
+    handler: async ({ name }) => `Hello, ${name}!`,
+  });
+  return null;
+}
+```
+
+```tsx
+import { useFrontendTool } from "@copilotkit/react-core";
+import { z } from "zod";
+
+function Greeter() {
+  useFrontendTool({
+    name: "sayHello",
+    description: "Greet the user by name",
+    parameters: z.object({ name: z.string() }),
+    handler: async ({ name }) => `Hello, ${name}!`,
+  });
+  return null;
+}
+```
+
+Chat-UI customization props were also renamed in 2.0:
+
+| v1 (component prop)    | 2.0 (slot / prop)                                  |
 | ---------------------- | -------------------------------------------------- |
 | `AssistantMessage`     | `assistantMessage` slot (under `messageView`)      |
 | `markdownTagRenderers` | `markdownRenderer` slot (under `assistantMessage`) |
 
-See [Slots](/custom-look-and-feel/slots) for how the v2 slot system replaces the
+See [Slots](/custom-look-and-feel/slots) for how the slot system replaces the
 v1 component-override props.
 
 </Step>
 <Step>
 ### Replace React UI imports
 
-UI components like `CopilotChat`, `CopilotSidebar`, and `CopilotPopup` are now exported from `@copilotkit/react-core/v2`.
+UI components like `CopilotChat`, `CopilotSidebar`, and `CopilotPopup` are now exported from `@copilotkit/react-core`.
 
 #### Before
 
-```tsx
+{/* kiira: ignore, shows the v1 code this guide migrates away from */}
+```tsx ignore
 import { CopilotPopup } from "@copilotkit/react-ui";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { CopilotChat } from "@copilotkit/react-ui";
@@ -103,38 +145,74 @@ import { CopilotChat } from "@copilotkit/react-ui";
 #### After
 
 ```tsx
-import { CopilotPopup } from "@copilotkit/react-core/v2";
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotPopup } from "@copilotkit/react-core";
+import { CopilotSidebar } from "@copilotkit/react-core";
+import { CopilotChat } from "@copilotkit/react-core";
 ```
 
 </Step>
 <Step>
-### Update Runtime imports
+### Update the runtime
 
-Import the v2 runtime from the same package's `/v2` subpath. Review the
-[`CopilotRuntime` v2 setup](/runtime-server-adapter) because v2 uses AG-UI
-runtime handlers rather than the v1 GraphQL adapter setup.
+2.0 has no service adapters (`OpenAIAdapter`, `AnthropicAdapter`, ...) and no
+GraphQL endpoint. A model runs in a `BuiltInAgent`, and
+`createCopilotRuntimeHandler` serves the runtime. Read
+[Runtime HTTP handlers in 2.0](/migrate/runtime-2.0) for Express, Hono, and
+Node, and [Deploy to any runtime](/runtime-server-adapter) for other hosts.
 
 #### Before
 
-```ts
-import { CopilotRuntime } from "@copilotkit/runtime";
+{/* kiira: ignore, shows the v1 code this guide migrates away from */}
+```ts ignore
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import type { NextRequest } from "next/server";
+
+const runtime = new CopilotRuntime();
+const serviceAdapter = new OpenAIAdapter();
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+  return handleRequest(req);
+};
 ```
 
 #### After
 
-```ts
-import { CopilotRuntime } from "@copilotkit/runtime/v2";
+In `app/api/copilotkit/[[...slug]]/route.ts`:
 
-const runtime = new CopilotRuntime({ agents: {} });
+```ts
+import {
+  BuiltInAgent,
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handler;
+export const POST = handler;
 ```
 
 </Step>
 <Step>
 ### Update Vue imports
 
-Vue v2 lives at the same package's `/v2` subpath. The v1 `CopilotKit`
+The Vue 2.0 API lives at the `@copilotkit/vue/v2` subpath. The v1 `CopilotKit`
 component becomes `CopilotKitProvider`; most exports otherwise retain their
 public names.
 
@@ -163,7 +241,7 @@ import "@copilotkit/react-ui/styles.css";
 #### After
 
 ```tsx
-import "@copilotkit/react-core/v2/styles.css";
+import "@copilotkit/react-core/styles.css";
 ```
 
 </Step>
@@ -178,7 +256,7 @@ npm install @ag-ui/client@1.0.2
 
 A different version installs a second copy of the package, with its own `HttpAgent` class. Run `npm ls @ag-ui/client` to make sure that only one version is installed.
 
-Note: If you only use CopilotKit's React packages, `@ag-ui/client` types are already re-exported from `@copilotkit/react-core/v2` and you don't need a separate install.
+Note: If you only use CopilotKit's React packages, `@ag-ui/client` types are already re-exported from `@copilotkit/react-core` and you don't need a separate install.
 
 </Step>
 </Steps>
@@ -186,31 +264,34 @@ Note: If you only use CopilotKit's React packages, `@ag-ui/client` types are alr
 ## Gotchas
 
 - **Tool rendering is not frontend tool execution.** Replace the v1
-  `useRenderToolCall` registration hook with v2 `useRenderTool`. V2's hook named
+  `useRenderToolCall` registration hook with `useRenderTool`. The 2.0 hook named
   `useRenderToolCall` is a different low-level consumer API.
-- **Schemas changed.** V2 tool and interaction hooks use Standard Schema
+- **Schemas changed.** The 2.0 tool and interaction hooks use Standard Schema
   objects such as `z.object(...)`, not the v1 `Parameter[]` shape.
 - **Names can move packages.** React UI components move from
-  `@copilotkit/react-ui` to `@copilotkit/react-core/v2`.
-- **No-replacement markers are intentional.** If an IDE warning or the export
-  map says there is no 1:1 replacement, migrate the surrounding pattern using
-  the linked v2 reference instead of selecting a similarly named symbol.
-- **Type exports matter too.** Type-only imports carry the same IDE warning and
-  should be migrated with their consuming value API.
+  `@copilotkit/react-ui` to `@copilotkit/react-core`.
+- **`CopilotTextarea` has no replacement.** 2.0 deleted
+  `@copilotkit/react-textarea`. Remove the component, or build the behavior
+  with your own textarea and the [2.0 hooks](/reference).
+- **No 1:1 replacement is intentional.** Where a v1 export has no 2.0
+  equivalent, migrate the surrounding pattern using the linked 2.0 reference
+  instead of selecting a similarly named symbol.
 
 ## Full Example
 
 ### Before
 
-```tsx
+{/* kiira: ignore, shows the v1 code this guide migrates away from */}
+```tsx ignore
+import type { ReactNode } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotPopup } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 
-export function App() {
+export function App({ children }: { children: ReactNode }) {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit">
-      <YourApp />
+      {children}
       <CopilotPopup />
     </CopilotKit>
   );
@@ -220,15 +301,16 @@ export function App() {
 ### After
 
 ```tsx
-import { CopilotKit, CopilotPopup } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+import type { ReactNode } from "react";
+import { CopilotKitProvider, CopilotPopup } from "@copilotkit/react-core";
+import "@copilotkit/react-core/styles.css";
 
-export function App() {
+export function App({ children }: { children: ReactNode }) {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit">
-      <YourApp />
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      {children}
       <CopilotPopup />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 ```

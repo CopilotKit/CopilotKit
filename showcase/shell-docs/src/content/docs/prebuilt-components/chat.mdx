@@ -30,19 +30,19 @@ For saved conversations and switching between prior conversations, drop in the [
 
 ## Basic setup
 
-Wrap your app in `<CopilotKit>` once (the provider wires the runtime, session,
+Wrap your app in `<CopilotKitProvider>` once (the provider wires the runtime, session,
 and agent registry) and render `<CopilotChat>` inside the layout of your
 choosing:
 
 ```tsx
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core";
+import "@copilotkit/react-core/styles.css";
 ```
 
-<Callout type="warn">
-  `@copilotkit/react-ui` also exports a component named `CopilotChat`. That one
-  is the [deprecated v1 chat](/migrate/v2). This page documents the v2 chat,
-  which you import from `@copilotkit/react-core/v2`.
+<Callout type="info">
+  In v1, `<CopilotChat>` came from `@copilotkit/react-ui`. CopilotKit 2.0 removed that
+  package, so import the chat from `@copilotkit/react-core`. See the
+  [migration guide](/migrate/v2).
 </Callout>
 
 <Snippet region="provider-setup" title="frontend/src/app/page.tsx — provider + chat" />

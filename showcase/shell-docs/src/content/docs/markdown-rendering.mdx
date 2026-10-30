@@ -16,14 +16,32 @@ It's one prop — `markdownRenderer` on `CopilotKitProvider` — that accepts **
 <Tab value="React">
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import type { ReactNode } from "react";
+import {
+  CopilotKitProvider,
+  type MarkdownRenderer,
+} from "@copilotkit/react-core";
 
-// 1. nothing       -> built-in renderer (default)
+// markdownRenderer is one of:
+// 1. undefined     -> built-in renderer (default)
 // 2. config object -> configures the built-in renderer
-// 3. a component    -> replaces the renderer entirely
-<CopilotKitProvider runtimeUrl="/api/copilotkit" markdownRenderer={...}>
-  {/* your app */}
-</CopilotKitProvider>
+// 3. a component   -> replaces the renderer entirely
+export function App({
+  children,
+  markdownRenderer,
+}: {
+  children: ReactNode;
+  markdownRenderer?: MarkdownRenderer;
+}) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      markdownRenderer={markdownRenderer}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 </Tab>
@@ -46,12 +64,30 @@ import { CopilotKitProvider } from "@copilotkit/vue";
 <Tab value="React Native">
 
 ```tsx
+import type { ComponentProps, ReactNode } from "react";
 import { CopilotKitProvider } from "@copilotkit/react-native";
 
-// config object ({ style, animate }) OR a component
-<CopilotKitProvider runtimeUrl="/api/copilotkit" markdownRenderer={...}>
-  {/* your app */}
-</CopilotKitProvider>
+// markdownRenderer is a config object ({ style, animate }) OR a component.
+type MarkdownRenderer = ComponentProps<
+  typeof CopilotKitProvider
+>["markdownRenderer"];
+
+export function App({
+  children,
+  markdownRenderer,
+}: {
+  children: ReactNode;
+  markdownRenderer?: MarkdownRenderer;
+}) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      markdownRenderer={markdownRenderer}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 </Tab>
@@ -109,8 +145,8 @@ import {
   CopilotKitProvider,
   CopilotChat,
   type DefaultMarkdownRendererProps,
-} from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+} from "@copilotkit/react-core";
+import "@copilotkit/react-core/styles.css";
 
 // Stable reference (module scope) — overrides merge over the built-in defaults.
 const markdownRenderer: DefaultMarkdownRendererProps = {
@@ -168,14 +204,18 @@ const markdownRenderer: DefaultMarkdownRendererProps = {
 React Native renders markdown into native `<Text>`/`<View>` and does not support `nodeRenderers`. Its config is `{ style, animate }` — `style` is a `MarkdownStyle` map, `animate` toggles the parser's `Intl.Segmenter` (it does not produce per-token animation on React Native).
 
 ```tsx title="App.tsx"
-import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-native";
-import type { DefaultMarkdownRendererProps } from "@copilotkit/react-native";
+import {
+  CopilotKitProvider,
+  CopilotChat,
+  type MarkdownStyle,
+} from "@copilotkit/react-native";
 
-const markdownRenderer: DefaultMarkdownRendererProps = {
-  style: {
-    codeBlock: { backgroundColor: "#18181b", color: "#a7f3d0" },
-  },
+const style: MarkdownStyle = {
+  codeBlock: { backgroundColor: "#18181b", color: "#a7f3d0" },
 };
+
+// Module scope, so the config keeps its identity between renders.
+const markdownRenderer = { style };
 
 export function App() {
   return (
@@ -215,7 +255,7 @@ npm install streamdown
 
 ```tsx title="markdown-renderer.tsx"
 import { Streamdown } from "streamdown";
-import type { MarkdownRendererProps } from "@copilotkit/react-core/v2";
+import type { MarkdownRendererProps } from "@copilotkit/react-core";
 
 export function StreamdownRenderer({ content }: MarkdownRendererProps) {
   return <Streamdown>{content}</Streamdown>;
@@ -226,7 +266,7 @@ export function StreamdownRenderer({ content }: MarkdownRendererProps) {
 ### Pass it to the provider
 
 ```tsx title="app.tsx"
-import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core";
 import { StreamdownRenderer } from "./markdown-renderer";
 
 export function App() {
@@ -344,7 +384,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
-import type { MarkdownRendererProps } from "@copilotkit/react-core/v2";
+import type { MarkdownRendererProps } from "@copilotkit/react-core";
 
 // Bring your own plugins — the same remark/rehype arrays react-markdown and
 // Streamdown accept. Load the katex / highlight.js stylesheets in your app.

@@ -17,7 +17,7 @@ For the protocol-level changes, read the AG-UI guide
 - **Older CopilotKit frontends.** The runtime accepts requests from 0.x clients.
   This includes legacy `binary` attachment parts and the `null` values that 0.x sent for optional fields.
 - **Stored threads.** When a thread replays, CopilotKit translates 0.x history before it shows the messages.
-- **Validators.** `@copilotkit/react-core/v2` and `@copilotkit/vue` still export `EventSchemas`,
+- **Validators.** `@copilotkit/react-core` and `@copilotkit/vue` still export `EventSchemas`,
   `RunAgentInputSchema` and the other `*Schema` validators.
 - **An `HttpAgent` from your own `@ag-ui/client` copy.** CopilotKit still applies its headers to it.
 
@@ -34,9 +34,11 @@ If you keep 0.x types in your code, TypeScript can report that two `AbstractAgen
 If your code reads a tool result as a string, convert it first:
 
 ```ts
-import { contentToText } from "@ag-ui/client";
+import { contentToText, type ToolMessage } from "@ag-ui/client";
 
-const text = contentToText(toolMessage.content);
+function toolResultText(toolMessage: ToolMessage): string {
+  return contentToText(toolMessage.content);
+}
 ```
 
 The `result` prop of a tool renderer is still a string. CopilotKit converts it for you.
@@ -46,9 +48,14 @@ The `result` prop of a tool renderer is still a string. CopilotKit converts it f
 `RUN_FINISHED` has no `finishReason` field in AG-UI 1.0. CopilotKit now sends it in `metadata`:
 
 ```ts
+import { HttpAgent } from "@ag-ui/client";
+
+const agent = new HttpAgent({ url: "https://example.com/agent" });
+
 agent.subscribe({
   onRunFinishedEvent: ({ event }) => {
     const finishReason = event.metadata?.finishReason;
+    console.log(finishReason);
   },
 });
 ```

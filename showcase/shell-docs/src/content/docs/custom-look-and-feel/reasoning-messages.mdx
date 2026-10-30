@@ -48,18 +48,25 @@ replaced independently via **slot props**:
 | `Content` | `contentView` | The reasoning text area (Markdown) |
 | `Toggle` | `toggle` | The expand/collapse animation wrapper |
 
-You pass custom sub-components through the `messageView` prop on
-`CopilotChat`, `CopilotPopup`, or `CopilotSidebar`:
+You pass slot values through the `messageView` prop on `CopilotChat`,
+`CopilotPopup`, or `CopilotSidebar`. Each slot takes a replacement component, a
+class string, or partial props for the built-in sub-component:
 
 ```tsx
-<CopilotChat
-  messageView={{
-    reasoningMessage: {
-      header: CustomHeader,
-      contentView: CustomContent,
-    },
-  }}
-/>
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView={{
+        reasoningMessage: {
+          header: "bg-amber-50",
+          contentView: { className: "font-mono text-xs" },
+        },
+      }}
+    />
+  );
+}
 ```
 
 ### Custom Header
@@ -77,21 +84,21 @@ receives these props:
 | `onClick` | `() => void` | Toggle handler (only present when `hasContent` is `true`) |
 
 ```tsx
-import { CopilotChat } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+import type { ComponentProps } from "react";
+import {
+  CopilotChat,
+  CopilotChatReasoningMessage,
+} from "@copilotkit/react-core";
+import "@copilotkit/react-core/styles.css";
 
 function CustomHeader({
   isOpen,
   label,
   hasContent,
   isStreaming,
+  elapsedSeconds,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  isOpen?: boolean;
-  label?: string;
-  hasContent?: boolean;
-  isStreaming?: boolean;
-}) {
+}: ComponentProps<typeof CopilotChatReasoningMessage.Header>) {
   return (
     <button
       className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium"
@@ -106,11 +113,15 @@ function CustomHeader({
   );
 }
 
-<CopilotChat
-  messageView={{
-    reasoningMessage: { header: CustomHeader },
-  }}
-/>
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView={{
+        reasoningMessage: { header: CustomHeader },
+      }}
+    />
+  );
+}
 ```
 
 ### Custom Content
@@ -124,15 +135,18 @@ Replace the content area to change how reasoning text is displayed:
 | `children` | `string` | The raw reasoning text |
 
 ```tsx
+import type { ComponentProps } from "react";
+import {
+  CopilotChat,
+  CopilotChatReasoningMessage,
+} from "@copilotkit/react-core";
+
 function CustomContent({
   isStreaming,
   hasContent,
   children,
   ...props
-}: React.HTMLAttributes<HTMLDivElement> & {
-  isStreaming?: boolean;
-  hasContent?: boolean;
-}) {
+}: ComponentProps<typeof CopilotChatReasoningMessage.Content>) {
   if (!hasContent && !isStreaming) return null;
 
   return (
@@ -143,11 +157,15 @@ function CustomContent({
   );
 }
 
-<CopilotChat
-  messageView={{
-    reasoningMessage: { contentView: CustomContent },
-  }}
-/>
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView={{
+        reasoningMessage: { contentView: CustomContent },
+      }}
+    />
+  );
+}
 ```
 
 ## Fully Custom Reasoning Message
@@ -177,13 +195,16 @@ pattern for cases where you want to rearrange the built-in sub-components
 without reimplementing them:
 
 ```tsx
+import type { ComponentProps } from "react";
 import {
+  CopilotChat,
   CopilotChatReasoningMessage,
-} from "@copilotkit/react-core/v2";
-import { CopilotChat } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+} from "@copilotkit/react-core";
+import "@copilotkit/react-core/styles.css";
 
-function MyReasoningLayout(props: React.ComponentProps<typeof CopilotChatReasoningMessage>) {
+function ReasoningLayout(
+  props: ComponentProps<typeof CopilotChatReasoningMessage>,
+) {
   return (
     <CopilotChatReasoningMessage {...props}>
       {({ header, toggle }) => (
@@ -196,11 +217,15 @@ function MyReasoningLayout(props: React.ComponentProps<typeof CopilotChatReasoni
   );
 }
 
-<CopilotChat
-  messageView={{
-    reasoningMessage: MyReasoningLayout,
-  }}
-/>
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView={{
+        reasoningMessage: ReasoningLayout,
+      }}
+    />
+  );
+}
 ```
 
 The render-prop callback receives:

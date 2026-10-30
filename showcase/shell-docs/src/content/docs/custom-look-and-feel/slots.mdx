@@ -54,7 +54,7 @@ is gone:
 The simplest way to customize a slot. Pass a Tailwind class string and it will be merged with the default component's classes.
 
 ```tsx title="page.tsx"
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
 
 export function Chat() {
   return (
@@ -68,16 +68,22 @@ export function Chat() {
 
 ## Props Override
 
-Pass an object to override specific props on the default component. This is useful for adding `className`, event handlers, data attributes, or any other prop the default component accepts.
+Pass an object to override specific props on the default component. This is useful for adding `className`, an `id`, event handlers, or any other prop the default component accepts.
 
 ```tsx title="page.tsx"
-<CopilotChat
-  messageView={{
-    className: "my-custom-messages",
-    "data-testid": "message-view",
-  }}
-  input={{ autoFocus: true }}
-/>
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView={{
+        className: "my-custom-messages",
+        id: "message-view",
+      }}
+      input={{ autoFocus: true }}
+    />
+  );
+}
 ```
 
 ## Custom Components
@@ -85,13 +91,19 @@ Pass an object to override specific props on the default component. This is usef
 For full control, pass your own React component. It receives all the same props as the default component.
 
 ```tsx title="page.tsx"
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  type CopilotChatMessageViewProps,
+} from "@copilotkit/react-core";
 
-const CustomMessageView = ({ messages, isRunning }) => (
+const MessageList = ({ messages, isRunning }: CopilotChatMessageViewProps) => (
   <div className="space-y-4 p-6">
     {messages?.map((msg) => (
-      <div key={msg.id} className={msg.role === "user" ? "text-right" : "text-left"}>
-        {msg.content}
+      <div
+        key={msg.id}
+        className={msg.role === "user" ? "text-right" : "text-left"}
+      >
+        {typeof msg.content === "string" ? msg.content : null}
       </div>
     ))}
     {isRunning && <div className="animate-pulse">Thinking...</div>}
@@ -99,7 +111,7 @@ const CustomMessageView = ({ messages, isRunning }) => (
 );
 
 export function Chat() {
-  return <CopilotChat messageView={CustomMessageView} />;
+  return <CopilotChat messageView={MessageList} />;
 }
 ```
 
@@ -112,15 +124,32 @@ Slots are recursive. You can customize sub-components at any depth by nesting ob
 Override the assistant message's toolbar within the message view:
 
 ```tsx title="page.tsx"
-<CopilotChat
-  messageView={{
-    assistantMessage: {
-      toolbar: CustomToolbar,
-      copyButton: CustomCopyButton,
-    },
-    userMessage: CustomUserMessage,
-  }}
-/>
+import type { HTMLAttributes, ButtonHTMLAttributes } from "react";
+import { CopilotChat } from "@copilotkit/react-core";
+
+function CustomToolbar(props: HTMLAttributes<HTMLDivElement>) {
+  return <div {...props} className="flex gap-1 pt-2" />;
+}
+
+function CustomCopyButton({
+  onClick,
+}: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <button onClick={onClick}>Copy</button>;
+}
+
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView={{
+        assistantMessage: {
+          toolbar: CustomToolbar,
+          copyButton: CustomCopyButton,
+        },
+        userMessage: "rounded-2xl bg-blue-50",
+      }}
+    />
+  );
+}
 ```
 
 ### Three levels deep
@@ -128,15 +157,19 @@ Override the assistant message's toolbar within the message view:
 Override a specific button inside the assistant message toolbar:
 
 ```tsx title="page.tsx"
-<CopilotChat
-  messageView={{
-    assistantMessage: {
-      copyButton: ({ onClick }) => (
-        <button onClick={onClick}>Copy</button>
-      ),
-    },
-  }}
-/>
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView={{
+        assistantMessage: {
+          copyButton: ({ onClick }) => <button onClick={onClick}>Copy</button>,
+        },
+      }}
+    />
+  );
+}
 ```
 
 ### Tool calls
@@ -150,7 +183,7 @@ import {
   CopilotChat,
   CopilotChatToolCallsView,
   type CopilotChatToolCallsViewProps,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 const CustomToolCallsView = (props: CopilotChatToolCallsViewProps) => (
   <div className="rounded-lg border border-dashed p-2">
@@ -187,13 +220,19 @@ assistant markdown is rendered. It has its own guide:
 Customize any text string in the UI via the `labels` prop. This is a separate convenience prop on `CopilotChat`, `CopilotSidebar`, and `CopilotPopup`, not part of the slot system.
 
 ```tsx title="page.tsx"
-<CopilotChat
-  labels={{
-    chatInputPlaceholder: "Ask your agent anything...",
-    welcomeMessageText: "How can I help you today?",
-    chatDisclaimerText: "AI responses may be inaccurate.",
-  }}
-/>
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return (
+    <CopilotChat
+      labels={{
+        chatInputPlaceholder: "Ask your agent anything...",
+        welcomeMessageText: "How can I help you today?",
+        chatDisclaimerText: "AI responses may be inaccurate.",
+      }}
+    />
+  );
+}
 ```
 
 ## Available Slots
