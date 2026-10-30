@@ -440,21 +440,24 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             body = str(snapshot)
         return f"Current agent state:\n{body}"
 
-    def _apply_state_note(self, request: ModelRequest) -> ModelRequest:
-        note = self._build_state_note(request.state or {})
+    @staticmethod
+    def _append_system_note(request: ModelRequest, note: str | None) -> ModelRequest:
         if not note:
             return request
         existing = request.system_message
         if existing is None:
             return request.override(system_message=SystemMessage(content=note))
-        base = (
-            existing.content
-            if isinstance(existing.content, str)
-            else str(existing.content)
-        )
-        return request.override(
-            system_message=SystemMessage(content=f"{base}\n\n{note}")
-        )
+        if isinstance(existing.content, list):
+            # Keep content blocks (e.g. Anthropic cache_control) instead of
+            # stringifying them into the prompt.
+            content = [*existing.content, {"type": "text", "text": note}]
+        else:
+            content = f"{existing.content}\n\n{note}"
+        return request.override(system_message=SystemMessage(content=content))
+
+    def _apply_state_note(self, request: ModelRequest) -> ModelRequest:
+        note = self._build_state_note(request.state or {})
+        return self._append_system_note(request, note)
 
     def _build_app_context_note(
         self,
@@ -504,19 +507,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             request.state or {},
             getattr(request.runtime, "context", None),
         )
-        if not note:
-            return request
-        existing = request.system_message
-        if existing is None:
-            return request.override(system_message=SystemMessage(content=note))
-        base = (
-            existing.content
-            if isinstance(existing.content, str)
-            else str(existing.content)
-        )
-        return request.override(
-            system_message=SystemMessage(content=f"{base}\n\n{note}")
-        )
+        return self._append_system_note(request, note)
 
     # ------------------------------------------------------------------
     # Auto-A2UI tool injection
