@@ -1,35 +1,15 @@
 """Agent backing the A2UI Error Recovery demo (OSS-158, ADK-only).
 
-Same dynamic-schema setup as declarative_gen_ui_agent, but with the toolkit's
-healing + recovery made *visible*. The aimock fixtures drive the inner
-`render_a2ui` sub-agent two ways:
+The agent owns one generate_a2ui tool and the runtime disables auto-injection.
+Express uses the official SDK response stream; Direct JSON is selectable through
+forwardedProps.a2ui.inferenceFormat. The adapter clones the owned tool per run,
+so concurrent requests retain their own selection. The toolkit validates and
+retries malformed model output up to three times, preserving any already
+validated progressive surface operations and reporting exhaustion explicitly.
 
-  - HEAL pill: the model emits FREE-FORM / sloppy A2UI args (components and data
-    as JSON strings rather than structured arrays) — the toolkit heals them via
-    `parse_and_fix` into a valid surface in a single pass, which paints. (A
-    single deterministic response: no per-attempt fixture switching needed.)
-  - EXHAUST pill: every attempt is structurally invalid (the root references a
-    missing child), so the validate->retry loop hits the cap and the tool
-    returns the `a2ui_recovery_exhausted` hard-fail envelope, which the renderer
-    (`@ag-ui/a2ui-middleware` >= 0.0.10) surfaces as a tasteful `failed` state
-    (no broken surface).
-
-Backend-owned wiring (route sets `injectA2UITool: false`, agent owns
-`get_a2ui_tool`). This is deliberate and ADK-specific: only the backend-owned
-path surfaces the recovery loop + `a2ui_recovery_exhausted` hard-fail explicitly
-(the declarative-gen-ui demo, by contrast, uses runtime auto-injection). The
-recovery loop lives in the ADK middleware (`ag_ui_adk` >= 0.7.0); the runtime
-path langgraph-python uses has no equivalent loop, which is why this demo is
-ADK-only (OSS-375 tracks LP parity). Catalog is reused from declarative-gen-ui
-("declarative-gen-ui-catalog") so no new components are introduced.
-
-Ported from ag-ui `integrations/adk-middleware/python/examples/server/api/
-a2ui_recovery.py`.
-
-The two pills are disambiguated per-pill by aimock: ag_ui_adk forwards the run's
-conversation into the inner `render_a2ui` call, so the last user turn aimock
-matches on is the pill prompt (the generic render guidance rides as the system
-prompt). Verified against the aimock journal — HEAL heals, EXHAUST exhausts.
+The fixtures deterministically exercise invalid-then-valid output and repeated
+failure. The frontend catalog remains the source of truth. See requirements.txt
+for the release prerequisites; no local wheel is a published dependency.
 """
 
 from __future__ import annotations
@@ -75,6 +55,7 @@ recovery_agent = LlmAgent(
         get_a2ui_tool(
             {
                 "model": get_a2ui_model(),
+                "inference_format": "express",
                 "default_catalog_id": "declarative-gen-ui-catalog",
                 "recovery": {"maxAttempts": 3},
                 "on_a2ui_attempt": _log_attempt,

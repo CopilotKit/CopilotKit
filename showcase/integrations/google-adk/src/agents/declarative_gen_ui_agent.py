@@ -1,18 +1,11 @@
 """Agent backing the Declarative Generative UI (A2UI dynamic) demo.
 
-Runtime-driven auto-injection, mirroring the langgraph-python and AWS Strands
-gold-standard declarative-gen-ui demos: this is a PLAIN agent with no
-`generate_a2ui` tool wired. The route sets `a2ui.injectA2UITool: true`, and the
-ag-ui-adk >= 0.7.0 adapter sees that forwarded flag and auto-injects the no-arg
-`generate_a2ui` tool (via `plan_a2ui_injection`), then drives a forced
-`render_a2ui` sub-agent through the toolkit's validate->retry recovery loop and
-wraps the result as `a2ui_operations`, which the A2UI middleware detects and
-renders. The sub-agent model is inferred from this agent's `canonical_model`,
-so it routes through the same aimock proxy as the primary agent.
-
-(The previous hand-rolled `google.genai` secondary planner is gone; the
-ADK-only a2ui-recovery demo keeps the backend-owned `get_a2ui_tool` wiring
-instead, since only that path surfaces the recovery loop explicitly.)
+Runtime-driven auto-injection: this is a plain agent with no generation tool.
+The runtime forwards injectA2UITool and the selected inference format; the ADK
+adapter injects exactly one generate_a2ui tool. Express uses the official
+progressive response stream and compiles validated standard A2UI operations.
+Direct JSON remains selectable. Both calls use the primary agent's model and
+existing aimock routing. See requirements.txt for the release prerequisites.
 
 The instruction mirrors LP's `a2ui_dynamic.py` SYSTEM_PROMPT so both
 showcases steer the LLM toward the same sales-analyst persona and

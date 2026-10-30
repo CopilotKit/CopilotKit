@@ -2,18 +2,22 @@ fastapi>=0.115.0
 uvicorn[standard]>=0.34.0
 python-dotenv
 pydantic
-# Exact pin so rebuilds are reproducible and the Compatibility tab can score
-# the framework (refs #7284). 2.12.0 is what the active staging image ran when
-# pinned; ag-ui-adk 0.7.0 accepts >=1.28.1,<3.0.0.
-google-adk==2.12.0
-# google-genai is required by both the primary LlmAgent (via google-adk) and
-# the secondary generate_a2ui planner call. Explicit pin keeps the version
-# floor independent of google-adk's transitive resolution.
-google-genai>=0.8.0
-# 0.7.0 ships the OSS-158 A2UI middleware path (auto-injected generate_a2ui,
-# toolkit recovery loop, render_as_llm_instructions prompt + parse_and_fix
-# healing, hard-failure envelope). Raises the effective google-adk floor to
-# >=1.28.1 and adds a2ui-agent-sdk + ag-ui-a2ui-toolkit transitively.
-# ag-ui-protocol stays at 0.1.18 (satisfies the middleware's >=0.1.15 floor).
-ag-ui-adk==0.7.0
-ag-ui-protocol==0.1.18
+google-adk==2.13.0
+google-genai==2.34.0
+ag-ui-protocol==1.0.0
+a2ui-agent-sdk==0.9.0
+a2ui-core==0.4.0
+# Published compatibility baseline, NOT an Express-capable release.
+# RELEASE BLOCKER: replace these pins only after toolkit PR #3274 and adapter
+# PR #3275 receive maintainer review and are released:
+# https://github.com/ag-ui-protocol/ag-ui/pull/3274
+# https://github.com/ag-ui-protocol/ag-ui/pull/3275
+# Express also needs the renderer catalog fix to be released:
+# https://github.com/CopilotKit/CopilotKit/pull/8120
+# Update @copilotkit/a2ui-renderer to that published release as well.
+# A2UIFormatMiddleware rejects unsupported Express
+# requests explicitly; Direct JSON stays selectable. Development wheels and
+# renderer tarballs are external validation artifacts and must never be pinned
+# here or committed. Do not promote this integration before those releases.
+ag-ui-adk==0.11.0
+ag-ui-a2ui-toolkit==0.0.5

@@ -8,6 +8,13 @@
       "@copilotkit/runtime": "1.76.0",
       "@copilotkit/shared": "1.76.0",
       "@copilotkit/voice": "1.76.0"
+    },
+    "google-adk": {
+      "@copilotkit/a2ui-renderer": "1.83.0",
+      "@copilotkit/react-core": "1.83.0",
+      "@copilotkit/runtime": "1.83.0",
+      "@copilotkit/shared": "1.83.0",
+      "@copilotkit/voice": "1.83.0"
     }
   }
 }

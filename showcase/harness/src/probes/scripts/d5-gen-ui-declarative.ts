@@ -1,3 +1,7 @@
+import {
+  startA2uiEvidence,
+  checkA2uiEvidence,
+} from "../helpers/a2ui-format.js";
 /**
  * D5 — gen-ui-declarative script.
  *
@@ -314,7 +318,7 @@ export function buildDeclarativeAssertion(
  *  secondary-LLM `generate_a2ui` pass). */
 const DECLARATIVE_RESPONSE_TIMEOUT_MS = FIRST_SIGNAL_TIMEOUT_MS + 30_000;
 
-export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
+export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
   return GEN_UI_DECLARATIVE_PILLS.map((pill) => {
     const { tag, prompt, expectedTestIds } = pill;
     const minCounts = (pill as { minCounts?: Record<string, number> })
@@ -357,13 +361,20 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
     );
     return {
       input: prompt,
-      preFill: buildBaselineCapture(baselineRef),
-      assertions: buildDeclarativeAssertion(
-        tag,
-        expectedTestIds,
-        baselineRef,
-        minCounts,
-      ),
+      preFill: async (page) => {
+        await buildBaselineCapture(baselineRef)(page);
+        if (ctx.a2uiFormat) await startA2uiEvidence(page);
+      },
+      assertions: async (page) => {
+        await buildDeclarativeAssertion(
+          tag,
+          expectedTestIds,
+          baselineRef,
+          minCounts,
+        )(page);
+        if (ctx.a2uiFormat)
+          await checkA2uiEvidence(page, ctx.a2uiFormat, "stream");
+      },
       responseTimeoutMs: DECLARATIVE_RESPONSE_TIMEOUT_MS,
       completeOnMount: {
         testIds: surfaceTestIds,

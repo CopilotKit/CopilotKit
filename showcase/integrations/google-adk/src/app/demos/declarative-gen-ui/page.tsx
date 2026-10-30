@@ -25,6 +25,7 @@
 
 // @region[provider-a2ui-prop]
 import React from "react";
+import { A2UIFormat } from "../../../../_shared/ts/a2ui-format";
 import { CopilotKit } from "@copilotkit/react-core/v2";
 
 import { myCatalog } from "./a2ui/catalog";
@@ -32,17 +33,22 @@ import { Chat } from "./chat";
 
 export default function DeclarativeGenUIDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit-declarative-gen-ui"
-      agent="declarative-gen-ui"
-      a2ui={{ catalog: myCatalog }}
-    >
-      <div className="flex justify-center items-center h-screen w-full">
-        <div className="h-full w-full max-w-4xl">
-          <Chat />
-        </div>
-      </div>
-    </CopilotKit>
+    <A2UIFormat>
+      {(inferenceFormat) => (
+        <CopilotKit
+          properties={{ a2ui: { inferenceFormat } }}
+          runtimeUrl="/api/copilotkit-declarative-gen-ui"
+          agent="declarative-gen-ui"
+          a2ui={{ catalog: myCatalog }}
+        >
+          <div className="flex justify-center items-center h-full w-full">
+            <div className="h-full w-full max-w-4xl">
+              <Chat />
+            </div>
+          </div>
+        </CopilotKit>
+      )}
+    </A2UIFormat>
     // @endregion[provider-a2ui-prop]
   );
 }
