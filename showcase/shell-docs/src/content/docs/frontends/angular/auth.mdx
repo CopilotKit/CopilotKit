@@ -128,9 +128,9 @@ Server-configured agent headers win over forwarded browser headers. Use that
 separation for service credentials, and never allow a browser-supplied header
 to override a backend token.
 
-A caller can send any `x-*` header it likes, so a value such as `x-user-id`
-reaches the agent exactly as the caller wrote it. Don't trust one as identity
-unless your server sets it.
+Under the default policy, an `x-*` header outside the denylist forwards, so a
+caller can send a value such as `x-user-id` and it reaches the agent exactly as
+the caller wrote it. Don't trust one as identity unless your server sets it.
 
 ## Production checklist
 
