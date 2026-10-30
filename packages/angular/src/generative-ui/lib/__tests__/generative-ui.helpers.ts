@@ -179,7 +179,7 @@ export function envelopeOf(input: RunAgentInput) {
 
 /** The one inline catalog of the envelope of a run. */
 export function catalogOf(input: RunAgentInput) {
-  return envelopeOf(input)?.["v1.0"].inlineCatalogs?.[0];
+  return envelopeOf(input)?.["1.0"].inlineCatalogs?.[0];
 }
 
 export function buttonSurface(surfaceId: string): GenerativeUISurfaceContent {
@@ -190,9 +190,9 @@ export function buttonSurface(surfaceId: string): GenerativeUISurfaceContent {
     status: "ready",
     rejected: [],
     operations: [
-      { version: "v1.0", createSurface: { surfaceId, catalogId: "shop" } },
+      { version: "1.0", createSurface: { surfaceId, catalogId: "shop" } },
       {
-        version: "v1.0",
+        version: "1.0",
         updateComponents: {
           surfaceId,
           components: [{ id: "root", component: "Button", label: "Buy now" }],
@@ -209,9 +209,9 @@ export function missingRootSurface(
   return {
     ...buttonSurface(surfaceId),
     operations: [
-      { version: "v1.0", createSurface: { surfaceId, catalogId: "shop" } },
+      { version: "1.0", createSurface: { surfaceId, catalogId: "shop" } },
       {
-        version: "v1.0",
+        version: "1.0",
         updateComponents: {
           surfaceId,
           components: [{ id: "root", component: "Missing" }],

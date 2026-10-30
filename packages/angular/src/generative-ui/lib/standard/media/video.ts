@@ -4,7 +4,6 @@ import {
   inject,
   input,
   linkedSignal,
-  signal,
 } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import { DomSanitizer } from "@angular/platform-browser";
@@ -134,7 +133,7 @@ export function videoSourceOf(url: string): "youtube" | "file" | "page" {
           [attr.aria-description]="aria()['aria-description'] ?? null"
           [attr.aria-hidden]="aria()['aria-hidden'] ? 'true' : null"
           [attr.aria-live]="aria()['aria-live'] ?? null"
-          (error)="failedUrl.set(url())"
+          (error)="view.set('link')"
           [attr.crossorigin]="captions()?.length ? 'anonymous' : null"
           [style]="playerStyle()"
         >
@@ -156,7 +155,7 @@ export function videoSourceOf(url: string): "youtube" | "file" | "page" {
           [attr.aria-description]="aria()['aria-description'] ?? null"
           [attr.aria-hidden]="aria()['aria-hidden'] ? 'true' : null"
           [attr.aria-live]="aria()['aria-live'] ?? null"
-          (click)="playingUrl.set(url())"
+          (click)="view.set('youtube')"
           [style]="posterStyle()"
         >
           <img
@@ -212,30 +211,25 @@ export class CopilotGenerativeUIVideo {
   readonly weight = input<number>();
 
   protected readonly aria = injectGenerativeUIAccessibility();
-  /**
-   * The url the user pressed play on. Any change of url clears it, so a new
-   * url, or a return to one played before, shows its poster first.
-   */
-  protected readonly playingUrl = linkedSignal<
-    string | undefined,
-    string | undefined
-  >({ source: this.url, computation: () => undefined });
-  protected readonly failedUrl = signal<string | undefined>(undefined);
   readonly #sanitizer = inject(DomSanitizer);
 
   protected readonly youTubeId = computed(() => {
     const url = this.url();
     return url ? youTubeIdOf(url) : undefined;
   });
-  protected readonly view = computed<
+  /**
+   * What the Video shows, derived from `url`: a YouTube video starts on its
+   * poster and plays on a press, a file that fails to load becomes a link.
+   * A new url derives it again, so a video played before starts on its
+   * poster too.
+   */
+  protected readonly view = linkedSignal<
     "link" | "file" | "poster" | "youtube" | "none"
   >(() => {
     const url = this.url();
     if (!url) return "none";
-    const source = videoSourceOf(url);
-    if (source === "page" || this.failedUrl() === url) return "link";
-    if (this.youTubeId() === undefined) return "file";
-    return this.playingUrl() === url ? "youtube" : "poster";
+    if (videoSourceOf(url) === "page") return "link";
+    return this.youTubeId() === undefined ? "file" : "poster";
   });
   protected readonly host = computed(() => {
     const url = this.url();

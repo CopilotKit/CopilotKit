@@ -40,6 +40,7 @@
     "dompurify": "^3.4.1",
     "fast-json-patch": "^3.1.1",
     "highlight.js": "^11.11.1",
+    "jsonrepair": "^3.15.0",
     "katex": "^0.16.22",
     "lucide": "^0.525.0",
     "maplibre-gl": "^5.0.0",

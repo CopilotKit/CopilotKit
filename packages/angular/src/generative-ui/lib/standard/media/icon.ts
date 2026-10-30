@@ -1,7 +1,7 @@
 import {
   Component,
-  DestroyRef,
   ElementRef,
+  Injectable,
   PLATFORM_ID,
   Renderer2,
   computed,
@@ -11,6 +11,7 @@ import {
   signal,
   untracked,
 } from "@angular/core";
+import type { Signal } from "@angular/core";
 import { isPlatformBrowser } from "@angular/common";
 import { textColor } from "@copilotkit/shared/generative-ui";
 import type {
@@ -22,6 +23,7 @@ import type {
 import type { z } from "zod";
 import { injectGenerativeUIAccessibility } from "../../node-context";
 import { GENERATIVE_UI_ICON_LOADER } from "../loaders";
+import type { GenerativeUILibraryLoader } from "../loaders";
 import type { StyleMap } from "../style";
 
 const ICON_PX: Record<(typeof ICON_SIZES)[number], number> = {
@@ -186,21 +188,38 @@ function lucideIconOf(
 }
 
 /**
- * The `lucide` module, loaded once per app through the
- * `GENERATIVE_UI_ICON_LOADER`. `null` while it loads, or without a loader.
+ * The `lucide` modules of the app, loaded once per
+ * `GENERATIVE_UI_ICON_LOADER`. A module is `null` while it loads, and stays
+ * `null` when the load fails.
  */
-let lucideModule: Record<string, unknown> | null = null;
-let lucidePromise: Promise<Record<string, unknown> | null> | null = null;
+@Injectable({ providedIn: "root" })
+export class GenerativeUIIconModules {
+  readonly #modules = new Map<
+    GenerativeUILibraryLoader,
+    Signal<Record<string, unknown> | null>
+  >();
 
-function loadLucide(loader: () => Promise<unknown>) {
-  lucidePromise ??= loader().then(
-    (module) => {
-      lucideModule = module as Record<string, unknown>;
-      return lucideModule;
-    },
-    () => null,
-  );
-  return lucidePromise;
+  /** The module of `loader`; the first call starts the load. */
+  load(loader: GenerativeUILibraryLoader) {
+    let icons = this.#modules.get(loader);
+    if (!icons) {
+      const loaded = signal<Record<string, unknown> | null>(null);
+      loader().then(
+        (value) => loaded.set(value as Record<string, unknown>),
+        () => {},
+      );
+      icons = loaded.asReadonly();
+      this.#modules.set(loader, icons);
+    }
+    return icons;
+  }
+}
+
+/** The `lucide` module for an Icon: `null` on the server or without a loader. */
+function injectIconModule(): Signal<Record<string, unknown> | null> {
+  const loader = inject(GENERATIVE_UI_ICON_LOADER);
+  if (!loader || !isPlatformBrowser(inject(PLATFORM_ID))) return signal(null);
+  return inject(GenerativeUIIconModules).load(loader);
 }
 
 /**
@@ -245,9 +264,7 @@ export class CopilotGenerativeUIIcon {
 
   readonly #element = inject<ElementRef<SVGElement>>(ElementRef).nativeElement;
   readonly #renderer = inject(Renderer2);
-  readonly #loader = inject(GENERATIVE_UI_ICON_LOADER);
-  readonly #isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
-  readonly #icons = signal(lucideModule);
+  readonly #icons = injectIconModule();
   protected readonly aria = injectGenerativeUIAccessibility();
 
   protected readonly isPath = computed(() => typeof this.name() === "object");
@@ -291,14 +308,6 @@ export class CopilotGenerativeUIIcon {
   }));
 
   constructor() {
-    const loader = this.#loader;
-    if (loader && this.#isBrowser && !lucideModule) {
-      let isActive = true;
-      inject(DestroyRef).onDestroy(() => (isActive = false));
-      void loadLucide(loader).then((module) => {
-        if (isActive && module) this.#icons.set(module);
-      });
-    }
     effect(() => {
       const name = this.name();
       const icon = this.lucide();

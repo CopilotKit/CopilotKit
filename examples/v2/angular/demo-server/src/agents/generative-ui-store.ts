@@ -62,15 +62,15 @@ function actionOf(input: RunAgentInput) {
 function storeOperations(surfaceId: string): unknown[] {
   return [
     {
-      version: "v1.0",
+      version: "1.0",
       createSurface: { surfaceId, catalogId: SHOP_CATALOG_ID },
     },
     {
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: { surfaceId, path: "/", value: { name: "" } },
     },
     {
-      version: "v1.0",
+      version: "1.0",
       updateComponents: {
         surfaceId,
         components: [
@@ -168,15 +168,15 @@ function storeOperations(surfaceId: string): unknown[] {
 function storesOperations(surfaceId: string): unknown[] {
   return [
     {
-      version: "v1.0",
+      version: "1.0",
       createSurface: { surfaceId, catalogId: SHOP_CATALOG_ID },
     },
     {
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: { surfaceId, path: "/", value: { store: "" } },
     },
     {
-      version: "v1.0",
+      version: "1.0",
       updateComponents: {
         surfaceId,
         components: [
@@ -227,11 +227,11 @@ function storesOperations(surfaceId: string): unknown[] {
 function shopOperations(surfaceId: string): unknown[] {
   return [
     {
-      version: "v1.0",
+      version: "1.0",
       createSurface: { surfaceId, catalogId: SHOP_CATALOG_ID },
     },
     {
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: {
         surfaceId,
         path: "/",
@@ -239,7 +239,7 @@ function shopOperations(surfaceId: string): unknown[] {
       },
     },
     {
-      version: "v1.0",
+      version: "1.0",
       updateComponents: {
         surfaceId,
         components: [
@@ -308,15 +308,15 @@ function shopOperations(surfaceId: string): unknown[] {
 function errorsOperations(surfaceId: string): unknown[] {
   return [
     {
-      version: "v1.0",
+      version: "1.0",
       createSurface: { surfaceId, catalogId: SHOP_CATALOG_ID },
     },
     {
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: { surfaceId, path: "/", value: { count: 42 } },
     },
     {
-      version: "v1.0",
+      version: "1.0",
       updateComponents: {
         surfaceId,
         components: [
@@ -341,7 +341,7 @@ function errorsOperations(surfaceId: string): unknown[] {
       },
     },
     {
-      version: "v1.0",
+      version: "1.0",
       updateComponents: {
         surfaceId,
         components: [

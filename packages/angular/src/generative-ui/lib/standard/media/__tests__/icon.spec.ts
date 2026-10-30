@@ -1,7 +1,39 @@
+import { TestBed } from "@angular/core/testing";
 import { describe, expect, it, vi } from "vitest";
+import { GENERATIVE_UI_ICON_LOADER } from "../../loaders";
 import { provideFakeIcons, renderInColumn } from "./helpers";
 
 describe("Icon", () => {
+  it("draws with the icons of its own app's loader, not of one loaded before", async () => {
+    provideFakeIcons();
+    const first = renderInColumn({ id: "i", component: "Icon", name: "check" });
+    await vi.waitFor(() => {
+      first.detectChanges();
+      expect(first.container.querySelector("svg.lucide-check")).not.toBeNull();
+    });
+    TestBed.resetTestingModule();
+    const Check = [["circle", { cx: "12", cy: "12", r: "4" }]];
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: GENERATIVE_UI_ICON_LOADER,
+          useValue: () => Promise.resolve({ Check, icons: { Check } }),
+        },
+      ],
+    });
+    const second = renderInColumn({
+      id: "i",
+      component: "Icon",
+      name: "check",
+    });
+    await vi.waitFor(() => {
+      second.detectChanges();
+      expect(
+        second.container.querySelector("svg.lucide-check circle"),
+      ).not.toBeNull();
+    });
+  });
+
   it("loads a lucide Icon on first use and hides it from screen readers", async () => {
     provideFakeIcons();
     const view = renderInColumn({

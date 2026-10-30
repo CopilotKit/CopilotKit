@@ -54,8 +54,8 @@ function content(
     target,
     catalogId: ui.id,
     operations: [
-      { version: "v1.0", createSurface: { surfaceId, catalogId: ui.id } },
-      { version: "v1.0", updateComponents: { surfaceId, components } },
+      { version: "1.0", createSurface: { surfaceId, catalogId: ui.id } },
+      { version: "1.0", updateComponents: { surfaceId, components } },
     ],
     status: "ready",
     rejected: [],
@@ -164,11 +164,11 @@ const shopUI = createGenerativeUI({
 
 const T = "thread-1";
 const create = (surfaceId: string) => ({
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId, catalogId: "shop" },
 });
 const nodes = (surfaceId: string, ...components: unknown[]) => ({
-  version: "v1.0",
+  version: "1.0",
   updateComponents: { surfaceId, components },
 });
 const snapshot = (
@@ -353,7 +353,7 @@ describe("generative UI integration: the chat card", () => {
       agent.emit(
         snapshot("cmp", "chat", [
           {
-            version: "v1.0",
+            version: "1.0",
             createSurface: {
               surfaceId: "cmp",
               catalogId: "shop",

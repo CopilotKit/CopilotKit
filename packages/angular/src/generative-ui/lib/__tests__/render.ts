@@ -119,17 +119,17 @@ export function renderSurface(
   });
   let operations: A2UIOperation[] = [
     {
-      version: "v1.0",
+      version: "1.0",
       createSurface: { surfaceId: SURFACE_ID, catalogId: ui.id },
     },
     {
-      version: "v1.0",
+      version: "1.0",
       updateComponents: { surfaceId: SURFACE_ID, components },
     },
   ];
   if (data) {
     operations.push({
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: { surfaceId: SURFACE_ID, path: "/", value: data },
     });
   }
@@ -180,7 +180,7 @@ export function updateComponents(
   ...components: A2UIComponentNode[]
 ): A2UIOperation {
   return {
-    version: "v1.0",
+    version: "1.0",
     updateComponents: { surfaceId: SURFACE_ID, components },
   };
 }
@@ -188,7 +188,7 @@ export function updateComponents(
 /** An `updateDataModel` operation on the test surface. */
 export function updateDataModel(path: string, value: unknown): A2UIOperation {
   return {
-    version: "v1.0",
+    version: "1.0",
     updateDataModel: { surfaceId: SURFACE_ID, path, value },
   };
 }

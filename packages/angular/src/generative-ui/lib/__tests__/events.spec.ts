@@ -49,7 +49,7 @@ describe("CopilotGenerativeUI", () => {
       await vi.waitFor(() => expect(CapturingAgent.inputs).toHaveLength(1));
       const sent = envelopeOf(CapturingAgent.inputs[0]!);
       expect(sent?.metadata.extensions.copilotkit_action).toEqual({
-        version: "v1.0",
+        version: "1.0",
         action: {
           name: "buy",
           surfaceId: "s1",
@@ -65,7 +65,7 @@ describe("CopilotGenerativeUI", () => {
       const elsewhere = readCopilotKitUIEnvelope(
         core.getPropertiesForAgent("other"),
       );
-      expect(elsewhere?.["v1.0"].supportedCatalogIds).toEqual(["shop"]);
+      expect(elsewhere?.["1.0"].supportedCatalogIds).toEqual(["shop"]);
       expect(elsewhere?.metadata.extensions).not.toHaveProperty(
         "copilotkit_action",
       );

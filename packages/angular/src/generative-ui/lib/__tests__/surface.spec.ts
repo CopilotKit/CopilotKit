@@ -69,11 +69,11 @@ function setup(components?: string[], surfaceUI?: GenerativeUI) {
       catalogId: ui.id,
       operations: [
         {
-          version: "v1.0",
+          version: "1.0",
           createSurface: { surfaceId: "s1", catalogId: ui.id },
         },
         {
-          version: "v1.0",
+          version: "1.0",
           updateComponents: {
             surfaceId: "s1",
             components: [{ id: "root", component: "Row", text }],

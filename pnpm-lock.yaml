@@ -1328,6 +1328,9 @@ importers:
       highlight.js:
         specifier: ^11.11.1
         version: 11.11.1
+      jsonrepair:
+        specifier: ^3.15.0
+        version: 3.15.0
       katex:
         specifier: ^0.16.22
         version: 0.16.27

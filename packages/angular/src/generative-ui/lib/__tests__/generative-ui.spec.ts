@@ -127,7 +127,7 @@ describe("CopilotGenerativeUI", () => {
       const envelope = envelopeOf(await runOnce(core, agent));
 
       expect(envelope).toStrictEqual({
-        "v1.0": {
+        "1.0": {
           supportedCatalogIds: ["shop"],
           inlineCatalogs: [
             {
@@ -566,11 +566,11 @@ const shopUI = createGenerativeUI({
 class InlineHost {}
 
 const create = (surfaceId: string) => ({
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId, catalogId: "shop" },
 });
 const nodes = (surfaceId: string, ...components: unknown[]) => ({
-  version: "v1.0",
+  version: "1.0",
   updateComponents: { surfaceId, components },
 });
 const snapshot = (
