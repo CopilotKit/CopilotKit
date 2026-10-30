@@ -78,7 +78,7 @@ export const layoutProps = {
     .string()
     .optional()
     .describe(
-      'Leave it unset. A surface token (surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid) or a CSS color. Only one summary panel in a Card uses "surface-secondary"',
+      'Leave it unset. A surface token such as surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid, or a CSS color. Only one summary panel in a Card uses "surface-secondary"',
     ),
   border: z.boolean().optional(),
   borderColor: z.enum(BORDER_COLORS).optional(),
@@ -1213,7 +1213,7 @@ export const layoutComponents = {
   Card: {
     component: Card,
     description:
-      'A bordered panel, only for an interactive panel (controls, a form, a configurator); tables, charts and text need none. Give it a Title and a Caption. Separate groups with a Divider or the gap, never a nested Card or bordered Box. Variant "section": no box; "outline": always a box. Without controls it renders as "section" unless variant or border is set.',
+      'A bordered panel, only for an interactive panel (controls, a form, a configurator); tables, charts and text need none. Give it a Title and a Caption. Separate groups with a Divider or the gap, never a nested Card or bordered Box. Variant "section": no box; "outline": always a box. In markdown mode, without controls it renders as "section" unless variant or border is set.',
     props: cardSchema,
     events: VISIBLE_EVENT,
     slots: { child: "single", children: "multiple" } as const,
