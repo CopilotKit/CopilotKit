@@ -1,7 +1,7 @@
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { createCopilotEndpointSingleRoute } from "../endpoints";
 import { CopilotRuntime } from "../core/runtime";
 import type { CopilotSseRuntimeOptions } from "../core/runtime";
 import { logger } from "@copilotkit/shared";
@@ -38,11 +38,13 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       afterRequestMiddleware: after,
     });
 
-    const endpoint = createCopilotEndpointSingleRoute({
+    const endpoint = createCopilotRuntimeHandler({
+      mode: "single-route",
+      cors: true,
       runtime,
       basePath: "/rpc",
     });
-    const response = await endpoint.fetch(originalRequest);
+    const response = await endpoint(originalRequest);
 
     expect(before).toHaveBeenCalledWith({
       runtime,
@@ -73,11 +75,13 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       .spyOn(logger, "error")
       .mockImplementation(() => undefined as unknown as void);
 
-    const endpoint = createCopilotEndpointSingleRoute({
+    const endpoint = createCopilotRuntimeHandler({
+      mode: "single-route",
+      cors: true,
       runtime,
       basePath: "/rpc",
     });
-    const response = await endpoint.fetch(buildRequest({ method: "info" }));
+    const response = await endpoint(buildRequest({ method: "info" }));
 
     expect(response.status).toBe(400);
     expect(logSpy).toHaveBeenCalledWith(
@@ -103,11 +107,13 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       .spyOn(logger, "error")
       .mockImplementation(() => undefined as unknown as void);
 
-    const endpoint = createCopilotEndpointSingleRoute({
+    const endpoint = createCopilotRuntimeHandler({
+      mode: "single-route",
+      cors: true,
       runtime,
       basePath: "/rpc",
     });
-    const response = await endpoint.fetch(buildRequest({ method: "info" }));
+    const response = await endpoint(buildRequest({ method: "info" }));
 
     expect(response.status).toBe(500);
     expect(logSpy).toHaveBeenCalledWith(
@@ -140,11 +146,13 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       .spyOn(logger, "error")
       .mockImplementation(() => undefined as unknown as void);
 
-    const endpoint = createCopilotEndpointSingleRoute({
+    const endpoint = createCopilotRuntimeHandler({
+      mode: "single-route",
+      cors: true,
       runtime,
       basePath: "/rpc",
     });
-    const response = await endpoint.fetch(
+    const response = await endpoint(
       buildRequest({
         method: "agent/run",
         params: { agentId: "agent" },
@@ -168,11 +176,13 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       afterRequestMiddleware: after,
     });
 
-    const endpoint = createCopilotEndpointSingleRoute({
+    const endpoint = createCopilotRuntimeHandler({
+      mode: "single-route",
+      cors: true,
       runtime,
       basePath: "/rpc",
     });
-    await endpoint.fetch(buildRequest({ method: "info" }));
+    await endpoint(buildRequest({ method: "info" }));
 
     // Wait for async middleware (parseSSEResponse introduces a microtask)
     await new Promise((r) => setImmediate(r));
@@ -196,11 +206,13 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       .spyOn(logger, "error")
       .mockImplementation(() => undefined as unknown as void);
 
-    const endpoint = createCopilotEndpointSingleRoute({
+    const endpoint = createCopilotRuntimeHandler({
+      mode: "single-route",
+      cors: true,
       runtime,
       basePath: "/rpc",
     });
-    const response = await endpoint.fetch(buildRequest({ method: "info" }));
+    const response = await endpoint(buildRequest({ method: "info" }));
 
     await new Promise((r) => setImmediate(r));
 

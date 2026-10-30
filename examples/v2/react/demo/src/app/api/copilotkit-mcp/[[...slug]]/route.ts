@@ -1,10 +1,9 @@
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
   BasicAgent,
 } from "@copilotkit/runtime";
-import { handle } from "hono/vercel";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 
 const determineModel = () => {
@@ -44,17 +43,18 @@ const agent = new BasicAgent({
   }),
 );
 
-const honoRuntime = new CopilotRuntime({
+const runtime = new CopilotRuntime({
   agents: {
     default: agent,
   },
   runner: new InMemoryAgentRunner(),
 });
 
-const app = createCopilotEndpoint({
-  runtime: honoRuntime,
+const app = createCopilotRuntimeHandler({
+  cors: true,
+  runtime: runtime,
   basePath: "/api/copilotkit-mcp",
 });
 
-export const GET = handle(app);
-export const POST = handle(app);
+export const GET = app;
+export const POST = app;

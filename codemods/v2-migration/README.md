@@ -24,6 +24,58 @@ Then finish with the skill it installs, or by hand: search for `TODO(copilotkit-
 - **Everything else** gets a `// TODO(copilotkit-2.0):` comment that names the 2.0 replacement and links its docs. The codemod does not rewrite a call whose arguments changed: `useCopilotAction` to `useFrontendTool` needs a Zod schema, and only you or an agent can write it.
 - **A skill.** The last step installs an agent skill that resolves the TODOs, updates `package.json`, and runs your build.
 
+## Runtime adapters in 2.0
+
+The codemod automatically migrates named imports from the runtime root and the
+`/express`, `/hono`, `/v2/express`, and `/v2/hono` entry points when all uses can
+be resolved in the current file:
+
+- Express factories become `createCopilotNodeListener`. The generated app-owned
+  router preserves mount prefixes, request URLs seen by hooks, and `next()`
+  fallthrough. Single endpoints register POST and OPTIONS on the exact path.
+- Hono factories become `createCopilotRuntimeHandler`. Calls to `.fetch(request)`
+  become direct calls, and root Hono `.route("/", endpoint)` mounts become Fetch
+  callbacks. Inline factories are evaluated once at setup time.
+- Next.js `handle(endpoint)` wrappers from `hono/vercel` are removed. The import
+  stays if another Hono app in the file still uses it.
+- Single-route factories receive `mode: "single-route"`. Omitted CORS becomes
+  `cors: true`, preserving the old default. Supported literal Express CORS options
+  are translated to the Fetch configuration's names.
+- Aliases and existing bindings are preserved without introducing name collisions.
+  Running the codemod again leaves the migrated handlers unchanged.
+
+For example:
+
+```ts
+// Before
+import { createCopilotEndpoint } from "@copilotkit/runtime/v2";
+import { handle } from "hono/vercel";
+const endpoint = createCopilotEndpoint({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+export const POST = handle(endpoint);
+
+// After
+import { createCopilotRuntimeHandler } from "@copilotkit/runtime";
+const endpoint = createCopilotRuntimeHandler({
+  cors: true,
+  runtime,
+  basePath: "/api/copilotkit",
+});
+export const POST = endpoint;
+```
+
+Router customization, exported/escaped app objects, shadowed bindings, dynamic
+options, namespace/dynamic imports, and custom CORS callbacks receive a TODO.
+Express CORS objects that implicitly reflect request headers also need manual
+migration: the Fetch handler cannot reproduce that behavior with a static
+wildcard. Framework dependencies are not removed from the app's package manifest;
+they may still serve other routes.
+
+See the [runtime migration guide](https://docs.copilotkit.ai/migrate/runtime-2.0)
+for the remaining manual cases.
+
 ## Limits
 
 - Run it **before** you upgrade the packages. In v1, `@copilotkit/react-core` and `@copilotkit/runtime` mean the v1 API, so the codemod reads them that way. Running it again on its own output changes nothing.
@@ -37,6 +89,7 @@ Then finish with the skill it installs, or by hand: search for `TODO(copilotkit-
 
 ```bash
 pnpm nx run @copilotkit/v2-migration:test         # fixtures in tests/ts and tests/tsx
+pnpm nx run @copilotkit/v2-migration:test:runtime # compile and run the migrated Express/Hono fixture
 pnpm nx run @copilotkit/v2-migration:check-types
 pnpm nx run @copilotkit/v2-migration:validate     # the codemod package shape
 ```

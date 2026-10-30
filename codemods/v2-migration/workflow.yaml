@@ -4,7 +4,7 @@ version: "1"
 
 nodes:
   - id: migrate
-    name: Migrate CopilotKit imports and the provider
+    name: Migrate CopilotKit imports, runtime handlers, and the provider
     type: automatic
     steps:
       # `.ts` files go through the TypeScript grammar: in TSX, `<T>value`

@@ -31,14 +31,6 @@ const runtimeV2Modules = [
     file: "packages/runtime/src/node.ts",
     importPath: "@copilotkit/runtime/node",
   },
-  {
-    file: "packages/runtime/src/express.ts",
-    importPath: "@copilotkit/runtime/express",
-  },
-  {
-    file: "packages/runtime/src/hono.ts",
-    importPath: "@copilotkit/runtime/hono",
-  },
 ];
 
 // `@copilotkit/sdk-js/langgraph` is the supported agent SDK for LangGraph
@@ -442,10 +434,7 @@ export function getV1PublicApi() {
         // A replacement can live on a narrower v2 subpath than the entrypoint's
         // root one, so a row names the module the lookup actually found it in.
         // An explicit override still wins, because a symbol can be reachable
-        // from the root barrel and still be better imported from a subpath: the
-        // Express handler is re-exported by `@copilotkit/runtime`, but the
-        // docs import it from `@copilotkit/runtime/express`, the path that
-        // does not pull the rest of the barrel in.
+        // from the root barrel and still be better imported from a subpath.
         const replacementImportPath =
           override?.importPath ??
           targetEntry?.v2Module.importPath ??

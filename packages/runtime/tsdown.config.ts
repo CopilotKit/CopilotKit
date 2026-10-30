@@ -9,8 +9,6 @@ const { version } = JSON.parse(
 export default defineConfig({
   entry: {
     index: "src/index.ts",
-    express: "src/express.ts",
-    hono: "src/hono.ts",
     node: "src/node.ts",
     "internal/learned-skills": "src/internal/learned-skills.ts",
   },

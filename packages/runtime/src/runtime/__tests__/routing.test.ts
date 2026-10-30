@@ -1,4 +1,5 @@
-import { createCopilotEndpoint } from "../endpoints";
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+
 import { CopilotRuntime } from "../core/runtime";
 import { describe, it, expect } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -41,14 +42,18 @@ describe("CopilotEndpoint routing", () => {
     body?: unknown,
   ) => {
     const runtime = createMockRuntime();
-    const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
+    const endpoint = createCopilotRuntimeHandler({
+      cors: true,
+      runtime,
+      basePath: "/",
+    });
     const requestInit: RequestInit = { method };
     if (body) {
       requestInit.body = JSON.stringify(body);
       requestInit.headers = { "Content-Type": "application/json" };
     }
     const request = createRequest(url, method);
-    const response = await endpoint.fetch(request);
+    const response = await endpoint(request);
     return response;
   };
 

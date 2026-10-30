@@ -1,3 +1,5 @@
+import { createCopilotNodeListener } from "../endpoints/node";
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 /**
  * Managed-Channel lifecycle across the endpoint wrappers.
  *
@@ -10,9 +12,7 @@
  * (OSS-641) and `ready()` becomes await-and-observe rather than the trigger:
  *
  * - Node (`createCopilotNodeListener`) — auto-starts.
- * - Express (`createCopilotExpressHandler`) — auto-starts; an Express router
- *   requires a long-running `http.Server`.
- * - Hono (`createCopilotHonoHandler`) — stays LAZY: it is our Next.js App
+ * - Fetch (`createCopilotRuntimeHandler`) — stays LAZY: it is our Next.js App
  *   Router / edge surface (every `examples/showcases/*` route handler builds one
  *   at module scope), where per-isolate auto-start would mint competing
  *   listeners for the same Channel.
@@ -22,9 +22,7 @@
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { logger } from "@copilotkit/shared";
-import { createCopilotNodeListener } from "../endpoints/node";
-import { createCopilotExpressHandler } from "../endpoints/express";
-import { createCopilotHonoHandler } from "../endpoints/hono";
+
 import { CopilotRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { createChannel } from "@copilotkit/channels";
@@ -214,10 +212,11 @@ describe("endpoint wrappers — managed channels propagation", () => {
     });
   });
 
-  it("Express handler starts activation at creation and exposes .channels on the returned Router", async () => {
+  it("Node listener exposes .channels at a configured base path", async () => {
     const { engine, state } = countingEngine();
 
-    const router = createCopilotExpressHandler({
+    const router = createCopilotNodeListener({
+      cors: true,
       runtime: intelRuntimeWith1Channel(),
       basePath: "/api/copilotkit",
       __channelEngine: engine,
@@ -242,7 +241,8 @@ describe("endpoint wrappers — managed channels propagation", () => {
       runtime,
       __channelEngine: engine,
     });
-    const router = createCopilotExpressHandler({
+    const router = createCopilotRuntimeHandler({
+      cors: true,
       runtime,
       basePath: "/api/copilotkit",
       __channelEngine: engine,
@@ -255,10 +255,11 @@ describe("endpoint wrappers — managed channels propagation", () => {
     await listener.channels.stop();
   });
 
-  it("Hono handler stays lazy so an edge/serverless isolate opens no socket at creation", async () => {
+  it("Fetch handler stays lazy so an edge/serverless isolate opens no socket at creation", async () => {
     const { engine, state } = countingEngine();
 
-    const app = createCopilotHonoHandler({
+    const app = createCopilotRuntimeHandler({
+      cors: true,
       runtime: intelRuntimeWith1Channel(),
       basePath: "/api/copilotkit",
       __channelEngine: engine,

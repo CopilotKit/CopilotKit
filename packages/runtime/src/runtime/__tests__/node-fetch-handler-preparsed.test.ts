@@ -1,3 +1,4 @@
+import { createCopilotNodeListener } from "../endpoints/node";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -6,7 +7,7 @@ import request from "supertest";
 import { describe, it, expect, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import { createCopilotNodeHandler } from "../endpoints/node-fetch-handler";
-import { createCopilotExpressHandler } from "../endpoints/express";
+
 import { CopilotRuntime } from "../core/runtime";
 import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
 
@@ -559,7 +560,7 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — mounted router", () =
     expect(parsedPost.body.path).toBe("/copilotkit/info");
   });
 
-  it("routes a parsed POST through createCopilotExpressHandler mounted under a prefix", async () => {
+  it("routes a parsed POST through createCopilotNodeListener mounted under a prefix", async () => {
     const agent = {
       clone: () => agent,
       description: "test agent",
@@ -571,7 +572,7 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — mounted router", () =
       if (parseFirst) app.use(express.json());
       app.use(
         "/api/v1",
-        createCopilotExpressHandler({
+        createCopilotNodeListener({
           runtime,
           basePath: "/copilotkit",
           cors: false,

@@ -129,20 +129,6 @@ const HOST_FACTORIES: HostFactorySpec[] = [
     configurationType: "CopilotRuntimeHandlerOptions",
   },
   {
-    importPath: "@copilotkit/runtime/express",
-    entrySource: "packages/runtime/src/express.ts",
-    symbol: "createCopilotExpressHandler",
-    declarationPath: "packages/runtime/src/runtime/endpoints/express.ts",
-    configurationType: "CopilotExpressEndpointParams",
-  },
-  {
-    importPath: "@copilotkit/runtime/hono",
-    entrySource: "packages/runtime/src/hono.ts",
-    symbol: "createCopilotHonoHandler",
-    declarationPath: "packages/runtime/src/runtime/endpoints/hono.ts",
-    configurationType: "CopilotEndpointParams",
-  },
-  {
     importPath: "@copilotkit/runtime/node",
     entrySource: "packages/runtime/src/node.ts",
     symbol: "createCopilotNodeHandler",
@@ -160,46 +146,6 @@ const HOST_FACTORIES: HostFactorySpec[] = [
 ];
 
 const DEPRECATIONS: DeprecationSpec[] = [
-  {
-    importPath: "@copilotkit/runtime/express",
-    entrySource: "packages/runtime/src/express.ts",
-    symbol: "createCopilotEndpointExpress",
-    declarationPath: "packages/runtime/src/runtime/endpoints/express.ts",
-    replacement: {
-      importPath: "@copilotkit/runtime/express",
-      symbol: "createCopilotExpressHandler",
-    },
-  },
-  {
-    importPath: "@copilotkit/runtime/express",
-    entrySource: "packages/runtime/src/express.ts",
-    symbol: "createCopilotEndpointSingleRouteExpress",
-    declarationPath: "packages/runtime/src/runtime/endpoints/express-single.ts",
-    replacement: {
-      importPath: "@copilotkit/runtime/express",
-      symbol: "createCopilotExpressHandler",
-    },
-  },
-  {
-    importPath: "@copilotkit/runtime/hono",
-    entrySource: "packages/runtime/src/hono.ts",
-    symbol: "createCopilotEndpoint",
-    declarationPath: "packages/runtime/src/runtime/endpoints/hono.ts",
-    replacement: {
-      importPath: "@copilotkit/runtime/hono",
-      symbol: "createCopilotHonoHandler",
-    },
-  },
-  {
-    importPath: "@copilotkit/runtime/hono",
-    entrySource: "packages/runtime/src/hono.ts",
-    symbol: "createCopilotEndpointSingleRoute",
-    declarationPath: "packages/runtime/src/runtime/endpoints/hono-single.ts",
-    replacement: {
-      importPath: "@copilotkit/runtime/hono",
-      symbol: "createCopilotHonoHandler",
-    },
-  },
   {
     importPath: "@copilotkit/runtime/node",
     entrySource: "packages/runtime/src/node.ts",

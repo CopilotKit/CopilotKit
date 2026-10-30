@@ -1,10 +1,10 @@
+import { createCopilotNodeListener } from "../endpoints/node";
 import express from "express";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
-import { createCopilotEndpointSingleRouteExpress } from "../express";
 import { CopilotRuntime } from "../core/runtime";
 
 vi.mock("../handlers/handle-run", () => ({
@@ -67,7 +67,12 @@ describe("CopilotEndpointSingleRouteExpress routing", () => {
     const runtime = createMockRuntime();
     const app = express();
     app.use(
-      createCopilotEndpointSingleRouteExpress({ runtime, basePath: "/rpc" }),
+      createCopilotNodeListener({
+        mode: "single-route",
+        cors: true,
+        runtime,
+        basePath: "/rpc",
+      }),
     );
     return { app, runtime };
   };

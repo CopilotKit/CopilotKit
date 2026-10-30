@@ -1,10 +1,10 @@
+import { createCopilotNodeListener } from "../endpoints/node";
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import express from "express";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 
 import type { CopilotRuntimeLike } from "../core/runtime";
-import { createCopilotExpressHandler } from "../endpoints/express";
-import { createCopilotHonoHandler } from "../endpoints/hono";
 
 const snapshot = {
   schemaVersion: 1,
@@ -42,7 +42,8 @@ describe("Inspector Learning endpoint wrappers", () => {
   it("serves Learning without extra flags through Express", async () => {
     const app = express();
     app.use(
-      createCopilotExpressHandler({
+      createCopilotNodeListener({
+        cors: true,
         runtime: learningRuntime(),
         basePath: "/",
       }),
@@ -52,17 +53,15 @@ describe("Inspector Learning endpoint wrappers", () => {
   });
 
   it("serves Learning without extra flags through Hono", async () => {
-    const app = createCopilotHonoHandler({
+    const app = createCopilotRuntimeHandler({
+      cors: true,
       runtime: learningRuntime(),
       basePath: "/",
     });
 
     expect(
-      (
-        await app.fetch(
-          new Request("https://runtime.example/inspector-learning"),
-        )
-      ).status,
+      (await app(new Request("https://runtime.example/inspector-learning")))
+        .status,
     ).toBe(200);
   });
 });

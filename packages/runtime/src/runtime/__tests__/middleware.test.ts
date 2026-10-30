@@ -1,6 +1,7 @@
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { vi } from "vitest";
 import type { MockedFunction } from "vitest";
-import { createCopilotEndpoint } from "../endpoints";
+
 import { CopilotRuntime } from "../core/runtime";
 import type { CopilotSseRuntimeOptions } from "../core/runtime";
 import { logger } from "@copilotkit/shared";
@@ -65,8 +66,12 @@ describe("CopilotEndpoint middleware", () => {
       afterRequestMiddleware: after,
     });
 
-    const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
-    const response = await endpoint.fetch(originalRequest);
+    const endpoint = createCopilotRuntimeHandler({
+      cors: true,
+      runtime,
+      basePath: "/",
+    });
+    const response = await endpoint(originalRequest);
 
     expect(before).toHaveBeenCalledWith({
       runtime,
@@ -99,10 +104,12 @@ describe("CopilotEndpoint middleware", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
-    const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
-    const response = await endpoint.fetch(
-      new Request("https://example.com/info"),
-    );
+    const endpoint = createCopilotRuntimeHandler({
+      cors: true,
+      runtime,
+      basePath: "/",
+    });
+    const response = await endpoint(new Request("https://example.com/info"));
 
     expect(response.status).toBe(400);
     expect(logSpy).toHaveBeenCalledWith(
@@ -129,11 +136,13 @@ describe("CopilotEndpoint middleware", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
-    const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
+    const endpoint = createCopilotRuntimeHandler({
+      cors: true,
+      runtime,
+      basePath: "/",
+    });
 
-    const response = await endpoint.fetch(
-      new Request("https://example.com/info"),
-    );
+    const response = await endpoint(new Request("https://example.com/info"));
 
     // Hono catches errors and returns them as 500 responses
     expect(response.status).toBe(500);
@@ -169,9 +178,13 @@ describe("CopilotEndpoint middleware", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
-    const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
+    const endpoint = createCopilotRuntimeHandler({
+      cors: true,
+      runtime,
+      basePath: "/",
+    });
 
-    const response = await endpoint.fetch(
+    const response = await endpoint(
       new Request("https://example.com/agent/errorAgent/run", {
         method: "POST",
       }),
@@ -197,10 +210,12 @@ describe("CopilotEndpoint middleware", () => {
       afterRequestMiddleware: after,
     });
 
-    const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
-    const response = await endpoint.fetch(
-      new Request("https://example.com/info"),
-    );
+    const endpoint = createCopilotRuntimeHandler({
+      cors: true,
+      runtime,
+      basePath: "/",
+    });
+    const response = await endpoint(new Request("https://example.com/info"));
 
     await new Promise((r) => setImmediate(r));
 
@@ -223,10 +238,12 @@ describe("CopilotEndpoint middleware", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
-    const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
-    const response = await endpoint.fetch(
-      new Request("https://example.com/info"),
-    );
+    const endpoint = createCopilotRuntimeHandler({
+      cors: true,
+      runtime,
+      basePath: "/",
+    });
+    const response = await endpoint(new Request("https://example.com/info"));
 
     await new Promise((r) => setImmediate(r));
 

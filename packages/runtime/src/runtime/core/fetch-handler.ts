@@ -44,10 +44,8 @@
  *
  * This laziness is a property of THIS handler, because it is the one entry point
  * that must stay serverless-safe. The process-owning wrappers do not inherit it:
- * `createCopilotNodeListener` and `createCopilotExpressHandler` START activation
+ * `createCopilotNodeListener` STARTS activation
  * at creation (OSS-641), so `ready()` there is optional and await-and-observe.
- * `createCopilotHonoHandler` keeps this handler's lazy behavior — a Hono app is
- * multi-runtime and is our Next.js/edge surface in practice.
  *
  * @example
  * ```typescript
@@ -184,8 +182,7 @@ export interface CopilotRuntimeHandlerOptions {
    * constructed and the returned handler has no `.channels`. Non-intelligence or
    * channel-less runtimes never build a control surface regardless of this flag.
    *
-   * The process-owning wrappers (`createCopilotNodeListener`,
-   * `createCopilotExpressHandler`) also START activation when this is left on,
+   * The process-owning Node listener also starts activation when this is left on,
    * so `false` is the opt-out that keeps a mounted listener socket-free in a test
    * or a short-lived script.
    */

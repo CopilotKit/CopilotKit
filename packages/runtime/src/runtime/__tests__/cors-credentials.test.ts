@@ -1,8 +1,6 @@
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { describe, it, expect } from "vitest";
-import {
-  createCopilotEndpoint,
-  createCopilotEndpointSingleRoute,
-} from "../endpoints";
+
 import { CopilotRuntime } from "../core/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 
@@ -22,10 +20,10 @@ const createMockRuntime = (options: { beforeRequestMiddleware?: any } = {}) => {
 };
 
 describe("CORS credentials configuration", () => {
-  describe("createCopilotEndpoint", () => {
+  describe("createCopilotRuntimeHandler", () => {
     it("sets Access-Control-Allow-Credentials header when credentials is true", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpoint({
+      const endpoint = createCopilotRuntimeHandler({
         runtime,
         basePath: "/",
         cors: {
@@ -43,7 +41,7 @@ describe("CORS credentials configuration", () => {
         },
       });
 
-      const response = await endpoint.fetch(request);
+      const response = await endpoint(request);
 
       expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
         "true",
@@ -55,7 +53,7 @@ describe("CORS credentials configuration", () => {
 
     it("does not set Access-Control-Allow-Credentials header when credentials is false", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpoint({
+      const endpoint = createCopilotRuntimeHandler({
         runtime,
         basePath: "/",
         cors: {
@@ -72,7 +70,7 @@ describe("CORS credentials configuration", () => {
         },
       });
 
-      const response = await endpoint.fetch(request);
+      const response = await endpoint(request);
 
       // When credentials is false, the header should not be present or be "false"
       const credentialsHeader = response.headers.get(
@@ -85,7 +83,8 @@ describe("CORS credentials configuration", () => {
 
     it("defaults to no credentials when cors config is not provided", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpoint({
+      const endpoint = createCopilotRuntimeHandler({
+        cors: true,
         runtime,
         basePath: "/",
         // No cors config - should default to origin: "*" without credentials
@@ -99,7 +98,7 @@ describe("CORS credentials configuration", () => {
         },
       });
 
-      const response = await endpoint.fetch(request);
+      const response = await endpoint(request);
 
       // Should allow any origin but not credentials
       expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
@@ -124,7 +123,7 @@ describe("CORS credentials configuration", () => {
         },
       });
 
-      const endpoint = createCopilotEndpoint({
+      const endpoint = createCopilotRuntimeHandler({
         runtime,
         basePath: "/",
         cors: {
@@ -142,17 +141,18 @@ describe("CORS credentials configuration", () => {
         },
       });
 
-      const response = await endpoint.fetch(request);
+      const response = await endpoint(request);
 
       expect(response.status).toBe(200);
       expect(receivedCookies).toContain("session=abc123; user=john");
     });
   });
 
-  describe("createCopilotEndpointSingleRoute", () => {
+  describe("createCopilotRuntimeHandler", () => {
     it("sets Access-Control-Allow-Credentials header when credentials is true", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpointSingleRoute({
+      const endpoint = createCopilotRuntimeHandler({
+        mode: "single-route",
         runtime,
         basePath: "/api/copilotkit",
         cors: {
@@ -169,7 +169,7 @@ describe("CORS credentials configuration", () => {
         },
       });
 
-      const response = await endpoint.fetch(request);
+      const response = await endpoint(request);
 
       expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
         "true",
@@ -192,7 +192,8 @@ describe("CORS credentials configuration", () => {
         },
       });
 
-      const endpoint = createCopilotEndpointSingleRoute({
+      const endpoint = createCopilotRuntimeHandler({
+        mode: "single-route",
         runtime,
         basePath: "/api/copilotkit",
         cors: {
@@ -211,7 +212,7 @@ describe("CORS credentials configuration", () => {
         body: JSON.stringify({ method: "info" }),
       });
 
-      const response = await endpoint.fetch(request);
+      const response = await endpoint(request);
 
       expect(response.status).toBe(200);
       expect(receivedCookies).toContain("auth_token=xyz789");
@@ -221,7 +222,7 @@ describe("CORS credentials configuration", () => {
   describe("origin configuration", () => {
     it("supports string origin", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpoint({
+      const endpoint = createCopilotRuntimeHandler({
         runtime,
         basePath: "/",
         cors: {
@@ -238,7 +239,7 @@ describe("CORS credentials configuration", () => {
         },
       });
 
-      const response = await endpoint.fetch(request);
+      const response = await endpoint(request);
 
       expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
         "https://specific-origin.com",
@@ -247,7 +248,7 @@ describe("CORS credentials configuration", () => {
 
     it("supports array of origins", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpoint({
+      const endpoint = createCopilotRuntimeHandler({
         runtime,
         basePath: "/",
         cors: {
@@ -265,7 +266,7 @@ describe("CORS credentials configuration", () => {
         },
       });
 
-      const response1 = await endpoint.fetch(request1);
+      const response1 = await endpoint(request1);
       expect(response1.headers.get("Access-Control-Allow-Origin")).toBe(
         "https://app1.com",
       );
@@ -279,7 +280,7 @@ describe("CORS credentials configuration", () => {
         },
       });
 
-      const response2 = await endpoint.fetch(request2);
+      const response2 = await endpoint(request2);
       expect(response2.headers.get("Access-Control-Allow-Origin")).toBe(
         "https://app2.com",
       );
@@ -287,7 +288,7 @@ describe("CORS credentials configuration", () => {
 
     it("supports function origin for dynamic resolution", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpoint({
+      const endpoint = createCopilotRuntimeHandler({
         runtime,
         basePath: "/",
         cors: {
@@ -311,7 +312,7 @@ describe("CORS credentials configuration", () => {
         },
       });
 
-      const response1 = await endpoint.fetch(request1);
+      const response1 = await endpoint(request1);
       expect(response1.headers.get("Access-Control-Allow-Origin")).toBe(
         "https://app.mycompany.com",
       );

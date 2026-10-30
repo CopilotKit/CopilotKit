@@ -24,7 +24,6 @@
     "@modelcontextprotocol/sdk": "^1.18.2",
     "cors": "^2.8.5",
     "express": "^4.21.0",
-    "hono": "^4.11.4",
     "next": "15.5.15",
     "openai": "^5.9.0",
     "react": "19.1.0",

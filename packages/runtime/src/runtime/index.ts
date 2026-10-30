@@ -1,5 +1,4 @@
 export * from "./core/runtime";
-export * from "./endpoints";
 
 // Export experimental generative UI middleware and surface writer
 export { GenerativeUIMiddleware, createSurfaceWriter } from "./generative-ui";

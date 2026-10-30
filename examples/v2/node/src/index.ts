@@ -1,6 +1,6 @@
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   VERSION,
   BasicAgent,
 } from "@copilotkit/runtime";
@@ -19,12 +19,13 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const endpoint = createCopilotEndpoint({
+const endpoint = createCopilotRuntimeHandler({
+  cors: true,
   basePath: "/api/copilotkit",
   runtime,
 });
 
 serve({
-  fetch: endpoint.fetch,
+  fetch: endpoint,
   port: 8787,
 });

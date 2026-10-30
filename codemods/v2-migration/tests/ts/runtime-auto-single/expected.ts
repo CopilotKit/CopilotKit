@@ -1,0 +1,11 @@
+import express from "express";
+import { createCopilotRuntimeHandler as makeFetch } from "@copilotkit/runtime";
+import { createCopilotNodeListener as makeNode } from "@copilotkit/runtime/node";
+const app = express();
+const copilotListener = makeNode({ cors: true, mode: "single-route", runtime, basePath: "/" });
+const copilotRouter = express.Router();
+copilotRouter.post("/", copilotListener);
+copilotRouter.options("/", copilotListener);
+app.use("/api/copilotkit", copilotRouter);
+const endpoint = makeFetch({ mode: "single-route", runtime, basePath: "/rpc", cors: { origin: ["https://example.com"] } });
+export const POST = (req: Request) => endpoint(req);

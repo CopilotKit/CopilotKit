@@ -7,7 +7,8 @@
   "scripts": {
     "test": "codemod jssg test -l tsx ./scripts/codemod.ts ./tests/tsx && codemod jssg test -l typescript ./scripts/codemod.ts ./tests/ts",
     "check-types": "tsc --noEmit",
-    "validate": "codemod workflow validate -w workflow.yaml"
+    "validate": "codemod workflow validate -w workflow.yaml",
+    "test:runtime": "nx run @copilotkit/runtime:build && node scripts/verify-runtime-fixture.mjs"
   },
   "devDependencies": {
     "@codemod.com/jssg-types": "1.6.3",

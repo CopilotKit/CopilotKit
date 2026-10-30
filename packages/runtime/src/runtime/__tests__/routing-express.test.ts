@@ -1,10 +1,10 @@
+import { createCopilotNodeListener } from "../endpoints/node";
 import express from "express";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
-import { createCopilotEndpointExpress } from "../express";
 import { CopilotRuntime } from "../core/runtime";
 
 vi.mock("../handlers/handle-run", () => ({
@@ -66,7 +66,7 @@ describe("CopilotEndpointExpress routing", () => {
   const createApp = () => {
     const runtime = createMockRuntime();
     const app = express();
-    app.use(createCopilotEndpointExpress({ runtime, basePath: "/" }));
+    app.use(createCopilotNodeListener({ cors: true, runtime, basePath: "/" }));
     return { app, runtime };
   };
 

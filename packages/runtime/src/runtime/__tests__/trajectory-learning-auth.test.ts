@@ -1,7 +1,8 @@
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { expect, test, vi } from "vitest";
 import { lambdaClient, logger } from "@copilotkit/shared";
 import { CopilotIntelligenceRuntime } from "../core/runtime";
-import { createCopilotHonoHandler } from "../endpoints/hono";
+
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 
 const trajectoryId = "550e8400-e29b-41d4-a716-446655440000";
@@ -30,7 +31,12 @@ function setup(mode: Mode) {
       getTrajectoryLearningContainerIds: selector,
     }),
   });
-  const app = createCopilotHonoHandler({ runtime, mode, basePath: "/runtime" });
+  const app = createCopilotRuntimeHandler({
+    cors: true,
+    runtime,
+    mode,
+    basePath: "/runtime",
+  });
   const spoofedBody = {
     user: { id: "browser-user", name: "Browser User" },
     appUserId: "browser-user",
@@ -75,7 +81,7 @@ test.each(["single-route", "multi-route"] as const)(
   async (mode) => {
     const fixture = setup(mode);
     try {
-      const response = await fixture.app.fetch(fixture.request);
+      const response = await fixture.app(fixture.request);
 
       expect(response.status).toBe(200);
       expect(fixture.identifyUser).toHaveBeenCalledExactlyOnceWith(
@@ -111,7 +117,7 @@ test.each(["single-route", "multi-route"] as const)(
     const fixture = setup(mode);
     fixture.identifyUser.mockResolvedValue({ id: "", name: "Rejected User" });
     try {
-      const response = await fixture.app.fetch(fixture.request);
+      const response = await fixture.app(fixture.request);
 
       expect(response.status).toBe(401);
       expect(fixture.selector).not.toHaveBeenCalled();
@@ -130,7 +136,7 @@ test.each(["single-route", "multi-route"] as const)(
       new Error("private tenant policy detail"),
     );
     try {
-      const response = await fixture.app.fetch(fixture.request);
+      const response = await fixture.app(fixture.request);
 
       expect(response.status).toBe(200);
       expect(fixture.logError).toHaveBeenCalledWith(
@@ -166,7 +172,7 @@ test.each([
     const fixture = setup("single-route");
     fixture.selector.mockResolvedValue(ids);
     try {
-      const response = await fixture.app.fetch(fixture.request);
+      const response = await fixture.app(fixture.request);
       expect(response.status).toBe(200);
       expect(fixture.logError).toHaveBeenCalledWith(
         { err: expect.any(Error), trajectoryId },

@@ -1,6 +1,7 @@
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { describe, it, expect } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
-import { createCopilotEndpoint } from "../endpoints";
+
 import { CopilotRuntime } from "../core/runtime";
 import { detectSingleRouteEnvelope } from "../endpoints/single-route-helpers";
 
@@ -19,13 +20,14 @@ describe("single-route envelope against a multi-route runtime", () => {
   };
 
   const createEndpoint = () =>
-    createCopilotEndpoint({
+    createCopilotRuntimeHandler({
+      cors: true,
       runtime: new CopilotRuntime({ agents: { default: createMockAgent() } }),
       basePath: "/api/copilotkit",
     });
 
   const postEnvelope = (body: unknown, contentType = "application/json") =>
-    createEndpoint().fetch(
+    createEndpoint()(
       new Request("https://example.com/api/copilotkit", {
         method: "POST",
         headers: { "Content-Type": contentType },
@@ -61,7 +63,7 @@ describe("single-route envelope against a multi-route runtime", () => {
   });
 
   it("leaves an ordinary unmatched route as a plain 404", async () => {
-    const response = await createEndpoint().fetch(
+    const response = await createEndpoint()(
       new Request("https://example.com/api/copilotkit/nope", { method: "GET" }),
     );
     expect(response.status).toBe(404);

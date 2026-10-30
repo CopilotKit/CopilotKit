@@ -17,7 +17,7 @@ async function exercise() {
     BuiltInAgent,
     CopilotRuntime,
     CopilotKitIntelligence,
-    createCopilotEndpoint,
+    createCopilotRuntimeHandler,
   } = await import(pathToFileURL(entry));
   const runtimeRequire = createRequire(
     require.resolve("@copilotkit/runtime/package.json"),
@@ -50,7 +50,7 @@ async function exercise() {
     identifyUser: () => ({ id: "smoke-user", name: "Smoke user" }),
     generateThreadNames: false,
   });
-  const endpoint = createCopilotEndpoint({
+  const handler = createCopilotRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
   });
@@ -58,7 +58,7 @@ async function exercise() {
     const headers = { "content-type": "application/json" };
     let response;
     if (path.startsWith("/agent/")) {
-      response = await endpoint.fetch(
+      response = await handler(
         new Request(`http://127.0.0.1/api/copilotkit${path}`, {
           method: "POST",
           headers,
