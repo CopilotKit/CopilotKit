@@ -56,7 +56,7 @@ Skill delivery does not send native agent runs to Automatic Learning. To collect
 
 | Framework                 | Package                                  | Native extension                                                     |
 | ------------------------- | ---------------------------------------- | -------------------------------------------------------------------- |
-| [BuiltInAgent](#builtinagent) | `@copilotkit/runtime/v2`                 | `learnedSkills` configuration                                        |
+| [BuiltInAgent](#builtinagent) | `@copilotkit/runtime`                 | `learnedSkills` configuration                                        |
 | [LangGraph Python](#langgraph-python) | `copilotkit-intelligence-langgraph`      | `create_skill_registry_middleware`                                   |
 | [LangGraph TypeScript](#langgraph-typescript) | `@copilotkit/intelligence-langgraph`     | `createSkillRegistryMiddleware`                                      |
 | [Mastra](#mastra) | `@copilotkit/intelligence-mastra`        | `createSkillRegistryProcessor`                                       |
@@ -65,7 +65,7 @@ Skill delivery does not send native agent runs to Automatic Learning. To collect
 
 Attach an adapter to the agents that need skills. Adapters do not inspect or rebuild arbitrary graphs or agent hierarchies. Subagent behavior follows the selected framework.
 
-TypeScript uses the canonical client from `@copilotkit/runtime/v2`. Python uses `copilotkit-intelligence-runtime`. These dependencies include Runtime features beyond skill delivery. The .NET adapter targets `net9.0` and uses `CopilotKit.Intelligence`.
+TypeScript uses the canonical client from `@copilotkit/runtime`. Python uses `copilotkit-intelligence-runtime`. These dependencies include Runtime features beyond skill delivery. The .NET adapter targets `net9.0` and uses `CopilotKit.Intelligence`.
 
 ## Native setup
 
@@ -80,7 +80,7 @@ Configure `learnedSkills` directly on `BuiltInAgent`. No wrapper or separate ada
 Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime";
 
 const agent = new BuiltInAgent({
   model: "openai/gpt-4o",
@@ -107,7 +107,7 @@ Set the container and revision in code below, **or** omit those parameters and u
 import {
   BuiltInAgent,
   convertMessagesToVercelAISDKMessages,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { openai } from "@ai-sdk/openai";
 import { stepCountIs, streamText } from "ai";
 
@@ -133,7 +133,7 @@ const agent = new BuiltInAgent({
 });
 ```
 
-Import `BuiltInAgentFactoryContext` from `@copilotkit/runtime/v2` to annotate a factory context. Every factory receives a `learnedSkills` object. Its `catalog` is `""` and its `tools` is `{}` when delivery is unconfigured or the verified snapshot contains no skills. Omitting the configuration disables all skill requests, even when delivery environment variables exist. With configuration, later runs check for newly published skills according to the freshness window.
+Import `BuiltInAgentFactoryContext` from `@copilotkit/runtime` to annotate a factory context. Every factory receives a `learnedSkills` object. Its `catalog` is `""` and its `tools` is `{}` when delivery is unconfigured or the verified snapshot contains no skills. Omitting the configuration disables all skill requests, even when delivery environment variables exist. With configuration, later runs check for newly published skills according to the freshness window.
 
 The tools use AI SDK schemas and executors. TanStack and custom factories receive the same object and must adapt the tools to their model library; they are not TanStack-native tool definitions. Factory code owns the model call and its step limit. Keep the supplied catalog and tools together within that invocation. The tool map is read-only; spread it into a new object to add application tools.
 
@@ -372,6 +372,8 @@ An entry without a revision follows that container's latest published Skills.
 BuiltInAgent accepts the list inside `learnedSkills`:
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
+
 const agent = new BuiltInAgent({
   model: "openai/gpt-4o",
   learnedSkills: {
@@ -386,6 +388,8 @@ const agent = new BuiltInAgent({
 Mastra and LangGraph TypeScript accept the same list in `SkillRegistry`:
 
 ```typescript
+import { SkillRegistry } from "@copilotkit/intelligence-mastra";
+
 const registry = new SkillRegistry({
   containers: [
     { id: "support", revision: "revision-123" },
@@ -497,7 +501,7 @@ If your server already creates an Intelligence client, pass that client to the r
 Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
 
 ```typescript
-import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { CopilotKitIntelligence } from "@copilotkit/runtime";
 import { SkillRegistry } from "@copilotkit/intelligence-mastra";
 
 const intelligence = new CopilotKitIntelligence({

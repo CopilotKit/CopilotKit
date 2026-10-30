@@ -12,13 +12,39 @@ Essentially, we want our copilot to be able to call the `addTask`, `setTaskStatu
 
 ## The `useFrontendTool` hook
 
-The [`useFrontendTool`](/reference/v1/hooks/useFrontendTool) hook makes tools available to our copilot. Let's implement it in the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/starters/todos-app/start/lib/hooks/use-tasks.tsx) file.
+The [`useFrontendTool`](/reference/hooks/useFrontendTool) hook makes tools available to our copilot. Let's implement it in the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/starters/todos-app/start/lib/hooks/use-tasks.tsx) file.
 
-```tsx filename="lib/hooks/use-tasks.tsx" showLineNumbers {3-3,8-22,24-38,40-61}
+```tsx filename="lib/hooks/use-tasks.tsx" showLineNumbers
+"use client";
+
+import { createContext, useContext, useState, type ReactNode } from "react";
+import { useAgentContext, useFrontendTool } from "@copilotkit/react-core"; // [!code highlight]
+import { z } from "zod"; // [!code highlight]
+import { defaultTasks } from "@/lib/default-tasks";
+import { TaskStatus, type Task } from "@/lib/tasks.types";
+
 // ... the rest of the file
+
+let nextId = defaultTasks.length + 1;
 
 export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>(defaultTasks);
+
+  useAgentContext({
+    description: "The state of the todo list",
+    value: JSON.stringify(tasks),
+  });
+
+  // These functions are already in the starter file.
+  const addTask = (title: string) => {
+    setTasks([...tasks, { id: nextId++, title, status: TaskStatus.todo }]);
+  };
+  const setTaskStatus = (id: number, status: TaskStatus) => {
+    setTasks(tasks.map((task) => (task.id === id ? { ...task, status } : task)));
+  };
+  const deleteTask = (id: number) => {
+    setTasks(tasks.filter((task) => task.id !== id));
+  };
 
   // [!code highlight:10]
   useFrontendTool({
@@ -46,15 +72,13 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     },
   });
 
-  // [!code highlight:11]
+  // [!code highlight:9]
   useFrontendTool({
     name: "setTaskStatus",
     description: "Sets the status of a task",
     parameters: z.object({
       id: z.number().describe("The id of the task"),
-      status: z
-        .enum(Object.values(TaskStatus) as [string, ...string[]])
-        .describe("The status of the task"),
+      status: z.enum(TaskStatus).describe("The status of the task"),
     }),
     handler: async ({ id, status }) => {
       setTaskStatus(id, status);

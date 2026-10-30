@@ -41,7 +41,7 @@ Import the React hook and Zod in the component that registers the tool. This als
 applies to the built-in agent, which needs no backend tool-registration step.
 
 ```tsx
-import { useComponent } from "@copilotkit/react-core/v2";
+import { useComponent } from "@copilotkit/react-core";
 import { z } from "zod";
 ```
 
@@ -86,9 +86,20 @@ Render the tool calls on each assistant message with
 `CopilotChatToolCallsView`:
 
 ```tsx
-import { CopilotChatToolCallsView } from "@copilotkit/react-core/v2";
+import { CopilotChatToolCallsView, useAgent } from "@copilotkit/react-core";
 
-<CopilotChatToolCallsView message={assistantMessage} messages={allMessages} />;
+export function HeadlessToolCalls() {
+  const { agent } = useAgent();
+  return (
+    <>
+      {agent.messages.map((message) =>
+        message.role === "assistant" ? (
+          <CopilotChatToolCallsView key={message.id} message={message} messages={agent.messages} />
+        ) : null,
+      )}
+    </>
+  );
+}
 ```
 
 It looks up the sibling `tool`-role message for each tool call and hands both

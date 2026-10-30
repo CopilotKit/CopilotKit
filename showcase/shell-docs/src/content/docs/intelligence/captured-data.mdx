@@ -180,12 +180,18 @@ In markup:
 Example: exclude network requests to one service from capture.
 
 ```tsx
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  learning={{ ignoreUrls: ["https://payments.example.com/"] }}
->
-  {children}
-</CopilotKitProvider>
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      learning={{ ignoreUrls: ["https://payments.example.com/"] }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 To turn capture on, see [Capture interactions](/intelligence/capture-interactions).

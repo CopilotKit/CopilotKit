@@ -55,7 +55,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     CopilotRuntime,
     createCopilotRuntimeHandler,
     InMemoryAgentRunner,
-  } from "@copilotkit/runtime/v2";
+  } from "@copilotkit/runtime";
 
   const agent = new BuiltInAgent({
     type: "tanstack",
@@ -69,6 +69,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
           ...systemPrompts,
         ],
         tools,
+        threadId: input.threadId,
         abortController,
       });
     },
@@ -99,9 +100,9 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
 
   ```tsx title="app/providers.tsx"
   "use client";
-  import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-  import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
-  import "@copilotkit/react-core/v2/styles.css";
+  import { CopilotKitProvider } from "@copilotkit/react-core";
+  import { standardUI } from "@copilotkit/react-core/generative-ui";
+  import "@copilotkit/react-core/styles.css";
 
   export function Providers({ children }: { children: React.ReactNode }) {
     return (
@@ -130,7 +131,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
 
   ```tsx title="app/page.tsx"
   "use client";
-  import { CopilotChat } from "@copilotkit/react-core/v2";
+  import { CopilotChat } from "@copilotkit/react-core";
 
   export default function Page() {
     return <CopilotChat />;

@@ -21,17 +21,29 @@ Verify the configured `runtimeUrl`.
 
 <FrontendOnly frontend="react">
 ```tsx
-<CopilotKit runtimeUrl="/api/copilotkit">
-  {/* Your app */}
-</CopilotKit>
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 Or, if you're using CopilotCloud:
 
 ```tsx
-<CopilotKit publicApiKey="<your-copilot-cloud-public-api-key>">
-  {/* Your app */}
-</CopilotKit>
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider publicApiKey="<your-copilot-cloud-public-api-key>">
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 </FrontendOnly>
 
@@ -184,7 +196,11 @@ The prebuilt components connect to the agent named `"default"` unless you pass a
 explicit `agentId`. Register one under that key:
 
 ```ts
-new CopilotRuntime({ agents: { default: myAgent } });
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+});
 ```
 
 Confirm the agent shows up by hitting [`GET {runtimeUrl}/info`](/backend/runtime-endpoints)
@@ -217,7 +233,12 @@ process runs with a small `--max-old-space-size`, or your threads carry unusuall
 large payloads, lower the limits:
 
 ```ts
-new InMemoryAgentRunner({ maxThreads: 200, maxBytes: 64 * 1024 ** 2 });
+import { InMemoryAgentRunner } from "@copilotkit/runtime";
+
+const runner = new InMemoryAgentRunner({
+  maxThreads: 200,
+  maxBytes: 64 * 1024 ** 2,
+});
 ```
 
 See [bounding in-memory history](/backend/agent-runner#bounding-in-memory-history)

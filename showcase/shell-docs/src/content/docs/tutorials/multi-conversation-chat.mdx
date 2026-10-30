@@ -28,7 +28,7 @@ A chat application with a thread sidebar — similar to ChatGPT or Claude's conv
 
 - Node.js 20+
 - A CopilotKit project with CopilotKit Intelligence configured (via [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform) or [self-hosted](/intelligence/self-hosting))
-- `@copilotkit/react-core` v1.50+
+- `@copilotkit/react-core` 2.0+
 
 ## Steps
 
@@ -39,11 +39,13 @@ A chat application with a thread sidebar — similar to ChatGPT or Claude's conv
     Create a two-panel layout: a sidebar for the thread list on the left, and the chat area on the right. We'll use a simple flexbox layout.
 
     ```tsx title="App.tsx"
-    import { CopilotKit } from "@copilotkit/react-core/v2";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { ChatPanel } from "./ChatPanel";
+    import { ThreadSidebar } from "./ThreadSidebar";
 
     export default function App() {
       return (
-        <CopilotKit runtimeUrl="/api/copilotkit">
+        <CopilotKitProvider runtimeUrl="/api/copilotkit">
           <div className="flex h-screen">
             <aside className="w-72 border-r overflow-y-auto">
               <ThreadSidebar />
@@ -52,7 +54,7 @@ A chat application with a thread sidebar — similar to ChatGPT or Claude's conv
               <ChatPanel />
             </main>
           </div>
-        </CopilotKit>
+        </CopilotKitProvider>
       );
     }
     ```
@@ -64,8 +66,8 @@ A chat application with a thread sidebar — similar to ChatGPT or Claude's conv
     Use `useThreads` to fetch the thread list and render it. Each thread shows its name (or "New conversation" if unnamed) and the time it was last updated.
 
     ```tsx title="ThreadSidebar.tsx"
-    import { useThreads } from "@copilotkit/react-core/v2"; // [!code highlight]
-    import { useState } from "react";
+    import { useThreads } from "@copilotkit/react-core"; // [!code highlight]
+    import { ThreadRow } from "./ThreadRow";
 
     export function ThreadSidebar() {
       const { // [!code highlight:5]
@@ -95,8 +97,8 @@ A chat application with a thread sidebar — similar to ChatGPT or Claude's conv
             <ThreadRow
               key={thread.id}
               thread={thread}
-              onRename={(name) => renameThread(thread.id, name)}
-              onArchive={() => archiveThread(thread.id)}
+              onRename={renameThread}
+              onArchive={archiveThread}
             />
           ))}
         </div>
@@ -112,12 +114,12 @@ A chat application with a thread sidebar — similar to ChatGPT or Claude's conv
 
     ```tsx title="ThreadRow.tsx"
     import { useState } from "react";
-    import type { Thread } from "@copilotkit/react-core/v2";
+    import type { Thread } from "@copilotkit/react-core";
 
     interface ThreadRowProps {
       thread: Thread;
-      onRename: (name: string) => void;
-      onArchive: () => void;
+      onRename: (threadId: string, name: string) => void;
+      onArchive: (threadId: string) => void;
     }
 
     export function ThreadRow({ thread, onRename, onArchive }: ThreadRowProps) {
@@ -143,12 +145,12 @@ A chat application with a thread sidebar — similar to ChatGPT or Claude's conv
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 onBlur={() => {
-                  onRename(editName);
+                  onRename(thread.id, editName);
                   setIsEditing(false);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    onRename(editName);
+                    onRename(thread.id, editName);
                     setIsEditing(false);
                   }
                 }}
@@ -177,7 +179,7 @@ A chat application with a thread sidebar — similar to ChatGPT or Claude's conv
               className="text-xs text-gray-500 hover:text-red-600"
               onClick={(e) => {
                 e.stopPropagation();
-                onArchive();
+                onArchive(thread.id);
               }}
             >
               Archive
@@ -195,28 +197,32 @@ A chat application with a thread sidebar — similar to ChatGPT or Claude's conv
     The chat panel listens for thread selection events and passes the active `threadId` to `CopilotChat`. When no thread is selected, starting a conversation creates a new thread automatically.
 
     ```tsx title="ChatPanel.tsx"
-    import { CopilotChat } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { CopilotChat } from "@copilotkit/react-core"; // [!code highlight]
     import { useState, useEffect } from "react";
 
     export function ChatPanel() {
       const [activeThreadId, setActiveThreadId] = useState<string | undefined>();
 
       useEffect(() => {
-        const handleSelect = (e: CustomEvent) => setActiveThreadId(e.detail);
+        const handleSelect = (e: Event) => {
+          if (e instanceof CustomEvent && typeof e.detail === "string") {
+            setActiveThreadId(e.detail);
+          }
+        };
         const handleNew = () => setActiveThreadId(undefined);
 
-        window.addEventListener("select-thread", handleSelect as EventListener);
+        window.addEventListener("select-thread", handleSelect);
         window.addEventListener("new-thread", handleNew);
 
         return () => {
-          window.removeEventListener("select-thread", handleSelect as EventListener);
+          window.removeEventListener("select-thread", handleSelect);
           window.removeEventListener("new-thread", handleNew);
         };
       }, []);
 
       return (
         <CopilotChat
-          threadId={activeThreadId} {/* [!code highlight] */}
+          threadId={activeThreadId} // [!code highlight]
           className="h-full"
         />
       );
@@ -232,29 +238,51 @@ A chat application with a thread sidebar — similar to ChatGPT or Claude's conv
     If your users accumulate many conversations, add a "Load more" button at the bottom of the sidebar using the `limit` parameter.
 
     ```tsx title="ThreadSidebar.tsx"
-    const {
-      threads,
-      isLoading,
-      hasMoreThreads, // [!code highlight]
-      isFetchingMoreThreads, // [!code highlight]
-      fetchMoreThreads, // [!code highlight]
-      renameThread,
-      archiveThread,
-    } = useThreads({
-      agentId: "my-agent",
-      limit: 25, // [!code highlight]
-    });
+    import { useThreads } from "@copilotkit/react-core";
+    import { ThreadRow } from "./ThreadRow";
 
-    // At the bottom of the thread list:
-    {hasMoreThreads && (
-      <button
-        className="m-3 p-2 text-sm text-gray-500 hover:text-gray-700"
-        onClick={fetchMoreThreads}
-        disabled={isFetchingMoreThreads}
-      >
-        {isFetchingMoreThreads ? "Loading..." : "Load older conversations"}
-      </button>
-    )}
+    export function ThreadSidebar() {
+      const {
+        threads,
+        isLoading,
+        hasMoreThreads, // [!code highlight]
+        isFetchingMoreThreads, // [!code highlight]
+        fetchMoreThreads, // [!code highlight]
+        renameThread,
+        archiveThread,
+      } = useThreads({
+        agentId: "my-agent",
+        limit: 25, // [!code highlight]
+      });
+
+      if (isLoading) {
+        return <div className="p-4 text-sm text-gray-500">Loading...</div>;
+      }
+
+      return (
+        <div className="flex flex-col">
+          {threads.map((thread) => (
+            <ThreadRow
+              key={thread.id}
+              thread={thread}
+              onRename={renameThread}
+              onArchive={archiveThread}
+            />
+          ))}
+
+          {/* At the bottom of the thread list: */}
+          {hasMoreThreads && ( // [!code highlight:7]
+            <button
+              className="m-3 p-2 text-sm text-gray-500 hover:text-gray-700"
+              onClick={fetchMoreThreads}
+              disabled={isFetchingMoreThreads}
+            >
+              {isFetchingMoreThreads ? "Loading..." : "Load older conversations"}
+            </button>
+          )}
+        </div>
+      );
+    }
     ```
   </Step>
 </Steps>

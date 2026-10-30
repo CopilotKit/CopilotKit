@@ -157,21 +157,28 @@ If your graph issues more than one kind of interrupt (e.g. `"ask"` vs
 one `useInterrupt` per shape, each gated by an `enabled` predicate:
 
 ```tsx
-useInterrupt({
-  agentId: "gen-ui-interrupt",
-  enabled: (event) => event.value.type === "ask",
-  render: ({ event, resolve }) => (
-    <AskCard question={event.value.content} onAnswer={resolve} />
-  ),
-});
+import { useInterrupt } from "@copilotkit/react-core";
+import { ApproveCard, AskCard } from "./cards";
 
-useInterrupt({
-  agentId: "gen-ui-interrupt",
-  enabled: (event) => event.value.type === "approval",
-  render: ({ event, resolve }) => (
-    <ApproveCard content={event.value.content} onAnswer={resolve} />
-  ),
-});
+function InterruptHandlers() {
+  useInterrupt({
+    agentId: "gen-ui-interrupt",
+    enabled: (event) => event.value.type === "ask",
+    render: ({ event, resolve }) => (
+      <AskCard question={event.value.content} onAnswer={resolve} />
+    ),
+  });
+
+  useInterrupt({
+    agentId: "gen-ui-interrupt",
+    enabled: (event) => event.value.type === "approval",
+    render: ({ event, resolve }) => (
+      <ApproveCard content={event.value.content} onAnswer={resolve} />
+    ),
+  });
+
+  return null;
+}
 ```
 
 ## Preprocess with `handler`
@@ -183,24 +190,37 @@ to resume the agent early — the interrupt card unmounts when the resume
 run starts. Or return a value that `render` receives as `result`:
 
 ```tsx
-useInterrupt({
-  agentId: "gen-ui-interrupt",
-  handler: async ({ event, resolve }) => {
-    const dept = await lookupUserDepartment();
-    if (event.value.accessDepartment === dept || dept === "admin") {
-      resolve({ code: "AUTH_BY_DEPARTMENT" });
-      return; // agent will resume; card unmounts when the run starts
-    }
-    return { dept };
-  },
-  render: ({ result, event, resolve }) => (
-    <RequestAccessCard
-      dept={result?.dept}
-      onRequest={() => resolve({ code: "REQUEST_AUTH" })}
-      onCancel={() => resolve({ code: "CANCEL" })}
-    />
-  ),
-});
+import { useInterrupt } from "@copilotkit/react-core";
+import { RequestAccessCard } from "./request-access-card";
+
+async function lookupUserDepartment(): Promise<string> {
+  const response = await fetch("/api/me");
+  const { department } = await response.json();
+  return department;
+}
+
+function AccessInterrupt() {
+  useInterrupt({
+    agentId: "gen-ui-interrupt",
+    handler: async ({ event, resolve }) => {
+      const dept = await lookupUserDepartment();
+      if (event.value.accessDepartment === dept || dept === "admin") {
+        resolve({ code: "AUTH_BY_DEPARTMENT" });
+        return; // agent will resume; card unmounts when the run starts
+      }
+      return { dept };
+    },
+    render: ({ result, resolve }) => (
+      <RequestAccessCard
+        dept={result?.dept}
+        onRequest={() => resolve({ code: "REQUEST_AUTH" })}
+        onCancel={() => resolve({ code: "CANCEL" })}
+      />
+    ),
+  });
+
+  return null;
+}
 ```
 
 </WhenFrameworkHas>
@@ -250,6 +270,8 @@ the standard flow wins.
 ### Approve / Cancel example
 
 ```tsx
+import { useInterrupt } from "@copilotkit/react-core";
+
 function ApprovalInterrupt() {
   useInterrupt({
     render: ({ interrupt, resolve, cancel }) => (
@@ -276,19 +298,25 @@ Some agents issue more than one interrupt in a single run (e.g. two independent
 approvals). Each interrupt has its own `id`. Address them individually:
 
 ```tsx
-useInterrupt({
-  render: ({ interrupts, resolve, cancel }) => (
-    <ul>
-      {interrupts.map((i) => (
-        <li key={i.id}>
-          {i.message}
-          <button onClick={() => resolve({ ok: true }, i.id)}>Approve</button>
-          <button onClick={() => cancel(i.id)}>Cancel</button>
-        </li>
-      ))}
-    </ul>
-  ),
-});
+import { useInterrupt } from "@copilotkit/react-core";
+
+function MultiApprovalInterrupt() {
+  useInterrupt({
+    render: ({ interrupts, resolve, cancel }) => (
+      <ul>
+        {interrupts.map((i) => (
+          <li key={i.id}>
+            {i.message}
+            <button onClick={() => resolve({ ok: true }, i.id)}>Approve</button>
+            <button onClick={() => cancel(i.id)}>Cancel</button>
+          </li>
+        ))}
+      </ul>
+    ),
+  });
+
+  return null;
+}
 ```
 
 The agent run only resumes once **every** open interrupt has been addressed.

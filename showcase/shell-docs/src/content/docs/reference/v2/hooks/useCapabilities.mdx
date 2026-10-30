@@ -11,9 +11,12 @@ Capabilities are populated from the runtime `/info` response at connection time.
 ## Signature
 
 ```tsx
-import { useCapabilities } from "@copilotkit/react-core/v2";
+import {
+  useCapabilities,
+  type AgentCapabilities,
+} from "@copilotkit/react-core";
 
-function useCapabilities(agentId?: string): AgentCapabilities | undefined
+useCapabilities satisfies (agentId?: string) => AgentCapabilities | undefined;
 ```
 
 ## Parameters
@@ -79,7 +82,7 @@ function useCapabilities(agentId?: string): AgentCapabilities | undefined
 ### Conditionally render UI based on capabilities
 
 ```tsx title="ToolPanel.tsx"
-import { useCapabilities } from "@copilotkit/react-core/v2";
+import { useCapabilities } from "@copilotkit/react-core";
 
 function ToolPanel() {
   const capabilities = useCapabilities();
@@ -102,7 +105,7 @@ function ToolPanel() {
 ### Read capabilities for a specific agent
 
 ```tsx title="AgentInfo.tsx"
-import { useCapabilities } from "@copilotkit/react-core/v2";
+import { useCapabilities } from "@copilotkit/react-core";
 
 function AgentInfo({ agentId }: { agentId: string }) {
   const capabilities = useCapabilities(agentId);
