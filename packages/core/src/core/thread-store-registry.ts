@@ -62,7 +62,9 @@ export class ThreadStoreRegistry {
     // mode and are silently ignored in sloppy mode (rather than corrupting
     // the registry). Invalidated to `null` by `register`/`unregister`.
     if (this._snapshot === null) {
-      this._snapshot = Object.freeze({ ...this._stores });
+      const snapshot: Record<string, ɵThreadStore> = Object.create(null);
+      Object.assign(snapshot, this._stores);
+      this._snapshot = Object.freeze(snapshot);
     }
     return this._snapshot;
   }

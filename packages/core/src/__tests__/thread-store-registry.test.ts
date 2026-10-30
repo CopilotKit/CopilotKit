@@ -98,6 +98,7 @@ describe("ThreadStoreRegistry", () => {
     const snapshot = registry.getAll();
 
     expect(registry.get(agentId)).toBeUndefined();
+    expect(registry.getAll()[agentId]).toBeUndefined();
     registry.unregister(agentId);
 
     expect(onUnregistered).not.toHaveBeenCalled();
@@ -142,6 +143,7 @@ describe("ThreadStoreRegistry", () => {
       registry.unregister(agentId);
       expect(events.at(-1)).toEqual(["unregistered", second]);
       expect(registry.get(agentId)).toBeUndefined();
+      expect(registry.getAll()[agentId]).toBeUndefined();
       expect(Object.keys(registry.getAll())).toEqual([]);
       const snapshot = registry.getAll();
       registry.unregister(agentId);
