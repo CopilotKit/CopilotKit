@@ -5,6 +5,7 @@ import { RootProvider } from "fumadocs-ui/provider/next";
 import { AnalyticsClient } from "@/components/analytics-client";
 import { Banners } from "@/components/banners";
 import { BrandNav } from "@/components/brand-nav";
+import { DemoThemeBridge } from "@/components/demo-theme-bridge";
 import { FrameworkProvider } from "@/components/framework-provider";
 import { PublicClerkProvider } from "@/components/public-clerk-provider";
 import { ShellSearchProvider } from "@/components/search-trigger";
@@ -213,6 +214,7 @@ export default function RootLayout({
           {commitLabel}
         </div>
         <ScarfPixel />
+        <DemoThemeBridge />
       </body>
     </html>
   );

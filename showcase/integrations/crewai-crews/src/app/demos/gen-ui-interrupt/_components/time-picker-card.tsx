@@ -46,7 +46,9 @@ export function TimePickerCard({
       <Card className="max-w-md" data-testid="time-picker-cancelled">
         <CardContent className="flex items-center gap-2 p-4 pt-4">
           <Badge variant="destructive">Cancelled</Badge>
-          <span className="text-sm text-neutral-600">No time picked.</span>
+          <span className="text-sm text-neutral-600 dark:text-muted-foreground">
+            No time picked.
+          </span>
         </CardContent>
       </Card>
     );
@@ -57,7 +59,7 @@ export function TimePickerCard({
       <Card className="max-w-md border-amber-200 bg-amber-50/40">
         <CardContent className="flex items-center gap-2 p-4 pt-4">
           <Badge variant="outline">Confirming</Badge>
-          <span className="text-sm text-neutral-800">
+          <span className="text-sm text-neutral-800 dark:text-foreground">
             <span className="font-semibold">{submitting.label}</span>
           </span>
         </CardContent>
@@ -71,7 +73,9 @@ export function TimePickerCard({
         <div className="flex items-center justify-between">
           <Badge variant="outline">Book a call</Badge>
           {attendee && (
-            <span className="text-xs text-neutral-500">With {attendee}</span>
+            <span className="text-xs text-neutral-500 dark:text-muted-foreground">
+              With {attendee}
+            </span>
           )}
         </div>
         <CardTitle className="pt-1">{topic}</CardTitle>
@@ -103,7 +107,7 @@ export function TimePickerCard({
             setCancelled(true);
             onSubmit({ cancelled: true });
           }}
-          className="mt-3 w-full text-neutral-500"
+          className="mt-3 w-full text-neutral-500 dark:text-muted-foreground"
           data-testid="time-picker-cancel"
         >
           None of these work

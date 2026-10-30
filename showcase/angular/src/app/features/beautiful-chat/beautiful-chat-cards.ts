@@ -36,7 +36,7 @@ export interface ChartArgs extends Record<string, unknown> {
           cy="120"
           r="86"
           fill="none"
-          stroke="#edf0f5"
+          stroke="light-dark(#edf0f5, #242529)"
           stroke-width="36"
         />
         @for (slice of slices(); track slice.label) {
@@ -69,10 +69,10 @@ export interface ChartArgs extends Record<string, unknown> {
       max-width: 36rem;
       margin: 1rem auto;
       padding: 1rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 1rem;
-      color: #14213d;
-      background: #fff;
+      color: light-dark(#14213d, #fafafa);
+      background: light-dark(#fff, #191a1e);
     }
     header h3,
     header p {
@@ -80,7 +80,7 @@ export interface ChartArgs extends Record<string, unknown> {
     }
     header p {
       margin-top: 0.25rem;
-      color: #66758a;
+      color: light-dark(#66758a, #adadb2);
       font-size: 0.82rem;
     }
     svg {
@@ -181,10 +181,10 @@ export class PieChartCard {
       max-width: 44rem;
       margin: 1rem auto;
       padding: 1rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 1rem;
-      color: #14213d;
-      background: #fff;
+      color: light-dark(#14213d, #fafafa);
+      background: light-dark(#fff, #191a1e);
     }
     header h3,
     header p {
@@ -192,7 +192,7 @@ export class PieChartCard {
     }
     header p {
       margin-top: 0.25rem;
-      color: #66758a;
+      color: light-dark(#66758a, #adadb2);
       font-size: 0.82rem;
     }
     .recharts-responsive-container {
@@ -207,7 +207,7 @@ export class PieChartCard {
       overflow: visible;
     }
     text {
-      fill: #66758a;
+      fill: light-dark(#66758a, #adadb2);
       font-size: 12px;
     }
   `,
@@ -284,11 +284,11 @@ interface MeetingArgs extends Record<string, unknown> {
       max-width: 28rem;
       margin: 1rem auto;
       padding: 1.25rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 1rem;
       text-align: center;
-      background: #fff;
-      color: #14213d;
+      background: light-dark(#fff, #191a1e);
+      color: light-dark(#14213d, #fafafa);
     }
     h3,
     p {
@@ -302,8 +302,8 @@ interface MeetingArgs extends Record<string, unknown> {
       margin: 0 auto;
       place-items: center;
       border-radius: 50%;
-      background: #eef2ff;
-      color: #4263eb;
+      background: light-dark(#eef2ff, rgb(30 27 75 / 40%));
+      color: light-dark(#4263eb, #91a7ff);
       font-size: 1.25rem;
     }
     .confirmation {
@@ -320,10 +320,10 @@ interface MeetingArgs extends Record<string, unknown> {
       align-items: center;
       justify-content: space-between;
       padding: 0.75rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 0.7rem;
       color: inherit;
-      background: #fff;
+      background: light-dark(#fff, #191a1e);
       cursor: pointer;
     }
     .meeting-options span {
@@ -333,14 +333,14 @@ interface MeetingArgs extends Record<string, unknown> {
     }
     small,
     em {
-      color: #66758a;
+      color: light-dark(#66758a, #adadb2);
       font-size: 0.75rem;
       font-style: normal;
     }
     .decline {
       margin-top: 0.75rem;
       border: 0;
-      color: #66758a;
+      color: light-dark(#66758a, #adadb2);
       background: transparent;
       cursor: pointer;
     }
@@ -407,10 +407,10 @@ const INTERNAL_TOOLS = new Set([
     .reasoning-card {
       margin: 0.5rem 0;
       padding: 0.65rem 0.8rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 0.75rem;
-      background: #f8fafc;
-      color: #314158;
+      background: light-dark(#f8fafc, #242529);
+      color: light-dark(#314158, #fafafa);
     }
     summary {
       cursor: pointer;

@@ -81,12 +81,14 @@ function StepSelector({
 
   return (
     <div
-      className="rounded-xl border border-gray-200 bg-white p-6 shadow-lg w-[500px]"
+      className="rounded-xl border border-gray-200 bg-white p-6 shadow-lg w-[500px] dark:border-border dark:bg-card"
       data-testid="select-steps"
     >
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-bold text-gray-800">Select Steps</h3>
-        <span className="text-sm text-gray-500">
+        <h3 className="text-lg font-bold text-gray-800 dark:text-foreground">
+          Select Steps
+        </h3>
+        <span className="text-sm text-gray-500 dark:text-muted-foreground">
           {enabledCount}/{localSteps.length} selected
         </span>
       </div>
@@ -94,7 +96,7 @@ function StepSelector({
         {localSteps.map((step, i) => (
           <label
             key={i}
-            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
+            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-muted cursor-pointer"
             data-testid="step-item"
           >
             <input
@@ -118,8 +120,8 @@ function StepSelector({
             <span
               className={
                 step.status !== "enabled"
-                  ? "line-through text-gray-400"
-                  : "text-gray-800"
+                  ? "line-through text-gray-400 dark:text-muted-foreground"
+                  : "text-gray-800 dark:text-foreground"
               }
               data-testid="step-text"
             >
@@ -169,12 +171,14 @@ function StepsFeedback({
 
   return (
     <div
-      className="rounded-xl border border-gray-200 bg-white p-6 shadow-lg w-[500px]"
+      className="rounded-xl border border-gray-200 bg-white p-6 shadow-lg w-[500px] dark:border-border dark:bg-card"
       data-testid="select-steps"
     >
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-bold text-gray-800">Review Steps</h3>
-        <span className="text-sm text-gray-500">
+        <h3 className="text-lg font-bold text-gray-800 dark:text-foreground">
+          Review Steps
+        </h3>
+        <span className="text-sm text-gray-500 dark:text-muted-foreground">
           {enabledCount}/{steps.length} selected
         </span>
       </div>
@@ -182,7 +186,7 @@ function StepsFeedback({
         {steps.map((step: any, i: number) => (
           <label
             key={i}
-            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
+            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-muted cursor-pointer"
             data-testid="step-item"
           >
             <input
@@ -207,8 +211,8 @@ function StepsFeedback({
             <span
               className={
                 step.status !== "enabled"
-                  ? "line-through text-gray-400"
-                  : "text-gray-800"
+                  ? "line-through text-gray-400 dark:text-muted-foreground"
+                  : "text-gray-800 dark:text-foreground"
               }
               data-testid="step-text"
             >
@@ -225,7 +229,7 @@ function StepsFeedback({
               setDecided(false);
               respond?.({ accepted: false });
             }}
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 font-medium hover:bg-gray-50 disabled:opacity-50"
+            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 font-medium hover:bg-gray-50 disabled:opacity-50 dark:border-border dark:hover:bg-muted"
           >
             Reject
           </button>
@@ -246,7 +250,7 @@ function StepsFeedback({
       )}
       {decided !== null && (
         <div
-          className={`text-center py-2 rounded-lg font-medium ${decided ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}
+          className={`text-center py-2 rounded-lg font-medium ${decided ? "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300" : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"}`}
         >
           {decided ? "Accepted" : "Rejected"}
         </div>

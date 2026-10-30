@@ -41,9 +41,9 @@ import type { AgentStep, Delegation, SubAgentName } from "./agent-state-model";
     }
     .agent-state-card {
       padding: 1rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 1rem;
-      background: #fff;
+      background: light-dark(#fff, #191a1e);
       box-shadow: 0 8px 24px rgb(30 49 73 / 8%);
     }
     header,
@@ -53,7 +53,7 @@ import type { AgentStep, Delegation, SubAgentName } from "./agent-state-model";
       gap: 0.65rem;
     }
     header {
-      color: #152238;
+      color: light-dark(#152238, #fafafa);
       font-size: 0.9rem;
     }
     .status-dot {
@@ -64,7 +64,7 @@ import type { AgentStep, Delegation, SubAgentName } from "./agent-state-model";
     }
     .status-dot.running {
       background: #4f46e5;
-      box-shadow: 0 0 0 0.25rem #e0e7ff;
+      box-shadow: 0 0 0 0.25rem light-dark(#e0e7ff, #312e81);
     }
     ol {
       display: grid;
@@ -74,7 +74,7 @@ import type { AgentStep, Delegation, SubAgentName } from "./agent-state-model";
       list-style: none;
     }
     li {
-      color: #334155;
+      color: light-dark(#334155, #fafafa);
       font-size: 0.82rem;
     }
     .step-marker {
@@ -83,13 +83,13 @@ import type { AgentStep, Delegation, SubAgentName } from "./agent-state-model";
       height: 1.35rem;
       flex: 0 0 auto;
       place-items: center;
-      border: 1px solid #cbd5e1;
+      border: 1px solid light-dark(#cbd5e1, #303136);
       border-radius: 50%;
       font-size: 0.68rem;
       font-weight: 700;
     }
     .completed {
-      color: #718096;
+      color: light-dark(#718096, #adadb2);
       text-decoration: line-through;
     }
   `,
@@ -168,10 +168,10 @@ const SUB_AGENT_META: Readonly<
     }
     .subagent-card {
       overflow: hidden;
-      border: 1px solid #c7d2fe;
+      border: 1px solid light-dark(#c7d2fe, #3730a3);
       border-radius: 1rem;
-      color: #18253a;
-      background: #f8faff;
+      color: light-dark(#18253a, #fafafa);
+      background: light-dark(#f8faff, #191a1e);
       box-shadow: 0 6px 20px rgb(49 46 129 / 8%);
     }
     header {
@@ -179,11 +179,11 @@ const SUB_AGENT_META: Readonly<
       justify-content: space-between;
       gap: 1rem;
       padding: 0.7rem 0.9rem;
-      border-bottom: 1px solid #dbe3f0;
-      background: #eef2ff;
+      border-bottom: 1px solid light-dark(#dbe3f0, #303136);
+      background: light-dark(#eef2ff, rgb(30 27 75 / 40%));
     }
     header span {
-      color: #475569;
+      color: light-dark(#475569, #adadb2);
       font-size: 0.7rem;
       font-weight: 700;
       letter-spacing: 0.08em;
@@ -270,9 +270,9 @@ function isSubAgentName(value: unknown): value is SubAgentName {
     }
     .delegation-log {
       overflow: hidden;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 1rem;
-      background: #fff;
+      background: light-dark(#fff, #191a1e);
       box-shadow: 0 12px 34px rgb(30 49 73 / 8%);
     }
     header {
@@ -281,14 +281,14 @@ function isSubAgentName(value: unknown): value is SubAgentName {
       justify-content: space-between;
       gap: 1rem;
       padding: 1rem;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid light-dark(#e2e8f0, #303136);
     }
     header p,
     header h1 {
       margin: 0;
     }
     header p {
-      color: #6366f1;
+      color: light-dark(#6366f1, #818cf8);
       font-size: 0.7rem;
       font-weight: 750;
       letter-spacing: 0.12em;
@@ -296,11 +296,11 @@ function isSubAgentName(value: unknown): value is SubAgentName {
     }
     header h1 {
       margin-top: 0.2rem;
-      color: #152238;
+      color: light-dark(#152238, #fafafa);
       font-size: 1.1rem;
     }
     header span {
-      color: #64748b;
+      color: light-dark(#64748b, #adadb2);
       font-size: 0.75rem;
     }
     .role-row {
@@ -308,24 +308,24 @@ function isSubAgentName(value: unknown): value is SubAgentName {
       flex-wrap: wrap;
       gap: 0.5rem;
       padding: 0.75rem 1rem;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid light-dark(#e2e8f0, #303136);
     }
     .role-row span {
       padding: 0.3rem 0.55rem;
-      border: 1px solid #cbd5e1;
+      border: 1px solid light-dark(#cbd5e1, #303136);
       border-radius: 999px;
-      color: #64748b;
+      color: light-dark(#64748b, #adadb2);
       font-size: 0.72rem;
     }
     .role-row span[data-fired="true"] {
       border-color: #818cf8;
-      color: #3730a3;
-      background: #eef2ff;
+      color: light-dark(#3730a3, #a5b4fc);
+      background: light-dark(#eef2ff, rgb(30 27 75 / 40%));
     }
     .empty {
       margin: 0;
       padding: 1rem;
-      color: #64748b;
+      color: light-dark(#64748b, #adadb2);
       font-size: 0.85rem;
     }
     ol {
@@ -337,27 +337,27 @@ function isSubAgentName(value: unknown): value is SubAgentName {
     }
     li {
       padding: 0.8rem;
-      border: 1px solid #e2e8f0;
+      border: 1px solid light-dark(#e2e8f0, #303136);
       border-radius: 0.75rem;
-      background: #f8fafc;
+      background: light-dark(#f8fafc, #242529);
     }
     li > span {
       float: right;
-      color: #15803d;
+      color: light-dark(#15803d, #4ade80);
       font-size: 0.7rem;
       text-transform: uppercase;
     }
     li p,
     blockquote {
       margin: 0.5rem 0 0;
-      color: #475569;
+      color: light-dark(#475569, #adadb2);
       font-size: 0.78rem;
       line-height: 1.45;
     }
     blockquote {
       padding: 0.65rem;
       border-radius: 0.5rem;
-      background: #fff;
+      background: light-dark(#fff, #191a1e);
     }
   `,
 })

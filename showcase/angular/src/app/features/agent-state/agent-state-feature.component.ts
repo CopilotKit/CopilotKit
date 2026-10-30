@@ -64,12 +64,12 @@ export class AgentStateTranscriptChildrenComponent {
   styles: `
     .agent-state-page {
       min-height: 0;
-      background: #eef3f7;
+      background: light-dark(#eef3f7, #0a0a0a);
     }
     .chat-surface {
       min-width: 0;
       height: 100%;
-      background: #fff;
+      background: light-dark(#fff, #191a1e);
     }
     .subagents {
       display: grid;
@@ -83,7 +83,7 @@ export class AgentStateTranscriptChildrenComponent {
     }
     .subagents .chat-surface {
       overflow: hidden;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 1rem;
     }
     @media (max-width: 52rem) {

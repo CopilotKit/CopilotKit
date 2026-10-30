@@ -11,9 +11,10 @@
 //
 // `?sidebar=false` was the legacy embed mode (demo only, no dojo chrome).
 // The equivalent here is the integration's own demo page, which is what
-// the dojo iframes. The legacy dojo's other display params (view, file,
-// theme, *Picker, chatDefaultOpen, codeLayout) have no equivalent and are
-// dropped.
+// the dojo iframes. A `theme` param is passed through to that demo page,
+// which reads `?theme=light|dark` itself. The legacy dojo's other display
+// params (view, file, *Picker, chatDefaultOpen, codeLayout) have no
+// equivalent and are dropped.
 
 // Legacy integration id → showcase integration slug. Integrations with no
 // showcase counterpart are omitted and land on the dojo root.
@@ -119,8 +120,10 @@ export function resolveLegacyDojoRedirect(
   if (demo && url.searchParams.get("sidebar") === "false") {
     const route = lookups.demoRoute(integration, demo);
     if (route) {
+      const theme = url.searchParams.get("theme");
+      const query = theme === null ? "" : `?${new URLSearchParams({ theme })}`;
       return {
-        location: `${lookups.backendUrl(integration)}${route}`,
+        location: `${lookups.backendUrl(integration)}${route}${query}`,
         permanent: false,
       };
     }

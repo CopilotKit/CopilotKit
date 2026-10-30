@@ -26,18 +26,18 @@ export function ReasoningBlock({
   return (
     <div
       data-testid="reasoning-block"
-      className="my-2 rounded-xl border border-[#DBDBE5] bg-[#BEC2FF1A] px-3.5 py-2.5 text-sm"
+      className="my-2 rounded-xl border border-[#DBDBE5] bg-[#BEC2FF1A] px-3.5 py-2.5 text-sm dark:border-border"
     >
-      <div className="flex items-center gap-2 font-medium text-[#010507]">
-        <span className="inline-block rounded-full border border-[#BEC2FF] bg-white px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-[#57575B]">
+      <div className="flex items-center gap-2 font-medium text-[#010507] dark:text-foreground">
+        <span className="inline-block rounded-full border border-[#BEC2FF] bg-white px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-[#57575B] dark:bg-card dark:text-muted-foreground">
           Reasoning
         </span>
-        <span className="text-[#57575B]">
+        <span className="text-[#57575B] dark:text-muted-foreground">
           {isStreaming ? "Thinking…" : hasContent ? "Agent reasoning" : "…"}
         </span>
       </div>
       {hasContent && (
-        <div className="mt-1.5 whitespace-pre-wrap italic text-[#57575B]">
+        <div className="mt-1.5 whitespace-pre-wrap italic text-[#57575B] dark:text-muted-foreground">
           {message.content}
         </div>
       )}

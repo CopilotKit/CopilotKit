@@ -84,8 +84,8 @@ export interface BeautifulTodo {
     .todo-canvas {
       min-height: 100%;
       padding: clamp(1rem, 3vw, 2.5rem);
-      color: #14213d;
-      background: #f7f9fc;
+      color: light-dark(#14213d, #fafafa);
+      background: light-dark(#f7f9fc, #0a0a0a);
     }
     header {
       display: flex;
@@ -95,7 +95,7 @@ export interface BeautifulTodo {
       margin-bottom: 1.5rem;
     }
     header span {
-      color: #66758a;
+      color: light-dark(#66758a, #adadb2);
       font-size: 0.75rem;
       font-weight: 700;
       letter-spacing: 0.08em;
@@ -111,10 +111,10 @@ export interface BeautifulTodo {
       font-size: 1.7rem;
     }
     button {
-      border: 1px solid #cbd5e1;
+      border: 1px solid light-dark(#cbd5e1, #303136);
       border-radius: 0.65rem;
-      color: #20324d;
-      background: #fff;
+      color: light-dark(#20324d, #fafafa);
+      background: light-dark(#fff, #191a1e);
       cursor: pointer;
     }
     header button {
@@ -150,13 +150,13 @@ export interface BeautifulTodo {
       grid-template-columns: auto 1fr auto;
       gap: 0.7rem;
       padding: 0.9rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 0.85rem;
-      background: #fff;
+      background: light-dark(#fff, #191a1e);
     }
     article p {
       margin-top: 0.2rem;
-      color: #66758a;
+      color: light-dark(#66758a, #adadb2);
       font-size: 0.78rem;
     }
     .emoji {
@@ -183,7 +183,7 @@ export interface BeautifulTodo {
     }
     .empty p,
     .column-empty {
-      color: #66758a;
+      color: light-dark(#66758a, #adadb2);
       font-size: 0.85rem;
     }
     @media (max-width: 44rem) {

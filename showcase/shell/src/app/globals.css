@@ -2,6 +2,10 @@
 @import "@copilotkit/react-core/v2/styles.css";
 @import "highlight.js/styles/github.css";
 
+/* `dark:` utilities follow the `.dark` class on <html> (set by the theme
+ * script in layout.tsx), not the OS preference directly. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   /* Backgrounds — match reference (oklch(0.9038 0.0149 286.1) ≈ #e6e6ec).
    * Shell keeps a slightly lighter cast so code blocks on white surface
@@ -21,6 +25,10 @@
   --accent: #5a3cd1;
   --accent-light: #ebe7fa;
   --accent-dim: rgba(90, 60, 209, 0.06);
+  /* Filled accent controls with white text. Same as --accent in light;
+   * dark mode uses a deeper value so white text keeps AA contrast while
+   * --accent itself is lifted for text on dark surfaces. */
+  --accent-fill: var(--accent);
   --blue: #1a5fb4;
   --violet: #5a3cd1;
   --violet-light: #ebe7fa;
@@ -36,6 +44,33 @@
   --font-docs-code:
     var(--font-mono, "Spline Sans Mono"), ui-monospace, SFMono-Regular,
     "SF Mono", Menlo, monospace;
+
+  color-scheme: light;
+}
+
+/* Dark theme. Same variable meanings as shell-docs, so its dark values are
+ * reused, with the shell's cool-grey cast on the surfaces and its
+ * blue-violet accent hue (lifted for AA contrast on dark surfaces). */
+:root.dark {
+  color-scheme: dark;
+  --bg: oklch(0.145 0.004 286);
+  --bg-surface: oklch(0.205 0.005 286);
+  --bg-elevated: oklch(0.274 0.006 286);
+  --bg-hover: color-mix(in oklch, var(--bg-elevated) 82%, white 18%);
+  --border: oklch(1 0 0 / 10%);
+  --border-dim: oklch(1 0 0 / 5%);
+  --sidebar: oklch(0.205 0.005 286);
+  --text: oklch(0.985 0 0);
+  --text-secondary: oklch(0.82 0.01 286);
+  --text-muted: oklch(0.708 0 0);
+  --text-faint: oklch(0.556 0 0);
+  --accent: oklch(0.68 0.18 284);
+  --accent-fill: oklch(0.56 0.22 284);
+  --accent-light: color-mix(in oklch, var(--accent) 18%, transparent);
+  --accent-dim: color-mix(in oklch, var(--accent) 12%, transparent);
+  --blue: #6ba6e8;
+  --violet: var(--accent);
+  --violet-light: var(--accent-light);
 }
 
 html,
@@ -186,4 +221,80 @@ samp {
   border: none;
   border-top: 1px solid var(--border);
   margin: 1.5rem 0;
+}
+
+/* highlight.js: github.css above is the light theme; in dark mode the
+ * GitHub Dark colors (highlight.js/styles/github-dark.css) take over, on the
+ * shell's own surface. `:where()` keeps each rule at the specificity of the
+ * github.css rule it replaces, so overrides like `.reference-content pre
+ * code` still win in both themes. */
+:where(.dark) .hljs {
+  color: #c9d1d9;
+  background: var(--bg-surface);
+}
+:where(.dark) .hljs-doctag,
+:where(.dark) .hljs-keyword,
+:where(.dark) .hljs-meta .hljs-keyword,
+:where(.dark) .hljs-template-tag,
+:where(.dark) .hljs-template-variable,
+:where(.dark) .hljs-type,
+:where(.dark) .hljs-variable.language_ {
+  color: #ff7b72;
+}
+:where(.dark) .hljs-title,
+:where(.dark) .hljs-title.class_,
+:where(.dark) .hljs-title.class_.inherited__,
+:where(.dark) .hljs-title.function_ {
+  color: #d2a8ff;
+}
+:where(.dark) .hljs-attr,
+:where(.dark) .hljs-attribute,
+:where(.dark) .hljs-literal,
+:where(.dark) .hljs-meta,
+:where(.dark) .hljs-number,
+:where(.dark) .hljs-operator,
+:where(.dark) .hljs-variable,
+:where(.dark) .hljs-selector-attr,
+:where(.dark) .hljs-selector-class,
+:where(.dark) .hljs-selector-id {
+  color: #79c0ff;
+}
+:where(.dark) .hljs-regexp,
+:where(.dark) .hljs-string,
+:where(.dark) .hljs-meta .hljs-string {
+  color: #a5d6ff;
+}
+:where(.dark) .hljs-built_in,
+:where(.dark) .hljs-symbol {
+  color: #ffa657;
+}
+:where(.dark) .hljs-comment,
+:where(.dark) .hljs-code,
+:where(.dark) .hljs-formula {
+  color: #8b949e;
+}
+:where(.dark) .hljs-name,
+:where(.dark) .hljs-quote,
+:where(.dark) .hljs-selector-tag,
+:where(.dark) .hljs-selector-pseudo {
+  color: #7ee787;
+}
+:where(.dark) .hljs-subst,
+:where(.dark) .hljs-emphasis,
+:where(.dark) .hljs-strong {
+  color: #c9d1d9;
+}
+:where(.dark) .hljs-section {
+  color: #1f6feb;
+}
+:where(.dark) .hljs-bullet {
+  color: #f2cc60;
+}
+:where(.dark) .hljs-addition {
+  color: #aff5b4;
+  background-color: #033a16;
+}
+:where(.dark) .hljs-deletion {
+  color: #ffdcd7;
+  background-color: #67060c;
 }

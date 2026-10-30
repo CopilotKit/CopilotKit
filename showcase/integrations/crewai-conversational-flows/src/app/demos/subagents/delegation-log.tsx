@@ -27,17 +27,20 @@ const SUB_AGENT_STYLE: Record<
 > = {
   research_agent: {
     label: "Research",
-    color: "bg-[#BEC2FF1A] text-[#010507] border-[#BEC2FF]",
+    color:
+      "bg-[#BEC2FF1A] text-[#010507] border-[#BEC2FF] dark:text-foreground",
     emoji: "🔎",
   },
   writing_agent: {
     label: "Writing",
-    color: "bg-[#85ECCE]/15 text-[#189370] border-[#85ECCE4D]",
+    color:
+      "bg-[#85ECCE]/15 text-[#189370] border-[#85ECCE4D] dark:text-[#85ECCE]",
     emoji: "✍️",
   },
   critique_agent: {
     label: "Critique",
-    color: "bg-[#FFAC4D]/12 text-[#010507] border-[#FFAC4D33]",
+    color:
+      "bg-[#FFAC4D]/12 text-[#010507] border-[#FFAC4D33] dark:text-foreground",
     emoji: "🧐",
   },
 };
@@ -73,26 +76,26 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
   return (
     <div
       data-testid="delegation-log"
-      className="w-full h-full flex flex-col bg-white rounded-2xl shadow-sm border border-[#DBDBE5] overflow-hidden"
+      className="w-full h-full flex flex-col bg-white rounded-2xl shadow-sm border border-[#DBDBE5] overflow-hidden dark:bg-card dark:border-border"
     >
-      <div className="flex items-center justify-between px-6 py-3 border-b border-[#E9E9EF] bg-[#FAFAFC]">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-[#E9E9EF] bg-[#FAFAFC] dark:border-border dark:bg-muted">
         <div className="flex items-center gap-3">
-          <span className="text-lg font-semibold text-[#010507]">
+          <span className="text-lg font-semibold text-[#010507] dark:text-foreground">
             Sub-agent delegations
           </span>
           {isRunning && (
             <span
               data-testid="supervisor-running"
-              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-[#BEC2FF] bg-[#BEC2FF1A] text-[#010507] text-[10px] font-semibold uppercase tracking-[0.12em]"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-[#BEC2FF] bg-[#BEC2FF1A] text-[#010507] text-[10px] font-semibold uppercase tracking-[0.12em] dark:text-foreground"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#010507] animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#010507] animate-pulse dark:bg-foreground" />
               Supervisor running
             </span>
           )}
         </div>
         <span
           data-testid="delegation-count"
-          className="text-xs font-mono text-[#838389]"
+          className="text-xs font-mono text-[#838389] dark:text-muted-foreground"
         >
           {delegations.length} calls
         </span>
@@ -100,7 +103,7 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
 
       <div
         data-testid="subagent-indicators"
-        className="flex items-center gap-2 border-b border-[#E9E9EF] bg-white px-6 py-2"
+        className="flex items-center gap-2 border-b border-[#E9E9EF] bg-white px-6 py-2 dark:border-border dark:bg-card"
       >
         {INDICATOR_ROLES.map(({ role, subAgent }) => {
           const style = SUB_AGENT_STYLE[subAgent];
@@ -124,7 +127,7 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {delegations.length === 0 ? (
-          <p className="text-[#838389] italic text-sm">
+          <p className="text-[#838389] italic text-sm dark:text-muted-foreground">
             Ask the supervisor to complete a task. Every sub-agent it calls will
             appear here.
           </p>
@@ -135,11 +138,11 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
               <div
                 key={d.id}
                 data-testid="delegation-entry"
-                className="border border-[#E9E9EF] rounded-xl p-3 bg-[#FAFAFC]"
+                className="border border-[#E9E9EF] rounded-xl p-3 bg-[#FAFAFC] dark:border-border dark:bg-muted"
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-[#AFAFB7]">
+                    <span className="text-xs font-mono text-[#AFAFB7] dark:text-muted-foreground">
                       #{idx + 1}
                     </span>
                     <span
@@ -149,15 +152,17 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
                       <span>{style.label}</span>
                     </span>
                   </div>
-                  <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-[#189370]">
+                  <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-[#189370] dark:text-[#85ECCE]">
                     {d.status}
                   </span>
                 </div>
-                <div className="text-xs text-[#57575B] mb-2">
-                  <span className="font-semibold text-[#010507]">Task: </span>
+                <div className="text-xs text-[#57575B] mb-2 dark:text-muted-foreground">
+                  <span className="font-semibold text-[#010507] dark:text-foreground">
+                    Task:{" "}
+                  </span>
                   {d.task}
                 </div>
-                <div className="text-sm text-[#010507] whitespace-pre-wrap bg-white rounded-lg p-2.5 border border-[#E9E9EF]">
+                <div className="text-sm text-[#010507] whitespace-pre-wrap bg-white rounded-lg p-2.5 border border-[#E9E9EF] dark:text-foreground dark:bg-card dark:border-border">
                   {d.result}
                 </div>
               </div>

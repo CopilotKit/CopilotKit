@@ -57,7 +57,7 @@ type ToolArgs = Record<string, unknown>;
 export class ToolFeatureComponent {
   private readonly route = inject(ActivatedRoute);
   protected readonly background = signal(
-    "linear-gradient(135deg, #f8fafc, #eef2f7)",
+    "linear-gradient(135deg, light-dark(#f8fafc, #0a0a0a), light-dark(#eef2f7, #242529))",
   );
   private readonly feature =
     (this.route.snapshot.data["feature"] as string | undefined) ?? "unknown";

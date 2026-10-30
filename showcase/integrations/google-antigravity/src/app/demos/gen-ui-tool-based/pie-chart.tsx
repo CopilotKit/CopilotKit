@@ -27,10 +27,14 @@ export function PieChart({ title, description, data }: PieChartProps) {
 
   if (!data || !Array.isArray(data) || data.length === 0) {
     return (
-      <div className="max-w-lg mx-auto my-4 rounded-2xl border border-[#DBDBE5] bg-white p-6 shadow-sm">
-        <div className="font-semibold text-[#010507]">{title}</div>
-        <div className="text-sm text-[#57575B]">{description}</div>
-        <p className="text-[#AFAFB7] text-center py-8 text-sm">
+      <div className="max-w-lg mx-auto my-4 rounded-2xl border border-[#DBDBE5] bg-white dark:border-border dark:bg-card p-6 shadow-sm">
+        <div className="font-semibold text-[#010507] dark:text-foreground">
+          {title}
+        </div>
+        <div className="text-sm text-[#57575B] dark:text-muted-foreground">
+          {description}
+        </div>
+        <p className="text-[#AFAFB7] text-center py-8 text-sm dark:text-muted-foreground">
           No data available
         </p>
       </div>
@@ -62,10 +66,14 @@ export function PieChart({ title, description, data }: PieChartProps) {
   });
 
   return (
-    <div className="max-w-lg mx-auto my-4 overflow-hidden rounded-2xl border border-[#DBDBE5] bg-white shadow-sm">
+    <div className="max-w-lg mx-auto my-4 overflow-hidden rounded-2xl border border-[#DBDBE5] bg-white dark:border-border dark:bg-card shadow-sm">
       <div className="p-4 pb-0">
-        <div className="font-semibold text-[#010507]">{title}</div>
-        <div className="text-sm text-[#57575B]">{description}</div>
+        <div className="font-semibold text-[#010507] dark:text-foreground">
+          {title}
+        </div>
+        <div className="text-sm text-[#57575B] dark:text-muted-foreground">
+          {description}
+        </div>
       </div>
       <div className="px-4 pb-4 pt-4">
         <svg
@@ -79,7 +87,7 @@ export function PieChart({ title, description, data }: PieChartProps) {
             cy={center}
             r={radius}
             fill="none"
-            stroke="#F0F0F4"
+            stroke="light-dark(#F0F0F4, var(--muted))"
             strokeWidth={strokeWidth}
           />
           {slices.map((slice, i) => (
@@ -111,13 +119,13 @@ export function PieChart({ title, description, data }: PieChartProps) {
                     backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
                   }}
                 />
-                <span className="flex-1 text-[#010507] truncate">
+                <span className="flex-1 text-[#010507] truncate dark:text-foreground">
                   {item.label}
                 </span>
-                <span className="text-[#57575B] tabular-nums">
+                <span className="text-[#57575B] tabular-nums dark:text-muted-foreground">
                   {val.toLocaleString()}
                 </span>
-                <span className="text-[#57575B] text-sm w-10 text-right tabular-nums">
+                <span className="text-[#57575B] text-sm w-10 text-right tabular-nums dark:text-muted-foreground">
                   {pct}%
                 </span>
               </div>
