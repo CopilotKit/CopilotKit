@@ -3156,6 +3156,9 @@ importers:
       '@copilotkit/channels-core':
         specifier: workspace:^
         version: link:../channels-core
+      '@copilotkit/channels-intelligence':
+        specifier: workspace:^
+        version: link:../channels-intelligence
       '@copilotkit/license-verifier':
         specifier: ~0.5.0
         version: 0.5.0
@@ -3199,9 +3202,6 @@ importers:
       '@copilotkit/channels':
         specifier: workspace:*
         version: link:../channels
-      '@copilotkit/channels-intelligence':
-        specifier: workspace:^
-        version: link:../channels-intelligence
       '@hono/node-server':
         specifier: '>=1.19.13'
         version: 2.0.0(hono@4.12.15)

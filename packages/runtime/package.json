@@ -77,6 +77,7 @@
     "@ai-sdk/openai": "^3.0.36",
     "@cfworker/json-schema": "^4.1.1",
     "@copilotkit/channels-core": "workspace:^",
+    "@copilotkit/channels-intelligence": "workspace:^",
     "@copilotkit/license-verifier": "~0.5.0",
     "@copilotkit/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.18.2",
@@ -117,8 +118,7 @@
     "@types/yauzl": "2.10.3",
     "hono": "^4.11.4",
     "@hono/node-server": "^1.13.5",
-    "ws": "^8.18.0",
-    "@copilotkit/channels-intelligence": "workspace:^"
+    "ws": "^8.18.0"
   },
   "nx": {
     "targets": {
