@@ -12,14 +12,30 @@ It is the default `group` slot of [`CopilotChatToolCallsView`](/reference/compon
 Only calls drawn by a renderer that opts into grouping join a group. CopilotKit's built-in card, from [`useDefaultRenderTool()`](/reference/hooks/useDefaultRenderTool), does, and draws itself as a compact row inside the card and line appearances and an open stack: status, tool name and main argument, opening to the arguments and result. A custom renderer opts in with `group: true` and draws whatever it draws inside the group:
 
 ```tsx
-useDefaultRenderTool({ render: MyToolRow, group: true });
-// or, for one tool
-useRenderTool({
-  name: "run_command",
-  parameters,
-  render: CommandRow,
-  group: true,
-});
+import { useDefaultRenderTool, useRenderTool } from "@copilotkit/react-core";
+import { z } from "zod";
+
+export function GroupedToolRenderers() {
+  // Every tool without its own renderer
+  useDefaultRenderTool({
+    render: ({ name, status }) => (
+      <div className="tool-row">
+        {name}: {status}
+      </div>
+    ),
+    group: true,
+  });
+
+  // Or one tool
+  useRenderTool({
+    name: "run_command",
+    parameters: z.object({ command: z.string() }),
+    render: ({ parameters }) => <code>{parameters.command}</code>,
+    group: true,
+  });
+
+  return null;
+}
 ```
 
 The group is the `group` slot in the `"grouped"`, `"line"` and `"stacked"` displays. The `"turn"` display draws calls as rows inside the reply and doesn't use it.
@@ -27,11 +43,11 @@ The group is the `group` slot in the `"grouped"`, `"line"` and `"stacked"` displ
 ## Import
 
 ```tsx
-import { CopilotChatToolCallGroup } from "@copilotkit/react-core/v2";
+import { CopilotChatToolCallGroup } from "@copilotkit/react-core";
 import type {
   CopilotChatToolCallGroupProps,
   ToolCallEntry,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 ```
 
 ## Props
@@ -81,29 +97,55 @@ group. In the line appearance, a finished lone call is drawn as its row.
 The usual way is the message view's `toolCallDisplay`:
 
 ```tsx
-<CopilotChat messageView={{ toolCallDisplay: "stacked" }} />
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return <CopilotChat messageView={{ toolCallDisplay: "stacked" }} />;
+}
 ```
 
 The `group` slot sets it directly, for example on a standalone tool-calls view:
 
 ```tsx
-<CopilotChatToolCallsView
-  message={message}
-  messages={messages}
-  group={{ appearance: "line" }}
-/>
+import {
+  CopilotChatToolCallsView,
+  type AssistantMessage,
+  type Message,
+} from "@copilotkit/react-core";
+
+export function LineToolCalls({
+  message,
+  messages,
+}: {
+  message: AssistantMessage;
+  messages: Message[];
+}) {
+  return (
+    <CopilotChatToolCallsView
+      message={message}
+      messages={messages}
+      group={{ appearance: "line" }}
+    />
+  );
+}
 ```
 
 ### Restyling the Group
 
 ```tsx
-<CopilotChat
-  messageView={{
-    assistantMessage: {
-      toolCallsView: { group: "rounded-2xl border-dashed" },
-    },
-  }}
-/>
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView={{
+        assistantMessage: {
+          toolCallsView: { group: "rounded-2xl border-dashed" },
+        },
+      }}
+    />
+  );
+}
 ```
 
 ### Replacing the Group
@@ -111,7 +153,10 @@ The `group` slot sets it directly, for example on a standalone tool-calls view:
 A replacement receives the same props as the default. Use `renderCall` to keep each call drawn by its registered renderer.
 
 ```tsx
-import type { CopilotChatToolCallGroupProps } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  type CopilotChatToolCallGroupProps,
+} from "@copilotkit/react-core";
 
 function ToolTimeline({ calls, renderCall }: CopilotChatToolCallGroupProps) {
   const running = calls.some((call) => !call.toolMessage);
@@ -125,11 +170,15 @@ function ToolTimeline({ calls, renderCall }: CopilotChatToolCallGroupProps) {
   );
 }
 
-<CopilotChat
-  messageView={{
-    assistantMessage: { toolCallsView: { group: ToolTimeline } },
-  }}
-/>;
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView={{
+        assistantMessage: { toolCallsView: { group: ToolTimeline } },
+      }}
+    />
+  );
+}
 ```
 
 ## Behavior
@@ -148,8 +197,8 @@ The line at the top of each reply when the message view's `toolCallDisplay` is `
 ### Import
 
 ```tsx
-import { CopilotChatWorkSummary } from "@copilotkit/react-core/v2";
-import type { CopilotChatWorkSummaryProps } from "@copilotkit/react-core/v2";
+import { CopilotChatWorkSummary } from "@copilotkit/react-core";
+import type { CopilotChatWorkSummaryProps } from "@copilotkit/react-core";
 ```
 
 ### Props
@@ -183,7 +232,10 @@ Also accepts every `<button>` attribute; the message view passes `onClick` to to
 ### Replacing the Summary
 
 ```tsx
-import type { CopilotChatWorkSummaryProps } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  type CopilotChatWorkSummaryProps,
+} from "@copilotkit/react-core";
 
 function WorkLine({
   isWorking,
@@ -198,9 +250,13 @@ function WorkLine({
   );
 }
 
-<CopilotChat
-  messageView={{ toolCallDisplay: "turn", workSummary: WorkLine }}
-/>;
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView={{ toolCallDisplay: "turn", workSummary: WorkLine }}
+    />
+  );
+}
 ```
 
 ## Related

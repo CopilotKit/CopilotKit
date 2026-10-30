@@ -10,8 +10,8 @@ description: "Component for rendering a list of chat messages"
 ## Import
 
 ```tsx
-import { CopilotChatMessageView } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+import { CopilotChatMessageView } from "@copilotkit/react-core";
+import "@copilotkit/react-core/styles.css";
 ```
 
 ## Props
@@ -90,82 +90,162 @@ nothing. To restyle or replace the group itself, use the `group` slot of
 See [Grouping tool calls](/generative-ui/tool-rendering#grouping-tool-calls).
 </PropertyReference>
 
-<PropertyReference name="children" type="(props: { isRunning: boolean; messages: Message[]; messageElements: React.ReactElement[] }) => React.ReactElement">
-Optional render-prop function that receives the resolved state and pre-built message elements. When provided, the component calls this function instead of rendering the default message list layout. The callback receives `isRunning` (current running state), `messages` (the raw message array), and `messageElements` (an array of React elements built from the `assistantMessage` and `userMessage` slots). Providing `children` turns virtualization off, so every message is mounted; for list-level changes, prefer `transformMessages`.
+<PropertyReference name="children" type="(props: { isRunning: boolean; messages: Message[]; messageElements: React.ReactElement[]; interruptElement: React.ReactElement | null }) => React.ReactElement">
+Optional render-prop function that receives the resolved state and pre-built message elements. When provided, the component calls this function instead of rendering the default message list layout. The callback receives `isRunning` (current running state), `messages` (the raw message array), `messageElements` (an array of React elements built from the `assistantMessage` and `userMessage` slots), and `interruptElement` (the UI of a pending [`useInterrupt`](/reference/hooks/useInterrupt), or `null`). Providing `children` turns virtualization off, so every message is mounted; for list-level changes, prefer `transformMessages`.
 </PropertyReference>
 
 ## Slots
 
 All slot props follow the CopilotKit slot system: each accepts a replacement React component, a `className` string that is merged into the default component's classes, or a partial props object that extends the default component.
 
-<PropertyReference name="assistantMessage" type="SlotProp<typeof CopilotChatAssistantMessage>">
+<PropertyReference name="assistantMessage" type="SlotValue<typeof CopilotChatAssistantMessage>">
   Slot for rendering assistant messages. Defaults to [`CopilotChatAssistantMessage`](/reference/components/CopilotChatAssistantMessage), which provides Markdown rendering, tool call display, and an action toolbar.
 
 **As a replacement component:**
 
 ```tsx
-<CopilotChatMessageView
-  assistantMessage={({ message }) => (
-    <div className="my-assistant-msg">{message.content}</div>
-  )}
-/>
+import { CopilotChatMessageView, useAgent } from "@copilotkit/react-core";
+
+export function AssistantSlotComponent() {
+  const { agent } = useAgent();
+
+  return (
+      <CopilotChatMessageView
+        messages={agent.messages}
+        assistantMessage={({ message }) => (
+          <div className="my-assistant-msg">{message.content}</div>
+        )}
+      />
+  );
+}
 ```
 
 **As a className:**
 
 ```tsx
-<CopilotChatMessageView assistantMessage="bg-blue-50 rounded-lg" />
+import { CopilotChatMessageView, useAgent } from "@copilotkit/react-core";
+
+export function AssistantSlotClassName() {
+  const { agent } = useAgent();
+
+  return (
+      <CopilotChatMessageView
+        messages={agent.messages}
+        assistantMessage="bg-blue-50 rounded-lg"
+      />
+  );
+}
 ```
 
 **As partial props:**
 
 ```tsx
-<CopilotChatMessageView assistantMessage={{ toolbarVisible: false }} />
+import { CopilotChatMessageView, useAgent } from "@copilotkit/react-core";
+
+export function AssistantSlotProps() {
+  const { agent } = useAgent();
+
+  return (
+      <CopilotChatMessageView
+        messages={agent.messages}
+        assistantMessage={{ toolbarVisible: false }}
+      />
+  );
+}
 ```
 
 </PropertyReference>
 
-<PropertyReference name="userMessage" type="SlotProp<typeof CopilotChatUserMessage>">
+<PropertyReference name="userMessage" type="SlotValue<typeof CopilotChatUserMessage>">
   Slot for rendering user messages. Defaults to [`CopilotChatUserMessage`](/reference/components/CopilotChatUserMessage), which provides right-aligned message display with optional branch navigation.
 
 **As a replacement component:**
 
 ```tsx
-<CopilotChatMessageView
-  userMessage={({ message }) => (
-    <div className="my-user-msg">{message.content}</div>
-  )}
-/>
+import { CopilotChatMessageView, useAgent } from "@copilotkit/react-core";
+
+export function UserSlotComponent() {
+  const { agent } = useAgent();
+
+  return (
+      <CopilotChatMessageView
+        messages={agent.messages}
+        userMessage={({ message }) => (
+          <div className="my-user-msg">
+            {typeof message.content === "string" ? message.content : null}
+          </div>
+        )}
+      />
+  );
+}
 ```
 
 **As a className:**
 
 ```tsx
-<CopilotChatMessageView userMessage="bg-gray-100 rounded-lg" />
+import { CopilotChatMessageView, useAgent } from "@copilotkit/react-core";
+
+export function UserSlotClassName() {
+  const { agent } = useAgent();
+
+  return (
+      <CopilotChatMessageView
+        messages={agent.messages}
+        userMessage="bg-gray-100 rounded-lg"
+      />
+  );
+}
 ```
 
 </PropertyReference>
 
-<PropertyReference name="cursor" type="SlotProp<typeof CopilotChatMessageView.Cursor>">
+<PropertyReference name="reasoningMessage" type="SlotValue<typeof CopilotChatReasoningMessage>">
+  Slot for rendering reasoning messages. Defaults to `CopilotChatReasoningMessage`,
+  which shows the agent's reasoning as a collapsible "Thought for 4 seconds" line.
+</PropertyReference>
+
+<PropertyReference name="cursor" type="SlotValue<typeof CopilotChatMessageView.Cursor>">
   Slot for the typing indicator displayed while `isRunning` is `true`. Defaults to `CopilotChatMessageView.Cursor`, which renders a pulsing dot animation.
 
 **As a replacement component:**
 
 ```tsx
-<CopilotChatMessageView
-  cursor={() => <span className="animate-bounce">...</span>}
-/>
+import { CopilotChatMessageView, useAgent } from "@copilotkit/react-core";
+
+export function CursorSlotComponent() {
+  const { agent } = useAgent();
+
+  return (
+      <CopilotChatMessageView
+        messages={agent.messages}
+        isRunning={agent.isRunning}
+        cursor={() => <span className="animate-bounce">...</span>}
+      />
+  );
+}
 ```
 
 **As a className:**
 
 ```tsx
-<CopilotChatMessageView cursor="text-blue-500" />
+import { CopilotChatMessageView, useAgent } from "@copilotkit/react-core";
+
+export function CursorSlotClassName() {
+  const { agent } = useAgent();
+
+  return (
+      <CopilotChatMessageView
+        messages={agent.messages}
+        isRunning={agent.isRunning}
+        cursor="text-blue-500"
+      />
+  );
+}
 ```
 
 </PropertyReference>
 
-<PropertyReference name="workSummary" type="SlotProp<typeof CopilotChatWorkSummary>">
+<PropertyReference name="workSummary" type="SlotValue<typeof CopilotChatWorkSummary>">
   Slot for the line at the top of each reply in the `"turn"` tool-call
   display. Defaults to
   [`CopilotChatWorkSummary`](/reference/components/CopilotChatToolCallGroup#copilotchatworksummary).
@@ -176,20 +256,43 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 **As a className:**
 
 ```tsx
-<CopilotChatMessageView toolCallDisplay="turn" workSummary="text-xs" />
+import { CopilotChatMessageView, useAgent } from "@copilotkit/react-core";
+
+export function WorkSummaryClassName() {
+  const { agent } = useAgent();
+
+  return (
+      <CopilotChatMessageView
+        messages={agent.messages}
+        isRunning={agent.isRunning}
+        toolCallDisplay="turn"
+        workSummary="text-xs"
+      />
+  );
+}
 ```
 
 **As a replacement component:**
 
 ```tsx
-<CopilotChatMessageView
-  toolCallDisplay="turn"
-  workSummary={({ isWorking, isOpen, calls, onClick }) => (
-    <button onClick={onClick} aria-expanded={isOpen}>
-      {isWorking ? "Thinking it through…" : `Checked ${calls.length} sources`}
-    </button>
-  )}
-/>
+import { CopilotChatMessageView, useAgent } from "@copilotkit/react-core";
+
+export function WorkSummaryComponent() {
+  const { agent } = useAgent();
+
+  return (
+      <CopilotChatMessageView
+        messages={agent.messages}
+        isRunning={agent.isRunning}
+        toolCallDisplay="turn"
+        workSummary={({ isWorking, isOpen, calls, onClick }) => (
+          <button onClick={onClick} aria-expanded={isOpen}>
+            {isWorking ? "Thinking it through…" : `Checked ${calls.length} sources`}
+          </button>
+        )}
+      />
+  );
+}
 ```
 
 </PropertyReference>
@@ -199,6 +302,8 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 ### Basic Message List
 
 ```tsx
+import { CopilotChatMessageView, useAgent } from "@copilotkit/react-core";
+
 function MessageList() {
   const { agent } = useAgent();
 
@@ -214,6 +319,8 @@ function MessageList() {
 ### Customizing Message Slots
 
 ```tsx
+import { CopilotChatMessageView, useAgent } from "@copilotkit/react-core";
+
 function CustomMessages() {
   const { agent } = useAgent();
 
@@ -234,6 +341,8 @@ function CustomMessages() {
 ### Render-Prop Children for Custom Layout
 
 ```tsx
+import { CopilotChatMessageView, useAgent } from "@copilotkit/react-core";
+
 function CustomLayout() {
   const { agent } = useAgent();
 
@@ -263,6 +372,8 @@ function CustomLayout() {
 ### Choosing How Tool Calls Show
 
 ```tsx
+import { CopilotChatMessageView, useAgent } from "@copilotkit/react-core";
+
 function AgentChat() {
   const { agent } = useAgent();
 
@@ -280,18 +391,28 @@ From `CopilotChat`, `CopilotSidebar` or `CopilotPopup`, set it through the
 `messageView` slot:
 
 ```tsx
-<CopilotChat messageView={{ toolCallDisplay: "line" }} />
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return <CopilotChat messageView={{ toolCallDisplay: "line" }} />;
+}
 ```
 
 To give every call its own card again:
 
 ```tsx
-<CopilotChat messageView={{ toolCallDisplay: "separate" }} />
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return <CopilotChat messageView={{ toolCallDisplay: "separate" }} />;
+}
 ```
 
 ### Hiding the Toolbar on Assistant Messages
 
 ```tsx
+import { CopilotChatMessageView, useAgent } from "@copilotkit/react-core";
+
 function MinimalChat() {
   const { agent } = useAgent();
 

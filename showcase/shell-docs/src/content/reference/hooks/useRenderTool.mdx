@@ -14,49 +14,79 @@ This hook only handles rendering. It does not register a frontend handler.
 
 ## Signature
 
-### Wildcard overload
+`useRenderTool` has two overloads: a wildcard (`name: "*"`) renderer, and a named renderer typed from its `parameters` schema.
 
 ```tsx
-import { useRenderTool } from "@copilotkit/react-core/v2";
+import type { ReactElement } from "react";
+import type { InferSchemaOutput, StandardSchemaV1 } from "@copilotkit/shared";
+import { useRenderTool } from "@copilotkit/react-core";
 
-useRenderTool(
-  {
-    name: "*",
-    render: (props) => React.ReactElement | null,
-    agentId?: string,
-    group?: boolean,
-  },
-  deps?: ReadonlyArray<unknown>,
-);
+useRenderTool satisfies {
+  // Wildcard overload: renders every tool call that has no renderer of its own.
+  (
+    config: {
+      name: "*";
+      render: (props: {
+        name: string;
+        toolCallId: string;
+        parameters: unknown;
+        status: "inProgress" | "executing" | "complete";
+        result: string | undefined;
+      }) => ReactElement | null;
+      agentId?: string;
+      group?: boolean;
+    },
+    deps?: ReadonlyArray<unknown>,
+  ): void;
+
+  // Named overload: `render` props are typed from the `parameters` schema.
+  <S extends StandardSchemaV1>(
+    config: {
+      name: string;
+      parameters: S;
+      render: (
+        props:
+          | {
+              name: string;
+              toolCallId: string;
+              parameters: Partial<InferSchemaOutput<S>>;
+              status: "inProgress";
+              result: undefined;
+            }
+          | {
+              name: string;
+              toolCallId: string;
+              parameters: InferSchemaOutput<S>;
+              status: "executing";
+              result: undefined;
+            }
+          | {
+              name: string;
+              toolCallId: string;
+              parameters: InferSchemaOutput<S>;
+              status: "complete";
+              result: string;
+            },
+      ) => ReactElement | null;
+      agentId?: string;
+      group?: boolean;
+    },
+    deps?: ReadonlyArray<unknown>,
+  ): void;
+};
 ```
 
-### Named overload
-
-```tsx
-import { z } from "zod";
-import { useRenderTool } from "@copilotkit/react-core/v2";
-
-useRenderTool(
-  {
-    name: string,
-    parameters: z.ZodTypeAny,
-    render: (props) => React.ReactElement | null,
-    agentId?: string,
-    group?: boolean,
-  },
-  deps?: ReadonlyArray<unknown>,
-);
-```
+`parameters` is a Zod schema or any other [Standard Schema](https://standardschema.dev). The package types the wildcard overload's `render` props as `any`. The shape above is what it passes at runtime.
 
 ## Render Props
 
-`render` receives one of these states:
+For a named tool, `render` receives one of these states:
 
 - `{ status: "inProgress", parameters: Partial<T>, result: undefined }`
 - `{ status: "executing", parameters: T, result: undefined }`
 - `{ status: "complete", parameters: T, result: string }`
 
-`name` is always present in all states.
+`name` and `toolCallId` are present in all states. Checking `status` narrows `parameters` and `result`.
 
 ## Behavior
 
@@ -76,6 +106,9 @@ useRenderTool(
 ### Named tool renderer
 
 ```tsx
+import { z } from "zod";
+import { useRenderTool } from "@copilotkit/react-core";
+
 function App() {
   useRenderTool(
     {
@@ -98,6 +131,8 @@ function App() {
 ### Wildcard fallback renderer
 
 ```tsx
+import { useRenderTool } from "@copilotkit/react-core";
+
 function App() {
   useRenderTool(
     {
@@ -117,10 +152,11 @@ function App() {
 
 ### Disable rendering for a tool
 
-Return `null` to suppress the default UI. The wildcard (`"*"`) needs no schema; a named tool takes a pass-through schema (`z.any()`).
+Return `null` to draw nothing, for example to keep a wildcard renderer (such as the built-in card from `useDefaultRenderTool`) from drawing a tool. The wildcard (`"*"`) needs no schema; a named tool takes a pass-through schema (`z.any()`).
 
 ```tsx
 import { z } from "zod";
+import { useRenderTool } from "@copilotkit/react-core";
 
 function App() {
   // One specific tool…

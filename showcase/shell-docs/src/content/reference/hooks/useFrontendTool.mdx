@@ -7,17 +7,20 @@ description: "React hook for registering client-side tool handlers with optional
 
 `useFrontendTool` registers a client-side tool with CopilotKit at component scope. When the agent decides to call the tool, the provided `handler` function executes in the browser. Optionally, you can supply a `render` component to display custom UI in the chat showing the tool's execution progress and results.
 
-The hook manages the full registration lifecycle: it warns if a tool with the same name already exists, registers the tool and its render component on mount, and cleans up both registrations on unmount. In v2, parameter schemas are defined using [Zod](https://zod.dev) instead of plain parameter arrays.
+The hook manages the full registration lifecycle: it warns if a tool with the same name already exists, registers the tool and its render component on mount, and cleans up both registrations on unmount. In 2.0, the parameter schema is a [Zod](https://zod.dev) schema (or any other [Standard Schema](https://standardschema.dev)) instead of a plain parameter array.
 
 ## Signature
 
 ```tsx
-import { useFrontendTool } from "@copilotkit/react-core/v2";
+import {
+  useFrontendTool,
+  type ReactFrontendTool,
+} from "@copilotkit/react-core";
 
-function useFrontendTool<T extends Record<string, unknown>>(
+useFrontendTool satisfies <T extends Record<string, unknown>>(
   tool: ReactFrontendTool<T>,
   deps?: ReadonlyArray<unknown>,
-): void;
+) => void;
 ```
 
 ## Parameters
@@ -31,25 +34,24 @@ function useFrontendTool<T extends Record<string, unknown>>(
   logged.
 </PropertyReference>
 
-<PropertyReference name="description" type="string" required>
+<PropertyReference name="description" type="string">
   A natural-language description that tells the agent what the tool does and
-  when to use it.
+  when to use it. Required when `webmcp` is set.
 </PropertyReference>
 
-<PropertyReference name="parameters" type="z.ZodSchema" required>
-  A Zod schema defining the tool's input parameters. The schema drives the
-  advertised tool schema and type inference. Runtime arguments are JSON-parsed
-  but are not validated against that schema.
+<PropertyReference name="parameters" type="StandardSchemaV1<any, T>">
+  A Zod schema (or any other Standard Schema) defining the tool's input
+  parameters. The schema drives the advertised tool schema and type inference.
+  Runtime arguments are JSON-parsed but are not validated against that schema.
 </PropertyReference>
 
 <PropertyReference
   name="handler"
   type="(args: T, context: FrontendToolHandlerContext) => Promise<unknown>"
-  required
 >
-  An async function that executes when the agent calls the tool. Receives the
-  parsed arguments, typed from `parameters` but not validated against it, and
-  the context object:
+  An async function that executes when the agent calls the tool. Omit it for a
+  tool that only renders UI. Receives the parsed arguments, typed from
+  `parameters` but not validated against it, and the context object:
 
   - `toolCall` (`ToolCall`) -- the raw tool call metadata
   - `agent` (`AbstractAgent | undefined`) -- the agent instance that invoked
@@ -61,23 +63,35 @@ function useFrontendTool<T extends Record<string, unknown>>(
     the thread's history is restored (see `reconnectBehavior`); absent for a
     call from a live run.
 
-  `FrontendToolHandlerContext` is exported from `@copilotkit/core`.
+  `FrontendToolHandlerContext` is exported from `@copilotkit/react-core` and `@copilotkit/core`.
 </PropertyReference>
 
 <PropertyReference
   name="render"
-  type="React.ComponentType<{ name: string; args: Partial<T>; status: ToolCallStatus; result: string | undefined }>"
+  type="React.ComponentType<{ name: string; toolCallId: string; args: Partial<T>; status: ToolCallStatus; result: string | undefined }>"
 >
   An optional React component rendered in the chat interface to visualize tool
-  execution. The component receives: - `name` -- the tool name - `args` -- the
-  arguments (partial while streaming, complete once execution starts) - `status`
-  -- one of `ToolCallStatus.InProgress`, `ToolCallStatus.Executing`, or
+  execution. The component receives: - `name` -- the tool name - `toolCallId`
+  -- the ID of the tool call - `args` -- the arguments (partial while
+  streaming, complete once execution starts) - `status` -- one of
+  `ToolCallStatus.InProgress`, `ToolCallStatus.Executing`, or
   `ToolCallStatus.Complete` - `result` -- the string result returned by the
-  handler (only available when status is `Complete`)
+  handler (only available when status is `Complete`). The props are a union
+  keyed on `status`, so checking `status` narrows `args` and `result`.
 </PropertyReference>
 
-  <PropertyReference name="available" type='"enabled" | "disabled" | "remote"' default='"enabled"'>
-    Controls tool availability. Set to `"disabled"` to temporarily prevent the agent from calling the tool, or `"remote"` to indicate the tool is handled server-side.
+<PropertyReference name="followUp" type="boolean" default="true">
+  Whether the agent runs again after the tool returns, so it can respond to
+  the result. Set it to `false` to stop after the tool call.
+</PropertyReference>
+
+<PropertyReference name="agentId" type="string">
+  Limits the tool to one agent. When omitted, the tool is available to every
+  agent.
+</PropertyReference>
+
+  <PropertyReference name="available" type="boolean" default="true">
+    Whether the agent can call the tool. Set it to `false` to hide the tool from the agent without unregistering it.
   </PropertyReference>
 
   <PropertyReference name="reconnectBehavior" type='"passive" | "resume-pending"' default='"passive"'>
@@ -111,6 +125,10 @@ function useFrontendTool<T extends Record<string, unknown>>(
 ### Basic Tool with Zod Parameters
 
 ```tsx
+import { useState } from "react";
+import { z } from "zod";
+import { useFrontendTool } from "@copilotkit/react-core";
+
 function TodoManager() {
   const [todos, setTodos] = useState<string[]>([]);
 
@@ -143,6 +161,9 @@ function TodoManager() {
 ### Tool with Custom Render Component
 
 ```tsx
+import { z } from "zod";
+import { ToolCallStatus, useFrontendTool } from "@copilotkit/react-core";
+
 function WeatherWidget() {
   useFrontendTool(
     {
@@ -193,6 +214,9 @@ function WeatherWidget() {
 ### Conditionally Available Tool
 
 ```tsx
+import { z } from "zod";
+import { useFrontendTool } from "@copilotkit/react-core";
+
 function AdminPanel({ isAdmin }: { isAdmin: boolean }) {
   useFrontendTool(
     {
@@ -205,7 +229,7 @@ function AdminPanel({ isAdmin }: { isAdmin: boolean }) {
         await fetch(`/api/users/${userId}`, { method: "DELETE" });
         return `User ${userId} deleted`;
       },
-      available: isAdmin ? "enabled" : "disabled",
+      available: isAdmin,
     },
     [isAdmin],
   );
@@ -221,6 +245,10 @@ agents that support [WebMCP](https://developer.chrome.com/docs/ai/webmcp) can
 then discover and call the tool while the page is open.
 
 ```tsx
+import { z } from "zod";
+import { useFrontendTool } from "@copilotkit/react-core";
+import { searchOrders } from "./orders";
+
 function OrderSearch() {
   useFrontendTool({
     name: "searchOrders",
@@ -277,4 +305,4 @@ See [Ensuring your agent reliably calls frontend tools](/integrations/langgraph/
 - [`useRenderToolCall`](/reference/hooks/useRenderToolCall) -- for rendering backend tool calls without a client-side handler
 - [`useComponent`](/reference/hooks/useComponent) -- convenience wrapper for rendering React components from tool args
 - [`useRenderTool`](/reference/hooks/useRenderTool) -- register renderer-only tool call UI (named or wildcard)
-- [`useCopilotAction`](/reference/v1/hooks/useCopilotAction) -- v1 equivalent
+- [Migrate to 2.0](/migrate/v2) -- how the v1 `useCopilotAction` maps to `useFrontendTool`

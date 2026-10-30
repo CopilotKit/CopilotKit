@@ -15,12 +15,18 @@ import { ToolCallStatus } from "@copilotkit/core";
 
 ## Definition
 
+Each enum member and its string value. The `satisfies` check fails if this list and the shipped enum differ.
+
 ```ts
-enum ToolCallStatus {
-  InProgress = "inProgress",
-  Executing = "executing",
-  Complete = "complete",
-}
+import { ToolCallStatus } from "@copilotkit/core";
+
+const members = {
+  InProgress: "inProgress",
+  Executing: "executing",
+  Complete: "complete",
+} satisfies {
+  [Member in keyof typeof ToolCallStatus]: `${(typeof ToolCallStatus)[Member]}`;
+};
 ```
 
 ## Members

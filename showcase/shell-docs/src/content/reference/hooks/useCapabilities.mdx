@@ -11,15 +11,19 @@ Capabilities are populated from the runtime `/info` response at connection time.
 ## Signature
 
 ```tsx
-import { useCapabilities } from "@copilotkit/react-core/v2";
+import {
+  useCapabilities,
+  type AgentCapabilities,
+} from "@copilotkit/react-core";
 
-function useCapabilities(agentId?: string): AgentCapabilities | undefined
+useCapabilities satisfies (agentId?: string) => AgentCapabilities | undefined;
 ```
 
 ## Parameters
 
 <PropertyReference name="agentId" type="string" default='"default"'>
-  ID of the agent whose capabilities to read. If omitted, uses the default agent.
+  ID of the agent whose capabilities to read. If omitted, uses the agent of the
+  surrounding chat configuration, then the default agent.
 </PropertyReference>
 
 ## Return Value
@@ -50,7 +54,7 @@ function useCapabilities(agentId?: string): AgentCapabilities | undefined
   </PropertyReference>
 
   <PropertyReference name="multiAgent" type="MultiAgentCapabilities">
-    Multi-agent coordination: `supported`, `delegation`, `handoffs`, `subAgents`.
+    Multi-agent coordination: `supported`, `delegation`, `handoffs`, `subagents`.
   </PropertyReference>
 
   <PropertyReference name="reasoning" type="ReasoningCapabilities">
@@ -66,7 +70,7 @@ function useCapabilities(agentId?: string): AgentCapabilities | undefined
   </PropertyReference>
 
   <PropertyReference name="humanInTheLoop" type="HumanInTheLoopCapabilities">
-    Human-in-the-loop: `supported`, `approvals`, `interventions`, `feedback`.
+    Human-in-the-loop: `supported`, `approvals`, `interventions`, `feedback`, `interrupts`, `approveWithEdits`.
   </PropertyReference>
 
   <PropertyReference name="custom" type="Record&lt;string, unknown&gt;">
@@ -79,7 +83,7 @@ function useCapabilities(agentId?: string): AgentCapabilities | undefined
 ### Conditionally render UI based on capabilities
 
 ```tsx title="ToolPanel.tsx"
-import { useCapabilities } from "@copilotkit/react-core/v2";
+import { useCapabilities } from "@copilotkit/react-core";
 
 function ToolPanel() {
   const capabilities = useCapabilities();
@@ -102,7 +106,7 @@ function ToolPanel() {
 ### Read capabilities for a specific agent
 
 ```tsx title="AgentInfo.tsx"
-import { useCapabilities } from "@copilotkit/react-core/v2";
+import { useCapabilities } from "@copilotkit/react-core";
 
 function AgentInfo({ agentId }: { agentId: string }) {
   const capabilities = useCapabilities(agentId);
@@ -129,5 +133,5 @@ function AgentInfo({ agentId }: { agentId: string }) {
 
 ## Related
 
-- [`useAgent`](/reference/v2/hooks/useAgent) -- access the full agent instance (capabilities are a property of the agent)
+- [`useAgent`](/reference/hooks/useAgent) -- access the full agent instance (capabilities are a property of the agent)
 - [AG-UI Protocol](/agentic-protocols/ag-ui) -- the protocol that defines the capabilities schema

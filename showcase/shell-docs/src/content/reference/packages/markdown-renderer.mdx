@@ -44,7 +44,7 @@ import {
 
 ### API
 
-<PropertyReference name="createStreamingMarkdownParserState" type="(options?: StreamingMarkdownParserOptions) => StreamingMarkdownParserState">
+<PropertyReference name="createStreamingMarkdownParserState" type="(options?: Partial<StreamingMarkdownParserOptions>) => StreamingMarkdownParserState">
   Creates a fresh parser state. Call this once before you start feeding chunks. The returned state is an immutable snapshot — each `parseStreamingMarkdownChunk` call returns a new state.
 </PropertyReference>
 
@@ -65,17 +65,20 @@ import {
   finalizeStreamingMarkdown,
 } from "@copilotkit/markdown-renderer";
 
+// Chunks as they arrive from a streaming model response.
+const chunks = ["# Hel", "lo\n\nSome **bo", "ld** text"];
+
 let state = createStreamingMarkdownParserState();
 
-// Feed tokens as they arrive
-for (const token of streamingTokens) {
-  state = parseStreamingMarkdownChunk(state, token);
-  renderAST(state.nodes);
+// Feed chunks as they arrive
+for (const chunk of chunks) {
+  state = parseStreamingMarkdownChunk(state, chunk);
+  console.log(state.nodes);
 }
 
 // Finalize when the stream ends
 state = finalizeStreamingMarkdown(state);
-renderAST(state.nodes);
+console.log(state.nodes);
 ```
 
 ### Types
@@ -137,7 +140,7 @@ import {
   Called when a rendered citation is clicked.
 </PropertyReference>
 
-<PropertyReference name="nodeRenderers" type="Partial<StreamingMarkdownNodeRenderers>">
+<PropertyReference name="nodeRenderers" type="StreamingMarkdownNodeRenderers">
   Custom renderer overrides keyed by camelCase renderer key (`StreamingMarkdownNodeRendererKey`, e.g. `codeBlock`, `listItem`, `tableRow`) — distinct from the kebab-case `StreamingMarkdownNodeType` values. Each renderer receives `{ node, children, defaultNode, citation? }`. Use `createStreamingMarkdownNodeRenderers` to build a type-safe map.
 </PropertyReference>
 
@@ -174,7 +177,13 @@ const nodeRenderers = createStreamingMarkdownNodeRenderers({
   ),
 });
 
-function MarkdownMessage({ content, isComplete }) {
+function MarkdownMessage({
+  content,
+  isComplete,
+}: {
+  content: string;
+  isComplete: boolean;
+}) {
   return (
     <StreamingMarkdownRenderer isComplete={isComplete} nodeRenderers={nodeRenderers}>
       {content}
@@ -186,9 +195,15 @@ function MarkdownMessage({ content, isComplete }) {
 #### Disable the streaming caret
 
 ```tsx
-<StreamingMarkdownRenderer isComplete={isComplete} caret={false}>
-  {content}
-</StreamingMarkdownRenderer>
+import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/react";
+
+function NoCaretBubble({ content, isComplete }: { content: string; isComplete: boolean }) {
+  return (
+    <StreamingMarkdownRenderer isComplete={isComplete} caret={false}>
+      {content}
+    </StreamingMarkdownRenderer>
+  );
+}
 ```
 
 ### `useStreamingMarkdownParser`
@@ -198,13 +213,13 @@ A lower-level React hook that manages parser state in a component. Returns the c
 ```tsx
 import { useStreamingMarkdownParser } from "@copilotkit/markdown-renderer/react";
 
-function CustomRenderer({ content, isComplete }) {
+function CustomRenderer({ content, isComplete }: { content: string; isComplete: boolean }) {
   const state = useStreamingMarkdownParser(content, undefined, isComplete);
 
   return (
     <div>
-      {state.nodes.map((node, i) => (
-        <div key={i}>{/* render node */}</div>
+      {state.nodes.map((node) => (
+        <div key={node.id}>{/* render node by node.type */}</div>
       ))}
     </div>
   );
@@ -313,10 +328,12 @@ import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/vue";
 import type { VueStreamingMarkdownNodeRenderers } from "@copilotkit/markdown-renderer/vue";
 
 const nodeRenderers: VueStreamingMarkdownNodeRenderers = {
-  codeBlock: (node, _defaultVNode) =>
-    h("pre", { class: "shiki" }, [
-      h("code", { "data-lang": (node as any).info ?? undefined }, (node as any).text),
-    ]),
+  codeBlock: (node, defaultVNode) =>
+    node.type === "code-block"
+      ? h("pre", { class: "shiki" }, [
+          h("code", { "data-lang": node.info }, node.text),
+        ])
+      : defaultVNode,
 };
 
 defineProps<{ content: string; isComplete?: boolean }>();
@@ -510,18 +527,31 @@ The streaming renderer is already the built-in default across all CopilotKit fra
 Pass a **config object** as `markdownRenderer` to tweak the built-in renderer in place — no wrapper component needed. Passing a **component** instead replaces the renderer entirely (the escape hatch shown below).
 
 ```tsx
-import { CopilotKitProvider, type DefaultMarkdownRendererProps } from "@copilotkit/react-core/v2";
+import {
+  CopilotKitProvider,
+  type DefaultMarkdownRendererProps,
+} from "@copilotkit/react-core";
+import type { ReactNode } from "react";
 
-// Configure the built-in (e.g. syntax-highlighted code blocks)
+// Configure the built-in renderer at module scope, so it keeps its identity.
 const markdownRenderer = {
   nodeRenderers: {
-    codeBlock: ({ node }) => <Shiki lang={node.info}>{node.text}</Shiki>,
+    // Put your syntax highlighter here.
+    codeBlock: ({ node }) => (
+      <pre className="my-code">
+        <code data-lang={node.info}>{node.text}</code>
+      </pre>
+    ),
   },
 } satisfies DefaultMarkdownRendererProps;
 
-<CopilotKitProvider runtimeUrl="/api/copilotkit" markdownRenderer={markdownRenderer}>
-  {/* your app */}
-</CopilotKitProvider>;
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" markdownRenderer={markdownRenderer}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 Vue and React Native accept the same pattern. Vue config keys: `{ nodeRenderers, caret, options, class }`. React Native is style-based: `{ style, animate }` (no `nodeRenderers`).
@@ -533,9 +563,19 @@ Vue and React Native accept the same pattern. Vue config keys: `{ nodeRenderers,
 
 ```tsx
 // React Native
-<CopilotKitProvider markdownRenderer={{ style: { codeBlock: { backgroundColor: "#111" } } }}>
-  {/* your app */}
-</CopilotKitProvider>
+import { CopilotKitProvider } from "@copilotkit/react-native";
+import type { ReactNode } from "react";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      markdownRenderer={{ style: { codeBlock: { backgroundColor: "#111" } } }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 The same config object also works per-message on the `CopilotChatAssistantMessage` `markdownRenderer` slot. Reasoning messages always use the built-in default.
@@ -543,8 +583,16 @@ The same config object also works per-message on the `CopilotChatAssistantMessag
 If you want to pass a customized instance of `StreamingMarkdownRenderer` as the renderer (for example to add syntax highlighting via `nodeRenderers` globally), pass it as `markdownRenderer` on the provider:
 
 ```tsx
-import { CopilotKitProvider, type MarkdownRendererProps } from "@copilotkit/react-core/v2";
-import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/react";
+import { CopilotKitProvider, type MarkdownRendererProps } from "@copilotkit/react-core";
+import type { ReactNode } from "react";
+import {
+  StreamingMarkdownRenderer,
+  createStreamingMarkdownNodeRenderers,
+} from "@copilotkit/markdown-renderer/react";
+
+const myNodeRenderers = createStreamingMarkdownNodeRenderers({
+  codeBlock: ({ node }) => <pre className="my-code">{node.text}</pre>,
+});
 
 function MyRenderer({ content, isStreaming }: MarkdownRendererProps) {
   return (
@@ -554,10 +602,10 @@ function MyRenderer({ content, isStreaming }: MarkdownRendererProps) {
   );
 }
 
-export function App() {
+export function Providers({ children }: { children: ReactNode }) {
   return (
     <CopilotKitProvider runtimeUrl="/api/copilotkit" markdownRenderer={MyRenderer}>
-      {/* your app */}
+      {children}
     </CopilotKitProvider>
   );
 }
@@ -569,7 +617,7 @@ The `markdownRenderer` resolution order is:
 2. **Provider renderer** — `markdownRenderer` on `CopilotKitProvider` (React, Vue, React Native).
 3. **Built-in** — `@copilotkit/markdown-renderer` streaming renderer.
 
-A lighter `marked`-based component is exported as a simpler alternative if you do not need streaming animation — `BasicMarkdownRenderer` from `@copilotkit/react-core/v2` and `BasicMarkdown` from `@copilotkit/vue`.
+A lighter `marked`-based component is exported as a simpler alternative if you do not need streaming animation — `BasicMarkdownRenderer` from `@copilotkit/react-core` and `BasicMarkdown` from `@copilotkit/vue`.
 
 ## Related
 

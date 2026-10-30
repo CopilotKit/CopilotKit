@@ -15,30 +15,35 @@ Use this when you want a visual component renderer without writing a full fronte
 ## Signature
 
 ```tsx
-import { z } from "zod";
 import type { ComponentType } from "react";
-import { useComponent } from "@copilotkit/react-core/v2";
+import type { InferSchemaOutput, StandardSchemaV1 } from "@copilotkit/shared";
+import { useComponent } from "@copilotkit/react-core";
 
-function useComponent<TSchema extends z.ZodTypeAny | undefined = undefined>(
+useComponent satisfies <
+  TSchema extends StandardSchemaV1<unknown, Record<string, unknown>> | undefined =
+    undefined,
+>(
   config: {
     name: string;
     description?: string;
     parameters?: TSchema;
-    // When parameters is provided, props are inferred via z.infer.
+    // When parameters is provided, props are inferred from the schema.
     // When omitted, render accepts any props.
-    render: ComponentType<InferRenderProps<TSchema>>;
+    render: ComponentType<
+      TSchema extends StandardSchemaV1 ? InferSchemaOutput<TSchema> : {}
+    >;
     agentId?: string;
     followUp?: boolean;
   },
   deps?: ReadonlyArray<unknown>,
-): void;
+) => void;
 ```
 
 ## Parameters
 
 - `config.name`: tool name used by the agent to invoke this component tool.
 - `config.description`: optional extra description for model guidance.
-- `config.parameters`: optional Zod schema for the tool's parameters. When provided, `render` props are inferred from the schema. When omitted, the tool is advertised with an empty parameter schema (`{ "type": "object", "properties": {} }`), so the agent invokes it with no arguments.
+- `config.parameters`: optional schema for the tool's parameters: Zod, or any other [Standard Schema](https://standardschema.dev) library. When provided, `render` props are inferred from the schema. When omitted, the tool is advertised with an empty parameter schema (`{ "type": "object", "properties": {} }`), so the agent invokes it with no arguments.
 - `config.render`: React component rendered with the tool call's arguments as props. While the call streams, the props are the partially parsed JSON of the arguments, not a schema-parsed result, so fields can be missing (see Behavior). Accepts any props when `parameters` is omitted.
 - `config.agentId`: optional agent scope for the registration.
 - `config.followUp`: whether the agent should continue after rendering the component. Defaults to `true`; set it to `false` to stop after the tool call.
@@ -56,6 +61,9 @@ function useComponent<TSchema extends z.ZodTypeAny | undefined = undefined>(
 ## Usage
 
 ```tsx
+import { z } from "zod";
+import { useComponent } from "@copilotkit/react-core";
+
 const weatherCardSchema = z.object({
   city: z.string().describe("City name"),
   unit: z.enum(["c", "f"]).default("c"),

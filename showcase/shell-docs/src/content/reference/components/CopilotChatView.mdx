@@ -12,14 +12,9 @@ Every visual piece of `CopilotChatView` is exposed as a **slot**, so you can rep
 ## Import
 
 ```tsx
-import { CopilotChatView } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+import { CopilotChatView } from "@copilotkit/react-core";
+import "@copilotkit/react-core/styles.css";
 ```
-
-<Callout type="info">
-  `CopilotChatView` is a **named** export of the `@copilotkit/react-core/v2`
-  entry point. The package root, `@copilotkit/react-core`, does not export it.
-</Callout>
 
 ## Slots
 
@@ -31,7 +26,7 @@ import "@copilotkit/react-core/v2/styles.css";
 | **`className` string**   | Merged into the default component's class list via `twMerge`.                       |
 | **Partial props object** | Spread into the default component as additional or overriding props.                |
 
-Passing a `children` render-prop gives you access to all composed slot elements plus data props, letting you arrange them in a fully custom layout.
+Passing a `children` render-prop gives you the composed `messageView`, `scrollView`, `input`, and `suggestionView` elements, letting you arrange them in a fully custom layout.
 
 ### Slot Props
 
@@ -46,50 +41,27 @@ Passing a `children` render-prop gives you access to all composed slot elements 
 
 <PropertyReference
   name="scrollView"
-  type="SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>"
+  type="SlotValue<typeof CopilotChatView.ScrollView>"
 >
   The scrollable container wrapping the message list. The default handles
   auto-scroll behavior and scroll position tracking. Replace it to implement
-  custom scroll mechanics.
+  custom scroll mechanics. As a props object it also takes two nested slots:
+
+  - `scrollToBottomButton` (`SlotValue<React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>>`):
+    the button that appears when the user has scrolled up from the bottom of
+    the transcript. Clicking it scrolls back to the latest message.
+  - `feather` (`SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>`):
+    the gradient overlay above the input, which fades the messages into the
+    input area.
 </PropertyReference>
 
-<PropertyReference
-  name="scrollToBottomButton"
-  type="SlotValue<React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>>"
->
-  A button that appears when the user has scrolled up from the bottom of the
-  transcript. Clicking it scrolls the view back to the latest message.
-</PropertyReference>
-
-<PropertyReference name="input" type="SlotValue<typeof CopilotChatInput>">
-  The message input component. The default provides a text area with send
-  button, transcription controls, file upload, and a tools menu. Replace it to
-  build a fully custom input experience.
-</PropertyReference>
-
-<PropertyReference
-  name="inputContainer"
-  type="SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement> & { children: React.ReactNode }>>"
->
-  The container that wraps the input and disclaimer at the bottom of the chat.
-  Positioned absolutely to remain fixed at the bottom as content scrolls.
-</PropertyReference>
-
-<PropertyReference
-  name="feather"
-  type="SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>"
->
-  A decorative gradient overlay that appears above the input container, creating
-  a smooth visual transition between the message area and the input.
-</PropertyReference>
-
-<PropertyReference
-  name="disclaimer"
-  type="SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>"
->
-  A disclaimer text line displayed below the input (e.g. "AI can make mistakes.
-  Please verify important information."). Override or hide it with a replacement
-  component.
+<PropertyReference name="input" type="SlotValue<React.ComponentType<CopilotChatInputProps>>">
+  The message input component. The default is
+  [`CopilotChatInput`](/reference/components/CopilotChatInput), with a text area,
+  send button, transcription controls, file upload, and a tools menu. Pass a
+  props object to configure the default input (for example
+  `input={{ autoFocus: true, disclaimer: MyDisclaimer }}`), or a replacement
+  component to build a fully custom input.
 </PropertyReference>
 
 <PropertyReference
@@ -108,18 +80,11 @@ Passing a `children` render-prop gives you access to all composed slot elements 
   standalone, you must supply the messages yourself.
 </PropertyReference>
 
-<PropertyReference name="autoScroll" type="boolean" default="true">
-  Whether the view should automatically scroll to the bottom when new messages
-  arrive. Set to `false` if you want manual scroll control.
-</PropertyReference>
-
-<PropertyReference
-  name="inputProps"
-  type="Partial<Omit<CopilotChatInputProps, 'children'>>"
->
-  Additional props forwarded to the inner `CopilotChatInput` component. Use this
-  to configure auto-focus, custom submission handlers, transcription callbacks,
-  or tools menus without replacing the input slot entirely.
+<PropertyReference name="autoScroll" type='AutoScrollMode | boolean' default="true">
+  How the view scrolls as messages arrive. `AutoScrollMode` is
+  `"pin-to-bottom" | "pin-to-send" | "none"`. `true` is `"pin-to-bottom"`,
+  which keeps the latest message visible. `false` is `"none"`, for manual
+  scroll control.
 </PropertyReference>
 
 <PropertyReference name="isRunning" type="boolean">
@@ -147,6 +112,22 @@ Passing a `children` render-prop gives you access to all composed slot elements 
   suggestion object and its index.
 </PropertyReference>
 
+<PropertyReference name="onSubmitMessage" type="(value: string) => void">
+  Called when the user submits a message from the input. When you use
+  `CopilotChatView` standalone, add the message to the agent and run it here.
+</PropertyReference>
+
+<PropertyReference name="onStop" type="() => void">
+  Called when the user clicks the stop button while `isRunning` is `true`.
+</PropertyReference>
+
+<PropertyReference name="inputMode" type='"input" | "transcribe" | "processing"'>
+  Forwarded to the input's `mode` prop. The view also forwards `inputValue`,
+  `onInputChange`, `onStartTranscribe`, `onCancelTranscribe`,
+  `onFinishTranscribe`, `onFinishTranscribeWithAudio`, and `onAddFile` to the
+  input. See [`CopilotChatInput`](/reference/components/CopilotChatInput).
+</PropertyReference>
+
 <PropertyReference name="welcomeScreen" type='SlotValue<React.FC<WelcomeScreenProps>> | boolean'>
   Controls the welcome screen shown when the `messages` array is empty.
 
@@ -166,8 +147,6 @@ The welcome screen component receives `input` and `suggestionView` as React elem
 - `CopilotChatView.ScrollView` -- default scroll container with auto-scroll support
 - `CopilotChatView.ScrollToBottomButton` -- default scroll-to-bottom button
 - `CopilotChatView.Feather` -- default gradient overlay
-- `CopilotChatView.InputContainer` -- default input container
-- `CopilotChatView.Disclaimer` -- default disclaimer text
 - `CopilotChatView.WelcomeMessage` -- default welcome message
 - `CopilotChatView.WelcomeScreen` -- default welcome screen layout
 
@@ -176,12 +155,30 @@ The welcome screen component receives `input` and `suggestionView` as React elem
 ### Standalone Usage
 
 ```tsx
-function CustomChat({ messages, isRunning }) {
+import {
+  CopilotChatView,
+  useAgent,
+  useCopilotKit,
+} from "@copilotkit/react-core";
+
+function CustomChat() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+
   return (
     <CopilotChatView
-      messages={messages}
-      isRunning={isRunning}
+      messages={agent.messages}
+      isRunning={agent.isRunning}
       autoScroll={true}
+      onSubmitMessage={(text) => {
+        agent.addMessage({
+          id: crypto.randomUUID(),
+          role: "user",
+          content: text,
+        });
+        copilotkit.runAgent({ agent });
+      }}
+      onStop={() => copilotkit.stopAgent({ agent })}
     />
   );
 }
@@ -190,18 +187,23 @@ function CustomChat({ messages, isRunning }) {
 ### Replacing a Slot with a Custom Component
 
 ```tsx
-function CustomDisclaimer(props) {
+import type { HTMLAttributes } from "react";
+import { CopilotChatView, useAgent } from "@copilotkit/react-core";
+
+function CustomDisclaimer(props: HTMLAttributes<HTMLDivElement>) {
   return (
     <div {...props}>Powered by CopilotKit. Responses may contain errors.</div>
   );
 }
 
-function Chat({ messages, isRunning }) {
+function Chat() {
+  const { agent } = useAgent();
+
   return (
     <CopilotChatView
-      messages={messages}
-      isRunning={isRunning}
-      disclaimer={CustomDisclaimer}
+      messages={agent.messages}
+      isRunning={agent.isRunning}
+      input={{ disclaimer: CustomDisclaimer, showDisclaimer: true }}
     />
   );
 }
@@ -210,13 +212,17 @@ function Chat({ messages, isRunning }) {
 ### Styling a Slot with a className
 
 ```tsx
-function Chat({ messages, isRunning }) {
+import { CopilotChatView, useAgent } from "@copilotkit/react-core";
+
+function Chat() {
+  const { agent } = useAgent();
+
   return (
     <CopilotChatView
-      messages={messages}
-      isRunning={isRunning}
+      messages={agent.messages}
+      isRunning={agent.isRunning}
       scrollView="bg-gray-50"
-      inputContainer="border-t border-gray-200"
+      input="border-t border-gray-200"
     />
   );
 }
@@ -225,22 +231,18 @@ function Chat({ messages, isRunning }) {
 ### Custom Layout with Children Render-Prop
 
 ```tsx
-function Chat({ messages, isRunning }) {
+import { CopilotChatView, useAgent } from "@copilotkit/react-core";
+
+function Chat() {
+  const { agent } = useAgent();
+
   return (
-    <CopilotChatView messages={messages} isRunning={isRunning}>
-      {({
-        scrollView,
-        input,
-        inputContainer,
-        feather,
-        disclaimer,
-        suggestionView,
-      }) => (
+    <CopilotChatView messages={agent.messages} isRunning={agent.isRunning}>
+      {({ scrollView, input, suggestionView }) => (
         <div className="flex flex-col h-full">
           <div className="flex-1 overflow-hidden">{scrollView}</div>
-          {feather}
           {suggestionView}
-          {inputContainer}
+          {input}
         </div>
       )}
     </CopilotChatView>
@@ -252,7 +254,7 @@ function Chat({ messages, isRunning }) {
 
 - **Auto-scroll**: When `autoScroll` is `true`, the view uses a stick-to-bottom strategy that keeps the latest message visible. A scroll-to-bottom button appears when the user scrolls up.
 - **Welcome screen**: When `messages` is empty and `welcomeScreen` is not `false`, a welcome screen is rendered in place of the transcript. The welcome screen receives the `input` and `suggestionView` elements so they can be placed within the welcome layout.
-- **Input container positioning**: The input container is absolutely positioned at the bottom of the chat, and the scroll area pads its content to avoid overlap.
+- **Input positioning**: The input is absolutely positioned at the bottom of the chat, and the scroll area pads its content to avoid overlap.
 - **Resize handling**: The scroll view monitors input container height changes to keep padding in sync and hides the scroll-to-bottom button during resize transitions.
 
 ## Related

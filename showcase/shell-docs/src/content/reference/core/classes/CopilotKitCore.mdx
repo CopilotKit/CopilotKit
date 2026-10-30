@@ -16,7 +16,9 @@ import { CopilotKitCore } from "@copilotkit/core";
 ## Constructor
 
 ```ts
-new CopilotKitCore(config: CopilotKitCoreConfig)
+import { CopilotKitCore, type CopilotKitCoreConfig } from "@copilotkit/core";
+
+CopilotKitCore satisfies new (config: CopilotKitCoreConfig) => CopilotKitCore;
 ```
 
 <PropertyReference name="config" type="CopilotKitCoreConfig" required>
@@ -124,8 +126,8 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 
 ### Context
 
-<PropertyReference name="addContext(context: Context): string" type="method">
-  Adds a context entry shared with the agent and returns its generated id.
+<PropertyReference name="addContext(context: ScopedContext): string" type="method">
+  Adds a context entry shared with the agent and returns its generated id. `ScopedContext` is an AG-UI `Context` (`description`, `value`) with an optional `agentIds` list that limits the entry to those agents.
 </PropertyReference>
 
 <PropertyReference name="removeContext(id: string): void" type="method">
@@ -255,7 +257,7 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
   The currently registered frontend tools.
 </PropertyReference>
 
-<PropertyReference name="context: Readonly<Record<string, Context>>" type="getter">
+<PropertyReference name="context: Readonly<Record<string, ScopedContext>>" type="getter">
   The current shared context entries, keyed by id.
 </PropertyReference>
 
@@ -286,28 +288,34 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 
 ```ts
 import { CopilotKitCore } from "@copilotkit/core";
+import { z } from "zod";
 
 const copilotkit = new CopilotKitCore({
   runtimeUrl: "/api/copilotkit",
-  tools: [
-    {
-      name: "showAlert",
-      handler: ({ message }: { message: string }) => window.alert(message),
-    },
-  ],
+});
+
+copilotkit.addTool({
+  name: "showAlert",
+  description: "Show a browser alert with a message",
+  parameters: z.object({ message: z.string() }),
+  handler: async ({ message }) => {
+    window.alert(message);
+    return "shown";
+  },
 });
 
 const subscription = copilotkit.subscribe({
   onRuntimeConnectionStatusChanged: ({ status }) => console.log(status),
+  // `agents` is filled after the runtime responds, so wait for it here.
+  onAgentsChanged: async ({ agents }) => {
+    const agent = agents["default"];
+    if (agent) {
+      await copilotkit.runAgent({ agent });
+    }
+  },
 });
 
-// `agents` populates after the runtime responds — `onAgentsChanged` (above)
-// fires when they're ready; this guarded lookup is for illustration.
-const agent = copilotkit.getAgent("default");
-if (agent) {
-  await copilotkit.runAgent({ agent });
-}
-
+// Later, when you no longer need updates:
 subscription.unsubscribe();
 ```
 
