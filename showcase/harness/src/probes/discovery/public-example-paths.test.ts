@@ -56,7 +56,7 @@ test("public v2 examples stay at the paths the website and deployments point at"
   }
 });
 
-test("the travel tutorial teaches the canonical v2 example", () => {
+test("the travel tutorial teaches the canonical 2.0 example", () => {
   const tutorial = [
     "index.mdx",
     "next-steps.mdx",
@@ -71,8 +71,8 @@ test("the travel tutorial teaches the canonical v2 example", () => {
     .join("\n");
 
   expect(tutorial).toContain("examples/v1/travel");
-  expect(tutorial).toContain("@copilotkit/react-core/v2");
-  expect(tutorial).toContain("@copilotkit/runtime/v2");
+  expect(tutorial).toContain('from "@copilotkit/react-core"');
+  expect(tutorial).toContain('from "@copilotkit/runtime"');
 
   for (const staleReference of [
     "coagents-travel-tutorial-start",
@@ -82,6 +82,8 @@ test("the travel tutorial teaches the canonical v2 example", () => {
     "useCoAgentStateRender",
     "useCopilotAction",
     "@copilotkit/react-ui",
+    "@copilotkit/react-core/v2",
+    "@copilotkit/runtime/v2",
   ]) {
     expect(tutorial, staleReference).not.toContain(staleReference);
   }
