@@ -21,27 +21,30 @@ import { useShallowStableRef } from "../lib/shallow-stable-ref";
 import {
   buildActionMessageText,
   createComponentLabelResolver,
-} from "./action-message";
+} from "@copilotkit/core/generative-ui";
 import {
   createGenerativeUIDebugSource,
   describeGenerativeUIRun,
-} from "./debug-source";
-import { createGenerativeUIDispatcher } from "./dispatcher";
-import type { GenerativeUIDispatcher } from "./dispatcher";
-import { GenerativeUIError } from "./errors";
-import type { GenerativeUIErrorCode, GenerativeUIErrorInfo } from "./errors";
+} from "@copilotkit/core/generative-ui";
+import { createGenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
+import type { GenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
+import { GenerativeUIError } from "@copilotkit/shared/generative-ui";
+import type {
+  GenerativeUIErrorCode,
+  GenerativeUIErrorInfo,
+} from "@copilotkit/shared/generative-ui";
 import { catalogIdsOf } from "./catalog";
-import { buildGenerativeUIEnvelope } from "./manifest";
-import type { GenerativeUIEnvelopeOptions } from "./manifest";
+import { buildGenerativeUIEnvelope } from "@copilotkit/core/generative-ui";
+import type { GenerativeUIEnvelopeOptions } from "@copilotkit/core/generative-ui";
 import type {
   GenerativeUIConfig,
   GenerativeUIRuntime,
 } from "./runtime-context";
 import { useGenerativeUIMarkdownContext } from "./markdown/context";
-import { getMarkdownSurfaceSource } from "./markdown/source";
-import type { MarkdownFunctionCall } from "./markdown/source";
-import { GenerativeUISurfaceManager } from "./surface-manager";
-import type { ManagedSurface } from "./surface-manager";
+import { getMarkdownSurfaceSource } from "@copilotkit/core/generative-ui";
+import type { MarkdownFunctionCall } from "@copilotkit/core/generative-ui";
+import { GenerativeUISurfaceManager } from "@copilotkit/core/generative-ui";
+import type { ManagedSurface } from "@copilotkit/core/generative-ui";
 
 const isDevelopment = () => process.env.NODE_ENV !== "production";
 

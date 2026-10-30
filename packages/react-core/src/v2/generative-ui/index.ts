@@ -18,20 +18,20 @@ export type {
   GenerativeUIStateOf,
 } from "./catalog";
 export { child, childList } from "./refs";
-export { exportA2UICatalog } from "./catalog-export";
-export type { ExportA2UICatalogOptions } from "./catalog-export";
+export { exportA2UICatalog } from "@copilotkit/shared/generative-ui";
+export type { ExportA2UICatalogOptions } from "@copilotkit/shared/generative-ui";
 export { useGenerativeUIAccessibility } from "./accessibility";
 export type {
   GenerativeUIAccessibility,
   GenerativeUIAriaAttributes,
 } from "./accessibility";
-export { GenerativeUIError } from "./errors";
+export { GenerativeUIError } from "@copilotkit/shared/generative-ui";
 export type {
   GenerativeUIErrorCode,
   GenerativeUIErrorInfo,
   GenerativeUIEventHandler,
   GenerativeUIInvokeResult,
-} from "./errors";
+} from "@copilotkit/shared/generative-ui";
 export type {
   GenerativeUIConfig,
   GenerativeUIErrorBoundaryConfig,
@@ -43,7 +43,7 @@ export type {
   GenerativeUIThemeValues,
   GenerativeUIThemeVariable,
   GenerativeUIThemeVariables,
-} from "./theme";
+} from "@copilotkit/shared/generative-ui";
 export { GenerativeUISurface } from "./GenerativeUISurface";
 export type { GenerativeUISurfaceProps } from "./GenerativeUISurface";
 export { DefaultGenerativeUIChatCard } from "./chat";

@@ -11,6 +11,8 @@ import {
   Inject,
   input,
   output,
+  InjectionToken,
+  inject,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
@@ -40,6 +42,20 @@ import { CopilotChatAssistantMessageToolbar } from "./copilot-chat-assistant-mes
 import { cn } from "../../utils";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 
+/**
+ * @internal
+ * The markdown renderer of an assistant message when the app gives none:
+ * a secondary entry point (`@copilotkit/angular/generative-ui` with the
+ * markdown transport) provides a component that renders the fences of the
+ * message as surfaces. The component gets the
+ * {@link AssistantMessageMarkdownRendererContext} as inputs.
+ */
+export const ɵCOPILOTKIT_ASSISTANT_MARKDOWN_RENDERER =
+  new InjectionToken<Type<unknown> | null>(
+    "COPILOTKIT_ASSISTANT_MARKDOWN_RENDERER",
+    { factory: () => null },
+  );
+
 @Component({
   selector: "copilot-chat-assistant-message",
   host: { "data-copilotkit": "", class: "cpk:block cpk:w-full" },
@@ -62,9 +78,17 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
       role="article"
     >
       <!-- Markdown Renderer -->
-      @if (markdownRendererTemplate || markdownRendererComponent()) {
+      @if (
+        markdownRendererTemplate ||
+        markdownRendererComponent() ||
+        defaultMarkdownRenderer
+      ) {
         <copilot-slot
-          [slot]="markdownRendererTemplate || markdownRendererComponent()"
+          [slot]="
+            markdownRendererTemplate ||
+            markdownRendererComponent() ||
+            defaultMarkdownRenderer
+          "
           [context]="markdownRendererContext()"
           [defaultComponent]="CopilotChatAssistantMessageRenderer"
         >
@@ -450,8 +474,14 @@ export class CopilotChatAssistantMessage {
   markdownRendererContext = computed<AssistantMessageMarkdownRendererContext>(
     () => ({
       content: this.message()?.content || "",
+      messageId: this.message()?.id,
+      isStreaming: this.isLoading(),
     }),
   );
+  /** The renderer a secondary entry point provides, or null. */
+  protected readonly defaultMarkdownRenderer: Type<unknown> | undefined =
+    inject(ɵCOPILOTKIT_ASSISTANT_MARKDOWN_RENDERER, { optional: true }) ??
+    undefined;
 
   // Output maps for slots
   copyButtonOutputs = { clicked: () => this.handleCopy() };

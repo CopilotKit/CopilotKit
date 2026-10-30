@@ -1,4 +1,5 @@
 import {
+  access,
   cp,
   copyFile,
   mkdir,
@@ -32,13 +33,33 @@ await cp(packageSourceCode, `${packageDestination}/src`, { recursive: true });
 const packageManifestPath = `${packageDestination}/package.json`;
 const packageManifest = JSON.parse(await readFile(packageManifestPath, "utf8"));
 const peerNames = new Set(Object.keys(packageManifest.peerDependencies ?? {}));
+const optionalPeerNames = new Set(
+  Object.entries(packageManifest.peerDependenciesMeta ?? {})
+    .filter(([, meta]) => meta?.optional)
+    .map(([name]) => name),
+);
+const exists = (path) =>
+  access(path).then(
+    () => true,
+    () => false,
+  );
 for (const dependencyName of new Set([
   ...Object.keys(packageManifest.dependencies ?? {}),
   ...peerNames,
 ])) {
-  const sourceRoot = peerNames.has(dependencyName)
+  // Peers come from the host so the app and the package share one Angular.
+  // An optional peer the host does not install (chart.js, lucide,
+  // maplibre-gl) falls back to the package's own development copy so the
+  // staged sources still type-check.
+  let sourceRoot = peerNames.has(dependencyName)
     ? hostNodeModules
     : packageNodeModules;
+  if (
+    optionalPeerNames.has(dependencyName) &&
+    !(await exists(join(sourceRoot, dependencyName)))
+  ) {
+    sourceRoot = packageNodeModules;
+  }
   const source = join(sourceRoot, dependencyName);
   const destination = join(packageDestination, "node_modules", dependencyName);
   await mkdir(dirname(destination), { recursive: true });

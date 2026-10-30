@@ -8,6 +8,7 @@ export default defineConfig([
       "src/index.ts",
       "src/telemetry/index.ts",
       "src/event-transforms/index.ts",
+      "src/generative-ui/index.ts",
     ],
     format: ["esm", "cjs"],
     dts: true,

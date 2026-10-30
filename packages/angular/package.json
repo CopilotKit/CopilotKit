@@ -22,6 +22,22 @@
       "types": "./dist/types/copilotkit-angular-a2ui.d.ts",
       "default": "./dist/fesm2022/copilotkit-angular-a2ui.mjs"
     },
+    "./generative-ui": {
+      "types": "./dist/types/copilotkit-angular-generative-ui.d.ts",
+      "default": "./dist/fesm2022/copilotkit-angular-generative-ui.mjs"
+    },
+    "./generative-ui/chart": {
+      "types": "./dist/types/copilotkit-angular-generative-ui-chart.d.ts",
+      "default": "./dist/fesm2022/copilotkit-angular-generative-ui-chart.mjs"
+    },
+    "./generative-ui/map": {
+      "types": "./dist/types/copilotkit-angular-generative-ui-map.d.ts",
+      "default": "./dist/fesm2022/copilotkit-angular-generative-ui-map.mjs"
+    },
+    "./generative-ui/icons": {
+      "types": "./dist/types/copilotkit-angular-generative-ui-icons.d.ts",
+      "default": "./dist/fesm2022/copilotkit-angular-generative-ui-icons.mjs"
+    },
     "./mcp-apps": {
       "types": "./dist/types/copilotkit-angular-mcp-apps.d.ts",
       "default": "./dist/fesm2022/copilotkit-angular-mcp-apps.mjs"
@@ -99,9 +115,12 @@
     "@vitest/ui": "^3.2.4",
     "autoprefixer": "^10.4.16",
     "axe-core": "4.11.1",
+    "chart.js": "^4.4.0",
     "chokidar": "4.0.3",
     "concurrently": "^9.1.0",
     "jsdom": "^24.0.0",
+    "lucide": "^0.525.0",
+    "maplibre-gl": "^5.0.0",
     "ng-packagr": "22.0.0",
     "postcss": "^8.4.31",
     "reflect-metadata": "^0.2.2",
@@ -118,6 +137,20 @@
     "@angular/cdk": "^22.0.0",
     "@angular/common": "^22.0.0",
     "@angular/core": "^22.0.0",
+    "chart.js": "^4.4.0",
+    "lucide": "^0.525.0",
+    "maplibre-gl": "^5.0.0",
     "rxjs": "^7.8.0"
+  },
+  "peerDependenciesMeta": {
+    "chart.js": {
+      "optional": true
+    },
+    "lucide": {
+      "optional": true
+    },
+    "maplibre-gl": {
+      "optional": true
+    }
   }
 }

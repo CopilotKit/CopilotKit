@@ -3,10 +3,13 @@ import type { ReactNode } from "react";
 import type { GenerativeUIUserEvent } from "@copilotkit/shared";
 import type { GenerativeUIAccessibility } from "./accessibility";
 import type { GenerativeUI } from "./catalog";
-import type { GenerativeUIDispatcher } from "./dispatcher";
-import type { GenerativeUIErrorInfo, GenerativeUIInvokeResult } from "./errors";
-import type { GenerativeUISurfaceManager } from "./surface-manager";
-import type { GenerativeUITheme } from "./theme";
+import type { GenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
+import type {
+  GenerativeUIErrorInfo,
+  GenerativeUIInvokeResult,
+} from "@copilotkit/shared/generative-ui";
+import type { GenerativeUISurfaceManager } from "@copilotkit/core/generative-ui";
+import type { GenerativeUITheme } from "@copilotkit/shared/generative-ui";
 
 export type { GenerativeUITheme };
 
@@ -125,21 +128,7 @@ export function useRequiredGenerativeUIRuntime(): GenerativeUIRuntime {
   return runtime;
 }
 
-/**
- * Reports an error without ever throwing: `reportError` reaches host code
- * (`onError`), and a throwing host callback must not break rendering or an
- * event handler.
- */
-export function reportErrorSafely(
-  runtime: GenerativeUIRuntime,
-  info: GenerativeUIErrorInfo,
-): void {
-  try {
-    runtime.reportError(info);
-  } catch {
-    // Intentionally swallowed: there is nowhere safe left to report to.
-  }
-}
+export { reportErrorSafely } from "@copilotkit/core/generative-ui";
 
 export interface GenerativeUINodeContextValue {
   surfaceKey: string;

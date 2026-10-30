@@ -25,14 +25,18 @@ import type {
 import { shallowEqual } from "../lib/shallow-stable-ref";
 import { setterNameOf } from "./catalog";
 import type { ResolvedGenerativeUIComponent } from "./catalog";
-import { joinPath, resolvePath, tryResolveDynamicValue } from "./resolve";
+import {
+  joinPath,
+  resolvePath,
+  tryResolveDynamicValue,
+} from "@copilotkit/core/generative-ui";
 import {
   formatIssues,
   isAsyncIssue,
   issueKey,
   validateSchemaSync,
   withoutRejectedNulls,
-} from "./schema";
+} from "@copilotkit/shared/generative-ui";
 import {
   DefaultNodeFallback,
   NodeBoundary,
@@ -45,19 +49,22 @@ import {
   wrapperAria,
 } from "./accessibility";
 import type { GenerativeUIAccessibility } from "./accessibility";
-import type { GenerativeUIInvokeResult } from "./errors";
-import { invokeBoundEvent, invokeMatchedEvent } from "./events";
+import type { GenerativeUIInvokeResult } from "@copilotkit/shared/generative-ui";
+import {
+  invokeBoundEvent,
+  invokeMatchedEvent,
+} from "@copilotkit/core/generative-ui";
 import {
   GenerativeUINodeContext,
   reportErrorSafely,
   useRequiredGenerativeUIRuntime,
 } from "./runtime-context";
 import type { GenerativeUIRuntime } from "./runtime-context";
-import { themeStyleSheet } from "./theme";
+import { themeStyleSheet } from "@copilotkit/shared/generative-ui";
 import type {
   GenerativeUISurfaceManager,
   ManagedSurface,
-} from "./surface-manager";
+} from "@copilotkit/core/generative-ui";
 
 const NO_ANCESTORS: readonly string[] = [];
 const ROOT_STYLE = { display: "contents" } as const;

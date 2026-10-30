@@ -14,6 +14,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { SlowToolCallStreamingAgent } from "@copilotkit/demo-agents";
 import { A2UIDashboardAgent } from "./agents/a2ui-dashboard.js";
 import { A2UIRecoveryAgent } from "./agents/a2ui-recovery.js";
+import { GenerativeUIStoreAgent } from "./agents/generative-ui-store.js";
 
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 const openAIApiKey = process.env.OPENAI_API_KEY?.trim();
@@ -130,12 +131,16 @@ const agents = {
   "a2ui-dashboard": new A2UIDashboardAgent(),
   // Scripted A2UI recovery lifecycle for the /a2ui-recovery route.
   "a2ui-recovery": new A2UIRecoveryAgent(),
+  // Native generative UI with the standard catalog, scripted (no API key).
+  "generative-ui": new GenerativeUIStoreAgent(),
 };
 
 const runtime = new CopilotRuntime({
   agents,
   runner: new InMemoryAgentRunner(),
   a2ui: {},
+  // The native generative UI tool transport for model-backed agents.
+  generativeUI: true,
   openGenerativeUI: true,
 });
 

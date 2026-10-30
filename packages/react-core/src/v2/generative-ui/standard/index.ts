@@ -1,3 +1,7 @@
+import {
+  STANDARD_CATALOG_ID,
+  withStandardParameterOrder,
+} from "@copilotkit/shared/generative-ui";
 import { createGenerativeUI } from "../catalog";
 import { compositeComponents } from "./composites";
 import { dataComponents } from "./data";
@@ -6,13 +10,8 @@ import { inputComponents } from "./inputs";
 import { layoutComponents } from "./layout";
 import { mediaComponents } from "./media";
 import { textComponents } from "./text";
-import {
-  standardParameterOrder,
-  STANDARD_ARGUMENT_PREFIXES,
-} from "./parameter-order";
-import { STANDARD_CATALOG_ID } from "./tokens";
 
-const components = {
+const orderedComponents = withStandardParameterOrder({
   ...layoutComponents,
   ...textComponents,
   ...inputComponents,
@@ -20,30 +19,7 @@ const components = {
   ...dataComponents,
   ...mediaComponents,
   ...compositeComponents,
-};
-
-// Every standard component needs an intentional positional calling convention.
-STANDARD_ARGUMENT_PREFIXES satisfies Record<
-  keyof typeof components,
-  readonly string[]
->;
-
-const orderedComponents = Object.fromEntries(
-  Object.entries(components).map(([name, definition]) => [
-    name,
-    {
-      ...definition,
-      parameterOrder: standardParameterOrder(
-        name as keyof typeof components,
-        definition,
-      ),
-    },
-  ]),
-) as {
-  [Name in keyof typeof components]: (typeof components)[Name] & {
-    parameterOrder: string[];
-  };
-};
+});
 
 /**
  * Experimental. The standard components: layout, text, inputs, feedback,

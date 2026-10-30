@@ -148,9 +148,19 @@ registerRenderToolCall({
 | --- | --- | --- |
 | Your components, display only | The agent should show a component and nothing else runs | `registerComponent` |
 | Your components | Known data shapes and application actions | `registerFrontendTool` or `registerRenderToolCall` with a component |
+| Native generative UI | The agent composes a page from a catalog of your Angular components and the standard components | `provideGenerativeUI({ ui })` from `@copilotkit/angular/generative-ui`; see the [native generative UI guide](/angular/guides/generative-ui-components) |
 | A2UI | A server emits A2UI operations or snapshots | Set `a2ui.catalog` in `provideCopilotKit` to turn on the built-in renderer; without a catalog A2UI stays off |
 | Open Generative UI | The agent produces streamed HTML, CSS, and script expressions | Set `openGenerativeUI` in `provideCopilotKit` |
 | MCP Apps | An MCP server returns an interactive app resource | Add `provideMCPApps()` from `@copilotkit/angular/mcp-apps` |
+
+### Native generative UI
+
+`provideGenerativeUI` lets the agent render a catalog of Angular components,
+in the chat and in `<copilot-generative-ui-surface>` areas of the page. The
+standard catalog covers layout, text, inputs, charts, tables and more; your
+own components join it with `createGenerativeUI`. The
+[native generative UI guide](/angular/guides/generative-ui-components) has
+the setup and the component contract.
 
 ### Open Generative UI
 

@@ -1,7 +1,7 @@
 ---
 title: "Components and surfaces"
 icon: "lucide/LayoutTemplate"
-description: "Let your agent render your React components, in the chat and in areas of your page."
+description: "Let your agent render your own components, in the chat and in areas of your page."
 ---
 
 import InspectorPaneGenerativeUI from "@/snippets/shared/inspector/open-inspector-pane-generative-ui.mdx";
@@ -14,7 +14,7 @@ import InspectorPaneGenerativeUI from "@/snippets/shared/inspector/open-inspecto
 
 A text answer is often the wrong answer. "Compare these three plans" wants a table. "Show me cheap running shoes" wants product cards, and maybe in the product row of your page, not in the chat.
 
-With components and surfaces, the agent renders real React components while it answers:
+With components and surfaces, the agent renders real React or Angular components while it answers:
 
 - **In the chat**, inside its reply.
 - **In areas of your page**, outside the chat. Asking the chat changes the page.
@@ -23,7 +23,7 @@ You decide what the agent can render. The agent decides what to show and fills i
 
 ## Try it
 
-These steps add generative UI to a Next.js app, with an OpenAI model through TanStack AI.
+These steps add generative UI to a Next.js or Angular app, with an OpenAI model through TanStack AI.
 
 Already have CopilotKit running? Do step 3 only. Your runtime needs no change: when the provider sends a catalog, the runtime gives that run a `render_ui` tool and a short guide. Your agent must pass the run's tools and context to its model, as in step 2. For a LangGraph Python agent, add `CopilotKitMiddleware`.
 
@@ -31,59 +31,123 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
   <Step>
   ### Install the packages
 
-  ```bash
-  npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
-  ```
+  <Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+    <Tab value="React">
+    ```bash
+    npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+    ```
 
-  Put your OpenAI key in `.env.local`:
+    Put your OpenAI key in `.env.local`:
 
-  ```bash title=".env.local"
-  OPENAI_API_KEY=sk-...
-  ```
+    ```bash title=".env.local"
+    OPENAI_API_KEY=sk-...
+    ```
+    </Tab>
+    <Tab value="Angular">
+    ```bash
+    npm install @copilotkit/angular @angular/cdk @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+    npm install -D tsx
+    ```
+
+    The runtime runs as its own Node process, so set your OpenAI key in the terminal that starts it:
+
+    ```bash
+    export OPENAI_API_KEY=sk-...
+    ```
+    </Tab>
+  </Tabs>
   </Step>
   <Step>
   ### Add the runtime and an agent
 
   The agent is a built-in agent in factory mode: you call the model yourself with [TanStack AI](https://tanstack.com/ai).
 
-  ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-  import { chat } from "@tanstack/ai";
-  import { openaiText } from "@tanstack/ai-openai";
-  import {
-    BuiltInAgent,
-    convertInputToTanStackAI,
-    CopilotRuntime,
-    createCopilotRuntimeHandler,
-    InMemoryAgentRunner,
-  } from "@copilotkit/runtime/v2";
+  <Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+    <Tab value="React">
+    ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+    import { chat } from "@tanstack/ai";
+    import { openaiText } from "@tanstack/ai-openai";
+    import {
+      BuiltInAgent,
+      convertInputToTanStackAI,
+      CopilotRuntime,
+      createCopilotRuntimeHandler,
+      InMemoryAgentRunner,
+    } from "@copilotkit/runtime/v2";
 
-  const agent = new BuiltInAgent({
-    type: "tanstack",
-    factory: ({ input, abortController }) => {
-      const { messages, systemPrompts, tools } = convertInputToTanStackAI(input);
-      return chat({
-        adapter: openaiText("gpt-5.5"),
-        messages,
-        systemPrompts: [
-          "You are a helpful assistant. When a visual answer helps, render it with generative UI.",
-          ...systemPrompts,
-        ],
-        tools,
-        abortController,
-      });
-    },
-  });
+    const agent = new BuiltInAgent({
+      type: "tanstack",
+      factory: ({ input, abortController }) => {
+        const { messages, systemPrompts, tools } = convertInputToTanStackAI(input);
+        return chat({
+          adapter: openaiText("gpt-5.5"),
+          messages,
+          systemPrompts: [
+            "You are a helpful assistant. When a visual answer helps, render it with generative UI.",
+            ...systemPrompts,
+          ],
+          tools,
+          abortController,
+        });
+      },
+    });
 
-  const runtime = new CopilotRuntime({
-    agents: { default: agent },
-    runner: new InMemoryAgentRunner(),
-  });
+    const runtime = new CopilotRuntime({
+      agents: { default: agent },
+      runner: new InMemoryAgentRunner(),
+    });
 
-  const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
+    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
 
-  export const GET = handler;
-  export const POST = handler;
-  ```
+    export const GET = handler;
+    export const POST = handler;
+    ```
+    </Tab>
+    <Tab value="Angular">
+    Angular has no route handler, so the runtime is a small Node server next to the app. Start it with `npx tsx server.ts`.
+
+    ```ts title="server.ts"
+    import { createServer } from "node:http";
+    import { chat } from "@tanstack/ai";
+    import { openaiText } from "@tanstack/ai-openai";
+    import {
+      BuiltInAgent,
+      convertInputToTanStackAI,
+      CopilotRuntime,
+      InMemoryAgentRunner,
+    } from "@copilotkit/runtime/v2";
+    import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+    const agent = new BuiltInAgent({
+      type: "tanstack",
+      factory: ({ input, abortController }) => {
+        const { messages, systemPrompts, tools } = convertInputToTanStackAI(input);
+        return chat({
+          adapter: openaiText("gpt-5.5"),
+          messages,
+          systemPrompts: [
+            "You are a helpful assistant. When a visual answer helps, render it with generative UI.",
+            ...systemPrompts,
+          ],
+          tools,
+          abortController,
+        });
+      },
+    });
+
+    const runtime = new CopilotRuntime({
+      agents: { default: agent },
+      runner: new InMemoryAgentRunner(),
+    });
+
+    createServer(
+      createCopilotNodeListener({ runtime, basePath: "/api/copilotkit", cors: true }),
+    ).listen(8200, () => {
+      console.log("Copilot Runtime listening at http://localhost:8200/api/copilotkit");
+    });
+    ```
+    </Tab>
+  </Tabs>
 
   Pass on both values from `convertInputToTanStackAI`:
 
@@ -97,50 +161,94 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
 
   Give the provider the standard catalog. It has 69 ready-made components: layout, text, inputs, tables, charts, maps, and more.
 
-  ```tsx title="app/providers.tsx"
-  "use client";
-  import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-  import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
-  import "@copilotkit/react-core/v2/styles.css";
+  <Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+    <Tab value="React">
+    ```tsx title="app/providers.tsx"
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+    import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+    import "@copilotkit/react-core/v2/styles.css";
 
-  export function Providers({ children }: { children: React.ReactNode }) {
-    return (
-      <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
-        {children}
-      </CopilotKitProvider>
-    );
-  }
-  ```
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
+          {children}
+        </CopilotKitProvider>
+      );
+    }
+    ```
 
-  The catalog holds React components, so the provider must be created in a client component. Wrap your layout in it, so every page shares one provider, and put a chat on a page:
+    The catalog holds React components, so the provider must be created in a client component. Wrap your layout in it, so every page shares one provider, and put a chat on a page:
 
-  ```tsx title="app/layout.tsx"
-  import { Providers } from "./providers";
+    ```tsx title="app/layout.tsx"
+    import { Providers } from "./providers";
 
-  export default function RootLayout({ children }: { children: React.ReactNode }) {
-    return (
-      <html lang="en">
-        <body>
-          <Providers>{children}</Providers>
-        </body>
-      </html>
-    );
-  }
-  ```
+    export default function RootLayout({ children }: { children: React.ReactNode }) {
+      return (
+        <html lang="en">
+          <body>
+            <Providers>{children}</Providers>
+          </body>
+        </html>
+      );
+    }
+    ```
 
-  ```tsx title="app/page.tsx"
-  "use client";
-  import { CopilotChat } from "@copilotkit/react-core/v2";
+    ```tsx title="app/page.tsx"
+    "use client";
+    import { CopilotChat } from "@copilotkit/react-core/v2";
 
-  export default function Page() {
-    return <CopilotChat />;
-  }
-  ```
+    export default function Page() {
+      return <CopilotChat />;
+    }
+    ```
+    </Tab>
+    <Tab value="Angular">
+    ```ts title="src/app/app.config.ts"
+    import { ApplicationConfig } from "@angular/core";
+    import { provideCopilotKit } from "@copilotkit/angular";
+    import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
+
+    export const appConfig: ApplicationConfig = {
+      providers: [
+        provideCopilotKit({ runtimeUrl: "http://localhost:8200/api/copilotkit" }),
+        provideGenerativeUI({ ui: standardUI }),
+      ],
+    };
+    ```
+
+    `provideGenerativeUI` must be in the root providers: the chat resolves its renderers from the root injector, so a provider in a lazy route is never seen. Add the chat stylesheet, and put a chat in a component:
+
+    ```css title="src/styles.css"
+    @import "@copilotkit/angular/styles.css";
+    ```
+
+    ```ts title="src/app/app.ts"
+    import { Component } from "@angular/core";
+    import { CopilotChat } from "@copilotkit/angular";
+
+    @Component({
+      selector: "app-root",
+      imports: [CopilotChat],
+      template: `<copilot-chat />`,
+    })
+    export class App {}
+    ```
+
+    Charts, maps and icons draw with optional libraries. When you want them, install the library of each one you use:
+
+    ```bash
+    npm install chart.js maplibre-gl lucide
+    ```
+
+    Then add `provideGenerativeUIChart()`, `provideGenerativeUIMap()` and `provideGenerativeUIIcons()` from the `/chart`, `/map` and `/icons` entries of `@copilotkit/angular/generative-ui`. Without them, a chart shows its data as a table, a map shows a list of places, and an icon shows nothing.
+    </Tab>
+  </Tabs>
   </Step>
   <Step>
   ### Ask for something visual
 
-  Run `npm run dev`, open the page, and send:
+  Run `npm run dev` (for Angular, `ng serve` and `npx tsx server.ts`), open the page, and send:
 
   ```text
   Compare the Starter, Team, and Enterprise plans in a table
@@ -160,7 +268,7 @@ The agent answered, but the UI did not show, or it shows the wrong thing. Open I
 
 | What you see | Open | What to look for |
 | --- | --- | --- |
-| The pane says "No generative UI" | Nothing to open | The provider has no `generativeUI` config. Pass `generativeUI={{ ui }}` to `CopilotKitProvider`. |
+| The pane says "No generative UI" | Nothing to open | The provider has no `generativeUI` config. Pass `generativeUI={{ ui }}` to `CopilotKitProvider`, or add `provideGenerativeUI({ ui })` to the root providers in Angular. |
 | The surface stays empty, or shows its fallback | **Surfaces** | Find the surface and open its card. **Rejected operations** gives the reason for each dropped operation, for example an unknown component. |
 | A component shows wrong or missing values | **Surfaces** | The component tree shows each rendered component with the props that the agent sent. |
 | The agent never uses a component or a function | **Catalog** | Search for its name. A component that is not in the list is not sent to the model. A function with no mounted handler gets a warning. |

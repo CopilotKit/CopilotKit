@@ -11,34 +11,67 @@ The chat is a good place for an answer. It is a bad place for the product grid o
 A **surface** is one piece of generated UI. Each surface renders in a **target**, a place where generated UI can go:
 
 - **The chat.** Always there. The agent can use every component of the catalog.
-- **A page target.** An area of your page that you mark with `GenerativeUISurface`. The agent sees it only while it is on screen.
+- **A page target.** An area of your page that you mark with `GenerativeUISurface`, or `<copilot-generative-ui-surface>` in Angular. The agent sees it only while it is on screen.
 
 ## Add a page target
 
-Wrap an area of your page in `GenerativeUISurface`. Give it an id, and tell the agent what the area is for:
+Wrap an area of your page in a target. Give it an id, and tell the agent what the area is for:
 
-```tsx title="app/page.tsx"
-import { GenerativeUISurface } from "@copilotkit/react-core/v2/generative-ui";
-import { shopUI } from "./catalog";
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx title="app/page.tsx"
+    import { GenerativeUISurface } from "@copilotkit/react-core/v2/generative-ui";
+    import { shopUI } from "./catalog";
 
-export function FeaturedProducts({ products }: { products: Product[] }) {
-  return (
-    <GenerativeUISurface
-      id="featured"
-      ui={shopUI}
-      description="The Featured Products row of the home page. When the customer asks to see products here, show them as a ProductGrid with one ProductCard for each product. When they ask for the featured products again, delete this surface."
-      components={["ProductGrid", "ProductCard"]}
-      fallback={<ProductRow products={products} />}
-    />
-  );
-}
-```
+    export function FeaturedProducts({ products }: { products: Product[] }) {
+      return (
+        <GenerativeUISurface
+          id="featured"
+          ui={shopUI}
+          description="The Featured Products row of the home page. When the customer asks to see products here, show them as a ProductGrid with one ProductCard for each product. When they ask for the featured products again, delete this surface."
+          components={["ProductGrid", "ProductCard"]}
+          fallback={<ProductRow products={products} />}
+        />
+      );
+    }
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts title="src/app/featured-products.component.ts"
+    import { Component, input } from "@angular/core";
+    import { CopilotGenerativeUISurface } from "@copilotkit/angular/generative-ui";
+    import { ProductRow } from "./product-row.component";
+    import { shopUI } from "./shop-ui";
+
+    @Component({
+      selector: "app-featured-products",
+      imports: [CopilotGenerativeUISurface, ProductRow],
+      template: `
+        <copilot-generative-ui-surface
+          id="featured"
+          [ui]="shopUI"
+          description="The Featured Products row of the home page. When the customer asks to see products here, show them as a ProductGrid with one ProductCard for each product. When they ask for the featured products again, delete this surface."
+          [components]="['ProductGrid', 'ProductCard']"
+        >
+          <app-product-row [products]="products()" />
+        </copilot-generative-ui-surface>
+      `,
+    })
+    export class FeaturedProducts {
+      readonly products = input.required<Product[]>();
+      protected readonly shopUI = shopUI;
+    }
+    ```
+
+    The content of the element is the fallback.
+  </Tab>
+</Tabs>
 
 What each prop does:
 
 - `id`: the target id. The agent names it when it renders here.
 - `description`: what the area is and what belongs in it. The agent reads it on every run, so write it like an instruction.
-- `fallback`: shows until the agent renders here, and again after the agent deletes its surface.
+- `fallback`: shows until the agent renders here, and again after the agent deletes its surface. In Angular, the projected content is the fallback.
 - `ui` and `components`: the only components the agent can use here. See [Limit the components](#limit-the-components).
 
 Now "show me cheap running shoes" swaps the row, and "show the featured products again" brings your own row back.
@@ -47,9 +80,18 @@ Now "show me cheap running shoes" swaps the row, and "show the featured products
 
 A product row must hold product cards, not a slider or a chart. `components` names the only components that the agent can use in this target, the root included:
 
-```tsx
-<GenerativeUISurface id="featured" ui={shopUI} components={["ProductGrid", "ProductCard"]} />
-```
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    <GenerativeUISurface id="featured" ui={shopUI} components={["ProductGrid", "ProductCard"]} />
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```html
+    <copilot-generative-ui-surface id="featured" [ui]="shopUI" [components]="['ProductGrid', 'ProductCard']" />
+    ```
+  </Tab>
+</Tabs>
 
 - The agent gets the list, so it knows what fits.
 - An operation with another component is rejected, and the agent gets the reason.
@@ -61,9 +103,18 @@ Leave out `components` (and `ui`) to allow every component of the catalog.
 
 When the agent starts to render into a target, the page scrolls to it, unless it is already on screen. Turn this off for one target:
 
-```tsx
-<GenerativeUISurface id="sidebar-notes" autoScroll={false} />
-```
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    <GenerativeUISurface id="sidebar-notes" autoScroll={false} />
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```html
+    <copilot-generative-ui-surface id="sidebar-notes" [autoScroll]="false" />
+    ```
+  </Tab>
+</Tabs>
 
 With a sticky header, give surfaces some room at the top in your CSS:
 
@@ -77,30 +128,74 @@ With a sticky header, give surfaces some room at the top in your CSS:
 
 A target can be specific. A product page can give each product its own target, so its recommendations stay with it when the user moves between products:
 
-```tsx
-<GenerativeUISurface
-  key={product.id}
-  id={`recommendations-${product.id}`}
-  description={`The "You might also like" row under ${product.name}. Show related products here. Never include ${product.name} itself.`}
-/>
-```
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    <GenerativeUISurface
+      key={product.id}
+      id={`recommendations-${product.id}`}
+      description={`The "You might also like" row under ${product.name}. Show related products here. Never include ${product.name} itself.`}
+    />
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts
+    @Component({
+      selector: "app-product-page",
+      imports: [CopilotGenerativeUISurface],
+      template: `
+        <copilot-generative-ui-surface
+          [id]="'recommendations-' + product().id"
+          [description]="recommendationsDescription(product())"
+        />
+      `,
+    })
+    export class ProductPage {
+      readonly product = input.required<Product>();
+
+      protected recommendationsDescription({ name }: Product) {
+        return `The "You might also like" row under ${name}. Show related products here. Never include ${name} itself.`;
+      }
+    }
+    ```
+
+    When the `id` input changes, the target is registered again under the new id, so no key is needed.
+  </Tab>
+</Tabs>
 
 ## When a component fails
 
 Each component renders inside its own error boundary. One broken component shows a small fallback, and the rest of the surface keeps working. To report errors, or to draw your own fallback:
 
-```tsx
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  generativeUI={{
-    ui: shopUI,
-    errorBoundary: {
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      generativeUI={{
+        ui: shopUI,
+        errorBoundary: {
+          onError: (info) => console.warn(info.kind, info.surfaceId, info.error.message),
+          fallback: ({ retry }) => <button onClick={retry}>Try again</button>,
+        },
+      }}
+    >
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts title="src/app/app.config.ts"
+    provideGenerativeUI({
+      ui: shopUI,
       onError: (info) => console.warn(info.kind, info.surfaceId, info.error.message),
-      fallback: ({ retry }) => <button onClick={retry}>Try again</button>,
-    },
-  }}
->
-```
+      // A component with the inputs `message` and `componentId`, and
+      // `retry` if it declares it.
+      errorFallback: MyFallback,
+    });
+    ```
+
+    Angular has no per-component error boundary. A component that throws while it is created shows the fallback and reports to `onError`; an error in a later change detection goes to the `ErrorHandler` of the app. After a render error, the default fallback shows a Retry button that creates the component again with the current data. A custom `errorFallback` gets the same function in its `retry` input, if it declares one.
+  </Tab>
+</Tabs>
 
 ## What the agent knows about surfaces
 
