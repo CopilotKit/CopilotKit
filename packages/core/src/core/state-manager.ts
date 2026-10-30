@@ -326,6 +326,7 @@ export class StateManager {
       },
       onRunFinishedEvent: ({ event, input, state, messages }) => {
         if (revoked) return;
+        this.core.ɵchildHistories.accept(agent, input.threadId, event);
         runFinished = true;
         const effective = effectiveInput(input);
         let interrupted = this.interruptedRuns.get(agent);
@@ -349,7 +350,9 @@ export class StateManager {
         this.handleRunFinished(agent, effective, state);
         return mutation;
       },
-      onCustomEvent: ({ event }) => {
+      onCustomEvent: ({ event, input }) => {
+        if (!revoked)
+          this.core.ɵchildHistories.accept(agent, input.threadId, event);
         if (!revoked && event.name === "on_interrupt") legacyInterrupted = true;
       },
       // A run error terminates the run — treat identically to finished for cleanup
@@ -371,6 +374,7 @@ export class StateManager {
       },
       onToolCallResultEvent: ({ event, input }) => {
         if (revoked) return;
+        this.core.ɵchildHistories.accept(agent, input.threadId, event);
         let events = pendingResults.get(input);
         if (!events) {
           events = new Map();
@@ -416,6 +420,8 @@ export class StateManager {
       onMessagesChanged: ({ messages, input }) => {
         if (revoked) return;
         if (!input) {
+          // SDK replay mutations include input; direct setMessages([]) is an explicit reset.
+          this.core.ɵchildHistories.handleMessagesReset(agent, messages);
           this.pruneRawEvents(agent.agentId!, agent.threadId, messages);
         }
       },
@@ -438,6 +444,7 @@ export class StateManager {
   unsubscribeFromAgent(agentId: string): void {
     const existing = this.agentSubscriptions.get(agentId);
     if (existing) {
+      this.core.ɵchildHistories.clear(existing.agent);
       existing.unsubscribe();
       this.agentSubscriptions.delete(agentId);
     }
@@ -742,6 +749,7 @@ export class StateManager {
    */
   clearAgentState(agentId: string): void {
     const agent = this.agentSubscriptions.get(agentId)?.agent;
+    if (agent) this.core.ɵchildHistories.clear(agent);
     if (agent) this.interruptedRuns.delete(agent);
     this.stateByRun.delete(agentId);
     this.messageToRun.delete(agentId);
@@ -753,6 +761,7 @@ export class StateManager {
    */
   clearThreadState(agentId: string, threadId: string): void {
     const agent = this.agentSubscriptions.get(agentId)?.agent;
+    if (agent) this.core.ɵchildHistories.clear(agent, threadId);
     if (agent) this.interruptedRuns.get(agent)?.delete(threadId);
     this.stateByRun.get(agentId)?.delete(threadId);
     this.messageToRun.get(agentId)?.delete(threadId);

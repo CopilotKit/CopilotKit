@@ -7,6 +7,7 @@ import type * as ReactVirtual from "@tanstack/react-virtual";
 import { renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
 import { defineToolCallRenderer } from "../../../types";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
+import { ChildHistoryContext } from "../child-history";
 import { ScrollElementContext } from "../scroll-element-context";
 import {
   createScrollElement,
@@ -463,4 +464,43 @@ describe("CopilotChatMessageView transformMessages", () => {
       await drainAnimationFrames();
     });
   });
+});
+
+it("keeps the latest root assistant streaming when a child region follows it and forwards child slots", () => {
+  const child = {
+    namespace: ["child"],
+    parentToolCallIds: [],
+    rootMessageIds: [],
+    messages: [
+      {
+        id: "child-answer",
+        role: "assistant" as const,
+        content: "Child answer",
+      },
+    ],
+  };
+  const { container } = renderWithCopilotKit({
+    children: (
+      <ChildHistoryContext.Provider value={new Map([["child-row", child]])}>
+        <CopilotChatMessageView
+          isRunning
+          assistantMessage="custom-child-slot"
+          messages={[
+            { id: "root-answer", role: "assistant", content: "Root streaming" },
+            {
+              id: "child-row",
+              role: "activity",
+              activityType: "cpk-child-history",
+              content: {},
+            },
+          ]}
+        />
+      </ChildHistoryContext.Provider>
+    ),
+  });
+  const childRegion = container.querySelector("[data-child-namespace]")!;
+  expect(childRegion.querySelector(".custom-child-slot")).not.toBeNull();
+  const toolbars = screen.getAllByTestId("copilot-assistant-toolbar");
+  expect(toolbars).toHaveLength(1);
+  expect(childRegion.contains(toolbars[0]!)).toBe(true);
 });

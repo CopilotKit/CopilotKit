@@ -203,3 +203,17 @@ You can also opt out conditionally — render nothing for some statuses and real
 - [`useFrontendTool`](/reference/hooks/useFrontendTool) -- register tools with render components
 - [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) -- register interactive tools with render components
 - [`CopilotKit`](/reference/v2) -- configure static render tool calls at the provider level
+
+## Structured tool results
+
+When `status` is `"complete"`, renderer props include the legacy `result` text
+fallback and optional `resultContent` containing the original AG-UI tool-message
+content: a string or an ordered array of text, image, document, audio, and video
+parts. The same contract applies to renderers created with
+`defineToolCallRenderer`. Before completion, `resultContent` is undefined.
+
+Use `result` for text-only displays. Use `resultContent` when your renderer needs
+media sources, MIME types, or filenames. Provider file handles remain opaque;
+rendering their bytes requires a provider-specific resolver. Within saved child histories, the default tool
+renderer displays available media and labels unresolved files. Root tool results
+keep their text rendering; custom renderers can opt into `resultContent`.

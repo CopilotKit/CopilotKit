@@ -18,6 +18,7 @@ import { expectTypeOf } from "vitest";
 import type React from "react";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
 import type { ToolCallStatus } from "@copilotkit/core";
+import type { ToolMessage } from "@ag-ui/core";
 import type { ReactToolCallRenderer, RenderToolProps } from "../headless";
 
 type Args = { city: string };
@@ -58,6 +59,7 @@ type CanonicalRendererProps =
       args: Partial<Args>;
       status: ToolCallStatus.InProgress;
       result: undefined;
+      resultContent?: undefined;
     }
   | {
       name: string;
@@ -65,6 +67,7 @@ type CanonicalRendererProps =
       args: Args;
       status: ToolCallStatus.Executing;
       result: undefined;
+      resultContent?: undefined;
     }
   | {
       name: string;
@@ -72,6 +75,7 @@ type CanonicalRendererProps =
       args: Args;
       status: ToolCallStatus.Complete;
       result: string;
+      resultContent?: ToolMessage["content"];
     };
 
 expectTypeOf<RendererProps>().toEqualTypeOf<CanonicalRendererProps>();
@@ -89,7 +93,7 @@ expectTypeOf<RendererProps>().not.toBeAny();
 // likely to be made deliberately (this entry's OTHER public `RenderToolProps`
 // calls the same payload `parameters` — see the divergence pinned below).
 expectTypeOf<keyof RendererProps>().toEqualTypeOf<
-  "name" | "toolCallId" | "args" | "status" | "result"
+  "name" | "toolCallId" | "args" | "status" | "result" | "resultContent"
 >();
 
 // `status` is the `ToolCallStatus` enum from @copilotkit/core, not the bare
@@ -129,6 +133,44 @@ expectTypeOf<
   WebRenderToolProps["status"]
 >().not.toEqualTypeOf<ToolCallStatus>();
 expectTypeOf<keyof WebRenderToolProps>().toEqualTypeOf<
-  "name" | "toolCallId" | "parameters" | "status" | "result"
+  "name" | "toolCallId" | "parameters" | "status" | "result" | "resultContent"
 >();
 expectTypeOf<WebRenderToolProps>().not.toEqualTypeOf<CanonicalRendererProps>();
+
+// Pin optionality as well as the payload type on the named-hook API.
+expectTypeOf<
+  Pick<
+    Extract<WebRenderToolProps, { status: "complete" }>,
+    "result" | "resultContent"
+  >
+>().toEqualTypeOf<{
+  result: string;
+  resultContent?: ToolMessage["content"];
+}>();
+expectTypeOf<
+  Pick<
+    Exclude<WebRenderToolProps, { status: "complete" }>,
+    "result" | "resultContent"
+  >
+>().toEqualTypeOf<{
+  result: undefined;
+  resultContent?: undefined;
+}>();
+
+// An existing string-only completed payload remains accepted without the new
+// optional field. This compatibility assertion supplements exact shapes above.
+type LegacyCompletedProps = {
+  name: string;
+  toolCallId: string;
+  args: Args;
+  status: ToolCallStatus.Complete;
+  result: string;
+};
+expectTypeOf<
+  LegacyCompletedProps extends Extract<
+    RendererProps,
+    { status: ToolCallStatus.Complete }
+  >
+    ? true
+    : false
+>().toEqualTypeOf<true>();

@@ -31,7 +31,13 @@ import React, {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
+import {
+  AllChildHistoriesProvider,
+  ChildHistoryContext,
+  projectChildHistories,
+} from "./child-history";
 import {
   useCopilotKit,
   useDefaultAgentId,
@@ -485,6 +491,13 @@ export function CopilotChat({
 
     // Non-explicit threads skip /connect, but the first runAgent still has to
     // ship the same SDK-generated threadId that the chat UI is rendering.
+    if (
+      threadChanged &&
+      previousThread !== null &&
+      discardedThreadId !== resolvedThreadId
+    ) {
+      copilotkit.ɵchildHistories.clear(agent, discardedThreadId);
+    }
     agent.threadId = resolvedThreadId;
 
     // When the caller hasn't picked a specific thread, resolvedThreadId is a
@@ -1300,6 +1313,15 @@ export function CopilotChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [messagesMemoKey],
   );
+  const childSnapshot = useSyncExternalStore(
+    copilotkit.ɵchildHistories.subscribe,
+    () => copilotkit.ɵchildHistories.get(agent, resolvedThreadId),
+    () => copilotkit.ɵchildHistories.get(agent, resolvedThreadId),
+  );
+  const childProjection = useMemo(
+    () => projectChildHistories(messages, childSnapshot.histories, [], true),
+    [messages, childSnapshot],
+  );
 
   // Compute the ID of the last user message for scroll-pinning logic.
   const lastUserMessageId = useMemo(() => {
@@ -1334,7 +1356,7 @@ export function CopilotChat({
 
   const finalProps: CopilotChatViewProps = {
     ...mergedProps,
-    messages,
+    messages: childProjection.messages,
     // Input behavior props
     // Gate submission on runtime readiness. While `isReady` is false the
     // `agent` returned by useAgent is a provisional stand-in that `/info` will
@@ -1411,9 +1433,23 @@ export function CopilotChat({
         )}
         <LastUserMessageContext.Provider value={lastUserMessageState}>
           <CopilotKitInspectorContextProvider value={inspectorContextValue}>
-            <GenerativeUIChatSlotContext.Provider value={generativeUISurface}>
-              {RenderedChatView}
-            </GenerativeUIChatSlotContext.Provider>
+            <AllChildHistoriesProvider value={childSnapshot.histories}>
+              <ChildHistoryContext.Provider value={childProjection.entries}>
+                {childSnapshot.error && (
+                  <div
+                    role="status"
+                    className="cpk:m-3 cpk:rounded-lg cpk:border cpk:border-border cpk:bg-muted cpk:p-3 cpk:text-sm cpk:text-muted-foreground"
+                  >
+                    {childSnapshot.error}
+                  </div>
+                )}
+                <GenerativeUIChatSlotContext.Provider
+                  value={generativeUISurface}
+                >
+                  {RenderedChatView}
+                </GenerativeUIChatSlotContext.Provider>
+              </ChildHistoryContext.Provider>
+            </AllChildHistoriesProvider>
           </CopilotKitInspectorContextProvider>
         </LastUserMessageContext.Provider>
       </div>

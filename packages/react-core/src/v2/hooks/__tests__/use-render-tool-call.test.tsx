@@ -123,36 +123,50 @@ describe("useRenderToolCall — opt-in default tool-call rendering", () => {
   // AG-UI 1.0: a tool result may be a list of content parts. The renderer
   // contract is `result: string`, so the parts reach the renderer as their
   // text, concatenated in order; a media part contributes nothing.
-  it("hands a parts-shaped tool result to the renderer as its text", async () => {
-    const toolMessage: ToolMessage = {
-      id: "tm-1",
-      role: "tool",
-      toolCallId: toolCall.id,
-      content: [
-        { type: "text", text: "Invoice " },
-        {
-          type: "document",
-          source: { type: "url", value: "https://example.com/INV-2291.pdf" },
-        },
-        { type: "text", text: "INV-2291 attached." },
-      ],
-    };
-    function Harness() {
-      useDefaultRenderTool({
-        render: ({ result, status }: DefaultRenderProps) => (
-          <div data-testid="custom-card">
-            {status}:{result}
-          </div>
-        ),
-      });
-      return <ResolverProbe toolMessage={toolMessage} />;
-    }
+  it.each(["registered", "default"] as const)(
+    "preserves parts and legacy text for a %s renderer",
+    async (registration) => {
+      const toolMessage: ToolMessage = {
+        id: "tm-1",
+        role: "tool",
+        toolCallId: toolCall.id,
+        content: [
+          { type: "text", text: "Invoice " },
+          {
+            type: "document",
+            source: { type: "url", value: "https://example.com/INV-2291.pdf" },
+          },
+          { type: "text", text: "INV-2291 attached." },
+        ],
+      };
+      const draw = vi.fn(
+        (props: {
+          result: string | undefined;
+          resultContent?: ToolMessage["content"];
+        }) => <div data-testid="custom-card">{props.result}</div>,
+      );
+      function Registered() {
+        useRenderTool({
+          name: toolCall.function.name,
+          parameters: z.object({}),
+          render: draw,
+        });
+        return <ResolverProbe toolMessage={toolMessage} />;
+      }
+      function Default() {
+        useDefaultRenderTool({ render: draw });
+        return <ResolverProbe toolMessage={toolMessage} />;
+      }
 
-    render(<Harness />);
+      render(registration === "registered" ? <Registered /> : <Default />);
 
-    const custom = await screen.findByTestId("custom-card");
-    expect(custom.textContent).toBe("complete:Invoice INV-2291 attached.");
-  });
+      const custom = await screen.findByTestId("custom-card");
+      expect(custom.textContent).toBe("Invoice INV-2291 attached.");
+      expect(draw.mock.calls.at(-1)?.[0].resultContent).toBe(
+        toolMessage.content,
+      );
+    },
+  );
 
   it("hands a string tool result to the renderer unchanged", async () => {
     const toolMessage: ToolMessage = {

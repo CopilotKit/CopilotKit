@@ -10,6 +10,13 @@ import React, {
 import { observeElementRect, useVirtualizer } from "@tanstack/react-virtual";
 import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
 import { ScrollElementContext } from "./scroll-element-context";
+import {
+  ChildHistoryContext,
+  AllChildHistoriesContext,
+  filterMirroredRootMessages,
+  ChildHistoryReadOnlyContext,
+  ChildHistoryView,
+} from "./child-history";
 import { ScrollPinnedContext } from "./scroll-pinned-context";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot, isReactComponentType } from "../../lib/slots";
@@ -568,6 +575,9 @@ export function CopilotChatMessageView({
   const renderCustomMessage = useRenderCustomMessages();
   const { renderActivityMessage } = useRenderActivityMessage();
   const { copilotkit, showIntelligenceIndicator = true } = useCopilotKit();
+  const childHistories = useContext(ChildHistoryContext);
+  const allChildHistories = useContext(AllChildHistoriesContext);
+  const readOnlyChild = useContext(ChildHistoryReadOnlyContext);
   const config = useCopilotChatConfiguration();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -587,6 +597,7 @@ export function CopilotChatMessageView({
   const [interruptElement, setInterruptElement] =
     useState<React.ReactElement | null>(null);
   useEffect(() => {
+    if (readOnlyChild) return;
     setInterruptElement(copilotkit.interruptElement);
     const subscription = copilotkit.subscribe({
       onInterruptElementChanged: ({ interruptElement }) => {
@@ -594,7 +605,7 @@ export function CopilotChatMessageView({
       },
     });
     return () => subscription.unsubscribe();
-  }, [copilotkit]);
+  }, [copilotkit, readOnlyChild]);
 
   // Helper to get state snapshot for a message (used for memoization)
   const getStateSnapshotForMessage = (messageId: string): unknown => {
@@ -617,8 +628,13 @@ export function CopilotChatMessageView({
   };
 
   const deduplicatedMessages = useMemo(
-    () => deduplicateMessages(messages),
-    [messages],
+    () =>
+      deduplicateMessages(
+        readOnlyChild
+          ? messages
+          : filterMirroredRootMessages(messages, allChildHistories),
+      ),
+    [messages, readOnlyChild, allChildHistories],
   );
 
   // What actually renders. Everything below — row keys, virtualization,
@@ -658,7 +674,10 @@ export function CopilotChatMessageView({
   // "Latest" means the last row on screen, not the last entry of `messages`:
   // a transform can drop, replace or reorder the tail. Streaming state and the
   // assistant toolbar key off this.
-  const latestRenderedId = renderedMessages[renderedMessages.length - 1]?.id;
+  const latestRenderedMessage = renderedMessages
+    .filter((message) => !childHistories.has(message.id))
+    .at(-1);
+  const latestRenderedId = latestRenderedMessage?.id;
 
   // ---------------------------------------------------------------------------
   // Tool-call display
@@ -1329,6 +1348,21 @@ export function CopilotChatMessageView({
   // Per-message rendering helper (shared by flat and virtual paths)
   // ---------------------------------------------------------------------------
   const renderMessageBlock = (message: Message): React.ReactElement[] => {
+    const childHistory = childHistories.get(message.id);
+    if (childHistory)
+      return [
+        <ChildHistoryView
+          key={message.id}
+          history={childHistory}
+          messageViewProps={{
+            assistantMessage,
+            userMessage,
+            reasoningMessage,
+            toolCallDisplay,
+            cursor,
+          }}
+        />,
+      ];
     const elements: (React.ReactElement | null | undefined)[] = [];
     // Only custom message renderers consume the snapshot, and resolving it
     // deep-clones the agent's whole state (LangGraph's includes the `messages`
@@ -1618,7 +1652,7 @@ export function CopilotChatMessageView({
   // Hide the chat-level loading cursor when the last rendered message is a
   // reasoning message — the reasoning card already shows its own loading
   // indicator. A reasoning message the transform hid shows no indicator.
-  const lastMessage = renderedMessages[renderedMessages.length - 1];
+  const lastMessage = latestRenderedMessage;
   // In the "turn" display the "Working" line at the top of the reply is the
   // progress indicator; before the reply's first message it sits where the
   // cursor would.

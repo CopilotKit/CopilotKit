@@ -1,5 +1,6 @@
 import React, {
   createContext,
+  useContext,
   useId,
   useLayoutEffect,
   useRef,
@@ -9,6 +10,9 @@ import { Check, ChevronRight, Circle, Loader2, X } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 import { partialJSONParse } from "@copilotkit/shared";
 import type { ToolCallEntry } from "./tool-call-layout";
+import type { ToolMessage } from "@ag-ui/core";
+import { ChildHistoryReadOnlyContext } from "./child-content-context";
+import { CopilotChatContentParts } from "./CopilotChatContentParts";
 
 export type CopilotChatToolCallGroupAppearance = "card" | "line" | "stack";
 
@@ -201,16 +205,27 @@ function Payload({ label, value }: { label: string; value: unknown }) {
 export function ToolCallPayloads({
   parameters,
   result,
+  resultContent,
   className,
 }: {
   parameters: unknown;
   result: string | undefined;
+  resultContent?: ToolMessage["content"];
   className?: string;
 }) {
+  const isChildHistory = useContext(ChildHistoryReadOnlyContext);
   return (
     <div className={twMerge("cpk:grid cpk:gap-3", className)}>
       <Payload label="Arguments" value={parameters ?? {}} />
-      {result !== undefined && <Payload label="Result" value={result} />}
+      {isChildHistory &&
+      Array.isArray(resultContent) &&
+      resultContent.some((part) => part.type !== "text") ? (
+        <div aria-label="Result">
+          <CopilotChatContentParts content={resultContent} />
+        </div>
+      ) : (
+        result !== undefined && <Payload label="Result" value={result} />
+      )}
     </div>
   );
 }
@@ -224,6 +239,7 @@ export function ToolCallRow({
   name,
   parameters,
   result,
+  resultContent,
   status,
   appearance,
   className,
@@ -232,6 +248,7 @@ export function ToolCallRow({
   name: string;
   parameters: unknown;
   result: string | undefined;
+  resultContent?: ToolMessage["content"];
   status: CallStatus;
   appearance: "card" | "line" | "stack";
 } & React.HTMLAttributes<HTMLDivElement>) {
@@ -296,6 +313,7 @@ export function ToolCallRow({
         <ToolCallPayloads
           parameters={parameters}
           result={result}
+          resultContent={resultContent}
           className={
             line
               ? "cpk:mt-1 cpk:mb-2 cpk:ml-5.5"
