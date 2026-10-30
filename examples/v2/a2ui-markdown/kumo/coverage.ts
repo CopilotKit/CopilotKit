@@ -73,7 +73,7 @@ export const KUMO_COVERAGE = {
   TableCell: "kumo",
   List: "standard",
   ListItem: "standard",
-  Chart: "standard",
+  Chart: "kumo",
   Map: "standard",
   // Media
   Image: "standard",
