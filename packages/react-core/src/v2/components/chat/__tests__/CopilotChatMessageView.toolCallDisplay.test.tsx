@@ -285,7 +285,9 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
   it("keeps an empty saved result instead of an earlier placeholder", () => {
     const echo = defineToolCallRenderer({
       name: "*",
-      render: ({ result }) => <div data-testid="echo-result">{result}</div>,
+      render: ({ result }) => (
+        <div data-testid="echo-result">{result ?? "missing"}</div>
+      ),
     });
     renderView(
       [
@@ -311,6 +313,27 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
         callMessage("a"),
         result("a"),
         { id: "u2", role: "user", content: "Again" },
+        { ...callMessage("a"), id: "m-a2" },
+        { ...result("a"), id: "r-a2", content: "second" },
+      ],
+      { toolCallDisplay: "separate" },
+      [echo],
+    );
+    expect(
+      screen.getAllByTestId("echo-result").map((node) => node.textContent),
+    ).toEqual(["ok", "second"]);
+  });
+
+  it("keeps each same-turn call's own result when a call id repeats", () => {
+    const echo = defineToolCallRenderer({
+      name: "*",
+      render: ({ result }) => <div data-testid="echo-result">{result}</div>,
+    });
+    renderView(
+      [
+        question,
+        callMessage("a"),
+        result("a"),
         { ...callMessage("a"), id: "m-a2" },
         { ...result("a"), id: "r-a2", content: "second" },
       ],
