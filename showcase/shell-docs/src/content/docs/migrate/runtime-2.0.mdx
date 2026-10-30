@@ -49,6 +49,17 @@ For Bun, use `Bun.serve({ fetch: handler })`. For an existing Hono application,
 mount a route that passes the raw request to the handler:
 
 ```ts
+import { Hono } from "hono";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+
+const app = new Hono();
 app.all("/api/copilotkit/*", (c) => handler(c.req.raw));
 ```
 
@@ -75,11 +86,22 @@ In an Express app, mount it under the desired prefix and use a base path relativ
 to that mount. Express strips the mount prefix from `req.url`:
 
 ```ts
-app.use("/api/copilotkit", createCopilotNodeListener({
-  runtime,
-  basePath: "/",
-  cors: true,
-}));
+import express from "express";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+
+const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
+const app = express();
+
+app.use(
+  "/api/copilotkit",
+  createCopilotNodeListener({
+    runtime,
+    basePath: "/",
+    cors: true,
+  }),
+);
+app.listen(4000);
 ```
 
 The listener is not an Express router: move `.use()`, `.get()`, and other router

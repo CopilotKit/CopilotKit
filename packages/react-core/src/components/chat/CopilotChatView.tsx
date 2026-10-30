@@ -9,6 +9,7 @@ import { ScrollElementContext } from "./scroll-element-context";
 import type { WithSlots, SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
+import type { CopilotChatMessageViewProps } from "./CopilotChatMessageView";
 import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import type {
   CopilotChatInputProps,
@@ -56,7 +57,10 @@ export type WelcomeScreenProps = WithSlots<
 
 export type CopilotChatViewProps = WithSlots<
   {
-    messageView: typeof CopilotChatMessageView;
+    // Props-based for the same reason as `input` below: renderSlot only
+    // renders the slot, so CopilotChatMessageView's statics (Cursor) are not
+    // required of a replacement.
+    messageView: React.ComponentType<CopilotChatMessageViewProps>;
     scrollView: typeof CopilotChatView.ScrollView;
     // Widened to the props-based form so a plain FC / call signature assigns
     // without the CopilotChatInput namespace statics — see #7158, same shape as

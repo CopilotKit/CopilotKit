@@ -20,7 +20,7 @@ For components that need user interaction, see the Interactive or Interrupt-base
 Use the `useComponent` hook to register a React component. The agent will be able to call it by name, and CopilotKit will render it with the tool arguments as props.
 
 ```tsx title="app/page.tsx"
-import { useComponent } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useComponent } from "@copilotkit/react-core"; // [!code highlight]
 import { z } from "zod";
 
 const weatherSchema = z.object({
@@ -61,14 +61,21 @@ function YourMainContent() {
 For simple components that don't need typed parameters:
 
 ```tsx
-useComponent({
-  name: "showGreeting",
-  render: ({ message }: { message: string }) => (
-    <div className="rounded border p-3 bg-blue-50">
-      <p>{message}</p>
-    </div>
-  ),
-});
+import { useComponent } from "@copilotkit/react-core";
+
+function YourMainContent() {
+  // No schema, so the render props are not inferred: type them yourself.
+  useComponent({
+    name: "showGreeting",
+    render: ({ message }: { message: string }) => (
+      <div className="rounded border p-3 bg-blue-50">
+        <p>{message}</p>
+      </div>
+    ),
+  });
+
+  return <div>{/* ... */}</div>;
+}
 ```
 
 ## Scoping to an agent
@@ -76,10 +83,21 @@ useComponent({
 In multi-agent setups, scope a component to a specific agent:
 
 ```tsx
-useComponent({
-  name: "renderProfile",
-  parameters: z.object({ userId: z.string() }),
-  render: ProfileCard,
-  agentId: "support-agent",
-});
+import { useComponent } from "@copilotkit/react-core";
+import { z } from "zod";
+
+function ProfileCard({ userId }: { userId: string }) {
+  return <div className="rounded border p-3">Profile: {userId}</div>;
+}
+
+function SupportPanel() {
+  useComponent({
+    name: "renderProfile",
+    parameters: z.object({ userId: z.string() }),
+    render: ProfileCard,
+    agentId: "support-agent", // [!code highlight]
+  });
+
+  return <div>{/* ... */}</div>;
+}
 ```

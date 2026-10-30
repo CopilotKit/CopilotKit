@@ -28,19 +28,19 @@ chat pane, use [`<CopilotChat>`](/prebuilt-components/chat) directly.
 
 ## Basic setup
 
-Wrap your app in `<CopilotKit>` once (the provider wires the runtime,
+Wrap your app in `<CopilotKitProvider>` once (the provider wires the runtime,
 session, and agent registry) and render `<CopilotPopup>` as a sibling of
 your main content. The example below opens the popup by default and
 customizes the input placeholder via `labels`:
 
 ```tsx
-import { CopilotKit, CopilotPopup } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotPopup } from "@copilotkit/react-core";
 ```
 
-<Callout type="warn">
-  `@copilotkit/react-ui` also exports a component named `CopilotPopup`. That one
-  is the [deprecated v1 popup](/migrate/v2). This page documents the v2 popup,
-  which you import from `@copilotkit/react-core/v2`.
+<Callout type="info">
+  In v1, `<CopilotPopup>` came from `@copilotkit/react-ui`. CopilotKit 2.0 removed that
+  package, so import the popup from `@copilotkit/react-core`. See the
+  [migration guide](/migrate/v2).
 </Callout>
 
 <Snippet region="popup-basic-setup" title="frontend/src/app/page.tsx — CopilotPopup wired up" />

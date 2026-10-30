@@ -38,7 +38,7 @@ render-only registration.
 ## Defining a tool
 
 ```typescript title="src/copilotkit.ts"
-import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime";
 import { z } from "zod";
 
 const getWeather = defineTool({
@@ -86,6 +86,11 @@ each side a distinct name when both need their own.
 </Callout>
 
 ```typescript title="src/copilotkit.ts"
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime";
+import { z } from "zod";
+import { db } from "./db";
+import { search } from "./search";
+
 const searchDocs = defineTool({
   name: "searchDocs",
   description: "Search the documentation for relevant articles",
@@ -124,6 +129,10 @@ const builtInAgent = new BuiltInAgent({
 Use nested objects, arrays, enums, and optional fields for sophisticated tool parameters:
 
 ```typescript
+import { defineTool } from "@copilotkit/runtime";
+import { z } from "zod";
+import { searchFlights } from "./flights";
+
 const bookFlight = defineTool({
   name: "bookFlight",
   description: "Search for and book flights",
@@ -153,6 +162,10 @@ const bookFlight = defineTool({
 Throw errors or return error objects from your tool — the agent will see the error and can inform the user or try a different approach:
 
 ```typescript
+import { defineTool } from "@copilotkit/runtime";
+import { z } from "zod";
+import { db } from "./db";
+
 const getUser = defineTool({
   name: "getUser",
   description: "Look up a user by email",
@@ -180,10 +193,27 @@ naming the tool, and the model reasons over that instead of your data. Return pl
 By default, the agent performs a single step. If your agent needs to chain tool calls (e.g., search first, then create a ticket), set `maxSteps`:
 
 ```typescript
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime";
+import { z } from "zod";
+
+const searchDocs = defineTool({
+  name: "searchDocs",
+  description: "Search the documentation",
+  parameters: z.object({ query: z.string() }),
+  execute: async ({ query }) => ({ results: [`Article about ${query}`] }),
+});
+
+const createTicket = defineTool({
+  name: "createTicket",
+  description: "Create a support ticket",
+  parameters: z.object({ title: z.string() }),
+  execute: async ({ title }) => ({ ticketId: "T-1", title }),
+});
+
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
   maxSteps: 5, // [!code highlight]
-  tools: [searchDocs, createTicket, getUser],
+  tools: [searchDocs, createTicket],
 });
 ```
 

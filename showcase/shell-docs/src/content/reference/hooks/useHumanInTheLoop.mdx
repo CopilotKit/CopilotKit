@@ -12,13 +12,18 @@ This hook is built on top of `useFrontendTool` with an internally managed handle
 ## Signature
 
 ```tsx
-import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import {
+  useHumanInTheLoop,
+  type ReactHumanInTheLoop,
+} from "@copilotkit/react-core";
 
-function useHumanInTheLoop<T extends Record<string, unknown>>(
+useHumanInTheLoop satisfies <T extends Record<string, unknown>>(
   tool: ReactHumanInTheLoop<T>,
   deps?: ReadonlyArray<unknown>,
-): void;
+) => void;
 ```
+
+`ReactHumanInTheLoop<T>` takes the same fields as [`ReactFrontendTool<T>`](/reference/hooks/useFrontendTool#parameters), except `handler`, and requires `render`.
 
 ## Parameters
 
@@ -30,19 +35,25 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
   input.
 </PropertyReference>
 
-<PropertyReference name="description" type="string" required>
+<PropertyReference name="description" type="string">
   A natural-language description that tells the agent what the tool does and
   when to invoke it (e.g., "Ask the user to confirm before deleting records").
 </PropertyReference>
 
-<PropertyReference name="parameters" type="z.ZodSchema" required>
-  A Zod schema defining the arguments the agent passes to the tool. These
-  arguments are forwarded to the render component so you can build context-aware
-  UI.
+<PropertyReference name="parameters" type="StandardSchemaV1<any, T>">
+  A Zod schema (or any other Standard Schema) defining the arguments the agent
+  passes to the tool. These arguments are forwarded to the render component so
+  you can build context-aware UI.
 </PropertyReference>
 
   <PropertyReference name="render" type="React.ComponentType<RenderProps>" required>
-    A React component that drives the human interaction. The component receives different props depending on the current status:
+    A React component that drives the human interaction. In every status, the component receives:
+    - `name: string` -- the tool name
+    - `description: string` -- the tool description
+    - `toolCallId: string` -- the AG-UI tool call ID, unique per request. Use it to match this request with runtime attribution, such as the agent ID that `onToolExecutionStart` reports.
+    - `agentId?: string` -- the agent this tool was registered to, or `undefined` for a tool with no `agentId`. This is the registration scope, not necessarily the (sub)agent that called the tool.
+
+    The other props depend on the current status:
 
     **When `status` is `ToolCallStatus.InProgress`:**
     - `args: Partial<T>` -- partially streamed arguments
@@ -61,8 +72,8 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 
   </PropertyReference>
 
-  <PropertyReference name="available" type='"enabled" | "disabled" | "remote"' default='"enabled"'>
-    Controls tool availability. Set to `"disabled"` to temporarily prevent the agent from requesting human input through this tool.
+  <PropertyReference name="available" type="boolean" default="true">
+    Whether the agent can call the tool. Set it to `false` to temporarily prevent the agent from requesting human input through this tool, without unregistering it.
   </PropertyReference>
 </PropertyReference>
 
@@ -84,6 +95,9 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 A common pattern where the agent asks the user to confirm a destructive action.
 
 ```tsx
+import { z } from "zod";
+import { ToolCallStatus, useHumanInTheLoop } from "@copilotkit/react-core";
+
 function DeleteConfirmation() {
   useHumanInTheLoop(
     {
@@ -149,6 +163,10 @@ function DeleteConfirmation() {
 Collect structured input from the user before the agent proceeds.
 
 ```tsx
+import { useState } from "react";
+import { z } from "zod";
+import { ToolCallStatus, useHumanInTheLoop } from "@copilotkit/react-core";
+
 function ShippingAddressForm() {
   useHumanInTheLoop(
     {
@@ -227,6 +245,9 @@ function ShippingAddressForm() {
 ### Approval Workflow with Context
 
 ```tsx
+import { z } from "zod";
+import { ToolCallStatus, useHumanInTheLoop } from "@copilotkit/react-core";
+
 function ExpenseApproval() {
   useHumanInTheLoop(
     {

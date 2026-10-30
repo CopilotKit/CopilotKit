@@ -7,6 +7,11 @@ type AgentState = {
   answer?: string;
 };
 
+// The store types agent state as `unknown`, so narrow it before reading fields.
+function isAgentState(value: unknown): value is AgentState {
+  return typeof value === "object" && value !== null;
+}
+
 @Component({
   selector: "app-agent-state",
   template: `
@@ -20,9 +25,10 @@ export class AgentStateComponent {
   private readonly copilotKit = inject(CopilotKit);
   readonly store = injectAgentStore("my_agent");
   readonly question = signal("What's the capital of France?");
-  readonly state = computed(
-    () => (this.store().state() as AgentState | undefined) ?? {},
-  );
+  readonly state = computed<AgentState>(() => {
+    const state = this.store().state();
+    return isAgentState(state) ? state : {};
+  });
   readonly answer = computed(() => this.state().answer);
 
   async askQuestion(question: string): Promise<void> {

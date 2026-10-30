@@ -21,11 +21,14 @@ If you want to run a browser handler and render UI, use [`registerFrontendTool`]
 ## Signature
 
 ```ts
-import { registerRenderToolCall } from "@copilotkit/angular";
+import {
+  registerRenderToolCall,
+  type RenderToolCallConfig,
+} from "@copilotkit/angular";
 
-function registerRenderToolCall<Args extends Record<string, unknown>>(
+registerRenderToolCall satisfies <Args extends Record<string, unknown>>(
   renderToolCall: RenderToolCallConfig<Args>,
-): void;
+) => void;
 ```
 
 ## Parameters
@@ -79,8 +82,9 @@ function registerRenderToolCall<Args extends Record<string, unknown>>(
 Your `component` implements the `ToolRenderer<Args>` interface. CopilotKit binds the inputs by name, so declare them with Angular's `input()`:
 
 ```ts
-import { Signal } from "@angular/core";
-import { AbstractAgent } from "@ag-ui/client";
+import type { Signal } from "@angular/core";
+import type { AbstractAgent } from "@ag-ui/client";
+import type { AngularToolCall } from "@copilotkit/angular";
 
 interface ToolRenderer<Args extends Record<string, unknown>> {
   // Required: the current state of the tool call.
@@ -202,12 +206,26 @@ export class HandoffToolViewComponent implements ToolRenderer<HandoffArgs> {
 ```
 
 ```ts title="src/app/chat.component.ts"
-registerRenderToolCall({
-  name: "handoff",
-  args: z.object({ target: z.string() }),
-  component: HandoffToolViewComponent,
-  passAgent: true,
-});
+import { Component } from "@angular/core";
+import { z } from "zod";
+import { registerRenderToolCall } from "@copilotkit/angular";
+import { HandoffToolViewComponent } from "./handoff-tool-view.component";
+
+@Component({
+  selector: "app-chat",
+  standalone: true,
+  template: ``,
+})
+export class ChatComponent {
+  constructor() {
+    registerRenderToolCall({
+      name: "handoff",
+      args: z.object({ target: z.string() }),
+      component: HandoffToolViewComponent,
+      passAgent: true,
+    });
+  }
+}
 ```
 
 ## Related

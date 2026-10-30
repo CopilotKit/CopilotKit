@@ -1,27 +1,28 @@
 ---
 title: "API Reference"
-description: "API Reference for the next-generation CopilotKit React API."
+description: "API Reference for the CopilotKit 2.0 React API."
 ---
 
-The v2 React API (`@copilotkit/react-core/v2`) is the next-generation interface for building copilot-powered applications. It provides a streamlined set of hooks and components built on top of the [AG-UI](https://docs.ag-ui.com) agent protocol.
+The CopilotKit 2.0 React API (`@copilotkit/react-core`) is the interface for building copilot-powered applications. It provides a streamlined set of hooks and components built on top of the [AG-UI](https://docs.ag-ui.com) agent protocol.
 
 ## Provider Setup
 
-Wrap your application with `<CopilotKitProvider>` to configure the v2 runtime connection:
+Wrap your application with `<CopilotKitProvider>` to configure the runtime connection:
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import type { ReactNode } from "react";
 
-function App() {
+export function Providers({ children }: { children: ReactNode }) {
   return (
     <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="default">
-      <YourApp />
+      {children}
     </CopilotKitProvider>
   );
 }
 ```
 
-The [`<CopilotKit>`](/reference/components/CopilotKit) export is the v1 compatibility wrapper, not an alias for `<CopilotKitProvider>`. Use `agentId` on the v2 provider; the compatibility wrapper uses `agent` and retains the v1 error-handler contract.
+`<CopilotKitProvider>` replaces the v1 `<CopilotKit>` provider, which CopilotKit 2.0 removed. Name the agent with `agentId` (v1 used `agent`). See [Migrate to 2.0](/migrate/v2).
 
 <Accordions>
 <Accordion title="CopilotKitProvider props">
@@ -89,18 +90,37 @@ The [`<CopilotKit>`](/reference/components/CopilotKit) export is the v1 compatib
   a bearer token in core headers if those agents point at a third party.
 
   ```tsx
-  const { getToken } = useAuth();
+  import { CopilotKitProvider } from "@copilotkit/react-core";
+  import type { ReactNode } from "react";
+  import { useAuth } from "./auth";
 
-  <CopilotKitProvider
-    runtimeUrl="/api/copilotkit"
-    headers={async () => ({ Authorization: `Bearer ${await getToken()}` })}
-  >
+  export function Providers({ children }: { children: ReactNode }) {
+    const { getToken } = useAuth();
+
+    return (
+      <CopilotKitProvider
+        runtimeUrl="/api/copilotkit"
+        headers={async () => ({ Authorization: `Bearer ${await getToken()}` })}
+      >
+        {children}
+      </CopilotKitProvider>
+    );
+  }
   ```
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials">
   Credentials mode for fetch requests (e.g. `"include"` for HTTP-only cookies in
   cross-origin requests).
+</PropertyReference>
+
+<PropertyReference name="messageFilter" type="CopilotKitMessageFilter">
+  Rewrites the message list sent to runtime agents on every run:
+  `(messages, { agentId }) => Message[]`. The filter changes the request body
+  only; the transcript the UI renders is untouched, and broken tool-call pairs
+  are repaired before the request is sent. Agents your app passes in directly,
+  Intelligence runs, and suggestion runs are not filtered. Prefer a stable
+  reference (`useCallback`).
 </PropertyReference>
 
 <PropertyReference name="publicApiKey" type="string">
@@ -150,6 +170,14 @@ The [`<CopilotKit>`](/reference/components/CopilotKit) export is the v1 compatib
   Static set of custom message renderers.
 </PropertyReference>
 
+<PropertyReference name="markdownRenderer" type="MarkdownRenderer">
+  Global markdown renderer for assistant and reasoning messages: a config
+  object for the built-in renderer (`DefaultMarkdownRendererProps`) or a
+  component that takes `MarkdownRendererProps`. A per-message
+  `markdownRenderer` slot still wins. See
+  [`@copilotkit/markdown-renderer`](/reference/packages/markdown-renderer).
+</PropertyReference>
+
 <PropertyReference name="frontendTools" type="ReactFrontendTool[]">
   Static tool handlers defined at the provider level. The array should be stable
   across renders.
@@ -167,6 +195,37 @@ The [`<CopilotKit>`](/reference/components/CopilotKit) export is the v1 compatib
   set to `true`.
 </PropertyReference>
 
+<PropertyReference name="showIntelligenceIndicator" type="boolean" default="true">
+  Whether to mount the Intelligence indicator in chat automatically.
+</PropertyReference>
+
+<PropertyReference name="a2ui" type="{ theme?; catalog?; loadingComponent?; includeSchema?; recovery? }">
+  Overrides for the built-in A2UI renderer, which turns on when the runtime
+  reports that `a2ui` is configured. Use it to set the theme, the component
+  catalog, the loading component, whether the catalog's component schemas are
+  sent as agent context (`includeSchema`, default `true`), and the
+  error-recovery UI.
+</PropertyReference>
+
+<PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean }">
+  Configuration for the built-in MCP Apps renderer. `allowSameOriginFallback`
+  (default `false`) restores `allow-same-origin` on the widget sandbox. This is
+  unsafe: the widget then runs with your page's origin. Set it only for
+  widgets you trust.
+</PropertyReference>
+
+<PropertyReference name="generativeUI" type="GenerativeUIConfig">
+  Experimental. Native generative UI: pass `{ ui }`, where `ui` comes from
+  `createGenerativeUI`.
+</PropertyReference>
+
+<PropertyReference name="learning" type="boolean | LearningConfig & { autoStart?; trajectoryId?; learningContainerIds? }">
+  Turns on interaction capture (`@copilotkit/learning`). `learning` (short for
+  `learning={true}`) uses the default options. Capture starts after mount
+  unless `autoStart` is `false`. Read the active ID from
+  `copilotkit.trajectoryId`.
+</PropertyReference>
+
 <PropertyReference name="showDevConsole" type='boolean | "auto"'>
   **Deprecated for Inspector control:** this prop no longer changes Inspector
   visibility. Use `enableInspector` instead.
@@ -178,14 +237,21 @@ The [`<CopilotKit>`](/reference/components/CopilotKit) export is the v1 compatib
 Unlike the v1 `onError`, this does **not** require a `publicApiKey`; error handling works with any configuration.
 
 ```tsx
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  onError={(event) => {
-    console.error(`[${event.code}]`, event.error.message, event.context);
-  }}
->
-  <App />
-</CopilotKitProvider>
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import type { ReactNode } from "react";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      onError={(event) => {
+        console.error(`[${event.code}]`, event.error.message, event.context);
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 </PropertyReference>
@@ -195,14 +261,14 @@ Unlike the v1 `onError`, this does **not** require a `publicApiKey`; error handl
 
 ## Import Surfaces
 
-Use the main v2 entry when your app renders CopilotKit's web UI components or A2UI surfaces:
+Use the main entry when your app renders CopilotKit's web UI components or A2UI surfaces:
 
 ```tsx
 import {
   CopilotKitProvider,
   CopilotChat,
   useAgent,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 ```
 
 Use the headless entry when you build a fully custom chat surface and only need platform-agnostic hooks. This avoids the built-in chat rendering stack and its CSS:
@@ -213,27 +279,33 @@ import {
   useCopilotKit,
   useFrontendTool,
   useRenderToolCall,
-} from "@copilotkit/react-core/v2/headless";
+} from "@copilotkit/react-core/headless";
 ```
 
-The headless entry exports the provider context, chat configuration provider, `useAgent`, tool hooks, suggestions, threads, capabilities, and shared types. It does not export `CopilotKitProvider`, `CopilotKit`, `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, `useDefaultRenderTool`, or A2UI render helpers.
+The headless entry exports the provider context, chat configuration provider, `useAgent`, tool hooks, suggestions, threads, capabilities, and shared types. It does not export `CopilotKitProvider`, `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, `useDefaultRenderTool`, or A2UI render helpers.
 
 ## Styling
 
-The v2 UI components include their own styles. You don't import a stylesheet. `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` add one `<style>` tag to the page, and it is included in server-rendered HTML.
+The UI components include their own styles. You don't import a stylesheet. `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` add one `<style>` tag to the page, and it is included in server-rendered HTML.
 
-If you render other v2 components without a chat surface, add `<CopilotKitStyles />` once, inside `CopilotKitProvider`. If your Content-Security-Policy limits `style-src` to a nonce, pass it as `<CopilotKitProvider nonce={nonce}>`.
+If you render other components without a chat surface, add `<CopilotKitStyles />` once, inside `CopilotKitProvider`. If your Content-Security-Policy limits `style-src` to a nonce, pass it as `<CopilotKitProvider nonce={nonce}>`.
 
 ### Load the CSS as a cached file
 
 The `<style>` tag is part of your JavaScript, so browsers cache it with your app's code. Server-rendered pages also send it in the HTML of each full page load. To have browsers cache the CSS as its own file, import it and turn off the `<style>` tag:
 
 ```tsx
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import "@copilotkit/core/styles.css";
 
-<CopilotKitProvider runtimeUrl="/api/copilotkit" injectStyles={false}>
-  {children}
-</CopilotKitProvider>
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" injectStyles={false}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 This is optional. Your bundler must support CSS imports, as Next.js and Vite do.

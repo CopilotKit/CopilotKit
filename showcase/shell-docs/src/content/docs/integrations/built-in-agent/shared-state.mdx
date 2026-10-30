@@ -25,14 +25,17 @@ For a complete example of selecting a prepared control with structured AI judgme
 Use the `useAgent` hook to access the agent's current state:
 
 ```tsx title="app/page.tsx"
-import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useAgent } from "@copilotkit/react-core"; // [!code highlight]
+
+// The shape of the state your agent writes
+type Task = { title: string; status: string };
 
 function TaskBoard() {
   // [!code highlight:3]
   const { agent } = useAgent();
 
   // Read state set by the agent // [!code highlight]
-  const tasks = (agent.state.tasks as any[]) ?? [];
+  const tasks: Task[] = agent.state.tasks ?? [];
 
   return (
     <div>
@@ -58,7 +61,7 @@ function TaskBoard() {
 You can also push state from the frontend to the agent:
 
 ```tsx title="app/page.tsx"
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 
 function SettingsPanel() {
   const { agent } = useAgent();
@@ -94,13 +97,16 @@ No additional backend configuration is required — state tools are available to
 Here's a complete example where the agent can add and manage tasks:
 
 ```tsx title="app/page.tsx"
-import { CopilotChat } from "@copilotkit/react-core/v2";
-import { useAgent } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
+import { useAgent } from "@copilotkit/react-core";
+
+// The shape of the state your agent writes
+type Todo = { text: string; done: boolean };
 
 function TodoApp() {
   const { agent } = useAgent();
 
-  const todos = (agent.state.todos as any[]) ?? [];
+  const todos: Todo[] = agent.state.todos ?? [];
 
   return (
     <div style={{ display: "flex", gap: "1rem" }}>

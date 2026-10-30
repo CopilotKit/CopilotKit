@@ -34,6 +34,8 @@ from the same provider also work.
 | o4-mini      | `openai:o4-mini`      |
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
+
 const agent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
 });
@@ -49,6 +51,8 @@ const agent = new BuiltInAgent({
 | Claude Sonnet 4.5 | `anthropic:claude-sonnet-4-5` |
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
+
 const agent = new BuiltInAgent({
   model: "anthropic:claude-sonnet-4-6",
 });
@@ -63,6 +67,8 @@ const agent = new BuiltInAgent({
 | Gemini 3.5 Flash Lite | `google:gemini-3.5-flash-lite` |
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
+
 const agent = new BuiltInAgent({
   model: "google:gemini-3.8-flash",
 });
@@ -81,6 +87,8 @@ still call them, but a new key gets a 404. See Google's
 | MiniMax M2.7 | `minimax:MiniMax-M2.7` |
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
+
 const agent = new BuiltInAgent({
   model: "minimax:MiniMax-M3",
 });
@@ -136,6 +144,8 @@ COPILOTKIT_OPENAI_API=responses
 Alternatively, pass the API key directly in your configuration:
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
+
 const agent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
   apiKey: process.env.MY_OPENAI_KEY, // [!code highlight]
@@ -158,7 +168,7 @@ npm install @ai-sdk/openai@ai-v6
 </Callout>
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime";
 import { createOpenAI } from "@ai-sdk/openai"; // [!code highlight]
 
 const openai = createOpenAI({
@@ -175,6 +185,7 @@ This works with any AI SDK provider, including Azure OpenAI, AWS Bedrock, and
 Ollama. For an OpenAI-compatible endpoint, read the next section first.
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
 import { createAzure } from "@ai-sdk/azure";
 
 const azure = createAzure({
@@ -200,7 +211,7 @@ Call `provider.chat(model)` instead. It sends the request to the Chat
 Completions API:
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime";
 import { createOpenAI } from "@ai-sdk/openai";
 
 const provider = createOpenAI({
@@ -237,7 +248,7 @@ above. Point `baseURL` at the provider's OpenAI-compatible route and pass your k
 </Callout>
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime";
 import { createOpenAI } from "@ai-sdk/openai"; // [!code highlight]
 
 // OpenRouter: one key, hundreds of models behind an OpenAI-compatible API
@@ -263,8 +274,13 @@ AI SDK can talk to it, the Built-in Agent can use it.
   either as a `"provider:model"` string or an AI SDK `LanguageModel` instance:
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
+import { createOpenAI } from "@ai-sdk/openai";
+
+const openrouter = createOpenAI({ baseURL: "https://openrouter.ai/api/v1" });
+
 new BuiltInAgent({ model: "openai:gpt-5.4-mini" }); // built-in string
-new BuiltInAgent({ model: openrouter.chat("...") }); // any LanguageModel
+new BuiltInAgent({ model: openrouter.chat("anthropic/claude-sonnet-4-6") }); // any LanguageModel
 ```
 
 To switch models per user, request, or feature flag, construct the agent with

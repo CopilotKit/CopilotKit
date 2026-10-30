@@ -7,16 +7,20 @@ description: "Register a typed Angular renderer for AG-UI activity messages."
 activity type for the lifetime of the current injector.
 
 ```ts
-function registerRenderActivityMessage<TContent>(
-  config: RenderActivityMessageConfig<TContent>,
-): void;
+import type { Type } from "@angular/core";
+import {
+  registerRenderActivityMessage,
+  type ActivityRenderer,
+  type AngularActivityContentSchema,
+} from "@copilotkit/angular";
 
-interface RenderActivityMessageConfig<TContent> {
+// RenderActivityMessageConfig:
+registerRenderActivityMessage satisfies (config: {
   activityType: string;
   agentId?: string;
-  content: AngularActivityContentSchema<TContent>;
-  component: Type<ActivityRenderer<TContent>>;
-}
+  content: AngularActivityContentSchema<unknown>;
+  component: Type<ActivityRenderer<unknown>>;
+}) => void;
 ```
 
 ```ts

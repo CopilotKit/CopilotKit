@@ -1,19 +1,9 @@
-import {
-  MultiProviderContent,
-  If,
-} from "@/components/react/multi-provider-content/multi-provider-content";
-import { quickStartProviders } from "@/components/react/multi-provider-content/utils";
-import { IoLogoVercel, IoLogoNodejs } from "react-icons/io5";
-import { SiNestjs } from "react-icons/si";
-import { RiNextjsLine } from "react-icons/ri";
-import { Tab } from "../components/react/tabs";
-
 <Tabs groupId="lg-deployment-type" items={["Local (LangGraph Studio)", "Self hosted (FastAPI)", "LangGraph Platform"]}>
   <Tab value="Local (LangGraph Studio)">
     ```ts
-    import { CopilotRuntime } from "@copilotkit/runtime/v2";
+    import { CopilotRuntime } from "@copilotkit/runtime";
     // [!code highlight]
-    import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+    import { LangGraphAgent } from "@ag-ui/langgraph";
     // ...
     const runtime = new CopilotRuntime({
       // [!code highlight:8]
@@ -31,7 +21,7 @@ import { Tab } from "../components/react/tabs";
   </Tab>
   <Tab value="Self hosted (FastAPI)">
     ```ts
-    import { CopilotRuntime } from "@copilotkit/runtime/v2";
+    import { CopilotRuntime } from "@copilotkit/runtime";
     import { HttpAgent } from "@ag-ui/client";
     // ...
     const runtime = new CopilotRuntime({
@@ -47,9 +37,9 @@ import { Tab } from "../components/react/tabs";
 
   <Tab value="LangGraph Platform">
     ```ts
-    import { CopilotRuntime } from "@copilotkit/runtime/v2";
+    import { CopilotRuntime } from "@copilotkit/runtime";
     // [!code highlight]
-    import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+    import { LangGraphAgent } from "@ag-ui/langgraph";
     // ...
     const runtime = new CopilotRuntime({
       // [!code highlight:8]

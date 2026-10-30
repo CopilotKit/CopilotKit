@@ -28,11 +28,11 @@ Enable it to see:
 
 Pass `debug: true` to the `CopilotRuntime` constructor:
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+
 const runtime = new CopilotRuntime({
-  agents: {
-    // your agents
-  },
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
   debug: true, // [!code highlight]
 });
 ```
@@ -63,15 +63,21 @@ This produces structured Pino logs (formatted by `pino-pretty`) with a `copilotk
 <FrontendOnly frontend="react">
 ### Client-Side
 
-Pass `debug={true}` to the `<CopilotKit>` provider:
+Pass `debug={true}` to `<CopilotKitProvider>`:
 
 ```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  debug={true} // [!code highlight]
->
-  <YourApp />
-</CopilotKit>
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      debug={true} // [!code highlight]
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 This forwards the debug configuration to the AG-UI client transport layer (`transformChunks`), which may produce transport-level debug output depending on the AG-UI library version. Note that the richest debug logging comes from the **server-side** `CopilotRuntime` — enable `debug: true` there for full structured Pino logs of every AG-UI event.
@@ -96,11 +102,16 @@ On `CopilotRuntime`, pass an object instead of `true` for fine-grained control
 over what gets logged:
 
 ```ts
-debug: {
-  events: true,     // Log every event emitted/received
-  lifecycle: true,  // Log request/run lifecycle (start, finish, error)
-  verbose: false,   // Log full payloads instead of summaries
-}
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  debug: {
+    events: true, // Log every event emitted/received
+    lifecycle: true, // Log request/run lifecycle (start, finish, error)
+    verbose: false, // Log full payloads instead of summaries
+  },
+});
 ```
 
 ### Defaults
@@ -118,13 +129,23 @@ When `debug` is a boolean (`true`), events and lifecycle logging are enabled but
 Log only lifecycle events (no per-event logs):
 
 ```ts
-debug: { events: false, lifecycle: true }
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  debug: { events: false, lifecycle: true },
+});
 ```
 
 Log events with full payloads but skip lifecycle:
 
 ```ts
-debug: { events: true, lifecycle: false, verbose: true }
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  debug: { events: true, lifecycle: false, verbose: true },
+});
 ```
 
 ## Troubleshooting with Debug Mode

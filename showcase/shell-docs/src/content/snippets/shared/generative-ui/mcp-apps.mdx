@@ -53,11 +53,9 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     npm install @copilotkit/react-core @copilotkit/runtime
     ```
 
-    Use `@copilotkit/runtime` 1.76.0 or later. The runtime includes the MCP Apps
-    middleware, so the `mcpApps` option below needs no other package. Install
-    `@ag-ui/mcp-apps-middleware` only if you attach the middleware to an agent
-    yourself with `.use()`. Its current release needs `@ag-ui/client` 1.x, which
-    runtime 1.76.0 and later use.
+    The runtime includes the MCP Apps middleware, so the `mcpApps` option below
+    needs no other package. Install `@ag-ui/mcp-apps-middleware` only if you
+    attach the middleware to an agent yourself with `.use()`.
 
   </Step>
   <Step>
@@ -70,16 +68,17 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     </Callout>
 
     ```bash
-    touch app/api/copilotkit/route.ts
+    mkdir -p "app/api/copilotkit/[[...slug]]"
+    touch "app/api/copilotkit/[[...slug]]/route.ts"
     ```
 
     ```typescript title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
     import {
+      BuiltInAgent,
       CopilotRuntime,
       createCopilotRuntimeHandler,
       InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
-    import { BuiltInAgent } from "@copilotkit/runtime/v2";
+    } from "@copilotkit/runtime";
 
     // 1. Create your agent
     const agent = new BuiltInAgent({
@@ -87,9 +86,7 @@ If you're looking to add an MCP App into an existing application, let's walk thr
       prompt: "You are a helpful assistant.",
     });
 
-    // 2. Create a service adapter, empty if not relevant
-
-    // 3. Create the runtime with mcpApps configured
+    // 2. Create the runtime with mcpApps configured
     const runtime = new CopilotRuntime({
       agents: {
         default: agent,
@@ -106,7 +103,7 @@ If you're looking to add an MCP App into an existing application, let's walk thr
       runner: new InMemoryAgentRunner(),
     });
 
-    // 4. Create the API route
+    // 3. Create the API route
     const handler = createCopilotRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
@@ -122,8 +119,9 @@ If you're looking to add an MCP App into an existing application, let's walk thr
 
     Alternatively, if you want to scope MCP Apps to specific agents, you can use `MCPAppsMiddleware` directly on the agent via `.use()`:
 
-    ```typescript title="app/api/copilotkit/route.ts"
+    ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
     import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+    import { BuiltInAgent } from "@copilotkit/runtime";
 
     const agent = new BuiltInAgent({
       model: "openai/gpt-5.4",
@@ -158,25 +156,25 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     ```
 
     <Callout type="info" title="What about other models?">
-    The example is configured to use OpenAI's GPT-4o by default, but you can modify the BuiltInAgent to use any language model supported by CopilotKit.
+    The example is configured to use OpenAI's GPT-5.4 by default, but you can modify the BuiltInAgent to use any language model supported by CopilotKit.
     </Callout>
 
   </Step>
   <Step>
     ### Configure CopilotKit Provider
 
-    Wrap your application with the CopilotKit provider:
+    Wrap your application with `CopilotKitProvider`:
 
     ```tsx title="app/providers.tsx"
     "use client";
 
-    import { CopilotKit } from "@copilotkit/react-core/v2";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
 
     export function Providers({ children }: { children: React.ReactNode }) {
       return (
-        <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+        <CopilotKitProvider runtimeUrl="/api/copilotkit">
           {children}
-        </CopilotKit>
+        </CopilotKitProvider>
       );
     }
     ```
@@ -213,7 +211,7 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     ```tsx title="app/page.tsx"
     "use client";
 
-    import { CopilotSidebar } from "@copilotkit/react-core/v2";
+    import { CopilotSidebar } from "@copilotkit/react-core";
 
     export default function Page() {
         return (
@@ -270,11 +268,13 @@ The middleware supports two transport types:
 For MCP servers using HTTP-based communication:
 
 ```typescript
-{
+import type { McpAppsServerConfig } from "@copilotkit/runtime";
+
+const httpServer = {
   type: "http",
   url: "http://localhost:3101/mcp",
-  serverId: "my-http-server"
-}
+  serverId: "my-http-server",
+} satisfies McpAppsServerConfig;
 ```
 
 ### SSE Transport
@@ -282,15 +282,19 @@ For MCP servers using HTTP-based communication:
 For MCP servers using Server-Sent Events:
 
 ```typescript
-{
+import type { McpAppsServerConfig } from "@copilotkit/runtime";
+
+const sseServer = {
   type: "sse",
   url: "https://mcp.example.com/sse",
   headers: {
-    "Authorization": "Bearer token"
+    Authorization: "Bearer token",
   },
-  serverId: "my-sse-server"
-}
+  serverId: "my-sse-server",
+} satisfies McpAppsServerConfig;
 ```
+
+Pass either object in `mcpApps.servers` on `CopilotRuntime`.
 
 ## Threading Support
 

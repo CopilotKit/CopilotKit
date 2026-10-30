@@ -20,7 +20,7 @@ Use this pattern when the agent proposes an action such as sending an email, upd
 
 Keep the approval payload small, serializable, and vendor-neutral. The agent or backend can attach any policy engine result to the action as long as the UI receives the same basic envelope:
 
-```ts
+```ts group=governed-actions
 type GovernedAction = {
   id: string;
   summary: string;
@@ -106,7 +106,9 @@ watchEffect(() => {
 
 On resume, the agent should execute only when it receives an approved response for the same action id and reference:
 
-```ts
+```ts group=governed-actions
+import { executeSideEffect } from "./side-effects";
+
 type ApprovalResponse = {
   approved: boolean;
   actionId: string;

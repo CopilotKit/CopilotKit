@@ -18,6 +18,8 @@ Enable it to see:
 Pass `debug: true` to the `CopilotRuntime` constructor:
 
 ```ts title="app/api/copilotkit/route.ts"
+import { CopilotRuntime } from "@copilotkit/runtime";
+
 const runtime = new CopilotRuntime({
   agents: {
     // your agents
@@ -51,15 +53,22 @@ This produces structured Pino logs (formatted by `pino-pretty`) with a `copilotk
 
 ### Client-Side (React)
 
-Pass `debug={true}` to the `<CopilotKit>` provider:
+Pass `debug={true}` to the `<CopilotKitProvider>`:
 
 ```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  debug={true} // [!code highlight]
->
-  <YourApp />
-</CopilotKit>
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      debug={true} // [!code highlight]
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 This forwards the debug configuration to the AG-UI client transport layer (`transformChunks`), which may produce transport-level debug output depending on the AG-UI library version. Note that the richest debug logging comes from the **server-side** `CopilotRuntime` — enable `debug: true` there for full structured Pino logs of every AG-UI event.
@@ -70,17 +79,19 @@ This forwards the debug configuration to the AG-UI client transport layer (`tran
 
 ## Granular Configuration
 
-Instead of `true`, you can pass an object for fine-grained control over what gets logged:
+Instead of `true`, you can pass an object for fine-grained control over what gets logged. The object has the `DebugConfig` type from `@copilotkit/shared`:
 
 ```ts
-debug: {
-  events: true,     // Log every event emitted/received
-  lifecycle: true,  // Log request/run lifecycle (start, finish, error)
-  verbose: false,   // Log full payloads instead of summaries
-}
+import type { DebugConfig } from "@copilotkit/shared";
+
+const debug = {
+  events: true, // Log every event emitted/received
+  lifecycle: true, // Log request/run lifecycle (start, finish, error)
+  verbose: false, // Log full payloads instead of summaries
+} satisfies DebugConfig;
 ```
 
-This works the same way on both the server and client.
+Pass it as `debug` to `CopilotRuntime` on the server or to `<CopilotKitProvider>` on the client. It works the same way on both.
 
 ### Defaults
 
@@ -97,13 +108,17 @@ When `debug` is a boolean (`true`), events and lifecycle logging are enabled but
 Log only lifecycle events (no per-event logs):
 
 ```ts
-debug: { events: false, lifecycle: true }
+import type { DebugConfig } from "@copilotkit/shared";
+
+const debug = { events: false, lifecycle: true } satisfies DebugConfig;
 ```
 
 Log events with full payloads but skip lifecycle:
 
 ```ts
-debug: { events: true, lifecycle: false, verbose: true }
+import type { DebugConfig } from "@copilotkit/shared";
+
+const debug = { events: true, lifecycle: false, verbose: true } satisfies DebugConfig;
 ```
 
 ## Troubleshooting with Debug Mode

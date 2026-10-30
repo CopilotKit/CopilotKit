@@ -28,6 +28,21 @@ connects because it was declared, with no start call to forget. Await `ready()`
 to observe that activation settling, then inspect `status()`:
 
 ```ts title="health.ts"
+import { createChannel } from "@copilotkit/channels";
+import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+
+const channel = createChannel({ name: "support", identifyUser: "platform" });
+
+const runtime = new CopilotRuntime({
+  agents: {},
+  intelligence: new CopilotKitIntelligence({
+    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+  }),
+  channels: [channel],
+});
+
+const listener = createCopilotNodeListener({ runtime });
 const channels = listener.channels;
 
 await channels.ready({ timeoutMs: 30_000 });
@@ -86,6 +101,21 @@ connect window must already have somewhere to land — otherwise it hits Node's
 default handler and leaves a live gateway session behind:
 
 ```ts title="channel.ts"
+import { createServer } from "node:http";
+import { createChannel } from "@copilotkit/channels";
+import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+
+const channel = createChannel({ name: "support", identifyUser: "platform" });
+
+const runtime = new CopilotRuntime({
+  agents: {},
+  intelligence: new CopilotKitIntelligence({
+    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+  }),
+  channels: [channel],
+});
+
 let teardown: (() => Promise<void>) | undefined;
 const shutdown = async () => {
   await teardown?.();

@@ -78,7 +78,7 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
       CopilotRuntime,
       createCopilotRuntimeHandler,
       InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
+    } from "@copilotkit/runtime";
     import { HttpAgent } from "@ag-ui/client";
     import { A2AMiddlewareAgent } from "@ag-ui/a2a-middleware";
 
@@ -161,43 +161,32 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
 
   <FrontendOnly frontend="react">
   <Step>
-    ### Add a `useFrontendTool` to your Frontend
-    Inside the chat component, we'll display the messages between the orchestrator and the a2a agents using the `useFrontendTool` hook.
-    The tool the middleware provides for communication is called `send_message_to_a2a_agent`.
+    ### Add a `useRenderTool` to your Frontend
+    Inside the chat component, we'll display the messages between the orchestrator and the a2a agents using the `useRenderTool` hook.
+    The tool the middleware provides for communication is called `send_message_to_a2a_agent`. The middleware runs that tool, so the frontend only renders it.
 
     ```tsx title="components/chat.tsx"
+    import { CopilotChat, useRenderTool } from "@copilotkit/react-core";
+    import { z } from "zod";
+    import { MessageToA2A } from "./a2a/MessageToA2A";
+    import { MessageFromA2A } from "./a2a/MessageFromA2A";
 
-    function YourMainContent() {
-      // ...
-
-      useFrontendTool({
+    export function YourMainContent() {
+      useRenderTool({
         name: "send_message_to_a2a_agent",
-        description: "Sends a message to an A2A agent",
-        available: "frontend",
-        parameters: [
-          {
-            name: "agentName",
-            type: "string",
-            description: "The name of the A2A agent to send the message to",
-          },
-          {
-            name: "task",
-            type: "string",
-            description: "The message to send to the A2A agent",
-          },
-        ],
-        render: (actionRenderProps) => {
-          return (
-            <>
-              <MessageToA2A {...actionRenderProps} />
-              <MessageFromA2A {...actionRenderProps} />
-            </>
-          );
-        },
+        parameters: z.object({
+          agentName: z.string().describe("The name of the A2A agent to send the message to"),
+          task: z.string().describe("The message to send to the A2A agent"),
+        }),
+        render: (props) => (
+          <>
+            <MessageToA2A {...props} />
+            <MessageFromA2A {...props} />
+          </>
+        ),
       });
 
-
-      // ...
+      return <CopilotChat agentId="a2a_chat" />;
     }
     ```
 
@@ -207,16 +196,17 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
     If status is "inProgress", we've been informed that a message will be sent, but it hasn't finished sending yet, so we don't render anything.
 
     ```tsx title="components/a2a/MessageToA2A.tsx"
+    import { getAgentStyle, truncateTask } from "./agent-styles"; // Your styling helpers.
 
     type MessageActionRenderProps = {
-      status: string;
-      args: {
+      status: "inProgress" | "executing" | "complete";
+      parameters: {
         agentName?: string;
         task?: string;
       };
     };
 
-    export const MessageToA2A: React.FC<MessageActionRenderProps> = ({ status, args }) => {
+    export function MessageToA2A({ status, parameters: args }: MessageActionRenderProps) {
       switch (status) {
         case "executing":
         case "complete":
@@ -263,7 +253,7 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
           </div>
         </div>
       );
-    };
+    }
     ```
 
     Last we define the rendering for a a response from the A2A agent to the orchestrator.
@@ -271,16 +261,17 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
     If you wanted to, you could render a loading state when status is `executing`, but you likely wouldn't when status is `inProgress`, since
     we haven't even sent the message yet.
 
-    ```tsx title="components/a2a/MessageToA2A.tsx"
+    ```tsx title="components/a2a/MessageFromA2A.tsx"
+    import { getAgentStyle } from "./agent-styles"; // Your styling helpers.
 
     type MessageActionRenderProps = {
-      status: string;
-      args: {
+      status: "inProgress" | "executing" | "complete";
+      parameters: {
         agentName?: string;
       };
     };
 
-    export const MessageFromA2A: React.FC<MessageActionRenderProps> = ({ status, args }) => {
+    export function MessageFromA2A({ status, parameters: args }: MessageActionRenderProps) {
       switch (status) {
         case "complete":
           break;
@@ -326,7 +317,7 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
           </div>
         </div>
       );
-    };
+    }
     ```
 
   </Step>

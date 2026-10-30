@@ -25,13 +25,18 @@
     Now that you've chosen your component, just import it and use it in your page!
 
     ```tsx filename="page.tsx"
-    import { CopilotChat, CopilotSidebar, CopilotPopup } from "@copilotkit/react-core/v2";
+    import { CopilotChat, CopilotSidebar, CopilotPopup } from "@copilotkit/react-core";
 
-    return <div>
-      <CopilotChat />
-      <CopilotSidebar />
-      <CopilotPopup />
-    </div>
+    // Pick the one component you chose above.
+    export default function Page() {
+      return (
+        <div>
+          <CopilotChat />
+          <CopilotSidebar />
+          <CopilotPopup />
+        </div>
+      );
+    }
     ```
 
   </Step>

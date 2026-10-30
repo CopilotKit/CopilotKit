@@ -28,9 +28,13 @@ The hook returns normalized thread records with only the fields the Vue UI consu
 ## Signature
 
 ```ts
-import { useThreads } from "@copilotkit/vue/v2";
+import {
+  useThreads,
+  type UseThreadsInput,
+  type UseThreadsResult,
+} from "@copilotkit/vue/v2";
 
-function useThreads(input: UseThreadsInput): UseThreadsResult;
+useThreads satisfies (input: UseThreadsInput) => UseThreadsResult;
 ```
 
 ## Parameters

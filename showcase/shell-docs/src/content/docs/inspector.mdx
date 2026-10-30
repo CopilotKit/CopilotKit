@@ -89,7 +89,7 @@ load error can only be routed there after that first visit.
 Inspector is best for locating the failing layer during development. If the
 event stream stops before it reaches the browser, enable [Runtime Debug
 Mode](/troubleshooting/debug-mode) to inspect the server-side pipeline. Use
-`onError` on `CopilotKit` or `CopilotChat` when the application UI or your
+`onError` on `CopilotKitProvider` or `CopilotChat` when the application UI or your
 production observability system should also receive the error. See [Error
 Debugging & Observability](/troubleshooting/error-debugging) for that setup.
 
@@ -285,12 +285,16 @@ localStorage.removeItem("cpk:inspector:dismissed_until");
 To disable Inspector in a React development build:
 
 ```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  enableInspector={false}
->
-  {children}
-</CopilotKit>
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" enableInspector={false}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 For cloud-hosted Intelligence, keep `CPK_INTELLIGENCE_API_KEY` on the runtime server.
@@ -302,7 +306,7 @@ Vue uses the template prop `:enable-inspector="false"`. Angular uses
 Inspector enabled in development but cannot override production or
 server-rendering guards. Legacy `showDevConsole` props no longer control it.
 
-See the [`CopilotKit` provider reference](/reference/components/CopilotKit) for
+See the [`CopilotKitProvider` reference](/reference/components/CopilotKit) for
 the complete React provider API.
 
 Inspector is never loaded or rendered in a production build or during

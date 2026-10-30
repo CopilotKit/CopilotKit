@@ -166,7 +166,7 @@ Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/
 
         <Step>
             ### Setup the CopilotKit Provider
-            The [`<CopilotKit>`](/reference/v1/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
+            The [`<CopilotKitProvider>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
             it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
             <CloudCopilotKit />
@@ -182,6 +182,14 @@ Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/
 
             ```tsx title="page.tsx"
             "use client";
+
+            import { useState } from "react";
+            import {
+              CopilotChat,
+              CopilotKitProvider,
+              useFrontendTool,
+            } from "@copilotkit/react-core";
+            import { z } from "zod";
 
             const publicApiKey = process.env.NEXT_PUBLIC_COPILOT_API_KEY || "";
             /**
@@ -223,7 +231,7 @@ Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/
                         className="h-full"
                         labels={{
                           welcomeMessageText: "Hi, I'm an agent. Want to chat?",
-                          placeholder: "Type a message...",
+                          chatInputPlaceholder: "Type a message...",
                         }}
                       />
                     </div>
@@ -233,10 +241,10 @@ Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/
             }
 
             // App Component: Main wrapper that provides CopilotKit context
-            const CrewAIFlow: React.FC = () => (
-              <CopilotKit publicApiKey={publicApiKey} agent={agentName}>
+            const CrewAIFlow = () => (
+              <CopilotKitProvider publicApiKey={publicApiKey} agentId={agentName}>
                 <Chat />
-              </CopilotKit>
+              </CopilotKitProvider>
             );
 
             export default CrewAIFlow;

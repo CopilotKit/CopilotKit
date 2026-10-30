@@ -11,17 +11,27 @@ The standard components look neutral by default. You want them to use your accen
 Every color, radius, shadow, and font of the standard components is a CSS variable. Set the variables with the `theme` option:
 
 ```tsx
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  generativeUI={{
-    ui: standardUI,
-    theme: {
-      "--a2ui-color-accent": "#d97706",
-      "--a2ui-font-family": "Inter, sans-serif",
-      "--a2ui-radius-md": "10px",
-    },
-  }}
->
+"use client";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import { standardUI } from "@copilotkit/react-core/generative-ui";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      generativeUI={{
+        ui: standardUI,
+        theme: {
+          "--a2ui-color-accent": "#d97706",
+          "--a2ui-font-family": "Inter, sans-serif",
+          "--a2ui-radius-md": "10px",
+        },
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 The keys are typed. A name that the components do not read, such as `"--a2ui-color-acent"`, is a type error.
@@ -40,7 +50,7 @@ The keys are typed. A name that the components do not read, such as `"--a2ui-col
 Your editor lists all of them when you type a key in `theme`. To type a theme in its own file, use `GenerativeUITheme`:
 
 ```ts
-import type { GenerativeUITheme } from "@copilotkit/react-core/v2/generative-ui";
+import type { GenerativeUITheme } from "@copilotkit/react-core/generative-ui";
 
 export const theme: GenerativeUITheme = { "--a2ui-color-accent": "#d97706" };
 ```
@@ -55,7 +65,7 @@ Dark mode is built in. The standard components switch to dark colors when an anc
 
 If your app already switches dark mode with a `dark` class, there is nothing to do. To follow the system setting, set the class with a small script in the `<head>`, so the page does not flash:
 
-```tsx
+```tsx title="app/layout.tsx"
 const colorSchemeScript = `(() => {
   const media = matchMedia("(prefers-color-scheme: dark)");
   const apply = () => document.documentElement.classList.toggle("dark", media.matches);
@@ -63,23 +73,32 @@ const colorSchemeScript = `(() => {
   media.addEventListener("change", apply);
 })();`;
 
-<head>
-  <script dangerouslySetInnerHTML={{ __html: colorSchemeScript }} />
-</head>;
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: colorSchemeScript }} />
+      </head>
+      <body>{children}</body>
+    </html>
+  );
+}
 ```
 
 ## Colors for each mode
 
 Values at the top level of `theme` apply in light and in dark mode. Values in `dark` replace them in dark mode only:
 
-```tsx
-theme: {
+```ts
+import type { GenerativeUITheme } from "@copilotkit/react-core/generative-ui";
+
+export const theme = {
   "--a2ui-color-accent": "#d97706",
   dark: {
     "--a2ui-color-panel": "#1f2937",
     "--a2ui-color-surface": "#111827",
   },
-},
+} satisfies GenerativeUITheme;
 ```
 
 So a brand accent goes at the top level once, and only the colors that differ in dark mode go in `dark`.
@@ -88,11 +107,13 @@ So a brand accent goes at the top level once, and only the colors that differ in
 
 The `Map` component draws a light basemap, and a dark one in dark mode. Set your own [MapLibre style](https://maplibre.org/maplibre-style-spec/) for each mode:
 
-```tsx
-theme: {
+```ts
+import type { GenerativeUITheme } from "@copilotkit/react-core/generative-ui";
+
+export const theme = {
   mapStyle: "https://tiles.example.com/light.json",
   dark: { mapStyle: "https://tiles.example.com/dark.json" },
-},
+} satisfies GenerativeUITheme;
 ```
 
 ## Set variables in CSS

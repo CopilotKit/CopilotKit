@@ -89,6 +89,11 @@ agent = AgentFrameworkAgent(agent=base_agent)
 Enable A2UI in your CopilotRuntime. The middleware auto-detects A2UI operations in any tool result, so no tool injection is needed here — the agent's `display_flight` tool returns them directly.
 
 ```typescript title="app/api/copilotkit-a2ui-fixed-schema/route.ts"
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { HttpAgent } from "@ag-ui/client";
+
+const fixedSchemaAgent = new HttpAgent({ url: "http://localhost:8000/" });
+
 const runtime = new CopilotRuntime({
   agents: { "a2ui-fixed-schema": fixedSchemaAgent },
   a2ui: {

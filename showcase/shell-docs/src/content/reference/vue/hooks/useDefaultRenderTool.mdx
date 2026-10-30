@@ -33,7 +33,7 @@ type DefaultRenderProps = {
   result: string | undefined;
 };
 
-function useDefaultRenderTool(
+useDefaultRenderTool satisfies (
   config?: {
     render?:
       | ((props: DefaultRenderProps) => VNodeChild)
@@ -41,7 +41,7 @@ function useDefaultRenderTool(
     group?: boolean;
   },
   deps?: WatchSource<unknown>[],
-): void;
+) => void;
 ```
 
 ## Parameters

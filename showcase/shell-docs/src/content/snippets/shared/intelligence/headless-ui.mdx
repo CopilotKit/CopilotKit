@@ -6,24 +6,13 @@ import {
   BookOpen,
 } from "lucide-react";
 
-<OpsPlatformCTA
-  variant="card"
-  title="Headless UI requires a CopilotKit Intelligence license key"
-  body="Sign up for a free account to get a public license key and unlock the headless hooks."
-  ctaLabel="Create a free account"
-  surface="docs_intelligence_headless_ui"
-/>
-
 ## Overview
 
-Headless UI uses the `useCopilotChatHeadless_c` hook. You build the chat UI. CopilotKit still runs threads, generative UI, suggestions, and interrupts.
+Headless UI uses the `useAgent` and `useCopilotKit` hooks. You build the chat UI. CopilotKit still runs threads, generative UI, suggestions, and human-in-the-loop.
 
-<Callout type="warn">
-  **This hook needs a public license key.**
-  Self-hosted and open-source projects use that key. A cloud-hosted project uses
-  `CPK_INTELLIGENCE_API_KEY` and does not include this hook. If the CopilotKit CLI
-  created your project, build the UI with the v2 primitives in
-  [Headless UI](/built-in-agent/custom-look-and-feel/headless-ui).
+<Callout type="info">
+  For the full composition (reasoning messages, activity messages, and custom
+  message slots), see [Headless UI](/built-in-agent/custom-look-and-feel/headless-ui).
 </Callout>
 
 ## Navigation
@@ -63,8 +52,8 @@ This page has all the information you need to get started with CopilotKit's head
     icon={<BookOpen className="text-primary" />}
     className="p-6 rounded-xl text-base"
     title="Reference"
-    description="Reference documentation for the `useCopilotChatHeadless_c` hook."
-    href="/reference/v1/hooks/useCopilotChatHeadless_c"
+    description="Reference documentation for the `useAgent` hook."
+    href="/reference/hooks/useAgent"
   />
 </Cards>
 
@@ -79,60 +68,61 @@ This page has all the information you need to get started with CopilotKit's head
   muted
 />
 
-These steps need a `publicLicenseKey`. `npx copilotkit@latest create` creates a
-**cloud-hosted** project, which receives `CPK_INTELLIGENCE_API_KEY` and no license
-key, so do not follow this section for a CLI-scaffolded project. Use
-[Headless UI](/built-in-agent/custom-look-and-feel/headless-ui) instead.
-
 <Steps>
 <Step>
 ### Create a new application
 
-Scaffold a self-hosted or open-source CopilotKit project:
+Scaffold a CopilotKit project:
 
 ```bash
 npx copilotkit@latest create
 ```
-
-Then [self-host the Runtime](/intelligence/self-hosting) and get a free public
-license key for the provider.
 </Step>
 
 <Step>
-### Wire your CopilotKit provider with a license key
+### Wire your CopilotKit provider
 
-Wrap your root layout with `CopilotKit` and pass in your public license key:
+Wrap your root layout with `CopilotKitProvider` and point it at your runtime:
 
 ```tsx title="src/app/layout.tsx"
-<CopilotKit publicLicenseKey="your-free-public-license-key">
-  {children}
-</CopilotKit>
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <CopilotKitProvider runtimeUrl="/api/copilotkit">
+          {children}
+        </CopilotKitProvider>
+      </body>
+    </html>
+  );
+}
 ```
 </Step>
 
 <Step>
 ### Build a headless chat component
 
-Use `useCopilotChatHeadless_c` to access messages, a send function, and loading state, then wire them to your own UI:
+Use `useAgent` to read the messages and running state, and `useCopilotKit` to run the agent. Then wire them to your own UI:
 
 ```tsx title="src/app/page.tsx"
 "use client";
 import { useState } from "react";
-import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core";
+import { randomUUID } from "@copilotkit/shared";
 
 export default function Home() {
-  const { messages, sendMessage, isLoading } = useCopilotChatHeadless_c();
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
   const [input, setInput] = useState("");
 
-  const handleSend = () => {
-    if (input.trim()) {
-      sendMessage({
-        id: Date.now().toString(),
-        role: "user",
-        content: input,
-      });
-      setInput("");
-    }
+  const handleSend = async () => {
+    if (!input.trim()) return;
+    agent.addMessage({ id: randomUUID(), role: "user", content: input });
+    setInput("");
+    await copilotkit.runAgent({ agent });
   };
 
   return (
@@ -140,13 +130,13 @@ export default function Home() {
       <h1>My Headless Chat</h1>
 
       <div>
-        {messages.map((message) => (
+        {agent.messages.map((message) => (
           <div key={message.id}>
             <strong>{message.role === "user" ? "You" : "Assistant"}:</strong>
-            <p>{message.content}</p>
+            {typeof message.content === "string" && <p>{message.content}</p>}
           </div>
         ))}
-        {isLoading && <p>Assistant is typing...</p>}
+        {agent.isRunning && <p>Assistant is typing...</p>}
       </div>
 
       <div>
@@ -156,7 +146,7 @@ export default function Home() {
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
           placeholder="Type your message here..."
         />
-        <button onClick={handleSend} disabled={isLoading}>
+        <button onClick={handleSend} disabled={agent.isRunning}>
           Send
         </button>
       </div>
@@ -164,12 +154,15 @@ export default function Home() {
   );
 }
 ```
+
+A message's `content` is a string for text. Other messages can carry content
+parts or no content, so the example renders only string content.
 </Step>
 </Steps>
 
 ## Working with generative UI
 
-You can render generative UI either via `useFrontendTool` / `useComponent`, or by reading tools and rendering them directly.
+You can render generative UI either via `useFrontendTool` / `useComponent`, or by reading tool calls and rendering them directly.
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/videos/gen-ui.mp4"
@@ -182,18 +175,24 @@ You can render generative UI either via `useFrontendTool` / `useComponent`, or b
 
 ### With `useFrontendTool`
 
-Register a frontend tool and attach a render function. CopilotKit inserts your component wherever that tool call appears in the message stream:
+Register a frontend tool and attach a render function. `useRenderToolCall` returns a function that paints the registered renderer for a tool call, so call it for each tool call in the message stream:
 
 ```tsx title="src/app/components/chat.tsx"
-import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
-import { useFrontendTool } from "@copilotkit/react-core/v2";
+import {
+  useAgent,
+  useFrontendTool,
+  useRenderToolCall,
+  type ToolMessage,
+} from "@copilotkit/react-core";
 
 export const Chat = () => {
-  const { messages } = useCopilotChatHeadless_c();
+  const { agent } = useAgent();
+  const renderToolCall = useRenderToolCall();
 
   useFrontendTool({
     name: "showCustomComponent",
-    handler: () => "Foo, Bar, Baz",
+    description: "Show a custom component in the chat.",
+    handler: async () => "Foo, Bar, Baz",
     render: ({ result, args, status }) => (
       <div
         style={{
@@ -212,12 +211,23 @@ export const Chat = () => {
 
   return (
     <div>
-      {messages.map((message) => (
-        <p key={message.id}>
+      {agent.messages.map((message) => (
+        <div key={message.id}>
           {message.role === "user" ? "User: " : "Assistant: "}
-          {message.content}
-          {message.role === "assistant" && message.generativeUI?.()}
-        </p>
+          {typeof message.content === "string" && message.content}
+          {message.role === "assistant" &&
+            message.toolCalls?.map((toolCall) => {
+              const toolMessage = agent.messages.find(
+                (m): m is ToolMessage =>
+                  m.role === "tool" && m.toolCallId === toolCall.id,
+              );
+              return (
+                <div key={toolCall.id}>
+                  {renderToolCall({ toolCall, toolMessage })}
+                </div>
+              );
+            })}
+        </div>
       ))}
     </div>
   );
@@ -226,25 +236,25 @@ export const Chat = () => {
 
 ### With raw tool-call data
 
-If you don't want to use `useFrontendTool`, render the raw data directly:
+If you don't want to use a renderer, render the raw data directly:
 
 ```tsx title="src/app/components/chat.tsx"
-import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
+import { useAgent } from "@copilotkit/react-core";
 
 export const Chat = () => {
-  const { messages } = useCopilotChatHeadless_c();
+  const { agent } = useAgent();
 
   return (
     <div>
-      {messages.map((message) => (
-        <p key={message.id}>
+      {agent.messages.map((message) => (
+        <div key={message.id}>
           {message.role === "assistant" &&
             message.toolCalls?.map((toolCall) => (
               <p key={toolCall.id}>
                 {toolCall.function.name}: {toolCall.function.arguments}
               </p>
             ))}
-        </p>
+        </div>
       ))}
     </div>
   );
@@ -253,7 +263,7 @@ export const Chat = () => {
 
 ## Working with suggestions
 
-CopilotKit's suggestions give users a list of generated or static prompts. The headless hook exposes full control over the lifecycle.
+CopilotKit's suggestions give users a list of generated or static prompts. In a headless UI, `useConfigureSuggestions` sets them up and `useSuggestions` reads them.
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/videos/suggestions.mp4"
@@ -266,63 +276,69 @@ CopilotKit's suggestions give users a list of generated or static prompts. The h
 
 ### Generating suggestions
 
-Use `useCopilotChatSuggestions` to generate and display prompt suggestions in your headless UI:
+Give `useConfigureSuggestions` instructions to generate suggestions, and display them with `useSuggestions`:
 
 ```tsx title="src/app/components/chat.tsx"
 import {
-  useCopilotChatHeadless_c,
-  useCopilotChatSuggestions,
+  useAgent,
+  useConfigureSuggestions,
+  useCopilotKit,
+  useSuggestions,
 } from "@copilotkit/react-core";
-import { useEffect } from "react";
+import { randomUUID } from "@copilotkit/shared";
 
 export const Chat = () => {
-  useCopilotChatSuggestions({
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+
+  useConfigureSuggestions({
     instructions:
       "Suggest 5 interesting activities for programmers to do on their next vacation",
     maxSuggestions: 5,
+    available: "always",
   });
 
-  const { suggestions, generateSuggestions, sendMessage } =
-    useCopilotChatHeadless_c();
+  const { suggestions, reloadSuggestions } = useSuggestions();
 
-  useEffect(() => {
-    generateSuggestions();
-  }, []);
+  const send = async (message: string) => {
+    agent.addMessage({ id: randomUUID(), role: "user", content: message });
+    await copilotkit.runAgent({ agent });
+  };
 
   return (
     <div>
-      {suggestions.map((s, i) => (
+      {suggestions.map((suggestion) => (
         <button
-          key={i}
-          onClick={() =>
-            sendMessage({
-              id: Date.now().toString(),
-              role: "user",
-              content: s.message,
-            })
-          }
+          key={suggestion.title}
+          disabled={suggestion.isLoading}
+          onClick={() => send(suggestion.message)}
         >
-          {s.title}
+          {suggestion.title}
         </button>
       ))}
+      <button onClick={reloadSuggestions}>Refresh suggestions</button>
     </div>
   );
 };
 ```
 
-### Programmatic suggestions
+### Static suggestions
 
-If you want deterministic control, set suggestions manually:
+If you want deterministic control, pass the suggestions yourself:
 
 ```tsx
-const { suggestions, setSuggestions } = useCopilotChatHeadless_c();
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 
-useEffect(() => {
-  setSuggestions([
-    { title: "Suggestion 1", message: "The actual message for suggestion 1" },
-    { title: "Suggestion 2", message: "The actual message for suggestion 2" },
-  ]);
-}, []);
+export function StaticSuggestions() {
+  useConfigureSuggestions({
+    suggestions: [
+      { title: "Suggestion 1", message: "The actual message for suggestion 1" },
+      { title: "Suggestion 2", message: "The actual message for suggestion 2" },
+    ],
+  });
+
+  return null;
+}
 ```
 
 ## Working with human-in-the-loop
@@ -340,15 +356,21 @@ Human-in-the-loop (HITL) pauses the chat and waits for the user's input. It come
 
 ### Tool-based
 
-Tool-based HITL pauses tool execution until the user responds. The response becomes the tool's result.
+Tool-based HITL pauses tool execution until the user responds. The response becomes the tool's result. Register the tool with `useHumanInTheLoop`, and render it in your message list with `useRenderToolCall` as in [With `useFrontendTool`](#with-usefrontendtool):
 
-```tsx title="src/app/components/chat.tsx"
+```tsx title="src/app/components/name-tool.tsx"
 import { useState } from "react";
-import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
-import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { useHumanInTheLoop } from "@copilotkit/react-core";
+import { z } from "zod";
 
-const NameForm = ({ defaultName, onSubmit }) => {
-  const [name, setName] = useState(defaultName || "");
+function NameForm({
+  defaultName,
+  onSubmit,
+}: {
+  defaultName?: string;
+  onSubmit: (name: string) => void;
+}) {
+  const [name, setName] = useState(defaultName ?? "");
 
   return (
     <div>
@@ -357,35 +379,26 @@ const NameForm = ({ defaultName, onSubmit }) => {
         onChange={(e) => setName(e.target.value)}
         placeholder="Enter your name"
       />
-      <button onClick={() => onSubmit?.(name)}>Submit</button>
+      <button onClick={() => onSubmit(name)}>Submit</button>
     </div>
   );
-};
+}
 
-export const Chat = () => {
-  const { messages } = useCopilotChatHeadless_c();
-
-  useFrontendTool({
+export function NameTool() {
+  useHumanInTheLoop({
     name: "getName",
-    renderAndWaitForResponse: ({ respond, args, status }) => {
-      if (status === "complete") return <div>Name retrieved…</div>;
-
-      // `respond` resolves the pending tool call, so call it only on submit.
-      // Editing the field must not complete the turn on the first keystroke.
+    description: "Ask the user for their name.",
+    parameters: z.object({ name: z.string().optional() }),
+    render: ({ respond, args, result }) => {
+      if (result !== undefined) return <div>Name retrieved…</div>;
+      // `respond` is set only while the tool waits for the user. It resolves
+      // the pending tool call, so call it only on submit: editing the field
+      // must not complete the turn on the first keystroke.
+      if (!respond) return <div>Loading…</div>;
       return <NameForm defaultName={args.name} onSubmit={respond} />;
     },
   });
 
-  return (
-    <>
-      {messages.map((message) => (
-        <p key={message.id}>
-          {message.role === "user" ? "User: " : "Assistant: "}
-          {message.content}
-          {message.role === "assistant" && message.generativeUI?.()}
-        </p>
-      ))}
-    </>
-  );
-};
+  return null;
+}
 ```

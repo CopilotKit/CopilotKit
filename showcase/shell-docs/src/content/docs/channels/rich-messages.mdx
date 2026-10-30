@@ -69,6 +69,11 @@ export function IncidentCard(props: {
 Post the component from a message handler or tool:
 
 ```tsx title="channel.tsx"
+import { createChannel } from "@copilotkit/channels";
+import { IncidentCard } from "./incident-card.js";
+
+const channel = createChannel({ name: "support", identifyUser: "platform" });
+
 channel.onMessage(async ({ thread }) => {
   await thread.post(
     <IncidentCard
@@ -147,9 +152,27 @@ spacing, colors, and typography remain provider-owned.
 managed delivery:
 
 ```tsx title="update.tsx"
-const ref = await thread.post(<IncidentCard {...incident} status="Loading" />);
+import { createChannel } from "@copilotkit/channels";
+import { IncidentCard } from "./incident-card.js";
 
-await thread.update(ref, <IncidentCard {...incident} status="Investigating" />);
+const channel = createChannel({ name: "support", identifyUser: "platform" });
+
+const incident = {
+  id: "INC-421",
+  summary: "Checkout latency is above the SLO.",
+  owner: "Payments",
+};
+
+channel.onMessage(async ({ thread }) => {
+  const ref = await thread.post(
+    <IncidentCard {...incident} status="Loading" />,
+  );
+
+  await thread.update(
+    ref,
+    <IncidentCard {...incident} status="Investigating" />,
+  );
+});
 ```
 
 Do not persist that ref and assume it remains updateable in a later delivery.

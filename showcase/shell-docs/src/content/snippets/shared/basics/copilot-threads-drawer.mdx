@@ -61,12 +61,11 @@ selecting a row connects the chat to that thread and replays its history; the
 example shows the essential structure to add to an existing app or preserve
 while customizing a starter.
 
-<Callout type="warn">
-  **The Drawer ships only in `@copilotkit/react-core/v2`.** There is no v1
-  Drawer, so take the Drawer, the chat and the provider from that one package.
-  Watch the import path: `@copilotkit/react-ui` is the [deprecated v1
-  package](/migrate/v2) and it exports its own `CopilotChat` and
-  `CopilotSidebar` under those same names.
+<Callout type="info">
+  **The Drawer, the chat and the provider all come from
+  `@copilotkit/react-core`.** There is no v1 Drawer. If you are upgrading, the
+  v1 `@copilotkit/react-ui` package was removed in 2.0; see
+  [Migrate to 2.0](/migrate/v2).
 </Callout>
 
 ```tsx title="app/page.tsx"
@@ -75,7 +74,7 @@ import {
   CopilotChatConfigurationProvider,
   CopilotChat,
   CopilotThreadsDrawer,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 export default function Page() {
   return (
@@ -110,7 +109,8 @@ import {
   CopilotChatConfigurationProvider,
   CopilotSidebar,
   CopilotThreadsDrawer,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
+import { YourMainContent } from "./your-main-content";
 
 export default function Page() {
   return (
@@ -153,7 +153,7 @@ import {
   CopilotChat,
   CopilotThreadsDrawer,
   useCopilotChatConfiguration,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 function NewConversationButton() {
   const configuration = useCopilotChatConfiguration(); // [!code highlight]
@@ -205,8 +205,15 @@ How it works:
   button runs the same code as `onNewThread`:
 
   ```tsx
+  import { useState } from "react";
+  import {
+    CopilotChat,
+    CopilotChatConfigurationProvider,
+    CopilotThreadsDrawer,
+  } from "@copilotkit/react-core";
+
   function ControlledChat() {
-    const [threadId, setThreadId] = useState(() => crypto.randomUUID());
+    const [threadId, setThreadId] = useState<string>(() => crypto.randomUUID());
     const startNew = () => setThreadId(crypto.randomUUID());
 
     return (
@@ -242,21 +249,21 @@ finds, in this order:
 
 1. The drawer's own `agentId` prop.
 2. The `agentId` of the nearest `<CopilotChatConfigurationProvider>`.
-   `<CopilotKit>` renders one of these around your app with its `agent` prop,
-   so under `<CopilotKit agent="...">` the drawer stops here. Without `agent`,
-   it resolves to `"default"`.
 3. The `agentId` on `<CopilotKitProvider>`.
 4. `"default"`.
 
-Most framework quickstarts use `<CopilotKit agent="...">`. The built-in agent
-and LangGraph quickstarts use `<CopilotKitProvider agentId="...">`. The drawer
-finds the agent under either one.
+The quickstarts set `<CopilotKitProvider agentId="...">`, so the drawer finds
+the agent there unless a closer source overrides it.
 
 If your runtime registers several agents, the drawer shows only the threads of
 the agent it resolved. To list another agent's threads, pass that agent's ID:
 
 ```tsx
-<CopilotThreadsDrawer agentId="research_agent" />
+import { CopilotThreadsDrawer } from "@copilotkit/react-core";
+
+export function ResearchThreads() {
+  return <CopilotThreadsDrawer agentId="research_agent" />;
+}
 ```
 
 `<CopilotChat>` resolves its agent in the same order. To move the drawer and
@@ -285,15 +292,28 @@ The drawer renders in a shadow root with self-contained, theme-inheriting
 styles, so it looks correct in any app (including dark mode) with no config.
 Three bounded escape hatches pierce the boundary:
 
-- **Slots**: project children with a `slot` attribute (`header`, `empty`, `footer`, `memories`, `launcher-icon`):
+- **Per-row content**: the `renderRow` prop projects custom content into each row while the element keeps selection, archived styling, and the per-row kebab menu (Archive/Delete).
 
   ```tsx
-  <CopilotThreadsDrawer>
-    <span slot="header">My conversations</span>
-  </CopilotThreadsDrawer>
+  import { CopilotThreadsDrawer } from "@copilotkit/react-core";
+
+  export function Threads() {
+    return (
+      <CopilotThreadsDrawer
+        renderRow={(thread) => <strong>{thread.name ?? "Untitled"}</strong>}
+      />
+    );
+  }
   ```
 
-- **Per-row content**: the `renderRow` prop projects custom content into each row while the element keeps selection, archived styling, and the per-row kebab menu (Archive/Delete).
+- **Slots**: the underlying `<copilotkit-threads-drawer>` element takes children with a `slot` attribute (`header`, `empty`, `footer`, `memories`, `launcher-icon`). The React `CopilotThreadsDrawer` does not accept `children`, so to fill these slots use the element directly (from `@copilotkit/web-components/threads-drawer`):
+
+  ```html
+  <copilotkit-threads-drawer>
+    <span slot="header">My conversations</span>
+  </copilotkit-threads-drawer>
+  ```
+
 - **CSS parts + variable tokens**: restyle structural `::part()`s or override `--cpk-drawer-*` tokens. The full list is in the [reference](/reference/components/CopilotThreadsDrawer#customization).
 
 ## Intelligence access

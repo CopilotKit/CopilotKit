@@ -16,11 +16,26 @@ The composable returns `{ agent }`, where `agent` is typed as a Vue `shallowRef<
 ## Signature
 
 ```ts
-import { useAgent } from "@copilotkit/vue/v2";
-import type { ShallowRef } from "vue";
+import { useAgent, type UseAgentUpdate } from "@copilotkit/vue/v2";
+import type { MaybeRefOrGetter, ShallowRef } from "vue";
 import type { AbstractAgent } from "@ag-ui/client";
 
-function useAgent(props?: UseAgentProps): {
+// UseAgentProps: bind to a shared agent, or bind a private agent to a thread.
+useAgent satisfies (
+  props?:
+    | {
+        agentId?: MaybeRefOrGetter<string | undefined>;
+        updates?: UseAgentUpdate[];
+        throttleMs?: MaybeRefOrGetter<number | undefined>;
+      }
+    | {
+        agentId: MaybeRefOrGetter<string>;
+        runtimeAgentId: MaybeRefOrGetter<string>;
+        threadId: MaybeRefOrGetter<string>;
+        updates?: UseAgentUpdate[];
+        throttleMs?: MaybeRefOrGetter<number | undefined>;
+      },
+) => {
   agent: ShallowRef<AbstractAgent | null>;
 };
 ```
@@ -115,14 +130,23 @@ Reactive props accept `MaybeRefOrGetter`, so you can pass a plain value, a `ref`
 
       **Example:**
       ```ts
-      const { copilotkit } = useCopilotKit();
+      import { useAgent, useCopilotKit } from "@copilotkit/vue/v2";
 
-      if (agent.value) {
-        const { result, newMessages } = await copilotkit.value.runAgent({
-          agent: agent.value,
-          // Any data your agent reads from the run input.
-          forwardedProps: { source: "refresh-button" },
-        });
+      export function useRefreshAgent() {
+        const { agent } = useAgent();
+        const { copilotkit } = useCopilotKit();
+
+        async function refresh() {
+          if (!agent.value) return;
+          const { result, newMessages } = await copilotkit.value.runAgent({
+            agent: agent.value,
+            // Any data your agent reads from the run input.
+            forwardedProps: { source: "refresh-button" },
+          });
+          console.log(result, newMessages.length);
+        }
+
+        return { refresh };
       }
       ```
     </PropertyReference>
@@ -132,10 +156,20 @@ Reactive props accept `MaybeRefOrGetter`, so you can pass a plain value, a `ref`
 
       **Example:**
       ```ts
-      agent.value.setState({
-        ...agent.value.state,
-        theme: "dark",
-      });
+      import { useAgent } from "@copilotkit/vue/v2";
+
+      export function useDarkMode() {
+        const { agent } = useAgent();
+
+        function enableDarkMode() {
+          agent.value?.setState({
+            ...agent.value.state,
+            theme: "dark",
+          });
+        }
+
+        return { enableDarkMode };
+      }
       ```
     </PropertyReference>
 

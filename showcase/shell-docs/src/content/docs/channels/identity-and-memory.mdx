@@ -56,8 +56,7 @@ event.
     external-identity key.
 
     ```ts title="channel.ts"
-    import { createChannel } from "@copilotkit/channels";
-    import { makeAgent } from "./agent.js";
+    import { createChannel, HttpAgent } from "@copilotkit/channels";
 
     const linkedAccounts = new Map([
       [
@@ -70,7 +69,8 @@ event.
       name: "support",
       identifyUser: async ({ provider, tenant, actor }) =>
         linkedAccounts.get(`${provider}:${tenant.id}:${actor.id}`) ?? null,
-      agent: makeAgent,
+      agent: (threadId) =>
+        new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
     });
     ```
 
@@ -83,8 +83,7 @@ event.
     contain several actors, so include the tenant in the external-identity key.
 
     ```ts title="channel.ts"
-    import { createChannel } from "@copilotkit/channels";
-    import { makeAgent } from "./agent.js";
+    import { createChannel, HttpAgent } from "@copilotkit/channels";
 
     const linkedAccounts = new Map([
       [
@@ -97,7 +96,8 @@ event.
       name: "support",
       identifyUser: async ({ provider, tenant, actor }) =>
         linkedAccounts.get(`${provider}:${tenant.id}:${actor.id}`) ?? null,
-      agent: makeAgent,
+      agent: (threadId) =>
+        new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
     });
     ```
 
@@ -123,6 +123,15 @@ event.
     `"read-write"`:
 
     ```ts title="channel.ts"
+    import { createChannel, HttpAgent } from "@copilotkit/channels";
+
+    const channel = createChannel({
+      name: "support",
+      identifyUser: "platform",
+      agent: (threadId) =>
+        new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
+    });
+
     channel.onMessage(async ({ thread, message }) => {
       await thread.runAgent({
         prompt: message.text,

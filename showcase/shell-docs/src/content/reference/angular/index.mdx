@@ -29,6 +29,8 @@ If your Content-Security-Policy limits `style-src` to a nonce, provide it with A
 
 ```ts title="src/app/app.config.ts"
 import { ApplicationConfig, CSP_NONCE } from "@angular/core";
+// The nonce your server puts in the Content-Security-Policy header.
+import { nonce } from "./csp-nonce";
 
 export const appConfig: ApplicationConfig = {
   providers: [{ provide: CSP_NONCE, useValue: nonce }],
@@ -46,10 +48,17 @@ The `<style>` tag is part of your JavaScript, so browsers cache it with your app
 ```
 
 ```ts title="src/app/app.config.ts"
-provideCopilotKit({
-  runtimeUrl: "/api/copilotkit",
-  injectStyles: false,
-}),
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "/api/copilotkit",
+      injectStyles: false,
+    }),
+  ],
+};
 ```
 
 This is optional. Install `@copilotkit/core` as a direct dependency so the path resolves.

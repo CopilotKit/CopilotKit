@@ -215,7 +215,19 @@ Configure `memory.access` whenever either surface is on.
 </Callout>
 
 ```ts title="runtime.ts"
+import {
+  BuiltInAgent,
+  CopilotKitIntelligence,
+  CopilotRuntime,
+} from "@copilotkit/runtime";
+import { isFreePlan, resolveUser } from "./auth";
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+});
+
 const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
   intelligence,
   identifyUser: async (request) => resolveUser(request),
   memory: {
@@ -318,7 +330,7 @@ runtime-authenticated user. It hydrates from a REST snapshot and then stays
 current from realtime deltas.
 
 ```tsx title="components/memory-list.tsx"
-import { useMemories } from "@copilotkit/react-core/v2";
+import { useMemories } from "@copilotkit/react-core";
 
 export function MemoryList() {
   const { memories, isLoading, isAvailable, removeMemory } = useMemories();

@@ -119,8 +119,7 @@ at-least-once.
 Register every named component that carries a callback:
 
 ```tsx title="channel.tsx"
-import { createChannel } from "@copilotkit/channels";
-import { makeAgent } from "./agent.js";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 import { Decision } from "./decision.js";
 import { durableStateStore } from "./state-store.js";
 
@@ -133,7 +132,8 @@ function required(name: string): string {
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   components: [Decision],
   store: { adapter: durableStateStore },
 });

@@ -38,7 +38,15 @@ Hold the typed config in React state, then mirror every change into the agent
 through `useAgentContext`:
 
 ```tsx title="frontend/src/app/page.tsx — UI publishes the typed config"
-function ConfigContextRelay({ config }: { config: AgentConfig }) {
+import { useAgentContext } from "@copilotkit/react-core";
+
+type AgentConfig = {
+  tone: "professional" | "casual" | "enthusiastic";
+  expertise: "beginner" | "intermediate" | "expert";
+  responseLength: "concise" | "detailed";
+};
+
+export function ConfigContextRelay({ config }: { config: AgentConfig }) {
   useAgentContext({
     description: "Agent response preferences",
     value: {
@@ -87,16 +95,34 @@ to push state into: the typed object becomes the input to the agent factory
 directly.
 
 <FrontendOnly frontend="react">
-Pass the typed object as `properties` on `<CopilotKit>`:
+Pass the typed object as `properties` on `<CopilotKitProvider>`:
 
 ```tsx title="frontend/src/app/page.tsx — config flows through the provider"
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  properties={{ tone, expertise, responseLength }}
-  useSingleEndpoint
->
-  <Demo />
-</CopilotKit>
+import { useState } from "react";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core";
+
+type Tone = "professional" | "casual" | "enthusiastic";
+type Expertise = "beginner" | "intermediate" | "expert";
+type ResponseLength = "concise" | "detailed";
+
+export default function Page() {
+  const [tone, setTone] = useState<Tone>("professional");
+  const [expertise] = useState<Expertise>("intermediate");
+  const [responseLength] = useState<ResponseLength>("concise");
+
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      properties={{ tone, expertise, responseLength }}
+      useSingleEndpoint
+    >
+      <button type="button" onClick={() => setTone("casual")}>
+        Casual
+      </button>
+      <CopilotChat />
+    </CopilotKitProvider>
+  );
+}
 ```
 </FrontendOnly>
 
@@ -133,11 +159,35 @@ export class AgentConfigComponent {
 The runtime hands the same object to the agent factory on every call as `input.forwardedProps`. The factory uses those fields to build a system prompt before returning the agent for that turn:
 
 ```ts title="backend/agent factory — synthesise the system prompt per turn"
-export const agentConfigFactory = async (input: AgentFactoryInput) => {
-  const { tone, expertise, responseLength } = input.forwardedProps ?? {};
-  const systemPrompt = buildSystemPrompt(tone, expertise, responseLength);
-  return makeAgent({ systemPrompt /* ... */ });
-};
+import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime";
+import { chat } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+
+function buildSystemPrompt(props: Record<string, unknown>): string {
+  const tone = typeof props.tone === "string" ? props.tone : "professional";
+  const expertise =
+    typeof props.expertise === "string" ? props.expertise : "intermediate";
+  const responseLength =
+    typeof props.responseLength === "string" ? props.responseLength : "concise";
+  return `Answer in a ${tone} tone, for a ${expertise} reader, and keep the answer ${responseLength}.`;
+}
+
+export const agentConfigAgent = new BuiltInAgent({
+  type: "tanstack",
+  factory: ({ input, abortController }) => {
+    const { messages, systemPrompts } = convertInputToTanStackAI(input);
+    return chat({
+      adapter: openaiText("gpt-5.2"),
+      messages,
+      systemPrompts: [
+        buildSystemPrompt(input.forwardedProps ?? {}),
+        ...systemPrompts,
+      ],
+      threadId: input.threadId,
+      abortController,
+    });
+  },
+});
 ```
 
 </WhenFrameworkHas>

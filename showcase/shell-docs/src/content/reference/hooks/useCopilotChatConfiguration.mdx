@@ -16,17 +16,22 @@ A provider component that exposes localized labels, agent and thread IDs, and op
 ### Signature
 
 ```tsx
-import { CopilotChatConfigurationProvider } from "@copilotkit/react-core/v2";
+import type { FC, ReactNode } from "react";
+import {
+  CopilotChatConfigurationProvider,
+  type CopilotChatLabels,
+} from "@copilotkit/react-core";
 
-<CopilotChatConfigurationProvider
-  labels={...}
-  agentId="my-agent"
-  threadId="thread-123"
-  isModalDefaultOpen={true}
->
-  {children}
-</CopilotChatConfigurationProvider>
+CopilotChatConfigurationProvider satisfies FC<{
+  children: ReactNode;
+  labels?: Partial<CopilotChatLabels>;
+  agentId?: string;
+  threadId?: string;
+  isModalDefaultOpen?: boolean;
+}>;
 ```
+
+The props type is exported as `CopilotChatConfigurationProviderProps`.
 
 ### Props
 
@@ -42,7 +47,8 @@ import { CopilotChatConfigurationProvider } from "@copilotkit/react-core/v2";
 
 <PropertyReference name="agentId" type="string" default='"default"'>
   The agent ID to associate with this chat context. Falls back to the parent
-  provider's `agentId`, then to `"default"`.
+  provider's `agentId`, then to the `agentId` of `<CopilotKitProvider>`, then
+  to `"default"`.
 </PropertyReference>
 
 <PropertyReference name="threadId" type="string">
@@ -53,7 +59,8 @@ import { CopilotChatConfigurationProvider } from "@copilotkit/react-core/v2";
 <PropertyReference name="isModalDefaultOpen" type="boolean">
   When provided, creates modal open/close state within this provider. The
   initial value is used as the default state. If omitted, modal state is
-  inherited from the parent provider (if any).
+  inherited from the parent provider. A provider with no parent and no
+  `isModalDefaultOpen` owns modal state that starts open.
 </PropertyReference>
 
 ## useCopilotChatConfiguration
@@ -61,9 +68,12 @@ import { CopilotChatConfigurationProvider } from "@copilotkit/react-core/v2";
 ### Signature
 
 ```tsx
-import { useCopilotChatConfiguration } from "@copilotkit/react-core/v2";
+import {
+  useCopilotChatConfiguration,
+  type CopilotChatConfigurationValue,
+} from "@copilotkit/react-core";
 
-function useCopilotChatConfiguration(): CopilotChatConfigurationValue | null;
+useCopilotChatConfiguration satisfies () => CopilotChatConfigurationValue | null;
 ```
 
 ### Parameters
@@ -91,13 +101,46 @@ Returns `null` if used outside of a `CopilotChatConfigurationProvider`. Otherwis
   The resolved thread ID for this chat context.
 </PropertyReference>
 
-<PropertyReference name="isModalOpen" type="boolean | undefined">
-  The current modal open state. `undefined` if no provider in the tree has
-  created modal state via `isModalDefaultOpen`.
+<PropertyReference name="isModalOpen" type="boolean">
+  The current modal open state. See `isModalDefaultOpen` for which provider
+  owns it.
 </PropertyReference>
 
-  <PropertyReference name="setModalOpen" type="((open: boolean) => void) | undefined">
-    Function to control the modal open state. `undefined` if no provider in the tree has created modal state.
+<PropertyReference name="setModalOpen" type="(open: boolean) => void">
+  Opens or closes the modal. On a mobile viewport, opening the modal closes
+  the threads drawer.
+</PropertyReference>
+
+<PropertyReference name="hasExplicitThreadId" type="boolean">
+  `true` when the `threadId` was chosen by the caller (a `threadId` prop, or
+  `setActiveThreadId`), and `false` when the provider generated it.
+</PropertyReference>
+
+<PropertyReference name="setActiveThreadId" type="(threadId: string, options?: { explicit?: boolean }) => void">
+  Switches the active thread. Ignored, with a console warning, when the
+  `threadId` prop controls the thread.
+</PropertyReference>
+
+<PropertyReference name="startNewThread" type="() => void">
+  Starts a new thread with a generated ID. Ignored, with a console warning,
+  when the `threadId` prop controls the thread.
+</PropertyReference>
+
+<PropertyReference name="drawerOpen" type="boolean">
+  Whether the threads drawer is open.
+</PropertyReference>
+
+<PropertyReference name="setDrawerOpen" type="(open: boolean) => void">
+  Opens or closes the threads drawer. On a mobile viewport, opening the drawer
+  closes the modal.
+</PropertyReference>
+
+<PropertyReference name="drawerRegistered" type="boolean">
+  Whether a threads drawer is mounted under this configuration.
+</PropertyReference>
+
+  <PropertyReference name="registerDrawer" type="() => () => void">
+    Registers a mounted threads drawer and returns a function that unregisters it. `<CopilotThreadsDrawer>` calls it for you.
   </PropertyReference>
 </PropertyReference>
 
@@ -111,13 +154,20 @@ The `CopilotChatLabels` type defines all customizable text strings used by the c
 | `chatInputToolbarStartTranscribeButtonLabel`  | `"Transcribe"`                                                 |
 | `chatInputToolbarCancelTranscribeButtonLabel` | `"Cancel"`                                                     |
 | `chatInputToolbarFinishTranscribeButtonLabel` | `"Finish"`                                                     |
-| `chatInputToolbarAddButtonLabel`              | `"Add photos or files"`                                        |
+| `chatInputToolbarAddButtonLabel`              | `"Add attachments"`                                            |
 | `chatInputToolbarToolsButtonLabel`            | `"Tools"`                                                      |
 | `chatInputToolbarSendButtonLabel`             | `"Send message"`                                               |
 | `chatInputToolbarStopButtonLabel`             | `"Stop"`                                                       |
 | `assistantMessageToolbarCopyCodeLabel`        | `"Copy"`                                                       |
 | `assistantMessageToolbarCopyCodeCopiedLabel`  | `"Copied"`                                                     |
 | `assistantMessageToolbarCopyMessageLabel`     | `"Copy"`                                                       |
+| `assistantMessageToolbarInspectorLabel`       | `"View in Inspector"`                                          |
+| `assistantMessageToolbarInspectorDescription` | `"Open this message in the Inspector"`                         |
+| `assistantMessageToolbarInspectorLocalOnlyLabel` | `"Local only"`                                              |
+| `assistantMessageToolbarInspectorLocalOnlyDescription` | `"Only visible on localhost or loopback hosts in development. Never shown in production."` |
+| `assistantMessageToolbarInspectorTitle`       | `"CopilotKit Inspector"`                                       |
+| `assistantMessageToolbarInspectorHideLabel`   | `"Hide this icon"`                                             |
+| `assistantMessageToolbarInspectorHideDescription` | `"Until you reload this page"`                             |
 | `assistantMessageToolbarThumbsUpLabel`        | `"Good response"`                                              |
 | `assistantMessageToolbarThumbsDownLabel`      | `"Bad response"`                                               |
 | `assistantMessageFeedbackCommentPlaceholder`  | `"Add a comment (optional)"`                                   |
@@ -149,10 +199,8 @@ The `CopilotChatLabels` type defines all customizable text strings used by the c
 ### Basic Label Customization
 
 ```tsx
-import {
-  CopilotChatConfigurationProvider,
-  useCopilotChatConfiguration,
-} from "@copilotkit/react-core/v2";
+import { CopilotChatConfigurationProvider } from "@copilotkit/react-core";
+import { ChatUI } from "./chat-ui";
 
 function App() {
   return (
@@ -173,6 +221,8 @@ function App() {
 ### Reading Configuration in a Component
 
 ```tsx
+import { useCopilotChatConfiguration } from "@copilotkit/react-core";
+
 function ChatHeader() {
   const config = useCopilotChatConfiguration();
 
@@ -187,6 +237,9 @@ function ChatHeader() {
 ### Binding to a Specific Agent and Thread
 
 ```tsx
+import { CopilotChatConfigurationProvider } from "@copilotkit/react-core";
+import { ChatWindow } from "./chat-window";
+
 function SupportChat() {
   return (
     <CopilotChatConfigurationProvider
@@ -209,7 +262,8 @@ function SupportChat() {
 import {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
+import { ChatModal } from "./chat-modal";
 
 function App() {
   return (
@@ -223,10 +277,10 @@ function App() {
 function ToggleButton() {
   const config = useCopilotChatConfiguration();
 
-  if (!config?.setModalOpen) return null;
+  if (!config) return null;
 
   return (
-    <button onClick={() => config.setModalOpen!(!config.isModalOpen)}>
+    <button onClick={() => config.setModalOpen(!config.isModalOpen)}>
       {config.isModalOpen
         ? config.labels.chatToggleCloseLabel
         : config.labels.chatToggleOpenLabel}
@@ -240,6 +294,9 @@ function ToggleButton() {
 Providers can be nested. Child providers inherit and merge labels from their parent, with child overrides taking precedence.
 
 ```tsx
+import { CopilotChatConfigurationProvider } from "@copilotkit/react-core";
+import { SalesChat } from "./sales-chat";
+
 function App() {
   return (
     <CopilotChatConfigurationProvider
@@ -260,9 +317,9 @@ function App() {
 ## Behavior
 
 - **Label Merging**: Labels are merged in order: built-in defaults, then parent provider labels, then current provider labels. This allows partial overrides at any level.
-- **Agent ID Resolution**: The `agentId` resolves from the nearest provider, falling back to parent providers, then to `"default"`.
+- **Agent ID Resolution**: The `agentId` resolves from the nearest provider, falling back to parent providers, then to the `agentId` of `<CopilotKitProvider>`, then to `"default"`.
 - **Thread ID Generation**: If no `threadId` is provided at any level, a random UUID is generated and remains stable for the lifetime of the provider.
-- **Modal State Ownership**: Modal state (`isModalOpen` / `setModalOpen`) is only created when a provider explicitly sets `isModalDefaultOpen`. Providers without this prop pass through the parent's modal state.
+- **Modal State Ownership**: A provider that sets `isModalDefaultOpen` owns its modal state (`isModalOpen` / `setModalOpen`) and keeps it in sync with its parent. A nested provider without this prop passes through the parent's modal state. A top-level provider without it owns modal state that starts open.
 - **Null Return**: The hook returns `null` when used outside any `CopilotChatConfigurationProvider`, rather than throwing an error. Components should handle this case gracefully.
 
 ## Related

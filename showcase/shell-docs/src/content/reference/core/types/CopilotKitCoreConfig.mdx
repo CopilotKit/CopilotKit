@@ -15,22 +15,26 @@ import type { CopilotKitCoreConfig } from "@copilotkit/core";
 
 ## Definition
 
+Every field is optional. This object sets each one except `learning`, so the `satisfies` check fails if a documented field drifts from the shipped type:
+
 ```ts
-interface CopilotKitCoreConfig {
-  runtimeUrl?: string;
-  runtimeTransport?: CopilotRuntimeTransport;
-  agents__unsafe_dev_only?: Record<string, AbstractAgent>;
-  headers?:
-    | Record<string, string>
-    | (() => Record<string, string>)
-    | (() => Promise<Record<string, string>>);
-  credentials?: RequestCredentials;
-  messageFilter?: CopilotKitMessageFilter;
-  properties?: Record<string, unknown>;
-  tools?: FrontendTool<any>[];
-  suggestionsConfig?: SuggestionsConfig[];
-  debug?: DebugConfig;
-}
+import type { CopilotKitCoreConfig } from "@copilotkit/core";
+
+const config = {
+  runtimeUrl: "/api/copilotkit",
+  runtimeTransport: "auto",
+  deferInitialConnection: false,
+  agents__unsafe_dev_only: {},
+  headers: () => ({
+    Authorization: `Bearer ${localStorage.getItem("token") ?? ""}`,
+  }),
+  credentials: "include",
+  messageFilter: (messages) => messages.slice(-10),
+  properties: { userId: "user_123" },
+  tools: [],
+  suggestionsConfig: [{ instructions: "Suggest next steps", maxSuggestions: 3 }],
+  debug: { events: true, lifecycle: true },
+} satisfies CopilotKitCoreConfig;
 ```
 
 ## Properties
@@ -41,6 +45,13 @@ interface CopilotKitCoreConfig {
 
 <PropertyReference name="runtimeTransport" type='"rest" | "single" | "auto"' default="auto">
   Transport style for CopilotRuntime endpoints. `"auto"` probes REST and falls back to single-route.
+</PropertyReference>
+
+<PropertyReference name="deferInitialConnection" type="boolean" default="false">
+  When `true`, the constructor stores the runtime settings but does not start
+  the `/info` request. Call `connect()` to start it, for example from a
+  commit-phase effect, so that a core built and discarded during render does
+  not send duplicate `/info` requests.
 </PropertyReference>
 
 <PropertyReference name="agents__unsafe_dev_only" type="Record<string, AbstractAgent>">
@@ -88,6 +99,12 @@ interface CopilotKitCoreConfig {
 
 <PropertyReference name="debug" type="DebugConfig">
   Enable debug logging for the client-side event pipeline.
+</PropertyReference>
+
+<PropertyReference name="learning" type="LearningConfig">
+  Turns on interaction capture (`@copilotkit/learning`). Capture starts only
+  when `startTrajectory()` authenticates. Change it later with
+  `setLearningConfig`.
 </PropertyReference>
 
 ## Usage

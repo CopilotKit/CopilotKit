@@ -72,7 +72,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     `useAgent` gives you access to the agent, including its state. You can update state by calling `agent.setState`.
 
     ```tsx title="ui/app/page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { useAgent } from "@copilotkit/react-core"; // [!code highlight]
 
     // Example usage in a pseudo React component
     function YourMainContent() {
@@ -81,7 +81,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         agentId: "sample_agent",
       });
 
-      const language = (agent.state.language as string) ?? "english";
+      const language = agent.state.language ?? "english";
 
       // ...
 
@@ -123,7 +123,7 @@ The new agent state will be used next time the agent runs.
 If you want to re-run it manually, call `copilotkit.runAgent({ agent })` after updating state. Running through `copilotkit` sends your frontend tools and context with the run and executes any frontend tool calls.
 
 ```tsx title="ui/app/page.tsx"
-import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useAgent, useCopilotKit } from "@copilotkit/react-core"; // [!code highlight]
 
 // ...
 
@@ -133,7 +133,7 @@ function YourMainContent() {
   });
   const { copilotkit } = useCopilotKit(); // [!code highlight]
 
-  const language = (agent.state.language as string) ?? "english";
+  const language = agent.state.language ?? "english";
 
   // setup to be called when some event in the app occurs
   const toggleLanguage = () => {
@@ -146,7 +146,7 @@ function YourMainContent() {
   };
 
   return (
-    // ...
+    <button onClick={toggleLanguage}>Language: {language}</button>
   );
 }
 ```

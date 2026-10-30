@@ -84,14 +84,30 @@ drawn by your own renderers always show on their own and split the group
 around them, unless the renderer opts in with `group: true`:
 
 ```tsx title="page.tsx"
-useDefaultRenderTool({ render: MyToolRow, group: true });
+import { useDefaultRenderTool } from "@copilotkit/react-core";
+
+export function ToolRows() {
+  useDefaultRenderTool({
+    render: ({ name, status }) => (
+      <div className="tool-row">
+        {name}: {status}
+      </div>
+    ),
+    group: true,
+  });
+  return null;
+}
 ```
 
 Pick how calls show with `toolCallDisplay` on the message view:
 
 ```tsx title="page.tsx"
-// "grouped" (default) | "line" | "stacked" | "turn" | "separate"
-<CopilotChat messageView={{ toolCallDisplay: "line" }} />
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  // "grouped" (default) | "line" | "stacked" | "turn" | "separate"
+  return <CopilotChat messageView={{ toolCallDisplay: "line" }} />;
+}
 ```
 
 | Display      | What the user sees                                                                        |
@@ -111,12 +127,28 @@ To restyle or replace the group, use the `group` slot of the tool-calls view
 (it applies to the grouped, line and stacked displays):
 
 ```tsx title="page.tsx"
-// ToolTimeline: your component, given the group's `calls` and a `renderCall` function
-<CopilotChat
-  messageView={{
-    assistantMessage: { toolCallsView: { group: ToolTimeline } },
-  }}
-/>
+import { CopilotChat, type CopilotChatToolCallGroupProps } from "@copilotkit/react-core";
+
+// Your component. It gets the group's `calls` and a `renderCall` function.
+function ToolTimeline({ calls, renderCall }: CopilotChatToolCallGroupProps) {
+  return (
+    <ol className="tool-timeline">
+      {calls.map((call) => (
+        <li key={call.toolCall.id}>{renderCall(call)}</li>
+      ))}
+    </ol>
+  );
+}
+
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView={{
+        assistantMessage: { toolCallsView: { group: ToolTimeline } },
+      }}
+    />
+  );
+}
 ```
 
 See [`CopilotChatToolCallGroup`](/reference/components/CopilotChatToolCallGroup)

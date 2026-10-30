@@ -28,19 +28,19 @@ conversations and switching between them, the sidebar hosts the
 
 ## Basic setup
 
-Wrap your app in `<CopilotKit>` once (it wires the runtime, session, and
+Wrap your app in `<CopilotKitProvider>` once (it wires the runtime, session, and
 agent registry) and drop `<CopilotSidebar>` alongside your main content.
 The sidebar renders as a sibling so it can slide out without reflowing
 your page:
 
 ```tsx
-import { CopilotKit, CopilotSidebar } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core";
 ```
 
-<Callout type="warn">
-  `@copilotkit/react-ui` also exports a component named `CopilotSidebar`. That
-  one is the [deprecated v1 sidebar](/migrate/v2). This page documents the v2
-  sidebar, which you import from `@copilotkit/react-core/v2`.
+<Callout type="info">
+  In v1, `<CopilotSidebar>` came from `@copilotkit/react-ui`. CopilotKit 2.0 removed that
+  package, so import the sidebar from `@copilotkit/react-core`. See the
+  [migration guide](/migrate/v2).
 </Callout>
 
 <Snippet region="sidebar-basic-setup" title="frontend/src/app/page.tsx — CopilotSidebar wired up" />

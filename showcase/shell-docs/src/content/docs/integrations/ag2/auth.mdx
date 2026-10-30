@@ -41,20 +41,29 @@ sequenceDiagram
 
 ## Frontend Setup
 
-Pass your authentication token via the `properties` prop:
+Pass your authentication token via the `headers` prop:
 
 ```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  properties={{
-    authorization: userToken, // forwarded to AG2 /chat
-  }}
->
-  <YourApp />
-</CopilotKit>
+"use client";
+
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ userToken, children }: { userToken: string; children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      headers={{
+        Authorization: `Bearer ${userToken}`, // forwarded to AG2 /chat
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
-**Note**: The `authorization` property is forwarded to your AG2 `/chat` endpoint as a request header.
+**Note**: The runtime forwards the `Authorization` header to your AG2 `/chat` endpoint.
 
 ## LangGraph Platform Deployment
 

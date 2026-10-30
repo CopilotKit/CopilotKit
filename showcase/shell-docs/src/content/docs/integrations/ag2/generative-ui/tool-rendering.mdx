@@ -85,7 +85,7 @@ the UI.
 
 ```tsx title="app/page.tsx"
 import { z } from "zod"; // [!code highlight]
-import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useRenderTool } from "@copilotkit/react-core"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
@@ -113,15 +113,21 @@ const YourMainContent = () => {
 A tool that returns structured data (a Pydantic model, a dict, a list) reaches the frontend as its serialized JSON in `result`, because the protocol has no JSON part. Parse it before rendering it as a card:
 
 ```tsx title="app/page.tsx"
-useRenderTool({
-  name: "get_weather",
-  parameters: z.object({ location: z.string() }),
-  render: ({ status, result }) => {
-    if (status !== "complete" || typeof result !== "string") return <p>Calling weather API...</p>;
-    const weather = JSON.parse(result) as { temperature: number; conditions: string };
-    return <p>{weather.temperature}° · {weather.conditions}</p>;
-  },
-});
+import { z } from "zod";
+import { useRenderTool } from "@copilotkit/react-core";
+
+export function WeatherCard() {
+  useRenderTool({
+    name: "get_weather",
+    parameters: z.object({ location: z.string() }),
+    render: ({ status, result }) => {
+      if (status !== "complete") return <p>Calling weather API...</p>;
+      const weather: { temperature: number; conditions: string } = JSON.parse(result);
+      return <p>{weather.temperature}° · {weather.conditions}</p>;
+    },
+  });
+  return null;
+}
 ```
 </Step>
 <Step>

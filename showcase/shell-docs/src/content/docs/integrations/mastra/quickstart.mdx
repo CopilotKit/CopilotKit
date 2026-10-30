@@ -287,7 +287,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @ag-ui/core@1.0.2 @ag-ui/client@1.0.2 @mastra/client-js
+                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @ag-ui/core@1.0.2 @ag-ui/client@1.0.2 @mastra/client-js
                 ```
             </Step>
             <Step>
@@ -303,7 +303,7 @@ Before you begin, you'll need the following:
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
-                } from "@copilotkit/runtime/v2";
+                } from "@copilotkit/runtime";
                 import { MastraAgent } from "@ag-ui/mastra";
                 import { MastraClient } from "@mastra/client-js";
 
@@ -380,19 +380,19 @@ Before you begin, you'll need the following:
             <Step>
                 ### Configure CopilotKit Provider
 
-                Everything `@copilotkit/react-core/v2` exports is a client component, so
+                Everything `@copilotkit/react-core` exports is a client component, so
                 the provider goes in a file of your own marked `"use client"`:
 
                 ```tsx title="app/providers.tsx"
                 "use client";
 
-                import { CopilotKit } from "@copilotkit/react-core/v2";
+                import { CopilotKitProvider } from "@copilotkit/react-core";
 
                 export function Providers({ children }: { children: React.ReactNode }) {
                   return (
-                    <CopilotKit runtimeUrl="/api/copilotkit" agent="myAgent" useSingleEndpoint={false}>
+                    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="myAgent" useSingleEndpoint={false}>
                       {children}
-                    </CopilotKit>
+                    </CopilotKitProvider>
                   );
                 }
                 ```
@@ -420,7 +420,7 @@ Before you begin, you'll need the following:
                 ```
 
                 <Callout type="warn" title="Importing the provider straight into the layout breaks the build">
-                  `app/layout.tsx` is a server component. `@copilotkit/react-core/v2` is marked
+                  `app/layout.tsx` is a server component. `@copilotkit/react-core` is marked
                   `"use client"` and re-exports `@copilotkit/core` and `@ag-ui/client` with
                   `export *`, which Next.js cannot enumerate across that boundary. On Next.js 16
                   with webpack the build fails and the page returns 500. A client file of your own
@@ -443,7 +443,7 @@ Before you begin, you'll need the following:
               ```tsx title="app/page.tsx"
               "use client"; // [!code highlight]
 
-              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
+              import { CopilotSidebar } from "@copilotkit/react-core"; // [!code highlight:1]
 
               export default function Page() {
                 return (

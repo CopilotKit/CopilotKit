@@ -36,9 +36,8 @@ The package and all provider subpaths are ESM-only public exports. Use
 Import adapters from the package's provider subpaths:
 
 ```ts title="channel.ts"
-import { createChannel } from "@copilotkit/channels";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 import { slack } from "@copilotkit/channels/slack";
-import { makeAgent } from "./agent.js";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -58,7 +57,8 @@ export const channel = createChannel({
       },
     }),
   ],
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
 });
 
 channel.onMessage(async ({ thread }) => {

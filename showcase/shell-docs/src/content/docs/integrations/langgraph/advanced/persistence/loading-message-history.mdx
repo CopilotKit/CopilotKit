@@ -11,41 +11,50 @@ This guide assumes you have already gone through the [quickstart](/langgraph/qui
 
 ## Loading an Existing Thread
 
-To load an existing thread in CopilotKit, you can simply set the `threadId` property on `<CopilotKit>` like so.
+To load an existing thread in CopilotKit, you can simply set the `threadId` prop on `<CopilotChat>` like so.
 
 <Callout>When using LangGraph platform, the `threadId` must be a UUID.</Callout>
 
 ```tsx
-{
-  /* [!code highlight:1] */
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return (
+    // [!code highlight:1]
+    <CopilotChat agentId="sample_agent" threadId="37aa68d0-d15b-45ae-afc1-0ba6c3e11353" />
+  );
 }
-<CopilotKit threadId="37aa68d0-d15b-45ae-afc1-0ba6c3e11353">
-  <YourApp />
-</CopilotKit>;
 ```
+
+To set the thread for everything under one part of your app, wrap it in `<CopilotChatConfigurationProvider threadId="...">` instead.
 
 ## Dynamically Switching Threads
 
 You can also make the `threadId` dynamic. Once it is set, CopilotKit will load the previous messages for that thread.
 
 ```tsx
+import { useState } from "react";
+import { CopilotChat } from "@copilotkit/react-core";
 
 const Page = () => {
   const [threadId, setThreadId] = useState("af2fa5a4-36bd-4e02-9b55-2580ab584f89"); // [!code highlight]
   return (
-    {/* [!code highlight:3] */}
-    <CopilotKit threadId={threadId}>
-      <YourApp setThreadId={setThreadId} />
-    </CopilotKit>
+    <div>
+      {/* [!code highlight:1] */}
+      <CopilotChat agentId="sample_agent" threadId={threadId} />
+      <ChangeThreadButton setThreadId={setThreadId} />
+    </div>
   )
 }
 
-const YourApp = ({ setThreadId }) => {
+const ChangeThreadButton = ({ setThreadId }: { setThreadId: (threadId: string) => void }) => {
   return (
-    {/* [!code highlight:1] */}
-    <Button onClick={() => setThreadId("679e8da5-ee9b-41b1-941b-80e0cc73a008")}>
+    // [!code highlight:1]
+    <button onClick={() => setThreadId("679e8da5-ee9b-41b1-941b-80e0cc73a008")}>
       Change Thread
-    </Button>
+    </button>
   )
 }
 ```
+
+See [Thread & History Lifecycle](/threads-lifecycle) for how history is restored and how to switch or start threads.

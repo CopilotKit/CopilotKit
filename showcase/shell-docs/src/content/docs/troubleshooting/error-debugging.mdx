@@ -6,27 +6,29 @@ icon: "lucide/TriangleAlert"
 
 # How to debug errors
 
-CopilotKit provides a visual error console for local development and a programmatic `onError` callback for production observability. The visual console is completely free and requires no API keys.
+CopilotKit provides a visual error display for local development, the Inspector, and a programmatic `onError` callback for production observability. The Inspector is completely free and requires no API keys.
 
 ## Quick setup
 
-```tsx
-import { CopilotKit } from "@copilotkit/react-core/v2";
+The Inspector is on by default in development builds. `enableInspector` controls it:
 
-export default function App() {
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export default function App({ children }: { children: React.ReactNode }) {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
-      showDevConsole={true} // [!code highlight]
+      enableInspector={true} // [!code highlight]
     >
-      {/* your app */}
-    </CopilotKit>
+      {children}
+    </CopilotKitProvider>
   );
 }
 ```
 
-<Callout type="warn">
-Avoid showing the dev console in production — it exposes internal error details to end users.
+<Callout type="info">
+The Inspector never loads in production builds, so it does not expose internal error details to end users. See [Inspector and dev console](/troubleshooting/inspector-dev-console).
 </Callout>
 
 ## When to use development debugging
@@ -37,27 +39,32 @@ Avoid showing the dev console in production — it exposes internal error detail
 
 ## Programmatic error handling
 
-The v2 API provides an `onError` callback on both `CopilotKit` and `CopilotChat`. No `publicApiKey` is required.
+CopilotKit provides an `onError` callback on both `CopilotKitProvider` and `CopilotChat`. No `publicApiKey` is required.
 
 ### Provider-level error handling
 
 Catches every error across the entire application:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import { errorTracker } from "./error-tracker";
 
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  onError={(event) => {
-    // event.code    — error type (e.g. "runtime_info_fetch_failed", "agent_run_failed")
-    // event.error   — the Error object
-    // event.context — additional context (agentId, toolName, etc.)
-    console.error(`[CopilotKit ${event.code}]`, event.error.message);
-    errorTracker.capture(event);
-  }}
->
-  <App />
-</CopilotKit>;
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      onError={(event) => {
+        // event.code    — error type (e.g. "runtime_info_fetch_failed", "agent_run_failed")
+        // event.error   — the Error object
+        // event.context — additional context (agentId, toolName, etc.)
+        console.error(`[CopilotKit ${event.code}]`, event.error.message);
+        errorTracker.capture(event);
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ### Chat-level error handling
@@ -65,14 +72,19 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 Scoped to a specific chat's agent — fires **in addition to** the provider-level handler:
 
 ```tsx
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
+import { showToast } from "./toast";
 
-<CopilotChat
-  agentId="my-agent"
-  onError={(event) => {
-    showToast(`Agent error: ${event.error.message}`);
-  }}
-/>;
+export function Chat() {
+  return (
+    <CopilotChat
+      agentId="my-agent"
+      onError={(event) => {
+        showToast(`Agent error: ${event.error.message}`);
+      }}
+    />
+  );
+}
 ```
 
 ### Error codes
@@ -93,15 +105,14 @@ Need to see the full event pipeline: what events your agent emits, whether they 
 
 ## Troubleshooting
 
-### Dev console not showing
+### Inspector not showing
 
-- Confirm `showDevConsole={true}`
+- Confirm that `enableInspector` is not `false`
+- Confirm that you run a development build, not a production build
 - Check for JavaScript errors in the browser console
-- Ensure no CSS is hiding the error banner
 
 ### Production error pipeline checklist
 
 - Provider-level `onError` is wired and forwards to your error tracker
-- `showDevConsole` is **false** in production builds
 - Agent IDs in errors match the agents registered on your runtime
 - Critical error codes (`agent_run_failed`, `tool_handler_failed`) are alerted on, not just logged

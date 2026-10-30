@@ -19,12 +19,12 @@ The composable manages the full registration lifecycle: it registers the tool (a
 
 ```ts
 import type { WatchSource } from "vue";
-import { useFrontendTool } from "@copilotkit/vue/v2";
+import { useFrontendTool, type VueFrontendTool } from "@copilotkit/vue/v2";
 
-function useFrontendTool<T extends Record<string, unknown>>(
+useFrontendTool satisfies <T extends Record<string, unknown>>(
   tool: VueFrontendTool<T>,
   deps?: WatchSource<unknown>[],
-): void;
+) => void;
 ```
 
 ## Parameters

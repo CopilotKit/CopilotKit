@@ -17,13 +17,19 @@ import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 
 ## Definition
 
+Each enum member and its string value. The `satisfies` check fails if this list and the shipped enum differ.
+
 ```ts
-enum CopilotKitCoreRuntimeConnectionStatus {
-  Disconnected = "disconnected",
-  Connected = "connected",
-  Connecting = "connecting",
-  Error = "error",
-}
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+
+const members = {
+  Disconnected: "disconnected",
+  Connected: "connected",
+  Connecting: "connecting",
+  Error: "error",
+} satisfies {
+  [Member in keyof typeof CopilotKitCoreRuntimeConnectionStatus]: `${(typeof CopilotKitCoreRuntimeConnectionStatus)[Member]}`;
+};
 ```
 
 ## Members
@@ -52,6 +58,14 @@ enum CopilotKitCoreRuntimeConnectionStatus {
 ## Usage
 
 ```ts
+import {
+  CopilotKitCore,
+  CopilotKitCoreRuntimeConnectionStatus,
+} from "@copilotkit/core";
+import { disableChat, enableChat, showConnectionError } from "./chat-ui";
+
+const copilotkit = new CopilotKitCore({ runtimeUrl: "/api/copilotkit" });
+
 copilotkit.subscribe({
   onRuntimeConnectionStatusChanged: ({ status }) => {
     if (status === CopilotKitCoreRuntimeConnectionStatus.Connected) {

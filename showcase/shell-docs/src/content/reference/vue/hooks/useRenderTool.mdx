@@ -28,41 +28,69 @@ import { useRenderTool } from "@copilotkit/vue/v2";
 
 ```ts
 import { useRenderTool } from "@copilotkit/vue/v2";
-import type { WatchSource } from "vue";
+import type { Component, VNodeChild, WatchSource } from "vue";
 
-useRenderTool(
-  {
-    name: "*",
-    render: ((props) => VNodeChild) | Component,
-    agentId?: string,
-    group?: boolean,
+useRenderTool satisfies (
+  config: {
+    name: "*";
+    // The wildcard takes no schema, so its render props are untyped.
+    render: ((props: Record<string, unknown>) => VNodeChild) | Component;
+    agentId?: string;
+    group?: boolean;
   },
   deps?: WatchSource<unknown>[],
-): void;
+) => void;
 ```
 
 ### Named overload
 
-In this signature, `RenderToolProps<S>` is shorthand for the discriminated
-union described under [Render Props](#render-props). It is not exported from
-`@copilotkit/vue/v2`; let the `render` callback infer its props from the schema,
-as shown in the examples below.
+In this signature, `RenderToolProps<S>` is the discriminated union described
+under [Render Props](#render-props). It is not exported from
+`@copilotkit/vue/v2`, so the block below spells it out. In your own code, let the
+`render` callback infer its props from the schema, as shown in the examples
+below.
 
 ```ts
-import { z } from "zod";
 import { useRenderTool } from "@copilotkit/vue/v2";
-import type { WatchSource } from "vue";
+import type { InferSchemaOutput, StandardSchemaV1 } from "@copilotkit/shared";
+import type { Component, VNodeChild, WatchSource } from "vue";
 
-useRenderTool<S>(
-  {
-    name: string,
-    parameters: S, // a Zod / Standard Schema; parameters are inferred from it
-    render: ((props: RenderToolProps<S>) => VNodeChild) | Component<RenderToolProps<S>>,
-    agentId?: string,
-    group?: boolean,
+type RenderToolProps<S extends StandardSchemaV1> =
+  | {
+      name: string;
+      toolCallId: string;
+      status: "inProgress";
+      parameters: Partial<InferSchemaOutput<S>>;
+      result: undefined;
+    }
+  | {
+      name: string;
+      toolCallId: string;
+      status: "executing";
+      parameters: InferSchemaOutput<S>;
+      result: undefined;
+    }
+  | {
+      name: string;
+      toolCallId: string;
+      status: "complete";
+      parameters: InferSchemaOutput<S>;
+      result: string;
+    };
+
+useRenderTool satisfies <S extends StandardSchemaV1>(
+  config: {
+    name: string;
+    // A Zod or other Standard Schema; `parameters` is inferred from it.
+    parameters: S;
+    render:
+      | ((props: RenderToolProps<S>) => VNodeChild)
+      | Component<RenderToolProps<S>>;
+    agentId?: string;
+    group?: boolean;
   },
   deps?: WatchSource<unknown>[],
-): void;
+) => void;
 ```
 
 ## Parameters

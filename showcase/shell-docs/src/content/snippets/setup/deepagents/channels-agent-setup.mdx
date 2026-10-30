@@ -12,14 +12,18 @@ Point the native LangGraph adapter at that deployment:
 LANGGRAPH_DEPLOYMENT_URL=http://localhost:8123
 ```
 
-The Runtime package installed by the Channels quickstart includes the native
-LangGraph adapter.
+The native LangGraph adapter ships in `@ag-ui/langgraph`. Install it next to
+the Runtime package from the Channels quickstart:
+
+```npm
+npm install @ag-ui/langgraph
+```
 
 Deep Agents compile to LangGraph graphs, so use `LangGraphAgent` rather than
 `HttpAgent`. Return a fresh adapter for every channel thread:
 
 ```ts title="agent.ts"
-import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+import { LangGraphAgent } from "@ag-ui/langgraph";
 
 export function makeAgent(threadId: string) {
   const agent = new LangGraphAgent({

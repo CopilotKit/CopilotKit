@@ -39,7 +39,7 @@ This allows Copilot Cloud to know where to send requests to when the agent is ca
 <Step>
 ## Specify the agent to use
 
-Now we need to let the CopilotKit provider know which agent to use, we can do this by specifying the `agent` prop.
+Now we need to let the CopilotKit provider know which agent to use, we can do this by specifying the `agentId` prop.
 
 <Accordions>
 <Accordion title="Multi-Agent Routing">
@@ -47,7 +47,7 @@ By default, CopilotKit will intelligently route requests to the appropriate agen
 you to have multiple agents and actions and not have to worry about manually routing requests.
 
 In our case however, we only have a single agent and its ideal to lock all requests to that agent. We can do this
-by updating the props of our `CopilotKit` provider.
+by updating the props of our `CopilotKitProvider`.
 
 </Accordion>
 </Accordions>
@@ -55,13 +55,28 @@ by updating the props of our `CopilotKit` provider.
 Our agent name is `agent` which is specified in the `langgraph.json` file.
 
 ```tsx title="frontend/src/app/layout.tsx"
+"use client";
+
+import { CopilotKitProvider } from "@copilotkit/react-core";
 // ...
-<CopilotKit
-  // ...
-  agent="agent" // [!code ++]
->
-  {...}
-</CopilotKit>
+
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="en" className="h-full">
+      <body>
+        <CopilotKitProvider
+          publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}
+          agentId="agent" // [!code ++]
+        >
+          {/* ... */}
+          {children}
+        </CopilotKitProvider>
+      </body>
+    </html>
+  );
+}
 ```
 
 </Step>

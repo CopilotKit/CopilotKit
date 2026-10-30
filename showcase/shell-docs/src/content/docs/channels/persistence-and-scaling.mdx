@@ -40,7 +40,7 @@ npm install zod
 <FrontendOnly frontend="slack">
 
 ```ts title="channel.ts"
-import { createChannel } from "@copilotkit/channels";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 import { z } from "zod";
 import { durableStateStore } from "./state-store.js";
 
@@ -50,9 +50,10 @@ const workflowState = z.object({
 });
 
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: "support",
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   store: {
     adapter: durableStateStore,
     state: workflowState,
@@ -76,7 +77,7 @@ channel.onMessage(async ({ thread, message }) => {
 <FrontendOnly frontend="teams">
 
 ```ts title="channel.ts"
-import { createChannel } from "@copilotkit/channels";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 import { z } from "zod";
 import { durableStateStore } from "./state-store.js";
 
@@ -86,9 +87,10 @@ const workflowState = z.object({
 });
 
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: "support",
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   store: {
     adapter: durableStateStore,
     state: workflowState,
@@ -163,13 +165,21 @@ A callback survives only when both conditions are true:
    `createChannel({ components })`.
 2. The action snapshot is stored in a durable `StateStore`.
 
+`ApprovalCard` below is the registered component from
+[Interactive messages and approvals](/channels/interactive).
+
 <FrontendOnly frontend="slack">
 
-```tsx title="channel.tsx"
+```ts title="channel.ts"
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+import { ApprovalCard } from "./approval-card.js";
+import { durableStateStore } from "./state-store.js";
+
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: "support",
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   components: [ApprovalCard],
   store: { adapter: durableStateStore },
 });
@@ -179,11 +189,16 @@ const channel = createChannel({
 
 <FrontendOnly frontend="teams">
 
-```tsx title="channel.tsx"
+```ts title="channel.ts"
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+import { ApprovalCard } from "./approval-card.js";
+import { durableStateStore } from "./state-store.js";
+
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: "support",
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   components: [ApprovalCard],
   store: { adapter: durableStateStore },
 });

@@ -9,12 +9,21 @@ description: The normalized provider message passed to Channels handlers, includ
 ## Shape
 
 ```ts
+import type {
+  AgentContentPart,
+  ApplicationUser,
+  MessageOperation,
+  MessageRef,
+  ProviderActor,
+} from "@copilotkit/channels/ui";
+
 interface IncomingMessage {
   text: string;
   user: ApplicationUser | null;
   actor: ProviderActor;
   ref: MessageRef;
   platform: string;
+  operation?: MessageOperation;
   contentParts?: AgentContentPart[];
   eventId?: string;
   turnId?: string;
@@ -29,6 +38,7 @@ interface IncomingMessage {
 | `actor`        | Provider account that caused the event. It includes a required actor kind.                              |
 | `ref`          | In ordinary message handlers this may have an empty id; do not assume every inbound turn can be edited. |
 | `platform`     | Native source: `"slack"` or `"teams"` for message deliveries.                                           |
+| `operation`    | Revision metadata: `kind` (`created`, `updated`, or `deleted`), `logicalMessageId`, `revisionId`, and `mentioned`. |
 | `contentParts` | Hydrated file/media parts when attachments were retrieved.                                              |
 | `eventId`      | Stable provider-event id for application idempotency.                                                   |
 | `turnId`       | Managed turn correlation id.                                                                            |
@@ -37,14 +47,25 @@ interface IncomingMessage {
 ## Multimodal prompt
 
 ```ts
-const prompt = message.contentParts?.length
-  ? [
-      ...(message.text ? [{ type: "text" as const, text: message.text }] : []),
-      ...message.contentParts,
-    ]
-  : message.text;
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 
-await thread.runAgent({ prompt });
+const channel = createChannel({
+  name: "support",
+  identifyUser: "platform",
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
+});
+
+channel.onMessage(async ({ thread, message }) => {
+  const prompt = message.contentParts?.length
+    ? [
+        ...(message.text ? [{ type: "text" as const, text: message.text }] : []),
+        ...message.contentParts,
+      ]
+    : message.text;
+
+  await thread.runAgent({ prompt });
+});
 ```
 
 Managed history excludes the current inbound turn. `runAgent()` injects the

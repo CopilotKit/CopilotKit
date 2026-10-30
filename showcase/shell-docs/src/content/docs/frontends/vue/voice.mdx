@@ -79,23 +79,26 @@ non-existent Vue prop.
 ## Configure the runtime
 
 The mic appears only when the runtime has a `TranscriptionService`. Configure
-that service in your V2 runtime and mount the normal runtime handler. The
+that service in your CopilotKit runtime and mount the normal runtime handler. The
 service implements:
 
 ```ts
 import {
+  BuiltInAgent,
   CopilotRuntime,
   TranscriptionService,
-} from "@copilotkit/runtime/v2";
+  type TranscribeFileOptions,
+} from "@copilotkit/runtime";
+import { transcribeWithYourProvider } from "./transcription";
 
 class MyTranscriptionService extends TranscriptionService {
-  async transcribeFile({ audioFile }: { audioFile: File }): Promise<string> {
+  async transcribeFile({ audioFile }: TranscribeFileOptions): Promise<string> {
     return transcribeWithYourProvider(audioFile);
   }
 }
 
 const runtime = new CopilotRuntime({
-  agents,
+  agents: { default: new BuiltInAgent({ model: "openai:gpt-5-mini" }) },
   transcriptionService: new MyTranscriptionService(),
 });
 ```
@@ -106,7 +109,7 @@ With the service configured, `GET /info` reports
 the browser has a microphone.
 
 See [Runtime HTTP endpoints](/backend/runtime-endpoints) for route mounting,
-request shapes, and server-side error handling. The V2 runtime maps service
+request shapes, and server-side error handling. The runtime maps service
 errors to transcription error codes such as `rate_limited`, `auth_failed`,
 `audio_too_long`, and `provider_error`; the Vue composer presents a retryable
 or actionable message and clears it after a short delay.

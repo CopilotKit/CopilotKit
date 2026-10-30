@@ -91,19 +91,21 @@ the UI.
 </Callout>
 
 ```tsx title="app/page.tsx"
-import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useRenderTool } from "@copilotkit/react-core"; // [!code highlight]
+import { z } from "zod";
 // ...
 
 const YourMainContent = () => {
   // ...
-  // [!code highlight:12]
+  // [!code highlight:13]
   useRenderTool({
     name: "getWeather",
-    render: ({status, args}) => {
+    parameters: z.object({ location: z.string() }),
+    render: ({ status, parameters }) => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" && `Called the weather API for ${args.location}.`}
+          {status === "complete" && `Called the weather API for ${parameters.location}.`}
         </p>
       );
     },

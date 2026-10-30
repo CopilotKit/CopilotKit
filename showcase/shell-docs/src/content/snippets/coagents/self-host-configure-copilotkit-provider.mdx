@@ -1,20 +1,20 @@
 ```tsx title="layout.tsx"
 import "./globals.css";
 import { ReactNode } from "react";
-import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { CopilotKitProvider } from "@copilotkit/react-core"; // [!code highlight]
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
-        {/* Use the public api key you got from Copilot Cloud  */}
+        {/* Point the provider at your runtime endpoint */}
         {/* [!code highlight:6] */}
-        <CopilotKit
+        <CopilotKitProvider
           runtimeUrl="/api/copilotkit"
-          agent="sample_agent" // the name of the agent you want to use
+          agentId="sample_agent" // the name of the agent you want to use
         >
           {children}
-        </CopilotKit>
+        </CopilotKitProvider>
       </body>
     </html>
   );

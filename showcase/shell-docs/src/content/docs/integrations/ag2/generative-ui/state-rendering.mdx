@@ -107,7 +107,7 @@ is a situation where a user and an agent are working together to solve a problem
     Use the `useAgent` hook to access agent state anywhere in your app. You can render it in the chat, in dashboards, sidebars, or custom layouts.
 
     ```tsx title="app/page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { useAgent } from "@copilotkit/react-core"; // [!code highlight]
     // ...
 
     // Define the state of the agent, should match the state streamed by your AG2 backend.
@@ -125,7 +125,7 @@ is a situation where a user and an agent are working together to solve a problem
       const { agent } = useAgent({
         agentId: "my_agent", // MUST match the agent name in CopilotRuntime
       })
-      const state = (agent.state ?? {}) as Partial<AgentState>;
+      const state: Partial<AgentState> = agent.state ?? {};
 
       // ...
 

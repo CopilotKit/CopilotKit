@@ -27,17 +27,22 @@ AG-UI-compatible backend you own and have already secured:
 <FrontendOnly frontend="react">
 ```tsx
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
 const supportAgent = new HttpAgent({
   url: "https://agents.example.com/support",
 });
 
-<CopilotKit
-  selfManagedAgents={{ "support-agent": supportAgent }}
->
-  <YourApp />
-</CopilotKit>;
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      selfManagedAgents={{ "support-agent": supportAgent }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 </FrontendOnly>
 
@@ -81,13 +86,18 @@ development and prototyping.
 
 ```tsx
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
 const myAgent = new HttpAgent({ url: "http://localhost:8000" });
 
-<CopilotKit agents__unsafe_dev_only={{ "my-agent": myAgent }}>
-  <YourApp />
-</CopilotKit>;
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider agents__unsafe_dev_only={{ "my-agent": myAgent }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 Reach for it when you're wiring up an agent locally and don't want to stand up a

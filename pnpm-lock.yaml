@@ -139,6 +139,9 @@ importers:
       jscodeshift:
         specifier: ^17.3.0
         version: 17.3.0(@babel/preset-env@7.29.2(@babel/core@8.0.1))
+      kiira:
+        specifier: 0.7.1
+        version: 0.7.1
       lefthook:
         specifier: ^2.1.1
         version: 2.1.1
@@ -19449,6 +19452,21 @@ packages:
 
   khroma@2.1.0:
     resolution: {integrity: sha512-Ls993zuzfayK269Svk9hzpeGUKob/sIgZzyHYdjQoAdQetRKpOLj+k/QQQ/6Qi0Yz65mlROrfd+Ev+1+7dz9Kw==}
+
+  kiira-core@0.7.1:
+    resolution: {integrity: sha512-UtI5ebyMbqfRpojb/liVMcMwQPqzQIDiPcKnGFPtOCLolEg4R1SSI1OHJZeYDYz7/mPFZa2p6w7UFbrsx8v/aA==}
+    peerDependencies:
+      jiti: ^2.4.2
+      typescript: ^5.4.0 || ^6.0.0
+    peerDependenciesMeta:
+      jiti:
+        optional: true
+      typescript:
+        optional: true
+
+  kiira@0.7.1:
+    resolution: {integrity: sha512-yjhjKeCKiTPcAhW1PLM8VpJy001IxGc9+DhSLlZipCVcyCGbN3uDCLM7/pCdHvRoBoxBkGhRradOvT9SZhSoUA==}
+    hasBin: true
 
   kind-of@6.0.3:
     resolution: {integrity: sha512-dcS1ul+9tmeD95T+x28/ehLgd9mENa3LsvDTtzm3vyBEO7RPptvAD+t44WVXaUjTBRcrpFeFlC8WCruUR456hw==}
@@ -46907,6 +46925,20 @@ snapshots:
       json-buffer: 3.0.1
 
   khroma@2.1.0: {}
+
+  kiira-core@0.7.1(jiti@2.7.0)(typescript@5.9.3):
+    dependencies:
+      '@types/mdast': 4.0.4
+    optionalDependencies:
+      jiti: 2.7.0
+      typescript: 5.9.3
+
+  kiira@0.7.1:
+    dependencies:
+      chalk: 5.6.2
+      jiti: 2.7.0
+      kiira-core: 0.7.1(jiti@2.7.0)(typescript@5.9.3)
+      typescript: 5.9.3
 
   kind-of@6.0.3: {}
 

@@ -20,29 +20,40 @@ import type { SuggestionsConfig } from "@copilotkit/core";
 
 ## Definition
 
+`SuggestionsConfig` is `DynamicSuggestionsConfig | StaticSuggestionsConfig`. Each object below sets every field of its variant:
+
 ```ts
-type SuggestionsConfig = DynamicSuggestionsConfig | StaticSuggestionsConfig;
+import type {
+  DynamicSuggestionsConfig,
+  StaticSuggestionsConfig,
+  SuggestionAvailability,
+  SuggestionsConfig,
+} from "@copilotkit/core";
 
-type SuggestionAvailability =
-  | "before-first-message"
-  | "after-first-message"
-  | "always"
-  | "disabled";
+const availability = [
+  "before-first-message",
+  "after-first-message",
+  "always",
+  "disabled",
+] satisfies SuggestionAvailability[];
 
-type DynamicSuggestionsConfig = {
-  instructions: string;
-  minSuggestions?: number;
-  maxSuggestions?: number;
-  available?: SuggestionAvailability;
-  providerAgentId?: string;
-  consumerAgentId?: string;
-};
+const dynamicConfig = {
+  instructions: "Suggest follow-up questions about the report",
+  minSuggestions: 1,
+  maxSuggestions: 3,
+  available: "after-first-message",
+  providerAgentId: "default",
+  consumerAgentId: "*",
+} satisfies DynamicSuggestionsConfig;
 
-type StaticSuggestionsConfig = {
-  suggestions: Omit<Suggestion, "isLoading">[];
-  available?: SuggestionAvailability;
-  consumerAgentId?: string;
-};
+const staticConfig = {
+  // Each entry is a Suggestion without `isLoading`.
+  suggestions: [{ title: "Summarize", message: "Summarize this page" }],
+  available: "before-first-message",
+  consumerAgentId: "*",
+} satisfies StaticSuggestionsConfig;
+
+const configs = [dynamicConfig, staticConfig] satisfies SuggestionsConfig[];
 ```
 
 ## Properties

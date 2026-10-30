@@ -66,14 +66,14 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 ```
             </Tab>
             <Tab value="TypeScript">
-                ```ts title="agent.ts"
+                ```ts title="agent.ts" group=custom-graph-state
                 import { Annotation } from "@langchain/langgraph";
                 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
                 // Define your custom state by combining CopilotKitStateAnnotation with your fields
                 const AgentStateAnnotation = Annotation.Root({
                     ...CopilotKitStateAnnotation.spec,
-                    observed_steps: Annotation<string[]>({ default: () => [] }), // Array of completed steps
+                    observed_steps: Annotation<string[]>({ reducer: (_current, update) => update, default: () => [] }), // Array of completed steps
                 });
 
                 export type AgentState = typeof AgentStateAnnotation.State;
@@ -126,7 +126,8 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                         ```
                     </Tab>
                     <Tab value="TypeScript">
-                        ```ts title="agent.ts"
+                        ```ts title="agent.ts" group=custom-graph-state
+                        import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph";
                         import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
                         import type { RunnableConfig } from "@langchain/core/runnables";
                         import { ChatOpenAI } from "@langchain/openai";
@@ -163,8 +164,6 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                         }
 
                         // Create and compile the graph
-                        import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph";
-
                         const workflow = new StateGraph(AgentStateAnnotation) // [!code highlight]
                             .addNode("chat_node", chatNode) // [!code highlight]
                             .addEdge(START, "chat_node") // [!code highlight]
@@ -302,8 +301,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                         import { tool } from "@langchain/core/tools";
                         import type { ToolRunnableConfig } from "@langchain/core/tools";
                         import { ToolNode } from "@langchain/langgraph/prebuilt";
-                        import type { AIMessage } from "@langchain/core/messages";
-                        import { SystemMessage, ToolMessage } from "@langchain/core/messages";
+                        import { AIMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
                         import {
                           Annotation,
                           Command,
@@ -400,9 +398,9 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
 
                         // 4. Define routing logic
                         function shouldContinue({ messages, copilotkit }: AgentState) {
-                          const lastMessage = messages[messages.length - 1] as AIMessage;
+                          const lastMessage = messages[messages.length - 1];
 
-                          if (lastMessage.tool_calls?.length) {
+                          if (AIMessage.isInstance(lastMessage) && lastMessage.tool_calls?.length) {
                             const actions = copilotkit?.actions;
                             const hasBackendToolCall = lastMessage.tool_calls.some((toolCall) => {
                               return (
@@ -424,7 +422,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                           .addNode("tool_node", new ToolNode(tools))
                           .addEdge(START, "chat_node")
                           .addEdge("tool_node", "chat_node")
-                          .addConditionalEdges("chat_node", shouldContinue as any);
+                          .addConditionalEdges("chat_node", shouldContinue);
 
                         const memory = new MemorySaver();
 
@@ -442,7 +440,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         These predictions will be emitted as the agent runs, allowing you to track its progress before the final state is determined.
 
         ```tsx title="ui/app/page.tsx"
-        import { useAgent } from '@copilotkit/react-core/v2'; // [!code highlight]
+        import { useAgent } from '@copilotkit/react-core'; // [!code highlight]
 
         const YourMainContent = () => {
             // [!code highlight:3]
@@ -450,7 +448,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 agentId: "sample_agent",
             });
 
-            const observedSteps = (agent.state.observed_steps as string[]) ?? [];
+            const observedSteps: string[] = agent.state.observed_steps ?? [];
 
             return (
                 <div>
@@ -503,7 +501,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
             ```
           </Tab>
           <Tab value="TypeScript">
-            ```ts title="agent.ts"
+            ```ts title="agent.ts" group=prebuilt-state
             import { createMiddleware } from "langchain";
             import { copilotkitMiddleware, zodState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
             import { z } from "zod";
@@ -548,12 +546,11 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
             ```
           </Tab>
           <Tab value="TypeScript">
-            ```ts title="agent.ts"
+            ```ts title="agent.ts" group=prebuilt-state
             import { createDeepAgent } from "deepagents";
-            import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph";
-            import { stateStreamingMiddleware, stateItem } from "@copilotkit/sdk-js/langgraph-middlewares"; // [!code highlight]
+            import { stateStreamingMiddleware, stateItem } from "@ag-ui/langgraph/middlewares"; // [!code highlight]
             import { tool } from "langchain";
-            import { z } from "zod";
+            // `z`, `copilotkitMiddleware`, and `observedStepsMiddleware` come from the state step above, in the same file.
 
             const stepProgressTool = tool(
                 async (args) => args,
@@ -586,7 +583,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         These predictions will be emitted as the agent runs, allowing you to track its progress before the final state is determined.
 
         ```tsx title="ui/app/page.tsx"
-        import { useAgent } from '@copilotkit/react-core/v2'; // [!code highlight]
+        import { useAgent } from '@copilotkit/react-core'; // [!code highlight]
 
         const YourMainContent = () => {
             // [!code highlight:3]
@@ -594,7 +591,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 agentId: "sample_agent",
             });
 
-            const observedSteps = (agent.state.observed_steps as string[]) ?? [];
+            const observedSteps: string[] = agent.state.observed_steps ?? [];
 
             return (
                 <div>

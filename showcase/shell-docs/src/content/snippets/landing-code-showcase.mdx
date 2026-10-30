@@ -18,15 +18,14 @@ import {
 ]}>
   <CodePanel>
     ```tsx title="app.tsx"
-    import { CopilotKit } from "@copilotkit/react-core/v2";
-    import { CopilotSidebar } from "@copilotkit/react-core/v2";
+    import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core";
 
     export default function App() {
       return (
-        <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
-          <YourApp />
-          <CopilotSidebar/>
-        </CopilotKit>
+        <CopilotKitProvider runtimeUrl="/api/copilotkit">
+          <main>{/* your app */}</main>
+          <CopilotSidebar />
+        </CopilotKitProvider>
       );
     }
     ```
@@ -34,18 +33,24 @@ import {
   </CodePanel>
   <CodePanel>
     ```tsx title="chat.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2";
+    import { useAgent, useCopilotKit } from "@copilotkit/react-core";
 
     export default function Chat() {
-      const { run, messages, isRunning } = useAgent();
+      const { agent } = useAgent();
+      const { copilotkit } = useCopilotKit();
+
+      const send = () => {
+        agent.addMessage({ id: crypto.randomUUID(), role: "user", content: "Hello!" });
+        void copilotkit.runAgent({ agent });
+      };
 
       return (
         <div>
-          {messages.map((m) => (
-            <p key={m.id}>{m.content}</p>
+          {agent.messages.map((m) => (
+            <p key={m.id}>{typeof m.content === "string" ? m.content : null}</p>
           ))}
-          <button onClick={() => run("Hello!")}>
-            {isRunning ? "Thinking..." : "Send"}
+          <button onClick={send}>
+            {agent.isRunning ? "Thinking..." : "Send"}
           </button>
         </div>
       );
@@ -56,22 +61,25 @@ import {
   <CodePanel>
     ```tsx title="weather-card.tsx"
     import { z } from "zod";
-    import { useComponent } from "@copilotkit/react-core/v2";
+    import { useComponent } from "@copilotkit/react-core";
 
-    useComponent({
-      name: "showWeather",
-      description: "Display a weather card.",
-      parameters: z.object({
-        city: z.string(),
-        temp: z.number(),
-      }),
-      render: ({ city, temp }) => (
-        <div className="rounded border p-3">
-          <div className="font-medium">{city}</div>
-          <div className="text-2xl">{temp}°F</div>
-        </div>
-      ),
-    });
+    export function WeatherCard() {
+      useComponent({
+        name: "showWeather",
+        description: "Display a weather card.",
+        parameters: z.object({
+          city: z.string(),
+          temp: z.number(),
+        }),
+        render: ({ city, temp }) => (
+          <div className="rounded border p-3">
+            <div className="font-medium">{city}</div>
+            <div className="text-2xl">{temp}°F</div>
+          </div>
+        ),
+      });
+      return null;
+    }
     ```
 
   </CodePanel>
@@ -82,7 +90,7 @@ import {
       CopilotRuntime,
       createCopilotRuntimeHandler,
       InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
+    } from "@copilotkit/runtime";
 
     const runtime = new CopilotRuntime({
       agents: {

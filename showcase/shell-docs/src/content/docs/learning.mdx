@@ -59,6 +59,8 @@ For agent setup, use the [Mastra](/intelligence/learned-skills#mastra), [LangGra
 For capture connected to Intelligence, select existing Learning Spaces in your Runtime's server configuration:
 
 ```ts
+import { CopilotKitIntelligence } from "@copilotkit/runtime";
+
 const intelligence = new CopilotKitIntelligence({
   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
   getTrajectoryLearningContainerIds: ({ trajectoryId, user }) =>
@@ -122,9 +124,11 @@ When you are done, your Runtime will send selected Threads to a Learning contain
 
     ```ts title="Your CopilotKit runtime"
     import {
+      BuiltInAgent,
       CopilotKitIntelligence,
       CopilotRuntime,
-    } from "@copilotkit/runtime/v2";
+    } from "@copilotkit/runtime";
+    import { verifyAppSession } from "./auth"; // Your server-side auth.
 
     const intelligence = new CopilotKitIntelligence({
       apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
@@ -133,9 +137,15 @@ When you are done, your Runtime will send selected Threads to a Learning contain
     });
 
     const runtime = new CopilotRuntime({
-      agents,
+      agents: {
+        "expense-agent": new BuiltInAgent({ model: "openai/gpt-5.4" }),
+      },
       intelligence,
-      identifyUser,
+      identifyUser: async (request) => {
+        const session = await verifyAppSession(request);
+        if (!session?.user) throw new Error("Unauthorized");
+        return { id: session.user.id, name: session.user.name };
+      },
     });
     ```
 
@@ -191,8 +201,8 @@ It does not represent the person who clicked a control in your application.
 
 ### Select a container and start a run
 
-```ts title="Application server"
-import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+```ts title="Application server" group=learning-management
+import { CopilotKitIntelligence } from "@copilotkit/runtime";
 
 const intelligence = new CopilotKitIntelligence({
   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
@@ -220,7 +230,7 @@ These methods do not upload workspace files, move Threads, or change their assig
 
 ### Review a proposed Skill
 
-```ts title="Application server"
+```ts title="Application server" group=learning-management
 const candidates = await intelligence.experimental.learning.listLearningCandidates({
   containerId: "expense-review",
 });
@@ -247,12 +257,17 @@ Evidence includes availability fields for missing Threads and Trajectories.
 
 After the reviewer explicitly chooses **Approve** or **Reject**, call `reviewLearningCandidate` from your authorized server handler:
 
-```ts title="Authorized review handler"
-const review = await intelligence.experimental.learning.reviewLearningCandidate({
-  containerId: "expense-review",
-  candidateId, // The candidate the reviewer inspected.
-  action: "approve", // Use "reject" for an explicit rejection.
-});
+```ts title="Authorized review handler" group=learning-management
+export async function POST(request: Request) {
+  // Authorize the reviewer before this point.
+  const { candidateId }: { candidateId: string } = await request.json(); // The candidate the reviewer inspected.
+  const review = await intelligence.experimental.learning.reviewLearningCandidate({
+    containerId: "expense-review",
+    candidateId,
+    action: "approve", // Use "reject" for an explicit rejection.
+  });
+  return Response.json(review);
+}
 ```
 
 Approval publishes the proposed change to the shared container. Rejection does not publish it.

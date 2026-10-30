@@ -64,6 +64,7 @@ state updates, you can reflect these updates natively in your application.
       <Tab value="TypeScript">
         ```ts title="agent-js/src/agent.ts"
         import { StateSchema } from "@langchain/langgraph";
+        import type { RunnableConfig } from "@langchain/core/runnables";
         import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
         import { z } from "zod";
 
@@ -95,7 +96,7 @@ state updates, you can reflect these updates natively in your application.
     read the state.
 
     ```tsx title="ui/app/page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { useAgent } from "@copilotkit/react-core"; // [!code highlight]
 
     function YourMainContent() {
       // [!code highlight:3]
@@ -103,7 +104,7 @@ state updates, you can reflect these updates natively in your application.
         agentId: "sample_agent",
       });
 
-      const language = (agent.state.language as string) ?? "english";
+      const language = agent.state.language ?? "english";
 
       // ...
 
@@ -142,7 +143,7 @@ state updates, you can reflect these updates natively in your application.
 You can also render the agent's state in the chat UI using `useRenderTool` or by accessing `agent.state` from `useAgent`. The state is reactive and updates automatically.
 
 ```tsx title="ui/app/page.tsx"
-import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useAgent } from "@copilotkit/react-core"; // [!code highlight]
 
 function YourMainContent() {
   // [!code highlight:3]
@@ -150,7 +151,7 @@ function YourMainContent() {
     agentId: "sample_agent",
   });
 
-  const language = (agent.state.language as string) ?? "english";
+  const language = agent.state.language ?? "english";
 
   return (
     <div>

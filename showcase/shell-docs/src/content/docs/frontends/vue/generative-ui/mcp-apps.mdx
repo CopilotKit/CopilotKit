@@ -28,10 +28,10 @@ Key benefits:
 A single `mcpApps.servers` entry on the runtime is all it takes. The runtime auto-applies the MCP Apps middleware to every registered agent: each time an agent calls a tool backed by an MCP UI resource, the middleware fetches the resource and emits an `activity` event that Vue's built-in `MCPAppsActivityRenderer` renders inline in the chat as a sandboxed iframe.
 
 ```ts title="server.ts"
-import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({
-  agents: { default: agent },
+  agents: { default: new BuiltInAgent({ model: "openai:gpt-5-mini" }) },
   mcpApps: {
     servers: [
       {
@@ -122,11 +122,13 @@ The middleware supports two transport types:
 Use this format to connect to an MCP server that accepts standard HTTP requests:
 
 ```typescript
-{
+import type { McpAppsServerConfig } from "@copilotkit/runtime";
+
+const server = {
   type: "http",
   url: "http://localhost:3101/mcp",
-  serverId: "my-http-server"
-}
+  serverId: "my-http-server",
+} satisfies McpAppsServerConfig;
 ```
 
 ### SSE
@@ -134,14 +136,16 @@ Use this format to connect to an MCP server that accepts standard HTTP requests:
 Use this format to connect to an MCP server that streams events over a persistent connection:
 
 ```typescript
-{
+import type { McpAppsServerConfig } from "@copilotkit/runtime";
+
+const server = {
   type: "sse",
   url: "https://mcp.example.com/sse",
   headers: {
-    "Authorization": "Bearer token"
+    Authorization: "Bearer token",
   },
-  serverId: "my-sse-server"
-}
+  serverId: "my-sse-server",
+} satisfies McpAppsServerConfig;
 ```
 
 Keep credentials on the runtime; do not expose private MCP tokens in Vue code.

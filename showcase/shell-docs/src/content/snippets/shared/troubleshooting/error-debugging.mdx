@@ -5,16 +5,17 @@ CopilotKit provides visual error display for local development and debugging. Th
 ## Quick Setup
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
-export default function App() {
+export function Providers({ children }: { children: ReactNode }) {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="<your-runtime-url>"
       showDevConsole={true} // [!code highlight]
     >
-      {/* Your app */}
-    </CopilotKit>
+      {children}
+    </CopilotKitProvider>
   );
 }
 ```
@@ -29,29 +30,35 @@ export default function App() {
 - **Quick debugging** - No setup required, works out of the box
 - **Testing** - Verify error handling during development
 
-## Programmatic Error Handling (v2)
+## Programmatic Error Handling
 
-The v2 API provides an `onError` callback on both `CopilotKit` and `CopilotChat` for programmatic error handling. No `publicApiKey` is required.
+`CopilotKitProvider` and `CopilotChat` both take an `onError` callback for programmatic error handling. No `publicApiKey` is required.
 
 ### Provider-Level Error Handling
 
 Catches all errors across the entire application:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import { errorTracker } from "./error-tracker";
 
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  onError={(event) => {
-    // event.code — error type (e.g. "runtime_info_fetch_failed", "agent_run_failed")
-    // event.error — the Error object
-    // event.context — additional context (agentId, toolName, etc.)
-    console.error(`[CopilotKit ${event.code}]`, event.error.message);
-    errorTracker.capture(event);
-  }}
->
-  <App />
-</CopilotKit>
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      onError={(event) => {
+        // event.code — error type (e.g. "runtime_info_fetch_failed", "agent_run_failed")
+        // event.error — the Error object
+        // event.context — additional context (agentId, toolName, etc.)
+        console.error(`[CopilotKit ${event.code}]`, event.error.message);
+        errorTracker.capture(event);
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ### Chat-Level Error Handling
@@ -59,14 +66,19 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 Scoped to a specific chat's agent — fires in addition to the provider-level handler:
 
 ```tsx
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
+import { showToast } from "./toast";
 
-<CopilotChat
-  agentId="my-agent"
-  onError={(event) => {
-    showToast(`Agent error: ${event.error.message}`);
-  }}
-/>
+export function Chat() {
+  return (
+    <CopilotChat
+      agentId="my-agent"
+      onError={(event) => {
+        showToast(`Agent error: ${event.error.message}`);
+      }}
+    />
+  );
+}
 ```
 
 ### Error Codes

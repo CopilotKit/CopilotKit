@@ -36,7 +36,65 @@ is a situation where a user and an agent are working together to solve a problem
     Create your Pydantic AI agent with a stateful structure. Here's a complete example that tracks searches:
 
     ```python title="agent.py"
-    // ...
+    from ag_ui.core import EventType, StateSnapshotEvent
+    from pydantic import BaseModel
+    from pydantic_ai import Agent, RunContext
+    from pydantic_ai.ui import StateDeps
+    from pydantic_ai.ui.ag_ui import AGUIAdapter
+    from starlette.applications import Starlette
+    from starlette.requests import Request
+    from starlette.responses import Response
+    from starlette.routing import Route
+
+
+    class Search(BaseModel):
+        query: str
+        done: bool
+
+
+    class AgentState(BaseModel):
+        """State for the agent."""
+        searches: list[Search] = []
+
+
+    agent = Agent("openai:gpt-5.4-mini", deps_type=StateDeps[AgentState])
+
+
+    @agent.tool
+    async def add_search(
+        ctx: RunContext[StateDeps[AgentState]], query: str
+    ) -> StateSnapshotEvent:
+        """Add a search to the list of searches the agent runs."""
+        ctx.deps.state.searches.append(Search(query=query, done=False))
+        # Returning a snapshot streams the new state to the frontend.
+        return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=ctx.deps.state)
+
+
+    async def run_agent(request: Request) -> Response:
+        # Build the deps fresh on every request: `dispatch_request` writes the state
+        # the client sent into `deps.state`, so a shared instance leaks state between
+        # concurrent requests and users.
+        return await AGUIAdapter.dispatch_request(
+            request, agent=agent, deps=StateDeps(AgentState())
+        )
+
+
+    app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
+    ```
+
+  </Step>
+  <Step>
+    ### Render state of the agent in the chat
+    Now register a custom message renderer with the provider's `renderCustomMessages` prop to render the state of your agent **in the chat**. The renderer receives the state snapshot of each agent run.
+
+    ```tsx title="app/page.tsx"
+    "use client";
+
+    import {
+      CopilotChat,
+      CopilotKitProvider,
+      type ReactCustomMessageRenderer,
+    } from "@copilotkit/react-core";
 
     // Define the state of the agent, should match the state of your Pydantic AI Agent.
     type AgentState = {
@@ -46,14 +104,17 @@ is a situation where a user and an agent are working together to solve a problem
       }[];
     };
 
-    function YourMainContent() {
-      // ...
-
-      // [!code highlight:13]
-      // styles omitted for brevity
-      useAgent({
-        agentId: "my_agent",
-        render: ({ state }) => (
+    // [!code highlight:21]
+    // styles omitted for brevity
+    const searchProgressRenderer: ReactCustomMessageRenderer = {
+      agentId: "my_agent",
+      render: ({ position, messageIndexInRun, numberOfMessagesInRun, stateSnapshot }) => {
+        // Render once per run, after the run's last message.
+        if (position !== "after" || messageIndexInRun !== numberOfMessagesInRun - 1) {
+          return null;
+        }
+        const state: Partial<AgentState> = stateSnapshot ?? {};
+        return (
           <div>
             {state.searches?.map((search, index) => (
               <div key={index}>
@@ -61,17 +122,27 @@ is a situation where a user and an agent are working together to solve a problem
               </div>
             ))}
           </div>
-        ),
-      });
+        );
+      },
+    };
 
-      // ...
+    // Keep the array at module scope: the provider needs a stable array.
+    const renderCustomMessages = [searchProgressRenderer];
 
-      return <div>...</div>;
+    export default function Page() {
+      return (
+        <CopilotKitProvider
+          runtimeUrl="/api/copilotkit"
+          renderCustomMessages={renderCustomMessages} // [!code highlight]
+        >
+          <CopilotChat agentId="my_agent" />
+        </CopilotKitProvider>
+      );
     }
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
     </Callout>
 
   </Step>
@@ -81,7 +152,7 @@ is a situation where a user and an agent are working together to solve a problem
     other than the chat.
 
     ```tsx title="app/page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { useAgent } from "@copilotkit/react-core"; // [!code highlight]
     // ...
 
     // Define the state of the agent, should match the state of your Pydantic AI Agent.
@@ -99,6 +170,7 @@ is a situation where a user and an agent are working together to solve a problem
       const { agent } = useAgent({
         agentId: "my_agent",
       })
+      const state: Partial<AgentState> = agent.state ?? {};
 
       // ...
 
@@ -107,7 +179,7 @@ is a situation where a user and an agent are working together to solve a problem
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
             {/* [!code highlight:5] */}
-            {agent.state?.searches?.map((search, index) => (
+            {state.searches?.map((search, index) => (
               <div key={index} className="flex flex-row">
                 {search.done ? "✅" : "❌"} {search.query}
               </div>
@@ -119,7 +191,7 @@ is a situation where a user and an agent are working together to solve a problem
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
     </Callout>
 
   </Step>

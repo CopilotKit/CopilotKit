@@ -67,7 +67,7 @@ state updates, you can reflect these updates natively in your application.
 
     ```tsx title="ui/app/page.tsx"
     import { useEffect } from "react";
-    import { useAgent } from "@copilotkit/react-core/v2";
+    import { useAgent } from "@copilotkit/react-core";
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -79,7 +79,7 @@ state updates, you can reflect these updates natively in your application.
       const { agent, isReady } = useAgent({
         agentId: "sample_agent",
       });
-      const state = (agent.state ?? {}) as Partial<AgentState>;
+      const state: Partial<AgentState> = agent.state ?? {};
 
       useEffect(() => {
         if (!isReady || state.language !== undefined) return;
@@ -112,10 +112,10 @@ state updates, you can reflect these updates natively in your application.
 
 ## Rendering agent state in your app
 
-You can render the agent state in any React component under `<CopilotKit>`. Read `agent.state` and return ordinary JSX.
+You can render the agent state in any React component under `<CopilotKitProvider>`. Read `agent.state` and return ordinary JSX.
 
 ```tsx title="ui/app/page.tsx"
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 
 type AgentState = {
   language: "english" | "spanish";
@@ -125,7 +125,7 @@ function YourMainContent() {
   const { agent } = useAgent({
     agentId: "sample_agent",
   });
-  const state = (agent.state ?? {}) as Partial<AgentState>;
+  const state: Partial<AgentState> = agent.state ?? {};
 
   if (!state.language) return null;
   return <div>Language: {state.language}</div>;

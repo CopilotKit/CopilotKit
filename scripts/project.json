@@ -55,6 +55,14 @@
         "parallel": false
       }
     },
+    "check-docs-snippets": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "kiira check",
+        "cwd": "{workspaceRoot}"
+      }
+    },
     "validate-examples-catalog": {
       "executor": "nx:run-commands",
       "cache": false,

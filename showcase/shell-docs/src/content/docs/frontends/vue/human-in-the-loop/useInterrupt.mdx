@@ -115,14 +115,19 @@ The Vue `#interrupt` slot receives `{ event, result, resolve }`. For the complet
 If your graph issues more than one kind of interrupt, tag each payload with a `type` field and install one `useInterrupt` per shape, each gated by `enabled`:
 
 ```ts
-useInterrupt({
+// Inside <script setup lang="ts">
+import { useInterrupt } from "@copilotkit/vue/v2";
+
+type TaggedInterrupt = { type?: string };
+
+useInterrupt<TaggedInterrupt>({
   agentId: "gen-ui-interrupt",
-  enabled: (event) => (event.value as { type?: string }).type === "ask",
+  enabled: (event) => event.value.type === "ask",
 });
 
-useInterrupt({
+useInterrupt<TaggedInterrupt>({
   agentId: "gen-ui-interrupt",
-  enabled: (event) => (event.value as { type?: string }).type === "approval",
+  enabled: (event) => event.value.type === "approval",
 });
 ```
 
@@ -131,13 +136,21 @@ useInterrupt({
 For cases where the interrupt can sometimes be resolved _without_ user input, pass a `handler` that runs before the UI is rendered. The handler can call `resolve(...)` itself to resume the agent early, or return a value exposed as `result`:
 
 ```ts
-const { slotProps } = useInterrupt({
+// Inside <script setup lang="ts">
+import { useInterrupt } from "@copilotkit/vue/v2";
+import { lookupUserDepartment } from "./directory";
+
+type AccessRequest = { accessDepartment: string };
+
+const { slotProps } = useInterrupt<
+  AccessRequest,
+  { department: string } | undefined
+>({
   agentId: "gen-ui-interrupt",
   renderInChat: false,
   handler: async ({ event, resolve }) => {
     const department = await lookupUserDepartment();
-    const required = (event.value as { accessDepartment: string })
-      .accessDepartment;
+    const required = event.value.accessDepartment;
 
     if (required === department || department === "admin") {
       await resolve({ code: "AUTH_BY_DEPARTMENT" });

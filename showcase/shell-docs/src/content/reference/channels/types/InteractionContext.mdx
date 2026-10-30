@@ -8,6 +8,14 @@ Buttons, selects, and inputs receive an `InteractionContext<TValue>`.
 ## Shape
 
 ```ts
+import type {
+  ApplicationUser,
+  IncomingMessage,
+  ModalView,
+  ProviderActor,
+  Thread,
+} from "@copilotkit/channels/ui";
+
 interface InteractionContext<TValue = unknown> {
   thread: Thread;
   message: IncomingMessage;
@@ -36,6 +44,8 @@ interface InteractionContext<TValue = unknown> {
 | `openModal`    | Capability-gated and omitted on the managed Slack and Teams path.                                      |
 
 ```tsx
+import { Button } from "@copilotkit/channels/ui";
+
 <Button
   value={{ approved: true }}
   onClick={async ({ thread, message, action }) => {
@@ -53,7 +63,7 @@ interface InteractionContext<TValue = unknown> {
   }}
 >
   Approve
-</Button>
+</Button>;
 ```
 
 Managed interactions arrive as a later delivery. Return after posting the

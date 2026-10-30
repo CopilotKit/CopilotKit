@@ -14,12 +14,12 @@ A **catalog** lists the components that the agent can use. For each component it
 
 Declare the catalog once, at module level, with `createGenerativeUI`:
 
-```tsx title="app/catalog.tsx"
+```tsx title="app/catalog.tsx" group=shop-catalog
 import { z } from "zod";
 import {
   createGenerativeUI,
   type GenerativeUIComponentProps,
-} from "@copilotkit/react-core/v2/generative-ui";
+} from "@copilotkit/react-core/generative-ui";
 
 function ProductGrid({ title, children }: GenerativeUIComponentProps<typeof shopUI, "ProductGrid">) {
   return (
@@ -58,10 +58,18 @@ export const shopUI = createGenerativeUI({
 });
 ```
 
-Then give it to the provider:
+Then give it to the provider, in a client component. In your own app, import `shopUI` from `./catalog`:
 
-```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: shopUI }}>
+```tsx title="app/providers.tsx" group=shop-catalog
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: shopUI }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 The `id` names the catalog. Use a versioned id, for example `acme/shop@1`.
@@ -72,7 +80,7 @@ The `id` names the catalog. Use a versioned id, for example `acme/shop@1`.
 - `description`: what the component is and when to use it. The agent reads it, so be specific.
 - `props`: the schema of the props that the agent sets.
 - `slots`: props that hold child components. `"single"` takes one child, and `"multiple"` takes a list.
-- A child reference inside the props schema: mark a prop with `child()` or `childList()` from `@copilotkit/react-core/v2/generative-ui`, anywhere in the schema, for example `tabs: z.array(z.object({ title: z.string(), child: child() }))`. The engine renders the referenced components and your component receives them as React nodes in place of the ids. This is how A2UI 1.0 marks references (`ComponentId`, `ChildList`); `slots` stays for the plain top-level case.
+- A child reference inside the props schema: mark a prop with `child()` or `childList()` from `@copilotkit/react-core/generative-ui`, anywhere in the schema, for example `tabs: z.array(z.object({ title: z.string(), child: child() }))`. The engine renders the referenced components and your component receives them as React nodes in place of the ids. This is how A2UI 1.0 marks references (`ComponentId`, `ChildList`); `slots` stays for the plain top-level case.
 - `events`, `bind`, and `writable`: actions, app state, and inputs. See [Connect app state and actions](/generative-ui/components/state-and-actions).
 
 Next to `id` and `component`, every component the agent writes may carry the A2UI 1.0 envelope: `catalogId` (must be the id of your UI), `metadata` (`{ "extensions": { ... } }`, kept for your own tooling) and `accessibility` (`label`, `description`, `live`, `hidden`; `label`, `description` and `hidden` may be bindings or function values). The engine resolves `accessibility` and keeps all three out of your props. `hidden` and `live` apply to every component: the engine wraps the component in an element with `aria-hidden` and `aria-live`. A `label` or a `description` needs an element with a role, so the standard components set them on their root or on their control. In your own component, call `useGenerativeUIAccessibility()` and spread the result on the root element. A component that must not be wrapped (a table row or cell) declares `accessibility: "self"` and applies the attributes itself.
@@ -82,10 +90,27 @@ Next to `id` and `component`, every component the agent writes may carry the A2U
 `GenerativeUIComponentProps<typeof ui, "Name">` gives a component the exact props that the renderer passes. It reads them from the schema, so the component and the catalog cannot drift apart:
 
 ```tsx
+import { z } from "zod";
+import {
+  createGenerativeUI,
+  type GenerativeUIComponentProps,
+} from "@copilotkit/react-core/generative-ui";
+
 function ProductCard(props: GenerativeUIComponentProps<typeof shopUI, "ProductCard">) {
-  props.price; // number
-  props.color; // type error: not a prop of ProductCard
+  const price: number = props.price;
+  // props.color is a type error: ProductCard has no color prop.
+  return <p>{props.name}: ${price}</p>;
 }
+
+export const shopUI = createGenerativeUI({
+  id: "acme/shop@1",
+  components: {
+    ProductCard: {
+      component: ProductCard,
+      props: z.object({ name: z.string(), price: z.number() }),
+    },
+  },
+});
 ```
 
 ## Pick a schema library
@@ -94,18 +119,44 @@ function ProductCard(props: GenerativeUIComponentProps<typeof shopUI, "ProductCa
 
 <Tabs items={["zod", "Valibot"]}>
   <Tab value="zod">
-    ```ts
+    ```tsx
     import { z } from "zod";
+    import { createGenerativeUI } from "@copilotkit/react-core/generative-ui";
 
-    props: z.object({ name: z.string(), price: z.number() }),
+    function ProductCard({ name, price }: { name: string; price: number }) {
+      return <p>{name}: ${price}</p>;
+    }
+
+    export const shopUI = createGenerativeUI({
+      id: "acme/shop@1",
+      components: {
+        ProductCard: {
+          component: ProductCard,
+          props: z.object({ name: z.string(), price: z.number() }),
+        },
+      },
+    });
     ```
   </Tab>
   <Tab value="Valibot">
-    ```ts
+    ```tsx
     import * as v from "valibot";
     import { toStandardJsonSchema } from "@valibot/to-json-schema";
+    import { createGenerativeUI } from "@copilotkit/react-core/generative-ui";
 
-    props: toStandardJsonSchema(v.object({ name: v.string(), price: v.number() })),
+    function ProductCard({ name, price }: { name: string; price: number }) {
+      return <p>{name}: ${price}</p>;
+    }
+
+    export const shopUI = createGenerativeUI({
+      id: "acme/shop@1",
+      components: {
+        ProductCard: {
+          component: ProductCard,
+          props: toStandardJsonSchema(v.object({ name: v.string(), price: v.number() })),
+        },
+      },
+    });
     ```
   </Tab>
 </Tabs>
@@ -116,8 +167,24 @@ These work: zod 3, zod 4.2 or later, ArkType, and Valibot with `@valibot/to-json
 
 `extends` merges other catalogs into yours. The result has the types of every component:
 
-```ts
-import { createGenerativeUI, standardUI } from "@copilotkit/react-core/v2/generative-ui";
+```tsx
+import { z } from "zod";
+import { createGenerativeUI, standardUI } from "@copilotkit/react-core/generative-ui";
+
+function CartSummary({ total }: { total: number }) {
+  return <p>Total: ${total}</p>;
+}
+
+function Hero({ title }: { title: string }) {
+  return <h1>{title}</h1>;
+}
+
+const cartUI = createGenerativeUI({
+  id: "acme/cart@1",
+  components: {
+    CartSummary: { component: CartSummary, props: z.object({ total: z.number() }) },
+  },
+});
 
 export const appUI = createGenerativeUI({
   id: "acme/app@1",
@@ -133,10 +200,21 @@ A name can come from one catalog only. Two components named `Card` throw an erro
 `exportA2UICatalog(ui)` writes your UI as an A2UI 1.0 catalog definition (the `catalog_definition.json` shape), for a validator, another renderer or a prompt builder:
 
 ```ts
-import { exportA2UICatalog } from "@copilotkit/react-core/v2/generative-ui";
+import { writeFileSync } from "node:fs";
+import {
+  createGenerativeUI,
+  exportA2UICatalog,
+  standardUI,
+} from "@copilotkit/react-core/generative-ui";
+
+const appUI = createGenerativeUI({
+  id: "acme/app@1",
+  extends: [standardUI],
+  components: {},
+});
 
 const catalog = exportA2UICatalog(appUI, { title: "Acme app" });
-fs.writeFileSync("acme-catalog.json", JSON.stringify(catalog, null, 2));
+writeFileSync("acme-catalog.json", JSON.stringify(catalog, null, 2));
 ```
 
 Every component is an entry with `component` as a `const`, its model-set props, its events as `Action` references and its slots as `ComponentId` or `ChildList` references. A prop takes its literal schema, a `DataBinding` or a `FunctionCall`, because the renderer resolves dynamic values in any prop. Every function, built-in or declared, states `returnType` and `allowedCallers`; `calc` and `series` are listed like the others, so a reader without them knows what it cannot run.
@@ -148,6 +226,19 @@ A2UI Express maps positional arguments using the order of properties in the cata
 Declare `parameterOrder` to put a component's main content, children or actions first, across `props`, `slots` and `events`:
 
 ```tsx
+import type { ReactNode } from "react";
+import { z } from "zod";
+import { createGenerativeUI } from "@copilotkit/react-core/generative-ui";
+
+function Panel({ title, children }: { title: string; children?: ReactNode }) {
+  return (
+    <section>
+      <h3>{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 const ui = createGenerativeUI({
   id: "acme/panel@1",
   components: {

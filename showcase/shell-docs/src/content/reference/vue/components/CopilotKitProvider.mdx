@@ -147,15 +147,18 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 <PropertyReference name="properties" type="Record<string, unknown>" default="{}">
   Custom properties sent with each request. Can include `threadMetadata` for thread creation and `authorization` for LangGraph Platform authentication.
 
-```js
-{
+```ts
+import type { CopilotKitProviderProps } from "@copilotkit/vue/v2";
+
+// Pass as `:properties="properties"` on <CopilotKitProvider>.
+const properties: CopilotKitProviderProps["properties"] = {
   user_id: "users_id",
   authorization: "your-auth-token", // For LangGraph Platform authentication
   threadMetadata: {
     account_id: "123",
     user_type: "premium",
   },
-}
+};
 ```
 
 </PropertyReference>

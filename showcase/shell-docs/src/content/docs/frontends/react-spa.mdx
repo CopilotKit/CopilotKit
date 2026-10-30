@@ -7,7 +7,7 @@ hideTOC: true
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
-The rest of these docs are the React docs. [Frontend tools](/frontend-tools), [generative UI](/generative-ui), [human-in-the-loop](/human-in-the-loop), [headless UI](/headless), [prebuilt components](/prebuilt-components) and the [React reference](/reference/v2) all work unchanged in a Vite or Create React App project.
+The rest of these docs are the React docs. [Frontend tools](/frontend-tools), [generative UI](/generative-ui), [human-in-the-loop](/human-in-the-loop), [headless UI](/headless), [prebuilt components](/prebuilt-components) and the [React reference](/reference) all work unchanged in a Vite or Create React App project.
 
 Exactly one instruction does not carry over: **where Copilot Runtime lives.** The quickstarts assume Next.js serves your app and the runtime from one origin, so they use a relative `runtimeUrl` of `/api/copilotkit`. A single-page app has no server and no shared origin, so that path resolves to nothing. This page covers that one difference and sends you back to the pages above for everything else.
 
@@ -72,8 +72,8 @@ Use this prompt to connect your React single-page app to a separately hosted Cop
 
         ```ts title="server.ts"
         import { createServer } from "node:http";
-        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
-        import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+        import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
         const runtime = new CopilotRuntime({
           agents: {
@@ -109,7 +109,7 @@ Use this prompt to connect your React single-page app to a separately hosted Cop
         Point `CopilotKitProvider` at the runtime endpoint and drop in `CopilotChat`. Because the runtime registers an agent named `default`, the chat picks it up automatically.
 
         ```tsx title="src/App.tsx"
-        import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+        import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core";
 
         export default function App() {
           return (
@@ -129,13 +129,19 @@ Use this prompt to connect your React single-page app to a separately hosted Cop
 
         To use a named agent from an integration quickstart, set `agentId` to the key registered in the runtime's `agents` map:
 
-        ```tsx
-        <CopilotKitProvider
-          runtimeUrl="http://localhost:8200/api/copilotkit"
-          agentId="sample_agent"
-        >
-          <CopilotChat />
-        </CopilotKitProvider>
+        ```tsx title="src/App.tsx"
+        import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core";
+
+        export default function App() {
+          return (
+            <CopilotKitProvider
+              runtimeUrl="http://localhost:8200/api/copilotkit"
+              agentId="sample_agent"
+            >
+              <CopilotChat />
+            </CopilotKitProvider>
+          );
+        }
         ```
 
         `CopilotKitProvider` uses `agentId`; the `agent` prop shown in legacy `<CopilotKit>` examples is not a provider prop. Omit `agentId` when using the `default` agent above.
@@ -240,7 +246,7 @@ Use this prompt to connect your React single-page app to a separately hosted Cop
                 - **CORS errors, or requests failing on preflight**: Keep `cors: true` in `createCopilotNodeListener`. It is off by default, and this is the most common cause of a chat that renders but never responds.
                 - **404s on `/api/copilotkit`**: Your `runtimeUrl` is relative. A SPA needs the absolute `http://localhost:8200/api/copilotkit`.
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
-                - **Chat renders unstyled**: Look for a Content-Security-Policy error in the browser console. If your policy limits `style-src` to a nonce, pass it as `<CopilotKit nonce={nonce}>`.
+                - **Chat renders unstyled**: Look for a Content-Security-Policy error in the browser console. If your policy limits `style-src` to a nonce, pass it as `<CopilotKitProvider nonce={nonce}>`.
                 - **Model auth errors or Intelligence remains unconfigured**: Confirm the runtime starts with `npx tsx --env-file=.env server.ts` and the selected env file contains the required server credentials. Vite loading its own env file does not configure the runtime process.
             </Accordion>
         </Accordions>
@@ -259,7 +265,7 @@ The runtime is the only SPA-specific piece. From here the root React docs apply 
 - [Human-in-the-loop](/human-in-the-loop) — pause a run for user approval
 - [Headless UI](/headless) — build your own chat surface
 - [Prebuilt components](/prebuilt-components) — the chat, sidebar and popup layouts
-- [React reference](/reference/v2) — full provider, hook and component API
+- [React reference](/reference) — full provider, hook and component API
 
 To connect an agent framework instead of `BuiltInAgent`, follow any [integration quickstart](/quickstart) and keep the `server.ts` host and absolute `runtimeUrl` from this page in place of its Next.js route handler.
 
@@ -279,8 +285,8 @@ import { HttpAgent } from "@ag-ui/client";
 import {
   CopilotKitIntelligence,
   CopilotRuntime,
-} from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+} from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -319,13 +325,19 @@ Run `npx copilotkit@latest project select` beside `server.ts` to write `CPK_INTE
 
 On the frontend, set `agentId` to the key in the `agents` map:
 
-```tsx
-<CopilotKitProvider
-  runtimeUrl="http://localhost:8200/api/copilotkit"
-  agentId="my_agent"
->
-  <CopilotChat />
-</CopilotKitProvider>
+```tsx title="src/App.tsx"
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core";
+
+export default function App() {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="http://localhost:8200/api/copilotkit"
+      agentId="my_agent"
+    >
+      <CopilotChat />
+    </CopilotKitProvider>
+  );
+}
 ```
 
 With Intelligence, the run route does not stream events to the browser. The provider reads them from Intelligence over a websocket. See [Run and connect with Intelligence](/backend/runtime-endpoints#run-and-connect-with-intelligence).

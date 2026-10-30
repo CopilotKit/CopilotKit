@@ -12,17 +12,23 @@ See [`CopilotSidebar`](/reference/components/CopilotSidebar) for a sidebar varia
 ## Import
 
 ```tsx
-import { CopilotPopup } from "@copilotkit/react-core/v2";
+import { CopilotPopup } from "@copilotkit/react-core";
 ```
 
 ## Props
 
 ### Own Props
 
-<PropertyReference name="header" type="SlotValue<typeof CopilotModalHeader>">
+<PropertyReference name="header" type="SlotValue<React.ComponentType<CopilotModalHeaderProps>>">
   Slot override for the popup header. Accepts a replacement component, a
   `className` string merged into the default, or a partial props object. The
   default header displays a title and a close button.
+</PropertyReference>
+
+<PropertyReference name="toggleButton" type="SlotValue<typeof CopilotChatToggleButton>">
+  Slot override for the floating button that opens and closes the popup.
+  Accepts a replacement component, a `className` string, or a partial props
+  object.
 </PropertyReference>
 
 <PropertyReference name="defaultOpen" type="boolean" default="true">
@@ -65,7 +71,7 @@ import { CopilotPopup } from "@copilotkit/react-core/v2";
 
 <PropertyReference name="agentId" type="string">
   ID of the agent to use. Must match an agent configured in
-  `CopilotKit`.
+  `CopilotKitProvider`.
 </PropertyReference>
 
 <PropertyReference name="threadId" type="string">
@@ -76,15 +82,9 @@ import { CopilotPopup } from "@copilotkit/react-core/v2";
   Partial label overrides for all text strings rendered inside the chat.
 </PropertyReference>
 
-<PropertyReference name="autoScroll" type="boolean" default="true">
-  Whether the chat scrolls to the bottom automatically when new messages arrive.
-</PropertyReference>
-
-<PropertyReference
-  name="inputProps"
-  type="Partial<Omit<CopilotChatInputProps, 'children'>>"
->
-  Additional props forwarded to the inner `CopilotChatInput` component.
+<PropertyReference name="autoScroll" type='AutoScrollMode | boolean' default="true">
+  How the chat scrolls as messages arrive. See
+  [`CopilotChat`](/reference/components/CopilotChat).
 </PropertyReference>
 
 <PropertyReference
@@ -94,11 +94,11 @@ import { CopilotPopup } from "@copilotkit/react-core/v2";
   Controls the welcome screen shown when no messages exist.
 </PropertyReference>
 
-All `CopilotChatView` slot props (`messageView`, `input`, `scrollView`, `inputContainer`, `feather`, `disclaimer`, `suggestionView`) are also accepted and forwarded through.
+All `CopilotChatView` slot props (`messageView`, `input`, `scrollView`, `suggestionView`) are also accepted and forwarded through.
 
 ## Slot System
 
-All slot props follow the same override pattern used across CopilotKit v2 components. Each slot accepts one of three value types:
+All slot props follow the same override pattern used across CopilotKit components. Each slot accepts one of three value types:
 
 | Value                    | Behavior                                                                            |
 | ------------------------ | ----------------------------------------------------------------------------------- |
@@ -111,6 +111,8 @@ All slot props follow the same override pattern used across CopilotKit v2 compon
 ### Basic Usage
 
 ```tsx
+import { CopilotPopup } from "@copilotkit/react-core";
+
 function App() {
   return (
     <CopilotPopup
@@ -124,6 +126,8 @@ function App() {
 ### Custom Size and Default Open
 
 ```tsx
+import { CopilotPopup } from "@copilotkit/react-core";
+
 function App() {
   return (
     <CopilotPopup
@@ -140,6 +144,8 @@ function App() {
 ### Custom Header
 
 ```tsx
+import { CopilotPopup } from "@copilotkit/react-core";
+
 function App() {
   return <CopilotPopup agentId="my-agent" header="bg-blue-600 text-white" />;
 }

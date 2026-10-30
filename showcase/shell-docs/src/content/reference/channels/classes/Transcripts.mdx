@@ -9,10 +9,15 @@ description: Append, query, retain, and delete an application-owned transcript k
 ## Configuration
 
 ```ts
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+import { accounts } from "./accounts.js";
+import { durableStateStore } from "./state-store.js";
+
 const channel = createChannel({
   name: "support-slack",
   identifyUser: ({ actor }) => accounts.resolveApplicationUser(actor.id),
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   store: {
     adapter: durableStateStore,
     transcripts: {
@@ -29,14 +34,25 @@ the `list` facet, so that facet must be durable for production transcripts.
 ## append
 
 ```ts
-await channel.transcripts.append(
-  thread,
-  {
-    role: "assistant",
-    text: "The incident owner is Payments.",
-  },
-  { userId: "usr_123" },
-);
+import { createChannel } from "@copilotkit/channels";
+import { durableStateStore } from "./state-store.js";
+
+const channel = createChannel({
+  name: "support-slack",
+  identifyUser: "platform",
+  store: { adapter: durableStateStore, transcripts: { retention: "30d" } },
+});
+
+channel.onMessage(async ({ thread, message }) => {
+  await channel.transcripts.append(
+    thread,
+    {
+      role: "assistant",
+      text: "The incident owner is Payments.",
+    },
+    { userId: message.user?.id ?? null },
+  );
+});
 ```
 
 Append silently does nothing when `userId` is `null`.
@@ -44,11 +60,15 @@ Append silently does nothing when `userId` is `null`.
 ## list
 
 ```ts
-const entries = await channel.transcripts.list({
-  userId: "usr_123",
-  limit: 20,
-  roles: ["user", "assistant"],
-});
+import type { Channel } from "@copilotkit/channels";
+
+export async function recentEntries(channel: Channel) {
+  return channel.transcripts.list({
+    userId: "usr_123",
+    limit: 20,
+    roles: ["user", "assistant"],
+  });
+}
 ```
 
 Entries are oldest-first and can be filtered by platform, `threadId`, or role.
@@ -59,9 +79,14 @@ providers, and filter by platform only when you want one provider's entries.
 ## delete
 
 ```ts
-const { deleted } = await channel.transcripts.delete({
-  userId: "usr_123",
-});
+import type { Channel } from "@copilotkit/channels";
+
+export async function eraseTranscript(channel: Channel) {
+  const { deleted } = await channel.transcripts.delete({
+    userId: "usr_123",
+  });
+  return deleted;
+}
 ```
 
 This deletes only the SDK-owned transcript. It does not delete provider history

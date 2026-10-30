@@ -11,6 +11,23 @@ The `BuiltInAgent` accepts a full set of configuration options to control model 
 By default, the agent performs a single generation step. Set `maxSteps` to allow the agent to call tools and then continue reasoning:
 
 ```typescript title="src/copilotkit.ts"
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime";
+import { z } from "zod";
+
+const searchDocs = defineTool({
+  name: "searchDocs",
+  description: "Search the documentation",
+  parameters: z.object({ query: z.string() }),
+  execute: async ({ query }) => ({ results: [`Article about ${query}`] }),
+});
+
+const createTicket = defineTool({
+  name: "createTicket",
+  description: "Create a support ticket",
+  parameters: z.object({ title: z.string() }),
+  execute: async ({ title }) => ({ ticketId: "T-1", title }),
+});
+
 const agent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
   maxSteps: 5, // [!code highlight]
@@ -25,6 +42,8 @@ With `maxSteps: 5`, the agent can call a tool, process the result, call another 
 Control how the agent selects tools:
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
+
 const agent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
   toolChoice: "auto",       // Let the model decide (default)
@@ -39,6 +58,8 @@ const agent = new BuiltInAgent({
 Customize the agent's system prompt:
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
+
 const agent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
   prompt: "You are a customer support agent for Acme Corp. Be concise and helpful. Always check the knowledge base before answering.", // [!code highlight]
@@ -50,6 +71,8 @@ const agent = new BuiltInAgent({
 Fine-tune the model's output:
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
+
 const agent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
   temperature: 0.7,        // Creativity (0 = deterministic, 1+ = creative)
@@ -73,6 +96,8 @@ Not all parameters are supported by every provider. For example, `topK` is suppo
 Pass options specific to a model provider using `providerOptions`:
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
+
 // OpenAI reasoning models (o3, o4-mini) with reasoning effort
 const agent = new BuiltInAgent({
   model: "openai:o3",
@@ -83,6 +108,8 @@ const agent = new BuiltInAgent({
 ```
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
+
 // Anthropic with adaptive thinking
 const agent = new BuiltInAgent({
   model: "anthropic:claude-sonnet-4-6",
@@ -97,6 +124,8 @@ const agent = new BuiltInAgent({
 Allow the frontend to override specific configuration at runtime. This is useful when you want users to switch models or adjust behavior without redeploying:
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
+
 const agent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
   temperature: 0.5,
@@ -112,6 +141,8 @@ The full list of overridable properties:
 Control whether system and developer messages from the conversation are forwarded to the LLM:
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
+
 const agent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
   forwardSystemMessages: true,    // Forward system-role messages
@@ -124,6 +155,8 @@ const agent = new BuiltInAgent({
 When a message has an image or file given by URL, and the model cannot take that URL directly, the server downloads the file and sends its content to the model. Use `urlDownload` to control these downloads:
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime";
+
 const agent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
   urlDownload: { // [!code highlight:4]
@@ -147,14 +180,24 @@ The default downloader needs Node.js networking modules. On a runtime without th
 In AI SDK factory mode you call `streamText()` yourself, so `urlDownload` does not apply; setting it there throws when the agent is created. Pass the same downloader to get the same protection, with the run's abort signal so that an aborted run stops its downloads:
 
 ```typescript
-import { createSafeUrlDownload } from "@copilotkit/runtime/v2";
+import {
+  BuiltInAgent,
+  convertMessagesToVercelAISDKMessages,
+  createSafeUrlDownload,
+} from "@copilotkit/runtime";
+import { openai } from "@ai-sdk/openai";
+import { streamText } from "ai";
 
-factory: (ctx) =>
-  streamText({
-    // ...
-    abortSignal: ctx.abortSignal,
-    experimental_download: createSafeUrlDownload({ signal: ctx.abortSignal }),
-  }),
+const agent = new BuiltInAgent({
+  type: "aisdk",
+  factory: (ctx) =>
+    streamText({
+      model: openai("gpt-5.4-mini"),
+      messages: convertMessagesToVercelAISDKMessages(ctx.input.messages),
+      abortSignal: ctx.abortSignal,
+      experimental_download: createSafeUrlDownload({ signal: ctx.abortSignal }), // [!code highlight]
+    }),
+});
 ```
 
 ## Full configuration reference

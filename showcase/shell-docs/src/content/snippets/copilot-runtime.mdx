@@ -23,7 +23,7 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -51,25 +51,27 @@ the endpoint is wired up.
 Then point your frontend at the endpoint:
 
 <FrontendOnly frontend="react">
-```tsx
-<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
-  <YourApp />
-</CopilotKit>
+```tsx title="app/providers.tsx"
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
-<Callout type="warn">
-  `useSingleEndpoint={false}` selects the REST transport, which is what
-  `createCopilotRuntimeHandler` serves. Pass it explicitly: in released versions
-  `<CopilotKit>` pins the flag to `true` — the single-route transport, which
-  posts everything to the bare `runtimeUrl` — and a multi-route runtime answers
-  that with a 404 while `GET /info` still returns 200, so the app looks
-  connected. `<CopilotKitProvider>` already negotiates the transport from
-  `/info` when the prop is omitted, and `<CopilotKit>` will too, at which point
-  this stays correct but stops being necessary. See [Provider and handler
+<Callout type="info">
+  When you omit `useSingleEndpoint`, `<CopilotKitProvider>` negotiates the
+  transport from `GET /info` and uses the REST transport that
+  `createCopilotRuntimeHandler` serves. See [Provider and handler
   pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
 
-  To keep a single POST-only URL instead, mount the runtime with
-  `createCopilotEndpointSingleRoute` at a plain `route.ts` and omit this prop.
+  To keep a single POST-only URL instead, create the handler with
+  `mode: "single-route"` at a plain `route.ts`.
 </Callout>
 </FrontendOnly>
 
@@ -92,6 +94,9 @@ For setup with other backend frameworks (Express, NestJS, Node.js HTTP), see the
 If you register an agent with the name `"default"`, CopilotKit's prebuilt UI components will use it automatically without any additional configuration on the frontend. This is useful when you have one primary agent and don't want to specify an `agentId` everywhere.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotRuntime } from "@copilotkit/runtime";
+
 const runtime = new CopilotRuntime({
   agents: {
     // Frontend APIs use this agent when no other agent id is selected.
@@ -129,37 +134,58 @@ The runtime supports two first-class middleware options you can enable directly 
 Pass `a2ui: {}` to automatically apply `A2UIMiddleware` to all registered agents:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+
 const runtime = new CopilotRuntime({
-  agents: { default: myAgent },
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
   a2ui: {}, // enables A2UI rendering for all agents
 });
 ```
 
 To scope it to specific agents only, pass an `agents` list:
 
-```ts
-a2ui: {
-  agents: ["my-agent"];
-}
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: { "my-agent": new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  a2ui: { agents: ["my-agent"] },
+});
 ```
 
 On the frontend, the A2UI renderer activates automatically. Configure `a2ui`
 only when you want to override its defaults:
 
 <FrontendOnly frontend="react">
-```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  useSingleEndpoint={false}
-  a2ui={{ theme: myCustomTheme }}
->
-  {children}
-</CopilotKit>
+```tsx title="app/providers.tsx"
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+const myCustomTheme = {
+  // ...your theme keys
+};
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      a2ui={{ theme: myCustomTheme }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
 ```ts title="src/app/app.config.ts"
+import { provideCopilotKit } from "@copilotkit/angular";
+
+const myCustomTheme = {
+  // ...your theme keys
+};
+
 provideCopilotKit({
   runtimeUrl: "/api/copilotkit",
   a2ui: { theme: myCustomTheme },
@@ -172,8 +198,10 @@ provideCopilotKit({
 Pass `mcpApps` to configure MCP servers for all agents from a single place:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+
 const runtime = new CopilotRuntime({
-  agents: { default: myAgent },
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
   mcpApps: {
     servers: [
       { type: "http", url: "http://localhost:3108/mcp", serverId: "my-server" },
@@ -189,16 +217,22 @@ Each server entry optionally accepts an `agentId` field to scope that server to 
 CopilotKit is built on the [AG-UI protocol](/ag-ui-protocol), which is an open standard. If you want to connect your frontend directly to an AG-UI-compatible agent without the runtime, pass the agent instance in your frontend configuration:
 
 <FrontendOnly frontend="react">
-```tsx
+```tsx title="app/providers.tsx"
+import type { ReactNode } from "react";
 import { HttpAgent } from "@ag-ui/client";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
 const myAgent = new HttpAgent({
   url: "https://my-agent.example.com",
 });
 
-<CopilotKit agents__unsafe_dev_only={{ "my-agent": myAgent }}>
-  <YourApp />
-</CopilotKit>;
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider agents__unsafe_dev_only={{ "my-agent": myAgent }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 </FrontendOnly>
 

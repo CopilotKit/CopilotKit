@@ -12,7 +12,7 @@ description: "High-level chat component that connects an agent to a chat view"
 ## Import
 
 ```tsx
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
 ```
 
 ## Props
@@ -21,7 +21,7 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
 
 <PropertyReference name="agentId" type="string">
   ID of the agent to use. Must match an agent configured in
-  `CopilotKit`. Defaults to the provider-level default agent when
+  `CopilotKitProvider`. Defaults to the provider-level default agent when
   omitted.
 </PropertyReference>
 
@@ -36,7 +36,7 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
   back to the built-in default.
 </PropertyReference>
 
-<PropertyReference name="chatView" type="SlotValue<typeof CopilotChatView>">
+<PropertyReference name="chatView" type="SlotValue<React.ComponentType<CopilotChatViewProps>>">
   Slot override for the inner `CopilotChatView` component. Accepts a replacement
   component, a `className` string merged into the default, or a partial props
   object to extend the default.
@@ -44,7 +44,7 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
 
 <PropertyReference name="inspectorTools" type="boolean" default="true">
   Controls Inspector message shortcuts for this chat. An explicit
-  `enableInspector` value on the `CopilotKit` provider takes priority: provider
+  `enableInspector` value on the `CopilotKitProvider` takes priority: provider
   `true` overrides chat `false`, and provider `false` overrides chat `true`.
   When the provider omits the prop, `inspectorTools={false}` hides this chat's
   shortcuts. Shortcuts only appear on localhost/loopback in development and
@@ -56,14 +56,21 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
   Error handler scoped to this chat's agent. Fires in addition to the provider-level `onError` (does not suppress it). Only receives errors whose `context.agentId` matches this chat's agent, plus errors without an `agentId` context.
 
 ```tsx
-<CopilotChat
-  agentId="my-agent"
-  onError={(event) => {
-    if (event.code === "agent_connect_failed") {
-      showToast("Could not connect to agent. Please retry.");
-    }
-  }}
-/>
+import { CopilotChat, CopilotKitCoreErrorCode } from "@copilotkit/react-core";
+import { showToast } from "./toast";
+
+export function Chat() {
+  return (
+    <CopilotChat
+      agentId="my-agent"
+      onError={(event) => {
+        if (event.code === CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED) {
+          showToast("Could not connect to agent. Please retry.");
+        }
+      }}
+    />
+  );
+}
 ```
 
 </PropertyReference>
@@ -74,23 +81,35 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
   child components can read it.
 </PropertyReference>
 
+<PropertyReference name="attachments" type="AttachmentsConfig">
+  Enables multimodal file attachments (images, audio, video, documents). The
+  chat manages the attachment queue, drag-and-drop, and upload state itself.
+</PropertyReference>
+
+<PropertyReference name="throttleMs" type="number">
+  Throttle interval in milliseconds for re-renders caused by message changes.
+  Overrides the provider-level `defaultThrottleMs` for this chat. Pass `0` to
+  turn off throttling for this chat.
+</PropertyReference>
+
 ### Inherited CopilotChatView Props
 
-`CopilotChat` accepts all props from [`CopilotChatViewProps`](/reference/components/CopilotChatView) **except** `messages`, `isRunning`, `suggestions`, `suggestionLoadingIndexes`, and `onSelectSuggestion`, which are managed internally by the agent connection.
+`CopilotChat` accepts all props from [`CopilotChatViewProps`](/reference/components/CopilotChatView) **except** `messages`, `isRunning`, `suggestions`, `suggestionLoadingIndexes`, and `onSelectSuggestion`, which are managed internally by the agent connection, and the attachment state props (`attachments` as a list, `onRemoveAttachment`, `onAddFile`, `dragOver`, `onDragOver`, `onDragLeave`, `onDrop`), which the `attachments` config above manages.
 
-This means you can pass slot overrides such as `messageView`, `input`, `scrollView`, `inputContainer`, `feather`, `disclaimer`, `suggestionView`, and `welcomeScreen` directly to `CopilotChat`.
+This means you can pass the slot overrides `messageView`, `input`, `scrollView`, `suggestionView`, and `welcomeScreen` directly to `CopilotChat`.
 
-<PropertyReference name="autoScroll" type="boolean" default="true">
-  Whether the chat scrolls to the bottom automatically when new messages arrive.
+<PropertyReference name="autoScroll" type='AutoScrollMode | boolean' default="true">
+  How the chat scrolls as messages arrive: `"pin-to-bottom"` (same as `true`),
+  `"pin-to-send"`, or `"none"` (same as `false`).
 </PropertyReference>
 
 <PropertyReference
-  name="inputProps"
-  type="Partial<Omit<CopilotChatInputProps, 'children'>>"
+  name="input"
+  type="SlotValue<React.ComponentType<CopilotChatInputProps>>"
 >
-  Additional props forwarded to the inner `CopilotChatInput` component. Use this
-  to configure auto-focus, custom submission handlers, transcription callbacks,
-  or tools menus.
+  Slot for the inner [`CopilotChatInput`](/reference/components/CopilotChatInput).
+  Pass a props object to configure the default input, for example
+  `input={{ autoFocus: true, toolsMenu: [...] }}`, or a replacement component.
 </PropertyReference>
 
 <PropertyReference
@@ -119,6 +138,8 @@ Additionally, a `children` render-prop can be used to receive all composed slot 
 ### Basic Usage
 
 ```tsx
+import { CopilotChat } from "@copilotkit/react-core";
+
 function App() {
   return (
     <CopilotChat
@@ -132,6 +153,8 @@ function App() {
 ### Custom Welcome Screen
 
 ```tsx
+import { CopilotChat } from "@copilotkit/react-core";
+
 function App() {
   return (
     <CopilotChat
@@ -151,6 +174,8 @@ function App() {
 ### Overriding the Chat View Slot
 
 ```tsx
+import { CopilotChat } from "@copilotkit/react-core";
+
 function App() {
   return (
     <CopilotChat

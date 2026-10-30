@@ -39,8 +39,8 @@ import UseAgentSnippet from "@/snippets/use-agent.mdx";
 Use `copilotkit.runAgent()` to trigger your agent from any component — no chat UI required. This is the same method CopilotKit's built-in `<CopilotChat />` uses internally.
 
 ```tsx title="page.tsx"
-import { useAgent } from "@copilotkit/react-core/v2";
-import { useCopilotKit } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
+import { useCopilotKit } from "@copilotkit/react-core";
 import { randomUUID } from "@copilotkit/shared";
 
 export function AgentTrigger() {
@@ -77,7 +77,16 @@ Both methods trigger the agent, but they operate at different levels:
 You can stop a running agent using `copilotkit.stopAgent()`:
 
 ```tsx title="page.tsx"
-const handleStop = () => {
-  copilotkit.stopAgent({ agent });
-};
+import { useAgent, useCopilotKit } from "@copilotkit/react-core";
+
+export function StopButton() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+
+  const handleStop = () => {
+    copilotkit.stopAgent({ agent });
+  };
+
+  return <button onClick={handleStop}>Stop</button>;
+}
 ```

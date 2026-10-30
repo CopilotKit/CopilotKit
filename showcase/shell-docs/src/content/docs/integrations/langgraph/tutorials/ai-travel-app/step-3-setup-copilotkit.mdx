@@ -1,39 +1,44 @@
 ---
-title: "Step 3: Connect CopilotKit v2"
+title: "Step 3: Connect CopilotKit"
 ---
 
-The travel app uses the CopilotKit v2 React and runtime entry points. Both are
-subpaths of packages already declared in `examples/v1/travel/package.json`:
+The travel app uses the CopilotKit 2.0 React and runtime packages, which are
+already declared in `examples/v1/travel/package.json`:
 
-- React hooks, providers, and chat UI come from `@copilotkit/react-core/v2`.
-- Runtime classes and handlers come from `@copilotkit/runtime/v2`.
-- LangGraph adapters come from `@copilotkit/runtime/langgraph`.
+- React hooks, providers, and chat UI come from `@copilotkit/react-core`.
+- Runtime classes and handlers come from `@copilotkit/runtime`.
+- LangGraph agents (`LangGraphAgent`, `LangGraphHttpAgent`) come from `@ag-ui/langgraph`.
 
 See the [v1 to v2 migration guide](/migrate/v2) for the full import map.
 
 ## Configure the React app
 
-`app/page.tsx` imports the provider, chat configuration, and sidebar from the
-v2 React entry point:
+`app/page.tsx` imports the provider, chat configuration, and sidebar from
+`@copilotkit/react-core`:
 
-```tsx title="examples/v1/travel/app/page.tsx"
+```tsx title="examples/v1/travel/app/page.tsx" group=travel-page
 import {
   CopilotChatConfigurationProvider,
-  CopilotKit,
+  CopilotKitProvider,
   CopilotSidebar,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 ```
 
 The provider uses the local runtime by default. If
 `NEXT_PUBLIC_CPK_PUBLIC_API_KEY` is set, it uses that Copilot Cloud project
 instead:
 
-```tsx title="examples/v1/travel/app/page.tsx"
+```tsx title="examples/v1/travel/app/page.tsx" group=travel-page
+function MainContent() {
+  // ... the map and itinerary UI
+  return <div>{/* ... */}</div>;
+}
+
 export default function Home() {
   const publicApiKey = process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY;
 
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl={publicApiKey ? undefined : "/api/copilotkit"}
       publicApiKey={publicApiKey}
     >
@@ -50,7 +55,7 @@ export default function Home() {
           }}
         />
       </CopilotChatConfigurationProvider>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 ```
@@ -74,7 +79,7 @@ Then configure the route:
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
 const travel = new HttpAgent({

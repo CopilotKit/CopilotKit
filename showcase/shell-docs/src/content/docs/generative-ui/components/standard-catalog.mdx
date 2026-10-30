@@ -13,9 +13,17 @@ You want the agent to answer with tables, charts, and forms today, not after you
 Use it as it is:
 
 ```tsx
-import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+"use client";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import { standardUI } from "@copilotkit/react-core/generative-ui";
 
-<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ## What is in it
@@ -55,14 +63,27 @@ Compared with the initial experimental style-first catalog, this changes positio
 
 Put your components on top of the standard ones with `extends`:
 
-```ts
-import { createGenerativeUI, standardUI } from "@copilotkit/react-core/v2/generative-ui";
+```tsx
+import { z } from "zod";
+import { createGenerativeUI, standardUI } from "@copilotkit/react-core/generative-ui";
+
+function ProductCard({ name, price }: { name: string; price: number }) {
+  return (
+    <article>
+      <h4>{name}</h4>
+      <p>${price}</p>
+    </article>
+  );
+}
 
 export const appUI = createGenerativeUI({
   id: "acme/app@1",
   extends: [standardUI],
   components: {
-    ProductCard: { component: ProductCard, props: productSchema },
+    ProductCard: {
+      component: ProductCard,
+      props: z.object({ name: z.string(), price: z.number() }),
+    },
   },
 });
 ```
@@ -74,6 +95,8 @@ See [Catalogs](/generative-ui/components/catalogs) for how to declare a componen
 Every component makes the prompt a little longer. If your app never needs a map or a video, remove them. `omit` returns a copy of the catalog without them, and the agent no longer sees them:
 
 ```ts
+import { createGenerativeUI, standardUI } from "@copilotkit/react-core/generative-ui";
+
 export const appUI = createGenerativeUI({
   id: "acme/app@1",
   extends: [standardUI.omit(["Map", "Video", "HtmlView"])],
@@ -92,7 +115,7 @@ import {
   createGenerativeUI,
   standardUI,
   type GenerativeUIComponentProps,
-} from "@copilotkit/react-core/v2/generative-ui";
+} from "@copilotkit/react-core/generative-ui";
 
 function MyCard({ children }: GenerativeUIComponentProps<typeof standardUI, "Card">) {
   return <div className="rounded-2xl border p-6 shadow-sm">{children}</div>;

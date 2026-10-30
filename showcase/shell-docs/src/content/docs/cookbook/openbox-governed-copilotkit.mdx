@@ -6,7 +6,7 @@ showIcon: true
 doc_type: how-to
 ---
 
-[OpenBox](https://openbox.ai) is a runtime governance layer for AI agents: it sits between your agent and the actions it wants to take, evaluating every tool call against your policies before it executes. This recipe wraps a [CopilotKit](https://www.copilotkit.ai/) V2 runtime and a **LangGraph** agent with OpenBox so each action is governed — allowed, redacted, sent for **human approval**, or blocked — and every decision is streamed back to the browser and rendered as a generative UI card.
+[OpenBox](https://openbox.ai) is a runtime governance layer for AI agents: it sits between your agent and the actions it wants to take, evaluating every tool call against your policies before it executes. This recipe wraps a [CopilotKit](https://www.copilotkit.ai/) runtime and a **LangGraph** agent with OpenBox so each action is governed — allowed, redacted, sent for **human approval**, or blocked — and every decision is streamed back to the browser and rendered as a generative UI card.
 
 The example is a **governed business assistant**: it triages operations queues, drafts customer updates and exception reports, prepares vendor handoffs, issues service credits, and more — ten governed actions in all, each produced by a **governed LLM generation** step. Every request is checked by OpenBox first, so money movement is held for a human Approve/Reject, goal-drifting exports are blocked, and critical payment-control changes halt the session outright.
 
@@ -14,7 +14,7 @@ The example is a **governed business assistant**: it triages operations queues, 
 <Accordion title="In a hurry? Build it with a coding agent — paste this prompt">
 
 ```text
-Add OpenBox runtime governance to a CopilotKit V2 + LangGraph agent so every
+Add OpenBox runtime governance to a CopilotKit + LangGraph agent so every
 tool call is evaluated against policies before it runs. Requirements:
 
 - A TypeScript LangGraph agent (graph id "openbox_copilotkit_agent") built with
@@ -26,7 +26,7 @@ tool call is evaluated against policies before it runs. Requirements:
   `createGovernedCopilotTool` from `@openbox-ai/openbox-sdk/copilotkit`, sharing
   one adapter with the middleware. Put `createOpenBoxGovernanceMiddleware()`
   FIRST in the middleware array, before `copilotkitMiddleware`.
-- A Next.js frontend whose `/api/copilotkit` route hosts a CopilotKit V2
+- A Next.js frontend whose `/api/copilotkit` route hosts a CopilotKit
   `CopilotRuntime` wrapped by `createOpenBoxCopilotRuntime`, with the same
   `selfGovernedToolNames` as the agent. Add a `/api/openbox/approvals/decide`
   route built with `createOpenBoxApprovalRoute` that validates a
@@ -66,7 +66,7 @@ Walk me through it step by step, starting with the agent and its governed tools.
 | Layer | What it does | Where it lives |
 | --- | --- | --- |
 | **OpenBox** | Evaluates every tool call against your policies (allow / redact / approve / block / halt), records an immutable audit trail, and signs agent identity. | `createOpenBoxCopilotRuntime` (frontend) + `createOpenBoxGovernanceMiddleware` (agent) |
-| **CopilotKit** | Hosts the V2 runtime, streams the conversation, and renders each governance verdict as a generative UI card. | `frontend/` — `/api/copilotkit` route + the chat page |
+| **CopilotKit** | Hosts the runtime, streams the conversation, and renders each governance verdict as a generative UI card. | `frontend/` — `/api/copilotkit` route + the chat page |
 | **LangGraph** | Runs the agent: a routing system prompt classifies the request and calls exactly one governed tool (with `parallel_tool_calls: false`), whose generated business result is itself governed. | `agent/` — `openbox_copilotkit_agent` graph |
 
 ## Run it
@@ -188,18 +188,35 @@ When you click **Approve** on the service credit, the UI posts to `/api/openbox/
 
 ## The key pieces, in code
 
-The frontend's `/api/copilotkit` route hosts the CopilotKit V2 runtime and wraps it with `createOpenBoxCopilotRuntime`, so every agent run is governed at the runtime boundary:
+The frontend's `/api/copilotkit` route hosts the CopilotKit runtime and wraps it with `createOpenBoxCopilotRuntime`, so every agent run is governed at the runtime boundary:
 
-```ts title="frontend/src/app/api/copilotkit/[[...slug]]/route.ts"
+{/* kiira: ignore, @openbox-ai/openbox-sdk 0.1.1 types the governed `runtime` as Record<string, any>, which createCopilotRuntimeHandler rejects. Remove once the SDK ships CopilotKit 2.0 types. */}
+```ts ignore title="frontend/src/app/api/copilotkit/[[...slug]]/route.ts"
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
+import {
+  createOpenBoxCopilotKitAdapter,
+  createOpenBoxCopilotRuntime,
+} from "@openbox-ai/openbox-sdk/copilotkit";
+
+const defaultAgent = new LangGraphAgent({
+  deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123",
+  graphId: "openbox_copilotkit_agent",
+});
+
 const runtime = new CopilotRuntime({
   agents: { default: defaultAgent },
-  runner,
+  runner: new InMemoryAgentRunner(),
   a2ui: { injectA2UITool: false },
 });
 
+// Governs the runtime's own runner, so every run of "default" goes through OpenBox.
 const openboxRuntime = createOpenBoxCopilotRuntime({ // [!code highlight]
   runtime,
-  runner: runner as any,
   agents: ["default"],
   adapter: createOpenBoxCopilotKitAdapter({
     agentWorkflowType: "CopilotKitRuntime",
@@ -215,15 +232,26 @@ const openboxRuntime = createOpenBoxCopilotRuntime({ // [!code highlight]
 });
 
 const handler = createCopilotRuntimeHandler({
-  runtime: openboxRuntime.runtime as any,
+  runtime: openboxRuntime.runtime,
   basePath: "/api/copilotkit",
-  hooks: openboxRuntime.hooks as any,
+  hooks: openboxRuntime.hooks,
 });
+
+export const GET = handler;
+export const POST = handler;
 ```
 
 In the agent graph, the OpenBox governance middleware runs **first**, ahead of CopilotKit's — so a tool call is evaluated before anything else sees it. The `systemPrompt` is a routing prompt: it maps each natural-language request to exactly one of the ten governed actions, and the model runs with `parallel_tool_calls: false` so a request can never fan out into multiple ungoverned tool calls:
 
 ```ts title="agent/src/agent.ts"
+import { createAgent } from "langchain";
+import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph";
+import { createOpenBoxGovernanceMiddleware } from "./openbox_middleware";
+import { createConfiguredChatOpenAI } from "./model";
+import { AgentStateSchema } from "./state";
+import { systemPrompt } from "./prompt";
+import { tools } from "./tools";
+
 const model = createConfiguredChatOpenAI({
   modelKwargs: { parallel_tool_calls: false }, // [!code highlight]
 });
@@ -242,6 +270,20 @@ export const graph = createAgent({
 Each governed business action is declared with `createGovernedCopilotTool`. OpenBox governs the input and output around a **governed LLM generation** step — `executionArtifact` calls the model to produce a fresh, realistic business result (a queue, an exception report, a credit memo), which OpenBox then re-evaluates before release. `normalizeInput` canonicalizes the request (for example, routing a disguised identifier export to `export_governance_identifiers`), `spanProfile` shapes the OpenTelemetry span per action, and `onTimingEvent` streams timing back to the UI. The tool shares the same adapter as the middleware so one user task maps to one OpenBox session:
 
 ```ts title="agent/src/openbox_action_governance.ts"
+import {
+  createGovernedCopilotTool,
+  type OpenBoxCopilotResumeInput,
+} from "@openbox-ai/openbox-sdk/copilotkit";
+import { openBoxCopilotKitAdapter } from "./openbox_adapter";
+import {
+  emitOpenBoxTimingEvent,
+  executionArtifact,
+  normalizeGovernedInput,
+  spanProfile,
+  type GovernedActionArtifact,
+  type GovernedActionInput,
+} from "./governed_actions";
+
 const governedCopilotTool = createGovernedCopilotTool< // [!code highlight]
   GovernedActionInput,
   GovernedActionArtifact | undefined
@@ -255,11 +297,14 @@ const governedCopilotTool = createGovernedCopilotTool< // [!code highlight]
   onTimingEvent: emitOpenBoxTimingEvent,
 });
 
-export async function governAction(input, config) {
+export async function governAction(input: GovernedActionInput, config?: unknown) {
   return governedCopilotTool.execute(input, config);
 }
 
-export async function resumeGovernedAction(input, config) {
+export async function resumeGovernedAction(
+  input: GovernedActionInput & OpenBoxCopilotResumeInput,
+  config?: unknown,
+) {
   return governedCopilotTool.resume(input, config);
 }
 ```
@@ -267,6 +312,10 @@ export async function resumeGovernedAction(input, config) {
 When the human clicks Approve, the approval route posts the decision back to OpenBox Core via `createOpenBoxApprovalRoute` — the backend key stays server-only:
 
 ```ts title="frontend/src/app/api/openbox/approvals/decide/route.ts"
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { createOpenBoxApprovalRoute } from "@openbox-ai/openbox-sdk/copilotkit";
+
 const DecisionSchema = z.object({
   governanceEventId: z.string().min(1),
   decision: z.enum(["approve", "reject"]), // [!code highlight]
@@ -297,6 +346,6 @@ export async function POST(request: Request) {
 
 ## Get the code
 
-Full source to follow — the runnable showcase (the `agent/` LangGraph service with OpenBox middleware and the `frontend/` CopilotKit V2 chat with the wrapped runtime and approval route) will be published under `examples/showcases/openbox-governed-copilotkit`.
+Full source to follow — the runnable showcase (the `agent/` LangGraph service with OpenBox middleware and the `frontend/` CopilotKit chat with the wrapped runtime and approval route) will be published under `examples/showcases/openbox-governed-copilotkit`.
 
 For the upstream OpenBox × CopilotKit integration this recipe is based on, see the reference repo: [OpenBox-AI/openbox-x-copilotkit](https://github.com/OpenBox-AI/openbox-x-copilotkit).

@@ -12,9 +12,12 @@ Most applications do not call this directly. The [`CopilotKit`](/reference/angul
 ## Signature
 
 ```ts
-import { injectCopilotKitConfig } from "@copilotkit/angular";
+import {
+  injectCopilotKitConfig,
+  type CopilotKitConfig,
+} from "@copilotkit/angular";
 
-function injectCopilotKitConfig(): CopilotKitConfig;
+injectCopilotKitConfig satisfies () => CopilotKitConfig;
 ```
 
 ## Return Value

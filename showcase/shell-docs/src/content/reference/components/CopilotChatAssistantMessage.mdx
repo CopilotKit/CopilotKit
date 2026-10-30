@@ -14,7 +14,7 @@ description: "Component for displaying assistant messages with Markdown, tool ca
 ## Import
 
 ```tsx
-import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/react-core";
 ```
 
 ## Props
@@ -42,7 +42,7 @@ import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
   component compares `message.id` with the last entry of `messages`.
 </PropertyReference>
 
-<PropertyReference name="onThumbsUp" type="(message: AssistantMessage) => void">
+<PropertyReference name="onThumbsUp" type="(message: CopilotChatFeedbackMessage) => void">
   Callback invoked when the user clicks the thumbs-up button; while ratings are
   recorded, only when the click gives a rating. When not provided,
   the thumbs-up button is hidden from the toolbar, unless `thumbsUpButton` is
@@ -51,11 +51,12 @@ import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
   as the assistant slot of `CopilotChatMessageView`, the callback can receive a
   callback-only `rawEvent` value for a live direct AG-UI `TEXT_MESSAGE_START`.
   Direct use of this component receives the canonical assistant message.
+  `CopilotChatFeedbackMessage` is `AssistantMessage & { rawEvent?: unknown }`.
 </PropertyReference>
 
 <PropertyReference
   name="onThumbsDown"
-  type="(message: AssistantMessage) => void"
+  type="(message: CopilotChatFeedbackMessage) => void"
 >
   Callback invoked when the user clicks the thumbs-down button; while ratings
   are recorded, only when the click gives a rating. When not
@@ -96,46 +97,79 @@ import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
 
 All slot props follow the CopilotKit slot system: each accepts a replacement React component, a `className` string that is merged into the default component's classes, or a partial props object that extends the default component.
 
-<PropertyReference name="markdownRenderer" type="SlotProp<typeof CopilotChatAssistantMessage.MarkdownRenderer>">
-  Slot for the Markdown rendering engine. Defaults to the built-in streaming renderer (`StreamingMarkdownDefaultRenderer` from `@copilotkit/react-core/v2`, a thin adapter over [`@copilotkit/markdown-renderer`](/reference/packages/markdown-renderer)'s `StreamingMarkdownRenderer`) — streaming-safe incremental rendering with per-token animation, GFM, tables, autolinks, and citations, with **no** syntax highlighting or math. A renderer is any component that accepts `MarkdownRendererProps` (`{ content: string; isStreaming?: boolean; className?: string }`, exported from `@copilotkit/react-core/v2`). `BasicMarkdownRenderer` (marked-based) is available as a lighter alternative. This per-message slot takes precedence over a `markdownRenderer` set on `CopilotKitProvider`. `markdownRenderer` also accepts a config object (`DefaultMarkdownRendererProps`) to configure the built-in renderer without writing a wrapper — e.g. `markdownRenderer={{ nodeRenderers: { codeBlock: Shiki } }}`.
+<PropertyReference name="markdownRenderer" type="SlotValue<typeof CopilotChatAssistantMessage.MarkdownRenderer>">
+  Slot for the Markdown rendering engine. Defaults to the built-in streaming renderer (`StreamingMarkdownDefaultRenderer` from `@copilotkit/react-core`, a thin adapter over [`@copilotkit/markdown-renderer`](/reference/packages/markdown-renderer)'s `StreamingMarkdownRenderer`) — streaming-safe incremental rendering with per-token animation, GFM, tables, autolinks, and citations, with **no** syntax highlighting or math. A renderer is any component that accepts `MarkdownRendererProps` (`{ content: string; isStreaming?: boolean; className?: string }`, exported from `@copilotkit/react-core`). `BasicMarkdownRenderer` (marked-based) is available as a lighter alternative. This per-message slot takes precedence over a `markdownRenderer` set on `CopilotKitProvider`. `markdownRenderer` also accepts a config object (`DefaultMarkdownRendererProps`) to configure the built-in renderer without writing a wrapper — e.g. `markdownRenderer={{ nodeRenderers: { codeBlock: Shiki } }}`.
 
   **As a replacement component** (here, restoring Streamdown — install `streamdown` first):
   ```tsx
+  import {
+    CopilotChatAssistantMessage,
+    type AssistantMessage,
+  } from "@copilotkit/react-core";
   import { Streamdown } from "streamdown";
 
-  <CopilotChatAssistantMessage
-    message={msg}
-    markdownRenderer={({ content }) => <Streamdown>{content}</Streamdown>}
-  />
+  export function StreamdownMessage({ message }: { message: AssistantMessage }) {
+    return (
+      <CopilotChatAssistantMessage
+        message={message}
+        markdownRenderer={({ content }) => <Streamdown>{content}</Streamdown>}
+      />
+    );
+  }
   ```
 
   To apply a renderer to every message at once, set it on the provider instead (define it outside render so its identity is stable):
   ```tsx
-  import { StreamdownRenderer } from "./markdown-renderer";
+  import type { ReactNode } from "react";
+  import {
+    CopilotKitProvider,
+    type MarkdownRendererProps,
+  } from "@copilotkit/react-core";
+  import { Streamdown } from "streamdown";
 
-  <CopilotKitProvider markdownRenderer={StreamdownRenderer}>
-    {/* ... */}
-  </CopilotKitProvider>
+  function StreamdownRenderer({ content }: MarkdownRendererProps) {
+    return <Streamdown>{content}</Streamdown>;
+  }
+
+  export function Providers({ children }: { children: ReactNode }) {
+    return (
+      <CopilotKitProvider
+        runtimeUrl="/api/copilotkit"
+        markdownRenderer={StreamdownRenderer}
+      >
+        {children}
+      </CopilotKitProvider>
+    );
+  }
   ```
 
   For a full walkthrough of all three approaches (keep the default, configure it, or replace it) across React, Vue, and React Native, see the [Markdown Rendering](/markdown-rendering) guide.
 
 </PropertyReference>
 
-<PropertyReference name="toolbar" type="SlotProp<typeof CopilotChatAssistantMessage.Toolbar>">
+<PropertyReference name="toolbar" type="SlotValue<typeof CopilotChatAssistantMessage.Toolbar>">
   Slot for the action toolbar container. Defaults to `CopilotChatAssistantMessage.Toolbar`, which renders a horizontal row of action buttons below the message content.
 
 **As a className:**
 
 ```tsx
-<CopilotChatAssistantMessage message={msg} toolbar="border-t pt-2 mt-2" />
+import {
+  CopilotChatAssistantMessage,
+  type AssistantMessage,
+} from "@copilotkit/react-core";
+
+export function BorderedToolbarMessage({ message }: { message: AssistantMessage }) {
+  return (
+    <CopilotChatAssistantMessage message={message} toolbar="border-t pt-2 mt-2" />
+  );
+}
 ```
 
 </PropertyReference>
 
 <PropertyReference
   name="copyButton"
-  type="SlotProp<typeof CopilotChatAssistantMessage.CopyButton>"
+  type="SlotValue<typeof CopilotChatAssistantMessage.CopyButton>"
 >
   Slot for the copy-to-clipboard button in the toolbar. Defaults to
   `CopilotChatAssistantMessage.CopyButton`. The tooltip label is sourced from
@@ -144,7 +178,7 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 
 <PropertyReference
   name="thumbsUpButton"
-  type="SlotProp<typeof CopilotChatAssistantMessage.ThumbsUpButton>"
+  type="SlotValue<typeof CopilotChatAssistantMessage.ThumbsUpButton>"
 >
   Slot for the thumbs-up rating button. Defaults to
   `CopilotChatAssistantMessage.ThumbsUpButton`. Rendered when this slot or
@@ -161,7 +195,7 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 
 <PropertyReference
   name="thumbsDownButton"
-  type="SlotProp<typeof CopilotChatAssistantMessage.ThumbsDownButton>"
+  type="SlotValue<typeof CopilotChatAssistantMessage.ThumbsDownButton>"
 >
   Slot for the thumbs-down rating button. Defaults to
   `CopilotChatAssistantMessage.ThumbsDownButton`. Rendered when this slot or
@@ -173,7 +207,7 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 
 <PropertyReference
   name="readAloudButton"
-  type="SlotProp<typeof CopilotChatAssistantMessage.ReadAloudButton>"
+  type="SlotValue<typeof CopilotChatAssistantMessage.ReadAloudButton>"
 >
   Slot for the read-aloud button. Defaults to
   `CopilotChatAssistantMessage.ReadAloudButton`. Only rendered when
@@ -183,7 +217,7 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 
 <PropertyReference
   name="regenerateButton"
-  type="SlotProp<typeof CopilotChatAssistantMessage.RegenerateButton>"
+  type="SlotValue<typeof CopilotChatAssistantMessage.RegenerateButton>"
 >
   Slot for the regenerate button. Defaults to
   `CopilotChatAssistantMessage.RegenerateButton`. Only rendered when
@@ -193,7 +227,7 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 
 <PropertyReference
   name="toolCallsView"
-  type="SlotProp<typeof CopilotChatToolCallsView>"
+  type="SlotValue<typeof CopilotChatToolCallsView>"
 >
   Slot for rendering tool calls embedded in the assistant message. Defaults to
   [`CopilotChatToolCallsView`](#copilotchattoolcallsview), which renders each
@@ -202,7 +236,7 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 
 <PropertyReference
   name="feedbackComment"
-  type="SlotProp<typeof CopilotChatAssistantMessage.FeedbackComment>"
+  type="SlotValue<typeof CopilotChatAssistantMessage.FeedbackComment>"
 >
   Slot for the comment field of a [reply rating](#reply-ratings), shown in a
   popover next to the chosen thumb. Defaults to
@@ -221,7 +255,7 @@ Calls the agent makes in a row are collapsed into one group, drawn by the `group
 ### Import
 
 ```tsx
-import { CopilotChatToolCallsView } from "@copilotkit/react-core/v2";
+import { CopilotChatToolCallsView } from "@copilotkit/react-core";
 ```
 
 ### Props
@@ -248,7 +282,7 @@ import { CopilotChatToolCallsView } from "@copilotkit/react-core/v2";
 
 ### Slots
 
-<PropertyReference name="group" type="SlotProp<typeof CopilotChatToolCallGroup>">
+<PropertyReference name="group" type="SlotValue<typeof CopilotChatToolCallGroup>">
   Draws a group of calls made in a row in the `"grouped"`, `"line"` and
   `"stacked"` displays. The `"turn"` display draws its calls as rows inside the
   reply and doesn't use it. Defaults to
@@ -260,40 +294,78 @@ import { CopilotChatToolCallsView } from "@copilotkit/react-core/v2";
 **Through `CopilotChat`:**
 
 ```tsx
-<CopilotChat
-  messageView={{
-    assistantMessage: {
-      toolCallsView: { group: "rounded-2xl shadow-sm" },
-    },
-  }}
-/>
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView={{
+        assistantMessage: {
+          toolCallsView: { group: "rounded-2xl shadow-sm" },
+        },
+      }}
+    />
+  );
+}
 ```
 
 **As props for the default group:**
 
 ```tsx
-<CopilotChatToolCallsView
-  message={message}
-  messages={messages}
-  group={{ appearance: "line" }}
-/>
+import {
+  CopilotChatToolCallsView,
+  type AssistantMessage,
+  type Message,
+} from "@copilotkit/react-core";
+
+export function LineToolCalls({
+  message,
+  messages,
+}: {
+  message: AssistantMessage;
+  messages: Message[];
+}) {
+  return (
+    <CopilotChatToolCallsView
+      message={message}
+      messages={messages}
+      group={{ appearance: "line" }}
+    />
+  );
+}
 ```
 
 **As a replacement component:**
 
 ```tsx
-<CopilotChatToolCallsView
-  message={message}
-  messages={messages}
-  group={({ calls, renderCall }) => (
-    <details>
-      <summary>Ran {calls.length} tools</summary>
-      {calls.map((call) => (
-        <div key={call.toolCall.id}>{renderCall(call)}</div>
-      ))}
-    </details>
-  )}
-/>
+import {
+  CopilotChatToolCallsView,
+  type AssistantMessage,
+  type Message,
+} from "@copilotkit/react-core";
+
+export function CollapsedToolCalls({
+  message,
+  messages,
+}: {
+  message: AssistantMessage;
+  messages: Message[];
+}) {
+  return (
+    <CopilotChatToolCallsView
+      message={message}
+      messages={messages}
+      group={({ calls, renderCall }) => (
+        <details>
+          <summary>Ran {calls.length} tools</summary>
+          {calls.map((call) => (
+            <div key={call.toolCall.id}>{renderCall(call)}</div>
+          ))}
+        </details>
+      )}
+    />
+  );
+}
 ```
 
 </PropertyReference>
@@ -303,7 +375,12 @@ import { CopilotChatToolCallsView } from "@copilotkit/react-core/v2";
 ### Basic Assistant Message
 
 ```tsx
-function AssistantBubble({ message }) {
+import {
+  CopilotChatAssistantMessage,
+  type AssistantMessage,
+} from "@copilotkit/react-core";
+
+function AssistantBubble({ message }: { message: AssistantMessage }) {
   return (
     <CopilotChatAssistantMessage
       message={message}
@@ -317,12 +394,18 @@ function AssistantBubble({ message }) {
 ### Customizing the Toolbar
 
 ```tsx
-function CustomToolbarMessage({ message }) {
+import {
+  CopilotChatAssistantMessage,
+  type AssistantMessage,
+} from "@copilotkit/react-core";
+import { handleRegenerate, shareMessage, speak } from "./message-actions";
+
+function CustomToolbarMessage({ message }: { message: AssistantMessage }) {
   return (
     <CopilotChatAssistantMessage
       message={message}
       onRegenerate={(msg) => handleRegenerate(msg)}
-      onReadAloud={(msg) => speak(msg.content)}
+      onReadAloud={(msg) => speak(msg.content ?? "")}
       additionalToolbarItems={
         <button onClick={() => shareMessage(message)}>Share</button>
       }
@@ -335,7 +418,12 @@ function CustomToolbarMessage({ message }) {
 ### Hiding the Toolbar
 
 ```tsx
-function MinimalMessage({ message }) {
+import {
+  CopilotChatAssistantMessage,
+  type AssistantMessage,
+} from "@copilotkit/react-core";
+
+function MinimalMessage({ message }: { message: AssistantMessage }) {
   return (
     <CopilotChatAssistantMessage message={message} toolbarVisible={false} />
   );
@@ -345,7 +433,13 @@ function MinimalMessage({ message }) {
 ### Custom Markdown Renderer
 
 ```tsx
-function CustomRendererMessage({ message }) {
+import {
+  CopilotChatAssistantMessage,
+  type AssistantMessage,
+} from "@copilotkit/react-core";
+import ReactMarkdown from "react-markdown";
+
+function CustomRendererMessage({ message }: { message: AssistantMessage }) {
   return (
     <CopilotChatAssistantMessage
       message={message}
@@ -360,7 +454,19 @@ function CustomRendererMessage({ message }) {
 ### Standalone Tool Calls View
 
 ```tsx
-function ToolCallsList({ message, allMessages }) {
+import {
+  CopilotChatToolCallsView,
+  type AssistantMessage,
+  type Message,
+} from "@copilotkit/react-core";
+
+function ToolCallsList({
+  message,
+  allMessages,
+}: {
+  message: AssistantMessage;
+  allMessages: Message[];
+}) {
   return (
     <div className="tool-calls">
       <CopilotChatToolCallsView message={message} messages={allMessages} />

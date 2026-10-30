@@ -14,17 +14,22 @@ Each entry is the same `ReactFrontendTool` object that `useFrontendTool` takes. 
 ## Signature
 
 ```tsx
-import { useFrontendTools } from "@copilotkit/react-core/v2";
+import {
+  useFrontendTools,
+  type ReactFrontendTool,
+} from "@copilotkit/react-core";
 
-function useFrontendTools(
-  tools: ReadonlyArray<ReactFrontendTool<any>> | undefined,
+useFrontendTools satisfies (
+  tools: ReadonlyArray<ReactFrontendTool> | undefined,
   deps?: ReadonlyArray<unknown>,
-): void;
+) => void;
 ```
+
+The package types each entry as `ReactFrontendTool<any>`, so that one array can hold tools with different parameters. As a result, a `handler` in the array does not get its argument types from `parameters`. Use [`useFrontendTool`](/reference/hooks/useFrontendTool) when you want them inferred.
 
 ## Parameters
 
-<PropertyReference name="tools" type="ReadonlyArray<ReactFrontendTool<any>> | undefined" required>
+<PropertyReference name="tools" type="ReadonlyArray<ReactFrontendTool> | undefined" required>
   The tools to register. The array may be empty, may change length between
   renders, and may be `undefined` while data is still loading. Each entry takes
   the same fields as the `tool` argument of
@@ -52,6 +57,11 @@ function useFrontendTools(
 ### Tools built from application state
 
 ```tsx
+import { useFrontendTools } from "@copilotkit/react-core";
+import { useNavigate } from "./router";
+
+type Report = { id: string; title: string };
+
 function ReportTools({ reports }: { reports: Report[] }) {
   const navigate = useNavigate();
 
@@ -76,36 +86,51 @@ When `reports` grows, the new tools are registered. When a report disappears fro
 ### Tools described by the backend
 
 ```tsx
+import { useEffect, useState } from "react";
+import { z } from "zod";
+import { useFrontendTools } from "@copilotkit/react-core";
+
+type ToolDescriptor = { id: string; name: string; description: string };
+
 function BackendTools() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["tool-descriptors"],
-    queryFn: fetchToolDescriptors,
-  });
+  const [descriptors, setDescriptors] = useState<ToolDescriptor[]>();
+
+  useEffect(() => {
+    fetch("/api/tool-descriptors")
+      .then((response) => response.json())
+      .then(setDescriptors);
+  }, []);
 
   useFrontendTools(
-    data?.map((descriptor) => ({
+    descriptors?.map((descriptor) => ({
       name: descriptor.name,
       description: descriptor.description,
       parameters: z.object({
         query: z.string().describe("What to look up"),
       }),
       handler: async ({ query }) => {
-        const result = await runDescriptor(descriptor.id, query);
-        return JSON.stringify(result);
+        const response = await fetch(
+          `/api/tool-descriptors/${descriptor.id}/run?query=${encodeURIComponent(query)}`,
+        );
+        return response.text();
       },
     })),
     [],
   );
 
-  return isLoading ? <Spinner /> : null;
+  return descriptors ? null : <p>Loading tools…</p>;
 }
 ```
 
-Passing `undefined` while the query is in flight registers nothing. The tools appear once the data arrives, without a second code path for the loading state.
+Passing `undefined` while the request is in flight registers nothing. The tools appear once the data arrives, without a second code path for the loading state.
 
 ### Turning a subset of tools off
 
 ```tsx
+import { z } from "zod";
+import { useFrontendTools } from "@copilotkit/react-core";
+import { refund, search } from "./orders";
+
 function PermissionedTools({ isAdmin }: { isAdmin: boolean }) {
   useFrontendTools([
     {
@@ -132,6 +157,12 @@ function PermissionedTools({ isAdmin }: { isAdmin: boolean }) {
 ### Tools with render components
 
 ```tsx
+import { z } from "zod";
+import { ToolCallStatus, useFrontendTools } from "@copilotkit/react-core";
+import { Chart, load } from "./charts";
+
+type Metric = { key: string; label: string };
+
 function ChartTools({ metrics }: { metrics: Metric[] }) {
   useFrontendTools(
     metrics.map((metric) => ({

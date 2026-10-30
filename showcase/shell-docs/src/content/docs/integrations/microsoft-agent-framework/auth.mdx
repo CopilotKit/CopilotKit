@@ -7,7 +7,7 @@ description: "Secure your Microsoft Agent Framework agents with user authenticat
 
 Forward user authentication from your frontend to your AG-UI server:
 
-- **Frontend**: Pass tokens via `<CopilotKit headers={{ Authorization: token }}>`
+- **Frontend**: Pass tokens via `<CopilotKitProvider headers={{ Authorization: token }}>`
 - **Backend**: Validate tokens using ASP.NET Core authentication middleware
 
 ## Frontend Setup
@@ -15,14 +15,23 @@ Forward user authentication from your frontend to your AG-UI server:
 Pass your authentication token via the `headers` prop:
 
 ```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  headers={{
-    Authorization: `Bearer ${userToken}`,
-  }}
->
-  <YourApp />
-</CopilotKit>
+"use client";
+
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ userToken, children }: { userToken: string; children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      headers={{
+        Authorization: `Bearer ${userToken}`,
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ## Backend Setup
@@ -202,7 +211,7 @@ app.UseAuthorization();
 
 ## Troubleshooting
 
-**Token not reaching server**: Verify the `Authorization` header is set in `<CopilotKit>` and forwarded through any proxies.
+**Token not reaching server**: Verify the `Authorization` header is set in `<CopilotKitProvider>` and forwarded through any proxies.
 
 **Invalid token**: Ensure the token includes the `Bearer ` prefix.
 

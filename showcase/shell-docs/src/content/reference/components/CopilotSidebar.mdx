@@ -12,17 +12,23 @@ See [`CopilotPopup`](/reference/components/CopilotPopup) for a popup variant of 
 ## Import
 
 ```tsx
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import { CopilotSidebar } from "@copilotkit/react-core";
 ```
 
 ## Props
 
 ### Own Props
 
-<PropertyReference name="header" type="SlotValue<typeof CopilotModalHeader>">
+<PropertyReference name="header" type="SlotValue<React.ComponentType<CopilotModalHeaderProps>>">
   Slot override for the sidebar header. Accepts a replacement component, a
   `className` string merged into the default, or a partial props object. The
   default header displays a title and a close button.
+</PropertyReference>
+
+<PropertyReference name="toggleButton" type="SlotValue<typeof CopilotChatToggleButton>">
+  Slot override for the floating button that opens and closes the sidebar.
+  Accepts a replacement component, a `className` string, or a partial props
+  object.
 </PropertyReference>
 
 <PropertyReference name="defaultOpen" type="boolean" default="true">
@@ -49,13 +55,17 @@ import { CopilotSidebar } from "@copilotkit/react-core/v2";
   `"400px"`, `"30vw"`).
 </PropertyReference>
 
+<PropertyReference name="position" type='"left" | "right"' default='"right"'>
+  Which side of the viewport the sidebar opens on.
+</PropertyReference>
+
 ### Inherited CopilotChat Props
 
 `CopilotSidebar` accepts all props from [`CopilotChatProps`](/reference/components/CopilotChat) **except** `chatView`, which is set internally to `CopilotSidebarView`. This includes:
 
 <PropertyReference name="agentId" type="string">
   ID of the agent to use. Must match an agent configured in
-  `CopilotKit`.
+  `CopilotKitProvider`.
 </PropertyReference>
 
 <PropertyReference name="threadId" type="string">
@@ -66,15 +76,9 @@ import { CopilotSidebar } from "@copilotkit/react-core/v2";
   Partial label overrides for all text strings rendered inside the chat.
 </PropertyReference>
 
-<PropertyReference name="autoScroll" type="boolean" default="true">
-  Whether the chat scrolls to the bottom automatically when new messages arrive.
-</PropertyReference>
-
-<PropertyReference
-  name="inputProps"
-  type="Partial<Omit<CopilotChatInputProps, 'children'>>"
->
-  Additional props forwarded to the inner `CopilotChatInput` component.
+<PropertyReference name="autoScroll" type='AutoScrollMode | boolean' default="true">
+  How the chat scrolls as messages arrive. See
+  [`CopilotChat`](/reference/components/CopilotChat).
 </PropertyReference>
 
 <PropertyReference
@@ -84,11 +88,11 @@ import { CopilotSidebar } from "@copilotkit/react-core/v2";
   Controls the welcome screen shown when no messages exist.
 </PropertyReference>
 
-All `CopilotChatView` slot props (`messageView`, `input`, `scrollView`, `inputContainer`, `feather`, `disclaimer`, `suggestionView`) are also accepted and forwarded through.
+All `CopilotChatView` slot props (`messageView`, `input`, `scrollView`, `suggestionView`) are also accepted and forwarded through.
 
 ## Slot System
 
-All slot props follow the same override pattern used across CopilotKit v2 components. Each slot accepts one of three value types:
+All slot props follow the same override pattern used across CopilotKit components. Each slot accepts one of three value types:
 
 | Value                    | Behavior                                                                            |
 | ------------------------ | ----------------------------------------------------------------------------------- |
@@ -101,6 +105,8 @@ All slot props follow the same override pattern used across CopilotKit v2 compon
 ### Basic Usage
 
 ```tsx
+import { CopilotSidebar } from "@copilotkit/react-core";
+
 function App() {
   return (
     <CopilotSidebar
@@ -114,6 +120,8 @@ function App() {
 ### Default Open with Custom Width
 
 ```tsx
+import { CopilotSidebar } from "@copilotkit/react-core";
+
 function App() {
   return <CopilotSidebar agentId="my-agent" defaultOpen={true} width={500} />;
 }
@@ -122,6 +130,8 @@ function App() {
 ### Custom Header
 
 ```tsx
+import { CopilotSidebar } from "@copilotkit/react-core";
+
 function App() {
   return (
     <CopilotSidebar agentId="my-agent" header="bg-indigo-700 text-white" />
