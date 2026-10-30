@@ -761,6 +761,8 @@ app.listen(4000, () => {
 | `mode` | `"multi-route"` \| `"single-route"` | `"multi-route"` | Multi-route exposes individual endpoints; single-route uses a JSON envelope |
 | `cors` | `boolean` \| `CorsOptions` | `false` | CORS configuration. `true` for permissive defaults, or pass a `cors` options object |
 | `hooks` | `CopilotRuntimeHooks` | — | [Lifecycle hooks](#lifecycle-hooks) |
+| `maxBodyBytes` | `number` | 64 MiB | [Request body limit](#request-body-limits) |
+| `maxTranscriptionBodyBytes` | `number` | 128 MiB | [Request body limit](#request-body-limits) for transcription |
 
 <Callout type="info">
 The Express adapter is compatible with `express.json()` body parsing. If you have `app.use(express.json())` before the CopilotKit router, the adapter will detect the pre-parsed body and handle it correctly.
@@ -974,6 +976,32 @@ const handler = createCopilotRuntimeHandler({
 | `onBeforeHandler` | After routing, before handler | Access `route` info (method, agentId, threadId) |
 | `onResponse` | After handler | Return a new `Response` to replace it |
 | `onError` | On unhandled error | Log or produce a custom error response |
+
+## Request Body Limits
+
+`createCopilotRuntimeHandler`, `createCopilotNodeListener`, `createCopilotExpressHandler`, and `createCopilotHonoHandler` limit the size of request bodies. A larger body gets a `413` response with `{ "error": "payload_too_large" }`, whether it declares a `Content-Length` or arrives chunked.
+
+| Option | Default | Applies to |
+|--------|---------|------------|
+| `maxBodyBytes` | 64 MiB | Every route except transcription |
+| `maxTranscriptionBodyBytes` | 128 MiB | `POST /transcribe` and the single-route `transcribe` method |
+
+```ts
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  maxBodyBytes: 16 * 1024 * 1024,
+  maxTranscriptionBodyBytes: 32 * 1024 * 1024,
+});
+```
+
+Run requests carry the message history and inline attachments, so raise `maxBodyBytes` if your app sends many large attachments in one thread. Set either option to `Infinity` to remove that limit.
+
+In single-route mode the method is inside the body, so every request is read up to the larger of the two limits before the limit for its method is applied.
+
+A body with a declared `Content-Length` over the limit is rejected before `onRequest` runs; `onResponse` still fires with the `413`. A chunked body is counted as it is read, by your hooks as well as by the runtime. In multi-route mode the runtime reads the body after `onBeforeHandler`, so rejecting a request in a hook avoids reading it at all. On Node, the unread rest of a rejected upload is discarded, up to 64 MiB or 5 seconds, so the client can receive the response; after that the connection is closed.
+
+A body parser mounted ahead of the runtime, such as `express.json()`, applies its own limit first. The deprecated `copilotRuntime*Endpoint` wrappers, `createCopilotEndpointSingleRoute`, and `createCopilotEndpointSingleRouteExpress` cannot set these options and use the defaults.
 
 ## CORS Configuration
 

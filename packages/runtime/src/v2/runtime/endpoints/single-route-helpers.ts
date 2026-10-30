@@ -52,7 +52,9 @@ export async function detectSingleRouteEnvelope(
   let envelope: unknown;
   try {
     envelope = await request.clone().json();
-  } catch {
+  } catch (error) {
+    // A body-limit rejection is thrown as a Response; let it through.
+    if (error instanceof Response) throw error;
     return null;
   }
 
@@ -78,7 +80,8 @@ export async function parseMethodCall(request: Request): Promise<MethodCall> {
   let jsonEnvelope: JsonEnvelope;
   try {
     jsonEnvelope = (await request.clone().json()) as JsonEnvelope;
-  } catch {
+  } catch (error) {
+    if (error instanceof Response) throw error;
     throw createResponseError("Invalid JSON payload", 400);
   }
 
@@ -103,6 +106,17 @@ export function expectString(
   throw createResponseError(`Missing or invalid parameter '${key}'`, 400);
 }
 
+/**
+ * A rebuilt Request follows its base's signal only weakly, so the base has to
+ * outlive it or a client abort stops reaching the handler after a GC.
+ */
+const rebuiltFrom = new WeakMap<Request, Request>();
+
+function keepBaseAlive(rebuilt: Request, base: Request): Request {
+  rebuiltFrom.set(rebuilt, base);
+  return rebuilt;
+}
+
 export function createJsonRequest(base: Request, body: unknown): Request {
   if (body === undefined || body === null) {
     throw createResponseError("Missing request body for JSON handler", 400);
@@ -114,12 +128,15 @@ export function createJsonRequest(base: Request, body: unknown): Request {
 
   const serializedBody = serializeJsonBody(body);
 
-  return new Request(base.url, {
-    method: "POST",
-    headers,
-    body: serializedBody,
-    signal: base.signal,
-  });
+  return keepBaseAlive(
+    new Request(base.url, {
+      method: "POST",
+      headers,
+      body: serializedBody,
+      signal: base.signal,
+    }),
+    base,
+  );
 }
 
 /**
@@ -153,12 +170,15 @@ export function createResourceRequest(
   headers.delete("content-length");
   const hasBody = method !== "GET" && method !== "HEAD" && body != null;
 
-  return new Request(targetUrl, {
-    method,
-    headers,
-    ...(hasBody ? { body: serializeJsonBody(body) } : {}),
-    signal: base.signal,
-  });
+  return keepBaseAlive(
+    new Request(targetUrl, {
+      method,
+      headers,
+      ...(hasBody ? { body: serializeJsonBody(body) } : {}),
+      signal: base.signal,
+    }),
+    base,
+  );
 }
 
 export function createResponseError(message: string, status: number): Response {

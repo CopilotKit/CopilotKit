@@ -12,6 +12,9 @@ export interface WebhookServerArgs {
   onEvent: (body: WebhookBody) => Promise<void>;
 }
 
+/** Webhook deliveries are small JSON batches; this leaves plenty of room. */
+const MAX_WEBHOOK_BODY_BYTES = 5 * 1024 * 1024;
+
 /** Owns the inbound webhook HTTP server: GET verify + signed POST intake. */
 export class WebhookServer {
   private readonly args: WebhookServerArgs;
@@ -81,8 +84,26 @@ export class WebhookServer {
 
   private handlePost(req: IncomingMessage, res: ServerResponse): void {
     const chunks: Buffer[] = [];
-    req.on("data", (c) => chunks.push(c as Buffer));
+    let received = 0;
+    const reject = () => {
+      chunks.length = 0;
+      res.statusCode = 413;
+      res.end();
+    };
+    if (Number(req.headers["content-length"]) > MAX_WEBHOOK_BODY_BYTES) {
+      reject();
+      return;
+    }
+    // Keep consuming after a rejection, holding nothing, so the client can read
+    // the response.
+    req.on("data", (c) => {
+      if (res.writableEnded) return;
+      received += (c as Buffer).byteLength;
+      if (received > MAX_WEBHOOK_BODY_BYTES) reject();
+      else chunks.push(c as Buffer);
+    });
     req.on("end", () => {
+      if (res.writableEnded) return;
       const rawBuf = Buffer.concat(chunks);
       const raw = rawBuf.toString("utf8");
       const sig = req.headers["x-hub-signature-256"];

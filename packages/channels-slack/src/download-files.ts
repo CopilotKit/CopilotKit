@@ -88,6 +88,35 @@ function mediaPartType(
 }
 
 /**
+ * Read a response body, stopping as soon as it passes `maxBytes`. Returns null
+ * when it does, so an oversized body is never held in memory.
+ */
+async function readBodyWithLimit(
+  res: Response,
+  maxBytes: number,
+): Promise<Buffer | null> {
+  if (Number(res.headers.get("content-length")) > maxBytes) {
+    await res.body?.cancel();
+    return null;
+  }
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const reader = res.body?.getReader();
+  if (!reader) return Buffer.alloc(0);
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks, total);
+}
+
+/**
  * Download a message's files and turn them into AG-UI content parts. Returns
  * the parts plus human-readable `notes` for anything skipped (appended to the
  * message as a text part by the caller).
@@ -131,7 +160,7 @@ export async function buildFileContentParts(
       continue;
     }
 
-    let bytes: Buffer;
+    let bytes: Buffer | null;
     try {
       const res = await fetch(f.url_private, {
         headers: { Authorization: `Bearer ${botToken}` },
@@ -140,15 +169,13 @@ export async function buildFileContentParts(
         notes.push(`skipped "${label}": download failed (HTTP ${res.status})`);
         continue;
       }
-      bytes = Buffer.from(await res.arrayBuffer());
+      bytes = await readBodyWithLimit(res, maxBytes);
     } catch (err) {
       notes.push(`skipped "${label}": ${(err as Error).message}`);
       continue;
     }
-    if (bytes.byteLength > maxBytes) {
-      notes.push(
-        `skipped "${label}": ${bytes.byteLength} bytes exceeds the ${maxBytes}-byte cap`,
-      );
+    if (!bytes) {
+      notes.push(`skipped "${label}": exceeds the ${maxBytes}-byte cap`);
       continue;
     }
 
