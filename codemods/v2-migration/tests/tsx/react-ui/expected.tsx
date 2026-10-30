@@ -5,7 +5,6 @@
 // TODO(copilotkit-2.0): `Markdown` was removed in 2.0 and has no direct replacement. See https://docs.copilotkit.ai/prebuilt-components/chat
 import { CopilotChat, CopilotPopup } from "@copilotkit/react-core";
 import { useCopilotChatSuggestions, Markdown } from "@copilotkit/react-ui";
-import "@copilotkit/react-core/styles.css";
 
 export function Chat() {
   useCopilotChatSuggestions({ instructions: "Suggest next steps" });

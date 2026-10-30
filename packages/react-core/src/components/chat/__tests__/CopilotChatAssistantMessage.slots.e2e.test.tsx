@@ -529,7 +529,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
   // 5. CLASSNAME OVERRIDE TESTS
   // ============================================================================
   describe("5. className Override with Tailwind Strings", () => {
-    it("should override root className while preserving default prose classes", () => {
+    it("should override root className while preserving the markdown typography class", () => {
       const message = createAssistantMessage("Hello");
       const { container } = render(
         <TestWrapper>
@@ -541,10 +541,11 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
       );
 
       const root = container.querySelector(".custom-root-class");
-      expect(root).toBeDefined();
-      // Prose classes are on an inner div wrapping the markdown content
-      const proseDiv = root?.querySelector(".cpk\\:prose");
-      expect(proseDiv).toBeDefined();
+      expect(root).not.toBeNull();
+      // Markdown typography is on an inner div wrapping the markdown content
+      const markdownDiv = root?.querySelector(".cpk-markdown");
+      expect(markdownDiv).not.toBeNull();
+      expect(markdownDiv?.textContent).toContain("Hello");
     });
 
     it("should allow tailwind utilities to override default styles", () => {

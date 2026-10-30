@@ -434,7 +434,7 @@ export const V1_API: Record<string, Record<string, V1Export>> = {
         docs: "https://docs.copilotkit.ai/reference/v2/components/CopilotChat",
         notes: [
           "V2 chat components and styles move from react-ui to react-core.",
-          'Replace the stylesheet import with "@copilotkit/react-core/styles.css".',
+          "Delete the stylesheet import. The 2.0 components add their own styles.",
         ],
       },
     },

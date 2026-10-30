@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import "@copilotkit/react-core/styles.css";
 import "./globals.css";
 
 const geistSans = localFont({

@@ -64,6 +64,17 @@ export class MessagesComponent {
   ID of the agent whose messages are being rendered. Used to resolve the matching activity-message renderer and the agent instance passed to it.
 </PropertyReference>
 
+<PropertyReference name="toolCallDisplay" type='"grouped" | "line" | "stacked" | "separate"' default='"grouped"'>
+  How assistant messages show tool calls. Only calls drawn by a renderer that groups are grouped: the built-in card (`defaultToolRendering: true`) and renderers registered with `group: true`. Any other call shows on its own.
+
+  - `"grouped"`: calls made in a row share one card. The card shows a summary, such as "Used 3 tools", and opens to a row for each call.
+  - `"line"`: the same groups, shown as a line of text.
+  - `"stacked"`: the latest call on top of a stack of the earlier calls. Click the stack to open it.
+  - `"separate"`: each call gets its own card.
+
+  React's `"turn"` display is not available in Angular.
+</PropertyReference>
+
 ### Assistant message slot inputs
 
 <PropertyReference name="assistantMessageComponent" type="Type<any>">

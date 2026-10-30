@@ -9,6 +9,29 @@ import {
   CopilotKitProvider,
 } from "@copilotkit/vue";
 
+const starterSuggestions: Suggestion[] = [
+  {
+    title: "Plan a launch",
+    message: "Turn the Q3 goals into a week-by-week launch checklist",
+    isLoading: false,
+  },
+  {
+    title: "Summarize a thread",
+    message: "Pull the decisions and owners out of a long discussion",
+    isLoading: false,
+  },
+  {
+    title: "Draft a reply",
+    message: "Write a friendly follow-up to yesterday's design review",
+    isLoading: false,
+  },
+  {
+    title: "Explain a concept",
+    message: "Walk me through how React hooks manage component state",
+    isLoading: false,
+  },
+];
+
 const suggestionSamples: Suggestion[] = [
   {
     title: "Summarize conversation",
@@ -353,6 +376,42 @@ export const WithSuggestions: Story = {
                 </CopilotChatMessageView>
               </template>
             </CopilotChatView>
+          </div>
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>
+    `,
+  }),
+};
+
+/** No messages yet: the greeting, the suggestions and the input. */
+export const WelcomeScreen: Story = {
+  parameters: {
+    layout: "fullscreen",
+  },
+  decorators: fullscreenDecorator,
+  render: () => ({
+    components: {
+      CopilotKitProvider,
+      CopilotChatConfigurationProvider,
+      CopilotChatView,
+    },
+    setup() {
+      return {
+        starterSuggestions,
+        handleSubmitMessage,
+        handleSelectSuggestion,
+      };
+    },
+    template: `
+      <CopilotKitProvider runtime-url="https://copilotkit.ai">
+        <CopilotChatConfigurationProvider thread-id="storybook-welcome">
+          <div style="height: 100%">
+            <CopilotChatView
+              :messages="[]"
+              :suggestions="starterSuggestions"
+              @submit-message="handleSubmitMessage"
+              @select-suggestion="handleSelectSuggestion"
+            />
           </div>
         </CopilotChatConfigurationProvider>
       </CopilotKitProvider>

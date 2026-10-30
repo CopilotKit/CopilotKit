@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import { Check, ChevronRight, Circle, Loader2, X } from "lucide-react";
-import { twMerge } from "tailwind-merge";
+import { cn } from "../../lib/utils";
 import { partialJSONParse } from "@copilotkit/shared";
 import type { ToolCallEntry } from "./tool-call-layout";
 
@@ -105,13 +105,10 @@ export function Collapsible({
     <div
       ref={ref}
       id={id}
-      className={twMerge(
-        "cpk:grid cpk:transition-[grid-template-rows] cpk:duration-300 cpk:ease-[cubic-bezier(0.16,1,0.3,1)] cpk:motion-reduce:transition-none",
-        className,
-      )}
+      className={cn("cpk-collapsible", className)}
       style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
     >
-      <div className="cpk:min-h-0 cpk:overflow-hidden">{children}</div>
+      <div className="cpk-collapsible-content">{children}</div>
     </div>
   );
 }
@@ -129,10 +126,10 @@ function StatusIcon({
   return (
     <Icon
       aria-hidden="true"
-      className={twMerge(
-        "cpk:size-3.5 cpk:shrink-0 cpk:text-muted-foreground",
-        status === "running" && "cpk:animate-spin",
-        status === "failed" && "cpk:text-destructive",
+      className={cn(
+        "cpk-tool-call-status-icon",
+        status === "running" && "cpk-tool-call-status-icon-running",
+        status === "failed" && "cpk-tool-call-status-icon-failed",
         className,
       )}
     />
@@ -143,9 +140,9 @@ function Chevron({ open, className }: { open: boolean; className?: string }) {
   return (
     <ChevronRight
       aria-hidden="true"
-      className={twMerge(
-        "cpk:size-3.5 cpk:shrink-0 cpk:transition-transform cpk:duration-200",
-        open && "cpk:rotate-90",
+      className={cn(
+        "cpk-tool-call-chevron",
+        open && "cpk-tool-call-chevron-open",
         className,
       )}
     />
@@ -155,9 +152,7 @@ function Chevron({ open, className }: { open: boolean; className?: string }) {
 function FailedCount({ calls }: { calls: ToolCallEntry[] }) {
   const failed = calls.filter((call) => call.toolMessage?.error).length;
   if (!failed) return null;
-  return (
-    <span className="cpk:shrink-0 cpk:text-destructive">{failed} failed</span>
-  );
+  return <span className="cpk-tool-call-failed-count">{failed} failed</span>;
 }
 
 /**
@@ -184,10 +179,8 @@ function stringifyPayload(value: unknown): string {
 function Payload({ label, value }: { label: string; value: unknown }) {
   return (
     <div>
-      <div className="cpk:text-[11px] cpk:font-medium cpk:uppercase cpk:tracking-wide cpk:text-muted-foreground">
-        {label}
-      </div>
-      <pre className="cpk:m-0 cpk:mt-1.5 cpk:max-h-[200px] cpk:overflow-auto cpk:rounded-lg cpk:bg-muted cpk:p-2.5 cpk:font-mono cpk:text-xs cpk:leading-relaxed cpk:text-foreground cpk:whitespace-pre-wrap cpk:break-words">
+      <div className="cpk-tool-call-payload-label">{label}</div>
+      <pre className="cpk-tool-call-payload-code">
         {stringifyPayload(value)}
       </pre>
     </div>
@@ -208,7 +201,7 @@ export function ToolCallPayloads({
   className?: string;
 }) {
   return (
-    <div className={twMerge("cpk:grid cpk:gap-3", className)}>
+    <div className={cn("cpk-tool-call-payloads", className)}>
       <Payload label="Arguments" value={parameters ?? {}} />
       {result !== undefined && <Payload label="Result" value={result} />}
     </div>
@@ -238,15 +231,15 @@ export function ToolCallRow({
   const [open, setOpen] = useState(false);
   const detailsId = useId();
   const preview = argumentPreview(parameters);
-  const line = appearance === "line";
 
   return (
     <div
       data-copilotkit
       // Rows draw their own divider: interaction capture can wrap each call
       // in a `display: contents` element, which a parent's divide-y misses.
-      className={twMerge(
-        appearance === "card" && "cpk:border-t cpk:border-border",
+      className={cn(
+        "cpk-tool-call-row",
+        `cpk-tool-call-row-${appearance}`,
         className,
       )}
       {...props}
@@ -256,51 +249,34 @@ export function ToolCallRow({
         aria-expanded={open}
         aria-controls={detailsId}
         onClick={() => setOpen((value) => !value)}
-        className={twMerge(
-          "cpk:group/row cpk:m-0 cpk:flex cpk:min-w-0 cpk:cursor-pointer cpk:items-center cpk:gap-2 cpk:border-none cpk:bg-transparent cpk:text-left cpk:text-[13px] cpk:text-inherit cpk:transition-colors cpk:hover:bg-accent/60 cpk:focus-visible:outline-2 cpk:focus-visible:-outline-offset-2 cpk:focus-visible:outline-ring",
-          line
-            ? "cpk:-mx-1.5 cpk:w-[calc(100%+0.75rem)] cpk:rounded-md cpk:px-1.5 cpk:py-1"
-            : appearance === "stack"
-              ? "cpk:w-full cpk:px-3.5 cpk:py-2.5"
-              : "cpk:w-full cpk:px-3.5 cpk:py-2",
-        )}
+        className="cpk-tool-call-row-button"
       >
         <StatusIcon status={status} />
         <span
           data-testid="copilot-tool-render-name"
-          className={twMerge(
-            "cpk:shrink-0 cpk:font-mono cpk:text-[13px] cpk:font-medium cpk:text-foreground",
+          className={cn(
+            "cpk-tool-call-row-name",
             status === "running" && "cpk-shimmer",
           )}
         >
           {name}
         </span>
         {preview && (
-          <span className="cpk:min-w-0 cpk:truncate cpk:font-mono cpk:text-[13px] cpk:text-muted-foreground">
-            {preview}
-          </span>
+          <span className="cpk-tool-call-row-preview">{preview}</span>
         )}
-        <span data-testid="copilot-tool-render-status" className="cpk:sr-only">
+        <span
+          data-testid="copilot-tool-render-status"
+          className="cpk-tool-call-row-status"
+        >
           {statusLabels[status]}
         </span>
-        <Chevron
-          open={open}
-          className={twMerge(
-            "cpk:ml-auto cpk:text-muted-foreground",
-            !open &&
-              "cpk:opacity-0 cpk:group-hover/row:opacity-100 cpk:group-focus-visible/row:opacity-100",
-          )}
-        />
+        <Chevron open={open} className="cpk-tool-call-row-chevron" />
       </button>
       <Collapsible open={open} id={detailsId}>
         <ToolCallPayloads
           parameters={parameters}
           result={result}
-          className={
-            line
-              ? "cpk:mt-1 cpk:mb-2 cpk:ml-5.5"
-              : "cpk:px-3.5 cpk:pt-1 cpk:pb-3"
-          }
+          className="cpk-tool-call-row-payloads"
         />
       </Collapsible>
     </div>
@@ -391,13 +367,11 @@ export function CopilotChatToolCallGroup({
 
   const runningLabel = current && (
     <>
-      <span className="cpk:shrink-0 cpk:font-medium cpk-shimmer">
+      <span className="cpk-tool-call-group-running cpk-shimmer">
         Running {current.toolCall.function.name}
       </span>
       {preview && (
-        <span className="cpk:min-w-0 cpk:truncate cpk:font-mono cpk:text-xs cpk:opacity-70">
-          {preview}
-        </span>
+        <span className="cpk-tool-call-group-preview">{preview}</span>
       )}
     </>
   );
@@ -405,7 +379,13 @@ export function CopilotChatToolCallGroup({
   if (appearance === "line") {
     if (calls.length === 1 && !current) {
       return (
-        <div {...groupProps} className={twMerge("cpk:my-2", className)}>
+        <div
+          {...groupProps}
+          className={cn(
+            "cpk-tool-call-group cpk-tool-call-group-line cpk-tool-call-group-single",
+            className,
+          )}
+        >
           <ToolCallGroupContext.Provider
             value={{ appearance: "line", failedIds, active: isActive }}
           >
@@ -415,20 +395,26 @@ export function CopilotChatToolCallGroup({
       );
     }
     return (
-      <div {...groupProps} className={twMerge("cpk:my-3", className)}>
+      <div
+        {...groupProps}
+        className={cn(
+          "cpk-tool-call-group cpk-tool-call-group-line",
+          className,
+        )}
+      >
         <button
           type="button"
           aria-expanded={open}
           aria-controls={bodyId}
           onClick={() => setOpen((value) => !value)}
-          className="cpk:m-0 cpk:inline-flex cpk:max-w-full cpk:min-w-0 cpk:cursor-pointer cpk:items-center cpk:gap-1.5 cpk:rounded-md cpk:border-none cpk:bg-transparent cpk:p-0 cpk:py-0.5 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:hover:text-foreground cpk:focus-visible:outline-2 cpk:focus-visible:outline-ring"
+          className="cpk-tool-call-group-line-toggle"
         >
           {runningLabel || (
             <>
-              <span className="cpk:shrink-0 cpk:font-medium">
+              <span className="cpk-tool-call-group-line-summary">
                 Used {pluralize(calls.length, "tool")}
               </span>
-              <span className="cpk:min-w-0 cpk:truncate cpk:font-mono cpk:text-xs cpk:opacity-70">
+              <span className="cpk-tool-call-group-line-names">
                 {toolNames(calls)}
               </span>
               <FailedCount calls={calls} />
@@ -437,9 +423,7 @@ export function CopilotChatToolCallGroup({
           <Chevron open={open} />
         </button>
         <Collapsible open={open} id={bodyId}>
-          <div className="cpk:mt-1 cpk:ml-1 cpk:border-l-2 cpk:border-border cpk:py-0.5 cpk:pl-3">
-            {rows("line")}
-          </div>
+          <div className="cpk-tool-call-group-line-body">{rows("line")}</div>
         </Collapsible>
       </div>
     );
@@ -449,22 +433,24 @@ export function CopilotChatToolCallGroup({
     // A lone call is the top card of a stack with nothing behind it yet.
     // One toggle in both states, so it keeps keyboard focus when pressed.
     const behind = open ? 0 : Math.min(calls.length - 1, 2);
-    const layer =
-      "cpk:rounded-xl cpk:border cpk:border-border cpk:bg-card cpk:text-card-foreground";
+    const layer = "cpk-tool-call-group-stack-layer";
     const latestStatus = entryStatus(latest, isActive);
     const latestPreview = entryPreview(latest);
     return (
       <div
         {...groupProps}
-        className={twMerge("cpk:my-3", className)}
+        className={cn(
+          "cpk-tool-call-group cpk-tool-call-group-stack",
+          className,
+        )}
         style={{ paddingBottom: behind * 6, ...props.style }}
       >
-        <div className="cpk:relative cpk:isolate">
+        <div className="cpk-tool-call-group-stack-pile">
           {Array.from({ length: behind }, (_, index) => (
             <div
               key={index}
               aria-hidden="true"
-              className={twMerge(layer, "cpk:absolute cpk:inset-0")}
+              className={cn(layer, "cpk-tool-call-group-stack-behind")}
               style={{
                 transform: `translateY(${(index + 1) * 6}px) scaleX(${1 - (index + 1) * 0.045})`,
                 zIndex: -1 - index,
@@ -477,56 +463,59 @@ export function CopilotChatToolCallGroup({
             aria-expanded={open}
             aria-controls={open ? bodyId : undefined}
             onClick={() => setOpen((value) => !value)}
-            className={twMerge(
-              "cpk:relative cpk:m-0 cpk:flex cpk:min-w-0 cpk:cursor-pointer cpk:items-center cpk:text-left cpk:transition-colors cpk:focus-visible:outline-2 cpk:focus-visible:outline-ring",
+            className={cn(
+              "cpk-tool-call-group-stack-toggle",
               open
-                ? "cpk:mb-1.5 cpk:w-full cpk:gap-1.5 cpk:rounded-md cpk:border-none cpk:bg-transparent cpk:p-0 cpk:py-0.5 cpk:text-xs cpk:text-muted-foreground cpk:hover:text-foreground"
-                : twMerge(
-                    layer,
-                    "cpk:w-full cpk:gap-2 cpk:px-3.5 cpk:py-2.5 cpk:text-[13px] cpk:shadow-[0_1px_2px_rgb(0_0_0/0.04)] cpk:hover:bg-accent",
-                  ),
+                ? "cpk-tool-call-group-stack-toggle-open"
+                : [layer, "cpk-tool-call-group-stack-toggle-closed"],
             )}
           >
             {open ? (
               <>
                 {pluralize(calls.length, "tool call")}
                 <FailedCount calls={calls} />
-                <span className="cpk:ml-auto cpk:inline-flex cpk:items-center cpk:gap-1">
+                <span className="cpk-tool-call-group-stack-collapse">
                   Collapse
-                  <Chevron open className="cpk:-rotate-90" />
+                  <Chevron
+                    open
+                    className="cpk-tool-call-group-stack-collapse-icon"
+                  />
                 </span>
               </>
             ) : (
               <>
                 <span
                   key={latest.toolCall.id}
-                  className="cpk:flex cpk:min-w-0 cpk:flex-1 cpk:items-center cpk:gap-2 cpk:animate-[cpk-stack-drop_260ms_cubic-bezier(0.16,1,0.3,1)] cpk:motion-reduce:animate-none"
+                  className="cpk-tool-call-group-stack-latest"
                 >
                   <StatusIcon status={latestStatus} />
                   <span
-                    className={twMerge(
-                      "cpk:shrink-0 cpk:font-mono cpk:font-medium cpk:text-foreground",
+                    className={cn(
+                      "cpk-tool-call-group-stack-name",
                       latestStatus === "running" && "cpk-shimmer",
                     )}
                   >
                     {latest.toolCall.function.name}
                   </span>
                   {latestPreview && (
-                    <span className="cpk:min-w-0 cpk:truncate cpk:font-mono cpk:text-muted-foreground">
+                    <span className="cpk-tool-call-group-stack-preview">
                       {latestPreview}
                     </span>
                   )}
                   {/* The status icon is decorative, so say the status. */}
-                  <span className="cpk:sr-only">
+                  <span className="cpk-tool-call-group-stack-status">
                     {statusLabels[latestStatus]}
                   </span>
                 </span>
-                <span className="cpk:ml-2 cpk:inline-flex cpk:shrink-0 cpk:items-center cpk:gap-2 cpk:text-xs cpk:text-muted-foreground">
+                <span className="cpk-tool-call-group-stack-meta">
                   <FailedCount calls={calls} />
-                  <span className="cpk:tabular-nums">
+                  <span className="cpk-tool-call-group-stack-count">
                     {pluralize(calls.length, "call")}
                   </span>
-                  <Chevron open={false} className="cpk:rotate-90" />
+                  <Chevron
+                    open={false}
+                    className="cpk-tool-call-group-stack-expand-icon"
+                  />
                 </span>
               </>
             )}
@@ -534,7 +523,7 @@ export function CopilotChatToolCallGroup({
           {/* Always mounted, so screen readers hear the closed stack's latest
               call change ("read_file: Running", then "read_file: Done"); the
               button only names it. */}
-          <span aria-live="polite" className="cpk:sr-only">
+          <span aria-live="polite" className="cpk-tool-call-group-stack-live">
             {open
               ? ""
               : `${latest.toolCall.function.name}: ${statusLabels[latestStatus]}`}
@@ -542,17 +531,14 @@ export function CopilotChatToolCallGroup({
         </div>
         {open && (
           // Each call gets the collapsed stack's card, easing out of the stack.
-          <div id={bodyId} className="cpk:grid cpk:gap-1.5">
+          <div id={bodyId} className="cpk-tool-call-group-stack-items">
             <ToolCallGroupContext.Provider
               value={{ appearance: "stack", failedIds, active: isActive }}
             >
               {calls.map((call, index) => (
                 <div
                   key={call.toolCall.id}
-                  className={twMerge(
-                    layer,
-                    "cpk:overflow-hidden cpk:shadow-[0_1px_2px_rgb(0_0_0/0.04)] cpk:animate-[cpk-stack-fan_240ms_cubic-bezier(0.16,1,0.3,1)_both] cpk:motion-reduce:animate-none",
-                  )}
+                  className={cn(layer, "cpk-tool-call-group-stack-item")}
                   style={{ animationDelay: `${index * 30}ms` }}
                 >
                   {renderCall(call)}
@@ -570,34 +556,31 @@ export function CopilotChatToolCallGroup({
   return (
     <div
       {...groupProps}
-      className={twMerge(
-        "cpk:my-3 cpk:overflow-hidden cpk:rounded-xl cpk:border cpk:border-border cpk:bg-card cpk:text-card-foreground",
-        className,
-      )}
+      className={cn("cpk-tool-call-group cpk-tool-call-group-card", className)}
     >
       <button
         type="button"
         aria-expanded={open}
         aria-controls={bodyId}
         onClick={() => setOpen((value) => !value)}
-        className="cpk:m-0 cpk:flex cpk:w-full cpk:min-w-0 cpk:cursor-pointer cpk:items-center cpk:gap-2.5 cpk:border-none cpk:bg-transparent cpk:px-3.5 cpk:py-2.5 cpk:text-left cpk:text-[13px] cpk:text-inherit cpk:transition-colors cpk:hover:bg-accent/60 cpk:focus-visible:outline-2 cpk:focus-visible:-outline-offset-2 cpk:focus-visible:outline-ring"
+        className="cpk-tool-call-group-card-toggle"
       >
         <StatusIcon status={status} />
         {runningLabel || (
           <>
-            <span className="cpk:shrink-0 cpk:font-medium cpk:text-foreground">
+            <span className="cpk-tool-call-group-card-summary">
               Used {pluralize(calls.length, "tool")}
             </span>
-            <span className="cpk:min-w-0 cpk:truncate cpk:font-mono cpk:text-xs cpk:text-muted-foreground">
+            <span className="cpk-tool-call-group-card-names">
               {toolNames(calls)}
             </span>
           </>
         )}
-        <span className="cpk:ml-auto cpk:flex cpk:shrink-0 cpk:items-center cpk:gap-2 cpk:pl-2 cpk:text-xs cpk:text-muted-foreground">
+        <span className="cpk-tool-call-group-card-meta">
           {status === "failed" ? (
             <FailedCount calls={calls} />
           ) : (
-            <span className="cpk:tabular-nums">
+            <span className="cpk-tool-call-group-card-status">
               {status !== "running"
                 ? statusLabels[status]
                 : done > 0 && `${done} done`}

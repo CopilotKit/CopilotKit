@@ -76,10 +76,10 @@ confirm-delete dialog, and per-row entry/reveal animations.
   the element keeps the selection/archived/animation chrome around it.
 
 The built-in default skin's token values are **derived at build time** from
-react-core's canonical theme (`packages/react-core/src/styles/globals.css`)
+the canonical theme (`packages/core/src/styles/css/theme.css`)
 by `scripts/generate-tokens.ts`, which writes the checked-in
 `src/threads-drawer/generated-tokens.ts`. Run `pnpm run gen:tokens` to regenerate;
-`generated-tokens.test.ts` fails if the checked-in values drift from react-core.
+`generated-tokens.test.ts` fails if the checked-in values drift from the theme.
 
 ## Mobile + a11y
 

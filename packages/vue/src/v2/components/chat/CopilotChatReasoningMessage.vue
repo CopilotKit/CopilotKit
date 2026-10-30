@@ -150,7 +150,11 @@ function toggleOpen() {
 </script>
 
 <template>
-  <div data-copilotkit class="cpk:my-1" :data-message-id="message.id">
+  <div
+    data-copilotkit
+    class="cpk-reasoning-message"
+    :data-message-id="message.id"
+  >
     <slot
       name="layout"
       :message="message"
@@ -189,28 +193,22 @@ function toggleOpen() {
       >
         <button
           type="button"
-          class="cpk:inline-flex cpk:items-center cpk:gap-1 cpk:py-1 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:select-none"
-          :class="
-            hasContent
-              ? 'cpk:hover:text-foreground cpk:cursor-pointer'
-              : 'cpk:cursor-default'
-          "
+          class="cpk-reasoning-message-header"
+          :class="{ 'cpk-reasoning-message-header-expandable': hasContent }"
           :aria-expanded="hasContent ? isOpen : undefined"
           @click="hasContent ? toggleOpen() : undefined"
         >
-          <span class="cpk:font-medium">{{ label }}</span>
+          <span class="cpk-reasoning-message-label">{{ label }}</span>
           <span
             v-if="isStreaming && !hasContent"
-            class="cpk:inline-flex cpk:items-center cpk:ml-1"
+            class="cpk-reasoning-message-indicator"
           >
-            <span
-              class="cpk:w-1.5 cpk:h-1.5 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse"
-            />
+            <span class="cpk-reasoning-message-indicator-dot" />
           </span>
           <IconChevronRight
             v-if="hasContent"
-            class="cpk:size-3.5 cpk:shrink-0 cpk:transition-transform cpk:duration-200"
-            :class="{ 'cpk:rotate-90': isOpen }"
+            class="cpk-reasoning-message-chevron"
+            :class="{ 'cpk-reasoning-message-chevron-open': isOpen }"
           />
         </button>
       </slot>
@@ -225,18 +223,21 @@ function toggleOpen() {
         }"
       >
         <div
-          class="cpk:grid cpk:transition-[grid-template-rows] cpk:duration-200 cpk:ease-in-out"
+          class="cpk-reasoning-message-toggle"
           :style="{ gridTemplateRows: isOpen ? '1fr' : '0fr' }"
         >
-          <div class="cpk:overflow-hidden">
+          <div class="cpk-reasoning-message-toggle-content">
             <slot
               name="content-view"
               :is-streaming="isStreaming"
               :has-content="hasContent"
               :content="normalizedContent"
             >
-              <div v-if="hasContent || isStreaming" class="cpk:pb-2 cpk:pt-1">
-                <div class="cpk:text-sm cpk:text-muted-foreground">
+              <div
+                v-if="hasContent || isStreaming"
+                class="cpk-reasoning-message-content"
+              >
+                <div class="cpk-reasoning-message-text">
                   <!-- Reasoning content uses the streaming renderer (same as assistant);
                        the pluggable provider renderer applies to assistant messages only. -->
                   <StreamingMarkdownDefault
@@ -245,11 +246,9 @@ function toggleOpen() {
                   />
                   <span
                     v-if="isStreaming && hasContent"
-                    class="cpk:inline-flex cpk:items-center cpk:ml-1 cpk:align-middle"
+                    class="cpk-reasoning-message-cursor"
                   >
-                    <span
-                      class="cpk:w-2 cpk:h-2 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse-cursor"
-                    />
+                    <span class="cpk-reasoning-message-cursor-dot" />
                   </span>
                 </div>
               </div>

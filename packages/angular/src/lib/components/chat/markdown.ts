@@ -1,5 +1,4 @@
 import { Marked, TokenizerAndRendererExtension } from "marked";
-import hljs from "highlight.js";
 import DOMPurify from "dompurify";
 import { renderToString } from "katex";
 import { completePartialMarkdown } from "@copilotkit/core";
@@ -80,34 +79,30 @@ const marked = new Marked(
 );
 
 /**
- * Highlights a code block in place. marked has already escaped the code and
- * its language class; the highlighted markup is sanitized before insertion.
- * Returns the fence language.
+ * Gives a code block React's markup: `<pre class="cpk-markdown-code-block">`
+ * around a `<code>` with the fence's info string in `data-code-info`. Like
+ * React, the code is not highlighted.
  */
-function highlightCode(code: HTMLElement): string {
-  const lang = /\blanguage-(\S+)/.exec(code.className)?.[1] ?? "";
-  const language = hljs.getLanguage(lang) ? lang : "plaintext";
-  const source = (code.textContent ?? "").replace(/\n$/, "");
-  const highlighted = sanitizeHtml(hljs.highlight(source, { language }).value);
-  if (highlighted) {
-    code.replaceChildren(highlighted);
+function toReactCodeBlock(code: HTMLElement): void {
+  const info = /\blanguage-(\S+)/.exec(code.className)?.[1];
+  code.removeAttribute("class");
+  if (info) code.setAttribute("data-code-info", info);
+  code.parentElement!.className = "cpk-markdown-code-block";
+  // marked ends the code with a newline that React's renderer doesn't keep.
+  const last = code.lastChild;
+  if (last?.nodeType === Node.TEXT_NODE && last.textContent?.endsWith("\n")) {
+    last.textContent = last.textContent.slice(0, -1);
   }
-  code.classList.add("hljs");
-  return lang;
 }
 
 /**
  * Renders possibly incomplete (streaming) markdown into sanitized DOM nodes,
- * with math and highlighted code. `decorateCodeBlock` is called for each code
- * block so the caller can add its own UI around it.
+ * with math, and code blocks in React's markup.
  * Without a working sanitizer (for example during server rendering), returns
  * the markdown source as a string to show as text; the browser renders it
  * when it hydrates.
  */
-export function renderMarkdown(
-  content: string,
-  decorateCodeBlock: (code: HTMLElement, language: string) => void,
-): DocumentFragment | string {
+export function renderMarkdown(content: string): DocumentFragment | string {
   const source = completePartialMarkdown(content);
   const fragment = sanitizeHtml(marked.parse(source) as string);
   if (!fragment) {
@@ -116,7 +111,7 @@ export function renderMarkdown(
   for (const code of Array.from(
     fragment.querySelectorAll<HTMLElement>("pre > code"),
   )) {
-    decorateCodeBlock(code, highlightCode(code));
+    toReactCodeBlock(code);
   }
   return fragment;
 }

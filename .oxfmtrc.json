@@ -6,6 +6,7 @@
     "showcase/shell/src/content/**",
     "showcase/shell-docs/src/content/**",
     "packages/web-inspector/src/styles/generated.css",
+    "packages/core/src/styles/stylesheet.ts",
     "scripts/release/public-api/manifest.v1.json",
     "showcase/aimock/shared/**",
     "showcase/aimock/d4/**",

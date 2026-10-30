@@ -190,7 +190,9 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     expect(toggle.textContent).toContain("run_command");
     expect(toggle.textContent).toContain("1 call");
     // The status icon is decorative; screen readers get the status as text.
-    expect(within(toggle).getByText("Done").className).toContain("sr-only");
+    expect(within(toggle).getByText("Done").classList).toContain(
+      "cpk-tool-call-group-stack-status",
+    );
   });
 
   it("announces a closed stack's status as it changes", () => {
@@ -221,7 +223,7 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     expect(statuses).toHaveLength(2);
     // Compact rows, not the standalone card with its status badge.
     for (const status of statuses) {
-      expect(status.className).toContain("sr-only");
+      expect(status.classList).toContain("cpk-tool-call-row-status");
     }
   });
 

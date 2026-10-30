@@ -154,15 +154,6 @@ headless APIs, and it supports zoneless applications.
       </Step>
     </WhenAngularBackend>
     <Step>
-        ### Import the styles
-
-        Add the package stylesheet to your global styles. It's self-contained, so the chat renders without any other CSS.
-
-        ```css title="src/styles.css"
-        @import "@copilotkit/angular/styles.css"; /* [!code highlight] */
-        ```
-    </Step>
-    <Step>
         ### Connect to Copilot Runtime
 
         Point `provideCopilotKit` at the runtime endpoint. The chat uses the agent that your runtime registers as `default`.
@@ -225,7 +216,7 @@ headless APIs, and it supports zoneless applications.
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
-                - **Chat renders unstyled**: Make sure you imported `@copilotkit/angular/styles.css` in `src/styles.css`.
+                - **Chat renders unstyled**: The chat components add their own `<style>` tag. If you set `injectStyles: false` in `provideCopilotKit`, add `node_modules/@copilotkit/core/styles.css` to the `styles` array in `angular.json`.
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
                 - **CORS errors**: Keep `cors: true` in `createCopilotNodeListener` for local development, or configure CORS to allow your Angular app's origin in production.
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.

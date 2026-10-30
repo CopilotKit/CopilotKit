@@ -4,7 +4,7 @@ import {
   useCopilotChatConfiguration,
   CopilotChatDefaultLabels,
 } from "../../providers/CopilotChatConfigurationProvider";
-import { twMerge } from "tailwind-merge";
+import { cn } from "../../lib/utils";
 import { Button } from "../../components/ui/button";
 import type { UserMessage } from "@ag-ui/core";
 import {
@@ -180,7 +180,7 @@ export function CopilotChatUserMessage({
 
   const BoundToolbar = renderSlot(toolbar, CopilotChatUserMessage.Toolbar, {
     children: (
-      <div className="cpk:flex cpk:items-center cpk:gap-1 cpk:justify-end">
+      <div className="cpk-user-message-toolbar-items">
         {additionalToolbarItems}
         {BoundCopyButton}
         {onEditMessage && BoundEditButton}
@@ -211,15 +211,15 @@ export function CopilotChatUserMessage({
     <div
       data-copilotkit
       data-testid="copilot-user-message"
-      className={twMerge(
-        "copilotKitMessage copilotKitUserMessage cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-10",
+      className={cn(
+        "copilotKitMessage copilotKitUserMessage cpk-user-message",
         className,
       )}
       data-message-id={message.id}
       {...props}
     >
       {mediaParts.length > 0 && (
-        <div className="cpk:flex cpk:flex-row cpk:flex-wrap cpk:max-w-full cpk:justify-end cpk:gap-2 cpk:mb-2">
+        <div className="cpk-user-message-attachments">
           {mediaParts.map((part, index) => (
             <CopilotChatAttachmentRenderer
               key={index}
@@ -241,13 +241,7 @@ export namespace CopilotChatUserMessage {
   export const Container: React.FC<
     React.PropsWithChildren<React.HTMLAttributes<HTMLDivElement>>
   > = ({ children, className, ...props }) => (
-    <div
-      className={twMerge(
-        "cpk:flex cpk:flex-col cpk:items-end cpk:group",
-        className,
-      )}
-      {...props}
-    >
+    <div className={cn("cpk-user-message-container", className)} {...props}>
       {children}
     </div>
   );
@@ -256,14 +250,7 @@ export namespace CopilotChatUserMessage {
     content: string;
     className?: string;
   }> = ({ content, className }) => (
-    <div
-      className={twMerge(
-        "cpk:prose cpk:dark:prose-invert cpk:bg-muted cpk:relative cpk:max-w-[80%] cpk:rounded-[18px] cpk:px-4 cpk:py-1.5 cpk:data-[multiline]:py-3 cpk:inline-block cpk:whitespace-pre-wrap",
-        className,
-      )}
-    >
-      {content}
-    </div>
+    <div className={cn("cpk-user-message-bubble", className)}>{content}</div>
   );
 
   export const Toolbar: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
@@ -272,10 +259,7 @@ export namespace CopilotChatUserMessage {
   }) => (
     <div
       data-testid="copilot-user-toolbar"
-      className={twMerge(
-        "cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-[5px] cpk:mt-[4px] cpk:invisible cpk:group-hover:visible",
-        className,
-      )}
+      className={cn("cpk-user-message-toolbar", className)}
       {...props}
     />
   );
@@ -293,7 +277,7 @@ export namespace CopilotChatUserMessage {
             type="button"
             variant="assistantMessageToolbarButton"
             aria-label={title}
-            className={twMerge(className)}
+            className={className}
             {...props}
           >
             {children}
@@ -336,9 +320,9 @@ export namespace CopilotChatUserMessage {
         {...props}
       >
         {copied ? (
-          <Check className="cpk:size-[18px]" />
+          <Check className="cpk-user-message-toolbar-icon" />
         ) : (
-          <Copy className="cpk:size-[18px]" />
+          <Copy className="cpk-user-message-toolbar-icon" />
         )}
       </ToolbarButton>
     );
@@ -356,7 +340,7 @@ export namespace CopilotChatUserMessage {
         className={className}
         {...props}
       >
-        <Edit className="cpk:size-[18px]" />
+        <Edit className="cpk-user-message-toolbar-icon" />
       </ToolbarButton>
     );
   };
@@ -398,7 +382,7 @@ export namespace CopilotChatUserMessage {
     return (
       <div
         data-testid="copilot-branch-navigation"
-        className={twMerge("cpk:flex cpk:items-center cpk:gap-1", className)}
+        className={cn("cpk-user-message-branch-navigation", className)}
         {...props}
       >
         <Button
@@ -412,12 +396,12 @@ export namespace CopilotChatUserMessage {
             })
           }
           disabled={!canGoPrev}
-          className="cpk:h-6 cpk:w-6 cpk:p-0"
+          className="cpk-user-message-branch-button"
           aria-label={labels.userMessageToolbarPreviousBranchLabel}
         >
-          <ChevronLeft className="cpk:size-[20px]" />
+          <ChevronLeft className="cpk-user-message-branch-icon" />
         </Button>
-        <span className="cpk:text-sm cpk:text-muted-foreground cpk:px-0 cpk:font-medium">
+        <span className="cpk-user-message-branch-counter">
           {currentBranch + 1}/{numberOfBranches}
         </span>
         <Button
@@ -431,10 +415,10 @@ export namespace CopilotChatUserMessage {
             })
           }
           disabled={!canGoNext}
-          className="cpk:h-6 cpk:w-6 cpk:p-0"
+          className="cpk-user-message-branch-button"
           aria-label={labels.userMessageToolbarNextBranchLabel}
         >
-          <ChevronRight className="cpk:size-[20px]" />
+          <ChevronRight className="cpk-user-message-branch-icon" />
         </Button>
       </div>
     );

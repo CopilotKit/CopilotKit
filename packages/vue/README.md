@@ -16,7 +16,6 @@ The package requires Vue 3.3 or newer. Your app also needs a Copilot Runtime end
 <!-- App.vue -->
 <script setup lang="ts">
 import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
-import "@copilotkit/vue/styles.css";
 </script>
 
 <template>
@@ -28,7 +27,7 @@ import "@copilotkit/vue/styles.css";
 </template>
 ```
 
-Import `@copilotkit/vue/styles.css` once in your app. `CopilotChat` uses the provider's default agent when `agent-id` is omitted. The chat fills its parent, so give that container a height.
+`CopilotChat` adds its own CSS, so you don't import a stylesheet. `CopilotChat` uses the provider's default agent when `agent-id` is omitted. The chat fills its parent, so give that container a height.
 
 ## Imports and compatibility
 

@@ -31,16 +31,13 @@ export function Lightbox({ onClose, children }: LightboxProps) {
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div
-      className="cpk:fixed cpk:inset-0 cpk:z-[9999] cpk:flex cpk:items-center cpk:justify-center cpk:bg-black/80 cpk:animate-fade-in"
-      onClick={onClose}
-    >
+    <div className="cpk-attachment-lightbox" onClick={onClose}>
       <button
         onClick={onClose}
-        className="cpk:absolute cpk:top-4 cpk:right-4 cpk:text-white cpk:bg-white/10 cpk:hover:bg-white/20 cpk:rounded-full cpk:w-10 cpk:h-10 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer cpk:border-none cpk:z-10"
+        className="cpk-attachment-lightbox-close-button"
         aria-label={labels.attachmentPreviewCloseButtonLabel}
       >
-        <X className="cpk:w-5 cpk:h-5" />
+        <X className="cpk-attachment-lightbox-close-icon" />
       </button>
 
       <div onClick={(e) => e.stopPropagation()}>{children}</div>

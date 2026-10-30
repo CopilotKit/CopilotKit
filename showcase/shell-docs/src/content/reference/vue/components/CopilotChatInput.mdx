@@ -28,7 +28,6 @@ It supports both `v-model` (via `modelValue` / `update:modelValue`) and uncontro
 ```vue
 <script setup lang="ts">
 import { CopilotChatInput } from "@copilotkit/vue/v2";
-import "@copilotkit/vue/styles.css";
 </script>
 ```
 
@@ -38,7 +37,6 @@ import "@copilotkit/vue/styles.css";
 <script setup lang="ts">
 import { ref } from "vue";
 import { CopilotChatInput } from "@copilotkit/vue/v2";
-import "@copilotkit/vue/styles.css";
 
 const value = ref("");
 
@@ -294,7 +292,10 @@ const toolsMenu = [
 
 ### Nested Submenus
 
-Menu items with an `items` array render as expandable submenus:
+Menu items with an `items` array render as expandable submenus. A submenu
+opens when you point to its item, or when you press the right arrow key, Enter,
+or Space on it. The left arrow key closes it. Escape closes the menu and moves
+focus back to the add button.
 
 ```ts
 const toolsMenu = [

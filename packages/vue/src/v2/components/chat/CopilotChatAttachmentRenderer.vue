@@ -2,6 +2,8 @@
 import { computed, ref } from "vue";
 import { getDocumentIcon, getSourceUrl } from "@copilotkit/shared";
 import type { CopilotChatAttachmentRendererProps } from "./types";
+import CopilotChatLightbox from "./CopilotChatLightbox.vue";
+import { useLightbox } from "./use-lightbox";
 
 const props = withDefaults(defineProps<CopilotChatAttachmentRendererProps>(), {
   filename: undefined,
@@ -13,21 +15,59 @@ const sourceUrl = computed(() => getSourceUrl(props.source));
 const documentLabel = computed(
   () => props.filename || props.source.mimeType || "Unknown type",
 );
+const documentAriaLabel = computed(
+  () => props.filename || props.source.mimeType || "Document attachment",
+);
+
+const imageButton = ref<HTMLButtonElement | null>(null);
+const {
+  thumbnailRef,
+  vtName,
+  open: lightboxOpen,
+  openLightbox,
+  closeLightbox,
+} = useLightbox();
 </script>
 
 <template>
-  <img
+  <!-- React opens the lightbox from the <img>; a button around it lets
+       keyboard users open it too. The button has no look of its own. -->
+  <button
     v-if="props.type === 'image' && !imageLoadFailed"
-    :src="sourceUrl"
-    alt="Image attachment"
-    class="cpk:max-w-full cpk:h-auto cpk:rounded-lg"
-    :class="props.className"
-    data-testid="copilot-chat-attachment-renderer-image"
-    @error="imageLoadFailed = true"
-  />
+    ref="imageButton"
+    type="button"
+    class="cpk-attachment-renderer-image-button"
+    data-testid="copilot-chat-attachment-renderer-image-button"
+    @click="openLightbox"
+  >
+    <img
+      ref="thumbnailRef"
+      :src="sourceUrl"
+      alt="Image attachment"
+      class="cpk-attachment-renderer cpk-attachment-renderer-image"
+      :class="props.className"
+      data-testid="copilot-chat-attachment-renderer-image"
+      @error="imageLoadFailed = true"
+    />
+    <!-- Teleported to the body; inside the button only to keep one root. -->
+    <CopilotChatLightbox
+      v-if="lightboxOpen"
+      label="Image attachment"
+      :return-focus-to="imageButton"
+      @close="closeLightbox"
+    >
+      <img
+        :style="{ viewTransitionName: vtName }"
+        :src="sourceUrl"
+        alt="Image attachment"
+        class="cpk-attachment-renderer-lightbox-image"
+        data-testid="copilot-chat-attachment-renderer-lightbox-image"
+      />
+    </CopilotChatLightbox>
+  </button>
   <div
     v-else-if="props.type === 'image'"
-    class="cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:rounded-lg cpk:bg-muted cpk:p-4 cpk:text-sm cpk:text-muted-foreground"
+    class="cpk-attachment-renderer cpk-attachment-renderer-image-error"
     :class="props.className"
     data-testid="copilot-chat-attachment-renderer-image-fallback"
   >
@@ -36,7 +76,7 @@ const documentLabel = computed(
 
   <div
     v-else-if="props.type === 'audio'"
-    class="cpk:flex cpk:flex-col cpk:gap-1"
+    class="cpk-attachment-renderer cpk-attachment-renderer-audio"
     :class="props.className"
     data-testid="copilot-chat-attachment-renderer-audio"
   >
@@ -44,11 +84,11 @@ const documentLabel = computed(
       :src="sourceUrl"
       controls
       preload="metadata"
-      class="cpk:max-w-[300px] cpk:w-full cpk:h-10"
+      class="cpk-attachment-renderer-audio-player"
     />
     <span
       v-if="props.filename"
-      class="cpk:text-xs cpk:text-muted-foreground cpk:truncate cpk:max-w-[300px]"
+      class="cpk-attachment-renderer-audio-filename"
       data-testid="copilot-chat-attachment-renderer-audio-filename"
     >
       {{ props.filename }}
@@ -60,28 +100,37 @@ const documentLabel = computed(
     :src="sourceUrl"
     controls
     preload="metadata"
-    class="cpk:max-w-[400px] cpk:w-full cpk:rounded-lg"
+    class="cpk-attachment-renderer cpk-attachment-renderer-video"
     :class="props.className"
     data-testid="copilot-chat-attachment-renderer-video"
   />
 
-  <div
+  <!-- `download` is honoured for same-origin, data: and blob: URLs. Browsers
+       ignore it for cross-origin URLs unless the server sends
+       `Content-Disposition: attachment`; `target="_blank"` keeps those from
+       navigating the chat away and opens the file in a new tab instead. -->
+  <a
     v-else
-    class="cpk:inline-flex cpk:items-center cpk:gap-2 cpk:px-3 cpk:py-2 cpk:border cpk:border-border cpk:rounded-lg cpk:bg-muted"
+    :href="sourceUrl"
+    :download="props.filename ?? ''"
+    target="_blank"
+    rel="noopener noreferrer"
+    :aria-label="documentAriaLabel"
+    class="cpk-attachment-renderer cpk-attachment-renderer-document"
     :class="props.className"
     data-testid="copilot-chat-attachment-renderer-document"
   >
     <span
-      class="cpk:text-xs cpk:font-bold cpk:uppercase"
+      class="cpk-attachment-renderer-document-icon"
       data-testid="copilot-chat-attachment-renderer-document-icon"
     >
       {{ getDocumentIcon(props.source.mimeType ?? "") }}
     </span>
     <span
-      class="cpk:text-sm cpk:text-muted-foreground cpk:truncate"
+      class="cpk-attachment-renderer-document-name"
       data-testid="copilot-chat-attachment-renderer-document-label"
     >
       {{ documentLabel }}
     </span>
-  </div>
+  </a>
 </template>

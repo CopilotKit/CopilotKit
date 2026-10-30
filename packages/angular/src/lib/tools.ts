@@ -82,6 +82,12 @@ export interface RenderToolCallConfig<
   component: Type<ToolRenderer<Args>>;
   agentId?: string;
   passAgent?: boolean;
+  /**
+   * Let the chat group this renderer's calls with other calls made in a row,
+   * like the built-in card (see `toolCallDisplay`). Off by default, since a
+   * custom renderer may draw anything.
+   */
+  group?: boolean;
 }
 
 export interface FrontendToolConfig<

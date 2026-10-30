@@ -15,10 +15,7 @@ const DefaultContainer = React.forwardRef<
       ref={ref}
       data-copilotkit
       data-testid="copilot-suggestions"
-      className={cn(
-        "cpk:flex cpk:flex-wrap cpk:items-center cpk:gap-1.5 cpk:sm:gap-2 cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0 cpk:pointer-events-none",
-        className,
-      )}
+      className={cn("cpk-suggestion-view", className)}
       {...props}
     />
   );

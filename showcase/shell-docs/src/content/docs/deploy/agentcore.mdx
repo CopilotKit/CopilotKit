@@ -33,8 +33,9 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 ## Quickstart
 
 <Callout type="info" title="AWS CLI required">
-  Both paths below require AWS credentials configured locally. If you haven't done this yet,
-  follow the [AWS CLI getting started guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)
+  Both paths below require AWS credentials configured locally. If you haven't
+  done this yet, follow the [AWS CLI getting started
+  guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)
   before continuing.
 </Callout>
 
@@ -307,7 +308,6 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
         ```tsx title="app/layout.tsx"
         import { Providers } from "./providers";
-        import "@copilotkit/react-core/v2/styles.css";
 
         export default function RootLayout({ children }: { children: React.ReactNode }) {
           return (
@@ -341,11 +341,6 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         };
         ```
 
-        Import the package stylesheet once:
-
-        ```css title="src/styles.css"
-        @import "@copilotkit/angular/styles.css";
-        ```
         </FrontendOnly>
       </Step>
 
@@ -427,6 +422,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         </FrontendOnly>
       </Step>
     </TailoredContentOption>
+
   </TailoredContent>
 </Steps>
 
@@ -458,9 +454,9 @@ path matches no deployed route. Check the following, in order:
   runtime make the AgentCore call server-side.
 
 <Callout type="warn" title="This error does not apply to the local quickstart">
-  The framework quickstarts run the agent locally on `http://localhost:8000`, and a local agent
-  server never returns `Missing Authentication Token`. If you see this error, the runtime is pointed
-  at a deployed AWS endpoint.
+  The framework quickstarts run the agent locally on `http://localhost:8000`,
+  and a local agent server never returns `Missing Authentication Token`. If you
+  see this error, the runtime is pointed at a deployed AWS endpoint.
 </Callout>
 
 ## What's next?

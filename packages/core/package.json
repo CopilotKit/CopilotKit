@@ -18,13 +18,19 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
-    "./package.json": "./package.json"
+    "./styles": {
+      "import": "./dist/styles.mjs",
+      "require": "./dist/styles.cjs"
+    },
+    "./package.json": "./package.json",
+    "./styles.css": "./dist/styles.css"
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "cross-env NODE_OPTIONS=--max-old-space-size=8192 tsdown",
+    "build": "node scripts/generate-stylesheet.mjs --check && cross-env NODE_OPTIONS=--max-old-space-size=8192 tsdown && node scripts/generate-stylesheet.mjs --check --css dist/styles.css",
+    "generate:stylesheet": "node scripts/generate-stylesheet.mjs",
     "size": "size-limit",
     "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
     "dev": "tsdown --watch",
@@ -33,7 +39,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "publint": "publint .",
-    "attw": "attw --pack . --profile node16"
+    "attw": "attw --pack . --profile node16 --exclude-entrypoints ./styles.css"
   },
   "dependencies": {
     "@ag-ui/client": "1.0.2",
@@ -54,6 +60,7 @@
     "@vitest/coverage-v8": "^3.2.4",
     "arktype": "^2.1.29",
     "cross-env": "^10.1.0",
+    "esbuild": "^0.27.0",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "valibot": "^1.2.0",

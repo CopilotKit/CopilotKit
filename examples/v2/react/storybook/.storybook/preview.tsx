@@ -4,9 +4,9 @@ import { withThemeByClassName } from "@storybook/addon-themes";
 import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
+  CopilotKitStyles,
 } from "@copilotkit/react-core";
 import type { CopilotKitProviderProps } from "@copilotkit/react-core";
-import "@copilotkit/react-core/styles.css";
 import "./preview.css";
 import { StoryAgent } from "../stories/support/story-agent";
 import type { StoryAgentOptions } from "../stories/support/story-agent";
@@ -32,7 +32,16 @@ const withCopilotKit: Decorator = (Story, context) => {
   const agentOptions = params ? params.agent : undefined;
   const agent = useMemo(() => new StoryAgent(agentOptions), [agentOptions]);
 
-  if (params === false) return <Story />;
+  // Stories often render a single part (an input, a message) without
+  // CopilotChat, which is what normally renders the styles.
+  if (params === false) {
+    return (
+      <>
+        <CopilotKitStyles />
+        <Story />
+      </>
+    );
+  }
 
   return (
     <CopilotKitProvider
@@ -43,6 +52,7 @@ const withCopilotKit: Decorator = (Story, context) => {
       <CopilotChatConfigurationProvider
         threadId={params?.threadId ?? context.id}
       >
+        <CopilotKitStyles />
         <Story />
       </CopilotChatConfigurationProvider>
     </CopilotKitProvider>

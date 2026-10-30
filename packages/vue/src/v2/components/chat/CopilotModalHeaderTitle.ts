@@ -10,10 +10,7 @@ export default defineComponent({
         "div",
         {
           ...rest,
-          class: [
-            "cpk:w-full cpk:text-base cpk:font-medium cpk:leading-none cpk:tracking-tight cpk:text-foreground",
-            className,
-          ],
+          class: ["cpk-modal-header-title", className],
         },
         slots.default ? slots.default() : [],
       );

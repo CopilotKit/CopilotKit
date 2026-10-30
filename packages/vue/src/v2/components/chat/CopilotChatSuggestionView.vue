@@ -32,10 +32,7 @@ const emit = defineEmits<{
 
 const attrs = useAttrs();
 const loadingSet = computed(() => new Set(props.loadingIndexes));
-const containerClass = computed(() => [
-  "cpk:flex cpk:flex-wrap cpk:items-center cpk:gap-1.5 cpk:pl-0 cpk:pr-4 cpk:pointer-events-none cpk:sm:gap-2 cpk:@3xl:px-0",
-  attrs.class,
-]);
+const containerClass = computed(() => ["cpk-suggestion-view", attrs.class]);
 const containerAttrs = computed(() => {
   const { class: _className, ...rest } = attrs;
   return rest;

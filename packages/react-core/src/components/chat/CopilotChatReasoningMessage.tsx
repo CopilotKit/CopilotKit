@@ -1,7 +1,7 @@
 import type { ReasoningMessage, Message } from "@ag-ui/core";
 import { useState, useEffect, useRef } from "react";
 import { ChevronRight } from "lucide-react";
-import { twMerge } from "tailwind-merge";
+import { cn } from "../../lib/utils";
 import { StreamingMarkdownDefaultRenderer } from "./StreamingMarkdownDefaultRenderer";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
@@ -163,7 +163,7 @@ export function CopilotChatReasoningMessage({
 
   return (
     <div
-      className={twMerge("cpk:my-1", className)}
+      className={cn("cpk-reasoning-message", className)}
       data-message-id={message.id}
       {...props}
     >
@@ -202,28 +202,26 @@ export namespace CopilotChatReasoningMessage {
     return (
       <button
         type="button"
-        className={twMerge(
-          "cpk:inline-flex cpk:items-center cpk:gap-1 cpk:py-1 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:select-none",
-          isExpandable
-            ? "cpk:hover:text-foreground cpk:cursor-pointer"
-            : "cpk:cursor-default",
+        className={cn(
+          "cpk-reasoning-message-header",
+          isExpandable && "cpk-reasoning-message-header-expandable",
           className,
         )}
         aria-expanded={isExpandable ? isOpen : undefined}
         {...headerProps}
       >
-        <span className="cpk:font-medium">{label}</span>
+        <span className="cpk-reasoning-message-label">{label}</span>
         {isStreaming && !hasContent && (
-          <span className="cpk:inline-flex cpk:items-center cpk:ml-1">
-            <span className="cpk:w-1.5 cpk:h-1.5 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse" />
+          <span className="cpk-reasoning-message-indicator">
+            <span className="cpk-reasoning-message-indicator-dot" />
           </span>
         )}
         {headerChildren}
         {isExpandable && (
           <ChevronRight
-            className={twMerge(
-              "cpk:size-3.5 cpk:shrink-0 cpk:transition-transform cpk:duration-200",
-              isOpen && "cpk:rotate-90",
+            className={cn(
+              "cpk-reasoning-message-chevron",
+              isOpen && "cpk-reasoning-message-chevron-open",
             )}
           />
         )}
@@ -248,10 +246,10 @@ export namespace CopilotChatReasoningMessage {
 
     return (
       <div
-        className={twMerge("cpk:pb-2 cpk:pt-1", className)}
+        className={cn("cpk-reasoning-message-content", className)}
         {...contentProps}
       >
-        <div className="cpk:text-sm cpk:text-muted-foreground">
+        <div className="cpk-reasoning-message-text">
           {/* Reasoning content always uses the built-in streaming renderer; the
               pluggable provider renderer applies to assistant messages only. */}
           <StreamingMarkdownDefaultRenderer
@@ -259,8 +257,8 @@ export namespace CopilotChatReasoningMessage {
             isStreaming={isStreaming}
           />
           {isStreaming && hasContent && (
-            <span className="cpk:inline-flex cpk:items-center cpk:ml-1 cpk:align-middle">
-              <span className="cpk:w-2 cpk:h-2 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse-cursor" />
+            <span className="cpk-reasoning-message-cursor">
+              <span className="cpk-reasoning-message-cursor-dot" />
             </span>
           )}
         </div>
@@ -275,14 +273,13 @@ export namespace CopilotChatReasoningMessage {
   > = ({ isOpen, className, children: toggleChildren, ...toggleProps }) => {
     return (
       <div
-        className={twMerge(
-          "cpk:grid cpk:transition-[grid-template-rows] cpk:duration-200 cpk:ease-in-out",
-          className,
-        )}
+        className={cn("cpk-reasoning-message-toggle", className)}
         style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
         {...toggleProps}
       >
-        <div className="cpk:overflow-hidden">{toggleChildren}</div>
+        <div className="cpk-reasoning-message-toggle-content">
+          {toggleChildren}
+        </div>
       </div>
     );
   };

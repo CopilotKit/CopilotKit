@@ -20,12 +20,21 @@ const PATHS: Record<string, string> = {
   "@copilotkit/react-core/v2/context": "@copilotkit/react-core/context",
   "@copilotkit/react-core/v2/generative-ui":
     "@copilotkit/react-core/generative-ui",
-  "@copilotkit/react-core/v2/styles.css": "@copilotkit/react-core/styles.css",
-  "@copilotkit/react-ui/v2/styles.css": "@copilotkit/react-core/styles.css",
-  "@copilotkit/react-ui/styles.css": "@copilotkit/react-core/styles.css",
   "@copilotkit/runtime/v2": "@copilotkit/runtime",
   "@copilotkit/runtime/v2/node": "@copilotkit/runtime/node",
 };
+
+/**
+ * Stylesheets that no longer exist: the 2.0 components add their own styles.
+ * Imports of them are deleted. `@copilotkit/react-core/styles.css` shipped in
+ * the 2.0 release candidates.
+ */
+const STYLESHEETS = new Set([
+  "@copilotkit/react-core/v2/styles.css",
+  "@copilotkit/react-ui/v2/styles.css",
+  "@copilotkit/react-ui/styles.css",
+  "@copilotkit/react-core/styles.css",
+]);
 
 /** Framework adapters were removed, not renamed: calls need manual migration. */
 const REMOVED_RUNTIME_PATHS = new Set([
@@ -383,6 +392,16 @@ const codemod: Codemod<Lang> = async (root, options) => {
       }
     }
 
+    // A side-effect import (`import "…/styles.css";`) has no import clause.
+    if (
+      STYLESHEETS.has(from) &&
+      statement.kind() === "import_statement" &&
+      !statement.find({ rule: { kind: "import_clause" } })
+    ) {
+      edits.push(deleteLine(statement, source));
+      continue;
+    }
+
     const to = own(PATHS, from);
     if (to !== undefined) {
       const renamed = (specifiers ?? []).map(
@@ -481,6 +500,15 @@ const codemod: Codemod<Lang> = async (root, options) => {
       }
     } else if (moved !== undefined) {
       edits.push(string.replace(requote(string, moved)));
+    } else if (STYLESHEETS.has(value)) {
+      // `require("…/styles.css");` on its own line.
+      const statement = string.parent()?.parent()?.parent();
+      if (
+        statement?.kind() === "expression_statement" &&
+        statement.text().replace(/;$/, "") === `require(${string.text()})`
+      ) {
+        edits.push(deleteLine(statement, source));
+      }
     }
   }
 

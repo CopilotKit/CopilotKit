@@ -201,17 +201,6 @@
             "path": "packages/angular/package.json",
             "selector": "exports[\"./mcp-apps\"]"
           }
-        },
-        {
-          "importPath": "@copilotkit/angular/styles.css",
-          "exportKey": "./styles.css",
-          "kind": "style",
-          "conditions": "./dist/styles.css",
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/angular/package.json",
-            "selector": "exports[\"./styles.css\"]"
-          }
         }
       ],
       "compatibility": {
@@ -963,6 +952,31 @@
             "path": "packages/core/package.json",
             "selector": "exports[\"./package.json\"]"
           }
+        },
+        {
+          "importPath": "@copilotkit/core/styles",
+          "exportKey": "./styles",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/styles.mjs",
+            "require": "./dist/styles.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/core/package.json",
+            "selector": "exports[\"./styles\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/core/styles.css",
+          "exportKey": "./styles.css",
+          "kind": "style",
+          "conditions": "./dist/styles.css",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/core/package.json",
+            "selector": "exports[\"./styles.css\"]"
+          }
         }
       ],
       "compatibility": {
@@ -1475,17 +1489,6 @@
             "kind": "package-json",
             "path": "packages/react-core/package.json",
             "selector": "exports[\"./package.json\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/react-core/styles.css",
-          "exportKey": "./styles.css",
-          "kind": "style",
-          "conditions": "./dist/index.css",
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/react-core/package.json",
-            "selector": "exports[\"./styles.css\"]"
           }
         }
       ],
@@ -2196,17 +2199,6 @@
             "kind": "package-json",
             "path": "packages/vue/package.json",
             "selector": "exports[\"./package.json\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/vue/styles.css",
-          "exportKey": "./styles.css",
-          "kind": "style",
-          "conditions": "./dist/styles.css",
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/vue/package.json",
-            "selector": "exports[\"./styles.css\"]"
           }
         },
         {

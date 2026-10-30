@@ -1,4 +1,3 @@
-import { ApplicationRef } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import DOMPurify from "dompurify";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -97,7 +96,7 @@ describe("CopilotChatAssistantMessageRenderer markdown", () => {
 
     expect(root.querySelector("strong")?.textContent).toBe("second");
     expect(root.textContent).not.toContain("first");
-    expect(root.querySelector(".code-block-container")).toBeNull();
+    expect(root.querySelector("pre")).toBeNull();
   });
 });
 
@@ -150,30 +149,29 @@ describe("CopilotChatAssistantMessageRenderer math", () => {
 });
 
 describe("CopilotChatAssistantMessageRenderer code blocks", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  function stubClipboard() {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
-    return writeText;
-  }
-
-  it("highlights code and adds a language label and copy button", () => {
+  it("renders React's code block markup, without highlighting", () => {
     const root = render("```ts\nconst a = 1;\n```");
-    expect(root.querySelector(".code-block-language")?.textContent).toBe("ts");
-    expect(root.querySelector(".code-block-copy-button svg")).not.toBeNull();
-    expect(root.querySelector("pre code.hljs.language-ts")).not.toBeNull();
-    expect(root.querySelector(".hljs-keyword")?.textContent).toBe("const");
+    const pre = root.querySelector("pre")!;
+    expect(pre.className).toBe("cpk-markdown-code-block");
+    const code = pre.querySelector("code")!;
+    expect(code.getAttribute("data-code-info")).toBe("ts");
+    expect(code.hasAttribute("class")).toBe(false);
+    expect(code.children).toHaveLength(0);
+    expect(code.textContent).toBe("const a = 1;");
   });
 
-  it("shows the code fence language label as text", () => {
+  it("leaves out data-code-info when the fence has no language", () => {
+    const root = render("```\nplain\n```");
+    expect(root.querySelector("code")!.hasAttribute("data-code-info")).toBe(
+      false,
+    );
+  });
+
+  it("keeps the code fence language as an attribute value", () => {
     const lang = '"><img/src/onerror=window.__xss=4>';
     const root = render(`\`\`\`${lang}\nconsole.log(1)\n\`\`\``);
     expect(eventHandlerAttributes(root)).toEqual([]);
     expect(root.querySelector("img")).toBeNull();
-    expect(root.querySelector(".code-block-language")?.textContent).toBe(lang);
   });
 
   it("renders raw HTML inside a fenced code block as text", () => {
@@ -182,57 +180,6 @@ describe("CopilotChatAssistantMessageRenderer code blocks", () => {
     const root = render(`\`\`\`html\n${html}\n\`\`\``);
     expect(root.querySelector("style, script, iframe")).toBeNull();
     expect(root.querySelector("pre code")?.textContent).toContain(html);
-  });
-
-  it("copies the raw code when the copy button is clicked", async () => {
-    const writeText = stubClipboard();
-    const root = render("```ts\nconst a = 1;\n```");
-    root.querySelector<HTMLElement>(".code-block-copy-button span")!.click();
-    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    expect(writeText).toHaveBeenCalledWith("const a = 1;");
-  });
-
-  it("marks only the clicked button as copied when code blocks are identical", async () => {
-    stubClipboard();
-    const root = render("```ts\nx\n```\n\n```ts\nx\n```");
-    const [first, second] = Array.from(
-      root.querySelectorAll<HTMLButtonElement>(".code-block-copy-button"),
-    );
-    second.click();
-    await vi.waitFor(() => expect(second.textContent).toContain("Copied"));
-    expect(first.textContent).not.toContain("Copied");
-  });
-
-  it("resets the copied label after two seconds", async () => {
-    stubClipboard();
-    const { fixture, root } = createRenderer("```ts\nx\n```");
-    vi.useFakeTimers();
-    try {
-      const button = root.querySelector<HTMLButtonElement>(
-        ".code-block-copy-button",
-      )!;
-      button.click();
-      await vi.waitFor(() => expect(button.textContent).toContain("Copied"));
-
-      await vi.advanceTimersByTimeAsync(2000);
-      fixture.detectChanges();
-      expect(button.textContent).not.toContain("Copied");
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("destroys code block headers when the content is replaced or removed", () => {
-    const { fixture } = createRenderer("```ts\na\n```\n\n```ts\nb\n```");
-    const appRef = TestBed.inject(ApplicationRef);
-    const viewsWithHeaders = appRef.viewCount;
-
-    fixture.componentRef.setInput("content", "```ts\nc\n```");
-    fixture.detectChanges();
-    expect(appRef.viewCount).toBe(viewsWithHeaders - 1);
-
-    fixture.destroy();
-    expect(appRef.viewCount).toBe(viewsWithHeaders - 2);
   });
 });
 

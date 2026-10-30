@@ -7,6 +7,7 @@ export function defineToolCallRenderer(def: {
   name: "*";
   render: VueToolCallRendererRenderFn<unknown>;
   agentId?: string;
+  group?: boolean;
 }): VueToolCallRenderer<unknown>;
 
 export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
@@ -14,6 +15,7 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
   args: S;
   render: VueToolCallRendererRenderFn<InferSchemaOutput<S>>;
   agentId?: string;
+  group?: boolean;
 }): VueToolCallRenderer<InferSchemaOutput<S>>;
 
 export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
@@ -21,6 +23,7 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
   args?: S;
   render: VueToolCallRendererRenderFn<unknown>;
   agentId?: string;
+  group?: boolean;
 }): VueToolCallRenderer<unknown> {
   const argsSchema = def.name === "*" && !def.args ? z.any() : def.args;
   return {
@@ -28,5 +31,6 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
     args: argsSchema as StandardSchemaV1<any, unknown>,
     render: def.render as VueToolCallRenderer<unknown>["render"],
     ...(def.agentId ? { agentId: def.agentId } : {}),
+    ...(def.group ? { group: true } : {}),
   };
 }

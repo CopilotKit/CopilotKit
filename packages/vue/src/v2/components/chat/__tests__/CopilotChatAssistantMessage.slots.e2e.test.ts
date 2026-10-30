@@ -649,7 +649,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
   });
 
   describe("5. className Override with Tailwind Strings", () => {
-    it("should override root className while preserving default prose classes", () => {
+    it("should override root className while preserving default markdown classes", () => {
       const Host = defineComponent({
         components: { CopilotChatAssistantMessage },
         setup() {
@@ -664,10 +664,8 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
       const { container } = renderInWrapper(Host);
       const root = container.querySelector(".custom-root-class");
       expect(root).toBeDefined();
-      const proseDiv =
-        root?.classList.contains("cpk:prose") ||
-        !!root?.querySelector(".cpk\\:prose");
-      expect(proseDiv).toBe(true);
+      expect(root?.classList.contains("copilotKitAssistantMessage")).toBe(true);
+      expect(root?.querySelector(".cpk-markdown")).not.toBeNull();
     });
 
     it("should allow tailwind utilities to override default styles", () => {

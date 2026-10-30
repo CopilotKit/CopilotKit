@@ -9,6 +9,7 @@ import {
   ViewEncapsulation,
   Optional,
   Inject,
+  inject,
   input,
   output,
 } from "@angular/core";
@@ -37,18 +38,22 @@ import {
   CopilotChatAssistantMessageThumbsDownButton,
 } from "./copilot-chat-assistant-message-buttons";
 import { CopilotChatAssistantMessageToolbar } from "./copilot-chat-assistant-message-toolbar";
+import { CopilotChatInspectorButton } from "./copilot-chat-inspector-button";
+import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
 import { cn } from "../../utils";
+import { hostStyles } from "../host-styles";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 
 @Component({
   selector: "copilot-chat-assistant-message",
-  host: { "data-copilotkit": "", class: "cpk:block cpk:w-full" },
+  host: { "data-copilotkit": "" },
   imports: [
     CommonModule,
     CopilotSlot,
     CopilotChatAssistantMessageRenderer,
     CopilotChatAssistantMessageCopyButton,
     CopilotChatAssistantMessageToolbar,
+    CopilotChatInspectorButton,
     CopilotChatToolCallsView,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -62,20 +67,22 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
       role="article"
     >
       <!-- Markdown Renderer -->
-      @if (markdownRendererTemplate || markdownRendererComponent()) {
-        <copilot-slot
-          [slot]="markdownRendererTemplate || markdownRendererComponent()"
-          [context]="markdownRendererContext()"
-          [defaultComponent]="CopilotChatAssistantMessageRenderer"
-        >
-        </copilot-slot>
-      } @else {
-        <copilot-chat-assistant-message-renderer
-          [content]="message().content || ''"
-          [inputClass]="markdownRendererClass()"
-        >
-        </copilot-chat-assistant-message-renderer>
-      }
+      <div class="cpk-markdown cpk-assistant-message-markdown">
+        @if (markdownRendererTemplate || markdownRendererComponent()) {
+          <copilot-slot
+            [slot]="markdownRendererTemplate || markdownRendererComponent()"
+            [context]="markdownRendererContext()"
+            [defaultComponent]="CopilotChatAssistantMessageRenderer"
+          >
+          </copilot-slot>
+        } @else {
+          <copilot-chat-assistant-message-renderer
+            [content]="message().content || ''"
+            [inputClass]="markdownRendererClass()"
+          >
+          </copilot-chat-assistant-message-renderer>
+        }
+      </div>
 
       <!-- Tool Calls View -->
       @if (toolCallsViewTemplate || toolCallsViewComponent()) {
@@ -106,7 +113,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
           </copilot-slot>
         } @else {
           <div copilotChatAssistantMessageToolbar [inputClass]="toolbarClass()">
-            <div class="cpk:flex cpk:items-center cpk:gap-1">
+            <div class="cpk-assistant-message-toolbar-items">
               <!-- Copy button -->
               @if (copyButtonTemplate || copyButtonComponent()) {
                 <copilot-slot
@@ -181,6 +188,13 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
                   [ngTemplateOutlet]="additionalToolbarItems() || null"
                 ></ng-container>
               }
+
+              <!-- Inspector shortcut, only while the Inspector is enabled -->
+              <copilot-chat-inspector-button
+                [messageId]="message().id"
+                [threadId]="chatConfiguration?.threadId()"
+                [agentId]="agentId() ?? chatConfiguration?.agentId()"
+              />
             </div>
           </div>
         }
@@ -188,169 +202,10 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
     </div>
   `,
   styles: [
+    hostStyles,
     `
       /* Import KaTeX styles */
       @import "katex/dist/katex.min.css";
-
-      /* Atom One Light theme for highlight.js */
-      .hljs {
-        color: rgb(56, 58, 66);
-        background: transparent;
-      }
-
-      .hljs-comment,
-      .hljs-quote {
-        color: #a0a1a7;
-        font-style: italic;
-      }
-
-      .hljs-doctag,
-      .hljs-formula,
-      .hljs-keyword {
-        color: #a626a4;
-      }
-
-      .hljs-deletion,
-      .hljs-name,
-      .hljs-section,
-      .hljs-selector-tag,
-      .hljs-subst {
-        color: #e45649;
-      }
-
-      .hljs-literal {
-        color: #0184bb;
-      }
-
-      .hljs-addition,
-      .hljs-attribute,
-      .hljs-meta .hljs-string,
-      .hljs-regexp,
-      .hljs-string {
-        color: #50a14f;
-      }
-
-      .hljs-attr,
-      .hljs-number,
-      .hljs-selector-attr,
-      .hljs-selector-class,
-      .hljs-selector-pseudo,
-      .hljs-template-variable,
-      .hljs-type,
-      .hljs-variable {
-        color: #986801;
-      }
-
-      .hljs-params {
-        color: rgb(56, 58, 66);
-      }
-
-      .hljs-bullet,
-      .hljs-link,
-      .hljs-meta,
-      .hljs-selector-id,
-      .hljs-symbol,
-      .hljs-title {
-        color: #4078f2;
-      }
-
-      .hljs-built_in,
-      .hljs-class .hljs-title,
-      .hljs-title.class_ {
-        color: #c18401;
-      }
-
-      .hljs-emphasis {
-        font-style: italic;
-      }
-
-      .hljs-strong {
-        font-weight: 700;
-      }
-
-      .hljs-link {
-        text-decoration: underline;
-      }
-
-      /* Atom One Dark theme for highlight.js */
-      .dark .hljs {
-        color: #abb2bf;
-        background: transparent;
-      }
-
-      .dark .hljs-comment,
-      .dark .hljs-quote {
-        color: #5c6370;
-        font-style: italic;
-      }
-
-      .dark .hljs-doctag,
-      .dark .hljs-formula,
-      .dark .hljs-keyword {
-        color: #c678dd;
-      }
-
-      .dark .hljs-deletion,
-      .dark .hljs-name,
-      .dark .hljs-section,
-      .dark .hljs-selector-tag,
-      .dark .hljs-subst {
-        color: #e06c75;
-      }
-
-      .dark .hljs-literal {
-        color: #56b6c2;
-      }
-
-      .dark .hljs-addition,
-      .dark .hljs-attribute,
-      .dark .hljs-meta .hljs-string,
-      .dark .hljs-regexp,
-      .dark .hljs-string {
-        color: #98c379;
-      }
-
-      .dark .hljs-attr,
-      .dark .hljs-number,
-      .dark .hljs-selector-attr,
-      .dark .hljs-selector-class,
-      .dark .hljs-selector-pseudo,
-      .dark .hljs-template-variable,
-      .dark .hljs-type,
-      .dark .hljs-variable {
-        color: #d19a66;
-      }
-
-      .dark .hljs-bullet,
-      .dark .hljs-link,
-      .dark .hljs-meta,
-      .dark .hljs-selector-id,
-      .dark .hljs-symbol,
-      .dark .hljs-title {
-        color: #61aeee;
-      }
-
-      .dark .hljs-built_in,
-      .dark .hljs-class .hljs-title,
-      .dark .hljs-title.class_ {
-        color: #e6c07b;
-      }
-
-      .dark .hljs-params {
-        color: #abb2bf; /* same as regular text */
-      }
-
-      .dark .hljs-emphasis {
-        font-style: italic;
-      }
-
-      .dark .hljs-strong {
-        font-weight: 700;
-      }
-
-      .dark .hljs-link {
-        text-decoration: underline;
-      }
     `,
   ],
 })
@@ -407,6 +262,9 @@ export class CopilotChatAssistantMessage {
   // DI service exposes handler availability scoped to CopilotChatView
   // Make it optional with a default fallback for testing
   handlers: CopilotChatViewHandlers;
+  protected readonly chatConfiguration = inject(COPILOT_CHAT_CONFIGURATION, {
+    optional: true,
+  });
 
   constructor(
     @Optional()
@@ -428,7 +286,7 @@ export class CopilotChatAssistantMessage {
   // Computed values
   computedClass = computed(() => {
     return cn(
-      "copilotKitMessage copilotKitAssistantMessage cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert",
+      "copilotKitMessage copilotKitAssistantMessage",
       this.customClass(),
     );
   });
