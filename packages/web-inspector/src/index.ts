@@ -2195,23 +2195,11 @@ export class CpkThreadInspector extends PortableLitElement {
   provider: ThreadDebuggerProvider | null = null;
   thread: ThreadDebuggerMetadata | ɵThread | null = null;
   runtimeUrl = "";
-  /**
-   * @deprecated Set `resolveHeaders` instead — it resolves fresh headers at
-   * send time (#1937), so a rotated token is never stale. This is a
-   * fallback used only when `resolveHeaders` is left unset (its default
-   * no-op); when both are set, `resolveHeaders` wins. Never part of the
-   * load key — see `headersGeneration`.
-   */
-  headers: Record<string, string> = {};
   // Resolved at send time (#1937): a builder can return a fresh token on every
   // call, so this must be invoked per-request rather than snapshotted once.
-  // The default value is a sentinel: `ɵresolveInspectorHeaders` compares
-  // against it to know whether a host actually set `resolveHeaders`, so it
-  // can fall back to the deprecated `headers` field when not.
   resolveHeaders: () =>
     | Record<string, string>
-    | Promise<Record<string, string>> =
-    CpkThreadInspector.ɵdefaultResolveHeaders;
+    | Promise<Record<string, string>> = () => ({});
   // Bumped only by an actual header-source change (never by a builder
   // returning a new value). Never key the load signature on header VALUES —
   // that would reload thread inspection on every token rotation.
@@ -2334,12 +2322,6 @@ export class CpkThreadInspector extends PortableLitElement {
   private _dividerStartWidth = 0;
   private static nextDomId = 1;
   private readonly domIdPrefix = `cpk-thread-detail-${CpkThreadInspector.nextDomId++}`;
-  /** Sentinel identity for `resolveHeaders`'s default value; see its field doc. */
-  private static readonly ɵdefaultResolveHeaders = (): Record<
-    string,
-    string
-  > => ({});
-
   static readonly COLLAPSE_THRESHOLD = 800;
   private static readonly MESSAGE_REFRESH_INTERVAL_MS = 1_000;
   static readonly TAB_LIST: ReadonlyArray<{
@@ -4223,24 +4205,12 @@ export class CpkThreadInspector extends PortableLitElement {
     }
   }
 
-  /**
-   * `resolveHeaders` when a host actually set it; otherwise the deprecated
-   * `headers` fallback. Never both — see the `headers` field's doc.
-   */
-  private ɵresolveInspectorHeaders():
-    | Record<string, string>
-    | Promise<Record<string, string>> {
-    return this.resolveHeaders === CpkThreadInspector.ɵdefaultResolveHeaders
-      ? this.headers
-      : this.resolveHeaders();
-  }
-
   private async fetchRuntimeMessages(
     threadId: string,
     signal: AbortSignal,
   ): Promise<ThreadDebuggerMessage[]> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "messages"), {
-      headers: { ...(await this.ɵresolveInspectorHeaders()) },
+      headers: { ...(await this.resolveHeaders()) },
       signal,
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -4253,7 +4223,7 @@ export class CpkThreadInspector extends PortableLitElement {
     signal: AbortSignal,
   ): Promise<RuntimeEventsFetchResult> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "events"), {
-      headers: { ...(await this.ɵresolveInspectorHeaders()) },
+      headers: { ...(await this.resolveHeaders()) },
       signal,
     });
     if (res.status === 501) {
@@ -4271,7 +4241,7 @@ export class CpkThreadInspector extends PortableLitElement {
     signal: AbortSignal,
   ): Promise<RuntimeStateFetchResult> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "state"), {
-      headers: { ...(await this.ɵresolveInspectorHeaders()) },
+      headers: { ...(await this.resolveHeaders()) },
       signal,
     });
     if (res.status === 501) {
