@@ -24,20 +24,11 @@ export default defineConfig([
     sourcemap: true,
     target: "es2018",
     outDir: "dist",
-    external: [
-      "zod",
-      "graphql",
-      "uuid",
-      "@ag-ui/core",
-      "@ag-ui/client",
-      "partial-json",
-    ],
+    external: ["zod", "@ag-ui/core", "@ag-ui/client", "partial-json"],
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";
       options.globals = {
         zod: "Zod",
-        graphql: "GraphQL",
-        uuid: "UUID",
         "@ag-ui/core": "AgUICore",
         "@ag-ui/client": "AgUIClient",
         "@segment/analytics-node": "SegmentAnalyticsNode",

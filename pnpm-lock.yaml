@@ -2956,9 +2956,6 @@ importers:
       recharts:
         specifier: ^3.1.0
         version: 3.10.1(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react-is@19.2.3)(react@19.2.3)(redux@5.0.1)
-      rxjs:
-        specifier: 7.8.1
-        version: 7.8.1
       use-stick-to-bottom:
         specifier: ^1.1.1
         version: 1.1.1(react@19.2.3)
@@ -3023,6 +3020,9 @@ importers:
       react-dom:
         specifier: 19.2.3
         version: 19.2.3(react@19.2.3)
+      rxjs:
+        specifier: 7.8.1
+        version: 7.8.1
       tsconfig:
         specifier: workspace:*
         version: link:../tsconfig
@@ -3156,9 +3156,6 @@ importers:
       '@copilotkit/channels-core':
         specifier: workspace:^
         version: link:../channels-core
-      '@copilotkit/channels-intelligence':
-        specifier: workspace:^
-        version: link:../channels-intelligence
       '@copilotkit/license-verifier':
         specifier: ~0.5.0
         version: 0.5.0
@@ -3177,9 +3174,6 @@ importers:
       ai:
         specifier: '>=5.0.52'
         version: 6.0.156(zod@3.25.76)
-      openai:
-        specifier: ^4.85.1 || >=5.0.0
-        version: 4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76)
       phoenix:
         specifier: ^1.8.4
         version: 1.8.4
@@ -3192,9 +3186,6 @@ importers:
       rxjs:
         specifier: 7.8.1
         version: 7.8.1
-      ws:
-        specifier: ^8.18.0
-        version: 8.19.0
       yauzl:
         specifier: 2.10.0
         version: 2.10.0
@@ -3208,6 +3199,9 @@ importers:
       '@copilotkit/channels':
         specifier: workspace:*
         version: link:../channels
+      '@copilotkit/channels-intelligence':
+        specifier: workspace:^
+        version: link:../channels-intelligence
       '@hono/node-server':
         specifier: '>=1.19.13'
         version: 2.0.0(hono@4.12.15)
@@ -3280,6 +3274,9 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@29.1.0(@noble/hashes@1.8.0))(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
+      ws:
+        specifier: ^8.18.0
+        version: 8.19.0
 
   packages/runtime-dotnet: {}
 
@@ -3367,24 +3364,15 @@ importers:
       clarinet:
         specifier: ^0.12.4
         version: 0.12.6
-      graphql:
-        specifier: ^16.8.1
-        version: 16.12.0
       partial-json:
         specifier: ^0.1.7
         version: 0.1.7
       rxjs:
         specifier: 7.8.1
         version: 7.8.1
-      uuid:
-        specifier: ^11.1.0
-        version: 11.1.0
       zod:
         specifier: '>=3.22.3'
         version: 3.25.76
-      zod-to-json-schema:
-        specifier: ^3.23.5
-        version: 3.25.1(zod@3.25.76)
     devDependencies:
       '@ag-ui/core':
         specifier: 1.0.2
@@ -3392,9 +3380,6 @@ importers:
       '@types/clarinet':
         specifier: ^0.12.3
         version: 0.12.3
-      '@types/uuid':
-        specifier: ^10.0.0
-        version: 10.0.0
       '@valibot/to-json-schema':
         specifier: ^1.5.0
         version: 1.5.0(valibot@1.2.0(typescript@5.9.3))
@@ -3419,6 +3404,9 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@25.6.0)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@29.1.0(@noble/hashes@1.8.0))(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
+      zod-to-json-schema:
+        specifier: ^3.23.5
+        version: 3.25.1(zod@3.25.76)
 
   packages/sqlite-runner:
     dependencies:
@@ -18175,10 +18163,6 @@ packages:
 
   graphemer@1.4.0:
     resolution: {integrity: sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==}
-
-  graphql@16.12.0:
-    resolution: {integrity: sha512-DKKrynuQRne0PNpEbzuEdHlYOMksHSUI8Zc9Unei5gTsMNA2/vMpoMz/yKba50pejK56qj98qM0SjYxAKi13gQ==}
-    engines: {node: ^12.22.0 || ^14.16.0 || ^16.0.0 || >=17.0.0}
 
   gray-matter@4.0.3:
     resolution: {integrity: sha512-5v6yZd4JK3eMI3FqqCouswVqwugaA9r4dNZB1wwcmrD02QkV5H0y7XBQW8QwQqEaZY1pM9aqORSORhJRdNK44Q==}
@@ -33235,7 +33219,7 @@ snapshots:
       '@cfworker/json-schema': 4.1.1
       '@standard-schema/spec': 1.1.0
       js-tiktoken: 1.0.21
-      langsmith: 0.5.25(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.21.3)(zod@3.25.76))(ws@8.21.3)
+      langsmith: 0.5.25(@opentelemetry/api@1.9.0)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.30.0)(ws@8.21.3)(zod@3.25.76))(ws@8.21.3)
       mustache: 4.2.0
       p-queue: 6.6.2
       zod: 3.25.76
@@ -45017,8 +45001,6 @@ snapshots:
 
   graphemer@1.4.0: {}
 
-  graphql@16.12.0: {}
-
   gray-matter@4.0.3:
     dependencies:
       js-yaml: 4.1.1
@@ -46978,7 +46960,7 @@ snapshots:
       '@langchain/core': 1.2.11(@opentelemetry/api@1.9.0)
       '@langchain/langgraph': 1.4.15(@langchain/core@1.2.11(@opentelemetry/api@1.9.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@3.25.76)
       '@langchain/langgraph-checkpoint': 1.1.5(@langchain/core@1.2.11(@opentelemetry/api@1.9.0))
-      langsmith: 0.5.25(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.21.3)(zod@3.25.76))(ws@8.21.3)
+      langsmith: 0.5.25(@opentelemetry/api@1.9.0)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.30.0)(ws@8.21.3)(zod@3.25.76))(ws@8.21.3)
       zod: 3.25.76
     transitivePeerDependencies:
       - '@opentelemetry/api'
@@ -49743,21 +49725,6 @@ snapshots:
       define-lazy-prop: 2.0.0
       is-docker: 2.2.1
       is-wsl: 2.2.0
-
-  openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76):
-    dependencies:
-      '@types/node': 18.19.130
-      '@types/node-fetch': 2.6.13
-      abort-controller: 3.0.0
-      agentkeepalive: 4.6.0
-      form-data-encoder: 1.7.2
-      formdata-node: 4.4.1
-      node-fetch: 2.7.0(encoding@0.1.13)
-    optionalDependencies:
-      ws: 8.19.0
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - encoding
 
   openai@4.104.0(encoding@0.1.13)(ws@8.21.3)(zod@3.25.76):
     dependencies:
