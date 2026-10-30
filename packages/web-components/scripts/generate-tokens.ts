@@ -1,14 +1,14 @@
 /**
  * Build-time token sync (anti-drift).
  *
- * `packages/react-core/src/v2/styles/globals.css` is the canonical source of
+ * `packages/core/src/styles/css/theme.css` is the canonical source of
  * truth for CopilotKit's visual design tokens. This script reads the light-mode
- * `[data-copilotkit] { ... }` token block from that file and DERIVES a small,
+ * `:where([data-copilotkit]) { ... }` token block from that file and DERIVES a small,
  * curated subset of bundled default values that the drawer's shadow-DOM CSS
  * falls back to (e.g. `var(--cpk-drawer-bg, <built default>)`).
  *
  * Running this at build time means the drawer's bundled defaults cannot drift
- * away from react-core's theme: a token change in react-core re-derives here.
+ * away from the shared theme: a token change in core re-derives here.
  * The output is a checked-in generated file (`src/threads-drawer/generated-tokens.ts`)
  * so the package still builds and tests run without invoking the script, and so
  * drift is visible in code review as a diff to that file.
@@ -30,7 +30,7 @@ const repoRoot = path.resolve(packageDir, "../../");
 
 const GLOBALS_CSS = path.join(
   repoRoot,
-  "packages/react-core/src/v2/styles/globals.css",
+  "packages/core/src/styles/css/theme.css",
 );
 
 const OUTPUT = path.join(packageDir, "src/threads-drawer/generated-tokens.ts");
@@ -74,7 +74,7 @@ function main(): void {
     if (value === undefined) {
       throw new Error(
         `[generate-tokens] Required token "--${reactCoreVar}" not found in canonical theme; ` +
-          `react-core globals.css changed shape — update TOKEN_MAP in generate-tokens.ts.`,
+          `core theme.css changed shape — update TOKEN_MAP in generate-tokens.ts.`,
       );
     }
     entries.push(
@@ -86,12 +86,12 @@ function main(): void {
  * GENERATED FILE — DO NOT EDIT BY HAND.
  *
  * Bundled default values for the drawer's design tokens, derived at build time
- * from the canonical react-core theme (\`packages/react-core/src/v2/styles/globals.css\`)
+ * from the canonical theme (\`packages/core/src/styles/css/theme.css\`)
  * by \`scripts/generate-tokens.ts\`. Run \`pnpm run gen:tokens\` to regenerate.
  *
  * The drawer's shadow-DOM CSS references these as fallbacks, e.g.
  * \`var(--cpk-drawer-bg, <built default>)\`, so consumers can override every
- * token while the built-in skin stays in sync with react-core.
+ * token while the built-in skin stays in sync with the shared theme.
  */
 export const GENERATED_DRAWER_TOKEN_DEFAULTS = {
 ${entries.join("\n")}
