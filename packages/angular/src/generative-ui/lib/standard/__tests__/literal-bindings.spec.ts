@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { renderSurface } from "../../__tests__/render";
-import type { SurfaceRender } from "../../__tests__/render";
+import { byText } from "../../__tests__/dom";
 import { standardUI } from "../index";
 
 /**
- * Tests ported from the a2ui-renderer standard catalog: literal props take
- * `{ path }` bindings. On this engine every prop accepts a binding, so the
- * tests pin that the components read the bound values. Without a chart
- * loader the Chart shows its data table, which makes bound rows visible.
+ * Every prop accepts a `{ path }` binding, so these tests pin that the
+ * components read the bound values of props that are literal in the schema.
+ * Without a chart loader the Chart shows its data table, which makes bound
+ * rows visible.
  */
 
 const render = (
@@ -15,18 +15,6 @@ const render = (
     ? Rest
     : never
 ) => renderSurface(standardUI, ...args);
-
-/** The element whose own text is `text`. */
-function byText(view: SurfaceRender, text: string): HTMLElement {
-  const match = [...view.container.querySelectorAll<HTMLElement>("*")].find(
-    (el) =>
-      [...el.childNodes].some(
-        (node) => node.nodeType === 3 && node.textContent?.trim() === text,
-      ),
-  );
-  if (!match) throw new Error(`No element with the text "${text}".`);
-  return match;
-}
 
 describe("standard catalog: data-model bindings on literal props (parity)", () => {
   it("Slider min/max/step/label/unit/marks accept { path } bindings", () => {
@@ -51,7 +39,7 @@ describe("standard catalog: data-model bindings on literal props (parity)", () =
         marks: [{ value: 5, label: "Few" }, { value: 40 }],
       },
     );
-    expect(byText(v, "Seats")).toBeTruthy();
+    expect(byText(v.container, "Seats")).toBeTruthy();
     expect(v.reportError).not.toHaveBeenCalled();
     const range = v.container.querySelector<HTMLInputElement>(
       'input[type="range"]',
@@ -59,8 +47,8 @@ describe("standard catalog: data-model bindings on literal props (parity)", () =
     expect(range.min).toBe("5");
     expect(range.max).toBe("40");
     expect(range.step).toBe("5");
-    expect(byText(v, "12 users")).toBeTruthy();
-    expect(byText(v, "Few")).toBeTruthy();
+    expect(byText(v.container, "12 users")).toBeTruthy();
+    expect(byText(v.container, "Few")).toBeTruthy();
   });
 
   it("Slider keeps its defaults when bound paths are missing", () => {
@@ -77,7 +65,7 @@ describe("standard catalog: data-model bindings on literal props (parity)", () =
       ],
       { v: 30 },
     );
-    expect(byText(v, "Volume")).toBeTruthy();
+    expect(byText(v.container, "Volume")).toBeTruthy();
     const range = v.container.querySelector<HTMLInputElement>(
       'input[type="range"]',
     )!;
@@ -106,7 +94,7 @@ describe("standard catalog: data-model bindings on literal props (parity)", () =
         series: [{ key: "revenue", label: "Revenue" }],
       },
     );
-    expect(byText(v, "Sales")).toBeTruthy();
+    expect(byText(v.container, "Sales")).toBeTruthy();
     expect(v.reportError).not.toHaveBeenCalled();
     const text = v.container.textContent ?? "";
     expect(text).toContain("Revenue");
@@ -147,7 +135,7 @@ describe("standard catalog: data-model bindings on literal props (parity)", () =
         copy: { plan: "Choose a plan" },
       },
     );
-    expect(byText(v, "Choose a plan")).toBeTruthy();
+    expect(byText(v.container, "Choose a plan")).toBeTruthy();
     expect(v.reportError).not.toHaveBeenCalled();
     const select = v.container.querySelector("select")!;
     expect(
@@ -185,10 +173,10 @@ describe("standard catalog: data-model bindings on literal props (parity)", () =
         range: { from: "2026-01-01", to: "2026-01-31" },
       },
     );
-    expect(byText(v, "Ship it")).toBeTruthy();
+    expect(byText(v.container, "Ship it")).toBeTruthy();
     expect(v.reportError).not.toHaveBeenCalled();
-    expect(byText(v, "Write tests")).toBeTruthy();
-    expect(byText(v, "Name").tagName).toBe("LABEL");
+    expect(byText(v.container, "Write tests")).toBeTruthy();
+    expect(byText(v.container, "Name").tagName).toBe("LABEL");
     expect(
       v.container.querySelector('input[placeholder="Your name"]'),
     ).not.toBeNull();

@@ -181,7 +181,8 @@ export type {
   GenerativeUIChecksState,
   GenerativeUIValidationError,
 } from "./lib/standard/checks";
-export { GenerativeUILightbox, openUrl } from "./lib/standard/lightbox";
+export { GenerativeUILightbox } from "./lib/standard/lightbox";
+export { openUrl } from "./lib/standard/url";
 export type { LightboxImage } from "./lib/standard/lightbox";
 export {
   GENERATIVE_UI_CHART_LOADER,

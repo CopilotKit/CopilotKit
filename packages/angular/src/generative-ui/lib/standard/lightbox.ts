@@ -101,7 +101,7 @@ const BUTTON =
     "[style.background]": "backdrop",
   },
 })
-export class CopilotGenerativeUILightbox {
+class CopilotGenerativeUILightbox {
   readonly images = input.required<LightboxImage[]>();
   readonly index = input(0);
   /** The envelope of the image that opened it: hidden and live apply here too. */
@@ -181,12 +181,4 @@ export class GenerativeUILightbox {
     ref.changeDetectorRef.detectChanges();
     return close;
   }
-}
-
-/** Opens a URL in a new tab. An unsafe scheme (javascript:, data:) is ignored. */
-export function openUrl(href: string | undefined) {
-  if (!href || typeof window === "undefined") return;
-  const trimmed = href.trim();
-  if (!/^(https?:|mailto:)/i.test(trimmed)) return;
-  window.open(trimmed, "_blank", "noopener,noreferrer");
 }

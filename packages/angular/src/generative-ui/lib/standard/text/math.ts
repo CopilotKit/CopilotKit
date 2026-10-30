@@ -19,13 +19,20 @@ const mathListeners = new Set<() => void>();
 
 function loadMathRenderer() {
   if (mathRenderer || typeof window === "undefined") return mathLoading;
-  mathLoading ??= import("katex").then((module) => {
-    const katex =
-      (module as { default?: { renderToString: MathRenderer } }).default ??
-      (module as unknown as { renderToString: MathRenderer });
-    mathRenderer = katex.renderToString.bind(katex);
-    for (const listener of [...mathListeners]) listener();
-  });
+  mathLoading ??= import("katex").then(
+    (module) => {
+      const katex =
+        (module as { default?: { renderToString: MathRenderer } }).default ??
+        (module as unknown as { renderToString: MathRenderer });
+      mathRenderer = katex.renderToString.bind(katex);
+      for (const listener of [...mathListeners]) listener();
+    },
+    (error: unknown) => {
+      // A failed chunk load is not cached, so the next formula tries again.
+      mathLoading = undefined;
+      throw error;
+    },
+  );
   return mathLoading;
 }
 
@@ -60,7 +67,8 @@ export class CopilotGenerativeUIMath {
       const listener = () => this.#ready.update((n) => n + 1);
       mathListeners.add(listener);
       inject(DestroyRef).onDestroy(() => mathListeners.delete(listener));
-      void loadMathRenderer();
+      // A failed load keeps the TeX source.
+      loadMathRenderer()?.catch(() => undefined);
     }
     effect(() => {
       this.#ready();

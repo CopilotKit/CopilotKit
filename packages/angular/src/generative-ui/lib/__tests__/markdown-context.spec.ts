@@ -17,8 +17,8 @@ import {
 import { exportA2UICatalog } from "@copilotkit/shared/generative-ui";
 import { standardUI } from "../standard";
 
-// Port of React's markdown-context.test.ts: the compact schema that the
-// markdown transport sends as context, built from Angular's standardUI.
+// The compact schema that the markdown transport sends as context, built
+// from standardUI.
 
 function createManifest(
   overrides?: Partial<GenerativeUIManifest>,

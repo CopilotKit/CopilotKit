@@ -12,6 +12,7 @@ import type { GenerativeUIChildren } from "../children";
 import { CopilotGenerativeUIChildren } from "../children.directive";
 import { standardUI } from "../standard";
 import { renderSurface } from "./render";
+import { textOf } from "./dom";
 
 @Component({
   selector: "test-text",
@@ -100,9 +101,6 @@ const ui = createGenerativeUI({
   },
 });
 
-const text = (container: HTMLElement, selector: string) =>
-  container.querySelector(selector)?.textContent?.trim();
-
 describe("typed child references", () => {
   it("renders a child() inside a list prop, in place of the id", () => {
     const view = renderSurface(ui, [
@@ -117,8 +115,8 @@ describe("typed child references", () => {
       { id: "a", component: "Text", text: "panel a" },
       { id: "b", component: "Text", text: "panel b" },
     ]);
-    expect(text(view.container, '[data-tab="A"]')).toBe("panel a");
-    expect(text(view.container, '[data-tab="B"]')).toBe("panel b");
+    expect(textOf(view.container, '[data-tab="A"]')).toBe("panel a");
+    expect(textOf(view.container, '[data-tab="B"]')).toBe("panel b");
     expect(view.reportError).not.toHaveBeenCalled();
   });
 
@@ -140,8 +138,8 @@ describe("typed child references", () => {
       ],
       { people: [{ name: "Ada" }, { name: "Linus" }] },
     );
-    expect(text(view.container, '[data-slide="ids"]')).toBe("xy");
-    expect(text(view.container, '[data-slide="tpl"]')).toBe("AdaLinus");
+    expect(textOf(view.container, '[data-slide="ids"]')).toBe("xy");
+    expect(textOf(view.container, '[data-slide="tpl"]')).toBe("AdaLinus");
   });
 
   it("resolves a bound list of tabs from the data model before rendering its children", () => {
@@ -153,7 +151,7 @@ describe("typed child references", () => {
       ],
       { tabs: [{ title: "A", child: "a" }] },
     );
-    expect(text(view.container, '[data-tab="A"]')).toBe("from data");
+    expect(textOf(view.container, '[data-tab="A"]')).toBe("from data");
   });
 
   it("shows the prop as componentId in the compact schema and keeps the manifest serializable", () => {
@@ -260,12 +258,12 @@ describe("standard Tabs", () => {
       { id: "a", component: "Text", text: "panel one" },
       { id: "b", component: "Text", text: "panel two" },
     ]);
-    expect(text(view.container, '[role="tabpanel"]')).toBe("panel one");
+    expect(textOf(view.container, '[role="tabpanel"]')).toBe("panel one");
     const two = [
       ...view.container.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
     ].find((tab) => tab.textContent?.trim() === "Two")!;
     view.act(() => two.click());
-    expect(text(view.container, '[role="tabpanel"]')).toBe("panel two");
+    expect(textOf(view.container, '[role="tabpanel"]')).toBe("panel two");
     expect(view.reportError).not.toHaveBeenCalled();
   });
 });

@@ -28,8 +28,7 @@ export interface GenerativeUIChecksState {
  * only once the user has been in the control, or when it has a value, so a
  * fresh form does not open full of errors. A warning or an info shows its
  * message but does not make the control invalid. The host's `errors` (the
- * Signal Forms shape) come after the agent's `checks`. The counterpart of
- * React's `useChecks`.
+ * Signal Forms shape) come after the agent's `checks`.
  */
 export function createChecksState(options: {
   checks: () => ResolvedChecks;

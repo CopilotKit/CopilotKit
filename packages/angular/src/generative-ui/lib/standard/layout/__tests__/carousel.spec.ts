@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderSurface } from "../../../__tests__/render";
 import { standardUI } from "../../index";
-import { byText, lightbox, parentOf, shownSrc, tick, ui } from "./helpers";
+import { byText, lightbox, shownSrc, tick } from "../../../__tests__/dom";
+import { parentOf, ui } from "./helpers";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -53,9 +54,10 @@ describe("standard layout", () => {
         { id: "b", component: "CarouselItem", children: ["tb"] },
         { id: "tb", component: "Label", text: "Two" },
       ],
-      { slide: 0 },
+      { slide: 1 },
     );
     const scroller = view.container.querySelector("[data-a2ui-carousel]")!;
+    expect(view.dataAt("/slide")).toBe(1);
     vi.useFakeTimers();
     scroller.dispatchEvent(new Event("scroll"));
     vi.advanceTimersByTime(200);
@@ -189,6 +191,6 @@ describe("standard layout (standard catalog)", () => {
     expect(items.map((item) => item.style.width)).toEqual(["160px", "320px"]);
     expect(items[0]!.style.scrollSnapAlign).toBe("start");
     expect(items[0]!.querySelector("img")?.getAttribute("alt")).toBe("slide");
-    expect(byText(v, "Slide A")).toBeTruthy();
+    expect(byText(v.container, "Slide A")).toBeTruthy();
   });
 });

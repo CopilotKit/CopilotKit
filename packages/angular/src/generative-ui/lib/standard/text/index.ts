@@ -21,13 +21,10 @@ import {
   CopilotGenerativeUIUnderline,
 } from "./typography";
 
-// The standard text components. Each host element is the element React
-// renders, with the same data attributes and inline styles, so the shared
-// stylesheet and the theme apply unchanged.
-
-export { CopilotGenerativeUIMarkdown, safeHref } from "./markdown";
+export { CopilotGenerativeUIMarkdown } from "./markdown";
 export { CopilotGenerativeUIMath, preloadMathRenderer } from "./math";
 export { CopilotGenerativeUITooltip } from "./tooltip";
+export { safeHref } from "../url";
 export {
   CopilotGenerativeUIBadge,
   CopilotGenerativeUIBlockquote,

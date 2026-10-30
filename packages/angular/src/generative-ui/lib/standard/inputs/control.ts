@@ -171,7 +171,7 @@ export abstract class CopilotGenerativeUIControl<T> {
   /**
    * Every write of the user, also one that leaves `value` as it is: a
    * `model()` does not emit an equal value, and the node must still make the
-   * path user-owned, as React does with `setValue`.
+   * path user-owned.
    */
   readonly valueWrite = output<T>();
 

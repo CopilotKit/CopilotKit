@@ -1,14 +1,7 @@
 import { Component, inject, input } from "@angular/core";
 import { CopilotChatAssistantMessageRenderer } from "@copilotkit/angular";
 import { GenerativeUIStyles } from "../../styles";
-
-const SAFE_URL = /^(https?:|mailto:)/i;
-
-/** The trimmed URL when it is http, https or mailto. Else `undefined`. */
-export function safeHref(url: string) {
-  const trimmed = url.trim();
-  return SAFE_URL.test(trimmed) ? trimmed : undefined;
-}
+import { safeHref } from "../url";
 
 type Wrap = "strong" | "em" | "s" | "u" | "code";
 
@@ -125,14 +118,14 @@ export function tokenizeInlineMarkdown(text: string): InlineToken[] {
 
 /**
  * The template of the inline tokens. The component that uses it has
- * `tokens()` and `hidden` (the visually hidden style). Written without
+ * `tokens()` and `visuallyHidden`. Written without
  * whitespace between the elements, so no space sneaks in between a word and
  * its mark.
  */
 export const INLINE_MARKDOWN =
   `@for (token of tokens(); track $index) {` +
   `@if (token.kind === "text") {<ng-container>{{ token.text }}</ng-container>}` +
-  `@else if (token.kind === "link") {<a [attr.href]="token.href" target="_blank" rel="noopener noreferrer">{{ token.text }}<span [style]="hidden"> (opens in a new tab)</span></a>}` +
+  `@else if (token.kind === "link") {<a [attr.href]="token.href" target="_blank" rel="noopener noreferrer">{{ token.text }}<span [style]="visuallyHidden"> (opens in a new tab)</span></a>}` +
   `@else if (token.tag === "strong") {<strong>{{ token.text }}</strong>}` +
   `@else if (token.tag === "em") {<em>{{ token.text }}</em>}` +
   `@else if (token.tag === "s") {<s>{{ token.text }}</s>}` +

@@ -14,9 +14,6 @@ import {
 import { createGenerativeUI } from "../catalog";
 import { standardUI } from "../standard";
 
-// Port of React's catalog-export.test.ts, through Angular's
-// `createGenerativeUI`, which pins the component type to Angular classes.
-
 @Component({ template: "" })
 class Card {}
 

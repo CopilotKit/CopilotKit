@@ -1,16 +1,25 @@
-import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable } from "rxjs";
+import type * as CatalogOperations from "../../../../../../showcase/shared/generative-ui-catalog/operations.js";
+import type * as CatalogSamples from "../../../../../../showcase/shared/generative-ui-catalog/samples.js";
 
-// The activity type of native generative UI (`GENERATIVE_UI_ACTIVITY_TYPE`
-// in `@copilotkit/shared`) and the id of the demo's catalog (`shopUI` in the
-// demo app: the standard catalog plus ProductCard and CartSummary). The
-// server emits the surface activity itself, the way the runtime's generative
-// UI middleware does for a model's render_ui tool call, so the demo needs no
-// API key.
+// The shared samples sit under the root package.json, which has no
+// "type": "module", so tsx loads them as CommonJS and an ES import does not
+// see their named exports.
+const require = createRequire(import.meta.url);
+const { sampleOperations } =
+  require("../../../../../../showcase/shared/generative-ui-catalog/operations.js") as typeof CatalogOperations;
+const { SAMPLES } =
+  require("../../../../../../showcase/shared/generative-ui-catalog/samples.js") as typeof CatalogSamples;
+
+// The server emits the surface activity itself, the way the runtime's
+// generative UI middleware does for a model's render_ui tool call, so the
+// demo needs no API key. The catalog is `shopUI` of the demo app: the
+// standard catalog plus ProductCard and CartSummary.
 const SURFACE_ACTIVITY_TYPE = "generative-ui-surface";
-const STANDARD_CATALOG_ID = "copilotkit/demo-shop@1";
+const SHOP_CATALOG_ID = "copilotkit/demo-shop@1";
 
 const SIZES = ["S", "M", "L"].map((size) => ({ label: size, value: size }));
 
@@ -26,16 +35,8 @@ const STORES = [
   { label: "Linz, Landstraße", lat: 48.303, lng: 14.29 },
 ];
 
-/**
- * React's test fixture of the standard catalog: every component at least
- * once. "Show me everything" renders it, as a visual check of the port.
- */
-const CATALOG_FIXTURE = JSON.parse(
-  readFileSync(
-    new URL("./standard-catalog-fixture.json", import.meta.url),
-    "utf8",
-  ),
-) as { components: unknown[]; data: Record<string, unknown> };
+/** The product the store surface offers to add. */
+const FEATURED = PRODUCTS[0];
 
 function lastUserText(input: RunAgentInput): string {
   const message = [...input.messages]
@@ -58,19 +59,15 @@ function actionOf(input: RunAgentInput) {
 }
 
 /** The store surface: a Card with a title, a chart, a table and buttons. */
-function storeOperations(surfaceId: string, highlight?: string): unknown[] {
+function storeOperations(surfaceId: string): unknown[] {
   return [
     {
       version: "v1.0",
-      createSurface: { surfaceId, catalogId: STANDARD_CATALOG_ID },
+      createSurface: { surfaceId, catalogId: SHOP_CATALOG_ID },
     },
     {
       version: "v1.0",
-      updateDataModel: {
-        surfaceId,
-        path: "/",
-        value: { name: "", note: highlight ?? "" },
-      },
+      updateDataModel: { surfaceId, path: "/", value: { name: "" } },
     },
     {
       version: "v1.0",
@@ -125,13 +122,13 @@ function storeOperations(surfaceId: string, highlight?: string): unknown[] {
           {
             id: "add",
             component: "Button",
-            label: "Add Trail Runner to cart",
+            label: `Add ${FEATURED.name} to cart`,
             variant: "primary",
             onClick: {
               event: {
                 name: "add_to_cart",
-                userMessage: "Add the Trail Runner to my cart",
-                context: { productId: "p1", name: { "@path": "/name" } },
+                userMessage: `Add the ${FEATURED.name} to my cart`,
+                context: { productId: FEATURED.id, name: { "@path": "/name" } },
               },
             },
           },
@@ -172,7 +169,7 @@ function storesOperations(surfaceId: string): unknown[] {
   return [
     {
       version: "v1.0",
-      createSurface: { surfaceId, catalogId: STANDARD_CATALOG_ID },
+      createSurface: { surfaceId, catalogId: SHOP_CATALOG_ID },
     },
     {
       version: "v1.0",
@@ -224,14 +221,14 @@ function storesOperations(surfaceId: string): unknown[] {
 /**
  * The shop: a form bound to the data model, a ProductCard per product (an
  * app component that calls the app's `addToCart` function) and the
- * CartSummary bound to the app's basket state. Buying changes the UI
+ * CartSummary bound to the app's cart state. Buying changes the UI
  * without the agent; checkout comes back here as an event.
  */
 function shopOperations(surfaceId: string): unknown[] {
   return [
     {
       version: "v1.0",
-      createSurface: { surfaceId, catalogId: STANDARD_CATALOG_ID },
+      createSurface: { surfaceId, catalogId: SHOP_CATALOG_ID },
     },
     {
       version: "v1.0",
@@ -255,7 +252,7 @@ function shopOperations(surfaceId: string): unknown[] {
           {
             id: "intro",
             component: "Text",
-            text: "Pick a size and gift wrap, set a quantity on a shoe and add it. The basket is state of the app, so it changes at once.",
+            text: "Pick a size and gift wrap, set a quantity on a shoe and add it. The cart is state of the app, so it changes at once.",
           },
           { id: "form", component: "Row", gap: 3, children: ["size", "gift"] },
           {
@@ -293,7 +290,7 @@ function shopOperations(surfaceId: string): unknown[] {
             id: "cart",
             component: "CartSummary",
             onCheckout: {
-              event: { name: "checkout", userMessage: "Check out my basket" },
+              event: { name: "checkout", userMessage: "Check out my cart" },
             },
           },
         ],
@@ -312,7 +309,7 @@ function errorsOperations(surfaceId: string): unknown[] {
   return [
     {
       version: "v1.0",
-      createSurface: { surfaceId, catalogId: STANDARD_CATALOG_ID },
+      createSurface: { surfaceId, catalogId: SHOP_CATALOG_ID },
     },
     {
       version: "v1.0",
@@ -355,28 +352,10 @@ function errorsOperations(surfaceId: string): unknown[] {
   ];
 }
 
-/** The whole standard catalog, from the fixture. */
-function catalogOperations(surfaceId: string): unknown[] {
-  return [
-    {
-      version: "v1.0",
-      createSurface: { surfaceId, catalogId: STANDARD_CATALOG_ID },
-    },
-    {
-      version: "v1.0",
-      updateDataModel: { surfaceId, path: "/", value: CATALOG_FIXTURE.data },
-    },
-    {
-      version: "v1.0",
-      updateComponents: { surfaceId, components: CATALOG_FIXTURE.components },
-    },
-  ];
-}
-
 /**
  * A scripted agent for the native generative UI demo. It renders the store
- * surface with the standard catalog and answers the two button events. No
- * API key needed.
+ * surface with the standard catalog and answers the events of its surfaces.
+ * No API key needed.
  */
 export class GenerativeUIStoreAgent extends AbstractAgent {
   constructor() {
@@ -411,7 +390,7 @@ export class GenerativeUIStoreAgent extends AbstractAgent {
           content: {
             surfaceId,
             target,
-            catalogId: STANDARD_CATALOG_ID,
+            catalogId: SHOP_CATALOG_ID,
             operations,
             status: "ready",
             rejected,
@@ -427,8 +406,14 @@ export class GenerativeUIStoreAgent extends AbstractAgent {
       const action = actionOf(input);
       const text = lastUserText(input).toLowerCase();
       if (!action && /everything|catalog/.test(text)) {
-        const surfaceId = `catalog-${input.runId}`;
-        render(surfaceId, catalogOperations(surfaceId));
+        // One surface per sample: each sample has its own ids and data model.
+        SAMPLES.forEach((sample, index) => {
+          const surfaceId = `catalog-${input.runId}-${index}`;
+          render(
+            surfaceId,
+            sampleOperations(sample, surfaceId, SHOP_CATALOG_ID),
+          );
+        });
         say(
           "Every component of the standard catalog, rendered natively in Angular.",
         );
@@ -440,11 +425,11 @@ export class GenerativeUIStoreAgent extends AbstractAgent {
         say(
           "A surface with mistakes in it: a prop bound to the wrong type, and an operation with an unknown component. Each stays local.",
         );
-      } else if (!action && /shop|basket|order/.test(text)) {
+      } else if (!action && /shop|cart|order/.test(text)) {
         const surfaceId = `shop-${input.runId}`;
         render(surfaceId, shopOperations(surfaceId));
         say(
-          "Here is the shop. Adding a pair changes the basket right away; it is state of the app, not of me.",
+          "Here is the shop. Adding a pair changes the cart right away; it is state of the app, not of me.",
         );
       } else if (action?.name === "checkout") {
         const order = String(action.context?.order ?? "").trim();
@@ -452,14 +437,19 @@ export class GenerativeUIStoreAgent extends AbstractAgent {
         say(
           order
             ? `Order placed: ${order} for $${total}. Thanks!`
-            : "Your basket is empty. Add a pair first.",
+            : "Your cart is empty. Add a pair first.",
         );
       } else if (action?.name === "add_to_cart") {
+        const product = PRODUCTS.find(
+          (p) => p.id === action.context?.productId,
+        );
         const name = String(action.context?.name ?? "").trim();
         say(
-          name
-            ? `Added the Trail Runner to the cart for ${name}.`
-            : "Added the Trail Runner to the cart. Tip: type your name in the field first.",
+          !product
+            ? "That product is not in the store."
+            : name
+              ? `Added the ${product.name} to the cart for ${name}.`
+              : `Added the ${product.name} to the cart. Tip: type your name in the field first.`,
         );
       } else if (action?.name === "check_stock") {
         const low = PRODUCTS.filter((p) => p.stock < 5).map((p) => p.name);

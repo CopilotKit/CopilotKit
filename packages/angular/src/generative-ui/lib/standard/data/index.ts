@@ -15,11 +15,7 @@ import {
 
 export { CopilotGenerativeUIChart, chartConfig } from "./chart";
 export { CopilotGenerativeUIList } from "./list";
-export {
-  CopilotGenerativeUIListItem,
-  GENERATIVE_UI_LIST_CONTEXT,
-} from "./list-item";
-export type { GenerativeUIListContext } from "./list-item";
+export { CopilotGenerativeUIListItem } from "./list-item";
 export {
   CopilotGenerativeUIMap,
   guardNumericFilter,
@@ -30,9 +26,7 @@ export {
   CopilotGenerativeUITableCell,
   CopilotGenerativeUITableRow,
   CopilotGenerativeUITableSection,
-  GENERATIVE_UI_TABLE_CONTEXT,
 } from "./table";
-export type { GenerativeUITableContext } from "./table";
 
 /**
  * The standard data components: tables, lists, a chart and a map. Give

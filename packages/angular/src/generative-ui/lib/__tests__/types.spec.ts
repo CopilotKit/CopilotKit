@@ -1,9 +1,5 @@
 // Type-only assertions. They do nothing at runtime; `tsc -p tsconfig.spec.json
-// --noEmit` checks them. Ports of React's component-props-types,
-// config-types, create-generative-ui-types and event-handler-types
-// `.test-d.ts` files, with Angular's `GenerativeUIComponentInputs` (slots
-// and child props hold a `GenerativeUIChildren` handle) in place of React's
-// `GenerativeUIComponentProps`.
+// --noEmit` checks them.
 import { Component, input, signal } from "@angular/core";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { z } from "zod";
@@ -28,8 +24,6 @@ import type {
 
 /** Keeps the type-error cases out of the runtime without a call. */
 const typeOnly = (cases: () => void) => expectTypeOf(cases).toBeFunction();
-
-// ---- component-props-types.test-d.ts ----
 
 describe("GenerativeUIComponentInputs", () => {
   // Typed through the generative UI that renders it.
@@ -171,8 +165,6 @@ describe("GenerativeUIComponentInputs", () => {
   });
 });
 
-// ---- config-types.test-d.ts ----
-
 describe("GenerativeUIConfig", () => {
   const ui = createGenerativeUI({ id: "types", components: {} });
 
@@ -253,8 +245,6 @@ describe("GenerativeUIConfig", () => {
   });
 });
 
-// ---- create-generative-ui-types.test-d.ts ----
-//
 // The components type their inputs from `typeof storeUI`, while `storeUI`
 // references the components. This must not be a circular type error.
 
@@ -552,8 +542,6 @@ describe("createGenerativeUI types", () => {
   });
 });
 
-// ---- extends ----
-
 @Component({ template: "" })
 class WidgetCard {
   readonly productId =
@@ -629,8 +617,6 @@ describe("createGenerativeUI types with extends", () => {
   });
 });
 
-// ---- event-handler-types.test-d.ts ----
-//
 // Components look up their event handler types in the generative UI that
 // renders them, so these components reference `typeof eventsUI` while the UI
 // references the components.

@@ -7,8 +7,8 @@ import {
 } from "@copilotkit/angular/generative-ui";
 import type { GenerativeUIEventHandler } from "@copilotkit/angular/generative-ui";
 
-/** A line of the basket. The basket lives in the app, not in the agent. */
-export const basketItemSchema = z.object({
+/** A line of the cart. The cart lives in the app, not in the agent. */
+export const cartItemSchema = z.object({
   productId: z.string(),
   name: z.string(),
   price: z.number(),
@@ -16,12 +16,12 @@ export const basketItemSchema = z.object({
   size: z.string().optional(),
   gift: z.boolean().optional(),
 });
-export type BasketItem = z.output<typeof basketItemSchema>;
+export type CartItem = z.output<typeof cartItemSchema>;
 
-const cartSchema = z.object({ items: z.array(basketItemSchema) });
+const cartSchema = z.object({ items: z.array(cartItemSchema) });
 
 /**
- * One product with a quantity and an add-to-basket button. `size` and
+ * One product with a quantity and an add-to-cart button. `size` and
  * `gift` come from the form of the surface, bound by the agent with
  * `{ "@path" }`. The button calls the `addToCart` function of the app.
  */
@@ -47,8 +47,8 @@ const cartSchema = z.object({ items: z.array(basketItemSchema) });
       <input
         type="number"
         min="1"
-        [value]="quantity() ?? 1"
-        (input)="quantity.set(+$any($event.target).value)"
+        [value]="count()"
+        (change)="setQuantity($any($event.target))"
         style="
           width: 56px;
           padding: 4px 6px;
@@ -65,7 +65,7 @@ const cartSchema = z.object({ items: z.array(basketItemSchema) });
             productId: productId(),
             name: name(),
             price: price(),
-            quantity: quantity() ?? 1,
+            quantity: count(),
             size: size(),
             gift: gift() ?? false,
           })
@@ -79,7 +79,7 @@ const cartSchema = z.object({ items: z.array(basketItemSchema) });
           cursor: pointer;
         "
       >
-        Add to basket
+        Add to cart
       </button>
     }
   `,
@@ -96,10 +96,24 @@ export class ProductCard {
   readonly onAddToCart =
     input<GenerativeUIEventHandler<typeof shopUI, "onAddToCart">>();
   protected readonly aria = injectGenerativeUIAccessibility();
+  /** The agent can set `quantity` too, so the button never sends less than 1. */
+  protected readonly count = computed(() => toCount(this.quantity()));
+
+  /** On commit, so typing is not interrupted. Shows the clamped value. */
+  protected setQuantity(field: HTMLInputElement) {
+    const count = toCount(field.valueAsNumber);
+    field.value = String(count);
+    this.quantity.set(count);
+  }
+}
+
+/** A whole number of at least 1. An empty field is NaN and becomes 1. */
+function toCount(value: number | undefined): number {
+  return Math.max(1, Math.trunc(value ?? 1) || 1);
 }
 
 /**
- * The basket of the app, bound to the `cart` state: it changes as soon as
+ * The cart of the app, bound to the `cart` state: it changes as soon as
  * the app does, with no agent round trip. Checkout sends the lines to the
  * agent as an event.
  */
@@ -110,7 +124,7 @@ export class ProductCard {
       "display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid rgba(0,0,0,.1);border-radius:12px;background:#f7f7f8",
   },
   template: `
-    <strong>Basket</strong>
+    <strong>Cart</strong>
     @if (items().length === 0) {
       <span style="color: #5d5d5d">Nothing yet. Add a pair above.</span>
     } @else {
@@ -170,7 +184,7 @@ export class ProductCard {
   `,
 })
 export class CartSummary {
-  readonly items = input.required<BasketItem[]>();
+  readonly items = input.required<CartItem[]>();
   readonly onCheckout =
     input<GenerativeUIEventHandler<typeof shopUI, "onCheckout">>();
   protected readonly total = computed(() =>
@@ -190,7 +204,7 @@ export class CartSummary {
 
 /**
  * The standard catalog plus the two shop components. `addToCart` is a
- * function of the app: the page registers its handler, so the basket
+ * function of the app: the page registers its handler, so the cart
  * changes without the agent. `onCheckout` has no function and goes to the
  * agent as an event.
  */
@@ -199,13 +213,13 @@ export const shopUI = createGenerativeUI({
   extends: [standardUI],
   state: { cart: cartSchema },
   functions: {
-    addToCart: { parameters: basketItemSchema },
+    addToCart: { parameters: cartItemSchema },
   },
   components: {
     ProductCard: {
       component: ProductCard,
       description:
-        "One product with its price, a quantity and an add-to-basket button.",
+        "One product with its price, a quantity and an add-to-cart button.",
       props: z.object({
         productId: z.string(),
         name: z.string(),
@@ -216,12 +230,12 @@ export const shopUI = createGenerativeUI({
         quantity: z.number().optional(),
       }),
       writable: ["quantity"],
-      events: { onAddToCart: { parameters: basketItemSchema } },
+      events: { onAddToCart: { parameters: cartItemSchema } },
     },
     CartSummary: {
       component: CartSummary,
-      description: "The basket of the user with a checkout button.",
-      props: z.object({ items: z.array(basketItemSchema) }),
+      description: "The cart of the user with a checkout button.",
+      props: z.object({ items: z.array(cartItemSchema) }),
       bind: { items: (state) => state.cart.items },
       events: {
         onCheckout: {

@@ -5,10 +5,11 @@ import {
   updateComponents,
   updateDataModel,
 } from "../../../__tests__/render";
+import { byText } from "../../../__tests__/dom";
 import { standardUI } from "../../index";
 import { GENERATIVE_UI_CHART_LOADER } from "../../loaders";
 import { chartConfig } from "../index";
-import { byText, rowTexts, ui } from "./helpers";
+import { rowTexts, ui } from "./helpers";
 
 describe("Chart", () => {
   const chart = {
@@ -242,12 +243,44 @@ describe("Chart", () => {
     expect(donut.data.labels).toEqual(["A", "B"]);
     expect(donut.options.cutout).toBe("55%");
   });
+
+  it.each([
+    ["vertical", { x: 0, y: 0.25 }],
+    ["horizontal", { x: 0.25, y: 0 }],
+  ] as const)(
+    "formats the measured value in the %s bar tooltip",
+    (layout, parsed) => {
+      const config = chartConfig(
+        { data: [{ q: "Q1", a: 0.25 }], xKey: "q", layout, format: "percent" },
+        document.createElement("div"),
+      ) as {
+        options: {
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: (context: {
+                  dataset: { label?: string };
+                  parsed: unknown;
+                  raw: unknown;
+                }) => string;
+              };
+            };
+          };
+        };
+      };
+      const label = config.options.plugins.tooltip.callbacks.label({
+        dataset: { label: "a" },
+        parsed,
+        raw: 0.25,
+      });
+      expect(label).toBe("a: 25%");
+    },
+  );
 });
 
 /**
- * The slice label tests of the React chart, on the chart.js config: the
- * value labels plugin draws on a fake canvas, so the labels and the leader
- * lines are what `fillText` and `stroke` got.
+ * The value labels plugin draws on a fake canvas, so the labels and the
+ * leader lines are what `fillText` and `stroke` got.
  */
 describe.each(["donut", "pie"] as const)(
   "Chart %s slice labels",
@@ -372,7 +405,6 @@ describe.each(["donut", "pie"] as const)(
   },
 );
 
-/** The scatter spacing tests of the React chart, on the chart.js scales. */
 describe("Chart scatter spacing", () => {
   const element = document.createElement("div");
   type Axis = {
@@ -504,7 +536,6 @@ describe("Chart scatter spacing", () => {
   );
 });
 
-/** Tests ported from the a2ui-renderer standard catalog, on the full catalog. */
 describe("standard catalog: data (parity)", () => {
   it("Chart renders pie and line variants with a title", () => {
     const v = renderSurface(standardUI, [
@@ -534,7 +565,7 @@ describe("standard catalog: data (parity)", () => {
         showDots: true,
       },
     ]);
-    expect(byText(v, "Share").tagName).toBe("FIGCAPTION");
+    expect(byText(v.container, "Share").tagName).toBe("FIGCAPTION");
     const charts = [...v.container.querySelectorAll("[data-a2ui-chart]")];
     expect(
       charts.map((chart) => chart.getAttribute("data-a2ui-chart")),

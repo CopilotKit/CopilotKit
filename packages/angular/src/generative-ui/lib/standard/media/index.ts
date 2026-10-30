@@ -12,11 +12,7 @@ import {
 
 export { CopilotGenerativeUIHtmlView } from "./html-view";
 export { CopilotGenerativeUIIcon, CopilotGenerativeUISvg } from "./icon";
-export {
-  CopilotGenerativeUIFavicon,
-  CopilotGenerativeUIImage,
-  hostOf,
-} from "./image";
+export { CopilotGenerativeUIFavicon, CopilotGenerativeUIImage } from "./image";
 export {
   CopilotGenerativeUIAudioPlayer,
   CopilotGenerativeUIVideo,

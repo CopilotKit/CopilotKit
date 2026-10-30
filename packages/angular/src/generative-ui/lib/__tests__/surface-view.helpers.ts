@@ -6,9 +6,6 @@ import type { GenerativeUIStateOf } from "../catalog";
 import type { GenerativeUIChildren } from "../children";
 import { CopilotGenerativeUIChildren } from "../children.directive";
 
-// The shared setup of surface-view.spec.ts and surface-view-bindings.spec.ts:
-// test components, the shop UI that names them, and DOM queries.
-
 type Handler = (args?: unknown) => Promise<GenerativeUIInvokeResult>;
 
 /** What the test components report, and what a test sets for them. */
@@ -325,10 +322,8 @@ export const inputs = (container: HTMLElement) => [
 /** The text of every `span` inside `element`, in order. */
 export const texts = (element: HTMLElement) =>
   [...element.querySelectorAll("span")].map((span) => span.textContent?.trim());
-export const text = (container: HTMLElement, selector: string) =>
-  container.querySelector(selector)?.textContent?.trim();
 /** The `span`s and `button`s whose text is `value`. */
-export const byText = (container: HTMLElement, value: string) =>
+export const allByText = (container: HTMLElement, value: string) =>
   [...container.querySelectorAll<HTMLElement>("span, button")].filter(
     (el) => el.textContent?.trim() === value,
   );

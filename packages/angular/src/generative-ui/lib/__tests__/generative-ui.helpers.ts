@@ -22,9 +22,6 @@ import { CopilotGenerativeUI } from "../generative-ui";
 import { provideGenerativeUI } from "../provide";
 import { registerGenerativeUIFunction } from "../state";
 
-// The shared setup of generative-ui.spec.ts and events.spec.ts: a shop UI, a
-// controllable agent, and the root with CopilotKit around it.
-
 export const LICENSE_KEY = "ck_pub_000000000000000000000000";
 
 @Component({ selector: "test-box", template: "<div></div>" })
@@ -54,8 +51,8 @@ export const ui = createGenerativeUI({
 type CouponHandler = (args: { code: string }) => unknown;
 
 /**
- * A controllable agent, as React's MockStepwiseAgent: one subject for every
- * run, each run ends at its RUN_FINISHED. It records the input of each run.
+ * A controllable agent: one subject for every run, each run ends at its
+ * RUN_FINISHED. It records the input of each run.
  */
 export class CapturingAgent extends AbstractAgent {
   static inputs: RunAgentInput[] = [];

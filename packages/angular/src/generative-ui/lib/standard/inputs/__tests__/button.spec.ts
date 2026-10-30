@@ -1,17 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SURFACE_ID, renderSurface } from "../../../__tests__/render";
-import { standardUI } from "../../index";
 import {
   buttonNamed,
   byLabel,
   byText,
   click,
-  keyDown,
   query,
-  renderInputs,
-  sentEventNames,
-  setValue,
-} from "./helpers";
+} from "../../../__tests__/dom";
+import { standardUI } from "../../index";
+import { keyDown, renderInputs, sentEventNames, setValue } from "./helpers";
 import type { View } from "./helpers";
 
 describe("standard inputs: events", () => {
@@ -57,7 +54,11 @@ describe("standard inputs: events", () => {
       ],
       { form: { email: "" } },
     );
-    setValue(view, byLabel<HTMLInputElement>(view, "Email"), "ada@example.com");
+    setValue(
+      view,
+      byLabel<HTMLInputElement>(view.container, "Email"),
+      "ada@example.com",
+    );
     click(view, button(view, "Subscribe"));
     await Promise.resolve();
     expect(view.forwardEvent).toHaveBeenCalledTimes(1);
@@ -86,14 +87,17 @@ describe("standard inputs: events", () => {
         accessibility: { hidden: true },
       },
     ]);
-    const group = query(view, '[role=group][aria-label="Contact email"]');
+    const group = query(
+      view.container,
+      '[role=group][aria-label="Contact email"]',
+    );
     expect(group.getAttribute("aria-description")).toBe("Work address");
     // The control itself carries the name: ARIA names do not inherit.
-    const field = byLabel<HTMLInputElement>(view, "Email");
+    const field = byLabel<HTMLInputElement>(view.container, "Email");
     expect(field.getAttribute("aria-label")).toBe("Contact email");
     expect(field.getAttribute("aria-description")).toBe("Work address");
     expect(group.contains(field)).toBe(true);
-    const box = byLabel<HTMLInputElement>(view, "Terms");
+    const box = byLabel<HTMLInputElement>(view.container, "Terms");
     expect(box.closest("[aria-hidden]")?.getAttribute("aria-hidden")).toBe(
       "true",
     );
@@ -108,7 +112,7 @@ describe("standard inputs: events", () => {
         accessibility: { label: "Send the order", description: "Final step" },
       },
     ]);
-    const go = query<HTMLButtonElement>(view, "button");
+    const go = query<HTMLButtonElement>(view.container, "button");
     expect(go.getAttribute("aria-label")).toBe("Send the order");
     expect(go.getAttribute("aria-description")).toBe("Final step");
     expect(go.textContent?.trim()).toBe("Go");
@@ -162,9 +166,13 @@ describe("standard inputs: events", () => {
       ],
       { form: { email: "" } },
     );
-    const form = query<HTMLFormElement>(view, "form");
+    const form = query<HTMLFormElement>(view.container, "form");
     expect(form.getAttribute("aria-label")).toBe("Signup");
-    setValue(view, byLabel<HTMLInputElement>(view, "Email"), "ada@example.com");
+    setValue(
+      view,
+      byLabel<HTMLInputElement>(view.container, "Email"),
+      "ada@example.com",
+    );
     const send = button(view, "Send");
     expect(send.type).toBe("submit");
     click(view, send);
@@ -213,7 +221,7 @@ describe("standard inputs: events", () => {
       },
     ]);
     click(view, button(view, "Click"));
-    click(view, query(view, "[data-testid=label]"));
+    click(view, query(view.container, "[data-testid=label]"));
     await Promise.resolve();
     expect(sentEventNames(view)).toEqual(["button", "inner"]);
   });
@@ -233,7 +241,7 @@ describe("standard inputs: events", () => {
         onClick: { event: { name: "button" } },
       },
     ]);
-    const pressable = query<HTMLElement>(view, "[role=button]");
+    const pressable = query<HTMLElement>(view.container, "[role=button]");
     expect(pressable.tabIndex).toBe(0);
     keyDown(view, button(view, "Key"), "Enter");
     await Promise.resolve();
@@ -255,7 +263,7 @@ describe("standard inputs: events", () => {
       },
       { id: "t", component: "Label", text: "Toggle" },
     ]);
-    const pressable = query<HTMLElement>(view, "[role=button]");
+    const pressable = query<HTMLElement>(view.container, "[role=button]");
     expect(pressable.getAttribute("title")).toBe("More");
     expect(pressable.getAttribute("aria-pressed")).toBe("true");
     expect(pressable.style.boxShadow).toContain("inset 0 0 0 1px");
@@ -274,7 +282,7 @@ describe("standard inputs: events", () => {
         options: ["team"],
       },
     ]);
-    const select = byLabel<HTMLSelectElement>(view, "Plan");
+    const select = byLabel<HTMLSelectElement>(view.container, "Plan");
     expect(select.options[0]!.textContent).toBe("Any plan");
     expect(select.style.width).toBe("100%");
     expect(select.style.paddingLeft).not.toBe("");
@@ -349,7 +357,9 @@ describe("Button and Pressable client-side verbs", () => {
       },
       { id: "t", component: "Text", text: "Go" },
     ]);
-    v.act(() => byText(v, "Go").closest<HTMLElement>("[role=button]")!.click());
+    v.act(() =>
+      byText(v.container, "Go").closest<HTMLElement>("[role=button]")!.click(),
+    );
     expect(open).toHaveBeenCalledTimes(1);
   });
 });
@@ -385,5 +395,22 @@ describe("Button icons", () => {
       .querySelector("select")!
       .parentElement!.querySelector("svg")!;
     expect(selectIcon.closest('[aria-hidden="true"]')).not.toBeNull();
+  });
+});
+
+describe("Button styles", () => {
+  it("renders primary buttons with token colours, not literals", () => {
+    const v = renderSurface(standardUI, [
+      {
+        id: "root",
+        component: "Button",
+        label: "Go",
+        variant: "primary",
+        onClick: { event: { name: "go" } },
+      },
+    ]);
+    const button = byText(v.container, "Go").closest("button")!;
+    expect(button.style.color).toBe("var(--a2ui-color-on-accent, #fff)");
+    expect(button.style.minHeight).toBe("36px");
   });
 });

@@ -13,8 +13,8 @@ import { mediaComponents } from "../media";
 import { textComponents } from "../text";
 
 /**
- * The React fixture, so both ports render the same surface: a catalog
- * difference fails here before an agent finds it.
+ * The fixture that react-core renders too, so a catalog difference between
+ * the two fails here before an agent finds it.
  */
 const FIXTURE = path.join(
   __dirname,

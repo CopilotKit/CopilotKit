@@ -29,9 +29,9 @@ import { registerGenerativeUIFunction } from "../state";
 import { CopilotGenerativeUISurface } from "../surface";
 import { createTestRuntime } from "./render";
 
-// Port of React's markdown-transport.test.tsx. The rendering tests go
-// through `CopilotGenerativeUIMarkdownSurfaces` with a stub runtime; the
-// context tests go through the root with the markdown transport.
+// The rendering tests go through `CopilotGenerativeUIMarkdownSurfaces` with a
+// stub runtime; the context tests go through the root with the markdown
+// transport.
 
 @Component({
   selector: "test-button",
@@ -298,8 +298,6 @@ describe("CopilotGenerativeUIMarkdownSurfaces", () => {
     expect(element.textContent).toContain("Look right.");
   });
 });
-
-// ---- The context entries of the markdown transport ----
 
 /** A controllable agent that records the input of each run. */
 class CapturingAgent extends AbstractAgent {

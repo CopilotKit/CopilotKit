@@ -17,9 +17,9 @@ let tooltipCount = 0;
 /**
  * Shows `content` while the pointer is over `trigger` or while `trigger`
  * has keyboard focus. Escape hides it. The trigger can take focus, and
- * screen readers read the content as its description. Like React's, the
- * tip is positioned next to the trigger (not in an overlay), so the
- * description element is always there for `aria-describedby`.
+ * screen readers read the content as its description. The tip is
+ * positioned next to the trigger (not in an overlay), so the description
+ * element is always there for `aria-describedby`.
  */
 @Component({
   selector: "span[copilotGenerativeUITooltip]",

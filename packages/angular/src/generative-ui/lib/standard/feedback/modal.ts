@@ -174,37 +174,37 @@ export class CopilotGenerativeUIModal {
   protected readonly backdropStyle: StyleMap = {
     position: "fixed",
     inset: 0,
-    "z-index": 1000,
+    zIndex: 1000,
     display: "flex",
-    "align-items": "center",
-    "justify-content": "center",
+    alignItems: "center",
+    justifyContent: "center",
     padding: spacing(4),
     background: BACKDROP,
   };
   protected readonly gap3 = spacing(3);
   protected readonly dialogStyle = computed<StyleMap>(() => ({
     display: "flex",
-    "flex-direction": "column",
+    flexDirection: "column",
     gap: spacing(3),
     width: "100%",
-    "max-width": spacing(this.maxWidth() ?? 480),
-    "max-height": "90vh",
+    maxWidth: spacing(this.maxWidth() ?? 480),
+    maxHeight: "90vh",
     overflow: "auto",
     padding: spacing(5),
-    "border-radius": radius("xl"),
+    borderRadius: radius("xl"),
     background: backgroundColor("surface"),
     color: textColor("default"),
-    "box-shadow": SHADOW_MD,
+    boxShadow: SHADOW_MD,
   }));
   protected readonly closeStyle: StyleMap = {
     width: "32px",
     height: "32px",
     border: "none",
-    "border-radius": radius("full"),
+    borderRadius: radius("full"),
     background: "transparent",
     color: textColor("secondary"),
-    "font-size": "20px",
-    "line-height": 1,
+    fontSize: "20px",
+    lineHeight: 1,
     cursor: "pointer",
   };
 

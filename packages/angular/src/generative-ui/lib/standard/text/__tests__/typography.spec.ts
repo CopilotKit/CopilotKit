@@ -4,9 +4,10 @@ import {
   updateComponents,
   updateDataModel,
 } from "../../../__tests__/render";
+import { byText } from "../../../__tests__/dom";
 import { standardUI } from "../../index";
 import { textComponents } from "..";
-import { byText, ui } from "./helpers";
+import { ui } from "./helpers";
 
 describe("textComponents", () => {
   it("is valid input for createGenerativeUI, with a description for every component", () => {
@@ -90,7 +91,7 @@ describe("standard text", () => {
     expect(byText(view.container, "huge").getAttribute("data-a2ui-title")).toBe(
       "5xl",
     );
-    // The heading is the host itself, in the Column, as in React.
+    // The heading is the host itself, in the Column.
     expect(byText(view.container, "small").parentElement).toBe(
       byText(view.container, "huge").parentElement,
     );
@@ -165,8 +166,13 @@ describe("standard text", () => {
 
   it("renders Badge, Bold, Code and a safe Link", () => {
     const view = renderSurface(ui, [
-      { id: "root", component: "Column", children: ["b", "o", "k", "a"] },
+      {
+        id: "root",
+        component: "Column",
+        children: ["b", "s", "o", "k", "a"],
+      },
       { id: "b", component: "Badge", label: "New", color: "success" },
+      { id: "s", component: "Badge", label: "Solid", variant: "solid" },
       { id: "o", component: "Bold", text: "loud" },
       { id: "k", component: "Code", text: "x = 1", language: "js" },
       {
@@ -179,6 +185,8 @@ describe("standard text", () => {
     const badge = byText(view.container, "New");
     expect(badge.style.color).toContain("--a2ui-color-text-success");
     expect(badge.style.borderRadius).toBe("9999px");
+    const solid = byText(view.container, "Solid").closest("span")!;
+    expect(solid.style.color).toBe("var(--a2ui-color-on-accent, #fff)");
     expect(byText(view.container, "loud").tagName).toBe("STRONG");
     const code = byText(view.container, "x = 1");
     expect(code.dataset.language).toBe("js");
@@ -233,10 +241,6 @@ describe("standard text", () => {
   });
 });
 
-/**
- * Tests ported from the a2ui-renderer standard catalog, on the full
- * catalog, so the behaviour that catalog had is kept on the engine.
- */
 describe("standard catalog: text (parity)", () => {
   it("Italic, Underline and Strikethrough render as inline elements", () => {
     const v = renderSurface(standardUI, [

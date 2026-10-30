@@ -1,14 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { A2UIComponentNode } from "@copilotkit/shared";
-import { updateDataModel } from "../../../__tests__/render";
+import { renderSurface, updateDataModel } from "../../../__tests__/render";
+import { byLabel, byText, click, query } from "../../../__tests__/dom";
+import { standardUI } from "../../index";
 import { inputComponents } from "../index";
 import {
   byAriaLabel,
-  byLabel,
-  click,
   keyDown,
   PLAN_OPTIONS,
-  query,
   renderInputs,
   setValue,
   ui,
@@ -46,6 +45,31 @@ describe("inputComponents", () => {
       children: "multiple",
     });
   });
+
+  it("Pressable and Form repeat a template child per data item", () => {
+    const v = renderSurface(
+      standardUI,
+      [
+        { id: "root", component: "Column", children: ["p", "f"] },
+        {
+          id: "p",
+          component: "Pressable",
+          children: { componentId: "pr", path: "/a" },
+        },
+        { id: "pr", component: "Text", text: { "@path": "name" } },
+        {
+          id: "f",
+          component: "Form",
+          children: { componentId: "fr", path: "/b" },
+        },
+        { id: "fr", component: "Text", text: { "@path": "name" } },
+      ],
+      { a: [{ name: "P1" }, { name: "P2" }], b: [{ name: "F1" }] },
+    );
+    expect(byText(v.container, "P1").closest("[role=button]")).not.toBeNull();
+    expect(byText(v.container, "P2").closest("[role=button]")).not.toBeNull();
+    expect(byText(v.container, "F1").closest("form")).not.toBeNull();
+  });
 });
 
 describe("standard inputs: values", () => {
@@ -63,16 +87,16 @@ describe("standard inputs: values", () => {
       ],
       { form: { email: "" } },
     );
-    const field = byLabel<HTMLInputElement>(view, "Email");
+    const field = byLabel<HTMLInputElement>(view.container, "Email");
     expect(field.type).toBe("text");
     setValue(view, field, "ada@example.com");
     expect(view.dataAt("/form/email")).toBe("ada@example.com");
-    expect(query(view, "[data-testid=label]").textContent?.trim()).toBe(
-      "ada@example.com",
-    );
+    expect(
+      query(view.container, "[data-testid=label]").textContent?.trim(),
+    ).toBe("ada@example.com");
     view.update(updateDataModel("/form/email", "agent@example.com"));
     expect(view.dataAt("/form/email")).toBe("ada@example.com");
-    expect(byLabel<HTMLInputElement>(view, "Email").value).toBe(
+    expect(byLabel<HTMLInputElement>(view.container, "Email").value).toBe(
       "ada@example.com",
     );
   });
@@ -82,11 +106,44 @@ describe("standard inputs: values", () => {
       [{ id: "root", component: "TextArea", label: "Notes", value: "Draft" }],
       { notes: "unchanged" },
     );
-    const area = byLabel<HTMLTextAreaElement>(view, "Notes");
+    const area = byLabel<HTMLTextAreaElement>(view.container, "Notes");
     expect(area.value).toBe("Draft");
     setValue(view, area, "Final");
-    expect(byLabel<HTMLTextAreaElement>(view, "Notes").value).toBe("Final");
+    expect(byLabel<HTMLTextAreaElement>(view.container, "Notes").value).toBe(
+      "Final",
+    );
     expect(view.dataAt("/")).toEqual({ notes: "unchanged" });
+  });
+
+  it("sizes an autoResize TextArea to the value of the model, not only to typing", () => {
+    // jsdom has no layout: the height of the text is 24px per line.
+    const scrollHeight = vi
+      .spyOn(HTMLTextAreaElement.prototype, "scrollHeight", "get")
+      .mockImplementation(function (this: HTMLTextAreaElement) {
+        return this.value.split("\n").length * 24;
+      });
+    try {
+      const view = renderInputs(
+        [
+          {
+            id: "root",
+            component: "TextArea",
+            label: "Notes",
+            autoResize: true,
+            value: { "@path": "/notes" },
+          },
+        ],
+        { notes: "1\n2\n3\n4\n5" },
+      );
+      const area = byLabel<HTMLTextAreaElement>(view.container, "Notes");
+      expect(area.style.height).toBe("120px");
+      view.update(updateDataModel("/notes", "1\n2\n3\n4\n5\n6\n7"));
+      expect(area.style.height).toBe("168px");
+      setValue(view, area, "1\n2");
+      expect(area.style.height).toBe("48px");
+    } finally {
+      scrollHeight.mockRestore();
+    }
   });
 
   it("writes a CheckBox state to its value path", () => {
@@ -101,14 +158,14 @@ describe("standard inputs: values", () => {
       ],
       { annual: false },
     );
-    const box = byLabel<HTMLInputElement>(view, "Annual billing");
+    const box = byLabel<HTMLInputElement>(view.container, "Annual billing");
     expect(box.checked).toBe(false);
     expect(box.getAttribute("data-shape")).toBe("round");
     click(view, box);
     expect(view.dataAt("/annual")).toBe(true);
-    expect(byLabel<HTMLInputElement>(view, "Annual billing").checked).toBe(
-      true,
-    );
+    expect(
+      byLabel<HTMLInputElement>(view.container, "Annual billing").checked,
+    ).toBe(true);
   });
 
   it("writes a Slider value as a number and shows it with the unit", () => {
@@ -127,7 +184,7 @@ describe("standard inputs: values", () => {
       ],
       { seats: 8, limits: { min: 1, max: 50 } },
     );
-    const range = byLabel<HTMLInputElement>(view, "Seats");
+    const range = byLabel<HTMLInputElement>(view.container, "Seats");
     expect(range.type).toBe("range");
     expect(range.className).toBe("a2ui-std-range");
     expect(range.min).toBe("1");
@@ -151,11 +208,11 @@ describe("standard inputs: values", () => {
       ],
       { when: "" },
     );
-    const date = byLabel<HTMLInputElement>(view, "Start date");
+    const date = byLabel<HTMLInputElement>(view.container, "Start date");
     expect(date.type).toBe("date");
     setValue(view, date, "2026-01-05");
     expect(view.dataAt("/when")).toBe("2026-01-05");
-    click(view, byAriaLabel(view, "Clear"));
+    click(view, byAriaLabel(view.container, "Clear"));
     expect(view.dataAt("/when")).toBe("");
   });
 });
@@ -203,7 +260,7 @@ describe("standard inputs: options", () => {
       plan: "team",
       plans: PLAN_OPTIONS,
     });
-    const select = byLabel<HTMLSelectElement>(view, "Plan");
+    const select = byLabel<HTMLSelectElement>(view.container, "Plan");
     expect([...select.options].map((option) => option.label)).toEqual([
       "Team",
       "Enterprise",
@@ -211,14 +268,16 @@ describe("standard inputs: options", () => {
     setValue(view, select, "enterprise");
     expect(view.dataAt("/plan")).toBe("enterprise");
     const radio = query<HTMLInputElement>(
-      view,
+      view.container,
       'input[type="radio"][value="enterprise"]',
     );
     expect(radio.checked).toBe(true);
     expect(segment(view, "Ent seg").getAttribute("aria-checked")).toBe("true");
     click(view, segment(view, "Team seg"));
     expect(view.dataAt("/plan")).toBe("team");
-    expect(byLabel<HTMLSelectElement>(view, "Plan").value).toBe("team");
+    expect(byLabel<HTMLSelectElement>(view.container, "Plan").value).toBe(
+      "team",
+    );
   });
 
   it("keeps the left padding of a Select without an icon, and widens it for an icon", () => {
@@ -233,8 +292,8 @@ describe("standard inputs: options", () => {
         options: ["a"],
       },
     ]);
-    const plain = byLabel<HTMLSelectElement>(view, "Plain");
-    const iconed = byLabel<HTMLSelectElement>(view, "With icon");
+    const plain = byLabel<HTMLSelectElement>(view.container, "Plain");
+    const iconed = byLabel<HTMLSelectElement>(view.container, "With icon");
     expect(plain.style.paddingLeft).not.toBe("");
     expect(parseFloat(iconed.style.paddingLeft)).toBeGreaterThan(
       parseFloat(plain.style.paddingLeft),
@@ -271,7 +330,7 @@ describe("standard inputs: options", () => {
         ],
       },
     ]);
-    const fieldset = query<HTMLFieldSetElement>(view, "fieldset");
+    const fieldset = query<HTMLFieldSetElement>(view.container, "fieldset");
     expect(fieldset.querySelector("legend")?.textContent).toBe("Support");
     expect(view.container.textContent).toContain("Email only");
     const option = fieldset.querySelector("label")!;

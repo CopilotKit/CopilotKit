@@ -47,10 +47,6 @@ import {
   ui,
 } from "./generative-ui.helpers";
 
-// Port of React's use-generative-ui-root.test.tsx, and of the tests of
-// generative-ui.integration.test.tsx that need no chat (the chat card tests
-// are in chat.spec.ts). The forwardEvent tests are in events.spec.ts.
-
 /** The guideline for this UI: no events, no multiple slot, and no function mounted. */
 const SMALL_GUIDELINE = buildGenerativeUIMarkdownGuidelines({
   functions: false,
@@ -342,7 +338,10 @@ describe("CopilotGenerativeUI", () => {
     it("gives core a snapshot of the catalog, functions, and surfaces, and removes it on unmount", () => {
       const { core, root, setHandler, unmount } = setup();
       const source = core.ɵgenerativeUIDebugSource;
-      expect(source).toBeDefined();
+      expect(source).toEqual({
+        getSnapshot: expect.any(Function),
+        subscribe: expect.any(Function),
+      });
 
       setHandler(() => "applied");
       root.manager.ingest("t1", "default", buttonSurface("s1"));
@@ -459,7 +458,7 @@ describe("CopilotGenerativeUI", () => {
   describe("function calls", () => {
     // Agent function calls are off for now (GENERATIVE_UI_AGENT_FUNCTION_CALLS):
     // the call is answered with an error. The answer and the follow-up run
-    // work the same either way. function-calls.spec.ts has the full port.
+    // work the same either way.
     it("answers an agent-called function with a developer message and starts one follow-up run", async () => {
       const { core, agent, setHandler } = setup();
       const handler = vi.fn((args: { code: string }) => `applied ${args.code}`);
@@ -493,8 +492,6 @@ describe("CopilotGenerativeUI", () => {
     });
   });
 });
-
-// ---- generative-ui.integration.test.tsx (the parts with no chat) ----
 
 type Handler = (args?: unknown) => Promise<GenerativeUIInvokeResult>;
 
@@ -760,6 +757,10 @@ describe("generative UI integration", () => {
       `.a2ui-surface[data-a2ui-theme="${id()}"]{--a2ui-color-accent:#111111}`,
     );
     expect(css()).not.toContain("tiles.example");
+    const firstId = id();
+    const sheets = () =>
+      document.head.querySelectorAll('style[id^="a2ui-theme-"]').length;
+    const sheetsBefore = sheets();
 
     theme.set({
       "--a2ui-color-accent": "#222222",
@@ -772,6 +773,12 @@ describe("generative UI integration", () => {
     expect(css()).toBe(
       `${self}{--a2ui-color-accent:#222222}:where(.dark) ${self},${self}:where(.dark){--a2ui-color-accent:#eeeeee}`,
     );
+    // The sheet of the previous theme is gone, so theme changes do not pile up.
+    expect(document.getElementById(`a2ui-theme-${firstId}`)).toBeNull();
+    expect(sheets()).toBe(sheetsBefore);
     await vi.waitFor(() => expect(mounts.get("root")).toBe(1));
+    const lastId = id();
+    fixture.destroy();
+    expect(document.getElementById(`a2ui-theme-${lastId}`)).toBeNull();
   });
 });

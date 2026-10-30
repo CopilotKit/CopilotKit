@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderSurface } from "../../../__tests__/render";
-import { buttonNamed, ui } from "./helpers";
+import { buttonNamed } from "../../../__tests__/dom";
+import { ui } from "./helpers";
 
 afterEach(() => {
   vi.restoreAllMocks();

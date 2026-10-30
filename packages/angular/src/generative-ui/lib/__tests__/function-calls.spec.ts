@@ -37,11 +37,9 @@ import type { GenerativeUIConfig } from "../config";
 import { provideGenerativeUI } from "../provide";
 import { registerGenerativeUIFunction } from "../state";
 
-// Port of React's renderer-functions.test.tsx: the functions that the agent
-// calls with `callRendererFunction`, in both transports. The agent path is
-// off for now (GENERATIVE_UI_AGENT_FUNCTION_CALLS), so these are skipped,
-// exactly as in React. generative-ui.spec.ts covers the answer and the
-// follow-up run with the path off.
+// The functions that the agent calls with `callRendererFunction`, in both
+// transports. The agent path is off for now
+// (GENERATIVE_UI_AGENT_FUNCTION_CALLS), so these are skipped.
 
 /** A controllable agent that records the input of each run. */
 class CapturingAgent extends AbstractAgent {

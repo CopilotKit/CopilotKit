@@ -10,6 +10,7 @@ import type { Injector, Signal } from "@angular/core";
 import {
   FONT_WEIGHT,
   backgroundColor,
+  isRecord,
   spacing,
   textColor,
   textFont,
@@ -28,8 +29,8 @@ import { VISUALLY_HIDDEN } from "../style";
 import type { StyleMap } from "../style";
 
 /**
- * What a Table, TableSection or TableRow tells the rows and cells in it. The
- * Angular counterpart of React's `TableContext`: each provides itself.
+ * What a Table, TableSection or TableRow tells the rows and cells in it.
+ * Each provides itself.
  */
 export interface GenerativeUITableContext {
   rowDividers: Signal<boolean>;
@@ -73,9 +74,7 @@ function cellStyle(
 
 /** The component id of a `{ componentId }` or `{ id }` cell, else `undefined`. */
 function cellComponentId(value: unknown) {
-  const isObject =
-    typeof value === "object" && value !== null && !Array.isArray(value);
-  if (!isObject) return undefined;
+  if (!isRecord(value)) return undefined;
   if ("componentId" in value && typeof value.componentId === "string") {
     return value.componentId || undefined;
   }
@@ -99,7 +98,7 @@ function normalizeColumn(column: TableColumn): NormalizedColumn {
 
 /**
  * A data table from `columns` and `rows`, or from TableSection and TableRow
- * children. The host is the scroll wrapper around the `<table>`, as in React.
+ * children. The host is the scroll wrapper around the `<table>`.
  */
 @Component({
   selector: "div[copilotGenerativeUITable]",
@@ -382,7 +381,7 @@ export class CopilotGenerativeUITableRow implements GenerativeUITableContext {
 
 /**
  * A cell of a TableRow: a `<th>` in a header row or with `header`, else a
- * `<td>`, as in React. The node renderer creates the host from `hostTag`.
+ * `<td>`. The node renderer creates the host from `hostTag`.
  * It applies the envelope itself: no element sits between the row and it.
  */
 @Component({

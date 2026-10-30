@@ -39,10 +39,11 @@ import {
   provideContainerContext,
 } from "../context";
 import type { GenerativeUIEventProp } from "../context";
-import { GenerativeUILightbox, openUrl } from "../lightbox";
+import { GenerativeUILightbox } from "../lightbox";
 import type { LightboxImage } from "../lightbox";
 import { layoutStyle } from "../style";
 import type { StyleMap } from "../style";
+import { openUrl } from "../url";
 import { connectVisibleOnce } from "../visible-once";
 import {
   CHILDREN_TEMPLATE,
@@ -55,7 +56,7 @@ type CarouselProps = z.output<typeof carouselSchema>;
 /**
  * The width of one slide when the Carousel sets `visibleItems`, so that many
  * slides fill its width (gaps included). `undefined`: slides size to their
- * content. Angular only: React's Carousel does not read `visibleItems` yet.
+ * content.
  */
 const GENERATIVE_UI_CAROUSEL_SLIDE_WIDTH = new InjectionToken<
   Signal<string | undefined>

@@ -1,16 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { renderSurface } from "../../../__tests__/render";
+import { renderSurface, updateDataModel } from "../../../__tests__/render";
+import { lightbox, press, shownSrc, tick } from "../../../__tests__/dom";
 import { standardUI } from "../../index";
 import { mediaComponents } from "..";
-import {
-  imageByAlt,
-  key,
-  lightbox,
-  renderInColumn,
-  shownSrc,
-  tick,
-  ui,
-} from "./helpers";
+import { imageByAlt, renderInColumn, ui } from "./helpers";
 
 describe("mediaComponents", () => {
   it("is valid input for createGenerativeUI, with a description for every component", () => {
@@ -90,6 +83,39 @@ describe("Image", () => {
     });
     expect(imageByAlt(view.container, "hidden")).toBeNull();
     expect(imageByAlt(view.container, "kept")).toBeInstanceOf(HTMLImageElement);
+  });
+
+  it("shows a new url of a failed Image, and an error of an older src does not fail it", () => {
+    const view = renderSurface(
+      ui,
+      [
+        {
+          id: "root",
+          component: "Image",
+          url: { "@path": "/url" },
+          description: "Photo",
+          fallback: "No photo",
+        },
+      ],
+      { url: "https://example.com/a.png" },
+    );
+    view.act(() =>
+      imageByAlt(view.container, "Photo")!.dispatchEvent(new Event("error")),
+    );
+    expect(imageByAlt(view.container, "Photo")).toBeNull();
+    expect(view.container.textContent).toContain("No photo");
+
+    view.update(updateDataModel("/url", "https://example.com/b.png"));
+    const image = imageByAlt(view.container, "Photo")!;
+    expect(image.getAttribute("src")).toBe("https://example.com/b.png");
+
+    // A late error of the previous src, after the url changed.
+    view.act(() => {
+      image.setAttribute("src", "https://example.com/a.png");
+      image.dispatchEvent(new Event("error"));
+      image.setAttribute("src", "https://example.com/b.png");
+    });
+    expect(imageByAlt(view.container, "Photo")).toBe(image);
   });
 
   it("hides an Image together with its action overlay", () => {
@@ -220,7 +246,7 @@ describe("Image lightbox", () => {
     expect(lightbox()).toBeNull();
     v.act(() => img.click());
     expect(shownSrc()).toBe("https://example.com/a.png");
-    key("Escape");
+    press(document.body, "Escape");
     tick();
     expect(lightbox()).toBeNull();
   });
@@ -271,7 +297,7 @@ describe("Image variant sizes", () => {
     const box = (alt: string) =>
       view.container.querySelector<HTMLImageElement>(`img[alt="${alt}"]`)!;
     const sized = (alt: string) => {
-      // The size sits on the image or on its frame, as in React.
+      // The size sits on the image or on its frame.
       const img = box(alt);
       return img.style.width ? img : (img.parentElement as HTMLElement);
     };

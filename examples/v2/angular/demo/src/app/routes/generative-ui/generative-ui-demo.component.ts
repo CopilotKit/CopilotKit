@@ -7,7 +7,7 @@ import {
   registerGenerativeUIFunction,
 } from "@copilotkit/angular/generative-ui";
 import { shopUI } from "./shop-ui";
-import type { BasketItem } from "./shop-ui";
+import type { CartItem } from "./shop-ui";
 
 /**
  * Chat with the scripted `generative-ui` agent (no API key needed). It
@@ -22,7 +22,7 @@ import type { BasketItem } from "./shop-ui";
   providers: [
     provideCopilotChatLabels({
       chatInputPlaceholder:
-        'Say anything to see the store, "shop" for the basket, or "everything" for the whole catalog…',
+        'Say anything to see the store, "shop" for the cart, or "everything" for the whole catalog…',
     }),
   ],
   template: `
@@ -47,8 +47,8 @@ import type { BasketItem } from "./shop-ui";
         <p>
           "Shop" renders a form with two components of this app: ProductCard calls
           the app's <code>addToCart</code> function, and CartSummary is bound to the
-          app's basket state ({{ basket().length }} lines), so the UI changes with
-          no agent round trip. Checkout sends the basket to the agent.
+          app's cart state ({{ cart().length }} lines), so the UI changes with no
+          agent round trip. Checkout sends the cart to the agent.
         </p>
         <copilot-generative-ui-surface
           id="side"
@@ -101,13 +101,13 @@ import type { BasketItem } from "./shop-ui";
   `,
 })
 export class GenerativeUIDemoComponent {
-  /** The basket is app state. The shop surface reads it through the catalog's `bind`. */
-  protected readonly basket = signal<BasketItem[]>([]);
+  /** The cart is app state. The shop surface reads it through the catalog's `bind`. */
+  protected readonly cart = signal<CartItem[]>([]);
 
   constructor() {
-    connectGenerativeUIState(shopUI, "cart", () => ({ items: this.basket() }));
+    connectGenerativeUIState(shopUI, "cart", () => ({ items: this.cart() }));
     registerGenerativeUIFunction(shopUI, "addToCart", (item) => {
-      this.basket.update((items) => {
+      this.cart.update((items) => {
         const same = items.find(
           (line) =>
             line.productId === item.productId &&

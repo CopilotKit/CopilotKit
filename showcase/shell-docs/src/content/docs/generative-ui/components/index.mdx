@@ -235,7 +235,13 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     export class App {}
     ```
 
-    Charts, maps and icons draw with optional libraries. When you want them, add `provideGenerativeUIChart()`, `provideGenerativeUIMap()` and `provideGenerativeUIIcons()` from the `/chart`, `/map` and `/icons` entries of `@copilotkit/angular/generative-ui`. Without them, a chart shows its data as a table, a map shows a list of places, and an icon shows nothing.
+    Charts, maps and icons draw with optional libraries. When you want them, install the library of each one you use:
+
+    ```bash
+    npm install chart.js maplibre-gl lucide
+    ```
+
+    Then add `provideGenerativeUIChart()`, `provideGenerativeUIMap()` and `provideGenerativeUIIcons()` from the `/chart`, `/map` and `/icons` entries of `@copilotkit/angular/generative-ui`. Without them, a chart shows its data as a table, a map shows a list of places, and an icon shows nothing.
     </Tab>
   </Tabs>
   </Step>

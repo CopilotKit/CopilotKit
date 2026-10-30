@@ -5,9 +5,6 @@ import { exportA2UICatalog } from "@copilotkit/shared/generative-ui";
 import { createGenerativeUI } from "../catalog";
 import { standardUI } from "../standard";
 
-// Port of React's parameter-order.test.tsx, through Angular's
-// `createGenerativeUI`, which pins the component type to Angular classes.
-
 @Component({ template: "" })
 class View {}
 

@@ -38,8 +38,9 @@ export class CopilotGenerativeUISurfaceView {
   readonly #styles = inject(GenerativeUIStyles);
 
   /** The theme as a stylesheet, so its `dark` values apply in dark mode only. */
-  protected readonly sheet = computed(() =>
-    themeStyleSheet(this.#runtime.theme()),
+  protected readonly sheet = computed(
+    () => themeStyleSheet(this.#runtime.theme()),
+    { equal: (a, b) => a?.id === b?.id },
   );
 
   protected readonly root = computed<GenerativeUIChildren>(() => ({
@@ -50,9 +51,11 @@ export class CopilotGenerativeUISurfaceView {
   }));
 
   constructor() {
-    effect(() => {
+    effect((onCleanup) => {
       const sheet = this.sheet();
-      if (sheet) this.#styles.ensure(`a2ui-theme-${sheet.id}`, sheet.css);
+      if (sheet) {
+        onCleanup(this.#styles.acquire(`a2ui-theme-${sheet.id}`, sheet.css));
+      }
     });
   }
 }

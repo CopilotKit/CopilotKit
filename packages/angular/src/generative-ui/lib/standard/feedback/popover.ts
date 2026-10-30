@@ -55,7 +55,7 @@ let popoverIds = 0;
  * focus back to the trigger. A pointer press outside of it closes it.
  * `open` is writable, so a `{ "@path" }` binding keeps the open state in the
  * data model. The content sits in the flow of the surface, positioned
- * against this root, as in React.
+ * against this root.
  */
 @Component({
   selector: "div[copilotGenerativeUIPopover]",
@@ -96,6 +96,7 @@ export class CopilotGenerativeUIPopover implements GenerativeUIPopoverState {
 
   constructor() {
     injectFeedbackStyles();
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.#hoverTimer));
     effect((onCleanup) => {
       if (!this.isOpen() || !this.#isBrowser) return;
       const onPointerDown = (event: Event) => {
@@ -142,8 +143,7 @@ export class CopilotGenerativeUIPopover implements GenerativeUIPopoverState {
 
 /**
  * The trigger of a Popover. Outside of a Popover it is a plain button that
- * does nothing (React renders its children bare there; a host element cannot
- * disappear in Angular).
+ * does nothing: a host element cannot be left out.
  */
 @Component({
   selector: "button[copilotGenerativeUIPopoverTrigger]",
@@ -180,10 +180,10 @@ export class CopilotGenerativeUIPopoverTrigger {
     ...BUTTON_RESET,
     display: this.block() ? "flex" : "inline-flex",
     width: this.block() ? "100%" : undefined,
-    "align-items": "center",
-    "min-width": "24px",
-    "min-height": "24px",
-    "border-radius": radius("xs"),
+    alignItems: "center",
+    minWidth: "24px",
+    minHeight: "24px",
+    borderRadius: radius("xs"),
   }));
 
   constructor() {
@@ -208,13 +208,13 @@ export class CopilotGenerativeUIPopoverTrigger {
 function sideStyle(side: Side, offset: number): StyleMap {
   switch (side) {
     case "bottom":
-      return { top: "100%", "margin-top": px(offset) };
+      return { top: "100%", marginTop: px(offset) };
     case "top":
-      return { bottom: "100%", "margin-bottom": px(offset) };
+      return { bottom: "100%", marginBottom: px(offset) };
     case "left":
-      return { right: "100%", "margin-right": px(offset) };
+      return { right: "100%", marginRight: px(offset) };
     case "right":
-      return { left: "100%", "margin-left": px(offset) };
+      return { left: "100%", marginLeft: px(offset) };
   }
 }
 
@@ -234,17 +234,17 @@ function alignStyle(side: Side, align: Align): StyleMap {
 }
 
 const PANEL_STYLE: StyleMap = {
-  "z-index": 50,
-  "min-width": "160px",
-  "box-sizing": "border-box",
+  zIndex: 50,
+  minWidth: "160px",
+  boxSizing: "border-box",
   display: "flex",
-  "flex-direction": "column",
+  flexDirection: "column",
   gap: spacing(2),
   padding: spacing(3),
   background: backgroundColor("surface-elevated"),
   border: `1px solid ${borderColor("default")}`,
-  "border-radius": radius("lg"),
-  "box-shadow": SHADOW_MD,
+  borderRadius: radius("lg"),
+  boxShadow: SHADOW_MD,
 };
 
 /**

@@ -13,7 +13,7 @@ import { CopilotGenerativeUILayoutInputs } from "./layout-inputs";
 @Component({
   selector: "form[copilotGenerativeUIForm]",
   imports: [CopilotGenerativeUIChildren],
-  providers: provideContainerContext(),
+  providers: [provideContainerContext()],
   template: `
     <ng-container *copilotGenerativeUIChildren="children()" />
   `,

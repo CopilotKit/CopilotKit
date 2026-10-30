@@ -13,9 +13,8 @@ import { GENERATIVE_UI_RUNTIME } from "../runtime";
 import { CopilotGenerativeUISurfaceView } from "../surface-view";
 import { createTestRuntime } from "./render";
 
-// Port of React's standard-schema.test.tsx. Schemas that are not zod: a small
-// hand-written Standard Schema, with a Standard JSON Schema, stands in for
-// Valibot or ArkType.
+// Schemas that are not zod: a small hand-written Standard Schema, with a
+// Standard JSON Schema, stands in for Valibot or ArkType.
 
 type Kind = "string" | "number";
 type Value<K extends Kind> = K extends "string" ? string : number;

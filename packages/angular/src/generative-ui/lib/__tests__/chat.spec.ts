@@ -92,8 +92,6 @@ describe("CopilotGenerativeUIActivityRenderer", () => {
   });
 });
 
-// ---- generative-ui.integration.test.tsx: the chat card in the chat ----
-
 /** A controllable agent that records the input of each run. */
 class CapturingAgent extends AbstractAgent {
   static inputs: RunAgentInput[] = [];
@@ -206,7 +204,7 @@ const card = (id: string) => ({
   name: `Product ${id}`,
 });
 
-/** What a custom chat card saw, as React's custom wrapper test records it. */
+/** What a custom chat card saw. */
 const seen: unknown[] = [];
 
 @Component({

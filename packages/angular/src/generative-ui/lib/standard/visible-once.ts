@@ -14,7 +14,6 @@ export type GenerativeUIVisibleHandler = GenerativeUIEventProp;
 /**
  * Sends the `onVisible` event of a container once, the first time its host
  * element scrolls into view. Call it in the constructor of the component.
- * The counterpart of React's `useVisibleOnce`.
  */
 export function connectVisibleOnce(
   onVisible: () => GenerativeUIEventProp | undefined,

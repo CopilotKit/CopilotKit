@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { renderSurface } from "../../../__tests__/render";
+import { renderSurface, updateComponents } from "../../../__tests__/render";
+import { byText, click, press, query } from "../../../__tests__/dom";
 import { standardUI } from "../../index";
-import { popoverNodes, press, text, ui } from "./helpers";
+import { popoverNodes, text, ui } from "./helpers";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -92,6 +93,36 @@ describe("Popover", () => {
     view.act(() => popover.dispatchEvent(new Event("mouseleave")));
     expect(view.container.querySelector("[role=dialog]")).toBeNull();
   });
+
+  it("drops a pending hover open when the Popover is removed", () => {
+    vi.useFakeTimers();
+    const view = renderSurface(
+      ui,
+      popoverNodes({}).map((node) =>
+        node.id === "o"
+          ? { ...node, showOnHover: true, hoverOpenDelay: 200 }
+          : node,
+      ),
+    );
+    const timers = vi.getTimerCount();
+    view.act(() =>
+      view.container
+        .querySelector<HTMLElement>("[data-a2ui-popover-trigger]")!
+        .parentElement!.dispatchEvent(new Event("mouseenter")),
+    );
+    expect(vi.getTimerCount()).toBe(timers + 1);
+    view.update(
+      updateComponents({
+        id: "root",
+        component: "Column",
+        children: ["outside"],
+      }),
+    );
+    expect(
+      view.container.querySelector("[data-a2ui-popover-trigger]"),
+    ).toBeNull();
+    expect(vi.getTimerCount()).toBe(timers);
+  });
 });
 
 describe("standard feedback (standard catalog)", () => {
@@ -112,6 +143,23 @@ describe("standard feedback (standard catalog)", () => {
       'button[data-a2ui-popover-trigger][aria-label="More options"]',
     );
     expect(trigger).not.toBeNull();
+  });
+
+  it("Popover sideOffset moves the content and a block trigger fills the width", () => {
+    const v = renderSurface(standardUI, [
+      { id: "root", component: "Popover", children: ["t", "c"] },
+      { id: "t", component: "PopoverTrigger", block: true, children: ["b"] },
+      { id: "b", component: "Text", text: "Toggle" },
+      { id: "c", component: "PopoverContent", sideOffset: 12, children: ["x"] },
+      { id: "x", component: "Text", text: "Body" },
+    ]);
+    const trigger = byText(v.container, "Toggle").closest<HTMLElement>(
+      "[data-a2ui-popover-trigger]",
+    )!;
+    expect(trigger.style.width).toBe("100%");
+    click(v, trigger);
+    const dialog = query<HTMLElement>(v.container, "[role=dialog]");
+    expect(dialog.style.marginTop).toBe("12px");
   });
 });
 

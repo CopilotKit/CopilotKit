@@ -7,9 +7,6 @@ import {
   createGenerativeUI,
 } from "../catalog";
 
-// Port of React's catalog.test.tsx, through Angular's `createGenerativeUI`,
-// which pins the component type to Angular classes.
-
 @Component({ template: "" })
 class Card {}
 

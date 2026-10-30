@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { renderSurface } from "../../../__tests__/render";
+import { press, query } from "../../../__tests__/dom";
+import { standardUI } from "../../index";
 import { FEEDBACK_STYLE_ID, feedbackComponents } from "../index";
-import { press, text, ui } from "./helpers";
+import { text, ui } from "./helpers";
 
 describe("feedbackComponents", () => {
   it("is valid input for createGenerativeUI, with a description for every component", () => {
@@ -22,7 +24,7 @@ describe("feedbackComponents", () => {
 describe("PulseIndicator", () => {
   it("names a PulseIndicator only when it has a label", () => {
     const view = renderSurface(ui, [
-      { id: "root", component: "Group", children: ["a", "b"] },
+      { id: "root", component: "Column", children: ["a", "b"] },
       { id: "a", component: "PulseIndicator", label: "Live" },
       { id: "b", component: "PulseIndicator" },
     ]);
@@ -48,6 +50,23 @@ describe("PulseIndicator", () => {
       "@media (prefers-reduced-motion: reduce){[data-a2ui-pulse]{animation-name:a2ui-pulse-fade !important}}",
     );
     expect(css).toContain("@keyframes a2ui-pulse-fade{0%{opacity:");
+  });
+
+  it("PulseIndicator takes endScale and startOpacity", () => {
+    const v = renderSurface(standardUI, [
+      { id: "root", component: "Column", children: ["p"] },
+      {
+        id: "p",
+        component: "PulseIndicator",
+        label: "Live",
+        endScale: 3,
+        startOpacity: 0.4,
+      },
+    ]);
+    const pulse = query<HTMLElement>(v.container, '[aria-label="Live"]');
+    const ring = pulse.querySelector<HTMLElement>("[data-a2ui-motion]")!;
+    expect(ring.style.getPropertyValue("--a2ui-pulse-scale")).toBe("3");
+    expect(ring.style.getPropertyValue("--a2ui-pulse-opacity")).toBe("0.4");
   });
 });
 

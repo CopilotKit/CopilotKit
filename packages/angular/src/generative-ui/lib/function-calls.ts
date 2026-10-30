@@ -17,18 +17,17 @@ import type {
 import type { GenerativeUIErrorCode } from "@copilotkit/shared/generative-ui";
 
 // The function calls of the agent (`callRendererFunction`), for both
-// transports. The same rules as React's root hook: each call runs once per
-// thread, the answers are hidden developer messages, they go to the agent
-// only when it is idle, and a user turn gets at most MAX_FUNCTION_FOLLOW_UPS
-// follow-up runs.
+// transports. Each call runs once per thread, the answers are hidden
+// developer messages, they go to the agent only when it is idle, and a user
+// turn gets at most MAX_FUNCTION_FOLLOW_UPS follow-up runs.
 
 /** At most this many function follow-up runs for each user turn. */
-export const MAX_FUNCTION_FOLLOW_UPS = 5;
+const MAX_FUNCTION_FOLLOW_UPS = 5;
 
 export type ReadonlyMessages = ReadonlyArray<Readonly<Message>>;
 
 /** One agent-called function, as the model sent it. */
-export interface FunctionCallRequest {
+interface FunctionCallRequest {
   functionCallId: string;
   /** A `callRendererFunction` operation. It is not validated yet. */
   operation: unknown;
@@ -177,7 +176,7 @@ const overCapAnswer = (functionCallId: string): FunctionCallAnswer => ({
   followUp: false,
 });
 
-export interface FunctionCallRunnerOptions {
+interface FunctionCallRunnerOptions {
   core: CopilotKitCore;
   dispatcher: GenerativeUIDispatcher;
   manifest: ValidateOperationOptions["manifest"];
