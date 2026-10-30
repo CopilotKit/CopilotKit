@@ -29,105 +29,138 @@ provideCopilotChatLabels satisfies (
 
 <PropertyReference name="config" type="Partial<CopilotChatLabels>" required>
   A partial set of label overrides. Provided fields are merged over
-  `COPILOT_CHAT_DEFAULT_LABELS`; omitted fields keep their defaults.
-
-  <PropertyReference name="chatInputPlaceholder" type="string" default="Type a message...">
-    Placeholder text for the chat input.
-  </PropertyReference>
-  <PropertyReference name="chatInputToolbarStartTranscribeButtonLabel" type="string" default="Transcribe">
-    Label for the start-transcription button.
-  </PropertyReference>
-  <PropertyReference name="chatInputToolbarCancelTranscribeButtonLabel" type="string" default="Cancel">
-    Label for the cancel-transcription button.
-  </PropertyReference>
-  <PropertyReference name="chatInputToolbarFinishTranscribeButtonLabel" type="string" default="Finish">
-    Label for the finish-transcription button.
-  </PropertyReference>
-  <PropertyReference name="chatInputToolbarAddButtonLabel" type="string" default="Add photos or files">
-    Label for the add-attachment button.
-  </PropertyReference>
-  <PropertyReference name="chatInputToolbarToolsButtonLabel" type="string" default="Tools">
-    Label for the tools button.
-  </PropertyReference>
-  <PropertyReference name="chatInputToolbarSendButtonLabel" type="string" default="Send message">
-    Accessible name of the send button.
-  </PropertyReference>
-  <PropertyReference name="assistantMessageToolbarCopyCodeLabel" type="string" default="Copy">
-    Label for the copy-code action on an assistant message.
-  </PropertyReference>
-  <PropertyReference name="assistantMessageToolbarCopyCodeCopiedLabel" type="string" default="Copied">
-    Label shown after code is copied from an assistant message.
-  </PropertyReference>
-  <PropertyReference name="assistantMessageToolbarCopyMessageLabel" type="string" default="Copy">
-    Label for the copy-message action on an assistant message.
-  </PropertyReference>
-  <PropertyReference name="assistantMessageToolbarThumbsUpLabel" type="string" default="Good response">
-    Label for the thumbs-up action.
-  </PropertyReference>
-  <PropertyReference name="assistantMessageToolbarThumbsDownLabel" type="string" default="Bad response">
-    Label for the thumbs-down action.
-  </PropertyReference>
-  <PropertyReference name="assistantMessageToolbarReadAloudLabel" type="string" default="Read aloud">
-    Label for the read-aloud action.
-  </PropertyReference>
-  <PropertyReference name="assistantMessageToolbarRegenerateLabel" type="string" default="Regenerate">
-    Label for the regenerate action.
-  </PropertyReference>
-  <PropertyReference name="userMessageToolbarCopyMessageLabel" type="string" default="Copy">
-    Label for the copy-message action on a user message.
-  </PropertyReference>
-  <PropertyReference name="userMessageToolbarEditMessageLabel" type="string" default="Edit">
-    Label for the edit-message action on a user message.
-  </PropertyReference>
-  <PropertyReference name="userMessageToolbarPreviousBranchLabel" type="string" default="Previous message branch">
-    Accessible name of the button that shows the previous branch of a user message.
-  </PropertyReference>
-  <PropertyReference name="userMessageToolbarNextBranchLabel" type="string" default="Next message branch">
-    Accessible name of the button that shows the next branch of a user message.
-  </PropertyReference>
-  <PropertyReference name="chatDisclaimerText" type="string" default="AI can make mistakes. Please verify important information.">
-    Disclaimer text shown beneath the chat.
-  </PropertyReference>
-  <PropertyReference name="chatScrollToBottomLabel" type="string" default="Scroll to bottom">
-    Accessible name of the scroll-to-bottom button.
-  </PropertyReference>
-  <PropertyReference name="welcomeMessageText" type="string" default="How can I help you today?">
-    The welcome message shown before the conversation starts.
-  </PropertyReference>
-  <PropertyReference name="reasoningMessageThinkingLabel" type="string" default="Thinking…">
-    Reasoning header text while the model is reasoning.
-  </PropertyReference>
-  <PropertyReference name="attachmentRemoveButtonLabel" type="string" default="Remove attachment">
-    Accessible name of the button that removes a queued attachment.
-  </PropertyReference>
-  <PropertyReference name="assistantMessageToolbarInspectorTitle" type="string" default="CopilotKit Inspector">
-    Title of the Inspector menu. It is also the start of the Inspector button's accessible name.
-  </PropertyReference>
-  <PropertyReference name="assistantMessageToolbarInspectorLabel" type="string" default="View in Inspector">
-    Menu item that opens the message in the Inspector.
-  </PropertyReference>
-  <PropertyReference name="assistantMessageToolbarInspectorDescription" type="string" default="Open this message in the Inspector">
-    Description below the "View in Inspector" menu item.
-  </PropertyReference>
-  <PropertyReference name="assistantMessageToolbarInspectorLocalOnlyLabel" type="string" default="Local only">
-    Badge in the Inspector menu. It is also the end of the Inspector button's accessible name.
-  </PropertyReference>
-  <PropertyReference name="assistantMessageToolbarInspectorLocalOnlyDescription" type="string" default="Only visible on localhost or loopback hosts in development. Never shown in production.">
-    Tooltip of the "Local only" badge.
-  </PropertyReference>
-  <PropertyReference name="assistantMessageToolbarInspectorHideLabel" type="string" default="Hide this icon">
-    Menu item that hides the Inspector button until the page reloads.
-  </PropertyReference>
-  <PropertyReference name="assistantMessageToolbarInspectorHideDescription" type="string" default="Until you reload this page">
-    Description below the "Hide this icon" menu item.
-  </PropertyReference>
-  <PropertyReference name="attachmentPlayVideoButtonLabel" type="string" default="Play video">
-    Accessible name of the play button on a queued video. It opens the video in a full-screen preview.
-  </PropertyReference>
-  <PropertyReference name="attachmentPreviewCloseButtonLabel" type="string" default="Close preview">
-    Accessible name of the button that closes the full-screen attachment preview.
-  </PropertyReference>
+  `COPILOT_CHAT_DEFAULT_LABELS`. Omitted fields keep their defaults. See
+  [CopilotChatLabels](#copilotchatlabels) for all keys.
 </PropertyReference>
+
+## CopilotChatLabels
+
+`CopilotChatLabels` holds every piece of text that the chat shows. React, Vue, and Angular use the same keys and the same default text. Override only the keys that you need. The other keys keep their default text.
+
+### Text with placeholders
+
+Some labels contain placeholders in braces, such as `{count}`, `{name}`, or `{duration}`. The chat replaces each placeholder with a value. Keep the placeholders when you translate a label:
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotChatLabels } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotChatLabels({
+      toolCallRunningLabel: "Ejecutando {name}",
+      toolCallUsedToolsOne: "Usó {count} herramienta",
+      toolCallUsedToolsOther: "Usó {count} herramientas",
+    }),
+  ],
+};
+```
+
+Labels that end in `One` and `Other` are pairs. The chat uses the `One` label for a count of 1, and the `Other` label for all other counts.
+
+The `license` keys hold the text of the license banner. The banner shows outside the chat, so it always uses the default text.
+
+### All keys
+
+| Key | Default value |
+| --- | --- |
+| `chatInputPlaceholder` | `"Type a message..."` |
+| `chatInputToolbarStartTranscribeButtonLabel` | `"Transcribe"` |
+| `chatInputToolbarCancelTranscribeButtonLabel` | `"Cancel"` |
+| `chatInputToolbarFinishTranscribeButtonLabel` | `"Finish"` |
+| `chatInputToolbarAddButtonLabel` | `"Add attachments"` |
+| `chatInputToolbarToolsButtonLabel` | `"Tools"` |
+| `chatInputToolbarSendButtonLabel` | `"Send message"` |
+| `chatInputToolbarStopButtonLabel` | `"Stop"` |
+| `assistantMessageToolbarCopyCodeLabel` | `"Copy"` |
+| `assistantMessageToolbarCopyCodeCopiedLabel` | `"Copied"` |
+| `assistantMessageToolbarCopyMessageLabel` | `"Copy"` |
+| `assistantMessageToolbarInspectorLabel` | `"View in Inspector"` |
+| `assistantMessageToolbarInspectorDescription` | `"Open this message in the Inspector"` |
+| `assistantMessageToolbarInspectorLocalOnlyLabel` | `"Local only"` |
+| `assistantMessageToolbarInspectorLocalOnlyDescription` | `"Only visible on localhost or loopback hosts in development. Never shown in production."` |
+| `assistantMessageToolbarInspectorTitle` | `"CopilotKit Inspector"` |
+| `assistantMessageToolbarInspectorHideLabel` | `"Hide this icon"` |
+| `assistantMessageToolbarInspectorHideDescription` | `"Until you reload this page"` |
+| `assistantMessageToolbarThumbsUpLabel` | `"Good response"` |
+| `assistantMessageToolbarThumbsDownLabel` | `"Bad response"` |
+| `assistantMessageFeedbackCommentPlaceholder` | `"Add a comment (optional)"` |
+| `assistantMessageFeedbackCommentSubmitLabel` | `"Send comment"` |
+| `assistantMessageToolbarReadAloudLabel` | `"Read aloud"` |
+| `assistantMessageToolbarRegenerateLabel` | `"Regenerate"` |
+| `userMessageToolbarCopyMessageLabel` | `"Copy"` |
+| `userMessageToolbarEditMessageLabel` | `"Edit"` |
+| `userMessageToolbarPreviousBranchLabel` | `"Previous branch"` |
+| `userMessageToolbarNextBranchLabel` | `"Next branch"` |
+| `chatDisclaimerText` | `"AI can make mistakes. Please verify important information."` |
+| `chatToggleOpenLabel` | `"Open chat"` |
+| `chatToggleCloseLabel` | `"Close chat"` |
+| `chatScrollToBottomLabel` | `"Scroll to bottom"` |
+| `modalHeaderTitle` | `"CopilotKit Chat"` |
+| `welcomeMessageText` | `"How can I help you today?"` |
+| `reasoningMessageThinkingLabel` | `"Thinking…"` |
+| `chatInputSlashMenuLabel` | `"Slash commands"` |
+| `chatInputSlashMenuEmptyText` | `"No commands found"` |
+| `attachmentRemoveButtonLabel` | `"Remove attachment"` |
+| `attachmentPlayVideoButtonLabel` | `"Play video"` |
+| `attachmentPreviewCloseButtonLabel` | `"Close preview"` |
+| `modalHeaderCloseButtonLabel` | `"Close"` |
+| `modalHeaderThreadsButtonLabel` | `"Open threads"` |
+| `sidebarLabel` | `"Copilot chat sidebar"` |
+| `chatDropFilesLabel` | `"Drop files here"` |
+| `threadLoadErrorText` | `"Could not load saved conversation. Reopen the thread and try again."` |
+| `reasoningMessageThoughtForLabel` | `"Thought for {duration}"` |
+| `reasoningMessageDurationFewSeconds` | `"a few seconds"` |
+| `reasoningMessageDurationSeconds` | `"{count} seconds"` |
+| `reasoningMessageDurationMinutesOne` | `"{count} minute"` |
+| `reasoningMessageDurationMinutesOther` | `"{count} minutes"` |
+| `reasoningMessageDurationMinutesSeconds` | `"{minutes}m {seconds}s"` |
+| `toolCallStatusRunningLabel` | `"Running"` |
+| `toolCallStatusDoneLabel` | `"Done"` |
+| `toolCallStatusFailedLabel` | `"Failed"` |
+| `toolCallStatusStoppedLabel` | `"Stopped"` |
+| `toolCallRunningLabel` | `"Running {name}"` |
+| `toolCallFailedCountLabel` | `"{count} failed"` |
+| `toolCallDoneCountLabel` | `"{count} done"` |
+| `toolCallArgumentsLabel` | `"Arguments"` |
+| `toolCallResultLabel` | `"Result"` |
+| `toolCallCollapseLabel` | `"Collapse"` |
+| `toolCallUsedToolsOne` | `"Used {count} tool"` |
+| `toolCallUsedToolsOther` | `"Used {count} tools"` |
+| `toolCallToolCountOne` | `"{count} tool"` |
+| `toolCallToolCountOther` | `"{count} tools"` |
+| `toolCallToolCallCountOne` | `"{count} tool call"` |
+| `toolCallToolCallCountOther` | `"{count} tool calls"` |
+| `toolCallCallCountOne` | `"{count} call"` |
+| `toolCallCallCountOther` | `"{count} calls"` |
+| `workSummaryWorkingLabel` | `"Working"` |
+| `workSummaryWorkedForLabel` | `"Worked for {duration}"` |
+| `attachmentImageLoadErrorText` | `"Failed to load image"` |
+| `attachmentImageAltText` | `"Image attachment"` |
+| `attachmentUnknownTypeText` | `"Unknown type"` |
+| `attachmentDocumentLabel` | `"Document"` |
+| `attachmentDocumentAltText` | `"Document attachment"` |
+| `attachmentNoPreviewText` | `"No preview available for this file type"` |
+| `chatAttachmentsUploadingText` | `"Cannot send while attachments are uploading."` |
+| `transcriptionErrorRateLimitedText` | `"Too many requests. Please wait a moment."` |
+| `transcriptionErrorAuthFailedText` | `"Authentication error. Please check your configuration."` |
+| `transcriptionErrorAudioTooLongText` | `"Recording is too long. Please try a shorter recording."` |
+| `transcriptionErrorAudioTooShortText` | `"Recording is too short. Please try again."` |
+| `transcriptionErrorInvalidAudioFormatText` | `"Audio format not supported."` |
+| `transcriptionErrorServiceNotConfiguredText` | `"Transcription service is not available."` |
+| `transcriptionErrorNetworkText` | `"Network error. Please check your connection."` |
+| `transcriptionErrorGenericText` | `"Transcription failed. Please try again."` |
+| `licensePoweredByText` | `"Powered by CopilotKit"` |
+| `licenseGetLicenseLabel` | `"Get a license"` |
+| `licenseFeatureUnlicensedText` | `"⚠ The "{feature}" feature requires a CopilotKit license."` |
+| `licenseExpiringText` | `"Your CopilotKit license expires soon. Please renew."` |
+| `licenseExpiringInDaysOne` | `"Your CopilotKit license expires in {days} day. Please renew."` |
+| `licenseExpiringInDaysOther` | `"Your CopilotKit license expires in {days} days. Please renew."` |
+| `licenseExpiredText` | `"Your CopilotKit license expired. Please renew at copilotkit.ai/pricing"` |
+| `licenseExpiredOnDateText` | `"Your CopilotKit license expired on {date}. Please renew at copilotkit.ai/pricing"` |
+| `licenseInvalidText` | `"Invalid CopilotKit license token. Please check your configuration."` |
+| `licenseRenewLabel` | `"Renew"` |
+| `licenseRenewNowLabel` | `"Renew now"` |
 
 ## Return Value
 

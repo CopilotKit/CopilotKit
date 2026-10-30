@@ -1,0 +1,92 @@
+---
+title: Chat UI in 2.0
+description: Replace removed chat exports, and check the default text and behavior that changed in the Vue and Angular chat.
+---
+
+In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilotkit/core` can fail. The Vue and Angular chat can also show different text or act differently. The cause is one of these changes:
+
+- Some chat exports are removed.
+- CopilotKit no longer installs `lucide-react` or `lucide-vue-next`.
+- Vue and Angular use the same default text as React.
+- Vue and Angular follow the same chat rules as React.
+
+The codemod does not change this code. Use the sections below.
+
+## Removed exports
+
+| Removed | Package | Use instead |
+| --- | --- | --- |
+| `BasicMarkdownRenderer` | `@copilotkit/react-core` | `StreamingMarkdownDefaultRenderer` |
+| `BasicMarkdown` | `@copilotkit/vue` | `StreamingMarkdownDefault` |
+| `parseMarkdown`, `MarkdownToken`, `MarkdownTokenList`, `ParseMarkdownOptions`, `Tokens` | `@copilotkit/core` and `@copilotkit/react-core` | [`@copilotkit/markdown-renderer`](/reference/packages/markdown-renderer) |
+| `useLearningContainers`, `useLearningContainersInCurrentThread` | `@copilotkit/react-core` | `getLearningContainerId` on `CopilotKitIntelligence` |
+
+The streaming renderers take the same `content` prop as the removed renderers:
+
+```tsx ignore title="Before"
+import { BasicMarkdownRenderer } from "@copilotkit/react-core";
+
+export function Draft({ text }: { text: string }) {
+  return <BasicMarkdownRenderer content={text} />;
+}
+```
+
+```tsx title="After"
+import { StreamingMarkdownDefaultRenderer } from "@copilotkit/react-core";
+
+export function Draft({ text }: { text: string }) {
+  return <StreamingMarkdownDefaultRenderer content={text} />;
+}
+```
+
+## Icon packages
+
+The chat draws its icons from inline SVG data. As a result, CopilotKit no longer installs `lucide-react` or `lucide-vue-next` for your app.
+
+If your app imports one of these packages, add it to your own dependencies:
+
+```bash
+npm install lucide-react
+```
+
+## Default text in Vue and Angular
+
+Vue and Angular now show the same default text as React. These defaults changed:
+
+| Label key | New default | Changed in |
+| --- | --- | --- |
+| `chatInputToolbarAddButtonLabel` | `"Add attachments"` | Vue, Angular |
+| `userMessageToolbarPreviousBranchLabel` | `"Previous branch"` | Angular |
+| `userMessageToolbarNextBranchLabel` | `"Next branch"` | Angular |
+| `modalHeaderTitle` | `"CopilotKit Chat"` | Angular popup and sidebar |
+| `chatToggleOpenLabel`, `chatToggleCloseLabel` | `"Open chat"`, `"Close chat"` | Angular popup and sidebar |
+
+To keep the earlier text, set the label. For example, in Angular:
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotChatLabels } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotChatLabels({
+      chatInputToolbarAddButtonLabel: "Add photos or files",
+      modalHeaderTitle: "Copilot",
+    }),
+  ],
+};
+```
+
+All label keys are in [CopilotChatLabels](/reference/hooks/useCopilotChatConfiguration#copilotchatlabels).
+
+## Chat behavior in Vue and Angular
+
+Vue and Angular now follow the same chat rules as React:
+
+- **Enter during a run (Vue):** Enter with text in the input sends the message. Enter in an empty input stops the run.
+- **Stop button (Angular):** While the agent runs, the send button becomes a stop button.
+- **Activity renderers (Vue):** A renderer with `activityType: "*"` draws every activity that has no renderer of its own.
+- **Custom message renderers (Vue):** The chat tries each renderer in turn. The first renderer that returns content is used.
+- **Tool-call renderers (Angular):** The chat uses a renderer from another agent when no renderer for the current agent matches. A `"*"` renderer applies to all agents.
+
+If a test or a screenshot depends on the earlier behavior, update it to the behavior above.

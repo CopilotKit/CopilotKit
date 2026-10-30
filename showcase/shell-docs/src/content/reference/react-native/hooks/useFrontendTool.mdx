@@ -317,7 +317,7 @@ string is rejected there without any annotation.
 
 ## Behavior
 
-- **Duplicate detection**: If a tool with the same `name` is already registered, the hook logs a warning. Only one tool per name is active at a time.
+- **Same name**: If a tool with the same `name` is already registered, the hook logs a warning. The new tool is active while the component is mounted. When the component unmounts, the earlier tool is active again. This also applies to a tool that you pass to `CopilotKitProvider`.
 - **Mount/Unmount lifecycle**: The tool and its optional render component are registered on mount and removed on unmount.
 - **Dependency tracking**: When `deps` is provided, the registration is refreshed whenever a dependency changes. Plain data compares by value; functions and other objects compare by identity. See [Dependency comparison](#dependency-comparison) below.
 - **Handler and render are captured at registration**: Neither closure is re-read on every render. A value your `handler` or `render` reads from component state or props is frozen at whatever it was when the tool was last registered, so it must be declared in `deps`.
