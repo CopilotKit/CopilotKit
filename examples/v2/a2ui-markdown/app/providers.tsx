@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import { standardUI } from "@copilotkit/react-core/generative-ui";
 
 export type ExampleAgent = "default" | "langgraph";
 export type ExampleTransport = "markdown" | "tool";

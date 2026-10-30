@@ -38,31 +38,27 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
-    "./v2": {
-      "import": "./dist/v2/index.mjs",
-      "require": "./dist/v2/index.cjs"
-    },
-    "./v2/generative-ui": {
-      "import": "./dist/v2/generative-ui.mjs",
-      "require": "./dist/v2/generative-ui.cjs"
+    "./generative-ui": {
+      "import": "./dist/generative-ui.mjs",
+      "require": "./dist/generative-ui.cjs"
     },
     "./package.json": "./package.json",
-    "./v2/context": {
-      "import": "./dist/v2/context.mjs",
-      "require": "./dist/v2/context.cjs"
+    "./context": {
+      "import": "./dist/context.mjs",
+      "require": "./dist/context.cjs"
     },
-    "./v2/headless": {
-      "import": "./dist/v2/headless.mjs",
-      "require": "./dist/v2/headless.cjs"
+    "./headless": {
+      "import": "./dist/headless.mjs",
+      "require": "./dist/headless.cjs"
     },
-    "./v2/styles.css": "./dist/v2/index.css"
+    "./styles.css": "./dist/index.css"
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build:css": "tailwindcss -i ./src/v2/styles/globals.css -o ./dist/v2/index.css -m && node scripts/scope-preflight.mjs ./dist/v2/index.css",
-    "build": "node scripts/generate-external-reexports.mjs --check && tsdown && node ../../scripts/deprecations/v1-dist-notices.mjs --entrypoint react-core && pnpm run build:css && node scripts/context-singleton-preflight.mjs",
+    "build:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/index.css -m && node scripts/scope-preflight.mjs ./dist/index.css",
+    "build": "node scripts/generate-external-reexports.mjs --check && tsdown && pnpm run build:css && node scripts/context-singleton-preflight.mjs",
     "size": "size-limit",
     "size:headline": "node scripts/measure-copilotchat.mjs",
     "size:assert-headless": "node scripts/assert-headless-purity.mjs",
@@ -88,7 +84,6 @@
     "@copilotkit/core": "workspace:*",
     "@copilotkit/markdown-renderer": "workspace:*",
     "@copilotkit/mcp-apps-renderer": "workspace:*",
-    "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkit/web-components": "workspace:*",
     "@copilotkit/web-inspector": "workspace:*",
@@ -101,13 +96,11 @@
     "@tanstack/react-virtual": "^3.14.13",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lit": "^3.3.2",
     "lucide-react": "^0.525.0",
     "recharts": "^3.1.0",
     "rxjs": "7.8.1",
     "tailwind-merge": "^3.3.1",
     "tw-animate-css": "^1.3.5",
-    "untruncate-json": "^0.0.1",
     "use-stick-to-bottom": "^1.1.1",
     "zod-to-json-schema": "^3.24.5"
   },

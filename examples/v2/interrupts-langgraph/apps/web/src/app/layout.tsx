@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import "./globals.css";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-core/styles.css";
 
 export const metadata: Metadata = {
   title: "CopilotKit LangGraph Interrupts Starter",
@@ -18,9 +18,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={"antialiased"}>
-        <CopilotKit runtimeUrl="/api/copilotkit" agent="default">
+        <CopilotKitProvider
+          runtimeUrl="/api/copilotkit"
+          agentId="default"
+          useSingleEndpoint
+        >
           {children}
-        </CopilotKit>
+        </CopilotKitProvider>
       </body>
     </html>
   );

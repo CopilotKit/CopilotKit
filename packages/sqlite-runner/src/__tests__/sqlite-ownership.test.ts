@@ -20,7 +20,7 @@ import {
   CopilotRuntime,
   ThreadAccessDeniedError,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { SqliteAgentRunner } from "..";
 
 type Callbacks = {

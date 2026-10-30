@@ -122,140 +122,122 @@ interface DeprecationSpec {
 
 const HOST_FACTORIES: HostFactorySpec[] = [
   {
-    importPath: "@copilotkit/runtime/v2",
-    entrySource: "packages/runtime/src/v2/index.ts",
+    importPath: "@copilotkit/runtime",
+    entrySource: "packages/runtime/src/index.ts",
     symbol: "createCopilotRuntimeHandler",
-    declarationPath: "packages/runtime/src/v2/runtime/core/fetch-handler.ts",
+    declarationPath: "packages/runtime/src/runtime/core/fetch-handler.ts",
     configurationType: "CopilotRuntimeHandlerOptions",
   },
   {
-    importPath: "@copilotkit/runtime/v2/express",
-    entrySource: "packages/runtime/src/v2/express.ts",
+    importPath: "@copilotkit/runtime/express",
+    entrySource: "packages/runtime/src/express.ts",
     symbol: "createCopilotExpressHandler",
-    declarationPath: "packages/runtime/src/v2/runtime/endpoints/express.ts",
+    declarationPath: "packages/runtime/src/runtime/endpoints/express.ts",
     configurationType: "CopilotExpressEndpointParams",
   },
   {
-    importPath: "@copilotkit/runtime/v2/hono",
-    entrySource: "packages/runtime/src/v2/hono.ts",
+    importPath: "@copilotkit/runtime/hono",
+    entrySource: "packages/runtime/src/hono.ts",
     symbol: "createCopilotHonoHandler",
-    declarationPath: "packages/runtime/src/v2/runtime/endpoints/hono.ts",
+    declarationPath: "packages/runtime/src/runtime/endpoints/hono.ts",
     configurationType: "CopilotEndpointParams",
   },
   {
-    importPath: "@copilotkit/runtime/v2/node",
-    entrySource: "packages/runtime/src/v2/node.ts",
+    importPath: "@copilotkit/runtime/node",
+    entrySource: "packages/runtime/src/node.ts",
     symbol: "createCopilotNodeHandler",
     declarationPath:
-      "packages/runtime/src/v2/runtime/endpoints/node-fetch-handler.ts",
+      "packages/runtime/src/runtime/endpoints/node-fetch-handler.ts",
   },
   {
-    importPath: "@copilotkit/runtime/v2/node",
-    entrySource: "packages/runtime/src/v2/node.ts",
+    importPath: "@copilotkit/runtime/node",
+    entrySource: "packages/runtime/src/node.ts",
     symbol: "createCopilotNodeListener",
-    declarationPath: "packages/runtime/src/v2/runtime/endpoints/node.ts",
+    declarationPath: "packages/runtime/src/runtime/endpoints/node.ts",
     configurationType: "CopilotRuntimeHandlerOptions",
-    configurationPath: "packages/runtime/src/v2/runtime/core/fetch-handler.ts",
+    configurationPath: "packages/runtime/src/runtime/core/fetch-handler.ts",
   },
 ];
 
 const DEPRECATIONS: DeprecationSpec[] = [
-  ...[
-    "LangGraphAgent",
-    "LangGraphHttpAgent",
-    "TextMessageEvents",
-    "ToolCallEvents",
-    "CustomEventNames",
-    "PredictStateTool",
-  ].map((symbol) => ({
-    importPath: "@copilotkit/runtime",
-    entrySource: "packages/runtime/src/index.ts",
-    symbol,
-    declarationPath: "packages/runtime/src/v1-deprecated/lib/index.ts",
-    replacement: {
-      importPath: "@copilotkit/runtime/langgraph",
-      symbol,
-    },
-  })),
   {
-    importPath: "@copilotkit/runtime/v2/express",
-    entrySource: "packages/runtime/src/v2/express.ts",
+    importPath: "@copilotkit/runtime/express",
+    entrySource: "packages/runtime/src/express.ts",
     symbol: "createCopilotEndpointExpress",
-    declarationPath: "packages/runtime/src/v2/runtime/endpoints/express.ts",
+    declarationPath: "packages/runtime/src/runtime/endpoints/express.ts",
     replacement: {
-      importPath: "@copilotkit/runtime/v2/express",
+      importPath: "@copilotkit/runtime/express",
       symbol: "createCopilotExpressHandler",
     },
   },
   {
-    importPath: "@copilotkit/runtime/v2/express",
-    entrySource: "packages/runtime/src/v2/express.ts",
+    importPath: "@copilotkit/runtime/express",
+    entrySource: "packages/runtime/src/express.ts",
     symbol: "createCopilotEndpointSingleRouteExpress",
-    declarationPath:
-      "packages/runtime/src/v2/runtime/endpoints/express-single.ts",
+    declarationPath: "packages/runtime/src/runtime/endpoints/express-single.ts",
     replacement: {
-      importPath: "@copilotkit/runtime/v2/express",
+      importPath: "@copilotkit/runtime/express",
       symbol: "createCopilotExpressHandler",
     },
   },
   {
-    importPath: "@copilotkit/runtime/v2/hono",
-    entrySource: "packages/runtime/src/v2/hono.ts",
+    importPath: "@copilotkit/runtime/hono",
+    entrySource: "packages/runtime/src/hono.ts",
     symbol: "createCopilotEndpoint",
-    declarationPath: "packages/runtime/src/v2/runtime/endpoints/hono.ts",
+    declarationPath: "packages/runtime/src/runtime/endpoints/hono.ts",
     replacement: {
-      importPath: "@copilotkit/runtime/v2/hono",
+      importPath: "@copilotkit/runtime/hono",
       symbol: "createCopilotHonoHandler",
     },
   },
   {
-    importPath: "@copilotkit/runtime/v2/hono",
-    entrySource: "packages/runtime/src/v2/hono.ts",
+    importPath: "@copilotkit/runtime/hono",
+    entrySource: "packages/runtime/src/hono.ts",
     symbol: "createCopilotEndpointSingleRoute",
-    declarationPath: "packages/runtime/src/v2/runtime/endpoints/hono-single.ts",
+    declarationPath: "packages/runtime/src/runtime/endpoints/hono-single.ts",
     replacement: {
-      importPath: "@copilotkit/runtime/v2/hono",
+      importPath: "@copilotkit/runtime/hono",
       symbol: "createCopilotHonoHandler",
     },
   },
   {
-    importPath: "@copilotkit/runtime/v2/node",
-    entrySource: "packages/runtime/src/v2/node.ts",
+    importPath: "@copilotkit/runtime/node",
+    entrySource: "packages/runtime/src/node.ts",
     symbol: "createNodeFetchHandler",
     declarationPath:
-      "packages/runtime/src/v2/runtime/endpoints/node-fetch-handler.ts",
+      "packages/runtime/src/runtime/endpoints/node-fetch-handler.ts",
     replacement: {
-      importPath: "@copilotkit/runtime/v2/node",
+      importPath: "@copilotkit/runtime/node",
       symbol: "createCopilotNodeHandler",
     },
   },
   {
-    importPath: "@copilotkit/runtime/v2",
-    entrySource: "packages/runtime/src/v2/index.ts",
+    importPath: "@copilotkit/runtime",
+    entrySource: "packages/runtime/src/index.ts",
     symbol: "CopilotKitRequestHandler",
-    declarationPath: "packages/runtime/src/v2/runtime/index.ts",
+    declarationPath: "packages/runtime/src/runtime/index.ts",
     replacement: {
-      importPath: "@copilotkit/runtime/v2",
+      importPath: "@copilotkit/runtime",
       symbol: "CopilotRuntimeFetchHandler",
     },
   },
   {
-    importPath: "@copilotkit/runtime/v2",
-    entrySource: "packages/runtime/src/v2/index.ts",
+    importPath: "@copilotkit/runtime",
+    entrySource: "packages/runtime/src/index.ts",
     symbol: "BasicAgent",
     declarationPath: "packages/runtime/src/agent/index.ts",
     replacement: {
-      importPath: "@copilotkit/runtime/v2",
+      importPath: "@copilotkit/runtime",
       symbol: "BuiltInAgent",
     },
   },
   {
-    importPath: "@copilotkit/runtime/v2",
-    entrySource: "packages/runtime/src/v2/index.ts",
+    importPath: "@copilotkit/runtime",
+    entrySource: "packages/runtime/src/index.ts",
     symbol: "BasicAgentConfiguration",
     declarationPath: "packages/runtime/src/agent/index.ts",
     replacement: {
-      importPath: "@copilotkit/runtime/v2",
+      importPath: "@copilotkit/runtime",
       symbol: "BuiltInAgentClassicConfig",
     },
   },
@@ -545,151 +527,13 @@ function hostFactories(root: string): SourceApiEntry[] {
   });
 }
 
-function exportedAdapterModules(root: string): string[] {
-  const path = "packages/runtime/src/v1-deprecated/service-adapters/index.ts";
-  const file = sourceFile(root, path);
-  return file.statements.flatMap((statement) => {
-    if (
-      !ts.isExportDeclaration(statement) ||
-      statement.exportClause ||
-      !statement.moduleSpecifier
-    ) {
-      return [];
-    }
-    const specifier = (statement.moduleSpecifier as ts.StringLiteral).text;
-    return specifier === "./shared"
-      ? []
-      : [resolveModule(root, path, specifier)];
-  });
-}
-
-function constructorConfiguration(
-  root: string,
-  path: string,
-  node: ts.ClassDeclaration,
-): { type?: string; keys: string[] } {
-  const constructors = node.members.filter(ts.isConstructorDeclaration);
-  if (constructors.length === 0) return { keys: [] };
-  if (constructors.length !== 1 || constructors[0].parameters.length > 1) {
-    throw new Error(
-      `${node.name?.text ?? "adapter"} in ${path} has an ambiguous constructor`,
-    );
-  }
-  const parameter = constructors[0].parameters[0];
-  if (!parameter) return { keys: [] };
-  if (!parameter.type || !ts.isTypeReferenceNode(parameter.type)) {
-    throw new Error(
-      `${node.name?.text ?? "adapter"} in ${path} has an unsupported constructor type`,
-    );
-  }
-  const typeName = parameter.type.typeName.getText();
-  return { type: typeName, keys: configurationKeys(root, path, typeName) };
-}
-
-function serviceAdapters(root: string): SourceApiEntry[] {
-  const importPath = "@copilotkit/runtime";
-  const importProvenance = assertRuntimeImportPath(root, importPath);
-  const adapters = exportedAdapterModules(root).flatMap((path) => {
-    const file = sourceFile(root, path);
-    const classes = new Map(
-      file.statements.flatMap((statement) =>
-        ts.isClassDeclaration(statement) &&
-        statement.name?.text.endsWith("Adapter")
-          ? [[statement.name.text, statement] as const]
-          : [],
-      ),
-    );
-    const symbols = file.statements.flatMap((statement) => {
-      if (
-        ts.isClassDeclaration(statement) &&
-        statement.name?.text.endsWith("Adapter") &&
-        hasExportModifier(statement)
-      ) {
-        return [
-          {
-            symbol: statement.name.text,
-            implementation: statement,
-            selector: `export class ${statement.name.text}`,
-          },
-        ];
-      }
-      if (!ts.isVariableStatement(statement) || !hasExportModifier(statement)) {
-        return [];
-      }
-      return statement.declarationList.declarations.flatMap((declaration) => {
-        if (
-          !ts.isIdentifier(declaration.name) ||
-          !declaration.name.text.endsWith("Adapter") ||
-          !declaration.initializer ||
-          !ts.isIdentifier(declaration.initializer)
-        ) {
-          return [];
-        }
-        const implementation = classes.get(declaration.initializer.text);
-        if (!implementation) {
-          throw new Error(
-            `${declaration.name.text} in ${path} aliases an unknown adapter class`,
-          );
-        }
-        return [
-          {
-            symbol: declaration.name.text,
-            implementation,
-            selector: `export const ${declaration.name.text}`,
-          },
-        ];
-      });
-    });
-    return symbols.map(({ symbol, implementation, selector }) => {
-      requireExport(root, "packages/runtime/src/index.ts", symbol);
-      const configuration = constructorConfiguration(
-        root,
-        path,
-        implementation,
-      );
-      const symbolProvenance = provenance("typescript-ast", path, selector);
-      return {
-        importPath,
-        symbol,
-        ...(configuration.type
-          ? { configurationType: configuration.type }
-          : {}),
-        configurationKeys: configuration.keys,
-        provenance: {
-          importPath: importProvenance,
-          symbol: symbolProvenance,
-          ...(configuration.type
-            ? {
-                configurationType: provenance(
-                  "typescript-ast",
-                  path,
-                  `constructor parameter ${configuration.type}`,
-                ),
-              }
-            : {}),
-          configurationKeys: provenance(
-            "typescript-ast",
-            path,
-            configuration.type
-              ? `interface ${configuration.type} public properties`
-              : `class ${implementation.name?.text} has no constructor configuration`,
-          ),
-        },
-      } satisfies SourceApiEntry;
-    });
-  });
-  return adapters.sort((left, right) =>
-    left.symbol.localeCompare(right.symbol),
-  );
-}
-
 function agentFactoryModes(
   root: string,
 ): PublicApiManifest["runtime"]["agentFactoryModes"] {
   const path = "packages/runtime/src/agent/index.ts";
   requireExport(
     root,
-    "packages/runtime/src/v2/index.ts",
+    "packages/runtime/src/index.ts",
     "BuiltInAgentFactoryConfig",
   );
   const union = findNamedDeclaration(root, path, "BuiltInAgentFactoryConfig");
@@ -955,7 +799,8 @@ export function buildPublicApiManifest(root: string): PublicApiManifest {
     },
     packages: publicPackages(root),
     runtime: {
-      serviceAdapters: serviceAdapters(root),
+      // 2.0 has no service adapters: a model runs inside an agent.
+      serviceAdapters: [],
       hostFactories: hostFactories(root),
       agentFactoryModes: agentFactoryModes(root),
     },

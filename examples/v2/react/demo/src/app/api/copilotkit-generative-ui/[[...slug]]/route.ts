@@ -3,8 +3,8 @@ import {
   CopilotRuntime,
   InMemoryAgentRunner,
   createCopilotEndpoint,
-} from "@copilotkit/runtime/v2";
-import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
+import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime";
 import { createOpenAI } from "@ai-sdk/openai";
 import { handle } from "hono/vercel";
 import { PRODUCTS } from "../../../generative-ui/products";

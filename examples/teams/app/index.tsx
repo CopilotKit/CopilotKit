@@ -36,8 +36,8 @@ import {
   CopilotSseRuntime,
   CopilotRuntime,
   CopilotKitIntelligence,
-} from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+} from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 import { z } from "zod";
 import { hitlTools } from "./human-in-the-loop/index.js";
 import { renderChartTool } from "./tools/render-chart.js";

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
-import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { createCopilotHonoHandler } from "@copilotkit/runtime/hono";
 
 const runtime = new CopilotRuntime({
   agents: {

@@ -71,12 +71,12 @@ import {
 } from "./converters/usage";
 import type { AgentRunFinishedDetails } from "./converters/usage";
 import { createStateEventNormalizer } from "./state-delta";
-import { describeEndpoint } from "../v1-deprecated/lib/runtime/mcp-client-cache";
+import { describeEndpoint } from "../runtime/handlers/shared/describe-endpoint";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { randomUUID } from "@copilotkit/shared";
 
-import { SkillRegistry } from "../v2/runtime/intelligence-platform/skill-registry";
+import { SkillRegistry } from "../runtime/intelligence-platform/skill-registry";
 import {
   prepareLearnedSkills,
   assertNoSkillToolConflicts,
@@ -1060,7 +1060,7 @@ export type BuiltInAgentFactoryContext = AgentFactoryContext;
  *
  * You own the `streamText()` call, so you also own its URL downloads. Pass
  * `experimental_download: createSafeUrlDownload({ signal: ctx.abortSignal })`
- * (imported from `@copilotkit/runtime/v2`) to keep the server from fetching
+ * (imported from `@copilotkit/runtime`) to keep the server from fetching
  * internal addresses named in request attachments, and to stop the downloads
  * when the run is aborted. BuiltInAgent's `urlDownload` setting does not apply
  * here: setting it in factory mode throws when the agent is constructed.
@@ -1313,7 +1313,7 @@ export class BuiltInAgent extends AbstractAgent {
       throw new Error(
         "BuiltInAgent: urlDownload has no effect in factory mode. Pass " +
           "experimental_download: createSafeUrlDownload({ signal: ctx.abortSignal }) " +
-          "(from @copilotkit/runtime/v2) to your own streamText() call instead.",
+          "(from @copilotkit/runtime) to your own streamText() call instead.",
       );
     }
     this.skillRegistry =

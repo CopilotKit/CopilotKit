@@ -19,7 +19,7 @@
  * import { CopilotKitProvider, useAgent, useFrontendTool } from "@copilotkit/react-native/headless";
  * ```
  *
- * Mirrors `@copilotkit/react-core/v2/headless` (issue #4893 / PR #5883), which
+ * Mirrors `@copilotkit/react-core/headless` (issue #4893 / PR #5883), which
  * this entry builds on. The default barrel re-exports everything here plus the
  * chat UI, so existing imports from `@copilotkit/react-native` are unchanged.
  */
@@ -30,7 +30,7 @@ import "./polyfills";
 
 // Type-only, so both are erased and neither can run before the polyfills above.
 import type React from "react";
-import type { ReactToolCallRenderer } from "@copilotkit/react-core/v2/headless";
+import type { ReactToolCallRenderer } from "@copilotkit/react-core/headless";
 
 // React Native provider (no web deps, no bottom-sheet, no expo native modules)
 export { CopilotKitProvider } from "./CopilotKitProvider";
@@ -45,7 +45,7 @@ export {
   useLicenseContext,
   CopilotKitContext,
   type CopilotKitContextValue,
-} from "@copilotkit/react-core/v2/context";
+} from "@copilotkit/react-core/context";
 
 // Re-export hooks that work without web deps
 // These consume the CopilotKitContext which our provider sets
@@ -86,7 +86,7 @@ export {
   type RenderToolInProgressProps,
   type RenderToolExecutingProps,
   type RenderToolCompleteProps,
-} from "@copilotkit/react-core/v2/headless";
+} from "@copilotkit/react-core/headless";
 
 // Re-export core runtime ENUMS as values. Each of these is `export enum` in
 // @copilotkit/core, and each is the type of a prop or field a consumer has to
@@ -136,15 +136,15 @@ export type {
 // both names and fails the build if any module in this entry's graph grows a
 // registry. Contract and migration notes:
 // /reference/react-native/hooks/useRenderTool.
-export { useRenderTool } from "@copilotkit/react-core/v2/headless";
-export type { RenderToolProps } from "@copilotkit/react-core/v2/headless";
+export { useRenderTool } from "@copilotkit/react-core/headless";
+export type { RenderToolProps } from "@copilotkit/react-core/headless";
 
 // Render tool consumption. react-core's hook is platform-agnostic — it pulls no
 // DOM and no chat-UI stack, and it returns ReactElement | null, which is exactly
 // what FlatList's renderItem requires. Use it to render a registered component
 // on any surface, chat or not.
-export { useRenderToolCall } from "@copilotkit/react-core/v2/headless";
-export type { ReactToolCallRenderer } from "@copilotkit/react-core/v2/headless";
+export { useRenderToolCall } from "@copilotkit/react-core/headless";
+export type { ReactToolCallRenderer } from "@copilotkit/react-core/headless";
 
 /**
  * A tool-call render function whose return type is narrowed to React Native's

@@ -29,9 +29,9 @@ import express from "express";
 import {
   createCopilotExpressHandler,
   createCopilotEndpointSingleRouteExpress,
-} from "@copilotkit/runtime/v2/express";
-import type { CopilotExpressRouter } from "@copilotkit/runtime/v2/express";
-import type { CopilotRuntime } from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime/express";
+import type { CopilotExpressRouter } from "@copilotkit/runtime/express";
+import type { CopilotRuntime } from "@copilotkit/runtime";
 
 declare const runtime: CopilotRuntime;
 

@@ -5,7 +5,7 @@
  * Why real, not mocked: `CopilotChat` renders tool calls via react-core's
  * `useRenderToolCall`, which reads the renderer registry off the live
  * `CopilotKitCoreReact` instance and derives streaming status/args in core.
- * Mocking `@copilotkit/react-core/v2/headless` (as the sibling chat tests do)
+ * Mocking `@copilotkit/react-core/headless` (as the sibling chat tests do)
  * would stub the very thing under test. Driving a real core exercises the
  * production path end-to-end.
  *
@@ -25,8 +25,8 @@ import {
   CopilotKitContext,
   CopilotKitCoreReact,
   EMPTY_SET,
-} from "@copilotkit/react-core/v2/context";
-import type { CopilotKitContextValue } from "@copilotkit/react-core/v2/context";
+} from "@copilotkit/react-core/context";
+import type { CopilotKitContextValue } from "@copilotkit/react-core/context";
 
 /**
  * Minimal agent: only holds seeded `messages` for the chat to read. `run()` is

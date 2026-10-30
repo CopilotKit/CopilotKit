@@ -10,8 +10,8 @@ import {
   Check,
   GitCompare,
 } from "lucide-react";
-import { useAgentContext } from "@copilotkit/react-core/v2";
-import { GenerativeUISurface } from "@copilotkit/react-core/v2/generative-ui";
+import { useAgentContext } from "@copilotkit/react-core";
+import { GenerativeUISurface } from "@copilotkit/react-core/generative-ui";
 import { useState } from "react";
 import { Link } from "react-router";
 import { ProductCard } from "#app/components/product-card.js";

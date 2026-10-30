@@ -10,7 +10,7 @@ import type { AIMessage } from "@langchain/core/messages";
 import { SystemMessage, ToolMessage } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js/langgraph";
+import { withPredictedState } from "./agui-events";
 
 const Search = tool(() => {}, {
   name: "Search",
@@ -38,21 +38,18 @@ const DeleteResources = tool(() => {}, {
 });
 
 export async function chat_node(state: AgentState, config: RunnableConfig) {
-  const customConfig = copilotkitCustomizeConfig(config, {
-    emitIntermediateState: [
-      {
-        stateKey: "report",
-        tool: "WriteReport",
-        toolArgument: "report",
-      },
-      {
-        stateKey: "research_question",
-        tool: "WriteResearchQuestion",
-        toolArgument: "research_question",
-      },
-    ],
-    emitToolCalls: "DeleteResources",
-  });
+  const customConfig = withPredictedState(config, [
+    {
+      stateKey: "report",
+      tool: "WriteReport",
+      toolArgument: "report",
+    },
+    {
+      stateKey: "research_question",
+      tool: "WriteResearchQuestion",
+      toolArgument: "research_question",
+    },
+  ]);
 
   state["resources"] = state.resources || [];
   const researchQuestion = state.research_question || "";

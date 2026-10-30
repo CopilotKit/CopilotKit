@@ -168,7 +168,7 @@ events and supports both single-event and batched gateway acknowledgments.
 ## BuiltInAgent skill delivery from multiple containers
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime";
 
 const agent = new BuiltInAgent({
   model: "openai/gpt-4o",

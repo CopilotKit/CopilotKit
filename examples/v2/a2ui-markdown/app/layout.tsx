@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google";
-import "@copilotkit/react-core/v2/styles.css";
+import "@copilotkit/react-core/styles.css";
 import "./globals.css";
 
 const sans = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-sans" });

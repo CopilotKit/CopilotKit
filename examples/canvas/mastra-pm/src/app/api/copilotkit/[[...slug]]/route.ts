@@ -1,7 +1,7 @@
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { createLocalAgents } from "@/agent";
 
 const runtime = new CopilotRuntime({ agents: createLocalAgents() });

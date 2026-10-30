@@ -34,7 +34,7 @@ vi.mock("./chat-message", () => ({
   UserMessage: () => null,
 }));
 
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   CopilotChat: (props: Record<string, unknown>): ReactNode => {
     chatProps.calls.push(props);
     return null;

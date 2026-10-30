@@ -5,7 +5,7 @@ import { motion } from "motion/react";
 import { useState } from "react";
 import Image from "next/image";
 
-import { ToolCallStatus } from "@copilotkit/react-core/v2";
+import { ToolCallStatus } from "@copilotkit/react-core";
 
 interface ShowCarProps {
   car: Car;

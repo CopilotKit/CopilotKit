@@ -4,8 +4,8 @@ import { z } from "zod";
 import {
   createGenerativeUI,
   standardUI,
-} from "@copilotkit/react-core/v2/generative-ui";
-import type { GenerativeUIComponentProps } from "@copilotkit/react-core/v2/generative-ui";
+} from "@copilotkit/react-core/generative-ui";
+import type { GenerativeUIComponentProps } from "@copilotkit/react-core/generative-ui";
 import { ProductCard } from "#app/components/product-card.tsx";
 import { useCart } from "#app/contexts/cart.tsx";
 

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
-import { CopilotChatInput } from "@copilotkit/react-core/v2";
-import type { ToolsMenuItem } from "@copilotkit/react-core/v2";
+import { CopilotChatInput } from "@copilotkit/react-core";
+import type { ToolsMenuItem } from "@copilotkit/react-core";
 import { withFakeMicrophone } from "./support/fake-microphone";
 import { withCenteredStage } from "./support/layouts";
 

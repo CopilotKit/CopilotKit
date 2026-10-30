@@ -27,7 +27,7 @@ export type AnalyticsEvents = {
 
 /**
  * Kept identical to the v2 runtime's catalog in
- * `packages/runtime/src/v2/runtime/telemetry/events.ts`. The v1 entrypoint
+ * `packages/runtime/src/runtime/telemetry/events.ts`. The v1 entrypoint
  * hands its capture scope to the V2 runtime it builds, so that scope has to
  * accept every event the V2 runtime can send, channel events included.
  */

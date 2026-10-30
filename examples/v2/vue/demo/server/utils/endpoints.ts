@@ -1,7 +1,7 @@
 import {
   createCopilotEndpoint,
   createCopilotEndpointSingleRoute,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import {
   createCatalogOnlyRuntime,
   createDefaultRuntime,

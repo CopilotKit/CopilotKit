@@ -3,7 +3,7 @@ import { PlaceCard } from "@/components/PlaceCard";
 import { X, Save } from "lucide-react";
 import { ActionButtons } from "./ActionButtons";
 import type { PlaceSelectionsByTrip } from "./ActionButtons";
-import type { ToolCallStatus } from "@copilotkit/react-core/v2";
+import type { ToolCallStatus } from "@copilotkit/react-core";
 import { useState } from "react";
 
 export type EditTripsProps = {

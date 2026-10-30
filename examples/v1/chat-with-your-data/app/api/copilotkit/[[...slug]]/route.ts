@@ -5,7 +5,7 @@ import {
   createCopilotRuntimeHandler,
   defineTool,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { z } from "zod";
 import { prompt } from "../../../../lib/prompt";
 

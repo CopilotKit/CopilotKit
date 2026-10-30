@@ -2,7 +2,7 @@ import {
   CopilotRuntime,
   InMemoryAgentRunner,
   createCopilotEndpointSingleRoute,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { handle } from "hono/vercel";
 import { ScriptedDealAgent } from "@/lib/scripted-deal-agent";
 

@@ -11,7 +11,7 @@ async function exercise() {
   const require = createRequire(join(input.consumer, "package.json"));
   const entry = join(
     input.consumer,
-    "node_modules/@copilotkit/runtime/dist/v2/index.mjs",
+    "node_modules/@copilotkit/runtime/dist/index.mjs",
   );
   const {
     BuiltInAgent,

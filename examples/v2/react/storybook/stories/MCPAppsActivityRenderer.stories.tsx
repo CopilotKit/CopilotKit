@@ -3,8 +3,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import {
   MCPAppsActivityRenderer,
   MCPAppsActivityType,
-} from "@copilotkit/react-core/v2";
-import type { MCPAppsActivityContent } from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
+import type { MCPAppsActivityContent } from "@copilotkit/react-core";
 import { withMessageColumn } from "./support/layouts";
 import { StoryAgent } from "./support/story-agent";
 import type { StoryAgentOptions } from "./support/story-agent";

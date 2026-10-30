@@ -1,12 +1,12 @@
-// Generates src/v2/external-reexports.ts: the explicit named re-export list for
-// the two external packages the v2 entry republishes.
+// Generates src/external-reexports.ts: the explicit named re-export list for
+// the two external packages the root entry republishes.
 //
 // Why this exists, rather than `export * from "@copilotkit/core"`:
-// `src/v2/index.ts` is a `"use client"` module. A bundler that builds the
+// `src/index.ts` is a `"use client"` module. A bundler that builds the
 // React server/client boundary has to enumerate a client module's exports one
 // by one. It can flatten a star re-export of an *internal* module, because that
 // module is in the graph, but `@copilotkit/core` and `@ag-ui/client` are
-// external, so their stars survive into `dist/v2/index.mjs` and Next.js refuses
+// external, so their stars survive into `dist/index.mjs` and Next.js refuses
 // the module with:
 //
 //   It's currently unsupported to use "export *" in a client boundary.
@@ -26,12 +26,12 @@ const packageDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
-const entryFile = path.join(packageDir, "src/v2/index.ts");
-const outputFile = path.join(packageDir, "src/v2/external-reexports.ts");
+const entryFile = path.join(packageDir, "src/index.ts");
+const outputFile = path.join(packageDir, "src/external-reexports.ts");
 const outputSpecifier = "./external-reexports";
 
 /**
- * The packages whose surface the v2 entry republishes wholesale. Order matters:
+ * The packages whose surface the root entry republishes wholesale. Order matters:
  * it is the order the star re-exports appeared in, and it decides nothing else,
  * because a name exported by both packages is dropped (see `ambiguous` below).
  */
@@ -239,7 +239,7 @@ const renderList = (keyword, names, specifier) =>
 let output = `// GENERATED FILE — DO NOT EDIT BY HAND.
 // Regenerate with: pnpm --filter @copilotkit/react-core generate:external-reexports
 //
-// The v2 entry is a "use client" module, and a client module's exports have to
+// The root entry is a "use client" module, and a client module's exports have to
 // be enumerable for the React server/client boundary to build. A star
 // re-export of an external package is not, so the names are listed here
 // instead. See scripts/generate-external-reexports.mjs.

@@ -6,7 +6,7 @@ import {
   CopilotKitProvider,
   CopilotSidebar,
   CopilotPopup,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { useMediaQuery } from "@/hooks/use-media-query";
 // Mode-specific wrappers with their own CopilotKitProvider configurations
 import { A2UIPage } from "./components/A2UIPage";
@@ -19,7 +19,7 @@ import { OpenGenUICard } from "./components/protocol-cards/OpenGenUICard";
 import { ComparisonTable } from "./components/ComparisonTable";
 import { PromptPill } from "./components/PromptPill";
 import { useSendMessage } from "./hooks/useSendMessage";
-import "@copilotkit/react-core/v2/styles.css";
+import "@copilotkit/react-core/styles.css";
 
 // Shared page content component - rendered inside either provider
 function PageContent({

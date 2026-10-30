@@ -71,13 +71,8 @@ examples/showcases/spreadsheet/next.config.mjs
 examples/showcases/strands-crm/frontend/next.config.ts
 examples/showcases/strands-file-analyzer/next.config.ts
 examples/showcases/todo/next.config.mjs
-examples/v1/_legacy/copilot-anthropic-pinecone/next.config.mjs
-examples/v1/_legacy/copilot-openai-mongodb-atlas-vector-search/next.config.mjs
-examples/v1/_legacy/saas-dynamic-dashboards/frontend/next.config.mjs
 examples/v1/chat-with-your-data/next.config.ts
 examples/v1/form-filling/next.config.ts
-examples/v1/next-openai/next.config.js
-examples/v1/next-pages-router/next.config.mjs
 examples/v1/research-canvas/next.config.mjs
 examples/v1/state-machine/next.config.mjs
 examples/v1/travel/next.config.mjs
@@ -101,9 +96,6 @@ packages/markdown-renderer/tsdown.config.ts
 packages/mcp-apps-renderer/tsdown.config.ts
 packages/react-core/tsdown.config.ts
 packages/react-native/tsdown.config.ts
-packages/react-textarea/tsdown.config.ts
-packages/react-ui/tsdown.config.ts
-packages/runtime-client-gql/tsdown.config.ts
 packages/runtime/tsdown.config.ts
 packages/sdk-js/tsdown.config.ts
 packages/shared/tsdown.config.ts

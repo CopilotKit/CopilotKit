@@ -1,6 +1,6 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { CopilotChat, CopilotThreadsDrawer } from "@copilotkit/react-core/v2";
+import { CopilotChat, CopilotThreadsDrawer } from "@copilotkit/react-core";
 import { reactHooksConversation } from "./support/fixtures";
 import {
   pinnedError,

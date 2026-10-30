@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import "@copilotkit/react-core/v2/styles.css";
+import "@copilotkit/react-core/styles.css";
 import "../styles/globals.css";
 
 export const metadata = {

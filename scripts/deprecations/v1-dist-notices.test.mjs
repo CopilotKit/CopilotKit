@@ -11,27 +11,21 @@ import {
 } from "./v1-public-api.mjs";
 
 const inventory = getV1PublicApi();
-const suggestions = inventory.inventories
-  .find(({ entrypoint }) => entrypoint.id === "react-core")
-  .exports.find((item) => item.name === "useCopilotChatSuggestions");
+const emitState = inventory.inventories
+  .find(({ entrypoint }) => entrypoint.id === "sdk-js-langchain")
+  .exports.find((item) => item.name === "copilotKitEmitState");
 
-test("built declarations retain a copyable import-and-use deprecation example", () => {
+test("built declarations retain the deprecation notice", () => {
   const source = [
-    "declare function useCopilotChatSuggestions(): void;",
-    "export { useCopilotChatSuggestions };",
+    "declare function copilotKitEmitState(): void;",
+    "export { copilotKitEmitState };",
     "",
   ].join("\n");
-  const annotated = annotateDeclarationText(source, [suggestions]);
+  const annotated = annotateDeclarationText(source, [emitState]);
 
-  assert.ok(annotated.includes(renderDeprecationJsDoc(suggestions)));
-  assert.match(annotated, /Import and usage example:/);
-  assert.match(
-    annotated,
-    /import \{ useConfigureSuggestions \} from "@copilotkit\/react-core\/v2";/,
-  );
-  assert.match(annotated, /useConfigureSuggestions\(\{/);
+  assert.ok(annotated.includes(renderDeprecationJsDoc(emitState)));
   assert.equal(
-    annotateDeclarationText(annotated, [suggestions]),
+    annotateDeclarationText(annotated, [emitState]),
     annotated,
     "annotation must be idempotent",
   );
@@ -53,21 +47,17 @@ test("built declarations retain a copyable import-and-use deprecation example", 
   const sourceFile = program.getSourceFile("index.d.mts");
   const symbol = checker
     .getExportsOfModule(sourceFile.symbol)
-    .find((candidate) => candidate.name === suggestions.name);
+    .find((candidate) => candidate.name === emitState.name);
   const tag = symbol
     .getJsDocTags(checker)
     .find((candidate) => candidate.name === "deprecated");
   const warning = tag.text.map((part) => part.text).join("");
-  assert.match(warning, /Import and usage example:/);
-  assert.match(warning, /useConfigureSuggestions\(\{/);
+  assert.match(warning, /No 1:1 v2 replacement is available\./);
+  assert.match(warning, /Migration guide: /);
 });
 
 test("every v1 package build runs the declaration warning postprocessor", () => {
   const expected = new Map([
-    ["packages/react-core/package.json", "--entrypoint react-core"],
-    ["packages/react-ui/package.json", "--entrypoint react-ui"],
-    ["packages/react-textarea/package.json", "--entrypoint react-textarea"],
-    ["packages/runtime/package.json", "--entrypoint runtime,runtime-langgraph"],
     [
       "packages/sdk-js/package.json",
       "--entrypoint sdk-js,sdk-js-langchain,sdk-js-langgraph-middlewares",

@@ -1,0 +1,27 @@
+schema_version: "1.0"
+
+name: "@copilotkit/v2-migration"
+version: "0.1.0"
+description: "Migrate a CopilotKit app from v1 to 2.0: import paths, the provider, and TODOs for everything else"
+author: "CopilotKit <hello@copilotkit.ai>"
+license: "MIT"
+repository: "https://github.com/CopilotKit/CopilotKit"
+
+targets:
+  # Keep this aligned with the files matched in workflow.yaml.
+  languages: ["typescript", "tsx"]
+
+category: "migration"
+
+keywords: ["migration", "copilotkit", "react", "v2"]
+
+registry:
+  access: "public"
+  visibility: "public"
+
+capabilities: []
+
+workflows:
+  - name: main
+    default: true
+    path: workflow.yaml
