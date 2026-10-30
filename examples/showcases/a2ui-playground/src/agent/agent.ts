@@ -433,6 +433,8 @@ async function run(input: RunAgentInput, signal: AbortSignal, q: EventQueue) {
         template: surface.template,
       });
     } catch (err) {
+      // A stopped run ends quietly (the factory ignores aborted runs) instead of drawing an error card.
+      if (signal.aborted) throw err;
       const message = err instanceof Error ? err.message : String(err);
       q.push({
         type: EventType.TOOL_CALL_RESULT,
@@ -494,6 +496,8 @@ async function run(input: RunAgentInput, signal: AbortSignal, q: EventQueue) {
         try {
           result = await spec.fetch!(c.parsed, signal);
         } catch (err) {
+          // Stop is not a data error for the composer to explain.
+          if (signal.aborted) throw err;
           result = { error: err instanceof Error ? err.message : String(err) };
         }
         fetched[`${c.name}:${JSON.stringify(c.parsed)}`] = result;

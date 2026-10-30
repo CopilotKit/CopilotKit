@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { copyText } from "@/lib/copy-text";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ export function CopyButton({
   className?: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const reset = useRef<ReturnType<typeof setTimeout>>(undefined);
   return (
     <button
       type="button"
@@ -25,7 +26,9 @@ export function CopyButton({
         void copyText(text).then((ok) => {
           setCopied(ok);
           if (!ok) return;
-          setTimeout(() => setCopied(false), 1400);
+          // A second copy restarts the window instead of being cut short by the first one's timer.
+          clearTimeout(reset.current);
+          reset.current = setTimeout(() => setCopied(false), 1400);
         });
       }}
       className={cn(
