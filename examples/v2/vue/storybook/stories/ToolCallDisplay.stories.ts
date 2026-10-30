@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { defineComponent, h } from "vue";
+import { defineComponent, h, ref, watch } from "vue";
 import type { PropType } from "vue";
 import type { Message } from "@ag-ui/core";
 import {
@@ -135,7 +135,12 @@ function messagesAfter(count: number, running: boolean): Message[] {
   return messages;
 }
 
-type Playback = "finished" | "running";
+/**
+ * `finished`: the whole run, as a restored thread shows it. `running`: stopped
+ * in the middle of the second burst of calls. `live`: plays the run on a
+ * clock, one call or result every 600ms.
+ */
+type Playback = "finished" | "running" | "live";
 
 /** Registers the built-in tool card, which groups, and renders the view. */
 const ToolCallDisplayView = defineComponent({
@@ -149,14 +154,37 @@ const ToolCallDisplayView = defineComponent({
   },
   setup(props) {
     useDefaultRenderTool();
+    // Live: the question alone first, so the view sees the reply start (and
+    // can time it). Then each step shows, and a call's result arrives.
+    const ticks = steps.length * 2 + 1;
+    const tick = ref(0);
+    watch(
+      () => props.playback,
+      (playback, _previous, onCleanup) => {
+        tick.value = 0;
+        if (playback !== "live") return;
+        const timer = setInterval(() => {
+          tick.value++;
+          if (tick.value >= ticks) clearInterval(timer);
+        }, 600);
+        onCleanup(() => clearInterval(timer));
+      },
+      { immediate: true },
+    );
+    const playing = () =>
+      props.playback === "running" ||
+      (props.playback === "live" && tick.value < ticks);
+    const messages = () => {
+      if (props.playback === "running") return messagesAfter(7, true);
+      if (!playing()) return messagesAfter(steps.length, false);
+      if (tick.value === 0) return messagesAfter(0, false);
+      const step = tick.value - 1;
+      return messagesAfter(Math.floor(step / 2) + 1, step % 2 === 0);
+    };
     return () =>
       h(CopilotChatMessageView, {
-        // Running: stop in the middle of the second burst of calls.
-        messages:
-          props.playback === "running"
-            ? messagesAfter(7, true)
-            : messagesAfter(steps.length, false),
-        isRunning: props.playback === "running",
+        messages: messages(),
+        isRunning: playing(),
         toolCallDisplay: props.toolCallDisplay,
       });
   },
@@ -173,7 +201,9 @@ const ToolCallDisplayDemo = defineComponent({
   },
   setup(props) {
     return () =>
-      h(CopilotKitProvider, null, () =>
+      // No Inspector, as in React's storybook: its toolbar shortcut would add
+      // a toolbar to every tool-call message.
+      h(CopilotKitProvider, { enableInspector: false }, () =>
         h(
           CopilotChatConfigurationProvider,
           { threadId: "tool-call-display" },
@@ -198,7 +228,7 @@ const ToolCallDisplayDemo = defineComponent({
 /**
  * `toolCallDisplay` on `CopilotChatMessageView` (and on `CopilotChat`,
  * `CopilotPopup` and `CopilotSidebar`) decides how tool calls show. Calls
- * drawn by the built-in card group up. The `"turn"` display is React-only.
+ * drawn by the built-in card group up.
  */
 const meta = {
   title: "UI/Tool call display",
@@ -208,9 +238,12 @@ const meta = {
   argTypes: {
     toolCallDisplay: {
       control: "inline-radio",
-      options: ["grouped", "line", "stacked", "separate"],
+      options: ["grouped", "line", "stacked", "turn", "separate"],
     },
-    playback: { control: "inline-radio", options: ["finished", "running"] },
+    playback: {
+      control: "inline-radio",
+      options: ["finished", "running", "live"],
+    },
   },
 } satisfies Meta<typeof ToolCallDisplayDemo>;
 
@@ -225,6 +258,23 @@ export const Line: Story = { args: { toolCallDisplay: "line" } };
 
 /** The latest call on top of a stack of the earlier ones; click to fan it out. */
 export const Stacked: Story = { args: { toolCallDisplay: "stacked" } };
+
+/**
+ * The agent works in the open, then everything before the reply folds into
+ * "Worked for 9s". A restored thread (`playback: finished`) shows the tool
+ * count, since how long it took is only known to a client that watched.
+ */
+export const Turn: Story = { args: { toolCallDisplay: "turn" } };
+
+/** The `"turn"` display while the agent works: "Working 4s" above the work. */
+export const TurnWorking: Story = {
+  args: { toolCallDisplay: "turn", playback: "running" },
+};
+
+/** The `"turn"` display played on a clock, ending in "Worked for 9s". */
+export const TurnLive: Story = {
+  args: { toolCallDisplay: "turn", playback: "live" },
+};
 
 /** Every call its own card, as before grouping. */
 export const Separate: Story = { args: { toolCallDisplay: "separate" } };

@@ -323,9 +323,8 @@ When this component renders inside `CopilotChatMessageView` under a `CopilotChat
 `thumbs-up` and `thumbs-down` are emitted when a rating is given, not when it is removed. The placeholder and send button of the comment field use the `assistantMessageFeedbackCommentPlaceholder` and `assistantMessageFeedbackCommentSubmitLabel` labels. Set `:message-feedback="false"` on `CopilotChatMessageView` to leave the thumbs to your own listeners.
 
 <Callout type="info">
-  The Vue `CopilotKitProvider` has no `learning` prop. Capture runs when the
-  Core from `useCopilotKit()` has a Learning config (`setLearningConfig()`) and
-  a started Trajectory (`startTrajectory()`).
+  To start capture, set the [`learning`](/reference/vue/components/CopilotKitProvider#learning)
+  prop on `CopilotKitProvider`.
 </Callout>
 
 ## Inspector button

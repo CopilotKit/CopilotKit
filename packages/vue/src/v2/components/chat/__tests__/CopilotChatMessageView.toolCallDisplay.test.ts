@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
 import type { Ref } from "vue";
 import { fireEvent, render, screen, within } from "@testing-library/vue";
@@ -14,11 +14,11 @@ import CopilotChatToolCallsView from "../CopilotChatToolCallsView.vue";
 import {
   getToolCallLayouts,
   getToolCallRendererNames,
+  getTurnWork,
 } from "../tool-call-layout";
 import type { CopilotChatToolCallDisplay } from "../tool-call-layout";
 
-// Ported from React's CopilotChatMessageView.toolCallDisplay tests. The
-// "turn" display is not in Vue, so its tests are left out.
+// Ported from React's CopilotChatMessageView.toolCallDisplay tests.
 
 const question: Message = { id: "u1", role: "user", content: "Why?" };
 
@@ -160,6 +160,23 @@ describe("getToolCallLayouts", () => {
     const signature = (messages: Message[]) =>
       getToolCallLayouts(messages, messages, names).get("m-a")!.signature;
     expect(signature(after)).not.toBe(signature(before));
+  });
+});
+
+describe("getTurnWork", () => {
+  it("treats everything up to the last call as work, and the rest as the reply", () => {
+    const messages = [
+      question,
+      say("t1", "Looking."),
+      callMessage("a"),
+      result("a"),
+      say("t2", "The answer."),
+    ];
+    const layouts = getToolCallLayouts(messages, messages, names);
+    const turn = getTurnWork(messages, layouts).get("u1")!;
+    expect([...turn.workMessageIds]).toEqual(["t1", "m-a"]);
+    expect(turn.firstMessageId).toBe("t1");
+    expect(turn.calls).toHaveLength(1);
   });
 });
 
@@ -363,6 +380,99 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     expect(within(group).getAllByTestId("copilot-tool-render")).toHaveLength(2);
   });
 
+  it("folds a finished reply's work into the summary with turn", async () => {
+    renderView([question, say("t1", "Looking."), ...burst.slice(1)], {
+      toolCallDisplay: "turn",
+    });
+    const summary = screen.getByTestId("copilot-work-summary");
+    expect(summary.getAttribute("aria-expanded")).toBe("false");
+    // No timing for a reply this client didn't watch: it counts the tools.
+    expect(summary.textContent).toContain("Used 2 tools");
+    expect(summary.textContent).toContain("1 failed");
+    expect(
+      document.querySelector('[data-work-text="narration"]'),
+    ).not.toBeNull();
+    expect(document.querySelector('[data-work-text="reply"]')).not.toBeNull();
+    // The calls are rows of the work, not a group, and fold away with it.
+    expect(screen.queryByTestId("copilot-tool-call-group")).toBeNull();
+    const work = document.querySelector(".cpk-tool-calls-view-turn")!;
+    expect(work.hasAttribute("inert")).toBe(true);
+    expect(
+      within(work as HTMLElement).getAllByTestId("copilot-tool-render"),
+    ).toHaveLength(2);
+
+    await fireEvent.click(summary);
+    expect(summary.getAttribute("aria-expanded")).toBe("true");
+    expect(work.hasAttribute("inert")).toBe(false);
+  });
+
+  it("shows Working while the latest reply runs with turn", () => {
+    renderView([question], { toolCallDisplay: "turn", isRunning: true });
+    const summary = screen.getByTestId("copilot-work-summary");
+    expect(summary.getAttribute("data-state")).toBe("working");
+    expect(screen.queryByTestId("copilot-loading-cursor")).toBeNull();
+  });
+
+  it("shows the work in the open while the agent works on it with turn", async () => {
+    const { state } = renderView([question, say("t1", "Looking.")], {
+      toolCallDisplay: "turn",
+      isRunning: true,
+    });
+    state.messages.value = [...state.messages.value, callMessage("a")];
+    await nextTick();
+    const summary = screen.getByTestId("copilot-work-summary");
+    expect(summary.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      document
+        .querySelector(".cpk-tool-calls-view-turn")!
+        .hasAttribute("inert"),
+    ).toBe(false);
+    expect(screen.getByTestId("copilot-tool-render").textContent).toContain(
+      "Running",
+    );
+
+    state.messages.value = [
+      ...state.messages.value,
+      result("a"),
+      say("t2", "Done."),
+    ];
+    state.isRunning.value = false;
+    await nextTick();
+    expect(summary.getAttribute("aria-expanded")).toBe("false");
+    expect(summary.getAttribute("data-state")).toBe("done");
+  });
+
+  it("lets the work-summary slot replace the summary line", async () => {
+    renderView(
+      [question, ...burst.slice(1)],
+      { toolCallDisplay: "turn" },
+      undefined,
+      {
+        "work-summary": (props: {
+          isOpen: boolean;
+          calls: unknown[];
+          onClick: () => void;
+        }) =>
+          h(
+            "button",
+            {
+              type: "button",
+              "data-testid": "custom-summary",
+              "aria-expanded": String(props.isOpen),
+              onClick: props.onClick,
+            },
+            `${props.calls.length} steps`,
+          ),
+      },
+    );
+    expect(screen.queryByTestId("copilot-work-summary")).toBeNull();
+    const summary = screen.getByTestId("custom-summary");
+    expect(summary.textContent).toBe("2 steps");
+
+    await fireEvent.click(summary);
+    expect(summary.getAttribute("aria-expanded")).toBe("true");
+  });
+
   it("makes a closed group's rows inert", async () => {
     renderView(burst);
     const group = screen.getByTestId("copilot-tool-call-group");
@@ -370,6 +480,28 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     expect(body.hasAttribute("inert")).toBe(true);
     await fireEvent.click(firstButton(group));
     expect(body.hasAttribute("inert")).toBe(false);
+  });
+
+  it("keeps a reasoning message mounted when a later call makes it work", async () => {
+    const reasoning: Message = {
+      id: "r1",
+      role: "reasoning",
+      content: "Thinking about it.",
+    };
+    const { state } = renderView([question, reasoning], {
+      toolCallDisplay: "turn",
+      isRunning: true,
+    });
+    const reasoningNode = () =>
+      document.querySelector(".cpk-reasoning-message")!;
+    const node = reasoningNode();
+    expect(node).not.toBeNull();
+
+    state.messages.value = [question, reasoning, callMessage("a")];
+    await nextTick();
+    expect(reasoningNode()).toBe(node);
+    // It folds away with the work, which is open while the agent works.
+    expect(node.closest(".cpk-collapsible")!.hasAttribute("inert")).toBe(false);
   });
 
   it("leaves calls drawn by a custom catch-all on their own unless it opts in", () => {
@@ -470,6 +602,84 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     expect(details.hasAttribute("inert")).toBe(false);
     expect(details.textContent).toContain("Arguments");
     expect(details.textContent).toContain("cmd a");
+  });
+});
+
+describe("CopilotChatMessageView toolCallDisplay turn answers", () => {
+  it("keeps the answer visible in turn when it shares a message with a call", () => {
+    const answer: AssistantMessage = {
+      ...callMessage("chart", "show_chart"),
+      content: "Revenue grew 12%.",
+    };
+    renderView([question, say("t1", "Looking."), answer], {
+      toolCallDisplay: "turn",
+    });
+    expect(
+      document
+        .querySelector('[data-message-id="t1"] [data-work-text]')!
+        .getAttribute("data-work-text"),
+    ).toBe("narration");
+    expect(
+      document
+        .querySelector(`[data-message-id="${answer.id}"] [data-work-text]`)!
+        .getAttribute("data-work-text"),
+    ).toBe("reply");
+  });
+});
+
+describe("CopilotChatWorkSummary timing", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const finished = [question, callMessage("a"), result("a"), say("t", "Done.")];
+  const summary = () => screen.getByTestId("copilot-work-summary").textContent;
+  const finish = async (state: ViewState, isRunning = false) => {
+    state.messages.value = finished;
+    state.isRunning.value = isRunning;
+    await nextTick();
+  };
+
+  it("ticks while working and reports the total once done", async () => {
+    const { state } = renderView([question], {
+      toolCallDisplay: "turn",
+      isRunning: true,
+    });
+    vi.advanceTimersByTime(125_000);
+    await nextTick();
+    expect(summary()).toContain("Working2m 5s");
+
+    vi.setSystemTime(65_000 + 60_000);
+    await finish(state);
+    expect(summary()).toContain("Worked for 2m 5s");
+    expect(summary()).toContain("1 tool");
+  });
+
+  it("reports a 65-second turn as 1m 5s", async () => {
+    const { state } = renderView([question], {
+      toolCallDisplay: "turn",
+      isRunning: true,
+    });
+    vi.setSystemTime(65_000);
+    await finish(state);
+    expect(summary()).toContain("Worked for 1m 5s");
+  });
+
+  it("leaves out time spent waiting between runs", async () => {
+    const { state } = renderView([question], {
+      toolCallDisplay: "turn",
+      isRunning: true,
+    });
+    vi.setSystemTime(5_000);
+    await finish(state);
+
+    vi.setSystemTime(185_000); // three minutes waiting on an approval
+    await finish(state, true);
+    vi.setSystemTime(190_000);
+    await finish(state);
+    expect(summary()).toContain("Worked for 10s");
   });
 });
 

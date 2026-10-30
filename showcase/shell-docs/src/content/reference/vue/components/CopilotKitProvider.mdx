@@ -266,6 +266,27 @@ function handleError(event: {
   Enable debug logging for the client-side event pipeline. Accepts `true` / `false` to toggle events and lifecycle logging (verbose off), or `{ events?: boolean; lifecycle?: boolean; verbose?: boolean }` for granular control.
 </PropertyReference>
 
+<PropertyReference name="learning" type="boolean | CopilotKitLearningOptions">
+  Turns on Trajectory capture for Automatic Learning. `learning` or `:learning="true"` captures with the default options. Pass an object to set options. `false` or no prop turns capture off and stops the active Trajectory.
+
+  Capture starts after the provider mounts and stops when it unmounts, including Trajectories started with `startTrajectory()`. Option changes apply to the next Trajectory. They do not restart the active one. Without a `sink`, Core connects through your runtime and sends the events to Intelligence. While capture runs, the reply thumbs record ratings (see [Reply ratings](/reference/vue/components/CopilotChatAssistantMessage#reply-ratings)).
+
+  The object takes the capture options in the [Trajectories reference](/intelligence/trajectories-reference) (`capture`, `ignoreUrls`, `beforeSend`, `onError` and others), and these provider options:
+
+  - `autoStart` (default `true`): starts a Trajectory after mount. Set `false` to call `startTrajectory()` yourself.
+  - `trajectoryId`: the UUID of the Trajectory that the provider starts. Without it, the provider generates a UUID. That ID stays the same while the options change. Turning capture off or setting `autoStart: false` ends it, and the next Trajectory gets a new ID. With `autoStart: false`, the provider ignores `trajectoryId` and logs a warning.
+  - `learningContainerIds`: used only with a custom `sink`. Without a sink, the provider logs a warning and ignores it. Assign Learning Spaces on the server with `getTrajectoryLearningContainerIds` on `CopilotKitIntelligence`.
+
+```vue
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit" learning>
+    <App />
+  </CopilotKitProvider>
+</template>
+```
+
+</PropertyReference>
+
 ## Slots
 
 <PropertyReference name="default" type="slot" required>

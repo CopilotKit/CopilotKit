@@ -9,6 +9,8 @@ import type { Message, ToolCall, ToolMessage } from "@ag-ui/core";
  *   message's "Thought for 4 seconds".
  * - `"stacked"`: the latest call on top of a stack of the earlier ones; click
  *   to fan the stack out into its cards.
+ * - `"turn"`: the agent works in the open (narration, then a row per call),
+ *   and when the reply is done everything before it folds into "Worked for 9s".
  * - `"separate"`: every call gets its own card, as before grouping existed.
  *
  * Only calls drawn by a renderer that opts into grouping (`group: true`) are
@@ -19,6 +21,7 @@ export type CopilotChatToolCallDisplay =
   | "grouped"
   | "line"
   | "stacked"
+  | "turn"
   | "separate";
 
 /** One tool call and, once it has finished, the message carrying its result. */
@@ -208,4 +211,94 @@ export function getToolCallRendererNames(
     wildcardGroups:
       !wildcardSlot && wildcards.some((renderer) => renderer.group),
   };
+}
+
+/** A reply's working phase, for the `"turn"` display. */
+export interface TurnWork {
+  /** Stable across the turn's life: the id of the user message it answers. */
+  key: string;
+  /** The first assistant-side message, where the "Worked for" line goes. */
+  firstMessageId: string;
+  /** Everything up to and including the last message with a tool call. */
+  workMessageIds: ReadonlySet<string>;
+  /**
+   * The reply's last assistant message, when it has text and is part of the
+   * work (it also calls a tool). Its text is the answer, so it stays out.
+   */
+  replyTextMessageId?: string;
+  calls: ToolCallEntry[];
+  /** No user message follows, so the agent may still be working on it. */
+  isLatest: boolean;
+}
+
+/**
+ * Finds the working phase of every reply in `rendered`: its messages up to the
+ * last one that calls a tool. Text in there was narration; what follows is the
+ * reply itself. Replies that called no tools are omitted, except the latest,
+ * which may be about to.
+ */
+export function getTurnWork(
+  rendered: Message[],
+  layouts: ReadonlyMap<string, ToolCallLayout>,
+): Map<string, TurnWork> {
+  const turns = new Map<string, TurnWork>();
+  let start = 0;
+  while (start < rendered.length) {
+    let end = start;
+    while (end < rendered.length && rendered[end]!.role !== "user") end++;
+    const key = start > 0 ? rendered[start - 1]!.id : "start";
+    const visible = rendered
+      .slice(start, end)
+      .filter((message) => message.role !== "tool");
+    const isLatest = end === rendered.length;
+
+    // A message's calls may sit in a group an earlier message owns, so
+    // collect every shown call first, then find the last message making one.
+    const calls: ToolCallEntry[] = [];
+    for (const message of visible) {
+      for (const segment of layouts.get(message.id)?.segments ?? []) {
+        if (segment.kind === "group") calls.push(...segment.calls);
+        else if (segment.rendered) calls.push(segment.call);
+      }
+    }
+    const shown = new Set(calls.map((entry) => entry.toolCall.id));
+    let lastWork = -1;
+    visible.forEach((message, index) => {
+      if (
+        message.role === "assistant" &&
+        message.toolCalls?.some((call) => shown.has(call.id))
+      ) {
+        lastWork = index;
+      }
+    });
+
+    const first = visible[0];
+    if (first && (calls.length > 0 || isLatest)) {
+      let lastAssistant = -1;
+      visible.forEach((message, index) => {
+        if (message.role === "assistant") lastAssistant = index;
+      });
+      const replyText = visible[lastAssistant]?.content;
+      const endsWithWork =
+        lastAssistant >= 0 &&
+        lastAssistant <= lastWork &&
+        typeof replyText === "string" &&
+        replyText.trim().length > 0;
+
+      turns.set(key, {
+        key,
+        firstMessageId: first.id,
+        workMessageIds: new Set(
+          visible.slice(0, lastWork + 1).map((message) => message.id),
+        ),
+        replyTextMessageId: endsWithWork
+          ? visible[lastAssistant]!.id
+          : undefined,
+        calls,
+        isLatest,
+      });
+    }
+    start = end + 1;
+  }
+  return turns;
 }

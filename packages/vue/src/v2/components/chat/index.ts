@@ -15,6 +15,7 @@ export { default as CopilotChatSuggestionView } from "./CopilotChatSuggestionVie
 export { default as CopilotChatToolCallsView } from "./CopilotChatToolCallsView.vue";
 export { default as CopilotChatToolCallGroup } from "./CopilotChatToolCallGroup.vue";
 export { default as CopilotChatUserMessage } from "./CopilotChatUserMessage.vue";
+export { default as CopilotChatWorkSummary } from "./CopilotChatWorkSummary.vue";
 export { default as CopilotChatView } from "./CopilotChatView.vue";
 export { default as CopilotThreadsDrawer } from "./CopilotThreadsDrawer.vue";
 import _CopilotChatToggleButton from "./CopilotChatToggleButton.vue";

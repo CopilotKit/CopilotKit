@@ -4,6 +4,7 @@ import type {
   CopilotKitCoreErrorCode,
   CopilotKitHeadersSource,
   CopilotKitMessageFilter,
+  LearningConfig,
 } from "@copilotkit/core";
 import type { DebugConfig } from "@copilotkit/shared";
 import type {
@@ -155,4 +156,42 @@ export interface CopilotKitProviderProps {
    * - `{ events?: boolean; lifecycle?: boolean; verbose?: boolean }` for granular control.
    */
   debug?: DebugConfig;
+  /**
+   * Turns on interaction capture (`@copilotkit/learning`). `learning` (short
+   * for `:learning="true"`) records with the default options; pass an object
+   * for options. `false` or omitting the prop turns capture off and cancels
+   * startup. Without a sink, Core authenticates with the runtime and sends
+   * browser events to Intelligence; a custom sink keeps the standalone
+   * collector behavior. Updated settings apply to the next Trajectory.
+   *
+   * Capture starts after mount. Set `trajectoryId` to use your own ID;
+   * otherwise the provider generates one. The generated ID stays the same
+   * across rerenders, reconnects and option changes; turning capture off,
+   * setting `autoStart: false` or supplying a `trajectoryId` ends it, and the
+   * next generated Trajectory gets a new ID. Read the active ID from
+   * `copilotkit.trajectoryId`.
+   *
+   * Set `autoStart: false` to start capture yourself with `startTrajectory()`.
+   * Capture stops on unmount, including manually started Trajectories.
+   *
+   * @example
+   * <CopilotKitProvider runtime-url="/api/copilotkit" learning>
+   */
+  learning?: boolean | CopilotKitLearningOptions;
 }
+
+/** The object form of the `learning` prop. */
+export type CopilotKitLearningOptions = LearningConfig & {
+  /**
+   * Starts a Trajectory after mount. Defaults to `true`; set `false` to call
+   * `startTrajectory()` yourself.
+   */
+  autoStart?: boolean;
+  trajectoryId?: string;
+  /**
+   * Used only by explicit custom sinks. Authenticated capture warns and ignores
+   * this option; assign Learning Spaces on the server with
+   * `getTrajectoryLearningContainerIds` on `CopilotKitIntelligence`.
+   */
+  learningContainerIds?: string[];
+};

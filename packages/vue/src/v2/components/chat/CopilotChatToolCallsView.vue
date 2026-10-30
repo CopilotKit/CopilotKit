@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, h, inject, useSlots } from "vue";
+import { computed, defineComponent, h, inject, provide, useSlots } from "vue";
+import type { PropType } from "vue";
 import type { Slots, VNode } from "vue";
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import { useCopilotKit } from "../../providers/useCopilotKit";
@@ -10,7 +11,12 @@ import type {
 } from "./types";
 import CopilotChatToolCallItem from "./CopilotChatToolCallItem.vue";
 import CopilotChatToolCallGroup from "./CopilotChatToolCallGroup.vue";
-import { ToolCallDisplayContextKey } from "./tool-call-display-context";
+import { CopilotChatCollapsible } from "./tool-call-group-parts";
+import {
+  ToolCallDisplayContextKey,
+  ToolCallGroupContextKey,
+} from "./tool-call-display-context";
+import type { ToolCallGroupContextValue } from "./tool-call-display-context";
 import {
   getToolCallLayouts,
   getToolCallRendererNames,
@@ -95,6 +101,34 @@ const groupActive = (trailing: boolean) =>
 
 const appearance = computed(() => appearances[display.value] ?? "card");
 
+const workOpen = computed(() => context?.value.workOpen.get(props.message.id));
+
+/**
+ * `"turn"` display: draws the built-in card's calls as compact rows, the way
+ * an open line group does, without a group around them.
+ */
+const TurnRows = defineComponent({
+  props: {
+    calls: { type: Array as PropType<ToolCallEntry[]>, required: true },
+    active: { type: Boolean, required: true },
+  },
+  setup(rowProps, { slots }) {
+    provide(
+      ToolCallGroupContextKey,
+      computed<ToolCallGroupContextValue>(() => ({
+        appearance: "line",
+        failedIds: new Set(
+          rowProps.calls
+            .filter((call) => call.toolMessage?.error)
+            .map((call) => call.toolCall.id),
+        ),
+        active: rowProps.active,
+      })),
+    );
+    return () => slots.default?.();
+  },
+});
+
 /** Draws one call through the registered renderers and tool-call slots. */
 function renderCall(call: ToolCallEntry): VNode {
   const slots: Record<string, Slots[string]> = {};
@@ -143,6 +177,26 @@ function renderCall(call: ToolCallEntry): VNode {
           <slot :name="slotName" v-bind="slotProps ?? {}" />
         </template>
       </CopilotChatToolCallItem>
+      <!-- A row per call, in the open while the agent works; the message view
+           folds them away with the rest of the work once it's done. -->
+      <CopilotChatCollapsible
+        v-else-if="display === 'turn'"
+        :open="workOpen ?? true"
+        class="cpk-tool-calls-view-turn"
+      >
+        <div class="cpk-tool-calls-view-turn-rows">
+          <TurnRows
+            :calls="segment.calls"
+            :active="groupActive(segment.trailing)"
+          >
+            <component
+              :is="renderCall(call)"
+              v-for="call in segment.calls"
+              :key="call.toolCall.id"
+            />
+          </TurnRows>
+        </div>
+      </CopilotChatCollapsible>
       <slot
         v-else
         name="tool-calls-group"

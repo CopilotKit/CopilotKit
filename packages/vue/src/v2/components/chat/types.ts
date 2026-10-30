@@ -46,6 +46,29 @@ export interface CopilotChatToolCallsGroupSlotProps {
   renderCall: (call: ToolCallEntry) => VNode;
 }
 
+/**
+ * Props of `CopilotChatWorkSummary` and of the `#work-summary` slot, which
+ * replaces the "Working… / Worked for 9s" line of the `"turn"` display.
+ */
+export interface CopilotChatWorkSummarySlotProps {
+  /** The agent is still working on this reply. */
+  isWorking: boolean;
+  /** Whether the work (narration and tool calls) is showing. */
+  isOpen: boolean;
+  /** The tool calls the reply made. */
+  calls: ToolCallEntry[];
+  /**
+   * How long the agent has worked on the reply, in ms, summed over its runs
+   * so time spent waiting between them doesn't count. Only known for replies
+   * this client watched start; without it the summary shows the tool count.
+   */
+  elapsedMs?: number;
+  /** When the current run started (epoch ms), while the agent is working. */
+  workingSince?: number;
+  /** Opens or closes the reply's work. */
+  onClick: () => void;
+}
+
 export interface CopilotChatAttachmentRendererProps {
   type: AttachmentModality;
   /** Any AG-UI content source, as in React; a `file` handle shows no preview. */

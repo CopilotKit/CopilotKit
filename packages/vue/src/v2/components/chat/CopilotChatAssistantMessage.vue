@@ -27,6 +27,7 @@ import {
   isVueComponentRenderer,
 } from "../../providers/markdown-renderer";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView.vue";
+import { CopilotChatWorkText } from "./turn-work";
 import CopilotChatAssistantToolbarButton from "./CopilotChatAssistantToolbarButton.vue";
 import CopilotChatFeedbackCommentPopover from "./CopilotChatFeedbackCommentPopover.vue";
 import CopilotChatInspectorButton from "./CopilotChatInspectorButton.vue";
@@ -408,21 +409,23 @@ onBeforeUnmount(() => {
       :data-message-id="message.id"
       v-bind="$attrs"
     >
-      <div class="cpk-markdown cpk-assistant-message-markdown">
-        <slot
-          name="message-renderer"
-          :message="message"
-          :content="normalizedContent"
-        >
-          <component
-            :is="ActiveMarkdownRenderer"
-            v-if="hasContent"
-            v-bind="activeMarkdownConfig"
+      <CopilotChatWorkText :message-id="message.id">
+        <div class="cpk-markdown cpk-assistant-message-markdown">
+          <slot
+            name="message-renderer"
+            :message="message"
             :content="normalizedContent"
-            :is-streaming="isRunning && isLatestAssistantMessage"
-          />
-        </slot>
-      </div>
+          >
+            <component
+              :is="ActiveMarkdownRenderer"
+              v-if="hasContent"
+              v-bind="activeMarkdownConfig"
+              :content="normalizedContent"
+              :is-streaming="isRunning && isLatestAssistantMessage"
+            />
+          </slot>
+        </div>
+      </CopilotChatWorkText>
 
       <slot name="tool-calls-view" :message="message" :messages="messages">
         <CopilotChatToolCallsView :message="message" :messages="messages">
