@@ -42,6 +42,13 @@ const config = {
       ),
     },
   },
+  // The Inspector uses marked 12 and @copilotkit/core uses marked 16. Both are
+  // imported from source here, and the dep optimizer bundles one `marked` for
+  // both, so the Inspector can get marked 16, whose renderer API it does not
+  // support. Unbundled, each import resolves to its own package's version.
+  optimizeDeps: {
+    exclude: ["marked"],
+  },
   server: {
     host: "127.0.0.1",
     port: 5177,
