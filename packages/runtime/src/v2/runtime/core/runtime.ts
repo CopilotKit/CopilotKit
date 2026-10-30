@@ -185,6 +185,12 @@ export async function resolveAgents(
 
 interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   /**
+   * Trusted agents whose backend durably accepts frontend tool results while
+   * native interrupts remain pending. Does not approve or resolve interrupts.
+   * Omitted by default; configure only when the backend supports this contract.
+   */
+  toolResultContinuationAgents?: readonly string[];
+  /**
    * Map of available agents, or a factory function for per-request agent resolution.
    *
    * Static record:
@@ -393,6 +399,7 @@ export type CopilotRuntimeOptions =
   | CopilotIntelligenceRuntimeOptions;
 
 export interface CopilotRuntimeLike {
+  toolResultContinuationAgents?: readonly string[];
   agents: CopilotRuntimeOptions["agents"];
   transcriptionService: CopilotRuntimeOptions["transcriptionService"];
   beforeRequestMiddleware: CopilotRuntimeOptions["beforeRequestMiddleware"];
@@ -465,6 +472,7 @@ export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
 }
 
 abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
+  public readonly toolResultContinuationAgents?: readonly string[];
   public agents: CopilotRuntimeOptions["agents"];
   public transcriptionService: CopilotRuntimeOptions["transcriptionService"];
   public beforeRequestMiddleware: CopilotRuntimeOptions["beforeRequestMiddleware"];
@@ -497,6 +505,9 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   abstract readonly mode: RuntimeMode;
 
   constructor(options: BaseCopilotRuntimeOptions, runner: AgentRunner) {
+    this.toolResultContinuationAgents = options.toolResultContinuationAgents
+      ? [...options.toolResultContinuationAgents]
+      : undefined;
     logRuntimeTelemetryDisclosure();
 
     const {
@@ -929,6 +940,10 @@ class CopilotRuntimeShim implements CopilotRuntime {
 
   get runner(): AgentRunner {
     return this.delegate.runner;
+  }
+
+  get toolResultContinuationAgents(): readonly string[] | undefined {
+    return this.delegate.toolResultContinuationAgents;
   }
 
   get a2ui(): CopilotRuntimeOptions["a2ui"] {
