@@ -14,20 +14,20 @@ export type KumoCoverage = "kumo" | "composed" | "primitive" | "standard";
 /** Every standard component, and how the Kumo catalog renders it. */
 export const KUMO_COVERAGE = {
   // Layout
-  Box: "standard",
+  Box: "kumo",
   Column: "standard",
   Row: "standard",
-  Grid: "standard",
-  GridItem: "standard",
-  Card: "standard",
+  Grid: "kumo",
+  GridItem: "kumo",
+  Card: "kumo",
   Flow: "standard",
   FlowItem: "standard",
   Carousel: "standard",
   CarouselItem: "standard",
   CarouselMediaItem: "standard",
   Spacer: "standard",
-  Divider: "standard",
-  Tabs: "standard",
+  Divider: "primitive",
+  Tabs: "kumo",
   // Text
   Title: "standard",
   Text: "standard",
