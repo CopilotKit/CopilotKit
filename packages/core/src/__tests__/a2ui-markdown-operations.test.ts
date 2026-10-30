@@ -569,6 +569,27 @@ describe("extractFenceOperations object stream", () => {
     expect(res.invalidLines).toEqual([]);
   });
 
+  it("does not repair a function call, whose args a closer could move", () => {
+    const missingBrace = CALL.slice(0, -1);
+    const res = extractFenceOperations(`${missingBrace}\n${UPDATE}\n`);
+    expect(res.repairedLines).toEqual([]);
+    expect(res.operations).not.toContainEqual(JSON.parse(CALL));
+  });
+
+  it("leaves an object over two lines and a top-level array alone", () => {
+    const twoLines = extractFenceOperations(
+      '{"version":"v1.0","deleteSurface":{"surfaceId":"x"}\n}\n',
+    );
+    expect(twoLines.operations).toEqual([
+      { version: "v1.0", deleteSurface: { surfaceId: "x" } },
+    ]);
+    expect(twoLines.invalidLines).toEqual([]);
+    expect(twoLines.repairedLines).toEqual([]);
+    const array = extractFenceOperations(`[\n${CREATE},\n${DATA}]\n`);
+    expect(array.operations).toEqual([JSON.parse(CREATE), JSON.parse(DATA)]);
+    expect(array.repairedLines).toEqual([]);
+  });
+
   it("does not repair a line by inventing a value", () => {
     const missingValue =
       '{"version":"v1.0","updateDataModel":{"surfaceId":"plan","path":"/","value":}';

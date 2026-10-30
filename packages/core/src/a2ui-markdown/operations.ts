@@ -730,6 +730,9 @@ function nestsStructuralKey(value: unknown) {
 function repairFenceLines(fenceText: string) {
   const repaired: string[] = [];
   const lines = fenceText.split("\n");
+  // A top-level array spreads its closers over lines: nothing to repair.
+  if (fenceText.trimStart().startsWith("["))
+    return { text: fenceText, repaired };
   for (let n = 0; n < lines.length - 1; n++) {
     const line = lines[n]!;
     if (!line.trim().startsWith("{")) continue;
@@ -741,14 +744,23 @@ function repairFenceLines(fenceText: string) {
     }
     // Only a slip of one closer: the first line of a pretty-printed
     // operation is off by more and must stay for the scan below.
-    if (Math.abs(closerImbalance(line)) !== 1) continue;
+    const imbalance = closerImbalance(line);
+    if (Math.abs(imbalance) !== 1) continue;
+    // A line that misses a closer and is followed by more than a new
+    // operation is the start of an object over several lines.
+    const next = lines.slice(n + 1).find((l) => l.trim() !== "");
+    if (imbalance > 0 && next !== undefined && !next.trim().startsWith("{")) {
+      continue;
+    }
     try {
       const fixed = jsonrepair(line);
       const value: unknown = JSON.parse(fixed);
       if (
         withoutClosers(fixed) === withoutClosers(line) &&
         isOperationShape(value) &&
-        !nestsStructuralKey(value)
+        !nestsStructuralKey(value) &&
+        // A call must not run with args that a closer moved.
+        !(isRecord(value) && "callRendererFunction" in value)
       ) {
         repaired.push(line.trim());
         lines[n] = JSON.stringify(value);
