@@ -4,6 +4,7 @@ import {
 } from "@copilotkit/react-core/v2/generative-ui";
 import { iconOverrides } from "./icons";
 import { layoutOverrides } from "./layout";
+import { textOverrides } from "./text";
 
 /** Surfaces pin to this id. */
 export const KUMO_UI_ID = "copilotkit/a2ui-markdown-kumo@1";
@@ -18,6 +19,7 @@ export const kumoUI = createGenerativeUI({
   extends: [standardUI],
   overrides: {
     ...layoutOverrides,
+    ...textOverrides,
     ...iconOverrides,
   },
   components: {},
