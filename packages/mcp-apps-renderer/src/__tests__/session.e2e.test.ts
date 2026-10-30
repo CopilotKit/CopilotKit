@@ -350,6 +350,115 @@ describe("bindMcpApp sandbox isolation", () => {
   });
 });
 
+describe("bindMcpApp sandboxOrigin", () => {
+  const SANDBOX = "https://sandbox.example.com";
+
+  /** Bind with a served proxy and record what the host posts, with targetOrigin. */
+  async function bindServed(
+    sandboxOrigin: string,
+    hooks?: Parameters<typeof bindMcpApp>[0]["hooks"],
+    agent: AbstractAgent = makeAgent(),
+  ) {
+    const iframe = mount();
+    const session = bindMcpApp({
+      iframe,
+      getContent: () => makeContent(),
+      getAgent: () => agent,
+      host: { runAgent: async () => ({ result: undefined, newMessages: [] }) },
+      hooks,
+      options: { sandboxOrigin },
+    });
+    sessions.push(session);
+    await tick(60);
+    // Setting src replaces the window in jsdom, so patch the current one.
+    const posted: Array<{ message: any; targetOrigin: unknown }> = [];
+    const cw = iframe.contentWindow as Window;
+    cw.postMessage = ((message: unknown, targetOrigin: unknown) => {
+      posted.push({ message, targetOrigin });
+    }) as typeof cw.postMessage;
+    const fromProxy = (data: unknown, origin = SANDBOX) =>
+      window.dispatchEvent(
+        new MessageEvent("message", { data, source: cw, origin }),
+      );
+    const proxyReady = {
+      jsonrpc: "2.0",
+      method: "ui/notifications/sandbox-proxy-ready",
+      params: {},
+    };
+    return { iframe, posted, fromProxy, proxyReady };
+  }
+
+  it("loads the shipped proxy from the sandbox origin with allow-same-origin", async () => {
+    const onSandboxReady = vi.fn();
+    const agent = makeAgent();
+    const resourceRead = agent.runAgent.bind(agent);
+    agent.runAgent = (async (input: any) => {
+      const out: any = await resourceRead(input);
+      out.result.contents[0]._meta = {
+        ui: { csp: { resourceDomains: ["https://cdn.example.com"] } },
+      };
+      return out;
+    }) as typeof agent.runAgent;
+    const { iframe, posted, fromProxy, proxyReady } = await bindServed(
+      SANDBOX,
+      { onSandboxReady },
+      agent,
+    );
+
+    expect(iframe.getAttribute("src")).toBe(
+      `${SANDBOX}/mcp-apps-sandbox-proxy.html`,
+    );
+    expect(iframe.hasAttribute("srcdoc")).toBe(false);
+    const sameOrigin = "allow-scripts allow-same-origin allow-forms";
+    expect(iframe.getAttribute("sandbox")).toBe(sameOrigin);
+
+    fromProxy(proxyReady);
+    await tick(30);
+    expect(onSandboxReady).toHaveBeenCalledOnce();
+    const ready = posted.find(
+      (p) => p.message?.method === "ui/notifications/sandbox-resource-ready",
+    );
+    // The served proxy has no CSP of its own, so the host sends it.
+    expect(ready?.message.params).toEqual({
+      html: "<html><body>Widget</body></html>",
+      sandbox: sameOrigin,
+      csp: { resourceDomains: ["https://cdn.example.com"] },
+    });
+    // Never "*": only the sandbox origin may receive host messages.
+    expect(posted.every((p) => p.targetOrigin === SANDBOX)).toBe(true);
+  });
+
+  it("uses a full proxy URL as given", async () => {
+    const { iframe } = await bindServed(`${SANDBOX}/mcp/proxy.html`);
+    expect(iframe.getAttribute("src")).toBe(`${SANDBOX}/mcp/proxy.html`);
+  });
+
+  it("ignores messages from any other origin", async () => {
+    const onSandboxReady = vi.fn();
+    const { posted, fromProxy, proxyReady } = await bindServed(SANDBOX, {
+      onSandboxReady,
+    });
+    fromProxy(proxyReady, window.location.origin);
+    fromProxy(proxyReady, "null");
+    await tick(30);
+    expect(onSandboxReady).not.toHaveBeenCalled();
+    expect(posted).toHaveLength(0);
+  });
+
+  it.each([
+    ["the page's own origin", () => window.location.origin],
+    ["a non-http URL", () => "javascript:alert(1)"],
+    ["an invalid URL", () => "sandbox.example.com"],
+  ])("refuses %s without loading the widget", async (_, value) => {
+    const onError = vi.fn();
+    const { iframe } = await bindServed(value(), { onError });
+    expect(onError).toHaveBeenCalledOnce();
+    expect(onError.mock.calls[0]?.[0].message).toMatch(/sandboxOrigin/);
+    expect(iframe.hasAttribute("src")).toBe(false);
+    expect(iframe.hasAttribute("srcdoc")).toBe(false);
+  });
+});
+
 describe("bindMcpApp ui/initialize negotiation", () => {
   const LATEST_PROTOCOL_VERSION = "2026-01-26";
 

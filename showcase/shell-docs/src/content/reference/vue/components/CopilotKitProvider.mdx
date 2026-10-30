@@ -242,8 +242,8 @@ function handleError(event: {
 
 </PropertyReference>
 
-<PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean }">
-  Configuration for the built-in MCP Apps renderer. `allowSameOriginFallback` restores `allow-same-origin` on the MCP App sandbox; by default widgets get an opaque origin. **Unsafe:** with it set, a widget runs with your page's origin and can read your cookies, storage and DOM. Only use it for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See [Sandbox and widget storage](/vue/generative-ui/mcp-apps#sandbox-and-widget-storage).
+<PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean; sandboxOrigin?: string }">
+  Configuration for the built-in MCP Apps renderer. `sandboxOrigin` serves the MCP App sandbox proxy from a separate origin, so widgets get working storage while your page stays out of reach. Pass the origin that serves `mcp-apps-sandbox-proxy.html` from `@copilotkit/mcp-apps-renderer`, or the page's full URL. `allowSameOriginFallback` restores `allow-same-origin` on the MCP App sandbox; by default widgets get an opaque origin. **Unsafe:** with it set, a widget runs with your page's origin and can read your cookies, storage and DOM. Only use it for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See [Sandbox and widget storage](/vue/generative-ui/mcp-apps#sandbox-and-widget-storage).
 </PropertyReference>
 
 <PropertyReference name="debug" type="DebugConfig">

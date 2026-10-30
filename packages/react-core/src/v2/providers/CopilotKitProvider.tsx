@@ -132,10 +132,6 @@ const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follo
 - Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
 
 // Provider props interface
-/** The MCP Apps renderer with `mcpApps.allowSameOriginFallback` applied. */
-const SameOriginMCPAppsActivityRenderer: typeof MCPAppsActivityRenderer = (
-  props,
-) => <MCPAppsActivityRenderer {...props} allowSameOriginFallback />;
 
 export interface CopilotKitProviderProps {
   children: ReactNode;
@@ -346,6 +342,18 @@ export interface CopilotKitProviderProps {
      * `IndexedDB` or cookies. By default widgets get an opaque origin.
      */
     allowSameOriginFallback?: boolean;
+    /**
+     * Serve the MCP App sandbox proxy from a separate origin, as the MCP Apps
+     * spec requires. Default unset: widgets get an opaque origin.
+     *
+     * Pass the origin that serves `mcp-apps-sandbox-proxy.html` from
+     * `@copilotkit/mcp-apps-renderer` at its root, such as
+     * `https://example-sandbox.com`, or the page's full URL. Widgets then
+     * run with that origin, so their storage works and your page stays out of
+     * reach. It must differ from your page's origin. Use a separate domain,
+     * not a subdomain of your site, which is same-site with your page.
+     */
+    sandboxOrigin?: string;
   };
   /**
    * Default throttle interval (in milliseconds) for `useAgent` re-renders
@@ -590,6 +598,21 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [rawCatalog, catalogToggleVersion]);
 
   const mcpAppsAllowSameOrigin = mcpApps?.allowSameOriginFallback === true;
+  const mcpAppsSandboxOrigin = mcpApps?.sandboxOrigin;
+  // Rebuilt only when an option changes, so the renderer identity is stable.
+  const mcpAppsRenderer = useMemo<typeof MCPAppsActivityRenderer>(
+    () =>
+      mcpAppsAllowSameOrigin || mcpAppsSandboxOrigin
+        ? (props) => (
+            <MCPAppsActivityRenderer
+              {...props}
+              allowSameOriginFallback={mcpAppsAllowSameOrigin}
+              sandboxOrigin={mcpAppsSandboxOrigin}
+            />
+          )
+        : MCPAppsActivityRenderer,
+    [mcpAppsAllowSameOrigin, mcpAppsSandboxOrigin],
+  );
 
   // Built-in activity renderers that are always included
   const builtInActivityRenderers = useMemo<
@@ -599,9 +622,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       {
         activityType: MCPAppsActivityType,
         content: MCPAppsActivityContentSchema,
-        render: mcpAppsAllowSameOrigin
-          ? SameOriginMCPAppsActivityRenderer
-          : MCPAppsActivityRenderer,
+        render: mcpAppsRenderer,
       },
     ];
 
@@ -642,7 +663,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     generativeUIActive,
     a2ui,
     filteredCatalog,
-    mcpAppsAllowSameOrigin,
+    mcpAppsRenderer,
   ]);
 
   // Combine user-provided activity renderers with built-in ones
