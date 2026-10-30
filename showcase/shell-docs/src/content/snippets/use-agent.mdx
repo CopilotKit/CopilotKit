@@ -2,10 +2,10 @@
   <Step>
     ### Import the hook
 
-    First, import `useAgent` from the v2 package:
+    First, import `useAgent` from `@copilotkit/react-core`:
 
-    ```tsx title="page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    ```tsx title="page.tsx" group=use-agent-steps
+    import { useAgent } from "@copilotkit/react-core"; // [!code highlight]
     ```
 
   </Step>
@@ -15,7 +15,7 @@
 
     Call the hook to get a reference to your agent:
 
-    ```tsx title="page.tsx"
+    ```tsx title="page.tsx" group=use-agent-steps
     export function AgentInfo() {
       const { agent } = useAgent(); // [!code highlight]
 
@@ -33,8 +33,13 @@
 
     <Callout type="info">
       If you are not using CopilotKit Cloud's public access/license key, pass your agentId to the `useAgent()` hook:
-      ```ts
-      const { agent } = useAgent({ agentId: "myAgent" });
+      ```tsx
+      import { useAgent } from "@copilotkit/react-core";
+
+      export function MyAgentInfo() {
+        const { agent } = useAgent({ agentId: "myAgent" });
+        return <p>Agent ID: {agent.agentId}</p>;
+      }
       ```
     </Callout>
 
@@ -47,17 +52,18 @@
 
     Access the agent's conversation history:
 
-    ```tsx title="page.tsx"
+    ```tsx title="page.tsx" group=use-agent-steps
     export function MessageList() {
       const { agent } = useAgent();
 
       return (
         <div>
-          {/* [!code highlight:6] */}
+          {/* [!code highlight:7] */}
           {agent.messages.map((msg) => (
             <div key={msg.id}>
               <strong>{msg.role}:</strong>
-              <span>{msg.content}</span>
+              {/* Content can also be a list of parts (text, images, ...) */}
+              <span>{typeof msg.content === "string" ? msg.content : null}</span>
             </div>
           ))}
         </div>
@@ -72,7 +78,7 @@
 
     Add a loading indicator when the agent is processing:
 
-    ```tsx title="page.tsx"
+    ```tsx title="page.tsx" group=use-agent-steps
     export function AgentStatus() {
       const { agent } = useAgent();
 
@@ -99,9 +105,8 @@
 
     Use `copilotkit.runAgent()` to trigger your agent programmatically:
 
-    ```tsx title="page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2";
-    import { useCopilotKit } from "@copilotkit/react-core/v2";
+    ```tsx title="page.tsx" group=use-agent-steps
+    import { useCopilotKit } from "@copilotkit/react-core";
     import { randomUUID } from "@copilotkit/shared";
 
     export function RunAgent() {
@@ -138,6 +143,8 @@ Agents expose their state through the `agent.state` property. This state is shar
 Access your agent's current state:
 
 ```tsx title="page.tsx"
+import { useAgent } from "@copilotkit/react-core";
+
 export function StateDisplay() {
   const { agent } = useAgent();
 
@@ -165,6 +172,8 @@ Your component automatically re-renders when the agent's state changes.
 Update state that your agent can access:
 
 ```tsx title="page.tsx"
+import { useAgent } from "@copilotkit/react-core";
+
 export function ThemeSelector() {
   const { agent } = useAgent();
 
@@ -197,7 +206,7 @@ You can subscribe to agent events using the `subscribe()` method. This is useful
 
 ```tsx title="page.tsx"
 import { useEffect } from "react";
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 import type { AgentSubscriber } from "@ag-ui/client";
 
 export function EventLogger() {
@@ -244,11 +253,13 @@ The `AgentSubscriber` interface provides:
 You can customize how agent tool calls are displayed in your UI. First, define your tool renderers:
 
 ```tsx title="components/weather-tool.tsx"
-import { defineToolCallRenderer } from "@copilotkit/react-core/v2";
+import { defineToolCallRenderer } from "@copilotkit/react-core";
+import { z } from "zod";
 
-// [!code highlight:6]
+// [!code highlight:7]
 export const weatherToolRender = defineToolCallRenderer({
   name: "get_weather",
+  args: z.object({ location: z.string() }),
   render: ({ args, status }) => {
     return <WeatherCard location={args.location} status={status} />;
   },
@@ -276,18 +287,18 @@ function WeatherCard({
 Register your tool renderers with CopilotKit:
 
 ```tsx title="layout.tsx"
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import { weatherToolRender } from "./components/weather-tool";
 
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
-      {/* [!code highlight:1] */}
-      renderToolCalls={[weatherToolRender]}
+      renderToolCalls={[weatherToolRender]} // [!code highlight]
     >
       {children}
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 ```
@@ -295,7 +306,11 @@ export default function RootLayout({ children }) {
 Then use `useRenderToolCall` to render tool calls from agent messages:
 
 ```tsx title="components/message-list.tsx"
-import { useAgent, useRenderToolCall } from "@copilotkit/react-core/v2";
+import {
+  useAgent,
+  useRenderToolCall,
+  type ToolMessage,
+} from "@copilotkit/react-core";
 
 export function MessageList() {
   const { agent } = useAgent();
@@ -306,14 +321,17 @@ export function MessageList() {
       {agent.messages.map((message) => (
         <div key={message.id}>
           {/* Display message content */}
-          {message.content && <p>{message.content}</p>}
+          {typeof message.content === "string" && message.content && (
+            <p>{message.content}</p>
+          )}
 
           {/* Render tool calls if present */}
-          {/* [!code highlight:9] */}
+          {/* [!code highlight:10] */}
           {message.role === "assistant" &&
             message.toolCalls?.map((toolCall) => {
               const toolMessage = agent.messages.find(
-                (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+                (m): m is ToolMessage =>
+                  m.role === "tool" && m.toolCallId === toolCall.id,
               );
               return (
                 <div key={toolCall.id}>
@@ -335,7 +353,7 @@ Here's a full example combining all concepts into an interactive agent dashboard
 ```tsx title="page.tsx"
 "use client";
 
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 
 export default function AgentDashboard() {
   const { agent } = useAgent();
@@ -384,7 +402,7 @@ export default function AgentDashboard() {
               <div className="font-semibold text-sm mb-1">
                 {msg.role === "user" ? "You" : "Agent"}
               </div>
-              <div>{msg.content}</div>
+              <div>{typeof msg.content === "string" ? msg.content : null}</div>
             </div>
           ))}
         </div>

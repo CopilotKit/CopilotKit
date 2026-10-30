@@ -32,7 +32,7 @@ Frontend tools can be leveraged in a variety of ways. One of those ways is to ha
 In this example we will simulate an "approval" flow for executing a command. Use the `useHumanInTheLoop` hook to create a tool that prompts the user for approval.
 
 ```tsx title="page.tsx"
-import { useHumanInTheLoop } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useHumanInTheLoop } from "@copilotkit/react-core"; // [!code highlight]
 import { z } from "zod";
 
 export function Page() {

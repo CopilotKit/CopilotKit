@@ -15,9 +15,7 @@ Use headless UI when the slot system isn't enough — for example, when you need
 Use `useAgent` to get the agent instance (messages, state, execution status) and `useCopilotKit` to run the agent.
 
 ```tsx title="components/custom-chat.tsx"
-import { useAgent } from "@copilotkit/react-core/v2";
-import { useCopilotKit } from "@copilotkit/react-core/v2";
-import { randomUUID } from "@copilotkit/shared";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core";
 
 export function CustomChat() {
   // [!code highlight:2]
@@ -33,12 +31,13 @@ export function CustomChat() {
 <Step>
 ### Display messages
 
-The agent's messages are available via `agent.messages`. Each message has an `id`, `role` (`"user"` or `"assistant"`), and `content`.
+The agent's messages are available via `agent.messages`. Each message has an `id`, a `role` (such as `"user"` or `"assistant"`), and a `content`. For a text message, `content` is a string; other messages can carry content parts or no content.
 
 ```tsx title="components/custom-chat.tsx"
+import { useAgent } from "@copilotkit/react-core";
+
 export function CustomChat() {
   const { agent } = useAgent();
-  const { copilotkit } = useCopilotKit();
 
   return (
     <div className="flex flex-col h-full">
@@ -54,7 +53,7 @@ export function CustomChat() {
             }
           >
             <p className="text-sm font-medium">{msg.role}</p>
-            <p>{msg.content}</p>
+            <p>{typeof msg.content === "string" ? msg.content : null}</p>
           </div>
         ))}
         {agent.isRunning && <div className="text-gray-400">Thinking...</div>}
@@ -73,6 +72,8 @@ Add a message to the agent's conversation, then call `copilotkit.runAgent()` to 
 
 ```tsx title="components/custom-chat.tsx"
 import { useState, useCallback } from "react";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core";
+import { randomUUID } from "@copilotkit/shared";
 
 export function CustomChat() {
   const { agent } = useAgent();
@@ -106,7 +107,7 @@ export function CustomChat() {
                 : "bg-gray-100 rounded-lg p-3 max-w-md"
             }
           >
-            <p>{msg.content}</p>
+            <p>{typeof msg.content === "string" ? msg.content : null}</p>
           </div>
         ))}
         {agent.isRunning && <div className="text-gray-400">Thinking...</div>}
@@ -143,14 +144,21 @@ export function CustomChat() {
 Use `copilotkit.stopAgent()` to cancel a running agent:
 
 ```tsx title="components/custom-chat.tsx"
-const stopAgent = useCallback(() => {
-  // [!code highlight:1]
-  copilotkit.stopAgent({ agent });
-}, [agent, copilotkit]);
+import { useCallback } from "react";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core";
 
-// In your JSX:
-{
-  agent.isRunning && (
+export function StopButton() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+
+  const stopAgent = useCallback(() => {
+    // [!code highlight:1]
+    copilotkit.stopAgent({ agent });
+  }, [agent, copilotkit]);
+
+  if (!agent.isRunning) return null;
+
+  return (
     <button onClick={stopAgent} className="text-red-500">
       Stop
     </button>

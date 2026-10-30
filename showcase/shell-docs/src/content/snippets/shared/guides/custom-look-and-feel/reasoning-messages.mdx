@@ -35,17 +35,24 @@ replaced independently via **slot props**:
 | `Toggle`      | `toggle`      | The expand/collapse animation wrapper                     |
 
 You pass custom sub-components through the `messageView` prop on
-`CopilotChat`, `CopilotPopup`, or `CopilotSidebar`:
+`CopilotChat`, `CopilotPopup`, or `CopilotSidebar`. Each slot also takes a
+`className` string, which is merged into the built-in sub-component:
 
 ```tsx
-<CopilotChat
-  messageView={{
-    reasoningMessage: {
-      header: CustomHeader,
-      contentView: CustomContent,
-    },
-  }}
-/>
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView={{
+        reasoningMessage: {
+          header: "bg-gray-50 text-gray-700",
+          contentView: "font-mono text-xs",
+        },
+      }}
+    />
+  );
+}
 ```
 
 ### Custom Header
@@ -63,21 +70,20 @@ receives these props:
 | `onClick`        | `() => void` | Toggle handler (only present when `hasContent` is `true`)                                               |
 
 ```tsx
-import { CopilotChat } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+import {
+  CopilotChat,
+  CopilotChatReasoningMessage,
+} from "@copilotkit/react-core";
+import "@copilotkit/react-core/styles.css";
 
 function CustomHeader({
   isOpen,
   label,
   hasContent,
   isStreaming,
+  elapsedSeconds,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  isOpen?: boolean;
-  label?: string;
-  hasContent?: boolean;
-  isStreaming?: boolean;
-}) {
+}: React.ComponentProps<typeof CopilotChatReasoningMessage.Header>) {
   return (
     <button
       className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium"
@@ -92,12 +98,16 @@ function CustomHeader({
   );
 }
 
-// [!code highlight:5]
-<CopilotChat
-  messageView={{
-    reasoningMessage: { header: CustomHeader },
-  }}
-/>;
+export function Chat() {
+  return (
+    // [!code highlight:5]
+    <CopilotChat
+      messageView={{
+        reasoningMessage: { header: CustomHeader },
+      }}
+    />
+  );
+}
 ```
 
 ### Custom Content
@@ -111,15 +121,18 @@ Replace the content area to change how reasoning text is displayed:
 | `children`    | `string`  | The raw reasoning text                       |
 
 ```tsx
+import {
+  CopilotChat,
+  CopilotChatReasoningMessage,
+} from "@copilotkit/react-core";
+import "@copilotkit/react-core/styles.css";
+
 function CustomContent({
   isStreaming,
   hasContent,
   children,
   ...props
-}: React.HTMLAttributes<HTMLDivElement> & {
-  isStreaming?: boolean;
-  hasContent?: boolean;
-}) {
+}: React.ComponentProps<typeof CopilotChatReasoningMessage.Content>) {
   if (!hasContent && !isStreaming) return null;
 
   return (
@@ -130,12 +143,16 @@ function CustomContent({
   );
 }
 
-// [!code highlight:5]
-<CopilotChat
-  messageView={{
-    reasoningMessage: { contentView: CustomContent },
-  }}
-/>;
+export function Chat() {
+  return (
+    // [!code highlight:5]
+    <CopilotChat
+      messageView={{
+        reasoningMessage: { contentView: CustomContent },
+      }}
+    />
+  );
+}
 ```
 
 ## Fully Custom Reasoning Message
@@ -150,9 +167,11 @@ slot props. Your component receives the same top-level props as the built-in one
 | `isRunning` | `boolean`          | Whether the agent is currently running                   |
 
 ```tsx
-import { type CopilotChatReasoningMessageProps } from "@copilotkit/react-core/v2";
-import { CopilotChat } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+import {
+  CopilotChat,
+  type CopilotChatReasoningMessageProps,
+} from "@copilotkit/react-core";
+import "@copilotkit/react-core/styles.css";
 
 function MyReasoningMessage({
   message,
@@ -176,12 +195,16 @@ function MyReasoningMessage({
   );
 }
 
-// [!code highlight:5]
-<CopilotChat
-  messageView={{
-    reasoningMessage: MyReasoningMessage,
-  }}
-/>;
+export function Chat() {
+  return (
+    // [!code highlight:5]
+    <CopilotChat
+      messageView={{
+        reasoningMessage: MyReasoningMessage,
+      }}
+    />
+  );
+}
 ```
 
 ## Render-Prop Children
@@ -191,9 +214,11 @@ pattern for cases where you want to rearrange the built-in sub-components
 without reimplementing them:
 
 ```tsx
-import { CopilotChatReasoningMessage } from "@copilotkit/react-core/v2";
-import { CopilotChat } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+import {
+  CopilotChat,
+  CopilotChatReasoningMessage,
+} from "@copilotkit/react-core";
+import "@copilotkit/react-core/styles.css";
 
 function MyReasoningLayout(
   props: React.ComponentProps<typeof CopilotChatReasoningMessage>,
@@ -211,11 +236,15 @@ function MyReasoningLayout(
   );
 }
 
-<CopilotChat
-  messageView={{
-    reasoningMessage: MyReasoningLayout,
-  }}
-/>;
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView={{
+        reasoningMessage: MyReasoningLayout,
+      }}
+    />
+  );
+}
 ```
 
 The render-prop callback receives:

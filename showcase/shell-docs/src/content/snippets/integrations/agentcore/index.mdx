@@ -148,7 +148,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         </Callout>
 
         ```npm
-        npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2 rxjs
+        npm install @copilotkit/react-core @copilotkit/runtime @copilotkit/agentcore-runner @ag-ui/client@1.0.2
         ```
       </Step>
 
@@ -165,10 +165,9 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         import {
           CopilotRuntime,
           createCopilotRuntimeHandler,
-          InMemoryAgentRunner,
-        } from "@copilotkit/runtime/v2";
+        } from "@copilotkit/runtime";
+        import { AgentCoreRunner } from "@copilotkit/agentcore-runner";
         import { HttpAgent } from "@ag-ui/client";
-        import { AgentCoreRunner } from "./agent-core-runner";
 
         const runtime = new CopilotRuntime({
           agents: {
@@ -205,88 +204,37 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       </Step>
 
       <Step>
-        ### Add the AgentCoreRunner
+        ### Why the AgentCoreRunner
 
         AgentCore's memory layer stores conversation history server-side. When CopilotKit reconnects
-        to an existing thread (e.g. on page refresh), two issues arise that require a custom runner:
+        to an existing thread (e.g. on page refresh), two issues arise that the default runner does not
+        handle:
 
         1. **Unknown threads** — CopilotKit may call `connect()` before any `run()` has happened.
            Without handling this, you'll get an error on first load.
         2. **Missing tool-call results** — AgentCore's replayed history includes assistant messages
            with tool calls, but omits the corresponding results. CopilotKit needs those to reconcile
-           its message state, so the runner synthesises empty results for each past tool call.
+           its message state.
 
-        Create the runner file alongside your API route:
-
-        ```typescript title="app/api/copilotkit/agent-core-runner.ts"
-        import {
-          EventType,
-          type BaseEvent,
-          type Message,
-          type MessagesSnapshotEvent,
-          type ToolCall,
-          type ToolCallResultEvent,
-        } from "@ag-ui/client";
-        import { InMemoryAgentRunner } from "@copilotkit/runtime/v2";
-        import { concatMap, of } from "rxjs";
-        import { randomUUID } from "node:crypto";
-
-        export class AgentCoreRunner extends InMemoryAgentRunner {
-          private readonly knownThreadIds = new Set<string>();
-
-          override run(request: Parameters<InMemoryAgentRunner["run"]>[0]) {
-            if (request.threadId) this.knownThreadIds.add(request.threadId);
-            return super.run(request);
-          }
-
-          override connect(request: Parameters<InMemoryAgentRunner["connect"]>[0]) {
-            if (!request.threadId || !this.knownThreadIds.has(request.threadId)) {
-              const threadId = request.threadId ?? randomUUID();
-              const runId = randomUUID();
-              return of<BaseEvent>(
-                { type: EventType.RUN_STARTED, threadId, runId },
-                { type: EventType.MESSAGES_SNAPSHOT, messages: [] },
-                { type: EventType.RUN_FINISHED, threadId, runId },
-              );
-            }
-
-            return super.connect(request).pipe(
-              concatMap((event: BaseEvent) => {
-                if (event.type !== EventType.MESSAGES_SNAPSHOT) return of(event);
-                const snapshot = event as MessagesSnapshotEvent;
-                const replayedResults: ToolCallResultEvent[] = snapshot.messages.flatMap(
-                  (message: Message) => {
-                    if (message.role !== "assistant" || !message.toolCalls?.length) return [];
-                    return message.toolCalls.map<ToolCallResultEvent>((toolCall: ToolCall) => ({
-                      type: EventType.TOOL_CALL_RESULT,
-                      toolCallId: toolCall.id,
-                      messageId: `${toolCall.id}-result`,
-                      content: "",
-                      role: "tool",
-                    }));
-                  },
-                );
-                return of<BaseEvent>(...replayedResults, snapshot);
-              }),
-            );
-          }
-        }
-        ```
+        `AgentCoreRunner` from `@copilotkit/agentcore-runner` extends `InMemoryAgentRunner` and fixes
+        both: it answers `connect()` for an unknown thread with an empty snapshot, and it synthesises
+        an empty result for each past tool call before it replays the snapshot. The route above
+        already passes it as the runtime's `runner`.
       </Step>
 
       <Step>
-        ### Add the CopilotKit provider
+        ### Add the CopilotKitProvider
 
         ```tsx title="app/providers.tsx"
         "use client";
 
-        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import { CopilotKitProvider } from "@copilotkit/react-core";
 
         export function Providers({ children }: { children: React.ReactNode }) {
           return (
-            <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+            <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent">
               {children}
-            </CopilotKit>
+            </CopilotKitProvider>
           );
         }
         ```
@@ -296,7 +244,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
         ```tsx title="app/layout.tsx"
         import { Providers } from "./providers";
-        import "@copilotkit/react-core/v2/styles.css";
+        import "@copilotkit/react-core/styles.css";
 
         export default function RootLayout({ children }: { children: React.ReactNode }) {
           return (
@@ -318,7 +266,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         ```tsx title="app/page.tsx"
         "use client"; // [!code highlight]
 
-        import { CopilotSidebar } from "@copilotkit/react-core/v2";
+        import { CopilotSidebar } from "@copilotkit/react-core";
 
         export default function Page() {
           return (
