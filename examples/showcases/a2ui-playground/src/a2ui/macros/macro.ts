@@ -20,24 +20,46 @@
  */
 import type { z } from "zod";
 
-export type Dynamic = { "@path": string } | { "@call": string; args?: Record<string, unknown> };
+export type Dynamic =
+  | { "@path": string }
+  | { "@call": string; args?: Record<string, unknown> };
 export type Value<T> = T | Dynamic;
 
 /** One node of an expansion tree. `children` are nested nodes, or ids of components the model wrote. */
-export type MacroNode = { component: string; children?: Array<MacroNode | string>; [prop: string]: unknown };
+export type MacroNode = {
+  component: string;
+  children?: Array<MacroNode | string>;
+  [prop: string]: unknown;
+};
 
-export type FlatNode = { id: string; component: string; [prop: string]: unknown };
+export type FlatNode = {
+  id: string;
+  component: string;
+  [prop: string]: unknown;
+};
 
-export const isDynamic = (v: unknown): v is Dynamic => typeof v === "object" && v !== null && ("@path" in v || "@call" in v);
+export const isDynamic = (v: unknown): v is Dynamic =>
+  typeof v === "object" && v !== null && ("@path" in v || "@call" in v);
 
 /** Builds an expansion tree: `h("Row", { gap: 2 }, h("Icon", { name: "plane" }), title)`. Falsy children are skipped. */
-export function h(component: string, props: Record<string, unknown> = {}, ...children: Array<MacroNode | string | false | null | undefined>): MacroNode {
+export function h(
+  component: string,
+  props: Record<string, unknown> = {},
+  ...children: Array<MacroNode | string | false | null | undefined>
+): MacroNode {
   const kids = children.filter((c): c is MacroNode | string => !!c);
-  const clean = Object.fromEntries(Object.entries(props).filter(([, v]) => v !== undefined));
-  return kids.length ? { component, ...clean, children: kids } : { component, ...clean };
+  const clean = Object.fromEntries(
+    Object.entries(props).filter(([, v]) => v !== undefined),
+  );
+  return kids.length
+    ? { component, ...clean, children: kids }
+    : { component, ...clean };
 }
 
-export type MacroDefinition<Props extends z.ZodRawShape = z.ZodRawShape, Data = undefined> = {
+export type MacroDefinition<
+  Props extends z.ZodRawShape = z.ZodRawShape,
+  Data = undefined,
+> = {
   name: string;
   /** What the model reads: when to use it. */
   description: string;
@@ -50,7 +72,9 @@ export type MacroDefinition<Props extends z.ZodRawShape = z.ZodRawShape, Data = 
   expand: (props: Record<string, unknown>, data: Data) => MacroNode;
 };
 
-export const defineMacro = <P extends z.ZodRawShape, D = undefined>(m: MacroDefinition<P, D>) => m as unknown as MacroDefinition;
+export const defineMacro = <P extends z.ZodRawShape, D = undefined>(
+  m: MacroDefinition<P, D>,
+) => m as unknown as MacroDefinition;
 
 export type Expansion = { id: string; macro: string; components: number };
 
@@ -101,42 +125,59 @@ export class MacroExpander {
 
   /** Expands every macro in a flat component list. Data macros load in parallel. */
   async expand(components: FlatNode[], depth = 0): Promise<Expanded> {
-    if (depth > MAX_DEPTH) throw new Error(`Macro expansion went deeper than ${MAX_DEPTH} levels`);
+    if (depth > MAX_DEPTH)
+      throw new Error(`Macro expansion went deeper than ${MAX_DEPTH} levels`);
     const trees = await Promise.all(
       components.map(async (c) => {
         if (!this.isMacro(c.component)) return null;
         const m = this.byName.get(c.component)!;
         const args = argsOf(c);
-        return flatten(c.id, m.expand(args, m.load ? await m.load(args) : undefined));
+        return flatten(
+          c.id,
+          m.expand(args, m.load ? await m.load(args) : undefined),
+        );
       }),
     );
     const step = splice(components, trees);
     if (!step.expanded.length) return step;
     // An expansion may itself use a macro.
     const rest = await this.expand(step.components, depth + 1);
-    return { components: rest.components, expanded: [...step.expanded, ...rest.expanded] };
+    return {
+      components: rest.components,
+      expanded: [...step.expanded, ...rest.expanded],
+    };
   }
 
   /** The same for macros with no `load`, with no await: usable while rendering. */
   expandSync(components: FlatNode[], depth = 0): Expanded {
-    if (depth > MAX_DEPTH) throw new Error(`Macro expansion went deeper than ${MAX_DEPTH} levels`);
+    if (depth > MAX_DEPTH)
+      throw new Error(`Macro expansion went deeper than ${MAX_DEPTH} levels`);
     const trees = components.map((c) => {
       if (!this.isMacro(c.component)) return null;
       const m = this.byName.get(c.component)!;
-      if (m.load) throw new Error(`${m.name} loads data, so it must be expanded on the server`);
+      if (m.load)
+        throw new Error(
+          `${m.name} loads data, so it must be expanded on the server`,
+        );
       return flatten(c.id, m.expand(argsOf(c), undefined));
     });
     const step = splice(components, trees);
     if (!step.expanded.length) return step;
     const rest = this.expandSync(step.components, depth + 1);
-    return { components: rest.components, expanded: [...step.expanded, ...rest.expanded] };
+    return {
+      components: rest.components,
+      expanded: [...step.expanded, ...rest.expanded],
+    };
   }
 }
 
 export type Expanded = { components: FlatNode[]; expanded: Expansion[] };
 
 /** Puts each macro's flat expansion where the macro was. */
-function splice(components: FlatNode[], trees: Array<FlatNode[] | null>): Expanded {
+function splice(
+  components: FlatNode[],
+  trees: Array<FlatNode[] | null>,
+): Expanded {
   const expanded: Expansion[] = [];
   const next = components.flatMap((c, i) => {
     const out = trees[i];
@@ -157,11 +198,18 @@ function argsOf(c: FlatNode) {
 /* ───────────── helpers for macro authors ───────────── */
 
 /** A literal stays a literal; a bound value becomes an expression the renderer evaluates. */
-export function derive(value: unknown, literal: (v: never) => unknown, expression: string, name = "v"): unknown {
+export function derive(
+  value: unknown,
+  literal: (v: never) => unknown,
+  expression: string,
+  name = "v",
+): unknown {
   if (value === undefined) return undefined;
-  if (isDynamic(value)) return { "@call": "calc", args: { expression, [name]: value } };
+  if (isDynamic(value))
+    return { "@call": "calc", args: { expression, [name]: value } };
   return literal(value as never);
 }
 
 /** `true` when the prop was given (a literal that is not empty, or any dynamic value). */
-export const given = (v: unknown) => v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && !v.length);
+export const given = (v: unknown) =>
+  v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && !v.length);

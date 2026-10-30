@@ -13,9 +13,47 @@ const opts = z.array(option);
  * `setValue`. A Button's event context reads those paths at click time.
  */
 export const inputDefinitions = {
-  Combobox: def("Inputs", "Searchable dropdown for long option lists (countries, cities, timezones).", z.object({ label, value: z.string().optional(), options: opts, placeholder: z.string().optional() }), writableValue),
-  Switch: def("Inputs", "On/off toggle with label and description.", z.object({ label: z.string(), value: z.boolean().optional(), description: z.string().optional() }), writableValue),
-  DatePicker: def("Inputs", "Date picker with calendar popover; value ISO date bound to a path.", z.object({ label, value: z.string().optional(), placeholder: z.string().optional() }), writableValue),
-  ButtonGroup: def("Inputs", "Segmented single-choice control; value bound to a path.", z.object({ label, value: z.string().optional(), options: opts }), writableValue),
-  ChipSelect: def("Inputs", "Multi-select chips bound to a string-list path: extras, interests, dietary needs.", z.object({ label, value: z.array(z.string()).optional(), options: opts }), writableValue),
+  Combobox: def(
+    "Inputs",
+    "Searchable dropdown for long option lists (countries, cities, timezones).",
+    z.object({
+      label,
+      value: z.string().optional(),
+      options: opts,
+      placeholder: z.string().optional(),
+    }),
+    writableValue,
+  ),
+  Switch: def(
+    "Inputs",
+    "On/off toggle with label and description.",
+    z.object({
+      label: z.string(),
+      value: z.boolean().optional(),
+      description: z.string().optional(),
+    }),
+    writableValue,
+  ),
+  DatePicker: def(
+    "Inputs",
+    "Date picker with calendar popover; value ISO date bound to a path.",
+    z.object({
+      label,
+      value: z.string().optional(),
+      placeholder: z.string().optional(),
+    }),
+    writableValue,
+  ),
+  ButtonGroup: def(
+    "Inputs",
+    "Segmented single-choice control; value bound to a path.",
+    z.object({ label, value: z.string().optional(), options: opts }),
+    writableValue,
+  ),
+  ChipSelect: def(
+    "Inputs",
+    "Multi-select chips bound to a string-list path: extras, interests, dietary needs.",
+    z.object({ label, value: z.array(z.string()).optional(), options: opts }),
+    writableValue,
+  ),
 };

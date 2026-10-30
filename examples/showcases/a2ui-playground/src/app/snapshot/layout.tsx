@@ -1,5 +1,12 @@
-export const metadata = { title: "Snapshot", robots: { index: false, follow: false } };
+export const metadata = {
+  title: "Snapshot",
+  robots: { index: false, follow: false },
+};
 
-export default function SnapshotLayout({ children }: { children: React.ReactNode }) {
+export default function SnapshotLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return children;
 }

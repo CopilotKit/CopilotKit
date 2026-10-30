@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { AgentTap } from "@/components/app/agent-tap";
 import { useMode } from "@/components/app/providers";
 import { modelLabel } from "@/lib/model-options";
@@ -52,10 +59,17 @@ export function Workbench() {
   useEffect(() => setPicked(null), [lastId]);
   const turn = turns.find((t) => t.id === picked) ?? turns[turns.length - 1];
   const run = useRunStore((s) => runOf(turn, s.runs));
-  const surfaceKey = surfaceOfTurn(turns, turn, run);
-  const surfaceOps = useRunStore((s) => (surfaceKey ? s.surfaces[surfaceKey]?.ops : undefined)) ?? null;
+  const surfaceKey = surfaceOfTurn(turn, run);
+  const surfaceOps =
+    useRunStore((s) =>
+      surfaceKey ? s.surfaces[surfaceKey]?.ops : undefined,
+    ) ?? null;
 
-  const live = useShownLines({ run, ops: surfaceOps, handEdited: !!turn && isHandEdited(turn) });
+  const live = useShownLines({
+    run,
+    ops: surfaceOps,
+    handEdited: !!turn && isHandEdited(turn),
+  });
   const shown = replaying ? replay.shown : live;
 
   // The JSON tab shows the selected surface.
@@ -93,7 +107,10 @@ export function Workbench() {
   const back = useRef<HTMLButtonElement>(null);
   const openCode = useCallback(() => {
     if (!matchMedia(NARROW).matches) return;
-    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    opener.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     setCodeOpen(true);
     requestAnimationFrame(() => back.current?.focus());
   }, []);
@@ -144,7 +161,10 @@ export function Workbench() {
 
   const writer = replaying ? replay.model : modelLabel(run?.model ?? model);
   // A template drew the surface (its lines are decompiled), so no model wrote them.
-  const title = !replaying && run?.path === "fixed" ? "From a template" : `${writer} writes`;
+  const title =
+    !replaying && run?.path === "fixed"
+      ? "From a template"
+      : `${writer} writes`;
   // The tab is named for what it shows: an Express run that fell back to JSON ends in JSON lines.
   const linesLabel = shown.format === "json" ? "JSON stream" : "Express";
   const wide = jsonWide && tab === "json";
@@ -157,12 +177,29 @@ export function Workbench() {
         id="main"
         className={cn(
           "wb relative grid min-h-0 flex-1 grid-cols-1 overflow-hidden",
-          wide ? "min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]" : "min-[900px]:grid-cols-[minmax(0,1fr)_380px] min-[1280px]:grid-cols-[minmax(0,1fr)_460px]",
+          wide
+            ? "min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]"
+            : "min-[900px]:grid-cols-[minmax(0,1fr)_380px] min-[1280px]:grid-cols-[minmax(0,1fr)_460px]",
         )}
       >
-        <section aria-label="Conversation" inert={covered || undefined} aria-hidden={covered || undefined} className="flex min-h-0 flex-col min-[900px]:border-r min-[900px]:border-[var(--pg-line)]">
-          <Thread turns={turns} replay={replay} selection={selection} onSelect={onSelect} />
-          <Composer replay={replay} empty={!turns.length} onSent={onSent} onStartWithoutAI={startWithoutAI} />
+        <section
+          aria-label="Conversation"
+          inert={covered || undefined}
+          aria-hidden={covered || undefined}
+          className="flex min-h-0 flex-col min-[900px]:border-r min-[900px]:border-[var(--pg-line)]"
+        >
+          <Thread
+            turns={turns}
+            replay={replay}
+            selection={selection}
+            onSelect={onSelect}
+          />
+          <Composer
+            replay={replay}
+            empty={!turns.length}
+            onSent={onSent}
+            onStartWithoutAI={startWithoutAI}
+          />
         </section>
 
         <WritesPane
@@ -173,12 +210,23 @@ export function Workbench() {
           tab={tab}
           onTab={setTab}
           runId={replaying ? undefined : run ? run.id : turn ? null : undefined}
-          recorded={replaying ? { events: replay.events, recordedAt: replay.recordedAt, model: replay.model } : null}
+          recorded={
+            replaying
+              ? {
+                  events: replay.events,
+                  recordedAt: replay.recordedAt,
+                  model: replay.model,
+                }
+              : null
+          }
           jsonKey={jsonKey}
           jsonWide={jsonWide}
           onJsonWide={setJsonWide}
           onBack={closeCode}
-          className={cn("bg-[var(--pg-bg)] max-[899px]:absolute max-[899px]:inset-0 max-[899px]:z-30", codeOpen ? "wb-sheet" : "max-[899px]:hidden")}
+          className={cn(
+            "bg-[var(--pg-bg)] max-[899px]:absolute max-[899px]:inset-0 max-[899px]:z-30",
+            codeOpen ? "wb-sheet" : "max-[899px]:hidden",
+          )}
         />
       </main>
     </LinkContext.Provider>

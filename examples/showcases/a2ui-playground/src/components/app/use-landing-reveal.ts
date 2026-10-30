@@ -34,14 +34,22 @@ function landed(node: Element): Element[] {
   });
 }
 
-export function useLandingReveal(ref: React.RefObject<HTMLElement | null>, enabled: boolean) {
+export function useLandingReveal(
+  ref: React.RefObject<HTMLElement | null>,
+  enabled: boolean,
+) {
   const on = useRef(enabled);
   on.current = enabled;
 
   useEffect(() => {
     const host = ref.current;
     // Only the conversation's floors draw the reveal (its CSS is scoped to `.wb-floor`).
-    if (!host || !host.closest(".wb-floor") || typeof MutationObserver === "undefined") return;
+    if (
+      !host ||
+      !host.closest(".wb-floor") ||
+      typeof MutationObserver === "undefined"
+    )
+      return;
     const timers = new Set<number>();
     const mo = new MutationObserver((records) => {
       // The runtime hides the surface (opacity 0) from its first frame until its own reveal.
@@ -68,7 +76,9 @@ export function useLandingReveal(ref: React.RefObject<HTMLElement | null>, enabl
     return () => {
       mo.disconnect();
       timers.forEach((t) => clearTimeout(t));
-      host.querySelectorAll(`[${ATTR}]`).forEach((el) => el.removeAttribute(ATTR));
+      host
+        .querySelectorAll(`[${ATTR}]`)
+        .forEach((el) => el.removeAttribute(ATTR));
     };
   }, [ref]);
 }

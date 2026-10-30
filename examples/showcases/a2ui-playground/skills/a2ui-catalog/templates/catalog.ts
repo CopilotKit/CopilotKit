@@ -21,7 +21,11 @@
  * fixed template before its data lands). The composer prompt never lists it.
  */
 import { createElement, type ComponentType } from "react";
-import { createGenerativeUI, standardUI, type GenerativeUITheme } from "@copilotkit/react-core/v2/generative-ui";
+import {
+  createGenerativeUI,
+  standardUI,
+  type GenerativeUITheme,
+} from "@copilotkit/react-core/v2/generative-ui";
 import { z } from "zod";
 import { definitions, type ComponentName } from "./definitions";
 import { CATALOG_ID } from "./ids";
@@ -30,16 +34,28 @@ import { renderers } from "./renderers"; // { [K in ComponentName]: Renderer<K> 
 
 /** Internal stand-in: `{ component: "Blueprint", of: "Stat", h?: 96 }`. */
 export const BLUEPRINT = "Blueprint";
-const blueprintSchema = z.object({ of: z.string().optional(), h: z.number().optional(), state: z.string().optional() });
+const blueprintSchema = z.object({
+  of: z.string().optional(),
+  h: z.number().optional(),
+  state: z.string().optional(),
+});
 
 type AnyRender = ComponentType<{ props: Record<string, unknown> }>;
 
 /** Wraps a renderer in its `.a2-node` and turns the `onAction` event into the `action` closure renderers call. */
 function node(name: string, Render: AnyRender) {
   function Node(engineProps: Record<string, unknown>) {
-    const { onAction, ...rest } = engineProps as { onAction?: (args: object) => Promise<unknown> } & Record<string, unknown>;
-    const props = onAction ? { ...rest, action: () => void onAction({}) } : rest;
-    return createElement("div", { className: "a2-node", "data-a2-type": name }, createElement(Render, { props }));
+    const { onAction, ...rest } = engineProps as {
+      onAction?: (args: object) => Promise<unknown>;
+    } & Record<string, unknown>;
+    const props = onAction
+      ? { ...rest, action: () => void onAction({}) }
+      : rest;
+    return createElement(
+      "div",
+      { className: "a2-node", "data-a2-type": name },
+      createElement(Render, { props }),
+    );
   }
   Node.displayName = `A2UI(${name})`;
   return Node;
@@ -65,14 +81,21 @@ export const playgroundUI = createGenerativeUI({
   id: CATALOG_ID,
   extends: [standardUI],
   components: {
-    ...(own as unknown as Record<ComponentName, { component: ComponentType<never>; props: z.ZodObject<z.ZodRawShape> }>),
-    [BLUEPRINT]: { component: node(BLUEPRINT, BlueprintFrame as unknown as AnyRender), props: blueprintSchema },
+    ...(own as unknown as Record<
+      ComponentName,
+      { component: ComponentType<never>; props: z.ZodObject<z.ZodRawShape> }
+    >),
+    [BLUEPRINT]: {
+      component: node(BLUEPRINT, BlueprintFrame as unknown as AnyRender),
+      props: blueprintSchema,
+    },
   },
 });
 
 /** Palette for the standard components (`--a2ui-*`). `dark` applies under a `.dark` class. */
 export const playgroundTheme: GenerativeUITheme = {
-  "--a2ui-font-family": "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+  "--a2ui-font-family":
+    "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
   dark: {
     "--a2ui-color-surface": "oklch(0.172 0.005 285)",
     "--a2ui-color-surface-secondary": "oklch(0.205 0.006 285)",

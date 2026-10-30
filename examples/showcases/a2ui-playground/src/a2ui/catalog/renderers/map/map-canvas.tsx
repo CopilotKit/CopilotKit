@@ -8,9 +8,25 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./map.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getWorkerUrl, setWorkerUrl } from "maplibre-gl";
-import { AttributionControl, Layer, Map, Marker, NavigationControl, Source, type MapRef } from "react-map-gl/maplibre";
+import {
+  AttributionControl,
+  Layer,
+  Map,
+  Marker,
+  NavigationControl,
+  Source,
+  type MapRef,
+} from "react-map-gl/maplibre";
 import { cn } from "@/lib/utils";
-import { BASEMAP_STYLE, LIBERTY_STYLE, STREETS_STYLE, boundsOf, isDegenerate, type LngLat, type MapPoint } from "./geo";
+import {
+  BASEMAP_STYLE,
+  LIBERTY_STYLE,
+  STREETS_STYLE,
+  boundsOf,
+  isDegenerate,
+  type LngLat,
+  type MapPoint,
+} from "./geo";
 
 export type MapCanvasProps = {
   points?: MapPoint[];
@@ -34,8 +50,13 @@ export type MapCanvasProps = {
 
 // MapLibre 6 resolves its worker relative to its own module URL, which breaks
 // once bundled. Point it at the worker file emitted by the bundler instead.
-if (typeof window !== "undefined" && !getWorkerUrl()?.includes("maplibre-gl-worker")) {
-  setWorkerUrl(new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).href);
+if (
+  typeof window !== "undefined" &&
+  !getWorkerUrl()?.includes("maplibre-gl-worker")
+) {
+  setWorkerUrl(
+    new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).href,
+  );
 }
 
 const ACCENT = "#a78bfa";
@@ -73,7 +94,10 @@ export default function MapCanvas({
         map.resize();
         const b = boundsRef.current;
         if (!b || activeRef.current != null) return;
-        if (isDegenerate(b)) map.jumpTo({ center: [(b[0][0] + b[1][0]) / 2, (b[0][1] + b[1][1]) / 2] });
+        if (isDegenerate(b))
+          map.jumpTo({
+            center: [(b[0][0] + b[1][0]) / 2, (b[0][1] + b[1][1]) / 2],
+          });
         else map.fitBounds(b, { padding: pad, maxZoom: 15, duration: 0 });
       });
     });
@@ -85,8 +109,19 @@ export default function MapCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const pad = useMemo(() => ({ top: padding + (points.length ? 30 : 0), bottom: padding, left: padding, right: padding }), [padding, points.length]);
-  const coords = useMemo<LngLat[]>(() => [...points.map((p) => [p.lon, p.lat] as LngLat), ...route], [points, route]);
+  const pad = useMemo(
+    () => ({
+      top: padding + (points.length ? 30 : 0),
+      bottom: padding,
+      left: padding,
+      right: padding,
+    }),
+    [padding, points.length],
+  );
+  const coords = useMemo<LngLat[]>(
+    () => [...points.map((p) => [p.lon, p.lat] as LngLat), ...route],
+    [points, route],
+  );
   const bounds = useMemo(() => boundsOf(coords), [coords]);
   const boundsRef = useRef(bounds);
   boundsRef.current = bounds;
@@ -94,15 +129,27 @@ export default function MapCanvas({
   zoomRef.current = zoom;
   const activeRef = useRef(focus ?? active);
   activeRef.current = focus ?? active;
-  const sig = bounds ? bounds.flat().map((n) => n.toFixed(5)).join(",") : "";
+  const sig = bounds
+    ? bounds
+        .flat()
+        .map((n) => n.toFixed(5))
+        .join(",")
+    : "";
 
   const initialViewState = useMemo(() => {
     if (!bounds) return { longitude: 0, latitude: 20, zoom: 1 };
     if (isDegenerate(bounds)) {
       const [[x0, y0], [x1, y1]] = bounds;
-      return { longitude: (x0 + x1) / 2, latitude: (y0 + y1) / 2, zoom: zoom ?? 14 };
+      return {
+        longitude: (x0 + x1) / 2,
+        latitude: (y0 + y1) / 2,
+        zoom: zoom ?? 14,
+      };
     }
-    return { bounds: bounds as [LngLat, LngLat], fitBoundsOptions: { padding: pad, maxZoom: 15 } };
+    return {
+      bounds: bounds as [LngLat, LngLat],
+      fitBoundsOptions: { padding: pad, maxZoom: 15 },
+    };
     // Only the first render matters; later changes go through fitBounds below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -113,7 +160,11 @@ export default function MapCanvas({
     if (!map || !loaded || !bounds) return;
     if (isDegenerate(bounds)) {
       const [[x0, y0], [x1, y1]] = bounds;
-      map.easeTo({ center: [(x0 + x1) / 2, (y0 + y1) / 2], zoom: zoom ?? 14, duration: 500 });
+      map.easeTo({
+        center: [(x0 + x1) / 2, (y0 + y1) / 2],
+        zoom: zoom ?? 14,
+        duration: 500,
+      });
     } else {
       map.fitBounds(bounds, { padding: pad, maxZoom: 15, duration: 600 });
     }
@@ -126,12 +177,19 @@ export default function MapCanvas({
     if (!map || !loaded || !followActive) return;
     const idx = focus ?? active;
     if (idx == null) {
-      if (bounds && !isDegenerate(bounds)) map.fitBounds(bounds, { padding: pad, maxZoom: 15, duration: 700 });
+      if (bounds && !isDegenerate(bounds))
+        map.fitBounds(bounds, { padding: pad, maxZoom: 15, duration: 700 });
       return;
     }
     const p = points[idx];
     if (!p) return;
-    if (focus != null) map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), 14.5), duration: 900, essential: true });
+    if (focus != null)
+      map.flyTo({
+        center: [p.lon, p.lat],
+        zoom: Math.max(map.getZoom(), 14.5),
+        duration: 900,
+        essential: true,
+      });
     else map.easeTo({ center: [p.lon, p.lat], duration: 450 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, focus, followActive, loaded]);
@@ -141,17 +199,37 @@ export default function MapCanvas({
       type: "FeatureCollection" as const,
       features:
         route.length >= 2
-          ? [{ type: "Feature" as const, properties: {}, geometry: { type: "LineString" as const, coordinates: route } }]
+          ? [
+              {
+                type: "Feature" as const,
+                properties: {},
+                geometry: { type: "LineString" as const, coordinates: route },
+              },
+            ]
           : [],
     }),
     [route],
   );
 
   return (
-    <div ref={box} data-basemap={basemap === "dark" ? "dark" : "streets"} className={cn("a2-map relative h-full w-full overflow-hidden", basemap === "dark" ? "bg-[#0e0e11]" : "bg-[#f2efe9]", className)}>
+    <div
+      ref={box}
+      data-basemap={basemap === "dark" ? "dark" : "streets"}
+      className={cn(
+        "a2-map relative h-full w-full overflow-hidden",
+        basemap === "dark" ? "bg-[#0e0e11]" : "bg-[#f2efe9]",
+        className,
+      )}
+    >
       <Map
         ref={ref}
-        mapStyle={basemap === "liberty" ? LIBERTY_STYLE : basemap === "streets" ? STREETS_STYLE : BASEMAP_STYLE}
+        mapStyle={
+          basemap === "liberty"
+            ? LIBERTY_STYLE
+            : basemap === "streets"
+              ? STREETS_STYLE
+              : BASEMAP_STYLE
+        }
         initialViewState={initialViewState}
         attributionControl={false}
         interactive={interactive}
@@ -162,7 +240,10 @@ export default function MapCanvas({
         scrollZoom={interactive ? { around: "center" } : false}
         onLoad={(e) => {
           // Start with the attribution collapsed to its (i) button.
-          e.target.getContainer().querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
+          e.target
+            .getContainer()
+            .querySelector(".maplibregl-ctrl-attrib")
+            ?.classList.remove("maplibregl-compact-show");
           e.target.resize();
           setLoaded(true);
         }}
@@ -170,7 +251,9 @@ export default function MapCanvas({
         style={{ width: "100%", height: "100%" }}
       >
         <AttributionControl compact position="bottom-right" />
-        {interactive ? <NavigationControl position="top-right" showCompass={false} /> : null}
+        {interactive ? (
+          <NavigationControl position="top-right" showCompass={false} />
+        ) : null}
 
         {route.length >= 2 ? (
           <Source id="a2-route" type="geojson" data={routeGeo} lineMetrics>
@@ -178,13 +261,22 @@ export default function MapCanvas({
               id="a2-route-glow"
               type="line"
               layout={{ "line-cap": "round", "line-join": "round" }}
-              paint={{ "line-color": ACCENT_DEEP, "line-width": 14, "line-blur": 10, "line-opacity": 0.55 }}
+              paint={{
+                "line-color": ACCENT_DEEP,
+                "line-width": 14,
+                "line-blur": 10,
+                "line-opacity": 0.55,
+              }}
             />
             <Layer
               id="a2-route-casing"
               type="line"
               layout={{ "line-cap": "round", "line-join": "round" }}
-              paint={{ "line-color": "#1c1530", "line-width": 6.5, "line-opacity": 0.9 }}
+              paint={{
+                "line-color": "#1c1530",
+                "line-width": 6.5,
+                "line-opacity": 0.9,
+              }}
             />
             <Layer
               id="a2-route-line"
@@ -192,7 +284,17 @@ export default function MapCanvas({
               layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
                 "line-width": 3.5,
-                "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "#6ee7b7", 0.18, ACCENT, 1, "#c4b5fd"],
+                "line-gradient": [
+                  "interpolate",
+                  ["linear"],
+                  ["line-progress"],
+                  0,
+                  "#6ee7b7",
+                  0.18,
+                  ACCENT,
+                  1,
+                  "#c4b5fd",
+                ],
               }}
             />
           </Source>
@@ -200,10 +302,18 @@ export default function MapCanvas({
 
         {route.length >= 2 ? (
           <>
-            <Marker longitude={route[0][0]} latitude={route[0][1]} anchor="center">
+            <Marker
+              longitude={route[0][0]}
+              latitude={route[0][1]}
+              anchor="center"
+            >
               <EndPin kind="start" />
             </Marker>
-            <Marker longitude={route[route.length - 1][0]} latitude={route[route.length - 1][1]} anchor="center">
+            <Marker
+              longitude={route[route.length - 1][0]}
+              latitude={route[route.length - 1][1]}
+              anchor="center"
+            >
               <EndPin kind="end" />
             </Marker>
           </>
@@ -221,19 +331,42 @@ export default function MapCanvas({
               onActivate?.(active === i ? null : i);
             }}
           >
-            <Pin n={i + 1} active={active === i} plain={plainPins} label={p.name} interactive={interactive} />
+            <Pin
+              n={i + 1}
+              active={active === i}
+              plain={plainPins}
+              label={p.name}
+              interactive={interactive}
+            />
           </Marker>
         ))}
       </Map>
-      {!loaded ? <div className="a2-shimmer pointer-events-none absolute inset-0" /> : null}
+      {!loaded ? (
+        <div className="a2-shimmer pointer-events-none absolute inset-0" />
+      ) : null}
     </div>
   );
 }
 
-function Pin({ n, active, plain, label, interactive }: { n: number; active: boolean; plain: boolean; label: string; interactive: boolean }) {
+function Pin({
+  n,
+  active,
+  plain,
+  label,
+  interactive,
+}: {
+  n: number;
+  active: boolean;
+  plain: boolean;
+  label: string;
+  interactive: boolean;
+}) {
   return (
     <div
-      className={cn("a2-pin-drop group/pin relative flex flex-col items-center", interactive && "cursor-pointer")}
+      className={cn(
+        "a2-pin-drop group/pin relative flex flex-col items-center",
+        interactive && "cursor-pointer",
+      )}
       style={{ "--i": Math.min(n - 1, 8) } as React.CSSProperties}
       title={label || undefined}
     >
@@ -262,7 +395,12 @@ function EndPin({ kind }: { kind: "start" | "end" }) {
   const start = kind === "start";
   return (
     <div className="a2-pin-drop relative flex items-center justify-center">
-      <span className={cn("absolute size-6 rounded-full", start ? "bg-emerald-300/20" : "bg-violet-300/25")} />
+      <span
+        className={cn(
+          "absolute size-6 rounded-full",
+          start ? "bg-emerald-300/20" : "bg-violet-300/25",
+        )}
+      />
       <span
         className={cn(
           "relative flex size-[15px] items-center justify-center rounded-full border-2 border-white shadow-[0_2px_8px_rgba(0,0,0,0.6)]",

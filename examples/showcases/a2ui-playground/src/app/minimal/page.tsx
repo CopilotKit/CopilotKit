@@ -7,7 +7,11 @@ const GENERATIVE_UI = { ui: playgroundUI, theme: playgroundTheme };
 
 export default function MinimalPage() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/minimal" generativeUI={GENERATIVE_UI} enableInspector={false}>
+    <CopilotKitProvider
+      runtimeUrl="/api/minimal"
+      generativeUI={GENERATIVE_UI}
+      enableInspector={false}
+    >
       <main className="mx-auto h-[100dvh] max-w-3xl">
         <CopilotChat agentId="default" />
       </main>

@@ -1,11 +1,19 @@
 "use client";
 
 import { useEffect, useRef, type ComponentType } from "react";
-import { useCopilotKit, type ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
-import { GENERATIVE_UI_ACTIVITY_TYPE, type GenerativeUISurfaceContent } from "@copilotkit/shared";
+import {
+  useCopilotKit,
+  type ReactActivityMessageRenderer,
+} from "@copilotkit/react-core/v2";
+import {
+  GENERATIVE_UI_ACTIVITY_TYPE,
+  type GenerativeUISurfaceContent,
+} from "@copilotkit/shared";
 import { z } from "zod";
 
-type Props = React.ComponentProps<ReactActivityMessageRenderer<GenerativeUISurfaceContent>["render"]>;
+type Props = React.ComponentProps<
+  ReactActivityMessageRenderer<GenerativeUISurfaceContent>["render"]
+>;
 type A2UIOp = Record<string, unknown>;
 
 /** Replace with your own store/bus: called with every operation list the chat renders. */
@@ -20,7 +28,10 @@ export const onSurfaceOps = { current: (_key: string, _ops: A2UIOp[]) => {} };
  */
 export function useBaseSurfaceRenderer(): ComponentType<Props> | undefined {
   const { copilotkit } = useCopilotKit();
-  const base = copilotkit.renderActivityMessages.find((r) => r.activityType === GENERATIVE_UI_ACTIVITY_TYPE && r !== surfaceRenderer);
+  const base = copilotkit.renderActivityMessages.find(
+    (r) =>
+      r.activityType === GENERATIVE_UI_ACTIVITY_TYPE && r !== surfaceRenderer,
+  );
   return base?.render as ComponentType<Props> | undefined;
 }
 
@@ -38,7 +49,8 @@ function Mirrored(props: Props) {
   const ops = props.content?.operations;
   const last = useRef(0);
   useEffect(() => {
-    if (!Array.isArray(ops) || !ops.length || ops.length === last.current) return;
+    if (!Array.isArray(ops) || !ops.length || ops.length === last.current)
+      return;
     last.current = ops.length;
     onSurfaceOps.current(key, ops as unknown as A2UIOp[]);
   }, [ops, key]);
@@ -50,8 +62,10 @@ function Mirrored(props: Props) {
 }
 
 /** Pass in `renderActivityMessages={[surfaceRenderer]}` on `CopilotKitProvider`. */
-export const surfaceRenderer: ReactActivityMessageRenderer<GenerativeUISurfaceContent> = {
-  activityType: GENERATIVE_UI_ACTIVITY_TYPE,
-  content: z.any() as unknown as ReactActivityMessageRenderer<GenerativeUISurfaceContent>["content"],
-  render: Mirrored,
-};
+export const surfaceRenderer: ReactActivityMessageRenderer<GenerativeUISurfaceContent> =
+  {
+    activityType: GENERATIVE_UI_ACTIVITY_TYPE,
+    content:
+      z.any() as unknown as ReactActivityMessageRenderer<GenerativeUISurfaceContent>["content"],
+    render: Mirrored,
+  };

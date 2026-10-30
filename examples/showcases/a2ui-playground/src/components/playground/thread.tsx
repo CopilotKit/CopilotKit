@@ -1,6 +1,13 @@
 "use client";
 
-import { memo, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import type { ActivityMessage } from "@ag-ui/client";
 import { useAgent, useRenderActivityMessage } from "@copilotkit/react-core/v2";
 import { GENERATIVE_UI_ACTIVITY_TYPE } from "@copilotkit/shared";
@@ -14,14 +21,21 @@ import { useSend } from "@/components/app/use-send";
 import { useUIGeneration } from "@/components/app/use-ui-generation";
 import { modelLabel } from "@/lib/model-options";
 import { nodeElements, nodeRect } from "@/lib/node-rects";
-import { latestComponents, useRunStore, type A2UIOp, type RunRecord } from "@/lib/run-store";
+import {
+  latestComponents,
+  useRunStore,
+  type A2UIOp,
+  type RunRecord,
+} from "@/lib/run-store";
 import { cn } from "@/lib/utils";
 import { focusRing } from "./composer";
 import { activeId, runStatus, useLink, type LineFormat } from "./lines";
 import type { Replay } from "./replay";
 import { runOf, type Turn } from "./turns";
 
-const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const reducedMotion = () =>
+  typeof matchMedia === "function" &&
+  matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** The surface the writes pane shows, and what the thread needs to link its lines to its components. */
 export type Selection = {
@@ -42,17 +56,30 @@ export type OnSelect = (turnId: string | null, open: boolean) => void;
  * (src/components/app/surface-renderer.tsx), so their buttons and inputs still reach the agent.
  * The first visit plays a recorded run into the thread.
  */
-export function Thread({ turns, replay, selection, onSelect }: { turns: Turn[]; replay: Replay; selection: Selection; onSelect: OnSelect }) {
+export function Thread({
+  turns,
+  replay,
+  selection,
+  onSelect,
+}: {
+  turns: Turn[];
+  replay: Replay;
+  selection: Selection;
+  onSelect: OnSelect;
+}) {
   const scroller = useRef<HTMLDivElement>(null);
   useAgentPulse();
-  const showReplay = (replay.status === "playing" || replay.status === "ended") && replay.sent;
+  const showReplay =
+    (replay.status === "playing" || replay.status === "ended") && replay.sent;
   const lastId = turns[turns.length - 1]?.id ?? null;
 
   // The last turn is at least as tall as the view, so a new prompt can scroll to the top and its UI paints below it, in view.
   useLayoutEffect(() => {
     const el = scroller.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => el.style.setProperty("--thread-h", `${el.clientHeight}px`));
+    const ro = new ResizeObserver(() =>
+      el.style.setProperty("--thread-h", `${el.clientHeight}px`),
+    );
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -62,7 +89,13 @@ export function Thread({ turns, replay, selection, onSelect }: { turns: Turn[]; 
   const actedAt = useRef(0);
   const quiet = useRef(new Set<string>()).current;
   const seen = useRef<string | null>(null);
-  if (lastId && seen.current !== null && lastId !== seen.current && performance.now() - actedAt.current < 4000) quiet.add(lastId);
+  if (
+    lastId &&
+    seen.current !== null &&
+    lastId !== seen.current &&
+    performance.now() - actedAt.current < 4000
+  )
+    quiet.add(lastId);
 
   // A new prompt brings its turn to the top. A chat restored from earlier opens on its last turn.
   useLayoutEffect(() => {
@@ -70,7 +103,9 @@ export function Thread({ turns, replay, selection, onSelect }: { turns: Turn[]; 
     if (!el || !lastId || lastId === seen.current) return;
     const restored = seen.current === null;
     seen.current = lastId;
-    const turn = el.querySelector<HTMLElement>(`[data-turn="${CSS.escape(lastId)}"]`);
+    const turn = el.querySelector<HTMLElement>(
+      `[data-turn="${CSS.escape(lastId)}"]`,
+    );
     if (!turn) return;
     // A turn from a surface action: kept in view as its answer grows, until the visitor scrolls.
     if (quiet.has(lastId)) {
@@ -91,8 +126,15 @@ export function Thread({ turns, replay, selection, onSelect }: { turns: Turn[]; 
       };
     }
     const toTurn = (smooth: boolean) => {
-      const top = turn.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - 16;
-      el.scrollTo({ top, behavior: smooth && !reducedMotion() ? "smooth" : "auto" });
+      const top =
+        turn.getBoundingClientRect().top -
+        el.getBoundingClientRect().top +
+        el.scrollTop -
+        16;
+      el.scrollTo({
+        top,
+        behavior: smooth && !reducedMotion() ? "smooth" : "auto",
+      });
     };
     toTurn(!restored);
     // Restored surfaces settle their height a moment after they mount.
@@ -108,16 +150,13 @@ export function Thread({ turns, replay, selection, onSelect }: { turns: Turn[]; 
   const runs = useRunStore((s) => s.runs);
   const updatedKeyOf = new Map<string, string>();
   const shownAt = new Map<string, string>();
-  let prevKey: string | null = null;
   for (const t of turns) {
     if (t.surfaceKey) {
       shownAt.set(t.surfaceKey, t.id);
-      prevKey = t.surfaceKey;
       continue;
     }
-    const run = runOf(t, runs);
-    // The update may reach the surface without touching its activity message, so a finished turn that called a tool and drew nothing of its own counts as one.
-    const key = run?.surfaceKey ?? (t.acted && !t.text && (!run || run.status === "done") ? prevKey : null);
+    // The update may reach the surface without touching its activity message: its tool result names the surface.
+    const key = runOf(t, runs)?.surfaceKey ?? t.updatedKey;
     if (!key) continue;
     updatedKeyOf.set(t.id, key);
     if (!quiet.has(t.id)) shownAt.set(key, t.id);
@@ -129,23 +168,43 @@ export function Thread({ turns, replay, selection, onSelect }: { turns: Turn[]; 
       className="wb-scroll relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
       data-thread
       onPointerDownCapture={(e) => {
-        if ((e.target as Element).closest?.(".wb-floor")) actedAt.current = performance.now();
+        if ((e.target as Element).closest?.(".wb-floor"))
+          actedAt.current = performance.now();
       }}
       onKeyDownCapture={(e) => {
-        if ((e.key === "Enter" || e.key === " ") && (e.target as Element).closest?.(".wb-floor")) actedAt.current = performance.now();
+        if (
+          (e.key === "Enter" || e.key === " ") &&
+          (e.target as Element).closest?.(".wb-floor")
+        )
+          actedAt.current = performance.now();
       }}
     >
       <div className="mx-auto w-full max-w-[844px] px-8 max-[1279px]:px-6 max-[899px]:px-4">
         <header className="pb-8 pt-8 max-[1279px]:pt-7 max-[899px]:pb-6 max-[899px]:pt-5">
-          <h1 className="text-balance text-[32px] font-semibold leading-[1.08] tracking-[-0.025em] max-[1279px]:text-[28px] max-[899px]:text-[25px]">Watch an&nbsp;agent write&nbsp;UI.</h1>
+          <h1 className="text-balance text-[32px] font-semibold leading-[1.08] tracking-[-0.025em] max-[1279px]:text-[28px] max-[899px]:text-[25px]">
+            Watch an&nbsp;agent write&nbsp;UI.
+          </h1>
           <p className="mt-2.5 max-w-[62ch] text-[14px] leading-[1.55] text-[var(--pg-dim)] max-[899px]:mt-2">
-            A2UI 1.0 is Google&apos;s open protocol for agents that answer with UI: the model writes one line per component, and your components draw it.
+            A2UI 1.0 is Google&apos;s open protocol for agents that answer with
+            UI: the model writes one line per component, and your components
+            draw it.
           </p>
         </header>
 
         <HoverArea selection={selection}>
-          <ol aria-label="Conversation" className="flex flex-col gap-10 pb-6 max-[899px]:gap-8">
-            {showReplay ? <ReplayTurn replay={replay} sel={selection.key === "replay" ? selection : null} onSelect={onSelect} scroller={scroller} last={!turns.length} /> : null}
+          <ol
+            aria-label="Conversation"
+            className="flex flex-col gap-10 pb-6 max-[899px]:gap-8"
+          >
+            {showReplay ? (
+              <ReplayTurn
+                replay={replay}
+                sel={selection.key === "replay" ? selection : null}
+                onSelect={onSelect}
+                scroller={scroller}
+                last={!turns.length}
+              />
+            ) : null}
             {turns.map((t, i) => {
               const updatedKey = updatedKeyOf.get(t.id) ?? null;
               const mine = t.surfaceKey ?? updatedKey;
@@ -169,8 +228,12 @@ export function Thread({ turns, replay, selection, onSelect }: { turns: Turn[]; 
 
         {!turns.length && !showReplay && replay.status === "off" ? (
           <div className="rounded-[14px] border border-dashed border-[var(--pg-line-strong)] px-6 py-10 text-center">
-            <p className="text-[15px] font-medium text-foreground/90">Your UI draws here, in the conversation.</p>
-            <p className="mt-1.5 text-[13.5px] text-[var(--pg-dim)]">Ask for something, or pick one of the prompts below.</p>
+            <p className="text-[15px] font-medium text-foreground/90">
+              Your UI draws here, in the conversation.
+            </p>
+            <p className="mt-1.5 text-[13.5px] text-[var(--pg-dim)]">
+              Ask for something, or pick one of the prompts below.
+            </p>
           </div>
         ) : null}
       </div>
@@ -184,14 +247,24 @@ export function Thread({ turns, replay, selection, onSelect }: { turns: Turn[]; 
  * Hovering a component of the selected surface lights its line. One listener for the whole thread; its
  * children are passed in, so a hover re-renders this wrapper and not the conversation.
  */
-function HoverArea({ selection, children }: { selection: Selection; children: React.ReactNode }) {
+function HoverArea({
+  selection,
+  children,
+}: {
+  selection: Selection;
+  children: React.ReactNode;
+}) {
   const { setHover } = useLink();
   return (
     <div
       onPointerOver={(e) => {
         const target = e.target as Element;
         const floor = target.closest?.("[data-link-floor]");
-        setHover(floor ? surfaceHover(target, floor, selection.ops, selection.lineOf) : null);
+        setHover(
+          floor
+            ? surfaceHover(target, floor, selection.ops, selection.lineOf)
+            : null,
+        );
       }}
       onPointerLeave={() => setHover(null)}
     >
@@ -201,11 +274,20 @@ function HoverArea({ selection, children }: { selection: Selection; children: Re
 }
 
 /** The innermost component under the pointer that has a line of its own. */
-function surfaceHover(target: Element, host: Element, ops: A2UIOp[] | null, lineOf: Map<string, number>) {
+function surfaceHover(
+  target: Element,
+  host: Element,
+  ops: A2UIOp[] | null,
+  lineOf: Map<string, number>,
+) {
   if (!ops) return null;
   const idOf = new Map<Element, string>();
   for (const [id, el] of nodeElements(host, ops)) idOf.set(el, id);
-  for (let el: Element | null = target; el && el !== host; el = el.parentElement) {
+  for (
+    let el: Element | null = target;
+    el && el !== host;
+    el = el.parentElement
+  ) {
     const id = idOf.get(el);
     if (id && lineOf.has(id)) return { id, from: "surface" as const };
   }
@@ -243,34 +325,74 @@ const TurnView = memo(function TurnView({
   const updated = !showKey && !turn.surfaceKey ? updatedKey : null;
 
   return (
-    <li data-turn={turn.id} className={cn("flex flex-col gap-3", fill && "min-h-[calc(var(--thread-h,0px)-40px)]")}>
+    <li
+      data-turn={turn.id}
+      className={cn(
+        "flex flex-col gap-3",
+        fill && "min-h-[calc(var(--thread-h,0px)-40px)]",
+      )}
+    >
       <Bubble text={turn.prompt} />
       {showKey ? (
-        <SurfaceBlock surfaceKey={showKey} turnId={turn.id} run={run} sel={sel} onSelect={onSelect} scroller={scroller} />
+        <SurfaceBlock
+          surfaceKey={showKey}
+          turnId={turn.id}
+          run={run}
+          sel={sel}
+          onSelect={onSelect}
+          scroller={scroller}
+        />
       ) : movedDown ? (
         <p className="text-[13.5px] text-[var(--pg-dim)]" data-moved>
           Updated below.
         </p>
       ) : updated ? (
-        <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13.5px] text-[var(--pg-dim)]" data-updated={updated}>
-          {running ? <span aria-hidden className="wb-pulse size-1.5 flex-none rounded-full bg-[var(--wb-violet)]" /> : null}
+        <p
+          className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13.5px] text-[var(--pg-dim)]"
+          data-updated={updated}
+        >
+          {running ? (
+            <span
+              aria-hidden
+              className="wb-pulse size-1.5 flex-none rounded-full bg-[var(--wb-violet)]"
+            />
+          ) : null}
           {running ? "Changing the UI above." : "Changed the UI above."}
           <button
             type="button"
             onClick={() => {
               onSelect(turn.id, false);
-              scroller.current?.querySelector(`[data-surface-block="${CSS.escape(updated)}"]`)?.scrollIntoView({ block: "start", behavior: reducedMotion() ? "auto" : "smooth" });
+              scroller.current
+                ?.querySelector(`[data-surface-block="${CSS.escape(updated)}"]`)
+                ?.scrollIntoView({
+                  block: "start",
+                  behavior: reducedMotion() ? "auto" : "smooth",
+                });
             }}
-            className={cn("rounded-sm font-medium text-foreground underline decoration-[var(--pg-line-strong)] underline-offset-4 hover:decoration-foreground", focusRing)}
+            className={cn(
+              "rounded-sm font-medium text-foreground underline decoration-[var(--pg-line-strong)] underline-offset-4 hover:decoration-foreground",
+              focusRing,
+            )}
           >
             Show it
           </button>
         </p>
       ) : running ? (
         // Before the run has a surface: the same block, so its frame stays put when the surface arrives.
-        <SurfaceBlock surfaceKey={null} turnId={turn.id} run={run} sel={null} onSelect={onSelect} scroller={scroller} />
+        <SurfaceBlock
+          surfaceKey={null}
+          turnId={turn.id}
+          run={run}
+          sel={null}
+          onSelect={onSelect}
+          scroller={scroller}
+        />
       ) : null}
-      {turn.text ? <p className="max-w-[62ch] whitespace-pre-wrap text-[14.5px] leading-relaxed text-foreground/90">{turn.text}</p> : null}
+      {turn.text ? (
+        <p className="max-w-[62ch] whitespace-pre-wrap text-[14.5px] leading-relaxed text-foreground/90">
+          {turn.text}
+        </p>
+      ) : null}
       {run ? <RunNotice run={run} latest={last} /> : null}
     </li>
   );
@@ -279,7 +401,9 @@ const TurnView = memo(function TurnView({
 function Bubble({ text }: { text: string }) {
   return (
     <div className="flex justify-end">
-      <p className="max-w-[min(80%,560px)] whitespace-pre-wrap break-words rounded-[14px] border border-[var(--pg-line)] bg-[var(--pg-panel)] px-4 py-2.5 text-[14.5px] leading-[1.5] text-foreground max-[899px]:max-w-[88%]">{text}</p>
+      <p className="max-w-[min(80%,560px)] whitespace-pre-wrap break-words rounded-[14px] border border-[var(--pg-line)] bg-[var(--pg-panel)] px-4 py-2.5 text-[14.5px] leading-[1.5] text-foreground max-[899px]:max-w-[88%]">
+        {text}
+      </p>
     </div>
   );
 }
@@ -306,12 +430,21 @@ function SurfaceBlock({
   const message = useSurfaceMessage(surfaceKey);
   const floor = useRef<HTMLDivElement>(null);
   const written = run?.lines.filter((l) => l.kind === "line") ?? [];
-  const format: LineFormat = sel ? sel.format : (written[written.length - 1]?.format ?? (run?.format === "json" ? "json" : "express"));
+  const format: LineFormat = sel
+    ? sel.format
+    : (written[written.length - 1]?.format ??
+      (run?.format === "json" ? "json" : "express"));
   const count = sel ? sel.count : written.length;
   const running = run?.status === "running";
   // Nothing to show yet: no surface, or a composed one, which exists from the moment the model starts and is
   // empty until its first statement compiles.
-  const waiting = !message || (running && !latestComponents(((message.message.content as { operations?: A2UIOp[] }).operations ?? []) as A2UIOp[]).length);
+  const waiting =
+    !message ||
+    (running &&
+      !latestComponents(
+        ((message.message.content as { operations?: A2UIOp[] }).operations ??
+          []) as A2UIOp[],
+      ).length);
   return (
     <div data-surface-block={surfaceKey ?? undefined} className="scroll-mt-4">
       <SurfaceMeta
@@ -320,27 +453,54 @@ function SurfaceBlock({
         label={`${format === "json" ? "JSON" : "Express"}${count ? ` · ${count} ${count === 1 ? "line" : "lines"}` : ""}`}
         onOpen={() => onSelect(turnId, true)}
         status={run?.status}
-        meta={run ? [run.model ? modelLabel(run.model) : null, run.path === "fixed" ? "template" : null, running ? runStatus(run) : STATUS[run.status]].filter(Boolean).join(" · ") : null}
+        meta={
+          run
+            ? [
+                run.model ? modelLabel(run.model) : null,
+                run.path === "fixed" ? "template" : null,
+                running ? runStatus(run) : STATUS[run.status],
+              ]
+                .filter(Boolean)
+                .join(" · ")
+            : null
+        }
       />
       <div
         ref={floor}
-        className={cn("wb-floor relative rounded-[14px] border p-5 transition-colors max-[899px]:p-3.5", sel ? "border-[var(--pg-line-strong)]" : "border-[var(--pg-line)]")}
+        className={cn(
+          "wb-floor relative rounded-[14px] border p-5 transition-colors max-[899px]:p-3.5",
+          sel ? "border-[var(--pg-line-strong)]" : "border-[var(--pg-line)]",
+        )}
         data-link-floor={sel ? "" : undefined}
         // Any click on a surface selects it (a button inside it still does its own thing).
         onPointerDownCapture={() => {
           if (!sel) onSelect(turnId, false);
         }}
       >
-        {message ? <LiveSurface message={message.message} version={message.version} /> : null}
+        {message ? (
+          <LiveSurface message={message.message} version={message.version} />
+        ) : null}
         {waiting ? <Waiting /> : null}
-        {sel ? <LinkOverlay content={floor} scroller={scroller} ops={sel.ops} lineOf={sel.lineOf} /> : null}
+        {sel ? (
+          <LinkOverlay
+            content={floor}
+            scroller={scroller}
+            ops={sel.ops}
+            lineOf={sel.lineOf}
+          />
+        ) : null}
       </div>
     </div>
   );
 }
 
 /** A finished run's word for the meta line; a running one shows its latest step instead (`runStatus`). */
-const STATUS: Record<RunRecord["status"], string | null> = { running: null, done: null, error: "failed", stopped: "stopped" };
+const STATUS: Record<RunRecord["status"], string | null> = {
+  running: null,
+  done: null,
+  error: "failed",
+  stopped: "stopped",
+};
 
 function SurfaceMeta({
   chip = true,
@@ -367,11 +527,17 @@ function SurfaceMeta({
           type="button"
           data-code-chip
           aria-pressed={selected}
-          title={selected ? "These lines show beside the conversation" : "Show the lines that made this UI"}
+          title={
+            selected
+              ? "These lines show beside the conversation"
+              : "Show the lines that made this UI"
+          }
           onClick={onOpen}
           className={cn(
             "inline-flex h-7 flex-none items-center gap-1.5 rounded-full border px-2.5 font-mono text-[12px] transition-colors",
-            selected ? "border-[var(--pg-line-strong)] bg-[var(--pg-raised)] text-foreground" : "border-[var(--pg-line)] text-[var(--pg-dim)] hover:border-[var(--pg-line-strong)] hover:text-foreground",
+            selected
+              ? "border-[var(--pg-line-strong)] bg-[var(--pg-raised)] text-foreground"
+              : "border-[var(--pg-line)] text-[var(--pg-dim)] hover:border-[var(--pg-line-strong)] hover:text-foreground",
             focusRing,
           )}
         >
@@ -380,8 +546,20 @@ function SurfaceMeta({
         </button>
       ) : null}
       {meta ? (
-        <span className={cn("flex min-w-0 items-center gap-2 font-mono text-[12px]", status === "error" ? "text-[var(--wb-red)]" : "text-[var(--pg-dim)]")}>
-          {status === "running" ? <span aria-hidden className="wb-pulse size-1.5 flex-none rounded-full bg-[var(--wb-violet)]" /> : null}
+        <span
+          className={cn(
+            "flex min-w-0 items-center gap-2 font-mono text-[12px]",
+            status === "error"
+              ? "text-[var(--wb-red)]"
+              : "text-[var(--pg-dim)]",
+          )}
+        >
+          {status === "running" ? (
+            <span
+              aria-hidden
+              className="wb-pulse size-1.5 flex-none rounded-full bg-[var(--wb-violet)]"
+            />
+          ) : null}
           {/* The run's latest step while it runs ("Writing A2UI Express"), said quietly, also to a screen reader. */}
           <span className="truncate" aria-live="polite">
             {meta}
@@ -394,10 +572,28 @@ function SurfaceMeta({
 }
 
 /** The recording, played into the thread: its prompt, then its UI at the recorded times. */
-function ReplayTurn({ replay, sel, onSelect, scroller, last }: { replay: Replay; sel: Selection | null; onSelect: OnSelect; scroller: RefObject<HTMLDivElement | null>; last: boolean }) {
+function ReplayTurn({
+  replay,
+  sel,
+  onSelect,
+  scroller,
+  last,
+}: {
+  replay: Replay;
+  sel: Selection | null;
+  onSelect: OnSelect;
+  scroller: RefObject<HTMLDivElement | null>;
+  last: boolean;
+}) {
   const floor = useRef<HTMLDivElement>(null);
   return (
-    <li data-turn="replay" className={cn("flex flex-col gap-3", last && "min-h-[calc(var(--thread-h,0px)-40px)]")}>
+    <li
+      data-turn="replay"
+      className={cn(
+        "flex flex-col gap-3",
+        last && "min-h-[calc(var(--thread-h,0px)-40px)]",
+      )}
+    >
       <Bubble text={replay.prompt} />
       <div data-surface-block="replay">
         <SurfaceMeta
@@ -407,7 +603,8 @@ function ReplayTurn({ replay, sel, onSelect, scroller, last }: { replay: Replay;
           status={replay.status === "playing" ? "running" : "done"}
           meta={
             <>
-              Recorded run<span className="max-[479px]:hidden"> · {replay.model}</span>
+              Recorded run
+              <span className="max-[479px]:hidden"> · {replay.model}</span>
               {replay.status === "playing" ? " · Writing A2UI Express" : null}
             </>
           }
@@ -416,16 +613,41 @@ function ReplayTurn({ replay, sel, onSelect, scroller, last }: { replay: Replay;
             <button
               type="button"
               onClick={replay.restart}
-              className={cn("ml-auto inline-flex h-7 flex-none items-center gap-1.5 rounded-md px-2 text-[12.5px] text-[var(--pg-dim)] transition-colors hover:text-foreground", focusRing)}
+              className={cn(
+                "ml-auto inline-flex h-7 flex-none items-center gap-1.5 rounded-md px-2 text-[12.5px] text-[var(--pg-dim)] transition-colors hover:text-foreground",
+                focusRing,
+              )}
             >
               <RotateCcw className="size-3.5" aria-hidden />
               Play again
             </button>
           ) : null}
         </SurfaceMeta>
-        <div ref={floor} className={cn("wb-floor relative rounded-[14px] border p-5 max-[899px]:p-3.5", sel ? "border-[var(--pg-line-strong)]" : "border-[var(--pg-line)]")} data-link-floor={sel ? "" : undefined}>
-          {replay.ops ? <ReplaySurface ops={replay.ops} runKey={replay.runKey} live={replay.status === "playing"} /> : <Waiting />}
-          {sel ? <LinkOverlay content={floor} scroller={scroller} ops={sel.ops} lineOf={sel.lineOf} /> : null}
+        <div
+          ref={floor}
+          className={cn(
+            "wb-floor relative rounded-[14px] border p-5 max-[899px]:p-3.5",
+            sel ? "border-[var(--pg-line-strong)]" : "border-[var(--pg-line)]",
+          )}
+          data-link-floor={sel ? "" : undefined}
+        >
+          {replay.ops ? (
+            <ReplaySurface
+              ops={replay.ops}
+              runKey={replay.runKey}
+              live={replay.status === "playing"}
+            />
+          ) : (
+            <Waiting />
+          )}
+          {sel ? (
+            <LinkOverlay
+              content={floor}
+              scroller={scroller}
+              ops={sel.ops}
+              lineOf={sel.lineOf}
+            />
+          ) : null}
         </div>
       </div>
     </li>
@@ -441,7 +663,17 @@ type Box = { x: number; y: number; w: number; h: number };
  * its line number. Measured every frame while it shows: the surface keeps moving as it paints. A line
  * hovered in the writes pane scrolls the conversation to its component.
  */
-function LinkOverlay({ content, scroller, ops, lineOf }: { content: RefObject<HTMLDivElement | null>; scroller: RefObject<HTMLDivElement | null>; ops: A2UIOp[] | null; lineOf: Map<string, number> }) {
+function LinkOverlay({
+  content,
+  scroller,
+  ops,
+  lineOf,
+}: {
+  content: RefObject<HTMLDivElement | null>;
+  scroller: RefObject<HTMLDivElement | null>;
+  ops: A2UIOp[] | null;
+  lineOf: Map<string, number>;
+}) {
   const link = useLink();
   const id = activeId(link);
   const fromLine = link.hover ? link.hover.from === "line" : !!link.pinned;
@@ -457,11 +689,17 @@ function LinkOverlay({ content, scroller, ops, lineOf }: { content: RefObject<HT
     let scrolled = !fromLine;
     const tick = () => {
       const host = content.current;
-      if (host && (!el || !el.isConnected)) el = nodeElements(host, ops).get(id);
+      if (host && (!el || !el.isConnected))
+        el = nodeElements(host, ops).get(id);
       const r = el ? nodeRect(el) : null;
       if (host && r) {
         const c = host.getBoundingClientRect();
-        const next = { x: Math.round(r.left - c.left), y: Math.round(r.top - c.top), w: Math.round(r.width), h: Math.round(r.height) };
+        const next = {
+          x: Math.round(r.left - c.left),
+          y: Math.round(r.top - c.top),
+          w: Math.round(r.width),
+          h: Math.round(r.height),
+        };
         const sig = `${next.x},${next.y},${next.w},${next.h}`;
         if (sig !== last) {
           last = sig;
@@ -474,8 +712,14 @@ function LinkOverlay({ content, scroller, ops, lineOf }: { content: RefObject<HT
           const above = r.top < s.top + 24;
           const below = r.bottom > s.bottom - 24;
           if (above || below) {
-            const delta = above || r.height > s.height - 64 ? r.top - s.top - 40 : r.bottom - s.bottom + 40;
-            sc.scrollBy({ top: delta, behavior: reducedMotion() ? "auto" : "smooth" });
+            const delta =
+              above || r.height > s.height - 64
+                ? r.top - s.top - 40
+                : r.bottom - s.bottom + 40;
+            sc.scrollBy({
+              top: delta,
+              behavior: reducedMotion() ? "auto" : "smooth",
+            });
           }
         }
       } else if (last !== "none") {
@@ -490,7 +734,17 @@ function LinkOverlay({ content, scroller, ops, lineOf }: { content: RefObject<HT
   if (!box || !id) return null;
   const n = lineOf.get(id);
   return (
-    <div aria-hidden className="wb-link-box" style={{ left: box.x - 4, top: box.y - 4, width: box.w + 8, height: box.h + 8 }} data-link-box={id}>
+    <div
+      aria-hidden
+      className="wb-link-box"
+      style={{
+        left: box.x - 4,
+        top: box.y - 4,
+        width: box.w + 8,
+        height: box.h + 8,
+      }}
+      data-link-box={id}
+    >
       {n ? <span className="wb-link-tag">line {n}</span> : null}
     </div>
   );
@@ -500,7 +754,11 @@ function LinkOverlay({ content, scroller, ops, lineOf }: { content: RefObject<HT
 
 /** What changes a surface's activity message: more operations, or its status. */
 function surfaceVersion(message: ActivityMessage) {
-  const c = message.content as { operations?: unknown[]; status?: string; rejected?: unknown[] };
+  const c = message.content as {
+    operations?: unknown[];
+    status?: string;
+    rejected?: unknown[];
+  };
   return `${c.operations?.length ?? 0}|${c.status}|${c.rejected?.length ?? 0}`;
 }
 
@@ -523,7 +781,11 @@ function useAgentPulse() {
           pulse.forEach((fn) => fn());
         });
     };
-    const sub = agent.subscribe({ onMessagesChanged: later, onEvent: later, onRunFinalized: later });
+    const sub = agent.subscribe({
+      onMessagesChanged: later,
+      onEvent: later,
+      onRunFinalized: later,
+    });
     return () => {
       cancelAnimationFrame(raf);
       sub.unsubscribe();
@@ -532,14 +794,26 @@ function useAgentPulse() {
 }
 
 /** The activity message of a surface, re-rendered only when the surface changed. */
-function useSurfaceMessage(key: string | null): { message: ActivityMessage; version: string } | null {
+function useSurfaceMessage(
+  key: string | null,
+): { message: ActivityMessage; version: string } | null {
   const { agent } = useAgent({ agentId: "default", updates: [] });
-  const [state, setState] = useState<{ message: ActivityMessage; version: string } | null>(null);
+  const [state, setState] = useState<{
+    message: ActivityMessage;
+    version: string;
+  } | null>(null);
   useEffect(() => {
     if (!agent) return;
     let last = "";
     const read = () => {
-      const m = key ? (agent.messages.find((x) => x.id === key && x.role === "activity" && x.activityType === GENERATIVE_UI_ACTIVITY_TYPE) as ActivityMessage | undefined) : undefined;
+      const m = key
+        ? (agent.messages.find(
+            (x) =>
+              x.id === key &&
+              x.role === "activity" &&
+              x.activityType === GENERATIVE_UI_ACTIVITY_TYPE,
+          ) as ActivityMessage | undefined)
+        : undefined;
       const version = m ? surfaceVersion(m) : "";
       if (version === last) return;
       last = version;
@@ -559,7 +833,12 @@ function useSurfaceMessage(key: string | null): { message: ActivityMessage; vers
  * then Gen UI 2.0's own). Re-rendered only when the surface changed, not when a hover lights a line.
  */
 const LiveSurface = memo(
-  function LiveSurface({ message }: { message: ActivityMessage; version: string }) {
+  function LiveSurface({
+    message,
+  }: {
+    message: ActivityMessage;
+    version: string;
+  }) {
     const { renderActivityMessage } = useRenderActivityMessage();
     return <div className="wb-surface">{renderActivityMessage(message)}</div>;
   },
@@ -570,14 +849,31 @@ const LiveSurface = memo(
  * A recorded snapshot. Its first frame plays the whole transitions.dev drawing (the recording opens on the
  * finished first screen of a run); what lands after it reveals component by component, as a live run does.
  */
-const ReplaySurface = memo(function ReplaySurface({ ops, runKey, live }: { ops: A2UIOp[]; runKey: string; live: boolean }) {
+const ReplaySurface = memo(function ReplaySurface({
+  ops,
+  runKey,
+  live,
+}: {
+  ops: A2UIOp[];
+  runKey: string;
+  live: boolean;
+}) {
   const host = useRef<HTMLDivElement>(null);
-  const generating = useUIGeneration(host, { runKey, mode: "skeleton", maxParts: 40 });
+  const generating = useUIGeneration(host, {
+    runKey,
+    mode: "skeleton",
+    maxParts: 40,
+  });
   useLandingReveal(host, live && !generating);
   return (
     <div className="wb-surface">
       <ResizeBox>
-        <div ref={host} key={runKey} className="a2-surface-host relative" data-replay>
+        <div
+          ref={host}
+          key={runKey}
+          className="a2-surface-host relative"
+          data-replay
+        >
           <StaticSurface ops={ops} />
         </div>
       </ResizeBox>
@@ -588,7 +884,11 @@ const ReplaySurface = memo(function ReplaySurface({ ops, runKey, live }: { ops: 
 /** Nothing has drawn yet: one transitions.dev generation frame, the shape of a pending component's (Blueprint). */
 function Waiting() {
   return (
-    <div aria-hidden className="wb-wait gen-field min-h-[132px] rounded-[12px]" data-waiting>
+    <div
+      aria-hidden
+      className="wb-wait gen-field min-h-[132px] rounded-[12px]"
+      data-waiting
+    >
       <DotOutline r={11} />
     </div>
   );
@@ -605,7 +905,9 @@ function RunNotice({ run, latest }: { run: RunRecord; latest: boolean }) {
       data-run-notice={run.status}
       className={cn(
         "flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] px-4 py-3 text-[14px]",
-        stopped ? "border border-[var(--pg-line)] bg-[var(--pg-panel)] text-[var(--pg-dim)]" : "border border-[var(--wb-red-line)] bg-[var(--wb-red-wash)] text-foreground",
+        stopped
+          ? "border border-[var(--pg-line)] bg-[var(--pg-panel)] text-[var(--pg-dim)]"
+          : "border border-[var(--wb-red-line)] bg-[var(--wb-red-wash)] text-foreground",
       )}
     >
       <span className="min-w-0 flex-1">{stopped ? "Stopped." : run.error}</span>
@@ -613,7 +915,10 @@ function RunNotice({ run, latest }: { run: RunRecord; latest: boolean }) {
         <button
           type="button"
           onClick={() => void send(run.prompt, { mode: run.mode as Mode })}
-          className={cn("flex-none rounded-md border border-[var(--pg-line-strong)] bg-[var(--pg-panel)] px-2.5 py-1 text-[13px] font-medium text-foreground transition-colors hover:bg-[var(--pg-raised)]", focusRing)}
+          className={cn(
+            "flex-none rounded-md border border-[var(--pg-line-strong)] bg-[var(--pg-panel)] px-2.5 py-1 text-[13px] font-medium text-foreground transition-colors hover:bg-[var(--pg-raised)]",
+            focusRing,
+          )}
         >
           {stopped ? "Ask again" : "Retry"}
         </button>

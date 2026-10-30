@@ -52,7 +52,12 @@ export class ComponentStreamParser {
         if (this.depth === 0 && this.objStart >= 0) {
           try {
             const obj = JSON.parse(t.slice(this.objStart, i + 1));
-            if (obj && typeof obj === "object" && typeof obj.id === "string" && typeof obj.component === "string") {
+            if (
+              obj &&
+              typeof obj === "object" &&
+              typeof obj.id === "string" &&
+              typeof obj.component === "string"
+            ) {
               this.components.push(obj);
               found.push(obj);
             }

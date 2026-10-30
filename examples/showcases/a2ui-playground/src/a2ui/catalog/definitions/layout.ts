@@ -7,6 +7,28 @@ import { child, childList, def } from "./shared";
  */
 
 export const layoutDefinitions = {
-  Section: def("Layout", "Titled group with eyebrow, title, description, and children.", z.object({ eyebrow: z.string().optional(), title: z.string(), description: z.string().optional(), children: childList() })),
-  Accordion: def("Layout", "Collapsible items (FAQs, details, per-file notes); each has a title and either text or a child id.", z.object({ items: z.array(z.object({ title: z.string(), text: z.string().optional(), child: child().optional() })), multiple: z.boolean().optional() })),
+  Section: def(
+    "Layout",
+    "Titled group with eyebrow, title, description, and children.",
+    z.object({
+      eyebrow: z.string().optional(),
+      title: z.string(),
+      description: z.string().optional(),
+      children: childList(),
+    }),
+  ),
+  Accordion: def(
+    "Layout",
+    "Collapsible items (FAQs, details, per-file notes); each has a title and either text or a child id.",
+    z.object({
+      items: z.array(
+        z.object({
+          title: z.string(),
+          text: z.string().optional(),
+          child: child().optional(),
+        }),
+      ),
+      multiple: z.boolean().optional(),
+    }),
+  ),
 };

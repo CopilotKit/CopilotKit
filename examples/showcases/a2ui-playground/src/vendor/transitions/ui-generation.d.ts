@@ -11,6 +11,13 @@ export type GenerateOptions = {
   keys?: number;
   onDone?: ((el: HTMLElement) => void) | null;
 };
-export type GenerateRun = { finished: Promise<HTMLElement>; cancel: () => void; element: HTMLElement };
-export function generate(el: HTMLElement | string, options?: GenerateOptions): GenerateRun;
+export type GenerateRun = {
+  finished: Promise<HTMLElement>;
+  cancel: () => void;
+  element: HTMLElement;
+};
+export function generate(
+  el: HTMLElement | string,
+  options?: GenerateOptions,
+): GenerateRun;
 export function auto(root?: ParentNode): void;

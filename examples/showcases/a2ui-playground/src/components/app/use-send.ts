@@ -28,7 +28,10 @@ export function useSend() {
       const messageId = crypto.randomUUID();
       runStore.startRun(text, mode, { model, format, messageId });
       live.addMessage({ id: messageId, role: "user", content: text });
-      await copilotkit.runAgent({ agent: live, forwardedProps: { mode, model, format } });
+      await copilotkit.runAgent({
+        agent: live,
+        forwardedProps: { mode, model, format },
+      });
     },
     [agent, copilotkit, current, model, format],
   );

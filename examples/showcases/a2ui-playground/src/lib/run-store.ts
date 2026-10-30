@@ -21,13 +21,27 @@ export type SurfaceRecord = {
 };
 
 /** `line`: on an `op` event, the text the model wrote for that component (recordings keep it). */
-export type TimelineEvent = { t: number; kind: string; label: string; detail?: string; tone?: "fixed" | "dynamic" | "data" | "paint" | "muted" | "error"; line?: string };
+export type TimelineEvent = {
+  t: number;
+  kind: string;
+  label: string;
+  detail?: string;
+  tone?: "fixed" | "dynamic" | "data" | "paint" | "muted" | "error";
+  line?: string;
+};
 
 /**
  * One line the model wrote, as it arrived: an Express statement, or one component as JSON.
  * A `divider` marks where the writing started over (Express retried, or rewritten as JSON).
  */
-export type RunLine = { t: number; kind: "line" | "divider"; text: string; id?: string; component?: string; format?: "express" | "json" };
+export type RunLine = {
+  t: number;
+  kind: "line" | "divider";
+  text: string;
+  id?: string;
+  component?: string;
+  format?: "express" | "json";
+};
 
 /** What a composed surface cost (the agent's `format:stats` mark). */
 export type PayloadStats = {
@@ -100,7 +114,12 @@ const set = (next: Partial<State>) => {
 
 export function surfaceIdOf(ops: A2UIOp[]): string {
   for (const op of ops) {
-    for (const k of ["createSurface", "updateComponents", "updateDataModel", "deleteSurface"]) {
+    for (const k of [
+      "createSurface",
+      "updateComponents",
+      "updateDataModel",
+      "deleteSurface",
+    ]) {
       const sid = (op[k] as { surfaceId?: string } | undefined)?.surfaceId;
       if (sid) return sid;
     }
@@ -108,12 +127,22 @@ export function surfaceIdOf(ops: A2UIOp[]): string {
   return "surface";
 }
 
-const LAYOUT = new Set(["Column", "Row", "Grid", "Card", "Section", "List", "Tabs"]);
+const LAYOUT = new Set([
+  "Column",
+  "Row",
+  "Grid",
+  "Card",
+  "Section",
+  "List",
+  "Tabs",
+]);
 
 /** Components that carry content (not a Blueprint frame, not a container). */
 export function contentCount(ops: A2UIOp[]) {
   const comps = latestComponents(ops);
-  return comps.filter((c) => c.component !== "Blueprint" && !LAYOUT.has(String(c.component))).length;
+  return comps.filter(
+    (c) => c.component !== "Blueprint" && !LAYOUT.has(String(c.component)),
+  ).length;
 }
 
 type Comp = { id: string; component: string } & Record<string, unknown>;
@@ -126,12 +155,16 @@ type Comp = { id: string; component: string } & Record<string, unknown>;
 export function latestComponents(ops: A2UIOp[]): Comp[] {
   const byId = new Map<string, Comp>();
   const add = (list: unknown) => {
-    if (Array.isArray(list)) for (const c of list as Comp[]) if (c && typeof c.id === "string") byId.set(c.id, c);
+    if (Array.isArray(list))
+      for (const c of list as Comp[])
+        if (c && typeof c.id === "string") byId.set(c.id, c);
   };
   for (const op of ops) {
     if (op.createSurface || op.deleteSurface) byId.clear();
     add((op.createSurface as { components?: unknown } | undefined)?.components);
-    add((op.updateComponents as { components?: unknown } | undefined)?.components);
+    add(
+      (op.updateComponents as { components?: unknown } | undefined)?.components,
+    );
   }
   return [...byId.values()];
 }
@@ -140,17 +173,28 @@ export function latestComponents(ops: A2UIOp[]): Comp[] {
 export function latestData(ops: A2UIOp[]): Record<string, unknown> {
   let data: Record<string, unknown> = {};
   for (const op of ops) {
-    const create = op.createSurface as { dataModel?: Record<string, unknown> } | undefined;
+    const create = op.createSurface as
+      | { dataModel?: Record<string, unknown> }
+      | undefined;
     if (create) data = { ...(create.dataModel ?? {}) };
-    const update = op.updateDataModel as { path?: string; value?: unknown } | undefined;
+    const update = op.updateDataModel as
+      | { path?: string; value?: unknown }
+      | undefined;
     if (!update) continue;
     const segments = (update.path ?? "/").split("/").filter(Boolean);
     if (!segments.length) {
-      data = update.value && typeof update.value === "object" ? { ...(update.value as Record<string, unknown>) } : {};
+      data =
+        update.value && typeof update.value === "object"
+          ? { ...(update.value as Record<string, unknown>) }
+          : {};
       continue;
     }
     let cur: Record<string, unknown> = data;
-    for (const seg of segments.slice(0, -1)) cur = (cur[seg] = cur[seg] && typeof cur[seg] === "object" ? { ...(cur[seg] as Record<string, unknown>) } : {}) as Record<string, unknown>;
+    for (const seg of segments.slice(0, -1))
+      cur = (cur[seg] =
+        cur[seg] && typeof cur[seg] === "object"
+          ? { ...(cur[seg] as Record<string, unknown>) }
+          : {}) as Record<string, unknown>;
     cur[segments[segments.length - 1]] = update.value;
   }
   return data;
@@ -165,7 +209,11 @@ export const runStore = {
     return () => listeners.delete(fn);
   },
 
-  startRun(prompt: string, mode: string, choice: { model?: string; format?: string; messageId?: string } = {}) {
+  startRun(
+    prompt: string,
+    mode: string,
+    choice: { model?: string; format?: string; messageId?: string } = {},
+  ) {
     const run: RunRecord = {
       id: `run-${Date.now()}`,
       prompt,
@@ -177,7 +225,15 @@ export const runStore = {
       payload: null,
       macros: [],
       startedAt: performance.now(),
-      events: [{ t: 0, kind: "prompt", label: "Prompt sent", detail: prompt, tone: "muted" }],
+      events: [
+        {
+          t: 0,
+          kind: "prompt",
+          label: "Prompt sent",
+          detail: prompt,
+          tone: "muted",
+        },
+      ],
       path: null,
       tool: null,
       firstFrameMs: null,
@@ -203,9 +259,16 @@ export const runStore = {
     return state.runs[state.runs.length - 1];
   },
 
-  patchRun(id: string, patch: Partial<RunRecord> | ((r: RunRecord) => Partial<RunRecord>)) {
+  patchRun(
+    id: string,
+    patch: Partial<RunRecord> | ((r: RunRecord) => Partial<RunRecord>),
+  ) {
     set({
-      runs: state.runs.map((r) => (r.id === id ? { ...r, ...(typeof patch === "function" ? patch(r) : patch) } : r)),
+      runs: state.runs.map((r) =>
+        r.id === id
+          ? { ...r, ...(typeof patch === "function" ? patch(r) : patch) }
+          : r,
+      ),
     });
   },
 
@@ -237,26 +300,70 @@ export const runStore = {
       updatedAt: now,
       componentCount: countComponents(ops),
     };
-    const order = state.surfaceOrder.includes(key) ? state.surfaceOrder : [...state.surfaceOrder, key];
-    set({ surfaces: { ...state.surfaces, [key]: rec }, surfaceOrder: order, selected: key });
+    const order = state.surfaceOrder.includes(key)
+      ? state.surfaceOrder
+      : [...state.surfaceOrder, key];
+    set({
+      surfaces: { ...state.surfaces, [key]: rec },
+      surfaceOrder: order,
+      selected: key,
+    });
     const updatedInPlace = !!prev && !!run && prev.runId !== run.id;
     if (!run || run.status !== "running") return;
     const ms = Math.round(now - run.startedAt);
     const content = contentCount(ops);
     const events: TimelineEvent[] = [];
-    const patch: Partial<RunRecord> = { frames: [...run.frames, { t: ms, key, ops }].slice(-400), surfaceKey: key };
+    const patch: Partial<RunRecord> = {
+      frames: [...run.frames, { t: ms, key, ops }].slice(-400),
+      surfaceKey: key,
+    };
     if (run.firstFrameMs == null && (!prev || updatedInPlace)) {
       patch.firstFrameMs = ms;
-      events.push({ t: ms, kind: "frame", label: updatedInPlace ? "Updating surface in place" : content ? "Surface painted" : "Blueprint drawn", detail: `${rec.surfaceId}, ${rec.componentCount} slots`, tone: "paint" });
+      events.push({
+        t: ms,
+        kind: "frame",
+        label: updatedInPlace
+          ? "Updating surface in place"
+          : content
+            ? "Surface painted"
+            : "Blueprint drawn",
+        detail: `${rec.surfaceId}, ${rec.componentCount} slots`,
+        tone: "paint",
+      });
     }
-    if (run.firstPaintMs == null && content > 0 && (!prev || updatedInPlace || prev.runId === run.id)) {
+    if (
+      run.firstPaintMs == null &&
+      content > 0 &&
+      (!prev || updatedInPlace || prev.runId === run.id)
+    ) {
       patch.firstPaintMs = ms;
-      if (!(run.firstFrameMs == null && (!prev || updatedInPlace) && events.length && events[0].label === "Surface painted")) {
-        events.push({ t: ms, kind: "paint", label: updatedInPlace ? "Surface updated in place" : "First content filled", detail: `${content} of ${rec.componentCount} components`, tone: "paint" });
+      if (
+        !(
+          run.firstFrameMs == null &&
+          (!prev || updatedInPlace) &&
+          events.length &&
+          events[0].label === "Surface painted"
+        )
+      ) {
+        events.push({
+          t: ms,
+          kind: "paint",
+          label: updatedInPlace
+            ? "Surface updated in place"
+            : "First content filled",
+          detail: `${content} of ${rec.componentCount} components`,
+          tone: "paint",
+        });
       }
     }
-    runStore.patchRun(run.id, (r) => ({ ...patch, events: [...r.events, ...events] }));
-    if (updatedInPlace) set({ surfaces: { ...state.surfaces, [key]: { ...rec, runId: run.id } } });
+    runStore.patchRun(run.id, (r) => ({
+      ...patch,
+      events: [...r.events, ...events],
+    }));
+    if (updatedInPlace)
+      set({
+        surfaces: { ...state.surfaces, [key]: { ...rec, runId: run.id } },
+      });
   },
 
   select(key: string | null) {
@@ -272,14 +379,31 @@ export const runStore = {
     if (!run || run.status !== "running") return;
     const t = Math.round(performance.now() - run.startedAt);
     const final = status === "done" && run.error ? "error" : status;
-    const reason = final === "error" ? (error ?? run.error ?? "The run failed. Try again.") : null;
-    const label = final === "error" ? "Run failed" : final === "stopped" ? "Stopped" : "Run finished";
+    const reason =
+      final === "error"
+        ? (error ?? run.error ?? "The run failed. Try again.")
+        : null;
+    const label =
+      final === "error"
+        ? "Run failed"
+        : final === "stopped"
+          ? "Stopped"
+          : "Run finished";
     runStore.patchRun(id, {
       status: final,
       totalMs: t,
       error: reason,
       path: run.path ?? (final === "done" ? "text" : null),
-      events: [...run.events, { t, kind: "done", label, ...(reason ? { detail: reason } : {}), tone: final === "error" ? "error" : "muted" }],
+      events: [
+        ...run.events,
+        {
+          t,
+          kind: "done",
+          label,
+          ...(reason ? { detail: reason } : {}),
+          tone: final === "error" ? "error" : "muted",
+        },
+      ],
     });
   },
 

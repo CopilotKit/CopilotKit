@@ -30,28 +30,57 @@ import ts from "typescript";
 
 const args = process.argv.slice(2);
 const dir = args.find((a) => !a.startsWith("--"));
-const tsconfig = args.includes("--tsconfig") ? args[args.indexOf("--tsconfig") + 1] : "tsconfig.json";
-const out = args.includes("--out") ? args[args.indexOf("--out") + 1] : "a2ui-definitions.draft.ts";
-const shared = args.includes("--shared") ? args[args.indexOf("--shared") + 1] : "./shared";
+const tsconfig = args.includes("--tsconfig")
+  ? args[args.indexOf("--tsconfig") + 1]
+  : "tsconfig.json";
+const out = args.includes("--out")
+  ? args[args.indexOf("--out") + 1]
+  : "a2ui-definitions.draft.ts";
+const shared = args.includes("--shared")
+  ? args[args.indexOf("--shared") + 1]
+  : "./shared";
 if (!dir) {
-  console.error("usage: scan-components.ts <componentsDir> [--tsconfig tsconfig.json] [--out file.ts] [--shared ./shared]");
+  console.error(
+    "usage: scan-components.ts <componentsDir> [--tsconfig tsconfig.json] [--out file.ts] [--shared ./shared]",
+  );
   process.exit(1);
 }
 
-const SKIP = new Set(["className", "style", "ref", "key", "asChild", "dangerouslySetInnerHTML", "id"]);
+const SKIP = new Set([
+  "className",
+  "style",
+  "ref",
+  "key",
+  "asChild",
+  "dangerouslySetInnerHTML",
+  "id",
+]);
 /** Callbacks that report a new `value`: the component gets `setValue` instead of an event. */
-const VALUE_CALLBACKS = new Set(["onChange", "onValueChange", "onCheckedChange", "onSelect"]);
+const VALUE_CALLBACKS = new Set([
+  "onChange",
+  "onValueChange",
+  "onCheckedChange",
+  "onSelect",
+]);
 
 function listFiles(d: string): string[] {
   return fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => {
     const p = path.join(d, e.name);
     if (e.isDirectory()) return e.name === "node_modules" ? [] : listFiles(p);
-    return /\.tsx$/.test(e.name) && !/\.(test|stories)\.tsx$/.test(e.name) ? [p] : [];
+    return /\.tsx$/.test(e.name) && !/\.(test|stories)\.tsx$/.test(e.name)
+      ? [p]
+      : [];
   });
 }
 
 const cfgPath = ts.findConfigFile(process.cwd(), ts.sys.fileExists, tsconfig);
-const cfg = cfgPath ? ts.parseJsonConfigFileContent(ts.readConfigFile(cfgPath, ts.sys.readFile).config, ts.sys, path.dirname(cfgPath)) : { options: { jsx: ts.JsxEmit.ReactJSX, strict: true }, fileNames: [] };
+const cfg = cfgPath
+  ? ts.parseJsonConfigFileContent(
+      ts.readConfigFile(cfgPath, ts.sys.readFile).config,
+      ts.sys,
+      path.dirname(cfgPath),
+    )
+  : { options: { jsx: ts.JsxEmit.ReactJSX, strict: true }, fileNames: [] };
 const files = listFiles(path.resolve(dir));
 const program = ts.createProgram(files, { ...cfg.options, noEmit: true });
 const checker = program.getTypeChecker();
@@ -64,13 +93,21 @@ function isReactNodeLike(t: ts.Type) {
 function zodFor(t: ts.Type, depth = 0): string {
   if (t.flags & ts.TypeFlags.String) return "z.string()";
   if (t.flags & ts.TypeFlags.Number) return "z.number()";
-  if (t.flags & (ts.TypeFlags.Boolean | ts.TypeFlags.BooleanLiteral)) return "z.boolean()";
+  if (t.flags & (ts.TypeFlags.Boolean | ts.TypeFlags.BooleanLiteral))
+    return "z.boolean()";
   if (t.isUnion()) {
-    const parts = t.types.filter((x) => !(x.flags & (ts.TypeFlags.Undefined | ts.TypeFlags.Null)));
-    if (parts.length && parts.every((x) => x.isStringLiteral())) return `z.enum([${parts.map((x) => JSON.stringify((x as ts.StringLiteralType).value)).join(", ")}])`;
-    if (parts.every((x) => x.flags & ts.TypeFlags.BooleanLiteral)) return "z.boolean()";
+    const parts = t.types.filter(
+      (x) => !(x.flags & (ts.TypeFlags.Undefined | ts.TypeFlags.Null)),
+    );
+    if (parts.length && parts.every((x) => x.isStringLiteral()))
+      return `z.enum([${parts.map((x) => JSON.stringify((x as ts.StringLiteralType).value)).join(", ")}])`;
+    if (parts.every((x) => x.flags & ts.TypeFlags.BooleanLiteral))
+      return "z.boolean()";
     if (parts.length === 1) return zodFor(parts[0], depth);
-    return `z.union([${parts.slice(0, 4).map((x) => zodFor(x, depth + 1)).join(", ")}])`;
+    return `z.union([${parts
+      .slice(0, 4)
+      .map((x) => zodFor(x, depth + 1))
+      .join(", ")}])`;
   }
   if (t.isStringLiteral()) return `z.literal(${JSON.stringify(t.value)})`;
   if (checker.isArrayType(t)) {
@@ -79,7 +116,9 @@ function zodFor(t: ts.Type, depth = 0): string {
   }
   if (t.getCallSignatures().length) return depth === 0 ? "action" : "z.any()";
   if (t.flags & ts.TypeFlags.Object && depth < 3) {
-    const props = checker.getPropertiesOfType(t).filter((p) => !SKIP.has(p.name));
+    const props = checker
+      .getPropertiesOfType(t)
+      .filter((p) => !SKIP.has(p.name));
     if (!props.length || props.length > 25) return "z.record(z.any())";
     return `z.object({ ${props
       .map((p) => {
@@ -92,8 +131,21 @@ function zodFor(t: ts.Type, depth = 0): string {
   return "z.any()";
 }
 
-type Prop = { name: string; zod: string; optional: boolean; doc: string; note?: string };
-type Found = { name: string; file: string; doc: string; props: Prop[]; events: Array<{ name: string; doc: string }>; writable: boolean };
+type Prop = {
+  name: string;
+  zod: string;
+  optional: boolean;
+  doc: string;
+  note?: string;
+};
+type Found = {
+  name: string;
+  file: string;
+  doc: string;
+  props: Prop[];
+  events: Array<{ name: string; doc: string }>;
+  writable: boolean;
+};
 const found: Found[] = [];
 
 for (const sf of program.getSourceFiles()) {
@@ -102,7 +154,8 @@ for (const sf of program.getSourceFiles()) {
   if (!mod) continue;
   for (const exp of checker.getExportsOfModule(mod)) {
     if (!/^[A-Z]/.test(exp.name)) continue;
-    const sym = exp.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exp) : exp;
+    const sym =
+      exp.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exp) : exp;
     const decl = sym.valueDeclaration ?? sym.declarations?.[0];
     if (!decl) continue;
     const type = checker.getTypeOfSymbolAtLocation(sym, decl);
@@ -111,25 +164,55 @@ for (const sf of program.getSourceFiles()) {
     const ret = checker.typeToString(sig.getReturnType());
     if (!/Element|ReactNode|null/.test(ret)) continue;
     const param = sig.getParameters()[0];
-    const propsType = param ? checker.getTypeOfSymbolAtLocation(param, decl) : undefined;
+    const propsType = param
+      ? checker.getTypeOfSymbolAtLocation(param, decl)
+      : undefined;
     const props: Prop[] = [];
     const events: Found["events"] = [];
     const symbols = (propsType ? checker.getPropertiesOfType(propsType) : [])
-      .filter((p) => !SKIP.has(p.name) && !p.name.startsWith("aria-") && !p.name.startsWith("data-"))
+      .filter(
+        (p) =>
+          !SKIP.has(p.name) &&
+          !p.name.startsWith("aria-") &&
+          !p.name.startsWith("data-"),
+      )
       // Skip the hundreds of inherited DOM props; keep what the component declared itself.
-      .filter((p) => p.name === "children" || p.name === "onClick" || !(p.declarations ?? []).every((d) => d.getSourceFile().fileName.includes("node_modules")));
+      .filter(
+        (p) =>
+          p.name === "children" ||
+          p.name === "onClick" ||
+          !(p.declarations ?? []).every((d) =>
+            d.getSourceFile().fileName.includes("node_modules"),
+          ),
+      );
     const names = new Set(symbols.map((p) => p.name));
-    const writable = names.has("value") && [...VALUE_CALLBACKS].some((n) => names.has(n));
+    const writable =
+      names.has("value") && [...VALUE_CALLBACKS].some((n) => names.has(n));
     for (const p of symbols) {
       const pt = checker.getTypeOfSymbol(p);
       const optional = (p.flags & ts.SymbolFlags.Optional) !== 0;
-      const doc = ts.displayPartsToString(p.getDocumentationComment(checker)).replace(/\s+/g, " ").trim();
+      const doc = ts
+        .displayPartsToString(p.getDocumentationComment(checker))
+        .replace(/\s+/g, " ")
+        .trim();
       if (p.name === "children") {
-        props.push({ name: "children", zod: "childList()", optional: true, doc, note: "child component ids, rendered for you" });
+        props.push({
+          name: "children",
+          zod: "childList()",
+          optional: true,
+          doc,
+          note: "child component ids, rendered for you",
+        });
         continue;
       }
       if (isReactNodeLike(pt)) {
-        props.push({ name: p.name, zod: "child()", optional: true, doc, note: "one child component id, rendered for you" });
+        props.push({
+          name: p.name,
+          zod: "child()",
+          optional: true,
+          doc,
+          note: "one child component id, rendered for you",
+        });
         continue;
       }
       const zod = zodFor(pt);
@@ -140,7 +223,17 @@ for (const sf of program.getSourceFiles()) {
       }
       props.push({ name: p.name, zod, optional, doc });
     }
-    found.push({ name: exp.name, file: path.relative(process.cwd(), sf.fileName), doc: ts.displayPartsToString(sym.getDocumentationComment(checker)).replace(/\s+/g, " ").trim(), props, events, writable });
+    found.push({
+      name: exp.name,
+      file: path.relative(process.cwd(), sf.fileName),
+      doc: ts
+        .displayPartsToString(sym.getDocumentationComment(checker))
+        .replace(/\s+/g, " ")
+        .trim(),
+      props,
+      events,
+      writable,
+    });
   }
 }
 
@@ -166,7 +259,10 @@ const lines = [
     `    "Domain", // TODO: category`,
     `    ${JSON.stringify(f.doc || `TODO: when should the agent pick ${f.name}? One sentence.`)},`,
     "    z.object({",
-    ...f.props.map((p) => `      ${JSON.stringify(p.name)}: ${p.zod}${p.optional && !p.zod.endsWith(".optional()") ? ".optional()" : ""},${p.doc || p.note ? ` // ${[p.doc, p.note].filter(Boolean).join("; ")}` : ""}`),
+    ...f.props.map(
+      (p) =>
+        `      ${JSON.stringify(p.name)}: ${p.zod}${p.optional && !p.zod.endsWith(".optional()") ? ".optional()" : ""},${p.doc || p.note ? ` // ${[p.doc, p.note].filter(Boolean).join("; ")}` : ""}`,
+    ),
     `    })${extra(f) ? "," : ""}`,
     ...(extra(f) ? [`    ${extra(f)},`] : []),
     "  ),",
@@ -175,4 +271,6 @@ const lines = [
   "",
 ];
 fs.writeFileSync(out, lines.join("\n"));
-console.log(`scanned ${files.length} files, found ${found.length} components -> ${out}`);
+console.log(
+  `scanned ${files.length} files, found ${found.length} components -> ${out}`,
+);

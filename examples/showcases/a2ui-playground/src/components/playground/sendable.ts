@@ -8,12 +8,27 @@
  */
 import { A2UI_VERSION } from "@copilotkit/shared";
 import { CATALOG_ID } from "@/a2ui/catalog/ids";
-import { latestComponents, latestData, surfaceIdOf, type A2UIOp } from "@/lib/run-store";
+import {
+  latestComponents,
+  latestData,
+  surfaceIdOf,
+  type A2UIOp,
+} from "@/lib/run-store";
 
-export type Sendable = { ops: A2UIOp[]; surfaceId: string; components: number; pending: number };
+export type Sendable = {
+  ops: A2UIOp[];
+  surfaceId: string;
+  components: number;
+  pending: number;
+};
 
-export function sendable(ops: A2UIOp[], surfaceId = surfaceIdOf(ops)): Sendable {
-  const create = ops.find((op) => op.createSurface)?.createSurface as { catalogId?: unknown } | undefined;
+export function sendable(
+  ops: A2UIOp[],
+  surfaceId = surfaceIdOf(ops),
+): Sendable {
+  const create = ops.find((op) => op.createSurface)?.createSurface as
+    | { catalogId?: unknown }
+    | undefined;
   const all = latestComponents(ops);
   const components = all.filter((c) => c.component !== "Blueprint");
   const data = latestData(ops);
@@ -21,10 +36,16 @@ export function sendable(ops: A2UIOp[], surfaceId = surfaceIdOf(ops)): Sendable 
     version: A2UI_VERSION,
     createSurface: {
       surfaceId,
-      catalogId: typeof create?.catalogId === "string" ? create.catalogId : CATALOG_ID,
+      catalogId:
+        typeof create?.catalogId === "string" ? create.catalogId : CATALOG_ID,
       components,
       ...(Object.keys(data).length ? { dataModel: data } : {}),
     },
   };
-  return { ops: [op], surfaceId, components: components.length, pending: all.length - components.length };
+  return {
+    ops: [op],
+    surfaceId,
+    components: components.length,
+    pending: all.length - components.length,
+  };
 }

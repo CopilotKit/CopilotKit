@@ -14,23 +14,41 @@ import { latestComponents, latestData, type A2UIOp } from "./run-store";
 
 type Comp = { id: string; component: string } & Record<string, unknown>;
 
-function refs(c: Comp, data: Record<string, unknown>): Array<{ id: string; times: number }> {
+function refs(
+  c: Comp,
+  data: Record<string, unknown>,
+): Array<{ id: string; times: number }> {
   const out: Array<{ id: string; times: number }> = [];
-  const one = (v: unknown) => typeof v === "string" && out.push({ id: v, times: 1 });
+  const one = (v: unknown) =>
+    typeof v === "string" && out.push({ id: v, times: 1 });
   one(c.child);
   if (Array.isArray(c.children)) c.children.forEach(one);
   else if (c.children && typeof c.children === "object") {
     const t = c.children as { componentId?: unknown; path?: unknown };
     if (typeof t.componentId === "string" && typeof t.path === "string") {
-      const list = t.path.split("/").filter(Boolean).reduce<unknown>((cur, k) => (cur as Record<string, unknown> | undefined)?.[k], data);
-      out.push({ id: t.componentId, times: Array.isArray(list) ? list.length : 0 });
+      const list = t.path
+        .split("/")
+        .filter(Boolean)
+        .reduce<unknown>(
+          (cur, k) => (cur as Record<string, unknown> | undefined)?.[k],
+          data,
+        );
+      out.push({
+        id: t.componentId,
+        times: Array.isArray(list) ? list.length : 0,
+      });
     }
   }
-  for (const k of ["tabs", "items"]) if (Array.isArray(c[k])) for (const it of c[k] as Array<{ child?: unknown }>) one(it?.child);
+  for (const k of ["tabs", "items"])
+    if (Array.isArray(c[k]))
+      for (const it of c[k] as Array<{ child?: unknown }>) one(it?.child);
   return out;
 }
 
-export function nodeElements(host: Element, ops: A2UIOp[]): Map<string, HTMLElement> {
+export function nodeElements(
+  host: Element,
+  ops: A2UIOp[],
+): Map<string, HTMLElement> {
   const components = latestComponents(ops) as Comp[];
   const byId = new Map(components.map((c) => [c.id, c]));
   const data = latestData(ops);
@@ -41,11 +59,16 @@ export function nodeElements(host: Element, ops: A2UIOp[]): Map<string, HTMLElem
     if (!c || seen.has(id)) return;
     order.push([id, first]);
     const next = new Set(seen).add(id);
-    for (const r of refs(c, data)) for (let i = 0; i < r.times; i++) walk(r.id, first && i === 0, next);
+    for (const r of refs(c, data))
+      for (let i = 0; i < r.times; i++) walk(r.id, first && i === 0, next);
   };
   walk("root", true, new Set());
   const queues = new Map<string, HTMLElement[]>();
-  for (const el of Array.from(host.querySelectorAll<HTMLElement>(".a2-node[data-a2-type], .a2-std[data-a2-type]"))) {
+  for (const el of Array.from(
+    host.querySelectorAll<HTMLElement>(
+      ".a2-node[data-a2-type], .a2-std[data-a2-type]",
+    ),
+  )) {
     const t = el.dataset.a2Type!;
     queues.set(t, [...(queues.get(t) ?? []), el]);
   }

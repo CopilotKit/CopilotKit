@@ -10,9 +10,12 @@ import { formatNumber, type NumberFormat } from "./format";
 
 export type Row = { x: string | number; y: number; series?: string };
 
-const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object";
-export const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
-const isKey = (v: unknown): v is string | number => typeof v === "string" || isNum(v);
+const isObj = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === "object";
+export const isNum = (v: unknown): v is number =>
+  typeof v === "number" && Number.isFinite(v);
+const isKey = (v: unknown): v is string | number =>
+  typeof v === "string" || isNum(v);
 
 /** Long-format cartesian rows. Drops anything partial or malformed (streaming-safe). */
 export function cleanRows(data: unknown): Row[] {
@@ -20,13 +23,20 @@ export function cleanRows(data: unknown): Row[] {
   const out: Row[] = [];
   for (const r of data) {
     if (!isObj(r) || !isNum(r.y) || !isKey(r.x)) continue;
-    out.push({ x: r.x, y: r.y, series: typeof r.series === "string" && r.series ? r.series : undefined });
+    out.push({
+      x: r.x,
+      y: r.y,
+      series: typeof r.series === "string" && r.series ? r.series : undefined,
+    });
   }
   return out;
 }
 
 /** Generic row filter: keeps objects whose listed fields pass the given guards. */
-export function pickRows<T>(data: unknown, guard: (r: Record<string, unknown>) => T | null): T[] {
+export function pickRows<T>(
+  data: unknown,
+  guard: (r: Record<string, unknown>) => T | null,
+): T[] {
   if (!Array.isArray(data)) return [];
   const out: T[] = [];
   for (const r of data) {
@@ -51,7 +61,8 @@ export function fmtValue(v: unknown, format?: NumberFormat, unit?: string) {
 /** Compact axis ticks: $1.2K, 34%, 1.4M ms. */
 export function tickFormatter(format?: NumberFormat, unit?: string) {
   return (v: number) => {
-    if (format === "currency") return `${v < 0 ? "-" : ""}$${formatNumber(Math.abs(v), "compact")}`;
+    if (format === "currency")
+      return `${v < 0 ? "-" : ""}$${formatNumber(Math.abs(v), "compact")}`;
     if (format === "percent") return formatNumber(v, "percent");
     return formatNumber(v, Math.abs(v) >= 1000 ? "compact" : "number", unit);
   };
@@ -72,7 +83,8 @@ export const PALETTE = [
   "var(--ts-chart-5)",
   "var(--ts-chart-6)",
 ];
-export const paletteAt = (i: number) => PALETTE[((i % PALETTE.length) + PALETTE.length) % PALETTE.length];
+export const paletteAt = (i: number) =>
+  PALETTE[((i % PALETTE.length) + PALETTE.length) % PALETTE.length];
 
 export const POSITIVE = "var(--a2-positive)";
 export const NEGATIVE = "var(--a2-negative)";
@@ -87,7 +99,10 @@ export const THEME: Partial<ChartTheme> = {
   focusRing: { radius: 4.5, fill: "var(--a2-surface)", strokeWidth: 2 },
 };
 
-export const GRID = { stroke: "oklch(1 0 0 / 6.5%)", strokeDasharray: "2 4" } as const;
+export const GRID = {
+  stroke: "oklch(1 0 0 / 6.5%)",
+  strokeDasharray: "2 4",
+} as const;
 
 /** Tooltip chrome, read by the built-in tooltip from the chart container. */
 const TOOLTIP_VARS = {
@@ -121,7 +136,14 @@ function monotonePath(points: Pt, move = true) {
     m.push(h === 0 ? 0 : (points[i + 1][1] - points[i][1]) / h);
   }
   const t: number[] = [m[0]];
-  for (let i = 1; i < n - 1; i++) t.push(m[i - 1] * m[i] <= 0 ? 0 : (3 * (dx[i - 1] + dx[i])) / ((2 * dx[i] + dx[i - 1]) / m[i - 1] + (dx[i] + 2 * dx[i - 1]) / m[i]));
+  for (let i = 1; i < n - 1; i++)
+    t.push(
+      m[i - 1] * m[i] <= 0
+        ? 0
+        : (3 * (dx[i - 1] + dx[i])) /
+            ((2 * dx[i] + dx[i - 1]) / m[i - 1] +
+              (dx[i] + 2 * dx[i - 1]) / m[i]),
+    );
   t.push(m[n - 2]);
   for (let i = 0; i < n - 1; i++) {
     const [xa, ya] = points[i];
@@ -150,11 +172,14 @@ export const bumpX: ChartCurve = {
     const mx = (x1 + x2) / 2;
     return `M${x1},${y1}C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
   },
-  area: (top, bottom) => `${bumpX.line(top)}L${bottom[bottom.length - 1]?.join(",") ?? ""}Z`,
+  area: (top, bottom) =>
+    `${bumpX.line(top)}L${bottom[bottom.length - 1]?.join(",") ?? ""}Z`,
 };
 
 /** Closed straight polygon for radar shapes (the d3 curveLinearClosed contract, no extra dependency). */
-export const linearClosed: NonNullable<RadialAreaOptions<unknown>["curve"]> = (context) => {
+export const linearClosed: NonNullable<RadialAreaOptions<unknown>["curve"]> = (
+  context,
+) => {
   let started = false;
   return {
     areaStart() {},
@@ -177,18 +202,38 @@ export const linearClosed: NonNullable<RadialAreaOptions<unknown>["curve"]> = (c
 
 /* ------------------------------------------------------------ frame UI */
 
-export type LegendItem = string | { label: string; color?: string; value?: string };
+export type LegendItem =
+  | string
+  | { label: string; color?: string; value?: string };
 
-export function Legend({ items, className }: { items: LegendItem[]; className?: string }) {
+export function Legend({
+  items,
+  className,
+}: {
+  items: LegendItem[];
+  className?: string;
+}) {
   return (
-    <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-1", className)}>
+    <div
+      className={cn("flex flex-wrap items-center gap-x-3 gap-y-1", className)}
+    >
       {items.map((it, i) => {
         const item = typeof it === "string" ? { label: it } : it;
         return (
-          <span key={`${item.label}-${i}`} className="inline-flex min-w-0 items-center gap-1.5 text-[11.5px] text-muted-foreground">
-            <span className="size-2 shrink-0 rounded-[3px]" style={{ background: item.color ?? paletteAt(i) }} />
+          <span
+            key={`${item.label}-${i}`}
+            className="inline-flex min-w-0 items-center gap-1.5 text-[11.5px] text-muted-foreground"
+          >
+            <span
+              className="size-2 shrink-0 rounded-[3px]"
+              style={{ background: item.color ?? paletteAt(i) }}
+            />
             <span className="truncate">{item.label}</span>
-            {item.value ? <span className="tabular-nums text-foreground/85">{item.value}</span> : null}
+            {item.value ? (
+              <span className="tabular-nums text-foreground/85">
+                {item.value}
+              </span>
+            ) : null}
           </span>
         );
       })}
@@ -218,16 +263,28 @@ export function ChartFrame({
   const showLegend = !!legend && legend.length > 1;
   return (
     <figure
-      className={cn("a2-card a2-chart a2-enter relative flex w-full min-w-0 max-w-full flex-col gap-3 overflow-hidden px-4 pb-3 pt-3.5", className)}
+      className={cn(
+        "a2-card a2-chart a2-enter relative flex w-full min-w-0 max-w-full flex-col gap-3 overflow-hidden px-4 pb-3 pt-3.5",
+        className,
+      )}
       style={TOOLTIP_VARS}
     >
       {(title || subtitle || showLegend || aside) && (
         <figcaption className="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-1.5">
           <div className="min-w-0">
-            {title ? <div className="truncate text-[13.5px] font-semibold tracking-tight text-foreground">{title}</div> : null}
-            {subtitle ? <div className="mt-0.5 text-[11.5px] leading-snug text-muted-foreground">{subtitle}</div> : null}
+            {title ? (
+              <div className="truncate text-[13.5px] font-semibold tracking-tight text-foreground">
+                {title}
+              </div>
+            ) : null}
+            {subtitle ? (
+              <div className="mt-0.5 text-[11.5px] leading-snug text-muted-foreground">
+                {subtitle}
+              </div>
+            ) : null}
           </div>
-          {aside ?? (showLegend ? <Legend items={legend} className="pt-0.5" /> : null)}
+          {aside ??
+            (showLegend ? <Legend items={legend} className="pt-0.5" /> : null)}
         </figcaption>
       )}
       {empty ? <EmptyState /> : <ChartBoundary>{children}</ChartBoundary>}
@@ -248,7 +305,10 @@ export function EmptyState({ label = "No data yet" }: { label?: string }) {
 }
 
 /** Layout marks (Sankey, treemap) validate input during render; partial streams must never crash the surface. */
-class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+class ChartBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
@@ -256,14 +316,34 @@ class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean
   componentDidCatch() {}
   componentDidUpdate(prev: { children: ReactNode }) {
     // New props (more streamed data) get a fresh attempt.
-    if (this.state.failed && prev.children !== this.props.children) this.setState({ failed: false });
+    if (this.state.failed && prev.children !== this.props.children)
+      this.setState({ failed: false });
   }
   render() {
-    return this.state.failed ? <EmptyState label="Waiting for complete data" /> : this.props.children;
+    return this.state.failed ? (
+      <EmptyState label="Waiting for complete data" />
+    ) : (
+      this.props.children
+    );
   }
 }
 
 /** Width-safe wrapper for a TanStack <Chart>. */
-export function Plot({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("relative w-full min-w-0 [&_.ts-chart-host]:!max-w-full", className)}>{children}</div>;
+export function Plot({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "relative w-full min-w-0 [&_.ts-chart-host]:!max-w-full",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
 }

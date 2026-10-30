@@ -37,7 +37,10 @@ function vimeoId(url: string) {
  * in place (a streamed update), only the new words animate.
  */
 export function StreamWords({ text }: { text?: string }) {
-  const words = useMemo(() => (text ?? "").split(/(\s+)/).filter((w) => w.length), [text]);
+  const words = useMemo(
+    () => (text ?? "").split(/(\s+)/).filter((w) => w.length),
+    [text],
+  );
   const [shown, setShown] = useState(0);
   const base = useRef(0);
   useEffect(() => {
@@ -52,7 +55,15 @@ export function StreamWords({ text }: { text?: string }) {
         /^\s+$/.test(w) ? (
           w
         ) : (
-          <span key={i} className={cn("t-stream-w", i < shown && "is-in")} style={{ "--i": Math.min(Math.max(0, i - base.current) >> 1, 24) } as React.CSSProperties}>
+          <span
+            key={i}
+            className={cn("t-stream-w", i < shown && "is-in")}
+            style={
+              {
+                "--i": Math.min(Math.max(0, i - base.current) >> 1, 24),
+              } as React.CSSProperties
+            }
+          >
             {w}
           </span>
         ),
@@ -61,17 +72,36 @@ export function StreamWords({ text }: { text?: string }) {
   );
 }
 
-export const contentRenderers: RendererMap<"Heading" | "CodeBlock" | "Quote" | "ImageGallery" | "VideoEmbed" | "Kbd"> = {
+export const contentRenderers: RendererMap<
+  "Heading" | "CodeBlock" | "Quote" | "ImageGallery" | "VideoEmbed" | "Kbd"
+> = {
   Heading: ({ props }) => {
     const level = props.level ?? "2";
     return (
       <header className="flex min-w-0 flex-col gap-1">
         {/* The eyebrow follows the title on its line: context, not a kicker above it. */}
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-          <h2 className={cn("font-semibold tracking-tight text-balance", level === "1" ? "text-[24px] leading-tight" : level === "3" ? "text-[15.5px]" : "text-[19px] leading-snug")}><StreamWords text={props.text} /></h2>
-          {props.eyebrow ? <span className="a2-label">{props.eyebrow}</span> : null}
+          <h2
+            className={cn(
+              "font-semibold tracking-tight text-balance",
+              level === "1"
+                ? "text-[24px] leading-tight"
+                : level === "3"
+                  ? "text-[15.5px]"
+                  : "text-[19px] leading-snug",
+            )}
+          >
+            <StreamWords text={props.text} />
+          </h2>
+          {props.eyebrow ? (
+            <span className="a2-label">{props.eyebrow}</span>
+          ) : null}
         </div>
-        {props.subtitle ? <p className="text-[13px] leading-relaxed text-muted-foreground text-pretty"><StreamWords text={props.subtitle} /></p> : null}
+        {props.subtitle ? (
+          <p className="text-[13px] leading-relaxed text-muted-foreground text-pretty">
+            <StreamWords text={props.subtitle} />
+          </p>
+        ) : null}
       </header>
     );
   },
@@ -98,7 +128,11 @@ export const contentRenderers: RendererMap<"Heading" | "CodeBlock" | "Quote" | "
             }}
             className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
           >
-            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+            {copied ? (
+              <Check className="size-3" />
+            ) : (
+              <Copy className="size-3" />
+            )}
             {copied ? "Copied" : "Copy"}
           </button>
         </figcaption>
@@ -112,7 +146,9 @@ export const contentRenderers: RendererMap<"Heading" | "CodeBlock" | "Quote" | "
   Quote: ({ props }) => (
     <figure className="a2-enter relative w-full min-w-0 overflow-hidden rounded-[var(--a2-radius)] border border-[var(--a2-line)] bg-gradient-to-br from-violet-500/[0.07] to-transparent px-5 py-4">
       <QuoteIcon className="absolute right-4 top-3 size-8 text-violet-300/15" />
-      <blockquote className="text-[15px] font-medium leading-relaxed tracking-tight text-pretty">{props.text}</blockquote>
+      <blockquote className="text-[15px] font-medium leading-relaxed tracking-tight text-pretty">
+        {props.text}
+      </blockquote>
       {props.author ? (
         <figcaption className="mt-3 text-[12px] text-muted-foreground">
           <span className="font-medium text-foreground/90">{props.author}</span>
@@ -126,13 +162,31 @@ export const contentRenderers: RendererMap<"Heading" | "CodeBlock" | "Quote" | "
     const images = Array.isArray(props.images) ? props.images : [];
     const cols = Math.min(4, Math.max(2, props.columns ?? 3));
     return (
-      <div className="a2-enter grid w-full min-w-0 gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+      <div
+        className="a2-enter grid w-full min-w-0 gap-2"
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+      >
         {images.map((img, i) => (
-          <figure key={i} className={cn("group relative overflow-hidden rounded-[12px] border border-[var(--a2-line)] bg-white/[0.03]", i === 0 && images.length > 3 && (images.length + 3) % cols === 0 && "col-span-2 row-span-2")}>
+          <figure
+            key={i}
+            className={cn(
+              "group relative overflow-hidden rounded-[12px] border border-[var(--a2-line)] bg-white/[0.03]",
+              i === 0 &&
+                images.length > 3 &&
+                (images.length + 3) % cols === 0 &&
+                "col-span-2 row-span-2",
+            )}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={img.url} alt={img.caption ?? ""} className="aspect-square size-full object-cover transition duration-500 group-hover:scale-[1.03]" />
+            <img
+              src={img.url}
+              alt={img.caption ?? ""}
+              className="aspect-square size-full object-cover transition duration-500 group-hover:scale-[1.03]"
+            />
             {img.caption ? (
-              <figcaption className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/80 to-transparent px-2.5 pb-2 pt-6 text-[11px] font-medium text-white/90">{img.caption}</figcaption>
+              <figcaption className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/80 to-transparent px-2.5 pb-2 pt-6 text-[11px] font-medium text-white/90">
+                {img.caption}
+              </figcaption>
             ) : null}
           </figure>
         ))}
@@ -143,17 +197,34 @@ export const contentRenderers: RendererMap<"Heading" | "CodeBlock" | "Quote" | "
   VideoEmbed: ({ props }) => {
     const yt = youtubeId(props.url ?? "");
     const vm = vimeoId(props.url ?? "");
-    const src = yt ? `https://www.youtube-nocookie.com/embed/${yt}` : vm ? `https://player.vimeo.com/video/${vm}` : null;
+    const src = yt
+      ? `https://www.youtube-nocookie.com/embed/${yt}`
+      : vm
+        ? `https://player.vimeo.com/video/${vm}`
+        : null;
     return (
       <figure className="a2-enter flex w-full min-w-0 flex-col gap-1.5">
         <div className="aspect-video w-full overflow-hidden rounded-[12px] border border-[var(--a2-line)] bg-black">
           {src ? (
-            <iframe src={src} title={props.title ?? "Video"} className="size-full" allow="accelerometer; encrypted-media; picture-in-picture" allowFullScreen loading="lazy" />
+            <iframe
+              src={src}
+              title={props.title ?? "Video"}
+              className="size-full"
+              allow="accelerometer; encrypted-media; picture-in-picture"
+              allowFullScreen
+              loading="lazy"
+            />
           ) : (
-            <div className="grid size-full place-items-center text-[12px] text-muted-foreground">Unsupported video URL</div>
+            <div className="grid size-full place-items-center text-[12px] text-muted-foreground">
+              Unsupported video URL
+            </div>
           )}
         </div>
-        {props.title ? <figcaption className="text-[12px] text-muted-foreground">{props.title}</figcaption> : null}
+        {props.title ? (
+          <figcaption className="text-[12px] text-muted-foreground">
+            {props.title}
+          </figcaption>
+        ) : null}
       </figure>
     );
   },
@@ -162,12 +233,17 @@ export const contentRenderers: RendererMap<"Heading" | "CodeBlock" | "Quote" | "
     <div className="inline-flex items-center gap-2 text-[12.5px]">
       <span className="inline-flex items-center gap-1">
         {(props.keys ?? []).map((k, i) => (
-          <kbd key={i} className="min-w-6 rounded-md border border-b-2 border-white/15 bg-white/[0.06] px-1.5 py-0.5 text-center font-mono text-[11px] font-medium text-foreground/90">
+          <kbd
+            key={i}
+            className="min-w-6 rounded-md border border-b-2 border-white/15 bg-white/[0.06] px-1.5 py-0.5 text-center font-mono text-[11px] font-medium text-foreground/90"
+          >
             {k}
           </kbd>
         ))}
       </span>
-      {props.label ? <span className="text-muted-foreground">{props.label}</span> : null}
+      {props.label ? (
+        <span className="text-muted-foreground">{props.label}</span>
+      ) : null}
     </div>
   ),
 };

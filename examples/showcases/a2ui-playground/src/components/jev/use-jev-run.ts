@@ -9,16 +9,34 @@ export type { JevEvent, JevNotice, JevResult };
 export type JevRunState =
   | { phase: "idle" }
   | { phase: "running"; startedAt: number }
-  | { phase: "painting"; startedAt: number; result: JevResult; responseMs: number }
-  | { phase: "done"; startedAt: number; result: JevResult; responseMs: number; renderedMs: number }
-  | { phase: "notice"; startedAt: number; notice: JevNotice; responseMs: number }
+  | {
+      phase: "painting";
+      startedAt: number;
+      result: JevResult;
+      responseMs: number;
+    }
+  | {
+      phase: "done";
+      startedAt: number;
+      result: JevResult;
+      responseMs: number;
+      renderedMs: number;
+    }
+  | {
+      phase: "notice";
+      startedAt: number;
+      notice: JevNotice;
+      responseMs: number;
+    }
   | { phase: "error"; message: string };
 
 /** `?fixture=1` answers from the saved fixture instead of calling Jev (for screenshots and UI work). */
 export function useFixtureFlag() {
   const [fixture, setFixture] = useState(false);
   useEffect(() => {
-    setFixture(new URLSearchParams(window.location.search).get("fixture") === "1");
+    setFixture(
+      new URLSearchParams(window.location.search).get("fixture") === "1",
+    );
   }, []);
   return fixture;
 }
@@ -53,13 +71,36 @@ export function useJevRun(usecase: UseCaseId, opts: { stream?: boolean } = {}) {
           body: JSON.stringify({ usecase, prompt, fixture, stream }),
           signal: ctl.signal,
         });
-        const body = stream && res.ok && res.body ? await readStream(res.body, (e) => setEvents((prev) => [...prev, e])) : ((await res.json()) as (JevResult | JevNotice) & { error?: string });
-        if (!res.ok || body.error) throw new Error(body.error ?? `Request failed (${res.status})`);
-        if ("notice" in body) setState({ phase: "notice", startedAt, notice: body, responseMs: performance.now() - startedAt });
-        else setState({ phase: "painting", startedAt, result: body, responseMs: performance.now() - startedAt });
+        const body =
+          stream && res.ok && res.body
+            ? await readStream(res.body, (e) =>
+                setEvents((prev) => [...prev, e]),
+              )
+            : ((await res.json()) as (JevResult | JevNotice) & {
+                error?: string;
+              });
+        if (!res.ok || body.error)
+          throw new Error(body.error ?? `Request failed (${res.status})`);
+        if ("notice" in body)
+          setState({
+            phase: "notice",
+            startedAt,
+            notice: body,
+            responseMs: performance.now() - startedAt,
+          });
+        else
+          setState({
+            phase: "painting",
+            startedAt,
+            result: body,
+            responseMs: performance.now() - startedAt,
+          });
       } catch (err) {
         if (ctl.signal.aborted) return;
-        setState({ phase: "error", message: err instanceof Error ? err.message : String(err) });
+        setState({
+          phase: "error",
+          message: err instanceof Error ? err.message : String(err),
+        });
       }
     },
     [usecase, fixture, stream],
@@ -76,7 +117,9 @@ export function useJevRun(usecase: UseCaseId, opts: { stream?: boolean } = {}) {
         requestAnimationFrame(() => {
           if (cancelled) return;
           const renderedMs = performance.now() - state.startedAt;
-          setState((s) => (s.phase === "painting" ? { ...s, phase: "done", renderedMs } : s));
+          setState((s) =>
+            s.phase === "painting" ? { ...s, phase: "done", renderedMs } : s,
+          );
         });
         return;
       }
@@ -89,14 +132,22 @@ export function useJevRun(usecase: UseCaseId, opts: { stream?: boolean } = {}) {
     };
   }, [state]);
 
-  const result = state.phase === "painting" || state.phase === "done" ? state.result : null;
+  const result =
+    state.phase === "painting" || state.phase === "done" ? state.result : null;
   return { state, result, run, host, fixture, events };
 }
 
-type StreamLine = ({ type: "event" } & JevEvent) | { type: "result"; result: JevResult } | { type: "notice"; notice: JevNotice } | { type: "error"; error: string };
+type StreamLine =
+  | ({ type: "event" } & JevEvent)
+  | { type: "result"; result: JevResult }
+  | { type: "notice"; notice: JevNotice }
+  | { type: "error"; error: string };
 
 /** Reads the NDJSON run stream: forwards each step as it arrives, resolves with the final line's payload. */
-async function readStream(body: ReadableStream<Uint8Array>, onEvent: (e: JevEvent) => void): Promise<(JevResult | JevNotice) & { error?: string }> {
+async function readStream(
+  body: ReadableStream<Uint8Array>,
+  onEvent: (e: JevEvent) => void,
+): Promise<(JevResult | JevNotice) & { error?: string }> {
   const reader = body.getReader();
   const dec = new TextDecoder();
   let buf = "";
@@ -121,4 +172,5 @@ async function readStream(body: ReadableStream<Uint8Array>, onEvent: (e: JevEven
 }
 
 /** 412 ms, or 1.24 s from a second up. */
-export const ms = (n: number) => (n < 1000 ? `${Math.round(n)} ms` : `${(n / 1000).toFixed(2)} s`);
+export const ms = (n: number) =>
+  n < 1000 ? `${Math.round(n)} ms` : `${(n / 1000).toFixed(2)} s`;

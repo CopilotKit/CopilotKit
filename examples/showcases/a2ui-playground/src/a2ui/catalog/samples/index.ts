@@ -27,10 +27,22 @@ export { standardSamples };
 /** The preview for a playground component or, failing that, a Gen UI 2.0 standard component. */
 export function sampleFor(name: string): Sample | undefined {
   if (Object.hasOwn(samples, name)) return samples[name as ComponentName];
-  return Object.hasOwn(standardSamples, name) ? standardSamples[name] : undefined;
+  return Object.hasOwn(standardSamples, name)
+    ? standardSamples[name]
+    : undefined;
 }
 
 export function sampleOps(name: string, sample: Sample, catalogId: string) {
   const surfaceId = `preview-${name}`;
-  return [{ version: A2UI_VERSION, createSurface: { surfaceId, catalogId, components: sample.components, ...(sample.data ? { dataModel: sample.data } : {}) } }];
+  return [
+    {
+      version: A2UI_VERSION,
+      createSurface: {
+        surfaceId,
+        catalogId,
+        components: sample.components,
+        ...(sample.data ? { dataModel: sample.data } : {}),
+      },
+    },
+  ];
 }

@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { CopilotKitCoreErrorCode, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import {
+  CopilotKitCoreErrorCode,
+  useAgent,
+  useCopilotKit,
+} from "@copilotkit/react-core/v2";
 import type { Message } from "@ag-ui/client";
 import { runStore, type RunRecord } from "@/lib/run-store";
 
@@ -12,29 +16,54 @@ const CHAT_KEY = "a2ui-playground-chat";
 
 /** Failures the browser sees itself (the request never reached the agent, or broke on the way), in visitor words. */
 const RUN_FAILURES: Partial<Record<string, string>> = {
-  [CopilotKitCoreErrorCode.AGENT_RUN_FAILED]: "Couldn't reach the playground server. Check your connection and try again.",
-  [CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT]: "Couldn't reach the playground server. Check your connection and try again.",
-  [CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT]: "The model stopped answering. Try again.",
-  [CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED]: "The agent is still busy with the last request. Try again in a moment.",
+  [CopilotKitCoreErrorCode.AGENT_RUN_FAILED]:
+    "Couldn't reach the playground server. Check your connection and try again.",
+  [CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT]:
+    "Couldn't reach the playground server. Check your connection and try again.",
+  [CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT]:
+    "The model stopped answering. Try again.",
+  [CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED]:
+    "The agent is still busy with the last request. Try again in a moment.",
 };
 
 /** A run the server's limits refused (429 rate limit, 413 chat too long; `src/lib/limits.ts`): its JSON says why, in visitor words. */
 function refusal(error: unknown) {
-  const { status, payload } = (error ?? {}) as { status?: number; payload?: { error?: unknown } };
+  const { status, payload } = (error ?? {}) as {
+    status?: number;
+    payload?: { error?: unknown };
+  };
   if (status !== 429 && status !== 413) return undefined;
   if (typeof payload?.error === "string") return payload.error;
-  return status === 429 ? "You're sending a lot of requests. Try again in a minute." : "This chat is too long to send. Open the playground in a new tab to start over.";
+  return status === 429
+    ? "You're sending a lot of requests. Try again in a minute."
+    : "This chat is too long to send. Open the playground in a new tab to start over.";
 }
 
 /** The prompt of the latest user message, or what a surface click reads as, and that message's id. */
 function lastPrompt(messages: ReadonlyArray<Message> | undefined) {
   const last = messages?.[messages.length - 1];
-  return last?.role === "user" && typeof last.content === "string" ? { prompt: last.content, messageId: last.id } : { prompt: "Surface action", messageId: undefined };
+  return last?.role === "user" && typeof last.content === "string"
+    ? { prompt: last.content, messageId: last.id }
+    : { prompt: "Surface action", messageId: undefined };
 }
 
-function startRunFromWindow({ prompt, messageId }: { prompt: string; messageId?: string }) {
-  const w = window as { __a2uiMode?: string; __a2uiModel?: string; __a2uiFormat?: string };
-  return runStore.startRun(prompt, String(w.__a2uiMode ?? "auto"), { model: w.__a2uiModel, format: w.__a2uiFormat, messageId });
+function startRunFromWindow({
+  prompt,
+  messageId,
+}: {
+  prompt: string;
+  messageId?: string;
+}) {
+  const w = window as {
+    __a2uiMode?: string;
+    __a2uiModel?: string;
+    __a2uiFormat?: string;
+  };
+  return runStore.startRun(prompt, String(w.__a2uiMode ?? "auto"), {
+    model: w.__a2uiModel,
+    format: w.__a2uiFormat,
+    messageId,
+  });
 }
 
 /**
@@ -72,7 +101,10 @@ export function AgentTap() {
       clearTimeout(timer);
       timer = window.setTimeout(save, 300);
     };
-    const sub = agent.subscribe({ onMessagesChanged: later, onRunFinalized: later });
+    const sub = agent.subscribe({
+      onMessagesChanged: later,
+      onRunFinalized: later,
+    });
     return () => {
       clearTimeout(timer);
       save();
@@ -89,12 +121,19 @@ export function AgentTap() {
     const sub = copilotkit.subscribe({
       onError: ({ code, error, context }) => {
         const message = refusal(error) ?? RUN_FAILURES[code];
-        if (!message || (context?.agentId && context.agentId !== "default")) return;
+        if (!message || (context?.agentId && context.agentId !== "default"))
+          return;
         const cur = runStore.current();
-        if (cur?.status === "running") return runStore.endRun(cur.id, "error", message);
+        if (cur?.status === "running") {
+          // Its RUN_STARTED never comes: marked as started, the next run's RUN_STARTED is not read as this run's.
+          started.add(cur.id);
+          return runStore.endRun(cur.id, "error", message);
+        }
         // Already ended (stopped, or a second report of the same failure).
         if (cur && cur.status !== "done") return;
-        const id = startRunFromWindow(lastPrompt(copilotkit.getAgent("default")?.messages));
+        const id = startRunFromWindow(
+          lastPrompt(copilotkit.getAgent("default")?.messages),
+        );
         started.add(id);
         runStore.endRun(id, "error", message);
       },
@@ -111,7 +150,8 @@ export function AgentTap() {
           if (cur && (cur.status === "running" || !started.has(cur.id))) {
             started.add(cur.id);
             // Stop pressed while the request was still being set up does nothing in the client: stop it now that it runs.
-            if (cur.status === "stopped") setTimeout(() => copilotkit.stopAgent({ agent }), 0);
+            if (cur.status === "stopped")
+              setTimeout(() => copilotkit.stopAgent({ agent }), 0);
           }
           // A click on a surface starts its run with the user message Gen UI 2.0 writes for the action.
           else started.add(startRunFromWindow(lastPrompt(agent.messages)));
@@ -123,68 +163,174 @@ export function AgentTap() {
           const v = e.value as Pipeline;
           switch (v.stage) {
             case "run:start":
-              runStore.patchRun(run.id, { model: String(v.model), format: String(v.format), router: String(v.router), composer: String(v.composer) });
+              runStore.patchRun(run.id, {
+                model: String(v.model),
+                format: String(v.format),
+                router: String(v.router),
+                composer: String(v.composer),
+              });
               break;
             case "route:start":
-              runStore.addEvent({ kind: "route", label: "Choosing how to answer", detail: String(v.model), tone: "muted" });
+              runStore.addEvent({
+                kind: "route",
+                label: "Choosing how to answer",
+                detail: String(v.model),
+                tone: "muted",
+              });
               break;
             case "route:decided": {
               const kind = v.kind as "fixed" | "dynamic" | "data";
-              const label = kind === "fixed" ? "Template picked" : kind === "dynamic" ? "Building a new UI" : "Live data needed";
-              const how = kind === "fixed" ? "the model fills in data only" : kind === "dynamic" ? "the model lays out the components" : "fetched first";
-              runStore.addEvent({ kind: "tool", label, detail: `${how}, tool ${v.tool}`, tone: kind });
-              if (kind !== "data") runStore.patchRun(run.id, { path: kind, tool: String(v.tool) });
+              const label =
+                kind === "fixed"
+                  ? "Template picked"
+                  : kind === "dynamic"
+                    ? "Building a new UI"
+                    : "Live data needed";
+              const how =
+                kind === "fixed"
+                  ? "the model fills in data only"
+                  : kind === "dynamic"
+                    ? "the model lays out the components"
+                    : "fetched first";
+              runStore.addEvent({
+                kind: "tool",
+                label,
+                detail: `${how}, tool ${v.tool}`,
+                tone: kind,
+              });
+              if (kind !== "data")
+                runStore.patchRun(run.id, { path: kind, tool: String(v.tool) });
               break;
             }
             case "data:start":
-              runStore.addEvent({ kind: "data", label: "Fetching data", detail: String(v.tool ?? (v.tools as string[] | undefined)?.join(", ") ?? ""), tone: "data" });
+              runStore.addEvent({
+                kind: "data",
+                label: "Fetching data",
+                detail: String(
+                  v.tool ?? (v.tools as string[] | undefined)?.join(", ") ?? "",
+                ),
+                tone: "data",
+              });
               break;
             case "data:done":
-              runStore.addEvent({ kind: "data", label: "Data ready", detail: String(v.source ?? (v.sources as string[] | undefined)?.join(", ") ?? ""), tone: "data" });
+              runStore.addEvent({
+                kind: "data",
+                label: "Data ready",
+                detail: String(
+                  v.source ??
+                    (v.sources as string[] | undefined)?.join(", ") ??
+                    "",
+                ),
+                tone: "data",
+              });
               break;
             case "compose:start":
-              runStore.addEvent({ kind: "compose", label: v.format === "express" ? "Writing A2UI Express" : "Writing A2UI JSON", detail: String(v.model), tone: "dynamic" });
+              runStore.addEvent({
+                kind: "compose",
+                label:
+                  v.format === "express"
+                    ? "Writing A2UI Express"
+                    : "Writing A2UI JSON",
+                detail: String(v.model),
+                tone: "dynamic",
+              });
               break;
             case "macro":
-              runStore.patchRun(run.id, (r) => ({ macros: [...r.macros, { id: String(v.id), macro: String(v.macro), components: Number(v.components) }] }));
-              runStore.addEvent({ kind: "macro", label: `Macro ${v.macro} expanded`, detail: `#${v.id} into ${v.components} standard components`, tone: "data" });
+              runStore.patchRun(run.id, (r) => ({
+                macros: [
+                  ...r.macros,
+                  {
+                    id: String(v.id),
+                    macro: String(v.macro),
+                    components: Number(v.components),
+                  },
+                ],
+              }));
+              runStore.addEvent({
+                kind: "macro",
+                label: `Macro ${v.macro} expanded`,
+                detail: `#${v.id} into ${v.components} standard components`,
+                tone: "data",
+              });
               break;
             case "format:stats":
-              runStore.patchRun(run.id, { payload: v as unknown as RunRecord["payload"] });
+              runStore.patchRun(run.id, {
+                payload: v as unknown as RunRecord["payload"],
+              });
               break;
             case "skeleton":
-              runStore.addEvent({ kind: "skeleton", label: "Template skeleton", detail: `${v.template}: ${v.components} slots known before data`, tone: "fixed" });
+              runStore.addEvent({
+                kind: "skeleton",
+                label: "Template skeleton",
+                detail: `${v.template}: ${v.components} slots known before data`,
+                tone: "fixed",
+              });
               break;
             case "compose:header":
               runStore.patchRun(run.id, { openId: String(v.id), openChars: 0 });
-              runStore.addEvent({ kind: "frame", label: `[ ] ${v.component}`, detail: `#${v.id} frame`, tone: "muted" });
+              runStore.addEvent({
+                kind: "frame",
+                label: `[ ] ${v.component}`,
+                detail: `#${v.id} frame`,
+                tone: "muted",
+              });
               break;
             case "compose:progress":
-              runStore.patchRun(run.id, { tps: Number(v.tps) || null, tokens: Number(v.tokens) || null, openChars: Number(v.chars) || 0, openId: v.id ? String(v.id) : null });
+              runStore.patchRun(run.id, {
+                tps: Number(v.tps) || null,
+                tokens: Number(v.tokens) || null,
+                openChars: Number(v.chars) || 0,
+                openId: v.id ? String(v.id) : null,
+              });
               break;
             case "compose:first-token":
-              runStore.addEvent({ kind: "compose", label: "First token", tone: "muted" });
+              runStore.addEvent({
+                kind: "compose",
+                label: "First token",
+                tone: "muted",
+              });
               break;
             case "compose:component":
               runStore.addEvent({
                 kind: "op",
                 label: `+ ${v.component}`,
                 detail: `#${v.id}${Array.isArray(v.repaired) && v.repaired.length ? `, repaired ${(v.repaired as string[]).join(", ")}` : ""}${Array.isArray(v.failed) && v.failed.length ? `, invalid ${(v.failed as string[]).join("; ")}` : ""}`,
-                tone: Array.isArray(v.failed) && v.failed.length ? "error" : "muted",
+                tone:
+                  Array.isArray(v.failed) && v.failed.length
+                    ? "error"
+                    : "muted",
                 ...(typeof v.line === "string" ? { line: v.line } : {}),
               });
-              if (typeof v.line === "string") runStore.addLine({ kind: "line", text: v.line, id: String(v.id), component: String(v.component), format: v.format === "json" ? "json" : "express" });
+              if (typeof v.line === "string")
+                runStore.addLine({
+                  kind: "line",
+                  text: v.line,
+                  id: String(v.id),
+                  component: String(v.component),
+                  format: v.format === "json" ? "json" : "express",
+                });
               break;
             case "compose:line":
               // A statement that is not a component (an Express `$/path = value` data line).
-              if (typeof v.line === "string") runStore.addLine({ kind: "line", text: v.line, format: v.format === "json" ? "json" : "express" });
+              if (typeof v.line === "string")
+                runStore.addLine({
+                  kind: "line",
+                  text: v.line,
+                  format: v.format === "json" ? "json" : "express",
+                });
               break;
             case "paint":
               runStore.patchRun(run.id, { serverPaintMs: v.t });
               runStore.addEvent({
                 kind: "ops",
-                label: v.updated ? "Update emitted" : v.blueprint ? "First frame emitted" : "A2UI ops emitted",
-                detail: v.blueprint ? "component id read before its props" : `${v.components} components${v.progressive ? ", streaming" : ""}`,
+                label: v.updated
+                  ? "Update emitted"
+                  : v.blueprint
+                    ? "First frame emitted"
+                    : "A2UI ops emitted",
+                detail: v.blueprint
+                  ? "component id read before its props"
+                  : `${v.components} components${v.progressive ? ", streaming" : ""}`,
                 tone: "paint",
               });
               break;
@@ -200,24 +346,49 @@ export function AgentTap() {
               break;
             }
             case "validate": {
-              runStore.addEvent({ kind: "validate", label: v.ok ? "Validated" : "Validation issues", detail: v.ok ? `${v.components} components` : (v.errors as string[]).join("; "), tone: v.ok ? "muted" : "error" });
+              runStore.addEvent({
+                kind: "validate",
+                label: v.ok ? "Validated" : "Validation issues",
+                detail: v.ok
+                  ? `${v.components} components`
+                  : (v.errors as string[]).join("; "),
+                tone: v.ok ? "muted" : "error",
+              });
               // Express that did not compile is written again, then as JSON: the live view marks where each attempt starts.
-              const errors = Array.isArray(v.errors) ? (v.errors as string[]) : [];
+              const errors = Array.isArray(v.errors)
+                ? (v.errors as string[])
+                : [];
               if (v.retry) {
                 const toJson = errors.some((e) => /as JSON instead/.test(e));
-                runStore.addLine({ kind: "divider", text: toJson ? "Still did not compile. Writing the surface as JSON instead." : "Did not compile. The model writes it again." });
+                runStore.addLine({
+                  kind: "divider",
+                  text: toJson
+                    ? "Still did not compile. Writing the surface as JSON instead."
+                    : "Did not compile. The model writes it again.",
+                });
               }
               break;
             }
             case "error":
-              runStore.addEvent({ kind: "error", label: "Error", detail: String(v.detail ?? v.message), tone: "error" });
+              runStore.addEvent({
+                kind: "error",
+                label: "Error",
+                detail: String(v.detail ?? v.message),
+                tone: "error",
+              });
               // The run can't produce its UI: it ends as failed, with the message the chat shows.
-              if (v.failed) runStore.patchRun(run.id, { error: String(v.message) });
+              if (v.failed)
+                runStore.patchRun(run.id, { error: String(v.message) });
               break;
           }
         }
         if (e.type === "RUN_FINISHED") runStore.endRun(run.id, "done");
-        if (e.type === "RUN_ERROR") runStore.endRun(run.id, "error", "The model stopped answering. Try again.");
+        if (e.type === "RUN_ERROR")
+          runStore.endRun(
+            run.id,
+            "error",
+            "The model stopped answering. Try again.",
+          );
       },
     });
     return () => sub.unsubscribe();

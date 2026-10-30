@@ -6,131 +6,132 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-sans);
-    --font-sans: var(--font-sans);
-    --font-mono: var(--font-mono);
-    --color-sidebar-ring: var(--sidebar-ring);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar: var(--sidebar);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
-    --color-ring: var(--ring);
-    --color-input: var(--input);
-    --color-border: var(--border);
-    --color-destructive: var(--destructive);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-accent: var(--accent);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-muted: var(--muted);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-secondary: var(--secondary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-primary: var(--primary);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-popover: var(--popover);
-    --color-card-foreground: var(--card-foreground);
-    --color-card: var(--card);
-    --color-foreground: var(--foreground);
-    --color-background: var(--background);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 }
 
 .dark {
-    --background: oklch(0.135 0.004 285);
-    --foreground: oklch(0.97 0.003 285);
-    --card: oklch(0.175 0.005 285);
-    --card-foreground: oklch(0.97 0.003 285);
-    --popover: oklch(0.19 0.006 285);
-    --popover-foreground: oklch(0.97 0.003 285);
-    --primary: oklch(0.72 0.17 292);
-    --primary-foreground: oklch(0.16 0.02 292);
-    --secondary: oklch(0.24 0.006 285);
-    --secondary-foreground: oklch(0.97 0.003 285);
-    --muted: oklch(0.23 0.006 285);
-    --muted-foreground: oklch(0.68 0.012 285);
-    --accent: oklch(0.25 0.008 285);
-    --accent-foreground: oklch(0.97 0.003 285);
-    --destructive: oklch(0.68 0.2 22);
-    --border: oklch(1 0 0 / 8%);
-    --input: oklch(1 0 0 / 11%);
-    --ring: oklch(0.72 0.17 292 / 60%);
-    --chart-1: oklch(0.72 0.17 292);
-    --chart-2: oklch(0.75 0.13 230);
-    --chart-3: oklch(0.78 0.15 165);
-    --chart-4: oklch(0.82 0.14 80);
-    --chart-5: oklch(0.7 0.18 15);
-    --sidebar: oklch(0.155 0.005 285);
-    --sidebar-foreground: oklch(0.97 0.003 285);
-    --sidebar-primary: oklch(0.72 0.17 292);
-    --sidebar-primary-foreground: oklch(0.16 0.02 292);
-    --sidebar-accent: oklch(0.23 0.006 285);
-    --sidebar-accent-foreground: oklch(0.97 0.003 285);
-    --sidebar-border: oklch(1 0 0 / 8%);
-    --sidebar-ring: oklch(0.72 0.17 292 / 60%);
+  --background: oklch(0.135 0.004 285);
+  --foreground: oklch(0.97 0.003 285);
+  --card: oklch(0.175 0.005 285);
+  --card-foreground: oklch(0.97 0.003 285);
+  --popover: oklch(0.19 0.006 285);
+  --popover-foreground: oklch(0.97 0.003 285);
+  --primary: oklch(0.72 0.17 292);
+  --primary-foreground: oklch(0.16 0.02 292);
+  --secondary: oklch(0.24 0.006 285);
+  --secondary-foreground: oklch(0.97 0.003 285);
+  --muted: oklch(0.23 0.006 285);
+  --muted-foreground: oklch(0.68 0.012 285);
+  --accent: oklch(0.25 0.008 285);
+  --accent-foreground: oklch(0.97 0.003 285);
+  --destructive: oklch(0.68 0.2 22);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 11%);
+  --ring: oklch(0.72 0.17 292 / 60%);
+  --chart-1: oklch(0.72 0.17 292);
+  --chart-2: oklch(0.75 0.13 230);
+  --chart-3: oklch(0.78 0.15 165);
+  --chart-4: oklch(0.82 0.14 80);
+  --chart-5: oklch(0.7 0.18 15);
+  --sidebar: oklch(0.155 0.005 285);
+  --sidebar-foreground: oklch(0.97 0.003 285);
+  --sidebar-primary: oklch(0.72 0.17 292);
+  --sidebar-primary-foreground: oklch(0.16 0.02 292);
+  --sidebar-accent: oklch(0.23 0.006 285);
+  --sidebar-accent-foreground: oklch(0.97 0.003 285);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.72 0.17 292 / 60%);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
+  }
   body {
     @apply bg-background text-foreground;
-    }
-  button:not(:disabled), [role="button"]:not(:disabled) {
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
     cursor: pointer;
-    }
+  }
   html {
     @apply font-sans;
-    }
+  }
 }
 
 /* ───────────────────────── A2UI surface design tokens ─────────────────────────
@@ -166,10 +167,14 @@
 @layer components {
   /* Base card: every boxed component uses it. */
   .a2-card {
-    background: linear-gradient(180deg, oklch(1 0 0 / 2.2%), oklch(1 0 0 / 0%) 40%), var(--a2-surface);
+    background:
+      linear-gradient(180deg, oklch(1 0 0 / 2.2%), oklch(1 0 0 / 0%) 40%),
+      var(--a2-surface);
     border: 1px solid var(--a2-line);
     border-radius: var(--a2-radius);
-    box-shadow: inset 0 1px 0 oklch(1 0 0 / 4%), 0 1px 2px oklch(0 0 0 / 30%);
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / 4%),
+      0 1px 2px oklch(0 0 0 / 30%);
   }
   /* Inset well inside a card (rows, chips, mini panels). */
   .a2-well {
@@ -183,23 +188,80 @@
     font-weight: 500;
     color: var(--muted-foreground);
   }
-  .a2-chart { color: oklch(0.78 0.01 285); }
-  .a2-chart svg text { font-family: var(--font-sans); }
+  .a2-chart {
+    color: oklch(0.78 0.01 285);
+  }
+  .a2-chart svg text {
+    font-family: var(--font-sans);
+  }
 }
 
 /* Markdown + code inside surfaces */
-.a2-md > * + * { margin-top: 0.6em; }
-.a2-md h1, .a2-md h2, .a2-md h3 { font-weight: 600; letter-spacing: -0.01em; }
-.a2-md h1 { font-size: 18px; } .a2-md h2 { font-size: 16px; } .a2-md h3 { font-size: 14px; }
-.a2-md ul { list-style: disc; padding-left: 1.2em; } .a2-md ol { list-style: decimal; padding-left: 1.3em; }
-.a2-md li + li { margin-top: 0.25em; }
-.a2-md li::marker { color: var(--muted-foreground); }
-.a2-md a { color: var(--a2-accent); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklch, var(--a2-accent) 40%, transparent); }
-.a2-md strong { font-weight: 600; color: var(--foreground); }
-.a2-md code { font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.88em; padding: 0.1em 0.35em; border-radius: 5px; background: oklch(1 0 0 / 7%); }
-.a2-md blockquote { border-left: 2px solid var(--a2-line-strong); padding-left: 0.9em; color: var(--muted-foreground); }
-.a2-md table { width: 100%; font-size: 12.5px; border-collapse: collapse; }
-.a2-md th, .a2-md td { border-bottom: 1px solid var(--a2-line); padding: 6px 8px; text-align: left; }
+.a2-md > * + * {
+  margin-top: 0.6em;
+}
+.a2-md h1,
+.a2-md h2,
+.a2-md h3 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.a2-md h1 {
+  font-size: 18px;
+}
+.a2-md h2 {
+  font-size: 16px;
+}
+.a2-md h3 {
+  font-size: 14px;
+}
+.a2-md ul {
+  list-style: disc;
+  padding-left: 1.2em;
+}
+.a2-md ol {
+  list-style: decimal;
+  padding-left: 1.3em;
+}
+.a2-md li + li {
+  margin-top: 0.25em;
+}
+.a2-md li::marker {
+  color: var(--muted-foreground);
+}
+.a2-md a {
+  color: var(--a2-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in oklch, var(--a2-accent) 40%, transparent);
+}
+.a2-md strong {
+  font-weight: 600;
+  color: var(--foreground);
+}
+.a2-md code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.88em;
+  padding: 0.1em 0.35em;
+  border-radius: 5px;
+  background: oklch(1 0 0 / 7%);
+}
+.a2-md blockquote {
+  border-left: 2px solid var(--a2-line-strong);
+  padding-left: 0.9em;
+  color: var(--muted-foreground);
+}
+.a2-md table {
+  width: 100%;
+  font-size: 12.5px;
+  border-collapse: collapse;
+}
+.a2-md th,
+.a2-md td {
+  border-bottom: 1px solid var(--a2-line);
+  padding: 6px 8px;
+  text-align: left;
+}
 .a2-code {
   --sh-class: oklch(0.82 0.12 75);
   --sh-identifier: oklch(0.9 0.02 285);
@@ -233,89 +295,175 @@
   background-image: radial-gradient(oklch(1 0 0 / 5%) 1px, transparent 1px);
   background-size: 18px 18px;
 }
-.pg-json .j-key { color: oklch(0.78 0.08 230); }
-.pg-json .j-key-strong { color: oklch(0.86 0.1 165); }
-.pg-json .j-bind { color: oklch(0.84 0.12 72); font-weight: 600; }
-.pg-json .j-str { color: oklch(0.82 0.06 140); }
-.pg-json .j-num { color: oklch(0.8 0.11 60); }
-.pg-json .j-lit { color: oklch(0.75 0.13 320); }
-.pg-json { color: oklch(0.7 0.01 285); white-space: pre; }
-
+.pg-json .j-key {
+  color: oklch(0.78 0.08 230);
+}
+.pg-json .j-key-strong {
+  color: oklch(0.86 0.1 165);
+}
+.pg-json .j-bind {
+  color: oklch(0.84 0.12 72);
+  font-weight: 600;
+}
+.pg-json .j-str {
+  color: oklch(0.82 0.06 140);
+}
+.pg-json .j-num {
+  color: oklch(0.8 0.11 60);
+}
+.pg-json .j-lit {
+  color: oklch(0.75 0.13 320);
+}
+.pg-json {
+  color: oklch(0.7 0.01 285);
+  white-space: pre;
+}
 
 /* CopilotKit's chat scope ([data-copilotkit]) redefines the shadcn tokens.
    Surfaces rendered inside it must keep the app's design tokens. */
-.a2-surface-host, .pg-canvas {
-    --background: oklch(0.135 0.004 285);
-    --foreground: oklch(0.97 0.003 285);
-    --card: oklch(0.175 0.005 285);
-    --card-foreground: oklch(0.97 0.003 285);
-    --popover: oklch(0.19 0.006 285);
-    --popover-foreground: oklch(0.97 0.003 285);
-    --primary: oklch(0.72 0.17 292);
-    --primary-foreground: oklch(0.16 0.02 292);
-    --secondary: oklch(0.24 0.006 285);
-    --secondary-foreground: oklch(0.97 0.003 285);
-    --muted: oklch(0.23 0.006 285);
-    --muted-foreground: oklch(0.68 0.012 285);
-    --accent: oklch(0.25 0.008 285);
-    --accent-foreground: oklch(0.97 0.003 285);
-    --destructive: oklch(0.68 0.2 22);
-    --border: oklch(1 0 0 / 8%);
-    --input: oklch(1 0 0 / 11%);
-    --ring: oklch(0.72 0.17 292 / 60%);
-    --chart-1: oklch(0.72 0.17 292);
-    --chart-2: oklch(0.75 0.13 230);
-    --chart-3: oklch(0.78 0.15 165);
-    --chart-4: oklch(0.82 0.14 80);
-    --chart-5: oklch(0.7 0.18 15);
-    --sidebar: oklch(0.155 0.005 285);
-    --sidebar-foreground: oklch(0.97 0.003 285);
-    --sidebar-primary: oklch(0.72 0.17 292);
-    --sidebar-primary-foreground: oklch(0.16 0.02 292);
-    --sidebar-accent: oklch(0.23 0.006 285);
-    --sidebar-accent-foreground: oklch(0.97 0.003 285);
-    --sidebar-border: oklch(1 0 0 / 8%);
-    --sidebar-ring: oklch(0.72 0.17 292 / 60%);
+.a2-surface-host,
+.pg-canvas {
+  --background: oklch(0.135 0.004 285);
+  --foreground: oklch(0.97 0.003 285);
+  --card: oklch(0.175 0.005 285);
+  --card-foreground: oklch(0.97 0.003 285);
+  --popover: oklch(0.19 0.006 285);
+  --popover-foreground: oklch(0.97 0.003 285);
+  --primary: oklch(0.72 0.17 292);
+  --primary-foreground: oklch(0.16 0.02 292);
+  --secondary: oklch(0.24 0.006 285);
+  --secondary-foreground: oklch(0.97 0.003 285);
+  --muted: oklch(0.23 0.006 285);
+  --muted-foreground: oklch(0.68 0.012 285);
+  --accent: oklch(0.25 0.008 285);
+  --accent-foreground: oklch(0.97 0.003 285);
+  --destructive: oklch(0.68 0.2 22);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 11%);
+  --ring: oklch(0.72 0.17 292 / 60%);
+  --chart-1: oklch(0.72 0.17 292);
+  --chart-2: oklch(0.75 0.13 230);
+  --chart-3: oklch(0.78 0.15 165);
+  --chart-4: oklch(0.82 0.14 80);
+  --chart-5: oklch(0.7 0.18 15);
+  --sidebar: oklch(0.155 0.005 285);
+  --sidebar-foreground: oklch(0.97 0.003 285);
+  --sidebar-primary: oklch(0.72 0.17 292);
+  --sidebar-primary-foreground: oklch(0.16 0.02 292);
+  --sidebar-accent: oklch(0.23 0.006 285);
+  --sidebar-accent-foreground: oklch(0.97 0.003 285);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.72 0.17 292 / 60%);
 }
 
-.pg-chat [data-copilotkit] { background: var(--pg-bg); }
+.pg-chat [data-copilotkit] {
+  background: var(--pg-bg);
+}
 .pg-chat [data-testid="copilot-chat-input"] {
   background: var(--pg-panel);
   border: 1px solid var(--pg-line);
   box-shadow: 0 10px 30px -12px oklch(0 0 0 / 60%);
 }
-.pg-chat [data-testid="copilot-chat-input"]:focus-within { border-color: var(--pg-line-strong); }
-.pg-chat [data-testid="copilot-chat-textarea"] { font-size: 14px; }
-.pg-chat .copilotKitChat { font-family: var(--font-sans); }
+.pg-chat [data-testid="copilot-chat-input"]:focus-within {
+  border-color: var(--pg-line-strong);
+}
+.pg-chat [data-testid="copilot-chat-textarea"] {
+  font-size: 14px;
+}
+.pg-chat .copilotKitChat {
+  font-family: var(--font-sans);
+}
 
 /* Grid: exact column count, collapsing by the width of its own container (not the viewport). */
-.a2-grid { grid-template-columns: repeat(var(--g, 3), minmax(0, 1fr)); }
-.a2-grid[data-cols="1"] { --g: 1; } .a2-grid[data-cols="2"] { --g: 2; } .a2-grid[data-cols="3"] { --g: 3; } .a2-grid[data-cols="4"] { --g: 4; }
-@container (max-width: 520px) { .a2-grid[data-cols="4"] { --g: 2; } }
-@container (max-width: 400px) { .a2-grid[data-cols="3"] { --g: 2; } }
-@container (max-width: 260px) { .a2-grid { --g: 1; } }
+.a2-grid {
+  grid-template-columns: repeat(var(--g, 3), minmax(0, 1fr));
+}
+.a2-grid[data-cols="1"] {
+  --g: 1;
+}
+.a2-grid[data-cols="2"] {
+  --g: 2;
+}
+.a2-grid[data-cols="3"] {
+  --g: 3;
+}
+.a2-grid[data-cols="4"] {
+  --g: 4;
+}
+@container (max-width: 520px) {
+  .a2-grid[data-cols="4"] {
+    --g: 2;
+  }
+}
+@container (max-width: 400px) {
+  .a2-grid[data-cols="3"] {
+    --g: 2;
+  }
+}
+@container (max-width: 260px) {
+  .a2-grid {
+    --g: 1;
+  }
+}
 
-
-
-
-
-.pg-dots { background-color: var(--pg-bg); background-image: radial-gradient(oklch(1 0 0 / 6%) 1px, transparent 1.2px); background-size: 12px 12px; }
-.pg-chat .copilotKitChat [data-copilotkit] { background: transparent; }
+.pg-dots {
+  background-color: var(--pg-bg);
+  background-image: radial-gradient(oklch(1 0 0 / 6%) 1px, transparent 1.2px);
+  background-size: 12px 12px;
+}
+.pg-chat .copilotKitChat [data-copilotkit] {
+  background: transparent;
+}
 
 /* Horizontal-scroll tables: fade the edge that still hides columns. */
-[data-slot="table-container"] { scrollbar-width: thin; }
-[data-slot="table-container"][data-fade="right"] { mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
-[data-slot="table-container"][data-fade="left"] { mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); }
-[data-slot="table-container"][data-fade="both"] { mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
-.a2-md table { display: block; max-width: 100%; overflow-x: auto; white-space: nowrap; }
+[data-slot="table-container"] {
+  scrollbar-width: thin;
+}
+[data-slot="table-container"][data-fade="right"] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+}
+[data-slot="table-container"][data-fade="left"] {
+  mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent);
+}
+[data-slot="table-container"][data-fade="both"] {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 36px,
+    #000 calc(100% - 36px),
+    transparent
+  );
+}
+.a2-md table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+}
 
 /* Landing and docs pages: one container for heroes and sections, the width of the header's .site-container,
    so every left edge lines up. .landing-narrow is kept as an alias for pages that still use it. */
-.landing-container, .landing-narrow { width: 100%; max-width: 1400px; margin-inline: auto; padding-inline: 24px; }
-@media (max-width: 640px) { .landing-container, .landing-narrow { padding-inline: 16px; } }
+.landing-container,
+.landing-narrow {
+  width: 100%;
+  max-width: 1400px;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+@media (max-width: 640px) {
+  .landing-container,
+  .landing-narrow {
+    padding-inline: 16px;
+  }
+}
 /* The skip link focuses <main> itself: no ring around the whole page. */
-main[tabindex="-1"]:focus { outline: none; }
-.landing-stage { background-image: radial-gradient(oklch(1 0 0 / 5%) 1px, transparent 1.2px); background-size: 16px 16px; }
+main[tabindex="-1"]:focus {
+  outline: none;
+}
+.landing-stage {
+  background-image: radial-gradient(oklch(1 0 0 / 5%) 1px, transparent 1.2px);
+  background-size: 16px 16px;
+}
 
 /* CopilotKit's loading cursor (a white dot above the composer) becomes a quiet shimmer label. */
 .pg-chat [data-testid="copilot-loading-cursor"] {
@@ -329,11 +477,20 @@ main[tabindex="-1"]:focus { outline: none; }
   font-size: 12.5px;
   color: var(--shimmer-base);
 }
-.pg-chat [data-testid="copilot-loading-cursor"]::after { content: "Thinking"; }
+.pg-chat [data-testid="copilot-loading-cursor"]::after {
+  content: "Thinking";
+}
 .pg-chat [data-testid="copilot-loading-cursor"]::before {
   content: "Thinking";
   position: absolute;
-  background-image: linear-gradient(90deg, transparent 0%, transparent 40%, var(--shimmer-highlight) 50%, transparent 60%, transparent 100%);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 40%,
+    var(--shimmer-highlight) 50%,
+    transparent 60%,
+    transparent 100%
+  );
   background-size: var(--shimmer-band) 100%;
   background-repeat: no-repeat;
   -webkit-background-clip: text;
@@ -341,7 +498,9 @@ main[tabindex="-1"]:focus { outline: none; }
   -webkit-text-fill-color: transparent;
   animation: t-shimmer var(--shimmer-dur) var(--shimmer-ease) infinite;
 }
-.pg-chat [data-testid="copilot-loading-cursor"] { position: relative; }
+.pg-chat [data-testid="copilot-loading-cursor"] {
+  position: relative;
+}
 
 /* ─────────────── JSON tab: editing mode (src/components/playground/json-editor.tsx) ─────────────── */
 .pg-jed {
@@ -349,17 +508,36 @@ main[tabindex="-1"]:focus { outline: none; }
   --pg-jed-error: oklch(0.72 0.17 22);
 }
 /* Narrow inspector: editor above, preview below. Widened: side by side. */
-.pg-jed-split { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.1fr) minmax(0, 1fr); }
+.pg-jed-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1.1fr) minmax(0, 1fr);
+}
 @container (min-width: 820px) {
-  .pg-jed-split { grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
-  .pg-jed-right { border-top: 0; border-left: 1px solid var(--pg-line); }
+  .pg-jed-split {
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  }
+  .pg-jed-right {
+    border-top: 0;
+    border-left: 1px solid var(--pg-line);
+  }
 }
 /* The editor column is a container of its own: the key hint shows only when that column has room. */
-.pg-jed-left { container-type: inline-size; }
-.pg-jed-hint { display: none; }
-@container (min-width: 600px) { .pg-jed-hint { display: inline; } }
+.pg-jed-left {
+  container-type: inline-size;
+}
+.pg-jed-hint {
+  display: none;
+}
+@container (min-width: 600px) {
+  .pg-jed-hint {
+    display: inline;
+  }
+}
 /* The textarea and the coloured copy under it must share every metric, or the caret drifts off the text. */
-.pg-jed-text, .pg-jed-lines {
+.pg-jed-text,
+.pg-jed-lines {
   margin: 0;
   padding: 12px 16px 12px 12px;
   font-family: var(--font-mono), ui-monospace, monospace;
@@ -370,7 +548,13 @@ main[tabindex="-1"]:focus { outline: none; }
   tab-size: 2;
   white-space: pre;
 }
-.pg-jed-lines { padding-right: 10px; padding-left: 0; text-align: right; color: var(--pg-faint); user-select: none; }
+.pg-jed-lines {
+  padding-right: 10px;
+  padding-left: 0;
+  text-align: right;
+  color: var(--pg-faint);
+  user-select: none;
+}
 .pg-jed-input {
   color: transparent;
   -webkit-text-fill-color: transparent;
@@ -382,15 +566,40 @@ main[tabindex="-1"]:focus { outline: none; }
   overflow: auto;
   overscroll-behavior: contain;
 }
-.pg-jed-input::selection { background: oklch(0.72 0.17 292 / 32%); }
-.pg-jed-code { box-shadow: inset 0 0 0 1px transparent; transition: box-shadow 0.15s; }
-.pg-jed-code:focus-within { box-shadow: inset 0 0 0 1px oklch(0.72 0.17 292 / 45%); }
-.pg-jed-gutter { background: var(--pg-surface); }
-.pg-jed-error-band { background: oklch(0.72 0.17 22 / 11%); box-shadow: inset 2px 0 0 var(--pg-jed-error); }
-.pg-jed-gutter-error { background: oklch(0.72 0.17 22 / 16%); }
-.pg-jed-preview-stale > * { opacity: 0.55; filter: saturate(0.6); transition: opacity 0.2s, filter 0.2s; }
+.pg-jed-input::selection {
+  background: oklch(0.72 0.17 292 / 32%);
+}
+.pg-jed-code {
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: box-shadow 0.15s;
+}
+.pg-jed-code:focus-within {
+  box-shadow: inset 0 0 0 1px oklch(0.72 0.17 292 / 45%);
+}
+.pg-jed-gutter {
+  background: var(--pg-surface);
+}
+.pg-jed-error-band {
+  background: oklch(0.72 0.17 22 / 11%);
+  box-shadow: inset 2px 0 0 var(--pg-jed-error);
+}
+.pg-jed-gutter-error {
+  background: oklch(0.72 0.17 22 / 16%);
+}
+.pg-jed-preview-stale > * {
+  opacity: 0.55;
+  filter: saturate(0.6);
+  transition:
+    opacity 0.2s,
+    filter 0.2s;
+}
 /* The preview frames the surface itself: no chat card box (unlayered, so it beats CopilotKit's cpk: border classes). */
-.pg-jed-preview [data-generative-ui-chat-surface] { margin: 0; padding: 0; border: 0; border-radius: 0; }
+.pg-jed-preview [data-generative-ui-chat-surface] {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
 /* ─────────────── end JSON tab editing mode ─────────────── */
 
 /* ─────────────── Workbench: the front door (src/components/playground/workbench.tsx, thread.tsx, composer.tsx) ─────────────── */
@@ -407,8 +616,14 @@ main[tabindex="-1"]:focus { outline: none; }
   --wb-red-wash: oklch(0.72 0.17 22 / 8%);
   --wb-ln: oklch(0.56 0.012 285);
 }
-.pg-root ::selection { background: oklch(0.72 0.17 292 / 32%); color: var(--foreground); }
-.wb-scroll { scrollbar-width: thin; scrollbar-color: oklch(1 0 0 / 12%) transparent; }
+.pg-root ::selection {
+  background: oklch(0.72 0.17 292 / 32%);
+  color: var(--foreground);
+}
+.wb-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(1 0 0 / 12%) transparent;
+}
 /* The composer sits under the conversation: what scrolls behind it fades out instead of being cut. */
 .wb-composer::before {
   content: "";
@@ -419,19 +634,43 @@ main[tabindex="-1"]:focus { outline: none; }
 }
 /* Phones: the lines open over the conversation. */
 @media (max-width: 899px) {
-  .wb-sheet { animation: wb-sheet-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .wb-sheet {
+    animation: wb-sheet-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
 }
-@keyframes wb-sheet-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes wb-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 
 /* Column header tabs: the sliding tabs, a size down. */
-.wb-tabs { --tabs-bar-bg: oklch(1 0 0 / 4%); }
-.wb-tabs .t-tab { height: 28px; padding: 2px 11px; }
-.wb-tabs .t-tabs-pill { height: 28px; }
+.wb-tabs {
+  --tabs-bar-bg: oklch(1 0 0 / 4%);
+}
+.wb-tabs .t-tab {
+  height: 28px;
+  padding: 2px 11px;
+}
+.wb-tabs .t-tabs-pill {
+  height: 28px;
+}
 
 /* The lines the model writes: number, then the statement with a hanging indent. */
-.wb-lines { counter-reset: none; }
-.wb-line { display: block; animation: wb-line-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-.wb-line-btn, .wb-line-plain {
+.wb-lines {
+  counter-reset: none;
+}
+.wb-line {
+  display: block;
+  animation: wb-line-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.wb-line-btn,
+.wb-line-plain {
   display: grid;
   grid-template-columns: 2.25rem minmax(0, 1fr);
   column-gap: 0.75rem;
@@ -444,45 +683,136 @@ main[tabindex="-1"]:focus { outline: none; }
   border: 0;
   border-radius: 0;
 }
-.wb-line-btn { cursor: pointer; transition: background-color 120ms ease-out, box-shadow 120ms ease-out; }
-.wb-line-btn:focus-visible { outline: 2px solid var(--wb-violet-ring); outline-offset: -2px; }
-.wb-line[data-active] .wb-line-btn { background: var(--wb-blue-wash); box-shadow: inset 2px 0 0 var(--wb-blue); }
-.wb-line[data-pinned] .wb-line-btn { background: oklch(0.79 0.1 232 / 18%); box-shadow: inset 2px 0 0 var(--wb-blue); }
-.wb-ln { color: var(--wb-ln); text-align: right; font-variant-numeric: tabular-nums; user-select: none; }
-.wb-line[data-active] .wb-ln, .wb-line[data-pinned] .wb-ln { color: var(--wb-blue); }
-.wb-lines .wb-code { white-space: pre-wrap; overflow-wrap: anywhere; padding-left: 2ch; text-indent: -2ch; font-size: inherit; line-height: inherit; color: oklch(0.82 0.01 285); }
+.wb-line-btn {
+  cursor: pointer;
+  transition:
+    background-color 120ms ease-out,
+    box-shadow 120ms ease-out;
+}
+.wb-line-btn:focus-visible {
+  outline: 2px solid var(--wb-violet-ring);
+  outline-offset: -2px;
+}
+.wb-line[data-active] .wb-line-btn {
+  background: var(--wb-blue-wash);
+  box-shadow: inset 2px 0 0 var(--wb-blue);
+}
+.wb-line[data-pinned] .wb-line-btn {
+  background: oklch(0.79 0.1 232 / 18%);
+  box-shadow: inset 2px 0 0 var(--wb-blue);
+}
+.wb-ln {
+  color: var(--wb-ln);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.wb-line[data-active] .wb-ln,
+.wb-line[data-pinned] .wb-ln {
+  color: var(--wb-blue);
+}
+.wb-lines .wb-code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-left: 2ch;
+  text-indent: -2ch;
+  font-size: inherit;
+  line-height: inherit;
+  color: oklch(0.82 0.01 285);
+}
 /* A line carrying data (a table's rows) would bury the one-line-per-component shape: three rows until it is pinned (a click or Enter), so hovering never reflows the lines below. */
-.wb-lines .wb-line:not([data-pinned]) .wb-code { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
-.wb-caret { display: inline-block; width: 8px; height: 15px; background: var(--wb-violet); vertical-align: -2px; animation: wb-blink 1.05s steps(1) infinite; }
-.wb-divider { display: flex; align-items: center; gap: 10px; margin: 10px 20px 10px 8px; color: var(--wb-amber); font-family: var(--font-sans); font-size: 12.5px; line-height: 1.4; }
-.wb-divider::before, .wb-divider::after { content: ""; flex: 1 1 16px; height: 1px; background: oklch(0.84 0.12 78 / 30%); }
-.wb-divider span { flex: 0 1 auto; text-align: center; }
-@keyframes wb-line-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
-@keyframes wb-blink { 50% { opacity: 0; } }
+.wb-lines .wb-line:not([data-pinned]) .wb-code {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.wb-caret {
+  display: inline-block;
+  width: 8px;
+  height: 15px;
+  background: var(--wb-violet);
+  vertical-align: -2px;
+  animation: wb-blink 1.05s steps(1) infinite;
+}
+.wb-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 20px 10px 8px;
+  color: var(--wb-amber);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.wb-divider::before,
+.wb-divider::after {
+  content: "";
+  flex: 1 1 16px;
+  height: 1px;
+  background: oklch(0.84 0.12 78 / 30%);
+}
+.wb-divider span {
+  flex: 0 1 auto;
+  text-align: center;
+}
+@keyframes wb-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes wb-blink {
+  50% {
+    opacity: 0;
+  }
+}
 
 /* Each surface in the conversation stands on a faint dot grid; the outline links a component to its line. */
 .wb-floor {
   background-color: var(--pg-bg);
-  background-image: radial-gradient(circle at 1px 1px, oklch(1 0 0 / 5.5%) 1px, transparent 0);
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    oklch(1 0 0 / 5.5%) 1px,
+    transparent 0
+  );
   background-size: 18px 18px;
   background-position: -1px -1px;
   overflow-x: clip;
   overflow-clip-margin: 12px;
 }
-.wb-surface [data-generative-ui-chat-surface] { margin: 0; padding: 0; border: 0; border-radius: 0; }
+.wb-surface [data-generative-ui-chat-surface] {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
 /* A component still being written: a transitions.dev generation frame (motion.css), the same dotted outline
    and dot field the runtime draws, on the floor's own ground so the floor grid does not show through.
    Its caption is the name the model has written so far, small enough to ignore. */
-.a2-blueprint > .gen-outline { display: none; }
+.a2-blueprint > .gen-outline {
+  display: none;
+}
 .wb-floor .a2-blueprint {
   position: relative;
   background-color: var(--pg-bg);
-  background-image: radial-gradient(circle, var(--gen-field) 1.1px, transparent 1.2px);
+  background-image: radial-gradient(
+    circle,
+    var(--gen-field) 1.1px,
+    transparent 1.2px
+  );
   background-size: var(--gen-field-pitch) var(--gen-field-pitch);
-  background-position: calc(var(--gen-field-pitch) / 2) calc(var(--gen-field-pitch) / 2);
+  background-position: calc(var(--gen-field-pitch) / 2)
+    calc(var(--gen-field-pitch) / 2);
   animation: gen-field-in var(--duration-slow) var(--ease-smooth-out) both;
 }
-.wb-floor .a2-blueprint > .gen-outline { display: block; }
+.wb-floor .a2-blueprint > .gen-outline {
+  display: block;
+}
 .wb-floor .a2-blueprint[data-of]::before {
   content: attr(data-of);
   position: absolute;
@@ -496,7 +826,9 @@ main[tabindex="-1"]:focus { outline: none; }
 }
 /* Components land with the runtime's scan reveal (motion.css); it replaces the generic skeleton and panel
    reveals here, which would play on top of it. */
-.wb-floor .a2-node > :not(.a2-blueprint) { animation: none; }
+.wb-floor .a2-node > :not(.a2-blueprint) {
+  animation: none;
+}
 .wb-floor [data-gen-land]:not(.a2-blueprint) {
   animation:
     gen-scan-in var(--gen-scan-dur) var(--gen-reveal-ease) backwards,
@@ -509,7 +841,11 @@ main[tabindex="-1"]:focus { outline: none; }
   border: 2px solid var(--wb-blue);
   border-radius: 14px;
   box-shadow: 0 6px 24px -8px oklch(0.79 0.1 232 / 35%);
-  transition: left 140ms cubic-bezier(0.22, 1, 0.36, 1), top 140ms cubic-bezier(0.22, 1, 0.36, 1), width 140ms cubic-bezier(0.22, 1, 0.36, 1), height 140ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    left 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 140ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .wb-link-tag {
   position: absolute;
@@ -527,14 +863,36 @@ main[tabindex="-1"]:focus { outline: none; }
 }
 /* Nothing has drawn yet: one generation frame the size of a small surface. What is happening is said in
    the mono line above it, not in it. */
-.wb-wait { position: relative; background-color: var(--pg-bg); animation: gen-field-in var(--duration-slow) var(--ease-smooth-out) both; }
-.wb-pulse { animation: wb-pulse 1.4s ease-in-out infinite; }
-@keyframes wb-pulse { 50% { opacity: 0.35; } }
+.wb-wait {
+  position: relative;
+  background-color: var(--pg-bg);
+  animation: gen-field-in var(--duration-slow) var(--ease-smooth-out) both;
+}
+.wb-pulse {
+  animation: wb-pulse 1.4s ease-in-out infinite;
+}
+@keyframes wb-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .wb-line, .wb-caret, .wb-pulse, .wb-sheet, .wb-wait, .wb-floor .a2-blueprint { animation: none !important; }
-  .wb-link-box, .wb-line-btn { transition: none !important; }
+  .wb-line,
+  .wb-caret,
+  .wb-pulse,
+  .wb-sheet,
+  .wb-wait,
+  .wb-floor .a2-blueprint {
+    animation: none !important;
+  }
+  .wb-link-box,
+  .wb-line-btn {
+    transition: none !important;
+  }
   /* A landing component fades in plainly, as the runtime does under reduced motion. */
-  .wb-floor [data-gen-land]:not(.a2-blueprint) { animation: gen-fade-plain 200ms ease-out backwards !important; }
+  .wb-floor [data-gen-land]:not(.a2-blueprint) {
+    animation: gen-fade-plain 200ms ease-out backwards !important;
+  }
 }
 /* ─────────────── end workbench ─────────────── */

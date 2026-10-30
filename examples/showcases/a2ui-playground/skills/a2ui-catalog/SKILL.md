@@ -15,26 +15,56 @@ One custom component rendering in CopilotKit chat, with the runtime giving a sto
 2. **Define the component** (React-free file). The schema describes the literal value only: the engine resolves `{ "@path" }` bindings and `{ "@call" }` functions at any depth before it validates.
    ```ts
    export const definitions = {
-     Stat: { description: "One KPI: label, short value, optional delta like '+4%'.", props: z.object({ label: z.string(), value: z.string(), delta: z.string().optional() }) },
+     Stat: {
+       description: "One KPI: label, short value, optional delta like '+4%'.",
+       props: z.object({
+         label: z.string(),
+         value: z.string(),
+         delta: z.string().optional(),
+       }),
+     },
    };
    ```
 3. **Render it and build the UI** (client file). Your component receives the resolved props directly:
    ```tsx
-   import { createGenerativeUI, standardUI } from "@copilotkit/react-core/v2/generative-ui";
+   import {
+     createGenerativeUI,
+     standardUI,
+   } from "@copilotkit/react-core/v2/generative-ui";
    export const ui = createGenerativeUI({
      id: "https://example.dev/catalogs/main/v1",
      extends: [standardUI],
      components: {
-       Stat: { ...definitions.Stat, component: ({ label, value, delta }) => <div className="card"><span>{label}</span><strong>{value}</strong>{delta}</div> },
+       Stat: {
+         ...definitions.Stat,
+         component: ({ label, value, delta }) => (
+           <div className="card">
+             <span>{label}</span>
+             <strong>{value}</strong>
+             {delta}
+           </div>
+         ),
+       },
      },
    });
    ```
 4. **Pass it to the provider**: `<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui }}><CopilotChat /></CopilotKitProvider>`. Every run then carries the catalog in `forwardedProps.copilotkit.ui` (the tool transport is the default).
 5. **Serve a stock agent from a catch-all route** (`app/api/copilotkit/[[...slug]]/route.ts`):
    ```ts
-   const runtime = new CopilotRuntime({ agents: { default: new BuiltInAgent({ model: "openai:gpt-5.5", prompt: "Answer with UI: call render_ui with A2UI v1.0 operations." }) } });
-   const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
-   export const GET = handler; export const POST = handler;
+   const runtime = new CopilotRuntime({
+     agents: {
+       default: new BuiltInAgent({
+         model: "openai:gpt-5.5",
+         prompt: "Answer with UI: call render_ui with A2UI v1.0 operations.",
+       }),
+     },
+   });
+   const handler = createCopilotRuntimeHandler({
+     runtime,
+     basePath: "/api/copilotkit",
+   });
+   export const GET = handler;
+   export const POST = handler;
    ```
    No runtime option is needed: a tool-transport envelope makes the runtime apply `GenerativeUIMiddleware`, which injects `render_ui`, validates each streamed operation against your catalog, and commits it as a `generative-ui-surface` activity that the chat paints.
 
@@ -42,7 +72,7 @@ That path has the primary model write the whole surface, and each operation pain
 
 ## Workflow
 
-1. **Inventory components.** Run `scripts/scan-components.ts <componentsDir>` to draft Zod definitions from the TypeScript props. Keep components an agent would pick to *answer a question* (cards, charts, tables, inputs). Check `standardUI` first: it already has layout, text, form, `Chart`, `Map`, `Table` and `List` (69 components), and a name can come from one place only. Drop internals (`DialogOverlay`, `SelectTrigger`). -> `references/definitions-and-descriptions.md`
+1. **Inventory components.** Run `scripts/scan-components.ts <componentsDir>` to draft Zod definitions from the TypeScript props. Keep components an agent would pick to _answer a question_ (cards, charts, tables, inputs). Check `standardUI` first: it already has layout, text, form, `Chart`, `Map`, `Table` and `List` (69 components), and a name can come from one place only. Drop internals (`DialogOverlay`, `SelectTrigger`). -> `references/definitions-and-descriptions.md`
 2. **Write definitions.** One Zod object + one tight description per component, React-free so the server can import them. Props describe literal values. Child references are `child()` / `childList()`. Callbacks are `events` (`onAction`). Inputs declare `writable: ["value"]`. -> same reference
 3. **Write renderers.** Display renderers read resolved props; children arrive rendered. Input renderers bind two-way: `useBound(props.value, props.setValue, fallback)`. The `onAction` event arrives as `action()`. Never throw on partial data. Use container queries, not viewport breakpoints. -> `references/renderers-and-data-binding.md`
 4. **Create the generative UI.** `createGenerativeUI({ id, extends: [standardUI], components })` plus a `theme` for the standard components. Restyle a standard component with `overrides`, or drop it with `standardUI.omit([...])` and define your own. -> `references/wiring-and-runtime.md`

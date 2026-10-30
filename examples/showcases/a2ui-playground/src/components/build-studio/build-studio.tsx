@@ -2,7 +2,14 @@
 
 import "./build-page.css";
 import "./build-motion.css";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { StaticSurface } from "@/components/app/static-surface";
 import { useUIGeneration } from "@/components/app/use-ui-generation";
@@ -22,7 +29,13 @@ function readParams() {
   return new URLSearchParams(window.location.search);
 }
 
-export function BuildStudio({ runs, recipes }: { runs: RecordedRun[]; recipes: Recipe[] }) {
+export function BuildStudio({
+  runs,
+  recipes,
+}: {
+  runs: RecordedRun[];
+  recipes: Recipe[];
+}) {
   const [runIdx, setRunIdx] = useState(0);
   const run = runs[runIdx];
   const start = Math.max(0, (run?.frames[0]?.t ?? 0) - LEAD_IN);
@@ -51,11 +64,21 @@ export function BuildStudio({ runs, recipes }: { runs: RecordedRun[]; recipes: R
   // The motion CSS the runtime types out beside the surface: the real recipes this run's parts play.
   const code = useMemo(() => {
     const final = present(snaps, Infinity).parts;
-    const keys = new Set(["skeleton reveal", ...final.filter((x) => x.leaf || x.type === "Card" || x.type === "Section").map((x) => fillRecipe(x.type))]);
-    const lines = recipes.filter((r) => keys.has(r.key)).flatMap((r) => [...r.text.split("\n"), ""]);
+    const keys = new Set([
+      "skeleton reveal",
+      ...final
+        .filter((x) => x.leaf || x.type === "Card" || x.type === "Section")
+        .map((x) => fillRecipe(x.type)),
+    ]);
+    const lines = recipes
+      .filter((r) => keys.has(r.key))
+      .flatMap((r) => [...r.text.split("\n"), ""]);
     return lines.slice(0, 60);
   }, [snaps, recipes]);
-  const finalCount = useMemo(() => present(snaps, Infinity).parts.length, [snaps]);
+  const finalCount = useMemo(
+    () => present(snaps, Infinity).parts.length,
+    [snaps],
+  );
   const finalOps = useMemo(() => present(snaps, Infinity).ops, [snaps]);
 
   // transitions.dev UI generation (skeleton-texts), played per replay when the clock reaches the first frame.
@@ -74,7 +97,12 @@ export function BuildStudio({ runs, recipes }: { runs: RecordedRun[]; recipes: R
     runKey: playing && p.ops && genKey === replayKey ? genKey : null,
     mode: "skeleton-texts",
     duration: Math.min(3600, Math.max(1600, 2400 / speed)),
-    steps: ["Reading the prompt", "Picking components", "Streaming A2UI", "Adding motion"],
+    steps: [
+      "Reading the prompt",
+      "Picking components",
+      "Streaming A2UI",
+      "Adding motion",
+    ],
     done: `${finalCount} components ready`,
     title: run?.prompt,
     code,
@@ -124,7 +152,9 @@ export function BuildStudio({ runs, recipes }: { runs: RecordedRun[]; recipes: R
   const step = useCallback(
     (dir: 1 | -1) => {
       setPlaying(false);
-      const ts = Array.from(new Set(p.events.map((e) => Math.round(e.t)))).sort((a, b) => a - b);
+      const ts = Array.from(new Set(p.events.map((e) => Math.round(e.t)))).sort(
+        (a, b) => a - b,
+      );
       const now = tRef.current;
       if (dir === 1) {
         const n = ts.find((t) => t > now + 0.5);
@@ -155,7 +185,8 @@ export function BuildStudio({ runs, recipes }: { runs: RecordedRun[]; recipes: R
 
   // Measured rects of every component, relative to the stage.
   const [rects, setRects] = useState<Record<string, Rect>>({});
-  const shownOps = playing && genKey === replayKey && finalOps ? finalOps : p.ops;
+  const shownOps =
+    playing && genKey === replayKey && finalOps ? finalOps : p.ops;
   const shownRef = useRef(shownOps);
   shownRef.current = shownOps;
   const measure = useCallback(() => {
@@ -164,8 +195,16 @@ export function BuildStudio({ runs, recipes }: { runs: RecordedRun[]; recipes: R
     const root = el.getBoundingClientRect();
     const next: Record<string, Rect> = {};
     for (const [id, n] of nodeElements(el, shownRef.current)) {
-      const b = (n.firstElementChild as HTMLElement | null)?.getBoundingClientRect();
-      if (b) next[id] = { x: b.left - root.left, y: b.top - root.top, w: b.width, h: b.height };
+      const b = (
+        n.firstElementChild as HTMLElement | null
+      )?.getBoundingClientRect();
+      if (b)
+        next[id] = {
+          x: b.left - root.left,
+          y: b.top - root.top,
+          w: b.width,
+          h: b.height,
+        };
     }
     const sig = JSON.stringify(next);
     setRects((prev) => (JSON.stringify(prev) === sig ? prev : next));
@@ -182,7 +221,12 @@ export function BuildStudio({ runs, recipes }: { runs: RecordedRun[]; recipes: R
       raf = requestAnimationFrame(measure);
     };
     const mo = new MutationObserver(later);
-    mo.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-state", "style"] });
+    mo.observe(el, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-state", "style"],
+    });
     const ro = new ResizeObserver(later);
     ro.observe(el);
     return () => {
@@ -196,29 +240,47 @@ export function BuildStudio({ runs, recipes }: { runs: RecordedRun[]; recipes: R
   const canvas = useRef<HTMLDivElement>(null);
   const focusY = useMemo(() => {
     const last = p.events.filter((e) => e.t <= T && e.kind === "fill").pop();
-    return last ? rects[last.id]?.y ?? null : null;
+    return last ? (rects[last.id]?.y ?? null) : null;
   }, [p.events, T, rects]);
   useEffect(() => {
     const el = canvas.current;
     if (!el || focusY == null || generating) return;
     const target = Math.max(0, focusY - el.clientHeight * 0.35);
-    if (Math.abs(el.scrollTop - target) > 48) el.scrollTo({ top: target, behavior: "smooth" });
+    if (Math.abs(el.scrollTop - target) > 48)
+      el.scrollTo({ top: target, behavior: "smooth" });
   }, [focusY, generating]);
   useEffect(() => {
     canvas.current?.scrollTo({ top: 0 });
   }, [cycle]);
 
-  if (!run) return <div className="grid flex-1 place-items-center font-mono text-[13px] text-muted-foreground">No recorded runs in src/data.</div>;
+  if (!run)
+    return (
+      <div className="grid flex-1 place-items-center font-mono text-[13px] text-muted-foreground">
+        No recorded runs in src/data.
+      </div>
+    );
 
-  const preEvent = run.events.filter((e) => e.t <= T && !["frame", "op", "ops", "paint"].includes(e.kind)).pop();
+  const preEvent = run.events
+    .filter(
+      (e) => e.t <= T && !["frame", "op", "ops", "paint"].includes(e.kind),
+    )
+    .pop();
   const done = p.done && T >= endAt;
-  const status = !p.ops ? "Waiting for the model" : generating ? "Drawing the layout" : done ? "Done" : "Streaming";
+  const status = !p.ops
+    ? "Waiting for the model"
+    : generating
+      ? "Drawing the layout"
+      : done
+        ? "Done"
+        : "Streaming";
 
   return (
     <div className="bs-root flex min-h-0 flex-1 flex-col">
-
       <section className="relative flex min-h-0 flex-1 flex-col">
-        <div ref={canvas} className="bs-canvas relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <div
+          ref={canvas}
+          className="bs-canvas relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+        >
           {/* 544px wide: the runtime's parts log and motion CSS panels need 150px+ of empty canvas on each side. */}
           <div className="relative mx-auto w-full max-w-[592px] px-6 pb-40 pt-16">
             <div className="relative">
@@ -227,7 +289,14 @@ export function BuildStudio({ runs, recipes }: { runs: RecordedRun[]; recipes: R
                   ref={host}
                   key={`${run.file}-${cycle}`}
                   className="relative"
-                  style={capped ? { maxHeight: "calc(100dvh - 376px)", overflow: "hidden" } : undefined}
+                  style={
+                    capped
+                      ? {
+                          maxHeight: "calc(100dvh - 376px)",
+                          overflow: "hidden",
+                        }
+                      : undefined
+                  }
                   // A recording, not a form: its table headers and inputs stay out of the tab order.
                   inert
                 >
@@ -266,7 +335,6 @@ export function BuildStudio({ runs, recipes }: { runs: RecordedRun[]; recipes: R
           status={status}
         />
       </section>
-
     </div>
   );
 }
@@ -275,7 +343,12 @@ function Matrix() {
   return (
     <div className="t-matrix" aria-hidden>
       {Array.from({ length: 16 }, (_, i) => (
-        <i key={i} style={{ "--d": ((i % 4) + Math.floor(i / 4)) * 90 } as React.CSSProperties} />
+        <i
+          key={i}
+          style={
+            { "--d": ((i % 4) + Math.floor(i / 4)) * 90 } as React.CSSProperties
+          }
+        />
       ))}
     </div>
   );
@@ -308,8 +381,17 @@ function Controls({
 }) {
   return (
     <div className="bs-controls relative flex h-12 flex-none items-center gap-3 border-t border-border px-4 font-mono text-[12.5px]">
-      <span className="bs-progress" style={{ transform: `scaleX(${Math.min(1, Math.max(0, progress))})` }} aria-hidden />
-      <select aria-label="Recorded run" value={runIdx} onChange={(e) => onRun(Number(e.target.value))} className="bs-select min-w-0 max-w-[260px] truncate">
+      <span
+        className="bs-progress"
+        style={{ transform: `scaleX(${Math.min(1, Math.max(0, progress))})` }}
+        aria-hidden
+      />
+      <select
+        aria-label="Recorded run"
+        value={runIdx}
+        onChange={(e) => onRun(Number(e.target.value))}
+        className="bs-select min-w-0 max-w-[260px] truncate"
+      >
         {runs.map((r, i) => (
           <option key={r.file} value={i}>
             {r.prompt}
@@ -320,19 +402,45 @@ function Controls({
         {parts} <span className="bs-faint">·</span> {status}
       </span>
       <div className="ml-auto flex items-center gap-1">
-        <button className="bs-btn" aria-label="Step back one event" onClick={() => onStep(-1)}>
+        <button
+          className="bs-btn"
+          aria-label="Step back one event"
+          onClick={() => onStep(-1)}
+        >
           <SkipBack className="size-3.5" />
         </button>
-        <button className="bs-btn" aria-label={playing ? "Pause" : "Play"} onClick={onToggle}>
-          {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
+        <button
+          className="bs-btn"
+          aria-label={playing ? "Pause" : "Play"}
+          onClick={onToggle}
+        >
+          {playing ? (
+            <Pause className="size-3.5" />
+          ) : (
+            <Play className="size-3.5" />
+          )}
         </button>
-        <button className="bs-btn" aria-label="Step forward one event" onClick={() => onStep(1)}>
+        <button
+          className="bs-btn"
+          aria-label="Step forward one event"
+          onClick={() => onStep(1)}
+        >
           <SkipForward className="size-3.5" />
         </button>
       </div>
-      <div className="flex items-center gap-0.5" role="group" aria-label="Speed">
+      <div
+        className="flex items-center gap-0.5"
+        role="group"
+        aria-label="Speed"
+      >
         {SPEEDS.map((s) => (
-          <button key={s} className="bs-speed" data-on={speed === s ? "true" : undefined} aria-pressed={speed === s} onClick={() => onSpeed(s)}>
+          <button
+            key={s}
+            className="bs-speed"
+            data-on={speed === s ? "true" : undefined}
+            aria-pressed={speed === s}
+            onClick={() => onSpeed(s)}
+          >
             {s}x
           </button>
         ))}

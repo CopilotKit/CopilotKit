@@ -5,14 +5,24 @@
 // request it forwards to the agent. It then validates each A2UI v1.0 operation
 // the agent streams back and sends it to the browser.
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { agentRouteHooks } from "@/lib/limits";
 
 const copilotRuntime = new CopilotRuntime({
   agents: {
-    default: new HttpAgent({ url: process.env.ADK_AGENT_URL ?? "http://localhost:8000/" }),
+    default: new HttpAgent({
+      url: process.env.ADK_AGENT_URL ?? "http://localhost:8000/",
+    }),
   },
 });
 
-const handler = createCopilotRuntimeHandler({ runtime: copilotRuntime, basePath: "/api/adk" });
+const handler = createCopilotRuntimeHandler({
+  runtime: copilotRuntime,
+  basePath: "/api/adk",
+  hooks: agentRouteHooks(),
+});
 export const GET = handler;
 export const POST = handler;

@@ -20,7 +20,10 @@ function useNearViewport<T extends Element>() {
   useEffect(() => {
     const el = ref.current;
     if (!el || near) return;
-    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && setNear(true), { rootMargin: "600px 0px" });
+    const io = new IntersectionObserver(
+      (entries) => entries.some((e) => e.isIntersecting) && setNear(true),
+      { rootMargin: "600px 0px" },
+    );
     io.observe(el);
     // Fallback: mount everything shortly after load so full-page captures and fast scrolls never see blanks.
     const t = setTimeout(() => setNear(true), 1200 + Math.random() * 800);
@@ -39,7 +42,17 @@ function useNearViewport<T extends Element>() {
  * whole component fits the tile height; anything still taller is top-aligned
  * and faded out at the bottom. Monotone steps keep it from oscillating.
  */
-export function TilePreview({ name, scale: base, floor, center }: { name: string; scale: number; floor: number; center?: boolean }) {
+export function TilePreview({
+  name,
+  scale: base,
+  floor,
+  center,
+}: {
+  name: string;
+  scale: number;
+  floor: number;
+  center?: boolean;
+}) {
   const ops = useOps(name);
   const { ref, near } = useNearViewport<HTMLDivElement>();
   const [inner, setInner] = useState<HTMLDivElement | null>(null);
@@ -80,28 +93,62 @@ export function TilePreview({ name, scale: base, floor, center }: { name: string
   const innerW = Math.max(0, (box.w - pad * 2) / scale);
 
   return (
-    <div ref={ref} className="docs-tile-preview relative h-full w-full overflow-hidden" aria-hidden="true" inert>
+    <div
+      ref={ref}
+      className="docs-tile-preview relative h-full w-full overflow-hidden"
+      aria-hidden="true"
+      inert
+    >
       {near && ops && box.w > 0 ? (
         <div
           ref={setInner}
           data-preview-inner
-          className={cn("absolute left-1/2 origin-top", center && "flex justify-center", innerH ? "opacity-100" : "opacity-0")}
-          style={{ width: innerW, top, transform: `translateX(-50%) scale(${scale})` }}
+          className={cn(
+            "absolute left-1/2 origin-top",
+            center && "flex justify-center",
+            innerH ? "opacity-100" : "opacity-0",
+          )}
+          style={{
+            width: innerW,
+            top,
+            transform: `translateX(-50%) scale(${scale})`,
+          }}
         >
           <StaticSurface ops={ops as never} />
         </div>
       ) : null}
-      {overflow ? <div className="docs-tile-fade pointer-events-none absolute inset-x-0 bottom-0 h-16" /> : null}
+      {overflow ? (
+        <div className="docs-tile-fade pointer-events-none absolute inset-x-0 bottom-0 h-16" />
+      ) : null}
     </div>
   );
 }
 
 /** Full-size preview for the component page stage. */
-export function StagePreview({ name, intrinsic, wide }: { name: string; intrinsic?: boolean; wide?: boolean }) {
+export function StagePreview({
+  name,
+  intrinsic,
+  wide,
+}: {
+  name: string;
+  intrinsic?: boolean;
+  wide?: boolean;
+}) {
   const ops = useOps(name);
-  if (!ops) return <p className="text-sm text-muted-foreground">No sample for {name}.</p>;
+  if (!ops)
+    return (
+      <p className="text-sm text-muted-foreground">No sample for {name}.</p>
+    );
   return (
-    <div className={cn(intrinsic ? "w-fit max-w-full" : wide ? "w-full" : "w-full max-w-[560px]")}>
+    <div
+      className={cn(
+        intrinsic
+          ? "w-fit max-w-full"
+          : wide
+            ? "w-full"
+            : "w-full max-w-[560px]",
+      )}
+    >
       <StaticSurface ops={ops as never} />
     </div>
   );

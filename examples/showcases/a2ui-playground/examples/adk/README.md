@@ -34,12 +34,12 @@ pnpm dev                             # then open http://localhost:3100/adk
 
 ## Configuration
 
-| Variable | Default | What it does |
-| --- | --- | --- |
-| `ADK_MODEL` | `gemini-3.5-flash` | The Gemini model the agent runs on. |
-| `GOOGLE_API_KEY` | | Gemini API key (or `GEMINI_API_KEY`). For Vertex AI set `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION` instead. |
-| `HOST`, `PORT` | `127.0.0.1`, `8000` | Where the server listens. |
-| `ADK_AGENT_URL` | `http://localhost:8000/` | Read by the Next.js route `src/app/api/adk/[[...slug]]/route.ts`, if the agent runs elsewhere. |
+| Variable         | Default                  | What it does                                                                                                                                          |
+| ---------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ADK_MODEL`      | `gemini-3.5-flash`       | The Gemini model the agent runs on.                                                                                                                   |
+| `GOOGLE_API_KEY` |                          | Gemini API key (or `GEMINI_API_KEY`). For Vertex AI set `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION` instead. |
+| `HOST`, `PORT`   | `127.0.0.1`, `8000`      | Where the server listens.                                                                                                                             |
+| `ADK_AGENT_URL`  | `http://localhost:8000/` | Read by the Next.js route `src/app/api/adk/[[...slug]]/route.ts`, if the agent runs elsewhere.                                                        |
 
 ## Files
 

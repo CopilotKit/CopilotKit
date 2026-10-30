@@ -13,10 +13,36 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { TypeSafeClient } from "@typesafe-ai/sdk";
 import { searchPlaces, type Poi } from "@/agent/apis";
-import { cafesFor, JEV_MODEL, parseWhere, readAnswers, toOps, USE_CASES, type A2UIOp, type Answers, type CafePlace, type UseCase, type UseCaseId } from "./usecases";
+import {
+  cafesFor,
+  JEV_MODEL,
+  parseWhere,
+  readAnswers,
+  toOps,
+  USE_CASES,
+  type A2UIOp,
+  type Answers,
+  type CafePlace,
+  type UseCase,
+  type UseCaseId,
+} from "./usecases";
 
-type PlacesRecord = { city: string; source: string; ms: number; items: CafePlace[]; cached?: boolean };
-export type Fixture = { model: string; ms: number; recordedAt: string; mock: boolean; answers: Answers; places?: PlacesRecord; usage?: JevResult["usage"] };
+type PlacesRecord = {
+  city: string;
+  source: string;
+  ms: number;
+  items: CafePlace[];
+  cached?: boolean;
+};
+export type Fixture = {
+  model: string;
+  ms: number;
+  recordedAt: string;
+  mock: boolean;
+  answers: Answers;
+  places?: PlacesRecord;
+  usage?: JevResult["usage"];
+};
 
 export type JevResult = {
   usecase: UseCaseId;
@@ -26,7 +52,13 @@ export type JevResult = {
   /** Jev round trip measured on the server around the TypeSafe call, in ms. */
   jevMs: number;
   /** The real place lookup before the Jev call (cafés only). */
-  places?: { city: string; source: string; ms: number; count: number; cached?: boolean };
+  places?: {
+    city: string;
+    source: string;
+    ms: number;
+    count: number;
+    cached?: boolean;
+  };
   questionCount: number;
   layout: string;
   layouts: Record<string, string>;
@@ -39,10 +71,21 @@ export type JevResult = {
 };
 
 /** One step of a run as it happened on the server. `t` is ms since the request reached the server. */
-export type JevEvent = { t: number; kind: "request" | "places" | "jev" | "layout" | "ranked" | "ops" | "notice"; label: string; detail?: string; layout?: string };
+export type JevEvent = {
+  t: number;
+  kind: "request" | "places" | "jev" | "layout" | "ranked" | "ops" | "notice";
+  label: string;
+  detail?: string;
+  layout?: string;
+};
 
 /** Nothing to decide on (unknown place, no cafés found). No Jev call is made. */
-export type JevNotice = { usecase: UseCaseId; prompt: string; notice: string; places?: { city: string; ms: number } };
+export type JevNotice = {
+  usecase: UseCaseId;
+  prompt: string;
+  notice: string;
+  places?: { city: string; ms: number };
+};
 
 let client: TypeSafeClient | null = null;
 /** Created on first live use (the constructor throws without a key). No retries: one call per run. */
@@ -58,34 +101,63 @@ async function readFixture(key: string, what: string): Promise<Fixture> {
   try {
     return JSON.parse(await fs.readFile(fixtureFile(key), "utf8")) as Fixture;
   } catch {
-    throw new Error(`No saved run for ${what} yet. Run it live once to record one.`);
+    throw new Error(
+      `No saved run for ${what} yet. Run it live once to record one.`,
+    );
   }
 }
 
 /** Candidates Jev scores and the card shows: the same 8. */
 export const CAFE_COUNT = 8;
 
-const CHAINS = /\b(starbucks|dunkin|tim hortons|pret a manger|costa coffee|caribou|peet'?s|mcdonald)/i;
-const NOT_A_CAFE = /\b(deli|grocery|market|bodega|boba|bubble tea|tea bar|tea house|tea shop|juice|ice cream|gelato|donut|bagels?|pizza|laundromat|catering)\b/i;
-const NOT_COFFEE = /bubble_tea|juice|ice_cream|donut|bagel|pizza|burger|chocolate/;
+const CHAINS =
+  /\b(starbucks|dunkin|tim hortons|pret a manger|costa coffee|caribou|peet'?s|mcdonald)/i;
+const NOT_A_CAFE =
+  /\b(deli|grocery|market|bodega|boba|bubble tea|tea bar|tea house|tea shop|juice|ice cream|gelato|donut|bagels?|pizza|laundromat|catering)\b/i;
+const NOT_COFFEE =
+  /bubble_tea|juice|ice_cream|donut|bagel|pizza|burger|chocolate/;
 /** Name and cuisine rules (also applied to saved runs when replaying). */
-const looksLikeWorkCafe = (p: { name: string; tags?: Record<string, string> }) => !NOT_A_CAFE.test(p.name) && !NOT_COFFEE.test(p.tags?.cuisine ?? "") && !CHAINS.test(p.name);
-const norm = (s?: string) => (s ?? "").toLowerCase().replace(/^city of /, "").trim();
+const looksLikeWorkCafe = (p: {
+  name: string;
+  tags?: Record<string, string>;
+}) =>
+  !NOT_A_CAFE.test(p.name) &&
+  !NOT_COFFEE.test(p.tags?.cuisine ?? "") &&
+  !CHAINS.test(p.name);
+const norm = (s?: string) =>
+  (s ?? "")
+    .toLowerCase()
+    .replace(/^city of /, "")
+    .trim();
 
 /**
  * Real cafés to work from: OSM amenity=cafe only, inside the requested city and state (no crossing a river into
  * another state or town), no bubble tea, delis or groceries, no big chains, nearest first. Nothing is added or edited.
  */
-function workCafes(all: Poi[], center: { name: string; admin?: string }): CafePlace[] {
+function workCafes(
+  all: Poi[],
+  center: { name: string; admin?: string },
+): CafePlace[] {
   const city = norm(center.name);
   const state = norm(center.admin);
   return all
     .filter((p) => p.category === "cafe")
     .filter((p) => !state || !p.state || norm(p.state) === state)
-    .filter((p) => !p.city || norm(p.city).includes(city) || city.includes(norm(p.city)))
+    .filter(
+      (p) =>
+        !p.city || norm(p.city).includes(city) || city.includes(norm(p.city)),
+    )
     .filter(looksLikeWorkCafe)
     .slice(0, CAFE_COUNT)
-    .map(({ id, name, lat, lon, address, distanceKm, tags }) => ({ id, name, lat, lon, address, distanceKm, tags }));
+    .map(({ id, name, lat, lon, address, distanceKm, tags }) => ({
+      id,
+      name,
+      lat,
+      lon,
+      address,
+      distanceKm,
+      tags,
+    }));
 }
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -108,7 +180,19 @@ export async function runJev({
   startedAt?: number;
 }): Promise<JevResult | JevNotice> {
   if (!(usecase in USE_CASES)) throw new Error(`Unknown use case: ${usecase}`);
-  const emit = (kind: JevEvent["kind"], label: string, detail?: string, extra?: Partial<JevEvent>) => onEvent?.({ t: Math.round(performance.now() - startedAt), kind, label, detail, ...extra });
+  const emit = (
+    kind: JevEvent["kind"],
+    label: string,
+    detail?: string,
+    extra?: Partial<JevEvent>,
+  ) =>
+    onEvent?.({
+      t: Math.round(performance.now() - startedAt),
+      kind,
+      label,
+      detail,
+      ...extra,
+    });
   const notice = (n: JevNotice) => (emit("notice", n.notice), n);
 
   // 1) Candidates.
@@ -123,27 +207,59 @@ export async function runJev({
       try {
         saved = await readFixture(key, where.query);
       } catch {
-        return notice({ usecase, prompt, notice: `No saved run for ${where.query}. Remove ?fixture=1 to look it up live.` });
+        return notice({
+          usecase,
+          prompt,
+          notice: `No saved run for ${where.query}. Remove ?fixture=1 to look it up live.`,
+        });
       }
       if (!saved.places) throw new Error("Saved run has no places");
       await wait(saved.places.ms);
       // Older saved runs predate the café rules: apply the same name/cuisine rules on replay (Jev's answers are per café).
-      places = { ...saved.places, items: saved.places.items.filter(looksLikeWorkCafe).slice(0, CAFE_COUNT) };
+      places = {
+        ...saved.places,
+        items: saved.places.items
+          .filter(looksLikeWorkCafe)
+          .slice(0, CAFE_COUNT),
+      };
     } else {
       const t0 = performance.now();
       try {
         const r = await searchPlaces("cafe", where.query, 36);
         const ms = Math.round(performance.now() - t0);
         // searchPlaces keeps a 15 minute in-memory cache; a lookup this fast was served from it.
-        places = { city: r.center.name, source: r.source, ms, items: workCafes(r.places, r.center), cached: ms < 40 };
+        places = {
+          city: r.center.name,
+          source: r.source,
+          ms,
+          items: workCafes(r.places, r.center),
+          cached: ms < 40,
+        };
       } catch (err) {
         const ms = Math.round(performance.now() - t0);
         const msg = err instanceof Error ? err.message : String(err);
-        return notice({ usecase, prompt, notice: /could not find/i.test(msg) ? `Could not find a place called "${where.query}". Try a city name.` : `No cafés found near ${where.query} in OpenStreetMap.`, places: { city: where.query, ms } });
+        return notice({
+          usecase,
+          prompt,
+          notice: /could not find/i.test(msg)
+            ? `Could not find a place called "${where.query}". Try a city name.`
+            : `No cafés found near ${where.query} in OpenStreetMap.`,
+          places: { city: where.query, ms },
+        });
       }
     }
-    emit("places", `Found ${places.items.length} cafés`, `${places.city}${places.cached ? ", cached" : ""}`);
-    if (!places.items.length) return notice({ usecase, prompt, notice: `No cafés found near ${places.city} in OpenStreetMap.`, places: { city: places.city, ms: places.ms } });
+    emit(
+      "places",
+      `Found ${places.items.length} cafés`,
+      `${places.city}${places.cached ? ", cached" : ""}`,
+    );
+    if (!places.items.length)
+      return notice({
+        usecase,
+        prompt,
+        notice: `No cafés found near ${places.city} in OpenStreetMap.`,
+        places: { city: places.city, ms: places.ms },
+      });
     uc = cafesFor(places.city, places.items);
   } else {
     uc = USE_CASES[usecase];
@@ -166,28 +282,57 @@ export async function runJev({
     source = saved.mock ? "mock" : "fixture";
     usage = saved.usage;
   } else {
-    if (!process.env.TYPESAFE_API_KEY) throw new Error("TYPESAFE_API_KEY is not set");
+    if (!process.env.TYPESAFE_API_KEY)
+      throw new Error("TYPESAFE_API_KEY is not set");
     const t0 = performance.now();
-    const r = await getClient().systemOne({ model: JEV_MODEL, state: uc.state(prompt) as never, questions: questions as never }, { signal });
+    const r = await getClient().systemOne(
+      {
+        model: JEV_MODEL,
+        state: uc.state(prompt) as never,
+        questions: questions as never,
+      },
+      { signal },
+    );
     jevMs = Math.round(performance.now() - t0);
     answers = r.answers as unknown as Answers;
     model = r.model ?? JEV_MODEL;
     source = "live";
     usage = { inputTokens: r.usage?.input_tokens ?? undefined };
     if (process.env.NODE_ENV !== "production") {
-      const rec: Fixture = { model, ms: jevMs, recordedAt: new Date().toISOString(), mock: false, answers, places, usage };
-      await fs.writeFile(fixtureFile(key), JSON.stringify(rec, null, 2) + "\n").catch((err) => console.warn("[jev] could not save fixture", err));
+      const rec: Fixture = {
+        model,
+        ms: jevMs,
+        recordedAt: new Date().toISOString(),
+        mock: false,
+        answers,
+        places,
+        usage,
+      };
+      await fs
+        .writeFile(fixtureFile(key), JSON.stringify(rec, null, 2) + "\n")
+        .catch((err) => console.warn("[jev] could not save fixture", err));
     }
   }
 
-  const questionCount = saved ? Object.keys(saved.answers).length : Object.keys(questions).length;
+  const questionCount = saved
+    ? Object.keys(saved.answers).length
+    : Object.keys(questions).length;
   emit("jev", `Jev answered ${questionCount} questions`, `in ${jevMs} ms`);
 
   // 3) Deterministic A2UI from the answers.
   const read = readAnswers(uc, answers);
   const pick = read.layoutProbabilities[read.layout];
-  emit("layout", "Layout picked", pick != null ? `${Math.round(pick * 100)}%` : undefined, { layout: read.layout });
-  emit("ranked", `Ranked ${read.ranked.length}`, read.ranked[0] ? `1. ${read.ranked[0].name}` : undefined);
+  emit(
+    "layout",
+    "Layout picked",
+    pick != null ? `${Math.round(pick * 100)}%` : undefined,
+    { layout: read.layout },
+  );
+  emit(
+    "ranked",
+    `Ranked ${read.ranked.length}`,
+    read.ranked[0] ? `1. ${read.ranked[0].name}` : undefined,
+  );
   const built = uc.build(read.layout, read.ranked);
   const surfaceId = `jev-${usecase}-${Math.random().toString(36).slice(2, 8)}`;
   const ops = toOps(surfaceId, built);
@@ -198,7 +343,15 @@ export async function runJev({
     model,
     source,
     jevMs,
-    places: places ? { city: places.city, source: places.source, ms: places.ms, count: places.items.length, cached: places.cached } : undefined,
+    places: places
+      ? {
+          city: places.city,
+          source: places.source,
+          ms: places.ms,
+          count: places.items.length,
+          cached: places.cached,
+        }
+      : undefined,
     // On replay, the number of questions the recorded call really asked.
     questionCount,
     layout: read.layout,
@@ -212,4 +365,5 @@ export async function runJev({
   };
 }
 
-export const isNotice = (r: JevResult | JevNotice): r is JevNotice => "notice" in r;
+export const isNotice = (r: JevResult | JevNotice): r is JevNotice =>
+  "notice" in r;

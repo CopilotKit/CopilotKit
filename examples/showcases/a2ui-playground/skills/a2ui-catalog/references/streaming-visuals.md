@@ -7,7 +7,11 @@ A2UI already delivers a surface operation by operation. Without visuals the user
 An internal component, registered in `createGenerativeUI` (templates/catalog.ts) but left out of the composer prompt (`HIDDEN` in templates/catalog-prompt.ts):
 
 ```ts
-const blueprintSchema = z.object({ of: z.string().optional(), h: z.number().optional(), state: z.string().optional() });
+const blueprintSchema = z.object({
+  of: z.string().optional(),
+  h: z.number().optional(),
+  state: z.string().optional(),
+});
 // renders: dashed outline, corner ticks, mono label "<of> <w>×<h>" measured with ResizeObserver,
 // a slot height typical for the incoming type (Stat 104, LineChart 260, MapView 320, ...)
 ```
@@ -30,8 +34,20 @@ private readHeader() {
 The composer then upserts: a Blueprint for the open component on every new header, and with each finished (repaired) component a labelled pending Blueprint for every child id it references whose object has not started:
 
 ```ts
-surface.upsert({ id: open.id, component: "Blueprint", of: open.component, state: "streaming" });
-const pending = childRefs(done).filter((id) => !sent.has(id)).map((id) => ({ id, component: "Blueprint", of: `#${id}`, state: "pending" }));
+surface.upsert({
+  id: open.id,
+  component: "Blueprint",
+  of: open.component,
+  state: "streaming",
+});
+const pending = childRefs(done)
+  .filter((id) => !sent.has(id))
+  .map((id) => ({
+    id,
+    component: "Blueprint",
+    of: `#${id}`,
+    state: "pending",
+  }));
 surface.upsert(done, ...pending);
 ```
 
@@ -44,10 +60,16 @@ The tree of a fixed template is a constant, known the instant the router's `show
 ```ts
 const LAYOUT = new Set(["Column", "Row", "Grid", "Card", "Section", "List"]);
 export function blueprintOf(components) {
-  return components.map((c) => (LAYOUT.has(c.component) ? c : { id: c.id, component: "Blueprint", of: c.component }));
+  return components.map((c) =>
+    LAYOUT.has(c.component)
+      ? c
+      : { id: c.id, component: "Blueprint", of: c.component },
+  );
 }
 // on TOOL_CALL_START of a show_* tool:
-new SurfaceStream(q, `${tree.template}-${toolCallId.slice(-6)}`).create(blueprintOf(tree.components));
+new SurfaceStream(q, `${tree.template}-${toolCallId.slice(-6)}`).create(
+  blueprintOf(tree.components),
+);
 ```
 
 When the data lands, the agent appends `updateDataModel` and then the real components to the same surface, so the frames are replaced by data-bound components. If the tool fails, upsert `root` as an `Alert` explaining why; never leave orphaned frames.
@@ -57,7 +79,11 @@ When the data lands, the agent appends `updateDataModel` and then the real compo
 Gen UI 2.0 does not hand a component its id. catalog.ts wraps each of your components so the DOM carries its type without changing layout:
 
 ```ts
-createElement("div", { className: "a2-node", "data-a2-type": name }, createElement(Render, { props }));   // .a2-node { display: contents }
+createElement(
+  "div",
+  { className: "a2-node", "data-a2-type": name },
+  createElement(Render, { props }),
+); // .a2-node { display: contents }
 ```
 
 The engine renders depth-first from `root`, children in order, so the k-th `.a2-node` of a type is the k-th component of that type in a depth-first walk of the latest operations (templates/node-rects.ts: `nodeElements(host, ops)`; a `{ componentId, path }` template counts once per list item). Standard components draw no wrapper and get no rect. `display: contents` keeps layouts intact, but parent selectors like `[&>*]:flex-1` must also target `[&>.a2-node>*]`. Measure `node.firstElementChild.getBoundingClientRect()` relative to the surface host every ~160 ms while building and once when done. A build log built from real data:

@@ -17,7 +17,13 @@ export default function SnapshotPage() {
   return (
     <main className="pg-root min-h-[100dvh] py-8">
       <div className="mx-auto w-full max-w-[760px] px-6" data-snapshot>
-        {ops ? <StaticSurface ops={ops} /> : <p className="text-[13px] text-muted-foreground">No snapshot stored.</p>}
+        {ops ? (
+          <StaticSurface ops={ops} />
+        ) : (
+          <p className="text-[13px] text-muted-foreground">
+            No snapshot stored.
+          </p>
+        )}
       </div>
     </main>
   );

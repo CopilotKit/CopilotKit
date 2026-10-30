@@ -1,4 +1,7 @@
-export type Component = { id: string; component: string } & Record<string, unknown>;
+export type Component = { id: string; component: string } & Record<
+  string,
+  unknown
+>;
 
 /** A pre-authored surface: a fixed component tree plus the data it binds to. */
 export type FixedSurface = {

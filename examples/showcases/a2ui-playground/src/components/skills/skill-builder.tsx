@@ -12,23 +12,43 @@ type Format = "express" | "json";
 type File = { path: string; content: string };
 
 const FORMATS: Array<{ id: Format; label: string; note: string }> = [
-  { id: "express", label: "Express", note: "One line per component. The A2UI SDKs' default, about half the size of the same UI in JSON." },
-  { id: "json", label: "JSON", note: "A2UI v1.0 messages written directly, with the full JSON Schema." },
+  {
+    id: "express",
+    label: "Express",
+    note: "One line per component. The A2UI SDKs' default, about half the size of the same UI in JSON.",
+  },
+  {
+    id: "json",
+    label: "JSON",
+    note: "A2UI v1.0 messages written directly, with the full JSON Schema.",
+  },
 ];
 
 const DEFAULT_NAME = "a2ui-playground";
-const size = (n: number) => (n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
+const size = (n: number) =>
+  n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`;
 const PREVIEW_LIMIT = 60_000;
-const groupLabel = (group: string) => (group === "Gen UI 2.0 standard" || group === "Macros" ? group : `Playground: ${group}`);
+const groupLabel = (group: string) =>
+  group === "Gen UI 2.0 standard" || group === "Macros"
+    ? group
+    : `Playground: ${group}`;
 
 /**
  * The skill builder: pick the components and macros a skill covers (presets,
  * search, checkboxes), add a "when to use" note to any of them, and download
  * the skill the SDK generates for that pick, in Express or JSON.
  */
-export function SkillBuilder({ components, presets }: { components: SkillComponent[]; presets: SkillPreset[] }) {
+export function SkillBuilder({
+  components,
+  presets,
+}: {
+  components: SkillComponent[];
+  presets: SkillPreset[];
+}) {
   const [format, setFormat] = useState<Format>("express");
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(components.map((c) => c.name)));
+  const [picked, setPicked] = useState<Set<string>>(
+    () => new Set(components.map((c) => c.name)),
+  );
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [name, setName] = useState(DEFAULT_NAME);
   const [nameTouched, setNameTouched] = useState(false);
@@ -44,8 +64,14 @@ export function SkillBuilder({ components, presets }: { components: SkillCompone
     () => ({
       format,
       name,
-      components: components.filter((c) => picked.has(c.name)).map((c) => c.name),
-      notes: Object.fromEntries(Object.entries(notes).filter(([n, note]) => picked.has(n) && note.trim())),
+      components: components
+        .filter((c) => picked.has(c.name))
+        .map((c) => c.name),
+      notes: Object.fromEntries(
+        Object.entries(notes).filter(
+          ([n, note]) => picked.has(n) && note.trim(),
+        ),
+      ),
     }),
     [components, format, name, notes, picked],
   );
@@ -60,7 +86,12 @@ export function SkillBuilder({ components, presets }: { components: SkillCompone
     const controller = new AbortController();
     setLoading(true);
     const timer = setTimeout(() => {
-      fetch("/api/skills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(selection), signal: controller.signal })
+      fetch("/api/skills", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(selection),
+        signal: controller.signal,
+      })
         .then((r) => r.json())
         .then((d: { files?: File[]; error?: string }) => {
           setFiles(d.files);
@@ -83,22 +114,40 @@ export function SkillBuilder({ components, presets }: { components: SkillCompone
     const q = query.trim().toLowerCase();
     const out = new Map<string, SkillComponent[]>();
     for (const c of components) {
-      if (q && !c.name.toLowerCase().includes(q) && !c.description.toLowerCase().includes(q)) continue;
+      if (
+        q &&
+        !c.name.toLowerCase().includes(q) &&
+        !c.description.toLowerCase().includes(q)
+      )
+        continue;
       out.set(c.group, [...(out.get(c.group) ?? []), c]);
     }
     return [...out.entries()];
   }, [components, query]);
 
-  const activePreset = presets.find((p) => p.names.length === picked.size && p.names.every((n) => picked.has(n)))?.id;
-  const skillDir = files?.find((f) => f.path.endsWith("/catalog.json"))?.path.split("/")[0] ?? DEFAULT_NAME;
+  const activePreset = presets.find(
+    (p) =>
+      p.names.length === picked.size && p.names.every((n) => picked.has(n)),
+  )?.id;
+  const skillDir =
+    files?.find((f) => f.path.endsWith("/catalog.json"))?.path.split("/")[0] ??
+    DEFAULT_NAME;
   const zipName = `${skillDir}-skills-${format}.zip`;
   const file = files?.[shown] ?? files?.[0];
-  const preview = useMemo(() => (file ? (file.content.length > PREVIEW_LIMIT ? `${file.content.slice(0, PREVIEW_LIMIT)}\n\n… (${size(file.content.length - PREVIEW_LIMIT)} more)` : file.content) : ""), [file]);
+  const preview = useMemo(
+    () =>
+      file
+        ? file.content.length > PREVIEW_LIMIT
+          ? `${file.content.slice(0, PREVIEW_LIMIT)}\n\n… (${size(file.content.length - PREVIEW_LIMIT)} more)`
+          : file.content
+        : "",
+    [file],
+  );
 
   const toggle = (names: string[], on: boolean) =>
     setPicked((prev) => {
       const next = new Set(prev);
-      for (const n of names) (on ? next.add(n) : next.delete(n));
+      for (const n of names) on ? next.add(n) : next.delete(n);
       return next;
     });
 
@@ -115,12 +164,23 @@ export function SkillBuilder({ components, presets }: { components: SkillCompone
   const download = async () => {
     setDownloading(true);
     try {
-      const res = await fetch("/api/skills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...selection, download: true }) });
-      if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `Download failed (${res.status}).`);
+      const res = await fetch("/api/skills", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...selection, download: true }),
+      });
+      if (!res.ok)
+        throw new Error(
+          ((await res.json().catch(() => ({}))) as { error?: string }).error ??
+            `Download failed (${res.status}).`,
+        );
       const url = URL.createObjectURL(await res.blob());
       const a = document.createElement("a");
       a.href = url;
-      a.download = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? zipName;
+      a.download =
+        /filename="([^"]+)"/.exec(
+          res.headers.get("Content-Disposition") ?? "",
+        )?.[1] ?? zipName;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
@@ -140,9 +200,13 @@ GEMINI_API_KEY=... pnpm evals --skill ~/Downloads/${zipName}`;
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2 className="text-[22px] font-semibold tracking-tight">Build a skill</h2>
+        <h2 className="text-[22px] font-semibold tracking-tight">
+          Build a skill
+        </h2>
         <p className="mt-2 max-w-[70ch] text-[15px] leading-relaxed text-muted-foreground">
-          Pick the components and macros your agent should use, or start from a preset. Add a note to say when to use one. The preview is the skill you download.
+          Pick the components and macros your agent should use, or start from a
+          preset. Add a note to say when to use one. The preview is the skill
+          you download.
         </p>
       </div>
 
@@ -160,7 +224,11 @@ GEMINI_API_KEY=... pnpm evals --skill ~/Downloads/${zipName}`;
             className="h-10 rounded-lg border border-border bg-white/[0.02] px-3 font-mono text-[14px] text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           />
         </label>
-        <div role="radiogroup" aria-label="Skill format" className="flex items-center rounded-full border border-border bg-white/[0.02] p-0.5">
+        <div
+          role="radiogroup"
+          aria-label="Skill format"
+          className="flex items-center rounded-full border border-border bg-white/[0.02] p-0.5"
+        >
           {FORMATS.map((f) => (
             <button
               key={f.id}
@@ -169,7 +237,12 @@ GEMINI_API_KEY=... pnpm evals --skill ~/Downloads/${zipName}`;
               aria-checked={format === f.id}
               data-skill-format={f.id}
               onClick={() => setFormat(f.id)}
-              className={cn("rounded-full px-3.5 py-1.5 text-[14px] font-medium transition-colors", format === f.id ? "bg-white/[0.09] text-foreground" : "text-muted-foreground hover:text-foreground")}
+              className={cn(
+                "rounded-full px-3.5 py-1.5 text-[14px] font-medium transition-colors",
+                format === f.id
+                  ? "bg-white/[0.09] text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
             >
               {f.label}
             </button>
@@ -182,15 +255,22 @@ GEMINI_API_KEY=... pnpm evals --skill ~/Downloads/${zipName}`;
           disabled={!selection.components.length || downloading}
           className="inline-flex h-10 items-center gap-2 rounded-lg bg-foreground px-4 text-[14px] font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
         >
-          <Download className="size-4" /> {downloading ? "Preparing…" : "Download skill"}
+          <Download className="size-4" />{" "}
+          {downloading ? "Preparing…" : "Download skill"}
         </button>
-        <p className="w-full text-[14px] text-muted-foreground">{FORMATS.find((f) => f.id === format)!.note}</p>
+        <p className="w-full text-[14px] text-muted-foreground">
+          {FORMATS.find((f) => f.id === format)!.note}
+        </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-[#0b0b0d]">
           <div className="flex flex-col gap-3 border-b border-border p-3">
-            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Presets">
+            <div
+              className="flex flex-wrap gap-1.5"
+              role="group"
+              aria-label="Presets"
+            >
               {presets.map((p) => (
                 <button
                   key={p.id}
@@ -200,16 +280,24 @@ GEMINI_API_KEY=... pnpm evals --skill ~/Downloads/${zipName}`;
                   onClick={() => applyPreset(p)}
                   className={cn(
                     "rounded-full border px-3 py-1 text-[13px] font-medium transition-colors",
-                    activePreset === p.id ? "border-white/20 bg-white/[0.09] text-foreground" : "border-border text-muted-foreground hover:text-foreground",
+                    activePreset === p.id
+                      ? "border-white/20 bg-white/[0.09] text-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  {p.label} <span className="font-mono text-[11.5px] text-muted-foreground">{p.names.length}</span>
+                  {p.label}{" "}
+                  <span className="font-mono text-[11.5px] text-muted-foreground">
+                    {p.names.length}
+                  </span>
                 </button>
               ))}
             </div>
             <div className="flex items-center gap-3">
               <label className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-white/[0.02] px-2.5 focus-within:border-ring">
-                <Search className="size-3.5 flex-none text-muted-foreground" aria-hidden />
+                <Search
+                  className="size-3.5 flex-none text-muted-foreground"
+                  aria-hidden
+                />
                 <input
                   type="search"
                   value={query}
@@ -219,7 +307,10 @@ GEMINI_API_KEY=... pnpm evals --skill ~/Downloads/${zipName}`;
                   className="min-w-0 flex-1 bg-transparent text-[14px] text-foreground outline-none placeholder:text-muted-foreground"
                 />
               </label>
-              <span data-skill-count className="flex-none font-mono text-[12.5px] tabular-nums text-muted-foreground">
+              <span
+                data-skill-count
+                className="flex-none font-mono text-[12.5px] tabular-nums text-muted-foreground"
+              >
                 {picked.size} of {components.length}
               </span>
               <button
@@ -241,7 +332,10 @@ GEMINI_API_KEY=... pnpm evals --skill ~/Downloads/${zipName}`;
                 <section key={group} aria-label={groupLabel(group)}>
                   <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-[#0b0b0d] px-3 py-2">
                     <span className="text-[13px] font-medium">
-                      {groupLabel(group)} <span className="font-mono text-[12px] text-muted-foreground">{on}/{items.length}</span>
+                      {groupLabel(group)}{" "}
+                      <span className="font-mono text-[12px] text-muted-foreground">
+                        {on}/{items.length}
+                      </span>
                     </span>
                     <span className="flex items-center">
                       {(["All", "None"] as const).map((label) => (
@@ -249,8 +343,15 @@ GEMINI_API_KEY=... pnpm evals --skill ~/Downloads/${zipName}`;
                           key={label}
                           type="button"
                           data-skill-group-toggle={label}
-                          disabled={label === "All" ? on === items.length : on === 0}
-                          onClick={() => toggle(items.map((c) => c.name), label === "All")}
+                          disabled={
+                            label === "All" ? on === items.length : on === 0
+                          }
+                          onClick={() =>
+                            toggle(
+                              items.map((c) => c.name),
+                              label === "All",
+                            )
+                          }
                           aria-label={`${label === "All" ? "Pick all" : "Clear"} ${groupLabel(group)}`}
                           className="rounded-md px-2 py-0.5 text-[12.5px] text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                         >
@@ -267,10 +368,26 @@ GEMINI_API_KEY=... pnpm evals --skill ~/Downloads/${zipName}`;
                       return (
                         <li key={c.name} className="px-3 py-1.5">
                           <div className="flex items-start gap-3">
-                            <Checkbox id={id} data-skill-component={c.name} checked={checked} onCheckedChange={(v) => toggle([c.name], v === true)} className="mt-[3px]" />
-                            <label htmlFor={id} className="min-w-0 flex-1 cursor-pointer">
-                              <span className="font-mono text-[13px] text-foreground">{c.name}</span>
-                              <span className="block truncate text-[12.5px] text-muted-foreground" title={c.description}>
+                            <Checkbox
+                              id={id}
+                              data-skill-component={c.name}
+                              checked={checked}
+                              onCheckedChange={(v) =>
+                                toggle([c.name], v === true)
+                              }
+                              className="mt-[3px]"
+                            />
+                            <label
+                              htmlFor={id}
+                              className="min-w-0 flex-1 cursor-pointer"
+                            >
+                              <span className="font-mono text-[13px] text-foreground">
+                                {c.name}
+                              </span>
+                              <span
+                                className="block truncate text-[12.5px] text-muted-foreground"
+                                title={c.description}
+                              >
                                 {c.description}
                               </span>
                             </label>
@@ -293,7 +410,12 @@ GEMINI_API_KEY=... pnpm evals --skill ~/Downloads/${zipName}`;
                               data-skill-note={c.name}
                               value={note}
                               maxLength={400}
-                              onChange={(e) => setNotes((prev) => ({ ...prev, [c.name]: e.target.value }))}
+                              onChange={(e) =>
+                                setNotes((prev) => ({
+                                  ...prev,
+                                  [c.name]: e.target.value,
+                                }))
+                              }
                               onBlur={() => {
                                 if (note.trim()) return;
                                 setNotes((prev) => {
@@ -314,7 +436,11 @@ GEMINI_API_KEY=... pnpm evals --skill ~/Downloads/${zipName}`;
                 </section>
               );
             })}
-            {!groups.length ? <p className="px-3 py-6 text-[14px] text-muted-foreground">No component matches “{query}”.</p> : null}
+            {!groups.length ? (
+              <p className="px-3 py-6 text-[14px] text-muted-foreground">
+                No component matches “{query}”.
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -334,20 +460,35 @@ GEMINI_API_KEY=... pnpm evals --skill ~/Downloads/${zipName}`;
                     onClick={() => setShown(i)}
                     className={cn(
                       "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left font-mono text-[13px] transition-colors",
-                      file?.path === f.path ? "bg-white/[0.07] text-foreground" : "text-muted-foreground hover:bg-white/[0.035] hover:text-foreground",
+                      file?.path === f.path
+                        ? "bg-white/[0.07] text-foreground"
+                        : "text-muted-foreground hover:bg-white/[0.035] hover:text-foreground",
                     )}
                   >
                     <Icon className="size-3.5 flex-none" />
                     <span className="min-w-0 flex-1 truncate">{f.path}</span>
-                    <span className="flex-none text-[11.5px] text-muted-foreground">{size(f.content.length)}</span>
+                    <span className="flex-none text-[11.5px] text-muted-foreground">
+                      {size(f.content.length)}
+                    </span>
                   </button>
                 </li>
               );
             })}
-            {!selection.components.length ? <li className="px-2.5 py-2 text-[13.5px] text-muted-foreground">Pick at least one component.</li> : null}
-            {error ? <li className="px-2.5 py-2 text-[13.5px] text-red-300">{error}</li> : null}
+            {!selection.components.length ? (
+              <li className="px-2.5 py-2 text-[13.5px] text-muted-foreground">
+                Pick at least one component.
+              </li>
+            ) : null}
+            {error ? (
+              <li className="px-2.5 py-2 text-[13.5px] text-red-300">
+                {error}
+              </li>
+            ) : null}
           </ul>
-          <pre data-skill-preview className="max-h-[560px] min-w-0 overflow-auto whitespace-pre-wrap break-words px-5 py-4 font-mono text-[12.5px] leading-[1.7] text-foreground/85">
+          <pre
+            data-skill-preview
+            className="max-h-[560px] min-w-0 overflow-auto whitespace-pre-wrap break-words px-5 py-4 font-mono text-[12.5px] leading-[1.7] text-foreground/85"
+          >
             {preview}
           </pre>
         </div>
@@ -355,11 +496,18 @@ GEMINI_API_KEY=... pnpm evals --skill ~/Downloads/${zipName}`;
 
       <div className="grid gap-6 pt-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-4">
         <div>
-          <h3 className="text-[18px] font-semibold tracking-tight">Use it, then evaluate it</h3>
+          <h3 className="text-[18px] font-semibold tracking-tight">
+            Use it, then evaluate it
+          </h3>
           <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">
-            Unzip the skill into your agent&apos;s skills folder. To see how well each model does with only these components, run the eval harness in a clone of this repo. It
-            gives the composer only the skill&apos;s components (in JSON), runs the tasks in <code className="font-mono text-[0.9em] text-foreground">src/evals/tasks.ts</code>, and
-            counts a surface that uses anything else as not valid.
+            Unzip the skill into your agent&apos;s skills folder. To see how
+            well each model does with only these components, run the eval
+            harness in a clone of this repo. It gives the composer only the
+            skill&apos;s components (in JSON), runs the tasks in{" "}
+            <code className="font-mono text-[0.9em] text-foreground">
+              src/evals/tasks.ts
+            </code>
+            , and counts a surface that uses anything else as not valid.
           </p>
         </div>
         <CodeBlock code={commands} file="terminal" lang="sh" />

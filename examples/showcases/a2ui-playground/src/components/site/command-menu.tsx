@@ -2,8 +2,25 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Component as ComponentIcon, FlaskConical, Layers, MessageSquare, Package, Play, Rocket, Search } from "lucide-react";
-import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Component as ComponentIcon,
+  FlaskConical,
+  Layers,
+  MessageSquare,
+  Package,
+  Play,
+  Rocket,
+  Search,
+} from "lucide-react";
+import {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Kbd } from "@/components/ui/kbd";
 import { GROUPS, isComponentName } from "@/components/docs/catalog-index";
 
@@ -29,9 +46,16 @@ function useStandardNames(load: boolean) {
     let live = true;
     import("@copilotkit/react-core/v2/generative-ui")
       .then(({ standardUI }) => {
-        if (live) setNames(Object.keys(standardUI.manifestComponents).filter((n) => !isComponentName(n)));
+        if (live)
+          setNames(
+            Object.keys(standardUI.manifestComponents).filter(
+              (n) => !isComponentName(n),
+            ),
+          );
       })
-      .catch((e) => console.warn("Search could not load the standard components", e));
+      .catch((e) =>
+        console.warn("Search could not load the standard components", e),
+      );
     return () => {
       live = false;
     };
@@ -51,8 +75,14 @@ export function CommandMenu() {
     setMac(/Mac|iPhone|iPad/.test(navigator.platform));
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
-      const typing = !!t && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
-      if ((e.key === "k" && (e.metaKey || e.ctrlKey)) || (e.key === "/" && !typing)) {
+      const typing =
+        !!t &&
+        (t.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
+      if (
+        (e.key === "k" && (e.metaKey || e.ctrlKey)) ||
+        (e.key === "/" && !typing)
+      ) {
         e.preventDefault();
         setOpen((o) => !o);
       }
@@ -77,21 +107,39 @@ export function CommandMenu() {
         className="flex size-9 flex-none items-center justify-center gap-2 rounded-md border border-border bg-secondary/50 text-[14px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground sm:w-44 sm:justify-start sm:pl-3 sm:pr-1.5 md:w-56 lg:w-64"
       >
         <Search className="size-4 flex-none sm:size-3.5" />
-        <span className="hidden min-w-0 flex-1 truncate text-left sm:inline lg:hidden">Search...</span>
-        <span className="hidden min-w-0 flex-1 truncate text-left lg:inline">Search components...</span>
+        <span className="hidden min-w-0 flex-1 truncate text-left sm:inline lg:hidden">
+          Search...
+        </span>
+        <span className="hidden min-w-0 flex-1 truncate text-left lg:inline">
+          Search components...
+        </span>
         <span className="hidden flex-none items-center gap-0.5 sm:flex">
-          <Kbd className="h-5 min-w-5 border border-border bg-background/60 px-1 text-[11px]">{mac ? "⌘" : "Ctrl"}</Kbd>
-          <Kbd className="h-5 min-w-5 border border-border bg-background/60 px-1 text-[11px]">K</Kbd>
+          <Kbd className="h-5 min-w-5 border border-border bg-background/60 px-1 text-[11px]">
+            {mac ? "⌘" : "Ctrl"}
+          </Kbd>
+          <Kbd className="h-5 min-w-5 border border-border bg-background/60 px-1 text-[11px]">
+            K
+          </Kbd>
         </span>
       </button>
-      <CommandDialog open={open} onOpenChange={setOpen} title="Search" description="Jump to a page or a component" className="sm:max-w-[560px]">
+      <CommandDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Search"
+        description="Jump to a page or a component"
+        className="sm:max-w-[560px]"
+      >
         <Command>
           <CommandInput placeholder="Search components and pages..." />
           <CommandList className="docs-scroll max-h-[380px]">
             <CommandEmpty>No results.</CommandEmpty>
             <CommandGroup heading="Pages">
               {PAGES.map((p) => (
-                <CommandItem key={p.href} value={`page ${p.label}`} onSelect={() => go(p.href)}>
+                <CommandItem
+                  key={p.href}
+                  value={`page ${p.label}`}
+                  onSelect={() => go(p.href)}
+                >
                   <p.icon className="text-muted-foreground" />
                   {p.label}
                 </CommandItem>
@@ -100,7 +148,11 @@ export function CommandMenu() {
             {GROUPS.map((g) => (
               <CommandGroup key={g.cat} heading={g.cat}>
                 {g.items.map((n) => (
-                  <CommandItem key={n} value={`${n} ${g.cat}`} onSelect={() => go(`/components/${n}`)}>
+                  <CommandItem
+                    key={n}
+                    value={`${n} ${g.cat}`}
+                    onSelect={() => go(`/components/${n}`)}
+                  >
                     <span className="size-1.5 flex-none rounded-full bg-muted-foreground/40" />
                     {n}
                   </CommandItem>
@@ -110,7 +162,11 @@ export function CommandMenu() {
             {standard.length ? (
               <CommandGroup heading="Gen UI 2.0 standard">
                 {standard.map((n) => (
-                  <CommandItem key={n} value={`${n} standard`} onSelect={() => go(`/components/${n}`)}>
+                  <CommandItem
+                    key={n}
+                    value={`${n} standard`}
+                    onSelect={() => go(`/components/${n}`)}
+                  >
                     <span className="size-1.5 flex-none rounded-full bg-muted-foreground/40" />
                     {n}
                   </CommandItem>

@@ -15,7 +15,12 @@ import { useId, useState, type FormEvent } from "react";
 import { ArrowUp } from "lucide-react";
 import type { AbstractAgent, Message } from "@ag-ui/client";
 import { useAgent } from "@copilotkit/react-core/v2";
-import { GENERATIVE_UI_ACTIVITY_TYPE, GENERATIVE_UI_CHAT_TARGET, generativeUISurfaceMessageId, type GenerativeUISurfaceContent } from "@copilotkit/shared";
+import {
+  GENERATIVE_UI_ACTIVITY_TYPE,
+  GENERATIVE_UI_CHAT_TARGET,
+  generativeUISurfaceMessageId,
+  type GenerativeUISurfaceContent,
+} from "@copilotkit/shared";
 import { useMode } from "@/components/app/providers";
 import { useSend } from "@/components/app/use-send";
 import { runStore, type A2UIOp } from "@/lib/run-store";
@@ -27,8 +32,15 @@ const GENERATE_TOOL = "generate_a2ui";
 /** Puts `ops` in the chat as a new surface the agent can update. Returns its activity message id (the run store's surface key). */
 function seedSurface(agent: AbstractAgent, ops: A2UIOp[]): string {
   // A fresh id: the same starter can be handed over twice, and each one is its own message.
-  const { ops: sent, surfaceId } = sendable(ops, `edited-${crypto.randomUUID().slice(0, 6)}`);
-  const create = sent[0].createSurface as { catalogId: string; components: unknown[]; dataModel?: Record<string, unknown> };
+  const { ops: sent, surfaceId } = sendable(
+    ops,
+    `edited-${crypto.randomUUID().slice(0, 6)}`,
+  );
+  const create = sent[0].createSurface as {
+    catalogId: string;
+    components: unknown[];
+    dataModel?: Record<string, unknown>;
+  };
   const callId = crypto.randomUUID();
   const content: GenerativeUISurfaceContent = {
     surfaceId,
@@ -40,14 +52,45 @@ function seedSurface(agent: AbstractAgent, ops: A2UIOp[]): string {
   };
   const messages: Message[] = [
     // A user turn first: Gemini only accepts a tool call right after a user turn or a tool result.
-    { id: crypto.randomUUID(), role: "user", content: "Here is a surface I edited by hand in the JSON editor." },
+    {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: "Here is a surface I edited by hand in the JSON editor.",
+    },
     {
       id: crypto.randomUUID(),
       role: "assistant",
-      toolCalls: [{ id: callId, type: "function", function: { name: GENERATE_TOOL, arguments: JSON.stringify({ brief: "Show the surface the user edited by hand." }) } }],
+      toolCalls: [
+        {
+          id: callId,
+          type: "function",
+          function: {
+            name: GENERATE_TOOL,
+            arguments: JSON.stringify({
+              brief: "Show the surface the user edited by hand.",
+            }),
+          },
+        },
+      ],
     },
-    { id: generativeUISurfaceMessageId(surfaceId), role: "activity", activityType: GENERATIVE_UI_ACTIVITY_TYPE, content: content as unknown as Record<string, unknown> },
-    { id: crypto.randomUUID(), role: "tool", toolCallId: callId, content: JSON.stringify({ surface: { surfaceId, components: create.components, data: create.dataModel } }) },
+    {
+      id: generativeUISurfaceMessageId(surfaceId),
+      role: "activity",
+      activityType: GENERATIVE_UI_ACTIVITY_TYPE,
+      content: content as unknown as Record<string, unknown>,
+    },
+    {
+      id: crypto.randomUUID(),
+      role: "tool",
+      toolCallId: callId,
+      content: JSON.stringify({
+        surface: {
+          surfaceId,
+          components: create.components,
+          data: create.dataModel,
+        },
+      }),
+    },
   ];
   agent.addMessages(messages);
   return generativeUISurfaceMessageId(surfaceId);
@@ -57,7 +100,10 @@ function seedSurface(agent: AbstractAgent, ops: A2UIOp[]): string {
 function until(ready: () => boolean, ms = 2000) {
   const start = performance.now();
   return new Promise<void>((resolve) => {
-    const tick = () => (ready() || performance.now() - start > ms ? resolve() : requestAnimationFrame(tick));
+    const tick = () =>
+      ready() || performance.now() - start > ms
+        ? resolve()
+        : requestAnimationFrame(tick);
     tick();
   });
 }
@@ -66,7 +112,13 @@ function until(ready: () => boolean, ms = 2000) {
  * The editor's footer: a request box that sends the edited surface to the
  * chat, then the request. `ops` is null while the JSON has problems.
  */
-export function AskModel({ ops, onSent }: { ops: A2UIOp[] | null; onSent: () => void }) {
+export function AskModel({
+  ops,
+  onSent,
+}: {
+  ops: A2UIOp[] | null;
+  onSent: () => void;
+}) {
   const { agent } = useAgent({ agentId: "default" });
   const { send, running } = useSend();
   const { mode } = useMode();
@@ -95,7 +147,11 @@ export function AskModel({ ops, onSent }: { ops: A2UIOp[] | null; onSent: () => 
   };
 
   return (
-    <form onSubmit={submit} className="flex-none border-t border-[var(--pg-line)] bg-[var(--pg-surface)] px-4 py-2.5" data-json-ask>
+    <form
+      onSubmit={submit}
+      className="flex-none border-t border-[var(--pg-line)] bg-[var(--pg-surface)] px-4 py-2.5"
+      data-json-ask
+    >
       <div className="flex items-center gap-2">
         <input
           value={text}
@@ -117,7 +173,8 @@ export function AskModel({ ops, onSent }: { ops: A2UIOp[] | null; onSent: () => 
         </button>
       </div>
       <p id={noteId} className="mt-1.5 text-[11.5px] text-[var(--pg-faint)]">
-        {blocked ?? "Puts this surface in the chat as the latest one, then sends your request. The model updates it in place."}
+        {blocked ??
+          "Puts this surface in the chat as the latest one, then sends your request. The model updates it in place."}
       </p>
     </form>
   );

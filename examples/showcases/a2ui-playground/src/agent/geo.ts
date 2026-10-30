@@ -11,21 +11,47 @@
  *   - markers that cannot be found keep their coordinates but are marked unverified
  *
  * Nominatim allows 1 request per second, so lookups go through one paced queue
- * and are cached.
+ * (`./apis.ts` uses it too) and are cached. One surface geocodes at most
+ * MAX_GEOCODED_MARKERS pins.
  */
-const UA = "a2ui-playground/0.1 (CopilotKit A2UI demo)";
-const AREA_TYPES = new Set(["city", "state", "country", "province", "region", "county", "state_district", "municipality", "town", "administrative"]);
+import { MAX_GEOCODED_MARKERS } from "@/lib/limits";
 
-type Hit = { lat: number; lon: number; area: boolean; label: string; bbox?: [number, number, number, number] } | null;
+const UA = "a2ui-playground/0.1 (CopilotKit A2UI demo)";
+const AREA_TYPES = new Set([
+  "city",
+  "state",
+  "country",
+  "province",
+  "region",
+  "county",
+  "state_district",
+  "municipality",
+  "town",
+  "administrative",
+]);
+
+type Hit = {
+  lat: number;
+  lon: number;
+  area: boolean;
+  label: string;
+  bbox?: [number, number, number, number];
+} | null;
 const cache = new Map<string, Hit>();
+const CACHE_ENTRIES = 500;
 let chain: Promise<unknown> = Promise.resolve();
 let lastAt = 0;
 
-/** Serializes Nominatim calls at >= 1.05 s apart (usage policy). */
-function paced<T>(fn: () => Promise<T>): Promise<T> {
+/** Serializes Nominatim calls at >= 1.05 s apart (usage policy). A call whose `signal` aborts before its turn (its run stopped) leaves the queue unsent, without holding a slot. */
+export function paced<T>(
+  fn: () => Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
   const run = chain.then(async () => {
+    signal?.throwIfAborted();
     const wait = Math.max(0, lastAt + 1050 - Date.now());
     if (wait) await new Promise((r) => setTimeout(r, wait));
+    signal?.throwIfAborted();
     lastAt = Date.now();
     return fn();
   });
@@ -35,14 +61,37 @@ function paced<T>(fn: () => Promise<T>): Promise<T> {
 
 type Box = { w: number; s: number; e: number; n: number };
 
-const PHOTON_AREA = new Set(["city", "state", "country", "county", "district", "region"]);
+const PHOTON_AREA = new Set([
+  "city",
+  "state",
+  "country",
+  "county",
+  "district",
+  "region",
+]);
 
 async function photon(name: string, box: Box | null): Promise<Hit> {
   try {
-    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(name)}&limit=1&lang=en` + (box ? `&bbox=${box.w},${box.s},${box.e},${box.n}` : "");
-    const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(9000) });
+    const url =
+      `https://photon.komoot.io/api/?q=${encodeURIComponent(name)}&limit=1&lang=en` +
+      (box ? `&bbox=${box.w},${box.s},${box.e},${box.n}` : "");
+    const res = await fetch(url, {
+      headers: { "User-Agent": UA },
+      signal: AbortSignal.timeout(9000),
+    });
     if (!res.ok) return null;
-    const f = ((await res.json()) as { features?: Array<{ geometry: { coordinates: [number, number] }; properties: { type?: string; name?: string; extent?: [number, number, number, number] } }> }).features?.[0];
+    const f = (
+      (await res.json()) as {
+        features?: Array<{
+          geometry: { coordinates: [number, number] };
+          properties: {
+            type?: string;
+            name?: string;
+            extent?: [number, number, number, number];
+          };
+        }>;
+      }
+    ).features?.[0];
     if (!f) return null;
     const ext = f.properties.extent; // [west, north, east, south]
     return {
@@ -57,36 +106,81 @@ async function photon(name: string, box: Box | null): Promise<Hit> {
   }
 }
 
-async function nominatim(name: string, box: Box | null, settled: { done: boolean }): Promise<Hit> {
+async function nominatim(
+  name: string,
+  box: Box | null,
+  signal: AbortSignal,
+): Promise<Hit> {
   return paced(async () => {
-    if (settled.done) return null; // Photon already answered: do not spend a rate-limited request
     try {
       const url =
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=jsonv2&limit=1&accept-language=en` +
         (box ? `&viewbox=${box.w},${box.n},${box.e},${box.s}&bounded=1` : "");
-      const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(5000) });
+      const res = await fetch(url, {
+        headers: { "User-Agent": UA },
+        signal: AbortSignal.timeout(5000),
+      });
       if (!res.ok) return null;
-      const rows = (await res.json()) as Array<{ lat: string; lon: string; addresstype?: string; type?: string; category?: string; display_name?: string; boundingbox?: string[] }>;
+      const rows = (await res.json()) as Array<{
+        lat: string;
+        lon: string;
+        addresstype?: string;
+        type?: string;
+        category?: string;
+        display_name?: string;
+        boundingbox?: string[];
+      }>;
       const r = rows[0];
       if (!r) return null;
-      const area = AREA_TYPES.has(r.addresstype ?? "") || (r.category === "boundary" && r.type === "administrative" && /^(city|state|country)/.test(r.addresstype ?? ""));
-      const bb = r.boundingbox?.map(Number) as [number, number, number, number] | undefined; // [south, north, west, east]
-      return { lat: Number(r.lat), lon: Number(r.lon), area, label: r.display_name ?? name, bbox: bb };
+      const area =
+        AREA_TYPES.has(r.addresstype ?? "") ||
+        (r.category === "boundary" &&
+          r.type === "administrative" &&
+          /^(city|state|country)/.test(r.addresstype ?? ""));
+      const bb = r.boundingbox?.map(Number) as
+        | [number, number, number, number]
+        | undefined; // [south, north, west, east]
+      return {
+        lat: Number(r.lat),
+        lon: Number(r.lon),
+        area,
+        label: r.display_name ?? name,
+        bbox: bb,
+      };
     } catch {
       return null;
     }
-  });
+  }, signal);
 }
 
 /** First non-empty answer from Nominatim (paced, 1 req/s) or Photon (parallel). Cached. */
-async function lookup(name: string, box: Box | null): Promise<Hit> {
+async function lookup(
+  name: string,
+  box: Box | null,
+  signal?: AbortSignal,
+): Promise<Hit> {
   const key = `${name.toLowerCase()}|${box ? [box.w, box.s, box.e, box.n].map((v) => v.toFixed(1)).join(",") : "-"}`;
   if (cache.has(key)) return cache.get(key)!;
-  const settled = { done: false };
-  const first = <T,>(p: Promise<T | null>) => p.then((v) => (v ? v : Promise.reject(new Error("empty"))));
-  const hit = await Promise.any([first(nominatim(name, box, settled)), first(photon(name, box))]).catch(() => null);
-  settled.done = true;
-  cache.set(key, hit);
+  // Once Photon answers, the Nominatim call leaves the queue unsent: it would spend a rate-limited request.
+  const settled = new AbortController();
+  const first = <T>(p: Promise<T | null>) =>
+    p.then((v) => (v ? v : Promise.reject(new Error("empty"))));
+  const hit = await Promise.any([
+    first(
+      nominatim(
+        name,
+        box,
+        signal ? AbortSignal.any([settled.signal, signal]) : settled.signal,
+      ),
+    ),
+    first(photon(name, box)),
+  ]).catch(() => null);
+  settled.abort();
+  // A miss from a stopped run is not a real miss. The oldest entry goes first.
+  if (hit || !signal?.aborted) {
+    if (cache.size >= CACHE_ENTRIES) cache.delete(cache.keys().next().value!);
+    cache.set(key, hit);
+  }
   return hit;
 }
 
@@ -95,23 +189,54 @@ function median(xs: number[]) {
   return a.length ? a[Math.floor(a.length / 2)] : 0;
 }
 
-type Marker = { name?: string; lat?: number; lon?: number; [k: string]: unknown };
-export type GeoNote = { geocoded: number; dropped: string[]; unverified: string[] };
+type Marker = {
+  name?: string;
+  lat?: number;
+  lon?: number;
+  [k: string]: unknown;
+};
+export type GeoNote = {
+  geocoded: number;
+  dropped: string[];
+  unverified: string[];
+};
+
+/** The lookups one surface has left: its map components share it. */
+export type GeoBudget = { left: number };
+export const geoBudget = (): GeoBudget => ({ left: MAX_GEOCODED_MARKERS });
+type GeoOptions = { budget?: GeoBudget; signal?: AbortSignal };
 
 /** Re-geocodes the marker list of one map component. Returns null when there is nothing to fix. */
-export async function repairMarkers(markers: Marker[], hint?: string): Promise<{ markers: Marker[]; note: GeoNote } | null> {
-  const named = markers.filter((m) => typeof m?.name === "string" && m.name.trim());
+export async function repairMarkers(
+  markers: Marker[],
+  hint?: string,
+  { budget = geoBudget(), signal }: GeoOptions = {},
+): Promise<{ markers: Marker[]; note: GeoNote } | null> {
+  const named = markers.filter(
+    (m) => typeof m?.name === "string" && m.name.trim(),
+  );
   if (!named.length) return null;
+  // Markers past the budget are not looked up: they keep the model's coordinates and show as unverified.
+  const allowed = Math.min(named.length, Math.max(0, budget.left));
+  budget.left -= allowed;
   const lats = named.map((m) => Number(m.lat)).filter(Number.isFinite);
   const lons = named.map((m) => Number(m.lon)).filter(Number.isFinite);
   // A generous box around the model's own pins (~45 km): enough to recover a mis-placed cluster in the right city.
-  const box: Box | null = lats.length ? { w: median(lons) - 0.45, e: median(lons) + 0.45, s: median(lats) - 0.4, n: median(lats) + 0.4 } : null;
+  const box: Box | null = lats.length
+    ? {
+        w: median(lons) - 0.45,
+        e: median(lons) + 0.45,
+        s: median(lats) - 0.4,
+        n: median(lats) + 0.4,
+      }
+    : null;
   const note: GeoNote = { geocoded: 0, dropped: [], unverified: [] };
   const hits: Hit[] = await Promise.all(
-    named.map(async (m) => {
+    named.map(async (m, i) => {
+      if (i >= allowed) return null;
       const name = String(m.name).trim();
-      const hit = await lookup(name, box);
-      return hit ?? (hint ? lookup(`${name}, ${hint}`, null) : null);
+      const hit = await lookup(name, box, signal);
+      return hit ?? (hint ? lookup(`${name}, ${hint}`, null, signal) : null);
     }),
   );
   const points = hits.filter((h): h is NonNullable<Hit> => !!h && !h.area);
@@ -123,15 +248,24 @@ export async function repairMarkers(markers: Marker[], hint?: string): Promise<{
     // "Tokyo" encloses Senso-ji and Shibuya Crossing, so it is dropped; "Shibuya" does not enclose the others, so it stays.
     if (hit?.area && hit.bbox) {
       const [s, n, w, e] = hit.bbox;
-      const inside = points.filter((p) => p.lat >= s && p.lat <= n && p.lon >= w && p.lon <= e).length;
-      if ((points.length >= 2 && inside / points.length >= 0.6) || n - s > 1.5) {
+      const inside = points.filter(
+        (p) => p.lat >= s && p.lat <= n && p.lon >= w && p.lon <= e,
+      ).length;
+      if (
+        (points.length >= 2 && inside / points.length >= 0.6) ||
+        n - s > 1.5
+      ) {
         note.dropped.push(name);
         return;
       }
     }
     if (hit) {
       note.geocoded++;
-      out.push({ ...m, lat: Math.round(hit.lat * 1e6) / 1e6, lon: Math.round(hit.lon * 1e6) / 1e6 });
+      out.push({
+        ...m,
+        lat: Math.round(hit.lat * 1e6) / 1e6,
+        lon: Math.round(hit.lon * 1e6) / 1e6,
+      });
     } else {
       note.unverified.push(name);
       out.push(m);
@@ -141,7 +275,10 @@ export async function repairMarkers(markers: Marker[], hint?: string): Promise<{
 }
 
 /** Map components and the prop that holds their points. */
-export const MAP_POINT_PROPS: Record<string, string> = { MapView: "markers", PlaceList: "places" };
+export const MAP_POINT_PROPS: Record<string, string> = {
+  MapView: "markers",
+  PlaceList: "places",
+};
 
 /** Distances shown in a PlaceList must match the geocoded pins: distance from the previous stop. */
 export function withLegDistances(points: Array<Record<string, unknown>>) {
@@ -152,19 +289,37 @@ export function withLegDistances(points: Array<Record<string, unknown>>) {
     if (i === 0) return rest;
     const a = points[i - 1] as { lat: number; lon: number };
     const b = p as { lat: number; lon: number };
-    const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lon - a.lon) / 2) ** 2;
-    return { ...rest, distanceKm: Math.round(2 * 6371 * Math.asin(Math.sqrt(h)) * 10) / 10 };
+    const h =
+      Math.sin(rad(b.lat - a.lat) / 2) ** 2 +
+      Math.cos(rad(a.lat)) *
+        Math.cos(rad(b.lat)) *
+        Math.sin(rad(b.lon - a.lon) / 2) ** 2;
+    return {
+      ...rest,
+      distanceKm: Math.round(2 * 6371 * Math.asin(Math.sqrt(h)) * 10) / 10,
+    };
   });
 }
 
 /** The geocoded points of one composed component (a map's markers, a PlaceList's places, a LocationCard), or null. */
-export async function geoPatch(c: { component: string; [k: string]: unknown }): Promise<{ patch: Record<string, unknown>; note: GeoNote } | null> {
+export async function geoPatch(
+  c: { component: string; [k: string]: unknown },
+  options?: GeoOptions,
+): Promise<{ patch: Record<string, unknown>; note: GeoNote } | null> {
   const isCard = c.component === "LocationCard" && typeof c.name === "string";
   const prop = MAP_POINT_PROPS[c.component];
-  const points = isCard ? [{ name: c.name, lat: c.lat, lon: c.lon }] : prop && Array.isArray(c[prop]) ? (c[prop] as Marker[]) : null;
+  const points = isCard
+    ? [{ name: c.name, lat: c.lat, lon: c.lon }]
+    : prop && Array.isArray(c[prop])
+      ? (c[prop] as Marker[])
+      : null;
   if (!points?.length) return null;
-  const r = await repairMarkers(points as Marker[]);
+  const r = await repairMarkers(points as Marker[], undefined, options);
   if (!r) return null;
-  const patch = isCard ? (r.markers[0] ? { lat: r.markers[0].lat, lon: r.markers[0].lon } : {}) : { [prop!]: prop === "places" ? withLegDistances(r.markers) : r.markers };
+  const patch = isCard
+    ? r.markers[0]
+      ? { lat: r.markers[0].lat, lon: r.markers[0].lon }
+      : {}
+    : { [prop!]: prop === "places" ? withLegDistances(r.markers) : r.markers };
   return { patch, note: r.note };
 }

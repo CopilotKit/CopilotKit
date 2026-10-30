@@ -6,5 +6,10 @@ import catalog from "@/a2ui/export/catalog.json";
 export const dynamic = "force-static";
 
 export function GET() {
-  return Response.json(catalog, { headers: { "Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=300" } });
+  return Response.json(catalog, {
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "public, max-age=300",
+    },
+  });
 }

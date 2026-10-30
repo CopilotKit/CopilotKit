@@ -11,7 +11,11 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { A2UI_VERSION, type A2UIComponentNode, type A2UIOperation } from "@copilotkit/shared";
+import {
+  A2UI_VERSION,
+  type A2UIComponentNode,
+  type A2UIOperation,
+} from "@copilotkit/shared";
 import { upgradeComponents } from "@/a2ui/upgrade-v09";
 
 type Frame = { t: number; key?: string; ops: Array<Record<string, unknown>> };
@@ -24,9 +28,13 @@ function snapshot(ops: Frame["ops"]) {
   let components: A2UIComponentNode[] = [];
   let data: unknown;
   for (const op of ops) {
-    const create = op.createSurface as { surfaceId: string; catalogId?: string } | undefined;
+    const create = op.createSurface as
+      | { surfaceId: string; catalogId?: string }
+      | undefined;
     if (create) ({ surfaceId, catalogId } = create);
-    const update = op.updateComponents as { surfaceId: string; components: A2UIComponentNode[] } | undefined;
+    const update = op.updateComponents as
+      | { surfaceId: string; components: A2UIComponentNode[] }
+      | undefined;
     if (update) components = upgradeComponents(update.components);
     const model = op.updateDataModel as { value?: unknown } | undefined;
     if (model) data = model.value;
@@ -38,7 +46,9 @@ for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".json"))) {
   const full = path.join(dir, file);
   const rec = JSON.parse(fs.readFileSync(full, "utf8")) as { frames?: Frame[] };
   if (!Array.isArray(rec.frames) || !rec.frames.length) continue;
-  if (rec.frames.every((f) => f.ops.every((op) => op.version === A2UI_VERSION))) {
+  if (
+    rec.frames.every((f) => f.ops.every((op) => op.version === A2UI_VERSION))
+  ) {
     console.log(`${file}: already v1.0`);
     continue;
   }
@@ -51,21 +61,40 @@ for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".json"))) {
     let ops = opsByKey.get(key);
     let sent = seen.get(key);
     if (!ops || !sent) {
-      ops = [{ version: A2UI_VERSION, createSurface: { surfaceId: s.surfaceId, ...(s.catalogId ? { catalogId: s.catalogId } : {}) } }];
+      ops = [
+        {
+          version: A2UI_VERSION,
+          createSurface: {
+            surfaceId: s.surfaceId,
+            ...(s.catalogId ? { catalogId: s.catalogId } : {}),
+          },
+        },
+      ];
       sent = new Map();
       opsByKey.set(key, ops);
       seen.set(key, sent);
     }
     const data = s.data === undefined ? undefined : JSON.stringify(s.data);
     if (data !== undefined && data !== lastData.get(key)) {
-      ops.push({ version: A2UI_VERSION, updateDataModel: { surfaceId: s.surfaceId, path: "/", value: s.data } });
+      ops.push({
+        version: A2UI_VERSION,
+        updateDataModel: { surfaceId: s.surfaceId, path: "/", value: s.data },
+      });
       lastData.set(key, data);
     }
-    const changed = s.components.filter((c) => sent.get(c.id) !== JSON.stringify(c));
+    const changed = s.components.filter(
+      (c) => sent.get(c.id) !== JSON.stringify(c),
+    );
     for (const c of changed) sent.set(c.id, JSON.stringify(c));
-    if (changed.length) ops.push({ version: A2UI_VERSION, updateComponents: { surfaceId: s.surfaceId, components: changed } });
+    if (changed.length)
+      ops.push({
+        version: A2UI_VERSION,
+        updateComponents: { surfaceId: s.surfaceId, components: changed },
+      });
     return { ...f, ops: [...ops] };
   });
   fs.writeFileSync(full, JSON.stringify({ ...rec, frames }));
-  console.log(`${file}: ${frames.length} frames, ${(fs.statSync(full).size / 1024).toFixed(0)} KB`);
+  console.log(
+    `${file}: ${frames.length} frames, ${(fs.statSync(full).size / 1024).toFixed(0)} KB`,
+  );
 }

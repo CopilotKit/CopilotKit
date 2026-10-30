@@ -45,16 +45,36 @@ export function ComponentTabs({
     return s ? sampleOps(name, s, CATALOG_ID) : [];
   }, [name]);
   const json = useMemo(() => JSON.stringify(ops, null, 2), [ops]);
-  const tabs = TABS.filter((t) => (t.id === "definition" ? !!definition : t.id === "renderer" ? !!renderer : true));
-  const code = tab === "express" ? express : tab === "definition" ? definition : tab === "renderer" ? renderer : undefined;
+  const tabs = TABS.filter((t) =>
+    t.id === "definition"
+      ? !!definition
+      : t.id === "renderer"
+        ? !!renderer
+        : true,
+  );
+  const code =
+    tab === "express"
+      ? express
+      : tab === "definition"
+        ? definition
+        : tab === "renderer"
+          ? renderer
+          : undefined;
 
   const copyText = tab === "json" ? json : (code?.raw ?? null);
-  const file = tab === "json" ? `${ops.length} ${ops.length === 1 ? "operation" : "operations"}, A2UI v1.0` : (code?.file ?? null);
+  const file =
+    tab === "json"
+      ? `${ops.length} ${ops.length === 1 ? "operation" : "operations"}, A2UI v1.0`
+      : (code?.file ?? null);
 
   return (
     <div>
       <div className="flex h-10 items-center justify-between gap-4 border-b border-border">
-        <div role="tablist" aria-label="Component views" className="-mb-px flex h-full min-w-0 items-stretch gap-5 overflow-x-auto [scrollbar-width:none]">
+        <div
+          role="tablist"
+          aria-label="Component views"
+          className="-mb-px flex h-full min-w-0 items-stretch gap-5 overflow-x-auto [scrollbar-width:none]"
+        >
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -63,19 +83,28 @@ export function ComponentTabs({
               onClick={() => setTab(t.id)}
               className={cn(
                 "flex-none whitespace-nowrap border-b-2 text-[13.5px] font-medium transition-colors",
-                tab === t.id ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+                tab === t.id
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
               {t.label}
             </button>
           ))}
         </div>
-        {file ? <span className="hidden truncate font-mono text-[11.5px] text-muted-foreground/80 sm:block">{file}</span> : null}
+        {file ? (
+          <span className="hidden truncate font-mono text-[11.5px] text-muted-foreground/80 sm:block">
+            {file}
+          </span>
+        ) : null}
       </div>
 
       <div className="mt-4">
         {tab === "preview" ? (
-          <div data-preview={name} className="docs-stage flex min-h-[360px] items-center justify-center rounded-xl border border-border px-6 py-12 sm:px-10">
+          <div
+            data-preview={name}
+            className="docs-stage flex min-h-[360px] items-center justify-center rounded-xl border border-border px-6 py-12 sm:px-10"
+          >
             <StagePreview name={name} intrinsic={intrinsic} wide={wide} />
           </div>
         ) : (
@@ -85,7 +114,14 @@ export function ComponentTabs({
               {tab === "json" ? (
                 <JsonView value={ops} />
               ) : code ? (
-                <CodePane code={code} missing={tab === "express" ? "This sample does not decompile to Express." : undefined} />
+                <CodePane
+                  code={code}
+                  missing={
+                    tab === "express"
+                      ? "This sample does not decompile to Express."
+                      : undefined
+                  }
+                />
               ) : null}
             </div>
           </div>
@@ -101,13 +137,19 @@ function CodePane({ code, missing }: { code: Code; missing?: string }) {
       <p className="text-[13px] text-muted-foreground">
         {missing ?? (
           <>
-            Could not extract this entry. See <span className="font-mono text-foreground">{code.file}</span>.
+            Could not extract this entry. See{" "}
+            <span className="font-mono text-foreground">{code.file}</span>.
           </>
         )}
       </p>
     );
   }
-  return <pre className="docs-code" dangerouslySetInnerHTML={{ __html: code.html }} />;
+  return (
+    <pre
+      className="docs-code"
+      dangerouslySetInnerHTML={{ __html: code.html }}
+    />
+  );
 }
 
 function CopyButton({ text }: { text: string }) {

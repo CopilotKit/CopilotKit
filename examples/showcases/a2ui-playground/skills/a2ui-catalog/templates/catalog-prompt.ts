@@ -10,7 +10,11 @@
  * list of ids or a `{componentId,path}` template. Every value may also be a
  * `{"@path"}` binding or a `{"@call"}` function call (A2UI 1.0).
  */
-import { A2UI_CHILD_LIST_MARK, A2UI_COMPONENT_ID_MARK, type GenerativeUIManifest } from "@copilotkit/shared";
+import {
+  A2UI_CHILD_LIST_MARK,
+  A2UI_COMPONENT_ID_MARK,
+  type GenerativeUIManifest,
+} from "@copilotkit/shared";
 import { definitions } from "@/a2ui/catalog/definitions"; // your React-free definitions index (for categories)
 import type { Category } from "@/a2ui/catalog/definitions/shared"; // definitions-shared.ts
 
@@ -25,15 +29,62 @@ const HIDDEN = new Set(["Blueprint"]);
  * prompt (the browser still accepts them).
  */
 const STYLE_PROPS = new Set([
-  "background", "border", "borderColor", "radius", "width", "height", "minWidth", "maxWidth", "minHeight", "maxHeight",
-  "flex", "weight", "aspectRatio", "scrollable", "clip", "shadow", "shadowStyle", "inline", "role", "flush", "minSize", "maxSize",
-  "disableAutoSpacing", "rowGap", "columnGap", "checks", "name", "fontSize", "lineHeight", "minLines", "maxLines", "truncate",
-  "preserveWhitespace", "italic", "underline", "lineThrough", "highlight", "position", "hoverZoom", "frame", "fit", "fallback",
-  "hideOnFailure", "uniform", "pill", "autoSelect", "mask", "padding",
+  "background",
+  "border",
+  "borderColor",
+  "radius",
+  "width",
+  "height",
+  "minWidth",
+  "maxWidth",
+  "minHeight",
+  "maxHeight",
+  "flex",
+  "weight",
+  "aspectRatio",
+  "scrollable",
+  "clip",
+  "shadow",
+  "shadowStyle",
+  "inline",
+  "role",
+  "flush",
+  "minSize",
+  "maxSize",
+  "disableAutoSpacing",
+  "rowGap",
+  "columnGap",
+  "checks",
+  "name",
+  "fontSize",
+  "lineHeight",
+  "minLines",
+  "maxLines",
+  "truncate",
+  "preserveWhitespace",
+  "italic",
+  "underline",
+  "lineThrough",
+  "highlight",
+  "position",
+  "hoverZoom",
+  "frame",
+  "fit",
+  "fallback",
+  "hideOnFailure",
+  "uniform",
+  "pill",
+  "autoSelect",
+  "mask",
+  "padding",
 ]);
 
 /** The first sentence: the standard components' longer usage notes are written for a chat that writes markdown too. */
-const firstSentence = (text: string) => text.replace(/\s+/g, " ").trim().match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text;
+const firstSentence = (text: string) =>
+  text
+    .replace(/\s+/g, " ")
+    .trim()
+    .match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text;
 
 function refMark(s: Schema) {
   const d = typeof s.description === "string" ? s.description : "";
@@ -50,7 +101,8 @@ function sig(s: unknown, depth = 0): string {
   if (Array.isArray(schema.enum)) return schema.enum.map(String).join("|");
   if ("const" in schema) return JSON.stringify(schema.const);
   const union = (schema.anyOf ?? schema.oneOf) as unknown[] | undefined;
-  if (Array.isArray(union)) return union.map((o) => sig(o, depth + 1)).join("|");
+  if (Array.isArray(union))
+    return union.map((o) => sig(o, depth + 1)).join("|");
   const type = Array.isArray(schema.type) ? schema.type[0] : schema.type;
   switch (type) {
     case "string":
@@ -75,27 +127,45 @@ function sig(s: unknown, depth = 0): string {
 
 function fields(schema: Schema, depth = 0, skip?: Set<string>) {
   const props = (schema.properties ?? {}) as Record<string, unknown>;
-  const required = new Set(Array.isArray(schema.required) ? (schema.required as string[]) : []);
+  const required = new Set(
+    Array.isArray(schema.required) ? (schema.required as string[]) : [],
+  );
   return Object.entries(props)
     .filter(([k]) => required.has(k) || !skip?.has(k))
     .map(([k, v]) => `${k}${required.has(k) ? "" : "?"}:${sig(v, depth)}`)
     .join(", ");
 }
 
-function componentLine(name: string, c: GenerativeUIManifest["components"][string], standard: boolean) {
+function componentLine(
+  name: string,
+  c: GenerativeUIManifest["components"][string],
+  standard: boolean,
+) {
   const parts = [fields(c.props, 0, standard ? STYLE_PROPS : undefined)];
-  for (const [slot, kind] of Object.entries(c.slots ?? {})) parts.push(`${slot}?:${kind === "single" ? "#id" : "#ids"}`);
-  for (const event of Object.keys(c.events ?? {})) parts.push(`${event}?:Action`);
+  for (const [slot, kind] of Object.entries(c.slots ?? {}))
+    parts.push(`${slot}?:${kind === "single" ? "#id" : "#ids"}`);
+  for (const event of Object.keys(c.events ?? {}))
+    parts.push(`${event}?:Action`);
   const params = parts.filter(Boolean).join(", ");
-  const text = c.description ? (standard ? firstSentence(c.description) : c.description.replace(/\s+/g, " ").trim()) : "";
+  const text = c.description
+    ? standard
+      ? firstSentence(c.description)
+      : c.description.replace(/\s+/g, " ").trim()
+    : "";
   const description = text ? `: ${text}` : "";
   return `${name}(${params})${description}`;
 }
 
-function functionLine(name: string, f: GenerativeUIManifest["functions"][string]) {
+function functionLine(
+  name: string,
+  f: GenerativeUIManifest["functions"][string],
+) {
   // A built-in function carries its short signature in the description of its parameters.
   const params = f.parameters as Schema;
-  const signature = typeof params.description === "string" ? params.description : `${name}(${fields(params)})`;
+  const signature =
+    typeof params.description === "string"
+      ? params.description
+      : `${name}(${fields(params)})`;
   return `${signature}${f.description ? `: ${f.description.replace(/\s+/g, " ").trim()}` : ""}`;
 }
 
@@ -114,7 +184,9 @@ export function catalogPrompt(manifest: GenerativeUIManifest): string {
   const groups = new Map<string, string[]>();
   for (const [name, c] of Object.entries(manifest.components)) {
     if (HIDDEN.has(name)) continue;
-    const group = own[name] ? `This app: ${own[name].category}` : "Gen UI 2.0 standard";
+    const group = own[name]
+      ? `This app: ${own[name].category}`
+      : "Gen UI 2.0 standard";
     const lines = groups.get(group) ?? [];
     lines.push(componentLine(name, c, !own[name]));
     groups.set(group, lines);

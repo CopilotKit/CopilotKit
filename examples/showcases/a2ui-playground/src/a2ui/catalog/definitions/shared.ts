@@ -17,26 +17,44 @@
  * components and hands the renderer React nodes in place of the ids.
  */
 import type { ReactNode } from "react";
-import { A2UI_CHILD_LIST_MARK, A2UI_COMPONENT_ID_MARK } from "@copilotkit/shared";
+import {
+  A2UI_CHILD_LIST_MARK,
+  A2UI_COMPONENT_ID_MARK,
+} from "@copilotkit/shared";
 import { z } from "zod";
 
 const toNode = (value: unknown) => value as ReactNode;
-const mark = (prefix: string, description?: string) => (description ? `${prefix} ${description}` : prefix);
+const mark = (prefix: string, description?: string) =>
+  description ? `${prefix} ${description}` : prefix;
 
 /** One component id. The renderer receives the rendered child. */
 export function child(description?: string) {
-  return z.string().min(1).describe(mark(A2UI_COMPONENT_ID_MARK, description)).transform(toNode);
+  return z
+    .string()
+    .min(1)
+    .describe(mark(A2UI_COMPONENT_ID_MARK, description))
+    .transform(toNode);
 }
 
 /** Component ids, or a template `{ componentId, path }` repeated per item of a data array. */
 export function childList(description?: string) {
   return z
-    .union([z.array(z.string().min(1)), z.object({ componentId: z.string().min(1), path: z.string().min(1) })])
+    .union([
+      z.array(z.string().min(1)),
+      z.object({ componentId: z.string().min(1), path: z.string().min(1) }),
+    ])
     .describe(mark(A2UI_CHILD_LIST_MARK, description))
     .transform(toNode);
 }
 
-export const tone = z.enum(["default", "positive", "negative", "warning", "info", "accent"]);
+export const tone = z.enum([
+  "default",
+  "positive",
+  "negative",
+  "warning",
+  "info",
+  "accent",
+]);
 export const option = z.object({ value: z.string(), label: z.string() });
 
 export type Category =

@@ -39,7 +39,13 @@ export function SplitView({ usecase = "cafes" }: { usecase?: UseCaseId }) {
             <SlidingTabs tabs={TABS} tab={tab} onChange={setTab} />
           </nav>
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-            {tab === "decision" ? <Decision usecase={usecase} result={result} busy={busy} /> : tab === "stream" ? <Stream state={state} /> : <Json result={result} />}
+            {tab === "decision" ? (
+              <Decision usecase={usecase} result={result} busy={busy} />
+            ) : tab === "stream" ? (
+              <Stream state={state} />
+            ) : (
+              <Json result={result} />
+            )}
           </div>
         </aside>
       </div>

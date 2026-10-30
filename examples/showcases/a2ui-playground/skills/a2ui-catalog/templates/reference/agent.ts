@@ -18,7 +18,10 @@
  */
 import OpenAI from "openai";
 import type { Message, RunAgentInput } from "@ag-ui/client";
-import { envelopeToManifest, readCopilotKitUIEnvelope } from "@copilotkit/shared";
+import {
+  envelopeToManifest,
+  readCopilotKitUIEnvelope,
+} from "@copilotkit/shared";
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { compose, COMPOSER_MODEL, GENERATE_A2UI_TOOL_NAME } from "./composer";
 import { EventQueue, EventType, pipeline, uid } from "./events";
@@ -39,9 +42,17 @@ const GENERATE_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
     parameters: {
       type: "object",
       properties: {
-        brief: { type: "string", description: "One or two sentences: what UI to build and the key facts/data it must show." },
+        brief: {
+          type: "string",
+          description:
+            "One or two sentences: what UI to build and the key facts/data it must show.",
+        },
         intent: { type: "string", enum: ["create", "update"] },
-        target_surface_id: { type: "string", description: "For intent='update': the surface to change. Defaults to the clicked or last surface." },
+        target_surface_id: {
+          type: "string",
+          description:
+            "For intent='update': the surface to change. Defaults to the clicked or last surface.",
+        },
       },
       required: ["brief"],
     },
@@ -65,12 +76,21 @@ The user can also ask to change an existing surface ("make it a bar chart", "add
 /* ───────────────────────── history conversion ───────────────────────── */
 
 /** What a tool result says about the surface it rendered: the agent reads it back to update that surface. */
-type SurfaceResult = { surface: SurfaceRecord; updated?: boolean; template?: string };
+type SurfaceResult = {
+  surface: SurfaceRecord;
+  updated?: boolean;
+  template?: string;
+};
 
 function readSurfaceResult(content: string): SurfaceResult | undefined {
   try {
     const j = JSON.parse(content);
-    if (j?.surface && typeof j.surface.surfaceId === "string" && Array.isArray(j.surface.components)) return j as SurfaceResult;
+    if (
+      j?.surface &&
+      typeof j.surface.surfaceId === "string" &&
+      Array.isArray(j.surface.components)
+    )
+      return j as SurfaceResult;
   } catch {
     /* plain text */
   }
@@ -79,16 +99,24 @@ function readSurfaceResult(content: string): SurfaceResult | undefined {
 
 function summarizeToolContent(content: string) {
   const r = readSurfaceResult(content);
-  if (r) return `${r.updated ? "Updated" : "Rendered"} surface "${r.surface.surfaceId}" with ${r.surface.components.length} components.`;
+  if (r)
+    return `${r.updated ? "Updated" : "Rendered"} surface "${r.surface.surfaceId}" with ${r.surface.components.length} components.`;
   return content.length > 1200 ? `${content.slice(0, 1200)}…` : content;
 }
 
-function toOpenAI(messages: Message[]): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
-  const answered = new Set(messages.filter((m) => m.role === "tool").map((m) => (m as { toolCallId: string }).toolCallId));
+function toOpenAI(
+  messages: Message[],
+): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
+  const answered = new Set(
+    messages
+      .filter((m) => m.role === "tool")
+      .map((m) => (m as { toolCallId: string }).toolCallId),
+  );
   const out: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
   for (const m of messages) {
     if (m.role === "user") {
-      const c = typeof m.content === "string" ? m.content : JSON.stringify(m.content);
+      const c =
+        typeof m.content === "string" ? m.content : JSON.stringify(m.content);
       out.push({ role: "user", content: c });
     } else if (m.role === "assistant") {
       const calls = (m.toolCalls ?? []).filter((c) => answered.has(c.id));
@@ -97,22 +125,49 @@ function toOpenAI(messages: Message[]): OpenAI.Chat.Completions.ChatCompletionMe
       out.push({
         role: "assistant",
         content: text || null,
-        ...(calls.length ? { tool_calls: calls.map((c) => ({ id: c.id, type: "function" as const, function: { name: c.function.name, arguments: c.function.arguments || "{}" } })) } : {}),
+        ...(calls.length
+          ? {
+              tool_calls: calls.map((c) => ({
+                id: c.id,
+                type: "function" as const,
+                function: {
+                  name: c.function.name,
+                  arguments: c.function.arguments || "{}",
+                },
+              })),
+            }
+          : {}),
       });
     } else if (m.role === "tool") {
       const prev = out[out.length - 1];
       if (!prev || prev.role === "user" || prev.role === "system") continue;
-      out.push({ role: "tool", tool_call_id: m.toolCallId, content: summarizeToolContent(String(m.content ?? "")) });
+      out.push({
+        role: "tool",
+        tool_call_id: m.toolCallId,
+        content: summarizeToolContent(String(m.content ?? "")),
+      });
     }
   }
-  return out.slice(-16).filter((m, i, arr) => !(i === 0 && m.role === "tool") || arr.length === 1);
+  return out
+    .slice(-16)
+    .filter((m, i, arr) => !(i === 0 && m.role === "tool") || arr.length === 1);
 }
 
 function conversationText(messages: Message[]) {
   return messages
-    .filter((m) => m.role === "user" || (m.role === "assistant" && typeof m.content === "string" && m.content) || m.role === "tool")
+    .filter(
+      (m) =>
+        m.role === "user" ||
+        (m.role === "assistant" &&
+          typeof m.content === "string" &&
+          m.content) ||
+        m.role === "tool",
+    )
     .slice(-8)
-    .map((m) => `${m.role}: ${m.role === "tool" ? summarizeToolContent(String(m.content ?? "")) : typeof m.content === "string" ? m.content : JSON.stringify(m.content)}`)
+    .map(
+      (m) =>
+        `${m.role}: ${m.role === "tool" ? summarizeToolContent(String(m.content ?? "")) : typeof m.content === "string" ? m.content : JSON.stringify(m.content)}`,
+    )
     .join("\n");
 }
 
@@ -121,12 +176,16 @@ function conversationText(messages: Message[]) {
  * (or of the last surface when no id is given). An update writes to the same
  * surface id, so the card the user is looking at changes in place.
  */
-function findSurface(messages: Message[], surfaceId?: string): SurfaceRecord | undefined {
+function findSurface(
+  messages: Message[],
+  surfaceId?: string,
+): SurfaceRecord | undefined {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
     if (m.role !== "tool") continue;
     const r = readSurfaceResult(String(m.content));
-    if (r && (!surfaceId || r.surface.surfaceId === surfaceId)) return r.surface;
+    if (r && (!surfaceId || r.surface.surfaceId === surfaceId))
+      return r.surface;
   }
   return undefined;
 }
@@ -139,14 +198,31 @@ async function run(input: RunAgentInput, signal: AbortSignal, q: EventQueue) {
   const t0 = performance.now();
   const client = new OpenAI();
   const props = (input.forwardedProps ?? {}) as { mode?: Mode };
-  const mode: Mode = props.mode === "fixed" || props.mode === "dynamic" ? props.mode : "auto";
+  const mode: Mode =
+    props.mode === "fixed" || props.mode === "dynamic" ? props.mode : "auto";
   const envelope = readCopilotKitUIEnvelope(input.forwardedProps);
   const manifest = envelope ? envelopeToManifest(envelope) : undefined;
-  pipeline(q, t0, "run:start", { mode, router: ROUTER_MODEL, composer: COMPOSER_MODEL });
+  pipeline(q, t0, "run:start", {
+    mode,
+    router: ROUTER_MODEL,
+    composer: COMPOSER_MODEL,
+  });
 
-  const tools: ToolSpec[] = mode === "fixed" ? FIXED_TOOLS : mode === "dynamic" ? DATA_TOOLS : [...FIXED_TOOLS, ...DATA_TOOLS];
+  const tools: ToolSpec[] =
+    mode === "fixed"
+      ? FIXED_TOOLS
+      : mode === "dynamic"
+        ? DATA_TOOLS
+        : [...FIXED_TOOLS, ...DATA_TOOLS];
   const toolDefs: OpenAI.Chat.Completions.ChatCompletionTool[] = [
-    ...tools.map((t) => ({ type: "function" as const, function: { name: t.name, description: t.description, parameters: t.parameters } })),
+    ...tools.map((t) => ({
+      type: "function" as const,
+      function: {
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters,
+      },
+    })),
     ...(mode === "fixed" ? [] : [GENERATE_TOOL]),
   ];
 
@@ -158,7 +234,10 @@ async function run(input: RunAgentInput, signal: AbortSignal, q: EventQueue) {
       reasoning_effort: "none",
       parallel_tool_calls: true,
       tools: toolDefs,
-      messages: [{ role: "system", content: routerPrompt(mode) }, ...toOpenAI(input.messages)],
+      messages: [
+        { role: "system", content: routerPrompt(mode) },
+        ...toOpenAI(input.messages),
+      ],
     },
     { signal },
   );
@@ -172,32 +251,64 @@ async function run(input: RunAgentInput, signal: AbortSignal, q: EventQueue) {
     if (d.content) {
       if (!textStarted) {
         textStarted = true;
-        q.push({ type: EventType.TEXT_MESSAGE_START, messageId: parentMessageId, role: "assistant" });
+        q.push({
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: parentMessageId,
+          role: "assistant",
+        });
       }
-      q.push({ type: EventType.TEXT_MESSAGE_CONTENT, messageId: parentMessageId, delta: d.content });
+      q.push({
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: parentMessageId,
+        delta: d.content,
+      });
     }
     for (const tc of d.tool_calls ?? []) {
       let c = calls.get(tc.index);
       if (!c) {
         c = { id: tc.id ?? uid(), name: tc.function?.name ?? "", args: "" };
         calls.set(tc.index, c);
-        pipeline(q, t0, "route:decided", { tool: c.name, kind: c.name === GENERATE_A2UI_TOOL_NAME ? "dynamic" : c.name.startsWith("show_") ? "fixed" : "data" });
-        q.push({ type: EventType.TOOL_CALL_START, toolCallId: c.id, toolCallName: c.name, parentMessageId });
+        pipeline(q, t0, "route:decided", {
+          tool: c.name,
+          kind:
+            c.name === GENERATE_A2UI_TOOL_NAME
+              ? "dynamic"
+              : c.name.startsWith("show_")
+                ? "fixed"
+                : "data",
+        });
+        q.push({
+          type: EventType.TOOL_CALL_START,
+          toolCallId: c.id,
+          toolCallName: c.name,
+          parentMessageId,
+        });
         // Fixed schema: the tree is known now, before any data. Paint its blueprint immediately.
         const tree = TEMPLATE_TREES[c.name];
         if (tree) {
-          new SurfaceStream(q, `${tree.template}-${c.id.slice(-6)}`).create(blueprintOf(tree.components));
-          pipeline(q, t0, "skeleton", { template: tree.template, components: tree.components.length });
+          new SurfaceStream(q, `${tree.template}-${c.id.slice(-6)}`).create(
+            blueprintOf(tree.components),
+          );
+          pipeline(q, t0, "skeleton", {
+            template: tree.template,
+            components: tree.components.length,
+          });
         }
       }
       if (tc.function?.arguments) {
         c.args += tc.function.arguments;
-        q.push({ type: EventType.TOOL_CALL_ARGS, toolCallId: c.id, delta: tc.function.arguments });
+        q.push({
+          type: EventType.TOOL_CALL_ARGS,
+          toolCallId: c.id,
+          delta: tc.function.arguments,
+        });
       }
     }
   }
-  if (textStarted) q.push({ type: EventType.TEXT_MESSAGE_END, messageId: parentMessageId });
-  for (const c of calls.values()) q.push({ type: EventType.TOOL_CALL_END, toolCallId: c.id });
+  if (textStarted)
+    q.push({ type: EventType.TEXT_MESSAGE_END, messageId: parentMessageId });
+  for (const c of calls.values())
+    q.push({ type: EventType.TOOL_CALL_END, toolCallId: c.id });
 
   const parsed = Array.from(calls.values()).map((c) => {
     let args: Record<string, unknown> = {};
@@ -218,34 +329,77 @@ async function run(input: RunAgentInput, signal: AbortSignal, q: EventQueue) {
       const surface = await spec.run!(fixed.parsed);
       pipeline(q, t0, "data:done", { source: surface.source });
       // The skeleton is on screen under this id: the data lands first, so every binding resolves as its component swaps in.
-      const record: SurfaceRecord = { surfaceId: `${surface.template}-${fixed.id.slice(-6)}`, components: surface.components, data: { ...surface.data, _meta: { source: surface.source, template: surface.template } } };
+      const record: SurfaceRecord = {
+        surfaceId: `${surface.template}-${fixed.id.slice(-6)}`,
+        components: surface.components,
+        data: {
+          ...surface.data,
+          _meta: { source: surface.source, template: surface.template },
+        },
+      };
       const stream = new SurfaceStream(q, record.surfaceId);
       stream.data(record.data);
       stream.upsert(...record.components);
       stream.close();
-      q.push({ type: EventType.TOOL_CALL_RESULT, messageId: uid(), toolCallId: fixed.id, role: "tool", content: JSON.stringify({ surface: record, template: surface.template } satisfies SurfaceResult) });
-      pipeline(q, t0, "paint", { components: surface.components.length, progressive: false, template: surface.template });
+      q.push({
+        type: EventType.TOOL_CALL_RESULT,
+        messageId: uid(),
+        toolCallId: fixed.id,
+        role: "tool",
+        content: JSON.stringify({
+          surface: record,
+          template: surface.template,
+        } satisfies SurfaceResult),
+      });
+      pipeline(q, t0, "paint", {
+        components: surface.components.length,
+        progressive: false,
+        template: surface.template,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      q.push({ type: EventType.TOOL_CALL_RESULT, messageId: uid(), toolCallId: fixed.id, role: "tool", content: JSON.stringify({ error: message }) });
+      q.push({
+        type: EventType.TOOL_CALL_RESULT,
+        messageId: uid(),
+        toolCallId: fixed.id,
+        role: "tool",
+        content: JSON.stringify({ error: message }),
+      });
       // The skeleton is already on screen: replace it with the reason instead of leaving empty frames.
       const tree = TEMPLATE_TREES[fixed.name];
       if (tree) {
-        const stream = new SurfaceStream(q, `${tree.template}-${fixed.id.slice(-6)}`);
-        stream.upsert({ id: "root", component: "Alert", tone: "warning", title: "Could not load this", message: `${message}. Try a nearby city or a different wording.` });
+        const stream = new SurfaceStream(
+          q,
+          `${tree.template}-${fixed.id.slice(-6)}`,
+        );
+        stream.upsert({
+          id: "root",
+          component: "Alert",
+          tone: "warning",
+          title: "Could not load this",
+          message: `${message}. Try a nearby city or a different wording.`,
+        });
         stream.close();
       } else sayText(q, `I could not load that: ${message}.`);
       pipeline(q, t0, "error", { message });
     }
     for (const other of parsed.filter((c) => c !== fixed)) {
-      q.push({ type: EventType.TOOL_CALL_RESULT, messageId: uid(), toolCallId: other.id, role: "tool", content: JSON.stringify({ skipped: true }) });
+      q.push({
+        type: EventType.TOOL_CALL_RESULT,
+        messageId: uid(),
+        toolCallId: other.id,
+        role: "tool",
+        content: JSON.stringify({ skipped: true }),
+      });
     }
     pipeline(q, t0, "done");
     return;
   }
 
   // 2) data tools run in parallel; their results feed the composer directly.
-  const dataCalls = parsed.filter((c) => DATA_TOOLS.some((t) => t.name === c.name));
+  const dataCalls = parsed.filter((c) =>
+    DATA_TOOLS.some((t) => t.name === c.name),
+  );
   const fetched: Record<string, unknown> = {};
   if (dataCalls.length) {
     pipeline(q, t0, "data:start", { tools: dataCalls.map((c) => c.name) });
@@ -259,7 +413,13 @@ async function run(input: RunAgentInput, signal: AbortSignal, q: EventQueue) {
           result = { error: err instanceof Error ? err.message : String(err) };
         }
         fetched[`${c.name}:${JSON.stringify(c.parsed)}`] = result;
-        q.push({ type: EventType.TOOL_CALL_RESULT, messageId: uid(), toolCallId: c.id, role: "tool", content: JSON.stringify(result).slice(0, 4000) });
+        q.push({
+          type: EventType.TOOL_CALL_RESULT,
+          messageId: uid(),
+          toolCallId: c.id,
+          role: "tool",
+          content: JSON.stringify(result).slice(0, 4000),
+        });
       }),
     );
     pipeline(q, t0, "data:done", { sources: dataCalls.map((c) => c.name) });
@@ -269,20 +429,52 @@ async function run(input: RunAgentInput, signal: AbortSignal, q: EventQueue) {
   let gen = parsed.find((c) => c.name === GENERATE_A2UI_TOOL_NAME);
   if (!gen && dataCalls.length) {
     // The router fetched data without composing; compose in the same run rather than paying for another router hop.
-    gen = { id: uid(), name: GENERATE_A2UI_TOOL_NAME, args: "", parsed: { brief: "Present the fetched data as a rich UI that answers the user's last request." } };
-    pipeline(q, t0, "route:decided", { tool: gen.name, kind: "dynamic", synthesized: true });
-    q.push({ type: EventType.TOOL_CALL_START, toolCallId: gen.id, toolCallName: gen.name, parentMessageId: uid() });
-    q.push({ type: EventType.TOOL_CALL_ARGS, toolCallId: gen.id, delta: JSON.stringify(gen.parsed) });
+    gen = {
+      id: uid(),
+      name: GENERATE_A2UI_TOOL_NAME,
+      args: "",
+      parsed: {
+        brief:
+          "Present the fetched data as a rich UI that answers the user's last request.",
+      },
+    };
+    pipeline(q, t0, "route:decided", {
+      tool: gen.name,
+      kind: "dynamic",
+      synthesized: true,
+    });
+    q.push({
+      type: EventType.TOOL_CALL_START,
+      toolCallId: gen.id,
+      toolCallName: gen.name,
+      parentMessageId: uid(),
+    });
+    q.push({
+      type: EventType.TOOL_CALL_ARGS,
+      toolCallId: gen.id,
+      delta: JSON.stringify(gen.parsed),
+    });
     q.push({ type: EventType.TOOL_CALL_END, toolCallId: gen.id });
   }
   if (gen) {
     const clicked = manifest?.action?.action.surfaceId;
-    const target = typeof gen.parsed.target_surface_id === "string" ? gen.parsed.target_surface_id : clicked;
-    const prior = gen.parsed.intent === "update" ? findSurface(input.messages, target) ?? findSurface(input.messages) : undefined;
+    const target =
+      typeof gen.parsed.target_surface_id === "string"
+        ? gen.parsed.target_surface_id
+        : clicked;
+    const prior =
+      gen.parsed.intent === "update"
+        ? (findSurface(input.messages, target) ?? findSurface(input.messages))
+        : undefined;
     try {
-      if (!manifest) throw new Error("The request carries no generative UI catalog. Render the chat inside <CopilotKit generativeUI={{ ui }}>.");
+      if (!manifest)
+        throw new Error(
+          "The request carries no generative UI catalog. Render the chat inside <CopilotKit generativeUI={{ ui }}>.",
+        );
       const result = await compose({
-        brief: String(gen.parsed.brief ?? "Build a UI for the user's last request."),
+        brief: String(
+          gen.parsed.brief ?? "Build a UI for the user's last request.",
+        ),
         conversation: conversationText(input.messages),
         data: dataCalls.length ? fetched : undefined,
         prior,
@@ -293,12 +485,36 @@ async function run(input: RunAgentInput, signal: AbortSignal, q: EventQueue) {
         client,
         signal,
       });
-      if (prior) pipeline(q, t0, "paint", { components: result.components.length, progressive: false, updated: prior.surfaceId });
-      const record: SurfaceRecord = { surfaceId: result.surfaceId, components: result.components, data: result.data };
-      q.push({ type: EventType.TOOL_CALL_RESULT, messageId: uid(), toolCallId: gen.id, role: "tool", content: JSON.stringify({ surface: record, updated: !!prior } satisfies SurfaceResult) });
+      if (prior)
+        pipeline(q, t0, "paint", {
+          components: result.components.length,
+          progressive: false,
+          updated: prior.surfaceId,
+        });
+      const record: SurfaceRecord = {
+        surfaceId: result.surfaceId,
+        components: result.components,
+        data: result.data,
+      };
+      q.push({
+        type: EventType.TOOL_CALL_RESULT,
+        messageId: uid(),
+        toolCallId: gen.id,
+        role: "tool",
+        content: JSON.stringify({
+          surface: record,
+          updated: !!prior,
+        } satisfies SurfaceResult),
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      q.push({ type: EventType.TOOL_CALL_RESULT, messageId: uid(), toolCallId: gen.id, role: "tool", content: JSON.stringify({ error: message }) });
+      q.push({
+        type: EventType.TOOL_CALL_RESULT,
+        messageId: uid(),
+        toolCallId: gen.id,
+        role: "tool",
+        content: JSON.stringify({ error: message }),
+      });
       pipeline(q, t0, "error", { message });
     }
   }
@@ -307,7 +523,11 @@ async function run(input: RunAgentInput, signal: AbortSignal, q: EventQueue) {
 
 function sayText(q: EventQueue, text: string) {
   const id = uid();
-  q.push({ type: EventType.TEXT_MESSAGE_START, messageId: id, role: "assistant" });
+  q.push({
+    type: EventType.TEXT_MESSAGE_START,
+    messageId: id,
+    role: "assistant",
+  });
   q.push({ type: EventType.TEXT_MESSAGE_CONTENT, messageId: id, delta: text });
   q.push({ type: EventType.TEXT_MESSAGE_END, messageId: id });
 }
@@ -319,7 +539,10 @@ export function createPlaygroundAgent() {
       const q = new EventQueue();
       run(input, abortSignal, q)
         .catch((err) => {
-          sayText(q, `Something went wrong: ${err instanceof Error ? err.message : String(err)}`);
+          sayText(
+            q,
+            `Something went wrong: ${err instanceof Error ? err.message : String(err)}`,
+          );
         })
         .finally(() => q.close());
       return q;

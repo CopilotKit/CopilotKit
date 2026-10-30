@@ -16,5 +16,7 @@ for (const format of ["express", "json"] as SkillFormat[]) {
     mkdirSync(dirname(join(dir, path)), { recursive: true });
     writeFileSync(join(dir, path), text);
   }
-  console.log(`${format}: ${Object.keys(files).join(", ")} -> skills/generated/${format}`);
+  console.log(
+    `${format}: ${Object.keys(files).join(", ")} -> skills/generated/${format}`,
+  );
 }

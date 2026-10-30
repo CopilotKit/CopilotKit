@@ -93,16 +93,31 @@ export const TILE_LAYOUT: Record<Category, Array<[ComponentName, TileSize]>> = {
 };
 
 /** Preview render scale per tile size: the component lays out at tileWidth / scale, then shrinks. */
-export const TILE_SCALE: Record<TileSize, number> = { s: 0.8, w: 0.86, t: 0.8, l: 0.9 };
+export const TILE_SCALE: Record<TileSize, number> = {
+  s: 0.8,
+  w: 0.86,
+  t: 0.8,
+  l: 0.9,
+};
 
 /** Per-component starting scale where the size default leaves the tile looking empty. */
-export const SCALE_OVERRIDE: Partial<Record<ComponentName, number>> = { CandlestickChart: 1.08, Kbd: 1 };
+export const SCALE_OVERRIDE: Partial<Record<ComponentName, number>> = {
+  CandlestickChart: 1.08,
+  Kbd: 1,
+};
 
 /** Smallest scale a tile may shrink to while trying to fit its whole component. */
-export const TILE_FLOOR: Record<TileSize, number> = { s: 0.5, w: 0.62, t: 0.6, l: 0.7 };
+export const TILE_FLOOR: Record<TileSize, number> = {
+  s: 0.5,
+  w: 0.62,
+  t: 0.6,
+  l: 0.7,
+};
 
 /** Per-component floor where clipping would hide part of the component (a treemap's bottom row of cells). */
-export const FLOOR_OVERRIDE: Partial<Record<ComponentName, number>> = { Treemap: 0.5 };
+export const FLOOR_OVERRIDE: Partial<Record<ComponentName, number>> = {
+  Treemap: 0.5,
+};
 
 /** Row height (px) of one bento row, per category. Charts are taller by nature. */
 export const ROW_HEIGHT: Partial<Record<Category, number>> = { Charts: 280 };
@@ -110,6 +125,31 @@ export const DEFAULT_ROW_HEIGHT = 232;
 
 /** Components that keep their intrinsic width on the detail stage instead of stretching (the playground's, then standard ones). */
 export const INTRINSIC = new Set<string>([
-  "Kbd", "Avatar", "AvatarGroup", "Rating", "ButtonGroup", "TagList", "RadialProgress", "Gauge", "Switch",
-  "Badge", "Bold", "Italic", "Underline", "Strikethrough", "Label", "Caption", "Link", "ShimmerText", "Icon", "Svg", "Button", "PulseIndicator", "Tooltip", "Popover", "PopoverTrigger", "PopoverContent", "Modal",
+  "Kbd",
+  "Avatar",
+  "AvatarGroup",
+  "Rating",
+  "ButtonGroup",
+  "TagList",
+  "RadialProgress",
+  "Gauge",
+  "Switch",
+  "Badge",
+  "Bold",
+  "Italic",
+  "Underline",
+  "Strikethrough",
+  "Label",
+  "Caption",
+  "Link",
+  "ShimmerText",
+  "Icon",
+  "Svg",
+  "Button",
+  "PulseIndicator",
+  "Tooltip",
+  "Popover",
+  "PopoverTrigger",
+  "PopoverContent",
+  "Modal",
 ]);

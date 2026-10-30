@@ -11,21 +11,54 @@ import { SurfaceStream, type Node } from "@/agent/surface";
 import { runJev } from "./decide.server";
 import type { UseCaseId } from "./usecases";
 
-async function run(input: RunAgentInput, signal: AbortSignal | undefined, q: EventQueue) {
-  const props = (input.forwardedProps ?? {}) as { fixture?: boolean; usecase?: UseCaseId };
+async function run(
+  input: RunAgentInput,
+  signal: AbortSignal | undefined,
+  q: EventQueue,
+) {
+  const props = (input.forwardedProps ?? {}) as {
+    fixture?: boolean;
+    usecase?: UseCaseId;
+  };
   const last = [...input.messages].reverse().find((m) => m.role === "user");
   const prompt = typeof last?.content === "string" ? last.content : "";
-  const r = await runJev({ usecase: props.usecase ?? "cafes", prompt, fixture: !!props.fixture, signal });
+  const r = await runJev({
+    usecase: props.usecase ?? "cafes",
+    prompt,
+    fixture: !!props.fixture,
+    signal,
+  });
   if ("notice" in r) {
-    q.push({ type: EventType.CUSTOM, name: "jev.notice", value: { message: r.notice, places: r.places } });
+    q.push({
+      type: EventType.CUSTOM,
+      name: "jev.notice",
+      value: { message: r.notice, places: r.places },
+    });
     return;
   }
   q.push({
     type: EventType.CUSTOM,
     name: "jev.decision",
-    value: { jevMs: r.jevMs, places: r.places, source: r.source, model: r.model, layout: r.layout, layoutProbabilities: r.layoutProbabilities, ranked: r.ranked, questionCount: r.questionCount },
+    value: {
+      jevMs: r.jevMs,
+      places: r.places,
+      source: r.source,
+      model: r.model,
+      layout: r.layout,
+      layoutProbabilities: r.layoutProbabilities,
+      ranked: r.ranked,
+      questionCount: r.questionCount,
+    },
   });
-  const create = (r.ops[0] as { createSurface: { surfaceId: string; components: Node[]; dataModel: Record<string, unknown> } }).createSurface;
+  const create = (
+    r.ops[0] as {
+      createSurface: {
+        surfaceId: string;
+        components: Node[];
+        dataModel: Record<string, unknown>;
+      };
+    }
+  ).createSurface;
   const stream = new SurfaceStream(q, create.surfaceId);
   stream.create(create.components, create.dataModel);
   stream.close();
@@ -40,8 +73,14 @@ export function createJevChatAgent() {
         .catch((err) => {
           const raw = err instanceof Error ? err.message : String(err);
           console.error("[jev-chat]", raw);
-          const message = /free tier/i.test(raw) ? "Jev needs paid AI Gateway credits on this team" : raw.split(/(?<=\.)\s/)[0].slice(0, 110);
-          q.push({ type: EventType.CUSTOM, name: "jev.error", value: { message } });
+          const message = /free tier/i.test(raw)
+            ? "Jev needs paid AI Gateway credits on this team"
+            : raw.split(/(?<=\.)\s/)[0].slice(0, 110);
+          q.push({
+            type: EventType.CUSTOM,
+            name: "jev.error",
+            value: { message },
+          });
         })
         .finally(() => q.close());
       return q;

@@ -15,9 +15,14 @@ import { isComponentName } from "./catalog-index";
  * did, the playground's component would keep /components/<Name> and the
  * standard one would drop out of this list.
  */
-const components = catalog.components as Record<string, { description?: string }>;
+const components = catalog.components as Record<
+  string,
+  { description?: string }
+>;
 
-export const STANDARD_NAMES: string[] = Object.keys(components).filter((n) => !isComponentName(n));
+export const STANDARD_NAMES: string[] = Object.keys(components).filter(
+  (n) => !isComponentName(n),
+);
 
 const STANDARD = new Set(STANDARD_NAMES);
 
@@ -30,4 +35,5 @@ export function standardDescription(n: string): string {
 }
 
 /** CopilotKit's reference page for the standard components. */
-export const STANDARD_DOCS_URL = "https://docs.copilotkit.ai/generative-ui/components/standard-catalog";
+export const STANDARD_DOCS_URL =
+  "https://docs.copilotkit.ai/generative-ui/components/standard-catalog";

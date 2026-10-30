@@ -188,6 +188,7 @@ Density is that of a developer tool, not a landing page. Text sits at 12.5 to 15
 The workbench sits inside the existing CopilotKit x A2UI site chrome (pure black header, CopilotKit kite and wordmark beside the A2UI mark) and shares the catalog renderers' tokens, so a component drawn in the conversation is the same component the docs and chat show.
 
 **Key Characteristics:**
+
 - Near-black cool-neutral grounds (hue 285, chroma under 0.006) layered by lightness, not by shadow.
 - 7.5% white hairlines as the main structural device.
 - Geist for everything human, Geist Mono for everything the machine wrote or measured.
@@ -201,18 +202,22 @@ The workbench sits inside the existing CopilotKit x A2UI site chrome (pure black
 A cool graphite ramp with four signal hues, each bound to one meaning.
 
 ### Primary
+
 - **Live Violet** (live-violet): what is happening now. The writing caret, the pulsing dot beside a surface still being written, the prompt box focus border and 3px glow, every keyboard focus ring (at 65%), and text selection (at 32%). Inside generated surfaces it is also the catalog accent (links, the first chart series). **Violet Ink** (violet-ink) is the text colour on solid violet.
 
 ### Secondary
+
 - **Link Blue** (link-blue): the line and the component it drew, shown together. The 2px outline around the hovered or pinned component in the conversation, the "line n" pill tag on that outline, the inset left bar and number colour of the active Express line, and its 12% wash (18% when pinned). **Link Blue Ink** (link-blue-ink) is the tag's text.
 
 ### Tertiary
+
 - **Macro Amber** (macro-amber): the `macro` tag on suggestions and the divider rule inside the line list (its hairlines at 30%).
 - **Template Green** (template-green): the `template` tag on suggestions, and fixed-layout keys in JSON.
 - **Fault Red** (fault-red): failed runs only. The failed meta text beside a surface, and the error notice (35% border, 8% wash).
 - **Surface Positive / Negative** (surface-positive, surface-negative): up and down values inside generated components (deltas, trends). Never chrome.
 
 ### Neutral
+
 - **Header Black** (header-black): the site header bar only.
 - **Page Ground** (page-ground): the app background and the text on the white Build button.
 - **Workbench Ground** (workbench-ground): the workbench columns and the floor under each surface's dot grid.
@@ -225,6 +230,7 @@ A cool graphite ramp with four signal hues, each bound to one meaning.
 - **Ink** (ink): primary text and the Build button fill. **Ink Dim** (ink-dim): secondary chrome text, unselected suggestions and surface chips, footers. **Ink Muted** (ink-muted): secondary text inside generated surfaces and the `.a2-label` context line. **Line Number** (line-number): Express line numbers. **Ink Faint** (ink-faint): JSON editor gutter numbers.
 
 ### Named Rules
+
 **The Live-Only Violet Rule.** In the workbench chrome, violet means "in progress" or "keyboard focus" and nothing else. A static, finished, or merely important thing is never violet; the primary Build action is white.
 
 **The One Link Colour Rule.** Blue appears only on the pair being linked, line and component, at the same moment. It is never used for navigation, buttons, or emphasis.
@@ -238,6 +244,7 @@ A cool graphite ramp with four signal hues, each bound to one meaning.
 **Character:** One grotesque for people, its mono sibling for the machine. Anything the model wrote, anything counted (line numbers, character counts, timings, model and format meta, the "line n" tag, generation frame captions) is Geist Mono; everything addressed to the visitor is Geist.
 
 ### Hierarchy
+
 - **Display** (600, 32px, 1.08, -0.025em): the one-line h1 at the top of the conversation ("Watch an agent write UI."). Steps down to 28px under 1280px and 25px on phones.
 - **Headline** (600, 24px, tight): level 1 headings inside generated surfaces.
 - **Title** (600, 19px): level 2 headings inside surfaces. **Title Small** (600, 15 to 15.5px) for level 3 headings and Section titles.
@@ -249,6 +256,7 @@ A cool graphite ramp with four signal hues, each bound to one meaning.
 - **Mono Meta** (Geist Mono, 11 to 12.5px): tags, surface chips and their meta, column-head status, line-list footer.
 
 ### Named Rules
+
 **The Machine Is Mono Rule.** If the model wrote it or a counter produced it, it is Geist Mono. If it speaks to the visitor, it is Geist.
 
 **The Context After Title Rule.** A heading's context (its eyebrow) sits after the title on the same baseline as a muted, sentence-case `.a2-label` at 12.5px/500, wrapping below only when the line is full. It is never a tracked uppercase kicker above the title.
@@ -270,12 +278,14 @@ Site pages outside the workbench use a 1400px container with 24px side padding (
 Depth is tonal. Grounds step up in lightness (page 0.135, workbench 0.145, well 0.158, card 0.172, panel 0.175, raised 0.215) and hairlines do the separating. Shadows are rare and soft, and always paired with a meaning: the card's inner top highlight, the link outline's blue glow, the prompt's violet focus glow.
 
 ### Shadow Vocabulary
+
 - **Card bevel** (`box-shadow: inset 0 1px 0 oklch(1 0 0 / 4%), 0 1px 2px oklch(0 0 0 / 30%)`, plus a 2.2% white top gradient fading by 40%): every boxed component in a generated surface.
 - **Link glow** (`box-shadow: 0 6px 24px -8px oklch(0.79 0.1 232 / 35%)`): the blue outline around a linked component.
 - **Focus glow** (`box-shadow: 0 0 0 3px oklch(0.72 0.17 292 / 16%)`): the prompt box on keyboard focus.
 - **Floating composer** (`box-shadow: 0 10px 30px -12px oklch(0 0 0 / 60%)`): the chat input on the chat surfaces.
 
 ### Named Rules
+
 **The Hairline Before Shadow Rule.** Separate with a 7.5% hairline or a lightness step first. A shadow is added only when it says something (state, linkage, focus), and never as a hard offset.
 
 ## Shapes
@@ -295,6 +305,7 @@ One loader language, taken from the transitions.dev UI generation runtime (vendo
 - **Reduced motion:** frames stand still, fully drawn; a landing component fades in over 200ms; the runtime fades the whole UI in instead of drawing it.
 
 ### Named Rules
+
 **The One Loader Rule.** Only one loader language is ever on screen: the dotted drawing. A UI that arrives whole gets the whole drawing; a UI that streams gets its frames and scan reveals and never the drawing on top of them. No shimmer text, no dashed or violet placeholder boxes, no skeleton pulse in the conversation.
 
 **The Runtime's Numbers Rule.** Anything that imitates the runtime takes its values from ui-generation.js (dot size and gap, flow speed, field pitch, phase durations and curves), named as tokens in motion.css. The vendored runtime itself is never edited.
@@ -302,6 +313,7 @@ One loader language, taken from the transitions.dev UI generation runtime (vendo
 ## Components
 
 ### Buttons
+
 - **Shape:** gently rounded (9px); 36px tall.
 - **Primary (Build it):** solid Ink fill with Page Ground text, 14px/600, 14px side padding, trailing up-arrow icon. Hover drops to 90% opacity.
 - **Stop:** replaces Build while a run goes. Raised Graphite fill, strong hairline border, Ink text, small filled square icon; hover lightens the fill.
@@ -309,11 +321,13 @@ One loader language, taken from the transitions.dev UI generation runtime (vendo
 - **Focus:** every button shows a 2px Live Violet ring at 65%, offset 2px.
 
 ### Chips
+
 - **Suggestion chips:** above the prompt box until the visitor has asked something. Hairline-bordered, 9px radius, Ink Dim at 13px; hover strengthens the border, adds a 2.5% white wash, and lifts the text to Ink. A trailing mono 11px tag reads `macro` (Macro Amber) or `template` (Template Green). They wrap to at most two rows (the prompts that would start a third are hidden and leave the tab order), never scroll sideways, and on phones they are pills.
 - **Surface chip:** a 28px pill above each surface in the conversation with a code icon and "Express · n lines" in mono 12px, counting up as the model writes. It selects the surface (the writes pane shows its lines; on a phone it opens them). Selected: Raised Graphite and Ink with a strong hairline, and the surface's floor takes the strong hairline too. Mono meta trails it: the model, `template`, and a status (while the run goes, a pulsing violet dot and its latest step, such as "Writing A2UI Express"; after, "stopped", or "failed" in Fault Red). Before a run has a surface the row carries the status alone, and the chip joins it when the surface arrives.
 - **Prompt bubble:** right-aligned, up to 80% of the measure, Panel Graphite with a hairline border, 14px radius, 14.5px text.
 
 ### Cards / Containers
+
 - **Corner Style:** 14px.
 - **Background:** Card Graphite under a faint top-lit gradient.
 - **Shadow Strategy:** the card bevel (see Elevation & Depth).
@@ -321,29 +335,36 @@ One loader language, taken from the transitions.dev UI generation runtime (vendo
 - **Wells inside cards:** 3% white fill, hairline border, 10px radius, for rows, chips and mini panels.
 
 ### Inputs / Fields
+
 - **Prompt box:** the composer, pinned under the conversation. Well Graphite, strong hairline border, 14px radius, with the floating composer shadow; the textarea (two rows, growing with its text) sits above a row of the model and format selects and Build or Stop. 15.5px text (16px on phones), Ink Dim placeholder. Hover raises the border to 20% white; keyboard focus turns the border Live Violet with the 3px violet glow. What scrolls behind it fades out over 24px.
 - **Select triggers (model, format):** 32px, transparent, strong hairline border, 13px Ink Dim text, 8px radius.
 
 ### Navigation
+
 - **Site header:** pure black, 64px, sticky, hairline below. Lockup on the left (CopilotKit kite and wordmark, a light divider, the A2UI mark and 21px/600 "A2UI"), then 15px/500 nav links in Ink Muted that turn Ink on hover and when current. Under 960px the links move into a right-hand drawer (320px, workbench ground, hairline left edge).
 - **Column tabs (Express, JSON, Run):** the sliding-pill tabs at 28px tall, on a 4% white track.
 - **Phone lines view:** the writes pane over the conversation, entering with a 200ms 10px rise; its head leads with a "Chat" back button and a hairline divider.
 
 ### Column Head (signature)
+
 The 52px bar that opens the writes pane: "<model> writes" at 14px/600 ("From a template" when a template drew the surface and its lines are decompiled), and on the right a mono 12px status ("A2UI Express · n lines", the line count alone under 1280px).
 
 ### Express Line List (signature)
+
 Numbered lines in Geist Mono 13px/1.75: a 2.25rem right-aligned tabular line-number column, a 0.75rem gap, then the statement with a 2ch hanging indent. Each line arrives with a 220ms 3px rise and fade. A blinking 8x15px violet block caret marks where the model is writing. Lines carrying bulk data clamp to three rows until pinned. Hover or focus activates a line (blue wash, inset 2px blue bar, blue number); click or Enter pins it. A mono footer reports the size against JSON.
 
 ### Surface Floor and Link Outline (signature)
+
 Each surface in the conversation stands on a floor: Workbench Ground with an 18px dot grid, a hairline border (strong when selected), 14px radius, 20px padding (14px on phones). Hovering a line draws a 2px Link Blue outline, 14px radius, 4px outside the component it painted in the selected surface, with a "line n" pill tag riding its top edge; the conversation scrolls to it if needed, and the outline follows the component as it moves (140ms). Hovering a component of the selected surface lights its line in return. While nothing has drawn yet, the floor holds one generation frame, at least 132px tall; it stays mounted as the surface arrives, so the first frame replaces it in place. A turn that changed an earlier surface in place says so in one line, with "Show it".
 
 ### Generation Frame (signature)
+
 A component still being written is a generation frame: the transitions.dev outline traced in round flowing dots over a faint dot field, captioned with the name the model has written so far. When its component lands, the frame gives way to it and the component scans in from the top, as the runtime reveals a whole UI. The playground's own paint-in (a labelled frame, then the real component) is kept, drawn entirely in the runtime's vocabulary; see Motion.
 
 ## Do's and Don'ts
 
 ### Do:
+
 - **Do** keep chrome neutral graphite and let colour carry state: violet for live, blue for linked, amber for macro, green for template, red for failure.
 - **Do** separate columns and panels with 7.5% white hairlines and lightness steps before reaching for a shadow.
 - **Do** set anything the model wrote or a counter produced in Geist Mono, and everything addressed to the visitor in Geist.
@@ -353,6 +374,7 @@ A component still being written is a generation frame: the transitions.dev outli
 - **Do** honour reduced motion: line arrival, caret blink, pulse and outline transitions all switch off; generation frames stand still and landing components fade plainly.
 
 ### Don't:
+
 - **Don't** make the primary action violet; Build is white on near-black.
 - **Don't** use Link Blue for anything other than the line and component currently paired.
 - **Don't** set a heading's context as a tracked uppercase kicker above the title.

@@ -26,11 +26,27 @@ export const inputsSamples: Partial<Record<ComponentName, Sample>> = {
     data: { form: { timezone: "Asia/Kolkata" } },
   },
   Switch: {
-    components: [{ id: "root", component: "Switch", label: "Auto-approve small refunds", value: { "@path": "/form/autoRefund" }, description: "Refunds under $50 skip the review queue." }],
+    components: [
+      {
+        id: "root",
+        component: "Switch",
+        label: "Auto-approve small refunds",
+        value: { "@path": "/form/autoRefund" },
+        description: "Refunds under $50 skip the review queue.",
+      },
+    ],
     data: { form: { autoRefund: false } },
   },
   DatePicker: {
-    components: [{ id: "root", component: "DatePicker", label: "Launch date", value: { "@path": "/form/launch" }, placeholder: "Pick a date" }],
+    components: [
+      {
+        id: "root",
+        component: "DatePicker",
+        label: "Launch date",
+        value: { "@path": "/form/launch" },
+        placeholder: "Pick a date",
+      },
+    ],
     data: { form: { launch: "2026-11-12" } },
   },
   ButtonGroup: {

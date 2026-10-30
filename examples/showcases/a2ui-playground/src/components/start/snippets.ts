@@ -6,7 +6,8 @@
 
 import { REPO_DIR, REPO_URL } from "./links";
 
-export const INSTALL = "npm i @copilotkit/react-core@1.83.0 @copilotkit/runtime@1.83.0 zod@3.25.76";
+export const INSTALL =
+  "npm i @copilotkit/react-core@1.83.0 @copilotkit/runtime@1.83.0 zod@3.25.76";
 
 export const CATALOG = `"use client";
 import { createGenerativeUI, standardUI } from "@copilotkit/react-core/v2/generative-ui";

@@ -11,7 +11,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * state: the control stays editable either way, and data-model updates from
  * the agent still flow in.
  */
-export function useBound<T>(value: T | undefined, setValue: ((v: T) => void) | undefined, fallback: T) {
+export function useBound<T>(
+  value: T | undefined,
+  setValue: ((v: T) => void) | undefined,
+  fallback: T,
+) {
   const [local, setLocal] = useState<T>(value ?? fallback);
   const last = useRef(value);
   useEffect(() => {

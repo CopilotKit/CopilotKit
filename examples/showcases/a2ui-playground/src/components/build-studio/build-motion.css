@@ -48,7 +48,9 @@
 
 /* recipe / slot placeholder (transitions.dev skeleton loader) */
 /* A component id arrived, its props are still streaming: the slot pulses. */
-.bs-canvas .a2-node { display: contents; }
+.bs-canvas .a2-node {
+  display: contents;
+}
 .bs-canvas .a2-blueprint {
   width: 100%;
   min-height: 28px;
@@ -56,17 +58,33 @@
   background: color-mix(in oklch, var(--gen-strong) 10%, transparent);
   animation: bs-skel-pulse var(--pulse-dur) ease-in-out infinite;
 }
-@keyframes bs-skel-pulse { 0%, 100% { opacity: 1; } 50% { opacity: var(--pulse-min); } }
+@keyframes bs-skel-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: var(--pulse-min);
+  }
+}
 
 /* recipe / skeleton reveal (transitions.dev) */
 /* The real component replaces its frame: fade in, un-blur. */
 .bs-canvas .a2-node > :not(.a2-blueprint):not(.a2-node) {
   animation: bs-skel-reveal var(--reveal-dur) var(--reveal-ease) both;
 }
-.bs-canvas .a2-node > .a2-node > :not(.a2-blueprint) { animation: none; }
+.bs-canvas .a2-node > .a2-node > :not(.a2-blueprint) {
+  animation: none;
+}
 @keyframes bs-skel-reveal {
-  from { opacity: 0; filter: blur(var(--reveal-blur)); }
-  to { opacity: 1; filter: blur(0); }
+  from {
+    opacity: 0;
+    filter: blur(var(--reveal-blur));
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
 }
 
 /* recipe / panel reveal (transitions.dev) */
@@ -75,21 +93,42 @@
   animation: bs-panel-in var(--panel-open-dur) var(--panel-ease) both;
 }
 @keyframes bs-panel-in {
-  from { transform: translateY(var(--panel-translate-y)); opacity: 0; filter: blur(var(--panel-blur)); }
-  to { transform: translateY(0); opacity: 1; filter: blur(0); }
+  from {
+    transform: translateY(var(--panel-translate-y));
+    opacity: 0;
+    filter: blur(var(--panel-blur));
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+    filter: blur(0);
+  }
 }
 
 /* recipe / number pop-in (transitions.dev) */
 @keyframes t-digit-pop-in {
   0% {
-    transform: translate(calc(var(--digit-distance) * var(--digit-dir-x)), calc(var(--digit-distance) * var(--digit-dir-y)));
+    transform: translate(
+      calc(var(--digit-distance) * var(--digit-dir-x)),
+      calc(var(--digit-distance) * var(--digit-dir-y))
+    );
     opacity: 0;
     filter: blur(var(--digit-blur));
   }
-  100% { transform: translate(0, 0); opacity: 1; filter: blur(0); }
+  100% {
+    transform: translate(0, 0);
+    opacity: 1;
+    filter: blur(0);
+  }
 }
-.bs-canvas .t-digit-group { display: inline-flex; align-items: baseline; }
-.bs-canvas .t-digit { display: inline-block; will-change: transform, opacity, filter; }
+.bs-canvas .t-digit-group {
+  display: inline-flex;
+  align-items: baseline;
+}
+.bs-canvas .t-digit {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+}
 .bs-canvas .t-digit-group.is-animating .t-digit {
   animation: t-digit-pop-in var(--digit-dur) var(--digit-ease) both;
   animation-delay: calc(var(--i, 0) * var(--digit-stagger));
@@ -99,22 +138,55 @@
 .bs-canvas .t-stream-w {
   opacity: 0;
   filter: blur(var(--stream-blur));
-  transition: opacity var(--stream-fade) var(--stream-ease), filter var(--stream-fade) var(--stream-ease);
+  transition:
+    opacity var(--stream-fade) var(--stream-ease),
+    filter var(--stream-fade) var(--stream-ease);
   transition-delay: calc(var(--i, 0) * var(--stream-gap));
 }
-.bs-canvas .t-stream-w.is-in { opacity: 1; filter: blur(0); }
+.bs-canvas .t-stream-w.is-in {
+  opacity: 1;
+  filter: blur(0);
+}
 
 /* recipe / chart grow */
 /* Chart marks grow in from the left edge of the plot. */
-.bs-canvas .a2-chart svg { animation: bs-chart-grow var(--chart-grow-dur) var(--ease-smooth-out) both; }
-@keyframes bs-chart-grow { from { clip-path: inset(0 100% 0 0); opacity: 0.4; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+.bs-canvas .a2-chart svg {
+  animation: bs-chart-grow var(--chart-grow-dur) var(--ease-smooth-out) both;
+}
+@keyframes bs-chart-grow {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0.4;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
 
 /* recipe / pin drop */
-.bs-canvas .a2-pin-drop { animation: bs-pin-drop var(--pin-drop-dur) var(--digit-ease) both; animation-delay: calc(var(--i, 0) * var(--pin-stagger)); }
-@keyframes bs-pin-drop { from { opacity: 0; transform: translateY(calc(var(--pin-drop-distance) * -1)); } to { opacity: 1; transform: none; } }
+.bs-canvas .a2-pin-drop {
+  animation: bs-pin-drop var(--pin-drop-dur) var(--digit-ease) both;
+  animation-delay: calc(var(--i, 0) * var(--pin-stagger));
+}
+@keyframes bs-pin-drop {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--pin-drop-distance) * -1));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 
 /* recipe / matrix dot loader (transitions.dev) */
-.bs-root .t-matrix { display: grid; grid-template-columns: repeat(4, 4px); grid-auto-rows: 4px; gap: 3px; }
+.bs-root .t-matrix {
+  display: grid;
+  grid-template-columns: repeat(4, 4px);
+  grid-auto-rows: 4px;
+  gap: 3px;
+}
 .bs-root .t-matrix i {
   display: block;
   background: var(--matrix-base);
@@ -122,12 +194,29 @@
   animation-delay: calc(var(--d, 0) * 1ms);
 }
 @keyframes t-matrix-pulse {
-  0%, 45%, 100% { background-color: var(--matrix-base); }
-  15% { background-color: var(--matrix-active); }
+  0%,
+  45%,
+  100% {
+    background-color: var(--matrix-base);
+  }
+  15% {
+    background-color: var(--matrix-active);
+  }
 }
 
 /* recipe / reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .bs-canvas .a2-blueprint, .bs-canvas .a2-node > *, .bs-canvas .t-digit, .bs-canvas .a2-chart svg, .bs-canvas .a2-pin-drop, .bs-root .t-matrix i { animation: none !important; }
-  .bs-canvas .t-stream-w { transition: none !important; filter: none !important; opacity: 1 !important; }
+  .bs-canvas .a2-blueprint,
+  .bs-canvas .a2-node > *,
+  .bs-canvas .t-digit,
+  .bs-canvas .a2-chart svg,
+  .bs-canvas .a2-pin-drop,
+  .bs-root .t-matrix i {
+    animation: none !important;
+  }
+  .bs-canvas .t-stream-w {
+    transition: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+  }
 }

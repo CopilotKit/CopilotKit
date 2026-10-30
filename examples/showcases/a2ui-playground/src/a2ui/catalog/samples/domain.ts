@@ -1,7 +1,9 @@
 import type { Sample } from "./types";
 import type { ComponentName } from "../definitions";
 
-const ev = (name: string, context?: Record<string, unknown>) => ({ event: { name, ...(context ? { context } : {}) } });
+const ev = (name: string, context?: Record<string, unknown>) => ({
+  event: { name, ...(context ? { context } : {}) },
+});
 
 export const domainSamples: Partial<Record<ComponentName, Sample>> = {
   WeatherCard: {
@@ -73,7 +75,12 @@ export const domainSamples: Partial<Record<ComponentName, Sample>> = {
         currency: "USD",
         items: [
           { name: "Dot grid notebook, A5", qty: 2, price: 18 },
-          { name: "Brass fountain pen", qty: 1, price: 64, note: "Fine nib, engraved" },
+          {
+            name: "Brass fountain pen",
+            qty: 1,
+            price: 64,
+            note: "Fine nib, engraved",
+          },
           { name: "Ink cartridges, blue black", qty: 3, price: 6.5 },
         ],
         shipping: 0,
@@ -93,8 +100,10 @@ export const domainSamples: Partial<Record<ComponentName, Sample>> = {
         time: "6:30 PM to 9:00 PM",
         venue: "The Foundry, 512 Market St, San Francisco",
         host: "Bay Area AI Builders",
-        image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=900&q=80&auto=format&fit=crop",
-        description: "Three short talks on streaming UI from agents, then demos and open floor.",
+        image:
+          "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=900&q=80&auto=format&fit=crop",
+        description:
+          "Three short talks on streaming UI from agents, then demos and open floor.",
         attendees: 148,
         tags: ["In person", "Free", "Talks"],
         actionLabel: "RSVP",
@@ -114,7 +123,10 @@ export const domainSamples: Partial<Record<ComponentName, Sample>> = {
         changePct: 1.79,
         currency: "USD",
         sample: true,
-        series: [176.2, 177.1, 176.4, 178.3, 177.9, 179.6, 179.1, 180.4, 179.8, 181.2, 180.6, 181.9, 182.8, 182.1, 182.47],
+        series: [
+          176.2, 177.1, 176.4, 178.3, 177.9, 179.6, 179.1, 180.4, 179.8, 181.2,
+          180.6, 181.9, 182.8, 182.1, 182.47,
+        ],
         stats: [
           { label: "Open", value: "179.40" },
           { label: "High", value: "183.12" },
@@ -133,7 +145,8 @@ export const domainSamples: Partial<Record<ComponentName, Sample>> = {
         id: "root",
         component: "RecipeCard",
         title: "Basil pesto farfalle with blistered tomatoes",
-        image: "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=1000&q=80&auto=format&fit=crop",
+        image:
+          "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=1000&q=80&auto=format&fit=crop",
         time: "25 min",
         servings: 2,
         difficulty: "Easy",

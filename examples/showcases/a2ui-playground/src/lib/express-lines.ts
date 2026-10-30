@@ -40,7 +40,10 @@ export function splitStatements(text: string): string[] {
 }
 
 /** The component id an Express statement defines (`kpis = Grid(...)`), or the `id` of a component written as JSON. */
-export function lineId(text: string, format: "express" | "json" = "express"): string | undefined {
+export function lineId(
+  text: string,
+  format: "express" | "json" = "express",
+): string | undefined {
   if (format === "json") {
     try {
       const id = (JSON.parse(text) as { id?: unknown }).id;
@@ -65,11 +68,19 @@ export function identifierRenames(ids: Iterable<string>): Map<string, string> {
   const all = [...new Set(ids)];
   const taken = new Set(all.filter((id) => IDENTIFIER.test(id)));
   const rename = new Map<string, string>();
+  // A name that is taken gets the next free `_2`, `_3`, ...; counting on per name keeps many collisions linear.
+  const suffix = new Map<string, number>();
   for (const id of all) {
     if (IDENTIFIER.test(id)) continue;
-    let next = id.replace(/\W/g, "_");
-    if (!/^[A-Za-z_]/.test(next)) next = `_${next}`;
-    while (taken.has(next)) next += "_";
+    let base = id.replace(/\W/g, "_");
+    if (!/^[A-Za-z_]/.test(base)) base = `_${base}`;
+    let next = base;
+    if (taken.has(next)) {
+      let n = suffix.get(base) ?? 2;
+      while (taken.has(`${base}_${n}`)) n++;
+      suffix.set(base, n + 1);
+      next = `${base}_${n}`;
+    }
     taken.add(next);
     rename.set(id, next);
   }

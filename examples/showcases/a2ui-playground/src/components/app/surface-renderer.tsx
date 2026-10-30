@@ -1,16 +1,36 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
-import { useCopilotKit, type ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
-import { GENERATIVE_UI_ACTIVITY_TYPE, type GenerativeUISurfaceContent } from "@copilotkit/shared";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+} from "react";
+import {
+  useCopilotKit,
+  type ReactActivityMessageRenderer,
+} from "@copilotkit/react-core/v2";
+import {
+  GENERATIVE_UI_ACTIVITY_TYPE,
+  type GenerativeUISurfaceContent,
+} from "@copilotkit/shared";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
-import { contentCount, latestComponents, runStore, useRunStore, type A2UIOp } from "@/lib/run-store";
+import {
+  contentCount,
+  latestComponents,
+  runStore,
+  useRunStore,
+  type A2UIOp,
+} from "@/lib/run-store";
 import { ResizeBox } from "./build-sequence";
 import { useLandingReveal } from "./use-landing-reveal";
 import { useUIGeneration } from "./use-ui-generation";
 
-type Props = React.ComponentProps<ReactActivityMessageRenderer<GenerativeUISurfaceContent>["render"]>;
+type Props = React.ComponentProps<
+  ReactActivityMessageRenderer<GenerativeUISurfaceContent>["render"]
+>;
 
 /**
  * CopilotKit's own Gen UI 2.0 surface renderer: the one the provider registers
@@ -20,7 +40,10 @@ type Props = React.ComponentProps<ReactActivityMessageRenderer<GenerativeUISurfa
  */
 export function useBaseSurfaceRenderer(): ComponentType<Props> | undefined {
   const { copilotkit } = useCopilotKit();
-  const base = copilotkit.renderActivityMessages.find((r) => r.activityType === GENERATIVE_UI_ACTIVITY_TYPE && r !== surfaceRenderer);
+  const base = copilotkit.renderActivityMessages.find(
+    (r) =>
+      r.activityType === GENERATIVE_UI_ACTIVITY_TYPE && r !== surfaceRenderer,
+  );
   return base?.render as ComponentType<Props> | undefined;
 }
 
@@ -39,9 +62,13 @@ function Mirrored(props: Props) {
   const last = useRef(0);
   const [hasFrame, setHasFrame] = useState(false);
   useEffect(() => {
-    if (!Array.isArray(ops) || !ops.length || ops.length === last.current) return;
+    if (!Array.isArray(ops) || !ops.length || ops.length === last.current)
+      return;
     last.current = ops.length;
-    runStore.upsertSurface(key, ops as unknown as Array<Record<string, unknown>>);
+    runStore.upsertSurface(
+      key,
+      ops as unknown as Array<Record<string, unknown>>,
+    );
     setHasFrame(true);
   }, [ops, key]);
   // A run that ended (stopped, failed, or a surface restored from an earlier visit) never fills its
@@ -52,8 +79,19 @@ function Mirrored(props: Props) {
     const run = rec.runId ? s.runs.find((r) => r.id === rec.runId) : undefined;
     return run?.status !== "running";
   });
-  const pending = useMemo(() => (Array.isArray(ops) ? latestComponents(ops as unknown as A2UIOp[]).some((c) => c.component === "Blueprint") : false), [ops]);
-  const empty = useMemo(() => halted && pending && contentCount(ops as unknown as A2UIOp[]) === 0, [halted, pending, ops]);
+  const pending = useMemo(
+    () =>
+      Array.isArray(ops)
+        ? latestComponents(ops as unknown as A2UIOp[]).some(
+            (c) => c.component === "Blueprint",
+          )
+        : false,
+    [ops],
+  );
+  const empty = useMemo(
+    () => halted && pending && contentCount(ops as unknown as A2UIOp[]) === 0,
+    [halted, pending, ops],
+  );
   const collapse = halted && pending;
   // transitions.dev UI generation (skeleton) over the surface, once per message, from its first frame.
   const host = useRef<HTMLDivElement>(null);
@@ -67,15 +105,28 @@ function Mirrored(props: Props) {
     if (!hasFrame || animate !== null || !host.current) return;
     const all = document.querySelectorAll(".a2-surface-host");
     const run = runStore.current();
-    setAnimate(all[all.length - 1] === host.current && run?.status === "running" && run.path === "fixed");
+    setAnimate(
+      all[all.length - 1] === host.current &&
+        run?.status === "running" &&
+        run.path === "fixed",
+    );
   }, [hasFrame, animate]);
-  const generating = useUIGeneration(host, { runKey: hasFrame && animate ? key : null, enabled: !collapse, mode: "skeleton", maxParts: 40 });
+  const generating = useUIGeneration(host, {
+    runKey: hasFrame && animate ? key : null,
+    enabled: !collapse,
+    mode: "skeleton",
+    maxParts: 40,
+  });
   useLandingReveal(host, !halted && !generating);
   return (
     <ResizeBox>
       <div
         ref={host}
-        className={cn("a2-surface-host relative", collapse && "[&_.a2-blueprint]:hidden", empty && "hidden")}
+        className={cn(
+          "a2-surface-host relative",
+          collapse && "[&_.a2-blueprint]:hidden",
+          empty && "hidden",
+        )}
         data-surface-key={key}
         data-build={generating ? "building" : "done"}
         data-halted={collapse || undefined}
@@ -86,8 +137,10 @@ function Mirrored(props: Props) {
   );
 }
 
-export const surfaceRenderer: ReactActivityMessageRenderer<GenerativeUISurfaceContent> = {
-  activityType: GENERATIVE_UI_ACTIVITY_TYPE,
-  content: z.any() as unknown as ReactActivityMessageRenderer<GenerativeUISurfaceContent>["content"],
-  render: Mirrored,
-};
+export const surfaceRenderer: ReactActivityMessageRenderer<GenerativeUISurfaceContent> =
+  {
+    activityType: GENERATIVE_UI_ACTIVITY_TYPE,
+    content:
+      z.any() as unknown as ReactActivityMessageRenderer<GenerativeUISurfaceContent>["content"],
+    render: Mirrored,
+  };

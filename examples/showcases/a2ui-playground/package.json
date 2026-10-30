@@ -45,7 +45,6 @@
     "react-markdown": "10.1.0",
     "remark-gfm": "4.0.1",
     "rxjs": "7.8.1",
-    "shadcn": "^4.21.5",
     "sonner": "^2.0.8",
     "sugar-high": "2.6.0",
     "tailwind-merge": "^3.3.1",
@@ -58,8 +57,14 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "puppeteer-core": "25.14.0",
+    "shadcn": "^4.21.5",
     "tailwindcss": "4.3.3",
     "tsx": "4.21.0",
     "typescript": "5.9.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "undici": "^7.30.1"
+    }
   }
 }

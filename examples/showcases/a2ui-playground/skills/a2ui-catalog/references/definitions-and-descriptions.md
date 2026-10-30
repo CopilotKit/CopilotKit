@@ -5,14 +5,28 @@ A definition is the contract the model reads and the engine enforces: a Zod obje
 ## Shape helpers (templates/definitions-shared.ts)
 
 ```ts
-import { A2UI_CHILD_LIST_MARK, A2UI_COMPONENT_ID_MARK } from "@copilotkit/shared";
+import {
+  A2UI_CHILD_LIST_MARK,
+  A2UI_COMPONENT_ID_MARK,
+} from "@copilotkit/shared";
 
-export function child(description?: string) {          // one component id
-  return z.string().min(1).describe(mark(A2UI_COMPONENT_ID_MARK, description)).transform(toNode);
+export function child(description?: string) {
+  // one component id
+  return z
+    .string()
+    .min(1)
+    .describe(mark(A2UI_COMPONENT_ID_MARK, description))
+    .transform(toNode);
 }
-export function childList(description?: string) {      // ids, or a template repeated per item
-  return z.union([z.array(z.string().min(1)), z.object({ componentId: z.string().min(1), path: z.string().min(1) })])
-    .describe(mark(A2UI_CHILD_LIST_MARK, description)).transform(toNode);
+export function childList(description?: string) {
+  // ids, or a template repeated per item
+  return z
+    .union([
+      z.array(z.string().min(1)),
+      z.object({ componentId: z.string().min(1), path: z.string().min(1) }),
+    ])
+    .describe(mark(A2UI_CHILD_LIST_MARK, description))
+    .transform(toNode);
 }
 export const onAction = (description: string) => ({
   events: { onAction: { description, parameters: z.object({}).passthrough() } },
@@ -24,13 +38,13 @@ export const writableValue = { writable: ["value"] as const };
 
 What the Gen UI 2.0 engine does with each piece:
 
-| In the definition | Engine behavior | Renderer receives |
-| --- | --- | --- |
-| prop built with `child()` | renders the referenced component | a React node |
-| prop built with `childList()` | renders each id, or the template once per item of the list at `path` | React nodes |
-| `events: { onAction }` | the model binds `{ event }` (sent to the agent) or `{ functionCall }` | a function (catalog.ts turns `onAction` into `action()`) |
-| `writable: ["value"]` | a `{ "@path" }` binding is written back on edit | `value` + `setValue` |
-| any other prop | `{ "@path" }` and `{ "@call" }` resolved at any depth, then validated | the literal value |
+| In the definition             | Engine behavior                                                       | Renderer receives                                        |
+| ----------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------- |
+| prop built with `child()`     | renders the referenced component                                      | a React node                                             |
+| prop built with `childList()` | renders each id, or the template once per item of the list at `path`  | React nodes                                              |
+| `events: { onAction }`        | the model binds `{ event }` (sent to the agent) or `{ functionCall }` | a function (catalog.ts turns `onAction` into `action()`) |
+| `writable: ["value"]`         | a `{ "@path" }` binding is written back on edit                       | `value` + `setValue`                                     |
+| any other prop                | `{ "@path" }` and `{ "@call" }` resolved at any depth, then validated | the literal value                                        |
 
 So a schema never mentions bindings: `data: z.array(row)` accepts `data: { "@path": "/rows" }` because the engine resolves it before your schema sees it. Function calls in data props are limited to `@index` and the built-in value functions (`formatCurrency`, `formatNumber`, `formatDate`, `formatString`, `pluralize`, `calc`, ...); app functions declared with `functions` are for `{ functionCall }` event bindings.
 
@@ -77,8 +91,19 @@ Two checks stand between the model and the screen. The browser validates each op
 `standardUI` (id `copilotkit/standard@1`) brings 69 components: layout (`Box`, `Column`, `Row`, `Grid`, `Card`, `Flow`, `Carousel`, `Tabs`, `Divider`, `Modal`, `Popover`), text (`Title`, `Text`, `Caption`, `Label`, `Badge`, `Markdown`, `Code`, `Link`), forms (`Form`, `Button`, `TextField`, `TextArea`, `Select`, `CheckBox`, `RadioGroup`, `Slider`, `SegmentedControl`, `ChoicePicker`, `DateTimeInput`), data (`Table`, `List`, `Chart`, `Map`), media (`Image`, `Icon`, `Video`, `AudioPlayer`) and a few chat helpers (`LinkCard`, `Citation`, `FollowUp`, `EntityCard`). A name may come from one place only. To restyle one, keep its props and swap its React component:
 
 ```ts
-createGenerativeUI({ id, extends: [standardUI], overrides: { Card: { component: MyCard } }, components: { /* your own */ } });
-createGenerativeUI({ id, extends: [standardUI.omit(["Map"])], components: { Map: myMapDefinition } }); // replace it entirely
+createGenerativeUI({
+  id,
+  extends: [standardUI],
+  overrides: { Card: { component: MyCard } },
+  components: {
+    /* your own */
+  },
+});
+createGenerativeUI({
+  id,
+  extends: [standardUI.omit(["Map"])],
+  components: { Map: myMapDefinition },
+}); // replace it entirely
 ```
 
 The playground lays out with the standard `Column`, `Row`, `Grid` and `Card`, uses the standard form inputs, and adds 54 components of its own (KPIs, TanStack charts, MapLibre maps, domain cards, the inputs the standard set lacks).

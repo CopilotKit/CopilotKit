@@ -19,11 +19,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import data from "@/data/replay.json";
 import { present, type Snapshot } from "@/lib/build-timeline";
-import { latestComponents, type A2UIOp, type RunLine, type TimelineEvent } from "@/lib/run-store";
+import {
+  latestComponents,
+  type A2UIOp,
+  type RunLine,
+  type TimelineEvent,
+} from "@/lib/run-store";
 import { lineId } from "@/lib/express-lines";
 import { modelLabel } from "@/lib/model-options";
 import { useDecompiled } from "./json-tab";
-import { decompiledLines, EMPTY_SHOWN, numbered, sentOf, type Shown } from "./lines";
+import {
+  decompiledLines,
+  EMPTY_SHOWN,
+  numbered,
+  sentOf,
+  type Shown,
+} from "./lines";
 
 type Recording = {
   prompt: string;
@@ -49,13 +60,31 @@ const FROM = Math.max(0, (FIRST_TOKEN ?? REC.firstFrameMs ?? 0) - 400);
 const OP_EVENTS = REC.events.filter((e) => e.kind === "op");
 const opId = (e: TimelineEvent) => /^#([\w-]+)/.exec(e.detail ?? "")?.[1];
 
-type Timed = { t: number; kind: "line" | "divider"; text: string; id?: string; format: "express" | "json" };
+type Timed = {
+  t: number;
+  kind: "line" | "divider";
+  text: string;
+  id?: string;
+  format: "express" | "json";
+};
 
 /** Lines the recording carries itself, or null when it has none. */
 const RECORDED: Timed[] | null = REC.lines?.length
-  ? REC.lines.map((l) => ({ t: l.t, kind: l.kind, text: l.text, id: l.id, format: l.format ?? "express" }))
+  ? REC.lines.map((l) => ({
+      t: l.t,
+      kind: l.kind,
+      text: l.text,
+      id: l.id,
+      format: l.format ?? "express",
+    }))
   : OP_EVENTS.some((e) => typeof e.line === "string")
-    ? OP_EVENTS.filter((e) => typeof e.line === "string").map((e) => ({ t: e.t, kind: "line" as const, text: e.line!, id: opId(e) ?? lineId(e.line!), format: "express" as const }))
+    ? OP_EVENTS.filter((e) => typeof e.line === "string").map((e) => ({
+        t: e.t,
+        kind: "line" as const,
+        text: e.line!,
+        id: opId(e) ?? lineId(e.line!),
+        format: "express" as const,
+      }))
     : null;
 
 /** When each component of the recording arrived: its op event, else the first frame that has it for real. */
@@ -65,11 +94,15 @@ const ARRIVED = (() => {
     const id = opId(e);
     if (id && !at.has(id)) at.set(id, e.t);
   }
-  for (const f of REC.frames) for (const c of latestComponents(f.ops)) if (c.component !== "Blueprint" && !at.has(c.id)) at.set(c.id, f.t);
+  for (const f of REC.frames)
+    for (const c of latestComponents(f.ops))
+      if (c.component !== "Blueprint" && !at.has(c.id)) at.set(c.id, f.t);
   return at;
 })();
 
-const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const reducedMotion = () =>
+  typeof matchMedia === "function" &&
+  matchMedia("(prefers-reduced-motion: reduce)").matches;
 const TYPE_MS_PER_CHAR = 26;
 
 export type ReplayStatus = "pending" | "off" | "playing" | "ended";
@@ -145,19 +178,29 @@ export function useReplay(): Replay {
   const ended = status === "ended";
   const sendAt = typeMs.current + 250;
   const recorded = ended ? END : rt < sendAt ? -1 : FROM + (rt - sendAt);
-  const typed = ended || rt >= typeMs.current ? REC.prompt : REC.prompt.slice(0, Math.floor(rt / TYPE_MS_PER_CHAR));
+  const typed =
+    ended || rt >= typeMs.current
+      ? REC.prompt
+      : REC.prompt.slice(0, Math.floor(rt / TYPE_MS_PER_CHAR));
   const sent = ended || rt >= sendAt;
   const p = useMemo(() => present(SNAPS, recorded), [recorded]);
 
   // Lines: the recording's own, else its final surface decompiled.
   const final = useMemo(() => (RECORDED ? null : sentOf(FINAL_OPS)), []);
-  const finalJsonChars = useMemo(() => sentOf(FINAL_OPS)?.jsonChars ?? null, []);
-  const decompiled = useDecompiled(status === "off" || status === "pending" || !final ? null : final.json);
+  const finalJsonChars = useMemo(
+    () => sentOf(FINAL_OPS)?.jsonChars ?? null,
+    [],
+  );
+  const decompiled = useDecompiled(
+    status === "off" || status === "pending" || !final ? null : final.json,
+  );
   const timed = useMemo<Timed[] | null>(() => {
     if (RECORDED) return RECORDED;
     if (!final || !decompiled || "error" in decompiled) return null;
     const raw = decompiledLines(decompiled.express, final.ops);
-    const firstAt = Math.min(...raw.map((l) => (l.id ? (ARRIVED.get(l.id) ?? END) : END)));
+    const firstAt = Math.min(
+      ...raw.map((l) => (l.id ? (ARRIVED.get(l.id) ?? END) : END)),
+    );
     // A line that defines no component (the surface, a data value) keeps its place after the line before it.
     let prev = firstAt;
     return raw
@@ -173,11 +216,23 @@ export function useReplay(): Replay {
   const shown = useMemo<Shown>(() => {
     if (!sent) return EMPTY_SHOWN;
     const derived = !RECORDED;
-    const note = derived ? "This recording has no line text, so its final UI is decompiled here. Each line appears when its component arrived." : null;
-    if (!timed) return { ...EMPTY_SHOWN, writing: !ended, source: derived ? "derived" : "recorded", note, status: "Writing A2UI Express" };
+    const note = derived
+      ? "This recording has no line text, so its final UI is decompiled here. Each line appears when its component arrived."
+      : null;
+    if (!timed)
+      return {
+        ...EMPTY_SHOWN,
+        writing: !ended,
+        source: derived ? "derived" : "recorded",
+        note,
+        status: "Writing A2UI Express",
+      };
     const visible = timed.filter((l) => l.t <= recorded);
     const { lines, lineOf } = numbered(visible.map(({ t: _t, ...l }) => l));
-    const chars = visible.reduce((a, l) => a + (l.kind === "line" ? l.text.length : 0), 0);
+    const chars = visible.reduce(
+      (a, l) => a + (l.kind === "line" ? l.text.length : 0),
+      0,
+    );
     return {
       lines,
       lineOf,
@@ -187,13 +242,22 @@ export function useReplay(): Replay {
       note,
       status: lines.length ? null : "Writing A2UI Express",
       chars,
-      compare: (ended || recorded >= END) && finalJsonChars ? { label: "the same UI as JSON", chars: finalJsonChars } : null,
+      compare:
+        (ended || recorded >= END) && finalJsonChars
+          ? { label: "the same UI as JSON", chars: finalJsonChars }
+          : null,
     };
   }, [sent, timed, recorded, ended, finalJsonChars]);
 
-  const events = useMemo(() => REC.events.filter((e) => e.t <= recorded), [recorded]);
+  const events = useMemo(
+    () => REC.events.filter((e) => e.t <= recorded),
+    [recorded],
+  );
 
-  const stop = useCallback(() => setStatus((s) => (s === "playing" ? "ended" : s)), []);
+  const stop = useCallback(
+    () => setStatus((s) => (s === "playing" ? "ended" : s)),
+    [],
+  );
   const dismiss = useCallback(() => setStatus("off"), []);
   const restart = useCallback(() => {
     setRt(0);

@@ -6,11 +6,18 @@ A renderer is a React component keyed by the definition name. The Gen UI 2.0 eng
 
 ```ts
 type Out<K extends keyof Definitions> = z.output<Definitions[K]["props"]>;
-type ValueSetter<T> = "value" extends keyof T ? { setValue?: (value: NonNullable<T["value" & keyof T]>) => void } : unknown;
+type ValueSetter<T> = "value" extends keyof T
+  ? { setValue?: (value: NonNullable<T["value" & keyof T]>) => void }
+  : unknown;
 
-export type Props<K extends keyof Definitions> = Out<K> & ValueSetter<Out<K>> & { action?: () => void };
-export type Renderer<K extends keyof Definitions> = (p: { props: Props<K> }) => ReactNode;
-export type RendererMap<Keys extends keyof Definitions> = { [K in Keys]: Renderer<K> };
+export type Props<K extends keyof Definitions> = Out<K> &
+  ValueSetter<Out<K>> & { action?: () => void };
+export type Renderer<K extends keyof Definitions> = (p: {
+  props: Props<K>;
+}) => ReactNode;
+export type RendererMap<Keys extends keyof Definitions> = {
+  [K in Keys]: Renderer<K>;
+};
 ```
 
 `z.output` is the type after the schema's transforms, so `child()` / `childList()` props are already `ReactNode`. Type each group of renderers with `RendererMap<"Stat" | "StatGroup">`, merge them into one map, and catalog.ts casts it once into `createGenerativeUI`.
@@ -29,6 +36,7 @@ Stat: ({ props }) => (
 ```
 
 Rules that held up across 54 custom components:
+
 - Root is `w-full min-w-0`; nothing overflows horizontally at 300px.
 - Data can be `undefined` or partial: a bound array is empty until its data lands, and the model sends malformed rows. Coerce with `Array.isArray(x) ? x : []`, filter malformed rows, show an empty state. Charts wrap in an error boundary that retries on new data (TanStack's treemap throws on duplicate names, sankey on cycles: dedupe and drop those first).
 - Container queries (`@container`, `auto-fit` grids), not `sm:`/`md:`. The same component renders in a 600px chat bubble and a wide canvas.
@@ -62,8 +70,17 @@ Combobox: ({ props }) => {
 The template binds `value: { "@path": "/form/email" }` and seeds the data model with `{ form: { email: "" } }`. The submit button reads the same paths at click time:
 
 ```json
-{ "id": "submit", "component": "Button", "label": "Create account",
-  "onClick": { "event": { "name": "signup_submit", "context": { "email": { "@path": "/form/email" } } } } }
+{
+  "id": "submit",
+  "component": "Button",
+  "label": "Create account",
+  "onClick": {
+    "event": {
+      "name": "signup_submit",
+      "context": { "email": { "@path": "/form/email" } }
+    }
+  }
+}
 ```
 
 CopilotKit resolves the context, then starts a run with a visible user message naming the action (its first line is `event.userMessage` when the binding sets one) and the A2UI action in the envelope. The agent reads it with `envelopeToManifest(readCopilotKitUIEnvelope(input.forwardedProps)!).action`, which is `{ version: "v1.0", action: { name, surfaceId, sourceComponentId, timestamp, context } }`; values the user set also appear under `manifest.surfaces[surfaceId].dataModel`. A click while the agent is still running is not sent (`agent_busy`). The playground's `scripts/check-action.mjs` drives the signup form end to end. To verify binding in a test, read the data model, not just the DOM (the DOM keeps local state even when the data model did not change).
@@ -93,8 +110,16 @@ Section: ({ props }) => (
 Two layers. The standard components read `--a2ui-*` variables from the provider's `theme` (top-level values for both modes, `dark` under a `.dark` class); see `playgroundTheme` in templates/catalog.ts. Your own components use your tokens, and the chat root (`[data-copilotkit]`) redefines `--primary`, `--background` and friends, so a primary button turned white. Re-declare your tokens on the wrapper you render surfaces in:
 
 ```css
-.a2-surface-host, .pg-canvas { --primary: oklch(0.72 0.17 292); --primary-foreground: oklch(0.16 0.02 292); /* ...all dark tokens */ }
-.a2-static [data-generative-ui-chat-surface] { margin: 0; padding: 0; border: 0; }  /* surfaces outside the chat: no card box */
+.a2-surface-host,
+.pg-canvas {
+  --primary: oklch(0.72 0.17 292);
+  --primary-foreground: oklch(0.16 0.02 292); /* ...all dark tokens */
+}
+.a2-static [data-generative-ui-chat-surface] {
+  margin: 0;
+  padding: 0;
+  border: 0;
+} /* surfaces outside the chat: no card box */
 ```
 
 The per-component error box ("Couldn't display this part") uses light inline styles; replace it with `generativeUI={{ ui, errorBoundary: { fallback } }}`.

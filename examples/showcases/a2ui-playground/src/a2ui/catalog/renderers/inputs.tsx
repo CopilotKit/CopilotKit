@@ -6,12 +6,29 @@ import { CalendarDays, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,16 +42,36 @@ import { useBound } from "./use-bound";
 type Opt = { value: string; label: string; description?: string };
 
 function cleanOptions(options: unknown): Opt[] {
-  return asArray<Opt>(options).filter((o) => !!o && typeof o === "object" && typeof o.value === "string").map((o) => ({ ...o, label: typeof o.label === "string" && o.label ? o.label : o.value }));
+  return asArray<Opt>(options)
+    .filter((o) => !!o && typeof o === "object" && typeof o.value === "string")
+    .map((o) => ({
+      ...o,
+      label: typeof o.label === "string" && o.label ? o.label : o.value,
+    }));
 }
 
-function Field({ id, label, hint, right, children }: { id: string; label?: string; hint?: string; right?: ReactNode; children: ReactNode }) {
+function Field({
+  id,
+  label,
+  hint,
+  right,
+  children,
+}: {
+  id: string;
+  label?: string;
+  hint?: string;
+  right?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <div className="a2-enter flex w-full min-w-0 flex-col gap-1.5">
       {label || right ? (
         <div className="flex min-w-0 items-baseline justify-between gap-3">
           {label ? (
-            <Label htmlFor={id} className="truncate text-[12.5px] font-medium text-foreground/90">
+            <Label
+              htmlFor={id}
+              className="truncate text-[12.5px] font-medium text-foreground/90"
+            >
               {label}
             </Label>
           ) : (
@@ -44,12 +81,15 @@ function Field({ id, label, hint, right, children }: { id: string; label?: strin
         </div>
       ) : null}
       {children}
-      {hint ? <p className="text-[11px] text-muted-foreground">{hint}</p> : null}
+      {hint ? (
+        <p className="text-[11px] text-muted-foreground">{hint}</p>
+      ) : null}
     </div>
   );
 }
 
-const control = "h-8.5 text-[13px] bg-white/[0.025] dark:bg-white/[0.025] border-white/[0.09] shadow-none";
+const control =
+  "h-8.5 text-[13px] bg-white/[0.025] dark:bg-white/[0.025] border-white/[0.09] shadow-none";
 
 const buttonVariant = {
   default: "default",
@@ -61,7 +101,12 @@ const buttonVariant = {
   destructive: "destructive",
 } as const;
 
-type InputKeys = "Combobox" | "Switch" | "DatePicker" | "ButtonGroup" | "ChipSelect";
+type InputKeys =
+  | "Combobox"
+  | "Switch"
+  | "DatePicker"
+  | "ButtonGroup"
+  | "ChipSelect";
 
 export const inputRenderers: RendererMap<InputKeys> = {
   Combobox: ({ props }) => {
@@ -79,17 +124,29 @@ export const inputRenderers: RendererMap<InputKeys> = {
               variant="outline"
               role="combobox"
               aria-expanded={open}
-              className={cn(control, "w-full min-w-0 justify-between px-2.5 font-normal")}
+              className={cn(
+                control,
+                "w-full min-w-0 justify-between px-2.5 font-normal",
+              )}
             >
-              <span className={cn("truncate", !selected && "text-muted-foreground")}>{selected?.label ?? props.placeholder ?? "Search options"}</span>
+              <span
+                className={cn("truncate", !selected && "text-muted-foreground")}
+              >
+                {selected?.label ?? props.placeholder ?? "Search options"}
+              </span>
               <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-(--radix-popover-trigger-width) min-w-52 p-0">
+          <PopoverContent
+            align="start"
+            className="w-(--radix-popover-trigger-width) min-w-52 p-0"
+          >
             <Command>
               <CommandInput placeholder="Search" className="text-[13px]" />
               <CommandList>
-                <CommandEmpty className="py-5 text-[12.5px] text-muted-foreground">No match found</CommandEmpty>
+                <CommandEmpty className="py-5 text-[12.5px] text-muted-foreground">
+                  No match found
+                </CommandEmpty>
                 <CommandGroup>
                   {options.map((o) => (
                     <CommandItem
@@ -116,14 +173,25 @@ export const inputRenderers: RendererMap<InputKeys> = {
 
   Switch: ({ props }) => {
     const id = useId();
-    const [checked, setChecked] = useBound<boolean>(props.value, props.setValue, false);
+    const [checked, setChecked] = useBound<boolean>(
+      props.value,
+      props.setValue,
+      false,
+    );
     return (
       <div className="a2-enter a2-well flex w-full min-w-0 items-center justify-between gap-4 px-3.5 py-3">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <Label htmlFor={id} className="text-[13px] font-medium text-foreground/90">
+          <Label
+            htmlFor={id}
+            className="text-[13px] font-medium text-foreground/90"
+          >
             {props.label}
           </Label>
-          {props.description ? <p className="text-[11.5px] leading-relaxed text-muted-foreground">{props.description}</p> : null}
+          {props.description ? (
+            <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+              {props.description}
+            </p>
+          ) : null}
         </div>
         <Switch id={id} checked={checked} onCheckedChange={setChecked} />
       </div>
@@ -143,9 +211,22 @@ export const inputRenderers: RendererMap<InputKeys> = {
       <Field id={id} label={props.label}>
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
-            <Button id={id} variant="outline" className={cn(control, "w-full min-w-0 justify-start gap-2 px-2.5 font-normal")}>
+            <Button
+              id={id}
+              variant="outline"
+              className={cn(
+                control,
+                "w-full min-w-0 justify-start gap-2 px-2.5 font-normal",
+              )}
+            >
               <CalendarDays className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className={cn("truncate", !date && "text-muted-foreground")}>{date ? formatDate(date, "EEE, MMM d, yyyy") : props.placeholder ?? "Pick a date"}</span>
+              <span
+                className={cn("truncate", !date && "text-muted-foreground")}
+              >
+                {date
+                  ? formatDate(date, "EEE, MMM d, yyyy")
+                  : (props.placeholder ?? "Pick a date")}
+              </span>
             </Button>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-auto p-0">
@@ -194,12 +275,33 @@ export const inputRenderers: RendererMap<InputKeys> = {
 
   ChipSelect: ({ props }) => {
     const id = useId();
-    const [value, setValue] = useBound<string[]>(props.value, props.setValue, []);
+    const [value, setValue] = useBound<string[]>(
+      props.value,
+      props.setValue,
+      [],
+    );
     const options = cleanOptions(props.options);
     const selected = Array.isArray(value) ? value : [];
     return (
-      <Field id={id} label={props.label} right={selected.length ? <span className="text-[11px] text-muted-foreground tabular-nums">{selected.length} selected</span> : null}>
-        <ToggleGroup id={id} type="multiple" spacing={1.5} value={selected} onValueChange={(v: string[]) => setValue(v)} className="flex-wrap justify-start">
+      <Field
+        id={id}
+        label={props.label}
+        right={
+          selected.length ? (
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {selected.length} selected
+            </span>
+          ) : null
+        }
+      >
+        <ToggleGroup
+          id={id}
+          type="multiple"
+          spacing={1.5}
+          value={selected}
+          onValueChange={(v: string[]) => setValue(v)}
+          className="flex-wrap justify-start"
+        >
           {options.map((o) => {
             const on = selected.includes(o.value);
             return (

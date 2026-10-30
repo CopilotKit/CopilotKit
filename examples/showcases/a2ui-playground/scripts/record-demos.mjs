@@ -25,9 +25,16 @@ const CAPS = join(outDir, ".captions");
 mkdirSync(CAPS, { recursive: true });
 
 const browser = await puppeteer.launch({
-  executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  executablePath:
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   headless: true,
-  args: ["--no-sandbox", "--use-gl=angle", "--enable-webgl", "--ignore-gpu-blocklist", "--hide-scrollbars"],
+  args: [
+    "--no-sandbox",
+    "--use-gl=angle",
+    "--enable-webgl",
+    "--ignore-gpu-blocklist",
+    "--hide-scrollbars",
+  ],
   defaultViewport: { width: W, height: H, deviceScaleFactor: 2 },
 });
 
@@ -64,13 +71,19 @@ function helpers(page, captions, clock) {
       const steps = Math.max(8, Math.round(ms / 16));
       for (let i = 1; i <= steps; i++) {
         const k = ease(i / steps);
-        await page.mouse.move(from.x + (x - from.x) * k, from.y + (y - from.y) * k);
+        await page.mouse.move(
+          from.x + (x - from.x) * k,
+          from.y + (y - from.y) * k,
+        );
         await sleep(ms / steps);
       }
       mouse = { x, y };
     },
     async point(selector, ms) {
-      const el = await page.waitForSelector(selector, { visible: true, timeout: 30000 });
+      const el = await page.waitForSelector(selector, {
+        visible: true,
+        timeout: 30000,
+      });
       await el.scrollIntoView();
       const b = await el.boundingBox();
       await h.moveTo(b.x + b.width / 2, b.y + b.height / 2, ms);
@@ -97,17 +110,25 @@ function helpers(page, captions, clock) {
       await sleep(250);
       await page.keyboard.press("Enter");
       if (during) during();
-      await page.waitForFunction((p) => {
-        const r = window.__runStore?.get().runs.at(-1);
-        return r && r.prompt === p && r.status !== "running";
-      }, { timeout: 90000 }, prompt);
+      await page.waitForFunction(
+        (p) => {
+          const r = window.__runStore?.get().runs.at(-1);
+          return r && r.prompt === p && r.status !== "running";
+        },
+        { timeout: 90000 },
+        prompt,
+      );
       await sleep(600);
       await h.chatToBottom();
     },
     /** Eases the chat transcript to its newest surface. */
     async chatToBottom(ms = 900) {
       await page.evaluate(async (ms) => {
-        const el = [...document.querySelectorAll(".pg-chat *")].find((n) => n.scrollHeight > n.clientHeight + 40 && /(auto|scroll)/.test(getComputedStyle(n).overflowY));
+        const el = [...document.querySelectorAll(".pg-chat *")].find(
+          (n) =>
+            n.scrollHeight > n.clientHeight + 40 &&
+            /(auto|scroll)/.test(getComputedStyle(n).overflowY),
+        );
         if (!el) return;
         const start = el.scrollTop;
         const end = el.scrollHeight - el.clientHeight;
@@ -115,7 +136,9 @@ function helpers(page, captions, clock) {
         await new Promise((done) => {
           const step = (now) => {
             const k = Math.min(1, (now - t0) / ms);
-            el.scrollTop = start + (end - start) * (k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2);
+            el.scrollTop =
+              start +
+              (end - start) * (k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2);
             k < 1 ? requestAnimationFrame(step) : done();
           };
           requestAnimationFrame(step);
@@ -124,20 +147,27 @@ function helpers(page, captions, clock) {
     },
     /** Eases the window until `selector` sits `offset` pixels below the top. */
     async scrollTo(selector, ms = 1800, offset = 120) {
-      const dy = await page.$eval(selector, (el, offset) => el.getBoundingClientRect().top - offset, offset);
+      const dy = await page.$eval(
+        selector,
+        (el, offset) => el.getBoundingClientRect().top - offset,
+        offset,
+      );
       await h.scroll(dy, ms);
     },
     /** Eases the window (or the element matching `selector`) by dy pixels. */
     async scroll(dy, ms = 1400, selector) {
       await page.evaluate(
         async (dy, ms, selector) => {
-          const el = selector ? document.querySelector(selector) : document.scrollingElement;
+          const el = selector
+            ? document.querySelector(selector)
+            : document.scrollingElement;
           const start = el.scrollTop;
           const t0 = performance.now();
           await new Promise((done) => {
             const step = (now) => {
               const k = Math.min(1, (now - t0) / ms);
-              el.scrollTop = start + dy * (k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2);
+              el.scrollTop =
+                start + dy * (k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2);
               k < 1 ? requestAnimationFrame(step) : done();
             };
             requestAnimationFrame(step);
@@ -153,7 +183,10 @@ function helpers(page, captions, clock) {
 }
 
 /** Page setup before recording: a function run in the page, and its arguments (closures do not reach the page). */
-const RUN_SETTINGS = (format, model = "gemini") => ({ fn: (s) => localStorage.setItem("a2ui-run-settings", s), args: [JSON.stringify({ model, format })] });
+const RUN_SETTINGS = (format, model = "gemini") => ({
+  fn: (s) => localStorage.setItem("a2ui-run-settings", s),
+  args: [JSON.stringify({ model, format })],
+});
 
 const scenes = [
   {
@@ -163,20 +196,28 @@ const scenes = [
     path: "/playground",
     setup: RUN_SETTINGS("express"),
     async run(d) {
-      d.caption("A2UI Express is now the default format: the model writes one line per component.");
+      d.caption(
+        "A2UI Express is now the default format: the model writes one line per component.",
+      );
       await d.point('[data-format="express"]', 600);
       await sleep(1600);
       await d.ask("Q3 sales by region as a dashboard", () =>
-        d.caption("Google's @a2ui/agent SDK compiles each line as it arrives, so the surface paints while it streams."),
+        d.caption(
+          "Google's @a2ui/agent SDK compiles each line as it arrives, so the surface paints while it streams.",
+        ),
       );
       await d.point("[data-payload]", 700);
-      d.caption("The Build tab measures the same surface both ways: Express is about half the size of JSON.");
+      d.caption(
+        "The Build tab measures the same surface both ways: Express is about half the size of JSON.",
+      );
       await sleep(4200);
       await d.click('[data-format="json"]');
       d.caption("Switch to A2UI JSON and ask again.");
       await d.ask("Q3 sales by region as a dashboard");
       await d.point("[data-payload] table", 700);
-      d.caption("Every composed run lands in one table: format, model, characters written and compose time.");
+      d.caption(
+        "Every composed run lands in one table: format, model, characters written and compose time.",
+      );
       await sleep(4500);
       await d.click('[data-tab="json"]');
       d.caption('And every operation on the wire says "version": "v1.0".');
@@ -190,28 +231,44 @@ const scenes = [
     path: "/playground",
     setup: RUN_SETTINGS("express"),
     async run(d) {
-      d.caption("Macros: the model writes one ProductCard(...) line per product.");
+      d.caption(
+        "Macros: the model writes one ProductCard(...) line per product.",
+      );
       await d.ask("Compare three noise-cancelling headphones", () =>
-        d.caption("The server expands each macro into Gen UI 2.0 standard components. The browser has no ProductCard code."),
+        d.caption(
+          "The server expands each macro into Gen UI 2.0 standard components. The browser has no ProductCard code.",
+        ),
       );
       await sleep(2200);
       await d.click('[data-tab="stream"]');
-      d.caption("The stream logs each expansion: one macro call becomes a dozen or more standard components.");
+      d.caption(
+        "The stream logs each expansion: one macro call becomes a dozen or more standard components.",
+      );
       await sleep(3800);
       await d.click('[data-tab="build"]');
-      d.caption('A macro can load its own data: WeatherReport("Lisbon") fetches the live forecast, then expands.');
+      d.caption(
+        'A macro can load its own data: WeatherReport("Lisbon") fetches the live forecast, then expands.',
+      );
       await d.ask("Show me a live weather report for Lisbon");
       await sleep(2600);
-      d.caption("The fixed flights template uses the FlightCard macro as its list row, with bound data.");
+      d.caption(
+        "The fixed flights template uses the FlightCard macro as its list row, with bound data.",
+      );
       await d.ask("Flights from SFO to JFK on Friday");
       await sleep(2600);
-      await d.page.goto(`${BASE}/components/macros`, { waitUntil: "networkidle2" });
-      d.caption("Every macro is documented: the one line of Express in, the standard components out.");
+      await d.page.goto(`${BASE}/components/macros`, {
+        waitUntil: "networkidle2",
+      });
+      d.caption(
+        "Every macro is documented: the one line of Express in, the standard components out.",
+      );
       await sleep(1500);
       await d.scroll(330, 1500);
       await sleep(1200);
       await d.click('[data-macro="FlightCard"] [data-macro-view="json"]');
-      d.caption("Wire JSON: what actually reaches the renderer, plain A2UI v1.0.");
+      d.caption(
+        "Wire JSON: what actually reaches the renderer, plain A2UI v1.0.",
+      );
       await sleep(3200);
       await d.scroll(1500, 2600);
       await sleep(2000);
@@ -228,17 +285,25 @@ const scenes = [
       await d.point("[data-model-picker]", 600);
       await d.ask("Q3 sales by region as a dashboard");
       await d.click("[data-model-picker]");
-      d.caption("Gemma 4 runs locally through Ollama, and GPT is one click away.");
+      d.caption(
+        "Gemma 4 runs locally through Ollama, and GPT is one click away.",
+      );
       await sleep(900);
       await d.point('[data-model="gpt"]', 500);
       await sleep(600);
       await d.click('[data-model="gemma"]');
-      d.caption("Same prompt on Gemma 4: router and composer both run on the local model.");
+      d.caption(
+        "Same prompt on Gemma 4: router and composer both run on the local model.",
+      );
       await d.ask("Q3 sales by region as a dashboard");
       await d.point("[data-payload] table", 700);
-      d.caption("Each run records its model, so Gemini and Gemma sit side by side.");
+      d.caption(
+        "Each run records its model, so Gemini and Gemma sit side by side.",
+      );
       await sleep(3800);
-      d.caption("Express is plain text, so the composer needs no tool calling: any model that can write can compose.");
+      d.caption(
+        "Express is plain text, so the composer needs no tool calling: any model that can write can compose.",
+      );
       await sleep(4200);
     },
   },
@@ -246,9 +311,14 @@ const scenes = [
     name: "04-hand-editing",
     label: "Hand-editing",
     path: "/playground",
-    setup: { fn: () => localStorage.removeItem("a2ui-inspector-tab"), args: [] },
+    setup: {
+      fn: () => localStorage.removeItem("a2ui-inspector-tab"),
+      args: [],
+    },
     async run(d) {
-      d.caption("Hand-edit A2UI JSON and watch it re-render. No model involved.");
+      d.caption(
+        "Hand-edit A2UI JSON and watch it re-render. No model involved.",
+      );
       await d.click('[data-tab="json"]');
       await d.click("[data-json-edit-toggle]");
       await d.page.waitForSelector("[data-json-input]", { visible: true });
@@ -266,16 +336,22 @@ const scenes = [
         await d.type("Q4 plan, edited by hand", 70);
         await sleep(1800);
         await d.page.$eval("[data-json-input]", (el) => {
-          const i = el.value.indexOf('"Q4 plan, edited by hand",') + '"Q4 plan, edited by hand"'.length;
+          const i =
+            el.value.indexOf('"Q4 plan, edited by hand",') +
+            '"Q4 plan, edited by hand"'.length;
           el.setSelectionRange(i + 1, i + 1);
         });
-        d.caption("Break the JSON: the problem is pinned to its line, and the preview keeps the last valid version.");
+        d.caption(
+          "Break the JSON: the problem is pinned to its line, and the preview keeps the last valid version.",
+        );
         await d.page.keyboard.press("Backspace");
         await sleep(3400);
         await d.type(",", 0);
         await sleep(1400);
       }
-      d.caption("CopilotKit's own validator checks components and props as you type. Starters cover charts and forms.");
+      d.caption(
+        "CopilotKit's own validator checks components and props as you type. Starters cover charts and forms.",
+      );
       await d.page.select("[data-json-source]", "charts");
       await sleep(3600);
     },
@@ -285,20 +361,30 @@ const scenes = [
     label: "Skill export",
     path: "/skills",
     async run(d) {
-      d.caption("Skill export: Google's A2UI TypeScript SDK compiles the catalog into agent skills.");
+      d.caption(
+        "Skill export: Google's A2UI TypeScript SDK compiles the catalog into agent skills.",
+      );
       await sleep(2400);
       await d.scroll(420, 1400);
       await d.click('[data-skill-file="a2ui-core/SKILL.md"]');
-      d.caption("a2ui-core: how to write A2UI Express. The same for every catalog.");
+      d.caption(
+        "a2ui-core: how to write A2UI Express. The same for every catalog.",
+      );
       await sleep(2600);
       await d.click('[data-skill-file="a2ui-playground/SKILL.md"]');
-      d.caption("a2ui-playground: every component and macro, when to use each, and worked examples.");
+      d.caption(
+        "a2ui-playground: every component and macro, when to use each, and worked examples.",
+      );
       await sleep(1200);
       await d.page.$eval("[data-skill-preview]", (el) => {
         const i = el.textContent.indexOf("### Examples");
-        el.dataset.target = String(Math.max(0, (i / el.textContent.length) * el.scrollHeight - 120));
+        el.dataset.target = String(
+          Math.max(0, (i / el.textContent.length) * el.scrollHeight - 120),
+        );
       });
-      const target = Number(await d.page.$eval("[data-skill-preview]", (el) => el.dataset.target));
+      const target = Number(
+        await d.page.$eval("[data-skill-preview]", (el) => el.dataset.target),
+      );
       await d.scroll(target, 2400, "[data-skill-preview]");
       await sleep(2800);
       await d.click('[data-skill-format="json"]');
@@ -314,16 +400,24 @@ const scenes = [
     label: "Evals",
     path: "/evals",
     async run(d) {
-      d.caption("Evals: valid-render rate, component choice, time and size, per model and format.");
+      d.caption(
+        "Evals: valid-render rate, component choice, time and size, per model and format.",
+      );
       await sleep(2600);
       await d.point("[data-eval-label]", 600);
-      d.caption("The results checked in come from the local mock model: they check the harness, not a model.");
+      d.caption(
+        "The results checked in come from the local mock model: they check the harness, not a model.",
+      );
       await sleep(3200);
       await d.scroll(480, 1600);
-      d.caption("Valid render uses CopilotKit's own validateOperation, the check the browser runs before it paints.");
+      d.caption(
+        "Valid render uses CopilotKit's own validateOperation, the check the browser runs before it paints.",
+      );
       await sleep(3000);
       await d.scroll(900, 2600);
-      d.caption("Per task: what each answer used. Run pnpm evals with Gemini, Gemma or GPT for real scores.");
+      d.caption(
+        "Per task: what each answer used. Run pnpm evals with Gemini, Gemma or GPT for real scores.",
+      );
       await sleep(3200);
       await d.scroll(1200, 2200);
       await sleep(1600);
@@ -334,19 +428,27 @@ const scenes = [
     label: "Use it in your app",
     path: "/",
     async run(d) {
-      d.caption('From the landing page, "Use it in your app" leads to a getting-started path.');
+      d.caption(
+        'From the landing page, "Use it in your app" leads to a getting-started path.',
+      );
       await sleep(1600);
       await d.click('a[href="/start"]:not(nav a)');
       await d.page.waitForSelector("h1");
-      d.caption("Install command, the repo, and three files to wire your components to any agent.");
+      d.caption(
+        "Install command, the repo, and three files to wire your components to any agent.",
+      );
       await sleep(2400);
       await d.scroll(700, 2200);
       await sleep(1800);
       await d.scroll(1100, 2400);
-      d.caption("Bring your own agent: a Google ADK agent behind the CopilotKit runtime, with no A2UI code in it.");
+      d.caption(
+        "Bring your own agent: a Google ADK agent behind the CopilotKit runtime, with no A2UI code in it.",
+      );
       await sleep(3200);
       await d.scrollTo('a[href="/catalog.json"]', 2400, 260);
-      d.caption("And the catalog as a framework-agnostic A2UI v1.0 document, for renderers beyond React.");
+      d.caption(
+        "And the catalog as a framework-agnostic A2UI v1.0 document, for renderers beyond React.",
+      );
       await d.point('a[href="/catalog.json"]', 700);
       await sleep(3600);
     },
@@ -369,7 +471,10 @@ for (const scene of scenes) {
   if (only && !only.includes(scene.name)) continue;
   const page = await browser.newPage();
   await page.evaluateOnNewDocument(OVERLAY);
-  await page.goto(`${BASE}${scene.path}`, { waitUntil: "networkidle2", timeout: 120000 });
+  await page.goto(`${BASE}${scene.path}`, {
+    waitUntil: "networkidle2",
+    timeout: 120000,
+  });
   if (scene.setup) {
     await page.evaluate(scene.setup.fn, ...scene.setup.args);
     await page.reload({ waitUntil: "networkidle2" });
@@ -393,12 +498,22 @@ for (const scene of scenes) {
   await page.close();
 
   // Caption band: one PNG per line, overlaid under the 1920x1080 screen while it is current.
-  const note = scene.agent ? (MOCK ? "model: local mock, scripted\nall app code is real" : "") : "";
+  const note = scene.agent
+    ? MOCK
+      ? "model: local mock, scripted\nall app code is real"
+      : ""
+    : "";
   const cap = await browser.newPage();
   const files = [];
   for (const [i, c] of captions.entries()) {
     const file = join(CAPS, `${scene.name}-${i}.png`);
-    await renderCaption(cap, file, scene.label, c.text, note.replace("\n", "<br>"));
+    await renderCaption(
+      cap,
+      file,
+      scene.label,
+      c.text,
+      note.replace("\n", "<br>"),
+    );
     files.push(file);
   }
   await cap.close();
@@ -407,16 +522,58 @@ for (const scene of scenes) {
     graph += `;[v${i}][${i + 1}:v]overlay=0:1080:enable='between(t,${c.start.toFixed(2)},${(c.end ?? 9999).toFixed(2)})'[v${i + 1}]`;
   });
   const final = join(outDir, `${scene.name}.mp4`);
-  execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", raw, ...files.flatMap((f) => ["-i", f]), "-filter_complex", graph, "-map", `[v${captions.length}]`, "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p", "-r", "30", "-movflags", "+faststart", final]);
+  execFileSync("ffmpeg", [
+    "-y",
+    "-loglevel",
+    "error",
+    "-i",
+    raw,
+    ...files.flatMap((f) => ["-i", f]),
+    "-filter_complex",
+    graph,
+    "-map",
+    `[v${captions.length}]`,
+    "-c:v",
+    "libx264",
+    "-preset",
+    "medium",
+    "-crf",
+    "18",
+    "-pix_fmt",
+    "yuv420p",
+    "-r",
+    "30",
+    "-movflags",
+    "+faststart",
+    final,
+  ]);
   made.push(final);
   console.log(`${final}: ${captions.length} captions`);
 }
 
 if (made.length > 1) {
   const list = join(outDir, ".concat.txt");
-  writeFileSync(list, made.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join("\n"));
+  writeFileSync(
+    list,
+    made.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join("\n"),
+  );
   const tour = join(outDir, "00-tour.mp4");
-  execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", "-movflags", "+faststart", tour]);
+  execFileSync("ffmpeg", [
+    "-y",
+    "-loglevel",
+    "error",
+    "-f",
+    "concat",
+    "-safe",
+    "0",
+    "-i",
+    list,
+    "-c",
+    "copy",
+    "-movflags",
+    "+faststart",
+    tour,
+  ]);
   console.log(`${tour}: ${made.length} scenes`);
 }
 await browser.close();

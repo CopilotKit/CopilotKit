@@ -48,30 +48,32 @@ The public site is one Railway service running `pnpm start` behind Railway's pro
 
 Set on Railway:
 
-| Variable | |
-| --- | --- |
-| `GEMINI_API_KEY` | Required. Gemini Flash, the default model. |
-| `OPENAI_API_KEY` | Optional. Turns on GPT in the model picker. |
-| `COPILOTKIT_TELEMETRY_DISABLED=true` | Optional. Turns off the CopilotKit runtime's usage telemetry. |
-| `DISABLED_MODELS` | Optional. Comma-separated model ids (`gpt`, `gemma`) to show as unavailable without removing their keys, e.g. while a provider account has no credit. |
-| `AGENT_RUNS_PER_10_MIN` | Optional. The per-visitor run limit (default 12). |
+| Variable                             |                                                                                                                                                       |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY`                     | Required. Gemini Flash, the default model.                                                                                                            |
+| `OPENAI_API_KEY`                     | Optional. Turns on GPT in the model picker.                                                                                                           |
+| `COPILOTKIT_TELEMETRY_DISABLED=true` | Optional. Turns off the CopilotKit runtime's usage telemetry.                                                                                         |
+| `DISABLED_MODELS`                    | Optional. Comma-separated model ids (`gpt`, `gemma`) to show as unavailable without removing their keys, e.g. while a provider account has no credit. |
+| `AGENT_RUNS_PER_10_MIN`              | Optional. The per-visitor run limit (default 12).                                                                                                     |
 
 Leave every `GEMMA_*` unset: Gemma on the shared Gemini key runs into its per-minute token limit, and without `GEMMA_BASE_URL` the picker tells visitors to run Gemma locally. Leave `ENABLE_MINIMAL`, `ENABLE_JEV`, `ENABLE_ADK` and `ENABLE_SNAPSHOT` unset too: in production `/minimal`, `/jev*`, `/adk`, `/snapshot` and their API routes answer 404 unless the matching one is `1` (`src/proxy.ts`).
 
 The limits are constants in `src/lib/limits.ts`:
 
-| What | Limit |
-| --- | --- |
-| Agent runs per IP (`/api/copilotkit` run and suggest requests) | a burst of 6, then 12 per 10 minutes (`AGENT_RUNS_PER_10_MIN`) |
-| Agent runs, all visitors together | a burst of 60, then 300 per hour |
-| `/api/express`, `/api/skills` per IP | a burst of 30, then 60 per minute |
-| `/api/models` per IP | a burst of 10, then 30 per minute |
-| Request body | agent 1 MB, express 512 KB, skills 64 KB |
-| What the agent reads of a chat | the newest 40 messages, 4,000 characters per user message |
-| The catalog the browser sends | 80,000 characters once it is a prompt (the real one is about 26,000) |
-| Model output per call | router 4,096 tokens, composer 16,384 tokens |
+| What                                                                                       | Limit                                                                                            |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Agent runs per IP (`/api/copilotkit` run and suggest requests, and the opt-in demo routes) | a burst of 6, then 12 per 10 minutes (`AGENT_RUNS_PER_10_MIN`)                                   |
+| Agent runs, all visitors together                                                          | a burst of 60, then 300 per hour                                                                 |
+| `/api/express`, `/api/skills` per IP                                                       | a burst of 30, then 60 per minute                                                                |
+| `/api/models` per IP                                                                       | a burst of 10, then 30 per minute                                                                |
+| Request body                                                                               | agent 1 MB, express 512 KB, skills 64 KB                                                         |
+| What the agent reads of a chat                                                             | the newest 40 messages, 4,000 characters per user message or tool call, 60,000 characters in all |
+| Lookups one prompt starts                                                                  | 4 data calls per run; 12 geocoded map pins and 6 macros per surface                              |
+| `/api/express`                                                                             | 1,000 components per request                                                                     |
+| The catalog the browser sends                                                              | 80,000 characters once it is a prompt (the real one is about 26,000)                             |
+| Model output per call                                                                      | router 4,096 tokens, composer 16,384 tokens                                                      |
 
-A refused request gets a 429 (with `Retry-After`) or a 413, with a short message the chat shows, such as "You're sending a lot of requests. Try again in a minute." The page's startup calls (`info`, `connect`) are not counted. The IP is the first `X-Forwarded-For` address, else `X-Real-IP`. The counts are kept in memory: right for one instance, but each extra replica counts on its own, and a redeploy resets them. Listing and clearing threads answers 403, since the runtime has no `identifyUser`.
+A refused request gets a 429 (with `Retry-After`) or a 413, with a short message the chat shows, such as "You're sending a lot of requests. Try again in a minute." The page's startup calls (`info`, `connect`) and requests that can't start a run are not counted. The IP is the first `X-Forwarded-For` address, else `X-Real-IP`. The counts are kept in memory: right for one instance, but each extra replica counts on its own, and a redeploy resets them. Listing and clearing threads answers 403, since the runtime has no `identifyUser`.
 
 These limits slow a visitor down; they are not a budget. Set a spend cap on each provider key in its own dashboard (the Google Cloud billing account behind the Gemini key, the OpenAI project's budget), and use keys made for this deploy so either can be revoked alone.
 
@@ -100,16 +102,16 @@ pnpm dev                         # from the repo root, then open http://localhos
 
 ## Layout
 
-| Path | What it holds |
-| --- | --- |
-| `src/agent/` | The agent: router, composers (Express and JSON), models, surfaces, templates, tools |
-| `src/a2ui/catalog/` | Definitions (Zod), renderers and samples of the playground's components |
-| `src/a2ui/macros/` | The three macros and their samples |
-| `src/components/playground/` | The chat, composer, lines pane and the JSON editor |
-| `src/app/` | Pages (`/`, `/components`, `/skills`, `/evals`, `/start`, `/watch`) and API routes |
-| `skills/` | The catalog skill and the generated agent skills |
-| `examples/adk/` | A Google ADK agent served over AG-UI |
-| `scripts/` | Catalog and skill export, evals, the replay recorder, browser checks |
+| Path                         | What it holds                                                                       |
+| ---------------------------- | ----------------------------------------------------------------------------------- |
+| `src/agent/`                 | The agent: router, composers (Express and JSON), models, surfaces, templates, tools |
+| `src/a2ui/catalog/`          | Definitions (Zod), renderers and samples of the playground's components             |
+| `src/a2ui/macros/`           | The three macros and their samples                                                  |
+| `src/components/playground/` | The chat, composer, lines pane and the JSON editor                                  |
+| `src/app/`                   | Pages (`/`, `/components`, `/skills`, `/evals`, `/start`, `/watch`) and API routes  |
+| `skills/`                    | The catalog skill and the generated agent skills                                    |
+| `examples/adk/`              | A Google ADK agent served over AG-UI                                                |
+| `scripts/`                   | Catalog and skill export, evals, the replay recorder, browser checks                |
 
 ## Known limitations
 

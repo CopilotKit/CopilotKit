@@ -32,7 +32,7 @@ const GENERATIVE_UI: GenerativeUIConfig = { ui: playgroundUI, theme: playgroundT
 >
 ```
 
-Keep the config object stable (module constant or `useMemo`). `transport: "tool"` (the default) means operations arrive as activities; `"markdown"` has the model write them in ```` ```a2ui ```` fences instead. Replace the card around each surface in the chat with `<CopilotChat generativeUISurface={SurfaceCard} />`, a component that takes `{ surfaceId, isStreaming, error, rejected, children }`.
+Keep the config object stable (module constant or `useMemo`). `transport: "tool"` (the default) means operations arrive as activities; `"markdown"` has the model write them in ` ```a2ui ` fences instead. Replace the card around each surface in the chat with `<CopilotChat generativeUISurface={SurfaceCard} />`, a component that takes `{ surfaceId, isStreaming, error, rejected, children }`.
 
 `surfaceRenderer` (templates/surface-mirror.tsx) sits in front of CopilotKit's own surface renderer, found with `copilotkit.renderActivityMessages.find((r) => r.activityType === GENERATIVE_UI_ACTIVITY_TYPE && r !== surfaceRenderer)`, so the chat keeps CopilotKit's validation, bindings and events, and every operation list is also copied to your store (for a side canvas, a JSON view, timings).
 
@@ -42,13 +42,19 @@ To render the same operations outside the chat (catalog previews, replays), use 
 
 ```ts
 // app/api/copilotkit/[[...slug]]/route.ts
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
   agents: { default: createPlaygroundAgent() },
-  generativeUI: false,                    // the agent writes its own surfaces: no render_ui injection
+  generativeUI: false, // the agent writes its own surfaces: no render_ui injection
 });
-const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 export const GET = handler;
 export const POST = handler;
 ```
@@ -64,7 +70,7 @@ export function createPlaygroundAgent() {
   return new BuiltInAgent({
     type: "custom",
     factory: ({ input, abortSignal }) => {
-      const q = new EventQueue();                         // templates/events.ts: async-iterable AG-UI events
+      const q = new EventQueue(); // templates/events.ts: async-iterable AG-UI events
       run(input, abortSignal, q).finally(() => q.close());
       return q;
     },

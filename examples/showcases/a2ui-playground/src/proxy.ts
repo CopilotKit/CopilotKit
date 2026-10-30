@@ -22,9 +22,20 @@ export function proxy(request: NextRequest) {
   const flag = OPT_IN[pathname.split("/")[api ? 2 : 1]];
   if (!flag || process.env[flag] === "1") return;
   // A page gets the site's own not-found page: no route matches the rewritten path.
-  return api ? Response.json({ error: "Not found" }, { status: 404 }) : NextResponse.rewrite(new URL("/_closed", request.url));
+  return api
+    ? Response.json({ error: "Not found" }, { status: 404 })
+    : NextResponse.rewrite(new URL("/_closed", request.url));
 }
 
 export const config = {
-  matcher: ["/minimal/:path*", "/jev/:path*", "/adk/:path*", "/snapshot/:path*", "/api/minimal/:path*", "/api/jev/:path*", "/api/jev-chat/:path*", "/api/adk/:path*"],
+  matcher: [
+    "/minimal/:path*",
+    "/jev/:path*",
+    "/adk/:path*",
+    "/snapshot/:path*",
+    "/api/minimal/:path*",
+    "/api/jev/:path*",
+    "/api/jev-chat/:path*",
+    "/api/adk/:path*",
+  ],
 };

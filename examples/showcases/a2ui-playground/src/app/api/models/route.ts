@@ -10,5 +10,11 @@ export const dynamic = "force-dynamic";
 const limit = rateLimiter(RATE_LIMITS.models);
 
 export function GET(request: Request) {
-  return limit(request) ?? Response.json({ models: modelAvailability() }, { headers: { "Cache-Control": "no-store" } });
+  return (
+    limit(request) ??
+    Response.json(
+      { models: modelAvailability() },
+      { headers: { "Cache-Control": "no-store" } },
+    )
+  );
 }

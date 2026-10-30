@@ -15,7 +15,9 @@ export type OwnEntry<C> = {
   writable?: readonly string[];
 };
 
-export function ownEntries<C>(componentFor: (name: ComponentName) => C): Record<ComponentName, OwnEntry<C>> {
+export function ownEntries<C>(
+  componentFor: (name: ComponentName) => C,
+): Record<ComponentName, OwnEntry<C>> {
   return Object.fromEntries(
     (Object.keys(definitions) as ComponentName[]).map((name) => {
       const d = definitions[name];

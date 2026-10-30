@@ -29,8 +29,15 @@ const RENDER_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
     parameters: {
       type: "object",
       properties: {
-        components: { type: "array", items: { type: "object" }, description: "Flat component list, root first." },
-        data: { type: "object", description: "Initial data model (form values, template items)." },
+        components: {
+          type: "array",
+          items: { type: "object" },
+          description: "Flat component list, root first.",
+        },
+        data: {
+          type: "object",
+          description: "Initial data model (form values, template items).",
+        },
       },
       required: ["components"],
     },
@@ -75,26 +82,51 @@ function withLegDistances(points: Array<Record<string, unknown>>) {
     if (i === 0) return rest;
     const a = points[i - 1] as { lat: number; lon: number };
     const b = p as { lat: number; lon: number };
-    const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lon - a.lon) / 2) ** 2;
-    return { ...rest, distanceKm: Math.round(2 * 6371 * Math.asin(Math.sqrt(h)) * 10) / 10 };
+    const h =
+      Math.sin(rad(b.lat - a.lat) / 2) ** 2 +
+      Math.cos(rad(a.lat)) *
+        Math.cos(rad(b.lat)) *
+        Math.sin(rad(b.lon - a.lon) / 2) ** 2;
+    return {
+      ...rest,
+      distanceKm: Math.round(2 * 6371 * Math.asin(Math.sqrt(h)) * 10) / 10,
+    };
   });
 }
 
 /** Ids a component references: `child`, `children` and the `child` of tab/accordion items. */
 function childRefs(c: Record<string, unknown>): string[] {
-  const nested = ["tabs", "items"].flatMap((k) => (Array.isArray(c[k]) ? (c[k] as Array<{ child?: unknown }>).map((t) => t?.child) : []));
-  return [...(Array.isArray(c.children) ? (c.children as unknown[]) : []), c.child, ...nested].filter((r): r is string => typeof r === "string");
+  const nested = ["tabs", "items"].flatMap((k) =>
+    Array.isArray(c[k])
+      ? (c[k] as Array<{ child?: unknown }>).map((t) => t?.child)
+      : [],
+  );
+  return [
+    ...(Array.isArray(c.children) ? (c.children as unknown[]) : []),
+    c.child,
+    ...nested,
+  ].filter((r): r is string => typeof r === "string");
 }
 
 /** Drops references to components the model never wrote, so nothing waits on a frame forever. */
 function pruneDangling(components: Node[]) {
   const known = new Set(components.map((c) => c.id));
   for (const c of components) {
-    if (Array.isArray(c.children)) c.children = (c.children as unknown[]).filter((id) => typeof id !== "string" || known.has(id));
+    if (Array.isArray(c.children))
+      c.children = (c.children as unknown[]).filter(
+        (id) => typeof id !== "string" || known.has(id),
+      );
     if (typeof c.child === "string" && !known.has(c.child)) delete c.child;
     for (const k of ["tabs", "items"]) {
-      if (Array.isArray(c[k]) && (c[k] as Array<{ child?: unknown }>).some((t) => typeof t?.child === "string"))
-        c[k] = (c[k] as Array<{ child?: unknown }>).filter((t) => typeof t?.child !== "string" || known.has(t.child));
+      if (
+        Array.isArray(c[k]) &&
+        (c[k] as Array<{ child?: unknown }>).some(
+          (t) => typeof t?.child === "string",
+        )
+      )
+        c[k] = (c[k] as Array<{ child?: unknown }>).filter(
+          (t) => typeof t?.child !== "string" || known.has(t.child),
+        );
     }
   }
 }
@@ -126,7 +158,9 @@ export async function compose(input: ComposeInput): Promise<ComposeResult> {
   const user = [
     `Conversation so far:\n${input.conversation}`,
     `Build this UI: ${input.brief}`,
-    input.data !== undefined ? `Live data to use (real, fetched just now; show the source in a caption):\n${JSON.stringify(input.data).slice(0, 12000)}` : "",
+    input.data !== undefined
+      ? `Live data to use (real, fetched just now; show the source in a caption):\n${JSON.stringify(input.data).slice(0, 12000)}`
+      : "",
     input.prior
       ? `UPDATE this existing surface in place. Keep its structure and every part the change does not touch, and apply only the requested change:\n${JSON.stringify({ components: input.prior.components, data: input.prior.data }).slice(0, 14000)}`
       : "",
@@ -153,12 +187,20 @@ export async function compose(input: ComposeInput): Promise<ComposeResult> {
   const paint = () => {
     if (painted || !progressive) return;
     painted = true;
-    pipeline(q, t0, "paint", { components: parser.components.length, progressive: true, blueprint: parser.components.length === 0 });
+    pipeline(q, t0, "paint", {
+      components: parser.components.length,
+      progressive: true,
+      blueprint: parser.components.length === 0,
+    });
   };
   const errors: string[] = [];
   const repaired = (c: Record<string, unknown>) => {
-    const { component, note } = repairComponent(stripDashes(c) as Node, manifest);
-    if (note?.failed.length) errors.push(...note.failed.map((f) => `${component.id}: ${f}`));
+    const { component, note } = repairComponent(
+      stripDashes(c) as Node,
+      manifest,
+    );
+    if (note?.failed.length)
+      errors.push(...note.failed.map((f) => `${component.id}: ${f}`));
     return { component, note };
   };
 
@@ -183,22 +225,37 @@ export async function compose(input: ComposeInput): Promise<ComposeResult> {
   const startGeo = (c: Node) => {
     const isCard = c.component === "LocationCard" && typeof c.name === "string";
     const prop = MAP_POINT_PROPS[c.component];
-    const points = isCard ? [{ name: c.name, lat: c.lat, lon: c.lon }] : prop && Array.isArray(c[prop]) ? (c[prop] as Array<Record<string, unknown>>) : null;
+    const points = isCard
+      ? [{ name: c.name, lat: c.lat, lon: c.lon }]
+      : prop && Array.isArray(c[prop])
+        ? (c[prop] as Array<Record<string, unknown>>)
+        : null;
     if (!points?.length) return;
     geoJobs.push(
       repairMarkers(points)
         .then((r) => {
           if (!r) return;
           const patch: Record<string, unknown> = isCard
-            ? r.markers[0] ? { lat: r.markers[0].lat, lon: r.markers[0].lon } : {}
-            : { [prop!]: prop === "places" ? withLegDistances(r.markers) : r.markers };
+            ? r.markers[0]
+              ? { lat: r.markers[0].lat, lon: r.markers[0].lon }
+              : {}
+            : {
+                [prop!]:
+                  prop === "places" ? withLegDistances(r.markers) : r.markers,
+              };
           geoPatched.set(c.id, patch);
           const idx = parser.components.findIndex((x) => x.id === c.id);
           if (idx >= 0) {
             parser.components[idx] = { ...parser.components[idx], ...patch };
             send(parser.components[idx] as Node);
           }
-          pipeline(q, t0, "geo", { id: c.id, component: c.component, geocoded: r.note.geocoded, dropped: r.note.dropped, unverified: r.note.unverified });
+          pipeline(q, t0, "geo", {
+            id: c.id,
+            component: c.component,
+            geocoded: r.note.geocoded,
+            dropped: r.note.dropped,
+            unverified: r.note.unverified,
+          });
         })
         .catch(() => undefined),
     );
@@ -222,45 +279,102 @@ export async function compose(input: ComposeInput): Promise<ComposeResult> {
       const { component, note } = repaired(c);
       if (idx >= 0) parser.components[idx] = component;
       startGeo(component);
-      pipeline(q, t0, "compose:component", { id: c.id, component: c.component, n: parser.components.length, chars: JSON.stringify(c).length, ...(note ? { repaired: note.fixed, failed: note.failed } : {}) });
+      pipeline(q, t0, "compose:component", {
+        id: c.id,
+        component: c.component,
+        n: parser.components.length,
+        chars: JSON.stringify(c).length,
+        ...(note ? { repaired: note.fixed, failed: note.failed } : {}),
+      });
       // The real component replaces its frame; children it names but that have not started get labelled pending frames.
       const pending = childRefs(component)
         .filter((id) => !sent.has(id))
-        .map((id): Node => ({ id, component: "Blueprint", of: `#${id}`, state: "pending" }));
-      send(note?.failed.length ? { id: component.id, component: "Blueprint", of: component.component, state: "failed" } : component, ...pending);
+        .map(
+          (id): Node => ({
+            id,
+            component: "Blueprint",
+            of: `#${id}`,
+            state: "pending",
+          }),
+        );
+      send(
+        note?.failed.length
+          ? {
+              id: component.id,
+              component: "Blueprint",
+              of: component.component,
+              state: "failed",
+            }
+          : component,
+        ...pending,
+      );
       paint();
     }
     // A new component id is readable before its props are complete: draw its frame now.
     const open = parser.open;
     if (open && open.id !== lastHeader) {
       lastHeader = open.id;
-      pipeline(q, t0, "compose:header", { id: open.id, component: open.component, n: parser.components.length + 1 });
-      if (!sent.has(open.id) || JSON.parse(sent.get(open.id)!).component === "Blueprint") send({ id: open.id, component: "Blueprint", of: open.component, state: "streaming" });
+      pipeline(q, t0, "compose:header", {
+        id: open.id,
+        component: open.component,
+        n: parser.components.length + 1,
+      });
+      if (
+        !sent.has(open.id) ||
+        JSON.parse(sent.get(open.id)!).component === "Blueprint"
+      )
+        send({
+          id: open.id,
+          component: "Blueprint",
+          of: open.component,
+          state: "streaming",
+        });
       paint();
     }
     const now = performance.now();
     if (now - lastProgress > 120) {
       lastProgress = now;
       const secs = Math.max(0.001, (now - firstTokenAt) / 1000);
-      pipeline(q, t0, "compose:progress", { id: open?.id, component: open?.component, chars: parser.openChars, tokens: Math.round(tokens), tps: Math.round(tokens / secs) });
+      pipeline(q, t0, "compose:progress", {
+        id: open?.id,
+        component: open?.component,
+        chars: parser.openChars,
+        tokens: Math.round(tokens),
+        tps: Math.round(tokens / secs),
+      });
     }
   }
   // Geocoding runs alongside composing; never hold the finished surface more than 10 s for it (8 paced Nominatim lookups fit).
-  if (geoJobs.length) await Promise.race([Promise.all(geoJobs), new Promise((r) => setTimeout(r, 10000))]);
+  if (geoJobs.length)
+    await Promise.race([
+      Promise.all(geoJobs),
+      new Promise((r) => setTimeout(r, 10000)),
+    ]);
 
-  let args: { components?: Array<Record<string, unknown>>; data?: Record<string, unknown> } = {};
+  let args: {
+    components?: Array<Record<string, unknown>>;
+    data?: Record<string, unknown>;
+  } = {};
   try {
     args = JSON.parse(parser.raw || "{}");
   } catch {
     args = { components: parser.components };
   }
   errors.length = 0;
-  const components = (Array.isArray(args.components) && args.components.length ? args.components : parser.components).map((c) => {
+  const components = (
+    Array.isArray(args.components) && args.components.length
+      ? args.components
+      : parser.components
+  ).map((c) => {
     const { component } = repaired(c);
-    return geoPatched.has(component.id) ? { ...component, ...geoPatched.get(component.id) } : component;
+    return geoPatched.has(component.id)
+      ? { ...component, ...geoPatched.get(component.id) }
+      : component;
   });
   pruneDangling(components);
-  const data = stripDashes(args.data && typeof args.data === "object" ? args.data : {});
+  const data = stripDashes(
+    args.data && typeof args.data === "object" ? args.data : {},
+  );
 
   // The data lands before the final components, so every binding resolves as they swap in.
   if (!progressive) stream.reopen();
@@ -268,6 +382,10 @@ export async function compose(input: ComposeInput): Promise<ComposeResult> {
   if (progressive) send(...components);
   else stream.upsert(...components);
   stream.close();
-  pipeline(q, t0, "validate", { ok: errors.length === 0, errors: errors.slice(0, 5), components: components.length });
+  pipeline(q, t0, "validate", {
+    ok: errors.length === 0,
+    errors: errors.slice(0, 5),
+    components: components.length,
+  });
   return { surfaceId, components, data, valid: errors.length === 0, errors };
 }

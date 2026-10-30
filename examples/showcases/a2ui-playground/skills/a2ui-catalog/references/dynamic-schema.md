@@ -17,15 +17,19 @@ const stream = await client.chat.completions.create({
   stream: true,
   reasoning_effort: "none",
   tool_choice: { type: "function", function: { name: "render_a2ui" } },
-  tools: [RENDER_TOOL],   // { components: object[], data?: object }; the agent picks the surface id
+  tools: [RENDER_TOOL], // { components: object[], data?: object }; the agent picks the surface id
   messages: [
-    { role: "system", content: systemPrompt(manifest) },    // built from the catalog the browser sent; identical every call -> prompt cache
-    { role: "user", content: `${conversation}\n\nBuild this UI: ${brief}\n\nLive data: ${json}` },
+    { role: "system", content: systemPrompt(manifest) }, // built from the catalog the browser sent; identical every call -> prompt cache
+    {
+      role: "user",
+      content: `${conversation}\n\nBuild this UI: ${brief}\n\nLive data: ${json}`,
+    },
   ],
 });
 ```
 
 System prompt rules that changed output quality measurably:
+
 - "Write args in this order: components, data." and "root first, then each parent before its children, in reading order. The UI paints as you write."
 - "Put real values inline as literals. Use `{"@path"}` only for input values and inside templates." (inline literals paint immediately; bound values stay empty until `data` arrives at the very end)
 - "Computed values use the functions: `{"@call":"formatCurrency","args":{...}}`." "Events: a Button's `onClick` and a card's `onAction` take `{"event":{"name","context"}}`."
@@ -37,20 +41,26 @@ System prompt rules that changed output quality measurably:
 
 ```ts
 const surface = new SurfaceStream(q, `ui-${toolCallId.slice(-6)}`);
-surface.create();                                          // empty surface, status "streaming"
+surface.create(); // empty surface, status "streaming"
 const parser = new ComponentStreamParser();
 for await (const chunk of stream) {
   const delta = chunk.choices[0]?.delta?.tool_calls?.[0]?.function?.arguments;
   if (!delta) continue;
-  for (const c of parser.push(delta)) {                    // every component object that just closed
+  for (const c of parser.push(delta)) {
+    // every component object that just closed
     const { component } = repairComponent(c, manifest);
     surface.upsert(component, ...pendingFramesFor(component)); // one updateComponents per finished component
   }
-  if (parser.open) surface.upsert({ id: parser.open.id, component: "Blueprint", of: parser.open.component });
+  if (parser.open)
+    surface.upsert({
+      id: parser.open.id,
+      component: "Blueprint",
+      of: parser.open.component,
+    });
 }
-surface.data(data);                                        // data before the final components: bindings resolve as they land
+surface.data(data); // data before the final components: bindings resolve as they land
 surface.upsert(...components);
-surface.close();                                           // status "ready"
+surface.close(); // status "ready"
 ```
 
 The parser is a string/escape-aware brace scanner over the `components` array; each closed object is `JSON.parse`d on its own, and `parser.open` exposes the id and type of the object still streaming. `updateComponents` upserts by id, so a frame and the component that replaces it are one entry. Keep a map of what you sent and only send a component again when it changed. A child id that has not arrived renders nothing, which is why the pending frames matter (streaming-visuals.md).
@@ -63,17 +73,17 @@ The composer's own tool call stays inside your OpenAI request and never becomes 
 
 Validate every streamed component and fix model drift before it reaches the client: your own components against their Zod schemas, standard components against the JSON Schema in the manifest, then every component through `validateOperation`, the same check the browser runs. A component that still fails is sent as a `Blueprint` with `state: "failed"` instead of an operation the browser would reject. Real cases from runs:
 
-| Drift | Fix |
-| --- | --- |
-| `Heading { level: 2 }` (enum is `"1"/"2"/"3"`) | number -> string |
-| `Heading { title: "..." }` (required `text` missing) | alias `title -> text` |
-| `{ y: "4" }`, `{ value: "$1,600" }` | numeric coercion |
-| `SankeyChart { links: { nodes, links } }` | unwrap the array field |
-| `Stat { tone: "nope" }` | drop invalid optional prop |
-| a standard component with a prop it does not have | drop the prop |
-| `FlightCard { action: {...} }` (old habit) | rename to `onAction` |
-| `{"path": "/x"}` (old binding) | `{"@path": "/x"}` |
-| a malformed row in `data` | drop that row |
+| Drift                                                | Fix                        |
+| ---------------------------------------------------- | -------------------------- |
+| `Heading { level: 2 }` (enum is `"1"/"2"/"3"`)       | number -> string           |
+| `Heading { title: "..." }` (required `text` missing) | alias `title -> text`      |
+| `{ y: "4" }`, `{ value: "$1,600" }`                  | numeric coercion           |
+| `SankeyChart { links: { nodes, links } }`            | unwrap the array field     |
+| `Stat { tone: "nope" }`                              | drop invalid optional prop |
+| a standard component with a prop it does not have    | drop the prop              |
+| `FlightCard { action: {...} }` (old habit)           | rename to `onAction`       |
+| `{"path": "/x"}` (old binding)                       | `{"@path": "/x"}`          |
+| a malformed row in `data`                            | drop that row              |
 
 Union errors hide the real issue in `unionErrors`; descend into the most specific branch. Skip any value that is a `{"@path"}` or `{"@call"}`: the browser resolves it. At the end, prune child ids that no component defines. Surface the fixes in your timeline ("repaired title->text") so description tuning has evidence.
 

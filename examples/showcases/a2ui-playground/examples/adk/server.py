@@ -1,6 +1,6 @@
 """Serves the ADK agent over AG-UI at http://localhost:8000/.
 
-    uv run server.py
+uv run server.py
 """
 
 import os
@@ -23,4 +23,6 @@ app = FastAPI(title="A2UI ADK agent")
 add_adk_fastapi_endpoint(app, adk_agent, path="/")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", "8000")))
+    uvicorn.run(
+        app, host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", "8000"))
+    )

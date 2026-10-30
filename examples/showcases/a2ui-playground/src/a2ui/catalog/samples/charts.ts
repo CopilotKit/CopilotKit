@@ -1,15 +1,38 @@
 import type { Sample } from "./types";
 import type { ComponentName } from "../definitions";
 
-const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const months = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
-const series = (name: string, values: number[], xs: (string | number)[] = months) => values.map((y, i) => ({ x: xs[i], y, series: name }));
+const series = (
+  name: string,
+  values: number[],
+  xs: (string | number)[] = months,
+) => values.map((y, i) => ({ x: xs[i], y, series: name }));
 
 /** Deterministic pseudo-random walk so samples render identically every load. */
 function walk(seed: number, n: number, start: number, vol: number) {
   let s = seed;
-  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647) - 0.5;
-  const out: { date: string; open: number; high: number; low: number; close: number }[] = [];
+  const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647 - 0.5;
+  const out: {
+    date: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+  }[] = [];
   let price = start;
   for (let i = 0; i < n; i++) {
     const open = price;
@@ -17,7 +40,13 @@ function walk(seed: number, n: number, start: number, vol: number) {
     const high = +(Math.max(open, close) + Math.abs(rnd()) * vol).toFixed(2);
     const low = +(Math.min(open, close) - Math.abs(rnd()) * vol).toFixed(2);
     const d = new Date(Date.UTC(2026, 8, 1 + i));
-    out.push({ date: `${d.toLocaleString("en-US", { month: "short", timeZone: "UTC" })} ${d.getUTCDate()}`, open: +open.toFixed(2), high, low, close });
+    out.push({
+      date: `${d.toLocaleString("en-US", { month: "short", timeZone: "UTC" })} ${d.getUTCDate()}`,
+      open: +open.toFixed(2),
+      high,
+      low,
+      close,
+    });
     price = close;
   }
   return out;
@@ -29,7 +58,13 @@ const heat = days.flatMap((d, di) =>
   hours.map((h, hi) => {
     const work = di < 5 ? 1 : 0.35;
     const curve = Math.exp(-((hi - 4.2) ** 2) / 4.5);
-    return { x: h, y: d, value: Math.round(40 + 860 * work * curve + ((di * 7 + hi * 13) % 9) * 12) };
+    return {
+      x: h,
+      y: d,
+      value: Math.round(
+        40 + 860 * work * curve + ((di * 7 + hi * 13) % 9) * 12,
+      ),
+    };
   }),
 );
 
@@ -44,8 +79,20 @@ export const chartsSamples: Partial<Record<ComponentName, Sample>> = {
         subtitle: "Web vs mobile, last 12 months",
         format: "compact",
         data: [
-          ...series("Web", [18200, 19400, 21100, 20800, 23900, 26400, 25800, 28900, 31200, 33800, 35100, 38400]),
-          ...series("Mobile", [9800, 10900, 12600, 14100, 15900, 17200, 19800, 21400, 24100, 26900, 29300, 32600]),
+          ...series(
+            "Web",
+            [
+              18200, 19400, 21100, 20800, 23900, 26400, 25800, 28900, 31200,
+              33800, 35100, 38400,
+            ],
+          ),
+          ...series(
+            "Mobile",
+            [
+              9800, 10900, 12600, 14100, 15900, 17200, 19800, 21400, 24100,
+              26900, 29300, 32600,
+            ],
+          ),
         ],
       },
     ],
@@ -61,9 +108,27 @@ export const chartsSamples: Partial<Record<ComponentName, Sample>> = {
         format: "currency",
         stacked: true,
         data: [
-          ...series("Chat", [4200, 4800, 5600, 6100, 7300, 8100, 8900, 9400, 10800, 11600, 12900, 14100]),
-          ...series("Agents", [2100, 2600, 3300, 3900, 4400, 5200, 6100, 6900, 7400, 8300, 9100, 9800]),
-          ...series("Embeddings", [900, 950, 1100, 1180, 1260, 1400, 1520, 1610, 1700, 1820, 1950, 2080]),
+          ...series(
+            "Chat",
+            [
+              4200, 4800, 5600, 6100, 7300, 8100, 8900, 9400, 10800, 11600,
+              12900, 14100,
+            ],
+          ),
+          ...series(
+            "Agents",
+            [
+              2100, 2600, 3300, 3900, 4400, 5200, 6100, 6900, 7400, 8300, 9100,
+              9800,
+            ],
+          ),
+          ...series(
+            "Embeddings",
+            [
+              900, 950, 1100, 1180, 1260, 1400, 1520, 1610, 1700, 1820, 1950,
+              2080,
+            ],
+          ),
         ],
       },
     ],
@@ -77,8 +142,16 @@ export const chartsSamples: Partial<Record<ComponentName, Sample>> = {
         subtitle: "Quarterly, USD",
         format: "currency",
         data: [
-          ...series("2025", [412000, 298000, 186000, 94000], ["NA", "EMEA", "APAC", "LATAM"]),
-          ...series("2026", [538000, 371000, 262000, 131000], ["NA", "EMEA", "APAC", "LATAM"]),
+          ...series(
+            "2025",
+            [412000, 298000, 186000, 94000],
+            ["NA", "EMEA", "APAC", "LATAM"],
+          ),
+          ...series(
+            "2026",
+            [538000, 371000, 262000, 131000],
+            ["NA", "EMEA", "APAC", "LATAM"],
+          ),
         ],
       },
     ],
@@ -151,7 +224,9 @@ export const chartsSamples: Partial<Record<ComponentName, Sample>> = {
         value: "$184.2K",
         delta: "+12.4%",
         tone: "positive",
-        values: [128, 131, 129, 138, 142, 140, 149, 155, 153, 162, 171, 168, 176, 184],
+        values: [
+          128, 131, 129, 138, 142, 140, 149, 155, 153, 162, 171, 168, 176, 184,
+        ],
       },
     ],
   },
@@ -164,8 +239,30 @@ export const chartsSamples: Partial<Record<ComponentName, Sample>> = {
         subtitle: "Score out of 100 per benchmark",
         max: 100,
         data: [
-          ...["Reasoning", "Coding", "Math", "Tool use", "Long context", "Latency"].map((axis, i) => ({ axis, value: [92, 88, 85, 90, 78, 64][i], series: "Model A" })),
-          ...["Reasoning", "Coding", "Math", "Tool use", "Long context", "Latency"].map((axis, i) => ({ axis, value: [81, 79, 72, 84, 91, 88][i], series: "Model B" })),
+          ...[
+            "Reasoning",
+            "Coding",
+            "Math",
+            "Tool use",
+            "Long context",
+            "Latency",
+          ].map((axis, i) => ({
+            axis,
+            value: [92, 88, 85, 90, 78, 64][i],
+            series: "Model A",
+          })),
+          ...[
+            "Reasoning",
+            "Coding",
+            "Math",
+            "Tool use",
+            "Long context",
+            "Latency",
+          ].map((axis, i) => ({
+            axis,
+            value: [81, 79, 72, 84, 91, 88][i],
+            series: "Model B",
+          })),
         ],
       },
     ],

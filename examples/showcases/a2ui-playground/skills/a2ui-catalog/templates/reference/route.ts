@@ -1,6 +1,9 @@
 // Reference implementation copied from the a2ui-playground build (working, measured).
 // Paths like @/a2ui/... are app-specific: adapt imports to your project.
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { createPlaygroundAgent } from "@/agent/agent";
 
 export const runtime = "nodejs";
@@ -16,7 +19,10 @@ const copilotRuntime = new CopilotRuntime({
   generativeUI: false,
 });
 
-const handler = createCopilotRuntimeHandler({ runtime: copilotRuntime, basePath: "/api/copilotkit" });
+const handler = createCopilotRuntimeHandler({
+  runtime: copilotRuntime,
+  basePath: "/api/copilotkit",
+});
 
 export const GET = handler;
 export const POST = handler;

@@ -12,7 +12,9 @@
   color: var(--foreground);
 }
 
-.jev-wordmark { color: var(--jev-accent); }
+.jev-wordmark {
+  color: var(--jev-accent);
+}
 
 .jev-canvas {
   background-image: radial-gradient(var(--jev-dot-c) 1px, transparent 1.3px);
@@ -25,7 +27,9 @@
   border: 1px solid var(--jev-line-strong);
   background: var(--jev-panel);
   border-radius: 16px;
-  transition: border-color 200ms ease, box-shadow 200ms ease;
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease;
 }
 .jev-prompt:focus-within {
   border-color: oklch(0.72 0.17 292 / 55%);
@@ -34,10 +38,16 @@
 .jev-run {
   background: var(--foreground);
   color: var(--background);
-  transition: opacity 150ms ease, transform 150ms ease;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
 }
-.jev-run:active { transform: scale(0.94); }
-.jev-run:disabled { opacity: 0.85; }
+.jev-run:active {
+  transform: scale(0.94);
+}
+.jev-run:disabled {
+  opacity: 0.85;
+}
 
 .jev-spin {
   width: 14px;
@@ -47,7 +57,11 @@
   border-right-color: transparent;
   animation: jev-spin 600ms linear infinite;
 }
-@keyframes jev-spin { to { transform: rotate(360deg); } }
+@keyframes jev-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 .jev-dot {
   width: 7px;
@@ -57,8 +71,17 @@
   box-shadow: 0 0 0 3px var(--jev-accent-soft);
   flex: none;
 }
-.jev-dot-pulse { animation: jev-pulse 700ms ease-in-out infinite alternate; }
-@keyframes jev-pulse { from { opacity: 0.35; } to { opacity: 1; } }
+.jev-dot-pulse {
+  animation: jev-pulse 700ms ease-in-out infinite alternate;
+}
+@keyframes jev-pulse {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
 
 .jev-tag {
   font-size: 11px;
@@ -70,11 +93,27 @@
 }
 
 /* The surface arrives: one quick lift, no staged reveal (the point is that it is instant). */
-.jev-surface-in { animation: jev-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-@keyframes jev-in { from { opacity: 0; transform: translateY(8px) scale(0.995); } to { opacity: 1; transform: none; } }
+.jev-surface-in {
+  animation: jev-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes jev-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 
 /* Score rows in the side panel */
-.jev-bar-track { height: 6px; border-radius: 999px; background: oklch(1 0 0 / 6%); overflow: hidden; }
+.jev-bar-track {
+  height: 6px;
+  border-radius: 999px;
+  background: oklch(1 0 0 / 6%);
+  overflow: hidden;
+}
 .jev-bar {
   height: 100%;
   border-radius: 999px;
@@ -82,21 +121,57 @@
   transform-origin: left center;
   animation: jev-grow 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-.jev-bar[data-dim="true"] { background: oklch(0.72 0.17 292 / 45%); }
-@keyframes jev-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-.jev-row-in { animation: jev-row 280ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-@keyframes jev-row { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.jev-bar[data-dim="true"] {
+  background: oklch(0.72 0.17 292 / 45%);
+}
+@keyframes jev-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.jev-row-in {
+  animation: jev-row 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes jev-row {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 
-.jev-tab { font-family: var(--font-mono); font-size: 14px; color: var(--muted-foreground); transition: color 150ms ease; }
-.jev-tab[aria-selected="true"] { color: var(--foreground); }
+.jev-tab {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--muted-foreground);
+  transition: color 150ms ease;
+}
+.jev-tab[aria-selected="true"] {
+  color: var(--foreground);
+}
 
 .jev-skel {
   border-radius: 14px;
-  background: linear-gradient(90deg, oklch(1 0 0 / 3%), oklch(1 0 0 / 6%), oklch(1 0 0 / 3%));
+  background: linear-gradient(
+    90deg,
+    oklch(1 0 0 / 3%),
+    oklch(1 0 0 / 6%),
+    oklch(1 0 0 / 3%)
+  );
   background-size: 200% 100%;
   animation: jev-shimmer 1.1s linear infinite;
 }
-@keyframes jev-shimmer { to { background-position: -200% 0; } }
+@keyframes jev-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
 
 /* Big number hero (v4) */
 .jev-hero-num {
@@ -108,5 +183,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .jev-surface-in, .jev-bar, .jev-row-in, .jev-dot-pulse, .jev-skel { animation: none; }
+  .jev-surface-in,
+  .jev-bar,
+  .jev-row-in,
+  .jev-dot-pulse,
+  .jev-skel {
+    animation: none;
+  }
 }

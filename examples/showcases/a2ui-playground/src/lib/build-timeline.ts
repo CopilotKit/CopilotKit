@@ -10,18 +10,40 @@
 import { latestComponents, type A2UIOp } from "./run-store";
 
 /** Structure stays real as soon as it arrives so the layout is exact; everything else is a leaf. */
-export const STRUCTURE = new Set(["Column", "Row", "Grid", "Card", "Section", "List", "Tabs", "Accordion", "Carousel"]);
+export const STRUCTURE = new Set([
+  "Column",
+  "Row",
+  "Grid",
+  "Card",
+  "Section",
+  "List",
+  "Tabs",
+  "Accordion",
+  "Carousel",
+]);
 
 export type Snapshot = { t: number; ops: A2UIOp[] };
 export type PartState = "pending" | "streaming" | "filled";
-export type Part = { id: string; type: string; state: PartState; seenAt: number; realAt: number | null; leaf: boolean };
+export type Part = {
+  id: string;
+  type: string;
+  state: PartState;
+  seenAt: number;
+  realAt: number | null;
+  leaf: boolean;
+};
 export type Presented = {
   ops: A2UIOp[] | null;
   parts: Part[];
   done: boolean; // the last snapshot is in
   endAt: number; // time of the last snapshot (for players)
   firstAt: number | null; // time of the first snapshot
-  events: Array<{ t: number; kind: "frame" | "fill"; id: string; type: string }>;
+  events: Array<{
+    t: number;
+    kind: "frame" | "fill";
+    id: string;
+    type: string;
+  }>;
 };
 
 type Comp = { id: string; component: string } & Record<string, unknown>;
@@ -29,14 +51,22 @@ type Comp = { id: string; component: string } & Record<string, unknown>;
 /** The surface's components after its operations (A2UI 1.0 upserts by id). */
 const componentsOf: (ops: A2UIOp[]) => Comp[] = latestComponents;
 
-const typeOf = (c: Comp) => (c.component === "Blueprint" ? String(c.of ?? "") : c.component);
+const typeOf = (c: Comp) =>
+  c.component === "Blueprint" ? String(c.of ?? "") : c.component;
 
 /**
  * @param snaps   snapshots in arrival order (t in ms on any common clock)
  * @param T       current time on the same clock
  */
 export function present(snaps: Snapshot[], T: number): Presented {
-  const empty: Presented = { ops: null, parts: [], done: false, endAt: 0, firstAt: null, events: [] };
+  const empty: Presented = {
+    ops: null,
+    parts: [],
+    done: false,
+    endAt: 0,
+    firstAt: null,
+    events: [],
+  };
   if (!snaps.length) return empty;
   const all = snaps.slice().sort((a, b) => a.t - b.t);
   const lastT = all[all.length - 1].t;
@@ -60,7 +90,8 @@ export function present(snaps: Snapshot[], T: number): Presented {
     const type = realType.get(id) ?? "";
     events.push({ t: seenAt.get(id)!, kind: "frame", id, type });
     const f = realAt.get(id);
-    if (f != null && f !== seenAt.get(id)) events.push({ t: f, kind: "fill", id, type });
+    if (f != null && f !== seenAt.get(id))
+      events.push({ t: f, kind: "fill", id, type });
   }
   events.sort((a, b) => a.t - b.t);
   const base = { endAt: lastT, firstAt: all[0].t, events };
@@ -72,8 +103,19 @@ export function present(snaps: Snapshot[], T: number): Presented {
   const parts: Part[] = componentsOf(ops).map((c) => {
     const id = c.id;
     const isReal = c.component !== "Blueprint";
-    const state: PartState = isReal ? "filled" : c.state === "pending" ? "pending" : "streaming";
-    return { id, type: typeOf(c), state, seenAt: seenAt.get(id)!, realAt: realAt.get(id) ?? null, leaf: !STRUCTURE.has(typeOf(c)) };
+    const state: PartState = isReal
+      ? "filled"
+      : c.state === "pending"
+        ? "pending"
+        : "streaming";
+    return {
+      id,
+      type: typeOf(c),
+      state,
+      seenAt: seenAt.get(id)!,
+      realAt: realAt.get(id) ?? null,
+      leaf: !STRUCTURE.has(typeOf(c)),
+    };
   });
   return { ops, parts, done: T >= lastT, ...base };
 }

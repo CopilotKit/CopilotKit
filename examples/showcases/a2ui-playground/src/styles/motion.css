@@ -20,15 +20,15 @@
   --ease-linear: linear;
   --blur-small: 2px;
 
-  --fill-ease: ease-in-out;       /* = transitions.dev --reveal-ease */
+  --fill-ease: ease-in-out; /* = transitions.dev --reveal-ease */
 
   /* transitions.dev skeleton loader and reveal */
   --reveal-dur: 400ms;
   --reveal-blur: 2px;
   --reveal-ease: ease-in-out;
   --fill-ease-out: var(--ease-smooth-out);
-  --chart-grow-dur: 700ms;        /* chart marks grow when the chart fills */
-  --pin-drop-dur: 500ms;          /* map pins drop */
+  --chart-grow-dur: 700ms; /* chart marks grow when the chart fills */
+  --pin-drop-dur: 500ms; /* map pins drop */
   --pin-drop-distance: 14px;
   --pin-stagger: 90ms;
   /* transitions.dev skeleton loader pulse */
@@ -91,7 +91,8 @@
 }
 
 /* transitions.dev UI generation overlay, dark values (the app is dark; overrides src/vendor/transitions/ui-generation.css) */
-:root, :root:not([data-theme="light"]) {
+:root,
+:root:not([data-theme="light"]) {
   --gen-line: #6f6f6f;
   --gen-strong: #a3a3a3;
   --gen-ink: rgba(245, 245, 245, 0.3);
@@ -108,22 +109,26 @@
    (the fade to 1.085) on SMOOTH_OUT, from 3px of blur. */
 :root {
   --gen-gap: 4.8px;
-  --gen-flow-dur: 300ms;                         /* one gap at 16px/s */
+  --gen-flow-dur: 300ms; /* one gap at 16px/s */
   --gen-field: color-mix(in srgb, var(--gen-ink) 50%, transparent);
   --gen-field-pitch: 15px;
-  --gen-trace-dur: 770ms;                        /* 0.32 x 2400ms */
+  --gen-trace-dur: 770ms; /* 0.32 x 2400ms */
   --gen-trace-ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --gen-scan-dur: 756ms;                         /* 0.315 x 2400ms */
-  --gen-fade-dur: 828ms;                         /* 0.345 x 2400ms */
+  --gen-scan-dur: 756ms; /* 0.315 x 2400ms */
+  --gen-fade-dur: 828ms; /* 0.345 x 2400ms */
   --gen-reveal-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --gen-reveal-blur: 3px;
 }
 
 /* recipe / slot placeholder (transitions.dev skeleton loader) */
 /* A component id arrived but its props are still streaming: its slot holds the skeleton pulse. */
-.a2-node { display: contents; }
+.a2-node {
+  display: contents;
+}
 /* The marker around a standard component (catalog.ts): no box, no motion of its own. */
-.a2-std { display: contents; }
+.a2-std {
+  display: contents;
+}
 .a2-blueprint {
   width: 100%;
   min-width: 0;
@@ -135,10 +140,25 @@
 
 /* recipe / skeleton reveal (transitions.dev) */
 /* The real component replaces its frame with the transitions.dev skeleton reveal: fade in, un-blur. */
-.a2-node > :not(.a2-blueprint):not(.a2-node) { animation: t-skel-reveal var(--reveal-dur) var(--reveal-ease) both; }
-.a2-node > .a2-node > :not(.a2-blueprint) { animation: none; }
-.t-skel-in { animation: t-skel-reveal var(--reveal-dur) var(--reveal-ease) both; }
-@keyframes t-skel-reveal { from { opacity: 0; filter: blur(var(--reveal-blur)); } to { opacity: 1; filter: blur(0); } }
+.a2-node > :not(.a2-blueprint):not(.a2-node) {
+  animation: t-skel-reveal var(--reveal-dur) var(--reveal-ease) both;
+}
+.a2-node > .a2-node > :not(.a2-blueprint) {
+  animation: none;
+}
+.t-skel-in {
+  animation: t-skel-reveal var(--reveal-dur) var(--reveal-ease) both;
+}
+@keyframes t-skel-reveal {
+  from {
+    opacity: 0;
+    filter: blur(var(--reveal-blur));
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
 
 /* recipe / panel reveal (transitions.dev) */
 /* Cards and sections open with the transitions.dev panel reveal. */
@@ -146,19 +166,43 @@
 .a2-node[data-a2-type="Section"] > :not(.a2-blueprint) {
   animation: t-panel-in var(--panel-open-dur) var(--panel-ease) both;
 }
-@keyframes t-panel-in { from { transform: translateY(var(--panel-translate-y)); opacity: 0; filter: blur(var(--panel-blur)); } to { transform: none; opacity: 1; filter: blur(0); } }
+@keyframes t-panel-in {
+  from {
+    transform: translateY(var(--panel-translate-y));
+    opacity: 0;
+    filter: blur(var(--panel-blur));
+  }
+  to {
+    transform: none;
+    opacity: 1;
+    filter: blur(0);
+  }
+}
 
 /* recipe / number pop-in (transitions.dev) */
 @keyframes t-digit-pop-in {
   0% {
-    transform: translate(calc(var(--digit-distance) * var(--digit-dir-x)), calc(var(--digit-distance) * var(--digit-dir-y)));
+    transform: translate(
+      calc(var(--digit-distance) * var(--digit-dir-x)),
+      calc(var(--digit-distance) * var(--digit-dir-y))
+    );
     opacity: 0;
     filter: blur(var(--digit-blur));
   }
-  100% { transform: translate(0, 0); opacity: 1; filter: blur(0); }
+  100% {
+    transform: translate(0, 0);
+    opacity: 1;
+    filter: blur(0);
+  }
 }
-.t-digit-group { display: inline-flex; align-items: baseline; }
-.t-digit { display: inline-block; will-change: transform, opacity, filter; }
+.t-digit-group {
+  display: inline-flex;
+  align-items: baseline;
+}
+.t-digit {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+}
 .t-digit-group.is-animating .t-digit {
   animation: t-digit-pop-in var(--digit-dur) var(--digit-ease) both;
   animation-delay: calc(var(--i, 0) * var(--digit-stagger));
@@ -169,16 +213,25 @@
 .t-stream-w {
   opacity: 0;
   filter: blur(var(--stream-blur));
-  transition: opacity var(--stream-fade) var(--stream-ease), filter var(--stream-fade) var(--stream-ease);
+  transition:
+    opacity var(--stream-fade) var(--stream-ease),
+    filter var(--stream-fade) var(--stream-ease);
   transition-delay: calc(var(--i, 0) * var(--stream-gap));
 }
-.t-stream-w.is-in { opacity: 1; filter: blur(0); }
+.t-stream-w.is-in {
+  opacity: 1;
+  filter: blur(0);
+}
 
 /* recipe / generation frame (transitions.dev UI generation, as a standing frame) */
 /* A component still being written: the runtime's dotted outline over its dot field. The outline is traced
    in from the top centre both ways, as the runtime draws a card's outline, then its dots keep flowing.
    Placed and coloured by the surfaces that use it (the conversation: globals.css). */
-@property --gen-trace { syntax: "<angle>"; inherits: false; initial-value: 180deg; }
+@property --gen-trace {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 180deg;
+}
 .gen-outline {
   position: absolute;
   left: 1px;
@@ -187,8 +240,16 @@
   height: calc(100% - 2px);
   overflow: visible;
   pointer-events: none;
-  -webkit-mask-image: conic-gradient(#000 var(--gen-trace), transparent 0 calc(360deg - var(--gen-trace)), #000 0);
-  mask-image: conic-gradient(#000 var(--gen-trace), transparent 0 calc(360deg - var(--gen-trace)), #000 0);
+  -webkit-mask-image: conic-gradient(
+    #000 var(--gen-trace),
+    transparent 0 calc(360deg - var(--gen-trace)),
+    #000 0
+  );
+  mask-image: conic-gradient(
+    #000 var(--gen-trace),
+    transparent 0 calc(360deg - var(--gen-trace)),
+    #000 0
+  );
   animation: gen-trace var(--gen-trace-dur) var(--gen-trace-ease) both;
 }
 .gen-outline rect {
@@ -200,50 +261,151 @@
   animation: gen-flow var(--gen-flow-dur) linear infinite;
 }
 .gen-field {
-  background-image: radial-gradient(circle, var(--gen-field) 1.1px, transparent 1.2px);
+  background-image: radial-gradient(
+    circle,
+    var(--gen-field) 1.1px,
+    transparent 1.2px
+  );
   background-size: var(--gen-field-pitch) var(--gen-field-pitch);
-  background-position: calc(var(--gen-field-pitch) / 2) calc(var(--gen-field-pitch) / 2);
+  background-position: calc(var(--gen-field-pitch) / 2)
+    calc(var(--gen-field-pitch) / 2);
 }
-@keyframes gen-trace { from { --gen-trace: 0deg; } to { --gen-trace: 180deg; } }
-@keyframes gen-flow { to { stroke-dashoffset: calc(var(--gen-gap) * -1); } }
-@keyframes gen-field-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gen-trace {
+  from {
+    --gen-trace: 0deg;
+  }
+  to {
+    --gen-trace: 180deg;
+  }
+}
+@keyframes gen-flow {
+  to {
+    stroke-dashoffset: calc(var(--gen-gap) * -1);
+  }
+}
+@keyframes gen-field-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 
 /* recipe / scan reveal (transitions.dev UI generation, its reveal phase in CSS) */
 /* A component that lands while a surface streams (marked by src/components/app/use-landing-reveal.ts) comes
    in as the runtime reveals the whole UI: wiped in from the top behind the scan edge, fading in and
    un-blurring. `backwards` only: once it is in, nothing of the animation stays on it. */
 @keyframes gen-scan-in {
-  from { clip-path: inset(-80px -80px calc(100% + 3px) -80px); }
-  to { clip-path: inset(-80px -80px -3px -80px); }
+  from {
+    clip-path: inset(-80px -80px calc(100% + 3px) -80px);
+  }
+  to {
+    clip-path: inset(-80px -80px -3px -80px);
+  }
 }
-@keyframes gen-fade-in { from { opacity: 0; filter: blur(var(--gen-reveal-blur)); } to { opacity: 1; filter: blur(0); } }
-@keyframes gen-fade-plain { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gen-fade-in {
+  from {
+    opacity: 0;
+    filter: blur(var(--gen-reveal-blur));
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+@keyframes gen-fade-plain {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 
 /* recipe / chart grow */
 /* Chart marks grow in from the baseline when the chart fills (a left-to-right wipe of the plot). */
-.a2-chart svg { animation: a2-chart-grow var(--chart-grow-dur) var(--fill-ease-out) both; }
-@keyframes a2-chart-grow { from { clip-path: inset(0 100% 0 0); opacity: 0.4; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+.a2-chart svg {
+  animation: a2-chart-grow var(--chart-grow-dur) var(--fill-ease-out) both;
+}
+@keyframes a2-chart-grow {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0.4;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
 
 /* recipe / pin drop */
 /* Map pins drop onto their coordinate one after another (--i from the marker order). */
-.a2-pin-drop { animation: a2-pin-drop var(--pin-drop-dur) var(--digit-ease) both; animation-delay: calc(var(--i, 0) * var(--pin-stagger)); }
-@keyframes a2-pin-drop { from { opacity: 0; transform: translateY(calc(var(--pin-drop-distance) * -1)); filter: blur(var(--blur-small)); } to { opacity: 1; transform: none; filter: blur(0); } }
-.a2-pin-pulse { animation: a2-pin-pulse 1.8s var(--ease-smooth-out) infinite; }
-@keyframes a2-pin-pulse { from { transform: translateX(-50%) scale(0.6); opacity: 0.7; } to { transform: translateX(-50%) scale(2.2); opacity: 0; } }
+.a2-pin-drop {
+  animation: a2-pin-drop var(--pin-drop-dur) var(--digit-ease) both;
+  animation-delay: calc(var(--i, 0) * var(--pin-stagger));
+}
+@keyframes a2-pin-drop {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--pin-drop-distance) * -1));
+    filter: blur(var(--blur-small));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+.a2-pin-pulse {
+  animation: a2-pin-pulse 1.8s var(--ease-smooth-out) infinite;
+}
+@keyframes a2-pin-pulse {
+  from {
+    transform: translateX(-50%) scale(0.6);
+    opacity: 0.7;
+  }
+  to {
+    transform: translateX(-50%) scale(2.2);
+    opacity: 0;
+  }
+}
 
 /* recipe / placeholder pulse (transitions.dev skeleton loader) */
 /* Inner placeholders (a map loading tiles, a chart with no rows yet) use the skeleton pulse, looped. */
-.a2-shimmer { background: color-mix(in oklch, var(--gen-strong) 12%, transparent); animation: t-skel-pulse var(--pulse-dur) ease-in-out infinite; }
-@keyframes t-skel-pulse { 0%, 100% { opacity: 1; } 50% { opacity: var(--pulse-min); } }
+.a2-shimmer {
+  background: color-mix(in oklch, var(--gen-strong) 12%, transparent);
+  animation: t-skel-pulse var(--pulse-dur) ease-in-out infinite;
+}
+@keyframes t-skel-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: var(--pulse-min);
+  }
+}
 
 /* recipe / shimmer text (transitions.dev) */
-.t-shimmer { position: relative; display: inline-block; color: var(--shimmer-base); }
+.t-shimmer {
+  position: relative;
+  display: inline-block;
+  color: var(--shimmer-base);
+}
 .t-shimmer::before {
   content: attr(data-text);
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: linear-gradient(90deg, transparent 0%, transparent 40%, var(--shimmer-highlight) 50%, transparent 60%, transparent 100%);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 40%,
+    var(--shimmer-highlight) 50%,
+    transparent 60%,
+    transparent 100%
+  );
   background-size: var(--shimmer-band) 100%;
   background-repeat: no-repeat;
   -webkit-background-clip: text;
@@ -252,19 +414,48 @@
   -webkit-text-fill-color: transparent;
   animation: t-shimmer var(--shimmer-dur) var(--shimmer-ease) infinite;
 }
-@keyframes t-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0% 0; } }
+@keyframes t-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0% 0;
+  }
+}
 
 /* recipe / op highlight */
 /* The JSON line that just arrived glows, then settles (same curve as the fill). */
-.a2-op-hot { animation: a2-op-hot 1200ms var(--fill-ease) both; }
-@keyframes a2-op-hot { 0% { background: color-mix(in oklch, var(--gen-strong) 22%, transparent); } 100% { background: color-mix(in oklch, var(--gen-strong) 7%, transparent); } }
+.a2-op-hot {
+  animation: a2-op-hot 1200ms var(--fill-ease) both;
+}
+@keyframes a2-op-hot {
+  0% {
+    background: color-mix(in oklch, var(--gen-strong) 22%, transparent);
+  }
+  100% {
+    background: color-mix(in oklch, var(--gen-strong) 7%, transparent);
+  }
+}
 
 /* recipe / card resize (transitions.dev) */
 /* The chat card eases to its new height every time the surface grows. */
-.t-resize { transition: height var(--resize-dur) var(--resize-ease); will-change: height; overflow: clip; overflow-clip-margin: 8px; }
+.t-resize {
+  transition: height var(--resize-dur) var(--resize-ease);
+  will-change: height;
+  overflow: clip;
+  overflow-clip-margin: 8px;
+}
 
 /* recipe / tabs sliding (transitions.dev) */
-.t-tabs { position: relative; display: inline-flex; align-items: center; gap: 3px; padding: 3px; border-radius: 48px; background: var(--tabs-bar-bg); }
+.t-tabs {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 48px;
+  background: var(--tabs-bar-bg);
+}
 .t-tab {
   position: relative;
   appearance: none;
@@ -278,7 +469,10 @@
   z-index: 1;
   transition: color var(--tabs-dur) var(--tabs-ease);
 }
-.t-tab:not([aria-selected="true"]):hover, .t-tab[aria-selected="true"] { color: var(--tabs-text-active); }
+.t-tab:not([aria-selected="true"]):hover,
+.t-tab[aria-selected="true"] {
+  color: var(--tabs-text-active);
+}
 .t-tabs-pill {
   position: absolute;
   top: 3px;
@@ -288,16 +482,29 @@
   background: var(--tabs-pill-bg);
   border-radius: 48px;
   transform: translateX(0);
-  transition: transform var(--tabs-dur) var(--tabs-ease), width var(--tabs-dur) var(--tabs-ease);
+  transition:
+    transform var(--tabs-dur) var(--tabs-ease),
+    width var(--tabs-dur) var(--tabs-ease);
   will-change: transform, width;
   z-index: 0;
   pointer-events: none;
 }
 
 /* recipe / success check (transitions.dev) */
-.t-success-check { display: inline-block; transform-origin: center; opacity: 0; will-change: transform, opacity, filter; }
-.t-success-check svg { display: block; overflow: visible; }
-.t-success-check svg path { stroke-dasharray: 20; stroke-dashoffset: 20; }
+.t-success-check {
+  display: inline-block;
+  transform-origin: center;
+  opacity: 0;
+  will-change: transform, opacity, filter;
+}
+.t-success-check svg {
+  display: block;
+  overflow: visible;
+}
+.t-success-check svg path {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+}
 .t-success-check[data-state="in"] {
   animation:
     t-check-fade var(--check-opacity-dur) var(--check-ease-opacity) forwards,
@@ -305,28 +512,112 @@
     t-check-blur var(--check-blur-dur) var(--check-ease-out) forwards,
     t-check-bob var(--check-bob-dur) var(--check-ease-bob) forwards;
 }
-.t-success-check[data-state="in"] svg path { animation: t-check-draw var(--check-path-dur) var(--check-ease-path) var(--check-path-delay, 0ms) forwards; }
-@keyframes t-check-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes t-check-rotate { from { transform: rotate(var(--check-rotate-from)); } to { transform: rotate(0deg); } }
-@keyframes t-check-blur { from { filter: blur(var(--check-blur-from)); } to { filter: blur(0); } }
-@keyframes t-check-bob { from { translate: 0 var(--check-y-amount); } to { translate: 0 0; } }
-@keyframes t-check-draw { to { stroke-dashoffset: 0; } }
+.t-success-check[data-state="in"] svg path {
+  animation: t-check-draw var(--check-path-dur) var(--check-ease-path)
+    var(--check-path-delay, 0ms) forwards;
+}
+@keyframes t-check-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes t-check-rotate {
+  from {
+    transform: rotate(var(--check-rotate-from));
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+@keyframes t-check-blur {
+  from {
+    filter: blur(var(--check-blur-from));
+  }
+  to {
+    filter: blur(0);
+  }
+}
+@keyframes t-check-bob {
+  from {
+    translate: 0 var(--check-y-amount);
+  }
+  to {
+    translate: 0 0;
+  }
+}
+@keyframes t-check-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
 
 /* recipe / matrix dot loader (transitions.dev) */
-.t-matrix { display: grid; grid-template-columns: repeat(4, 2px); grid-auto-rows: 2px; gap: 2px; }
-.t-matrix i { display: block; background: var(--matrix-base); animation: t-matrix-pulse var(--matrix-cycle) var(--matrix-ease) infinite; animation-delay: calc(var(--d, 0) * 1ms); }
-@keyframes t-matrix-pulse { 0%, 45%, 100% { background-color: var(--matrix-base); } 15% { background-color: var(--matrix-active); } }
+.t-matrix {
+  display: grid;
+  grid-template-columns: repeat(4, 2px);
+  grid-auto-rows: 2px;
+  gap: 2px;
+}
+.t-matrix i {
+  display: block;
+  background: var(--matrix-base);
+  animation: t-matrix-pulse var(--matrix-cycle) var(--matrix-ease) infinite;
+  animation-delay: calc(var(--d, 0) * 1ms);
+}
+@keyframes t-matrix-pulse {
+  0%,
+  45%,
+  100% {
+    background-color: var(--matrix-base);
+  }
+  15% {
+    background-color: var(--matrix-active);
+  }
+}
 
 /* recipe / reduced motion */
 /* Also the playground's own uses of the recipes: the chat's "Thinking" shimmer (globals.css) and the
    inspector's part map (.t-skel-in). */
 @media (prefers-reduced-motion: reduce) {
-  .a2-blueprint, .a2-node > *, .t-digit-group .t-digit, .t-matrix i, .a2-chart svg, .a2-op-hot, .a2-pin-drop, .a2-pin-pulse, .a2-shimmer, .t-shimmer::before, .t-skel-in,
-  .pg-chat [data-testid="copilot-loading-cursor"], .pg-chat [data-testid="copilot-loading-cursor"]::before { animation: none !important; }
-  .t-stream-w { transition: none !important; filter: none !important; opacity: 1 !important; }
-  .t-resize, .t-tabs-pill, .t-tab { transition: none !important; }
-  .t-success-check { animation: none !important; opacity: 1; }
-  .t-success-check svg path { animation: none !important; stroke-dashoffset: 0 !important; }
+  .a2-blueprint,
+  .a2-node > *,
+  .t-digit-group .t-digit,
+  .t-matrix i,
+  .a2-chart svg,
+  .a2-op-hot,
+  .a2-pin-drop,
+  .a2-pin-pulse,
+  .a2-shimmer,
+  .t-shimmer::before,
+  .t-skel-in,
+  .pg-chat [data-testid="copilot-loading-cursor"],
+  .pg-chat [data-testid="copilot-loading-cursor"]::before {
+    animation: none !important;
+  }
+  .t-stream-w {
+    transition: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+  }
+  .t-resize,
+  .t-tabs-pill,
+  .t-tab {
+    transition: none !important;
+  }
+  .t-success-check {
+    animation: none !important;
+    opacity: 1;
+  }
+  .t-success-check svg path {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
   /* Generation frames stand still, fully drawn. */
-  .gen-outline, .gen-outline rect { animation: none !important; }
+  .gen-outline,
+  .gen-outline rect {
+    animation: none !important;
+  }
 }

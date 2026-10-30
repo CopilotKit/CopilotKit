@@ -29,7 +29,9 @@ export class EventQueue {
         continue;
       }
       if (this.closed) return;
-      const r = await new Promise<IteratorResult<BaseEvent>>((res) => this.waiters.push(res));
+      const r = await new Promise<IteratorResult<BaseEvent>>((res) =>
+        this.waiters.push(res),
+      );
       if (r.done) return;
       yield r.value;
     }
@@ -58,7 +60,12 @@ export type PipelineStage =
   | "done"
   | "error";
 
-export function pipeline(q: EventQueue, t0: number, stage: PipelineStage, detail: Record<string, unknown> = {}) {
+export function pipeline(
+  q: EventQueue,
+  t0: number,
+  stage: PipelineStage,
+  detail: Record<string, unknown> = {},
+) {
   q.push({
     type: EventType.CUSTOM,
     name: "a2ui.pipeline",

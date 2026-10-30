@@ -6,6 +6,9 @@ import { BuildView } from "@/components/jev/build-view";
 export const metadata = { title: "Jev build | A2UI Playground" };
 
 export default function JevBuildPage() {
-  const css = fs.readFileSync(path.join(process.cwd(), "src/components/build-studio/build-motion.css"), "utf8");
+  const css = fs.readFileSync(
+    path.join(process.cwd(), "src/components/build-studio/build-motion.css"),
+    "utf8",
+  );
   return <BuildView recipes={parseRecipes(css).recipes} />;
 }

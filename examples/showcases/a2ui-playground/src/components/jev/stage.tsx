@@ -2,7 +2,10 @@
 
 import { useEffect } from "react";
 import { StaticSurface } from "@/components/app/static-surface";
-import { useUIGeneration, type UseUIGenerationOptions } from "@/components/app/use-ui-generation";
+import {
+  useUIGeneration,
+  type UseUIGenerationOptions,
+} from "@/components/app/use-ui-generation";
 import { AskingJev } from "./parts";
 import type { JevResult, JevRunState } from "./use-jev-run";
 
@@ -32,11 +35,23 @@ export function JevStage({
   onGenerating?: (g: boolean) => void;
   waitLabel?: string;
 }) {
-  const generating = useUIGeneration(host, { runKey: result?.surfaceId ?? null, mode: "skeleton", duration: 900, maxParts: 40, ...gen });
+  const generating = useUIGeneration(host, {
+    runKey: result?.surfaceId ?? null,
+    mode: "skeleton",
+    duration: 900,
+    maxParts: 40,
+    ...gen,
+  });
   useEffect(() => onGenerating?.(generating), [generating, onGenerating]);
   if (result) {
     return (
-      <div ref={host} key={result.surfaceId} className={`a2-surface-host relative ${className ?? ""}`} style={style} data-build={generating ? "building" : "done"}>
+      <div
+        ref={host}
+        key={result.surfaceId}
+        className={`a2-surface-host relative ${className ?? ""}`}
+        style={style}
+        data-build={generating ? "building" : "done"}
+      >
         <StaticSurface ops={result.ops} />
       </div>
     );
@@ -46,7 +61,10 @@ export function JevStage({
     return (
       <div className="jev-row-in rounded-2xl border border-[var(--jev-line)] bg-[var(--jev-panel)] px-6 py-5">
         <p className="text-[16px] text-foreground">{state.notice.notice}</p>
-        <p className="mt-1.5 text-[14px] text-muted-foreground">Cafés come from OpenStreetMap, so nothing is shown that it does not have.</p>
+        <p className="mt-1.5 text-[14px] text-muted-foreground">
+          Cafés come from OpenStreetMap, so nothing is shown that it does not
+          have.
+        </p>
       </div>
     );
   }

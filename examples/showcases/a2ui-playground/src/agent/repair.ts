@@ -15,7 +15,12 @@
  * `{ "@path" }` and `{ "@call" }` values are resolved in the browser, so
  * they are never "wrong type" here.
  */
-import { A2UI_COMPONENT_ENVELOPE_KEYS, A2UI_VERSION, validateOperation, type GenerativeUIManifest } from "@copilotkit/shared";
+import {
+  A2UI_COMPONENT_ENVELOPE_KEYS,
+  A2UI_VERSION,
+  validateOperation,
+  type GenerativeUIManifest,
+} from "@copilotkit/shared";
 import type { z } from "zod";
 import { definitions } from "@/a2ui/catalog/definitions";
 import { upgradeBindings } from "@/a2ui/upgrade-v09";
@@ -37,15 +42,28 @@ const ALIASES: Record<string, string[]> = {
   places: ["markers", "points", "locations"],
 };
 
-const STRUCTURAL = new Set(["id", "component", ...A2UI_COMPONENT_ENVELOPE_KEYS]);
+const STRUCTURAL = new Set([
+  "id",
+  "component",
+  ...A2UI_COMPONENT_ENVELOPE_KEYS,
+]);
 
 /** A value the browser resolves: a data binding or a function call. */
-const isDynamic = (v: unknown) => !!v && typeof v === "object" && !Array.isArray(v) && ("@path" in v || "@call" in v);
+const isDynamic = (v: unknown) =>
+  !!v &&
+  typeof v === "object" &&
+  !Array.isArray(v) &&
+  ("@path" in v || "@call" in v);
 
 /** Coerces a top-level literal to a standard component's JSON Schema type. */
-function coerceToSchema(value: unknown, schema: Record<string, unknown> | undefined): { ok: boolean; value?: unknown } {
+function coerceToSchema(
+  value: unknown,
+  schema: Record<string, unknown> | undefined,
+): { ok: boolean; value?: unknown } {
   if (!schema || isDynamic(value)) return { ok: true, value };
-  const options = (schema.anyOf ?? schema.oneOf) as Array<Record<string, unknown>> | undefined;
+  const options = (schema.anyOf ?? schema.oneOf) as
+    | Array<Record<string, unknown>>
+    | undefined;
   if (Array.isArray(options)) {
     for (const o of options) {
       const r = coerceToSchema(value, o);
@@ -59,41 +77,85 @@ function coerceToSchema(value: unknown, schema: Record<string, unknown> | undefi
   }
   if (Array.isArray(schema.enum)) {
     if (schema.enum.includes(value)) return { ok: true, value };
-    const hit = schema.enum.find((e) => typeof e === "string" && String(value).toLowerCase() === e.toLowerCase());
+    const hit = schema.enum.find(
+      (e) =>
+        typeof e === "string" &&
+        String(value).toLowerCase() === e.toLowerCase(),
+    );
     return hit !== undefined ? { ok: true, value: hit } : { ok: false };
   }
   switch (schema.type) {
     case "string":
-      return typeof value === "string" ? { ok: true, value } : typeof value === "number" || typeof value === "boolean" ? { ok: true, value: String(value) } : { ok: false };
+      return typeof value === "string"
+        ? { ok: true, value }
+        : typeof value === "number" || typeof value === "boolean"
+          ? { ok: true, value: String(value) }
+          : { ok: false };
     case "number":
     case "integer": {
       if (typeof value === "number") return { ok: true, value };
-      const n = typeof value === "string" && value.trim() !== "" ? Number(value.replace(/[,%$]/g, "")) : NaN;
+      const n =
+        typeof value === "string" && value.trim() !== ""
+          ? Number(value.replace(/[,%$]/g, ""))
+          : NaN;
       return Number.isNaN(n) ? { ok: false } : { ok: true, value: n };
     }
     case "boolean":
-      return typeof value === "boolean" ? { ok: true, value } : value === "true" || value === "false" ? { ok: true, value: value === "true" } : { ok: false };
+      return typeof value === "boolean"
+        ? { ok: true, value }
+        : value === "true" || value === "false"
+          ? { ok: true, value: value === "true" }
+          : { ok: false };
     case "array":
       return Array.isArray(value) ? { ok: true, value } : { ok: false };
     case "object":
-      return value && typeof value === "object" && !Array.isArray(value) ? { ok: true, value } : { ok: false };
+      return value && typeof value === "object" && !Array.isArray(value)
+        ? { ok: true, value }
+        : { ok: false };
     default:
       return { ok: true, value };
   }
 }
 
-function coerce(value: unknown, issue: z.ZodIssue): { ok: boolean; value?: unknown } {
+function coerce(
+  value: unknown,
+  issue: z.ZodIssue,
+): { ok: boolean; value?: unknown } {
   if (issue.code === "invalid_type") {
-    if (typeof value === "number" && String(issue.expected).includes("'")) return { ok: true, value: String(value) };
-    if (issue.expected === "string" && (typeof value === "number" || typeof value === "boolean")) return { ok: true, value: String(value) };
-    if (issue.expected === "number" && typeof value === "string" && value.trim() !== "" && !Number.isNaN(Number(value.replace(/[,%$]/g, "")))) return { ok: true, value: Number(value.replace(/[,%$]/g, "")) };
-    if (issue.expected === "boolean" && (value === "true" || value === "false")) return { ok: true, value: value === "true" };
-    if (issue.expected === "array" && typeof value === "string") return { ok: true, value: [value] };
+    if (typeof value === "number" && String(issue.expected).includes("'"))
+      return { ok: true, value: String(value) };
+    if (
+      issue.expected === "string" &&
+      (typeof value === "number" || typeof value === "boolean")
+    )
+      return { ok: true, value: String(value) };
+    if (
+      issue.expected === "number" &&
+      typeof value === "string" &&
+      value.trim() !== "" &&
+      !Number.isNaN(Number(value.replace(/[,%$]/g, "")))
+    )
+      return { ok: true, value: Number(value.replace(/[,%$]/g, "")) };
+    if (issue.expected === "boolean" && (value === "true" || value === "false"))
+      return { ok: true, value: value === "true" };
+    if (issue.expected === "array" && typeof value === "string")
+      return { ok: true, value: [value] };
   }
   // `{ nodes: [...], links: [...] }` where an array was expected: unwrap the array (prefer the prop's own name).
-  if ((issue.code === "invalid_union" || (issue.code === "invalid_type" && issue.expected === "array")) && value && typeof value === "object" && !Array.isArray(value) && !("path" in value)) {
-    const entries = Object.entries(value as Record<string, unknown>).filter(([, v]) => Array.isArray(v));
-    const own = entries.find(([k]) => k === String(issue.path[issue.path.length - 1]));
+  if (
+    (issue.code === "invalid_union" ||
+      (issue.code === "invalid_type" && issue.expected === "array")) &&
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    !("path" in value)
+  ) {
+    const entries = Object.entries(value as Record<string, unknown>).filter(
+      ([, v]) => Array.isArray(v),
+    );
+    const own = entries.find(
+      ([k]) => k === String(issue.path[issue.path.length - 1]),
+    );
     const pick = own ?? entries[0];
     if (pick) return { ok: true, value: pick[1] };
   }
@@ -101,7 +163,9 @@ function coerce(value: unknown, issue: z.ZodIssue): { ok: boolean; value?: unkno
     if (typeof value === "number") return { ok: true, value: String(value) };
     if (typeof value === "string") {
       const opts = (issue as { options?: unknown[] }).options;
-      const hit = opts?.find((o) => typeof o === "string" && o.toLowerCase() === value.toLowerCase());
+      const hit = opts?.find(
+        (o) => typeof o === "string" && o.toLowerCase() === value.toLowerCase(),
+      );
       if (hit) return { ok: true, value: hit };
     }
   }
@@ -113,8 +177,14 @@ function flatten(issues: z.ZodIssue[]): z.ZodIssue[] {
   const out: z.ZodIssue[] = [];
   for (const issue of issues) {
     if (issue.code === "invalid_union" && issue.unionErrors?.length) {
-      const branches = issue.unionErrors.map((e) => flatten(e.issues)).filter((b) => !b.every((i) => i.path[i.path.length - 1] === "path"));
-      const best = branches.sort((a, b) => Math.max(0, ...b.map((i) => i.path.length)) - Math.max(0, ...a.map((i) => i.path.length)))[0];
+      const branches = issue.unionErrors
+        .map((e) => flatten(e.issues))
+        .filter((b) => !b.every((i) => i.path[i.path.length - 1] === "path"));
+      const best = branches.sort(
+        (a, b) =>
+          Math.max(0, ...b.map((i) => i.path.length)) -
+          Math.max(0, ...a.map((i) => i.path.length)),
+      )[0];
       if (best?.length && best.some((i) => i.path.length > issue.path.length)) {
         out.push(...best);
         continue;
@@ -125,7 +195,11 @@ function flatten(issues: z.ZodIssue[]): z.ZodIssue[] {
   return out;
 }
 
-function setPath(obj: Record<string, unknown>, path: (string | number)[], value: unknown) {
+function setPath(
+  obj: Record<string, unknown>,
+  path: (string | number)[],
+  value: unknown,
+) {
   let cur: any = obj;
   for (let i = 0; i < path.length - 1; i++) cur = cur?.[path[i]];
   if (cur && typeof cur === "object") cur[path[path.length - 1]] = value;
@@ -134,33 +208,59 @@ function getPath(obj: Record<string, unknown>, path: (string | number)[]) {
   return path.reduce<any>((cur, k) => cur?.[k], obj);
 }
 
-export type RepairNote = { id: string; component: string; fixed: string[]; failed: string[] };
+export type RepairNote = {
+  id: string;
+  component: string;
+  fixed: string[];
+  failed: string[];
+};
 
-type OwnDef = { props: z.ZodObject<z.ZodRawShape>; events?: Record<string, unknown> };
+type OwnDef = {
+  props: z.ZodObject<z.ZodRawShape>;
+  events?: Record<string, unknown>;
+};
 
 /**
  * Repairs one component. Without a manifest only the playground's own
  * components are checked (their Zod schemas live on the server too).
  */
-export function repairComponent(c: Comp, manifest?: GenerativeUIManifest): { component: Comp; note?: RepairNote } {
+export function repairComponent(
+  c: Comp,
+  manifest?: GenerativeUIManifest,
+): { component: Comp; note?: RepairNote } {
   const def = (definitions as Record<string, OwnDef>)[c.component];
   const entry = manifest?.components[c.component];
   const props: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(c)) if (!STRUCTURAL.has(k)) props[k] = upgradeBindings(v);
+  for (const [k, v] of Object.entries(c))
+    if (!STRUCTURAL.has(k)) props[k] = upgradeBindings(v);
   const fixed: string[] = [];
   const failed: string[] = [];
   // v0.9 habit: a card's `action` is the `onAction` event in 1.0.
-  if ("action" in props && !("onAction" in props) && (def?.events?.onAction || entry?.events?.onAction)) {
+  if (
+    "action" in props &&
+    !("onAction" in props) &&
+    (def?.events?.onAction || entry?.events?.onAction)
+  ) {
     props.onAction = props.action;
     delete props.action;
     fixed.push("action->onAction");
   }
   if (entry) {
-    const known = new Set([...Object.keys((entry.props.properties ?? {}) as object), ...Object.keys(entry.events ?? {}), ...Object.keys(entry.slots ?? {})]);
-    const required = new Set(Array.isArray(entry.props.required) ? (entry.props.required as string[]) : []);
+    const known = new Set([
+      ...Object.keys((entry.props.properties ?? {}) as object),
+      ...Object.keys(entry.events ?? {}),
+      ...Object.keys(entry.slots ?? {}),
+    ]);
+    const required = new Set(
+      Array.isArray(entry.props.required)
+        ? (entry.props.required as string[])
+        : [],
+    );
     for (const name of required) {
       if (name in props) continue;
-      const alias = (ALIASES[name] ?? []).find((a) => a in props && !known.has(a));
+      const alias = (ALIASES[name] ?? []).find(
+        (a) => a in props && !known.has(a),
+      );
       if (alias) {
         props[name] = props[alias];
         delete props[alias];
@@ -174,7 +274,10 @@ export function repairComponent(c: Comp, manifest?: GenerativeUIManifest): { com
     }
     if (!def) {
       // A standard component: its props are JSON Schema. Coerce top-level literals, drop optional ones that cannot fit.
-      const schemas = (entry.props.properties ?? {}) as Record<string, Record<string, unknown>>;
+      const schemas = (entry.props.properties ?? {}) as Record<
+        string,
+        Record<string, unknown>
+      >;
       for (const [key, value] of Object.entries(props)) {
         if (!(key in schemas)) continue;
         const r = coerceToSchema(value, schemas[key]);
@@ -192,9 +295,13 @@ export function repairComponent(c: Comp, manifest?: GenerativeUIManifest): { com
   }
   if (!def) return finish(c, props, fixed, failed, manifest);
   // Missing required prop but an obvious synonym present (e.g. Heading { title } instead of { text }).
-  for (const [key, schema] of Object.entries(def.props.shape as Record<string, z.ZodTypeAny>)) {
+  for (const [key, schema] of Object.entries(
+    def.props.shape as Record<string, z.ZodTypeAny>,
+  )) {
     if (key in props || schema.isOptional() || entry) continue;
-    const alias = (ALIASES[key] ?? []).find((a) => a in props && !(a in def.props.shape));
+    const alias = (ALIASES[key] ?? []).find(
+      (a) => a in props && !(a in def.props.shape),
+    );
     if (alias) {
       props[key] = props[alias];
       delete props[alias];
@@ -209,7 +316,8 @@ export function repairComponent(c: Comp, manifest?: GenerativeUIManifest): { com
       const path = issue.path;
       if (!path.length) continue;
       // A binding or function call anywhere on the path is resolved in the browser.
-      if (path.some((_, i) => isDynamic(getPath(props, path.slice(0, i + 1))))) continue;
+      if (path.some((_, i) => isDynamic(getPath(props, path.slice(0, i + 1)))))
+        continue;
       const top = String(path[0]);
       const val = getPath(props, path);
       const co = coerce(val, issue);
@@ -228,7 +336,11 @@ export function repairComponent(c: Comp, manifest?: GenerativeUIManifest): { com
         continue;
       }
       // Array of objects with a bad element: drop that element.
-      if (path.length >= 2 && typeof path[1] === "number" && Array.isArray(props[top])) {
+      if (
+        path.length >= 2 &&
+        typeof path[1] === "number" &&
+        Array.isArray(props[top])
+      ) {
         (props[top] as unknown[]).splice(path[1] as number, 1);
         fixed.push(`-${top}[${path[1]}]`);
         changed = true;
@@ -241,19 +353,40 @@ export function repairComponent(c: Comp, manifest?: GenerativeUIManifest): { com
   return finish(c, props, fixed, failed, manifest);
 }
 
-function finish(c: Comp, props: Record<string, unknown>, fixed: string[], failed: string[], manifest?: GenerativeUIManifest) {
+function finish(
+  c: Comp,
+  props: Record<string, unknown>,
+  fixed: string[],
+  failed: string[],
+  manifest?: GenerativeUIManifest,
+) {
   const out = { id: c.id, component: c.component, ...props } as Comp;
-  for (const k of STRUCTURAL) if (k in c && !(k in out)) (out as Record<string, unknown>)[k] = c[k];
+  for (const k of STRUCTURAL)
+    if (k in c && !(k in out)) (out as Record<string, unknown>)[k] = c[k];
   if (manifest) {
     // The same check the browser runs before it applies the operation.
     const surfaceId = "check";
     const v = validateOperation(
-      { version: A2UI_VERSION, updateComponents: { surfaceId, components: [out] } },
-      { manifest, knownSurfaces: new Set([surfaceId]), createdSurfaces: new Set([surfaceId]), functions: manifest.functions },
+      {
+        version: A2UI_VERSION,
+        updateComponents: { surfaceId, components: [out] },
+      },
+      {
+        manifest,
+        knownSurfaces: new Set([surfaceId]),
+        createdSurfaces: new Set([surfaceId]),
+        functions: manifest.functions,
+      },
     );
     if (!v.ok) failed.push(v.reason);
   }
-  return { component: out, note: fixed.length || failed.length ? { id: c.id, component: c.component, fixed, failed } : undefined };
+  return {
+    component: out,
+    note:
+      fixed.length || failed.length
+        ? { id: c.id, component: c.component, fixed, failed }
+        : undefined,
+  };
 }
 
 /** House style: no em/en dashes and no emoji in generated copy. " \u2014 " becomes ", ", a bare dash becomes "-". */
@@ -265,6 +398,9 @@ export function stripDashes<T>(value: T): T {
       .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, "")
       .replace(/\s{2,}/g, " ") as T;
   if (Array.isArray(value)) return value.map(stripDashes) as T;
-  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, stripDashes(v)])) as T;
+  if (value && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, stripDashes(v)]),
+    ) as T;
   return value;
 }

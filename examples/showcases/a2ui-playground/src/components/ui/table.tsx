@@ -1,38 +1,40 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import { cn } from "@/lib/utils";
 
 /**
  * Wide tables scroll horizontally inside their card. `data-fade` marks which
  * edge still has hidden columns, so CSS can fade that edge: never clipped text.
  */
 function useScrollFade() {
-  const ref = React.useRef<HTMLDivElement>(null)
+  const ref = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
-    const el = ref.current
-    if (!el) return
+    const el = ref.current;
+    if (!el) return;
     const update = () => {
-      const max = el.scrollWidth - el.clientWidth
-      const left = el.scrollLeft > 2
-      const right = max > 2 && el.scrollLeft < max - 2
-      el.dataset.fade = left && right ? "both" : left ? "left" : right ? "right" : "none"
-    }
-    update()
-    el.addEventListener("scroll", update, { passive: true })
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null
-    ro?.observe(el)
-    if (el.firstElementChild) ro?.observe(el.firstElementChild)
+      const max = el.scrollWidth - el.clientWidth;
+      const left = el.scrollLeft > 2;
+      const right = max > 2 && el.scrollLeft < max - 2;
+      el.dataset.fade =
+        left && right ? "both" : left ? "left" : right ? "right" : "none";
+    };
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const ro =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    ro?.observe(el);
+    if (el.firstElementChild) ro?.observe(el.firstElementChild);
     return () => {
-      el.removeEventListener("scroll", update)
-      ro?.disconnect()
-    }
-  }, [])
-  return ref
+      el.removeEventListener("scroll", update);
+      ro?.disconnect();
+    };
+  }, []);
+  return ref;
 }
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
-  const ref = useScrollFade()
+  const ref = useScrollFade();
   return (
     <div
       ref={ref}
@@ -45,7 +47,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
         {...props}
       />
     </div>
-  )
+  );
 }
 
 function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
@@ -55,7 +57,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
       className={cn("[&_tr]:border-b", className)}
       {...props}
     />
-  )
+  );
 }
 
 function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
@@ -65,7 +67,7 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
       className={cn("[&_tr:last-child]:border-0", className)}
       {...props}
     />
-  )
+  );
 }
 
 function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
@@ -74,11 +76,11 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
       data-slot="table-footer"
       className={cn(
         "border-t bg-muted/50 font-medium [&>tr]:last:border-b-0",
-        className
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
 function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
@@ -87,11 +89,11 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
       data-slot="table-row"
       className={cn(
         "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
-        className
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
 function TableHead({ className, ...props }: React.ComponentProps<"th">) {
@@ -100,11 +102,11 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
       data-slot="table-head"
       className={cn(
         "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
-        className
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
 function TableCell({ className, ...props }: React.ComponentProps<"td">) {
@@ -113,11 +115,11 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
       data-slot="table-cell"
       className={cn(
         "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
-        className
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
 function TableCaption({
@@ -130,7 +132,7 @@ function TableCaption({
       className={cn("mt-4 text-sm text-muted-foreground", className)}
       {...props}
     />
-  )
+  );
 }
 
 export {
@@ -142,4 +144,4 @@ export {
   TableRow,
   TableCell,
   TableCaption,
-}
+};

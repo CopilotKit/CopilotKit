@@ -7,16 +7,48 @@
  * the same engine the chat uses. While the text is broken the preview keeps
  * the last valid version.
  */
-import { Component, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
-import { Check, ChevronDown, CircleAlert, CircleCheck, Copy, Maximize2, Minimize2, Pencil, RotateCcw, TriangleAlert } from "lucide-react";
+import {
+  Component,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import {
+  Check,
+  ChevronDown,
+  CircleAlert,
+  CircleCheck,
+  Copy,
+  Maximize2,
+  Minimize2,
+  Pencil,
+  RotateCcw,
+  TriangleAlert,
+} from "lucide-react";
 import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
 import { playgroundUI } from "@/a2ui/catalog/catalog";
 import { highlightJson } from "@/components/app/json-view";
-import { StaticGenUIProvider, StaticSurface } from "@/components/app/static-surface";
+import {
+  StaticGenUIProvider,
+  StaticSurface,
+} from "@/components/app/static-surface";
 import { cn } from "@/lib/utils";
 import type { A2UIOp, SurfaceRecord } from "@/lib/run-store";
 import { AskModel } from "./ask-model";
-import { analyzeOps, lineColOf, manifestOf, type Analysis, type Problem } from "./json-analyze";
+import {
+  analyzeOps,
+  lineColOf,
+  manifestOf,
+  type Analysis,
+  type Problem,
+} from "./json-analyze";
 import { starters } from "./json-starters";
 import { sendable } from "./sendable";
 
@@ -30,9 +62,25 @@ export const headerButton =
   "inline-flex h-7 flex-none items-center gap-1.5 rounded-md border border-[var(--pg-line)] px-2 text-[12px] text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-40";
 
 /** The Edit toggle, at the left of the JSON tab header in both modes. */
-export function EditToggle({ pressed, onClick }: { pressed: boolean; onClick: () => void }) {
+export function EditToggle({
+  pressed,
+  onClick,
+}: {
+  pressed: boolean;
+  onClick: () => void;
+}) {
   return (
-    <button type="button" aria-pressed={pressed} onClick={onClick} data-json-edit-toggle className={cn(headerButton, pressed && "border-[var(--pg-line-strong)] bg-[var(--pg-raised)] text-foreground")}>
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onClick}
+      data-json-edit-toggle
+      className={cn(
+        headerButton,
+        pressed &&
+          "border-[var(--pg-line-strong)] bg-[var(--pg-raised)] text-foreground",
+      )}
+    >
       <Pencil className="size-3" />
       Edit
     </button>
@@ -40,29 +88,63 @@ export function EditToggle({ pressed, onClick }: { pressed: boolean; onClick: ()
 }
 
 /** `agentKey`: the agent surface that was selected when the text was loaded. */
-type Session = { source: string; base: string; text: string; agentKey: string | null };
+type Session = {
+  source: string;
+  base: string;
+  text: string;
+  agentKey: string | null;
+};
 
 /**
  * Survives the tab switching away and back (the tab unmounts): whether the
  * tab is in edit mode and what is in the editor.
  */
-export const editorMemory: { editing: boolean; session: Session | null } = { editing: false, session: null };
+export const editorMemory: { editing: boolean; session: Session | null } = {
+  editing: false,
+  session: null,
+};
 
 const pretty = (ops: A2UIOp[]) => JSON.stringify(ops, null, 2);
 
-type Good = { ops: A2UIOp[]; fingerprint: string; surfaceId: string | null; version: number };
+type Good = {
+  ops: A2UIOp[];
+  fingerprint: string;
+  surfaceId: string | null;
+  version: number;
+};
 
-export function JsonEditPane({ surface, wide, onWide, onExit }: { surface: SurfaceRecord | undefined; wide: boolean; onWide: (wide: boolean) => void; onExit: () => void }) {
+export function JsonEditPane({
+  surface,
+  wide,
+  onWide,
+  onExit,
+}: {
+  surface: SurfaceRecord | undefined;
+  wide: boolean;
+  onWide: (wide: boolean) => void;
+  onExit: () => void;
+}) {
   const list = starters();
   // The agent's surface as it would be sent: its Blueprint frames are not A2UI and never reach the editor.
-  const agentText = useMemo(() => (surface ? pretty(sendable(surface.ops, surface.surfaceId).ops) : null), [surface]);
-  const originalOf = (source: string) => (source === AGENT ? agentText : pretty(list.find((s) => s.id === source)?.ops ?? list[0].ops));
+  const agentText = useMemo(
+    () =>
+      surface ? pretty(sendable(surface.ops, surface.surfaceId).ops) : null,
+    [surface],
+  );
+  const originalOf = (source: string) =>
+    source === AGENT
+      ? agentText
+      : pretty(list.find((s) => s.id === source)?.ops ?? list[0].ops);
 
   const agentKey = surface?.key ?? null;
   const [session, setSession] = useState<Session>(() => {
     const saved = editorMemory.session;
     // A starter edited before the agent answered gives way to the agent's new surface.
-    const stale = !saved || (saved.source === AGENT ? !agentText : agentKey !== null && agentKey !== saved.agentKey);
+    const stale =
+      !saved ||
+      (saved.source === AGENT
+        ? !agentText
+        : agentKey !== null && agentKey !== saved.agentKey);
     if (saved && !stale) return saved;
     const source = agentText ? AGENT : list[0].id;
     const text = originalOf(source) ?? "";
@@ -74,17 +156,35 @@ export function JsonEditPane({ surface, wide, onWide, onExit }: { surface: Surfa
   }, [session]);
 
   // The agent's surface moved on (another surface selected, or the same one updated): follow it unless the text has edits.
-  const agentMoved = source === AGENT && agentText !== null && agentText !== base;
+  const agentMoved =
+    source === AGENT && agentText !== null && agentText !== base;
   const dirty = text !== base;
   useEffect(() => {
-    if (agentMoved && !dirty && agentText !== null) setSession({ source: AGENT, base: agentText, text: agentText, agentKey });
+    if (agentMoved && !dirty && agentText !== null)
+      setSession({ source: AGENT, base: agentText, text: agentText, agentKey });
   }, [agentMoved, dirty, agentText, agentKey]);
 
   const manifest = useMemo(() => manifestOf(playgroundUI, [standardUI.id]), []);
-  const analyze = useCallback((t: string) => analyzeOps(t, playgroundUI, manifest), [manifest]);
-  const [checked, setChecked] = useState<{ analysis: Analysis; good: Good | null }>(() => {
+  const analyze = useCallback(
+    (t: string) => analyzeOps(t, playgroundUI, manifest),
+    [manifest],
+  );
+  const [checked, setChecked] = useState<{
+    analysis: Analysis;
+    good: Good | null;
+  }>(() => {
     const analysis = analyze(text);
-    return { analysis, good: analysis.ops ? { ops: analysis.ops, fingerprint: analysis.fingerprint!, surfaceId: analysis.surfaceId, version: 0 } : null };
+    return {
+      analysis,
+      good: analysis.ops
+        ? {
+            ops: analysis.ops,
+            fingerprint: analysis.fingerprint!,
+            surfaceId: analysis.surfaceId,
+            version: 0,
+          }
+        : null,
+    };
   });
   useEffect(() => {
     const t = setTimeout(() => {
@@ -92,7 +192,15 @@ export function JsonEditPane({ surface, wide, onWide, onExit }: { surface: Surfa
       setChecked((prev) => ({
         analysis,
         // A new version only for a real change: whitespace edits keep the preview as it is.
-        good: analysis.ops && analysis.fingerprint !== prev.good?.fingerprint ? { ops: analysis.ops, fingerprint: analysis.fingerprint!, surfaceId: analysis.surfaceId, version: (prev.good?.version ?? 0) + 1 } : prev.good,
+        good:
+          analysis.ops && analysis.fingerprint !== prev.good?.fingerprint
+            ? {
+                ops: analysis.ops,
+                fingerprint: analysis.fingerprint!,
+                surfaceId: analysis.surfaceId,
+                version: (prev.good?.version ?? 0) + 1,
+              }
+            : prev.good,
       }));
     }, DEBOUNCE_MS);
     return () => clearTimeout(t);
@@ -107,7 +215,9 @@ export function JsonEditPane({ surface, wide, onWide, onExit }: { surface: Surfa
   const [caret, setCaret] = useState(0);
   const pos = lineColOf(text, caret);
   const firstError = errors.find((p) => p.offset !== undefined);
-  const errorLine = firstError ? lineColOf(text, firstError.offset!).line : null;
+  const errorLine = firstError
+    ? lineColOf(text, firstError.offset!).line
+    : null;
 
   const setText = (next: string) => setSession((s) => ({ ...s, text: next }));
   const load = (nextSource: string) => {
@@ -124,7 +234,8 @@ export function JsonEditPane({ surface, wide, onWide, onExit }: { surface: Surfa
     setCaret(offset);
     const { line } = lineColOf(text, offset);
     const y = PAD_PX + (line - 1) * LINE_PX;
-    if (y < el.scrollTop || y > el.scrollTop + el.clientHeight - LINE_PX * 2) el.scrollTop = Math.max(0, y - el.clientHeight / 3);
+    if (y < el.scrollTop || y > el.scrollTop + el.clientHeight - LINE_PX * 2)
+      el.scrollTop = Math.max(0, y - el.clientHeight / 3);
   };
 
   const [copied, setCopied] = useState(false);
@@ -136,7 +247,9 @@ export function JsonEditPane({ surface, wide, onWide, onExit }: { surface: Surfa
     });
   };
   const exportFile = () => {
-    const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+    const url = URL.createObjectURL(
+      new Blob([text], { type: "application/json" }),
+    );
     const a = document.createElement("a");
     a.href = url;
     a.download = `${analysis.surfaceId ?? good?.surfaceId ?? "surface"}.a2ui.json`;
@@ -165,7 +278,9 @@ export function JsonEditPane({ surface, wide, onWide, onExit }: { surface: Surfa
             data-json-source
             className="h-7 w-full cursor-pointer appearance-none truncate rounded-md border border-[var(--pg-line)] bg-transparent pl-2 pr-6 text-[12px] text-foreground/90 outline-none transition-colors hover:border-[var(--pg-line-strong)] focus-visible:border-[var(--pg-line-strong)]"
           >
-            {surface ? <option value={AGENT}>Agent: {surface.surfaceId}</option> : null}
+            {surface ? (
+              <option value={AGENT}>Agent: {surface.surfaceId}</option>
+            ) : null}
             <optgroup label="Starters">
               {list.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -177,27 +292,58 @@ export function JsonEditPane({ surface, wide, onWide, onExit }: { surface: Surfa
           <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 size-3 -translate-y-1/2 text-muted-foreground" />
         </div>
         <div className="ml-auto flex flex-none gap-1">
-          <button type="button" onClick={() => load(source)} disabled={!dirty && !agentMoved} title={source === AGENT ? "Back to the agent's operations" : "Back to the starter"} className={headerButton} data-json-reset>
+          <button
+            type="button"
+            onClick={() => load(source)}
+            disabled={!dirty && !agentMoved}
+            title={
+              source === AGENT
+                ? "Back to the agent's operations"
+                : "Back to the starter"
+            }
+            className={headerButton}
+            data-json-reset
+          >
             <RotateCcw className="size-3" />
             Reset
           </button>
           <button type="button" onClick={copy} className={headerButton}>
-            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+            {copied ? (
+              <Check className="size-3" />
+            ) : (
+              <Copy className="size-3" />
+            )}
             {copied ? "Copied" : "Copy"}
           </button>
           <button type="button" onClick={exportFile} className={headerButton}>
             Export
           </button>
-          <button type="button" onClick={() => onWide(!wide)} aria-label={wide ? "Narrow the inspector" : "Widen the inspector"} title={wide ? "Narrow the inspector" : "Widen the inspector"} className={cn(headerButton, "w-7 justify-center px-0")}>
-            {wide ? <Minimize2 className="size-3" /> : <Maximize2 className="size-3" />}
+          <button
+            type="button"
+            onClick={() => onWide(!wide)}
+            aria-label={wide ? "Narrow the inspector" : "Widen the inspector"}
+            title={wide ? "Narrow the inspector" : "Widen the inspector"}
+            className={cn(headerButton, "w-7 justify-center px-0")}
+          >
+            {wide ? (
+              <Minimize2 className="size-3" />
+            ) : (
+              <Maximize2 className="size-3" />
+            )}
           </button>
         </div>
       </div>
 
       {agentMoved && dirty ? (
         <div className="flex flex-none items-center gap-2 border-b border-[var(--pg-line)] bg-[var(--pg-panel)] px-4 py-2 text-[12px] text-muted-foreground">
-          <span className="min-w-0 flex-1 truncate">The agent&apos;s surface changed since you started editing.</span>
-          <button type="button" onClick={() => load(AGENT)} className={headerButton}>
+          <span className="min-w-0 flex-1 truncate">
+            The agent&apos;s surface changed since you started editing.
+          </span>
+          <button
+            type="button"
+            onClick={() => load(AGENT)}
+            className={headerButton}
+          >
             Load latest
           </button>
         </div>
@@ -205,46 +351,78 @@ export function JsonEditPane({ surface, wide, onWide, onExit }: { surface: Surfa
 
       <div className="pg-jed-split min-h-0 flex-1">
         <div className="pg-jed-left flex min-h-0 flex-col">
-          <CodeEditor value={text} onChange={setText} taRef={ta} errorLine={errorLine} onCaret={setCaret} describedBy={hintId} />
+          <CodeEditor
+            value={text}
+            onChange={setText}
+            taRef={ta}
+            errorLine={errorLine}
+            onCaret={setCaret}
+            describedBy={hintId}
+          />
           <div className="flex h-7 flex-none items-center gap-3 border-t border-[var(--pg-line)] bg-[var(--pg-surface)] px-3 font-mono text-[11px] text-[var(--pg-faint)]">
             <span className="flex-none whitespace-nowrap tabular-nums">
               Ln {pos.line}, Col {pos.col}
             </span>
-            {dirty ? <span className="text-muted-foreground">edited</span> : null}
+            {dirty ? (
+              <span className="text-muted-foreground">edited</span>
+            ) : null}
             <span id={hintId} className="pg-jed-hint min-w-0 truncate">
               Tab indents · Esc then Tab leaves the editor
             </span>
-            <span className="ml-auto flex flex-none items-center gap-1.5 whitespace-nowrap" data-json-status={errors.length ? "error" : "ok"}>
+            <span
+              className="ml-auto flex flex-none items-center gap-1.5 whitespace-nowrap"
+              data-json-status={errors.length ? "error" : "ok"}
+            >
               {errors.length ? (
                 <>
                   <CircleAlert className="size-3 text-[var(--pg-jed-error)]" />
                   <span className="text-[var(--pg-jed-error)]">
-                    {errors.length} {errors.length === 1 ? "problem" : "problems"}
+                    {errors.length}{" "}
+                    {errors.length === 1 ? "problem" : "problems"}
                   </span>
                 </>
               ) : (
                 <>
                   <CircleCheck className="size-3 text-[var(--pg-fixed)]" />
                   <span className="text-muted-foreground">
-                    Valid · {analysis.opCount} {analysis.opCount === 1 ? "op" : "ops"} · {analysis.componentCount} components
-                    {warnings.length ? ` · ${warnings.length} ${warnings.length === 1 ? "warning" : "warnings"}` : ""}
+                    Valid · {analysis.opCount}{" "}
+                    {analysis.opCount === 1 ? "op" : "ops"} ·{" "}
+                    {analysis.componentCount} components
+                    {warnings.length
+                      ? ` · ${warnings.length} ${warnings.length === 1 ? "warning" : "warnings"}`
+                      : ""}
                   </span>
                 </>
               )}
             </span>
           </div>
-          {analysis.problems.length ? <ProblemList problems={analysis.problems} text={text} onJump={jumpTo} /> : null}
+          {analysis.problems.length ? (
+            <ProblemList
+              problems={analysis.problems}
+              text={text}
+              onJump={jumpTo}
+            />
+          ) : null}
         </div>
 
         <div className="pg-jed-right flex min-h-0 flex-col border-t border-[var(--pg-line)]">
           <div className="flex h-9 flex-none items-center gap-2 border-b border-[var(--pg-line)] px-4 text-[12px]">
             <span className="font-medium text-foreground/90">Preview</span>
-            {good?.surfaceId ? <span className="truncate font-mono text-[11px] text-[var(--pg-faint)]">{good.surfaceId}</span> : null}
-            <span className="ml-auto flex flex-none items-center gap-1.5 font-mono text-[11px]" data-json-preview-state={stale ? "stale" : "live"}>
+            {good?.surfaceId ? (
+              <span className="truncate font-mono text-[11px] text-[var(--pg-faint)]">
+                {good.surfaceId}
+              </span>
+            ) : null}
+            <span
+              className="ml-auto flex flex-none items-center gap-1.5 font-mono text-[11px]"
+              data-json-preview-state={stale ? "stale" : "live"}
+            >
               {stale && good ? (
                 <>
                   <span className="size-1.5 rounded-full bg-[var(--pg-dynamic)]" />
-                  <span className="text-[var(--pg-dynamic)]">Last valid version</span>
+                  <span className="text-[var(--pg-dynamic)]">
+                    Last valid version
+                  </span>
                 </>
               ) : good ? (
                 <>
@@ -254,7 +432,13 @@ export function JsonEditPane({ surface, wide, onWide, onExit }: { surface: Surfa
               ) : null}
             </span>
           </div>
-          <div className={cn("pg-jed-preview pg-dots min-h-0 flex-1 overflow-auto p-4 transition-opacity", stale && good && "pg-jed-preview-stale")} data-json-preview>
+          <div
+            className={cn(
+              "pg-jed-preview pg-dots min-h-0 flex-1 overflow-auto p-4 transition-opacity",
+              stale && good && "pg-jed-preview-stale",
+            )}
+            data-json-preview
+          >
             {good ? (
               <StaticGenUIProvider>
                 <PreviewBoundary key={good.version}>
@@ -262,7 +446,9 @@ export function JsonEditPane({ surface, wide, onWide, onExit }: { surface: Surfa
                 </PreviewBoundary>
               </StaticGenUIProvider>
             ) : (
-              <p className="p-1 text-[13px] text-muted-foreground">Fix the problems on the left to see the preview.</p>
+              <p className="p-1 text-[13px] text-muted-foreground">
+                Fix the problems on the left to see the preview.
+              </p>
             )}
           </div>
         </div>
@@ -280,11 +466,28 @@ export function JsonEditPane({ surface, wide, onWide, onExit }: { surface: Surfa
   );
 }
 
-function ProblemList({ problems, text, onJump }: { problems: Problem[]; text: string; onJump: (offset: number) => void }) {
+function ProblemList({
+  problems,
+  text,
+  onJump,
+}: {
+  problems: Problem[];
+  text: string;
+  onJump: (offset: number) => void;
+}) {
   return (
-    <ul className="pg-jed-problems max-h-[148px] flex-none overflow-auto border-t border-[var(--pg-line)] bg-[var(--pg-surface)] py-1" aria-label="Problems" data-json-problems>
+    <ul
+      className="pg-jed-problems max-h-[148px] flex-none overflow-auto border-t border-[var(--pg-line)] bg-[var(--pg-surface)] py-1"
+      aria-label="Problems"
+      data-json-problems
+    >
       {problems.map((p, i) => {
-        const where = p.where === "json" ? "JSON" : p.where === "surface" ? "Surface" : `Op ${p.where}`;
+        const where =
+          p.where === "json"
+            ? "JSON"
+            : p.where === "surface"
+              ? "Surface"
+              : `Op ${p.where}`;
         const loc = p.offset !== undefined ? lineColOf(text, p.offset) : null;
         const Icon = p.severity === "error" ? CircleAlert : TriangleAlert;
         return (
@@ -296,11 +499,22 @@ function ProblemList({ problems, text, onJump }: { problems: Problem[]; text: st
               className="grid w-full grid-cols-[14px_minmax(0,1fr)] gap-x-2 px-3 py-1.5 text-left transition-colors hover:bg-[var(--pg-panel)]"
               data-severity={p.severity}
             >
-              <Icon className={cn("mt-[3px] size-3", p.severity === "error" ? "text-[var(--pg-jed-error)]" : "text-[var(--pg-dynamic)]")} />
+              <Icon
+                className={cn(
+                  "mt-[3px] size-3",
+                  p.severity === "error"
+                    ? "text-[var(--pg-jed-error)]"
+                    : "text-[var(--pg-dynamic)]",
+                )}
+              />
               <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 font-mono text-[11px] text-[var(--pg-faint)]">
                 <span className="text-muted-foreground">{where}</span>
                 {p.opKind ? <span>{p.opKind}</span> : null}
-                {p.componentId ? <span className="text-[oklch(0.86_0.1_165)]">#{p.componentId}</span> : null}
+                {p.componentId ? (
+                  <span className="text-[oklch(0.86_0.1_165)]">
+                    #{p.componentId}
+                  </span>
+                ) : null}
                 {loc ? (
                   <span className="ml-auto tabular-nums">
                     Ln {loc.line}
@@ -308,7 +522,10 @@ function ProblemList({ problems, text, onJump }: { problems: Problem[]; text: st
                   </span>
                 ) : null}
               </span>
-              <span className="col-start-2 text-[12px] leading-[1.45] text-foreground/85" data-json-problem-message>
+              <span
+                className="col-start-2 text-[12px] leading-[1.45] text-foreground/85"
+                data-json-problem-message
+              >
                 {p.message}
               </span>
             </button>
@@ -320,14 +537,21 @@ function ProblemList({ problems, text, onJump }: { problems: Problem[]; text: st
 }
 
 /** A render error in the preview stays in the preview. The next valid edit remounts it. */
-class PreviewBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+class PreviewBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
   state: { error: Error | null } = { error: null };
   static getDerivedStateFromError(error: Error) {
     return { error };
   }
   render() {
     if (!this.state.error) return this.props.children;
-    return <p className="p-1 text-[13px] text-[var(--pg-jed-error)]">The preview could not render this: {this.state.error.message}</p>;
+    return (
+      <p className="p-1 text-[13px] text-[var(--pg-jed-error)]">
+        The preview could not render this: {this.state.error.message}
+      </p>
+    );
   }
 }
 
@@ -360,13 +584,18 @@ function CodeEditor({
     for (let i = 0; i < value.length; i++) if (value.charCodeAt(i) === 10) n++;
     return n;
   }, [value]);
-  const numbers = useMemo(() => Array.from({ length: lines }, (_, i) => i + 1).join("\n"), [lines]);
+  const numbers = useMemo(
+    () => Array.from({ length: lines }, (_, i) => i + 1).join("\n"),
+    [lines],
+  );
 
   const sync = useCallback(() => {
     const el = taRef.current;
     if (!el) return;
-    if (layer.current) layer.current.style.transform = `translate(${-el.scrollLeft}px, ${-el.scrollTop}px)`;
-    if (gutter.current) gutter.current.style.transform = `translateY(${-el.scrollTop}px)`;
+    if (layer.current)
+      layer.current.style.transform = `translate(${-el.scrollLeft}px, ${-el.scrollTop}px)`;
+    if (gutter.current)
+      gutter.current.style.transform = `translateY(${-el.scrollTop}px)`;
   }, [taRef]);
   useLayoutEffect(sync);
 
@@ -380,7 +609,8 @@ function CodeEditor({
       if (next < height && document.activeElement === el) {
         const line = el.value.slice(0, el.selectionStart).split("\n").length;
         const bottom = PAD_PX + line * LINE_PX;
-        if (bottom > el.scrollTop + next) el.scrollTop = bottom + LINE_PX - next;
+        if (bottom > el.scrollTop + next)
+          el.scrollTop = bottom + LINE_PX - next;
       }
       height = next;
       sync();
@@ -407,7 +637,13 @@ function CodeEditor({
       return;
     }
     escaped.current = false;
-    if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+    if (
+      e.key === "Enter" &&
+      !e.metaKey &&
+      !e.ctrlKey &&
+      !e.altKey &&
+      !e.shiftKey
+    ) {
       e.preventDefault();
       newline(el);
     }
@@ -415,16 +651,42 @@ function CodeEditor({
 
   return (
     <div className="pg-jed-code relative flex min-h-0 flex-1 overflow-hidden bg-[var(--pg-bg)]">
-      <div className="pg-jed-gutter relative w-11 flex-none overflow-hidden border-r border-[var(--pg-line)]" aria-hidden>
+      <div
+        className="pg-jed-gutter relative w-11 flex-none overflow-hidden border-r border-[var(--pg-line)]"
+        aria-hidden
+      >
         <div ref={gutter} className="absolute inset-x-0 top-0">
-          {errorLine ? <div className="pg-jed-gutter-error absolute inset-x-0" style={{ top: PAD_PX + (errorLine - 1) * LINE_PX, height: LINE_PX }} /> : null}
+          {errorLine ? (
+            <div
+              className="pg-jed-gutter-error absolute inset-x-0"
+              style={{
+                top: PAD_PX + (errorLine - 1) * LINE_PX,
+                height: LINE_PX,
+              }}
+            />
+          ) : null}
           <pre className="pg-jed-lines">{numbers}</pre>
         </div>
       </div>
       <div className="relative min-w-0 flex-1 overflow-hidden">
-        <div ref={layer} className="pointer-events-none absolute left-0 top-0 min-w-full" aria-hidden>
-          {errorLine ? <div className="pg-jed-error-band absolute inset-x-0" style={{ top: PAD_PX + (errorLine - 1) * LINE_PX, height: LINE_PX }} /> : null}
-          <pre className="pg-json pg-jed-text" dangerouslySetInnerHTML={{ __html: html }} />
+        <div
+          ref={layer}
+          className="pointer-events-none absolute left-0 top-0 min-w-full"
+          aria-hidden
+        >
+          {errorLine ? (
+            <div
+              className="pg-jed-error-band absolute inset-x-0"
+              style={{
+                top: PAD_PX + (errorLine - 1) * LINE_PX,
+                height: LINE_PX,
+              }}
+            />
+          ) : null}
+          <pre
+            className="pg-json pg-jed-text"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
         </div>
         <textarea
           ref={taRef}
@@ -494,13 +756,18 @@ function indent(el: HTMLTextAreaElement, outdent: boolean) {
   const lineEnd = nl < 0 ? value.length : nl;
   const block = value.slice(lineStart, lineEnd);
   const lines = block.split("\n");
-  const next = lines.map((l) => (outdent ? l.replace(/^ {1,2}/, "") : `  ${l}`));
+  const next = lines.map((l) =>
+    outdent ? l.replace(/^ {1,2}/, "") : `  ${l}`,
+  );
   const nextBlock = next.join("\n");
   if (nextBlock === block) return;
   el.setSelectionRange(lineStart, lineEnd);
   insert(el, nextBlock);
   if (start === end) {
-    const caret = Math.max(lineStart, start - (lines[0].length - next[0].length));
+    const caret = Math.max(
+      lineStart,
+      start - (lines[0].length - next[0].length),
+    );
     el.setSelectionRange(caret, caret);
   } else el.setSelectionRange(lineStart, lineStart + nextBlock.length);
 }

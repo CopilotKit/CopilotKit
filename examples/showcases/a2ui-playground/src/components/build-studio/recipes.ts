@@ -3,7 +3,10 @@ import type { Recipe } from "./types";
 const SKIP = new Set(["tokens", "reduced motion"]);
 
 /** Splits build-motion.css on its `/* recipe / name *\/` markers. Runs on the server. */
-export function parseRecipes(css: string): { recipes: Recipe[]; tokenCount: number } {
+export function parseRecipes(css: string): {
+  recipes: Recipe[];
+  tokenCount: number;
+} {
   const re = /\/\* recipe \/ ([^*]+?) \*\//g;
   const marks = Array.from(css.matchAll(re));
   const recipes: Recipe[] = [];
@@ -12,8 +15,12 @@ export function parseRecipes(css: string): { recipes: Recipe[]; tokenCount: numb
     const name = m[1].trim();
     const key = name.replace(/\s*\(.*\)\s*$/, "").trim();
     const end = i + 1 < marks.length ? marks[i + 1].index! : css.length;
-    const body = css.slice(m.index! + m[0].length, end).replace(/^\s*\n/, "").trimEnd();
-    if (key === "tokens") tokenCount = (body.match(/^\s*--[\w-]+\s*:/gm) ?? []).length;
+    const body = css
+      .slice(m.index! + m[0].length, end)
+      .replace(/^\s*\n/, "")
+      .trimEnd();
+    if (key === "tokens")
+      tokenCount = (body.match(/^\s*--[\w-]+\s*:/gm) ?? []).length;
     if (SKIP.has(key)) return;
     recipes.push({ key, name, text: `/* recipe / ${name} */\n${body}` });
   });

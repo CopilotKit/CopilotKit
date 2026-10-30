@@ -18,20 +18,34 @@
  * line stays under a surface that keeps growing (the wireframe itself is what was measured at the start).
  */
 import { useEffect, useRef, useState } from "react";
-import { generate, type GenerateOptions, type GenerateRun } from "@/vendor/transitions/ui-generation.js";
+import {
+  generate,
+  type GenerateOptions,
+  type GenerateRun,
+} from "@/vendor/transitions/ui-generation.js";
 
 const SETTLE = 250;
 const MAX_WAIT = 900;
 
-type GenEl = HTMLElement & { __tGenLayer?: HTMLElement; __tGenOpacity?: string };
+type GenEl = HTMLElement & {
+  __tGenLayer?: HTMLElement;
+  __tGenOpacity?: string;
+};
 
-const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const reduced = () =>
+  typeof matchMedia === "function" &&
+  matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function scrollParent(el: HTMLElement): HTMLElement | null {
-  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+  for (
+    let p = el.parentElement;
+    p && p !== document.body;
+    p = p.parentElement
+  ) {
     // Only a real vertical scroller: overflow-x: auto alone also computes overflow-y to auto.
     const o = getComputedStyle(p).overflowY;
-    if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight + 1) return p;
+    if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight + 1)
+      return p;
   }
   return null;
 }
@@ -43,7 +57,10 @@ export type UseUIGenerationOptions = Omit<GenerateOptions, "onDone"> & {
   enabled?: boolean;
 };
 
-export function useUIGeneration(ref: React.RefObject<HTMLElement | null>, { runKey, enabled = true, ...opts }: UseUIGenerationOptions) {
+export function useUIGeneration(
+  ref: React.RefObject<HTMLElement | null>,
+  { runKey, enabled = true, ...opts }: UseUIGenerationOptions,
+) {
   const [running, setRunning] = useState(false);
   const optsRef = useRef(opts);
   optsRef.current = opts;
@@ -72,7 +89,10 @@ export function useUIGeneration(ref: React.RefObject<HTMLElement | null>, { runK
         const sc = scrollParent(el);
         if (sc) {
           const S = sc.getBoundingClientRect();
-          const l = S.left - R.left, t = S.top - R.top, r = S.right - R.left, b = S.bottom - R.top;
+          const l = S.left - R.left,
+            t = S.top - R.top,
+            r = S.right - R.left,
+            b = S.bottom - R.top;
           layer.style.clipPath = `polygon(${l}px ${t}px, ${r}px ${t}px, ${r}px ${b}px, ${l}px ${b}px)`;
         }
       }
@@ -100,7 +120,10 @@ export function useUIGeneration(ref: React.RefObject<HTMLElement | null>, { runK
       if (left <= 0) return void start();
       // Blueprint slots carry no text: wait for the first real content unless the cap is reached.
       const hasContent = (el.textContent ?? "").trim().length > 0;
-      settleTimer = window.setTimeout(hasContent ? start : arm, Math.min(hasContent ? SETTLE : 100, left));
+      settleTimer = window.setTimeout(
+        hasContent ? start : arm,
+        Math.min(hasContent ? SETTLE : 100, left),
+      );
     };
     const mo = new MutationObserver(arm);
     if (reduced()) start();

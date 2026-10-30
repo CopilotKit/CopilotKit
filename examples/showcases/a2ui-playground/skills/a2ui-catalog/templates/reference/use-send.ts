@@ -21,7 +21,11 @@ export function useSend() {
     async (text: string) => {
       if (!agent || agent.isRunning) return;
       runStore.startRun(text, mode);
-      agent.addMessage({ id: crypto.randomUUID(), role: "user", content: text });
+      agent.addMessage({
+        id: crypto.randomUUID(),
+        role: "user",
+        content: text,
+      });
       await copilotkit.runAgent({ agent, forwardedProps: { mode } });
     },
     [agent, copilotkit, mode],

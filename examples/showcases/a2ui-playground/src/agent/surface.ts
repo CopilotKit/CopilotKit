@@ -22,14 +22,40 @@ import { EventType, type EventQueue } from "./events";
 export type Node = A2UIComponentNode;
 
 /** One surface: what an agent needs to render it again or change it later. */
-export type SurfaceRecord = { surfaceId: string; components: Node[]; data?: Record<string, unknown> };
+export type SurfaceRecord = {
+  surfaceId: string;
+  components: Node[];
+  data?: Record<string, unknown>;
+};
 
-const createOp = (surfaceId: string, components?: Node[], dataModel?: Record<string, unknown>): A2UIOperation => ({
+const createOp = (
+  surfaceId: string,
+  components?: Node[],
+  dataModel?: Record<string, unknown>,
+): A2UIOperation => ({
   version: A2UI_VERSION,
-  createSurface: { surfaceId, catalogId: CATALOG_ID, ...(components?.length ? { components } : {}), ...(dataModel ? { dataModel } : {}) },
+  createSurface: {
+    surfaceId,
+    catalogId: CATALOG_ID,
+    ...(components?.length ? { components } : {}),
+    ...(dataModel ? { dataModel } : {}),
+  },
 });
-const componentsOp = (surfaceId: string, components: Node[]): A2UIOperation => ({ version: A2UI_VERSION, updateComponents: { surfaceId, components } });
-const dataOp = (surfaceId: string, value: unknown, path = "/"): A2UIOperation => ({ version: A2UI_VERSION, updateDataModel: { surfaceId, path, value } });
+const componentsOp = (
+  surfaceId: string,
+  components: Node[],
+): A2UIOperation => ({
+  version: A2UI_VERSION,
+  updateComponents: { surfaceId, components },
+});
+const dataOp = (
+  surfaceId: string,
+  value: unknown,
+  path = "/",
+): A2UIOperation => ({
+  version: A2UI_VERSION,
+  updateDataModel: { surfaceId, path, value },
+});
 
 export class SurfaceStream {
   readonly messageId: string;
@@ -50,7 +76,13 @@ export class SurfaceStream {
       status: "streaming",
       rejected: [],
     };
-    this.q.push({ type: EventType.ACTIVITY_SNAPSHOT, messageId: this.messageId, activityType: GENERATIVE_UI_ACTIVITY_TYPE, content, replace: true });
+    this.q.push({
+      type: EventType.ACTIVITY_SNAPSHOT,
+      messageId: this.messageId,
+      activityType: GENERATIVE_UI_ACTIVITY_TYPE,
+      content,
+      replace: true,
+    });
   }
 
   /** Reopens a surface from an earlier run: it streams again and starts with no rejections. */
@@ -63,7 +95,8 @@ export class SurfaceStream {
 
   /** Adds or replaces components by id. A node may change its type (Blueprint to Stat). */
   upsert(...components: Node[]) {
-    if (components.length) this.append(componentsOp(this.surfaceId, components));
+    if (components.length)
+      this.append(componentsOp(this.surfaceId, components));
   }
 
   /** Sets `value` at `path` of the data model ("/" replaces all of it). */
@@ -80,6 +113,11 @@ export class SurfaceStream {
   }
 
   private patch(patch: Array<Record<string, unknown>>) {
-    this.q.push({ type: EventType.ACTIVITY_DELTA, messageId: this.messageId, activityType: GENERATIVE_UI_ACTIVITY_TYPE, patch });
+    this.q.push({
+      type: EventType.ACTIVITY_DELTA,
+      messageId: this.messageId,
+      activityType: GENERATIVE_UI_ACTIVITY_TYPE,
+      patch,
+    });
   }
 }

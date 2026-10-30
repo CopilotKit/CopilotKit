@@ -1,5 +1,10 @@
 /** One row of a component's props table. */
-export type PropRow = { name: string; type: string; required: boolean; description: string | null };
+export type PropRow = {
+  name: string;
+  type: string;
+  required: boolean;
+  description: string | null;
+};
 
 /** The props table on a component page. Scrolls sideways on narrow screens. */
 export function PropsTable({ rows }: { rows: PropRow[] }) {
@@ -16,15 +21,30 @@ export function PropsTable({ rows }: { rows: PropRow[] }) {
         </thead>
         <tbody>
           {rows.map((p) => (
-            <tr key={p.name} className="border-b border-border last:border-0 align-top">
+            <tr
+              key={p.name}
+              className="border-b border-border last:border-0 align-top"
+            >
               <td className="px-4 py-3">
-                <span className="font-mono text-[12.5px] font-medium text-foreground">{p.name}</span>
+                <span className="font-mono text-[12.5px] font-medium text-foreground">
+                  {p.name}
+                </span>
               </td>
               <td className="max-w-[340px] px-4 py-3">
-                <code className="break-words font-mono text-[12px] leading-relaxed text-[oklch(0.8_0.08_230)]">{p.type}</code>
+                <code className="break-words font-mono text-[12px] leading-relaxed text-[oklch(0.8_0.08_230)]">
+                  {p.type}
+                </code>
               </td>
-              <td className="px-4 py-3 text-muted-foreground">{p.required ? <span className="text-foreground">Yes</span> : "No"}</td>
-              <td className="min-w-[200px] px-4 py-3 text-[12.5px] leading-relaxed text-muted-foreground">{p.description ?? "-"}</td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {p.required ? (
+                  <span className="text-foreground">Yes</span>
+                ) : (
+                  "No"
+                )}
+              </td>
+              <td className="min-w-[200px] px-4 py-3 text-[12.5px] leading-relaxed text-muted-foreground">
+                {p.description ?? "-"}
+              </td>
             </tr>
           ))}
         </tbody>

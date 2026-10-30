@@ -8,7 +8,9 @@ import type { Weather } from "@/agent/apis";
 import { flatten, type FlatNode } from "./macro";
 import { macros, MACROS } from "./macros";
 
-const ev = (name: string, context?: Record<string, unknown>) => ({ event: { name, ...(context ? { context } : {}) } });
+const ev = (name: string, context?: Record<string, unknown>) => ({
+  event: { name, ...(context ? { context } : {}) },
+});
 
 export const MACRO_SAMPLES: Record<string, FlatNode> = {
   FlightCard: {
@@ -36,24 +38,52 @@ export const MACRO_SAMPLES: Record<string, FlatNode> = {
     name: "Studio Wireless Headphones",
     price: "$249",
     compareAt: "$329",
-    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&q=80&auto=format&fit=crop",
+    image:
+      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&q=80&auto=format&fit=crop",
     rating: 4.6,
     reviews: 2184,
     badge: "Best seller",
-    specs: ["Adaptive noise cancelling", "40 hour battery", "USB-C fast charge, 10 min for 5 hours"],
+    specs: [
+      "Adaptive noise cancelling",
+      "40 hour battery",
+      "USB-C fast charge, 10 min for 5 hours",
+    ],
     actionLabel: "Add to cart",
     onAction: ev("add_to_cart", { sku: "studio-wl" }),
   },
   WeatherReport: { id: "root", component: "WeatherReport", location: "Lisbon" },
 };
 
-const day = (label: string, min: number, max: number, precip: number, condition: string, icon: string) => ({ date: "", label, min, max, precip, condition, icon });
+const day = (
+  label: string,
+  min: number,
+  max: number,
+  precip: number,
+  condition: string,
+  icon: string,
+) => ({ date: "", label, min, max, precip, condition, icon });
 
 /** A fixed Lisbon forecast for previews. Live runs fetch Open-Meteo instead. */
 export const SAMPLE_WEATHER: Weather = {
   place: { name: "Lisbon", country: "Portugal", lat: 38.72, lon: -9.14 },
-  current: { temp: 19, feels: 18, humidity: 64, wind: 14, code: 2, condition: "Partly cloudy", icon: "cloud-sun", isDay: true, time: "2026-10-29T14:00" },
-  hourly: [17, 18, 19, 19, 20, 19, 18, 17, 16, 16, 15, 15].map((temp, i) => ({ time: "", label: `${String((14 + i) % 24).padStart(2, "0")}:00`, temp, precip: i > 7 ? 20 : 5, icon: "cloud-sun" })),
+  current: {
+    temp: 19,
+    feels: 18,
+    humidity: 64,
+    wind: 14,
+    code: 2,
+    condition: "Partly cloudy",
+    icon: "cloud-sun",
+    isDay: true,
+    time: "2026-10-29T14:00",
+  },
+  hourly: [17, 18, 19, 19, 20, 19, 18, 17, 16, 16, 15, 15].map((temp, i) => ({
+    time: "",
+    label: `${String((14 + i) % 24).padStart(2, "0")}:00`,
+    temp,
+    precip: i > 7 ? 20 : 5,
+    icon: "cloud-sun",
+  })),
   daily: [
     day("Today", 15, 20, 10, "Partly cloudy", "cloud-sun"),
     day("Fri", 14, 21, 0, "Clear sky", "sun"),
@@ -79,5 +109,14 @@ export function expandSample(name: string): FlatNode[] {
 }
 
 export function macroSampleOps(name: string, catalogId: string) {
-  return [{ version: A2UI_VERSION, createSurface: { surfaceId: `macro-${name}`, catalogId, components: expandSample(name) } }];
+  return [
+    {
+      version: A2UI_VERSION,
+      createSurface: {
+        surfaceId: `macro-${name}`,
+        catalogId,
+        components: expandSample(name),
+      },
+    },
+  ];
 }
