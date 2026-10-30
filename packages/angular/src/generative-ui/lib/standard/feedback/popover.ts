@@ -128,7 +128,10 @@ export class CopilotGenerativeUIPopover implements GenerativeUIPopoverState {
     if (this.#hoverTimer) clearTimeout(this.#hoverTimer);
     const delay = this.hoverOpenDelay() ?? 0;
     if (delay > 0) {
-      this.#hoverTimer = setTimeout(() => this.setOpen(true), delay);
+      // Hover opening may be turned off while the timer runs.
+      this.#hoverTimer = setTimeout(() => {
+        if (this.showOnHover()) this.setOpen(true);
+      }, delay);
     } else {
       this.setOpen(true);
     }

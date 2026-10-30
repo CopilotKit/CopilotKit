@@ -1,4 +1,11 @@
-import { Component, computed, inject, input, signal } from "@angular/core";
+import {
+  Component,
+  computed,
+  inject,
+  input,
+  linkedSignal,
+  signal,
+} from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import { DomSanitizer } from "@angular/platform-browser";
 import { radius, spacing, textColor } from "@copilotkit/shared/generative-ui";
@@ -205,8 +212,14 @@ export class CopilotGenerativeUIVideo {
   readonly weight = input<number>();
 
   protected readonly aria = injectGenerativeUIAccessibility();
-  /** The url the user pressed play on: a new url shows its poster first. */
-  protected readonly playingUrl = signal<string | undefined>(undefined);
+  /**
+   * The url the user pressed play on. Any change of url clears it, so a new
+   * url, or a return to one played before, shows its poster first.
+   */
+  protected readonly playingUrl = linkedSignal<
+    string | undefined,
+    string | undefined
+  >({ source: this.url, computation: () => undefined });
   protected readonly failedUrl = signal<string | undefined>(undefined);
   readonly #sanitizer = inject(DomSanitizer);
 
