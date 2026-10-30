@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  // Compiler options kiira uses to type-check the code fences in
+  // showcase/shell-docs/src/content (see kiira.config.ts). kiira picks this file
+  // up automatically and uses it INSTEAD of its built-in defaults, so the
+  // options below restate those defaults explicitly.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowJs": true,
+    "checkJs": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "paths": {
+      // CopilotKit takes Standard Schema and peers zod >=3.25, so a reader
+      // installs zod 4. Resolve it from kiira's cache (`externalPackages` in
+      // kiira.config.ts) instead of the zod 3 copies the workspace installs.
+      "zod": ["./node_modules/.kiira/node_modules/zod"],
+      "zod/*": ["./node_modules/.kiira/node_modules/zod/*"],
+      // Workspace example apps install older TanStack AI releases, and their
+      // node_modules come before kiira's cache in the "*" fallback. Pin the
+      // copies from externalPackages so docs check against the current release.
+      "@tanstack/ai": ["./node_modules/.kiira/node_modules/@tanstack/ai"],
+      "@tanstack/ai-openai": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai-openai"
+      ],
+      "@tanstack/ai-anthropic": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai-anthropic"
+      ],
+      // kiira resolves third-party packages through a "*" path fallback,
+      // and a path mapping does not read a package's `exports` map. A
+      // subpath import therefore only resolves when a file exists at that
+      // path, so map each exported subpath the docs import to its types.
+      "@a2ui/lit/0.8": [
+        "./node_modules/.kiira/node_modules/@a2ui/lit/src/0.8/core.d.ts"
+      ],
+      "@ag-ui/aws-strands/server": [
+        "./node_modules/.kiira/node_modules/@ag-ui/aws-strands/dist/server.d.mts"
+      ],
+      "@ag-ui/langgraph/middlewares": [
+        "./packages/sdk-js/node_modules/@ag-ui/langgraph/dist/middlewares/index.d.mts"
+      ],
+      "@ag-ui/mastra/copilotkit": [
+        "./node_modules/.kiira/node_modules/@ag-ui/mastra/dist/copilotkit.d.mts"
+      ],
+      "@langchain/langgraph/prebuilt": [
+        "./packages/sdk-js/node_modules/@langchain/langgraph/dist/prebuilt/index.d.ts"
+      ],
+      "@modelcontextprotocol/sdk/*": [
+        "./packages/mcp-apps-renderer/node_modules/@modelcontextprotocol/sdk/dist/esm/*"
+      ],
+      "@react-native/metro-config": [
+        "./node_modules/.kiira/node_modules/@react-native/metro-config/dist/index.d.ts"
+      ],
+      "@strands-agents/sdk/models/anthropic": [
+        "./node_modules/.kiira/node_modules/@strands-agents/sdk/dist/src/models/anthropic.d.ts"
+      ],
+      "@strands-agents/sdk/models/openai": [
+        "./node_modules/.kiira/node_modules/@strands-agents/sdk/dist/src/models/openai/index.d.ts"
+      ],
+      "mcp-use/react": [
+        "./node_modules/.kiira/node_modules/mcp-use/dist/react/index.d.ts"
+      ],
+      // kiira maps each workspace package to its source by rewriting the built
+      // `exports` target (dist/index.mjs) to src/index.mts. Our packages
+      // build .mjs from .ts/.tsx sources, so that rewrite never finds a file and
+      // kiira falls back to dist/, which does not exist in an unbuilt checkout
+      // (CI, docs-only PRs). These entries point each public entry point at its
+      // real source file. Paths here replace kiira's generated entry of the same
+      // key. A new public export that is missing here fails loudly in kiira with
+      // "Cannot find module", so add it here when that happens.
+      "@copilotkit/a2ui-renderer": ["./packages/a2ui-renderer/src/index.ts"],
+      "@copilotkit/agentcore-runner": [
+        "./packages/agentcore-runner/src/index.ts"
+      ],
+      "@copilotkit/core": ["./packages/core/src/index.ts"],
+      "@copilotkit/intelligence-langgraph": [
+        "./packages/intelligence-langgraph/src/index.ts"
+      ],
+      "@copilotkit/intelligence-mastra": [
+        "./packages/intelligence-mastra/src/index.ts"
+      ],
+      "@copilotkit/learning": ["./packages/learning/src/index.ts"],
+      "@copilotkit/markdown-renderer": [
+        "./packages/markdown-renderer/src/index.ts"
+      ],
+      "@copilotkit/markdown-renderer/react": [
+        "./packages/markdown-renderer/src/react/index.ts"
+      ],
+      "@copilotkit/markdown-renderer/react-native": [
+        "./packages/markdown-renderer/src/react-native/index.ts"
+      ],
+      "@copilotkit/markdown-renderer/vue": [
+        "./packages/markdown-renderer/src/vue/index.ts"
+      ],
+      "@copilotkit/mcp-apps-renderer": [
+        "./packages/mcp-apps-renderer/src/index.ts"
+      ],
+      "@copilotkit/mcp-apps-renderer/activity": [
+        "./packages/mcp-apps-renderer/src/activity.ts"
+      ],
+      "@copilotkit/react-core": ["./packages/react-core/src/index.ts"],
+      "@copilotkit/react-core/context": [
+        "./packages/react-core/src/context.ts"
+      ],
+      "@copilotkit/react-core/generative-ui": [
+        "./packages/react-core/src/generative-ui/index.ts"
+      ],
+      "@copilotkit/react-core/headless": [
+        "./packages/react-core/src/headless.ts"
+      ],
+      "@copilotkit/react-native": ["./packages/react-native/src/index.ts"],
+      "@copilotkit/react-native/components": [
+        "./packages/react-native/src/components/index.ts"
+      ],
+      "@copilotkit/react-native/headless": [
+        "./packages/react-native/src/headless.ts"
+      ],
+      "@copilotkit/react-native/polyfills": [
+        "./packages/react-native/src/polyfills.ts"
+      ],
+      "@copilotkit/react-native/polyfills/crypto": [
+        "./packages/react-native/src/polyfills/crypto.ts"
+      ],
+      "@copilotkit/react-native/polyfills/dom": [
+        "./packages/react-native/src/polyfills/dom.ts"
+      ],
+      "@copilotkit/react-native/polyfills/encoding": [
+        "./packages/react-native/src/polyfills/encoding.ts"
+      ],
+      "@copilotkit/react-native/polyfills/location": [
+        "./packages/react-native/src/polyfills/location.ts"
+      ],
+      "@copilotkit/react-native/polyfills/streams": [
+        "./packages/react-native/src/polyfills/streams.ts"
+      ],
+      "@copilotkit/runtime": ["./packages/runtime/src/index.ts"],
+      "@copilotkit/runtime/node": ["./packages/runtime/src/node.ts"],
+      "@copilotkit/sdk-js": ["./packages/sdk-js/src/index.ts"],
+      "@copilotkit/sdk-js/langchain": ["./packages/sdk-js/src/langchain.ts"],
+      "@copilotkit/sdk-js/langgraph": [
+        "./packages/sdk-js/src/langgraph/index.ts"
+      ],
+      "@copilotkit/sdk-js/langgraph-middlewares": [
+        "./packages/sdk-js/src/langgraph-middlewares.ts"
+      ],
+      "@copilotkit/shared": ["./packages/shared/src/index.ts"],
+      "@copilotkit/shared/event-transforms": [
+        "./packages/shared/src/event-transforms/index.ts"
+      ],
+      "@copilotkit/shared/telemetry": [
+        "./packages/shared/src/telemetry/index.ts"
+      ],
+      "@copilotkit/sqlite-runner": ["./packages/sqlite-runner/src/index.ts"],
+      "@copilotkit/voice": ["./packages/voice/src/index.ts"],
+      "@copilotkit/vue": ["./packages/vue/src/index.ts"],
+      "@copilotkit/vue/v2": ["./packages/vue/src/v2/index.ts"],
+      "@copilotkit/web-components": ["./packages/web-components/src/index.ts"],
+      "@copilotkit/web-components/threads-drawer": [
+        "./packages/web-components/src/threads-drawer/index.ts"
+      ],
+      "@copilotkit/web-inspector": ["./packages/web-inspector/src/index.ts"],
+      // @copilotkit/angular is built by ng-packagr, whose only `exports`
+      // targets are dist/types/*.d.ts. Its entry files are declared in the
+      // ng-package.json files, so map them directly.
+      "@copilotkit/angular": ["./packages/angular/src/index.ts"],
+      "@copilotkit/angular/a2ui": ["./packages/angular/src/a2ui/index.ts"],
+      "@copilotkit/angular/mcp-apps": [
+        "./packages/angular/src/mcp-apps/index.ts"
+      ]
+    }
+  }
+}
