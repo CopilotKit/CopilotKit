@@ -1,0 +1,16 @@
+// No `compatibility_flags`: the point is to run WITHOUT `nodejs_compat`.
+{
+  "name": "copilotkit-runtime-edge-smoke",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-04-01",
+  // Keep in sync with STUBS in run.mjs (the Vercel Edge bundle uses the same
+  // list). Each entry is a known blocker with its own fix; delete the entry
+  // when that fix lands.
+  "alias": {
+    "pino": "./stubs/pino.mjs",
+    "pino-pretty": "./stubs/pino-pretty.mjs",
+    "@ai-sdk/google-vertex": "./stubs/google-vertex.mjs",
+    "yauzl": "./stubs/yauzl.mjs",
+    "crypto": "./stubs/crypto.mjs",
+  },
+}

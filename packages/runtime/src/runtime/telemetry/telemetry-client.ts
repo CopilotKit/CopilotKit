@@ -5,6 +5,7 @@ import {
   computeSamplingMeta,
   TELEMETRY_EMITTER_V2,
   TELEMETRY_SURFACE_V2,
+  processEnv,
 } from "@copilotkit/shared";
 import {
   RUNTIME_PACKAGE_NAME,
@@ -34,13 +35,10 @@ interface ResolvedTelemetryIdentity {
 
 export function isTelemetryDisabled(): boolean {
   return (
-    (process.env as Record<string, string | undefined>)
-      .COPILOTKIT_TELEMETRY_DISABLED === "true" ||
-    (process.env as Record<string, string | undefined>)
-      .COPILOTKIT_TELEMETRY_DISABLED === "1" ||
-    (process.env as Record<string, string | undefined>).DO_NOT_TRACK ===
-      "true" ||
-    (process.env as Record<string, string | undefined>).DO_NOT_TRACK === "1"
+    processEnv().COPILOTKIT_TELEMETRY_DISABLED === "true" ||
+    processEnv().COPILOTKIT_TELEMETRY_DISABLED === "1" ||
+    processEnv().DO_NOT_TRACK === "true" ||
+    processEnv().DO_NOT_TRACK === "1"
   );
 }
 
@@ -218,8 +216,8 @@ export class TelemetryClient {
 
     _sampleRate = sampleRate ?? 1;
 
-    if (process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE) {
-      _sampleRate = parseFloat(process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE);
+    if (processEnv().COPILOTKIT_TELEMETRY_SAMPLE_RATE) {
+      _sampleRate = parseFloat(processEnv().COPILOTKIT_TELEMETRY_SAMPLE_RATE);
     }
 
     // Number.isNaN guards against parseFloat("nonsense") slipping past the

@@ -6,6 +6,7 @@ import type {
 import {
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
+  processEnv,
 } from "@copilotkit/shared";
 import { createLicenseChecker } from "@copilotkit/license-verifier";
 import type { LicenseChecker } from "@copilotkit/license-verifier";
@@ -535,7 +536,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     // one value.
     this.resolvedLicenseToken = firstNonBlankLicenseToken(
       options.licenseToken,
-      process.env.COPILOTKIT_LICENSE_TOKEN,
+      processEnv().COPILOTKIT_LICENSE_TOKEN,
     );
 
     // Snapshot identity and sampling authority for this runtime. Capture
@@ -543,7 +544,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     // another runtime's construction.
     const resolvedTelemetryId = firstNonBlankTelemetryId(
       options.telemetryId,
-      process.env.CPK_TELEMETRY_ID,
+      processEnv().CPK_TELEMETRY_ID,
     );
     this.telemetry =
       options.ɵtelemetry ??

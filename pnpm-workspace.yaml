@@ -2,6 +2,7 @@ packages:
   - "packages/*"
   - "codemods/*"
   - "tools/runtime-conformance"
+  - "tools/runtime-edge-smoke"
   - "tools/learned-skill-conformance"
   - "examples/v1/*"
   - "examples/canvas/mastra-pm"

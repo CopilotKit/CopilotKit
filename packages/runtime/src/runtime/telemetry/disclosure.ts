@@ -11,12 +11,14 @@
 // multiple times (tests, hot-reload), but the disclosure is informational
 // and a single line is enough.
 
+import { processEnv } from "@copilotkit/shared";
+
 // Canonical telemetry docs page on main.
 // Mirror constant: packages/web-inspector/src/lib/telemetry.ts
 const TELEMETRY_DOCS_URL = "https://docs.copilotkit.ai/telemetry";
 
 function isTelemetryDisabled(): boolean {
-  const env = process.env as Record<string, string | undefined>;
+  const env = processEnv();
   return (
     env.COPILOTKIT_TELEMETRY_DISABLED === "true" ||
     env.COPILOTKIT_TELEMETRY_DISABLED === "1" ||

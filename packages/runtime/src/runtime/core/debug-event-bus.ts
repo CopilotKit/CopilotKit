@@ -1,3 +1,4 @@
+import { processEnv } from "@copilotkit/shared";
 import type { BaseEvent } from "@ag-ui/client";
 import type {
   DebugEventEnvelope,
@@ -68,5 +69,5 @@ export function isDebugEventFeedEnabled(
   debug: ResolvedDebugConfig | undefined,
 ): boolean {
   if (debug?.enabled) return true;
-  return process.env.NODE_ENV === "development";
+  return processEnv().NODE_ENV === "development";
 }

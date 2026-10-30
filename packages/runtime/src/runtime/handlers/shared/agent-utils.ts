@@ -26,7 +26,7 @@ import { resolveMcpAppsServers } from "./mcp-apps-servers";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
 import { grantAllowsMemory, resolveWebMemory } from "./memory-policy";
 import { errorResponse } from "./json-response";
-import { logger } from "@copilotkit/shared";
+import { logger, processEnv } from "@copilotkit/shared";
 
 type MiddlewareCapableAgent = AbstractAgent & {
   use?: (middleware: unknown) => void;
@@ -327,8 +327,8 @@ export async function attachIntelligenceEnterpriseLearning(params: {
 function warnCompatibility(what: string, replacement: string) {
   if (
     typeof process !== "undefined" &&
-    typeof process.env !== "undefined" &&
-    process.env.SUPPRESS_TRANSFORMATION_WARNINGS
+    typeof processEnv() !== "undefined" &&
+    processEnv().SUPPRESS_TRANSFORMATION_WARNINGS
   )
     return;
   console.warn(
