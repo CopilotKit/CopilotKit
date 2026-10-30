@@ -3,6 +3,7 @@ import {
   createCopilotEndpoint,
   createCopilotEndpointSingleRoute,
 } from "../endpoints";
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime } from "../core/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 
@@ -316,5 +317,52 @@ describe("CORS credentials configuration", () => {
         "https://app.mycompany.com",
       );
     });
+  });
+});
+
+describe("credentialed CORS with no explicit origin", () => {
+  it("refuses the configuration when the handler is built", () => {
+    const runtime = createMockRuntime();
+
+    expect(() =>
+      createCopilotRuntimeHandler({
+        runtime,
+        basePath: "/api/copilotkit",
+        cors: { credentials: true },
+      }),
+    ).toThrow(/requires an explicit `origin`/);
+  });
+
+  it("refuses a wildcard origin with credentials", () => {
+    const runtime = createMockRuntime();
+
+    expect(() =>
+      createCopilotRuntimeHandler({
+        runtime,
+        basePath: "/api/copilotkit",
+        cors: { origin: "*", credentials: true },
+      }),
+    ).toThrow(/requires an explicit `origin`/);
+  });
+
+  it("still allows a wildcard origin without credentials", async () => {
+    const runtime = createMockRuntime();
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+      cors: { origin: "*" },
+    });
+
+    const response = await handler(
+      new Request("https://example.com/api/copilotkit/info", {
+        method: "OPTIONS",
+        headers: {
+          Origin: "https://anywhere.example",
+          "Access-Control-Request-Method": "GET",
+        },
+      }),
+    );
+
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 });
