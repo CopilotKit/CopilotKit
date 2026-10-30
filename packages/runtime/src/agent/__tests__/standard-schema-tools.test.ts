@@ -10,7 +10,9 @@ import {
   BuiltInAgent,
 } from "../index";
 import type { RunAgentInput } from "@ag-ui/client";
-import { streamText } from "ai";
+import { streamText, generateText } from "ai";
+import type { Schema } from "ai";
+import { MockLanguageModelV3 } from "ai/test";
 import { mockStreamTextResponse, finish, collectEvents } from "./test-helpers";
 
 const arktype = <Out>(def: Record<string, string>) =>
@@ -191,6 +193,204 @@ describe("Standard Schema support in agent tools", () => {
         expect(aiTools[key]).toHaveProperty("execute");
         expect(aiTools[key]).toHaveProperty("inputSchema");
       }
+    });
+  });
+
+  describe("non-Zod tool argument validation", () => {
+    // The AI SDK Schema view of a converted tool's inputSchema.
+    const inputSchemaOf = (
+      aiTools: ReturnType<typeof convertToolDefinitionsToVercelAITools>,
+      name: string,
+    ): Schema => aiTools[name].inputSchema as unknown as Schema;
+
+    // A mock model that emits a single tool call with the given arguments.
+    const modelEmittingToolCall = (toolName: string, args: unknown) =>
+      new MockLanguageModelV3({
+        doGenerate: async () => ({
+          content: [
+            {
+              type: "tool-call",
+              toolCallId: "call-1",
+              toolName,
+              input: JSON.stringify(args),
+            },
+          ],
+          finishReason: { unified: "tool-calls", raw: "tool_calls" },
+          usage: {
+            inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+            outputTokens: { total: 1, text: 1, reasoning: 0 },
+          },
+          warnings: [],
+        }),
+      } as any);
+
+    it("rejects invalid Valibot tool arguments before execute runs", async () => {
+      const execute = vi.fn().mockResolvedValue({ ok: true });
+      const tools = convertToolDefinitionsToVercelAITools([
+        defineTool({
+          name: "valibotTool",
+          description: "Valibot test",
+          parameters: toStandardJsonSchema(v.object({ name: v.string() })),
+          execute,
+        }),
+      ]);
+
+      const validation = await inputSchemaOf(tools, "valibotTool").validate?.({
+        name: 12345,
+      });
+      expect(validation?.success).toBe(false);
+
+      const result = await generateText({
+        model: modelEmittingToolCall("valibotTool", { name: 12345 }),
+        tools,
+        prompt: "call the tool",
+      });
+
+      expect(execute).not.toHaveBeenCalled();
+      expect(result.steps[0].toolResults).toHaveLength(0);
+    });
+
+    it("prefixes Valibot validation errors with the issue path", async () => {
+      const execute = vi.fn().mockResolvedValue({ ok: true });
+      const tools = convertToolDefinitionsToVercelAITools([
+        defineTool({
+          name: "nestedValibotTool",
+          description: "Nested Valibot test",
+          parameters: toStandardJsonSchema(
+            v.object({ user: v.object({ name: v.string() }) }),
+          ),
+          execute,
+        }),
+      ]);
+
+      const validation = await inputSchemaOf(
+        tools,
+        "nestedValibotTool",
+      ).validate?.({
+        user: { name: 12345 },
+      });
+      expect(validation?.success).toBe(false);
+      // This package compiles with strict: false, so the ValidationResult
+      // union does not narrow on `success`; assert the failure shape.
+      const failure = validation as
+        | { success: false; error: Error }
+        | undefined;
+      expect(failure?.error).toBeInstanceOf(Error);
+      // The path prefix tells the model which argument to fix; the bare
+      // library message ("Invalid type: Expected string but received
+      // 12345") does not name the field.
+      expect(failure?.error.message).toContain(
+        "Invalid arguments for tool nestedValibotTool: user.name: ",
+      );
+    });
+
+    it("executes Valibot tools with valid arguments", async () => {
+      const execute = vi.fn().mockResolvedValue({ ok: true });
+      const tools = convertToolDefinitionsToVercelAITools([
+        defineTool({
+          name: "valibotTool",
+          description: "Valibot test",
+          parameters: toStandardJsonSchema(v.object({ name: v.string() })),
+          execute,
+        }),
+      ]);
+
+      const validation = await inputSchemaOf(tools, "valibotTool").validate?.({
+        name: "copilot",
+      });
+      expect(validation?.success).toBe(true);
+
+      const result = await generateText({
+        model: modelEmittingToolCall("valibotTool", { name: "copilot" }),
+        tools,
+        prompt: "call the tool",
+      });
+
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(execute).toHaveBeenCalledWith(
+        { name: "copilot" },
+        expect.anything(),
+      );
+      expect(result.steps[0].toolResults).toHaveLength(1);
+    });
+
+    it("rejects invalid ArkType tool arguments before execute runs", async () => {
+      const execute = vi.fn().mockResolvedValue({ ok: true });
+      const tools = convertToolDefinitionsToVercelAITools([
+        defineTool({
+          name: "arktypeTool",
+          description: "ArkType test",
+          parameters: arktype<{ name: string }>({ name: "string" }),
+          execute,
+        }),
+      ]);
+
+      const validation = await inputSchemaOf(tools, "arktypeTool").validate?.({
+        name: 12345,
+      });
+      expect(validation?.success).toBe(false);
+
+      const result = await generateText({
+        model: modelEmittingToolCall("arktypeTool", { name: 12345 }),
+        tools,
+        prompt: "call the tool",
+      });
+
+      expect(execute).not.toHaveBeenCalled();
+      expect(result.steps[0].toolResults).toHaveLength(0);
+    });
+
+    it("executes ArkType tools with valid arguments", async () => {
+      const execute = vi.fn().mockResolvedValue({ ok: true });
+      const tools = convertToolDefinitionsToVercelAITools([
+        defineTool({
+          name: "arktypeTool",
+          description: "ArkType test",
+          parameters: arktype<{ name: string }>({ name: "string" }),
+          execute,
+        }),
+      ]);
+
+      const validation = await inputSchemaOf(tools, "arktypeTool").validate?.({
+        name: "copilot",
+      });
+      expect(validation?.success).toBe(true);
+
+      const result = await generateText({
+        model: modelEmittingToolCall("arktypeTool", { name: "copilot" }),
+        tools,
+        prompt: "call the tool",
+      });
+
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(execute).toHaveBeenCalledWith(
+        { name: "copilot" },
+        expect.anything(),
+      );
+      expect(result.steps[0].toolResults).toHaveLength(1);
+    });
+
+    it("still passes Zod schemas through untouched (validation unchanged)", async () => {
+      const execute = vi.fn().mockResolvedValue({ ok: true });
+      const parameters = z.object({ name: z.string() });
+      const tools = convertToolDefinitionsToVercelAITools([
+        defineTool({
+          name: "zodTool",
+          description: "Zod test",
+          parameters,
+          execute,
+        }),
+      ]);
+
+      expect(tools.zodTool.inputSchema).toBe(parameters);
+
+      await generateText({
+        model: modelEmittingToolCall("zodTool", { name: 12345 }),
+        tools,
+        prompt: "call the tool",
+      });
+
+      expect(execute).not.toHaveBeenCalled();
     });
   });
 
