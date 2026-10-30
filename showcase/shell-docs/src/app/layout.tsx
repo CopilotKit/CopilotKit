@@ -127,6 +127,18 @@ export default function RootLayout({
             __html: `(function(){try{var t=localStorage.theme;if(!t||t==='system'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}if(t==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();`,
           }}
         />
+        {/* Initialize banner height during HTML parse, before first paint.
+         * A plain <script> runs while the parser is still in <head>.
+         * next/script with strategy="beforeInteractive" only queues the
+         * body for app-bootstrap, which runs after the client bundle
+         * loads, so a dismissed banner would paint at 40px and then jump.
+         * This matches the raw __showcase_config__ script above. */}
+        <script
+          id="banner-init"
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var k='nd-banner-rotating-banner',l='shell-docs-course-banner-dismissed',tk='nd-banner-rotating-banner-dismissed-at',delay=259200000;var d=localStorage.getItem(k)==='true'||localStorage.getItem(l)==='true';if(d){var t=localStorage.getItem(tk);if(!t||(Date.now()-parseInt(t,10))<delay){document.documentElement.classList.add('banner-dismissed');document.documentElement.style.setProperty('--fd-banner-height','0px');return;}}document.documentElement.style.setProperty('--fd-banner-height','40px');}catch(e){}})();`,
+          }}
+        />
         {REO_KEY ? (
           <Script
             id="reo-init-script"
