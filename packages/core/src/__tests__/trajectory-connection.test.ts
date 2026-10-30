@@ -142,7 +142,6 @@ function makeCore(overrides: Partial<CopilotKitCoreConfig> = {}) {
     headers: { Authorization: "Bearer app-session", "X-App": "test" },
     credentials: "include",
     learning: {
-      routes: ["/products/:id"],
       capture: {
         clicks: false,
         navigation: false,

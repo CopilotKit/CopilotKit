@@ -40,7 +40,7 @@ interface Session {
  * collector.start({ trajectoryId: crypto.randomUUID() });
  */
 export function createCollector(options: CollectorOptions) {
-  const { sink, routes, beforeSend, enrich } = options;
+  const { sink, beforeSend, enrich } = options;
   const capture = {
     clicks: true,
     navigation: true,
@@ -51,7 +51,7 @@ export function createCollector(options: CollectorOptions) {
   let session: Session | null = null;
   let seq = 0;
 
-  const getRoute = () => toRoute(location.pathname, routes);
+  const getRoute = () => toRoute(location.pathname);
 
   const flush = (sendOptions?: SinkSendOptions) => {
     const current = session;
@@ -138,13 +138,12 @@ export function createCollector(options: CollectorOptions) {
       );
     if (capture.navigation)
       current.uninstalls.push(
-        installNavigationCapture({ emit: recordCurrent, routes, redact }),
+        installNavigationCapture({ emit: recordCurrent, redact }),
       );
     if (capture.network)
       current.uninstalls.push(
         installNetworkCapture({
           emit: recordCurrent,
-          routes,
           ignoreUrls,
           redact,
         }),

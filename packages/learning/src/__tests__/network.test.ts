@@ -39,7 +39,6 @@ function setup(fakeFetch: typeof fetch, ignoreUrls: (string | RegExp)[] = []) {
   const events: Captured[] = [];
   uninstall = installNetworkCapture({
     emit: (name, value) => events.push({ name, value } as Captured),
-    routes: ["/api/deals/:id"],
     ignoreUrls,
   });
   return events;
