@@ -29,7 +29,7 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
       "Open a fence with ```a2ui target=<id> to show the surface in a named target.",
     );
     expect(guide).toContain(
-      'When a target has "components", its surfaces can use only those components.',
+      "When a target limits its components, its surfaces can use only those components.",
     );
   });
 
@@ -94,9 +94,7 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
     expect(guide).toContain(
       'A prop can also be a function value that updates with the data: {"@call":"formatCurrency"',
     );
-    expect(guide).toContain(
-      'Use only the functions under "functions" in the schema.',
-    );
+    expect(guide).toContain("Use only the functions in the schema.");
     expect(guide).toContain("formatString interpolates ${...}");
     expect(guide).toContain(
       "Inside formatString, ${...} does not support operators",
@@ -105,7 +103,7 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
       '{"@call":"calc","args":{"expression":"seats * 29 * (annual ? 0.8 : 1)"',
     );
     expect(guide).toContain(
-      'use series. Its description under "functions" in the schema',
+      "use series. Its description under Functions in the schema",
     );
     expect(guide).toContain('the "items" of a List');
     expect(guide).not.toContain("template path of a list");
@@ -197,6 +195,7 @@ describe("generativeUIGuideFeatures", () => {
         functions: { save: { parameters: props } },
       }),
     ).toEqual({
+      components: ["List", "Button"],
       functions: true,
       events: true,
       templates: true,
@@ -213,6 +212,7 @@ describe("generativeUIGuideFeatures", () => {
         functions: {},
       }),
     ).toEqual({
+      components: ["Card"],
       functions: false,
       events: false,
       templates: false,
@@ -222,6 +222,28 @@ describe("generativeUIGuideFeatures", () => {
 });
 
 describe("buildGenerativeUIMarkdownGuidelines", () => {
+  it("leaves out the guide lines that name a standard component the catalog lacks", () => {
+    const all = {
+      functions: true,
+      events: true,
+      templates: true,
+      checks: true,
+    };
+    const full = buildGenerativeUIMarkdownGuidelines(all);
+    const reduced = buildGenerativeUIMarkdownGuidelines({
+      ...all,
+      components: ["Text", "Title", "Table", "Button", "Card", "Badge"],
+    });
+    expect(full).toContain("a Map with the places as markers");
+    expect(reduced).not.toMatch(/\bMap\b|\bSlider\b|\bCharts?\b/);
+    expect(reduced).toContain(
+      "- Items with a status, a category or a level: a Badge on each item.",
+    );
+    expect(reduced).toContain(
+      "Updating a component replaces all of its props.",
+    );
+  });
+
   const none = {
     functions: false,
     events: false,

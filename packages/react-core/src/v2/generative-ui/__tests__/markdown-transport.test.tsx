@@ -306,6 +306,7 @@ describe("markdown transport", () => {
     // The UI has a multiple slot and the mounted addToCart, but no events.
     expect(listed.context[0].value).toBe(
       buildGenerativeUIMarkdownGuidelines({
+        components: ["Button", "Column", "Text"],
         functions: true,
         events: false,
         templates: true,

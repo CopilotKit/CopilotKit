@@ -3,6 +3,7 @@ import { A2UI_CHILD_LIST_REF } from "./generative-ui/child-refs";
 import type { GenerativeUIManifest } from "./generative-ui/types";
 import {
   defaultGenerativeUIPromptSpec,
+  GUIDE_COMPONENTS,
   generativeUIPromptFeatures,
   selectPromptItems,
 } from "./generative-ui/prompt-spec";
@@ -155,6 +156,11 @@ export interface GenerativeUIGuideFeatures {
   templates: boolean;
   /** A component has a "checks" prop: validation rules on inputs. */
   checks: boolean;
+  /**
+   * The component names of the catalog. A guide line that names a standard
+   * component missing from it is left out. Unset keeps every line.
+   */
+  components?: readonly string[];
 }
 
 /** Every optional rule group. Use it when the manifest is not known. */
@@ -191,6 +197,7 @@ export function generativeUIGuideFeatures(
     return Object.values(node).some(hasChildList);
   };
   return {
+    components: Object.keys(manifest.components),
     // App functions only: the built-in ones are always there and have
     // their own rules.
     functions: Object.keys(manifest.functions).some(
@@ -214,6 +221,23 @@ export function generativeUIGuideFeatures(
 }
 
 /**
+ * Whether a guide line names only standard components (`GUIDE_COMPONENTS`,
+ * also in the plural) that the catalog has. With no catalog, every line fits.
+ */
+function namesOnlyCatalogComponents(catalog: readonly string[] | undefined) {
+  if (!catalog) return () => true;
+  const has = new Set(catalog);
+  return (line: string) =>
+    (line.match(/\b[A-Z][A-Za-z0-9]*\b/g) ?? []).every((word) => {
+      const name =
+        !GUIDE_COMPONENTS.has(word) && word.endsWith("s")
+          ? word.slice(0, -1)
+          : word;
+      return !GUIDE_COMPONENTS.has(name) || has.has(name);
+    });
+}
+
+/**
  * Builds the markdown-transport guideline. The model writes A2UI v1.0
  * operations inside ```a2ui fences between normal markdown prose. The rules
  * for functions, events, and templates are left out when the manifest has
@@ -227,11 +251,16 @@ export function buildGenerativeUIMarkdownGuidelines(
   features: GenerativeUIGuideFeatures = ALL_GENERATIVE_UI_GUIDE_FEATURES,
   spec: GenerativeUIPromptSpec = defaultGenerativeUIPromptSpec(),
 ) {
-  const { intro, whenToShow, rules } = spec.markdown;
+  const { intro, rules } = spec.markdown;
+  const fits = namesOnlyCatalogComponents(features.components);
   const selected = selectPromptItems(
     rules,
     generativeUIPromptFeatures(features),
-  );
+  ).filter(fits);
+  const whenToShow = spec.markdown.whenToShow
+    .split("\n")
+    .filter(fits)
+    .join("\n");
   const when = whenToShow ? `${whenToShow}\n\n` : "";
   return `${intro}\n\n${when}RULES\n${selected.map((rule) => `- ${rule}`).join("\n")}\n`;
 }
