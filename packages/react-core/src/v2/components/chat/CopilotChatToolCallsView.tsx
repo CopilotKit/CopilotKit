@@ -4,7 +4,7 @@ import React, {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import type { AssistantMessage, Message } from "@ag-ui/core";
 import { useRenderToolCall } from "../../hooks";
 import { useCopilotKit } from "../../context";
 import { useToolCallRendererNames } from "../../hooks/use-render-tool-call";
@@ -17,7 +17,7 @@ import {
 } from "./CopilotChatToolCallGroup";
 import type { CopilotChatToolCallGroupAppearance } from "./CopilotChatToolCallGroup";
 import { ToolCallDisplayContext } from "./tool-call-display-context";
-import { getToolCallLayouts } from "./tool-call-layout";
+import { getToolCallLayouts, getToolResults } from "./tool-call-layout";
 import type {
   CopilotChatToolCallDisplay,
   ToolCallEntry,
@@ -106,12 +106,14 @@ export function CopilotChatToolCallsView({
   };
 
   if (!layout) {
+    // Replayed history can hold both the transport placeholder and the saved
+    // result for a call. Use the same index as the grouped layout so the
+    // answer wins instead of the first message that mentions the call.
+    const results = getToolResults(messages);
     return (
       <>
         {message.toolCalls.map((toolCall) => {
-          const toolMessage = messages.find(
-            (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-          ) as ToolMessage | undefined;
+          const toolMessage = results.get(toolCall.id);
           return (
             <React.Fragment key={toolCall.id}>
               {renderCall({ toolCall, toolMessage })}

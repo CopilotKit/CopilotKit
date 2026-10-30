@@ -33,6 +33,13 @@ const result = (id: string, error?: string): ToolMessage => ({
   ...(error ? { error } : {}),
 });
 
+const placeholder = (id: string): ToolMessage => ({
+  id: `placeholder-${id}`,
+  role: "tool",
+  toolCallId: id,
+  content: "Forwarded to client",
+});
+
 const say = (id: string, content: string): Message => ({
   id,
   role: "assistant",
@@ -241,6 +248,64 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     renderView(burst, { toolCallDisplay: "separate" });
     expect(screen.queryByTestId("copilot-tool-call-group")).toBeNull();
     expect(screen.getAllByTestId("copilot-tool-render")).toHaveLength(2);
+  });
+
+  it("renders the saved result instead of an earlier placeholder with separate", () => {
+    const echo = defineToolCallRenderer({
+      name: "*",
+      render: ({ result }) => <div data-testid="echo-result">{result}</div>,
+    });
+    renderView(
+      [
+        question,
+        callMessage("a"),
+        placeholder("a"),
+        result("a"),
+        { id: "u2", role: "user", content: "Next" },
+      ],
+      { toolCallDisplay: "separate" },
+      [echo],
+    );
+    expect(screen.getByTestId("echo-result").textContent).toBe("ok");
+  });
+
+  it("keeps the saved result when a replay appends the placeholder after it", () => {
+    const echo = defineToolCallRenderer({
+      name: "*",
+      render: ({ result }) => <div data-testid="echo-result">{result}</div>,
+    });
+    renderView(
+      [question, callMessage("a"), result("a"), placeholder("a")],
+      { toolCallDisplay: "separate" },
+      [echo],
+    );
+    expect(screen.getByTestId("echo-result").textContent).toBe("ok");
+  });
+
+  it("keeps the saved result when the placeholder comes last in grouped display", () => {
+    const echo = defineToolCallRenderer({
+      name: "*",
+      render: ({ result }) => <div data-testid="echo-result">{result}</div>,
+    });
+    renderView([question, callMessage("a"), result("a"), placeholder("a")], {}, [
+      echo,
+    ]);
+    expect(screen.getByTestId("echo-result").textContent).toBe("ok");
+  });
+
+  it("still shows the placeholder when it is the only result", () => {
+    const echo = defineToolCallRenderer({
+      name: "*",
+      render: ({ result }) => <div data-testid="echo-result">{result}</div>,
+    });
+    renderView(
+      [question, callMessage("a"), placeholder("a")],
+      { toolCallDisplay: "separate" },
+      [echo],
+    );
+    expect(screen.getByTestId("echo-result").textContent).toBe(
+      "Forwarded to client",
+    );
   });
 
   it("keeps calls with their own renderer visible and outside the group", () => {
