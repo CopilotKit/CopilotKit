@@ -1,45 +1,25 @@
-import { v4 as uuidv4, validate, v5 as uuidv5 } from "uuid";
-
 export function randomId() {
-  return "ck-" + uuidv4();
-}
-
-export function randomUUID() {
-  return uuidv4();
+  return "ck-" + randomUUID();
 }
 
 /**
- * Recursively converts an object to a serializable form by converting functions to their string representation.
+ * Returns an RFC 4122 version 4 UUID. Uses `crypto.randomUUID()` when it
+ * exists, and builds the UUID from `crypto.getRandomValues()` when it does not
+ * (React Native's Hermes has no `randomUUID`).
  */
-function toSerializable(value: unknown): unknown {
-  if (typeof value === "function") {
-    return value.toString();
+export function randomUUID(): string {
+  const crypto = globalThis.crypto;
+  if (typeof crypto?.randomUUID === "function") {
+    return crypto.randomUUID();
   }
-  if (Array.isArray(value)) {
-    return value.map(toSerializable);
+  if (typeof crypto?.getRandomValues !== "function") {
+    throw new Error(
+      "crypto.getRandomValues() is not available. In React Native, install a polyfill such as react-native-get-random-values.",
+    );
   }
-  if (value !== null && typeof value === "object") {
-    const result: Record<string, unknown> = {};
-    for (const key of Object.keys(value)) {
-      result[key] = toSerializable((value as Record<string, unknown>)[key]);
-    }
-    return result;
-  }
-  return value;
-}
-
-export function dataToUUID(input: string | object, namespace?: string): string {
-  const BASE_NAMESPACE = "e4b01160-ff74-4c6e-9b27-d53cd930fe8e";
-  // Since namespace needs to be a uuid, we are creating a uuid for it.
-  const boundNamespace = namespace
-    ? uuidv5(namespace, BASE_NAMESPACE)
-    : BASE_NAMESPACE;
-
-  const stringInput =
-    typeof input === "string" ? input : JSON.stringify(toSerializable(input));
-  return uuidv5(stringInput, boundNamespace);
-}
-
-export function isValidUUID(uuid: string) {
-  return validate(uuid);
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6]! & 0x0f) | 0x40;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"));
+  return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
 }
