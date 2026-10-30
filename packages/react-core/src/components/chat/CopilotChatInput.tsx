@@ -9,7 +9,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import { Plus, Mic, ArrowUp, X, Check, Square, Loader2 } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 
 import {
   CopilotChatDefaultLabels,
@@ -565,7 +565,7 @@ export function CopilotChatInput({
       ? labels.chatInputToolbarStopButtonLabel
       : labels.chatInputToolbarSendButtonLabel,
     children: showsStop ? (
-      <Square className="cpk-chat-input-stop-icon" />
+      <CopilotIcon name="Square" className="cpk-chat-input-stop-icon" />
     ) : undefined,
   });
 
@@ -1035,7 +1035,10 @@ export function CopilotChatInput({
             BoundAudioRecorder
           ) : mode === "processing" ? (
             <div className="cpk-chat-input-processing">
-              <Loader2 className="cpk-chat-input-processing-spinner" />
+              <CopilotIcon
+                name="Loader2"
+                className="cpk-chat-input-processing-spinner"
+              />
             </div>
           ) : (
             <>
@@ -1150,7 +1153,9 @@ export namespace CopilotChatInput {
           aria-label={labels.chatInputToolbarSendButtonLabel}
           {...props}
         >
-          {children ?? <ArrowUp className="cpk-chat-input-send-icon" />}
+          {children ?? (
+            <CopilotIcon name="ArrowUp" className="cpk-chat-input-send-icon" />
+          )}
         </Button>
       </div>
     );
@@ -1195,7 +1200,7 @@ export namespace CopilotChatInput {
   > = (props) => (
     <ToolbarButton
       data-testid="copilot-start-transcribe-button"
-      icon={<Mic className="cpk-chat-input-toolbar-icon" />}
+      icon={<CopilotIcon name="Mic" className="cpk-chat-input-toolbar-icon" />}
       labelKey="chatInputToolbarStartTranscribeButtonLabel"
       defaultClassName="cpk-chat-input-start-transcribe-button"
       {...props}
@@ -1207,7 +1212,7 @@ export namespace CopilotChatInput {
   > = (props) => (
     <ToolbarButton
       data-testid="copilot-cancel-transcribe-button"
-      icon={<X className="cpk-chat-input-toolbar-icon" />}
+      icon={<CopilotIcon name="X" className="cpk-chat-input-toolbar-icon" />}
       labelKey="chatInputToolbarCancelTranscribeButtonLabel"
       defaultClassName="cpk-chat-input-cancel-transcribe-button"
       {...props}
@@ -1219,7 +1224,9 @@ export namespace CopilotChatInput {
   > = (props) => (
     <ToolbarButton
       data-testid="copilot-finish-transcribe-button"
-      icon={<Check className="cpk-chat-input-toolbar-icon" />}
+      icon={
+        <CopilotIcon name="Check" className="cpk-chat-input-toolbar-icon" />
+      }
       labelKey="chatInputToolbarFinishTranscribeButtonLabel"
       defaultClassName="cpk-chat-input-finish-transcribe-button"
       {...props}
@@ -1318,7 +1325,7 @@ export namespace CopilotChatInput {
         aria-label={labels.chatInputToolbarAddButtonLabel}
         {...props}
       >
-        <Plus className="cpk-chat-input-add-menu-icon" />
+        <CopilotIcon name="Plus" className="cpk-chat-input-add-menu-icon" />
       </Button>
     );
 

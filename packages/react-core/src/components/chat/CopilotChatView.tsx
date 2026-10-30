@@ -28,7 +28,7 @@ import {
   useStickToBottom,
   useStickToBottomContext,
 } from "use-stick-to-bottom";
-import { ChevronDown, Upload } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/utils";
 import { CopilotChatDefaultLabels } from "@copilotkit/core";
@@ -122,7 +122,10 @@ function DropOverlay() {
   return (
     <div className="cpk-chat-view-drop-overlay">
       <div className="cpk-chat-view-drop-overlay-content">
-        <Upload className="cpk-chat-view-drop-overlay-icon" />
+        <CopilotIcon
+          name="Upload"
+          className="cpk-chat-view-drop-overlay-icon"
+        />
         <span className="cpk-chat-view-drop-overlay-label">
           {labels.chatDropFilesLabel}
         </span>
@@ -945,7 +948,10 @@ export namespace CopilotChatView {
         aria-label={labels.chatScrollToBottomLabel}
         {...props}
       >
-        <ChevronDown className="cpk-chat-view-scroll-to-bottom-icon" />
+        <CopilotIcon
+          name="ChevronDown"
+          className="cpk-chat-view-scroll-to-bottom-icon"
+        />
       </Button>
     );
   };

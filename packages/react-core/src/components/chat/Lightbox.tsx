@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
-import { X } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 import { CopilotChatDefaultLabels } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
@@ -35,7 +35,7 @@ export function Lightbox({ onClose, children }: LightboxProps) {
         className="cpk-attachment-lightbox-close-button"
         aria-label={labels.attachmentPreviewCloseButtonLabel}
       >
-        <X className="cpk-attachment-lightbox-close-icon" />
+        <CopilotIcon name="X" className="cpk-attachment-lightbox-close-icon" />
       </button>
 
       <div onClick={(e) => e.stopPropagation()}>{children}</div>

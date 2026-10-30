@@ -5,7 +5,7 @@ import {
   getSourceUrl,
   getDocumentIcon,
 } from "@copilotkit/shared";
-import { Play } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 import { cn } from "../../lib/utils";
 import { Lightbox, useLightbox } from "./Lightbox";
 import { CopilotChatDefaultLabels } from "@copilotkit/core";
@@ -191,7 +191,10 @@ function VideoPreview({ attachment }: { attachment: Attachment }) {
         aria-label={labels.attachmentPlayVideoButtonLabel}
       >
         <div className="cpk-attachment-queue-video-play-badge">
-          <Play className="cpk-attachment-queue-video-play-icon" />
+          <CopilotIcon
+            name="Play"
+            className="cpk-attachment-queue-video-play-icon"
+          />
         </div>
       </button>
       {open && (

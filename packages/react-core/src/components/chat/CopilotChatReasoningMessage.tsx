@@ -1,6 +1,6 @@
 import type { ReasoningMessage, Message } from "@ag-ui/core";
 import { useState, useEffect, useRef } from "react";
-import { ChevronRight } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 import { cn } from "../../lib/utils";
 import { StreamingMarkdownDefaultRenderer } from "./StreamingMarkdownDefaultRenderer";
 import type { WithSlots } from "../../lib/slots";
@@ -241,7 +241,8 @@ export namespace CopilotChatReasoningMessage {
         )}
         {headerChildren}
         {isExpandable && (
-          <ChevronRight
+          <CopilotIcon
+            name="ChevronRight"
             className={cn(
               "cpk-reasoning-message-chevron",
               isOpen && "cpk-reasoning-message-chevron-open",

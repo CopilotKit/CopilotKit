@@ -2947,9 +2947,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: ^3.14.13
         version: 3.14.13(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      lucide-react:
+      lucide:
         specifier: ^0.525.0
-        version: 0.525.0(react@19.2.3)
+        version: 0.525.0
       recharts:
         specifier: ^3.1.0
         version: 3.10.1(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react-is@19.2.3)(react@19.2.3)(redux@5.0.1)

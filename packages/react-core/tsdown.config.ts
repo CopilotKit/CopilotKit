@@ -207,7 +207,7 @@ export default defineConfig([
         "@ag-ui/core": "AgUICore",
         zod: "Zod",
         "tailwind-merge": "tailwindMerge",
-        "lucide-react": "lucideReact",
+        lucide: "lucide",
         "class-variance-authority": "classVarianceAuthority",
         clsx: "clsx",
         "@radix-ui/react-tooltip": "RadixReactTooltip",

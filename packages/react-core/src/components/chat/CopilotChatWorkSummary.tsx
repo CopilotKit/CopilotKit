@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 import {
   CopilotChatDefaultLabels,
   ɵcountFailedToolCalls,
@@ -114,7 +114,8 @@ export function CopilotChatWorkSummary({
           )}
         </>
       )}
-      <ChevronRight
+      <CopilotIcon
+        name="ChevronRight"
         aria-hidden="true"
         className={cn(
           "cpk-work-summary-chevron",

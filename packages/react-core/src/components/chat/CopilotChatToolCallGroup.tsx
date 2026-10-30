@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Check, ChevronRight, Circle, Loader2, X } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 import {
   CopilotChatDefaultLabels,
   ɵcountFailedToolCalls,
@@ -19,6 +19,7 @@ import {
 } from "@copilotkit/core";
 import type {
   CopilotChatLabels,
+  CopilotIconName,
   ToolCallEntry,
   ɵToolCallRowStatus,
 } from "@copilotkit/core";
@@ -46,6 +47,14 @@ const STATUS_LABEL_KEYS = {
   failed: "toolCallStatusFailedLabel",
   stopped: "toolCallStatusStoppedLabel",
 } satisfies Record<ɵToolCallRowStatus, keyof CopilotChatLabels>;
+
+/** The icon for each call status. */
+const STATUS_ICONS = {
+  running: "Loader2",
+  done: "Check",
+  failed: "X",
+  stopped: "Circle",
+} satisfies Record<ɵToolCallRowStatus, CopilotIconName>;
 
 /** The chat labels from the nearest chat configuration, or the defaults. */
 function useLabels() {
@@ -95,11 +104,9 @@ function StatusIcon({
   status: ɵToolCallRowStatus;
   className?: string;
 }) {
-  const Icon = { running: Loader2, done: Check, failed: X, stopped: Circle }[
-    status
-  ];
   return (
-    <Icon
+    <CopilotIcon
+      name={STATUS_ICONS[status]}
       aria-hidden="true"
       className={cn(
         "cpk-tool-call-status-icon",
@@ -113,7 +120,8 @@ function StatusIcon({
 
 function Chevron({ open, className }: { open: boolean; className?: string }) {
   return (
-    <ChevronRight
+    <CopilotIcon
+      name="ChevronRight"
       aria-hidden="true"
       className={cn(
         "cpk-tool-call-chevron",

@@ -5,7 +5,7 @@ import { CopilotChatDefaultLabels } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
-import { PanelLeftOpen, X } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 
 type HeaderSlots = {
   titleContent: typeof CopilotModalHeader.Title;
@@ -178,7 +178,11 @@ export namespace CopilotModalHeader {
         aria-label={labels.modalHeaderCloseButtonLabel}
         {...props}
       >
-        <X className="cpk-modal-header-close-icon" aria-hidden="true" />
+        <CopilotIcon
+          name="X"
+          className="cpk-modal-header-close-icon"
+          aria-hidden="true"
+        />
       </button>
     );
   };
@@ -202,7 +206,8 @@ export namespace CopilotModalHeader {
         aria-label={labels.modalHeaderThreadsButtonLabel}
         {...props}
       >
-        <PanelLeftOpen
+        <CopilotIcon
+          name="PanelLeftOpen"
           className="cpk-modal-header-drawer-launcher-icon"
           aria-hidden="true"
         />

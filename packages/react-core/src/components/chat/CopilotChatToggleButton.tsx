@@ -1,6 +1,6 @@
 import type { MouseEvent } from "react";
 import React, { useState } from "react";
-import { MessageCircle, X } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
@@ -16,18 +16,26 @@ const DefaultOpenIcon: React.FC<React.SVGProps<SVGSVGElement>> = ({
   className,
   ...props
 }) => (
-  <MessageCircle
+  <CopilotIcon
     className={className ?? ICON_CLASS}
     strokeWidth={1.75}
     fill="currentColor"
     {...props}
+    name="MessageCircle"
   />
 );
 
 const DefaultCloseIcon: React.FC<React.SVGProps<SVGSVGElement>> = ({
   className,
   ...props
-}) => <X className={className ?? ICON_CLASS} strokeWidth={1.75} {...props} />;
+}) => (
+  <CopilotIcon
+    className={className ?? ICON_CLASS}
+    strokeWidth={1.75}
+    {...props}
+    name="X"
+  />
+);
 
 DefaultOpenIcon.displayName = "CopilotChatToggleButton.OpenIcon";
 DefaultCloseIcon.displayName = "CopilotChatToggleButton.CloseIcon";

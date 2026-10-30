@@ -9,15 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  ArrowUp,
-  Copy,
-  Check,
-  ThumbsUp,
-  ThumbsDown,
-  Volume2,
-  RefreshCw,
-} from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 import { CopilotChatDefaultLabels } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import { cn } from "../../lib/utils";
@@ -832,9 +824,15 @@ export namespace CopilotChatAssistantMessage {
         {...props}
       >
         {copied ? (
-          <Check className="cpk-assistant-message-toolbar-icon" />
+          <CopilotIcon
+            name="Check"
+            className="cpk-assistant-message-toolbar-icon"
+          />
         ) : (
-          <Copy className="cpk-assistant-message-toolbar-icon" />
+          <CopilotIcon
+            name="Copy"
+            className="cpk-assistant-message-toolbar-icon"
+          />
         )}
       </ToolbarButton>
     );
@@ -855,7 +853,8 @@ export namespace CopilotChatAssistantMessage {
         title={title || labels.assistantMessageToolbarThumbsUpLabel}
         {...props}
       >
-        <ThumbsUp
+        <CopilotIcon
+          name="ThumbsUp"
           className="cpk-assistant-message-toolbar-icon"
           fill={props["aria-pressed"] === true ? "currentColor" : "none"}
         />
@@ -874,7 +873,8 @@ export namespace CopilotChatAssistantMessage {
         title={title || labels.assistantMessageToolbarThumbsDownLabel}
         {...props}
       >
-        <ThumbsDown
+        <CopilotIcon
+          name="ThumbsDown"
           className="cpk-assistant-message-toolbar-icon"
           fill={props["aria-pressed"] === true ? "currentColor" : "none"}
         />
@@ -952,7 +952,10 @@ export namespace CopilotChatAssistantMessage {
             aria-label={labels.assistantMessageFeedbackCommentSubmitLabel}
             title={labels.assistantMessageFeedbackCommentSubmitLabel}
           >
-            <ArrowUp className="cpk-assistant-message-feedback-comment-submit-icon" />
+            <CopilotIcon
+              name="ArrowUp"
+              className="cpk-assistant-message-feedback-comment-submit-icon"
+            />
           </Button>
         )}
       </form>
@@ -970,7 +973,10 @@ export namespace CopilotChatAssistantMessage {
         title={title || labels.assistantMessageToolbarReadAloudLabel}
         {...props}
       >
-        <Volume2 className="cpk-assistant-message-read-aloud-icon" />
+        <CopilotIcon
+          name="Volume2"
+          className="cpk-assistant-message-read-aloud-icon"
+        />
       </ToolbarButton>
     );
   };
@@ -986,7 +992,10 @@ export namespace CopilotChatAssistantMessage {
         title={title || labels.assistantMessageToolbarRegenerateLabel}
         {...props}
       >
-        <RefreshCw className="cpk-assistant-message-toolbar-icon" />
+        <CopilotIcon
+          name="RefreshCw"
+          className="cpk-assistant-message-toolbar-icon"
+        />
       </ToolbarButton>
     );
   };

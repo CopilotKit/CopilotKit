@@ -1,5 +1,5 @@
 import React from "react";
-import { Loader2 } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 
 export interface CopilotChatSuggestionPillProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /** Optional icon to render on the left side when not loading. */
@@ -33,7 +33,11 @@ export const CopilotChatSuggestionPill = React.forwardRef<
     >
       {isLoading ? (
         <span className="cpk-suggestion-pill-icon">
-          <Loader2 className="cpk-suggestion-pill-spinner" aria-hidden="true" />
+          <CopilotIcon
+            name="Loader2"
+            className="cpk-suggestion-pill-spinner"
+            aria-hidden="true"
+          />
         </span>
       ) : (
         showIcon && <span className="cpk-suggestion-pill-icon">{icon}</span>

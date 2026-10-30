@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Copy, Check, Edit, ChevronLeft, ChevronRight } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 import { CopilotChatDefaultLabels } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import { cn } from "../../lib/utils";
@@ -318,9 +318,9 @@ export namespace CopilotChatUserMessage {
         {...props}
       >
         {copied ? (
-          <Check className="cpk-user-message-toolbar-icon" />
+          <CopilotIcon name="Check" className="cpk-user-message-toolbar-icon" />
         ) : (
-          <Copy className="cpk-user-message-toolbar-icon" />
+          <CopilotIcon name="Copy" className="cpk-user-message-toolbar-icon" />
         )}
       </ToolbarButton>
     );
@@ -338,7 +338,7 @@ export namespace CopilotChatUserMessage {
         className={className}
         {...props}
       >
-        <Edit className="cpk-user-message-toolbar-icon" />
+        <CopilotIcon name="Edit" className="cpk-user-message-toolbar-icon" />
       </ToolbarButton>
     );
   };
@@ -397,7 +397,10 @@ export namespace CopilotChatUserMessage {
           className="cpk-user-message-branch-button"
           aria-label={labels.userMessageToolbarPreviousBranchLabel}
         >
-          <ChevronLeft className="cpk-user-message-branch-icon" />
+          <CopilotIcon
+            name="ChevronLeft"
+            className="cpk-user-message-branch-icon"
+          />
         </Button>
         <span className="cpk-user-message-branch-counter">
           {currentBranch + 1}/{numberOfBranches}
@@ -416,7 +419,10 @@ export namespace CopilotChatUserMessage {
           className="cpk-user-message-branch-button"
           aria-label={labels.userMessageToolbarNextBranchLabel}
         >
-          <ChevronRight className="cpk-user-message-branch-icon" />
+          <CopilotIcon
+            name="ChevronRight"
+            className="cpk-user-message-branch-icon"
+          />
         </Button>
       </div>
     );
