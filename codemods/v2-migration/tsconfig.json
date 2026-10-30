@@ -2,9 +2,7 @@
   "compilerOptions": {
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "types": [
-      "@codemod.com/jssg-types"
-    ],
+    "types": ["@codemod.com/jssg-types"],
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "verbatimModuleSyntax": true,
@@ -14,12 +12,8 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
-    "lib": [
-      "ES2022"
-    ],
+    "lib": ["ES2022"],
     "skipLibCheck": true
   },
-  "exclude": [
-    "tests"
-  ]
+  "exclude": ["tests"]
 }

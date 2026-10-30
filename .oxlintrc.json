@@ -58,9 +58,7 @@
       }
     },
     {
-      "files": [
-        "packages/angular/**/*.ts"
-      ],
+      "files": ["packages/angular/**/*.ts"],
       "rules": {
         "typescript/consistent-type-imports": "off",
         "typescript/no-import-type-side-effects": "off",
