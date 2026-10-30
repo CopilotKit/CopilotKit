@@ -21,10 +21,14 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { generateText, tool as aiTool } from "ai";
+// @doc-replace
 // In your own app this is `import { openai } from "@ai-sdk/openai"`. The
 // showcase wraps it so this backend tool's own LLM call carries the inbound
 // request's aimock headers — see `_header_forwarding.ts`.
 import { openai } from "@/mastra/_header_forwarding";
+// @doc-as
+// import { openai } from "@ai-sdk/openai";
+// @doc-end
 // Reads the catalog schema + generation guidelines the AG-UI bridge forwards
 // onto Mastra's request context, and flattens them into the inner call's system
 // prompt. In your own app, hand the inner call whatever description of your

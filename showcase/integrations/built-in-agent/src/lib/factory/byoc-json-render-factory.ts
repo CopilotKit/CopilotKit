@@ -4,11 +4,14 @@ import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+// @doc-replace
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
 // can match fixtures by integration context. See ../header-forwarding.ts
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
+// @doc-as
+// @doc-end
 import { DEMO_AGENT_LOOP_STRATEGY, throwOnRunError } from "./demo-stream";
 
 const SYSTEM_PROMPT = `\
@@ -215,7 +218,11 @@ export function createByocJsonRenderAgent() {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
 
       const stream = chat({
+        // @doc-replace
         adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+        // @doc-as
+        // adapter: openaiText("gpt-5.4"),
+        // @doc-end
         // JSON_MODE_INPUT_DIRECTIVE goes in `messages` (→ `input`), not in
         // `systemPrompts` (→ `instructions`) — that is the half `json_object`
         // validates against. See JSON_OBJECT_FORMAT.

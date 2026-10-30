@@ -40,10 +40,16 @@ using Microsoft.Extensions.Logging;
 // hand-writes the AG-UI SSE stream, the SAME adapter-bypass pattern the repo
 // already uses for the multimodal demo (see agent/MultimodalEndpoint.cs).
 //
+// @doc-replace
 // It still REUSES `A2uiSecondaryToolCaller` for the secondary render call, so
 // the aimock keying is identical to the declarative-gen-ui demo: inner tool
 // `_design_a2ui_surface`, keyed by the forwarded user message + sequenceIndex
 // (0 invalid -> 1 valid drives the heal retry) + the `x-aimock-context` slug.
+// @doc-as
+// // It still REUSES `A2uiSecondaryToolCaller` for the secondary render call,
+// // so the secondary keying is identical to the declarative-gen-ui demo:
+// // inner tool `_design_a2ui_surface`, keyed by the forwarded user message.
+// @doc-end
 //
 // Mount (raw SSE; NOT MapAGUI):
 //   app.MapPost("/a2ui-recovery", (HttpContext ctx) =>
@@ -118,10 +124,16 @@ internal static class RecoveryAgent
                 string? args;
                 try
                 {
+                    // @doc-replace
                     // Reuse the declarative demo's secondary caller: forces the
                     // `_design_a2ui_surface` tool and forwards x-aimock-context.
                     // Sending the SAME userContent each attempt lets aimock advance
                     // sequenceIndex (0 invalid -> 1 valid) to drive the heal retry.
+                    // @doc-as
+                    // // Reuse the declarative demo's secondary caller: forces
+                    // // the `_design_a2ui_surface` tool. Sending the SAME
+                    // // userContent each attempt drives the heal retry.
+                    // @doc-end
                     args = await A2uiSecondaryToolCaller.GetDesignToolArgumentsAsync(
                         configuration,
                         RenderSystemPrompt,

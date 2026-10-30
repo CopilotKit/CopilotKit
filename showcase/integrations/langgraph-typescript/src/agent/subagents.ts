@@ -19,7 +19,10 @@
  * package.
  */
 
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
 
 // @region[subagent-setup]
 import { randomUUID } from "node:crypto";
@@ -354,6 +357,7 @@ function createGraph(
 
 export const graph = createGraph();
 
+// @doc-replace
 // The LangGraph CLI targets this export so both the supervisor and delegated
 // model calls retain inbound x-* headers during showcase probes.
 const showcaseModelFactory: ModelFactory = (config) =>
@@ -363,3 +367,5 @@ export const showcaseGraph = createGraph(
   showcaseModelFactory,
   createSubAgentTools(showcaseModelFactory),
 );
+// @doc-as
+// @doc-end

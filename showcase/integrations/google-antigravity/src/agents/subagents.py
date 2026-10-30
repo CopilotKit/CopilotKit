@@ -22,7 +22,11 @@ import uuid
 import httpx
 from ag_ui_antigravity import experimental_get_state, experimental_set_state
 
+# @doc-replace
 from agents._common import MODEL, aimock_headers, api_key, gemini_base_url
+# @doc-as
+# from agents._common import MODEL, api_key, gemini_base_url
+# @doc-end
 
 SUPERVISOR_PROMPT = (
     "You are a supervisor. For research tasks call `research_agent`, for "
@@ -61,7 +65,11 @@ async def close_http_client() -> None:
 
 async def _run(role: str, task: str) -> str:
     base = gemini_base_url() or "https://generativelanguage.googleapis.com"
+    # @doc-replace
     headers = aimock_headers()
+    # @doc-as
+    # headers: dict[str, str] = {}
+    # @doc-end
     key = api_key()
     if key:
         headers["x-goog-api-key"] = key
