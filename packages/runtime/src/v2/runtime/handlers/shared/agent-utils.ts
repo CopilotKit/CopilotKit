@@ -123,6 +123,7 @@ export function configureAgentForRequest(params: {
     const {
       agents: targetAgents,
       enabled: _enabled,
+      actionTransport: _actionTransport,
       injectA2UITool,
       ...a2uiOptions
     } = runtime.a2ui ?? {};
