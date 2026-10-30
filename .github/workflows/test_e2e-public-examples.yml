@@ -29,7 +29,7 @@ on:
       - "packages/web-components/**"
       - "packages/web-inspector/**"
   pull_request:
-    branches: [main]
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
     paths:
       - "examples/**"
       - "scripts/__tests__/examples-readme-catalog.test.mjs"

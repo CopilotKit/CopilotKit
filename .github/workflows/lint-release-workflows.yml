@@ -13,6 +13,7 @@ name: Lint Release Workflows
 #   release / create-pr  -> .github/workflows/stable-release.yml
 #   release / publish    -> .github/workflows/publish-release.yml
 #   canary / publish     -> .github/workflows/canary.yml
+#   release / rc         -> .github/workflows/rc.yml
 
 on:
   push:
@@ -21,6 +22,7 @@ on:
       - ".github/workflows/stable-release.yml"
       - ".github/workflows/publish-release.yml"
       - ".github/workflows/canary.yml"
+      - ".github/workflows/rc.yml"
       - ".github/workflows/lint-release-workflows.yml"
       - "scripts/release/**"
       - "release.config.json"
@@ -30,6 +32,7 @@ on:
       - ".github/workflows/stable-release.yml"
       - ".github/workflows/publish-release.yml"
       - ".github/workflows/canary.yml"
+      - ".github/workflows/rc.yml"
       - ".github/workflows/lint-release-workflows.yml"
       - "scripts/release/**"
       - "release.config.json"
@@ -56,6 +59,7 @@ jobs:
             .github/workflows/stable-release.yml
             .github/workflows/publish-release.yml
             .github/workflows/canary.yml
+            .github/workflows/rc.yml
             .github/workflows/lint-release-workflows.yml
 
   shellcheck:

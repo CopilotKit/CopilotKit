@@ -15,6 +15,9 @@
 #   - workflow_dispatch with mode=prerelease → canary publish. Bumps versions
 #     in the build job to <X.Y.Z>-canary.<suffix>, publishes with --tag canary,
 #     skips tag push + GH Release + Slack notification.
+#   - workflow_dispatch with mode=prerelease and rc=<X.Y.Z> → release candidate.
+#     Same as a canary, but bumps to the next unpublished <X.Y.Z>-rc.N and
+#     publishes with --tag next. Dispatched by rc.yml (release / rc).
 name: release / publish
 
 # This workflow handles three independent release lanes:
@@ -75,6 +78,11 @@ on:
         required: false
         type: string
         default: ""
+      rc:
+        description: "Release-candidate base X.Y.Z (mode=prerelease, single scope, no suffix): publishes the next <rc>-rc.N under the 'next' dist-tag. Set by release / rc."
+        required: false
+        type: string
+        default: ""
       dry-run:
         description: "Dry run (skip publish step)"
         required: false
@@ -96,8 +104,9 @@ permissions:
 
 concurrency:
   # Serialize automatic and manual Intelligence Python releases against each
-  # other. Other lanes continue to use the selected scope or PR branch.
-  group: publish-release-${{ (github.event_name == 'push' || inputs.intelligence_python_publish == true) && 'intelligence-python' || inputs.scope || github.head_ref || github.ref }}
+  # other. Other lanes continue to use the selected scope or PR branch. Dry runs
+  # queue apart, so one cannot replace a pending publish of the same scope.
+  group: publish-release-${{ (github.event_name == 'push' || inputs.intelligence_python_publish == true) && 'intelligence-python' || inputs.scope || github.head_ref || github.ref }}${{ inputs['dry-run'] == true && '-dry-run' || '' }}
   cancel-in-progress: false
 
 env:
@@ -125,6 +134,8 @@ jobs:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           INPUT_SCOPE: ${{ inputs.scope }}
           INPUT_MODE: ${{ inputs.mode }}
+          INPUT_RC: ${{ inputs.rc }}
+          INPUT_SUFFIX: ${{ inputs.suffix }}
         run: |
           set -euo pipefail
           if [ -n "$INPUT_SCOPE" ]; then
@@ -142,6 +153,16 @@ jobs:
           # and the scopes carry independent version lines.
           if [ "$SCOPE" = "all" ] && [ "$MODE" != "prerelease" ]; then
             echo "::error::scope=all is only valid with mode=prerelease (canary). Release each scope separately via the 'release / create-pr' workflow."
+            exit 1
+          fi
+          if [ -n "$INPUT_RC" ] && [ "$MODE" != "prerelease" ]; then
+            echo "::error::rc is only valid with mode=prerelease."
+            exit 1
+          fi
+          # The bump step takes the rc branch first, so a suffix would be
+          # dropped and the run would publish an RC instead of the canary.
+          if [ -n "$INPUT_RC" ] && [ -n "$INPUT_SUFFIX" ]; then
+            echo "::error::rc and suffix are mutually exclusive: rc publishes a release candidate, suffix names a canary."
             exit 1
           fi
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
@@ -241,9 +262,14 @@ jobs:
         env:
           INPUT_SCOPE: ${{ inputs.scope }}
           INPUT_SUFFIX: ${{ inputs.suffix }}
+          INPUT_RC: ${{ inputs.rc }}
         run: |
           set -euo pipefail
-          if [ -n "$INPUT_SUFFIX" ]; then
+          if [ -n "$INPUT_RC" ]; then
+            # bump-prerelease.ts validates the base and rejects scope=all; the
+            # meta step above already rejected a suffix.
+            pnpm tsx scripts/release/bump-prerelease.ts --scope "$INPUT_SCOPE" --rc "$INPUT_RC"
+          elif [ -n "$INPUT_SUFFIX" ]; then
             if ! [[ "$INPUT_SUFFIX" =~ ^[a-zA-Z0-9._-]+$ ]]; then
               echo "::error::Invalid suffix '$INPUT_SUFFIX'. Allowed: [a-zA-Z0-9._-]+"
               exit 1
