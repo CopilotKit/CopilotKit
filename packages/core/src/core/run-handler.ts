@@ -7,6 +7,7 @@ import type {
   Tool,
   ToolCall,
   ContentPart,
+  ToolMessage,
 } from "@ag-ui/client";
 import {
   randomUUID,
@@ -77,6 +78,8 @@ export interface CopilotKitCoreRunAgentParams {
    * previous run. Forwarded to the agent as the standard `resume` array.
    */
   resume?: ResumeEntry[];
+  /** Persist genuine native decisions individually on explicitly capable agents. */
+  nativeApprovalContinuation?: ResumeEntry[];
 }
 
 export interface CopilotKitCoreConnectAgentParams {
@@ -741,13 +744,20 @@ export class RunHandler {
    * Run an agent
    */
   async runAgent(
-    { agent, forwardedProps, resume, runId }: CopilotKitCoreRunAgentParams,
+    {
+      agent,
+      forwardedProps,
+      resume,
+      runId,
+      nativeApprovalContinuation,
+    }: CopilotKitCoreRunAgentParams,
     continuationHandoff?: CopilotKitCoreContinuationHandoff,
     /**
      * Set only by `processAgentResult` for a recursive follow-up: the
      * controller of the run being followed up, which the follow-up shares.
      */
     followUpOf?: AbortController,
+    toolResultContinuation?: ToolMessage[],
   ): Promise<RunAgentResult> {
     this._connectionGenerations.set(agent, {});
     this._runGenerations.set(agent, {});
@@ -912,6 +922,8 @@ export class RunHandler {
       // the wire having to lie about which invocation this is.
       const pinRunIdOnWire = runId !== undefined && !continuationHandoff;
       const agentRunInput = {
+        ...(toolResultContinuation ? { toolResultContinuation } : {}),
+        ...(nativeApprovalContinuation ? { nativeApprovalContinuation } : {}),
         forwardedProps: {
           ...this._internal.getPropertiesForAgent(agent.agentId),
           ...forwardedProps,
@@ -1014,6 +1026,11 @@ export class RunHandler {
     const agentId = agent.agentId!;
 
     let needsFollowUp = false;
+    const previousToolResults = new Map(
+      agent.messages
+        .filter((message) => message.role === "tool")
+        .map((message) => [message.id, JSON.stringify(message)]),
+    );
     // Same-thread reconnects leave an executing handler in charge of its
     // eventual follow-up; a new explicit run still supersedes that ownership.
     let ownsHandlerFollowUp = false;
@@ -1286,6 +1303,7 @@ export class RunHandler {
           return runAgentResult;
         }
         let resume: ResumeEntry[] | undefined;
+        let resultContinuation: ToolMessage[] | undefined;
         if (agent.pendingInterrupts?.length) {
           // The shared state requires an explicit decision for failed results,
           // including Stop, while retaining decisions made before handlers finish.
@@ -1294,10 +1312,20 @@ export class RunHandler {
           );
           // A completed frontend call is not permission to answer a native
           // approval or a child question. Keep the full interrupt set pending.
-          if (decision.kind !== "resume") return runAgentResult;
-          resume = decision.resume;
-          for (const result of decision.toolResults) {
-            agent.addMessage({ id: randomUUID(), role: "tool", ...result });
+          if (decision.kind !== "resume") {
+            if (!agent.allowToolResultContinuation) return runAgentResult;
+            resultContinuation = agent.messages.filter(
+              (message): message is ToolMessage =>
+                message.role === "tool" &&
+                !this.isFrontendPlaceholderResult(message) &&
+                previousToolResults.get(message.id) !== JSON.stringify(message),
+            );
+            if (resultContinuation.length === 0) return runAgentResult;
+          } else {
+            resume = decision.resume;
+            for (const result of decision.toolResults) {
+              agent.addMessage({ id: randomUUID(), role: "tool", ...result });
+            }
           }
         }
         const continuationHandoff =
@@ -1310,6 +1338,7 @@ export class RunHandler {
           },
           continuationHandoff,
           runController,
+          resultContinuation,
         );
       }
     }

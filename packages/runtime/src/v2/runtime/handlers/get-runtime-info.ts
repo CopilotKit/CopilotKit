@@ -146,6 +146,34 @@ export async function handleGetRuntimeInfo({
           capabilities = undefined;
         }
 
+        // Only trusted runtime configuration enables continuation contracts.
+        // Backend-reported or request-supplied capabilities cannot enable it.
+        const {
+          "copilotkit.toolResultContinuation": _untrusted,
+          "copilotkit.partialNativeApprovals": _untrustedPartialApprovals,
+          ...otherCustom
+        } = capabilities?.custom ?? {};
+        const otherCapabilities = capabilities
+          ? {
+              ...capabilities,
+              ...(capabilities.custom ? { custom: otherCustom } : {}),
+            }
+          : {};
+        const trustedCustom = {
+          ...otherCustom,
+          ...(runtime.toolResultContinuationAgents?.includes(name)
+            ? { "copilotkit.toolResultContinuation": true }
+            : {}),
+          ...(runtime.partialNativeApprovalAgents?.includes(name)
+            ? { "copilotkit.partialNativeApprovals": true }
+            : {}),
+        };
+        capabilities =
+          Object.keys(trustedCustom).length > 0
+            ? { ...otherCapabilities, custom: trustedCustom }
+            : capabilities !== undefined
+              ? otherCapabilities
+              : undefined;
         const description: AgentDescription = {
           name,
           description: agent.description,

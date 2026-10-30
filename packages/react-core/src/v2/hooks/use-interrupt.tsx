@@ -9,6 +9,7 @@ import { randomUUID } from "@ag-ui/client";
 import type { Interrupt, Message } from "@ag-ui/client";
 import {
   ɵInterruptState,
+  ɵcontinueNativeApproval,
   ɵgetAgentInterruptState,
   ɵclearAgentInterruptState,
 } from "@copilotkit/core";
@@ -279,6 +280,21 @@ export function useInterrupt<
         );
         return;
       }
+      if (current.kind === "standard") {
+        const id = interruptId ?? current.interrupts[0]?.id;
+        if (id) {
+          const continuation = ɵcontinueNativeApproval(
+            agent,
+            { interruptId: id, status: "resolved", payload },
+            (response) =>
+              copilotkit.runAgent({
+                agent,
+                nativeApprovalContinuation: [response],
+              }),
+          );
+          if (continuation) return await continuation;
+        }
+      }
       const decision = interruptStateRef.current.resolve(
         payload,
         interruptId,
@@ -364,6 +380,21 @@ export function useInterrupt<
           "[CopilotKit] useInterrupt: ignoring an answer for an already completed frontend tool call.",
         );
         return;
+      }
+      if (current.kind === "standard") {
+        const id = interruptId ?? current.interrupts[0]?.id;
+        if (id) {
+          const continuation = ɵcontinueNativeApproval(
+            agent,
+            { interruptId: id, status: "cancelled" },
+            (response) =>
+              copilotkit.runAgent({
+                agent,
+                nativeApprovalContinuation: [response],
+              }),
+          );
+          if (continuation) return await continuation;
+        }
       }
       const decision = interruptStateRef.current.cancel(
         interruptId,
