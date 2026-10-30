@@ -1,9 +1,12 @@
-import { type ɵThreadStore } from "../threads";
+import type { ɵThreadStore } from "../threads";
 import type { CopilotKitCore } from "./core";
-import { CopilotKitCoreFriendsAccess, CopilotKitCoreSubscriber } from "./core";
+import type {
+  CopilotKitCoreFriendsAccess,
+  CopilotKitCoreSubscriber,
+} from "./core";
 
 export class ThreadStoreRegistry {
-  private _stores: Record<string, ɵThreadStore> = {};
+  private _stores: Record<string, ɵThreadStore> = Object.create(null);
   // Cached frozen snapshot of `_stores`. Invalidated to `null` on every
   // `register`/`unregister` so the next `getAll()` rebuilds it. Stable
   // references between mutations matter for `useSyncExternalStore` consumers
@@ -59,7 +62,9 @@ export class ThreadStoreRegistry {
     // mode and are silently ignored in sloppy mode (rather than corrupting
     // the registry). Invalidated to `null` by `register`/`unregister`.
     if (this._snapshot === null) {
-      this._snapshot = Object.freeze({ ...this._stores });
+      const snapshot: Record<string, ɵThreadStore> = Object.create(null);
+      Object.assign(snapshot, this._stores);
+      this._snapshot = Object.freeze(snapshot);
     }
     return this._snapshot;
   }
