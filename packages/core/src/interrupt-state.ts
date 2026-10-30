@@ -315,7 +315,12 @@ export class ɵInterruptState<TValue = unknown> {
       if (
         !interrupt.toolCallId ||
         interrupt.reason !== "tool_call" ||
-        completed.has(interrupt.id)
+        completed.has(interrupt.id) ||
+        interrupt.metadata?.["ag-ui:tool-execution"] === "server" ||
+        // A decision is not an execution result. Restore only results we already
+        // observed, unless the producer explicitly delegates completion to the client.
+        (!adoptedContent.has(interrupt.id) &&
+          interrupt.metadata?.["ag-ui:tool-execution"] !== "client")
       )
         return [];
       return [

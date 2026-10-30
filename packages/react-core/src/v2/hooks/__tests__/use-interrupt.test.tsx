@@ -1277,15 +1277,55 @@ describe("useInterrupt", () => {
       });
     });
 
+    it.each(["approve", "deny", "cancel"] as const)(
+      "%s resumes an unmarked tool approval without fabricating a result",
+      async (action) => {
+        runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
+        const renderSpy = vi.fn();
+        render(<StandardHarness renderSpy={renderSpy} />);
+        fireStandardInterrupt([
+          {
+            id: "native-approval",
+            reason: "tool_call",
+            toolCallId: "server-call",
+          },
+        ]);
+        const callbacks = renderSpy.mock.calls.at(-1)![0];
+        await act(async () => {
+          if (action === "cancel") await callbacks.cancel("native-approval");
+          else
+            await callbacks.resolve(
+              { approved: action === "approve" },
+              "native-approval",
+            );
+        });
+
+        expect(mockAgent.addMessage).not.toHaveBeenCalled();
+        expect(mockAgent.messages).toEqual([]);
+        expect(runAgentMock).toHaveBeenCalledExactlyOnceWith({
+          agent: mockAgent,
+          resume: [
+            action === "cancel"
+              ? { interruptId: "native-approval", status: "cancelled" }
+              : {
+                  interruptId: "native-approval",
+                  status: "resolved",
+                  payload: { approved: action === "approve" },
+                },
+          ],
+        });
+      },
+    );
+
     it("persists a tool-result message on resolve so later turns stay well-formed", async () => {
-      // A tool-backed interrupt (carries toolCallId). Resolving it must record
-      // the result as a tool message in the thread — otherwise the next turn
-      // ships a dangling tool call and the model loops on tool-calls.
+      // Only an explicit client-execution contract treats the response as the
+      // completed tool result. Tool-bound approval decisions resume the server.
       runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
       const TOOL_INT: Interrupt = {
         id: "int-1",
         reason: "tool_call",
         toolCallId: "tc-1",
+        metadata: { "ag-ui:tool-execution": "client" },
       };
       const calls: any[] = [];
       function ToolHarness() {
@@ -1353,6 +1393,7 @@ describe("useInterrupt", () => {
         id: "int-run-id",
         reason: "tool_call",
         toolCallId: "tc-run-id",
+        metadata: { "ag-ui:tool-execution": "client" },
       };
       const resolves: Array<
         (payload: unknown, interruptId?: string) => Promise<unknown>

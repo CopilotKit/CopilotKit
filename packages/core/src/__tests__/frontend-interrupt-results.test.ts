@@ -295,9 +295,7 @@ describe("review regressions", () => {
         state.resolve("new explicit answer", "interrupt-one"),
       ).toMatchObject({
         kind: "resume",
-        toolResults: [
-          { toolCallId: "one", content: JSON.stringify("new explicit answer") },
-        ],
+        toolResults: [],
       });
     },
   );
