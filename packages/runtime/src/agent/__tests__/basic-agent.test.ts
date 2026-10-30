@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { z } from "zod";
-import { BasicAgent, defineTool } from "../index";
+import { BuiltInAgent, defineTool } from "../index";
 import { EventType } from "@ag-ui/client";
 import type {
   BaseEvent,
@@ -57,7 +57,7 @@ vi.mock("@ai-sdk/google", () => ({
   })),
 }));
 
-describe("BasicAgent", () => {
+describe("BuiltInAgent", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
@@ -74,7 +74,7 @@ describe("BasicAgent", () => {
 
   describe("Basic Event Emission", () => {
     it("should emit RUN_STARTED and RUN_FINISHED events", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -107,7 +107,7 @@ describe("BasicAgent", () => {
     });
 
     it("should emit TEXT_MESSAGE_CHUNK events for text deltas", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -146,7 +146,7 @@ describe("BasicAgent", () => {
     });
 
     it("should generate unique messageId when provider returns id '0'", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -182,7 +182,7 @@ describe("BasicAgent", () => {
     });
 
     it("should use provider-supplied messageId when it's not '0'", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -218,7 +218,7 @@ describe("BasicAgent", () => {
 
   describe("Tool Call Events", () => {
     it("should emit tool call lifecycle events", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -281,7 +281,7 @@ describe("BasicAgent", () => {
     });
 
     it("should emit a visible tool result when execution throws", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -319,7 +319,7 @@ describe("BasicAgent", () => {
 
     it("should warn once and keep running on an unknown stream part", async () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -360,7 +360,7 @@ describe("BasicAgent", () => {
 
   describe("Prompt Building", () => {
     it("should not add system message when no prompt, context, or state", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -385,7 +385,7 @@ describe("BasicAgent", () => {
     });
 
     it("should pass config prompt via the system option, not messages", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         prompt: "You are a helpful assistant.",
       });
@@ -414,7 +414,7 @@ describe("BasicAgent", () => {
     });
 
     it("should not pass an empty system option when there is no prompt", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -438,7 +438,7 @@ describe("BasicAgent", () => {
     });
 
     it("should include context in system message", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -471,7 +471,7 @@ describe("BasicAgent", () => {
     });
 
     it("should include state in system message", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -501,7 +501,7 @@ describe("BasicAgent", () => {
     });
 
     it("should combine prompt, context, and state", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         prompt: "You are helpful.",
       });
@@ -542,7 +542,7 @@ describe("BasicAgent", () => {
 
   describe("Forward System/Developer Messages", () => {
     it("should ignore system messages by default", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -571,7 +571,7 @@ describe("BasicAgent", () => {
     });
 
     it("should ignore developer messages by default", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -600,7 +600,7 @@ describe("BasicAgent", () => {
     });
 
     it("should forward system messages when forwardSystemMessages is true", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         forwardSystemMessages: true,
       });
@@ -633,7 +633,7 @@ describe("BasicAgent", () => {
     });
 
     it("should forward developer messages as system when forwardDeveloperMessages is true", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         forwardDeveloperMessages: true,
       });
@@ -667,7 +667,7 @@ describe("BasicAgent", () => {
     });
 
     it("should forward both system and developer messages when both flags are true", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         forwardSystemMessages: true,
         forwardDeveloperMessages: true,
@@ -706,7 +706,7 @@ describe("BasicAgent", () => {
     });
 
     it("should place config prompt before forwarded system/developer messages", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         prompt: "You are a helpful assistant.",
         forwardSystemMessages: true,
@@ -760,7 +760,7 @@ describe("BasicAgent", () => {
         execute: async () => ({ result: "ok" }),
       });
 
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         tools: [tool1],
       });
@@ -792,7 +792,7 @@ describe("BasicAgent", () => {
         execute: async () => ({ result: "ok" }),
       });
 
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         tools: [configTool],
       });
@@ -824,7 +824,7 @@ describe("BasicAgent", () => {
     });
 
     it("should always include state update tools", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -851,7 +851,7 @@ describe("BasicAgent", () => {
 
   describe("Property Overrides", () => {
     it("should respect overridable properties", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         temperature: 0.5,
         overridableProperties: ["temperature"],
@@ -878,7 +878,7 @@ describe("BasicAgent", () => {
     });
 
     it("should ignore non-overridable properties", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         temperature: 0.5,
         overridableProperties: [], // No properties can be overridden
@@ -907,7 +907,7 @@ describe("BasicAgent", () => {
 
   describe("Error Handling", () => {
     it("should emit RUN_ERROR event on failure", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -937,7 +937,7 @@ describe("BasicAgent", () => {
 
   describe("Reasoning Event Emission", () => {
     it("should emit full reasoning lifecycle events", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1020,7 +1020,7 @@ describe("BasicAgent", () => {
     });
 
     it("should emit reasoning events followed by text events", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1062,7 +1062,7 @@ describe("BasicAgent", () => {
     });
 
     it("should use provider-supplied reasoning id", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1102,7 +1102,7 @@ describe("BasicAgent", () => {
     });
 
     it("should generate unique reasoningMessageId when provider returns id '0'", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1136,7 +1136,7 @@ describe("BasicAgent", () => {
     });
 
     it("should handle empty reasoning content", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1176,7 +1176,7 @@ describe("BasicAgent", () => {
     });
 
     it("should handle reasoning-only stream (no text output)", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1217,7 +1217,7 @@ describe("BasicAgent", () => {
     });
 
     it("should skip empty reasoning deltas and continue stream", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1253,7 +1253,7 @@ describe("BasicAgent", () => {
     });
 
     it("should auto-close reasoning when SDK omits reasoning-end before tool call", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1305,7 +1305,7 @@ describe("BasicAgent", () => {
     });
 
     it("should auto-close reasoning when SDK omits reasoning-end before text", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1355,7 +1355,7 @@ describe("BasicAgent", () => {
     });
 
     it("should auto-close reasoning when SDK omits reasoning-end before finish", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1401,7 +1401,7 @@ describe("BasicAgent", () => {
     });
 
     it("should auto-close reasoning when stream aborts mid-reasoning", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1449,7 +1449,7 @@ describe("BasicAgent", () => {
     });
 
     it("declares its protocol version and finishes an aborted run as cancelled for a 1.0 client", async () => {
-      const agent = new BasicAgent({ model: "openai/gpt-4o" });
+      const agent = new BuiltInAgent({ model: "openai/gpt-4o" });
       const runWith = async (protocolVersion?: string) => {
         vi.mocked(streamText).mockReturnValue(
           mockStreamTextResponse([abort()]),
@@ -1481,7 +1481,7 @@ describe("BasicAgent", () => {
     });
 
     it("should auto-close reasoning when stream errors mid-reasoning", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1535,7 +1535,7 @@ describe("BasicAgent", () => {
     });
 
     it("should auto-close reasoning for consecutive blocks with no reasoning-end between them", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1589,7 +1589,7 @@ describe("BasicAgent", () => {
     });
 
     it("should close reasoning when an exception is thrown mid-stream", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1645,7 +1645,7 @@ describe("BasicAgent", () => {
     });
 
     it("should close reasoning and emit RUN_FINISHED when stream exhausts without terminal event", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1691,7 +1691,7 @@ describe("BasicAgent", () => {
     });
 
     it("should handle reasoning interleaved with tool calls", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -1735,7 +1735,7 @@ describe("BasicAgent", () => {
 
   describe("Provider Options", () => {
     it("should pass providerOptions to streamText", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         providerOptions: {
           openai: { reasoningEffort: "high", reasoningSummary: "detailed" },
@@ -1764,7 +1764,7 @@ describe("BasicAgent", () => {
     });
 
     it("should allow providerOptions override via forwardedProps when overridable", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         providerOptions: {
           openai: { reasoningEffort: "low" },
@@ -1799,7 +1799,7 @@ describe("BasicAgent", () => {
     });
 
     it("should NOT allow providerOptions override when not in overridableProperties", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         providerOptions: {
           openai: { reasoningEffort: "low" },

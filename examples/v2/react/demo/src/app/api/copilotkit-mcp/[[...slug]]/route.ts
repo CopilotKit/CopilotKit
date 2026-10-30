@@ -2,7 +2,7 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-  BasicAgent,
+  BuiltInAgent,
 } from "@copilotkit/runtime";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 
@@ -19,7 +19,7 @@ const determineModel = () => {
   return "openai/gpt-5-mini";
 };
 
-const agent = new BasicAgent({
+const agent = new BuiltInAgent({
   model: determineModel(),
   prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
   temperature: 0.7,

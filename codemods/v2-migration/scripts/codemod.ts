@@ -1,4 +1,5 @@
 import { parse } from "codemod:ast-grep";
+import { migrateDeprecatedApis } from "./deprecated-apis.ts";
 import { migrateRuntimeAdapters } from "./runtime-adapters.ts";
 import type { Codemod, Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
@@ -308,7 +309,9 @@ function todoLines(name: string, entry: V1Export | undefined): string[] {
  *   `<CopilotKit>` are renamed or marked;
  * - Streamdown props on the `markdownRenderer` slot are marked, and calls of
  *   the removed Vue `useKatexStyles` are deleted;
- * - reads of the removed `runtime.licenseChecker` are marked.
+ * - reads of the removed `runtime.licenseChecker` are marked;
+ * - 1.x deprecations that 2.0 removed are renamed to their replacement, or
+ *   marked when the replacement has a different API.
  */
 const codemod: Codemod<Lang> = async (root, options) => {
   const migrated = migrateRuntimeAdapters(root.root());
@@ -536,8 +539,15 @@ const codemod: Codemod<Lang> = async (root, options) => {
   edits.push(...katexEdits(rootNode, source));
   edits.push(...licenseCheckerEdits(rootNode, source));
 
-  if (edits.length === 0) return migrated;
-  return rootNode.commitEdits(edits);
+  const migratedPaths =
+    edits.length === 0 ? migrated : rootNode.commitEdits(edits);
+  const deprecated = migrateDeprecatedApis(
+    migratedPaths === null
+      ? rootNode
+      : parse<Lang>(options.language, migratedPaths).root(),
+    jsx,
+  );
+  return deprecated ?? migratedPaths;
 };
 
 function collectProviderNames(

@@ -1,0 +1,220 @@
+---
+title: Removed deprecated APIs in 2.0
+description: Find the 2.0 replacement for each API that CopilotKit 1.x marked as deprecated.
+---
+
+CopilotKit 1.x marked some APIs as deprecated, and 2.0 removes them. If your app still uses one, the 2.0 build fails with a missing export or an unknown prop.
+
+Most fixes are a rename or a deleted prop. A codemod does those for you.
+
+## Update your code
+
+1. Run the codemod:
+
+   ```bash
+   npx codemod @copilotkit/v2-migration
+   ```
+
+2. Search your code for `TODO(copilotkit-2.0)`. The codemod adds this comment where you must change the code yourself.
+3. Find each marked API on this page, and apply the change.
+4. Run your type check. TypeScript shows the removed options that the codemod does not change.
+
+The codemod makes these changes:
+
+| Your code | Codemod change |
+| --- | --- |
+| `BasicAgent`, `BasicAgentConfiguration`, `createNodeFetchHandler`, `useA2UIStore` | Renames the import and every use in the file |
+| `showDevConsole` on `CopilotKitProvider`, `registry` on `A2UIRenderer` | Deletes the prop |
+| The other removed imports, and `disclaimer` on `CopilotChatView` | Adds a `TODO(copilotkit-2.0)` comment |
+
+## Runtime
+
+| Removed | Use |
+| --- | --- |
+| `BasicAgent` | `BuiltInAgent` |
+| `BasicAgentConfiguration` | `BuiltInAgentClassicConfig` |
+| `createNodeFetchHandler` from `@copilotkit/runtime/node` | `createCopilotNodeHandler` |
+| `CopilotKitRequestHandler` | `CopilotRuntimeFetchHandler` |
+
+The first three replacements take the same arguments, so the rename is the full change.
+
+`CopilotRuntimeFetchHandler` takes the `Request` directly. Remove the `{ request }` object from each call:
+
+```ts ignore title="Before"
+import type { CopilotKitRequestHandler } from "@copilotkit/runtime";
+
+export function forward(handler: CopilotKitRequestHandler, request: Request) {
+  return handler({ request });
+}
+```
+
+```ts title="After"
+import type { CopilotRuntimeFetchHandler } from "@copilotkit/runtime";
+
+export function forward(handler: CopilotRuntimeFetchHandler, request: Request) {
+  return handler(request);
+}
+```
+
+## React and Vue
+
+### `showDevConsole`
+
+The `showDevConsole` prop on `CopilotKitProvider` had no effect. Delete it. The codemod deletes it in React files. In Vue templates, delete it yourself.
+
+To turn the Inspector on or off, set `enableInspector`:
+
+```tsx
+"use client";
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" enableInspector={false}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
+```
+
+### `disclaimer` on `CopilotChatView`
+
+Move `disclaimer` into the `input` slot:
+
+```tsx ignore title="Before"
+<CopilotChatView disclaimer={MyDisclaimer} />
+```
+
+```tsx title="After"
+import { CopilotChatView } from "@copilotkit/react-core";
+
+function MyDisclaimer() {
+  return <p>Answers can contain mistakes.</p>;
+}
+
+export function Chat() {
+  return <CopilotChatView input={{ disclaimer: MyDisclaimer }} />;
+}
+```
+
+### `routes` in learning options
+
+The `routes` option had no effect, because capture keeps the raw URLs. Delete it from the `learning` prop and from `createCollector` options:
+
+```tsx ignore title="Before"
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  learning={{ routes: ["/deals/:id"], ignoreUrls: ["/health"] }}
+>
+```
+
+```tsx title="After"
+"use client";
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" learning={{ ignoreUrls: ["/health"] }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
+```
+
+## A2UI renderer
+
+| Removed | Use |
+| --- | --- |
+| `useA2UIStore` | `useA2UIContext` |
+| `useA2UIStoreSelector(selector)` | `selector(useA2UIContext())` |
+| `createA2UICatalog(components, options)` | `createCatalog(definitions, renderers, options)` |
+| `extractA2UISchema(components)` | `extractSchema(definitions)` |
+| `A2UIComponentDefinition`, `A2UIComponentMap` | `CatalogDefinitions`, `CatalogRenderers` |
+
+`A2UIComponentProps`, `ComponentLoader`, `ComponentRegistration`, and the `registry` prop have no replacement. The catalog loads the components, so delete them.
+
+### Move a catalog to `createCatalog`
+
+`createA2UICatalog` took one object, with the `props`, `description`, and `render` of each component. `createCatalog` takes the definitions and the renderers as two objects:
+
+```tsx ignore title="Before"
+import { createA2UICatalog } from "@copilotkit/a2ui-renderer";
+import { z } from "zod";
+
+export const catalog = createA2UICatalog(
+  {
+    StatusBadge: {
+      description: "A small pill that shows a status.",
+      props: z.object({ text: z.string() }),
+      render: ({ props }) => <span>{props.text}</span>,
+    },
+  },
+  { includeBasicCatalog: true },
+);
+```
+
+```tsx title="After"
+import {
+  createCatalog,
+  type CatalogDefinitions,
+  type CatalogRenderers,
+} from "@copilotkit/a2ui-renderer";
+import { z } from "zod";
+
+const definitions = {
+  StatusBadge: {
+    description: "A small pill that shows a status.",
+    props: z.object({ text: z.string() }),
+  },
+} satisfies CatalogDefinitions;
+
+const renderers: CatalogRenderers<typeof definitions> = {
+  StatusBadge: ({ props }) => <span>{String(props.text)}</span>,
+};
+
+export const catalog = createCatalog(definitions, renderers, {
+  includeBasicCatalog: true,
+});
+```
+
+If you called `extractA2UISchema(components)`, call `extractSchema(definitions)` with the same `definitions` object.
+
+## Message types from `@copilotkit/shared`
+
+`ImageData` is removed. To send an image to the agent, put an `ImageInputPart` in the `content` of the user message:
+
+```ts ignore title="Before"
+import type { ImageData } from "@copilotkit/shared";
+
+const image: ImageData = { format: "png", bytes: base64 };
+```
+
+```ts title="After"
+import type { ImageInputPart } from "@copilotkit/shared";
+
+export function pngPart(base64: string): ImageInputPart {
+  return {
+    type: "image",
+    source: { type: "data", value: base64, mimeType: "image/png" },
+  };
+}
+```
+
+The `image` field on `AIMessage` is also removed. An assistant message carries text in `content`. To let users attach images in the chat, see [multimodal attachments](/multimodal-attachments).
+
+## Web inspector
+
+The `headers` property of the `cpk-thread-inspector` element is removed. Set `resolveHeaders` instead. The inspector calls it before each request, so a refreshed token is always used:
+
+```ts
+import { THREAD_INSPECTOR_TAG, type CpkThreadInspector } from "@copilotkit/web-inspector";
+
+export function setInspectorToken(getToken: () => string) {
+  const inspector = document.querySelector<CpkThreadInspector>(THREAD_INSPECTOR_TAG);
+  if (inspector) {
+    inspector.resolveHeaders = () => ({ Authorization: `Bearer ${getToken()}` });
+  }
+}
+```

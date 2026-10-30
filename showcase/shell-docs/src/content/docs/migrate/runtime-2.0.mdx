@@ -147,7 +147,7 @@ import { CopilotRuntime } from "@copilotkit/runtime";
 const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
 
 export async function licenseStatus() {
-  const checker = await runtime.getLicenseChecker();
+  const checker = await runtime.getLicenseChecker?.();
   return checker?.getStatus();
 }
 ```

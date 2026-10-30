@@ -31,7 +31,6 @@ export default function RootLayout({
       >
         <CopilotKitProvider
           runtimeUrl="/api/copilotkit"
-          showDevConsole={false}
           useSingleEndpoint={false}
         >
           {children}

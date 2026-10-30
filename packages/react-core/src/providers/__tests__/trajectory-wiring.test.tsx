@@ -280,9 +280,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
   );
 
   it("starts without a sink after authentication and channel join, with no chat", async () => {
-    const view = render(
-      <App learning={{ trajectoryId: FIRST_ID, routes: ["/deals"] }} />,
-    );
+    const view = render(<App learning={{ trajectoryId: FIRST_ID }} />);
 
     expect(pendingAuth).toHaveLength(1);
     expect(History.prototype.pushState).toBe(nativePushState);
@@ -742,13 +740,15 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
         "setLearningConfig",
       );
       const view = render(
-        <App learning={{ autoStart: false, routes: ["/deals"] }} />,
+        <App learning={{ autoStart: false, ignoreUrls: ["/deals"] }} />,
       );
-      view.rerender(<App learning={{ autoStart: true, routes: ["/deals"] }} />);
+      view.rerender(
+        <App learning={{ autoStart: true, ignoreUrls: ["/deals"] }} />,
+      );
 
       expect(setLearningConfig).toHaveBeenCalled();
       for (const [config] of setLearningConfig.mock.calls) {
-        expect(config).toEqual({ routes: ["/deals"] });
+        expect(config).toEqual({ ignoreUrls: ["/deals"] });
       }
     });
   });

@@ -1,8 +1,10 @@
 # How to Debug Errors
 
-CopilotKit provides visual error display for local development and debugging. This feature is completely free and requires no API keys.
+CopilotKit shows errors in the Inspector during local development. This feature is free and requires no API keys.
 
 ## Quick Setup
+
+In development builds, `CopilotKitProvider` shows the Inspector by default, so you do not need to configure it. To turn it off, set `enableInspector` to `false`:
 
 ```tsx
 import type { ReactNode } from "react";
@@ -12,7 +14,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <CopilotKitProvider
       runtimeUrl="<your-runtime-url>"
-      showDevConsole={true} // [!code highlight]
+      enableInspector={false} // [!code highlight]
     >
       {children}
     </CopilotKitProvider>
@@ -20,9 +22,7 @@ export function Providers({ children }: { children: ReactNode }) {
 }
 ```
 
-<Callout type="warning">
-  Avoid showing the dev console in production as it exposes internal error details to end users.
-</Callout>
+The Inspector shows only in development builds on localhost. It never shows in production, on remote hosts, or during server rendering, so end users do not see the error details.
 
 ## When to Use Development Debugging
 
@@ -105,7 +105,8 @@ export function Chat() {
 
 ### Development Debugging Issues
 
-- **Dev console not showing:**
-  - Confirm `showDevConsole={true}`
+- **Inspector not showing:**
+  - Confirm that the app runs as a development build on localhost
+  - Confirm that `enableInspector` is not `false`
   - Check for JavaScript errors in the browser console
   - Ensure no CSS is hiding the error banner

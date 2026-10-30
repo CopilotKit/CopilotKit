@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { z } from "zod";
-import { BasicAgent, defineTool } from "../index";
+import { BuiltInAgent, defineTool } from "../index";
 import { EventType } from "@ag-ui/client";
 import type { RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
@@ -56,7 +56,7 @@ describe("Config Tools Server-Side Execution", () => {
         execute: executeFn,
       });
 
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         tools: [weatherTool],
       });
@@ -96,7 +96,7 @@ describe("Config Tools Server-Side Execution", () => {
         execute: executeFn,
       });
 
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         tools: [weatherTool],
       });
@@ -142,7 +142,7 @@ describe("Config Tools Server-Side Execution", () => {
         execute: searchExecute,
       });
 
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         tools: [weatherTool, searchTool],
       });
@@ -180,7 +180,7 @@ describe("Config Tools Server-Side Execution", () => {
         execute: configExecute,
       });
 
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         tools: [configTool],
       });
@@ -235,7 +235,7 @@ describe("Config Tools Server-Side Execution", () => {
         execute: executeFn,
       });
 
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         tools: [weatherTool],
       });
@@ -282,7 +282,7 @@ describe("Config Tools Server-Side Execution", () => {
         execute: executeFn,
       });
 
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         tools: [failingTool],
       });
@@ -322,7 +322,7 @@ describe("Config Tools Server-Side Execution", () => {
         execute: configExecute,
       });
 
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         tools: [configTool],
       });
@@ -362,7 +362,7 @@ describe("Config Tools Server-Side Execution", () => {
         execute: executeFn,
       });
 
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         tools: [tool],
       });
@@ -418,7 +418,7 @@ describe("Config Tools Server-Side Execution", () => {
         execute: executeFn,
       });
 
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         maxSteps: 5,
         tools: [tool],
@@ -455,7 +455,7 @@ describe("Config Tools Server-Side Execution", () => {
         execute: executeFn,
       });
 
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         // maxSteps not set
         tools: [tool],
@@ -492,7 +492,7 @@ describe("Config Tools Server-Side Execution", () => {
         execute: executeFn,
       });
 
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         maxSteps: 10,
         tools: [tool],

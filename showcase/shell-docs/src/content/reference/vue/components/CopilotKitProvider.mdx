@@ -205,11 +205,6 @@ const properties: CopilotKitProviderProps["properties"] = {
   during SSR. In a Vue template, pass `:enable-inspector="false"` to disable it.
 </PropertyReference>
 
-<PropertyReference name="showDevConsole" type="boolean | &quot;auto&quot;">
-  **Deprecated:** use `enableInspector`. This prop no longer controls the
-  Inspector.
-</PropertyReference>
-
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
   Optional error handler for debugging and observability. Receives a structured error event with the error, an error code, and contextual debugging information.
 

@@ -167,21 +167,10 @@ export function useA2UIContext(): A2UIContextValue {
   );
 }
 
-/** @deprecated Use useA2UIContext instead. */
-export const useA2UIStore = useA2UIContext;
-
 /**
  * Hook to access the current A2UI error state.
  */
 export function useA2UIError(): string | null {
   const state = useContext(A2UIStateContext);
   return state?.error ?? null;
-}
-
-/** @deprecated Use useA2UIContext() or useA2UI() directly instead. */
-export function useA2UIStoreSelector<T>(
-  selector: (state: A2UIContextValue) => T,
-): T {
-  const context = useA2UIContext();
-  return selector(context);
 }

@@ -67,7 +67,7 @@ describe("V2 telemetry identity sampling", () => {
       const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
       const client = new TelemetryClient({ telemetryDisabled: false });
       if (priorLicenseToken !== undefined) {
-        client.setLicenseToken(priorLicenseToken);
+        client.setTelemetryIdentity({ licenseToken: priorLicenseToken });
       }
       client.setTelemetryIdentity({ telemetryId: "standalone-id" });
 
@@ -98,7 +98,7 @@ describe("V2 telemetry identity sampling", () => {
   test("legacy license identity is forwarded to the sink", async () => {
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
     const client = new TelemetryClient({ telemetryDisabled: false });
-    client.setLicenseToken(legacyLicenseToken);
+    client.setTelemetryIdentity({ licenseToken: legacyLicenseToken });
 
     await client.capture("oss.runtime.instance_created", baseInstanceEvent);
 
@@ -114,7 +114,7 @@ describe("V2 telemetry identity sampling", () => {
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const client = new TelemetryClient({ telemetryDisabled: false });
-    client.setLicenseToken(malformedLegacyLicenseToken);
+    client.setTelemetryIdentity({ licenseToken: malformedLegacyLicenseToken });
 
     await client.capture("oss.runtime.instance_created", baseInstanceEvent);
 
@@ -220,16 +220,16 @@ describe("TelemetryClient", () => {
     });
   });
 
-  it("forwards license token (set via setLicenseToken) to the sink", async () => {
+  it("forwards license token (set via setTelemetryIdentity) to the sink", async () => {
     // Real JWT shape with telemetry_id in the payload — keeps
-    // setLicenseToken from emitting the unparseable-token warning.
+    // setTelemetryIdentity from emitting the unparseable-token warning.
     const payload = Buffer.from('{"telemetry_id":"abc-123"}').toString(
       "base64url",
     );
     const token = `header.${payload}.sig`;
 
     const client = new TelemetryClient({ telemetryDisabled: false });
-    client.setLicenseToken(token);
+    client.setTelemetryIdentity({ licenseToken: token });
 
     await client.capture("oss.runtime.instance_created", {
       actionsAmount: 0,
@@ -243,12 +243,12 @@ describe("TelemetryClient", () => {
     expect(arg.licenseToken).toBe(token);
   });
 
-  it("warns once when setLicenseToken receives a token with no telemetry_id", async () => {
+  it("warns once when setTelemetryIdentity receives a token with no telemetry_id", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       const client = new TelemetryClient({ telemetryDisabled: false });
       const payload = Buffer.from('{"license_id":"foo"}').toString("base64url");
-      client.setLicenseToken(`header.${payload}.sig`);
+      client.setTelemetryIdentity({ licenseToken: `header.${payload}.sig` });
 
       expect(warnSpy).toHaveBeenCalledTimes(1);
       expect(warnSpy.mock.calls[0][0]).toMatch(/telemetry_id/);
@@ -257,14 +257,14 @@ describe("TelemetryClient", () => {
     }
   });
 
-  it("does not warn when setLicenseToken receives a token with telemetry_id", async () => {
+  it("does not warn when setTelemetryIdentity receives a token with telemetry_id", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       const client = new TelemetryClient({ telemetryDisabled: false });
       const payload = Buffer.from('{"telemetry_id":"abc-123"}').toString(
         "base64url",
       );
-      client.setLicenseToken(`header.${payload}.sig`);
+      client.setTelemetryIdentity({ licenseToken: `header.${payload}.sig` });
 
       expect(warnSpy).not.toHaveBeenCalled();
     } finally {
@@ -353,7 +353,7 @@ describe("TelemetryClient", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const client = new TelemetryClient({ telemetryDisabled: false });
 
-    client.setLicenseToken("not-a-jwt");
+    client.setTelemetryIdentity({ licenseToken: "not-a-jwt" });
     await client.capture("oss.runtime.instance_created", {
       actionsAmount: 0,
       endpointTypes: [],
@@ -366,7 +366,7 @@ describe("TelemetryClient", () => {
     });
   });
 
-  it("setLicenseToken cache is overwritable (good token replaced by bad → back to anonymous)", async () => {
+  it("setTelemetryIdentity cache is overwritable (good token replaced by bad → back to anonymous)", async () => {
     // Pins last-write-wins so a refactor to first-write-wins
     // (`this.telemetryId ??= parseAndWarnTelemetryId(...)`) doesn't leak
     // identified status across license replacements.
@@ -379,8 +379,8 @@ describe("TelemetryClient", () => {
     const bad = `header.${Buffer.from('{"license_id":"no-tid"}').toString(
       "base64url",
     )}.sig`;
-    client.setLicenseToken(good);
-    client.setLicenseToken(bad);
+    client.setTelemetryIdentity({ licenseToken: good });
+    client.setTelemetryIdentity({ licenseToken: bad });
 
     await client.capture("oss.runtime.instance_created", {
       actionsAmount: 0,
@@ -403,7 +403,7 @@ describe("TelemetryClient", () => {
     const token = `header.${payload}.sig`;
 
     const client = new TelemetryClient({ telemetryDisabled: false });
-    client.setLicenseToken(token);
+    client.setTelemetryIdentity({ licenseToken: token });
 
     await client.capture("oss.runtime.instance_created", {
       actionsAmount: 0,

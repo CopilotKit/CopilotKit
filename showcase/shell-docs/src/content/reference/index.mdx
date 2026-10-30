@@ -226,11 +226,6 @@ export function Providers({ children }: { children: ReactNode }) {
   `copilotkit.trajectoryId`.
 </PropertyReference>
 
-<PropertyReference name="showDevConsole" type='boolean | "auto"'>
-  **Deprecated for Inspector control:** this prop no longer changes Inspector
-  visibility. Use `enableInspector` instead.
-</PropertyReference>
-
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
   Error handler called when CopilotKit encounters an error. Fires for all error types: runtime connection failures, agent errors, and tool errors.
 

@@ -2,7 +2,7 @@
  * CopilotKit API route with multi-agent setup.
  *
  * This route supports two agents that the frontend can switch between:
- * 1. "default" - BasicAgent + MCPAppsMiddleware for Static GenUI and MCP Apps
+ * 1. "default" - BuiltInAgent + MCPAppsMiddleware for Static GenUI and MCP Apps
  * 2. "a2ui" - HttpAgent connecting to Python A2A server for A2UI rendering
  *
  * The frontend uses the `agent` prop on CopilotKitProvider to select which agent to use.
@@ -13,7 +13,7 @@ import {
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
-import { BasicAgent } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { A2AAgent } from "@ag-ui/a2a";
 import { A2AClient } from "@a2a-js/sdk/client";
@@ -22,13 +22,13 @@ import { A2AClient } from "@a2a-js/sdk/client";
 const MODEL = "openai/gpt-5.2";
 
 /**
- * "default" Agent: BasicAgent with MCPAppsMiddleware
+ * "default" Agent: BuiltInAgent with MCPAppsMiddleware
  *
  * Handles:
  * - Static GenUI tools (get_weather, get_stock, approve_task)
  * - MCP Apps (flights, hotels, trading, kanban, calculator, todo)
  */
-const defaultAgent = new BasicAgent({
+const defaultAgent = new BuiltInAgent({
   model: MODEL,
   prompt: `You are an AI assistant that demonstrates different types of Generative UI.
 

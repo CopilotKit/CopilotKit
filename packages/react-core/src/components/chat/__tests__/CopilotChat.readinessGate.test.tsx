@@ -401,13 +401,13 @@ describe("CopilotChat readiness gate — production-shaped SSE transport", () =>
 
   it("streams the assistant response over the real transport after a send during the provisional window", async () => {
     render(
-      // `showDevConsole={false}` mirrors a production deploy (Showcase runs with
-      // the dev console off) and keeps the jsdom-unbacked web-inspector
+      // `enableInspector={false}` mirrors a production deploy (no Inspector) and
+      // keeps the jsdom-unbacked web-inspector
       // localStorage hydration out of this transport-boundary test.
       <CopilotKitProvider
         runtimeUrl={RUNTIME_URL}
         agentId={AGENT_ID}
-        showDevConsole={false}
+        enableInspector={false}
         useSingleEndpoint
       >
         <div style={{ height: 400 }}>
