@@ -92,7 +92,6 @@
     "@tanstack/react-virtual": "^3.14.13",
     "lucide-react": "^0.525.0",
     "recharts": "^3.1.0",
-    "rxjs": "7.8.1",
     "use-stick-to-bottom": "^1.1.1",
     "zod-to-json-schema": "^3.24.5"
   },
@@ -121,7 +120,8 @@
     "valibot": "^1.2.0",
     "vitest": "^3.2.4",
     "zod": ">=3.0.0",
-    "@playwright/test": "^1.59.1"
+    "@playwright/test": "^1.59.1",
+    "rxjs": "7.8.1"
   },
   "peerDependencies": {
     "maplibre-gl": "^5.0.0",

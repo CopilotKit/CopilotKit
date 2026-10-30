@@ -23,7 +23,6 @@ vi.mock("@copilotkit/shared", async (importOriginal) => {
         return defaultValue;
       }
     }),
-    dataToUUID: vi.fn((data) => JSON.stringify(data)),
     getZodParameters: vi.fn(() => z.object({})),
     randomId: vi.fn(() => "test-random-id"),
     CopilotKitAgentDiscoveryError: vi.fn(),

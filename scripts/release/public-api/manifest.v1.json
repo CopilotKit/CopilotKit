@@ -1789,19 +1789,11 @@
         "engines": {
           "node": "^20.19.3 || >=22.13.0"
         },
-        "peerDependencies": {
-          "openai": "^4.85.1 || >=5.0.0"
-        },
         "provenance": [
           {
             "kind": "package-json",
             "path": "packages/runtime/package.json",
             "selector": "engines"
-          },
-          {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "peerDependencies"
           }
         ]
       },

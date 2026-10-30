@@ -1,0 +1,77 @@
+---
+title: Shared helpers and dependencies in 2.0
+description: Update error checks, removed helpers from @copilotkit/shared, and packages that CopilotKit 2.0 no longer installs.
+---
+
+In 2.0, an import from `@copilotkit/shared` can fail, or a package that your app imports is missing. The cause is one of these changes:
+
+- `CopilotKitError` no longer extends `GraphQLError`.
+- `@copilotkit/shared` removes some helpers that only 1.x used.
+- CopilotKit no longer installs some packages for your app.
+
+The codemod does not change this code. Use the sections below.
+
+## Error checks
+
+`CopilotKitError` extends `Error` in 2.0, not `GraphQLError`. A check with `instanceof GraphQLError` now returns `false` for CopilotKit errors. Use `instanceof CopilotKitError`:
+
+```ts title="Before"
+import { GraphQLError } from "graphql";
+
+if (error instanceof GraphQLError) {
+  console.error(error.extensions.code);
+}
+```
+
+```ts title="After"
+import { CopilotKitError } from "@copilotkit/shared";
+
+if (error instanceof CopilotKitError) {
+  console.error(error.extensions.code);
+}
+```
+
+`error.extensions` keeps the same fields, for example `code`, `statusCode`, and `troubleshootingUrl`.
+
+## Removed helpers
+
+| Removed from `@copilotkit/shared` | What to do |
+| --- | --- |
+| `CopilotKitVersionMismatchError`, `getPossibleVersionMismatch` | Delete the code. 2.0 has no GraphQL runtime client to compare versions with. |
+| `executeConditions` and the `Condition` types | Delete the code, or keep your own copy of the function. |
+| `ConsoleColors`, `ConsoleStyles`, `styledConsole`, `logStyled`, `logCopilotKitPlatformMessage`, `publicApiKeyRequired` | Delete the code, or use `console.log` with `%c` styles. |
+| `dataToUUID`, `isValidUUID` | Use `v5` and `validate` from the `uuid` package. |
+
+`dataToUUID` made a v5 UUID from a string. To get the same IDs, use the same namespace that `dataToUUID` used:
+
+```ts title="Before"
+import { dataToUUID, isValidUUID } from "@copilotkit/shared";
+
+const id = dataToUUID("order-42");
+const valid = isValidUUID(id);
+```
+
+```ts title="After"
+import { v5, validate } from "uuid";
+
+const NAMESPACE = "e4b01160-ff74-4c6e-9b27-d53cd930fe8e";
+const id = v5("order-42", NAMESPACE);
+const valid = validate(id);
+```
+
+If you passed a second argument to `dataToUUID`, use `v5(namespace, NAMESPACE)` as the namespace. If you passed an object, pass `JSON.stringify(object)` to `v5`.
+
+## Packages that CopilotKit no longer installs
+
+| Package | Installed in 1.x by |
+| --- | --- |
+| `openai`, `ws` | `@copilotkit/runtime` |
+| `graphql`, `uuid` | `@copilotkit/shared` |
+
+If your code imports one of these packages, add it to your app:
+
+```bash
+npm install openai
+```
+
+Then run your build again. The import resolves to the package in your app.

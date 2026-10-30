@@ -1,7 +1,7 @@
 import { Analytics } from "@segment/analytics-node";
 import type { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "../utils/random-id";
 import {
   firstNonBlankTelemetryId,
   lambdaClient,
@@ -62,7 +62,7 @@ export class TelemetryClient {
   // Identified events (those whose license token yielded a telemetry_id)
   // bypass the gate on both wires.
   private segmentSampleRate: number = 0.05;
-  private anonymousId = `anon_${uuidv4()}`;
+  private anonymousId = `anon_${randomUUID()}`;
 
   constructor({
     packageName,
@@ -165,7 +165,7 @@ export class TelemetryClient {
     const eventMeta = {
       telemetry_emitter: TELEMETRY_EMITTER_V1,
       telemetry_surface: TELEMETRY_SURFACE_V1,
-      telemetry_event_id: uuidv4(),
+      telemetry_event_id: randomUUID(),
     };
 
     const flattenedProperties = flattenObject(properties);
