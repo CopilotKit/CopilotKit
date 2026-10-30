@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useAgent, useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { useAgent, useHumanInTheLoop } from "@copilotkit/react-core";
 import { EditResourceDialog } from "./EditResourceDialog";
 import { AddResourceDialog } from "./AddResourceDialog";
 import { Resources } from "./Resources";

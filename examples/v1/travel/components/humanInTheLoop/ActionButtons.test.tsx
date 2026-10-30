@@ -1,13 +1,13 @@
 /** @vitest-environment jsdom */
 
-import { ToolCallStatus } from "@copilotkit/react-core/v2";
+import { ToolCallStatus } from "@copilotkit/react-core";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { Mock } from "vitest";
 
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   ToolCallStatus: { Executing: "executing" },
 }));
 

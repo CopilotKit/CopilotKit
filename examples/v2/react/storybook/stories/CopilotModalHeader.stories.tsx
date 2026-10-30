@@ -1,7 +1,7 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Minus } from "lucide-react";
-import { CopilotModalHeader } from "@copilotkit/react-core/v2";
+import { CopilotModalHeader } from "@copilotkit/react-core";
 
 /**
  * The header used by `CopilotPopupView` and `CopilotSidebarView`. Its title

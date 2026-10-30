@@ -1,11 +1,11 @@
 import json
 from typing import List, cast
 
-from copilotkit.langgraph import copilotkit_emit_message
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 
+from src.agui_events import emit_message
 from src.state import AgentState, Place, Trip
 
 
@@ -23,7 +23,7 @@ async def perform_trips_node(state: AgentState, config: RunnableConfig):
 
     if tool_message.content == "CANCEL":
         state["messages"].append(AIMessage(content="Cancelled the trip operation."))
-        await copilotkit_emit_message(config, "Cancelled the trip operation.")
+        await emit_message(config, "Cancelled the trip operation.")
         return state
 
     if tool_message.content != "SEND":
@@ -102,7 +102,7 @@ async def perform_trips_node(state: AgentState, config: RunnableConfig):
         if action in action_handlers:
             message = action_handlers[action](args)
             state["messages"].append(message)
-            await copilotkit_emit_message(config, message.content)
+            await emit_message(config, message.content)
 
     return state
 

@@ -3,7 +3,7 @@ import { AnimatedCard } from "@/components/animated-card";
 import { submitOnce } from "@/lib/single-submit";
 import type { Order } from "@/lib/types";
 
-import { ToolCallStatus } from "@copilotkit/react-core/v2";
+import { ToolCallStatus } from "@copilotkit/react-core";
 
 interface ConfirmOrderProps {
   order: Order | null;

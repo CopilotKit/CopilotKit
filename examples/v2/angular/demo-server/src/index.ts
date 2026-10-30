@@ -5,11 +5,11 @@ import {
   BasicAgent,
   BuiltInAgent,
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime/v2";
+import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime";
 import { createOpenAI } from "@ai-sdk/openai";
 import { SlowToolCallStreamingAgent } from "@copilotkit/demo-agents";
 import { A2UIDashboardAgent } from "./agents/a2ui-dashboard.js";
@@ -161,13 +161,14 @@ app.use(
 );
 
 // Create the CopilotKit endpoint
-const copilotApp = createCopilotEndpoint({
+const copilotApp = createCopilotRuntimeHandler({
+  cors: true,
   runtime,
   basePath: "/api/copilotkit",
 });
 
 // Mount the CopilotKit app
-app.route("/", copilotApp);
+app.all("/api/copilotkit/*", (c) => copilotApp(c.req.raw));
 
 const port = Number(process.env.PORT || 3001);
 const server = serve({ fetch: app.fetch, port });

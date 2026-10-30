@@ -1,11 +1,11 @@
-// Guards the fix for PE-41: `@copilotkit/react-core/v2` must stay importable
+// Guards the fix for PE-41: `@copilotkit/react-core` must stay importable
 // from a React server component.
 //
 // The entry is a `"use client"` module. A bundler building the server/client
 // boundary has to enumerate a client module's exports, and it cannot enumerate
 // `export * from "<external package>"`, so Next.js rejects the module with
 // "It's currently unsupported to use \"export *\" in a client boundary."
-// That is why src/v2/external-reexports.ts lists the names of
+// That is why src/external-reexports.ts lists the names of
 // @copilotkit/core and @ag-ui/client one by one.
 //
 // A hand-maintained list of 400+ names silently goes stale the moment either
@@ -29,9 +29,9 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pkgRoot = path.resolve(here, "../..");
 const generator = path.join(pkgRoot, "scripts/generate-external-reexports.mjs");
-const generated = path.join(pkgRoot, "src/v2/external-reexports.ts");
-const entry = path.join(pkgRoot, "src/v2/index.ts");
-const builtEntry = path.join(pkgRoot, "dist/v2/index.mjs");
+const generated = path.join(pkgRoot, "src/external-reexports.ts");
+const entry = path.join(pkgRoot, "src/index.ts");
+const builtEntry = path.join(pkgRoot, "dist/index.mjs");
 
 const EXTERNAL_PACKAGES = ["@copilotkit/core", "@ag-ui/client"];
 
@@ -41,7 +41,7 @@ const runCheck = () =>
     encoding: "utf8",
   });
 
-describe("v2 external re-exports", () => {
+describe("external re-exports", () => {
   it("the committed list matches what the installed packages export", () => {
     const result = runCheck();
     assert.equal(
@@ -76,7 +76,7 @@ describe("v2 external re-exports", () => {
       assert.doesNotMatch(
         source,
         new RegExp(`export\\s+\\*\\s+from\\s+["']${pkg}["']`),
-        `src/v2/index.ts star-re-exports ${pkg}, which breaks the client boundary`,
+        `src/index.ts star-re-exports ${pkg}, which breaks the client boundary`,
       );
     }
   });
@@ -104,7 +104,7 @@ describe("v2 external re-exports", () => {
       const written = [];
       try {
         for (const [name, contents] of Object.entries(extraFiles)) {
-          const file = path.join(pkgRoot, "src/v2", name);
+          const file = path.join(pkgRoot, "src", name);
           fs.writeFileSync(file, contents);
           written.push(file);
         }
@@ -164,14 +164,14 @@ describe("v2 external re-exports", () => {
 
   it("the built entry carries no star re-export", (t) => {
     if (!fs.existsSync(builtEntry)) {
-      t.skip("dist/v2/index.mjs is not built");
+      t.skip("dist/index.mjs is not built");
       return;
     }
     const built = fs.readFileSync(builtEntry, "utf8");
     assert.doesNotMatch(
       built,
       /^export\s+\*/m,
-      "dist/v2/index.mjs star-re-exports a module Next.js cannot enumerate",
+      "dist/index.mjs star-re-exports a module Next.js cannot enumerate",
     );
   });
 });

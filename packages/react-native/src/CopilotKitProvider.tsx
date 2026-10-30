@@ -3,12 +3,12 @@ import type { ReactNode } from "react";
 import {
   CopilotKitContext,
   LicenseContext,
-} from "@copilotkit/react-core/v2/context";
+} from "@copilotkit/react-core/context";
 import type {
   CopilotKitContextValue,
   CopilotKitCoreReact as CopilotKitCoreReactInstance,
-} from "@copilotkit/react-core/v2/context";
-import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
+} from "@copilotkit/react-core/context";
+import { CopilotKitCoreReact } from "@copilotkit/react-core/headless";
 import type {
   CopilotKitCoreErrorCode,
   CopilotKitMessageFilter,

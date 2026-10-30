@@ -1,5 +1,6 @@
 packages:
   - "packages/*"
+  - "codemods/*"
   - "tools/runtime-conformance"
   - "tools/learned-skill-conformance"
   - "examples/v1/*"

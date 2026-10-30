@@ -9,8 +9,10 @@
  *   - CSS/SCSS: `@import "@copilotkit/react-core/v2/styles.css";`, including
  *     `url(...)` and `layer(...)` forms.
  *
- * It also removes `@copilotkit/react-ui/v2/styles.css`, which only re-exported
- * the react-core stylesheet, the built path
+ * It also removes the v1 stylesheet `@copilotkit/react-ui/styles.css`,
+ * `@copilotkit/react-ui/v2/styles.css`, which only re-exported the react-core
+ * stylesheet, `@copilotkit/react-core/styles.css` from the 2.0 release
+ * candidates, the built path
  * `@copilotkit/react-core/dist/v2/index.css`, and the Vue and Angular
  * stylesheets, `@copilotkit/vue/styles.css` and `@copilotkit/angular/styles.css`:
  *
@@ -30,6 +32,8 @@ import type { API, FileInfo, Node } from "jscodeshift";
 
 const STYLESHEETS = new Set([
   "@copilotkit/react-core/v2/styles.css",
+  "@copilotkit/react-core/styles.css",
+  "@copilotkit/react-ui/styles.css",
   "@copilotkit/react-core/dist/v2/index.css",
   "@copilotkit/react-ui/v2/styles.css",
   "@copilotkit/vue/styles.css",

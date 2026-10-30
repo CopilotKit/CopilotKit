@@ -34,8 +34,8 @@ import {
   defaultSlackTools,
   defaultSlackContext,
 } from "@copilotkit/channels/slack";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 import { appTools } from "./tools/index.js";
 import { renderMrrTool } from "./tools/render-mrr.js";
 import {

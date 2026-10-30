@@ -44,7 +44,7 @@ Pass `abortSignal` in the invocation options to cancel the delivery wait and nat
 
 ## Configuration
 
-Pass an application-owned `CopilotKitIntelligence` client from `@copilotkit/runtime/v2` to `new SkillRegistry({ client, containerId })` to reuse its credentials and HTTP transport. Explicit configuration overrides environment values. An injected client is authoritative for connection configuration.
+Pass an application-owned `CopilotKitIntelligence` client from `@copilotkit/runtime` to `new SkillRegistry({ client, containerId })` to reuse its credentials and HTTP transport. Explicit configuration overrides environment values. An injected client is authoritative for connection configuration.
 
 `freshnessWindowMs` and `requestTimeoutMs` default to 5000. `debug` defaults to false. Set `revision` or `CPK_INTELLIGENCE_SKILLS_REVISION` for an exact whole-container pin. Explicit initialization is optional; the first wrapped invocation can initialize the registry.
 

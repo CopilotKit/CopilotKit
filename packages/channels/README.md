@@ -30,8 +30,8 @@ Configure TypeScript to use the Channels JSX runtime:
 ```tsx
 import { createChannel, Message, Section } from "@copilotkit/channels";
 import { slack } from "@copilotkit/channels/slack";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const channel = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name

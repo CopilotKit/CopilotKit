@@ -1,11 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-import {
-  CopilotModalHeader,
-  CopilotSidebarView,
-} from "@copilotkit/react-core/v2";
-import type { CopilotSidebarViewProps } from "@copilotkit/react-core/v2";
+import { CopilotModalHeader, CopilotSidebarView } from "@copilotkit/react-core";
+import type { CopilotSidebarViewProps } from "@copilotkit/react-core";
 import { fn } from "storybook/test";
 import { starterSuggestions } from "./support/fixtures";
 import { HostPage } from "./support/HostPage";

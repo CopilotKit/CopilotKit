@@ -6,13 +6,13 @@ import {
   useAgentContext,
   useConfigureSuggestions,
   useFrontendTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import {
   GenerativeUISurface,
   useGenerativeUIFunction,
   useGenerativeUIState,
-} from "@copilotkit/react-core/v2/generative-ui";
-import type { GenerativeUIConfig } from "@copilotkit/react-core/v2/generative-ui";
+} from "@copilotkit/react-core/generative-ui";
+import type { GenerativeUIConfig } from "@copilotkit/react-core/generative-ui";
 import { storeUI } from "./catalog";
 import { useCart } from "./cart";
 import type { Cart } from "./cart";

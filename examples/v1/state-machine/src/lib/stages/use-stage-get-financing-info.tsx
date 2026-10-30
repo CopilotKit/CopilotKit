@@ -1,6 +1,6 @@
 import { FinancingForm } from "@/components/generative-ui/financing-form";
 import { useGlobalState } from "@/lib/stages";
-import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { useHumanInTheLoop } from "@copilotkit/react-core";
 import { z } from "zod";
 
 /**

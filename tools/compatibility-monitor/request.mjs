@@ -3,7 +3,7 @@ export const adapters = {
   "builtin-ts": {
     directory: "runtime",
     name: "@copilotkit/runtime",
-    entrypoint: "@copilotkit/runtime/v2",
+    entrypoint: "@copilotkit/runtime",
     packages: ["ai", "zod"],
   },
   "langgraph-ts": {

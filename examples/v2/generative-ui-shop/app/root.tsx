@@ -6,8 +6,8 @@ import {
   Scripts,
   ScrollRestoration,
 } from "react-router";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-import type { GenerativeUIConfig } from "@copilotkit/react-core/v2/generative-ui";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import type { GenerativeUIConfig } from "@copilotkit/react-core/generative-ui";
 import { CartProvider } from "#app/contexts/cart.js";
 import { CompareProvider } from "#app/contexts/compare.tsx";
 import type { Route } from "./+types/root";

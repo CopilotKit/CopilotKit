@@ -1,7 +1,7 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { CopilotChatAttachmentRenderer } from "@copilotkit/react-core/v2";
-import type { Attachment } from "@copilotkit/react-core/v2";
+import { CopilotChatAttachmentRenderer } from "@copilotkit/react-core";
+import type { Attachment } from "@copilotkit/react-core";
 import { withMessageColumn } from "./support/layouts";
 import {
   audioAttachment,

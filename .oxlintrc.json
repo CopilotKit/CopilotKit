@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicolo-ribaudo/oxlint-json-schema/refs/heads/main/.oxlintrc.json",
   "plugins": ["typescript", "unicorn", "oxc", "react", "nextjs", "import"],
-  "jsPlugins": ["./packages/react-ui/oxlint-rules/copilotkit-plugin.mjs"],
+  "jsPlugins": ["./tools/oxlint-rules/copilotkit-plugin.mjs"],
   "categories": {
     "correctness": "warn",
     "suspicious": "warn"
@@ -52,23 +52,13 @@
       }
     },
     {
-      "files": ["packages/react-ui/src/**/*.{ts,tsx}"],
-      "rules": {
-        "copilotkit/require-cpk-prefix": "warn"
-      }
-    },
-    {
       "files": ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"],
       "rules": {
         "copilotkit/require-cpk-prefix": "off"
       }
     },
     {
-      "files": [
-        "packages/angular/**/*.ts",
-        "packages/react-core/src/v1-deprecated/**/*.{ts,tsx}",
-        "packages/runtime/src/v1-deprecated/**/*.{ts,tsx}"
-      ],
+      "files": ["packages/angular/**/*.ts"],
       "rules": {
         "typescript/consistent-type-imports": "off",
         "typescript/no-import-type-side-effects": "off",
@@ -100,6 +90,7 @@
   ],
   "ignorePatterns": [
     "dist/**",
+    "codemods/*/tests/**",
     "node_modules/**",
     ".next/**",
     ".nuxt/**",

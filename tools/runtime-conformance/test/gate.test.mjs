@@ -31,7 +31,7 @@ function fixtureEnv(overrides = {}) {
 
 test("runtime, fixture, dependency, and gate changes require conformance", () => {
   for (const path of [
-    "packages/runtime/src/v2/runtime/runner/intelligence.ts",
+    "packages/runtime/src/runtime/runner/intelligence.ts",
     "packages/shared/src/index.ts",
     "packages/core/src/index.ts",
     "packages/runtime-python/src/copilotkit_runtime/runtime.py",

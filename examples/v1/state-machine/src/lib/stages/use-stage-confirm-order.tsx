@@ -3,7 +3,7 @@ import type { Order } from "@/lib/types";
 import { ConfirmOrder } from "@/components/generative-ui/confirm-order";
 import { createOrderConfirmation } from "@/components/generative-ui/selected-payment";
 
-import { useFrontendTool, useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { useFrontendTool, useHumanInTheLoop } from "@copilotkit/react-core";
 import { useRef } from "react";
 import { z } from "zod";
 

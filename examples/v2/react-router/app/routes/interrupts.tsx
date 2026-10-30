@@ -4,7 +4,7 @@ import {
   CopilotChat,
   useInterrupt,
   useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { InterruptCard } from "../components/InterruptCard";
 
 type AgentType = "tanstack" | "aisdk";

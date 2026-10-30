@@ -29,8 +29,8 @@ import {
   defaultDiscordTools,
   defaultDiscordContext,
 } from "@copilotkit/channels-discord";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const bot = createChannel({
   identifyUser: "platform",

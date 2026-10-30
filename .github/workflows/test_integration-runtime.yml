@@ -68,7 +68,7 @@ jobs:
 
       - name: Run Node.js server integration tests
         working-directory: packages/runtime
-        run: pnpm exec vitest run src/v2/runtime/__tests__/integration/node-servers.integration.test.ts
+        run: pnpm exec vitest run src/runtime/__tests__/integration/node-servers.integration.test.ts
 
   bun:
     name: "runtime / bun"
@@ -117,4 +117,4 @@ jobs:
 
       - name: Run Bun server integration tests
         working-directory: packages/runtime
-        run: bun test src/v2/runtime/__tests__/integration/bun/bun-servers.integration.test.ts
+        run: bun test src/runtime/__tests__/integration/bun/bun-servers.integration.test.ts

@@ -6,7 +6,7 @@ import {
   CopilotKitProvider,
   CopilotSidebar,
   CopilotPopup,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { useMediaQuery } from "@/hooks/use-media-query";
 // Mode-specific wrappers with their own CopilotKitProvider configurations
 import { A2UIPage } from "./components/A2UIPage";

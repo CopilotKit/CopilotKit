@@ -1,0 +1,67 @@
+import { createCopilotNodeListener } from "../endpoints/node";
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import express from "express";
+import request from "supertest";
+import { describe, expect, it, vi } from "vitest";
+
+import type { CopilotRuntimeLike } from "../core/runtime";
+
+const snapshot = {
+  schemaVersion: 1,
+  projectKey: "project-safe-key",
+  snapshotVersion: "snapshot-1",
+  webAppOrigin: "https://app.copilotkit.ai",
+  configuration: {
+    state: "configured",
+    container: { id: "container-1", name: "Production" },
+  },
+  pendingThreadCount: 0,
+  pendingCandidateCount: 0,
+  run: { hasActiveRun: false, hasEverSucceeded: true, latest: null },
+  skillsPage: { page: 1, pageSize: 3, total: 0, totalPages: 0, items: [] },
+  insightsPage: { page: 1, pageSize: 4, total: 0, totalPages: 0, items: [] },
+  links: {
+    learning: "https://app.copilotkit.ai/learning",
+    candidates: null,
+    runs: null,
+  },
+} as const;
+
+function learningRuntime(): CopilotRuntimeLike {
+  return {
+    mode: "intelligence",
+    identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "Ada" }),
+    intelligence: {
+      getInspectorLearning: vi.fn().mockResolvedValue(snapshot),
+      ɵgetLearningContainerId: () => () => "container-1",
+    },
+  } as unknown as CopilotRuntimeLike;
+}
+
+describe("Inspector Learning endpoint wrappers", () => {
+  it("serves Learning without extra flags through Express", async () => {
+    const app = express();
+    app.use(
+      createCopilotNodeListener({
+        cors: true,
+        runtime: learningRuntime(),
+        basePath: "/",
+      }),
+    );
+
+    expect((await request(app).get("/inspector-learning")).status).toBe(200);
+  });
+
+  it("serves Learning without extra flags through Hono", async () => {
+    const app = createCopilotRuntimeHandler({
+      cors: true,
+      runtime: learningRuntime(),
+      basePath: "/",
+    });
+
+    expect(
+      (await app(new Request("https://runtime.example/inspector-learning")))
+        .status,
+    ).toBe(200);
+  });
+});

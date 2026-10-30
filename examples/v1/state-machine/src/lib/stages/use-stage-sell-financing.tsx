@@ -1,5 +1,5 @@
 import { useGlobalState } from "@/lib/stages";
-import { useAgentContext, useFrontendTool } from "@copilotkit/react-core/v2";
+import { useAgentContext, useFrontendTool } from "@copilotkit/react-core";
 import { z } from "zod";
 
 export interface UseStagePaymentMethodOptions {

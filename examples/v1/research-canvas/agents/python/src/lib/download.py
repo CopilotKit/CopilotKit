@@ -4,9 +4,9 @@ This module contains the implementation of the download_node function.
 
 import aiohttp
 import html2text
-from copilotkit.langgraph import copilotkit_emit_state
 from langchain_core.runnables import RunnableConfig
 
+from src.lib.agui_events import emit_state
 from src.lib.state import AgentState
 
 _RESOURCE_CACHE = {}
@@ -62,7 +62,7 @@ async def download_node(state: AgentState, config: RunnableConfig):
             )
 
     # Emit the state to let the UI update
-    await copilotkit_emit_state(config, state)
+    await emit_state(config, state)
 
     # Download the resources
     for i, resource in enumerate(resources_to_download):
@@ -70,6 +70,6 @@ async def download_node(state: AgentState, config: RunnableConfig):
         state["logs"][logs_offset + i]["done"] = True
 
         # update UI
-        await copilotkit_emit_state(config, state)
+        await emit_state(config, state)
 
     return state

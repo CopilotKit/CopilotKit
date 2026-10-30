@@ -1,7 +1,7 @@
 import { PaymentCards } from "@/components/generative-ui/payment-cards";
 import type { CardInfo } from "@/lib/types";
 import { useGlobalState } from "@/lib/stages";
-import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { useHumanInTheLoop } from "@copilotkit/react-core";
 import { z } from "zod";
 
 export interface UseGetPaymentInfoStateOptions {

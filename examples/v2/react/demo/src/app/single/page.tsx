@@ -6,8 +6,8 @@ import {
   useFrontendTool,
   defineToolCallRenderer,
   useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
-import type { ToolsMenuItem } from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
+import type { ToolsMenuItem } from "@copilotkit/react-core";
 import { z } from "zod";
 import { useMemo } from "react";
 

@@ -6,10 +6,10 @@ import {
   useAgentContext,
   useCopilotKit,
   useFrontendTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 // react-core/v2 re-exports the core types, so the example needs no direct
 // dependency on @copilotkit/core.
-import type { CopilotKitCoreFriendsAccess } from "@copilotkit/react-core/v2";
+import type { CopilotKitCoreFriendsAccess } from "@copilotkit/react-core";
 import { z } from "zod";
 import {
   StreamdownRenderer,

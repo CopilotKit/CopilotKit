@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { IntelligenceIndicatorView } from "@copilotkit/react-core/v2";
-import type { IntelligenceIndicatorViewProps } from "@copilotkit/react-core/v2";
+import { IntelligenceIndicatorView } from "@copilotkit/react-core";
+import type { IntelligenceIndicatorViewProps } from "@copilotkit/react-core";
 
 /**
  * `IntelligenceIndicatorView` is the presentational face of the

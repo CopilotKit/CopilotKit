@@ -1,4 +1,4 @@
-import { CopilotKitCore, HttpAgent } from "@copilotkit/react-core/v2";
+import { CopilotKitCore, HttpAgent } from "@copilotkit/react-core";
 import { expect, onTestFinished, test, vi } from "vitest";
 import { initialSuggestions } from "./initial-suggestions";
 

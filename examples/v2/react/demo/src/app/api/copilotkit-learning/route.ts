@@ -1,9 +1,8 @@
 import {
   CopilotRuntime,
   InMemoryAgentRunner,
-  createCopilotEndpointSingleRoute,
-} from "@copilotkit/runtime/v2";
-import { handle } from "hono/vercel";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime";
 import { ScriptedDealAgent } from "@/lib/scripted-deal-agent";
 
 // The learning demo needs the same steps on every run, so it uses a scripted agent and no LLM key.
@@ -12,9 +11,11 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const app = createCopilotEndpointSingleRoute({
+const app = createCopilotRuntimeHandler({
+  mode: "single-route",
+  cors: true,
   runtime,
   basePath: "/api/copilotkit-learning",
 });
 
-export const POST = handle(app);
+export const POST = app;

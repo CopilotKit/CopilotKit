@@ -2,11 +2,10 @@ import {
   BuiltInAgent,
   CopilotRuntime,
   InMemoryAgentRunner,
-  createCopilotEndpoint,
-} from "@copilotkit/runtime/v2";
-import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime/v2";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime";
+import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime";
 import { createOpenAI } from "@ai-sdk/openai";
-import { handle } from "hono/vercel";
 import { PRODUCTS } from "../../../generative-ui/products";
 
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
@@ -47,10 +46,11 @@ const runtime = new CopilotRuntime({
   generativeUI: true,
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotRuntimeHandler({
+  cors: true,
   runtime,
   basePath: "/api/copilotkit-generative-ui",
 });
 
-export const GET = handle(app);
-export const POST = handle(app);
+export const GET = app;
+export const POST = app;

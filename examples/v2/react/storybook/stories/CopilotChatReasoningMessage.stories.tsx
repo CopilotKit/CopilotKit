@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
-import { CopilotChatReasoningMessage } from "@copilotkit/react-core/v2";
-import type { ReasoningMessage } from "@copilotkit/react-core/v2";
+import { CopilotChatReasoningMessage } from "@copilotkit/react-core";
+import type { ReasoningMessage } from "@copilotkit/react-core";
 import { longReasoning, shortReasoning } from "./support/fixtures";
 import { withMessageColumn } from "./support/layouts";
 

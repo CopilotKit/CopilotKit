@@ -1,9 +1,9 @@
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   VERSION,
   BasicAgent,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { serve } from "@hono/node-server";
 
 // Example: Creating a runtime instance
@@ -19,12 +19,13 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const endpoint = createCopilotEndpoint({
+const endpoint = createCopilotRuntimeHandler({
+  cors: true,
   basePath: "/api/copilotkit",
   runtime,
 });
 
 serve({
-  fetch: endpoint.fetch,
+  fetch: endpoint,
   port: 8787,
 });

@@ -13,7 +13,7 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(__dirname, "src/index.ts"),
-        "v2/index": resolve(__dirname, "src/v2/index.ts"),
+        "v2/index": resolve(__dirname, "src/index.ts"),
       },
       name: "CopilotKitVue",
       formats: ["es", "cjs"],

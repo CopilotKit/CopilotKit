@@ -1,4 +1,4 @@
 {
   "extends": ["../../typedoc.base.json"],
-  "entryPoints": ["src/v1-deprecated-compatibility.ts"]
+  "entryPoints": ["src/index.ts"]
 }

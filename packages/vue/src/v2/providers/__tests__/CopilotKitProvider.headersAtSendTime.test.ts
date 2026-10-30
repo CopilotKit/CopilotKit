@@ -1,7 +1,7 @@
 /**
  * #1937: the headers builder is evaluated when a request is SENT, not during
  * render/setup. Mirrors
- * `react-core/src/v2/providers/__tests__/CopilotKitProvider.headersAtSendTime.test.tsx`.
+ * `react-core/src/providers/__tests__/CopilotKitProvider.headersAtSendTime.test.tsx`.
  */
 import { mount } from "@vue/test-utils";
 import { defineComponent, h, nextTick } from "vue";

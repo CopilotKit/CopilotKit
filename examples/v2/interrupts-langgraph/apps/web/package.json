@@ -9,8 +9,8 @@
     "lint": "eslint . --max-warnings=0"
   },
   "dependencies": {
+    "@ag-ui/langgraph": "0.0.44",
     "@copilotkit/react-core": "workspace:*",
-    "@copilotkit/react-ui": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "next": "16.0.8",
     "react": "^19.2.1",

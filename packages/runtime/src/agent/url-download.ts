@@ -932,7 +932,7 @@ export interface CreateSafeUrlDownloadOptions extends SafeUrlDownloadOptions {
  * the run's abort signal, so that an aborted run stops its downloads:
  *
  * ```ts
- * import { createSafeUrlDownload } from "@copilotkit/runtime/v2";
+ * import { createSafeUrlDownload } from "@copilotkit/runtime";
  *
  * factory: (ctx) =>
  *   streamText({

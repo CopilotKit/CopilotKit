@@ -4,8 +4,8 @@ import { userEvent, within } from "storybook/test";
 import {
   CopilotChatToolCallsView,
   WildcardToolCallRender,
-} from "@copilotkit/react-core/v2";
-import type { AssistantMessage, Message } from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
+import type { AssistantMessage, Message } from "@copilotkit/react-core";
 import { toolCall, toolResult } from "./support/fixtures";
 import { withMessageColumn } from "./support/layouts";
 

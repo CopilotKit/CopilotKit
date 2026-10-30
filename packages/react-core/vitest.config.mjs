@@ -8,11 +8,8 @@ export default defineConfig({
       "src/**/__tests__/**/*.{test,spec}.{ts,tsx}",
       "src/**/*.{test,spec}.{ts,tsx}",
     ],
-    globalSetup: ["./src/v2/__tests__/globalSetup.ts"],
-    setupFiles: [
-      "./src/v1-deprecated/setupTests.ts",
-      "./src/v2/__tests__/setup.ts",
-    ],
+    globalSetup: ["./src/__tests__/globalSetup.ts"],
+    setupFiles: ["./src/__tests__/shared-mocks.ts", "./src/__tests__/setup.ts"],
     reporters: [["default", { summary: false }]],
     silent: true,
     server: {
@@ -28,7 +25,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": new URL("./src/v2", import.meta.url).pathname,
+      "@": new URL("./src", import.meta.url).pathname,
     },
   },
 });

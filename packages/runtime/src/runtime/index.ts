@@ -1,0 +1,68 @@
+export * from "./core/runtime";
+
+// Export experimental generative UI middleware and surface writer
+export { GenerativeUIMiddleware, createSurfaceWriter } from "./generative-ui";
+export type { GenerativeUISurfaceWriter } from "./generative-ui";
+
+// Export agent runners and base types
+export * from "./runner";
+
+// Export transcription services
+export * from "./transcription-service/transcription-service";
+
+// Export CopilotKit Intelligence client and types
+export {
+  CopilotKitIntelligence,
+  PlatformRequestError,
+  LearnedSkillsError,
+  type LearnedSkillsErrorCode,
+  type GetLearnedSkillsSnapshotRequest,
+  type GetLearnedSkillsSnapshotsRequest,
+  type LearnedSkillsBatchResult,
+  type LearnedSkillsSnapshotResult,
+  type CopilotKitIntelligenceConfig,
+  type CreateThreadRequest,
+  type ThreadSummary,
+  type ListThreadsResponse,
+  type SubscribeToThreadsRequest,
+  type SubscribeToThreadsResponse,
+  type UpdateThreadRequest,
+} from "./intelligence-platform";
+
+// Re-export `@ai-sdk/mcp` stable types so consumers don't need to depend on
+// it directly to type their MCP wiring. `MCPClient` is the value users pass
+// into `mcpClients`; `MCPTransport` is the contract for custom transports.
+export type { MCPClient, MCPTransport } from "@ai-sdk/mcp";
+
+// Export framework-agnostic fetch handler
+export { createCopilotRuntimeHandler } from "./core/fetch-handler";
+export type {
+  CopilotRuntimeHandlerOptions,
+  CopilotRuntimeFetchHandler,
+  CopilotRuntimeFetchHandlerWithChannels,
+} from "./core/fetch-handler";
+
+// Export hook types
+export type {
+  CopilotRuntimeHooks,
+  HookContext,
+  HandlerHookContext,
+  ResponseHookContext,
+  ErrorHookContext,
+  RouteInfo,
+} from "./core/hooks";
+
+// Export CORS config type
+export type { CopilotCorsConfig } from "./core/fetch-cors";
+
+// Export Channels control-surface types so consumers can name the type of
+// `handler.channels` (see `core/channel-manager.ts`).
+export type { ChannelsControl, ChannelStatus } from "./core/channel-manager";
+
+// Deprecated type aliases for backward compatibility
+/** @deprecated Use `CopilotRuntimeFetchHandler` instead. Note: the new type takes `Request` directly, not `{ request: Request }`. */
+export type CopilotKitRequestHandler = (params: {
+  request: Request;
+}) => Promise<Response>;
+
+export type { experimental } from "./intelligence-platform";

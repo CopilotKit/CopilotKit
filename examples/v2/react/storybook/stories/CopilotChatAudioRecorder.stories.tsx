@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { CopilotChatAudioRecorder } from "@copilotkit/react-core/v2";
-import type { AudioRecorderState } from "@copilotkit/react-core/v2";
+import { CopilotChatAudioRecorder } from "@copilotkit/react-core";
+import type { AudioRecorderState } from "@copilotkit/react-core";
 import { withFakeMicrophone } from "./support/fake-microphone";
 import { withCenteredStage } from "./support/layouts";
 

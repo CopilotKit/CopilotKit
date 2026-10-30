@@ -1,9 +1,5 @@
-import { AbstractAgent, EventType } from "@copilotkit/react-core/v2";
-import type {
-  BaseEvent,
-  Message,
-  RunAgentInput,
-} from "@copilotkit/react-core/v2";
+import { AbstractAgent, EventType } from "@copilotkit/react-core";
+import type { BaseEvent, Message, RunAgentInput } from "@copilotkit/react-core";
 import { Observable } from "rxjs";
 
 /** A resource served in reply to an MCP Apps `resources/read` request. */

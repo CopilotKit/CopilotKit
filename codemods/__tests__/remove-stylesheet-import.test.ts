@@ -112,6 +112,20 @@ import "@copilotkit/react-core/v2";
 
       expect(changed).toBe(false);
     });
+
+    it("removes the v1 react-ui and the 2.0 release-candidate stylesheets", () => {
+      const { output, changed } =
+        run(`import { CopilotChat } from "@copilotkit/react-core";
+import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-core/styles.css";
+import "./app.css";
+`);
+
+      expect(changed).toBe(true);
+      expect(output).toBe(`import { CopilotChat } from "@copilotkit/react-core";
+import "./app.css";
+`);
+    });
   });
 
   describe("CSS files", () => {

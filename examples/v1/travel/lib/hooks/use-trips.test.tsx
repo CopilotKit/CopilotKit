@@ -43,7 +43,7 @@ const hookMocks = vi.hoisted(() => ({
   useAgent: vi.fn(),
 }));
 
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   ToolCallStatus: { Complete: "complete", Executing: "executing" },
   useAgent: hookMocks.useAgent,
   useConfigureSuggestions: vi.fn(),

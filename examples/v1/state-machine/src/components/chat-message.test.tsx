@@ -1,4 +1,4 @@
-import type { AssistantMessage as AgUiAssistantMessage } from "@copilotkit/react-core/v2";
+import type { AssistantMessage as AgUiAssistantMessage } from "@copilotkit/react-core";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 

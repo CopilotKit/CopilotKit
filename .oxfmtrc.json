@@ -5,9 +5,6 @@
     "docs/**",
     "showcase/shell/src/content/**",
     "showcase/shell-docs/src/content/**",
-    "packages/runtime/src/v1-deprecated/lib/runtime/mcp-tools-utils.ts",
-    "examples/v1/_legacy/copilot-anthropic-pinecone/src/app/api/copilotkit/route.ts",
-    "examples/v1/_legacy/copilot-openai-mongodb-atlas-vector-search/src/app/api/copilotkit/route.ts",
     "packages/web-inspector/src/styles/generated.css",
     "packages/core/src/styles/stylesheet.ts",
     "scripts/release/public-api/manifest.v1.json",
@@ -15,6 +12,7 @@
     "showcase/aimock/d4/**",
     "showcase/aimock/d6/**",
     "**/package.json",
-    "showcase/scripts/__tests__/fixtures/imagetools/**"
+    "showcase/scripts/__tests__/fixtures/imagetools/**",
+    "codemods/*/tests/**"
   ]
 }

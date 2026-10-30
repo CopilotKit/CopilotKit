@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/codemod/codemod/refs/heads/main/schemas/workflow.json
+
+version: "1"
+
+nodes:
+  - id: migrate
+    name: Migrate CopilotKit imports, runtime handlers, and the provider
+    type: automatic
+    steps:
+      # `.ts` files go through the TypeScript grammar: in TSX, `<T>value`
+      # parses as JSX.
+      - name: Migrate .ts files
+        js-ast-grep:
+          js_file: scripts/codemod.ts
+          base_path: "."
+          language: "typescript"
+          include:
+            - "**/*.ts"
+            - "**/*.mts"
+            - "**/*.cts"
+          exclude: &exclude
+            - "**/node_modules/**"
+            - "**/dist/**"
+            - "**/build/**"
+            - "**/.next/**"
+            - "**/*.d.ts"
+      - name: Migrate .tsx and JavaScript files
+        js-ast-grep:
+          js_file: scripts/codemod.ts
+          base_path: "."
+          language: "tsx"
+          include:
+            - "**/*.tsx"
+            - "**/*.js"
+            - "**/*.jsx"
+            - "**/*.mjs"
+            - "**/*.cjs"
+          exclude: *exclude
+
+  - id: install-package-skill
+    name: Install the skill that finishes the migration
+    type: automatic
+    depends_on: [migrate]
+    steps:
+      - id: install-package-skill
+        name: Install package skill
+        install-skill:
+          package: "@copilotkit/v2-migration"
+          path: "./agents/skill/v2-migration/SKILL.md"

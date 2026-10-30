@@ -6,7 +6,7 @@ import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { ToolCallStatus } from "@copilotkit/react-core/v2";
+import { ToolCallStatus } from "@copilotkit/react-core";
 
 import { cars } from "../types/cars";
 import type { Car } from "../types/cars";
@@ -39,7 +39,7 @@ vi.mock("@/lib/stages", () => ({
   useGlobalState: hookMocks.useGlobalState,
 }));
 
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   ToolCallStatus: {
     Complete: "complete",
     Executing: "executing",

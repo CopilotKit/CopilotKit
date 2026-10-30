@@ -177,7 +177,7 @@ describe("real runtime catalog", () => {
   const v1 = path.join(root, "packages/shared/src/telemetry/events.ts");
   const v2 = path.join(
     root,
-    "packages/runtime/src/v2/runtime/telemetry/events.ts",
+    "packages/runtime/src/runtime/telemetry/events.ts",
   );
 
   it("v1 parses to a non-empty oss.runtime.* catalog", () => {

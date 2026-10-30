@@ -96,7 +96,7 @@ const require = createRequire(import.meta.url);
 assert.throws(() => require.resolve('@copilotkit/intelligence-delivery-core'), e => e.code === 'MODULE_NOT_FOUND');
 const load = process.argv[2] === 'require' ? async s => require(s) : s => import(s);
 const { createSkillRegistryMiddleware, SkillRegistry, SkillDeliveryError } = await load('@copilotkit/intelligence-langgraph');
-const { CopilotKitIntelligence } = await load('@copilotkit/runtime/v2');
+const { CopilotKitIntelligence } = await load('@copilotkit/runtime');
 const { createAgent } = await load('langchain');
 const { BaseChatModel } = await load('@langchain/core/language_models/chat_models');
 const { AIMessage, ToolMessage } = await load('@langchain/core/messages');
@@ -140,7 +140,7 @@ await assert.rejects(agent.invoke({messages:[{role:'user',content:'denied'}]}), 
 console.log(JSON.stringify({mode:process.argv[2],result:'PASS',tools:2,fetches,catalogs:catalogs.length,streamChunks:chunks,typedDenial:true}));
 `;
 const types = `import { createSkillRegistryMiddleware, SkillRegistry } from '@copilotkit/intelligence-langgraph';
-import { CopilotKitIntelligence } from '@copilotkit/runtime/v2';
+import { CopilotKitIntelligence } from '@copilotkit/runtime';
 import { createAgent } from 'langchain';
 import { z } from 'zod/v4';
 const registry = new SkillRegistry({client:new CopilotKitIntelligence({apiKey:'local'}),containerId:'container'});
