@@ -2,7 +2,9 @@ import {
   createGenerativeUI,
   standardUI,
 } from "@copilotkit/react-core/v2/generative-ui";
+import { choiceOverrides } from "./choices";
 import { iconOverrides } from "./icons";
+import { inputOverrides } from "./inputs";
 import { layoutOverrides } from "./layout";
 import { textOverrides } from "./text";
 
@@ -20,6 +22,8 @@ export const kumoUI = createGenerativeUI({
   overrides: {
     ...layoutOverrides,
     ...textOverrides,
+    ...inputOverrides,
+    ...choiceOverrides,
     ...iconOverrides,
   },
   components: {},

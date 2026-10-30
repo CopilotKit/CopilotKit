@@ -1,0 +1,547 @@
+/*
+ * The react-day-picker styles of the Kumo DatePicker, copied from
+ * @cloudflare/kumo 2.16.0 dist/styles/kumo.css (lines 96-635). Kumo's
+ * standalone stylesheet (styles/standalone) leaves them out, so without
+ * this file the calendar has no layout.
+ */
+
+.rdp-root {
+  /* Prevent horizontal jitter from number width changes */
+  font-variant-numeric: tabular-nums;
+  --rdp-cell-padding: 2px;
+  --rdp-day-height: calc(2rem + var(--rdp-cell-padding) * 2);
+  --rdp-day-width: calc(2rem + var(--rdp-cell-padding) * 2);
+  --rdp-day_button-border-radius: 0.375rem;
+  --rdp-day_button-border: none;
+  --rdp-day_button-height: 2rem;
+  --rdp-day_button-width: 2rem;
+  --rdp-selected-border: none;
+  --rdp-disabled-opacity: 0.4;
+  --rdp-outside-opacity: 0.4;
+  --rdp-dropdown-gap: 0.5rem;
+  --rdp-months-gap: 1rem;
+  --rdp-nav_button-disabled-opacity: 0.5;
+  --rdp-nav_button-height: 2rem;
+  --rdp-nav_button-width: 2rem;
+  --rdp-nav-height: 2.5rem;
+  --rdp-week_number-border-radius: 0.375rem;
+  --rdp-week_number-border: none;
+  --rdp-week_number-height: var(--rdp-day-height);
+  --rdp-week_number-opacity: 0.75;
+  --rdp-week_number-width: var(--rdp-day-width);
+  --rdp-weekday-opacity: 1;
+  --rdp-weekday-padding: 0.5rem 0;
+  --rdp-gradient-direction: 90deg;
+  --rdp-animation_duration: 0.2s;
+  --rdp-animation_timing: ease-out;
+
+  /* Light mode colors */
+  --rdp-accent-color: oklch(20.5% 0 0);
+  --rdp-accent-background-color: oklch(92.2% 0 0);
+  --rdp-range_middle-background-color: oklch(92.2% 0 0);
+  --rdp-range_middle-color: oklch(21% 0.006 285.885);
+  --rdp-range_start-color: oklch(97% 0 0);
+  --rdp-range_start-date-background-color: oklch(20.5% 0 0);
+  --rdp-range_end-color: oklch(97% 0 0);
+  --rdp-range_end-date-background-color: oklch(20.5% 0 0);
+  --rdp-today-color: oklch(54.6% 0.215 262.881);
+  --rdp-day-color: oklch(21% 0.006 285.885);
+  --rdp-day-color-subtle: oklch(55.6% 0 0);
+  --rdp-nav-bg: transparent;
+  --rdp-nav-border: oklch(14.5% 0 0 / 0.1);
+  --rdp-hover-bg: oklch(90% 0 0);
+  --rdp-fill-hover-bg: oklch(87% 0 0);
+  --rdp-focus-ring: var(--color-kumo-brand);
+
+  position: relative;
+  box-sizing: border-box;
+}
+
+[data-mode="dark"] .rdp-root {
+  /* Dark mode colors */
+  --rdp-accent-color: oklch(97% 0 0);
+  --rdp-accent-background-color: oklch(35% 0 0);
+  --rdp-range_middle-background-color: oklch(28% 0 0);
+  --rdp-range_middle-color: oklch(97% 0 0);
+  --rdp-range_start-color: oklch(20.5% 0 0);
+  --rdp-range_start-date-background-color: oklch(97% 0 0);
+  --rdp-range_end-color: oklch(20.5% 0 0);
+  --rdp-range_end-date-background-color: oklch(97% 0 0);
+  --rdp-today-color: oklch(62.3% 0.214 259.815);
+  --rdp-day-color: oklch(97% 0 0);
+  --rdp-day-color-subtle: oklch(70% 0 0);
+  --rdp-nav-bg: transparent;
+  --rdp-nav-border: oklch(26.9% 0 0);
+  --rdp-hover-bg: oklch(20% 0 0);
+  --rdp-fill-hover-bg: oklch(25% 0 0);
+  --rdp-focus-ring: var(--color-kumo-brand);
+}
+
+.rdp-root[dir="rtl"] {
+  --rdp-gradient-direction: -90deg;
+}
+
+.rdp-root * {
+  box-sizing: border-box;
+}
+
+.rdp-root thead {
+  background: transparent;
+}
+
+/* Day cells */
+.rdp-day {
+  width: var(--rdp-day-width);
+  height: var(--rdp-day-height);
+  text-align: center;
+  padding: var(--rdp-cell-padding);
+}
+
+.rdp-day_button {
+  background: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--rdp-day-color);
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  width: var(--rdp-day_button-width);
+  height: var(--rdp-day_button-height);
+  border: var(--rdp-day_button-border);
+  border-radius: var(--rdp-day_button-border-radius);
+  outline: none;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.rdp-day_button:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--rdp-focus-ring);
+}
+
+.rdp-day_button:hover {
+  background-color: var(--rdp-hover-bg);
+}
+
+.rdp-day_button:disabled {
+  cursor: not-allowed;
+}
+
+/* Caption / Month header */
+.rdp-caption_label {
+  z-index: 1;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  border: 0;
+  font-weight: 600;
+  color: var(--rdp-day-color);
+}
+
+/* Navigation buttons - styled like outline button sm */
+.rdp-button_next,
+.rdp-button_previous {
+  border: none;
+  background: transparent !important;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--rdp-day-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  appearance: none;
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  border-radius: 0.375rem;
+  box-shadow: inset 0 0 0 1px var(--rdp-nav-border);
+  outline: none;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.rdp-button_next:hover,
+.rdp-button_previous:hover {
+  background: var(--rdp-hover-bg) !important;
+}
+
+.rdp-button_next:focus-visible,
+.rdp-button_previous:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--rdp-focus-ring);
+}
+
+.rdp-button_next:disabled,
+.rdp-button_next[aria-disabled="true"],
+.rdp-button_previous:disabled,
+.rdp-button_previous[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: var(--rdp-nav_button-disabled-opacity);
+}
+
+.rdp-chevron {
+  display: inline-block;
+  fill: var(--rdp-day-color);
+}
+
+.rdp-root[dir="rtl"] .rdp-nav .rdp-chevron {
+  transform: rotate(180deg);
+  transform-origin: 50%;
+}
+
+/* Dropdowns */
+.rdp-dropdowns {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rdp-dropdown-gap);
+}
+
+.rdp-dropdown {
+  z-index: 2;
+  opacity: 0;
+  appearance: none;
+  position: absolute;
+  inset-block-start: 0;
+  inset-block-end: 0;
+  inset-inline-start: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  cursor: inherit;
+  border: none;
+  line-height: inherit;
+}
+
+.rdp-dropdown_root {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.rdp-dropdown_root[data-disabled="true"] .rdp-chevron {
+  opacity: var(--rdp-disabled-opacity);
+}
+
+/* Month caption */
+.rdp-month_caption {
+  display: flex;
+  align-content: center;
+  height: var(--rdp-nav-height);
+  font-weight: 600;
+}
+
+.rdp-root[data-nav-layout="around"] .rdp-month,
+.rdp-root[data-nav-layout="after"] .rdp-month {
+  position: relative;
+}
+
+.rdp-root[data-nav-layout="around"] .rdp-month_caption {
+  justify-content: center;
+  margin-inline-start: var(--rdp-nav_button-width);
+  margin-inline-end: var(--rdp-nav_button-width);
+  position: relative;
+}
+
+.rdp-root[data-nav-layout="around"] .rdp-button_previous {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  height: var(--rdp-nav-height);
+  display: inline-flex;
+}
+
+.rdp-root[data-nav-layout="around"] .rdp-button_next {
+  position: absolute;
+  inset-inline-end: 0;
+  top: 0;
+  height: var(--rdp-nav-height);
+  display: inline-flex;
+  justify-content: center;
+}
+
+/* Months container */
+.rdp-months {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rdp-months-gap);
+  max-width: fit-content;
+}
+
+.rdp-month_grid {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* Navigation bar */
+.rdp-nav {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: var(--rdp-nav-height);
+}
+
+/* Weekday headers */
+.rdp-weekday {
+  opacity: var(--rdp-weekday-opacity);
+  padding: var(--rdp-weekday-padding);
+  font-weight: 500;
+  font-size: smaller;
+  text-align: center;
+  color: var(--rdp-day-color-subtle);
+}
+
+/* Week numbers */
+.rdp-week_number {
+  opacity: var(--rdp-week_number-opacity);
+  font-weight: 400;
+  font-size: small;
+  height: var(--rdp-week_number-height);
+  width: var(--rdp-week_number-width);
+  border: var(--rdp-week_number-border);
+  border-radius: var(--rdp-week_number-border-radius);
+  text-align: center;
+  color: var(--rdp-day-color-subtle);
+}
+
+/* DAY MODIFIERS */
+
+/* Today (only when not selected) */
+.rdp-today:not(.rdp-outside):not(.rdp-selected) .rdp-day_button {
+  color: var(--rdp-today-color);
+  font-weight: 600;
+}
+
+/* Selected (single/multiple selection mode) */
+.rdp-selected .rdp-day_button {
+  background-color: var(--rdp-accent-color);
+  color: var(--rdp-range_start-color);
+  border-radius: var(--rdp-day_button-border-radius);
+}
+
+.rdp-selected .rdp-day_button:hover {
+  background-color: var(--rdp-accent-color);
+}
+
+/* Outside (days from adjacent months) */
+.rdp-outside .rdp-day_button {
+  opacity: var(--rdp-outside-opacity);
+  color: var(--rdp-day-color-subtle);
+}
+
+/* Disabled */
+.rdp-disabled:not(.rdp-selected) .rdp-day_button {
+  opacity: var(--rdp-disabled-opacity);
+  cursor: not-allowed;
+}
+
+.rdp-disabled .rdp-day_button:hover {
+  background-color: transparent;
+}
+
+/* Hidden */
+.rdp-hidden {
+  visibility: hidden;
+}
+
+/* RANGE SELECTION */
+/* All styling goes on the CELL (<td>), buttons are transparent */
+
+/* Range start CELL - dark bg, rounded left, flat right for continuity */
+.rdp-day.rdp-range_start:not(.rdp-range_end) {
+  background-color: var(--rdp-range_start-date-background-color);
+  border-radius: var(--rdp-day_button-border-radius) 0 0
+    var(--rdp-day_button-border-radius);
+}
+
+/* Range start BUTTON - transparent, inherits cell appearance */
+.rdp-day.rdp-range_start .rdp-day_button {
+  background-color: transparent;
+  color: var(--rdp-range_start-color);
+}
+
+.rdp-day.rdp-range_start .rdp-day_button:hover {
+  background-color: transparent;
+}
+
+/* Range middle CELL - solid background fills the entire cell */
+.rdp-day.rdp-range_middle {
+  background-color: var(--rdp-range_middle-background-color);
+}
+
+/* Range middle BUTTON - transparent, shows cell background through */
+.rdp-day.rdp-range_middle .rdp-day_button {
+  background-color: transparent;
+  color: var(--rdp-range_middle-color);
+}
+
+.rdp-day.rdp-range_middle .rdp-day_button:hover {
+  background-color: var(--rdp-fill-hover-bg);
+  border-radius: var(--rdp-day_button-border-radius);
+}
+
+/* Range end CELL - dark bg, flat left, rounded right */
+.rdp-day.rdp-range_end:not(.rdp-range_start) {
+  background-color: var(--rdp-range_end-date-background-color);
+  border-radius: 0 var(--rdp-day_button-border-radius)
+    var(--rdp-day_button-border-radius) 0;
+}
+
+/* Range end BUTTON - transparent, inherits cell appearance */
+.rdp-day.rdp-range_end .rdp-day_button {
+  background-color: transparent;
+  color: var(--rdp-range_end-color);
+}
+
+.rdp-day.rdp-range_end .rdp-day_button:hover {
+  background-color: transparent;
+}
+
+/* When start and end are the same day - fully rounded cell */
+.rdp-day.rdp-range_start.rdp-range_end {
+  background-color: var(--rdp-range_start-date-background-color);
+  border-radius: var(--rdp-day_button-border-radius);
+}
+
+.rdp-day.rdp-range_start.rdp-range_end .rdp-day_button {
+  background-color: transparent;
+  color: var(--rdp-range_start-color);
+}
+
+/* Focusable days */
+.rdp-focusable {
+  cursor: pointer;
+}
+
+/* Footer - prevent it from affecting calendar width */
+.rdp-footer {
+  width: 0;
+  min-width: 100%;
+  padding-top: 0.5rem;
+}
+
+/* ANIMATIONS */
+
+@keyframes rdp-slide_in_left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes rdp-slide_in_right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes rdp-slide_out_left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes rdp-slide_out_right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.rdp-weeks_before_enter {
+  animation: rdp-slide_in_left var(--rdp-animation_duration)
+    var(--rdp-animation_timing) forwards;
+}
+
+.rdp-weeks_before_exit {
+  animation: rdp-slide_out_left var(--rdp-animation_duration)
+    var(--rdp-animation_timing) forwards;
+}
+
+.rdp-weeks_after_enter {
+  animation: rdp-slide_in_right var(--rdp-animation_duration)
+    var(--rdp-animation_timing) forwards;
+}
+
+.rdp-weeks_after_exit {
+  animation: rdp-slide_out_right var(--rdp-animation_duration)
+    var(--rdp-animation_timing) forwards;
+}
+
+.rdp-root[dir="rtl"] .rdp-weeks_after_enter {
+  animation: rdp-slide_in_left var(--rdp-animation_duration)
+    var(--rdp-animation_timing) forwards;
+}
+
+.rdp-root[dir="rtl"] .rdp-weeks_before_exit {
+  animation: rdp-slide_out_right var(--rdp-animation_duration)
+    var(--rdp-animation_timing) forwards;
+}
+
+.rdp-root[dir="rtl"] .rdp-weeks_before_enter {
+  animation: rdp-slide_in_right var(--rdp-animation_duration)
+    var(--rdp-animation_timing) forwards;
+}
+
+.rdp-root[dir="rtl"] .rdp-weeks_after_exit {
+  animation: rdp-slide_out_left var(--rdp-animation_duration)
+    var(--rdp-animation_timing) forwards;
+}
+
+@keyframes rdp-fade_in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rdp-fade_out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.rdp-caption_after_enter {
+  animation: rdp-fade_in var(--rdp-animation_duration)
+    var(--rdp-animation_timing) forwards;
+}
+
+.rdp-caption_after_exit {
+  animation: rdp-fade_out var(--rdp-animation_duration)
+    var(--rdp-animation_timing) forwards;
+}
+
+.rdp-caption_before_enter {
+  animation: rdp-fade_in var(--rdp-animation_duration)
+    var(--rdp-animation_timing) forwards;
+}
+
+.rdp-caption_before_exit {
+  animation: rdp-fade_out var(--rdp-animation_duration)
+    var(--rdp-animation_timing) forwards;
+}
