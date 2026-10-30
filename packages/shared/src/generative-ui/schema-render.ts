@@ -53,6 +53,16 @@ function functionSignature(fn: GenerativeUIManifest["functions"][string]) {
 }
 
 /**
+ * A function name with its parameters: `pick{ id: string }`, `clearCart{}`
+ * for no arguments, `setVolume(number)` for a parameter that is not an object.
+ */
+function nameWithParameters(name: string, parameters: string) {
+  if (parameters.startsWith("{")) return `${name}${parameters}`;
+  if (parameters === "object") return `${name}{}`;
+  return `${name}(${parameters})`;
+}
+
+/**
  * One component as a TypeScript-like signature line, with its events and
  * slots on the lines below:
  * `- Text(text?: string // The text): Shows text`.
@@ -66,11 +76,11 @@ function signatureLines(
     compactProps(component.props, settings.propDescriptions),
   ).map(([key, type]) => `${key}: ${type}`);
   const lines = [
-    `- ${name}(${props.join(", ")})${component.description ? `: ${component.description}` : ""}`,
+    `- ${name}(${props.join(", ")})${component.description ? `: ${oneLine(component.description)}` : ""}`,
   ];
   const events = Object.entries(component.events ?? {}).map(
     ([event, definition]) =>
-      `${event}(${definition.description ?? compactType(definition.parameters, 0)})`,
+      `${event}(${definition.description ? oneLine(definition.description) : compactType(definition.parameters, 0)})`,
   );
   if (events.length > 0) lines.push(`  events: ${events.join(", ")}`);
   const slots = Object.entries(component.slots ?? {}).map(
@@ -87,7 +97,7 @@ function signatureSchema(
 ) {
   const targets = manifest.targets.map((t) => {
     const limit = t.components ? `; only ${t.components.join(", ")}` : "";
-    return `- ${t.id} (${t.kind}${limit})${t.description ? `: ${t.description}` : ""}`;
+    return `- ${t.id} (${t.kind}${limit})${t.description ? `: ${oneLine(t.description)}` : ""}`;
   });
   const functions = Object.entries(manifest.functions).map(([name, fn]) => {
     const callers = functionCallers(fn);
@@ -97,7 +107,7 @@ function signatureSchema(
           ? " (UI or agent)"
           : " (agent only)"
         : "";
-    return `- ${name}${functionSignature(fn)}${who}${fn.description ? `: ${fn.description}` : ""}`;
+    return `- ${nameWithParameters(name, functionSignature(fn))}${who}${fn.description ? `: ${oneLine(fn.description)}` : ""}`;
   });
   const components = Object.entries(manifest.components).flatMap(
     ([name, component]) => signatureLines(name, component, settings),
@@ -115,13 +125,34 @@ function signatureSchema(
   ].join("\n\n");
 }
 
+/** A description on one line, so its lines cannot read as new entries. */
+function oneLine(text: string) {
+  return text.replace(/\s*\n\s*/g, " ");
+}
+
+/** Values that would read as a type or a number once their quotes are gone. */
+const AMBIGUOUS_VALUE =
+  /^(?:string|number|integer|boolean|null|object|array|unknown|any|-?\d[\d.]*)$/;
+
 /**
  * A compact type with bare enum values and tight unions:
- * `"sm" | "md" | "lg"` becomes `sm|md|lg`. Values that are not plain words
- * keep their quotes.
+ * `"sm" | "md" | "lg"` becomes `sm|md|lg`. A union keeps its quotes when it
+ * also holds a type (`"sm" | number`) or a value that reads as a type or a
+ * number (`"number" | "currency"`, `"1" | "2"`), and so do values that are
+ * not plain words.
  */
 function bareType(type: string) {
-  return type.replace(/"([A-Za-z0-9_#%.-]+)"/g, "$1").replace(/ \| /g, "|");
+  return type
+    .replace(
+      /"[A-Za-z0-9_#%.-]+"(?: \| "[A-Za-z0-9_#%.-]+")*(?! \|)/g,
+      (union: string, offset: number, whole: string) => {
+        if (whole.slice(offset - 2, offset) === "| ") return union;
+        const values = union.split(" | ").map((v) => v.slice(1, -1));
+        if (values.some((v) => AMBIGUOUS_VALUE.test(v))) return union;
+        return values.join("|");
+      },
+    )
+    .replace(/ \| /g, "|");
 }
 
 /** A compact prop (`type // description`) as `name: type - description`. */
@@ -130,7 +161,7 @@ function propLine(key: string, value: string) {
   const cut = value.indexOf(" // ");
   const type = bareType(cut < 0 ? value : value.slice(0, cut));
   const text = cut < 0 ? "" : value.slice(cut + 4).trim();
-  const description = text ? ` - ${text}` : "";
+  const description = text ? ` - ${oneLine(text)}` : "";
   return ` ${name}: ${type}${description}`;
 }
 
@@ -152,12 +183,12 @@ function linesSchema(
   const targets = compact.targets
     .map((t) => {
       const limit = t.components ? `, only ${t.components.join(", ")}` : "";
-      return `${t.id} (${t.kind}${limit})${t.description ? `: ${t.description}` : ""}`;
+      return `${t.id} (${t.kind}${limit})${t.description ? `: ${oneLine(t.description)}` : ""}`;
     })
     .join("; ");
   const functions = Object.entries(compact.functions).map(
     ([name, fn]) =>
-      `${name}${fn.parameters}${"callers" in fn ? ` (${fn.callers})` : ""}${fn.description ? `: ${fn.description}` : ""}`,
+      `${nameWithParameters(name, fn.parameters)}${"callers" in fn ? ` (${fn.callers})` : ""}${fn.description ? `: ${oneLine(fn.description)}` : ""}`,
   );
   const common = compact.commonProps
     ? Object.entries(compact.commonProps).map(([k, v]) => propLine(k, v))
@@ -167,12 +198,14 @@ function linesSchema(
     c,
     own: [
       ...Object.entries(c.props).map(([k, v]) => propLine(k, v)),
-      ...Object.entries(c.events ?? {}).map(([e, d]) => ` ${e}: action - ${d}`),
+      ...Object.entries(c.events ?? {}).map(
+        ([e, d]) => ` ${e}: action - ${oneLine(d)}`,
+      ),
     ],
   }));
   const components = lineSets.flatMap(({ name, c, own }) => {
     const lines = [
-      `${name}${c.includesCommonProps ? " +common" : ""}${c.description ? `: ${c.description}` : ""}`,
+      `${name}${c.includesCommonProps ? " +common" : ""}${c.description ? `: ${oneLine(c.description)}` : ""}`,
       ...own,
     ];
     // Slots are props that take component ids.
@@ -188,7 +221,7 @@ function linesSchema(
     : "none";
   return [
     `Catalog ${compact.catalogId}. Targets: ${targets || "none"}`,
-    'Props are optional unless marked *. a|b|c is one of those strings. A component marked +common also takes every common prop. A prop of type action is an event prop: give it {"event":{...}} or {"functionCall":{...}}. A componentId prop takes one component id; a childList prop takes a list of ids or a template.',
+    'Props are optional unless marked *. a|b|c is one of those strings, quoted when one reads as a type or a number. A component marked +common also takes every common prop. A prop of type action is an event prop: give it {"event":{...}} or {"functionCall":{...}}. A componentId prop takes one component id; a childList prop takes a list of ids or a template.',
     `Functions:\n${functions.join("\n")}`,
     ...(common.length ? [`Common props:\n${common.join("\n")}`] : []),
     `Components:\n${components.join("\n")}`,
@@ -267,7 +300,7 @@ export function renderGenerativeUIComponentList(
             ? c.props
             : withoutPropDescriptions(c.props);
       const lines = [
-        `- **${name}**${c.description ? `: ${c.description}` : ""}`,
+        `- **${name}**${c.description ? `: ${oneLine(c.description)}` : ""}`,
         `  props: ${JSON.stringify(props)}`,
       ];
       if (c.events) lines.push(`  event props: ${JSON.stringify(c.events)}`);

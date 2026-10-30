@@ -74,6 +74,52 @@ describe("renderGenerativeUISchema", () => {
     expect(text).toContain("- formatCurrency{value: number}: Formats money");
   });
 
+  it("separates a function name from parameters that are not an object", () => {
+    const withCalls: GenerativeUIManifest = {
+      ...manifest,
+      functions: {
+        clearCart: { parameters: { type: "object", properties: {} } },
+        setVolume: { parameters: { type: "number" } },
+      },
+    };
+    for (const notation of ["lines", "ts-signature"] as const) {
+      const text = renderGenerativeUISchema(withCalls, settings(notation));
+      expect(text).toContain("clearCart{}");
+      expect(text).toContain("setVolume(number)");
+    }
+  });
+
+  it("keeps the quotes of enum values that would read as a type or a number", () => {
+    const text = renderGenerativeUISchema(
+      {
+        ...manifest,
+        components: {
+          Icon: {
+            props: {
+              type: "object",
+              properties: {
+                size: { anyOf: [{ enum: ["sm", "md"] }, { type: "number" }] },
+                format: { enum: ["number", "currency"] },
+                level: { enum: ["1", "2"] },
+                tone: { enum: ["calm", "loud"] },
+                note: {
+                  type: "string",
+                  description: "First line\nIcon: not a component",
+                },
+              },
+            },
+          },
+        },
+      },
+      settings("lines"),
+    );
+    expect(text).toContain(' size: "sm"|"md"|number');
+    expect(text).toContain(' format: "number"|"currency"');
+    expect(text).toContain(' level: "1"|"2"');
+    expect(text).toContain(" tone: calm|loud");
+    expect(text).toContain(" note: string - First line Icon: not a component");
+  });
+
   it("writes the status of a deleted or failed surface in signature notation", () => {
     const text = renderGenerativeUISchema(
       {
