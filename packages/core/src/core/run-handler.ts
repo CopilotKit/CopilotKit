@@ -619,6 +619,7 @@ export class RunHandler {
       // gateway can resume from `lastSeenEventId` instead of replaying
       // the full history.
       if (isFreshRestore) {
+        this.replayRequests.delete(agent);
         agent.setMessages([]);
         agent.setState({});
         if (
@@ -672,7 +673,7 @@ export class RunHandler {
           tools: this.buildFrontendTools(agent.agentId),
           context: this._internal.getContextForAgent(agent.agentId),
         },
-        this.createAgentErrorSubscriber(agent),
+        this.createAgentLifecycleSubscriber(agent),
       );
 
       // Connecting ends when history is restored, not when a human answers.
@@ -873,7 +874,7 @@ export class RunHandler {
       }
 
       let logicalRunId = resumedRunId ?? runId;
-      const agentSubscriber = this.createAgentErrorSubscriber(
+      const agentSubscriber = this.createAgentLifecycleSubscriber(
         agent,
         controller.signal,
       );
@@ -1028,15 +1029,17 @@ export class RunHandler {
     this._executingToolCalls.set(agent, executing);
 
     // Reconnect deltas omit messages hydrated by earlier replays. Restore only
-    // the latest user turn: an unanswered call before a later user message is
-    // historical, not permission to resume work. Keep every assistant message
-    // in that turn, and snapshot because handlers insert results.
+    // the latest user turn or a call explicitly re-requested in that turn. An
+    // unanswered historical call alone is not permission. Snapshot the matching
+    // assistant messages because handlers insert results.
     const messagesToProcess =
       toolExecutionMode === "restore"
         ? agent.messages.filter(
             (message) =>
               message.role === "assistant" &&
-              this.isInLatestUserTurn(agent.messages, message.id),
+              message.toolCalls?.some((call) =>
+                this.canRestoreCall(agent, message, call),
+              ),
           )
         : newMessages;
 
@@ -1089,7 +1092,7 @@ export class RunHandler {
             signal?.aborted ||
             agent.threadId !== threadId ||
             (toolExecutionMode === "restore" &&
-              !this.isInLatestUserTurn(agent.messages, message.id)) ||
+              !this.canRestoreCall(agent, message, toolCall)) ||
             executing.has(executionKey)
           ) {
             continue;
@@ -1279,8 +1282,12 @@ export class RunHandler {
 
         if (
           toolExecutionMode === "restore" &&
-          !messagesToProcess.some((message) =>
-            this.isInLatestUserTurn(agent.messages, message.id),
+          !messagesToProcess.some(
+            (message) =>
+              message.role === "assistant" &&
+              message.toolCalls?.some((call) =>
+                this.canRestoreCall(agent, message, call),
+              ),
           )
         ) {
           return runAgentResult;
@@ -1319,7 +1326,63 @@ export class RunHandler {
     return runAgentResult;
   }
 
-  /** A later user message supersedes pending work from an older turn. */
+  // Re-emission authorizes a call for a user turn without moving its canonical owner.
+  private readonly replayRequests = new WeakMap<
+    AbstractAgent,
+    Map<
+      string,
+      {
+        threadId: string;
+        userId: string | undefined;
+        name: string;
+        args: string;
+      }
+    >
+  >();
+
+  private latestUserId(
+    messages: readonly Readonly<Message>[],
+  ): string | undefined {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i]?.role === "user") return messages[i]!.id;
+    }
+    return undefined;
+  }
+
+  private canRestoreCall(
+    agent: AbstractAgent,
+    message: Message,
+    call: ToolCall,
+  ): boolean {
+    if (this.isInLatestUserTurn(agent.messages, message.id)) return true;
+    const request = this.replayRequests.get(agent)?.get(call.id);
+    const current = agent.messages.find(
+      (candidate) => candidate.id === message.id,
+    );
+    const currentCall =
+      current?.role === "assistant"
+        ? current.toolCalls?.find((candidate) => candidate.id === call.id)
+        : undefined;
+    // A wildcard does not establish ownership of an older backend tool.
+    const tool = this.getTool({
+      toolName: call.function.name,
+      agentId: agent.agentId,
+    });
+    return (
+      !!request &&
+      currentCall?.function.name === call.function.name &&
+      currentCall?.function.arguments === call.function.arguments &&
+      request.threadId === agent.threadId &&
+      request.userId === this.latestUserId(agent.messages) &&
+      request.name === call.function.name &&
+      request.args === call.function.arguments &&
+      !!tool &&
+      (tool.type === "human-in-the-loop" ||
+        tool.reconnectBehavior === "resume-pending")
+    );
+  }
+
+  /** A later user message supersedes work without a new explicit request. */
   private isInLatestUserTurn(messages: Message[], messageId: string): boolean {
     for (let index = messages.length - 1; index >= 0; index--) {
       const message = messages[index];
@@ -1531,7 +1594,7 @@ export class RunHandler {
         discardAbortedResult(signal, discardOnAbort, handlerResult.error) ||
         agent.threadId !== threadId ||
         messageIndex === -1 ||
-        (isReplay && !this.isInLatestUserTurn(agent.messages, message.id)) ||
+        (isReplay && !this.canRestoreCall(agent, message, toolCall)) ||
         agent.messages.some(
           (m) =>
             m.role === "tool" &&
@@ -1691,7 +1754,7 @@ export class RunHandler {
         discardAbortedResult(signal, discardOnAbort, errorMessage) ||
         agent.threadId !== threadId ||
         messageIndex === -1 ||
-        (isReplay && !this.isInLatestUserTurn(agent.messages, message.id)) ||
+        (isReplay && !this.canRestoreCall(agent, message, toolCall)) ||
         agent.messages.some(
           (m) =>
             m.role === "tool" &&
@@ -1936,12 +1999,25 @@ export class RunHandler {
   }
 
   /**
-   * Create an agent error subscriber
+   * Capture replay request provenance and report agent errors
    */
-  private createAgentErrorSubscriber(
+  private createAgentLifecycleSubscriber(
     agent: AbstractAgent,
     runSignal?: AbortSignal,
   ): AgentSubscriber {
+    const threadId = agent.threadId;
+    const requests = this.replayRequests.get(agent) ?? new Map();
+    this.replayRequests.set(agent, requests);
+    const originalArgs = new Map<string, string>();
+    const streaming = new Map<
+      string,
+      {
+        threadId: string;
+        userId: string | undefined;
+        name: string;
+        args: string;
+      }
+    >();
     const emitAgentError = async (
       error: Error,
       code: CopilotKitCoreErrorCode,
@@ -1959,6 +2035,62 @@ export class RunHandler {
     };
 
     return {
+      onToolCallStartEvent: ({ event, messages }) => {
+        if (agent.threadId !== threadId) return;
+        requests.delete(event.toolCallId);
+        originalArgs.delete(event.toolCallId);
+        const existing = messages
+          .flatMap((message) =>
+            message.role === "assistant" ? (message.toolCalls ?? []) : [],
+          )
+          .filter((call) => call.id === event.toolCallId);
+        if (
+          existing.length === 1 &&
+          existing[0]!.function.name === event.toolCallName
+        ) {
+          originalArgs.set(event.toolCallId, existing[0]!.function.arguments);
+        }
+        streaming.set(event.toolCallId, {
+          threadId,
+          userId: this.latestUserId(messages),
+          name: event.toolCallName,
+          args: "",
+        });
+      },
+      onToolCallArgsEvent: ({ event }) => {
+        const request = streaming.get(event.toolCallId);
+        if (request) request.args += event.delta;
+      },
+      onToolCallEndEvent: ({ event, messages }) => {
+        const request = streaming.get(event.toolCallId);
+        const original = originalArgs.get(event.toolCallId);
+        streaming.delete(event.toolCallId);
+        originalArgs.delete(event.toolCallId);
+        if (!request || agent.threadId !== threadId) return;
+        requests.set(event.toolCallId, request);
+        // AG-UI appends argument deltas even when a backend re-emits an
+        // unresolved call ID. Repair only an exact repeat of the original
+        // request, never a changed payload or an incomplete stream.
+        if (!original || original !== request.args) return;
+        return {
+          messages: messages.map((message) => {
+            if (message.role !== "assistant") return { ...message };
+            return {
+              ...message,
+              toolCalls: message.toolCalls?.map((call) =>
+                call.id === event.toolCallId &&
+                call.function.name === request.name &&
+                call.function.arguments === original + request.args
+                  ? {
+                      ...call,
+                      function: { ...call.function, arguments: original },
+                    }
+                  : call,
+              ),
+            };
+          }),
+        };
+      },
       onRunFailed: async ({ error }: { error: Error }) => {
         const code =
           error instanceof AgentThreadLockedError
