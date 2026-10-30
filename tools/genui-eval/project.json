@@ -13,7 +13,10 @@
     },
     "typecheck": {
       "executor": "nx:run-commands",
-      "options": { "command": "tsc --noEmit -p tsconfig.json", "cwd": "tools/genui-eval" },
+      "options": {
+        "command": "tsc --noEmit -p tsconfig.json",
+        "cwd": "tools/genui-eval"
+      },
       "dependsOn": ["^build"],
       "cache": false
     },
