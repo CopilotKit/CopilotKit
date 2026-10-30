@@ -49,7 +49,7 @@ describe("chat strings from labels", () => {
     fixture.detectChanges();
 
     const button = (fixture.nativeElement as HTMLElement).querySelector(
-      ".copilotKitAttachmentQueueRemoveButton",
+      ".cpk-attachment-queue-remove-button",
     );
     expect(button?.getAttribute("aria-label")).toBe("Anhang entfernen");
   });

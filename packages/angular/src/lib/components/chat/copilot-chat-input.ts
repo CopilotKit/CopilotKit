@@ -12,12 +12,15 @@ import {
   output,
   viewChild,
   afterNextRender,
+  afterRenderEffect,
   inject,
+  DestroyRef,
+  ElementRef,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { injectChatLabels } from "../../chat-config";
-import { ArrowUp, CopilotIcon } from "../icons/copilot-icon";
+import { ArrowUp, CopilotIcon, Loader2 } from "../icons/copilot-icon";
 import { CopilotChatTextarea } from "./copilot-chat-textarea";
 import { CopilotChatAudioRecorder } from "./copilot-chat-audio-recorder";
 import {
@@ -33,6 +36,7 @@ import type {
   ToolsMenuItem,
 } from "./copilot-chat-input.types";
 import { cn } from "../../utils";
+import { hostStyles } from "../host-styles";
 import { injectChatState } from "../../chat-state";
 import { explicitEffect } from "../../explicit-effect";
 import { CopilotKit } from "../../copilotkit";
@@ -53,7 +57,7 @@ export interface ToolbarContext {
 
 @Component({
   selector: "copilot-chat-input",
-  host: { "data-copilotkit": "", class: "cpk:block cpk:w-full" },
+  host: { "data-copilotkit": "", class: "cpk-chat-input" },
   imports: [
     CommonModule,
     CopilotSlot,
@@ -82,6 +86,13 @@ export interface ToolbarContext {
           <copilot-chat-audio-recorder [inputShowControls]="true">
           </copilot-chat-audio-recorder>
         }
+      } @else if (computedMode() === "processing") {
+        <div class="cpk-chat-input-processing">
+          <copilot-icon
+            [img]="Loader2Icon"
+            iconClass="cpk-chat-input-processing-spinner"
+          ></copilot-icon>
+        </div>
       } @else {
         @if (textAreaTemplate() || textAreaComponent()) {
           <copilot-slot
@@ -94,7 +105,6 @@ export interface ToolbarContext {
             copilotChatTextarea
             [inputValue]="computedValue()"
             [inputAutoFocus]="computedAutoFocus()"
-            [inputDisabled]="computedMode() === 'processing'"
             [inputClass]="defaultTextAreaClass()"
             [inputMaxRows]="textAreaMaxRows()"
             [inputPlaceholder]="textAreaPlaceholder()"
@@ -228,7 +238,7 @@ export interface ToolbarContext {
           >
           </copilot-slot>
         } @else {
-          <div class="cpk:mr-[10px]">
+          <div class="cpk-chat-input-send">
             <button
               type="button"
               [attr.aria-label]="labels.chatInputToolbarSendButtonLabel"
@@ -236,53 +246,45 @@ export interface ToolbarContext {
               [disabled]="sendButtonDisabled()"
               (click)="send()"
             >
-              <copilot-icon [img]="ArrowUpIcon" [size]="18"></copilot-icon>
+              <copilot-icon
+                [img]="ArrowUpIcon"
+                iconClass="cpk-chat-input-send-icon"
+              ></copilot-icon>
             </button>
           </div>
         }
       }
     </ng-template>
 
-    <div [class]="computedClass()">
-      @if (toolbarTemplate() || toolbarComponent()) {
-        <ng-container [ngTemplateOutlet]="mainInputArea"></ng-container>
-        <copilot-slot
-          [slot]="toolbarTemplate() || toolbarComponent()"
-          [context]="toolbarContext()"
-          [defaultComponent]="CopilotChatToolbar"
-        >
-        </copilot-slot>
-      } @else {
-        <div
-          class="cpk:grid cpk:w-full cpk:grid-cols-[auto_minmax(0,1fr)_auto] cpk:items-center cpk:gap-x-3 cpk:gap-y-3 cpk:px-3 cpk:py-2"
-          data-layout="compact"
-        >
-          <div class="cpk:col-start-1 cpk:row-start-1 cpk:flex cpk:items-center">
-            <ng-container [ngTemplateOutlet]="leadingToolbarItems"></ng-container>
-          </div>
-          <div
-            class="cpk:relative cpk:col-start-2 cpk:row-start-1 cpk:flex cpk:min-h-[50px] cpk:min-w-0 cpk:flex-col cpk:justify-center"
+    <div class="cpk-chat-input-wrapper">
+      <div #pill [class]="computedClass()" [attr.data-layout]="layoutValue()">
+        @if (toolbarTemplate() || toolbarComponent()) {
+          <ng-container [ngTemplateOutlet]="mainInputArea"></ng-container>
+          <copilot-slot
+            [slot]="toolbarTemplate() || toolbarComponent()"
+            [context]="toolbarContext()"
+            [defaultComponent]="CopilotChatToolbar"
           >
-            <ng-container [ngTemplateOutlet]="mainInputArea"></ng-container>
+          </copilot-slot>
+        } @else {
+          <div #grid class="cpk-chat-input-grid" [attr.data-layout]="layoutValue()">
+            <div #start class="cpk-chat-input-start">
+              <ng-container [ngTemplateOutlet]="leadingToolbarItems"></ng-container>
+            </div>
+            <div class="cpk-chat-input-field">
+              <ng-container [ngTemplateOutlet]="mainInputArea"></ng-container>
+            </div>
+            <div #actions class="cpk-chat-input-actions">
+              <ng-container
+                [ngTemplateOutlet]="trailingToolbarItems"
+              ></ng-container>
+            </div>
           </div>
-          <div
-            class="cpk:col-start-3 cpk:row-start-1 cpk:flex cpk:items-center cpk:justify-end cpk:gap-2"
-          >
-            <ng-container [ngTemplateOutlet]="trailingToolbarItems"></ng-container>
-          </div>
-        </div>
-      }
+        }
+      </div>
     </div>
   `,
-  styles: [
-    `
-      .ck-input-shadow {
-        box-shadow:
-          0 4px 4px 0 #0000000a,
-          0 0 1px 0 #0000009e !important;
-      }
-    `,
-  ],
+  styles: [hostStyles],
 })
 export class CopilotChatInput implements OnDestroy {
   readonly textAreaRef = viewChild(CopilotChatTextarea);
@@ -372,23 +374,9 @@ export class CopilotChatInput implements OnDestroy {
 
   // Icons and default classes
   readonly ArrowUpIcon = ArrowUp;
-  readonly defaultButtonClass = cn(
-    // Base button styles
-    "cpk:inline-flex cpk:items-center cpk:justify-center cpk:gap-2 cpk:whitespace-nowrap cpk:rounded-md cpk:text-sm cpk:font-medium",
-    "cpk:transition-all cpk:disabled:pointer-events-none cpk:disabled:opacity-50",
-    "cpk:shrink-0 cpk:outline-none",
-    "cpk:focus-visible:border-ring cpk:focus-visible:ring-ring/50 cpk:focus-visible:ring-[3px]",
-    // chatInputToolbarPrimary variant
-    "cpk:cursor-pointer",
-    "cpk:bg-black cpk:text-white",
-    "cpk:dark:bg-white cpk:dark:text-black cpk:dark:focus-visible:outline-white",
-    "cpk:rounded-full cpk:h-9 cpk:w-9",
-    "cpk:transition-colors",
-    "cpk:focus:outline-none",
-    "cpk:hover:opacity-70 cpk:disabled:hover:opacity-100",
-    "cpk:disabled:cursor-not-allowed cpk:disabled:bg-[#00000014] cpk:disabled:text-[rgb(13,13,13)]",
-    "cpk:dark:disabled:bg-[#454545] cpk:dark:disabled:text-white",
-  );
+  readonly Loader2Icon = Loader2;
+  readonly defaultButtonClass =
+    "cpk-button cpk-button-chat-input-toolbar-primary cpk-button-size-chat-input-toolbar-icon";
 
   // Services
   readonly labels = injectChatLabels();
@@ -414,7 +402,21 @@ export class CopilotChatInput implements OnDestroy {
   CopilotChatStartTranscribeButton = CopilotChatStartTranscribeButton;
 
   // Computed values
-  computedMode = computed(() => this.mode() ?? this.modeSignal());
+  // While CopilotChat transcribes a recording, the input shows a spinner.
+  computedMode = computed<CopilotChatInputMode>(
+    () =>
+      this.mode() ??
+      (this.chatState.isTranscribing?.() ? "processing" : this.modeSignal()),
+  );
+  /**
+   * `"expanded"` puts the textarea on its own row above the buttons, as in
+   * React: when the text breaks onto a second line, is too wide for the
+   * single row, or the viewport is narrower than 768px.
+   */
+  readonly layout = signal<"compact" | "expanded">("compact");
+  readonly layoutValue = computed(() =>
+    this.computedMode() === "input" ? this.layout() : "compact",
+  );
   computedToolsMenu = computed(() => this.toolsMenu() ?? []);
   computedAutoFocus = computed(() => this.autoFocus() ?? true);
   audioTranscriptionEnabled = computed(
@@ -443,26 +445,17 @@ export class CopilotChatInput implements OnDestroy {
       this.chatState.attachmentsUploading(),
   );
 
-  computedClass = computed(() => {
-    const baseClasses = cn(
-      // V1 compatibility class for custom styling
-      "copilotKitInput",
-      // Layout
-      "cpk:flex cpk:w-full cpk:flex-col cpk:items-center cpk:justify-center",
-      // Interaction
-      "cpk:cursor-text",
-      // Overflow and clipping
-      "cpk:overflow-visible cpk:bg-clip-padding cpk:contain-inline-size",
-      // Background
-      "cpk:bg-white cpk:dark:bg-[#303030]",
-      // Visual effects
-      "ck-input-shadow cpk:rounded-[28px]",
-    );
-    return cn(baseClasses, this.customClass());
-  });
+  computedClass = computed(() =>
+    cn("copilotKitInput cpk-chat-input-pill", this.customClass()),
+  );
 
   defaultTextAreaClass = computed(() =>
-    cn("cpk:w-full cpk:py-3 cpk:pr-5", this.textAreaClass()),
+    cn(
+      this.layoutValue() === "expanded"
+        ? "cpk-chat-input-textarea-expanded"
+        : "cpk-chat-input-textarea-compact",
+      this.textAreaClass(),
+    ),
   );
 
   // Context for slots (reactive via signals)
@@ -481,6 +474,7 @@ export class CopilotChatInput implements OnDestroy {
     value: this.computedValue(),
     autoFocus: this.computedAutoFocus(),
     disabled: this.computedMode() === "processing",
+    layout: this.layoutValue(),
     maxRows: this.textAreaMaxRows(),
     placeholder: this.textAreaPlaceholder(),
     inputClass: this.textAreaClass(),
@@ -521,6 +515,101 @@ export class CopilotChatInput implements OnDestroy {
       if (this.computedAutoFocus()) {
         this.textAreaRef()?.focus();
       }
+    });
+
+    // Re-evaluate the layout after every render that changes the text or mode.
+    afterRenderEffect(() => {
+      this.computedValue();
+      this.computedMode();
+      this.evaluateLayout();
+    });
+    this.observeLayout();
+  }
+
+  private readonly grid = viewChild<ElementRef<HTMLElement>>("grid");
+  private readonly start = viewChild<ElementRef<HTMLElement>>("start");
+  private readonly actions = viewChild<ElementRef<HTMLElement>>("actions");
+  private readonly destroyRef = inject(DestroyRef);
+  private measureCanvas?: HTMLCanvasElement;
+
+  /**
+   * Picks the compact or expanded layout like React's input: expanded when
+   * the text has a line break, wraps, or is wider than the compact row.
+   */
+  evaluateLayout(): void {
+    if (this.computedMode() !== "input") return;
+    if (
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(max-width: 767px)").matches
+    ) {
+      this.layout.set("expanded");
+      return;
+    }
+
+    const textarea = this.textAreaRef();
+    const grid = this.grid()?.nativeElement;
+    const start = this.start()?.nativeElement;
+    const actions = this.actions()?.nativeElement;
+    // A custom text area or toolbar has no layout to pick.
+    if (!textarea || !grid || !start || !actions) return;
+
+    const value = this.computedValue();
+    const { scrollHeight, singleLineHeight } = textarea.measure();
+    let expand =
+      value.includes("\n") ||
+      (singleLineHeight > 0 && scrollHeight > singleLineHeight + 1);
+
+    if (!expand) {
+      const gridStyles = window.getComputedStyle(grid);
+      const columnGap = parseFloat(gridStyles.columnGap) || 0;
+      const compactWidth =
+        grid.clientWidth -
+        (parseFloat(gridStyles.paddingLeft) || 0) -
+        (parseFloat(gridStyles.paddingRight) || 0) -
+        start.getBoundingClientRect().width -
+        actions.getBoundingClientRect().width -
+        columnGap * 2;
+      const element = textarea.textareaRef.nativeElement as HTMLTextAreaElement;
+      const styles = window.getComputedStyle(element);
+      const innerWidth =
+        compactWidth -
+        (parseFloat(styles.paddingLeft) || 0) -
+        (parseFloat(styles.paddingRight) || 0);
+      if (compactWidth > 0 && innerWidth > 0 && styles.font) {
+        this.measureCanvas ??= document.createElement("canvas");
+        const context = this.measureCanvas.getContext("2d");
+        if (context) {
+          context.font = styles.font;
+          expand = value
+            .split("\n")
+            .some(
+              (line) => context.measureText(line || " ").width > innerWidth,
+            );
+        }
+      }
+    }
+    this.layout.set(expand ? "expanded" : "compact");
+  }
+
+  // The available width changes with the container, not only with the text.
+  private observeLayout(): void {
+    if (typeof ResizeObserver === "undefined") return;
+    let frame: number | undefined;
+    const observer = new ResizeObserver(() => {
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = undefined;
+        this.evaluateLayout();
+      });
+    });
+    afterNextRender(() => {
+      const grid = this.grid()?.nativeElement;
+      if (grid) observer.observe(grid);
+    });
+    this.destroyRef.onDestroy(() => {
+      observer.disconnect();
+      if (frame !== undefined) cancelAnimationFrame(frame);
     });
   }
 

@@ -3,9 +3,9 @@
   "version": "0.0.6-next.1",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter @copilotkit/angular run build:css && sleep 1 && ng run storybook-angular:storybook",
+    "dev": "ng run storybook-angular:storybook",
     "build": "ng run storybook-angular:build-storybook",
-    "storybook:dev": "pnpm --filter @copilotkit/angular run build:css && sleep 1 && ng run storybook-angular:storybook",
+    "storybook:dev": "ng run storybook-angular:storybook",
     "storybook:build": "ng run storybook-angular:build-storybook"
   },
   "dependencies": {
@@ -32,15 +32,12 @@
     "@copilotkit/web-inspector": "workspace:*",
     "@storybook/addon-themes": "10.6.0",
     "@storybook/angular": "10.6.0",
-    "@tailwindcss/postcss": "^4.1.12",
     "@types/node": "^22",
-    "autoprefixer": "^10.4.21",
     "css-loader": "^7.1.2",
     "postcss": "^8.4.31",
     "postcss-loader": "^8.1.1",
     "storybook": "10.6.0",
     "style-loader": "^4.0.0",
-    "tailwindcss": "^4.1.11",
     "typescript": "6.0.3"
   }
 }

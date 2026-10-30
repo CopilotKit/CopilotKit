@@ -113,6 +113,13 @@ export interface CopilotKitConfig {
    * always disabled in production and during server rendering.
    */
   enableInspector?: boolean;
+  /**
+   * Set to `false` when you list `@copilotkit/core/styles.css` in your
+   * `angular.json` styles, so browsers cache the CSS as a file. CopilotKit then
+   * adds no `<style>` tag. For a CSP nonce, provide Angular's `CSP_NONCE`.
+   * @default true
+   */
+  injectStyles?: boolean;
 }
 
 const COPILOT_CLOUD_PUBLIC_API_KEY_HEADER = "X-CopilotCloud-Public-Api-Key";

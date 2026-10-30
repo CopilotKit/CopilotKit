@@ -13,6 +13,13 @@ export interface CopilotChatLabels {
   assistantMessageToolbarCopyCodeLabel: string;
   assistantMessageToolbarCopyCodeCopiedLabel: string;
   assistantMessageToolbarCopyMessageLabel: string;
+  assistantMessageToolbarInspectorLabel: string;
+  assistantMessageToolbarInspectorDescription: string;
+  assistantMessageToolbarInspectorLocalOnlyLabel: string;
+  assistantMessageToolbarInspectorLocalOnlyDescription: string;
+  assistantMessageToolbarInspectorTitle: string;
+  assistantMessageToolbarInspectorHideLabel: string;
+  assistantMessageToolbarInspectorHideDescription: string;
   assistantMessageToolbarThumbsUpLabel: string;
   assistantMessageToolbarThumbsDownLabel: string;
   assistantMessageToolbarReadAloudLabel: string;
@@ -26,6 +33,8 @@ export interface CopilotChatLabels {
   welcomeMessageText: string;
   reasoningMessageThinkingLabel: string;
   attachmentRemoveButtonLabel: string;
+  attachmentPlayVideoButtonLabel: string;
+  attachmentPreviewCloseButtonLabel: string;
 }
 
 // Default labels constant
@@ -40,6 +49,15 @@ export const COPILOT_CHAT_DEFAULT_LABELS: CopilotChatLabels = {
   assistantMessageToolbarCopyCodeLabel: "Copy",
   assistantMessageToolbarCopyCodeCopiedLabel: "Copied",
   assistantMessageToolbarCopyMessageLabel: "Copy",
+  assistantMessageToolbarInspectorLabel: "View in Inspector",
+  assistantMessageToolbarInspectorDescription:
+    "Open this message in the Inspector",
+  assistantMessageToolbarInspectorLocalOnlyLabel: "Local only",
+  assistantMessageToolbarInspectorLocalOnlyDescription:
+    "Only visible on localhost or loopback hosts in development. Never shown in production.",
+  assistantMessageToolbarInspectorTitle: "CopilotKit Inspector",
+  assistantMessageToolbarInspectorHideLabel: "Hide this icon",
+  assistantMessageToolbarInspectorHideDescription: "Until you reload this page",
   assistantMessageToolbarThumbsUpLabel: "Good response",
   assistantMessageToolbarThumbsDownLabel: "Bad response",
   assistantMessageToolbarReadAloudLabel: "Read aloud",
@@ -54,6 +72,8 @@ export const COPILOT_CHAT_DEFAULT_LABELS: CopilotChatLabels = {
   welcomeMessageText: "How can I help you today?",
   reasoningMessageThinkingLabel: "Thinking…",
   attachmentRemoveButtonLabel: "Remove attachment",
+  attachmentPlayVideoButtonLabel: "Play video",
+  attachmentPreviewCloseButtonLabel: "Close preview",
 };
 
 export const COPILOT_CHAT_LABELS = new InjectionToken<CopilotChatLabels>(

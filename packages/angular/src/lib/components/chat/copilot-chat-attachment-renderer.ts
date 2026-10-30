@@ -12,6 +12,7 @@ import type {
 } from "@copilotkit/shared";
 import { getDocumentIcon, getSourceUrl } from "@copilotkit/shared";
 import { cn } from "../../utils";
+import { injectLightbox } from "./copilot-chat-lightbox";
 
 @Component({
   selector: "copilot-chat-attachment-renderer",
@@ -23,26 +24,42 @@ import { cn } from "../../utils";
       @case ("image") {
         @if (imageFailed()) {
           <div [class]="failedImageClass()">
-            <div class="copilotKitImageRenderingErrorMessage">
-              Failed to load image
-            </div>
+            <span>Failed to load image</span>
           </div>
         } @else {
-          <div [class]="imageWrapperClass()">
+          <button
+            #thumbnail
+            type="button"
+            class="cpk-attachment-lightbox-trigger"
+            (click)="lightbox.open(imagePreview, 'Image attachment', thumbnail)"
+          >
             <img
               [src]="sourceUrl()"
               alt="Image attachment"
-              class="copilotKitImageRenderingImage"
+              [class]="imageClass()"
               (error)="imageFailed.set(true)"
             />
-          </div>
+          </button>
+          <ng-template #imagePreview>
+            <img
+              [style.view-transition-name]="lightbox.transitionName"
+              [src]="sourceUrl()"
+              alt="Image attachment"
+              class="cpk-attachment-renderer-lightbox-image"
+            />
+          </ng-template>
         }
       }
       @case ("audio") {
         <div [class]="audioClass()">
-          <audio [src]="sourceUrl()" controls preload="metadata"></audio>
+          <audio
+            [src]="sourceUrl()"
+            controls
+            preload="metadata"
+            class="cpk-attachment-renderer-audio-player"
+          ></audio>
           @if (filename()) {
-            <span class="copilotKitAttachmentFilename">
+            <span class="cpk-attachment-renderer-audio-filename">
               {{ filename() }}
             </span>
           }
@@ -57,14 +74,25 @@ import { cn } from "../../utils";
         ></video>
       }
       @default {
-        <div [class]="documentClass()">
-          <div class="copilotKitAttachmentDocIcon">{{ documentIcon() }}</div>
-          <div class="copilotKitAttachmentDocInfo">
-            <span class="copilotKitAttachmentDocName">
-              {{ filename() || source().mimeType || "Unknown type" }}
-            </span>
-          </div>
-        </div>
+        <!-- download works for same-origin, data: and blob: URLs; target="_blank"
+             opens other files in a new tab instead of leaving the chat. -->
+        <a
+          [href]="sourceUrl()"
+          [attr.download]="filename() ?? ''"
+          target="_blank"
+          rel="noopener noreferrer"
+          [attr.aria-label]="
+            filename() || source().mimeType || 'Document attachment'
+          "
+          [class]="documentClass()"
+        >
+          <span class="cpk-attachment-renderer-document-icon">
+            {{ documentIcon() }}
+          </span>
+          <span class="cpk-attachment-renderer-document-name">
+            {{ filename() || source().mimeType || "Unknown type" }}
+          </span>
+        </a>
       }
     }
   `,
@@ -76,27 +104,41 @@ export class CopilotChatAttachmentRenderer {
   readonly inputClass = input<string | undefined>();
 
   readonly imageFailed = signal(false);
+  /** Opens the image full screen. */
+  readonly lightbox = injectLightbox();
   readonly sourceUrl = computed(() => getSourceUrl(this.source()));
   readonly documentIcon = computed(() =>
     getDocumentIcon(this.source().mimeType ?? ""),
   );
 
-  readonly imageWrapperClass = computed(() =>
-    cn("copilotKitImageRendering", this.inputClass()),
+  readonly imageClass = computed(() =>
+    cn(
+      "cpk-attachment-renderer cpk-attachment-renderer-image",
+      this.inputClass(),
+    ),
   );
   readonly failedImageClass = computed(() =>
     cn(
-      "copilotKitImageRendering copilotKitImageRenderingError",
+      "cpk-attachment-renderer cpk-attachment-renderer-image-error",
       this.inputClass(),
     ),
   );
   readonly audioClass = computed(() =>
-    cn("copilotKitAttachment copilotKitAttachmentAudio", this.inputClass()),
+    cn(
+      "cpk-attachment-renderer cpk-attachment-renderer-audio",
+      this.inputClass(),
+    ),
   );
   readonly videoClass = computed(() =>
-    cn("copilotKitAttachment copilotKitAttachmentVideo", this.inputClass()),
+    cn(
+      "cpk-attachment-renderer cpk-attachment-renderer-video",
+      this.inputClass(),
+    ),
   );
   readonly documentClass = computed(() =>
-    cn("copilotKitAttachment copilotKitAttachmentDocument", this.inputClass()),
+    cn(
+      "cpk-attachment-renderer cpk-attachment-renderer-document",
+      this.inputClass(),
+    ),
   );
 }

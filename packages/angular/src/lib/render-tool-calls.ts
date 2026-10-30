@@ -1,6 +1,8 @@
 import { NgComponentOutlet } from "@angular/common";
 import {
   Component,
+  Injector,
+  computed,
   inject,
   input,
   ChangeDetectionStrategy,
@@ -24,6 +26,10 @@ import type {
 import { partialJSONParse } from "@copilotkit/shared";
 import { HumanInTheLoop } from "./human-in-the-loop";
 import { CopilotDefaultToolRenderer } from "./components/tools/default-tool-renderer";
+import {
+  TOOL_CALL_RENDER_CONTEXT,
+  type ToolCallRenderContext,
+} from "./components/tools/tool-call-render-context";
 
 type RendererToolCallHandler = {
   type: "renderer";
@@ -139,65 +145,83 @@ export function pickToolCallHandler(
   return undefined;
 }
 
+/**
+ * Renders one tool call through the registered renderers. The renderer can
+ * inject `TOOL_CALL_RENDER_CONTEXT` for the call's id and, inside a group,
+ * the row it is drawn as.
+ */
 @Component({
-  selector: "copilot-render-tool-calls",
+  selector: "copilot-render-tool-call",
   imports: [NgComponentOutlet],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    @for (toolCall of message().toolCalls ?? []; track toolCall.id) {
-      @let renderConfig = pickRenderer(toolCall.function.name);
-      @if (
-        renderConfig &&
-        renderConfig.type !== "humanInTheLoopTool" &&
-        renderConfig.config.component
-      ) {
-        <ng-container
-          *ngComponentOutlet="
-            renderConfig.config.component;
-            inputs: buildRendererInputs(toolCall, renderConfig)
-          "
-        />
-      }
-      @if (
-        renderConfig &&
-        renderConfig.type === "humanInTheLoopTool" &&
-        renderConfig.config.component
-      ) {
-        <ng-container
-          *ngComponentOutlet="
-            renderConfig.config.component;
-            inputs: { toolCall: buildHumanInTheLoopToolCall(toolCall) }
-          "
-        />
-      }
+    @let renderConfig = pickRenderer(toolCall().function.name);
+    @if (
+      renderConfig &&
+      renderConfig.type !== "humanInTheLoopTool" &&
+      renderConfig.config.component
+    ) {
+      <ng-container
+        *ngComponentOutlet="
+          renderConfig.config.component;
+          inputs: buildRendererInputs(toolCall(), renderConfig);
+          injector: renderInjector()
+        "
+      />
+    }
+    @if (
+      renderConfig &&
+      renderConfig.type === "humanInTheLoopTool" &&
+      renderConfig.config.component
+    ) {
+      <ng-container
+        *ngComponentOutlet="
+          renderConfig.config.component;
+          inputs: { toolCall: buildHumanInTheLoopToolCall(toolCall()) };
+          injector: renderInjector()
+        "
+      />
     }
   `,
 })
-export class RenderToolCalls {
+export class RenderToolCall {
   readonly #copilotKit = inject(CopilotKit);
   readonly #hitl = inject(HumanInTheLoop);
+  readonly #injector = inject(Injector);
+  readonly toolCall = input.required<ToolCall>();
+  /** The assistant message the call belongs to (or whose group it joined). */
   readonly message = input.required<AssistantMessage>();
   readonly messages = input.required<Message[]>();
   readonly isLoading = input<boolean>(false);
   readonly agentId = input<string | undefined>();
+  /** Set by a tool-call group: how the call's row looks. */
+  readonly row = input<ToolCallRenderContext["row"]>();
+
+  readonly #toolCallId = computed(() => this.toolCall().id);
+  // Depends on the id, not the streamed call, so the renderer isn't recreated
+  // on every update.
+  protected readonly renderInjector = computed(() =>
+    Injector.create({
+      providers: [
+        {
+          provide: TOOL_CALL_RENDER_CONTEXT,
+          useValue: {
+            toolCallId: this.#toolCallId(),
+            row: this.row(),
+          } satisfies ToolCallRenderContext,
+        },
+      ],
+      parent: this.#injector,
+    }),
+  );
 
   protected pickRenderer(name: string): ToolCallHandler | undefined {
-    type AssistantMessageWithAgent = AssistantMessage & {
-      agentId?: string;
-    };
-    const messageAgentId = (this.message() as AssistantMessageWithAgent)
-      .agentId;
-    const renderers = this.#copilotKit.toolCallRenderConfigs();
-    const clientTools = this.#copilotKit.clientToolCallRenderConfigs();
-    const humanInTheLoopTools =
-      this.#copilotKit.humanInTheLoopToolRenderConfigs();
-
     return pickToolCallHandler({
       name,
-      agentId: this.agentId() ?? messageAgentId,
-      application: renderers,
-      frontend: clientTools,
-      humanInTheLoop: humanInTheLoopTools,
+      agentId: this.agentId() ?? this.#messageAgentId(),
+      application: this.#copilotKit.toolCallRenderConfigs(),
+      frontend: this.#copilotKit.clientToolCallRenderConfigs(),
+      humanInTheLoop: this.#copilotKit.humanInTheLoopToolRenderConfigs(),
       builtInFallback: this.#copilotKit.defaultToolRenderingEnabled,
     });
   }
@@ -312,14 +336,36 @@ export class RenderToolCalls {
   }
 
   #getToolMessage(toolCallId: string): ToolMessage | undefined {
-    const message = this.messages().find(
+    return this.messages().find(
       (m): m is ToolMessage => m.role === "tool" && m.toolCallId === toolCallId,
     );
-
-    return message;
   }
 
   #messageAgentId(): string | undefined {
     return (this.message() as AssistantMessage & { agentId?: string }).agentId;
   }
+}
+
+/** Renders every tool call of an assistant message, each on its own. */
+@Component({
+  selector: "copilot-render-tool-calls",
+  imports: [RenderToolCall],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  template: `
+    @for (toolCall of message().toolCalls ?? []; track toolCall.id) {
+      <copilot-render-tool-call
+        [toolCall]="toolCall"
+        [message]="message()"
+        [messages]="messages()"
+        [agentId]="agentId()"
+        [isLoading]="isLoading()"
+      />
+    }
+  `,
+})
+export class RenderToolCalls {
+  readonly message = input.required<AssistantMessage>();
+  readonly messages = input.required<Message[]>();
+  readonly isLoading = input<boolean>(false);
+  readonly agentId = input<string | undefined>();
 }

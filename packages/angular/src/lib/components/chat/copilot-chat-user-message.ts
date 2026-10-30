@@ -28,6 +28,7 @@ import {
 import { CopilotChatUserMessageToolbar } from "./copilot-chat-user-message-toolbar";
 import { CopilotChatUserMessageBranchNavigation } from "./copilot-chat-user-message-branch-navigation";
 import { cn } from "../../utils";
+import { hostStyles } from "../host-styles";
 import { UserMessage } from "@ag-ui/core";
 import { CopilotChatAttachmentRenderer } from "./copilot-chat-attachment-renderer";
 import {
@@ -39,7 +40,8 @@ import {
 
 @Component({
   selector: "copilot-chat-user-message",
-  host: { "data-copilotkit": "", class: "cpk:block cpk:w-full" },
+  host: { "data-copilotkit": "" },
+  styles: [hostStyles],
   imports: [
     CommonModule,
     CopilotSlot,
@@ -60,9 +62,7 @@ import {
       role="article"
     >
       @if (mediaParts().length > 0) {
-        <div
-          class="cpk:flex cpk:flex-row cpk:flex-wrap cpk:justify-end cpk:gap-2 cpk:mb-2"
-        >
+        <div class="cpk-user-message-attachments">
           @for (part of mediaParts(); track $index) {
             <copilot-chat-attachment-renderer
               [type]="part.type"
@@ -99,7 +99,7 @@ import {
         </copilot-slot>
       } @else {
         <div copilotChatUserMessageToolbar [inputClass]="toolbarClass()">
-          <div class="cpk:flex cpk:items-center cpk:gap-1 cpk:justify-end">
+          <div class="cpk-user-message-toolbar-items">
             <!-- Additional toolbar items -->
             @if (additionalToolbarItems()) {
               <ng-container
@@ -225,7 +225,7 @@ export class CopilotChatUserMessage {
 
   computedClass = computed(() =>
     cn(
-      "copilotKitMessage copilotKitUserMessage cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-10",
+      "copilotKitMessage copilotKitUserMessage cpk-user-message",
       this.inputClass(),
     ),
   );

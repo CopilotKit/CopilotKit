@@ -14,6 +14,7 @@ import {
 } from "@angular/core";
 
 import { CopilotChatView } from "./copilot-chat-view";
+import { hostStyles } from "../host-styles";
 import { CopilotChatAttachmentsDirective } from "./copilot-chat-attachments.directive";
 
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
@@ -29,6 +30,7 @@ import { transcribeAudio } from "../../transcription";
 import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
 import { connectActiveThread } from "../../active-thread-connector";
 import { explicitEffect } from "../../explicit-effect";
+import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
 
 /**
  * CopilotChat component - Angular equivalent of React's <CopilotChat>
@@ -44,7 +46,8 @@ import { explicitEffect } from "../../explicit-effect";
   imports: [CopilotChatView, CopilotChatAttachmentsDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
-  host: { "data-copilotkit": "", class: "cpk:block cpk:h-full cpk:min-h-0" },
+  host: { "data-copilotkit": "" },
+  styles: [hostStyles],
   template: `
     <div
       style="display: contents"
@@ -56,8 +59,8 @@ import { explicitEffect } from "../../explicit-effect";
         [state]="agentState()"
         [agentId]="resolvedAgentId()"
         [autoScroll]="true"
-        [messageViewClass]="'cpk:w-full'"
         [showCursor]="showCursor()"
+        [toolCallDisplay]="toolCallDisplay()"
         [inputComponent]="inputComponent()"
         [assistantMessageComponent]="assistantMessageComponent()"
         [assistantMessageTemplate]="assistantMessageTemplate()"
@@ -89,6 +92,11 @@ export class CopilotChat extends ChatState {
   readonly agentId = input<string | undefined>();
   readonly threadId = input<string | undefined>();
   readonly inputComponent = input<Type<any> | undefined>();
+  /**
+   * How assistant messages show tool calls: `"grouped"` (default), `"line"`,
+   * `"stacked"` or `"separate"`. Forwarded to the message view.
+   */
+  readonly toolCallDisplay = input<CopilotChatToolCallDisplay>("grouped");
   /** Component used to render each assistant message in the prebuilt chat. */
   readonly assistantMessageComponent = input<Type<any> | undefined>();
   /** Template used to render each assistant message in the prebuilt chat. */
