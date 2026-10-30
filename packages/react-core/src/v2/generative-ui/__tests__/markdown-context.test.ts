@@ -207,17 +207,13 @@ describe("buildCompactGenerativeUISchema with standardUI", () => {
       GenerativeUIJSONSchema
     >;
     const axis = properties.yAxis.description as string;
-    for (const field of [
-      "label?: string",
-      "min?: number",
-      "max?: number",
-      "width?: number",
-    ]) {
-      expect(axis).toContain(field);
-    }
+    // The fields are in the type; the description only explains them.
+    expect(compact.components.Chart.props["yAxis?"]).toContain(
+      "{ label?: string; min?: number; max?: number; width?: number }",
+    );
     expect(axis).toContain('label: "Revenue (USD)"');
-    expect(axis).toContain("horizontal value axis");
-    expect(axis).toContain("width sets the width of the category axis");
+    expect(axis).toContain("horizontal axis");
+    expect(axis).toContain("width sets the category axis width");
     expect(axis).not.toContain("width: 64");
     expect(compact.components.Chart.props["yAxis?"]).toContain(axis);
 

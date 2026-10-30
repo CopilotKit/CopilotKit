@@ -20,7 +20,6 @@ import { Lightbox, openUrl } from "./lightbox";
 import type { LightboxImage } from "./lightbox";
 import {
   ALIGN,
-  BACKGROUNDS,
   BORDER_COLORS,
   INNER_PANEL_BG,
   JUSTIFY,
@@ -79,7 +78,7 @@ export const layoutProps = {
     .string()
     .optional()
     .describe(
-      `One of ${BACKGROUNDS.join("|")} or a CSS color. Leave it unset. Only one summary panel in a Card can use "surface-secondary"`,
+      'Leave it unset. A surface token (surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid) or a CSS color. Only one summary panel in a Card uses "surface-secondary"',
     ),
   border: z.boolean().optional(),
   borderColor: z.enum(BORDER_COLORS).optional(),
@@ -1190,7 +1189,7 @@ export const layoutComponents = {
   Row: {
     component: Row,
     description:
-      'A horizontal flex container. For a label and value pair, use a Row with justify "spaceBetween": a Caption on the left and a Text with fontWeight "medium" on the right. Put buttons in a Row at the bottom of a Card: one Button with variant "primary", and the default or "borderless" for the others.',
+      'A horizontal flex container. Label and value pair: justify "spaceBetween", a Caption left and a Text with fontWeight "medium" right. Buttons go in a Row at the bottom of a Card: one variant "primary", the others default or "borderless".',
     props: layoutSchema,
     events: VISIBLE_EVENT,
     slots: CHILDREN_SLOT,
@@ -1214,7 +1213,7 @@ export const layoutComponents = {
   Card: {
     component: Card,
     description:
-      'A bordered, padded container, only for an interactive panel (controls, a form, a configurator). Tables, charts and text do not need one. Give it a Title and a Caption. Separate the groups in it with a Divider or the plain gap, never with a nested Card or a bordered Box. Variant "section" is a heading and content without a box. Variant "outline" always has a box. In markdown mode, a Card without controls renders as "section" unless it sets variant or border.',
+      'A bordered panel, only for an interactive panel (controls, a form, a configurator); tables, charts and text need none. Give it a Title and a Caption. Separate groups with a Divider or the gap, never a nested Card or bordered Box. Variant "section": no box; "outline": always a box. Without controls it renders as "section" unless variant or border is set.',
     props: cardSchema,
     events: VISIBLE_EVENT,
     slots: { child: "single", children: "multiple" } as const,
@@ -1237,7 +1236,7 @@ export const layoutComponents = {
   Carousel: {
     component: Carousel,
     description:
-      'A row that scrolls horizontally and snaps to its slides, with previous and next arrows. Put CarouselItem or CarouselMediaItem children in it. Bind activeIndex with { "@path": "/x" } to read or set the slide in view.',
+      "A horizontally scrolling row that snaps to its CarouselItem or CarouselMediaItem children, with arrows. Bind activeIndex to read or set the slide in view.",
     props: carouselSchema,
     events: VISIBLE_EVENT,
     slots: CHILDREN_SLOT,
@@ -1253,7 +1252,7 @@ export const layoutComponents = {
   CarouselMediaItem: {
     component: CarouselMediaItem,
     description:
-      'A slide of a Carousel with an image on top and its children (a Caption, a Text) under it. size "sm" is 160px, "md" 240px (default), "lg" 320px wide. A click on the image opens all slides full-screen, unless href or onClick is set.',
+      'A Carousel slide: an image with its children (a Caption, a Text) under it. size "sm" 160px, "md" 240px (default), "lg" 320px wide. A click opens all slides full-screen, unless href or onClick is set.',
     props: carouselMediaItemSchema,
     events: {
       ...VISIBLE_EVENT,
