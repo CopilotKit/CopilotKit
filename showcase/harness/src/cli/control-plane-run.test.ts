@@ -426,3 +426,33 @@ describe("runViaControlPlane error surfacing", () => {
     ).rejects.toThrow(/2 failure\(s\)/);
   });
 });
+
+it("forwards an explicitly requested A2UI format in fleet driver inputs", async () => {
+  const job = {
+    probeKey: "d6:generic",
+    serviceSlug: "generic",
+    driverKind: "d6",
+    driverInputs: { demos: ["declarative-gen-ui"] },
+  };
+  createServiceEnumMock.mockImplementationOnce(
+    () => async () => [job] as never[],
+  );
+  tickResultRef.current = { ...tickResultRef.current, enqueued: 0 };
+  await expect(
+    runViaControlPlane(
+      [{ slug: "generic", demo: "declarative-gen-ui", level: "d6" }],
+      { level: "d6", a2uiFormat: "express" },
+      STUB_CONFIG,
+      SILENT_LOGGER,
+    ),
+  ).rejects.toThrow(/enqueued 0 jobs/i);
+  const producerOptions = createJobProducerMock.mock.calls.at(-1)![0];
+  const jobs = await producerOptions.enumerate({
+    triggered: true,
+    runId: "test",
+  });
+  expect(jobs[0].driverInputs).toEqual({
+    demos: ["declarative-gen-ui"],
+    a2uiFormat: "express",
+  });
+});

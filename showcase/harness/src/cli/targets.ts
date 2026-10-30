@@ -11,6 +11,7 @@ export interface TestTarget {
   /** Undefined means all demos for this slug. */
   demo?: string;
   level: TestLevel;
+  a2uiFormat?: import("../probes/helpers/a2ui-format.js").A2uiFormat;
 }
 
 /**
@@ -83,6 +84,7 @@ export interface ChatToolsInput {
  * array (registry IDs the driver maps via `demosToFeatureTypes()`).
  */
 export interface DeepInput {
+  a2uiFormat?: import("../probes/helpers/a2ui-format.js").A2uiFormat;
   key: string;
   backendUrl: string;
   name: string;
@@ -106,6 +108,7 @@ export interface DeepInput {
  * field) and runs ALL features (no sampling).
  */
 export interface FullInput {
+  a2uiFormat?: import("../probes/helpers/a2ui-format.js").A2uiFormat;
   key: string;
   backendUrl: string;
   name: string;
@@ -343,6 +346,7 @@ export function buildDeepInputs(
 
       return {
         key: `d5-single-pill-e2e:${slug}`,
+        ...(target.a2uiFormat ? { a2uiFormat: target.a2uiFormat } : {}),
         backendUrl: getPackageUrl(slug, config),
         name: manifest.name,
         demos: features,
@@ -386,6 +390,7 @@ export function buildFullInputs(
 
       return {
         key: `d6:${slug}`,
+        ...(target.a2uiFormat ? { a2uiFormat: target.a2uiFormat } : {}),
         backendUrl: getPackageUrl(slug, config),
         name: manifest.name,
         demos: features,

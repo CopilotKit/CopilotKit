@@ -76,6 +76,7 @@ function familyForLevel(level: ControlPlaneLevel): string {
 /** Tunables for the control-plane run (polling cadence + ceiling). */
 export interface ControlPlaneRunOptions {
   level: ControlPlaneLevel;
+  a2uiFormat?: import("../probes/helpers/a2ui-format.js").A2uiFormat;
   /** How long to wait for the worker fleet to drain the run, in ms. */
   timeoutMs?: number;
   /** How often to poll PocketBase for the run's terminal cells, in ms. */
@@ -474,7 +475,16 @@ export async function runViaControlPlane(
     logger,
   });
   const queue = createFleetQueueClient({ pb, claim, logger });
-  const enumerate = buildEnumerator(level, slugs, env, logger);
+  const baseEnumerator = buildEnumerator(level, slugs, env, logger);
+  const enumerate: ServiceEnumerator = async (ctx) => {
+    const jobs = await baseEnumerator(ctx);
+    return options.a2uiFormat
+      ? jobs.map((job) => ({
+          ...job,
+          driverInputs: { ...job.driverInputs, a2uiFormat: options.a2uiFormat },
+        }))
+      : jobs;
+  };
   // §4.2: a triggered tick must stamp the SAME family id the scheduled
   // producer for this level would, so the run aggregates into the correct
   // family on the /api/runs projection. Resolve it through the §5.1 registry

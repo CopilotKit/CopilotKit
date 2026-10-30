@@ -58,6 +58,7 @@ import type { CvdiagPbWriter } from "../cvdiag/pb-writer.js";
 
 export interface RunOptions {
   level: TestLevel;
+  format?: import("../probes/helpers/a2ui-format.js").A2uiFormat;
   /** Launch Playwright in headed mode (visible browser window). */
   headed?: boolean;
   /** Number of times to repeat the probe execution. */
@@ -193,7 +194,9 @@ export async function run(
   const allResults: TerminalResult[] = [];
 
   // -- 1. Resolve targets ----------------------------------------------------
-  const targets = resolveTargets(target, options.level, config);
+  const targets = resolveTargets(target, options.level, config).map((t) =>
+    options.format ? { ...t, a2uiFormat: options.format } : t,
+  );
 
   logger.info("cli.runner.resolved-targets", {
     target,
@@ -424,6 +427,7 @@ export async function run(
               {
                 level: depth as ControlPlaneLevel,
                 verbose: options.verbose,
+                a2uiFormat: options.format,
               },
               config,
               logger,

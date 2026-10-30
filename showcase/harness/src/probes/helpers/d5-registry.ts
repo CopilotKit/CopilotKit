@@ -207,6 +207,8 @@ export interface D5BuildContext {
   integrationSlug: string;
   featureType: D5FeatureType;
   baseUrl: string;
+  /** Optional server inference format; omitted preserves each integration default. */
+  a2uiFormat?: import("./a2ui-format.js").A2uiFormat;
 }
 
 /**
