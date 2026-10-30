@@ -1,0 +1,3037 @@
+/*
+ * Base resets sit in the lowest cascade layer, below CopilotKit's Tailwind
+ * layers, so the chat and the generated components keep their own spacing,
+ * colors and shapes. Everything below the layer targets this app's classes.
+ *
+ * CopilotKit's own stylesheet arrives with its JavaScript, after this file.
+ * Where a rule here restyles a CopilotKit element, it carries one extra
+ * selector (`:root`, `.composer`, `.stage`) so it outranks the later sheet.
+ *
+ * Clerk puts its styles in the `clerk` layer, above the resets, so the
+ * unlayered rules here (see "Sign in") restyle its parts.
+ */
+@layer reset, clerk;
+
+@import "@fontsource-variable/atkinson-hyperlegible-next";
+@import "@fontsource-variable/atkinson-hyperlegible-mono";
+@import "./tokens.css";
+
+/* ------------------------------------------------------------------ base */
+
+@layer reset {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--leading);
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  input,
+  textarea {
+    caret-color: var(--desk-accent);
+  }
+
+  a {
+    color: var(--desk-accent);
+    text-underline-offset: 0.18em;
+    text-decoration-thickness: 1px;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  h1,
+  h2,
+  p {
+    margin: 0;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule-strong) transparent;
+  }
+}
+
+table,
+.a2ui-source,
+.notes__count {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: rgb(38 139 210 / 0.22);
+  color: var(--ink-strong);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--rule-strong);
+  border: 3px solid transparent;
+  border-radius: 99px;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.icon-button:hover {
+  background: var(--sand-pressed);
+  color: var(--ink-strong);
+}
+
+/* ---------------------------------------------------------------- layout */
+
+/* The desk is the whole page: every pane scrolls inside itself, and the
+   shell clips (rather than hides) whatever pokes out, so neither an
+   absolutely placed element nor a scrollIntoView can scroll the page. */
+.desk {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--drawer-width) minmax(0, 1fr);
+  height: 100dvh;
+  overflow: clip;
+}
+.desk[data-drawer="closed"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* the paper itself: one still layer of grain over everything, so drawer,
+   chat, views and composer all sit on the same sheet */
+.desk::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+  background-image: var(--grain-fiber), var(--grain-mottle);
+}
+
+.desk-loading {
+  display: grid;
+  grid-template-columns: var(--drawer-width) minmax(0, 1fr);
+  height: 100dvh;
+}
+.desk-loading::before {
+  content: "";
+  background: var(--sand);
+  border-right: 1px solid var(--rule);
+}
+
+/* ---------------------------------------------------------------- drawer */
+
+.drawer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--sand);
+  border-right: 1px solid var(--rule);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+/* The drawer keeps two lines: every block sits var(--s-3) in from its edges,
+   and every icon (brand, New question, threads) another var(--s-3) inside,
+   with its text one gap past the icon. */
+/* the head ends level with the chat's header, on a hairline that stops
+   short of the drawer's edge */
+.drawer__head {
+  position: relative;
+  display: flex;
+  min-height: 3.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+}
+.drawer__head::after {
+  position: absolute;
+  right: var(--s-3);
+  bottom: 0;
+  left: var(--s-3);
+  height: 1px;
+  /* sand needs the stronger rule to read as faintly as the chat's line */
+  background: var(--rule-strong);
+  content: "";
+}
+.drawer__home {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--s-3);
+  padding-left: var(--s-3);
+  color: var(--ink-strong);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+/* the byline closes the drawer, under a divider, in the same quiet type as
+   the composer's disclaimer */
+.drawer__byline {
+  margin: var(--s-2) 0 0;
+  padding: var(--s-3) var(--s-3) 0;
+  border-top: 1px solid var(--rule-strong);
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+.drawer__byline a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--rule-strong);
+}
+.drawer__byline a:hover {
+  color: var(--desk-accent-strong);
+  text-decoration-color: currentColor;
+}
+
+.drawer .icon-button:hover {
+  background: var(--sand-pressed);
+}
+
+.drawer__new {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin: var(--s-3) var(--s-3);
+  /* the border takes a pixel; the icon still starts on the drawer line */
+  padding: var(--s-2) var(--s-3) var(--s-2) calc(var(--s-3) - 1px);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink-strong);
+  font-weight: 560;
+  cursor: pointer;
+  box-shadow: var(--shadow-hairline);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.drawer__new:hover {
+  border-color: var(--ink-faint);
+  background: var(--paper-raised);
+}
+
+.drawer__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--s-3) var(--s-4);
+}
+
+.drawer__group + .drawer__group {
+  margin-top: var(--s-4);
+}
+
+.drawer__label {
+  padding: var(--s-2) var(--s-3) var(--s-1);
+  color: var(--ink);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.drawer__list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.drawer__empty {
+  margin: var(--s-2) var(--s-3);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.drawer__more {
+  margin: var(--s-3) var(--s-3) 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--desk-accent-strong);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.thread {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.thread:hover {
+  background: var(--sand-pressed);
+}
+.thread[data-active] {
+  background: var(--paper);
+  box-shadow:
+    0 0 0 1px var(--rule),
+    var(--shadow-hairline);
+}
+
+.thread--placeholder {
+  height: 2.25rem;
+  margin: 2px var(--s-1);
+  background: linear-gradient(
+    90deg,
+    var(--sand-pressed),
+    var(--sand-raised),
+    var(--sand-pressed)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+.thread__open {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.thread[data-active] .thread__open {
+  color: var(--ink-strong);
+}
+
+.thread__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* archive takes its own place in the row on hover, so the title ends in an
+   ellipsis beside it instead of running underneath */
+.thread__archive {
+  flex: none;
+  width: 0;
+  height: 1.75rem;
+  overflow: hidden;
+  opacity: 0;
+}
+.thread:hover .thread__archive,
+.thread__archive:focus-visible {
+  width: 1.75rem;
+  margin-right: var(--s-1);
+  opacity: 1;
+}
+
+.thread-icon {
+  flex: none;
+}
+.thread-icon--pending {
+  display: inline-block;
+  border-radius: 50%;
+  border: 1.5px dashed var(--ink-faint);
+}
+
+/* the drawer's foot: the Catalog and Notes tabs, a divider, and the byline */
+.drawer__foot {
+  padding: var(--s-2) var(--s-3) var(--s-3);
+}
+
+.drawer__tab {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink);
+  font-weight: 560;
+  cursor: pointer;
+}
+.drawer__tab:hover {
+  background: var(--sand-pressed);
+}
+/* Sign in is a link to its page, dressed like its neighbours */
+a.drawer__tab {
+  color: var(--ink);
+  text-decoration: none;
+}
+.drawer__tab[aria-current="page"] {
+  background: var(--paper);
+  color: var(--ink-strong);
+  box-shadow: var(--shadow-hairline);
+}
+
+.notes__count {
+  margin-left: auto;
+  min-width: 1.5rem;
+  padding: 0 var(--s-2);
+  border-radius: 99px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-align: center;
+}
+
+/* the notes open in a dialog over the desk */
+.notes-dialog {
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: min(80dvh, 40rem);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--sheet);
+  color: var(--ink);
+  /* the sheet's printed edge, as a ring, under its lift */
+  box-shadow:
+    0 0 0 1px var(--sheet-edge),
+    var(--shadow-float);
+}
+.notes-dialog[open] {
+  animation: pop var(--dur) var(--ease-out);
+}
+.notes-dialog::backdrop {
+  background: var(--scrim-light);
+}
+.notes-dialog__body {
+  display: flex;
+  max-height: inherit;
+  flex-direction: column;
+}
+.notes-dialog__head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-5);
+  border-bottom: 1px solid var(--rule);
+}
+.notes-dialog__head h2 {
+  color: var(--ink-strong);
+  font-size: var(--text-base);
+  font-weight: 650;
+}
+.notes__list {
+  display: grid;
+  min-height: 0;
+  gap: var(--s-2);
+  margin: 0;
+  padding: var(--s-4) var(--s-5) var(--s-5);
+  overflow-y: auto;
+  list-style: none;
+}
+
+.notes__empty {
+  padding: var(--s-1) var(--s-2);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.note {
+  padding: var(--s-3);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: 0 0 0 1px var(--rule);
+  animation: rise var(--dur-slow) var(--ease-out) both;
+}
+.note__title {
+  color: var(--ink-strong);
+  font-size: var(--text-sm);
+  font-weight: 620;
+}
+.note__text {
+  margin-top: 2px;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+.note__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--s-1);
+}
+.note__actions .icon-button {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-left: auto;
+}
+.note__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--text-xs);
+}
+
+/* ----------------------------------------------------------------- stage */
+
+.stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--paper);
+}
+
+.stage__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 3.5rem;
+  padding: var(--s-2) var(--s-4) var(--s-2) var(--s-6);
+  border-bottom: 1px solid var(--rule);
+}
+.desk[data-drawer="closed"] .stage__head {
+  padding-left: var(--s-3);
+}
+
+.stage__title {
+  display: flex;
+  flex: 1;
+  min-width: 6rem;
+  align-items: center;
+  gap: var(--s-2);
+}
+.stage__title h2 {
+  overflow: hidden;
+  color: var(--ink-strong);
+  font-size: var(--text-base);
+  font-weight: 620;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------- model picker */
+
+.model-picker {
+  position: relative;
+  flex: none;
+}
+
+.model-picker__button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  height: 2.125rem;
+  padding: 0 var(--s-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: 99px;
+  background: var(--paper);
+  color: var(--ink-strong);
+  font-size: var(--text-sm);
+  font-weight: 560;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+.model-picker__button:hover,
+.model-picker__button[aria-expanded="true"] {
+  border-color: var(--ink-faint);
+  background: var(--sand-raised);
+}
+
+.model-picker__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sol-cyan);
+  box-shadow: 0 0 0 3px rgb(42 161 152 / 0.16);
+}
+
+.model-picker__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  min-width: 15rem;
+  padding: var(--s-1);
+  border: 1px solid var(--control-edge);
+  border-radius: var(--radius-lg);
+  background: var(--control);
+  box-shadow: var(--shadow-float);
+  transform-origin: top right;
+  animation: pop var(--dur) var(--ease-out);
+}
+
+.model-picker__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink-strong);
+  text-align: left;
+  cursor: pointer;
+}
+.model-picker__item:hover {
+  background: var(--sand);
+}
+.model-picker__item:focus-visible {
+  background: var(--sand);
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.model-picker__item svg {
+  color: var(--desk-accent);
+}
+
+.model-picker__text {
+  display: grid;
+}
+.model-picker__label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.model-picker__note {
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+.ui-format-picker .model-picker__menu {
+  min-width: 10rem;
+}
+.ui-format-picker__note {
+  margin: var(--s-1) var(--s-3) var(--s-2);
+}
+.ui-format-picker button:disabled {
+  color: var(--ink-muted);
+  cursor: not-allowed;
+}
+.composer .ui-format-picker .model-picker__button:disabled,
+.ui-format-picker .model-picker__item:disabled {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* ------------------------------------------------------- CopilotKit chat */
+
+/* CopilotKit sets its own font stack on chat elements; code stays monospace */
+[data-copilotkit] :where(:not(pre, code, kbd, pre *, code *)) {
+  font-family: var(--font-sans);
+}
+[data-copilotkit] :where(pre, code, kbd) {
+  font-family: var(--font-mono);
+}
+
+/* :root raises specificity above CopilotKit's own [data-copilotkit] tokens,
+   which load after this stylesheet, and :root.dark above its dark ones */
+:root [data-copilotkit],
+:root.dark [data-copilotkit] {
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--paper);
+  --card-foreground: var(--ink);
+  --popover: var(--paper-raised);
+  --popover-foreground: var(--ink-strong);
+  --primary: var(--desk-accent);
+  --primary-foreground: var(--on-accent);
+  --secondary: var(--sand);
+  --secondary-foreground: var(--ink-strong);
+  --muted: var(--sand);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--sand);
+  --accent-foreground: var(--ink-strong);
+  --border: var(--rule);
+  --input: var(--rule-strong);
+  --ring: var(--sol-blue);
+  --radius: 0.75rem;
+  font-family: var(--font-sans);
+}
+
+.chat {
+  flex: 1;
+  min-height: 0;
+}
+/* the chat waits, still mounted, while the catalog has the stage */
+.stage .chat--away {
+  display: none;
+}
+
+/* the agent's turns, in the desk's reading type */
+.answer__text {
+  color: var(--ink);
+  font-size: var(--text-base);
+  line-height: var(--leading);
+  overflow-wrap: break-word;
+}
+.answer__text :where(p, ul, ol, blockquote, pre, table) {
+  margin: 0 0 var(--s-4);
+}
+/* a comfortable measure for prose; generated views keep the full column */
+.answer__text :where(p, ul, ol, h1, h2, h3, h4, blockquote):not(.surface *) {
+  max-width: 62ch;
+}
+.answer__text :where(h1, h2, h3, h4) {
+  margin: var(--s-6) 0 var(--s-2);
+  color: var(--ink-strong);
+  font-weight: 650;
+  line-height: var(--leading-tight);
+}
+.answer__text :where(h1, h2) {
+  font-size: var(--text-lg);
+}
+.answer__text :where(h3, h4) {
+  font-size: var(--text-base);
+}
+.answer__text :where(ul, ol) {
+  padding-left: 1.25em;
+}
+.answer__text ul {
+  list-style: disc;
+}
+.answer__text ol {
+  list-style: decimal;
+}
+.answer__text li {
+  margin: var(--s-1) 0;
+  padding-left: 0.25em;
+}
+.answer__text li::marker {
+  color: var(--ink-faint);
+}
+.answer__text :where(strong, b) {
+  color: var(--ink-strong);
+  font-weight: 650;
+}
+.answer__text :where(code):not(pre code) {
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-sm);
+  background: var(--sand);
+  color: var(--ink-strong);
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+.answer__text pre {
+  overflow-x: auto;
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--radius);
+  background: var(--sand);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+.answer__text blockquote {
+  padding-left: var(--s-4);
+  border-left: 1px solid var(--rule-strong);
+  color: var(--ink-muted);
+}
+.answer__text hr {
+  margin: var(--s-6) 0;
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+.answer__text table:not(.surface *) {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.answer__text :where(th, td):not(.surface *) {
+  padding: var(--s-2) var(--s-3) var(--s-2) 0;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+}
+.answer__text th:not(.surface *) {
+  border-bottom-color: var(--rule-strong);
+  color: var(--ink-strong);
+  font-weight: 650;
+}
+.answer__text > :last-child,
+.answer__text :where(p, ul, ol):last-child {
+  margin-bottom: 0;
+}
+
+/* a turn that only shows research steps keeps a breath before the answer */
+.answer:has(.research-step) {
+  margin-bottom: var(--s-3);
+}
+
+/* the reader's turns: the question as typed, on a sand slip */
+.copilotKitUserMessage .question {
+  display: inline-block;
+  max-width: 80%;
+  padding: var(--s-2) var(--s-4);
+  border-radius: var(--radius-lg);
+  background: var(--sand);
+  color: var(--ink-strong);
+  white-space: pre-wrap;
+}
+.copilotKitUserMessage .question[data-view] {
+  position: relative;
+  padding-bottom: var(--s-3);
+}
+.question__view {
+  position: absolute;
+  right: var(--s-4);
+  bottom: 0;
+  display: inline-flex;
+  line-height: 1;
+  transform: translateY(50%);
+}
+
+.welcome {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-4);
+}
+/* the welcome lays its pieces straight on the page: the composer and the
+   starters are the only cards, never cards inside a card */
+.welcome__inner {
+  display: flex;
+  width: 100%;
+  max-width: var(--column);
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-4);
+}
+.welcome__title {
+  color: var(--ink-strong);
+  font-size: var(--text-xl);
+  font-weight: 620;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+.welcome__input {
+  width: 100%;
+}
+/* the disclaimer sits under the starters on the welcome, not in the composer */
+.welcome .composer__disclaimer {
+  display: none;
+}
+.welcome__note {
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+/* starters: paper slips on an endless strip, a few at a time. They wear
+   the composer's face (--control), so every way in looks as pressable. */
+.starters {
+  position: relative;
+  display: grid;
+  width: 100%;
+  grid-template-columns: 2rem minmax(0, 1fr) 2rem;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: var(--s-1);
+}
+.starters__viewport {
+  container-type: inline-size;
+  overflow: hidden;
+  /* room inside the clip for a slip's hover tilt, lift and shadow; the
+     neighbours off either side stay a full gap away, out of sight */
+  margin: calc(-1 * var(--s-3)) calc(-1 * var(--s-2));
+  padding: var(--s-3) var(--s-2);
+  touch-action: pan-y;
+}
+.starters__track {
+  --gap: var(--s-3);
+  display: flex;
+  gap: var(--gap);
+  transform: translateX(
+    calc(var(--index) * -1 * (100cqi + var(--gap)) / var(--per-view))
+  );
+  transition: transform var(--slide-duration) var(--ease-out);
+}
+.starters__track[data-instant] {
+  transition: none;
+}
+.starter-slip {
+  --tilt: -0.8deg;
+  display: flex;
+  flex: 0 0
+    calc((100cqi - (var(--per-view) - 1) * var(--gap)) / var(--per-view));
+  min-width: 0;
+  min-height: 6.25rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-1);
+  padding: var(--s-3);
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--control);
+  box-shadow:
+    0 0 0 1px var(--control-edge),
+    var(--shadow-hairline);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
+}
+.starter-slip:nth-child(4n + 2) {
+  --tilt: 0.7deg;
+}
+.starter-slip:nth-child(4n + 3) {
+  --tilt: -0.4deg;
+}
+.starter-slip:nth-child(4n + 4) {
+  --tilt: 1deg;
+}
+.starter-slip:hover {
+  box-shadow:
+    0 0 0 1px var(--control-edge-hover),
+    0 6px 14px -8px rgb(7 54 66 / 0.24);
+  /* a slip lies straight on the page and picks up its own slight angle
+     when the pointer reaches it */
+  transform: translateY(-2px) rotate(var(--tilt));
+}
+.starter-slip svg {
+  margin-bottom: var(--s-2);
+}
+.starter-slip__title {
+  color: var(--ink-strong);
+  font-size: var(--text-sm);
+  font-weight: 620;
+  line-height: 1.3;
+}
+.starter-slip__view {
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+.starters__arrow {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid var(--control-edge);
+  border-radius: 50%;
+  background: var(--control);
+  color: var(--ink);
+  box-shadow: var(--shadow-hairline);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.starters__arrow:hover {
+  border-color: var(--control-edge-hover);
+  color: var(--ink-strong);
+}
+
+/* research steps: one quiet line per web_research call */
+
+.research-step {
+  display: flex;
+  gap: var(--s-2);
+  align-items: flex-start;
+  margin: var(--s-1) 0;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+.research-step__mark {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--sand);
+  color: var(--desk-accent);
+}
+.research-step:not([data-done]) .research-step__mark {
+  animation: breathe 1.4s var(--ease-in-out) infinite;
+}
+.research-step[data-done] .research-step__mark {
+  color: var(--signal-ok);
+}
+.research-step__thumbs {
+  display: flex;
+  gap: var(--s-1);
+  margin-top: var(--s-1);
+}
+.research-step__thumbs img {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--sand);
+  box-shadow: 0 0 0 1px var(--rule);
+}
+.research-step__label {
+  color: var(--ink);
+  font-weight: 600;
+}
+.research-step__query {
+  color: var(--ink-muted);
+}
+.research-step__sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  margin-top: var(--s-1);
+}
+.research-step__source,
+.research-step__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px var(--s-2);
+  border-radius: 99px;
+  background: var(--sand);
+  color: var(--ink);
+  font-size: var(--text-xs);
+  text-decoration: none;
+}
+.research-step__favicon {
+  flex: none;
+  opacity: 0.85;
+  filter: saturate(0.7);
+}
+.research-step__source:hover .research-step__favicon {
+  opacity: 1;
+  filter: none;
+}
+.research-step__source:hover {
+  background: var(--sand-pressed);
+  color: var(--ink-strong);
+}
+.research-step__error {
+  color: var(--signal-warn);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------- catalog */
+
+/* The catalog takes the chat's place on the stage: one page of specimens,
+   each a sheet like the views in the chat, in the catalog's seven groups. */
+.catalog {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-padding-top: 3.5rem;
+}
+.catalog__inner {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: var(--s-2) var(--s-6) var(--s-12);
+}
+/* the groups, pinned under the stage header while the page scrolls */
+.catalog__nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: var(--s-1);
+  margin: 0 calc(-1 * var(--s-2));
+  padding: var(--s-2);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  scrollbar-width: none;
+}
+.catalog__nav a {
+  display: inline-flex;
+  flex: none;
+  align-items: baseline;
+  gap: var(--s-2);
+  padding: var(--s-1) var(--s-3);
+  border-radius: 99px;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  font-weight: 560;
+  text-decoration: none;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.catalog__nav a:hover {
+  background: var(--sand);
+  color: var(--ink-strong);
+}
+.catalog__nav a[aria-current] {
+  background: var(--sand);
+  color: var(--ink-strong);
+  box-shadow: inset 0 0 0 1px var(--rule-strong);
+}
+.catalog__count {
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.catalog__section {
+  padding-top: var(--s-10);
+}
+.catalog__section-head {
+  display: grid;
+  gap: var(--s-1);
+  margin-bottom: var(--s-2);
+}
+.catalog__section-head h2 {
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: var(--text-xl);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: var(--leading-tight);
+}
+.catalog__section-head p {
+  max-width: 62ch;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading);
+}
+
+/* A bento of specimens: every tile one height, so the rows read evenly;
+   a wide tile spans two columns, and the grid packs the rest around it. */
+.catalog__inner {
+  container-type: inline-size;
+}
+.catalog__grid {
+  --tile-height: 20rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: var(--tile-height);
+  grid-auto-flow: row dense;
+  gap: var(--s-4);
+  margin-top: var(--s-4);
+}
+.specimen[data-wide] {
+  grid-column: span 2;
+}
+@container (max-width: 52rem) {
+  .catalog__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* one column: a tile takes the height its specimen needs */
+@container (max-width: 34rem) {
+  .catalog__grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: auto;
+  }
+  .catalog__grid .specimen[data-wide] {
+    grid-column: auto;
+  }
+  .catalog__grid .specimen {
+    min-height: 15rem;
+  }
+}
+
+.specimen {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+/* the tile is a sheet like the chat's views: its name and the info and
+   A2UI buttons along the top, the specimen centered under them */
+.specimen__view.surface {
+  --tile-head: 2.75rem;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  animation: none;
+}
+.specimen__head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--s-1);
+  height: var(--tile-head);
+  /* the A2UI button sits at the right end of this line */
+  padding: 0 6rem 0 var(--s-4);
+  border-bottom: 1px solid var(--rule);
+}
+.specimen__head h3 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink-strong);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.specimen__about-toggle {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 99px;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.specimen__about-toggle:hover,
+.specimen__about-toggle[aria-expanded="true"] {
+  background: var(--sand);
+  color: var(--ink-strong);
+}
+.specimen__view .surface__toggle {
+  top: calc(var(--tile-head) / 2);
+  right: var(--s-3);
+}
+.specimen__view > .surface__render {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+  padding: var(--s-4) var(--s-5);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+/* an overlay that opens under its trigger starts at the top, so it has
+   the room below */
+.specimen[data-overlay] .specimen__view > .surface__render {
+  justify-content: flex-start;
+}
+/* pictures keep a margin here: the tile's head sits above them */
+.specimen__view
+  > .surface__render
+  .a2ui-surface
+  > [data-a2ui-std]
+  > :is(img, [data-a2ui-image-grid]) {
+  min-width: 0;
+  margin: 0;
+  border-radius: var(--radius);
+}
+/* the A2UI and the notes about the component open over the specimen, under
+   the head */
+.specimen__view .surface__source,
+.specimen__about {
+  top: var(--tile-head);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.specimen__view .surface__source-bar {
+  justify-content: space-between;
+  padding-top: var(--s-2);
+}
+.specimen__about {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  display: grid;
+  align-content: start;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-5);
+  overflow-y: auto;
+  background: var(--sheet);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  animation: content-in var(--dur) var(--ease-out);
+}
+.specimen__about p {
+  max-width: 62ch;
+}
+.specimen__about dl {
+  display: grid;
+  gap: var(--s-2);
+  margin: 0;
+}
+.specimen__about dt {
+  color: var(--ink-strong);
+  font-size: var(--text-xs);
+  font-weight: 650;
+}
+.specimen__about dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  margin: 2px 0 0;
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+.specimen__about code {
+  padding: 0 var(--s-1);
+  border-radius: var(--radius-sm);
+  background: var(--sand);
+  color: var(--ink-strong);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.catalog__more {
+  display: grid;
+  gap: var(--s-2);
+  margin: var(--s-2) 0 0;
+}
+.catalog__more dt {
+  color: var(--ink-strong);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+.catalog__more dd {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+/* ----------------------------------------------------------- connections */
+
+/* The reader's Google apps, on the stage like the catalog: one sheet, a row
+   per app, its state and its one action at the end of the row. */
+.connections {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.connections__inner {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: var(--s-8) var(--s-6) var(--s-12);
+}
+.connections__lede {
+  max-width: 62ch;
+  margin: 0 0 var(--s-6);
+  color: var(--ink);
+  font-size: var(--text-base);
+  line-height: var(--leading);
+}
+.connections__error {
+  margin: 0 0 var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--radius);
+  background: var(--wash-red);
+  color: var(--signal-danger);
+  font-size: var(--text-sm);
+}
+.connections__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-radius: var(--radius-lg);
+  background: var(--sheet);
+  box-shadow:
+    0 0 0 1px var(--sheet-edge),
+    var(--shadow-sheet);
+}
+.connection {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-5);
+}
+.connection + .connection {
+  border-top: 1px solid var(--rule);
+}
+.connection__icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-sm);
+}
+.connection__text h3 {
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: var(--text-base);
+  font-weight: 620;
+}
+.connection__text p {
+  margin: 2px 0 0;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+.connection__state {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.connection__account {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  max-width: 14rem;
+  overflow: hidden;
+  color: var(--signal-ok);
+  font-size: var(--text-sm);
+  font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.connection[data-status="pending"] .connection__account {
+  color: var(--ink-muted);
+}
+.connection__button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  height: 2rem;
+  padding: 0 var(--s-4);
+  border: 1px solid var(--desk-accent);
+  border-radius: 99px;
+  background: var(--desk-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.connection__button:hover:not(:disabled) {
+  border-color: var(--desk-accent-strong);
+  background: var(--desk-accent-strong);
+}
+.connection__button--quiet {
+  border-color: var(--control-edge);
+  background: transparent;
+  color: var(--ink);
+}
+.connection__button--quiet:hover:not(:disabled) {
+  border-color: var(--control-edge-hover);
+  background: var(--sand);
+  color: var(--ink-strong);
+}
+.connection__button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.connection__spinner {
+  animation: spin 900ms linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 640px) {
+  .connection {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .connection__state {
+    grid-column: 2;
+    flex-wrap: wrap;
+  }
+}
+
+/* --------------------------------------------------------------- sign in */
+
+/* Signing in is optional; this page is where a reader commits. One column
+   centered on the desk's paper, lit a little brighter at the middle, with
+   Clerk's form flush inside one of the desk's sheets. */
+.sign-in {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: var(--s-8) var(--s-4);
+  background:
+    radial-gradient(
+      90% 70% at 50% 40%,
+      var(--paper-raised) 0%,
+      transparent 70%
+    ),
+    var(--paper);
+}
+/* the paper's fiber and mottle, a touch more present than on the desk:
+   here there is nothing else to look at */
+.sign-in::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+  background-image: var(--grain-fiber), var(--grain-fiber), var(--grain-mottle);
+  background-position:
+    0 0,
+    120px 80px,
+    0 0;
+}
+.sign-in__column {
+  display: grid;
+  width: min(100%, 25rem);
+  justify-items: center;
+  gap: var(--s-5);
+}
+.sign-in__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--ink-strong);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  text-decoration: none;
+}
+.sign-in__sheet {
+  /* Clerk's form heights, held while it loads (see the skeleton below) */
+  --form-height: 31.1875rem;
+  --form-stacked: 0rem;
+  --form-coarse: 0rem;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--sheet);
+  box-shadow:
+    0 0 0 1px var(--sheet-edge),
+    var(--shadow-sheet);
+}
+.sign-in__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border-radius: 99px;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+.sign-in__back:hover {
+  background: var(--sand);
+  color: var(--ink-strong);
+}
+
+.sign-in__sheet[data-mode="sign-up"] {
+  --form-height: 43.125rem;
+}
+/* narrow: Clerk stacks its two social buttons */
+@media (max-width: 480px) {
+  .sign-in__sheet {
+    --form-stacked: 3.25rem;
+  }
+}
+
+/* The form's shape until Clerk renders: blocks where its parts will be, on a
+   sheet held at the form's height, so nothing shifts when it arrives. */
+.sign-in__sheet:not(:has(.cl-rootBox)) {
+  min-height: calc(
+    var(--form-height) + var(--form-stacked) + var(--form-coarse)
+  );
+}
+.sign-in__sheet:has(.cl-rootBox) .form-skeleton {
+  display: none;
+}
+.form-skeleton__card {
+  display: grid;
+  gap: var(--s-5);
+  padding: var(--s-6) var(--s-6) var(--s-5);
+}
+.form-skeleton__header {
+  display: grid;
+  justify-items: center;
+  gap: var(--s-2);
+  padding-bottom: var(--s-1);
+}
+.form-skeleton__social {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--s-2);
+}
+.form-skeleton__field {
+  display: grid;
+  gap: var(--s-2);
+}
+.form-skeleton__footer {
+  display: grid;
+  justify-items: center;
+  padding: var(--s-6) 0;
+  border-top: 1px solid var(--rule);
+}
+.form-skeleton__title,
+.form-skeleton__line,
+.form-skeleton__label,
+.form-skeleton__block,
+.form-skeleton__divider {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: var(--sand);
+  animation: breathe 1.6s var(--ease-in-out) infinite;
+}
+.form-skeleton__title {
+  width: 6rem;
+  height: 1.75rem;
+  margin-bottom: var(--s-1);
+}
+.form-skeleton__line {
+  width: 15rem;
+  max-width: 100%;
+  height: 0.75rem;
+}
+.form-skeleton__line--short {
+  width: 11rem;
+}
+.form-skeleton__label {
+  width: 11rem;
+  height: 0.75rem;
+}
+.form-skeleton__block {
+  height: 2.75rem;
+  border-radius: var(--radius);
+  background: var(--sand-raised);
+  box-shadow: inset 0 0 0 1px var(--rule);
+}
+.form-skeleton__block--primary {
+  border-radius: 99px;
+  background: var(--sand);
+  box-shadow: none;
+}
+.form-skeleton__divider {
+  height: 1px;
+  margin: var(--s-2) 0;
+  background: var(--rule);
+  animation: none;
+}
+
+/* Clerk's parts, on the desk's tokens. Clerk lays them out; these rules own
+   how they look. */
+.sign-in .cl-rootBox,
+.sign-in .cl-cardBox {
+  width: 100%;
+  max-width: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.sign-in .cl-card {
+  gap: var(--s-5);
+  padding: var(--s-6) var(--s-6) var(--s-5);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.sign-in .cl-header {
+  gap: var(--s-1);
+}
+.sign-in .cl-headerTitle {
+  color: var(--ink-strong);
+  font-size: var(--text-xl);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: var(--leading-tight);
+}
+.sign-in .cl-headerSubtitle {
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  text-wrap: balance;
+}
+.sign-in .cl-socialButtons {
+  gap: var(--s-2);
+}
+.sign-in .cl-socialButtonsBlockButton,
+.sign-in .cl-formFieldInput {
+  min-height: 2.75rem;
+  border: 1px solid var(--control-edge);
+  border-radius: var(--radius);
+  background: var(--control);
+  box-shadow: none;
+  color: var(--ink-strong);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.sign-in .cl-socialButtonsBlockButton:hover {
+  border-color: var(--control-edge-hover);
+  background: var(--sand-raised);
+}
+.sign-in .cl-socialButtonsBlockButtonText {
+  color: var(--ink-strong);
+  font-size: var(--text-sm);
+  font-weight: 560;
+}
+.sign-in .cl-dividerLine {
+  background: var(--rule);
+}
+.sign-in .cl-dividerText {
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+.sign-in .cl-formFieldLabel {
+  color: var(--ink-strong);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.sign-in .cl-formFieldInput {
+  padding: 0 var(--s-3);
+  font-size: var(--text-base);
+}
+.sign-in .cl-formFieldInput::placeholder {
+  color: var(--ink-muted);
+}
+.sign-in .cl-formFieldInput:hover {
+  border-color: var(--control-edge-hover);
+}
+.sign-in .cl-formFieldInput:focus {
+  border-color: var(--desk-accent);
+  box-shadow: 0 0 0 3px var(--desk-accent-wash);
+  outline: none;
+}
+.sign-in .cl-formButtonPrimary {
+  min-height: 2.75rem;
+  border: 0;
+  border-radius: 99px;
+  background: var(--desk-accent);
+  background-image: none;
+  box-shadow: none;
+  color: var(--on-accent);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: none;
+}
+.sign-in .cl-formButtonPrimary::after {
+  display: none;
+}
+.sign-in .cl-formButtonPrimary:hover {
+  background: var(--desk-accent-strong);
+}
+.sign-in .cl-footer {
+  border-top: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-muted);
+}
+.sign-in .cl-footerActionText {
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+.sign-in .cl-footerActionLink {
+  color: var(--desk-accent);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.sign-in .cl-footerActionLink:hover {
+  color: var(--desk-accent-strong);
+}
+
+/* a finger needs a bigger target than the words */
+@media (pointer: coarse) {
+  .sign-in__sheet {
+    --form-coarse: 1.5625rem;
+  }
+  .sign-in__brand,
+  .sign-in__back {
+    min-height: 2.75rem;
+  }
+  .sign-in .cl-footerActionLink {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0 var(--s-2);
+  }
+}
+
+.connections__sign-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  margin: 0 0 var(--s-4);
+  padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4);
+  border-radius: var(--radius);
+  background: var(--sand);
+}
+.connections__sign-in p {
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: var(--text-sm);
+}
+.connections__sign-in .connection__button {
+  text-decoration: none;
+}
+
+/* the signed-in reader, above the byline */
+.drawer__account {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-top: var(--s-2);
+  padding: var(--s-1) var(--s-3);
+}
+.drawer__account-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ----------------------------------------------------------- confirmation */
+
+/* An action the agent is about to take in the reader's apps: what it is,
+   exactly what it will send or change, and the reader's yes or no. */
+.confirm {
+  max-width: var(--column);
+  margin: var(--s-4) auto;
+  padding: var(--s-4) var(--s-5);
+  border-radius: var(--radius-lg);
+  background: var(--sheet);
+  box-shadow:
+    0 0 0 1px var(--sheet-edge),
+    var(--shadow-sheet);
+}
+.confirm__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.confirm__icon {
+  border-radius: var(--radius-sm);
+}
+.confirm__head h2 {
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: var(--text-base);
+  font-weight: 650;
+}
+.confirm__app {
+  margin-left: auto;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+.confirm__fields {
+  display: grid;
+  gap: var(--s-2);
+  margin: var(--s-3) 0 var(--s-4);
+  padding: var(--s-3) 0 0;
+  border-top: 1px solid var(--rule);
+}
+.confirm__fields div {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: var(--s-3);
+}
+.confirm__fields dt {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+.confirm__fields dd {
+  max-height: 14rem;
+  margin: 0;
+  overflow: auto;
+  color: var(--ink-strong);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-2);
+}
+.confirm__button {
+  height: 2.25rem;
+  padding: 0 var(--s-4);
+  border: 1px solid var(--desk-accent);
+  border-radius: 99px;
+  background: var(--desk-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.confirm__button:hover:not(:disabled) {
+  border-color: var(--desk-accent-strong);
+  background: var(--desk-accent-strong);
+}
+.confirm__button--quiet {
+  border-color: var(--control-edge);
+  background: transparent;
+  color: var(--ink);
+}
+.confirm__button--quiet:hover:not(:disabled) {
+  border-color: var(--control-edge-hover);
+  background: var(--sand);
+  color: var(--ink-strong);
+}
+.confirm__button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+@media (max-width: 640px) {
+  .confirm__fields div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}
+
+/* ------------------------------------------------- generated surfaces */
+
+/*
+ * A generated view and the A2UI behind it occupy one frame: the A2UI button
+ * on its top edge decompiles the view into the plate and compiles it back.
+ */
+.surface {
+  position: relative;
+  container-type: inline-size;
+  margin: var(--s-6) 0 var(--s-2);
+  padding: 0;
+  border-radius: var(--radius-lg);
+  background: var(--sheet);
+  box-shadow:
+    0 0 0 1px var(--sheet-edge),
+    var(--shadow-sheet);
+  isolation: isolate;
+  animation: surface-in var(--dur-slow) var(--ease-out) backwards;
+}
+
+.surface__render {
+  padding: var(--s-4);
+  border-radius: inherit;
+}
+
+/* while the agent is still writing the view: a slim line sweeps the top edge */
+.surface[data-streaming]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: var(--s-4);
+  left: var(--s-4);
+  z-index: 3;
+  height: 2px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, transparent, var(--sol-blue), transparent)
+    no-repeat;
+  background-size: 40% 100%;
+  animation: composing 1.4s var(--ease-in-out) infinite;
+}
+.surface[data-streaming] .surface__render {
+  min-height: 4.5rem;
+}
+/* each component the agent writes arrives on its own: it rises a few pixels
+   and comes into focus as it mounts. Only while the view is being written,
+   so a reopened thread shows its views at once. */
+[data-arrive] {
+  animation: component-in 640ms var(--ease-out) var(--arrive-delay, 0ms)
+    backwards;
+}
+
+/* a picture at the top level of a view runs to the sheet's edges; min-width
+   outranks the component's own max-width without overriding its style */
+.surface__render
+  .a2ui-surface
+  > [data-a2ui-std]
+  > :is(img, [data-a2ui-image-grid]) {
+  min-width: calc(100% + 2 * var(--s-4));
+  margin-inline: calc(-1 * var(--s-4));
+  border-radius: 0;
+}
+.surface__render
+  .a2ui-surface
+  > [data-a2ui-std]
+  > :is(img, [data-a2ui-image-grid]):first-child {
+  margin-top: calc(-1 * var(--s-4));
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
+}
+
+/* a squeezed button wraps between words, never inside one */
+.surface__render button {
+  min-width: min-content;
+  overflow-wrap: normal;
+}
+
+.surface__source {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--plate);
+  color: var(--plate-ink);
+  z-index: 1;
+}
+/* a click decompiles: the view breaks into blocks, the blocks resolve into
+   its A2UI. The plate starts hidden so the mosaic can bring it in. */
+.surface[data-decompiling="in"] .surface__source {
+  opacity: 0;
+}
+.surface[data-decompiling] .surface__render {
+  background: var(--sheet);
+}
+.surface__filters {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.surface__source-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-3) var(--s-2) var(--s-4);
+  border-bottom: 1px solid var(--plate-rule);
+  color: var(--plate-ink-strong);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+/* a narrow frame shortens the count rather than pushing Copy out */
+.surface__source-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.surface__copy {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px var(--s-2);
+  border: 1px solid var(--plate-rule);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--plate-ink-strong);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.surface__copy:hover {
+  background: var(--plate-raised);
+}
+
+.surface .a2ui-source {
+  flex: 1;
+  border-radius: 0;
+  background: transparent;
+  color: var(--plate-ink);
+  min-height: 0;
+  margin: 0;
+  padding: var(--s-3) var(--s-4) var(--s-6);
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.65;
+  tab-size: 2;
+  scrollbar-color: rgb(147 161 161 / 0.3) transparent;
+}
+.a2ui-source::selection,
+.a2ui-source *::selection {
+  background: rgb(38 139 210 / 0.35);
+  color: var(--sol-base3);
+}
+.tok--key {
+  color: var(--plate-ink-strong);
+}
+.tok--string {
+  color: var(--plate-string);
+}
+.tok--name {
+  color: var(--plate-name);
+  font-weight: 700;
+}
+.tok--number,
+.tok--literal {
+  color: var(--plate-number);
+}
+.tok--punct {
+  color: var(--plate-ink);
+}
+
+/* the source as a tree: one level folded, so surfaces and data models read
+   at a glance and their components open on demand */
+.a2ui-source__tree {
+  min-width: 0;
+}
+.jt-row {
+  display: flex;
+  align-items: baseline;
+  padding-left: calc(var(--depth) * 1.125rem);
+  white-space: pre;
+}
+.jt-row .tok--string {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.jt-toggle,
+.jt-spacer {
+  flex: none;
+  width: 1.125rem;
+}
+.jt-toggle {
+  display: inline-grid;
+  align-self: center;
+  place-items: center;
+  height: 1.125rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--plate-ink);
+  cursor: pointer;
+}
+.jt-toggle svg {
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.jt-toggle[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+.jt-toggle:hover {
+  background: var(--plate-raised);
+  color: var(--plate-ink-strong);
+}
+.jt-summary {
+  margin: 0 0.5ch;
+  padding: 0 0.75ch;
+  border: 1px solid var(--plate-rule);
+  border-radius: 99px;
+  background: transparent;
+  color: var(--plate-ink-strong);
+  font: inherit;
+  cursor: pointer;
+}
+.jt-summary:hover {
+  border-color: rgb(147 161 161 / 0.4);
+  background: var(--plate-raised);
+}
+/* a folded operation reads as one line: what it does, then where */
+.jt-summary--operation {
+  padding: 0;
+  border-color: transparent;
+  color: var(--plate-ink);
+}
+.jt-summary--operation:hover {
+  background: transparent;
+  color: var(--plate-ink-strong);
+}
+.jt-op {
+  color: var(--plate-ink-strong);
+  font-weight: 700;
+}
+
+/* the A2UI button rides the sheet's top edge, half above it, so it never
+   sits on the view's content */
+.surface__toggle {
+  position: absolute;
+  top: 0;
+  right: var(--s-4);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 1.625rem;
+  padding: 0 var(--s-2) 0 7px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 99px;
+  background: var(--sheet);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: var(--shadow-hairline);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.surface__toggle:hover {
+  border-color: var(--desk-accent);
+  color: var(--desk-accent-strong);
+}
+.surface__toggle[aria-pressed="true"] {
+  border-color: var(--desk-accent);
+  background: var(--desk-accent);
+  color: var(--on-accent);
+}
+
+/* CopilotKit's jump-to-latest button, in the desk's materials */
+.stage [data-copilotkit] .desk-scroll-bottom {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-color: var(--rule-strong);
+  background: var(--sand);
+  color: var(--ink-strong);
+  box-shadow: var(--shadow-hairline);
+}
+.stage [data-copilotkit] .desk-scroll-bottom:hover {
+  background: var(--sand-pressed);
+}
+
+/* -------------------------------------------------------------- composer */
+
+/* the question box shares the frames' 14px corner; the toolbar sits under
+   the text: attachments left, model and send right */
+/* under a thread the composer sits on a band of page: the chat fades out
+   above it and nothing reads through or around it. CopilotKit pins the
+   dock in its own absolute wrapper, so the band is the dock's background. */
+.composer-dock {
+  position: relative;
+  z-index: 20;
+  padding: var(--s-6) var(--s-4) var(--s-2);
+  background: linear-gradient(to bottom, transparent, var(--paper) var(--s-6));
+  pointer-events: none;
+}
+.composer-dock[data-pinned] {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+.welcome .composer-dock {
+  padding: 0;
+  background: none;
+}
+.composer {
+  max-width: var(--column);
+  margin: 0 auto;
+  border: 1px solid var(--control-edge);
+  border-radius: var(--radius-lg);
+  background: var(--control);
+  box-shadow: var(--shadow-control);
+  pointer-events: auto;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.composer:focus-within {
+  border-color: var(--desk-accent);
+  box-shadow:
+    0 0 0 3px var(--desk-accent-wash),
+    var(--shadow-control);
+}
+.composer__field {
+  padding: var(--s-3) var(--s-4) 0;
+}
+/* .composer raises these above CopilotKit's own utility classes, which
+   load after this stylesheet */
+.composer .composer__textarea {
+  width: 100%;
+  min-height: 1.6em;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-strong);
+  font-size: var(--text-base);
+  /* whole pixels: CopilotKit sizes the field to its scrollHeight, and a
+     fractional line (1.6 x 16px) left a sliver to scroll */
+  line-height: 24px;
+  resize: none;
+  outline: none;
+}
+.composer .composer__textarea::placeholder {
+  color: var(--ink-muted);
+}
+.composer__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-2);
+}
+.composer__start,
+.composer__end {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.composer__start {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.composer__end {
+  flex-shrink: 0;
+}
+/* on the left, the model menu opens from its own left edge */
+.composer__start .model-picker__menu {
+  right: auto;
+  left: 0;
+  transform-origin: bottom left;
+}
+/* + and send are separate buttons, each outlined with no fill, so both
+   read on the composer's own face */
+.composer__icon-button {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--control-edge);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.composer__icon-button:hover,
+.composer__icon-button[aria-expanded="true"] {
+  background: var(--sand);
+  color: var(--ink-strong);
+}
+.composer__view {
+  display: inline-flex;
+  min-width: 0;
+  height: 1.75rem;
+  align-items: center;
+  gap: 6px;
+  padding: 0 3px 0 var(--s-2);
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--view-tone) 12%, var(--control));
+  color: var(--ink-strong);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  animation: pop var(--dur) var(--ease-out);
+}
+.composer__view > svg {
+  color: var(--view-tone);
+}
+.composer__view-clear {
+  display: inline-grid;
+  width: 1.375rem;
+  height: 1.375rem;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.composer__view-clear:hover {
+  background: color-mix(in srgb, var(--view-tone) 18%, var(--control));
+  color: var(--ink-strong);
+}
+
+/* the + menu: a picture from the device, or a view to answer with */
+.add-menu {
+  position: relative;
+}
+.add-menu__panel {
+  position: absolute;
+  right: calc(-2rem - 4px);
+  bottom: calc(100% + 10px);
+  z-index: 30;
+  width: min(24rem, calc(100vw - 2rem));
+  padding: var(--s-2);
+  border: 1px solid var(--control-edge);
+  border-radius: var(--radius-lg);
+  background: var(--control);
+  box-shadow: var(--shadow-float);
+  transform-origin: bottom right;
+  animation: pop var(--dur) var(--ease-out);
+}
+.add-menu__attach,
+.add-menu__view {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2);
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-strong);
+  text-align: left;
+  cursor: pointer;
+}
+.add-menu__attach > svg {
+  flex: none;
+  width: 2rem;
+  color: var(--desk-accent);
+}
+.add-menu__attach:hover,
+.add-menu__view:hover,
+.add-menu__view[aria-checked="true"] {
+  background: var(--sand);
+}
+.add-menu__attach:focus-visible,
+.add-menu__view:focus-visible {
+  background: var(--sand);
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.add-menu__group {
+  margin-top: var(--s-1);
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--rule);
+}
+.add-menu__heading {
+  display: block;
+  padding: var(--s-1) var(--s-2) var(--s-2);
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+.add-menu__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+}
+.add-menu__view {
+  gap: var(--s-2);
+}
+.add-menu__icon {
+  display: grid;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--view-tone) 13%, transparent);
+  color: var(--view-tone);
+}
+.add-menu__label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.add-menu__note {
+  display: block;
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+.composer__end > div {
+  margin: 0;
+}
+.composer .model-picker__button {
+  height: 2rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink);
+}
+.composer .model-picker__button:hover,
+.composer .model-picker__button[aria-expanded="true"] {
+  border-color: var(--rule-strong);
+  background: var(--sand-raised);
+}
+.model-picker[data-placement="up"] .model-picker__menu {
+  top: auto;
+  bottom: calc(100% + 6px);
+  transform-origin: bottom right;
+}
+/* send: the app's blue; outlined and empty while there is nothing to send */
+.composer .composer__send {
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius);
+  background: var(--desk-accent);
+  color: var(--on-accent);
+}
+.composer .composer__send:hover:not(:disabled) {
+  background: var(--desk-accent-strong);
+  opacity: 1;
+}
+/* CopilotKit sizes the arrow and the stop square at 18px; the desk's
+   controls are quieter */
+.composer .composer__send svg {
+  width: 15px;
+  height: 15px;
+}
+.composer .composer__send .lucide-square {
+  width: 10px;
+  height: 10px;
+}
+.composer .composer__send:disabled {
+  box-shadow: inset 0 0 0 1px var(--control-edge);
+  background: transparent;
+  color: var(--ink-faint);
+  opacity: 1;
+}
+
+/* while files are dragged over the chat, the composer lights up as the
+   place they go (CopilotChat takes the drop anywhere in its view) */
+[data-drag-over] .composer {
+  border-style: dashed;
+  border-color: var(--desk-accent);
+  background: color-mix(in srgb, var(--sol-blue) 7%, var(--control));
+  box-shadow:
+    0 0 0 3px var(--desk-accent-wash),
+    var(--shadow-control);
+}
+.composer__disclaimer {
+  pointer-events: auto;
+}
+
+/* ---------------------------------------------------------- report sheet */
+
+/* the report the agent writes beside the chat: a third column on wide
+   screens, a sheet over the chat on narrower ones */
+/* The report sheet. On wide screens it is a third column that opens from
+   zero width while the sheet inside slides in from the right; on narrower
+   ones the sheet slides in over the chat. Closing runs the same way back. */
+.report {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.report__frame {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: var(--report-width);
+  min-height: 0;
+  border-left: 1px solid var(--sheet-edge);
+  background: var(--sheet);
+  opacity: 0;
+  transform: translateX(48px);
+  transition:
+    transform var(--dur-sheet) var(--ease-out),
+    opacity var(--dur-sheet) var(--ease-out);
+}
+.report[data-open] .report__frame {
+  opacity: 1;
+  transform: none;
+}
+@media (min-width: 1181px) {
+  .desk {
+    grid-template-columns: var(--drawer-width) minmax(0, 1fr) 0px;
+    transition: grid-template-columns var(--dur-sheet) var(--ease-out);
+  }
+  .desk[data-drawer="closed"] {
+    grid-template-columns: minmax(0, 1fr) 0px;
+  }
+  .desk:has(> .report[data-open]) {
+    grid-template-columns: var(--drawer-width) minmax(0, 1fr) var(
+        --report-width
+      );
+  }
+  .desk[data-drawer="closed"]:has(> .report[data-open]) {
+    grid-template-columns: minmax(0, 1fr) var(--report-width);
+  }
+}
+
+.report__bar {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  min-height: 3.5rem;
+  padding: var(--s-2) var(--s-3) var(--s-2) var(--s-5);
+  border-bottom: 1px solid var(--rule);
+}
+.report[data-writing] .report__bar::after {
+  content: "";
+  position: absolute;
+  right: var(--s-5);
+  bottom: -1px;
+  left: var(--s-5);
+  height: 2px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, transparent, var(--sol-blue), transparent)
+    no-repeat;
+  background-size: 40% 100%;
+  animation: composing 1.4s var(--ease-in-out) infinite;
+}
+.report__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--ink-strong);
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+.report__writing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: var(--s-1);
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+.report__writing::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sol-blue);
+  animation: breathe 1.4s var(--ease-in-out) infinite;
+}
+.report__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+.report__source-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 1.75rem;
+  padding: 0 var(--s-2) 0 7px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 99px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.report__source-toggle:hover {
+  border-color: var(--desk-accent);
+  color: var(--desk-accent-strong);
+}
+.report__source-toggle[aria-pressed="true"] {
+  border-color: var(--desk-accent);
+  background: var(--desk-accent);
+  color: var(--on-accent);
+}
+
+.report__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.report__page {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: var(--s-8) var(--s-8) var(--s-12);
+}
+.report__page[hidden] {
+  display: none;
+}
+.report__plate {
+  min-height: 100%;
+  background: var(--plate);
+}
+.report__plate .a2ui-source {
+  padding: var(--s-5);
+  color: var(--plate-ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.65;
+}
+
+.report__reopen {
+  position: fixed;
+  top: 0.75rem;
+  right: var(--s-4);
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  height: 2rem;
+  padding: 0 var(--s-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: 99px;
+  background: var(--paper-raised);
+  color: var(--ink-strong);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  box-shadow: var(--shadow-hairline);
+  cursor: pointer;
+  animation: content-in var(--dur) var(--ease-out);
+}
+.report__reopen:hover {
+  border-color: var(--desk-accent);
+  color: var(--desk-accent-strong);
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+/* ---------------------------------------------------------- status line */
+
+.status {
+  position: absolute;
+  right: var(--s-4);
+  bottom: 8.5rem;
+  left: var(--s-4);
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.status__toast {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  max-width: 100%;
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4);
+  border-radius: 99px;
+  background: var(--toast);
+  color: var(--toast-ink);
+  font-size: var(--text-sm);
+  font-weight: 560;
+  box-shadow: var(--shadow-float);
+  pointer-events: auto;
+  animation: rise var(--dur-slow) var(--ease-out) both;
+}
+.status__toast:not(:has(button)) {
+  padding-right: var(--s-4);
+}
+.status__action {
+  padding: var(--s-1) var(--s-3);
+  border: 0;
+  border-radius: 99px;
+  background: var(--toast-action);
+  color: var(--toast-ink);
+  font-weight: 650;
+  cursor: pointer;
+}
+.status__action:hover {
+  background: var(--toast-action-hover);
+}
+
+/* ---------------------------------------------------------------- motion */
+
+@keyframes surface-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(3px);
+  }
+}
+
+@keyframes component-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(4px);
+  }
+}
+
+@keyframes content-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-2px);
+  }
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes composing {
+  from {
+    background-position: -40% 0;
+  }
+  to {
+    background-position: 140% 0;
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ------------------------------------------------------------ responsive */
+
+@media (max-width: 1180px) {
+  .report {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: 30;
+    width: min(94vw, 36rem);
+    visibility: hidden;
+    transition: visibility 0s linear var(--dur-sheet);
+  }
+  .report[data-open] {
+    visibility: visible;
+    transition: none;
+  }
+  .report__frame {
+    width: 100%;
+    opacity: 1;
+    box-shadow: var(--shadow-float);
+    transform: translateX(100%);
+  }
+}
+
+@media (hover: none) {
+  .thread__archive {
+    width: 1.75rem;
+    margin-right: var(--s-1);
+    opacity: 1;
+  }
+}
+
+@media (pointer: coarse) {
+  .icon-button {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  .thread__archive {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  .thread__open {
+    min-height: 2.75rem;
+  }
+  .research-step__sources {
+    gap: var(--s-2);
+  }
+  .research-step__source,
+  .research-step__more {
+    padding: var(--s-2) var(--s-3);
+  }
+}
+
+@media (max-width: 760px) {
+  .desk,
+  .desk[data-drawer="open"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .desk[data-drawer="open"] .drawer {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: min(84vw, 20rem);
+    box-shadow: var(--shadow-float);
+    animation: drawer-in var(--dur) var(--ease-out);
+  }
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    border: 0;
+    background: var(--scrim-light);
+    animation: content-in var(--dur) var(--ease-out);
+  }
+  .stage__head {
+    padding-left: var(--s-3);
+  }
+  .stage__title h2 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-height: var(--leading-tight);
+    white-space: normal;
+  }
+  .model-picker__button {
+    padding: 0 var(--s-2);
+  }
+  .model-picker__family {
+    display: none;
+  }
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(-12px);
+    opacity: 0;
+  }
+}
+
+/* forced colors: the divider keeps a system color */
+@media (forced-colors: active) {
+  .desk::after {
+    display: none;
+  }
+}
+
+/* coarse pointers, again at matching specificity for nested buttons */
+@media (pointer: coarse) {
+  .model-picker__button {
+    min-height: 2.75rem;
+  }
+  .note__actions .icon-button {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  .composer__icon-button,
+  .composer .composer__send,
+  .starters__arrow {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  .starters {
+    grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .desk-loading {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .desk-loading::before {
+    display: none;
+  }
+  /* touch scrolls on its own; a floating chevron would only cover content */
+  .stage [data-copilotkit] .desk-scroll-bottom {
+    display: none;
+  }
+  /* the toast sits under the header, where the growing composer cannot reach */
+  .status {
+    top: 4.25rem;
+    bottom: auto;
+  }
+  /* on a phone the welcome is the whole screen, not a sheet on a sheet */
+  .welcome {
+    justify-content: flex-start;
+    padding: 14vh var(--s-4) var(--s-6);
+  }
+  /* the arrows move under the strip, side by side */
+  .starters {
+    grid-template-columns: 1fr auto auto 1fr;
+    row-gap: var(--s-3);
+  }
+  .starters__viewport {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .starters__arrow {
+    grid-row: 2;
+  }
+  .starters__arrow[data-side="start"] {
+    grid-column: 2;
+  }
+  .starters__arrow[data-side="end"] {
+    grid-column: 3;
+  }
+  .composer-dock {
+    padding-inline: var(--s-3);
+  }
+  /* the + menu rises from the bottom edge as a sheet, within thumb reach */
+  .add-menu__panel {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    max-height: 82dvh;
+    overflow-y: auto;
+    padding: var(--s-3) var(--s-3)
+      calc(var(--s-3) + env(safe-area-inset-bottom));
+    border-width: 1px 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    animation: sheet-in var(--dur-slow) var(--ease-out);
+  }
+  .add-menu__attach,
+  .add-menu__view {
+    min-height: 2.75rem;
+  }
+}
+
+/* reduced motion: last in the file, so it outranks every rule above */
+@media (prefers-reduced-motion: reduce) {
+  .surface,
+  [data-arrive] {
+    animation-name: content-in;
+  }
+  .starters__track,
+  .desk,
+  .report__frame {
+    transition: none;
+  }
+  .note,
+  .notes-dialog[open],
+  .status__toast,
+  .model-picker__menu,
+  .report__reopen,
+  .add-menu__panel,
+  .desk[data-drawer="open"] .drawer {
+    animation-name: content-in;
+  }
+  .thread--placeholder,
+  .research-step:not([data-done]) .research-step__mark,
+  .surface[data-streaming]::before {
+    animation: none;
+    background: var(--desk-accent-wash);
+  }
+  /* the skeleton holds still; its shape alone says "loading" */
+  .form-skeleton * {
+    animation: none;
+  }
+  .starter-slip {
+    transition: box-shadow var(--dur) var(--ease-out);
+  }
+  .starter-slip:hover {
+    transform: none;
+  }
+}

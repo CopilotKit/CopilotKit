@@ -1,0 +1,44 @@
+{
+  "name": "@copilotkit/example-a2ui-research-desk",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
+  "scripts": {
+    "example-dev": "vite dev --port 3014",
+    "example-build": "vite build",
+    "example-start": "node .output/server/index.mjs",
+    "dev:agent": "cd agent && uv run main.py",
+    "install:agent": "cd agent && uv sync",
+    "generate-routes": "tsr generate",
+    "check-types": "tsc --noEmit",
+    "test:agent": "cd agent && uv run --group dev pytest -q"
+  },
+  "dependencies": {
+    "@ag-ui/client": "1.0.3",
+    "@clerk/tanstack-react-start": "1.7.6",
+    "@composio/core": "0.27.0",
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
+    "@fontsource-variable/atkinson-hyperlegible-mono": "5.3.0",
+    "@fontsource-variable/atkinson-hyperlegible-next": "5.3.0",
+    "@tanstack/react-router": "1.170.44",
+    "@tanstack/react-start": "1.169.2",
+    "lucide-react": "0.525.0",
+    "maplibre-gl": "^5.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^3.25.75"
+  },
+  "devDependencies": {
+    "@tanstack/router-cli": "1.167.44",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "typescript": "~5.9.3",
+    "vite": "8.3.4"
+  }
+}

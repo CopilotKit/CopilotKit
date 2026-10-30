@@ -113,6 +113,7 @@
     },
     "//": "Next.js overrides keep each supported major on its security floor (GHSA-2xp9-vwfh-vxw4, GHSA-p293-qw3h-jr36). Next 14 examples declare Next 15 explicitly because neither advisory has a Next 14 fix.",
     "overrides": {
+      "@ag-ui/client@1.0.2": "1.0.3",
       "streamdown>react": "^19.0.0",
       "@types/react": "19.1.8",
       "@types/react-dom": "^19.0.2",
@@ -160,6 +161,9 @@
       "jsondiffpatch": ">=0.7.2",
       "yaml@>=2.0.0 <2.8.3": ">=2.8.3",
       "zod": ">=3.22.3",
+      "@tanstack/start-plugin-core>zod": "^4.6.7",
+      "@tanstack/router-generator>zod": "^4.6.7",
+      "@tanstack/router-plugin>zod": "^4.6.7",
       "cookie": ">=0.7.0",
       "diff@>=4.0.0 <4.0.4": ">=4.0.4",
       "diff@>=5.0.0 <5.2.2": ">=5.2.2",

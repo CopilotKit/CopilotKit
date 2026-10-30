@@ -594,6 +594,21 @@ export class GenerativeUISurfaceManager {
     return surface;
   }
 
+  /**
+   * Forgets a surface that its source no longer writes, as if it had never
+   * been there. Unlike a deleteSurface from the agent, which marks the
+   * surface so it cannot be created again, the source may write it again
+   * later: the markdown transport rebuilds a thread's surfaces from its
+   * messages, and a thread switch can briefly show a thread with none.
+   */
+  forgetSurface(threadId: string, surfaceId: string): void {
+    const key = surfaceKey(threadId, surfaceId);
+    if (!this.surfaces.has(key)) return;
+    this.disposeSurface(key);
+    this.deletedKeys.delete(key);
+    this.notify();
+  }
+
   private disposeSurface(key: string) {
     this.surfaces.get(key)?.model.dispose();
     this.surfaces.delete(key);
