@@ -1763,6 +1763,11 @@ export class CopilotKitCore {
     return this.stateManager.getRunIdsForThread(agentId, threadId);
   }
 
+  /** Saved native decisions are read-only; only pendingInterrupts can be resumed. */
+  getApprovalDecisions(agentId: string, threadId: string) {
+    return this.stateManager.getApprovalDecisions(agentId, threadId);
+  }
+
   /**
    * Internal method used by RunHandler to build frontend tools
    */
