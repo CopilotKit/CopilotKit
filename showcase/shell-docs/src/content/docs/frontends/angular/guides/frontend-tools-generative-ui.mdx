@@ -189,7 +189,10 @@ export const appConfig: ApplicationConfig = {
 ```
 
 Generated code runs in a sandboxed iframe without same-origin access. It calls
-only the host functions you list in `sandboxFunctions`.
+only the host functions you list in `sandboxFunctions`, and each call is
+validated against the function's `parameters` before the handler runs. A handler's
+return value goes back into the iframe, where generated code can read it and
+send it to any server, so return only data you are comfortable exposing there.
 
 ### MCP Apps
 

@@ -104,7 +104,22 @@ knows which bridges are available when generating HTML/JS.
   Inside the generated UI, the agent writes JS that calls
   `await Websandbox.connection.remote.notifyHost({ message: "hi" })`.
   The call is proxied back to the host page, where your `handler` runs
-  with the validated args.
+  with the validated args. If the args don't match `parameters`, the handler
+  doesn't run, the promise in the generated UI rejects with an object carrying
+  `message`, and the host logs a console warning. A call with no argument is
+  validated as `undefined`, then as `{}`.
+</Callout>
+
+<Callout type="warn" title="Return values are visible to generated code">
+  Whatever a handler returns goes back into the iframe, where model-generated
+  code can read it. The iframe sets no Content Security Policy of its own,
+  because generated UI can load libraries from any CDN, so that code can also
+  send what it reads to any server. Return only data you are comfortable
+  exposing to the generated UI, and project full records down to the fields it
+  needs. A Content Security Policy on your host page also applies inside the
+  iframe, so a host policy can narrow what generated code can reach, along with
+  which CDNs it can load. It can't stop the iframe from navigating itself, so
+  it doesn't replace limiting what handlers return.
 </Callout>
 
 ### Common use cases

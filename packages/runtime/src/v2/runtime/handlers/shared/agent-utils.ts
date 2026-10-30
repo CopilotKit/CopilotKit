@@ -26,6 +26,10 @@ import { resolveMcpAppsServers } from "./mcp-apps-servers";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
 import { grantAllowsMemory, resolveWebMemory } from "./memory-policy";
 import { errorResponse } from "./json-response";
+import {
+  createResponseError,
+  isJsonContentType,
+} from "../../endpoints/single-route-helpers";
 import { logger } from "@copilotkit/shared";
 
 type MiddlewareCapableAgent = AbstractAgent & {
@@ -66,7 +70,7 @@ export async function cloneAgentForRequest(
 ): Promise<AbstractAgent | Response> {
   const agents = await resolveAgents(runtime.agents, request);
 
-  if (!agents[agentId]) {
+  if (!Object.hasOwn(agents, agentId)) {
     return new Response(
       JSON.stringify({
         error: "Agent not found",
@@ -481,6 +485,10 @@ function parseRunAgentInput(value: unknown): RunAgentInput {
 export async function parseRunRequest(
   request: Request,
 ): Promise<RunAgentInput | Response> {
+  if (!isJsonContentType(request)) {
+    return createResponseError("Run endpoint expects JSON payloads", 415);
+  }
+
   try {
     const requestBody = await request.json();
     return parseRunAgentInput(requestBody);
@@ -506,6 +514,10 @@ export async function parseConnectRequest(request: Request): Promise<
       lastSeenEventId: string | null;
     }
 > {
+  if (!isJsonContentType(request)) {
+    return createResponseError("Connect endpoint expects JSON payloads", 415);
+  }
+
   try {
     const requestBody = await request.json();
     const input = parseRunAgentInput(requestBody);
