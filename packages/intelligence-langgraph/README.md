@@ -2,7 +2,7 @@
 
 Keep published skills from one or more Learning containers available to native TypeScript LangChain agents. The adapter adds an alphabetical catalog and two read tools; the model decides when to use a skill.
 
-Requires Node.js 20.19+, LangChain 1.5.11+, LangGraph 1.4.14+, and LangChain core 1.2.10+ within major version 1. The Intelligence server must expose the learned-snapshot API, and the canonical Runtime client must include that operation.
+Requires Node.js 20.19.3+ or 22.13+, LangChain 1.5.11+, LangGraph 1.4.14+, and LangChain core 1.2.10+ within major version 1. The Intelligence server must expose the learned-snapshot API, and the canonical Runtime client must include that operation.
 
 ## Setup
 

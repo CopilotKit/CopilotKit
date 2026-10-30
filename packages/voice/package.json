@@ -50,6 +50,6 @@
     "@copilotkit/runtime": "workspace:*"
   },
   "engines": {
-    "node": ">=20"
+    "node": "^20.19.3 || >=22.13.0"
   }
 }
