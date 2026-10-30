@@ -186,6 +186,12 @@ interface HistoricRun {
    * The thread-messages fallback reads the thread-level snapshot, not this.
    */
   messages: Message[];
+  /**
+   * True when `messages` is the merged thread history, so an empty list means
+   * every stored message aged out. Otherwise an empty list leaves the stored
+   * history untouched.
+   */
+  messagesMerged?: boolean;
   createdAt: number;
   /** Approximate retained byte size of `events`; set by BoundedThreadStore at append. */
   approxEventBytes?: number;
@@ -267,7 +273,7 @@ class InMemoryEventStore {
   /**
    * The thread's message history, merged at the end of each run by
    * {@link retainThreadMessages} and held at the THREAD level (independent of
-   * `historicRuns` lifecycle). An interleaved empty run leaves it untouched.
+   * `historicRuns` lifecycle). An interleaved empty run adds nothing to it.
    * Run-cap FIFO eviction of `historicRuns` does not touch it either; messages
    * age out through {@link messageLastRun} instead.
    */
@@ -384,6 +390,9 @@ interface RunMessages {
  *   differs. Limit: when the agent does emit for that id, what the client sent
  *   can reach the stored message through the agent's own output.
  *
+ * An empty `produced` removes nothing: the agent returned no messages, which is
+ * not a decision to drop what the client sent.
+ *
  * New messages append, the order the AG-UI reducer gives a `MESSAGES_SNAPSHOT`.
  */
 function mergeThreadMessages(
@@ -398,8 +407,10 @@ function mergeThreadMessages(
     [...(sent.get(id) ?? [])].some((copy) => copy !== storedCopy.get(id));
 
   const producedIds = new Set(produced.map((m) => m.id));
-  for (const id of sent.keys()) {
-    if (!producedIds.has(id) && !sentOtherCopy(id)) merged.delete(id);
+  if (produced.length > 0) {
+    for (const id of sent.keys()) {
+      if (!producedIds.has(id) && !sentOtherCopy(id)) merged.delete(id);
+    }
   }
 
   for (const message of produced) {
@@ -429,7 +440,9 @@ function retainThreadMessages(
   const merged = mergeThreadMessages(store.messagesSnapshot, run);
   const current = (store.messageRunCount += 1);
   const lastRun = new Map(store.messageLastRun);
-  for (const { id } of run.produced) lastRun.set(id, current);
+  for (const { id } of [...run.produced, ...run.input]) {
+    lastRun.set(id, current);
+  }
   const capped = maxRunsPerThread && maxRunsPerThread !== Infinity;
   const kept = merged.filter(
     ({ id }) =>
@@ -654,12 +667,13 @@ export class ɵBoundedThreadStore {
     }
 
     // Thread-level message history: `run.messages` is the history merged in
-    // run() (see `retainThreadMessages`), decoupled from `historicRuns`. A
-    // non-empty history replaces the stored one (adjusting byte accounting). An
-    // empty one (non-array `agent.messages` or an error-path run) leaves the
-    // stored history untouched. It never lives on a HistoricRun, so run-cap FIFO
-    // eviction does not drop it and an interleaved empty run cannot pin it.
-    if (run.messages.length > 0) {
+    // run() (see `retainThreadMessages`), decoupled from `historicRuns`. It
+    // replaces the stored one (adjusting byte accounting), even when empty
+    // because every message aged out. An empty list that is not a merged history
+    // leaves the stored one untouched. It never lives on a HistoricRun, so
+    // run-cap FIFO eviction does not drop it and an interleaved empty run cannot
+    // pin it.
+    if (run.messages.length > 0 || run.messagesMerged) {
       this.totalBytes -= store.approxMessagesSnapshotBytes;
       // Store the incoming array directly (SHALLOW, array-level copy). `run.messages`
       // is already a fresh array created in run(), so we own the
@@ -1075,7 +1089,7 @@ export class InMemoryAgentRunner extends AgentRunner {
             runId: request.input.runId,
             input: {
               ...request.input,
-              messages: request.input.messages.filter(
+              messages: (request.input.messages ?? []).filter(
                 (message) => !historicMessageIds.has(message.id),
               ),
             },
@@ -1123,18 +1137,19 @@ export class InMemoryAgentRunner extends AgentRunner {
             parentRunId,
             events: compactedEvents,
             // The merged history for the thread-messages endpoint
-            messages: Array.isArray(request.agent.messages)
-              ? retainThreadMessages(
-                  store,
-                  {
-                    produced: request.agent.messages,
-                    input: request.input.messages,
-                    agentStart,
-                    emittedIds: messageEventIds(currentRunEvents),
-                  },
-                  sharedStore.ɵlimits.maxRunsPerThread,
-                )
-              : [],
+            messages: retainThreadMessages(
+              store,
+              {
+                produced: Array.isArray(request.agent.messages)
+                  ? request.agent.messages
+                  : [],
+                input: request.input.messages ?? [],
+                agentStart,
+                emittedIds: messageEventIds(currentRunEvents),
+              },
+              sharedStore.ɵlimits.maxRunsPerThread,
+            ),
+            messagesMerged: true,
             createdAt: Date.now(),
           });
         }
@@ -1417,9 +1432,9 @@ export class InMemoryAgentRunner extends AgentRunner {
   ): Message[] {
     const store = this.peekVisible(threadId, scope);
     if (!store) return [];
-    // The thread's latest non-empty snapshot is held at the store level,
-    // independent of `historicRuns` lifecycle, so run-cap eviction and
-    // interleaved empty-snapshot runs can never lose it. Return a SHALLOW
+    // The thread's snapshot is held at the store level, independent of
+    // `historicRuns` lifecycle, so run-cap eviction and interleaved empty runs
+    // can never lose it. Return a SHALLOW
     // (array-level) copy: a fresh array so a caller mutating array STRUCTURE
     // (push/splice/reassign elements) cannot affect the stored snapshot. We
     // deliberately do NOT deep-copy: `structuredClone` throws DataCloneError on a

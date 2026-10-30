@@ -12,6 +12,7 @@ import {
   InMemoryAgentRunner,
   ɵGLOBAL_STORE,
   ɵINMEMORY_DEFAULTS,
+  ɵestimateBytes,
 } from "../in-memory";
 import {
   OwnershipTestAgent,
@@ -352,6 +353,105 @@ describe("stored message history across runs", () => {
       expect(
         new InMemoryAgentRunner().getThreadMessages(quiet, { ownerId: "" }),
       ).toHaveLength(1);
+    });
+
+    it("clears the history when every stored message ages out", async () => {
+      ɵGLOBAL_STORE.setLimits({ ...ɵINMEMORY_DEFAULTS, maxRunsPerThread: 2 });
+      const threadId = ownershipThreadId("history-aged-out");
+      await send(threadId, [{ id: "a", content: "x" }]);
+      await send(threadId, []);
+      expect(await send(threadId, [])).toEqual([]);
+      expect(ɵGLOBAL_STORE.peek(threadId)!.approxMessagesSnapshotBytes).toBe(
+        ɵestimateBytes([]),
+      );
+    });
+
+    it("keeps resent messages when the agent ends with an empty list", async () => {
+      ɵGLOBAL_STORE.setLimits({ ...ɵINMEMORY_DEFAULTS, maxRunsPerThread: 2 });
+      const threadId = ownershipThreadId("history-empty-result");
+      const sent = [{ id: "a", content: "x" }];
+      await send(threadId, sent);
+      for (let i = 0; i < 3; i++) {
+        const stored = await send(
+          threadId,
+          sent,
+          new ScriptedAgent(() => [messagesSnapshot([])]),
+        );
+        expect(stored).toEqual(["a:x"]);
+      }
+    });
+
+    it("counts a run with non-array messages toward the age window", async () => {
+      ɵGLOBAL_STORE.setLimits({ ...ɵINMEMORY_DEFAULTS, maxRunsPerThread: 2 });
+      const threadId = ownershipThreadId("history-non-array");
+      class NonArrayMessagesAgent extends ScriptedAgent {
+        override async runAgent() {
+          Object.assign(this, { messages: null });
+          return { result: undefined, newMessages: [] };
+        }
+      }
+      await send(threadId, [{ id: "a", content: "x" }]);
+      await send(threadId, [], new NonArrayMessagesAgent());
+      expect(await send(threadId, [{ id: "b", content: "y" }])).toEqual([
+        "b:y",
+      ]);
+    });
+  });
+
+  describe("input without messages", () => {
+    const withoutMessages = (threadId: string) =>
+      ({
+        ...ownershipInput(threadId, "state"),
+        messages: undefined,
+      }) as unknown as RunAgentInput;
+
+    it("stores the agent's messages", async () => {
+      const threadId = ownershipThreadId("no-input-messages");
+      const agent = new ScriptedAgent();
+      agent.setMessages([{ id: "a", role: "user", content: "x" }]);
+      const runner = new InMemoryAgentRunner();
+      await collect(
+        runner.run({
+          threadId,
+          agent,
+          input: withoutMessages(threadId),
+          ownerId: "",
+        }),
+      );
+      expect(
+        runner.getThreadMessages(threadId, { ownerId: "" }).map((m) => m.id),
+      ).toEqual(["a"]);
+    });
+
+    it("finishes a run stopped before its first event", async () => {
+      class WaitsForAbortAgent extends ScriptedAgent {
+        private finish = () => {};
+        override runAgent() {
+          return new Promise<{ result: undefined; newMessages: [] }>(
+            (resolve) => {
+              this.finish = () =>
+                resolve({ result: undefined, newMessages: [] });
+            },
+          );
+        }
+        override abortRun() {
+          this.finish();
+        }
+      }
+      const threadId = ownershipThreadId("no-input-messages-stop");
+      const runner = new InMemoryAgentRunner();
+      const done = collect(
+        runner.run({
+          threadId,
+          agent: new WaitsForAbortAgent(),
+          input: withoutMessages(threadId),
+          ownerId: "",
+        }),
+      );
+      await runner.stop({ threadId, ownerId: "" });
+      expect((await done).map((event) => event.type)).toContain(
+        EventType.RUN_STARTED,
+      );
     });
   });
 });

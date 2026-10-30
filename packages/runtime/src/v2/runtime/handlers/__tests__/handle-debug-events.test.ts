@@ -235,6 +235,32 @@ describe("handleDebugEvents", () => {
       }
     }
 
+    describe("method handling", () => {
+      const post = (options: { exposeDebugEvents?: boolean }) =>
+        createCopilotRuntimeHandler({
+          runtime: new CopilotRuntime({ agents: testAgents(), ...options }),
+          basePath: "/api",
+        })(
+          new Request("http://localhost/api/cpk-debug-events", {
+            method: "POST",
+          }),
+        );
+
+      it("answers a closed feed 404 on any method", async () => {
+        process.env.NODE_ENV = "production";
+        const response = await post({});
+        expect(response.status).toBe(404);
+        expect(response.headers.has("Allow")).toBe(false);
+      });
+
+      it("answers 405 on an open feed", async () => {
+        process.env.NODE_ENV = "production";
+        const response = await post({ exposeDebugEvents: true });
+        expect(response.status).toBe(405);
+        expect(response.headers.get("Allow")).toBe("GET");
+      });
+    });
+
     it("takes only `true` as the opt-in", async () => {
       setNodeEnv("production");
       const exposeDebugEvents = "true" as unknown as boolean;

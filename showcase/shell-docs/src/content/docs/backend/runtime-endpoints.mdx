@@ -252,7 +252,7 @@ routes exist in multi-route mode whichever runner you use:
 
 | Method & path | Purpose |
 |---|---|
-| `GET /api/copilotkit/threads` | List threads. With Intelligence, the `agentId` query parameter is required. Without Intelligence, it is optional and filters the list, and the route answers `403` when no `identifyUser` is set and `threads.access` is not `"open"`. |
+| `GET /api/copilotkit/threads` | List threads. With Intelligence, the `agentId` query parameter is required. Without Intelligence, it is optional and filters the list, and on a runner with local thread endpoints, such as `InMemoryAgentRunner`, the route answers `403` when no `identifyUser` is set and `threads.access` is not `"open"`. |
 | `GET /api/copilotkit/threads/:threadId/messages` | That thread's stored message history. See [Stored message history](/backend/agent-runner#stored-message-history). |
 | `GET /api/copilotkit/threads/:threadId/events` | That thread's compacted AG-UI event stream. |
 | `GET /api/copilotkit/threads/:threadId/state` | That thread's last state snapshot. |
@@ -277,11 +277,12 @@ apply only with Intelligence.
 
 <Callout type="warn" title="Without identifyUser, a thread id is the only credential">
 On the default `InMemoryAgentRunner`, and on anything extending it, such as
-`AgentCoreRunner`, a runtime with `identifyUser` scopes these routes to the
+`AgentCoreRunner`, a `/v2` runtime with `identifyUser` scopes these routes to the
 identified user, and another user's thread reads like an unknown one.
 
-Without `identifyUser`, `GET /threads` and `POST /threads/clear` answer `403`
-unless you set `threads: { access: "open" }`, and every caller that holds a
+Without `identifyUser`, these runners answer `GET /threads` and
+`POST /threads/clear` with `403` unless you set `threads: { access: "open" }`,
+and every caller that holds a
 thread id can read that thread, replay it, run on it and stop it. A runner that
 keeps no local store, such as `SqliteAgentRunner`, answers the four read routes
 with a `422` instead.

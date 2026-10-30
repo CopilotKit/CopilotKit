@@ -493,7 +493,7 @@ Verifying *who* the caller is doesn't yet stop them reaching *someone else's con
 | Runtime | Who scopes threads to a user |
 | --- | --- |
 | `CopilotRuntime` with `intelligence` | The runtime, via [`identifyUser`](#copilotkit-intelligence-scopes-most-thread-routes). |
-| SSE runtime with the in-memory or SQLite runner | The runtime, when you set `identifyUser`. Without it, a thread id is the only credential. |
+| SSE runtime with the in-memory or SQLite runner | The `/v2` runtime, when you set `identifyUser`. Without it, a thread id is the only credential. |
 | Anything else, such as a custom store | You do. See [Scope threads yourself](#scope-threads-yourself). |
 
 ### CopilotKit Intelligence scopes most thread routes
@@ -549,7 +549,7 @@ See [Scope AG-UI Streams to the signed-in user](/threads-lifecycle#scope-rich-th
 
 ### Scope threads yourself
 
-Without CopilotKit Intelligence and without `identifyUser`, there is no server-side binding between a `threadId` and a user. A `threadId` is an opaque id travelling in a request: if user A learns user B's, every route that takes a thread id accepts it. The default `InMemoryAgentRunner` and `SqliteAgentRunner` close this when you set `identifyUser`: each thread belongs to the identity of its first run, and another user's thread reads like an unknown one. An auth hook alone does not do this, because it tells the runtime nothing about who the caller is. The rest of this section is the pattern for a custom store or a runner that does not enforce owners.
+Without CopilotKit Intelligence and without `identifyUser`, there is no server-side binding between a `threadId` and a user. A `threadId` is an opaque id travelling in a request: if user A learns user B's, every route that takes a thread id accepts it. The default `InMemoryAgentRunner` and `SqliteAgentRunner` close this when you set `identifyUser` on the `/v2` runtime: each thread belongs to the identity of its first run, and another user's thread reads like an unknown one. An auth hook alone does not do this, because it tells the runtime nothing about who the caller is. The rest of this section is the pattern for a custom store or a runner that does not enforce owners.
 
 #### Own the mapping
 
