@@ -285,7 +285,10 @@ Use the string `"-"` as an array entry to render a visual separator between menu
 items:
 
 ```ts
-const toolsMenu = [
+import type { ToolsMenuItem } from "@copilotkit/vue/v2";
+import { openSettings, search } from "./actions";
+
+const toolsMenu: (ToolsMenuItem | "-")[] = [
   { label: "Search", action: () => search() },
   "-",
   { label: "Settings", action: () => openSettings() },
@@ -297,7 +300,10 @@ const toolsMenu = [
 Menu items with an `items` array render as expandable submenus:
 
 ```ts
-const toolsMenu = [
+import type { ToolsMenuItem } from "@copilotkit/vue/v2";
+import { exportCSV, exportPDF, printDoc } from "./actions";
+
+const toolsMenu: (ToolsMenuItem | "-")[] = [
   {
     label: "Export",
     items: [

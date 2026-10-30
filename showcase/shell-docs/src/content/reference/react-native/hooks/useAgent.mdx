@@ -8,7 +8,7 @@ description: "React hook for accessing AG-UI agent instances in React Native"
 `useAgent` is a React hook that returns an [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) instance. The hook subscribes to agent state changes and triggers re-renders when the agent's state, messages, or execution status changes.
 
 <Callout type="info">
-  Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useAgent`](/reference/v2/hooks/useAgent); only the import path differs.
+  Re-exported from `@copilotkit/react-core`. It is identical to the [React `useAgent`](/reference/hooks/useAgent); only the import path differs.
 </Callout>
 
 By default it binds to a shared agent from the CopilotKit registry. It can also register a private proxied agent for one thread, which is useful for custom thread switchers and multi-conversation UIs.
@@ -18,9 +18,24 @@ By default it binds to a shared agent from the CopilotKit registry. It can also 
 ## Signature
 
 ```tsx
-import { useAgent } from "@copilotkit/react-native";
+import {
+  useAgent,
+  type AbstractAgent,
+  type UseAgentUpdate,
+} from "@copilotkit/react-native";
 
-function useAgent(options?: UseAgentProps): {
+// UseAgentProps: bind to a shared agent, or bind a private agent to a thread.
+useAgent satisfies (
+  options?:
+    | { agentId?: string; updates?: UseAgentUpdate[]; throttleMs?: number }
+    | {
+        agentId: string;
+        runtimeAgentId: string;
+        threadId: string;
+        updates?: UseAgentUpdate[];
+        throttleMs?: number;
+      },
+) => {
   agent: AbstractAgent;
   isReady: boolean;
 };
@@ -128,13 +143,24 @@ There are two valid option shapes:
 
       **Example:**
       ```tsx
-      const { copilotkit } = useCopilotKit();
+      import { Button } from "react-native";
+      import { useAgent, useCopilotKit } from "@copilotkit/react-native";
 
-      const { result, newMessages } = await copilotkit.runAgent({
-        agent,
-        // Any data your agent reads from the run input.
-        forwardedProps: { source: "refresh-button" },
-      });
+      function RefreshButton() {
+        const { agent } = useAgent();
+        const { copilotkit } = useCopilotKit();
+
+        async function refresh() {
+          const { result, newMessages } = await copilotkit.runAgent({
+            agent,
+            // Any data your agent reads from the run input.
+            forwardedProps: { source: "refresh-button" },
+          });
+          console.log(result, newMessages.length);
+        }
+
+        return <Button title="Refresh" onPress={refresh} />;
+      }
       ```
     </PropertyReference>
 
@@ -143,10 +169,19 @@ There are two valid option shapes:
 
       **Example:**
       ```tsx
-      agent.setState({
-        ...agent.state,
-        theme: "dark"
-      });
+      import { Button } from "react-native";
+      import { useAgent } from "@copilotkit/react-native";
+
+      function DarkModeButton() {
+        const { agent } = useAgent();
+
+        return (
+          <Button
+            title="Dark mode"
+            onPress={() => agent.setState({ ...agent.state, theme: "dark" })}
+          />
+        );
+      }
       ```
     </PropertyReference>
 
@@ -334,4 +369,4 @@ function MessageCount() {
 
 - [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) - Full agent interface documentation
 - [`useCopilotKit`](/reference/react-native/hooks/useCopilotKit) - Low-level hook for accessing the CopilotKit core instance
-- [React (V2) reference](/reference/v2/hooks/useAgent) - The web equivalent this page mirrors
+- [React reference](/reference/hooks/useAgent) - The web equivalent this page mirrors

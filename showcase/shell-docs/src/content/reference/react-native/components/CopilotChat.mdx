@@ -59,7 +59,12 @@ import { CopilotChat, useCopilotChatContext } from "@copilotkit/react-native";
 Call inside a `<CopilotChat>` tree to read the conversation state and actions. Throws if called outside a `<CopilotChat>`.
 
 ```tsx
-function useCopilotChatContext(): CopilotChatContextValue;
+import {
+  useCopilotChatContext,
+  type CopilotChatContextValue,
+} from "@copilotkit/react-native";
+
+useCopilotChatContext satisfies () => CopilotChatContextValue;
 ```
 
 <PropertyReference name="agent" type="AbstractAgent">

@@ -8,7 +8,7 @@ description: "Low-level React hook for accessing the CopilotKit context in React
 `useCopilotKit` is a low-level React hook that returns the CopilotKit context value, providing direct access to the core instance and provider-level state. It subscribes to runtime connection status changes and triggers re-renders when the connection status updates.
 
 <Callout type="info">
-  Re-exported from `@copilotkit/react-core/v2`, identical to the [React (V2) `useCopilotKit`](/reference/v2/hooks/useCopilotKit). The only difference is the import path.
+  Re-exported from `@copilotkit/react-core`, identical to the [React `useCopilotKit`](/reference/hooks/useCopilotKit). The only difference is the import path.
 </Callout>
 
 <Callout type="info">
@@ -21,9 +21,12 @@ description: "Low-level React hook for accessing the CopilotKit context in React
 ## Signature
 
 ```tsx
-import { useCopilotKit } from "@copilotkit/react-native";
+import {
+  useCopilotKit,
+  type CopilotKitContextValue,
+} from "@copilotkit/react-native";
 
-function useCopilotKit(): CopilotKitContextValue;
+useCopilotKit satisfies () => CopilotKitContextValue;
 ```
 
 ## Parameters
@@ -155,6 +158,7 @@ function ConnectionMonitor() {
 import { Text, TouchableOpacity } from "react-native";
 import { useCopilotKit, useFrontendTool } from "@copilotkit/react-native";
 import { z } from "zod";
+import { generateCsv, saveFile } from "./export";
 
 function ExportButton() {
   const { copilotkit } = useCopilotKit();
@@ -261,4 +265,4 @@ function ToolExecutionIndicator() {
 - [`useAgent`](/reference/react-native/hooks/useAgent): High-level hook for accessing agent instances
 - [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool): Register frontend tools that `runTool()` can execute
 - [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider): The provider component that creates the context
-- [React (V2) reference](/reference/v2/hooks/useCopilotKit): The web equivalent this page mirrors
+- [React reference](/reference/hooks/useCopilotKit): The web equivalent this page mirrors

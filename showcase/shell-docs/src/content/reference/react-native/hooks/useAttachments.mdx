@@ -12,9 +12,15 @@ The headless [`CopilotChat`](/reference/react-native/components/CopilotChat) wir
 ## Signature
 
 ```tsx
-import { useAttachments } from "@copilotkit/react-native";
+import {
+  useAttachments,
+  type UseNativeAttachmentsProps,
+  type UseNativeAttachmentsReturn,
+} from "@copilotkit/react-native";
 
-function useAttachments(props: UseNativeAttachmentsProps): UseNativeAttachmentsReturn;
+useAttachments satisfies (
+  props: UseNativeAttachmentsProps,
+) => UseNativeAttachmentsReturn;
 ```
 
 ## Parameters
@@ -138,9 +144,19 @@ converts either form to a string you can pass to `Image`.
 Most apps enable attachments declaratively through `CopilotChat` instead:
 
 ```tsx
-<CopilotChat agentId="default" attachments={{ enabled: true, accept: "image/*" }}>
-  <MyChatUI />
-</CopilotChat>
+import { CopilotChat } from "@copilotkit/react-native";
+import { MyChatUI } from "./MyChatUI";
+
+export function ChatScreen() {
+  return (
+    <CopilotChat
+      agentId="default"
+      attachments={{ enabled: true, accept: "image/*" }}
+    >
+      <MyChatUI />
+    </CopilotChat>
+  );
+}
 ```
 
 ## Related

@@ -35,13 +35,21 @@ In an application config, pass the chosen catalog and lifecycle policy through
 the Angular provider:
 
 ```ts title="src/app/app.config.ts"
-provideCopilotKit({
-  runtimeUrl: "/api/copilotkit",
-  a2ui: {
-    catalog: productCatalog,
-    recovery: { showAfterMs: 2_000, showAfterAttempts: 2 },
-  },
-});
+import type { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+import { productCatalog } from "./a2ui-catalog";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "/api/copilotkit",
+      a2ui: {
+        catalog: productCatalog,
+        recovery: { showAfterMs: 2_000, showAfterAttempts: 2 },
+      },
+    }),
+  ],
+};
 ```
 
 A catalog is required: without one, A2UI stays off even when the runtime
@@ -54,7 +62,15 @@ existing design system. Pass `{ tagName, element }` instead of an Angular
 component, and mix both kinds freely:
 
 ```ts title="src/app/a2ui-catalog.ts"
-const catalog = createAngularCatalog(
+import { z } from "zod";
+import {
+  ChildListSchema,
+  createAngularCatalog,
+} from "@copilotkit/angular/a2ui";
+import { AcmeBadge } from "./acme-badge";
+import { PanelComponent } from "./panel.component";
+
+export const productCatalog = createAngularCatalog(
   {
     Badge: { props: z.object({ label: z.string() }) },
     Panel: { props: z.object({ children: ChildListSchema }) },

@@ -81,8 +81,8 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
 
         ```ts title="server.ts"
         import { createServer } from "node:http";
-        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
-        import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+        import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
         const runtime = new CopilotRuntime({
           agents: {

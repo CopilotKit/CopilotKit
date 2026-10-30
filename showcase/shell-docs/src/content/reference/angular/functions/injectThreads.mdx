@@ -18,9 +18,13 @@ registration are removed automatically when the owning injector is destroyed.
 ## Signature
 
 ```ts
-import { injectThreads } from "@copilotkit/angular";
+import {
+  injectThreads,
+  type InjectThreadsInput,
+  type InjectThreadsResult,
+} from "@copilotkit/angular";
 
-function injectThreads(input: InjectThreadsInput): InjectThreadsResult;
+injectThreads satisfies (input: InjectThreadsInput) => InjectThreadsResult;
 ```
 
 ## Input

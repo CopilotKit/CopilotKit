@@ -122,8 +122,8 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
 
         ```ts title="server.ts"
         import { createServer } from "node:http";
-        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
-        import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+        import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
         const runtime = new CopilotRuntime({
           agents: {
@@ -384,6 +384,7 @@ The fix is to resolve **`jose` specifically** against its `browser` condition, u
 ```js title="metro.config.js"
 const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
 
+/** @type {import("@react-native/metro-config").MetroConfig} */
 const config = {
   resolver: {
     resolveRequest: (context, moduleImport, platform) => {
@@ -470,13 +471,22 @@ import "@copilotkit/react-native/polyfills/location";
 | `useSingleEndpoint` | `boolean` | Whether the runtime uses a single-route endpoint (defaults to auto-detect) |
 
 ```tsx title="App.tsx"
-<CopilotKitProvider
-  runtimeUrl={runtimeUrl}
-  headers={{ Authorization: `Bearer ${token}` }} // [!code highlight]
-  properties={{ userId }}
->
-  <ChatScreen />
-</CopilotKitProvider>
+import { CopilotKitProvider } from "@copilotkit/react-native";
+import { ChatScreen } from "./ChatScreen";
+
+type AppProps = { runtimeUrl: string; token: string; userId: string };
+
+export default function App({ runtimeUrl, token, userId }: AppProps) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl={runtimeUrl}
+      headers={{ Authorization: `Bearer ${token}` }} // [!code highlight]
+      properties={{ userId }}
+    >
+      <ChatScreen />
+    </CopilotKitProvider>
+  );
+}
 ```
 
 <Callout type="warn" title="Rotating auth tokens: `headers` is resolved on render, not per request">
@@ -485,9 +495,23 @@ import "@copilotkit/react-native/polyfills/location";
   So a refreshed token is only picked up if the provider **re-renders** and the resulting headers differ. Drive the token from React state (or context) so a refresh triggers a render:
 
   ```tsx
-  const [token, setToken] = useState(initialToken);
+  import { useState } from "react";
+  import { CopilotKitProvider } from "@copilotkit/react-native";
+  import { ChatScreen } from "./ChatScreen";
 
-  <CopilotKitProvider runtimeUrl={runtimeUrl} headers={{ Authorization: `Bearer ${token}` }}>
+  export function AuthedCopilot({ initialToken }: { initialToken: string }) {
+    // Call setToken from your token-refresh flow to re-render the provider.
+    const [token, setToken] = useState(initialToken);
+
+    return (
+      <CopilotKitProvider
+        runtimeUrl="https://your-server/api/copilotkit"
+        headers={{ Authorization: `Bearer ${token}` }}
+      >
+        <ChatScreen />
+      </CopilotKitProvider>
+    );
+  }
   ```
 
   A token kept in a ref, module variable, or async SDK cache with no accompanying render will keep sending the **stale** value indefinitely. If you can't re-render, call `copilotkit.setHeaders({ ... })` directly when the token rotates.
@@ -508,9 +532,11 @@ The runtime from the quickstart hosts a `BuiltInAgent` and serves it with `creat
 `BuiltInAgent` accepts a model **string** in `provider:model` (or `provider/model`) form for OpenAI, Anthropic, and Google:
 
 ```ts
-new BuiltInAgent({ model: "openai:gpt-5-mini", prompt: "..." });      // OPENAI_API_KEY
-new BuiltInAgent({ model: "anthropic:claude-sonnet-4-6", prompt: "..." }); // ANTHROPIC_API_KEY
-new BuiltInAgent({ model: "google:gemini-3.8-flash", prompt: "..." }); // GOOGLE_API_KEY
+import { BuiltInAgent } from "@copilotkit/runtime";
+
+const openai = new BuiltInAgent({ model: "openai:gpt-5-mini", prompt: "..." }); // OPENAI_API_KEY
+const anthropic = new BuiltInAgent({ model: "anthropic:claude-sonnet-4-6", prompt: "..." }); // ANTHROPIC_API_KEY
+const google = new BuiltInAgent({ model: "google:gemini-3.8-flash", prompt: "..." }); // GOOGLE_API_KEY
 ```
 
 The string form reads the matching provider API key from the environment. You can also pass `apiKey` on the config, or an already-constructed AI SDK `LanguageModel` instance in place of the string.
@@ -635,33 +661,41 @@ Because the tool is registered on the device, the model's call reaches your `han
 
   ```tsx
   import { useFrontendTool } from "@copilotkit/react-native/headless";
+  import { z } from "zod";
+  import { StagePreview } from "./StagePreview";
 
-  useFrontendTool({
-    name: "composeStage",
-    description: "Render POI panels on the screen.",
-    parameters: z.object({ mode: z.string() }),
-    handler: async (args) => { /* drive your own state */ return "rendered"; },
-    render: ({ args, status }) => (
-      <StagePreview mode={args.mode} pending={status !== "complete"} />
-    ),
-  });
+  export function useComposeStage() {
+    useFrontendTool({
+      name: "composeStage",
+      description: "Render POI panels on the screen.",
+      parameters: z.object({ mode: z.string() }),
+      handler: async (args) => { /* drive your own state */ return "rendered"; },
+      render: ({ args, status }) => (
+        <StagePreview mode={args.mode} pending={status !== "complete"} />
+      ),
+    });
+  }
   ```
 
   Use [`useRenderTool`](/reference/react-native/hooks/useRenderTool) when the tool is **not** yours — a server-side tool you only want to draw, or `name: "*"` as a fallback for every tool call with no renderer of its own. It registers no tool, takes no `description` and no `handler`, and exposes arguments as `parameters`:
 
   ```tsx
   import { useRenderTool } from "@copilotkit/react-native/headless";
+  import { z } from "zod";
+  import { StagePreview } from "./StagePreview";
 
-  useRenderTool(
-    {
-      name: "lookupPlaces",
-      parameters: z.object({ mode: z.string() }),
-      render: ({ parameters, status }) => (
-        <StagePreview mode={parameters.mode} pending={status !== "complete"} />
-      ),
-    },
-    [],
-  );
+  export function useLookupPlacesRenderer() {
+    useRenderTool(
+      {
+        name: "lookupPlaces",
+        parameters: z.object({ mode: z.string() }),
+        render: ({ parameters, status }) => (
+          <StagePreview mode={parameters.mode} pending={status !== "complete"} />
+        ),
+      },
+      [],
+    );
+  }
   ```
 
   `useRenderTool`'s `render` must return `ReactElement | null`, so returning `null` draws nothing. `useFrontendTool`'s `render` is a component type that also accepts a bare string, which typechecks and then throws inside a `FlatList` — return an element or `null` there too, and annotate the renderer with the opt-in [`FrontendToolRenderFunction<T>`](/reference/react-native/hooks/useFrontendTool#the-render-type-react-native-needs) if you want the compiler to hold you to it.

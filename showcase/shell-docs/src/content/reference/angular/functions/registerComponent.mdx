@@ -11,7 +11,7 @@ This is the simplest form of generative UI, and the only one that needs nothing 
 
 You call `registerComponent` inside an Angular injection context (a component or service constructor, or a field initializer). The registration happens immediately and is removed when the owning injector is destroyed.
 
-`registerComponent` is the Angular counterpart of `useComponent` in `@copilotkit/react-core/v2` and `@copilotkit/vue/v2`. It builds the same model-facing tool description, so the tool reads identically to the model whichever frontend registered the component.
+`registerComponent` is the Angular counterpart of `useComponent` in `@copilotkit/react-core` and `@copilotkit/vue/v2`. It builds the same model-facing tool description, so the tool reads identically to the model whichever frontend registered the component.
 
 <Callout type="info">
   Import from the package root, `@copilotkit/angular`. There is no `/v2`
@@ -23,11 +23,14 @@ You call `registerComponent` inside an Angular injection context (a component or
 ## Signature
 
 ```ts
-import { registerComponent } from "@copilotkit/angular";
+import {
+  registerComponent,
+  type RegisterComponentConfig,
+} from "@copilotkit/angular";
 
-function registerComponent<Args extends Record<string, unknown>>(
+registerComponent satisfies <Args extends Record<string, unknown>>(
   config: RegisterComponentConfig<Args>,
-): void;
+) => void;
 ```
 
 ## Parameters
@@ -82,7 +85,8 @@ There is no `handler` field. A display-only component runs no application code, 
 Your `component` implements the `ToolRenderer<Args>` interface — the same contract every other Angular renderer uses. Declare the `toolCall` input with Angular's `input.required()` and read `toolCall().args`:
 
 ```ts
-import { Signal } from "@angular/core";
+import type { Signal } from "@angular/core";
+import type { AngularToolCall } from "@copilotkit/angular";
 
 interface ToolRenderer<Args extends Record<string, unknown>> {
   toolCall: Signal<AngularToolCall<Args>>;
@@ -158,12 +162,26 @@ Nothing is added to the agent. The tool reaches it in the run's tool list, and t
 ### Scoping to one agent
 
 ```ts
-registerComponent({
-  name: "show_incident",
-  parameters: incidentSchema,
-  component: IncidentCardComponent,
-  agentId: "support-agent",
-});
+import { Component } from "@angular/core";
+import { z } from "zod";
+import { registerComponent } from "@copilotkit/angular";
+import { IncidentCardComponent } from "./incident-card.component";
+
+@Component({ selector: "app-support-chat", template: `` })
+export class SupportChatComponent {
+  constructor() {
+    registerComponent({
+      name: "show_incident",
+      parameters: z.object({
+        id: z.string(),
+        severity: z.string(),
+        summary: z.string(),
+      }),
+      component: IncidentCardComponent,
+      agentId: "support-agent",
+    });
+  }
+}
 ```
 
 ## Grounding the component in your own data

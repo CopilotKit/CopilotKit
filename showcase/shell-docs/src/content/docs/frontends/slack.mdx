@@ -97,8 +97,8 @@ Use this prompt to connect your agent to Slack, start the Channels SDK listener,
     import {
       CopilotKitIntelligence,
       CopilotRuntime,
-    } from "@copilotkit/runtime/v2";
-    import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+    } from "@copilotkit/runtime";
+    import { createCopilotNodeListener } from "@copilotkit/runtime/node";
     import { makeAgent } from "./agent.js";
 
     function required(name: string): string {
@@ -283,6 +283,15 @@ in Intelligence history and are available during replay.
 Opt in per Channel when the live tool timeline is useful:
 
 ```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { makeAgent } from "./agent.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
+}
+
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   identifyUser: "platform",

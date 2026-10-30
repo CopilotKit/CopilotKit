@@ -19,12 +19,17 @@ The configuration is registered while the composable's reactive scope is active 
 ## Signature
 
 ```ts
-import { useConfigureSuggestions } from "@copilotkit/vue/v2";
+import type { WatchSource } from "vue";
+import {
+  useConfigureSuggestions,
+  type DynamicSuggestionsConfig,
+  type StaticSuggestionsConfig,
+} from "@copilotkit/vue/v2";
 
-function useConfigureSuggestions(
-  config: SuggestionsConfigInput | null | undefined,
+useConfigureSuggestions satisfies (
+  config: DynamicSuggestionsConfig | StaticSuggestionsConfig | null | undefined,
   deps?: WatchSource<unknown>[],
-): void;
+) => void;
 ```
 
 ## Parameters

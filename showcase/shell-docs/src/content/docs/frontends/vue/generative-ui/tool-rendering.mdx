@@ -43,6 +43,10 @@ useDefaultRenderTool();
 Once you want on-brand chrome, pass a `render` component or function to `useDefaultRenderTool`. It's a convenience wrapper around `useRenderTool({ name: "*", ... })`: one wildcard renderer handles every tool call, named or not.
 
 ```ts title="src/components/AgentExperience.vue"
+// Inside <script setup lang="ts">
+import { useDefaultRenderTool } from "@copilotkit/vue/v2";
+import BrandedToolCard from "./BrandedToolCard.vue";
+
 useDefaultRenderTool({ render: BrandedToolCard });
 ```
 
@@ -97,7 +101,19 @@ Per-tool renderers compose with a catch-all: named renderers claim the "interest
 If the renderer closes over reactive values, pass Vue watch sources as the second argument:
 
 ```ts
-useRenderTool({ name: "get_weather", parameters, render: WeatherToolCard }, [locale]);
+// Inside <script setup lang="ts">
+import { ref } from "vue";
+import { z } from "zod";
+import { useRenderTool } from "@copilotkit/vue/v2";
+import WeatherToolCard from "./WeatherToolCard.vue";
+
+const locale = ref("en-US");
+const parameters = z.object({ city: z.string() });
+
+useRenderTool(
+  { name: "get_weather", parameters, render: WeatherToolCard },
+  [locale],
+);
 ```
 
 Finally, mount the registration component beneath the provider:

@@ -67,12 +67,19 @@ On a mobile connection the payload cost is felt sooner.
 Return the messages to send:
 
 ```tsx
-<CopilotKitProvider
-  runtimeUrl="https://your-server/api/copilotkit"
-  messageFilter={(messages) => messages.slice(-1)}
->
-  <App />
-</CopilotKitProvider>
+import { CopilotKitProvider } from "@copilotkit/react-native";
+import { App } from "./App";
+
+export function Root() {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="https://your-server/api/copilotkit"
+      messageFilter={(messages) => messages.slice(-1)}
+    >
+      <App />
+    </CopilotKitProvider>
+  );
+}
 ```
 
 The filter changes the request body only. The transcript the UI renders is
@@ -101,14 +108,21 @@ and suggestion runs are never filtered.
   provided, errors are logged to `console.error`.
 
 ```tsx
-<CopilotKitProvider
-  runtimeUrl="https://your-server/api/copilotkit"
-  onError={(event) => {
-    console.error(`[${event.code}]`, event.error.message, event.context);
-  }}
->
-  <App />
-</CopilotKitProvider>
+import { CopilotKitProvider } from "@copilotkit/react-native";
+import { App } from "./App";
+
+export function Root() {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="https://your-server/api/copilotkit"
+      onError={(event) => {
+        console.error(`[${event.code}]`, event.error.message, event.context);
+      }}
+    >
+      <App />
+    </CopilotKitProvider>
+  );
+}
 ```
 
 </PropertyReference>

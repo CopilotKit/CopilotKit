@@ -14,12 +14,15 @@ The full set of defaults lives in `COPILOT_CHAT_DEFAULT_LABELS`. Any field you o
 ## Signature
 
 ```ts
-import { provideCopilotChatLabels } from "@copilotkit/angular";
+import {
+  provideCopilotChatLabels,
+  type CopilotChatLabels,
+} from "@copilotkit/angular";
 import type { Provider } from "@angular/core";
 
-function provideCopilotChatLabels(
+provideCopilotChatLabels satisfies (
   config: Partial<CopilotChatLabels>,
-): Provider;
+) => Provider;
 ```
 
 ## Parameters

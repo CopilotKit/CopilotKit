@@ -21,11 +21,14 @@ Unlike [`registerFrontendTool`](/reference/angular/functions/registerFrontendToo
 ## Signature
 
 ```ts
-import { registerHumanInTheLoop } from "@copilotkit/angular";
+import {
+  registerHumanInTheLoop,
+  type HumanInTheLoopConfig,
+} from "@copilotkit/angular";
 
-function registerHumanInTheLoop<Args extends Record<string, unknown>>(
+registerHumanInTheLoop satisfies <Args extends Record<string, unknown>>(
   humanInTheLoop: HumanInTheLoopConfig<Args>,
-): void;
+) => void;
 ```
 
 ## Parameters
@@ -73,7 +76,8 @@ function registerHumanInTheLoop<Args extends Record<string, unknown>>(
 Your `component` implements the `HumanInTheLoopToolRenderer<Args>` interface. It exposes a single `toolCall` signal input, so declare it with Angular's `input()`:
 
 ```ts
-import { Signal } from "@angular/core";
+import type { Signal } from "@angular/core";
+import type { HumanInTheLoopToolCall } from "@copilotkit/angular";
 
 interface HumanInTheLoopToolRenderer<Args extends Record<string, unknown>> {
   toolCall: Signal<HumanInTheLoopToolCall<Args>>;

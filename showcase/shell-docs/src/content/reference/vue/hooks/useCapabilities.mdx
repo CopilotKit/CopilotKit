@@ -19,9 +19,12 @@ Capabilities are populated from the runtime `/info` response at connection time.
 ## Signature
 
 ```ts
-import { useCapabilities } from "@copilotkit/vue/v2";
+import type { ComputedRef } from "vue";
+import { useCapabilities, type AgentCapabilities } from "@copilotkit/vue/v2";
 
-function useCapabilities(agentId?: string): ComputedRef<AgentCapabilities | undefined>
+useCapabilities satisfies (
+  agentId?: string,
+) => ComputedRef<AgentCapabilities | undefined>;
 ```
 
 ## Parameters

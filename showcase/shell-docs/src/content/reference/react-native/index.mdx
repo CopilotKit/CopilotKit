@@ -5,12 +5,6 @@ description: "API reference for @copilotkit/react-native: the headless provider,
 
 `@copilotkit/react-native` brings CopilotKit to React Native. It ships a lightweight [provider](/reference/react-native/components/CopilotKitProvider), a set of prebuilt UI components, hooks built for React Native, and re-exports of the platform-agnostic hooks from `@copilotkit/react-core`. Everything is built on the [AG-UI](https://docs.ag-ui.com) agent protocol, with no DOM, CSS, or web framework dependencies.
 
-<Callout type="info">
-  The package root **is** the v2 API. Unlike the web SDK, which exposes v2
-  under a `/v2` subpath, React Native exports the v2 surface directly from
-  `@copilotkit/react-native`.
-</Callout>
-
 ## Installation
 
 ```sh
@@ -43,6 +37,7 @@ Wrap your app (or a sub-tree) with [`CopilotKitProvider`](/reference/react-nativ
 
 ```tsx
 import { CopilotKitProvider } from "@copilotkit/react-native";
+import { ChatScreen } from "./ChatScreen";
 
 export default function App() {
   return (
@@ -90,4 +85,4 @@ The root also exports two prebuilt chrome components: [`CopilotSidebar`](/refere
 ## Related
 
 - [React Native quickstart](/react-native): create an app, install, and connect your first agent
-- [React (V2) reference](/reference/v2): the web SDK, where the re-exported hooks behave identically
+- [React reference](/reference): the web SDK, where the re-exported hooks behave identically
