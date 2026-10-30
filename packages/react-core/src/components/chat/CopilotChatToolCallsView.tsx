@@ -17,11 +17,11 @@ import {
 } from "./CopilotChatToolCallGroup";
 import type { CopilotChatToolCallGroupAppearance } from "./CopilotChatToolCallGroup";
 import { ToolCallDisplayContext } from "./tool-call-display-context";
-import { getToolCallLayouts } from "./tool-call-layout";
+import { ɵgetToolCallLayouts } from "@copilotkit/core";
 import type {
   CopilotChatToolCallDisplay,
   ToolCallEntry,
-} from "./tool-call-layout";
+} from "@copilotkit/core";
 
 export type CopilotChatToolCallsViewProps = {
   message: AssistantMessage;
@@ -80,7 +80,7 @@ export function CopilotChatToolCallsView({
     if (display === "separate") return undefined;
     return (
       viewLayout ??
-      getToolCallLayouts([message], messages, rendererNames).get(message.id)
+      ɵgetToolCallLayouts([message], messages, rendererNames).get(message.id)
     );
   }, [display, viewLayout, message, messages, rendererNames]);
 

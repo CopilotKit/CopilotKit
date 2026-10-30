@@ -11,11 +11,13 @@ import React, {
 } from "react";
 import { Plus, Mic, ArrowUp, X, Check, Square, Loader2 } from "lucide-react";
 
-import type { CopilotChatLabels } from "../../providers/CopilotChatConfigurationProvider";
 import {
-  useCopilotChatConfiguration,
   CopilotChatDefaultLabels,
-} from "../../providers/CopilotChatConfigurationProvider";
+  ɵcomposerButtonState,
+  ɵresolveComposerKey,
+} from "@copilotkit/core";
+import type { CopilotChatLabels } from "@copilotkit/core";
+import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import { Button } from "../../components/ui/button";
 import {
   Tooltip,
@@ -401,6 +403,19 @@ export function CopilotChatInput({
     [clearInputValue],
   );
 
+  const composerInput = {
+    mode,
+    isRunning,
+    value: resolvedValue,
+    canSubmit: !!onSubmitMessage,
+    canStop: !!onStop,
+  };
+  const {
+    isProcessing,
+    action: buttonAction,
+    disabled: buttonDisabled,
+  } = ɵcomposerButtonState(composerInput);
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // Skip key handling during IME composition (e.g. CJK input).
     // The compositionend event will fire separately when composition ends.
@@ -458,21 +473,27 @@ export function CopilotChatInput({
       }
     }
 
+    // Enter without Shift never adds a line break, even when it does nothing.
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      // When the composer holds sendable text, Enter ALWAYS sends — even
-      // while a run is in flight. A non-empty composer is unambiguous intent
-      // to send a new message, not to stop the agent. This is what unblocks
-      // consecutive interrupt pills: after picking turn-1's slot the resume
-      // run is still streaming (`isProcessing` true) when the user types and
-      // Enters turn-2's prompt; routing that Enter to `onStop` aborted the
-      // run and the next interrupt never surfaced. Stop stays reachable via
-      // Enter only when the composer is empty (the genuine stop affordance).
-      if (isProcessing && !canSend) {
-        onStop?.();
-      } else {
-        send();
-      }
+    }
+    // Text in the composer means send, even while a run is in flight: after
+    // picking one interrupt's option the resume run still streams when the
+    // user types the next prompt, and stopping it would lose the next
+    // interrupt. Enter stops the run only when the composer is empty.
+    const action = ɵresolveComposerKey(
+      {
+        key: e.key,
+        shiftKey: e.shiftKey,
+        isComposing: e.nativeEvent.isComposing,
+        keyCode: e.keyCode,
+      },
+      composerInput,
+    );
+    if (action === "stop") {
+      onStop?.();
+    } else if (action === "send") {
+      send();
     }
   };
 
@@ -516,10 +537,6 @@ export function CopilotChatInput({
       : "cpk-chat-input-textarea-compact",
   });
 
-  const isProcessing = mode !== "transcribe" && isRunning;
-  const canSend = resolvedValue.trim().length > 0 && !!onSubmitMessage;
-  const canStop = !!onStop;
-
   const handleSendButtonClick = () => {
     // The send/stop button is an explicit control: when a run is in flight it
     // renders as a Stop (Square) button, so a click maps to stop regardless of
@@ -540,10 +557,10 @@ export function CopilotChatInput({
     },
   );
 
-  const showsStop = isProcessing && canStop;
+  const showsStop = buttonAction === "stop";
   const BoundSendButton = renderSlot(sendButton, CopilotChatInput.SendButton, {
     onClick: handleSendButtonClick,
-    disabled: isProcessing ? !canStop : !canSend,
+    disabled: buttonDisabled,
     "aria-label": showsStop
       ? labels.chatInputToolbarStopButtonLabel
       : labels.chatInputToolbarSendButtonLabel,

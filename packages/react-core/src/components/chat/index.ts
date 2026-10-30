@@ -117,4 +117,4 @@ export {
 export type {
   CopilotChatToolCallDisplay,
   ToolCallEntry,
-} from "./tool-call-layout";
+} from "@copilotkit/core";

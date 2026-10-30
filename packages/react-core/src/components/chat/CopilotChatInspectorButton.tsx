@@ -20,10 +20,8 @@ import {
   DropdownMenuSeparator,
 } from "../ui/dropdown-menu";
 import { useCopilotKitInspector } from "../CopilotKitInspectorContext";
-import {
-  CopilotChatDefaultLabels,
-  useCopilotChatConfiguration,
-} from "../../providers/CopilotChatConfigurationProvider";
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
 // Page-lifetime preference, shared by every message and chat. Deliberately
 // avoid sessionStorage: it survives reloads, while this preference must not.

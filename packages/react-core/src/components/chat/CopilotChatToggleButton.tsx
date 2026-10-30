@@ -5,10 +5,8 @@ import { MessageCircle, X } from "lucide-react";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 import { cn } from "../../lib/utils";
-import {
-  CopilotChatDefaultLabels,
-  useCopilotChatConfiguration,
-} from "../../providers/CopilotChatConfigurationProvider";
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
 const ICON_CLASS = "cpk-chat-toggle-button-icon";
 

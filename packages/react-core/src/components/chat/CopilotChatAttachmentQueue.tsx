@@ -8,10 +8,8 @@ import {
 import { Play } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Lightbox, useLightbox } from "./Lightbox";
-import {
-  useCopilotChatConfiguration,
-  CopilotChatDefaultLabels,
-} from "../../providers/CopilotChatConfigurationProvider";
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
 interface CopilotChatAttachmentQueueProps {
   attachments: Attachment[];
@@ -269,6 +267,8 @@ function DocumentLightboxContent({
   attachment: Attachment;
   vtName: string;
 }) {
+  const config = useCopilotChatConfiguration();
+  const labels = config?.labels ?? CopilotChatDefaultLabels;
   const mimeType = attachment.source.mimeType;
   const blobUrl = useBlobUrl(attachment);
 
@@ -336,7 +336,7 @@ function DocumentLightboxContent({
           {attachment.filename || "Document"}
         </div>
         <div className="cpk-attachment-queue-document-card-meta">
-          {mimeType || "Unknown type"}
+          {mimeType || labels.attachmentUnknownTypeText}
           {attachment.size != null && ` · ${formatFileSize(attachment.size)}`}
         </div>
       </div>

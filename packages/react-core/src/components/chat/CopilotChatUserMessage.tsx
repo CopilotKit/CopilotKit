@@ -1,9 +1,7 @@
 import { useMemo, useState } from "react";
 import { Copy, Check, Edit, ChevronLeft, ChevronRight } from "lucide-react";
-import {
-  useCopilotChatConfiguration,
-  CopilotChatDefaultLabels,
-} from "../../providers/CopilotChatConfigurationProvider";
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import { cn } from "../../lib/utils";
 import { Button } from "../../components/ui/button";
 import type { UserMessage } from "@ag-ui/core";

@@ -1,10 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 
 import { cn } from "../../lib/utils";
-import {
-  useCopilotChatConfiguration,
-  CopilotChatDefaultLabels,
-} from "../../providers/CopilotChatConfigurationProvider";
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 import { PanelLeftOpen, X } from "lucide-react";

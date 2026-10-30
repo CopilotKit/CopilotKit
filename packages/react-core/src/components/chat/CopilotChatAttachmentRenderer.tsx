@@ -1,7 +1,9 @@
 import React, { memo, useState } from "react";
 import type { InputContentSource } from "@copilotkit/shared";
 import { getSourceUrl, getDocumentIcon } from "@copilotkit/shared";
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
 import { cn } from "../../lib/utils";
+import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import { Lightbox, useLightbox } from "./Lightbox";
 
 interface CopilotChatAttachmentRendererProps {
@@ -11,6 +13,12 @@ interface CopilotChatAttachmentRendererProps {
   className?: string;
 }
 
+/** The chat labels from the nearest chat configuration, or the defaults. */
+function useLabels() {
+  const config = useCopilotChatConfiguration();
+  return config?.labels ?? CopilotChatDefaultLabels;
+}
+
 const ImageAttachment = memo(function ImageAttachment({
   src,
   className,
@@ -18,6 +26,7 @@ const ImageAttachment = memo(function ImageAttachment({
   src: string;
   className?: string;
 }) {
+  const labels = useLabels();
   const [error, setError] = useState(false);
   const { thumbnailRef, vtName, open, openLightbox, closeLightbox } =
     useLightbox();
@@ -30,7 +39,7 @@ const ImageAttachment = memo(function ImageAttachment({
           className,
         )}
       >
-        <span>Failed to load image</span>
+        <span>{labels.attachmentImageLoadErrorText}</span>
       </div>
     );
   }
@@ -40,7 +49,7 @@ const ImageAttachment = memo(function ImageAttachment({
       <img
         ref={thumbnailRef as React.Ref<HTMLImageElement>}
         src={src}
-        alt="Image attachment"
+        alt={labels.attachmentImageAltText}
         className={cn(
           "cpk-attachment-renderer cpk-attachment-renderer-image",
           className,
@@ -53,7 +62,7 @@ const ImageAttachment = memo(function ImageAttachment({
           <img
             style={{ viewTransitionName: vtName }}
             src={src}
-            alt="Image attachment"
+            alt={labels.attachmentImageAltText}
             className="cpk-attachment-renderer-lightbox-image"
           />
         </Lightbox>
@@ -124,6 +133,7 @@ const DocumentAttachment = memo(function DocumentAttachment({
   filename?: string;
   className?: string;
 }) {
+  const labels = useLabels();
   const label = filename || source.mimeType || "Document attachment";
 
   // `download` is honoured for same-origin, data: and blob: URLs. Browsers
@@ -146,7 +156,7 @@ const DocumentAttachment = memo(function DocumentAttachment({
         {getDocumentIcon(source.mimeType ?? "")}
       </span>
       <span className="cpk-attachment-renderer-document-name">
-        {filename || source.mimeType || "Unknown type"}
+        {filename || source.mimeType || labels.attachmentUnknownTypeText}
       </span>
     </a>
   );

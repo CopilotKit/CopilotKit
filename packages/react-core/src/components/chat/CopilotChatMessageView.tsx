@@ -31,12 +31,21 @@ import CopilotChatWorkSummary from "./CopilotChatWorkSummary";
 import { Collapsible } from "./CopilotChatToolCallGroup";
 import { ToolCallDisplayContext } from "./tool-call-display-context";
 import type { ToolCallDisplayContextValue } from "./tool-call-display-context";
-import { getToolCallLayouts, getTurnWork } from "./tool-call-layout";
+import {
+  ɵdeduplicateMessages,
+  ɵgetToolCallLayouts,
+  ɵgetTurnWork,
+  ɵgetWorkOpenState,
+  ɵisTurnWorkOpen,
+  ɵisTurnWorking,
+  ɵrecordWorkTime,
+} from "@copilotkit/core";
 import type {
   CopilotChatToolCallDisplay,
   ToolCallEntry,
-  TurnWork,
-} from "./tool-call-layout";
+  ɵTurnWork,
+  ɵWorkTime,
+} from "@copilotkit/core";
 import { useToolCallRendererNames } from "../../hooks/use-render-tool-call";
 import type {
   ActivityMessage,
@@ -344,88 +353,6 @@ const MemoizedCustomMessage = React.memo(
   },
 );
 
-/**
- * Deduplicates messages by ID. For assistant messages, merges occurrences:
- * recovers non-empty content from any earlier occurrence if the latest wiped it
- * (empty string means the streaming update cleared the field, not blank text),
- * and similarly recovers toolCalls from earlier occurrences if the latest is
- * undefined (an empty array [] is treated as intentional and kept as-is).
- * For all other roles, keeps the last entry.
- *
- * @internal Exported for unit testing only — not part of the public API.
- */
-/**
- * Collapse tool calls that share an id, keeping first-seen order.
- *
- * AG-UI's TOOL_CALL_START handler appends to the parent message's `toolCalls`
- * without checking whether that id is already present. So whenever a start
- * event is applied twice — which the human-in-the-loop flow triggers when the
- * run syncs after `respond()` — the message ends up carrying the same call
- * twice. The second copy has EMPTY `arguments`, because a start event carries
- * none; the args arrive later as TOOL_CALL_ARGS deltas addressed to the first
- * copy.
- *
- * Left alone that renders the same tool call twice: once populated and once
- * blank (an approval card with no transaction id, offering live buttons for an
- * action already taken), and React warns "Encountered two children with the
- * same key" because the call id is the render key.
- *
- * The empty copy is the redundant one, so prefer whichever entry actually
- * carries arguments rather than blindly taking the first.
- */
-function dedupeToolCalls(
-  toolCalls: NonNullable<AssistantMessage["toolCalls"]>,
-): NonNullable<AssistantMessage["toolCalls"]> {
-  const byId = new Map<string, (typeof toolCalls)[number]>();
-  for (const toolCall of toolCalls) {
-    const existing = byId.get(toolCall.id);
-    if (!existing) {
-      byId.set(toolCall.id, toolCall);
-      continue;
-    }
-    if (!existing.function?.arguments && toolCall.function?.arguments) {
-      byId.set(toolCall.id, toolCall);
-    }
-  }
-  return byId.size === toolCalls.length ? toolCalls : [...byId.values()];
-}
-
-export function deduplicateMessages(messages: Message[]): Message[] {
-  const acc = new Map<string, Message>();
-  for (const message of messages) {
-    const existing = acc.get(message.id);
-    if (
-      existing &&
-      message.role === "assistant" &&
-      existing.role === "assistant"
-    ) {
-      // Empty string means the streaming update cleared the field — fall back to
-      // any non-empty content seen earlier. Use { ...existing, ...message } so
-      // fields present only in an earlier occurrence are not silently dropped.
-      const content = message.content || existing.content;
-      // undefined toolCalls means this chunk had no tool call activity — recover
-      // from earlier occurrences. An explicit [] means all tool calls completed.
-      const toolCalls = message.toolCalls ?? existing.toolCalls;
-      acc.set(message.id, {
-        ...existing,
-        ...message,
-        content,
-        toolCalls: toolCalls ? dedupeToolCalls(toolCalls) : toolCalls,
-      } as AssistantMessage);
-    } else if (message.role === "assistant" && message.toolCalls) {
-      // Duplicate call ids also arrive on a message that was never itself
-      // duplicated, so this cannot live in the merge branch above.
-      acc.set(message.id, {
-        ...message,
-        toolCalls: dedupeToolCalls(message.toolCalls),
-      } as AssistantMessage);
-    } else {
-      acc.set(message.id, message);
-    }
-  }
-  return [...acc.values()];
-}
-
 /** What the view passes the wrapper of a message group. */
 export interface MessageGroupWrapperProps<S = unknown> {
   /** The group's key, as returned by `groupMessages`. */
@@ -625,7 +552,7 @@ export function CopilotChatMessageView({
   };
 
   const deduplicatedMessages = useMemo(
-    () => deduplicateMessages(messages),
+    () => ɵdeduplicateMessages(messages),
     [messages],
   );
 
@@ -679,18 +606,18 @@ export function CopilotChatMessageView({
     () =>
       toolCallDisplay === "separate"
         ? new Map()
-        : getToolCallLayouts(renderedMessages, messages, rendererNames),
+        : ɵgetToolCallLayouts(renderedMessages, messages, rendererNames),
     [toolCallDisplay, renderedMessages, messages, rendererNames],
   );
   const turnWork = useMemo(
     () =>
       toolCallDisplay === "turn"
-        ? getTurnWork(renderedMessages, toolCallLayouts)
+        ? ɵgetTurnWork(renderedMessages, toolCallLayouts)
         : undefined,
     [toolCallDisplay, renderedMessages, toolCallLayouts],
   );
   const turnByFirstMessage = useMemo(() => {
-    const byFirst = new Map<string, TurnWork>();
+    const byFirst = new Map<string, ɵTurnWork>();
     for (const turn of turnWork?.values() ?? []) {
       byFirst.set(turn.firstMessageId, turn);
     }
@@ -705,16 +632,13 @@ export function CopilotChatMessageView({
       break;
     }
   }
-  const isWorkingOn = (turnKey: string) =>
-    isRunning && turnKey === latestTurnKey;
 
   // Work shows while the agent is on it and folds once the reply is done,
   // unless the user has opened or closed it themselves.
   const [toggledTurns, setToggledTurns] = useState<
     ReadonlyMap<string, boolean>
   >(() => new Map());
-  const isWorkOpen = (turnKey: string) =>
-    toggledTurns.get(turnKey) ?? isWorkingOn(turnKey);
+  const turnState = { toggledTurns, isRunning, latestTurnKey };
 
   // How long the agent worked, for "Worked for 9s": the sum of its runs on
   // the reply, so waiting between them (say, for an approval) doesn't count.
@@ -722,41 +646,27 @@ export function CopilotChatMessageView({
   // message; a restored thread shows the tool count instead. Written during
   // render: each write records a run starting or ending once, so repeating a
   // render changes nothing.
-  const workTimesRef = useRef(
-    new Map<string, { elapsedMs: number; workingSince?: number }>(),
-  );
+  const workTimesRef = useRef(new Map<string, ɵWorkTime>());
   if (toolCallDisplay === "turn") {
-    const now = Date.now();
-    const workTimes = workTimesRef.current;
-    if (isRunning) {
-      const times = workTimes.get(latestTurnKey);
-      if (times) times.workingSince ??= now;
-      else if (renderedMessages[renderedMessages.length - 1]?.role === "user")
-        workTimes.set(latestTurnKey, { elapsedMs: 0, workingSince: now });
-    } else {
-      for (const times of workTimes.values()) {
-        if (times.workingSince === undefined) continue;
-        times.elapsedMs += now - times.workingSince;
-        times.workingSince = undefined;
-      }
-    }
+    ɵrecordWorkTime(workTimesRef.current, {
+      isRunning,
+      latestTurnKey,
+      lastMessageRole: renderedMessages[renderedMessages.length - 1]?.role,
+      now: Date.now(),
+    });
   }
 
   // Whether each working-phase message's work shows. Text that ends the reply
   // stays out even when its message also calls a tool: it's the answer.
-  const { workOpen, workTextOpen } = useMemo(() => {
-    const open = new Map<string, boolean>();
-    const textOpen = new Map<string, boolean>();
-    for (const turn of turnWork?.values() ?? []) {
-      const turnOpen =
-        toggledTurns.get(turn.key) ?? (isRunning && turn.key === latestTurnKey);
-      for (const id of turn.workMessageIds) {
-        open.set(id, turnOpen);
-        if (id !== turn.replyTextMessageId) textOpen.set(id, turnOpen);
-      }
-    }
-    return { workOpen: open, workTextOpen: textOpen };
-  }, [turnWork, toggledTurns, isRunning, latestTurnKey]);
+  const { workOpen, workTextOpen } = useMemo(
+    () =>
+      ɵgetWorkOpenState(turnWork?.values() ?? [], {
+        toggledTurns,
+        isRunning,
+        latestTurnKey,
+      }),
+    [turnWork, toggledTurns, isRunning, latestTurnKey],
+  );
 
   const toolCallDisplayContext = useMemo<ToolCallDisplayContextValue>(
     () => ({
@@ -770,8 +680,8 @@ export function CopilotChatMessageView({
   );
 
   const renderWorkSummary = (turnKey: string, calls: ToolCallEntry[]) => {
-    const working = isWorkingOn(turnKey);
-    const open = isWorkOpen(turnKey);
+    const working = ɵisTurnWorking(turnKey, turnState);
+    const open = ɵisTurnWorkOpen(turnKey, turnState);
     const times = workTimesRef.current.get(turnKey);
     return (
       <Collapsible

@@ -4,7 +4,6 @@ import { useSuggestions } from "../../hooks/use-suggestions";
 import type { CopilotChatViewProps } from "./CopilotChatView";
 import { CopilotChatView } from "./CopilotChatView";
 import type { CopilotChatInputMode } from "./CopilotChatInput";
-import type { CopilotChatLabels } from "../../providers/CopilotChatConfigurationProvider";
 import {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
@@ -13,18 +12,26 @@ import {
   createAttachmentContent,
   DEFAULT_AGENT_ID,
   randomUUID,
-  TranscriptionErrorCode,
 } from "@copilotkit/shared";
 import type { AttachmentsConfig, InputContent } from "@copilotkit/shared";
-import type { Suggestion } from "@copilotkit/core";
 import {
+  CopilotChatDefaultLabels,
   CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
   isRunCompletionAware,
+  TranscriptionError,
   ɵcreateThreadStore,
   ɵisHttpAgent,
+  ɵmessagesFingerprint,
+  ɵtranscribeAudio,
+  ɵtranscriptionErrorMessageKey,
 } from "@copilotkit/core";
-import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
+import type {
+  CopilotChatLabels,
+  Suggestion,
+  ɵThreadRuntimeContext,
+  ɵThreadStore,
+} from "@copilotkit/core";
 import React, {
   useCallback,
   useEffect,
@@ -41,10 +48,6 @@ import { InlineFeatureWarning } from "../../components/license-warning-banner";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot, useShallowStableRef } from "../../lib/slots";
-import {
-  transcribeAudio,
-  TranscriptionError,
-} from "../../lib/transcription-client";
 import { LastUserMessageContext } from "./last-user-message-context";
 import type { LastUserMessageState } from "./last-user-message-context";
 import { useInspectorThreadOverride } from "../../providers/use-inspector-thread-override";
@@ -117,6 +120,12 @@ export type CopilotChatProps = Omit<
    */
   generativeUISurface?: React.ComponentType<GenerativeUIChatSurfaceProps>;
 };
+/**
+ * A message the chat shows over the input for a few seconds: a chat label, or
+ * text no label covers.
+ */
+type ChatNotice = { labelKey: keyof CopilotChatLabels } | { text: string };
+
 export function CopilotChat({
   agentId,
   threadId,
@@ -245,9 +254,8 @@ export function CopilotChat({
   const [transcribeMode, setTranscribeMode] =
     useState<CopilotChatInputMode>("input");
   const [inputValue, setInputValue] = useState("");
-  const [transcriptionError, setTranscriptionError] = useState<string | null>(
-    null,
-  );
+  const [transcriptionError, setTranscriptionError] =
+    useState<ChatNotice | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
 
   // Attachments
@@ -876,9 +884,7 @@ export function CopilotChat({
     }
     if (!isCurrentSelection()) return false;
     if (failedConnectionsRef.current.has(agent)) {
-      setTranscriptionError(
-        "Could not load saved conversation. Reopen the thread and try again.",
-      );
+      setTranscriptionError({ labelKey: "threadLoadErrorText" });
       return "failed";
     }
     // Widen to `unknown` before the guard: narrowing `AbstractAgent` directly
@@ -929,7 +935,9 @@ export function CopilotChat({
         console.error(
           "[CopilotKit] Cannot send while attachments are uploading (pre-await guard)",
         );
-        setTranscriptionError("Cannot send while attachments are uploading.");
+        setTranscriptionError({
+          text: "Cannot send while attachments are uploading.",
+        });
         return;
       }
 
@@ -962,7 +970,9 @@ export function CopilotChat({
           console.error(
             "[CopilotKit] Cannot send while attachments are uploading (post-await re-check)",
           );
-          setTranscriptionError("Cannot send while attachments are uploading.");
+          setTranscriptionError({
+            text: "Cannot send while attachments are uploading.",
+          });
           setInputValue(value);
           return;
         }
@@ -1133,7 +1143,7 @@ export function CopilotChat({
         setTranscriptionError(null);
 
         // Send to transcription endpoint
-        const result = await transcribeAudio(copilotkit, audioBlob);
+        const result = await ɵtranscribeAudio(copilotkit, audioBlob);
 
         // Insert transcribed text into input
         setInputValue((prev) => {
@@ -1146,48 +1156,16 @@ export function CopilotChat({
       } catch (error) {
         console.error("CopilotChat: Transcription failed", error);
 
-        // Show contextual error message based on error type
+        // Show a message for the error type. An error no label fits shows
+        // its own message.
         if (error instanceof TranscriptionError) {
-          const { code, retryable, message } = error.info;
-          switch (code) {
-            case TranscriptionErrorCode.RATE_LIMITED:
-              setTranscriptionError("Too many requests. Please wait a moment.");
-              break;
-            case TranscriptionErrorCode.AUTH_FAILED:
-              setTranscriptionError(
-                "Authentication error. Please check your configuration.",
-              );
-              break;
-            case TranscriptionErrorCode.AUDIO_TOO_LONG:
-              setTranscriptionError(
-                "Recording is too long. Please try a shorter recording.",
-              );
-              break;
-            case TranscriptionErrorCode.AUDIO_TOO_SHORT:
-              setTranscriptionError(
-                "Recording is too short. Please try again.",
-              );
-              break;
-            case TranscriptionErrorCode.INVALID_AUDIO_FORMAT:
-              setTranscriptionError("Audio format not supported.");
-              break;
-            case TranscriptionErrorCode.SERVICE_NOT_CONFIGURED:
-              setTranscriptionError("Transcription service is not available.");
-              break;
-            case TranscriptionErrorCode.NETWORK_ERROR:
-              setTranscriptionError(
-                "Network error. Please check your connection.",
-              );
-              break;
-            default:
-              // For retryable errors, show more helpful message
-              setTranscriptionError(
-                retryable ? "Transcription failed. Please try again." : message,
-              );
-          }
+          const labelKey = ɵtranscriptionErrorMessageKey(error.info);
+          setTranscriptionError(
+            labelKey ? { labelKey } : { text: error.info.message },
+          );
         } else {
           // Fallback for unexpected errors
-          setTranscriptionError("Transcription failed. Please try again.");
+          setTranscriptionError({ labelKey: "transcriptionErrorGenericText" });
         }
       } finally {
         setIsTranscribing(false);
@@ -1268,37 +1246,10 @@ export function CopilotChat({
     : transcribeMode;
 
   // Memoize messages array — only create a new reference when content changes.
-  // We build a lightweight fingerprint instead of JSON.stringify to avoid
-  // serializing large base64 attachment data on every render. The key captures:
-  //   - message id, role, content length (text streaming)
-  //   - content part count (multimodal additions)
-  //   - tool call ids + argument lengths (tool call streaming)
-  //   - object content for activity messages (ACTIVITY_SNAPSHOT replace keeps
-  //     the same message id; a length-based key is always 0 for objects and
-  //     freezes generative-UI / progress renderers on the first frame)
-  // Multimodal attachments stay on the array branch (part count only), so this
-  // does not reintroduce base64 serialization for user uploads.
-  const messagesMemoKey = agent.messages
-    .map((m) => {
-      const contentKey =
-        typeof m.content === "string"
-          ? m.content.length
-          : Array.isArray(m.content)
-            ? m.content.length
-            : m.content && typeof m.content === "object"
-              ? JSON.stringify(m.content)
-              : 0;
-      const toolCallsKey =
-        "toolCalls" in m && Array.isArray(m.toolCalls)
-          ? m.toolCalls
-              .map(
-                (tc: any) => `${tc.id}:${tc.function?.arguments?.length ?? 0}`,
-              )
-              .join(";")
-          : "";
-      return `${m.id}:${m.role}:${contentKey}:${toolCallsKey}`;
-    })
-    .join(",");
+  // The fingerprint is cheaper than a deep compare: it keeps base64 uploads out
+  // of the key, and still changes for streamed text, streamed tool arguments,
+  // added parts, and replaced activity content.
+  const messagesMemoKey = ɵmessagesFingerprint(agent.messages);
   const messages = useMemo(
     () => [...agent.messages],
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1411,7 +1362,13 @@ export function CopilotChat({
               zIndex: 50,
             }}
           >
-            {transcriptionError}
+            {"labelKey" in transcriptionError
+              ? {
+                  ...CopilotChatDefaultLabels,
+                  ...existingConfig?.labels,
+                  ...labels,
+                }[transcriptionError.labelKey]
+              : transcriptionError.text}
           </div>
         )}
         <LastUserMessageContext.Provider value={lastUserMessageState}>

@@ -1,17 +1,18 @@
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ReasoningMessage } from "@ag-ui/core";
+import type { ReasoningMessage, ToolCall } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";
 import { CopilotChatReasoningMessage } from "../CopilotChatReasoningMessage";
 import { CopilotChatAttachmentQueue } from "../CopilotChatAttachmentQueue";
+import { CopilotChatToolCallGroup } from "../CopilotChatToolCallGroup";
 import { CopilotChatInput } from "../CopilotChatInput";
 import { CopilotModalHeader } from "../CopilotModalHeader";
 import { CopilotSidebarView } from "../CopilotSidebarView";
 import { Lightbox } from "../Lightbox";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import type { CopilotChatLabels } from "../../../providers/CopilotChatConfigurationProvider";
+import type { CopilotChatLabels } from "@copilotkit/core";
 
 // Strings an app translates through `labels`. Every one of them used to be
 // hard-coded English.
@@ -25,17 +26,25 @@ const germanLabels: Partial<CopilotChatLabels> = {
   modalHeaderCloseButtonLabel: "Schließen",
   modalHeaderThreadsButtonLabel: "Unterhaltungen öffnen",
   sidebarLabel: "Chat-Seitenleiste",
+  reasoningMessageThoughtForLabel: "{duration} nachgedacht",
+  reasoningMessageDurationSeconds: "{count} Sekunden",
+  toolCallRunningLabel: "{name} läuft",
 };
 
 /** Renders `ui` inside a chat configuration with the German labels. */
 function renderWithLabels(ui: React.ReactElement) {
-  return render(
+  return render(ui, { wrapper: GermanLabels });
+}
+
+/** A chat configuration with the German labels. */
+function GermanLabels({ children }: { children: React.ReactNode }) {
+  return (
     <CopilotChatConfigurationProvider
       threadId="test-thread"
       labels={germanLabels}
     >
-      {ui}
-    </CopilotChatConfigurationProvider>,
+      {children}
+    </CopilotChatConfigurationProvider>
   );
 }
 
@@ -58,6 +67,35 @@ function attachment(
     filename: `${id}.bin`,
     status: "ready",
   };
+}
+
+const readFileCall: ToolCall = {
+  id: "call-1",
+  type: "function",
+  function: { name: "read_file", arguments: "{}" },
+};
+
+/**
+ * Renders a reasoning message that streams for 3 seconds, then stops, and
+ * returns the header text.
+ */
+function reasoningHeaderAfterThreeSeconds(
+  wrap: (ui: React.ReactElement) => ReturnType<typeof render>,
+) {
+  vi.useFakeTimers();
+  const message = (isRunning: boolean) => (
+    <CopilotChatReasoningMessage
+      message={reasoning}
+      messages={[reasoning]}
+      isRunning={isRunning}
+    />
+  );
+  const { rerender } = wrap(message(true));
+  act(() => {
+    vi.advanceTimersByTime(3000);
+  });
+  rerender(message(false));
+  return screen.getByRole("button").textContent;
 }
 
 describe("chat strings from labels", () => {
@@ -181,5 +219,30 @@ describe("chat strings from labels", () => {
         .querySelector("[data-copilot-sidebar]")
         ?.getAttribute("aria-label"),
     ).toBe("Chat-Seitenleiste");
+  });
+
+  it("reads the finished reasoning header in English by default", () => {
+    expect(reasoningHeaderAfterThreeSeconds((ui) => render(ui))).toBe(
+      "Thought for 3 seconds",
+    );
+  });
+
+  it("builds the finished reasoning header from the configured templates", () => {
+    expect(reasoningHeaderAfterThreeSeconds(renderWithLabels)).toBe(
+      "3 Sekunden nachgedacht",
+    );
+  });
+
+  it("names the running tool call with the configured template", () => {
+    renderWithLabels(
+      <CopilotChatToolCallGroup
+        calls={[{ toolCall: readFileCall }]}
+        renderCall={() => null}
+        isActive
+      />,
+    );
+
+    expect(screen.getByText("read_file läuft")).toBeDefined();
+    expect(screen.queryByText(/Running/)).toBeNull();
   });
 });

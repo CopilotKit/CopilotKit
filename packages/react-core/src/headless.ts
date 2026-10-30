@@ -29,11 +29,13 @@ export type { CopilotKitCoreReactConfig } from "./context";
 export {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
-  CopilotChatDefaultLabels,
-  type CopilotChatLabels,
   type CopilotChatConfigurationValue,
   type CopilotChatConfigurationProviderProps,
 } from "./providers/CopilotChatConfigurationProvider";
+// The chat text (keys and default English) lives in core, shared with Vue and
+// Angular.
+export { CopilotChatDefaultLabels } from "@copilotkit/core";
+export type { CopilotChatLabels } from "@copilotkit/core";
 
 // Platform-agnostic hooks.
 // UseAgentUpdate is a runtime enum (passed as a value to useAgent's `updates`
