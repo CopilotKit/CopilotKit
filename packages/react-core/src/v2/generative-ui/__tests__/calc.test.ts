@@ -66,7 +66,7 @@ describe("calc", () => {
   it("refuses what the language does not have", () => {
     expect(() => evaluateCalc("seats * 29", {})).toThrow("unknown name seats");
     expect(() => evaluateCalc("1 / 0", {})).toThrow("division by zero");
-    expect(() => evaluateCalc("sqrt(4)", {})).toThrow("unknown function sqrt");
+    expect(() => evaluateCalc("sin(4)", {})).toThrow("unknown function sin");
     expect(() => evaluateCalc("a.b", { a: {} })).toThrow(ExpressionError);
     expect(() => evaluateCalc("x = 1", { x: 1 })).toThrow(ExpressionError);
     expect(() => evaluateCalc("list * 2", { list: [1] })).toThrow(
@@ -76,6 +76,42 @@ describe("calc", () => {
     expect(() => evaluateCalc("(1 + 2", {})).toThrow('expected ")"');
     expect(() => evaluateCalc("", {})).toThrow("expression must be a string");
     expect(() => calc({})).toThrow("expression must be a string");
+  });
+});
+
+describe("calc powers, roots, logs and constants", () => {
+  it("computes a monthly loan payment with ^ and pow", () => {
+    const scope = { loan: 250000, rate: 6.5, years: 30 };
+    const payment = evaluateCalc(
+      "loan * (rate / 1200) / (1 - (1 + rate / 1200) ^ -(years * 12))",
+      scope,
+    ) as number;
+    expect(payment).toBeCloseTo(1580.17, 2);
+    expect(
+      evaluateCalc(
+        "loan * (rate / 1200) / (1 - pow(1 + rate / 1200, -(years * 12)))",
+        scope,
+      ),
+    ).toBeCloseTo(payment, 10);
+  });
+
+  it("binds ^ tighter than * and unary minus, right to left", () => {
+    expect(evaluateCalc("2 * 3 ^ 2", {})).toBe(18);
+    expect(evaluateCalc("-2 ^ 2", {})).toBe(-4);
+    expect(evaluateCalc("2 ^ 3 ^ 2", {})).toBe(512);
+  });
+
+  it("has sqrt, exp, ln, log10, pi and e, and lets an arg shadow a constant", () => {
+    expect(evaluateCalc("sqrt(16) + log10(1000)", {})).toBe(7);
+    expect(evaluateCalc("ln(exp(2))", {})).toBeCloseTo(2, 12);
+    expect(evaluateCalc("round(pi * 100) / 100", {})).toBe(3.14);
+    expect(evaluateCalc("e", {})).toBeCloseTo(Math.E, 12);
+    expect(evaluateCalc("e * 2", { e: 5 })).toBe(10);
+  });
+
+  it("fails clearly instead of returning NaN or Infinity", () => {
+    expect(() => evaluateCalc("sqrt(-1)", {})).toThrow(ExpressionError);
+    expect(() => evaluateCalc("ln(0)", {})).toThrow(/no finite result/);
   });
 });
 

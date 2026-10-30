@@ -6,9 +6,10 @@ import { ExpressionError, truthOf } from "./functions";
  * Both are catalog functions in the sense of the spec: a catalog may
  * declare functions beyond the basic ones, and the model learns them from
  * the schema. The expression language is small and closed: numbers,
- * strings, booleans, the args by name, `+ - * / %`, comparisons, `&& || !`,
- * `cond ? a : b`, parentheses, and min, max, round, floor, ceil, abs. No
- * property access, no assignment, no code.
+ * strings, booleans, the args by name, `+ - * / %`, `^` (power),
+ * comparisons, `&& || !`, `cond ? a : b`, parentheses, min, max, round,
+ * floor, ceil, abs, pow, sqrt, exp, ln (also log), log10, and the
+ * constants pi and e. No property access, no assignment, no code.
  */
 
 type Value = number | string | boolean | null;
@@ -39,6 +40,7 @@ const OPERATORS = [
   "*",
   "/",
   "%",
+  "^",
   "(",
   ")",
   ",",
@@ -127,7 +129,16 @@ const MATH: Record<string, (args: number[]) => number> = {
     const factor = 10 ** Math.trunc(decimals);
     return Math.round(x * factor) / factor;
   },
+  pow: ([x, y]) => x ** y,
+  sqrt: ([x]) => Math.sqrt(x),
+  exp: ([x]) => Math.exp(x),
+  ln: ([x]) => Math.log(x),
+  log: ([x]) => Math.log(x),
+  log10: ([x]) => Math.log10(x),
 };
+
+/** Named constants, when no arg of the same name is passed. */
+const CONSTANTS: Record<string, number> = { pi: Math.PI, e: Math.E };
 
 // ---- Parser ----
 
@@ -317,7 +328,26 @@ class CalcParser {
       this.pos++;
       return !truthOf(this.unary());
     }
-    return this.primary();
+    return this.power();
+  }
+
+  /** `a ^ b`: binds tighter than `*` and unary minus, right to left. */
+  private power(): Value {
+    const base = this.primary();
+    if (!this.peekOp("^")) return base;
+    this.pos++;
+    const exponent = this.unary();
+    if (this.skipDepth > 0) return null;
+    return this.finite(
+      this.num(base, "the left side of ^") **
+        this.num(exponent, "the right side of ^"),
+      "^",
+    );
+  }
+
+  private finite(value: number, what: string): number {
+    if (!Number.isFinite(value)) this.fail(`${what} has no finite result`);
+    return value;
   }
 
   private primary(): Value {
@@ -362,10 +392,13 @@ class CalcParser {
         : undefined;
       if (!fn) this.fail(`unknown function ${name}`);
       if (args.length === 0) this.fail(`${name} needs an argument`);
-      return fn(args);
+      return this.finite(fn(args), name);
     }
     if (this.skipDepth > 0) return null;
     if (!Object.prototype.hasOwnProperty.call(this.scope, name)) {
+      if (Object.prototype.hasOwnProperty.call(CONSTANTS, name)) {
+        return CONSTANTS[name];
+      }
       this.fail(`unknown name ${name}; pass it as an arg`);
     }
     const value = this.scope[name];
