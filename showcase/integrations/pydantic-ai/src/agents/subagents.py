@@ -14,12 +14,9 @@ PydanticAI specifics
   itself runs inside an async event loop (the AG-UI handler awaits
   ``agent.run``); calling ``run_sync`` from a tool would attempt to
   start a nested loop and raise ``RuntimeError``.
-* Each delegation tool is an async ``@supervisor.tool`` that
-    1) appends a "running" entry to ``ctx.deps.state.delegations``
-       and emits a ``StateSnapshotEvent`` so the UI updates immediately,
-    2) runs the sub-agent,
-    3) flips the entry to ``"completed"`` (or ``"failed"``) and emits a
-       second ``StateSnapshotEvent`` with the final result.
+* Each delegation tool is an async ``@agent.tool`` that records a
+  delegation, runs the sub-agent, then returns its text with an AG-UI state
+  snapshot. The snapshot reaches the UI when that tool returns.
 
 The supervisor and sub-agents do not share memory — only the supervisor
 sees a sub-agent's return value, exactly like the LangGraph-Python and
@@ -35,9 +32,10 @@ import uuid
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent, RunContext
+from pydantic_ai import Agent, RunContext, ToolReturn
 from pydantic_ai.ui import StateDeps
 from pydantic_ai.models.openai import OpenAIResponsesModel
+from ag_ui.core import EventType, StateSnapshotEvent
 
 logger = logging.getLogger(__name__)
 
@@ -198,14 +196,11 @@ async def _delegate(
     sub_agent: SubAgentName,
     sub_agent_obj: Agent[None, str],
     task: str,
-) -> str:
+) -> ToolReturn:
     """Common delegation flow: append running → invoke → finalise.
 
-    Returns the sub-agent's output text so the supervisor LLM can read it
-    on its next step. State mutations (running entry + final entry) are
-    written through ``ctx.deps.state``; PydanticAI's AG-UI bridge syncs
-    those back to the frontend at end-of-turn so the delegation log
-    re-renders automatically.
+    Give the supervisor the sub-agent text and the browser a state snapshot.
+    PydanticAI forwards AG-UI event metadata when the tool returns.
     """
     entry_id = _append_running(ctx, sub_agent=sub_agent, task=task)
     try:
@@ -217,9 +212,24 @@ async def _delegate(
             "(see server logs for details)"
         )
         _finalise(ctx, entry_id=entry_id, status="failed", result=message)
-        return message
+        return _delegation_result(ctx, message)
     _finalise(ctx, entry_id=entry_id, status="completed", result=result)
-    return result
+    return _delegation_result(ctx, result)
+
+
+def _delegation_result(
+    ctx: RunContext[StateDeps[SubagentsState]], result: str
+) -> ToolReturn:
+    """Attach the complete state to a tool result for the AG-UI client."""
+    return ToolReturn(
+        return_value=result,
+        metadata=[
+            StateSnapshotEvent(
+                type=EventType.STATE_SNAPSHOT,
+                snapshot=ctx.deps.state.model_dump(mode="json"),
+            )
+        ],
+    )
 
 
 # Each ``@agent.tool`` wraps a sub-agent invocation. The supervisor LLM
@@ -231,7 +241,7 @@ async def _delegate(
 async def research_agent(
     ctx: RunContext[StateDeps[SubagentsState]],
     task: str,
-) -> str:
+) -> ToolReturn:
     """Delegate a research task to the research sub-agent.
 
     Use for: gathering facts, background, definitions, statistics.
@@ -249,7 +259,7 @@ async def research_agent(
 async def writing_agent(
     ctx: RunContext[StateDeps[SubagentsState]],
     task: str,
-) -> str:
+) -> ToolReturn:
     """Delegate a drafting task to the writing sub-agent.
 
     Use for: producing a polished paragraph, draft, or summary. Pass
@@ -267,7 +277,7 @@ async def writing_agent(
 async def critique_agent(
     ctx: RunContext[StateDeps[SubagentsState]],
     task: str,
-) -> str:
+) -> ToolReturn:
     """Delegate a critique task to the critique sub-agent.
 
     Use for: reviewing a draft and suggesting concrete improvements.
