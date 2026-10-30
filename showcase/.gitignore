@@ -24,4 +24,9 @@ shell-dashboard/src/data/*.json
 .eval-results/
 .eval-baseline.json
 
+# Reconcile debounce counter — a runtime state file written by
+# scripts/reconcile-staging.ts (RECONCILE_DEBOUNCE_STATE) and persisted between
+# scheduled runs via actions/cache. Never committed.
+scripts/.reconcile-debounce/
+
 next-env.d.ts
