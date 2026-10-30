@@ -42,7 +42,11 @@ import { createLogger } from "../../../v1-deprecated/lib/logger";
 import type { CopilotRuntimeLogger } from "../../../v1-deprecated/lib/logger";
 import { logRuntimeTelemetryDisclosure } from "../../../v1-deprecated/lib/telemetry-disclosure";
 import type { TranscriptionService } from "../transcription-service/transcription-service";
-import { DebugEventBus, isDebugEventFeedEnabled } from "./debug-event-bus";
+import {
+  DebugEventBus,
+  isDebugEventFeedEnabled,
+  warnIfDebugEventFeedExposed,
+} from "./debug-event-bus";
 import type { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
@@ -234,6 +238,15 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   ɵtelemetry?: TelemetryCapture;
   /** Enable debug logging for the event pipeline. */
   debug?: DebugConfig;
+  /**
+   * Serve `/cpk-debug-events` whatever `NODE_ENV` and `debug` say. This is the
+   * only way to open the feed when `NODE_ENV` is neither `development` nor
+   * `test`, unset included. The feed streams every thread's events, including full message
+   * content, to any caller that reaches the route, so restrict the route first.
+   *
+   * @default false
+   */
+  exposeDebugEvents?: boolean;
   /**
    * Policy controlling which inbound HTTP headers are forwarded onto the
    * outgoing agent call. By default a built-in denylist strips known
@@ -437,6 +450,8 @@ export interface CopilotRuntimeLike {
    * (`BaseCopilotRuntime`) always resolve and set it.
    */
   exposeMemoryRoutes?: boolean;
+  /** Opt-in that opens `/cpk-debug-events`; see {@link isDebugEventFeedEnabled}. */
+  exposeDebugEvents?: boolean;
   /**
    * Resolved local Thread access mode. Optional on the published interface so
    * an external implementor stays source-compatible; a missing value means
@@ -482,6 +497,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public readonly forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
   public readonly sseKeepAliveIntervalSeconds: number;
   public readonly exposeMemoryRoutes: boolean;
+  public readonly exposeDebugEvents: boolean;
   public readonly threadAccess: ThreadAccessMode;
   public readonly memory?: CopilotRuntimeMemoryConfig;
 
@@ -562,8 +578,10 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     // The debug feed carries every thread's events to any subscriber, so the
     // bus only exists where the feed is allowed to be served. Resolving
     // `debug` first keeps the bus and the route gate reading one value.
-    if (isDebugEventFeedEnabled(this.debug)) {
+    this.exposeDebugEvents = options.exposeDebugEvents === true;
+    if (isDebugEventFeedEnabled(this.debug, this.exposeDebugEvents)) {
       this.debugEventBus = new DebugEventBus();
+      warnIfDebugEventFeedExposed();
     }
     // Resolve the inbound-header forwarding policy once (mirroring the
     // `debug` → `ResolvedDebugConfig` resolve-once above) so both the /run and
@@ -1029,6 +1047,10 @@ class CopilotRuntimeShim implements CopilotRuntime {
 
   get exposeMemoryRoutes(): boolean | undefined {
     return this.delegate.exposeMemoryRoutes;
+  }
+
+  get exposeDebugEvents(): boolean | undefined {
+    return this.delegate.exposeDebugEvents;
   }
 
   get memory(): CopilotRuntimeMemoryConfig | undefined {

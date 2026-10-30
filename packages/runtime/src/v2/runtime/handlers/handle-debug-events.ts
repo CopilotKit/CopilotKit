@@ -1,6 +1,6 @@
-import { CopilotRuntimeLike } from "../core/runtime";
+import type { CopilotRuntimeLike } from "../core/runtime";
 import { isDebugEventFeedEnabled } from "../core/debug-event-bus";
-import { DebugEventEnvelope } from "@copilotkit/shared";
+import type { DebugEventEnvelope } from "@copilotkit/shared";
 
 interface HandleDebugEventsParams {
   runtime: CopilotRuntimeLike;
@@ -11,7 +11,7 @@ export function handleDebugEvents({
   runtime,
   request,
 }: HandleDebugEventsParams): Response {
-  if (!isDebugEventFeedEnabled(runtime.debug)) {
+  if (!isDebugEventFeedEnabled(runtime.debug, runtime.exposeDebugEvents)) {
     return new Response("Not Found", { status: 404 });
   }
 

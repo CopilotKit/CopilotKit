@@ -492,8 +492,9 @@ Verifying *who* the caller is doesn't yet stop them reaching *someone else's con
 
 | Runtime | Who scopes threads to a user |
 | --- | --- |
-| `CopilotRuntime` with `intelligence` | Mostly the runtime, via [`identifyUser`](#copilotkit-intelligence-scopes-most-thread-routes) — with three routes you still have to guard. |
-| Anything else — SSE runtime, custom store, local in-memory runner | You do. See [Scope threads yourself](#scope-threads-yourself). |
+| `CopilotRuntime` with `intelligence` | The runtime, via [`identifyUser`](#copilotkit-intelligence-scopes-most-thread-routes). |
+| SSE runtime with the in-memory or SQLite runner | The runtime, when you set `identifyUser`. Without it, a thread id is the only credential. |
+| Anything else, such as a custom store | You do. See [Scope threads yourself](#scope-threads-yourself). |
 
 ### CopilotKit Intelligence scopes most thread routes
 
@@ -529,44 +530,10 @@ Where a route does resolve the caller, what matters next is whether that id is a
 | `threads/messages` | Yes |
 | `threads/update` (rename via `PATCH`, delete via `DELETE`), `threads/archive` | Yes |
 | Thread subscription token | Yes |
-| `threads/events`, `threads/state` | **No** — resolves the caller, then ignores it |
+| `threads/events`, `threads/state` | Yes — the thread is fetched as the caller first |
 | `agent/stop` | Yes — the thread is fetched as the caller before the run is aborted |
 
-<Callout type="warn" title="Two routes are not user-scoped">
-  **`threads/events` and `threads/state`** back the [inspector](/inspector). Both resolve the
-  caller and then discard the result, reading the thread by id alone — the runtime calls the
-  platform's project-authenticated `_inspect` endpoints, which take no user parameter. Any
-  caller can read the full event log and current agent state of any thread in the project,
-  given its `threadId`.
-
-  Guard both yourself. The `onBeforeHandler` pattern below applies on the CopilotKit Intelligence
-  path too, narrowed to these routes:
-
-  ```ts
-  onBeforeHandler: async ({ request, route }) => {
-    // Switch rather than an array `includes`, so `route` narrows and
-    // `route.threadId` type-checks — both variants carry one.
-    switch (route.method) {
-      case "threads/events":
-      case "threads/state":
-        break;
-      default:
-        return;
-    }
-
-    // None of these is scoped platform-side; check your own ownership record.
-    const user = await verifyRequest(request);
-    if (!(await userOwnsThread(user.id, route.threadId))) {
-      throw new Response("Not found", { status: 404 });
-    }
-  },
-  ```
-
-  Without an ownership record of your own, reject these routes outright rather than leaving
-  them open.
-</Callout>
-
-For everything in the Yes rows there is no ownership table to build. What you own is `identifyUser` itself:
+There is no ownership table to build. What you own is `identifyUser` itself:
 
 - **Derive the id from a server-verified credential.** The callback receives the raw `Request`; whatever it returns is trusted from there on. Reading a user id straight out of a header or request body hands every caller the ability to name themselves.
 - **Return a stable id.** It is the key threads hang off. Change it — swapping an email for a subject claim, say — and that user's existing threads stop resolving.
@@ -582,16 +549,7 @@ See [Scope AG-UI Streams to the signed-in user](/threads-lifecycle#scope-rich-th
 
 ### Scope threads yourself
 
-Without CopilotKit Intelligence there is no server-side binding between a `threadId` and a user. A `threadId` is just an opaque id travelling in a request: if user A learns user B's, every thread route accepts it. The rest of this section is the pattern for a custom store, a plain SSE runtime, or the local in-memory runner — and it's also what you narrow to `threads/events` and `threads/state` if you *are* on the platform.
-
-The default `InMemoryAgentRunner` is the plainest case. It holds threads in a
-process-global map keyed by `threadId` with no owner field, so every
-[thread route](/backend/runtime-endpoints#thread-routes) answers for any id it
-is handed: `GET /threads` lists every thread in the process, and
-`GET /threads/:threadId/messages` returns that thread's history to whoever asks.
-Anything extending it, such as `AgentCoreRunner`, inherits the same store.
-`SqliteAgentRunner` does not serve them at all: its read routes answer `422`.
-A runner swap is therefore a fix for durability, not for thread authorization.
+Without CopilotKit Intelligence and without `identifyUser`, there is no server-side binding between a `threadId` and a user. A `threadId` is an opaque id travelling in a request: if user A learns user B's, every route that takes a thread id accepts it. The default `InMemoryAgentRunner` and `SqliteAgentRunner` close this when you set `identifyUser`: each thread belongs to the identity of its first run, and another user's thread reads like an unknown one. An auth hook alone does not do this, because it tells the runtime nothing about who the caller is. The rest of this section is the pattern for a custom store or a runner that does not enforce owners.
 
 #### Own the mapping
 
@@ -676,7 +634,7 @@ operator.
 - **Always validate** the token on the backend. Never trust the frontend's claim.
 - **Scope every read and write** to the resolved user. Auth context only matters if you actually use it to filter data.
 - **Authenticate in `onRequest`.** It is the only hook that runs on every route. `identifyUser` names a caller; it does not gate one, and some routes never invoke it.
-- **Bind threads to a user.** On CopilotKit Intelligence that means a correct `identifyUser`, plus your own guard on `threads/events` and `threads/state`; off it, an ownership check on every thread route rather than only at login. See [Thread authorization](#thread-authorization).
+- **Bind threads to a user.** On CopilotKit Intelligence that means a correct `identifyUser`; off it, `identifyUser` on a runner that enforces owners, or an ownership check on every thread route rather than only at login. See [Thread authorization](#thread-authorization).
 - **Don't log raw tokens.** Log the resolved user id (or `anonymous`) instead.
 - **Use HTTPS in production.** The Bearer token is sensitive.
 - **Refresh strategy.** Your frontend is responsible for rotating expired tokens before they reach the agent. CopilotKit doesn't refresh on your behalf.
