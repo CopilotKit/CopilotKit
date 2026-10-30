@@ -12,22 +12,12 @@ export interface TierResult {
 export interface CodeScores {
   /** It parses, follows A2UI 1.0 and renders. */
   validity: TierResult;
+  /** Validity after the client or experimental repair has recovered the reply. */
+  recoveredValidity: TierResult;
   /** It uses the catalog correctly: no rejected operation, no invalid props, the expected components. */
   fidelity: TierResult;
   /** The code part of judgement: UI when the case wants UI, no prose-only surface. */
   judgement: TierResult;
-}
-
-/** Every component a reply sent, with its props, across all operations. */
-function sentComponents(out: SampleOutput) {
-  return out.surfaces.flatMap((surface) =>
-    (surface.operations as Array<Record<string, any>>).flatMap(
-      (op) =>
-        (op.createSurface?.components ??
-          op.updateComponents?.components ??
-          []) as Array<Record<string, unknown>>,
-    ),
-  );
 }
 
 /**
@@ -39,18 +29,18 @@ function sentComponents(out: SampleOutput) {
 function meetsExpected(
   entry: string,
   used: ReadonlySet<string>,
-  sent: ReadonlyArray<Record<string, unknown>>,
+  instances: NonNullable<SurfaceCheck["renderedComponents"]>,
 ) {
   return entry.split("|").some((alternative) => {
     const [name, prop] = alternative.split(".");
     if (!used.has(name)) return false;
     if (!prop) return true;
-    return sent.some(
-      (component) =>
-        component.component === name &&
-        component[prop] !== undefined &&
-        component[prop] !== null &&
-        component[prop] !== "",
+    return instances.some(
+      (instance) =>
+        instance.component === name &&
+        instance.props[prop] !== undefined &&
+        instance.props[prop] !== null &&
+        instance.props[prop] !== "",
     );
   });
 }
@@ -93,9 +83,9 @@ export function scoreCode(
   const used = new Set(checks.flatMap((check) => check.components));
   // With no UI at all, judgement already fails; fidelity grades the UI there is.
   if (c.expect.ui && out.surfaces.length > 0) {
-    const sent = sentComponents(out);
+    const instances = checks.flatMap((check) => check.renderedComponents ?? []);
     for (const entry of c.expect.components ?? []) {
-      if (!meetsExpected(entry, used, sent))
+      if (!meetsExpected(entry, used, instances))
         fidelity.push(`expected component not used: ${entry}`);
     }
   }
@@ -110,7 +100,11 @@ export function scoreCode(
     judgement.push("surface with prose only");
 
   return {
-    validity: tier(validity),
+    validity: tier([
+      ...validity,
+      ...((out.repairedLines?.length ?? 0) > 0 ? ["repaired fence line"] : []),
+    ]),
+    recoveredValidity: tier(validity),
     fidelity: tier(fidelity),
     judgement: tier(judgement),
   };

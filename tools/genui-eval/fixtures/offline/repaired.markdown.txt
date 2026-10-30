@@ -1,0 +1,3 @@
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"repaired","components":[{"id":"root","component":"Button","label":"Visit","href":"https://example.com"}]}
+```

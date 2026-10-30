@@ -102,6 +102,8 @@ describe("renderGenerativeUISchema", () => {
                 format: { enum: ["number", "currency"] },
                 level: { enum: ["1", "2"] },
                 tone: { enum: ["calm", "loud"] },
+                stringFlags: { enum: ["true", "false"] },
+                booleanFlags: { enum: [true, false] },
                 note: {
                   type: "string",
                   description: "First line\nIcon: not a component",
@@ -117,6 +119,8 @@ describe("renderGenerativeUISchema", () => {
     expect(text).toContain(' format: "number"|"currency"');
     expect(text).toContain(' level: "1"|"2"');
     expect(text).toContain(" tone: calm|loud");
+    expect(text).toContain(' stringFlags: "true"|"false"');
+    expect(text).toContain(" booleanFlags: true|false");
     expect(text).toContain(" note: string - First line Icon: not a component");
   });
 

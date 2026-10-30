@@ -8,7 +8,7 @@ import {
 } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Split } from "./cases";
-import type { Transport } from "./config";
+import type { ModelEntry, Transport } from "./config";
 
 /** Where runs are written: results/ next to the tool, or $GENUI_EVAL_RESULTS. */
 export const RESULTS_DIR = process.env.GENUI_EVAL_RESULTS
@@ -47,6 +47,8 @@ export interface SampleRecord {
   transport: Transport;
   sample: number;
   tiers: Record<Tier, TierRecord>;
+  /** Validity after recovery; absent in legacy results. */
+  recoveredValidity?: TierRecord;
   promptTokens: number;
   outputTokens: number;
   /** Cost of the model call. */
@@ -86,7 +88,9 @@ export interface RunRecord {
   /** Description overrides that name no component or prop. */
   unknownDescriptions?: string[];
   preset: string;
-  models: Array<{ id: string; model: string; provider?: string }>;
+  models: Array<Pick<ModelEntry, "id" | "model" | "provider" | "params">>;
+  /** Absent in legacy runs, whose validity includes client recovery. */
+  validityMode?: "raw";
   transports: Transport[];
   split: Split | "both";
   samplesPerCase: number;
