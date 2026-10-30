@@ -104,7 +104,7 @@ function signatureSchema(
   );
   const surfaces = Object.entries(manifest.surfaces).map(
     ([id, s]) =>
-      `- ${id} (target ${s.target})${s.dataModel ? ` user values: ${JSON.stringify(s.dataModel)}` : ""}${(s.rejected ?? []).map((r) => ` rejected: ${r}`).join("")}`,
+      `- ${id} (target ${s.target})${s.status ? ` status: ${s.status}` : ""}${s.dataModel ? ` user values: ${JSON.stringify(s.dataModel)}` : ""}${(s.rejected ?? []).map((r) => ` rejected: ${r}`).join("")}`,
   );
   return [
     `Catalog: ${manifest.catalogId}`,
@@ -187,7 +187,7 @@ function linesSchema(
     ? JSON.stringify(compact.surfaces)
     : "none";
   return [
-    `Catalog ${compact.catalogId}. Targets: ${targets || "none"}.`,
+    `Catalog ${compact.catalogId}. Targets: ${targets || "none"}`,
     'Props are optional unless marked *. a|b|c is one of those strings. A component marked +common also takes every common prop. A prop of type action is an event prop: give it {"event":{...}} or {"functionCall":{...}}. A componentId prop takes one component id; a childList prop takes a list of ids or a template.',
     `Functions:\n${functions.join("\n")}`,
     ...(common.length ? [`Common props:\n${common.join("\n")}`] : []),

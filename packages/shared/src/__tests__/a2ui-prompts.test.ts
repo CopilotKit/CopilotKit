@@ -5,6 +5,7 @@ import {
   GENERATIVE_UI_MARKDOWN_GUIDELINES,
   GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
   GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
+  GENERATIVE_UI_MARKDOWN_WHEN_TO_SHOW,
   GENERATIVE_UI_WHEN_TO_SHOW,
 } from "../a2ui-prompts";
 import { COPILOTKIT_FUNCTIONS } from "../generative-ui/basic-functions";
@@ -282,13 +283,23 @@ describe("buildGenerativeUIMarkdownGuidelines", () => {
 });
 
 describe("GENERATIVE_UI_WHEN_TO_SHOW", () => {
-  it("encourages UI where it conveys the answer better, and prose otherwise, on both transports", () => {
+  it("guides the markdown transport with its own text: UI by task, prose for quick answers", () => {
+    expect(GENERATIVE_UI_MARKDOWN_WHEN_TO_SHOW).toContain(
+      "Match the UI to the task",
+    );
+    expect(GENERATIVE_UI_MARKDOWN_WHEN_TO_SHOW).toContain(
+      "prose alone only for",
+    );
+    expect(GENERATIVE_UI_MARKDOWN_WHEN_TO_SHOW).toContain("No decoration");
+    expect(buildGenerativeUIMarkdownGuidelines()).toContain(
+      GENERATIVE_UI_MARKDOWN_WHEN_TO_SHOW,
+    );
+  });
+
+  it("encourages UI where it conveys the answer better, and prose otherwise, in the tool transport", () => {
     expect(GENERATIVE_UI_WHEN_TO_SHOW).toContain("illustrate a concept");
     expect(GENERATIVE_UI_WHEN_TO_SHOW).toContain("prose alone");
     expect(GENERATIVE_UI_WHEN_TO_SHOW).toContain("decoration");
-    expect(buildGenerativeUIMarkdownGuidelines()).toContain(
-      GENERATIVE_UI_WHEN_TO_SHOW,
-    );
     expect(
       buildGenerativeUIPrompt({
         catalogId: "test",

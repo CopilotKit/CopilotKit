@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { buildCompactGenerativeUISchema } from "../generative-ui/compact-schema";
 import { defaultGenerativeUIPromptSpec } from "../generative-ui/prompt-spec";
 import type { GenerativeUISchemaSettings } from "../generative-ui/prompt-spec";
 import {
@@ -49,13 +48,13 @@ const settings = (
 });
 
 describe("renderGenerativeUISchema", () => {
-  it("writes the compact schema that ships by default", () => {
+  it("writes the lines schema that ships by default", () => {
     expect(
       renderGenerativeUISchema(
         manifest,
         defaultGenerativeUIPromptSpec().schema.markdown,
       ),
-    ).toBe(JSON.stringify(buildCompactGenerativeUISchema(manifest)));
+    ).toBe(renderGenerativeUISchema(manifest, settings("lines")));
   });
 
   it.each(["compact", "json-schema", "ts-signature", "lines"] as const)(
@@ -73,6 +72,21 @@ describe("renderGenerativeUISchema", () => {
     );
     expect(text).toContain("  events: onClick(Action)");
     expect(text).toContain("- formatCurrency{value: number}: Formats money");
+  });
+
+  it("writes the status of a deleted or failed surface in signature notation", () => {
+    const text = renderGenerativeUISchema(
+      {
+        ...manifest,
+        surfaces: {
+          old: { target: "chat", status: "deleted" },
+          bad: { target: "chat", status: "failed" },
+        },
+      },
+      settings("ts-signature"),
+    );
+    expect(text).toContain("- old (target chat) status: deleted");
+    expect(text).toContain("- bad (target chat) status: failed");
   });
 
   it("writes lines: one line per prop, bare enums, required marked *, events as action props", () => {

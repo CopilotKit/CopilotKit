@@ -7,7 +7,10 @@ import {
   selectPromptItems,
 } from "./generative-ui/prompt-spec";
 import type { GenerativeUIPromptSpec } from "./generative-ui/prompt-spec";
-export { GENERATIVE_UI_WHEN_TO_SHOW } from "./generative-ui/prompt-spec";
+export {
+  GENERATIVE_UI_MARKDOWN_WHEN_TO_SHOW,
+  GENERATIVE_UI_WHEN_TO_SHOW,
+} from "./generative-ui/prompt-spec";
 /**
  * Default A2UI generation and design guideline prompts.
  *

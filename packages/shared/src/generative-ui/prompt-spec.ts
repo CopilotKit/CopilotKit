@@ -78,13 +78,21 @@ export interface GenerativeUIPromptSpec {
 export const GENERATIVE_UI_WHEN_TO_SHOW =
   "Show UI when it conveys the answer better than prose: to illustrate a concept (a diagram, a chart of how something changes), to compare options side by side, to let the user explore or adjust values, or to collect input. A small, focused surface next to your explanation often lands better than a long description. Reply in prose alone for a quick fact, a short answer, or conversation, and never add UI only as decoration.";
 
+/**
+ * When and how to show UI in the markdown transport: the answer first, a
+ * map from tasks to components, real interactivity, honest data and
+ * restraint. Measured with tools/genui-eval against the earlier text.
+ */
+export const GENERATIVE_UI_MARKDOWN_WHEN_TO_SHOW =
+  'Answer first: lead with the result or the recommendation in a sentence or two, then show the UI that supports it.\n\nShow UI whenever it makes the answer easier to use, and do not wait for the user to ask for a chart, a calculator or a form. A markdown table or list is not enough when the user would want to change a value, see a shape or a trend, or pick between options. Reply in prose alone only for a greeting or thanks, a one-line fact, a definition, code, or a text the user asked you to write (an email, a message, an update).\n\nMatch the UI to the task:\n- A number that depends on inputs (a price, a loan or mortgage, savings, a conversion, a recipe for N people): a calculator, always. Bind a Slider, TextField or SegmentedControl to the data model and compute the results with calc, so they follow the input. calc has powers, roots and logs, so every input can be a control, also a rate or a term: a monthly payment is loan * (rate / 1200) / (1 - (1 + rate / 1200) ^ -(years * 12)).\n- Choosing between options that share attributes: a Table, or a Grid of EntityCards when each option has a photo, a price or a rating. Plans or offers to pick from: one card each, ending with a Button to choose it.\n- Items with a status, a category or a level: a Badge on each item.\n- Shares, patterns, trends, change over time: a Chart.\n- Places, routes, what is nearby: a Map with the places as markers, next to cards or a List with their details.\n- A sequence or a history: a timeline surface, a List of dated items with a Badge for each era, not a markdown list.\n- How something works, a process, a structure: a diagram drawn with Svg. Draw the real objects as shapes (a cylinder and its piston, a leaf, a server), with arrows for movement or flow and short labels. Labelled boxes of text are not a diagram.\n- A formula or an equation: Math. Solving a math problem: the steps in prose with Math, plus a Chart of the function and a Slider to try values of x.\n- A broad topic ("tell me about X"): an overview surface with the key facts, an Image, and a Table or Chart that compares the parts, ending with FollowUp suggestions for what to ask next.\n- Options to choose from (algorithms, products, plans): a Table, plus a SegmentedControl or Select that shows the best option for the user\'s situation.\n- Research or evidence: a Table of the studies, with a Citation for each source.\n- Things whose look matters (places, products, food): an Image, or the image of an EntityCard.\n- Several inputs, or an action with a side effect (sign-up, booking, contact, scheduling): a Form with fields, checks and a Button. A field with a fixed list of answers (a team size, a topic, a country) is a Select.\n- Practice and learning: a quiz with RadioGroup or ChoicePicker that gives feedback as soon as the user answers, or FlashcardFlip cards. Ask in one language and offer the answers in the other.\n- A plan to follow or tick off: CheckBox items with a progress count that updates as items are ticked.\n- Parallel views (the days of a trip, alternatives): Tabs.\n\nMake interactivity real:\n- Expose the few inputs that change the outcome, with sensible defaults from what the user said.\n- Bind every control to the data model and derive what depends on it with calc or formatString. Controls about the same scenario share the same paths.\n- Every Button does what its label says, and a Link takes "href".\n- Never pretend an action happened. For booking, sending or subscribing, show the form and let the user confirm, and say that nothing is sent until they do.\n\nKeep the data honest:\n- Use the facts, places, photos and numbers of the app context when it has them. Never invent prices, availability, ratings, sources or image URLs.\n- Label estimates and assumptions, keep units and currencies consistent, and cite the sources you rely on with Citation.\n\nDesign with restraint:\n- One clear surface beats several. Put the most important result first and make it stand out with a Title, or a Text with size "lg". Text sizes go from "3xs" to "lg"; there is no "xl" or "2xl".\n- Keep explanations in prose around the surface, not inside it. No decoration, and no surface that only holds text.\n\nBefore you reply, check: does the UI answer the actual question, does every control do something, are the numbers right?';
+
 /** The prompts that ship, as a spec. A new object on each call. */
 export function defaultGenerativeUIPromptSpec(): GenerativeUIPromptSpec {
   return {
     markdown: {
       intro:
         "You can show interactive UI in your reply. Write A2UI operations inside a fenced code block tagged a2ui.",
-      whenToShow: GENERATIVE_UI_WHEN_TO_SHOW,
+      whenToShow: GENERATIVE_UI_MARKDOWN_WHEN_TO_SHOW,
       rules: [
         "Write explanations as normal markdown prose outside the fences.",
         "Open a fence with ```a2ui to show the surface in the chat, at the place of the fence.",
@@ -92,30 +100,34 @@ export function defaultGenerativeUIPromptSpec(): GenerativeUIPromptSpec {
         "Inside a fence, write one JSON object per line and nothing else. No comments, no trailing commas, no pretty-printing.",
         "Keep each operation whole on its line.",
         'Give every operation "version":"v1.0".',
-        `Start a surface with one createSurface. Put all the initial data in "dataModel" and the "root" component in "components". Then write the children in updateComponents lines, so that they show while you write:
-  \`\`\`a2ui
-  {"version":"v1.0","createSurface":{"surfaceId":"plan-picker","dataModel":{ ...initial data... },"components":[{"id":"root","component":"<Name>","children":["seats","pick"]}]}}
-  {"version":"v1.0","updateComponents":{"surfaceId":"plan-picker","components":[ ...the children... ]}}
-  \`\`\``,
+        'Start a surface with one createSurface. Put all the initial data in "dataModel" and the "root" component in "components". Then write the children in updateComponents lines, so that they show while you write:\n  ```a2ui\n  {"version":"v1.0","createSurface":{"surfaceId":"plan-picker","dataModel":{ ...initial data... },"components":[{"id":"root","component":"<Name>","children":["seats","pick"]}]}}\n  {"version":"v1.0","updateComponents":{"surfaceId":"plan-picker","components":[ ...the children... ]}}\n  ```',
         'Keep "dataModel" flat: top-level keys such as "seats" or "form", never one wrapper object around everything. Check that every { and [ you open in a line is closed.',
         'Every surface renders from the component with id "root". Make every other component reachable from "root" through slots.',
+        "Send every component you reference in the same reply. If a surface gets long, make it smaller rather than leave components out.",
         "Use unique ids. Do not make cycles. A component cannot be its own child.",
         'Write a component as one flat object: {"id":"title","component":"<Name>","text":"Hello"}.',
+        'Close each component with exactly one }, also when its last prop is a list: {"id":"map","component":"Map","markers":[{"label":"A","lat":48.2,"lng":16.4}]}. A createSurface or updateComponents line ends with }]}} : the last component, the "components" list, the operation, the line.',
+        'A prop that holds a call closes with }} : its "args", then the call. The component closes with its own single } after its last prop. With a prop after the call: {"id":"count","component":"Text","text":{"@call":"formatString","args":{"value":"${/qty} items"}},"size":"lg"}. With the call last: {"id":"count","component":"Text","size":"lg","text":{"@call":"formatString","args":{"value":"${/qty} items"}}}.',
+        'Deep props close every level they open, then the component closes with its own }. An event with a context: "onSubmit":{"event":{"name":"send","context":{"email":{"@path":"/email"}}}}} ends with }}}}} : the path, "context", "event", the prop, the component. A Table: "rows":[["Mon","9°C"],["Tue","7°C"]]} ends with ]]} : the last row, "rows", the component, and nothing more. A list item with a call: "items":[{"label":{"@call":"formatString","args":{"value":"${/qty} cups"}}}]} ends with }}}]} : "args", the call, the item, the list, the component.',
         'Put the component name in "component" (never "type"). Put props next to it, never inside a "props" object.',
-        'A component may take "accessibility":{"label":"<1 to 3 words>","description":"<what it does>"} for screen readers: on the component it describes, when nothing visible names it. Not on every component, and "live":"polite" only on text that changes by itself.',
-        'Use only the components, props, events, and slots in the schema. A component with "includesCommonProps" also takes every prop in "commonProps".',
+        'A component may take "accessibility":{"label":"<1 to 3 words>","description":"<what it does>"} for screen readers: on the component it describes, when nothing visible names it. Not on every component. "live":"polite" goes only inside "accessibility" ({"accessibility":{"live":"polite"}}), only on text that changes by itself, never as a prop of the component.',
+        "Use only the components, props, events, and slots in the schema. A component marked +common also takes every common prop. A component with a prop that is not in its schema, or a value outside its enum, is dropped with everything inside it, so check each prop against the schema.",
         'Give a prop a literal value, or bind it to the data model with {"@path":"/x"}. Never write {"path":"/x"} as a binding.',
         'A prop can also be a function value that updates with the data: {"@call":"formatCurrency","args":{"value":{"@path":"/total"},"currency":"EUR"}}. Use only the functions under "functions" in the schema. Write a literal when the value never changes.',
         'formatString interpolates ${...}: {"@call":"formatString","args":{"value":"${/qty} × ${formatCurrency(value: /price, currency: \'EUR\')}"}}. Inside ${...}, a path has no quotes, a string has single quotes, and a function takes named args.',
         '${...} is evaluated only in the value of formatString and in the item of series; in other strings it stays literal text. Inside formatString, ${...} does not support operators. For arithmetic use calc, with the values as named args: {"@call":"calc","args":{"expression":"seats * 29 * (annual ? 0.8 : 1)","seats":{"@path":"/seats"},"annual":{"@path":"/annual"}}}. Inside formatString: ${formatCurrency(value: calc(expression: \'seats * 29\', seats: /seats), currency: \'USD\')}. The UI then follows the user\'s input with no round trip.',
+        "Inside ${...}, close every ( you open, and write no operators and no ?: : compute with calc. To round a computed number, round inside calc instead of wrapping it in formatNumber: ${calc(expression: 'round(servings * 0.5 * 10) / 10', servings: /servings)} cups. calc has ^ (power), sqrt, exp and ln.",
+        'To show one of two texts, let calc choose: "text":{"@call":"calc","args":{"expression":"billing == \'yearly\' ? \'per year\' : \'per month\'","billing":{"@path":"/billing"}}}.',
         'For a computed list (chart data, template items) use series. Its description under "functions" in the schema gives the rules and an example. Bind the "data" of a Chart or the "items" of a List to it; a template path stays a literal path.',
         'Bind a writable prop to let the user edit it: "value":{"@path":"/form/email"}. The user\'s input goes to that path.',
+        'The value of a ChoicePicker is a list of strings, also for one choice. SegmentedControl, RadioGroup and Select take one string. Option values are always strings: for a yes/no choice use "yes" and "no", not true and false.',
         'To change data, write updateDataModel with a "path" and a "value": {"version":"v1.0","updateDataModel":{"surfaceId":"plan-picker","path":"/seats","value":12}}. Always give "value".',
         'Set "value":null to delete the key at "path".',
         {
           when: ["events"],
           items: [
             'Give an event prop an object: {"event":{"name":"<name>","userMessage":"<text>","context":{...}}} or {"functionCall":{"@call":"<function>","args":{...}}}. Never a flat {"event":"<name>"}.',
+            'Put the action of a Button in its "onClick": {"event":{...}} to send it back to you, or {"functionCall":{"@call":"openUrl","args":{"url":"..."}}}. Never write "event" or "functionCall" as a prop of its own.',
           ],
         },
         {
@@ -233,7 +245,7 @@ export function defaultGenerativeUIPromptSpec(): GenerativeUIPromptSpec {
     },
     schema: {
       markdown: {
-        notation: "compact",
+        notation: "lines",
         propDescriptions: true,
         commonProps: true,
       },
