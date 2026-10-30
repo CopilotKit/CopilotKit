@@ -1,7 +1,7 @@
 """Request-scoped format for deterministic templates; inference stays in ADK.
 
 The pinned published adapter is a compatibility baseline. Express remains
-release-blocked until the adapter/toolkit (AG-UI PR #3274) and renderer fixes
+release-blocked until the adapter/toolkit (AG-UI PRs #3275/#3274) and renderer fixes
 are published. Never silently run Direct JSON for an Express request.
 """
 
@@ -25,7 +25,7 @@ def validate_format(value: object) -> str:
     ):
         raise RuntimeError(
             "A2UI Express is release-blocked: install the published adapter/toolkit "
-            "release containing AG-UI PR #3274 and the matching renderer catalog fix."
+            "releases containing AG-UI PRs #3275/#3274 and renderer PR #8120."
         )
     return str(value)
 

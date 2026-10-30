@@ -8,9 +8,14 @@ ag-ui-protocol==1.0.0
 a2ui-agent-sdk==0.9.0
 a2ui-core==0.4.0
 # Published compatibility baseline, NOT an Express-capable release.
-# RELEASE BLOCKER: replace the adapter/toolkit pins only after AG-UI PR #3274
-# is released. Express also needs the canonical catalog serialization fix in
-# @copilotkit/a2ui-renderer. A2UIFormatMiddleware rejects unsupported Express
+# RELEASE BLOCKER: replace these pins only after toolkit PR #3274 and adapter
+# PR #3275 receive maintainer review and are released:
+# https://github.com/ag-ui-protocol/ag-ui/pull/3274
+# https://github.com/ag-ui-protocol/ag-ui/pull/3275
+# Express also needs the renderer catalog fix to be released:
+# https://github.com/CopilotKit/CopilotKit/pull/8120
+# Update @copilotkit/a2ui-renderer to that published release as well.
+# A2UIFormatMiddleware rejects unsupported Express
 # requests explicitly; Direct JSON stays selectable. Development wheels and
 # renderer tarballs are external validation artifacts and must never be pinned
 # here or committed. Do not promote this integration before those releases.
