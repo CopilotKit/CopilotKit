@@ -15,8 +15,10 @@ const EMPTY_TOOLS: ReadonlyArray<ReactFrontendTool<any>> = [];
  *
  * Tools are keyed by `name` plus `agentId`, the same as `useFrontendTool`. A
  * tool that disappears from the array is unregistered on the next render, and
- * every tool is unregistered on unmount. Renderers stay registered after
- * unmount so past tool calls still render in the chat history.
+ * every tool is unregistered on unmount. A listed tool hides a tool with the
+ * same name and agentId (for example one from the provider's `tools`) until it
+ * is unregistered, and then the hidden tool is active again. Renderers stay
+ * registered after unmount so past tool calls still render in the chat history.
  *
  * @param tools - The tools to register. May be empty and may change length.
  * @param deps - Extra dependencies that force re-registration, compared by
@@ -98,16 +100,17 @@ export function useFrontendTools(
     }
 
     const registered = [...deduped.values()];
+    const unregisters: Array<() => void> = [];
 
     for (const tool of registered) {
-      // Always register/override the tool for this name on mount
+      // Each registration hides any tool with the same name and agentId (a
+      // provider tool or another hook) until this effect cleans up.
       if (copilotkit.getTool({ toolName: tool.name, agentId: tool.agentId })) {
         console.warn(
           `Tool '${tool.name}' already exists for agent '${tool.agentId || "global"}'. Overriding with latest registration.`,
         );
-        copilotkit.removeTool(tool.name, tool.agentId);
       }
-      copilotkit.addTool(tool);
+      unregisters.push(copilotkit.addTool(tool));
 
       // Register/override renderer by name and agentId through core.
       // The render function is registered even when tool.parameters is
@@ -126,8 +129,9 @@ export function useFrontendTools(
     return () => {
       // Remove exactly what this run registered. Reading the current array here
       // would miss a tool that was dropped from it before the effect re-ran.
-      for (const tool of registered) {
-        copilotkit.removeTool(tool.name, tool.agentId);
+      // Unregistering brings back any tool these registrations hid.
+      for (const unregister of unregisters) {
+        unregister();
       }
       // we are intentionally not removing the render here so that the tools can still render in the chat history
     };

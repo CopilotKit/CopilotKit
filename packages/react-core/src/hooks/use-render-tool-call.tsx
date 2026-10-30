@@ -7,13 +7,16 @@ import React, {
 } from "react";
 import type { ToolCall, ToolMessage } from "@ag-ui/core";
 import { contentToText } from "@ag-ui/core";
-import { ToolCallStatus } from "@copilotkit/core";
+import {
+  ToolCallStatus,
+  ɵgetToolCallRendererNames,
+  ɵresolveToolCallRenderer,
+} from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { partialJSONParse } from "@copilotkit/shared";
 import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
-import type { ToolCallRendererNames } from "../components/chat/tool-call-layout";
 
 export interface UseRenderToolCallProps {
   toolCall: ToolCall;
@@ -176,20 +179,9 @@ export function useToolCallRenderers() {
  * renderer is registered, and which of them opted into grouping.
  * @internal
  */
-export function useToolCallRendererNames(): ToolCallRendererNames {
+export function useToolCallRendererNames() {
   const renderers = useToolCallRenderers();
-  return useMemo(() => {
-    const named = renderers.filter((rc) => rc.name !== "*");
-    const wildcards = renderers.filter((rc) => rc.name === "*");
-    return {
-      named: new Set(named.map((rc) => rc.name)),
-      groupedNames: new Set(
-        named.filter((rc) => rc.group).map((rc) => rc.name),
-      ),
-      wildcard: wildcards.length > 0,
-      wildcardGroups: wildcards.some((rc) => rc.group),
-    };
-  }, [renderers]);
+  return useMemo(() => ɵgetToolCallRendererNames(renderers), [renderers]);
 }
 
 /**
@@ -221,22 +213,14 @@ export function useRenderToolCall() {
       toolCall,
       toolMessage,
     }: UseRenderToolCallProps): React.ReactElement | null => {
-      // Find the render config for this tool call by name
-      // For rendering, we show all tool calls regardless of agentId
-      // The agentId scoping only affects handler execution (in core)
-      // Priority order:
-      // 1. Exact match by name (prefer agent-specific if multiple exist)
-      // 2. Wildcard (*) renderer
-      const exactMatches = renderToolCalls.filter(
-        (rc) => rc.name === toolCall.function.name,
+      // Rendering shows tool calls from every agent: agentId scoping only
+      // affects handler execution (in core). The lookup prefers this agent's
+      // renderer, then an unscoped one, then any agent's, then a wildcard.
+      const renderConfig = ɵresolveToolCallRenderer(
+        renderToolCalls,
+        toolCall.function.name,
+        agentId,
       );
-
-      // If multiple renderers with same name exist, prefer the one matching our agentId
-      const renderConfig =
-        exactMatches.find((rc) => rc.agentId === agentId) ||
-        exactMatches.find((rc) => !rc.agentId) ||
-        exactMatches[0] ||
-        renderToolCalls.find((rc) => rc.name === "*");
 
       // No per-tool or wildcard renderer registered → render nothing.
       // Showing an unhandled tool call is opt-in: register a named/wildcard
@@ -251,8 +235,6 @@ export function useRenderToolCall() {
         return null;
       }
 
-      const RenderComponent =
-        renderConfig.render as ReactToolCallRenderer<unknown>["render"];
       const isExecuting = executingToolCallIds.has(toolCall.id);
 
       // Use the memoized ToolCallRenderer component to prevent unnecessary re-renders
@@ -261,7 +243,7 @@ export function useRenderToolCall() {
           key={toolCall.id}
           toolCall={toolCall}
           toolMessage={toolMessage}
-          RenderComponent={RenderComponent}
+          RenderComponent={renderConfig.render}
           isExecuting={isExecuting}
         />
       );

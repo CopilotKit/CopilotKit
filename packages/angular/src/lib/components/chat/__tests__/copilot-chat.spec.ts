@@ -464,6 +464,92 @@ describe("CopilotChat", () => {
       await queued;
     });
 
+    /** Starts a run on a chat that has a message, so the run can stop. */
+    async function startStoppableRun() {
+      const { fixture, chat, core } = context;
+      agent.addMessage({ id: "first", role: "user", content: "first" });
+      const run = core.runAgent({ agent });
+      await vi.waitFor(() => expect(chat.isRunning()).toBe(true));
+      fixture.detectChanges();
+      const input = fixture.debugElement.query(By.directive(CopilotChatInput))
+        .componentInstance as CopilotChatInput;
+      const button = () =>
+        (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+          ".cpk-chat-input-send button",
+        )!;
+      // Core's stop is the boundary here: record the call, keep the run going.
+      const stopAgent = vi
+        .spyOn(core, "stopAgent")
+        .mockImplementation(() => {});
+      return { run, input, button, stopAgent };
+    }
+
+    test("Enter with text during a run sends it instead of stopping", async () => {
+      const { chat } = context;
+      const { run, input, stopAgent } = await startStoppableRun();
+      const submit = vi.spyOn(chat, "submitInput");
+      chat.changeInput("next turn");
+
+      input.handleKeyDown(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      expect(submit).toHaveBeenCalledWith("next turn");
+      expect(stopAgent).not.toHaveBeenCalled();
+      agent.finish();
+      await run;
+      await vi.waitFor(() => expect(agent.inputs).toHaveLength(2));
+      agent.finish();
+      await submit.mock.results[0]!.value;
+    });
+
+    test("Enter in an empty input during a run stops the agent", async () => {
+      const { chat } = context;
+      const { run, input, stopAgent } = await startStoppableRun();
+      const submit = vi.spyOn(chat, "submitInput");
+
+      input.handleKeyDown(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      expect(stopAgent).toHaveBeenCalledWith({ agent });
+      expect(submit).not.toHaveBeenCalled();
+      agent.finish();
+      await run;
+    });
+
+    test("the send button turns into Stop during a run and stops the agent", async () => {
+      const { fixture, chat } = context;
+      const { run, button, stopAgent } = await startStoppableRun();
+      const submit = vi.spyOn(chat, "submitInput");
+      chat.changeInput("draft stays");
+      fixture.detectChanges();
+
+      expect(button().getAttribute("aria-label")).toBe("Stop");
+      expect(button().disabled).toBe(false);
+      button().click();
+
+      expect(stopAgent).toHaveBeenCalledWith({ agent });
+      expect(submit).not.toHaveBeenCalled();
+      expect(chat.inputValue()).toBe("draft stays");
+      agent.finish();
+      await run;
+      fixture.detectChanges();
+      expect(button().getAttribute("aria-label")).toBe("Send message");
+    });
+
+    test("falls back to abortRun when stopAgent throws", async () => {
+      const { chat } = context;
+      const { run, stopAgent } = await startStoppableRun();
+      stopAgent.mockImplementation(() => {
+        throw new Error("no stop");
+      });
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const abortRun = vi.spyOn(agent, "abortRun");
+
+      chat.stop();
+
+      expect(abortRun).toHaveBeenCalledTimes(1);
+      agent.finish();
+      await run;
+    });
+
     test("a suggestion waits for an active run and leaves the composer and attachments alone", async () => {
       const { chat, core } = context;
       const external = core.runAgent({ agent });
@@ -797,6 +883,37 @@ describe("CopilotChat", () => {
   });
 
   describe("voice transcription", () => {
+    test("shows the label for a failed transcription", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: "rate_limited",
+            message: "slow down",
+            retryable: true,
+          }),
+          { status: 429, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+      const { fixture } = createChatFixture();
+      fixture.componentInstance.copilotKit.updateRuntime({
+        runtimeUrl: "https://runtime.local",
+        runtimeTransport: "rest",
+      });
+
+      await fixture.componentInstance.finishTranscription(
+        new Blob(["audio"], { type: "audio/webm" }),
+      );
+      fixture.detectChanges();
+
+      const alert = (fixture.nativeElement as HTMLElement).querySelector(
+        '[role="alert"]',
+      );
+      expect(alert?.textContent?.trim()).toBe(
+        "Too many requests. Please wait a moment.",
+      );
+    });
+
     test("inserts transcribed audio into the editable composer text", async () => {
       const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
         new Response(

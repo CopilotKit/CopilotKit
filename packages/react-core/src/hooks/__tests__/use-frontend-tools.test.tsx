@@ -263,6 +263,53 @@ describe("useFrontendTools", () => {
     expect(registeredNames(coreRef!, "unmount_")).toEqual([]);
   });
 
+  it("brings a provider tool with the same name back on unmount", async () => {
+    let coreRef: CopilotKitCoreReact | null = null;
+    const providerTool = { ...makeTool("shadowed"), description: "provider" };
+
+    const ToolsComponent: React.FC = () => {
+      useFrontendTools([{ ...makeTool("shadowed"), description: "hook" }]);
+      return null;
+    };
+
+    const Toggle: React.FC = () => {
+      const [mounted, setMounted] = useState(true);
+      return (
+        <>
+          <button
+            data-testid="unmount-tools"
+            onClick={() => setMounted(false)}
+          />
+          {mounted && <ToolsComponent />}
+          <CoreCapture
+            onCore={(c) => {
+              coreRef = c;
+            }}
+          />
+        </>
+      );
+    };
+
+    const ui = renderWithCopilotKit({
+      frontendTools: [providerTool],
+      children: <Toggle />,
+    });
+
+    await waitFor(() => {
+      expect(coreRef?.getTool({ toolName: "shadowed" })?.description).toBe(
+        "hook",
+      );
+    });
+
+    fireEvent.click(screen.getByTestId("unmount-tools"));
+
+    expect(coreRef!.getTool({ toolName: "shadowed" })?.description).toBe(
+      "provider",
+    );
+
+    ui.unmount();
+  });
+
   it("does not re-register when a re-render produces an equal array", async () => {
     let coreRef: CopilotKitCoreReact | null = null;
     const addTool = vi.spyOn(CopilotKitCoreReact.prototype, "addTool");

@@ -19,6 +19,7 @@ import { CopilotChatMessageViewCursor } from "./copilot-chat-message-view-cursor
 import { CopilotChatReasoningMessage } from "./copilot-chat-reasoning-message";
 import { CopilotActivity } from "../activity/copilot-activity";
 import { cn } from "../../utils";
+import { ɵdeduplicateMessages } from "@copilotkit/core";
 import {
   commitRowKeyStore,
   createRowKeyStore,
@@ -26,15 +27,15 @@ import {
 } from "@copilotkit/shared";
 import { hostStyles } from "../host-styles";
 import { CopilotKit } from "../../copilotkit";
-import {
-  TOOL_CALL_DISPLAY_CONTEXT,
-  type ToolCallDisplayContext,
-} from "./tool-call-display-context";
+import { TOOL_CALL_DISPLAY_CONTEXT } from "./tool-call-display-context";
+import type { ToolCallDisplayContext } from "./tool-call-display-context";
 import {
   getToolCallLayouts,
   getToolCallRendererNames,
-  type CopilotChatToolCallDisplay,
-  type ToolCallLayout,
+} from "./tool-call-layout";
+import type {
+  CopilotChatToolCallDisplay,
+  ToolCallLayout,
 } from "./tool-call-layout";
 
 /**
@@ -75,7 +76,7 @@ import {
       <!-- Default layout - exact React DOM structure: div with "flex flex-col" classes -->
       <div [class]="computedClass()">
         <!-- Message iteration - simplified without tool calls -->
-        @for (message of messagesValue(); track rowRenderKey($index, message)) {
+        @for (message of renderedMessages(); track rowRenderKey($index, message)) {
           @if (message && message.role === "assistant") {
             <!-- Assistant message with slot support -->
             @if (assistantMessageComponent() || assistantMessageTemplate()) {
@@ -223,6 +224,13 @@ export class CopilotChatMessageView {
 
   // Derived values from inputs
   protected messagesValue = computed(() => this.messages());
+  /**
+   * The rows the list draws: one per message id. A streaming agent can list
+   * the same message, or the same tool call, more than once.
+   */
+  protected readonly renderedMessages = computed(() =>
+    ɵdeduplicateMessages(this.messagesValue()),
+  );
 
   /**
    * Override table backing `rowRenderKey`. Per component instance, so its
@@ -230,14 +238,14 @@ export class CopilotChatMessageView {
    */
   private readonly rowKeyStore = createRowKeyStore();
   protected rowRenderKeys = computed(() =>
-    resolveRowRenderKeys(this.rowKeyStore, this.messagesValue()),
+    resolveRowRenderKeys(this.rowKeyStore, this.renderedMessages()),
   );
 
   // Record what actually rendered, never what the computed merely evaluated:
   // an anchor from an evaluation that never reaches the DOM would re-key a
   // rendered row and recreate it.
   private readonly rowKeyStoreCommit = afterRenderEffect(() => {
-    commitRowKeyStore(this.rowKeyStore, this.messagesValue());
+    commitRowKeyStore(this.rowKeyStore, this.renderedMessages());
   });
   protected showCursorValue = computed(
     () => this.showCursor() && this.lastMessage()?.role !== "reasoning",
@@ -251,7 +259,7 @@ export class CopilotChatMessageView {
       this.toolCallDisplay() === "separate"
         ? new Map()
         : getToolCallLayouts(
-            this.messagesValue(),
+            this.renderedMessages(),
             this.messagesValue(),
             getToolCallRendererNames(this.#copilotKit),
           ),
@@ -263,7 +271,7 @@ export class CopilotChatMessageView {
     layouts: this.#toolCallLayouts,
   };
   protected lastMessage = computed(() => {
-    const messages = this.messagesValue();
+    const messages = this.renderedMessages();
     return messages[messages.length - 1];
   });
 
@@ -277,7 +285,7 @@ export class CopilotChatMessageView {
     isLoading: this.isLoadingValue(),
     messages: this.messagesValue(),
     showCursor: this.showCursorValue(),
-    messageElements: this.messagesValue().filter(
+    messageElements: this.renderedMessages().filter(
       (m) =>
         m &&
         (m.role === "assistant" ||

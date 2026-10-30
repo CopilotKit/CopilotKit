@@ -2626,9 +2626,6 @@ importers:
       '@tanstack/pacer':
         specifier: ^0.20.1
         version: 0.20.1
-      marked:
-        specifier: ^16.2.0
-        version: 16.4.2
       phoenix:
         specifier: ^1.8.4
         version: 1.8.4
@@ -2941,9 +2938,6 @@ importers:
       '@radix-ui/react-popover':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@radix-ui/react-slot':
-        specifier: ^1.2.3
-        version: 1.2.4(@types/react@19.1.8)(react@19.2.3)
       '@radix-ui/react-tooltip':
         specifier: ^1.2.7
         version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -2953,9 +2947,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: ^3.14.13
         version: 3.14.13(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      lucide-react:
+      lucide:
         specifier: ^0.525.0
-        version: 0.525.0(react@19.2.3)
+        version: 0.525.0
       recharts:
         specifier: ^3.1.0
         version: 3.10.1(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react-is@19.2.3)(react@19.2.3)(redux@5.0.1)
@@ -3512,9 +3506,6 @@ importers:
       '@jetbrains/websandbox':
         specifier: ^1.1.3
         version: 1.1.3
-      lucide-vue-next:
-        specifier: ^0.525.0
-        version: 0.525.0(vue@3.5.34(typescript@5.8.2))
       zod:
         specifier: '>=3.22.3'
         version: 3.25.76

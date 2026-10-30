@@ -1,13 +1,10 @@
+import type { TemplateRef, Type, OnInit, OnChanges } from "@angular/core";
 import {
   Component,
   ContentChild,
-  TemplateRef,
-  Type,
   ChangeDetectionStrategy,
   ViewEncapsulation,
   computed,
-  OnInit,
-  OnChanges,
   input,
   output,
   inject,
@@ -24,7 +21,7 @@ import { CopilotChatViewDisclaimer } from "./copilot-chat-view-disclaimer";
 import { CopilotChatInput } from "./copilot-chat-input";
 import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
 import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
-import { Message } from "@ag-ui/client";
+import type { Message } from "@ag-ui/client";
 import { hostStyles } from "../host-styles";
 import { CopilotKitStyles } from "../copilot-kit-styles";
 import { ResizeObserverService } from "../../resize-observer";
@@ -73,7 +70,9 @@ import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
             [img]="UploadIcon"
             class="cpk-chat-view-drop-overlay-icon"
           ></copilot-icon>
-          <span class="cpk-chat-view-drop-overlay-label">Drop files here</span>
+          <span class="cpk-chat-view-drop-overlay-label">
+            {{ labels.chatDropFilesLabel }}
+          </span>
         </div>
       </div>
     </ng-template>

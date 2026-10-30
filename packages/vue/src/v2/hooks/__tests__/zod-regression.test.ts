@@ -4,7 +4,7 @@
  *
  * Covers:
  * 1. useRenderTool with complex Zod schemas
- * 2. defineToolCallRenderer with Zod (named + wildcard default z.any())
+ * 2. defineToolCallRenderer with Zod (named + wildcard default schema)
  * 3. useComponent with Zod schemas
  * 4. The registered schema object is the original Zod instance (identity check)
  */
@@ -196,14 +196,15 @@ describe("useRenderTool Zod regression", () => {
 });
 
 describe("defineToolCallRenderer Zod regression", () => {
-  it("wildcard tool defaults to z.any() for args", () => {
+  it("wildcard tool defaults to a schema that accepts any value", () => {
     const renderer = defineToolCallRenderer({
       name: "*",
       render: () => "wildcard",
     });
 
     expect(renderer.name).toBe("*");
-    expect((renderer.args as any)["~standard"].vendor).toBe("zod");
+    const result = renderer.args["~standard"].validate({ city: "Paris" });
+    expect(result).toEqual({ value: { city: "Paris" } });
   });
 
   it("named tool with Zod args preserves schema identity", () => {

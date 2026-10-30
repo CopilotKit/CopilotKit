@@ -6,6 +6,21 @@ import type {
 export type { StandardSchemaV1, StandardJSONSchemaV1 };
 
 /**
+ * A Standard Schema that accepts any value and returns it unchanged.
+ *
+ * Wildcard tool call renderers use it when they declare no `args` schema.
+ *
+ * @internal Application authors must not depend on this contract.
+ */
+export const ɵanySchema: StandardSchemaV1<unknown, unknown> = {
+  "~standard": {
+    version: 1,
+    vendor: "copilotkit",
+    validate: (value) => ({ value }),
+  },
+};
+
+/**
  * Extract the Output type from a StandardSchemaV1 schema.
  * Replaces `z.infer<S>` for generic schema inference.
  */

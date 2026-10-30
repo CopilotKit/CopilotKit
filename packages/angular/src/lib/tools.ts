@@ -1,6 +1,10 @@
-import { DestroyRef, Injector, Signal, Type, inject } from "@angular/core";
+import type { Signal, Type } from "@angular/core";
+import { DestroyRef, Injector, inject } from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
-import { FrontendTool, FrontendToolHandlerContext } from "@copilotkit/core";
+import type {
+  FrontendTool,
+  FrontendToolHandlerContext,
+} from "@copilotkit/core";
 import type {
   FrontendToolReconnectBehavior,
   WebMCPToolConfig,
@@ -162,11 +166,7 @@ export function registerRenderToolCall<
   const copilotKit = inject(CopilotKit);
   const destroyRef = inject(DestroyRef);
 
-  copilotKit.addRenderToolCall(renderToolCall);
-
-  destroyRef.onDestroy(() => {
-    copilotKit.removeTool(renderToolCall.name, renderToolCall.agentId);
-  });
+  destroyRef.onDestroy(copilotKit.addRenderToolCall(renderToolCall));
 }
 
 export function registerFrontendTool<
@@ -176,14 +176,14 @@ export function registerFrontendTool<
   const destroyRef = inject(DestroyRef);
   const copilotKit = inject(CopilotKit);
 
-  copilotKit.addFrontendTool({
+  // Removing only this registration brings back a tool it hid, such as a
+  // tool from the `tools` config with the same name.
+  const unregister = copilotKit.addFrontendTool({
     ...(frontendTool as FrontendToolConfig),
     injector,
   });
 
-  destroyRef.onDestroy(() => {
-    copilotKit.removeTool(frontendTool.name, frontendTool.agentId);
-  });
+  destroyRef.onDestroy(unregister);
 }
 
 /**
@@ -238,9 +238,5 @@ export function registerHumanInTheLoop<
   const destroyRef = inject(DestroyRef);
   const copilotKit = inject(CopilotKit);
 
-  copilotKit.addHumanInTheLoop(humanInTheLoop);
-
-  destroyRef.onDestroy(() => {
-    copilotKit.removeTool(humanInTheLoop.name, humanInTheLoop.agentId);
-  });
+  destroyRef.onDestroy(copilotKit.addHumanInTheLoop(humanInTheLoop));
 }

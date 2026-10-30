@@ -9,63 +9,15 @@ import React, {
   useState,
 } from "react";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
-import type { OpenThreadRegistration } from "@copilotkit/core";
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import type {
+  CopilotChatLabels,
+  OpenThreadRegistration,
+} from "@copilotkit/core";
 import { CopilotKitContext, useDefaultAgentId } from "../context";
 // Import from the leaf module (not ../lib/slots) so this provider stays lean in
 // the headless entry (issue #4893).
 import { useShallowStableRef } from "../lib/shallow-stable-ref";
-
-// Default labels
-export const CopilotChatDefaultLabels = {
-  chatInputPlaceholder: "Type a message...",
-  chatInputToolbarStartTranscribeButtonLabel: "Transcribe",
-  chatInputToolbarCancelTranscribeButtonLabel: "Cancel",
-  chatInputToolbarFinishTranscribeButtonLabel: "Finish",
-  chatInputToolbarAddButtonLabel: "Add attachments",
-  chatInputToolbarToolsButtonLabel: "Tools",
-  chatInputToolbarSendButtonLabel: "Send message",
-  chatInputToolbarStopButtonLabel: "Stop",
-  assistantMessageToolbarCopyCodeLabel: "Copy",
-  assistantMessageToolbarCopyCodeCopiedLabel: "Copied",
-  assistantMessageToolbarCopyMessageLabel: "Copy",
-  assistantMessageToolbarInspectorLabel: "View in Inspector",
-  assistantMessageToolbarInspectorDescription:
-    "Open this message in the Inspector",
-  assistantMessageToolbarInspectorLocalOnlyLabel: "Local only",
-  assistantMessageToolbarInspectorLocalOnlyDescription:
-    "Only visible on localhost or loopback hosts in development. Never shown in production.",
-  assistantMessageToolbarInspectorTitle: "CopilotKit Inspector",
-  assistantMessageToolbarInspectorHideLabel: "Hide this icon",
-  assistantMessageToolbarInspectorHideDescription: "Until you reload this page",
-  assistantMessageToolbarThumbsUpLabel: "Good response",
-  assistantMessageToolbarThumbsDownLabel: "Bad response",
-  assistantMessageFeedbackCommentPlaceholder: "Add a comment (optional)",
-  assistantMessageFeedbackCommentSubmitLabel: "Send comment",
-  assistantMessageToolbarReadAloudLabel: "Read aloud",
-  assistantMessageToolbarRegenerateLabel: "Regenerate",
-  userMessageToolbarCopyMessageLabel: "Copy",
-  userMessageToolbarEditMessageLabel: "Edit",
-  userMessageToolbarPreviousBranchLabel: "Previous branch",
-  userMessageToolbarNextBranchLabel: "Next branch",
-  chatDisclaimerText:
-    "AI can make mistakes. Please verify important information.",
-  chatToggleOpenLabel: "Open chat",
-  chatToggleCloseLabel: "Close chat",
-  chatScrollToBottomLabel: "Scroll to bottom",
-  modalHeaderTitle: "CopilotKit Chat",
-  welcomeMessageText: "How can I help you today?",
-  reasoningMessageThinkingLabel: "Thinking…",
-  chatInputSlashMenuLabel: "Slash commands",
-  chatInputSlashMenuEmptyText: "No commands found",
-  attachmentRemoveButtonLabel: "Remove attachment",
-  attachmentPlayVideoButtonLabel: "Play video",
-  attachmentPreviewCloseButtonLabel: "Close preview",
-  modalHeaderCloseButtonLabel: "Close",
-  modalHeaderThreadsButtonLabel: "Open threads",
-  sidebarLabel: "Copilot chat sidebar",
-};
-
-export type CopilotChatLabels = typeof CopilotChatDefaultLabels;
 
 /**
  * Mobile breakpoint below which the chat modal and the thread-list drawer are

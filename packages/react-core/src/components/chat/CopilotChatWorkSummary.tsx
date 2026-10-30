@@ -1,8 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
+import {
+  CopilotChatDefaultLabels,
+  ɵcountFailedToolCalls,
+  ɵformatLabel,
+  ɵformatWorkDuration,
+  ɵformatCountLabel,
+} from "@copilotkit/core";
+import type { ToolCallEntry } from "@copilotkit/core";
 import { cn } from "../../lib/utils";
-import type { ToolCallEntry } from "./tool-call-layout";
-import { pluralize } from "./CopilotChatToolCallGroup";
+import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
 export interface CopilotChatWorkSummaryProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /** The agent is still working on this reply. */
@@ -21,15 +28,6 @@ export interface CopilotChatWorkSummaryProps extends React.ButtonHTMLAttributes<
   workingSince?: number;
 }
 
-/** "45s", "1m 5s", "2m". Used for the live timer and the final duration. */
-export function formatDuration(ms: number): string {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const rest = seconds % 60;
-  return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
-}
-
 /** Re-renders every second while `active`, returning the current time. */
 function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -44,8 +42,9 @@ function useNow(active: boolean): number {
 
 /**
  * The line at the top of a reply in the `"turn"` tool-call display. While the
- * agent works it reads "Working 4s"; once the reply is done it reads "Worked
- * for 9s · 7 tools" and toggles the work it folded away.
+ * agent works it reads "Working 4s". Once the reply is done it reads "Worked
+ * for 9s" and "7 tools", and toggles the work it folded away. The text comes
+ * from the `workSummary...` and `toolCall...` chat labels.
  */
 export function CopilotChatWorkSummary({
   isWorking,
@@ -56,8 +55,14 @@ export function CopilotChatWorkSummary({
   className,
   ...props
 }: CopilotChatWorkSummaryProps) {
+  const config = useCopilotChatConfiguration();
+  const labels = config?.labels ?? CopilotChatDefaultLabels;
   const now = useNow(isWorking);
-  const failed = calls.filter((call) => call.toolMessage?.error).length;
+  const failed = ɵcountFailedToolCalls(calls);
+  const toolCount = ɵformatCountLabel(calls.length, {
+    one: labels.toolCallToolCountOne,
+    other: labels.toolCallToolCountOther,
+  });
   const liveMs =
     elapsedMs !== undefined && workingSince !== undefined
       ? elapsedMs + Math.max(0, now - workingSince)
@@ -65,7 +70,7 @@ export function CopilotChatWorkSummary({
   // A finished reply worked for at least a second.
   const duration =
     elapsedMs !== undefined
-      ? formatDuration(Math.max(1000, elapsedMs))
+      ? ɵformatWorkDuration(Math.max(1000, elapsedMs))
       : undefined;
 
   return (
@@ -80,10 +85,12 @@ export function CopilotChatWorkSummary({
     >
       {isWorking ? (
         <>
-          <span className="cpk-work-summary-label cpk-shimmer">Working</span>
+          <span className="cpk-work-summary-label cpk-shimmer">
+            {labels.workSummaryWorkingLabel}
+          </span>
           {liveMs !== undefined && (
             <span className="cpk-work-summary-detail cpk-work-summary-timer">
-              {formatDuration(liveMs)}
+              {ɵformatWorkDuration(liveMs)}
             </span>
           )}
         </>
@@ -91,20 +98,24 @@ export function CopilotChatWorkSummary({
         <>
           <span className="cpk-work-summary-label">
             {duration
-              ? `Worked for ${duration}`
-              : `Used ${pluralize(calls.length, "tool")}`}
+              ? ɵformatLabel(labels.workSummaryWorkedForLabel, { duration })
+              : ɵformatCountLabel(calls.length, {
+                  one: labels.toolCallUsedToolsOne,
+                  other: labels.toolCallUsedToolsOther,
+                })}
           </span>
           {duration && (
-            <span className="cpk-work-summary-detail">
-              {pluralize(calls.length, "tool")}
-            </span>
+            <span className="cpk-work-summary-detail">{toolCount}</span>
           )}
           {failed > 0 && (
-            <span className="cpk-work-summary-failed">{failed} failed</span>
+            <span className="cpk-work-summary-failed">
+              {ɵformatLabel(labels.toolCallFailedCountLabel, { count: failed })}
+            </span>
           )}
         </>
       )}
-      <ChevronRight
+      <CopilotIcon
+        name="ChevronRight"
         aria-hidden="true"
         className={cn(
           "cpk-work-summary-chevron",

@@ -11,12 +11,7 @@ import type { VueToolCallRenderer } from "../../../types";
 import { useDefaultRenderTool } from "../../../hooks/use-default-render-tool";
 import CopilotChatMessageView from "../CopilotChatMessageView.vue";
 import CopilotChatToolCallsView from "../CopilotChatToolCallsView.vue";
-import {
-  getToolCallLayouts,
-  getToolCallRendererNames,
-  getTurnWork,
-} from "../tool-call-layout";
-import type { CopilotChatToolCallDisplay } from "../tool-call-layout";
+import type { CopilotChatToolCallDisplay } from "@copilotkit/core";
 
 // Ported from React's CopilotChatMessageView.toolCallDisplay tests.
 
@@ -54,13 +49,6 @@ const weather = defineToolCallRenderer({
   args: z.object({}),
   render: () => h("div", { "data-testid": "weather-card" }, "Weather"),
 });
-
-const names = {
-  named: new Set(["weather"]),
-  groupedNames: new Set<string>(),
-  wildcard: true,
-  wildcardGroups: true,
-};
 
 interface ViewState {
   messages: Ref<Message[]>;
@@ -117,92 +105,6 @@ function renderView(
 
 const firstButton = (element: HTMLElement) =>
   within(element).getAllByRole("button")[0]!;
-
-describe("getToolCallLayouts", () => {
-  it("groups calls made in a row across messages, owned by the first", () => {
-    const messages = [
-      question,
-      callMessage("a"),
-      result("a"),
-      callMessage("b"),
-      result("b"),
-    ];
-    const layouts = getToolCallLayouts(messages, messages, names);
-
-    const first = layouts.get("m-a")!.segments;
-    expect(first).toHaveLength(1);
-    expect(first[0]).toMatchObject({ kind: "group", trailing: true });
-    expect(
-      first[0]!.kind === "group" && first[0]!.calls.map((c) => c.toolCall.id),
-    ).toEqual(["a", "b"]);
-    expect(layouts.get("m-b")!.segments).toEqual([]);
-  });
-
-  it("starts a new group after text or a call with its own renderer", () => {
-    const messages = [
-      question,
-      callMessage("a"),
-      say("t", "Checking more."),
-      callMessage("b"),
-      callMessage("w", "weather"),
-      callMessage("c"),
-    ];
-    const layouts = getToolCallLayouts(messages, messages, names);
-    const kinds = ["m-a", "m-b", "m-w", "m-c"].map((id) =>
-      layouts.get(id)!.segments.map((segment) => segment.kind),
-    );
-    expect(kinds).toEqual([["group"], ["group"], ["call"], ["group"]]);
-  });
-
-  it("changes its signature when a result arrives for a call it holds", () => {
-    const before = [question, callMessage("a"), callMessage("b")];
-    const after = [...before, result("b")];
-    const signature = (messages: Message[]) =>
-      getToolCallLayouts(messages, messages, names).get("m-a")!.signature;
-    expect(signature(after)).not.toBe(signature(before));
-  });
-});
-
-describe("getTurnWork", () => {
-  it("treats everything up to the last call as work, and the rest as the reply", () => {
-    const messages = [
-      question,
-      say("t1", "Looking."),
-      callMessage("a"),
-      result("a"),
-      say("t2", "The answer."),
-    ];
-    const layouts = getToolCallLayouts(messages, messages, names);
-    const turn = getTurnWork(messages, layouts).get("u1")!;
-    expect([...turn.workMessageIds]).toEqual(["t1", "m-a"]);
-    expect(turn.firstMessageId).toBe("t1");
-    expect(turn.calls).toHaveLength(1);
-  });
-});
-
-describe("getToolCallRendererNames", () => {
-  const renderers = [
-    { name: "*", group: true },
-    { name: "search", group: true },
-  ];
-
-  it("reads the renderers' group opt-in", () => {
-    const result = getToolCallRendererNames(renderers);
-    expect([...result.groupedNames]).toEqual(["search"]);
-    expect(result.wildcardGroups).toBe(true);
-  });
-
-  it("never groups calls a tool-call slot draws", () => {
-    const named = getToolCallRendererNames(renderers, ["tool-call-search"]);
-    expect(named.named.has("search")).toBe(true);
-    expect(named.groupedNames.has("search")).toBe(false);
-    expect(named.wildcardGroups).toBe(true);
-
-    const wildcard = getToolCallRendererNames(renderers, ["tool-call"]);
-    expect(wildcard.groupedNames.size).toBe(0);
-    expect(wildcard.wildcardGroups).toBe(false);
-  });
-});
 
 describe("CopilotChatMessageView toolCallDisplay", () => {
   const burst = [

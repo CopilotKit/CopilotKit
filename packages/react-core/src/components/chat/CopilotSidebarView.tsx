@@ -5,11 +5,11 @@ import type {
   WelcomeScreenProps,
 } from "./CopilotChatView";
 import CopilotChatView from "./CopilotChatView";
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
 import {
   ControlledModalOpenScope,
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
-  CopilotChatDefaultLabels,
 } from "../../providers/CopilotChatConfigurationProvider";
 import { useModalOpenControl } from "./modal-open-control";
 import CopilotChatToggleButton from "./CopilotChatToggleButton";

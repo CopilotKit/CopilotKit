@@ -8,7 +8,9 @@ import {
   signal,
 } from "@angular/core";
 
+import { ɵgetArgumentPreview } from "@copilotkit/core";
 import type { AngularToolCall, ToolRenderer } from "../../tools";
+import { injectChatLabels } from "../../chat-config";
 import { ChevronRight, CopilotIcon } from "../icons/copilot-icon";
 import {
   CopilotCollapsible,
@@ -16,12 +18,20 @@ import {
 } from "./tool-call-parts";
 import {
   TOOL_CALL_RENDER_CONTEXT,
-  argumentPreview,
-  toolCallRowStatusLabels,
+  toolCallRowStatusLabelKeys,
 } from "./tool-call-render-context";
 import { cn } from "../../utils";
 
-/** Serialize untrusted tool values defensively for text-only display. */
+/**
+ * Serialize untrusted tool values defensively for text-only display.
+ *
+ * Unlike a plain `JSON.stringify`, a value that cannot be encoded does not
+ * fail the whole payload: a circular reference reads `"[Circular]"`, a
+ * `bigint` reads `"12n"`, and `undefined`, functions and symbols get a
+ * placeholder. Strings pass through.
+ *
+ * @param value - A tool call's arguments or result.
+ */
 export function safeToolValue(value: unknown): string {
   if (typeof value === "string") return value;
   const seen = new WeakSet<object>();
@@ -104,19 +114,23 @@ let nextId = 0;
           <span
             data-testid="copilot-tool-render-status"
             class="cpk-tool-call-row-status"
-            >{{ rowStatusLabels[row.status()] }}</span
+            >{{ labels[rowStatusLabelKeys[row.status()]] }}</span
           >
           <copilot-icon [img]="ChevronRightIcon" [iconClass]="rowChevronClass()" />
         </button>
         <div [copilotCollapsible]="expanded()" [id]="detailsId">
           <div class="cpk-tool-call-payloads cpk-tool-call-row-payloads">
             <div>
-              <div class="cpk-tool-call-payload-label">Arguments</div>
+              <div class="cpk-tool-call-payload-label">
+                {{ labels.toolCallArgumentsLabel }}
+              </div>
               <pre class="cpk-tool-call-payload-code">{{ argumentsText() }}</pre>
             </div>
             @if (toolCall().result !== undefined) {
               <div>
-                <div class="cpk-tool-call-payload-label">Result</div>
+                <div class="cpk-tool-call-payload-label">
+                  {{ labels.toolCallResultLabel }}
+                </div>
                 <pre class="cpk-tool-call-payload-code">{{ resultText() }}</pre>
               </div>
             }
@@ -142,20 +156,7 @@ let nextId = 0;
             style="font: inherit"
           >
             <div class="cpk-default-tool-call-title">
-              <svg
-                [attr.class]="chevronClass()"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="2"
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                />
-              </svg>
+              <copilot-icon [img]="ChevronRightIcon" [iconClass]="chevronClass()" />
               <span
                 [class]="
                   'cpk-default-tool-call-dot cpk-default-tool-call-dot-' + tone()
@@ -179,12 +180,16 @@ let nextId = 0;
           @if (expanded()) {
             <div class="cpk-default-tool-call-details">
               <div>
-                <div class="cpk-default-tool-call-label">Arguments</div>
+                <div class="cpk-default-tool-call-label">
+                  {{ labels.toolCallArgumentsLabel }}
+                </div>
                 <pre class="cpk-default-tool-call-code">{{ argumentsText() }}</pre>
               </div>
               @if (toolCall().result !== undefined) {
                 <div>
-                  <div class="cpk-default-tool-call-label">Result</div>
+                  <div class="cpk-default-tool-call-label">
+                    {{ labels.toolCallResultLabel }}
+                  </div>
                   <pre class="cpk-default-tool-call-code">{{ resultText() }}</pre>
                 </div>
               }
@@ -201,7 +206,8 @@ export class CopilotDefaultToolRenderer implements ToolRenderer {
   protected readonly toolCallId = this.#context?.toolCallId ?? null;
   protected readonly row = signal(this.#context?.row);
   protected readonly detailsId = `cpk-tool-call-details-${nextId++}`;
-  protected readonly rowStatusLabels = toolCallRowStatusLabels;
+  protected readonly labels = injectChatLabels();
+  protected readonly rowStatusLabelKeys = toolCallRowStatusLabelKeys;
   protected readonly ChevronRightIcon = ChevronRight;
 
   protected readonly expanded = signal(false);
@@ -217,7 +223,7 @@ export class CopilotDefaultToolRenderer implements ToolRenderer {
     attrValue(this.toolCall().result),
   );
   protected readonly preview = computed(() =>
-    argumentPreview(this.toolCall().args),
+    ɵgetArgumentPreview(this.toolCall().args),
   );
   protected readonly statusValue = computed(() => {
     switch (this.toolCall().status as string) {
@@ -245,9 +251,9 @@ export class CopilotDefaultToolRenderer implements ToolRenderer {
   protected readonly statusLabel = computed(() => {
     switch (this.tone()) {
       case "running":
-        return "Running";
+        return this.labels.toolCallStatusRunningLabel;
       case "done":
-        return "Done";
+        return this.labels.toolCallStatusDoneLabel;
       default:
         return "Unknown status";
     }

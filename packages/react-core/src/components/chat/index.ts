@@ -1,4 +1,3 @@
-export { BasicMarkdownRenderer } from "./BasicMarkdownRenderer";
 export { StreamingMarkdownDefaultRenderer } from "./StreamingMarkdownDefaultRenderer";
 
 export {
@@ -118,4 +117,4 @@ export {
 export type {
   CopilotChatToolCallDisplay,
   ToolCallEntry,
-} from "./tool-call-layout";
+} from "@copilotkit/core";

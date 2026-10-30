@@ -28,13 +28,11 @@ import {
   useStickToBottom,
   useStickToBottomContext,
 } from "use-stick-to-bottom";
-import { ChevronDown, Upload } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/utils";
-import {
-  useCopilotChatConfiguration,
-  CopilotChatDefaultLabels,
-} from "../../providers/CopilotChatConfigurationProvider";
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import { useKeyboardHeight } from "../../hooks/use-keyboard-height";
 import { ScrollPinnedContext } from "./scroll-pinned-context";
 import { normalizeAutoScroll } from "./normalize-auto-scroll";
@@ -119,12 +117,17 @@ export type CopilotChatViewProps = WithSlots<
 >;
 
 function DropOverlay() {
+  const config = useCopilotChatConfiguration();
+  const labels = config?.labels ?? CopilotChatDefaultLabels;
   return (
     <div className="cpk-chat-view-drop-overlay">
       <div className="cpk-chat-view-drop-overlay-content">
-        <Upload className="cpk-chat-view-drop-overlay-icon" />
+        <CopilotIcon
+          name="Upload"
+          className="cpk-chat-view-drop-overlay-icon"
+        />
         <span className="cpk-chat-view-drop-overlay-label">
-          Drop files here
+          {labels.chatDropFilesLabel}
         </span>
       </div>
     </div>
@@ -945,7 +948,10 @@ export namespace CopilotChatView {
         aria-label={labels.chatScrollToBottomLabel}
         {...props}
       >
-        <ChevronDown className="cpk-chat-view-scroll-to-bottom-icon" />
+        <CopilotIcon
+          name="ChevronDown"
+          className="cpk-chat-view-scroll-to-bottom-icon"
+        />
       </Button>
     );
   };

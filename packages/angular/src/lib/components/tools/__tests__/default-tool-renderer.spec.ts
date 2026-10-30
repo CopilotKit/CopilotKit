@@ -26,6 +26,7 @@ describe("CopilotDefaultToolRenderer", () => {
       args: { city: "Paris" },
       status: "future-status",
       result: undefined,
+      // A status the types do not know yet, as a newer runtime could send.
     } as unknown as AngularToolCall);
     fixture.detectChanges();
 
@@ -43,12 +44,18 @@ describe("CopilotDefaultToolRenderer", () => {
         '[data-testid="copilot-tool-render-status"]',
       ),
     ).not.toBeNull();
+    const chevron = toggle.querySelector("svg.lucide-chevron-right");
+    expect(chevron?.classList).toContain("cpk-default-tool-call-chevron");
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(chevron?.classList).not.toContain(
+      "cpk-default-tool-call-chevron-open",
+    );
     expect(fixture.nativeElement.textContent).toContain("Unknown status");
 
     toggle.click();
     fixture.detectChanges();
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(chevron?.classList).toContain("cpk-default-tool-call-chevron-open");
     expect(fixture.nativeElement.textContent).toContain('"city": "Paris"');
   });
 

@@ -4,7 +4,6 @@ import {
   createAttachmentContent,
   DEFAULT_AGENT_ID,
   randomUUID,
-  TranscriptionErrorCode,
 } from "@copilotkit/shared";
 import {
   computed,
@@ -17,7 +16,14 @@ import {
   useSlots,
   watch,
 } from "vue";
-import { CopilotKitCoreErrorCode, ɵisHttpAgent } from "@copilotkit/core";
+import {
+  CopilotChatDefaultLabels,
+  CopilotKitCoreErrorCode,
+  TranscriptionError,
+  ɵisHttpAgent,
+  ɵtranscribeAudio,
+  ɵtranscriptionErrorMessageKey,
+} from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import CopilotChatConfigurationProvider from "../../providers/CopilotChatConfigurationProvider.vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
@@ -28,10 +34,6 @@ import { useAgent } from "../../hooks/use-agent";
 import { useSuggestions } from "../../hooks/use-suggestions";
 import { useAttachments } from "../../hooks/use-attachments";
 import { useShallowStableRef } from "../../lib/shallow-stable";
-import {
-  transcribeAudio,
-  TranscriptionError,
-} from "../../lib/transcription-client";
 import CopilotChatView from "./CopilotChatView.vue";
 import { LastUserMessageKey } from "./last-user-message-context";
 import type { LastUserMessageState } from "./last-user-message-context";
@@ -159,6 +161,12 @@ const isConnecting = computed(
 );
 const stableLabels = useShallowStableRef(computed(() => props.labels));
 const resolvedLabels = computed(() => stableLabels.value);
+// The labels this chat shows, the same merge its configuration provider makes.
+const chatLabels = computed(() => ({
+  ...CopilotChatDefaultLabels,
+  ...existingConfig.value?.labels,
+  ...resolvedLabels.value,
+}));
 
 // `useAgent` takes no threadId: it pins one only from a surrounding chat
 // configuration, and this call sits outside the provider rendered in this
@@ -771,48 +779,19 @@ async function handleFinishTranscribeWithAudio(audioBlob: Blob) {
   isTranscribing.value = true;
   try {
     transcriptionError.value = null;
-    const result = await transcribeAudio(copilotkit.value, audioBlob);
+    const result = await ɵtranscribeAudio(copilotkit.value, audioBlob);
     const trimmedPrevious = inputValue.value.trim();
     inputValue.value = trimmedPrevious
       ? `${trimmedPrevious} ${result.text}`
       : result.text;
   } catch (error) {
     console.error("CopilotChat: Transcription failed", error);
+    const labels = chatLabels.value;
     if (error instanceof TranscriptionError) {
-      const { code, retryable, message } = error.info;
-      switch (code) {
-        case TranscriptionErrorCode.RATE_LIMITED:
-          transcriptionError.value = "Too many requests. Please wait a moment.";
-          break;
-        case TranscriptionErrorCode.AUTH_FAILED:
-          transcriptionError.value =
-            "Authentication error. Please check your configuration.";
-          break;
-        case TranscriptionErrorCode.AUDIO_TOO_LONG:
-          transcriptionError.value =
-            "Recording is too long. Please try a shorter recording.";
-          break;
-        case TranscriptionErrorCode.AUDIO_TOO_SHORT:
-          transcriptionError.value =
-            "Recording is too short. Please try again.";
-          break;
-        case TranscriptionErrorCode.INVALID_AUDIO_FORMAT:
-          transcriptionError.value = "Audio format not supported.";
-          break;
-        case TranscriptionErrorCode.SERVICE_NOT_CONFIGURED:
-          transcriptionError.value = "Transcription service is not available.";
-          break;
-        case TranscriptionErrorCode.NETWORK_ERROR:
-          transcriptionError.value =
-            "Network error. Please check your connection.";
-          break;
-        default:
-          transcriptionError.value = retryable
-            ? "Transcription failed. Please try again."
-            : message;
-      }
+      const key = ɵtranscriptionErrorMessageKey(error.info);
+      transcriptionError.value = key ? labels[key] : error.info.message;
     } else {
-      transcriptionError.value = "Transcription failed. Please try again.";
+      transcriptionError.value = labels.transcriptionErrorGenericText;
     }
   } finally {
     isTranscribing.value = false;

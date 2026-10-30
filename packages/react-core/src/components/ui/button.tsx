@@ -1,5 +1,4 @@
 import * as React from "react";
-import { Slot } from "@radix-ui/react-slot";
 
 import { cn } from "../../lib/utils";
 import type { ClassValue } from "../../lib/utils";
@@ -60,18 +59,10 @@ function buttonVariants({
 
 const Button = React.forwardRef<
   HTMLButtonElement,
-  React.ComponentProps<"button"> &
-    ButtonVariantProps & {
-      asChild?: boolean;
-    }
->(function Button(
-  { className, variant, size, asChild = false, ...props },
-  ref,
-) {
-  const Comp = asChild ? Slot : "button";
-
+  React.ComponentProps<"button"> & ButtonVariantProps
+>(function Button({ className, variant, size, ...props }, ref) {
   return (
-    <Comp
+    <button
       ref={ref}
       data-slot="button"
       className={buttonVariants({ variant, size, className })}

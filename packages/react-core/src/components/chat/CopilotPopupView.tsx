@@ -10,10 +10,10 @@ import type { CopilotModalHeaderProps } from "./CopilotModalHeader";
 import { cn } from "../../lib/utils";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
 import {
   ControlledModalOpenScope,
   CopilotChatConfigurationProvider,
-  CopilotChatDefaultLabels,
   useCopilotChatConfiguration,
 } from "../../providers/CopilotChatConfigurationProvider";
 import { useModalOpenControl } from "./modal-open-control";

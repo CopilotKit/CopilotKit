@@ -1,43 +1,20 @@
-import React from "react";
-import { z } from "zod";
+import type React from "react";
+import { ɵanySchema } from "@copilotkit/shared";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
+import type { ToolCallRenderProps } from "@copilotkit/core";
 import type { ReactToolCallRenderer } from "./react-tool-call-renderer";
-import type { ToolCallStatus } from "@copilotkit/core";
 
 /**
  * Helper to define a type-safe tool call renderer entry.
  * - Accepts a single object whose keys match ReactToolCallRenderer's fields: { name, args, render, agentId? }.
  * - Derives `args` type from the provided schema (any Standard Schema V1 compatible library).
  * - Ensures the render function param type exactly matches ReactToolCallRenderer<T>["render"]'s param.
- * - For wildcard tools (name: "*"), args is optional and defaults to z.any()
+ * - For wildcard tools (name: "*"), args is optional and defaults to a schema that accepts any value.
  */
-type RenderProps<T> =
-  | {
-      name: string;
-      toolCallId: string;
-      args: Partial<T>;
-      status: ToolCallStatus.InProgress;
-      result: undefined;
-    }
-  | {
-      name: string;
-      toolCallId: string;
-      args: T;
-      status: ToolCallStatus.Executing;
-      result: undefined;
-    }
-  | {
-      name: string;
-      toolCallId: string;
-      args: T;
-      status: ToolCallStatus.Complete;
-      result: string;
-    };
-
 // Overload for wildcard tools without args
 export function defineToolCallRenderer(def: {
   name: "*";
-  render: (props: RenderProps<any>) => React.ReactElement | null;
+  render: (props: ToolCallRenderProps<any>) => React.ReactElement | null;
   agentId?: string;
   group?: boolean;
 }): ReactToolCallRenderer<any>;
@@ -47,7 +24,7 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
   name: string;
   args: S;
   render: (
-    props: RenderProps<InferSchemaOutput<S>>,
+    props: ToolCallRenderProps<InferSchemaOutput<S>>,
   ) => React.ReactElement | null;
   agentId?: string;
   group?: boolean;
@@ -61,13 +38,13 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
   agentId?: string;
   group?: boolean;
 }): ReactToolCallRenderer<any> {
-  // For wildcard tools, default to z.any() if no args provided
-  const argsSchema = def.name === "*" && !def.args ? z.any() : def.args;
+  // For wildcard tools, default to a schema that accepts any value
+  const argsSchema = def.name === "*" && !def.args ? ɵanySchema : def.args;
 
   return {
     name: def.name,
     args: argsSchema,
-    render: def.render as React.ComponentType<any>,
+    render: def.render,
     ...(def.agentId ? { agentId: def.agentId } : {}),
     ...(def.group ? { group: true } : {}),
   };

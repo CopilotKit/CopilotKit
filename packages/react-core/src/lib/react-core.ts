@@ -31,6 +31,23 @@ export interface CopilotKitCoreReactSubscriber extends CopilotKitCoreSubscriber 
   }) => void | Promise<void>;
 }
 
+/**
+ * Wait for pending React state updates before the follow-up agent run.
+ *
+ * When a frontend tool handler calls setState(), React 18 batches the update
+ * and schedules a commit via its internal scheduler (MessageChannel). The
+ * useAgentContext hook registers context via useLayoutEffect, which runs
+ * synchronously after React commits that batch.
+ *
+ * Awaiting a zero-delay timeout yields to the macrotask queue. React's
+ * MessageChannel task runs first, committing the pending state and running
+ * useLayoutEffect (which updates the context store). The follow-up runAgent
+ * call then reads fresh context.
+ */
+function waitForReactCommit() {
+  return new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
 export class CopilotKitCoreReact extends CopilotKitCore {
   private _renderToolCalls: ReactToolCallRenderer<any>[] = [];
   private _hookRenderToolCalls: Map<string, ReactToolCallRenderer<any>> =
@@ -42,7 +59,10 @@ export class CopilotKitCoreReact extends CopilotKitCore {
   private _interruptElement: React.ReactElement | null = null;
 
   constructor(config: CopilotKitCoreReactConfig) {
-    super(config);
+    super({
+      ...config,
+      ɵwaitForFrameworkUpdates: waitForReactCommit,
+    });
     this._renderToolCalls = config.renderToolCalls ?? [];
     this._renderCustomMessages = config.renderCustomMessages ?? [];
     this._renderActivityMessages = config.renderActivityMessages ?? [];
@@ -138,22 +158,5 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     subscriber: CopilotKitCoreReactSubscriber,
   ): CopilotKitCoreSubscription {
     return super.subscribe(subscriber);
-  }
-
-  /**
-   * Wait for pending React state updates before the follow-up agent run.
-   *
-   * When a frontend tool handler calls setState(), React 18 batches the update
-   * and schedules a commit via its internal scheduler (MessageChannel). The
-   * useAgentContext hook registers context via useLayoutEffect, which runs
-   * synchronously after React commits that batch.
-   *
-   * Awaiting a zero-delay timeout yields to the macrotask queue. React's
-   * MessageChannel task runs first, committing the pending state and running
-   * useLayoutEffect (which updates the context store). The follow-up runAgent
-   * call then reads fresh context.
-   */
-  async waitForPendingFrameworkUpdates(): Promise<void> {
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
   }
 }

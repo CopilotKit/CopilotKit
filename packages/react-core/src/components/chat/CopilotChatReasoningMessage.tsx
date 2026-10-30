@@ -1,14 +1,18 @@
 import type { ReasoningMessage, Message } from "@ag-ui/core";
 import { useState, useEffect, useRef } from "react";
-import { ChevronRight } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 import { cn } from "../../lib/utils";
 import { StreamingMarkdownDefaultRenderer } from "./StreamingMarkdownDefaultRenderer";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 import {
-  useCopilotChatConfiguration,
   CopilotChatDefaultLabels,
-} from "../../providers/CopilotChatConfigurationProvider";
+  ɵformatLabel,
+  ɵformatReasoningDuration,
+  ɵformatCountLabel,
+} from "@copilotkit/core";
+import type { CopilotChatLabels } from "@copilotkit/core";
+import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
 export type CopilotChatReasoningMessageProps = WithSlots<
   {
@@ -31,21 +35,38 @@ export type CopilotChatReasoningMessageProps = WithSlots<
 >;
 
 /**
- * Formats an elapsed duration (in seconds) to a human-readable string.
+ * The reasoning time as label text, such as "4 seconds" or "1m 5s".
+ *
+ * @param seconds - The elapsed time in seconds. It may have a fraction.
+ * @param labels - The chat labels that hold the duration texts.
  */
-function formatDuration(seconds: number): string {
-  if (seconds < 1) return "a few seconds";
-  if (seconds < 60) return `${Math.round(seconds)} seconds`;
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.round(seconds % 60);
-  if (secs === 0) return `${mins} minute${mins > 1 ? "s" : ""}`;
-  return `${mins}m ${secs}s`;
+function formatDuration(seconds: number, labels: CopilotChatLabels) {
+  const duration = ɵformatReasoningDuration(seconds);
+  switch (duration.unit) {
+    case "fewSeconds":
+      return labels.reasoningMessageDurationFewSeconds;
+    case "seconds":
+      return ɵformatLabel(labels.reasoningMessageDurationSeconds, {
+        count: duration.seconds,
+      });
+    case "minutes":
+      return ɵformatCountLabel(duration.minutes, {
+        one: labels.reasoningMessageDurationMinutesOne,
+        other: labels.reasoningMessageDurationMinutesOther,
+      });
+    case "minutesSeconds":
+      return ɵformatLabel(labels.reasoningMessageDurationMinutesSeconds, {
+        minutes: duration.minutes,
+        seconds: duration.seconds,
+      });
+  }
 }
 
 /**
  * A reasoning message as a collapsible block. While the model reasons it is
  * open and the header shows `labels.reasoningMessageThinkingLabel`; when
- * streaming ends it collapses and the header reads "Thought for …". The
+ * streaming ends it collapses and the header reads
+ * `labels.reasoningMessageThoughtForLabel` ("Thought for 4 seconds"). The
  * `header` slot also receives `elapsedSeconds`.
  */
 export function CopilotChatReasoningMessage({
@@ -120,7 +141,9 @@ export function CopilotChatReasoningMessage({
 
   const label = isStreaming
     ? labels.reasoningMessageThinkingLabel
-    : `Thought for ${formatDuration(elapsed)}`;
+    : ɵformatLabel(labels.reasoningMessageThoughtForLabel, {
+        duration: formatDuration(elapsed, labels),
+      });
 
   const boundHeader = renderSlot(header, CopilotChatReasoningMessage.Header, {
     isOpen,
@@ -218,7 +241,8 @@ export namespace CopilotChatReasoningMessage {
         )}
         {headerChildren}
         {isExpandable && (
-          <ChevronRight
+          <CopilotIcon
+            name="ChevronRight"
             className={cn(
               "cpk-reasoning-message-chevron",
               isOpen && "cpk-reasoning-message-chevron-open",

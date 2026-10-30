@@ -5,13 +5,11 @@ import {
   getSourceUrl,
   getDocumentIcon,
 } from "@copilotkit/shared";
-import { Play } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 import { cn } from "../../lib/utils";
 import { Lightbox, useLightbox } from "./Lightbox";
-import {
-  useCopilotChatConfiguration,
-  CopilotChatDefaultLabels,
-} from "../../providers/CopilotChatConfigurationProvider";
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
 interface CopilotChatAttachmentQueueProps {
   attachments: Attachment[];
@@ -193,7 +191,10 @@ function VideoPreview({ attachment }: { attachment: Attachment }) {
         aria-label={labels.attachmentPlayVideoButtonLabel}
       >
         <div className="cpk-attachment-queue-video-play-badge">
-          <Play className="cpk-attachment-queue-video-play-icon" />
+          <CopilotIcon
+            name="Play"
+            className="cpk-attachment-queue-video-play-icon"
+          />
         </div>
       </button>
       {open && (
@@ -269,6 +270,8 @@ function DocumentLightboxContent({
   attachment: Attachment;
   vtName: string;
 }) {
+  const config = useCopilotChatConfiguration();
+  const labels = config?.labels ?? CopilotChatDefaultLabels;
   const mimeType = attachment.source.mimeType;
   const blobUrl = useBlobUrl(attachment);
 
@@ -333,21 +336,23 @@ function DocumentLightboxContent({
       </div>
       <div className="cpk-attachment-queue-document-card-details">
         <div className="cpk-attachment-queue-document-card-name">
-          {attachment.filename || "Document"}
+          {attachment.filename || labels.attachmentDocumentLabel}
         </div>
         <div className="cpk-attachment-queue-document-card-meta">
-          {mimeType || "Unknown type"}
+          {mimeType || labels.attachmentUnknownTypeText}
           {attachment.size != null && ` · ${formatFileSize(attachment.size)}`}
         </div>
       </div>
       <div className="cpk-attachment-queue-document-card-note">
-        No preview available for this file type
+        {labels.attachmentNoPreviewText}
       </div>
     </div>
   );
 }
 
 function DocumentPreview({ attachment }: { attachment: Attachment }) {
+  const config = useCopilotChatConfiguration();
+  const labels = config?.labels ?? CopilotChatDefaultLabels;
   const { thumbnailRef, vtName, open, openLightbox, closeLightbox } =
     useLightbox();
 
@@ -369,7 +374,7 @@ function DocumentPreview({ attachment }: { attachment: Attachment }) {
         </div>
         <div className="cpk-attachment-queue-document-info">
           <span className="cpk-attachment-queue-document-name">
-            {attachment.filename || "Document"}
+            {attachment.filename || labels.attachmentDocumentLabel}
           </span>
           {attachment.size != null && (
             <span className="cpk-attachment-queue-document-size">

@@ -2,11 +2,13 @@
 import {
   GENERATE_SANDBOXED_UI_DESCRIPTION,
   randomUUID,
+  ɵanySchema,
 } from "@copilotkit/shared";
 import {
   computed,
   h,
   onMounted,
+  onUnmounted,
   provide,
   ref,
   shallowRef,
@@ -14,7 +16,7 @@ import {
   watch,
 } from "vue";
 import type { Component, FunctionalComponent } from "vue";
-import { z } from "zod";
+import type { z } from "zod";
 import type { AbstractAgent } from "@ag-ui/client";
 import { ToolCallStatus } from "@copilotkit/core";
 import type {
@@ -23,7 +25,7 @@ import type {
   CopilotKitHeadersSource,
   FrontendTool,
 } from "@copilotkit/core";
-import { ɵwithHeaderDefaults } from "@copilotkit/core";
+import { ɵresolveLicenseState, ɵwithHeaderDefaults } from "@copilotkit/core";
 import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import type {
   RuntimeEntitlementResponse,
@@ -54,11 +56,7 @@ import {
 } from "./keys";
 import type { VueInspectorOpenRequest } from "./keys";
 import { MARKDOWN_RENDERER_KEY } from "./markdown-renderer";
-import {
-  LicenseContextKey,
-  createLicenseContextValue,
-} from "./license-context";
-import type { LicenseContextValue } from "./license-context";
+import { LicenseContextKey } from "./license-context";
 import CopilotKitInspector from "../components/CopilotKitInspector.vue";
 import LicenseWarningBanner from "../components/LicenseWarningBanner.vue";
 import type {
@@ -365,7 +363,7 @@ const processedHumanInTheLoop = computed(() => {
 
       renderToolCalls.push({
         name: tool.name,
-        args: tool.parameters ?? z.any(),
+        args: tool.parameters ?? ɵanySchema,
         render,
         ...(tool.agentId && { agentId: tool.agentId }),
       } as VueToolCallRenderer<unknown>);
@@ -392,7 +390,8 @@ const allRenderToolCalls = computed(() => {
   ];
   for (const tool of [...props.frontendTools, ...builtInFrontendTools.value]) {
     if (tool.render) {
-      const args = tool.parameters ?? (tool.name === "*" ? z.any() : undefined);
+      const args =
+        tool.parameters ?? (tool.name === "*" ? ɵanySchema : undefined);
       if (args) {
         combined.push({
           name: tool.name,
@@ -469,7 +468,7 @@ const builtInActivityRenderers = computed<
   const renderers: VueActivityMessageRenderer<unknown>[] = [
     {
       activityType: MCPAppsActivityType,
-      content: MCPAppsActivityContentSchema as unknown as z.ZodSchema<unknown>,
+      content: MCPAppsActivityContentSchema,
       render: (props.mcpApps?.allowSameOriginFallback
         ? SameOriginMCPAppsActivityRenderer
         : MCPAppsActivityRenderer) as unknown as VueActivityMessageRenderer<unknown>["render"],
@@ -479,7 +478,7 @@ const builtInActivityRenderers = computed<
   if (openGenerativeUIActive.value) {
     renderers.push({
       activityType: OpenGenerativeUIActivityType,
-      content: OpenGenerativeUIContentSchema as unknown as z.ZodSchema<unknown>,
+      content: OpenGenerativeUIContentSchema,
       render:
         OpenGenerativeUIActivityRenderer as unknown as VueActivityMessageRenderer<unknown>["render"],
     });
@@ -894,73 +893,26 @@ provide(CopilotKitKey, {
 provide(SandboxFunctionsKey, sandboxFunctions);
 provide(MARKDOWN_RENDERER_KEY, props.markdownRenderer);
 
-// License context — driven by structured and legacy Runtime authority.
-const retryableRuntimeEntitlementFailure = computed(
-  () =>
-    runtimeEntitlements.value?.status !== "ready" &&
-    runtimeEntitlements.value?.error.retryable === true,
+// License context and banner, from the runtime license status and the
+// structured entitlement response.
+const licenseState = computed(() =>
+  ɵresolveLicenseState({
+    status: runtimeLicenseStatus.value,
+    entitlements: runtimeEntitlements.value,
+    retryPending: runtimeEntitlementRetryPending.value,
+    publicKey: resolvedPublicKey.value,
+  }),
 );
-const hasNonReadyRuntimeEntitlement = computed(
-  () =>
-    runtimeEntitlements.value !== undefined &&
-    runtimeEntitlements.value.status !== "ready",
-);
-const hasLegacyRuntimeEntitlementFallback = computed(
-  () =>
-    runtimeLicenseStatus.value === "valid" ||
-    runtimeLicenseStatus.value === "expiring",
-);
-const runtimeEntitlementRetryInProgress = computed(
-  () =>
-    retryableRuntimeEntitlementFailure.value &&
-    runtimeEntitlementRetryPending.value &&
-    !hasLegacyRuntimeEntitlementFallback.value,
-);
-// Only a terminal failure denies features. A retryable failure (a timeout,
-// a network error, a 5xx) says nothing about what the project may use.
-const terminalRuntimeEntitlementFailure = computed(
-  () =>
-    hasNonReadyRuntimeEntitlement.value &&
-    !retryableRuntimeEntitlementFailure.value &&
-    !hasLegacyRuntimeEntitlementFallback.value,
-);
-const licenseContextValue = computed<LicenseContextValue>(() => {
-  const runtimeLicenseContext = createLicenseContextValue(
-    runtimeEntitlementRetryInProgress.value
-      ? undefined
-      : runtimeLicenseStatus.value,
-    runtimeEntitlements.value,
-  );
-  if (!terminalRuntimeEntitlementFailure.value) {
-    return runtimeLicenseContext;
-  }
-
-  return {
-    ...runtimeLicenseContext,
-    checkFeature: () => false,
-    getLimit: () => null,
-  };
-});
+const licenseContextValue = computed(() => licenseState.value.context);
 provide(LicenseContextKey, licenseContextValue);
+const licenseBannerType = computed(() => licenseState.value.bannerType);
 
-const runtimeLicenseWarningStatus = computed(() =>
-  runtimeEntitlementRetryInProgress.value
-    ? undefined
-    : (licenseContextValue.value.status ?? undefined),
-);
-const showNoLicenseBanner = computed(
-  () =>
-    runtimeLicenseWarningStatus.value === "none" && !resolvedPublicKey.value,
-);
-const showExpiredBanner = computed(
-  () => runtimeLicenseWarningStatus.value === "expired",
-);
-const showInvalidBanner = computed(
-  () => runtimeLicenseWarningStatus.value === "invalid",
-);
-const showExpiringBanner = computed(
-  () => runtimeLicenseWarningStatus.value === "expiring",
-);
+// The provider created this core, so it stops the core's runs, timers and
+// subscriptions. `onUnmounted` runs after the children unmount, so their
+// cleanup still reaches a live core.
+onUnmounted(() => {
+  copilotkit.value.dispose();
+});
 </script>
 
 <template>
@@ -971,8 +923,5 @@ const showExpiringBanner = computed(
     :open-request="inspectorOpenRequest"
   />
   <!-- License warnings — driven by server-reported status -->
-  <LicenseWarningBanner v-if="showNoLicenseBanner" type="no_license" />
-  <LicenseWarningBanner v-if="showExpiredBanner" type="expired" />
-  <LicenseWarningBanner v-if="showInvalidBanner" type="invalid" />
-  <LicenseWarningBanner v-if="showExpiringBanner" type="expiring" />
+  <LicenseWarningBanner v-if="licenseBannerType" :type="licenseBannerType" />
 </template>

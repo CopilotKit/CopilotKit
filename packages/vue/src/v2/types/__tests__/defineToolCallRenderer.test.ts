@@ -2,11 +2,30 @@ import { describe, it, expect } from "vitest";
 import { defineComponent, h } from "vue";
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkit/core";
+import type { VNode } from "vue";
 import { defineToolCallRenderer } from "../defineToolCallRenderer";
-import type { VueToolCallRenderer } from "../vue-tool-call-renderer";
+import type {
+  VueToolCallRenderer,
+  VueToolCallRendererRenderProps,
+} from "../vue-tool-call-renderer";
+
+/**
+ * Calls a renderer built from a render function. `render` is typed as a
+ * function or a component, and TypeScript cannot tell which one this test
+ * passed, so the narrowing cast lives here once.
+ */
+function callRender<T>(
+  renderer: VueToolCallRenderer<T>,
+  props: VueToolCallRendererRenderProps<T>,
+) {
+  const render = renderer.render as (
+    props: VueToolCallRendererRenderProps<T>,
+  ) => VNode;
+  return render(props);
+}
 
 describe("defineToolCallRenderer", () => {
-  it("defaults wildcard args to z.any and preserves runtime tool name", () => {
+  it("defaults wildcard args to a schema that accepts any value and preserves runtime tool name", () => {
     const wildcardRenderer = defineToolCallRenderer({
       name: "*",
       render: ({ name, args, status }) =>
@@ -18,19 +37,11 @@ describe("defineToolCallRenderer", () => {
     });
 
     expect(wildcardRenderer.name).toBe("*");
-    expect(wildcardRenderer.args.safeParse({ anything: true }).success).toBe(
-      true,
-    );
+    expect(
+      wildcardRenderer.args["~standard"].validate({ anything: true }),
+    ).toEqual({ value: { anything: true } });
 
-    const rendered = (
-      wildcardRenderer.render as (props: {
-        name: string;
-        toolCallId: string;
-        args: Record<string, unknown>;
-        status: ToolCallStatus;
-        result: string | undefined;
-      }) => ReturnType<typeof h>
-    )({
+    const rendered = callRender(wildcardRenderer, {
       name: "customTool",
       toolCallId: "tc-wildcard-1",
       args: { x: 1 },
@@ -53,15 +64,7 @@ describe("defineToolCallRenderer", () => {
         ),
     });
 
-    const rendered = (
-      wildcardRenderer.render as (props: {
-        name: string;
-        toolCallId: string;
-        args: Record<string, unknown>;
-        status: ToolCallStatus;
-        result: string | undefined;
-      }) => ReturnType<typeof h>
-    )({
+    const rendered = callRender(wildcardRenderer, {
       name: "customTool",
       toolCallId: "tc-123",
       args: {},
@@ -136,15 +139,7 @@ describe("defineToolCallRenderer", () => {
       },
     });
 
-    const rendered = (
-      typedRenderer.render as (props: {
-        name: string;
-        toolCallId: string;
-        args: { location: string; units?: "celsius" | "fahrenheit" };
-        status: ToolCallStatus;
-        result: string | undefined;
-      }) => ReturnType<typeof h>
-    )({
+    const rendered = callRender(typedRenderer, {
       name: "get_weather",
       toolCallId: "tc-weather-1",
       args: { location: "Paris", units: "celsius" },

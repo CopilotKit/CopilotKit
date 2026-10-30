@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
-import type { LucideIcon as LucideComponent } from "lucide-react";
+import { IconSvg } from "../../components/icons/CopilotIcon";
+import type { IconSvgNode } from "../../components/icons/CopilotIcon";
 import { z } from "zod";
 import {
   controlAria,
@@ -270,12 +271,22 @@ export function kebabToPascal(name: string) {
     .join("");
 }
 
-type IconMap = Record<string, LucideComponent>;
+/** "ArrowRight" gives "arrow-right", as Lucide names its icon classes. */
+function pascalToKebab(name: string) {
+  return name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+}
+
+/** A Lucide icon as the `lucide` package stores it: `[tag, attributes]` pairs. */
+type LucideIconData = [
+  tag: string,
+  attributes: Record<string, string | number>,
+][];
+type IconMap = Record<string, LucideIconData>;
 let lucidePromise: Promise<IconMap> | null = null;
 let lucideIcons: IconMap | null = null;
 
 function loadLucideIcons() {
-  lucidePromise ??= import("lucide-react").then((module) => {
+  lucidePromise ??= import("lucide").then((module) => {
     const icons: IconMap = module.icons;
     lucideIcons = icons;
     return icons;
@@ -284,9 +295,9 @@ function loadLucideIcons() {
 }
 
 /**
- * lucide-react has about 1,500 icons. A static import of its `icons` map
- * puts all of them in every bundle and makes module load slow. So the map
- * loads once, on first use, and the icons show when it is there.
+ * Lucide has about 1,500 icons. A static import of its `icons` map puts all
+ * of them in every bundle and makes module load slow. So the map loads once,
+ * on first use, and the icons show when it is there.
  */
 function useLucideIcons() {
   const [icons, setIcons] = useState(lucideIcons);
@@ -301,6 +312,18 @@ function useLucideIcons() {
     };
   }, []);
   return icons;
+}
+
+/** The icon for a kebab-case or PascalCase name, or `null` when there is none. */
+function findLucideIcon(icons: IconMap, name: string) {
+  const pascalName = kebabToPascal(name);
+  const key = pascalName in icons ? pascalName : name in icons ? name : null;
+  if (key === null) return null;
+  const nodes: IconSvgNode[] = icons[key].map(([tag, attributes]) => ({
+    tag,
+    attributes,
+  }));
+  return { lucideName: pascalToKebab(key), nodes };
 }
 
 /**
@@ -333,8 +356,8 @@ export function LucideIcon({
 }) {
   const icons = useLucideIcons();
   if (!name || !icons) return null;
-  const IconComponent = icons[kebabToPascal(name)] ?? icons[name];
-  if (!IconComponent) return null;
+  const icon = findLucideIcon(icons, name);
+  if (!icon) return null;
   const pixels =
     typeof size === "number" ? size : inline ? "1em" : ICON_PX[size];
   const a11y =
@@ -342,11 +365,12 @@ export function LucideIcon({
       ? { "aria-hidden": true }
       : { role: "img", "aria-label": label, "aria-description": description };
   return (
-    <IconComponent
+    <IconSvg
+      lucideName={icon.lucideName}
+      nodes={icon.nodes}
       {...a11y}
       focusable="false"
-      width={pixels}
-      height={pixels}
+      size={pixels}
       color={textColor(color) ?? "currentColor"}
       strokeWidth={weight ? ICON_STROKE[weight] : undefined}
       style={{

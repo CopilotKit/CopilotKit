@@ -3,6 +3,7 @@
 import {
   GENERATE_SANDBOXED_UI_DESCRIPTION,
   randomUUID,
+  ɵanySchema,
 } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
@@ -32,14 +33,12 @@ import {
 import type { CopilotKitContextValue } from "../context";
 export type { CopilotKitContextValue } from "../context";
 export { CopilotKitContext, useLicenseContext } from "../context";
-import { z } from "zod";
+import type { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import { CopilotKitInspectorContextProvider } from "../components/CopilotKitInspectorContext";
 import type { CopilotKitInspectorOpenRequest } from "../components/CopilotKitInspectorContext";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
-import { createLicenseContextValue } from "@copilotkit/shared";
 import type {
-  LicenseContextValue,
   DebugConfig,
   RuntimeEntitlementResponse,
   RuntimeLicenseStatus,
@@ -48,7 +47,7 @@ import type {
   CopilotKitCoreErrorCode,
   CopilotKitHeadersSource,
 } from "@copilotkit/core";
-import { ɵwithHeaderDefaults } from "@copilotkit/core";
+import { ɵresolveLicenseState, ɵwithHeaderDefaults } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
   MCPAppsActivityRenderer,
@@ -890,9 +889,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     // Add render components from frontend tools (user-provided + built-in)
     [...frontendToolsList, ...builtInFrontendTools].forEach((tool) => {
       if (tool.render) {
-        // For wildcard tools without parameters, default to z.any()
+        // For wildcard tools without parameters, default to a schema that
+        // accepts any value
         const args =
-          tool.parameters || (tool.name === "*" ? z.any() : undefined);
+          tool.parameters || (tool.name === "*" ? ɵanySchema : undefined);
         if (args) {
           combined.push({
             name: tool.name,
@@ -1314,49 +1314,23 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     [copilotkit, executingToolCallIds, showIntelligenceIndicator],
   );
 
-  // License context — driven by server-reported authority via /info endpoint
-  const retryableRuntimeEntitlementFailure =
-    runtimeEntitlements?.status !== "ready" &&
-    runtimeEntitlements?.error.retryable === true;
-  const hasNonReadyRuntimeEntitlement =
-    runtimeEntitlements !== undefined && runtimeEntitlements.status !== "ready";
-  const hasLegacyRuntimeEntitlementFallback =
-    runtimeLicenseStatus === "valid" || runtimeLicenseStatus === "expiring";
-  const runtimeEntitlementRetryInProgress =
-    retryableRuntimeEntitlementFailure &&
-    runtimeEntitlementRetryPending &&
-    !hasLegacyRuntimeEntitlementFallback;
-  // Only a terminal failure denies features. A retryable failure (a timeout,
-  // a network error, a 5xx) says nothing about what the project may use.
-  const terminalRuntimeEntitlementFailure =
-    hasNonReadyRuntimeEntitlement &&
-    !retryableRuntimeEntitlementFailure &&
-    !hasLegacyRuntimeEntitlementFallback;
-  const licenseContextValue = useMemo<LicenseContextValue>(() => {
-    const runtimeLicenseContext = createLicenseContextValue(
-      runtimeEntitlementRetryInProgress ? undefined : runtimeLicenseStatus,
+  // License context and banner, driven by the license authority the runtime
+  // reports through /info.
+  const licenseState = useMemo(
+    () =>
+      ɵresolveLicenseState({
+        status: runtimeLicenseStatus,
+        entitlements: runtimeEntitlements,
+        retryPending: runtimeEntitlementRetryPending,
+        publicKey: resolvedPublicKey,
+      }),
+    [
+      runtimeLicenseStatus,
       runtimeEntitlements,
-    );
-    if (!terminalRuntimeEntitlementFailure) {
-      return runtimeLicenseContext;
-    }
-
-    // The Runtime reported a terminal failure and has no usable legacy fallback.
-    // Keep its truthful status, but deny feature-only consumers.
-    return {
-      ...runtimeLicenseContext,
-      checkFeature: () => false,
-      getLimit: () => null,
-    };
-  }, [
-    terminalRuntimeEntitlementFailure,
-    runtimeEntitlementRetryInProgress,
-    runtimeEntitlements,
-    runtimeLicenseStatus,
-  ]);
-  const runtimeLicenseWarningStatus = runtimeEntitlementRetryInProgress
-    ? undefined
-    : (licenseContextValue.status ?? undefined);
+      runtimeEntitlementRetryPending,
+      resolvedPublicKey,
+    ],
+  );
   const styleOptions = useMemo(
     () => ({ nonce, inject: injectStyles }),
     [nonce, injectStyles],
@@ -1366,7 +1340,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     <CopilotStyleOptionsProvider value={styleOptions}>
       <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>
         <CopilotKitContext.Provider value={contextValue}>
-          <LicenseContext.Provider value={licenseContextValue}>
+          <LicenseContext.Provider value={licenseState.context}>
             {a2uiActive && <A2UIBuiltInToolCallRenderer />}
             {generativeUIActive && <GenerativeUIToolCallRenderer />}
             {a2uiActive && (
@@ -1401,17 +1375,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
               </CopilotKitInspectorContextProvider>
             </MarkdownRendererProvider>
             {/* License warnings — driven by server-reported status */}
-            {runtimeLicenseWarningStatus === "none" && !resolvedPublicKey && (
-              <LicenseWarningBanner type="no_license" />
-            )}
-            {runtimeLicenseWarningStatus === "expired" && (
-              <LicenseWarningBanner type="expired" />
-            )}
-            {runtimeLicenseWarningStatus === "invalid" && (
-              <LicenseWarningBanner type="invalid" />
-            )}
-            {runtimeLicenseWarningStatus === "expiring" && (
-              <LicenseWarningBanner type="expiring" />
+            {licenseState.bannerType && (
+              <LicenseWarningBanner type={licenseState.bannerType} />
             )}
           </LicenseContext.Provider>
         </CopilotKitContext.Provider>

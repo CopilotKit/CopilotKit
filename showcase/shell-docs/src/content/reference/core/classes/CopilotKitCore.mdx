@@ -104,12 +104,12 @@ CopilotKitCore satisfies new (config: CopilotKitCoreConfig) => CopilotKitCore;
 
 ### Tools
 
-<PropertyReference name="addTool(tool: FrontendTool): void" type="method">
-  Registers a frontend tool the agent can call. If a tool with the same name and `agentId` is already registered, the call is a no-op (a warning is logged). See [FrontendTool](/reference/core/types/FrontendTool).
+<PropertyReference name="addTool(tool: FrontendTool): () => void" type="method">
+  Registers a frontend tool the agent can call, and returns a function that removes this registration. If a tool with the same name and `agentId` is already registered, the new tool is active until you call that function. Then the earlier tool is active again. See [FrontendTool](/reference/core/types/FrontendTool).
 </PropertyReference>
 
 <PropertyReference name="removeTool(id: string, agentId?: string): void" type="method">
-  Removes a registered tool by name. With no `agentId`, removes only the global (unscoped) tool of that name; with `agentId`, removes only the tool scoped to that agent.
+  Removes a registered tool by name. With no `agentId`, it removes only the global (unscoped) tool of that name. With `agentId`, it removes only the tool scoped to that agent. It removes every registration of that name, including a tool from `tools`. To undo only one `addTool` call, call the function that `addTool` returns.
 </PropertyReference>
 
 <PropertyReference name="getTool(params: CopilotKitCoreGetToolParams): FrontendTool<any> | undefined" type="method">
@@ -164,6 +164,12 @@ CopilotKitCore satisfies new (config: CopilotKitCoreConfig) => CopilotKitCore;
 
 <PropertyReference name="subscribeToAgentWithOptions(agent, subscriber, options?): CopilotKitCoreSubscription" type="method">
   Subscribes to a single agent's message, state, and run-lifecycle callbacks with optional throttling. Every callback is wrapped with error protection. Use `agent.subscribe()` directly when you need AG-UI event handlers or per-item notifications.
+</PropertyReference>
+
+### Teardown
+
+<PropertyReference name="dispose(): void" type="method">
+  Stops the instance. It stops running agents, cancels pending runtime requests, clears timers, and removes all subscribers. Call it when your app no longer uses this instance. Do not use the instance after `dispose()`. A second call does nothing.
 </PropertyReference>
 
 ### Inspector metadata
@@ -317,12 +323,16 @@ const subscription = copilotkit.subscribe({
 
 // Later, when you no longer need updates:
 subscription.unsubscribe();
+
+// When your app no longer uses this instance:
+copilotkit.dispose();
 ```
 
 ## Behavior
 
 - **Asynchronous agent population** — `agents` is populated after the runtime responds, so it may be empty immediately after construction. Use `subscribe({ onAgentsChanged })` to react when agents become available.
 - **Error surfacing** — failures (runtime fetch, agent run, tool execution, subscriber callbacks) are delivered through the `onError` subscriber callback with a [CopilotKitCoreErrorCode](/reference/core/enums/CopilotKitCoreErrorCode); they are not thrown from the originating method — except `runTool()`, which also throws when the named tool or its resolved agent cannot be found.
+- **Unchanged values**: `setCredentials`, `setProperties`, `setMessageFilter`, `setHeaders`, and `setRuntimeUrl` do nothing when the new value equals the current value. So a framework can call them on every render.
 - **Subscriber isolation** — a throw in one subscriber callback is caught and logged; it does not stall notifications to other subscribers.
 - **Inspector metadata isolation** — metadata loads after the connected and agent notifications finish. A `setHeaders` call that changes the resolved values, or a credential change, refreshes it — it does not refetch `/info`. Runtime URL, transport, auth, connection, and capability checks prevent a stale request from replacing a newer value.
 - **`__unsafe_dev_only` APIs** — the `*Agent__unsafe_dev_only` methods register local in-memory agents for development. Production setups must go through a CopilotRuntime.

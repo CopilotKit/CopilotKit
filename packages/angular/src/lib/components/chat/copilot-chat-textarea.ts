@@ -1,9 +1,9 @@
+import type { AfterViewInit } from "@angular/core";
 import {
   Component,
   input,
   output,
   ElementRef,
-  AfterViewInit,
   signal,
   computed,
   inject,
@@ -98,14 +98,13 @@ export class CopilotChatTextarea implements AfterViewInit {
     this.adjustHeight();
   }
 
+  /**
+   * Passes every key press to `keyDown`. The chat input decides what Enter
+   * does (send, stop, or nothing during IME composition) and prevents the
+   * line break itself.
+   */
   onKeyDown(event: KeyboardEvent): void {
-    // Check for Enter key without Shift
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      this.keyDown.emit(event);
-    } else {
-      this.keyDown.emit(event);
-    }
+    this.keyDown.emit(event);
   }
 
   private calculateMaxHeight(): void {

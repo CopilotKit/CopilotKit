@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { RunHandler } from "../run-handler";
 import type { CopilotKitCore } from "../core";
@@ -108,17 +108,6 @@ describe("RunHandler tool registry ownership (#4952)", () => {
     ).toHaveLength(1);
   });
 
-  it("still refuses a duplicate addTool for the same name+agentId", () => {
-    const runHandler = createRunHandler();
-    runHandler.addTool({ name: "sayHello", description: "first" });
-    runHandler.addTool({ name: "sayHello", description: "second" });
-
-    expect(runHandler.getTool({ toolName: "sayHello" })?.description).toBe(
-      "first",
-    );
-    expect(runHandler.tools).toHaveLength(1);
-  });
-
   it("removeTool removes hook tools and provider tools alike", () => {
     const runHandler = createRunHandler();
     runHandler.initialize([{ name: "providerTool", description: "p" }]);
@@ -199,6 +188,154 @@ describe("RunHandler tool registry ownership (#4952)", () => {
       "map",
       "hookTool",
     ]);
+  });
+});
+
+function activeDescription(
+  runHandler: RunHandler,
+  toolName: string,
+  agentId?: string,
+) {
+  return runHandler.getTool({ toolName, agentId })?.description;
+}
+
+/**
+ * `addTool` registrations of one name + agentId stack. The newest is active,
+ * and the function `addTool` returns removes only its own registration, so a
+ * component that overrides a tool gives the previous one back on unmount.
+ */
+describe("RunHandler addTool registration stack", () => {
+  let warn: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+  });
+
+  it("restores the provider tool when the shadowing hook tool is removed", () => {
+    const runHandler = createRunHandler();
+    runHandler.initialize([{ name: "sayHello", description: "from props" }]);
+
+    const unregister = runHandler.addTool({
+      name: "sayHello",
+      description: "from hook",
+    });
+    expect(activeDescription(runHandler, "sayHello")).toBe("from hook");
+
+    unregister();
+
+    expect(activeDescription(runHandler, "sayHello")).toBe("from props");
+    expect(runHandler.buildFrontendTools()).toEqual([
+      {
+        name: "sayHello",
+        description: "from props",
+        parameters: { type: "object", properties: {} },
+      },
+    ]);
+  });
+
+  it("makes the newest of two hook registrations active, and restores the first", () => {
+    const runHandler = createRunHandler();
+    runHandler.addTool({ name: "sayHello", description: "first" });
+    const unregisterSecond = runHandler.addTool({
+      name: "sayHello",
+      description: "second",
+    });
+
+    expect(activeDescription(runHandler, "sayHello")).toBe("second");
+    expect(runHandler.tools).toHaveLength(1);
+
+    unregisterSecond();
+
+    expect(activeDescription(runHandler, "sayHello")).toBe("first");
+    expect(runHandler.tools).toHaveLength(1);
+  });
+
+  it("keeps the newest registration active when an older one is removed first", () => {
+    const runHandler = createRunHandler();
+    runHandler.initialize([{ name: "sayHello", description: "from props" }]);
+    const unregisterFirst = runHandler.addTool({
+      name: "sayHello",
+      description: "first",
+    });
+    const unregisterSecond = runHandler.addTool({
+      name: "sayHello",
+      description: "second",
+    });
+
+    unregisterFirst();
+    expect(activeDescription(runHandler, "sayHello")).toBe("second");
+
+    unregisterSecond();
+    expect(activeDescription(runHandler, "sayHello")).toBe("from props");
+  });
+
+  it("removes only its own registration when the same tool object is added twice", () => {
+    const runHandler = createRunHandler();
+    const tool = { name: "sayHello", description: "shared object" };
+    const unregisterFirst = runHandler.addTool(tool);
+    runHandler.addTool(tool);
+
+    unregisterFirst();
+    unregisterFirst();
+
+    expect(activeDescription(runHandler, "sayHello")).toBe("shared object");
+  });
+
+  it("warns once per shadowing hook registration, and not for a provider tool", () => {
+    const runHandler = createRunHandler();
+    runHandler.initialize([
+      {
+        name: "sayHello",
+        description: "from props",
+        parameters: z.object({}),
+      },
+    ]);
+    const parameters = z.object({});
+
+    runHandler.addTool({ name: "sayHello", description: "first", parameters });
+    expect(warn).not.toHaveBeenCalled();
+
+    runHandler.addTool({ name: "sayHello", description: "second", parameters });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toContain(
+      "Tool already exists: 'sayHello' for agent 'global'",
+    );
+  });
+
+  it("returns a new merged tools array after a registration is removed", () => {
+    const runHandler = createRunHandler();
+    runHandler.initialize([{ name: "providerTool", description: "p" }]);
+    const unregister = runHandler.addTool({
+      name: "hookTool",
+      description: "h",
+    });
+    const withHookTool = runHandler.tools;
+
+    unregister();
+
+    expect(runHandler.tools).not.toBe(withHookTool);
+    expect(runHandler.tools.map((tool) => tool.name)).toEqual(["providerTool"]);
+  });
+
+  it("removeTool removes every registration of the key and the provider tool", () => {
+    const runHandler = createRunHandler();
+    runHandler.initialize([{ name: "sayHello", description: "from props" }]);
+    const unregisterFirst = runHandler.addTool({
+      name: "sayHello",
+      description: "first",
+    });
+    runHandler.addTool({ name: "sayHello", description: "second" });
+
+    runHandler.removeTool("sayHello");
+    expect(activeDescription(runHandler, "sayHello")).toBeUndefined();
+
+    // A stale unregister after removeTool must not resurrect anything.
+    unregisterFirst();
+    expect(runHandler.tools).toHaveLength(0);
   });
 });
 

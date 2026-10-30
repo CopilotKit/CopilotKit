@@ -8,8 +8,7 @@ import {
   useAttrs,
   watch,
 } from "vue";
-import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
-import { CopilotChatDefaultLabels } from "../../providers/types";
+import { ɵcomposerButtonState, ɵresolveComposerKey } from "@copilotkit/core";
 import {
   IconArrowUp,
   IconCheck,
@@ -29,6 +28,7 @@ import type {
 import { useCopilotId } from "../ui/use-id";
 import type { CopilotChatAudioRecorderRef } from "./audioRecorder";
 import type { CopilotChatInputMode, ToolsMenuItem } from "./types";
+import { useChatLabels } from "./use-chat-labels";
 
 defineOptions({ inheritAttrs: false });
 
@@ -107,7 +107,6 @@ const emit = defineEmits<{
 }>();
 
 const attrs = useAttrs();
-const config = useCopilotChatConfiguration();
 const shellRef = ref<HTMLElement | null>(null);
 const textareaRef = ref<HTMLTextAreaElement | null>(null);
 const gridRef = ref<HTMLElement | null>(null);
@@ -148,15 +147,12 @@ const isControlled = computed(() => props.modelValue !== undefined);
 const inputValue = computed(() =>
   isControlled.value ? (props.modelValue ?? "") : localValue.value,
 );
-const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
+const labels = useChatLabels();
 const resolvedPlaceholder = computed(
   () => props.placeholder ?? labels.value.chatInputPlaceholder,
 );
 const isExpanded = computed(
   () => props.mode === "input" && layout.value === "expanded",
-);
-const isProcessing = computed(
-  () => props.mode !== "transcribe" && props.isRunning,
 );
 const shouldShowDisclaimer = computed(
   () => props.showDisclaimer ?? props.positioning === "absolute",
@@ -177,16 +173,20 @@ const hasFinishTranscribeAction = computed(
     typeof props.onFinishTranscribe === "function" ||
     typeof props.onFinishTranscribeWithAudio === "function",
 );
-const canSend = computed(
-  () =>
-    props.mode === "input" &&
-    !props.disabled &&
-    hasSubmitAction.value &&
-    inputValue.value.trim().length > 0,
+const composerInput = computed(() => ({
+  mode: props.mode,
+  isRunning: props.isRunning,
+  value: inputValue.value,
+  canSubmit: hasSubmitAction.value,
+  canStop: hasStopAction.value,
+  disabled: props.disabled,
+}));
+const composerButton = computed(() =>
+  ɵcomposerButtonState(composerInput.value),
 );
-const sendDisabled = computed(() =>
-  isProcessing.value ? !hasStopAction.value : !canSend.value,
-);
+const isProcessing = computed(() => composerButton.value.isProcessing);
+const sendDisabled = computed(() => composerButton.value.disabled);
+const showsStop = computed(() => composerButton.value.action === "stop");
 
 const containerClass = computed(() => [
   "cpk-chat-input",
@@ -408,14 +408,16 @@ function handleInput(event: Event) {
   updateSlashState(nextValue);
 }
 
+// The button stops a run whatever the input holds. Enter differs: see
+// handleKeydown.
 function handleSendButtonClick() {
-  if (isProcessing.value) {
-    if (hasStopAction.value) {
-      emit("stop");
-    }
+  if (showsStop.value) {
+    emit("stop");
     return;
   }
-  submit();
+  if (!isProcessing.value) {
+    submit();
+  }
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -473,15 +475,23 @@ function handleKeydown(event: KeyboardEvent) {
     }
   }
 
-  if (event.key === "Enter" && !event.shiftKey && props.mode === "input") {
+  if (props.mode !== "input") {
+    return;
+  }
+
+  // Enter with text sends, also while a run is going. Enter in an empty input
+  // stops the run. Read the textarea: a controlled modelValue can lag a tick.
+  const action = ɵresolveComposerKey(event, {
+    ...composerInput.value,
+    value: textareaRef.value?.value ?? inputValue.value,
+  });
+  if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
-    if (isProcessing.value) {
-      if (hasStopAction.value) {
-        emit("stop");
-      }
-      return;
-    }
+  }
+  if (action === "send") {
     submit();
+  } else if (action === "stop") {
+    emit("stop");
   }
 }
 
@@ -1295,7 +1305,7 @@ onBeforeUnmount(() => {
                       type="button"
                       data-testid="copilot-chat-input-send"
                       :aria-label="
-                        isProcessing && hasStopAction
+                        showsStop
                           ? labels.chatInputToolbarStopButtonLabel
                           : labels.chatInputToolbarSendButtonLabel
                       "
@@ -1304,7 +1314,7 @@ onBeforeUnmount(() => {
                       @click="handleSendButtonClick"
                     >
                       <IconSquare
-                        v-if="isProcessing && hasStopAction"
+                        v-if="showsStop"
                         class="cpk-chat-input-stop-icon"
                       />
                       <IconArrowUp v-else class="cpk-chat-input-send-icon" />

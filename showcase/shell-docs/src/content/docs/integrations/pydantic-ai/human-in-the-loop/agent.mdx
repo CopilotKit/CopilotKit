@@ -48,7 +48,7 @@ of everything that has happened during a HITL interaction.
         First, we'll create a component that renders the agent's essay draft and waits for user approval.
 
         ```tsx title="ui/app/page.tsx"
-        import { BasicMarkdownRenderer, useHumanInTheLoop } from "@copilotkit/react-core";
+        import { StreamingMarkdownDefaultRenderer, useHumanInTheLoop } from "@copilotkit/react-core";
         import { z } from "zod";
 
         function YourMainContent() {
@@ -66,7 +66,7 @@ of everything that has happened during a HITL interaction.
               const waiting = respond !== undefined;
               return (
                 <div>
-                  <BasicMarkdownRenderer content={args.draft || "Preparing your draft..."} />
+                  <StreamingMarkdownDefaultRenderer content={args.draft || "Preparing your draft..."} />
 
                   <div className={`flex gap-4 pt-4 ${waiting ? "" : "hidden"}`}>
                     <button

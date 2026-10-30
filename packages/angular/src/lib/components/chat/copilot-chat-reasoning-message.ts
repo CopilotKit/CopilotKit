@@ -10,14 +10,48 @@ import {
 } from "@angular/core";
 import { hostStyles } from "../host-styles";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
+import {
+  ɵformatLabel,
+  ɵformatReasoningDuration,
+  ɵformatCountLabel,
+} from "@copilotkit/core";
+import type { CopilotChatLabels } from "@copilotkit/core";
 import { cn } from "../../utils";
 import { CopilotChatAssistantMessageRenderer } from "./copilot-chat-assistant-message-renderer";
-import { formatReasoningDuration } from "./copilot-chat-reasoning-message-utils";
 import { injectChatLabels } from "../../chat-config";
+import { ChevronRight, CopilotIcon } from "../icons/copilot-icon";
+
+/**
+ * The reasoning time as label text, such as "4 seconds" or "1m 5s".
+ *
+ * @param seconds - The elapsed time in seconds. It may have a fraction.
+ * @param labels - The chat labels that hold the duration texts.
+ */
+function formatDuration(seconds: number, labels: CopilotChatLabels) {
+  const duration = ɵformatReasoningDuration(seconds);
+  switch (duration.unit) {
+    case "fewSeconds":
+      return labels.reasoningMessageDurationFewSeconds;
+    case "seconds":
+      return ɵformatLabel(labels.reasoningMessageDurationSeconds, {
+        count: duration.seconds,
+      });
+    case "minutes":
+      return ɵformatCountLabel(duration.minutes, {
+        one: labels.reasoningMessageDurationMinutesOne,
+        other: labels.reasoningMessageDurationMinutesOther,
+      });
+    case "minutesSeconds":
+      return ɵformatLabel(labels.reasoningMessageDurationMinutesSeconds, {
+        minutes: duration.minutes,
+        seconds: duration.seconds,
+      });
+  }
+}
 
 @Component({
   selector: "copilot-chat-reasoning-message",
-  imports: [CopilotChatAssistantMessageRenderer],
+  imports: [CopilotChatAssistantMessageRenderer, CopilotIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styles: [hostStyles],
@@ -42,19 +76,10 @@ import { injectChatLabels } from "../../chat-config";
           </span>
         }
         @if (hasContent()) {
-          <svg
-            aria-hidden="true"
-            focusable="false"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            [class]="chevronClass()"
-          >
-            <path d="m9 18 6-6-6-6"></path>
-          </svg>
+          <copilot-icon
+            [img]="ChevronRightIcon"
+            [iconClass]="chevronClass()"
+          ></copilot-icon>
         }
       </button>
 
@@ -88,6 +113,7 @@ export class CopilotChatReasoningMessage {
   readonly isRunning = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
   private readonly labels = injectChatLabels();
+  protected readonly ChevronRightIcon = ChevronRight;
 
   private readonly userToggled = signal(false);
 
@@ -130,12 +156,17 @@ export class CopilotChatReasoningMessage {
     () => this.message().content ?? "",
   );
 
-  /** `labels.reasoningMessageThinkingLabel` while streaming, then "Thought for …". */
+  /**
+   * `labels.reasoningMessageThinkingLabel` while streaming, then
+   * `labels.reasoningMessageThoughtForLabel` ("Thought for 4 seconds").
+   */
   protected readonly label = computed(() => {
     const start = this.startTime();
     if (this.isStreaming()) return this.labels.reasoningMessageThinkingLabel;
     const seconds = start === undefined ? 0 : (Date.now() - start) / 1000;
-    return `Thought for ${formatReasoningDuration(seconds)}`;
+    return ɵformatLabel(this.labels.reasoningMessageThoughtForLabel, {
+      duration: formatDuration(seconds, this.labels),
+    });
   });
 
   protected readonly computedClass = computed(() =>

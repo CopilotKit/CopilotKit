@@ -5,10 +5,15 @@
  * for 9s · 7 tools" and toggles the work it folded away.
  */
 import { computed, ref, watch } from "vue";
+import {
+  ɵcountFailedToolCalls,
+  ɵformatLabel,
+  ɵformatWorkDuration,
+  ɵformatCountLabel,
+} from "@copilotkit/core";
 import { IconChevronRight } from "../icons";
 import type { CopilotChatWorkSummarySlotProps } from "./types";
-import { pluralize } from "./tool-call-group-parts";
-import { formatDuration } from "./turn-work";
+import { useChatLabels } from "./use-chat-labels";
 
 // `onClick` falls through to the button.
 const props = defineProps<Omit<CopilotChatWorkSummarySlotProps, "onClick">>();
@@ -28,9 +33,8 @@ watch(
   { immediate: true },
 );
 
-const failed = computed(
-  () => props.calls.filter((call) => call.toolMessage?.error).length,
-);
+const labels = useChatLabels();
+const failed = computed(() => ɵcountFailedToolCalls(props.calls));
 const liveMs = computed(() =>
   props.elapsedMs !== undefined && props.workingSince !== undefined
     ? props.elapsedMs + Math.max(0, now.value - props.workingSince)
@@ -39,8 +43,32 @@ const liveMs = computed(() =>
 // A finished reply worked for at least a second.
 const duration = computed(() =>
   props.elapsedMs !== undefined
-    ? formatDuration(Math.max(1000, props.elapsedMs))
+    ? ɵformatWorkDuration(Math.max(1000, props.elapsedMs))
     : undefined,
+);
+const toolCount = computed(() =>
+  ɵformatCountLabel(props.calls.length, {
+    one: labels.value.toolCallToolCountOne,
+    other: labels.value.toolCallToolCountOther,
+  }),
+);
+const doneLabel = computed(() =>
+  duration.value
+    ? ɵformatLabel(labels.value.workSummaryWorkedForLabel, {
+        duration: duration.value,
+      })
+    : ɵformatCountLabel(props.calls.length, {
+        one: labels.value.toolCallUsedToolsOne,
+        other: labels.value.toolCallUsedToolsOther,
+      }),
+);
+const liveDuration = computed(() =>
+  liveMs.value !== undefined ? ɵformatWorkDuration(liveMs.value) : undefined,
+);
+const failedLabel = computed(() =>
+  ɵformatLabel(labels.value.toolCallFailedCountLabel, {
+    count: failed.value,
+  }),
 );
 </script>
 
@@ -54,25 +82,23 @@ const duration = computed(() =>
     class="cpk-work-summary"
   >
     <template v-if="isWorking">
-      <span class="cpk-work-summary-label cpk-shimmer">Working</span>
+      <span class="cpk-work-summary-label cpk-shimmer">{{
+        labels.workSummaryWorkingLabel
+      }}</span>
       <span
-        v-if="liveMs !== undefined"
+        v-if="liveDuration !== undefined"
         class="cpk-work-summary-detail cpk-work-summary-timer"
-        >{{ formatDuration(liveMs) }}</span
+        >{{ liveDuration }}</span
       >
     </template>
     <template v-else>
-      <span class="cpk-work-summary-label">{{
-        duration
-          ? `Worked for ${duration}`
-          : `Used ${pluralize(calls.length, "tool")}`
-      }}</span>
+      <span class="cpk-work-summary-label">{{ doneLabel }}</span>
       <span v-if="duration" class="cpk-work-summary-detail">{{
-        pluralize(calls.length, "tool")
+        toolCount
       }}</span>
-      <span v-if="failed > 0" class="cpk-work-summary-failed"
-        >{{ failed }} failed</span
-      >
+      <span v-if="failed > 0" class="cpk-work-summary-failed">{{
+        failedLabel
+      }}</span>
     </template>
     <IconChevronRight
       aria-hidden="true"

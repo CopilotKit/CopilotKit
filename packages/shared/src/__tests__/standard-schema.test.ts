@@ -4,7 +4,7 @@ import * as v from "valibot";
 import { toStandardJsonSchema } from "@valibot/to-json-schema";
 import { type } from "arktype";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { schemaToJsonSchema } from "../standard-schema";
+import { schemaToJsonSchema, ɵanySchema } from "../standard-schema";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
 describe("schemaToJsonSchema", () => {
@@ -356,4 +356,29 @@ describe("schemaToJsonSchema", () => {
       });
     });
   });
+});
+
+describe("ɵanySchema", () => {
+  it("identifies itself as a CopilotKit Standard Schema V1", () => {
+    expect(ɵanySchema["~standard"].version).toBe(1);
+    expect(ɵanySchema["~standard"].vendor).toBe("copilotkit");
+  });
+
+  it("returns the value it was given, unchanged", async () => {
+    const args = { city: "Berlin", days: [1, 2] };
+
+    const result = await ɵanySchema["~standard"].validate(args);
+
+    expect(result).toEqual({ value: { city: "Berlin", days: [1, 2] } });
+  });
+
+  it.each([undefined, null, "", 0, false])(
+    "accepts %j without issues",
+    async (input) => {
+      const result = await ɵanySchema["~standard"].validate(input);
+
+      expect(result).toEqual({ value: input });
+      expect(result).not.toHaveProperty("issues");
+    },
+  );
 });

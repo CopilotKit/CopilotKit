@@ -4,19 +4,27 @@ import { getDocumentIcon, getSourceUrl } from "@copilotkit/shared";
 import type { CopilotChatAttachmentRendererProps } from "./types";
 import CopilotChatLightbox from "./CopilotChatLightbox.vue";
 import { useLightbox } from "./use-lightbox";
+import { useChatLabels } from "./use-chat-labels";
 
 const props = withDefaults(defineProps<CopilotChatAttachmentRendererProps>(), {
   filename: undefined,
   className: "",
 });
 
+const labels = useChatLabels();
 const imageLoadFailed = ref(false);
 const sourceUrl = computed(() => getSourceUrl(props.source));
 const documentLabel = computed(
-  () => props.filename || props.source.mimeType || "Unknown type",
+  () =>
+    props.filename ||
+    props.source.mimeType ||
+    labels.value.attachmentUnknownTypeText,
 );
 const documentAriaLabel = computed(
-  () => props.filename || props.source.mimeType || "Document attachment",
+  () =>
+    props.filename ||
+    props.source.mimeType ||
+    labels.value.attachmentDocumentAltText,
 );
 
 const imageButton = ref<HTMLButtonElement | null>(null);
@@ -43,7 +51,7 @@ const {
     <img
       ref="thumbnailRef"
       :src="sourceUrl"
-      alt="Image attachment"
+      :alt="labels.attachmentImageAltText"
       class="cpk-attachment-renderer cpk-attachment-renderer-image"
       :class="props.className"
       data-testid="copilot-chat-attachment-renderer-image"
@@ -52,14 +60,14 @@ const {
     <!-- Teleported to the body; inside the button only to keep one root. -->
     <CopilotChatLightbox
       v-if="lightboxOpen"
-      label="Image attachment"
+      :label="labels.attachmentImageAltText"
       :return-focus-to="imageButton"
       @close="closeLightbox"
     >
       <img
         :style="{ viewTransitionName: vtName }"
         :src="sourceUrl"
-        alt="Image attachment"
+        :alt="labels.attachmentImageAltText"
         class="cpk-attachment-renderer-lightbox-image"
         data-testid="copilot-chat-attachment-renderer-lightbox-image"
       />
@@ -71,7 +79,7 @@ const {
     :class="props.className"
     data-testid="copilot-chat-attachment-renderer-image-fallback"
   >
-    <span>Failed to load image</span>
+    <span>{{ labels.attachmentImageLoadErrorText }}</span>
   </div>
 
   <div

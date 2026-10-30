@@ -35,7 +35,7 @@ useFrontendTool satisfies <T extends Record<string, unknown>>(
   <PropertyReference name="name" type="string" required>
     A unique name for the tool. The agent references this name when deciding to
     call the tool. If a tool with this name is already registered (for the same
-    `agentId`), the existing registration is overridden and a warning is logged.
+    `agentId`), this tool replaces it until the component scope is disposed.
   </PropertyReference>
 
   <PropertyReference name="description" type="string">
@@ -122,7 +122,7 @@ useFrontendTool satisfies <T extends Record<string, unknown>>(
 ## Behavior
 
 - **Immediate registration.** The tool is registered as soon as the composable runs (the underlying `watch` uses `{ immediate: true }`).
-- **Duplicate handling.** If a tool with the same `name` already exists for the same `agentId`, the previous registration is removed, the new one is added, and an override warning is logged. Only one tool per name (per agent) is active at a time.
+- **Same name.** If a tool with the same `name` already exists for the same `agentId`, the new tool is active until its scope is disposed. Then the earlier tool is active again. This also applies to a tool that you pass to `CopilotKitProvider`.
 - **Renderer registration.** When `render` is provided, it is registered as a tool call renderer. The renderer is registered even when `parameters` is omitted, so parameter-free tools (for example confirm dialogs) can still render UI in the chat.
 - **Reactivity.** The registration re-runs when `tool.name`, `tool.available`, or any `deps` watch source changes. Pass changing reactive values through `deps`.
 - **WebMCP registration.** With `webmcp` set, the tool is also registered on `document.modelContext` and removed with the tool. The tool needs a `description` for this (WebMCP rejects tools without one).

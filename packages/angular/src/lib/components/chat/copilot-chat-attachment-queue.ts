@@ -136,7 +136,7 @@ import { injectLightbox } from "./copilot-chat-lightbox";
                     </div>
                     <div class="cpk-attachment-queue-document-info">
                       <span class="cpk-attachment-queue-document-name">
-                        {{ attachment.filename || "Document" }}
+                        {{ attachment.filename || labels.attachmentDocumentLabel }}
                       </span>
                       @if (attachment.size != null) {
                         <span class="cpk-attachment-queue-document-size">

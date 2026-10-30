@@ -67,13 +67,14 @@ export class ɵInterruptState<TValue = unknown> {
   #pending: ɵPendingInterrupt<TValue> | null = null;
   #sealed = false;
 
-  /** Return the active normalized interrupt without exposing mutable state. */
+  /**
+   * Return the active normalized interrupt. A standard interrupt set is a
+   * frozen snapshot, and every read returns the same object until the
+   * interrupt is replaced or cleared, so a framework can compare it by
+   * reference.
+   */
   get pending(): ɵPendingInterrupt<TValue> | null {
-    const pending = this.#pending;
-    if (pending?.kind === "standard") {
-      return { kind: "standard", interrupts: [...pending.interrupts] };
-    }
-    return pending;
+    return this.#pending;
   }
 
   /** Replace the current interrupt with a legacy custom-event interrupt. */
@@ -97,7 +98,12 @@ export class ɵInterruptState<TValue = unknown> {
         callIds.add(interrupt.toolCallId);
       }
     }
-    this.#replace({ kind: "standard", interrupts: [...interrupts] });
+    this.#replace(
+      Object.freeze({
+        kind: "standard",
+        interrupts: Object.freeze([...interrupts]),
+      }),
+    );
   }
 
   /** Clear all pending interrupt data and accumulated responses. */

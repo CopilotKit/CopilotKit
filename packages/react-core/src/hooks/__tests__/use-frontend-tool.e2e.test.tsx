@@ -2,6 +2,7 @@ import React, { useEffect, useState, useReducer } from "react";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { z } from "zod";
 import { useFrontendTool } from "../use-frontend-tool";
+import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import type { ReactFrontendTool } from "../../types";
 import { CopilotChat } from "../../components/chat/CopilotChat";
 import CopilotChatToolCallsView from "../../components/chat/CopilotChatToolCallsView";
@@ -696,6 +697,58 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
   });
 
   describe("Override behavior", () => {
+    it("brings the provider tool back after the overriding component unmounts", async () => {
+      const providerTool: ReactFrontendTool<{ value: string }> = {
+        name: "foo",
+        description: "provider foo",
+        parameters: z.object({ value: z.string() }),
+        handler: async () => "provider",
+      };
+
+      const OverridingTool: React.FC = () => {
+        useFrontendTool({
+          name: "foo",
+          description: "component foo",
+          parameters: z.object({ value: z.string() }),
+          handler: async () => "component",
+        });
+        return null;
+      };
+
+      let fooDescription: () => string | undefined = () => undefined;
+      const FooProbe: React.FC = () => {
+        const { copilotkit } = useCopilotKit();
+        fooDescription = () =>
+          copilotkit.getTool({ toolName: "foo" })?.description;
+        return null;
+      };
+
+      const Toggle: React.FC = () => {
+        const [mounted, setMounted] = useState(true);
+        return (
+          <>
+            <button
+              data-testid="unmount-override"
+              onClick={() => setMounted(false)}
+            />
+            {mounted && <OverridingTool />}
+            <FooProbe />
+          </>
+        );
+      };
+
+      renderWithCopilotKit({
+        frontendTools: [providerTool],
+        children: <Toggle />,
+      });
+
+      expect(fooDescription()).toBe("component foo");
+
+      fireEvent.click(screen.getByTestId("unmount-override"));
+
+      expect(fooDescription()).toBe("provider foo");
+    });
+
     it("should use latest registration when same tool name is registered multiple times", async () => {
       const agent = new MockStepwiseAgent();
 

@@ -5,15 +5,28 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Check, ChevronRight, Circle, Loader2, X } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
+import {
+  CopilotChatDefaultLabels,
+  ɵcountFailedToolCalls,
+  ɵformatLabel,
+  ɵformatToolNames,
+  ɵgetArgumentPreview,
+  ɵgetToolCallPreview,
+  ɵgetToolCallRowStatus,
+  ɵstringifyToolCallPayload,
+  ɵformatCountLabel,
+} from "@copilotkit/core";
+import type {
+  CopilotChatLabels,
+  CopilotIconName,
+  ToolCallEntry,
+  ɵToolCallRowStatus,
+} from "@copilotkit/core";
 import { cn } from "../../lib/utils";
-import { partialJSONParse } from "@copilotkit/shared";
-import type { ToolCallEntry } from "./tool-call-layout";
+import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
 export type CopilotChatToolCallGroupAppearance = "card" | "line" | "stack";
-
-/** A call that never got a result after the run ended (Stop, an error) is "stopped". */
-type CallStatus = "running" | "done" | "failed" | "stopped";
 
 /**
  * Set by a group around the calls it shows, so CopilotKit's built-in tool card
@@ -27,56 +40,27 @@ export const ToolCallGroupContext = createContext<{
   active: boolean;
 } | null>(null);
 
-/**
- * A call without a result is running only while the group is active: once
- * the run has moved on or ended, its result is never coming.
- */
-const entryStatus = (
-  { toolMessage }: ToolCallEntry,
-  active: boolean,
-): CallStatus =>
-  toolMessage
-    ? toolMessage.error
-      ? "failed"
-      : "done"
-    : active
-      ? "running"
-      : "stopped";
+/** The label key for each call status. */
+const STATUS_LABEL_KEYS = {
+  running: "toolCallStatusRunningLabel",
+  done: "toolCallStatusDoneLabel",
+  failed: "toolCallStatusFailedLabel",
+  stopped: "toolCallStatusStoppedLabel",
+} satisfies Record<ɵToolCallRowStatus, keyof CopilotChatLabels>;
 
-/** @internal */
-export const statusLabels: Record<CallStatus, string> = {
-  running: "Running",
-  done: "Done",
-  failed: "Failed",
-  stopped: "Stopped",
-};
+/** The icon for each call status. */
+const STATUS_ICONS = {
+  running: "Loader2",
+  done: "Check",
+  failed: "X",
+  stopped: "Circle",
+} satisfies Record<ɵToolCallRowStatus, CopilotIconName>;
 
-/** The first non-empty string argument: usually a command, path or query. */
-function argumentPreview(parameters: unknown): string | undefined {
-  if (!parameters || typeof parameters !== "object") return undefined;
-  const value = Object.values(parameters).find(
-    (v): v is string => typeof v === "string" && v.trim().length > 0,
-  );
-  return value?.replace(/\s+/g, " ");
+/** The chat labels from the nearest chat configuration, or the defaults. */
+function useLabels() {
+  const config = useCopilotChatConfiguration();
+  return config?.labels ?? CopilotChatDefaultLabels;
 }
-
-const entryPreview = (entry: ToolCallEntry) =>
-  argumentPreview(partialJSONParse(entry.toolCall.function.arguments));
-
-/** "run_command ×2, read_file" */
-function toolNames(calls: ToolCallEntry[]): string {
-  const counts = new Map<string, number>();
-  for (const { toolCall } of calls) {
-    const name = toolCall.function.name;
-    counts.set(name, (counts.get(name) ?? 0) + 1);
-  }
-  return [...counts]
-    .map(([name, count]) => (count > 1 ? `${name} ×${count}` : name))
-    .join(", ");
-}
-
-export const pluralize = (count: number, noun: string) =>
-  `${count} ${noun}${count === 1 ? "" : "s"}`;
 
 /**
  * Height transition between closed and its content's height. Closed content
@@ -117,14 +101,12 @@ function StatusIcon({
   status,
   className,
 }: {
-  status: CallStatus;
+  status: ɵToolCallRowStatus;
   className?: string;
 }) {
-  const Icon = { running: Loader2, done: Check, failed: X, stopped: Circle }[
-    status
-  ];
   return (
-    <Icon
+    <CopilotIcon
+      name={STATUS_ICONS[status]}
       aria-hidden="true"
       className={cn(
         "cpk-tool-call-status-icon",
@@ -138,7 +120,8 @@ function StatusIcon({
 
 function Chevron({ open, className }: { open: boolean; className?: string }) {
   return (
-    <ChevronRight
+    <CopilotIcon
+      name="ChevronRight"
       aria-hidden="true"
       className={cn(
         "cpk-tool-call-chevron",
@@ -150,30 +133,14 @@ function Chevron({ open, className }: { open: boolean; className?: string }) {
 }
 
 function FailedCount({ calls }: { calls: ToolCallEntry[] }) {
-  const failed = calls.filter((call) => call.toolMessage?.error).length;
+  const labels = useLabels();
+  const failed = ɵcountFailedToolCalls(calls);
   if (!failed) return null;
-  return <span className="cpk-tool-call-failed-count">{failed} failed</span>;
-}
-
-/**
- * Guarded JSON.stringify for the payload blocks. A circular reference would
- * otherwise crash the entire React tree on render.
- */
-function stringifyPayload(value: unknown): string {
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch (err) {
-    console.warn(
-      "[CopilotKit] Failed to JSON.stringify tool-call payload; falling back to String():",
-      err,
-    );
-    try {
-      return String(value);
-    } catch {
-      return "[unserializable]";
-    }
-  }
+  return (
+    <span className="cpk-tool-call-failed-count">
+      {ɵformatLabel(labels.toolCallFailedCountLabel, { count: failed })}
+    </span>
+  );
 }
 
 function Payload({ label, value }: { label: string; value: unknown }) {
@@ -181,7 +148,7 @@ function Payload({ label, value }: { label: string; value: unknown }) {
     <div>
       <div className="cpk-tool-call-payload-label">{label}</div>
       <pre className="cpk-tool-call-payload-code">
-        {stringifyPayload(value)}
+        {ɵstringifyToolCallPayload(value)}
       </pre>
     </div>
   );
@@ -200,10 +167,13 @@ export function ToolCallPayloads({
   result: string | undefined;
   className?: string;
 }) {
+  const labels = useLabels();
   return (
     <div className={cn("cpk-tool-call-payloads", className)}>
-      <Payload label="Arguments" value={parameters ?? {}} />
-      {result !== undefined && <Payload label="Result" value={result} />}
+      <Payload label={labels.toolCallArgumentsLabel} value={parameters ?? {}} />
+      {result !== undefined && (
+        <Payload label={labels.toolCallResultLabel} value={result} />
+      )}
     </div>
   );
 }
@@ -225,12 +195,13 @@ export function ToolCallRow({
   name: string;
   parameters: unknown;
   result: string | undefined;
-  status: CallStatus;
+  status: ɵToolCallRowStatus;
   appearance: "card" | "line" | "stack";
 } & React.HTMLAttributes<HTMLDivElement>) {
+  const labels = useLabels();
   const [open, setOpen] = useState(false);
   const detailsId = useId();
-  const preview = argumentPreview(parameters);
+  const preview = ɵgetArgumentPreview(parameters);
 
   return (
     <div
@@ -268,7 +239,7 @@ export function ToolCallRow({
           data-testid="copilot-tool-render-status"
           className="cpk-tool-call-row-status"
         >
-          {statusLabels[status]}
+          {labels[STATUS_LABEL_KEYS[status]]}
         </span>
         <Chevron open={open} className="cpk-tool-call-row-chevron" />
       </button>
@@ -319,6 +290,7 @@ export function CopilotChatToolCallGroup({
   className,
   ...props
 }: CopilotChatToolCallGroupProps) {
+  const labels = useLabels();
   const [open, setOpen] = useState(false);
   const bodyId = useId();
   const latest = calls[calls.length - 1];
@@ -329,15 +301,15 @@ export function CopilotChatToolCallGroup({
   const current = isActive
     ? (calls.find((call) => !call.toolMessage) ?? latest)
     : undefined;
-  const preview = current ? entryPreview(current) : undefined;
+  const preview = current ? ɵgetToolCallPreview(current) : undefined;
   const done = calls.filter((call) => call.toolMessage).length;
-  const statuses = calls.map((call) => entryStatus(call, isActive));
+  const statuses = calls.map((call) => ɵgetToolCallRowStatus(call, isActive));
   const failedIds = new Set(
     calls
       .filter((_, index) => statuses[index] === "failed")
       .map((call) => call.toolCall.id),
   );
-  const status: CallStatus = current
+  const status: ɵToolCallRowStatus = current
     ? "running"
     : failedIds.size > 0
       ? "failed"
@@ -368,7 +340,9 @@ export function CopilotChatToolCallGroup({
   const runningLabel = current && (
     <>
       <span className="cpk-tool-call-group-running cpk-shimmer">
-        Running {current.toolCall.function.name}
+        {ɵformatLabel(labels.toolCallRunningLabel, {
+          name: current.toolCall.function.name,
+        })}
       </span>
       {preview && (
         <span className="cpk-tool-call-group-preview">{preview}</span>
@@ -412,10 +386,13 @@ export function CopilotChatToolCallGroup({
           {runningLabel || (
             <>
               <span className="cpk-tool-call-group-line-summary">
-                Used {pluralize(calls.length, "tool")}
+                {ɵformatCountLabel(calls.length, {
+                  one: labels.toolCallUsedToolsOne,
+                  other: labels.toolCallUsedToolsOther,
+                })}
               </span>
               <span className="cpk-tool-call-group-line-names">
-                {toolNames(calls)}
+                {ɵformatToolNames(calls)}
               </span>
               <FailedCount calls={calls} />
             </>
@@ -434,8 +411,8 @@ export function CopilotChatToolCallGroup({
     // One toggle in both states, so it keeps keyboard focus when pressed.
     const behind = open ? 0 : Math.min(calls.length - 1, 2);
     const layer = "cpk-tool-call-group-stack-layer";
-    const latestStatus = entryStatus(latest, isActive);
-    const latestPreview = entryPreview(latest);
+    const latestStatus = ɵgetToolCallRowStatus(latest, isActive);
+    const latestPreview = ɵgetToolCallPreview(latest);
     return (
       <div
         {...groupProps}
@@ -472,10 +449,13 @@ export function CopilotChatToolCallGroup({
           >
             {open ? (
               <>
-                {pluralize(calls.length, "tool call")}
+                {ɵformatCountLabel(calls.length, {
+                  one: labels.toolCallToolCallCountOne,
+                  other: labels.toolCallToolCallCountOther,
+                })}
                 <FailedCount calls={calls} />
                 <span className="cpk-tool-call-group-stack-collapse">
-                  Collapse
+                  {labels.toolCallCollapseLabel}
                   <Chevron
                     open
                     className="cpk-tool-call-group-stack-collapse-icon"
@@ -504,13 +484,16 @@ export function CopilotChatToolCallGroup({
                   )}
                   {/* The status icon is decorative, so say the status. */}
                   <span className="cpk-tool-call-group-stack-status">
-                    {statusLabels[latestStatus]}
+                    {labels[STATUS_LABEL_KEYS[latestStatus]]}
                   </span>
                 </span>
                 <span className="cpk-tool-call-group-stack-meta">
                   <FailedCount calls={calls} />
                   <span className="cpk-tool-call-group-stack-count">
-                    {pluralize(calls.length, "call")}
+                    {ɵformatCountLabel(calls.length, {
+                      one: labels.toolCallCallCountOne,
+                      other: labels.toolCallCallCountOther,
+                    })}
                   </span>
                   <Chevron
                     open={false}
@@ -526,7 +509,7 @@ export function CopilotChatToolCallGroup({
           <span aria-live="polite" className="cpk-tool-call-group-stack-live">
             {open
               ? ""
-              : `${latest.toolCall.function.name}: ${statusLabels[latestStatus]}`}
+              : `${latest.toolCall.function.name}: ${labels[STATUS_LABEL_KEYS[latestStatus]]}`}
           </span>
         </div>
         {open && (
@@ -569,10 +552,13 @@ export function CopilotChatToolCallGroup({
         {runningLabel || (
           <>
             <span className="cpk-tool-call-group-card-summary">
-              Used {pluralize(calls.length, "tool")}
+              {ɵformatCountLabel(calls.length, {
+                one: labels.toolCallUsedToolsOne,
+                other: labels.toolCallUsedToolsOther,
+              })}
             </span>
             <span className="cpk-tool-call-group-card-names">
-              {toolNames(calls)}
+              {ɵformatToolNames(calls)}
             </span>
           </>
         )}
@@ -582,8 +568,9 @@ export function CopilotChatToolCallGroup({
           ) : (
             <span className="cpk-tool-call-group-card-status">
               {status !== "running"
-                ? statusLabels[status]
-                : done > 0 && `${done} done`}
+                ? labels[STATUS_LABEL_KEYS[status]]
+                : done > 0 &&
+                  ɵformatLabel(labels.toolCallDoneCountLabel, { count: done })}
             </span>
           )}
           <Chevron open={open} />

@@ -4,7 +4,7 @@ import { render, fireEvent, cleanup } from "@testing-library/react";
 import { A2UIProvider } from "../core/A2UIProvider";
 import { A2UIRenderer } from "../core/A2UIRenderer";
 import { useA2UI } from "../hooks/useA2UI";
-import { minimalCatalog } from "../a2ui-react";
+import { minimalCatalog } from "./fixtures/minimal-catalog";
 
 /**
  * A native <button> without an explicit type defaults to "submit", so a

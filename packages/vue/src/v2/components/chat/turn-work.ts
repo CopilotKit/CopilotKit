@@ -3,15 +3,6 @@ import type { FunctionalComponent } from "vue";
 import { CopilotChatCollapsible } from "./tool-call-group-parts";
 import { ToolCallDisplayContextKey } from "./tool-call-display-context";
 
-/** "45s", "1m 5s", "2m". Used for the live timer and the final duration. */
-export function formatDuration(ms: number): string {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const rest = seconds % 60;
-  return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
-}
-
 /**
  * Folds its content away with a reply's work in the `"turn"` display. Without
  * `open` (any other display) it renders the content as is.

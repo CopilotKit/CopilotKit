@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
-import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 
 import { cn } from "../../lib/utils";
 
@@ -97,7 +97,7 @@ function DropdownMenuCheckboxItem({
     >
       <span className="cpk-dropdown-menu-item-indicator">
         <DropdownMenuPrimitive.ItemIndicator>
-          <CheckIcon className="cpk-dropdown-menu-check-icon" />
+          <CopilotIcon name="Check" className="cpk-dropdown-menu-check-icon" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
@@ -129,7 +129,7 @@ function DropdownMenuRadioItem({
     >
       <span className="cpk-dropdown-menu-item-indicator">
         <DropdownMenuPrimitive.ItemIndicator>
-          <CircleIcon className="cpk-dropdown-menu-radio-icon" />
+          <CopilotIcon name="Circle" className="cpk-dropdown-menu-radio-icon" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
@@ -202,7 +202,10 @@ function DropdownMenuSubTrigger({
       {...props}
     >
       {children}
-      <ChevronRightIcon className="cpk-dropdown-menu-sub-trigger-icon" />
+      <CopilotIcon
+        name="ChevronRight"
+        className="cpk-dropdown-menu-sub-trigger-icon"
+      />
     </DropdownMenuPrimitive.SubTrigger>
   );
 }

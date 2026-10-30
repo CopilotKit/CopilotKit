@@ -21,16 +21,27 @@ import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 import type { AttachmentsConfig } from "@copilotkit/shared";
 import { AGUIConnectNotImplementedError } from "@ag-ui/client";
 import type { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
-import { isRunCompletionAware, ɵisHttpAgent } from "@copilotkit/core";
+import {
+  TranscriptionError,
+  isRunCompletionAware,
+  ɵisHttpAgent,
+  ɵtranscribeAudio,
+  ɵtranscriptionErrorMessageKey,
+} from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import { injectAgentStore } from "../../agent";
 import { CopilotKit } from "../../copilotkit";
 import { ChatState } from "../../chat-state";
-import { transcribeAudio } from "../../transcription";
 import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
+import { injectChatLabels } from "../../chat-config";
 import { connectActiveThread } from "../../active-thread-connector";
 import { explicitEffect } from "../../explicit-effect";
 import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
+import { COPILOT_CHAT_RUN_CONTROL } from "./copilot-chat-run-control";
+import type { ChatRunControl } from "./copilot-chat-run-control";
+
+/** How long a transcription error stays on screen, as in React. */
+const TRANSCRIPTION_ERROR_TIMEOUT_MS = 5000;
 
 /**
  * CopilotChat component - Angular equivalent of React's <CopilotChat>
@@ -54,6 +65,26 @@ import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
       copilotChatAttachments
       [config]="attachmentsConfig()"
     >
+      @if (transcriptionError(); as error) {
+        <div
+          role="alert"
+          data-testid="copilot-transcription-error"
+          style="
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #ef4444;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 50;
+          "
+        >
+          {{ error }}
+        </div>
+      }
       <copilot-chat-view
         [messages]="messages()"
         [state]="agentState()"
@@ -81,9 +112,13 @@ import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
       provide: ChatState,
       useExisting: CopilotChat,
     },
+    {
+      provide: COPILOT_CHAT_RUN_CONTROL,
+      useExisting: CopilotChat,
+    },
   ],
 })
-export class CopilotChat extends ChatState {
+export class CopilotChat extends ChatState implements ChatRunControl {
   private readonly attachmentsDirective = viewChild(
     CopilotChatAttachmentsDirective,
   );
@@ -94,7 +129,8 @@ export class CopilotChat extends ChatState {
   readonly inputComponent = input<Type<any> | undefined>();
   /**
    * How assistant messages show tool calls: `"grouped"` (default), `"line"`,
-   * `"stacked"` or `"separate"`. Forwarded to the message view.
+   * `"stacked"` or `"separate"`. Forwarded to the message view. Angular
+   * draws `"turn"` the same as `"grouped"`.
    */
   readonly toolCallDisplay = input<CopilotChatToolCallDisplay>("grouped");
   /** Component used to render each assistant message in the prebuilt chat. */
@@ -137,9 +173,20 @@ export class CopilotChat extends ChatState {
   private readonly destroyRef = inject(DestroyRef);
   private readonly connecting = signal(false);
   private activeConnection?: { dispose(): void };
+  private readonly labels = injectChatLabels();
   protected readonly showCursor = computed(
     () => this.connecting() || this.agentStore().isRunning(),
   );
+  /** `true` while the agent runs. The chat input shows stop. */
+  readonly isRunning = computed(() => this.agentStore().isRunning());
+  /** A run can stop when it runs and the chat has messages, as in React. */
+  readonly canStop = computed(
+    () =>
+      this.agentStore().isRunning() && this.agentStore().messages().length > 0,
+  );
+  /** The transcription error the chat shows, or `null`. */
+  protected readonly transcriptionError = signal<string | null>(null);
+  private transcriptionErrorTimer?: ReturnType<typeof setTimeout>;
 
   protected messages = computed(() => this.agentStore().messages());
   protected agentState = computed(() => this.agentStore().state());
@@ -162,7 +209,10 @@ export class CopilotChat extends ChatState {
   constructor() {
     super();
 
-    this.destroyRef.onDestroy(() => this.activeConnection?.dispose());
+    this.destroyRef.onDestroy(() => {
+      this.activeConnection?.dispose();
+      clearTimeout(this.transcriptionErrorTimer);
+    });
 
     const suggestionsSubscription = this.copilotKit.core.subscribe({
       onAgentsChanged: () => {
@@ -403,12 +453,31 @@ export class CopilotChat extends ChatState {
     this.inputValue.set(value);
   }
 
+  /**
+   * Stop the agent's current run, as React's chat does: through
+   * `copilotkit.core.stopAgent`, or `agent.abortRun()` when that throws.
+   */
+  stop(): void {
+    const agent = this.agentStore().agent;
+    try {
+      this.copilotKit.core.stopAgent({ agent });
+    } catch (error) {
+      console.error("[CopilotKit] stopAgent failed:", error);
+      try {
+        agent.abortRun();
+      } catch (abortError) {
+        console.error("[CopilotKit] abortRun fallback failed:", abortError);
+      }
+    }
+  }
+
   override async finishTranscription(audioBlob: Blob): Promise<void> {
     this.isTranscribing.set(true);
+    this.showTranscriptionError(null);
     this.cdr.markForCheck();
 
     try {
-      const result = await transcribeAudio(this.copilotKit.core, audioBlob);
+      const result = await ɵtranscribeAudio(this.copilotKit.core, audioBlob);
       const text = result.text?.trim();
       if (text) {
         const previous = this.inputValue().trim();
@@ -416,10 +485,31 @@ export class CopilotChat extends ChatState {
       }
     } catch (error) {
       console.error("[CopilotKit] Transcription failed:", error);
+      this.showTranscriptionError(this.transcriptionErrorText(error));
     } finally {
       this.isTranscribing.set(false);
       this.cdr.markForCheck();
     }
+  }
+
+  /** The text to show the user for a failed transcription. */
+  private transcriptionErrorText(error: unknown) {
+    if (!(error instanceof TranscriptionError)) {
+      return this.labels.transcriptionErrorGenericText;
+    }
+    const key = ɵtranscriptionErrorMessageKey(error.info);
+    return key ? this.labels[key] : error.info.message;
+  }
+
+  /** Show a transcription error for a few seconds, or clear it with `null`. */
+  private showTranscriptionError(message: string | null): void {
+    clearTimeout(this.transcriptionErrorTimer);
+    this.transcriptionError.set(message);
+    if (message === null) return;
+    this.transcriptionErrorTimer = setTimeout(() => {
+      this.transcriptionError.set(null);
+      this.cdr.markForCheck();
+    }, TRANSCRIPTION_ERROR_TIMEOUT_MS);
   }
 
   private syncSuggestionsFromCore(agentId: string): void {

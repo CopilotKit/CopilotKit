@@ -9,8 +9,7 @@ import type { Attachment } from "@copilotkit/shared";
 import type { CopilotChatAttachmentQueueProps } from "./types";
 import { IconPlay } from "../icons";
 import CopilotChatLightbox from "./CopilotChatLightbox.vue";
-import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
-import { CopilotChatDefaultLabels } from "../../providers/types";
+import { useChatLabels } from "./use-chat-labels";
 
 const props = withDefaults(defineProps<CopilotChatAttachmentQueueProps>(), {
   attachments: () => [],
@@ -21,8 +20,7 @@ const emit = defineEmits<{
   "remove-attachment": [id: string];
 }>();
 
-const config = useCopilotChatConfiguration();
-const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
+const labels = useChatLabels();
 
 const activeLightboxAttachment = ref<Attachment | null>(null);
 const documentBlobUrl = ref<string | null>(null);
@@ -32,10 +30,10 @@ const lightboxLabel = computed(() => {
   if (!attachment) return undefined;
   if (attachment.filename) return attachment.filename;
   return attachment.type === "image"
-    ? "Image attachment"
+    ? labels.value.attachmentImageAltText
     : attachment.type === "video"
       ? "Video attachment"
-      : "Document";
+      : labels.value.attachmentDocumentLabel;
 });
 const isPreviewableDocument = computed(() => {
   const attachment = activeLightboxAttachment.value;
@@ -267,7 +265,7 @@ function createBlobUrl(
               class="cpk-attachment-queue-document-name"
               data-testid="copilot-chat-attachment-document-filename"
             >
-              {{ attachment.filename || "Document" }}
+              {{ attachment.filename || labels.attachmentDocumentLabel }}
             </span>
             <span
               v-if="attachment.size != null"
@@ -369,10 +367,16 @@ function createBlobUrl(
         </div>
         <div class="cpk-attachment-queue-document-card-details">
           <div class="cpk-attachment-queue-document-card-name">
-            {{ activeLightboxAttachment.filename || "Document" }}
+            {{
+              activeLightboxAttachment.filename ||
+              labels.attachmentDocumentLabel
+            }}
           </div>
           <div class="cpk-attachment-queue-document-card-meta">
-            {{ activeLightboxAttachment.source.mimeType || "Unknown type" }}
+            {{
+              activeLightboxAttachment.source.mimeType ||
+              labels.attachmentUnknownTypeText
+            }}
             {{
               activeLightboxAttachment.size != null
                 ? ` · ${formatFileSize(activeLightboxAttachment.size)}`
@@ -381,7 +385,7 @@ function createBlobUrl(
           </div>
         </div>
         <div class="cpk-attachment-queue-document-card-note">
-          No preview available for this file type
+          {{ labels.attachmentNoPreviewText }}
         </div>
       </div>
     </template>

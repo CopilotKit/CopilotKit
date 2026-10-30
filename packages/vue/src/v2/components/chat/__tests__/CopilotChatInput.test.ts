@@ -559,6 +559,38 @@ describe("CopilotChatInput", () => {
     expect(screen.getByRole("button", { name: "Stop" })).toBe(getSendButton());
   });
 
+  describe("Enter while the agent runs", () => {
+    async function pressEnterWhileRunning(modelValue: string) {
+      const onStop = vi.fn();
+      renderWithProvider({
+        props: { modelValue, isRunning: true },
+        listeners: { onSubmitMessage: mockOnSubmitMessage, onStop },
+      });
+      await fireEvent.keyDown(
+        screen.getByPlaceholderText("Type a message..."),
+        {
+          key: "Enter",
+          shiftKey: false,
+        },
+      );
+      return onStop;
+    }
+
+    it("sends the typed text and does not stop the run", async () => {
+      const onStop = await pressEnterWhileRunning("  next question  ");
+
+      expect(mockOnSubmitMessage).toHaveBeenCalledWith("next question");
+      expect(onStop).not.toHaveBeenCalled();
+    });
+
+    it("stops the run when the input is empty", async () => {
+      const onStop = await pressEnterWhileRunning("");
+
+      expect(onStop).toHaveBeenCalledOnce();
+      expect(mockOnSubmitMessage).not.toHaveBeenCalled();
+    });
+  });
+
   it("names the send button with the configured labels", () => {
     renderWithProvider({
       template: `
@@ -799,7 +831,7 @@ describe("CopilotChatInput", () => {
 
     await fireEvent.click(addButton);
     const menuItem = await screen.findByRole("menuitem", {
-      name: "Add photos or files",
+      name: "Add attachments",
     });
     await fireEvent.click(menuItem);
     expect(handleAddFile).toHaveBeenCalledTimes(1);

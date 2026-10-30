@@ -1,9 +1,9 @@
 import React from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
 import {
   CopilotChatConfigurationProvider,
-  CopilotChatDefaultLabels,
   useCopilotChatConfiguration,
 } from "../CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";

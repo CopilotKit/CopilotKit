@@ -3,8 +3,9 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
 import { IconChevronRight } from "../icons";
 import StreamingMarkdownDefault from "./StreamingMarkdownDefault.vue";
-import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
-import { CopilotChatDefaultLabels } from "../../providers/types";
+import { ɵformatLabel, ɵformatReasoningDuration } from "@copilotkit/core";
+import type { CopilotChatLabels } from "@copilotkit/core";
+import { useChatLabels } from "./use-chat-labels";
 
 const props = withDefaults(
   defineProps<{
@@ -69,13 +70,29 @@ defineSlots<{
   }) => unknown;
 }>();
 
-function formatDuration(seconds: number): string {
-  if (seconds < 1) return "a few seconds";
-  if (seconds < 60) return `${Math.round(seconds)} seconds`;
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.round(seconds % 60);
-  if (secs === 0) return `${mins} minute${mins > 1 ? "s" : ""}`;
-  return `${mins}m ${secs}s`;
+/** How long the model reasoned, in the chat's labels: "4 seconds", "1m 5s". */
+function formatDuration(labels: Readonly<CopilotChatLabels>, seconds: number) {
+  const duration = ɵformatReasoningDuration(seconds);
+  switch (duration.unit) {
+    case "fewSeconds":
+      return labels.reasoningMessageDurationFewSeconds;
+    case "seconds":
+      return ɵformatLabel(labels.reasoningMessageDurationSeconds, {
+        count: duration.seconds,
+      });
+    case "minutes":
+      return ɵformatLabel(
+        duration.minutes === 1
+          ? labels.reasoningMessageDurationMinutesOne
+          : labels.reasoningMessageDurationMinutesOther,
+        { count: duration.minutes },
+      );
+    case "minutesSeconds":
+      return ɵformatLabel(labels.reasoningMessageDurationMinutesSeconds, {
+        minutes: duration.minutes,
+        seconds: duration.seconds,
+      });
+  }
 }
 
 const normalizedContent = computed(() =>
@@ -133,13 +150,14 @@ onBeforeUnmount(() => {
   clearElapsedInterval();
 });
 
-const config = useCopilotChatConfiguration();
+const labels = useChatLabels();
 /** `labels.reasoningMessageThinkingLabel` while streaming, then "Thought for …". */
 const label = computed(() =>
   isStreaming.value
-    ? (config.value?.labels ?? CopilotChatDefaultLabels)
-        .reasoningMessageThinkingLabel
-    : `Thought for ${formatDuration(elapsed.value)}`,
+    ? labels.value.reasoningMessageThinkingLabel
+    : ɵformatLabel(labels.value.reasoningMessageThoughtForLabel, {
+        duration: formatDuration(labels.value, elapsed.value),
+      }),
 );
 
 function toggleOpen() {

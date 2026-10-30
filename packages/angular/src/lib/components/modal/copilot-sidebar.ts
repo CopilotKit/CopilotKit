@@ -1,12 +1,11 @@
 import { CdkTrapFocus } from "@angular/cdk/a11y";
 import { DOCUMENT, NgComponentOutlet, NgTemplateOutlet } from "@angular/common";
+import type { ElementRef, Type } from "@angular/core";
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
-  ElementRef,
   PLATFORM_ID,
-  Type,
   afterNextRender,
   computed,
   inject,
@@ -22,6 +21,7 @@ import { CopilotChat } from "../chat/copilot-chat";
 import { COPILOT_CHAT_WELCOME_LAYOUT } from "../chat/copilot-chat-welcome-layout";
 import { CopilotKitStyles } from "../copilot-kit-styles";
 import { CopilotIcon, MessageCircle, X } from "../icons/copilot-icon";
+import { injectChatLabels } from "../../chat-config";
 import { explicitEffect } from "../../explicit-effect";
 import { DockedSidebarRegistry } from "./docked-sidebar-registry";
 import { dimensionToCss } from "./modal-utils";
@@ -55,7 +55,9 @@ export type CopilotSidebarPosition = "left" | "right";
       [attr.data-state]="open() ? 'open' : 'closed'"
       [attr.aria-controls]="sidebarId"
       [attr.aria-expanded]="open()"
-      [attr.aria-label]="open() ? 'Close Copilot sidebar' : 'Open Copilot sidebar'"
+      [attr.aria-label]="
+        open() ? labels.chatToggleCloseLabel : labels.chatToggleOpenLabel
+      "
       [tabIndex]="open() ? -1 : 0"
       (click)="toggle()"
     >
@@ -96,7 +98,7 @@ export type CopilotSidebarPosition = "left" | "right";
         [attr.id]="sidebarId"
         [attr.data-position]="position()"
         [attr.aria-labelledby]="headerComponent() ? null : titleId"
-        [attr.aria-label]="headerComponent() ? title() : null"
+        [attr.aria-label]="headerComponent() ? resolvedTitle() : null"
         [style.--sidebar-width]="resolvedWidth()"
         (keydown.escape)="close()"
       >
@@ -111,7 +113,7 @@ export type CopilotSidebarPosition = "left" | "right";
         [attr.id]="sidebarId"
         [attr.data-position]="position()"
         [attr.aria-labelledby]="headerComponent() ? null : titleId"
-        [attr.aria-label]="headerComponent() ? title() : null"
+        [attr.aria-label]="headerComponent() ? resolvedTitle() : null"
         [style.--sidebar-width]="resolvedWidth()"
       >
         <ng-container [ngTemplateOutlet]="sidebarContents" />
@@ -130,7 +132,7 @@ export type CopilotSidebarPosition = "left" | "right";
                 <ng-container [ngComponentOutlet]="header" />
               } @else {
                 <h2 class="cpk-modal-header-title" [attr.id]="titleId">
-                  {{ title() }}
+                  {{ resolvedTitle() }}
                 </h2>
               }
             </div>
@@ -140,7 +142,7 @@ export type CopilotSidebarPosition = "left" | "right";
                 type="button"
                 cdkFocusInitial
                 class="cpk-modal-header-close-button"
-                aria-label="Close Copilot sidebar"
+                [attr.aria-label]="labels.modalHeaderCloseButtonLabel"
                 (click)="close()"
               >
                 <copilot-icon
@@ -211,13 +213,18 @@ export class CopilotSidebar {
   readonly mode = input<CopilotSidebarMode>("docked");
   readonly position = input<CopilotSidebarPosition>("right");
   readonly width = input<number | string>(480);
-  readonly title = input("Copilot");
+  /** The header title. Default: `labels.modalHeaderTitle`. */
+  readonly title = input<string | undefined>();
   readonly clickOutsideToClose = input(false);
   readonly chatComponent = input<Type<unknown>>(CopilotChat);
   readonly headerComponent = input<Type<unknown> | undefined>();
 
   protected readonly MessageCircleIcon = MessageCircle;
   protected readonly XIcon = X;
+  protected readonly labels = injectChatLabels();
+  protected readonly resolvedTitle = computed(
+    () => this.title() ?? this.labels.modalHeaderTitle,
+  );
 
   protected readonly sidebarId = `copilot-sidebar-${randomUUID()}`;
   protected readonly titleId = `${this.sidebarId}-title`;

@@ -1,4 +1,22 @@
 import React, { useEffect } from "react";
+import { CopilotChatDefaultLabels, ɵformatLabel } from "@copilotkit/core";
+
+// The banner shows outside any chat, so it has no chat configuration to read
+// labels from. It always uses the default text.
+const labels = CopilotChatDefaultLabels;
+
+/**
+ * The "expires soon" banner text. Without a day count it says "soon", never
+ * "in undefined days".
+ */
+function expiringMessage(graceRemaining: number | undefined) {
+  if (graceRemaining === undefined) return labels.licenseExpiringText;
+  const template =
+    graceRemaining === 1
+      ? labels.licenseExpiringInDaysOne
+      : labels.licenseExpiringInDaysOther;
+  return ɵformatLabel(template, { days: graceRemaining });
+}
 
 // Total reserved vertical space for the fixed license banner: banner height
 // (~36px) + bottom offset (8px) + visual gap above the chat input (~8px).
@@ -138,8 +156,8 @@ export function LicenseWarningBanner({
       return (
         <BannerShell
           severity="info"
-          message="Powered by CopilotKit"
-          actionLabel="Get a license"
+          message={labels.licensePoweredByText}
+          actionLabel={labels.licenseGetLicenseLabel}
           actionUrl="https://copilotkit.ai/pricing"
           onDismiss={onDismiss}
         />
@@ -148,8 +166,10 @@ export function LicenseWarningBanner({
       return (
         <BannerShell
           severity="warning"
-          message={`⚠ The "${featureName}" feature requires a CopilotKit license.`}
-          actionLabel="Get a license"
+          message={ɵformatLabel(labels.licenseFeatureUnlicensedText, {
+            feature: featureName ?? "",
+          })}
+          actionLabel={labels.licenseGetLicenseLabel}
           actionUrl="https://copilotkit.ai/pricing"
           onDismiss={onDismiss}
         />
@@ -158,8 +178,8 @@ export function LicenseWarningBanner({
       return (
         <BannerShell
           severity="warning"
-          message={`Your CopilotKit license expires in ${graceRemaining} day${graceRemaining !== 1 ? "s" : ""}. Please renew.`}
-          actionLabel="Renew"
+          message={expiringMessage(graceRemaining)}
+          actionLabel={labels.licenseRenewLabel}
           actionUrl="https://dashboard.operations.copilotkit.ai"
           onDismiss={onDismiss}
         />
@@ -168,8 +188,14 @@ export function LicenseWarningBanner({
       return (
         <BannerShell
           severity="critical"
-          message={`Your CopilotKit license expired${expiryDate ? ` on ${expiryDate}` : ""}. Please renew at copilotkit.ai/pricing`}
-          actionLabel="Renew now"
+          message={
+            expiryDate
+              ? ɵformatLabel(labels.licenseExpiredOnDateText, {
+                  date: expiryDate,
+                })
+              : labels.licenseExpiredText
+          }
+          actionLabel={labels.licenseRenewNowLabel}
           actionUrl="https://copilotkit.ai/pricing"
           onDismiss={onDismiss}
         />
@@ -178,8 +204,8 @@ export function LicenseWarningBanner({
       return (
         <BannerShell
           severity="critical"
-          message="Invalid CopilotKit license token. Please check your configuration."
-          actionLabel="Get a license"
+          message={labels.licenseInvalidText}
+          actionLabel={labels.licenseGetLicenseLabel}
           actionUrl="https://copilotkit.ai/pricing"
           onDismiss={onDismiss}
         />
@@ -203,7 +229,9 @@ export function InlineFeatureWarning({ featureName }: { featureName: string }) {
           "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
       }}
     >
-      ⚠ The &quot;{featureName}&quot; feature requires a CopilotKit license.{" "}
+      {ɵformatLabel(labels.licenseFeatureUnlicensedText, {
+        feature: featureName,
+      })}{" "}
       <a
         href="https://copilotkit.ai/pricing"
         target="_blank"

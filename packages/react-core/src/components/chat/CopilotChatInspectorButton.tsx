@@ -7,7 +7,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { EyeOff, Wrench } from "lucide-react";
+import { CopilotIcon } from "../icons/CopilotIcon";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
@@ -20,10 +20,8 @@ import {
   DropdownMenuSeparator,
 } from "../ui/dropdown-menu";
 import { useCopilotKitInspector } from "../CopilotKitInspectorContext";
-import {
-  CopilotChatDefaultLabels,
-  useCopilotChatConfiguration,
-} from "../../providers/CopilotChatConfigurationProvider";
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
 // Page-lifetime preference, shared by every message and chat. Deliberately
 // avoid sessionStorage: it survives reloads, while this preference must not.
@@ -236,7 +234,8 @@ export function CopilotChatInspectorButton({
             }
           }}
         >
-          <Wrench
+          <CopilotIcon
+            name="Wrench"
             aria-hidden="true"
             className="cpk-inspector-button-icon"
             data-testid="copilot-inspector-icon"
@@ -307,7 +306,8 @@ export function CopilotChatInspectorButton({
           onSelect={hideShortcuts}
           className="cpk-inspector-button-menu-item cpk-inspector-button-hide-item"
         >
-          <EyeOff
+          <CopilotIcon
+            name="EyeOff"
             aria-hidden="true"
             className="cpk-inspector-button-menu-item-icon"
           />

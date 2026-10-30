@@ -5,62 +5,35 @@ import {
   computed,
   input,
   signal,
-  type Signal,
 } from "@angular/core";
+import type { Signal } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import type { AssistantMessage, Message } from "@ag-ui/core";
-import { partialJSONParse } from "@copilotkit/shared";
+import {
+  ɵcountFailedToolCalls,
+  ɵformatLabel,
+  ɵformatToolNames,
+  ɵgetToolCallPreview,
+  ɵgetToolCallRowStatus,
+  ɵformatCountLabel,
+} from "@copilotkit/core";
 import { ChevronRight, CopilotIcon } from "../icons/copilot-icon";
 import {
   CopilotCollapsible,
   CopilotToolCallStatusIcon,
 } from "../tools/tool-call-parts";
 import { RenderToolCall } from "../../render-tool-calls";
-import {
-  argumentPreview,
-  toolCallRowStatusLabels,
-  type CopilotChatToolCallGroupAppearance,
-  type ToolCallRenderContext,
-  type ToolCallRowStatus,
+import { toolCallRowStatusLabelKeys } from "../tools/tool-call-render-context";
+import type {
+  CopilotChatToolCallGroupAppearance,
+  ToolCallRenderContext,
+  ToolCallRowStatus,
 } from "../tools/tool-call-render-context";
 import type { ToolCallEntry } from "./tool-call-layout";
+import { injectChatLabels } from "../../chat-config";
 import { cn } from "../../utils";
 
 let nextId = 0;
-
-/**
- * A call without a result is running only while the group is active: once
- * the run has moved on or ended, its result is never coming.
- */
-const entryStatus = (
-  { toolMessage }: ToolCallEntry,
-  active: boolean,
-): ToolCallRowStatus =>
-  toolMessage
-    ? toolMessage.error
-      ? "failed"
-      : "done"
-    : active
-      ? "running"
-      : "stopped";
-
-const entryPreview = (entry: ToolCallEntry) =>
-  argumentPreview(partialJSONParse(entry.toolCall.function.arguments));
-
-/** "run_command ×2, read_file" */
-function toolNames(calls: ToolCallEntry[]): string {
-  const counts = new Map<string, number>();
-  for (const { toolCall } of calls) {
-    const name = toolCall.function.name;
-    counts.set(name, (counts.get(name) ?? 0) + 1);
-  }
-  return [...counts]
-    .map(([name, count]) => (count > 1 ? `${name} ×${count}` : name))
-    .join(", ");
-}
-
-const pluralize = (count: number, noun: string) =>
-  `${count} ${noun}${count === 1 ? "" : "s"}`;
 
 /**
  * Tool calls made in a row, collapsed into one summary, like React's
@@ -142,7 +115,7 @@ const pluralize = (count: number, noun: string) =>
                   />
                 } @else {
                   <span class="cpk-tool-call-group-line-summary">
-                    Used {{ pluralize(calls().length, "tool") }}
+                    {{ usedToolsText() }}
                   </span>
                   <span class="cpk-tool-call-group-line-names">
                     {{ names() }}
@@ -199,10 +172,10 @@ const pluralize = (count: number, noun: string) =>
                 "
               >
                 @if (open()) {
-                  {{ pluralize(calls().length, "tool call") }}
+                  {{ toolCallCountText() }}
                   <ng-container *ngTemplateOutlet="failedCountLabel" />
                   <span class="cpk-tool-call-group-stack-collapse">
-                    Collapse
+                    {{ labels.toolCallCollapseLabel }}
                     <copilot-icon
                       [img]="ChevronRightIcon"
                       iconClass="cpk-tool-call-chevron cpk-tool-call-chevron-open cpk-tool-call-group-stack-collapse-icon"
@@ -224,13 +197,13 @@ const pluralize = (count: number, noun: string) =>
                     }
                     <!-- The status icon is decorative, so say the status. -->
                     <span class="cpk-tool-call-group-stack-status">
-                      {{ statusLabels[latestStatus()] }}
+                      {{ statusText(latestStatus()) }}
                     </span>
                   </span>
                   <span class="cpk-tool-call-group-stack-meta">
                     <ng-container *ngTemplateOutlet="failedCountLabel" />
                     <span class="cpk-tool-call-group-stack-count">
-                      {{ pluralize(calls().length, "call") }}
+                      {{ callCountText() }}
                     </span>
                     <copilot-icon
                       [img]="ChevronRightIcon"
@@ -246,7 +219,7 @@ const pluralize = (count: number, noun: string) =>
                   ? ""
                   : latest.toolCall.function.name +
                     ": " +
-                    statusLabels[latestStatus()]
+                    statusText(latestStatus())
               }}</span>
             </div>
             @if (open()) {
@@ -290,7 +263,7 @@ const pluralize = (count: number, noun: string) =>
                 />
               } @else {
                 <span class="cpk-tool-call-group-card-summary">
-                  Used {{ pluralize(calls().length, "tool") }}
+                  {{ usedToolsText() }}
                 </span>
                 <span class="cpk-tool-call-group-card-names">
                   {{ names() }}
@@ -302,9 +275,9 @@ const pluralize = (count: number, noun: string) =>
                 } @else {
                   <span class="cpk-tool-call-group-card-status">
                     @if (status() !== "running") {
-                      {{ statusLabels[status()] }}
+                      {{ statusText(status()) }}
                     } @else if (doneCount() > 0) {
-                      {{ doneCount() }} done
+                      {{ doneCountText() }}
                     }
                   </span>
                 }
@@ -324,7 +297,7 @@ const pluralize = (count: number, noun: string) =>
 
     <ng-template #runningLabel let-current>
       <span class="cpk-tool-call-group-running cpk-shimmer">
-        Running {{ current.toolCall.function.name }}
+        {{ runningText(current) }}
       </span>
       @if (preview(); as preview) {
         <span class="cpk-tool-call-group-preview">{{ preview }}</span>
@@ -333,7 +306,7 @@ const pluralize = (count: number, noun: string) =>
 
     <ng-template #failedCountLabel>
       @if (failedCount() > 0) {
-        <span class="cpk-tool-call-failed-count">{{ failedCount() }} failed</span>
+        <span class="cpk-tool-call-failed-count">{{ failedCountText() }}</span>
       }
     </ng-template>
   `,
@@ -357,9 +330,8 @@ export class CopilotChatToolCallGroup {
 
   protected readonly open = signal(false);
   protected readonly bodyId = `cpk-tool-call-group-${nextId++}`;
-  protected readonly statusLabels = toolCallRowStatusLabels;
+  protected readonly labels = injectChatLabels();
   protected readonly ChevronRightIcon = ChevronRight;
-  protected readonly pluralize = pluralize;
 
   protected readonly latest = computed(() => this.calls().at(-1));
   /**
@@ -373,22 +345,50 @@ export class CopilotChatToolCallGroup {
   );
   protected readonly preview = computed(() => {
     const current = this.current();
-    return current ? entryPreview(current) : undefined;
+    return current ? ɵgetToolCallPreview(current) : undefined;
   });
   protected readonly statuses = computed(
     () =>
       new Map(
         this.calls().map((call) => [
           call.toolCall.id,
-          entryStatus(call, this.isActive()),
+          ɵgetToolCallRowStatus(call, this.isActive()),
         ]),
       ),
   );
-  protected readonly failedCount = computed(
-    () => this.calls().filter((call) => call.toolMessage?.error).length,
+  protected readonly failedCount = computed(() =>
+    ɵcountFailedToolCalls(this.calls()),
+  );
+  protected readonly failedCountText = computed(() =>
+    ɵformatLabel(this.labels.toolCallFailedCountLabel, {
+      count: this.failedCount(),
+    }),
+  );
+  protected readonly usedToolsText = computed(() =>
+    ɵformatCountLabel(this.calls().length, {
+      one: this.labels.toolCallUsedToolsOne,
+      other: this.labels.toolCallUsedToolsOther,
+    }),
+  );
+  protected readonly toolCallCountText = computed(() =>
+    ɵformatCountLabel(this.calls().length, {
+      one: this.labels.toolCallToolCallCountOne,
+      other: this.labels.toolCallToolCallCountOther,
+    }),
+  );
+  protected readonly callCountText = computed(() =>
+    ɵformatCountLabel(this.calls().length, {
+      one: this.labels.toolCallCallCountOne,
+      other: this.labels.toolCallCallCountOther,
+    }),
   );
   protected readonly doneCount = computed(
     () => this.calls().filter((call) => call.toolMessage).length,
+  );
+  protected readonly doneCountText = computed(() =>
+    ɵformatLabel(this.labels.toolCallDoneCountLabel, {
+      count: this.doneCount(),
+    }),
   );
   protected readonly status = computed<ToolCallRowStatus>(() => {
     if (this.current()) return "running";
@@ -397,14 +397,14 @@ export class CopilotChatToolCallGroup {
     if (statuses.includes("stopped")) return "stopped";
     return "done";
   });
-  protected readonly names = computed(() => toolNames(this.calls()));
+  protected readonly names = computed(() => ɵformatToolNames(this.calls()));
   protected readonly latestStatus = computed<ToolCallRowStatus>(() => {
     const latest = this.latest();
-    return latest ? entryStatus(latest, this.isActive()) : "done";
+    return latest ? ɵgetToolCallRowStatus(latest, this.isActive()) : "done";
   });
   protected readonly latestPreview = computed(() => {
     const latest = this.latest();
-    return latest ? entryPreview(latest) : undefined;
+    return latest ? ɵgetToolCallPreview(latest) : undefined;
   });
   /** A lone call is the top card of a stack with nothing behind it yet. */
   protected readonly behind = computed(() =>
@@ -436,6 +436,16 @@ export class CopilotChatToolCallGroup {
     const row = { appearance, status };
     this.#rows.set(toolCallId, { appearance, row });
     return row;
+  }
+
+  protected statusText(status: ToolCallRowStatus) {
+    return this.labels[toolCallRowStatusLabelKeys[status]];
+  }
+
+  protected runningText(entry: ToolCallEntry) {
+    return ɵformatLabel(this.labels.toolCallRunningLabel, {
+      name: entry.toolCall.function.name,
+    });
   }
 
   protected toggle(): void {
