@@ -34,6 +34,7 @@ const SCROLL_BUTTON_OFFSET = 16;
 const SCROLL_BOTTOM_THRESHOLD = 12;
 
 const props = withDefaults(defineProps<CopilotChatViewProps>(), {
+  messageFeedback: true,
   messages: () => [],
   autoScroll: true,
   isRunning: false,
@@ -594,6 +595,8 @@ onBeforeUnmount(() => {
                   <CopilotChatMessageView
                     :messages="messages"
                     :is-running="isRunning"
+                    :tool-call-display="toolCallDisplay"
+                    :message-feedback="messageFeedback"
                   >
                     <template
                       v-for="slotName in forwardedMessageViewSlotNames"

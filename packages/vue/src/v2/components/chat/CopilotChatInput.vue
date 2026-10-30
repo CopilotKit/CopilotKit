@@ -13,7 +13,6 @@ import { CopilotChatDefaultLabels } from "../../providers/types";
 import {
   IconArrowUp,
   IconCheck,
-  IconChevronRight,
   IconLoader2,
   IconMic,
   IconPlus,
@@ -21,6 +20,13 @@ import {
   IconX,
 } from "../icons";
 import CopilotChatAudioRecorder from "./CopilotChatAudioRecorder.vue";
+import CopilotTooltip from "../ui/CopilotTooltip.vue";
+import CopilotDropdownMenuContent from "../ui/CopilotDropdownMenuContent.vue";
+import type {
+  CopilotDropdownMenuDismissReason,
+  CopilotDropdownMenuItem,
+} from "../ui/dropdown-menu";
+import { useCopilotId } from "../ui/use-id";
 import type { CopilotChatAudioRecorderRef } from "./audioRecorder";
 import type { CopilotChatInputMode, ToolsMenuItem } from "./types";
 
@@ -108,7 +114,6 @@ const gridRef = ref<HTMLElement | null>(null);
 const addButtonContainerRef = ref<HTMLElement | null>(null);
 const actionsContainerRef = ref<HTMLElement | null>(null);
 const slashMenuRef = ref<HTMLElement | null>(null);
-const addMenuRef = ref<HTMLElement | null>(null);
 const audioRecorderRef = ref<CopilotChatAudioRecorderRef | null>(null);
 const localValue = ref(props.modelValue ?? "");
 const isComposing = ref(false);
@@ -117,6 +122,12 @@ const commandQuery = ref<string | null>(null);
 const slashHighlightIndex = ref(0);
 const previousCommandQuery = ref<string | null>(null);
 const addMenuOpen = ref(false);
+// Where focus goes as the add menu opens: its first or last item for the
+// keyboard, the menu itself for a pointer, as Radix's DropdownMenu does.
+const addMenuInitialFocus = ref<"first" | "last" | "content">("content");
+const addMenuAnchor = ref<HTMLElement | null>(null);
+const addMenuId = useCopilotId("cpk-add-menu");
+const addMenuTriggerId = `${addMenuId}-trigger`;
 const measurements = ref({
   singleLineHeight: 0,
   maxHeight: 0,
@@ -132,7 +143,6 @@ const containerCacheRef = ref<{
 const didWarnMissingFontRef = ref(false);
 const didWarnMissingCanvasContextRef = ref(false);
 let resizeObserver: ResizeObserver | null = null;
-let documentPointerDownHandler: ((event: MouseEvent) => void) | null = null;
 
 const isControlled = computed(() => props.modelValue !== undefined);
 const inputValue = computed(() =>
@@ -475,23 +485,88 @@ function handleKeydown(event: KeyboardEvent) {
   }
 }
 
-function toggleAddMenu() {
+/** The add button, or the first button of a custom `add-menu-button` slot. */
+function getAddMenuTrigger(): HTMLElement | null {
+  const container = addButtonContainerRef.value;
+  return container?.querySelector<HTMLElement>("button") ?? container ?? null;
+}
+
+function toggleAddMenu(focus: "first" | "last" | "content" = "content") {
   if (!hasMenuItems.value || props.mode === "transcribe" || props.disabled) {
     return;
   }
-  addMenuOpen.value = !addMenuOpen.value;
+  if (addMenuOpen.value) {
+    closeAddMenu();
+    return;
+  }
+  addMenuAnchor.value = getAddMenuTrigger();
+  addMenuInitialFocus.value = focus;
+  addMenuOpen.value = true;
 }
 
-function closeAddMenu() {
+function closeAddMenu(options: { returnFocus?: boolean } = {}) {
+  if (!addMenuOpen.value) {
+    return;
+  }
   addMenuOpen.value = false;
+  if (options.returnFocus) {
+    getAddMenuTrigger()?.focus();
+  }
 }
 
 function handleMenuAction(action: () => void) {
+  // As Radix does, the menu closes and focus returns to its trigger first, so
+  // an action that moves focus (for example into the textarea) keeps it.
+  closeAddMenu({ returnFocus: true });
   action();
-  closeAddMenu();
-  nextTick(() => {
-    textareaRef.value?.focus();
-  });
+}
+
+function handleAddMenuSelect(item: CopilotDropdownMenuItem) {
+  if (item.action) {
+    handleMenuAction(item.action);
+  }
+}
+
+function handleAddMenuDismiss(reason: CopilotDropdownMenuDismissReason) {
+  // A pointer down outside leaves focus where the pointer put it.
+  closeAddMenu({ returnFocus: reason !== "outside" });
+}
+
+// A pointer down opens the menu, as Radix's trigger does; the click that
+// follows it then must not toggle it again. Keyboard and synthetic clicks
+// (detail 0) still toggle it from the click.
+let addMenuPointerToggled = false;
+
+function handleAddMenuPointerDown(event: PointerEvent) {
+  if (event.button !== 0 || event.ctrlKey) {
+    return;
+  }
+  addMenuPointerToggled = true;
+  if (!addMenuOpen.value) {
+    // Keep focus off the trigger, so the menu can take it.
+    event.preventDefault();
+  }
+  toggleAddMenu("content");
+}
+
+function handleAddMenuClick(event: MouseEvent) {
+  if (addMenuPointerToggled) {
+    addMenuPointerToggled = false;
+    return;
+  }
+  toggleAddMenu(event.detail === 0 ? "first" : "content");
+}
+
+function handleAddMenuTriggerKeydown(event: KeyboardEvent) {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    toggleAddMenu("first");
+  } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    if (!addMenuOpen.value) {
+      toggleAddMenu(event.key === "ArrowDown" ? "first" : "last");
+    }
+  }
 }
 
 async function handleFinishTranscribe() {
@@ -909,32 +984,9 @@ onMounted(() => {
       resizeObserver.observe(actionsContainerRef.value);
     if (textareaRef.value) resizeObserver.observe(textareaRef.value);
   }
-
-  documentPointerDownHandler = (event: MouseEvent) => {
-    if (!addMenuOpen.value) {
-      return;
-    }
-    const target = event.target as Node | null;
-    if (!target) {
-      return;
-    }
-    if (
-      addMenuRef.value?.contains(target) ||
-      addButtonContainerRef.value?.contains(target)
-    ) {
-      return;
-    }
-    closeAddMenu();
-  };
-
-  document.addEventListener("mousedown", documentPointerDownHandler);
 });
 
 onBeforeUnmount(() => {
-  if (documentPointerDownHandler) {
-    document.removeEventListener("mousedown", documentPointerDownHandler);
-    documentPointerDownHandler = null;
-  }
   resizeObserver?.disconnect();
   resizeObserver = null;
   if (resizeEvaluationRafRef.value !== null) {
@@ -971,7 +1023,7 @@ onBeforeUnmount(() => {
         :send-disabled="sendDisabled"
         :menu-open="addMenuOpen"
         :menu-items="menuDisplayItems"
-        :on-toggle-menu="toggleAddMenu"
+        :on-toggle-menu="() => toggleAddMenu()"
         :on-menu-action="handleMenuAction"
         :on-update-value="updateInputValue"
         :on-submit="submit"
@@ -998,58 +1050,56 @@ onBeforeUnmount(() => {
                 name="add-menu-button"
                 :disabled="disabled || mode === 'transcribe' || !hasMenuItems"
                 :menu-open="addMenuOpen"
-                :toggle-menu="toggleAddMenu"
+                :toggle-menu="() => toggleAddMenu()"
                 :labels="labels"
               >
-                <button
-                  type="button"
-                  data-testid="copilot-chat-input-add"
-                  :aria-label="labels.chatInputToolbarAddButtonLabel"
-                  :disabled="disabled || mode === 'transcribe' || !hasMenuItems"
-                  class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-add-menu-button"
-                  @click.stop="toggleAddMenu"
-                >
-                  <IconPlus class="cpk-chat-input-add-menu-icon" />
-                </button>
+                <CopilotTooltip side="bottom" :suppressed="addMenuOpen">
+                  <template #default="{ triggerProps }">
+                    <button
+                      v-bind="triggerProps"
+                      :id="addMenuTriggerId"
+                      type="button"
+                      data-testid="copilot-chat-input-add"
+                      :aria-label="labels.chatInputToolbarAddButtonLabel"
+                      aria-haspopup="menu"
+                      :aria-expanded="addMenuOpen"
+                      :aria-controls="addMenuOpen ? addMenuId : undefined"
+                      :data-state="addMenuOpen ? 'open' : 'closed'"
+                      :disabled="
+                        disabled || mode === 'transcribe' || !hasMenuItems
+                      "
+                      class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-add-menu-button"
+                      @pointerdown="handleAddMenuPointerDown"
+                      @click.stop="handleAddMenuClick"
+                      @keydown="handleAddMenuTriggerKeydown"
+                    >
+                      <IconPlus class="cpk-chat-input-add-menu-icon" />
+                    </button>
+                  </template>
+                  <template #content>
+                    <p class="cpk-chat-input-add-menu-tooltip">
+                      <span>{{ labels.chatInputToolbarAddButtonLabel }}</span>
+                      <code class="cpk-chat-input-add-menu-shortcut">/</code>
+                    </p>
+                  </template>
+                </CopilotTooltip>
               </slot>
 
-              <div
-                v-if="addMenuOpen && hasMenuItems"
-                ref="addMenuRef"
-                class="cpk-dropdown-menu-content cpk-chat-input-add-menu"
-                role="menu"
-                data-state="open"
-                data-side="top"
+              <CopilotDropdownMenuContent
+                :id="addMenuId"
+                :open="addMenuOpen && hasMenuItems"
+                :anchor="addMenuAnchor"
+                :items="menuItems"
+                :menu-id="addMenuId"
+                :labelled-by="addMenuAnchor?.id || undefined"
+                side="top"
+                align="start"
+                :side-offset="4"
+                :initial-focus="addMenuInitialFocus"
                 data-testid="copilot-chat-input-add-menu"
-              >
-                <template v-for="entry in menuDisplayItems" :key="entry.key">
-                  <div
-                    v-if="entry.type === 'separator'"
-                    class="cpk-dropdown-menu-separator"
-                    role="separator"
-                  />
-                  <div
-                    v-else-if="entry.type === 'label'"
-                    class="cpk-dropdown-menu-label"
-                    :style="{ paddingLeft: `${8 + entry.depth * 12}px` }"
-                  >
-                    <span>{{ entry.label }}</span>
-                    <IconChevronRight
-                      class="cpk-chat-input-add-menu-group-icon"
-                    />
-                  </div>
-                  <button
-                    v-else
-                    type="button"
-                    role="menuitem"
-                    class="cpk-dropdown-menu-item"
-                    :style="{ paddingLeft: `${8 + entry.depth * 12}px` }"
-                    @click="handleMenuAction(entry.action)"
-                  >
-                    {{ entry.label }}
-                  </button>
-                </template>
-              </div>
+                @select="handleAddMenuSelect"
+                @dismiss="handleAddMenuDismiss"
+              />
             </div>
 
             <div class="cpk-chat-input-field">
@@ -1145,18 +1195,28 @@ onBeforeUnmount(() => {
                   :on-click="() => emit('cancel-transcribe')"
                   :labels="labels"
                 >
-                  <button
-                    type="button"
-                    data-testid="copilot-chat-input-cancel-transcribe"
-                    :aria-label="
+                  <CopilotTooltip
+                    side="bottom"
+                    :content="
                       labels.chatInputToolbarCancelTranscribeButtonLabel
                     "
-                    :disabled="disabled"
-                    class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-cancel-transcribe-button"
-                    @click="emit('cancel-transcribe')"
                   >
-                    <IconX class="cpk-chat-input-toolbar-icon" />
-                  </button>
+                    <template #default="{ triggerProps }">
+                      <button
+                        v-bind="triggerProps"
+                        type="button"
+                        data-testid="copilot-chat-input-cancel-transcribe"
+                        :aria-label="
+                          labels.chatInputToolbarCancelTranscribeButtonLabel
+                        "
+                        :disabled="disabled"
+                        class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-cancel-transcribe-button"
+                        @click="emit('cancel-transcribe')"
+                      >
+                        <IconX class="cpk-chat-input-toolbar-icon" />
+                      </button>
+                    </template>
+                  </CopilotTooltip>
                 </slot>
                 <slot
                   v-if="
@@ -1168,18 +1228,28 @@ onBeforeUnmount(() => {
                   :on-click="handleFinishTranscribe"
                   :labels="labels"
                 >
-                  <button
-                    type="button"
-                    data-testid="copilot-chat-input-finish-transcribe"
-                    :aria-label="
+                  <CopilotTooltip
+                    side="bottom"
+                    :content="
                       labels.chatInputToolbarFinishTranscribeButtonLabel
                     "
-                    :disabled="disabled"
-                    class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-finish-transcribe-button"
-                    @click="handleFinishTranscribe"
                   >
-                    <IconCheck class="cpk-chat-input-toolbar-icon" />
-                  </button>
+                    <template #default="{ triggerProps }">
+                      <button
+                        v-bind="triggerProps"
+                        type="button"
+                        data-testid="copilot-chat-input-finish-transcribe"
+                        :aria-label="
+                          labels.chatInputToolbarFinishTranscribeButtonLabel
+                        "
+                        :disabled="disabled"
+                        class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-finish-transcribe-button"
+                        @click="handleFinishTranscribe"
+                      >
+                        <IconCheck class="cpk-chat-input-toolbar-icon" />
+                      </button>
+                    </template>
+                  </CopilotTooltip>
                 </slot>
               </template>
               <template v-else>
@@ -1193,18 +1263,26 @@ onBeforeUnmount(() => {
                   :on-click="() => emit('start-transcribe')"
                   :labels="labels"
                 >
-                  <button
-                    type="button"
-                    data-testid="copilot-chat-input-start-transcribe"
-                    :aria-label="
-                      labels.chatInputToolbarStartTranscribeButtonLabel
-                    "
-                    :disabled="disabled"
-                    class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-start-transcribe-button"
-                    @click="emit('start-transcribe')"
+                  <CopilotTooltip
+                    side="bottom"
+                    :content="labels.chatInputToolbarStartTranscribeButtonLabel"
                   >
-                    <IconMic class="cpk-chat-input-toolbar-icon" />
-                  </button>
+                    <template #default="{ triggerProps }">
+                      <button
+                        v-bind="triggerProps"
+                        type="button"
+                        data-testid="copilot-chat-input-start-transcribe"
+                        :aria-label="
+                          labels.chatInputToolbarStartTranscribeButtonLabel
+                        "
+                        :disabled="disabled"
+                        class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-start-transcribe-button"
+                        @click="emit('start-transcribe')"
+                      >
+                        <IconMic class="cpk-chat-input-toolbar-icon" />
+                      </button>
+                    </template>
+                  </CopilotTooltip>
                 </slot>
                 <slot
                   name="send-button"

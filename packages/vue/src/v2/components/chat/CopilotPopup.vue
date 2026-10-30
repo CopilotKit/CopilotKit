@@ -36,6 +36,7 @@ function popupViewEventBindings(slotProps: CopilotChatViewOverrideSlotProps) {
 
 const props = withDefaults(defineProps<CopilotPopupProps>(), {
   autoScroll: true,
+  messageFeedback: true,
   welcomeScreen: true,
   inputValue: undefined,
   inputMode: "input",
@@ -116,6 +117,8 @@ watch(
         :input-mode="slotProps.inputMode"
         :input-tools-menu="slotProps.inputToolsMenu"
         :width="width"
+        :tool-call-display="slotProps.toolCallDisplay"
+        :message-feedback="slotProps.messageFeedback"
         :height="height"
         :click-outside-to-close="clickOutsideToClose"
         :default-open="defaultOpen"

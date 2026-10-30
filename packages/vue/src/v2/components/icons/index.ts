@@ -22,4 +22,6 @@ export {
   PanelLeftOpen as IconPanelLeftOpen,
   Play as IconPlay,
   Upload as IconUpload,
+  Wrench as IconWrench,
+  EyeOff as IconEyeOff,
 } from "lucide-vue-next";

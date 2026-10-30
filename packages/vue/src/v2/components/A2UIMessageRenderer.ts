@@ -4,116 +4,74 @@ import { z } from "zod";
 import type { VueActivityMessageRenderer } from "../types";
 import type { A2UITheme } from "../types";
 import A2UISurfaceActivityRenderer from "./A2UISurfaceActivityRenderer.vue";
+import {
+  A2UIBuildingState,
+  A2UILifecycleFields,
+  A2UIRecoveryFailure,
+  A2UIRetryingState,
+  resolveDebugExposure,
+} from "./a2ui/A2UIRecoveryStates";
+import type { A2UIRecoveryRendererOptions } from "./a2ui/A2UIRecoveryStates";
 
 const A2UI_OPERATIONS_KEY = "a2ui_operations";
 
 export type A2UIMessageRendererOptions = {
   theme: A2UITheme;
   catalog?: any;
+  /** Optional custom loading component shown while the A2UI surface is building. */
   loadingComponent?: unknown;
+  /**
+   * Pre-paint recovery/loading UX options: timing before the "Retrying…"
+   * sub-label appears, and how much retry/debug detail to surface.
+   */
+  recovery?: A2UIRecoveryRendererOptions;
 };
 
 /**
- * Default loading component shown while an A2UI surface is generating.
- * Mirrors React's `DefaultA2UILoading` in
- * `packages/react-core/src/v2/a2ui/A2UIMessageRenderer.tsx`:
- * an animated dot + "Generating UI..." label + three shimmer bars
- * (80% / 60% / 40% widths) with staggered `cpk-a2ui-pulse` opacity animation.
- * Inline styles, like React's A2UI loading states, so it needs no stylesheet.
+ * The `a2ui-surface` activity carries the WHOLE generative-UI lifecycle on one
+ * stable messageId: pre-paint `status` ("building" | "retrying" | "failed")
+ * with recovery detail, then `a2ui_operations` on paint. The states swap in
+ * place, so the painted surface replaces the skeleton. `.passthrough()` keeps
+ * the operations and any future fields.
  */
-const DefaultA2UILoading = defineComponent({
-  name: "DefaultA2UILoading",
-  setup() {
-    const barWidths = [0.8, 0.6, 0.4] as const;
-    return () =>
-      h(
-        "div",
-        {
-          style: {
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.75rem",
-            minHeight: "120px",
-            border: "1px solid oklch(96.7% 0.003 264.542)",
-            borderRadius: "calc(var(--radius) + 4px)",
-            backgroundColor:
-              "color-mix(in oklab, oklch(98.5% 0.002 247.839) 50%, transparent)",
-            padding: "1.25rem",
-          },
-          "data-testid": "a2ui-loading",
-        },
-        [
-          h(
-            "div",
-            { style: { display: "flex", alignItems: "center", gap: "0.5rem" } },
-            [
-              h("div", {
-                style: {
-                  width: "0.75rem",
-                  height: "0.75rem",
-                  borderRadius: "9999px",
-                  backgroundColor: "oklch(92.8% 0.006 264.531)",
-                  animation: "cpk-a2ui-pulse 1.5s ease-in-out infinite",
-                },
-                "data-testid": "a2ui-loading-dot",
-              }),
-              h(
-                "span",
-                {
-                  style: {
-                    fontSize: "0.75rem",
-                    lineHeight: "1rem",
-                    fontWeight: 500,
-                    color: "oklch(70.7% 0.022 261.325)",
-                  },
-                },
-                "Generating UI...",
-              ),
-            ],
-          ),
-          h(
-            "div",
-            {
-              style: {
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.5rem",
-              },
-            },
-            barWidths.map((width, i) =>
-              h("div", {
-                key: i,
-                style: {
-                  height: "0.75rem",
-                  borderRadius: "0.25rem",
-                  backgroundColor:
-                    "color-mix(in oklab, oklch(92.8% 0.006 264.531) 70%, transparent)",
-                  width: `${width * 100}%`,
-                  animation: `cpk-a2ui-pulse 1.5s ease-in-out ${i * 0.15}s infinite`,
-                },
-                "data-testid": "a2ui-loading-bar",
-              }),
-            ),
-          ),
-          h(
-            "style",
-            {},
-            `@keyframes cpk-a2ui-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
-}`,
-          ),
-        ],
-      );
-  },
-});
+const A2UISurfaceContentSchema = z
+  .object({
+    a2ui_operations: z.array(z.any()).optional(),
+    ...A2UILifecycleFields,
+  })
+  .passthrough();
 
 export function createA2UIMessageRenderer(
   options: A2UIMessageRendererOptions,
 ): VueActivityMessageRenderer<any> {
+  const showAfterMs = options.recovery?.showAfterMs ?? 2000;
+  const showAfterAttempts = options.recovery?.showAfterAttempts ?? 2;
+  const optionDebugExposure = options.recovery?.debugExposure ?? "collapsed";
+
+  // Renders the pre-paint lifecycle state for a content snapshot.
+  const renderLifecycle = (content: any) => {
+    const debugExposure = resolveDebugExposure(content, optionDebugExposure);
+    if (content?.status === "failed") {
+      return h(A2UIRecoveryFailure, { content, debugExposure });
+    }
+    if (content?.status === "retrying") {
+      return h(A2UIRetryingState, {
+        content,
+        showAfterMs,
+        showAfterAttempts,
+        debugExposure,
+      });
+    }
+    // "building" / default: a host-supplied loader wins; else the skeleton.
+    if (options.loadingComponent) {
+      return h(options.loadingComponent as any);
+    }
+    return h(A2UIBuildingState, { content });
+  };
+
   return {
     activityType: "a2ui-surface",
-    content: z.any(),
+    content: A2UISurfaceContentSchema,
     render: defineComponent({
       name: "A2UIMessageRendererHost",
       props: {
@@ -134,11 +92,11 @@ export function createA2UIMessageRenderer(
         );
 
         return () => {
+          // No painted surface yet → the pre-paint lifecycle state. It shares
+          // this activity's messageId, so the painted surface below replaces
+          // it in place once operations arrive.
           if (operations.value.length === 0) {
-            if (options.loadingComponent) {
-              return h(options.loadingComponent as any);
-            }
-            return h(DefaultA2UILoading);
+            return renderLifecycle(props.content);
           }
 
           return h(A2UISurfaceActivityRenderer, {

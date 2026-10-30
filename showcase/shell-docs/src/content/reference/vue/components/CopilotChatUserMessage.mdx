@@ -11,7 +11,9 @@ description: "Vue 3 component for displaying user-authored messages with copy, e
 
 `CopilotChatUserMessage` renders a user-authored message aligned to the right of the chat. The default message renderer flattens the message content to text and displays it with `white-space: pre-wrap` so line breaks and spacing are preserved.
 
-Below the message it renders a toolbar containing a copy-to-clipboard button, an optional edit button, and optional branch navigation controls. The toolbar becomes visible on hover. The edit button is only shown when an `@edit-message` listener is attached, and the branch navigation is only shown when `numberOfBranches` is greater than 1 and a `@switch-to-branch` listener is attached.
+When `content` has image, audio, video, or document parts, the message shows them above the text. An image shows as a thumbnail. Click it, or focus it and press Enter, to open it full size in a lightbox. Press Escape, click the backdrop, or click the close button to close the lightbox. Focus then returns to the thumbnail. A document shows as a download link. Its name is the `filename` from the part's `metadata`, or else its MIME type.
+
+Below the message it renders a toolbar containing a copy-to-clipboard button, an optional edit button, and optional branch navigation controls. The toolbar becomes visible on hover. The copy and edit buttons show their label in a tooltip on hover and on keyboard focus. The edit button is only shown when an `@edit-message` listener is attached, and the branch navigation is only shown when `numberOfBranches` is greater than 1 and a `@switch-to-branch` listener is attached.
 
 ## Example
 
@@ -37,7 +39,8 @@ const message: UserMessage = {
 <PropertyReference name="message" type="UserMessage" required>
   The user message object to render. The default renderer reads `content` (a
   string, or an array of content parts whose `text` parts are joined with
-  newlines) and `id`. `UserMessage` is imported from `@ag-ui/core`.
+  newlines) and `id`. Image, audio, video, and document parts render as
+  attachments above the text. `UserMessage` is imported from `@ag-ui/core`.
 </PropertyReference>
 
 <PropertyReference name="branchIndex" type="number" default="0">
@@ -169,12 +172,42 @@ Each slot exposes scoped slot props (handlers and state) and falls back to the d
 </PropertyReference>
 
 <PropertyReference name="layout" type="{ message; content; isMultiline; showBranchNavigation; hasEditAction; branchIndex; numberOfBranches; canGoPrev; canGoNext; onCopy; onEdit; goPrev; goNext; copied }">
-  Replaces the entire component layout (the message renderer and the toolbar),
+  Replaces the entire component layout (the attachments, the message renderer, and the toolbar),
   giving you full control over the markup while still receiving all the derived
   state and handlers. Use this when overriding individual slots is not enough.
 </PropertyReference>
 
 ## Usage
+
+### A message with attachments
+
+```vue
+<script setup lang="ts">
+import { CopilotChatUserMessage } from "@copilotkit/vue/v2";
+import type { UserMessage } from "@ag-ui/core";
+
+const message = {
+  id: "2",
+  role: "user",
+  content: [
+    { type: "text", text: "What is in this photo?" },
+    {
+      type: "image",
+      source: { type: "url", value: "https://example.com/photo.png" },
+    },
+    {
+      type: "document",
+      source: { type: "url", value: "https://example.com/report.pdf", mimeType: "application/pdf" },
+      metadata: { filename: "report.pdf" },
+    },
+  ],
+} as UserMessage;
+</script>
+
+<template>
+  <CopilotChatUserMessage :message="message" />
+</template>
+```
 
 ### Basic user message
 

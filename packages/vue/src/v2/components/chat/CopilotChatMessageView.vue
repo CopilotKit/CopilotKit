@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, useSlots, watch } from "vue";
+import { computed, onMounted, provide, ref, useSlots, watch } from "vue";
 import type { Component, FunctionalComponent, VNodeChild } from "vue";
 import type {
   ActivityMessage,
@@ -24,6 +24,21 @@ import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfi
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage.vue";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage.vue";
 import CopilotChatUserMessage from "./CopilotChatUserMessage.vue";
+import {
+  MessageFeedbackScopeKey,
+  useLearningFeedbackEnabled,
+} from "./message-feedback";
+import type { MessageFeedbackScope } from "./message-feedback";
+import { ToolCallDisplayContextKey } from "./tool-call-display-context";
+import type { ToolCallDisplayContextValue } from "./tool-call-display-context";
+import {
+  getToolCallLayouts,
+  getToolCallRendererNames,
+} from "./tool-call-layout";
+import type {
+  CopilotChatToolCallDisplay,
+  ToolCallLayout,
+} from "./tool-call-layout";
 
 interface MessageMetaProps {
   message: Message;
@@ -56,10 +71,25 @@ const props = withDefaults(
   defineProps<{
     messages?: Message[];
     isRunning?: boolean;
+    /**
+     * How tool calls show. Defaults to `"grouped"`: calls made in a row
+     * share one card that opens to a row per call. `"line"` and `"stacked"`
+     * group them too; `"separate"` gives every call its own card. Calls with
+     * a renderer of their own always show on their own.
+     */
+    toolCallDisplay?: CopilotChatToolCallDisplay;
+    /**
+     * While Learning records this chat, the assistant thumbs record ratings
+     * and ask for a comment. Set `false` to leave the thumbs to the app's own
+     * handlers.
+     */
+    messageFeedback?: boolean;
   }>(),
   {
     messages: () => [],
     isRunning: false,
+    toolCallDisplay: "grouped",
+    messageFeedback: true,
   },
 );
 
@@ -189,6 +219,47 @@ function deduplicateMessages(messages: Message[]): Message[] {
 
 const deduplicatedMessages = computed(() =>
   deduplicateMessages(props.messages),
+);
+
+// Groups of calls can span messages (an agent often sends each call as its
+// own message), so they're laid out here for the whole list and handed to
+// each message's tool calls view through provide/inject.
+const toolCallLayouts = computed<ReadonlyMap<string, ToolCallLayout>>(() =>
+  props.toolCallDisplay === "separate"
+    ? new Map()
+    : getToolCallLayouts(
+        deduplicatedMessages.value,
+        props.messages,
+        getToolCallRendererNames(
+          copilotkit.value.renderToolCalls,
+          forwardedSlotNames.value,
+        ),
+      ),
+);
+const learningFeedbackEnabled = useLearningFeedbackEnabled(copilotkit);
+provide(
+  MessageFeedbackScopeKey,
+  computed<MessageFeedbackScope | null>(() =>
+    props.messageFeedback &&
+    learningFeedbackEnabled.value &&
+    config.value?.agentId !== undefined &&
+    config.value?.threadId !== undefined
+      ? {
+          copilotkit: copilotkit.value,
+          agentId: config.value.agentId,
+          threadId: config.value.threadId,
+        }
+      : null,
+  ),
+);
+
+provide(
+  ToolCallDisplayContextKey,
+  computed<ToolCallDisplayContextValue>(() => ({
+    display: props.toolCallDisplay,
+    isRunning: props.isRunning,
+    layouts: toolCallLayouts.value,
+  })),
 );
 
 // Stable per-row keys. Backends can re-key a message mid-stream, and keying

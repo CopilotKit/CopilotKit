@@ -7,7 +7,7 @@ description: "Vue 3 component for displaying assistant messages with Markdown, t
 
 `CopilotChatAssistantMessage` is a Vue 3 component that displays assistant messages with Markdown support, tool call rendering, and an action toolbar. Markdown is rendered with `streamdown-vue` (`StreamMarkdown`), which supports GitHub Flavored Markdown tables, math expressions (KaTeX styles are loaded automatically), and syntax-highlighted code blocks via Shiki (`github-light` / `github-dark` themes). Tables and code blocks include built-in copy and download actions, and images get a hover download button.
 
-The toolbar provides copy, thumbs up, thumbs down, read aloud, and regenerate buttons. Tooltip and aria labels are sourced from the nearest `CopilotChatConfigurationProvider` (see [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration)). The thumbs up, thumbs down, read aloud, and regenerate buttons are only rendered when a listener for the corresponding event is attached; the copy button is always shown when the toolbar is visible.
+The toolbar provides copy, thumbs up, thumbs down, read aloud, and regenerate buttons, and an Inspector button in local development. Each icon button shows its label in a tooltip on hover and on keyboard focus. The tooltip and aria labels come from the nearest `CopilotChatConfigurationProvider` (see [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration)). The thumbs up, thumbs down, read aloud, and regenerate buttons are only rendered when a listener for the corresponding event is attached. The thumbs also render while Automatic Learning records [reply ratings](#reply-ratings). The copy button is always shown when the toolbar is visible.
 
 <Callout type="info">
   The toolbar is hidden while the latest assistant message is still streaming
@@ -78,12 +78,16 @@ toolbar button to render; without a listener the button is omitted.
 
 <PropertyReference name="thumbs-up" type="(message: AssistantMessage) => void">
   Emitted when the user clicks the thumbs-up button. The button only appears
-  when a listener is attached.
+  when a listener is attached, or while Automatic Learning records [reply
+  ratings](#reply-ratings). Then it is emitted when a rating is given, not when
+  it is removed.
 </PropertyReference>
 
 <PropertyReference name="thumbs-down" type="(message: AssistantMessage) => void">
   Emitted when the user clicks the thumbs-down button. The button only appears
-  when a listener is attached.
+  when a listener is attached, or while Automatic Learning records [reply
+  ratings](#reply-ratings). Then it is emitted when a rating is given, not when
+  it is removed.
 </PropertyReference>
 
 <PropertyReference name="read-aloud" type="(message: AssistantMessage) => void">
@@ -139,13 +143,29 @@ behavior to the message and toolbar handlers.
 </PropertyReference>
 
 <PropertyReference name="thumbs-up-button" type="slot">
-  Replaces the thumbs-up button. Receives `on-thumbs-up` and `label`. Only
-  rendered when a `thumbs-up` listener is attached.
+  Replaces the thumbs-up button. Receives `on-thumbs-up`, `label`, `pressed`
+  (this rating is the chosen one), and `thumb-props`. Bind `thumb-props` on
+  your `<button>` with `v-bind`, and pass the click event to `on-thumbs-up`, so
+  that [reply ratings](#reply-ratings) can point the comment at your button.
+  `thumb-props` is empty while no ratings are recorded.
 </PropertyReference>
 
 <PropertyReference name="thumbs-down-button" type="slot">
-  Replaces the thumbs-down button. Receives `on-thumbs-down` and `label`. Only
-  rendered when a `thumbs-down` listener is attached.
+  Replaces the thumbs-down button. Receives `on-thumbs-down`, `label`,
+  `pressed`, and `thumb-props`, as the `thumbs-up-button` slot does.
+</PropertyReference>
+
+<PropertyReference name="feedback-comment" type="slot">
+  Replaces the comment field of a [reply rating](#reply-ratings), shown in a
+  popover next to the chosen thumb. Receives `value`, `saved-comment`,
+  `input-ref` (bind it as `:ref` on the text field), `on-change`, `on-submit`,
+  `on-editing-change`, and `on-leave`.
+</PropertyReference>
+
+<PropertyReference name="inspector-button" type="slot">
+  Replaces the [Inspector button](#inspector-button). Receives `on-inspect`
+  (opens this message in the Inspector) and `label`. Only rendered while the
+  Inspector is enabled.
 </PropertyReference>
 
 <PropertyReference name="read-aloud-button" type="slot">
@@ -289,6 +309,28 @@ defineProps<{ message: AssistantMessage }>();
   </CopilotChatAssistantMessage>
 </template>
 ```
+
+## Reply ratings
+
+When this component renders inside `CopilotChatMessageView` under a `CopilotChatConfigurationProvider` and Automatic Learning capture has started, the thumbs record ratings, also while capture reconnects or is stopped:
+
+- A click rates the reply and opens a field for an optional comment next to the thumb. A keyboard click moves focus into the field.
+- Pointing at or keyboard-focusing the chosen thumb opens its comment again.
+- Clicking the chosen thumb again removes the rating.
+- Enter saves the comment, and Escape discards the change. Both return focus to the thumb.
+- The rating shows while the page is open and is sent to the active Trajectory as a `message.feedback` event. Like any Trajectory event, a rating given while no Trajectory captures is not sent.
+
+`thumbs-up` and `thumbs-down` are emitted when a rating is given, not when it is removed. The placeholder and send button of the comment field use the `assistantMessageFeedbackCommentPlaceholder` and `assistantMessageFeedbackCommentSubmitLabel` labels. Set `:message-feedback="false"` on `CopilotChatMessageView` to leave the thumbs to your own listeners.
+
+<Callout type="info">
+  The Vue `CopilotKitProvider` has no `learning` prop. Capture runs when the
+  Core from `useCopilotKit()` has a Learning config (`setLearningConfig()`) and
+  a started Trajectory (`startTrajectory()`).
+</Callout>
+
+## Inspector button
+
+While the [Inspector](/inspector) is enabled, the toolbar shows an Inspector button, also for a message with no text. A click, Enter, or Space opens the message in the Inspector. Pointing at the button, or ArrowDown, opens a menu that explains the button and can hide it until the page reloads. The `inspector-button` slot replaces it.
 
 ## Related
 

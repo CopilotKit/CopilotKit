@@ -68,8 +68,6 @@
 }
 
 :where(.cpk-chat-input-start) {
-  /* Anchors an add menu rendered in place (.cpk-chat-input-add-menu). */
-  position: relative;
   display: flex;
   align-items: center;
   grid-column-start: 1;
@@ -260,40 +258,6 @@
 :where(.dark .cpk-chat-input-add-menu-shortcut) {
   background-color: #e0e0e0;
   color: #000;
-}
-
-/* An add menu rendered in place above the add button, not in a portal. It
-   also carries .cpk-dropdown-menu-content, and its rows the dropdown item,
-   label and separator classes (ui/dropdown-menu.css). Submenus are flattened
-   into labelled groups. */
-:where(.cpk-chat-input-add-menu) {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  z-index: 30;
-  margin-bottom: 0.5rem;
-  min-width: 220px;
-}
-:where(.cpk-chat-input-add-menu .cpk-dropdown-menu-item) {
-  width: 100%;
-  text-align: start;
-  cursor: pointer;
-}
-@media (hover: hover) {
-  :where(.cpk-chat-input-add-menu .cpk-dropdown-menu-item:hover) {
-    background-color: var(--accent);
-    color: var(--accent-foreground);
-  }
-}
-:where(.cpk-chat-input-add-menu .cpk-dropdown-menu-label) {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: var(--muted-foreground);
-}
-:where(.cpk-chat-input-add-menu-group-icon) {
-  width: 0.75rem;
-  height: 0.75rem;
 }
 
 /* <CopilotChatInput.Disclaimer> */

@@ -8,6 +8,7 @@ describe("package exports", () => {
     expect(typeof VuePackage.CopilotChat.View).toBe("object");
     expect(typeof VuePackage.CopilotChatMessageView).toBe("object");
     expect(typeof VuePackage.CopilotChatToolCallsView).toBe("object");
+    expect(typeof VuePackage.CopilotChatToolCallGroup).toBe("object");
     expect(typeof VuePackage.CopilotChatInput).toBe("object");
     expect(typeof VuePackage.CopilotChatAssistantMessage).toBe("object");
     expect(typeof VuePackage.CopilotChatUserMessage).toBe("object");

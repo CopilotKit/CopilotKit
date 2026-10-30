@@ -7,7 +7,8 @@ import {
 } from "@copilotkit/shared";
 import type { Attachment } from "@copilotkit/shared";
 import type { CopilotChatAttachmentQueueProps } from "./types";
-import { IconPlay, IconX } from "../icons";
+import { IconPlay } from "../icons";
+import CopilotChatLightbox from "./CopilotChatLightbox.vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
 
@@ -26,7 +27,16 @@ const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 const activeLightboxAttachment = ref<Attachment | null>(null);
 const documentBlobUrl = ref<string | null>(null);
 
-const isLightboxOpen = computed(() => activeLightboxAttachment.value !== null);
+const lightboxLabel = computed(() => {
+  const attachment = activeLightboxAttachment.value;
+  if (!attachment) return undefined;
+  if (attachment.filename) return attachment.filename;
+  return attachment.type === "image"
+    ? "Image attachment"
+    : attachment.type === "video"
+      ? "Video attachment"
+      : "Document";
+});
 const isPreviewableDocument = computed(() => {
   const attachment = activeLightboxAttachment.value;
   if (!attachment || attachment.type !== "document") return false;
@@ -78,20 +88,6 @@ watch(
   },
   { immediate: true },
 );
-
-watch(isLightboxOpen, (open, _previous, onCleanup) => {
-  if (!open || typeof document === "undefined") return;
-
-  const handleKeydown = (event: KeyboardEvent) => {
-    if (event.key === "Escape") {
-      closeLightbox();
-    }
-  };
-  document.addEventListener("keydown", handleKeydown);
-  onCleanup(() => {
-    document.removeEventListener("keydown", handleKeydown);
-  });
-});
 
 onBeforeUnmount(() => {
   if (documentBlobUrl.value) {
@@ -300,110 +296,94 @@ function createBlobUrl(
     </div>
   </div>
 
-  <Teleport to="body">
-    <div
-      v-if="activeLightboxAttachment"
-      class="cpk-attachment-lightbox"
-      data-testid="copilot-chat-attachment-lightbox"
-      @click="closeLightbox"
-    >
-      <button
-        type="button"
-        class="cpk-attachment-lightbox-close-button"
-        :aria-label="labels.attachmentPreviewCloseButtonLabel"
-        @click.stop="closeLightbox"
+  <CopilotChatLightbox
+    v-if="activeLightboxAttachment"
+    :label="lightboxLabel"
+    @close="closeLightbox"
+  >
+    <img
+      v-if="activeLightboxAttachment.type === 'image'"
+      :src="getSourceUrl(activeLightboxAttachment.source)"
+      :alt="activeLightboxAttachment.filename || 'Image attachment'"
+      class="cpk-attachment-queue-lightbox-image"
+      data-testid="copilot-chat-attachment-lightbox-image"
+    />
+
+    <video
+      v-else-if="activeLightboxAttachment.type === 'video'"
+      :src="getSourceUrl(activeLightboxAttachment.source)"
+      controls
+      autoplay
+      class="cpk-attachment-queue-lightbox-video"
+      data-testid="copilot-chat-attachment-lightbox-video"
+    />
+
+    <template v-else-if="activeLightboxAttachment.type === 'document'">
+      <iframe
+        v-if="
+          isPreviewableDocument &&
+          isPdf(activeLightboxAttachment.source.mimeType) &&
+          lightboxDocumentSource
+        "
+        :src="lightboxDocumentSource"
+        :title="activeLightboxAttachment.filename || 'PDF preview'"
+        class="cpk-attachment-queue-pdf-preview"
+        data-testid="copilot-chat-attachment-lightbox-document-iframe"
+      />
+
+      <div
+        v-else-if="
+          isPreviewableDocument &&
+          isText(activeLightboxAttachment.source.mimeType)
+        "
+        class="cpk-attachment-queue-text-preview"
       >
-        <IconX class="cpk-attachment-lightbox-close-icon" />
-      </button>
-
-      <div data-testid="copilot-chat-attachment-lightbox-content" @click.stop>
-        <img
-          v-if="activeLightboxAttachment.type === 'image'"
-          :src="getSourceUrl(activeLightboxAttachment.source)"
-          :alt="activeLightboxAttachment.filename || 'Image attachment'"
-          class="cpk-attachment-queue-lightbox-image"
-          data-testid="copilot-chat-attachment-lightbox-image"
+        <div
+          v-if="activeLightboxAttachment.filename"
+          class="cpk-attachment-queue-text-preview-filename"
+        >
+          {{ activeLightboxAttachment.filename }}
+        </div>
+        <pre
+          v-if="decodedTextPreview !== null"
+          class="cpk-attachment-queue-text-preview-content"
+          data-testid="copilot-chat-attachment-lightbox-document-text"
+          >{{ decodedTextPreview }}</pre
+        >
+        <iframe
+          v-else-if="lightboxDocumentSource"
+          :src="lightboxDocumentSource"
+          :title="activeLightboxAttachment.filename || 'Text preview'"
+          class="cpk-attachment-queue-text-preview-frame"
+          data-testid="copilot-chat-attachment-lightbox-document-iframe"
         />
-
-        <video
-          v-else-if="activeLightboxAttachment.type === 'video'"
-          :src="getSourceUrl(activeLightboxAttachment.source)"
-          controls
-          autoplay
-          class="cpk-attachment-queue-lightbox-video"
-          data-testid="copilot-chat-attachment-lightbox-video"
-        />
-
-        <template v-else-if="activeLightboxAttachment.type === 'document'">
-          <iframe
-            v-if="
-              isPreviewableDocument &&
-              isPdf(activeLightboxAttachment.source.mimeType) &&
-              lightboxDocumentSource
-            "
-            :src="lightboxDocumentSource"
-            :title="activeLightboxAttachment.filename || 'PDF preview'"
-            class="cpk-attachment-queue-pdf-preview"
-            data-testid="copilot-chat-attachment-lightbox-document-iframe"
-          />
-
-          <div
-            v-else-if="
-              isPreviewableDocument &&
-              isText(activeLightboxAttachment.source.mimeType)
-            "
-            class="cpk-attachment-queue-text-preview"
-          >
-            <div
-              v-if="activeLightboxAttachment.filename"
-              class="cpk-attachment-queue-text-preview-filename"
-            >
-              {{ activeLightboxAttachment.filename }}
-            </div>
-            <pre
-              v-if="decodedTextPreview !== null"
-              class="cpk-attachment-queue-text-preview-content"
-              data-testid="copilot-chat-attachment-lightbox-document-text"
-              >{{ decodedTextPreview }}</pre
-            >
-            <iframe
-              v-else-if="lightboxDocumentSource"
-              :src="lightboxDocumentSource"
-              :title="activeLightboxAttachment.filename || 'Text preview'"
-              class="cpk-attachment-queue-text-preview-frame"
-              data-testid="copilot-chat-attachment-lightbox-document-iframe"
-            />
-          </div>
-
-          <div
-            v-else
-            class="cpk-attachment-queue-document-card"
-            data-testid="copilot-chat-attachment-lightbox-document-fallback"
-          >
-            <div class="cpk-attachment-queue-document-card-icon">
-              {{
-                getDocumentIcon(activeLightboxAttachment.source.mimeType ?? "")
-              }}
-            </div>
-            <div class="cpk-attachment-queue-document-card-details">
-              <div class="cpk-attachment-queue-document-card-name">
-                {{ activeLightboxAttachment.filename || "Document" }}
-              </div>
-              <div class="cpk-attachment-queue-document-card-meta">
-                {{ activeLightboxAttachment.source.mimeType || "Unknown type" }}
-                {{
-                  activeLightboxAttachment.size != null
-                    ? ` · ${formatFileSize(activeLightboxAttachment.size)}`
-                    : ""
-                }}
-              </div>
-            </div>
-            <div class="cpk-attachment-queue-document-card-note">
-              No preview available for this file type
-            </div>
-          </div>
-        </template>
       </div>
-    </div>
-  </Teleport>
+
+      <div
+        v-else
+        class="cpk-attachment-queue-document-card"
+        data-testid="copilot-chat-attachment-lightbox-document-fallback"
+      >
+        <div class="cpk-attachment-queue-document-card-icon">
+          {{ getDocumentIcon(activeLightboxAttachment.source.mimeType ?? "") }}
+        </div>
+        <div class="cpk-attachment-queue-document-card-details">
+          <div class="cpk-attachment-queue-document-card-name">
+            {{ activeLightboxAttachment.filename || "Document" }}
+          </div>
+          <div class="cpk-attachment-queue-document-card-meta">
+            {{ activeLightboxAttachment.source.mimeType || "Unknown type" }}
+            {{
+              activeLightboxAttachment.size != null
+                ? ` · ${formatFileSize(activeLightboxAttachment.size)}`
+                : ""
+            }}
+          </div>
+        </div>
+        <div class="cpk-attachment-queue-document-card-note">
+          No preview available for this file type
+        </div>
+      </div>
+    </template>
+  </CopilotChatLightbox>
 </template>

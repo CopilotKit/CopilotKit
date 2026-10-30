@@ -2,6 +2,8 @@
 import { computed, ref } from "vue";
 import { getDocumentIcon, getSourceUrl } from "@copilotkit/shared";
 import type { CopilotChatAttachmentRendererProps } from "./types";
+import CopilotChatLightbox from "./CopilotChatLightbox.vue";
+import { useLightbox } from "./use-lightbox";
 
 const props = withDefaults(defineProps<CopilotChatAttachmentRendererProps>(), {
   filename: undefined,
@@ -13,18 +15,56 @@ const sourceUrl = computed(() => getSourceUrl(props.source));
 const documentLabel = computed(
   () => props.filename || props.source.mimeType || "Unknown type",
 );
+const documentAriaLabel = computed(
+  () => props.filename || props.source.mimeType || "Document attachment",
+);
+
+const imageButton = ref<HTMLButtonElement | null>(null);
+const {
+  thumbnailRef,
+  vtName,
+  open: lightboxOpen,
+  openLightbox,
+  closeLightbox,
+} = useLightbox();
 </script>
 
 <template>
-  <img
+  <!-- React opens the lightbox from the <img>; a button around it lets
+       keyboard users open it too. The button has no look of its own. -->
+  <button
     v-if="props.type === 'image' && !imageLoadFailed"
-    :src="sourceUrl"
-    alt="Image attachment"
-    class="cpk-attachment-renderer cpk-attachment-renderer-image"
-    :class="props.className"
-    data-testid="copilot-chat-attachment-renderer-image"
-    @error="imageLoadFailed = true"
-  />
+    ref="imageButton"
+    type="button"
+    class="cpk-attachment-renderer-image-button"
+    data-testid="copilot-chat-attachment-renderer-image-button"
+    @click="openLightbox"
+  >
+    <img
+      ref="thumbnailRef"
+      :src="sourceUrl"
+      alt="Image attachment"
+      class="cpk-attachment-renderer cpk-attachment-renderer-image"
+      :class="props.className"
+      data-testid="copilot-chat-attachment-renderer-image"
+      @error="imageLoadFailed = true"
+    />
+    <!-- Teleported to the body; inside the button only to keep one root. -->
+    <CopilotChatLightbox
+      v-if="lightboxOpen"
+      label="Image attachment"
+      :return-focus-to="imageButton"
+      @close="closeLightbox"
+    >
+      <img
+        :style="{ viewTransitionName: vtName }"
+        :src="sourceUrl"
+        alt="Image attachment"
+        class="cpk-attachment-renderer-lightbox-image"
+        data-testid="copilot-chat-attachment-renderer-lightbox-image"
+      />
+    </CopilotChatLightbox>
+  </button>
   <div
     v-else-if="props.type === 'image'"
     class="cpk-attachment-renderer cpk-attachment-renderer-image-error"
@@ -65,8 +105,17 @@ const documentLabel = computed(
     data-testid="copilot-chat-attachment-renderer-video"
   />
 
-  <div
+  <!-- `download` is honoured for same-origin, data: and blob: URLs. Browsers
+       ignore it for cross-origin URLs unless the server sends
+       `Content-Disposition: attachment`; `target="_blank"` keeps those from
+       navigating the chat away and opens the file in a new tab instead. -->
+  <a
     v-else
+    :href="sourceUrl"
+    :download="props.filename ?? ''"
+    target="_blank"
+    rel="noopener noreferrer"
+    :aria-label="documentAriaLabel"
     class="cpk-attachment-renderer cpk-attachment-renderer-document"
     :class="props.className"
     data-testid="copilot-chat-attachment-renderer-document"
@@ -83,5 +132,5 @@ const documentLabel = computed(
     >
       {{ documentLabel }}
     </span>
-  </div>
+  </a>
 </template>

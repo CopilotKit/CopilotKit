@@ -36,6 +36,7 @@ const props = withDefaults(
   {
     messages: () => [],
     autoScroll: true,
+    messageFeedback: true,
     isRunning: false,
     suggestions: () => [],
     suggestionLoadingIndexes: () => [],
@@ -44,6 +45,7 @@ const props = withDefaults(
     inputMode: "input",
     inputToolsMenu: () => [],
     width: undefined,
+    position: "right",
     onFinishTranscribeWithAudio: undefined,
   },
 );
@@ -115,16 +117,19 @@ const asideStyle = computed(
       paddingBottom: "env(safe-area-inset-bottom)",
     }) as Record<string, string>,
 );
-const bodyMarginStyle = computed(
-  () => `
+// The page makes room on the docked edge (desktop only).
+const bodyMarginStyle = computed(() => {
+  const margin =
+    props.position === "left" ? "margin-inline-start" : "margin-inline-end";
+  return `
 @media (min-width: 768px) {
   body {
-    margin-inline-end: ${widthToMargin(resolvedSidebarWidth.value)};
-    transition: margin-inline-end ${SIDEBAR_TRANSITION_MS}ms ease;
+    ${margin}: ${widthToMargin(resolvedSidebarWidth.value)};
+    transition: ${margin} ${SIDEBAR_TRANSITION_MS}ms ease;
   }
 }
-`,
-);
+`;
+});
 
 function widthToCss(width: number | string): string {
   return typeof width === "number" ? `${width}px` : width;
@@ -265,14 +270,18 @@ onBeforeUnmount(() => {
     :open="openSidebar"
     :close="closeSidebar"
   >
-    <CopilotChatToggleButton />
+    <CopilotChatToggleButton
+      :class="
+        position === 'left' ? 'cpk-sidebar-view-toggle-button-left' : undefined
+      "
+    />
   </slot>
 
   <aside
     ref="sidebarRef"
     data-copilotkit
     data-copilot-sidebar
-    data-position="right"
+    :data-position="position"
     :class="asideClass"
     :style="asideStyle"
     :aria-label="
@@ -303,6 +312,8 @@ onBeforeUnmount(() => {
           :input-value="inputValue"
           :input-mode="inputMode"
           :input-tools-menu="inputToolsMenu"
+          :tool-call-display="toolCallDisplay"
+          :message-feedback="messageFeedback"
           :on-finish-transcribe-with-audio="onFinishTranscribeWithAudio"
           v-bind="chatViewEventProps"
         >

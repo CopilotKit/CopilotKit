@@ -13,6 +13,7 @@ export { default as CopilotChatReasoningMessage } from "./CopilotChatReasoningMe
 export { default as CopilotChatSuggestionPill } from "./CopilotChatSuggestionPill.vue";
 export { default as CopilotChatSuggestionView } from "./CopilotChatSuggestionView.vue";
 export { default as CopilotChatToolCallsView } from "./CopilotChatToolCallsView.vue";
+export { default as CopilotChatToolCallGroup } from "./CopilotChatToolCallGroup.vue";
 export { default as CopilotChatUserMessage } from "./CopilotChatUserMessage.vue";
 export { default as CopilotChatView } from "./CopilotChatView.vue";
 export { default as CopilotThreadsDrawer } from "./CopilotThreadsDrawer.vue";

@@ -37,6 +37,7 @@ const props = withDefaults(
   {
     messages: () => [],
     autoScroll: true,
+    messageFeedback: true,
     isRunning: false,
     suggestions: () => [],
     suggestionLoadingIndexes: () => [],
@@ -379,6 +380,8 @@ onBeforeUnmount(() => {
           :input-value="inputValue"
           :input-mode="inputMode"
           :input-tools-menu="inputToolsMenu"
+          :tool-call-display="toolCallDisplay"
+          :message-feedback="messageFeedback"
           :on-finish-transcribe-with-audio="onFinishTranscribeWithAudio"
           v-bind="chatViewBindings"
         >

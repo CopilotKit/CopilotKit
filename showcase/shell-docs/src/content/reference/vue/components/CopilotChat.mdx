@@ -74,6 +74,14 @@ function handleError(event: {
 
 ### Inherited CopilotChatView props
 
+<PropertyReference name="toolCallDisplay" type='"grouped" | "line" | "stacked" | "separate"' default='"grouped"'>
+  How tool calls show. Passed to the message view. See [`CopilotChatMessageView`](/reference/vue/components/CopilotChatMessageView#toolcalldisplay).
+</PropertyReference>
+
+<PropertyReference name="messageFeedback" type="boolean" default="true">
+  Whether reply thumbs record ratings for Automatic Learning once a Trajectory has started. Passed to the message view.
+</PropertyReference>
+
 <PropertyReference name="autoScroll" type="AutoScrollMode | boolean" default="true">
   Controls how the chat scrolls as new messages stream in. Accepts `"pin-to-bottom"` / `true` (stick to the bottom while at the bottom), `"pin-to-send"` (anchor the latest user message near the top while the assistant streams), or `"none"` / `false` (never auto-scroll).
 </PropertyReference>

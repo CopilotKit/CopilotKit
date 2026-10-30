@@ -52,6 +52,7 @@ defineOptions({ inheritAttrs: false });
 
 const props = withDefaults(defineProps<CopilotChatProps>(), {
   autoScroll: true,
+  messageFeedback: true,
   welcomeScreen: true,
   inputValue: undefined,
   inputMode: "input",
@@ -832,6 +833,8 @@ const chatViewSlotProps = computed<CopilotChatViewOverrideSlotProps>(() => ({
   inputToolsMenu: props.inputToolsMenu,
   isConnecting: isConnecting.value,
   hasExplicitThreadId: hasExplicitThreadId.value,
+  toolCallDisplay: props.toolCallDisplay,
+  messageFeedback: props.messageFeedback,
   canStop: shouldAllowStop.value,
   canAddFile: attachmentsEnabled.value,
   canTranscribe: showTranscription.value,
@@ -933,6 +936,8 @@ const defaultChatViewBindings = computed(() => {
           :input-tools-menu="chatViewSlotProps.inputToolsMenu"
           :is-connecting="chatViewSlotProps.isConnecting"
           :has-explicit-thread-id="chatViewSlotProps.hasExplicitThreadId"
+          :tool-call-display="chatViewSlotProps.toolCallDisplay"
+          :message-feedback="chatViewSlotProps.messageFeedback"
           :on-finish-transcribe-with-audio="
             chatViewSlotProps.onFinishTranscribeWithAudio
           "

@@ -1,8 +1,10 @@
-import { defineComponent, h, ref } from "vue";
+import { defineComponent, h, inject, ref } from "vue";
 import type { WatchSource } from "vue";
 import type { Component, VNodeChild } from "vue";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useRenderTool } from "./use-render-tool";
+import { ToolCallGroupContextKey } from "../components/chat/tool-call-display-context";
+import { ToolCallRow } from "../components/chat/tool-call-group-parts";
 
 type DefaultRenderProps = {
   name: string;
@@ -135,8 +137,34 @@ const DefaultToolCallRenderer = defineComponent({
   },
   setup(props) {
     const isExpanded = ref(false);
+    const groupContext = inject(ToolCallGroupContextKey, null);
 
     return () => {
+      const group = groupContext?.value;
+      // Inside a group of calls, a row that fits the group instead of a card.
+      if (group) {
+        return h(ToolCallRow, {
+          "data-testid": "copilot-tool-render",
+          "data-tool-name": props.name,
+          "data-tool-call-id": props.toolCallId,
+          "data-status": props.status,
+          "data-args": safeStringifyForAttr(props.parameters),
+          "data-result": safeStringifyForAttr(props.result),
+          name: props.name,
+          parameters: props.parameters,
+          result: props.result,
+          status:
+            props.status === "complete"
+              ? group.failedIds.has(props.toolCallId)
+                ? "failed"
+                : "done"
+              : group.active
+                ? "running"
+                : "stopped",
+          appearance: group.appearance,
+        });
+      }
+
       const isActive =
         props.status === "inProgress" || props.status === "executing";
       const isComplete = props.status === "complete";
@@ -284,6 +312,12 @@ export function useDefaultRenderTool(
     render?:
       | ((props: DefaultRenderProps) => VNodeChild)
       | Component<DefaultRenderProps>;
+    /**
+     * Let the chat group calls your `render` draws, like it groups the
+     * built-in card's (see `toolCallDisplay` on `CopilotChatMessageView`).
+     * Off by default for a custom `render`, since it may draw nothing.
+     */
+    group?: boolean;
   },
   deps?: WatchSource<unknown>[],
 ): void {
@@ -337,6 +371,8 @@ export function useDefaultRenderTool(
     {
       name: "*",
       render: registeredRender,
+      // The built-in card draws a row inside a group; a custom render opts in.
+      group: userRender ? config?.group === true : true,
     },
     deps,
   );

@@ -232,10 +232,18 @@ function handleError(event: {
 
 </PropertyReference>
 
-<PropertyReference name="a2ui" type="{ theme?: A2UITheme; catalog?: any; loadingComponent?: Component; includeSchema?: boolean }">
+<PropertyReference name="a2ui" type="{ theme?: A2UITheme; catalog?: any; loadingComponent?: Component; includeSchema?: boolean; recovery?: A2UIRecoveryRendererOptions }">
   Configuration for the A2UI (Agent-to-UI) renderer. The built-in A2UI renderer activates automatically when the runtime reports that `a2ui` is configured in `CopilotRuntime`, so this prop is optional and only needed to override the theme, supply a custom component `catalog`, set a `loadingComponent`, or toggle whether the schema is included (`includeSchema`).
 
   `includeSchema` defaults to `true`, which sends the catalog's component schemas and the A2UI generation and design guidelines to the agent as context. With `includeSchema: false`, the agent still receives the catalog ID and the names of the catalog's custom components, without their JSON schemas or the guidelines. A LangGraph agent that uses the CopilotKit middleware's injected A2UI tool then gives its A2UI subagent the component names only. To give the subagent more detail, pass a composition guide through the middleware's A2UI guidelines: `a2uiParams.guidelines.compositionGuide` in TypeScript, or `a2ui_params["guidelines"]["composition_guide"]` in Python.
+
+  Until a surface paints, the A2UI middleware sets a `status` on the activity, and the chat shows it in place:
+
+  - `"building"`: a skeleton with "Building interface" and a token count. A `loadingComponent` replaces this state.
+  - `"retrying"`: the same skeleton. When the retry takes longer than `recovery.showAfterMs` (default `2000`), or the attempt number reaches `recovery.showAfterAttempts` (default `2`), the label changes to "Retrying generation… (2/3 attempts)".
+  - `"failed"`: a "Couldn't generate the UI" card.
+
+  `recovery.debugExposure` sets how much retry and error detail these states show: `"hidden"`, `"collapsed"` (the default, in a closed `<details>`), or `"verbose"` (open). A `debugExposure` that the middleware sets on the activity wins over this option.
 
 ```vue
 <template>

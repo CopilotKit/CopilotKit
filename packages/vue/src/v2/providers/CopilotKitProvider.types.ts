@@ -1,3 +1,4 @@
+import type { A2UIRecoveryRendererOptions } from "../components/a2ui/A2UIRecoveryStates";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   CopilotKitCoreErrorCode,
@@ -118,6 +119,12 @@ export interface CopilotKitProviderProps {
      * `a2ui_params["guidelines"]["composition_guide"]` in Python).
      */
     includeSchema?: boolean;
+    /**
+     * Options for the A2UI error-recovery status UI: how long before the
+     * transient "Retrying…" hint appears, after how many attempts, and how
+     * much retry/debug detail to surface. When omitted, defaults apply.
+     */
+    recovery?: A2UIRecoveryRendererOptions;
   };
   /** Configuration for the built-in MCP Apps renderer. */
   mcpApps?: {

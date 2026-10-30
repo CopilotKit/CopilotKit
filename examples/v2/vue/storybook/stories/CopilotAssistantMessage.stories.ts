@@ -1,9 +1,12 @@
-import type { AssistantMessage } from "@ag-ui/core";
+import type { AssistantMessage, Message } from "@ag-ui/core";
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { defineComponent, onBeforeUnmount, onMounted, ref } from "vue";
 import {
   CopilotChatAssistantMessage,
   CopilotChatConfigurationProvider,
+  CopilotChatMessageView,
   CopilotKitProvider,
+  useCopilotKit,
 } from "@copilotkit/vue";
 
 const createAlertHandler = (message: string) => () => window.alert(message);
@@ -284,6 +287,45 @@ const codeBlocksMessage: AssistantMessage = {
   role: "assistant",
 };
 
+/**
+ * Starts Automatic Learning capture on the Core, with a sink that drops the
+ * events, so the thumbs record reply ratings. Renders its slot once the
+ * Trajectory has started.
+ */
+const LearningCapture = defineComponent({
+  setup(_, { slots }) {
+    const { copilotkit } = useCopilotKit();
+    const started = ref(false);
+    onMounted(async () => {
+      copilotkit.value.setLearningConfig({
+        sink: () => {},
+        capture: {
+          clicks: false,
+          navigation: false,
+          network: false,
+          inputs: false,
+        },
+      });
+      await copilotkit.value.startTrajectory();
+      started.value = true;
+    });
+    onBeforeUnmount(() => {
+      copilotkit.value.stopTrajectory();
+      copilotkit.value.setLearningConfig(undefined);
+    });
+    return () => (started.value ? slots.default?.() : null);
+  },
+});
+
+const ratedConversation: Message[] = [
+  { id: "rating-user", role: "user", content: "Is the deal approved?" },
+  {
+    id: "rating-reply",
+    role: "assistant",
+    content: "Yes. The deal is approved and the contract is on its way.",
+  },
+];
+
 const meta = {
   title: "UI/CopilotChatAssistantMessage",
   component: CopilotChatAssistantMessage,
@@ -444,4 +486,35 @@ export const CodeBlocksWithLanguages: Story = {
   args: {
     message: codeBlocksMessage,
   },
+};
+
+/**
+ * Reply ratings while Automatic Learning captures: click a thumb to rate the
+ * reply and open its comment popover.
+ */
+export const WithReplyRatings: Story = {
+  render: () => ({
+    components: {
+      CopilotKitProvider,
+      CopilotChatConfigurationProvider,
+      CopilotChatMessageView,
+      LearningCapture,
+    },
+    setup() {
+      return { messages: ratedConversation };
+    },
+    template: `
+      <div style="display:flex; justify-content:center; align-items:flex-start; min-height:100vh; padding:16px">
+        <div style="width:100%; max-width:640px">
+          <CopilotKitProvider runtime-url="https://copilotkit.ai">
+            <CopilotChatConfigurationProvider thread-id="storybook-thread">
+              <LearningCapture>
+                <CopilotChatMessageView :messages="messages" />
+              </LearningCapture>
+            </CopilotChatConfigurationProvider>
+          </CopilotKitProvider>
+        </div>
+      </div>
+    `,
+  }),
 };
