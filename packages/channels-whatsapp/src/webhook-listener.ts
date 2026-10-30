@@ -91,6 +91,7 @@ export async function handleWebhookValue(
         await args.sink.onCommand({
           command,
           text,
+          eventId: msg.id,
           conversationKey,
           replyTarget,
           actor,

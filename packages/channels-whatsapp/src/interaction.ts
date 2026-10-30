@@ -51,6 +51,8 @@ export function decodeInteraction(
 
   return {
     id,
+    // A wamid is one message, so this cannot collide with a command's.
+    eventId: msg.id,
     conversationKey: conversationKeyOf(msg.from),
     replyTarget,
     value,

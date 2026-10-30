@@ -13,7 +13,9 @@ import type {
 } from "./platform-adapter.js";
 import {
   ActionRegistry,
+  ActionAlreadyClaimedError,
   ActionExpiredError,
+  ActionInitiatorMismatchError,
   ActionScopeMismatchError,
   DEFAULT_ACTION_RETENTION_MS,
 } from "./action-registry.js";
@@ -28,7 +30,11 @@ import { normalizeCommandName, toCommandSpec } from "./commands.js";
 import type { ChannelCommand, CommandContext } from "./commands.js";
 import { Thread } from "./thread.js";
 import { isMintedActionId } from "./mint-id.js";
-import { ChannelChoiceSupersededError, choiceAnswer } from "./thread.js";
+import {
+  ChannelChoiceInitiatorUnknownError,
+  ChannelChoiceSupersededError,
+  choiceAnswer,
+} from "./thread.js";
 import type { ChoiceWaiter, ThreadDeps } from "./thread.js";
 import type { RenderConfig } from "./render/config.js";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -657,7 +663,7 @@ function conversationLogRef(conversationKey: string): string {
 /** Why an interaction did not run, as logged and as told to the clicker. */
 const INTERACTION_REFUSALS = {
   "not-initiator": {
-    log: "only the person who started the turn may answer this picker",
+    log: "only the person who started the turn may answer this",
     tell: "Only the person who started this can answer it.",
   },
   "value-not-offered": {
@@ -675,6 +681,14 @@ const INTERACTION_REFUSALS = {
   "not-open": {
     log: "the awaitChoice picker is still being posted",
     tell: "This choice is not open yet. Try again in a moment.",
+  },
+  "already-claimed": {
+    log: "another control already answered this interrupt",
+    tell: "This has already been answered.",
+  },
+  "initiator-unknown": {
+    log: 'the run has no known initiator; pass answerableBy: "conversation" to accept this click',
+    tell: "This can't be answered from here.",
   },
 } as const;
 
@@ -727,6 +741,16 @@ async function refuseInteraction(
       err,
     );
   }
+}
+
+/** The refusal a resume error stands for, if it is one. */
+function resumeRefusal(err: unknown): InteractionRefusal | undefined {
+  if (err instanceof ActionInitiatorMismatchError) return "not-initiator";
+  if (err instanceof ActionAlreadyClaimedError) return "already-claimed";
+  if (err instanceof ChannelChoiceInitiatorUnknownError) {
+    return "initiator-unknown";
+  }
+  return undefined;
 }
 
 function ingressPlatform(
@@ -1203,7 +1227,47 @@ export function createChannel<
       }
     }
 
-    return {
+    /**
+     * Drop a duplicate delivery of `event` within the TTL window. The id is
+     * recorded before `handle` runs, so a redelivery of an in-flight event
+     * does not run twice; a `handle` that throws gives the id back, so a later
+     * redelivery can retry it.
+     */
+    async function oncePerEvent(
+      event: { eventId?: string; platform?: string },
+      handle: () => void | Promise<void>,
+    ): Promise<void> {
+      if (!event.eventId || adapter.skipIngressDedup) return handle();
+      const platform = ingressPlatform(adapter, event);
+      const dupKey = `evt:${platform}:${event.eventId}`;
+      let recorded = false;
+      try {
+        if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
+        recorded = true;
+      } catch (err) {
+        console.warn(
+          `[channel] dedup check failed for ${platform}; processing without dedup`,
+          err,
+        );
+      }
+      try {
+        await handle();
+      } catch (err) {
+        if (recorded) {
+          try {
+            await store.dedup.forget?.(dupKey);
+          } catch (forgetErr) {
+            console.warn(
+              `[channel] could not release ${platform} event ${event.eventId} after a failure`,
+              forgetErr,
+            );
+          }
+        }
+        throw err;
+      }
+    }
+
+    const sink: IngressSink = {
       async onTurn(turn: IncomingTurn) {
         const mode = resolveChannelConcurrency(cfg);
         if (mode === "parallel") {
@@ -1221,19 +1285,6 @@ export function createChannel<
       },
       async onInteraction(evt: InteractionEvent) {
         const platform = ingressPlatform(adapter, evt);
-        // Dedup guard: drop duplicate deliveries of the same event within the TTL window.
-        if (evt.eventId && !adapter.skipIngressDedup) {
-          const dupKey = `evt:${platform}:${evt.eventId}`;
-          try {
-            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
-          } catch (err) {
-            console.warn(
-              `[channel] dedup check failed for ${platform}; processing without dedup`,
-              err,
-            );
-          }
-        }
-
         const identityContext = identityContextFromIngress(
           platform,
           evt,
@@ -1368,6 +1419,20 @@ export function createChannel<
             );
             return;
           }
+          // A refused click spends nothing, so a pending choice stays pending:
+          // the initiator can still answer it, and otherwise its timeout
+          // settles it.
+          const refusal = resumeRefusal(err);
+          if (refusal) {
+            await refuseInteraction(
+              adapter,
+              platform,
+              evt,
+              identityContext.actor,
+              refusal,
+            );
+            return;
+          }
           if (err instanceof ActionExpiredError) {
             // A control that never had an action (a link button, a button
             // without a handler) carries its renderer's fallback id, not a
@@ -1420,19 +1485,6 @@ export function createChannel<
       },
       async onCommand(cmd: IncomingCommand) {
         const platform = ingressPlatform(adapter, cmd);
-        // Dedup guard: drop duplicate deliveries of the same event within the TTL window.
-        if (cmd.eventId && !adapter.skipIngressDedup) {
-          const dupKey = `evt:${platform}:${cmd.eventId}`;
-          try {
-            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
-          } catch (err) {
-            console.warn(
-              `[channel] dedup check failed for ${platform}; processing without dedup`,
-              err,
-            );
-          }
-        }
-
         const command = commandHandlers.get(normalizeCommandName(cmd.command));
         if (!command) return; // unregistered command → skip
         const identityContext = identityContextFromIngress(
@@ -1481,17 +1533,6 @@ export function createChannel<
       },
       async onWelcome(evt: IncomingWelcome) {
         const platform = ingressPlatform(adapter, evt);
-        if (evt.eventId && !adapter.skipIngressDedup) {
-          const dupKey = `evt:${platform}:${evt.eventId}`;
-          try {
-            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
-          } catch (err) {
-            console.warn(
-              `[channel] dedup check failed for ${platform}; processing welcome without dedup`,
-              err,
-            );
-          }
-        }
         const identityContext = identityContextFromIngress(
           platform,
           evt,
@@ -1667,6 +1708,13 @@ export function createChannel<
           raw: evt.raw,
         });
       },
+    };
+
+    return {
+      ...sink,
+      onInteraction: (evt) => oncePerEvent(evt, () => sink.onInteraction(evt)),
+      onCommand: (cmd) => oncePerEvent(cmd, () => sink.onCommand(cmd)),
+      onWelcome: (evt) => oncePerEvent(evt, () => sink.onWelcome(evt)),
     };
   }
 

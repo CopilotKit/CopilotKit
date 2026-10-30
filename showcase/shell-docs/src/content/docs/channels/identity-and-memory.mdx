@@ -189,7 +189,11 @@ event.
 
     Use `"initiator"` when an approval belongs to the person who started the
     workflow. Use `"actor"` when the current approver should supply the personal
-    context. See [Interactive messages and approvals](/channels/interactive)
+    context. Only the person who started the workflow can resume it unless you
+    also pass `answerableBy: "conversation"`, so `"actor"` differs from
+    `"initiator"` only with that option. With `subject: "initiator"` and
+    `answerableBy: "conversation"`, anyone in the conversation can resume a run
+    that uses the initiator's Memory. See [Interactive messages and approvals](/channels/interactive)
     for the complete registered component and post-and-resume flow.
 
   </Step>
