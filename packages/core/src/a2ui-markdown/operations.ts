@@ -1,3 +1,4 @@
+import { jsonrepair } from "jsonrepair";
 import { A2UI_VERSION, GENERATIVE_UI_ROOT_ID } from "@copilotkit/shared";
 
 /**
@@ -649,6 +650,116 @@ function scanTopLevelObject(s: string, start: number) {
   return { end: s.length, balanced: false };
 }
 
+const OPERATION_NAMES = [
+  "createSurface",
+  "updateComponents",
+  "updateDataModel",
+  "deleteSurface",
+  "callRendererFunction",
+];
+
+/** Whether a value is shaped like one A2UI operation, with named components. */
+function isOperationShape(value: unknown): boolean {
+  if (!isRecord(value) || value.version !== "v1.0") return false;
+  const names = OPERATION_NAMES.filter((name) => name in value);
+  if (names.length !== 1 || Object.keys(value).length !== 2) return false;
+  const body = value[names[0]!];
+  if (!isRecord(body)) return false;
+  if (names[0] === "callRendererFunction") return true;
+  if (typeof body.surfaceId !== "string") return false;
+  const components = body.components;
+  return (
+    components === undefined ||
+    (Array.isArray(components) &&
+      components.every(
+        (c) =>
+          isRecord(c) &&
+          typeof c.id === "string" &&
+          typeof c.component === "string",
+      ))
+  );
+}
+
+/** Openers minus closers ({ and [ against } and ]) outside strings. */
+function closerImbalance(line: string) {
+  let depth = 0;
+  let inString = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inString) {
+      if (c === "\\") i++;
+      else if (c === '"') inString = false;
+    } else if (c === '"') inString = true;
+    else if (c === "{" || c === "[") depth++;
+    else if (c === "}" || c === "]") depth--;
+  }
+  return depth;
+}
+
+/** The text with closers and whitespace removed, to compare a repair. */
+function withoutClosers(text: string) {
+  return text.replace(/[\]}\s]/g, "");
+}
+
+/**
+ * Whether a component of the operation holds a structural key (`id`,
+ * `component`, `child`, `children`) in a nested object: a closer added at
+ * the end instead of where it was dropped. The scan below repairs those.
+ */
+function nestsStructuralKey(value: unknown) {
+  const nests = (v: unknown): boolean =>
+    isRecord(v) &&
+    Object.entries(v).some(([k, x]) => STRUCTURAL_KEYS.has(k) || nests(x));
+  const body = isRecord(value)
+    ? Object.values(value).find(isRecord)
+    : undefined;
+  const components = body?.components;
+  return (
+    Array.isArray(components) &&
+    components.some(
+      (c) => isRecord(c) && Object.values(c).some((prop) => nests(prop)),
+    )
+  );
+}
+
+/**
+ * Repairs the complete lines of a fence that are not valid JSON (a missing
+ * or extra brace) with jsonrepair, when the repair only adds or removes
+ * closers and the result is shaped like an operation. A line still streaming in (no newline yet) is left alone.
+ */
+function repairFenceLines(fenceText: string) {
+  const repaired: string[] = [];
+  const lines = fenceText.split("\n");
+  for (let n = 0; n < lines.length - 1; n++) {
+    const line = lines[n]!;
+    if (!line.trim().startsWith("{")) continue;
+    try {
+      JSON.parse(line);
+      continue;
+    } catch {
+      // Not valid JSON: try a repair.
+    }
+    // Only a slip of one closer: the first line of a pretty-printed
+    // operation is off by more and must stay for the scan below.
+    if (Math.abs(closerImbalance(line)) !== 1) continue;
+    try {
+      const fixed = jsonrepair(line);
+      const value: unknown = JSON.parse(fixed);
+      if (
+        withoutClosers(fixed) === withoutClosers(line) &&
+        isOperationShape(value) &&
+        !nestsStructuralKey(value)
+      ) {
+        repaired.push(line.trim());
+        lines[n] = JSON.stringify(value);
+      }
+    } catch {
+      // Leave it: the scan below drops or salvages it as before.
+    }
+  }
+  return { text: lines.join("\n"), repaired };
+}
+
 /**
  * Parse the body of an a2ui fence as a stream of top-level JSON values, so
  * operations may be one per line (the documented format), several per line,
@@ -678,7 +789,7 @@ function scanTopLevelObject(s: string, start: number) {
  * ```
  */
 export function extractFenceOperations(fenceText: string) {
-  const s = fenceText;
+  const { text: s, repaired: repairedLines } = repairFenceLines(fenceText);
   const operations: A2UIMarkdownOperation[] = [];
   const invalidLines: string[] = [];
   const recovered: string[] = [];
@@ -742,6 +853,8 @@ export function extractFenceOperations(fenceText: string) {
     partialLine: partialObject,
     invalidLines,
     recovered,
+    /** Complete lines that were off by one closing brace and were repaired. */
+    repairedLines,
   };
 }
 

@@ -322,17 +322,25 @@ describe("prepareSurfaceOperations function calls", () => {
 
 describe("extractFenceOperations v1.0 streaming", () => {
   it("starts a new operation at a function-call line after an unbalanced one", () => {
+    // Two closers short: more than the one-closer slip the repair fixes.
+    const unbalanced = DATA.slice(0, -2);
+    const call = `{"callRendererFunction":${JSON.stringify(ADD_TO_CART.callRendererFunction)}}`;
+    const res = extractFenceOperations(`${unbalanced}\n${call}\n`);
+    expect(res.operations).toContainEqual({
+      callRendererFunction: ADD_TO_CART.callRendererFunction,
+    });
+    expect(res.invalidLines).toEqual([unbalanced]);
+  });
+
+  it("repairs a complete line that misses one closing brace", () => {
     const missingBrace = DATA.slice(0, -1);
     const call = `{"callRendererFunction":${JSON.stringify(ADD_TO_CART.callRendererFunction)}}`;
     const res = extractFenceOperations(`${missingBrace}\n${call}\n`);
     expect(res.operations).toEqual([
-      {
-        version: "v1.0",
-        updateDataModel: { surfaceId: "plan", path: "/", value: { seats: 8 } },
-      },
+      JSON.parse(DATA),
       { callRendererFunction: ADD_TO_CART.callRendererFunction },
     ]);
-    expect(res.invalidLines).toEqual([missingBrace]);
+    expect(res.invalidLines).toEqual([]);
   });
   it("emits the complete components and data model of a streaming createSurface", () => {
     const res = extractFenceOperations(
@@ -547,26 +555,58 @@ describe("extractFenceOperations object stream", () => {
   });
 
   it("starts a new operation when an unbalanced one is followed by another", () => {
-    const missingBrace = DATA.slice(0, -1);
-    const res = extractFenceOperations(`${missingBrace}\n${UPDATE}\n`);
-    expect(res.operations).toEqual([
-      {
-        version: "v1.0",
-        updateDataModel: { surfaceId: "plan", path: "/", value: { seats: 8 } },
+    // Two closers short: more than the one-closer slip the repair fixes.
+    const unbalanced = DATA.slice(0, -2);
+    const res = extractFenceOperations(`${unbalanced}\n${UPDATE}\n`);
+    expect(res.operations).toContainEqual(JSON.parse(UPDATE));
+    expect(res.invalidLines).toEqual([unbalanced]);
+  });
+
+  it("repairs a line with one closing brace too many, and leaves the next operation alone", () => {
+    const extraBrace = `${DATA}}`;
+    const res = extractFenceOperations(`${extraBrace}\n${UPDATE}\n`);
+    expect(res.operations).toEqual([JSON.parse(DATA), JSON.parse(UPDATE)]);
+    expect(res.invalidLines).toEqual([]);
+  });
+
+  it("does not repair a line by inventing a value", () => {
+    const missingValue =
+      '{"version":"v1.0","updateDataModel":{"surfaceId":"plan","path":"/","value":}';
+    const res = extractFenceOperations(`${missingValue}\n${UPDATE}\n`);
+    expect(res.operations).toEqual([JSON.parse(UPDATE)]);
+    expect(res.invalidLines).toEqual([missingValue]);
+  });
+
+  it("keeps the children of a component whose prop object misses its closing brace", () => {
+    const missingBrace =
+      '{"version":"v1.0","updateComponents":{"surfaceId":"plan","components":[{"id":"root","component":"Column","accessibility":{"label":"x","children":["t"]},{"id":"t","component":"Text","text":"hi"}]}}';
+    const res = extractFenceOperations(`${missingBrace}\n${DATA}\n`);
+    expect(res.operations[0]).toEqual({
+      version: "v1.0",
+      updateComponents: {
+        surfaceId: "plan",
+        components: [
+          {
+            id: "root",
+            component: "Column",
+            accessibility: { label: "x" },
+            children: ["t"],
+          },
+          { id: "t", component: "Text", text: "hi" },
+        ],
       },
-      JSON.parse(UPDATE),
-    ]);
-    expect(res.invalidLines).toEqual([missingBrace]);
+    });
   });
 
   it("recovers a trailing object that never balanced", () => {
+    // Still streaming: the last line has no newline yet, so it is not repaired.
     const missingBrace = DATA.slice(0, -1);
-    const res = extractFenceOperations(`${CREATE}\n${missingBrace}\n`);
+    const res = extractFenceOperations(`${CREATE}\n${missingBrace}`);
     expect(res.operations[1]).toEqual({
       version: "v1.0",
       updateDataModel: { surfaceId: "plan", path: "/", value: { seats: 8 } },
     });
-    expect(res.partialObject).toBe(`${missingBrace}\n`);
+    expect(res.partialObject).toBe(missingBrace);
   });
 });
 
