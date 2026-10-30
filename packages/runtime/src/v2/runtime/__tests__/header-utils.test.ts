@@ -57,6 +57,34 @@ describe("header-utils", () => {
       expect(shouldForwardHeader("forwarded", defaultPolicy)).toBe(false);
     });
 
+    it.each([
+      "x-amzn-oidc-accesstoken",
+      "x-amzn-oidc-data",
+      "x-forwarded-access-token",
+      "x-forwarded-user",
+      "x-forwarded-email",
+      "x-forwarded-client-cert",
+      "x-goog-iap-jwt-assertion",
+      "x-ms-client-principal",
+      "x-ms-client-principal-name",
+      "x-ms-token-aad-access-token",
+      "x-auth-request-access-token",
+      "X-Auth-Request-User",
+      "x-goog-authenticated-user-email",
+      "x-pomerium-jwt-assertion",
+      "x-authentik-username",
+      "x-arr-clientcert",
+      "x-client-cert",
+    ])("strips auth proxy header %s by prefix", (header) => {
+      expect(shouldForwardHeader(header, defaultPolicy)).toBe(false);
+    });
+
+    it("keeps application headers that only resemble a denied prefix", () => {
+      expect(shouldForwardHeader("x-forwardedby", defaultPolicy)).toBe(true);
+      expect(shouldForwardHeader("x-ms-tenant", defaultPolicy)).toBe(true);
+      expect(shouldForwardHeader("x-auth-token", defaultPolicy)).toBe(true);
+    });
+
     it("strips known infra/proxy/platform headers by exact name", () => {
       // These were forwarded by the old wide-open `x-*` allowlist — the leak.
       expect(shouldForwardHeader("x-forwarded-for", defaultPolicy)).toBe(false);
@@ -230,6 +258,17 @@ describe("header-utils", () => {
       });
       expect(shouldForwardHeader("x-internal-token", policy)).toBe(false);
       expect(shouldForwardHeader("x-tenant-id", policy)).toBe(true);
+    });
+
+    it("an explicit allow opts a prefix-denied identity header back in", () => {
+      const policy = resolveForwardHeadersPolicy({
+        allow: ["x-forwarded-user", "x-goog-iap-jwt-assertion"],
+      });
+      expect(shouldForwardHeader("x-forwarded-user", policy)).toBe(true);
+      expect(shouldForwardHeader("x-goog-iap-jwt-assertion", policy)).toBe(
+        true,
+      );
+      expect(shouldForwardHeader("x-forwarded-email", policy)).toBe(false);
     });
 
     it("the DEFAULT denylist does NOT subtract in allow mode — explicit allow opts back in", () => {

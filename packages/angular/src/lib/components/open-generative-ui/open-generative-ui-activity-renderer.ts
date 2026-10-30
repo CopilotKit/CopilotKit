@@ -14,6 +14,7 @@ import {
   InjectionToken,
 } from "@angular/core";
 import type { AbstractAgent, ActivityMessage } from "@ag-ui/client";
+import { createSandboxLocalApi } from "@copilotkit/shared";
 import type { API } from "@jetbrains/websandbox/dist/types";
 import type { ActivityRenderer } from "../../activity-renderer";
 import type { OpenGenerativeUIContent } from "../../open-generative-ui";
@@ -359,11 +360,9 @@ export class CopilotOpenGenerativeUIRenderer implements OnChanges {
   }
 
   private createLocalApi(): API {
-    const api: API = {};
-    for (const fn of this.config.openGenerativeUI?.sandboxFunctions ?? []) {
-      api[fn.name] = fn.handler;
-    }
-    return api;
+    return createSandboxLocalApi(
+      this.config.openGenerativeUI?.sandboxFunctions ?? [],
+    );
   }
 
   private createPreviewSandbox(state: OpenGenerativeUIRenderState): void {

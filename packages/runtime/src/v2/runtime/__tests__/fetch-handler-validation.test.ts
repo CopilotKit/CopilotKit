@@ -263,6 +263,164 @@ describe("fetch-handler validation — single-route missing params", () => {
  * Multi-route: edge cases
  * --------------------------------------------------------------------------------------------- */
 
+describe("fetch-handler validation — inherited object keys as agent ids", () => {
+  const handler = createCopilotRuntimeHandler({
+    runtime: createRuntime(),
+    basePath: "/api",
+  });
+
+  it.each([
+    ["run", "__proto__", "run"],
+    ["run", "constructor", "run"],
+    ["run", "toString", "run"],
+    ["connect", "__proto__", "connect"],
+    ["stop", "__proto__", "stop/thread-1"],
+  ])("returns 404 for %s on %s", async (_route, agentId, action) => {
+    const response = await handler(
+      post(
+        `http://localhost/api/agent/${agentId}/${action}`,
+        action.startsWith("stop")
+          ? undefined
+          : {
+              threadId: "thread-1",
+              runId: "run-1",
+              messages: [],
+              tools: [],
+              context: [],
+              state: {},
+              forwardedProps: {},
+            },
+      ),
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ error: "Agent not found" });
+  });
+});
+
+describe("fetch-handler validation — run body content type", () => {
+  const validBody = JSON.stringify({
+    threadId: "thread-1",
+    runId: "run-1",
+    messages: [],
+    tools: [],
+    context: [],
+    state: {},
+    forwardedProps: {},
+  });
+  const run =
+    (handler: (request: Request) => Promise<Response>, url: string) =>
+    (contentType: string | null, body: string) =>
+      handler(
+        new Request(url, {
+          method: "POST",
+          headers: contentType ? { "Content-Type": contentType } : {},
+          // A Blob body leaves the content type header unset.
+          body: new Blob([body]),
+        }),
+      );
+
+  describe("multi-route", () => {
+    const send = run(
+      createCopilotRuntimeHandler({
+        runtime: createRuntime(),
+        basePath: "/api",
+      }),
+      "http://localhost/api/agent/default/run",
+    );
+
+    it.each([
+      "text/plain",
+      "text/plain; application/json",
+      "application/x-www-form-urlencoded",
+      "application/jsonp",
+      null,
+    ])("rejects %s with 415", async (contentType) => {
+      const response = await send(contentType, validBody);
+
+      expect(response.status).toBe(415);
+    });
+
+    it.each([
+      "application/json",
+      "application/json; charset=utf-8",
+      "Application/JSON",
+      "application/json, application/json",
+    ])("does not reject %s", async (contentType) => {
+      const response = await send(contentType, validBody);
+
+      expect(response.status).not.toBe(415);
+    });
+  });
+
+  describe("single-route", () => {
+    const send = run(
+      createCopilotRuntimeHandler({
+        runtime: createRuntime(),
+        basePath: "/api",
+        mode: "single-route",
+      }),
+      "http://localhost/api",
+    );
+    const envelope = JSON.stringify({ method: "info" });
+
+    it("rejects a JSON media type that only appears as a parameter", async () => {
+      const response = await send("text/plain; application/json", envelope);
+
+      expect(response.status).toBe(415);
+    });
+
+    it("accepts a duplicated application/json header", async () => {
+      const response = await send(
+        "application/json, application/json",
+        envelope,
+      );
+
+      expect(response.status).toBe(200);
+    });
+
+    it("accepts application/json with parameters, in any letter case", async () => {
+      const response = await send("Application/JSON; charset=utf-8", envelope);
+
+      expect(response.status).toBe(200);
+    });
+  });
+});
+
+describe("fetch-handler validation — connect, suggest and stop content type", () => {
+  const handler = createCopilotRuntimeHandler({
+    runtime: createRuntime(),
+    basePath: "/api",
+  });
+  const send = (action: string, contentType: string | null) =>
+    handler(
+      new Request(`http://localhost/api/agent/default/${action}`, {
+        method: "POST",
+        headers: contentType ? { "Content-Type": contentType } : {},
+        body: new Blob(["{}"]),
+      }),
+    );
+
+  it.each([
+    ["connect", "text/plain"],
+    ["connect", null],
+    ["suggest", "text/plain"],
+    ["stop/thread-1", "text/plain"],
+    ["stop/thread-1", null],
+  ])("rejects %s with content type %s", async (action, contentType) => {
+    expect((await send(action, contentType)).status).toBe(415);
+  });
+
+  it.each(["connect", "suggest", "stop/thread-1"])(
+    "does not reject %s with a JSON content type",
+    async (action) => {
+      const response = await send(action, "application/json");
+
+      expect(response.status).not.toBe(415);
+    },
+  );
+});
+
 describe("fetch-handler validation — multi-route edge cases", () => {
   const runtime = createRuntime();
 

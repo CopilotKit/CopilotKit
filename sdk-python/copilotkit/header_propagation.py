@@ -38,8 +38,8 @@ Mechanics
    request hooks on async clients), and a plain sync hook for ``httpx.Client``.
    Installation is idempotent via a marker attribute on the installed callable.
 
-This mirrors the CopilotKit runtime's ``extractForwardableHeaders()`` behavior
-on the Node side so the Python SDK forwards the same set of context headers.
+Unlike the CopilotKit runtime's ``extractForwardableHeaders()`` on the Node side,
+this applies no denylist: every ``x-*`` header handed to it is forwarded.
 """
 
 import contextvars

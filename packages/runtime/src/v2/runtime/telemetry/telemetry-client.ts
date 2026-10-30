@@ -1,5 +1,6 @@
 import type { AnalyticsEvents } from "./events";
 import {
+  isTelemetryDisabled,
   lambdaClient,
   parseAndWarnTelemetryId,
   computeSamplingMeta,
@@ -11,6 +12,8 @@ import {
   RUNTIME_PACKAGE_VERSION,
 } from "../core/package-info";
 import { firstNonBlankTelemetryId } from "./telemetry-identity";
+
+export { isTelemetryDisabled };
 
 /** Transport identity and sampling authority resolved for one runtime. */
 export interface TelemetryIdentity {
@@ -30,18 +33,6 @@ interface ResolvedTelemetryIdentity {
   telemetryId: string | null;
   licenseToken: string | null;
   licenseTelemetryId: string | null;
-}
-
-export function isTelemetryDisabled(): boolean {
-  return (
-    (process.env as Record<string, string | undefined>)
-      .COPILOTKIT_TELEMETRY_DISABLED === "true" ||
-    (process.env as Record<string, string | undefined>)
-      .COPILOTKIT_TELEMETRY_DISABLED === "1" ||
-    (process.env as Record<string, string | undefined>).DO_NOT_TRACK ===
-      "true" ||
-    (process.env as Record<string, string | undefined>).DO_NOT_TRACK === "1"
-  );
 }
 
 export class TelemetryClient {

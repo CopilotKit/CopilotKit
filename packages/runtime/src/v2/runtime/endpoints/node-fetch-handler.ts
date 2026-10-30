@@ -96,7 +96,7 @@ function buildPreParsedRequest(
   };
 
   const { body, contentType } = synthesizeBody(req.body);
-  if (contentType) {
+  if (contentType && !headers.has("content-type")) {
     headers.set("content-type", contentType);
   }
   headers.delete("content-length");

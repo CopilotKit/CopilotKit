@@ -193,4 +193,5 @@ export type { CopilotKitUIEnvelope } from "./a2ui-envelope";
 export type { DebugEventEnvelope } from "./debug-event-envelope";
 
 export { GENERATE_SANDBOXED_UI_DESCRIPTION } from "./open-generative-ui-prompts";
+export { createSandboxLocalApi } from "./open-generative-ui-sandbox";
 export * from "./generative-ui";

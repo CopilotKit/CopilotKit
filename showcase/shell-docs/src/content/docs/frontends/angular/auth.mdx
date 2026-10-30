@@ -109,8 +109,11 @@ automatically grant access to every agent, tenant, or thread.
 ## Forward identity deliberately
 
 Copilot Runtime forwards `authorization` and eligible `x-*` headers to a
-self-hosted agent, subject to its denylist. Prefer a small allowlist when your
-agent needs only specific context:
+self-hosted agent, subject to its denylist. The denylist covers every
+`x-forwarded-*` header and the identity and token headers that auth proxies add,
+such as `x-amzn-oidc-*`, `x-goog-iap-*`, `x-ms-client-principal*`, `x-ms-token-*`,
+`x-auth-request-*`, `x-pomerium-*`, and `x-authentik-*`. Prefer a small allowlist when your agent needs only
+specific context:
 
 ```ts
 const runtime = new CopilotRuntime({
@@ -124,6 +127,10 @@ const runtime = new CopilotRuntime({
 Server-configured agent headers win over forwarded browser headers. Use that
 separation for service credentials, and never allow a browser-supplied header
 to override a backend token.
+
+A caller can send any `x-*` header it likes, so a value such as `x-user-id`
+reaches the agent exactly as the caller wrote it. Don't trust one as identity
+unless your server sets it.
 
 ## Production checklist
 

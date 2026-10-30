@@ -2,8 +2,9 @@ import type { CopilotRuntimeLike } from "../core/runtime";
 import {
   TranscriptionErrorCode,
   TranscriptionErrors,
-  type TranscriptionErrorResponse,
 } from "@copilotkit/shared";
+import type { TranscriptionErrorResponse } from "@copilotkit/shared";
+import { isJsonContentType } from "../endpoints/single-route-helpers";
 
 /**
  * HTTP status codes for transcription error codes
@@ -227,7 +228,7 @@ export async function handleTranscribe({
     if (contentType.includes("multipart/form-data")) {
       // Handle multipart/form-data (REST mode)
       extractResult = await extractAudioFromFormData(request);
-    } else if (contentType.includes("application/json")) {
+    } else if (isJsonContentType(request)) {
       // Handle JSON with base64 audio (single-endpoint mode)
       extractResult = await extractAudioFromJson(request);
     } else {

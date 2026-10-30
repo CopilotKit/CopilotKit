@@ -41,6 +41,12 @@ describe("logRuntimeTelemetryDisclosure", () => {
     expect(consoleInfoSpy).not.toHaveBeenCalled();
   });
 
+  it("does not log when COPILOTKIT_TELEMETRY_DISABLED is TRUE", () => {
+    process.env.COPILOTKIT_TELEMETRY_DISABLED = "TRUE";
+    logRuntimeTelemetryDisclosure();
+    expect(consoleInfoSpy).not.toHaveBeenCalled();
+  });
+
   it("does not log when DO_NOT_TRACK is set", () => {
     process.env.DO_NOT_TRACK = "1";
     logRuntimeTelemetryDisclosure();

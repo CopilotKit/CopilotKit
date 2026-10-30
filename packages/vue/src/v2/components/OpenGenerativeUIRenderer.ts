@@ -2,6 +2,7 @@ import { computed, defineComponent, h, onBeforeUnmount, ref, watch } from "vue";
 import type { PropType } from "vue";
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkit/core";
+import { createSandboxLocalApi } from "@copilotkit/shared";
 import {
   processPartialHtml,
   extractCompleteStyles,
@@ -118,13 +119,9 @@ export const OpenGenerativeUIRenderer = defineComponent({
     const jsFunctionsInjected = ref(false);
     const pendingQueue = ref<string[]>([]);
 
-    const localApi = computed(() => {
-      const api: Record<string, unknown> = {};
-      for (const fn of sandboxFunctions.value) {
-        api[fn.name] = fn.handler;
-      }
-      return api;
-    });
+    const localApi = computed(() =>
+      createSandboxLocalApi(sandboxFunctions.value),
+    );
 
     watch(
       () => props.content,

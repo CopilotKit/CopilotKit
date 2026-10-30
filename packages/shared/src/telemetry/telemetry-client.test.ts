@@ -783,6 +783,10 @@ describe("isTelemetryDisabled", () => {
   test.each([
     ["COPILOTKIT_TELEMETRY_DISABLED", "true"],
     ["COPILOTKIT_TELEMETRY_DISABLED", "1"],
+    ["COPILOTKIT_TELEMETRY_DISABLED", "TRUE"],
+    ["COPILOTKIT_TELEMETRY_DISABLED", "yes"],
+    ["COPILOTKIT_TELEMETRY_DISABLED", "Yes"],
+    ["DO_NOT_TRACK", "YES"],
     ["DO_NOT_TRACK", "true"],
     ["DO_NOT_TRACK", "1"],
   ])("returns true when %s=%s", (key, val) => {
@@ -794,5 +798,19 @@ describe("isTelemetryDisabled", () => {
     delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
     delete process.env.DO_NOT_TRACK;
     expect(isTelemetryDisabled()).toBe(false);
+  });
+});
+
+describe("isTelemetryDisabled without Node globals", () => {
+  test("returns false when process is unavailable", () => {
+    vi.stubGlobal("process", undefined);
+    let disabled: boolean | undefined;
+    try {
+      disabled = isTelemetryDisabled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(disabled).toBe(false);
   });
 });

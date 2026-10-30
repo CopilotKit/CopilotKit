@@ -83,6 +83,9 @@ They distinguish omitted memory policy from explicit denial and check read-only 
 The fixture's event journal is test evidence, not an implementation of the Intelligence database.
 The pull request records release readiness and validation limits.
 
+The JSON content-type requirement on `run`, `suggest`, `connect`, and `stop` is TypeScript-only, so it has no shared case.
+The Python, Go, .NET, and Ruby runtimes do not reject other content types on those routes.
+
 ## Build boundaries
 
 `pnpm build` and `pnpm test` select JavaScript packages. They do not require native language toolchains.
