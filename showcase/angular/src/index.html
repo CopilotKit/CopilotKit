@@ -5,6 +5,45 @@
     <title>CopilotKit Angular Showcase</title>
     <base href="/angular/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Same theme protocol as the React demos (integrations/*/src/app/theme-script.ts):
+         sets class="dark" on <html> before first paint from the embedding page's
+         copilotkit:theme message, then ?theme=light|dark, then the system preference. -->
+    <script>
+      (function () {
+        try {
+          var root = document.documentElement;
+          var media = window.matchMedia("(prefers-color-scheme: dark)");
+          var param = new URLSearchParams(window.location.search).get("theme");
+          var chosen = param === "light" || param === "dark" ? param : null;
+          var apply = function () {
+            root.classList.toggle(
+              "dark",
+              chosen ? chosen === "dark" : media.matches,
+            );
+          };
+          apply();
+          media.addEventListener("change", apply);
+          window.addEventListener("message", function (event) {
+            var data = event.data;
+            if (
+              event.source !== window.parent ||
+              !data ||
+              data.type !== "copilotkit:theme"
+            )
+              return;
+            if (data.theme !== "light" && data.theme !== "dark") return;
+            chosen = data.theme;
+            apply();
+          });
+          if (window.parent !== window) {
+            window.parent.postMessage(
+              { type: "copilotkit:theme-request" },
+              "*",
+            );
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <showcase-root></showcase-root>

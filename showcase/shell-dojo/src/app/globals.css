@@ -2,6 +2,7 @@
 @import "highlight.js/styles/github.css";
 
 :root {
+  color-scheme: light;
   /* CopilotCloud palette — exact from dojo */
   --surface-main: #dedee9;
   --surface-container: #ffffff;
@@ -14,6 +15,88 @@
 
   --sidebar-width: 296px;
   --font-mono: "Spline Sans Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Dark theme — `class="dark"` on <html> is set by theme-script.ts. */
+:root.dark {
+  color-scheme: dark;
+  --surface-main: #16171b;
+  --surface-container: #191a1e;
+  --border-default: #242529;
+  --border-container: #303136;
+  --text-primary: #fafafa;
+  --text-secondary: #adadb2;
+  --text-disabled: #8b8b91;
+  --text-invert: #0a0a0a;
+}
+
+/* highlight.js github.css is light-only; these are github-dark.css's
+   token colors for the dark theme. */
+:root.dark
+  :is(
+    .hljs-doctag,
+    .hljs-keyword,
+    .hljs-meta .hljs-keyword,
+    .hljs-template-tag,
+    .hljs-template-variable,
+    .hljs-type,
+    .hljs-variable.language_
+  ) {
+  color: #ff7b72;
+}
+:root.dark
+  :is(
+    .hljs-title,
+    .hljs-title.class_,
+    .hljs-title.class_.inherited__,
+    .hljs-title.function_
+  ) {
+  color: #d2a8ff;
+}
+:root.dark
+  :is(
+    .hljs-attr,
+    .hljs-attribute,
+    .hljs-literal,
+    .hljs-meta,
+    .hljs-number,
+    .hljs-operator,
+    .hljs-variable,
+    .hljs-selector-attr,
+    .hljs-selector-class,
+    .hljs-selector-id
+  ) {
+  color: #79c0ff;
+}
+:root.dark :is(.hljs-regexp, .hljs-string, .hljs-meta .hljs-string) {
+  color: #a5d6ff;
+}
+:root.dark :is(.hljs-built_in, .hljs-symbol) {
+  color: #ffa657;
+}
+:root.dark :is(.hljs-comment, .hljs-code, .hljs-formula) {
+  color: #8b949e;
+}
+:root.dark
+  :is(.hljs-name, .hljs-quote, .hljs-selector-tag, .hljs-selector-pseudo) {
+  color: #7ee787;
+}
+:root.dark :is(.hljs-subst, .hljs-emphasis, .hljs-strong) {
+  color: #c9d1d9;
+}
+:root.dark .hljs-section {
+  color: #1f6feb;
+}
+:root.dark .hljs-bullet {
+  color: #f2cc60;
+}
+:root.dark .hljs-addition {
+  color: #aff5b4;
+  background-color: #033a16;
+}
+:root.dark .hljs-deletion {
+  color: #ffdcd7;
+  background-color: #67060c;
 }
 
 * {

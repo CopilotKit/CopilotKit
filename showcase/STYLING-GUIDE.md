@@ -86,21 +86,31 @@ The `md:w-4/5` gives 80% width on desktop, creating natural side margins. Don't 
 
 ## Theme
 
-All integration packages should use the light theme to match the showcase shell:
+Every demo supports light and dark mode and follows the page that embeds it.
 
-```css
-:root {
-  --copilot-kit-background-color: #fafaf9;
-  --copilot-kit-primary-color: #0d6e3f;
-  --copilot-kit-response-button-background-color: #f5f5f3;
-  --copilot-kit-response-button-color: #1a1a18;
-}
+- `src/app/theme-script.ts` runs in `<head>` (see `layout.tsx`) and puts
+  `class="dark"` on `<html>` before first paint. It takes the theme from the
+  embedding page (the demo sends `{ type: "copilotkit:theme-request" }` to its
+  parent, and the parent answers with `{ type: "copilotkit:theme", theme }`),
+  then from a `?theme=light|dark` query parameter, then from the system
+  preference. The shells and the docs answer through `DemoThemeBridge`.
+- `globals.css` declares the light tokens on `:root` and the dark ones on
+  `.dark` (`--background`, `--foreground`, `--card`, `--muted`,
+  `--muted-foreground`, `--border`, …), sets `color-scheme`, and makes
+  Tailwind's `dark:` variant follow the `.dark` class instead of the OS.
+- CopilotKit's components follow the `.dark` class on their own. Don't override
+  their `cpk:` classes to force a theme.
 
-html,
-body {
-  background: #fafaf9;
-  color: #1a1a18;
-}
+In demo code, don't hardcode a light-only color:
+
+```tsx
+// GOOD — a token, a dark partner, or light-dark()
+<div className="bg-white dark:bg-card text-gray-900 dark:text-foreground" />
+<div style={{ background: "var(--card)", border: "1px solid var(--border)" }} />
+<div style={{ background: "light-dark(#f8fafc, var(--muted))" }} />
+
+// BAD — white in both themes
+<div style={{ background: "#fff", color: "#111" }} />
 ```
 
 ## Images

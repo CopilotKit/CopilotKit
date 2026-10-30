@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google";
 import { BrandNav } from "@/components/brand-nav";
+import { DemoThemeBridge } from "@/components/demo-theme-bridge";
 import { FrameworkProvider } from "@/components/framework-provider";
 import { getIntegrations } from "@/lib/registry";
 import { getRuntimeConfig } from "@/lib/runtime-config";
+import { themeScript } from "./theme-script";
 import "./globals.css";
 
 /**
@@ -91,12 +93,16 @@ export default function RootLayout({
   const injection = `window.__SHOWCASE_CONFIG__=${serializeRuntimeConfig(runtimeConfig)};`;
 
   return (
+    // suppressHydrationWarning: the theme script below sets `class="dark"`
+    // on <html> before React hydrates; without it React would revert the
+    // className to the server's (theme-less) value.
     <html
       lang="en"
       className={`${plusJakartaSans.variable} ${splineSansMono.variable}`}
+      suppressHydrationWarning
     >
       <head>
-        {/* Must be the first (and currently only) child of <head>:
+        {/* Must be the first child of <head>:
          * every client component reads window.__SHOWCASE_CONFIG__
          * during hydration; it must be populated by the time the
          * parser reaches <body>. */}
@@ -104,12 +110,18 @@ export default function RootLayout({
           id="__showcase_config__"
           dangerouslySetInnerHTML={{ __html: injection }}
         />
+        {/* Applies the light/dark theme before first paint. */}
+        <script
+          id="theme-init"
+          dangerouslySetInnerHTML={{ __html: themeScript }}
+        />
       </head>
       <body className="min-h-screen">
         <FrameworkProvider knownFrameworks={knownFrameworks}>
           <BrandNav />
           <main>{children}</main>
         </FrameworkProvider>
+        <DemoThemeBridge />
         <div
           style={{
             position: "fixed",
@@ -117,7 +129,7 @@ export default function RootLayout({
             right: "12px",
             fontSize: "10px",
             fontFamily: "monospace",
-            color: "rgba(0,0,0,0.15)",
+            color: "light-dark(rgba(0,0,0,0.15), rgba(255,255,255,0.15))",
             pointerEvents: "none",
             zIndex: 9999,
             userSelect: "none",

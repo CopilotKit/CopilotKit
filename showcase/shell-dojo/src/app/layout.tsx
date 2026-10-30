@@ -1,6 +1,8 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { DemoThemeBridge } from "@/components/demo-theme-bridge";
 import { getRuntimeConfig } from "@/lib/runtime-config";
+import { themeScript } from "./theme-script";
 
 export const metadata: Metadata = {
   title: "CopilotKit Interactive Dojo",
@@ -49,7 +51,9 @@ export default function RootLayout({
   const injection = `window.__SHOWCASE_CONFIG__=${serializeRuntimeConfig(runtimeConfig)};`;
 
   return (
-    <html lang="en">
+    // suppressHydrationWarning: the theme script below sets `class="dark"`
+    // on <html> before React hydrates, which the server markup can't know.
+    <html lang="en" suppressHydrationWarning>
       <head>
         {/* First child of <head> — MUST execute before every other
             head-level script so client code can read
@@ -60,12 +64,17 @@ export default function RootLayout({
           id="__showcase_config__"
           dangerouslySetInnerHTML={{ __html: injection }}
         />
+        {/* Sets the theme before first paint (see theme-script.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <link
           href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap"
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <DemoThemeBridge />
+      </body>
     </html>
   );
 }

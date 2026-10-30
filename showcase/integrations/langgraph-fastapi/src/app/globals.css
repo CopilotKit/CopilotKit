@@ -59,6 +59,16 @@
   --radius: 0.75rem;
 }
 
+/* Native controls, scrollbars and `light-dark()` follow the theme. The
+ * root layout's theme script toggles `.dark` on <html>. */
+:root {
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
+}
+
 :root.dark,
 .dark {
   --background: #0a0a0a;
