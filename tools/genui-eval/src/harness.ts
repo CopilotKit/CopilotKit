@@ -230,9 +230,14 @@ function visibleReply(
     .join("");
 }
 
-/** The lines of each fence that are not valid JSON. */
-function fenceParseErrors(text: string) {
+/**
+ * The lines of each fence that the client could not use, and the complete
+ * lines that were not valid JSON as written but that the client repaired
+ * (a missing or extra closing brace).
+ */
+export function fenceParseErrors(text: string) {
   const errors: string[] = [];
+  const repaired: string[] = [];
   for (const segment of splitA2UIMarkdown(text)) {
     if (segment.type !== "a2ui") continue;
     const parsed = extractFenceOperations(segment.text);
@@ -245,8 +250,9 @@ function fenceParseErrors(text: string) {
         `invalid fence line: ${parsed.partialObject.trim().slice(0, 160)}`,
       );
     }
+    repaired.push(...(parsed.repairedLines ?? []));
   }
-  return errors;
+  return { errors, repaired };
 }
 
 /** The input of one run, built the way the client builds it. */
@@ -474,7 +480,11 @@ export async function runSample(input: {
   let visibleText = collected.text;
   const targetRejections: GenerativeUIRejectedOperation[] = [];
   if (input.transport === "markdown") {
-    parseErrors.push(...fenceParseErrors(collected.text));
+    const fence = fenceParseErrors(collected.text);
+    parseErrors.push(...fence.errors);
+    // The client repairs a line off by one closer; count it apart, so
+    // validity as the model wrote it stays readable.
+    repairedLines.push(...fence.repaired);
     const message = {
       id: "reply",
       role: "assistant",

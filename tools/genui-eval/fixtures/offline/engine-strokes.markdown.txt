@@ -2,5 +2,5 @@ A four-stroke engine repeats intake, compression, power and exhaust.
 
 ```a2ui
 {"version":"v1.0","createSurface":{"surfaceId":"engine","components":[{"id":"root","component":"Column","children":["t"]}]}}
-{"version":"v1.0","updateComponents":{"surfaceId":"engine","components":[{"id":"t","component":"Text","text":"Intake" ]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"engine","components":[{"id":"t","component":"Text","text":"Intake" ]}
 ```

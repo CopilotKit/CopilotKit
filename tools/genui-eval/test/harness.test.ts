@@ -2,7 +2,7 @@ import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { describe, expect, it } from "vitest";
 import { loadCases } from "../src/cases";
 import { createFakeModel } from "../src/fake";
-import { applyPatch, runSample } from "../src/harness";
+import { applyPatch, fenceParseErrors, runSample } from "../src/harness";
 
 const cases = Object.fromEntries(loadCases("train").map((c) => [c.id, c]));
 const entry = { model: "fake:offline" };
@@ -72,6 +72,18 @@ describe("runSample", () => {
     });
     expect(out.surfaces).toEqual([]);
     expect(out.text.length).toBeGreaterThan(0);
+  });
+
+  it("counts a fence line the client repairs apart from one it cannot use", () => {
+    const ok =
+      '{"version":"v1.0","updateComponents":{"surfaceId":"s","components":[{"id":"t","component":"Text","text":"Hi"}]}}';
+    const oneShort = ok.slice(0, -1);
+    const twoShort = ok.slice(0, -2);
+    const { errors, repaired } = fenceParseErrors(
+      `\`\`\`a2ui\n${ok}\n${oneShort}\n${twoShort}\n\`\`\``,
+    );
+    expect(repaired).toEqual([oneShort]);
+    expect(errors).toEqual([`invalid fence line: ${twoShort}`]);
   });
 
   it("reports a fence line that is not valid JSON", async () => {

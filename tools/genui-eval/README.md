@@ -41,7 +41,7 @@ In the markdown transport every backend gets the same request: the system prompt
 
 A run stops, and scores nothing for it, when the provider is out of credit or the call is not signed in.
 
-`--repair` (an experiment) runs each broken fence line through [jsonrepair](https://github.com/josdejong/jsonrepair) before the client parses it, and keeps the repair only when it is shaped like an A2UI operation. The client does not do this today. Each sample records `repairedLines`, so validity as the model wrote it stays readable.
+`--repair` (an experiment) runs each broken fence line through [jsonrepair](https://github.com/josdejong/jsonrepair) before the client parses it, and keeps the repair only when it is shaped like an A2UI operation. The client itself repairs a complete line that is off by one closing brace; `--repair` also fixes worse breaks. Either way each sample records `repairedLines`, so validity as the model wrote it stays readable.
 
 ## How a sample is scored
 
