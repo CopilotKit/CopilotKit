@@ -1,10 +1,17 @@
 import React, { createContext, useContext } from "react";
-import { stylesheet } from "./stylesheet";
+import { stylesheet } from "@copilotkit/core/styles";
 
-const StyleNonceContext = createContext<string | undefined>(undefined);
+interface StyleOptions {
+  /** CSP nonce for the `<style>` tag. */
+  nonce?: string;
+  /** `false` when the app loads `@copilotkit/core/styles.css` itself. */
+  inject: boolean;
+}
 
-/** Passes a CSP nonce to `<CopilotKitStyles>`. */
-export const CopilotStyleNonceProvider = StyleNonceContext.Provider;
+const StyleOptionsContext = createContext<StyleOptions>({ inject: true });
+
+/** Passes the provider's style options to `<CopilotKitStyles>`. */
+export const CopilotStyleOptionsProvider = StyleOptionsContext.Provider;
 
 /**
  * Renders the CSS for CopilotKit's UI, so apps never import a stylesheet.
@@ -18,9 +25,14 @@ export const CopilotStyleNonceProvider = StyleNonceContext.Provider;
  * With a CSP nonce the tag always renders in place. React only adds a nonce to
  * a hoisted style when the app renders with `nonce: { style }`, and Next.js
  * passes a plain string, so a hoisted tag would be blocked.
+ *
+ * Renders nothing when `CopilotKitProvider` has `injectStyles={false}`.
  */
 export function CopilotKitStyles() {
-  const nonce = useContext(StyleNonceContext);
+  const { nonce, inject } = useContext(StyleOptionsContext);
+  if (!inject) {
+    return null;
+  }
   if (nonce) {
     return <style nonce={nonce}>{stylesheet}</style>;
   }

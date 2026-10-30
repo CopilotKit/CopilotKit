@@ -224,6 +224,20 @@ The v2 UI components include their own styles. You don't import a stylesheet. `C
 
 If you render other v2 components without a chat surface, add `<CopilotKitStyles />` once, inside `CopilotKitProvider`. If your Content-Security-Policy limits `style-src` to a nonce, pass it as `<CopilotKitProvider nonce={nonce}>`.
 
+### Load the CSS as a cached file
+
+The `<style>` tag is part of your JavaScript, so browsers cache it with your app's code. Server-rendered pages also send it in the HTML of each full page load. To have browsers cache the CSS as its own file, import it and turn off the `<style>` tag:
+
+```tsx
+import "@copilotkit/core/styles.css";
+
+<CopilotKitProvider runtimeUrl="/api/copilotkit" injectStyles={false}>
+  {children}
+</CopilotKitProvider>
+```
+
+This is optional. Your bundler must support CSS imports, as Next.js and Vite do.
+
 To update an app that still imports `@copilotkit/react-core/v2/styles.css`, run the codemod in [Migrate to v2](/migrate/v2#remove-the-stylesheet-import).
 
 ## API Reference

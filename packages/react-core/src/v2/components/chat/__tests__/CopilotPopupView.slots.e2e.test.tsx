@@ -6,7 +6,7 @@ import type { CopilotModalHeader } from "../CopilotModalHeader";
 import type { CopilotChatToggleButtonProps } from "../CopilotChatToggleButton";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { stylesheet } from "../../../styles/stylesheet";
+import { stylesheet } from "@copilotkit/core/styles";
 
 // Wrapper to provide required context
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (

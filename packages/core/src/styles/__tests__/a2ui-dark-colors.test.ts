@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const themeCss = readFileSync("src/v2/styles/css/theme.css", {
+const themeCss = readFileSync("src/styles/css/theme.css", {
   encoding: "utf8",
 });
 

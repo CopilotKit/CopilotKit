@@ -12,9 +12,14 @@ const reactCoreSrc = path
   )
   .split(path.sep)
   .join("/");
+const coreStylesheet = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../../../packages/core/src/styles/stylesheet.ts",
+);
 
-// Stories render react-core from source so component edits hot-reload. CSS
-// edits in react-core's styles/css need `node scripts/generate-stylesheet.mjs`.
+// Stories render react-core and the stylesheet from source so edits
+// hot-reload. CSS edits in core's src/styles/css need
+// `node scripts/generate-stylesheet.mjs` in packages/core.
 
 const config: StorybookConfig = {
   framework: {
@@ -31,6 +36,10 @@ const config: StorybookConfig = {
         {
           find: /^@copilotkit\/react-core\/v2\/(context|headless)$/,
           replacement: `${reactCoreSrc}/$1.ts`,
+        },
+        {
+          find: /^@copilotkit\/core\/styles$/,
+          replacement: coreStylesheet,
         },
         {
           find: /^@copilotkit\/react-core\/v2$/,

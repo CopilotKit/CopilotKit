@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 import { CopilotChatView } from "../../components/chat/CopilotChatView";
-import { stylesheet } from "../stylesheet";
+import { stylesheet } from "@copilotkit/core/styles";
 
 const CHAT_ROOT_SELECTOR = ".copilotKitChat[data-copilotkit]";
 

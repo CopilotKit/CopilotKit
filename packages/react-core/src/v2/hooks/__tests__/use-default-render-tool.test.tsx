@@ -7,7 +7,7 @@ import {
 } from "../use-default-render-tool";
 import type { DefaultRenderProps } from "../use-default-render-tool";
 import { useRenderTool } from "../use-render-tool";
-import { stylesheet } from "../../styles/stylesheet";
+import { stylesheet } from "@copilotkit/core/styles";
 
 vi.mock("../use-render-tool", () => ({
   useRenderTool: vi.fn(),

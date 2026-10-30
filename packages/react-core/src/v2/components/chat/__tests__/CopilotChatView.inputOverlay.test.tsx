@@ -7,7 +7,7 @@ import { CopilotChatView } from "../CopilotChatView";
 import { LastUserMessageContext } from "../last-user-message-context";
 import type { Attachment } from "@copilotkit/shared";
 import type { Message } from "@ag-ui/core";
-import { stylesheet } from "../../../styles/stylesheet";
+import { stylesheet } from "@copilotkit/core/styles";
 
 beforeEach(() => {
   HTMLElement.prototype.scrollTo = vi.fn();

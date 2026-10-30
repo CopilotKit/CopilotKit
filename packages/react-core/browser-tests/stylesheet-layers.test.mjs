@@ -30,7 +30,7 @@ const plainApp = `[data-copilotkit] { --primary: rgb(255, 0, 0); }`;
 
 beforeAll(async () => {
   const source = await readFile(
-    path.join(here, "../src/v2/styles/stylesheet.ts"),
+    path.join(here, "../../core/src/styles/stylesheet.ts"),
     "utf8",
   );
   stylesheet = JSON.parse(source.match(/= (".*");/s)[1]);

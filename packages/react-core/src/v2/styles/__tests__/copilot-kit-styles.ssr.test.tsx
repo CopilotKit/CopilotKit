@@ -4,20 +4,22 @@ import { describe, expect, it } from "vitest";
 import { CopilotChatSuggestionPill } from "../../components/chat/CopilotChatSuggestionPill";
 import {
   CopilotKitStyles,
-  CopilotStyleNonceProvider,
+  CopilotStyleOptionsProvider,
 } from "../copilot-kit-styles";
 
 async function renderDocument(
   body: React.ReactNode,
-  options: { nonce?: string } = {},
+  options: { nonce?: string; inject?: boolean } = {},
 ): Promise<string> {
   const stream = await renderToReadableStream(
     <html>
       <head />
       <body>
-        <CopilotStyleNonceProvider value={options.nonce}>
+        <CopilotStyleOptionsProvider
+          value={{ nonce: options.nonce, inject: options.inject ?? true }}
+        >
           {body}
-        </CopilotStyleNonceProvider>
+        </CopilotStyleOptionsProvider>
       </body>
     </html>,
     // A string nonce, the way Next.js passes the one from the CSP header.
@@ -54,6 +56,19 @@ describe("CopilotKitStyles on the server", () => {
     expect(styleTags).toHaveLength(1);
     expect(styleTags[0]).toContain('nonce="abc123"');
     expect(html).toContain(".cpk-suggestion-pill-label)");
+  });
+
+  it("adds no style tag when the app loads styles.css itself", async () => {
+    const html = await renderDocument(
+      <>
+        <CopilotKitStyles />
+        <CopilotChatSuggestionPill>One</CopilotChatSuggestionPill>
+      </>,
+      { inject: false },
+    );
+
+    expect(html).not.toContain("<style");
+    expect(html).toContain("cpk-suggestion-pill");
   });
 
   it("keeps the app's className after the component's own class", async () => {

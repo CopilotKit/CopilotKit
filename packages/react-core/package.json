@@ -58,7 +58,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "node scripts/generate-external-reexports.mjs --check && node scripts/generate-stylesheet.mjs --check && tsdown && node ../../scripts/deprecations/v1-dist-notices.mjs --entrypoint react-core && node scripts/context-singleton-preflight.mjs",
+    "build": "node scripts/generate-external-reexports.mjs --check && tsdown && node ../../scripts/deprecations/v1-dist-notices.mjs --entrypoint react-core && node scripts/context-singleton-preflight.mjs",
     "size": "size-limit",
     "size:headline": "node scripts/measure-copilotchat.mjs",
     "size:assert-headless": "node scripts/assert-headless-purity.mjs",

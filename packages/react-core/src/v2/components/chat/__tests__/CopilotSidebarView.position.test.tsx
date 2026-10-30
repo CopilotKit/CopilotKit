@@ -9,7 +9,7 @@ import {
   MockStepwiseAgent,
   renderWithCopilotKit,
 } from "../../../__tests__/utils/test-helpers";
-import { stylesheet } from "../../../styles/stylesheet";
+import { stylesheet } from "@copilotkit/core/styles";
 
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <CopilotKitProvider>

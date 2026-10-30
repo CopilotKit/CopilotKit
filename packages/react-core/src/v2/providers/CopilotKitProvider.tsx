@@ -87,7 +87,7 @@ import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
 import { MarkdownRendererProvider } from "./MarkdownRendererContext";
 import type { MarkdownRenderer } from "./MarkdownRendererContext";
-import { CopilotStyleNonceProvider } from "../styles/copilot-kit-styles";
+import { CopilotStyleOptionsProvider } from "../styles/copilot-kit-styles";
 import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
@@ -158,6 +158,12 @@ export interface CopilotKitProviderProps {
    * Content-Security-Policy limits `style-src` to a nonce.
    */
   nonce?: string;
+  /**
+   * Set to `false` when you import `@copilotkit/core/styles.css` yourself, so
+   * browsers cache the CSS as a file. CopilotKit then adds no `<style>` tag.
+   * @default true
+   */
+  injectStyles?: boolean;
   /**
    * Rewrites the message list sent to runtime agents on every run.
    *
@@ -458,6 +464,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   headers: headersProp = EMPTY_HEADERS,
   credentials,
   nonce,
+  injectStyles = true,
   messageFilter,
   publicApiKey,
   publicLicenseKey,
@@ -1355,9 +1362,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const runtimeLicenseWarningStatus = runtimeEntitlementRetryInProgress
     ? undefined
     : (licenseContextValue.status ?? undefined);
+  const styleOptions = useMemo(
+    () => ({ nonce, inject: injectStyles }),
+    [nonce, injectStyles],
+  );
 
   return (
-    <CopilotStyleNonceProvider value={nonce}>
+    <CopilotStyleOptionsProvider value={styleOptions}>
       <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>
         <CopilotKitContext.Provider value={contextValue}>
           <LicenseContext.Provider value={licenseContextValue}>
@@ -1410,7 +1421,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           </LicenseContext.Provider>
         </CopilotKitContext.Provider>
       </SandboxFunctionsContext.Provider>
-    </CopilotStyleNonceProvider>
+    </CopilotStyleOptionsProvider>
   );
 };
 
