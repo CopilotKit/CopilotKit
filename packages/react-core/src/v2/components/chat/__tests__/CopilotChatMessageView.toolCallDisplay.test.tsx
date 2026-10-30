@@ -282,6 +282,46 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     expect(screen.getByTestId("echo-result").textContent).toBe("ok");
   });
 
+  it("keeps an empty saved result instead of an earlier placeholder", () => {
+    const echo = defineToolCallRenderer({
+      name: "*",
+      render: ({ result }) => <div data-testid="echo-result">{result}</div>,
+    });
+    renderView(
+      [
+        question,
+        callMessage("a"),
+        placeholder("a"),
+        { ...result("a"), content: "" },
+      ],
+      { toolCallDisplay: "separate" },
+      [echo],
+    );
+    expect(screen.getByTestId("echo-result").textContent).toBe("");
+  });
+
+  it("scopes a reused call id to its own turn in separate display", () => {
+    const echo = defineToolCallRenderer({
+      name: "*",
+      render: ({ result }) => <div data-testid="echo-result">{result}</div>,
+    });
+    renderView(
+      [
+        question,
+        callMessage("a"),
+        result("a"),
+        { id: "u2", role: "user", content: "Again" },
+        { ...callMessage("a"), id: "m-a2" },
+        { ...result("a"), id: "r-a2", content: "second" },
+      ],
+      { toolCallDisplay: "separate" },
+      [echo],
+    );
+    expect(
+      screen.getAllByTestId("echo-result").map((node) => node.textContent),
+    ).toEqual(["ok", "second"]);
+  });
+
   it("keeps the saved result when the placeholder comes last in grouped display", () => {
     const echo = defineToolCallRenderer({
       name: "*",

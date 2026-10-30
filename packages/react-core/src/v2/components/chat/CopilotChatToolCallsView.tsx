@@ -39,6 +39,24 @@ export type CopilotChatToolCallsViewProps = {
   group?: SlotValue<typeof CopilotChatToolCallGroup>;
 };
 
+/**
+ * Messages that can carry the results of this message's calls: the rest of its
+ * turn, up to the next assistant message.
+ */
+function getTurnMessages(
+  messages: Message[],
+  message: AssistantMessage,
+): Message[] {
+  // Match by id: a transform may hand this view a copy of the message rather
+  // than the object held in `messages`.
+  const start = messages.findIndex((candidate) => candidate.id === message.id);
+  if (start < 0) return messages;
+  const end = messages.findIndex(
+    (candidate, index) => index > start && candidate.role === "assistant",
+  );
+  return messages.slice(start + 1, end < 0 ? undefined : end);
+}
+
 const appearances: Partial<
   Record<CopilotChatToolCallDisplay, CopilotChatToolCallGroupAppearance>
 > = {
@@ -107,9 +125,9 @@ export function CopilotChatToolCallsView({
 
   if (!layout) {
     // Replayed history can hold both the transport placeholder and the saved
-    // result for a call. Use the same index as the grouped layout so the
-    // answer wins instead of the first message that mentions the call.
-    const results = getToolResults(messages);
+    // result for a call, and a later turn may reuse a call id. Index only this
+    // message's turn so the answer wins without borrowing another turn's result.
+    const results = getToolResults(getTurnMessages(messages, message));
     return (
       <>
         {message.toolCalls.map((toolCall) => {
