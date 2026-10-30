@@ -17,19 +17,13 @@ from __future__ import annotations
 import csv
 import json
 import uuid
-from collections.abc import AsyncGenerator
 from pathlib import Path
 from textwrap import dedent
 from typing import Annotated, Any
 
-from ag_ui.core import BaseEvent
 from agent_framework import Agent, BaseChatClient, Content, tool
 from agent_framework_ag_ui import AgentFrameworkAgent, state_update
 from pydantic import Field
-
-# Shared tool implementations live in `showcase/shared/python/tools/`.
-from tools import search_flights_impl
-
 
 # ---------------------------------------------------------------------
 # Local data for the sales dashboard -- a self-contained copy of the
@@ -253,51 +247,12 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
-def _has_tool_calls(message: dict[str, Any]) -> bool:
-    tool_calls = message.get("tool_calls") or message.get("toolCalls") or []
-    return isinstance(tool_calls, list) and len(tool_calls) > 0
-
-
-def _last_user_message_index(messages: list[dict[str, Any]]) -> int:
-    for index in range(len(messages) - 1, -1, -1):
-        if messages[index].get("role") == "user":
-            return index
-    return -1
-
-
-def _drop_historical_tool_messages(messages: Any) -> list[dict[str, Any]]:
-    """Remove completed tool-call history before the current Beautiful Chat turn."""
-    if not isinstance(messages, list):
-        return []
-
-    typed_messages = [message for message in messages if isinstance(message, dict)]
-    last_user_index = _last_user_message_index(typed_messages)
-
-    clean: list[dict[str, Any]] = []
-    for index, message in enumerate(typed_messages):
-        if index < last_user_index:
-            if message.get("role") == "tool":
-                continue
-            if message.get("role") == "assistant" and _has_tool_calls(message):
-                continue
-        clean.append(message)
-    return clean
-
-
 class BeautifulChatFrameworkAgent(AgentFrameworkAgent):
-    """AgentFrameworkAgent that scopes tool-result history to the active turn."""
+    """Delegate complete conversation history to the AG-UI adapter.
 
-    async def run(  # type: ignore[override]
-        self,
-        input_data: dict[str, Any],
-    ) -> AsyncGenerator[BaseEvent, None]:
-        patched_input = dict(input_data)
-        patched_input["messages"] = _drop_historical_tool_messages(
-            input_data.get("messages")
-        )
-
-        async for event in super().run(patched_input):
-            yield event
+    Completed tool calls and results remain model context on later user turns,
+    including results produced by runtime-owned MCP tools.
+    """
 
 
 def create_beautiful_chat_agent(
