@@ -1,4 +1,5 @@
-import { Suspense, memo, type ReactNode } from "react";
+import { Suspense, memo } from "react";
+import type { ReactNode } from "react";
 import { useA2UI } from "../hooks/useA2UI";
 import { A2uiSurface } from "../a2ui-react";
 import { cn } from "../lib/utils";
@@ -21,8 +22,6 @@ export interface A2UIRendererProps {
   fallback?: ReactNode;
   /** Loading fallback for lazy-loaded components */
   loadingFallback?: ReactNode;
-  /** @deprecated - No longer needed in v0.9, components come from catalog */
-  registry?: any;
 }
 
 /**

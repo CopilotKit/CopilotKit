@@ -18,25 +18,6 @@ export type NumberValue = any;
 export type BooleanValue = any;
 
 /**
- * @deprecated - v0.9 components are handled by the catalog system.
- */
-export interface A2UIComponentProps<T = any> {
-  node: T;
-  surfaceId: string;
-}
-
-/** @deprecated - v0.9 components are loaded by the catalog. */
-export type ComponentLoader<_T = any> = () => Promise<{
-  default: any;
-}>;
-
-/** @deprecated - v0.9 uses Catalog instead of ComponentRegistration. */
-export interface ComponentRegistration<_T = any> {
-  component: any;
-  lazy?: boolean;
-}
-
-/**
  * Callback for when a user action is dispatched.
  */
 export type OnActionCallback = (
