@@ -853,9 +853,6 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         __copilotkitMcpResourceReadOnly: true,
       },
     };
-    if (this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE) {
-      return this.runAgent(resourceParameters);
-    }
     const resourceAgent = this.clone();
     // A resource read does not resume the conversation. Only its disposable
     // client skips the pending-interrupt gate; the original agent and ordinary
