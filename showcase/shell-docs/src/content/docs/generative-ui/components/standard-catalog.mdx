@@ -38,7 +38,7 @@ A few things to know:
 - **`Video` takes any URL.** A video file plays in the native player, with `captions` as WebVTT tracks; a YouTube link shows a poster until the user presses play, then loads the privacy-enhanced embed. A page on another video site (Vimeo, Loom, TikTok, …) and a file that fails to load show a link card instead of a dead player. YouTube is the only provider that embeds; to embed another one, [replace the component](#replace-a-component). `Tabs` takes `tabs: [{ "title", "child" }]` with the id of each panel.
 - **Inputs keep what users type.** When the agent binds an input to a value, what the user types stays. A later agent update cannot write over it.
 - **`Button` and `Pressable` can act in the browser.** `href` opens a URL, and `Button` with `copy` copies text, with no message to the agent.
-- **`Map` needs one package.** Run `npm install maplibre-gl` if your agent draws maps. Without it, the map shows a list of the places.
+- **`Map` uses MapLibre.** Run `npm install maplibre-gl@^5`. Next.js needs it to bundle `standardUI`, even when the agent does not draw a map. The list of places is a fallback if the map cannot load at runtime; it does not bypass a missing-package build error.
 - **`Chart` works out of the box.** It uses `recharts`, which comes with CopilotKit.
 
 Each standalone component has a dedicated page with the existing live examples, copyable surface operations, and API reference. Structural parts are documented on their parent component's page. Previews use local sample data and do not require a model connection.
