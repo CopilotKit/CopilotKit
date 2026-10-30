@@ -647,11 +647,16 @@ function convertUserMessageContent(
       case "document": {
         const source = (part as { source?: any }).source;
         if (!source) break;
+        const filename =
+          typeof part.metadata?.filename === "string"
+            ? { filename: part.metadata.filename }
+            : {};
         if (source.type === "data") {
           parts.push({
             type: "file",
             data: source.value,
             mediaType: source.mimeType,
+            ...filename,
           });
         } else if (source.type === "file") {
           warnDroppedFileSource(`${part.type} part`);
@@ -661,6 +666,7 @@ function convertUserMessageContent(
               type: "file",
               data: new URL(source.value),
               mediaType: source.mimeType ?? "application/octet-stream",
+              ...filename,
             });
           } catch {
             console.error(

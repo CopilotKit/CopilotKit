@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { convertMessagesToVercelAISDKMessages } from "../index";
 import type { Message, ContentPart } from "@ag-ui/client";
+import { createAttachmentContent } from "@copilotkit/shared";
 import type { ToolModelMessage, ToolResultPart, UserModelMessage } from "ai";
 
 /**
@@ -97,6 +98,51 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
       { type: "file", data: "base64pdfdata", mediaType: "application/pdf" },
     ]);
   });
+
+  describe.each([
+    ["audio", "audio/wav", "recording.wav"],
+    ["video", "video/mp4", "recording.mp4"],
+    ["document", "application/pdf", "invoice.pdf"],
+  ] as const)("%s attachment filenames", (type, mimeType, filename) => {
+    it.each(["data", "url"] as const)(
+      "preserves the filename for a %s source",
+      (sourceType) => {
+        const value =
+          sourceType === "data" ? "aGk=" : "https://example.com/blob";
+        const part = createAttachmentContent({
+          type,
+          source: { type: sourceType, value, mimeType },
+          filename,
+        });
+        const result = convertUserContent([part]);
+
+        expect(result.content).toEqual([
+          {
+            type: "file",
+            data: sourceType === "data" ? value : new URL(value),
+            mediaType: mimeType,
+            filename,
+          },
+        ]);
+      },
+    );
+  });
+
+  it.each([undefined, null, 42, { filename: 42 }])(
+    "does not invent a filename from metadata %j",
+    (metadata) => {
+      const result = convertUserContent([
+        {
+          type: "document",
+          source: dataSource("aGk=", "application/pdf"),
+          metadata,
+        },
+      ]);
+      expect(result.content).toStrictEqual([
+        { type: "file", data: "aGk=", mediaType: "application/pdf" },
+      ]);
+    },
+  );
 
   it("handles mixed text and multimodal parts", () => {
     const result = convertUserContent([
