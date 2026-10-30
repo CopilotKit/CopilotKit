@@ -1,0 +1,53 @@
+**Short answer: use the sort that comes with your language.** Python, JavaScript, Java, C++, Rust and Go all ship heavily tuned hybrid algorithms, and they'll beat anything you write yourself for everyday data. Picking an algorithm by hand only matters when you implement one, or when your data has a special shape.
+
+### The common algorithms compared
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"sort-compare","components":[{"id":"root","component":"Column","children":["table","table-note"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"sort-compare","components":[{"id":"table","component":"Table","caption":"Sorting algorithms compared","columns":["Algorithm","Best","Average","Worst","Extra memory","Stable",{"label":"Good for","width":220}],"rows":[[{"componentId":"name-1"},"n","n²","n²","O(1)",{"componentId":"stable-1"},"Tiny or nearly sorted arrays; the finishing step inside hybrid sorts"],[{"componentId":"name-2"},"n log n","n log n","n log n","O(n)",{"componentId":"stable-2"},"Stable sorting, linked lists, data too big for memory"],[{"componentId":"name-3"},"n log n","n log n","n²","O(log n)",{"componentId":"stable-3"},"Fast general in-memory sorting, with good pivots"],[{"componentId":"name-4"},"n log n","n log n","n log n","O(1)",{"componentId":"stable-4"},"Guaranteed n log n with no extra memory"],[{"componentId":"name-5"},"n","n log n","n log n","O(n)",{"componentId":"stable-5"},"Real-world data with sorted runs; Python's and Java's object sort"],[{"componentId":"name-6"},"n log n","n log n","n log n","O(log n)",{"componentId":"stable-6"},"Quicksort speed with a heapsort safety net; C++ std::sort"],[{"componentId":"name-7"},"n + k","n + k","n + k","O(n + k)",{"componentId":"stable-7"},"Integers in a small range k, like ages or bytes"],[{"componentId":"name-8"},"d(n + b)","d(n + b)","d(n + b)","O(n + b)",{"componentId":"stable-8"},"Fixed-width keys: integers, IDs, fixed-length strings"]],"cellComponents":["name-1","stable-1","name-2","stable-2","name-3","stable-3","name-4","stable-4","name-5","stable-5","name-6","stable-6","name-7","stable-7","name-8","stable-8"]},{"id":"table-note","component":"Caption","color":"secondary","text":"n = number of items, k = range of key values, d = digits per key, b = base (bucket count). Quicksort's memory is its recursion stack."},{"id":"name-1","component":"Text","fontWeight":"medium","text":"Insertion sort"},{"id":"stable-1","component":"Badge","size":"sm","label":"Stable","color":"info"},{"id":"name-2","component":"Text","fontWeight":"medium","text":"Merge sort"},{"id":"stable-2","component":"Badge","size":"sm","label":"Stable","color":"info"},{"id":"name-3","component":"Text","fontWeight":"medium","text":"Quicksort"},{"id":"stable-3","component":"Badge","size":"sm","label":"Unstable","color":"secondary"},{"id":"name-4","component":"Text","fontWeight":"medium","text":"Heapsort"},{"id":"stable-4","component":"Badge","size":"sm","label":"Unstable","color":"secondary"},{"id":"name-5","component":"Text","fontWeight":"medium","text":"Timsort"},{"id":"stable-5","component":"Badge","size":"sm","label":"Stable","color":"info"},{"id":"name-6","component":"Text","fontWeight":"medium","text":"Introsort"},{"id":"stable-6","component":"Badge","size":"sm","label":"Unstable","color":"secondary"},{"id":"name-7","component":"Text","fontWeight":"medium","text":"Counting sort"},{"id":"stable-7","component":"Badge","size":"sm","label":"Stable","color":"info"},{"id":"name-8","component":"Text","fontWeight":"medium","text":"Radix sort"},{"id":"stable-8","component":"Badge","size":"sm","label":"Stable","color":"info"}]}}
+```
+
+Bubble sort and selection sort are left out on purpose: they're O(n²) in practice and only worth knowing for teaching.
+
+### Pick by situation
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"sort-picker","dataModel":{"situation":"general"},"components":[{"id":"root","component":"Card","children":["p-title","p-caption","situation","p-divider","rec-label","rec","why"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"sort-picker","components":[{"id":"p-title","component":"Title","text":"Which one fits my case?"},{"id":"p-caption","component":"Caption","text":"Pick the situation closest to yours"},{"id":"situation","component":"Select","label":"My situation","value":{"@path":"/situation"},"options":[{"value":"general","label":"Just a normal list of numbers, strings or records"},{"value":"stable","label":"Equal items must keep their original order"},{"value":"nearly","label":"The data is already mostly sorted"},{"value":"small","label":"Fewer than about 20 items"},{"value":"ints","label":"Integers in a small, known range"},{"value":"keys","label":"Many fixed-width keys (IDs, phone numbers)"},{"value":"memory","label":"No spare memory, and the worst case must stay fast"},{"value":"huge","label":"More data than fits in RAM"},{"value":"topk","label":"I only need the top 10, or the median"}]},{"id":"p-divider","component":"Divider"},{"id":"rec-label","component":"Caption","text":"Use"},{"id":"rec","component":"Title","size":"lg","accessibility":{"label":"Recommendation","live":"polite"},"text":{"@call":"calc","args":{"expression":"s == 'general' ? 'Your language\\'s built-in sort' : s == 'stable' ? 'Merge sort or Timsort' : s == 'nearly' ? 'Timsort (or insertion sort for short arrays)' : s == 'small' ? 'Insertion sort' : s == 'ints' ? 'Counting sort' : s == 'keys' ? 'Radix sort' : s == 'memory' ? 'Heapsort' : s == 'huge' ? 'External merge sort' : s == 'topk' ? 'A heap, or quickselect' : ''","s":{"@path":"/situation"}}}},{"id":"why","component":"Text","color":"secondary","text":{"@call":"calc","args":{"expression":"s == 'general' ? 'It\\'s a tuned hybrid (Introsort, pdqsort or Timsort) that beats a hand-written version almost every time.' : s == 'stable' ? 'Both keep equal items in their original order, and both are what stable library sorts use.' : s == 'nearly' ? 'Timsort detects the sorted runs and gets close to linear time on them.' : s == 'small' ? 'For a handful of items its low overhead beats the n log n algorithms, which is why hybrids switch to it.' : s == 'ints' ? 'It counts each value instead of comparing, so it runs in n + k time.' : s == 'keys' ? 'It sorts digit by digit in linear time, with no comparisons at all.' : s == 'memory' ? 'It sorts in place with O(1) extra memory and never degrades past n log n.' : s == 'huge' ? 'Sort chunks that fit in memory, write them to disk, then merge the sorted chunks.' : s == 'topk' ? 'A size-k heap finds the top k in n log k; quickselect finds the median in linear time on average. No full sort needed.' : ''","s":{"@path":"/situation"}}}}]}}
+```
+
+The rule of thumb behind it, checked in order:
+
+1. **Keys are small integers or fixed-width?** Counting or radix sort, which skip comparisons entirely.
+2. **Tiny or nearly sorted?** Insertion sort for a few items, Timsort for larger arrays.
+3. **Need stability?** Merge sort or Timsort.
+4. **Memory tight and worst case critical?** Heapsort.
+5. **Anything else?** Introsort or a modern quicksort variant, which is what the standard libraries already give you.
+
+### Why stability matters
+
+A stable sort keeps equal items in the order they arrived. That lets you sort in several passes. Say you have employees already sorted by name and then sort them by department:
+
+| Input (sorted by name) | Stable sort by department | Unstable sort may give |
+|---|---|---|
+| Alice · Sales | Bob · Engineering | Dan · Engineering |
+| Bob · Engineering | Dan · Engineering | Bob · Engineering |
+| Carol · Sales | Alice · Sales | Carol · Sales |
+| Dan · Engineering | Carol · Sales | Alice · Sales |
+
+With the stable sort, names stay alphabetical inside each department for free.
+
+### What the standard libraries actually use
+
+| Language | Default sort | Stable? |
+|---|---|---|
+| Python | Timsort (Powersort merging since 3.11) | Yes |
+| JavaScript | Stable by spec since ES2019; V8 uses Timsort | Yes |
+| Java | Dual-pivot quicksort for primitives, Timsort for objects | Objects only |
+| C++ | `std::sort` is usually introsort; `std::stable_sort` merges | `stable_sort` only |
+| Rust | `sort` is driftsort, `sort_unstable` is ipnsort (since 1.81) | `sort` only |
+| Go | Pattern-defeating quicksort (since 1.19) | `sort.Stable` only |
+
+Sources: [Python sorting HOWTO](https://docs.python.org/3/howto/sorting.html), [MDN: Array.prototype.sort](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort), [Rust slice docs](https://doc.rust-lang.org/std/primitive.slice.html).
+
+Notice the pattern: every serious implementation is a hybrid, using quicksort or merging for the bulk, insertion sort for small pieces, and a fallback for bad cases. If sorting really is your bottleneck, benchmark the built-in sort on your own data before replacing it.

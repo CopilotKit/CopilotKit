@@ -1,0 +1,33 @@
+You're putting **2,470 a month** to work, and nearly half of it goes to rent. The good news: a fifth of it is savings.
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"budget-overview","dataModel":{},"components":[{"id":"root","component":"Grid","columns":2,"minChildWidth":"260px","gap":6,"align":"center","children":["donut","breakdown"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"budget-overview","components":[{"id":"donut","component":"Chart","chartType":"donut","height":240,"xKey":"category","series":[{"key":"amount","label":"Per month"}],"data":[{"category":"Rent","amount":1200},{"category":"Food","amount":450},{"category":"Transport","amount":120},{"category":"Fun","amount":200},{"category":"Savings","amount":500}],"title":"Where 2,470 a month goes"},{"id":"breakdown","component":"Table","caption":"Monthly budget by category","columns":["Category",{"label":"Per month","align":"end"},{"label":"Share","align":"end"}],"rows":[["Rent","1,200","48.6%"],["Food","450","18.2%"],["Transport","120","4.9%"],["Fun","200","8.1%"],["Savings","500","20.2%"],["Total","2,470","100%"]]}]}}
+```
+
+### What stands out
+
+- **Rent is the big one** at 48.6%. A common rule of thumb is to keep housing near 30% of take-home pay, so rent is where the real pressure is, but it's also the hardest thing to change quickly.
+- **Essentials take 1,770** (rent, food and transport), or 71.7% of the total.
+- **Fun is modest** at 200, about 8% of your money. There isn't much to squeeze there.
+- **Saving 500 a month is solid:** that's 6,000 a year and a 20.2% savings rate.
+
+Compared with the popular 50/30/20 guideline (50% needs, 30% wants, 20% savings), you're right on target for savings, but needs crowd out almost everything you'd spend on yourself:
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"budget-rule","dataModel":{},"components":[{"id":"root","component":"Chart","chartType":"bar","height":220,"xKey":"bucket","format":"percent","yAxis":{"min":0,"max":0.8},"showValueLabels":true,"series":[{"key":"you","label":"You"},{"key":"guide","label":"50/30/20 guideline"}],"data":[{"bucket":"Needs (rent, food, transport)","you":0.717,"guide":0.5},{"bucket":"Wants (fun)","you":0.081,"guide":0.3},{"bucket":"Savings","you":0.202,"guide":0.2}]}]}}
+```
+
+Food is the most flexible line. Try it:
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"budget-whatif","dataModel":{"food":450,"fun":200},"components":[{"id":"root","component":"Card","children":["title","caption","food","fun","divider","row-month","row-year","row-rate","row-extra"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"budget-whatif","components":[{"id":"title","component":"Title","text":"What if you trimmed food or fun?"},{"id":"caption","component":"Caption","text":"Assumes 2,470 a month in total; rent and transport stay as they are"},{"id":"food","component":"Slider","label":"Food","min":250,"max":600,"step":10,"value":{"@path":"/food"}},{"id":"fun","component":"Slider","label":"Fun","min":0,"max":400,"step":10,"value":{"@path":"/fun"}},{"id":"divider","component":"Divider"},{"id":"row-month","component":"Row","justify":"spaceBetween","align":"center","children":["month-label","month-value"]},{"id":"month-label","component":"Caption","text":"You'd save per month"},{"id":"month-value","component":"Title","size":"lg","tabularNums":true,"text":{"@call":"formatString","args":{"value":"${formatNumber(value: calc(expression: '2470 - 1200 - 120 - food - fun', food: /food, fun: /fun), decimals: 0)}"}}},{"id":"row-year","component":"Row","justify":"spaceBetween","children":["year-label","year-value"]},{"id":"year-label","component":"Caption","text":"Per year"},{"id":"year-value","component":"Text","fontWeight":"medium","tabularNums":true,"text":{"@call":"formatString","args":{"value":"${formatNumber(value: calc(expression: '(2470 - 1200 - 120 - food - fun) * 12', food: /food, fun: /fun), decimals: 0)}"}}},{"id":"row-rate","component":"Row","justify":"spaceBetween","children":["rate-label","rate-value"]},{"id":"rate-label","component":"Caption","text":"Savings rate"},{"id":"rate-value","component":"Text","fontWeight":"medium","tabularNums":true,"text":{"@call":"formatString","args":{"value":"${formatNumber(value: calc(expression: '(2470 - 1200 - 120 - food - fun) * 100 / 2470', food: /food, fun: /fun), decimals: 1)}%"}}},{"id":"row-extra","component":"Row","justify":"spaceBetween","children":["extra-label","extra-value"]},{"id":"extra-label","component":"Caption","text":"Change per year compared with today"},{"id":"extra-value","component":"Text","fontWeight":"medium","tabularNums":true,"color":{"@call":"calc","args":{"expression":"(2470 - 1200 - 120 - food - fun) >= 500 ? 'success' : 'danger'","food":{"@path":"/food"},"fun":{"@path":"/fun"}}},"text":{"@call":"formatString","args":{"value":"${formatNumber(value: calc(expression: '(2470 - 1200 - 120 - food - fun - 500) * 12', food: /food, fun: /fun), decimals: 0)}"}}}]}}
+```
+
+If 2,470 is less than what actually lands in your account each month, some money is slipping away without a category. Tell me your take-home pay and I'll show you the gap:
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"budget-income","dataModel":{"income":""},"components":[{"id":"root","component":"Row","gap":3,"align":"end","wrap":"wrap","children":["income","check"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"budget-income","components":[{"id":"income","component":"TextField","label":"Monthly take-home pay","variant":"number","placeholder":"e.g. 2,800","weight":1,"value":{"@path":"/income"},"checks":[{"condition":{"@call":"numeric","args":{"value":{"@path":"/income"},"min":1}},"message":"Enter an amount"}]},{"id":"check","component":"Button","label":"Find the gap","checks":[{"condition":{"@call":"numeric","args":{"value":{"@path":"/income"},"min":1}},"message":"Enter an amount"}],"onClick":{"event":{"name":"check_income","userMessage":"Here's my take-home pay. Is any money unaccounted for?","context":{"income":{"@path":"/income"}}}}}]}}
+```

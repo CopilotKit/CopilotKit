@@ -1,0 +1,5 @@
+Here is a palette.
+
+```a2ui target=sidebar
+{"version":"v1.0","createSurface":{"surfaceId":"palette","components":[{"id":"root","component":"Slider","label":"Hue","min":0,"max":360,"value":200}]}}
+```

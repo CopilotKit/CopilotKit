@@ -1127,7 +1127,7 @@ export const mediaComponents = {
   Video: {
     component: Video,
     description:
-      "A video player for a video file URL (with optional captions), or a YouTube link in privacy-enhanced mode: the poster shows first, and the player loads when the user presses play. A page on another video site shows as a link to it. Set title to name the video.",
+      "A video file URL (optional captions) or a YouTube link, privacy-enhanced: the poster shows until play. Other video sites show as a link. Set title.",
     props: videoSchema,
   },
   AudioPlayer: {
