@@ -1,14 +1,14 @@
 ---
 title: Chat UI in 2.0
-description: Replace removed chat exports, and check the default text and behavior that changed in the Vue and Angular chat.
+description: Replace removed chat exports, update full label objects and repeated tool registrations, and check the default text and behavior that changed in the Vue and Angular chat.
 ---
 
-In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilotkit/core` can fail. The Vue and Angular chat can also show different text or act differently. The cause is one of these changes:
+In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilotkit/core` can fail, or a type check can fail. The Vue and Angular chat can also show different text or act differently. The cause is one of these changes:
 
-- Some chat exports are removed.
-- CopilotKit no longer installs `lucide-react` or `lucide-vue-next`.
-- Vue and Angular use the same default text as React.
-- Vue and Angular follow the same chat rules as React.
+- Some chat exports and icon packages are removed.
+- The `CopilotChatLabels` type has more keys.
+- `CopilotKitCore.addTool` lets a newer tool replace an older tool with the same name.
+- Vue and Angular use the same default text and chat rules as React.
 
 The codemod does not change this code. Use the sections below.
 
@@ -49,6 +49,51 @@ If your app imports one of these packages, add it to your own dependencies:
 npm install lucide-react
 ```
 
+## Label type
+
+`CopilotChatLabels` has more keys in 2.0. React, Vue, and Angular now share one label set, and the text that the chat used to hard-code is now a label.
+
+A partial override still works. Code that builds a complete `CopilotChatLabels` object fails to type-check until the object has the new keys. To fix this, start from the default labels and override only the keys that you need:
+
+```ts title="After"
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import type { CopilotChatLabels } from "@copilotkit/core";
+
+export const labels: CopilotChatLabels = {
+  ...CopilotChatDefaultLabels,
+  chatInputPlaceholder: "Ask me anything...",
+};
+```
+
+In Vue, the values of `CopilotChatDefaultLabels` now have the type `string`, not literal string types.
+
+All label keys are in [CopilotChatLabels](/reference/hooks/useCopilotChatConfiguration#copilotchatlabels).
+
+## Tool registration
+
+`CopilotKitCore.addTool` now returns a function that removes this registration. If a tool with the same name and `agentId` is already registered, the newer tool is active. In 1.x, the second call did nothing. When you call the returned function, the earlier tool is active again.
+
+If your code calls `addTool` twice with the same name and expects the first tool to stay active, remove the second call. To remove one registration, call the function that `addTool` returns:
+
+```ts title="After"
+import { CopilotKitCore } from "@copilotkit/core";
+import { z } from "zod";
+
+const copilotkit = new CopilotKitCore({ runtimeUrl: "/api/copilotkit" });
+
+const removeSearch = copilotkit.addTool({
+  name: "search",
+  description: "Search the docs",
+  parameters: z.object({ query: z.string() }),
+  handler: async ({ query }) => `Results for ${query}`,
+});
+
+// Later, remove only this registration:
+removeSearch();
+```
+
+`useFrontendTool` in React and Vue uses this function. When a component that replaces a provider tool unmounts, the provider tool is active again.
+
 ## Default text in Vue and Angular
 
 Vue and Angular now show the same default text as React. These defaults changed:
@@ -81,12 +126,18 @@ All label keys are in [CopilotChatLabels](/reference/hooks/useCopilotChatConfigu
 
 ## Chat behavior in Vue and Angular
 
-Vue and Angular now follow the same chat rules as React:
+Vue and Angular now follow the same chat rules as React.
 
-- **Enter during a run (Vue):** Enter with text in the input sends the message. Enter in an empty input stops the run.
-- **Stop button (Angular):** While the agent runs, the send button becomes a stop button.
-- **Activity renderers (Vue):** A renderer with `activityType: "*"` draws every activity that has no renderer of its own.
-- **Custom message renderers (Vue):** The chat tries each renderer in turn. The first renderer that returns content is used.
-- **Tool-call renderers (Angular):** The chat uses a renderer from another agent when no renderer for the current agent matches. A `"*"` renderer applies to all agents.
+In Vue:
+
+- **Enter during a run:** Enter with text in the input sends the message. Enter in an empty input stops the run.
+- **Activity renderers:** A renderer with `activityType: "*"` draws every activity that has no renderer of its own.
+- **Custom message renderers:** The chat tries each renderer in turn. The first renderer that returns content is used.
+
+In Angular:
+
+- **Stop button:** While the agent runs, the send button becomes a stop button.
+- **Tool-call renderers:** The chat uses a renderer from another agent when no renderer for the current agent matches. A `"*"` renderer applies to all agents. A frontend tool for the current agent comes before a global renderer with the same name.
+- **Removing a renderer:** When a component that called `registerRenderToolCall` is destroyed, only its renderer is removed. Tools with the same name stay registered.
 
 If a test or a screenshot depends on the earlier behavior, update it to the behavior above.
