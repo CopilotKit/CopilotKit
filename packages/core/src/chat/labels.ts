@@ -94,6 +94,8 @@ export const CopilotChatDefaultLabels = Object.freeze({
   toolCallRunningLabel: "Running {name}",
   /** Number of failed tool calls. `{count}`: the number. */
   toolCallFailedCountLabel: "{count} failed",
+  /** Number of finished tool calls. `{count}`: the number. */
+  toolCallDoneCountLabel: "{count} done",
   /** Heading above the arguments of a tool call. */
   toolCallArgumentsLabel: "Arguments",
   /** Heading above the result of a tool call. */
@@ -128,6 +130,14 @@ export const CopilotChatDefaultLabels = Object.freeze({
   attachmentImageAltText: "Image attachment",
   /** Shown when a file attachment has no name and no type. */
   attachmentUnknownTypeText: "Unknown type",
+  /** Name of a document attachment that has no file name. */
+  attachmentDocumentLabel: "Document",
+  /** Label of a document attachment that has no file name and no type. */
+  attachmentDocumentAltText: "Document attachment",
+  /** Shown in the preview of a file type the chat cannot preview. */
+  attachmentNoPreviewText: "No preview available for this file type",
+  /** Shown when the user sends while attachments are still uploading. */
+  chatAttachmentsUploadingText: "Cannot send while attachments are uploading.",
 
   /** Transcription error: too many requests. */
   transcriptionErrorRateLimitedText: "Too many requests. Please wait a moment.",
@@ -208,4 +218,27 @@ export function ɵformatLabel(
   return template.replace(/\{(\w+)\}/g, (placeholder, name: string) =>
     Object.hasOwn(values, name) ? String(values[name]) : placeholder,
   );
+}
+
+/**
+ * Fills a counted label pair: the `one` template for a count of 1, the
+ * `other` template for any other count. Both templates take `{count}`.
+ *
+ * @param count - The number to show.
+ * @param templates - The `...One` and `...Other` label templates.
+ *
+ * ```ts
+ * ɵformatCountLabel(3, {
+ *   one: labels.toolCallToolCountOne,
+ *   other: labels.toolCallToolCountOther,
+ * }); // "3 tools"
+ * ```
+ */
+export function ɵformatCountLabel(
+  count: number,
+  templates: { one: string; other: string },
+) {
+  return ɵformatLabel(count === 1 ? templates.one : templates.other, {
+    count,
+  });
 }

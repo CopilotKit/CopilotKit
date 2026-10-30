@@ -39,6 +39,7 @@ import {
   ɵisTurnWorkOpen,
   ɵisTurnWorking,
   ɵrecordWorkTime,
+  ɵgetLatestTurnKey,
 } from "@copilotkit/core";
 import type {
   CopilotChatToolCallDisplay,
@@ -625,13 +626,7 @@ export function CopilotChatMessageView({
   }, [turnWork]);
 
   // The latest reply is keyed by the user message it answers (see getTurnWork).
-  let latestTurnKey = "start";
-  for (let i = renderedMessages.length - 1; i >= 0; i--) {
-    if (renderedMessages[i]!.role === "user") {
-      latestTurnKey = renderedMessages[i]!.id;
-      break;
-    }
-  }
+  const latestTurnKey = ɵgetLatestTurnKey(renderedMessages);
 
   // Work shows while the agent is on it and folds once the reply is done,
   // unless the user has opened or closed it themselves.

@@ -30,10 +30,10 @@ const lightboxLabel = computed(() => {
   if (!attachment) return undefined;
   if (attachment.filename) return attachment.filename;
   return attachment.type === "image"
-    ? "Image attachment"
+    ? labels.value.attachmentImageAltText
     : attachment.type === "video"
       ? "Video attachment"
-      : "Document";
+      : labels.value.attachmentDocumentLabel;
 });
 const isPreviewableDocument = computed(() => {
   const attachment = activeLightboxAttachment.value;
@@ -265,7 +265,7 @@ function createBlobUrl(
               class="cpk-attachment-queue-document-name"
               data-testid="copilot-chat-attachment-document-filename"
             >
-              {{ attachment.filename || "Document" }}
+              {{ attachment.filename || labels.attachmentDocumentLabel }}
             </span>
             <span
               v-if="attachment.size != null"
@@ -367,7 +367,10 @@ function createBlobUrl(
         </div>
         <div class="cpk-attachment-queue-document-card-details">
           <div class="cpk-attachment-queue-document-card-name">
-            {{ activeLightboxAttachment.filename || "Document" }}
+            {{
+              activeLightboxAttachment.filename ||
+              labels.attachmentDocumentLabel
+            }}
           </div>
           <div class="cpk-attachment-queue-document-card-meta">
             {{
@@ -382,7 +385,7 @@ function createBlobUrl(
           </div>
         </div>
         <div class="cpk-attachment-queue-document-card-note">
-          No preview available for this file type
+          {{ labels.attachmentNoPreviewText }}
         </div>
       </div>
     </template>

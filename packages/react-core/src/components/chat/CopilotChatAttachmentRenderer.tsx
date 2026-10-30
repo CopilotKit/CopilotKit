@@ -134,7 +134,7 @@ const DocumentAttachment = memo(function DocumentAttachment({
   className?: string;
 }) {
   const labels = useLabels();
-  const label = filename || source.mimeType || "Document attachment";
+  const label = filename || source.mimeType || labels.attachmentDocumentAltText;
 
   // `download` is honoured for same-origin, data: and blob: URLs. Browsers
   // ignore it for cross-origin URLs unless the server sends

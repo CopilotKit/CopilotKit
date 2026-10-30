@@ -26,6 +26,7 @@ import {
   ɵrecordWorkTime,
   ɵresolveActivityRenderer,
   ɵresolveCustomMessageRenderers,
+  ɵgetLatestTurnKey,
 } from "@copilotkit/core";
 import type {
   CopilotChatToolCallDisplay,
@@ -263,13 +264,9 @@ const lastRenderedMessage = computed(
   () => deduplicatedMessages.value[deduplicatedMessages.value.length - 1],
 );
 // The latest reply is keyed by the user message it answers (see getTurnWork).
-const latestTurnKey = computed(() => {
-  const rendered = deduplicatedMessages.value;
-  for (let i = rendered.length - 1; i >= 0; i--) {
-    if (rendered[i]!.role === "user") return rendered[i]!.id;
-  }
-  return "start";
-});
+const latestTurnKey = computed(() =>
+  ɵgetLatestTurnKey(deduplicatedMessages.value),
+);
 
 // Work shows while the agent is on it and folds once the reply is done,
 // unless the user has opened or closed it themselves.

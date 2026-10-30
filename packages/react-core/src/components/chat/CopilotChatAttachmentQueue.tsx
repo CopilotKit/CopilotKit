@@ -333,7 +333,7 @@ function DocumentLightboxContent({
       </div>
       <div className="cpk-attachment-queue-document-card-details">
         <div className="cpk-attachment-queue-document-card-name">
-          {attachment.filename || "Document"}
+          {attachment.filename || labels.attachmentDocumentLabel}
         </div>
         <div className="cpk-attachment-queue-document-card-meta">
           {mimeType || labels.attachmentUnknownTypeText}
@@ -341,13 +341,15 @@ function DocumentLightboxContent({
         </div>
       </div>
       <div className="cpk-attachment-queue-document-card-note">
-        No preview available for this file type
+        {labels.attachmentNoPreviewText}
       </div>
     </div>
   );
 }
 
 function DocumentPreview({ attachment }: { attachment: Attachment }) {
+  const config = useCopilotChatConfiguration();
+  const labels = config?.labels ?? CopilotChatDefaultLabels;
   const { thumbnailRef, vtName, open, openLightbox, closeLightbox } =
     useLightbox();
 
@@ -369,7 +371,7 @@ function DocumentPreview({ attachment }: { attachment: Attachment }) {
         </div>
         <div className="cpk-attachment-queue-document-info">
           <span className="cpk-attachment-queue-document-name">
-            {attachment.filename || "Document"}
+            {attachment.filename || labels.attachmentDocumentLabel}
           </span>
           {attachment.size != null && (
             <span className="cpk-attachment-queue-document-size">

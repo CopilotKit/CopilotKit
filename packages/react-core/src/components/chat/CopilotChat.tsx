@@ -935,9 +935,7 @@ export function CopilotChat({
         console.error(
           "[CopilotKit] Cannot send while attachments are uploading (pre-await guard)",
         );
-        setTranscriptionError({
-          text: "Cannot send while attachments are uploading.",
-        });
+        setTranscriptionError({ labelKey: "chatAttachmentsUploadingText" });
         return;
       }
 
@@ -970,9 +968,7 @@ export function CopilotChat({
           console.error(
             "[CopilotKit] Cannot send while attachments are uploading (post-await re-check)",
           );
-          setTranscriptionError({
-            text: "Cannot send while attachments are uploading.",
-          });
+          setTranscriptionError({ labelKey: "chatAttachmentsUploadingText" });
           setInputValue(value);
           return;
         }

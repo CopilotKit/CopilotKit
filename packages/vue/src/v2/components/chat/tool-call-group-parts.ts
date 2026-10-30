@@ -42,20 +42,6 @@ export function toolCallStatusLabel(
 }
 
 /**
- * A count with the label that fits it: the `...One` template for 1, the
- * `...Other` template for any other count.
- * @internal
- */
-export function formatCountLabel(
-  count: number,
-  templates: { one: string; other: string },
-) {
-  return ɵformatLabel(count === 1 ? templates.one : templates.other, {
-    count,
-  });
-}
-
-/**
  * Height transition between closed and its content's height. Closed content
  * stays mounted (so its state survives) but is inert.
  * @internal

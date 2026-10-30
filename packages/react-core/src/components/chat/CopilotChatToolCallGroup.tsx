@@ -15,6 +15,7 @@ import {
   ɵgetToolCallPreview,
   ɵgetToolCallRowStatus,
   ɵstringifyToolCallPayload,
+  ɵformatCountLabel,
 } from "@copilotkit/core";
 import type {
   CopilotChatLabels,
@@ -23,7 +24,6 @@ import type {
 } from "@copilotkit/core";
 import { cn } from "../../lib/utils";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
-import { formatCountLabel } from "./format-count-label";
 
 export type CopilotChatToolCallGroupAppearance = "card" | "line" | "stack";
 
@@ -378,7 +378,7 @@ export function CopilotChatToolCallGroup({
           {runningLabel || (
             <>
               <span className="cpk-tool-call-group-line-summary">
-                {formatCountLabel(calls.length, {
+                {ɵformatCountLabel(calls.length, {
                   one: labels.toolCallUsedToolsOne,
                   other: labels.toolCallUsedToolsOther,
                 })}
@@ -441,7 +441,7 @@ export function CopilotChatToolCallGroup({
           >
             {open ? (
               <>
-                {formatCountLabel(calls.length, {
+                {ɵformatCountLabel(calls.length, {
                   one: labels.toolCallToolCallCountOne,
                   other: labels.toolCallToolCallCountOther,
                 })}
@@ -482,7 +482,7 @@ export function CopilotChatToolCallGroup({
                 <span className="cpk-tool-call-group-stack-meta">
                   <FailedCount calls={calls} />
                   <span className="cpk-tool-call-group-stack-count">
-                    {formatCountLabel(calls.length, {
+                    {ɵformatCountLabel(calls.length, {
                       one: labels.toolCallCallCountOne,
                       other: labels.toolCallCallCountOther,
                     })}
@@ -544,7 +544,7 @@ export function CopilotChatToolCallGroup({
         {runningLabel || (
           <>
             <span className="cpk-tool-call-group-card-summary">
-              {formatCountLabel(calls.length, {
+              {ɵformatCountLabel(calls.length, {
                 one: labels.toolCallUsedToolsOne,
                 other: labels.toolCallUsedToolsOther,
               })}
@@ -561,7 +561,8 @@ export function CopilotChatToolCallGroup({
             <span className="cpk-tool-call-group-card-status">
               {status !== "running"
                 ? labels[STATUS_LABEL_KEYS[status]]
-                : done > 0 && `${done} done`}
+                : done > 0 &&
+                  ɵformatLabel(labels.toolCallDoneCountLabel, { count: done })}
             </span>
           )}
           <Chevron open={open} />

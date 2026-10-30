@@ -22,6 +22,12 @@ describe("CopilotChatDefaultLabels", () => {
       toolCallArgumentsLabel: "Arguments",
       workSummaryWorkingLabel: "Working",
       attachmentUnknownTypeText: "Unknown type",
+      toolCallDoneCountLabel: "{count} done",
+      attachmentDocumentLabel: "Document",
+      attachmentDocumentAltText: "Document attachment",
+      attachmentNoPreviewText: "No preview available for this file type",
+      chatAttachmentsUploadingText:
+        "Cannot send while attachments are uploading.",
       transcriptionErrorGenericText: "Transcription failed. Please try again.",
       licensePoweredByText: "Powered by CopilotKit",
     });

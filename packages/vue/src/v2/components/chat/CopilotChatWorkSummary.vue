@@ -9,10 +9,10 @@ import {
   ɵcountFailedToolCalls,
   ɵformatLabel,
   ɵformatWorkDuration,
+  ɵformatCountLabel,
 } from "@copilotkit/core";
 import { IconChevronRight } from "../icons";
 import type { CopilotChatWorkSummarySlotProps } from "./types";
-import { formatCountLabel } from "./tool-call-group-parts";
 import { useChatLabels } from "./use-chat-labels";
 
 // `onClick` falls through to the button.
@@ -47,7 +47,7 @@ const duration = computed(() =>
     : undefined,
 );
 const toolCount = computed(() =>
-  formatCountLabel(props.calls.length, {
+  ɵformatCountLabel(props.calls.length, {
     one: labels.value.toolCallToolCountOne,
     other: labels.value.toolCallToolCountOther,
   }),
@@ -57,7 +57,7 @@ const doneLabel = computed(() =>
     ? ɵformatLabel(labels.value.workSummaryWorkedForLabel, {
         duration: duration.value,
       })
-    : formatCountLabel(props.calls.length, {
+    : ɵformatCountLabel(props.calls.length, {
         one: labels.value.toolCallUsedToolsOne,
         other: labels.value.toolCallUsedToolsOther,
       }),

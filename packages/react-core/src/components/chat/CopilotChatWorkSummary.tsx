@@ -5,11 +5,11 @@ import {
   ɵcountFailedToolCalls,
   ɵformatLabel,
   ɵformatWorkDuration,
+  ɵformatCountLabel,
 } from "@copilotkit/core";
 import type { ToolCallEntry } from "@copilotkit/core";
 import { cn } from "../../lib/utils";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
-import { formatCountLabel } from "./format-count-label";
 
 export interface CopilotChatWorkSummaryProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /** The agent is still working on this reply. */
@@ -59,7 +59,7 @@ export function CopilotChatWorkSummary({
   const labels = config?.labels ?? CopilotChatDefaultLabels;
   const now = useNow(isWorking);
   const failed = ɵcountFailedToolCalls(calls);
-  const toolCount = formatCountLabel(calls.length, {
+  const toolCount = ɵformatCountLabel(calls.length, {
     one: labels.toolCallToolCountOne,
     other: labels.toolCallToolCountOther,
   });
@@ -99,7 +99,7 @@ export function CopilotChatWorkSummary({
           <span className="cpk-work-summary-label">
             {duration
               ? ɵformatLabel(labels.workSummaryWorkedForLabel, { duration })
-              : formatCountLabel(calls.length, {
+              : ɵformatCountLabel(calls.length, {
                   one: labels.toolCallUsedToolsOne,
                   other: labels.toolCallUsedToolsOther,
                 })}

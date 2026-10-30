@@ -10,12 +10,15 @@ import {
 } from "@angular/core";
 import { hostStyles } from "../host-styles";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
-import { ɵformatLabel, ɵformatReasoningDuration } from "@copilotkit/core";
+import {
+  ɵformatLabel,
+  ɵformatReasoningDuration,
+  ɵformatCountLabel,
+} from "@copilotkit/core";
 import type { CopilotChatLabels } from "@copilotkit/core";
 import { cn } from "../../utils";
 import { CopilotChatAssistantMessageRenderer } from "./copilot-chat-assistant-message-renderer";
 import { injectChatLabels } from "../../chat-config";
-import { formatCountLabel } from "./format-count-label";
 
 /**
  * The reasoning time as label text, such as "4 seconds" or "1m 5s".
@@ -33,7 +36,7 @@ function formatDuration(seconds: number, labels: CopilotChatLabels) {
         count: duration.seconds,
       });
     case "minutes":
-      return formatCountLabel(duration.minutes, {
+      return ɵformatCountLabel(duration.minutes, {
         one: labels.reasoningMessageDurationMinutesOne,
         other: labels.reasoningMessageDurationMinutesOther,
       });

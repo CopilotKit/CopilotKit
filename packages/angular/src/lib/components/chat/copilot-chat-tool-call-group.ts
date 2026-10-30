@@ -15,6 +15,7 @@ import {
   ɵformatToolNames,
   ɵgetToolCallPreview,
   ɵgetToolCallRowStatus,
+  ɵformatCountLabel,
 } from "@copilotkit/core";
 import { ChevronRight, CopilotIcon } from "../icons/copilot-icon";
 import {
@@ -30,7 +31,6 @@ import type {
 } from "../tools/tool-call-render-context";
 import type { ToolCallEntry } from "./tool-call-layout";
 import { injectChatLabels } from "../../chat-config";
-import { formatCountLabel } from "./format-count-label";
 import { cn } from "../../utils";
 
 let nextId = 0;
@@ -277,7 +277,7 @@ let nextId = 0;
                     @if (status() !== "running") {
                       {{ statusText(status()) }}
                     } @else if (doneCount() > 0) {
-                      {{ doneCount() }} done
+                      {{ doneCountText() }}
                     }
                   </span>
                 }
@@ -365,25 +365,30 @@ export class CopilotChatToolCallGroup {
     }),
   );
   protected readonly usedToolsText = computed(() =>
-    formatCountLabel(this.calls().length, {
+    ɵformatCountLabel(this.calls().length, {
       one: this.labels.toolCallUsedToolsOne,
       other: this.labels.toolCallUsedToolsOther,
     }),
   );
   protected readonly toolCallCountText = computed(() =>
-    formatCountLabel(this.calls().length, {
+    ɵformatCountLabel(this.calls().length, {
       one: this.labels.toolCallToolCallCountOne,
       other: this.labels.toolCallToolCallCountOther,
     }),
   );
   protected readonly callCountText = computed(() =>
-    formatCountLabel(this.calls().length, {
+    ɵformatCountLabel(this.calls().length, {
       one: this.labels.toolCallCallCountOne,
       other: this.labels.toolCallCallCountOther,
     }),
   );
   protected readonly doneCount = computed(
     () => this.calls().filter((call) => call.toolMessage).length,
+  );
+  protected readonly doneCountText = computed(() =>
+    ɵformatLabel(this.labels.toolCallDoneCountLabel, {
+      count: this.doneCount(),
+    }),
   );
   protected readonly status = computed<ToolCallRowStatus>(() => {
     if (this.current()) return "running";

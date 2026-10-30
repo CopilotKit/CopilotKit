@@ -11,7 +11,7 @@
 // Chat text
 export { CopilotChatDefaultLabels } from "./labels";
 export type { CopilotChatLabels } from "./labels";
-export { ɵformatLabel } from "./labels";
+export { ɵformatCountLabel, ɵformatLabel } from "./labels";
 
 // Renderer definitions (public)
 export type {
@@ -64,6 +64,7 @@ export {
   getToolResults as ɵgetToolResults,
   getToolCallLayouts as ɵgetToolCallLayouts,
   getToolCallRendererNames as ɵgetToolCallRendererNames,
+  getLatestTurnKey as ɵgetLatestTurnKey,
   getTurnWork as ɵgetTurnWork,
   isTurnWorking as ɵisTurnWorking,
   isTurnWorkOpen as ɵisTurnWorkOpen,

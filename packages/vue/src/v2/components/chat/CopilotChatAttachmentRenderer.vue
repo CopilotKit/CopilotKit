@@ -21,7 +21,10 @@ const documentLabel = computed(
     labels.value.attachmentUnknownTypeText,
 );
 const documentAriaLabel = computed(
-  () => props.filename || props.source.mimeType || "Document attachment",
+  () =>
+    props.filename ||
+    props.source.mimeType ||
+    labels.value.attachmentDocumentAltText,
 );
 
 const imageButton = ref<HTMLButtonElement | null>(null);

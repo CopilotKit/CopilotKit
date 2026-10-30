@@ -9,10 +9,10 @@ import {
   CopilotChatDefaultLabels,
   ɵformatLabel,
   ɵformatReasoningDuration,
+  ɵformatCountLabel,
 } from "@copilotkit/core";
 import type { CopilotChatLabels } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
-import { formatCountLabel } from "./format-count-label";
 
 export type CopilotChatReasoningMessageProps = WithSlots<
   {
@@ -50,7 +50,7 @@ function formatDuration(seconds: number, labels: CopilotChatLabels) {
         count: duration.seconds,
       });
     case "minutes":
-      return formatCountLabel(duration.minutes, {
+      return ɵformatCountLabel(duration.minutes, {
         one: labels.reasoningMessageDurationMinutesOne,
         other: labels.reasoningMessageDurationMinutesOther,
       });

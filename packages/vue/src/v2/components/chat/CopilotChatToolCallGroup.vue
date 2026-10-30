@@ -15,6 +15,7 @@ import {
   ɵformatToolNames,
   ɵgetToolCallPreview,
   ɵgetToolCallRowStatus,
+  ɵformatCountLabel,
 } from "@copilotkit/core";
 import type { ToolCallEntry, ɵToolCallRowStatus } from "@copilotkit/core";
 import { useCopilotId } from "../ui/use-id";
@@ -25,7 +26,6 @@ import {
   ToolCallChevron,
   ToolCallFailedCount,
   ToolCallStatusIcon,
-  formatCountLabel,
   toolCallStatusLabel,
 } from "./tool-call-group-parts";
 import { useChatLabels } from "./use-chat-labels";
@@ -125,7 +125,7 @@ const runningLabel = computed(() =>
     : "",
 );
 const usedToolsLabel = computed(() =>
-  formatCountLabel(props.calls.length, {
+  ɵformatCountLabel(props.calls.length, {
     one: labels.value.toolCallUsedToolsOne,
     other: labels.value.toolCallUsedToolsOther,
   }),
@@ -226,7 +226,7 @@ const layer = "cpk-tool-call-group-stack-layer";
       >
         <template v-if="open">
           {{
-            formatCountLabel(calls.length, {
+            ɵformatCountLabel(calls.length, {
               one: labels.toolCallToolCallCountOne,
               other: labels.toolCallToolCallCountOther,
             })
@@ -266,7 +266,7 @@ const layer = "cpk-tool-call-group-stack-layer";
           <span class="cpk-tool-call-group-stack-meta">
             <ToolCallFailedCount :calls="calls" />
             <span class="cpk-tool-call-group-stack-count">{{
-              formatCountLabel(calls.length, {
+              ɵformatCountLabel(calls.length, {
                 one: labels.toolCallCallCountOne,
                 other: labels.toolCallCallCountOther,
               })
@@ -336,7 +336,7 @@ const layer = "cpk-tool-call-group-stack-layer";
           status !== "running"
             ? toolCallStatusLabel(labels, status)
             : done > 0
-              ? `${done} done`
+              ? ɵformatLabel(labels.toolCallDoneCountLabel, { count: done })
               : ""
         }}</span>
         <ToolCallChevron :open="open" />

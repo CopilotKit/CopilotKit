@@ -85,7 +85,7 @@ import { injectLightbox } from "./copilot-chat-lightbox";
           target="_blank"
           rel="noopener noreferrer"
           [attr.aria-label]="
-            filename() || source().mimeType || 'Document attachment'
+            filename() || source().mimeType || labels.attachmentDocumentAltText
           "
           [class]="documentClass()"
         >
