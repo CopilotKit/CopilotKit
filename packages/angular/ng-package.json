@@ -18,7 +18,6 @@
     "rxjs",
     "zod",
     "zod-to-json-schema",
-    "highlight.js",
     "katex",
     "marked",
     "dompurify"

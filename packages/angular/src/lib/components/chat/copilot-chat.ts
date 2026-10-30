@@ -30,6 +30,7 @@ import { transcribeAudio } from "../../transcription";
 import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
 import { connectActiveThread } from "../../active-thread-connector";
 import { explicitEffect } from "../../explicit-effect";
+import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
 
 /**
  * CopilotChat component - Angular equivalent of React's <CopilotChat>
@@ -59,6 +60,7 @@ import { explicitEffect } from "../../explicit-effect";
         [agentId]="resolvedAgentId()"
         [autoScroll]="true"
         [showCursor]="showCursor()"
+        [toolCallDisplay]="toolCallDisplay()"
         [inputComponent]="inputComponent()"
         [assistantMessageComponent]="assistantMessageComponent()"
         [assistantMessageTemplate]="assistantMessageTemplate()"
@@ -90,6 +92,11 @@ export class CopilotChat extends ChatState {
   readonly agentId = input<string | undefined>();
   readonly threadId = input<string | undefined>();
   readonly inputComponent = input<Type<any> | undefined>();
+  /**
+   * How assistant messages show tool calls: `"grouped"` (default), `"line"`,
+   * `"stacked"` or `"separate"`. Forwarded to the message view.
+   */
+  readonly toolCallDisplay = input<CopilotChatToolCallDisplay>("grouped");
   /** Component used to render each assistant message in the prebuilt chat. */
   readonly assistantMessageComponent = input<Type<any> | undefined>();
   /** Template used to render each assistant message in the prebuilt chat. */

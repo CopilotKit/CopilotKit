@@ -80,6 +80,10 @@ export const Check: CopilotIconData = [path("M20 6 9 17l-5-5")];
 export const ChevronDown: CopilotIconData = [path("m6 9 6 6 6-6")];
 export const ChevronLeft: CopilotIconData = [path("m15 18-6-6 6-6")];
 export const ChevronRight: CopilotIconData = [path("m9 18 6-6-6-6")];
+// Lucide draws Circle as <circle cx="12" cy="12" r="10" />.
+export const Circle: CopilotIconData = [
+  path("M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0"),
+];
 export const Copy: CopilotIconData = [
   rect({ width: "14", height: "14", x: "8", y: "8", rx: "2", ry: "2" }),
   path("M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"),
@@ -90,6 +94,16 @@ export const Edit: CopilotIconData = [
     "M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z",
   ),
 ];
+export const EyeOff: CopilotIconData = [
+  path(
+    "M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49",
+  ),
+  path("M14.084 14.158a3 3 0 0 1-4.242-4.242"),
+  path(
+    "M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143",
+  ),
+  path("m2 2 20 20"),
+];
 export const Loader2: CopilotIconData = [path("M21 12a9 9 0 1 1-6.219-8.56")];
 export const MessageCircle: CopilotIconData = [
   path("M7.9 20A9 9 0 1 0 4 16.1L2 22Z"),
@@ -99,6 +113,8 @@ export const Mic: CopilotIconData = [
   path("M19 10v2a7 7 0 0 1-14 0v-2"),
   rect({ x: "9", y: "2", width: "6", height: "13", rx: "3" }),
 ];
+// Lucide draws Play as <polygon points="6 3 20 12 6 21 6 3" />.
+export const Play: CopilotIconData = [path("M6 3 20 12 6 21Z")];
 export const Plus: CopilotIconData = [path("M5 12h14"), path("M12 5v14")];
 export const RefreshCw: CopilotIconData = [
   path("M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"),
@@ -129,5 +145,10 @@ export const Volume2: CopilotIconData = [
   ),
   path("M16 9a5 5 0 0 1 0 6"),
   path("M19.364 18.364a9 9 0 0 0 0-12.728"),
+];
+export const Wrench: CopilotIconData = [
+  path(
+    "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
+  ),
 ];
 export const X: CopilotIconData = [path("M18 6 6 18"), path("m6 6 12 12")];

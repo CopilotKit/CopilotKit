@@ -179,8 +179,11 @@ passing the key explicitly as `undefined`.
 </PropertyReference>
 
 <PropertyReference name="defaultToolRendering" type="boolean" default="false">
-  Opts into the text-only fallback renderer for otherwise unknown tool calls.
-  Unknown tools are hidden when this is omitted or `false`.
+  Shows CopilotKit's built-in tool-call card for tool calls that have no
+  renderer of their own. It is the same card as React's. The card shows the
+  tool name and status, and opens to the arguments and the result. Calls made
+  in a row are grouped (see `toolCallDisplay`). Unknown tools are hidden when
+  this is omitted or `false`.
 </PropertyReference>
 
   <PropertyReference name="a2ui" type="A2UIConfig">

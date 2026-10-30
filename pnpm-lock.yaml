@@ -2435,9 +2435,6 @@ importers:
       dompurify:
         specifier: '>=3.3.2'
         version: 3.4.1
-      highlight.js:
-        specifier: ^11.11.1
-        version: 11.11.1
       katex:
         specifier: ^0.16.22
         version: 0.16.27

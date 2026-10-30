@@ -8,6 +8,7 @@ import {
   ViewEncapsulation,
   afterRenderEffect,
   computed,
+  inject,
 } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
@@ -24,6 +25,17 @@ import {
   resolveRowRenderKeys,
 } from "@copilotkit/shared";
 import { hostStyles } from "../host-styles";
+import { CopilotKit } from "../../copilotkit";
+import {
+  TOOL_CALL_DISPLAY_CONTEXT,
+  type ToolCallDisplayContext,
+} from "./tool-call-display-context";
+import {
+  getToolCallLayouts,
+  getToolCallRendererNames,
+  type CopilotChatToolCallDisplay,
+  type ToolCallLayout,
+} from "./tool-call-layout";
 
 /**
  * CopilotChatMessageView component - Angular port of the React component.
@@ -33,6 +45,13 @@ import { hostStyles } from "../host-styles";
 @Component({
   selector: "copilot-chat-message-view",
   host: { "data-copilotkit": "" },
+  providers: [
+    {
+      provide: TOOL_CALL_DISPLAY_CONTEXT,
+      useFactory: (): ToolCallDisplayContext =>
+        inject(CopilotChatMessageView).toolCallDisplayContext,
+    },
+  ],
   imports: [
     NgTemplateOutlet,
     CopilotSlot,
@@ -152,6 +171,11 @@ export class CopilotChatMessageView {
   isLoading = input<boolean>(false);
   inputClass = input<string | undefined>();
   agentId = input<string | undefined>();
+  /**
+   * How assistant messages show tool calls: `"grouped"` (default), `"line"`,
+   * `"stacked"` or `"separate"`. See `CopilotChatToolCallDisplay`.
+   */
+  toolCallDisplay = input<CopilotChatToolCallDisplay>("grouped");
 
   // Handler availability handled via DI service
 
@@ -219,6 +243,25 @@ export class CopilotChatMessageView {
     () => this.showCursor() && this.lastMessage()?.role !== "reasoning",
   );
   protected isLoadingValue = computed(() => this.isLoading());
+
+  readonly #copilotKit = inject(CopilotKit);
+  // Groups can span messages, so the view lays out every message's calls.
+  readonly #toolCallLayouts = computed<ReadonlyMap<string, ToolCallLayout>>(
+    () =>
+      this.toolCallDisplay() === "separate"
+        ? new Map()
+        : getToolCallLayouts(
+            this.messagesValue(),
+            this.messagesValue(),
+            getToolCallRendererNames(this.#copilotKit),
+          ),
+  );
+  /** @internal Read by each message's tool-calls view. */
+  readonly toolCallDisplayContext: ToolCallDisplayContext = {
+    display: this.toolCallDisplay,
+    isRunning: this.isLoadingValue,
+    layouts: this.#toolCallLayouts,
+  };
   protected lastMessage = computed(() => {
     const messages = this.messagesValue();
     return messages[messages.length - 1];

@@ -189,7 +189,7 @@ See individual stories below for detailed examples of each customization approac
   argTypes: {
     mode: {
       control: { type: "radio" },
-      options: ["input", "transcribe"],
+      options: ["input", "transcribe", "processing"],
       description: "The input mode - text input or voice recording",
       table: {
         type: { summary: "'input' | 'transcribe'" },
@@ -820,8 +820,9 @@ export class ChatComponent {
 export const ExpandedTextarea: Story = {
   name: "Expanded Textarea",
   args: {
+    // The same text as React's story.
     value:
-      "This is a longer message that will cause the textarea to expand.\n\nIt has multiple lines to demonstrate the auto-resize functionality.\n\nThe textarea will grow up to the maxRows limit.",
+      "This is a longer message that will cause the textarea to expand to multiple rows.\n\nThe textarea remains beside the add button until a wrap occurs, then moves above the controls.",
   },
   parameters: {
     docs: {
@@ -868,6 +869,20 @@ export class ChatComponent {
   }
 }`,
         language: "typescript",
+      },
+    },
+  },
+};
+
+// Processing
+export const Processing: Story = {
+  name: "Processing",
+  args: { mode: "processing" },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'In `"processing"` mode, as while CopilotChat transcribes a recording, a spinner replaces the text area, as in React.',
       },
     },
   },

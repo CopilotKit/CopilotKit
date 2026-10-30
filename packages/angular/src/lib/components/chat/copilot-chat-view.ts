@@ -33,6 +33,7 @@ import { ChatState } from "../../chat-state";
 import { CopilotIcon, Upload } from "../icons/copilot-icon";
 import { injectChatLabels } from "../../chat-config";
 import { COPILOT_CHAT_WELCOME_LAYOUT } from "./copilot-chat-welcome-layout";
+import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
 
 /**
  * CopilotChatView component - Angular port of the React component.
@@ -217,6 +218,7 @@ import { COPILOT_CHAT_WELCOME_LAYOUT } from "./copilot-chat-welcome-layout";
           [agentId]="agentId()"
           [messageView]="messageViewSlot()"
           [messageViewClass]="messageViewClass()"
+          [toolCallDisplay]="toolCallDisplay()"
           [assistantMessageComponent]="assistantMessageComponent()"
           [assistantMessageTemplate]="assistantMessageTemplate()"
           [assistantMessageClass]="assistantMessageClass()"
@@ -274,6 +276,11 @@ export class CopilotChatView implements OnInit, OnChanges {
   messageViewComponent = input<Type<any> | undefined>(undefined);
   messageViewTemplate = input<TemplateRef<any> | undefined>(undefined);
   messageViewClass = input<string | undefined>(undefined);
+  /**
+   * How assistant messages show tool calls: `"grouped"` (default), `"line"`,
+   * `"stacked"` or `"separate"`. Forwarded to the message view.
+   */
+  toolCallDisplay = input<CopilotChatToolCallDisplay>("grouped");
 
   // AssistantMessage slot inputs
   assistantMessageComponent = input<Type<any> | undefined>(undefined);
@@ -418,6 +425,7 @@ export class CopilotChatView implements OnInit, OnChanges {
     agentId: this.agentId(),
     messageView: this.messageViewSlot(),
     messageViewClass: this.messageViewClass(),
+    toolCallDisplay: this.toolCallDisplay(),
     assistantMessageComponent: this.assistantMessageComponent(),
     assistantMessageTemplate: this.assistantMessageTemplate(),
     assistantMessageClass: this.assistantMessageClass(),

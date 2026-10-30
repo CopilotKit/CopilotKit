@@ -141,14 +141,40 @@ export class CopilotChatTextarea implements AfterViewInit {
     }
   }
 
-  private adjustHeight(): void {
+  private adjustHeight(): number {
     const textarea = this.elementRef.nativeElement;
     const maxHeightValue = this.maxHeight();
 
+    textarea.style.height = "auto";
+    const scrollHeight = textarea.scrollHeight;
     if (maxHeightValue > 0) {
-      textarea.style.height = "auto";
-      textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeightValue)}px`;
+      textarea.style.height = `${Math.min(scrollHeight, maxHeightValue)}px`;
     }
+    return scrollHeight;
+  }
+
+  private singleLineHeight = 0;
+
+  /**
+   * Fits the height to the text and returns the text's height and the height
+   * of one line, for the input to choose its layout.
+   */
+  measure(): { scrollHeight: number; singleLineHeight: number } {
+    if (!isPlatformBrowser(this.platformId)) {
+      return { scrollHeight: 0, singleLineHeight: 0 };
+    }
+    const textarea = this.elementRef.nativeElement;
+    if (this.singleLineHeight === 0) {
+      const value = textarea.value;
+      textarea.value = "";
+      textarea.style.height = "auto";
+      this.singleLineHeight = textarea.scrollHeight;
+      textarea.value = value;
+    }
+    return {
+      scrollHeight: this.adjustHeight(),
+      singleLineHeight: this.singleLineHeight,
+    };
   }
 
   /**

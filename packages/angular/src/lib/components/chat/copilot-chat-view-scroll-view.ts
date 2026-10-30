@@ -29,6 +29,7 @@ import { Message } from "@ag-ui/client";
 import { cn } from "../../utils";
 import { Subject } from "rxjs";
 import { takeUntil } from "rxjs/operators";
+import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
 
 /**
  * ScrollView component for CopilotChatView
@@ -76,6 +77,11 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   messageViewChildrenTemplate = input<TemplateRef<any> | undefined>();
   messageViewChildrenClass = input<string | undefined>();
   showCursor = input<boolean>(false);
+  /**
+   * How assistant messages show tool calls: `"grouped"` (default), `"line"`,
+   * `"stacked"` or `"separate"`. Forwarded to the message view.
+   */
+  toolCallDisplay = input<CopilotChatToolCallDisplay>("grouped");
 
   // Handler availability flags removed in favor of DI service
 
@@ -195,6 +201,7 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
       agentId: this.agentId(),
       inputClass: this.messageViewClass(),
       showCursor: this.showCursor(),
+      toolCallDisplay: this.toolCallDisplay(),
       assistantMessageComponent: this.assistantMessageComponent(),
       assistantMessageTemplate: this.assistantMessageTemplate(),
       assistantMessageClass: this.assistantMessageClass(),

@@ -12,6 +12,7 @@ import type {
 } from "@copilotkit/shared";
 import { getDocumentIcon, getSourceUrl } from "@copilotkit/shared";
 import { cn } from "../../utils";
+import { injectLightbox } from "./copilot-chat-lightbox";
 
 @Component({
   selector: "copilot-chat-attachment-renderer",
@@ -26,12 +27,27 @@ import { cn } from "../../utils";
             <span>Failed to load image</span>
           </div>
         } @else {
-          <img
-            [src]="sourceUrl()"
-            alt="Image attachment"
-            [class]="imageClass()"
-            (error)="imageFailed.set(true)"
-          />
+          <button
+            #thumbnail
+            type="button"
+            class="cpk-attachment-lightbox-trigger"
+            (click)="lightbox.open(imagePreview, 'Image attachment', thumbnail)"
+          >
+            <img
+              [src]="sourceUrl()"
+              alt="Image attachment"
+              [class]="imageClass()"
+              (error)="imageFailed.set(true)"
+            />
+          </button>
+          <ng-template #imagePreview>
+            <img
+              [style.view-transition-name]="lightbox.transitionName"
+              [src]="sourceUrl()"
+              alt="Image attachment"
+              class="cpk-attachment-renderer-lightbox-image"
+            />
+          </ng-template>
         }
       }
       @case ("audio") {
@@ -58,14 +74,25 @@ import { cn } from "../../utils";
         ></video>
       }
       @default {
-        <div [class]="documentClass()">
+        <!-- download works for same-origin, data: and blob: URLs; target="_blank"
+             opens other files in a new tab instead of leaving the chat. -->
+        <a
+          [href]="sourceUrl()"
+          [attr.download]="filename() ?? ''"
+          target="_blank"
+          rel="noopener noreferrer"
+          [attr.aria-label]="
+            filename() || source().mimeType || 'Document attachment'
+          "
+          [class]="documentClass()"
+        >
           <span class="cpk-attachment-renderer-document-icon">
             {{ documentIcon() }}
           </span>
           <span class="cpk-attachment-renderer-document-name">
             {{ filename() || source().mimeType || "Unknown type" }}
           </span>
-        </div>
+        </a>
       }
     }
   `,
@@ -77,6 +104,8 @@ export class CopilotChatAttachmentRenderer {
   readonly inputClass = input<string | undefined>();
 
   readonly imageFailed = signal(false);
+  /** Opens the image full screen. */
+  readonly lightbox = injectLightbox();
   readonly sourceUrl = computed(() => getSourceUrl(this.source()));
   readonly documentIcon = computed(() =>
     getDocumentIcon(this.source().mimeType ?? ""),
