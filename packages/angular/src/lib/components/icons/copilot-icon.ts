@@ -1,13 +1,33 @@
-import { ChangeDetectionStrategy, Component, input } from "@angular/core";
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+} from "@angular/core";
+import { ɵcopilotIcons, ɵcopilotIconSvgAttributes } from "@copilotkit/core";
+import type { CopilotIconData } from "@copilotkit/core";
+import { cn } from "../../utils";
 
-export interface CopilotIconNode {
-  readonly tag: "path" | "rect";
-  readonly attributes: Readonly<Record<string, string>>;
-}
+export type { CopilotIconData, CopilotIconNode } from "@copilotkit/core";
 
-export type CopilotIconData = readonly CopilotIconNode[];
+/** Lucide names of the icons from `@copilotkit/core`, keyed by their data. */
+const lucideNames = new Map(
+  Object.values(ɵcopilotIcons).map(({ nodes, name }) => [nodes, name]),
+);
 
-/** Framework-independent renderer for the small Lucide subset used by chat. */
+/**
+ * Draws one chat icon from SVG data, such as `ArrowUp` from this file.
+ *
+ * The icon is decorative (`aria-hidden`). Put the accessible name on the
+ * button or link that holds it.
+ *
+ * ```html
+ * <copilot-icon [img]="ArrowUpIcon" iconClass="cpk-chat-input-send-icon" />
+ * ```
+ *
+ * An icon from `@copilotkit/core` also gets the `lucide lucide-<name>`
+ * classes, so CSS that selects Lucide classes applies to it.
+ */
 @Component({
   selector: "copilot-icon",
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -24,15 +44,15 @@ export type CopilotIconData = readonly CopilotIconNode[];
   template: `
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
+      [attr.viewBox]="svgAttributes['viewBox']"
+      [attr.fill]="svgAttributes['fill']"
+      [attr.stroke]="svgAttributes['stroke']"
+      [attr.stroke-width]="svgAttributes['stroke-width']"
+      [attr.stroke-linecap]="svgAttributes['stroke-linecap']"
+      [attr.stroke-linejoin]="svgAttributes['stroke-linejoin']"
       focusable="false"
       aria-hidden="true"
-      [attr.class]="iconClass() ?? null"
+      [attr.class]="svgClass()"
       [attr.width]="size()"
       [attr.height]="size()"
     >
@@ -51,104 +71,58 @@ export type CopilotIconData = readonly CopilotIconNode[];
               [attr.ry]="node.attributes['ry']"
             />
           }
+          @case ("circle") {
+            <circle
+              [attr.cx]="node.attributes['cx']"
+              [attr.cy]="node.attributes['cy']"
+              [attr.r]="node.attributes['r']"
+            />
+          }
+          @case ("polygon") {
+            <polygon [attr.points]="node.attributes['points']" />
+          }
         }
       }
     </svg>
   `,
 })
 export class CopilotIcon {
+  /** The SVG data to draw, for example `ArrowUp` from this file. */
   readonly img = input.required<CopilotIconData>();
+  /** Width and height of the `<svg>` in pixels. */
   readonly size = input(24);
   /** Class for the `<svg>`. Its CSS width and height override `size`. */
   readonly iconClass = input<string | undefined>();
+
+  protected readonly svgAttributes = ɵcopilotIconSvgAttributes;
+
+  protected readonly svgClass = computed(() => {
+    const name = lucideNames.get(this.img());
+    return cn(name && `lucide lucide-${name}`, this.iconClass()) || null;
+  });
 }
 
-function path(d: string): CopilotIconNode {
-  return { tag: "path", attributes: { d } };
-}
-
-function rect(attributes: Readonly<Record<string, string>>): CopilotIconNode {
-  return { tag: "rect", attributes };
-}
-
-// Icon paths are from Lucide (ISC), limited to the subset used by chat.
-export const ArrowUp: CopilotIconData = [
-  path("m5 12 7-7 7 7"),
-  path("M12 19V5"),
-];
-export const Check: CopilotIconData = [path("M20 6 9 17l-5-5")];
-export const ChevronDown: CopilotIconData = [path("m6 9 6 6 6-6")];
-export const ChevronLeft: CopilotIconData = [path("m15 18-6-6 6-6")];
-export const ChevronRight: CopilotIconData = [path("m9 18 6-6-6-6")];
-// Lucide draws Circle as <circle cx="12" cy="12" r="10" />.
-export const Circle: CopilotIconData = [
-  path("M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0"),
-];
-export const Copy: CopilotIconData = [
-  rect({ width: "14", height: "14", x: "8", y: "8", rx: "2", ry: "2" }),
-  path("M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"),
-];
-export const Edit: CopilotIconData = [
-  path("M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"),
-  path(
-    "M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z",
-  ),
-];
-export const EyeOff: CopilotIconData = [
-  path(
-    "M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49",
-  ),
-  path("M14.084 14.158a3 3 0 0 1-4.242-4.242"),
-  path(
-    "M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143",
-  ),
-  path("m2 2 20 20"),
-];
-export const Loader2: CopilotIconData = [path("M21 12a9 9 0 1 1-6.219-8.56")];
-export const MessageCircle: CopilotIconData = [
-  path("M7.9 20A9 9 0 1 0 4 16.1L2 22Z"),
-];
-export const Mic: CopilotIconData = [
-  path("M12 19v3"),
-  path("M19 10v2a7 7 0 0 1-14 0v-2"),
-  rect({ x: "9", y: "2", width: "6", height: "13", rx: "3" }),
-];
-// Lucide draws Play as <polygon points="6 3 20 12 6 21 6 3" />.
-export const Play: CopilotIconData = [path("M6 3 20 12 6 21Z")];
-export const Plus: CopilotIconData = [path("M5 12h14"), path("M12 5v14")];
-export const RefreshCw: CopilotIconData = [
-  path("M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"),
-  path("M21 3v5h-5"),
-  path("M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"),
-  path("M8 16H3v5"),
-];
-export const ThumbsDown: CopilotIconData = [
-  path("M17 14V2"),
-  path(
-    "M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z",
-  ),
-];
-export const ThumbsUp: CopilotIconData = [
-  path("M7 10v12"),
-  path(
-    "M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z",
-  ),
-];
-export const Upload: CopilotIconData = [
-  path("M12 3v12"),
-  path("m17 8-5-5-5 5"),
-  path("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"),
-];
-export const Volume2: CopilotIconData = [
-  path(
-    "M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z",
-  ),
-  path("M16 9a5 5 0 0 1 0 6"),
-  path("M19.364 18.364a9 9 0 0 0 0-12.728"),
-];
-export const Wrench: CopilotIconData = [
-  path(
-    "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
-  ),
-];
-export const X: CopilotIconData = [path("M18 6 6 18"), path("m6 6 12 12")];
+// The chat icons from `@copilotkit/core` (Lucide data). Pass one to `img`.
+export const ArrowUp = ɵcopilotIcons.ArrowUp.nodes;
+export const Check = ɵcopilotIcons.Check.nodes;
+export const ChevronDown = ɵcopilotIcons.ChevronDown.nodes;
+export const ChevronLeft = ɵcopilotIcons.ChevronLeft.nodes;
+export const ChevronRight = ɵcopilotIcons.ChevronRight.nodes;
+export const Circle = ɵcopilotIcons.Circle.nodes;
+export const Copy = ɵcopilotIcons.Copy.nodes;
+export const Edit = ɵcopilotIcons.Edit.nodes;
+export const EyeOff = ɵcopilotIcons.EyeOff.nodes;
+export const Loader2 = ɵcopilotIcons.Loader2.nodes;
+export const MessageCircle = ɵcopilotIcons.MessageCircle.nodes;
+export const Mic = ɵcopilotIcons.Mic.nodes;
+export const PanelLeftOpen = ɵcopilotIcons.PanelLeftOpen.nodes;
+export const Play = ɵcopilotIcons.Play.nodes;
+export const Plus = ɵcopilotIcons.Plus.nodes;
+export const RefreshCw = ɵcopilotIcons.RefreshCw.nodes;
+export const Square = ɵcopilotIcons.Square.nodes;
+export const ThumbsDown = ɵcopilotIcons.ThumbsDown.nodes;
+export const ThumbsUp = ɵcopilotIcons.ThumbsUp.nodes;
+export const Upload = ɵcopilotIcons.Upload.nodes;
+export const Volume2 = ɵcopilotIcons.Volume2.nodes;
+export const Wrench = ɵcopilotIcons.Wrench.nodes;
+export const X = ɵcopilotIcons.X.nodes;

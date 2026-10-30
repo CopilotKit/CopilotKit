@@ -228,7 +228,9 @@ describe("CopilotChatInput", () => {
       chatState.inputValue.set("draft");
       const { button, runControl } = renderRunning(true);
       expect(button.getAttribute("aria-label")).toBe("Stop");
-      expect(button.querySelector(".cpk-chat-input-stop-icon")).not.toBeNull();
+      expect(
+        button.querySelector("svg.lucide-square.cpk-chat-input-stop-icon"),
+      ).not.toBeNull();
 
       button.click();
 

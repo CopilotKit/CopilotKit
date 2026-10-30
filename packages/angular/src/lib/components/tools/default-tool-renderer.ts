@@ -156,20 +156,7 @@ let nextId = 0;
             style="font: inherit"
           >
             <div class="cpk-default-tool-call-title">
-              <svg
-                [attr.class]="chevronClass()"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="2"
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                />
-              </svg>
+              <copilot-icon [img]="ChevronRightIcon" [iconClass]="chevronClass()" />
               <span
                 [class]="
                   'cpk-default-tool-call-dot cpk-default-tool-call-dot-' + tone()

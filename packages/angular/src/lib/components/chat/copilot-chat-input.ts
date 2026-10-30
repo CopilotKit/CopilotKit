@@ -20,8 +20,7 @@ import { ɵcomposerButtonState, ɵresolveComposerKey } from "@copilotkit/core";
 import type { ɵComposerInput } from "@copilotkit/core";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { injectChatLabels } from "../../chat-config";
-import { ArrowUp, CopilotIcon, Loader2 } from "../icons/copilot-icon";
-import type { CopilotIconData } from "../icons/copilot-icon";
+import { ArrowUp, CopilotIcon, Loader2, Square } from "../icons/copilot-icon";
 import { CopilotChatTextarea } from "./copilot-chat-textarea";
 import { CopilotChatAudioRecorder } from "./copilot-chat-audio-recorder";
 import {
@@ -42,14 +41,6 @@ import { injectChatState } from "../../chat-state";
 import { explicitEffect } from "../../explicit-effect";
 import { CopilotKit } from "../../copilotkit";
 import { COPILOT_CHAT_RUN_CONTROL } from "./copilot-chat-run-control";
-
-/** Lucide's `square`, drawn filled on the button while the agent runs. */
-const StopIcon: CopilotIconData = [
-  {
-    tag: "rect",
-    attributes: { x: "3", y: "3", width: "18", height: "18", rx: "2" },
-  },
-];
 
 /**
  * Context provided to slot templates
@@ -400,7 +391,8 @@ export class CopilotChatInput implements OnDestroy {
 
   // Icons and default classes
   readonly ArrowUpIcon = ArrowUp;
-  readonly StopIcon = StopIcon;
+  /** Lucide's `square`, drawn filled on the button while the agent runs. */
+  readonly StopIcon = Square;
   readonly Loader2Icon = Loader2;
   readonly defaultButtonClass =
     "cpk-button cpk-button-chat-input-toolbar-primary cpk-button-size-chat-input-toolbar-icon";
