@@ -37,6 +37,8 @@ import {
 } from "@copilotkit/react-core/v2/generative-ui";
 import {
   A2UI_VERSION,
+  childIdsAtRefs,
+  collectChildRefs,
   GENERATIVE_UI_FUNCTIONS,
   validateOperation,
   type GenerativeUIManifest,
@@ -214,6 +216,17 @@ function renderProblem(
   });
   if (!v.ok) return v.reason;
   if (!components.some((c) => c.id === "root")) return "no root component";
+  const ids = new Set(components.map((c) => c.id));
+  for (const c of components) {
+    const entry = fullManifest.components[c.component];
+    const missing =
+      entry &&
+      childIdsAtRefs(c, collectChildRefs(entry.props)).find(
+        (id) => !ids.has(id),
+      );
+    if (missing)
+      return `component "${c.id}" references missing component "${missing}"`;
+  }
   if (components.some((c) => c.component === "Blueprint"))
     return "a component never finished";
   return undefined;

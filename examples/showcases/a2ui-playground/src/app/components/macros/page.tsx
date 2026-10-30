@@ -27,7 +27,7 @@ export const FlightCard = defineMacro({
   name: "FlightCard",
   description: "Flight itinerary with a select button. One per flight option.",
   props: z.object({ airline: z.string(), from: z.string(), to: z.string(), price: z.string().optional() }),
-  events: { onAction: { description: "Fires when the flight is selected." } },
+  events: { onAction: { description: "Fires when the flight is selected.", parameters: z.object({}).passthrough() } },
   // Pure: props in, a tree of standard components out. Props may be bound ({"@path"}).
   expand: (p) =>
     h("Card", { gap: 3 },

@@ -39,6 +39,9 @@ function refs(
       });
     }
   }
+  // Tooltip renders its trigger and its hidden content in place; Modal only its trigger (the content opens in a portal).
+  if (c.component === "Tooltip" || c.component === "Modal") one(c.trigger);
+  if (c.component === "Tooltip") one(c.content);
   for (const k of ["tabs", "items"])
     if (Array.isArray(c[k]))
       for (const it of c[k] as Array<{ child?: unknown }>) one(it?.child);

@@ -105,7 +105,12 @@ export function useUIGeneration(
       started = true;
       mo.disconnect();
       clearTimeout(settleTimer);
-      await document.fonts?.ready;
+      // Fonts settle the measured layout, but a stalled font load never holds the surface past MAX_WAIT.
+      const left = Math.max(0, MAX_WAIT - (performance.now() - first));
+      await Promise.race([
+        document.fonts?.ready,
+        new Promise((resolve) => setTimeout(resolve, left)),
+      ]);
       if (cancelled) return;
       run = generate(el, { ...optsRef.current });
       raf = requestAnimationFrame(follow);

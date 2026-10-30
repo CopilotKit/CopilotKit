@@ -56,13 +56,13 @@ const noAnswer = (t: EvalTaskResult) =>
   t.outputChars === 0 &&
   (/^[45]\d\d\b/.test(t.problem ?? "") || UNREACHABLE.test(t.problem ?? ""));
 
-/** A problem in words a visitor reads, never a raw provider error body. */
-export function plainProblem(problem = ""): string {
+/** A problem in words a visitor reads, never a raw provider error body. Longer than `max`, it is cut. */
+export function plainProblem(problem = "", max = 140): string {
   const status = /^([45]\d\d)\b/.exec(problem)?.[1];
   if (status === "429") return "Rate limited by the provider (429)";
   if (status) return `The provider returned an error (${status})`;
   if (UNREACHABLE.test(problem)) return "Could not reach the model server";
-  return problem.length > 140 ? `${problem.slice(0, 140)}…` : problem;
+  return problem.length > max ? `${problem.slice(0, max)}…` : problem;
 }
 
 function plainSkip(run: EvalRun): string {
@@ -318,6 +318,9 @@ export function EvalTasks({ data }: { data: EvalData }) {
               >
                 {r.label}{" "}
                 <span className="font-mono">{formatName(r.format)}</span>
+                <span className="mt-0.5 block font-mono text-[11.5px]">
+                  composer {r.composer}
+                </span>
               </th>
             ))}
           </tr>
@@ -376,7 +379,9 @@ export function EvalTasks({ data }: { data: EvalData }) {
                     </span>
                     <span
                       className="mt-1.5 block break-words font-mono text-[11.5px] leading-relaxed text-muted-foreground"
-                      title={x.valid ? undefined : x.problem}
+                      title={
+                        x.valid ? undefined : plainProblem(x.problem, Infinity)
+                      }
                     >
                       {x.valid ? x.used.join(", ") : plainProblem(x.problem)}
                     </span>

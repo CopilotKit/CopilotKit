@@ -2,6 +2,12 @@
 // (`toExpress` in `src/agent/express.ts`). The JSON tab uses it for surfaces no model wrote in Express:
 // templates, JSON runs and hand edits.
 //   POST /api/express { ops: [...] } -> { express, renamed } | { error }
+import {
+  collectChildRefs,
+  mapAtChildRef,
+  type GenerativeUIJSONSchema,
+} from "@copilotkit/shared";
+import inference from "@/a2ui/export/inference-catalog.json";
 import { toExpress } from "@/agent/express";
 import { identifierRenames } from "@/lib/express-lines";
 import {
@@ -20,6 +26,11 @@ const limit = rateLimiter(RATE_LIMITS.express);
 type Op = Record<string, unknown>;
 type Components = { components?: Array<{ id?: unknown }> };
 
+const schemas = inference.components as unknown as Record<
+  string,
+  GenerativeUIJSONSchema
+>;
+
 const lists = (op: Op) =>
   [op.createSurface, op.updateComponents]
     .map((x) => (x as Components | undefined)?.components)
@@ -31,6 +42,8 @@ const componentCount = (ops: Op[]) =>
  * Express names each component by its id, so an id must be an identifier.
  * JSON allows any string ("f-nonstop" in the flight template): those ids, and
  * every reference to them, get an identifier instead (`f_nonstop`, see `identifierRenames`).
+ * Only ids and the component references the catalog declares are renamed, never
+ * a display value that happens to equal an id.
  */
 function withIdentifierIds(ops: Op[]): { ops: Op[]; renamed: number } {
   const ids = ops
@@ -42,17 +55,31 @@ function withIdentifierIds(ops: Op[]): { ops: Op[]; renamed: number } {
     .filter((id): id is string => typeof id === "string");
   const rename = identifierRenames(ids);
   if (!rename.size) return { ops, renamed: 0 };
-  const walk = (v: unknown): unknown =>
-    typeof v === "string"
-      ? (rename.get(v) ?? v)
-      : Array.isArray(v)
-        ? v.map(walk)
-        : v && typeof v === "object"
-          ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]))
-          : v;
+  const name = (v: unknown) =>
+    typeof v === "string" ? (rename.get(v) ?? v) : v;
+  // A reference is an id, a list of ids, or a template's `componentId`.
+  const renameRef = (v: unknown): unknown =>
+    Array.isArray(v)
+      ? v.map(name)
+      : v && typeof v === "object" && "componentId" in v
+        ? { ...v, componentId: name(v.componentId) }
+        : name(v);
+  const renameNode = (c: unknown): unknown => {
+    if (!c || typeof c !== "object") return c;
+    const node = c as Record<string, unknown>;
+    const type = node.component;
+    const refs =
+      typeof type === "string" && Object.hasOwn(schemas, type)
+        ? collectChildRefs(schemas[type])
+        : [];
+    return refs.reduce<unknown>(
+      (out, ref) => mapAtChildRef(out, ref.path, renameRef),
+      { ...node, id: name(node.id) },
+    );
+  };
   const fix = (x: unknown) =>
     x && typeof x === "object" && Array.isArray((x as Components).components)
-      ? { ...x, components: walk((x as Components).components) }
+      ? { ...x, components: (x as Components).components!.map(renameNode) }
       : x;
   return {
     ops: ops.map((op) => ({

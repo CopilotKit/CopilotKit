@@ -10,6 +10,7 @@
  * list of ids or a `{componentId,path}` template. Every value may also be a
  * `{"@path"}` binding or a `{"@call"}` function call (A2UI 1.0).
  */
+import { createHash } from "node:crypto";
 import {
   A2UI_CHILD_LIST_MARK,
   A2UI_COMPONENT_ID_MARK,
@@ -174,9 +175,19 @@ const cache = new Map<string, string>();
 /**
  * The COMPONENTS and FUNCTIONS sections of the composer prompt. Identical for
  * the same catalog, so OpenAI prompt caching applies across requests.
+ * The catalog comes from the browser: it is cached by its content, so no
+ * request can change the prompt another visitor's run reads.
  */
 export function catalogPrompt(manifest: GenerativeUIManifest): string {
-  const key = `${manifest.catalogId}:${Object.keys(manifest.components).length}:${Object.keys(manifest.functions).length}`;
+  const key = createHash("sha256")
+    .update(
+      JSON.stringify([
+        manifest.catalogId,
+        manifest.components,
+        manifest.functions,
+      ]),
+    )
+    .digest("hex");
   const hit = cache.get(key);
   if (hit) return hit;
 
@@ -199,6 +210,7 @@ export function catalogPrompt(manifest: GenerativeUIManifest): string {
     .map(([name, f]) => functionLine(name, f))
     .join("\n");
   const prompt = `COMPONENTS\n${components}\n\nFUNCTIONS (use as {"@call":"name","args":{...}} in any prop value)\n${functions}`;
+  if (cache.size >= 8) cache.delete(cache.keys().next().value!);
   cache.set(key, prompt);
   return prompt;
 }

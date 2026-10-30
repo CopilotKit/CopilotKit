@@ -575,6 +575,17 @@ async function run(input: RunAgentInput, signal: AbortSignal, q: EventQueue) {
         client,
         signal,
       });
+      // Nothing to show (a new surface with no root, an update with no components) fails the run instead of ending it done.
+      if (
+        prior
+          ? !result.components.length
+          : !result.components.some((c) => c.id === "root")
+      )
+        throw new Error(
+          prior
+            ? "The model wrote no components for this update."
+            : "The model wrote no root component.",
+        );
       if (prior)
         pipeline(q, t0, "paint", {
           components: result.components.length,

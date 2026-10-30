@@ -20,10 +20,14 @@ export function CopyButton({
       type="button"
       aria-label={copied ? "Copied" : label}
       onClick={() => {
-        void navigator.clipboard?.writeText(text).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1400);
-        });
+        void navigator.clipboard
+          ?.writeText(text)
+          .then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1400);
+          })
+          // Clipboard access denied: no check mark, so the button reads as not copied.
+          .catch(() => {});
       }}
       className={cn(
         "flex size-8 flex-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white/[0.07] hover:text-foreground",

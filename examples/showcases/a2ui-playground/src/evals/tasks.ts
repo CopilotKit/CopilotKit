@@ -50,7 +50,7 @@ export const EVAL_TASKS: EvalTask[] = [
     prompt: "Plan a 3-day Tokyo trip with a map",
     expect: [
       ["MapView", "Map", "RouteMap", "PlaceList"],
-      ["Timeline", "Agenda", "Tabs", "Accordion", "PlaceList"],
+      ["Timeline", "Agenda", "Tabs", "Accordion"],
     ],
   },
   {

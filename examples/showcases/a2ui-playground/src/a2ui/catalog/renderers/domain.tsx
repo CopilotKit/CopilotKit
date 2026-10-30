@@ -124,15 +124,16 @@ function Img({
   alt: string;
   className?: string;
 }) {
-  const [failed, setFailed] = useState(false);
-  if (!src || failed) return null;
+  // Keyed to the URL that failed, so a new src still loads.
+  const [failedSrc, setFailedSrc] = useState<string>();
+  if (!src || failedSrc === src) return null;
   // eslint-disable-next-line @next/next/no-img-element
   return (
     <img
       src={src}
       alt={alt}
       loading="lazy"
-      onError={() => setFailed(true)}
+      onError={() => setFailedSrc(src)}
       className={cn("block size-full object-cover", className)}
     />
   );
@@ -920,7 +921,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
           <span className="text-[16px] font-semibold leading-snug tracking-tight">
             {props.title}
           </span>
-          {meta.length ? (
+          {meta.length || tags.length ? (
             <div className="flex flex-wrap gap-1.5">
               {meta.map((m) => (
                 <span key={m.value} className={chip}>

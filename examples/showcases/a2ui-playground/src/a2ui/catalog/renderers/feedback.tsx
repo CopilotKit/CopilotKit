@@ -77,7 +77,7 @@ export const feedbackRenderers: RendererMap<
           {props.text}
         </p>
       </div>
-      {props.actionLabel ? (
+      {props.actionLabel && props.action ? (
         <Button
           size="sm"
           variant="secondary"
@@ -141,7 +141,7 @@ export const feedbackRenderers: RendererMap<
           {props.description}
         </p>
       ) : null}
-      {props.actionLabel ? (
+      {props.actionLabel && props.action ? (
         <Button size="sm" className="mt-2" onClick={() => props.action?.()}>
           {props.actionLabel}
         </Button>

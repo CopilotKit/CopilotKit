@@ -21,9 +21,10 @@ export function useBound<T>(
   useEffect(() => {
     if (value !== last.current) {
       last.current = value;
-      if (value !== undefined) setLocal(value);
+      // A removed value resets the control, so it matches the data model.
+      setLocal(value === undefined ? fallback : value);
     }
-  }, [value]);
+  }, [value, fallback]);
   const set = useCallback(
     (next: T) => {
       setLocal(next);

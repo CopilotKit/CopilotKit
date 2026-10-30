@@ -59,7 +59,8 @@ export function skillName(name: string | undefined): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 64);
+    .slice(0, 64)
+    .replace(/-+$/, "");
   return slug && slug !== "a2ui-core" ? slug : SKILL_NAME;
 }
 

@@ -181,7 +181,11 @@ export function latestData(ops: A2UIOp[]): Record<string, unknown> {
       | { path?: string; value?: unknown }
       | undefined;
     if (!update) continue;
-    const segments = (update.path ?? "/").split("/").filter(Boolean);
+    // JSON Pointer: `~1` is "/" and `~0` is "~" inside a segment.
+    const segments = (update.path ?? "/")
+      .split("/")
+      .filter(Boolean)
+      .map((seg) => seg.replace(/~[01]/g, (m) => (m === "~1" ? "/" : "~")));
     if (!segments.length) {
       data =
         update.value && typeof update.value === "object"

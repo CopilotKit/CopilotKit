@@ -201,7 +201,8 @@ export function analyzeOps(
   const comps = blocking ? [] : latestComponents(ops);
   if (!blocking) {
     const ids = new Set(comps.map((c) => c.id));
-    if (comps.length && !ids.has(GENERATIVE_UI_ROOT_ID)) {
+    // An empty surface (no components yet, or a final deleteSurface) renders nothing either.
+    if (!ids.has(GENERATIVE_UI_ROOT_ID)) {
       problems.push({
         severity: "error",
         where: "surface",

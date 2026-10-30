@@ -35,17 +35,18 @@ function writtenExpress(
     : null;
 }
 
-/** `renamed`: ids that are not identifiers (`f-nonstop`) are renamed for Express, which names components by id. */
+/** `renamed`: ids that are not identifiers (`f-nonstop`) are renamed for Express, which names components by id. `retry`: a passing failure (no connection, rate limit, server error), asked again on the next mount. */
 export type Decompiled =
   | { express: string; renamed: number }
-  | { error: string };
+  | { error: string; retry?: boolean };
 const decompiled = new Map<string, Decompiled>();
 
 /** The surface in Express, decompiled on the server by Google's `@a2ui/agent` (POST /api/express). Cached per surface version. */
 export function useDecompiled(opsJson: string | null): Decompiled | null {
   const [, rerender] = useState(0);
   useEffect(() => {
-    if (!opsJson || decompiled.has(opsJson)) return;
+    const cached = opsJson ? decompiled.get(opsJson) : undefined;
+    if (!opsJson || (cached && !("retry" in cached && cached.retry))) return;
     const ctl = new AbortController();
     const remember = (r: Decompiled) => {
       if (decompiled.size > 24)
@@ -59,8 +60,12 @@ export function useDecompiled(opsJson: string | null): Decompiled | null {
       body: `{"ops":${opsJson}}`,
       signal: ctl.signal,
     })
-      .then((res) => res.json())
-      .then((j: { express?: unknown; renamed?: unknown; error?: unknown }) =>
+      .then(async (res) => {
+        const j = (await res.json()) as {
+          express?: unknown;
+          renamed?: unknown;
+          error?: unknown;
+        };
         remember(
           typeof j.express === "string"
             ? { express: j.express, renamed: Number(j.renamed) || 0 }
@@ -68,13 +73,15 @@ export function useDecompiled(opsJson: string | null): Decompiled | null {
                 error: String(
                   j.error ?? "The server could not decompile this surface.",
                 ),
+                retry: res.status === 429 || res.status >= 500,
               },
-        ),
-      )
+        );
+      })
       .catch((err: Error) => {
         if (err.name !== "AbortError")
           remember({
             error: "Could not reach the server to decompile this surface.",
+            retry: true,
           });
       });
     return () => ctl.abort();

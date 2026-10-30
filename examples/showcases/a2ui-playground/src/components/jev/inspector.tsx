@@ -195,10 +195,12 @@ export function Label({ left, right }: { left: string; right?: string }) {
 /** Real timeline of one run, in ms from Enter. */
 export function Stream({ state }: { state: JevRunState }) {
   const rows = useMemo(() => {
-    if (state.phase === "idle" || state.phase === "error") return [];
+    if (state.phase === "idle") return [];
     const out: Array<{ t: number | null; label: string; detail?: string }> = [
       { t: 0, label: "Request sent" },
     ];
+    if (state.phase === "error")
+      return [...out, { t: null, label: state.message }];
     if (state.phase === "running") return out;
     if (state.phase === "notice") {
       if (state.notice.places)

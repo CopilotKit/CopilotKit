@@ -186,9 +186,9 @@ export function JsonEditPane({
         : null,
     };
   });
-  useEffect(() => {
-    const t = setTimeout(() => {
-      const analysis = analyze(text);
+  const check = useCallback(
+    (t: string) => {
+      const analysis = analyze(t);
       setChecked((prev) => ({
         analysis,
         // A new version only for a real change: whitespace edits keep the preview as it is.
@@ -202,9 +202,13 @@ export function JsonEditPane({
               }
             : prev.good,
       }));
-    }, DEBOUNCE_MS);
+    },
+    [analyze],
+  );
+  useEffect(() => {
+    const t = setTimeout(() => check(text), DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [text, analyze]);
+  }, [text, check]);
   const { analysis, good } = checked;
   const errors = analysis.problems.filter((p) => p.severity === "error");
   const warnings = analysis.problems.filter((p) => p.severity === "warning");
@@ -350,7 +354,11 @@ export function JsonEditPane({
       ) : null}
 
       <div className="pg-jed-split min-h-0 flex-1">
-        <div className="pg-jed-left flex min-h-0 flex-col">
+        {/* Leaving the editor checks the text at once, so Ask never sends what was checked before the last edit. */}
+        <div
+          className="pg-jed-left flex min-h-0 flex-col"
+          onBlur={() => check(text)}
+        >
           <CodeEditor
             value={text}
             onChange={setText}

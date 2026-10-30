@@ -80,6 +80,7 @@ export function SkillBuilder({
   useEffect(() => {
     if (!selection.components.length) {
       setFiles(undefined);
+      setError(undefined);
       setLoading(false);
       return;
     }

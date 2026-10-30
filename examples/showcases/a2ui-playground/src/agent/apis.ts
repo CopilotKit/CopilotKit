@@ -380,17 +380,20 @@ export async function searchPlaces(
   const photonP = photon(category ?? text, box, limit).catch(() => [] as Poi[]);
   let places: Poi[] = [];
   let source = "OpenStreetMap Nominatim";
+  // Each fallback replaces the result only when it found more, so an empty answer never discards places.
   for (const q of queries) {
-    try {
-      places = await nominatim(q, box, limit, signal);
-    } catch {
-      places = [];
-    }
+    const found = await nominatim(q, box, limit, signal).catch(
+      () => [] as Poi[],
+    );
+    if (found.length > places.length) places = found;
     if (places.length >= 3) break;
   }
   if (places.length < 3) {
-    source = "Photon (OpenStreetMap)";
-    places = await photonP;
+    const fallback = await photonP;
+    if (fallback.length > places.length) {
+      source = "Photon (OpenStreetMap)";
+      places = fallback;
+    }
   }
   const seen = new Set<string>();
   places = places
