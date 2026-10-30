@@ -169,6 +169,14 @@ export function latestComponents(ops: A2UIOp[]): Comp[] {
   return [...byId.values()];
 }
 
+/** The keys of a JSON Pointer: `~1` is "/" and `~0` is "~" inside a segment. */
+export function pointerSegments(path: string): string[] {
+  return path
+    .split("/")
+    .filter(Boolean)
+    .map((seg) => seg.replace(/~[01]/g, (m) => (m === "~1" ? "/" : "~")));
+}
+
 /** The data model of a surface after its operations (`createSurface.dataModel`, then each `updateDataModel`). */
 export function latestData(ops: A2UIOp[]): Record<string, unknown> {
   let data: Record<string, unknown> = {};
@@ -181,11 +189,7 @@ export function latestData(ops: A2UIOp[]): Record<string, unknown> {
       | { path?: string; value?: unknown }
       | undefined;
     if (!update) continue;
-    // JSON Pointer: `~1` is "/" and `~0` is "~" inside a segment.
-    const segments = (update.path ?? "/")
-      .split("/")
-      .filter(Boolean)
-      .map((seg) => seg.replace(/~[01]/g, (m) => (m === "~1" ? "/" : "~")));
+    const segments = pointerSegments(update.path ?? "/");
     if (!segments.length) {
       data =
         update.value && typeof update.value === "object"

@@ -7,11 +7,16 @@ import { paced } from "./geo";
 
 const UA = "a2ui-playground/0.1 (CopilotKit A2UI demo)";
 
-/** Fetch JSON with a timeout. No cache, so every run shows a real lookup time. */
-async function getJson<T>(url: string, timeoutMs = 8000): Promise<T> {
+/** Fetch JSON with a timeout (and the run's signal, when given). No cache, so every run shows a real lookup time. */
+async function getJson<T>(
+  url: string,
+  timeoutMs = 8000,
+  signal?: AbortSignal,
+): Promise<T> {
+  const timeout = AbortSignal.timeout(timeoutMs);
   const res = await fetch(url, {
     headers: { "User-Agent": UA, Accept: "application/json" },
-    signal: AbortSignal.timeout(timeoutMs),
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`${new URL(url).host} responded ${res.status}`);
@@ -333,10 +338,12 @@ async function photon(
   q: string,
   box: { w: number; e: number; n: number; s: number },
   limit: number,
+  signal?: AbortSignal,
 ): Promise<Poi[]> {
   const j = await getJson<any>(
     `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&bbox=${box.w},${box.s},${box.e},${box.n}&limit=${limit + 4}&lang=en`,
     6000,
+    signal,
   );
   return (j.features as any[])
     .filter((f) => f.properties?.name)
@@ -377,20 +384,25 @@ export async function searchPlaces(
   const queries = Array.from(
     new Set([text, category].filter(Boolean) as string[]),
   );
-  const photonP = photon(category ?? text, box, limit).catch(() => [] as Poi[]);
+  const photonP = photon(category ?? text, box, limit, signal).catch(
+    () => [] as Poi[],
+  );
   let places: Poi[] = [];
   let source = "OpenStreetMap Nominatim";
+  // Places are kept one per name (below), so lists are compared by how many names they hold.
+  const distinct = (list: Poi[]) => new Set(list.map((p) => p.name)).size;
   // Each fallback replaces the result only when it found more, so an empty answer never discards places.
   for (const q of queries) {
     const found = await nominatim(q, box, limit, signal).catch(
       () => [] as Poi[],
     );
-    if (found.length > places.length) places = found;
-    if (places.length >= 3) break;
+    if (distinct(found) > distinct(places)) places = found;
+    if (distinct(places) >= 3) break;
   }
-  if (places.length < 3) {
+  if (distinct(places) < 3) {
     const fallback = await photonP;
-    if (fallback.length > places.length) {
+    signal?.throwIfAborted();
+    if (distinct(fallback) > distinct(places)) {
       source = "Photon (OpenStreetMap)";
       places = fallback;
     }

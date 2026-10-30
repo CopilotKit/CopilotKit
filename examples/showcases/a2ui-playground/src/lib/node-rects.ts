@@ -10,7 +10,12 @@
  * component once per item of the list at `path`; only the first instance is
  * kept, like the old per-definition measurement.
  */
-import { latestComponents, latestData, type A2UIOp } from "./run-store";
+import {
+  latestComponents,
+  latestData,
+  pointerSegments,
+  type A2UIOp,
+} from "./run-store";
 
 type Comp = { id: string; component: string } & Record<string, unknown>;
 
@@ -26,13 +31,10 @@ function refs(
   else if (c.children && typeof c.children === "object") {
     const t = c.children as { componentId?: unknown; path?: unknown };
     if (typeof t.componentId === "string" && typeof t.path === "string") {
-      const list = t.path
-        .split("/")
-        .filter(Boolean)
-        .reduce<unknown>(
-          (cur, k) => (cur as Record<string, unknown> | undefined)?.[k],
-          data,
-        );
+      const list = pointerSegments(t.path).reduce<unknown>(
+        (cur, k) => (cur as Record<string, unknown> | undefined)?.[k],
+        data,
+      );
       out.push({
         id: t.componentId,
         times: Array.isArray(list) ? list.length : 0,
@@ -77,8 +79,22 @@ export function nodeElements(
   }
   const out = new Map<string, HTMLElement>();
   for (const [id, first] of order) {
-    const el = queues.get(byId.get(id)!.component)?.shift();
+    const c = byId.get(id)!;
+    const el = queues.get(c.component)?.shift();
     if (el && first && !out.has(id)) out.set(id, el);
+    // A Table shows its cellComponents per row and column, an order the walk cannot follow, so they stay
+    // unmapped; their elements inside this table leave the queues, or a later component of the same type
+    // would take one of them.
+    if (el && Array.isArray(c.cellComponents))
+      for (const cell of c.cellComponents) {
+        const type = byId.get(cell as string)?.component;
+        const queue = type ? queues.get(type) : undefined;
+        if (type && queue)
+          queues.set(
+            type,
+            queue.filter((e) => !el.contains(e)),
+          );
+      }
   }
   return out;
 }

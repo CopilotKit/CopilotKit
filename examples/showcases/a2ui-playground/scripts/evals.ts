@@ -58,6 +58,13 @@ const arg = (name: string) => {
 };
 
 /** The files of a zip, by path. Reads stored and deflated entries, which covers /skills downloads and re-zipped folders. */
+/** Provider errors can echo a key or a token; results are committed, so those never reach a problem. */
+function redact(message: string): string {
+  return message
+    .replace(/\b(sk-[A-Za-z0-9_-]{8,}|AIza[0-9A-Za-z_-]{20,})/g, "[redacted]")
+    .replace(/\b(Bearer\s+|key=)[^\s&"']+/gi, "$1[redacted]");
+}
+
 function unzip(path: string): Record<string, string> {
   const buf = readFileSync(path);
   let end = buf.length - 22;
@@ -293,7 +300,10 @@ async function runOne(
     return {
       id: task.id,
       valid: false,
-      problem: err instanceof Error ? err.message.slice(0, 300) : String(err),
+      problem: redact(err instanceof Error ? err.message : String(err)).slice(
+        0,
+        300,
+      ),
       choice: 0,
       used: [],
       composeMs: 0,
