@@ -20,6 +20,7 @@ the Next.js runtime route bridges the CopilotKit AG-UI protocol to the
 LangGraph deployment.
 """
 
+# @region[shared-state-setup]
 from typing import Any, Awaitable, Callable, TypedDict
 
 from langchain.agents import AgentState as BaseAgentState, create_agent
@@ -141,7 +142,6 @@ class PreferencesInjectorMiddleware(AgentMiddleware[AgentState, Any]):
         )
 
 
-# @region[shared-state-setup]
 graph = create_agent(
     model=ChatOpenAI(model="gpt-5-mini"),
     tools=[set_notes],

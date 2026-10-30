@@ -37,9 +37,25 @@ updates in the UI are reflected in the agent's execution.
   surface="docs_shared_state"
 />
 
+## Complete example
+
+The snippets below focus on individual parts of the pattern. Open the **Code**
+tab for the complete example, including imports, the `Preferences` and
+`RWAgentState` types, initial state, the preferences form, and the notes card.
+The page component derives `preferences` and `notes` from `agent.state` before
+passing them to the form and card.
+
+<InlineDemo demo="shared-state-read-write" showAllFiles />
+
 ## Reading agent state
 
 <FrameworkSetup concept="shared-state-setup" />
+
+Import both the hook and its update selector in your client component:
+
+```tsx
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
+```
 
 Subscribe a component to the agent's state with `useAgent`. Any time the agent
 mutates its state, for example via a tool call, the hook fires and your UI
