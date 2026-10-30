@@ -252,11 +252,11 @@ routes exist in multi-route mode whichever runner you use:
 
 | Method & path | Purpose |
 |---|---|
-| `GET /api/copilotkit/threads` | List threads. With Intelligence, the `agentId` query parameter is required. Without Intelligence, it is optional and filters the list. |
-| `GET /api/copilotkit/threads/:threadId/messages` | That thread's full message history. |
+| `GET /api/copilotkit/threads` | List threads. With Intelligence, the `agentId` query parameter is required. Without Intelligence, it is optional and filters the list, and on a runner with local thread endpoints, such as `InMemoryAgentRunner`, the route answers `403` when no `identifyUser` is set and `threads.access` is not `"open"`. |
+| `GET /api/copilotkit/threads/:threadId/messages` | That thread's stored message history. See [Stored message history](/backend/agent-runner#stored-message-history). |
 | `GET /api/copilotkit/threads/:threadId/events` | That thread's compacted AG-UI event stream. |
 | `GET /api/copilotkit/threads/:threadId/state` | That thread's last state snapshot. |
-| `POST /api/copilotkit/threads/clear` | Wipe the in-memory thread history. Always answers `204`, and clears nothing on a runner that keeps no local store. |
+| `POST /api/copilotkit/threads/clear` | Wipe the in-memory thread history of the caller. Answers `204`, or `403` when no `identifyUser` is set and `threads.access` is not `"open"`. On a runner that keeps no local store it clears nothing and always answers `204`. |
 | `PATCH` or `DELETE /api/copilotkit/threads/:threadId` | Rename or delete a thread. Intelligence only. |
 | `POST /api/copilotkit/threads/:threadId/archive` | Archive a thread. Intelligence only. |
 | `POST /api/copilotkit/threads/subscribe` | Subscribe to thread changes. Intelligence only. |
@@ -275,22 +275,28 @@ pass `limit` and the `cursor` from the previous response. Add
 `includeArchived=true` to include archived threads. Those three parameters
 apply only with Intelligence.
 
-<Callout type="warn" title="Thread routes are not authorized for you">
-On the default `InMemoryAgentRunner` — and on anything extending it, such as
-`AgentCoreRunner` — these routes read the runner's local store and resolve no
-user at all: any caller that reaches the route reads the thread it names, `GET
-/threads` lists every thread in the process, and `POST /threads/clear` wipes
-them all. A runner that keeps no local store, such as `SqliteAgentRunner`,
-answers the four read routes with a `422` instead.
+<Callout type="warn" title="Without identifyUser, a thread id is the only credential">
+On the default `InMemoryAgentRunner`, and on anything extending it, such as
+`AgentCoreRunner`, a `/v2` runtime with `identifyUser` scopes these routes to the
+identified user, and another user's thread reads like an unknown one.
 
-An Intelligence runtime scopes **most** of them to the user your `identifyUser`
-returns, but not all: `threads/events`, `threads/state` and
-`POST /agent/:agentId/stop/:threadId` read the thread by id alone. Guard those
-three yourself even on the platform.
+Without `identifyUser`, these runners answer `GET /threads` and
+`POST /threads/clear` with `403` unless you set `threads: { access: "open" }`,
+and every caller that holds a
+thread id can read that thread, replay it, run on it and stop it. A runner that
+keeps no local store, such as `SqliteAgentRunner`, answers the four read routes
+with a `422` instead.
 
-`:threadId` is chosen by the client on the run, so it is not a secret. If more
-than one person uses your deployment, authorize these routes yourself — see
-[Thread authorization](/auth#thread-authorization).
+An Intelligence runtime scopes these routes to the user your `identifyUser`
+returns: `threads/events`, `threads/state` and
+`POST /agent/:agentId/stop/:threadId` first fetch the thread as that user.
+
+`:threadId` is chosen by the client on the run, so without `identifyUser` it
+acts as a capability: it protects a thread only while it stays unguessable and
+private. CopilotKit's clients generate random ids. Do not use predictable ids,
+and keep ids out of URLs and logs that other people can read. If more than one
+person uses your deployment, set `identifyUser` or authorize these routes
+yourself. See [Thread authorization](/auth#thread-authorization).
 </Callout>
 
 ### Probing the runtime with curl
@@ -659,6 +665,11 @@ createCopilotExpressHandler({
   },
 });
 ```
+
+An auth hook only decides whether a request may proceed. It does not tell the
+runtime who the caller is, so without `identifyUser` every authenticated user
+still shares the anonymous thread space, where a thread id is enough to reach a
+thread. For per-user separation, also pass `identifyUser` to `CopilotRuntime`.
 
 `onRequest` runs before routing, so it knows the path but not the route. For
 per-thread decisions use `onBeforeHandler`, which runs after routing and

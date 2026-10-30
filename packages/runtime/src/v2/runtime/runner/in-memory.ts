@@ -27,7 +27,11 @@ import { finalizeRunEvents } from "@copilotkit/shared";
 export interface InMemoryLimits {
   /** LRU cap on distinct threads. */
   maxThreads?: number;
-  /** FIFO cap on runs kept per thread. `Infinity` or `0` disables the cap. */
+  /**
+   * FIFO cap on runs kept per thread. A stored message that no run sent or
+   * produced within the last `maxRunsPerThread` runs is dropped with them.
+   * `Infinity` or `0` disables the cap.
+   */
   maxRunsPerThread?: number;
   /**
    * Approximate byte ceiling on RETAINED thread/run history. Enforced at run
@@ -42,8 +46,8 @@ export interface InMemoryLimits {
    *
    * Limitation: byte eviction drops only other LRU non-running threads and
    * never self-evicts the active/just-appended thread, so a single dominant
-   * thread's own retained history is not byte-trimmed (bounded only by
-   * `maxRunsPerThread`). `maxBytes` is thus a cross-thread ceiling enforced by
+   * thread's own retained runs and messages are not byte-trimmed (bounded only
+   * by `maxRunsPerThread`). `maxBytes` is thus a cross-thread ceiling enforced by
    * evicting OTHER threads, not a per-thread cap.
    */
   maxBytes?: number;
@@ -175,13 +179,19 @@ interface HistoricRun {
   parentRunId: string | null;
   events: BaseEvent[];
   /**
-   * Snapshot of all messages (input + generated) at the end of this run, as
-   * passed in by the caller. NOTE: `BoundedThreadStore.appendRun` moves this
-   * snapshot to the THREAD level (`InMemoryEventStore.messagesSnapshot`) and
+   * The thread's message history after this run, as merged by
+   * {@link retainThreadMessages}. NOTE: `BoundedThreadStore.appendRun` moves this
+   * history to the THREAD level (`InMemoryEventStore.messagesSnapshot`) and
    * clears this field to `[]`, so a stored HistoricRun never carries messages.
    * The thread-messages fallback reads the thread-level snapshot, not this.
    */
   messages: Message[];
+  /**
+   * True when `messages` is the merged thread history, so an empty list means
+   * every stored message aged out. Otherwise an empty list leaves the stored
+   * history untouched.
+   */
+  messagesMerged?: boolean;
   createdAt: number;
   /** Approximate retained byte size of `events`; set by BoundedThreadStore at append. */
   approxEventBytes?: number;
@@ -261,12 +271,19 @@ class InMemoryEventStore {
   currentEvents: BaseEvent[] | null = null;
 
   /**
-   * The thread's single latest NON-EMPTY message snapshot, held at the THREAD
-   * level (independent of `historicRuns` lifecycle). Decoupling the snapshot
-   * from per-run storage means run-cap FIFO eviction and interleaved
-   * empty-snapshot runs can never drop or pin the thread's message history.
+   * The thread's message history, merged at the end of each run by
+   * {@link retainThreadMessages} and held at the THREAD level (independent of
+   * `historicRuns` lifecycle). An interleaved empty run adds nothing to it.
+   * Run-cap FIFO eviction of `historicRuns` does not touch it either; messages
+   * age out through {@link messageLastRun} instead.
    */
   messagesSnapshot: Message[] = [];
+
+  /** Runs that merged into `messagesSnapshot` so far. */
+  messageRunCount = 0;
+
+  /** Per stored message id, the last run (by `messageRunCount`) that held it. */
+  messageLastRun = new Map<string, number>();
 
   /** Approximate retained byte size of `messagesSnapshot`. */
   approxMessagesSnapshotBytes = 0;
@@ -290,6 +307,151 @@ class InMemoryEventStore {
  */
 function isVisibleTo(store: InMemoryEventStore, owner: string): boolean {
   return store.ownerId === owner;
+}
+
+/**
+ * Serialized form of a message for comparison, independent of key order;
+ * `undefined` when it has none.
+ */
+function serializeMessage(message: Message): string | undefined {
+  try {
+    return JSON.stringify(message, (_key, value: unknown) =>
+      value && typeof value === "object" && !Array.isArray(value)
+        ? Object.fromEntries(
+            Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1)),
+          )
+        : value,
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+/** Every distinct copy of each id in `messages`; a list can repeat an id. */
+function copiesById(messages: Message[]): Map<string, Set<string | undefined>> {
+  const copies = new Map<string, Set<string | undefined>>();
+  for (const message of messages) {
+    const known = copies.get(message.id) ?? new Set();
+    known.add(serializeMessage(message));
+    copies.set(message.id, known);
+  }
+  return copies;
+}
+
+/** {@link copiesById} of the agent's messages; empty when they cannot be read. */
+function copiesAtRunStart(
+  agent: AbstractAgent,
+): Map<string, Set<string | undefined>> {
+  try {
+    return copiesById(Array.isArray(agent.messages) ? agent.messages : []);
+  } catch {
+    return new Map();
+  }
+}
+
+/** Ids that `events` carry message events for. */
+function messageEventIds(events: BaseEvent[]): Set<string> {
+  const ids = new Set<string>();
+  for (const event of events) {
+    for (const key of ["messageId", "parentMessageId"]) {
+      const id = (event as unknown as Record<string, unknown>)[key];
+      if (typeof id === "string") ids.add(id);
+    }
+  }
+  return ids;
+}
+
+/** What a finished run offers to the thread's message history. */
+interface RunMessages {
+  /** The agent's messages at the end of the run. */
+  produced: Message[];
+  /** The list the client sent. */
+  input: Message[];
+  /** {@link copiesById} of the agent's messages at run start, after `setMessages`. */
+  agentStart: Map<string, Set<string | undefined>>;
+  /** Ids the agent emitted message events for during the run. */
+  emittedIds: Set<string>;
+}
+
+/**
+ * The thread's message history after a run: the stored history plus what the
+ * run added. `produced` starts from the list the client sent, and that list is
+ * not a record of the thread, so:
+ *
+ * - A stored message missing from `input` stays: a client may send part of the
+ *   history. This covers a regenerated reply too, which stays beside the new
+ *   one, as it does in connect replay.
+ * - A stored message whose `input` copy matches is the agent's to change: it
+ *   is replaced when the agent's copy changed during the run, and removed when
+ *   the agent dropped it, as a compacting agent does with `MESSAGES_SNAPSHOT`.
+ * - A stored message whose `input` copy differs is kept, whatever the agent's
+ *   `MESSAGES_SNAPSHOT` echoes back, unless the agent emitted events for that
+ *   id. This also covers a same-id edit, and a repeated id where any copy
+ *   differs. Limit: when the agent does emit for that id, what the client sent
+ *   can reach the stored message through the agent's own output.
+ *
+ * An empty `produced` removes nothing: the agent returned no messages, which is
+ * not a decision to drop what the client sent.
+ *
+ * New messages append, the order the AG-UI reducer gives a `MESSAGES_SNAPSHOT`.
+ */
+function mergeThreadMessages(
+  stored: Message[],
+  { produced, input, agentStart, emittedIds }: RunMessages,
+): Message[] {
+  const merged = new Map(stored.map((m) => [m.id, m]));
+  const storedCopy = new Map(stored.map((m) => [m.id, serializeMessage(m)]));
+  const sent = copiesById(input);
+  const sentOtherCopy = (id: string) =>
+    storedCopy.has(id) &&
+    [...(sent.get(id) ?? [])].some((copy) => copy !== storedCopy.get(id));
+
+  const producedIds = new Set(produced.map((m) => m.id));
+  if (produced.length > 0) {
+    for (const id of sent.keys()) {
+      if (!producedIds.has(id) && !sentOtherCopy(id)) merged.delete(id);
+    }
+  }
+
+  for (const message of produced) {
+    if (!storedCopy.has(message.id)) {
+      merged.set(message.id, message);
+      continue;
+    }
+    const accepted = sentOtherCopy(message.id)
+      ? emittedIds.has(message.id)
+      : !agentStart.get(message.id)?.has(serializeMessage(message));
+    if (accepted) merged.set(message.id, message);
+  }
+  return [...merged.values()];
+}
+
+/**
+ * Merges a run into the thread's history, then drops every message that no run
+ * sent or produced within the last `maxRunsPerThread` runs, the window connect
+ * replay keeps. A client that resends its history keeps all of it; one thread
+ * cannot grow past what its run cap allows and push other threads out.
+ */
+function retainThreadMessages(
+  store: InMemoryEventStore,
+  run: RunMessages,
+  maxRunsPerThread: number,
+): Message[] {
+  const merged = mergeThreadMessages(store.messagesSnapshot, run);
+  const current = (store.messageRunCount += 1);
+  const lastRun = new Map(store.messageLastRun);
+  for (const { id } of [...run.produced, ...run.input]) {
+    lastRun.set(id, current);
+  }
+  const capped = maxRunsPerThread && maxRunsPerThread !== Infinity;
+  const kept = merged.filter(
+    ({ id }) =>
+      !capped || current - (lastRun.get(id) ?? current) < maxRunsPerThread,
+  );
+  store.messageLastRun = new Map(
+    kept.map(({ id }) => [id, lastRun.get(id) ?? current]),
+  );
+  return kept;
 }
 
 /** The owner a Thread endpoint call acts as. */
@@ -504,17 +666,17 @@ export class ɵBoundedThreadStore {
       store.createdAt = run.createdAt;
     }
 
-    // Thread-level message snapshot: keep the single latest NON-EMPTY snapshot
-    // on the store, decoupled from `historicRuns`. When the incoming run
-    // carries a non-empty snapshot, replace the thread's snapshot (adjusting
-    // byte accounting). When it's empty (non-array `agent.messages` or an
-    // error-path run), leave the existing thread snapshot untouched so history
-    // is never lost. The snapshot never lives on a HistoricRun, so run-cap FIFO
-    // eviction can never drop it and an interleaved empty run can never pin it.
-    if (run.messages.length > 0) {
+    // Thread-level message history: `run.messages` is the history merged in
+    // run() (see `retainThreadMessages`), decoupled from `historicRuns`. It
+    // replaces the stored one (adjusting byte accounting), even when empty
+    // because every message aged out. An empty list that is not a merged history
+    // leaves the stored one untouched. It never lives on a HistoricRun, so
+    // run-cap FIFO eviction does not drop it and an interleaved empty run cannot
+    // pin it.
+    if (run.messages.length > 0 || run.messagesMerged) {
       this.totalBytes -= store.approxMessagesSnapshotBytes;
       // Store the incoming array directly (SHALLOW, array-level copy). `run.messages`
-      // is already a fresh `[...agent.messages]` array created in run(), so we own the
+      // is already a fresh array created in run(), so we own the
       // array and it is decoupled from `agent.messages` at the array level (push/splice
       // on the agent's array cannot mutate our snapshot). We deliberately do NOT deep-copy
       // here: `structuredClone` throws DataCloneError on a non-cloneable message field,
@@ -858,6 +1020,9 @@ export class InMemoryAgentRunner extends AgentRunner {
     const finalizeControl: RunFinalizeControl = { stopRequested: false };
     store.activeFinalize = finalizeControl;
 
+    // The agent's copy before the run, to tell its own changes from the client's.
+    const agentStart = copiesAtRunStart(request.agent);
+
     // Track seen message IDs and current run events for this run
     const seenMessageIds = new Set<string>();
     const currentRunEvents: BaseEvent[] = [];
@@ -924,7 +1089,7 @@ export class InMemoryAgentRunner extends AgentRunner {
             runId: request.input.runId,
             input: {
               ...request.input,
-              messages: request.input.messages.filter(
+              messages: (request.input.messages ?? []).filter(
                 (message) => !historicMessageIds.has(message.id),
               ),
             },
@@ -971,10 +1136,20 @@ export class InMemoryAgentRunner extends AgentRunner {
             agentId: request.agent.agentId ?? "default",
             parentRunId,
             events: compactedEvents,
-            // Snapshot all messages (input + generated) for the thread-messages endpoint
-            messages: Array.isArray(request.agent.messages)
-              ? [...request.agent.messages]
-              : [],
+            // The merged history for the thread-messages endpoint
+            messages: retainThreadMessages(
+              store,
+              {
+                produced: Array.isArray(request.agent.messages)
+                  ? request.agent.messages
+                  : [],
+                input: request.input.messages ?? [],
+                agentStart,
+                emittedIds: messageEventIds(currentRunEvents),
+              },
+              sharedStore.ɵlimits.maxRunsPerThread,
+            ),
+            messagesMerged: true,
             createdAt: Date.now(),
           });
         }
@@ -1243,8 +1418,8 @@ export class InMemoryAgentRunner extends AgentRunner {
   }
 
   /**
-   * Returns all messages for a thread, using the snapshot captured at the end
-   * of the most recent run.
+   * Returns all messages for a thread: the history merged at the end of each
+   * run by {@link retainThreadMessages}.
    *
    * This powers the local-dev fallback for `GET /threads/:threadId/messages`
    * when CopilotKit Intelligence is not configured. The returned `Message[]`
@@ -1257,9 +1432,9 @@ export class InMemoryAgentRunner extends AgentRunner {
   ): Message[] {
     const store = this.peekVisible(threadId, scope);
     if (!store) return [];
-    // The thread's latest non-empty snapshot is held at the store level,
-    // independent of `historicRuns` lifecycle, so run-cap eviction and
-    // interleaved empty-snapshot runs can never lose it. Return a SHALLOW
+    // The thread's snapshot is held at the store level, independent of
+    // `historicRuns` lifecycle, so run-cap eviction and interleaved empty runs
+    // can never lose it. Return a SHALLOW
     // (array-level) copy: a fresh array so a caller mutating array STRUCTURE
     // (push/splice/reassign elements) cannot affect the stored snapshot. We
     // deliberately do NOT deep-copy: `structuredClone` throws DataCloneError on a

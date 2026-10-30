@@ -147,3 +147,7 @@ On the client, the `debug` configuration is passed through to the AG-UI transpor
 <Callout type="warn">
   Debug mode can produce a large volume of log output, especially in verbose mode. Use it during development and debugging, not in production.
 </Callout>
+
+<Callout type="warn" title="Debug mode can expose conversation content">
+  Under `NODE_ENV=test`, `debug` also opens the `/cpk-debug-events` route, and `NODE_ENV=development` opens it regardless. That route streams every event of every thread, including full message content, to any caller that reaches it, and `identifyUser` does not scope it. Under every other `NODE_ENV`, unset included, `debug` turns on logging only and the route stays closed unless you set `exposeDebugEvents: true`. Do not enable that on a runtime the public can reach. See the [Event Inspector](/troubleshooting/event-inspector) for when the route is served.
+</Callout>
