@@ -298,7 +298,8 @@ function todoLines(name: string, entry: V1Export | undefined): string[] {
  * - `CopilotKit` becomes `CopilotKitProvider`, and the v1-only props of
  *   `<CopilotKit>` are renamed or marked;
  * - Streamdown props on the `markdownRenderer` slot are marked, and calls of
- *   the removed Vue `useKatexStyles` are deleted.
+ *   the removed Vue `useKatexStyles` are deleted;
+ * - reads of the removed `runtime.licenseChecker` are marked.
  */
 const codemod: Codemod<Lang> = async (root, options) => {
   const migrated = migrateRuntimeAdapters(root.root());
@@ -505,6 +506,7 @@ const codemod: Codemod<Lang> = async (root, options) => {
   const jsx = !/\.[mc]?ts$/.test(root.filename());
   edits.push(...markdownRendererEdits(rootNode, source, jsx));
   edits.push(...katexEdits(rootNode, source));
+  edits.push(...licenseCheckerEdits(rootNode, source));
 
   if (edits.length === 0) return migrated;
   return rootNode.commitEdits(edits);
@@ -713,6 +715,29 @@ function katexEdits(rootNode: Node, source: string): Edit[] {
     const callee = call.child(0)?.field("function")?.text();
     if (callee !== undefined && localNames.has(callee))
       edits.push(deleteLine(call, source));
+  }
+  return edits;
+}
+
+const LICENSE_CHECKER_NOTE =
+  "`licenseChecker` was removed in 2.0. Use `await runtime.getLicenseChecker()`, which verifies the license on first use. See https://docs.copilotkit.ai/migrate/runtime-2.0#license-checker";
+
+/**
+ * Marks reads of the removed `licenseChecker` runtime property. The
+ * replacement is async, so the codemod cannot rewrite it in place.
+ */
+function licenseCheckerEdits(rootNode: Node, source: string): Edit[] {
+  if (!source.includes("@copilotkit/runtime")) return [];
+  const accesses = rootNode.findAll({
+    rule: {
+      kind: "member_expression",
+      has: { field: "property", regex: "^licenseChecker$" },
+    },
+  });
+  const edits: Edit[] = [];
+  for (const access of accesses) {
+    const edit = commentBefore(access, LICENSE_CHECKER_NOTE, source);
+    if (edit) edits.push(edit);
   }
   return edits;
 }

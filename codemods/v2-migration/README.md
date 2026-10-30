@@ -21,6 +21,7 @@ Then finish with the skill it installs, or by hand: search for `TODO(copilotkit-
 - **v1 APIs with the same 2.0 API.** The import moves to the 2.0 package, for example `CopilotChat` from `@copilotkit/react-ui` to `@copilotkit/react-core`.
 - **LangGraph.** `LangGraphAgent` and `LangGraphHttpAgent` import from `@ag-ui/langgraph`.
 - **Markdown rendering.** 2.0 renders markdown with CopilotKit's own renderer, not Streamdown. The Streamdown props on the `markdownRenderer` slot (`components`, `shikiTheme`, `remarkPlugins`, ...) get a TODO that names the 2.0 way. Calls of the removed Vue `useKatexStyles` are deleted.
+- **License checker.** Each read of the removed `runtime.licenseChecker` gets a TODO. The 2.0 call, `await runtime.getLicenseChecker()`, is async, so the codemod does not rewrite it.
 - **Everything else** gets a `// TODO(copilotkit-2.0):` comment that names the 2.0 replacement and links its docs. The codemod does not rewrite a call whose arguments changed: `useCopilotAction` to `useFrontendTool` needs a Zod schema, and only you or an agent can write it.
 - **A skill.** The last step installs an agent skill that resolves the TODOs, updates `package.json`, and runs your build.
 

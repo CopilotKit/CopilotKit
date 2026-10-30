@@ -1,6 +1,6 @@
 ---
 title: Runtime HTTP handlers in 2.0
-description: Replace the Express and Hono runtime adapters with Fetch and Node handlers in CopilotKit 2.0.
+description: Replace the Express and Hono runtime adapters with Fetch and Node handlers in CopilotKit 2.0, and update license checks and the Node.js version.
 ---
 
 CopilotKit 2.0 removes the runtime's Express and Hono adapters, their deprecated
@@ -111,6 +111,34 @@ creation. On a long-running host, call `await handler.channels?.ready()` at star
 if the runtime declares channels. Do not start persistent channels in a
 serverless route. The Node listener starts declared channels automatically;
 `listener.channels?.ready()` waits for that startup.
+
+## License checker
+
+`runtime.licenseChecker` is removed. Call `await runtime.getLicenseChecker()`
+instead. The runtime now verifies the license on first use, not when you create
+the runtime. As a result, license warnings print on the first `/info` request,
+not at startup.
+
+```ts
+import { CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
+
+export async function licenseStatus() {
+  const checker = await runtime.getLicenseChecker();
+  return checker?.getStatus();
+}
+```
+
+`getLicenseChecker()` returns `undefined` when the runtime does not use
+Intelligence. The codemod adds a `TODO(copilotkit-2.0)` to each read of
+`licenseChecker`. It does not rewrite the read, because the new method is async.
+
+## Node.js version
+
+`@copilotkit/runtime` requires Node.js `^20.19.3` or `>=22.13.0`. Node.js 21 is
+not supported. If your server or CI uses an earlier version, upgrade Node.js
+before you upgrade CopilotKit.
 
 ## Dependency cleanup
 
