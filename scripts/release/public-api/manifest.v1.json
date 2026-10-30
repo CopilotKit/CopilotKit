@@ -1784,7 +1784,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=20"
+          "node": "^20.19.0 || >=22.12.0"
         },
         "peerDependencies": {
           "openai": "^4.85.1 || >=5.0.0"
