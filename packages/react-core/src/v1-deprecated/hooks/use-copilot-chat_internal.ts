@@ -380,6 +380,77 @@ export interface UseCopilotChatReturn {
   threadId?: string;
 }
 
+/**
+ * One connection per agent, shared by every mounted consumer of
+ * `useCopilotChatInternal`.
+ *
+ * Each consumer used to connect on mount: the chat, its messages and input,
+ * every v1 suggestion pill, and any app component calling `useCopilotChat`.
+ * A connect restarts the suggestions, which remounts the pills, which
+ * connected again, so an idle page started and aborted a suggestion run
+ * about every 0.6s. The first consumer now connects, later ones join that
+ * connection, and the last one to unmount closes it.
+ */
+interface SharedAgentConnection {
+  consumers: number;
+  threadId: string | undefined;
+  abortController: AbortController;
+  /** Resolves `true` once connected, `false` if the connect failed. */
+  connected: Promise<boolean>;
+}
+
+const sharedAgentConnections = new WeakMap<
+  AbstractAgent,
+  SharedAgentConnection
+>();
+
+function openSharedAgentConnection(
+  copilotkit: ReturnType<typeof useCopilotKit>["copilotkit"],
+  agent: AbstractAgent,
+  threadId: string | undefined,
+): SharedAgentConnection {
+  const existing = sharedAgentConnections.get(agent);
+  if (existing && existing.threadId === threadId) {
+    return existing;
+  }
+  // A thread switch makes the old connection stale.
+  existing?.abortController.abort();
+
+  // HttpAgent uses abortController.signal in its fetch config, and
+  // connectAgent() does not create one, so set it before connecting.
+  const abortController = new AbortController();
+  if (ɵisHttpAgent(agent)) {
+    agent.abortController = abortController;
+  }
+
+  const connection: SharedAgentConnection = {
+    consumers: 0,
+    threadId,
+    abortController,
+    connected: copilotkit.connectAgent({ agent }).then(
+      () => true,
+      (error: unknown) => {
+        // Let the next consumer to mount try again.
+        if (sharedAgentConnections.get(agent) === connection) {
+          sharedAgentConnections.delete(agent);
+        }
+        // Errors from aborted connections (e.g. React StrictMode cleanup)
+        // and agents without connect support are expected.
+        if (
+          !abortController.signal.aborted &&
+          !(error instanceof AGUIConnectNotImplementedError)
+        ) {
+          console.error("CopilotChat: connectAgent failed", error);
+          // Error will be reported through subscription
+        }
+        return false;
+      },
+    ),
+  };
+  sharedAgentConnections.set(agent, connection);
+  return connection;
+}
+
 export function useCopilotChatInternal({
   suggestions,
   onInProgress,
@@ -398,62 +469,44 @@ export function useCopilotChatInternal({
     agentId: resolvedAgentId,
   });
 
-  // Track the last agent instance we called connect() on. Without this,
-  // connect() fires on every render where status is Connected — including
-  // unrelated context re-renders and StrictMode double-invocations.
-  // The ref is reset in the cleanup so that remounts (StrictMode, real
-  // unmount/remount) always trigger a fresh connect.
-  const lastConnectedAgentRef = useRef<AbstractAgent | null>(null);
-
   useEffect(() => {
-    let detached = false;
-
-    // Create a fresh AbortController so we can cancel the HTTP request on cleanup.
-    // Mirrors the V2 CopilotChat pattern: HttpAgent uses abortController.signal in
-    // its fetch config.  connectAgent() does NOT create a new AbortController
-    // automatically, so we must set one before connecting.
-    const connectAbortController = new AbortController();
-    if (ɵisHttpAgent(agent)) {
-      agent.abortController = connectAbortController;
-    }
-
-    const connect = async (agent: AbstractAgent) => {
-      setAgentAvailable(false);
-      try {
-        await copilotkit.connectAgent({ agent });
-        // Guard against setting state after cleanup (e.g. React StrictMode unmount)
-        if (!detached) {
-          setAgentAvailable(true);
-        }
-      } catch (error) {
-        // Ignore errors from aborted connections (e.g. React StrictMode cleanup)
-        if (detached) return;
-        if (error instanceof AGUIConnectNotImplementedError) {
-          // connect not implemented, ignore
-        } else {
-          console.error("CopilotChat: connectAgent failed", error);
-          // Error will be reported through subscription
-        }
-      }
-    };
     if (
-      agent &&
-      agent !== lastConnectedAgentRef.current &&
-      copilotkit.runtimeConnectionStatus ===
+      !agent ||
+      copilotkit.runtimeConnectionStatus !==
         CopilotKitCoreRuntimeConnectionStatus.Connected
     ) {
-      lastConnectedAgentRef.current = agent;
-      connect(agent);
+      return;
     }
+
+    let detached = false;
+    const connection = openSharedAgentConnection(
+      copilotkit,
+      agent,
+      existingConfig?.threadId,
+    );
+    connection.consumers++;
+    setAgentAvailable(false);
+    void connection.connected.then((connected) => {
+      // Guard against setting state after cleanup (e.g. React StrictMode unmount)
+      if (connected && !detached) {
+        setAgentAvailable(true);
+      }
+    });
+
     return () => {
-      // Abort the HTTP request and detach the active run.
-      // This is critical for React StrictMode which unmounts+remounts in dev,
-      // preventing duplicate /connect requests from reaching the server.
-      // Reset the ref so remounts always trigger a fresh connect.
-      lastConnectedAgentRef.current = null;
       detached = true;
-      connectAbortController.abort();
-      agent?.detachActiveRun();
+      connection.consumers--;
+      // The last consumer closes the connection: abort the HTTP request and
+      // detach the active run. React StrictMode unmounts and remounts in dev,
+      // and this keeps it from leaving a duplicate /connect running.
+      if (
+        connection.consumers === 0 &&
+        sharedAgentConnections.get(agent) === connection
+      ) {
+        sharedAgentConnections.delete(agent);
+        connection.abortController.abort();
+        agent.detachActiveRun();
+      }
     };
   }, [
     existingConfig?.threadId,
