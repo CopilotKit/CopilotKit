@@ -166,7 +166,18 @@ async function commandRun(config: EvalConfig, values: Values) {
           ),
   });
   if (!values.json) process.stderr.write("\n");
-  const report = buildReport(readRun(run.id));
+  const data = readRun(run.id);
+  // The tiers count only graded samples, so a failing judge hides behind
+  // wide intervals: say how many it could not grade.
+  const ungraded = data.samples.filter(
+    (sample) => sample.tiers.quality.pass === null,
+  ).length;
+  if (ungraded > 0) {
+    process.stderr.write(
+      `warning: the judge could not grade ${ungraded} of ${data.samples.length} samples; judgement and quality cover the others only\n`,
+    );
+  }
+  const report = buildReport(data);
   print(values, report, formatReport(report));
 }
 

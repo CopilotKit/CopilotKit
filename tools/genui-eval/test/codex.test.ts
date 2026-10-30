@@ -8,6 +8,7 @@ import {
   parseCodexEvents,
   runCodex,
   setCodexConcurrency,
+  setRateLimitScale,
   splitPrompt,
 } from "../src/codex";
 import { defineEvalConfig, resolvePlan } from "../src/config";
@@ -107,6 +108,24 @@ describe("the codex backend", () => {
     }
     expect(events.filter((e) => e.kind === "start")).toHaveLength(5);
     expect(most).toBe(2);
+  });
+
+  it("waits and retries a call that codex refuses with 429", async () => {
+    const counter = `${mkdtempSync(`${tmpdir()}/codex-429-`)}/n`;
+    process.env.FAKE_CODEX_429_FILE = counter;
+    setRateLimitScale(0);
+    try {
+      const result = await runCodex({
+        slug: "gpt-5.6-luna",
+        instructions: "i",
+        prompt: "p",
+      });
+      expect(result.text).toContain("PROMPT:p");
+      expect(readFileSync(counter, "utf8")).toBe("2");
+    } finally {
+      setRateLimitScale(1);
+      delete process.env.FAKE_CODEX_429_FILE;
+    }
   });
 
   it("needs no OpenRouter key", () => {

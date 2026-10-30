@@ -320,8 +320,19 @@ async function withSlot<T>(run: () => Promise<T>): Promise<T> {
 }
 
 let calls = 0;
+/** Scales the rate-limit waits; tests set it to 0. */
+let rateLimitScale = 1;
+export function setRateLimitScale(scale: number) {
+  rateLimitScale = scale;
+}
 
 /** Runs one `codex exec` when a slot is free (see `setCodexConcurrency`), and captures it. */
+/** Tries of a call that codex refuses with 429 Too Many Requests. */
+const RATE_LIMIT_TRIES = 5;
+
+const isRateLimited = (error: unknown) =>
+  /\b429\b|too many requests/i.test(String((error as Error)?.message ?? error));
+
 export function runCodex(options: {
   slug: string;
   instructions: string;
@@ -331,7 +342,21 @@ export function runCodex(options: {
   logDir?: string;
   timeoutMs?: number;
 }): Promise<CodexResult & { logDir: string }> {
-  return withSlot(() => runCodexNow(options));
+  return withSlot(async () => {
+    // A rate limit passes: wait and try again (15s, 30s, 60s, 120s), keeping
+    // the slot, so the other calls slow down too.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await runCodexNow(options);
+      } catch (error) {
+        if (!isRateLimited(error) || attempt >= RATE_LIMIT_TRIES) throw error;
+        const wait = Math.min(15_000 * 2 ** (attempt - 1), 120_000);
+        await new Promise((resolve) =>
+          setTimeout(resolve, wait * rateLimitScale),
+        );
+      }
+    }
+  });
 }
 
 async function runCodexNow(options: Parameters<typeof runCodex>[0]) {
@@ -390,8 +415,16 @@ async function runCodexNow(options: Parameters<typeof runCodex>[0]) {
   writeFileSync(`${logDir}/events.jsonl`, stdout);
   writeFileSync(`${logDir}/stderr.txt`, stderr);
   if (code !== 0) {
+    // The reason is in the events (a failed turn) more often than in stderr.
+    const failed = [
+      ...stdout.matchAll(
+        /"type":"turn\.failed","error":\{"message":"([^"]*)"/g,
+      ),
+    ]
+      .map((m) => m[1])
+      .pop();
     throw new Error(
-      `codex exited with ${code}: ${(stderr.trim().split("\n").pop() ?? "").slice(0, 300)} (log: ${logDir})`,
+      `codex exited with ${code}: ${failed ?? (stderr.trim().split("\n").pop() ?? "").slice(0, 300)} (log: ${logDir})`,
     );
   }
   return { ...parseCodexEvents(stdout), logDir };

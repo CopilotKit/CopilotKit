@@ -17,6 +17,26 @@ const instructions = readFileSync(
   "utf8",
 );
 const prompt = readFileSync(0, "utf8");
+// For the rate-limit test: refuse with 429 until the counter file reaches 2.
+const limited = process.env.FAKE_CODEX_429_FILE;
+if (limited) {
+  const n = Number(
+    (() => {
+      try {
+        return readFileSync(limited, "utf8");
+      } catch {
+        return "0";
+      }
+    })(),
+  );
+  if (n < 2) {
+    writeFileSync(limited, String(n + 1));
+    process.stdout.write(
+      `${JSON.stringify({ type: "turn.failed", error: { message: "exceeded retry limit, last status: 429 Too Many Requests" } })}\n`,
+    );
+    process.exit(1);
+  }
+}
 // For the pool test: record when this call runs, and take a while.
 const trace = process.env.FAKE_CODEX_TRACE;
 if (trace) appendFileSync(trace, `start ${Date.now()}\n`);
