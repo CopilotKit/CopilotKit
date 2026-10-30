@@ -274,7 +274,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
         with:
           ruby-version: "3.3"
           bundler-cache: false
@@ -306,7 +306,7 @@ jobs:
         run: ruby showcase/scripts/validate-registry.rb "$RUNNER_TEMP/registry-validation.json"
       - name: Retain safe registry validation receipt
         if: ${{ inputs.validate_registry_only == true }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: showcase_promote-registry-validation
           path: ${{ runner.temp }}/registry-validation.json
