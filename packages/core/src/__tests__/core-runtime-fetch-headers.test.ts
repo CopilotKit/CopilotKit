@@ -62,6 +62,81 @@ describe("ɵoverlayCoreHeaders", () => {
   });
 });
 
+const headerShapes: {
+  name: string;
+  create: (headers: Record<string, string>) => HeadersInit;
+}[] = [
+  { name: "record", create: (headers) => ({ ...headers }) },
+  { name: "tuple list", create: (headers) => Object.entries(headers) },
+  { name: "Headers", create: (headers) => new Headers(headers) },
+];
+
+describe.each(headerShapes)("ɵoverlayCoreHeaders with $name", ({ create }) => {
+  it("replaces every spelling of an existing header", () => {
+    const existing = create({
+      "x-request-id": "agent-one",
+      "X-Request-Id": "agent-two",
+    });
+    const before =
+      existing instanceof Headers
+        ? new Headers(existing)
+        : structuredClone(existing);
+    const core = { "X-Request-Id": "core-current" };
+    const out = ɵoverlayCoreHeaders(existing, core);
+
+    expect(new Headers(out).get("x-request-id")).toBe("core-current");
+    expect(existing).toEqual(before);
+    expect(core).toEqual({ "X-Request-Id": "core-current" });
+  });
+
+  it.each([true, false])(
+    "uses the last core value across casing changes (existing: %s)",
+    (hasExisting) => {
+      const existing = create(hasExisting ? { "X-Request-Id": "agent" } : {});
+      const out = ɵoverlayCoreHeaders(existing, {
+        "x-request-id": "core-older",
+        "X-Request-Id": "core-current",
+      });
+      const request = new Request("https://rt.example/threads", {
+        headers: out,
+      });
+
+      expect(request.headers.get("x-request-id")).toBe("core-current");
+    },
+  );
+
+  it.each(["Content-Type", "Accept"])(
+    "keeps the first core %s value when the request has none",
+    (key) => {
+      const out = ɵoverlayCoreHeaders(create({}), {
+        [key.toLowerCase()]: "application/json",
+        [key]: "text/plain",
+      });
+
+      expect(new Headers(out).get(key)).toBe("application/json");
+    },
+  );
+
+  it("preserves a request's protocol headers and unrelated headers", () => {
+    const existing = create({
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      "X-Unrelated": "keep",
+    });
+    const out = ɵoverlayCoreHeaders(existing, {
+      "content-type": "text/plain",
+      accept: "*/*",
+      "X-Request-Id": "core-current",
+    });
+    const headers = new Headers(out);
+
+    expect(headers.get("content-type")).toBe("application/json");
+    expect(headers.get("accept")).toBe("text/event-stream");
+    expect(headers.get("x-unrelated")).toBe("keep");
+    expect(out instanceof Headers).toBe(existing instanceof Headers);
+  });
+});
+
 describe("ɵruntimeFetch", () => {
   const realFetch = global.fetch;
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -82,6 +157,26 @@ describe("ɵruntimeFetch", () => {
     token = "t2";
     await core.ɵruntimeFetch("https://rt.example/threads", { headers: {} });
     expect(authOf(fetchMock.mock.calls.at(-1)![1])).toBe("t2");
+  });
+
+  it("sends only the current core value when header spellings differ", async () => {
+    const core = new CopilotKitCore({
+      deferInitialConnection: true,
+      headers: () => ({
+        "x-request-id": "core-older",
+        "X-Request-Id": "core-current",
+      }),
+    });
+    await core.ɵruntimeFetch("https://rt.example/threads", {
+      headers: {
+        "x-request-id": "agent-one",
+        "X-Request-Id": "agent-two",
+      },
+    });
+    const [url, init] = fetchMock.mock.calls.at(-1)!;
+    const request = new Request(url, init);
+
+    expect(request.headers.get("x-request-id")).toBe("core-current");
   });
 
   it("awaits an async builder", async () => {
