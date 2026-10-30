@@ -37,6 +37,13 @@ for (const origin of [
     await page
       .getByRole("button", { name: "Web Inspector", exact: true })
       .click();
+    // An unread Learning error makes the launcher land on Automatic Learning,
+    // and whether it is still unread here depends on runner speed. The status
+    // row lives on Home, so go there explicitly. The workbench stage toolbar
+    // overlaps the sidebar, so dispatch the click instead of pointing at it.
+    await page
+      .getByRole("button", { name: "Home", exact: true })
+      .dispatchEvent("click");
     const learning = page.locator('[data-inspector-service="memory"]');
     await expect(learning).toContainText("Learning status unavailable");
     await expect(
