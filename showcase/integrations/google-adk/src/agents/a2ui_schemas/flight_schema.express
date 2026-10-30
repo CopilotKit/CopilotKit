@@ -1,0 +1,14 @@
+// The layout is authored once. Runtime flight values arrive through bindings.
+// Explicit component IDs preserve the existing Direct JSON tree and actions.
+title = Title(text="Flight Details")
+from = Airport(code=$/origin)
+arrow = Arrow()
+to = Airport(code=$/destination)
+route = Row(children=[from, arrow, to], justify="spaceBetween", align="center")
+airline = AirlineBadge(name=$/airline)
+price = PriceTag(amount=$/price)
+meta = Row(children=[airline, price], justify="spaceBetween", align="center")
+bookButtonLabel = Text(text="Book flight")
+bookButton = Button(child=bookButtonLabel, variant="primary", action=Event("book_flight", {origin: $/origin, destination: $/destination, airline: $/airline, price: $/price}))
+content = Column(children=[title, route, meta, bookButton])
+root = Card(child=content)

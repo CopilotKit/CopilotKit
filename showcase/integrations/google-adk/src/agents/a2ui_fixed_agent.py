@@ -1,6 +1,6 @@
 """Agent backing the A2UI Fixed-Schema demo.
 
-The component tree is authored ahead of time as JSON (see a2ui_schemas/) and
+The component tree is authored ahead of time as Express and JSON (see a2ui_schemas/) and
 the agent's `display_flight` tool emits an a2ui_operations container whose
 ops apply the schema and seed the data model. The runtime detects the
 container in the tool result and forwards surfaces to the frontend renderer.
@@ -11,6 +11,7 @@ container in the tool result and forwards surfaces to the frontend renderer.
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,7 @@ from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
 
 from agents.shared_chat import get_model, stop_on_terminal_text
+from agents.a2ui_format import inference_format, validate_format
 
 CATALOG_ID = "copilotkit://flight-fixed-catalog"
 SURFACE_ID = "flight-fixed-schema"
@@ -41,8 +43,32 @@ BOOKED_SCHEMA = _load_schema("booked_schema.json")  # noqa: F841
 # @endregion[backend-schema-json-load]
 
 
+@lru_cache(maxsize=1)
+def compile_flight_template() -> list[dict[str, Any]]:
+    """Compile the authored tree with the build-exported frontend catalog."""
+    from ag_ui_adk import compile_a2ui_express
+
+    catalog_path = _SCHEMAS_DIR / "flight_catalog.generated.json"
+    if not catalog_path.exists():
+        raise RuntimeError(
+            "Run npm run export:a2ui-catalogs before starting the ADK server"
+        )
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    return compile_a2ui_express(
+        (_SCHEMAS_DIR / "flight_schema.express").read_text(encoding="utf-8"),
+        catalog=catalog,
+        surface_id=SURFACE_ID,
+        default_catalog_id=CATALOG_ID,
+    )
+
+
 def _build_flight_operations(
-    *, origin: str, destination: str, airline: str, price: str
+    *,
+    origin: str,
+    destination: str,
+    airline: str,
+    price: str,
+    inference_format: str = "direct_json",
 ) -> dict[str, Any]:
     """Build the v0.9 a2ui_operations container the runtime detects.
 
@@ -55,7 +81,29 @@ def _build_flight_operations(
     `update_components` / `update_data_model` from the langgraph-python
     north-star.
     """
+    validate_format(inference_format)
+    if inference_format == "express":
+        return {
+            "inferenceFormat": "express",
+            "a2ui_operations": [
+                *compile_flight_template(),
+                {
+                    "version": "v0.9",
+                    "updateDataModel": {
+                        "surfaceId": SURFACE_ID,
+                        "path": "/",
+                        "value": {
+                            "origin": origin,
+                            "destination": destination,
+                            "airline": airline,
+                            "price": price,
+                        },
+                    },
+                },
+            ],
+        }
     return {
+        "inferenceFormat": "direct_json",
         "a2ui_operations": [
             {
                 "version": "v0.9",
@@ -84,7 +132,7 @@ def _build_flight_operations(
                     },
                 },
             },
-        ]
+        ],
     }
 
 
@@ -110,7 +158,11 @@ def display_flight(
     short confirmation sentence and stop.
     """
     return _build_flight_operations(
-        origin=origin, destination=destination, airline=airline, price=price
+        origin=origin,
+        destination=destination,
+        airline=airline,
+        price=price,
+        inference_format=inference_format.get(),
     )
 
 

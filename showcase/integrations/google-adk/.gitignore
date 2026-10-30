@@ -11,3 +11,6 @@ test-results/
 
 # Shared modules (copied by CI)
 shared_frontend/
+
+# Generated from the actual frontend catalogs during the build.
+src/agents/a2ui_schemas/*_catalog.generated.json

@@ -52,6 +52,7 @@ from starlette.responses import JSONResponse
 from dotenv import load_dotenv
 
 from agents.registry import AGENT_REGISTRY
+from agents.a2ui_format import A2UIFormatMiddleware
 
 load_dotenv()
 
@@ -69,6 +70,7 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(HealthMiddleware)
+app.add_middleware(A2UIFormatMiddleware)
 
 # Forward inbound x-* headers onto outbound httpx calls so aimock fixture
 # matching sees the in-flight test's ``x-aimock-context``. Paired with
@@ -92,10 +94,21 @@ app.add_middleware(
 app.add_middleware(CvdiagBackendMiddleware)
 
 
+@app.on_event("startup")
+def compile_authored_a2ui_template():
+    # Published baseline releases keep Direct JSON available. The capability
+    # middleware returns a clear 503 for Express until the releases land.
+    import ag_ui_adk
+    if callable(getattr(ag_ui_adk, "compile_a2ui_express", None)):
+        from agents.a2ui_fixed_agent import compile_flight_template
+        compile_flight_template()
+
+
 # Mount one ADKAgent per registered agent at /<agent_name>.
 for agent_name, spec in AGENT_REGISTRY.items():
     middleware = ADKAgent(
         adk_agent=spec.llm_agent,
+        **({"a2ui": {"inference_format": "express"}} if agent_name == "declarative_gen_ui" else {}),
         user_id="demo_user",
         session_timeout_seconds=3600,
         use_in_memory_services=True,
