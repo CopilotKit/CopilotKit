@@ -176,7 +176,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           CopilotRuntime,
           createCopilotRuntimeHandler,
           InMemoryAgentRunner,
-        } from "@copilotkit/runtime/v2";
+        } from "@copilotkit/runtime";
         import { HttpAgent } from "@ag-ui/client";
         import { AgentCoreRunner } from "./agent-core-runner";
 
@@ -237,9 +237,13 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           type ToolCall,
           type ToolCallResultEvent,
         } from "@ag-ui/client";
-        import { InMemoryAgentRunner } from "@copilotkit/runtime/v2";
-        import { concatMap, of } from "rxjs";
+        import { InMemoryAgentRunner } from "@copilotkit/runtime";
+        import { concatMap, from, of } from "rxjs";
         import { randomUUID } from "node:crypto";
+
+        function isMessagesSnapshot(event: BaseEvent): event is MessagesSnapshotEvent {
+          return event.type === EventType.MESSAGES_SNAPSHOT;
+        }
 
         export class AgentCoreRunner extends InMemoryAgentRunner {
           private readonly knownThreadIds = new Set<string>();
@@ -253,17 +257,18 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
             if (!request.threadId || !this.knownThreadIds.has(request.threadId)) {
               const threadId = request.threadId ?? randomUUID();
               const runId = randomUUID();
-              return of<BaseEvent>(
+              const events: BaseEvent[] = [
                 { type: EventType.RUN_STARTED, threadId, runId },
                 { type: EventType.MESSAGES_SNAPSHOT, messages: [] },
                 { type: EventType.RUN_FINISHED, threadId, runId },
-              );
+              ];
+              return from(events);
             }
 
             return super.connect(request).pipe(
-              concatMap((event: BaseEvent) => {
-                if (event.type !== EventType.MESSAGES_SNAPSHOT) return of(event);
-                const snapshot = event as MessagesSnapshotEvent;
+              concatMap((event) => {
+                if (!isMessagesSnapshot(event)) return of(event);
+                const snapshot = event;
                 const replayedResults: ToolCallResultEvent[] = snapshot.messages.flatMap(
                   (message: Message) => {
                     if (message.role !== "assistant" || !message.toolCalls?.length) return [];
@@ -276,7 +281,8 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
                     }));
                   },
                 );
-                return of<BaseEvent>(...replayedResults, snapshot);
+                const events: BaseEvent[] = [...replayedResults, snapshot];
+                return from(events);
               }),
             );
           }
@@ -291,13 +297,14 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         ```tsx title="app/providers.tsx"
         "use client";
 
-        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import type { ReactNode } from "react";
+        import { CopilotKitProvider } from "@copilotkit/react-core";
 
-        export function Providers({ children }: { children: React.ReactNode }) {
+        export function Providers({ children }: { children: ReactNode }) {
           return (
-            <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+            <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent">
               {children}
-            </CopilotKit>
+            </CopilotKitProvider>
           );
         }
         ```
@@ -307,7 +314,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
         ```tsx title="app/layout.tsx"
         import { Providers } from "./providers";
-        import "@copilotkit/react-core/v2/styles.css";
+        import "@copilotkit/react-core/styles.css";
 
         export default function RootLayout({ children }: { children: React.ReactNode }) {
           return (
@@ -356,7 +363,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         ```tsx title="app/page.tsx"
         "use client"; // [!code highlight]
 
-        import { CopilotSidebar } from "@copilotkit/react-core/v2";
+        import { CopilotSidebar } from "@copilotkit/react-core";
 
         export default function Page() {
           return (

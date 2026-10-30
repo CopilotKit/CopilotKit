@@ -140,7 +140,7 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   defineTool,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { z } from "zod";
 import { getArcadeUserId, runArcadeTool } from "@/lib/arcade";
 
@@ -242,9 +242,9 @@ export const OPTIONS = handler;
 <Callout type="info" title="Single-route transport">
   This recipe pins `useSingleEndpoint` on the provider, so the client POSTs every
   call as a `{ method, params, body }` envelope to the base path. Mount a single-route handler to
-  match (`createCopilotRuntimeHandler({ mode: "single-route" })`), and `createCopilotRuntimeHandler`
-  is the preferred primitive, so avoid the deprecated `createCopilotEndpointSingleRoute` / hono
-  adapters. Omitting the prop would let the client detect the mode instead.
+  match (`createCopilotRuntimeHandler({ mode: "single-route" })`). CopilotKit 2.0 removed the old
+  `createCopilotEndpointSingleRoute` and Hono adapters. Omitting the prop would let the client detect
+  the mode instead.
 </Callout>
 
 ## Render the authorization step as generative UI
@@ -255,17 +255,24 @@ This is the generative-UI moment: the OAuth handshake becomes a card in the chat
 
 ```tsx title="app/page.tsx"
 "use client";
-import { CopilotChat, useRenderTool } from "@copilotkit/react-core/v2";
+import { CopilotChat, useRenderTool } from "@copilotkit/react-core";
 import { z } from "zod";
+import { AuthorizationCard } from "@/components/authorization-card";
+import { EmailSentCard, ErrorCard, LoadingCard } from "@/components/tool-cards";
 
-// useRenderTool usually hands `result` back as a JSON string, but tolerate an
-// already-parsed object or an empty/missing value so a partial result never throws.
-function parse<T>(result: unknown): T | undefined {
-  if (result == null) return undefined;
-  if (typeof result === "object") return result as T;
-  if (typeof result !== "string" || result.length === 0) return undefined;
+// The tool result arrives as a JSON string. Validate it before reading fields,
+// so a partial or unexpected result never throws.
+const arcadeResultSchema = z.object({
+  error: z.string().optional(),
+  authorizationRequired: z.boolean().optional(),
+  provider: z.string().optional(),
+  authUrl: z.string().optional(),
+});
+
+function parseResult(result: string) {
   try {
-    return JSON.parse(result) as T;
+    const parsed = arcadeResultSchema.safeParse(JSON.parse(result));
+    return parsed.success ? parsed.data : undefined;
   } catch {
     return undefined;
   }
@@ -277,9 +284,9 @@ export default function Page() {
     parameters: z.object({ recipient: z.string(), subject: z.string(), body: z.string() }),
     render: ({ status, parameters, result }) => {
       if (status !== "complete") return <LoadingCard label="Sending email…" />;
-      const r = parse<any>(result);
+      const r = parseResult(result);
       if (r?.error) return <ErrorCard message={r.error} />;
-      if (r?.authorizationRequired)
+      if (r?.authorizationRequired && r.provider && r.authUrl)
         return <AuthorizationCard provider={r.provider} authUrl={r.authUrl} />;
       return <EmailSentCard recipient={parameters.recipient} subject={parameters.subject} />;
     },
@@ -327,9 +334,9 @@ function AuthorizationCard({ provider, authUrl }: { provider: string; authUrl: s
 }
 ```
 
-Wrap your app in the v2 `<CopilotKit>` provider (`runtimeUrl="/api/copilotkit"` plus
+Wrap your app in `<CopilotKitProvider>` (`runtimeUrl="/api/copilotkit"` plus
 `useSingleEndpoint` to match the single-route handler) and import
-`@copilotkit/react-core/v2/styles.css`, exactly as in the Built-in Agent quickstart.
+`@copilotkit/react-core/styles.css`, exactly as in the Built-in Agent quickstart.
 
 ## Try it
 

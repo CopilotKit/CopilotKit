@@ -40,7 +40,7 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   BuiltInAgent,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 
 // Created once per container, reused across warm invocations.
 const runtime = new CopilotRuntime({
@@ -60,11 +60,16 @@ function toFetchRequest(event: LambdaFunctionURLEvent): Request {
   const host = event.headers.host ?? "localhost";
   const query = event.rawQueryString ? `?${event.rawQueryString}` : "";
 
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(event.headers)) {
+    if (value != null) headers.append(name, value);
+  }
+
   const hasBody = method !== "GET" && method !== "HEAD" && event.body != null;
 
   return new Request(`https://${host}${event.rawPath}${query}`, {
     method,
-    headers: new Headers(event.headers as Record<string, string>),
+    headers,
     body: hasBody
       ? event.isBase64Encoded
         ? Buffer.from(event.body!, "base64")
@@ -88,34 +93,24 @@ export const handler = awslambda.streamifyResponse(
       return;
     }
 
-    // Readable.fromWeb bridges the Fetch ReadableStream to a Node stream, so
-    // SSE chunks reach the client as the agent produces them.
-    await pipeline(Readable.fromWeb(response.body as any), stream);
+    // Bridge the Fetch ReadableStream to a Node stream, so SSE chunks reach
+    // the client as the agent produces them.
+    await pipeline(Readable.from(chunksOf(response.body)), stream);
   },
 );
-```
 
-`awslambda` is a global injected by the managed Node.js runtime, so TypeScript needs to be told it exists:
-
-```ts title="src/awslambda.d.ts"
-import type { Writable } from "node:stream";
-
-declare global {
-  namespace awslambda {
-    function streamifyResponse<TEvent>(
-      handler: (event: TEvent, responseStream: Writable, context: unknown) => Promise<void>,
-    ): (event: TEvent, responseStream: Writable, context: unknown) => Promise<void>;
-
-    namespace HttpResponseStream {
-      function from(
-        stream: Writable,
-        metadata: { statusCode: number; headers?: Record<string, string> },
-      ): Writable;
-    }
+async function* chunksOf(body: ReadableStream<Uint8Array>) {
+  const reader = body.getReader();
+  for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+    yield chunk.value;
   }
 }
+```
 
-export {};
+`awslambda` is a global injected by the managed Node.js runtime. `@types/aws-lambda` declares it, together with the event types, so install that package as a dev dependency:
+
+```
+npm install -D @types/aws-lambda
 ```
 
 ### 2. Set the invoke mode
@@ -133,12 +128,15 @@ aws lambda create-function-url-config \
 ```
 </Tab>
 <Tab value="AWS CDK">
-```ts title="lib/stack.ts"
+```ts title="bin/app.ts" group=aws-lambda-cdk
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { Runtime, FunctionUrlAuthType, InvokeMode } from "aws-cdk-lib/aws-lambda";
-import { Duration } from "aws-cdk-lib";
+import { App, Duration, Stack } from "aws-cdk-lib";
 
-const fn = new NodejsFunction(this, "CopilotKitRuntime", {
+const app = new App();
+const stack = new Stack(app, "CopilotKitStack");
+
+const fn = new NodejsFunction(stack, "CopilotKitRuntime", {
   entry: "src/handler.ts",
   runtime: Runtime.NODEJS_22_X,
   // Long enough for a full agent run; Lambda's ceiling is 15 minutes.
@@ -195,16 +193,23 @@ The Function URL is the origin; `basePath` is appended to it.
 
 <FrontendOnly frontend="react">
 ```tsx
-<CopilotKit
-  runtimeUrl="https://<url-id>.lambda-url.<region>.on.aws/api/copilotkit"
-  useSingleEndpoint={false}
->
-  <YourApp />
-</CopilotKit>
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="https://<url-id>.lambda-url.<region>.on.aws/api/copilotkit"
+      useSingleEndpoint={false}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 <Callout type="info" title="About the explicit useSingleEndpoint">
-  The Function URL handler above serves multi-route, the default. Both `<CopilotKit>` and `<CopilotKitProvider>` negotiate the transport when the
+  The Function URL handler above serves multi-route, the default. `<CopilotKitProvider>` negotiates the transport when the
   prop is omitted, so this `{false}` is optional: it pins the multi-route REST
   routes rather than probing for them. Drop the prop
   if you took the buffered front door below and mounted the handler with
@@ -215,9 +220,16 @@ The Function URL is the origin; `basePath` is appended to it.
 
 <FrontendOnly frontend="angular">
 ```ts title="src/app/app.config.ts"
-provideCopilotKit({
-  runtimeUrl: "https://<url-id>.lambda-url.<region>.on.aws/api/copilotkit",
-})
+import type { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "https://<url-id>.lambda-url.<region>.on.aws/api/copilotkit",
+    }),
+  ],
+};
 ```
 </FrontendOnly>
 
@@ -303,11 +315,12 @@ aws apigateway create-deployment --rest-api-id a1b2c3 --stage-name prod
 Note the API version in the URI path: `2021-11-15/.../response-streaming-invocations`, not the `2015-03-31/.../invocations` a buffered Lambda proxy integration uses. The permission is unchanged — `InvokeWithResponseStream` authorizes against `lambda:InvokeFunction`, so an existing `add-permission` grant still applies.
 </Tab>
 <Tab value="AWS CDK">
-```ts title="lib/stack.ts"
-import { LambdaIntegration, ResponseTransferMode, RestApi, EndpointType } from "aws-cdk-lib/aws-apigateway";
-import { Duration } from "aws-cdk-lib";
+This continues the CDK app from the Function URL section, and reuses its `stack` and `fn`:
 
-const api = new RestApi(this, "CopilotKitApi", {
+```ts title="bin/app.ts" group=aws-lambda-cdk
+import { LambdaIntegration, ResponseTransferMode, RestApi, EndpointType } from "aws-cdk-lib/aws-apigateway";
+
+const api = new RestApi(stack, "CopilotKitApi", {
   // Regional gets a 5-minute idle timeout; edge-optimized gets 30 seconds.
   endpointConfiguration: { types: [EndpointType.REGIONAL] },
 });
@@ -358,7 +371,7 @@ CopilotKitMethod:
 
 ## Buffered fallback: HTTP APIs and ALB
 
-Behind an HTTP API or an Application Load Balancer there is no streaming path, so `serverless-http` adapting the Express handler is as good as it gets. Chat still functions end to end, but every response arrives in one piece at the end of the run.
+Behind an HTTP API or an Application Load Balancer there is no streaming path, so `serverless-http` adapting an Express app that mounts the runtime's Node listener is as good as it gets. Chat still functions end to end, but every response arrives in one piece at the end of the run.
 
 ```
 npm install express serverless-http @copilotkit/runtime
@@ -367,8 +380,8 @@ npm install express serverless-http @copilotkit/runtime
 ```ts title="src/handler.ts"
 import express from "express";
 import serverlessHttp from "serverless-http";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
-import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -378,10 +391,12 @@ const runtime = new CopilotRuntime({
 
 const app = express();
 
+// Express strips the mount prefix, so basePath is relative to the mount.
 app.use(
-  createCopilotExpressHandler({
+  "/api/copilotkit",
+  createCopilotNodeListener({
     runtime,
-    basePath: "/api/copilotkit",
+    basePath: "/",
     cors: true,
   }),
 );
@@ -396,20 +411,47 @@ Two constraints to plan around:
 
 Single-route mode pairs well here, since it collapses the runtime to one `POST` and avoids configuring a catch-all proxy resource:
 
-```ts
-createCopilotExpressHandler({
-  runtime,
-  basePath: "/api/copilotkit",
-  mode: "single-route",
-  cors: true,
+```ts title="src/handler.ts"
+import express from "express";
+import serverlessHttp from "serverless-http";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
 });
+
+const app = express();
+
+app.use(
+  "/api/copilotkit",
+  createCopilotNodeListener({
+    runtime,
+    basePath: "/",
+    mode: "single-route",
+    cors: true,
+  }),
+);
+
+export const handler = serverlessHttp(app);
 ```
 
 ## Authentication
 
 Use the runtime's `onRequest` hook to reject unauthenticated calls before any routing happens. It works identically on every front door above.
 
-```ts
+```ts title="src/handler.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { verifyToken } from "./auth";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
 const copilotHandler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
@@ -440,6 +482,6 @@ See [Authentication](/auth) for forwarding user identity through to your agent.
 
 ## Related
 
-- [Deploy to any runtime](/runtime-server-adapter) — the adapter reference these examples build on
+- [Deploy to any runtime](/runtime-server-adapter) — the handler reference these examples build on
 - [AWS AgentCore](/deploy/agentcore) — a managed AWS runtime for AG-UI agents, if you'd rather not operate Lambda yourself
 - [Authentication](/auth)

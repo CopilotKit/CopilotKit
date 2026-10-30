@@ -63,8 +63,9 @@ Add `webmcp` to the tool you already register. This code must run inside your ex
 ```tsx title="OrderSearch.tsx"
 "use client";
 
-import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { useFrontendTool } from "@copilotkit/react-core";
 import { z } from "zod";
+import { searchOrders } from "./orders"; // Your order API.
 
 export function OrderSearch() {
   useFrontendTool({
@@ -102,6 +103,7 @@ Add `webmcp` to the tool you already register. This code must run inside your ex
 <script setup lang="ts">
 import { z } from "zod";
 import { useFrontendTool } from "@copilotkit/vue/v2";
+import { searchOrders } from "./orders"; // Your order API.
 
 useFrontendTool({
   name: "searchOrders",
@@ -136,6 +138,7 @@ Add `webmcp` to the tool you register in an Angular injection context.
 import { Component } from "@angular/core";
 import { registerFrontendTool } from "@copilotkit/angular";
 import { z } from "zod";
+import { searchOrders } from "./orders"; // Your order API.
 
 @Component({
   selector: "app-order-search",
@@ -175,6 +178,7 @@ For browser code that does not use a framework provider, register the frontend t
 ```ts title="webmcp.ts"
 import { CopilotKitCore } from "@copilotkit/core";
 import { z } from "zod";
+import { searchOrders } from "./orders"; // Your order API.
 
 export const copilotkit = new CopilotKitCore({
   tools: [

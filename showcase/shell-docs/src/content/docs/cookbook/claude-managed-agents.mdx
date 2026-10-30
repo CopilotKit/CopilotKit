@@ -93,6 +93,14 @@ and MCP servers, while the agent disables its complete built-in toolset. The run
 financial visualization tool when it creates a session:
 
 ```ts title="server/src/setup.ts"
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic(); // reads ANTHROPIC_API_KEY
+
+const ASSISTANT_SYSTEM =
+  "You are a careful, plain-spoken personal finance assistant. Whenever the user asks what " +
+  "recurring investments could grow to, call show_growth_projection and keep your prose short.";
+
 const environment = await client.beta.environments.create({
   name: `financial-assistant-demo-${Date.now().toString(36)}`,
   config: {
@@ -125,32 +133,49 @@ wherever the demo is deployed.
 
 At runtime, the AG-UI adapter owns managed-session creation and maps it to the CopilotKit thread. The visual tool
 is supplied as a session override, so changing its schema does not require a new managed-agent version.
-`CopilotSseRuntime` is imported under that exact name; it is CopilotKit's V2 runtime for direct SSE connections.
-The adapter requires only the managed agent and environment IDs, while this recipe adds `backendTools` for the
-interactive projection:
+`CopilotSseRuntime` is CopilotKit's runtime for direct SSE connections. `createCopilotNodeListener` from
+`@copilotkit/runtime/node` serves it from Express. The adapter requires only the managed agent and environment
+IDs, while this recipe adds `backendTools` for the interactive projection:
 
 ```ts title="server/src/index.ts"
-import { CopilotSseRuntime } from "@copilotkit/runtime/v2";
+import express from "express";
+import { CopilotSseRuntime } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 import { ManagedAgentsAgent } from "@ag-ui/claude-managed-agents";
+import { financialAssistantTools } from "./financialAssistantTools";
 import {
+  configureDemoRunLimits,
   createCopilotRequestBodyParser,
-  createFinancialAssistantAgentConfig,
-} from "./runtimeLimits";
-import { configureDemoRunLimits } from "./requestLimits";
+} from "./requestLimits";
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} is not set. Run npm run setup first.`);
+  return value;
+}
 
 const runtime = new CopilotSseRuntime({
   agents: {
-    "financial-assistant": new ManagedAgentsAgent(
-      createFinancialAssistantAgentConfig(ids),
-    ),
+    "financial-assistant": new ManagedAgentsAgent({
+      managedAgentId: requireEnv("ANTHROPIC_AGENT_ID"),
+      environmentId: requireEnv("ANTHROPIC_ENVIRONMENT_ID"),
+      backendTools: financialAssistantTools,
+      turnTimeoutMs: 90_000,
+    }),
   },
 });
 
+const app = express();
 configureDemoRunLimits(app, createCopilotRequestBodyParser());
+app.use(
+  "/api/copilotkit",
+  createCopilotNodeListener({ runtime, basePath: "/", cors: true }),
+);
+app.listen(8787);
 ```
 
-The runtime helper keeps the public demo bounded: it leaves `turnTimeoutMs` at 90 seconds and rejects request bodies
-over 256 KB. The adapter already serializes runs per thread.
+The run limits keep the public demo bounded: `turnTimeoutMs` stops a turn after 90 seconds, and the request body
+parser rejects bodies over 256 KB. The adapter already serializes runs per thread.
 
 Only the canonical `POST /api/copilotkit/agent/financial-assistant/run` path, with one optional trailing slash, can
 start the provider-backed agent. Run aliases, unknown agents, and suggestion routes are rejected before the runtime.
@@ -162,6 +187,8 @@ UI needs. Its handler only acknowledges the render because the streamed tool cal
 result:
 
 ```ts title="server/src/financialAssistantTools.ts"
+import type { BackendCustomTool } from "@ag-ui/claude-managed-agents";
+
 export const financialAssistantTools: BackendCustomTool[] = [{
   name: "show_growth_projection",
   description: "Render an interactive compound-growth chart in the chat.",
@@ -185,18 +212,36 @@ CopilotKit matches the AG-UI tool-call events by name with
 arguments with Zod before mounting the chart:
 
 ```tsx title="web/src/viz/renderers.tsx"
-useRenderTool(
-  {
-    name: "show_growth_projection",
-    parameters: growthSchema,
-    render: vizRender(
-      growthSchema,
-      "Building growth projection…",
-      GrowthProjection,
-    ),
-  },
-  [],
-);
+import { useRenderTool } from "@copilotkit/react-core";
+import { z } from "zod";
+import { GrowthProjection } from "./GrowthProjection";
+
+const growthSchema = z.object({
+  title: z.string(),
+  initialAmount: z.coerce.number().min(0),
+  monthlyContribution: z.coerce.number().min(0),
+  annualReturnPercent: z.coerce.number().min(0),
+  years: z.coerce.number().min(1),
+});
+
+export function VizToolRenderers() {
+  useRenderTool(
+    {
+      name: "show_growth_projection",
+      parameters: growthSchema,
+      render: ({ status, parameters }) => {
+        if (status === "inProgress") return <div>Building growth projection…</div>;
+        const parsed = growthSchema.safeParse(parameters);
+        if (!parsed.success) {
+          return <div>This visual received numbers it could not read.</div>;
+        }
+        return <GrowthProjection {...parsed.data} />;
+      },
+    },
+    [],
+  );
+  return null;
+}
 ```
 
 ## Deploy it

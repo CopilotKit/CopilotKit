@@ -58,13 +58,18 @@ The most common case, and the one that needs the least. A docs search, a databas
 Connect the server and stop there. If you want the call to be visible rather than invisible, a wildcard renderer gives every tool call a status card without writing one renderer per tool:
 
 ```tsx
-import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+import { useDefaultRenderTool } from "@copilotkit/react-core";
 
-useDefaultRenderTool({
-  render: ({ name, status, parameters, result }) => (
-    <McpToolCall status={status} name={name} args={parameters} result={result} />
-  ),
-});
+export function ToolCallStatus() {
+  useDefaultRenderTool({
+    render: ({ name, status }) => (
+      <div className="tool-call-status">
+        {name}: {status === "complete" ? "done" : "running…"}
+      </div>
+    ),
+  });
+  return null;
+}
 ```
 
 Reach for an MCP App here only if the *result* is genuinely interactive — a chart the user filters, not a table they read.
@@ -148,18 +153,24 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
       <Step>
         #### Set up the CopilotKit Provider
 
-        Wrap your application with the `CopilotKit` provider:
+        Wrap your application with the `CopilotKitProvider` and point it at your runtime:
 
-        ```tsx
+        ```tsx title="app/layout.tsx"
         "use client";
 
-        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import type { ReactNode } from "react";
+        import { CopilotKitProvider } from "@copilotkit/react-core";
+        import "@copilotkit/react-core/styles.css";
 
-        export default function App() {
+        export default function RootLayout({ children }: { children: ReactNode }) {
           return (
-            <CopilotKit publicApiKey="<replace_with_your_own>">
-              {/* Your app content */}
-            </CopilotKit>
+            <html lang="en">
+              <body>
+                <CopilotKitProvider runtimeUrl="/api/copilotkit">
+                  {children}
+                </CopilotKitProvider>
+              </body>
+            </html>
           );
         }
         ```
@@ -167,50 +178,60 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
       <Step>
         #### Connect to MCP Servers
 
-        Create a component to manage MCP server connections:
+        Attach the MCP servers to the agent in your runtime route. The agent opens a
+        client for each server at the start of a run and closes it when the run
+        ends, so nothing is cached between requests:
 
-        ```tsx
-        "use client";
+        ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+        import {
+          BuiltInAgent,
+          CopilotRuntime,
+          createCopilotRuntimeHandler,
+        } from "@copilotkit/runtime";
 
-        import { useEffect } from "react";
-        import { useCopilotKit } from "@copilotkit/react-core/v2";
+        const runtime = new CopilotRuntime({
+          agents: {
+            default: new BuiltInAgent({
+              model: "openai/gpt-4o",
+              mcpServers: [
+                {
+                  // Try a sample MCP server at https://mcp.composio.dev/
+                  type: "sse",
+                  url: "https://my-mcp-server.example.com/sse",
+                  headers: { Authorization: `Bearer ${process.env.MCP_API_KEY}` },
+                },
+              ],
+            }),
+          },
+        });
 
-        function McpServerManager() {
-          const { setMcpServers } = useCopilotKit();
+        const handler = createCopilotRuntimeHandler({
+          runtime,
+          basePath: "/api/copilotkit",
+        });
 
-          useEffect(() => {
-            setMcpServers([
-              {
-                // Try a sample MCP server at https://mcp.composio.dev/
-                endpoint: "your_mcp_sse_url",
-              },
-            ]);
-          }, [setMcpServers]);
-
-          return null;
-        }
-
-        export default McpServerManager;
-
+        export const GET = handler;
+        export const POST = handler;
         ```
+
+        See [MCP servers](/docs/integrations/built-in-agent/mcp-servers) for the HTTP
+        transport, multiple servers, and `mcpClients` — which lets you own the client
+        lifecycle when you need persistent connections or per-request credentials.
       </Step>
       <Step>
         #### Add the Chat Interface
 
         Add the `CopilotChat` component to your page:
 
-        ```tsx
+        ```tsx title="app/ChatInterface.tsx"
         "use client";
 
-        import { CopilotChat } from "@copilotkit/react-core/v2";
+        import { CopilotChat } from "@copilotkit/react-core";
 
         export default function ChatInterface() {
           return (
             <div className="flex h-screen p-4">
-              <McpServerManager />
-              <CopilotChat
-                className="flex-grow rounded-lg w-full"
-              />
+              <CopilotChat className="flex-grow rounded-lg w-full" />
             </div>
           );
         }
@@ -219,12 +240,14 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
       <Step>
         #### Visualize MCP Tool Calls (Optional)
 
-        Create a component to display MCP tool calls in your UI:
+        Create a component to display MCP tool calls in your UI. `McpToolCall` is the
+        card shown under [Implementing the McpToolCall Component](#implementing-the-mcptoolcall-component):
 
-        ```tsx
+        ```tsx title="app/ToolRenderer.tsx"
         "use client";
 
-        import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+        import { useDefaultRenderTool } from "@copilotkit/react-core";
+        import { McpToolCall } from "./McpToolCall";
 
         export function ToolRenderer() {
           /**
@@ -243,24 +266,20 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
       <Step>
         #### Complete Implementation
 
-        Combine all components together:
+        Combine all components together on the page:
 
-        ```tsx
+        ```tsx title="app/page.tsx"
         "use client";
 
-        import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+        import { CopilotChat } from "@copilotkit/react-core";
+        import { ToolRenderer } from "./ToolRenderer";
 
         export default function Page() {
           return (
-            <CopilotKit publicApiKey="<replace_with_your_own>">
-              <div className="flex h-screen p-4">
-                <McpServerManager />
-                <CopilotChat
-                  className="flex-grow rounded-lg w-full"
-                />
-                <ToolRenderer />
-              </div>
-            </CopilotKit>
+            <div className="flex h-screen p-4">
+              <CopilotChat className="flex-grow rounded-lg w-full" />
+              <ToolRenderer />
+            </div>
           );
         }
         ```
@@ -277,26 +296,28 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
 <details>
 <summary>Click to see the McpToolCall component implementation</summary>
 
-```tsx
+```tsx title="app/McpToolCall.tsx"
 "use client";
+
+import { useState } from "react";
 
 interface ToolCallProps {
   status: "complete" | "inProgress" | "executing";
   name?: string;
-  args?: any;
-  result?: any;
+  args?: unknown;
+  result?: string;
 }
 
-export default function MCPToolCall({
+export function McpToolCall({
   status,
   name = "",
   args,
   result,
 }: ToolCallProps) {
-  const [isOpen, setIsOpen] = React.useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   // Format content for display
-  const format = (content: any): string => {
+  const format = (content: unknown): string => {
     if (!content) return "";
     const text =
       typeof content === "object"
@@ -333,7 +354,7 @@ export default function MCPToolCall({
 
       {isOpen && (
         <div className="px-4 pb-4 text-gray-300 font-mono text-xs">
-          {args && (
+          {args !== undefined && (
             <div className="mb-4">
               <div className="text-gray-400 mb-2">Parameters:</div>
               <pre className="whitespace-pre-wrap max-h-[200px] overflow-auto">
@@ -359,60 +380,3 @@ export default function MCPToolCall({
 
 </details>
 
-### Self-Hosting Option
-
-<details>
-<summary>Click here to learn how to use MCP with self-hosted runtime</summary>
-
-<Callout type="info" title="Self-Hosting vs Copilot Cloud">
-  The Copilot Runtime handles communication with LLMs, message history, and
-  state. You can self-host it or use{" "}
-  <LinkToCopilotCloud asButton={false}>Copilot Cloud</LinkToCopilotCloud>{" "}
-  (recommended). Learn more in our [Self-Hosting
-  Guide](/backend/copilot-runtime).
-</Callout>
-
-Attach the MCP servers to the agent. The agent opens a client for each server
-at the start of a run and closes it when the run ends, so nothing is cached
-between requests:
-
-```tsx title="app/api/copilotkit/route.ts"
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
-import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
-
-const runtime = new CopilotRuntime({
-  agents: {
-    default: new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpServers: [
-        {
-          type: "sse",
-          url: "https://my-mcp-server.example.com/sse",
-          headers: { Authorization: `Bearer ${process.env.MCP_API_KEY}` },
-        },
-      ],
-    }),
-  },
-});
-
-export const POST = createCopilotRuntimeHandler({
-  runtime,
-  basePath: "/api/copilotkit",
-});
-```
-
-See [MCP servers](/docs/integrations/built-in-agent/mcp-servers) for the HTTP
-transport, multiple servers, and `mcpClients` — which lets you own the client
-lifecycle when you need persistent connections or per-request credentials.
-
-<Callout type="warn" title="`createMCPClient` on the v1 runtime">
-  `new CopilotRuntime({ mcpServers, createMCPClient })` from
-  `@copilotkit/runtime` is the deprecated v1 API. It still works, but it keeps
-  one client per endpoint for the life of the runtime instead of opening and
-  closing one per run. Use the agent-level configuration above for new work.
-</Callout>
-
-</details>

@@ -7,12 +7,12 @@ doc_type: how-to
 agentPrompt: |
   Add the Repo Doctor pattern described in the walkthrough linked below to my existing CopilotKit app: a Python agent on Google Antigravity, served with the Antigravity AG-UI SDK (`ag-ui-antigravity`), that asks before risky tools run and shows its work in the chat. Build only what the walkthrough builds, and copy the helper files it links from the example. Don't add another agent framework, and don't make the agent push to GitHub.
 
-  1. Create the web app. Add `@copilotkit/react-core@1.79.0`, `@copilotkit/runtime@1.79.0`, `@copilotkit/a2ui-renderer@1.79.0`, `@ag-ui/client@1.0.2` and `zod@3.25.76` to my Next.js app with pnpm. Wrap the app in `<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ catalog }} enableInspector={process.env.NODE_ENV === "development"}>` and render `<CopilotChat agentId=... />`.
+  1. Create the web app. Add `@copilotkit/react-core@1.79.0`, `@copilotkit/runtime@1.79.0`, `@copilotkit/a2ui-renderer@1.79.0`, `@ag-ui/client@1.0.2` and `zod@3.25.76` to my Next.js app with pnpm. Wrap the app in `<CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ catalog }} enableInspector={process.env.NODE_ENV === "development"}>` and render `<CopilotChat agentId=... />`.
   2. Create the agent. Run `uv init --package` in `agent/` and `uv add ag-ui-antigravity==0.2.1 google-antigravity==0.1.22 ag-ui-protocol==1.0.0 fastapi uvicorn[standard] pydantic pydantic-settings`. Create it with `AntigravityAgent` from `ag_ui_antigravity`: a Gemini `model`, `system_instructions`, `capabilities=CapabilitiesConfig(enabled_tools=[...])` with only the built-ins you need (always keep `BuiltinTools.FINISH`), `workspaces=[<a short absolute path>]`, `tool_approval=True`, and `auto_approve_tools` for the read-only tools. Serve it with `create_antigravity_app(agent, path="/")` on 127.0.0.1:8000. Put `GEMINI_API_KEY`, `GITHUB_TOKEN` and `AGENT_URL` in `.env` and ask me for the Gemini key.
   3. Connect the runtime. In my CopilotKit runtime route, add an `HttpAgent` from `@ag-ui/client` pointed at `AGENT_URL`, and add `a2ui: { injectA2UITool: false }` to `new CopilotRuntime(...)`. Start both servers and check that the agent answers "hello".
   4. Give the agent its CI tools: plain async functions with docstrings, returned from `build_tools(workspace, settings)` and bound to one folder: `clone_repo`, `ci_status`, `install_dependencies`, `run_tests`, `run_check`, `show_diff` and `git_push` (pushes only to a local bare repository, never to GitHub). Tools record their results with `experimental_set_state` from `ag_ui_antigravity`.
   5. Prove the fix with `run_check`: one command that must fail before the fix and pass after, recorded under `checks` in shared state.
-  6. Render approval interrupts with `useInterrupt` from "@copilotkit/react-core/v2" when `event.value.reason === "tool_approval"`. Read `tool_name` and `args` from `interrupt.metadata`, show Approve and Deny, and call `resolve({ approved: true }, interrupt.id)` or `resolve({ approved: false, message }, interrupt.id)`.
+  6. Render approval interrupts with `useInterrupt` from "@copilotkit/react-core" when `event.value.reason === "tool_approval"`. Read `tool_name` and `args` from `interrupt.metadata`, show Approve and Deny, and call `resolve({ approved: true }, interrupt.id)` or `resolve({ approved: false, message }, interrupt.id)`.
   7. Render the `show_diff` result with `useRenderTool({ name: "show_diff", ... })`.
   8. Draw the test results with A2UI: `run_tests` returns `a2ui_operations`, and a catalog made with `createCatalog` from `@copilotkit/a2ui-renderer` uses the same catalog id as the agent.
   9. Build a side panel that reads `agent.state` from `useAgent`.
@@ -132,27 +132,33 @@ The provider wraps the app. It points at the runtime route, registers the A2UI c
 
 import {
   CopilotChatConfigurationProvider,
-  CopilotKit,
-} from "@copilotkit/react-core/v2";
+  CopilotKitProvider,
+} from "@copilotkit/react-core";
 import { catalog } from "@/a2ui/catalog";
+import { ChatPanel } from "@/components/chat/chat-panel";
+import { ToolRenderers } from "@/components/chat/tool-renderers";
+import { AGENT_ID } from "@/lib/agent-id";
+import { WorkspaceProvider } from "@/lib/use-workspace";
 // ...
 
 const A2UI = { catalog }; // [!code highlight]
 
-// ...
-
-export function AppShell(props: ShellProps) {
+export function AppShell() {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       useSingleEndpoint={false}
       a2ui={A2UI} // [!code highlight]
       enableInspector={process.env.NODE_ENV === "development"} // [!code highlight]
     >
       <CopilotChatConfigurationProvider agentId={AGENT_ID}>
-        {/* ... */}
+        <WorkspaceProvider>
+          <ToolRenderers />
+          <ChatPanel />
+          {/* ... the header, thread list and side panel */}
+        </WorkspaceProvider>
       </CopilotChatConfigurationProvider>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 ```
@@ -161,13 +167,20 @@ export function AppShell(props: ShellProps) {
 chat is `CopilotChat`, pointed at the agent:
 
 ```tsx title="src/components/chat/chat-panel.tsx"
-<CopilotChat
-  // ...
-  agentId={AGENT_ID} // [!code highlight]
-  className="h-full"
-  welcomeScreen={Welcome}
-  // ...
-/>
+import { CopilotChat } from "@copilotkit/react-core";
+import { AGENT_ID } from "@/lib/agent-id";
+import { Welcome } from "./welcome";
+
+export function ChatPanel() {
+  return (
+    <CopilotChat
+      // ...
+      agentId={AGENT_ID} // [!code highlight]
+      className="h-full"
+      welcomeScreen={Welcome}
+    />
+  );
+}
 ```
 
 `welcomeScreen` replaces the empty chat with the start screen and its repository cards. The full layout is in
@@ -284,8 +297,12 @@ import { HttpAgent } from "@ag-ui/client";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
+import { AGENT_ID } from "@/lib/agent-id";
+import { serverEnv } from "@/lib/env";
 // ...
+
+const env = serverEnv();
 
 const agent = new HttpAgent({ url: env.AGENT_URL }); // [!code highlight]
 
@@ -468,28 +485,50 @@ interrupt. Its reason is `tool_approval`, and its metadata carries the tool's na
 interrupt's id, which continues the waiting call:
 
 ```tsx title="src/components/chat/tool-renderers.tsx"
-useInterrupt({
-  agentId: AGENT_ID,
-  enabled: (event) =>
-    (event.value as { reason?: string } | undefined)?.reason === // [!code highlight]
-    "tool_approval", // [!code highlight]
-  render: ({ interrupt, resolve }) => {
-    const { tool_name, args, ...meta } = (interrupt?.metadata ?? {}) as {
-      tool_name?: string;
-      args?: Record<string, unknown>;
-    } & Record<string, unknown>;
-    const tool = tool_name ?? "tool";
-    return (
-      <ApprovalCard
-        key={interrupt?.id}
-        request={{ tool, args: args ?? {}, meta }}
-        repoPath={repoPath}
-        autoApprove={autoApprove && !ALWAYS_ASK.has(tool)}
-        onAnswer={(answer: ApprovalAnswer) => resolve(answer, interrupt?.id)} // [!code highlight]
-      />
-    );
-  },
-});
+"use client";
+
+import { useInterrupt } from "@copilotkit/react-core";
+import { AGENT_ID } from "@/lib/agent-id";
+import { ALWAYS_ASK, useAutoApprove } from "@/lib/auto-approve";
+import { useWorkspace } from "@/lib/use-workspace";
+import { ApprovalCard } from "./approval-card";
+import type { ApprovalAnswer } from "./approval-card";
+
+// For an AG-UI interrupt, `event.value` is the interrupt itself.
+function isToolApproval(value: unknown) {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "reason" in value &&
+    value.reason === "tool_approval" // [!code highlight]
+  );
+}
+
+export function ToolRenderers() {
+  const repoPath = useWorkspace().state.repo?.path;
+  const { autoApprove } = useAutoApprove();
+
+  useInterrupt({
+    agentId: AGENT_ID,
+    enabled: (event) => isToolApproval(event.value), // [!code highlight]
+    render: ({ interrupt, resolve }) => {
+      const { tool_name, args, ...meta } = interrupt?.metadata ?? {};
+      const tool = typeof tool_name === "string" ? tool_name : "tool";
+      return (
+        <ApprovalCard
+          key={interrupt?.id}
+          request={{ tool, args: args ?? {}, meta }}
+          repoPath={repoPath}
+          autoApprove={autoApprove && !ALWAYS_ASK.has(tool)}
+          onAnswer={(answer: ApprovalAnswer) => resolve(answer, interrupt?.id)} // [!code highlight]
+        />
+      );
+    },
+  });
+
+  // ...
+  return null;
+}
 ```
 
 The card sends `{ approved: true }` or `{ approved: false, message }`, the shape the adapter reads. A denied call
@@ -518,16 +557,24 @@ is blocked, and your message goes back to the model so it knows why you said no.
 [`useRenderTool`](/reference/hooks/useRenderTool) matches a tool call by name and draws it in the chat:
 
 ```tsx title="src/components/chat/tool-renderers.tsx"
-const Any = z.record(z.unknown());
+import { useRenderTool } from "@copilotkit/react-core";
+import { z } from "zod";
+import { AGENT_ID } from "@/lib/agent-id";
+import { DiffBlock } from "./diff-block";
 
-// ...
+const Any = z.record(z.string(), z.unknown());
 
-useRenderTool({
-  name: "show_diff", // [!code highlight]
-  agentId: AGENT_ID,
-  parameters: Any,
-  render: (p) => <DiffBlock status={p.status} result={p.result} />, // [!code highlight]
-});
+export function ToolRenderers() {
+  // ...
+  useRenderTool({
+    name: "show_diff", // [!code highlight]
+    agentId: AGENT_ID,
+    parameters: Any,
+    render: (p) => <DiffBlock status={p.status} result={p.result} />, // [!code highlight]
+  });
+  // ...
+  return null;
+}
 ```
 
 - `p.status` moves from `inProgress` to `executing` to `complete`.
@@ -610,10 +657,14 @@ On the web side, the definitions are the contract between the agent and the card
 name, with a zod schema for each one's props. Each prop can be a value or a `{ path }` binding:
 
 ```ts title="src/a2ui/definitions.ts"
+import { z } from "zod";
+import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
+
 const binding = z.object({ path: z.string() });
 const dyn = <T extends z.ZodTypeAny>(schema: T) => z.union([schema, binding]); // [!code highlight]
 
-// ...
+const FileResult = z.object({ path: z.string(), passed: z.number(), failed: z.number() });
+const FailedTest = z.object({ id: z.string(), message: z.string() });
 
 export const definitions = {
   TestReport: {
@@ -626,10 +677,12 @@ export const definitions = {
       // ...
       files: dyn(z.array(FileResult)),
       failures: dyn(z.array(FailedTest)),
-      // ...
+      summary: dyn(z.string()),
     }),
   },
 } satisfies CatalogDefinitions;
+
+export type Definitions = typeof definitions;
 ```
 
 `createCatalog` joins the definitions and a renderer that maps the props onto the app's own `TestReport` React
@@ -642,7 +695,7 @@ step:
 import { createCatalog } from "@copilotkit/a2ui-renderer";
 import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
 import { definitions } from "./definitions";
-// ...
+import type { Definitions } from "./definitions";
 import { TestReport, list, num, str } from "./test-report";
 
 /** Must match CATALOG_ID in agent/src/repo_doctor/a2ui.py. */
@@ -657,8 +710,8 @@ const renderers: CatalogRenderers<Definitions> = {
         status={status === "passed" || status === "error" ? status : "failed"}
         headline={str(props.headline)}
         // ...
-        files={list<FileResultData>(props.files)}
-        failures={list<FailedTestData>(props.failures)}
+        files={list(props.files)}
+        failures={list(props.failures)}
         summary={str(props.summary)}
       />
     );
@@ -691,15 +744,30 @@ green one:
 Every tool wrote its part of the story into shared state. This is its shape on the web side:
 
 ```ts title="src/lib/agent-state.ts"
+import { z } from "zod";
+
+const Repo = z.object({ slug: z.string(), path: z.string(), branch: z.string() /* ... */ });
+const Install = z.object({ command: z.string() /* ... */ });
+const TestRun = z.object({ run: z.number(), status: z.enum(["passed", "failed", "error"]) /* ... */ });
+const Check = z.object({ label: z.string(), status: z.enum(["passed", "failed"]) /* ... */ });
+const Approval = z.object({ tool: z.string(), decision: z.enum(["approved", "denied"]) /* ... */ });
+const Push = z.object({ branch: z.string(), commit: z.string() /* ... */ });
+
+// Each field falls back on its own, so one malformed field cannot blank the panel.
 const AgentState = z.object({
   repo: Repo.optional().catch(undefined),
   install: Install.optional().catch(undefined),
   testRuns: z.array(TestRun).catch([]),
-  // ...
   checks: z.array(Check).catch([]),
   approvals: z.array(Approval).catch([]),
   push: Push.optional().catch(undefined),
 });
+
+export type AgentState = z.infer<typeof AgentState>;
+
+export function parseAgentState(raw: unknown): AgentState {
+  return AgentState.parse(raw && typeof raw === "object" ? raw : {});
+}
 ```
 
 Each field comes from one place:
@@ -713,10 +781,23 @@ Each field comes from one place:
 the cards and the panel:
 
 ```tsx title="src/lib/use-workspace.tsx"
+"use client";
+
+import { createContext, useMemo, type ReactNode } from "react";
+import { useAgent } from "@copilotkit/react-core";
+import { AGENT_ID } from "./agent-id";
+import { parseAgentState } from "./agent-state";
+import type { AgentState } from "./agent-state";
+
+const WorkspaceContext = createContext<{ state: AgentState } | null>(null);
+
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { agent } = useAgent({ agentId: AGENT_ID }); // [!code highlight]
   const state = useMemo(() => parseAgentState(agent.state), [agent.state]); // [!code highlight]
   // ...
+  return (
+    <WorkspaceContext.Provider value={{ state }}>{children}</WorkspaceContext.Provider>
+  );
 }
 ```
 
@@ -834,8 +915,23 @@ These are the runtime lines left out earlier. With a key, the runtime connects C
 runs stay in memory:
 
 ```ts title="src/app/api/copilotkit/[[...slug]]/route.ts"
+import { HttpAgent } from "@ag-ui/client";
+import {
+  CopilotKitIntelligence,
+  CopilotRuntime,
+  InMemoryAgentRunner,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime";
+import { AGENT_ID } from "@/lib/agent-id";
+import { serverEnv } from "@/lib/env";
+import { userFromCookieHeader } from "@/lib/user";
+
+const env = serverEnv();
+const agent = new HttpAgent({ url: env.AGENT_URL });
+
 const runtime = new CopilotRuntime({
-  // ...
+  agents: { [AGENT_ID]: agent },
+  a2ui: { injectA2UITool: false },
   ...(env.CPK_INTELLIGENCE_API_KEY
     ? {
         // Threads (AG-UI Streams) and Product Analytics.
@@ -856,7 +952,7 @@ const runtime = new CopilotRuntime({
         // The person who typed their name in the navbar (a cookie), so threads
         // and Product Analytics are per person. Not authentication: replace it
         // with your own server-verified session before going public.
-        identifyUser: (request: Request) => // [!code highlight]
+        identifyUser: (request) => // [!code highlight]
           userFromCookieHeader(request.headers.get("cookie")) ?? {
             id: env.DEMO_USER_ID,
             name: "Demo user",
@@ -864,6 +960,16 @@ const runtime = new CopilotRuntime({
       }
     : { runner: new InMemoryAgentRunner() }),
 });
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handler;
+export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;
 ```
 
 ### Threads

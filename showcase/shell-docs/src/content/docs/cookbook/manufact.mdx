@@ -11,7 +11,7 @@ agentPrompt: |
   2. Build the view in views/map-view/view.tsx. Read the result with `useToolContext<"show-map">()` from "mcp-use/react", and check `status` ("pending" | "ready" | "error") before reading `toolOutput`. The view loads map tiles from https://tile.openstreetmap.org, so list that host in the tool's `view.csp` (`resourceDomains`, `connectDomains`).
   3. Run it with `npm run dev -- --port 3001` and check that the tool renders in the mcp-use Inspector at http://localhost:3001/mcp/inspector.
   4. Add `MAP_MCP_URL=http://localhost:3001/mcp` to my web app's .env. In my CopilotKit runtime route, add `mcpApps: { servers: [{ type: "http", url: process.env.MAP_MCP_URL ?? "http://localhost:3001/mcp", serverId: "fizzy-maps" }] }` to `new CopilotRuntime(...)`.
-  5. Share the sample orders and the complete `show-map` arguments with `useAgentContext({ description, value })` from "@copilotkit/react-core/v2". Don't add a frontend renderer. CopilotKit renders MCP Apps on its own.
+  5. Share the sample orders and the complete `show-map` arguments with `useAgentContext({ description, value })` from "@copilotkit/react-core". Don't add a frontend renderer. CopilotKit renders MCP Apps on its own.
 
   If I don't have a CopilotKit app yet, start from https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/manufact-mcp-apps. Keep my existing model, provider, and runtime setup unchanged.
 ---
@@ -82,7 +82,7 @@ CopilotKit's provider is a client component, so give it its own file:
 ```tsx title="app/providers.tsx"
 "use client";
 
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // Points the chat at the runtime route you'll add in a later step.
@@ -99,7 +99,7 @@ Then replace `app/layout.tsx` so every page is wrapped in it:
 
 ```tsx title="app/layout.tsx"
 import { Providers } from "./providers"; // [!code highlight]
-import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
+import "@copilotkit/react-core/styles.css"; // [!code highlight]
 import "./globals.css";
 
 export default function RootLayout({
@@ -239,7 +239,8 @@ The view is a regular React component. `useToolContext` hands it the tool's resu
 [react-leaflet](https://react-leaflet.js.org) turns that into a map: a `MapContainer`, a `TileLayer` for the map
 images, and one `CircleMarker` per marker.
 
-```tsx title="views/map-view/view.tsx"
+{/* kiira: ignore, useToolContext<"show-map">() is typed by the mcp-env.d.ts that create-mcp-use-app generates in the reader's project, which kiira cannot see */}
+```tsx ignore title="views/map-view/view.tsx"
 import { useToolContext } from "mcp-use/react";
 import { CircleMarker, MapContainer, TileLayer, Tooltip } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -407,7 +408,7 @@ import {
   BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 
 const agent = new BuiltInAgent({
   model: "openai/gpt-5.5",
@@ -515,7 +516,7 @@ Then replace `app/page.tsx`. It hands that data to the agent with `useAgentConte
 ```tsx title="app/page.tsx"
 "use client";
 
-import { CopilotChat, useAgentContext } from "@copilotkit/react-core/v2";
+import { CopilotChat, useAgentContext } from "@copilotkit/react-core";
 import { orderMap, orders } from "@/lib/orders";
 
 export default function Page() {

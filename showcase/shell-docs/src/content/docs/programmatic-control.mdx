@@ -42,7 +42,7 @@ The canonical pattern is to append a user message with
 ```tsx title="frontend/src/app/agent-trigger.tsx"
 "use client";
 
-import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core";
 
 export function AgentTrigger({ agentId }: { agentId: string }) {
   const { agent } = useAgent({ agentId });

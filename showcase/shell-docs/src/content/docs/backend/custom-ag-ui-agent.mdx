@@ -73,7 +73,7 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { EchoAgent } from "@/lib/echo-agent";
 
 const runtime = new CopilotRuntime({
@@ -130,7 +130,7 @@ export class SupportAgent extends AbstractAgent {
   }
 
   override clone(): SupportAgent {
-    const copy = super.clone() as SupportAgent;
+    const copy: SupportAgent = super.clone();
     copy.client = this.client;
     return copy;
   }
@@ -195,7 +195,7 @@ subclass. Register an `HttpAgent` that points at the service:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
+import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({
   agents: { default: new HttpAgent({ url: process.env.AGENT_URL! }) },
