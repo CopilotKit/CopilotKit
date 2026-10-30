@@ -167,3 +167,109 @@ import "@copilotkit/react-core/v2";
     });
   });
 });
+
+describe("remove-stylesheet-import codemod: Vue and Angular", () => {
+  it("removes the Vue stylesheet import from a TS entry file", () => {
+    const { output } = run(
+      `import { createApp } from "vue";
+import "@copilotkit/vue/styles.css";
+import App from "./App.vue";
+`,
+      "src/main.ts",
+    );
+
+    expect(output).toBe(`import { createApp } from "vue";
+import App from "./App.vue";
+`);
+  });
+
+  it("removes the imports from a Vue single-file component", () => {
+    const { output } = run(
+      `<script setup lang="ts">
+import "@copilotkit/vue/styles.css";
+import { CopilotChat } from "@copilotkit/vue";
+</script>
+
+<style>
+@import "@copilotkit/vue/styles.css";
+.page { padding: 1rem; }
+</style>
+`,
+      "src/App.vue",
+    );
+
+    expect(output).toBe(`<script setup lang="ts">
+import { CopilotChat } from "@copilotkit/vue";
+</script>
+
+<style>
+.page { padding: 1rem; }
+</style>
+`);
+  });
+
+  it("removes the Angular stylesheet from a global stylesheet, with webpack's ~", () => {
+    const { output } = run(
+      `@import "~@copilotkit/angular/styles.css";
+@import "@copilotkit/angular/styles.css";
+body { margin: 0; }
+`,
+      "src/styles.scss",
+    );
+
+    expect(output).toBe(`body { margin: 0; }
+`);
+  });
+
+  it("removes the Angular stylesheet from every styles array in angular.json", () => {
+    const angularJson = (styles: unknown[]) =>
+      `${JSON.stringify(
+        {
+          projects: {
+            app: {
+              architect: {
+                build: { options: { styles } },
+                test: { options: { styles } },
+              },
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`;
+    const { output } = run(
+      angularJson([
+        "node_modules/@copilotkit/angular/styles.css",
+        { input: "@copilotkit/angular/styles.css", inject: true },
+        "src/styles.css",
+      ]),
+      "angular.json",
+    );
+
+    expect(output).toBe(angularJson(["src/styles.css"]));
+  });
+
+  it("leaves other JSON files, and angular.json without the stylesheet, unchanged", () => {
+    const pkg = `{ "styles": ["node_modules/@copilotkit/angular/styles.css"] }\n`;
+    expect(run(pkg, "package.json").changed).toBe(false);
+    expect(run(`{ "projects": {} }\n`, "apps/web/angular.json").changed).toBe(
+      false,
+    );
+  });
+
+  it("reports an angular.json with comments instead of failing", () => {
+    const { changed, reports } = run(
+      `{
+  // workspace
+  "styles": ["node_modules/@copilotkit/angular/styles.css"]
+}
+`,
+      "angular.json",
+    );
+
+    expect(changed).toBe(false);
+    expect(reports).toEqual([
+      'angular.json: remove "@copilotkit/angular/styles.css" from "styles" by hand.',
+    ]);
+  });
+});

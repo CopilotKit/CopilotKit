@@ -10,14 +10,18 @@
  *     `url(...)` and `layer(...)` forms.
  *
  * It also removes `@copilotkit/react-ui/v2/styles.css`, which only re-exported
- * the react-core stylesheet, and the built path
- * `@copilotkit/react-core/dist/v2/index.css`.
+ * the react-core stylesheet, the built path
+ * `@copilotkit/react-core/dist/v2/index.css`, and the Vue and Angular
+ * stylesheets, `@copilotkit/vue/styles.css` and `@copilotkit/angular/styles.css`:
+ *
+ *   - Vue single-file components: the same imports, in `<script>` and `<style>`.
+ *   - angular.json: the stylesheet in a `styles` array.
  *
  * An import that binds a name (`import styles from ".../styles.css"`) is left in
  * place and reported, because removing it would break the code that uses it.
  *
  * Usage:
- *   npx jscodeshift --parser=tsx --extensions=tsx,ts,jsx,js,css,scss \
+ *   npx jscodeshift --parser=tsx --extensions=tsx,ts,jsx,js,css,scss,vue,json \
  *     -t https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/codemods/remove-stylesheet-import.ts \
  *     ./src
  */
@@ -28,6 +32,8 @@ const STYLESHEETS = new Set([
   "@copilotkit/react-core/v2/styles.css",
   "@copilotkit/react-core/dist/v2/index.css",
   "@copilotkit/react-ui/v2/styles.css",
+  "@copilotkit/vue/styles.css",
+  "@copilotkit/angular/styles.css",
 ]);
 
 const STYLESHEET_PATTERN = [...STYLESHEETS]
@@ -35,11 +41,60 @@ const STYLESHEET_PATTERN = [...STYLESHEETS]
   .join("|");
 
 // A whole `@import` line for one of the stylesheets: `@import "x";`,
-// `@import 'x' layer(base);`, `@import url("x");`, `@import url(x) screen;`.
+// `@import 'x' layer(base);`, `@import url("x");`, `@import url(x) screen;`,
+// and webpack's `@import "~x";`.
 const CSS_IMPORT = new RegExp(
-  String.raw`^[ \t]*@import\s+(?:url\(\s*)?["']?(?:${STYLESHEET_PATTERN})["']?\s*\)?[^;\n]*;[ \t]*(?:\r?\n|$)`,
+  String.raw`^[ \t]*@import\s+(?:url\(\s*)?["']?~?(?:${STYLESHEET_PATTERN})["']?\s*\)?[^;\n]*;[ \t]*(?:\r?\n|$)`,
   "gm",
 );
+
+// A whole `import "x";` line, for Vue files, which jscodeshift can't parse.
+const JS_IMPORT = new RegExp(
+  String.raw`^[ \t]*import\s+["'](?:${STYLESHEET_PATTERN})["'];?[ \t]*(?:\r?\n|$)`,
+  "gm",
+);
+
+// An angular.json `styles` entry: "node_modules/@copilotkit/angular/styles.css",
+// with or without `node_modules/`, or `{ "input": … }` with that path.
+const ANGULAR_STYLESHEET =
+  /^(?:\.\/)?(?:node_modules\/)?@copilotkit\/angular\/styles\.css$/;
+
+/**
+ * Removes the Angular stylesheet from every `styles` array in angular.json.
+ * The file is printed again with two-space indents, as the Angular CLI writes
+ * it, so it only changes when an entry is removed.
+ */
+function removeAngularStylesheet(source: string): string {
+  const json: unknown = JSON.parse(source);
+  let changed = false;
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+    } else if (value && typeof value === "object") {
+      const record = value as Record<string, unknown>;
+      for (const [key, child] of Object.entries(record)) {
+        if (key === "styles" && Array.isArray(child)) {
+          const kept = child.filter((entry) => {
+            const input =
+              typeof entry === "string"
+                ? entry
+                : (entry as { input?: unknown } | null)?.input;
+            return !(
+              typeof input === "string" && ANGULAR_STYLESHEET.test(input)
+            );
+          });
+          if (kept.length !== child.length) {
+            record[key] = kept;
+            changed = true;
+          }
+        }
+        visit(record[key]);
+      }
+    }
+  };
+  visit(json);
+  return changed ? `${JSON.stringify(json, null, 2)}\n` : source;
+}
 
 // jscodeshift treats an empty result as "skipped" and keeps the old file, so
 // a file that held only the import becomes a single newline.
@@ -72,6 +127,26 @@ function cut(source: string, ranges: Array<[number, number]>): string {
 export default function transform(file: FileInfo, api: API) {
   if (/\.(css|scss|sass|less)$/.test(file.path)) {
     return result(file.source, file.source.replace(CSS_IMPORT, ""));
+  }
+  if (file.path.endsWith(".vue")) {
+    return result(
+      file.source,
+      file.source.replace(JS_IMPORT, "").replace(CSS_IMPORT, ""),
+    );
+  }
+  if (file.path.endsWith(".json")) {
+    if (!/(^|[\\/])angular\.json$/.test(file.path)) return undefined;
+    try {
+      return result(file.source, removeAngularStylesheet(file.source));
+    } catch {
+      // angular.json may hold comments, which JSON.parse rejects.
+      if (file.source.includes("@copilotkit/angular/styles.css")) {
+        api.report(
+          `${file.path}: remove "@copilotkit/angular/styles.css" from "styles" by hand.`,
+        );
+      }
+      return undefined;
+    }
   }
 
   const j = api.jscodeshift;
