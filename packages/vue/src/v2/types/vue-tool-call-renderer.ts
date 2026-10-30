@@ -40,5 +40,12 @@ export interface VueToolCallRenderer<T = unknown> {
   name: string;
   args: StandardSchemaV1<any, T>;
   agentId?: string;
+  /**
+   * Whether calls this renderer draws join the chat's tool-call groups (see
+   * `toolCallDisplay` on `CopilotChatMessageView`). CopilotKit's built-in card
+   * sets it; a renderer that leaves it unset always shows its calls on their
+   * own, since the chat can't tell what it draws (it may even draw nothing).
+   */
+  group?: boolean;
   render: VueToolCallRendererRenderFn<T>;
 }

@@ -33,7 +33,7 @@ export const CopilotChatAttachmentQueue: React.FC<
   return (
     <div
       data-testid="copilot-attachment-queue"
-      className={cn("cpk:flex cpk:flex-wrap cpk:gap-2 cpk:p-2", className)}
+      className={cn("cpk-attachment-queue", className)}
     >
       {attachments.map((attachment) => {
         const isMedia =
@@ -42,22 +42,19 @@ export const CopilotChatAttachmentQueue: React.FC<
           <div
             key={attachment.id}
             className={cn(
-              "cpk:relative cpk:inline-flex cpk:rounded-lg cpk:overflow-hidden cpk:border cpk:border-border",
+              "cpk-attachment-queue-item",
               isMedia
-                ? "cpk:w-[72px] cpk:h-[72px]"
+                ? "cpk-attachment-queue-item-media"
                 : attachment.type === "audio"
-                  ? "cpk:min-w-[200px] cpk:max-w-[280px] cpk:flex-col cpk:p-1 cpk:pr-8"
-                  : "cpk:p-2 cpk:px-3 cpk:pr-8 cpk:max-w-[240px]",
+                  ? "cpk-attachment-queue-item-audio"
+                  : "cpk-attachment-queue-item-document",
             )}
           >
             {attachment.status === "uploading" && <UploadingOverlay />}
             <AttachmentPreview attachment={attachment} />
             <button
               onClick={() => onRemoveAttachment(attachment.id)}
-              className={cn(
-                "cpk:absolute cpk:bg-black/60 cpk:text-white cpk:border-none cpk:rounded-full cpk:w-5 cpk:h-5 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer cpk:text-[10px] cpk:z-20",
-                isMedia ? "cpk:top-1 cpk:right-1" : "cpk:top-1.5 cpk:right-1.5",
-              )}
+              className="cpk-attachment-queue-remove-button"
               aria-label={labels.attachmentRemoveButtonLabel}
             >
               ✕
@@ -75,15 +72,15 @@ export const CopilotChatAttachmentQueue: React.FC<
 
 function UploadingOverlay() {
   return (
-    <div className="cpk:absolute cpk:inset-0 cpk:flex cpk:items-center cpk:justify-center cpk:bg-black/40 cpk:z-10">
-      <div className="cpk:w-5 cpk:h-5 cpk:border-2 cpk:border-white cpk:border-t-transparent cpk:rounded-full cpk:animate-spin" />
+    <div className="cpk-attachment-queue-uploading-overlay">
+      <div className="cpk-attachment-queue-uploading-spinner" />
     </div>
   );
 }
 
 function AttachmentPreview({ attachment }: { attachment: Attachment }) {
   if (attachment.status === "uploading") {
-    return <div className="cpk:w-full cpk:h-full" />;
+    return <div className="cpk-attachment-queue-placeholder" />;
   }
 
   switch (attachment.type) {
@@ -113,7 +110,7 @@ function ImagePreview({ attachment }: { attachment: Attachment }) {
         ref={thumbnailRef as React.Ref<HTMLImageElement>}
         src={src}
         alt={attachment.filename || "Image attachment"}
-        className="cpk:w-full cpk:h-full cpk:object-cover cpk:cursor-pointer"
+        className="cpk-attachment-queue-image"
         onClick={openLightbox}
       />
       {open && (
@@ -122,7 +119,7 @@ function ImagePreview({ attachment }: { attachment: Attachment }) {
             style={{ viewTransitionName: vtName }}
             src={src}
             alt={attachment.filename || "Image attachment"}
-            className="cpk:max-w-[90vw] cpk:max-h-[90vh] cpk:object-contain cpk:rounded-lg"
+            className="cpk-attachment-queue-lightbox-image"
           />
         </Lightbox>
       )}
@@ -137,15 +134,15 @@ function ImagePreview({ attachment }: { attachment: Attachment }) {
 function AudioPreview({ attachment }: { attachment: Attachment }) {
   const src = getSourceUrl(attachment.source);
   return (
-    <div className="cpk:flex cpk:flex-col cpk:gap-1 cpk:w-full">
+    <div className="cpk-attachment-queue-audio">
       <audio
         src={src}
         controls
         preload="metadata"
-        className="cpk:w-full cpk:h-8"
+        className="cpk-attachment-queue-audio-player"
       />
       {attachment.filename && (
-        <span className="cpk:text-xs cpk:font-medium cpk:overflow-hidden cpk:text-ellipsis cpk:whitespace-nowrap">
+        <span className="cpk-attachment-queue-audio-filename">
           {attachment.filename}
         </span>
       )}
@@ -173,30 +170,30 @@ function VideoPreview({ attachment }: { attachment: Attachment }) {
     <>
       <div
         ref={thumbnailRef as React.Ref<HTMLDivElement>}
-        className="cpk:w-full cpk:h-full"
+        className="cpk-attachment-queue-video"
       >
         {attachment.thumbnail ? (
           <img
             src={attachment.thumbnail}
             alt={attachment.filename || "Video thumbnail"}
-            className="cpk:w-full cpk:h-full cpk:object-cover"
+            className="cpk-attachment-queue-video-thumbnail"
           />
         ) : (
           <video
             src={src}
             preload="metadata"
             muted
-            className="cpk:w-full cpk:h-full cpk:object-cover"
+            className="cpk-attachment-queue-video-thumbnail"
           />
         )}
       </div>
       <button
         onClick={openLightbox}
-        className="cpk:absolute cpk:inset-0 cpk:flex cpk:items-center cpk:justify-center cpk:z-10 cpk:cursor-pointer cpk:bg-black/20 cpk:border-none cpk:p-0"
+        className="cpk-attachment-queue-video-play-button"
         aria-label={labels.attachmentPlayVideoButtonLabel}
       >
-        <div className="cpk:w-8 cpk:h-8 cpk:rounded-full cpk:bg-black/60 cpk:flex cpk:items-center cpk:justify-center">
-          <Play className="cpk:w-4 cpk:h-4 cpk:text-white cpk:ml-0.5" />
+        <div className="cpk-attachment-queue-video-play-badge">
+          <Play className="cpk-attachment-queue-video-play-icon" />
         </div>
       </button>
       {open && (
@@ -206,7 +203,7 @@ function VideoPreview({ attachment }: { attachment: Attachment }) {
             src={src}
             controls
             autoPlay
-            className="cpk:max-w-[90vw] cpk:max-h-[90vh] cpk:rounded-lg"
+            className="cpk-attachment-queue-lightbox-video"
           />
         </Lightbox>
       )}
@@ -282,7 +279,7 @@ function DocumentLightboxContent({
         style={{ viewTransitionName: vtName }}
         src={blobUrl}
         title={attachment.filename || "PDF preview"}
-        className="cpk:w-[90vw] cpk:h-[90vh] cpk:max-w-[1000px] cpk:rounded-lg cpk:bg-white"
+        className="cpk-attachment-queue-pdf-preview"
       />
     );
   }
@@ -303,22 +300,22 @@ function DocumentLightboxContent({
     return (
       <div
         style={{ viewTransitionName: vtName }}
-        className="cpk:w-[90vw] cpk:max-w-[800px] cpk:max-h-[90vh] cpk:overflow-auto cpk:rounded-lg cpk:bg-white cpk:dark:bg-gray-900 cpk:p-6"
+        className="cpk-attachment-queue-text-preview"
       >
         {attachment.filename && (
-          <div className="cpk:text-sm cpk:font-medium cpk:text-gray-500 cpk:dark:text-gray-400 cpk:mb-4 cpk:pb-2 cpk:border-b cpk:border-gray-200 cpk:dark:border-gray-700">
+          <div className="cpk-attachment-queue-text-preview-filename">
             {attachment.filename}
           </div>
         )}
         {textContent ? (
-          <pre className="cpk:text-sm cpk:whitespace-pre-wrap cpk:break-words cpk:text-gray-800 cpk:dark:text-gray-200 cpk:font-mono cpk:m-0">
+          <pre className="cpk-attachment-queue-text-preview-content">
             {textContent}
           </pre>
         ) : blobUrl ? (
           <iframe
             src={blobUrl}
             title={attachment.filename || "Text preview"}
-            className="cpk:w-full cpk:h-[80vh] cpk:border-none"
+            className="cpk-attachment-queue-text-preview-frame"
           />
         ) : null}
       </div>
@@ -329,21 +326,21 @@ function DocumentLightboxContent({
   return (
     <div
       style={{ viewTransitionName: vtName }}
-      className="cpk:flex cpk:flex-col cpk:items-center cpk:gap-4 cpk:p-8 cpk:rounded-lg cpk:bg-white cpk:dark:bg-gray-900"
+      className="cpk-attachment-queue-document-card"
     >
-      <div className="cpk:w-16 cpk:h-16 cpk:rounded-xl cpk:bg-primary cpk:text-primary-foreground cpk:flex cpk:items-center cpk:justify-center cpk:text-xl cpk:font-bold">
+      <div className="cpk-attachment-queue-document-card-icon">
         {getDocumentIcon(mimeType ?? "")}
       </div>
-      <div className="cpk:text-center">
-        <div className="cpk:text-base cpk:font-medium cpk:text-gray-800 cpk:dark:text-gray-200">
+      <div className="cpk-attachment-queue-document-card-details">
+        <div className="cpk-attachment-queue-document-card-name">
           {attachment.filename || "Document"}
         </div>
-        <div className="cpk:text-sm cpk:text-gray-500 cpk:dark:text-gray-400 cpk:mt-1">
+        <div className="cpk-attachment-queue-document-card-meta">
           {mimeType || "Unknown type"}
           {attachment.size != null && ` · ${formatFileSize(attachment.size)}`}
         </div>
       </div>
-      <div className="cpk:text-xs cpk:text-gray-400 cpk:dark:text-gray-500">
+      <div className="cpk-attachment-queue-document-card-note">
         No preview available for this file type
       </div>
     </div>
@@ -362,20 +359,20 @@ function DocumentPreview({ attachment }: { attachment: Attachment }) {
       <div
         ref={thumbnailRef as React.Ref<HTMLDivElement>}
         className={cn(
-          "cpk:flex cpk:items-center cpk:gap-2",
-          previewable && "cpk:cursor-pointer",
+          "cpk-attachment-queue-document",
+          previewable && "cpk-attachment-queue-document-previewable",
         )}
         onClick={previewable ? openLightbox : undefined}
       >
-        <div className="cpk:w-8 cpk:h-8 cpk:rounded-md cpk:bg-primary cpk:text-primary-foreground cpk:flex cpk:items-center cpk:justify-center cpk:text-[10px] cpk:font-semibold cpk:shrink-0">
+        <div className="cpk-attachment-queue-document-icon">
           {getDocumentIcon(mimeType ?? "")}
         </div>
-        <div className="cpk:flex cpk:flex-col cpk:min-w-0">
-          <span className="cpk:text-xs cpk:font-medium cpk:break-all cpk:leading-tight">
+        <div className="cpk-attachment-queue-document-info">
+          <span className="cpk-attachment-queue-document-name">
             {attachment.filename || "Document"}
           </span>
           {attachment.size != null && (
-            <span className="cpk:text-[11px] cpk:text-muted-foreground">
+            <span className="cpk-attachment-queue-document-size">
               {formatFileSize(attachment.size)}
             </span>
           )}

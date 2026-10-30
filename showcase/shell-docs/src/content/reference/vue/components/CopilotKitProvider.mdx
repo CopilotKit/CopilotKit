@@ -84,6 +84,14 @@ bearer token in core headers if those agents point at a third party.
   Indicates whether the user agent should send or receive cookies for cross-origin requests. Set to `"include"` to enable HTTP-only cookie authentication (configure CORS with credentials on your runtime endpoint to match).
 </PropertyReference>
 
+<PropertyReference name="nonce" type="string">
+  CSP nonce for the `<style>` tag CopilotKit adds. Set it when your Content-Security-Policy limits `style-src` to a nonce.
+</PropertyReference>
+
+<PropertyReference name="injectStyles" type="boolean" default="true">
+  Set to `false` when you import `@copilotkit/core/styles.css` yourself, so browsers cache the CSS as a file. CopilotKit then adds no `<style>` tag. See [Load the CSS as a cached file](/reference/vue#load-the-css-as-a-cached-file).
+</PropertyReference>
+
 <PropertyReference name="messageFilter" type="(messages: Message[], context: { agentId: string }) => Message[]">
   Rewrites the message list sent to the agent on every run.
 
@@ -227,10 +235,18 @@ function handleError(event: {
 
 </PropertyReference>
 
-<PropertyReference name="a2ui" type="{ theme?: A2UITheme; catalog?: any; loadingComponent?: Component; includeSchema?: boolean }">
+<PropertyReference name="a2ui" type="{ theme?: A2UITheme; catalog?: any; loadingComponent?: Component; includeSchema?: boolean; recovery?: A2UIRecoveryRendererOptions }">
   Configuration for the A2UI (Agent-to-UI) renderer. The built-in A2UI renderer activates automatically when the runtime reports that `a2ui` is configured in `CopilotRuntime`, so this prop is optional and only needed to override the theme, supply a custom component `catalog`, set a `loadingComponent`, or toggle whether the schema is included (`includeSchema`).
 
   `includeSchema` defaults to `true`, which sends the catalog's component schemas and the A2UI generation and design guidelines to the agent as context. With `includeSchema: false`, the agent still receives the catalog ID and the names of the catalog's custom components, without their JSON schemas or the guidelines. A LangGraph agent that uses the CopilotKit middleware's injected A2UI tool then gives its A2UI subagent the component names only. To give the subagent more detail, pass a composition guide through the middleware's A2UI guidelines: `a2uiParams.guidelines.compositionGuide` in TypeScript, or `a2ui_params["guidelines"]["composition_guide"]` in Python.
+
+  Until a surface paints, the A2UI middleware sets a `status` on the activity, and the chat shows it in place:
+
+  - `"building"`: a skeleton with "Building interface" and a token count. A `loadingComponent` replaces this state.
+  - `"retrying"`: the same skeleton. When the retry takes longer than `recovery.showAfterMs` (default `2000`), or the attempt number reaches `recovery.showAfterAttempts` (default `2`), the label changes to "Retrying generation… (2/3 attempts)".
+  - `"failed"`: a "Couldn't generate the UI" card.
+
+  `recovery.debugExposure` sets how much retry and error detail these states show: `"hidden"`, `"collapsed"` (the default, in a closed `<details>`), or `"verbose"` (open). A `debugExposure` that the middleware sets on the activity wins over this option.
 
 ```vue
 <template>
@@ -251,6 +267,27 @@ function handleError(event: {
 
 <PropertyReference name="debug" type="DebugConfig">
   Enable debug logging for the client-side event pipeline. Accepts `true` / `false` to toggle events and lifecycle logging (verbose off), or `{ events?: boolean; lifecycle?: boolean; verbose?: boolean }` for granular control.
+</PropertyReference>
+
+<PropertyReference name="learning" type="boolean | CopilotKitLearningOptions">
+  Turns on Trajectory capture for Automatic Learning. `learning` or `:learning="true"` captures with the default options. Pass an object to set options. `false` or no prop turns capture off and stops the active Trajectory.
+
+  Capture starts after the provider mounts and stops when it unmounts, including Trajectories started with `startTrajectory()`. Option changes apply to the next Trajectory. They do not restart the active one. Without a `sink`, Core connects through your runtime and sends the events to Intelligence. While capture runs, the reply thumbs record ratings (see [Reply ratings](/reference/vue/components/CopilotChatAssistantMessage#reply-ratings)).
+
+  The object takes the capture options in the [Trajectories reference](/intelligence/trajectories-reference) (`capture`, `ignoreUrls`, `beforeSend`, `onError` and others), and these provider options:
+
+  - `autoStart` (default `true`): starts a Trajectory after mount. Set `false` to call `startTrajectory()` yourself.
+  - `trajectoryId`: the UUID of the Trajectory that the provider starts. Without it, the provider generates a UUID. That ID stays the same while the options change. Turning capture off or setting `autoStart: false` ends it, and the next Trajectory gets a new ID. With `autoStart: false`, the provider ignores `trajectoryId` and logs a warning.
+  - `learningContainerIds`: used only with a custom `sink`. Without a sink, the provider logs a warning and ignores it. Assign Learning Spaces on the server with `getTrajectoryLearningContainerIds` on `CopilotKitIntelligence`.
+
+```vue
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit" learning>
+    <App />
+  </CopilotKitProvider>
+</template>
+```
+
 </PropertyReference>
 
 ## Slots

@@ -180,7 +180,9 @@ function CopilotSidebarViewInternal({
   const toggleButtonElement = renderSlot(
     toggleButton,
     CopilotChatToggleButton,
-    position === "left" ? { className: "cpk:left-6 cpk:right-auto" } : {},
+    position === "left"
+      ? { className: "cpk-sidebar-view-toggle-button-left" }
+      : {},
   );
 
   return (
@@ -193,21 +195,9 @@ function CopilotSidebarViewInternal({
         data-copilot-sidebar
         data-position={position}
         className={cn(
-          "copilotKitSidebar copilotKitWindow",
-          "cpk:fixed cpk:top-0 cpk:z-[1200] cpk:flex",
-          position === "left" ? "cpk:left-0" : "cpk:right-0",
-          // Height with dvh fallback and safe area support
-          "cpk:h-[100vh] cpk:h-[100dvh] cpk:max-h-screen",
-          // Responsive width: full on mobile, custom on desktop
-          "cpk:w-full",
-          position === "left" ? "cpk:border-r" : "cpk:border-l",
-          "cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-xl",
-          "cpk:transition-transform cpk:duration-300 cpk:ease-out",
-          isSidebarOpen
-            ? "cpk:translate-x-0"
-            : position === "left"
-              ? "cpk:-translate-x-full cpk:pointer-events-none"
-              : "cpk:translate-x-full cpk:pointer-events-none",
+          "copilotKitSidebar copilotKitWindow cpk-sidebar-view",
+          // Slides off its edge (data-position) when closed.
+          !isSidebarOpen && "cpk-sidebar-view-closed",
         )}
         style={
           {
@@ -225,9 +215,9 @@ function CopilotSidebarViewInternal({
         }
         role="complementary"
       >
-        <div className="cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden">
+        <div className="cpk-sidebar-view-panel">
           {headerElement}
-          <div className="cpk:flex-1 cpk:overflow-hidden" data-sidebar-chat>
+          <div className="cpk-sidebar-view-chat" data-sidebar-chat>
             <CopilotChatView {...props} />
           </div>
         </div>
@@ -277,19 +267,19 @@ export namespace CopilotSidebarView {
 
     return (
       <div
-        className={cn("cpk:h-full cpk:flex cpk:flex-col", className)}
+        className={cn("cpk-sidebar-view-welcome-screen", className)}
         {...props}
       >
         {/* Welcome message - centered vertically */}
-        <div className="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4">
+        <div className="cpk-sidebar-view-welcome-screen-message">
           {BoundWelcomeMessage}
         </div>
 
         {/* Suggestions and input at bottom */}
-        <div className="cpk:px-8 cpk:pb-4">
-          <div className="cpk:max-w-3xl cpk:mx-auto">
+        <div className="cpk-sidebar-view-welcome-screen-footer">
+          <div className="cpk-sidebar-view-welcome-screen-content">
             {/* Suggestions above input */}
-            <div className="cpk:mb-4 cpk:flex cpk:justify-center">
+            <div className="cpk-sidebar-view-welcome-screen-suggestions">
               {suggestionView}
             </div>
             {input}

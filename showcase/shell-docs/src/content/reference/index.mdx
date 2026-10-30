@@ -286,11 +286,31 @@ The headless entry exports the provider context, chat configuration provider, `u
 
 ## Styling
 
-When using the built-in UI components, import the stylesheet once at your app boundary:
+The UI components include their own styles. You don't import a stylesheet. `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` add one `<style>` tag to the page, and it is included in server-rendered HTML.
+
+If you render other components without a chat surface, add `<CopilotKitStyles />` once, inside `CopilotKitProvider`. If your Content-Security-Policy limits `style-src` to a nonce, pass it as `<CopilotKitProvider nonce={nonce}>`.
+
+### Load the CSS as a cached file
+
+The `<style>` tag is part of your JavaScript, so browsers cache it with your app's code. Server-rendered pages also send it in the HTML of each full page load. To have browsers cache the CSS as its own file, import it and turn off the `<style>` tag:
 
 ```tsx
-import "@copilotkit/react-core/styles.css";
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import "@copilotkit/core/styles.css";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" injectStyles={false}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
+
+This is optional. Your bundler must support CSS imports, as Next.js and Vite do.
+
+To update an app that still imports `@copilotkit/react-core/v2/styles.css`, run the codemod in [Migrate to v2](/migrate/v2#remove-the-stylesheet-import).
 
 ## API Reference
 

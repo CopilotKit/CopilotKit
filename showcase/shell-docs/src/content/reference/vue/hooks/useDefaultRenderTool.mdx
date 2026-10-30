@@ -38,6 +38,7 @@ useDefaultRenderTool satisfies (
     render?:
       | ((props: DefaultRenderProps) => VNodeChild)
       | Component<DefaultRenderProps>;
+    group?: boolean;
   },
   deps?: WatchSource<unknown>[],
 ) => void;
@@ -54,6 +55,10 @@ useDefaultRenderTool satisfies (
     call. A render function receives `DefaultRenderProps` and returns a
     `VNodeChild`. A component receives `DefaultRenderProps` as its props. If
     omitted, CopilotKit's built-in expandable card is used.
+  </PropertyReference>
+
+  <PropertyReference name="group" type="boolean">
+    Whether the chat groups the calls your `render` draws (see `toolCallDisplay` on [`CopilotChatMessageView`](/reference/vue/components/CopilotChatMessageView)). The built-in card always groups. A custom `render` does not group unless you set `group: true`, because it may draw nothing.
   </PropertyReference>
 </PropertyReference>
 
@@ -211,6 +216,7 @@ useDefaultRenderTool(
 
 - **Wildcard registration**: Internally calls `useRenderTool({ name: "*", render })`. The `"*"` name matches any tool call that has no specific named renderer.
 - **Default UI**: When `config.render` is omitted, an expandable card is rendered. It shows the tool name, a status label (`Running` while active, `Done` when complete), and, when expanded, the JSON-stringified arguments and the result.
+- **Inside a group**: In a tool-call group, the built-in card draws a compact row instead: a status icon, the tool name, its first string argument, and a status (`Running`, `Done`, `Failed`, or `Stopped` for a call that the run left without a result). The row opens to the arguments and the result.
 - **Prop normalization**: Your `render` is always wrapped so it receives the documented `DefaultRenderProps`, regardless of whether the call site passes raw internal props (`args` plus a `ToolCallStatus` enum) or already-adapted props (`parameters` plus a string-union status). Both render functions and components are wrapped this way.
 - **Status mapping**: The `ToolCallStatus` enum is mapped to the `"inProgress" | "executing" | "complete"` union. An unknown or future enum value falls back to `"inProgress"` and logs a one-time `console.warn` per distinct value.
 - **No cleanup removal**: Registered renderers are intentionally not removed on cleanup, so past tool calls keep rendering correctly in chat history.

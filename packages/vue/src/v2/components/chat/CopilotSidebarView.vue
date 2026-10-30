@@ -18,6 +18,7 @@ defineOptions({ inheritAttrs: false });
 const props = withDefaults(defineProps<CopilotSidebarViewProps>(), {
   messages: () => [],
   autoScroll: true,
+  messageFeedback: true,
   isRunning: false,
   suggestions: () => [],
   suggestionLoadingIndexes: () => [],
@@ -27,6 +28,7 @@ const props = withDefaults(defineProps<CopilotSidebarViewProps>(), {
   inputToolsMenu: () => [],
   width: undefined,
   defaultOpen: true,
+  position: "right",
   onFinishTranscribeWithAudio: undefined,
 });
 

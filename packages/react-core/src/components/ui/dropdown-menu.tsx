@@ -47,10 +47,7 @@ function DropdownMenuContent({
         data-copilotkit
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
-        className={cn(
-          "cpk:bg-popover cpk:text-popover-foreground cpk:data-[state=open]:animate-in cpk:data-[state=closed]:animate-out cpk:data-[state=closed]:fade-out-0 cpk:data-[state=open]:fade-in-0 cpk:data-[state=closed]:zoom-out-95 cpk:data-[state=open]:zoom-in-95 cpk:data-[side=bottom]:slide-in-from-top-2 cpk:data-[side=left]:slide-in-from-right-2 cpk:data-[side=right]:slide-in-from-left-2 cpk:data-[side=top]:slide-in-from-bottom-2 cpk:z-50 cpk:max-h-(--radix-dropdown-menu-content-available-height) cpk:min-w-[8rem] cpk:origin-(--radix-dropdown-menu-content-transform-origin) cpk:overflow-x-hidden cpk:overflow-y-auto cpk:rounded-md cpk:border cpk:p-1 cpk:shadow-md",
-          className,
-        )}
+        className={cn("cpk-dropdown-menu-content", className)}
         {...props}
       />
     </DropdownMenuPrimitive.Portal>
@@ -79,10 +76,7 @@ function DropdownMenuItem({
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}
-      className={cn(
-        "cpk:focus:bg-accent cpk:focus:text-accent-foreground cpk:data-[variant=destructive]:text-destructive cpk:data-[variant=destructive]:focus:bg-destructive/10 cpk:dark:data-[variant=destructive]:focus:bg-destructive/20 cpk:data-[variant=destructive]:focus:text-destructive cpk:data-[variant=destructive]:*:[svg]:!text-destructive cpk:[&_svg:not([class*='text-'])]:text-muted-foreground cpk:relative cpk:flex cpk:cursor-default cpk:items-center cpk:gap-2 cpk:rounded-sm cpk:px-2 cpk:py-1.5 cpk:text-sm cpk:outline-hidden cpk:select-none cpk:data-[disabled]:pointer-events-none cpk:data-[disabled]:opacity-50 cpk:data-[inset]:pl-8 cpk:[&_svg]:pointer-events-none cpk:[&_svg]:shrink-0 cpk:[&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={cn("cpk-dropdown-menu-item", className)}
       {...props}
     />
   );
@@ -97,16 +91,13 @@ function DropdownMenuCheckboxItem({
   return (
     <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
-      className={cn(
-        "cpk:focus:bg-accent cpk:focus:text-accent-foreground cpk:relative cpk:flex cpk:cursor-default cpk:items-center cpk:gap-2 cpk:rounded-sm cpk:py-1.5 cpk:pr-2 cpk:pl-8 cpk:text-sm cpk:outline-hidden cpk:select-none cpk:data-[disabled]:pointer-events-none cpk:data-[disabled]:opacity-50 cpk:[&_svg]:pointer-events-none cpk:[&_svg]:shrink-0 cpk:[&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={cn("cpk-dropdown-menu-checkbox-item", className)}
       checked={checked}
       {...props}
     >
-      <span className="cpk:pointer-events-none cpk:absolute cpk:left-2 cpk:flex cpk:size-3.5 cpk:items-center cpk:justify-center">
+      <span className="cpk-dropdown-menu-item-indicator">
         <DropdownMenuPrimitive.ItemIndicator>
-          <CheckIcon className="cpk:size-4" />
+          <CheckIcon className="cpk-dropdown-menu-check-icon" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
@@ -133,15 +124,12 @@ function DropdownMenuRadioItem({
   return (
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
-      className={cn(
-        "cpk:focus:bg-accent cpk:focus:text-accent-foreground cpk:relative cpk:flex cpk:cursor-default cpk:items-center cpk:gap-2 cpk:rounded-sm cpk:py-1.5 cpk:pr-2 cpk:pl-8 cpk:text-sm cpk:outline-hidden cpk:select-none cpk:data-[disabled]:pointer-events-none cpk:data-[disabled]:opacity-50 cpk:[&_svg]:pointer-events-none cpk:[&_svg]:shrink-0 cpk:[&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={cn("cpk-dropdown-menu-radio-item", className)}
       {...props}
     >
-      <span className="cpk:pointer-events-none cpk:absolute cpk:left-2 cpk:flex cpk:size-3.5 cpk:items-center cpk:justify-center">
+      <span className="cpk-dropdown-menu-item-indicator">
         <DropdownMenuPrimitive.ItemIndicator>
-          <CircleIcon className="cpk:size-2 cpk:fill-current" />
+          <CircleIcon className="cpk-dropdown-menu-radio-icon" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
@@ -160,10 +148,7 @@ function DropdownMenuLabel({
     <DropdownMenuPrimitive.Label
       data-slot="dropdown-menu-label"
       data-inset={inset}
-      className={cn(
-        "cpk:px-2 cpk:py-1.5 cpk:text-sm cpk:font-medium cpk:data-[inset]:pl-8",
-        className,
-      )}
+      className={cn("cpk-dropdown-menu-label", className)}
       {...props}
     />
   );
@@ -176,7 +161,7 @@ function DropdownMenuSeparator({
   return (
     <DropdownMenuPrimitive.Separator
       data-slot="dropdown-menu-separator"
-      className={cn("cpk:bg-border cpk:-mx-1 cpk:my-1 cpk:h-px", className)}
+      className={cn("cpk-dropdown-menu-separator", className)}
       {...props}
     />
   );
@@ -189,10 +174,7 @@ function DropdownMenuShortcut({
   return (
     <span
       data-slot="dropdown-menu-shortcut"
-      className={cn(
-        "cpk:text-muted-foreground cpk:ml-auto cpk:text-xs cpk:tracking-widest",
-        className,
-      )}
+      className={cn("cpk-dropdown-menu-shortcut", className)}
       {...props}
     />
   );
@@ -216,14 +198,11 @@ function DropdownMenuSubTrigger({
     <DropdownMenuPrimitive.SubTrigger
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
-      className={cn(
-        "cpk:focus:bg-accent cpk:focus:text-accent-foreground cpk:data-[state=open]:bg-accent cpk:data-[state=open]:text-accent-foreground cpk:flex cpk:cursor-default cpk:items-center cpk:rounded-sm cpk:px-2 cpk:py-1.5 cpk:text-sm cpk:outline-hidden cpk:select-none cpk:data-[inset]:pl-8",
-        className,
-      )}
+      className={cn("cpk-dropdown-menu-sub-trigger", className)}
       {...props}
     >
       {children}
-      <ChevronRightIcon className="cpk:ml-auto cpk:size-4" />
+      <ChevronRightIcon className="cpk-dropdown-menu-sub-trigger-icon" />
     </DropdownMenuPrimitive.SubTrigger>
   );
 }
@@ -235,10 +214,7 @@ function DropdownMenuSubContent({
   return (
     <DropdownMenuPrimitive.SubContent
       data-slot="dropdown-menu-sub-content"
-      className={cn(
-        "cpk:bg-popover cpk:text-popover-foreground cpk:data-[state=open]:animate-in cpk:data-[state=closed]:animate-out cpk:data-[state=closed]:fade-out-0 cpk:data-[state=open]:fade-in-0 cpk:data-[state=closed]:zoom-out-95 cpk:data-[state=open]:zoom-in-95 cpk:data-[side=bottom]:slide-in-from-top-2 cpk:data-[side=left]:slide-in-from-right-2 cpk:data-[side=right]:slide-in-from-left-2 cpk:data-[side=top]:slide-in-from-bottom-2 cpk:z-50 cpk:min-w-[8rem] cpk:origin-(--radix-dropdown-menu-content-transform-origin) cpk:overflow-hidden cpk:rounded-md cpk:border cpk:p-1 cpk:shadow-lg",
-        className,
-      )}
+      className={cn("cpk-dropdown-menu-sub-content", className)}
       {...props}
     />
   );

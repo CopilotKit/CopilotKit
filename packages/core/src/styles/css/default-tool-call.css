@@ -1,0 +1,180 @@
+/* The built-in tool-call card (useDefaultRenderTool), drawn when the call is
+   not inside a group. Inside a group it draws a row; see tool-call-group.css. */
+:where(.cpk-default-tool-call) {
+  margin-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+:where(.cpk-default-tool-call-card) {
+  border-radius: calc(var(--radius) + 4px);
+  border: 1px solid
+    color-mix(in oklab, oklch(92% 0.004 286.32) 60%, transparent);
+  background-color: color-mix(in oklab, #fff 70%, transparent);
+  padding: 1rem;
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.1),
+    0 1px 2px -1px rgb(0 0 0 / 0.1);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+:where(.dark .cpk-default-tool-call-card) {
+  border-color: color-mix(
+    in oklab,
+    oklch(27.4% 0.006 286.033) 60%,
+    transparent
+  );
+  background-color: color-mix(
+    in oklab,
+    oklch(21% 0.006 285.885) 50%,
+    transparent
+  );
+}
+:where(.cpk-default-tool-call-header) {
+  margin: 0;
+  display: flex;
+  width: 100%;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.625rem;
+  border-style: none;
+  background-color: transparent;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+}
+:where(.cpk-default-tool-call-title) {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+:where(.cpk-default-tool-call-chevron) {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  color: oklch(55.2% 0.016 285.938);
+  transition-property: rotate;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+:where(.dark .cpk-default-tool-call-chevron) {
+  color: oklch(70.5% 0.015 286.067);
+}
+:where(.cpk-default-tool-call-chevron-open) {
+  rotate: 90deg;
+}
+
+/* Status dot */
+:where(.cpk-default-tool-call-dot) {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+  border-radius: calc(infinity * 1px);
+}
+:where(.cpk-default-tool-call-dot-running) {
+  background-color: oklch(76.9% 0.188 70.08);
+}
+:where(.cpk-default-tool-call-dot-done) {
+  background-color: oklch(69.6% 0.17 162.48);
+}
+:where(.cpk-default-tool-call-dot-other) {
+  background-color: oklch(70.5% 0.015 286.067);
+}
+
+:where(.cpk-default-tool-call-name) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: oklch(21% 0.006 285.885);
+}
+:where(.dark .cpk-default-tool-call-name) {
+  color: oklch(96.7% 0.001 286.375);
+}
+
+/* Status badge */
+:where(.cpk-default-tool-call-badge) {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  border-radius: calc(infinity * 1px);
+  padding: 0.125rem 0.5rem;
+  font-size: 11px;
+  font-weight: 500;
+}
+:where(.cpk-default-tool-call-badge-running) {
+  background-color: oklch(96.2% 0.059 95.617);
+  color: oklch(47.3% 0.137 46.201);
+}
+:where(.dark .cpk-default-tool-call-badge-running) {
+  background-color: color-mix(
+    in oklab,
+    oklch(76.9% 0.188 70.08) 15%,
+    transparent
+  );
+  color: oklch(82.8% 0.189 84.429);
+}
+:where(.cpk-default-tool-call-badge-done) {
+  background-color: oklch(95% 0.052 163.051);
+  color: oklch(43.2% 0.095 166.913);
+}
+:where(.dark .cpk-default-tool-call-badge-done) {
+  background-color: color-mix(
+    in oklab,
+    oklch(69.6% 0.17 162.48) 15%,
+    transparent
+  );
+  color: oklch(76.5% 0.177 163.223);
+}
+:where(.cpk-default-tool-call-badge-other) {
+  background-color: oklch(96.7% 0.001 286.375);
+  color: oklch(27.4% 0.006 286.033);
+}
+:where(.dark .cpk-default-tool-call-badge-other) {
+  background-color: color-mix(
+    in oklab,
+    oklch(37% 0.013 285.805) 40%,
+    transparent
+  );
+  color: oklch(87.1% 0.006 286.286);
+}
+
+/* Expanded arguments and result */
+:where(.cpk-default-tool-call-details) {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.75rem;
+}
+:where(.cpk-default-tool-call-label) {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: oklch(55.2% 0.016 285.938);
+}
+:where(.dark .cpk-default-tool-call-label) {
+  color: oklch(70.5% 0.015 286.067);
+}
+:where(.cpk-default-tool-call-code) {
+  margin-top: 0.375rem;
+  max-height: 200px;
+  overflow: auto;
+  border-radius: calc(var(--radius) - 2px);
+  background-color: oklch(96.7% 0.001 286.375);
+  padding: 0.625rem;
+  font-size: 11px;
+  line-height: 1.625;
+  color: oklch(27.4% 0.006 286.033);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+:where(.dark .cpk-default-tool-call-code) {
+  background-color: color-mix(
+    in oklab,
+    oklch(27.4% 0.006 286.033) 60%,
+    transparent
+  );
+  color: oklch(92% 0.004 286.32);
+}

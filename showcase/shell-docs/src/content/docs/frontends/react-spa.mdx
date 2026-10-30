@@ -104,24 +104,6 @@ Use this prompt to connect your React single-page app to a separately hosted Cop
         </Callout>
     </Step>
     <Step>
-        ### Import the styles
-
-        Import the package stylesheet once in your app entry. It's self-contained, so the chat renders without any other CSS.
-
-        ```tsx title="src/main.tsx"
-        import React from "react";
-        import ReactDOM from "react-dom/client";
-        import App from "./App";
-        import "@copilotkit/react-core/styles.css"; // [!code highlight]
-
-        ReactDOM.createRoot(document.getElementById("root")!).render(
-          <React.StrictMode>
-            <App />
-          </React.StrictMode>,
-        );
-        ```
-    </Step>
-    <Step>
         ### Connect to Copilot Runtime
 
         Point `CopilotKitProvider` at the runtime endpoint and drop in `CopilotChat`. Because the runtime registers an agent named `default`, the chat picks it up automatically.
@@ -264,7 +246,7 @@ Use this prompt to connect your React single-page app to a separately hosted Cop
                 - **CORS errors, or requests failing on preflight**: Keep `cors: true` in `createCopilotNodeListener`. It is off by default, and this is the most common cause of a chat that renders but never responds.
                 - **404s on `/api/copilotkit`**: Your `runtimeUrl` is relative. A SPA needs the absolute `http://localhost:8200/api/copilotkit`.
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
-                - **Chat renders unstyled**: Make sure you imported `@copilotkit/react-core/styles.css` in your app entry.
+                - **Chat renders unstyled**: Look for a Content-Security-Policy error in the browser console. If your policy limits `style-src` to a nonce, pass it as `<CopilotKitProvider nonce={nonce}>`.
                 - **Model auth errors or Intelligence remains unconfigured**: Confirm the runtime starts with `npx tsx --env-file=.env server.ts` and the selected env file contains the required server credentials. Vite loading its own env file does not configure the runtime process.
             </Accordion>
         </Accordions>

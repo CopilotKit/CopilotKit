@@ -487,6 +487,10 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         ),
       );
 
+      // The toolbar hides on the latest assistant message while the run is
+      // going, so finish the run first.
+      agent.emit(runFinishedEvent());
+
       // Toolbar SHOULD be visible now for the message with content
       // Use textContent check because the streaming renderer splits text across
       // per-segment <span>s — getByText can't match the full string in one element.
@@ -495,15 +499,17 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
           "Here is some actual text content",
         );
 
-        // Should now have copy button
-        const toolbarButtons = screen.getAllByRole("button");
-        const copyButton = toolbarButtons.find((btn) =>
-          btn.getAttribute("aria-label")?.toLowerCase().includes("copy"),
+        // Should now have a copy button on the message with content
+        const messageWithContent = document.querySelector(
+          `[data-testid="copilot-assistant-message"][data-message-id="${messageWithContentId}"]`,
         );
-        expect(copyButton).toBeDefined();
+        expect(
+          messageWithContent?.querySelector(
+            '[data-testid="copilot-copy-button"]',
+          ),
+        ).not.toBeNull();
       });
 
-      agent.emit(runFinishedEvent());
       agent.complete();
     });
 
@@ -1134,15 +1140,9 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         expect(screen.getByText("Thinking…")).toBeDefined();
       });
 
-      // Chat-level cursor (pulsing dot) should NOT be visible when last message is reasoning
-      // The cursor has animate-pulse-cursor class
-      const cursors = document.querySelectorAll(".cpk\\:animate-pulse-cursor");
-      // Only the reasoning indicator should be present, not the chat-level cursor
-      // The chat-level cursor is a direct child of the message view container
-      const chatLevelCursor = document.querySelector(
-        ".cpk\\:flex.cpk\\:flex-col > .cpk\\:mt-2 .cpk\\:animate-pulse-cursor",
-      );
-      expect(chatLevelCursor).toBeNull();
+      // Chat-level cursor (pulsing dot) should NOT be visible when last message
+      // is reasoning; only the reasoning indicator shows.
+      expect(screen.queryByTestId("copilot-loading-cursor")).toBeNull();
 
       // Clean up
       agent.emit(reasoningMessageEndEvent(reasoningId));
@@ -1181,10 +1181,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       // Chat-level cursor should now be visible since last message is text (not reasoning)
       // Note: The cursor shows while isRunning=true and last message is not reasoning
       await waitFor(() => {
-        const chatLevelCursor = document.querySelector(
-          ".cpk\\:animate-pulse-cursor",
-        );
-        expect(chatLevelCursor).not.toBeNull();
+        expect(screen.queryByTestId("copilot-loading-cursor")).not.toBeNull();
       });
 
       agent.emit(runFinishedEvent());

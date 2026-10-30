@@ -33,12 +33,7 @@ const ariaLabel = computed(() =>
     : labels.value.chatToggleOpenLabel,
 );
 const buttonClass = computed(() => [
-  "cpk:fixed cpk:bottom-6 cpk:right-6 cpk:z-[1100] cpk:flex cpk:h-14 cpk:w-14 cpk:items-center cpk:justify-center",
-  "cpk:rounded-full cpk:border cpk:border-primary cpk:bg-primary cpk:text-primary-foreground",
-  "cpk:shadow-sm cpk:transition-all cpk:duration-200 cpk:ease-out",
-  "cpk:hover:scale-[1.04] cpk:hover:shadow-md cpk:cursor-pointer cpk:active:scale-[0.96]",
-  "cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-primary/50 cpk:focus-visible:ring-offset-2 cpk:focus-visible:ring-offset-background",
-  "cpk:disabled:pointer-events-none cpk:disabled:opacity-60",
+  "copilotKitButton cpk-chat-toggle-button",
   attrs.class,
 ]);
 const buttonAttrs = computed(() => {
@@ -46,13 +41,12 @@ const buttonAttrs = computed(() => {
   return rest;
 });
 
-const iconClass = "cpk:h-6 cpk:w-6";
+const iconClass = "cpk-chat-toggle-button-icon";
 const iconTransitionStyle = Object.freeze({
   transition:
     "opacity 120ms ease-out, transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
 });
-const iconWrapperBase =
-  "cpk:pointer-events-none cpk:absolute cpk:inset-0 cpk:flex cpk:items-center cpk:justify-center cpk:will-change-transform";
+const iconWrapperBase = "cpk-chat-toggle-button-icon-wrapper";
 
 function setModalOpen(open: boolean) {
   if (config.value?.setModalOpen) {

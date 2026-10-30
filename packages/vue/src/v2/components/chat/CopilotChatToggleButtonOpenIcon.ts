@@ -9,7 +9,7 @@ export default defineComponent({
       const { class: className, ...rest } = attrs as Record<string, unknown>;
       return h(IconMessageCircle, {
         ...rest,
-        class: ["cpk:h-6 cpk:w-6", className],
+        class: ["cpk-chat-toggle-button-icon", className],
         strokeWidth: 1.75,
         fill: "currentColor",
       });

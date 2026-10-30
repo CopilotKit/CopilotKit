@@ -11,6 +11,10 @@ import {
   getToolCallRenderProps,
   getToolCallSlotName,
 } from "./copilotChatToolCallItemRender";
+import {
+  ToolCallCaptureScope,
+  useLearningConfigured,
+} from "./tool-call-capture";
 
 const props = withDefaults(
   defineProps<{
@@ -31,6 +35,7 @@ defineSlots<{
 
 const { copilotkit, executingToolCallIds } = useCopilotKit();
 const config = useCopilotChatConfiguration();
+const learningConfigured = useLearningConfigured(copilotkit);
 
 function getRenderProps(): CopilotChatToolCallRenderSlotProps {
   return getToolCallRenderProps(
@@ -70,17 +75,22 @@ function getMemoDeps() {
 </script>
 
 <template>
-  <slot
-    :name="getToolCallSlotName(toolCall.function.name)"
-    v-bind="getRenderProps()"
+  <ToolCallCaptureScope
+    :tool-call-id="toolCall.id"
+    :enabled="learningConfigured"
   >
-    <slot name="tool-call" v-bind="getRenderProps()">
-      <component
-        :is="getRenderConfig()?.render"
-        v-if="getRenderConfig()"
-        v-memo="getMemoDeps()"
-        v-bind="getCoreProps()"
-      />
+    <slot
+      :name="getToolCallSlotName(toolCall.function.name)"
+      v-bind="getRenderProps()"
+    >
+      <slot name="tool-call" v-bind="getRenderProps()">
+        <component
+          :is="getRenderConfig()?.render"
+          v-if="getRenderConfig()"
+          v-memo="getMemoDeps()"
+          v-bind="getCoreProps()"
+        />
+      </slot>
     </slot>
-  </slot>
+  </ToolCallCaptureScope>
 </template>

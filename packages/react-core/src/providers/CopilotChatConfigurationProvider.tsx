@@ -11,8 +11,8 @@ import React, {
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 import type { OpenThreadRegistration } from "@copilotkit/core";
 import { CopilotKitContext, useDefaultAgentId } from "../context";
-// Import from the tailwind-free leaf module (not ../lib/slots, which pulls
-// tailwind-merge) so this provider stays lean in the headless entry (issue #4893).
+// Import from the leaf module (not ../lib/slots) so this provider stays lean in
+// the headless entry (issue #4893).
 import { useShallowStableRef } from "../lib/shallow-stable-ref";
 
 // Default labels

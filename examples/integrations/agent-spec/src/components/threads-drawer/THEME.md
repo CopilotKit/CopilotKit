@@ -7,7 +7,7 @@ product with agent-spec's chat surface from `@copilotkit/react-core/v2`.
 ## Design source of truth
 
 All surfaces, borders, radii, and type ramps are lifted from CopilotKit's V2
-design system: `@copilotkit/react-core/src/v2/styles/globals.css` plus the chat
+design system: `@copilotkit/core/src/styles/css/theme.css` plus the chat
 components (`CopilotModalHeader`, `CopilotChatSuggestionPill`,
 `CopilotChatInput`, `CopilotSidebarView`). The tokens are mirrored verbatim into
 `src/app/globals.css`:

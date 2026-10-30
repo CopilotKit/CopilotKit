@@ -14,7 +14,6 @@ Unlike the React reference component, customization in Vue is driven entirely th
 ```vue
 <script setup lang="ts">
 import { CopilotChatMessageView } from "@copilotkit/vue/v2";
-import "@copilotkit/vue/styles.css";
 </script>
 ```
 
@@ -49,6 +48,22 @@ const { agent } = useAgent();
   Whether the agent is currently executing. When `true`, the `cursor` slot is
   rendered after the last message to indicate ongoing activity. The cursor is
   suppressed when the last message is a reasoning message.
+</PropertyReference>
+
+<PropertyReference name="toolCallDisplay" type='"grouped" | "line" | "stacked" | "turn" | "separate"' default='"grouped"'>
+  How tool calls show:
+
+  - `"grouped"`: calls made in a row share one card. The card shows a summary ("Used 3 tools", or "Running read_file" while a call runs) and opens to a row per call.
+  - `"line"`: the same groups as a line of text that opens to the rows.
+  - `"stacked"`: the latest call on a stack of the earlier ones. Click the stack to open it into cards.
+  - `"turn"`: the agent works in the open. A "Working" line with a timer sits at the top of the reply, narration fades to muted once a call follows it, and calls show as rows. When the reply is done, everything before the answer folds into "Worked for 9s · 7 tools". Click the line to open the work again. A restored thread shows "Used 7 tools", because only a client that watched the reply knows how long it took. The line is the `work-summary` slot. The loading cursor does not show in this display.
+  - `"separate"`: every call gets its own card.
+
+  Only calls drawn by a renderer with `group: true` go into a group. The built-in card from [`useDefaultRenderTool`](/reference/vue/hooks/useDefaultRenderTool) sets it. A call drawn by another renderer, or by a `tool-call` slot, always shows on its own and splits the group around it. Assistant text and user, reasoning or activity messages also end a group. A group can span messages: it belongs to the message where it starts.
+</PropertyReference>
+
+<PropertyReference name="messageFeedback" type="boolean" default="true">
+  Whether reply thumbs record ratings for Automatic Learning once a Trajectory has started. Set `false` to keep the thumbs to your own `thumbs-up` / `thumbs-down` handlers and slots.
 </PropertyReference>
 
 <Callout type="info">
@@ -143,7 +158,63 @@ Each slot below is named. Use a `<template #slot-name="slotProps">` block to ove
 <PropertyReference name="tool-call" type="{ name: string; args: unknown; status: string; result: string | undefined; toolCall: unknown; toolMessage: ToolMessage | undefined }">
   Forwarded to the assistant message child to render tool calls. A specific
   `tool-call-<name>` slot can target a single tool by name; the generic
-  `tool-call` slot handles the rest.
+  `tool-call` slot handles the rest. Calls drawn by a slot never go into a
+  tool-call group.
+</PropertyReference>
+
+<PropertyReference name="work-summary" type="{ isWorking: boolean; isOpen: boolean; calls: ToolCallEntry[]; elapsedMs?: number; workingSince?: number; onClick: () => void }">
+  Replaces the "Working… / Worked for 9s" line at the top of each reply when
+  `toolCallDisplay` is `"turn"`. `isWorking` is `true` while the agent works on
+  the reply. `isOpen` is `true` while its work shows. `onClick` opens or closes
+  the work. `elapsedMs` is the time the agent worked, summed over its runs, and
+  `workingSince` is when the current run started (epoch ms). Both are missing
+  for a reply this client did not watch start. Render a `<button>` with
+  `aria-expanded="isOpen"`, or render `CopilotChatWorkSummary` yourself.
+
+```vue
+<template>
+  <copilot-chat-message-view
+    :messages="messages"
+    :is-running="isRunning"
+    tool-call-display="turn"
+  >
+    <template #work-summary="{ isWorking, isOpen, calls, onClick }">
+      <button type="button" :aria-expanded="isOpen" @click="onClick">
+        {{ isWorking ? "Thinking…" : `${calls.length} steps` }}
+      </button>
+    </template>
+  </copilot-chat-message-view>
+</template>
+```
+
+</PropertyReference>
+
+<PropertyReference name="tool-calls-group" type="{ calls: ToolCallEntry[]; appearance: 'card' | 'line' | 'stack'; isActive: boolean; renderCall: (call: ToolCallEntry) => VNode }">
+  Replaces a group of tool calls. `appearance` follows `toolCallDisplay`. The
+  `"turn"` display draws no groups, so it does not use this slot.
+  `isActive` is `true` while the agent runs and nothing follows the group, so
+  more calls can join it. `renderCall` draws one call through the registered
+  renderers and tool-call slots. Calls drawn outside a group get the standalone
+  card. To keep the built-in group and change only its look, render
+  `CopilotChatToolCallGroup` yourself.
+
+```vue
+<template>
+  <copilot-chat-message-view :messages="messages" :is-running="isRunning">
+    <template #tool-calls-group="{ calls, renderCall }">
+      <details class="my-tool-group">
+        <summary>{{ calls.length }} tool calls</summary>
+        <component
+          :is="renderCall(call)"
+          v-for="call in calls"
+          :key="call.toolCall.id"
+        />
+      </details>
+    </template>
+  </copilot-chat-message-view>
+</template>
+```
+
 </PropertyReference>
 
 ## Usage
@@ -214,6 +285,18 @@ const { agent } = useAgent();
 </template>
 ```
 
+### Showing tool calls as a line
+
+```vue
+<template>
+  <copilot-chat-message-view
+    :messages="messages"
+    :is-running="isRunning"
+    tool-call-display="line"
+  />
+</template>
+```
+
 ### Rendering a specific tool call
 
 ```vue
@@ -245,6 +328,7 @@ const { agent } = useAgent();
 - **Deduplication**: Messages sharing an `id` are deduplicated; assistant fragments with the same id are merged (content and tool calls combined). In development, a console warning is logged when duplicates are dropped.
 - **Cursor display**: The `cursor` slot is rendered only when `isRunning` is `true` and the last message is not a reasoning message. It appears after the last message.
 - **Slot forwarding**: Slots passed to `CopilotChatMessageView` (including `tool-call` and `tool-call-<name>`) are forwarded to the default assistant and user message children, so tool rendering works without re-implementing those components.
+- **Tool-call groups**: The view lays out the tool calls of the whole list, because a group can span messages. Each group is closed at first. Its toggle has `aria-expanded` and `aria-controls`, and closed rows are `inert`, so the keyboard skips them. A closed stack names the status of its latest call in a polite live region, so screen readers hear it change. A call without a result shows as running while the agent runs, and as stopped after the run ends.
 - **Custom and activity renderers**: When `message-before`, `message-after`, or `activity-message` slots are omitted, the component falls back to renderers registered on the CopilotKit instance, scoped to the active `agentId` when applicable.
 
 ## Related

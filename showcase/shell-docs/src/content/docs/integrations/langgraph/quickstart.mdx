@@ -456,8 +456,8 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
               npm install @copilotkit/react-core @copilotkit/runtime
               ```
 
-              The components used below (`CopilotKitProvider`, `CopilotSidebar`) and the
-              stylesheet all come from `@copilotkit/react-core`.
+              The components used below (`CopilotKitProvider`, `CopilotSidebar`) come
+              from `@copilotkit/react-core`.
           </Step>
           <Step>
               ### Setup Copilot Runtime
@@ -621,7 +621,6 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
               ```tsx title="app/layout.tsx"
               // [!code highlight:2]
               import { Providers } from "./providers";
-              import "@copilotkit/react-core/styles.css";
               import './globals.css';
 
               // ...

@@ -33,6 +33,7 @@ export * from "./lib/directives/copilotkit-agent-context";
 export * from "./lib/directives/stick-to-bottom";
 export * from "./lib/directives/tooltip";
 
+export * from "./lib/components/copilot-kit-styles";
 export * from "./lib/components/chat/copilot-chat";
 export * from "./lib/components/chat/copilot-chat-assistant-message";
 export * from "./lib/components/chat/copilot-chat-assistant-message-buttons";
@@ -45,6 +46,7 @@ export * from "./lib/components/chat/copilot-chat-attachments.directive";
 export * from "./lib/components/chat/copilot-chat-audio-recorder";
 export * from "./lib/components/chat/copilot-chat-buttons";
 export * from "./lib/components/chat/copilot-chat-input";
+export { CopilotChatInspectorButton } from "./lib/components/chat/copilot-chat-inspector-button";
 export * from "./lib/components/chat/copilot-chat-input-defaults";
 export * from "./lib/components/chat/copilot-chat-input.types";
 export * from "./lib/components/chat/copilot-chat-message-view";
@@ -54,7 +56,13 @@ export * from "./lib/components/chat/copilot-chat-reasoning-message";
 export * from "./lib/components/chat/copilot-chat-suggestion-pill";
 export * from "./lib/components/chat/copilot-chat-suggestion-view";
 export * from "./lib/components/chat/copilot-chat-textarea";
+export * from "./lib/components/chat/copilot-chat-tool-call-group";
 export * from "./lib/components/chat/copilot-chat-tool-calls-view";
+export type {
+  CopilotChatToolCallDisplay,
+  ToolCallEntry,
+} from "./lib/components/chat/tool-call-layout";
+export type { CopilotChatToolCallGroupAppearance } from "./lib/components/tools/tool-call-render-context";
 export * from "./lib/components/chat/copilot-chat-toolbar";
 export * from "./lib/components/chat/copilot-chat-tools-menu";
 export * from "./lib/components/chat/copilot-chat-user-message";

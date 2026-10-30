@@ -95,7 +95,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
 
         const title = screen.getByTestId("custom-title");
         expect(title.classList.contains("custom-title-class")).toBe(true);
-        expect(title.classList.contains("cpk:text-foreground")).toBe(true);
+        expect(title.classList.contains("cpk-modal-header-title")).toBe(true);
       });
     });
 

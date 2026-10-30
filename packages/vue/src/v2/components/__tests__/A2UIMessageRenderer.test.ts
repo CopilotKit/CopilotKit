@@ -22,52 +22,79 @@ function copilotKitProvide() {
 }
 
 describe("createA2UIMessageRenderer", () => {
-  it("returns loading state when no operations exist", () => {
-    const renderer = createA2UIMessageRenderer({ theme: {} });
-    const { getByTestId } = render(renderer.render, {
-      props: {
-        activityType: "a2ui-surface",
-        content: {},
-        message: {},
-        agent: {},
-      },
+  const renderLifecycle = (
+    content: Record<string, unknown>,
+    options: Partial<Parameters<typeof createA2UIMessageRenderer>[0]> = {},
+  ) => {
+    const renderer = createA2UIMessageRenderer({ theme: {}, ...options });
+    return render(renderer.render, {
+      props: { activityType: "a2ui-surface", content, message: {}, agent: {} },
     });
-    expect(getByTestId("a2ui-loading")).not.toBeNull();
+  };
+
+  it("shows the 'Building interface' skeleton while there are no operations", () => {
+    const { container } = renderLifecycle({});
+    expect(container.textContent).toContain("Building interface");
+    expect(container.textContent).not.toContain("Generating UI");
   });
 
-  it("default loading fallback renders header dot, 'Generating UI...' label, and three pulsing skeleton bars", () => {
-    const renderer = createA2UIMessageRenderer({ theme: {} });
-    const { getByTestId, getAllByTestId, container } = render(renderer.render, {
-      props: {
-        activityType: "a2ui-surface",
-        content: {},
-        message: {},
-        agent: {},
-      },
+  it("shows the live token count while building", () => {
+    const { container } = renderLifecycle({
+      status: "building",
+      progressTokens: 97,
     });
+    expect(container.textContent).toContain("~97 tokens");
+  });
 
-    const root = getByTestId("a2ui-loading");
-    expect(root).not.toBeNull();
-    expect((root as HTMLElement).textContent ?? "").toContain(
-      "Generating UI...",
+  it("shows the retry state for status 'retrying'", () => {
+    const { container } = renderLifecycle({
+      status: "retrying",
+      attempt: 2,
+      maxAttempts: 3,
+    });
+    expect(container.textContent).toContain(
+      "Retrying generation… (2/3 attempts)",
     );
+  });
 
-    const dot = getByTestId("a2ui-loading-dot") as HTMLElement;
-    expect(dot.getAttribute("style") ?? "").toMatch(/cpk-a2ui-pulse/);
+  it("honours recovery.showAfterAttempts", () => {
+    const { container } = renderLifecycle(
+      { status: "retrying", attempt: 2, maxAttempts: 3 },
+      { recovery: { showAfterAttempts: 5, showAfterMs: 999999 } },
+    );
+    expect(container.textContent).toContain("Building interface");
+    expect(container.textContent).not.toContain("Retrying");
+  });
 
-    const bars = getAllByTestId("a2ui-loading-bar") as HTMLElement[];
-    expect(bars).toHaveLength(3);
+  it("shows the failure card for status 'failed', with details per recovery.debugExposure", () => {
+    const { container } = renderLifecycle(
+      { status: "failed", error: "boom", attempts: [] },
+      { recovery: { debugExposure: "hidden" } },
+    );
+    expect(
+      container.querySelector(".cpk-a2ui-recovery-failure")?.textContent,
+    ).toContain("Couldn't generate the UI");
+    expect(container.querySelector("details")).toBeNull();
+  });
 
-    const widthMatches = bars.map((bar) => {
-      const style = bar.getAttribute("style") ?? "";
-      const match = style.match(/width:\s*([\d.]+)%/);
-      expect(style).toMatch(/cpk-a2ui-pulse/);
-      return match ? Number(match[1]) : null;
+  it("lets a server-stamped debugExposure win over the option", () => {
+    const { container } = renderLifecycle(
+      { status: "failed", error: "boom", debugExposure: "verbose" },
+      { recovery: { debugExposure: "hidden" } },
+    );
+    expect(container.querySelector("details")?.hasAttribute("open")).toBe(true);
+  });
+
+  it("shows the failure card instead of a custom loading component", () => {
+    const CustomLoading = defineComponent({
+      setup: () => () => h("div", { "data-testid": "custom-loading" }),
     });
-    expect(widthMatches).toEqual([80, 60, 40]);
-
-    const styleTag = container.querySelector("style");
-    expect(styleTag?.textContent ?? "").toContain("@keyframes cpk-a2ui-pulse");
+    const { container, queryByTestId } = renderLifecycle(
+      { status: "failed" },
+      { loadingComponent: CustomLoading },
+    );
+    expect(queryByTestId("custom-loading")).toBeNull();
+    expect(container.textContent).toContain("Couldn't generate the UI");
   });
 
   it("renders custom loading component when provided", () => {

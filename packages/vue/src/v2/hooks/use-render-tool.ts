@@ -46,6 +46,7 @@ type RenderToolConfig<S extends StandardSchemaV1> = {
     | ((props: RenderToolProps<S>) => VNodeChild)
     | Component<RenderToolProps<S>>;
   agentId?: string;
+  group?: boolean;
 };
 
 export function useRenderTool(
@@ -53,6 +54,8 @@ export function useRenderTool(
     name: "*";
     render: ((props: any) => VNodeChild) | Component<any>;
     agentId?: string;
+    /** Let the chat group the calls this renderer draws (see `toolCallDisplay`). */
+    group?: boolean;
   },
   deps?: WatchSource<unknown>[],
 ): void;
@@ -65,6 +68,8 @@ export function useRenderTool<S extends StandardSchemaV1>(
       | ((props: RenderToolProps<S>) => VNodeChild)
       | Component<RenderToolProps<S>>;
     agentId?: string;
+    /** Let the chat group the calls this renderer draws (see `toolCallDisplay`). */
+    group?: boolean;
   },
   deps?: WatchSource<unknown>[],
 ): void;
@@ -81,6 +86,7 @@ export function useRenderTool<S extends StandardSchemaV1>(
       () => copilotkit.value,
       () => config.name,
       () => config.agentId,
+      () => config.group,
       () => extraDeps.length,
       ...extraDeps,
     ],
@@ -104,6 +110,7 @@ export function useRenderTool<S extends StandardSchemaV1>(
                   parameters: props.args,
                 } as RenderToolProps<S>),
               ...(config.agentId ? { agentId: config.agentId } : {}),
+              ...(config.group ? { group: true } : {}),
             })
           : defineToolCallRenderer({
               name: config.name,
@@ -116,6 +123,7 @@ export function useRenderTool<S extends StandardSchemaV1>(
                   parameters: props.args,
                 } as RenderToolProps<S>),
               ...(config.agentId ? { agentId: config.agentId } : {}),
+              ...(config.group ? { group: true } : {}),
             });
 
       copilotkit.value.addHookRenderToolCall(

@@ -1,0 +1,39 @@
+:where(.cpk-a2ui-recovery-failure) {
+  border: 1px solid oklch(92.4% 0.12 95.746);
+  border-radius: var(--radius);
+  background-color: oklch(98.7% 0.022 95.277);
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  line-height: calc(1.25 / 0.875);
+  color: oklch(47.3% 0.137 46.201);
+}
+:where(.cpk-a2ui-recovery-failure-title) {
+  font-weight: 500;
+}
+:where(.cpk-a2ui-recovery-failure-description) {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  line-height: calc(1 / 0.75);
+  color: oklch(55.5% 0.163 48.998);
+}
+
+:where(.cpk-a2ui-debug-details) {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  line-height: calc(1 / 0.75);
+}
+:where(.cpk-a2ui-debug-details-summary) {
+  cursor: pointer;
+  color: oklch(55.1% 0.027 264.364);
+}
+:where(.cpk-a2ui-debug-details-payload) {
+  margin-top: 0.25rem;
+  overflow: auto;
+  border-radius: 0.25rem;
+  background-color: oklch(96.7% 0.003 264.542);
+  padding: 0.5rem;
+  color: oklch(37.3% 0.034 259.733);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+}

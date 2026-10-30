@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { computed, h, watchEffect } from "vue";
-import {
-  StreamingMarkdownRenderer,
-  type VueStreamingMarkdownNodeRenderer,
-} from "@copilotkit/markdown-renderer/vue";
+import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/vue";
+import type { VueStreamingMarkdownNodeRenderer } from "@copilotkit/markdown-renderer/vue";
 import { warnUnsupportedRichSyntaxOnce } from "@copilotkit/markdown-renderer";
 import type { StreamingMarkdownParserOptions } from "@copilotkit/markdown-renderer";
 import type { DefaultMarkdownRendererProps } from "../../providers/markdown-renderer";
@@ -29,7 +27,7 @@ const defaultCodeBlockRenderer: VueStreamingMarkdownNodeRenderer = (
     {
       "data-streaming-markdown-node": "code-block",
       "data-node-open": String(!node.closed),
-      class: "cpk:overflow-x-auto cpk:rounded-lg cpk:p-3",
+      class: "cpk-markdown-code-block",
     },
     [h("code", { "data-code-info": node.info ?? undefined }, node.text)],
   );

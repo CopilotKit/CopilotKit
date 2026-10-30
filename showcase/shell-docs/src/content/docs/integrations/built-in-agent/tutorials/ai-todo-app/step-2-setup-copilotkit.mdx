@@ -67,13 +67,12 @@ We provide several plug-and-play components for you to interact with your copilo
 
 In this tutorial, we'll use the `<CopilotPopup/>` component to display the chat popup.
 
-```tsx title="app/page.tsx" showLineNumbers {5-6,15}
+```tsx title="app/page.tsx" showLineNumbers {5,14}
 "use client";
 
 import { TasksList } from "@/components/TasksList";
 import { TasksProvider } from "@/lib/hooks/use-tasks";
 import { CopilotPopup } from "@copilotkit/react-core"; // [!code highlight]
-import "@copilotkit/react-core/styles.css"; // [!code highlight]
 
 export default function Home() {
   return (
@@ -91,7 +90,6 @@ export default function Home() {
 Here's what we did:
 
 - We imported the `<CopilotPopup />` component from `@copilotkit/react-core`.
-- We imported the built-in styles from `@copilotkit/react-core/styles.css`.
 - The `<CopilotKitProvider>` that you configured above wraps the page, so the popup can reach your copilot.
 
 Now, head back to your app and you'll find a chat popup in the bottom right corner of the page. At this point, you can start interacting with your copilot! 🎉

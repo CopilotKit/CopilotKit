@@ -61,8 +61,8 @@ Before you begin, you'll need the following:
         npm install @copilotkit/react-core @copilotkit/runtime
         ```
 
-        The components used below (`CopilotKitProvider`, `CopilotSidebar`) and the
-        stylesheet all come from `@copilotkit/react-core`.
+        The components used below (`CopilotKitProvider`, `CopilotSidebar`) come
+        from `@copilotkit/react-core`.
 
         <Callout type="info" title="TypeScript: use bundler module resolution">
           CopilotKit's package entry points (such as `@copilotkit/react-core/styles.css`) are published through the package `exports` map, which TypeScript's legacy `"moduleResolution": "node"` (`node10`) ignores. Under that setting, type checking fails with `Cannot find module '@copilotkit/react-core'` even though the app runs. Set `"moduleResolution": "bundler"` in `tsconfig.json`; if `module` is `commonjs` or unset, also set `"module": "esnext"`. `create-next-app` already uses `bundler`.
@@ -150,7 +150,6 @@ Before you begin, you'll need the following:
 
         ```tsx title="app/layout.tsx"
         import { Providers } from "./providers"; // [!code highlight]
-        import "@copilotkit/react-core/styles.css"; // [!code highlight]
         import './globals.css';
 
         // ...

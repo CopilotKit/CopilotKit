@@ -235,19 +235,8 @@ function CopilotPopupViewInternal({
     [resolvedHeight, resolvedWidth],
   );
 
-  const popupAnimationClass =
-    isPopupOpen && !isAnimatingOut
-      ? "cpk:pointer-events-auto cpk:translate-y-0 cpk:opacity-100 cpk:md:scale-100"
-      : "cpk:pointer-events-none cpk:translate-y-4 cpk:opacity-0 cpk:md:translate-y-5 cpk:md:scale-[0.95]";
-
   const popupContent = isRendered ? (
-    <div
-      data-copilotkit
-      className={cn(
-        "cpk:fixed cpk:inset-0 cpk:z-[1200] cpk:flex cpk:max-w-full cpk:flex-col cpk:items-stretch cpk:bg-transparent",
-        "cpk:md:inset-auto cpk:md:bottom-24 cpk:md:right-6 cpk:md:items-end cpk:md:gap-4",
-      )}
-    >
+    <div data-copilotkit className="cpk-popup-view">
       <div
         ref={containerRef}
         tabIndex={-1}
@@ -256,23 +245,16 @@ function CopilotPopupViewInternal({
         data-testid="copilot-popup"
         data-copilot-popup
         className={cn(
-          "copilotKitPopup copilotKitWindow",
-          "cpk:relative cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden cpk:bg-background cpk:text-foreground",
-          "cpk:origin-bottom cpk:focus:outline-none cpk:transform-gpu cpk:transition-transform cpk:transition-opacity cpk:duration-200 cpk:ease-out",
-          "cpk:md:transition-transform cpk:md:transition-opacity",
-          "cpk:rounded-none cpk:border cpk:border-border/0 cpk:shadow-none cpk:ring-0",
-          "cpk:md:h-[var(--copilot-popup-height)] cpk:md:w-[var(--copilot-popup-width)]",
-          "cpk:md:max-h-[var(--copilot-popup-max-height)] cpk:md:max-w-[var(--copilot-popup-max-width)]",
-          "cpk:md:origin-bottom-right cpk:md:rounded-2xl cpk:md:border-border cpk:md:shadow-xl cpk:md:ring-1 cpk:md:ring-border/40",
-          popupAnimationClass,
+          "copilotKitPopup copilotKitWindow cpk-popup-view-window",
+          isPopupOpen && !isAnimatingOut && "cpk-popup-view-window-open",
         )}
         style={popupStyle}
       >
         {headerElement}
-        <div className="cpk:flex-1 cpk:overflow-hidden" data-popup-chat>
+        <div className="cpk-popup-view-chat" data-popup-chat>
           <CopilotChatView
             {...restProps}
-            className={cn("cpk:h-full cpk:min-h-0", className)}
+            className={cn("cpk-popup-view-chat-view", className)}
           />
         </div>
       </div>
@@ -328,18 +310,18 @@ export namespace CopilotPopupView {
 
     return (
       <div
-        className={cn("cpk:h-full cpk:flex cpk:flex-col", className)}
+        className={cn("cpk-popup-view-welcome-screen", className)}
         {...props}
       >
         {/* Welcome message - centered vertically */}
-        <div className="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4">
+        <div className="cpk-popup-view-welcome-screen-message">
           {BoundWelcomeMessage}
         </div>
 
         {/* Suggestions and input at bottom */}
         <div>
           {/* Suggestions above input */}
-          <div className="cpk:mb-4 cpk:flex cpk:justify-center cpk:px-4">
+          <div className="cpk-popup-view-welcome-screen-suggestions">
             {suggestionView}
           </div>
           {input}

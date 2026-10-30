@@ -6,7 +6,7 @@ import {
   useCallback,
   useState,
 } from "react";
-import { twMerge } from "tailwind-merge";
+import { cn } from "../../lib/utils";
 
 /** Finite-state machine for every recorder implementation */
 export type AudioRecorderState = "idle" | "recording" | "processing";
@@ -338,11 +338,8 @@ export const CopilotChatAudioRecorder = forwardRef<
   );
 
   return (
-    <div
-      className={twMerge("cpk:w-full cpk:py-3 cpk:px-5", className)}
-      {...divProps}
-    >
-      <canvas ref={canvasRef} className="cpk:block cpk:w-full cpk:h-[26px]" />
+    <div className={cn("cpk-audio-recorder", className)} {...divProps}>
+      <canvas ref={canvasRef} className="cpk-audio-recorder-canvas" />
     </div>
   );
 });

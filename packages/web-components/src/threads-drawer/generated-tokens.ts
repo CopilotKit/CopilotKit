@@ -2,12 +2,12 @@
  * GENERATED FILE — DO NOT EDIT BY HAND.
  *
  * Bundled default values for the drawer's design tokens, derived at build time
- * from the canonical react-core theme (`packages/react-core/src/styles/globals.css`)
+ * from the canonical theme (`packages/core/src/styles/css/theme.css`)
  * by `scripts/generate-tokens.ts`. Run `pnpm run gen:tokens` to regenerate.
  *
  * The drawer's shadow-DOM CSS references these as fallbacks, e.g.
  * `var(--cpk-drawer-bg, <built default>)`, so consumers can override every
- * token while the built-in skin stays in sync with react-core.
+ * token while the built-in skin stays in sync with the shared theme.
  */
 export const GENERATED_DRAWER_TOKEN_DEFAULTS = {
   bg: "oklch(1 0 0)",

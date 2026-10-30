@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, h, type VNode } from "vue";
-import { parseMarkdown, type MarkdownToken } from "@copilotkit/core";
+import { computed, h } from "vue";
+import type { VNode } from "vue";
+import { parseMarkdown } from "@copilotkit/core";
+import type { MarkdownToken } from "@copilotkit/core";
 
 const props = withDefaults(
   defineProps<{ content: string; isStreaming?: boolean }>(),
@@ -39,7 +41,7 @@ function inline(toks: MarkdownToken[] | undefined): (VNode | string)[] {
       case "codespan":
         return h(
           "code",
-          { class: "cpk:rounded cpk:bg-black/5 cpk:px-1 cpk:py-0.5" },
+          { class: "cpk-markdown-inline-code" },
           (t as any).text,
         );
       case "br":
@@ -58,7 +60,7 @@ function inline(toks: MarkdownToken[] | undefined): (VNode | string)[] {
         return h("img", {
           src: sanitizeImgSrc((t as any).href),
           alt: (t as any).text,
-          class: "cpk:max-w-full",
+          class: "cpk-markdown-image",
         });
       case "escape":
         return (t as any).text;
@@ -86,7 +88,7 @@ function block(t: MarkdownToken): VNode | null {
           .filter(Boolean),
       );
     case "code":
-      return h("pre", { class: "cpk:overflow-x-auto cpk:rounded-lg cpk:p-3" }, [
+      return h("pre", { class: "cpk-markdown-code-block" }, [
         h(
           "code",
           { "data-language": (t as any).lang || undefined },
@@ -115,7 +117,7 @@ function block(t: MarkdownToken): VNode | null {
     }
     case "table": {
       const tbl = t as any;
-      return h("div", { class: "cpk:overflow-x-auto" }, [
+      return h("div", { class: "cpk-markdown-table-container" }, [
         h("table", [
           h("thead", [
             h(

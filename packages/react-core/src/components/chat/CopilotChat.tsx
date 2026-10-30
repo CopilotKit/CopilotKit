@@ -54,6 +54,7 @@ import {
   CopilotKitInspectorContextProvider,
   useCopilotKitInspector,
 } from "../CopilotKitInspectorContext";
+import { CopilotKitStyles } from "../../styles/copilot-kit-styles";
 
 export type CopilotChatProps = Omit<
   CopilotChatViewProps,
@@ -1383,6 +1384,7 @@ export function CopilotChat({
       isModalDefaultOpen={isModalDefaultOpen}
     >
       <div ref={chatContainerRef} style={{ display: "contents" }}>
+        <CopilotKitStyles />
         {attachmentsEnabled && (
           <input
             type="file"

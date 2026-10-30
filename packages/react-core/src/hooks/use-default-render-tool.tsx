@@ -1,6 +1,7 @@
 import React, { useContext, useState } from "react";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useRenderTool } from "./use-render-tool";
+import { cn } from "../lib/utils";
 import {
   ToolCallGroupContext,
   ToolCallRow,
@@ -232,16 +233,8 @@ export function DefaultToolCallRenderer({
   }
 
   const statusLabel = isActive ? "Running" : isComplete ? "Done" : status;
-  const dotClassName = isActive
-    ? "cpk:bg-amber-500"
-    : isComplete
-      ? "cpk:bg-emerald-500"
-      : "cpk:bg-zinc-400";
-  const badgeClassName = isActive
-    ? "cpk:bg-amber-100 cpk:text-amber-800 cpk:dark:bg-amber-500/15 cpk:dark:text-amber-400"
-    : isComplete
-      ? "cpk:bg-emerald-100 cpk:text-emerald-800 cpk:dark:bg-emerald-500/15 cpk:dark:text-emerald-400"
-      : "cpk:bg-zinc-100 cpk:text-zinc-800 cpk:dark:bg-zinc-700/40 cpk:dark:text-zinc-300";
+  // Colors the status dot and badge: running, done, or anything else.
+  const tone = isActive ? "running" : isComplete ? "done" : "other";
 
   return (
     <div
@@ -251,9 +244,9 @@ export function DefaultToolCallRenderer({
       data-status={status}
       data-args={safeStringifyForAttr(parameters)}
       data-result={safeStringifyForAttr(result)}
-      className="cpk:mt-2 cpk:pb-2"
+      className="cpk-default-tool-call"
     >
-      <div className="cpk:rounded-xl cpk:border cpk:border-zinc-200/60 cpk:bg-white/70 cpk:p-4 cpk:shadow-sm cpk:backdrop-blur cpk:dark:border-zinc-800/60 cpk:dark:bg-zinc-900/50">
+      <div className="cpk-default-tool-call-card">
         {/* Header row — always visible. A real <button> with aria-expanded
             and reset styles so it visually matches the previous <div> but
             is keyboard-accessible (Enter/Space toggle natively). */}
@@ -261,16 +254,17 @@ export function DefaultToolCallRenderer({
           type="button"
           aria-expanded={isExpanded}
           onClick={() => setIsExpanded(!isExpanded)}
-          className="cpk:flex cpk:w-full cpk:cursor-pointer cpk:select-none cpk:items-center cpk:justify-between cpk:gap-2.5 cpk:border-none cpk:bg-transparent cpk:p-0 cpk:m-0 cpk:text-left cpk:text-inherit"
+          className="cpk-default-tool-call-header"
           style={{
             font: "inherit",
           }}
         >
-          <div className="cpk:flex cpk:min-w-0 cpk:items-center cpk:gap-2">
+          <div className="cpk-default-tool-call-title">
             <svg
-              className={`cpk:h-3.5 cpk:w-3.5 cpk:flex-shrink-0 cpk:text-zinc-500 cpk:transition-transform cpk:dark:text-zinc-400 ${
-                isExpanded ? "cpk:rotate-90" : ""
-              }`}
+              className={cn(
+                "cpk-default-tool-call-chevron",
+                isExpanded && "cpk-default-tool-call-chevron-open",
+              )}
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth={2}
@@ -283,11 +277,11 @@ export function DefaultToolCallRenderer({
               />
             </svg>
             <span
-              className={`cpk:inline-block cpk:h-2 cpk:w-2 cpk:flex-shrink-0 cpk:rounded-full ${dotClassName}`}
+              className={`cpk-default-tool-call-dot cpk-default-tool-call-dot-${tone}`}
             />
             <span
               data-testid="copilot-tool-render-name"
-              className="cpk:truncate cpk:text-[13px] cpk:font-semibold cpk:text-zinc-900 cpk:dark:text-zinc-100"
+              className="cpk-default-tool-call-name"
             >
               {name}
             </span>
@@ -295,7 +289,7 @@ export function DefaultToolCallRenderer({
 
           <span
             data-testid="copilot-tool-render-status"
-            className={`cpk:inline-flex cpk:flex-shrink-0 cpk:items-center cpk:rounded-full cpk:px-2 cpk:py-0.5 cpk:text-[11px] cpk:font-medium ${badgeClassName}`}
+            className={`cpk-default-tool-call-badge cpk-default-tool-call-badge-${tone}`}
           >
             {statusLabel}
           </span>
@@ -303,22 +297,18 @@ export function DefaultToolCallRenderer({
 
         {/* Expandable details */}
         {isExpanded && (
-          <div className="cpk:mt-3 cpk:grid cpk:gap-3">
+          <div className="cpk-default-tool-call-details">
             <div>
-              <div className="cpk:text-[10px] cpk:uppercase cpk:text-zinc-500 cpk:dark:text-zinc-400">
-                Arguments
-              </div>
-              <pre className="cpk:mt-1.5 cpk:max-h-[200px] cpk:overflow-auto cpk:rounded-md cpk:bg-zinc-100 cpk:p-2.5 cpk:text-[11px] cpk:leading-relaxed cpk:text-zinc-800 cpk:whitespace-pre-wrap cpk:break-words cpk:dark:bg-zinc-800/60 cpk:dark:text-zinc-200">
+              <div className="cpk-default-tool-call-label">Arguments</div>
+              <pre className="cpk-default-tool-call-code">
                 {safeStringifyForPre(parameters ?? {})}
               </pre>
             </div>
 
             {result !== undefined && (
               <div>
-                <div className="cpk:text-[10px] cpk:uppercase cpk:text-zinc-500 cpk:dark:text-zinc-400">
-                  Result
-                </div>
-                <pre className="cpk:mt-1.5 cpk:max-h-[200px] cpk:overflow-auto cpk:rounded-md cpk:bg-zinc-100 cpk:p-2.5 cpk:text-[11px] cpk:leading-relaxed cpk:text-zinc-800 cpk:whitespace-pre-wrap cpk:break-words cpk:dark:bg-zinc-800/60 cpk:dark:text-zinc-200">
+                <div className="cpk-default-tool-call-label">Result</div>
+                <pre className="cpk-default-tool-call-code">
                   {typeof result === "string"
                     ? result
                     : safeStringifyForPre(result)}

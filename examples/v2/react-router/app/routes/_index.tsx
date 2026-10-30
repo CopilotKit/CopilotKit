@@ -11,7 +11,6 @@ import {
 // dependency on @copilotkit/core.
 import type { CopilotKitCoreFriendsAccess } from "@copilotkit/react-core";
 import { z } from "zod";
-import "@copilotkit/react-core/styles.css";
 import {
   StreamdownRenderer,
   customMarkdownConfig,

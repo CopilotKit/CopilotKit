@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { CopilotKitProvider } from "@copilotkit/react-core";
 import "./globals.css";
-import "@copilotkit/react-core/styles.css";
 
 export const metadata: Metadata = {
   title: "Project Manager",

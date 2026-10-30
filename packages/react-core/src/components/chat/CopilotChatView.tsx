@@ -23,7 +23,6 @@ import type { Suggestion } from "@copilotkit/core";
 import type { Message } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";
 import { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
-import { twMerge } from "tailwind-merge";
 import {
   StickToBottom,
   useStickToBottom,
@@ -128,17 +127,12 @@ export type CopilotChatViewProps = WithSlots<
 
 function DropOverlay() {
   return (
-    <div
-      className={cn(
-        "cpk:absolute cpk:inset-0 cpk:z-50 cpk:pointer-events-none",
-        "cpk:flex cpk:items-center cpk:justify-center",
-        "cpk:bg-primary/5 cpk:backdrop-blur-[2px]",
-        "cpk:border-2 cpk:border-dashed cpk:border-primary/40 cpk:rounded-lg cpk:m-2",
-      )}
-    >
-      <div className="cpk:flex cpk:flex-col cpk:items-center cpk:gap-2 cpk:text-primary/70">
-        <Upload className="cpk:w-8 cpk:h-8" />
-        <span className="cpk:text-sm cpk:font-medium">Drop files here</span>
+    <div className="cpk-chat-view-drop-overlay">
+      <div className="cpk-chat-view-drop-overlay-content">
+        <Upload className="cpk-chat-view-drop-overlay-icon" />
+        <span className="cpk-chat-view-drop-overlay-label">
+          Drop files here
+        </span>
       </div>
     </div>
   );
@@ -311,7 +305,7 @@ export function CopilotChatView({
         suggestions,
         loadingIndexes: suggestionLoadingIndexes,
         onSelectSuggestion,
-        className: "cpk:mb-3 cpk:lg:ml-4 cpk:lg:mr-4 cpk:ml-0 cpk:mr-0",
+        className: "cpk-chat-view-suggestion-view",
       })
     : null;
 
@@ -327,10 +321,10 @@ export function CopilotChatView({
           paddingBottom: `${inputContainerHeight + (hasSuggestions ? 4 : 32)}px`,
         }}
       >
-        <div className="cpk:max-w-3xl cpk:mx-auto">
+        <div className="cpk-chat-view-feed">
           {BoundMessageView}
           {hasSuggestions ? (
-            <div className="cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0 cpk:mt-4">
+            <div className="cpk-chat-view-suggestions">
               {BoundSuggestionView}
             </div>
           ) : null}
@@ -376,12 +370,12 @@ export function CopilotChatView({
     ) as SlotValue<React.FC<WelcomeScreenProps>> | undefined;
     // Wrap the input with attachment queue above it
     const inputWithAttachments = (
-      <div className="cpk:w-full">
+      <div className="cpk-chat-view-welcome-input-group">
         {attachments && attachments.length > 0 && (
           <CopilotChatAttachmentQueue
             attachments={attachments}
             onRemoveAttachment={(id) => onRemoveAttachment?.(id)}
-            className="cpk:mb-2"
+            className="cpk-chat-view-welcome-attachment-queue"
           />
         )}
         {BoundInputForWelcome}
@@ -405,10 +399,7 @@ export function CopilotChatView({
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
-        className={cn(
-          "copilotKitChat cpk:@container cpk:relative cpk:h-full cpk:flex cpk:flex-col",
-          className,
-        )}
+        className={cn("copilotKitChat cpk-chat-view", className)}
         {...props}
       >
         {dragOver && <DropOverlay />}
@@ -438,10 +429,7 @@ export function CopilotChatView({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className={cn(
-        "copilotKitChat cpk:@container cpk:relative cpk:h-full cpk:flex cpk:flex-col",
-        className,
-      )}
+      className={cn("copilotKitChat cpk-chat-view", className)}
       {...props}
     >
       {dragOver && <DropOverlay />}
@@ -450,14 +438,14 @@ export function CopilotChatView({
       <div
         ref={setInputContainerEl}
         data-testid="copilot-input-overlay"
-        className="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
+        className="cpk-chat-view-input-overlay"
       >
         {attachments && attachments.length > 0 && (
-          <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">
+          <div className="cpk-chat-view-attachments">
             <CopilotChatAttachmentQueue
               attachments={attachments}
               onRemoveAttachment={(id) => onRemoveAttachment?.(id)}
-              className="cpk:px-4"
+              className="cpk-chat-view-attachment-queue"
             />
           </div>
         )}
@@ -652,12 +640,10 @@ export namespace CopilotChatView {
         <ScrollPinnedContext.Provider value={state.isAtBottom}>
           <>
             <StickToBottom.Content
-              className="cpk:overflow-y-auto cpk:overflow-x-hidden"
+              className="cpk-chat-view-scroll-viewport"
               style={{ flex: "1 1 0%", minHeight: 0 }}
             >
-              <div className="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
-                {children}
-              </div>
+              <div className="cpk-chat-view-scroll-content">{children}</div>
             </StickToBottom.Content>
 
             {BoundFeather}
@@ -665,7 +651,7 @@ export namespace CopilotChatView {
             {/* Scroll to bottom button - hidden during resize */}
             {!isAtBottom && !isResizing && (
               <div
-                className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
+                className="cpk-chat-view-scroll-to-bottom"
                 style={{
                   bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px`,
                 }}
@@ -734,21 +720,13 @@ export namespace CopilotChatView {
 
     return (
       <ScrollElementContext.Provider value={nonAutoScrollEl}>
-        <div
-          className={cn(
-            "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:relative",
-            className,
-          )}
-        >
+        <div className={cn("cpk-chat-view-scroll-area", className)}>
           <div
             ref={nonAutoScrollRefCallback}
-            className="cpk:flex-1 cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden"
+            className="cpk-chat-view-scroll-viewport"
             {...props}
           >
-            <div
-              ref={contentRef}
-              className="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
-            >
+            <div ref={contentRef} className="cpk-chat-view-scroll-content">
               {children}
             </div>
             <div
@@ -762,7 +740,7 @@ export namespace CopilotChatView {
           {/* Scroll to bottom button */}
           {showScrollButton && !isResizing && (
             <div
-              className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
+              className="cpk-chat-view-scroll-to-bottom"
               style={{
                 bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px`,
               }}
@@ -869,10 +847,8 @@ export namespace CopilotChatView {
 
     if (!hasMounted) {
       return (
-        <div className="cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden">
-          <div className="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
-            {children}
-          </div>
+        <div className="cpk-chat-view-scroll-area cpk-chat-view-scroll-viewport">
+          <div className="cpk-chat-view-scroll-content">{children}</div>
         </div>
       );
     }
@@ -887,15 +863,12 @@ export namespace CopilotChatView {
           <div
             ref={nonAutoScrollRefCallback}
             className={cn(
-              "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden cpk:relative",
+              "cpk-chat-view-scroll-area cpk-chat-view-scroll-viewport",
               className,
             )}
             {...props}
           >
-            <div
-              ref={contentRef}
-              className="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
-            >
+            <div ref={contentRef} className="cpk-chat-view-scroll-content">
               {children}
             </div>
 
@@ -904,7 +877,7 @@ export namespace CopilotChatView {
             {/* Scroll to bottom button for manual mode */}
             {showScrollButton && !isResizing && (
               <div
-                className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
+                className="cpk-chat-view-scroll-to-bottom"
                 style={{
                   bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px`,
                 }}
@@ -947,10 +920,7 @@ export namespace CopilotChatView {
     // mode === "pin-to-bottom" (default)
     return (
       <StickToBottom
-        className={cn(
-          "cpk:flex-1 cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0",
-          className,
-        )}
+        className={cn("cpk-chat-view-scroll-view", className)}
         resize="smooth"
         initial="smooth"
         {...props}
@@ -982,18 +952,11 @@ export namespace CopilotChatView {
         data-testid="copilot-scroll-to-bottom"
         variant="outline"
         size="sm"
-        className={twMerge(
-          "cpk:rounded-full cpk:w-10 cpk:h-10 cpk:p-0 cpk:pointer-events-auto",
-          "cpk:bg-white cpk:dark:bg-gray-900",
-          "cpk:shadow-lg cpk:border cpk:border-gray-200 cpk:dark:border-gray-700",
-          "cpk:hover:bg-gray-50 cpk:dark:hover:bg-gray-800",
-          "cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer",
-          className,
-        )}
+        className={cn("cpk-chat-view-scroll-to-bottom-button", className)}
         aria-label={labels.chatScrollToBottomLabel}
         {...props}
       >
-        <ChevronDown className="cpk:w-4 cpk:h-4 cpk:text-gray-600 cpk:dark:text-white" />
+        <ChevronDown className="cpk-chat-view-scroll-to-bottom-icon" />
       </Button>
     );
   };
@@ -1014,13 +977,7 @@ export namespace CopilotChatView {
     const labels = config?.labels ?? CopilotChatDefaultLabels;
 
     return (
-      <h1
-        className={cn(
-          "cpk:text-xl cpk:sm:text-2xl cpk:font-medium cpk:text-foreground cpk:text-center",
-          className,
-        )}
-        {...props}
-      >
+      <h1 className={cn("cpk-chat-view-welcome-message", className)} {...props}>
         {labels.welcomeMessageText}
       </h1>
     );
@@ -1058,21 +1015,20 @@ export namespace CopilotChatView {
     return (
       <div
         data-testid="copilot-welcome-screen"
-        className={cn(
-          "cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4",
-          className,
-        )}
+        className={cn("cpk-chat-view-welcome-screen", className)}
         {...props}
       >
-        <div className="cpk:w-full cpk:max-w-3xl cpk:flex cpk:flex-col cpk:items-center">
+        <div className="cpk-chat-view-welcome-screen-content">
           {/* Welcome message */}
-          <div className="cpk:mb-6">{BoundWelcomeMessage}</div>
+          <div className="cpk-chat-view-welcome-screen-message">
+            {BoundWelcomeMessage}
+          </div>
 
           {/* Input */}
-          <div className="cpk:w-full">{input}</div>
+          <div className="cpk-chat-view-welcome-screen-input">{input}</div>
 
           {/* Suggestions */}
-          <div className="cpk:mt-4 cpk:flex cpk:justify-center">
+          <div className="cpk-chat-view-welcome-screen-suggestions">
             {suggestionView}
           </div>
         </div>

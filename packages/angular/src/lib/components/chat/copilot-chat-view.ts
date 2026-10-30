@@ -25,12 +25,15 @@ import { CopilotChatInput } from "./copilot-chat-input";
 import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
 import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
 import { Message } from "@ag-ui/client";
-import { cn } from "../../utils";
+import { hostStyles } from "../host-styles";
+import { CopilotKitStyles } from "../copilot-kit-styles";
 import { ResizeObserverService } from "../../resize-observer";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 import { ChatState } from "../../chat-state";
 import { CopilotIcon, Upload } from "../icons/copilot-icon";
 import { injectChatLabels } from "../../chat-config";
+import { COPILOT_CHAT_WELCOME_LAYOUT } from "./copilot-chat-welcome-layout";
+import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
 
 /**
  * CopilotChatView component - Angular port of the React component.
@@ -55,12 +58,69 @@ import { injectChatLabels } from "../../chat-config";
     CopilotChatAttachmentQueue,
     CopilotChatSuggestionView,
     CopilotIcon,
+    CopilotKitStyles,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   providers: [ResizeObserverService, CopilotChatViewHandlers],
-  host: { class: "cpk:block cpk:h-full cpk:min-h-0" },
+  styles: [hostStyles],
   template: `
+    <copilot-kit-styles />
+    <ng-template #dropOverlay>
+      <div class="cpk-chat-view-drop-overlay">
+        <div class="cpk-chat-view-drop-overlay-content">
+          <copilot-icon
+            [img]="UploadIcon"
+            class="cpk-chat-view-drop-overlay-icon"
+          ></copilot-icon>
+          <span class="cpk-chat-view-drop-overlay-label">Drop files here</span>
+        </div>
+      </div>
+    </ng-template>
+    <ng-template #welcomeMessage>
+      <h1 class="cpk-chat-view-welcome-message">
+        {{ labels.welcomeMessageText }}
+      </h1>
+    </ng-template>
+    <ng-template #welcomeInput>
+      <div class="cpk-chat-view-welcome-input-group">
+        @if ((chatState?.attachments?.() ?? []).length > 0) {
+          <copilot-chat-attachment-queue
+            [attachments]="chatState?.attachments?.() ?? []"
+            inputClass="cpk-chat-view-welcome-attachment-queue"
+            (removeAttachment)="chatState?.removeAttachment($event)"
+          />
+        }
+
+        <copilot-slot
+          [slot]="inputSlot()"
+          [context]="{ inputClass: undefined }"
+          [defaultComponent]="defaultInputComponent"
+        >
+        </copilot-slot>
+
+        <copilot-slot
+          [slot]="disclaimerSlot()"
+          [context]="{
+            text: disclaimerTextSignal(),
+            inputClass: disclaimerClassSignal(),
+          }"
+          [defaultComponent]="defaultDisclaimerComponent"
+        >
+        </copilot-slot>
+      </div>
+    </ng-template>
+    <ng-template #welcomeSuggestions>
+      @if ((chatState?.suggestions?.() ?? []).length > 0) {
+        <copilot-chat-suggestion-view
+          [suggestions]="chatState?.suggestions?.() ?? []"
+          inputClass="cpk-chat-view-suggestion-view"
+          (selectSuggestion)="
+            chatState?.selectSuggestion($event.suggestion, $event.index)
+          "
+        />
+      }
+    </ng-template>
     <!-- Custom layout template support (render prop pattern) -->
     @if (customLayoutTemplate) {
       <ng-container
@@ -69,94 +129,83 @@ import { injectChatLabels } from "../../chat-config";
       ></ng-container>
     } @else if (shouldShowWelcomeScreen()) {
       <div
-        [class]="computedClass()"
+        data-copilotkit
+        class="copilotKitChat cpk-chat-view"
         (dragover)="chatState?.handleDragOver($event)"
         (dragleave)="chatState?.handleDragLeave($event)"
         (drop)="chatState?.handleDrop($event)"
       >
         @if (chatState?.dragOver?.()) {
-          <div [class]="dropOverlayClass()">
-            <div
-              class="cpk:flex cpk:flex-col cpk:items-center cpk:gap-2 cpk:text-primary/70"
-            >
-              <copilot-icon [img]="UploadIcon" [size]="32"></copilot-icon>
-              <span class="cpk:text-sm cpk:font-medium">Drop files here</span>
-            </div>
-          </div>
+          <ng-container [ngTemplateOutlet]="dropOverlay"></ng-container>
         }
 
-        <div
-          data-testid="copilot-welcome-screen"
-          class="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4"
-        >
-          <div
-            class="cpk:w-full cpk:max-w-3xl cpk:flex cpk:flex-col cpk:items-center"
-          >
-            <div class="cpk:mb-6">
-              <h1
-                class="cpk:text-xl cpk:sm:text-2xl cpk:font-medium cpk:text-foreground cpk:text-center"
-              >
-                {{ labels.welcomeMessageText }}
-              </h1>
-            </div>
-
-            <div class="cpk:w-full">
-              @if ((chatState?.attachments?.() ?? []).length > 0) {
-                <copilot-chat-attachment-queue
-                  [attachments]="chatState?.attachments?.() ?? []"
-                  inputClass="cpk:mb-2"
-                  (removeAttachment)="chatState?.removeAttachment($event)"
-                />
-              }
-
-              <copilot-slot
-                [slot]="inputSlot()"
-                [context]="{ inputClass: undefined }"
-                [defaultComponent]="defaultInputComponent"
-              >
-              </copilot-slot>
-
-              <copilot-slot
-                [slot]="disclaimerSlot()"
-                [context]="{
-                  text: disclaimerTextSignal(),
-                  inputClass: disclaimerClassSignal(),
-                }"
-                [defaultComponent]="defaultDisclaimerComponent"
-              >
-              </copilot-slot>
-            </div>
-
-            @if ((chatState?.suggestions?.() ?? []).length > 0) {
-              <div class="cpk:mt-4 cpk:flex cpk:justify-center">
-                <copilot-chat-suggestion-view
-                  [suggestions]="chatState?.suggestions?.() ?? []"
-                  (selectSuggestion)="
-                    chatState?.selectSuggestion($event.suggestion, $event.index)
-                  "
-                />
+        @switch (welcomeLayout) {
+          @case ("popup") {
+            <div
+              data-testid="copilot-welcome-screen"
+              class="cpk-popup-view-welcome-screen"
+            >
+              <div class="cpk-popup-view-welcome-screen-message">
+                <ng-container [ngTemplateOutlet]="welcomeMessage" />
               </div>
-            }
-          </div>
-        </div>
+              <div>
+                <div class="cpk-popup-view-welcome-screen-suggestions">
+                  <ng-container [ngTemplateOutlet]="welcomeSuggestions" />
+                </div>
+                <ng-container [ngTemplateOutlet]="welcomeInput" />
+              </div>
+            </div>
+          }
+          @case ("sidebar") {
+            <div
+              data-testid="copilot-welcome-screen"
+              class="cpk-sidebar-view-welcome-screen"
+            >
+              <div class="cpk-sidebar-view-welcome-screen-message">
+                <ng-container [ngTemplateOutlet]="welcomeMessage" />
+              </div>
+              <div class="cpk-sidebar-view-welcome-screen-footer">
+                <div class="cpk-sidebar-view-welcome-screen-content">
+                  <div class="cpk-sidebar-view-welcome-screen-suggestions">
+                    <ng-container [ngTemplateOutlet]="welcomeSuggestions" />
+                  </div>
+                  <ng-container [ngTemplateOutlet]="welcomeInput" />
+                </div>
+              </div>
+            </div>
+          }
+          @default {
+            <div
+              data-testid="copilot-welcome-screen"
+              class="cpk-chat-view-welcome-screen"
+            >
+              <div class="cpk-chat-view-welcome-screen-content">
+                <div class="cpk-chat-view-welcome-screen-message">
+                  <ng-container [ngTemplateOutlet]="welcomeMessage" />
+                </div>
+                <div class="cpk-chat-view-welcome-screen-input">
+                  <ng-container [ngTemplateOutlet]="welcomeInput" />
+                </div>
+                <div class="cpk-chat-view-welcome-screen-suggestions">
+                  <ng-container [ngTemplateOutlet]="welcomeSuggestions" />
+                </div>
+              </div>
+            </div>
+          }
+        }
       </div>
     } @else {
       <!-- Default layout - exact React DOM structure -->
       <div
-        [class]="computedClass()"
+        data-copilotkit
+        data-testid="copilot-chat"
+        class="copilotKitChat cpk-chat-view"
         (dragover)="chatState?.handleDragOver($event)"
         (dragleave)="chatState?.handleDragLeave($event)"
         (drop)="chatState?.handleDrop($event)"
       >
         @if (chatState?.dragOver?.()) {
-          <div [class]="dropOverlayClass()">
-            <div
-              class="cpk:flex cpk:flex-col cpk:items-center cpk:gap-2 cpk:text-primary/70"
-            >
-              <copilot-icon [img]="UploadIcon" [size]="32"></copilot-icon>
-              <span class="cpk:text-sm cpk:font-medium">Drop files here</span>
-            </div>
-          </div>
+          <ng-container [ngTemplateOutlet]="dropOverlay"></ng-container>
         }
 
         <!-- ScrollView -->
@@ -169,6 +218,7 @@ import { injectChatLabels } from "../../chat-config";
           [agentId]="agentId()"
           [messageView]="messageViewSlot()"
           [messageViewClass]="messageViewClass()"
+          [toolCallDisplay]="toolCallDisplay()"
           [assistantMessageComponent]="assistantMessageComponent()"
           [assistantMessageTemplate]="assistantMessageTemplate()"
           [assistantMessageClass]="assistantMessageClass()"
@@ -193,7 +243,7 @@ import { injectChatLabels } from "../../chat-config";
         <!-- Feather effect -->
         <copilot-slot
           [slot]="featherSlot()"
-          [context]="{ inputClass: featherClass }"
+          [context]="{ inputClass: featherClass() }"
           [defaultComponent]="defaultFeatherComponent"
         >
         </copilot-slot>
@@ -226,6 +276,11 @@ export class CopilotChatView implements OnInit, OnChanges {
   messageViewComponent = input<Type<any> | undefined>(undefined);
   messageViewTemplate = input<TemplateRef<any> | undefined>(undefined);
   messageViewClass = input<string | undefined>(undefined);
+  /**
+   * How assistant messages show tool calls: `"grouped"` (default), `"line"`,
+   * `"stacked"` or `"separate"`. Forwarded to the message view.
+   */
+  toolCallDisplay = input<CopilotChatToolCallDisplay>("grouped");
 
   // AssistantMessage slot inputs
   assistantMessageComponent = input<Type<any> | undefined>(undefined);
@@ -307,6 +362,8 @@ export class CopilotChatView implements OnInit, OnChanges {
   protected readonly defaultFeatherComponent = CopilotChatViewFeather;
   protected readonly defaultDisclaimerComponent = CopilotChatViewDisclaimer;
   protected readonly labels = injectChatLabels();
+  protected readonly welcomeLayout =
+    inject(COPILOT_CHAT_WELCOME_LAYOUT, { optional: true }) ?? "default";
 
   // Signals for reactive state
   protected messagesValue = computed(() => this.messages());
@@ -323,21 +380,6 @@ export class CopilotChatView implements OnInit, OnChanges {
   );
   protected shouldShowWelcomeScreen = computed(
     () => this.messagesValue().length === 0 && !this.hasExplicitThreadId(),
-  );
-
-  // Computed signals
-  protected computedClass = computed(() =>
-    cn(
-      "copilotKitChat cpk:@container cpk:relative cpk:h-full cpk:flex cpk:flex-col",
-    ),
-  );
-  protected dropOverlayClass = computed(() =>
-    cn(
-      "cpk:absolute cpk:inset-0 cpk:z-50 cpk:pointer-events-none",
-      "cpk:flex cpk:items-center cpk:justify-center",
-      "cpk:bg-primary/5 cpk:backdrop-blur-[2px]",
-      "cpk:border-2 cpk:border-dashed cpk:border-primary/40 cpk:rounded-lg cpk:m-2",
-    ),
   );
 
   // Slot resolution computed signals
@@ -383,6 +425,7 @@ export class CopilotChatView implements OnInit, OnChanges {
     agentId: this.agentId(),
     messageView: this.messageViewSlot(),
     messageViewClass: this.messageViewClass(),
+    toolCallDisplay: this.toolCallDisplay(),
     assistantMessageComponent: this.assistantMessageComponent(),
     assistantMessageTemplate: this.assistantMessageTemplate(),
     assistantMessageClass: this.assistantMessageClass(),

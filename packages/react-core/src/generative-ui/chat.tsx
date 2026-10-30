@@ -51,11 +51,11 @@ export function DefaultGenerativeUIChatCard({
   return (
     <div
       data-generative-ui-chat-surface={surfaceId}
-      className="cpk:my-2 cpk:w-full cpk:rounded-xl cpk:border cpk:border-gray-200 cpk:p-3"
+      className="cpk-generative-ui-chat-card"
     >
       {children}
       {error && (
-        <div role="alert" className="cpk:mt-2 cpk:text-xs cpk:text-red-600">
+        <div role="alert" className="cpk-generative-ui-chat-card-error">
           Part of this UI couldn't be shown.
         </div>
       )}
