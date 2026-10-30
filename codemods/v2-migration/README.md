@@ -20,6 +20,7 @@ Then finish with the skill it installs, or by hand: search for `TODO(copilotkit-
 - **The provider.** The v1 `<CopilotKit>` (also re-exported from `/v2`) becomes `<CopilotKitProvider>`, and `CopilotKitProps` becomes `CopilotKitProviderProps`. On the provider, `agent` becomes `agentId`.
 - **v1 APIs with the same 2.0 API.** The import moves to the 2.0 package, for example `CopilotChat` from `@copilotkit/react-ui` to `@copilotkit/react-core`.
 - **LangGraph.** `LangGraphAgent` and `LangGraphHttpAgent` import from `@ag-ui/langgraph`.
+- **Markdown rendering.** 2.0 renders markdown with CopilotKit's own renderer, not Streamdown. The Streamdown props on the `markdownRenderer` slot (`components`, `shikiTheme`, `remarkPlugins`, ...) get a TODO that names the 2.0 way. Calls of the removed Vue `useKatexStyles` are deleted.
 - **Everything else** gets a `// TODO(copilotkit-2.0):` comment that names the 2.0 replacement and links its docs. The codemod does not rewrite a call whose arguments changed: `useCopilotAction` to `useFrontendTool` needs a Zod schema, and only you or an agent can write it.
 - **A skill.** The last step installs an agent skill that resolves the TODOs, updates `package.json`, and runs your build.
 
@@ -28,6 +29,8 @@ Then finish with the skill it installs, or by hand: search for `TODO(copilotkit-
 - Run it **before** you upgrade the packages. In v1, `@copilotkit/react-core` and `@copilotkit/runtime` mean the v1 API, so the codemod reads them that way. Running it again on its own output changes nothing.
 - Namespace imports (`import * as CK from "@copilotkit/react-core"`) only get a TODO.
 - CSS `@import` lines are not changed.
+- Vue single-file components (`.vue`) are not changed. Delete `useKatexStyles` from them by hand.
+- CSS that targets Streamdown's `[data-streamdown]` attributes stops matching. The codemod does not read CSS.
 - Import paths inside template literals (for example a script generated as a string) are not changed. Only plain string literals are.
 
 ## Develop
