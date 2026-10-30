@@ -18,7 +18,7 @@ cd examples/<category>/<name>
 
 > The Intelligence dashboard also links to [Project Manager](./canvas/mastra-pm/), a maintained v2 example covered by the public-example tests.
 
-## Integrations (24)
+## Integrations (25)
 
 Framework integration starters demonstrating CopilotKit with various agent frameworks.
 
@@ -27,6 +27,7 @@ Framework integration starters demonstrating CopilotKit with various agent frame
 | [langgraph-python](./integrations/langgraph-python/)                   | Starter template for building AI agents using LangGraph (Python) and CopilotKit      |
 | [langgraph-js](./integrations/langgraph-js/)                           | Starter template for building AI agents using LangGraph (JS) with Turborepo monorepo |
 | [langgraph-fastapi](./integrations/langgraph-fastapi/)                 | Starter template for building AI agents using LangGraph with FastAPI and Poetry      |
+| [langgraph-fastapi-auth](./integrations/langgraph-fastapi-auth/)       | LangGraph + FastAPI agent with user auth, identity-gated tools, and file uploads     |
 | [mastra](./integrations/mastra/)                                       | Starter template for building AI agents using Mastra and CopilotKit                  |
 | [crewai-flows](./integrations/crewai-flows/)                           | Starter template for building AI agents using CrewAI Flows (uv-based)                |
 | [llamaindex](./integrations/llamaindex/)                               | Starter template with a LlamaIndex investment analyst agent                          |
