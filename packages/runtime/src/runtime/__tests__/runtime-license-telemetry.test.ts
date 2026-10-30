@@ -183,7 +183,7 @@ describe("runtime construction — telemetry license token", () => {
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
 
-    it("treats blank option and environment license tokens as unconfigured", () => {
+    it("treats blank option and environment license tokens as unconfigured", async () => {
       process.env.COPILOTKIT_LICENSE_TOKEN = " \t ";
 
       const runtime = new CopilotIntelligenceRuntime({
@@ -193,7 +193,7 @@ describe("runtime construction — telemetry license token", () => {
         licenseToken: "",
       });
 
-      expect(runtime.licenseChecker?.getStatus()).toMatchObject({
+      expect((await runtime.getLicenseChecker()).getStatus()).toMatchObject({
         error: null,
         license: null,
         valid: false,

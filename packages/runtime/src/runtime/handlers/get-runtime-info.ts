@@ -13,6 +13,7 @@ import type {
   ThreadEndpointRuntimeInfo,
 } from "@copilotkit/shared";
 import type { RuntimeLicenseStatus } from "@copilotkit/shared";
+import type { LicenseChecker } from "@copilotkit/license-verifier";
 import { VERSION } from "../core/runtime";
 import { PlatformRequestError } from "../intelligence-platform/client";
 import { isTelemetryDisabled } from "../telemetry/telemetry-client";
@@ -20,10 +21,10 @@ import { supportsLocalThreadEndpoints } from "../runner/agent-runner";
 import { isThreadOperationAvailable } from "./shared/thread-access";
 
 function resolveLicenseStatus(
-  runtime: CopilotRuntimeLike,
+  licenseChecker: LicenseChecker | undefined,
 ): RuntimeLicenseStatus {
-  if (!runtime.licenseChecker) return "none";
-  const status = runtime.licenseChecker.getStatus();
+  if (!licenseChecker) return "none";
+  const status = licenseChecker.getStatus();
   if (status.warningSeverity === "none") return "valid";
   if (status.error === "expired") return "expired";
   if (status.warningSeverity === "warning") return "expiring";
@@ -40,7 +41,7 @@ function resolveLicenseStatus(
  * remains unknown until it resolves.
  */
 function resolveCompatibilityLicenseStatus(
-  runtime: CopilotRuntimeLike,
+  licenseChecker: LicenseChecker | undefined,
   runtimeEntitlements: RuntimeEntitlementResponse | undefined,
 ): RuntimeLicenseStatus {
   if (runtimeEntitlements?.status === "ready") {
@@ -57,7 +58,7 @@ function resolveCompatibilityLicenseStatus(
     }
   }
 
-  const legacyLicenseStatus = resolveLicenseStatus(runtime);
+  const legacyLicenseStatus = resolveLicenseStatus(licenseChecker);
   if (
     legacyLicenseStatus === "none" &&
     runtimeEntitlements?.status !== "ready" &&
@@ -160,6 +161,10 @@ export async function handleGetRuntimeInfo({
     const agentsDict: Record<string, AgentDescription> =
       Object.fromEntries(agentEntries);
     const runtimeEntitlements = await runtimeEntitlementsPromise;
+    // Verified on first use, not at construction (see getLicenseChecker).
+    const licenseChecker = isIntelligenceRuntime(runtime)
+      ? await runtime.getLicenseChecker?.()
+      : undefined;
 
     const runtimeInfo: RuntimeInfo = {
       version: VERSION,
@@ -213,7 +218,7 @@ export async function handleGetRuntimeInfo({
       ...(isIntelligenceRuntime(runtime)
         ? {
             licenseStatus: resolveCompatibilityLicenseStatus(
-              runtime,
+              licenseChecker,
               runtimeEntitlements,
             ),
           }

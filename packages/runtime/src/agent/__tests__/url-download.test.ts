@@ -38,6 +38,7 @@ import {
   blockConnects,
   interceptConnects,
   localhostDotIsLoopback,
+  stubBuiltinModule,
 } from "./url-download-helpers";
 import type { ConnectAttempt } from "./url-download-helpers";
 
@@ -1240,7 +1241,7 @@ describe("createSafeUrlDownload diagnostics", () => {
   it("logs a module-load failure and tries again on the next download", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.resetModules();
-    vi.doMock("node:dns/promises", () => {
+    const restoreDns = stubBuiltinModule("node:dns/promises", () => {
       throw new Error("simulated module load failure");
     });
     const fresh = await import("../url-download");
@@ -1263,11 +1264,11 @@ describe("createSafeUrlDownload diagnostics", () => {
           ),
         ),
       ).toBe(true);
-      vi.doUnmock("node:dns/promises");
+      restoreDns();
       const result = await fetchOne(download, `http://public.test:${port}/`);
       expect(Buffer.from(result!.data).toString()).toBe("PUBLIC-BYTES");
     } finally {
-      vi.doUnmock("node:dns/promises");
+      restoreDns();
       vi.resetModules();
     }
   });

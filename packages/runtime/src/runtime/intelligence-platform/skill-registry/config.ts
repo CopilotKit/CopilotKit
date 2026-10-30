@@ -1,3 +1,4 @@
+import { processEnv } from "@copilotkit/shared";
 import { CopilotKitIntelligence } from "../client";
 import { SkillDeliveryError } from "./errors";
 
@@ -50,7 +51,7 @@ export type RegistryConfig =
 /** Resolve once. Never retain the options object, environment, or a second key. */
 export function resolveRegistryConfig(
   options: SkillRegistryOptions = {},
-  environment: NodeJS.ProcessEnv = process.env,
+  environment: NodeJS.ProcessEnv = processEnv(),
 ): RegistryConfig {
   try {
     const multiple = options.containers !== undefined;

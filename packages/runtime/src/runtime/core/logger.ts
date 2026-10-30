@@ -28,6 +28,7 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
+import { processEnv } from "@copilotkit/shared";
 import createPinoLogger from "pino";
 import pretty from "pino-pretty";
 
@@ -44,7 +45,7 @@ export function createLogger(options?: {
 
   const logger = createPinoLogger(
     {
-      level: process.env.LOG_LEVEL || level || "error",
+      level: processEnv().LOG_LEVEL || level || "error",
       // Drop `pid` and `hostname` with pino's own `base` switch rather than
       // with `redact`. pino 9 validates every redact path by calling
       // `Function(...)`, and edge runtimes such as Cloudflare Workers forbid

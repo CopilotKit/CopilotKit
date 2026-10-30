@@ -17,7 +17,6 @@ import {
 } from "@copilotkit/shared";
 import type { Channel } from "phoenix";
 import { Socket } from "phoenix";
-import { randomUUID } from "node:crypto";
 
 export interface IntelligenceAgentRunnerOptions {
   /** Phoenix runner websocket URL, e.g. "ws://localhost:4000/runner" */
@@ -199,7 +198,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       cpki_event_id:
         typeof existingMetadata.cpki_event_id === "string"
           ? existingMetadata.cpki_event_id
-          : randomUUID(),
+          : globalThis.crypto.randomUUID(),
       cpki_event_seq: eventSeq,
     };
     return eventRecord;

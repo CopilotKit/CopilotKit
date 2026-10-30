@@ -1,0 +1,16 @@
+{
+  "name": "runtime-edge-smoke",
+  "root": "tools/runtime-edge-smoke",
+  "projectType": "library",
+  "targets": {
+    "smoke": {
+      "executor": "nx:run-commands",
+      "options": { "command": "node tools/runtime-edge-smoke/run.mjs" },
+      "dependsOn": ["^build"],
+      "inputs": ["{projectRoot}/**/*", "^production"],
+      "outputs": [],
+      "cache": false
+    }
+  },
+  "tags": ["type:tooling"]
+}

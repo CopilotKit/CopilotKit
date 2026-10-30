@@ -159,10 +159,7 @@ function setup(
   if (legacyLicenseStatus) {
     const licenseChecker = createLicenseChecker();
     vi.spyOn(licenseChecker, "getStatus").mockReturnValue(legacyLicenseStatus);
-    Object.defineProperty(runtime, "licenseChecker", {
-      configurable: true,
-      value: licenseChecker,
-    });
+    vi.spyOn(runtime, "getLicenseChecker").mockResolvedValue(licenseChecker);
   }
 
   return { getRuntimeEntitlements, runtime };

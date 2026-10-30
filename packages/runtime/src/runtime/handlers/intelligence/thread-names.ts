@@ -1,6 +1,5 @@
 import type { Message, RunAgentInput } from "@ag-ui/client";
 import { logger } from "@copilotkit/shared";
-import { randomUUID } from "node:crypto";
 import type { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import {
   cloneAgentForRequest,
@@ -120,12 +119,12 @@ async function runTitleGenerationAttempt(params: {
 
   const messages: Message[] = [
     {
-      id: randomUUID(),
+      id: globalThis.crypto.randomUUID(),
       role: "system",
       content: THREAD_NAME_SYSTEM_PROMPT,
     },
     {
-      id: randomUUID(),
+      id: globalThis.crypto.randomUUID(),
       role: "user",
       content: prompt,
     },
@@ -133,7 +132,7 @@ async function runTitleGenerationAttempt(params: {
 
   agent.setMessages(messages);
   agent.setState({});
-  agent.threadId = randomUUID();
+  agent.threadId = globalThis.crypto.randomUUID();
   // Messages and state are picked up from the agent itself (set above);
   // RunAgentParameters no longer accepts them directly.
   const { newMessages } = await agent.runAgent({

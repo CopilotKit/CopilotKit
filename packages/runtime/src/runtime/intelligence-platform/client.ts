@@ -34,7 +34,6 @@ import type {
   InspectorMetadataV1,
   RuntimeEntitlementResponse,
 } from "@copilotkit/shared";
-import { randomUUID } from "crypto";
 import { z } from "zod";
 import { resolveTrajectoryLearningContainerIds } from "../core/learning";
 import type {
@@ -2404,7 +2403,8 @@ export class CopilotKitIntelligence {
    *   caller's typed result).
    */
   async annotate(params: AnnotateParams): Promise<AnnotateResponse> {
-    const clientEventId = params.clientEventId ?? randomUUID();
+    const clientEventId =
+      params.clientEventId ?? globalThis.crypto.randomUUID();
     const path = `/connector/annotate/${encodeURIComponent(clientEventId)}`;
     const body: Record<string, unknown> = {
       type: params.type,

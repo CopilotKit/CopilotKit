@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
 import type { LearnedSkillsSnapshotResult } from "../learned-skills";
+import { sha256Hex } from "../../core/web-crypto";
 import { SkillDeliveryError, invalidSnapshot } from "./errors";
 import { MAX_SNAPSHOT_BYTES, readArchive, safeRelativePath } from "./archive";
 
@@ -23,9 +23,6 @@ export interface VerifiedSnapshot {
 
 function object(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-function sha256(bytes: Uint8Array): string {
-  return createHash("sha256").update(bytes).digest("hex");
 }
 function utf8(bytes: Uint8Array): string | undefined {
   try {
@@ -64,7 +61,7 @@ export async function validateSnapshot(
     // Own the bytes before asynchronous decompression so an injected client
     // cannot mutate an in-flight replacement after its digest is checked.
     const bytes = Buffer.from(response.bytes);
-    if (`"${sha256(bytes)}"` !== etag) throw invalidSnapshot();
+    if (`"${await sha256Hex(bytes)}"` !== etag) throw invalidSnapshot();
     const archive = await readArchive(bytes, signal);
     const manifestBytes = archive.get("manifest.json");
     if (!manifestBytes) throw invalidSnapshot();
@@ -126,7 +123,7 @@ export async function validateSnapshot(
         if (
           !content ||
           content.length !== file.size ||
-          sha256(content) !== file.sha256
+          (await sha256Hex(content)) !== file.sha256
         )
           throw invalidSnapshot();
         const text = utf8(content);
