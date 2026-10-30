@@ -14,6 +14,13 @@ type Pipeline = { stage: string; t: number; [k: string]: unknown };
 /** The chat of this tab, kept for the session so leaving the playground and coming back keeps it. */
 const CHAT_KEY = "a2ui-playground-chat";
 
+/** Forgets the chat saved for this session (New chat). */
+export function forgetChat() {
+  try {
+    sessionStorage.removeItem(CHAT_KEY);
+  } catch {}
+}
+
 /** Failures the browser sees itself (the request never reached the agent, or broke on the way), in visitor words. */
 const RUN_FAILURES: Partial<Record<string, string>> = {
   [CopilotKitCoreErrorCode.AGENT_RUN_FAILED]:

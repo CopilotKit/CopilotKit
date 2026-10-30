@@ -24,7 +24,6 @@ type Item = { id: Active; label: string; href: string };
 const NAV: Item[] = [
   { id: "components", label: "Components", href: "/components" },
   { id: "skills", label: "Skills", href: "/skills" },
-  { id: "evals", label: "Evals", href: "/evals" },
   { id: "start", label: "Get started", href: "/start" },
 ];
 

@@ -10,7 +10,8 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
-import { ArrowUp, Square } from "lucide-react";
+import { ArrowUp, Square, SquarePen } from "lucide-react";
+import { forgetChat } from "@/components/app/agent-tap";
 import { useMode, type Mode } from "@/components/app/providers";
 import { useSend } from "@/components/app/use-send";
 import {
@@ -146,6 +147,25 @@ export function Composer({
     const live = copilotkit.getAgent("default") ?? agent;
     if (live?.isRunning) copilotkit.stopAgent({ agent: live });
   };
+
+  // Starts over: stops a run, empties the chat and its runs, forgets the saved session and skips the replay.
+  // A fresh thread id keeps the runtime from bringing the old thread's events back.
+  const newChat = () => {
+    stop();
+    setQueued(null);
+    setText("");
+    replay.dismiss();
+    const live = copilotkit.getAgent("default") ?? agent;
+    if (live) {
+      live.setMessages([]);
+      live.threadId = crypto.randomUUID();
+    }
+    runStore.reset();
+    forgetChat();
+    box.current?.focus();
+  };
+  const started =
+    !empty || replay.status === "playing" || replay.status === "ended";
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -324,6 +344,22 @@ export function Composer({
                 ))}
               </SelectContent>
             </Select>
+            {started ? (
+              <button
+                type="button"
+                onClick={newChat}
+                data-new-chat
+                aria-label="New chat"
+                title="Start a new chat"
+                className={cn(
+                  "inline-flex h-9 flex-none items-center gap-1.5 rounded-[9px] px-2.5 text-[13.5px] text-[var(--pg-dim)] transition-colors hover:bg-[var(--pg-raised)] hover:text-foreground",
+                  focusRing,
+                )}
+              >
+                <SquarePen className="size-3.5" aria-hidden />
+                <span className="max-[639px]:sr-only">New chat</span>
+              </button>
+            ) : null}
             {running ? (
               <button
                 type="button"
