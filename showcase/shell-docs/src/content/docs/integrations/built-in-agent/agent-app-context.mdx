@@ -38,7 +38,7 @@ Use `useAgentContext` to share any data with the agent:
 
 ```tsx title="components/Dashboard.tsx"
 "use client"; // only necessary for Next.js App Router // [!code highlight]
-import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useAgentContext } from "@copilotkit/react-core"; // [!code highlight]
 import { useState } from "react";
 
 export function Dashboard() {
@@ -91,17 +91,27 @@ Agent: "You're working on two projects:
 You can call `useAgentContext` multiple times across different components. All registered contexts are combined and sent to the agent:
 
 ```tsx title="components/UserInfo.tsx"
-useAgentContext({
-  description: "Current user profile",
-  value: { name: "Jane", role: "Manager" },
-});
+import { useAgentContext } from "@copilotkit/react-core";
+
+export function UserInfo() {
+  useAgentContext({
+    description: "Current user profile",
+    value: { name: "Jane", role: "Manager" },
+  });
+  return null;
+}
 ```
 
 ```tsx title="components/PageContext.tsx"
-useAgentContext({
-  description: "The page the user is currently viewing",
-  value: { page: "settings", section: "notifications" },
-});
+import { useAgentContext } from "@copilotkit/react-core";
+
+export function PageContext() {
+  useAgentContext({
+    description: "The page the user is currently viewing",
+    value: { page: "settings", section: "notifications" },
+  });
+  return null;
+}
 ```
 
 The agent sees both contexts and can reference either when responding.
@@ -111,8 +121,13 @@ The agent sees both contexts and can reference either when responding.
 Context updates automatically when the underlying data changes:
 
 ```tsx
+import { useAgentContext } from "@copilotkit/react-core";
+import { useState } from "react";
+
 export function TaskList() {
-  const [tasks, setTasks] = useState([]);
+  const [tasks, setTasks] = useState([
+    { id: 1, title: "Write the release notes", done: false },
+  ]);
 
   // Context updates whenever tasks change // [!code highlight]
   useAgentContext({

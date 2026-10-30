@@ -44,38 +44,41 @@ of everything that has happened during a HITL interaction.
     </Step>
 
     <Step>
-        ### Add a `useFrontendTool` to your Frontend
+        ### Add a `useHumanInTheLoop` tool to your Frontend
         First, we'll create a component that renders the agent's essay draft and waits for user approval.
 
         ```tsx title="ui/app/page.tsx"
+        import { BasicMarkdownRenderer, useHumanInTheLoop } from "@copilotkit/react-core";
+        import { z } from "zod";
 
         function YourMainContent() {
           // ...
 
-          useFrontendTool({
+          useHumanInTheLoop({
             name: "write_essay",
-            available: "frontend",
             description: "Writes an essay and takes the draft as an argument.",
             parameters: z.object({
               draft: z.string().describe("The draft of the essay"),
             }),
             // [!code highlight:25]
-            renderAndWaitForResponse: ({ args, respond, status }) => {
+            render: ({ args, respond }) => {
+              // `respond` is defined only while the tool call waits for the user.
+              const waiting = respond !== undefined;
               return (
                 <div>
-                  <Markdown content={args.draft || 'Preparing your draft...'} />
+                  <BasicMarkdownRenderer content={args.draft || "Preparing your draft..."} />
 
-                  <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
+                  <div className={`flex gap-4 pt-4 ${waiting ? "" : "hidden"}`}>
                     <button
                       onClick={() => respond?.("CANCEL")}
-                      disabled={status !== "executing"}
+                      disabled={!waiting}
                       className="border p-2 rounded-xl w-full"
                     >
                       Try Again
                     </button>
                     <button
                       onClick={() => respond?.("SEND")}
-                      disabled={status !== "executing"}
+                      disabled={!waiting}
                       className="bg-blue-500 text-white p-2 rounded-xl w-full"
                     >
                       Approve Draft
@@ -87,6 +90,7 @@ of everything that has happened during a HITL interaction.
           });
 
           // ...
+          return null;
         }
         ```
     </Step>

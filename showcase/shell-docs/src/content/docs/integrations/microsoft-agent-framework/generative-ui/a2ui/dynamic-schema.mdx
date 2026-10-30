@@ -16,8 +16,11 @@ In the dynamic-schema approach, a secondary LLM generates the entire UI — sche
 Enable A2UI on your `CopilotRuntime` with `injectA2UITool: true`:
 
 ```typescript title="app/api/copilotkit/route.ts"
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { HttpAgent } from "@ag-ui/client";
+
 const runtime = new CopilotRuntime({
-  agents: { default: myAgent },
+  agents: { default: new HttpAgent({ url: "http://localhost:8000/" }) },
   a2ui: {
     injectA2UITool: true,
   },
@@ -29,9 +32,18 @@ const runtime = new CopilotRuntime({
 Register your component catalog on the provider so the LLM knows what it can draw (see [Bring Your Own Catalog](../../../../generative-ui/a2ui/dynamic-schema) for the catalog `definitions` / `renderers` / `createCatalog` split):
 
 ```tsx title="frontend/src/app/page.tsx"
-<CopilotKit a2ui={{ catalog: myCatalog }}>
-  {/* ... */}
-</CopilotKit>
+"use client";
+
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core";
+import { myCatalog } from "./a2ui-catalog"; // your catalog, built with createCatalog
+
+export default function Page() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ catalog: myCatalog }}>
+      <CopilotChat />
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ## Backend — auto-injected tool

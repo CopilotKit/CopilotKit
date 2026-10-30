@@ -6,12 +6,16 @@ icon: "lucide/ChartBar"
 
 ### Setting the threadId
 
-When setting the `threadId` property in CopilotKit, i.e:
+When you set the `threadId` prop on `<CopilotChat>`, i.e:
 
 ```tsx
-<CopilotKit threadId="2140b272-7180-410d-9526-f66210918b13">
-  <YourApp />
-</CopilotKit>
+"use client";
+
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return <CopilotChat agentId="research_agent" threadId="2140b272-7180-410d-9526-f66210918b13" />;
+}
 ```
 
 CopilotKit will restore the complete state of the thread, including the messages, from the database.
@@ -30,9 +34,16 @@ CopilotKit will restore the complete state of the thread, including the messages
 This means that the state of any agent will also be restored. For example:
 
 ```tsx
-const { state } = useAgent({ agentId: "research_agent" });
+"use client";
 
-// state will now be the state of research_agent in the thread id given above
+import { useAgent } from "@copilotkit/react-core";
+
+export function ResearchState() {
+  const { agent } = useAgent({ agentId: "research_agent" });
+
+  // agent.state is now the state of research_agent in the thread given above
+  return <pre>{JSON.stringify(agent.state, null, 2)}</pre>;
+}
 ```
 
 ### Learn More

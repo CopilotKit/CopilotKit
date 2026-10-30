@@ -25,10 +25,15 @@ This resembles the majority of React apps, where frontend state, either for a fe
 
 Our goal is to make our copilot aware of this state, so that it can provide more accurate and helpful responses. We can easily achieve this by using the [`useAgentContext`](/reference/hooks/useAgentContext) hook.
 
-```tsx title="lib/hooks/use-tasks.tsx" {3,8-11}
-// ... the rest of the file
+```tsx title="lib/hooks/use-tasks.tsx"
+"use client";
 
-import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { createContext, useContext, useState, type ReactNode } from "react";
+import { useAgentContext } from "@copilotkit/react-core"; // [!code highlight]
+import { defaultTasks } from "@/lib/default-tasks";
+import type { Task } from "@/lib/tasks.types";
+
+// ... the rest of the file
 
 export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>(defaultTasks);

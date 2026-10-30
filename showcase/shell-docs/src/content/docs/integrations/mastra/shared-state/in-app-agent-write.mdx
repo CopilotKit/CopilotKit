@@ -28,6 +28,10 @@ You can easily write to your agent's state from your native application, allowin
   This guide assumes you are embedding your Mastra agent inside of Copilot Runtime, like so.
 
   ```ts
+  import { CopilotRuntime } from "@copilotkit/runtime";
+  import { MastraAgent } from "@ag-ui/mastra";
+  import { mastra } from "@/mastra"; // your Mastra instance
+
   const runtime = new CopilotRuntime({
     agents: MastraAgent.getLocalAgents({ mastra, resourceId: "user-1" }),
   });
@@ -68,7 +72,7 @@ You can use this when you want to provide user input or control to your agent's 
     });
 
     // 2. Infer the agent state type from the schema
-    export const AgentState = z.infer<typeof AgentStateSchema>;
+    export type AgentState = z.infer<typeof AgentStateSchema>;
 
     // 3. Create the agent
     export const languageAgent = new Agent({
@@ -96,7 +100,7 @@ You can use this when you want to provide user input or control to your agent's 
 
     ```tsx title="ui/app/page.tsx"
     import { useEffect } from "react";
-    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { useAgent } from "@copilotkit/react-core"; // [!code highlight]
     import { AgentState } from "@/mastra/agents/language-agent";
 
     function YourMainContent() {
@@ -104,7 +108,7 @@ You can use this when you want to provide user input or control to your agent's 
       const { agent, isReady } = useAgent({
         agentId: "your-mastra-agent-name",
       });
-      const state = (agent.state ?? {}) as Partial<AgentState>;
+      const state: Partial<AgentState> = agent.state ?? {};
 
       useEffect(() => {
         if (!isReady || state.language !== undefined) return;

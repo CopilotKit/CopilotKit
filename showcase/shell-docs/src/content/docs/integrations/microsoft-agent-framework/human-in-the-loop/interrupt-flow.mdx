@@ -80,7 +80,7 @@ Use [tool-based HITL](/microsoft-agent-framework/human-in-the-loop/tool-based) i
     `useInterrupt` receives every AG-UI interrupt the agent raises. Call `resolve` to approve and resume, or `cancel` to decline.
 
     ```tsx title="page.tsx"
-    import { useInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { useInterrupt } from "@copilotkit/react-core"; // [!code highlight]
 
     export function ApprovalPanel() {
       // renderInChat: false makes useInterrupt return the element, so render it yourself.

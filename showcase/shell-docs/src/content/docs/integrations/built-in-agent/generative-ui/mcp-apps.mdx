@@ -33,11 +33,11 @@ Key benefits:
 
     ```typescript title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
     import {
+      BuiltInAgent,
       CopilotRuntime,
       createCopilotRuntimeHandler,
       InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
-    import { BuiltInAgent } from "@copilotkit/runtime/v2"; // [!code highlight]
+    } from "@copilotkit/runtime";
     import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware"; // [!code highlight]
 
     const agent = new BuiltInAgent({
@@ -93,11 +93,17 @@ The middleware supports two transport types:
 For MCP servers using HTTP-based communication:
 
 ```typescript
-{
-  type: "http",
-  url: "http://localhost:3101/mcp",
-  serverId: "my-http-server"
-}
+import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+
+const middleware = new MCPAppsMiddleware({
+  mcpServers: [
+    {
+      type: "http",
+      url: "http://localhost:3101/mcp",
+      serverId: "my-http-server",
+    },
+  ],
+});
 ```
 
 ### SSE Transport
@@ -105,14 +111,20 @@ For MCP servers using HTTP-based communication:
 For MCP servers using Server-Sent Events:
 
 ```typescript
-{
-  type: "sse",
-  url: "https://mcp.example.com/sse",
-  headers: {
-    "Authorization": "Bearer token"
-  },
-  serverId: "my-sse-server"
-}
+import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+
+const middleware = new MCPAppsMiddleware({
+  mcpServers: [
+    {
+      type: "sse",
+      url: "https://mcp.example.com/sse",
+      headers: {
+        Authorization: "Bearer token",
+      },
+      serverId: "my-sse-server",
+    },
+  ],
+});
 ```
 
 ## Example MCP Servers

@@ -185,12 +185,12 @@ Use predictive state updates when you want to:
 
   <Step>
     ### Observe state on the client
-    Add a state renderer to observe the `observed_steps` updates as they arrive.
+    Read `observed_steps` from the agent state with `useAgent`. The component re-renders as each update arrives.
 
     ```tsx title="ui/app/page.tsx"
     "use client";
 
-    import { useAgent } from "@copilotkit/react-core/v2";
+    import { useAgent } from "@copilotkit/react-core";
 
     type AgentState = {
       observed_steps: string[];
@@ -199,14 +199,15 @@ Use predictive state updates when you want to:
     export default function Page() {
       // Access the latest shared state
       const { agent } = useAgent({ agentId: "sample_agent" });
+      const state: Partial<AgentState> = agent.state ?? {};
 
       // Read the agent's shared state
       const progress =
-        agent.state?.observed_steps?.length ? (
+        state.observed_steps?.length ? (
           <div>
             <h3>Current Progress:</h3>
             <ul>
-              {agent.state.observed_steps.map((step, i) => (
+              {state.observed_steps.map((step, i) => (
                 <li key={i}>{step}</li>
               ))}
             </ul>

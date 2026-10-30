@@ -156,7 +156,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     ```tsx title="app/page.tsx"
     "use client";
 
-    import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core/v2";
+    import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core";
     import { a2uiV08Renderer } from "./components/a2ui-v0-8-renderer";
     import { theme } from "./theme";
 
@@ -590,7 +590,6 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
         h3: [...Object.keys(h3Light)],
         h4: [...Object.keys(h4Light)],
         h5: [...Object.keys(h5Light)],
-        h6: [],
         ul: [...Object.keys(unorderedListLight)],
         ol: [...Object.keys(orderedListLight)],
         li: [...Object.keys(listItemLight)],

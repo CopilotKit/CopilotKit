@@ -225,7 +225,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
+                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
                 ```
             </Step>
             <Step>
@@ -238,7 +238,7 @@ Before you begin, you'll need the following:
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
-                } from "@copilotkit/runtime/v2";
+                } from "@copilotkit/runtime";
                 import { HttpAgent } from "@ag-ui/client";
 
                 const runtime = new CopilotRuntime({
@@ -293,13 +293,13 @@ Before you begin, you'll need the following:
                 ```tsx title="app/providers.tsx"
                 "use client";
 
-                import { CopilotKit } from "@copilotkit/react-core/v2";
+                import { CopilotKitProvider } from "@copilotkit/react-core";
 
                 export function Providers({ children }: { children: React.ReactNode }) {
                   return (
-                    <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+                    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent" useSingleEndpoint={false}>
                       {children}
-                    </CopilotKit>
+                    </CopilotKitProvider>
                   );
                 }
                 ```
@@ -309,7 +309,7 @@ Before you begin, you'll need the following:
 
                 ```tsx title="app/layout.tsx"
                 import { Providers } from "./providers"; // [!code highlight]
-                import "@copilotkit/react-core/v2/styles.css";
+                import "@copilotkit/react-core/styles.css";
                 import './globals.css';
 
                 // ...
@@ -344,7 +344,7 @@ Before you begin, you'll need the following:
               ```tsx title="app/page.tsx"
               "use client"; // [!code highlight]
 
-              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
+              import { CopilotSidebar } from "@copilotkit/react-core"; // [!code highlight:1]
 
               export default function Page() {
                 return (

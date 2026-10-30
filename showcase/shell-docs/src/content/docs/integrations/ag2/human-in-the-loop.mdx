@@ -57,7 +57,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
         prompts the user for approval.
 
         ```tsx title="page.tsx"
-        import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
+        import { useHumanInTheLoop } from "@copilotkit/react-core" // [!code highlight]
         import { z } from "zod"
 
         export function Page() {
@@ -189,7 +189,7 @@ Frontend tools put the decision in the browser. AG-UI 1.0 also lets the **backen
         The run ends with an interrupt of reason `tool_call`. The backend reads the answer as a boolean, so `resolve(true)` approves the call and `resolve(false)` refuses it. A refusal does not fail the run: the model is told the call was refused and carries on.
 
         ```tsx title="page.tsx"
-        import { useInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
+        import { useInterrupt } from "@copilotkit/react-core"; // [!code highlight]
 
         export function Page() {
           useInterrupt({

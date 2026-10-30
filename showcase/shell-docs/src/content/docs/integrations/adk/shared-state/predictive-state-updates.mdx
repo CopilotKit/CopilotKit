@@ -150,54 +150,35 @@ When your agent finishes executing, **its final state becomes the single source 
     ```tsx title="ui/app/page.tsx"
     "use client";
 
+    import { useAgent } from "@copilotkit/react-core";
 
-    // ...
     type AgentState = {
-        observed_steps: string[];
+      observed_steps: string[];
     };
 
-    const YourMainContent = () => {
-        // Get access to both predicted and final states
-        const { agent } = useAgent({ agentId: "my_agent" });
+    export function YourMainContent() {
+      // useAgent re-renders on every state update, including the predicted
+      // state that streams in while the agent is still running.
+      const { agent } = useAgent({ agentId: "my_agent" });
+      const state: Partial<AgentState> = agent.state ?? {};
 
-        // Add a state renderer to observe predictions
-        useAgent({
-            agentId: "my_agent",
-            render: ({ state }) => {
-                if (!state.observed_steps?.length) return null;
-                return (
-                    <div>
-                        <h3>Current Progress:</h3>
-                        <ul>
-                            {state.observed_steps.map((step, i) => (
-                                <li key={i}>{step}</li>
-                            ))}
-                        </ul>
-                    </div>
-                );
-            },
-        });
+      if (!state.observed_steps?.length) return null;
 
-        return (
-            <div>
-                <h1>Agent Progress</h1>
-                {agent.state?.observed_steps?.length > 0 && (
-                    <div>
-                        <h3>Final Steps:</h3>
-                        <ul>
-                            {agent.state.observed_steps.map((step, i) => (
-                                <li key={i}>{step}</li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-            </div>
-        )
+      return (
+        <div>
+          <h3>{agent.isRunning ? "Current progress:" : "Final steps:"}</h3>
+          <ul>
+            {state.observed_steps.map((step, i) => (
+              <li key={i}>{step}</li>
+            ))}
+          </ul>
+        </div>
+      );
     }
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
     </Callout>
 
   </Step>

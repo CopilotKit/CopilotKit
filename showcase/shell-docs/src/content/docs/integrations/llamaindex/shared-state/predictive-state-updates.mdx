@@ -198,13 +198,12 @@ When your agent finishes executing, **its final state becomes the single source 
     ```tsx title="ui/app/page.tsx"
     "use client";
 
-    import { useAgent } from "@copilotkit/react-core/v2";
-    import { CopilotSidebar } from '@copilotkit/react-ui';
-    import '@copilotkit/react-core/v2/styles.css';
+    import { CopilotSidebar, useAgent } from "@copilotkit/react-core";
+    import "@copilotkit/react-core/styles.css";
 
     interface Step {
         description: string;
-        status: 'pending' | 'completed';
+        status: "pending" | "completed";
     }
 
     interface AgentState {
@@ -212,35 +211,10 @@ When your agent finishes executing, **its final state becomes the single source 
     }
 
     export default function Page() {
-        // Get access to both predicted and final states
+        // useAgent re-renders on every state update, including the predicted
+        // state that streams in while the agent is still running.
         const { agent } = useAgent({ agentId: "my_agent" });
-
-        // Add a state renderer to show progress in the chat
-        useAgent({
-            agentId: "my_agent",
-            render: ({ state, status }) => {
-                if (!state?.observed_steps?.length) return null;
-                return (
-                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 my-2">
-                        <h3 className="font-semibold text-gray-700 mb-2">
-                            {status === 'inProgress' ? '⏳ Progress:' : '✅ Completed:'}
-                        </h3>
-                        <ul className="space-y-1">
-                            {state.observed_steps.map((step, i) => (
-                                <li key={i} className="flex items-center gap-2">
-                                    <span>
-                                        {step.status === 'completed' ? '✅' : '⏳'}
-                                    </span>
-                                    <span className={step.status === 'completed' ? 'text-green-700' : 'text-gray-600'}>
-                                        {step.description}
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                );
-            },
-        });
+        const state: Partial<AgentState> = agent.state ?? {};
 
         return (
             <div>
@@ -249,14 +223,14 @@ When your agent finishes executing, **its final state becomes the single source 
                 </header>
 
                 <main>
-                    {/* Side panel showing final state */}
+                    {/* Side panel showing the predicted, then the final, state */}
                     <aside>
-                        <h2>Agent State</h2>
-                        {agent.state?.observed_steps?.length > 0 ? (
+                        <h2>{agent.isRunning ? "⏳ Progress" : "✅ Agent State"}</h2>
+                        {state.observed_steps?.length ? (
                             <ul>
-                                {agent.state.observed_steps.map((step, i) => (
+                                {state.observed_steps.map((step, i) => (
                                     <li key={i}>
-                                        <span>{step.status === 'completed' ? '✅' : '⏳'}</span>
+                                        <span>{step.status === "completed" ? "✅" : "⏳"}</span>
                                         <span>{step.description}</span>
                                     </li>
                                 ))}
@@ -270,6 +244,7 @@ When your agent finishes executing, **its final state becomes the single source 
 
                     {/* Chat area */}
                     <CopilotSidebar
+                        agentId="my_agent"
                         labels={{
                             welcomeMessageText: "Hi! Ask me to do a task like \"teach me how to fix a tire.\""
                         }}
@@ -281,7 +256,7 @@ When your agent finishes executing, **its final state becomes the single source 
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
     </Callout>
   </Step>
   <Step>

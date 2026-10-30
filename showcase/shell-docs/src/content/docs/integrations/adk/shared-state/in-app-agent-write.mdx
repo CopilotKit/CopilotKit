@@ -101,7 +101,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
     ```tsx title="ui/app/page.tsx"
     import { useEffect } from "react";
-    import { useAgent } from "@copilotkit/react-core/v2";
+    import { useAgent } from "@copilotkit/react-core";
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -113,7 +113,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
       const { agent, isReady } = useAgent({
         agentId: "my_agent",
       });
-      const state = (agent.state ?? {}) as Partial<AgentState>;
+      const state: Partial<AgentState> = agent.state ?? {};
 
       useEffect(() => {
         if (!isReady || state.language !== undefined) return;
@@ -141,7 +141,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
     </Callout>
 
   </Step>
@@ -162,6 +162,7 @@ If you want to re-run it manually, use `copilotkit.runAgent()`.
 The agent will be re-run with the latest updated state. You can also add a hint message before re-running.
 
 ```tsx title="ui/app/page.tsx"
+import { useAgent, useCopilotKit } from "@copilotkit/react-core";
 
 // ...
 
@@ -186,8 +187,6 @@ function YourMainContent() {
     await copilotkit.runAgent({ agent });
   };
 
-  return (
-    // ...
-  );
+  return <button onClick={toggleLanguage}>Toggle Language</button>;
 }
 ```

@@ -31,8 +31,11 @@ This context can then be shared with your AG-UI server and agent logic.
 
         The [`useAgentContext` hook](/reference/v2/hooks/useAgentContext) is used to add data as context to the Copilot.
 
-        ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
+        ```tsx title="YourComponent.tsx" showLineNumbers
         "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
+
+        import { useAgentContext } from "@copilotkit/react-core"; // [!code highlight]
+        import { useState } from "react";
 
         export function YourComponent() {
             // Create colleagues state with some sample data

@@ -62,11 +62,10 @@ Before you begin, you'll need the following:
         ```
 
         The components used below (`CopilotKitProvider`, `CopilotSidebar`) and the
-        stylesheet all come from `@copilotkit/react-core/v2`, so
-        `@copilotkit/react-ui` is not needed for this setup.
+        stylesheet all come from `@copilotkit/react-core`.
 
         <Callout type="info" title="TypeScript: use bundler module resolution">
-          CopilotKit's `/v2` subpaths are published through the package `exports` map, which TypeScript's legacy `"moduleResolution": "node"` (`node10`) ignores. Under that setting, type checking fails with `Cannot find module '@copilotkit/react-core/v2'` even though the app runs. Set `"moduleResolution": "bundler"` in `tsconfig.json`; if `module` is `commonjs` or unset, also set `"module": "esnext"`. `create-next-app` already uses `bundler`.
+          CopilotKit's package entry points (such as `@copilotkit/react-core/styles.css`) are published through the package `exports` map, which TypeScript's legacy `"moduleResolution": "node"` (`node10`) ignores. Under that setting, type checking fails with `Cannot find module '@copilotkit/react-core'` even though the app runs. Set `"moduleResolution": "bundler"` in `tsconfig.json`; if `module` is `commonjs` or unset, also set `"module": "esnext"`. `create-next-app` already uses `bundler`.
         </Callout>
     </Step>
     <Step>
@@ -105,8 +104,8 @@ Before you begin, you'll need the following:
         import {
           CopilotRuntime,
           createCopilotRuntimeHandler,
-        } from "@copilotkit/runtime/v2";
-        import { BuiltInAgent } from "@copilotkit/runtime/v2"; // [!code highlight]
+        } from "@copilotkit/runtime";
+        import { BuiltInAgent } from "@copilotkit/runtime"; // [!code highlight]
 
         const builtInAgent = new BuiltInAgent({ // [!code highlight:3]
           model: "openai:gpt-5.4-mini",
@@ -135,7 +134,7 @@ Before you begin, you'll need the following:
         ```tsx title="app/providers.tsx"
         "use client";
 
-        import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+        import { CopilotKitProvider } from "@copilotkit/react-core";
 
         export function Providers({ children }: { children: React.ReactNode }) {
           return (
@@ -151,7 +150,7 @@ Before you begin, you'll need the following:
 
         ```tsx title="app/layout.tsx"
         import { Providers } from "./providers"; // [!code highlight]
-        import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
+        import "@copilotkit/react-core/styles.css"; // [!code highlight]
         import './globals.css';
 
         // ...
@@ -186,7 +185,7 @@ Before you begin, you'll need the following:
         ```tsx title="app/page.tsx"
         "use client"; // [!code highlight]
 
-        import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight]
+        import { CopilotSidebar } from "@copilotkit/react-core"; // [!code highlight]
 
         export default function Page() {
           return (

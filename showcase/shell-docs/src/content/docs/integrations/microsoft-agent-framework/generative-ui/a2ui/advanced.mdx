@@ -65,7 +65,7 @@ Use `useRenderTool` to intercept the `render_a2ui` tool call and show your compo
 ```tsx title="src/hooks/use-a2ui-progress.tsx"
 "use client";
 
-import { useRenderTool } from "@copilotkit/react-core/v2";
+import { useRenderTool } from "@copilotkit/react-core";
 import { z } from "zod";
 import { A2UIProgress } from "@/components/a2ui-progress";
 
@@ -92,6 +92,7 @@ export function useA2UIProgress() {
 ```tsx title="src/app/page.tsx"
 "use client";
 
+import { CopilotChat } from "@copilotkit/react-core";
 import { useA2UIProgress } from "@/hooks/use-a2ui-progress";
 
 function Chat() {
@@ -151,13 +152,15 @@ The v0.9 A2UI schema defines buttons with an event and data-bound context fields
 The resulting `A2UIUserAction` will include the resolved context:
 
 ```typescript
-{
+import type { A2UIUserAction } from "@copilotkit/react-core";
+
+const action = {
   name: "book_flight",
   surfaceId: "flight-search-results",
   sourceComponentId: "book-button",
   timestamp: "2025-01-01T00:00:00.000Z",
   context: { flightNumber: "AA100", price: "$350" },
-}
+} satisfies A2UIUserAction;
 ```
 
 ### `onAction` interceptor
@@ -166,14 +169,13 @@ Pass `onAction` to the exported renderer factory to handle an action in the brow
 
 ```tsx
 import {
+  a2uiDefaultTheme,
   createA2UIMessageRenderer,
-  type A2UIUserAction,
-} from "@copilotkit/react-core/v2";
-import { theme } from "./theme";
+} from "@copilotkit/react-core";
 
 const A2UIMessageRenderer = createA2UIMessageRenderer({
-  theme,
-  onAction: (action: A2UIUserAction) => {
+  theme: a2uiDefaultTheme,
+  onAction: (action) => {
     if (action.name === "book_flight") {
       console.info("Booking requested", action.context);
       return null;
@@ -190,8 +192,13 @@ Pass the returned renderer through the provider's `renderActivityMessages` prop 
 An interceptor can return a modified exported `A2UIUserAction`; the renderer forwards that action to the agent:
 
 ```tsx
+import {
+  a2uiDefaultTheme,
+  createA2UIMessageRenderer,
+} from "@copilotkit/react-core";
+
 const A2UIMessageRenderer = createA2UIMessageRenderer({
-  theme,
+  theme: a2uiDefaultTheme,
   onAction: (action) => {
     if (action.name !== "book_flight") return;
 

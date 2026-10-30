@@ -189,7 +189,7 @@ Before you begin, you'll need the following:
           });
 
           app.post("/", (req, res) => {
-            const input = req.body as RunAgentInput;
+            const input: RunAgentInput = req.body;
             const runId = input.runId ?? randomUUID();
             const threadId = input.threadId ?? randomUUID();
             const encoder = new EventEncoder();
@@ -256,7 +256,7 @@ Before you begin, you'll need the following:
           import {
             CopilotRuntime,
             createCopilotRuntimeHandler,
-          } from "@copilotkit/runtime/v2";
+          } from "@copilotkit/runtime";
           import type { NextRequest } from "next/server";
 
           const runtime = new CopilotRuntime({
@@ -285,13 +285,13 @@ Before you begin, you'll need the following:
           ```tsx title="app/providers.tsx"
           "use client";
 
-          import { CopilotKit } from "@copilotkit/react-core/v2";
+          import { CopilotKitProvider } from "@copilotkit/react-core";
 
           export function Providers({ children }: { children: React.ReactNode }) {
             return (
-              <CopilotKit runtimeUrl="/api/copilotkit" agent="default">
+              <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="default">
                 {children}
-              </CopilotKit>
+              </CopilotKitProvider>
             );
           }
           ```
@@ -301,7 +301,7 @@ Before you begin, you'll need the following:
 
           ```tsx title="app/layout.tsx"
           import { Providers } from "./providers";
-          import "@copilotkit/react-core/v2/styles.css";
+          import "@copilotkit/react-core/styles.css";
           import "./globals.css";
 
           export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -330,7 +330,7 @@ Before you begin, you'll need the following:
           ```tsx title="app/page.tsx"
           "use client";
 
-          import { CopilotSidebar } from "@copilotkit/react-core/v2";
+          import { CopilotSidebar } from "@copilotkit/react-core";
 
           export default function Page() {
             return (

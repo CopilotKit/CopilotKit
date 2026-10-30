@@ -148,7 +148,7 @@ import type {
   SubagentFinishedEvent,
   SubagentStartedEvent,
 } from "@ag-ui/client";
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 import { useEffect, useState } from "react";
 
 export function SubagentPanel() {
@@ -192,7 +192,7 @@ Because a delegation is a tool call, rendering it is the ordinary tool-rendering
 
 ```tsx title="app/page.tsx"
 import { z } from "zod";
-import { useRenderTool } from "@copilotkit/react-core/v2";
+import { useRenderTool } from "@copilotkit/react-core";
 // ...
 
 const YourMainContent = () => {

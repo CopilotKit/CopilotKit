@@ -96,7 +96,7 @@ You can use this when you want to keep your interface and backend agent state sy
 
     ```tsx title="ui/app/page.tsx"
     import { useEffect } from "react";
-    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { useAgent } from "@copilotkit/react-core"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -108,7 +108,7 @@ You can use this when you want to keep your interface and backend agent state sy
       const { agent, isReady } = useAgent({
         agentId: "my_agent", // MUST match the agent name in CopilotRuntime
       });
-      const state = (agent.state ?? {}) as Partial<AgentState>;
+      const state: Partial<AgentState> = agent.state ?? {};
 
       useEffect(() => {
         if (!isReady || state.language !== undefined) return;
@@ -158,7 +158,7 @@ If you want to re-run it manually, use `copilotkit.runAgent()`.
 The agent will be re-run with the latest updated state. You can also add a hint message before re-running.
 
 ```tsx title="ui/app/page.tsx"
-import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core";
 
 // ...
 
@@ -183,9 +183,7 @@ function YourMainContent() {
     await copilotkit.runAgent({ agent });
   };
 
-  return (
-    // ...
-  );
+  return <button onClick={toggleLanguage}>Toggle Language</button>;
 }
 ```
 
