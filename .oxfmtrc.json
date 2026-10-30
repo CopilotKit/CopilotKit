@@ -14,6 +14,9 @@
     "showcase/aimock/d4/**",
     "showcase/aimock/d6/**",
     "**/package.json",
-    "showcase/scripts/__tests__/fixtures/imagetools/**"
+    "showcase/scripts/__tests__/fixtures/imagetools/**",
+    "examples/showcases/a2ui-playground/src/a2ui/export/**",
+    "examples/showcases/a2ui-playground/skills/generated/**",
+    "examples/showcases/a2ui-playground/src/data/**"
   ]
 }

@@ -1,0 +1,222 @@
+/* MOTION.CSS for /watch. The /watch page reads this file and shows the recipe that is playing.
+   Recipes marked transitions.dev are taken from https://github.com/Jakubantalik/transitions.dev
+   (skills/transitions-dev, skills/transitions-ui-generation), Copyright (c) 2026 Jakub Antalik /
+   Transitions.dev, free to use in commercial projects. Chart grow and pin drop are ours, on the same token
+   scale. The generation (wireframe, guides, handles, size labels, scan-line reveal, agent log, motion CSS)
+   is the transitions.dev runtime in src/vendor/transitions; the recipes this run plays are what its
+   MOTION.CSS panel types out. Everything is scoped to .bs-root so this page stands alone. */
+
+/* recipe / tokens */
+.bs-root {
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  /* transitions.dev skeleton loader */
+  --pulse-dur: 1000ms;
+  --pulse-min: 0.5;
+  /* transitions.dev skeleton reveal */
+  --reveal-dur: 400ms;
+  --reveal-blur: 2px;
+  --reveal-ease: ease-in-out;
+  /* transitions.dev panel reveal (translate tuned down for in-surface panels) */
+  --panel-open-dur: 400ms;
+  --panel-translate-y: 12px;
+  --panel-blur: 2px;
+  --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* transitions.dev number pop-in */
+  --digit-dur: 500ms;
+  --digit-distance: 8px;
+  --digit-stagger: 70ms;
+  --digit-blur: 2px;
+  --digit-ease: cubic-bezier(0.34, 1.45, 0.64, 1);
+  --digit-dir-x: 0;
+  --digit-dir-y: 1;
+  /* transitions.dev streaming text */
+  --stream-gap: 60ms;
+  --stream-fade: 350ms;
+  --stream-blur: 1px;
+  --stream-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* chart grow */
+  --chart-grow-dur: 700ms;
+  --pin-drop-dur: 500ms;
+  --pin-drop-distance: 14px;
+  --pin-stagger: 90ms;
+  /* transitions.dev matrix loader, dark values */
+  --matrix-cycle: 1200ms;
+  --matrix-base: #3a3a40;
+  --matrix-active: #a3a3ad;
+  --matrix-ease: ease-in-out;
+}
+
+/* recipe / slot placeholder (transitions.dev skeleton loader) */
+/* A component id arrived, its props are still streaming: the slot pulses. */
+.bs-canvas .a2-node {
+  display: contents;
+}
+.bs-canvas .a2-blueprint {
+  width: 100%;
+  min-height: 28px;
+  border-radius: 12px;
+  background: color-mix(in oklch, var(--gen-strong) 10%, transparent);
+  animation: bs-skel-pulse var(--pulse-dur) ease-in-out infinite;
+}
+@keyframes bs-skel-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: var(--pulse-min);
+  }
+}
+
+/* recipe / skeleton reveal (transitions.dev) */
+/* The real component replaces its frame: fade in, un-blur. */
+.bs-canvas .a2-node > :not(.a2-blueprint):not(.a2-node) {
+  animation: bs-skel-reveal var(--reveal-dur) var(--reveal-ease) both;
+}
+.bs-canvas .a2-node > .a2-node > :not(.a2-blueprint) {
+  animation: none;
+}
+@keyframes bs-skel-reveal {
+  from {
+    opacity: 0;
+    filter: blur(var(--reveal-blur));
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+/* recipe / panel reveal (transitions.dev) */
+.bs-canvas .a2-node[data-a2-type="Card"] > :not(.a2-blueprint),
+.bs-canvas .a2-node[data-a2-type="Section"] > :not(.a2-blueprint) {
+  animation: bs-panel-in var(--panel-open-dur) var(--panel-ease) both;
+}
+@keyframes bs-panel-in {
+  from {
+    transform: translateY(var(--panel-translate-y));
+    opacity: 0;
+    filter: blur(var(--panel-blur));
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+/* recipe / number pop-in (transitions.dev) */
+@keyframes t-digit-pop-in {
+  0% {
+    transform: translate(
+      calc(var(--digit-distance) * var(--digit-dir-x)),
+      calc(var(--digit-distance) * var(--digit-dir-y))
+    );
+    opacity: 0;
+    filter: blur(var(--digit-blur));
+  }
+  100% {
+    transform: translate(0, 0);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+.bs-canvas .t-digit-group {
+  display: inline-flex;
+  align-items: baseline;
+}
+.bs-canvas .t-digit {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+}
+.bs-canvas .t-digit-group.is-animating .t-digit {
+  animation: t-digit-pop-in var(--digit-dur) var(--digit-ease) both;
+  animation-delay: calc(var(--i, 0) * var(--digit-stagger));
+}
+
+/* recipe / streaming text (transitions.dev) */
+.bs-canvas .t-stream-w {
+  opacity: 0;
+  filter: blur(var(--stream-blur));
+  transition:
+    opacity var(--stream-fade) var(--stream-ease),
+    filter var(--stream-fade) var(--stream-ease);
+  transition-delay: calc(var(--i, 0) * var(--stream-gap));
+}
+.bs-canvas .t-stream-w.is-in {
+  opacity: 1;
+  filter: blur(0);
+}
+
+/* recipe / chart grow */
+/* Chart marks grow in from the left edge of the plot. */
+.bs-canvas .a2-chart svg {
+  animation: bs-chart-grow var(--chart-grow-dur) var(--ease-smooth-out) both;
+}
+@keyframes bs-chart-grow {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0.4;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+/* recipe / pin drop */
+.bs-canvas .a2-pin-drop {
+  animation: bs-pin-drop var(--pin-drop-dur) var(--digit-ease) both;
+  animation-delay: calc(var(--i, 0) * var(--pin-stagger));
+}
+@keyframes bs-pin-drop {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--pin-drop-distance) * -1));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* recipe / matrix dot loader (transitions.dev) */
+.bs-root .t-matrix {
+  display: grid;
+  grid-template-columns: repeat(4, 4px);
+  grid-auto-rows: 4px;
+  gap: 3px;
+}
+.bs-root .t-matrix i {
+  display: block;
+  background: var(--matrix-base);
+  animation: t-matrix-pulse var(--matrix-cycle) var(--matrix-ease) infinite;
+  animation-delay: calc(var(--d, 0) * 1ms);
+}
+@keyframes t-matrix-pulse {
+  0%,
+  45%,
+  100% {
+    background-color: var(--matrix-base);
+  }
+  15% {
+    background-color: var(--matrix-active);
+  }
+}
+
+/* recipe / reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .bs-canvas .a2-blueprint,
+  .bs-canvas .a2-node > *,
+  .bs-canvas .t-digit,
+  .bs-canvas .a2-chart svg,
+  .bs-canvas .a2-pin-drop,
+  .bs-root .t-matrix i {
+    animation: none !important;
+  }
+  .bs-canvas .t-stream-w {
+    transition: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+  }
+}

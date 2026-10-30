@@ -1,0 +1,70 @@
+{
+  "name": "a2ui-playground",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "predev": "pnpm catalog:export",
+    "dev": "next dev --port 3100",
+    "prebuild": "pnpm catalog:export",
+    "build": "next build",
+    "start": "next start --port ${PORT:-3100}",
+    "typecheck": "tsc --noEmit",
+    "catalog:export": "tsx --tsconfig tsconfig.json scripts/export-catalog.ts",
+    "skills:export": "tsx --tsconfig tsconfig.json scripts/export-skills.ts",
+    "evals": "tsx --tsconfig tsconfig.json scripts/evals.ts"
+  },
+  "dependencies": {
+    "@a2ui/agent": "0.0.2",
+    "@ag-ui/client": "1.0.2",
+    "@copilotkit/react-core": "1.83.0",
+    "@copilotkit/runtime": "1.83.0",
+    "@copilotkit/shared": "1.83.0",
+    "@tanstack/charts": "1.1.0",
+    "@tanstack/react-charts": "1.1.0",
+    "@tanstack/react-table": "9.3.1",
+    "@typesafe-ai/sdk": "0.7.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "date-fns": "^4.4.0",
+    "embla-carousel-react": "^8.6.0",
+    "lucide-react": "1.57.0",
+    "maplibre-gl": "6.14.0",
+    "next": "16.4.1",
+    "next-themes": "^0.4.6",
+    "openai": "7.34.0",
+    "radix-ui": "^1.8.1",
+    "react": "19.3.1",
+    "react-day-picker": "^10.0.2",
+    "react-dom": "19.3.1",
+    "react-map-gl": "8.1.3",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1",
+    "rxjs": "7.8.1",
+    "sonner": "^2.0.8",
+    "sugar-high": "2.6.0",
+    "tailwind-merge": "^3.3.1",
+    "tw-animate-css": "^1.4.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "puppeteer-core": "25.14.0",
+    "shadcn": "^4.21.5",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "undici": "^7.30.1"
+    }
+  }
+}
