@@ -181,6 +181,7 @@ import { injectChatLabels } from "../../chat-config";
           [scrollToBottomButton]="scrollToBottomButtonSlot()"
           [scrollToBottomButtonClass]="scrollToBottomButtonClass()"
           [showCursor]="showCursorSignal()"
+          [isRunning]="isRunning()"
           (assistantMessageThumbsUp)="assistantMessageThumbsUp.emit($event)"
           (assistantMessageThumbsDown)="assistantMessageThumbsDown.emit($event)"
           (assistantMessageReadAloud)="assistantMessageReadAloud.emit($event)"
@@ -220,6 +221,8 @@ export class CopilotChatView implements OnInit, OnChanges {
   agentId = input<string | undefined>();
   autoScroll = input<boolean>(true);
   showCursor = input<boolean>(false);
+  /** Whether the agent is running; reasoning messages stream and count their duration while it is. */
+  isRunning = input<boolean>(false);
   hasExplicitThreadId = input<boolean>(false);
 
   // MessageView slot inputs
@@ -392,6 +395,7 @@ export class CopilotChatView implements OnInit, OnChanges {
     messageViewChildrenComponent: this.messageViewChildrenComponent(),
     messageViewChildrenTemplate: this.messageViewChildrenTemplate(),
     messageViewChildrenClass: this.messageViewChildrenClass(),
+    isRunning: this.isRunning(),
   }));
 
   // Removed scrollViewPropsComputed - no longer needed
