@@ -52,9 +52,14 @@ export default defineConfig({
     "@tanstack/ai-anthropic": "^1.0.0",
     // Same AI SDK major as the runtime's `ai` / `@ai-sdk/openai`.
     "@ai-sdk/azure": "^3.0.0",
+    // One copy for every import (see tsconfig.docs.json for why).
+    "@ai-sdk/provider-utils": "^4.0.0",
     // Servers, deploy targets, and libraries shown in guides and cookbooks.
     "@nestjs/common": "^12.0.0",
     "@tanstack/react-start": "^1.169.0",
+    "@tanstack/react-router": "^1.170.0",
+    "@types/deno": "^2.0.0",
+    "@sentry/nextjs": "^11.0.0",
     "@react-native/metro-config": "^0.85.0",
     "aws-cdk-lib": "^2.0.0",
     "@types/aws-lambda": "^8.10.0",
@@ -72,6 +77,8 @@ export default defineConfig({
     "@daytonaio/sdk": "0.182.0",
     "@typesafe-ai/sdk": "^0.7.0",
     "mcp-use": "^2.12.0",
+    "@anthropic-ai/sdk": "^1.0.0",
+    "@openbox-ai/openbox-sdk": "^0.1.1",
   },
   plugins: [
     {
@@ -98,6 +105,15 @@ export default defineConfig({
         `${CONTENT}/reference/channels/**`,
       ],
       jsxImportSource: "@copilotkit/channels",
+    },
+    // NestJS decorators need the legacy decorator mode; Nest projects turn it
+    // on in their own tsconfig.
+    {
+      include: [
+        `${CONTENT}/snippets/self-hosting-copilot-runtime-create-endpoint.mdx`,
+        `${CONTENT}/snippets/self-hosting-copilot-runtime-starter.mdx`,
+      ],
+      experimentalDecorators: true,
     },
   ],
 });

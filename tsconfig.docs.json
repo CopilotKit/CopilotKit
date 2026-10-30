@@ -33,6 +33,14 @@
       "@tanstack/ai-anthropic": [
         "./node_modules/.kiira/node_modules/@tanstack/ai-anthropic"
       ],
+      // ai@6 and @ai-sdk/mcp each pin an exact @ai-sdk/provider-utils, and the
+      // workspace lockfile resolves them to two different releases, so their
+      // `schemaSymbol`s differ and an MCP client is not assignable to the
+      // runtime's mcpClients. A reader's fresh install gets one matching
+      // release; resolve every import of it to the single copy kiira installs.
+      "@ai-sdk/provider-utils": [
+        "./node_modules/.kiira/node_modules/@ai-sdk/provider-utils"
+      ],
       // kiira resolves third-party packages through a "*" path fallback,
       // and a path mapping does not read a package's `exports` map. A
       // subpath import therefore only resolves when a file exists at that
@@ -41,7 +49,10 @@
         "./node_modules/.kiira/node_modules/@a2ui/lit/src/0.8/core.d.ts"
       ],
       "@ag-ui/aws-strands/server": [
-        "./node_modules/.kiira/node_modules/@ag-ui/aws-strands/dist/server.d.mts"
+        "./node_modules/.kiira/node_modules/@ag-ui/aws-strands/dist/server.d.ts"
+      ],
+      "@openbox-ai/openbox-sdk/copilotkit": [
+        "./node_modules/.kiira/node_modules/@openbox-ai/openbox-sdk/dist/copilotkit/index.d.ts"
       ],
       "@ag-ui/langgraph/middlewares": [
         "./packages/sdk-js/node_modules/@ag-ui/langgraph/dist/middlewares/index.d.mts"
@@ -68,20 +79,26 @@
         "./node_modules/.kiira/node_modules/mcp-use/dist/react/index.d.ts"
       ],
       // kiira maps each workspace package to its source by rewriting the built
-      // `exports` target (dist/index.mjs) to src/index.mts. Our packages
-      // build .mjs from .ts/.tsx sources, so that rewrite never finds a file and
+      // `exports` target (dist/index.mjs) to src/index.mts. Our packages build
+      // .mjs from .ts/.tsx sources, so that rewrite never finds a file and
       // kiira falls back to dist/, which does not exist in an unbuilt checkout
-      // (CI, docs-only PRs). These entries point each public entry point at its
-      // real source file. Paths here replace kiira's generated entry of the same
-      // key. A new public export that is missing here fails loudly in kiira with
-      // "Cannot find module", so add it here when that happens.
+      // (CI, docs-only PRs). These entries point every workspace entry point at
+      // its real source file. Private packages are included because public
+      // sources import them (intelligence-langgraph imports
+      // intelligence-delivery-core). Each entry replaces kiira's generated
+      // entry for the same key. A new export that is missing here fails loudly
+      // with "Cannot find module", so add it here when that happens.
       "@copilotkit/a2ui-renderer": ["./packages/a2ui-renderer/src/index.ts"],
       "@copilotkit/agentcore-runner": [
         "./packages/agentcore-runner/src/index.ts"
       ],
       "@copilotkit/core": ["./packages/core/src/index.ts"],
+      "@copilotkit/demo-agents": ["./packages/demo-agents/src/index.ts"],
       "@copilotkit/intelligence-langgraph": [
         "./packages/intelligence-langgraph/src/index.ts"
+      ],
+      "@copilotkit/intelligence-delivery-core": [
+        "./packages/intelligence-delivery-core/src/index.ts"
       ],
       "@copilotkit/intelligence-mastra": [
         "./packages/intelligence-mastra/src/index.ts"
@@ -141,6 +158,9 @@
         "./packages/react-native/src/polyfills/streams.ts"
       ],
       "@copilotkit/runtime": ["./packages/runtime/src/index.ts"],
+      "@copilotkit/runtime/internal/learned-skills": [
+        "./packages/runtime/src/internal/learned-skills.ts"
+      ],
       "@copilotkit/runtime/node": ["./packages/runtime/src/node.ts"],
       "@copilotkit/sdk-js": ["./packages/sdk-js/src/index.ts"],
       "@copilotkit/sdk-js/langchain": ["./packages/sdk-js/src/langchain.ts"],
