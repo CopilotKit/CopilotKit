@@ -67,6 +67,20 @@ export async function startA2uiEvidence(page: Page): Promise<void> {
   });
 }
 
+const structuralValue = (value: any): any => {
+  if (Array.isArray(value)) return value.map(structuralValue);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, structuralValue(value[key])]),
+    );
+  }
+  return value;
+};
+const operationsSignature = (event: A2uiArrival): string =>
+  JSON.stringify(structuralValue(event.payload.content.a2ui_operations));
+
 export function assertA2uiEvidence(
   evidence: A2uiEvidence,
   format: A2uiFormat,
@@ -217,19 +231,6 @@ export function assertA2uiEvidence(
   // The SDK emits full current-state operation snapshots (commonly the
   // same create/components/data triplet), not an append-only operation log.
   // Compare structure, ignoring object key order, while keeping array order.
-  const structuralValue = (value: any): any => {
-    if (Array.isArray(value)) return value.map(structuralValue);
-    if (value !== null && typeof value === "object") {
-      return Object.fromEntries(
-        Object.keys(value)
-          .sort()
-          .map((key) => [key, structuralValue(value[key])]),
-      );
-    }
-    return value;
-  };
-  const operationsSignature = (event: A2uiArrival): string =>
-    JSON.stringify(structuralValue(event.payload.content.a2ui_operations));
   const pair = progressive.some((first, i) =>
     progressive
       .slice(i + 1)

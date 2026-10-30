@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import { attachSseInterceptor } from "./sse-interceptor.js";
 import type { Page } from "playwright";
 
+const sseEvent = (type: string, extra = {}) =>
+  `data: ${JSON.stringify({ type, ...extra })}\n\n`;
+
 // Exercise the actual injected fetch tee with real Web Streams; CDP's final
 // response body cannot distinguish progressively delivered events.
 describe("browser structural SSE arrival evidence", () => {
@@ -41,11 +44,9 @@ describe("browser structural SSE arrival evidence", () => {
     vm.runInNewContext(scripts[0]!, sandbox);
     const application = await sandbox.fetch("http://localhost/api/copilotkit");
     const encoder = new TextEncoder();
-    const event = (type: string, extra = {}) =>
-      `data: ${JSON.stringify({ type, ...extra })}\n\n`;
     controller.enqueue(
       encoder.encode(
-        event("ACTIVITY_SNAPSHOT", {
+        sseEvent("ACTIVITY_SNAPSHOT", {
           messageId: "a2ui-surface-1",
           activityType: "a2ui-surface",
           content: { inferenceFormat: "express", a2ui_operations: [{ a: 1 }] },
@@ -55,7 +56,7 @@ describe("browser structural SSE arrival evidence", () => {
     await new Promise((r) => setTimeout(r, 10));
     controller.enqueue(
       encoder.encode(
-        event("ACTIVITY_SNAPSHOT", {
+        sseEvent("ACTIVITY_SNAPSHOT", {
           messageId: "a2ui-surface-1",
           activityType: "a2ui-surface",
           content: {
@@ -66,7 +67,7 @@ describe("browser structural SSE arrival evidence", () => {
       ),
     );
     await new Promise((r) => setTimeout(r, 10));
-    controller.enqueue(encoder.encode(event("RUN_FINISHED")));
+    controller.enqueue(encoder.encode(sseEvent("RUN_FINISHED")));
     controller.close();
     const body = await application.text();
     await new Promise((r) => setTimeout(r, 10));
@@ -369,18 +370,22 @@ it("counts changed component data as progress even when component and operation 
   expect(() => assertA2uiEvidence(e, "express", "stream")).not.toThrow();
 });
 
+function reorder(value: any): any {
+  if (Array.isArray(value)) return value.map(reorder);
+  if (value !== null && typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    const keys = Object.keys(value);
+    for (let index = keys.length - 1; index >= 0; index--) {
+      const key = keys[index]!;
+      result[key] = reorder(value[key]);
+    }
+    return result;
+  }
+  return value;
+}
+
 it("ignores object key ordering as evidence of structural progress", () => {
   const e = progressive();
-  const reorder = (value: any): any => {
-    if (Array.isArray(value)) return value.map(reorder);
-    if (value !== null && typeof value === "object")
-      return Object.fromEntries(
-        Object.keys(value)
-          .toReversed()
-          .map((key) => [key, reorder(value[key])]),
-      );
-    return value;
-  };
   surfaceSnapshots(e)[1]!.payload.content.a2ui_operations = reorder(
     surfaceSnapshots(e)[0]!.payload.content.a2ui_operations,
   );

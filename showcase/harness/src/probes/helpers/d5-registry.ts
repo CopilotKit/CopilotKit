@@ -1,3 +1,4 @@
+import type { A2uiFormat } from "./a2ui-format.js";
 /**
  * D5 — script registry.
  *
@@ -208,7 +209,7 @@ export interface D5BuildContext {
   featureType: D5FeatureType;
   baseUrl: string;
   /** Optional server inference format; omitted preserves each integration default. */
-  a2uiFormat?: import("./a2ui-format.js").A2uiFormat;
+  a2uiFormat?: A2uiFormat;
 }
 
 /**

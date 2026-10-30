@@ -1,3 +1,4 @@
+import type { A2uiFormat } from "../probes/helpers/a2ui-format.js";
 /**
  * CLI test runner — orchestrates probe execution against locally running
  * showcase services. Wires targets (from B4), lifecycle management (from
@@ -58,7 +59,7 @@ import type { CvdiagPbWriter } from "../cvdiag/pb-writer.js";
 
 export interface RunOptions {
   level: TestLevel;
-  format?: import("../probes/helpers/a2ui-format.js").A2uiFormat;
+  format?: A2uiFormat;
   /** Launch Playwright in headed mode (visible browser window). */
   headed?: boolean;
   /** Number of times to repeat the probe execution. */

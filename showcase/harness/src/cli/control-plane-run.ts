@@ -1,3 +1,4 @@
+import type { A2uiFormat } from "../probes/helpers/a2ui-format.js";
 /**
  * CLI CONTROL-PLANE runner — drives d5/d6 probe runs through the SAME fleet
  * wiring staging uses (producer → queue → worker → result-aggregator) instead
@@ -76,7 +77,7 @@ function familyForLevel(level: ControlPlaneLevel): string {
 /** Tunables for the control-plane run (polling cadence + ceiling). */
 export interface ControlPlaneRunOptions {
   level: ControlPlaneLevel;
-  a2uiFormat?: import("../probes/helpers/a2ui-format.js").A2uiFormat;
+  a2uiFormat?: A2uiFormat;
   /** How long to wait for the worker fleet to drain the run, in ms. */
   timeoutMs?: number;
   /** How often to poll PocketBase for the run's terminal cells, in ms. */
