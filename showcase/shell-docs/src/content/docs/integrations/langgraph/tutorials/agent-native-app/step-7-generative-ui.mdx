@@ -3,7 +3,7 @@ title: "Step 7: Agentic Generative UI"
 ---
 
 We're almost done! In this step, we're going to add generative UI to the application so that we can visualize the agent
-state in the chat UI. The end goal with this is to allow the user to see the progress of the agent's research as it is
+state in the UI. The end goal with this is to allow the user to see the progress of the agent's research as it is
 completed.
 
 <Callout>
@@ -15,7 +15,7 @@ For this guide, we're going to start using the CopilotKit SDK to emit the state 
 in LangGraph, state is only updated when a node change occurs (i.e, an edge is traversed).
 
 As such, in-progress work is not emitted to the user by default. However, we can manually emit the state using the `copilotkit_emit_state`
-function. With that emitted state, we'll be using the `useCoAgentStateRender` hook to render updates in the chat to give the user
+function. With that emitted state, we'll read the agent's state with the `useAgent` hook and render its progress logs to give the user
 a sense of progress.
 
 <Steps>
@@ -78,29 +78,28 @@ you want to emit state to the frontend, you can do so by calling `copilotkit_emi
 </Step>
 <Step>
 ## Render the emitted state
-Now, our state is being emitted to the frontend. However, we need to render it in the chat. To do this, we'll be using the `useCoAgentStateRender` hook.
+Now, our state is being emitted to the frontend. However, we need to render it. To do this, we'll read the emitted `logs` from the agent's state with the `useAgent` hook and render the `Progress` component while there are logs to show.
 
-```tsx title="frontend/src/app/layout.tsx"
+```tsx title="frontend/src/app/page.tsx"
+import { useAgent } from "@copilotkit/react-core"; // [!code ++]
+import { Progress } from "@/components/Progress";
+import type { ResearchState } from "@/lib/types";
+// ...
+
 export default function HomePage() {
   //...
-  const { state: researchState, setResearchState } = useResearch();
+  // [!code ++:3]
+  const { agent } = useAgent({ agentId: "agent" });
+  const state: ResearchState = agent.state;
+  const logs = state.logs ?? [];
   // ...
 
-  // [!code ++:10]
-  useCoAgentStateRender<ResearchState>(
-    {
-      name: "agent",
-      render: ({ state }) => {
-        if (state.logs?.length > 0) {
-          return <Progress logs={state.logs} />;
-        }
-        return null;
-      },
-    },
-    [researchState],
+  return (
+    <main>
+      {/* ... */}
+      {logs.length > 0 && <Progress logs={logs} />} {/* [!code ++] */}
+    </main>
   );
-
-  // ...
 }
 ```
 
@@ -129,7 +128,7 @@ Please research dogs!
 To recap, we did the following:
 
 - Learned about how to emit state whenever we want with `copilotkit_emit_state`.
-- Added the `useCoAgentStateRender` hook to our application to render the intermediate state in the chat.
+- Used the `useAgent` hook to render the intermediate state in our application.
 
 We're almost done, just one step to go! Now we're going to learn about **progressive state updates** which will allow us to render the sections as they are written into state. This will
 complete the agentic experience.

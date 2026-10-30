@@ -36,8 +36,8 @@ Key benefits:
       CopilotRuntime,
       createCopilotRuntimeHandler,
       InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
-    import { LangGraphAgent } from "@copilotkit/runtime/langgraph"; // [!code highlight]
+    } from "@copilotkit/runtime";
+    import { LangGraphAgent } from "@ag-ui/langgraph"; // [!code highlight]
     import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware"; // [!code highlight]
 
     const agent = new LangGraphAgent({
@@ -90,18 +90,20 @@ Key benefits:
 
 ## Transport Types
 
-The middleware supports two transport types:
+The middleware supports two transport types. Pass either entry in the `mcpServers` array:
 
 ### HTTP Transport
 
 For MCP servers using HTTP-based communication:
 
 ```typescript
-{
+import type { MCPClientConfigHTTP } from "@ag-ui/mcp-apps-middleware";
+
+const httpServer = {
   type: "http",
   url: "http://localhost:3101/mcp",
-  serverId: "my-http-server"
-}
+  serverId: "my-http-server",
+} satisfies MCPClientConfigHTTP;
 ```
 
 ### SSE Transport
@@ -109,14 +111,16 @@ For MCP servers using HTTP-based communication:
 For MCP servers using Server-Sent Events:
 
 ```typescript
-{
+import type { MCPClientConfigSSE } from "@ag-ui/mcp-apps-middleware";
+
+const sseServer = {
   type: "sse",
   url: "https://mcp.example.com/sse",
   headers: {
     "Authorization": "Bearer token"
   },
-  serverId: "my-sse-server"
-}
+  serverId: "my-sse-server",
+} satisfies MCPClientConfigSSE;
 ```
 
 ## Example MCP Servers

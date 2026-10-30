@@ -36,11 +36,12 @@ This pattern lets a LangGraph node **directly invoke** a frontend function — f
 ### Step 1: Register the frontend tool
 
 ```tsx title="app/page.tsx"
+import { useState } from "react";
 import { z } from "zod";
-import { useFrontendTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useFrontendTool } from "@copilotkit/react-core"; // [!code highlight]
 
 export function Page() {
-  const [status, setStatus] = React.useState("");
+  const [status, setStatus] = useState("");
 
   // [!code highlight:10]
   useFrontendTool({
@@ -101,7 +102,7 @@ This pattern lets the LLM decide when to render a custom React component in the 
 ### Step 1: Register the component
 
 ```tsx title="app/page.tsx"
-import { useComponent } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useComponent } from "@copilotkit/react-core"; // [!code highlight]
 import { z } from "zod";
 
 function WeatherCard({ city, temperature, condition }: {

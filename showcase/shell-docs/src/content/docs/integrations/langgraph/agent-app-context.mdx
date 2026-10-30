@@ -6,6 +6,7 @@ hideTOC: true
 ---
 
 import AgentContextJsonString from "@/snippets/shared/basics/agent-context-json-string.mdx";
+
 One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
 This way, you can notify CopilotKit of what is going on in your app in real time.
 Some examples might be: the current user, the current page, etc.
@@ -36,7 +37,7 @@ This context can then be shared with your LangGraph agent.
 
                 ```tsx title="YourComponent.tsx"
                 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { useAgentContext } from "@copilotkit/react-core"; // [!code highlight]
                 import { useState } from 'react';
 
                 export function YourComponent() {
@@ -156,8 +157,11 @@ This context can then be shared with your LangGraph agent.
                     </Tab>
                     <Tab value="TypeScript">
                         ```typescript title="agent-js/src/agent.ts"
+                        import type { RunnableConfig } from "@langchain/core/runnables";
                         import { SystemMessage } from "@langchain/core/messages";
+                        import { StateSchema } from "@langchain/langgraph";
                         import { ChatOpenAI } from "@langchain/openai";
+                        import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
 
                         // add the agent state definition from the previous step
                         export const AgentStateSchema = new StateSchema({
@@ -173,7 +177,8 @@ This context can then be shared with your LangGraph agent.
 
                           // [!code highlight:5]
                           // The value is a JSON string, so parse it to read the fields
-                          const colleagues = colleaguesContextItem ? JSON.parse(colleaguesContextItem.value) : [];
+                          const colleagues: { id: number; name: string; role: string }[] =
+                            colleaguesContextItem ? JSON.parse(colleaguesContextItem.value) : [];
 
                           // Now each entry is an object, so colleague.name works
                           const colleagueList = colleagues.map((c) => `${c.name} (${c.role})`).join(", ");
@@ -220,7 +225,7 @@ This context can then be shared with your LangGraph agent.
 
                 ```tsx title="YourComponent.tsx"
                 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { useAgentContext } from "@copilotkit/react-core"; // [!code highlight]
                 import { useState } from 'react';
 
                 export function YourComponent() {

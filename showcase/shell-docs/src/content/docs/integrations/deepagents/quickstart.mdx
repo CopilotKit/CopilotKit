@@ -5,6 +5,7 @@ icon: "lucide/Rocket"
 ---
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
 ## Start with your coding agent
 
 Use this prompt to connect your Deep Agents agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
@@ -277,8 +278,8 @@ Before you begin, you'll need the following:
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
-                } from "@copilotkit/runtime/v2";
-                import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+                } from "@copilotkit/runtime";
+                import { LangGraphAgent } from "@ag-ui/langgraph";
 
                 const runtime = new CopilotRuntime({
                     agents: {
@@ -316,7 +317,7 @@ Before you begin, you'll need the following:
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
-                } from "@copilotkit/runtime/v2";
+                } from "@copilotkit/runtime";
                 import { HttpAgent } from "@ag-ui/client";
 
                 const runtime = new CopilotRuntime({
@@ -377,7 +378,7 @@ Before you begin, you'll need the following:
         ```tsx title="app/providers.tsx"
         "use client";
 
-        import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+        import { CopilotKitProvider } from "@copilotkit/react-core";
 
         export function Providers({ children }: { children: React.ReactNode }) {
           return (
@@ -393,7 +394,7 @@ Before you begin, you'll need the following:
 
         ```tsx title="app/layout.tsx"
         import { Providers } from "./providers";
-        import "@copilotkit/react-core/v2/styles.css";
+        import "@copilotkit/react-core/styles.css";
 
         // ...
 
@@ -426,8 +427,8 @@ Before you begin, you'll need the following:
         ```tsx title="app/page.tsx"
         "use client";
 
-        import { CopilotSidebar } from "@copilotkit/react-core/v2";
-        import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+        import { CopilotSidebar } from "@copilotkit/react-core";
+        import { useDefaultRenderTool } from "@copilotkit/react-core";
 
         export default function Page() {
             useDefaultRenderTool({

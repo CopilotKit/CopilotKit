@@ -32,7 +32,7 @@ CopilotKit ships three prebuilt chat components that connect directly to your La
 Import the default styles in your root layout:
 
 ```tsx title="layout.tsx"
-
+import "@copilotkit/react-core/styles.css";
 ```
 
 ### CopilotChat
@@ -41,6 +41,7 @@ A flexible chat component that can be placed anywhere in your app and sized as n
 
 ```tsx title="page.tsx"
 // [!code word:CopilotChat]
+import { CopilotChat } from "@copilotkit/react-core";
 
 export function YourComponent() {
   return (
@@ -62,22 +63,28 @@ export function YourComponent() {
 
 ### CopilotSidebar
 
-Wraps your main content and provides a collapsible sidebar chat.
+Sits alongside your main content as a collapsible sidebar chat.
 
 ```tsx title="page.tsx"
 // [!code word:CopilotSidebar]
+import { CopilotSidebar } from "@copilotkit/react-core";
+
+function YourMainContent() {
+  return <main>{/* Your app */}</main>;
+}
 
 export function YourApp() {
   return (
-    <CopilotSidebar
-      defaultOpen={true}
-      labels={{
-        modalHeaderTitle: "Sidebar Assistant",
-        welcomeMessageText: "How can I help you today?",
-      }}
-    >
+    <>
       <YourMainContent />
-    </CopilotSidebar>
+      <CopilotSidebar
+        defaultOpen={true}
+        labels={{
+          modalHeaderTitle: "Sidebar Assistant",
+          welcomeMessageText: "How can I help you today?",
+        }}
+      />
+    </>
   );
 }
 ```
@@ -94,6 +101,11 @@ A floating chat bubble that sits alongside your content and toggles open/closed.
 
 ```tsx title="page.tsx"
 // [!code word:CopilotPopup]
+import { CopilotPopup } from "@copilotkit/react-core";
+
+function YourMainContent() {
+  return <main>{/* Your app */}</main>;
+}
 
 export function YourApp() {
   return (
@@ -121,25 +133,31 @@ export function YourApp() {
 All three components support the [slot system](/langgraph/custom-look-and-feel/slots) for deep customization — from Tailwind classes to full component replacement:
 
 ```tsx title="page.tsx"
-<CopilotChat
-  // Style slots with Tailwind classes
-  input={{
-    textArea: "text-lg",
-    sendButton: "bg-blue-600 hover:bg-blue-700",
-  }}
-  // Customize nested message slots
-  messageView={{
-    assistantMessage: {
-      className: "bg-gray-50 rounded-xl p-4",
-      toolbar: "border-t mt-2",
-    },
-    userMessage: "bg-blue-100 rounded-xl",
-  }}
-  // Hide elements by returning null
-  scrollView={{
-    feather: () => null,
-  }}
-/>
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function YourComponent() {
+  return (
+    <CopilotChat
+      // Style slots with Tailwind classes
+      input={{
+        textArea: "text-lg",
+        sendButton: "bg-blue-600 hover:bg-blue-700",
+      }}
+      // Customize nested message slots
+      messageView={{
+        assistantMessage: {
+          className: "bg-gray-50 rounded-xl p-4",
+          toolbar: "border-t mt-2",
+        },
+        userMessage: "bg-blue-100 rounded-xl",
+      }}
+      // Hide elements by returning null
+      scrollView={{
+        feather: () => null,
+      }}
+    />
+  );
+}
 ```
 
 ## Next Steps

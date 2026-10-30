@@ -25,46 +25,90 @@ before `perform_trips_node` changes state.
 
 ## Register the approval UI
 
-The v2 `useHumanInTheLoop` hook pairs each trip tool with a React component.
+The `useHumanInTheLoop` hook pairs each trip tool with a React component.
 This example uses a Zod schema and the same `travel` agent ID as the provider:
 
 ```tsx title="examples/v1/travel/lib/hooks/use-trips.tsx"
-import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import type { ReactNode } from "react";
+import { useHumanInTheLoop } from "@copilotkit/react-core";
+import { z } from "zod";
+import { AddTrips } from "@/components/humanInTheLoop";
 
-useHumanInTheLoop({
-  name: "add_trips",
-  agentId: "travel",
-  description: "Add some trips",
-  parameters: tripsSchema,
-  render: ({ args, status, respond }) => (
-    <AddTrips args={args} status={status} respond={respond} />
-  ),
+// The trip schemas from lib/agent-state.ts
+const placeSchema = z.object({
+  id: z.string().describe("The place ID"),
+  name: z.string().describe("The place name"),
+  address: z.string().describe("The place address"),
+  latitude: z.number().describe("The place latitude"),
+  longitude: z.number().describe("The place longitude"),
+  rating: z.number().describe("The place rating"),
+  description: z.string().nullable().describe("A short place description"),
 });
+
+const tripSchema = z.object({
+  id: z.string().describe("The trip ID"),
+  name: z.string().describe("The trip name"),
+  center_latitude: z.number().describe("The map center latitude"),
+  center_longitude: z.number().describe("The map center longitude"),
+  zoom: z.number().describe("The map zoom level"),
+  places: z.array(placeSchema).describe("Places included in the trip"),
+});
+
+const tripsSchema = z.object({
+  trips: z.array(tripSchema).describe("The trips to review"),
+});
+
+export const TripsProvider = ({ children }: { children: ReactNode }) => {
+  useHumanInTheLoop({
+    name: "add_trips",
+    agentId: "travel",
+    description: "Add some trips",
+    parameters: tripsSchema,
+    render: ({ args, status, respond }) => (
+      <AddTrips args={args} status={status} respond={respond} />
+    ),
+  });
+
+  // ...
+};
 ```
 
 The update and delete tools use the same hook. They pass current trip state as
 a dependency because their approval cards need it:
 
 ```tsx title="examples/v1/travel/lib/hooks/use-trips.tsx"
-useHumanInTheLoop(
-  {
-    name: "delete_trips",
-    agentId: "travel",
-    description: "Delete some trips",
-    parameters: z.object({
-      trip_ids: z.array(z.string()).describe("The IDs of the trips to delete"),
-    }),
-    render: ({ args, status, respond }) => (
-      <DeleteTrips
-        args={args}
-        status={status}
-        respond={respond}
-        trips={state.trips}
-      />
-    ),
-  },
-  [state.trips],
-);
+import type { ReactNode } from "react";
+import { useAgent, useHumanInTheLoop } from "@copilotkit/react-core";
+import { z } from "zod";
+import { DeleteTrips } from "@/components/humanInTheLoop";
+import { normalizeAgentState } from "@/lib/agent-state";
+
+export const TripsProvider = ({ children }: { children: ReactNode }) => {
+  const { agent } = useAgent({ agentId: "travel" });
+  const state = normalizeAgentState(agent.state);
+
+  useHumanInTheLoop(
+    {
+      name: "delete_trips",
+      agentId: "travel",
+      description: "Delete some trips",
+      parameters: z.object({
+        trip_ids: z.array(z.string()).describe("The IDs of the trips to delete"),
+      }),
+      render: ({ args, status, respond }) => (
+        <DeleteTrips
+          args={args}
+          status={status}
+          respond={respond}
+          trips={state.trips}
+        />
+      ),
+    },
+    [state.trips],
+  );
+
+  // ...
+};
 ```
 
 ## Send the decision
@@ -73,20 +117,50 @@ The hook's `respond` function resumes the paused run. The approval components
 enable their buttons only while the tool call is waiting for a result:
 
 ```tsx title="examples/v1/travel/components/humanInTheLoop/ActionButtons.tsx"
-import { ToolCallStatus } from "@copilotkit/react-core/v2";
+import { useRef, useState, type ReactNode } from "react";
+import { ToolCallStatus } from "@copilotkit/react-core";
+import { Button } from "../ui/button";
+import { submitResponse } from "./response-submission";
 
-<Button
-  disabled={status !== ToolCallStatus.Executing || isPending}
-  onClick={async () => sendResponse("CANCEL")}
->
-  {reject}
-</Button>
-<Button
-  disabled={status !== ToolCallStatus.Executing || isPending}
-  onClick={async () => sendResponse("SEND")}
->
-  {approve}
-</Button>
+type ActionButtonsProps = {
+  status: ToolCallStatus;
+  respond?: (result: unknown) => Promise<void>;
+  approve: ReactNode;
+  reject: ReactNode;
+};
+
+export const ActionButtons = ({ status, respond, approve, reject }: ActionButtonsProps) => {
+  const pendingResponse = useRef(false);
+  const [isPending, setIsPending] = useState(false);
+
+  const sendResponse = async (result: unknown) => {
+    if (!respond) return;
+
+    await submitResponse({
+      pending: pendingResponse,
+      respond,
+      result,
+      onPendingChange: setIsPending,
+    });
+  };
+
+  return (
+    <div>
+      <Button
+        disabled={status !== ToolCallStatus.Executing || isPending}
+        onClick={async () => sendResponse("CANCEL")}
+      >
+        {reject}
+      </Button>
+      <Button
+        disabled={status !== ToolCallStatus.Executing || isPending}
+        onClick={async () => sendResponse("SEND")}
+      >
+        {approve}
+      </Button>
+    </div>
+  );
+};
 ```
 
 `sendResponse` awaits `respond` and keeps the buttons disabled while the

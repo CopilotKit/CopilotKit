@@ -48,23 +48,28 @@ In this example from [our email-sending app](https://github.com/copilotkit/copil
             </Tab>
             <Tab value="TypeScript">
                 ```typescript
+                import type { RunnableConfig } from "@langchain/core/runnables";
+                import { AIMessage, ToolMessage } from "@langchain/core/messages";
+                import { MessagesAnnotation } from "@langchain/langgraph";
+                import { copilotkitExit } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
 
                 // ...
+                type EmailAgentState = typeof MessagesAnnotation.State;
 
-                async function sendEmailNode(state: EmailAgentState, config: RunnableConfig): Promise<{ messages: any[] }> {
+                async function sendEmailNode(state: EmailAgentState, config: RunnableConfig) {
                     // Send an email.
 
                     await copilotkitExit(config); // [!code highlight]
 
-                    // get the last message and cast to ToolMessage
-                    const lastMessage = state.messages[state.messages.length - 1] as ToolMessage;
-                    if (lastMessage.content === "CANCEL") {
+                    // get the last message and check that it is a ToolMessage
+                    const lastMessage = state.messages[state.messages.length - 1];
+                    if (ToolMessage.isInstance(lastMessage) && lastMessage.content === "CANCEL") {
                         return {
-                            messages: [new AIMessage(content="❌ Cancelled sending email.")],
+                            messages: [new AIMessage({ content: "❌ Cancelled sending email." })],
                         }
                     } else {
                         return {
-                            messages: [new AIMessage(content="✅ Sent email.")],
+                            messages: [new AIMessage({ content: "✅ Sent email." })],
                         }
                     }
                 }

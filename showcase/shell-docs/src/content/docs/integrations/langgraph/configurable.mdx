@@ -95,15 +95,37 @@ influences it. Do not accept a browser-supplied configuration object wholesale.
     application values belong in `context`:
 
     ```typescript title="agent.ts"
-    const result = await graph.invoke(input, {
-      context: { tenantId: verifiedTenantId },
-      recursionLimit: 50,
-    });
+    import { StateGraph, MessagesAnnotation, START, END } from "@langchain/langgraph";
+    import { z } from "zod";
+
+    const ContextSchema = z.object({ tenantId: z.string() });
+
+    const graph = new StateGraph(MessagesAnnotation, ContextSchema)
+      .addNode("agent", async (state, runtime) => {
+        // Read the validated context through the node's LangGraph runtime.
+        const tenantId = runtime.context?.tenantId;
+        console.log(tenantId);
+        return state;
+      })
+      .addEdge(START, "agent")
+      .addEdge("agent", END)
+      .compile();
+
+    // Call this from your trusted backend after authentication.
+    export async function runForTenant(verifiedTenantId: string) {
+      return graph.invoke(
+        { messages: [{ role: "user", content: "Hello" }] },
+        {
+          context: { tenantId: verifiedTenantId },
+          recursionLimit: 50,
+        },
+      );
+    }
     ```
 
-    Read the validated context through the node's LangGraph runtime. See
+    See
     [LangGraph's runtime configuration guide](https://docs.langchain.com/oss/javascript/langgraph/use-graph-api#add-runtime-configuration)
-    for the matching context schema and node signature.
+    for more on the context schema and node signature.
   </Tab>
 </Tabs>
 

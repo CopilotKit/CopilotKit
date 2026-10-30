@@ -37,12 +37,18 @@ All you need to do is subscribe to the agent state in your frontend:
 
 <FrontendOnly frontend="react">
 ```tsx
-const { agent } = useAgent({
-  agentId: "sample_agent",
-});
+import { useAgent } from "@copilotkit/react-core";
 
-// Access agent state as usual - subgraph streaming is handled automatically
-const state = agent.state;
+function AgentStatus() {
+  const { agent } = useAgent({
+    agentId: "sample_agent",
+  });
+
+  // Access agent state as usual - subgraph streaming is handled automatically
+  const state = agent.state;
+
+  return <pre>{JSON.stringify(state, null, 2)}</pre>;
+}
 ```
 </FrontendOnly>
 

@@ -457,8 +457,7 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
               ```
 
               The components used below (`CopilotKitProvider`, `CopilotSidebar`) and the
-              stylesheet all come from `@copilotkit/react-core/v2`, so
-              `@copilotkit/react-ui` is not needed for this setup.
+              stylesheet all come from `@copilotkit/react-core`.
           </Step>
           <Step>
               ### Setup Copilot Runtime
@@ -495,9 +494,9 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
                     CopilotKitIntelligence,
                     CopilotRuntime,
                     createCopilotRuntimeHandler,
-                  } from "@copilotkit/runtime/v2";
+                  } from "@copilotkit/runtime";
                   // [!code highlight]
-                  import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+                  import { LangGraphAgent } from "@ag-ui/langgraph";
 
                   const runtime = new CopilotRuntime({
                     agents: {
@@ -536,7 +535,7 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
-                } from "@copilotkit/runtime/v2";
+                } from "@copilotkit/runtime";
                 // [!code highlight]
                 import { HttpAgent } from "@ag-ui/client";
 
@@ -605,7 +604,7 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
               ```tsx title="app/providers.tsx"
               "use client";
 
-              import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+              import { CopilotKitProvider } from "@copilotkit/react-core";
 
               export function Providers({ children }: { children: React.ReactNode }) {
                 return (
@@ -622,7 +621,7 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
               ```tsx title="app/layout.tsx"
               // [!code highlight:2]
               import { Providers } from "./providers";
-              import "@copilotkit/react-core/v2/styles.css";
+              import "@copilotkit/react-core/styles.css";
               import './globals.css';
 
               // ...
@@ -657,7 +656,7 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
             ```tsx title="app/page.tsx"
             "use client"; // [!code highlight]
 
-            import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
+            import { CopilotSidebar } from "@copilotkit/react-core"; // [!code highlight:1]
 
             export default function Page() {
               return (

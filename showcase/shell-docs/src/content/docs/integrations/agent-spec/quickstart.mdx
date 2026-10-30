@@ -6,6 +6,7 @@ hideTOC: true
 ---
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
 ## Start with your coding agent
 
 Use this prompt to connect your Agent Spec agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
@@ -311,7 +312,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           ### Install CopilotKit packages
 
           ```npm
-          npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
+          npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
           ```
       </Step>
       <Step>
@@ -324,7 +325,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
             CopilotKitIntelligence,
             CopilotRuntime,
             createCopilotRuntimeHandler,
-          } from "@copilotkit/runtime/v2";
+          } from "@copilotkit/runtime";
           import { HttpAgent } from "@ag-ui/client";
 
           const runtime = new CopilotRuntime({
@@ -374,13 +375,13 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           ```tsx title="app/providers.tsx"
           "use client";
 
-          import { CopilotKit } from "@copilotkit/react-core/v2";
+          import { CopilotKitProvider } from "@copilotkit/react-core";
 
           export function Providers({ children }: { children: React.ReactNode }) {
             return (
-              <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+              <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent" useSingleEndpoint={false}>
                 {children}
-              </CopilotKit>
+              </CopilotKitProvider>
             );
           }
           ```
@@ -390,7 +391,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
 
           ```tsx title="app/layout.tsx"
           import { Providers } from "./providers"; // [!code highlight]
-          import "@copilotkit/react-core/v2/styles.css";
+          import "@copilotkit/react-core/styles.css";
           import './globals.css';
 
           // ...
@@ -425,7 +426,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
         ```tsx title="app/page.tsx"
         "use client"; // [!code highlight]
 
-        import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
+        import { CopilotSidebar } from "@copilotkit/react-core"; // [!code highlight:1]
 
         export default function Page() {
           return (

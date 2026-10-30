@@ -91,9 +91,17 @@ agent = create_deep_agent(
 
 Enable A2UI in your CopilotRuntime, but disable the injected `generate_a2ui` tool. The backend's `search_flights` tool owns this fixed-schema surface; the A2UI middleware still renders its `a2ui.render()` result:
 
-```typescript title="app/api/copilotkit/route.ts"
+```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
+
 const runtime = new CopilotRuntime({
-  agents: { default: myAgent },
+  agents: {
+    default: new LangGraphAgent({
+      deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
+      graphId: "default",
+    }),
+  },
   a2ui: {
     injectA2UITool: false,
   },
