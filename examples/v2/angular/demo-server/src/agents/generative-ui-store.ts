@@ -448,8 +448,8 @@ export class GenerativeUIStoreAgent extends AbstractAgent {
           !product
             ? "That product is not in the store."
             : name
-              ? `Added the ${product.name} to the cart for ${name}.`
-              : `Added the ${product.name} to the cart. Tip: type your name in the field first.`,
+              ? `Noted the ${product.name} for ${name}. Use Add to basket in the shop to put it in your cart.`
+              : `Noted the ${product.name}. Use Add to basket in the shop to put it in your cart. Tip: type your name in the field first.`,
         );
       } else if (action?.name === "check_stock") {
         const low = PRODUCTS.filter((p) => p.stock < 5).map((p) => p.name);

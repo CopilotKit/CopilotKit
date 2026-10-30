@@ -272,8 +272,12 @@ export function chartConfig(
             raw: unknown;
           }) => {
             const parsed = context.parsed;
-            // A horizontal layout puts the value on the x axis.
-            const valueKey = props.layout === "horizontal" ? "x" : "y";
+            // A horizontal layout puts the value on the x axis. A scatter
+            // point keeps its value in y whatever the layout.
+            const valueKey =
+              props.layout === "horizontal" && chartType !== "scatter"
+                ? "x"
+                : "y";
             const value =
               typeof parsed === "object" &&
               parsed !== null &&

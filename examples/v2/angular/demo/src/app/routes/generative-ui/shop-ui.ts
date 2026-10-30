@@ -142,10 +142,8 @@ function toCount(value: number | undefined): number {
           <li style="display: flex; justify-content: space-between; gap: 8px">
             <span>
               {{ item.quantity }} × {{ item.name }}
-              @if (item.size) {
-                <span style="color: #5d5d5d"
-                  >({{ item.size }}{{ item.gift ? ", gift wrap" : "" }})</span
-                >
+              @if (item.size || item.gift) {
+                <span style="color: #5d5d5d">({{ extrasOf(item) }})</span>
               }
             </span>
             <span>{{ "$" + item.quantity * item.price }}</span>
@@ -196,10 +194,16 @@ export class CartSummary {
       .map(
         (item) =>
           `${item.quantity} × ${item.name}` +
-          (item.size ? ` (${item.size}${item.gift ? ", gift wrap" : ""})` : ""),
+          (item.size || item.gift ? ` (${this.extrasOf(item)})` : ""),
       )
       .join(", "),
   );
+  /** The size and the gift wrap of a line, either one may be missing. */
+  protected extrasOf(item: CartItem) {
+    return [item.size, item.gift ? "gift wrap" : undefined]
+      .filter(Boolean)
+      .join(", ");
+  }
 }
 
 /**

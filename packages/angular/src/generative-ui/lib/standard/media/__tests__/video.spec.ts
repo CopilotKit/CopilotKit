@@ -59,6 +59,19 @@ describe("Video", () => {
     );
   });
 
+  it("shows the poster, without autoplay, when the url returns to a video played before", () => {
+    const view = renderSurface(
+      ui,
+      [{ id: "root", component: "Video", url: { "@path": "/url" } }],
+      { url: "https://youtu.be/dQw4w9WgXcQ" },
+    );
+    view.act(() => view.container.querySelector("button")!.click());
+    view.update(updateDataModel("/url", "https://youtu.be/abcDEF12345"));
+    view.update(updateDataModel("/url", "https://youtu.be/dQw4w9WgXcQ"));
+    expect(view.container.querySelector("iframe")).toBeNull();
+    expect(view.container.querySelector("button")).not.toBeNull();
+  });
+
   it("never embeds a YouTube URL whose id is not a plain id: a page the player cannot play shows as a link", () => {
     const view = renderInColumn({
       id: "y",

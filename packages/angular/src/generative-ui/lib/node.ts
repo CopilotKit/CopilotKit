@@ -601,6 +601,8 @@ export class GenerativeUINodeRenderer {
         error: new Error(`Invalid props: ${outcome.problem}`),
       });
     }
+    // A valid render forgets the problem, so its return is reported again.
+    if (outcome.kind !== "fallback") this.#reportedProblem = undefined;
     if (sameOutcome(outcome, this.#rendered)) return;
     this.#rendered = outcome;
     if (outcome.kind === "empty") {
