@@ -21,6 +21,7 @@ import {
 } from "../../core/learning";
 import { getPlatformErrorStatus } from "../shared/intelligence-utils";
 import { startThreadLockHeartbeat } from "../../intelligence-platform/thread-lock-heartbeat";
+import { nativeHistoryInput } from "./native-history-input";
 import type { ThreadSummary } from "../../intelligence-platform";
 
 /**
@@ -215,6 +216,7 @@ export async function handleIntelligenceRun({
   let canonicalRunId = input.runId;
   let joinToken: string | undefined;
   let backendThreadId: string | undefined;
+  let inputPolicy: string | undefined;
   let lockTtlSeconds: number | undefined;
   let lockRequestedAt = 0;
   try {
@@ -223,6 +225,7 @@ export async function handleIntelligenceRun({
     lockRequestedAt = Date.now();
     const lockResult = await runtime.intelligence.ɵacquireThreadLock({
       supportsBackendThreadId: true,
+      supportsNativeHistoryDelta: 1,
       threadId: input.threadId,
       runId: input.runId,
       userId,
@@ -238,6 +241,7 @@ export async function handleIntelligenceRun({
     canonicalRunId = lockResult.runId;
     joinToken = lockResult.joinToken;
     backendThreadId = lockResult.backendThreadId;
+    inputPolicy = lockResult.inputPolicy;
     lockTtlSeconds = lockResult.ttlSeconds;
   } catch (error) {
     logger.error("Thread lock denied:", error);
@@ -286,15 +290,43 @@ export async function handleIntelligenceRun({
   let persistedInputMessages: Message[] | undefined;
   if (Array.isArray(input.messages)) {
     try {
-      const historicMessageIds = new Set(
-        await runtime.intelligence.ɵgetThreadMessageIds({
+      if (
+        inputPolicy !== undefined &&
+        inputPolicy !== "native-history-delta-v1"
+      ) {
+        throw new Error("Unsupported native history input policy");
+      }
+      if (
+        inputPolicy === "native-history-delta-v1" ||
+        runtime.nativeHistoryAgents?.includes(agentId)
+      ) {
+        const history = await runtime.intelligence.getThreadMessages({
           threadId: canonicalThreadId,
           userId,
-        }),
-      );
-      persistedInputMessages = input.messages.filter(
-        (message) => !historicMessageIds.has(message.id),
-      );
+          consistency: "runner-accepted",
+        });
+        if (history.consistency !== "runner-accepted") {
+          throw new Error(
+            "Native history requires a projection-consistent Intelligence API",
+          );
+        }
+        persistedInputMessages = nativeHistoryInput(
+          input.messages,
+          history.messages,
+        );
+        canonicalInput.messages = persistedInputMessages;
+        agent.setMessages(persistedInputMessages);
+      } else {
+        const historicMessageIds = new Set(
+          await runtime.intelligence.ɵgetThreadMessageIds({
+            threadId: canonicalThreadId,
+            userId,
+          }),
+        );
+        persistedInputMessages = input.messages.filter(
+          (message) => !historicMessageIds.has(message.id),
+        );
+      }
     } catch (error) {
       logger.error("Thread history lookup failed:", error);
       await cleanupLock("thread-history-lookup-failed");
