@@ -215,6 +215,83 @@ describe("parseSSEResponse", () => {
     });
   });
 
+  it("continues chunks that omit messageId or toolCallId", async () => {
+    // OpenAI-style streams carry the tool call id only on the first delta.
+    const response = buildSSEResponse([
+      { type: "RUN_STARTED", threadId: "t-1", runId: "r-1" },
+      { type: "TEXT_MESSAGE_CHUNK", messageId: "m-1", delta: "Checking" },
+      { type: "TEXT_MESSAGE_CHUNK", delta: " the weather" },
+      {
+        type: "TOOL_CALL_CHUNK",
+        toolCallId: "tc-1",
+        toolCallName: "getWeather",
+        parentMessageId: "m-1",
+        delta: '{"loc',
+      },
+      { type: "TOOL_CALL_CHUNK", delta: 'ation":' },
+      { type: "TOOL_CALL_CHUNK", delta: '"SF"}' },
+      { type: "RUN_FINISHED", threadId: "t-1", runId: "r-1" },
+    ]);
+    const result = await parseSSEResponse(response);
+    expect(result.messages).toEqual([
+      {
+        id: "m-1",
+        role: "assistant",
+        content: "Checking the weather",
+        toolCalls: [
+          { id: "tc-1", name: "getWeather", args: '{"location":"SF"}' },
+        ],
+      },
+    ]);
+  });
+
+  it("does not continue a chunk across a non-chunk event", async () => {
+    const response = buildSSEResponse([
+      { type: "TEXT_MESSAGE_CHUNK", messageId: "m-1", delta: "Hello" },
+      { type: "STEP_FINISHED", stepName: "s-1" },
+      { type: "TEXT_MESSAGE_CHUNK", delta: " world" },
+    ]);
+    const result = await parseSSEResponse(response);
+    expect(result.messages).toEqual([
+      { id: "m-1", role: "assistant", content: "Hello" },
+    ]);
+  });
+
+  it("continues a subagent chunk tagged only on its first delta", async () => {
+    const response = buildSSEResponse([
+      {
+        type: "TOOL_CALL_CHUNK",
+        toolCallId: "tc-1",
+        toolCallName: "lookup",
+        subagentRunId: "sub-1",
+        delta: '{"a',
+      },
+      { type: "TOOL_CALL_CHUNK", delta: '":1}' },
+    ]);
+    const result = await parseSSEResponse(response);
+    expect(result.messages).toEqual([
+      {
+        id: "tc-1",
+        role: "assistant",
+        toolCalls: [{ id: "tc-1", name: "lookup", args: '{"a":1}' }],
+      },
+    ]);
+  });
+
+  it("keeps the parent's chunk open across an untagged subagent terminal", async () => {
+    for (const terminal of ["SUBAGENT_FINISHED", "SUBAGENT_ERROR"]) {
+      const response = buildSSEResponse([
+        { type: "TEXT_MESSAGE_CHUNK", messageId: "m-1", delta: "Hel" },
+        { type: terminal },
+        { type: "TEXT_MESSAGE_CHUNK", delta: "lo" },
+      ]);
+      const result = await parseSSEResponse(response);
+      expect(result.messages).toEqual([
+        { id: "m-1", role: "assistant", content: "Hello" },
+      ]);
+    }
+  });
+
   it("creates the parent assistant message for a tool call with no text", async () => {
     const response = buildSSEResponse([
       { type: "RUN_STARTED", threadId: "t-1", runId: "r-1" },
