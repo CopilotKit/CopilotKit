@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, StyleSheet, type ViewStyle } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
+import type { ViewStyle } from "react-native";
 import { CopilotMarkdown } from "../Markdown";
 import { TypingIndicator } from "./TypingIndicator";
 import { formatTimestamp } from "./utils";
@@ -15,7 +16,7 @@ const TIMESTAMP_COLOR = "#999999";
 export interface AssistantMessageProps {
   /** Markdown content to render inside the bubble */
   content: string;
-  /** When true, shows a typing indicator instead of content */
+  /** When true, shows a typing indicator below any content */
   isLoading?: boolean;
   /** Optional timestamp displayed below the bubble */
   timestamp?: Date;
