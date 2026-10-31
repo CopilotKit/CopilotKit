@@ -1,0 +1,5 @@
+HTTP stands for **Hypertext Transfer Protocol**.
+
+It's the set of rules browsers and web servers use to talk to each other: your browser sends a request for a page, image or file, and the server sends back a response.
+
+**HTTPS** is the same protocol with an "S" for *Secure*: the connection is encrypted, so others on the network can't read or change what's sent.

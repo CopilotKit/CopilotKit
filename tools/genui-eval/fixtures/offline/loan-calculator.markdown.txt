@@ -1,0 +1,5 @@
+Adjust the amount to see the payment.
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"loan","dataModel":{"amount":"twenty thousand"},"components":[{"id":"root","component":"Slider","label":"Amount","min":1000,"max":50000,"value":{"@path":"/amount"}}]}}
+```

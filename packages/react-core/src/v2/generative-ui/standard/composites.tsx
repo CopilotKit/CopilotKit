@@ -64,10 +64,7 @@ export const followUpItem = z.union([
   }),
 ]);
 const followUpSchema = z.object({
-  items: z
-    .array(followUpItem)
-    .optional()
-    .describe('Strings or { "label", "message"? }, or { "@path": "/x" }'),
+  items: z.array(followUpItem).optional(),
   title: text("A caption above the pills"),
 });
 const followUpArgs = z.object({
@@ -124,12 +121,7 @@ export const gridImage = z.object({
   href: text("Opens this URL instead of the full-screen view"),
 });
 const imageGridSchema = z.object({
-  images: z
-    .array(gridImage)
-    .optional()
-    .describe(
-      'A list of { "url", "description"?, "caption"?, "href"? }, or { "@path": "/x" }',
-    ),
+  images: z.array(gridImage).optional(),
   columns: z.number().optional().describe("Default 3"),
   aspectRatio: z.string().optional().describe('Default "1 / 1"'),
   gap: sizeValue.optional().describe("Default 2"),
@@ -850,7 +842,7 @@ export const compositeComponents = {
   LinkCard: {
     component: LinkCard,
     description:
-      "A preview card of a URL: the favicon and domain, the title, a description and a thumbnail. A click opens the link in a new tab, or sends onClick when it is bound. Use it for sources, articles and products that have a page.",
+      "A preview of a URL: favicon and domain, title, description, thumbnail. A click opens it in a new tab, or sends onClick when bound. For sources, articles and products with a page.",
     props: linkCardSchema,
     events: {
       onClick: {
@@ -862,13 +854,13 @@ export const compositeComponents = {
   Citation: {
     component: Citation,
     description:
-      "An inline source marker ([1]) that shows the source on hover or click: the title, a snippet and a link. Put it inline after the sentence it supports, as a child of a Text or in a Row.",
+      "An inline source marker ([1]) showing title, snippet and link on hover or click. Put it right after the sentence it supports, as a child of a Text or in a Row.",
     props: citationSchema,
   },
   FollowUp: {
     component: FollowUp,
     description:
-      "Suggested next prompts as pills. A click sends the message of the pill as the next turn of the user, with no event binding needed. Put it at the end of a surface, with two to four short items.",
+      "Suggested next prompts as pills; a click sends the pill's message as the user's next turn, no event needed. At the end of a surface, two to four short items.",
     props: followUpSchema,
     events: {
       onFollowUp: {
@@ -881,7 +873,7 @@ export const compositeComponents = {
   EntityCard: {
     component: EntityCard,
     description:
-      "A card for one thing (a product, place, person or listing): an image, title, subtitle, description, a price or meta line, a badge, a rating and up to three buttons. href opens a page, and onClick is sent when it is bound. Use a Grid of EntityCards for several things.",
+      "A card for one product, place, person or listing: image, title, subtitle, description, a price or meta line, badge, rating and up to three buttons. href opens a page; onClick is sent when bound. Use a Grid of them for several things.",
     props: entityCardSchema,
     events: {
       onClick: {
