@@ -6,9 +6,12 @@ format (`{ root, elements }`) so the frontend can feed it directly into
 MetricCard, BarChart, PieChart.
 """
 
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
+from ag2 import Agent
+from ag2.ag_ui import AGUIStream
+from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
+
+from ._loop_cap import loop_cap
 
 
 SYSTEM_PROMPT = """
@@ -96,20 +99,13 @@ Respond with the JSON object only.
 """
 
 
-byoc_json_render_agent = ConversableAgent(
-    name="byoc_json_render_assistant",
-    system_message=SYSTEM_PROMPT.strip(),
-    llm_config=LLMConfig(
-        {
-            "model": "gpt-5-mini",
-            "stream": True,
-            "temperature": 0.2,
-            "response_format": {"type": "json_object"},
-        }
-    ),
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=3,
-    functions=[],
+# No `response_format` here: the Responses config exposes no structured-output
+# switch, so the JSON-only contract rests on the system prompt above.
+byoc_json_render_agent = Agent(
+    "byoc_json_render_assistant",
+    prompt=SYSTEM_PROMPT.strip(),
+    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    middleware=[loop_cap(3)],
 )
 
 byoc_json_render_stream = AGUIStream(byoc_json_render_agent)

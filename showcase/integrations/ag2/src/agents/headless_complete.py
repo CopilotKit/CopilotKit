@@ -17,9 +17,13 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
+from ag2 import Agent
+from ag2.ag_ui import AGUIStream
+from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
+from pydantic import Field
+
+from ._loop_cap import loop_cap
 
 
 SYSTEM_PROMPT = (
@@ -43,7 +47,7 @@ SYSTEM_PROMPT = (
 
 
 async def get_weather(
-    location: Annotated[str, "City or place to look up the weather for"],
+    location: Annotated[str, Field(description="City or place to look up the weather for")],
 ) -> dict:
     """Get the current weather for a given location.
 
@@ -60,7 +64,7 @@ async def get_weather(
 
 
 async def get_stock_price(
-    ticker: Annotated[str, "Stock ticker symbol (e.g. AAPL, TSLA, MSFT)"],
+    ticker: Annotated[str, Field(description="Stock ticker symbol (e.g. AAPL, TSLA, MSFT)")],
 ) -> dict:
     """Get a mock current price for a stock ticker.
 
@@ -74,13 +78,12 @@ async def get_stock_price(
     }
 
 
-agent = ConversableAgent(
-    name="headless_complete_assistant",
-    system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-5-mini", "stream": True}),
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=8,
-    functions=[get_weather, get_stock_price],
+agent = Agent(
+    "headless_complete_assistant",
+    prompt=SYSTEM_PROMPT,
+    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    tools=[get_weather, get_stock_price],
+    middleware=[loop_cap(8)],
 )
 
 stream = AGUIStream(agent)

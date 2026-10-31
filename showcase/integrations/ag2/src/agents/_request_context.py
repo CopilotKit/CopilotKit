@@ -2,21 +2,19 @@
 
 Problem
 -------
-The AG2 showcase backends construct a single module-level
-``ConversableAgent`` and re-use it across every inbound request (see
-``agents/agent.py`` and ``agents/a2ui_dynamic.py``). Autogen mutates the
-agent's ``chat_messages`` dict in place per turn, which means reading
-"the latest user message" off ``agent.chat_messages`` is a cross-request
-data race under any concurrency: a second request landing while the
-first is still mid-tool-call observes the first request's messages.
+The AG2 showcase backends construct a single module-level ``Agent`` and
+re-use it across every inbound request (see ``agents/agent.py`` and
+``agents/a2ui_dynamic.py``). Tool handlers that need "the latest user
+message" must not read it from state shared between requests: a second
+request landing while the first is still mid-tool-call would observe the
+first request's messages.
 
 The R2-A3 fix-cycle resolves this by reading the latest user prompt
 directly from the per-request ``RunAgentInput.messages`` payload (the
-runtime-supplied per-request body) instead of from autogen's shared
-``chat_messages`` state. This module captures that payload at the HTTP
+runtime-supplied per-request body). This module captures that payload at the HTTP
 request boundary and exposes it via a ``contextvars.ContextVar`` so deep
 tool-handler code (e.g. ``generate_a2ui``) can read it without threading
-parameters through autogen's internal driver.
+parameters through the agent's internal driver.
 
 Mechanics
 ---------
@@ -156,7 +154,7 @@ class RequestUserMessageMiddleware:
     inbound request body and replay it to the downstream ASGI app via a
     wrapped ``receive`` callable. ``BaseHTTPMiddleware`` does not re-emit
     consumed body chunks to the inner app, which would silently truncate
-    the request to autogen / AG-UI.
+    the request to AG2 / AG-UI.
 
     For POST requests with a JSON-ish body, parses ``RunAgentInput.messages``
     and stores the chronologically last ``role == "user"`` message in a
@@ -170,15 +168,11 @@ class RequestUserMessageMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         # R5-A2: Unconditionally reset the ContextVar at __call__ entry,
-        # BEFORE any branching by scope type or method. Autogen's
-        # ``install_executor_contextvar_propagation`` makes
-        # ``ThreadPoolExecutor`` workers inherit the dispatching request's
-        # Context, and those workers are reused across requests. Without
-        # this reset, a non-POST request, an empty-body POST, or any path
-        # that doesn't reach the body-parse ``.set(...)`` below would
-        # inherit whatever value the worker's prior request left in the
-        # ContextVar — leaking the previous request's prompt into this
-        # one. The body-parse path further down overrides this default
+        # BEFORE any branching by scope type or method. Without this
+        # reset, a non-POST request, an empty-body POST, or any path that
+        # doesn't reach the body-parse ``.set(...)`` below could inherit
+        # whatever value a prior request left in the ContextVar — leaking
+        # the previous request's prompt into this one. The body-parse path further down overrides this default
         # when a real user message is parsed.
         _latest_user_message.set("")
 
@@ -199,7 +193,7 @@ class RequestUserMessageMiddleware:
             elif message["type"] == "http.disconnect":
                 # Client hung up before the body fully arrived. Do NOT
                 # invoke the downstream app with a truncated body: that
-                # would feed autogen / AG-UI half a JSON document and
+                # would feed AG2 / AG-UI half a JSON document and
                 # surface as a confusing parse error in the agent rather
                 # than the actual root cause. Short-circuit instead and
                 # log so the truncation is visible in the operator
