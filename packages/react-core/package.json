@@ -86,7 +86,6 @@
     "@ag-ui/core": "1.0.2",
     "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/core": "workspace:*",
-    "@copilotkit/mcp-apps-renderer": "workspace:*",
     "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkit/web-components": "workspace:*",
@@ -114,6 +113,7 @@
     "zod-to-json-schema": "^3.24.5"
   },
   "devDependencies": {
+    "@copilotkit/mcp-apps-renderer": "workspace:*",
     "@tailwindcss/cli": "^4.1.11",
     "esbuild": "^0.27.0",
     "@tailwindcss/postcss": "^4.1.11",
@@ -147,12 +147,16 @@
     "@playwright/test": "^1.59.1"
   },
   "peerDependencies": {
+    "@copilotkit/mcp-apps-renderer": "workspace:^",
     "maplibre-gl": "^5.0.0",
     "react": "^18 || ^19 || ^19.0.0-rc",
     "react-dom": "^18 || ^19 || ^19.0.0-rc",
     "zod": ">=3.25"
   },
   "peerDependenciesMeta": {
+    "@copilotkit/mcp-apps-renderer": {
+      "optional": true
+    },
     "maplibre-gl": {
       "optional": true
     }

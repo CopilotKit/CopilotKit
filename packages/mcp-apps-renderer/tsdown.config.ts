@@ -43,10 +43,10 @@ export default defineConfig([
     external: isExternal,
     exports: false,
   },
-  // Activity UMD: a self-contained global for script-tag consumers of
-  // @copilotkit/react-core's UMD build, which externalizes this entry and maps
-  // it to `CopilotKitMcpAppsRendererActivity`. Bridge-free, so only zod is
-  // external (mapped to the shared `Zod` global, matching react-core's UMD).
+  // Activity UMD: a global for script-tag consumers. The surface itself lives
+  // in `@copilotkit/shared` (see `src/activity.ts`), so this entry externalizes
+  // `@copilotkit/shared` (mapped to the `CopilotKitShared` global), matching
+  // react-core's UMD build. Nothing here imports zod directly.
   {
     entry: ["src/activity.ts"],
     format: ["umd"],
@@ -55,14 +55,15 @@ export default defineConfig([
     // es2018 for the script-tag UMD (broad browser reach), matching a2ui-renderer.
     target: "es2018",
     outDir: "dist",
-    external: (id: string) => id === "zod" || id.startsWith("zod/"),
+    external: (id: string) =>
+      id === "@copilotkit/shared" || id.startsWith("@copilotkit/shared/"),
     // Force a single self-contained bundle (matches a2ui-renderer): without this,
     // a sibling chunk emitted next to activity.umd.js would leave the global
     // incomplete, and es-check (syntax-only) would not catch it.
     codeSplitting: false,
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";
-      options.globals = { zod: "Zod" };
+      options.globals = { "@copilotkit/shared": "CopilotKitShared" };
       return options;
     },
   },

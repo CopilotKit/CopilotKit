@@ -32,6 +32,7 @@ export type {
 export * from "./debug";
 export * from "./standard-schema";
 export * from "./attachments";
+export * from "./mcp-apps-activity";
 
 export { logger } from "./logger";
 export {
