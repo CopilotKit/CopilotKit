@@ -78,6 +78,14 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     // `error`, which is a fatal setup failure.
     const [contentError, setContentError] = useState<Error | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    // True once the widget reported `initialized`. Between the resource arriving
+    // and this, the iframe is still blank (its script may be loading imports, or
+    // may have failed), so the host shows a "starting" state instead of an empty
+    // box. A widget that never initializes ends in `error` (see the session's
+    // `widgetInitializationTimeoutMs`).
+    const [isInitialized, setIsInitialized] = useState(false);
+    // Bumped by the Retry button to re-bind a fresh iframe and session.
+    const [retryCount, setRetryCount] = useState(0);
     const [iframeSize, setIframeSize] = useState<{
       width?: number;
       height?: number;
@@ -109,8 +117,11 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
 
       let mounted = true;
       setIsLoading(true);
+      setIsInitialized(false);
       setError(null);
       setContentError(null);
+      setIframeSize({});
+      setFetchedResource(null);
 
       // The host owns the iframe: create + mount it here (bindMcpApp only
       // configures the sandbox contract + talks to it through the bridge).
@@ -164,6 +175,9 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                 setFetchedResource(resource);
                 setIsLoading(false);
               },
+              onInitialized: () => {
+                if (mounted) setIsInitialized(true);
+              },
               onSizeChanged: (size) => {
                 if (mounted) setIframeSize(size);
               },
@@ -172,6 +186,12 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
               },
               onError: (err) => {
                 if (!mounted) return;
+                // The widget is dead: hide its (blank) iframe so only the
+                // error and Retry are visible.
+                iframe.style.display = "none";
+                // A widget may report a short height before startup fails. Let
+                // the error and Retry grow naturally instead of clipping them.
+                setIframeSize({});
                 setError(err);
                 setIsLoading(false);
               },
@@ -209,6 +229,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       copilotkit,
       messageId,
       allowSameOriginFallback,
+      retryCount,
       content.resourceUri,
       content.serverHash,
       content.serverId,
@@ -265,9 +286,34 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
         {isLoading && (
           <div style={{ padding: "1rem", color: "#666" }}>Loading...</div>
         )}
+        {!isLoading && !isInitialized && !error && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#666",
+              pointerEvents: "none",
+            }}
+          >
+            Starting app...
+          </div>
+        )}
         {(error ?? contentError) && (
           <div style={{ color: "red", padding: "1rem" }}>
             Error: {(error ?? contentError)!.message}
+            {error && (
+              <div style={{ marginTop: "0.5rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setRetryCount((count) => count + 1)}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
