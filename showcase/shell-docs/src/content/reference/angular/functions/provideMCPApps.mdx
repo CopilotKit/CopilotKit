@@ -6,6 +6,16 @@ description: "Configure the opt-in MCP Apps activity renderer for Angular."
 Import MCP Apps from the secondary entry point so applications that do not use
 it do not load its host and sandbox code.
 
+The host implementation ships in `@copilotkit/mcp-apps-renderer`, an optional
+peer dependency. Install it where you render MCP Apps:
+
+```bash
+npm install @copilotkit/mcp-apps-renderer
+```
+
+It is loaded lazily, on the first widget the activity renders; without it the
+widget reports an error naming the package to install.
+
 ```ts
 import { ApplicationConfig } from "@angular/core";
 import { provideCopilotKit } from "@copilotkit/angular";

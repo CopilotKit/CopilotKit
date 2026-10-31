@@ -81,7 +81,6 @@
     "@ag-ui/client": "1.0.2",
     "@ag-ui/core": "1.0.2",
     "@copilotkit/core": "workspace:*",
-    "@copilotkit/mcp-apps-renderer": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkit/web-components": "workspace:*",
     "@copilotkit/web-inspector": "workspace:*",
@@ -93,6 +92,7 @@
     "zod-to-json-schema": "^3.24.5"
   },
   "devDependencies": {
+    "@copilotkit/mcp-apps-renderer": "workspace:*",
     "@copilotkit/typescript-config": "workspace:*",
     "@eslint/js": "^9.39.2",
     "@tailwindcss/cli": "^4.1.11",
@@ -124,7 +124,13 @@
     "vue-tsc": "^2.1.10"
   },
   "peerDependencies": {
+    "@copilotkit/mcp-apps-renderer": "workspace:^",
     "vue": ">=3.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@copilotkit/mcp-apps-renderer": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=20"

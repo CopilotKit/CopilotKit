@@ -219,13 +219,22 @@
           "@angular/cdk": "^22.0.0",
           "@angular/common": "^22.0.0",
           "@angular/core": "^22.0.0",
+          "@copilotkit/mcp-apps-renderer": "workspace:^",
           "rxjs": "^7.8.0"
         },
+        "optionalPeerDependencies": [
+          "@copilotkit/mcp-apps-renderer"
+        ],
         "provenance": [
           {
             "kind": "package-json",
             "path": "packages/angular/package.json",
             "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/angular/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
           }
         ]
       },
@@ -1382,12 +1391,14 @@
       ],
       "compatibility": {
         "peerDependencies": {
+          "@copilotkit/mcp-apps-renderer": "workspace:^",
           "maplibre-gl": "^5.0.0",
           "react": "^18 || ^19 || ^19.0.0-rc",
           "react-dom": "^18 || ^19 || ^19.0.0-rc",
           "zod": ">=3.25"
         },
         "optionalPeerDependencies": [
+          "@copilotkit/mcp-apps-renderer",
           "maplibre-gl"
         ],
         "provenance": [
@@ -2427,8 +2438,12 @@
           "node": ">=20"
         },
         "peerDependencies": {
+          "@copilotkit/mcp-apps-renderer": "workspace:^",
           "vue": ">=3.3.0"
         },
+        "optionalPeerDependencies": [
+          "@copilotkit/mcp-apps-renderer"
+        ],
         "provenance": [
           {
             "kind": "package-json",
@@ -2439,6 +2454,11 @@
             "kind": "package-json",
             "path": "packages/vue/package.json",
             "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
           }
         ]
       },

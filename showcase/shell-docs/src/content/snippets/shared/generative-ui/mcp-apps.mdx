@@ -50,7 +50,7 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     ### Add the dependencies
 
     ```npm
-    npm install @copilotkit/react-core @copilotkit/runtime
+    npm install @copilotkit/react-core @copilotkit/runtime @copilotkit/mcp-apps-renderer
     ```
 
     Use `@copilotkit/runtime` 1.76.0 or later. The runtime includes the MCP Apps
@@ -58,6 +58,11 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     `@ag-ui/mcp-apps-middleware` only if you attach the middleware to an agent
     yourself with `.use()`. Its current release needs `@ag-ui/client` 1.x, which
     runtime 1.76.0 and later use.
+
+    `@copilotkit/mcp-apps-renderer` is an optional peer of the frontend package:
+    it is only loaded when an MCP App actually renders, so apps that never use
+    MCP Apps don't need it. If it is missing, the widget reports which package to
+    install.
 
   </Step>
   <Step>

@@ -63,7 +63,6 @@
     "@ag-ui/client": "1.0.2",
     "@ag-ui/core": "1.0.2",
     "@copilotkit/core": "workspace:^",
-    "@copilotkit/mcp-apps-renderer": "workspace:^",
     "@copilotkit/shared": "workspace:^",
     "@copilotkit/web-components": "workspace:^",
     "@copilotkit/web-inspector": "workspace:^",
@@ -80,6 +79,7 @@
     "zod-to-json-schema": "^3.24.5"
   },
   "devDependencies": {
+    "@copilotkit/mcp-apps-renderer": "workspace:^",
     "@analogjs/vite-plugin-angular": "2.7.0",
     "@analogjs/vitest-angular": "2.7.0",
     "@angular-devkit/architect": "0.2200.0",
@@ -118,6 +118,12 @@
     "@angular/cdk": "^22.0.0",
     "@angular/common": "^22.0.0",
     "@angular/core": "^22.0.0",
+    "@copilotkit/mcp-apps-renderer": "workspace:^",
     "rxjs": "^7.8.0"
+  },
+  "peerDependenciesMeta": {
+    "@copilotkit/mcp-apps-renderer": {
+      "optional": true
+    }
   }
 }

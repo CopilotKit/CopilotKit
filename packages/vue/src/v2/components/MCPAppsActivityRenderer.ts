@@ -11,22 +11,22 @@ import { useCopilotKit } from "../providers/useCopilotKit";
 // hooks to Vue refs; all protocol logic is `bindMcpApp`.
 //
 // The lightweight activity surface (type + content schema + follow-up runner)
-// is re-exported from the package's bridge-free `/activity` entry, so importing
-// it (for the activity registry) does NOT pull the ext-apps bundle. The bridge
-// itself is loaded lazily via a dynamic `import("@copilotkit/mcp-apps-renderer")`
+// lives in `@copilotkit/shared`, so registering the activity never requires
+// `@copilotkit/mcp-apps-renderer` to be installed (it is an optional peer). The
+// bridge itself is loaded lazily via a dynamic `import("@copilotkit/mcp-apps-renderer")`
 // inside the watcher, so a `<CopilotKitProvider>` app only pays for it when it
 // actually renders an MCP App.
 export {
   MCPAppsActivityType,
   MCPAppsActivityContentSchema,
   ɵrunMcpFollowUp,
-} from "@copilotkit/mcp-apps-renderer/activity";
+} from "@copilotkit/shared";
 export type {
   MCPAppsActivityContent,
   ɵMcpFollowUpHost,
-} from "@copilotkit/mcp-apps-renderer/activity";
+} from "@copilotkit/shared";
 
-import type { MCPAppsActivityContent } from "@copilotkit/mcp-apps-renderer/activity";
+import type { MCPAppsActivityContent } from "@copilotkit/shared";
 // Type-only imports: erased at build, so they never pull the ext-apps bridge
 // into the bundle. Only the dynamic import() below does, and only lazily.
 import type {

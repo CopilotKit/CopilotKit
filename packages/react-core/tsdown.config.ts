@@ -174,12 +174,10 @@ export default defineConfig([
     ],
   },
   // UMD builds. Each externalized @copilotkit/* dep must be loaded as a global
-  // before this bundle. Note `@copilotkit/mcp-apps-renderer/activity` -> the
-  // global `CopilotKitMcpAppsRendererActivity`: the provider registers the MCP
-  // Apps activity from that (bridge-free) entry, so script-tag consumers must
-  // load `@copilotkit/mcp-apps-renderer/dist/activity.umd.js` before this bundle
-  // (see that package's README). The ext-apps bridge itself is NOT here; it is
-  // loaded lazily via dynamic import() only when an MCP App renders.
+  // before this bundle. The MCP Apps activity surface (type, content schema,
+  // follow-up runner) comes from `@copilotkit/shared`; the ext-apps bridge
+  // itself is NOT here, it is loaded lazily via dynamic import() only when an
+  // MCP App renders, and `@copilotkit/mcp-apps-renderer` is an optional peer.
   {
     entry: {
       index: "src/v1-deprecated-compatibility.ts",
@@ -197,7 +195,6 @@ export default defineConfig([
       "@copilotkit/runtime-client-gql",
       "@copilotkit/web-inspector",
       "@copilotkit/a2ui-renderer",
-      "@copilotkit/mcp-apps-renderer/activity",
       "@ag-ui/client",
       "zod",
       /\.css$/,
@@ -213,8 +210,6 @@ export default defineConfig([
         "@copilotkit/runtime-client-gql": "CopilotKitRuntimeClientGQL",
         "@copilotkit/web-inspector": "CopilotKitWebInspector",
         "@copilotkit/a2ui-renderer": "CopilotKitA2UIRenderer",
-        "@copilotkit/mcp-apps-renderer/activity":
-          "CopilotKitMcpAppsRendererActivity",
         "@ag-ui/client": "AgUIClient",
         "react-markdown": "ReactMarkdown",
         zod: "Zod",
@@ -237,7 +232,6 @@ export default defineConfig([
       "@copilotkit/runtime-client-gql",
       "@copilotkit/web-inspector",
       "@copilotkit/a2ui-renderer",
-      "@copilotkit/mcp-apps-renderer/activity",
       "@ag-ui/client",
       "@ag-ui/core",
       "zod",
@@ -254,8 +248,6 @@ export default defineConfig([
         "@copilotkit/runtime-client-gql": "CopilotKitRuntimeClientGQL",
         "@copilotkit/web-inspector": "CopilotKitWebInspector",
         "@copilotkit/a2ui-renderer": "CopilotKitA2UIRenderer",
-        "@copilotkit/mcp-apps-renderer/activity":
-          "CopilotKitMcpAppsRendererActivity",
         "@ag-ui/client": "AgUIClient",
         "@ag-ui/core": "AgUICore",
         "react-markdown": "ReactMarkdown",

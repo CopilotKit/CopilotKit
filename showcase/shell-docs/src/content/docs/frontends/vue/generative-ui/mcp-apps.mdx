@@ -55,6 +55,15 @@ const runtime = new CopilotRuntime({
 
 Unlike custom activity types, the MCP Apps renderer is already registered by `CopilotKitProvider` out of the box. A plain `<CopilotChat />` is enough; no manual renderer wiring is required.
 
+The renderer package is an optional peer dependency, so install it once:
+
+```bash
+npm install @copilotkit/mcp-apps-renderer
+```
+
+It is loaded lazily, only when an MCP App actually renders. Without it, the
+widget shows an error naming the package to install.
+
 ```vue title="src/App.vue"
 <script setup lang="ts">
 import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
