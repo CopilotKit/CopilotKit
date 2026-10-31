@@ -305,7 +305,16 @@ export function installStreamingFetch(): void {
               }
             }
 
-            const responseHeaders = new Headers(respHeaders);
+            let responseHeaders: Headers;
+            try {
+              responseHeaders = new Headers(respHeaders);
+            } catch (error) {
+              // A lenient platform may report a header name or value the
+              // Headers constructor rejects. Fail the fetch instead of
+              // leaving it pending on an exception in a timer.
+              fail(error instanceof Error ? error : new Error(String(error)));
+              return;
+            }
 
             let bodyUsed = false;
 

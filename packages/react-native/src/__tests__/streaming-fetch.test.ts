@@ -582,6 +582,32 @@ describe("installStreamingFetch", () => {
       await expect(response.json()).resolves.toEqual({ ok: true });
     });
 
+    it("rejects instead of hanging when response headers are invalid", async () => {
+      const NativeHeaders = globalThis.Headers;
+      (globalThis as any).Headers = class {
+        constructor() {
+          throw new TypeError("invalid header");
+        }
+      };
+      try {
+        const { fetchPromise, xhr } = await fetchAndCapture();
+        const rejection = expect(fetchPromise).rejects.toThrow(
+          "invalid header",
+        );
+        xhr.readyState = 2;
+        xhr.status = 200;
+        xhr.statusText = "OK";
+        xhr.getAllResponseHeaders.mockReturnValue(
+          "content-type: text/plain\r\n",
+        );
+        xhr.onreadystatechange?.();
+        await flushTimers();
+        await rejection;
+      } finally {
+        (globalThis as any).Headers = NativeHeaders;
+      }
+    });
+
     it("errors stream and rejects text() when onerror fires after headers", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
       await simulateHeaders(xhr, 200);
