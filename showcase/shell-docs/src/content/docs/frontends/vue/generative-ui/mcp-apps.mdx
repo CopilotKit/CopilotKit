@@ -64,6 +64,11 @@ npm install @copilotkit/mcp-apps-renderer
 It is loaded lazily, only when an MCP App actually renders. Without it, the
 widget shows an error naming the package to install.
 
+If you bundle with webpack older than 5.90.2, install the renderer even when you
+don't render MCP Apps: that release is the first to treat an `import()` inside
+`try/catch` as optional, so earlier versions resolve it at build time. Otherwise
+upgrade to webpack 5.90.2 or later.
+
 ```vue title="src/App.vue"
 <script setup lang="ts">
 import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";

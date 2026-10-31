@@ -36,7 +36,11 @@ npm install @copilotkit/mcp-apps-renderer
 ```
 
 If it is missing, the adapter reports the package name in the setup error when
-the first MCP App renders; apps without MCP Apps never load it.
+the first MCP App renders; apps without MCP Apps never load it. One build-time
+exception: webpack older than 5.90.2 resolves that lazy `import()` eagerly
+(5.90.2 is the first release that treats an `import()` inside `try/catch` as
+optional), so bundling an adapter with an older webpack requires this package to
+be installed even for apps that never render an MCP App.
 
 ## Script-tag / UMD usage
 

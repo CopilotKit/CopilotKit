@@ -16,6 +16,10 @@ npm install @copilotkit/mcp-apps-renderer
 It is loaded lazily, on the first widget the activity renders; without it the
 widget reports an error naming the package to install.
 
+The lazy import is only optional at build time for webpack 5.90.2 or later, so a
+build that uses an older webpack must install `@copilotkit/mcp-apps-renderer`
+even when it never renders a widget, or upgrade webpack.
+
 ```ts
 import { ApplicationConfig } from "@angular/core";
 import { provideCopilotKit } from "@copilotkit/angular";

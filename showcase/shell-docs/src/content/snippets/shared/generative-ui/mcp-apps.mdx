@@ -64,6 +64,12 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     MCP Apps don't need it. If it is missing, the widget reports which package to
     install.
 
+    One exception: webpack older than 5.90.2 resolves the renderer's lazy
+    `import()` at build time (that release is the first to treat an `import()`
+    inside `try/catch` as optional). If you bundle with an older webpack, install
+    `@copilotkit/mcp-apps-renderer` even when you don't render MCP Apps, or
+    upgrade to webpack 5.90.2 or later.
+
   </Step>
   <Step>
     ### Configure your agent
