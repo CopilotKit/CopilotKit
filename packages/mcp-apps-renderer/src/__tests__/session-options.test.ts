@@ -3,7 +3,7 @@
  * the shared core: host identity/capabilities/context, the timeouts, and a
  * pluggable `ui/open-link` policy. Defaults keep React and Vue unchanged.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import {
   bindMcpApp,
@@ -245,6 +245,21 @@ describe("sandbox timeout is terminal", () => {
 });
 
 describe("widget initialization timeout", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  // Drive the existing real AppBridge and postMessage setup through its
+  // scheduled work without spending the widget deadline on CI scheduling.
+  const connectWidget = async (
+    iframe: HTMLIFrameElement,
+    opts: Parameters<typeof bindAndConnect>[1],
+  ) => {
+    const connecting = bindAndConnect(iframe, opts);
+    await vi.advanceTimersByTimeAsync(100);
+    return connecting;
+  };
+
   const initialize = (iframe: HTMLIFrameElement) =>
     fromIframe(iframe, {
       jsonrpc: "2.0",
@@ -270,7 +285,7 @@ describe("widget initialization timeout", () => {
     const agent = makeAgent();
     const runSpy = vi.spyOn(agent, "runAgent");
     const iframe = mount();
-    await bindAndConnect(iframe, {
+    await connectWidget(iframe, {
       getAgent: () => agent,
       options: { widgetInitializationTimeoutMs: 80 },
       hooks: { onError, onSandboxReady, onInitialized },
@@ -280,7 +295,7 @@ describe("widget initialization timeout", () => {
     expect(onSandboxReady).toHaveBeenCalled();
     expect(onError).not.toHaveBeenCalled();
 
-    await tick(120);
+    await vi.advanceTimersByTimeAsync(120);
     expect(onError).toHaveBeenCalledTimes(1);
     expect(onError).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -298,7 +313,7 @@ describe("widget initialization timeout", () => {
       method: "tools/call",
       params: { name: "do_thing", arguments: {} },
     });
-    await tick(60);
+    await vi.advanceTimersByTimeAsync(60);
     expect(onInitialized).not.toHaveBeenCalled();
     expect(runSpy).not.toHaveBeenCalled();
   });
@@ -307,31 +322,28 @@ describe("widget initialization timeout", () => {
     const onError = vi.fn();
     const onInitialized = vi.fn();
     const iframe = mount();
-    await bindAndConnect(iframe, {
+    await connectWidget(iframe, {
       options: { widgetInitializationTimeoutMs: 80 },
       hooks: { onError, onInitialized },
     });
     initialize(iframe);
-    await tick(20);
+    await vi.advanceTimersByTimeAsync(20);
     fromIframe(iframe, {
       jsonrpc: "2.0",
       method: "ui/notifications/initialized",
     });
-    await tick(150);
+    await vi.advanceTimersByTimeAsync(150);
     expect(onInitialized).toHaveBeenCalled();
     expect(onError).not.toHaveBeenCalled();
   });
 
   it("can be disabled with 0 beyond the default deadline", async () => {
-    vi.useFakeTimers();
     const onError = vi.fn();
     const iframe = mount();
-    const connecting = bindAndConnect(iframe, {
+    await connectWidget(iframe, {
       options: { widgetInitializationTimeoutMs: 0 },
       hooks: { onError },
     });
-    await vi.advanceTimersByTimeAsync(100);
-    await connecting;
     await vi.advanceTimersByTimeAsync(
       MCP_APPS_SESSION_DEFAULTS.widgetInitializationTimeoutMs + 1,
     );
@@ -341,25 +353,22 @@ describe("widget initialization timeout", () => {
   it("still times out if initialize is never followed by initialized", async () => {
     const onError = vi.fn();
     const iframe = mount();
-    await bindAndConnect(iframe, {
+    await connectWidget(iframe, {
       options: { widgetInitializationTimeoutMs: 80 },
       hooks: { onError },
     });
     initialize(iframe);
-    await tick(120);
+    await vi.advanceTimersByTimeAsync(120);
     expect(onError).toHaveBeenCalledOnce();
   });
 
   it("clears the widget watchdog on teardown", async () => {
-    vi.useFakeTimers();
     const onError = vi.fn();
     const iframe = mount();
-    const connecting = bindAndConnect(iframe, {
+    await connectWidget(iframe, {
       options: { widgetInitializationTimeoutMs: 80 },
       hooks: { onError },
     });
-    await vi.advanceTimersByTimeAsync(100);
-    await connecting;
     const timerCount = vi.getTimerCount();
     sessions.at(-1)!.teardown();
     expect(vi.getTimerCount()).toBeLessThan(timerCount);
