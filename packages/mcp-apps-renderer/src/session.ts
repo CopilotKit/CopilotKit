@@ -210,7 +210,7 @@ export interface BindMcpAppOptions {
   hooks?: McpAppSessionHooks;
   /**
    * Host identity, capabilities and UI context announced during the MCP Apps
-   * initialization handshake, plus the timeouts. Every field is optional and
+   * initialization handshake, plus the two timeouts. Every field is optional and
    * merged over {@link MCP_APPS_SESSION_DEFAULTS}, so a frontend only overrides
    * what it exposes to its users.
    */
@@ -253,20 +253,9 @@ export interface McpAppSessionOptions {
    * (`ui/notifications/sandbox-proxy-ready`). Default 30s.
    *
    * This measures the SANDBOX step, not `ui/notifications/initialized`: a widget
-   * that loads its proxy but never reports initialized is covered by
-   * `widgetInitializationTimeoutMs`.
+   * that loads its proxy but never reports initialized is a different failure.
    */
   initializationTimeoutMs?: number;
-  /**
-   * Maximum time to wait for the widget's `ui/notifications/initialized` once
-   * its HTML has been handed to the sandbox. Default 20s; `0` disables.
-   *
-   * Catches a widget whose HTML loads but whose script never starts, for
-   * example because a CDN dependency it imports failed. Without it the iframe
-   * stays blank and nothing reports why. On expiry the session reports a fatal
-   * `onError` and stops serving the widget, like the sandbox timeout.
-   */
-  widgetInitializationTimeoutMs?: number;
   /** Host identity announced during the initialization handshake. */
   hostInfo?: McpAppHostInfo;
   /** Protocol capabilities announced to embedded MCP Apps. */
@@ -291,7 +280,6 @@ export const MCP_APPS_SESSION_DEFAULTS: Readonly<
 > = {
   idleTimeoutMs: MCP_APPS_QUEUE_IDLE_TIMEOUT_MS,
   initializationTimeoutMs: 30_000,
-  widgetInitializationTimeoutMs: 20_000,
   hostInfo: { name: "CopilotKit MCP Apps Host", version: "1.0.0" },
   hostCapabilities: { openLinks: {}, logging: {}, message: { text: {} } },
   hostContext: { platform: "web" },
@@ -442,15 +430,6 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
   let sandboxTimer: ReturnType<typeof setTimeout> | undefined;
   let sandboxReady = false;
   let sandboxTimedOut = false;
-  // Widget handshake watchdog (see widgetInitializationTimeoutMs): armed once
-  // the widget HTML is sent to the sandbox, cleared by `initialized`.
-  let widgetTimer: ReturnType<typeof setTimeout> | undefined;
-
-  const clearWidgetTimer = () => {
-    if (widgetTimer === undefined) return;
-    clearTimeout(widgetTimer);
-    widgetTimer = undefined;
-  };
 
   /** Flush any buffered tool input/result to the widget once it is initialized. */
   const flushPending = () => {
@@ -648,7 +627,6 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       clearTimeout(sandboxTimer);
       sandboxTimer = undefined;
     }
-    clearWidgetTimer();
     // Drop this widget's still-waiting proxy requests: they only exist to feed
     // an iframe that is going away. Requests already in flight keep running
     // (runAgent has no abort), and other widgets' queued work is untouched.
@@ -718,8 +696,8 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       // sandboxed iframe.
       // The sandbox proxy must report back within initializationTimeoutMs. This
       // measures the SANDBOX handshake (sandbox-proxy-ready), not the widget's
-      // later `initialized` notification, which has its own watchdog below
-      // (widgetInitializationTimeoutMs).
+      // later `initialized` notification - a widget that loads but never reports
+      // initialized is a different failure and is not covered here.
       sandboxTimer = setTimeout(() => {
         if (disposed || sandboxReady) return;
         // Mark the handshake window closed: a proxy that reports ready after the
@@ -750,26 +728,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
           sandboxTimer = undefined;
         }
         void bridge?.sendSandboxResourceReady({ html, sandbox }).then(() => {
-          if (disposed) return;
-          hooks?.onSandboxReady?.();
-          // The widget HTML is now loading. A widget whose script or imports
-          // fail never calls initialize, so give it a bounded window instead of
-          // leaving a blank iframe with no explanation.
-          const widgetTimeoutMs = settings.widgetInitializationTimeoutMs;
-          if (widgetTimeoutMs > 0 && !ready) {
-            clearWidgetTimer();
-            widgetTimer = setTimeout(() => {
-              if (disposed || ready) return;
-              // Report first (closeSession sets `disposed`, which gates the
-              // hooks), then stop serving the widget.
-              hooks?.onError?.(
-                new Error(
-                  `[MCPAppsRenderer] The MCP App loaded but did not initialize within ${widgetTimeoutMs}ms. A script or dependency it imports may have failed to load.`,
-                ),
-              );
-              closeSession();
-            }, widgetTimeoutMs);
-          }
+          if (!disposed) hooks?.onSandboxReady?.();
         });
       };
 
@@ -925,7 +884,6 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       bridge.oninitialized = () => {
         if (disposed) return;
         ready = true;
-        clearWidgetTimer();
         hooks?.onInitialized?.();
         // Self-driving: reconcile the buffers BEFORE the first flush. When this
         // activity lives in the store, the store is authoritative, so discard any
