@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
-import { expectedCitationIds } from "./model.mjs";
+import { expectedCitationIds as defaultExpectedCitationIds } from "./model.mjs";
 
 const nonempty = (value) =>
   typeof value === "string" && value.trim().length > 0;
@@ -140,6 +140,7 @@ export async function verifyLearning({
   runId: sourceRunId,
   messageIds,
   containerId,
+  expectedCitationIds = defaultExpectedCitationIds,
   timeoutMs = 900_000,
   now,
   sleep,

@@ -226,6 +226,19 @@ test("Learning binds real thread and reads stable persisted output twice", async
     { selection: { mode: "explicit", threadIds: [threadId] } },
   );
 });
+test("Learning uses the selected model's citation rule", async () => {
+  const { input } = learning();
+  let checked = false;
+  await proof.verifyLearning({
+    ...input,
+    expectedCitationIds: (id) => {
+      checked = true;
+      assert.equal(id, snapshotId);
+      return snapshotMessageIds;
+    },
+  });
+  assert.equal(checked, true);
+});
 for (const [name, change, error] of [
   ["failed run", { run: { status: "failed" } }, /failed/],
   ["run timeout", { run: { status: "queued" } }, /timed out/],

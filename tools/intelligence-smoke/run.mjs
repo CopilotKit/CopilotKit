@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { standaloneConsumerEnv } from "../learned-skill-conformance/workspace-artifacts.mjs";
 import { commandRunner } from "./process.mjs";
-import { startModel, scenario } from "./model.mjs";
+import { loadModelModule } from "./model-module.mjs";
 import { createStack } from "./stack.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -21,6 +21,7 @@ const { values } = parseArgs({
     helm: { type: "string", default: "helm" },
     "expect-reply": { type: "string" },
     "intelligence-source": { type: "string" },
+    "model-module": { type: "string" },
   },
 });
 const output = resolve(values.output ?? `smoke-results-${randomUUID()}`);
@@ -37,6 +38,8 @@ let stack;
 let model;
 let failure;
 try {
+  const modelModule = await loadModelModule(values["model-module"]);
+  const { startModel, scenario } = modelModule;
   const pins = JSON.parse(await readFile(join(here, "pins.json"), "utf8"));
   evidence.pins = pins;
   evidence.sdkSource = (
@@ -155,6 +158,7 @@ try {
       modelUrl: `http://127.0.0.1:${model.port}`,
       result,
       expectedReply: values["expect-reply"] ?? scenario.reply,
+      modelModulePath: modelModule.path,
     }),
     { mode: 0o600 },
   );

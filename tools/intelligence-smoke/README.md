@@ -24,6 +24,12 @@ Omit `--k3d` to use the executable on `PATH`.
 Use `--helm=/path/to/helm` to select another Helm executable.
 Without `--output`, the runner creates a unique `smoke-results-*` directory in the current directory.
 
+Use `--model-module=/absolute/path/to/model.mjs` to supply a local fixed model
+for a candidate that needs different model replies. The module must export
+`scenario`, `startModel`, and `expectedCitationIds` with the same contract as
+the default model. The public fixture remains the default. Keep private model
+modules outside this repository.
+
 To exercise the failure path, use a new output directory and an incorrect expected reply:
 
 ```sh

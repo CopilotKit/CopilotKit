@@ -3,11 +3,14 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { verifyThread, verifyLearning } from "./proof.mjs";
-import { scenario } from "./model.mjs";
+import { loadModelModule } from "./model-module.mjs";
 
 /** Exercise the built SDK in a separate process so its long-lived sockets are scoped. */
 async function exercise() {
   const input = JSON.parse(await readFile(process.argv[2], "utf8"));
+  const { scenario, expectedCitationIds } = await loadModelModule(
+    input.modelModulePath,
+  );
   const require = createRequire(join(input.consumer, "package.json"));
   const entry = join(
     input.consumer,
@@ -96,6 +99,7 @@ async function exercise() {
     runId: thread.runId,
     messageIds: thread.messageIds,
     containerId: "local-proof-smoke",
+    expectedCitationIds,
   });
   await writeFile(
     input.result,
