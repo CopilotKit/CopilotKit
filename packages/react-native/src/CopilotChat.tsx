@@ -6,7 +6,10 @@ import React, {
   useRef,
 } from "react";
 import type { ReactNode } from "react";
-import { useAgent } from "@copilotkit/react-core/v2/headless";
+import {
+  CopilotChatConfigurationProvider,
+  useAgent,
+} from "@copilotkit/react-core/v2/headless";
 import { useCopilotKit } from "@copilotkit/react-core/v2/context";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 import type { InputContent } from "@copilotkit/shared";
@@ -128,7 +131,9 @@ export interface CopilotChatProps extends CopilotChatBaseProps {
  * Unlike the web SDK's CopilotChat, this component does not render any UI
  * elements -- consumers provide their own React Native views.
  *
- * Children can access chat state via `useCopilotChatContext()`.
+ * Children can access chat state via `useCopilotChatContext()`. Hooks used
+ * inside it, such as `useAgent` and `useInterrupt`, use this chat's `agentId`
+ * and `threadId` unless they name their own.
  *
  * ```tsx
  * import { CopilotChat, useCopilotChatContext } from "@copilotkit/react-native";
@@ -287,9 +292,16 @@ export function CopilotChat({
     submitMessage,
   };
 
+  // Publish this chat's agent and thread to the subtree, as the web
+  // CopilotChat does, so hooks inside it do not fall back to "default".
   return (
-    <CopilotChatCtx.Provider value={contextValue}>
-      {children}
-    </CopilotChatCtx.Provider>
+    <CopilotChatConfigurationProvider
+      agentId={resolvedAgentId}
+      threadId={threadId}
+    >
+      <CopilotChatCtx.Provider value={contextValue}>
+        {children}
+      </CopilotChatCtx.Provider>
+    </CopilotChatConfigurationProvider>
   );
 }
