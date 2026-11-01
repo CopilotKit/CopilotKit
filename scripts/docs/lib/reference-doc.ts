@@ -82,7 +82,7 @@ export class ReferenceDoc {
         const fnDoc = parsed[fn];
         result += `## ${fn}\n\n`;
         result += `${fnDoc.description}\n\n`;
-        if (fnDoc.parameters) {
+        if (fnDoc.parameters.length > 0) {
           result += `### Parameters\n\n`;
           for (const param of fnDoc.parameters) {
             const required = !param.type.startsWith("Optional");
@@ -117,7 +117,10 @@ export class ReferenceDoc {
         console.warn(`${fn} not found in ${this.referenceDoc.sourcePath}`);
         continue;
       }
-      const comment = source.getFunctionComment(fn);
+      // A `@returns` tag becomes its own section after the parameters.
+      const [comment, returns] = (source.getFunctionComment(fn) ?? "")
+        .split(/^@returns?\s+/m)
+        .map((part) => part.trim());
 
       result += `## ${fn}\n\n`;
       if (comment) {
@@ -130,6 +133,10 @@ export class ReferenceDoc {
           result += `${arg.description}\n`;
           result += `</PropertyReference>\n\n`;
         }
+      }
+      if (returns) {
+        result += `### Returns\n\n`;
+        result += `${returns.replace(/\n\s+/g, "\n")}\n\n`;
       }
     }
     return result;
@@ -172,8 +179,23 @@ export class ReferenceDoc {
         "",
     );
 
-    if (arg0Interface) {
-      const hasProperties = arg0Interface.properties.length > 0;
+    // A hook argument after the first one (for example `dependencies`) is
+    // documented by a comment on the parameter itself.
+    const extraHookArguments = this.referenceDoc.hook
+      ? (source.getFunctionArguments(this.referenceDoc.hook) ?? [])
+          .slice(1)
+          .filter((argument) => argument.description)
+      : [];
+
+    if (arg0Interface || extraHookArguments.length > 0) {
+      // Deprecated and internal props are not part of the documented API.
+      const properties = (arg0Interface?.properties ?? []).filter(
+        (property) =>
+          !property.comment.includes("@deprecated") &&
+          !property.comment.includes("@internal"),
+      );
+      const hasProperties =
+        properties.length > 0 || extraHookArguments.length > 0;
       if (this.referenceDoc.hook && hasProperties) {
         result += `## Parameters\n\n`;
       } else if (this.referenceDoc.component && hasProperties) {
@@ -182,14 +204,20 @@ export class ReferenceDoc {
         result += `## Constructor Parameters\n\n`;
       }
 
-      for (const property of arg0Interface.properties) {
-        if (property.comment.includes("@deprecated")) {
-          continue;
-        }
+      for (const property of properties) {
         const type = property.type.replace(/"/g, "'");
 
         result += `<PropertyReference name="${property.name}" type="${type}" ${property.required ? "required" : ""} ${property.defaultValue ? `default="${property.defaultValue}"` : ""}> \n`;
         result += `${property.comment}\n`;
+        result += `</PropertyReference>\n\n`;
+      }
+
+      for (const argument of extraHookArguments) {
+        const type = argument.type.replace(/"/g, "'");
+        const required = argument.required && !argument.defaultValue;
+
+        result += `<PropertyReference name="${argument.name}" type="${type}" ${required ? "required" : ""}> \n`;
+        result += `${argument.description}\n`;
         result += `</PropertyReference>\n\n`;
       }
     } else if (this.referenceDoc.className) {

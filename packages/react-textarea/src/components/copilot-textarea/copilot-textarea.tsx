@@ -23,11 +23,15 @@
  */
 
 /**
+ * <Callout type="info">
+ *   `CopilotTextarea` has no direct v2 replacement. See the [v1 to v2 export map](/reference/v1/export-map).
+ * </Callout>
+ *
  * <br/>
  * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotTextarea.gif" width="500" />
  *
  * `<CopilotTextarea>` is a React component that acts as a drop-in replacement for the standard `<textarea>`,
- *  offering enhanced autocomplete features powered by AI. It is context-aware, integrating seamlessly with the
+ *  offering enhanced autocomplete features powered by AI. It is context-aware, integrating with the
  * [`useCopilotReadable`](/reference/v1/hooks/useCopilotReadable) hook to provide intelligent suggestions based on the application context.
  *
  * In addition, it provides a hovering editor window (available by default via `Cmd + K` on Mac and `Ctrl + K` on Windows) that allows the user to
@@ -108,7 +112,6 @@
  *   );
  * }
  * ```
- * For more information about how to customize the styles, check out the [Customize Look & Feel](/guides/custom-look-and-feel/customize-built-in-ui-components) guide.
  * */
 import React from "react";
 import { useMakeStandardAutosuggestionFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-autosuggestions-function";
@@ -145,10 +148,10 @@ export interface CopilotTextareaProps extends Omit<
    *   Example: *"The body of the email response"*
    * </PropertyReference>
    *
-   * <PropertyReference name="chatApiConfigs" type="ChatApiConfigs" >
+   * <PropertyReference name="chatApiConfigs" type="ChatApiConfigs" required={true} >
    *   The chat API configurations.
    *
-   *   <strong>NOTE:</strong> You must provide specify at least one of `suggestionsApiConfig` or `insertionApiConfig`.
+   *   Both fields are optional. CopilotKit uses its default config for any field that you leave out, so `chatApiConfigs: {}` is valid.
    *
    *   <PropertyReference name="suggestionsApiConfig" type="SuggestionsApiConfig">
    *       For full reference, please [click here](https://github.com/CopilotKit/CopilotKit/blob/main/packages/react-textarea/src/types/autosuggestions-config/suggestions-api-config.tsx#L4).
@@ -159,39 +162,27 @@ export interface CopilotTextareaProps extends Omit<
    * </PropertyReference>
    *
    * <PropertyReference name="disabled" type="boolean" >
-   *   Whether the textarea is disabled.
+   *   Turns off autosuggestions. The textarea stays editable.
    * </PropertyReference>
    *
-   * <PropertyReference name="disableBranding" type="boolean" >
-   *   Whether to disable the CopilotKit branding.
+   * <PropertyReference name="contextCategories" type="string[]" >
+   *   The categories of context to consider for autosuggestions.
    * </PropertyReference>
    *
-   * <PropertyReference name="placeholderStyle" type="React.CSSProperties" >
-   *   Specifies the CSS styles to apply to the placeholder text.
+   * <PropertyReference name="debounceTime" type="number" default="250" >
+   *   The time in milliseconds to wait after the user stops typing before autosuggestions start.
    * </PropertyReference>
    *
-   * <PropertyReference name="suggestionsStyle" type="React.CSSProperties" >
-   *   Specifies the CSS styles to apply to the suggestions list.
+   * <PropertyReference name="disableWhenEmpty" type="boolean" default="true" >
+   *   Turns off autosuggestions while the textarea is empty.
    * </PropertyReference>
    *
-   * <PropertyReference name="hoverMenuClassname" type="string" >
-   *   A class name to apply to the editor popover window.
+   * <PropertyReference name="temporarilyDisableWhenMovingCursorWithoutChangingText" type="boolean" default="true" >
+   *   Pauses autosuggestions when the user moves the cursor without changing the text.
    * </PropertyReference>
    *
-   * <PropertyReference name="value" type="string" >
-   *   The initial value of the textarea. Can be controlled via `onValueChange`.
-   * </PropertyReference>
-   *
-   * <PropertyReference name="onValueChange" type="(value: string) => void" >
-   *   Callback invoked when the value of the textarea changes.
-   * </PropertyReference>
-   *
-   * <PropertyReference name="onChange" type="(event: React.ChangeEvent<HTMLTextAreaElement>) => void" >
-   *   Callback invoked when a `change` event is triggered on the textarea element.
-   * </PropertyReference>
-   *
-   * <PropertyReference name="shortcut" type="string" >
-   *   The shortcut to use to open the editor popover window. Default is `"Cmd-k"`.
+   * <PropertyReference name="temporarilyDisableNotTrustedEvents" type="boolean" default="true" >
+   *   Pauses autosuggestions after a change event from an untrusted source, such as an autocomplete plugin.
    * </PropertyReference>
    */
   autosuggestionsConfig: AutosuggestionsConfigUserSpecified;

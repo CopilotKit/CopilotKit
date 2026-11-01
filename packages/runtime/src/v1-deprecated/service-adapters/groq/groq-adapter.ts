@@ -25,19 +25,33 @@
  */
 
 /**
+ * <Callout type="info">
+ *   `GroqAdapter` has no direct v2 replacement. For v2, see [Runtime server adapter](/runtime-server-adapter).
+ * </Callout>
+ *
  * Copilot Runtime adapter for Groq.
  *
  * ## Example
  *
  * ```ts
- * import { CopilotRuntime, GroqAdapter } from "@copilotkit/runtime";
+ * import {
+ *   CopilotRuntime,
+ *   GroqAdapter,
+ *   copilotRuntimeNextJSAppRouterEndpoint,
+ * } from "@copilotkit/runtime";
  * import { Groq } from "groq-sdk";
  *
  * const groq = new Groq({ apiKey: process.env["GROQ_API_KEY"] });
  *
  * const copilotKit = new CopilotRuntime();
  *
- * return new GroqAdapter({ groq, model: "<model-name>" });
+ * const serviceAdapter = new GroqAdapter({ groq, model: "<model-name>" });
+ *
+ * export const POST = copilotRuntimeNextJSAppRouterEndpoint({
+ *   runtime: copilotKit,
+ *   serviceAdapter,
+ *   endpoint: "/api/copilotkit",
+ * }).handleRequest;
  * ```
  */
 import type { LanguageModel } from "ai";

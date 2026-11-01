@@ -141,29 +141,27 @@ export type OnReloadMessages = (args: OnReloadMessagesArguments) => void;
 
 export interface UseCopilotChatOptions {
   /**
-   * A unique identifier for the chat. If not provided, a random one will be
-   * generated. When provided, the `useChat` hook with the same `id` will
-   * have shared states across components.
+   * Ignored. Accepted for source compatibility only.
    */
   id?: string;
 
   /**
-   * HTTP headers to be sent with the API request.
+   * Ignored. Accepted for source compatibility only.
    */
   headers?: Record<string, string> | Headers;
 
   /**
-   * Initial messages to populate the chat with.
+   * Ignored. Accepted for source compatibility only.
    */
   initialMessages?: Message[];
 
   /**
-   * A function to generate the system message. Defaults to `defaultSystemMessage`.
+   * Ignored. Accepted for source compatibility only.
    */
   makeSystemMessage?: SystemMessageFunction;
 
   /**
-   * Disables inclusion of CopilotKit’s default system message. When true, no system message is sent (this also suppresses any custom message from <code>makeSystemMessage</code>).
+   * Ignored. Accepted for source compatibility only.
    */
   disableSystemMessage?: boolean;
   /**
@@ -177,7 +175,7 @@ export interface UseCopilotChatOptions {
    * `manual` - Suggestions are controlled programmatically:
    *   - Use `setSuggestions()` to set custom suggestions
    *   - Use `generateSuggestions()` to trigger AI generation
-   *   - Access via `useCopilotChat` hook
+   *   - Read `setSuggestions` and `generateSuggestions` from the `useCopilotChatHeadless_c` hook
    *
    * `SuggestionItem[]` - Static suggestions array:
    *   - Always shows the same suggestions

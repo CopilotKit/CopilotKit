@@ -7,8 +7,8 @@
  *
  * @copilotkit/react-ui — UserMessage:
  *   V2 import and usage:
- *     import { UserMessage } from "@copilotkit/react-core/v2";
- *     const v2UserMessage = UserMessage;
+ *     import type { UserMessage } from "@copilotkit/react-core/v2";
+ *     type V2UserMessage = UserMessage;
  *   V2 replacement source: packages/react-core/src/v2/index.ts
  *   V2 docs: https://docs.copilotkit.ai/
  *   V2 reference docs: https://docs.copilotkit.ai/reference/v2

@@ -123,13 +123,14 @@ type DynamicSuggestionsConfigInput = {
   minSuggestions?: number;
   /**
    * The maximum number of suggestions to generate. Defaults to `3`.
-   * @default 1
+   * @default 3
    */
   maxSuggestions?: number;
 
   /**
-   * Whether the suggestions are available. Defaults to `enabled`.
-   * @default enabled
+   * When the suggestions are available. `enabled` means `always`. Defaults to
+   * `before-first-message`.
+   * @default before-first-message
    */
   available?:
     | "enabled"

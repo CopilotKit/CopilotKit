@@ -25,11 +25,15 @@
  */
 
 /**
+ * <Callout type="info">
+ *   In v2, use `CopilotKitProvider` from `@copilotkit/react-core/v2`. See the [v2 provider reference](/reference/v2/components/CopilotKit).
+ * </Callout>
+ *
  * This component will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
  *
  * ## Example
  *
- * You can find more information about self-hosting CopilotKit [here](/guides/self-hosting).
+ * You can find more information about self-hosting CopilotKit [here](/backend/copilot-runtime).
  *
  * ```tsx
  * import { CopilotKit } from "@copilotkit/react-core";
@@ -38,6 +42,10 @@
  *   // ... your app ...
  * </CopilotKit>
  * ```
+ *
+ * `CopilotKit` also passes the props of the [v2 `CopilotKitProvider`](/reference/v2/components/CopilotKit)
+ * through to it, such as `selfManagedAgents`, `frontendTools`, `renderToolCalls`, and
+ * `defaultThrottleMs`. To name the agent, use `agent`.
  */
 
 import type { SetStateAction } from "react";

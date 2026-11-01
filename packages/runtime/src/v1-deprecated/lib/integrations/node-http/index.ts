@@ -7,9 +7,9 @@
  *
  * @copilotkit/runtime — copilotRuntimeNodeHttpEndpoint:
  *   V2 import and usage:
- *     import { createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
- *     const v2CreateCopilotRuntimeHandler = createCopilotRuntimeHandler;
- *   V2 replacement source: packages/runtime/src/v2/runtime/core/fetch-handler.ts
+ *     import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+ *     const v2CreateCopilotNodeListener = createCopilotNodeListener;
+ *   V2 replacement source: packages/runtime/src/v2/runtime/endpoints/node.ts
  *   V2 docs: https://docs.copilotkit.ai/runtime-server-adapter
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2

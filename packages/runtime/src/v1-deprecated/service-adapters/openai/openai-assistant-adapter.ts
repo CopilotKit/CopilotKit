@@ -25,12 +25,23 @@
  */
 
 /**
+ * <Callout type="info">
+ *   `OpenAIAssistantAdapter` has no direct v2 replacement. For v2, see [Runtime server adapter](/runtime-server-adapter).
+ * </Callout>
+ *
  * Copilot Runtime adapter for the OpenAI Assistant API.
+ *
+ * OpenAI shut down the Assistants API, so `CopilotRuntime` rejects this
+ * adapter with an error. Use `OpenAIAdapter` instead.
  *
  * ## Example
  *
  * ```ts
- * import { CopilotRuntime, OpenAIAssistantAdapter } from "@copilotkit/runtime";
+ * import {
+ *   CopilotRuntime,
+ *   OpenAIAssistantAdapter,
+ *   copilotRuntimeNextJSAppRouterEndpoint,
+ * } from "@copilotkit/runtime";
  * import OpenAI from "openai";
  *
  * const copilotKit = new CopilotRuntime();
@@ -40,12 +51,18 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * return new OpenAIAssistantAdapter({
+ * const serviceAdapter = new OpenAIAssistantAdapter({
  *   openai,
  *   assistantId: "<your-assistant-id>",
  *   codeInterpreterEnabled: true,
  *   fileSearchEnabled: true,
  * });
+ *
+ * export const POST = copilotRuntimeNextJSAppRouterEndpoint({
+ *   runtime: copilotKit,
+ *   serviceAdapter,
+ *   endpoint: "/api/copilotkit",
+ * }).handleRequest;
  * ```
  */
 import type OpenAI from "openai";

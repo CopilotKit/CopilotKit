@@ -49,7 +49,10 @@ class CopilotKitProperties(TypedDict):
 
 
 class CopilotKitState(MessagesState):
-    """CopilotKit state"""
+    """
+    LangGraph state with a `copilotkit` key that holds the frontend actions and
+    context from CopilotKit.
+    """
 
     copilotkit: CopilotKitProperties
 
@@ -270,7 +273,7 @@ async def copilotkit_exit(config: RunnableConfig):
     ```python
     from copilotkit.langgraph import copilotkit_exit
 
-    def my_node(state: Any):
+    async def my_node(state: Any, config: RunnableConfig):
         await copilotkit_exit(config)
         return state
     ```
@@ -459,6 +462,23 @@ def copilotkit_interrupt(
     action: Optional[str] = None,
     args: Optional[Dict[str, Any]] = None,
 ):
+    """
+    Interrupts the graph to ask the user through CopilotKit, and returns the answer.
+
+    Parameters
+    ----------
+    message : Optional[str]
+        A message to show the user. Pass either `message` or `action`.
+    action : Optional[str]
+        The name of a frontend action to call.
+    args : Optional[Dict[str, Any]]
+        The arguments for `action`.
+
+    Returns
+    -------
+    Tuple[str, Any]
+        The answer as a string, and the raw response.
+    """
     if message is None and action is None:
         raise ValueError(
             "Either message or action (and optional arguments) must be provided"

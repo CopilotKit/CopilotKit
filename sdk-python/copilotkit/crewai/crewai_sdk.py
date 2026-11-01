@@ -213,8 +213,8 @@ async def copilotkit_emit_message(message: str) -> str:
 
     Returns
     -------
-    Awaitable[bool]
-        Always return True.
+    str
+        The id of the emitted message.
     """
     message_id = str(uuid.uuid4())
 
@@ -308,6 +308,9 @@ async def copilotkit_stream(response):
     Stream litellm responses token by token to CopilotKit.
 
     ```python
+    from litellm import completion
+    from copilotkit.crewai import copilotkit_stream
+
     response = await copilotkit_stream(
         completion(
             model="openai/gpt-4o",
@@ -449,7 +452,7 @@ async def copilotkit_exit() -> Literal[True]:
     ```python
     from copilotkit.crewai import copilotkit_exit
 
-    def my_function():
+    async def my_function(state):
         await copilotkit_exit()
         return state
     ```
@@ -488,8 +491,9 @@ async def copilotkit_predict_state(
 
     Parameters
     ----------
-    config : Dict[str, CopilotKitPredictStateConfig]
-        The configuration to predict the state.
+    config : Dict[str, PredictStateConfig]
+        Maps a state key to a `PredictStateConfig` with a `tool_name` and an
+        optional `tool_argument`.
 
     Returns
     -------

@@ -34,8 +34,12 @@
  */
 
 /**
- * The useCoAgentStateRender hook allows you to render UI or text based components on a Agentic Copilot's state in the chat.
- * This is particularly useful for showing intermediate state or progress during Agentic Copilot operations.
+ * <Callout type="info">
+ *   In v2, read `agent.state` from [`useAgent`](/reference/v2/hooks/useAgent) and render it. See [State rendering](/generative-ui/state-rendering).
+ * </Callout>
+ *
+ * The hook renders UI or text in the chat from the state of an agent. Use it to show
+ * intermediate state or progress while the agent runs.
  *
  * ## Usage
  *
@@ -65,15 +69,7 @@
  *
  * This allows for you to render UI components or text based on what is happening within the agent.
  *
- * ### Example
- * A great example of this is in our Perplexity Clone where we render the progress of an agent's internet search as it is happening.
- * You can play around with it below or learn how to build it with the [state rendering guide](/generative-ui/state-rendering).
- *
- * <Callout type="info">
- *   This example is hosted on Vercel and may take a few seconds to load.
- * </Callout>
- *
- * <iframe src="https://examples-coagents-ai-researcher-ui.vercel.app/" className="w-full rounded-lg border h-[700px] my-4" />
+ * To build a full example, see the [state rendering guide](/generative-ui/state-rendering).
  */
 
 import { useRef, useContext, useEffect } from "react";
@@ -96,6 +92,7 @@ import { useCoAgentStateRenders } from "../context/coagent-state-renders-context
 // see useCopilotAction for more details about this approach.
 export function useCoAgentStateRender<T = any>(
   action: CoAgentStateRender<T>,
+  /** Values that re-register the render when they change. */
   dependencies?: any[],
 ): void {
   const { chatComponentsCache, availableAgents } = useContext(CopilotContext);

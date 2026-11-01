@@ -63,7 +63,7 @@ export interface BaseCopilotTextareaProps extends Omit<
   onChange?: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
 
   /**
-   * The shortcut to use to open the editor popover window. Default is `"Cmd-k"`.
+   * The key that opens the editor popover, pressed with Cmd on macOS or Ctrl elsewhere. Default is `"k"`.
    */
   shortcut?: string;
 

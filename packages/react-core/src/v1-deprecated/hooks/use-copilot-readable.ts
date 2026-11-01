@@ -26,6 +26,10 @@
  */
 
 /**
+ * <Callout type="info">
+ *   In v2, use [`useAgentContext`](/reference/v2/hooks/useAgentContext) from `@copilotkit/react-core/v2`.
+ * </Callout>
+ *
  * `useCopilotReadable` is a React hook that provides app-state and other information
  * to the Copilot.
  *
@@ -33,9 +37,8 @@
  *
  * ### Simple Usage
  *
- * In its most basic usage, useCopilotReadable accepts a single string argument
- * representing any piece of app state, making it available for the Copilot to use
- * as context when responding to user input.
+ * Pass a `description` and a `value`. The hook adds them to the context that the
+ * Copilot reads when it answers.
  *
  * ```tsx
  * import { useCopilotReadable } from "@copilotkit/react-core";
@@ -92,6 +95,11 @@
  *   [departmentId],
  * );
  * ```
+ *
+ * ## Return Value
+ *
+ * `string | undefined`: the id of the context entry. It is `undefined` on the first
+ * render and while `available` is `"disabled"`.
  */
 import { useCopilotKit } from "../../v2";
 import { useLayoutEffect, useRef } from "react";

@@ -25,12 +25,20 @@
  */
 
 /**
+ * <Callout type="info">
+ *   `OpenAIAdapter` has no direct v2 replacement. For v2, see [Runtime server adapter](/runtime-server-adapter).
+ * </Callout>
+ *
  * Copilot Runtime adapter for OpenAI.
  *
  * ## Example
  *
  * ```ts
- * import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+ * import {
+ *   CopilotRuntime,
+ *   OpenAIAdapter,
+ *   copilotRuntimeNextJSAppRouterEndpoint,
+ * } from "@copilotkit/runtime";
  * import OpenAI from "openai";
  *
  * const copilotKit = new CopilotRuntime();
@@ -40,13 +48,23 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * return new OpenAIAdapter({ openai });
+ * const serviceAdapter = new OpenAIAdapter({ openai });
+ *
+ * export const POST = copilotRuntimeNextJSAppRouterEndpoint({
+ *   runtime: copilotKit,
+ *   serviceAdapter,
+ *   endpoint: "/api/copilotkit",
+ * }).handleRequest;
  * ```
  *
  * ## Example with Azure OpenAI
  *
  * ```ts
- * import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+ * import {
+ *   CopilotRuntime,
+ *   OpenAIAdapter,
+ *   copilotRuntimeNextJSAppRouterEndpoint,
+ * } from "@copilotkit/runtime";
  * import OpenAI from "openai";
  *
  * // The name of your Azure OpenAI Instance.
@@ -71,7 +89,13 @@
  *   defaultHeaders: { "api-key": apiKey },
  * });
  *
- * return new OpenAIAdapter({ openai });
+ * const serviceAdapter = new OpenAIAdapter({ openai });
+ *
+ * export const POST = copilotRuntimeNextJSAppRouterEndpoint({
+ *   runtime: copilotKit,
+ *   serviceAdapter,
+ *   endpoint: "/api/copilotkit",
+ * }).handleRequest;
  * ```
  */
 import type { LanguageModel } from "ai";

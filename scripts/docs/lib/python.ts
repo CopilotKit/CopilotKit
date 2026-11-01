@@ -101,8 +101,12 @@ export function parsePythonDocstrings(
   // We also add a lookbehind for ) or : to ensure we match the pattern of a function signature,
   // but you can tweak as needed.
   // Updated regex to handle multiline signatures
+  //
+  // The text between the name and the docstring must not contain another
+  // `def` or `class`. Without this, a class with no docstring takes the
+  // docstring of the next class or function.
   const functionRegex =
-    /\b(?:async\s+)?(def|class)\s+([A-Za-z_]\w*)[\s\S]*?"""([\s\S]*?)"""/gm;
+    /\b(?:async\s+)?(def|class)\s+([A-Za-z_]\w*)(?:(?!\b(?:def|class)\s)[\s\S])*?"""([\s\S]*?)"""/gm;
   let match: RegExpExecArray | null;
   while ((match = functionRegex.exec(fileContent)) !== null) {
     const fnName = match[2];
@@ -135,25 +139,14 @@ export function parsePythonDocstrings(
     //        Some description...
     //
     // We'll break it up with a simple approach:
-    const [rawDescription, maybeParamsAndBeyond = ""] = docstring.split(
-      /\n\s*Parameters\s*[-=]+\s*\n/, // Splits after 'Parameters'
-    );
-
-    let rawParameters = "";
-    let rawReturns = "";
-
-    // Check if there's a "Returns" block in the "maybeParamsAndBeyond" chunk
-    const returnsSplit = maybeParamsAndBeyond.split(
+    // Split off "Returns" first, so a docstring with a Returns block and no
+    // Parameters block keeps the Returns block out of the description.
+    const [beforeReturns, rawReturns = ""] = docstring.split(
       /\n\s*Returns\s*[-=]+\s*\n/,
     );
-    if (returnsSplit.length === 2) {
-      // [ paramsBlock, returnsBlock ]
-      rawParameters = returnsSplit[0];
-      rawReturns = returnsSplit[1];
-    } else {
-      // no Returns block found
-      rawParameters = maybeParamsAndBeyond;
-    }
+    const [rawDescription, rawParameters = ""] = beforeReturns.split(
+      /\n\s*Parameters\s*[-=]+\s*\n/, // Splits after 'Parameters'
+    );
 
     // 2) Parse description: everything up to "Parameters"
     const description = rawDescription.trim();

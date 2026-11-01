@@ -18,19 +18,35 @@
  */
 
 /**
+ * <Callout type="info">
+ *   `GoogleGenerativeAIAdapter` has no direct v2 replacement. For v2, see [Runtime server adapter](/runtime-server-adapter).
+ * </Callout>
+ *
  * Copilot Runtime adapter for Google Generative AI (e.g. Gemini).
  *
  * ## Example
  *
- * ```ts
- * import { CopilotRuntime, GoogleGenerativeAIAdapter } from "@copilotkit/runtime";
- * const { GoogleGenerativeAI } = require("@google/generative-ai");
+ * The adapter reads `GOOGLE_API_KEY` unless you pass `apiKey`.
  *
- * const genAI = new GoogleGenerativeAI(process.env["GOOGLE_API_KEY"]);
+ * ```ts
+ * import {
+ *   CopilotRuntime,
+ *   GoogleGenerativeAIAdapter,
+ *   copilotRuntimeNextJSAppRouterEndpoint,
+ * } from "@copilotkit/runtime";
  *
  * const copilotKit = new CopilotRuntime();
  *
- * return new GoogleGenerativeAIAdapter({ model: "gemini-3.8-flash", apiVersion: "v1" });
+ * const serviceAdapter = new GoogleGenerativeAIAdapter({
+ *   model: "gemini-3.5-flash",
+ *   apiVersion: "v1",
+ * });
+ *
+ * export const POST = copilotRuntimeNextJSAppRouterEndpoint({
+ *   runtime: copilotKit,
+ *   serviceAdapter,
+ *   endpoint: "/api/copilotkit",
+ * }).handleRequest;
  * ```
  */
 import { LangChainAdapter } from "../langchain/langchain-adapter";

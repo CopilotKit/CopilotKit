@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import * as ts from "typescript";
 import { Comments } from "../docs/lib/comments";
 import { REFERENCE_DOCS } from "../docs/lib/files";
+import { parsePythonDocstrings } from "../docs/lib/python";
+import { ReferenceDoc } from "../docs/lib/reference-doc";
+import { SourceFile } from "../docs/lib/source";
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 
@@ -100,6 +104,196 @@ describe("v1 deprecation notice stripping", () => {
 
     expect(comment).toBe("Does the thing.");
     expect(params).toEqual({ first: "the first argument" });
+  });
+});
+
+describe("comment syntax removal", () => {
+  it("keeps every * that is part of the text", () => {
+    const comment = [
+      "/**",
+      '   * Omit `accept` to allow all file types (default: `"*\\/*"`).',
+      "   * **Note**: see the sample.",
+      "   *",
+      "   * ```tsx",
+      "   * <CopilotChat",
+      "   *   attachments={{",
+      '   *     accept: "image/*,audio/*,application/pdf",',
+      "   *     maxSize: 10 * 1024 * 1024, // 10MB",
+      "   *   }}",
+      "   * />",
+      "   * ```",
+      "   */",
+    ].join("\n");
+
+    expect(Comments.removeCommentSyntax(comment)).toBe(
+      [
+        'Omit `accept` to allow all file types (default: `"*/*"`).',
+        "**Note**: see the sample.",
+        "",
+        "```tsx",
+        "<CopilotChat",
+        "  attachments={{",
+        '    accept: "image/*,audio/*,application/pdf",',
+        "    maxSize: 10 * 1024 * 1024, // 10MB",
+        "  }}",
+        "/>",
+        "```",
+      ].join("\n"),
+    );
+  });
+
+  it("strips a one-line comment", () => {
+    expect(Comments.removeCommentSyntax("/** The chat labels. */")).toBe(
+      "The chat labels.",
+    );
+  });
+});
+
+describe("Python docstring parsing", () => {
+  it("does not give a class without a docstring the next docstring", () => {
+    const source = [
+      "class Helper:",
+      "    def __init__(self, tool: str):",
+      "        self.tool = tool",
+      "",
+      "",
+      "class Agent(Base):",
+      '    """',
+      "    The agent.",
+      "",
+      "    Parameters",
+      "    ----------",
+      "    name : str",
+      "        The name of the agent.",
+      '    """',
+    ].join("\n");
+
+    const parsed = parsePythonDocstrings(["Helper", "Agent"], source);
+
+    expect(parsed.Helper).toBeUndefined();
+    expect(parsed.Agent?.description).toBe("The agent.");
+    expect(parsed.Agent?.parameters).toEqual([
+      { name: "name", type: "str", description: "The name of the agent." },
+    ]);
+  });
+
+  it("keeps a Returns block without Parameters out of the description", () => {
+    const source = [
+      "async def exit_run() -> bool:",
+      '    """',
+      "    Exits the run.",
+      "",
+      "    Returns",
+      "    -------",
+      "    bool",
+      "        Always True.",
+      '    """',
+    ].join("\n");
+
+    const parsed = parsePythonDocstrings(["exit_run"], source);
+
+    expect(parsed.exit_run?.description).toBe("Exits the run.");
+    expect(parsed.exit_run?.parameters).toEqual([]);
+    expect(parsed.exit_run?.returns).toEqual({
+      type: "bool",
+      description: "Always True.",
+    });
+  });
+});
+
+describe("TypeScript reference generation", () => {
+  function writeSource(lines: string[]): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "docs-gen-"));
+    const file = path.join(dir, "sample.ts");
+    fs.writeFileSync(file, lines.join("\n"));
+    return file;
+  }
+
+  it("includes the props of a generic base interface from the same file", () => {
+    const file = writeSource([
+      "interface Base<T> {",
+      "  /** From the base. */",
+      "  inherited?: T;",
+      "  /** Left out by Omit. */",
+      "  dropped?: string;",
+      "}",
+      'interface Params<T> extends Omit<Base<T>, "dropped"> {',
+      "  /** Own prop. */",
+      "  own?: string;",
+      "}",
+      "export class Thing<T> {",
+      "  constructor(params?: Params<T>) {}",
+      "}",
+    ]);
+    const source = new SourceFile(file);
+    source.parse();
+
+    const names = source
+      .getArg0Interface("Thing")
+      ?.properties.map((property) => property.name);
+
+    expect(names).toEqual(["inherited", "own"]);
+  });
+
+  it("leaves out internal props and documents a commented second hook argument", async () => {
+    const file = writeSource([
+      "/**",
+      " * The hook page.",
+      " */",
+      "interface Options {",
+      "  /** Shown. */",
+      "  shown: string;",
+      "  /** @internal Hidden. */",
+      "  hidden?: string;",
+      "}",
+      "export function useThing(",
+      "  options: Options,",
+      "  /** Values that run the hook again when they change. */",
+      "  dependencies?: any[],",
+      ") {}",
+    ]);
+
+    const page = await new ReferenceDoc({
+      sourcePath: file,
+      destinationPath: "unused/page.mdx",
+      hook: "useThing",
+    }).generatedDocsTypeScript();
+
+    expect(page).toContain('name="shown"');
+    expect(page).not.toContain('name="hidden"');
+    expect(page).toContain(
+      '<PropertyReference name="dependencies" type="any[]" >',
+    );
+    expect(page).toContain("Values that run the hook again when they change.");
+  });
+
+  it("keeps only the type of an inline object argument and gives @returns its own section", async () => {
+    const file = writeSource([
+      "/**",
+      " * Does the thing.",
+      " *",
+      " * @returns The id it used.",
+      " */",
+      "export async function doThing(",
+      "  /** The options. */",
+      "  options?: {",
+      "    /** An id. */",
+      "    id?: string;",
+      "  },",
+      "): Promise<string> {",
+      '  return "";',
+      "}",
+    ]);
+
+    const page = await new ReferenceDoc({
+      sourcePath: file,
+      destinationPath: "unused/page.mdx",
+      typescriptSymbols: ["doThing"],
+    }).generatedDocsTypeScriptSymbols();
+
+    expect(page).toContain('type="{ id?: string; }"');
+    expect(page).toContain("### Returns\n\nThe id it used.");
+    expect(page).not.toContain("@returns");
   });
 });
 

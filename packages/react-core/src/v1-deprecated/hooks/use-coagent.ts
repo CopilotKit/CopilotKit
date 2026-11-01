@@ -78,7 +78,7 @@
  * } = agent;
  * ```
  *
- * Finally we can leverage these properties to create reactive experiences with the agent!
+ * Read `state` and call `setState` in a component:
  *
  * ```tsx
  * const { state, setState } = useCoAgent<AgentState>({
@@ -112,6 +112,9 @@
  *   </PropertyReference>
  *   <PropertyReference name="setState" type="(newState: T | ((prevState: T | undefined) => T)) => void">
  *     A function to update the state of the agent if you are using this hook with external state management.
+ *   </PropertyReference>
+ *   <PropertyReference name="config" type="{ configurable?: Record<string, any>; [key: string]: any }">
+ *     Config to pass to a LangGraph agent. The hook sends it with every run.
  *   </PropertyReference>
  * </PropertyReference>
  */

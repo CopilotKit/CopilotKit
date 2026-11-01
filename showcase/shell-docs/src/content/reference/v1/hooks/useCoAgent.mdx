@@ -1,6 +1,6 @@
 ---
 title: "useCoAgent"
-description: "The useCoAgent hook allows you to share state bidirectionally between your application and the agent."
+description: "The useCoAgent hook shares state between your application and the agent in both directions."
 ---
 
 {
@@ -21,35 +21,35 @@ description: "The useCoAgent hook allows you to share state bidirectionally betw
     className="w-auto"
   />
 </Frame>
- 
+
 This hook is used to integrate an agent into your application. With its use, you can
 render and update the state of an agent, allowing for a dynamic and interactive experience.
 We call these shared state experiences agentic copilots, or CoAgents for short.
- 
+
 ## Usage
- 
+
 ### Simple Usage
- 
+
 ```tsx
 import { useCoAgent } from "@copilotkit/react-core";
- 
+
 type AgentState = {
   count: number;
 }
- 
+
 const agent = useCoAgent<AgentState>({
   name: "my-agent",
   initialState: {
     count: 0,
   },
 });
- 
+
 ```
- 
+
 In CopilotKit v2, `useCoAgent` is a thin compatibility wrapper over the v2
 [`useAgent`](/reference/hooks/useAgent) hook. It returns an object with the
 following properties:
- 
+
 ```tsx
 const {
   name,     // The name of the agent currently being used.
@@ -63,9 +63,9 @@ const {
   run,      // A function to (re-)run the agent through the v2 core (`copilotkit.runAgent`).
 } = agent;
 ```
- 
-Finally we can leverage these properties to create reactive experiences with the agent!
- 
+
+Read `state` and call `setState` in a component:
+
 ```tsx
 const { state, setState } = useCoAgent<AgentState>({
   name: "my-agent",
@@ -73,7 +73,7 @@ const { state, setState } = useCoAgent<AgentState>({
     count: 0,
   },
 });
- 
+
 return (
   <div>
     <p>Count: {state.count}</p>
@@ -81,9 +81,9 @@ return (
   </div>
 );
 ```
- 
+
 This reactivity is bidirectional, meaning that changes to the state from the agent will be reflected in the UI and vice versa.
- 
+
 ## Parameters
 <PropertyReference name="options" type="UseCoagentOptions<T>" required>
   The options to use when creating the coagent.
@@ -98,6 +98,9 @@ This reactivity is bidirectional, meaning that changes to the state from the age
   </PropertyReference>
   <PropertyReference name="setState" type="(newState: T | ((prevState: T | undefined) => T)) => void">
     A function to update the state of the agent if you are using this hook with external state management.
+  </PropertyReference>
+  <PropertyReference name="config" type="{ configurable?: Record<string, any>; [key: string]: any }">
+    Config to pass to a LangGraph agent. The hook sends it with every run.
   </PropertyReference>
 </PropertyReference>
 

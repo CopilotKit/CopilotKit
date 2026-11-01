@@ -11,73 +11,180 @@ description: "Copilot Runtime is the back-end component of CopilotKit, enabling 
   */
 }
 <Callout type="info">
-  This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/backend/copilot-runtime).
+  In v2, use `CopilotRuntime` from `@copilotkit/runtime/v2`. This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/backend/copilot-runtime).
 </Callout>
- 
+
 ## Usage
- 
+
 ```tsx
 import { CopilotRuntime } from "@copilotkit/runtime";
- 
+
 const copilotKit = new CopilotRuntime();
 ```
 
 ## Constructor Parameters
 
+<PropertyReference name="telemetryId" type="string"  > 
+Standalone telemetry identity. Falls back to CPK_TELEMETRY_ID, then to the license token identity.
+</PropertyReference>
+
+<PropertyReference name="actions" type="ActionsConfiguration<T>"  > 
+A list of server side actions that can be executed.
+</PropertyReference>
+
+<PropertyReference name="remoteActions" type="CopilotKitEndpoint[]"  > 
+Ignored. Accepted for source compatibility only.
+</PropertyReference>
+
+<PropertyReference name="remoteEndpoints" type="EndpointDefinition[]"  > 
+Ignored. Accepted for source compatibility only. A LangGraph Platform
+endpoint in this list throws an error. Use `agents` instead.
+</PropertyReference>
+
+<PropertyReference name="langserve" type="RemoteChainParameters[]"  > 
+Ignored. Accepted for source compatibility only.
+</PropertyReference>
+
+<PropertyReference name="runner" type="AgentRunner"  > 
+Optional agent runner to use for SSE runtime.
+</PropertyReference>
+
+<PropertyReference name="delegateAgentProcessingToServiceAdapter" type="boolean"  > 
+Ignored. Accepted for source compatibility only.
+</PropertyReference>
+
+<PropertyReference name="observability_c" type="CopilotObservabilityConfig"  > 
+Ignored. Accepted for source compatibility only.
+</PropertyReference>
+
+<PropertyReference name="mcpServers" type="MCPEndpointConfig[]"  > 
+Configuration for connecting to Model Context Protocol (MCP) servers.
+Allows fetching and using tools defined on external MCP-compliant servers.
+Requires providing the `createMCPClient` function during instantiation.
+
+A request can also name its own servers, as `mcpServers` (or the older
+`mcpEndpoints`) inside `forwardedProps`. The frontend's `setMcpServers`
+sends them there. The runtime merges them with this list and connects to
+them from the server.
+
+So a caller can also choose the destination.
+If your deployment does not mean to let the browser choose an MCP server,
+check `config.endpoint` inside `createMCPClient` and reject anything
+outside your allowlist. Without that check a request can aim the server at
+a loopback, link-local, or otherwise internal address (SSRF).
+Experimental: this API can change in a minor release.
+</PropertyReference>
+
+<PropertyReference name="createMCPClient" type="CreateMCPClientFunction"  > 
+A function that creates an MCP client instance for a given endpoint configuration.
+This function is responsible for using the appropriate MCP client library
+(e.g., `@copilotkit/runtime`, `ai`) to establish a connection.
+Required if `mcpServers` is provided.
+
+```typescript
+import { experimental_createMCPClient } from "ai"; // Import from vercel ai library
+// ...
+const runtime = new CopilotRuntime({
+  mcpServers: [{ endpoint: "..." }],
+  async createMCPClient(config) {
+    return await experimental_createMCPClient({
+      transport: {
+        type: "sse",
+        url: config.endpoint,
+        headers: config.apiKey
+          ? { Authorization: `Bearer ${config.apiKey}` }
+          : undefined,
+      },
+    });
+  }
+});
+```
+
+Define this once, at module scope, if you build a new `CopilotRuntime`
+per request. Connections are cached against the identity of this function
+plus the endpoint config, and an inline function is a new object on every
+request, so a per-request runtime with an inline factory opens a new
+connection each time and never reuses one. A module-scope factory, which
+is what the documented setup uses, shares connections across requests and
+keeps the cache bounded by how many distinct credentials are in play
+rather than by traffic.
+</PropertyReference>
+
+<PropertyReference name="onError" type="CopilotErrorHandler"  > 
+Receives a structured error event for debugging and observability.
+
+```typescript
+const runtime = new CopilotRuntime({
+  onError: (errorEvent) => {
+    debugDashboard.capture(errorEvent);
+  }
+});
+```
+</PropertyReference>
+
+<PropertyReference name="onStopGeneration" type="OnStopGenerationHandler"  > 
+Ignored. Accepted for source compatibility only.
+</PropertyReference>
+
+<PropertyReference name="debug" type="DebugConfig"  > 
+Enable debug logging for the runtime event pipeline.
+Pass `true` for full output, or an object for granular control:
+
+```ts
+const runtime = new CopilotRuntime({
+  debug: true,
+  // or: debug: { events: true, lifecycle: true, verbose: false }
+});
+```
+</PropertyReference>
+
 <PropertyReference name="agents" type="AgentsConfig"  > 
-TODO: un-omit `transcriptionService` above once it's supported
- 
-  This satisfies...
-   – the optional constraint in `CopilotRuntimeConstructorParams_BASE`
-   – the `MaybePromise<NonEmptyRecord<T>>` constraint in `CopilotRuntimeOptionsVNext`
-   – the `Record<string, AbstractAgent>` constraint in `both
+The agents this runtime serves, keyed by agent ID.
 </PropertyReference>
 
 <PropertyReference name="intelligence" type="CopilotIntelligenceRuntimeOptions['intelligence']"  > 
-
+Connects this runtime to Intelligence for durable threads and realtime events.
 </PropertyReference>
 
 <PropertyReference name="identifyUser" type="CopilotIntelligenceRuntimeOptions['identifyUser']"  > 
-
+Used only with `intelligence`. Without `intelligence`, this runtime
+ignores this option, and every caller can reach a local thread by its id.
+For per-user local threads, use the v2 `CopilotRuntime`.
 </PropertyReference>
 
 <PropertyReference name="memory" type="CopilotIntelligenceRuntimeOptions['memory']"  > 
-
+Turns on agent and browser Memory. Needs `intelligence` and `identifyUser`.
 </PropertyReference>
 
 <PropertyReference name="channels" type="CopilotIntelligenceRuntimeOptions['channels']"  > 
-
-</PropertyReference>
-
-<PropertyReference name="ɵlearning" type="CopilotIntelligenceRuntimeOptions['ɵlearning']"  > 
-
+The Intelligence Channels this runtime declares. Needs `intelligence`.
 </PropertyReference>
 
 <PropertyReference name="generateThreadNames" type="CopilotIntelligenceRuntimeOptions['generateThreadNames']"  > 
-
+When `true`, gives each new thread a short generated name.
 </PropertyReference>
 
 <PropertyReference name="maxReconnectMs" type="CopilotIntelligenceRuntimeOptions['maxReconnectMs']"  > 
-
+The longest wait, in milliseconds, between WebSocket reconnect attempts. Defaults to 10000.
 </PropertyReference>
 
 <PropertyReference name="maxRejoinMs" type="CopilotIntelligenceRuntimeOptions['maxRejoinMs']"  > 
-
+The longest wait, in milliseconds, between channel rejoin attempts. Defaults to 30000.
 </PropertyReference>
 
 <PropertyReference name="heartbeatIntervalMs" type="CopilotIntelligenceRuntimeOptions['heartbeatIntervalMs']"  > 
-
+The time, in milliseconds, between heartbeats on the runner WebSocket. Defaults to 15000.
 </PropertyReference>
 
 <PropertyReference name="lockTtlSeconds" type="CopilotIntelligenceRuntimeOptions['lockTtlSeconds']"  > 
-
+The thread lock TTL, in seconds. The maximum is 3600. Defaults to 20.
 </PropertyReference>
 
 <PropertyReference name="lockKeyPrefix" type="CopilotIntelligenceRuntimeOptions['lockKeyPrefix']"  > 
-
+A custom Redis key prefix for the thread lock.
 </PropertyReference>
 
 <PropertyReference name="lockHeartbeatIntervalSeconds" type="CopilotIntelligenceRuntimeOptions['lockHeartbeatIntervalSeconds']"  > 
-
+The time, in seconds, between thread lock renewals. The maximum is 3000. Defaults to 15.
 </PropertyReference>
 

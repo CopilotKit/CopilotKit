@@ -30,7 +30,7 @@
  *
  * @copilotkit/runtime — langGraphPlatformEndpoint:
  *   No 1:1 v2 replacement is available.
- *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/langgraph-python
  *   Start at: @copilotkit/runtime/v2
  *   V2 docs: https://docs.copilotkit.ai/
  *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
@@ -49,7 +49,7 @@
 
 /**
  * <Callout type="info">
- *   This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/backend/copilot-runtime).
+ *   In v2, use `CopilotRuntime` from `@copilotkit/runtime/v2`. This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/backend/copilot-runtime).
  * </Callout>
  *
  * ## Usage
@@ -204,7 +204,7 @@ interface Middleware {
 export interface CopilotRuntimeConstructorParams_BASE<
   T extends Parameter[] | [] = [],
 > {
-  /** Standalone telemetry identity. Falls back to CPK_TELEMETRY_ID before legacy license identity. */
+  /** Standalone telemetry identity. Falls back to CPK_TELEMETRY_ID, then to the license token identity. */
   telemetryId?: string;
   /**
    * Middleware to be used by the runtime.
@@ -234,23 +234,24 @@ export interface CopilotRuntimeConstructorParams_BASE<
    */
   middleware?: Middleware;
 
-  /*
-   * A list of server side actions that can be executed. Will be ignored when remoteActions are set
+  /**
+   * A list of server side actions that can be executed.
    */
   actions?: ActionsConfiguration<T>;
 
-  /*
-   * Deprecated: Use `remoteEndpoints`.
+  /**
+   * Ignored. Accepted for source compatibility only.
    */
   remoteActions?: CopilotKitEndpoint[];
 
-  /*
-   * A list of remote actions that can be executed.
+  /**
+   * Ignored. Accepted for source compatibility only. A LangGraph Platform
+   * endpoint in this list throws an error. Use `agents` instead.
    */
   remoteEndpoints?: EndpointDefinition[];
 
-  /*
-   * An array of LangServer URLs.
+  /**
+   * Ignored. Accepted for source compatibility only.
    */
   langserve?: RemoteChainParameters[];
 
@@ -273,29 +274,13 @@ export interface CopilotRuntimeConstructorParams_BASE<
    */
   agents?: Record<string, AbstractAgent>;
 
-  /*
-   * Delegates agent state processing to the service adapter.
-   *
-   * When enabled, individual agent state requests will not be processed by the agent itself.
-   * Instead, all processing will be handled by the service adapter.
+  /**
+   * Ignored. Accepted for source compatibility only.
    */
   delegateAgentProcessingToServiceAdapter?: boolean;
 
   /**
-   * Configuration for LLM request/response logging.
-   *
-   * Example logging config:
-   * ```ts
-   * logging: {
-   *   enabled: true, // Enable or disable logging
-   *   progressive: true, // Set to false for buffered logging
-   *   logger: {
-   *     logRequest: (data) => langfuse.trace({ name: "LLM Request", input: data }),
-   *     logResponse: (data) => langfuse.trace({ name: "LLM Response", output: data }),
-   *     logError: (errorData) => langfuse.trace({ name: "LLM Error", metadata: errorData }),
-   *   },
-   * }
-   * ```
+   * Ignored. Accepted for source compatibility only.
    */
   observability_c?: CopilotObservabilityConfig;
 
@@ -305,16 +290,11 @@ export interface CopilotRuntimeConstructorParams_BASE<
    * Requires providing the `createMCPClient` function during instantiation.
    *
    * A request can also name its own servers, as `mcpServers` (or the older
-   * `mcpEndpoints`) inside `forwardedProps` — that is what the frontend's
-   * `setMcpServers` sends. Those are merged with this list and connected from
-   * the server.
+   * `mcpEndpoints`) inside `forwardedProps`. The frontend's `setMcpServers`
+   * sends them there. The runtime merges them with this list and connects to
+   * them from the server.
    *
-   * That merge previously never ran: whatever the browser sent was accepted
-   * and discarded. It now takes effect, so a deployment that has been sending
-   * `setMcpServers` will start connecting to those endpoints without changing
-   * anything on its side.
-   *
-   * The destination is therefore caller-controlled, not only config-controlled.
+   * So a caller can also choose the destination.
    * If your deployment does not mean to let the browser choose an MCP server,
    * check `config.endpoint` inside `createMCPClient` and reject anything
    * outside your allowlist. Without that check a request can aim the server at
@@ -351,7 +331,7 @@ export interface CopilotRuntimeConstructorParams_BASE<
    * Define this once, at module scope, if you build a new `CopilotRuntime`
    * per request. Connections are cached against the identity of this function
    * plus the endpoint config, and an inline function is a new object on every
-   * request — so a per-request runtime with an inline factory opens a new
+   * request, so a per-request runtime with an inline factory opens a new
    * connection each time and never reuses one. A module-scope factory, which
    * is what the documented setup uses, shares connections across requests and
    * keeps the cache bounded by how many distinct credentials are in play
@@ -360,11 +340,8 @@ export interface CopilotRuntimeConstructorParams_BASE<
   createMCPClient?: CreateMCPClientFunction;
 
   /**
-   * Optional error handler for comprehensive debugging and observability.
+   * Receives a structured error event for debugging and observability.
    *
-   * @param errorEvent - Structured error event with rich debugging context
-   *
-   * @example
    * ```typescript
    * const runtime = new CopilotRuntime({
    *   onError: (errorEvent) => {
@@ -375,6 +352,9 @@ export interface CopilotRuntimeConstructorParams_BASE<
    */
   onError?: CopilotErrorHandler;
 
+  /**
+   * Ignored. Accepted for source compatibility only.
+   */
   onStopGeneration?: OnStopGenerationHandler;
 
   /**
@@ -409,36 +389,48 @@ type BeforeRequestMiddlewareFnResult = ReturnType<BeforeRequestMiddlewareFn>;
 type AfterRequestMiddlewareFn = Exclude<AfterRequestMiddleware, string>;
 type AfterRequestMiddlewareFnParameters = Parameters<AfterRequestMiddlewareFn>;
 
+// `agents` below satisfies three constraints at once:
+//  - the optional constraint in `CopilotRuntimeConstructorParams_BASE`
+//  - the `MaybePromise<NonEmptyRecord<T>>` constraint in `CopilotRuntimeOptionsVNext`
+//  - the `Record<string, AbstractAgent>` constraint in both
 interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
   extends
     Omit<CopilotRuntimeConstructorParams_BASE<T>, "agents">,
+    // TODO: un-omit `transcriptionService` once it's supported
     Omit<CopilotRuntimeOptionsVNext, "agents" | "transcriptionService"> {
-  /**
-   * TODO: un-omit `transcriptionService` above once it's supported
-   *
-   * This satisfies...
-   *  – the optional constraint in `CopilotRuntimeConstructorParams_BASE`
-   *  – the `MaybePromise<NonEmptyRecord<T>>` constraint in `CopilotRuntimeOptionsVNext`
-   *  – the `Record<string, AbstractAgent>` constraint in `both
-   */
+  /** The agents this runtime serves, keyed by agent ID. */
   agents?: AgentsConfig;
 
+  /** Connects this runtime to Intelligence for durable threads and realtime events. */
   intelligence?: CopilotIntelligenceRuntimeOptions["intelligence"];
   /**
-   * Used only with `intelligence`. Without it, this runtime ignores the
-   * option, and local threads stay reachable by id for every caller, as in
-   * earlier releases. For per-user local threads, use the v2 `CopilotRuntime`.
+   * Used only with `intelligence`. Without `intelligence`, this runtime
+   * ignores this option, and every caller can reach a local thread by its id.
+   * For per-user local threads, use the v2 `CopilotRuntime`.
    */
   identifyUser?: CopilotIntelligenceRuntimeOptions["identifyUser"];
+  /** Turns on agent and browser Memory. Needs `intelligence` and `identifyUser`. */
   memory?: CopilotIntelligenceRuntimeOptions["memory"];
+  /** The Intelligence Channels this runtime declares. Needs `intelligence`. */
   channels?: CopilotIntelligenceRuntimeOptions["channels"];
+  /**
+   * @internal
+   * @deprecated Configure `getLearningContainerId` on `CopilotKitIntelligence`.
+   */
   ɵlearning?: CopilotIntelligenceRuntimeOptions["ɵlearning"];
+  /** When `true`, gives each new thread a short generated name. */
   generateThreadNames?: CopilotIntelligenceRuntimeOptions["generateThreadNames"];
+  /** The longest wait, in milliseconds, between WebSocket reconnect attempts. Defaults to 10000. */
   maxReconnectMs?: CopilotIntelligenceRuntimeOptions["maxReconnectMs"];
+  /** The longest wait, in milliseconds, between channel rejoin attempts. Defaults to 30000. */
   maxRejoinMs?: CopilotIntelligenceRuntimeOptions["maxRejoinMs"];
+  /** The time, in milliseconds, between heartbeats on the runner WebSocket. Defaults to 15000. */
   heartbeatIntervalMs?: CopilotIntelligenceRuntimeOptions["heartbeatIntervalMs"];
+  /** The thread lock TTL, in seconds. The maximum is 3600. Defaults to 20. */
   lockTtlSeconds?: CopilotIntelligenceRuntimeOptions["lockTtlSeconds"];
+  /** A custom Redis key prefix for the thread lock. */
   lockKeyPrefix?: CopilotIntelligenceRuntimeOptions["lockKeyPrefix"];
+  /** The time, in seconds, between thread lock renewals. The maximum is 3000. Defaults to 15. */
   lockHeartbeatIntervalSeconds?: CopilotIntelligenceRuntimeOptions["lockHeartbeatIntervalSeconds"];
 }
 

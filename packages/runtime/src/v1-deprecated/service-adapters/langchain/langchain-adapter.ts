@@ -18,12 +18,20 @@
  */
 
 /**
+ * <Callout type="info">
+ *   `LangChainAdapter` has no direct v2 replacement. For v2, see [Runtime server adapter](/runtime-server-adapter).
+ * </Callout>
+ *
  * Copilot Runtime adapter for LangChain.
  *
  * ## Example
  *
  * ```ts
- * import { CopilotRuntime, LangChainAdapter } from "@copilotkit/runtime";
+ * import {
+ *   CopilotRuntime,
+ *   LangChainAdapter,
+ *   copilotRuntimeNextJSAppRouterEndpoint,
+ * } from "@copilotkit/runtime";
  * import { ChatOpenAI } from "@langchain/openai";
  *
  * const copilotKit = new CopilotRuntime();
@@ -33,13 +41,19 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * return new LangChainAdapter({
+ * const serviceAdapter = new LangChainAdapter({
  *   chainFn: async ({ messages, tools }) => {
  *     return model.bindTools(tools).stream(messages);
  *     // or optionally enable strict mode
  *     // return model.bindTools(tools, { strict: true }).stream(messages);
- *   }
+ *   },
  * });
+ *
+ * export const POST = copilotRuntimeNextJSAppRouterEndpoint({
+ *   runtime: copilotKit,
+ *   serviceAdapter,
+ *   endpoint: "/api/copilotkit",
+ * }).handleRequest;
  * ```
  *
  * The asynchronous handler function (`chainFn`) can return any of the following:

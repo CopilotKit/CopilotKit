@@ -18,22 +18,26 @@
  */
 
 /**
+ * <Callout type="info">
+ *   `useCopilotChatHeadless_c` has no direct v2 replacement. In v2, build headless UI on [`useAgent`](/reference/v2/hooks/useAgent). See [Headless UI](/custom-look-and-feel/headless-ui).
+ * </Callout>
+ *
  * `useCopilotChatHeadless_c` is for building fully custom UI (headless UI) implementations.
  *
  * <Callout title="This is a CopilotKit Intelligence feature">
  * Read more about <a href="/intelligence/overview">CopilotKit Intelligence</a>.
  *
  * Usage is generous and **free** to get started.
+ *
+ * The hook needs a public license key. Without one, it returns no-op functions.
  * </Callout>
  *
  * ## Key Features
  *
  * - **Fully headless**: Build your own fully custom UI's for your agentic applications.
  * - **Advanced Suggestions**: Direct access to suggestions array with full control
- * - **Interrupt Handling**: Support for advanced interrupt functionality
+ * - **Interrupt Handling**: Interrupt content for human-in-the-loop workflows
  * - **MCP Server Support**: Model Context Protocol server configurations
- * - **Chat Controls**: Complete set of chat management functions
- * - **Loading States**: Comprehensive loading state management
  *
  *
  * ## Usage
@@ -46,7 +50,7 @@
  *
  * export function App() {
  *   return (
- *     <CopilotKit runtimeUrl="/api/copilotkit">
+ *     <CopilotKit runtimeUrl="/api/copilotkit" publicLicenseKey="YOUR_PUBLIC_LICENSE_KEY">
  *       <YourComponent />
  *     </CopilotKit>
  *   );
@@ -153,11 +157,11 @@
  * Update MCP server configurations for enhanced context
  * </PropertyReference>
  *
- * <PropertyReference name="suggestions" type="SuggestionItem[]">
+ * <PropertyReference name="suggestions" type="Suggestion[]">
  * Current suggestions array for reading or manual control
  * </PropertyReference>
  *
- * <PropertyReference name="setSuggestions" type="(suggestions: SuggestionItem[]) => void">
+ * <PropertyReference name="setSuggestions" type="(suggestions: Omit<Suggestion, 'isLoading'>[]) => void">
  * Manually set suggestions for custom workflows
  * </PropertyReference>
  *
@@ -175,6 +179,41 @@
  *
  * <PropertyReference name="interrupt" type="string | React.ReactElement | null">
  * Interrupt content for human-in-the-loop workflows
+ * </PropertyReference>
+ *
+ * <PropertyReference name="isAvailable" type="boolean">
+ * Whether the chat agent is available to generate responses.
+ * </PropertyReference>
+ *
+ * <PropertyReference name="agent" type="AbstractAgent | undefined">
+ * The agent that the chat runs.
+ * </PropertyReference>
+ *
+ * <PropertyReference name="threadId" type="string | undefined">
+ * The id of the current thread.
+ * </PropertyReference>
+ *
+ * ## Parameters
+ *
+ * <PropertyReference name="suggestions" type="'auto' | 'manual' | Omit<Suggestion, 'isLoading'>[]">
+ * How the chat gets suggestions: `"auto"` generates them, `"manual"` leaves them to your
+ * code, and a static list shows the same suggestions every time.
+ * </PropertyReference>
+ *
+ * <PropertyReference name="onInProgress" type="(isLoading: boolean) => void">
+ * Called with whether the agent is running.
+ * </PropertyReference>
+ *
+ * <PropertyReference name="onSubmitMessage" type="(messageContent: string) => Promise<void> | void">
+ * Called with the message text before the hook sends it.
+ * </PropertyReference>
+ *
+ * <PropertyReference name="onStopGeneration" type="OnStopGeneration">
+ * Called when the user stops the run.
+ * </PropertyReference>
+ *
+ * <PropertyReference name="onReloadMessages" type="OnReloadMessages">
+ * Called when the user reloads a message.
  * </PropertyReference>
  */
 import { useEffect } from "react";

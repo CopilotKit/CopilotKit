@@ -11,11 +11,11 @@ export type CoAgentStateRenderHandlerArguments<T> = {
 
 export interface CoAgentStateRender<T = any> {
   /**
-   * The name of the coagent.
+   * The name of the agent.
    */
   name: string;
   /**
-   * The node name of the coagent.
+   * The node name of the agent.
    */
   nodeName?: string;
   /**
