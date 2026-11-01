@@ -193,6 +193,9 @@ export async function parseSSEResponse(
             });
           }
           openChunks.set(lane, { kind: "text", id: messageId });
+        } else {
+          // The client closes the lane before rejecting a chunk with no id.
+          openChunks.delete(lane);
         }
         break;
       }
@@ -243,6 +246,8 @@ export async function parseSSEResponse(
           }
           tc.args += event.delta ?? "";
           openChunks.set(lane, { kind: "tool", id: toolCallId });
+        } else {
+          openChunks.delete(lane);
         }
         break;
       }

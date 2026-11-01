@@ -257,6 +257,36 @@ describe("parseSSEResponse", () => {
     ]);
   });
 
+  it("does not continue a chunk across an id-less chunk of the other kind", async () => {
+    const text = buildSSEResponse([
+      { type: "TEXT_MESSAGE_CHUNK", messageId: "m-1", delta: "Hello" },
+      { type: "TOOL_CALL_CHUNK", delta: "{}" },
+      { type: "TEXT_MESSAGE_CHUNK", delta: " world" },
+    ]);
+    expect((await parseSSEResponse(text)).messages).toEqual([
+      { id: "m-1", role: "assistant", content: "Hello" },
+    ]);
+
+    const tool = buildSSEResponse([
+      {
+        type: "TOOL_CALL_CHUNK",
+        toolCallId: "tc-1",
+        toolCallName: "get_weather",
+        parentMessageId: "m-1",
+        delta: '{"city":',
+      },
+      { type: "TEXT_MESSAGE_CHUNK", delta: "Hi" },
+      { type: "TOOL_CALL_CHUNK", delta: '"NYC"}' },
+    ]);
+    expect((await parseSSEResponse(tool)).messages).toEqual([
+      {
+        id: "m-1",
+        role: "assistant",
+        toolCalls: [{ id: "tc-1", name: "get_weather", args: '{"city":' }],
+      },
+    ]);
+  });
+
   it("continues a subagent chunk tagged only on its first delta", async () => {
     const response = buildSSEResponse([
       {
