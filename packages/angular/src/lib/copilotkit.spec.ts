@@ -508,7 +508,7 @@ describe("CopilotKit", () => {
     );
   });
 
-  it("includes custom component schemas in the catalog description by default", () => {
+  it("sends each custom component schema once by default, in the Component Schema entry only", () => {
     const customCatalog: A2UICatalog = Object.assign(
       new Catalog("copilotkit://custom-catalog", [
         { name: "FlightCard", schema: z.object({ airline: z.string() }) },
@@ -523,18 +523,25 @@ describe("CopilotKit", () => {
 
     TestBed.inject(CopilotKit);
 
-    expect(mockAddContext).toHaveBeenCalledWith(
-      expect.objectContaining({
-        description:
-          "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
-        value: expect.stringContaining("  - FlightCard:\n    {"),
-      }),
-    );
-    expect(mockAddContext).toHaveBeenCalledWith(
-      expect.objectContaining({
-        value: expect.stringContaining('"airline"'),
-      }),
-    );
+    // The Component Schema entry already carries every component, so the
+    // capabilities entry only names the custom components.
+    expect(mockAddContext).toHaveBeenCalledWith({
+      description:
+        "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
+      value: [
+        "Available A2UI catalog:",
+        "- copilotkit://custom-catalog",
+        "  Custom catalog (does NOT include all basic components).",
+        "  Custom components:",
+        "  - FlightCard",
+      ].join("\n"),
+    });
+    const schemaValue = mockAddContext.mock.calls.find(
+      ([context]) => context.description === A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+    )?.[0].value;
+    const schema = JSON.parse(schemaValue);
+    expect(Object.keys(schema.components)).toEqual(["FlightCard"]);
+    expect(JSON.stringify(schema.components.FlightCard)).toContain('"airline"');
   });
 
   it("advertises a provided A2UI catalog in initial and updated runtime properties", () => {

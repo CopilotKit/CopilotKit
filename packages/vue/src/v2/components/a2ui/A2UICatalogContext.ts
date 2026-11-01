@@ -136,10 +136,10 @@ export function registerA2UICatalogContext(
     includeSchema: () => boolean;
   },
 ): void {
+  // Custom component schemas reach the model through the Component Schema
+  // entry, so the capabilities entry only names the components.
   const contextValue = computed(() =>
-    buildCatalogContextValue(options.catalog(), {
-      includeSchema: options.includeSchema(),
-    }),
+    buildCatalogContextValue(options.catalog(), { includeSchema: false }),
   );
 
   // Register catalog capabilities context

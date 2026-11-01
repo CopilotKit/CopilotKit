@@ -33,12 +33,11 @@ export function A2UICatalogContext({
 }) {
   const { copilotkit } = useCopilotKit();
 
+  // Custom component schemas reach the model through the Component Schema
+  // entry below, so the capabilities entry only names the components.
   const capabilitiesValue = useMemo(
-    () =>
-      buildCatalogContextValue(catalog, {
-        includeSchema: includeSchema !== false,
-      }),
-    [catalog, includeSchema],
+    () => buildCatalogContextValue(catalog, { includeSchema: false }),
+    [catalog],
   );
 
   // When includeSchema is true, send full component schemas in the same format
