@@ -68,7 +68,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/a2ui-middleware": "0.0.10",
+    "@ag-ui/a2ui-middleware": "0.0.14",
     "@ag-ui/client": "1.0.2",
     "@copilotkit/license-verifier": "~0.5.0",
     "@segment/analytics-node": "^2.1.2",

@@ -68,6 +68,7 @@ describe("transformRecordedEvents", () => {
       ],
     };
     const events: BaseEvent[] = [
+      { type: EventType.RUN_STARTED, threadId: "thread", runId: "run" },
       {
         type: EventType.TEXT_MESSAGE_START,
         messageId: "new",
@@ -85,14 +86,20 @@ describe("transformRecordedEvents", () => {
       a2ui: {},
       openGenerativeUI: true,
     });
+    // A2UI cancels a render left unanswered by an earlier run.
     expect(output).toEqual([
-      ...events.slice(0, -1),
+      events[0],
       expect.objectContaining({
         type: EventType.TOOL_CALL_RESULT,
         toolCallId: "pending",
-        content: '{"status":"rendered"}',
+        content: expect.stringContaining('"status":"cancelled"'),
       }),
-      events.at(-1),
+      expect.objectContaining({
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: "a2ui-surface-pending",
+        content: expect.objectContaining({ status: "failed" }),
+      }),
+      ...events.slice(1),
     ]);
   });
   it("matches the live middleware chain event-for-event without changing its input", async () => {
@@ -149,6 +156,31 @@ describe("transformRecordedEvents", () => {
     });
     expect(actual).toEqual(expected);
     expect(JSON.stringify(actual)).toContain("test://catalog");
+  });
+
+  it("replays the recording once when A2UI answers a render call from it", async () => {
+    const events = toolRun(
+      "render_a2ui",
+      JSON.stringify({
+        surfaceId: "surface",
+        components: [{ id: "root", component: "Text", text: "Hello" }],
+      }),
+    ).filter((event) => event.type !== EventType.TOOL_CALL_RESULT);
+    const output = await transformRecordedEvents(input, events, {
+      a2ui: {},
+      openGenerativeUI: true,
+    });
+    for (const type of [EventType.RUN_STARTED, EventType.TOOL_CALL_START]) {
+      expect(output.filter((event) => event.type === type)).toHaveLength(1);
+    }
+    expect(output.slice(-2)).toEqual([
+      expect.objectContaining({
+        type: EventType.TOOL_CALL_RESULT,
+        toolCallId: "call",
+        content: '{"status":"rendered"}',
+      }),
+      events.at(-1),
+    ]);
   });
 
   it("passes ordinary events and terminal errors through unchanged", async () => {

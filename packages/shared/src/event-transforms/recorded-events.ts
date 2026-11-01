@@ -1,4 +1,4 @@
-import { AbstractAgent } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import type { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
@@ -54,7 +54,20 @@ export async function transformRecordedEvents(
   events: readonly BaseEvent[],
   options: RecordedEventTransformOptions,
 ): Promise<BaseEvent[]> {
-  let agent: AbstractAgent = new RecordedEventAgent(input, () => from(events));
+  // After A2UI answers a render call from this run, it continues the agent in
+  // the same run. A recording has no later agent output, so every run after
+  // the first only closes the run.
+  const lifecycle = events.filter(
+    (event) =>
+      event.type === EventType.RUN_STARTED ||
+      event.type === EventType.RUN_FINISHED,
+  );
+  let replayed = false;
+  let agent: AbstractAgent = new RecordedEventAgent(input, () => {
+    const replay = replayed ? lifecycle : events;
+    replayed = true;
+    return from(replay);
+  });
   // Runtime registers A2UI before Open GenUI; the first middleware is outermost.
   if (options.openGenerativeUI) {
     const next = agent;
