@@ -9,43 +9,47 @@ title: "useCopilotChatHeadless_c"
   * packages/react-core/src/v1-deprecated/hooks/use-copilot-chat-headless_c.ts
   */
 }
+<Callout type="info">
+  `useCopilotChatHeadless_c` has no direct v2 replacement. In v2, build headless UI on [`useAgent`](/reference/v2/hooks/useAgent). See [Headless UI](/custom-look-and-feel/headless-ui).
+</Callout>
+
 `useCopilotChatHeadless_c` is for building fully custom UI (headless UI) implementations.
- 
+
 <Callout title="This is a CopilotKit Intelligence feature">
 Read more about <a href="/intelligence/overview">CopilotKit Intelligence</a>.
- 
-Usage is generous and free to get started.
+
+Usage is generous and **free** to get started.
+
+The hook needs a public license key. Without one, it returns no-op functions.
 </Callout>
- 
+
 ## Key Features
- 
-- Fully headless: Build your own fully custom UI's for your agentic applications.
-- Advanced Suggestions: Direct access to suggestions array with full control
-- Interrupt Handling: Support for advanced interrupt functionality
-- MCP Server Support: Model Context Protocol server configurations
-- Chat Controls: Complete set of chat management functions
-- Loading States: Comprehensive loading state management
- 
- 
+
+- **Fully headless**: Build your own fully custom UI's for your agentic applications.
+- **Advanced Suggestions**: Direct access to suggestions array with full control
+- **Interrupt Handling**: Interrupt content for human-in-the-loop workflows
+- **MCP Server Support**: Model Context Protocol server configurations
+
+
 ## Usage
- 
+
 ### Basic Setup
- 
+
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
 import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
- 
+
 export function App() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit">
+    <CopilotKit runtimeUrl="/api/copilotkit" publicLicenseKey="YOUR_PUBLIC_LICENSE_KEY">
       <YourComponent />
     </CopilotKit>
   );
 }
- 
+
 export function YourComponent() {
   const { messages, sendMessage, isLoading } = useCopilotChatHeadless_c();
- 
+
   const handleSendMessage = async () => {
     await sendMessage({
       id: "123",
@@ -53,7 +57,7 @@ export function YourComponent() {
       content: "Hello World",
     });
   };
- 
+
   return (
     <div>
       {messages.map(msg => <div key={msg.id}>{msg.content}</div>)}
@@ -64,12 +68,12 @@ export function YourComponent() {
   );
 }
 ```
- 
+
 ### Working with Suggestions
- 
+
 ```tsx
 import { useCopilotChatHeadless_c, useCopilotChatSuggestions } from "@copilotkit/react-core";
- 
+
 export function SuggestionExample() {
   const {
     suggestions,
@@ -77,13 +81,13 @@ export function SuggestionExample() {
     generateSuggestions,
     isLoadingSuggestions
   } = useCopilotChatHeadless_c();
- 
+
   // Configure AI suggestion generation
   useCopilotChatSuggestions({
     instructions: "Suggest helpful actions based on the current context",
     maxSuggestions: 3
   });
- 
+
   return (
     <div>
       {suggestions.map(suggestion => (
@@ -96,75 +100,110 @@ export function SuggestionExample() {
   );
 }
 ```
- 
+
 ## Return Values
 The following properties are returned from the hook:
- 
+
 <PropertyReference name="messages" type="Message[]">
 The messages currently in the chat in AG-UI format
 </PropertyReference>
- 
+
 <PropertyReference name="sendMessage" type="(message: Message, options?) => Promise<void>">
 Send a new message to the chat and trigger AI response
 </PropertyReference>
- 
+
 <PropertyReference name="setMessages" type="(messages: Message[] | DeprecatedGqlMessage[]) => void">
 Replace all messages in the chat with new array
 </PropertyReference>
- 
+
 <PropertyReference name="deleteMessage" type="(messageId: string) => void">
 Remove a specific message by ID from the chat
 </PropertyReference>
- 
+
 <PropertyReference name="reloadMessages" type="(messageId: string) => Promise<void>">
 Regenerate the response for a specific message by ID
 </PropertyReference>
- 
+
 <PropertyReference name="stopGeneration" type="() => void">
 Stop the current message generation process
 </PropertyReference>
- 
+
 <PropertyReference name="reset" type="() => void">
 Clear all messages and reset chat state completely
 </PropertyReference>
- 
+
 <PropertyReference name="isLoading" type="boolean">
 Whether the chat is currently generating a response
 </PropertyReference>
- 
+
 <PropertyReference name="runChatCompletion" type="() => Promise<Message[]>">
 Manually trigger chat completion for advanced usage
 </PropertyReference>
- 
+
 <PropertyReference name="mcpServers" type="MCPServerConfig[]">
 Array of Model Context Protocol server configurations
 </PropertyReference>
- 
+
 <PropertyReference name="setMcpServers" type="(servers: MCPServerConfig[]) => void">
 Update MCP server configurations for enhanced context
 </PropertyReference>
- 
-<PropertyReference name="suggestions" type="SuggestionItem[]">
+
+<PropertyReference name="suggestions" type="Suggestion[]">
 Current suggestions array for reading or manual control
 </PropertyReference>
- 
-<PropertyReference name="setSuggestions" type="(suggestions: SuggestionItem[]) => void">
+
+<PropertyReference name="setSuggestions" type="(suggestions: Omit<Suggestion, 'isLoading'>[]) => void">
 Manually set suggestions for custom workflows
 </PropertyReference>
- 
+
 <PropertyReference name="generateSuggestions" type="() => Promise<void>">
 Trigger AI-powered suggestion generation using configured settings
 </PropertyReference>
- 
+
 <PropertyReference name="resetSuggestions" type="() => void">
 Clear all current suggestions and reset generation state
 </PropertyReference>
- 
+
 <PropertyReference name="isLoadingSuggestions" type="boolean">
 Whether suggestions are currently being generated
 </PropertyReference>
- 
+
 <PropertyReference name="interrupt" type="string | React.ReactElement | null">
 Interrupt content for human-in-the-loop workflows
+</PropertyReference>
+
+<PropertyReference name="isAvailable" type="boolean">
+Whether the chat agent is available to generate responses.
+</PropertyReference>
+
+<PropertyReference name="agent" type="AbstractAgent | undefined">
+The agent that the chat runs.
+</PropertyReference>
+
+<PropertyReference name="threadId" type="string | undefined">
+The id of the current thread.
+</PropertyReference>
+
+## Parameters
+
+<PropertyReference name="suggestions" type="'auto' | 'manual' | Omit<Suggestion, 'isLoading'>[]">
+How the chat gets suggestions: `"auto"` generates them, `"manual"` leaves them to your
+code, and a static list shows the same suggestions every time.
+</PropertyReference>
+
+<PropertyReference name="onInProgress" type="(isLoading: boolean) => void">
+Called with whether the agent is running.
+</PropertyReference>
+
+<PropertyReference name="onSubmitMessage" type="(messageContent: string) => Promise<void> | void">
+Called with the message text before the hook sends it.
+</PropertyReference>
+
+<PropertyReference name="onStopGeneration" type="OnStopGeneration">
+Called when the user stops the run.
+</PropertyReference>
+
+<PropertyReference name="onReloadMessages" type="OnReloadMessages">
+Called when the user reloads a message.
 </PropertyReference>
 

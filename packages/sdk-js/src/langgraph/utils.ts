@@ -14,7 +14,7 @@ import type { OptionsConfig } from "./types";
 /**
  * Customize the LangGraph configuration for use in CopilotKit.
  *
- * To the CopilotKit SDK, run:
+ * To install the CopilotKit SDK, run:
  *
  * ```bash
  * npm install @copilotkit/sdk-js
@@ -25,13 +25,12 @@ import type { OptionsConfig } from "./types";
  * Disable emitting messages and tool calls:
  *
  * ```typescript
- * import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js";
+ * import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js/langgraph";
  *
- * config = copilotkitCustomizeConfig(
- *   config,
- *   emitMessages=false,
- *   emitToolCalls=false
- * )
+ * const customConfig = copilotkitCustomizeConfig(config, {
+ *   emitMessages: false,
+ *   emitToolCalls: false,
+ * });
  * ```
  *
  * To emit a tool call as streaming LangGraph state, pass the destination key in state,
@@ -39,18 +38,17 @@ import type { OptionsConfig } from "./types";
  * all arguments are emitted under the state key.)
  *
  * ```typescript
- * import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js";
+ * import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js/langgraph";
  *
- * config = copilotkitCustomizeConfig(
- *   config,
- *   emitIntermediateState=[
+ * const customConfig = copilotkitCustomizeConfig(config, {
+ *   emitIntermediateState: [
  *     {
- *       "stateKey": "steps",
- *       "tool": "SearchTool",
- *       "toolArgument": "steps",
+ *       stateKey: "steps",
+ *       tool: "SearchTool",
+ *       toolArgument: "steps",
  *     },
  *   ],
- * )
+ * });
  * ```
  */
 export function copilotkitCustomizeConfig(
@@ -159,18 +157,20 @@ export function copilotkitCustomizeConfig(
   }
 }
 /**
- * Exits the current agent after the run completes. Calling copilotkit_exit() will
+ * Exits the current agent after the run completes. Calling copilotkitExit() will
  * not immediately stop the agent. Instead, it signals to CopilotKit to stop the agent after
  * the run completes.
  *
  * ### Examples
  *
  * ```typescript
- * import { copilotkitExit } from "@copilotkit/sdk-js";
+ * import type { RunnableConfig } from "@langchain/core/runnables";
+ * import { copilotkitExit } from "@copilotkit/sdk-js/langgraph";
  *
- * async function myNode(state: Any):
- *   await copilotkitExit(config)
- *   return state
+ * async function myNode(state: AgentState, config: RunnableConfig) {
+ *   await copilotkitExit(config);
+ *   return state;
+ * }
  * ```
  */
 export async function copilotkitExit(
@@ -200,7 +200,7 @@ export async function copilotkitExit(
  * ### Examples
  *
  * ```typescript
- * import { copilotkitEmitState } from "@copilotkit/sdk-js";
+ * import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph";
  *
  * for (let i = 0; i < 10; i++) {
  *   await someLongRunningOperation(i);
@@ -249,15 +249,16 @@ export async function copilotkitEmitState(
  * ### Examples
  *
  * ```typescript
- * import { copilotkitEmitMessage } from "@copilotkit/sdk-js";
+ * import { AIMessage } from "@langchain/core/messages";
+ * import { copilotkitEmitMessage } from "@copilotkit/sdk-js/langgraph";
  *
  * const message = "Step 1 of 10 complete";
  * await copilotkitEmitMessage(config, message);
  *
  * // Return the message from the node
  * return {
- *   "messages": [AIMessage(content=message)]
- * }
+ *   messages: [new AIMessage({ content: message })],
+ * };
  * ```
  */
 export async function copilotkitEmitMessage(
@@ -300,7 +301,7 @@ export async function copilotkitEmitMessage(
  * ### Examples
  *
  * ```typescript
- * import { copilotkitEmitToolCall } from "@copilotkit/sdk-js";
+ * import { copilotkitEmitToolCall } from "@copilotkit/sdk-js/langgraph";
  *
  * const autoId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 });
  *
@@ -308,8 +309,8 @@ export async function copilotkitEmitMessage(
  * const customId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 }, { toolCallId: "my-custom-id" });
  * ```
  *
- * @returns The tool call ID used for the emitted call — equals `options.toolCallId`
- *          when provided, otherwise a randomly generated ID.
+ * @returns The tool call ID used for the emitted call. It equals `options.toolCallId`
+ * when provided, otherwise a randomly generated ID.
  */
 export async function copilotkitEmitToolCall(
   /**

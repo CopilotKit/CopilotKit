@@ -26,7 +26,6 @@
 
 /**
  * `useCopilotChat` is a lightweight React hook for headless chat interactions.
- * Perfect for controlling the prebuilt chat components programmatically.
  *
  * **Open Source Friendly** - Works without requiring a free public license key.
  *
@@ -44,7 +43,8 @@
  * ## Usage
  *
  * ```tsx
- * import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
+ * import { useCopilotChat } from "@copilotkit/react-core";
+ * import { TextMessage, Role } from "@copilotkit/runtime-client-gql";
  *
  * const { appendMessage } = useCopilotChat();
  *
@@ -52,7 +52,7 @@
  * const handleSendMessage = async (content: string) => {
  *   await appendMessage(
  *     new TextMessage({
- *       role: MessageRole.User,
+ *       role: Role.User,
  *       content,
  *     })
  *   );
@@ -87,6 +87,10 @@
  *
  * <PropertyReference name="isLoading" type="boolean">
  * Whether the chat is currently generating a response
+ * </PropertyReference>
+ *
+ * <PropertyReference name="isAvailable" type="boolean">
+ * Whether the chat agent is available to generate responses.
  * </PropertyReference>
  *
  * <PropertyReference name="runChatCompletion" type="() => Promise<Message[]>">

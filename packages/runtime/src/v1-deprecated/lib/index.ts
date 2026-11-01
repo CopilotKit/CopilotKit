@@ -7,43 +7,43 @@
  *
  * @copilotkit/runtime — CustomEventNames:
  *   No 1:1 v2 replacement is available.
- *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/langgraph-python
  *   Start at: @copilotkit/runtime/v2
  *   V2 docs: https://docs.copilotkit.ai/
  *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/runtime — LangGraphAgent:
  *   No 1:1 v2 replacement is available.
- *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/langgraph-python
  *   Start at: @copilotkit/runtime/v2
  *   V2 docs: https://docs.copilotkit.ai/
  *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/runtime — LangGraphHttpAgent:
  *   Use `HttpAgent` from `@ag-ui/client`, passed to the v2 `CopilotRuntime`.
- *   Exception: a v1 client still resuming interrupts through `forwardedProps.command.resume` — `LangGraphHttpAgent` keeps a back-compat bridge for that channel.
- *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Exception: a v1 client still resuming interrupts through `forwardedProps.command.resume`. `LangGraphHttpAgent` keeps a back-compat bridge for that channel.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/langgraph-python
  *   Start at: @copilotkit/runtime/v2
  *   V2 docs: https://docs.copilotkit.ai/
  *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/runtime — PredictStateTool:
  *   No 1:1 v2 replacement is available.
- *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/langgraph-python
  *   Start at: @copilotkit/runtime/v2
  *   V2 docs: https://docs.copilotkit.ai/
  *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/runtime — TextMessageEvents:
  *   No 1:1 v2 replacement is available.
- *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/langgraph-python
  *   Start at: @copilotkit/runtime/v2
  *   V2 docs: https://docs.copilotkit.ai/
  *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/runtime — ToolCallEvents:
  *   No 1:1 v2 replacement is available.
- *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/langgraph-python
  *   Start at: @copilotkit/runtime/v2
  *   V2 docs: https://docs.copilotkit.ai/
  *   V2 reference docs: https://docs.copilotkit.ai/reference/v2

@@ -18,6 +18,10 @@
  */
 
 /**
+ * <Callout type="info">
+ *   In v2, use [`CopilotPopup`](/reference/v2/components/CopilotPopup) from `@copilotkit/react-core/v2`.
+ * </Callout>
+ *
  * <br/>
  * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotPopup.gif" width="500" />
  *
@@ -49,10 +53,12 @@
  *
  * ### With Observability Hooks
  *
- * To monitor user interactions, provide the `observabilityHooks` prop.
+ * To monitor user interactions, set `publicLicenseKey` on `<CopilotKit>` and pass the
+ * `observabilityHooks` prop. Without the key, the hooks do not run and the chat shows an
+ * error banner.
  *
  * ```tsx
- * <CopilotKit>
+ * <CopilotKit publicLicenseKey="YOUR_PUBLIC_LICENSE_KEY">
  *   <CopilotPopup
  *     observabilityHooks={{
  *       onChatExpanded: () => {
@@ -81,7 +87,7 @@
  *   );
  * }
  * ```
- * For more information about how to customize the styles, check out the [Customize Look & Feel](/guides/custom-look-and-feel/customize-built-in-ui-components) guide.
+ * For more information about how to customize the styles, check out the [Customize Look & Feel](/custom-look-and-feel/css) guide.
  */
 
 import type { CopilotModalProps } from "./Modal";

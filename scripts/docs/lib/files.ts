@@ -142,7 +142,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
       "showcase/shell-docs/src/content/reference/v1/hooks/useCopilotReadable.mdx",
     hook: "useCopilotReadable",
     description:
-      "The useCopilotReadable hook allows you to provide knowledge to your copilot (e.g. application state).",
+      "The useCopilotReadable hook gives your copilot knowledge (e.g. application state).",
   },
   {
     sourcePath:
@@ -151,7 +151,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
       "showcase/shell-docs/src/content/reference/v1/hooks/useCoAgentStateRender.mdx",
     hook: "useCoAgentStateRender",
     description:
-      "The useCoAgentStateRender hook allows you to render the state of the agent in the chat.",
+      "The useCoAgentStateRender hook renders the state of the agent in the chat.",
   },
   {
     sourcePath: "packages/react-core/src/v1-deprecated/hooks/use-coagent.ts",
@@ -159,7 +159,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
       "showcase/shell-docs/src/content/reference/v1/hooks/useCoAgent.mdx",
     hook: "useCoAgent",
     description:
-      "The useCoAgent hook allows you to share state bidirectionally between your application and the agent.",
+      "The useCoAgent hook shares state between your application and the agent in both directions.",
   },
   {
     sourcePath:
@@ -168,7 +168,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
       "showcase/shell-docs/src/content/reference/v1/hooks/useCopilotAdditionalInstructions.mdx",
     hook: "useCopilotAdditionalInstructions",
     description:
-      "The useCopilotAdditionalInstructions hook allows you to provide additional instructions to the agent.",
+      "The useCopilotAdditionalInstructions hook gives additional instructions to the agent.",
   },
   /* SDKs */
 
@@ -178,13 +178,15 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
       "showcase/shell-docs/src/content/reference/v1/sdk/python/LangGraph.mdx",
     title: "LangGraph SDK",
     description:
-      "The CopilotKit LangGraph SDK for Python allows you to build and run LangGraph workflows with CopilotKit.",
+      "Use the CopilotKit LangGraph SDK for Python to build and run LangGraph workflows with CopilotKit.",
     pythonSymbols: [
       "copilotkit_customize_config",
       "copilotkit_exit",
       "copilotkit_emit_state",
       "copilotkit_emit_message",
       "copilotkit_emit_tool_call",
+      "copilotkit_interrupt",
+      "CopilotKitState",
     ],
   },
   {
@@ -193,13 +195,14 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
       "showcase/shell-docs/src/content/reference/v1/sdk/python/CrewAI.mdx",
     title: "CrewAI SDK",
     description:
-      "The CopilotKit CrewAI SDK for Python allows you to build and run CrewAI agents with CopilotKit.",
+      "Use the CopilotKit CrewAI SDK for Python to build and run CrewAI agents with CopilotKit.",
     pythonSymbols: [
       "copilotkit_emit_state",
       "copilotkit_predict_state",
       "copilotkit_exit",
       "copilotkit_emit_message",
       "copilotkit_emit_tool_call",
+      "copilotkit_stream",
     ],
   },
 
@@ -211,7 +214,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     title: "LangGraphAGUIAgent",
     description:
       "LangGraphAGUIAgent lets you define your agent for use with CopilotKit.",
-    pythonSymbols: ["LangGraphAGUIAgent", "CopilotKitConfig"],
+    pythonSymbols: ["LangGraphAGUIAgent"],
   },
   {
     sourcePath: "sdk-python/copilotkit/crewai/crewai_agent.py",
@@ -232,12 +235,12 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     pythonSymbols: ["CopilotKitRemoteEndpoint", "CopilotKitContext"],
   },
   {
-    sourcePath: "packages/sdk-js/src/langgraph/index.ts",
+    sourcePath: "packages/sdk-js/src/langgraph/utils.ts",
     destinationPath:
       "showcase/shell-docs/src/content/reference/v1/sdk/js/LangGraph.mdx",
     title: "LangGraph SDK",
     description:
-      "The CopilotKit LangGraph SDK for JavaScript allows you to build and run LangGraph workflows with CopilotKit.",
+      "Use the CopilotKit LangGraph SDK for JavaScript to build and run LangGraph workflows with CopilotKit.",
     typescriptSymbols: [
       "copilotkitCustomizeConfig",
       "copilotkitExit",

@@ -7,8 +7,8 @@
  *
  * @copilotkit/react-ui — AssistantMessage:
  *   V2 import and usage:
- *     import { AssistantMessage } from "@copilotkit/react-core/v2";
- *     const v2AssistantMessage = AssistantMessage;
+ *     import type { AssistantMessage } from "@copilotkit/react-core/v2";
+ *     type V2AssistantMessage = AssistantMessage;
  *   V2 replacement source: packages/react-core/src/v2/index.ts
  *   V2 docs: https://docs.copilotkit.ai/
  *   V2 reference docs: https://docs.copilotkit.ai/reference/v2

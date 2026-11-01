@@ -66,6 +66,42 @@ ToolCallEvents = Union[ToolCallStartEvent, ToolCallArgsEvent, ToolCallEndEvent]
 
 
 class LangGraphAGUIAgent(LangGraphAgent):
+    """
+    LangGraphAGUIAgent wraps a compiled LangGraph graph as an AG-UI agent for CopilotKit.
+
+    To serve the agent, add it to a FastAPI app with `add_langgraph_fastapi_endpoint`
+    from `ag_ui_langgraph`:
+
+    ```python
+    from fastapi import FastAPI
+    from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+    from copilotkit import LangGraphAGUIAgent
+
+    app = FastAPI()
+
+    add_langgraph_fastapi_endpoint(
+        app=app,
+        agent=LangGraphAGUIAgent(
+            name="sample_agent",
+            description="An example agent.",
+            graph=graph,
+        ),
+        path="/",
+    )
+    ```
+
+    Parameters
+    ----------
+    name : str
+        The name of the agent.
+    graph : CompiledStateGraph
+        The LangGraph graph to run.
+    description : Optional[str]
+        The description of the agent.
+    config : Optional[RunnableConfig]
+        The LangGraph configuration to use with the agent.
+    """
+
     def __init__(
         self,
         *,

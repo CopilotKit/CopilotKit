@@ -34,10 +34,16 @@ export class Comments {
 
         if (Comments.isV1DeprecationNotice(commentText)) return "";
 
-        // for now, remove @default annotations
+        // for now, remove @default annotations, and say what @experimental
+        // means instead of printing the tag
         commentText = commentText
           .split("\n")
           .filter((line) => !line.includes("@default"))
+          .map((line) =>
+            line.trim() === "@experimental"
+              ? "Experimental: this API can change in a minor release."
+              : line,
+          )
           .join("\n");
 
         return commentText;
@@ -79,10 +85,16 @@ export class Comments {
     return defaultValue;
   }
 
+  // Remove only the comment markers: the opening `/**` or `/*`, the closing
+  // `*/`, and the ` * ` at the start of each line. A `*` inside the text
+  // (`image/*`, `10 * 1024`, `**bold**`) stays. A JSDoc writes `*\/` to put
+  // a literal `*/` in the text, so turn it back into `*/`.
   static removeCommentSyntax(commentText: string): string {
     return commentText
-      .replace(/\/\*\*|\*\/|\*|\/\* ?/gm, "")
-      .replace(/^  /gm, "")
+      .replace(/^\s*\/\*\*?/, "")
+      .replace(/\*\/\s*$/, "")
+      .replace(/^[ \t]*\* ?/gm, "")
+      .replace(/\*\\\//g, "*/")
       .trim();
   }
 

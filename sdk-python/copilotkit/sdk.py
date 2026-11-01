@@ -68,16 +68,13 @@ class CopilotKitRemoteEndpoint:
     CopilotKitRemoteEndpoint lets you connect actions and agents written in Python to your
     CopilotKit application.
 
-    <Callout type="warn" title="Deprecated: `actions` are no longer called">
-    This endpoint is part of the deprecated v1 SDK. It still serves
-    `POST actions/execute` and still runs your handlers correctly, but the
-    TypeScript runtime no longer calls it: the client that spoke this protocol
-    was removed in v1.50.0. An `actions=[...]` list registered here will never
-    be invoked.
+    <Callout type="warn" title="Deprecated: the runtime does not call `actions`">
+    This endpoint is part of the deprecated v1 SDK. It serves
+    `POST actions/execute` and runs your handlers, but the TypeScript runtime
+    does not call it. An `actions=[...]` list that you register here never runs.
 
-    Agents remain supported through AG-UI. For server-side tools, define them
-    on the agent instead — see
-    [Built-in agent tools](/docs/integrations/built-in-agent).
+    Agents connect to CopilotKit through AG-UI. For server-side tools, define
+    them on the agent. See [Server tools](/built-in-agent/server-tools).
     </Callout>
 
     To install CopilotKit for Python, run:
@@ -144,18 +141,23 @@ class CopilotKitRemoteEndpoint:
 
     ## Adding agents
 
-    Serving agents works in a similar way to serving actions:
+    The TypeScript runtime does not call the agents on this endpoint. To connect an
+    agent to CopilotKit, serve it over AG-UI. To serve a `LangGraphAGUIAgent`, use
+    `add_langgraph_fastapi_endpoint` from `ag_ui_langgraph`.
+
+    This endpoint runs agents that implement `execute()`, for example `CrewAIAgent`:
 
     ```python
-    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent
-    from my_agent.agent import graph
+    from copilotkit import CopilotKitRemoteEndpoint
+    from copilotkit.crewai import CrewAIAgent
+    from my_agent.crew import EmailCrew
 
     sdk = CopilotKitRemoteEndpoint(
         agents=[
-            LangGraphAGUIAgent(
+            CrewAIAgent(
                 name="email_agent",
                 description="This agent sends emails",
-                graph=graph,
+                crew=EmailCrew(),
             )
         ]
     )
@@ -164,24 +166,22 @@ class CopilotKitRemoteEndpoint:
     To dynamically build agents, provide a callable that returns a list of agents:
 
     ```python
-    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent
-    from my_agent.agent import graph
+    from copilotkit import CopilotKitRemoteEndpoint
+    from copilotkit.crewai import CrewAIAgent
+    from my_agent.crew import make_email_crew
 
     sdk = CopilotKitRemoteEndpoint(
         agents=lambda context: [
-            LangGraphAGUIAgent(
+            CrewAIAgent(
                 name="email_agent",
                 description="This agent sends emails",
-                graph=graph,
-                langgraph_config={
-                    "token": context["properties"]["token"]
-                }
+                crew=make_email_crew(token=context["properties"]["token"]),
             )
         ]
     )
     ```
 
-    To restrict the agents available to the Copilot, simply return a different list of agents based on the `context`:
+    To restrict the agents available to the Copilot, return a different list of agents based on the `context`:
 
     ```python
     from copilotkit import CopilotKitRemoteEndpoint

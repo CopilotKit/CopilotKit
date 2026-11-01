@@ -38,12 +38,20 @@
  */
 
 /**
+ * <Callout type="info">
+ *   `AnthropicAdapter` has no direct v2 replacement. For v2, see [Runtime server adapter](/runtime-server-adapter).
+ * </Callout>
+ *
  * Copilot Runtime adapter for Anthropic.
  *
  * ## Example
  *
  * ```ts
- * import { CopilotRuntime, AnthropicAdapter } from "@copilotkit/runtime";
+ * import {
+ *   CopilotRuntime,
+ *   AnthropicAdapter,
+ *   copilotRuntimeNextJSAppRouterEndpoint,
+ * } from "@copilotkit/runtime";
  * import Anthropic from "@anthropic-ai/sdk";
  *
  * const copilotKit = new CopilotRuntime();
@@ -52,13 +60,19 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * return new AnthropicAdapter({
+ * const serviceAdapter = new AnthropicAdapter({
  *   anthropic,
  *   promptCaching: {
  *     enabled: true,
- *     debug: true
- *   }
+ *     debug: true,
+ *   },
  * });
+ *
+ * export const POST = copilotRuntimeNextJSAppRouterEndpoint({
+ *   runtime: copilotKit,
+ *   serviceAdapter,
+ *   endpoint: "/api/copilotkit",
+ * }).handleRequest;
  * ```
  */
 import type { LanguageModel } from "ai";

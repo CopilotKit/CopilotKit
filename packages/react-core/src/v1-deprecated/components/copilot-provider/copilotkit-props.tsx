@@ -94,7 +94,7 @@ export interface CopilotKitProps extends Omit<
    *
    * An async builder is only awaited on the request paths served by
    * `<CopilotKit>`'s v2 provider (agent runs, threads, the inspector, and
-   * so on). The legacy v1 `CopilotTask` / GraphQL path (and anything else
+   * so on). The v1 `CopilotTask` / GraphQL path (and anything else
    * that reads the internal `copilotApiConfig.headers` snapshot) never
    * awaits it: an async builder is called once, its result (and any
    * rejection) is discarded, and every read there gets an empty object
@@ -174,7 +174,7 @@ export interface CopilotKitProps extends Omit<
    * @deprecated Use `enableInspector` to control the AG-UI inspector,
    * which is what most users want. `showDevConsole` only controls
    * error toasts/banners, not the inspector button.
-   * Defaults to `false` for production safety.
+   * Defaults to `true` on localhost and `false` on every other host.
    */
   showDevConsole?: boolean;
 
@@ -201,11 +201,8 @@ export interface CopilotKitProps extends Omit<
   threadId?: string;
 
   /**
-   * Optional error handler for comprehensive debugging and observability.
+   * Receives a structured error event for debugging and observability.
    *
-   * @param errorEvent - Structured error event with rich debugging context
-   *
-   * @example
    * ```typescript
    * <CopilotKit
    *   onError={(errorEvent) => {

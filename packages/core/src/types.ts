@@ -174,7 +174,7 @@ export type DynamicSuggestionsConfig = {
   minSuggestions?: number;
   /**
    * The maximum number of suggestions to generate. Defaults to `3`.
-   * @default 1
+   * @default 3
    */
   maxSuggestions?: number;
 
