@@ -432,11 +432,11 @@ const copilotKitStateSchema = z
           interceptedToolCalls: z.array(z.any()).optional(),
           originalAIMessageId: z.string().optional(),
         })
-        .passthrough()
+        .loose()
         .optional(),
     ),
   })
-  .passthrough();
+  .loose();
 
 const isToolCallContentBlock = (block: unknown) =>
   typeof block === "object" &&

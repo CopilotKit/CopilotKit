@@ -130,7 +130,7 @@ const CopilotKitUiMessageSchema = z.object({
       followUp: z.boolean().optional(),
       _meta: z.record(z.string(), z.any()).optional(),
     })
-    .passthrough(),
+    .loose(),
 });
 
 /** A resource fetched from the MCP server via the agent proxy. */

@@ -76,7 +76,7 @@ describe("defineTool Zod regression", () => {
       parameters: z.object({
         action: z.discriminatedUnion("type", [
           z.object({ type: z.literal("search"), query: z.string() }),
-          z.object({ type: z.literal("navigate"), url: z.string().url() }),
+          z.object({ type: z.literal("navigate"), url: z.url() }),
           z.object({
             type: z.literal("execute"),
             code: z.string(),

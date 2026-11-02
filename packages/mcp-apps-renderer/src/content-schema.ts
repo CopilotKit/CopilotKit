@@ -3,7 +3,7 @@ import { z } from "zod";
 // Keep /activity bridge-free: the MCP SDK is only used as a test oracle.
 // This is the Angular host's content contract, expressed using our zod API.
 const looseObject = <T extends z.ZodRawShape>(shape: T) =>
-  z.object(shape).passthrough();
+  z.object(shape).loose();
 
 // `_meta` is an extension channel, so its CONTENTS stay unconstrained - but the
 // SDK still requires it to be an object, and a string or array there is a bug

@@ -74,7 +74,7 @@ const ContentSchema = z
       .array(z.object({ index: z.number(), reason: z.string() }))
       .default([]),
   })
-  .passthrough();
+  .loose();
 
 function GenerativeUIChatActivity({
   content,

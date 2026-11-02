@@ -34,7 +34,7 @@ export type DebugExposure = "hidden" | "collapsed" | "verbose";
 
 /**
  * The pre-paint lifecycle fields the middleware stamps onto the `a2ui-surface`
- * activity content (alongside `a2ui_operations` on paint). `.passthrough()` keeps
+ * activity content (alongside `a2ui_operations` on paint). `.loose()` keeps
  * `a2ui_operations` and any future fields intact.
  */
 export const A2UILifecycleFields = {

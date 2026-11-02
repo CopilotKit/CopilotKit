@@ -20,7 +20,7 @@ const validationResult = z
     code: z.string().optional(),
     severity: severity.optional(),
   })
-  .passthrough();
+  .loose();
 
 /** The first failed check of a control, as the control shows it. */
 export interface FailedCheck {

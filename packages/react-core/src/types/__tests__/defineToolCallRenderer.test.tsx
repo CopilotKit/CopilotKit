@@ -242,7 +242,7 @@ describe("defineToolCallRenderer", () => {
           user: z.object({
             id: z.number(),
             name: z.string(),
-            email: z.string().email(),
+            email: z.email(),
           }),
           options: z.array(z.string()),
           metadata: z.record(z.string(), z.unknown()).optional(),

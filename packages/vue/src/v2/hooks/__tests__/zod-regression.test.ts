@@ -134,7 +134,7 @@ describe("useRenderTool Zod regression", () => {
     const schema = z.object({
       action: z.discriminatedUnion("type", [
         z.object({ type: z.literal("search"), query: z.string() }),
-        z.object({ type: z.literal("navigate"), url: z.string().url() }),
+        z.object({ type: z.literal("navigate"), url: z.url() }),
       ]),
     });
 
