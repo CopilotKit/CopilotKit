@@ -11,7 +11,7 @@
     "@copilotkit/runtime": "workspace:*",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "zod": "^3.25.75"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",

@@ -18,7 +18,7 @@
     "@hono/node-server": "^1.13.6",
     "hono": "^4.11.4",
     "rxjs": "^7.8.1",
-    "zod": "^3.25.75"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.7",

@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const packageMetadataSchema = z.object({
   name: z.string(),
   version: z.string(),
-  peerDependencies: z.record(z.string()).optional(),
+  peerDependencies: z.record(z.string(), z.string()).optional(),
 });
 
 const travelPackageSchema = z.object({

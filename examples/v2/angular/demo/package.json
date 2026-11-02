@@ -46,8 +46,9 @@
     "tslib": "^2.8.1",
     "untruncate-json": "^0.0.1",
     "uuid": "^11.1.0",
-    "zod": "^3.25.75",
+    "zod": "^4.2.0",
     "zod-to-json-schema": "^3.24.6",
+    "zod-v3": "npm:zod@^3.25.76",
     "@copilotkit/mcp-apps-renderer": "workspace:*"
   },
   "devDependencies": {

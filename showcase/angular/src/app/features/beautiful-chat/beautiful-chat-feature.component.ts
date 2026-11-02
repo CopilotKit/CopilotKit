@@ -211,7 +211,7 @@ export class BeautifulChatFeatureComponent {
     this.registerModeTool("enableChatMode", "chat");
     registerRenderToolCall({
       name: "*",
-      args: z.record(z.unknown()),
+      args: z.record(z.string(), z.unknown()),
       component: asRenderer(BeautifulToolReasoningCard),
     });
   }
