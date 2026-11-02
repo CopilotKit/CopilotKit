@@ -64,10 +64,22 @@ describe("CopilotChatAssistantMessage", () => {
   });
 
   it("applies inputClass to the message container", () => {
-    (component as any).inputClass = () => "custom-assistant-class";
+    const fixture = TestBed.createComponent(CopilotChatAssistantMessage);
+    fixture.componentRef.setInput("message", {
+      id: "assistant-2",
+      role: "assistant",
+      content: "Styled reply",
+    } satisfies AssistantMessage);
+    fixture.componentRef.setInput("inputClass", "custom-assistant-class");
+    fixture.detectChanges();
 
-    expect(component.computedClass()).toContain("custom-assistant-class");
-    expect(component.computedClass()).toContain("copilotKitAssistantMessage");
+    const container = (
+      fixture.nativeElement as HTMLElement
+    ).querySelector<HTMLElement>('[data-testid="copilot-assistant-message"]');
+    expect(container?.classList.contains("custom-assistant-class")).toBe(true);
+    expect(container?.classList.contains("copilotKitAssistantMessage")).toBe(
+      true,
+    );
   });
 
   it("exposes tool call context", () => {
