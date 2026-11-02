@@ -18,9 +18,9 @@
     "skipLibCheck": true,
     "noEmit": true,
     "paths": {
-      // CopilotKit takes Standard Schema and peers zod >=3.25, so a reader
-      // installs zod 4. Resolve it from kiira's cache (`externalPackages` in
-      // kiira.config.ts) instead of the zod 3 copies the workspace installs.
+      // CopilotKit 2.0 requires zod 4.2+ for tool schemas. Resolve it from
+      // kiira's cache (`externalPackages` in kiira.config.ts) instead of the
+      // zod 3 copies the workspace installs.
       "zod": ["./node_modules/.kiira/node_modules/zod"],
       "zod/*": ["./node_modules/.kiira/node_modules/zod/*"],
       // Workspace example apps install older TanStack AI releases, and their
@@ -171,12 +171,6 @@
         "./packages/sdk-js/src/langgraph-middlewares.ts"
       ],
       "@copilotkit/shared": ["./packages/shared/src/index.ts"],
-      "@copilotkit/shared/event-transforms": [
-        "./packages/shared/src/event-transforms/index.ts"
-      ],
-      "@copilotkit/shared/telemetry": [
-        "./packages/shared/src/telemetry/index.ts"
-      ],
       "@copilotkit/sqlite-runner": ["./packages/sqlite-runner/src/index.ts"],
       "@copilotkit/voice": ["./packages/voice/src/index.ts"],
       "@copilotkit/vue": ["./packages/vue/src/index.ts"],

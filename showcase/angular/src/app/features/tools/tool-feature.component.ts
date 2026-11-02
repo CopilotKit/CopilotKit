@@ -16,7 +16,7 @@ import type {
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "@copilotkit/angular";
-import { z } from "zod";
+import * as z from "zod";
 
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
@@ -74,7 +74,7 @@ export class ToolFeatureComponent {
       case "tool-rendering-custom-catchall":
         this.registerRenderer(
           "*",
-          z.record(z.unknown()),
+          z.record(z.string(), z.unknown()),
           ShowcaseWildcardToolCard,
         );
         break;
@@ -85,12 +85,12 @@ export class ToolFeatureComponent {
         this.registerWeatherRenderers();
         this.registerRenderer(
           "search_flights",
-          z.record(z.unknown()),
+          z.record(z.string(), z.unknown()),
           FlightToolCard,
         );
         this.registerRenderer(
           "*",
-          z.record(z.unknown()),
+          z.record(z.string(), z.unknown()),
           ReasoningCatchallToolCard,
         );
         break;
@@ -136,12 +136,12 @@ export class ToolFeatureComponent {
   private registerWeatherRenderers(): void {
     this.registerRenderer(
       "get_weather",
-      z.record(z.unknown()),
+      z.record(z.string(), z.unknown()),
       WeatherToolCard,
     );
     this.registerRenderer(
       "get-weather",
-      z.record(z.unknown()),
+      z.record(z.string(), z.unknown()),
       WeatherToolCard,
     );
   }
@@ -183,7 +183,7 @@ export class ToolFeatureComponent {
     const config: HumanInTheLoopConfig<ToolArgs> = {
       name,
       description: "Ask the user to select a meeting time.",
-      parameters: z.record(z.unknown()),
+      parameters: z.record(z.string(), z.unknown()),
       component: asHitlRenderer(TimePickerCard),
     };
     registerHumanInTheLoop(config);
@@ -193,7 +193,7 @@ export class ToolFeatureComponent {
     const config: HumanInTheLoopConfig<ToolArgs> = {
       name: "request_user_approval",
       description: "Ask the user to approve or reject a consequential action.",
-      parameters: z.record(z.unknown()),
+      parameters: z.record(z.string(), z.unknown()),
       component: asHitlRenderer(ApprovalDialog),
     };
     registerHumanInTheLoop(config);
@@ -207,7 +207,7 @@ export class ToolFeatureComponent {
     const config: FrontendToolConfig<ToolArgs> = {
       name,
       description,
-      parameters: z.record(z.unknown()),
+      parameters: z.record(z.string(), z.unknown()),
       component: asFrontendRenderer(component),
       handler: async (args) => args,
     };

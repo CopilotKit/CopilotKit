@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import type { GenerativeUIInvokeResult } from "../errors";
 import {
   GenerativeUINodeContext,

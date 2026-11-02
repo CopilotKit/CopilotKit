@@ -6,7 +6,7 @@ export interface TrajectoryConnectionGrant {
   realtime: { clientUrl: string; topic: string };
 }
 
-const trajectoryIdSchema = z.string().uuid();
+const trajectoryIdSchema = z.guid();
 
 export function isValidTrajectoryId(value: unknown): value is string {
   return trajectoryIdSchema.safeParse(value).success;
@@ -20,17 +20,14 @@ const joinResponseSchema = z.object({
 const grantSchema = z.object({
   joinToken: z.string().refine((value) => value.trim().length > 0),
   realtime: z.object({
-    clientUrl: z
-      .string()
-      .url()
-      .refine((value) => {
-        const url = new URL(value);
-        return (
-          (url.protocol === "wss:" || url.protocol === "ws:") &&
-          !url.username &&
-          !url.password
-        );
-      }),
+    clientUrl: z.url().refine((value) => {
+      const url = new URL(value);
+      return (
+        (url.protocol === "wss:" || url.protocol === "ws:") &&
+        !url.username &&
+        !url.password
+      );
+    }),
     topic: z
       .string()
       .refine((value) => value.trim().length > 0 && !/\p{Cc}/u.test(value)),

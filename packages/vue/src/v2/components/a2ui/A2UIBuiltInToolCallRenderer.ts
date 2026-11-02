@@ -1,6 +1,6 @@
 import { watch } from "vue";
 import type { ShallowRef } from "vue";
-import { z } from "zod";
+import * as z from "zod";
 import type { CopilotKitCoreVue } from "../../lib/vue-core";
 import { defineToolCallRenderer } from "../../types/defineToolCallRenderer";
 

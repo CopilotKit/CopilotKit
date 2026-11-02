@@ -46,7 +46,7 @@
     "@langchain/core": "1.2.11",
     "@langchain/langgraph": "1.4.15",
     "langchain": "1.5.11",
-    "zod": "4.6.1",
+    "zod": "^4.2.0",
     "@copilotkit/intelligence-delivery-core": "workspace:*"
   },
   "engines": {

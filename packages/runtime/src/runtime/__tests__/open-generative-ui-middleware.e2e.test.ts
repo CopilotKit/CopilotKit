@@ -8,10 +8,7 @@ import type {
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import { Observable, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
-import {
-  OpenGenerativeUIMiddleware,
-  ArgsParser,
-} from "../open-generative-ui-middleware";
+import { OpenGenerativeUIMiddleware, ArgsParser } from "../event-transforms";
 
 /**
  * A minimal agent that records the input it receives and emits scripted events.

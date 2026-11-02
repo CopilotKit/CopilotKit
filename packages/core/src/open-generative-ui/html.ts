@@ -1,4 +1,9 @@
 /**
+ * Pure string helpers that turn streamed HTML into sandbox content.
+ * No DOM access.
+ */
+
+/**
  * Extracts all complete `<style>` blocks from the raw HTML.
  * Returns the concatenated style tags, suitable for injection into `<head>`.
  */
@@ -9,7 +14,6 @@ export function extractCompleteStyles(html: string): string {
 
 /**
  * Processes raw accumulated HTML for safe preview via innerHTML injection.
- * Pure function, no DOM dependencies.
  *
  * Pipeline (order matters):
  * 1. Strip incomplete tag at end
@@ -42,4 +46,25 @@ export function processPartialHtml(html: string): string {
   }
 
   return result;
+}
+
+/** Builds the final sandbox document: the HTML with the CSS in its `<head>`. */
+export function buildFinalFrameContent(
+  html: string,
+  css: string | undefined,
+): string {
+  const withCss = css ? injectCssIntoHtml(html, css) : html;
+  return /<head[\s>]/i.test(withCss) ? withCss : `<head></head>${withCss}`;
+}
+
+function injectCssIntoHtml(html: string, css: string): string {
+  const headCloseIdx = html.indexOf("</head>");
+  if (headCloseIdx !== -1) {
+    return (
+      html.slice(0, headCloseIdx) +
+      `<style>${css}</style>` +
+      html.slice(headCloseIdx)
+    );
+  }
+  return `<head><style>${css}</style></head>${html}`;
 }

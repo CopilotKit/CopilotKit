@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { MCPAppsActivityContentSchema } from "@copilotkit/mcp-apps-renderer/activity";
 
 /** Preserve the Angular export while sharing the runtime content contract. */

@@ -20,14 +20,15 @@ import {
 } from "./lib/persistence.js";
 import { LitElement, css, html, nothing, render, unsafeCSS } from "lit";
 import type { TemplateResult } from "lit";
-import { marked } from "marked";
 import { styleMap } from "lit/directives/style-map.js";
 import tailwindStyles from "./styles/generated.css";
 import { notificationArticleStyles } from "./styles/notification-article.js";
 import inspectorLogoUrl from "./assets/inspector-logo.svg";
 import inspectorLogoKiteUrl from "./assets/inspector-logo-kite.svg";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
-import { icons } from "lucide";
+import { ICON_NODES } from "./lib/icons.js";
+import { renderMarkdownToHtml } from "./lib/markdown.js";
+import type { IconName, IconNode } from "./lib/icons.js";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
   CopilotKitCoreErrorCode,
@@ -57,7 +58,11 @@ import type {
   RuntimeLicenseStatus,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
-import type { InspectorLearningSnapshotV1 } from "@copilotkit/shared";
+import { schemaToJsonSchema } from "@copilotkit/shared";
+import type {
+  InspectorLearningSnapshotV1,
+  StandardSchemaV1,
+} from "@copilotkit/shared";
 import { deriveLearningViewState } from "./components/learning-view.js";
 import type { LearningViewState } from "./components/learning-view.js";
 import "./components/generative-ui-view.js";
@@ -65,7 +70,6 @@ import {
   CpkJsonBlock,
   JSON_BLOCK_TAG,
   coerceJsonValue,
-  escapeHtml,
   renderHighlightedJsonBlock,
 } from "./lib/json-block.js";
 export { setInspectorJsonRenderer } from "./lib/json-block.js";
@@ -271,12 +275,10 @@ const WHATS_NEW_VIEW_LABEL = "What's new";
 /** Menu key of the What's new leaf — the news signal's destination. */
 const WHATS_NEW_MENU_KEY = "whats-new";
 
-type LucideIconName = keyof typeof icons;
-
 type MenuItem = {
   key: MenuKey;
   label: string;
-  icon: LucideIconName;
+  icon: IconName;
 };
 
 // ── Launcher signals ──────────────────────────────────────────────────────
@@ -905,7 +907,7 @@ const THREADS_LOCKED_VIDEO_URL =
 const LEARNING_LOCKED_VIDEO_URL =
   "https://www.loom.com/embed/2978fbfe42324e509057ac5fd46b7a70?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true&hide_speed=true";
 type LockedFeatureOutlineItem = Readonly<{
-  icon: LucideIconName;
+  icon: IconName;
   title: string;
   description: string;
 }>;
@@ -7144,34 +7146,34 @@ export class WebInspectorElement extends LitElement {
     // showing Capabilities as well is a duplicate leaf.
     const hasCapabilities = hasCatalog;
     return [
-      { key: "home", label: "Home", icon: "Home" as LucideIconName },
+      { key: "home", label: "Home", icon: "Home" },
       {
         key: "whats-new",
         label: "What's New",
-        icon: "Megaphone" as LucideIconName,
+        icon: "Megaphone",
       },
       {
         key: WHATS_NEW_MENU_KEY,
         label: WHATS_NEW_VIEW_LABEL,
-        icon: "Megaphone" as LucideIconName,
+        icon: "Megaphone",
       },
       {
         key: "playground",
         label: "Playground",
-        icon: "MessageCircle" as LucideIconName,
+        icon: "MessageCircle",
       },
       {
         key: "ag-ui-events",
         label: "AG-UI Events",
-        icon: "Zap" as LucideIconName,
+        icon: "Zap",
       },
-      { key: "agents", label: "Agent", icon: "Bot" as LucideIconName },
+      { key: "agents", label: "Agent", icon: "Bot" },
       ...(hasFrontendTools
         ? [
             {
               key: "frontend-tools" as const,
               label: "Frontend Tools",
-              icon: "Hammer" as LucideIconName,
+              icon: "Hammer" as const,
             },
           ]
         : []),
@@ -7180,33 +7182,33 @@ export class WebInspectorElement extends LitElement {
             {
               key: "capabilities" as const,
               label: CAPABILITIES_TAB_LABEL,
-              icon: "SlidersHorizontal" as LucideIconName,
+              icon: "SlidersHorizontal" as const,
             },
           ]
         : []),
       {
         key: "agent-context",
         label: "Context",
-        icon: "FileText" as LucideIconName,
+        icon: "FileText",
       },
       ...(this._core?.ɵgenerativeUIDebugSource
         ? [
             {
               key: "generative-ui" as const,
               label: "Generative UI",
-              icon: "LayoutTemplate" as LucideIconName,
+              icon: "LayoutTemplate" as const,
             },
           ]
         : []),
       {
         key: "threads",
         label: "Rich Threads",
-        icon: "MessageSquare" as LucideIconName,
+        icon: "MessageSquare",
       },
       {
         key: "memories",
         label: LEARNING_VIEW_LABEL,
-        icon: "Brain" as LucideIconName,
+        icon: "Brain",
       },
     ];
   }
@@ -12425,7 +12427,7 @@ export class WebInspectorElement extends LitElement {
 
   private renderHudRow(args: {
     id: LauncherHudRowId;
-    icon: LucideIconName;
+    icon: IconName;
     connected?: boolean;
     introIndex: number;
   }): TemplateResult | typeof nothing {
@@ -14338,7 +14340,7 @@ export class WebInspectorElement extends LitElement {
                 class="inspector-intelligence-chain-step"
                 style="--step-index:${index}"
               >
-                <i>${this.renderIcon(step.icon as LucideIconName)}</i>
+                <i>${this.renderIcon(step.icon)}</i>
                 <strong>${step.name}</strong>
                 <small>${step.detail}</small>
               </span>
@@ -15950,8 +15952,8 @@ export class WebInspectorElement extends LitElement {
     });
   }
 
-  private renderIcon(name: LucideIconName) {
-    const iconNode = icons[name];
+  private renderIcon(name: IconName) {
+    const iconNode: IconNode = ICON_NODES[name];
     if (!iconNode) {
       return nothing;
     }
@@ -15975,16 +15977,16 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderWindowLayoutMenu() {
-    const dockAction =
+    const dockAction: { label: string; icon: IconName; mode: DockMode } =
       this.dockMode === "floating"
         ? {
             label: "Dock to left",
-            icon: "PanelLeft" as LucideIconName,
+            icon: "PanelLeft",
             mode: "docked-left" as DockMode,
           }
         : {
             label: "Float window",
-            icon: "Maximize2" as LucideIconName,
+            icon: "Maximize2",
             mode: "floating" as DockMode,
           };
 
@@ -21070,63 +21072,29 @@ export class WebInspectorElement extends LitElement {
       return result;
     }
 
-    // Try Zod schema introspection
-    const zodDef = (parameters as { _def?: Record<string, unknown> })._def;
-    if (zodDef && typeof zodDef === "object") {
-      // Handle Zod object schema
-      if (zodDef.typeName === "ZodObject") {
-        const rawShape = zodDef.shape;
-        const shape =
-          typeof rawShape === "function"
-            ? (rawShape as () => Record<string, unknown>)()
-            : (rawShape as Record<string, unknown> | undefined);
-
-        if (!shape || typeof shape !== "object") {
-          return result;
-        }
-        const requiredKeys = new Set<string>();
-
-        // Get required fields
-        if (zodDef.unknownKeys === "strict" || !zodDef.catchall) {
-          Object.keys(shape || {}).forEach((key) => {
-            const candidate = (shape as Record<string, unknown>)[key];
-            const fieldDef = (
-              candidate as { _def?: Record<string, unknown> } | undefined
-            )?._def;
-            if (fieldDef && !this.isZodOptional(candidate)) {
-              requiredKeys.add(key);
-            }
-          });
-        }
-
-        // Extract properties
-        for (const [key, value] of Object.entries(shape || {})) {
-          const fieldInfo = this.extractZodFieldInfo(value);
-          result.properties.push({
-            name: key,
-            type: fieldInfo.type,
-            description: fieldInfo.description,
-            required: requiredKeys.has(key),
-            defaultValue: fieldInfo.defaultValue,
-            enum: fieldInfo.enum,
-          });
-        }
+    // Tool parameters are Standard Schemas (Zod 4, Valibot, ArkType, …) or
+    // plain JSON Schema. Describe a Standard Schema through its JSON Schema.
+    let jsonSchema = parameters as {
+      type?: string;
+      properties?: Record<string, unknown>;
+      required?: string[];
+    };
+    if ("~standard" in parameters) {
+      try {
+        jsonSchema = schemaToJsonSchema(
+          parameters as StandardSchemaV1,
+        ) as typeof jsonSchema;
+      } catch {
+        return result;
       }
-    } else if (
-      (parameters as { type?: string; properties?: Record<string, unknown> })
-        .type === "object" &&
-      (parameters as { properties?: Record<string, unknown> }).properties
-    ) {
-      // Handle JSON Schema format
-      const props = (parameters as { properties?: Record<string, unknown> })
-        .properties;
+    }
+
+    if (jsonSchema.type === "object" && jsonSchema.properties) {
       const required = new Set(
-        Array.isArray((parameters as { required?: string[] }).required)
-          ? (parameters as { required?: string[] }).required
-          : [],
+        Array.isArray(jsonSchema.required) ? jsonSchema.required : [],
       );
 
-      for (const [key, value] of Object.entries(props ?? {})) {
+      for (const [key, value] of Object.entries(jsonSchema.properties)) {
         const prop = value as Record<string, unknown>;
         result.properties.push({
           name: key,
@@ -21141,96 +21109,6 @@ export class WebInspectorElement extends LitElement {
     }
 
     return result;
-  }
-
-  private isZodOptional(zodSchema: unknown): boolean {
-    const schema = zodSchema as { _def?: Record<string, unknown> };
-    if (!schema?._def) return false;
-
-    const def = schema._def;
-
-    // Check if it's explicitly optional or nullable
-    if (def.typeName === "ZodOptional" || def.typeName === "ZodNullable") {
-      return true;
-    }
-
-    // Check if it has a default value
-    if (def.defaultValue !== undefined) {
-      return true;
-    }
-
-    return false;
-  }
-
-  private extractZodFieldInfo(zodSchema: unknown): {
-    type?: string;
-    description?: string;
-    defaultValue?: unknown;
-    enum?: unknown[];
-  } {
-    const info: {
-      type?: string;
-      description?: string;
-      defaultValue?: unknown;
-      enum?: unknown[];
-    } = {};
-
-    const schema = zodSchema as { _def?: Record<string, unknown> };
-    if (!schema?._def) return info;
-
-    let currentSchema = schema as { _def?: Record<string, unknown> };
-    let def = currentSchema._def as Record<string, unknown>;
-
-    // Unwrap optional/nullable
-    while (
-      def.typeName === "ZodOptional" ||
-      def.typeName === "ZodNullable" ||
-      def.typeName === "ZodDefault"
-    ) {
-      if (def.typeName === "ZodDefault" && def.defaultValue !== undefined) {
-        info.defaultValue =
-          typeof def.defaultValue === "function"
-            ? def.defaultValue()
-            : def.defaultValue;
-      }
-      currentSchema =
-        (def.innerType as { _def?: Record<string, unknown> }) ?? currentSchema;
-      if (!currentSchema?._def) break;
-      def = currentSchema._def as Record<string, unknown>;
-    }
-
-    // Extract description
-    info.description =
-      typeof def.description === "string" ? def.description : undefined;
-
-    const typeName =
-      typeof def.typeName === "string" ? def.typeName : undefined;
-
-    // Extract type
-    const typeMap: Record<string, string> = {
-      ZodString: "string",
-      ZodNumber: "number",
-      ZodBoolean: "boolean",
-      ZodArray: "array",
-      ZodObject: "object",
-      ZodEnum: "enum",
-      ZodLiteral: "literal",
-      ZodUnion: "union",
-      ZodAny: "any",
-      ZodUnknown: "unknown",
-    };
-    info.type = typeName
-      ? typeMap[typeName] || typeName.replace("Zod", "").toLowerCase()
-      : undefined;
-
-    // Extract enum values
-    if (typeName === "ZodEnum" && Array.isArray(def.values)) {
-      info.enum = def.values as unknown[];
-    } else if (typeName === "ZodLiteral" && def.value !== undefined) {
-      info.enum = [def.value];
-    }
-
-    return info;
   }
 
   private toggleToolExpansion(toolId: string): void {
@@ -22356,16 +22234,12 @@ export class WebInspectorElement extends LitElement {
     try {
       const feed = await loadNotificationFeed(this.notificationContext);
       if (feed) {
-        const documents = await Promise.all(
+        this.notificationDocuments = new Map(
           feed.notifications.map(
-            async (notice) =>
-              [
-                notice.id,
-                (await this.convertMarkdownToHtml(notice.body)) ?? "",
-              ] as const,
+            (notice) =>
+              [notice.id, this.convertMarkdownToHtml(notice.body)] as const,
           ),
         );
-        this.notificationDocuments = new Map(documents);
         this.notificationFeed = feed;
       }
     } catch {
@@ -22476,28 +22350,13 @@ export class WebInspectorElement extends LitElement {
     this.handleMenuSelect(WHATS_NEW_MENU_KEY);
   }
 
-  private async convertMarkdownToHtml(
-    markdown: string,
-  ): Promise<string | null> {
-    const renderer = new marked.Renderer();
-    renderer.link = (href, title, text) => {
-      const safeHref = this.escapeHtmlAttr(
-        this.isSafeAnnouncementHref(href ?? "")
-          ? this.appendRefParam(href ?? "")
-          : "#",
-      );
-      const titleAttr = title ? ` title="${this.escapeHtmlAttr(title)}"` : "";
-      return `<a href="${safeHref}" target="_blank" rel="noopener"${titleAttr}>${text}</a>`;
-    };
-    renderer.html = (html) => escapeHtml(html);
-    renderer.code = (code, lang) => {
-      const safeLang = (lang ?? "").replace(/[^a-z0-9-]/gi, "");
-      const langClass = safeLang ? ` class="language-${safeLang}"` : "";
-      const escaped = escapeHtml(code);
-      const encoded = this.encodeBase64(code);
-      return `<div class="announcement-code"><pre><code${langClass}>${escaped}</code></pre><div class="announcement-code__copy-shield"><button type="button" class="announcement-code__copy" data-copy="${encoded}" aria-label="Copy code">Copy</button></div></div>`;
-    };
-    return marked.parse(markdown, { renderer, async: false });
+  private convertMarkdownToHtml(markdown: string): string {
+    return renderMarkdownToHtml(markdown, {
+      linkHref: (href) =>
+        this.isSafeAnnouncementHref(href) ? this.appendRefParam(href) : "#",
+      imageSrc: (src) => (this.isSafeAnnouncementHref(src) ? src : null),
+      copyPayload: (code) => this.encodeBase64(code),
+    });
   }
 
   private isSafeAnnouncementHref(href: string): boolean {
@@ -22640,10 +22499,6 @@ export class WebInspectorElement extends LitElement {
   private isCopilotKitDestination(url: URL): boolean {
     const hostname = url.hostname.toLowerCase();
     return hostname === "copilotkit.ai" || hostname.endsWith(".copilotkit.ai");
-  }
-
-  private escapeHtmlAttr(value: string): string {
-    return escapeHtml(value).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 }
 

@@ -4,6 +4,10 @@ export * from "./core/runtime";
 export { GenerativeUIMiddleware, createSurfaceWriter } from "./generative-ui";
 export type { GenerativeUISurfaceWriter } from "./generative-ui";
 
+// Export the A2UI / Open Generative UI middleware and the recorded-event
+// transforms (moved from `@copilotkit/shared/event-transforms` in 2.0)
+export * from "./event-transforms";
+
 // Export agent runners and base types
 export * from "./runner";
 

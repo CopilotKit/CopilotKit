@@ -1,5 +1,6 @@
 import { render, cleanup, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type * as CoreModule from "@copilotkit/core";
 import React from "react";
 import { z } from "zod";
 import type { OpenGenerativeUIContent } from "../OpenGenerativeUIRenderer";
@@ -7,7 +8,6 @@ import { OpenGenerativeUIActivityRenderer } from "../OpenGenerativeUIRenderer";
 import { SandboxFunctionsContext } from "../../providers/SandboxFunctionsContext";
 import type { SandboxFunction } from "../../types/sandbox-function";
 
-// Mock @jetbrains/websandbox
 const mockRun = vi.fn().mockResolvedValue(undefined);
 const mockDestroy = vi.fn();
 let mockIframe: HTMLIFrameElement;
@@ -40,14 +40,28 @@ const mockCreate = vi.fn(
   },
 );
 
-vi.mock("@jetbrains/websandbox", () => ({
-  default: {
-    create: (localApi: SandboxLocalApi, options: SandboxCreateOptions) =>
-      mockCreate(localApi, options),
-  },
-}));
+// Run the real core controller against a fake websandbox
+vi.mock("@copilotkit/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof CoreModule>();
+  class TestOpenGenerativeUIController
+    extends actual.ɵOpenGenerativeUIController
+  {
+    constructor() {
+      super({
+        loadWebsandbox: async () => ({
+          create: (localApi, options) =>
+            mockCreate(localApi as SandboxLocalApi, options),
+        }),
+      });
+    }
+  }
+  return {
+    ...actual,
+    ɵOpenGenerativeUIController: TestOpenGenerativeUIController,
+  };
+});
 
-/** Flush the dynamic import() microtask so the sandbox gets created */
+/** Flush the websandbox load so the sandbox gets created */
 async function flushImport() {
   await act(async () => {
     await new Promise((r) => setTimeout(r, 0));

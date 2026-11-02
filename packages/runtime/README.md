@@ -125,9 +125,27 @@ routes and does not attach Memory tools.
 `CopilotKitIntelligence({ enableEnterpriseLearning: true })` remain for one
 compatibility window. New code should use `memory.access`.
 
+## Recorded event transforms
+
+`@copilotkit/runtime` exports `OpenGenerativeUIMiddleware`, the upstream
+`A2UIMiddleware`, and `transformRecordedEvents(input, events, options)`. In 1.x
+they were in `@copilotkit/shared/event-transforms`.
+
+`transformRecordedEvents` applies the same converters to one recorded,
+pre-middleware AG-UI run without executing tools or contacting an agent. Enable converters explicitly with `openGenerativeUI: true`
+and/or `a2ui: { ...originalRuntimeOptions }`. Pass the recorded input, including
+prior messages and catalog context, to preserve live conversion behavior.
+
+The result includes the original events and generated activities in runtime
+order. The caller owns persistence IDs, historical timestamps, and provenance.
+A2UI can generate random message IDs for synthetic tool results; an importer
+that needs deterministic IDs must assign them before saving. Do not process
+already transformed histories a second time. It does not include MCP
+execution or recreate runtime configuration absent from the recording.
+
 ## Analytics & Privacy
 
-CopilotKit uses [Scarf](https://scarf.sh) for anonymous usage analytics to help improve the product. Scarf handles all privacy compliance and does not store raw IP addresses. This helps us understand how CopilotKit is being used and prioritize improvements.
+The runtime sends anonymous usage telemetry to help improve the product. This helps us understand how CopilotKit is being used and prioritize improvements.
 
 ### Opting Out
 

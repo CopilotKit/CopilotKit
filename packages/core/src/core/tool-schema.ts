@@ -1,5 +1,4 @@
 import { schemaToJsonSchema } from "@copilotkit/shared";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import type { FrontendTool } from "../types";
 
 /**
@@ -20,13 +19,7 @@ export function createToolSchema(
     return { ...EMPTY_TOOL_SCHEMA };
   }
 
-  const rawSchema = schemaToJsonSchema(tool.parameters, {
-    zodToJsonSchema: (schema, options) =>
-      zodToJsonSchema(
-        schema as Parameters<typeof zodToJsonSchema>[0],
-        options as Parameters<typeof zodToJsonSchema>[1],
-      ),
-  });
+  const rawSchema = schemaToJsonSchema(tool.parameters);
 
   if (!rawSchema || typeof rawSchema !== "object") {
     return { ...EMPTY_TOOL_SCHEMA };

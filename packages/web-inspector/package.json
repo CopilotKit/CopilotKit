@@ -41,10 +41,9 @@
   "dependencies": {
     "@ag-ui/client": "1.0.2",
     "@copilotkit/core": "workspace:*",
+    "@copilotkit/markdown-renderer": "workspace:*",
     "@copilotkit/shared": "workspace:*",
-    "lit": "^3.2.0",
-    "lucide": "^0.525.0",
-    "marked": "^12.0.2",
+    "lit": "^3.3.2",
     "semver": "^7.8.5"
   },
   "devDependencies": {

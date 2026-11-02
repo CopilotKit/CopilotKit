@@ -1,7 +1,7 @@
 import React, { Suspense, memo, useRef } from "react";
 import type { CSSProperties, ComponentType } from "react";
 import type * as Recharts from "recharts";
-import { z } from "zod";
+import * as z from "zod";
 import {
   CHART_CURSOR,
   CHART_PALETTE,

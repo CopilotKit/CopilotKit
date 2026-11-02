@@ -1,7 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import {
-  convertJsonSchemaToZodSchema,
   randomId,
   randomUUID,
   CopilotKitMisuseError,
@@ -10,6 +9,7 @@ import { interrupt } from "@langchain/langgraph";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { AIMessage } from "@langchain/core/messages";
 import type { OptionsConfig } from "./types";
+import { convertJsonSchemaToZodSchema } from "./json-schema-to-zod";
 
 /**
  * Customize the LangGraph configuration for use in CopilotKit.

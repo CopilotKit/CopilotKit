@@ -12,6 +12,9 @@
   ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"
@@ -102,7 +105,8 @@
     "react-dom": "^19.1.0",
     "tsdown": "^0.20.3",
     "typescript": "^5.8.3",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "zod": "^4.2.0"
   },
   "peerDependencies": {
     "@gorhom/bottom-sheet": "^5.0.0",
@@ -111,8 +115,7 @@
     "react": "^18 || ^19",
     "react-native": ">=0.70",
     "react-native-gesture-handler": ">=2.0.0",
-    "react-native-reanimated": ">=3.0.0",
-    "zod": ">=3.0.0"
+    "react-native-reanimated": ">=3.0.0"
   },
   "peerDependenciesMeta": {
     "@gorhom/bottom-sheet": {
@@ -128,9 +131,6 @@
       "optional": true
     },
     "react-native-reanimated": {
-      "optional": true
-    },
-    "zod": {
       "optional": true
     }
   }

@@ -16,6 +16,9 @@
   ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"
@@ -32,25 +35,7 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
-    "./event-transforms": {
-      "import": "./dist/event-transforms/index.mjs",
-      "require": "./dist/event-transforms/index.cjs"
-    },
-    "./telemetry": {
-      "import": "./dist/telemetry/index.mjs",
-      "require": "./dist/telemetry/index.cjs"
-    },
     "./package.json": "./package.json"
-  },
-  "typesVersions": {
-    "*": {
-      "telemetry": [
-        "./dist/telemetry/index.d.cts"
-      ],
-      "event-transforms": [
-        "./dist/event-transforms/index.d.cts"
-      ]
-    }
   },
   "publishConfig": {
     "access": "public"
@@ -68,19 +53,13 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/a2ui-middleware": "0.0.10",
     "@ag-ui/client": "1.0.2",
     "@copilotkit/license-verifier": "~0.5.0",
-    "@segment/analytics-node": "^2.1.2",
     "@standard-schema/spec": "^1.0.0",
-    "clarinet": "^0.12.4",
-    "partial-json": "^0.1.7",
-    "rxjs": "7.8.1",
-    "zod": "^3.23.3"
+    "partial-json": "^0.1.7"
   },
   "devDependencies": {
     "@ag-ui/core": "1.0.2",
-    "@types/clarinet": "^0.12.3",
     "@valibot/to-json-schema": "^1.5.0",
     "arktype": "^2.1.29",
     "eslint": "^8.56.0",
@@ -89,9 +68,9 @@
     "typescript": "^5.2.3",
     "valibot": "^1.2.0",
     "vitest": "^3.2.4",
-    "zod-to-json-schema": "^3.23.5"
+    "zod": "^4.2.0"
   },
   "peerDependencies": {
-    "@ag-ui/core": ">=0.0.48"
+    "@ag-ui/core": "^1.0.2"
   }
 }

@@ -39,7 +39,7 @@ const schema = z.object({
                     .describe("One numeric value per label."),
                 })
                 // Allow Chart.js dataset extras: stack, backgroundColor, fill…
-                .passthrough(),
+                .loose(),
             )
             .min(1)
             .describe("One entry per data series."),

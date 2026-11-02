@@ -148,8 +148,17 @@ jobs:
     steps:
       - name: Check relevance
         id: should-run
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        # The upstream ag-ui dojo is a 1.x app: it depends on
+        # @copilotkit/react-ui and @copilotkit/runtime-client-gql and imports
+        # the /v2 subpaths, which 2.x removes. Skip it for PRs into a 2.x
+        # branch until the dojo moves to the 2.x API.
         run: |
-          if [[ "${{ needs.detect-changes.outputs.ts-changed }}" == "true" ]] || \
+          if [[ "$BASE_REF" == 2.* ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⏭️ Skipping ${{ matrix.suite }} — the ag-ui dojo does not support CopilotKit 2.x yet"
+          elif [[ "${{ needs.detect-changes.outputs.ts-changed }}" == "true" ]] || \
              [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "skip=false" >> $GITHUB_OUTPUT
           elif [[ "${{ needs.detect-changes.outputs.python-changed }}" == "true" ]] && \

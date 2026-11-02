@@ -55,7 +55,7 @@ describe("RunHandler Zod regression — tool schema generation", () => {
 
     it("strips additionalProperties from passthrough schemas", () => {
       const schema = buildSingleToolSchema(
-        z.object({ id: z.number() }).passthrough(),
+        z.object({ id: z.number() }).loose(),
       );
       expect(schema).not.toHaveProperty("additionalProperties");
     });
@@ -199,7 +199,7 @@ describe("RunHandler Zod regression — tool schema generation", () => {
     it("string constraints", () => {
       const schema = buildSingleToolSchema(
         z.object({
-          email: z.string().email(),
+          email: z.email(),
           username: z.string().min(3).max(20),
         }),
       );

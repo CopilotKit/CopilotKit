@@ -29,7 +29,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "rxjs": "^7.8.1",
-    "zod": "^3.25.75"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

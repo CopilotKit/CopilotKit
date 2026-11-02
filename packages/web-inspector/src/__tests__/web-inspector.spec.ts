@@ -350,6 +350,52 @@ describe("WebInspectorElement", () => {
     );
   });
 
+  it("describes a Standard Schema tool's parameters through its JSON Schema", () => {
+    const inspector = new WebInspectorElement();
+    const parameters = {
+      "~standard": {
+        version: 1,
+        vendor: "zod",
+        validate: (value: unknown) => ({ value }),
+        jsonSchema: {
+          input: () => ({
+            type: "object",
+            properties: {
+              city: { type: "string", description: "City name" },
+              units: { type: "string", enum: ["c", "f"], default: "c" },
+            },
+            required: ["city"],
+          }),
+        },
+      },
+    };
+
+    const { extractSchemaInfo } = inspector as unknown as {
+      extractSchemaInfo: (p: unknown) => {
+        properties: Array<Record<string, unknown>>;
+      };
+    };
+
+    expect(extractSchemaInfo.call(inspector, parameters).properties).toEqual([
+      {
+        name: "city",
+        type: "string",
+        description: "City name",
+        required: true,
+        defaultValue: undefined,
+        enum: undefined,
+      },
+      {
+        name: "units",
+        type: "string",
+        description: undefined,
+        required: false,
+        defaultValue: "c",
+        enum: ["c", "f"],
+      },
+    ]);
+  });
+
   it("renders Agent tab message text without template indent", async () => {
     const { agent } = createMockAgent("alpha", {
       messages: [{ id: "m1", role: "user", content: "test" }],

@@ -28,7 +28,13 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-This produces structured Pino logs (formatted by `pino-pretty`) with a `copilotkit-debug` component label:
+This produces structured Pino logs with a `copilotkit-debug` component label. The runtime writes them to stdout as JSON lines. To read them formatted, pipe your server output through `pino-pretty`:
+
+```bash
+npm run dev | npx pino-pretty
+```
+
+The formatted output looks like this:
 
 ```
 [14:32:01.123] DEBUG (copilotkit-debug): Agent run started

@@ -1,6 +1,6 @@
 import React, { createContext, isValidElement, useContext } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import { CHILDREN_SLOT, sizeValue, weightProp } from "./layout";
 import { LucideIcon } from "./media";
 import { Chart, VISUALLY_HIDDEN, chartSchema } from "./Chart";

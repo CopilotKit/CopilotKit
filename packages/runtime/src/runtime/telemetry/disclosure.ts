@@ -1,11 +1,10 @@
 // Runtime-side telemetry disclosure log.
 //
-// The runtime has shipped telemetry for some time (see
-// `packages/shared/src/telemetry/telemetry-client.ts`). Sends are anonymous by
-// default but can carry a configured standalone or legacy identity. This file
-// surfaces a neutral one-line pointer to the opt-out docs on first
-// instantiation so the disclosure stays true for every identity mode. It pairs
-// with the inspector's first-run console disclosure.
+// The runtime has shipped telemetry for some time (see `./telemetry-client.ts`).
+// Sends are anonymous by default but can carry a configured standalone or
+// legacy identity. This file surfaces a neutral one-line pointer to the opt-out
+// docs on first instantiation so the disclosure stays true for every identity
+// mode. It pairs with the inspector's first-run console disclosure.
 //
 // Fires at most once per process — runtime instances may be constructed
 // multiple times (tests, hot-reload), but the disclosure is informational

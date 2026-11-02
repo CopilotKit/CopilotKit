@@ -22,8 +22,8 @@ describe("ToolDefinition type inference", () => {
         execute: async (args) => {
           // args should be fully typed
           expectTypeOf(args).toEqualTypeOf<{
-            city?: string;
-            units?: "celsius" | "fahrenheit";
+            city: string;
+            units: "celsius" | "fahrenheit";
           }>();
           return {};
         },
@@ -44,7 +44,7 @@ describe("ToolDefinition type inference", () => {
         }),
         execute: async (args) => {
           expectTypeOf(args).toEqualTypeOf<{
-            query?: string;
+            query: string;
             limit?: number;
           }>();
           return {};
@@ -135,7 +135,7 @@ describe("ToolDefinition type inference", () => {
 
       expectTypeOf<ZodTool["execute"]>().toBeFunction();
       expectTypeOf<Parameters<ZodTool["execute"]>[0]>().toEqualTypeOf<{
-        city?: string;
+        city: string;
       }>();
     });
 

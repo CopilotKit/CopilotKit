@@ -8,6 +8,7 @@ import {
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { z as zodV3 } from "zod-v3";
 import { CopilotKit } from "./copilotkit";
 import { provideCopilotKit } from "./config";
 import { HumanInTheLoop } from "./human-in-the-loop";
@@ -490,7 +491,10 @@ describe("CopilotKit", () => {
   it("lists custom components by name only when includeSchema is false", () => {
     const customCatalog: A2UICatalog = Object.assign(
       new Catalog("copilotkit://custom-catalog", [
-        { name: "FlightCard", schema: z.object({ airline: z.string() }) },
+        {
+          name: "FlightCard",
+          schema: zodV3.object({ airline: zodV3.string() }),
+        },
       ]),
       { surfaceComponent: CopilotA2UIActivityRenderer },
     );
@@ -521,7 +525,10 @@ describe("CopilotKit", () => {
   it("includes custom component schemas in the catalog description by default", () => {
     const customCatalog: A2UICatalog = Object.assign(
       new Catalog("copilotkit://custom-catalog", [
-        { name: "FlightCard", schema: z.object({ airline: z.string() }) },
+        {
+          name: "FlightCard",
+          schema: zodV3.object({ airline: zodV3.string() }),
+        },
       ]),
       { surfaceComponent: CopilotA2UIActivityRenderer },
     );

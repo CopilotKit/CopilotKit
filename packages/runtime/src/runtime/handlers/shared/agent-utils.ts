@@ -1,10 +1,8 @@
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import { RunAgentInputSchema } from "@ag-ui/core/schemas";
 import type { CopilotKitUIEnvelope } from "@copilotkit/shared";
-import {
-  A2UIMiddleware,
-  OpenGenerativeUIMiddleware,
-} from "@copilotkit/shared/event-transforms";
+import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
+import { OpenGenerativeUIMiddleware } from "../../event-transforms";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
 import { GenerativeUIMiddleware } from "../../generative-ui";

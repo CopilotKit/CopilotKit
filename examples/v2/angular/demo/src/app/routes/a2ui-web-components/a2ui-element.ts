@@ -1,7 +1,7 @@
 import type { ComponentContext } from "@a2ui/web_core/v0_9";
 import { GenericBinder } from "@a2ui/web_core/v0_9";
 import type { A2uiWebComponentElement } from "@copilotkit/angular/a2ui";
-import type { ZodTypeAny } from "zod";
+import type { ZodTypeAny } from "zod-v3";
 
 /**
  * A plain Custom Element base for A2UI catalog entries. The renderer assigns

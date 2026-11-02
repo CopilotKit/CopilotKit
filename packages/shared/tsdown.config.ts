@@ -2,13 +2,7 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig([
   {
-    // Node-only telemetry and event transforms have separate entries.
-    // The browser-facing root must not re-export either (#4151).
-    entry: [
-      "src/index.ts",
-      "src/telemetry/index.ts",
-      "src/event-transforms/index.ts",
-    ],
+    entry: ["src/index.ts"],
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
@@ -24,14 +18,12 @@ export default defineConfig([
     sourcemap: true,
     target: "es2018",
     outDir: "dist",
-    external: ["zod", "@ag-ui/core", "@ag-ui/client", "partial-json"],
+    external: ["@ag-ui/core", "@ag-ui/client", "partial-json"],
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";
       options.globals = {
-        zod: "Zod",
         "@ag-ui/core": "AgUICore",
         "@ag-ui/client": "AgUIClient",
-        "@segment/analytics-node": "SegmentAnalyticsNode",
         "partial-json": "PartialJSON",
       };
       return options;

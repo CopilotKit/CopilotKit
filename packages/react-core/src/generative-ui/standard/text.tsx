@@ -5,7 +5,7 @@ import type {
   KeyboardEvent,
   ReactNode,
 } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import { CHILDREN_SLOT, sizeValue, weightProp } from "./layout";
 import {
   ExternalLink,

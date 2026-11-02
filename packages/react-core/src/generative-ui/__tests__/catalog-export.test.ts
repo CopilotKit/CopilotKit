@@ -176,7 +176,6 @@ describe("exportA2UICatalog", () => {
             },
           },
           required: ["productId", "quantity"],
-          additionalProperties: false,
         },
       },
       required: ["@call", "args"],
@@ -196,7 +195,7 @@ describe("exportA2UICatalog", () => {
     expect(functions.formatNumber.description).toBeUndefined();
   });
 
-  it("requires args only when an arg is required, escapes names in references, keeps literal defaults, and walks intersections", () => {
+  it("requires args only when an arg is required, escapes names in references, keeps literal defaults, and handles intersections", () => {
     const ui = createGenerativeUI({
       id: "acme/app@1",
       functions: {
@@ -239,14 +238,15 @@ describe("exportA2UICatalog", () => {
     const defaultProp = (catalog.components["acme/Card"].properties as any)
       .default;
     expect(defaultProp.anyOf[0].prefixItems).toHaveLength(2);
-    expect(defaultProp.anyOf[0].items).toBeUndefined();
+    // Zod 4 closes a tuple with `additionalItems: false`, which 2020-12
+    // spells `items: false`.
+    expect(defaultProp.anyOf[0].items).toBe(false);
     expect(tags.anyOf[0].properties.items.anyOf[0].items.anyOf[1]).toEqual(
       ref("DataBinding"),
     );
     const locate = (catalog.functions["acme/locate"].properties as any).args;
-    expect(locate.allOf[0].properties.city.anyOf[1]).toEqual(
-      ref("DataBinding"),
-    );
+    // Zod 4 merges an intersection of objects into one object schema.
+    expect(locate.properties.city.anyOf[1]).toEqual(ref("DataBinding"));
   });
 
   it("requires args when every variant of a union requires a key, and rebases the local references of an embedded schema", () => {
@@ -368,6 +368,7 @@ describe("exportA2UICatalog", () => {
       type: "array",
       minItems: 2,
       maxItems: 2,
+      items: false,
       prefixItems: [
         {
           anyOf: [{ type: "number" }, ref("DataBinding"), ref("FunctionCall")],
@@ -380,6 +381,7 @@ describe("exportA2UICatalog", () => {
     expect(JSON.stringify(catalog)).not.toContain('"items":[');
     expect(args.properties.labels.anyOf[0]).toEqual({
       type: "object",
+      propertyNames: { type: "string" },
       additionalProperties: {
         anyOf: [{ type: "string" }, ref("DataBinding"), ref("FunctionCall")],
       },

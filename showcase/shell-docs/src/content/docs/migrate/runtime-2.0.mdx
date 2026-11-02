@@ -162,6 +162,13 @@ Intelligence. The codemod adds a `TODO(copilotkit-2.0)` to each read of
 not supported. If your server or CI uses an earlier version, upgrade Node.js
 before you upgrade CopilotKit.
 
+## Debug logs
+
+With `debug: true`, the runtime writes its debug logs as JSON lines. In 1.x it
+formatted them with `pino-pretty`, which needs Node streams and does not run on
+edge runtimes. To read the logs formatted, pipe your server output through
+`npx pino-pretty`.
+
 ## Dependency cleanup
 
 Remove `hono`, `@hono/node-server`, `express`, and `cors` from your app only if your

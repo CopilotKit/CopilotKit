@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
-  processPartialHtml,
+  buildFinalFrameContent,
   extractCompleteStyles,
-} from "../processPartialHtml";
+  processPartialHtml,
+} from "../html";
 
 describe("processPartialHtml", () => {
   it("returns empty string for empty input", () => {
@@ -107,6 +108,38 @@ describe("extractCompleteStyles", () => {
       "<head><style>body { margin: 0; }</style></head><body><p>Hi</p></body>";
     expect(extractCompleteStyles(input)).toBe(
       "<style>body { margin: 0; }</style>",
+    );
+  });
+});
+
+describe("buildFinalFrameContent", () => {
+  it("returns HTML that already has a head unchanged when there is no CSS", () => {
+    const html = "<html><head></head><body>Body</body></html>";
+    expect(buildFinalFrameContent(html, undefined)).toBe(html);
+  });
+
+  it("adds an empty head to HTML without one", () => {
+    expect(buildFinalFrameContent("<body>Body</body>", undefined)).toBe(
+      "<head></head><body>Body</body>",
+    );
+  });
+
+  it("puts the CSS at the end of an existing head", () => {
+    expect(
+      buildFinalFrameContent(
+        "<html><head><title>Demo</title></head><body>Body</body></html>",
+        ".card { color: red; }",
+      ),
+    ).toBe(
+      "<html><head><title>Demo</title><style>.card { color: red; }</style></head><body>Body</body></html>",
+    );
+  });
+
+  it("creates a head for the CSS when the HTML has none", () => {
+    expect(
+      buildFinalFrameContent("<body>Body</body>", ".metric { color: blue; }"),
+    ).toBe(
+      "<head><style>.metric { color: blue; }</style></head><body>Body</body>",
     );
   });
 });

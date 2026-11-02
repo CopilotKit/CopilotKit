@@ -70,7 +70,6 @@ import {
 } from "./open-generative-ui";
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
-import { standardSchemaZodToJsonSchema } from "./standard-schema-zod";
 import { CopilotInspector } from "./inspector";
 
 /**
@@ -696,9 +695,7 @@ export class CopilotKit {
       sandboxFunctions.map((fn) => ({
         name: fn.name,
         description: fn.description,
-        parameters: schemaToJsonSchema(fn.parameters, {
-          zodToJsonSchema: standardSchemaZodToJsonSchema,
-        }),
+        parameters: schemaToJsonSchema(fn.parameters),
       })),
     );
 

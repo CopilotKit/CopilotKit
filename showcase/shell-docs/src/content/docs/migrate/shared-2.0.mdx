@@ -7,9 +7,10 @@ In 2.0, an import from `@copilotkit/shared` can fail, or a package that your app
 
 - `CopilotKitError` no longer extends `GraphQLError`.
 - `@copilotkit/shared` removes some helpers that only 1.x used.
+- Server-only code moved from `@copilotkit/shared` to `@copilotkit/runtime`.
 - CopilotKit no longer installs some packages for your app.
 
-The codemod does not change this code. Use the sections below.
+The codemod changes imports of `@copilotkit/shared/event-transforms`. It does not change the other code. Use the sections below.
 
 ## Error checks
 
@@ -43,6 +44,7 @@ export function logErrorCode(error: unknown) {
 | `executeConditions` and the `Condition` types | Delete the code, or keep your own copy of the function. |
 | `ConsoleColors`, `ConsoleStyles`, `styledConsole`, `logStyled`, `logCopilotKitPlatformMessage`, `publicApiKeyRequired` | Delete the code, or use `console.log` with `%c` styles. |
 | `dataToUUID`, `isValidUUID` | Use `v5` and `validate` from the `uuid` package. |
+| `convertJsonSchemaToZodSchema`, `getZodParameters` | Keep your own copy of the function. `@copilotkit/shared` no longer depends on `zod`. To get a JSON Schema for a v1 `Parameter[]`, use `actionParametersToJsonSchema`, which stays in `@copilotkit/shared`. |
 
 `dataToUUID` made a v5 UUID from a string. To get the same IDs, use the same namespace that `dataToUUID` used:
 
@@ -63,12 +65,33 @@ const valid = validate(id);
 
 If you passed a second argument to `dataToUUID`, use `v5(namespace, NAMESPACE)` as the namespace. If you passed an object, pass `JSON.stringify(object)` to `v5`.
 
+## Event transforms moved to the runtime
+
+The `@copilotkit/shared/event-transforms` entry point is removed. Import `transformRecordedEvents`, `OpenGenerativeUIMiddleware`, `ArgsParser`, and `A2UIMiddleware` from `@copilotkit/runtime`. The names and behavior did not change.
+
+```ts ignore title="Before"
+import { transformRecordedEvents } from "@copilotkit/shared/event-transforms";
+```
+
+```ts title="After"
+import { transformRecordedEvents } from "@copilotkit/runtime";
+
+export { transformRecordedEvents };
+```
+
+## Telemetry entry point removed
+
+The `@copilotkit/shared/telemetry` entry point and its Segment `TelemetryClient` are removed. `@copilotkit/runtime` has its own telemetry client. The `TelemetryCapture` and `TelemetryIdentity` types are also removed from `@copilotkit/shared`. If your code imports them, delete the import. To turn telemetry off, set `COPILOTKIT_TELEMETRY_DISABLED=true` as before.
+
 ## Packages that CopilotKit no longer installs
 
 | Package | Installed in 1.x by |
 | --- | --- |
 | `openai`, `ws` | `@copilotkit/runtime` |
 | `graphql`, `uuid` | `@copilotkit/shared` |
+| `rxjs`, `clarinet`, `@ag-ui/a2ui-middleware` | `@copilotkit/shared` (`@copilotkit/runtime` still installs them) |
+| `@segment/analytics-node` | `@copilotkit/shared` |
+| `zod` | `@copilotkit/shared` (most other CopilotKit packages still install it) |
 
 If your code imports one of these packages, add it to your app:
 

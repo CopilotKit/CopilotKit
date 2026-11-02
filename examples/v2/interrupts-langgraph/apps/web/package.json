@@ -16,7 +16,7 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "shiki": "^3.22.0",
-    "zod": "^3.25.76"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { z } from "zod";
+import { z } from "zod-v3";
 import { Catalog, MessageProcessor } from "@a2ui/web_core/v0_9";
 import { applyA2UIOperations, normalizeA2UIOperations } from "../operations";
 

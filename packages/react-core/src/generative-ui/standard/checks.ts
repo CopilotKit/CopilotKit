@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import type { CSSProperties } from "react";
 import { textColor, textFont } from "./tokens";
 
@@ -20,7 +20,7 @@ const validationResult = z
     code: z.string().optional(),
     severity: severity.optional(),
   })
-  .passthrough();
+  .loose();
 
 /** The first failed check of a control, as the control shows it. */
 export interface FailedCheck {
