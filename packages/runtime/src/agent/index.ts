@@ -100,7 +100,9 @@ export interface ToolDefinition<
    * Server-side executor. Optional ONLY for interrupt tools (`interrupt:true`),
    * which pause the run instead of executing.
    */
-  execute?: (args: InferSchemaOutput<TParameters>) => Promise<unknown>;
+  // Method syntax keeps `defineTool(...)` results assignable to
+  // `ToolDefinition` under `strictFunctionTypes`.
+  execute?(args: InferSchemaOutput<TParameters>): Promise<unknown>;
   /**
    * When true, calling this tool pauses the run and emits a standard AG-UI
    * interrupt (RUN_FINISHED outcome:interrupt) keyed by the tool call's id.
