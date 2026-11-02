@@ -85,8 +85,8 @@ export interface CopilotChatBaseProps {
 
   /**
    * Error handler scoped to this chat's agent. Fires in addition to the
-   * provider-level onError (does not suppress it). Receives only errors
-   * whose context.agentId matches this chat's agent.
+   * provider-level onError (does not suppress it). Receives errors whose
+   * context.agentId matches this chat's agent, and errors with no agentId.
    */
   onError?: (event: {
     error: Error;

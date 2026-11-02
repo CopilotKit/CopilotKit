@@ -24,10 +24,11 @@ export interface CopilotMarkdownProps {
 /**
  * Default markdown styles tuned for chat bubble display.
  *
- * Exported so consumers can spread and extend:
+ * Exported so consumers can spread and extend. A key in the `style` prop
+ * replaces the whole default for that element, so spread the element default:
  * ```ts
- * import { defaultMarkdownStyles } from "@copilotkit/react-native";
- * const custom = { ...defaultMarkdownStyles, h1: { fontSize: 28 } };
+ * import { defaultMarkdownStyles } from "@copilotkit/react-native/components";
+ * const custom = { h1: { ...defaultMarkdownStyles.h1, fontSize: 28 } };
  * ```
  */
 export const defaultMarkdownStyles: MarkdownStyle = {
