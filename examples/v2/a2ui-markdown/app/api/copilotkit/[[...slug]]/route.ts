@@ -4,7 +4,6 @@ import {
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
 
 if (!process.env.OPENAI_API_KEY) {
   console.warn(
@@ -22,15 +21,10 @@ const builtIn = new BuiltInAgent({
     "You are a helpful assistant. When a visual, interactive answer helps, render it with generative UI as described in your context.",
 });
 
-// The LangGraph Python agent in ./agent (uv run main.py).
-const langgraph = new LangGraphHttpAgent({
-  url: process.env.LANGGRAPH_AGENT_URL ?? "http://localhost:8011/copilotkit",
-});
-
 // generativeUI: true gives every tool-transport run the render_ui tool. A
 // markdown-transport run never gets it: the model writes ```a2ui fences.
 const runtime = new CopilotRuntime({
-  agents: { default: builtIn, langgraph },
+  agents: { default: builtIn },
   runner: new InMemoryAgentRunner(),
   generativeUI: true,
 });

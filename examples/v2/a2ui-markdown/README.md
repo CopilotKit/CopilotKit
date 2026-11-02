@@ -34,7 +34,7 @@ generative UI on with one prop:
 
 ## Run
 
-Start the app with the built-in agent:
+Start the app:
 
 ```bash
 pnpm --filter @copilotkit/example-a2ui-markdown example-dev
@@ -49,16 +49,6 @@ three suggestions render into them:
 2. "Checklist in the notes" fills `notes`.
 3. "Update the dashboard" changes the dashboard in place, in a later reply.
 
-To use the LangGraph Python agent in [`agent/`](./agent), you need `uv`. In a
-second terminal, run these commands from `examples/v2/a2ui-markdown`:
-
-```bash
-pnpm install:agent
-pnpm dev:agent                     # serves http://localhost:8011/copilotkit
-```
-
-Then open `http://localhost:3011/?agent=langgraph`.
-
 ## URL parameters
 
 The links in the page header set these parameters:
@@ -67,9 +57,8 @@ The links in the page header set these parameters:
 | --------------------- | -------------------------------------------------------------------------------- |
 | `?transport=markdown` | The default. The agent writes the operations in ` ```a2ui ` fences in its reply. |
 | `?transport=tool`     | The agent calls the `render_ui` tool. The runtime streams the surfaces.          |
-| `?agent=langgraph`    | The chat talks to the LangGraph Python agent instead of the built-in agent.      |
 
-Neither agent has code for generative UI. With the markdown transport, the
+The agent has no code for generative UI. With the markdown transport, the
 provider sends the component schema and the fence guideline as context. With
 the tool transport, the runtime (`generativeUI: true` in
 `app/api/copilotkit/[[...slug]]/route.ts`) gives the agent the `render_ui`
@@ -97,7 +86,7 @@ the page header switch between the two.
 
 The model sees exactly the standard catalog. `kumo/ui.ts` extends
 `standardUI` and replaces only the React components with `overrides`, so
-the prompts, both transports and the agents stay the same.
+the prompts, both transports and the agent stay the same.
 `kumo/coverage.ts` says how each of the 69 components is drawn, and
 `/kumo/catalog` shows it as a tag next to each name:
 

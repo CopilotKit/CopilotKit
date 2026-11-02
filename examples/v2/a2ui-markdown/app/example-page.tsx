@@ -13,7 +13,7 @@ import type {
 } from "@copilotkit/react-core/v2/generative-ui";
 import Link from "next/link";
 import { Providers } from "./providers";
-import type { ExampleAgent, ExampleTransport } from "./providers";
+import type { ExampleTransport } from "./providers";
 
 /** "page": the chat next to two page surfaces. "chat": the chat alone, full width. */
 type ExampleLayout = "page" | "chat";
@@ -96,22 +96,13 @@ const SUGGESTIONS: Suggestion[] = [
   },
 ];
 
-function Suggestions({
-  agent,
-  layout,
-}: {
-  agent: ExampleAgent;
-  layout: ExampleLayout;
-}) {
+function Suggestions({ layout }: { layout: ExampleLayout }) {
   // The prompts that target a page surface only make sense when the page
   // surfaces are there.
   const suggestions = SUGGESTIONS.filter(
     ({ layouts }) => layouts === undefined || layouts.includes(layout),
   ).map(({ title, message }) => ({ title, message }));
-  useConfigureSuggestions(
-    { suggestions, available: "always", consumerAgentId: agent },
-    [agent, layout],
-  );
+  useConfigureSuggestions({ suggestions, available: "always" }, [layout]);
   return null;
 }
 
@@ -191,27 +182,21 @@ interface ExamplePageProps {
 
 function Chat({ ui, theme, basePath }: ExamplePageProps) {
   const searchParams = useSearchParams();
-  const agent: ExampleAgent =
-    searchParams.get("agent") === "langgraph" ? "langgraph" : "default";
   const transport: ExampleTransport =
     searchParams.get("transport") === "tool" ? "tool" : "markdown";
   const layout: ExampleLayout =
     searchParams.get("layout") === "chat" ? "chat" : "page";
-  const query = (a: ExampleAgent, t: ExampleTransport, l: ExampleLayout) =>
-    `?agent=${a}&transport=${t}${l === "chat" ? "&layout=chat" : ""}`;
-  const href = (
-    a: ExampleAgent,
-    t: ExampleTransport,
-    l: ExampleLayout = layout,
-  ) => `${basePath || "/"}${query(a, t, l)}`;
+  const query = (t: ExampleTransport, l: ExampleLayout) =>
+    `?transport=${t}${l === "chat" ? "&layout=chat" : ""}`;
+  const href = (t: ExampleTransport, l: ExampleLayout = layout) =>
+    `${basePath || "/"}${query(t, l)}`;
   // The Kumo pages load the Kumo stylesheet. A full page load (a plain <a>)
   // between the two UIs keeps it off the standard pages.
-  const uiHref = (path: "/" | "/kumo") =>
-    `${path}${query(agent, transport, layout)}`;
+  const uiHref = (path: "/" | "/kumo") => `${path}${query(transport, layout)}`;
   const current = (active: boolean) => (active ? "page" : undefined);
 
   return (
-    <Providers agent={agent} transport={transport} ui={ui} theme={theme}>
+    <Providers transport={transport} ui={ui} theme={theme}>
       <main className="ex-shell">
         <header className="ex-topbar">
           <div className="ex-brand">
@@ -228,35 +213,18 @@ function Chat({ ui, theme, basePath }: ExamplePageProps) {
             </div>
           </div>
           <nav className="ex-controls" aria-label="Example settings">
-            <div className="ex-segment" role="group" aria-label="Agent">
-              <span className="ex-segment-label">Agent</span>
-              <Link
-                className="ex-pill"
-                href={href("default", transport)}
-                aria-current={current(agent === "default")}
-              >
-                Built-in
-              </Link>
-              <Link
-                className="ex-pill"
-                href={href("langgraph", transport)}
-                aria-current={current(agent === "langgraph")}
-              >
-                LangGraph
-              </Link>
-            </div>
             <div className="ex-segment" role="group" aria-label="Transport">
               <span className="ex-segment-label">Transport</span>
               <Link
                 className="ex-pill"
-                href={href(agent, "markdown")}
+                href={href("markdown")}
                 aria-current={current(transport === "markdown")}
               >
                 Markdown
               </Link>
               <Link
                 className="ex-pill"
-                href={href(agent, "tool")}
+                href={href("tool")}
                 aria-current={current(transport === "tool")}
               >
                 Tool
@@ -266,14 +234,14 @@ function Chat({ ui, theme, basePath }: ExamplePageProps) {
               <span className="ex-segment-label">Layout</span>
               <Link
                 className="ex-pill"
-                href={href(agent, transport, "page")}
+                href={href(transport, "page")}
                 aria-current={current(layout === "page")}
               >
                 Page
               </Link>
               <Link
                 className="ex-pill"
-                href={href(agent, transport, "chat")}
+                href={href(transport, "chat")}
                 aria-current={current(layout === "chat")}
               >
                 Chat
@@ -314,7 +282,7 @@ function Chat({ ui, theme, basePath }: ExamplePageProps) {
           {layout === "page" ? <PageSurfaces /> : null}
           <section className="ex-panel ex-panel-chat" aria-label="Chat">
             <div className="ex-chat">
-              <Suggestions agent={agent} layout={layout} />
+              <Suggestions layout={layout} />
               <CopilotChat />
             </div>
           </section>

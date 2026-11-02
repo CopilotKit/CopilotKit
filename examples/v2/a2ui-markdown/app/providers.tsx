@@ -7,18 +7,15 @@ import type {
   GenerativeUITheme,
 } from "@copilotkit/react-core/v2/generative-ui";
 
-export type ExampleAgent = "default" | "langgraph";
 export type ExampleTransport = "markdown" | "tool";
 
 export function Providers({
   children,
-  agent,
   transport,
   ui,
   theme,
 }: {
   children: ReactNode;
-  agent: ExampleAgent;
   transport: ExampleTransport;
   /** The components the agent renders: standardUI, or the Kumo version. */
   ui: GenerativeUI;
@@ -35,7 +32,6 @@ export function Providers({
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       useSingleEndpoint={false}
-      agentId={agent}
       generativeUI={{ ui, transport, theme }}
     >
       {children}

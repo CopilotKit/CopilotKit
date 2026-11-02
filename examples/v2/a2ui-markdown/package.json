@@ -6,8 +6,6 @@
     "example-dev": "next dev -p 3011",
     "example-build": "next build",
     "example-start": "next start -p 3011",
-    "dev:agent": "cd agent && uv run main.py",
-    "install:agent": "cd agent && uv sync",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
