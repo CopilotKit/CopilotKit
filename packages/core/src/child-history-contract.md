@@ -2,10 +2,14 @@
 
 This internal compatibility contract is consumed by `ɵChildHistoryStore`.
 It is presentation data: it never appends imported messages to model input or
-executes saved tool calls. The native Claude emitter currently lives outside
-this repository. Tests in `__tests__/child-history.test.ts` exercise recorded
-wire shapes through the actual AG-UI subscriber pipeline; they are not a live
-emitter conformance test.
+executes saved tool calls. Snapshots come from the Intelligence import loader;
+live events come from `@ag-ui/claude-agent-sdk`. Both live outside this
+repository. `__tests__/child-history-claude-conformance.test.ts` replays events
+recorded from the published emitter (`@ag-ui/claude-agent-sdk@0.0.8`, driven by
+a scripted SDK stream) through the AG-UI subscriber pipeline. That release does
+not emit child interrupts; their shape below matches ag-ui `main` at
+`44f4e02e3c` (`native-recovery.ts`) and is covered by recorded-shape tests in
+`__tests__/child-history.test.ts`.
 
 ## Snapshot events
 
@@ -58,9 +62,17 @@ framework-neutral store consumes them:
 
 A producer can emit the neutral shapes directly. The legacy adapter remains so
 existing deployments can replay persisted native events without a migration.
-When a delegation is missing, the store retains the root user turn observed on
-first arrival. Without any root-turn evidence, the view uses the first retained
-turn as a fallback rather than moving the child below each new turn.
+
+## Placement
+
+A child renders after the root assistant message that delegated to it. When
+that call is missing from root messages, a child created by a live interrupt
+keeps the root user turn it arrived in; replay preserves event order, so the
+turn survives reload. Snapshot arrival is not placement evidence: an import
+carries no turn, and the import loader persists snapshots after the first
+`RUN_STARTED` regardless of when a child ran. A child with no evidence renders
+after the first root turn and is labelled "Original position not recorded".
+Placement is decided once and never moves to a later turn.
 
 ## Retention and reset
 
@@ -69,4 +81,7 @@ replay message snapshots carry run input and do not trigger this reset. Chat
 thread switches release the discarded thread. Headless consumers retain at
 most four recently updated threads per agent; older threads must replay when
 reopened. Live overlays remain available within retained threads so an older
-snapshot cannot silently erase a just-completed call.
+snapshot cannot silently erase a just-completed call; this data is the child
+transcript itself, so it grows with the thread like root messages do. A
+streamed record merges into its owning child only, and records no history owns
+are kept without notifying listeners.

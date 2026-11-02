@@ -25,13 +25,17 @@ it("keeps an unanchored child in its original turn when later turns arrive", () 
     "second",
     "second-answer",
   ]);
+  expect(projection.messages[2]).not.toHaveProperty("content.positionUnknown");
   expect(messages).toHaveLength(4);
 });
-it("uses first retained turn when a replay has no ownership anchor", () => {
-  expect(
-    projectChildHistories(messages, [{ ...child, anchorMessageId: undefined }])
-      .messages[2]?.role,
-  ).toBe("activity");
+it("labels a child whose turn was never recorded and keeps it after the first turn", () => {
+  const row = projectChildHistories(messages, [
+    { ...child, anchorMessageId: undefined },
+  ]).messages[2];
+  expect(row).toMatchObject({
+    role: "activity",
+    content: { positionUnknown: true },
+  });
 });
 it("retains explicit delegation placement and exposes history to custom activity renderers", () => {
   const delegated: Message[] = [

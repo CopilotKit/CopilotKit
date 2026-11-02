@@ -489,8 +489,7 @@ export function CopilotChat({
       }
     }
 
-    // Non-explicit threads skip /connect, but the first runAgent still has to
-    // ship the same SDK-generated threadId that the chat UI is rendering.
+    // Release the discarded thread's saved child histories.
     if (
       threadChanged &&
       previousThread !== null &&
@@ -498,6 +497,8 @@ export function CopilotChat({
     ) {
       copilotkit.ɵchildHistories.clear(agent, discardedThreadId);
     }
+    // Non-explicit threads skip /connect, but the first runAgent still has to
+    // ship the same SDK-generated threadId that the chat UI is rendering.
     agent.threadId = resolvedThreadId;
 
     // When the caller hasn't picked a specific thread, resolvedThreadId is a

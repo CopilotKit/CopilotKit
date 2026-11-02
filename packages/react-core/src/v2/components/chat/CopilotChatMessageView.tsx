@@ -1202,6 +1202,11 @@ export function CopilotChatMessageView({
         <ChildHistoryView
           key={message.id}
           history={childHistory}
+          positionUnknown={
+            message.role === "activity" &&
+            (message.content as { positionUnknown?: unknown })
+              .positionUnknown === true
+          }
           messageViewProps={{
             assistantMessage,
             userMessage,

@@ -1018,16 +1018,102 @@ it("combines assistant snapshot fragments sharing an ID without duplicating repl
   ]);
 });
 
-it("retains a child's original root turn when later snapshots arrive", async () => {
+it("anchors a live child to the turn it arrived in and keeps it there", async () => {
   const { agent, play, current } = setup();
   await play(snapshot(savedHistory()));
-  expect(current().histories[0]?.anchorMessageId).toBe("root-user");
+  // An import carries no root turn, whenever it is replayed.
+  expect(current().histories[0]?.anchorMessageId).toBeUndefined();
+  const interrupt = (id: string, childId: string): RunFinishedEvent => ({
+    type: EventType.RUN_FINISHED,
+    threadId: agent.threadId,
+    runId: `run-${id}`,
+    outcome: {
+      type: "interrupt",
+      interrupts: [
+        {
+          id,
+          toolCallId: id,
+          reason: "tool_call",
+          metadata: {
+            source: "claude-sdk-native-child",
+            childId,
+            parentToolUseId: `parent-${childId}`,
+            toolName: "chart",
+            input: {},
+          },
+        },
+      ],
+    },
+  });
+  await play(interrupt("first-call", "live"));
+  const live = () => current().histories.find((h) => h.namespace[0] === "live");
+  expect(live()?.anchorMessageId).toBe("root-user");
   agent.setMessages([
     ...agent.messages,
     createMessage({ id: "later-user", content: "Next question" }),
   ]);
-  await play(snapshot(savedHistory()));
-  expect(current().histories[0]?.anchorMessageId).toBe("root-user");
+  agent.events = [interrupt("second-call", "live")];
+  await agent.runAgent({
+    resume: [{ interruptId: "first-call", status: "resolved", payload: {} }],
+  });
+  expect(live()?.messages).toHaveLength(2);
+  expect(live()?.anchorMessageId).toBe("root-user");
+  expect(current().histories[0]?.anchorMessageId).toBeUndefined();
+});
+
+it("never moves an imported child without placement evidence to a later turn", async () => {
+  const { agent, play, current } = setup();
+  agent.setMessages([]);
+  await play(snapshot(savedHistory(["research"], "unrecorded")));
+  expect(current().histories[0]?.anchorMessageId).toBeUndefined();
+  agent.setMessages([
+    ...agent.messages,
+    createMessage({ id: "later-user", content: "Next question" }),
+  ]);
+  await play(result("unrecorded"));
+  expect(current().histories[0]?.messages.at(-1)).toMatchObject({
+    role: "tool",
+    toolCallId: "chart-call",
+  });
+  expect(current().histories[0]?.anchorMessageId).toBeUndefined();
+});
+
+it("streams a live record into its own child only, and stays quiet for records nobody owns", () => {
+  const { agent, core, current } = setup();
+  const store = core.ɵchildHistories;
+  store.accept(
+    agent,
+    agent.threadId,
+    snapshot(
+      savedHistory(["a"], "parent-a", "call-a"),
+      savedHistory(["b"], "parent-b", "call-b"),
+    ),
+  );
+  const live = (parent: string, id: string) =>
+    ({
+      type: EventType.CUSTOM,
+      name: "claude:assistant_content",
+      value: {
+        parentToolUseId: parent,
+        messageId: id,
+        uuid: id,
+        content: [{ type: "text", text: `live ${id}` }],
+      },
+    }) as CustomEvent;
+  let notified = 0;
+  store.subscribe(() => notified++);
+  store.accept(agent, agent.threadId, live("nobody", "orphan-record"));
+  expect(notified).toBe(0);
+  const [, untouched] = current().histories;
+  store.accept(agent, agent.threadId, live("parent-a", "first"));
+  store.accept(agent, agent.threadId, live("parent-a", "second"));
+  expect(notified).toBe(2);
+  expect(current().histories[1]).toBe(untouched);
+  expect(
+    current()
+      .histories[0]?.messages.map((m) => m.content)
+      .slice(-2),
+  ).toEqual(["live first", "live second"]);
 });
 
 it("clears imported children on an explicit same-thread message reset", async () => {

@@ -65,6 +65,9 @@ export function projectChildHistories(
   const rows: Message[] = [];
   const occupied = new Set(messages.map((m) => m.id));
   const entries = new Map<string, ɵChildHistory>();
+  // Children with no delegation call and no observed turn: the source never
+  // recorded where they happened, so they sit after the first turn, labelled.
+  const unplaced = new Set<ɵChildHistory>();
   const insert = (history: ɵChildHistory) => {
     let id = `cpk-child:${JSON.stringify(history.namespace)}`;
     while (occupied.has(id)) id += ":child";
@@ -74,7 +77,11 @@ export function projectChildHistories(
       id,
       role: "activity",
       activityType: "cpk-child-history",
-      content: { namespace: history.namespace, history },
+      content: {
+        namespace: history.namespace,
+        history,
+        ...(unplaced.has(history) ? { positionUnknown: true } : {}),
+      },
     });
     pending.delete(history);
   };
@@ -91,7 +98,10 @@ export function projectChildHistories(
     let anchor = messages.findIndex((m) => child.rootMessageIds.includes(m.id));
     if (anchor < 0)
       anchor = messages.findIndex((m) => m.id === child.anchorMessageId);
-    if (anchor < 0) anchor = messages.findIndex((m) => m.role === "user");
+    if (anchor < 0) {
+      unplaced.add(child);
+      anchor = messages.findIndex((m) => m.role === "user");
+    }
     orphanBoundaries.set(
       child,
       messages.slice(anchor + 1).find((m) => m.role === "user")?.id,
@@ -123,9 +133,11 @@ export const AllChildHistoriesProvider = AllChildHistoriesContext.Provider;
 
 export function ChildHistoryView({
   history,
+  positionUnknown = false,
   messageViewProps,
 }: {
   history: ɵChildHistory;
+  positionUnknown?: boolean;
   messageViewProps?: Partial<CopilotChatMessageViewProps>;
 }) {
   const histories = useContext(AllChildHistoriesContext);
@@ -188,6 +200,7 @@ export function ChildHistoryView({
     >
       <div className="cpk:mb-2 cpk:text-sm cpk:text-muted-foreground">
         {history.name ?? "Child agent"}
+        {positionUnknown && " · Original position not recorded"}
       </div>
       <ChildHistoryContext.Provider value={projection.entries}>
         <ChildContentContext.Provider value={contentParts}>

@@ -94,7 +94,10 @@ export interface ɵChildHistory {
   messages: ɵChildMessage[];
   /** Native live message IDs whose calls are also in the root event stream. */
   rootMessageIds: string[];
-  /** Root turn observed when this child first arrived, for missing delegation calls. */
+  /**
+   * Root user turn a live child event was observed in, for missing delegation
+   * calls. Snapshot arrival is not evidence: imports carry no turn.
+   */
   anchorMessageId?: string;
 }
 export interface ɵChildHistorySnapshot {
@@ -283,21 +286,18 @@ function toMessages(history: z.infer<typeof historySchema>): ɵChildMessage[] {
   });
 }
 
+interface LiveEntry {
+  parent: string;
+  messageId: string;
+  messages: ɵChildMessage[];
+  records: Map<string, z.infer<typeof normalizedMessage>["content"]>;
+}
 interface ThreadData {
-  agent: AbstractAgent;
   snapshot: ɵChildHistorySnapshot;
   chunks: Chunk[];
   lastChunk?: Chunk;
   bytes: number;
-  live: Map<
-    string,
-    {
-      parent: string;
-      messageId: string;
-      messages: ɵChildMessage[];
-      records: Map<string, z.infer<typeof normalizedMessage>["content"]>;
-    }
-  >;
+  live: Map<string, LiveEntry>;
   results: Map<string, { parent: string; result: ToolMessage }>;
 }
 const object = (value: unknown): Record<string, unknown> =>
@@ -358,7 +358,6 @@ export class ɵChildHistoryStore {
     let data = threads.get(threadId);
     if (!data) {
       data = {
-        agent,
         snapshot: EMPTY,
         chunks: [],
         bytes: 0,
@@ -380,18 +379,21 @@ export class ɵChildHistoryStore {
     clearError = false,
   ) {
     const owners = new Map<string, ɵChildHistory | null>();
-    for (const history of histories)
-      for (const parent of history.parentToolCallIds)
-        for (const message of history.messages)
-          if (message.role === "assistant")
-            for (const call of message.toolCalls ?? []) {
-              const key = JSON.stringify([parent, call.id]);
-              const previous = owners.get(key);
-              owners.set(
-                key,
-                previous === undefined || previous === history ? history : null,
-              );
-            }
+    if (data.results.size)
+      for (const history of histories)
+        for (const parent of history.parentToolCallIds)
+          for (const message of history.messages)
+            if (message.role === "assistant")
+              for (const call of message.toolCalls ?? []) {
+                const key = JSON.stringify([parent, call.id]);
+                const previous = owners.get(key);
+                owners.set(
+                  key,
+                  previous === undefined || previous === history
+                    ? history
+                    : null,
+                );
+              }
     const results = new Map<ɵChildHistory, Map<string, ToolMessage>>();
     for (const [key, { result }] of data.results) {
       const owner = owners.get(key);
@@ -414,22 +416,20 @@ export class ɵChildHistoryStore {
           }
         : history;
     });
+    // Placement is decided once, so a child never moves to a later turn.
     const previousAnchors = new Map(
       data.snapshot.histories.map((h) => [
         JSON.stringify(h.namespace),
         h.anchorMessageId,
       ]),
     );
-    const currentTurn = data.agent.messages
-      .filter((m) => m.role === "user")
-      .at(-1)?.id;
-    histories = histories.map((h) => ({
-      ...h,
-      anchorMessageId:
-        h.anchorMessageId ??
-        previousAnchors.get(JSON.stringify(h.namespace)) ??
-        currentTurn,
-    }));
+    histories = histories.map((h) => {
+      const anchorMessageId =
+        h.anchorMessageId ?? previousAnchors.get(JSON.stringify(h.namespace));
+      return anchorMessageId === h.anchorMessageId
+        ? h
+        : { ...h, anchorMessageId };
+    });
     data.snapshot = {
       histories,
       ...(!clearError && data.snapshot.error
@@ -438,23 +438,27 @@ export class ɵChildHistoryStore {
     };
     this.emit();
   }
+  /**
+   * Overlay live records onto `histories`. Pass `onlyKey` when the histories
+   * already include every other record, so one streamed record costs one merge.
+   */
   private mergeLive(
     data: ThreadData,
     histories: ɵChildHistory[],
+    onlyKey?: string,
   ): ɵChildHistory[] {
     // Resolve ownership once, rather than rescanning every sibling for every record.
     const owners = new Map<string, ɵChildHistory | null>();
     for (const history of histories)
       for (const parent of new Set(history.parentToolCallIds))
         owners.set(parent, owners.has(parent) ? null : history);
-    const byHistory = new Map<
-      ɵChildHistory,
-      Array<
-        [string, ThreadData["live"] extends Map<string, infer V> ? V : never]
-      >
-    >();
-    for (const entry of data.live) {
-      const owner = owners.get(entry[1].parent);
+    const byHistory = new Map<ɵChildHistory, LiveEntry[]>();
+    const live =
+      onlyKey === undefined
+        ? [...data.live.values()]
+        : [data.live.get(onlyKey)!];
+    for (const entry of live) {
+      const owner = owners.get(entry.parent);
       if (!owner) continue;
       const entries = byHistory.get(owner) ?? [];
       entries.push(entry);
@@ -464,7 +468,7 @@ export class ɵChildHistoryStore {
       const owned = byHistory.get(h) ?? [];
       if (!owned.length) return h;
       const messages = new Map(h.messages.map((m) => [m.id, m]));
-      for (const [, live] of owned)
+      for (const live of owned)
         for (const message of live.messages) {
           // A native SDK message can be re-keyed after import. Tool identity is stable.
           if (message.role === "assistant" && message.toolCalls?.length) {
@@ -488,7 +492,7 @@ export class ɵChildHistoryStore {
         rootMessageIds: [
           ...new Set([
             ...h.rootMessageIds,
-            ...owned.map(([, live]) => live.messageId),
+            ...owned.map((live) => live.messageId),
           ]),
         ],
       };
@@ -632,7 +636,19 @@ export class ɵChildHistoryStore {
         messages,
         records,
       });
-      this.publish(data, this.mergeLive(data, [...data.snapshot.histories]));
+      // Keep unowned records for a history that may arrive later, but only
+      // notify listeners when the visible tree can change.
+      const parent = value.parentToolUseId;
+      if (
+        data.snapshot.histories.filter((h) =>
+          h.parentToolCallIds.includes(parent),
+        ).length !== 1
+      )
+        return;
+      this.publish(
+        data,
+        this.mergeLive(data, [...data.snapshot.histories], liveKey),
+      );
       return;
     }
     if (e.type === "RUN_FINISHED") {
@@ -707,6 +723,10 @@ export class ɵChildHistoryStore {
                 parentToolCallIds: [metadata.parentToolUseId],
                 messages: [],
                 rootMessageIds: [],
+                // A live interrupt happens in the current root turn.
+                anchorMessageId: agent.messages
+                  .filter((m) => m.role === "user")
+                  .at(-1)?.id,
               };
           histories = previous
             ? histories.map((h) => (h === previous ? resumedHistory : h))

@@ -503,4 +503,33 @@ it("keeps the latest root assistant streaming when a child region follows it and
   const toolbars = screen.getAllByTestId("copilot-assistant-toolbar");
   expect(toolbars).toHaveLength(1);
   expect(childRegion.contains(toolbars[0]!)).toBe(true);
+  expect(childRegion.textContent).not.toContain("position not recorded");
+});
+
+it("tells the reader when a child's original position was not recorded", () => {
+  const child = {
+    namespace: ["child"],
+    parentToolCallIds: [],
+    rootMessageIds: [],
+    messages: [{ id: "a", role: "assistant" as const, content: "Child" }],
+  };
+  renderWithCopilotKit({
+    children: (
+      <ChildHistoryContext.Provider value={new Map([["child-row", child]])}>
+        <CopilotChatMessageView
+          messages={[
+            {
+              id: "child-row",
+              role: "activity",
+              activityType: "cpk-child-history",
+              content: { positionUnknown: true },
+            },
+          ]}
+        />
+      </ChildHistoryContext.Provider>
+    ),
+  });
+  expect(
+    screen.getByText("Child agent · Original position not recorded"),
+  ).toBeTruthy();
 });
