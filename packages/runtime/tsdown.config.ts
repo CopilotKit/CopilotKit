@@ -11,6 +11,8 @@ export default defineConfig({
     index: "src/index.ts",
     node: "src/node.ts",
     "internal/learned-skills": "src/internal/learned-skills.ts",
+    "ai-sdk": "src/ai-sdk/index.ts",
+    "tanstack-ai": "src/tanstack-ai/index.ts",
   },
   format: ["esm", "cjs"],
   dts: true,

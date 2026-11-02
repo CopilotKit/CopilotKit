@@ -3,6 +3,8 @@ import * as path from "node:path";
 import { builtinModules } from "node:module";
 import ts from "typescript";
 
+import { isDedicatedEntry, targetsOf } from "./validate-optional-peer-entries";
+
 // A published declaration file may only import modules a consumer can actually
 // resolve after installing this package and nothing else. When it imports
 // something they do not get -- a devDependency, an optional peer, a package
@@ -96,22 +98,61 @@ export function packageNameOf(specifier: string): string {
 }
 
 /**
- * Does a relative specifier point at something with declarations next to it?
+ * The declaration file a relative specifier (or an `exports` target) resolves
+ * to from `fromDir`, or `undefined` when there is none.
  *
  * Bundlers emit shared helper chunks as JavaScript. tsdown's declaration output
  * imports those chunks by their runtime filename (`../_virtual/…/runtime.cjs`),
  * which has no sibling `.d.cts` -- a TS7016 for the consumer.
  */
-function relativeTargetHasTypes(fromFile: string, specifier: string): boolean {
-  const base = path.resolve(path.dirname(fromFile), specifier);
+function resolveDeclaration(fromDir: string, specifier: string) {
+  const base = path.resolve(fromDir, specifier);
   const withoutExt = base.replace(/\.(c|m)?js$/, "");
+  // `x.cjs` is typed by `x.d.cts` and `x.mjs` by `x.d.mts`, so the matching
+  // suffix is tried first; the walk must not hop from the CJS graph to ESM.
+  const jsExtension = path.extname(base).replace(/^\.(c|m)?js$/, ".d.$1ts");
+  const suffixes = [
+    ...DTS_SUFFIXES.filter((s) => s === jsExtension),
+    ...DTS_SUFFIXES.filter((s) => s !== jsExtension),
+  ];
   const candidates = [
-    ...DTS_SUFFIXES.map((s) => withoutExt + s),
+    ...suffixes.map((s) => withoutExt + s),
     ...DTS_SUFFIXES.map((s) => path.join(base, "index" + s)),
     // A specifier that already names a declaration file resolves as written.
     ...(DTS_SUFFIXES.some((s) => base.endsWith(s)) ? [base] : []),
   ];
-  return candidates.some((c) => fs.existsSync(c));
+  return candidates.find((c) => fs.existsSync(c));
+}
+
+/**
+ * The declaration files each `exports` entry loads, keyed by entry.
+ *
+ * A consumer's program only holds the declarations its imports reach, so an
+ * optional peer imported by `./ai-sdk`'s declarations costs nothing to a
+ * consumer who imports `.` alone.
+ */
+function declarationGraphs(packageRoot: string, exports: Manifest["exports"]) {
+  const graphs = new Map<string, Set<string>>();
+  for (const [entry, condition] of Object.entries(exports ?? {})) {
+    const starts = targetsOf(condition).map(([, target]) =>
+      resolveDeclaration(packageRoot, target),
+    );
+    const queue = starts.filter((file) => file !== undefined);
+    const seen = new Set<string>();
+    while (queue.length > 0) {
+      const file = queue.pop()!;
+      if (seen.has(file)) continue;
+      seen.add(file);
+      const specifiers = readSpecifiers(file);
+      for (const { specifier } of specifiers) {
+        if (!specifier.startsWith(".")) continue;
+        const next = resolveDeclaration(path.dirname(file), specifier);
+        if (next) queue.push(next);
+      }
+    }
+    graphs.set(entry, seen);
+  }
+  return graphs;
 }
 
 /** Does an installed package carry its own type declarations? */
@@ -141,6 +182,7 @@ interface Manifest {
   devDependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
   peerDependenciesMeta?: Record<string, { optional?: boolean }>;
+  exports?: Record<string, unknown>;
 }
 
 /**
@@ -160,6 +202,22 @@ export function findImportViolations(
   const devDeps = manifest.devDependencies ?? {};
   const peers = manifest.peerDependencies ?? {};
   const peerMeta = manifest.peerDependenciesMeta ?? {};
+  const graphs = declarationGraphs(packageRoot, manifest.exports);
+
+  /**
+   * Is `file` loaded only by entries dedicated to `peer`? Importing such an
+   * entry IS asking for the peer (`./ai-sdk` for `ai`), so its declarations
+   * may name it. A file no entry reaches still counts as a violation.
+   */
+  const isOnlyInDedicatedEntries = (file: string, peer: string) => {
+    const entries = [...graphs]
+      .filter(([, files]) => files.has(file))
+      .map(([entry]) => entry);
+    return (
+      entries.length > 0 &&
+      entries.every((entry) => isDedicatedEntry(entry, peer))
+    );
+  };
 
   const violations: ImportViolation[] = [];
 
@@ -174,7 +232,7 @@ export function findImportViolations(
         });
 
       if (specifier.startsWith(".")) {
-        if (!relativeTargetHasTypes(file, specifier)) {
+        if (!resolveDeclaration(path.dirname(file), specifier)) {
           add("relative import has no declaration file next to it");
         }
         continue;
@@ -193,6 +251,9 @@ export function findImportViolations(
       const isRequiredPeer = name in peers && !peerMeta[name]?.optional;
 
       if (!isDep && !isRequiredPeer) {
+        const isDedicatedPeer =
+          name in peers && isOnlyInDedicatedEntries(path.resolve(file), name);
+        if (isDedicatedPeer) continue;
         if (name in peers)
           add("optional peer dependency -- consumers may not install it");
         else if (name in devDeps)

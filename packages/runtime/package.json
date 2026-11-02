@@ -38,6 +38,10 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
+    "./ai-sdk": {
+      "import": "./dist/ai-sdk.mjs",
+      "require": "./dist/ai-sdk.cjs"
+    },
     "./internal/learned-skills": {
       "import": "./dist/internal/learned-skills.mjs",
       "require": "./dist/internal/learned-skills.cjs"
@@ -45,6 +49,10 @@
     "./node": {
       "import": "./dist/node.mjs",
       "require": "./dist/node.cjs"
+    },
+    "./tanstack-ai": {
+      "import": "./dist/tanstack-ai.mjs",
+      "require": "./dist/tanstack-ai.cjs"
     },
     "./package.json": "./package.json"
   },
@@ -59,7 +67,7 @@
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
-    "check-dts": "tsx ../../scripts/validate-dts-ambient.ts dist && tsx ../../scripts/validate-dts-imports.ts dist && tsx ../../scripts/validate-optional-peer-entries.ts . && tsx ../../scripts/validate-module-scope-create-require.ts . && tsc --noEmit -p type-fixtures/express4/tsconfig.json && tsc --noEmit -p type-fixtures/express5/tsconfig.json && tsc --noEmit -p type-fixtures/learning-management/tsconfig.json",
+    "check-dts": "tsx ../../scripts/validate-dts-ambient.ts dist && tsx ../../scripts/validate-dts-imports.ts dist && tsx ../../scripts/validate-optional-peer-entries.ts . && tsx ../../scripts/validate-module-scope-create-require.ts . && tsc --noEmit -p type-fixtures/express4/tsconfig.json && tsc --noEmit -p type-fixtures/express5/tsconfig.json && tsc --noEmit -p type-fixtures/learning-management/tsconfig.json && tsc --noEmit -p type-fixtures/no-ai-sdk/tsconfig.json && node type-fixtures/no-ai-sdk/check.mjs",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
   },
@@ -70,11 +78,6 @@
     "@ag-ui/encoder": "1.0.2",
     "@ag-ui/mcp-apps-middleware": "^0.1.1",
     "@ag-ui/mcp-middleware": "0.0.2",
-    "@ai-sdk/anthropic": "^3.0.49",
-    "@ai-sdk/google": "^3.0.33",
-    "@ai-sdk/google-vertex": "^3.0.97",
-    "@ai-sdk/mcp": "^1.0.21",
-    "@ai-sdk/openai": "^3.0.36",
     "@cfworker/json-schema": "^4.1.1",
     "@copilotkit/channels-core": "workspace:^",
     "@copilotkit/channels-intelligence": "workspace:^",
@@ -83,13 +86,25 @@
     "@modelcontextprotocol/sdk": "^1.18.2",
     "@remix-run/node-fetch-server": "^0.13.0",
     "@scarf/scarf": "^1.3.0",
-    "ai": "^6.0.104",
     "phoenix": "^1.8.4",
     "pino": "^10.1.1",
     "pino-pretty": "^11.2.1",
     "rxjs": "7.8.1",
+    "yauzl": "2.10.0",
     "zod": "^3.25.18",
-    "yauzl": "2.10.0"
+    "zod-to-json-schema": "^3.24.5"
+  },
+  "peerDependencies": {
+    "ai": "^6.0.0 || ^7.0.0",
+    "@tanstack/ai": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "ai": {
+      "optional": true
+    },
+    "@tanstack/ai": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@copilotkit/aimock": "latest",
@@ -120,7 +135,8 @@
     "@hono/node-server": "^1.13.5",
     "ws": "^8.18.0",
     "@tanstack/ai": "^1.0.1",
-    "ai-v7": "npm:ai@^7.0.159"
+    "ai-v7": "npm:ai@^7.0.159",
+    "ai": "^6.0.104"
   },
   "nx": {
     "targets": {
