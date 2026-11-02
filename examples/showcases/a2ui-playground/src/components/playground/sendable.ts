@@ -1,5 +1,5 @@
 /**
- * A surface as it would be sent: one A2UI v1.0 `createSurface` with its
+ * A surface as it would be sent: one A2UI 1.0 `createSurface` with its
  * components and data model after every operation so far. The `Blueprint`
  * frames the playground streams while a component is still being written are
  * left out: Blueprint is not in the catalog, it only lets the chat paint early.
@@ -8,12 +8,8 @@
  */
 import { A2UI_VERSION } from "@copilotkit/shared";
 import { CATALOG_ID } from "@/a2ui/catalog/ids";
-import {
-  latestComponents,
-  latestData,
-  surfaceIdOf,
-  type A2UIOp,
-} from "@/lib/run-store";
+import { latestComponents, latestData, surfaceIdOf } from "@/lib/run-store";
+import type { A2UIOp } from "@/lib/run-store";
 
 export type Sendable = {
   ops: A2UIOp[];

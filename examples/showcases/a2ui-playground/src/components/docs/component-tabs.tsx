@@ -64,7 +64,7 @@ export function ComponentTabs({
   const copyText = tab === "json" ? json : (code?.raw ?? null);
   const file =
     tab === "json"
-      ? `${ops.length} ${ops.length === 1 ? "operation" : "operations"}, A2UI v1.0`
+      ? `${ops.length} ${ops.length === 1 ? "operation" : "operations"}, A2UI 1.0`
       : (code?.file ?? null);
 
   return (

@@ -365,7 +365,7 @@ Use these exact positional signatures to instantiate components. Do not output p
   - route: Draws a line through the markers in order
   - zoom: With two or more markers, only the highest zoom of the fit
 • MapView(title?, markers, height?, zoom?)
-  - Description: Interactive dark map (MapLibre) with numbered markers; fits all markers. markers [{name,lat,lon,description?}].
+  - Description: Interactive map (MapLibre) with numbered markers; fits all markers. markers [{name,lat,lon,description?}].
 • Markdown(text, streaming?)
   - Description: A block of GitHub-flavored markdown.
   - text: Markdown source
@@ -609,7 +609,7 @@ Use these exact positional signatures to instantiate check rules or logic functi
 • and(values)
   - Description: True when every value is true
 • calc(expression)
-  - Description: The value of an arithmetic expression over the other args, by name: + - * / % ( ), comparisons, && || !, cond ? a : b, min max round floor ceil abs, 'text' + name
+  - Description: The value of an arithmetic expression over the other args, by name: + - * / % ( ), x ^ y (power), comparisons, && || !, cond ? a : b, min max round floor ceil abs pow sqrt exp ln log10, the constants pi and e, 'text' + name
 • email(value)
   - Description: Valid when the value is an email address
 • formatCurrency(value, currency, decimals?, grouping?)

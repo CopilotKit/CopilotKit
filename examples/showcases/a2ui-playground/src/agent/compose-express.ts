@@ -4,33 +4,28 @@
  * Same job as `./composer.ts`, in the format Google's A2UI SDKs default to:
  * the model writes plain text, one statement per component, with no tool
  * call, so any model can do it (a local Gemma included). As each statement
- * completes, the statements so far are compiled and the surface paints; at
+ * arrives, the SDK incrementally compiles it and the surface paints; at
  * the end the whole reply is compiled by `@a2ui/agent`, macros expand, and
- * the result goes out as A2UI v1.0 operations like every other surface.
+ * the result goes out as A2UI 1.0 operations like every other surface.
  *
  * A reply that does not compile gets one retry with the compiler's error.
  */
 import { DESIGN_RULES } from "@/a2ui/catalog/instructions";
 import { macros } from "@/a2ui/macros/macros";
 import type { FlatNode } from "@/a2ui/macros/macro";
-import {
-  compose,
-  composeUserMessage,
-  payloadSizes,
-  type ComposeInput,
-  type ComposeResult,
-  type PayloadStats,
-} from "./composer";
+import { compose, composeUserMessage, payloadSizes } from "./composer";
+import type { ComposeInput, ComposeResult, PayloadStats } from "./composer";
 import { pipeline } from "./events";
 import {
   compileExpress,
-  compilePartial,
+  previewComponents,
   completeStatements,
   expressProcessor,
 } from "./express";
 import { geoBudget, geoPatch } from "./geo";
 import { stripDashes } from "./repair";
-import { SurfaceStream, type Node } from "./surface";
+import { SurfaceStream } from "./surface";
+import type { Node } from "./surface";
 import { COMPOSER_MAX_TOKENS, MAX_MACROS } from "@/lib/limits";
 
 function systemPrompt(snippet: string) {
@@ -91,6 +86,41 @@ export async function composeExpress(
     let firstTokenAt = 0;
     let done = 0;
     let painted = false;
+    const response = processor.openStream({ afterRejectedBlock: "continue" });
+    const known = new Set<string>();
+    let error: Error | undefined;
+    const paint = (parts: ReturnType<typeof response.feed>) => {
+      // Keep reading the model's reply for the code pane, then use the existing
+      // retry/JSON fallback flow for any block the SDK rejected.
+      for (const part of parts) if (part.type === "error") error ??= part.error;
+      if (!live) return;
+      const components = parts.flatMap((part) =>
+        part.type === "a2ui"
+          ? part.a2ui.flatMap((message) =>
+              "updateComponents" in message
+                ? message.updateComponents.components
+                : "createSurface" in message
+                  ? (message.createSurface.components ?? [])
+                  : [],
+            )
+          : [],
+      );
+      if (!components.length) return;
+      const frame = previewComponents(
+        components as Node[],
+        known,
+        input.manifest,
+        (name) => macros.isMacro(name),
+      );
+      send(...stripDashes(frame));
+      if (!painted) {
+        painted = true;
+        pipeline(q, t0, "paint", {
+          components: frame.length,
+          progressive: true,
+        });
+      }
+    };
     // Every complete statement goes to the browser as written, also when the surface does not paint as it streams
     // (an update, or the retry after a compile error): the playground shows the lines as they arrive.
     const announce = (statements: string[]) => {
@@ -118,25 +148,13 @@ export async function composeExpress(
         pipeline(q, t0, "compose:first-token");
       }
       text += delta;
+      paint(response.feed(delta));
       if (!delta.includes("\n")) continue;
       const { statements } = completeStatements(text);
       if (statements.length === done) continue;
       announce(statements);
-      if (!live) continue;
-      const frame = compilePartial(statements, surfaceId, (name) =>
-        macros.isMacro(name),
-      );
-      if (frame) {
-        send(...stripDashes(frame));
-        if (!painted) {
-          painted = true;
-          pipeline(q, t0, "paint", {
-            components: frame.length,
-            progressive: true,
-          });
-        }
-      }
     }
+    paint(response.close());
     // The last statement can end at </a2ui> with no newline after it.
     const { statements, rest } = completeStatements(text);
     const tail = rest.trim();
@@ -145,7 +163,7 @@ export async function composeExpress(
         ? [...statements, tail]
         : statements,
     );
-    return { text, firstTokenAt };
+    return { text, firstTokenAt, error };
   };
 
   const conversation: Array<{
@@ -158,6 +176,7 @@ export async function composeExpress(
   let reply = await write(conversation, progressive);
   let compiled: ReturnType<typeof compileExpress>;
   try {
+    if (reply.error) throw reply.error;
     compiled = compileExpress(reply.text, surfaceId);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -176,6 +195,7 @@ export async function composeExpress(
     );
     reply = await write(conversation, false);
     try {
+      if (reply.error) throw reply.error;
       compiled = compileExpress(reply.text, surfaceId);
     } catch (retryErr) {
       if (input.noFallback) throw retryErr;

@@ -2,11 +2,13 @@
 
 Watch an agent write UI. Ask for anything ("Q3 sales by region as a dashboard", "compare three noise-cancelling headphones", "a signup form with a plan choice") and the answer arrives in the chat as real, interactive UI: an **A2UI 1.0** surface rendered by **CopilotKit Gen UI 2.0**. Beside the chat you see the **A2UI Express** the model writes, one line per component, and hovering a line lights up the component it made.
 
-A hosted version runs at https://web-production-d0431.up.railway.app.
+**Draft migration: release blocked.** This branch emits canonical `"1.0"` wire operations and uses `@a2ui/agent` 0.1.0 native streaming. It requires the coordinated CopilotKit release containing [#8155](https://github.com/CopilotKit/CopilotKit/pull/8155). The real published `@copilotkit/*` 1.83.0 pins below predate that change and reject this wire format; update them together after publication before running or deploying this branch. No legacy wire aliases are provided.
+
+A hosted version of the pre-migration playground runs at https://web-production-d0431.up.railway.app.
 
 ## What it shows
 
-- **A2UI 1.0 on CopilotKit Gen UI 2.0.** Every operation is `{ "version": "v1.0", ... }`, streamed over AG-UI as `generative-ui-surface` activities and rendered with `@copilotkit/react-core` 1.83.
+- **A2UI 1.0 on CopilotKit Gen UI 2.0.** Every operation is `{ "version": "1.0", ... }`, streamed over AG-UI as `generative-ui-surface` activities and rendered with `@copilotkit/react-core` 1.83.
 - **A2UI Express by default.** The model writes one line per component and Google's `@a2ui/agent` SDK compiles it, usually about half the size of the same UI in JSON. JSON is the alternative. Express that still fails to compile after a retry is rewritten as JSON on the same surface.
 - **Any model.** Gemini Flash (`gemini-flash-latest`) is the default; Gemma 4 runs locally through Ollama (or any OpenAI-compatible server); GPT is in the picker too.
 - **A real catalog.** The 69 Gen UI 2.0 standard components, 52 of the playground's own (shadcn/ui, TanStack Charts, MapLibre) and 3 macros, `FlightCard`, `ProductCard` and `WeatherReport`, that the server expands into standard components.
@@ -125,7 +127,7 @@ uv run server.py                 # http://localhost:8000/
 pnpm dev                         # from the repo root, then open http://localhost:3100/adk
 ```
 
-**Any renderer, any agent.** `/catalog.json` serves the catalog as an A2UI v1.0 catalog document (from `exportA2UICatalog`), for renderers outside React and for validators; `/api/skills` serves agent skills generated from the same catalog (`/skills` now redirects to `/start`).
+**Any renderer, any agent.** `/catalog.json` serves the catalog as an A2UI 1.0 catalog document (from `exportA2UICatalog`), for renderers outside React and for validators; `/api/skills` serves agent skills generated from the same catalog (`/skills` now redirects to `/start`).
 
 ## Layout
 

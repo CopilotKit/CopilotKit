@@ -2,7 +2,7 @@
  * Gen UI 2.0 surfaces, written by the agent itself.
  *
  * Every surface is one `generative-ui-surface` activity message with A2UI
- * v1.0 operations, the same events the runtime's `render_ui` tool emits:
+ * 1.0 operations, the same events the runtime's `render_ui` tool emits:
  * an ACTIVITY_SNAPSHOT that creates it, then ACTIVITY_DELTA patches that
  * append operations and flip its status. The client validates and applies
  * each operation as it lands, so the surface paints while it streams.
@@ -12,12 +12,15 @@ import {
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_CHAT_TARGET,
   generativeUISurfaceMessageId,
-  type A2UIComponentNode,
-  type A2UIOperation,
-  type GenerativeUISurfaceContent,
+} from "@copilotkit/shared";
+import type {
+  A2UIComponentNode,
+  A2UIOperation,
+  GenerativeUISurfaceContent,
 } from "@copilotkit/shared";
 import { CATALOG_ID } from "@/a2ui/catalog/ids";
-import { EventType, type EventQueue } from "./events";
+import { EventType } from "./events";
+import type { EventQueue } from "./events";
 
 export type Node = A2UIComponentNode;
 

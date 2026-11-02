@@ -3,17 +3,19 @@
  *
  * A second, faster model writes the whole surface (components + data) as the
  * arguments of a forced `render_a2ui` tool call. We parse those arguments as
- * they stream and append an A2UI v1.0 `updateComponents` operation to the
+ * they stream and append an A2UI 1.0 `updateComponents` operation to the
  * surface after every completed component, so the surface paints top-down
  * while it is still being written instead of after the last byte.
  */
-import OpenAI from "openai";
-import { A2UI_VERSION, type GenerativeUIManifest } from "@copilotkit/shared";
+import type OpenAI from "openai";
+import { A2UI_VERSION } from "@copilotkit/shared";
+import type { GenerativeUIManifest } from "@copilotkit/shared";
 import { DESIGN_RULES } from "@/a2ui/catalog/instructions";
 import type { FlatNode } from "@/a2ui/macros/macro";
 import { macros } from "@/a2ui/macros/macros";
 import { catalogPrompt } from "./catalog-prompt";
-import { pipeline, type EventQueue } from "./events";
+import { pipeline } from "./events";
+import type { EventQueue } from "./events";
 import { toExpress } from "./express";
 import { geoBudget, geoPatch } from "./geo";
 import type { ModelSpec } from "./models";
@@ -21,7 +23,8 @@ import { repairComponent, stripDashes } from "./repair";
 import { ComponentStreamParser } from "./stream-parse";
 import { CATALOG_ID } from "@/a2ui/catalog/ids";
 import { COMPOSER_MAX_TOKENS, MAX_MACROS } from "@/lib/limits";
-import { SurfaceStream, type Node, type SurfaceRecord } from "./surface";
+import { SurfaceStream } from "./surface";
+import type { Node, SurfaceRecord } from "./surface";
 
 export const GENERATE_A2UI_TOOL_NAME = "generate_a2ui";
 
@@ -29,7 +32,7 @@ const RENDER_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
   type: "function",
   function: {
     name: "render_a2ui",
-    description: "Render one A2UI v1.0 surface.",
+    description: "Render one A2UI 1.0 surface.",
     parameters: {
       type: "object",
       properties: {
@@ -59,7 +62,7 @@ function systemPrompt(manifest: GenerativeUIManifest, text: boolean) {
   const reply = text
     ? 'Reply with exactly one JSON object, {"components":[...],"data":{...}}: no prose and no code fence.'
     : "Call render_a2ui exactly once.";
-  return `You compose A2UI v1.0 surfaces for a chat app, from the CopilotKit Gen UI 2.0 standard components plus this app's own components. ${reply}
+  return `You compose A2UI 1.0 surfaces for a chat app, from the CopilotKit Gen UI 2.0 standard components plus this app's own components. ${reply}
 
 FORMAT
 - Write ${text ? "the keys" : "args"} in this order: components, data.
@@ -139,7 +142,7 @@ export type PayloadStats = {
   model: string;
   /** Characters the model wrote for the surface. */
   outputChars: number;
-  /** The same surface as A2UI v1.0 JSON, before macros expand. */
+  /** The same surface as A2UI 1.0 JSON, before macros expand. */
   jsonChars: number;
   /** The same surface in Express. */
   expressChars: number;

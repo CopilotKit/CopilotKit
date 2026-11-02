@@ -165,7 +165,7 @@
      ]
     },
     "background": {
-     "description": "One of surface|surface-secondary|surface-tertiary|surface-elevated|surface-elevated-secondary|surface-inverted|surface-soft|info|warning|caution|success|danger|discovery|info-solid|warning-solid|caution-solid|success-solid|danger-solid|discovery-solid or a CSS color. Leave it unset. Only one summary panel in a Card can use \"surface-secondary\"",
+     "description": "Leave it unset. A surface token such as surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid, or a CSS color. Only one summary panel in a Card uses \"surface-secondary\"",
      "anyOf": [
       {
        "type": "string"
@@ -718,7 +718,7 @@
      ]
     },
     "background": {
-     "description": "One of surface|surface-secondary|surface-tertiary|surface-elevated|surface-elevated-secondary|surface-inverted|surface-soft|info|warning|caution|success|danger|discovery|info-solid|warning-solid|caution-solid|success-solid|danger-solid|discovery-solid or a CSS color. Leave it unset. Only one summary panel in a Card can use \"surface-secondary\"",
+     "description": "Leave it unset. A surface token such as surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid, or a CSS color. Only one summary panel in a Card uses \"surface-secondary\"",
      "anyOf": [
       {
        "type": "string"
@@ -1132,7 +1132,7 @@
   },
   "Row": {
    "type": "object",
-   "description": "A horizontal flex container. For a label and value pair, use a Row with justify \"spaceBetween\": a Caption on the left and a Text with fontWeight \"medium\" on the right. Put buttons in a Row at the bottom of a Card: one Button with variant \"primary\", and the default or \"borderless\" for the others.",
+   "description": "A horizontal flex container. Label and value pair: justify \"spaceBetween\", a Caption left and a Text with fontWeight \"medium\" right. Buttons go in a Row at the bottom of a Card: one variant \"primary\", the others default or \"borderless\".",
    "properties": {
     "component": {
      "const": "Row"
@@ -1271,7 +1271,7 @@
      ]
     },
     "background": {
-     "description": "One of surface|surface-secondary|surface-tertiary|surface-elevated|surface-elevated-secondary|surface-inverted|surface-soft|info|warning|caution|success|danger|discovery|info-solid|warning-solid|caution-solid|success-solid|danger-solid|discovery-solid or a CSS color. Leave it unset. Only one summary panel in a Card can use \"surface-secondary\"",
+     "description": "Leave it unset. A surface token such as surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid, or a CSS color. Only one summary panel in a Card uses \"surface-secondary\"",
      "anyOf": [
       {
        "type": "string"
@@ -1873,7 +1873,7 @@
      ]
     },
     "background": {
-     "description": "One of surface|surface-secondary|surface-tertiary|surface-elevated|surface-elevated-secondary|surface-inverted|surface-soft|info|warning|caution|success|danger|discovery|info-solid|warning-solid|caution-solid|success-solid|danger-solid|discovery-solid or a CSS color. Leave it unset. Only one summary panel in a Card can use \"surface-secondary\"",
+     "description": "Leave it unset. A surface token such as surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid, or a CSS color. Only one summary panel in a Card uses \"surface-secondary\"",
      "anyOf": [
       {
        "type": "string"
@@ -2452,7 +2452,7 @@
      ]
     },
     "background": {
-     "description": "One of surface|surface-secondary|surface-tertiary|surface-elevated|surface-elevated-secondary|surface-inverted|surface-soft|info|warning|caution|success|danger|discovery|info-solid|warning-solid|caution-solid|success-solid|danger-solid|discovery-solid or a CSS color. Leave it unset. Only one summary panel in a Card can use \"surface-secondary\"",
+     "description": "Leave it unset. A surface token such as surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid, or a CSS color. Only one summary panel in a Card uses \"surface-secondary\"",
      "anyOf": [
       {
        "type": "string"
@@ -2866,7 +2866,7 @@
   },
   "Card": {
    "type": "object",
-   "description": "A bordered, padded container, only for an interactive panel (controls, a form, a configurator). Tables, charts and text do not need one. Give it a Title and a Caption. Separate the groups in it with a Divider or the plain gap, never with a nested Card or a bordered Box. Variant \"section\" is a heading and content without a box. Variant \"outline\" always has a box. In markdown mode, a Card without controls renders as \"section\" unless it sets variant or border.",
+   "description": "A bordered panel, only for an interactive panel (controls, a form, a configurator); tables, charts and text need none. Give it a Title and a Caption. Separate groups with a Divider or the gap, never a nested Card or bordered Box. Variant \"section\": no box; \"outline\": always a box. In markdown mode, without controls it renders as \"section\" unless variant or border is set.",
    "properties": {
     "component": {
      "const": "Card"
@@ -3029,7 +3029,7 @@
      ]
     },
     "background": {
-     "description": "One of surface|surface-secondary|surface-tertiary|surface-elevated|surface-elevated-secondary|surface-inverted|surface-soft|info|warning|caution|success|danger|discovery|info-solid|warning-solid|caution-solid|success-solid|danger-solid|discovery-solid or a CSS color. Leave it unset. Only one summary panel in a Card can use \"surface-secondary\"",
+     "description": "Leave it unset. A surface token such as surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid, or a CSS color. Only one summary panel in a Card uses \"surface-secondary\"",
      "anyOf": [
       {
        "type": "string"
@@ -3664,7 +3664,7 @@
      ]
     },
     "background": {
-     "description": "One of surface|surface-secondary|surface-tertiary|surface-elevated|surface-elevated-secondary|surface-inverted|surface-soft|info|warning|caution|success|danger|discovery|info-solid|warning-solid|caution-solid|success-solid|danger-solid|discovery-solid or a CSS color. Leave it unset. Only one summary panel in a Card can use \"surface-secondary\"",
+     "description": "Leave it unset. A surface token such as surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid, or a CSS color. Only one summary panel in a Card uses \"surface-secondary\"",
      "anyOf": [
       {
        "type": "string"
@@ -4260,7 +4260,7 @@
      ]
     },
     "background": {
-     "description": "One of surface|surface-secondary|surface-tertiary|surface-elevated|surface-elevated-secondary|surface-inverted|surface-soft|info|warning|caution|success|danger|discovery|info-solid|warning-solid|caution-solid|success-solid|danger-solid|discovery-solid or a CSS color. Leave it unset. Only one summary panel in a Card can use \"surface-secondary\"",
+     "description": "Leave it unset. A surface token such as surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid, or a CSS color. Only one summary panel in a Card uses \"surface-secondary\"",
      "anyOf": [
       {
        "type": "string"
@@ -4675,7 +4675,7 @@
   },
   "Carousel": {
    "type": "object",
-   "description": "A row that scrolls horizontally and snaps to its slides, with previous and next arrows. Put CarouselItem or CarouselMediaItem children in it. Bind activeIndex with { \"@path\": \"/x\" } to read or set the slide in view.",
+   "description": "A horizontally scrolling row that snaps to its CarouselItem or CarouselMediaItem children, with arrows. Bind activeIndex to read or set the slide in view.",
    "properties": {
     "component": {
      "const": "Carousel"
@@ -4933,7 +4933,7 @@
      ]
     },
     "background": {
-     "description": "One of surface|surface-secondary|surface-tertiary|surface-elevated|surface-elevated-secondary|surface-inverted|surface-soft|info|warning|caution|success|danger|discovery|info-solid|warning-solid|caution-solid|success-solid|danger-solid|discovery-solid or a CSS color. Leave it unset. Only one summary panel in a Card can use \"surface-secondary\"",
+     "description": "Leave it unset. A surface token such as surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid, or a CSS color. Only one summary panel in a Card uses \"surface-secondary\"",
      "anyOf": [
       {
        "type": "string"
@@ -5486,7 +5486,7 @@
      ]
     },
     "background": {
-     "description": "One of surface|surface-secondary|surface-tertiary|surface-elevated|surface-elevated-secondary|surface-inverted|surface-soft|info|warning|caution|success|danger|discovery|info-solid|warning-solid|caution-solid|success-solid|danger-solid|discovery-solid or a CSS color. Leave it unset. Only one summary panel in a Card can use \"surface-secondary\"",
+     "description": "Leave it unset. A surface token such as surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid, or a CSS color. Only one summary panel in a Card uses \"surface-secondary\"",
      "anyOf": [
       {
        "type": "string"
@@ -5900,7 +5900,7 @@
   },
   "CarouselMediaItem": {
    "type": "object",
-   "description": "A slide of a Carousel with an image on top and its children (a Caption, a Text) under it. size \"sm\" is 160px, \"md\" 240px (default), \"lg\" 320px wide. A click on the image opens all slides full-screen, unless href or onClick is set.",
+   "description": "A Carousel slide: an image with its children (a Caption, a Text) under it. size \"sm\" 160px, \"md\" 240px (default), \"lg\" 320px wide. A click opens all slides full-screen, unless href or onClick is set.",
    "properties": {
     "component": {
      "const": "CarouselMediaItem"
@@ -6099,7 +6099,7 @@
      ]
     },
     "background": {
-     "description": "One of surface|surface-secondary|surface-tertiary|surface-elevated|surface-elevated-secondary|surface-inverted|surface-soft|info|warning|caution|success|danger|discovery|info-solid|warning-solid|caution-solid|success-solid|danger-solid|discovery-solid or a CSS color. Leave it unset. Only one summary panel in a Card can use \"surface-secondary\"",
+     "description": "Leave it unset. A surface token such as surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid, or a CSS color. Only one summary panel in a Card uses \"surface-secondary\"",
      "anyOf": [
       {
        "type": "string"
@@ -6765,7 +6765,7 @@
   },
   "Title": {
    "type": "object",
-   "description": "A heading inside a Card or next to another component. A heading alone is markdown outside the fence. Use size \"2xl\" at most once in a surface, and \"lg\" for section headings. Size \"sm\" is an h4, \"md\" and \"lg\" are an h3 (default \"md\"), \"xl\" and larger are an h2. It is bold unless strong is false.",
+   "description": "A heading in a Card or next to another component; a heading alone is markdown. Size \"2xl\" at most once per surface, \"lg\" for sections. \"sm\" is an h4, \"md\"/\"lg\" an h3 (default \"md\"), \"xl\" and up an h2. Bold unless strong is false.",
    "properties": {
     "component": {
      "const": "Title"
@@ -6949,7 +6949,7 @@
   },
   "Text": {
    "type": "object",
-   "description": "Body text inside a Card or next to another component. A paragraph alone is markdown outside the fence. Use color \"default\" or \"secondary\". `text` can have inline markdown: **bold**, *italic*, ~~strike~~, ++underline++, `code` and [link](https://example.com). The `children` ids render inline after the text, for example a Badge.",
+   "description": "Body text in a Card or next to another component; a paragraph alone is markdown outside the fence. Color \"default\" or \"secondary\". `text` takes inline markdown (**bold**, *italic*, ~~strike~~, ++underline++, `code`, [link](url)). `children` ids render inline after it, e.g. a Badge.",
    "properties": {
     "component": {
      "const": "Text"
@@ -8208,7 +8208,7 @@
   },
   "Tooltip": {
    "type": "object",
-   "description": "Shows `content` when the user points at `trigger` or moves keyboard focus to it. `trigger` is one child id: a Text, Icon or Badge, not a Button or Link. `content` is one child id of short text, for example a Text. Do not put links or buttons in `content`.",
+   "description": "Shows `content` when the user points at or focuses `trigger`. `trigger`: one child id, a Text, Icon or Badge (not a Button or Link). `content`: one child id of short text, no links or buttons.",
    "properties": {
     "component": {
      "const": "Tooltip"
@@ -8226,7 +8226,7 @@
   },
   "Button": {
    "type": "object",
-   "description": "A button that sends its onClick event. With href it opens the URL, and with copy it copies the text, both without the agent. Use variant \"primary\" for the one main Button in a Row, and the default for the others. With submit true inside a Form, it submits the Form. The child or children render instead of the label. With checks, it is disabled while a check fails.",
+   "description": "Sends its onClick event; with href it opens the URL, with copy it copies the text. Variant \"primary\" for the one main Button in a Row. submit true submits the Form around it. Its children render instead of the label. With checks it is disabled while a check fails.",
    "properties": {
     "component": {
      "const": "Button"
@@ -8798,7 +8798,7 @@
      ]
     },
     "background": {
-     "description": "One of surface|surface-secondary|surface-tertiary|surface-elevated|surface-elevated-secondary|surface-inverted|surface-soft|info|warning|caution|success|danger|discovery|info-solid|warning-solid|caution-solid|success-solid|danger-solid|discovery-solid or a CSS color. Leave it unset. Only one summary panel in a Card can use \"surface-secondary\"",
+     "description": "Leave it unset. A surface token such as surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid, or a CSS color. Only one summary panel in a Card uses \"surface-secondary\"",
      "anyOf": [
       {
        "type": "string"
@@ -9239,7 +9239,7 @@
   },
   "Form": {
    "type": "object",
-   "description": "A layout container that is a form. It sends its onSubmit event when the user submits it (a Button with submit true, or Enter in a field). Put the values of its fields in the event context with { \"@path\": \"/x\" }.",
+   "description": "A layout container that is a form. It sends onSubmit when the user submits (a Button with submit true, or Enter in a field). Put its field values in the event context with { \"@path\": \"/x\" }.",
    "properties": {
     "component": {
      "const": "Form"
@@ -9392,7 +9392,7 @@
      ]
     },
     "background": {
-     "description": "One of surface|surface-secondary|surface-tertiary|surface-elevated|surface-elevated-secondary|surface-inverted|surface-soft|info|warning|caution|success|danger|discovery|info-solid|warning-solid|caution-solid|success-solid|danger-solid|discovery-solid or a CSS color. Leave it unset. Only one summary panel in a Card can use \"surface-secondary\"",
+     "description": "Leave it unset. A surface token such as surface, surface-secondary, info, success, warning, danger, discovery, or one with -solid, or a CSS color. Only one summary panel in a Card uses \"surface-secondary\"",
      "anyOf": [
       {
        "type": "string"
@@ -10466,7 +10466,6 @@
      ]
     },
     "options": {
-     "description": "Strings or { \"value\", \"label\", \"description\"? }",
      "anyOf": [
       {
        "type": "array",
@@ -11184,7 +11183,6 @@
      ]
     },
     "options": {
-     "description": "Strings or { \"value\", \"label\", \"description\"? }",
      "anyOf": [
       {
        "type": "array",
@@ -11861,7 +11859,6 @@
      ]
     },
     "options": {
-     "description": "Strings or { \"value\", \"label\", \"description\"? }",
      "anyOf": [
       {
        "type": "array",
@@ -12169,7 +12166,7 @@
   },
   "ChoicePicker": {
    "type": "object",
-   "description": "A list of options, as checkboxes or chips. The user picks one, or several with variant \"multipleSelection\". Bind value with { \"@path\": \"/x\" } to read the chosen values as a list. Give it a label.",
+   "description": "Options as checkboxes or chips: pick one, or several with variant \"multipleSelection\". Its value is the list of chosen values. Give it a label.",
    "properties": {
     "component": {
      "const": "ChoicePicker"
@@ -12189,7 +12186,6 @@
      ]
     },
     "options": {
-     "description": "Strings or { \"value\", \"label\", \"description\"? }",
      "anyOf": [
       {
        "type": "array",
@@ -12519,7 +12515,7 @@
   },
   "DateTimeInput": {
    "type": "object",
-   "description": "A date picker, or a time picker with enableTime, or both. Set timeStep (minutes) to offer fixed times, e.g. 30 for a booking. The value is ISO 8601. Bind value with { \"@path\": \"/x\" } to read it. Give it a label.",
+   "description": "A date picker, a time picker with enableTime, or both. timeStep (minutes) offers fixed times, e.g. 30 for a booking. The value is ISO 8601. Give it a label.",
    "properties": {
     "component": {
      "const": "DateTimeInput"
@@ -13002,7 +12998,7 @@
   },
   "Popover": {
    "type": "object",
-   "description": "A small overlay next to a trigger. Put exactly two children in it: one PopoverTrigger, then one PopoverContent. A click on the trigger opens and closes the content. Escape or a click outside closes it.",
+   "description": "A small overlay: exactly two children, one PopoverTrigger then one PopoverContent. A click on the trigger toggles it; Escape or a click outside closes it.",
    "properties": {
     "component": {
      "const": "Popover"
@@ -13249,13 +13245,13 @@
   },
   "Table": {
    "type": "object",
-   "description": "A data table. Put it in a plain Column, not in a Card. Give \"columns\" and \"rows\" (a list of row lists). Or give \"children\": TableSection or TableRow ids, or a template { \"componentId\", \"path\" } that repeats a TableRow for each item of a data list. To show a component (Badge, Button, Icon, Text) in a cell or a column header, set it to { \"componentId\": \"<id>\" } and put the id in \"cellComponents\".",
+   "description": "A data table, in a plain Column, not a Card. Give \"columns\" and \"rows\", or \"children\": TableSection or TableRow ids, or a template { \"componentId\", \"path\" } repeating a TableRow per item. A component in a cell or header (Badge, Button, Icon, Text): { \"componentId\": \"<id>\" }, with the id in \"cellComponents\".",
    "properties": {
     "component": {
      "const": "Table"
     },
     "columns": {
-     "description": "Strings, { \"label\", \"align\"?, \"width\"?, \"componentId\"? } or { \"componentId\" }, or { \"@path\": \"/x\" }. Default []",
+     "description": "Default []",
      "anyOf": [
       {
        "type": "array",
@@ -13403,7 +13399,7 @@
      ]
     },
     "rows": {
-     "description": "A list of row lists, or { \"@path\": \"/x\" }. A cell is a string, a number, or { \"componentId\": \"<id>\" } to show a component. Default []",
+     "description": "A list of row lists. A cell is a string, a number, or { \"componentId\": \"<id>\" } to show a component. Default []",
      "anyOf": [
       {
        "type": "array",
@@ -13764,13 +13760,12 @@
   },
   "List": {
    "type": "object",
-   "description": "A list in a Card or next to another component. A plain list of text is markdown, not a List. Give \"items\" (strings or { \"label\", \"value\"?, \"description\"?, \"icon\"? }); without an action, an item with a value is a key and value row, for facts like Price: $1,599. Or, when there are no items, give \"children\": ListItem ids or a template. With an \"action\", the user can pick an item: the event context gets \"index\", \"label\" and \"value\" of the item.",
+   "description": "A list in a Card or next to another component; a plain list of text is markdown. Give \"items\": an item with a value and no action is a key-value row (Price: $1,599). Or give \"children\": ListItem ids or a template. With \"action\" the user picks an item; the event context gets its index, label and value.",
    "properties": {
     "component": {
      "const": "List"
     },
     "items": {
-     "description": "Strings or { \"label\", \"value\"?, \"description\"?, \"icon\"? }, or { \"@path\": \"/x\" }",
      "anyOf": [
       {
        "type": "array",
@@ -14137,7 +14132,6 @@
      "const": "Chart"
     },
     "data": {
-     "description": "A list of objects, or { \"@path\": \"/x\" }",
      "anyOf": [
       {
        "type": "array",
@@ -14189,7 +14183,7 @@
      ]
     },
     "series": {
-     "description": "The value fields: strings or { \"key\", \"label\"?, \"color\"? }. Default: every number field except xKey",
+     "description": "Default: every number field except xKey",
      "anyOf": [
       {
        "type": "array",
@@ -14322,7 +14316,7 @@
      ]
     },
     "yAxis": {
-     "description": "The value axis configuration object: {label?: string, min?: number, max?: number, width?: number}. Example: {label: \"Revenue (USD)\", min: 0, max: 100}. In horizontal charts, label, min and max apply to the horizontal value axis, and width sets the width of the category axis on the left.",
+     "description": "Example: {label: \"Revenue (USD)\", min: 0, max: 100}. In a horizontal chart it is the horizontal axis, and width sets the category axis width",
      "anyOf": [
       {
        "type": "object",
@@ -14579,7 +14573,7 @@
      ]
     },
     "format": {
-     "description": "Number formatting. With \"percent\", data values and axis min/max are fractions: 0.4 displays as 40%. For 0% to 10%, use min: 0 and max: 0.1.",
+     "description": "With \"percent\", data values and axis min/max are fractions: 0.4 shows as 40%; for 0% to 10%, use min: 0 and max: 0.1.",
      "anyOf": [
       {
        "type": "string",
@@ -14645,13 +14639,12 @@
   },
   "Map": {
    "type": "object",
-   "description": "A map with markers. With \"route\", a line connects the markers in order. Bind \"selected\" to { \"@path\": \"/x\" } to get the label of the marker that the user picks. When maps are not available, it shows a list of the places.",
+   "description": "A map with markers; with \"route\" a line connects them in order. Bind \"selected\" to get the label of the marker the user picks. Without maps it shows a list of the places.",
    "properties": {
     "component": {
      "const": "Map"
     },
     "markers": {
-     "description": "A list of places, or { \"@path\": \"/x\" }",
      "anyOf": [
       {
        "type": "array",
@@ -16272,7 +16265,7 @@
   },
   "Video": {
    "type": "object",
-   "description": "A video player for a video file URL (with optional captions), or a YouTube link in privacy-enhanced mode: the poster shows first, and the player loads when the user presses play. A page on another video site shows as a link to it. Set title to name the video.",
+   "description": "A video file URL (optional captions) or a YouTube link, privacy-enhanced: the poster shows until play. Other video sites show as a link. Set title.",
    "properties": {
     "component": {
      "const": "Video"
@@ -16610,7 +16603,7 @@
   },
   "LinkCard": {
    "type": "object",
-   "description": "A preview card of a URL: the favicon and domain, the title, a description and a thumbnail. A click opens the link in a new tab, or sends onClick when it is bound. Use it for sources, articles and products that have a page.",
+   "description": "A preview of a URL: favicon and domain, title, description, thumbnail. A click opens it in a new tab, or sends onClick when bound. For sources, articles and products with a page.",
    "properties": {
     "component": {
      "const": "LinkCard"
@@ -16712,7 +16705,7 @@
   },
   "Citation": {
    "type": "object",
-   "description": "An inline source marker ([1]) that shows the source on hover or click: the title, a snippet and a link. Put it inline after the sentence it supports, as a child of a Text or in a Row.",
+   "description": "An inline source marker ([1]) showing title, snippet and link on hover or click. Put it right after the sentence it supports, as a child of a Text or in a Row.",
    "properties": {
     "component": {
      "const": "Citation"
@@ -16808,13 +16801,12 @@
   },
   "FollowUp": {
    "type": "object",
-   "description": "Suggested next prompts as pills. A click sends the message of the pill as the next turn of the user, with no event binding needed. Put it at the end of a surface, with two to four short items.",
+   "description": "Suggested next prompts as pills; a click sends the pill's message as the user's next turn, no event needed. At the end of a surface, two to four short items.",
    "properties": {
     "component": {
      "const": "FollowUp"
     },
     "items": {
-     "description": "Strings or { \"label\", \"message\"? }, or { \"@path\": \"/x\" }",
      "anyOf": [
       {
        "type": "array",
@@ -16905,7 +16897,7 @@
   },
   "EntityCard": {
    "type": "object",
-   "description": "A card for one thing (a product, place, person or listing): an image, title, subtitle, description, a price or meta line, a badge, a rating and up to three buttons. href opens a page, and onClick is sent when it is bound. Use a Grid of EntityCards for several things.",
+   "description": "A card for one product, place, person or listing: image, title, subtitle, description, a price or meta line, badge, rating and up to three buttons. href opens a page; onClick is sent when bound. Use a Grid of them for several things.",
    "properties": {
     "component": {
      "const": "EntityCard"
@@ -17225,7 +17217,6 @@
      "const": "ImageGrid"
     },
     "images": {
-     "description": "A list of { \"url\", \"description\"?, \"caption\"?, \"href\"? }, or { \"@path\": \"/x\" }",
      "anyOf": [
       {
        "type": "array",
@@ -24319,7 +24310,7 @@
   },
   "calc": {
    "type": "object",
-   "description": "The value of an arithmetic expression over the other args, by name: + - * / % ( ), comparisons, && || !, cond ? a : b, min max round floor ceil abs, 'text' + name",
+   "description": "The value of an arithmetic expression over the other args, by name: + - * / % ( ), x ^ y (power), comparisons, && || !, cond ? a : b, min max round floor ceil abs pow sqrt exp ln log10, the constants pi and e, 'text' + name",
    "returnType": "any",
    "allowedCallers": "rendererOnly",
    "requiresUserActivation": false,

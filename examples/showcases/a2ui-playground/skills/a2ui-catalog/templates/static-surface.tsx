@@ -1,7 +1,9 @@
 "use client";
 
-import { useId, useMemo, type ReactNode } from "react";
-import { AbstractAgent, type BaseEvent } from "@ag-ui/client";
+import { useId, useMemo } from "react";
+import type { ReactNode } from "react";
+import { AbstractAgent } from "@ag-ui/client";
+import type { BaseEvent } from "@ag-ui/client";
 import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
@@ -10,10 +12,13 @@ import { useGenerativeUIRuntime } from "@copilotkit/react-core/v2/generative-ui"
 import {
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_CHAT_TARGET,
-  type A2UIOperation,
-  type GenerativeUISurfaceContent,
 } from "@copilotkit/shared";
-import { EMPTY, type Observable } from "rxjs";
+import type {
+  A2UIOperation,
+  GenerativeUISurfaceContent,
+} from "@copilotkit/shared";
+import { EMPTY } from "rxjs";
+import type { Observable } from "rxjs";
 import { playgroundTheme, playgroundUI } from "@/a2ui/catalog/catalog"; // your createGenerativeUI(...) result
 import { CATALOG_ID } from "@/a2ui/catalog/ids";
 import { useBaseSurfaceRenderer } from "./surface-mirror";
@@ -62,7 +67,7 @@ export function StaticGenUIProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * Renders a list of A2UI v1.0 operations outside the chat, with the same
+ * Renders a list of A2UI 1.0 operations outside the chat, with the same
  * engine and the same validation the chat uses. Each instance is its own
  * thread, so its surface id never collides with another surface on the page.
  * Re-feeding a grown op list (streaming) only applies what is new.

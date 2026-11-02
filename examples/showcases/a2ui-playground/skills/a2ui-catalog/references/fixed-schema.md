@@ -65,8 +65,8 @@ new SurfaceStream(q, `weather-${callId.slice(-6)}`).create(
 
 // the data landed: data first, then the components (upsert by id replaces each frame), then done
 const stream = new SurfaceStream(q, surfaceId);
-stream.data(surface.data); // { version: "v1.0", updateDataModel: { surfaceId, path: "/", value } }
-stream.upsert(...surface.components); // { version: "v1.0", updateComponents: { surfaceId, components } }
+stream.data(surface.data); // { version: "1.0", updateDataModel: { surfaceId, path: "/", value } }
+stream.upsert(...surface.components); // { version: "1.0", updateComponents: { surfaceId, components } }
 stream.close(); // status "ready"
 q.push({
   type: "TOOL_CALL_RESULT",

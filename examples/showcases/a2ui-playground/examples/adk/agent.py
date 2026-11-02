@@ -5,7 +5,7 @@ It has no A2UI code. The CopilotKit runtime in front of it (see
 with every run and adds two things to the AG-UI request:
 
 - a `render_ui` tool, which `AGUIToolset()` declares to the model;
-- the generative UI guide (the catalog's components and the A2UI v1.0
+- the generative UI guide (the catalog's components and the A2UI 1.0
   operation format), which arrives as AG-UI context and is appended to the
   instruction below.
 
@@ -23,7 +23,7 @@ from google.adk.agents.readonly_context import ReadonlyContext
 MODEL = os.getenv("ADK_MODEL", "gemini-3.5-flash")
 
 INSTRUCTION = """You are a helpful assistant that answers with UI.
-For every request, call the render_ui tool with A2UI v1.0 operations built
+For every request, call the render_ui tool with A2UI 1.0 operations built
 only from the components in the generative UI guide below. Keep any text
 reply to one short sentence."""
 

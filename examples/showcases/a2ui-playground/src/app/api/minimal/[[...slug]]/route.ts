@@ -1,6 +1,6 @@
 // Minimal path (no custom agent): a stock BuiltInAgent. Passing `generativeUI={{ ui }}`
 // on the provider sends the catalog with every run, and the runtime injects the
-// Gen UI 2.0 `render_ui` tool (A2UI v1.0 operations) and its guide automatically.
+// Gen UI 2.0 `render_ui` tool (A2UI 1.0 operations) and its guide automatically.
 import {
   BuiltInAgent,
   CopilotRuntime,
@@ -15,7 +15,7 @@ const copilotRuntime = new CopilotRuntime({
     default: new BuiltInAgent({
       model: "openai:gpt-5.5",
       prompt:
-        "Answer with UI: call render_ui with A2UI v1.0 operations built from the components in the generative UI guide.",
+        "Answer with UI: call render_ui with A2UI 1.0 operations built from the components in the generative UI guide.",
     }),
   },
 });

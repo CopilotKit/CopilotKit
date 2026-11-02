@@ -1,20 +1,11 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentType,
-} from "react";
-import {
-  useCopilotKit,
-  type ReactActivityMessageRenderer,
-} from "@copilotkit/react-core/v2";
-import {
-  GENERATIVE_UI_ACTIVITY_TYPE,
-  type GenerativeUISurfaceContent,
-} from "@copilotkit/shared";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ComponentType } from "react";
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
+import { GENERATIVE_UI_ACTIVITY_TYPE } from "@copilotkit/shared";
+import type { GenerativeUISurfaceContent } from "@copilotkit/shared";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
 import {
@@ -22,8 +13,8 @@ import {
   latestComponents,
   runStore,
   useRunStore,
-  type A2UIOp,
 } from "@/lib/run-store";
+import type { A2UIOp } from "@/lib/run-store";
 import { useDesignSystem } from "@/design-systems/context";
 import { HOST_CLASS } from "@/design-systems/registry";
 import { ResizeBox } from "./build-sequence";
@@ -37,7 +28,7 @@ type Props = React.ComponentProps<
 /**
  * CopilotKit's own Gen UI 2.0 surface renderer: the one the provider registers
  * for `generative-ui-surface` activities when `generativeUI` is set. It
- * validates and applies each A2UI v1.0 operation and paints the surface.
+ * validates and applies each A2UI 1.0 operation and paints the surface.
  * The playground's mirror sits in front of it, so it is looked up past that.
  */
 export function useBaseSurfaceRenderer(): ComponentType<Props> | undefined {

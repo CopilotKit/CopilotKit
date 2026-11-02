@@ -5,13 +5,13 @@ A plain [Google ADK](https://google.github.io/adk-docs/) `LlmAgent` on Gemini Fl
 ```
 browser /adk ──► /api/adk (CopilotRuntime + HttpAgent) ──► this server (ADKAgent) ──► Gemini
    ▲                   │ adds render_ui + the catalog guide
-   └── A2UI v1.0 ops ──┘ validates each operation against the catalog
+   └── A2UI 1.0 ops ──┘ validates each operation against the catalog
 ```
 
 The agent has no A2UI code. `/adk` passes `generativeUI={{ ui }}` to `CopilotKitProvider`, so every run carries the catalog. The CopilotKit runtime's generative UI middleware reads it and adds to the AG-UI request it forwards:
 
 - a `render_ui` tool. `AGUIToolset()` in `agent.py` declares the tools the client sends to the model;
-- the generative UI guide (the components, their props, the A2UI v1.0 operation format), as AG-UI context. `ag-ui-adk` stores context in session state, and the instruction provider in `agent.py` appends it to the prompt.
+- the generative UI guide (the components, their props, the A2UI 1.0 operation format), as AG-UI context. `ag-ui-adk` stores context in session state, and the instruction provider in `agent.py` appends it to the prompt.
 
 When Gemini calls `render_ui`, the runtime validates each operation as it streams and sends it to the browser, which renders it with the React components. The middleware applies to any AG-UI agent the runtime fronts (`HttpAgent` included), not only `BuiltInAgent`.
 

@@ -4,12 +4,10 @@
  * Express is the compact, Python-like inference format the A2UI SDKs default
  * to: the model writes one statement per component (`kpi = Stat("Revenue",
  * "$4.2M")`), and the SDK compiles it, against the catalog, into standard
- * A2UI v1.0 messages. It needs no tool calling, so any LLM can write it.
+ * A2UI 1.0 messages. It needs no tool calling, so any LLM can write it.
  *
- * The SDK compiles a whole response. The grammar is line-oriented, so this
- * module also compiles a partial response: every complete statement so far,
- * with a `Blueprint` frame for each id they name that is not written yet.
- * That is how an Express surface paints while the model is still writing.
+ * SDK 0.1 reads each response incrementally. Blueprint frames are a
+ * playground presentation of pending children and server-side macros.
  */
 import {
   A2uiGenerator,
@@ -17,47 +15,20 @@ import {
   ExpressDecompiler,
   ExpressFormatFactory,
   InMemoryCatalogProvider,
-  type A2uiRequestProcessor,
-  type AgentToRendererMessage,
 } from "@a2ui/agent";
+import type { A2uiRequestProcessor, AgentToRendererMessage } from "@a2ui/agent";
+import { collectChildRefs, childIdsAtRefs } from "@copilotkit/shared";
+import type { GenerativeUIManifest } from "@copilotkit/shared";
 import inference from "@/a2ui/export/inference-catalog.json";
 import type { Node } from "./surface";
 
 type Doc = typeof inference & { components: Record<string, unknown> };
 const doc = inference as Doc;
-const CAPS = { "v1.0": { supportedCatalogIds: [doc.catalogId] } };
-
-/** The same catalog plus the Blueprint frame, for compiling partial responses only. */
-const previewDoc = {
-  ...doc,
-  components: {
-    ...doc.components,
-    Blueprint: {
-      type: "object",
-      properties: {
-        component: { const: "Blueprint" },
-        of: { type: "string" },
-        state: { type: "string" },
-      },
-      required: ["component"],
-    },
-  },
-  $defs: {
-    ...doc.$defs,
-    anyComponent: {
-      ...doc.$defs.anyComponent,
-      oneOf: [
-        ...doc.$defs.anyComponent.oneOf,
-        { $ref: "#/components/Blueprint" },
-      ],
-    },
-  },
-};
+const CAPS = { "1.0": { supportedCatalogIds: [doc.catalogId] } };
 
 let generators:
   | {
       main: A2uiGenerator;
-      preview: A2uiGenerator;
       decompiler: ExpressDecompiler;
     }
   | undefined;
@@ -68,15 +39,9 @@ function sdk() {
         doc as unknown as Record<string, unknown>,
       ).load(),
     );
-    const preview = new CatalogConfig(
-      new InMemoryCatalogProvider(
-        previewDoc as unknown as Record<string, unknown>,
-      ).load(),
-    );
     generators = {
       main: new A2uiGenerator([main]),
-      preview: new A2uiGenerator([preview]),
-      decompiler: new ExpressDecompiler(main.catalog, "v1.0"),
+      decompiler: new ExpressDecompiler(main.catalog, "1.0"),
     };
   }
   return generators;
@@ -84,9 +49,6 @@ function sdk() {
 
 export const expressProcessor = (surfaceId: string): A2uiRequestProcessor =>
   sdk().main.createProcessor(CAPS, new ExpressFormatFactory({ surfaceId }));
-const previewProcessor = (surfaceId: string): A2uiRequestProcessor =>
-  sdk().preview.createProcessor(CAPS, new ExpressFormatFactory({ surfaceId }));
-
 /** Components and data model after a list of compiled messages. */
 export function surfaceOf(messages: AgentToRendererMessage[]): {
   components: Node[];
@@ -131,12 +93,12 @@ export function compileExpress(reply: string, surfaceId: string) {
   return { messages, ...surfaceOf(messages) };
 }
 
-/** The Express a list of v1.0 messages would be: what the same surface costs in Express. */
+/** The Express a list of 1.0 messages would be: what the same surface costs in Express. */
 export function toExpress(messages: AgentToRendererMessage[]): string {
   return sdk().decompiler.decompile(messages);
 }
 
-/* ───────────── partial responses ───────────── */
+/* Code-pane line announcements only. Compilation uses the SDK stream. */
 
 /** Splits the inside of an `<a2ui>` block into complete statements (brackets closed, no open string). */
 export function completeStatements(text: string): {
@@ -172,81 +134,46 @@ export function completeStatements(text: string): {
   return { statements, rest: body.slice(from) };
 }
 
-const KEYWORDS = new Set([
-  "true",
-  "false",
-  "null",
-  "_",
-  "Event",
-  "_template",
-  "surface",
-  "deleteSurface",
-]);
-
-/** Ids a statement defines (`x = ...`) and the ids it references. */
-function idsOf(statement: string) {
-  const bare = statement
-    .replace(/r?"""[\s\S]*?"""|r?"(?:\\.|[^"\\])*"/g, '""')
-    .replace(/\$[^\s,)\]}]*/g, "")
-    .replace(/\?[A-Za-z_]\w*/g, "");
-  const lhs = /^\s*([A-Za-z_]\w*)\s*=(?!=)/.exec(bare);
-  const used = new Set<string>();
-  const re = /[A-Za-z_]\w*/g;
-  const rhs = lhs ? bare.slice(lhs[0].length) : bare;
-  for (let m = re.exec(rhs); m; m = re.exec(rhs)) {
-    const after = rhs.slice(m.index + m[0].length).trimStart();
-    if (
-      KEYWORDS.has(m[0]) ||
-      after.startsWith("(") ||
-      /^=(?!=)/.test(after) ||
-      after.startsWith(":")
-    )
-      continue;
-    used.add(m[0]);
-  }
-  return { defined: lhs?.[1], used };
-}
-
-/**
- * Compiles the complete statements of a partial response. Ids they name but
- * that are not written yet become pending Blueprint frames, and macros (which
- * expand on the server at the end) show as frames too. Returns nothing when
- * the prefix does not compile yet.
- */
-export function compilePartial(
-  statements: string[],
-  surfaceId: string,
+/** Add app-specific frames to SDK-compiled components, without recompiling the prefix. */
+export function previewComponents(
+  components: Node[],
+  known: Set<string>,
+  manifest: GenerativeUIManifest,
   isMacro: (name: string) => boolean,
-): Node[] | undefined {
-  const defined = new Set<string>();
-  const used = new Set<string>();
-  for (const s of statements) {
-    const ids = idsOf(s);
-    if (ids.defined) defined.add(ids.defined);
-    ids.used.forEach((u) => used.add(u));
+): Node[] {
+  for (const component of components) known.add(component.id);
+  const pending = new Set<string>();
+  for (const component of components) {
+    // The host manifest keeps literal child refs and slots before portable
+    // catalog export wraps every prop in binding/function alternatives.
+    const entry = manifest.components[component.component];
+    if (!entry) continue;
+    const refs = [
+      ...collectChildRefs(entry.props),
+      ...Object.entries(entry.slots ?? {}).map(([name, kind]) => ({
+        path: [name],
+        kind,
+      })),
+    ];
+    for (const id of childIdsAtRefs(component, refs))
+      if (!known.has(id)) pending.add(id);
   }
-  if (!defined.has("root")) return undefined;
-  const stubs = [...used]
-    .filter((u) => !defined.has(u))
-    .map((u) => `${u} = Blueprint("#${u}", "pending")`);
-  try {
-    const parts = previewProcessor(surfaceId).parseResponse(
-      `<a2ui>\n${[...statements, ...stubs].join("\n")}\n</a2ui>`,
-    );
-    const { components } = surfaceOf(
-      parts.flatMap((p) => (p.type === "a2ui" ? p.a2ui : [])),
-    );
-    return components.map((c) =>
-      isMacro(c.component)
+  return [
+    ...components.map((component) =>
+      isMacro(component.component)
         ? {
-            id: c.id,
+            id: component.id,
             component: "Blueprint",
-            of: c.component,
+            of: component.component,
             state: "streaming",
           }
-        : c,
-    );
-  } catch {
-    return undefined;
-  }
+        : component,
+    ),
+    ...[...pending].map((id) => ({
+      id,
+      component: "Blueprint",
+      of: `#${id}`,
+      state: "pending",
+    })),
+  ];
 }

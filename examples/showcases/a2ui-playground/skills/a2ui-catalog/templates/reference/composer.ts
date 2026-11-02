@@ -5,18 +5,20 @@
  *
  * A second, faster model writes the whole surface (components + data) as the
  * arguments of a forced `render_a2ui` tool call. We parse those arguments as
- * they stream and append an A2UI v1.0 `updateComponents` operation to the
+ * they stream and append an A2UI 1.0 `updateComponents` operation to the
  * surface after every completed component, so the surface paints top-down
  * while it is still being written instead of after the last byte.
  */
-import OpenAI from "openai";
+import type OpenAI from "openai";
 import type { GenerativeUIManifest } from "@copilotkit/shared";
 import { catalogPrompt } from "./catalog-prompt";
-import { pipeline, type EventQueue } from "./events";
+import { pipeline } from "./events";
+import type { EventQueue } from "./events";
 import { MAP_POINT_PROPS, repairMarkers } from "./geo";
 import { repairComponent, stripDashes } from "./repair";
 import { ComponentStreamParser } from "./stream-parse";
-import { SurfaceStream, type Node, type SurfaceRecord } from "./surface";
+import { SurfaceStream } from "./surface";
+import type { Node, SurfaceRecord } from "./surface";
 
 export const COMPOSER_MODEL = process.env.A2UI_COMPOSER_MODEL ?? "gpt-5.4-mini";
 export const GENERATE_A2UI_TOOL_NAME = "generate_a2ui";
@@ -25,7 +27,7 @@ const RENDER_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
   type: "function",
   function: {
     name: "render_a2ui",
-    description: "Render one A2UI v1.0 surface.",
+    description: "Render one A2UI 1.0 surface.",
     parameters: {
       type: "object",
       properties: {
@@ -45,7 +47,7 @@ const RENDER_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
 };
 
 function systemPrompt(manifest: GenerativeUIManifest) {
-  return `You compose A2UI v1.0 surfaces for a dark chat app, from the CopilotKit Gen UI 2.0 standard components plus this app's own components. Call render_a2ui exactly once.
+  return `You compose A2UI 1.0 surfaces for a dark chat app, from the CopilotKit Gen UI 2.0 standard components plus this app's own components. Call render_a2ui exactly once.
 
 FORMAT
 - Write args in this order: components, data.

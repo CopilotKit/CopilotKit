@@ -12,13 +12,14 @@
     "prebuild": "pnpm catalog:export",
     "build": "next build",
     "start": "next start --port ${PORT:-3100}",
+    "test": "tsx --tsconfig tsconfig.json scripts/test-express.ts && tsx --tsconfig tsconfig.json scripts/test-composer.ts && tsx --tsconfig tsconfig.json scripts/test-repair.ts",
     "typecheck": "tsc --noEmit",
     "catalog:export": "tsx --tsconfig tsconfig.json scripts/export-catalog.ts",
     "skills:export": "tsx --tsconfig tsconfig.json scripts/export-skills.ts",
     "evals": "tsx --tsconfig tsconfig.json scripts/evals.ts"
   },
   "dependencies": {
-    "@a2ui/agent": "0.0.2",
+    "@a2ui/agent": "0.1.0",
     "@ag-ui/client": "1.0.2",
     "@copilotkit/react-core": "1.83.0",
     "@copilotkit/runtime": "1.83.0",

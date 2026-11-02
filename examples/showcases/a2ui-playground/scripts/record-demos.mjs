@@ -220,7 +220,7 @@ const scenes = [
       );
       await sleep(4500);
       await d.click('[data-tab="json"]');
-      d.caption('And every operation on the wire says "version": "v1.0".');
+      d.caption('And every operation on the wire says "version": "1.0".');
       await sleep(3800);
     },
   },
@@ -267,7 +267,7 @@ const scenes = [
       await sleep(1200);
       await d.click('[data-macro="FlightCard"] [data-macro-view="json"]');
       d.caption(
-        "Wire JSON: what actually reaches the renderer, plain A2UI v1.0.",
+        "Wire JSON: what actually reaches the renderer, plain A2UI 1.0.",
       );
       await sleep(3200);
       await d.scroll(1500, 2600);
@@ -426,7 +426,7 @@ const scenes = [
       await sleep(3200);
       await d.scrollTo('a[href="/catalog.json"]', 2400, 260);
       d.caption(
-        "And the catalog as a framework-agnostic A2UI v1.0 document, for renderers beyond React.",
+        "And the catalog as a framework-agnostic A2UI 1.0 document, for renderers beyond React.",
       );
       await d.point('a[href="/catalog.json"]', 700);
       await sleep(3600);
