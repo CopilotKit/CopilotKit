@@ -165,13 +165,14 @@ the existing 60-second durability window.
 No Intelligence upgrade is required. The runtime uses the existing terminal
 events and supports both single-event and batched gateway acknowledgments.
 
-## BuiltInAgent skill delivery from multiple containers
+## Built-in agent skill delivery from multiple containers
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
-const agent = new BuiltInAgent({
-  model: "openai/gpt-4o",
+const agent = tanstackAIAgent({
+  adapter: () => openaiText("gpt-5.5"),
   learnedSkills: {
     containers: [
       { id: "support", revision: "revision-123" },
