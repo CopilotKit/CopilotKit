@@ -2,7 +2,7 @@ import { searchPlaces } from "@/agent/apis";
 import { runJev } from "@/jev/decide.server";
 import { parseWhere } from "@/jev/usecases";
 import { USE_CASES, type UseCaseId } from "@/jev/usecases";
-import { limitAgentRuns, MAX_BODY, readBody, tooLarge } from "@/lib/limits";
+import { admitAgentRun, MAX_BODY, readBody, tooLarge } from "@/lib/limits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,8 +31,8 @@ export async function POST(req: Request) {
   if (!(usecase in USE_CASES))
     return Response.json({ error: "Unknown use case" }, { status: 400 });
   // Counted with the playground's agent runs, once the request is one that runs.
-  const limited = limitAgentRuns(req);
-  if (limited) return limited;
+  const refused = admitAgentRun(req);
+  if (refused) return refused;
   const prompt =
     (body.prompt ?? "").trim().slice(0, 500) || USE_CASES[usecase].prompt;
   if (body.stream)

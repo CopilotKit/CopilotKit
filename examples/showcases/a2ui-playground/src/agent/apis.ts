@@ -35,9 +35,11 @@ export type Place = {
 };
 
 export async function geocode(
-  query: string,
+  place: string,
   signal?: AbortSignal,
 ): Promise<Place> {
+  // The model writes the name: no place needs more, and the free services get no page of text from us.
+  const query = place.slice(0, 200);
   // "Ueno, Tokyo" or "Alfama, Lisbon": a neighbourhood with its city. Open-Meteo only matches the first
   // token (and found a village called Uwano), so ask Nominatim with the full string first.
   if (query.includes(",")) {
@@ -385,7 +387,7 @@ export async function searchPlaces(
     n: center.lat + d * 0.8,
     s: center.lat - d * 0.8,
   };
-  const { text, category } = normalizeQuery(what);
+  const { text, category } = normalizeQuery(what.slice(0, 100));
   // Specific terms (e.g. "ramen") first, the OSM category as a fallback; Photon runs in parallel as a safety net.
   const queries = Array.from(
     new Set([text, category].filter(Boolean) as string[]),
@@ -477,16 +479,22 @@ export type Fx = {
   source: string;
 };
 
+/** An ISO 4217 code. The model writes them, and they go into the request URLs as they are. */
+const isCurrency = (s: unknown): s is string =>
+  typeof s === "string" && /^[A-Z]{3}$/.test(s);
+
 export async function getFx(
   base: string,
-  symbols: string[],
+  symbols: unknown,
   days = 30,
   signal?: AbortSignal,
 ): Promise<Fx> {
-  const B = base.toUpperCase();
-  const S = symbols
-    .map((s) => s.toUpperCase())
-    .filter((s) => s !== B)
+  const B = base.trim().toUpperCase();
+  if (!isCurrency(B))
+    throw new Error(`"${base.slice(0, 20)}" is not a currency code`);
+  const S = (Array.isArray(symbols) ? symbols : [symbols])
+    .map((s) => (typeof s === "string" ? s.trim().toUpperCase() : s))
+    .filter((s): s is string => isCurrency(s) && s !== B)
     .slice(0, 4);
   try {
     const end = new Date();

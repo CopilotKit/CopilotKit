@@ -1,7 +1,7 @@
 /**
  * The limits that make the hosted playground safe on a public URL, where every
  * agent run spends the server's model keys. Every number is here, and the
- * README's Hosting section lists them. Server only.
+ * README's "Hosting it safely" section lists them. Server only.
  *
  * The rate limiter keeps its counts in memory. That is right for the one
  * Railway instance the playground runs on; with more instances, each one counts
@@ -28,11 +28,19 @@ export const RATE_LIMITS = {
   },
   /** Agent runs across every visitor, so no crowd can drain a key: 300 an hour, 60 at once. */
   agentOverall: { rate: 300, windowMs: 60 * MINUTE, burst: 60 },
+  /** Every request to an agent route per visitor (page startup, `connect`, `stop`, runs). Only runs spend tokens, but each request reads up to MAX_BODY.agent. */
+  agentRoute: { rate: 120, windowMs: MINUTE, burst: 60 },
   /** The cheap routes: no model, just CPU. */
   express: { rate: 60, windowMs: MINUTE, burst: 30 },
   skills: { rate: 60, windowMs: MINUTE, burst: 30 },
   models: { rate: 30, windowMs: MINUTE, burst: 10 },
 } satisfies Record<string, RateLimit>;
+
+/**
+ * Agent runs across every visitor per UTC day: the spend ceiling. A run has a cost ceiling of its own (at most 4 model
+ * calls, each under the output caps below), so this caps a day's spend. `AGENT_RUNS_PER_DAY` changes it.
+ */
+export const AGENT_RUNS_PER_DAY = envNumber("AGENT_RUNS_PER_DAY") ?? 3000;
 
 /** Request bodies, in bytes. A run carries the catalog (about 135 KB) and the whole chat, so its cap is the largest. */
 export const MAX_BODY = {
@@ -51,6 +59,9 @@ export const MAX_DATA_CALLS = 4;
 export const MAX_GEOCODED_MARKERS = 12;
 export const MAX_MACROS = 6;
 
+/** Nominatim calls waiting their turn (1 a second, one queue for every visitor). Past this a lookup goes to its fallback (Photon, Open-Meteo) instead of waiting minutes. */
+export const MAX_QUEUED_LOOKUPS = 20;
+
 /** Components `/api/express` decompiles in one request. Real surfaces have under 100. */
 export const MAX_EXPRESS_COMPONENTS = 1000;
 
@@ -63,14 +74,37 @@ export const COMPOSER_MAX_TOKENS = 16384;
 
 /* ───────────────────────── rate limiting ───────────────────────── */
 
-/** The visitor's address: the first X-Forwarded-For entry (Railway's proxy sets it), else X-Real-IP. */
+/**
+ * The visitor's address: the first X-Forwarded-For entry (Railway's proxy sets it), else X-Real-IP.
+ * An IPv6 visitor counts by its /64, the block one home or server gets, so cycling addresses inside it
+ * doesn't earn a fresh limit; an IPv4 address loses any port.
+ */
 // Tested on the live Railway deploy: a spoofed X-Forwarded-For did not get past the limit.
 export function clientIp(request: Request) {
-  return (
+  const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     request.headers.get("x-real-ip")?.trim() ||
-    "unknown"
-  );
+    "unknown";
+  if (!ip.includes(":")) return ip;
+  // IPv4 with a port, or mapped into IPv6 (`::ffff:203.0.113.9`).
+  const v4 = /(\d{1,3}(?:\.\d{1,3}){3})(?::\d+)?$/.exec(ip);
+  if (v4) return v4[1];
+  const [head, tail] = ip
+    .replace(/^\[|\](?::\d+)?$/g, "")
+    .split("%")[0]
+    .toLowerCase()
+    .split("::");
+  const left = head ? head.split(":") : [];
+  const right = tail ? tail.split(":") : [];
+  const gap = Math.max(0, 8 - left.length - right.length);
+  const groups =
+    tail === undefined
+      ? left
+      : [...left, ...Array<string>(gap).fill("0"), ...right];
+  return `${groups
+    .slice(0, 4)
+    .map((g) => g.replace(/^0+(?=.)/, ""))
+    .join(":")}::/64`;
 }
 
 class Buckets {
@@ -171,10 +205,64 @@ export async function readBody(
 /* ───────────────────────── agent routes ───────────────────────── */
 
 /** Agent runs, counted together for every route that runs an agent (`/api/copilotkit` and the opt-in demos). */
-export const limitAgentRuns = rateLimiter(
-  RATE_LIMITS.agent,
-  RATE_LIMITS.agentOverall,
-);
+const limitRuns = rateLimiter(RATE_LIMITS.agent, RATE_LIMITS.agentOverall);
+const limitRouteRequests = rateLimiter(RATE_LIMITS.agentRoute);
+
+/** Runs started on one UTC day, for AGENT_RUNS_PER_DAY. */
+const runsToday = { date: "", runs: 0 };
+const utcDate = (now: number) => new Date(now).toISOString().slice(0, 10);
+
+/**
+ * Why live runs are off on this server (in visitor words, with seconds until
+ * they may be on again), or undefined while they are on. `AGENT_RUNS_PAUSED=1`
+ * is the kill switch; AGENT_RUNS_PER_DAY turns them off until midnight UTC.
+ * The recorded replay never runs the agent, so it keeps playing, and
+ * `GET /api/models` shows the reason in the model picker.
+ */
+export function liveRunsOff(now = Date.now()) {
+  // "true" too: a switch flipped during an incident must not fail on spelling.
+  if (["1", "true"].includes(process.env.AGENT_RUNS_PAUSED?.trim() ?? ""))
+    return {
+      reason: "Live runs are paused on this server for now.",
+      retryAfter: 600,
+    };
+  const date = utcDate(now);
+  if (runsToday.date === date && runsToday.runs >= AGENT_RUNS_PER_DAY)
+    return {
+      reason: "The playground has used today's live runs. Try again tomorrow.",
+      retryAfter: Math.ceil((Date.parse(date) + 24 * 60 * MINUTE - now) / 1000),
+    };
+  return undefined;
+}
+
+/** A page on another site can make its visitors' browsers POST text/plain here unasked, but JSON only after a CORS preflight, which this site never grants. */
+const isJson = (request: Request) =>
+  request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() ===
+  "application/json";
+
+/**
+ * Whether one agent run may start: sent as JSON (so no other site can spend
+ * the keys through its visitors' browsers), while live runs are on, and within
+ * the rate limits. Returns the response to send, or undefined when the run may
+ * go ahead (and is counted).
+ */
+export function admitAgentRun(request: Request): Response | undefined {
+  if (!isJson(request))
+    return Response.json(
+      { error: "Send the run as application/json." },
+      { status: 415 },
+    );
+  const now = Date.now();
+  // A 429, not a 503: the chat shows the error text of a 429 (or 413), and a generic failure for anything else.
+  const off = liveRunsOff(now);
+  if (off) return tooMany(off.retryAfter, off.reason);
+  const limited = limitRuns(request);
+  if (limited) return limited;
+  const date = utcDate(now);
+  if (runsToday.date !== date) Object.assign(runsToday, { date, runs: 0 });
+  runsToday.runs++;
+  return undefined;
+}
 
 const RUNS = new Set(["agent/run", "agent/suggest"]);
 
@@ -200,13 +288,16 @@ function isRunInput(body: string) {
  * Hooks for a CopilotKit runtime route that runs an agent. The body cap runs
  * before routing, since a path that matches no route reads the body too. Only
  * the routes that run the agent spend model tokens, so only they count toward
- * the rate limit, and only with a body that can start a run. `info` and
- * `agent/connect` (sent when the page loads) and `agent/stop` don't count.
- * A Response thrown in a hook is sent as it is.
+ * the run limits (`admitAgentRun`), and only with a body that can start a run.
+ * `info` and `agent/connect` (sent when the page loads) and `agent/stop` don't
+ * count as runs; every request, those included, counts toward
+ * RATE_LIMITS.agentRoute. A Response thrown in a hook is sent as it is.
  */
 export function agentRouteHooks(tooLong?: string): CopilotRuntimeHooks {
   return {
     onRequest: async ({ request }) => {
+      const limited = limitRouteRequests(request);
+      if (limited) throw limited;
       if (!request.body) return;
       const body = await readBody(request, MAX_BODY.agent);
       if (body === null) throw tooLarge(tooLong);
@@ -221,8 +312,8 @@ export function agentRouteHooks(tooLong?: string): CopilotRuntimeHooks {
     onBeforeHandler: async ({ request, route }) => {
       if (!RUNS.has(route.method) || !isRunInput(await request.clone().text()))
         return;
-      const limited = limitAgentRuns(request);
-      if (limited) throw limited;
+      const refused = admitAgentRun(request);
+      if (refused) throw refused;
     },
   };
 }

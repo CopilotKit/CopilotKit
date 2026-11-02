@@ -14,6 +14,7 @@
  *   OPENAI_API_KEY            GPT
  */
 import OpenAI from "openai";
+import { liveRunsOff } from "@/lib/limits";
 import { MODEL_OPTIONS, modelLabel, type ModelId } from "@/lib/model-options";
 
 export type { ModelId };
@@ -42,7 +43,11 @@ const env = (k: string) => process.env[k];
 
 const GOOGLE_HOST = "generativelanguage.googleapis.com";
 const gemmaBase = () => env("GEMMA_BASE_URL");
-const gemmaOnGoogle = () => !!gemmaBase()?.includes(GOOGLE_HOST);
+// By host, not substring: the Gemini key goes only to Google, never to a server whose URL merely contains its name.
+const gemmaOnGoogle = () => {
+  const base = gemmaBase();
+  return !!base && URL.canParse(base) && new URL(base).hostname === GOOGLE_HOST;
+};
 const gemmaKey = () =>
   env("GEMMA_API_KEY") ??
   (gemmaOnGoogle()
@@ -133,7 +138,7 @@ export const MODELS: Record<ModelId, ModelSpec> = {
 const turnedOff = (id: ModelId) =>
   (env("DISABLED_MODELS") ?? "")
     .split(",")
-    .map((s) => s.trim())
+    .map((s) => s.trim().toLowerCase())
     .includes(id);
 for (const spec of Object.values(MODELS)) {
   const missing = spec.missing;
@@ -143,9 +148,10 @@ for (const spec of Object.values(MODELS)) {
 
 export const DEFAULT_MODEL: ModelId = "gemini";
 
+// `Object.hasOwn`, not `in`: the browser sends the id, and "toString" is `in` every object.
 export const modelOf = (value: unknown): ModelSpec =>
   MODELS[
-    (typeof value === "string" && value in MODELS
+    (typeof value === "string" && Object.hasOwn(MODELS, value)
       ? value
       : DEFAULT_MODEL) as ModelId
   ];
@@ -159,9 +165,11 @@ export type ModelAvailability = {
 };
 
 export function modelAvailability(): ModelAvailability[] {
+  // Paused, or past today's runs: every model shows why, and the run route refuses with the same words.
+  const off = liveRunsOff()?.reason;
   return MODEL_OPTIONS.map(({ id }) => {
     const spec = MODELS[id];
-    const reason = spec.missing();
+    const reason = off ?? spec.missing();
     return reason
       ? { id, available: false, note: spec.note(), reason }
       : { id, available: true, note: spec.note() };

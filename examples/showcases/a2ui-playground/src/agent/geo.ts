@@ -14,7 +14,7 @@
  * (`./apis.ts` uses it too) and are cached. One surface geocodes at most
  * MAX_GEOCODED_MARKERS pins.
  */
-import { MAX_GEOCODED_MARKERS } from "@/lib/limits";
+import { MAX_GEOCODED_MARKERS, MAX_QUEUED_LOOKUPS } from "@/lib/limits";
 
 const UA = "a2ui-playground/0.1 (CopilotKit A2UI demo)";
 const AREA_TYPES = new Set([
@@ -41,17 +41,28 @@ const cache = new Map<string, Hit>();
 const CACHE_ENTRIES = 500;
 let chain: Promise<unknown> = Promise.resolve();
 let lastAt = 0;
+let waiting = 0;
 
-/** Serializes Nominatim calls at >= 1.05 s apart (usage policy). A call whose `signal` aborts before its turn (its run stopped) leaves the queue unsent, without holding a slot. */
+/**
+ * Serializes Nominatim calls at >= 1.05 s apart (usage policy). A call whose `signal` aborts before its turn (its run stopped) leaves the queue unsent, without holding a slot.
+ * Every visitor shares the queue: past MAX_QUEUED_LOOKUPS waiting, a call is refused at once and its caller uses its fallback.
+ */
 export function paced<T>(
   fn: () => Promise<T>,
   signal?: AbortSignal,
 ): Promise<T> {
+  if (waiting >= MAX_QUEUED_LOOKUPS)
+    return Promise.reject(new Error("The Nominatim queue is full"));
+  waiting++;
   const run = chain.then(async () => {
-    signal?.throwIfAborted();
-    const wait = Math.max(0, lastAt + 1050 - Date.now());
-    if (wait) await new Promise((r) => setTimeout(r, wait));
-    signal?.throwIfAborted();
+    try {
+      signal?.throwIfAborted();
+      const wait = Math.max(0, lastAt + 1050 - Date.now());
+      if (wait) await new Promise((r) => setTimeout(r, wait));
+      signal?.throwIfAborted();
+    } finally {
+      waiting--;
+    }
     lastAt = Date.now();
     return fn();
   });
