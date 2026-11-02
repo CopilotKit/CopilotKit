@@ -12,8 +12,8 @@ importers:
   .:
     dependencies:
       '@a2ui/agent':
-        specifier: 0.0.2
-        version: 0.0.2
+        specifier: 0.1.0
+        version: 0.1.0
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
@@ -152,14 +152,14 @@ packages:
       graphql:
         optional: true
 
-  '@a2ui/agent@0.0.2':
-    resolution: {integrity: sha512-FD6QcgifDlU6Gro3rURpJoGjPiDa7WQm5I5hby8QCA7svPXIXsULg64hZHsdz2vOfmbTKxKqWJf5QzNF3rpybQ==}
+  '@a2ui/agent@0.1.0':
+    resolution: {integrity: sha512-qpqMN+uQU+vA8JEjtIJsGT6qJJ0FZCnOKSRB6HBhleqnlsasjAiNIMSJfwX/lANv13cnEF10CgMiQGDLSyjnLQ==}
 
   '@a2ui/web_core@0.10.4':
     resolution: {integrity: sha512-sahOUSKZIGv9ZtnHjfzWR8o/F1XfSTp4sQAX5/auSenQYBYDRaY0+vrZIkddc/IEzpXJob6cFJT2r5/mLzAvqg==}
 
-  '@a2ui/web_core@0.14.0':
-    resolution: {integrity: sha512-OEJOgcfRMW0lwActVl1NKToxE2Ff5G3mIBHDB6gKm0elGZSwAhB7bj+Ef2a/h2nrL+57VPnSR67YSNz9JVV4yw==}
+  '@a2ui/web_core@0.15.0':
+    resolution: {integrity: sha512-S3k9rAJ9O55z5TlDeWy22ly3yQnDLO+XBWihlL5JQSuyxaCUmd7jgFnxO4eq/Bn6dSgdBF0WG8cve/euMoz8SA==}
 
   '@ag-ui/a2ui-middleware@0.0.10':
     resolution: {integrity: sha512-2BQFUQ9vJzUAQSR0dNW/ijhyH8KpiRWISSLTP6mIe6ENyQ2cM1/XLG38/Dcb69olcs36gtZADZzAQWcno5H6fA==}
@@ -5486,9 +5486,9 @@ snapshots:
     optionalDependencies:
       graphql: 16.14.2
 
-  '@a2ui/agent@0.0.2':
+  '@a2ui/agent@0.1.0':
     dependencies:
-      '@a2ui/web_core': 0.14.0
+      '@a2ui/web_core': 0.15.0
       antlr4ng: 3.0.16
 
   '@a2ui/web_core@0.10.4':
@@ -5498,7 +5498,7 @@ snapshots:
       zod: 3.25.76
       zod-to-json-schema: 3.25.2(zod@3.25.76)
 
-  '@a2ui/web_core@0.14.0':
+  '@a2ui/web_core@0.15.0':
     dependencies:
       '@lit/context': 1.1.6
       '@preact/signals-core': 1.14.4

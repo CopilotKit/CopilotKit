@@ -3,13 +3,14 @@
  *
  * Same job as `./composer.ts`, in the format Google's A2UI SDKs default to:
  * the model writes plain text, one statement per component, with no tool
- * call, so any model can do it (a local Gemma included). As each statement
- * completes, the statements so far are compiled and the surface paints; at
- * the end the whole reply is compiled by `@a2ui/agent`, macros expand, and
- * the result goes out as A2UI v1.0 operations like every other surface.
+ * call, so any model can do it (a local Gemma included). `@a2ui/agent`
+ * compiles the reply as it streams, and the surface paints as each statement
+ * completes; at the end macros expand, and the result goes out as A2UI v1.0
+ * operations like every other surface.
  *
  * A reply that does not compile gets one retry with the compiler's error.
  */
+import type { AgentToRendererMessage, ResponsePart } from "@a2ui/agent";
 import { DESIGN_RULES } from "@/a2ui/catalog/instructions";
 import { macros } from "@/a2ui/macros/macros";
 import type { FlatNode } from "@/a2ui/macros/macro";
@@ -23,14 +24,16 @@ import {
 } from "./composer";
 import { pipeline } from "./events";
 import {
-  compileExpress,
-  compilePartial,
-  completeStatements,
   expressProcessor,
+  messagesOf,
+  openExpressStream,
+  pendingChildren,
+  surfaceOf,
 } from "./express";
 import { geoBudget, geoPatch } from "./geo";
 import { stripDashes } from "./repair";
 import { SurfaceStream, type Node } from "./surface";
+import { splitStatements } from "@/lib/express-lines";
 import { COMPOSER_MAX_TOKENS, MAX_MACROS } from "@/lib/limits";
 
 function systemPrompt(snippet: string) {
@@ -91,6 +94,53 @@ export async function composeExpress(
     let firstTokenAt = 0;
     let done = 0;
     let painted = false;
+    // The SDK compiles the reply as it arrives. The first statement that does not compile ends the stream,
+    // and the surface stops painting there; `error` is what the retry tells the model.
+    const express = openExpressStream(surfaceId);
+    const parsed: AgentToRendererMessage[] = [];
+    let error: unknown;
+    const read = (parts: () => ResponsePart[]) => {
+      if (error) return;
+      try {
+        const fresh = messagesOf(parts());
+        if (!fresh.length) return;
+        parsed.push(...fresh);
+        if (live) paint();
+      } catch (err) {
+        error = err;
+      }
+    };
+    // Components named but not written yet show as pending Blueprint frames, and macros (which expand on
+    // the server at the end) as frames of their own.
+    const paint = () => {
+      const { components } = surfaceOf(parsed);
+      const frame: Node[] = [
+        ...components.map((c) =>
+          macros.isMacro(c.component)
+            ? {
+                id: c.id,
+                component: "Blueprint",
+                of: c.component,
+                state: "streaming",
+              }
+            : c,
+        ),
+        ...pendingChildren(components).map((id) => ({
+          id,
+          component: "Blueprint",
+          of: `#${id}`,
+          state: "pending",
+        })),
+      ];
+      send(...stripDashes(frame));
+      if (!painted) {
+        painted = true;
+        pipeline(q, t0, "paint", {
+          components: frame.length,
+          progressive: true,
+        });
+      }
+    };
     // Every complete statement goes to the browser as written, also when the surface does not paint as it streams
     // (an update, or the retry after a compile error): the playground shows the lines as they arrive.
     const announce = (statements: string[]) => {
@@ -118,34 +168,25 @@ export async function composeExpress(
         pipeline(q, t0, "compose:first-token");
       }
       text += delta;
-      if (!delta.includes("\n")) continue;
-      const { statements } = completeStatements(text);
-      if (statements.length === done) continue;
-      announce(statements);
-      if (!live) continue;
-      const frame = compilePartial(statements, surfaceId, (name) =>
-        macros.isMacro(name),
-      );
-      if (frame) {
-        send(...stripDashes(frame));
-        if (!painted) {
-          painted = true;
-          pipeline(q, t0, "paint", {
-            components: frame.length,
-            progressive: true,
-          });
-        }
-      }
+      read(() => express.feed(delta));
+      if (delta.includes("\n") && text.includes("<a2ui>"))
+        announce(splitStatements(text, false));
     }
+    // A reply can end without its </a2ui> tag. Closing the block for it still checks the finished tree,
+    // so a reply cut off mid-tree gets the retry rather than a surface with holes.
+    if (express.isInBlock) read(() => express.feed("\n</a2ui>"));
+    read(() => express.close());
+    if (!error && !parsed.length)
+      error = new Error("The reply has no <a2ui> block.");
     // The last statement can end at </a2ui> with no newline after it.
-    const { statements, rest } = completeStatements(text);
-    const tail = rest.trim();
-    announce(
-      text.includes("</a2ui>") && tail && !tail.startsWith("#")
-        ? [...statements, tail]
-        : statements,
-    );
-    return { text, firstTokenAt };
+    if (text.includes("<a2ui>"))
+      announce(splitStatements(text, text.includes("</a2ui>")));
+    return { text, firstTokenAt, parsed, error };
+  };
+  /** The reply's components and data. Throws the compiler's error when it did not compile. */
+  const resultOf = (reply: Awaited<ReturnType<typeof write>>) => {
+    if (reply.error) throw reply.error;
+    return surfaceOf(reply.parsed);
   };
 
   const conversation: Array<{
@@ -156,9 +197,9 @@ export async function composeExpress(
     { role: "user", content: user },
   ];
   let reply = await write(conversation, progressive);
-  let compiled: ReturnType<typeof compileExpress>;
+  let compiled: ReturnType<typeof resultOf>;
   try {
-    compiled = compileExpress(reply.text, surfaceId);
+    compiled = resultOf(reply);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     pipeline(q, t0, "validate", {
@@ -176,7 +217,7 @@ export async function composeExpress(
     );
     reply = await write(conversation, false);
     try {
-      compiled = compileExpress(reply.text, surfaceId);
+      compiled = resultOf(reply);
     } catch (retryErr) {
       if (input.noFallback) throw retryErr;
       // Still no compile: write the same surface as JSON, whose repair step fixes prop types the Express compiler rejects.

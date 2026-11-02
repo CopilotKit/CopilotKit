@@ -6,10 +6,9 @@
  * "$4.2M")`), and the SDK compiles it, against the catalog, into standard
  * A2UI v1.0 messages. It needs no tool calling, so any LLM can write it.
  *
- * The SDK compiles a whole response. The grammar is line-oriented, so this
- * module also compiles a partial response: every complete statement so far,
- * with a `Blueprint` frame for each id they name that is not written yet.
- * That is how an Express surface paints while the model is still writing.
+ * The SDK also compiles a reply while it streams (`openExpressStream`): each
+ * statement comes back as soon as it is complete, which is how an Express
+ * surface paints while the model is still writing.
  */
 import {
   A2uiGenerator,
@@ -19,47 +18,25 @@ import {
   InMemoryCatalogProvider,
   type A2uiRequestProcessor,
   type AgentToRendererMessage,
+  type ResponsePart,
+  type ResponseStream,
 } from "@a2ui/agent";
+import {
+  childIdsAtRefs,
+  collectChildRefs,
+  type ChildRef,
+  type GenerativeUIJSONSchema,
+} from "@copilotkit/shared";
 import inference from "@/a2ui/export/inference-catalog.json";
 import type { Node } from "./surface";
 
 type Doc = typeof inference & { components: Record<string, unknown> };
 const doc = inference as Doc;
-const CAPS = { "v1.0": { supportedCatalogIds: [doc.catalogId] } };
-
-/** The same catalog plus the Blueprint frame, for compiling partial responses only. */
-const previewDoc = {
-  ...doc,
-  components: {
-    ...doc.components,
-    Blueprint: {
-      type: "object",
-      properties: {
-        component: { const: "Blueprint" },
-        of: { type: "string" },
-        state: { type: "string" },
-      },
-      required: ["component"],
-    },
-  },
-  $defs: {
-    ...doc.$defs,
-    anyComponent: {
-      ...doc.$defs.anyComponent,
-      oneOf: [
-        ...doc.$defs.anyComponent.oneOf,
-        { $ref: "#/components/Blueprint" },
-      ],
-    },
-  },
-};
+// The SDK spells the protocol version "1.0". CopilotKit 1.83 still writes "v1.0" on the wire, and `SurfaceStream` writes what CopilotKit reads.
+const CAPS = { "1.0": { supportedCatalogIds: [doc.catalogId] } };
 
 let generators:
-  | {
-      main: A2uiGenerator;
-      preview: A2uiGenerator;
-      decompiler: ExpressDecompiler;
-    }
+  | { main: A2uiGenerator; decompiler: ExpressDecompiler }
   | undefined;
 function sdk() {
   if (!generators) {
@@ -68,15 +45,9 @@ function sdk() {
         doc as unknown as Record<string, unknown>,
       ).load(),
     );
-    const preview = new CatalogConfig(
-      new InMemoryCatalogProvider(
-        previewDoc as unknown as Record<string, unknown>,
-      ).load(),
-    );
     generators = {
       main: new A2uiGenerator([main]),
-      preview: new A2uiGenerator([preview]),
-      decompiler: new ExpressDecompiler(main.catalog, "v1.0"),
+      decompiler: new ExpressDecompiler(main.catalog, "1.0"),
     };
   }
   return generators;
@@ -84,8 +55,19 @@ function sdk() {
 
 export const expressProcessor = (surfaceId: string): A2uiRequestProcessor =>
   sdk().main.createProcessor(CAPS, new ExpressFormatFactory({ surfaceId }));
-const previewProcessor = (surfaceId: string): A2uiRequestProcessor =>
-  sdk().preview.createProcessor(CAPS, new ExpressFormatFactory({ surfaceId }));
+
+/**
+ * Compiles a reply as it streams: `feed` each chunk, then `close`. Each
+ * returns what it completed: `createSurface` once `root = ...` is written, then
+ * each statement's components and data. Both throw the SDK's error at the first
+ * statement that does not compile, and `close` also checks the finished tree.
+ */
+export const openExpressStream = (surfaceId: string): ResponseStream =>
+  expressProcessor(surfaceId).openStream();
+
+/** The A2UI messages among parsed parts. */
+export const messagesOf = (parts: ResponsePart[]): AgentToRendererMessage[] =>
+  parts.flatMap((p) => (p.type === "a2ui" ? p.a2ui : []));
 
 /** Components and data model after a list of compiled messages. */
 export function surfaceOf(messages: AgentToRendererMessage[]): {
@@ -123,130 +105,30 @@ export function surfaceOf(messages: AgentToRendererMessage[]): {
   return { components: [...byId.values()], data };
 }
 
-/** Compiles a whole response. Throws the SDK's error (with its message) when it does not compile. */
-export function compileExpress(reply: string, surfaceId: string) {
-  const parts = expressProcessor(surfaceId).parseResponse(reply);
-  const messages = parts.flatMap((p) => (p.type === "a2ui" ? p.a2ui : []));
-  if (!messages.length) throw new Error("The reply has no <a2ui> block.");
-  return { messages, ...surfaceOf(messages) };
-}
-
 /** The Express a list of v1.0 messages would be: what the same surface costs in Express. */
 export function toExpress(messages: AgentToRendererMessage[]): string {
   return sdk().decompiler.decompile(messages);
 }
 
-/* ───────────── partial responses ───────────── */
-
-/** Splits the inside of an `<a2ui>` block into complete statements (brackets closed, no open string). */
-export function completeStatements(text: string): {
-  statements: string[];
-  rest: string;
-} {
-  const start = text.indexOf("<a2ui>");
-  if (start < 0) return { statements: [], rest: "" };
-  const body = text.slice(start + 6).split("</a2ui>")[0];
-  const statements: string[] = [];
-  let depth = 0;
-  let quote: string | null = null;
-  let from = 0;
-  for (let i = 0; i < body.length; i++) {
-    const ch = body[i];
-    if (quote) {
-      if (ch === "\\") i++;
-      else if (body.startsWith(quote, i)) {
-        i += quote.length - 1;
-        quote = null;
-      }
-      continue;
-    }
-    if (ch === '"') quote = body.startsWith('"""', i) ? '"""' : '"';
-    else if ("([{".includes(ch)) depth++;
-    else if (")]}".includes(ch)) depth--;
-    else if (ch === "\n" && depth === 0) {
-      const s = body.slice(from, i).trim();
-      if (s && !s.startsWith("#")) statements.push(s);
-      from = i + 1;
-    }
+const refsByComponent = new Map<string, ChildRef[]>();
+function childRefsOf(component: string): ChildRef[] {
+  let refs = refsByComponent.get(component);
+  if (!refs) {
+    const schema = (
+      doc.components as Record<string, GenerativeUIJSONSchema | undefined>
+    )[component];
+    refs = schema ? collectChildRefs(schema) : [];
+    refsByComponent.set(component, refs);
   }
-  return { statements, rest: body.slice(from) };
+  return refs;
 }
 
-const KEYWORDS = new Set([
-  "true",
-  "false",
-  "null",
-  "_",
-  "Event",
-  "_template",
-  "surface",
-  "deleteSurface",
-]);
-
-/** Ids a statement defines (`x = ...`) and the ids it references. */
-function idsOf(statement: string) {
-  const bare = statement
-    .replace(/r?"""[\s\S]*?"""|r?"(?:\\.|[^"\\])*"/g, '""')
-    .replace(/\$[^\s,)\]}]*/g, "")
-    .replace(/\?[A-Za-z_]\w*/g, "");
-  const lhs = /^\s*([A-Za-z_]\w*)\s*=(?!=)/.exec(bare);
-  const used = new Set<string>();
-  const re = /[A-Za-z_]\w*/g;
-  const rhs = lhs ? bare.slice(lhs[0].length) : bare;
-  for (let m = re.exec(rhs); m; m = re.exec(rhs)) {
-    const after = rhs.slice(m.index + m[0].length).trimStart();
-    if (
-      KEYWORDS.has(m[0]) ||
-      after.startsWith("(") ||
-      /^=(?!=)/.test(after) ||
-      after.startsWith(":")
-    )
-      continue;
-    used.add(m[0]);
-  }
-  return { defined: lhs?.[1], used };
-}
-
-/**
- * Compiles the complete statements of a partial response. Ids they name but
- * that are not written yet become pending Blueprint frames, and macros (which
- * expand on the server at the end) show as frames too. Returns nothing when
- * the prefix does not compile yet.
- */
-export function compilePartial(
-  statements: string[],
-  surfaceId: string,
-  isMacro: (name: string) => boolean,
-): Node[] | undefined {
-  const defined = new Set<string>();
-  const used = new Set<string>();
-  for (const s of statements) {
-    const ids = idsOf(s);
-    if (ids.defined) defined.add(ids.defined);
-    ids.used.forEach((u) => used.add(u));
-  }
-  if (!defined.has("root")) return undefined;
-  const stubs = [...used]
-    .filter((u) => !defined.has(u))
-    .map((u) => `${u} = Blueprint("#${u}", "pending")`);
-  try {
-    const parts = previewProcessor(surfaceId).parseResponse(
-      `<a2ui>\n${[...statements, ...stubs].join("\n")}\n</a2ui>`,
-    );
-    const { components } = surfaceOf(
-      parts.flatMap((p) => (p.type === "a2ui" ? p.a2ui : [])),
-    );
-    return components.map((c) =>
-      isMacro(c.component)
-        ? {
-            id: c.id,
-            component: "Blueprint",
-            of: c.component,
-            state: "streaming",
-          }
-        : c,
-    );
-  } catch {
-    return undefined;
-  }
+/** Ids the components name as children that are not among them: the ones a streaming reply has not written yet. */
+export function pendingChildren(components: Node[]): string[] {
+  const written = new Set(components.map((c) => c.id));
+  const pending = new Set<string>();
+  for (const c of components)
+    for (const id of childIdsAtRefs(c, childRefsOf(c.component)))
+      if (!written.has(id)) pending.add(id);
+  return [...pending];
 }

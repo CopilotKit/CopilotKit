@@ -365,7 +365,7 @@ Use these exact positional signatures to instantiate components. Do not output p
   - route: Draws a line through the markers in order
   - zoom: With two or more markers, only the highest zoom of the fit
 • MapView(title?, markers, height?, zoom?)
-  - Description: Interactive dark map (MapLibre) with numbered markers; fits all markers. markers [{name,lat,lon,description?}].
+  - Description: Interactive map (MapLibre) with numbered markers; fits all markers. markers [{name,lat,lon,description?}].
 • Markdown(text, streaming?)
   - Description: A block of GitHub-flavored markdown.
   - text: Markdown source
