@@ -20,7 +20,6 @@ import {
 } from "./lib/persistence.js";
 import { LitElement, css, html, nothing, render, unsafeCSS } from "lit";
 import type { TemplateResult } from "lit";
-import { marked } from "marked";
 import { styleMap } from "lit/directives/style-map.js";
 import tailwindStyles from "./styles/generated.css";
 import { notificationArticleStyles } from "./styles/notification-article.js";
@@ -28,6 +27,7 @@ import inspectorLogoUrl from "./assets/inspector-logo.svg";
 import inspectorLogoKiteUrl from "./assets/inspector-logo-kite.svg";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { ICON_NODES } from "./lib/icons.js";
+import { renderMarkdownToHtml } from "./lib/markdown.js";
 import type { IconName, IconNode } from "./lib/icons.js";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
@@ -66,7 +66,6 @@ import {
   CpkJsonBlock,
   JSON_BLOCK_TAG,
   coerceJsonValue,
-  escapeHtml,
   renderHighlightedJsonBlock,
 } from "./lib/json-block.js";
 export { setInspectorJsonRenderer } from "./lib/json-block.js";
@@ -22355,16 +22354,12 @@ export class WebInspectorElement extends LitElement {
     try {
       const feed = await loadNotificationFeed(this.notificationContext);
       if (feed) {
-        const documents = await Promise.all(
+        this.notificationDocuments = new Map(
           feed.notifications.map(
-            async (notice) =>
-              [
-                notice.id,
-                (await this.convertMarkdownToHtml(notice.body)) ?? "",
-              ] as const,
+            (notice) =>
+              [notice.id, this.convertMarkdownToHtml(notice.body)] as const,
           ),
         );
-        this.notificationDocuments = new Map(documents);
         this.notificationFeed = feed;
       }
     } catch {
@@ -22475,28 +22470,13 @@ export class WebInspectorElement extends LitElement {
     this.handleMenuSelect(WHATS_NEW_MENU_KEY);
   }
 
-  private async convertMarkdownToHtml(
-    markdown: string,
-  ): Promise<string | null> {
-    const renderer = new marked.Renderer();
-    renderer.link = (href, title, text) => {
-      const safeHref = this.escapeHtmlAttr(
-        this.isSafeAnnouncementHref(href ?? "")
-          ? this.appendRefParam(href ?? "")
-          : "#",
-      );
-      const titleAttr = title ? ` title="${this.escapeHtmlAttr(title)}"` : "";
-      return `<a href="${safeHref}" target="_blank" rel="noopener"${titleAttr}>${text}</a>`;
-    };
-    renderer.html = (html) => escapeHtml(html);
-    renderer.code = (code, lang) => {
-      const safeLang = (lang ?? "").replace(/[^a-z0-9-]/gi, "");
-      const langClass = safeLang ? ` class="language-${safeLang}"` : "";
-      const escaped = escapeHtml(code);
-      const encoded = this.encodeBase64(code);
-      return `<div class="announcement-code"><pre><code${langClass}>${escaped}</code></pre><div class="announcement-code__copy-shield"><button type="button" class="announcement-code__copy" data-copy="${encoded}" aria-label="Copy code">Copy</button></div></div>`;
-    };
-    return marked.parse(markdown, { renderer, async: false });
+  private convertMarkdownToHtml(markdown: string): string {
+    return renderMarkdownToHtml(markdown, {
+      linkHref: (href) =>
+        this.isSafeAnnouncementHref(href) ? this.appendRefParam(href) : "#",
+      imageSrc: (src) => (this.isSafeAnnouncementHref(src) ? src : null),
+      copyPayload: (code) => this.encodeBase64(code),
+    });
   }
 
   private isSafeAnnouncementHref(href: string): boolean {
@@ -22639,10 +22619,6 @@ export class WebInspectorElement extends LitElement {
   private isCopilotKitDestination(url: URL): boolean {
     const hostname = url.hostname.toLowerCase();
     return hostname === "copilotkit.ai" || hostname.endsWith(".copilotkit.ai");
-  }
-
-  private escapeHtmlAttr(value: string): string {
-    return escapeHtml(value).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 }
 

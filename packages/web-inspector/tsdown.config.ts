@@ -35,7 +35,6 @@ export default defineConfig([
         "lit/decorators.js": "LitDecorators",
         "lit/directives/style-map.js": "LitDirectivesStyleMap",
         "lit/directives/unsafe-html.js": "LitDirectivesUnsafeHtml",
-        marked: "marked",
         "@copilotkit/core": "CopilotKitCore",
         "@copilotkit/shared": "CopilotKitShared",
       };
