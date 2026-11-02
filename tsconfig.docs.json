@@ -171,9 +171,6 @@
         "./packages/sdk-js/src/langgraph-middlewares.ts"
       ],
       "@copilotkit/shared": ["./packages/shared/src/index.ts"],
-      "@copilotkit/shared/event-transforms": [
-        "./packages/shared/src/event-transforms/index.ts"
-      ],
       "@copilotkit/shared/telemetry": [
         "./packages/shared/src/telemetry/index.ts"
       ],

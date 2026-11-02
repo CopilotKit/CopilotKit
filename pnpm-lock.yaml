@@ -3174,6 +3174,9 @@ importers:
       ai:
         specifier: '>=5.0.52'
         version: 6.0.156(zod@3.25.76)
+      clarinet:
+        specifier: ^0.12.4
+        version: 0.12.6
       phoenix:
         specifier: ^1.8.4
         version: 1.8.4
@@ -3208,6 +3211,9 @@ importers:
       '@tanstack/intent':
         specifier: ^0.0.29
         version: 0.0.29
+      '@types/clarinet':
+        specifier: ^0.12.3
+        version: 0.12.3
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.25
@@ -3343,9 +3349,6 @@ importers:
 
   packages/shared:
     dependencies:
-      '@ag-ui/a2ui-middleware':
-        specifier: 0.0.10
-        version: 0.0.10(@ag-ui/client@1.0.2)(rxjs@7.8.1)
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
@@ -3358,15 +3361,9 @@ importers:
       '@standard-schema/spec':
         specifier: ^1.0.0
         version: 1.1.0
-      clarinet:
-        specifier: ^0.12.4
-        version: 0.12.6
       partial-json:
         specifier: ^0.1.7
         version: 0.1.7
-      rxjs:
-        specifier: 7.8.1
-        version: 7.8.1
       zod:
         specifier: '>=3.22.3'
         version: 3.25.76
@@ -3374,9 +3371,6 @@ importers:
       '@ag-ui/core':
         specifier: 1.0.2
         version: 1.0.2(zod@3.25.76)
-      '@types/clarinet':
-        specifier: ^0.12.3
-        version: 0.12.3
       '@valibot/to-json-schema':
         specifier: ^1.5.0
         version: 1.5.0(valibot@1.2.0(typescript@5.9.3))
@@ -25339,6 +25333,9 @@ packages:
   vue-component-type-helpers@3.3.13:
     resolution: {integrity: sha512-02KCxSmKDhIITjKyJ4QT5csP6L0WoRborLqY/34a40+S9uvMvdNgMV0yVjO3p2Gkz3ZoPmFz/0JsGHacwJYTxw==}
 
+  vue-component-type-helpers@3.3.14:
+    resolution: {integrity: sha512-Pq3+OnbCiPCHk0R7KSZrx+j/XXaUn2kSQ1epxq60w8CPbByLjC1EJgV51n4WY851sTXUVzsNMuitywdkdVyKjA==}
+
   vue-devtools-stub@0.1.0:
     resolution: {integrity: sha512-RutnB7X8c5hjq39NceArgXg28WZtZpGc3+J16ljMiYnFhKvd8hITxSWQSQ5bvldxMDU6gG5mkxl1MTQLXckVSQ==}
 
@@ -38851,7 +38848,7 @@ snapshots:
       storybook: 10.1.11(@testing-library/dom@10.4.1)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       type-fest: 2.19.0
       vue: 3.5.34(typescript@5.8.2)
-      vue-component-type-helpers: 3.3.13
+      vue-component-type-helpers: 3.3.14
 
   '@swc/core-darwin-arm64@1.15.8':
     optional: true
@@ -55872,6 +55869,8 @@ snapshots:
   vue-component-type-helpers@2.2.12: {}
 
   vue-component-type-helpers@3.3.13: {}
+
+  vue-component-type-helpers@3.3.14: {}
 
   vue-devtools-stub@0.1.0: {}
 
