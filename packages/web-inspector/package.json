@@ -43,7 +43,7 @@
     "@copilotkit/core": "workspace:*",
     "@copilotkit/markdown-renderer": "workspace:*",
     "@copilotkit/shared": "workspace:*",
-    "lit": "^3.2.0",
+    "lit": "^3.3.2",
     "semver": "^7.8.5"
   },
   "devDependencies": {

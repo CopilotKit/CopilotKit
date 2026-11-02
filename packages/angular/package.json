@@ -3,6 +3,9 @@
   "version": "0.6.0",
   "description": "Angular library for CopilotKit",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git",
@@ -67,7 +70,6 @@
     "dompurify": "^3.4.1",
     "katex": "^0.16.22",
     "marked": "^12.0.2",
-    "rxjs": "^7.8.1",
     "tslib": "^2.6.0",
     "zod": "^3.25.75",
     "zod-to-json-schema": "^3.24.5"

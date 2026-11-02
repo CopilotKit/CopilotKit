@@ -3,6 +3,9 @@
   "version": "0.12.0",
   "description": "Slack platform adapter for CopilotKit JSX channels (@copilotkit/channels).",
   "license": "MIT",
+  "engines": {
+    "node": "^20.19.3 || >=22.13.0"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git",
@@ -60,7 +63,7 @@
     "@slack/bolt": "^4.2.0",
     "@slack/types": "^2.21.1",
     "@slack/web-api": "^7.16.0",
-    "rxjs": "^7.8.1"
+    "rxjs": "7.8.1"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",

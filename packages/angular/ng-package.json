@@ -14,7 +14,6 @@
     "@copilotkit/core",
     "@copilotkit/web-components",
     "@copilotkit/web-inspector",
-    "rxjs",
     "zod",
     "zod-to-json-schema",
     "katex",

@@ -47,7 +47,7 @@
     "vitest": "^3.0.5"
   },
   "peerDependencies": {
-    "@copilotkit/runtime": "workspace:*"
+    "@copilotkit/runtime": "workspace:^"
   },
   "engines": {
     "node": "^20.19.3 || >=22.13.0"

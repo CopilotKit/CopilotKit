@@ -2209,9 +2209,6 @@ importers:
       marked:
         specifier: ^12.0.2
         version: 12.0.2
-      rxjs:
-        specifier: ^7.8.1
-        version: 7.8.1
       tslib:
         specifier: ^2.6.0
         version: 2.8.1
@@ -2282,6 +2279,9 @@ importers:
       rimraf:
         specifier: ^6.0.1
         version: 6.1.2
+      rxjs:
+        specifier: ^7.8.1
+        version: 7.8.1
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -2491,7 +2491,7 @@ importers:
         specifier: ^7.16.0
         version: 7.16.0
       rxjs:
-        specifier: ^7.8.1
+        specifier: 7.8.1
         version: 7.8.1
     devDependencies:
       '@copilotkit/typescript-config':
@@ -2531,7 +2531,7 @@ importers:
         specifier: workspace:^
         version: link:../shared
       rxjs:
-        specifier: ^7.8.1
+        specifier: 7.8.1
         version: 7.8.1
     devDependencies:
       '@copilotkit/typescript-config':
@@ -3595,7 +3595,7 @@ importers:
         specifier: workspace:*
         version: link:../shared
       lit:
-        specifier: ^3.2.0
+        specifier: ^3.3.2
         version: 3.3.2
       semver:
         specifier: ^7.8.5

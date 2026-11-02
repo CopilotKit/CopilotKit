@@ -12,6 +12,9 @@
   ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"
