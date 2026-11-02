@@ -72,7 +72,9 @@ defineSlots<{
   [key: string]: ((props: any) => unknown) | undefined;
 }>();
 
-// Slots this component renders itself. It passes every other slot to the view.
+// Slots this component renders itself and does not pass to the view. It passes
+// every other slot to the view. It also renders `input` and `suggestion-view`
+// in its welcome screen, so those two go to both places.
 const OWN_SLOTS = ["chat-view", "welcome-screen", "welcome-message"] as const;
 
 defineEmits<{
