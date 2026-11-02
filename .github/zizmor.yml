@@ -66,10 +66,6 @@ rules:
   # back to the repo (release tagging, docs sync, PR comment from
   # pkg-pr-new). Each call site carries a `persist-credentials required:`
   # comment immediately above it.
-  #
-  # static_quality.yml was removed: its format job now uses
-  # persist-credentials: false and injects credentials via insteadOf
-  # only before the push step.
   artipacked:
     ignore:
       # Release workflows that push tags / branches via GITHUB_TOKEN.
