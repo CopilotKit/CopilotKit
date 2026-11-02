@@ -1,5 +1,4 @@
 import { vi } from "vitest";
-import { z } from "zod";
 
 vi.mock("@copilotkit/shared", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@copilotkit/shared")>();
@@ -12,7 +11,6 @@ vi.mock("@copilotkit/shared", async (importOriginal) => {
         return defaultValue;
       }
     }),
-    getZodParameters: vi.fn(() => z.object({})),
     randomId: vi.fn(() => "test-random-id"),
     CopilotKitAgentDiscoveryError: vi.fn(),
     randomUUID: vi.fn(() => "mock-thread-id"),

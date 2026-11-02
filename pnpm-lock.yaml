@@ -3361,9 +3361,6 @@ importers:
       partial-json:
         specifier: ^0.1.7
         version: 0.1.7
-      zod:
-        specifier: '>=3.22.3'
-        version: 3.25.76
     devDependencies:
       '@ag-ui/core':
         specifier: 1.0.2
@@ -3392,6 +3389,9 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@25.6.0)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@29.1.0(@noble/hashes@1.8.0))(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
       zod-to-json-schema:
         specifier: ^3.23.5
         version: 3.25.1(zod@3.25.76)
@@ -33205,7 +33205,7 @@ snapshots:
       '@cfworker/json-schema': 4.1.1
       '@standard-schema/spec': 1.1.0
       js-tiktoken: 1.0.21
-      langsmith: 0.5.25(@opentelemetry/api@1.9.0)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.30.0)(ws@8.21.3)(zod@3.25.76))(ws@8.21.3)
+      langsmith: 0.5.25(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.21.3)(zod@3.25.76))(ws@8.21.3)
       mustache: 4.2.0
       p-queue: 6.6.2
       zod: 3.25.76
@@ -46933,7 +46933,7 @@ snapshots:
       '@langchain/core': 1.2.11(@opentelemetry/api@1.9.0)
       '@langchain/langgraph': 1.4.15(@langchain/core@1.2.11(@opentelemetry/api@1.9.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@3.25.76)
       '@langchain/langgraph-checkpoint': 1.1.5(@langchain/core@1.2.11(@opentelemetry/api@1.9.0))
-      langsmith: 0.5.25(@opentelemetry/api@1.9.0)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.30.0)(ws@8.21.3)(zod@3.25.76))(ws@8.21.3)
+      langsmith: 0.5.25(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.21.3)(zod@3.25.76))(ws@8.21.3)
       zod: 3.25.76
     transitivePeerDependencies:
       - '@opentelemetry/api'

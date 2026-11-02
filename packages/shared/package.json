@@ -53,8 +53,7 @@
     "@ag-ui/client": "1.0.2",
     "@copilotkit/license-verifier": "~0.5.0",
     "@standard-schema/spec": "^1.0.0",
-    "partial-json": "^0.1.7",
-    "zod": "^3.23.3"
+    "partial-json": "^0.1.7"
   },
   "devDependencies": {
     "@ag-ui/core": "1.0.2",
@@ -66,6 +65,7 @@
     "typescript": "^5.2.3",
     "valibot": "^1.2.0",
     "vitest": "^3.2.4",
+    "zod": "^3.23.3",
     "zod-to-json-schema": "^3.23.5"
   },
   "peerDependencies": {

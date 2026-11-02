@@ -18,11 +18,10 @@ export default defineConfig([
     sourcemap: true,
     target: "es2018",
     outDir: "dist",
-    external: ["zod", "@ag-ui/core", "@ag-ui/client", "partial-json"],
+    external: ["@ag-ui/core", "@ag-ui/client", "partial-json"],
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";
       options.globals = {
-        zod: "Zod",
         "@ag-ui/core": "AgUICore",
         "@ag-ui/client": "AgUIClient",
         "partial-json": "PartialJSON",

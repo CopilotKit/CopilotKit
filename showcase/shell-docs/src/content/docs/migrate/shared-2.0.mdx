@@ -44,6 +44,7 @@ export function logErrorCode(error: unknown) {
 | `executeConditions` and the `Condition` types | Delete the code, or keep your own copy of the function. |
 | `ConsoleColors`, `ConsoleStyles`, `styledConsole`, `logStyled`, `logCopilotKitPlatformMessage`, `publicApiKeyRequired` | Delete the code, or use `console.log` with `%c` styles. |
 | `dataToUUID`, `isValidUUID` | Use `v5` and `validate` from the `uuid` package. |
+| `convertJsonSchemaToZodSchema`, `getZodParameters` | Keep your own copy of the function. `@copilotkit/shared` no longer depends on `zod`. To get a JSON Schema for a v1 `Parameter[]`, use `actionParametersToJsonSchema`, which stays in `@copilotkit/shared`. |
 
 `dataToUUID` made a v5 UUID from a string. To get the same IDs, use the same namespace that `dataToUUID` used:
 
@@ -90,6 +91,7 @@ The `@copilotkit/shared/telemetry` entry point and its Segment `TelemetryClient`
 | `graphql`, `uuid` | `@copilotkit/shared` |
 | `rxjs`, `clarinet`, `@ag-ui/a2ui-middleware` | `@copilotkit/shared` (`@copilotkit/runtime` still installs them) |
 | `@segment/analytics-node` | `@copilotkit/shared` |
+| `zod` | `@copilotkit/shared` (most other CopilotKit packages still install it) |
 
 If your code imports one of these packages, add it to your app:
 
