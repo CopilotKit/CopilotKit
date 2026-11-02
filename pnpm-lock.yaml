@@ -3177,6 +3177,9 @@ importers:
       clarinet:
         specifier: ^0.12.4
         version: 0.12.6
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
       phoenix:
         specifier: ^1.8.4
         version: 1.8.4
@@ -3186,9 +3189,6 @@ importers:
       rxjs:
         specifier: 7.8.1
         version: 7.8.1
-      yauzl:
-        specifier: 2.10.0
-        version: 2.10.0
       zod:
         specifier: '>=3.22.3'
         version: 3.25.76
@@ -3223,9 +3223,6 @@ importers:
       '@types/phoenix':
         specifier: ^1.6.6
         version: 1.6.7
-      '@types/yauzl':
-        specifier: 2.10.3
-        version: 2.10.3
       '@valibot/to-json-schema':
         specifier: ^1.5.0
         version: 1.5.0(valibot@1.2.0(typescript@5.9.3))
@@ -39808,6 +39805,7 @@ snapshots:
   '@types/yauzl@2.10.3':
     dependencies:
       '@types/node': 22.19.11
+    optional: true
 
   '@typescript-eslint/eslint-plugin@8.59.1(@typescript-eslint/parser@8.59.1(eslint@9.39.2(jiti@2.7.0))(typescript@5.8.2))(eslint@9.39.2(jiti@2.7.0))(typescript@5.8.2)':
     dependencies:

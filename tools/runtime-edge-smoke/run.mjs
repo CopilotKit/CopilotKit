@@ -28,7 +28,6 @@ const runtimeDist = resolve(here, "../../packages/runtime/dist");
 const STUBS = {
   pino: "./stubs/pino.mjs",
   "@ai-sdk/google-vertex": "./stubs/google-vertex.mjs",
-  yauzl: "./stubs/yauzl.mjs",
   crypto: "./stubs/crypto.mjs",
 };
 

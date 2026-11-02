@@ -85,11 +85,11 @@
     "@scarf/scarf": "^1.3.0",
     "ai": "^6.0.104",
     "clarinet": "^0.12.4",
+    "fflate": "0.8.2",
     "phoenix": "^1.8.4",
     "pino": "^10.1.1",
     "rxjs": "7.8.1",
-    "zod": "^3.25.18",
-    "yauzl": "2.10.0"
+    "zod": "^3.25.18"
   },
   "devDependencies": {
     "@copilotkit/aimock": "latest",
@@ -116,7 +116,6 @@
     "typescript": "^5.2.3",
     "valibot": "^1.2.0",
     "vitest": "^3.2.4",
-    "@types/yauzl": "2.10.3",
     "hono": "^4.11.4",
     "@hono/node-server": "^1.13.5",
     "ws": "^8.18.0"
