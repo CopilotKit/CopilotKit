@@ -8,18 +8,23 @@
  * Picks the dist-tag from the version (see prereleaseDistTag): `canary` for
  * canaries, `next` for release candidates.
  *
+ * Nothing is published until every package has passed preflight: each one
+ * already exists on npm, none of the versions is taken, and every tarball
+ * packs and passes the license check. `--dry-run` runs the same preflight and
+ * stops there. Each publish is then retried through transient registry
+ * failures (lib/publish-retry.ts).
+ *
  * Multi-scope caveat (scope=all): packages publish scope by scope, and the
  * cross-scope dependency graph has cycles (runtime -> channels-intelligence,
  * channels-core -> core), so NO order avoids publishing a package before the
- * same-run version it pins. A run that dies partway therefore leaves published
- * canaries pinning versions that never shipped — uninstallable until the rest
- * lands. There is no resume: npm rejects republishing a version, so retry with a
- * NEW suffix and abandon the half-published id.
+ * same-run version it pins. A run that still fails partway therefore leaves
+ * published canaries pinning versions that never shipped — uninstallable until
+ * the rest lands. There is no resume: npm rejects republishing a version, so
+ * retry with a NEW suffix and abandon the half-published id.
  *
  * Usage: tsx scripts/release/prerelease.ts --scope <scope from release.config.json | all> [--dry-run]
  */
 
-import { spawn } from "child_process";
 import { join, relative } from "node:path";
 import {
   getCurrentVersion,
@@ -33,6 +38,9 @@ import type { ReleaseScope } from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
 import { resolvePublishNpm } from "./lib/npm-cli.js";
 import { mapWithConcurrency } from "./lib/concurrency.js";
+import { runCaptured } from "./lib/run-captured.js";
+import { publishWithRetry } from "./lib/publish-retry.js";
+import { checkRegistry, unregisteredHelp } from "./lib/publish-preflight.js";
 
 /**
  * How many packages to pack+publish at once. Each one is dominated by a registry
@@ -44,41 +52,21 @@ const PUBLISH_CONCURRENCY = Number(
   process.env.CANARY_PUBLISH_CONCURRENCY ?? "4",
 );
 
-/**
- * Run a command to completion, capturing its output.
- *
- * Output is CAPTURED rather than inherited, then replayed as one block per
- * package once that package finishes. With a pool in flight, inheriting stdio
- * would interleave several npm publishes line-by-line and make the log
- * unreadable — and this log is the only forensic record when a canary
- * half-publishes.
- */
-function runCaptured(
-  cmd: string,
-  args: string[],
-  opts?: { cwd?: string },
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, {
-      cwd: opts?.cwd ?? ROOT,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    let output = "";
-    child.stdout?.on("data", (chunk) => (output += chunk));
-    child.stderr?.on("data", (chunk) => (output += chunk));
-    child.on("error", reject);
-    child.on("close", (status) => {
-      if (status === 0) {
-        resolve(output);
-        return;
-      }
-      reject(
-        new Error(
-          `Command failed (exit ${status}): ${cmd} ${args.join(" ")}\n${output}`,
-        ),
-      );
-    });
-  });
+/** Print every failure in `results`, one block per package. */
+function reportFailures(
+  results: Array<{ item: PublishablePackage; error?: unknown }>,
+  total: number,
+  what: string,
+): number {
+  const failures = results.filter((r) => r.error);
+  if (failures.length > 0) {
+    console.error(`\n${failures.length} of ${total} package(s) ${what}:`);
+    for (const { item, error } of failures) {
+      console.error(`\n--- ${item.name}@${item.pkg.version} ---`);
+      console.error(error instanceof Error ? error.message : error);
+    }
+  }
+  return failures.length;
 }
 
 // Valid scopes come from release.config.json — the single source of truth.
@@ -150,8 +138,63 @@ async function main() {
   console.log(`Publishing versions: ${publishVersions}`);
   console.log(`Dist tag: ${distTag}`);
 
+  // Preflight 1: the registry. Publishing a package npm has never seen fails
+  // with ENEEDAUTH, and a taken version fails outright; either one halfway
+  // through the run strands everything published before it.
+  const registry = await checkRegistry(
+    packages.map((p) => ({ name: p.name, version: p.pkg.version })),
+  );
+  if (registry.unregistered.length > 0 || registry.published.length > 0) {
+    if (registry.unregistered.length > 0) {
+      console.error(`\n${unregisteredHelp(registry.unregistered)}`);
+    }
+    if (registry.published.length > 0) {
+      console.error(
+        `\nAlready on npm: ${registry.published.join(", ")}. Re-run to pick a new version.`,
+      );
+    }
+    throw new Error("Preflight failed: nothing was published.");
+  }
+  console.log(`\nAll ${packages.length} package(s) are on npm, versions free.`);
+
+  // NOTE: Version bumping is handled by bump-prerelease.ts in the CI build
+  // job (no secrets). Build and test also run there.
+  // The publish job receives pre-built artifacts via download-artifact.
+  // We intentionally do NOT rebuild/retest here to keep NPM_TOKEN out
+  // of the build process tree.
+
+  // `workspace:^` packs to a caret range, which can select an incompatible,
+  // semver-higher canary. Keep packages from this run together with exact pins.
+  const pinned = pinPrereleaseDependencies(packages);
+  console.log(`Exact-pinned ${pinned} same-run canary dependency edge(s).`);
+
+  // Preflight 2: pack and license-check every tarball before publishing any.
+  const tarballOf = (p: PublishablePackage) =>
+    `${p.name.replace("@", "").replace("/", "-")}-${p.pkg.version}.tgz`;
+  console.log(`\nPacking ${packages.length} package(s)...`);
+  const packed = await mapWithConcurrency(
+    packages,
+    PUBLISH_CONCURRENCY,
+    async (p) => {
+      await runCaptured("pnpm", ["pack"], { cwd: p.dir });
+      await runCaptured(
+        process.execPath,
+        [
+          "scripts/package-licenses/check.mjs",
+          "archive",
+          join(p.dir, tarballOf(p)),
+          relative(ROOT, p.dir),
+        ],
+        { cwd: ROOT },
+      );
+    },
+  );
+  if (reportFailures(packed, packages.length, "failed to pack") > 0) {
+    throw new Error("Preflight failed: nothing was published.");
+  }
+
   if (dryRun) {
-    console.log("\n[DRY RUN] Would publish these packages:");
+    console.log("\n[DRY RUN] Preflight passed. Would publish:");
     for (const p of packages) {
       console.log(`  ${p.name}@${p.pkg.version}`);
     }
@@ -167,19 +210,8 @@ async function main() {
     return;
   }
 
-  // NOTE: Version bumping is handled by bump-prerelease.ts in the CI build
-  // job (no secrets). Build and test also run there.
-  // The publish job receives pre-built artifacts via download-artifact.
-  // We intentionally do NOT rebuild/retest here to keep NPM_TOKEN out
-  // of the build process tree.
-
-  // `workspace:^` packs to a caret range, which can select an incompatible,
-  // semver-higher canary. Keep packages from this run together with exact pins.
-  const pinned = pinPrereleaseDependencies(packages);
-  console.log(`Exact-pinned ${pinned} same-run canary dependency edge(s).`);
-
-  // Publish via pnpm pack + the pinned OIDC-aware npm. Resolved ONCE up front:
-  // see lib/npm-cli.ts for why this is not `npx npm@<v>` per package (npx
+  // Publish via the pinned OIDC-aware npm. Resolved ONCE up front: see
+  // lib/npm-cli.ts for why this is not `npx npm@<v>` per package (npx
   // re-resolved the spec every time, ~16s of each package's ~21s).
   //
   // Packages go out with bounded concurrency because each is dominated by a
@@ -195,22 +227,12 @@ async function main() {
     PUBLISH_CONCURRENCY,
     async (p) => {
       const label = `${p.name}@${p.pkg.version}`;
-      const tarball = `${p.name.replace("@", "").replace("/", "-")}-${p.pkg.version}.tgz`;
-      await runCaptured("pnpm", ["pack"], { cwd: p.dir });
-      await runCaptured(
-        process.execPath,
-        [
-          "scripts/package-licenses/check.mjs",
-          "archive",
-          join(p.dir, tarball),
-          relative(ROOT, p.dir),
-        ],
-        { cwd: ROOT },
-      );
-      await runCaptured(
-        npmBin,
-        ["publish", tarball, "--tag", distTag, "--access", "public"],
-        { cwd: p.dir },
+      await publishWithRetry(label, () =>
+        runCaptured(
+          npmBin,
+          ["publish", tarballOf(p), "--tag", distTag, "--access", "public"],
+          { cwd: p.dir },
+        ),
       );
       console.log(`  Published ${label} with tag ${distTag}`);
       return label;
@@ -221,17 +243,10 @@ async function main() {
   // version, so a partially-published canary id must be abandoned wholesale, and
   // the operator needs the full picture to judge that (see the header's
   // multi-scope caveat).
-  const failures = results.filter((r) => r.error);
-  if (failures.length > 0) {
-    console.error(
-      `\n${failures.length} of ${packages.length} package(s) failed to publish:`,
-    );
-    for (const { item, error } of failures) {
-      console.error(`\n--- ${item.name}@${item.pkg.version} ---`);
-      console.error(error instanceof Error ? error.message : error);
-    }
+  const failed = reportFailures(results, packages.length, "failed to publish");
+  if (failed > 0) {
     throw new Error(
-      `Prerelease aborted: ${failures.length} package(s) failed. This canary id is now half-published and cannot be resumed — retry with a NEW suffix.`,
+      `Prerelease aborted: ${failed} package(s) failed after retries. This canary id is now half-published and cannot be resumed — retry with a NEW suffix.`,
     );
   }
 

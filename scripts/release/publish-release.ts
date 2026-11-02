@@ -30,6 +30,9 @@ import { ROOT, getScopeConfig, loadConfig } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
 import { resolvePublishNpm } from "./lib/npm-cli.js";
+import { runCaptured } from "./lib/run-captured.js";
+import { publishWithRetry } from "./lib/publish-retry.js";
+import { checkRegistry, unregisteredHelp } from "./lib/publish-preflight.js";
 
 type PublishPhase = "all" | "dependencies" | "umbrella";
 
@@ -179,31 +182,50 @@ async function main() {
   // is granted, eliminating the need for long-lived NPM_TOKEN secrets.
   // Skips packages already published at this version (idempotent retries).
   //
+  // Nothing is published until every package is known to npm and every
+  // tarball has packed and passed the license check: a failure on the fifth
+  // package must not leave the first four on `latest`. Each publish is then
+  // retried through transient registry failures (lib/publish-retry.ts).
+  const registry = await checkRegistry(
+    packagesToPublish.map((p) => ({ name: p.name, version })),
+  );
+  if (registry.unregistered.length > 0) {
+    console.error(unregisteredHelp(registry.unregistered));
+    process.exit(1);
+  }
+  const toPublish = packagesToPublish.filter((p) => {
+    if (!registry.published.includes(`${p.name}@${version}`)) return true;
+    console.log(`  Skipping ${p.name}@${version} (already published)`);
+    return false;
+  });
+  const tarballOf = (name: string) =>
+    `${name.replace("@", "").replace("/", "-")}-${version}.tgz`;
+  for (const p of toPublish) {
+    run("pnpm", ["pack"], { cwd: p.dir });
+    run(process.execPath, [
+      "scripts/package-licenses/check.mjs",
+      "archive",
+      join(p.dir, tarballOf(p.name)),
+      relative(ROOT, p.dir),
+    ]);
+  }
+
   // The npm CLI is resolved ONCE up front rather than via `npx npm@<v>` per
   // package — see lib/npm-cli.ts for the measured cost of the old approach.
   const npmBin = resolvePublishNpm();
   console.log("\nPublishing packages...");
-  let skipped = 0;
-  for (const p of packagesToPublish) {
-    const pubVersion = getPublishedVersion(p.name);
-    if (pubVersion === version) {
-      console.log(`  Skipping ${p.name}@${version} (already published)`);
-      skipped++;
-      continue;
-    }
+  for (const p of toPublish) {
     console.log(`  Publishing ${p.name}@${version}...`);
-    run("pnpm", ["pack"], { cwd: p.dir });
-    const tarball = `${p.name.replace("@", "").replace("/", "-")}-${version}.tgz`;
-    run(process.execPath, [
-      "scripts/package-licenses/check.mjs",
-      "archive",
-      join(p.dir, tarball),
-      relative(ROOT, p.dir),
-    ]);
-    run(npmBin, ["publish", tarball, "--tag", "latest", "--access", "public"], {
-      cwd: p.dir,
-    });
+    const output = await publishWithRetry(`${p.name}@${version}`, () =>
+      runCaptured(
+        npmBin,
+        ["publish", tarballOf(p.name), "--tag", "latest", "--access", "public"],
+        { cwd: p.dir },
+      ),
+    );
+    process.stdout.write(output);
   }
+  const skipped = packagesToPublish.length - toPublish.length;
   if (skipped > 0) {
     console.log(`\n${skipped} package(s) skipped (already at ${version}).`);
   }
