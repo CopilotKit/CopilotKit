@@ -79,7 +79,7 @@ describe("standard text", () => {
     );
     await view.findByText("$290");
     view.update({
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: { surfaceId: SURFACE_ID, path: "/price", value: "$310" },
     });
     await view.findByText("$310");

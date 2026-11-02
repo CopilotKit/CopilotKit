@@ -162,7 +162,7 @@ export interface GenerativeUIEnvelopeOptions {
  *   includeCatalog: true,
  *   contextSent: false,
  * });
- * envelope["v1.0"].supportedCatalogIds; // [runtime.ui.id]
+ * envelope["1.0"].supportedCatalogIds; // [runtime.ui.id]
  * ```
  */
 export function buildGenerativeUIEnvelope(
@@ -180,7 +180,7 @@ export function buildGenerativeUIEnvelope(
       : undefined);
   const omitComponents = transport === "markdown" && !includeCatalog;
   const envelope: CopilotKitUIEnvelope = {
-    "v1.0": {
+    "1.0": {
       supportedCatalogIds: manifest.catalogIds ?? [manifest.catalogId],
       inlineCatalogs: [
         {

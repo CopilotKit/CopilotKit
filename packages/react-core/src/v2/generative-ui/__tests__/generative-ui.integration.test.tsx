@@ -87,11 +87,11 @@ const ui = createGenerativeUI({
 
 const T = "thread-1";
 const create = (surfaceId: string) => ({
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId, catalogId: "shop" },
 });
 const nodes = (surfaceId: string, ...components: unknown[]) => ({
-  version: "v1.0",
+  version: "1.0",
   updateComponents: { surfaceId, components },
 });
 const snapshot = (
@@ -331,7 +331,7 @@ describe("generative UI integration", () => {
     agent.emit(
       snapshot("cmp", "chat", [
         {
-          version: "v1.0",
+          version: "1.0",
           createSurface: {
             surfaceId: "cmp",
             catalogId: "shop",

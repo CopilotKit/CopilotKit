@@ -134,8 +134,8 @@ export function defaultGenerativeUIPromptSpec(): GenerativeUIPromptSpec {
         "Open a fence with ```a2ui target=<id> to show the surface in a named target. Use only target ids from the schema. When a target limits its components, its surfaces can use only those components.",
         "Inside a fence, write one JSON object per line and nothing else. No comments, no trailing commas, no pretty-printing.",
         "Keep each operation whole on its line.",
-        'Give every operation "version":"v1.0".',
-        'Start a surface with one createSurface. Put all the initial data in "dataModel" and the "root" component in "components". Then write the children in updateComponents lines, so that they show while you write:\n  ```a2ui\n  {"version":"v1.0","createSurface":{"surfaceId":"plan-picker","dataModel":{ ...initial data... },"components":[{"id":"root","component":"<Name>","children":["seats","pick"]}]}}\n  {"version":"v1.0","updateComponents":{"surfaceId":"plan-picker","components":[ ...the children... ]}}\n  ```',
+        'Give every operation "version":"1.0".',
+        'Start a surface with one createSurface. Put all the initial data in "dataModel" and the "root" component in "components". Then write the children in updateComponents lines, so that they show while you write:\n  ```a2ui\n  {"version":"1.0","createSurface":{"surfaceId":"plan-picker","dataModel":{ ...initial data... },"components":[{"id":"root","component":"<Name>","children":["seats","pick"]}]}}\n  {"version":"1.0","updateComponents":{"surfaceId":"plan-picker","components":[ ...the children... ]}}\n  ```',
         'Keep "dataModel" flat: top-level keys such as "seats" or "form", never one wrapper object around everything. Check that every { and [ you open in a line is closed.',
         'Every surface renders from the component with id "root". Make every other component reachable from "root" through slots.',
         "Send every component you reference in the same reply. If a surface gets long, make it smaller rather than leave components out.",
@@ -156,7 +156,7 @@ export function defaultGenerativeUIPromptSpec(): GenerativeUIPromptSpec {
         'For a computed list (chart data, template items) use series. Its description under Functions in the schema gives the rules and an example. Bind the "data" of a Chart or the "items" of a List to it; a template path stays a literal path.',
         'Bind a writable prop to let the user edit it: "value":{"@path":"/form/email"}. The user\'s input goes to that path.',
         'The value of a ChoicePicker is a list of strings, also for one choice. SegmentedControl, RadioGroup and Select take one string. Option values are always strings: for a yes/no choice use "yes" and "no", not true and false.',
-        'To change data, write updateDataModel with a "path" and a "value": {"version":"v1.0","updateDataModel":{"surfaceId":"plan-picker","path":"/seats","value":12}}. Always give "value".',
+        'To change data, write updateDataModel with a "path" and a "value": {"version":"1.0","updateDataModel":{"surfaceId":"plan-picker","path":"/seats","value":12}}. Always give "value".',
         'Set "value":null to delete the key at "path".',
         {
           when: ["events"],
@@ -206,9 +206,9 @@ export function defaultGenerativeUIPromptSpec(): GenerativeUIPromptSpec {
         {
           when: ["agentCalls"],
           items: [
-            'To run an app function now, with no click, write a callRendererFunction line in a fence: {"version":"v1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}. It needs no surface.',
+            'To run an app function now, with no click, write a callRendererFunction line in a fence: {"version":"1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}. It needs no surface.',
             "Give every callRendererFunction a new functionCallId. Call only a function that the schema marks UI or agent, or agent only; a function with no mark is for the UI only. A function marked agent only is only for callRendererFunction: do not bind an event to it.",
-            'The result of a callRendererFunction comes back to you as a developer message: {"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}. If the call failed, it has "error" in place of "value". Then you get a new turn.',
+            'The result of a callRendererFunction comes back to you as a developer message: {"version":"1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}. If the call failed, it has "error" in place of "value". Then you get a new turn.',
             "Do not guess the result of a callRendererFunction. Wait for the developer message.",
           ],
         },
@@ -223,14 +223,14 @@ export function defaultGenerativeUIPromptSpec(): GenerativeUIPromptSpec {
       intro: `Call \`${GENERATIVE_UI_RENDER_TOOL}\` to show UI. Arguments: \`target\` first, then \`operations\` (A2UI v1.0 operations, applied in order).`,
       whenToShow: GENERATIVE_UI_WHEN_TO_SHOW,
       operations: [
-        '{"version":"v1.0","createSurface":{"surfaceId":"<new id>","dataModel":{...},"components":[{"id":"root","component":"<Name>","children":["<child id>"]}]}}: the first operation of a new surface. "dataModel" and "components" are optional.',
-        '{"version":"v1.0","updateComponents":{"surfaceId":"<id>","components":[<component>, ...]}}: add or replace components by id.',
-        '{"version":"v1.0","updateDataModel":{"surfaceId":"<id>","path":"/some/path","value":<json>}}: set the value at "path". Always give "value". "value":null deletes the key at "path".',
-        '{"version":"v1.0","deleteSurface":{"surfaceId":"<id>"}}: remove the surface.',
+        '{"version":"1.0","createSurface":{"surfaceId":"<new id>","dataModel":{...},"components":[{"id":"root","component":"<Name>","children":["<child id>"]}]}}: the first operation of a new surface. "dataModel" and "components" are optional.',
+        '{"version":"1.0","updateComponents":{"surfaceId":"<id>","components":[<component>, ...]}}: add or replace components by id.',
+        '{"version":"1.0","updateDataModel":{"surfaceId":"<id>","path":"/some/path","value":<json>}}: set the value at "path". Always give "value". "value":null deletes the key at "path".',
+        '{"version":"1.0","deleteSurface":{"surfaceId":"<id>"}}: remove the surface.',
         {
           when: ["agentCalls"],
           items: [
-            '{"version":"v1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}: run an app function now, with no click. It needs no surface.',
+            '{"version":"1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}: run an app function now, with no click. It needs no surface.',
           ],
         },
       ],
@@ -273,7 +273,7 @@ export function defaultGenerativeUIPromptSpec(): GenerativeUIPromptSpec {
           when: ["agentCalls"],
           items: [
             "Give every callRendererFunction a new functionCallId. Call only a function marked (UI or agent) or (agent only); a function with no mark is for the UI only. A function marked (agent only) is only for callRendererFunction: do not bind an event to it.",
-            'The result of a callRendererFunction comes back to you in a new turn, as a developer message: {"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}. If the call failed, it has "error" in place of "value". Do not wait for the result in this reply, and do not guess it.',
+            'The result of a callRendererFunction comes back to you in a new turn, as a developer message: {"version":"1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}. If the call failed, it has "error" in place of "value". Do not wait for the result in this reply, and do not guess it.',
           ],
         },
       ],

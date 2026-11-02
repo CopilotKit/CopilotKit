@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { isOperationShape, repairFences } from "../src/repair";
 
 const valid =
-  '{"version":"v1.0","updateComponents":{"surfaceId":"s","components":[{"id":"t","component":"Text","text":"Hi"}]}}';
+  '{"version":"1.0","updateComponents":{"surfaceId":"s","components":[{"id":"t","component":"Text","text":"Hi"}]}}';
 // One } too many after a Table's rows: the most common slip.
 const extraBrace =
-  '{"version":"v1.0","updateComponents":{"surfaceId":"s","components":[{"id":"tbl","component":"Table","rows":[["Mon","9°C"]]}}]}}';
+  '{"version":"1.0","updateComponents":{"surfaceId":"s","components":[{"id":"tbl","component":"Table","rows":[["Mon","9°C"]]}}]}}';
 // A missing } at the end of the line.
 const missingBrace =
-  '{"version":"v1.0","updateComponents":{"surfaceId":"s","components":[{"id":"t","component":"Text","text":"Hi"}]}';
+  '{"version":"1.0","updateComponents":{"surfaceId":"s","components":[{"id":"t","component":"Text","text":"Hi"}]}';
 
 describe("repairFences", () => {
   it("repairs broken fence lines into operations and leaves valid lines and prose alone", () => {
@@ -28,7 +28,7 @@ describe("repairFences", () => {
 
   it("keeps a line it cannot turn into an operation, so the client drops it as before", () => {
     const broken =
-      '{"version":"v1.0","updateComponents":{"surfaceId":"s","components":[{"component":"Text"';
+      '{"version":"1.0","updateComponents":{"surfaceId":"s","components":[{"component":"Text"';
     const { text, repaired } = repairFences(`\`\`\`a2ui\n${broken}\n\`\`\``);
     expect(repaired).toEqual([]);
     expect(text).toContain(broken);
@@ -40,13 +40,13 @@ describe("isOperationShape", () => {
     expect(isOperationShape(JSON.parse(valid))).toBe(true);
     expect(
       isOperationShape({
-        version: "v1.0",
+        version: "1.0",
         updateComponents: { surfaceId: "s", components: [{ id: "x" }] },
       }),
     ).toBe(false);
     expect(
       isOperationShape({
-        version: "v1.0",
+        version: "1.0",
         createSurface: { surfaceId: "s" },
         deleteSurface: { surfaceId: "s" },
       }),

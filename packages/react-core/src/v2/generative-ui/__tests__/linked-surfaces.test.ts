@@ -38,7 +38,7 @@ const ui = createGenerativeUI({
 const T = "thread";
 
 const op = (payload: Record<string, unknown>) =>
-  ({ version: "v1.0", ...payload }) as unknown as A2UIOperation;
+  ({ version: "1.0", ...payload }) as unknown as A2UIOperation;
 
 function content(surfaceId: string, operations: A2UIOperation[]) {
   return {
@@ -119,15 +119,15 @@ describe("markdown transport: the parts of a split surface", () => {
     role: "assistant",
     content: fence([
       {
-        version: "v1.0",
+        version: "1.0",
         createSurface: { surfaceId: "plan", catalogId: "app" },
       },
       {
-        version: "v1.0",
+        version: "1.0",
         updateDataModel: { surfaceId: "plan", path: "/", value: { seats: 5 } },
       },
       {
-        version: "v1.0",
+        version: "1.0",
         updateComponents: {
           surfaceId: "plan",
           components: [

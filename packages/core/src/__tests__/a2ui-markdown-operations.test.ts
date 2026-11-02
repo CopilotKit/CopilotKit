@@ -25,22 +25,22 @@ function componentsOf(ops: A2UIMarkdownOperation[]) {
 }
 
 const CREATE =
-  '{"version":"v1.0","createSurface":{"surfaceId":"plan","catalogId":"cat"}}';
+  '{"version":"1.0","createSurface":{"surfaceId":"plan","catalogId":"cat"}}';
 const UPDATE =
-  '{"version":"v1.0","updateComponents":{"surfaceId":"plan","components":[{"id":"root","component":"Column","children":["t"]},{"id":"t","component":"Text","text":"hi"}]}}';
+  '{"version":"1.0","updateComponents":{"surfaceId":"plan","components":[{"id":"root","component":"Column","children":["t"]},{"id":"t","component":"Text","text":"hi"}]}}';
 const DATA =
-  '{"version":"v1.0","updateDataModel":{"surfaceId":"plan","path":"/","value":{"seats":8}}}';
+  '{"version":"1.0","updateDataModel":{"surfaceId":"plan","path":"/","value":{"seats":8}}}';
 const CALL =
-  '{"version":"v1.0","callRendererFunction":{"functionCallId":"f1","callFunction":{"@call":"addToCart","args":{"productId":"p1"}}}}';
+  '{"version":"1.0","callRendererFunction":{"functionCallId":"f1","callFunction":{"@call":"addToCart","args":{"productId":"p1"}}}}';
 const ADD_TO_CART = {
-  version: "v1.0",
+  version: "1.0",
   callRendererFunction: {
     functionCallId: "f1",
     callFunction: { "@call": "addToCart", args: { productId: "p1" } },
   },
 };
 const OPEN_CART = {
-  version: "v1.0",
+  version: "1.0",
   callRendererFunction: {
     functionCallId: "f2",
     callFunction: { "@call": "openCart" },
@@ -68,7 +68,7 @@ describe("extractStringField", () => {
   it("reads a string field from partial JSON", () => {
     expect(
       extractStringField(
-        '{"version":"v1.0","createSurface":{"surfaceId":"plan","cat',
+        '{"version":"1.0","createSurface":{"surfaceId":"plan","cat',
         "surfaceId",
       ),
     ).toBe("plan");
@@ -126,7 +126,7 @@ describe("extractFenceOperations", () => {
     const res = extractFenceOperations(`${CREATE}\n${partial}`);
     expect(res.operations).toHaveLength(2);
     expect(res.operations[1]).toEqual({
-      version: "v1.0",
+      version: "1.0",
       updateComponents: {
         surfaceId: "plan",
         components: [{ id: "root", component: "Column", children: ["t"] }],
@@ -136,16 +136,16 @@ describe("extractFenceOperations", () => {
   });
   it("emits nothing for a partial line without complete components", () => {
     const res = extractFenceOperations(
-      `${CREATE}\n{"version":"v1.0","updateComponents":{"surfaceId":"plan","components":[{"id":"ro`,
+      `${CREATE}\n{"version":"1.0","updateComponents":{"surfaceId":"plan","components":[{"id":"ro`,
     );
     expect(res.operations).toHaveLength(1);
   });
   it("emits a partial createSurface once the surfaceId string is complete", () => {
     const res = extractFenceOperations(
-      '{"version":"v1.0","createSurface":{"surfaceId":"plan","catalogI',
+      '{"version":"1.0","createSurface":{"surfaceId":"plan","catalogI',
     );
     expect(res.operations).toEqual([
-      { version: "v1.0", createSurface: { surfaceId: "plan" } },
+      { version: "1.0", createSurface: { surfaceId: "plan" } },
     ]);
   });
   it("records invalid complete lines and keeps going", () => {
@@ -177,21 +177,21 @@ describe("prepareSurfaceOperations", () => {
     const res = prepare([op], { fallbackSurfaceId: "m1-0" });
     expect(res.surfaceId).toBe("m1-0");
     expect(res.operations[0]).toEqual({
-      version: "v1.0",
+      version: "1.0",
       createSurface: { surfaceId: "m1-0", catalogId: "cat" },
     });
     expect(res.operations[1]).toEqual({
-      version: "v1.0",
+      version: "1.0",
       updateComponents: {
         surfaceId: "m1-0",
         components: op.updateComponents.components,
       },
     });
   });
-  it("adds version v1.0 when missing", () => {
+  it("adds version 1.0 when missing", () => {
     const res = prepare([{ createSurface: { surfaceId: "a" } }]);
     expect(res.operations[0]).toEqual({
-      version: "v1.0",
+      version: "1.0",
       createSurface: { surfaceId: "a", catalogId: "cat" },
     });
   });
@@ -239,7 +239,7 @@ describe("prepareSurfaceOperations createSurface handling", () => {
     const res = prepare([
       { createSurface: { surfaceId: "a", catalogId: "cat" } },
       {
-        version: "v1.0",
+        version: "1.0",
         createSurface: {
           surfaceId: "a",
           catalogId: "cat",
@@ -249,12 +249,12 @@ describe("prepareSurfaceOperations createSurface handling", () => {
       },
     ]);
     expect(res.operations).toEqual([
-      { version: "v1.0", createSurface: { surfaceId: "a", catalogId: "cat" } },
+      { version: "1.0", createSurface: { surfaceId: "a", catalogId: "cat" } },
       {
-        version: "v1.0",
+        version: "1.0",
         updateDataModel: { surfaceId: "a", path: "/", value: { plan: "pro" } },
       },
-      { version: "v1.0", updateComponents: { surfaceId: "a", components } },
+      { version: "1.0", updateComponents: { surfaceId: "a", components } },
     ]);
   });
   it("keeps a catalogId that the client lists, and replaces any other", () => {
@@ -268,7 +268,7 @@ describe("prepareSurfaceOperations createSurface handling", () => {
         options,
       ).operations[0],
     ).toEqual({
-      version: "v1.0",
+      version: "1.0",
       createSurface: { surfaceId: "a", catalogId: "base" },
     });
     expect(
@@ -277,7 +277,7 @@ describe("prepareSurfaceOperations createSurface handling", () => {
         options,
       ).operations[0],
     ).toEqual({
-      version: "v1.0",
+      version: "1.0",
       createSurface: { surfaceId: "a", catalogId: "client-cat" },
     });
   });
@@ -287,7 +287,7 @@ describe("prepareSurfaceOperations createSurface handling", () => {
       { catalogId: "client-cat" },
     );
     expect(res.operations[0]).toEqual({
-      version: "v1.0",
+      version: "1.0",
       createSurface: { surfaceId: "a", catalogId: "client-cat" },
     });
   });
@@ -304,7 +304,7 @@ describe("prepareSurfaceOperations function calls", () => {
     expect(res.surfaceId).toBe("plan");
     expect(res.operations).toEqual([
       {
-        version: "v1.0",
+        version: "1.0",
         createSurface: { surfaceId: "plan", catalogId: "cat" },
       },
       JSON.parse(UPDATE),
@@ -320,7 +320,7 @@ describe("prepareSurfaceOperations function calls", () => {
   });
 });
 
-describe("extractFenceOperations v1.0 streaming", () => {
+describe("extractFenceOperations 1.0 streaming", () => {
   it("starts a new operation at a function-call line after an unbalanced one", () => {
     // Two closers short: more than the one-closer slip the repair fixes.
     const unbalanced = DATA.slice(0, -2);
@@ -344,11 +344,11 @@ describe("extractFenceOperations v1.0 streaming", () => {
   });
   it("emits the complete components and data model of a streaming createSurface", () => {
     const res = extractFenceOperations(
-      '{"version":"v1.0","createSurface":{"surfaceId":"plan","dataModel":{"seats":10},"components":[{"id":"root","component":"Column","children":["seats"]},{"id":"seats","comp',
+      '{"version":"1.0","createSurface":{"surfaceId":"plan","dataModel":{"seats":10},"components":[{"id":"root","component":"Column","children":["seats"]},{"id":"seats","comp',
     );
     expect(res.operations).toEqual([
       {
-        version: "v1.0",
+        version: "1.0",
         createSurface: {
           surfaceId: "plan",
           dataModel: { seats: 10 },
@@ -361,10 +361,10 @@ describe("extractFenceOperations v1.0 streaming", () => {
   });
   it("leaves out a createSurface data model that is still streaming", () => {
     const res = extractFenceOperations(
-      '{"version":"v1.0","createSurface":{"surfaceId":"plan","dataModel":{"seats":10,"na',
+      '{"version":"1.0","createSurface":{"surfaceId":"plan","dataModel":{"seats":10,"na',
     );
     expect(res.operations).toEqual([
-      { version: "v1.0", createSurface: { surfaceId: "plan" } },
+      { version: "1.0", createSurface: { surfaceId: "plan" } },
     ]);
   });
   it("emits nothing for a function call that is still streaming", () => {
@@ -376,11 +376,11 @@ describe("extractFenceOperations v1.0 streaming", () => {
 describe("extractFenceOperations partial updateDataModel", () => {
   it("emits the complete array items of a streaming value", () => {
     const res = extractFenceOperations(
-      '{"version":"v1.0","updateDataModel":{"surfaceId":"s","path":"/","value":{"rows":[{"a":1},{"a":2}',
+      '{"version":"1.0","updateDataModel":{"surfaceId":"s","path":"/","value":{"rows":[{"a":1},{"a":2}',
     );
     expect(res.operations).toEqual([
       {
-        version: "v1.0",
+        version: "1.0",
         updateDataModel: {
           surfaceId: "s",
           path: "/",
@@ -391,11 +391,11 @@ describe("extractFenceOperations partial updateDataModel", () => {
   });
   it("emits a complete value object while the line is still open", () => {
     const res = extractFenceOperations(
-      '{"version":"v1.0","updateDataModel":{"surfaceId":"s","path":"/","value":{"seats":8}',
+      '{"version":"1.0","updateDataModel":{"surfaceId":"s","path":"/","value":{"seats":8}',
     );
     expect(res.operations).toEqual([
       {
-        version: "v1.0",
+        version: "1.0",
         updateDataModel: { surfaceId: "s", path: "/", value: { seats: 8 } },
       },
     ]);
@@ -405,7 +405,7 @@ describe("extractFenceOperations partial updateDataModel", () => {
       '{"updateDataModel":{"surfaceId":"s","value":{"title":"T","rows":[{"a":1},{"a"',
     );
     expect(res.operations[0]).toEqual({
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: {
         surfaceId: "s",
         value: { title: "T", rows: [{ a: 1 }] },
@@ -415,12 +415,12 @@ describe("extractFenceOperations partial updateDataModel", () => {
   it("emits nothing until some value content is complete", () => {
     expect(
       extractFenceOperations(
-        '{"version":"v1.0","updateDataModel":{"surfaceId":"s","path":"/","value":{"rows":[{"a":1',
+        '{"version":"1.0","updateDataModel":{"surfaceId":"s","path":"/","value":{"rows":[{"a":1',
       ).operations,
     ).toEqual([]);
     expect(
       extractFenceOperations(
-        '{"version":"v1.0","updateDataModel":{"surfaceId":"s","path":"/"',
+        '{"version":"1.0","updateDataModel":{"surfaceId":"s","path":"/"',
       ).operations,
     ).toEqual([]);
   });
@@ -433,7 +433,7 @@ describe("extractFenceOperations partial field scoping", () => {
     );
     expect(res.operations).toEqual([
       {
-        version: "v1.0",
+        version: "1.0",
         updateComponents: {
           components: [
             {
@@ -453,13 +453,13 @@ describe("extractFenceOperations partial field scoping", () => {
       '{"updateDataModel":{"value":{"surfaceId":"inner","rows":[1,2,',
     );
     expect(res.operations[0]).toEqual({
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: { value: { surfaceId: "inner", rows: [1, 2] } },
     });
   });
   it("finds a surfaceId written after components once its string closes", () => {
     const head =
-      '{"version":"v1.0","updateComponents":{"components":[{"id":"root","component":"Text","text":"x"}],"surfaceId":"pl';
+      '{"version":"1.0","updateComponents":{"components":[{"id":"root","component":"Text","text":"x"}],"surfaceId":"pl';
     expect(extractFenceOperations(head).operations[0]).not.toHaveProperty(
       "updateComponents.surfaceId",
     );
@@ -476,7 +476,7 @@ describe("extractFenceOperations object stream", () => {
     { id: "t", component: "Text", text: "hi" },
   ];
   const PRETTY = [
-    '{"version":"v1.0","updateComponents":{"surfaceId":"plan","components":[',
+    '{"version":"1.0","updateComponents":{"surfaceId":"plan","components":[',
     '  {"id":"root","component":"Column","children":["t"]},',
     '  {"id":"t","component":"Text","text":"hi"}',
     "]}}",
@@ -510,7 +510,7 @@ describe("extractFenceOperations object stream", () => {
     const cut = PRETTY.indexOf('{"id":"t"') + 4;
     const res = extractFenceOperations(`${CREATE}\n${PRETTY.slice(0, cut)}`);
     expect(res.operations[1]).toEqual({
-      version: "v1.0",
+      version: "1.0",
       updateComponents: { surfaceId: "plan", components: [COMPONENTS[0]] },
     });
     expect(res.partialObject).toBe(PRETTY.slice(0, cut));
@@ -530,7 +530,7 @@ describe("extractFenceOperations object stream", () => {
     expect(res.operations).toEqual([
       JSON.parse(CREATE),
       {
-        version: "v1.0",
+        version: "1.0",
         updateComponents: { surfaceId: "plan", components: COMPONENTS },
       },
       JSON.parse(DATA),
@@ -540,11 +540,11 @@ describe("extractFenceOperations object stream", () => {
 
   it("salvages a balanced object that does not parse", () => {
     const broken =
-      '{"version":"v1.0","updateComponents":{"surfaceId":"plan","components":[{"id":"root","component":"Text","text":"x"},{"id":"y" "bad"}]}}';
+      '{"version":"1.0","updateComponents":{"surfaceId":"plan","components":[{"id":"root","component":"Text","text":"x"},{"id":"y" "bad"}]}}';
     const res = extractFenceOperations(`${broken}\n`);
     expect(res.operations).toEqual([
       {
-        version: "v1.0",
+        version: "1.0",
         updateComponents: {
           surfaceId: "plan",
           components: [{ id: "root", component: "Text", text: "x" }],
@@ -578,10 +578,10 @@ describe("extractFenceOperations object stream", () => {
 
   it("leaves an object over two lines and a top-level array alone", () => {
     const twoLines = extractFenceOperations(
-      '{"version":"v1.0","deleteSurface":{"surfaceId":"x"}\n}\n',
+      '{"version":"1.0","deleteSurface":{"surfaceId":"x"}\n}\n',
     );
     expect(twoLines.operations).toEqual([
-      { version: "v1.0", deleteSurface: { surfaceId: "x" } },
+      { version: "1.0", deleteSurface: { surfaceId: "x" } },
     ]);
     expect(twoLines.invalidLines).toEqual([]);
     expect(twoLines.repairedLines).toEqual([]);
@@ -592,7 +592,7 @@ describe("extractFenceOperations object stream", () => {
 
   it("does not repair a line by inventing a value", () => {
     const missingValue =
-      '{"version":"v1.0","updateDataModel":{"surfaceId":"plan","path":"/","value":}';
+      '{"version":"1.0","updateDataModel":{"surfaceId":"plan","path":"/","value":}';
     const res = extractFenceOperations(`${missingValue}\n${UPDATE}\n`);
     expect(res.operations).toEqual([JSON.parse(UPDATE)]);
     expect(res.invalidLines).toEqual([missingValue]);
@@ -600,10 +600,10 @@ describe("extractFenceOperations object stream", () => {
 
   it("keeps the children of a component whose prop object misses its closing brace", () => {
     const missingBrace =
-      '{"version":"v1.0","updateComponents":{"surfaceId":"plan","components":[{"id":"root","component":"Column","accessibility":{"label":"x","children":["t"]},{"id":"t","component":"Text","text":"hi"}]}}';
+      '{"version":"1.0","updateComponents":{"surfaceId":"plan","components":[{"id":"root","component":"Column","accessibility":{"label":"x","children":["t"]},{"id":"t","component":"Text","text":"hi"}]}}';
     const res = extractFenceOperations(`${missingBrace}\n${DATA}\n`);
     expect(res.operations[0]).toEqual({
-      version: "v1.0",
+      version: "1.0",
       updateComponents: {
         surfaceId: "plan",
         components: [
@@ -624,7 +624,7 @@ describe("extractFenceOperations object stream", () => {
     const missingBrace = DATA.slice(0, -1);
     const res = extractFenceOperations(`${CREATE}\n${missingBrace}`);
     expect(res.operations[1]).toEqual({
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: { surfaceId: "plan", path: "/", value: { seats: 8 } },
     });
     expect(res.partialObject).toBe(missingBrace);
@@ -715,7 +715,7 @@ describe("extractCompleteArrayItems component repair", () => {
   });
 
   it("repairs components when salvaging a malformed fence object", () => {
-    const fence = `{"version":"v1.0","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Column","children":["form"]},{"id":"form","component":"Form","action":{"event":{"name":"submit","context":{"message":"x"}},"children":["a"]},{"id":"a","component":"Text","text":"A"}]}}`;
+    const fence = `{"version":"1.0","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Column","children":["form"]},{"id":"form","component":"Form","action":{"event":{"name":"submit","context":{"message":"x"}},"children":["a"]},{"id":"a","component":"Text","text":"A"}]}}`;
     const { operations } = extractFenceOperations(fence);
     const components = componentsOf(operations);
     expect(components.map((c) => c.id)).toEqual(["root", "form", "a"]);
@@ -752,7 +752,7 @@ describe("classifySurfaceCards / flattenInformationalCards", () => {
     { id: "submit", component: "Button", label: "Go" },
   ];
   const ops = [
-    { version: "v1.0", updateComponents: { surfaceId: "s", components } },
+    { version: "1.0", updateComponents: { surfaceId: "s", components } },
   ];
   const card = (out: A2UIMarkdownOperation[], id: string) =>
     componentsOf(out).find((c) => c.id === id)!;
@@ -791,12 +791,12 @@ describe("classifySurfaceCards / flattenInformationalCards", () => {
 
   it("keeps an explicit border and passes non-component operations through", () => {
     const data = {
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: { surfaceId: "s", value: {} },
     };
     const input = [
       {
-        version: "v1.0",
+        version: "1.0",
         updateComponents: {
           surfaceId: "s",
           components: [{ id: "k", component: "Card", border: true }],

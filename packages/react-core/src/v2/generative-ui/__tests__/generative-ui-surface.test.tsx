@@ -105,7 +105,7 @@ describe("GenerativeUISurface autoScroll", () => {
     catalogId: "shop",
     operations: [
       {
-        version: "v1.0" as const,
+        version: "1.0" as const,
         createSurface: { surfaceId: "s1", catalogId: "shop" },
       },
     ],
