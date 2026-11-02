@@ -11,3 +11,4 @@ export const b = new BuiltInAgent({ model: "openai/gpt-5" });
 export const c = new Legacy({ model: "openai/gpt-5" });
 export const d = new Agent({ model: "openai/gpt-5" });
 export const e = [InMemoryAgentRunner, Runtime, Other];
+export const f = new BuiltInAgent({ type: "aisdk", factory });

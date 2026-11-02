@@ -1,5 +1,6 @@
 import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
-import type { BuiltInAgentClassicConfig as AgentConfig } from "@copilotkit/runtime";
+// TODO(copilotkit-2.0): `BasicAgentConfiguration` was removed in 2.0. Classic `BuiltInAgent` mode was removed. Pass the config to `tanstackAIAgent` from "@copilotkit/runtime/tanstack-ai", or type it with `Parameters<typeof tanstackAIAgent>[0]`. See https://docs.copilotkit.ai/migrate/runtime-2.0
+import type { BasicAgentConfiguration as AgentConfig } from "@copilotkit/runtime";
 // TODO(copilotkit-2.0): `CopilotKitRequestHandler` was removed in 2.0. Use `CopilotRuntimeFetchHandler`. It takes the `Request` directly, not `{ request }`.
 import type { CopilotKitRequestHandler } from "@copilotkit/runtime";
 import { createCopilotNodeHandler } from "@copilotkit/runtime/node";

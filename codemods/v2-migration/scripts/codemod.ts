@@ -1,5 +1,11 @@
 import { parse } from "codemod:ast-grep";
-import { migrateDeprecatedApis } from "./deprecated-apis.ts";
+import { migrateClassicBuiltInAgent } from "./builtin-agent-classic.ts";
+import {
+  TODO,
+  deleteLine,
+  migrateDeprecatedApis,
+  own,
+} from "./deprecated-apis.ts";
 import { migrateRuntimeAdapters } from "./runtime-adapters.ts";
 import type { Codemod, Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
@@ -10,8 +16,6 @@ import type { V1Export } from "./v1-api.ts";
 type Lang = TS | TSX;
 type Node = SgNode<Lang>;
 
-/** Every comment the codemod adds starts with this, so a user can grep for them. */
-export const TODO = "TODO(copilotkit-2.0):";
 const GUIDE = "https://docs.copilotkit.ai/migrate/v2";
 
 /** Import paths that only moved: the `/v2` subpaths are the package roots in 2.0. */
@@ -201,16 +205,6 @@ const STREAMDOWN_PROPS: Record<string, string> = Object.fromEntries(
 /** `useKatexStyles` was removed from `@copilotkit/vue` with Streamdown. */
 const VUE_SOURCES = ["@copilotkit/vue", "@copilotkit/vue/v2"];
 
-/**
- * `table[key]` for the table's own keys only. A plain lookup would find
- * `Object.prototype` members for strings such as "constructor" or "toString".
- */
-function own<T>(table: Record<string, T> | undefined, key: string) {
-  return table && Object.prototype.hasOwnProperty.call(table, key)
-    ? table[key]
-    : undefined;
-}
-
 function lookup(source: string, name: string): V1Export | undefined {
   return own(own(OVERRIDES, source), name) ?? own(own(V1_API, source), name);
 }
@@ -311,7 +305,8 @@ function todoLines(name: string, entry: V1Export | undefined): string[] {
  *   the removed Vue `useKatexStyles` are deleted;
  * - reads of the removed `runtime.licenseChecker` are marked;
  * - 1.x deprecations that 2.0 removed are renamed to their replacement, or
- *   marked when the replacement has a different API.
+ *   marked when the replacement has a different API;
+ * - classic `new BuiltInAgent({ model })` calls become `tanstackAIAgent`.
  */
 const codemod: Codemod<Lang> = async (root, options) => {
   const migrated = migrateRuntimeAdapters(root.root());
@@ -547,7 +542,12 @@ const codemod: Codemod<Lang> = async (root, options) => {
       : parse<Lang>(options.language, migratedPaths).root(),
     jsx,
   );
-  return deprecated ?? migratedPaths;
+  // Runs last, so `BasicAgent` is already `BuiltInAgent` from the runtime root.
+  const latest = deprecated ?? migratedPaths;
+  const classic = migrateClassicBuiltInAgent(
+    latest === null ? rootNode : parse<Lang>(options.language, latest).root(),
+  );
+  return classic ?? latest;
 };
 
 function collectProviderNames(
@@ -612,15 +612,6 @@ function commentBefore(
   const start = node.range().start.index;
   if (source.slice(0, start).trimEnd().endsWith(comment)) return undefined;
   return { startPos: start, endPos: start, insertedText: `${comment} ` };
-}
-
-/** Deletes `node` with its indentation and line break. */
-function deleteLine(node: Node, source: string): Edit {
-  let startPos = node.range().start.index;
-  let endPos = node.range().end.index;
-  while (startPos > 0 && /[ \t]/.test(source[startPos - 1]!)) startPos--;
-  if (source[endPos] === "\n") endPos++;
-  return { startPos, endPos, insertedText: "" };
 }
 
 /** The name of an object key or JSX attribute, without quotes. */
