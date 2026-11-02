@@ -36,6 +36,10 @@ export interface TanStackAIOptions {
    * prefix.
    */
   mcpServers?: MCPClientConfig[];
+  /** Send system messages from the client to the model. Default: false. */
+  forwardSystemMessages?: boolean;
+  /** Send developer messages from the client to the model. Default: false. */
+  forwardDeveloperMessages?: boolean;
 }
 
 /**
@@ -166,7 +170,10 @@ export async function tanstackAI(
   options: TanStackAIOptions = {},
 ) {
   const { input, learnedSkills, abortController, abortSignal } = ctx;
-  const converted = convertInputToTanStackAI(input);
+  const converted = convertInputToTanStackAI(input, {
+    forwardSystemMessages: options.forwardSystemMessages,
+    forwardDeveloperMessages: options.forwardDeveloperMessages,
+  });
 
   const appTools = uniqueByName([
     ...converted.tools,

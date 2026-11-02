@@ -36,8 +36,8 @@ describe("convertInputToTanStackAI", () => {
       expect(messages[0].role).toBe("user");
     });
 
-    it("extracts system and developer messages into systemPrompts", () => {
-      const input = createDefaultInput({
+    const instructionInput = () =>
+      createDefaultInput({
         messages: [
           { id: "msg-5", role: "system", content: "System prompt" },
           { id: "msg-6", role: "developer", content: "Dev instruction" },
@@ -45,10 +45,28 @@ describe("convertInputToTanStackAI", () => {
         ],
       });
 
-      const { systemPrompts } = convertInputToTanStackAI(input);
+    it("drops client system and developer messages by default", () => {
+      const { systemPrompts, messages } =
+        convertInputToTanStackAI(instructionInput());
 
-      expect(systemPrompts).toContain("System prompt");
-      expect(systemPrompts).toContain("Dev instruction");
+      expect(systemPrompts).toEqual([]);
+      expect(messages.map((m) => m.role)).toEqual(["user"]);
+    });
+
+    it("forwards client system messages when asked", () => {
+      const { systemPrompts } = convertInputToTanStackAI(instructionInput(), {
+        forwardSystemMessages: true,
+      });
+
+      expect(systemPrompts).toEqual(["System prompt"]);
+    });
+
+    it("forwards client developer messages when asked", () => {
+      const { systemPrompts } = convertInputToTanStackAI(instructionInput(), {
+        forwardDeveloperMessages: true,
+      });
+
+      expect(systemPrompts).toEqual(["Dev instruction"]);
     });
 
     it("preserves user and assistant messages in order", () => {
@@ -260,7 +278,9 @@ describe("convertInputToTanStackAI", () => {
         ],
       });
 
-      const { systemPrompts } = convertInputToTanStackAI(input);
+      const { systemPrompts } = convertInputToTanStackAI(input, {
+        forwardSystemMessages: true,
+      });
 
       expect(systemPrompts).toEqual([
         "Be brief",

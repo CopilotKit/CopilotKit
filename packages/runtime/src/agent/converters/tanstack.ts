@@ -190,6 +190,14 @@ function convertUserPart(part: unknown): TanStackContentPart | undefined {
   }
 }
 
+/** Which client-sent instruction messages {@link convertInputToTanStackAI} forwards. */
+export interface TanStackInputOptions {
+  /** Send system messages from the client to the model. Default: false. */
+  forwardSystemMessages?: boolean;
+  /** Send developer messages from the client to the model. Default: false. */
+  forwardDeveloperMessages?: boolean;
+}
+
 /**
  * Converts AG-UI user message content to TanStack AI format.
  * Handles plain strings, multimodal parts (image/audio/video/document),
@@ -302,20 +310,29 @@ function sanitizeClientToolSchema(schema: unknown): unknown {
  * - Carries `threadId` and `runId`, which `chat()` needs
  *
  * @param input - The AG-UI run input.
+ * @param options - System and developer messages from the client reach the
+ *   model only when you opt in, because a client could otherwise set the
+ *   agent's instructions.
  *
  * @example
  * ```ts
  * const stream = chat({ ...convertInputToTanStackAI(input), adapter });
  * ```
  */
-export function convertInputToTanStackAI(input: RunAgentInput) {
+export function convertInputToTanStackAI(
+  input: RunAgentInput,
+  options: TanStackInputOptions = {},
+) {
   const messages: TanStackChatMessage[] = input.messages
     .filter(isChatRoleMessage)
     .map(convertChatMessage);
 
   const systemPrompts: string[] = [];
   for (const m of input.messages) {
-    if ((m.role === "system" || m.role === "developer") && m.content) {
+    const forwarded =
+      (m.role === "system" && options.forwardSystemMessages) ||
+      (m.role === "developer" && options.forwardDeveloperMessages);
+    if (forwarded && m.content) {
       systemPrompts.push(
         typeof m.content === "string" ? m.content : JSON.stringify(m.content),
       );

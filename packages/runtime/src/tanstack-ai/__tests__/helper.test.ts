@@ -78,7 +78,7 @@ async function buildWith(
 describe("tanstackAI", () => {
   it("orders the system prompts: skills catalog, prompt, system message, context, state", async () => {
     const base = await buildWith(
-      { prompt: "You are helpful." },
+      { prompt: "You are helpful.", forwardSystemMessages: true },
       {
         learnedSkills,
         input: createDefaultInput({

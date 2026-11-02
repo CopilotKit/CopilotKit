@@ -898,7 +898,9 @@ async function runRealChat(options: {
   serverTools?: Tool[];
 }) {
   const { adapter, requests } = scriptedTextAdapter(options.turns);
-  const converted = convertInputToTanStackAI(options.input);
+  const converted = convertInputToTanStackAI(options.input, {
+    forwardSystemMessages: true,
+  });
   const stream = chat({
     ...converted,
     adapter,

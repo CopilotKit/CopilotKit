@@ -86,6 +86,10 @@ export type TanStackAIAgentConfig<TAdapter extends AnyTextAdapter> =
           ) => TanStackAITools | Promise<TanStackAITools>);
       /** MCP servers to connect to on each run. */
       mcpServers?: MCPClientConfig[];
+      /** Send system messages from the client to the model. Default: false. */
+      forwardSystemMessages?: boolean;
+      /** Send developer messages from the client to the model. Default: false. */
+      forwardDeveloperMessages?: boolean;
       /**
        * The most model turns in one run. Default: TanStack AI's default (5),
        * or 10 when learned skills are available.
@@ -164,6 +168,8 @@ export function tanstackAIAgent<TAdapter extends AnyTextAdapter>(
     prompt,
     tools,
     mcpServers,
+    forwardSystemMessages,
+    forwardDeveloperMessages,
     maxIterations: iterationLimit,
     overridableProperties,
     learnedSkills,
@@ -211,6 +217,8 @@ export function tanstackAIAgent<TAdapter extends AnyTextAdapter>(
         prompt,
         tools: runTools,
         mcpServers,
+        forwardSystemMessages,
+        forwardDeveloperMessages,
       });
 
       const overrides = pickOverrides(forwardedProps, overridableProperties, {
