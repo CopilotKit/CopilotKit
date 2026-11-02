@@ -50,3 +50,19 @@ def test_cap_leaves_a_short_turn_alone():
 
     assert reply.body == "done"
     assert calls == 1
+
+
+def test_cap_resets_between_runs_of_the_same_agent():
+    global calls
+    calls = 0
+    # Each run spends the whole allowance: two tool rounds plus the final reply.
+    # Agents are defined once at module level, so a count that leaked across
+    # runs would cap the second run on its first model call.
+    agent = _agent(3, ToolCallEvent("ping"), ToolCallEvent("ping"), "done")
+
+    first = asyncio.run(agent.ask("go"))
+    second = asyncio.run(agent.ask("go"))
+
+    assert first.body == "done"
+    assert second.body == "done"
+    assert calls == 4
