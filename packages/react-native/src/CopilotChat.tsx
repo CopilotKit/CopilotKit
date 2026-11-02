@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import {
   CopilotChatConfigurationProvider,
   useAgent,
+  useCopilotChatConfiguration,
 } from "@copilotkit/react-core/v2/headless";
 import { useCopilotKit } from "@copilotkit/react-core/v2/context";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
@@ -70,7 +71,8 @@ export interface CopilotChatBaseProps {
    * The agent ID to use for this chat session.
    * Matches the web SDK's CopilotChat `agentId` prop.
    *
-   * Resolution order: `agentId` > `agentName` > `"default"`
+   * Resolution order: `agentId` > `agentName` > the agent of the chat (or
+   * `CopilotChatConfigurationProvider`) around this one > `"default"`
    */
   agentId?: string;
 
@@ -131,9 +133,17 @@ export interface CopilotChatProps extends CopilotChatBaseProps {
  * Unlike the web SDK's CopilotChat, this component does not render any UI
  * elements -- consumers provide their own React Native views.
  *
- * Children can access chat state via `useCopilotChatContext()`. Hooks used
- * inside it, such as `useAgent` and `useInterrupt`, use this chat's `agentId`
- * and `threadId` unless they name their own.
+ * Children can access chat state via `useCopilotChatContext()`.
+ *
+ * Hooks inside the chat, such as `useAgent` and `useInterrupt`, use this
+ * chat's agent when they do not pass an `agentId`. When the chat has a
+ * `threadId`, `useAgent` inside the chat sets that thread on each agent it
+ * returns, also on an agent that the hook names with its own `agentId`. Only
+ * `useAgent({ agentId, runtimeAgentId, threadId })` keeps a different thread.
+ *
+ * A chat inside another chat uses the outer chat's agent when it has no
+ * `agentId`. When the outer chat has a `threadId` and the inner chat does not,
+ * the inner chat uses the outer thread. The web `CopilotChat` does the same.
  *
  * ```tsx
  * import { CopilotChat, useCopilotChatContext } from "@copilotkit/react-native";
@@ -158,7 +168,11 @@ export function CopilotChat({
   children,
   ..._rest
 }: CopilotChatProps) {
-  const resolvedAgentId = agentId ?? agentName ?? DEFAULT_AGENT_ID;
+  // Same precedence as the web CopilotChat: a chat that names no agent takes
+  // the agent of the chat configuration around it before "default".
+  const chatConfig = useCopilotChatConfiguration();
+  const resolvedAgentId =
+    agentId ?? agentName ?? chatConfig?.agentId ?? DEFAULT_AGENT_ID;
 
   // Deprecation warning (dev only, fires once per mount)
   const warnedRef = useRef(false);
@@ -293,7 +307,8 @@ export function CopilotChat({
   };
 
   // Publish this chat's agent and thread to the subtree, as the web
-  // CopilotChat does, so hooks inside it do not fall back to "default".
+  // CopilotChat does. Hooks inside it that name no agent use this chat's
+  // agent, which is the outer chat's agent when this chat names none.
   return (
     <CopilotChatConfigurationProvider
       agentId={resolvedAgentId}
