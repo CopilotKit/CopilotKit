@@ -1,17 +1,6 @@
 import { vi } from "vitest";
 import { z } from "zod";
 
-// Mock modules that cause ES module issues
-vi.mock("@segment/analytics-node", () => ({
-  Analytics: vi.fn().mockImplementation(() => ({
-    track: vi.fn(),
-    identify: vi.fn(),
-    page: vi.fn(),
-    group: vi.fn(),
-    alias: vi.fn(),
-  })),
-}));
-
 vi.mock("@copilotkit/shared", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@copilotkit/shared")>();
   return {

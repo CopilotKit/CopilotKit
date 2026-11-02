@@ -171,9 +171,6 @@
         "./packages/sdk-js/src/langgraph-middlewares.ts"
       ],
       "@copilotkit/shared": ["./packages/shared/src/index.ts"],
-      "@copilotkit/shared/telemetry": [
-        "./packages/shared/src/telemetry/index.ts"
-      ],
       "@copilotkit/sqlite-runner": ["./packages/sqlite-runner/src/index.ts"],
       "@copilotkit/voice": ["./packages/voice/src/index.ts"],
       "@copilotkit/vue": ["./packages/vue/src/index.ts"],

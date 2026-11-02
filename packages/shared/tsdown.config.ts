@@ -2,9 +2,7 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig([
   {
-    // Node-only telemetry has a separate entry. The browser-facing root must
-    // not re-export it (#4151).
-    entry: ["src/index.ts", "src/telemetry/index.ts"],
+    entry: ["src/index.ts"],
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
@@ -27,7 +25,6 @@ export default defineConfig([
         zod: "Zod",
         "@ag-ui/core": "AgUICore",
         "@ag-ui/client": "AgUIClient",
-        "@segment/analytics-node": "SegmentAnalyticsNode",
         "partial-json": "PartialJSON",
       };
       return options;

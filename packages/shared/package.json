@@ -32,18 +32,7 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
-    "./telemetry": {
-      "import": "./dist/telemetry/index.mjs",
-      "require": "./dist/telemetry/index.cjs"
-    },
     "./package.json": "./package.json"
-  },
-  "typesVersions": {
-    "*": {
-      "telemetry": [
-        "./dist/telemetry/index.d.cts"
-      ]
-    }
   },
   "publishConfig": {
     "access": "public"
@@ -63,7 +52,6 @@
   "dependencies": {
     "@ag-ui/client": "1.0.2",
     "@copilotkit/license-verifier": "~0.5.0",
-    "@segment/analytics-node": "^2.1.2",
     "@standard-schema/spec": "^1.0.0",
     "partial-json": "^0.1.7",
     "zod": "^3.23.3"
