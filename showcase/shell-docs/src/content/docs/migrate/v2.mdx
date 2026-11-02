@@ -317,6 +317,34 @@ A different version installs a second copy of the package, with its own `HttpAge
 Note: If you only use CopilotKit's React packages, `@ag-ui/client` types are already re-exported from `@copilotkit/react-core` and you don't need a separate install.
 
 </Step>
+<Step>
+### Check your Node.js and LangChain versions
+
+Every 2.0 package declares the Node.js versions that it supports:
+
+| Packages | Node.js |
+| --- | --- |
+| `@copilotkit/runtime` and the `@copilotkit/channels-*` packages | `^20.19.3` or `>=22.13.0` |
+| All other packages | `>=20` |
+
+If you build or render on Node.js 18, upgrade to Node.js 20 or later. The
+runtime has more details in the [runtime migration guide](/migrate/runtime-2.0).
+
+If your LangGraph JS agent uses `@copilotkit/sdk-js`, install LangChain 1.x.
+`@copilotkit/sdk-js` 2.0 needs these versions:
+
+| Package | Version |
+| --- | --- |
+| `@langchain/core` | `>=1.1.41 <2` |
+| `@langchain/langgraph` | `>=1.2.9 <2` |
+| `langchain` | `>=1.3.4 <2` |
+| `zod` | `^4.2.0` |
+
+```bash
+npm install @langchain/core@^1.1.41 @langchain/langgraph@^1.2.9 langchain@^1.3.4 zod@^4.2.0
+```
+
+</Step>
 </Steps>
 
 ## Gotchas
