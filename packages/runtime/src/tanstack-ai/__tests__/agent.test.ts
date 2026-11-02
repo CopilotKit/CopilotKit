@@ -3,7 +3,12 @@ import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
-import type { AnyTool } from "@tanstack/ai";
+import type {
+  AnyTool,
+  DefaultMessageMetadataByModality,
+  ReasoningCapability,
+  TextAdapter,
+} from "@tanstack/ai";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import {
@@ -17,12 +22,14 @@ import { defineTool } from "../../agent/index";
 import type { ToolDefinition } from "../../agent/index";
 import {
   collectEvents,
+  collectEventsIncludingErrors,
   createDefaultInput,
   eventField,
 } from "../../agent/__tests__/agent-test-helpers";
 import fixtures from "../../../../intelligence-delivery-core/conformance/snapshots.v1.json";
 import { tanstackAIAgent } from "../agent";
 import { callTool, scriptedTextAdapter } from "./fake-adapter";
+import type { ScriptedTurn } from "./fake-adapter";
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -459,6 +466,93 @@ describe("tanstackAIAgent", () => {
 
     it("keeps the configured adapter when model is not overridable", async () => {
       expect(await adapterUsedFor([])).toBe("main");
+    });
+  });
+
+  describe("adapter functions", () => {
+    /** An adapter function that counts its calls. */
+    function countingAdapter(turns: ScriptedTurn[]) {
+      const scripted = scriptedTextAdapter(turns);
+      let calls = 0;
+      const create = () => {
+        calls++;
+        return scripted.adapter;
+      };
+      return { create, calls: () => calls };
+    }
+
+    it("creates the adapter on the first run, once for all runs and clones", async () => {
+      const lazy = countingAdapter([{ text: "one" }, { text: "two" }]);
+
+      const agent = tanstackAIAgent({ adapter: lazy.create });
+      expect(lazy.calls()).toBe(0);
+
+      const first = await collectEvents(agent.run(userInput()));
+      const second = await collectEvents(agent.clone().run(userInput()));
+
+      expect(textOf(first)).toBe("one");
+      expect(textOf(second)).toBe("two");
+      expect(lazy.calls()).toBe(1);
+    });
+
+    it("fails the run, not the construction, when the adapter function throws", async () => {
+      const agent = tanstackAIAgent({
+        adapter: () => {
+          throw new Error("OPENAI_API_KEY is not set");
+        },
+      });
+
+      const result = await collectEventsIncludingErrors(agent.run(userInput()));
+
+      expect(result.errored).toBe(true);
+      const runError = result.events.at(-1);
+      expect(runError?.type).toBe(EventType.RUN_ERROR);
+      expect(eventField(runError, "message")).toBe("OPENAI_API_KEY is not set");
+    });
+
+    it("creates an adapter from adapters only when a client picks it", async () => {
+      const main = scriptedTextAdapter([{ text: "main" }]);
+      const fast = countingAdapter([{ text: "fast" }]);
+      const agent = tanstackAIAgent({
+        adapter: () => main.adapter,
+        adapters: { fast: fast.create },
+        overridableProperties: ["model"],
+      });
+
+      const mainEvents = await collectEvents(agent.run(userInput()));
+      expect(fast.calls()).toBe(0);
+      const fastEvents = await collectEvents(
+        agent.run(userInput({ forwardedProps: { model: "fast" } })),
+      );
+
+      expect(textOf(mainEvents)).toBe("main");
+      expect(textOf(fastEvents)).toBe("fast");
+      expect(fast.calls()).toBe(1);
+    });
+
+    it("types modelOptions from the adapter in both forms", () => {
+      type WeatherAdapter = TextAdapter<
+        "weather-model",
+        { temperature?: number },
+        readonly ["text"],
+        DefaultMessageMetadataByModality,
+        ReadonlyArray<string>,
+        unknown,
+        unknown,
+        ReasoningCapability
+      >;
+      const weather: WeatherAdapter = scriptedTextAdapter([]).adapter;
+
+      tanstackAIAgent({ adapter: weather, modelOptions: { temperature: 1 } });
+      tanstackAIAgent({
+        adapter: () => weather,
+        modelOptions: { temperature: 1 },
+      });
+      tanstackAIAgent({
+        adapter: () => weather,
+        // @ts-expect-error temperature is a number for this adapter
+        modelOptions: { temperature: "hot" },
+      });
     });
   });
 
