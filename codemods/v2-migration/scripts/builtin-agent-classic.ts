@@ -144,6 +144,36 @@ function overridesModel(property: Node) {
 }
 
 /** The `// ...` lines right above `lineStart`, trimmed. */
+/**
+ * ast-grep positions (`range().start.index`, edit `startPos`) count UTF-8
+ * bytes; JavaScript strings count UTF-16 code units. These convert between
+ * the two, so a multi-byte character earlier in the file does not shift an
+ * edit.
+ */
+function utf8Length(text: string) {
+  let length = 0;
+  for (const char of text) {
+    const code = char.codePointAt(0)!;
+    length += code < 0x80 ? 1 : code < 0x800 ? 2 : code < 0x10000 ? 3 : 4;
+  }
+  return length;
+}
+
+function toByteIndex(source: string, charIndex: number) {
+  return utf8Length(source.slice(0, charIndex));
+}
+
+function toCharIndex(source: string, byteIndex: number) {
+  let bytes = 0;
+  let index = 0;
+  for (const char of source) {
+    if (bytes >= byteIndex) break;
+    bytes += utf8Length(char);
+    index += char.length;
+  }
+  return index;
+}
+
 function commentsAbove(source: string, lineStart: number) {
   const lines = source
     .slice(0, lineStart)
@@ -186,8 +216,8 @@ export function migrateClassicBuiltInAgent(rootNode: Node) {
   /** TODO messages, keyed by the start of the line they go above. */
   const notes = new Map<number, string[]>();
   const note = (node: Node, message: string) => {
-    const lineStart =
-      source.lastIndexOf("\n", node.range().start.index - 1) + 1;
+    const start = toCharIndex(source, node.range().start.index);
+    const lineStart = source.lastIndexOf("\n", start - 1) + 1;
     const messages = notes.get(lineStart) ?? [];
     if (!messages.includes(message)) messages.push(message);
     notes.set(lineStart, messages);
@@ -254,9 +284,10 @@ export function migrateClassicBuiltInAgent(rootNode: Node) {
       .filter((line) => !existing.has(line))
       .map((line) => `${indent}${line}\n`);
     if (lines.length === 0) continue;
+    const position = toByteIndex(source, lineStart);
     commentEdits.push({
-      startPos: lineStart,
-      endPos: lineStart,
+      startPos: position,
+      endPos: position,
       insertedText: lines.join(""),
     });
   }
