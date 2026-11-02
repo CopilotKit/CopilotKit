@@ -2617,6 +2617,9 @@ importers:
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
+      '@ag-ui/core':
+        specifier: 1.0.2
+        version: 1.0.2(zod@3.25.76)
       '@copilotkit/learning':
         specifier: workspace:*
         version: link:../learning
@@ -2636,9 +2639,6 @@ importers:
         specifier: ^3.24.6
         version: 3.25.1(zod@3.25.76)
     devDependencies:
-      '@ag-ui/core':
-        specifier: 1.0.2
-        version: 1.0.2(zod@3.25.76)
       '@copilotkit/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
