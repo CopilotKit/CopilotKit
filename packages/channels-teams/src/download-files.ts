@@ -20,6 +20,11 @@
  * skipped with a short note so the agent knows a file was dropped and why.
  */
 import type { AgentContentPart } from "@copilotkit/channels-ui";
+import {
+  DownloadBudget,
+  downloadAttachment,
+  downloadErrorMessage,
+} from "./attachment-download.js";
 
 /** The subset of a Teams `Attachment` we read (matches @microsoft/agents-activity). */
 export interface TeamsAttachmentRef {
@@ -45,6 +50,12 @@ export interface FileDeliveryConfig {
   maxFiles?: number;
   /** Truncate decoded text files to this many bytes. Default 200 KiB. */
   maxTextBytes?: number;
+  /** Total downloaded bytes per message, including Graph fallback. Default 40 MiB. */
+  maxBytesPerMessage?: number;
+  /** Deadline per download, covering DNS, redirects and body. Default 30 seconds. */
+  downloadTimeoutMs?: number;
+  /** Shared download deadline per message, including Graph fallback. Default 60 seconds. */
+  maxDownloadTimeMs?: number;
 }
 
 const DEFAULTS = {
@@ -182,40 +193,26 @@ interface ResolvedSource {
  * its pre-authenticated `downloadUrl`; everything else uses `contentUrl`.
  */
 function resolveSource(att: TeamsAttachmentRef): ResolvedSource | null {
-  const label = att.name ?? "file";
+  const label = typeof att.name === "string" ? att.name : "file";
   if (att.contentType === TEAMS_FILE_DOWNLOAD_INFO) {
     const info = (att.content ?? {}) as FileDownloadInfo;
-    if (!info.downloadUrl) return null;
+    if (typeof info.downloadUrl !== "string" || !info.downloadUrl) return null;
     const mime =
       mimeFromName(att.name) ??
-      (info.fileType ? EXT_MIME[info.fileType.toLowerCase()] : undefined) ??
+      (typeof info.fileType === "string"
+        ? EXT_MIME[info.fileType.toLowerCase()]
+        : undefined) ??
       "application/octet-stream";
     return { url: info.downloadUrl, mime, label };
   }
-  if (!att.contentUrl) return null;
+  if (typeof att.contentUrl !== "string" || !att.contentUrl) return null;
   // For media/text attachments the contentType IS the MIME; fall back to the
   // filename when it's a generic wrapper.
   const mime =
-    att.contentType && att.contentType.includes("/")
+    typeof att.contentType === "string" && att.contentType.includes("/")
       ? att.contentType.toLowerCase()
       : (mimeFromName(att.name) ?? "application/octet-stream");
   return { url: att.contentUrl, mime, label };
-}
-
-/** Fetch a source's bytes. Decodes `data:` URIs in-process; fetches http(s). */
-async function fetchBytes(url: string): Promise<Buffer> {
-  if (url.startsWith("data:")) {
-    const comma = url.indexOf(",");
-    if (comma < 0) throw new Error("malformed data URI");
-    const meta = url.slice(5, comma);
-    const payload = url.slice(comma + 1);
-    return meta.includes(";base64")
-      ? Buffer.from(payload, "base64")
-      : Buffer.from(decodeURIComponent(payload), "utf8");
-  }
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`download failed (HTTP ${res.status})`);
-  return Buffer.from(await res.arrayBuffer());
 }
 
 /**
@@ -226,8 +223,9 @@ async function fetchBytes(url: string): Promise<Buffer> {
 export async function buildFileContentParts(
   attachments: readonly TeamsAttachmentRef[],
   config: FileDeliveryConfig = {},
+  budget: DownloadBudget = new DownloadBudget(config),
 ): Promise<{ parts: AgentContentPart[]; notes: string[] }> {
-  const maxFiles = config.maxFiles ?? DEFAULTS.maxFiles;
+  const maxFiles = budget.maxFiles;
 
   const parts: AgentContentPart[] = [];
   const notes: string[] = [];
@@ -254,9 +252,9 @@ export async function buildFileContentParts(
     const { url, mime, label } = source;
     let bytes: Buffer;
     try {
-      bytes = await fetchBytes(url);
+      bytes = await downloadAttachment(url, budget);
     } catch (err) {
-      notes.push(`skipped "${label}": ${(err as Error).message}`);
+      notes.push(`skipped "${label}": ${downloadErrorMessage(err)}`);
       continue;
     }
     const decoded = decodeFileBytes(label, mime, bytes, config);

@@ -6,6 +6,7 @@ import type {
 import CopilotChatView from "./CopilotChatView";
 import CopilotChatToggleButton from "./CopilotChatToggleButton";
 import { CopilotModalHeader } from "./CopilotModalHeader";
+import type { CopilotModalHeaderProps } from "./CopilotModalHeader";
 import { cn } from "../../lib/utils";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
@@ -21,7 +22,8 @@ const DEFAULT_POPUP_WIDTH = 420;
 const DEFAULT_POPUP_HEIGHT = 560;
 
 export type CopilotPopupViewProps = CopilotChatViewProps & {
-  header?: SlotValue<typeof CopilotModalHeader>;
+  /** Accepts a className, partial props, or any component with CopilotModalHeader props — static namespace members are not required. */
+  header?: SlotValue<React.ComponentType<CopilotModalHeaderProps>>;
   toggleButton?: SlotValue<typeof CopilotChatToggleButton>;
   width?: number | string;
   height?: number | string;
@@ -187,6 +189,15 @@ function CopilotPopupViewInternal({
         "[data-slot='chat-toggle-button']",
       );
       if (toggleButton && toggleButton.contains(target)) {
+        return;
+      }
+
+      // Popovers of the chat, such as a reply rating's comment, render in a
+      // portal outside the container.
+      if (
+        target instanceof Element &&
+        target.closest("[data-copilotkit-popover]")
+      ) {
         return;
       }
 

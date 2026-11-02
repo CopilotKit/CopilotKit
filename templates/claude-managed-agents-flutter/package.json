@@ -1,0 +1,37 @@
+{
+  "name": "claude-managed-agents-flutter-starter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch server/index.ts",
+    "start": "tsx server/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "lint": "oxlint server scripts tests",
+    "agent:plan": "node scripts/ant.mjs apply --dry-run anthropic",
+    "agent:apply": "node scripts/ant.mjs apply --yes anthropic",
+    "setup:flutter": "node scripts/setup-flutter.mjs"
+  },
+  "dependencies": {
+    "@ag-ui/claude-managed-agents": "0.0.1",
+    "@ag-ui/client": "1.0.2",
+    "@anthropic-ai/sdk": "0.129.0",
+    "@copilotkit/runtime": "1.79.0",
+    "@next/env": "16.3.8",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "oxlint": "^1.58.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": { "node": ">=20.19.0" },
+  "overrides": {
+    "@ag-ui/client": "1.0.2",
+    "@ag-ui/core": "1.0.2",
+    "@ag-ui/encoder": "1.0.2",
+    "@ag-ui/proto": "1.0.2"
+  }
+}

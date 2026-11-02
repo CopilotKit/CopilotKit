@@ -119,6 +119,44 @@ no `renderActivityMessages` prop, no manual
 
 <Snippet region="no-frontend-renderer-needed" />
 
+## Sandbox and widget storage
+
+Each MCP App runs in a sandboxed iframe with an opaque origin. A widget can't
+read your page's cookies, storage or DOM. It can't read responses from your
+APIs either, unless an API allows cross-origin requests (for example with
+`Access-Control-Allow-Origin: *`). It can still send requests, though, so
+protect state-changing endpoints against cross-site request forgery as you
+would for any other site. The trade-off is
+that the widget can't use `localStorage`, `sessionStorage`, `IndexedDB` or
+cookies of its own either.
+
+Requests a widget makes that need CORS, such as `<script type="module">` and
+`fetch`, are sent with `Origin: null`. Serve public widget assets with
+`Access-Control-Allow-Origin: *`. Classic `<script src>` tags don't need CORS.
+To avoid CORS entirely, bundle the widget into a single HTML file, as the
+[ext-apps examples](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples)
+do with `vite-plugin-singlefile`.
+
+The MCP Apps spec pairs `allow-same-origin` with a sandbox served from a
+separate origin. CopilotKit loads the sandbox inline, so it leaves
+`allow-same-origin` off rather than give widgets your page's origin.
+
+If you wrote a widget yourself and it needs storage, you can restore
+`allow-same-origin`:
+
+```tsx
+<CopilotKit runtimeUrl="/api/copilotkit" mcpApps={{ allowSameOriginFallback: true }}>
+  {children}
+</CopilotKit>
+```
+
+<Callout type="warn" title="Only for widgets you trust">
+  With `allowSameOriginFallback`, every MCP App runs with your page's origin.
+  Any connected MCP server's widget can then read your cookies and storage and
+  act as the signed-in user. Don't enable it if you connect third-party MCP
+  servers.
+</Callout>
+
 ## Transport types
 
 The middleware supports two transport types:

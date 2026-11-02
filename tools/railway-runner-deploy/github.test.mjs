@@ -29,6 +29,57 @@ test("artifact redirect is bounded and drops GitHub authorization", async () => 
   assert.equal(calls[0].options.headers.authorization, "Bearer secret");
   assert.equal(calls[1].options.headers?.authorization, undefined);
 });
+test("development attempt receipt verifies the actual allowlisted workflow bytes", async () => {
+  const path = ".github/workflows/intelligence-rich-threads-dev.yml",
+    workflow = Buffer.from("development workflow"),
+    zip = Buffer.from("zip");
+  const run = {
+    id: 123,
+    run_attempt: 1,
+    head_sha: "a".repeat(40),
+    path,
+    run_started_at: "2026-10-20T00:00:00Z",
+    updated_at: "2026-10-20T00:00:10Z",
+  };
+  const artifact = {
+    id: 12,
+    name: "runner-deployment-receipt-1",
+    expired: false,
+    size_in_bytes: 100,
+    digest: `sha256:${sha256(zip)}`,
+    workflow_run: { id: run.id, head_sha: run.head_sha },
+    created_at: "2026-10-20T00:00:05Z",
+  };
+  const receipt = {
+    run: { workflowPath: path, workflowSha256: sha256(workflow) },
+  };
+  const calls = [];
+  const github = createGithub({
+    token: "secret",
+    unzip: async () => ({
+      "deployment-receipt.json": Buffer.from(JSON.stringify(receipt)),
+    }),
+    fetch: async (url) => {
+      calls.push(url);
+      if (url.endsWith("/artifacts?per_page=100"))
+        return Response.json({ total_count: 1, artifacts: [artifact] });
+      if (url.endsWith("/artifacts/12")) return Response.json(artifact);
+      if (url.endsWith("/zip")) return new Response(zip);
+      assert.equal(
+        url,
+        `https://api.github.com/repos/CopilotKit/CopilotKit/contents/${path}?ref=${run.head_sha}`,
+      );
+      return new Response(workflow);
+    },
+  });
+  assert.deepEqual(await github.receipt(run), receipt);
+  const count = calls.length;
+  await assert.rejects(
+    github.receipt({ ...run, path: ".github/workflows/foreign.yml" }),
+    /workflow/,
+  );
+  assert.equal(calls.length, count);
+});
 test("artifact redirect to arbitrary host is refused without sending credentials", async () => {
   let calls = 0;
   const github = createGithub({

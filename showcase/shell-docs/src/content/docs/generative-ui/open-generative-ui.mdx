@@ -30,7 +30,9 @@ Key benefits:
 
 Turning on Open Generative UI takes one flag in the runtime plus a plain
 `<CopilotChat />` on the frontend; the built-in activity renderer is
-auto-registered by `CopilotKit`, so no extra wiring is needed.
+auto-registered by `CopilotKit`, so no extra frontend wiring is needed. Your
+agent must still give the run's frontend tools to its model (see the warning
+below).
 
 ### Enable it in the runtime
 
@@ -42,6 +44,26 @@ The `OpenGenerativeUIMiddleware` then converts the agent's streamed
 `generateSandboxedUi` tool call into `open-generative-ui` activity events,
 which the built-in `OpenGenerativeUIActivityRenderer` mounts inside a
 sandboxed iframe.
+
+<Callout type="warn" title="Your agent must pass frontend tools to its model">
+  `generateSandboxedUi` reaches the agent as a frontend tool in the run input.
+  The agent calls it only if it gives the run's frontend tools to its model.
+  If it binds only its own tools, the model never sees `generateSandboxedUi`,
+  so nothing renders and no error appears.
+
+  - The built-in agent passes frontend tools already.
+  - A LangGraph agent built with `create_agent` (Python) or `createAgent`
+    (TypeScript) adds `CopilotKitMiddleware()` (Python, from `copilotkit`) or
+    `copilotkitMiddleware` (TypeScript, from `@copilotkit/sdk-js/langgraph`)
+    to its `middleware`. A hand-built graph binds the frontend tools with its
+    own tools: in Python, use `CopilotKitState` and bind
+    `state["copilotkit"]["actions"]`; in TypeScript, spread
+    `CopilotKitStateAnnotation.spec` into the state and bind
+    `state.copilotkit.actions` (convert them with
+    `convertActionsToDynamicStructuredTools` from `@copilotkit/sdk-js/langgraph`).
+  - Other agents forward the frontend tools from the run input. See
+    [Frontend Tools](/frontend-tools).
+</Callout>
 
 ### Drop `<CopilotChat />` into the page
 

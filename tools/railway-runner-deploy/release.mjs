@@ -15,6 +15,7 @@ export async function generateRelease({
   bootstrapSha,
   github,
   verifyImage,
+  recovery,
 }) {
   requireThat(
     Boolean(baselineRun) !== Boolean(bootstrapBaseline),
@@ -49,6 +50,7 @@ export async function generateRelease({
     },
     baseline,
     candidate,
+    ...(recovery === undefined ? {} : { recovery }),
   };
   await verifyBuild(release, github, { verifyImage });
   return release;
@@ -84,6 +86,7 @@ async function main() {
       "bootstrap-deploy-sha": { type: "string" },
       output: { type: "string" },
       validate: { type: "string" },
+      recovery: { type: "string" },
     },
   });
   const token = await githubToken();
@@ -94,6 +97,7 @@ async function main() {
       !values["build-run"] &&
         !values["baseline-run"] &&
         !values["bootstrap-baseline"] &&
+        !values.recovery &&
         !values.output,
       "Validation accepts only the reviewed release path",
     );
@@ -122,6 +126,9 @@ async function main() {
     bootstrapSha: values["bootstrap-deploy-sha"],
     github,
     verifyImage,
+    recovery: values.recovery
+      ? JSON.parse(await readFile(values.recovery, "utf8"))
+      : undefined,
   });
   await writeRelease(values.output, release);
   console.log("Release record written for review");

@@ -1,3 +1,7 @@
+import { execFile } from "node:child_process";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import {
   e2eChatToolsDriver,
@@ -142,6 +146,44 @@ function baseCtx(extra: Partial<ProbeContext> = {}): ProbeContext {
     logger,
     env: {},
     ...extra,
+  };
+}
+
+function delivery(expectedCount = 1) {
+  const events: {
+    url: string;
+    errorClass: string;
+    responseStatus: number | null;
+  }[] = [];
+  let delivered!: () => void;
+  const done = new Promise<void>((resolve) => {
+    delivered = resolve;
+  });
+  return {
+    events,
+    handler(event: (typeof events)[number]) {
+      events.push(event);
+      if (events.length === expectedCount) delivered();
+    },
+    async wait() {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          done,
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(
+              () =>
+                reject(
+                  new Error("failed-request diagnostic was not delivered"),
+                ),
+              250,
+            );
+          }),
+        ]);
+      } finally {
+        clearTimeout(timer);
+      }
+    },
   };
 }
 
@@ -1404,6 +1446,253 @@ describe("d4 CVDIAG probe instrumentation (L1-A)", () => {
   });
 });
 
+describe("wirePlaywrightPage failed-request diagnostics", () => {
+  function pageEvents() {
+    const handlers = new Map<string, ((arg: unknown) => void)[]>();
+    const page = wirePlaywrightPage({
+      goto: async () => null,
+      type: async () => {},
+      press: async () => {},
+      waitForSelector: async () => {},
+      textContent: async () => null,
+      evaluate: async <R>() => "" as unknown as R,
+      close: async () => {},
+      on(event, handler) {
+        const list = handlers.get(event) ?? [];
+        list.push(handler);
+        handlers.set(event, list);
+      },
+    });
+    return {
+      page,
+      fire(event: string, arg: unknown) {
+        for (const handler of handlers.get(event) ?? []) handler(arg);
+      },
+    };
+  }
+
+  it("delivers one diagnostic when the Playwright response Promise resolves null", async () => {
+    const { page, fire } = pageEvents();
+    const observed = delivery();
+    page.onRequestFailed?.(observed.handler);
+    fire("requestfailed", {
+      url: () => "https://x.example.com/api/copilotkit",
+      failure: () => ({ errorText: "net::ERR_ABORTED" }),
+      response: () => Promise.resolve(null),
+    });
+    await observed.wait();
+    expect(observed.events).toEqual([
+      {
+        url: "https://x.example.com/api/copilotkit",
+        errorClass: "net::ERR_ABORTED",
+        responseStatus: null,
+      },
+    ]);
+  });
+
+  it.each([
+    ["resolved status", () => Promise.resolve({ status: () => 503 }), 503],
+    [
+      "synchronous response throw",
+      () => {
+        throw new Error("closed");
+      },
+      null,
+    ],
+    [
+      "status accessor throw",
+      () =>
+        Promise.resolve({
+          status: () => {
+            throw new Error("closed");
+          },
+        }),
+      null,
+    ],
+  ] as const)(
+    "retains the request diagnostic for %s",
+    async (_, response, responseStatus) => {
+      const { page, fire } = pageEvents();
+      const observed = delivery();
+      page.onRequestFailed?.(observed.handler);
+      expect(() =>
+        fire("requestfailed", {
+          url: () => "https://x.example.com/failed",
+          failure: () => ({ errorText: "net::ERR_ABORTED" }),
+          response,
+        }),
+      ).not.toThrow();
+      await observed.wait();
+      expect(observed.events).toEqual([
+        {
+          url: "https://x.example.com/failed",
+          errorClass: "net::ERR_ABORTED",
+          responseStatus,
+        },
+      ]);
+    },
+  );
+
+  it.each([null, undefined])(
+    "uses unknown when failure is %s",
+    async (failure) => {
+      const { page, fire } = pageEvents();
+      const observed = delivery();
+      page.onRequestFailed?.(observed.handler);
+      fire("requestfailed", {
+        url: () => "https://x.example.com/failed",
+        failure: failure === undefined ? undefined : () => failure,
+        response: () => Promise.resolve(null),
+      });
+      await observed.wait();
+      expect(observed.events).toEqual([
+        {
+          url: "https://x.example.com/failed",
+          errorClass: "unknown",
+          responseStatus: null,
+        },
+      ]);
+    },
+  );
+
+  it("retains captured URL and error when response lookup rejects after dispatch", async () => {
+    const { page, fire } = pageEvents();
+    const observed = delivery();
+    page.onRequestFailed?.(observed.handler);
+    let rejectResponse!: (error: Error) => void;
+    const response = new Promise<null>((_, reject) => {
+      rejectResponse = reject;
+    });
+    let url = "https://x.example.com/failed";
+    let errorText = "net::ERR_ABORTED";
+    fire("requestfailed", {
+      url: () => url,
+      failure: () => ({ errorText }),
+      response: () => response,
+    });
+    expect(observed.events).toEqual([]);
+    url = "https://x.example.com/changed";
+    errorText = "changed";
+    rejectResponse(
+      new Error("Target page, context or browser has been closed"),
+    );
+    await observed.wait();
+    expect(observed.events).toEqual([
+      {
+        url: "https://x.example.com/failed",
+        errorClass: "net::ERR_ABORTED",
+        responseStatus: null,
+      },
+    ]);
+  });
+
+  it("keeps independent requests associated when responses settle in reverse order", async () => {
+    const { page, fire } = pageEvents();
+    const observed = delivery(2);
+    page.onRequestFailed?.(observed.handler);
+    let resolveFirst!: (response: { status(): number }) => void;
+    let rejectSecond!: (error: Error) => void;
+    const first = new Promise<{ status(): number }>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const second = new Promise<null>((_, reject) => {
+      rejectSecond = reject;
+    });
+    fire("requestfailed", {
+      url: () => "https://x.example.com/first",
+      failure: () => ({ errorText: "first error" }),
+      response: () => first,
+    });
+    fire("requestfailed", {
+      url: () => "https://x.example.com/second",
+      failure: () => ({ errorText: "second error" }),
+      response: () => second,
+    });
+    rejectSecond(new Error("closed"));
+    resolveFirst({ status: () => 502 });
+    await observed.wait();
+    expect(observed.events).toHaveLength(2);
+    expect(observed.events).toEqual(
+      expect.arrayContaining([
+        {
+          url: "https://x.example.com/first",
+          errorClass: "first error",
+          responseStatus: 502,
+        },
+        {
+          url: "https://x.example.com/second",
+          errorClass: "second error",
+          responseStatus: null,
+        },
+      ]),
+    );
+  });
+
+  it("contains a throwing diagnostic consumer", async () => {
+    const { page, fire } = pageEvents();
+    const observed = delivery();
+    page.onRequestFailed?.((event) => {
+      observed.handler(event);
+      throw new Error("consumer failed");
+    });
+    expect(() =>
+      fire("requestfailed", {
+        url: () => "https://x.example.com/failed",
+        failure: () => ({ errorText: "net::ERR_ABORTED" }),
+        response: () => Promise.resolve(null),
+      }),
+    ).not.toThrow();
+    await observed.wait();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(observed.events).toHaveLength(1);
+  });
+
+  it("does not crash on malformed event accessors", async () => {
+    const { page, fire } = pageEvents();
+    const handler = vi.fn();
+    page.onRequestFailed?.(handler);
+    for (const request of [
+      null,
+      {},
+      {
+        url: () => {
+          throw new Error("invalid URL");
+        },
+      },
+      {
+        url: () => "https://x.example.com/failed",
+        failure: () => {
+          throw new Error("invalid failure");
+        },
+      },
+    ]) {
+      expect(() => fire("requestfailed", request)).not.toThrow();
+    }
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("survives delayed rejection and a throwing consumer under strict Node rejection handling", async () => {
+    const { stdout, stderr } = await promisify(execFile)(
+      process.execPath,
+      [
+        "--unhandled-rejections=strict",
+        "--import",
+        createRequire(import.meta.url).resolve("tsx"),
+        fileURLToPath(
+          new URL(
+            "../../../test/fixtures/d4-request-failed/strict.ts",
+            import.meta.url,
+          ),
+        ),
+      ],
+      { timeout: 5000 },
+    );
+    expect(stdout.trim()).toBe("D4_REQUEST_FAILED_DIAGNOSTIC_OK");
+    expect(stderr).toBe("");
+  }, 10000);
+});
+
 // ── Follow-up item 4: additional coverage (no production change) ─────────────
 //
 // These tests widen coverage over paths the #5882 CR deferred as bucket-(b):
@@ -1772,7 +2061,7 @@ describe("d4 CVDIAG observability fixes (M3 CR R3)", () => {
   }
 
   // ── FIX A: timing queue evicts on requestfailed / abort (no leak/stale) ────
-  it("FIX A: a responseless request that ABORTS does not leak a queue entry that mis-pairs a later same-URL response", () => {
+  it("FIX A: a responseless request that ABORTS does not leak a queue entry that mis-pairs a later same-URL response", async () => {
     // RED (pre-fix): the per-URL FIFO start-time queue only dequeued on a
     // `response`. A request that ABORTED / FAILED (e.g. a persistent SSE
     // stream, or a cancelled nav) left its start in the queue forever, so a
@@ -1808,7 +2097,12 @@ describe("d4 CVDIAG observability fixes (M3 CR R3)", () => {
     adapted.onResponse?.((r) => durations.push(r.durationMs));
     // Also wire the emission seam so the production listener topology (two
     // `requestfailed` listeners) is faithfully reproduced.
-    adapted.onRequestFailed?.(() => {});
+    const failed = vi.fn();
+    adapted.onRequestFailed?.(failed);
+    let rejectResponse!: (error: Error) => void;
+    const pendingResponse = new Promise<null>((_, reject) => {
+      rejectResponse = reject;
+    });
 
     const reqHandler = (a: unknown) => fire("request", a);
     const failHandler = (a: unknown) => fire("requestfailed", a);
@@ -1820,7 +2114,7 @@ describe("d4 CVDIAG observability fixes (M3 CR R3)", () => {
     const mkFail = () => ({
       url: () => URL,
       failure: () => ({ errorText: "net::ERR_ABORTED" }),
-      response: () => null,
+      response: () => pendingResponse,
     });
     const mkResp = () => ({
       url: () => URL,
@@ -1829,30 +2123,39 @@ describe("d4 CVDIAG observability fixes (M3 CR R3)", () => {
       request: () => ({ method: () => "POST" }),
     });
 
+    // Use the producer's monotonic clock seam so scheduler pauses cannot
+    // inflate the second request's duration. afterEach restores the spy.
+    let now = 100;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
     // First request issued, then ABORTS (no response ever arrives for it).
     reqHandler(mkReq());
     failHandler(mkFail());
-    // Burn a measurable gap so a stale-pairing would yield a LARGE duration,
-    // while a correct pairing (to the SECOND request below) stays tiny.
-    const gapUntil = performance.now() + 15;
-    while (performance.now() < gapUntil) {
-      /* spin */
-    }
+    // A stale first start yields 16 ms; a correct second start yields 1 ms.
+    now = 115;
     // A SECOND same-URL request issued, then responds quickly.
     reqHandler(mkReq());
-    const respUntil = performance.now() + 1;
-    while (performance.now() < respUntil) {
-      /* tiny spin */
-    }
+    now = 116;
     respHandler(mkResp());
 
     // Exactly one response observed.
     expect(durations.length).toBe(1);
-    // GREEN: duration reflects the SECOND request (a few ms), NOT the aborted
-    // first request (~15 ms+ pre-fix). The aborted start was evicted, so the
+    // GREEN: duration reflects the SECOND request (1 ms), NOT the aborted
+    // first request (16 ms pre-fix). The aborted start was evicted, so the
     // response paired with its own recent start. Pre-fix the stale first start
-    // was shifted → duration ≥ the 15 ms gap.
+    // was shifted → duration 16 ms.
     expect(durations[0]).toBeLessThan(10);
+    // Timing eviction completed even though diagnostic response lookup has
+    // not settled. Closing the browser later still delivers the failure.
+    expect(failed).not.toHaveBeenCalled();
+    rejectResponse(
+      new Error("Target page, context or browser has been closed"),
+    );
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(failed).toHaveBeenCalledExactlyOnceWith({
+      url: URL,
+      errorClass: "net::ERR_ABORTED",
+      responseStatus: null,
+    });
   });
 
   // ── FIX C: isMessagePost matches the AGENT-MESSAGE POST, not any POST ───────

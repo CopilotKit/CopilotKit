@@ -45,7 +45,11 @@ export const Slider = createReactComponent(SliderApi, ({ props }) => {
             {props.label}
           </label>
         )}
-        <span style={{ fontSize: "12px", color: "#666" }}>{props.value}</span>
+        <span
+          style={{ fontSize: "12px", color: "var(--a2ui-color-muted, #666)" }}
+        >
+          {props.value}
+        </span>
       </div>
       <input
         id={uniqueId}

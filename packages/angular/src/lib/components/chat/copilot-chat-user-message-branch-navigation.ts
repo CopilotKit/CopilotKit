@@ -10,6 +10,7 @@ import {
 import { ChevronLeft, ChevronRight, CopilotIcon } from "../icons/copilot-icon";
 import { type CopilotChatUserMessageOnSwitchToBranchProps } from "./copilot-chat-user-message.types";
 import { cn } from "../../utils";
+import { injectChatLabels } from "../../chat-config";
 import { UserMessage } from "@ag-ui/core";
 
 @Component({
@@ -22,7 +23,7 @@ import { UserMessage } from "@ag-ui/core";
       <div [class]="computedClass()">
         <button
           type="button"
-          aria-label="Previous message branch"
+          [attr.aria-label]="labels.userMessageToolbarPreviousBranchLabel"
           [class]="buttonClass"
           [disabled]="!canGoPrev()"
           (click)="handlePrevious()"
@@ -36,7 +37,7 @@ import { UserMessage } from "@ag-ui/core";
         </span>
         <button
           type="button"
-          aria-label="Next message branch"
+          [attr.aria-label]="labels.userMessageToolbarNextBranchLabel"
           [class]="buttonClass"
           [disabled]="!canGoNext()"
           (click)="handleNext()"
@@ -56,6 +57,7 @@ export class CopilotChatUserMessageBranchNavigation {
 
   readonly ChevronLeftIcon = ChevronLeft;
   readonly ChevronRightIcon = ChevronRight;
+  readonly labels = injectChatLabels();
 
   readonly buttonClass = cn(
     // Flex centering

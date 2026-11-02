@@ -92,8 +92,8 @@ class DeferredRenewalIntelligence extends CopilotKitIntelligence {
     };
   }
 
-  override async getThreadMessages() {
-    return { messages: [] };
+  override async ɵgetThreadMessageIds() {
+    return [];
   }
 
   override async ɵacquireThreadLock() {
@@ -183,8 +183,8 @@ class ScriptedRenewalIntelligence extends CopilotKitIntelligence {
     };
   }
 
-  override async getThreadMessages() {
-    return { messages: [] };
+  override async ɵgetThreadMessageIds() {
+    return [];
   }
 
   override async ɵacquireThreadLock() {

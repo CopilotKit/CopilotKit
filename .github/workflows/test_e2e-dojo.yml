@@ -8,7 +8,7 @@ on:
       - "sdk-python/**"
       - ".github/workflows/test_e2e-dojo.yml"
   pull_request:
-    branches: [main]
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
     paths:
       - "packages/**"
       - "sdk-python/**"

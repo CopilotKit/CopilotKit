@@ -173,6 +173,7 @@ describe("stateless /suggest leaves no thread in the local listing", () => {
     const runtime = new CopilotRuntime({
       agents: { helper: new SuggestStubAgent() },
       runner,
+      threads: { access: "open" },
     });
 
     const unique = `${Date.now()}-${Math.random()}`;

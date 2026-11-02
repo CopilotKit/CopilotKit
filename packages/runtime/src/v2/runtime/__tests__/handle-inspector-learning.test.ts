@@ -31,7 +31,7 @@ const snapshot = {
   links: {
     learning: "https://app.copilotkit.ai/learning",
     candidates: null,
-    runs: "https://app.copilotkit.ai/learning/runs",
+    runs: "https://app.copilotkit.ai/o/acme/support/learning/quality/analysis-results",
   },
 } as const;
 

@@ -11,3 +11,4 @@ export * from "./memory";
 export * from "./features";
 export * from "./interrupt-state";
 export * from "./inspector-thread-bridge";
+export * from "./a2ui-markdown";

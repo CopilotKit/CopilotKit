@@ -27,6 +27,7 @@ import {
   resolveAngularDoc,
 } from "../angular-doc-navigation";
 import { navTreeToPageTree } from "../page-tree-bridge";
+import { buildReferencePageTree } from "../reference-items";
 import type * as PageTree from "fumadocs-core/page-tree";
 
 function collectPageUrls(tree: PageTree.Root): string[] {
@@ -451,24 +452,46 @@ test("routes frontend sidebars to the most specific reference docs available", (
     "reference/react-native",
   );
   expect(getFrontendReferenceSlug("slack")).toBe("reference/channels");
-  expect(getFrontendReferenceSlug("vue")).toBe("reference");
+  expect(getFrontendReferenceSlug("vue")).toBe("reference/vue");
   expect(getFrontendReferenceSlug("teams")).toBe("reference/channels");
 });
 
-test("links the Vue quickstart to its guide with an href that survives rewriting", () => {
+test("keeps Vue sidebar and reference links reachable", () => {
+  const urls = collectPageUrls(
+    navTreeToPageTree(getFrontendQuickstartNavTree("vue"), "/vue"),
+  );
+  expect(urls).toEqual(
+    expect.arrayContaining([
+      "/vue/AG-UI-Streams",
+      "/vue/generative-ui/tool-rendering",
+      "/reference/vue",
+    ]),
+  );
+  for (const url of urls.filter((href) => href.startsWith("/vue/"))) {
+    expect(
+      resolveFrontendDocPage("vue", url.slice("/vue/".length)).status,
+      url,
+    ).toBe("found");
+  }
+  expect(collectPageUrls(buildReferencePageTree("vue"))).toEqual(
+    expect.arrayContaining([
+      "/reference/vue/hooks/useThreads",
+      "/reference/vue/components/CopilotThreadsDrawer",
+    ]),
+  );
+});
+
+test("links the Vue quickstart to a reachable Vue guide", () => {
   const quickstart = loadDoc(getFrontendContentSlug("vue"));
   const href = quickstart?.source.match(
-    /\]\((\S*guides\/generative-ui)\)/,
+    /\]\((\/vue\/generative-ui\/tool-based)\)/,
   )?.[1];
 
-  // A relative or root-relative href is passed through untouched by
-  // resolveDocsHref, so the browser would resolve it against `/vue` and land
-  // on `/guides/generative-ui`, which does not exist.
-  expect(href).toBe("/vue/guides/generative-ui");
+  expect(href).toBe("/vue/generative-ui/tool-based");
 
   const rendered = resolveDocsHref(href, { slugHrefPrefix: "/vue" });
-  expect(rendered).toBe("/vue/guides/generative-ui");
-  expect(resolveFrontendDocPage("vue", "guides/generative-ui").status).toBe(
+  expect(rendered).toBe("/vue/generative-ui/tool-based");
+  expect(resolveFrontendDocPage("vue", "generative-ui/tool-based").status).toBe(
     "found",
   );
 });

@@ -5,9 +5,10 @@ describe("normalizePlatform", () => {
   it("passes through known platforms and buckets the rest as custom", () => {
     expect(normalizePlatform("slack")).toBe("slack");
     expect(normalizePlatform("discord")).toBe("discord");
-    expect(normalizePlatform("telegram")).toBe("telegram");
     expect(normalizePlatform("whatsapp")).toBe("whatsapp");
     expect(normalizePlatform("teams")).toBe("teams");
+    // The retired Telegram adapter's label buckets with custom adapters.
+    expect(normalizePlatform("telegram")).toBe("custom");
     // Free-form / custom adapter labels must not leak through.
     expect(normalizePlatform("acme-internal-tenant")).toBe("custom");
     expect(normalizePlatform("fake")).toBe("custom");

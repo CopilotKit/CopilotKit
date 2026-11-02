@@ -8,6 +8,7 @@ import {
 
 import { ChevronDown, CopilotIcon } from "../icons/copilot-icon";
 import { cn } from "../../utils";
+import { injectChatLabels } from "../../chat-config";
 
 /**
  * ScrollToBottomButton component for CopilotChatView
@@ -21,7 +22,7 @@ import { cn } from "../../utils";
   template: `
     <button
       type="button"
-      aria-label="Scroll to bottom"
+      [attr.aria-label]="labels.chatScrollToBottomLabel"
       [class]="computedClass"
       [disabled]="disabled()"
       (click)="handleClick()"
@@ -42,6 +43,8 @@ export class CopilotChatViewScrollToBottomButton {
 
   // Simple, idiomatic Angular output
   clicked = output<void>();
+
+  readonly labels = injectChatLabels();
 
   // Icon reference
   protected readonly ChevronDown = ChevronDown;

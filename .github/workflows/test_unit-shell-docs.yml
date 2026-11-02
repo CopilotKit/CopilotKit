@@ -2,7 +2,7 @@ name: test / unit-shell-docs
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
     paths:
       - "showcase/shell-docs/**"
       - "showcase/scripts/**"

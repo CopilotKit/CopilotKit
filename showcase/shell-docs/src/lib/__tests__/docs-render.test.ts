@@ -171,6 +171,18 @@ describe("inlineSnippets", () => {
 });
 
 describe("loadDoc", () => {
+  it("resolves the AG-UI Streams overview at its canonical root and authored framework paths", () => {
+    for (const slug of [
+      "AG-UI-Streams",
+      "integrations/built-in-agent/AG-UI-Streams",
+      "integrations/mastra/AG-UI-Streams",
+      "integrations/deepagents/AG-UI-Streams",
+    ]) {
+      expect(loadDoc(slug)?.fm.title, slug).toBe("AG-UI Streams");
+    }
+    expect(loadDoc("threads")).toBeNull();
+  });
+
   it("resolves clean URLs to files stored under route-group folders", () => {
     // llamaindex is an `authored` integration, so this file is served content
     // rather than a copy the root page shadows. The aws-strands equivalent
@@ -199,7 +211,7 @@ describe("readTitle", () => {
     );
 
     expect(readTitle(filePath)).toBe("Overview");
-    expect(loadDoc("threads")?.fm.title).toBe("AG-UI Streams");
+    expect(loadDoc("AG-UI-Streams")?.fm.title).toBe("AG-UI Streams");
   });
 });
 
@@ -210,7 +222,7 @@ describe("framework nav", () => {
     expect(navAncestorBreadcrumbsForSlug(navTree, "frontend-tools")).toEqual([
       { label: "Basics", href: null },
     ]);
-    expect(navAncestorBreadcrumbsForSlug(navTree, "threads")).toEqual([
+    expect(navAncestorBreadcrumbsForSlug(navTree, "AG-UI-Streams")).toEqual([
       { label: "Intelligence", href: null },
       { label: "Features", href: null },
       { label: "AG-UI Streams", href: null },
@@ -290,5 +302,47 @@ it("keeps the existing-thread guide discoverable in root and framework sidebars"
     expect(
       groupPageEntries(normalizeSidebarNav(nav), "AG-UI Streams"),
     ).toContainEqual(expected);
+  }
+});
+
+it("groups Trajectories guides without moving the other Intelligence features", () => {
+  const expectedSlugs = [
+    "intelligence/trajectories",
+    "intelligence/trajectories-quickstart",
+    "intelligence/capture-interactions",
+    "intelligence/captured-data",
+    "intelligence/trajectories-reference",
+  ];
+  for (const slug of expectedSlugs) {
+    expect(loadDoc(slug)?.fm.earlyAccess, slug).toBe("trajectories");
+  }
+  for (const nav of [
+    buildRootSurfaceNav("built-in-agent"),
+    buildFrameworkNav("langgraph", "LangGraph (Python)", "langgraph-python"),
+    buildFrameworkOnlyNav("ag2"),
+  ]) {
+    const normalized = normalizeSidebarNav(nav);
+    expect(
+      groupPageEntries(normalized, "Trajectories").map(({ slug }) => slug),
+    ).toEqual(expectedSlugs);
+    expect(
+      groupPageEntries(normalized, "Automatic Learning").map(
+        ({ slug }) => slug,
+      ),
+    ).toEqual(["learning", "intelligence/learned-skills"]);
+    expect(hasSectionPage(normalized, "Intelligence", "User Memories")).toBe(
+      true,
+    );
+    // Angular capture routes to the standalone collector, so it stays in the
+    // Intelligence nav, outside the Trajectories group pinned above.
+    expect(
+      hasSectionPage(normalized, "Intelligence", "Standalone collector"),
+    ).toBe(true);
+    expect(
+      navAncestorBreadcrumbsForSlug(
+        normalized,
+        "intelligence/capture-interactions",
+      )?.map(({ label }) => label),
+    ).toEqual(["Intelligence", "Features", "Trajectories"]);
   }
 });

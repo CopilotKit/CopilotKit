@@ -249,8 +249,11 @@ Before you begin, you'll need the following:
         ### Install CopilotKit packages
 
         ```npm
-        npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
+        npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
         ```
+
+        The **FastAPI** route below imports `HttpAgent` from `@ag-ui/client`.
+        Version `1.0.2` matches the one `@copilotkit/runtime` uses.
     </Step>
     <Step>
         ### Setup Copilot Runtime
@@ -258,7 +261,7 @@ Before you begin, you'll need the following:
         Create an API route to connect CopilotKit to your Deep Agent:
 
         ```sh
-        mkdir -p app/api/copilotkit && touch app/api/copilotkit/route.ts
+        mkdir -p "app/api/copilotkit/[[...slug]]" && touch "app/api/copilotkit/[[...slug]]/route.ts"
         ```
 
         <Callout type="info" title="Using Next.js is optional">
@@ -303,6 +306,8 @@ Before you begin, you'll need the following:
 
                 export const GET = handler;
                 export const POST = handler;
+                export const PATCH = handler;
+                export const DELETE = handler;
                 ```
             </Tab>
             <Tab value="FastAPI">
@@ -338,6 +343,8 @@ Before you begin, you'll need the following:
 
                 export const GET = handler;
                 export const POST = handler;
+                export const PATCH = handler;
+                export const DELETE = handler;
                 ```
             </Tab>
         </Tabs>
@@ -370,13 +377,13 @@ Before you begin, you'll need the following:
         ```tsx title="app/providers.tsx"
         "use client";
 
-        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
         export function Providers({ children }: { children: React.ReactNode }) {
           return (
-            <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint={false}>
+            <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="sample_agent" useSingleEndpoint={false}>
               {children}
-            </CopilotKit>
+            </CopilotKitProvider>
           );
         }
         ```

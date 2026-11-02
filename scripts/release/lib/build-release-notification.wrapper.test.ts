@@ -145,14 +145,14 @@ describe("resolvePackageCountSafe", () => {
   });
 
   it("returns the real package count for the monorepo scope (drift guard)", () => {
-    // Pins the actual count from release.config.json (17). If the package set
+    // Pins the actual count from release.config.json (18). If the package set
     // drifts, this catches the staleness of the hardcoded "16 packages"
     // assertions in build-release-notification.test.ts.
-    expect(resolvePackageCountSafe("monorepo")).toBe(17);
+    expect(resolvePackageCountSafe("monorepo")).toBe(18);
   });
 
   it("returns the real package count for the shared Channels scope (drift guard)", () => {
-    expect(resolvePackageCountSafe("channels")).toBe(9);
+    expect(resolvePackageCountSafe("channels")).toBe(8);
   });
 
   it("resolves a positive count for EVERY scope in release.config.json (anti-drift)", () => {

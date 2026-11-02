@@ -52,6 +52,24 @@ export async function parseSSEResponse(
   const toolCallParent = new Map<string, string>(); // toolCallId → messageId
   let snapshotMessages: Message[] | undefined;
 
+  // Link a tool call to its assistant message the way @ag-ui/client does. A
+  // tool-only turn streams no TEXT_MESSAGE_START, so the parent may not exist
+  // yet; create it, keyed by toolCallId when parentMessageId is missing or
+  // names a non-assistant message.
+  const linkToolCallParent = (toolCallId: string, parentMessageId?: string) => {
+    const parent = parentMessageId
+      ? messagesById.get(parentMessageId)
+      : undefined;
+    const parentId =
+      parentMessageId && (!parent || parent.role === "assistant")
+        ? parentMessageId
+        : toolCallId;
+    if (!messagesById.has(parentId)) {
+      messagesById.set(parentId, { id: parentId, role: "assistant" });
+    }
+    toolCallParent.set(toolCallId, parentId);
+  };
+
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed.startsWith("data:")) continue;
@@ -116,9 +134,7 @@ export async function parseSSEResponse(
           args: "",
         };
         toolCallsById.set(event.toolCallId, tc);
-        if (event.parentMessageId) {
-          toolCallParent.set(event.toolCallId, event.parentMessageId);
-        }
+        linkToolCallParent(event.toolCallId, event.parentMessageId);
         break;
       }
 
@@ -142,9 +158,7 @@ export async function parseSSEResponse(
               args: "",
             };
             toolCallsById.set(event.toolCallId, tc);
-            if (event.parentMessageId) {
-              toolCallParent.set(event.toolCallId, event.parentMessageId);
-            }
+            linkToolCallParent(event.toolCallId, event.parentMessageId);
           }
           if (event.toolCallName) {
             tc.name = event.toolCallName;

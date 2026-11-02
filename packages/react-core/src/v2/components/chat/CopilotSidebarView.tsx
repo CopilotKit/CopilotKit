@@ -9,11 +9,13 @@ import {
   ControlledModalOpenScope,
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
+  CopilotChatDefaultLabels,
 } from "../../providers/CopilotChatConfigurationProvider";
 import { useModalOpenControl } from "./modal-open-control";
 import CopilotChatToggleButton from "./CopilotChatToggleButton";
 import { cn } from "../../lib/utils";
 import { CopilotModalHeader } from "./CopilotModalHeader";
+import type { CopilotModalHeaderProps } from "./CopilotModalHeader";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 
@@ -21,13 +23,18 @@ const DEFAULT_SIDEBAR_WIDTH = 480;
 const SIDEBAR_TRANSITION_MS = 260;
 
 export type CopilotSidebarViewProps = CopilotChatViewProps & {
-  header?: SlotValue<typeof CopilotModalHeader>;
+  /** Accepts a className, partial props, or any component with CopilotModalHeader props — static namespace members are not required. */
+  header?: SlotValue<React.ComponentType<CopilotModalHeaderProps>>;
   toggleButton?: SlotValue<typeof CopilotChatToggleButton>;
   width?: number | string;
   defaultOpen?: boolean;
   position?: "left" | "right";
 };
 
+/**
+ * The chat in a side panel: a `complementary` region named by
+ * `labels.sidebarLabel`, with a header, the chat view and a toggle button.
+ */
 export function CopilotSidebarView({
   header,
   toggleButton,
@@ -212,7 +219,10 @@ function CopilotSidebarViewInternal({
           } as React.CSSProperties
         }
         aria-hidden={!isSidebarOpen}
-        aria-label="Copilot chat sidebar"
+        aria-label={
+          configuration?.labels.sidebarLabel ??
+          CopilotChatDefaultLabels.sidebarLabel
+        }
         role="complementary"
       >
         <div className="cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden">

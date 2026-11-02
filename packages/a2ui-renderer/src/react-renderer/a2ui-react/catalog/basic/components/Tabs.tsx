@@ -17,7 +17,7 @@
 import { useState } from "react";
 import { createReactComponent } from "../../../adapter";
 import { TabsApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { LEAF_MARGIN } from "../utils";
+import { LEAF_MARGIN, STANDARD_BORDER } from "../utils";
 
 // The type of a tab is deeply nested into the TabsApi schema, and
 // it seems z.infer is not inferring it correctly (?). We use `any` for now.
@@ -42,7 +42,7 @@ export const Tabs = createReactComponent(TabsApi, ({ props, buildChild }) => {
       <div
         style={{
           display: "flex",
-          borderBottom: "1px solid #ccc",
+          borderBottom: STANDARD_BORDER,
           marginBottom: "8px",
         }}
       >

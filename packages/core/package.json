@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/core",
-  "version": "1.79.1",
+  "version": "1.83.0",
   "description": "Core web utilities for CopilotKit2",
   "license": "MIT",
   "repository": {
@@ -37,9 +37,10 @@
   },
   "dependencies": {
     "@ag-ui/client": "1.0.2",
-    "@copilotkit/learning": "workspace:^",
+    "@copilotkit/learning": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@tanstack/pacer": "^0.20.1",
+    "jsonrepair": "^3.15.0",
     "phoenix": "^1.8.4",
     "rxjs": "7.8.1",
     "zod-to-json-schema": "^3.24.6"

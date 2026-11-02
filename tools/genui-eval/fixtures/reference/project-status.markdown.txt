@@ -1,0 +1,27 @@
+Here's where your five projects stand as of today, Wednesday, October 28. **Three of the five need attention**, and one of them is due this week.
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"portfolio-summary","components":[{"id":"root","component":"Grid","columns":3,"gap":3,"children":["tile-on","tile-risk","tile-late"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"portfolio-summary","components":[{"id":"tile-on","component":"Column","gap":1,"padding":4,"radius":"lg","border":true,"borderColor":"subtle","children":["num-on","badge-on","note-on"]},{"id":"num-on","component":"Title","size":"3xl","text":"2"},{"id":"badge-on","component":"Row","children":["badge-on-pill"]},{"id":"note-on","component":"Caption","size":"md","color":"secondary","text":"Website relaunch, API v2"},{"id":"tile-risk","component":"Column","gap":1,"padding":4,"radius":"lg","border":true,"borderColor":"subtle","children":["num-risk","badge-risk","note-risk"]},{"id":"num-risk","component":"Title","size":"3xl","text":"2"},{"id":"badge-risk","component":"Row","children":["badge-risk-pill"]},{"id":"note-risk","component":"Caption","size":"md","color":"secondary","text":"Onboarding flow, Mobile app"},{"id":"tile-late","component":"Column","gap":1,"padding":4,"radius":"lg","border":true,"borderColor":"subtle","children":["num-late","badge-late","note-late"]},{"id":"num-late","component":"Title","size":"3xl","text":"1"},{"id":"badge-late","component":"Row","children":["badge-late-pill"]},{"id":"note-late","component":"Caption","size":"md","color":"secondary","text":"Data migration"},{"id":"badge-on-pill","component":"Badge","label":"On track","color":"success"},{"id":"badge-risk-pill","component":"Badge","label":"At risk","color":"warning"},{"id":"badge-late-pill","component":"Badge","label":"Late","color":"danger"}]}}
+```
+
+### All projects, by deadline
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"project-table","components":[{"id":"root","component":"Column","children":["table"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"project-table","components":[{"id":"table","component":"Table","caption":"Projects by deadline","columns":["Project","Owner","Due","Time left","Status"],"rows":[[{"componentId":"proj-1"},"Chris","Oct 30","2 days",{"componentId":"st-1"}],[{"componentId":"proj-2"},"Anna","Nov 15","18 days",{"componentId":"st-2"}],[{"componentId":"proj-3"},"Eli","Nov 20","23 days",{"componentId":"st-3"}],[{"componentId":"proj-4"},"Ben","Dec 1","34 days",{"componentId":"st-4"}],[{"componentId":"proj-5"},"Dana","Jan 10, 2027","74 days",{"componentId":"st-5"}]],"cellComponents":["proj-1","st-1","proj-2","st-2","proj-3","st-3","proj-4","st-4","proj-5","st-5"]},{"id":"proj-1","component":"Text","fontWeight":"medium","text":"Data migration"},{"id":"st-1","component":"Badge","label":"Late","color":"danger","size":"sm"},{"id":"proj-2","component":"Text","fontWeight":"medium","text":"Website relaunch"},{"id":"st-2","component":"Badge","label":"On track","color":"success","size":"sm"},{"id":"proj-3","component":"Text","fontWeight":"medium","text":"Onboarding flow"},{"id":"st-3","component":"Badge","label":"At risk","color":"warning","size":"sm"},{"id":"proj-4","component":"Text","fontWeight":"medium","text":"Mobile app"},{"id":"st-4","component":"Badge","label":"At risk","color":"warning","size":"sm"},{"id":"proj-5","component":"Text","fontWeight":"medium","text":"API v2"},{"id":"st-5","component":"Badge","label":"On track","color":"success","size":"sm"}]}}
+```
+
+### What to focus on
+
+1. **Data migration (Chris): act today.** It's due Friday and already marked late, so the October 30 date is very unlikely to hold. Find out what's blocking it, agree on a realistic new date, and tell anyone who depends on the migrated data. Check whether the website relaunch on Nov 15 relies on it.
+2. **Onboarding flow (Eli): high priority.** At risk with a little over three weeks to go, which is still enough time to recover if you cut scope or add help now.
+3. **Mobile app (Ben): review the plan.** At risk, but with about five weeks left. Look at the remaining milestones and decide what can move to a later release.
+4. **Website relaunch (Anna) and API v2 (Dana): healthy.** Keep the regular check-ins. The relaunch is the next one due, so confirm it isn't waiting on the data migration.
+
+**Overall:** the portfolio needs attention but isn't in crisis. One short recovery session with Chris, Eli and Ben this week, starting with the data migration, would cover all three problem projects.
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"status-next","components":[{"id":"root","component":"Column","children":["next"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"status-next","components":[{"id":"next","component":"FollowUp","title":"Want me to help with the next step?","items":[{"label":"Draft a check-in for Chris","message":"Draft a short message to Chris asking what's blocking the data migration and what a realistic new date is."},{"label":"Agenda for a recovery review","message":"Write a 30-minute agenda for a recovery review with Chris, Eli and Ben."},{"label":"Write a stakeholder update","message":"Turn this status overview into a short update for stakeholders."}]}]}}
+```

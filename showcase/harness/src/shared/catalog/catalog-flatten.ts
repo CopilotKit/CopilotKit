@@ -18,7 +18,7 @@
  * (`tsc -p tsconfig.build.json`, `rootDir: src`) cannot import a file outside
  * `src/`, whereas the codegen script runs under `tsx` (no emit, no rootDir) and
  * imports across packages freely — the established direction (cf.
- * `scripts/equivalence-gate.ts` importing `shell-dashboard/src`).
+ * `scripts/equivalence-gate.ts` importing `harness/src/shared/cell-model`).
  *
  * The pure flatten (`generateCatalog` / `determineCellStatus`) is
  * side-effect-free over its inputs: it never touches `console` or

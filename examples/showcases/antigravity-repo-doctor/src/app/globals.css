@@ -1,0 +1,245 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ───────────────────────── design tokens ─────────────────────────
+   Light is the base; .dark on <html> switches every token. The theme script
+   in layout.tsx sets the class before first paint. */
+:root {
+  --rd-bg: oklch(0.985 0.002 285);
+  --rd-surface: oklch(0.97 0.003 285);
+  --rd-panel: oklch(1 0 0);
+  --rd-raised: oklch(0.955 0.004 285);
+  --rd-line: oklch(0 0 0 / 9%);
+  --rd-line-strong: oklch(0 0 0 / 16%);
+  --rd-tint-1: oklch(0 0 0 / 2.5%);
+  --rd-tint-2: oklch(0 0 0 / 4.5%);
+  --rd-tint-3: oklch(0 0 0 / 8%);
+  --rd-text: oklch(0.2 0.01 285);
+  --rd-dim: oklch(0.42 0.012 285);
+  --rd-faint: oklch(0.52 0.012 285);
+  --rd-accent: oklch(0.52 0.2 286);
+  --rd-accent-ink: oklch(0.99 0 0);
+  --rd-pass: oklch(0.55 0.15 155);
+  --rd-fail: oklch(0.56 0.2 25);
+  --rd-warn: oklch(0.6 0.14 65);
+  --rd-add-bg: oklch(0.6 0.15 155 / 9%);
+  --rd-add-gutter: oklch(0.6 0.15 155 / 16%);
+  --rd-del-bg: oklch(0.6 0.2 25 / 8%);
+  --rd-del-gutter: oklch(0.6 0.2 25 / 15%);
+  --rd-card-shadow:
+    0 1px 2px oklch(0 0 0 / 6%), 0 8px 24px -16px oklch(0 0 0 / 18%);
+  --rd-card-sheen: oklch(1 0 0 / 0%);
+  --rd-input-shadow: 0 12px 32px -18px oklch(0 0 0 / 25%);
+}
+
+.dark {
+  --rd-bg: oklch(0.145 0.004 285);
+  --rd-surface: oklch(0.162 0.005 285);
+  --rd-panel: oklch(0.182 0.005 285);
+  --rd-raised: oklch(0.222 0.006 285);
+  --rd-line: oklch(1 0 0 / 9%);
+  --rd-line-strong: oklch(1 0 0 / 16%);
+  --rd-tint-1: oklch(1 0 0 / 2.5%);
+  --rd-tint-2: oklch(1 0 0 / 4.5%);
+  --rd-tint-3: oklch(1 0 0 / 8%);
+  --rd-text: oklch(0.96 0.004 285);
+  --rd-dim: oklch(0.8 0.01 285);
+  --rd-faint: oklch(0.66 0.012 285);
+  --rd-accent: oklch(0.76 0.14 286);
+  --rd-accent-ink: oklch(0.2 0.03 286);
+  --rd-pass: oklch(0.8 0.15 158);
+  --rd-fail: oklch(0.74 0.17 22);
+  --rd-warn: oklch(0.84 0.13 80);
+  --rd-add-bg: oklch(0.78 0.15 158 / 9%);
+  --rd-add-gutter: oklch(0.78 0.15 158 / 16%);
+  --rd-del-bg: oklch(0.71 0.18 22 / 10%);
+  --rd-del-gutter: oklch(0.71 0.18 22 / 18%);
+  --rd-card-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 4%), 0 1px 2px oklch(0 0 0 / 30%);
+  --rd-card-sheen: oklch(1 0 0 / 2%);
+  --rd-input-shadow: 0 12px 32px -14px oklch(0 0 0 / 70%);
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --color-bg: var(--rd-bg);
+  --color-surface: var(--rd-surface);
+  --color-panel: var(--rd-panel);
+  --color-raised: var(--rd-raised);
+  --color-line: var(--rd-line);
+  --color-line-strong: var(--rd-line-strong);
+  --color-tint-1: var(--rd-tint-1);
+  --color-tint-2: var(--rd-tint-2);
+  --color-tint-3: var(--rd-tint-3);
+  --color-text: var(--rd-text);
+  --color-dim: var(--rd-dim);
+  --color-faint: var(--rd-faint);
+  --color-accent: var(--rd-accent);
+  --color-accent-ink: var(--rd-accent-ink);
+  --color-pass: var(--rd-pass);
+  --color-fail: var(--rd-fail);
+  --color-warn: var(--rd-warn);
+}
+
+@layer base {
+  * {
+    border-color: var(--rd-line);
+  }
+  html {
+    background: var(--rd-bg);
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    background: var(--rd-bg);
+    color: var(--rd-text);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid color-mix(in oklch, var(--rd-accent) 70%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Every boxed component in the app. */
+  .card {
+    background:
+      linear-gradient(180deg, var(--rd-card-sheen), transparent 48px),
+      var(--rd-panel);
+    border: 1px solid var(--rd-line);
+    border-radius: 16px;
+    box-shadow: var(--rd-card-shadow);
+  }
+  /* Small section and card labels. */
+  .eyebrow {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--rd-dim);
+  }
+  .enter {
+    animation: enter 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rd-tint-3) transparent;
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter {
+    animation: none;
+  }
+}
+
+/* ───────────────────────── CopilotKit chat ─────────────────────────
+   The chat lives inside [data-copilotkit], which carries its own tokens. These
+   rules keep it on the app's palette and type scale. */
+.chat-host [data-copilotkit] {
+  --cpk-default-font-family:
+    var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --cpk-default-mono-font-family:
+    var(--font-geist-mono), ui-monospace, monospace;
+  background: var(--rd-bg);
+  color: var(--rd-text);
+}
+.chat-host [data-testid="copilot-chat-input"] {
+  background: var(--rd-panel);
+  border: 1px solid var(--rd-line);
+  box-shadow: var(--rd-input-shadow);
+}
+.chat-host [data-testid="copilot-chat-input"]:focus-within {
+  border-color: var(--rd-line-strong);
+}
+.chat-host [data-testid="copilot-chat-textarea"] {
+  font-size: 17px;
+  color: var(--rd-text);
+}
+.chat-host [data-testid="copilot-user-message"] {
+  font-size: 17px;
+}
+/* Assistant prose: the chat's main reading text. */
+.chat-host [data-testid="copilot-assistant-message"] .cpk\:prose {
+  font-size: 17px;
+  line-height: 1.65;
+  color: var(--rd-text);
+}
+
+/* Code that wraps at spaces and keeps its indentation; only a single token
+   longer than the line is broken. Used for commands, diffs and output. */
+.wrap-code {
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Vertical rhythm in the chat. Tool rows stack as one compact trail; every
+   card (CI results, approvals, diffs, test reports) sits 20px from whatever
+   is above and below it. Assistant text already carries its own ~20px
+   paragraph margins, so no extra space is added next to it. */
+.chat-host
+  [data-testid="copilot-message-list"]
+  > :not(
+    [data-testid="copilot-user-message"],
+    [data-testid="copilot-assistant-message"]:has(
+      > .cpk\:prose :is(p, ul, ol, pre, blockquote, h1, h2, h3)
+    )
+  )
+  + :is([data-chat-block="card"], :has([data-chat-block="card"])):not(
+    :has(> .cpk\:prose :is(p, ul, ol, pre, blockquote, h1, h2, h3))
+  ),
+.chat-host
+  [data-testid="copilot-message-list"]
+  > :is([data-chat-block="card"], :has([data-chat-block="card"]))
+  + :not(
+    [data-testid="copilot-assistant-message"]:has(
+      > .cpk\:prose :is(p, ul, ol, pre, blockquote, h1, h2, h3)
+    )
+  ) {
+  margin-top: 20px;
+}
+/* The A2UI renderer pads each surface by 24px top and bottom; the rhythm above
+   already spaces the test report like every other card. */
+.chat-host [data-testid="copilot-message-list"] :has(> * > .a2ui-surface) {
+  padding-block: 0;
+}
+
+/* Typography adds literal backticks around inline code; the chip already marks it. */
+.chat-host .cpk\:prose :where(code)::before,
+.chat-host .cpk\:prose :where(code)::after {
+  content: none;
+}

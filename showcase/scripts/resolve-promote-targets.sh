@@ -38,6 +38,20 @@
 #   INPUT      (required)  the workflow_dispatch `service` value (SSOT key,
 #                          dispatch_name, or 'all').
 #   DIGEST     (optional)  the workflow_dispatch `digest` override.
+#   HOLD       (optional)  the workflow_dispatch `hold` value: comma-separated
+#                          SSOT keys / dispatch_names to leave UNTOUCHED in prod.
+#                          Each held service is removed from services_csv,
+#                          closure_csv and closure_plan, so prod keeps its
+#                          CURRENT image. No gate is skipped: the prod gates that
+#                          exercise a held service (equivalence re-sweep on the
+#                          prod harness, lint-prod) see its current prod image.
+#                          Fails CLOSED (rejected loud, nothing emitted) on: any
+#                          value promote-input-guard.sh rejects (anything but
+#                          [a-z0-9-] names joined by commas: CR/LF/tab/space,
+#                          an empty entry, a leading '-', or a name not in the
+#                          SSOT), a name not in this promote's closure,
+#                          the requested service itself, or a hold that empties
+#                          the promote set.
 #   GENERATED  (optional)  path to railway-envs.generated.json
 #                          (default: showcase/scripts/railway-envs.generated.json,
 #                          resolved relative to this script).
@@ -46,12 +60,17 @@
 #   services_csv   leaf-set CSV (backward-compat promote target).
 #   closure_csv    tier-ordered closure SSOT-name CSV.
 #   closure_plan   tier-annotated `tier:name` CSV for U4.
+#   held_csv       SSOT names held out of this promote (empty when HOLD unset).
+#   digest_service SSOT name the DIGEST override applies to (empty when DIGEST
+#                  is unset). promote-fleet.sh forwards --digest to ONLY this
+#                  service, never to the rest of the closure.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INPUT="${INPUT:-}"
 DIGEST="${DIGEST:-}"
+HOLD="${HOLD:-}"
 GENERATED="${GENERATED:-$SCRIPT_DIR/railway-envs.generated.json}"
 
 if [ ! -f "$GENERATED" ]; then
@@ -64,6 +83,52 @@ if [ "$INPUT" = "__select_a_service__" ] || [ -z "$INPUT" ]; then
   echo "::error::No service selected. Re-run and pick a service (or 'all') from the dropdown."
   exit 1
 fi
+
+# --- guard: the one input-validation guard (promote-input-guard.sh) ----------
+# Validate every human-supplied value WHOLE before it is parsed; fail closed.
+# shellcheck source=SCRIPTDIR/promote-input-guard.sh disable=SC1091
+. "$SCRIPT_DIR/promote-input-guard.sh"
+SSOT_NAMES_OR_DISPATCH=$(guard_ssot_names "$GENERATED" name_or_dispatch) || exit 1
+if [ "$INPUT" != "all" ]; then
+  guard_service_csv "'service'" "$INPUT" "$SSOT_NAMES_OR_DISPATCH" || exit 1
+  case "$INPUT" in
+    *,*)
+      echo "::error::'service' must be ONE service (or 'all'), got a list: '$INPUT'"
+      exit 1
+      ;;
+  esac
+fi
+guard_digest "'digest'" "$DIGEST" || exit 1
+
+# ---------------------------------------------------------------------------
+# 0. HOLD — resolve each held name to exactly one SSOT name. Fail loud on a
+#    typo: an unrecognised name would otherwise silently promote the service
+#    the operator meant to hold.
+# ---------------------------------------------------------------------------
+HELD=""
+# The WHOLE value is validated before it is split (promote-input-guard.sh): only
+# known SSOT names / dispatch_names of [a-z0-9-] joined by commas, no empty
+# entry, no leading '-'. In particular a CR or LF never gets through — `read`
+# stops at the first newline, so a pasted multi-line list would otherwise drop
+# every held name after line one and promote services the operator meant to
+# hold.
+guard_service_csv "'hold'" "$HOLD" "$SSOT_NAMES_OR_DISPATCH" allow_empty || exit 1
+if [ -n "$HOLD" ]; then
+  IFS=',' read -ra HOLD_TOKENS <<< "$HOLD"
+  for tok in "${HOLD_TOKENS[@]}"; do
+    HMATCH=$(jq -r --arg s "$tok" '.services[] | select(.name == $s or .dispatchName == $s) | .name' "$GENERATED")
+    HCOUNT=$(printf '%s' "$HMATCH" | grep -c . || true)
+    if [ "$HCOUNT" -ne 1 ]; then
+      echo "::error::Cannot hold '$tok': it does not match exactly one SSOT service (key or dispatch_name)."
+      exit 1
+    fi
+    case ",$HELD," in
+      *",$HMATCH,"*) ;;
+      *) HELD="${HELD:+$HELD,}$HMATCH" ;;
+    esac
+  done
+fi
+HELD_JSON=$(jq -nc --arg h "$HELD" '$h | split(",") | map(select(length > 0))')
 
 # ---------------------------------------------------------------------------
 # 1. Leaf-set services_csv (BACKWARD-COMPAT — identical to the prior inline path)
@@ -111,11 +176,24 @@ else
     echo "::error::Ambiguous service '$INPUT' matches multiple SSOT entries: $LIST"
     exit 1
   fi
+  case ",$HELD," in
+    *",$MATCHES,"*)
+      echo "::error::Cannot hold '$MATCHES': it is the service this run promotes. Remove it from 'hold' or pick another service."
+      exit 1
+      ;;
+  esac
   CSV="$MATCHES"
   REQUESTED="$MATCHES"
 fi
 
-echo "services_csv=$CSV" >> "$GITHUB_OUTPUT"
+# A digest identifies ONE image: the requested service's. Emit that service's
+# SSOT name so promote-fleet.sh forwards --digest to it ONLY, and never pins the
+# rest of the closure (aimock, harness, dashboard, ...) to that image. The 'all'
+# branch already rejected DIGEST, so CSV is a single name here.
+DIGEST_SERVICE=""
+if [ -n "$DIGEST" ]; then
+  DIGEST_SERVICE="$CSV"
+fi
 
 # ---------------------------------------------------------------------------
 # 2. Tiered promote CLOSURE (computed from the generated `closure` block).
@@ -135,7 +213,8 @@ REQUESTED_JSON=$(printf '%s\n' "$REQUESTED" | jq -R . | jq -s 'map(select(length
 
 CLOSURE_PLAN_JSON=$(jq -n \
   --slurpfile gen "$GENERATED" \
-  --argjson requested "$REQUESTED_JSON" '
+  --argjson requested "$REQUESTED_JSON" \
+  --argjson held "$HELD_JSON" '
   ($gen[0]) as $g
   # name -> tier from the authoritative closure ordering.
   | ($g.closure.services) as $ordered
@@ -169,9 +248,42 @@ CLOSURE_PLAN_JSON=$(jq -n \
   # the closure tier order, and within a tier preserve the closure listing order.
   | map(select($tierOf[.] != null))
   | unique
-  | sort_by([ $tierOf[.], $posOf[.] ])
-  | map({ name: ., tier: $tierOf[.], standalone: ($standaloneOf[.] == true) })
+  # HOLD: every held name must be in the UNFILTERED closure; a hold that would
+  # change nothing is an operator mistake, so it is reported (not ignored).
+  | . as $full
+  | {
+      not_in_closure: [ $held[] | select(. as $h | $full | index([$h]) | not) ],
+      # Drop held services AFTER the dependency walk, so a held dependency is
+      # left on its CURRENT prod image instead of being promoted.
+      plan: ($full
+        | map(select(. as $n | $held | index([$n]) | not))
+        | sort_by([ $tierOf[.], $posOf[.] ])
+        | map({ name: ., tier: $tierOf[.], standalone: ($standaloneOf[.] == true) }))
+    }
 ')
+
+NOT_IN_CLOSURE=$(printf '%s' "$CLOSURE_PLAN_JSON" | jq -r '.not_in_closure | join(",")')
+if [ -n "$NOT_IN_CLOSURE" ]; then
+  echo "::error::Cannot hold '$NOT_IN_CLOSURE': not in this promote's closure, so holding it would change nothing. Remove it from 'hold'."
+  exit 1
+fi
+CLOSURE_PLAN_JSON=$(printf '%s' "$CLOSURE_PLAN_JSON" | jq -c '.plan')
+
+# Held services also leave the leaf set (only possible for 'all'; holding the
+# requested single service was rejected above).
+CSV=$(printf '%s' "$CSV" | jq -Rr --argjson held "$HELD_JSON" '
+  split(",") | map(select(length > 0) | select(. as $n | $held | index([$n]) | not)) | join(",")
+')
+if [ -z "$CSV" ]; then
+  echo "::error::'hold' removes every service from the promote set (held: '$HELD'); nothing to promote."
+  exit 1
+fi
+
+{
+  echo "services_csv=$CSV"
+  echo "held_csv=$HELD"
+  echo "digest_service=$DIGEST_SERVICE"
+} >> "$GITHUB_OUTPUT"
 
 # closure_csv — tier-ordered SSOT-name CSV.
 CLOSURE_CSV=$(printf '%s' "$CLOSURE_PLAN_JSON" | jq -r 'map(.name) | join(",")')
@@ -197,22 +309,32 @@ fi
 # ---------------------------------------------------------------------------
 # 3. Surface the closure plan + skips into the step summary (operators SEE it).
 # ---------------------------------------------------------------------------
-# Phase-1 note for the operator: the closure is INFORMATIONAL here; the actual
-# promote still runs the leaf set (services_csv). U4 will enforce tier ordering
-# and dependent-gating off this same closure.
+# The promote job runs promote-fleet.sh with CLOSURE_PLAN, which it prefers over
+# services_csv, so the filtered tiered closure IS the mutation plan: every
+# service in it is promoted in prod, by tier. The requested leaves are listed
+# separately so the operator can see what the closure pulled in on top of them.
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
     echo "### Promote closure (\`$INPUT\`)"
     echo ""
-    echo "**Leaf promote set** (Phase 1 — what actually promotes now): \`$CSV\`"
+    echo "**Requested service(s)**: \`$CSV\`"
     echo ""
-    echo "**Tiered closure** (transitive deps ∪ Tier-1 verification — surfaced for the equivalence gate; U4 promotes by tier):"
+    echo "**Mutation plan** (what this run ACTUALLY promotes in prod, in tier order: the requested service(s) ∪ transitive deps ∪ Tier-1 verification, minus held services):"
     echo ""
     echo "| order | tier | service |"
     echo "| ----- | ---- | ------- |"
     printf '%s' "$CLOSURE_PLAN_JSON" \
       | jq -r 'to_entries[] | "| \(.key + 1) | tier \(.value.tier) | `\(.value.name)` |"'
     echo ""
+    # Held members (`hold` input) — NEVER silent.
+    if [ -n "$HELD" ]; then
+      echo "**Held, unchanged** (\`hold\` input — NOT promoted; prod keeps its current image and the prod gates run against it):"
+      echo ""
+      printf '%s\n' "$HELD" | tr ',' '\n' | while IFS= read -r h; do
+        echo "- \`$h\`"
+      done
+      echo ""
+    fi
     # Skipped members (no prod env, §4.3) — NEVER silent.
     SKIPPED_COUNT=$(jq -r '(.closure.skipped // []) | length' "$GENERATED")
     if [ "$SKIPPED_COUNT" -gt 0 ]; then

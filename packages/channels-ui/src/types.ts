@@ -14,6 +14,40 @@ export interface EphemeralResult {
   ref?: MessageRef;
   error?: string;
 }
+/**
+ * Who may answer an `awaitChoice` picker.
+ *
+ * - `"initiator"`: only the provider account that started the turn.
+ * - `"conversation"`: anyone in the conversation the picker was posted to.
+ *
+ * Either way, only a click on one of the picker's own controls, with one of
+ * the values it offers, answers it.
+ */
+export type ChoiceAnswerableBy = "initiator" | "conversation";
+
+/** Options for {@link Thread.awaitChoice}. */
+export interface AwaitChoiceOptions {
+  /**
+   * Who may answer the picker. Defaults to `DEFAULT_AWAIT_CHOICE_ANSWERABLE_BY`
+   * in `@copilotkit/channels` (`"initiator"`).
+   */
+  answerableBy?: ChoiceAnswerableBy;
+  /**
+   * How long to wait for an answer, in milliseconds, before the choice
+   * rejects with a `channel_choice_timeout` error. Defaults to one hour
+   * (`DEFAULT_AWAIT_CHOICE_TIMEOUT_MS` in `@copilotkit/channels`). Pass
+   * `Infinity` to wait without a limit. A finite value must be at most
+   * 2147483647 (2^31-1 ms, about 24.8 days, the longest delay a timer holds);
+   * a larger one makes `awaitChoice` reject at once with a `RangeError`.
+   */
+  timeoutMs?: number;
+  /**
+   * Abort the wait: the choice rejects with a `channel_choice_aborted` error
+   * whose `cause` is the signal's reason.
+   */
+  signal?: AbortSignal;
+}
+
 /** Canonical application identity selected by the Channel developer. */
 export interface ApplicationUser {
   readonly id: string;
@@ -151,9 +185,13 @@ export interface Thread {
   /**
    * Post a picker and block until an interaction resolves it to the clicked
    * button's `value`. Pass the expected value type, e.g.
-   * `awaitChoice<{ confirmed: boolean }>(<Picker/>)`.
+   * `awaitChoice<{ confirmed: boolean }>(<Picker/>)`. Rejects after
+   * `options.timeoutMs` (default one hour) or when `options.signal` aborts.
    */
-  awaitChoice<T = unknown>(ui: Renderable): Promise<T>;
+  awaitChoice<T = unknown>(
+    ui: Renderable,
+    options?: AwaitChoiceOptions,
+  ): Promise<T>;
   runAgent(input?: unknown): Promise<MessageRef | undefined>;
   resume(
     value: unknown,

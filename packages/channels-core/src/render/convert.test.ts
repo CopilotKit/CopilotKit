@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { createElement } from "react";
 import { PNG } from "pngjs";
-import { renderJsxToPng } from "./takumi.js";
+import { takumiRenderer } from "./takumi.js";
 import { resolveArbitraryElement } from "./detect.js";
 import { defaultAllowImageUrl } from "./url-policy.js";
 import { renderToIR } from "@copilotkit/channels-ui";
@@ -72,7 +72,7 @@ describe("takumi converter: host React element with a NESTED component node", ()
       { style: { display: "flex", width: "100%", height: "100%" } },
       childNode as never,
     );
-    const png = await renderJsxToPng(tree, cfg);
+    const png = await takumiRenderer(tree, cfg);
     expect([png[0], png[1], png[2], png[3]]).toEqual([0x89, 0x50, 0x4e, 0x47]);
     expect(countPalettePixels(Buffer.from(png))).toBeGreaterThan(50);
   });
@@ -89,7 +89,7 @@ describe("renderer remote image gate", () => {
     try {
       expect(defaultAllowImageUrl(url)).toBe(false);
       await expect(
-        renderJsxToPng(
+        takumiRenderer(
           createElement("img", { src: url, width: 1, height: 1 }),
           {
             ...cfg,
@@ -108,7 +108,7 @@ describe("renderer remote image gate", () => {
     vi.stubGlobal("fetch", fetchMock);
     try {
       await expect(
-        renderJsxToPng(createElement("div", null, "Success 🎉"), {
+        takumiRenderer(createElement("div", null, "Success 🎉"), {
           ...cfg,
           allowImageUrl: defaultAllowImageUrl,
         }),

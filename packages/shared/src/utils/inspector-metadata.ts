@@ -1,3 +1,5 @@
+import { isSafeDashboardUrl } from "./dashboard-url";
+
 /**
  * Inspector metadata supplied by a trusted CopilotKit runtime.
  *
@@ -157,19 +159,7 @@ function parseSafeActionUrl(value: unknown): string | undefined {
     return undefined;
   }
 
-  if (parsed.protocol === "https:") {
-    return url;
-  }
-
-  const isLoopbackHost =
-    parsed.hostname === "localhost" ||
-    parsed.hostname === "127.0.0.1" ||
-    parsed.hostname === "[::1]";
-  if (parsed.protocol === "http:" && isLoopbackHost) {
-    return url;
-  }
-
-  return undefined;
+  return isSafeDashboardUrl(parsed) ? url : undefined;
 }
 
 function parseAction(value: unknown): InspectorAction | undefined {

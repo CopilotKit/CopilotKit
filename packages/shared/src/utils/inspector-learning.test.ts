@@ -363,3 +363,61 @@ describe("Inspector Learning wire validation", () => {
     expect(parseInspectorLearningRequestV1({ skillsPage: 0 })).toBeUndefined();
   });
 });
+
+it.each([
+  "http://localhost:7066",
+  "http://127.0.0.1:7066",
+  "http://[::1]:7066",
+  "http://cpk.localhost:7066",
+  "http://team.cpk.localhost:7066",
+  "https://dashboard.example.com",
+])("accepts Learning links on configured dashboard origin %s", (origin) => {
+  const url = `${origin}/o/acme/support/learning`;
+
+  expect(parseInspectorLearningUrl(url, origin)).toBe(url);
+});
+
+it.each([
+  "http://remote.example.com",
+  "http://cpk.localhost.example.com",
+  "http://-bad.localhost",
+  "http://bad_.localhost",
+  "http://bad..localhost",
+  "http://user:password@cpk.localhost",
+  "ftp://cpk.localhost",
+  "javascript:alert(1)",
+])("rejects unsafe dashboard origin %s", (origin) => {
+  expect(
+    parseInspectorLearningUrl(`${origin}/o/acme/support/learning`, origin),
+  ).toBeUndefined();
+});
+
+it.each([
+  "http://localhost:7066",
+  "http://cpk.localhost:7067",
+  "https://cpk.localhost:7066",
+  "https://other.example.com",
+])("rejects a Learning link to another origin %s", (origin) => {
+  expect(
+    parseInspectorLearningUrl(
+      `${origin}/o/acme/support/learning`,
+      "http://cpk.localhost:7066",
+    ),
+  ).toBeUndefined();
+});
+
+it.each([
+  ["learning", "/account"],
+  ["learning", "/o/acme/support/learning?redirect=elsewhere"],
+  ["candidates", "/o/acme/support/learning/quality/analysis-results"],
+  ["runs", "/o/acme/support/learning/quality/skills"],
+  ["runs", "/o/acme/support/learning/quality/analysis-results#fragment"],
+])("rejects invalid %s Learning path %s", (field, path) => {
+  const snapshot = emptySnapshot();
+  expect(
+    parseInspectorLearningSnapshotV1({
+      ...snapshot,
+      links: { ...snapshot.links, [field]: `${snapshot.webAppOrigin}${path}` },
+    }),
+  ).toBeUndefined();
+});

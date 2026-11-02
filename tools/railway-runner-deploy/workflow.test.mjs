@@ -38,6 +38,105 @@ test("only main dispatch or exact pinned bootstrap SHA receives deployment permi
     validateWorkflowContext({ ...bootstrap, GITHUB_SHA: "b".repeat(40) }),
   );
 });
+test("development push gate binds the exact opted-in branch commit and workflow", () => {
+  const dev = {
+    ...context,
+    GITHUB_EVENT_NAME: "push",
+    GITHUB_REF: "refs/heads/dev/railway-runner-branch-deploy",
+    GITHUB_WORKFLOW_SHA: context.GITHUB_SHA,
+    GITHUB_WORKFLOW_REF:
+      "CopilotKit/CopilotKit/.github/workflows/intelligence-rich-threads-dev.yml@refs/heads/dev/railway-runner-branch-deploy",
+  };
+  const options = {
+    development: true,
+    event: {
+      head_commit: {
+        id: context.GITHUB_SHA,
+        message: "test [runner-staging-dev]",
+      },
+    },
+  };
+  assert.equal(
+    validateWorkflowContext(dev, options),
+    ".github/workflows/intelligence-rich-threads-dev.yml",
+  );
+  assert.doesNotThrow(() =>
+    validateWorkflowContext({ ...dev, GITHUB_RUN_ATTEMPT: "2" }, options),
+  );
+  assert.throws(() => validateWorkflowContext(dev));
+  for (const change of [
+    { GITHUB_REPOSITORY_ID: "1" },
+    { GITHUB_EVENT_NAME: "workflow_dispatch" },
+    { GITHUB_REF: "refs/heads/main" },
+    {
+      GITHUB_WORKFLOW_REF: dev.GITHUB_WORKFLOW_REF.replace(
+        "-dev.yml",
+        "-deploy.yml",
+      ),
+    },
+    { GITHUB_WORKFLOW_SHA: "b".repeat(40) },
+    { GITHUB_RUN_ID: "invalid" },
+    { GITHUB_RUN_ATTEMPT: "0" },
+  ])
+    assert.throws(() =>
+      validateWorkflowContext({ ...dev, ...change }, options),
+    );
+  assert.throws(() =>
+    validateWorkflowContext(dev, {
+      ...options,
+      event: { head_commit: { id: context.GITHUB_SHA, message: "no opt in" } },
+    }),
+  );
+  assert.throws(() =>
+    validateWorkflowContext(dev, {
+      ...options,
+      event: {
+        head_commit: { id: "b".repeat(40), message: "[runner-staging-dev]" },
+      },
+    }),
+  );
+});
+test("development workflow invokes existing controller behind opt-in and shares staging concurrency", async () => {
+  const source = await readFile(
+    ".github/workflows/intelligence-rich-threads-dev.yml",
+    "utf8",
+  );
+  assert.match(source, /branches: \["dev\/railway-runner-\*"\]/);
+  assert.match(source, /\[runner-staging-dev\]/);
+  assert.match(source, /group: intelligence-runner-staging-deploy/);
+  assert.match(source, /cancel-in-progress: false/);
+  assert.match(source, /needs: validate/);
+  assert.match(
+    source,
+    /pnpm nx run-many -t test,lint --projects=railway-runner-deploy/,
+  );
+  assert.match(
+    source,
+    /node tools\/railway-runner-deploy\/run.mjs --development/,
+  );
+  assert.equal((source.match(/secrets.RAILWAY_TOKEN/g) || []).length, 1);
+  assert.equal((source.match(/secrets.RICH_RUNNER_TOKEN/g) || []).length, 1);
+  assert.doesNotMatch(
+    source,
+    /workflow_dispatch:|schedule:|--resume-run|--cleanup-run/,
+  );
+});
+for (const workflow of ["dev", "deploy"]) {
+  test(`only eligible ${workflow} deploy jobs acquire the shared staging lock`, async () => {
+    const source = await readFile(
+      `.github/workflows/intelligence-rich-threads-${workflow}.yml`,
+      "utf8",
+    );
+    assert.doesNotMatch(source, /^concurrency:/m);
+    const [validationSource, deploySource] = source.split(/^  deploy:\n/m);
+    assert.ok(deploySource);
+    assert.doesNotMatch(validationSource, /^\s+concurrency:/m);
+    assert.match(
+      deploySource,
+      /^    concurrency:\n      group: intelligence-runner-staging-deploy\n      cancel-in-progress: false$/m,
+    );
+  });
+}
 test("workflow has fixed dispatch, concurrency, no environment setup, and credentials only on deploy step", async () => {
   const source = await readFile(
     ".github/workflows/intelligence-rich-threads-deploy.yml",
@@ -55,4 +154,20 @@ test("workflow has fixed dispatch, concurrency, no environment setup, and creden
   assert.equal((source.match(/secrets.RAILWAY_TOKEN/g) || []).length, 1);
   assert.equal((source.match(/secrets.RICH_RUNNER_TOKEN/g) || []).length, 1);
   assert.match(source, /node tools\/railway-runner-deploy\/run.mjs/);
+});
+
+test("one-time browser provenance only runs for transition changes", async () => {
+  const workflow = ".github/workflows/intelligence-browser-upgrade.yml";
+  const source = await readFile(workflow, "utf8");
+  const paths = source
+    .match(/    paths:\n((?:      - .+\n)+)/)[1]
+    .trim()
+    .split("\n")
+    .map((line) => line.trim().slice(2));
+  assert.deepEqual(paths, [
+    "tools/railway-runner-deploy/browser-upgrade*.mjs",
+    "tools/railway-runner-deploy/releases/browser-upgrade.json",
+    workflow,
+  ]);
+  assert.match(source, /workflow_dispatch:/);
 });

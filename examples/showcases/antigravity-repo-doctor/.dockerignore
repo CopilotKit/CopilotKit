@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.env*
+!.env.example
+agent/.venv
+agent/.pytest_cache
+agent/.mypy_cache
+agent/.ruff_cache
+**/__pycache__
+e2e
+*.png
+*.md
+!public/**

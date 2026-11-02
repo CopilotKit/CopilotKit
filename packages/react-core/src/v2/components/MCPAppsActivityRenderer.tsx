@@ -42,6 +42,12 @@ interface MCPAppsActivityRendererProps {
   content: MCPAppsActivityContent;
   message: unknown; // ActivityMessage from @ag-ui/core
   agent: AbstractAgent | undefined;
+  /**
+   * Restore `allow-same-origin` on the sandbox. Unsafe: the widget runs with
+   * the host page's origin. Set via `mcpApps.allowSameOriginFallback` on
+   * `CopilotKitProvider`.
+   */
+  allowSameOriginFallback?: boolean;
 }
 
 /**
@@ -52,7 +58,12 @@ interface MCPAppsActivityRendererProps {
  * owns the iframe; `bindMcpApp` owns the protocol.
  */
 export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
-  function MCPAppsActivityRenderer({ content, message, agent }) {
+  function MCPAppsActivityRenderer({
+    content,
+    message,
+    agent,
+    allowSameOriginFallback,
+  }) {
     const { copilotkit } = useCopilotKit();
     // The activity message id. Passed to the session so it self-subscribes to the
     // agent's activity stream and pushes tool input/result itself (the adapter no
@@ -146,6 +157,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             // activities. It still calls syncContent for activities rendered
             // from an external messages list (see the seed below).
             messageId,
+            options: { allowSameOriginFallback },
             hooks: {
               onResource: (resource) => {
                 if (!mounted) return;
@@ -196,6 +208,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       agent,
       copilotkit,
       messageId,
+      allowSameOriginFallback,
       content.resourceUri,
       content.serverHash,
       content.serverId,

@@ -98,8 +98,12 @@ function toReact(node: unknown): unknown {
  * Render a channels JSX tree (or a React element) to a PNG with Takumi. `node`
  * has been classified as image content by `resolveArbitraryElement` (./detect).
  * We materialize it to React elements first (see {@link toReact}).
+ *
+ * Opt-in: pass it as `createChannel({ render: { renderer: takumiRenderer } })`.
+ * Only this entry point imports `takumi-js` and `react`, so apps that never
+ * import it never bundle Takumi's native binary or need the optional peers.
  */
-export async function renderJsxToPng(
+export async function takumiRenderer(
   node: unknown,
   cfg: ResolvedRenderConfig,
 ): Promise<Uint8Array> {

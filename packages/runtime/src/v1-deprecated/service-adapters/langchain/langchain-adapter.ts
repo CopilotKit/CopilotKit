@@ -59,6 +59,7 @@ import type {
 import {
   convertActionInputToLangChainTool,
   convertMessageToLangChainMessage,
+  mergeAssistantToolCalls,
   streamLangChainResponse,
 } from "./utils";
 import type { DynamicStructuredTool } from "@langchain/core/tools";
@@ -103,7 +104,9 @@ export class LangChainAdapter implements CopilotServiceAdapter {
       } = request;
       const threadId = threadIdFromRequest ?? randomUUID();
       const result = await this.options.chainFn({
-        messages: messages.map(convertMessageToLangChainMessage),
+        messages: mergeAssistantToolCalls(
+          messages.map(convertMessageToLangChainMessage),
+        ),
         tools: actions.map(convertActionInputToLangChainTool),
         model,
         threadId,

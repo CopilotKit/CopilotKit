@@ -9,7 +9,7 @@ on:
       - "showcase/**"
       - "sdk-python/**"
   pull_request:
-    branches: [main]
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
     paths-ignore:
       - "README.md"
       - "examples/**"
@@ -285,6 +285,10 @@ jobs:
       - name: Run Open Generative UI browser tests
         if: ${{ matrix.node-version == '22.x' && matrix.react-version == '19' && contains(steps.select.outputs.projects, '@copilotkit/react-core') }}
         run: pnpm nx run @copilotkit/react-core:test:browser
+
+      - name: Run chat scroll browser tests
+        if: ${{ matrix.node-version == '22.x' && matrix.react-version == '19' && contains(steps.select.outputs.projects, '@copilotkit/react-core') }}
+        run: pnpm nx run @copilotkit/react-core:test:browser-scroll
 
       - name: Run Web Inspector browser tests
         if: ${{ matrix.node-version == '22.x' && matrix.react-version == '19' && contains(steps.select.outputs.projects, '@copilotkit/web-inspector') }}

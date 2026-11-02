@@ -1,3 +1,5 @@
+import { isSafeDashboardUrl } from "./dashboard-url";
+
 /** A bounded page in the Inspector Learning snapshot. */
 export interface InspectorLearningPage<T> {
   readonly page: number;
@@ -132,9 +134,6 @@ export function parseInspectorLearningUrl(
   try {
     const parsed = new URL(value);
     const configured = new URL(trustedOrigin);
-    const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(
-      configured.hostname,
-    );
     if (
       parsed.username ||
       parsed.password ||
@@ -143,8 +142,7 @@ export function parseInspectorLearningUrl(
       configured.pathname !== "/" ||
       configured.search ||
       configured.hash ||
-      (configured.protocol !== "https:" &&
-        !(configured.protocol === "http:" && loopback)) ||
+      !isSafeDashboardUrl(configured) ||
       parsed.origin !== configured.origin
     ) {
       return undefined;
@@ -153,6 +151,26 @@ export function parseInspectorLearningUrl(
   } catch {
     return undefined;
   }
+}
+
+/** Validates the canonical dashboard route after the origin check. */
+function validLearningPath(
+  value: string,
+  kind: "learning" | "candidates" | "runs",
+): boolean {
+  const url = new URL(value);
+  if (url.search || url.hash) return false;
+  if (kind === "learning") {
+    return (
+      url.pathname === "/learning" ||
+      /^\/o\/[^/]+\/[^/]+\/learning(?:\/[^/]+)?$/u.test(url.pathname)
+    );
+  }
+  return kind === "candidates"
+    ? /^\/o\/[^/]+\/[^/]+\/learning\/[^/]+\/skills$/u.test(url.pathname)
+    : /^\/o\/[^/]+\/[^/]+\/learning\/[^/]+\/analysis-results$/u.test(
+        url.pathname,
+      );
 }
 
 function parseEvidence(value: unknown): InspectorLearningEvidence | undefined {
@@ -453,6 +471,9 @@ export function parseInspectorLearningSnapshotV1(
     !learning ||
     candidates === undefined ||
     runs === undefined ||
+    !validLearningPath(learning, "learning") ||
+    (candidates !== null && !validLearningPath(candidates, "candidates")) ||
+    (runs !== null && !validLearningPath(runs, "runs")) ||
     (value.pendingThreadCount > 0 && runs === null) ||
     (value.pendingCandidateCount > 0 && candidates === null)
   )

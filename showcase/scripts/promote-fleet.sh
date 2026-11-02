@@ -38,10 +38,34 @@
 #   SERVICES_CSV  (optional*) comma-separated service names to promote, flat /
 #                             best-effort with NO tier gating (the legacy leaf
 #                             path). Required when CLOSURE_PLAN is unset.
-#   DIGEST        (optional)  digest override; forwarded as `--digest <ref>`.
-#                             Upstream resolve-targets already rejects
-#                             --digest + 'all', so a populated DIGEST here
-#                             always pairs with a single-service set.
+#   DIGEST        (optional)  digest override; forwarded as `--digest <ref>` to
+#                             DIGEST_SERVICE ONLY. A digest identifies one
+#                             image, so forwarding it to every closure member
+#                             would pin aimock / harness / dashboard to the
+#                             requested service's image. Every other member is
+#                             promoted from its own staging running digest.
+#   DIGEST_SERVICE (optional) the one service DIGEST applies to (resolve-targets
+#                             `digest_service` output). When DIGEST is set and
+#                             DIGEST_SERVICE is unset, it defaults to the only
+#                             service in the plan; a multi-service plan without
+#                             it, or a DIGEST_SERVICE absent from the plan, is
+#                             rejected BEFORE any promote runs.
+#   HELD_CSV      (optional)  services the operator held out of this promote
+#                             (resolve-targets `held_csv` output). They are
+#                             listed in the summary as held, unchanged, and are
+#                             added to the verify_csv output so prod is still
+#                             verified for them. Rejected BEFORE any promote
+#                             runs when it holds a CR / LF / tab / character
+#                             outside [a-z0-9, -] or a non-name token, or when
+#                             a held service is still in the plan.
+#   GENERATED     (optional)  SSOT artifact used by the input guard to check
+#                             every service name (default: sibling
+#                             railway-envs.generated.json). Every input above is
+#                             validated WHOLE by promote-input-guard.sh before
+#                             any CLI call: [a-z0-9-] SSOT names joined by
+#                             commas, no empty entry, no leading '-', no
+#                             CR/LF/tab/space. Each service is passed to the CLI
+#                             after `--`.
 #   RAILWAY_BIN   (optional)  path to the railway CLI (default: sibling
 #                             ../bin/railway). Overridable for testing.
 #
@@ -106,6 +130,54 @@ if [ ! -x "$RAILWAY_BIN" ] && ! command -v "$RAILWAY_BIN" >/dev/null 2>&1; then
   echo "::error::promote-fleet: RAILWAY_BIN '$RAILWAY_BIN' is missing or not executable; cannot promote." >&2
   exit 1
 fi
+
+# ── Input guard (promote-input-guard.sh) ───────────────────────────────────
+# Every input is validated WHOLE, before it is parsed, and the run fails closed
+# before any CLI call. Each service name becomes an argv element of
+# `bin/railway promote`: a token like `--yes` would be read as a FLAG, the
+# positional service would vanish, and the CLI would promote the WHOLE fleet
+# (held services included). Names must be [a-z0-9-] SSOT names joined by
+# commas: no CR/LF/tab/space, no empty entry, no leading '-'.
+# shellcheck source=SCRIPTDIR/promote-input-guard.sh disable=SC1091
+. "$HERE/promote-input-guard.sh"
+GENERATED="${GENERATED:-$HERE/railway-envs.generated.json}"
+SSOT_NAMES=$(guard_ssot_names "$GENERATED" name) || exit 1
+if [ -n "${CLOSURE_PLAN:-}" ]; then
+  case "$CLOSURE_PLAN" in
+    *[!abcdefghijklmnopqrstuvwxyz0123456789:,-]*)
+      echo "::error::promote-fleet: CLOSURE_PLAN may contain only 'tier:name' entries ([0-2s]:[a-z0-9-]) joined by commas. Got: $(printf '%q' "$CLOSURE_PLAN")" >&2
+      exit 1
+      ;;
+  esac
+  case ",$CLOSURE_PLAN," in
+    *",,"*)
+      echo "::error::promote-fleet: CLOSURE_PLAN has an empty entry (leading, trailing or doubled comma). Got: $(printf '%q' "$CLOSURE_PLAN")" >&2
+      exit 1
+      ;;
+  esac
+  plan_names=""
+  IFS=',' read -ra GUARD_TOKENS <<< "$CLOSURE_PLAN"
+  for tok in "${GUARD_TOKENS[@]}"; do
+    case "$tok" in
+      0:*|1:*|2:*|s:*) ;;
+      *)
+        echo "::error::promote-fleet: CLOSURE_PLAN token '$tok' is not 'tier:name' with tier 0, 1, 2 or s." >&2
+        exit 1
+        ;;
+    esac
+    # Validate EACH member's name on its own, BEFORE joining: an empty name
+    # (`0:`) would otherwise vanish from the joined list (`${x:+x,}` drops a
+    # leading empty) and the rest of the plan would still promote.
+    guard_service_csv "promote-fleet: CLOSURE_PLAN entry '$tok'" "${tok#*:}" "$SSOT_NAMES" || exit 1
+    plan_names="${plan_names:+$plan_names,}${tok#*:}"
+  done
+  guard_service_csv "promote-fleet: CLOSURE_PLAN" "$plan_names" "$SSOT_NAMES" || exit 1
+else
+  guard_service_csv "promote-fleet: SERVICES_CSV" "$SERVICES_CSV" "$SSOT_NAMES" || exit 1
+fi
+guard_service_csv "promote-fleet: HELD_CSV" "${HELD_CSV:-}" "$SSOT_NAMES" allow_empty || exit 1
+guard_service_csv "promote-fleet: DIGEST_SERVICE" "${DIGEST_SERVICE:-}" "$SSOT_NAMES" allow_empty || exit 1
+guard_digest "promote-fleet: DIGEST" "${DIGEST:-}" || exit 1
 
 succeeded=()       # service names that actually pinned (the closure subset)
 failed=()          # "svc=exitcode" entries
@@ -172,10 +244,15 @@ promote_one() {
   local slot args out rc line
   slot="$(svc_slot "$svc")"
 
-  args=(promote "$svc" --yes --non-interactive)
-  if [ -n "${DIGEST:-}" ]; then
+  args=(promote --yes --non-interactive)
+  # The digest belongs to DIGEST_SERVICE alone (validated by preflight_scope).
+  if [ -n "${DIGEST:-}" ] && [ "$svc" = "${DIGEST_SERVICE:-}" ]; then
     args+=(--digest "$DIGEST")
   fi
+  # `--` ends option parsing in bin/railway's OptionParser, so the service is
+  # ALWAYS the positional argument and can never be read as a flag (a name like
+  # `--yes` would otherwise drop the positional and promote the whole fleet).
+  args+=(-- "$svc")
 
   # Capture this service's full output into its own log file. We do NOT tee to
   # the live terminal here: under fan-out, N services stream at once and their
@@ -326,6 +403,53 @@ reap_tier() {
   done
 }
 
+# Held services (HELD_CSV), trimmed, empty tokens dropped. Used by
+# preflight_scope, verify_csv and the summary.
+#
+# HELD_CSV was validated WHOLE by the input guard above (a single `IFS=, read`
+# stops at the first LF, so $'svc-outside,\nsvc-h' would otherwise hold only
+# svc-outside and promote svc-h), so it is one line of SSOT names here.
+held=()
+IFS=',' read -ra HELD_TOKENS <<< "${HELD_CSV:-}"
+for tok in "${HELD_TOKENS[@]:-}"; do
+  [ -n "$tok" ] && held+=("$tok")
+done
+
+# preflight_scope <svc...> — validate the parsed plan BEFORE any promote runs.
+# Exits non-zero (nothing promoted) when:
+#   * a HELD_CSV service is still in the plan (defense in depth: resolve-targets
+#     already removed it, so its presence means the inputs are inconsistent);
+#   * DIGEST is set but cannot be scoped to exactly one service in the plan.
+# When DIGEST is set and DIGEST_SERVICE is unset, DIGEST_SERVICE defaults to the
+# only service in the plan (the legacy single-service call shape).
+preflight_scope() {
+  local svc h n=0 only="" found=0
+  for svc in "$@"; do
+    [ -n "$svc" ] || continue
+    n=$(( n + 1 ))
+    only="$svc"
+    for h in "${held[@]:-}"; do
+      if [ -n "$h" ] && [ "$svc" = "$h" ]; then
+        echo "::error::promote-fleet: held service '$svc' (HELD_CSV) is in the promote plan; refusing to promote anything." >&2
+        exit 1
+      fi
+    done
+    [ "$svc" = "${DIGEST_SERVICE:-}" ] && found=1
+  done
+  if [ -n "${DIGEST:-}" ]; then
+    if [ -z "${DIGEST_SERVICE:-}" ]; then
+      if [ "$n" -ne 1 ]; then
+        echo "::error::promote-fleet: DIGEST is set but DIGEST_SERVICE is not, and the plan has $n services; a digest identifies one image, refusing to promote anything." >&2
+        exit 1
+      fi
+      DIGEST_SERVICE="$only"
+    elif [ "$found" -ne 1 ]; then
+      echo "::error::promote-fleet: DIGEST_SERVICE '$DIGEST_SERVICE' is not in the promote plan; refusing to promote anything." >&2
+      exit 1
+    fi
+  fi
+}
+
 if [ -n "${CLOSURE_PLAN:-}" ]; then
   # ── Tier-ordered closure path (U4) ──────────────────────────────────────────
   # Parse `tier:name` tokens into per-tier service lists, then promote tier 0,
@@ -367,6 +491,7 @@ if [ -n "${CLOSURE_PLAN:-}" ]; then
   # ANY earlier-tier failure. `${arr[@]:-}` keeps the empty-array expansion safe
   # under `set -u` on bash 3.2 (an empty tier expands to a single empty arg,
   # which promote_tier skips via promote_one's no-op on "" — see below).
+  preflight_scope "${standalone_svcs[@]:-}" "${tier0[@]:-}" "${tier1[@]:-}" "${tier2[@]:-}"
   gated=0
   tier_had_failure=0
   # Standalone services FIRST and ALWAYS ungated. Their failures still land in
@@ -398,6 +523,7 @@ else
     [ -n "$svc" ] || continue
     flat_svcs+=("$svc")
   done
+  preflight_scope "${flat_svcs[@]:-}"
   tier_had_failure=0
   promote_tier 0 "${flat_svcs[@]:-}"
 fi
@@ -440,6 +566,21 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then
   # unreliable (an absent succeeded_csv key it depends on).
   if ! echo "succeeded_csv=$succeeded_csv" >> "$GITHUB_OUTPUT"; then
     echo "::error::promote-fleet: failed to write succeeded_csv to \$GITHUB_OUTPUT ('$GITHUB_OUTPUT')." >&2
+    exit 1
+  fi
+  # verify_csv — the prod VERIFICATION set: every service that pinned PLUS every
+  # held service. A held service was not promoted, but the promoted services now
+  # run against it, so prod health / compatibility / equivalence must still
+  # check it on its CURRENT image. Failed and not-attempted services stay out
+  # (held services are never attempted, so they can never be in failed[]).
+  # succeeded_csv stays the MUTATION set.
+  verify_csv="$succeeded_csv"
+  if [ "${#held[@]}" -gt 0 ]; then
+    held_joined=$(IFS=,; echo "${held[*]}")
+    verify_csv="${verify_csv:+$verify_csv,}$held_joined"
+  fi
+  if ! echo "verify_csv=$verify_csv" >> "$GITHUB_OUTPUT"; then
+    echo "::error::promote-fleet: failed to write verify_csv to \$GITHUB_OUTPUT ('$GITHUB_OUTPUT')." >&2
     exit 1
   fi
   # Aggregated staging-drift payload (one line, services semicolon-joined) so
@@ -530,6 +671,11 @@ if [ "${#succeeded[@]}" -gt 0 ]; then
   emit "SUCCEEDED (${#succeeded[@]}): ${succeeded[*]}"
 else
   emit "SUCCEEDED (0): (none)"
+fi
+
+if [ "${#held[@]}" -gt 0 ]; then
+  emit "HELD (${#held[@]}): ${held[*]}"
+  emit "Held by the 'hold' input: NOT promoted, prod keeps its current image."
 fi
 
 if [ "${#drift[@]}" -gt 0 ]; then

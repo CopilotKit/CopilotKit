@@ -231,7 +231,7 @@ export interface ToolbarContext {
           <div class="cpk:mr-[10px]">
             <button
               type="button"
-              aria-label="Send message"
+              [attr.aria-label]="labels.chatInputToolbarSendButtonLabel"
               [class]="sendButtonClass() || defaultButtonClass"
               [disabled]="sendButtonDisabled()"
               (click)="send()"

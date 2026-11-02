@@ -25,8 +25,14 @@ const A2UI_SCHEMA_CONTEXT_DESCRIPTION =
 /**
  * Build a context string describing the available A2UI catalog.
  * Vue-native equivalent of buildCatalogContextValue from a2ui-renderer.
+ *
+ * When `options.includeSchema` is `false`, custom components are listed by name
+ * only and their JSON schemas are omitted.
  */
-function buildCatalogContextValue(catalog?: Catalog<ComponentApi>): string {
+export function buildCatalogContextValue(
+  catalog?: Catalog<ComponentApi>,
+  options?: { includeSchema?: boolean },
+): string {
   const resolved = catalog ?? vueBasicCatalog;
   const BASIC_CATALOG_ID =
     "https://a2ui.org/specification/v0_9/basic_catalog.json";
@@ -68,6 +74,10 @@ function buildCatalogContextValue(catalog?: Catalog<ComponentApi>): string {
   for (const name of customNames) {
     const comp = resolved.components.get(name);
     if (!comp) continue;
+    if (options?.includeSchema === false) {
+      lines.push(`  - ${name}`);
+      continue;
+    }
     const jsonSchema = zodToJsonSchema(comp.schema);
     lines.push(`  - ${name}:`);
     lines.push(
@@ -127,7 +137,9 @@ export function registerA2UICatalogContext(
   },
 ): void {
   const contextValue = computed(() =>
-    buildCatalogContextValue(options.catalog()),
+    buildCatalogContextValue(options.catalog(), {
+      includeSchema: options.includeSchema(),
+    }),
   );
 
   // Register catalog capabilities context

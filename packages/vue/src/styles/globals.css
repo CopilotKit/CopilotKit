@@ -77,6 +77,13 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+
+  /* A2UI basic catalog from @copilotkit/vue; light values are its fallbacks. */
+  --a2ui-color-surface: var(--card);
+  /* rgb(64, 64, 64), the Angular stylesheet's dark A2UI border; --border is too faint on --card. */
+  --a2ui-color-border: oklch(0.371 0 0);
+  --a2ui-color-muted: var(--muted-foreground);
+  --a2ui-color-error: #f87171;
 }
 
 @theme inline {
@@ -142,6 +149,15 @@
   [data-copilotkit] {
     color: var(--foreground);
     background-color: var(--background);
+  }
+
+  /* CopilotChat's root is an inline-size container (`cpk:@container`), so its
+     content contributes no width. As a flex item in a row, its auto width
+     collapsed to a narrow column. Fill the container instead. This sits in the
+     base layer so a width the app sets (utility class, stylesheet, inline
+     style) still wins. Same rule as React (PE-788). */
+  .copilotKitChat[data-copilotkit] {
+    width: 100%;
   }
 
   /* Mobile viewport support */

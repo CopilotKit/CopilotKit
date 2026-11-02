@@ -24,11 +24,20 @@ const frontendRegistry: FrontendRegistry = {
       runnable: true,
       feature_support_required: true,
     },
+    {
+      id: "vue",
+      name: "Vue",
+      icon: "vue",
+      summary: "Vue frontend.",
+      runnable: true,
+      feature_support_required: false,
+    },
   ],
   feature_support: {
     chat: {
       react: { state: "supported" },
       angular: { state: "supported" },
+      vue: { state: "supported" },
     },
     renderer: {
       react: { state: "supported" },
@@ -111,6 +120,15 @@ it("marks only supported frontend and wired backend intersections runnable", () 
     frontend_status: "supported",
     runnable: false,
   });
+  expect(
+    catalog.cells.find((cell) => cell.id === "vue/langgraph/chat"),
+  ).toMatchObject({
+    frontend: "vue",
+    backend_status: "wired",
+    frontend_status: "supported",
+    runnable: true,
+    demo_route: "/vue/chat",
+  });
 });
 
 it("preserves permanent exception metadata in non-runnable cells", () => {
@@ -140,14 +158,33 @@ it("excludes starter cells and reports deterministic support counts", () => {
     revisionIdentity,
   );
 
-  expect(catalog.cells).toHaveLength(8);
+  expect(catalog.cells).toHaveLength(10);
   expect(catalog.metadata).toEqual({
-    total_cells: 8,
-    runnable: 3,
+    total_cells: 10,
+    runnable: 4,
     docs_only: 2,
     not_supported: 0,
     not_applicable: 1,
     quarantined: 0,
-    backend_unavailable: 2,
+    backend_unavailable: 3,
   });
+});
+
+it("omits undeclared partial-frontend features without changing required dimensions", () => {
+  const catalog = generateFrontendCatalog(
+    frontendRegistry,
+    backendCells,
+    revisionIdentity,
+  );
+
+  expect(
+    catalog.cells
+      .filter((cell) => cell.frontend === "vue")
+      .map((cell) => cell.feature),
+  ).toEqual(["chat", "chat"]);
+  expect(
+    catalog.cells.filter(
+      (cell) => cell.frontend === "react" || cell.frontend === "angular",
+    ),
+  ).toHaveLength(8);
 });

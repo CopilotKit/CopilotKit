@@ -50,6 +50,8 @@ export type FrontendToolHandlerContext = {
 /**
  * What a frontend tool does with its own calls that are still unanswered when
  * a thread's history is restored (a reload, a remount, or a thread switch).
+ * Only calls after the latest user message are eligible; older unanswered
+ * calls remain historical and never resume work on reconnect.
  *
  * - `"passive"` (default) — show the call, but do not run the handler. Nothing
  *   the handler did runs twice.
@@ -101,8 +103,10 @@ export type FrontendTool<
 > = {
   /**
    * @internal Classifies local execution. Omitted means an ordinary frontend
-   * tool. Human-in-the-loop handlers are always restored from history replay;
-   * other tools only with `reconnectBehavior: "resume-pending"`.
+   * tool. Pending calls in the latest user turn are eligible for restoration.
+   * Human-in-the-loop handlers are restored from history replay;
+   * other handlers only with `reconnectBehavior: "resume-pending"`. Tools
+   * without a handler restore missing empty completion results automatically.
    * This field is not sent to the agent as part of the tool schema.
    */
   type?: "frontend" | "human-in-the-loop";

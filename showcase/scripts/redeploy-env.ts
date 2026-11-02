@@ -41,14 +41,14 @@
  *     to $GITHUB_STEP_SUMMARY (mirrored to stderr). Exit-code policy is
  *     FAIL-LOUD BY DEFAULT: any per-service failure yields a non-zero
  *     exitCode for EVERY env except ordinary staging services. A staging
- *     harness-workers failure is release-blocking because that path must
- *     apply `ALWAYS` before deploying clean-recycling workers. Other
- *     staging failures remain non-fatal because verify-deploy is their gate.
+ *     docs or harness-workers failure is release-blocking: docs must prove
+ *     the selected image serves its routes, and workers must apply `ALWAYS`.
+ *     Other staging failures remain non-fatal because verify-deploy is their gate.
  *   - Operator/config errors (bad env name, unknown service, missing or
  *     malformed token) ALWAYS fail loud with a non-zero exit.
  *
  * Auth: RAILWAY_TOKEN env var or ~/.railway/config.json.
- * Exit code: non-zero for staging harness-workers failures, per-service
+ * Exit code: non-zero for staging docs/harness-workers failures, per-service
  * failures in any other env, and operator/config errors.
  */
 
@@ -71,6 +71,10 @@ import {
   sanitizeErrorBody,
 } from "./lib/railway-graphql";
 import { RailwayTokenError, resolveRailwayToken } from "./lib/railway-token";
+import {
+  readExpectedDocsImage,
+  verifyDocsDeployment,
+} from "./verify-docs-deployment";
 
 const RAILWAY_API = RAILWAY_GRAPHQL_ENDPOINT;
 
@@ -95,10 +99,14 @@ function getToken(): string {
 
 export interface RedeployResult {
   ok: true;
+  deploymentId?: string;
+  imageDigest?: string;
+  verified?: true;
 }
 export interface RedeployFailure {
   ok: false;
   error: string;
+  deploymentId?: string;
 }
 export type RedeployOutcome = RedeployResult | RedeployFailure;
 
@@ -148,7 +156,10 @@ async function railwayMutation(
  * token resolution happens once per process rather than once per service.
  * Exported for direct unit testing (timeout signal + error sanitization).
  */
-export function makeLiveRedeploy(token: string): RedeployFn {
+export function makeLiveRedeploy(
+  token: string,
+  options: { docsExpectedImage?: string } = {},
+): RedeployFn {
   return async function liveRedeploy(
     serviceId: string,
     environmentId: string,
@@ -156,6 +167,13 @@ export function makeLiveRedeploy(token: string): RedeployFn {
     const isStagingWorker =
       serviceId === SERVICES["harness-workers"].serviceId &&
       environmentId === STAGING_ENV_ID;
+    const isStagingDocs =
+      serviceId === SERVICES.docs.serviceId && environmentId === STAGING_ENV_ID;
+    // Resolve before issuing a mutation, including refusal of superseded builds.
+    const expectedDocsImage =
+      isStagingDocs && options.docsExpectedImage !== undefined
+        ? readExpectedDocsImage(options.docsExpectedImage)
+        : undefined;
     if (isStagingWorker) {
       const provisioning = workerProvisioningFor("harness-workers", "staging");
       if (provisioning === undefined) {
@@ -199,7 +217,11 @@ export function makeLiveRedeploy(token: string): RedeployFn {
           error: `serviceInstanceUpdate returned ${JSON.stringify(update.value)}`,
         };
       }
+    }
 
+    if (isStagingWorker || isStagingDocs) {
+      // Redeploy replays the previous deployment's image snapshot. Docs may
+      // have a pinned snapshot even while its configured source is :latest.
       const deploy = await railwayMutation(
         token,
         `mutation serviceInstanceDeployV2($serviceId: String!, $environmentId: String!) {
@@ -214,6 +236,29 @@ export function makeLiveRedeploy(token: string): RedeployFn {
           ok: false,
           error: `serviceInstanceDeployV2 returned ${JSON.stringify(deploy.value)}`,
         };
+      }
+      if (isStagingDocs) {
+        try {
+          const receipt = expectedDocsImage
+            ? {
+                ...(await verifyDocsDeployment(
+                  token,
+                  deploy.value,
+                  expectedDocsImage,
+                )),
+                verified: true as const,
+              }
+            : {};
+          return { ok: true, deploymentId: deploy.value, ...receipt };
+        } catch (error) {
+          return {
+            ok: false,
+            deploymentId: deploy.value,
+            error: sanitizeErrorBody(
+              error instanceof Error ? error.message : String(error),
+            ),
+          };
+        }
       }
       return { ok: true };
     }
@@ -268,6 +313,9 @@ export interface RedeployServiceRecord {
   service: string;
   status: "ok" | "error";
   error?: string;
+  deploymentId?: string;
+  imageDigest?: string;
+  verified?: true;
 }
 
 export interface RunRedeploySummary {
@@ -531,23 +579,25 @@ export async function runRedeploy(
         `Unknown service "${name}" — not an SSOT key in railway-envs.ts. Add it to SERVICES or fix the caller.`,
       );
     }
-    const isReleaseBlockingWorker =
-      env === "staging" && name === "harness-workers";
+    const isReleaseBlocking =
+      env === "staging" && (name === "harness-workers" || name === "docs");
     process.stdout.write(`  ${name.padEnd(36)} `);
     try {
       const outcome = await redeploy(entry.serviceId, envId);
       if (outcome.ok) {
         succeeded++;
-        records.push({ service: name, status: "ok" });
+        const { ok: _ok, ...receipt } = outcome;
+        records.push({ service: name, status: "ok", ...receipt });
         process.stdout.write("OK\n");
       } else {
-        if (isReleaseBlockingWorker) hasReleaseBlockingFailure = true;
+        if (isReleaseBlocking) hasReleaseBlockingFailure = true;
         failures.push({ service: name, error: outcome.error });
-        records.push({ service: name, status: "error", error: outcome.error });
+        const { ok: _ok, ...receipt } = outcome;
+        records.push({ service: name, status: "error", ...receipt });
         process.stdout.write(`FAIL: ${outcome.error}\n`);
       }
     } catch (e: unknown) {
-      if (isReleaseBlockingWorker) hasReleaseBlockingFailure = true;
+      if (isReleaseBlocking) hasReleaseBlockingFailure = true;
       // Sanitize like the non-throw FAIL path: makeLiveRedeploy pre-sanitizes
       // the errors it RETURNS, but a rejection thrown by the redeploy fn
       // (e.g. an AbortSignal timeout, or a fetch error wrapping a multi-KB
@@ -584,7 +634,7 @@ export async function runRedeploy(
     appendSummary("");
     if (env === "staging" && hasReleaseBlockingFailure) {
       appendSummary(
-        "The harness-workers failure is release-blocking; independent staging services were still attempted.",
+        "The docs/harness-workers failure is release-blocking; independent staging services were still attempted.",
       );
     } else if (env === "staging") {
       appendSummary(
@@ -627,7 +677,7 @@ export async function runRedeploy(
   }
 
   // Fail-loud by default. Ordinary staging services keep their historical
-  // non-fatal behavior; the clean-recycling worker is release-blocking.
+  // non-fatal behavior; docs and the clean-recycling worker are release-blocking.
   const exitCode =
     failed > 0 && (env !== "staging" || hasReleaseBlockingFailure) ? 1 : 0;
   return { exitCode, attempted, succeeded, failed, records };
@@ -669,7 +719,9 @@ async function main(): Promise<void> {
   // through to liveRedeploy. Missing/malformed creds exit non-zero from
   // getToken() before we ever enter the per-service loop.
   const token = getToken();
-  const redeploy = makeLiveRedeploy(token);
+  const redeploy = makeLiveRedeploy(token, {
+    docsExpectedImage: process.env.DOCS_EXPECTED_IMAGE,
+  });
 
   const result = await runRedeploy({
     env,

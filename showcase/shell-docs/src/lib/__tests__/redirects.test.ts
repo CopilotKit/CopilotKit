@@ -15,6 +15,59 @@ interface ResolvedRedirect {
   readonly permanent: boolean;
 }
 
+describe("AG-UI Streams overview", () => {
+  it("keeps existing overview links and raw-doc variants on a permanent redirect", async () => {
+    for (const suffix of RAW_DOC_SUFFIXES) {
+      for (const [source, destination] of [
+        ["/threads", "/AG-UI-Streams"],
+        ["/built-in-agent/threads", "/AG-UI-Streams"],
+        ["/react/threads", "/AG-UI-Streams"],
+        ["/react/built-in-agent/threads", "/AG-UI-Streams"],
+        ["/mastra/threads", "/mastra/AG-UI-Streams"],
+        ["/langgraph-python/threads", "/langgraph-python/AG-UI-Streams"],
+        ["/react/mastra/threads", "/mastra/AG-UI-Streams"],
+        ["/vue/threads", "/vue/AG-UI-Streams"],
+        ["/vue/mastra/threads", "/vue/mastra/AG-UI-Streams"],
+        ["/react-spa/mastra/threads", "/react-spa/mastra/AG-UI-Streams"],
+        ["/react-native/mastra/threads", "/react-native/mastra/AG-UI-Streams"],
+        ["/slack/mastra/threads", "/slack/mastra/AG-UI-Streams"],
+        ["/teams/mastra/threads", "/teams/mastra/AG-UI-Streams"],
+        [
+          "/angular/threads",
+          "/angular/guides/threads-memory-attachments-headless",
+        ],
+        [
+          "/angular/mastra/threads",
+          "/angular/mastra/guides/threads-memory-attachments-headless",
+        ],
+      ]) {
+        await expectPermanentOneHop(
+          `${source}${suffix}`,
+          `${destination}${suffix}`,
+        );
+      }
+    }
+  });
+
+  it("preserves the existing architecture and lifecycle routes", async () => {
+    for (const suffix of RAW_DOC_SUFFIXES) {
+      for (const source of ["/learn/threads", "/concepts/threads"]) {
+        await expectPermanentOneHop(
+          `${source}${suffix}`,
+          `/intelligence/threads-explained${suffix}`,
+        );
+      }
+    }
+    for (const source of [
+      "/threads-import",
+      "/threads-lifecycle",
+      "/headless-threads",
+    ]) {
+      expect(await resolveFirstRedirect(source)).toBeNull();
+    }
+  });
+});
+
 describe("retired Open-JSON-UI docs", () => {
   it("redirects every published URL shape to A2UI in one hop", async () => {
     for (const suffix of RAW_DOC_SUFFIXES) {
@@ -66,12 +119,15 @@ describe("retired self-managed thread persistence docs", () => {
   it("redirects every published URL shape to the threads overview in one hop", async () => {
     for (const suffix of RAW_DOC_SUFFIXES) {
       const redirects = [
-        ["/threads-self-managed", "/threads"],
-        ["/mastra/threads-self-managed", "/mastra/threads"],
-        ["/langgraph-python/threads-self-managed", "/langgraph-python/threads"],
-        ["/built-in-agent/threads-self-managed", "/threads"],
-        ["/react/threads-self-managed", "/threads"],
-        ["/react/mastra/threads-self-managed", "/mastra/threads"],
+        ["/threads-self-managed", "/AG-UI-Streams"],
+        ["/mastra/threads-self-managed", "/mastra/AG-UI-Streams"],
+        [
+          "/langgraph-python/threads-self-managed",
+          "/langgraph-python/AG-UI-Streams",
+        ],
+        ["/built-in-agent/threads-self-managed", "/AG-UI-Streams"],
+        ["/react/threads-self-managed", "/AG-UI-Streams"],
+        ["/react/mastra/threads-self-managed", "/mastra/AG-UI-Streams"],
         [
           "/angular/threads-self-managed",
           "/angular/guides/threads-memory-attachments-headless",
@@ -80,12 +136,15 @@ describe("retired self-managed thread persistence docs", () => {
           "/angular/mastra/threads-self-managed",
           "/angular/mastra/guides/threads-memory-attachments-headless",
         ],
-        ["/vue/threads-self-managed", "/vue/threads"],
-        ["/vue/mastra/threads-self-managed", "/vue/mastra/threads"],
-        ["/react-spa/mastra/threads-self-managed", "/react-spa/mastra/threads"],
+        ["/vue/threads-self-managed", "/vue/AG-UI-Streams"],
+        ["/vue/mastra/threads-self-managed", "/vue/mastra/AG-UI-Streams"],
+        [
+          "/react-spa/mastra/threads-self-managed",
+          "/react-spa/mastra/AG-UI-Streams",
+        ],
         [
           "/react-native/mastra/threads-self-managed",
-          "/react-native/mastra/threads",
+          "/react-native/mastra/AG-UI-Streams",
         ],
       ] as const;
 

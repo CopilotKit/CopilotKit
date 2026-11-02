@@ -1,0 +1,19 @@
+Use slicing with a step of −1:
+
+```python
+text = "hello world"
+reversed_text = text[::-1]
+print(reversed_text)  # dlrow olleh
+```
+
+**How it works:** a slice has the form `[start:stop:step]`. Leaving out `start` and `stop` covers the whole string, and a `step` of `-1` walks it from the last character to the first. Strings are immutable, so this builds a new string and leaves `text` unchanged.
+
+If you'd rather spell it out, `reversed()` gives the characters in reverse order and `join` glues them back together:
+
+```python
+reversed_text = "".join(reversed(text))
+```
+
+Both give the same result. `[::-1]` is the idiomatic choice: it's shorter and also the fastest.
+
+One edge case: both reverse Unicode code points, not what you see as characters. An emoji with a skin-tone modifier, or a letter written with a separate combining accent, can come apart. If your text can contain those, reverse grapheme clusters with the third-party `regex` package: `"".join(reversed(regex.findall(r"\X", text)))`.

@@ -144,7 +144,7 @@ const agent = new BuiltInAgent({
 
 ## Custom Models (AI SDK)
 
-For models not in the built-in list, you can pass any Vercel AI SDK `LanguageModel` instance directly.
+To use a provider that model strings do not cover, or to configure the provider yourself (for example, a custom base URL), pass any Vercel AI SDK `LanguageModel` instance directly.
 First, install the provider package from its `ai-v6` release line:
 
 ```npm
@@ -161,19 +161,18 @@ npm install @ai-sdk/openai@ai-v6
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { createOpenAI } from "@ai-sdk/openai"; // [!code highlight]
 
-const customProvider = createOpenAI({
+const openai = createOpenAI({
   // [!code highlight]
-  apiKey: process.env.MY_API_KEY, // [!code highlight]
-  baseURL: "https://my-proxy.example.com/v1", // [!code highlight]
+  apiKey: process.env.OPENAI_API_KEY, // [!code highlight]
 }); // [!code highlight]
 
 const agent = new BuiltInAgent({
-  model: customProvider("my-fine-tuned-model"), // [!code highlight]
+  model: openai("my-fine-tuned-model"), // [!code highlight]
 });
 ```
 
-This works with any AI SDK provider, including Azure OpenAI, AWS Bedrock, Ollama,
-or any OpenAI-compatible endpoint:
+This works with any AI SDK provider, including Azure OpenAI, AWS Bedrock, and
+Ollama. For an OpenAI-compatible endpoint, read the next section first.
 
 ```typescript
 import { createAzure } from "@ai-sdk/azure";
@@ -188,6 +187,39 @@ const agent = new BuiltInAgent({
 });
 ```
 
+### OpenAI-compatible providers: use `provider.chat(model)`
+
+`@ai-sdk/openai` 3.x sends a bare `provider(model)` call to the OpenAI
+**Responses** API (`POST {baseURL}/responses`). Many OpenAI-compatible
+providers do not serve that endpoint. They serve only the Chat Completions API
+(`POST {baseURL}/chat/completions`). When you point `createOpenAI` at such a
+provider and call `provider(model)`, the agent run fails with an error from
+the provider, such as a 404.
+
+Call `provider.chat(model)` instead. It sends the request to the Chat
+Completions API:
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createOpenAI } from "@ai-sdk/openai";
+
+const provider = createOpenAI({
+  apiKey: process.env.PROVIDER_API_KEY,
+  baseURL: "https://api.example-provider.com/v1",
+});
+
+const agent = new BuiltInAgent({
+  model: provider.chat("provider-model-id"), // [!code highlight]
+});
+```
+
+Use the bare `provider(model)` form only when the host serves the Responses
+API, such as OpenAI itself or a proxy that forwards to OpenAI. The
+`"openai:..."` model strings do not have this problem: with `OPENAI_BASE_URL`
+set to a host that is not OpenAI or Azure, the Built-in Agent picks the Chat
+Completions API for you (see
+[OpenAI-compatible endpoints](#openai-compatible-endpoints)).
+
 ## OpenRouter, proxies, and bring-your-own LLM
 
 Anything that exposes an **OpenAI-compatible** API, including [OpenRouter](https://openrouter.ai),
@@ -196,10 +228,12 @@ a self-hosted gateway, an internal LLM proxy, [Ollama](https://ollama.com), [Tog
 `createOpenAI({ baseURL })` pattern shown in [Custom Models](#custom-models-ai-sdk)
 above. Point `baseURL` at the provider's OpenAI-compatible route and pass your key:
 
-<Callout type="warn" title="Novita: use provider.chat(model)">
-  Novita only implements the Chat Completions endpoint, not Responses. Call it as
-  `provider.chat("model")` (not `provider("model")`) — the bare call form used in
-  the example below routes through Responses and returns an error on Novita.
+<Callout type="warn" title="Call provider.chat(model)">
+  If the endpoint serves only the Chat Completions API, which is true for most
+  of these providers, call `provider.chat("model")`, not `provider("model")`.
+  The bare call sends the request to the Responses API. Keep the bare call only
+  for a proxy that forwards the Responses API to OpenAI. See
+  [OpenAI-compatible providers](#openai-compatible-providers-use-providerchatmodel).
 </Callout>
 
 ```typescript
@@ -214,7 +248,7 @@ const openrouter = createOpenAI({
 }); // [!code highlight]
 
 const agent = new BuiltInAgent({
-  model: openrouter("anthropic/claude-sonnet-4-6"), // [!code highlight]
+  model: openrouter.chat("anthropic/claude-sonnet-4-6"), // [!code highlight]
 });
 ```
 
@@ -230,7 +264,7 @@ AI SDK can talk to it, the Built-in Agent can use it.
 
 ```typescript
 new BuiltInAgent({ model: "openai:gpt-5.4-mini" }); // built-in string
-new BuiltInAgent({ model: openrouter("...") }); // any LanguageModel
+new BuiltInAgent({ model: openrouter.chat("...") }); // any LanguageModel
 ```
 
 To switch models per user, request, or feature flag, construct the agent with

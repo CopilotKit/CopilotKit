@@ -1,11 +1,5 @@
-import {
-  createContext,
-  useContext,
-  useRef,
-  useState,
-  useMemo,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useRef, useState, useMemo } from "react";
+import type { ReactNode } from "react";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
 import { basicCatalog } from "../a2ui-react";
 import type { A2UIContextValue, A2UIActions } from "./store";
@@ -73,7 +67,7 @@ export function A2UIProvider({
               timestamp: action?.timestamp ?? new Date().toISOString(),
             },
           };
-          onActionRef.current(message);
+          return onActionRef.current(message);
         }
       },
     );
@@ -102,11 +96,7 @@ export function A2UIProvider({
         setVersion((v) => v + 1);
       },
 
-      dispatch: (message: any) => {
-        if (onActionRef.current) {
-          onActionRef.current(message);
-        }
-      },
+      dispatch: (message: any) => onActionRef.current?.(message),
 
       getSurface: (surfaceId: string) => {
         return processor.model.getSurface(surfaceId);

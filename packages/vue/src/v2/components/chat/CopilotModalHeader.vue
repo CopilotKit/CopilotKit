@@ -107,7 +107,10 @@ function toggleDrawer() {
             data-testid="drawer-launcher"
             class="cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-full cpk:text-muted-foreground cpk:transition cpk:cursor-pointer cpk:hover:bg-muted cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring"
             :aria-expanded="config?.drawerOpen ?? false"
-            aria-label="Open threads"
+            :aria-label="
+              config?.labels.modalHeaderThreadsButtonLabel ??
+              CopilotChatDefaultLabels.modalHeaderThreadsButtonLabel
+            "
             @click="toggleDrawer"
           >
             <IconPanelLeftOpen class="cpk:h-4 cpk:w-4" aria-hidden="true" />
