@@ -15,7 +15,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "importHelpers": true,
+    "importHelpers": false,
     "types": ["node"],
     "paths": {
       "@copilotkit/angular": ["./src/public-api.ts"],

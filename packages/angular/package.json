@@ -71,7 +71,6 @@
     "dompurify": "^3.4.1",
     "katex": "^0.16.22",
     "marked": "^12.0.2",
-    "tslib": "^2.6.0",
     "zod": "^4.2.0"
   },
   "devDependencies": {
