@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ToolSet } from "ai";
 import { mergeMCPTools, resolveMCPToolNames } from "../mcp-tool-names";
 
-const tool = (description: string) => ({ description }) as ToolSet[string];
+interface FakeTool {
+  description: string;
+}
 
-const descriptions = (tools: ToolSet) =>
+const tool = (description: string): FakeTool => ({ description });
+
+const descriptions = (tools: Record<string, FakeTool>) =>
   Object.fromEntries(
     Object.entries(tools).map(([name, t]) => [name, t.description]),
   );
@@ -17,7 +20,7 @@ describe("resolveMCPToolNames", () => {
   it("keeps both tools when two servers share a name", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const merged = mergeMCPTools({}, [
+    const merged = mergeMCPTools<FakeTool, FakeTool>({}, [
       { label: "prod", tools: { search: tool("first") } },
       { label: "prod", tools: { search: tool("second") } },
     ]);
@@ -36,7 +39,7 @@ describe("resolveMCPToolNames", () => {
   it("keeps both tools when two names reduce to the same prefix", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const merged = mergeMCPTools({}, [
+    const merged = mergeMCPTools<FakeTool, FakeTool>({}, [
       { label: "a_b", tools: { lookup: tool("first") } },
       { label: "a_b", tools: { lookup: tool("second") } },
     ]);
@@ -47,7 +50,7 @@ describe("resolveMCPToolNames", () => {
   it("does not warn about a shared prefix when no tool needed a number", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    mergeMCPTools({}, [
+    mergeMCPTools<FakeTool, FakeTool>({}, [
       { label: "quiet", tools: { quiet_a: tool("a") } },
       { label: "quiet", tools: { quiet_b: tool("b") } },
     ]);
@@ -58,7 +61,7 @@ describe("resolveMCPToolNames", () => {
   it("does not let a prefixed name replace another server's tool", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const merged = mergeMCPTools({}, [
+    const merged = mergeMCPTools<FakeTool, FakeTool>({}, [
       { label: "mcp1", tools: { search: tool("server 1 search") } },
       {
         label: "mcp2",

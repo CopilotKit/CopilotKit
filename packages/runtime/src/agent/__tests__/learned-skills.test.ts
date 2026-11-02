@@ -80,7 +80,11 @@ describe("BuiltInAgent learned skills", () => {
     );
     const { agent, contexts } = factoryAgent();
     await collectEvents(agent.run(createDefaultInput()));
-    expect(contexts[0].learnedSkills).toEqual({ catalog: "", tools: {} });
+    expect(contexts[0].learnedSkills).toEqual({
+      catalog: "",
+      tools: {},
+      definitions: [],
+    });
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -109,7 +113,11 @@ describe("BuiltInAgent learned skills", () => {
     fetch.mockResolvedValueOnce(response("empty"));
     const { agent, contexts } = factoryAgent(learnedSkills);
     await collectEvents(agent.run(createDefaultInput()));
-    expect(contexts[0].learnedSkills).toEqual({ catalog: "", tools: {} });
+    expect(contexts[0].learnedSkills).toEqual({
+      catalog: "",
+      tools: {},
+      definitions: [],
+    });
     await collectEvents(agent.run(createDefaultInput({ runId: "next" })));
     expect(contexts[1].learnedSkills.catalog).toContain("refund-policy");
     expect(contexts[1].learnedSkills.catalog).not.toContain("30 days");
@@ -184,7 +192,11 @@ describe("BuiltInAgent learned skills", () => {
         }),
       ),
     );
-    expect(contexts[1].learnedSkills).toEqual({ catalog: "", tools: {} });
+    expect(contexts[1].learnedSkills).toEqual({
+      catalog: "",
+      tools: {},
+      definitions: [],
+    });
     expect(JSON.stringify(resumed)).toContain("No skills");
     expect(fetch).toHaveBeenCalledTimes(2);
   });
@@ -266,7 +278,11 @@ describe("BuiltInAgent learned skills", () => {
         }),
       ),
     );
-    expect(contexts[1].learnedSkills).toEqual({ catalog: "", tools: {} });
+    expect(contexts[1].learnedSkills).toEqual({
+      catalog: "",
+      tools: {},
+      definitions: [],
+    });
     expect(
       await execute(
         contexts[0].learnedSkills.tools,
