@@ -106,4 +106,42 @@ describe("CopilotSidebar", () => {
       "slot-forwarded",
     );
   });
+
+  it("forwards the assistant-message slot to the message view", () => {
+    const agent = new StateCapturingAgent();
+    agent.setMessages([
+      { id: "assistant-1", role: "assistant", content: "Hello from the agent" },
+    ]);
+
+    const { wrapper } = mountWithProvider(
+      () =>
+        h(
+          CopilotSidebar,
+          { welcomeScreen: false },
+          {
+            "assistant-message": ({
+              message,
+            }: {
+              message: { content: string };
+            }) =>
+              h(
+                "div",
+                { "data-testid": "sidebar-assistant-message" },
+                message.content,
+              ),
+          },
+        ),
+      {
+        runtimeUrl: undefined,
+        agents__unsafe_dev_only: { default: agent },
+      },
+    );
+
+    expect(
+      wrapper.get("[data-testid='sidebar-assistant-message']").text(),
+    ).toBe("Hello from the agent");
+    expect(
+      wrapper.find("[data-testid='copilot-assistant-message']").exists(),
+    ).toBe(false);
+  });
 });
