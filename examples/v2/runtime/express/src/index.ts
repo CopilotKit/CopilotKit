@@ -6,7 +6,7 @@ import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: tanstackAIAgent({ adapter: openaiText("gpt-5-mini") }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-5-mini") }),
   },
 });
 

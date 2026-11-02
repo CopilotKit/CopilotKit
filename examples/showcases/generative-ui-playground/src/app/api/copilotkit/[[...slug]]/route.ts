@@ -27,7 +27,7 @@ import { A2AClient } from "@a2a-js/sdk/client";
  * - MCP Apps (flights, hotels, trading, kanban, calculator, todo)
  */
 const defaultAgent = tanstackAIAgent({
-  adapter: openaiText("gpt-5.2"),
+  adapter: () => openaiText("gpt-5.2"),
   prompt: `You are an AI assistant that demonstrates different types of Generative UI.
 
 ## Static GenUI Tools

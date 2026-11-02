@@ -7,7 +7,7 @@ import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: tanstackAIAgent({ adapter: openaiText("gpt-5-mini") }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-5-mini") }),
   },
 });
 

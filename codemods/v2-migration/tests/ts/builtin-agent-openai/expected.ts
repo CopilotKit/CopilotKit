@@ -11,7 +11,7 @@ const getWeather = defineTool({
 });
 
 const agent = tanstackAIAgent({
-  adapter: openaiText("gpt-5.5"),
+  adapter: () => openaiText("gpt-5.5"),
   prompt: "You are a helpful assistant.",
   tools: [getWeather],
   mcpServers: [{ type: "http", url: "https://mcp.example.com" }],

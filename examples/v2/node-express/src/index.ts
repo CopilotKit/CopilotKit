@@ -24,7 +24,7 @@ const roastTool = defineTool({
 const runtime = new CopilotRuntime({
   agents: {
     default: tanstackAIAgent({
-      adapter: openaiText("gpt-5-mini"),
+      adapter: () => openaiText("gpt-5-mini"),
       tools: [roastTool],
     }),
   },

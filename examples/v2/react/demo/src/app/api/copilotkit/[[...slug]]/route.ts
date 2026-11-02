@@ -42,7 +42,7 @@ const determineAdapter = () => {
 };
 
 const builtInAgent = tanstackAIAgent({
-  adapter: determineAdapter(),
+  adapter: determineAdapter,
   prompt:
     "You are a helpful AI assistant. Use reasoning to answer the user's question. If you don't know the answer, say you don't know.",
   // Think hard and stream the reasoning summary. TanStack AI maps the level

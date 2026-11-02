@@ -8,7 +8,7 @@ import { openaiText } from "@tanstack/ai-openai";
 import { prompt } from "../../../../lib/prompt";
 
 const agent = tanstackAIAgent({
-  adapter: openaiText("gpt-5-mini"),
+  adapter: () => openaiText("gpt-5-mini"),
   prompt,
   maxIterations: 5,
 });

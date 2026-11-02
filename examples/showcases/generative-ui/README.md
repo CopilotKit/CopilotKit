@@ -228,7 +228,7 @@ import { openaiText } from "@tanstack/ai-openai";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 
 const agent = tanstackAIAgent({
-  adapter: openaiText("gpt-5-mini"),
+  adapter: () => openaiText("gpt-5-mini"),
   prompt: "You are a helpful assistant.",
 }).use(
   new MCPAppsMiddleware({

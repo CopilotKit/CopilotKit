@@ -69,7 +69,7 @@ function determineAdapter() {
 }
 
 const builtInAgent = tanstackAIAgent({
-  adapter: determineAdapter(),
+  adapter: determineAdapter,
   prompt:
     "You are a helpful AI assistant. Use reasoning to answer the user's question. If you don't know the answer, say you don't know.",
   // OpenRouter speaks the Chat Completions API, so its limit is `max_tokens`.
@@ -90,7 +90,7 @@ const builtInAgent = tanstackAIAgent({
 // lazy-route override never takes effect; the agent is therefore registered by
 // name on the existing runtime and the page selects it with `[agentId]`.
 const mcpAgent = tanstackAIAgent({
-  adapter: determineAdapter(),
+  adapter: determineAdapter,
   prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
   modelOptions: { temperature: 0.7 },
 }).use(

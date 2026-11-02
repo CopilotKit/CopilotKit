@@ -16,7 +16,7 @@ import { openaiText } from "@tanstack/ai-openai";
 // as context. With the tool transport the runtime gives the agent the
 // render_ui tool. The prompt stays neutral so both transports work.
 const builtIn = tanstackAIAgent({
-  adapter: openaiText("gpt-5.5"),
+  adapter: () => openaiText("gpt-5.5"),
   prompt:
     "You are a helpful assistant. When a visual, interactive answer helps, render it with generative UI as described in your context.",
 });

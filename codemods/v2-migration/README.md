@@ -24,8 +24,9 @@ Then finish with the skill it installs, or by hand: search for `TODO(copilotkit-
 - **Markdown rendering.** 2.0 renders markdown with CopilotKit's own renderer, not Streamdown. The Streamdown props on the `markdownRenderer` slot (`components`, `shikiTheme`, `remarkPlugins`, ...) get a TODO that names the 2.0 way. Calls of the removed Vue `useKatexStyles` are deleted.
 - **License checker.** Each read of the removed `runtime.licenseChecker` gets a TODO. The 2.0 call, `await runtime.getLicenseChecker()`, is async, so the codemod does not rewrite it.
 - **1.x deprecations that 2.0 removed.** `BasicAgent` becomes `BuiltInAgent`, `createNodeFetchHandler` becomes `createCopilotNodeHandler`, and `useA2UIStore` becomes `useA2UIContext`. The no-op props `showDevConsole` (on `<CopilotKitProvider>`) and `registry` (on `<A2UIRenderer>`) are deleted. The other removed deprecations get a TODO that names the 2.0 way.
-- **Classic `BuiltInAgent`.** `new BuiltInAgent({ model: "openai/gpt-5.5", ... })` becomes `tanstackAIAgent({ adapter: openaiText("gpt-5.5"), ... })` from `@copilotkit/runtime/tanstack-ai`, and the codemod adds the imports. `BasicAgent` calls get the same rewrite. Factory-mode calls do not change.
+- **Classic `BuiltInAgent`.** `new BuiltInAgent({ model: "openai/gpt-5.5", ... })` becomes `tanstackAIAgent({ adapter: () => openaiText("gpt-5.5"), ... })` from `@copilotkit/runtime/tanstack-ai`, and the codemod adds the imports. `BasicAgent` calls get the same rewrite. Factory-mode calls do not change.
   - `openai/` uses `openaiText`, `anthropic/` uses `anthropicText`, and `google/` or `gemini/` uses `geminiText`. `gpt-5.4` becomes `gpt-5.5`.
+  - The adapter is a function. An adapter reads the API key when it is created, so the function form lets the app import and build without the key.
   - `maxSteps` becomes `maxIterations`.
   - `apiKey`, `mcpClients`, `urlDownload`, sampling options such as `temperature`, and `"model"` in `overridableProperties` get a TODO.
   - A `vertex/` or `minimax/` model, or a model that is not a string, keeps the call and gets a TODO. So do the `BasicAgentConfiguration` and `BuiltInAgentClassicConfig` types.

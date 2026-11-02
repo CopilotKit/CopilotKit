@@ -34,7 +34,7 @@ const determineAdapter = () => {
 };
 
 const agent = tanstackAIAgent({
-  adapter: determineAdapter(),
+  adapter: determineAdapter,
   prompt: `You are the shopping assistant for Acme Audio.
 Catalog (the only products that exist): ${JSON.stringify(PRODUCTS)}
 

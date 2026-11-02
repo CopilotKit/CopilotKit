@@ -23,7 +23,7 @@ const determineAdapter = () => {
 };
 
 const agent = tanstackAIAgent({
-  adapter: determineAdapter(),
+  adapter: determineAdapter,
   prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
   modelOptions: { temperature: 0.7 },
 }).use(

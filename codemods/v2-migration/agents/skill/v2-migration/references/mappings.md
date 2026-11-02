@@ -220,7 +220,9 @@ import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: tanstackAIAgent({ adapter: openaiText("gpt-5.5") }) },
+  agents: {
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-5.5") }),
+  },
 });
 
 const handler = createCopilotRuntimeHandler({
@@ -233,6 +235,8 @@ export const POST = handler;
 ```
 
 Add `@tanstack/ai` and the adapter package to the app's dependencies (`@tanstack/ai-openai` here; `@tanstack/ai-anthropic` for `anthropicText`, `@tanstack/ai-gemini` for `geminiText`).
+
+Pass the adapter as a function (`adapter: () => openaiText(...)`). An adapter reads the API key when it is created and throws if the key is missing. The function runs on the first agent run, so the app can import and build without the key.
 
 The codemod automatically migrates supported local Express/Hono factories, their mounts, and Next.js wrappers. Preserve the generated app-owned Express router: it keeps mount prefixes, hook request URLs, exact single-route matching, and fallthrough intact. Remaining adapter TODOs need manual handling, especially custom CORS callbacks or implicit header reflection.
 

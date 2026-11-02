@@ -134,7 +134,7 @@ const searchInternet = defineTool({
 const runtime = new CopilotRuntime({
   agents: {
     default: tanstackAIAgent({
-      adapter: openaiText("gpt-5-mini"),
+      adapter: () => openaiText("gpt-5-mini"),
       prompt,
       tools: [searchInternet],
       maxIterations: 5,

@@ -159,7 +159,7 @@ export const createDefaultRuntime = () =>
   new CopilotRuntime({
     agents: {
       default: tanstackAIAgent({
-        adapter: determineAdapter(),
+        adapter: determineAdapter,
         prompt: "You are a helpful AI assistant.",
         modelOptions: { temperature: 0.7 },
       }),
@@ -186,7 +186,7 @@ export const createCatalogOnlyRuntime = () =>
 
 export const createMcpRuntime = () => {
   const agent = tanstackAIAgent({
-    adapter: determineAdapter(),
+    adapter: determineAdapter,
     prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
     modelOptions: { temperature: 0.7 },
   }).use(

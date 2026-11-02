@@ -135,7 +135,7 @@ import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = tanstackAIAgent({
-  adapter: openaiText("gpt-4o"),
+  adapter: () => openaiText("gpt-4o"),
   prompt: "You are a helpful shopping assistant.",
 });
 
@@ -160,7 +160,7 @@ const runtime = new CopilotRuntime({
 async function loadAgents() {
   const config = await fetchConfig();
   return {
-    default: tanstackAIAgent({ adapter: openaiText("gpt-4o") }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o") }),
     research: new HttpAgent({ url: config.researchAgentUrl }),
   };
 }
@@ -450,12 +450,12 @@ const app = express();
 
 // Create agents
 const generalAgent = tanstackAIAgent({
-  adapter: openaiText("gpt-4o"),
+  adapter: () => openaiText("gpt-4o"),
   prompt: "You are a helpful assistant.",
 });
 
 const codeAgent = tanstackAIAgent({
-  adapter: openaiText("gpt-4o"),
+  adapter: () => openaiText("gpt-4o"),
   prompt: "You are a coding expert. Always provide code examples.",
 });
 

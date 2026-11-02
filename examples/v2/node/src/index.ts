@@ -13,7 +13,7 @@ import { serve } from "@hono/node-server";
 const runtime = new CopilotRuntime({
   agents: {
     default: tanstackAIAgent({
-      adapter: openaiText("gpt-5-mini"),
+      adapter: () => openaiText("gpt-5-mini"),
       maxIterations: 5,
       modelOptions: { temperature: 0.7 },
     }),

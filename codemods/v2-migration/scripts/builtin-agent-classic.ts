@@ -143,7 +143,6 @@ function overridesModel(property: Node) {
   );
 }
 
-/** The `// ...` lines right above `lineStart`, trimmed. */
 /**
  * ast-grep positions (`range().start.index`, edit `startPos`) count UTF-8
  * bytes; JavaScript strings count UTF-16 code units. These convert between
@@ -174,6 +173,7 @@ function toCharIndex(source: string, byteIndex: number) {
   return index;
 }
 
+/** The `// ...` lines right above `lineStart`, trimmed. */
 function commentsAbove(source: string, lineStart: number) {
   const lines = source
     .slice(0, lineStart)
@@ -191,7 +191,7 @@ function commentsAbove(source: string, lineStart: number) {
 
 /**
  * Rewrites classic `new BuiltInAgent({ model: "openai/gpt-5.5", ... })` to
- * `tanstackAIAgent({ adapter: openaiText("gpt-5.5"), ... })` from
+ * `tanstackAIAgent({ adapter: () => openaiText("gpt-5.5"), ... })` from
  * `@copilotkit/runtime/tanstack-ai`, and adds the adapter import.
  *
  * - `maxSteps` becomes `maxIterations`.
@@ -243,7 +243,10 @@ export function migrateClassicBuiltInAgent(rootNode: Node) {
       endPos: config.argumentList.range().start.index,
       insertedText: AGENT_FACTORY,
     });
-    edits.push(config.model.replace(`adapter: ${adapter.call}`));
+    // Lazy form: adapter factories read the API key when called and throw
+    // when it is missing. A function runs on the first agent run, so
+    // importing or building the app works without the key.
+    edits.push(config.model.replace(`adapter: () => ${adapter.call}`));
     adapters.set(adapter.name, adapter.source);
     rewritten.set(local, (rewritten.get(local) ?? 0) + 1);
 

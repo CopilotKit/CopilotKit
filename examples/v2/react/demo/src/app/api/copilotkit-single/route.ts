@@ -24,7 +24,7 @@ const determineAdapter = () => {
 };
 
 const agent = tanstackAIAgent({
-  adapter: determineAdapter(),
+  adapter: determineAdapter,
   prompt: "You are a helpful AI assistant.",
   modelOptions: { temperature: 0.7 },
 });

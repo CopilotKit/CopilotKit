@@ -136,7 +136,7 @@ const runtimeAgentUrl = `http://localhost:${runtimePort}/api/copilotkit/agent/${
 const runtime = new CopilotSseRuntime({
   agents: {
     [agentId]: tanstackAIAgent({
-      adapter: openaiText("gpt-5.5"),
+      adapter: () => openaiText("gpt-5.5"),
       prompt: SYSTEM_PROMPT,
     }),
   },

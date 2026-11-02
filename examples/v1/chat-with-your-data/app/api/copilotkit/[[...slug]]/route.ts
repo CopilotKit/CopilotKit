@@ -23,7 +23,7 @@ const searchInternet = defineTool({
 });
 
 const agent = tanstackAIAgent({
-  adapter: openaiText("gpt-5-mini"),
+  adapter: () => openaiText("gpt-5-mini"),
   prompt,
   tools: [searchInternet],
   maxIterations: 5,

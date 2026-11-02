@@ -28,16 +28,20 @@ async function exercise() {
     )
   );
   const modelOrigin = new URL(input.modelUrl).origin;
-  const adapter = openaiCompatibleText("smoke-agent", {
-    baseURL: `${input.modelUrl}/v1`,
-    apiKey: "smoke-placeholder",
-    api: "chat-completions",
-    fetch: (resource, init) => {
-      if (new URL(String(resource)).origin !== modelOrigin)
-        throw new Error("External model requests are forbidden");
-      return fetch(resource, { ...init, signal: AbortSignal.timeout(30_000) });
-    },
-  });
+  const createAdapter = () =>
+    openaiCompatibleText("smoke-agent", {
+      baseURL: `${input.modelUrl}/v1`,
+      apiKey: "smoke-placeholder",
+      api: "chat-completions",
+      fetch: (resource, init) => {
+        if (new URL(String(resource)).origin !== modelOrigin)
+          throw new Error("External model requests are forbidden");
+        return fetch(resource, {
+          ...init,
+          signal: AbortSignal.timeout(30_000),
+        });
+      },
+    });
   const intelligence = new CopilotKitIntelligence({
     apiUrl: input.apiUrl,
     wsUrl: input.gatewayUrl,
@@ -47,7 +51,7 @@ async function exercise() {
   const runtime = new CopilotRuntime({
     intelligence,
     agents: {
-      smoke: tanstackAIAgent({ adapter, maxIterations: 1 }),
+      smoke: tanstackAIAgent({ adapter: createAdapter, maxIterations: 1 }),
     },
     identifyUser: () => ({ id: "smoke-user", name: "Smoke user" }),
     generateThreadNames: false,

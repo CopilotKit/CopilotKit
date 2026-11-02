@@ -348,16 +348,16 @@ import { openaiText } from "@tanstack/ai-openai";
 
 const agents = {
   default: tanstackAIAgent({
-    adapter: openaiText("gpt-4o"),
+    adapter: () => openaiText("gpt-4o"),
     prompt: "You are a general assistant.",
   }),
   research: tanstackAIAgent({
-    adapter: openaiText("gpt-4o"),
+    adapter: () => openaiText("gpt-4o"),
     prompt:
       "You are a research specialist. Search for papers and summarize findings.",
   }),
   coding: tanstackAIAgent({
-    adapter: openaiText("gpt-4o"),
+    adapter: () => openaiText("gpt-4o"),
     prompt: "You are a coding expert. Write clean, tested code.",
   }),
 };

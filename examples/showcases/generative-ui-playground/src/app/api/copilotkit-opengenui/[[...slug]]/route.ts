@@ -14,7 +14,7 @@ import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = tanstackAIAgent({
-  adapter: openaiText("gpt-5-mini"),
+  adapter: () => openaiText("gpt-5-mini"),
   prompt: `You are an AI assistant that builds interactive UIs on demand.
 
 When the user asks for any visual or interactive element, use the generateSandboxedUi tool to create it.

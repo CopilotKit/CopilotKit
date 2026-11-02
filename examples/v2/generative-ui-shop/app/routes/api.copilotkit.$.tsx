@@ -24,7 +24,7 @@ import type { Route } from "./+types/api.copilotkit.$";
 // (navigateTo, addToCart), the page context, and the render_ui tool of
 // generative UI, next to the server tools below.
 const shopAssistant = tanstackAIAgent({
-  adapter: openaiText("gpt-5.5"),
+  adapter: () => openaiText("gpt-5.5"),
   prompt: SHOP_ASSISTANT_PROMPT,
   tools: [
     // Eager tools: described to the model on every message.

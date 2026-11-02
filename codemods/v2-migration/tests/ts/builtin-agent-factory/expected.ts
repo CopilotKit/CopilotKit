@@ -7,6 +7,6 @@ const custom = new BuiltInAgent({
   type: "aisdk",
   factory: (ctx) => streamText({ model, messages: ctx.messages }),
 });
-const classic = tanstackAIAgent({ adapter: openaiText("gpt-5.5") });
+const classic = tanstackAIAgent({ adapter: () => openaiText("gpt-5.5") });
 
 export const runtime = new CopilotRuntime({ agents: { custom, classic } });
