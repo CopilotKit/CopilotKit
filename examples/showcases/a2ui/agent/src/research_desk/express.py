@@ -130,7 +130,7 @@ def _function(entry: dict[str, Any]) -> dict[str, Any]:
 
 class ExpressCompiler:
     def __init__(self, envelope: dict[str, Any], surface_id: str = "main"):
-        received = envelope.get("v1.0", {}).get("inlineCatalogs", [])
+        received = envelope.get("1.0", {}).get("inlineCatalogs", [])
         if not received or not received[0].get("components"):
             raise ValueError("Express requires the browser's inline component catalog")
         self.catalogs = []
@@ -163,10 +163,8 @@ class ExpressCompiler:
                     for name, entry in inline.get("functions", {}).items()
                 },
             }
-            self.catalogs.append(Catalog.from_json(document, protocol_version="v1.0"))
-        self.format = ExpressFormat(
-            self.catalogs, version="v1.0", surface_id=surface_id
-        )
+            self.catalogs.append(Catalog.from_json(document, protocol_version="1.0"))
+        self.format = ExpressFormat(self.catalogs, version="1.0", surface_id=surface_id)
         self.parser = self.format.create_parser()
         self.validators = {
             catalog.id: PayloadValidator(catalog) for catalog in self.catalogs
@@ -227,7 +225,7 @@ Functions with additional named arguments (such as calc and series) must use
 a function-value map instead of constructor syntax. For example:
 Text(text={"@call": "calc", args: {expression: "seats * 29", seats: $/seats}})
 Use only functions listed in this catalog. Function values use "@call";
-data bindings compile to "@path", as required by A2UI v1.0.
+data bindings compile to "@path", as required by A2UI 1.0.
 For a client function action, wrap the function in an Action object:
 Button(label="Save", onClick={functionCall:saveNote(title="Finding", text=$/note)})
 For agent events with chat text or bound context, use an explicit event object:
@@ -277,19 +275,19 @@ tokens, for example radius="md", instead of CSS strings such as "12px".
             raise ValueError(f"Invalid A2UI surface graph: {error}") from error
 
     def compile(self, source: str, final: bool = False) -> list[dict[str, Any]]:
-        # WORKAROUND (agent-sdk 0.9.0/core 0.4.0): ExpressParser.supports_streaming
-        # is false and parse_chunk("root = Text(...)") raises NotImplementedError.
-        # Recompile accumulated prefixes; the transport diffs the snapshots.
-        # Repro coverage: test_partial_prefix_retains_complete_statements_and_final_errors_raise.
-        # Replace with the SDK chunk API when it supports incremental Express.
+        # Use the public snapshot compiler for this app's manifest-only prior
+        # surfaces and deferred destructive programs. SDK 0.10's open_stream
+        # requires a complete RendererState and commits effects before close();
+        # neither matches those app contracts. Native API coverage lives in
+        # test_express.py; no parser or version conversion is implemented here.
         try:
             operations = [
                 message.model_dump(mode="json", by_alias=True, exclude_unset=True)
                 for message in self.parser.compile(source, is_final=final)
             ]
             for operation in operations:
-                if operation.get("version") != "v1.0":
-                    raise ValueError("Express emitted a non-v1.0 operation")
+                if operation.get("version") != "1.0":
+                    raise ValueError("Express emitted a non-1.0 operation")
                 payload = operation.get("createSurface") or operation.get(
                     "updateComponents"
                 )

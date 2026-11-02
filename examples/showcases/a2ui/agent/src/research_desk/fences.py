@@ -66,7 +66,7 @@ WRAPPER_KEYS = ("props", "events")
 
 
 def flatten_components(operation: Any) -> bool:
-    """Puts a component's props and events where A2UI v1.0 reads them.
+    """Puts a component's props and events where A2UI 1.0 reads them.
 
     Models often write {"component": "Form", "events": {"onSubmit": ...}},
     nest props under "props", name the component "type", or give a submit
@@ -243,7 +243,7 @@ def _stream_header(line: str) -> tuple[str, int] | None:
     payload = {key: value for key, value in payload.items() if key != "components"}
     payload["components"] = []
     text = json.dumps(
-        {"version": parsed.get("version", "v1.0"), kind: payload}, ensure_ascii=False
+        {"version": parsed.get("version", "1.0"), kind: payload}, ensure_ascii=False
     )
     return text[: text.rindex("[]") + 1], match.end()
 

@@ -64,7 +64,7 @@ export function SourcePlate({
     >
       <div className="surface__source-bar">
         <span className="surface__source-meta">
-          A2UI v1.0 · {plural(operations.length, "operation")} ·{" "}
+          A2UI 1.0 · {plural(operations.length, "operation")} ·{" "}
           {plural(componentCount, "component")}
         </span>
         <button type="button" className="surface__copy" onClick={copy}>

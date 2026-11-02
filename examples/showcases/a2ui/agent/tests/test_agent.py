@@ -92,7 +92,7 @@ def research_input(ui_format=None):
         value.forwarded_props["uiFormat"] = ui_format
     value.forwarded_props["copilotkit"] = {
         "ui": {
-            "v1.0": {
+            "1.0": {
                 "supportedCatalogIds": ["demo"],
                 "inlineCatalogs": [
                     {
@@ -147,7 +147,7 @@ def output_text(events):
 @pytest.mark.parametrize("ui_format", [None, "json", "unknown", "Express"])
 async def test_json_is_default_and_preserves_fence_repair(monkeypatch, ui_format):
     captured = {}
-    source = '```a2ui\n{"version":"v1.0","createSurface":{"surfaceId":"s","components":[{"id":"root","component":"Text","text":"hi"}]}\n```\n'
+    source = '```a2ui\n{"version":"1.0","createSurface":{"surfaceId":"s","components":[{"id":"root","component":"Text","text":"hi"}]}\n```\n'
     stub_adk(monkeypatch, [source], captured)
     input = research_input(ui_format)
     events = [event async for event in create_agent().run(input)]
