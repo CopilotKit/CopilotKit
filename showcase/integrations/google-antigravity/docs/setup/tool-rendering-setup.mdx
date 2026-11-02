@@ -1,0 +1,22 @@
+<Steps>
+  <Step>
+    ### Pass the backend tools to the agent
+
+    Backend tools are plain Python functions. Pass them as `tools=[...]` and the
+    adapter derives each schema from the signature and docstring, registers it
+    with Antigravity, and runs the call in this process when the model asks for
+    it. Every call streams to the browser as `TOOL_CALL_START`, `TOOL_CALL_ARGS`
+    and `TOOL_CALL_END`, then `TOOL_CALL_RESULT` with the returned value, so a
+    frontend renderer registered under the same name paints the card.
+
+    <DemoCode file="src/agents/tool_rendering.py" region="tool-rendering-agent" />
+
+  </Step>
+</Steps>
+
+<Callout type="info" title="Arguments arrive in one piece">
+  The Antigravity harness hands the adapter each tool call with its arguments
+  complete, so `TOOL_CALL_ARGS` carries them in a single event rather than
+  token by token. A renderer still sees the `inProgress` → `executing` →
+  `complete` statuses, but the arguments are whole from the first render.
+</Callout>
