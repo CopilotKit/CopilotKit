@@ -2115,8 +2115,8 @@ importers:
         specifier: '>=3.22.3'
         version: 3.25.76
       zod-to-json-schema:
-        specifier: ^3.24.1
-        version: 3.25.1(zod@3.25.76)
+        specifier: ^3.25.2
+        version: 3.25.2(zod@3.25.76)
     devDependencies:
       '@tanstack/intent':
         specifier: ^0.0.29
@@ -2185,6 +2185,9 @@ importers:
       '@ag-ui/core':
         specifier: 1.0.2
         version: 1.0.2(zod@3.25.76)
+      '@copilotkit/a2ui-renderer':
+        specifier: workspace:^
+        version: link:../a2ui-renderer
       '@copilotkit/core':
         specifier: workspace:^
         version: link:../core
@@ -3461,6 +3464,9 @@ importers:
       '@ag-ui/core':
         specifier: 1.0.2
         version: 1.0.2(zod@3.25.76)
+      '@copilotkit/a2ui-renderer':
+        specifier: workspace:*
+        version: link:../a2ui-renderer
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core

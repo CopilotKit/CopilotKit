@@ -43,6 +43,26 @@
           }
         },
         {
+          "importPath": "@copilotkit/a2ui-renderer/catalog-schema",
+          "exportKey": "./catalog-schema",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/catalog-schema.d.mts",
+              "default": "./dist/catalog-schema.mjs"
+            },
+            "require": {
+              "types": "./dist/catalog-schema.d.cts",
+              "default": "./dist/catalog-schema.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/a2ui-renderer/package.json",
+            "selector": "exports[\"./catalog-schema\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/a2ui-renderer/package.json",
           "exportKey": "./package.json",
           "kind": "metadata",
