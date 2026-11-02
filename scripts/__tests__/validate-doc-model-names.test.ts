@@ -429,7 +429,7 @@ describe("source files", () => {
     ["agent.py", 'llm = ChatOpenAI(model="gpt-4o-mini")\n'],
     [
       "agent.ts",
-      'const agent = new BuiltInAgent({ model: "openai/gpt-4o-mini" });\n',
+      'const agent = tanstackAIAgent({ adapter: openaiText("gpt-4o-mini") });\n',
     ],
     ["Program.cs", '_openAiClient.GetChatClient("gpt-4o-mini").AsAIAgent(\n'],
   ])("finds the pin in %s", (name, body) => {

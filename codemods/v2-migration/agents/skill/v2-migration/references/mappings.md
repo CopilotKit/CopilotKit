@@ -193,7 +193,7 @@ Vue: delete every `useKatexStyles` import and call, including in `.vue` files. T
 
 ## Runtime
 
-2.0 has no service adapters (`OpenAIAdapter`, `AnthropicAdapter`, ...) and no GraphQL endpoint. A model runs in a `BuiltInAgent`, and `createCopilotRuntimeHandler` serves the runtime. A v1 Next.js route:
+2.0 has no service adapters (`OpenAIAdapter`, `AnthropicAdapter`, ...) and no GraphQL endpoint. A model runs in a `tanstackAIAgent` from `@copilotkit/runtime/tanstack-ai`, and `createCopilotRuntimeHandler` serves the runtime. A v1 Next.js route:
 
 ```ts
 const runtime = new CopilotRuntime();
@@ -213,13 +213,14 @@ becomes, in `app/api/copilotkit/[[...slug]]/route.ts`:
 
 ```ts
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: tanstackAIAgent({ adapter: openaiText("gpt-5.5") }) },
 });
 
 const handler = createCopilotRuntimeHandler({
@@ -230,6 +231,8 @@ const handler = createCopilotRuntimeHandler({
 export const GET = handler;
 export const POST = handler;
 ```
+
+Add `@tanstack/ai` and the adapter package to the app's dependencies (`@tanstack/ai-openai` here; `@tanstack/ai-anthropic` for `anthropicText`, `@tanstack/ai-gemini` for `geminiText`).
 
 The codemod automatically migrates supported local Express/Hono factories, their mounts, and Next.js wrappers. Preserve the generated app-owned Express router: it keeps mount prefixes, hook request URLs, exact single-route matching, and fallthrough intact. Remaining adapter TODOs need manual handling, especially custom CORS callbacks or implicit header reflection.
 

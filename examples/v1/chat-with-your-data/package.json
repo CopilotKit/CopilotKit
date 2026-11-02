@@ -18,6 +18,8 @@
     "@radix-ui/react-popover": "^1.1.6",
     "@radix-ui/react-select": "^2.1.6",
     "@radix-ui/react-slot": "^1.1.2",
+    "@tanstack/ai": "^1.0.1",
+    "@tanstack/ai-openai": "^1.0.1",
     "@tavily/core": "^0.3.1",
     "@tremor/react": "^3.18.7",
     "class-variance-authority": "^0.7.1",

@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -8,25 +7,31 @@ import { scenario } from "./model.mjs";
 /** Exercise the built SDK in a separate process so its long-lived sockets are scoped. */
 async function exercise() {
   const input = JSON.parse(await readFile(process.argv[2], "utf8"));
-  const require = createRequire(join(input.consumer, "package.json"));
-  const entry = join(
+  const runtimeDist = join(
     input.consumer,
-    "node_modules/@copilotkit/runtime/dist/index.mjs",
+    "node_modules/@copilotkit/runtime/dist",
   );
   const {
-    BuiltInAgent,
     CopilotRuntime,
     CopilotKitIntelligence,
     createCopilotRuntimeHandler,
-  } = await import(pathToFileURL(entry));
-  const runtimeRequire = createRequire(
-    require.resolve("@copilotkit/runtime/package.json"),
+  } = await import(pathToFileURL(join(runtimeDist, "index.mjs")));
+  const { tanstackAIAgent } = await import(
+    pathToFileURL(join(runtimeDist, "tanstack-ai.mjs"))
   );
-  const { createOpenAI } = runtimeRequire("@ai-sdk/openai");
+  const { openaiCompatibleText } = await import(
+    pathToFileURL(
+      join(
+        input.consumer,
+        "node_modules/@tanstack/ai-openai/dist/esm/compatible/index.js",
+      ),
+    )
+  );
   const modelOrigin = new URL(input.modelUrl).origin;
-  const provider = createOpenAI({
+  const adapter = openaiCompatibleText("smoke-agent", {
     baseURL: `${input.modelUrl}/v1`,
     apiKey: "smoke-placeholder",
+    api: "chat-completions",
     fetch: (resource, init) => {
       if (new URL(String(resource)).origin !== modelOrigin)
         throw new Error("External model requests are forbidden");
@@ -42,10 +47,7 @@ async function exercise() {
   const runtime = new CopilotRuntime({
     intelligence,
     agents: {
-      smoke: new BuiltInAgent({
-        model: provider.chat("smoke-agent"),
-        maxSteps: 1,
-      }),
+      smoke: tanstackAIAgent({ adapter, maxIterations: 1 }),
     },
     identifyUser: () => ({ id: "smoke-user", name: "Smoke user" }),
     generateThreadNames: false,

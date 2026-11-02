@@ -223,11 +223,12 @@ The trade-offs are higher: security/performance concerns when rendering arbitrar
 This pattern is commonly used for MCP Apps. In CopilotKit, MCP Apps support is enabled by attaching `MCPAppsMiddleware` to your agent, which allows the runtime to connect to one or more MCP Apps servers.
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 
-const agent = new BuiltInAgent({
-  model: "openai/gpt-5-mini",
+const agent = tanstackAIAgent({
+  adapter: openaiText("gpt-5-mini"),
   prompt: "You are a helpful assistant.",
 }).use(
   new MCPAppsMiddleware({

@@ -1,11 +1,12 @@
 import { tavily } from "@tavily/core";
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
   defineTool,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
 import { prompt } from "../../../../lib/prompt";
 
@@ -21,11 +22,11 @@ const searchInternet = defineTool({
   },
 });
 
-const agent = new BuiltInAgent({
-  model: process.env.COPILOTKIT_MODEL ?? "openai/gpt-5-mini",
+const agent = tanstackAIAgent({
+  adapter: openaiText("gpt-5-mini"),
   prompt,
   tools: [searchInternet],
-  maxSteps: 5,
+  maxIterations: 5,
 });
 
 const runtime = new CopilotRuntime({

@@ -127,21 +127,24 @@ export default app;
 
 ## Using the Built-in Agent
 
-CopilotKit includes a built-in agent powered by the Vercel AI SDK:
+CopilotKit includes a built-in agent. `tanstackAIAgent` runs it on a TanStack AI adapter:
 
 ```typescript
 import { CopilotRuntime } from "@copilotkit/runtime";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
-const agent = new BuiltInAgent({
-  model: "openai/gpt-4o",
-  systemPrompt: "You are a helpful shopping assistant.",
+const agent = tanstackAIAgent({
+  adapter: openaiText("gpt-4o"),
+  prompt: "You are a helpful shopping assistant.",
 });
 
 const runtime = new CopilotRuntime({
   agents: { default: agent },
 });
 ```
+
+To use the Vercel AI SDK instead, use `aiSdkAgent` from `@copilotkit/runtime/ai-sdk`.
 
 ---
 
@@ -157,7 +160,7 @@ const runtime = new CopilotRuntime({
 async function loadAgents() {
   const config = await fetchConfig();
   return {
-    default: new BuiltInAgent({ model: config.model }),
+    default: tanstackAIAgent({ adapter: openaiText("gpt-4o") }),
     research: new HttpAgent({ url: config.researchAgentUrl }),
   };
 }
@@ -439,20 +442,21 @@ sequenceDiagram
 import express from "express";
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
 import { SQLiteAgentRunner } from "@copilotkit/sqlite-runner";
+import { openaiText } from "@tanstack/ai-openai";
 
 const app = express();
 
 // Create agents
-const generalAgent = new BuiltInAgent({
-  model: "openai/gpt-4o",
-  systemPrompt: "You are a helpful assistant.",
+const generalAgent = tanstackAIAgent({
+  adapter: openaiText("gpt-4o"),
+  prompt: "You are a helpful assistant.",
 });
 
-const codeAgent = new BuiltInAgent({
-  model: "openai/gpt-4o",
-  systemPrompt: "You are a coding expert. Always provide code examples.",
+const codeAgent = tanstackAIAgent({
+  adapter: openaiText("gpt-4o"),
+  prompt: "You are a coding expert. Always provide code examples.",
 });
 
 // Create runtime with all optional features

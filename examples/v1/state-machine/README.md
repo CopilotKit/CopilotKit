@@ -68,8 +68,6 @@ The example showcases how to implement complex conversational flows using a stat
 
    ```
    OPENAI_API_KEY=your_api_key_here
-   # Optional: defaults to openai/gpt-5-mini
-   COPILOTKIT_MODEL=openai/gpt-5-mini
    ```
 
 4. Start the development server:
@@ -167,16 +165,17 @@ The Next.js catch-all route serves a v2 built-in agent:
 
 ```ts
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({
-      model: "openai/gpt-5-mini",
+    default: tanstackAIAgent({
+      adapter: openaiText("gpt-5-mini"),
       prompt: systemPrompt,
     }),
   },

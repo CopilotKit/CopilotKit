@@ -32,12 +32,13 @@ import {
 } from "@copilotkit/channels";
 import { teams } from "@copilotkit/channels/teams";
 import {
-  BuiltInAgent,
   CopilotSseRuntime,
   CopilotRuntime,
   CopilotKitIntelligence,
 } from "@copilotkit/runtime";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
 import { hitlTools } from "./human-in-the-loop/index.js";
 import { renderChartTool } from "./tools/render-chart.js";
@@ -58,8 +59,7 @@ if (!process.env.OPENAI_API_KEY) {
   console.error(
     "Missing OPENAI_API_KEY.\n" +
       "This demo runs a CopilotKit BuiltInAgent, which needs an LLM API key.\n" +
-      "  export OPENAI_API_KEY=sk-...   (or add it to examples/teams/.env)\n" +
-      "Optional: OPENAI_MODEL (defaults to openai/gpt-5.5).",
+      "  export OPENAI_API_KEY=sk-...   (or add it to examples/teams/.env)",
   );
   process.exit(1);
 }
@@ -135,8 +135,8 @@ const runtimeAgentUrl = `http://localhost:${runtimePort}/api/copilotkit/agent/${
 
 const runtime = new CopilotSseRuntime({
   agents: {
-    [agentId]: new BuiltInAgent({
-      model: process.env.OPENAI_MODEL ?? "openai/gpt-5.5",
+    [agentId]: tanstackAIAgent({
+      adapter: openaiText("gpt-5.5"),
       prompt: SYSTEM_PROMPT,
     }),
   },

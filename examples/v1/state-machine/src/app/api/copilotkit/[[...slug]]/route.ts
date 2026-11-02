@@ -1,15 +1,16 @@
 import { systemPrompt } from "@/lib/system-prompt";
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({
-      model: process.env.COPILOTKIT_MODEL ?? "openai/gpt-5-mini",
+    default: tanstackAIAgent({
+      adapter: openaiText("gpt-5-mini"),
       prompt: systemPrompt,
     }),
   },

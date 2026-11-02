@@ -1,15 +1,16 @@
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 import { prompt } from "../../../../lib/prompt";
 
-const agent = new BuiltInAgent({
-  model: process.env.COPILOTKIT_MODEL ?? "openai/gpt-5-mini",
+const agent = tanstackAIAgent({
+  adapter: openaiText("gpt-5-mini"),
   prompt,
-  maxSteps: 5,
+  maxIterations: 5,
 });
 
 const runtime = new CopilotRuntime({
