@@ -219,7 +219,7 @@ importers:
         version: 1.0.2
       '@ag-ui/mastra':
         specifier: 1.1.2
-        version: 1.1.2(@ag-ui/client@1.0.2)(@ag-ui/core@1.0.2(zod@3.25.76))(@copilotkit/runtime@packages+runtime)(@mastra/client-js@1.50.0(@bufbuild/protobuf@2.11.0)(@valibot/to-json-schema@1.5.0(valibot@1.4.0(typescript@5.9.3)))(ai@6.0.156(zod@3.25.76))(arktype@2.1.29)(effect@3.21.0)(express@5.2.1)(rxjs@7.8.2)(valibot@1.4.0(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@3.25.76))(zod@3.25.76))(@mastra/core@1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76))
+        version: 1.1.2(@ag-ui/client@1.0.2)(@ag-ui/core@1.0.2(zod@3.25.76))(@copilotkit/runtime@packages+runtime)(@mastra/client-js@1.50.0(@bufbuild/protobuf@2.11.0)(@valibot/to-json-schema@1.5.0(valibot@1.4.0(typescript@5.9.3)))(ai@7.0.159(zod@3.25.76))(arktype@2.1.29)(effect@3.21.0)(express@5.2.1)(rxjs@7.8.2)(valibot@1.4.0(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@3.25.76))(zod@3.25.76))(@mastra/core@1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@7.0.159(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76))
       '@ai-sdk/openai':
         specifier: ^2.0.42
         version: 2.0.130(zod@3.25.76)
@@ -234,13 +234,13 @@ importers:
         version: 0.15.15
       '@mastra/core':
         specifier: 1.41.0
-        version: 1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)
+        version: 1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@7.0.159(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)
       '@mastra/libsql':
         specifier: 1.1.0-alpha.2
-        version: 1.1.0-alpha.2(@mastra/core@1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76))
+        version: 1.1.0-alpha.2(@mastra/core@1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@7.0.159(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76))
       '@mastra/memory':
         specifier: 1.20.2
-        version: 1.20.2(@mastra/core@1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76))(zod@3.25.76)
+        version: 1.20.2(@mastra/core@1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@7.0.159(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76))(zod@3.25.76)
       dotenv:
         specifier: ^17.2.1
         version: 17.4.2
@@ -2788,7 +2788,7 @@ importers:
         version: link:../typescript-config
       '@mastra/core':
         specifier: 1.66.0
-        version: 1.66.0(@bufbuild/protobuf@2.11.0)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)
+        version: 1.66.0(@bufbuild/protobuf@2.11.0)(ai@7.0.159(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)
       '@types/node':
         specifier: ^22.15.3
         version: 22.19.11
@@ -3205,6 +3205,9 @@ importers:
       '@swc/core':
         specifier: 1.5.28
         version: 1.5.28(@swc/helpers@0.5.23)
+      '@tanstack/ai':
+        specifier: ^1.0.1
+        version: 1.0.1(@opentelemetry/api@1.9.0)(zod@3.25.76)
       '@tanstack/intent':
         specifier: ^0.0.29
         version: 0.0.29
@@ -3232,6 +3235,9 @@ importers:
       '@whatwg-node/server':
         specifier: ^0.9.34
         version: 0.9.71
+      ai-v7:
+        specifier: npm:ai@^7.0.159
+        version: ai@7.0.159(zod@3.25.76)
       arktype:
         specifier: ^2.1.29
         version: 2.1.29
@@ -3932,7 +3938,7 @@ importers:
         version: 1.5.12(@aws-sdk/credential-provider-node@3.972.29)(@langchain/core@1.2.11(@opentelemetry/api@1.9.0)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.30.0)(ws@8.21.3)(zod@3.25.76))(ws@8.21.3))(undici@7.30.0)(ws@8.21.3)
       '@mastra/core':
         specifier: 1.66.0
-        version: 1.66.0(@bufbuild/protobuf@2.11.0)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)
+        version: 1.66.0(@bufbuild/protobuf@2.11.0)(ai@7.0.159(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)
       langchain:
         specifier: 1.5.11
         version: 1.5.11(@langchain/core@1.2.11(@opentelemetry/api@1.9.0)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.30.0)(ws@8.21.3)(zod@3.25.76))(ws@8.21.3))(@opentelemetry/api@1.9.0)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.30.0)(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3)
@@ -4064,6 +4070,14 @@ packages:
   '@ag-ui/core@0.0.52':
     resolution: {integrity: sha512-Xo0bUaNV56EqylzcrAuhUkQX7et7+SZIrqZZtEByGwEq/I1EHny6ZMkWHLkKR7UNi0FJZwJyhKYmKJS3B2SEgA==}
 
+  '@ag-ui/core@1.0.0':
+    resolution: {integrity: sha512-yCRhsQvb4+lmGMrDsi4TOJxqKpm/kb3H64wwL+Z90jNVrkhy17RErfzsNgybfbjNKLM0nenEDYDVJsZHJJSigQ==}
+    peerDependencies:
+      zod: '>=3.22.3'
+    peerDependenciesMeta:
+      zod:
+        optional: true
+
   '@ag-ui/core@1.0.2':
     resolution: {integrity: sha512-lb0YfvHY4eTHcXthTWzXjsElLqycGWDhaXGTejwMkUV5TtJVZircRS12/tMpqzd32sL+WZ2PWQ4m0+ThKrGF8A==}
     peerDependencies:
@@ -4141,6 +4155,12 @@ packages:
   '@ai-sdk/gateway@3.0.95':
     resolution: {integrity: sha512-ZmUNNbZl3V42xwQzPaNUi+s8eqR2lnrxf0bvB6YbLXpLjHYv0k2Y78t12cNOfY0bxGeuVVTLyk856uLuQIuXEQ==}
     engines: {node: '>=18'}
+    peerDependencies:
+      zod: '>=3.22.3'
+
+  '@ai-sdk/gateway@4.0.132':
+    resolution: {integrity: sha512-ppStDEz96g+JEuxGiVTP29OKBjPyYZXRxs38wnq3427U2QbZtxe6TukrgSAAq0n4yaHvSvVAWJY9kBlW8XudYg==}
+    engines: {node: '>=22'}
     peerDependencies:
       zod: '>=3.22.3'
 
@@ -4240,6 +4260,12 @@ packages:
     peerDependencies:
       zod: '>=3.22.3'
 
+  '@ai-sdk/provider-utils@5.0.72':
+    resolution: {integrity: sha512-M6QAztI84jWumQSvKcGOL91DxhChsWxn3D3gYtV0/7E1TPQg9BmLdIerOolUC/jghQbMlQrHyzp0hqdIhUZ2Rw==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: '>=3.22.3'
+
   '@ai-sdk/provider@1.1.3':
     resolution: {integrity: sha512-qZMxYJ0qqX/RfnuIaab+zp8UAeJn/ygXXAffR5I4N0n1IrvA6qBsjc8hXLmBiMV2zoXlifkacF7sEFnYnjBcqg==}
     engines: {node: '>=18'}
@@ -4270,6 +4296,10 @@ packages:
 
   '@ai-sdk/provider@4.0.17':
     resolution: {integrity: sha512-VYMBxIQdcHqbIf1j+YZlI9Ati6LZ4wJe0GGd4z4a5H/KxTggjeOiyaVYTnfF7LHZK5jMQ+rofmzz4QPqf++NUw==}
+    engines: {node: '>=22'}
+
+  '@ai-sdk/provider@4.0.35':
+    resolution: {integrity: sha512-yBz6fmLS8MSCIzy7NiHEUAq56ZLD4ZA1GR6bpXBxgbwUacP1La7LuwAr/xy9jSzthem4F8Xu2OrhvU/JrE9fYA==}
     engines: {node: '>=22'}
 
   '@ai-sdk/provider@4.0.4':
@@ -13655,6 +13685,9 @@ packages:
   '@tanstack/ai-event-client@0.6.8':
     resolution: {integrity: sha512-h7/HLz9u2LF9ba6uKFMnSZkFlkzQONJ5u3Hi+4qGxpsHyvcGRtW6v186jaFLoklndhEwyC49ytkC4eafi7Qq8w==}
 
+  '@tanstack/ai-event-client@1.0.0':
+    resolution: {integrity: sha512-RXlk6XkIYU4n25QYoCmETKiFjPnEpwvQv5Ve62pdtHaEVP//VZUdwGSRGCf/PATgwYdib8FT49tPmqnKtXPDhw==}
+
   '@tanstack/ai-mcp@0.2.5':
     resolution: {integrity: sha512-GDF9NpT58EcFbYU3D041LqyGLMdQQg9+rDLr4VmLVtutnyEjQBN5XzKEPqoTQtNAzz4Tjtdm5U9Ud7QtGFSiPQ==}
     hasBin: true
@@ -13686,12 +13719,24 @@ packages:
   '@tanstack/ai-utils@0.3.1':
     resolution: {integrity: sha512-fgbjd5DohL3k5rTWr/KInauLVYMiHVm0cnmTsNrzL3cr4wWhEld5vmFSrjiwUWACAuONjZa+uBXuS+ZSO8fwDQ==}
 
+  '@tanstack/ai-utils@1.0.0':
+    resolution: {integrity: sha512-0Nl9rUmS3zTGKP8dPmyS2zJ18mieAheKqS9V+390vjViJvD6kpP+1gdCdHkNUqQsSzSFvb32QW8bkTVCAOv0qA==}
+
   '@tanstack/ai@0.14.0':
     resolution: {integrity: sha512-oiyYHcWMmyVoKDf018xZMEX62BaJVhdgeeRQeRbqP3p5Nvar2UZUhKzFkUiE4L9KzklPqrtI5aYhVdAp9Z142g==}
     engines: {node: '>=18'}
 
   '@tanstack/ai@0.42.0':
     resolution: {integrity: sha512-OyUA1tl6Oj93jjdyDofMb53tf3GhHgLWJ376h/5qjdwtUG1YOr6134khd1Aq2lfIZbmj2HR+y3XqD9UMXSjk1A==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@opentelemetry/api': '>=1.9.0'
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+
+  '@tanstack/ai@1.0.1':
+    resolution: {integrity: sha512-oddcGha40pa0MMWdMogvljNiul6OY3H+V9fDOS6DZ+2+8KdUXxWfOf8QDYtkat6xAuZf4E4Clc7b1RAewbxSkA==}
     engines: {node: '>=18'}
     peerDependencies:
       '@opentelemetry/api': '>=1.9.0'
@@ -14429,6 +14474,10 @@ packages:
     resolution: {integrity: sha512-Fw28YZpRnA3cAHHDlkt7xQHiJ0fcL+NRcIqsocZQUSmbzeIKRpwttJjik5ZGanXP+vlA4SbTg+AbA3bP363l+w==}
     engines: {node: '>= 20'}
 
+  '@vercel/oidc@3.2.0':
+    resolution: {integrity: sha512-UycprH3T6n3jH0k44NHMa7pnFHGu/N05MjojYr+Mc6I7obkoLIJujSWwin1pCvdy/eOxrI/l3uDLQsmcrOb4ug==}
+    engines: {node: '>= 20'}
+
   '@vitejs/plugin-basic-ssl@2.1.4':
     resolution: {integrity: sha512-HXciTXN/sDBYWgeAD4V4s0DN0g72x5mlxQhHxtYu3Tt8BLa6MzcJZUyDVFCdtjNs3bfENVHVzOsmooTVuNgAAw==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
@@ -14877,6 +14926,12 @@ packages:
   ai@6.0.156:
     resolution: {integrity: sha512-uyi/5LYbugHQxZsR2PeAFOZEL4WqKkzZw4pv0nQvvdgxgVOsM7snOmGrYkp5fShxH/vnd08SXvHCVTX7oUW7xQ==}
     engines: {node: '>=18'}
+    peerDependencies:
+      zod: '>=3.22.3'
+
+  ai@7.0.159:
+    resolution: {integrity: sha512-4e/BwDoKJlMNYZaqERcTbGte+4TwroN9qKnCprog/XVfD9InzVPlhCviDhN452JIRrRsYg9BT0WsQ2C3Ds2mVQ==}
+    engines: {node: '>=22'}
     peerDependencies:
       zod: '>=3.22.3'
 
@@ -25339,6 +25394,9 @@ packages:
   vue-component-type-helpers@3.3.13:
     resolution: {integrity: sha512-02KCxSmKDhIITjKyJ4QT5csP6L0WoRborLqY/34a40+S9uvMvdNgMV0yVjO3p2Gkz3ZoPmFz/0JsGHacwJYTxw==}
 
+  vue-component-type-helpers@3.3.14:
+    resolution: {integrity: sha512-Pq3+OnbCiPCHk0R7KSZrx+j/XXaUn2kSQ1epxq60w8CPbByLjC1EJgV51n4WY851sTXUVzsNMuitywdkdVyKjA==}
+
   vue-devtools-stub@0.1.0:
     resolution: {integrity: sha512-RutnB7X8c5hjq39NceArgXg28WZtZpGc3+J16ljMiYnFhKvd8hITxSWQSQ5bvldxMDU6gG5mkxl1MTQLXckVSQ==}
 
@@ -26075,6 +26133,10 @@ snapshots:
     dependencies:
       zod: 3.25.76
 
+  '@ag-ui/core@1.0.0(zod@3.25.76)':
+    optionalDependencies:
+      zod: 3.25.76
+
   '@ag-ui/core@1.0.2(zod@3.25.76)':
     optionalDependencies:
       zod: 3.25.76
@@ -26164,15 +26226,15 @@ snapshots:
       - react-dom
       - ws
 
-  '@ag-ui/mastra@1.1.2(@ag-ui/client@1.0.2)(@ag-ui/core@1.0.2(zod@3.25.76))(@copilotkit/runtime@packages+runtime)(@mastra/client-js@1.50.0(@bufbuild/protobuf@2.11.0)(@valibot/to-json-schema@1.5.0(valibot@1.4.0(typescript@5.9.3)))(ai@6.0.156(zod@3.25.76))(arktype@2.1.29)(effect@3.21.0)(express@5.2.1)(rxjs@7.8.2)(valibot@1.4.0(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@3.25.76))(zod@3.25.76))(@mastra/core@1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76))':
+  '@ag-ui/mastra@1.1.2(@ag-ui/client@1.0.2)(@ag-ui/core@1.0.2(zod@3.25.76))(@copilotkit/runtime@packages+runtime)(@mastra/client-js@1.50.0(@bufbuild/protobuf@2.11.0)(@valibot/to-json-schema@1.5.0(valibot@1.4.0(typescript@5.9.3)))(ai@7.0.159(zod@3.25.76))(arktype@2.1.29)(effect@3.21.0)(express@5.2.1)(rxjs@7.8.2)(valibot@1.4.0(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@3.25.76))(zod@3.25.76))(@mastra/core@1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@7.0.159(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76))':
     dependencies:
       '@ag-ui/a2ui-toolkit': 0.0.4
       '@ag-ui/client': 1.0.2
       '@ag-ui/core': 1.0.2(zod@3.25.76)
       '@ai-sdk/ui-utils': 1.2.11(zod@3.25.76)
       '@copilotkit/runtime': link:packages/runtime
-      '@mastra/client-js': 1.50.0(@bufbuild/protobuf@2.11.0)(@valibot/to-json-schema@1.5.0(valibot@1.4.0(typescript@5.9.3)))(ai@6.0.156(zod@3.25.76))(arktype@2.1.29)(effect@3.21.0)(express@5.2.1)(rxjs@7.8.2)(valibot@1.4.0(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@3.25.76))(zod@3.25.76)
-      '@mastra/core': 1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)
+      '@mastra/client-js': 1.50.0(@bufbuild/protobuf@2.11.0)(@valibot/to-json-schema@1.5.0(valibot@1.4.0(typescript@5.9.3)))(ai@7.0.159(zod@3.25.76))(arktype@2.1.29)(effect@3.21.0)(express@5.2.1)(rxjs@7.8.2)(valibot@1.4.0(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@3.25.76))(zod@3.25.76)
+      '@mastra/core': 1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@7.0.159(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)
       fast-json-patch: 3.1.1
       rxjs: 7.8.1
       zod: 3.25.76
@@ -26247,6 +26309,13 @@ snapshots:
       '@ai-sdk/provider': 3.0.8
       '@ai-sdk/provider-utils': 4.0.23(zod@3.25.76)
       '@vercel/oidc': 3.1.0
+      zod: 3.25.76
+
+  '@ai-sdk/gateway@4.0.132(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.35
+      '@ai-sdk/provider-utils': 5.0.72(zod@3.25.76)
+      '@vercel/oidc': 3.2.0
       zod: 3.25.76
 
   '@ai-sdk/google-vertex@3.0.120(zod@3.25.76)':
@@ -26362,6 +26431,15 @@ snapshots:
       eventsource-parser: 3.0.8
       zod: 3.25.76
 
+  '@ai-sdk/provider-utils@5.0.72(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.35
+      '@standard-schema/spec': 1.1.0
+      '@workflow/serde': 4.1.0
+      eventsource-parser: 3.0.8
+      undici: 7.30.0
+      zod: 3.25.76
+
   '@ai-sdk/provider@1.1.3':
     dependencies:
       json-schema: 0.4.0
@@ -26391,6 +26469,10 @@ snapshots:
       json-schema: 0.4.0
 
   '@ai-sdk/provider@4.0.17':
+    dependencies:
+      json-schema: 0.4.0
+
+  '@ai-sdk/provider@4.0.35':
     dependencies:
       json-schema: 0.4.0
 
@@ -33870,11 +33952,11 @@ snapshots:
       '@types/geojson': 7946.0.16
       pbf: 5.1.2
 
-  '@mastra/client-js@1.50.0(@bufbuild/protobuf@2.11.0)(@valibot/to-json-schema@1.5.0(valibot@1.4.0(typescript@5.9.3)))(ai@6.0.156(zod@3.25.76))(arktype@2.1.29)(effect@3.21.0)(express@5.2.1)(rxjs@7.8.2)(valibot@1.4.0(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@3.25.76))(zod@3.25.76)':
+  '@mastra/client-js@1.50.0(@bufbuild/protobuf@2.11.0)(@valibot/to-json-schema@1.5.0(valibot@1.4.0(typescript@5.9.3)))(ai@7.0.159(zod@3.25.76))(arktype@2.1.29)(effect@3.21.0)(express@5.2.1)(rxjs@7.8.2)(valibot@1.4.0(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@3.25.76))(zod@3.25.76)':
     dependencies:
       '@ai-sdk/ui-utils': 1.2.11(zod@3.25.76)
       '@lukeed/uuid': 2.0.1
-      '@mastra/core': 1.71.0(@bufbuild/protobuf@2.11.0)(@valibot/to-json-schema@1.5.0(valibot@1.4.0(typescript@5.9.3)))(ai@6.0.156(zod@3.25.76))(arktype@2.1.29)(effect@3.21.0)(express@5.2.1)(rxjs@7.8.2)(valibot@1.4.0(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@3.25.76))(zod@3.25.76)
+      '@mastra/core': 1.71.0(@bufbuild/protobuf@2.11.0)(@valibot/to-json-schema@1.5.0(valibot@1.4.0(typescript@5.9.3)))(ai@7.0.159(zod@3.25.76))(arktype@2.1.29)(effect@3.21.0)(express@5.2.1)(rxjs@7.8.2)(valibot@1.4.0(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@3.25.76))(zod@3.25.76)
       '@mastra/schema-compat': 1.3.11(zod@3.25.76)
       canonicalize: 1.0.8
       jose: 6.2.12
@@ -33899,7 +33981,7 @@ snapshots:
       - zod-openapi
       - zod-to-json-schema
 
-  '@mastra/core@1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)':
+  '@mastra/core@1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@7.0.159(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)':
     dependencies:
       '@a2a-js/sdk': 0.3.14(@bufbuild/protobuf@2.11.0)(express@5.2.1)
       '@ai-sdk/provider-utils-v5': '@ai-sdk/provider-utils@3.0.25(zod@3.25.76)'
@@ -33913,7 +33995,7 @@ snapshots:
       '@sindresorhus/slugify': 2.2.1
       '@standard-schema/spec': 1.1.0
       ajv: 8.20.0
-      chat: 4.40.0(ai@6.0.156(zod@3.25.76))(zod@3.25.76)
+      chat: 4.40.0(ai@7.0.159(zod@3.25.76))(zod@3.25.76)
       croner: 10.0.1
       dotenv: 17.4.2
       execa: 9.6.1
@@ -33942,7 +34024,7 @@ snapshots:
       - utf-8-validate
       - workflow
 
-  '@mastra/core@1.66.0(@bufbuild/protobuf@2.11.0)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)':
+  '@mastra/core@1.66.0(@bufbuild/protobuf@2.11.0)(ai@7.0.159(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)':
     dependencies:
       '@a2a-js/sdk-v0_3': '@a2a-js/sdk@0.3.14(@bufbuild/protobuf@2.11.0)(express@5.2.1)'
       '@a2a-js/sdk-v1': '@a2a-js/sdk@1.0.1(@bufbuild/protobuf@2.11.0)(express@5.2.1)'
@@ -33958,7 +34040,7 @@ snapshots:
       '@sindresorhus/slugify': 2.2.1
       '@standard-schema/spec': 1.1.0
       ajv: 8.20.0
-      chat: 4.40.0(ai@6.0.156(zod@3.25.76))(zod@3.25.76)
+      chat: 4.40.0(ai@7.0.159(zod@3.25.76))(zod@3.25.76)
       croner: 10.0.1
       dotenv: 17.4.2
       execa: 9.6.1
@@ -33987,7 +34069,7 @@ snapshots:
       - utf-8-validate
       - workflow
 
-  '@mastra/core@1.71.0(@bufbuild/protobuf@2.11.0)(@valibot/to-json-schema@1.5.0(valibot@1.4.0(typescript@5.9.3)))(ai@6.0.156(zod@3.25.76))(arktype@2.1.29)(effect@3.21.0)(express@5.2.1)(rxjs@7.8.2)(valibot@1.4.0(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@3.25.76))(zod@3.25.76)':
+  '@mastra/core@1.71.0(@bufbuild/protobuf@2.11.0)(@valibot/to-json-schema@1.5.0(valibot@1.4.0(typescript@5.9.3)))(ai@7.0.159(zod@3.25.76))(arktype@2.1.29)(effect@3.21.0)(express@5.2.1)(rxjs@7.8.2)(valibot@1.4.0(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@3.25.76))(zod@3.25.76)':
     dependencies:
       '@a2a-js/sdk-v0_3': '@a2a-js/sdk@0.3.14(@bufbuild/protobuf@2.11.0)(express@5.2.1)'
       '@a2a-js/sdk-v1': '@a2a-js/sdk@1.0.1(@bufbuild/protobuf@2.11.0)(express@5.2.1)'
@@ -34000,7 +34082,7 @@ snapshots:
       '@lukeed/uuid': 2.0.1
       '@mastra/schema-compat': 1.3.11(zod@3.25.76)
       '@standard-schema/spec': 1.1.0
-      chat: 4.40.0(ai@6.0.156(zod@3.25.76))(zod@3.25.76)
+      chat: 4.40.0(ai@7.0.159(zod@3.25.76))(zod@3.25.76)
       croner: 10.0.1
       dotenv: 17.4.2
       execa: 9.6.1
@@ -34039,17 +34121,17 @@ snapshots:
       - zod-openapi
       - zod-to-json-schema
 
-  '@mastra/libsql@1.1.0-alpha.2(@mastra/core@1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76))':
+  '@mastra/libsql@1.1.0-alpha.2(@mastra/core@1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@7.0.159(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76))':
     dependencies:
       '@libsql/client': 0.15.15
-      '@mastra/core': 1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)
+      '@mastra/core': 1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@7.0.159(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@mastra/memory@1.20.2(@mastra/core@1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76))(zod@3.25.76)':
+  '@mastra/memory@1.20.2(@mastra/core@1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@7.0.159(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76))(zod@3.25.76)':
     dependencies:
-      '@mastra/core': 1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)
+      '@mastra/core': 1.41.0(@bufbuild/protobuf@2.11.0)(@cfworker/json-schema@4.1.1)(ai@7.0.159(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)
       '@mastra/schema-compat': 1.2.11(zod@3.25.76)
       async-mutex: 0.5.0
       diff: 8.0.4
@@ -38851,7 +38933,7 @@ snapshots:
       storybook: 10.1.11(@testing-library/dom@10.4.1)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       type-fest: 2.19.0
       vue: 3.5.34(typescript@5.8.2)
-      vue-component-type-helpers: 3.3.13
+      vue-component-type-helpers: 3.3.14
 
   '@swc/core-darwin-arm64@1.15.8':
     optional: true
@@ -39201,6 +39283,10 @@ snapshots:
     dependencies:
       '@tanstack/devtools-event-client': 0.4.3
 
+  '@tanstack/ai-event-client@1.0.0':
+    dependencies:
+      '@tanstack/devtools-event-client': 0.4.3
+
   '@tanstack/ai-mcp@0.2.5(@cfworker/json-schema@4.1.1)(@opentelemetry/api@1.9.0)(zod@3.25.76)':
     dependencies:
       '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
@@ -39241,6 +39327,8 @@ snapshots:
 
   '@tanstack/ai-utils@0.3.1': {}
 
+  '@tanstack/ai-utils@1.0.0': {}
+
   '@tanstack/ai@0.14.0':
     dependencies:
       '@ag-ui/core': 0.0.49
@@ -39256,6 +39344,20 @@ snapshots:
       partial-json: 0.1.7
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
+
+  '@tanstack/ai@1.0.1(@opentelemetry/api@1.9.0)(zod@3.25.76)':
+    dependencies:
+      '@ag-ui/core': 1.0.0(zod@3.25.76)
+      '@cfworker/json-schema': 4.1.1
+      '@standard-schema/spec': 1.1.0
+      '@tanstack/ai-event-client': 1.0.0
+      '@tanstack/ai-utils': 1.0.0
+      fast-json-patch: 3.1.1
+      partial-json: 0.1.7
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.0
+    transitivePeerDependencies:
+      - zod
 
   '@tanstack/devtools-event-client@0.4.3': {}
 
@@ -40171,6 +40273,8 @@ snapshots:
 
   '@vercel/oidc@3.1.0': {}
 
+  '@vercel/oidc@3.2.0': {}
+
   '@vitejs/plugin-basic-ssl@2.1.4(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))':
     dependencies:
       vite: 7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
@@ -40880,6 +40984,13 @@ snapshots:
       '@ai-sdk/provider': 3.0.8
       '@ai-sdk/provider-utils': 4.0.23(zod@3.25.76)
       '@opentelemetry/api': 1.9.0
+      zod: 3.25.76
+
+  ai@7.0.159(zod@3.25.76):
+    dependencies:
+      '@ai-sdk/gateway': 4.0.132(zod@3.25.76)
+      '@ai-sdk/provider': 4.0.35
+      '@ai-sdk/provider-utils': 5.0.72(zod@3.25.76)
       zod: 3.25.76
 
   ajv-draft-04@1.0.0(ajv@8.20.0):
@@ -42026,7 +42137,7 @@ snapshots:
 
   chardet@2.1.1: {}
 
-  chat@4.40.0(ai@6.0.156(zod@3.25.76))(zod@3.25.76):
+  chat@4.40.0(ai@7.0.159(zod@3.25.76))(zod@3.25.76):
     dependencies:
       '@workflow/serde': 4.1.0-beta.2
       mdast-util-to-string: 4.0.0
@@ -42036,7 +42147,7 @@ snapshots:
       remend: 1.2.2
       unified: 11.0.5
     optionalDependencies:
-      ai: 6.0.156(zod@3.25.76)
+      ai: 7.0.159(zod@3.25.76)
       zod: 3.25.76
     transitivePeerDependencies:
       - supports-color
@@ -54316,8 +54427,7 @@ snapshots:
 
   undici@7.24.4: {}
 
-  undici@7.30.0:
-    optional: true
+  undici@7.30.0: {}
 
   unenv@2.0.0-rc.24:
     dependencies:
@@ -55872,6 +55982,8 @@ snapshots:
   vue-component-type-helpers@2.2.12: {}
 
   vue-component-type-helpers@3.3.13: {}
+
+  vue-component-type-helpers@3.3.14: {}
 
   vue-devtools-stub@0.1.0: {}
 

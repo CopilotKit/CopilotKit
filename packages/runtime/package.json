@@ -118,7 +118,9 @@
     "@types/yauzl": "2.10.3",
     "hono": "^4.11.4",
     "@hono/node-server": "^1.13.5",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "@tanstack/ai": "^1.0.1",
+    "ai-v7": "npm:ai@^7.0.159"
   },
   "nx": {
     "targets": {
