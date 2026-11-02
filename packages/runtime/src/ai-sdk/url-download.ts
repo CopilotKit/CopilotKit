@@ -981,6 +981,6 @@ export const disabledUrlDownload: DownloadFunction = async (requests) =>
     if (leftToAiSdk(request)) return null;
     throw refuse(
       request.url,
-      'Server-side URL download is disabled (urlDownload: "disabled").',
+      "Server-side URL download is disabled (urlDownload: false).",
     );
   });

@@ -139,6 +139,7 @@ export async function* convertAISDKStream(
   pendingInterrupts?: Interrupt[],
   initialState?: unknown,
   runFinishedDetails?: AgentRunFinishedDetails,
+  usageIdentity?: { provider?: string; model?: string },
 ): AsyncGenerator<BaseEvent> {
   let messageId = randomUUID();
   let reasoningMessageId = randomUUID();
@@ -515,7 +516,10 @@ export async function* convertAISDKStream(
 
         case "finish": {
           if (runFinishedDetails) {
-            Object.assign(runFinishedDetails, getAISDKRunFinishedDetails(p));
+            Object.assign(
+              runFinishedDetails,
+              getAISDKRunFinishedDetails(p, usageIdentity),
+            );
           }
           // Terminal — let the caller handle lifecycle
           return;

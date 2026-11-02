@@ -200,7 +200,7 @@ export function aiSdkAgent(config: AiSdkAgentConfig) {
       const stepLimit =
         maxSteps ?? (hasLearnedSkills ? LEARNED_SKILLS_STEP_LIMIT : undefined);
 
-      return streamText({
+      const result = streamText({
         ...settings,
         ...base,
         model: runModel,
@@ -210,6 +210,7 @@ export function aiSdkAgent(config: AiSdkAgentConfig) {
         // URL's query. The error still reaches the client as RUN_ERROR.
         onError: ({ error }) => logModelCallError(error),
       });
+      return { fullStream: result.fullStream, model: runModel };
     },
   });
 }

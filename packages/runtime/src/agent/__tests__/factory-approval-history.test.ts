@@ -233,6 +233,7 @@ it("saves accepted answers before Stop cancels model work", async () => {
   expect(events.map((event) => event.type)).toEqual([
     EventType.RUN_STARTED,
     EventType.TOOL_CALL_RESULT,
+    EventType.RUN_FINISHED,
   ]);
   expect(events[1]).toMatchObject({
     toolCallId: "approval",

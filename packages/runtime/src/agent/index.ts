@@ -20,7 +20,11 @@ import type {
 } from "@copilotkit/shared";
 import { convertAISDKStream } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
-import { collectStandardRunFinishedDetails } from "./converters/usage";
+import {
+  collectStandardRunFinishedDetails,
+  getNonEmptyString,
+  isRecord,
+} from "./converters/usage";
 import type { AgentRunFinishedDetails } from "./converters/usage";
 import { SkillRegistry } from "../runtime/intelligence-platform/skill-registry";
 import { prepareLearnedSkills } from "./learned-skills";
@@ -44,6 +48,23 @@ export class InterruptSignal extends Error {
     super("CopilotKit interrupt: run paused awaiting human input");
     this.name = "InterruptSignal";
   }
+}
+
+/**
+ * The RUN_FINISHED for a stopped run. A stopped run is cancelled, not a
+ * success. A client that declares no protocolVersion predates AG-UI 1.0 and
+ * cannot parse the cancelled outcome, so it gets the plain event.
+ */
+function cancelledRunFinished(input: RunAgentInput) {
+  const event: RunFinishedEvent = {
+    type: EventType.RUN_FINISHED,
+    threadId: input.threadId,
+    runId: input.runId,
+    ...(input.protocolVersion !== undefined
+      ? { outcome: { type: "cancelled" as const } }
+      : {}),
+  };
+  return event;
 }
 
 /**
@@ -204,9 +225,17 @@ export interface BuiltInAgentAISDKFactoryConfig extends BuiltInAgentFactoryConfi
   type: "aisdk";
   factory: (
     ctx: AgentFactoryContext,
-  ) =>
-    | { fullStream: AsyncIterable<unknown> }
-    | Promise<{ fullStream: AsyncIterable<unknown> }>;
+  ) => BuiltInAgentAISDKFactoryResult | Promise<BuiltInAgentAISDKFactoryResult>;
+}
+
+/**
+ * What an AI SDK factory returns: a `streamText()` result, or any object with
+ * its `fullStream`. Add `model` (the model the call used) to label the run's
+ * usage with the model's `provider` and `modelId`.
+ */
+export interface BuiltInAgentAISDKFactoryResult {
+  fullStream: AsyncIterable<unknown>;
+  model?: unknown;
 }
 
 /**
@@ -491,12 +520,17 @@ export class BuiltInAgent extends AbstractAgent {
           switch (config.type) {
             case "aisdk": {
               const result = await config.factory(factoryCtx);
+              const model = isRecord(result.model) ? result.model : {};
               events = convertAISDKStream(
                 result.fullStream,
                 controller.signal,
                 pendingInterrupts,
                 input.state,
                 runFinishedDetails,
+                {
+                  provider: getNonEmptyString(model.provider),
+                  model: getNonEmptyString(model.modelId),
+                },
               );
               break;
             }
@@ -563,7 +597,9 @@ export class BuiltInAgent extends AbstractAgent {
             );
           }
 
-          if (!controller.signal.aborted) {
+          if (controller.signal.aborted) {
+            subscriber.next(cancelledRunFinished(input));
+          } else {
             const finishedEvent = {
               ...customRunFinishedEvent,
               type: EventType.RUN_FINISHED,
@@ -586,6 +622,7 @@ export class BuiltInAgent extends AbstractAgent {
             subscriber.next(finishedEvent);
             subscriber.complete();
           } else if (controller.signal.aborted) {
+            subscriber.next(cancelledRunFinished(input));
             subscriber.complete();
           } else {
             const runErrorEvent: RunErrorEvent = {
