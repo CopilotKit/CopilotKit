@@ -19,12 +19,14 @@ on:
     paths:
       - "showcase/integrations/strands-typescript/src/agent/**"
       - "showcase/integrations/strands-typescript/src/cvdiag/**"
+      - "showcase/integrations/_shared/ts/**"
       - ".github/workflows/test_unit-showcase-integrations.yml"
   push:
     branches: [main]
     paths:
       - "showcase/integrations/strands-typescript/src/agent/**"
       - "showcase/integrations/strands-typescript/src/cvdiag/**"
+      - "showcase/integrations/_shared/ts/**"
       - ".github/workflows/test_unit-showcase-integrations.yml"
 
 permissions:
@@ -80,3 +82,9 @@ jobs:
         # stops matching fails the job instead of reporting an empty success.
         working-directory: showcase/integrations/strands-typescript/src/agent
         run: pnpm exec vitest run --config vitest.config.ts
+
+      - name: Run shared integration unit tests
+        # `_shared/ts` is the single source every integration links in (the
+        # demos' theme bootstrap, the CVDIAG emitter barrel). Its tests need
+        # only the root workspace install.
+        run: pnpm exec vitest run --config showcase/integrations/_shared/ts/vitest.config.ts

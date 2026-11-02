@@ -67,6 +67,20 @@
   color-scheme: dark;
 }
 
+/* In dark mode, a `border` without a color takes the theme's border color
+ * instead of Tailwind's `currentColor` (light mode keeps the default). Any
+ * border color utility still wins: utilities sit above the base layer.
+ * CopilotKit's own subtree already defaults to `var(--border)`. */
+@layer base {
+  .dark *,
+  .dark ::before,
+  .dark ::after,
+  .dark ::backdrop,
+  .dark ::file-selector-button {
+    border-color: var(--border);
+  }
+}
+
 :root.dark,
 .dark {
   --background: #0a0a0a;

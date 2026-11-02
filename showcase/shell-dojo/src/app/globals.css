@@ -17,7 +17,7 @@
   --font-mono: "Spline Sans Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
-/* Dark theme — `class="dark"` on <html> is set by theme-script.ts. */
+/* Dark theme — `class="dark"` on <html> is set by the head theme script (_shared/ts/theme.ts). */
 :root.dark {
   color-scheme: dark;
   --surface-main: #16171b;

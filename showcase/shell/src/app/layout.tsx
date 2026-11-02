@@ -5,7 +5,7 @@ import { DemoThemeBridge } from "@/components/demo-theme-bridge";
 import { FrameworkProvider } from "@/components/framework-provider";
 import { getIntegrations } from "@/lib/registry";
 import { getRuntimeConfig } from "@/lib/runtime-config";
-import { themeScript } from "./theme-script";
+import { themeScript } from "../../../integrations/_shared/ts/theme";
 import "./globals.css";
 
 /**
@@ -113,7 +113,9 @@ export default function RootLayout({
         {/* Applies the light/dark theme before first paint. */}
         <script
           id="theme-init"
-          dangerouslySetInnerHTML={{ __html: themeScript }}
+          dangerouslySetInnerHTML={{
+            __html: themeScript({ storageKey: "theme" }),
+          }}
         />
       </head>
       <body className="min-h-screen">

@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CopilotKit Vue Showcase</title>
     <!--
-      Puts class="dark" on <html> before first paint. Same script as the
-      React demos (showcase/integrations/*/src/app/theme-script.ts): the theme
-      comes from the embedding page's `copilotkit:theme` message, then a
-      `?theme=light|dark` query parameter, then the system preference.
+      Puts class="dark" on <html> before first paint, with the same protocol
+      as showcase/integrations/_shared/ts/theme.ts (static HTML can't import
+      it): the theme comes from the embedding page's `copilotkit:theme`
+      message, then a `?theme=light|dark` query parameter, then the system
+      preference.
     -->
     <script>
       (function () {

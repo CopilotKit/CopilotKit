@@ -3,11 +3,11 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * Light/dark toggle for the top nav. The inline theme script in
- * `app/theme-script.ts` sets `class="dark"` on <html> before paint (from
- * this toggle's stored choice, an embedding page, or the system
- * preference); this button reads that class and flips it, storing the
- * explicit choice in `localStorage.theme`.
+ * Light/dark toggle for the top nav. The head theme script (from
+ * `showcase/integrations/_shared/ts/theme.ts`) sets `class="dark"` on <html>
+ * before paint, from this toggle's stored pick, an embedding page, or the
+ * system preference. This button reads that class and asks the script to
+ * switch, which also stores the pick.
  *
  * Hydration: the server can't know the theme, so the first render shows
  * the light icon and switches once hydrated.
@@ -32,15 +32,7 @@ export function ThemeSwitch() {
       type="button"
       aria-label={label}
       title={label}
-      onClick={() => {
-        const next = isDark ? "light" : "dark";
-        try {
-          localStorage.setItem("theme", next);
-        } catch {
-          // Storage blocked — the choice still applies to this page view.
-        }
-        document.documentElement.classList.toggle("dark", next === "dark");
-      }}
+      onClick={() => window.__copilotkitTheme?.set(isDark ? "light" : "dark")}
       className="flex items-center justify-center w-8 h-8 rounded-md text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
     >
       {/* Lucide `moon-star` / `sun-medium`, inlined like the nav's other icons. */}

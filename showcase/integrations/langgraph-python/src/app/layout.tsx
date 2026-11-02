@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "@copilotkit/react-core/v2/styles.css";
 import "./globals.css";
-import { themeScript } from "./theme-script";
+import { themeScript } from "../../_shared/ts/theme";
 
 export const metadata: Metadata = {
   title: "CopilotKit Showcase — LangGraph (Python)",
@@ -16,7 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript() }} />
       </head>
       <body>
         {isProd && (
