@@ -1990,7 +1990,7 @@ importers:
         version: 1.15.11
       nuxt:
         specifier: 3.17.5
-        version: 3.17.5(@libsql/client@0.15.15)(@parcel/watcher@2.5.6)(@types/node@22.19.11)(better-sqlite3@12.5.0)(cac@6.7.14)(commander@13.1.0)(db0@0.3.4(@libsql/client@0.15.15)(better-sqlite3@12.5.0))(encoding@0.1.13)(eslint@9.39.2(jiti@2.7.0))(ioredis@5.10.1)(less@4.6.7)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(srvx@0.11.15)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue-tsc@2.2.12(typescript@5.8.2))(xml2js@0.6.2)(yaml@2.9.0)
+        version: 3.17.5(@libsql/client@0.15.15)(@parcel/watcher@2.5.6)(@types/node@22.19.11)(better-sqlite3@12.5.0)(cac@6.7.14)(commander@13.1.0)(db0@0.3.4(@libsql/client@0.15.15)(better-sqlite3@12.5.0))(encoding@0.1.13)(eslint@9.39.2(jiti@2.7.0))(ioredis@5.10.1)(less@4.6.7)(lightningcss@1.32.0)(magicast@0.3.5)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(srvx@0.11.15)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue-tsc@2.2.12(typescript@5.8.2))(xml2js@0.6.2)(yaml@2.9.0)
       openai:
         specifier: ^5.9.0
         version: 5.23.2(ws@8.21.3)(zod@4.6.7)
@@ -2212,9 +2212,6 @@ importers:
       marked:
         specifier: ^12.0.2
         version: 12.0.2
-      tslib:
-        specifier: ^2.6.0
-        version: 2.8.1
       zod:
         specifier: ^4.2.0
         version: 4.6.7
@@ -2282,6 +2279,9 @@ importers:
       rxjs:
         specifier: ^7.8.1
         version: 7.8.1
+      tslib:
+        specifier: ^2.8.1
+        version: 2.8.1
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -2355,9 +2355,6 @@ importers:
       '@copilotkit/channels-ui':
         specifier: workspace:~
         version: link:../channels-ui
-      '@copilotkit/core':
-        specifier: workspace:^
-        version: link:../core
       '@copilotkit/shared':
         specifier: workspace:^
         version: link:../shared
@@ -2475,12 +2472,6 @@ importers:
       '@copilotkit/channels-ui':
         specifier: workspace:^
         version: link:../channels-ui
-      '@copilotkit/core':
-        specifier: workspace:^
-        version: link:../core
-      '@copilotkit/shared':
-        specifier: workspace:^
-        version: link:../shared
       '@slack/bolt':
         specifier: ^4.2.0
         version: 4.7.3(@types/express@5.0.6)
@@ -2524,12 +2515,6 @@ importers:
       '@copilotkit/channels-ui':
         specifier: workspace:^
         version: link:../channels-ui
-      '@copilotkit/core':
-        specifier: workspace:^
-        version: link:../core
-      '@copilotkit/shared':
-        specifier: workspace:^
-        version: link:../shared
       rxjs:
         specifier: 7.8.1
         version: 7.8.1
@@ -2560,10 +2545,6 @@ importers:
         version: 4.1.5(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
 
   packages/channels-ui:
-    dependencies:
-      '@copilotkit/shared':
-        specifier: workspace:^
-        version: link:../shared
     devDependencies:
       '@copilotkit/typescript-config':
         specifier: workspace:^
@@ -3052,7 +3033,7 @@ importers:
         version: link:../shared
       '@gorhom/bottom-sheet':
         specifier: ^5.0.0
-        version: 5.2.13(b4bfbb86c930fc53aa32432327aa06db)
+        version: 5.2.13(@types/react@19.1.8)(react-native-gesture-handler@2.31.2(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3))(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3)
       expo-document-picker:
         specifier: '>=12.0.0'
         version: 56.0.4(expo@56.0.3)
@@ -3062,15 +3043,6 @@ importers:
       react-native:
         specifier: '>=0.70'
         version: 0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3)
-      react-native-gesture-handler:
-        specifier: '>=2.0.0'
-        version: 2.31.2(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3)
-      react-native-reanimated:
-        specifier: '>=3.0.0'
-        version: 4.3.1(react-native-worklets@0.8.3(@babel/core@8.0.1)(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3))(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3)
-      text-encoding:
-        specifier: ^0.7.0
-        version: 0.7.0
       web-streams-polyfill:
         specifier: ^4.2.0
         version: 4.2.0
@@ -3554,6 +3526,10 @@ importers:
         version: zod@3.25.76
 
   packages/web-components:
+    dependencies:
+      lit:
+        specifier: ^3.3.2
+        version: 3.3.2
     devDependencies:
       '@copilotkit/typescript-config':
         specifier: workspace:*
@@ -3564,9 +3540,6 @@ importers:
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0
-      lit:
-        specifier: ^3.3.2
-        version: 3.3.2
       tsdown:
         specifier: ^0.20.3
         version: 0.20.3(@arethetypeswrong/core@0.18.2)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(oxc-resolver@11.24.2)(publint@0.3.17)(synckit@0.11.12)(typescript@5.9.2)
@@ -3597,9 +3570,6 @@ importers:
       lit:
         specifier: ^3.3.2
         version: 3.3.2
-      semver:
-        specifier: ^7.8.5
-        version: 7.8.5
     devDependencies:
       '@copilotkit/typescript-config':
         specifier: workspace:*
@@ -3619,6 +3589,9 @@ importers:
       concurrently:
         specifier: ^9.1.0
         version: 9.2.1
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
       tailwindcss:
         specifier: ^4.0.8
         version: 4.1.18
@@ -22600,19 +22573,6 @@ packages:
       react: 19.2.3
       react-native: '*'
 
-  react-native-is-edge-to-edge@1.3.1:
-    resolution: {integrity: sha512-NIXU/iT5+ORyCc7p0z2nnlkouYKX425vuU1OEm6bMMtWWR9yvb+Xg5AZmImTKoF9abxCPqrKC3rOZsKzUYgYZA==}
-    peerDependencies:
-      react: 19.2.3
-      react-native: '*'
-
-  react-native-reanimated@4.3.1:
-    resolution: {integrity: sha512-KhGsS0YkCA+gusgyzlf9hnqzVPIR398KTpqXyqq/+yYJJPAvyEEPKcxlB0xtOOXSMrR2A9uRKVARVQhZwrOh+Q==}
-    peerDependencies:
-      react: 19.2.3
-      react-native: 0.81 - 0.85
-      react-native-worklets: 0.8.x
-
   react-native-safe-area-context@5.7.0:
     resolution: {integrity: sha512-/9/MtQz8ODphjsLdZ+GZAIcC/RtoqW9EeShf7Uvnfgm/pzYrJ75y3PV/J1wuAV1T5Dye5ygq4EAW20RoBq0ABQ==}
     peerDependencies:
@@ -24160,10 +24120,6 @@ packages:
 
   text-decoder@1.2.3:
     resolution: {integrity: sha512-3/o9z3X0X0fTupwsYvR03pJ/DjWuqqrfwBgTQzdWDiQSm9KitAyz/9WqsT2JQW7KV2m+bC2ol/zqpW37NHxLaA==}
-
-  text-encoding@0.7.0:
-    resolution: {integrity: sha512-oJQ3f1hrOnbRLOcwKz0Liq2IcrvDeZRHXhd9RgLrsT+DjWY/nty1Hi7v3dtkaEYbPYe0mUoOfzRrMwfXXwgPUA==}
-    deprecated: no longer maintained
 
   text-extensions@2.4.0:
     resolution: {integrity: sha512-te/NtwBwfiNRLf9Ijqx3T0nlqZiQ2XrrtBvu+cLL8ZRrGkO0NHTug8MYFKyoSrv/sHTaSKfilUkizV6XhxMJ3g==}
@@ -29265,6 +29221,7 @@ snapshots:
     dependencies:
       '@babel/core': 8.0.1
       '@babel/helper-plugin-utils': 7.27.1
+    optional: true
 
   '@babel/plugin-transform-arrow-functions@8.0.1(@babel/core@8.0.1)':
     dependencies:
@@ -29288,6 +29245,7 @@ snapshots:
       '@babel/traverse': 7.29.7
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@babel/plugin-transform-async-generator-functions@7.29.0(@babel/core@8.0.1)':
     dependencies:
@@ -29322,6 +29280,7 @@ snapshots:
       '@babel/helper-remap-async-to-generator': 7.27.1(@babel/core@8.0.1)
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@babel/plugin-transform-async-to-generator@7.28.6(@babel/core@8.0.1)':
     dependencies:
@@ -29364,6 +29323,7 @@ snapshots:
     dependencies:
       '@babel/core': 8.0.1
       '@babel/helper-plugin-utils': 7.27.1
+    optional: true
 
   '@babel/plugin-transform-block-scoping@7.29.7(@babel/core@8.0.1)':
     dependencies:
@@ -29390,6 +29350,7 @@ snapshots:
       '@babel/helper-plugin-utils': 7.27.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@babel/plugin-transform-class-properties@7.29.7(@babel/core@8.0.1)':
     dependencies:
@@ -29450,6 +29411,7 @@ snapshots:
       '@babel/traverse': 7.29.7
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@babel/plugin-transform-classes@7.29.7(@babel/core@8.0.1)':
     dependencies:
@@ -29506,6 +29468,7 @@ snapshots:
       '@babel/traverse': 7.29.7
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@babel/plugin-transform-destructuring@7.29.7(@babel/core@8.0.1)':
     dependencies:
@@ -29889,6 +29852,7 @@ snapshots:
       '@babel/core': 8.0.1
       '@babel/helper-create-regexp-features-plugin': 7.28.5(@babel/core@8.0.1)
       '@babel/helper-plugin-utils': 7.27.1
+    optional: true
 
   '@babel/plugin-transform-named-capturing-groups-regex@7.29.7(@babel/core@8.0.1)':
     dependencies:
@@ -29927,6 +29891,7 @@ snapshots:
     dependencies:
       '@babel/core': 8.0.1
       '@babel/helper-plugin-utils': 7.27.1
+    optional: true
 
   '@babel/plugin-transform-nullish-coalescing-operator@7.29.7(@babel/core@8.0.1)':
     dependencies:
@@ -30016,6 +29981,7 @@ snapshots:
     dependencies:
       '@babel/core': 8.0.1
       '@babel/helper-plugin-utils': 7.27.1
+    optional: true
 
   '@babel/plugin-transform-optional-catch-binding@7.29.7(@babel/core@8.0.1)':
     dependencies:
@@ -30042,6 +30008,7 @@ snapshots:
       '@babel/helper-skip-transparent-expression-wrappers': 7.27.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@babel/plugin-transform-optional-chaining@7.29.7(@babel/core@8.0.1)':
     dependencies:
@@ -30087,6 +30054,7 @@ snapshots:
       '@babel/helper-plugin-utils': 7.27.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@babel/plugin-transform-private-methods@7.29.7(@babel/core@8.0.1)':
     dependencies:
@@ -30119,6 +30087,7 @@ snapshots:
       '@babel/helper-plugin-utils': 7.27.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@babel/plugin-transform-private-property-in-object@7.29.7(@babel/core@8.0.1)':
     dependencies:
@@ -30178,6 +30147,7 @@ snapshots:
     dependencies:
       '@babel/core': 8.0.1
       '@babel/helper-plugin-utils': 7.29.7
+    optional: true
 
   '@babel/plugin-transform-react-jsx-source@7.27.1(@babel/core@7.28.5)':
     dependencies:
@@ -30188,6 +30158,7 @@ snapshots:
     dependencies:
       '@babel/core': 8.0.1
       '@babel/helper-plugin-utils': 7.27.1
+    optional: true
 
   '@babel/plugin-transform-react-jsx@7.27.1(@babel/core@7.28.5)':
     dependencies:
@@ -30210,6 +30181,7 @@ snapshots:
       '@babel/types': 7.29.7
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@babel/plugin-transform-react-jsx@7.28.6(@babel/core@8.0.1)':
     dependencies:
@@ -30237,6 +30209,7 @@ snapshots:
     dependencies:
       '@babel/core': 8.0.1
       '@babel/helper-plugin-utils': 7.27.1
+    optional: true
 
   '@babel/plugin-transform-regenerator@7.29.7(@babel/core@8.0.1)':
     dependencies:
@@ -30307,6 +30280,7 @@ snapshots:
       semver: 6.3.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@babel/plugin-transform-runtime@7.29.0(@babel/core@8.0.1)':
     dependencies:
@@ -30335,6 +30309,7 @@ snapshots:
     dependencies:
       '@babel/core': 8.0.1
       '@babel/helper-plugin-utils': 7.27.1
+    optional: true
 
   '@babel/plugin-transform-shorthand-properties@8.0.1(@babel/core@8.0.1)':
     dependencies:
@@ -30389,6 +30364,7 @@ snapshots:
     dependencies:
       '@babel/core': 8.0.1
       '@babel/helper-plugin-utils': 7.27.1
+    optional: true
 
   '@babel/plugin-transform-template-literals@8.0.1(@babel/core@8.0.1)':
     dependencies:
@@ -31900,14 +31876,13 @@ snapshots:
 
   '@google/generative-ai@0.24.1': {}
 
-  '@gorhom/bottom-sheet@5.2.13(b4bfbb86c930fc53aa32432327aa06db)':
+  '@gorhom/bottom-sheet@5.2.13(@types/react@19.1.8)(react-native-gesture-handler@2.31.2(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3))(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@gorhom/portal': 1.0.14(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3)
       invariant: 2.2.4
       react: 19.2.3
       react-native: 0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3)
       react-native-gesture-handler: 2.31.2(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3)
-      react-native-reanimated: 4.3.1(react-native-worklets@0.8.3(@babel/core@8.0.1)(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3))(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3)
     optionalDependencies:
       '@types/react': 19.1.8
 
@@ -35108,11 +35083,11 @@ snapshots:
       node-gyp: 12.3.0
       proc-log: 6.1.0
 
-  '@nuxt/cli@3.35.2(@nuxt/schema@3.17.5)(cac@6.7.14)(commander@13.1.0)(magicast@0.5.2)':
+  '@nuxt/cli@3.35.2(@nuxt/schema@3.17.5)(cac@6.7.14)(commander@13.1.0)(magicast@0.3.5)':
     dependencies:
       '@bomb.sh/tab': 0.0.15(cac@6.7.14)(citty@0.2.2)(commander@13.1.0)
       '@clack/prompts': 1.4.0
-      c12: 3.3.4(magicast@0.5.2)
+      c12: 3.3.4(magicast@0.3.5)
       citty: 0.2.2
       confbox: 0.2.4
       consola: 3.4.2
@@ -35208,9 +35183,9 @@ snapshots:
       - utf-8-validate
       - vue
 
-  '@nuxt/kit@3.17.5(magicast@0.5.2)':
+  '@nuxt/kit@3.17.5(magicast@0.3.5)':
     dependencies:
-      c12: 3.3.4(magicast@0.5.2)
+      c12: 3.3.4(magicast@0.3.5)
       consola: 3.4.2
       defu: 6.1.7
       destr: 2.0.5
@@ -35269,18 +35244,18 @@ snapshots:
       pathe: 2.0.3
       std-env: 3.10.0
 
-  '@nuxt/telemetry@2.8.0(@nuxt/kit@3.17.5(magicast@0.5.2))':
+  '@nuxt/telemetry@2.8.0(@nuxt/kit@3.17.5(magicast@0.3.5))':
     dependencies:
-      '@nuxt/kit': 3.17.5(magicast@0.5.2)
+      '@nuxt/kit': 3.17.5(magicast@0.3.5)
       citty: 0.2.2
       consola: 3.4.2
       ofetch: 2.0.0-alpha.3
       rc9: 3.0.1
       std-env: 4.1.0
 
-  '@nuxt/vite-builder@3.17.5(@types/node@22.19.11)(eslint@9.39.2(jiti@2.7.0))(less@4.6.7)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vue-tsc@2.2.12(typescript@5.8.2))(vue@3.5.34(typescript@5.8.2))(yaml@2.9.0)':
+  '@nuxt/vite-builder@3.17.5(@types/node@22.19.11)(eslint@9.39.2(jiti@2.7.0))(less@4.6.7)(lightningcss@1.32.0)(magicast@0.3.5)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vue-tsc@2.2.12(typescript@5.8.2))(vue@3.5.34(typescript@5.8.2))(yaml@2.9.0)':
     dependencies:
-      '@nuxt/kit': 3.17.5(magicast@0.5.2)
+      '@nuxt/kit': 3.17.5(magicast@0.3.5)
       '@rollup/plugin-replace': 6.0.3(rollup@4.60.2)
       '@vitejs/plugin-vue': 5.2.4(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue@3.5.34(typescript@5.8.2))
       '@vitejs/plugin-vue-jsx': 4.2.0(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue@3.5.34(typescript@5.8.2))
@@ -37074,6 +37049,7 @@ snapshots:
     transitivePeerDependencies:
       - '@babel/core'
       - supports-color
+    optional: true
 
   '@react-native/babel-plugin-codegen@0.85.3(@babel/core@8.0.1)':
     dependencies:
@@ -37158,6 +37134,7 @@ snapshots:
       react-refresh: 0.14.2
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@react-native/codegen@0.85.2(@babel/core@7.28.5)':
     dependencies:
@@ -37344,6 +37321,7 @@ snapshots:
       nullthrows: 1.1.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@react-native/metro-config@0.85.2(@babel/core@7.28.5)':
     dependencies:
@@ -37366,6 +37344,7 @@ snapshots:
     transitivePeerDependencies:
       - '@babel/core'
       - supports-color
+    optional: true
 
   '@react-native/normalize-colors@0.85.2': {}
 
@@ -41681,6 +41660,7 @@ snapshots:
       semver: 6.3.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   babel-plugin-polyfill-corejs2@0.4.17(@babel/core@8.0.1):
     dependencies:
@@ -41735,6 +41715,7 @@ snapshots:
       '@babel/helper-define-polyfill-provider': 0.6.5(@babel/core@8.0.1)
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   babel-plugin-polyfill-regenerator@0.6.8(@babel/core@8.0.1):
     dependencies:
@@ -49649,18 +49630,18 @@ snapshots:
 
   nullthrows@1.1.1: {}
 
-  nuxt@3.17.5(@libsql/client@0.15.15)(@parcel/watcher@2.5.6)(@types/node@22.19.11)(better-sqlite3@12.5.0)(cac@6.7.14)(commander@13.1.0)(db0@0.3.4(@libsql/client@0.15.15)(better-sqlite3@12.5.0))(encoding@0.1.13)(eslint@9.39.2(jiti@2.7.0))(ioredis@5.10.1)(less@4.6.7)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(srvx@0.11.15)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue-tsc@2.2.12(typescript@5.8.2))(xml2js@0.6.2)(yaml@2.9.0):
+  nuxt@3.17.5(@libsql/client@0.15.15)(@parcel/watcher@2.5.6)(@types/node@22.19.11)(better-sqlite3@12.5.0)(cac@6.7.14)(commander@13.1.0)(db0@0.3.4(@libsql/client@0.15.15)(better-sqlite3@12.5.0))(encoding@0.1.13)(eslint@9.39.2(jiti@2.7.0))(ioredis@5.10.1)(less@4.6.7)(lightningcss@1.32.0)(magicast@0.3.5)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(srvx@0.11.15)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue-tsc@2.2.12(typescript@5.8.2))(xml2js@0.6.2)(yaml@2.9.0):
     dependencies:
-      '@nuxt/cli': 3.35.2(@nuxt/schema@3.17.5)(cac@6.7.14)(commander@13.1.0)(magicast@0.5.2)
+      '@nuxt/cli': 3.35.2(@nuxt/schema@3.17.5)(cac@6.7.14)(commander@13.1.0)(magicast@0.3.5)
       '@nuxt/devalue': 2.0.2
       '@nuxt/devtools': 2.7.0(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue@3.5.34(typescript@5.8.2))
-      '@nuxt/kit': 3.17.5(magicast@0.5.2)
+      '@nuxt/kit': 3.17.5(magicast@0.3.5)
       '@nuxt/schema': 3.17.5
-      '@nuxt/telemetry': 2.8.0(@nuxt/kit@3.17.5(magicast@0.5.2))
-      '@nuxt/vite-builder': 3.17.5(@types/node@22.19.11)(eslint@9.39.2(jiti@2.7.0))(less@4.6.7)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vue-tsc@2.2.12(typescript@5.8.2))(vue@3.5.34(typescript@5.8.2))(yaml@2.9.0)
+      '@nuxt/telemetry': 2.8.0(@nuxt/kit@3.17.5(magicast@0.3.5))
+      '@nuxt/vite-builder': 3.17.5(@types/node@22.19.11)(eslint@9.39.2(jiti@2.7.0))(less@4.6.7)(lightningcss@1.32.0)(magicast@0.3.5)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vue-tsc@2.2.12(typescript@5.8.2))(vue@3.5.34(typescript@5.8.2))(yaml@2.9.0)
       '@unhead/vue': 2.1.15(vue@3.5.34(typescript@5.8.2))
       '@vue/shared': 3.5.34
-      c12: 3.3.4(magicast@0.5.2)
+      c12: 3.3.4(magicast@0.3.5)
       chokidar: 4.0.3
       compatx: 0.2.0
       consola: 3.4.2
@@ -51625,19 +51606,6 @@ snapshots:
       react: 19.2.3
       react-native: 0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3)
 
-  react-native-is-edge-to-edge@1.3.1(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3):
-    dependencies:
-      react: 19.2.3
-      react-native: 0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3)
-
-  react-native-reanimated@4.3.1(react-native-worklets@0.8.3(@babel/core@8.0.1)(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3))(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3):
-    dependencies:
-      react: 19.2.3
-      react-native: 0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3)
-      react-native-is-edge-to-edge: 1.3.1(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3)
-      react-native-worklets: 0.8.3(@babel/core@8.0.1)(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3)
-      semver: 7.7.4
-
   react-native-safe-area-context@5.7.0(react-native@0.85.2(@babel/core@7.28.5)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@7.28.5)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@7.28.5))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3):
     dependencies:
       react: 19.2.3
@@ -51662,6 +51630,7 @@ snapshots:
       semver: 7.8.5
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   react-native@0.85.2(@babel/core@7.28.5)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@7.28.5)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@7.28.5))(@types/react@19.1.8)(react@19.2.3):
     dependencies:
@@ -54015,8 +53984,6 @@ snapshots:
       b4a: 1.7.3
     transitivePeerDependencies:
       - react-native-b4a
-
-  text-encoding@0.7.0: {}
 
   text-extensions@2.4.0: {}
 

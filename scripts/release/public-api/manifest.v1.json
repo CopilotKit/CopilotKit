@@ -1804,16 +1804,12 @@
           "expo-document-picker": ">=12.0.0",
           "expo-file-system": ">=17.0.0",
           "react": "^18 || ^19",
-          "react-native": ">=0.70",
-          "react-native-gesture-handler": ">=2.0.0",
-          "react-native-reanimated": ">=3.0.0"
+          "react-native": ">=0.70"
         },
         "optionalPeerDependencies": [
           "@gorhom/bottom-sheet",
           "expo-document-picker",
-          "expo-file-system",
-          "react-native-gesture-handler",
-          "react-native-reanimated"
+          "expo-file-system"
         ],
         "provenance": [
           {
@@ -2425,19 +2421,11 @@
         "engines": {
           "node": ">=20"
         },
-        "peerDependencies": {
-          "lit": "^3.3.2"
-        },
         "provenance": [
           {
             "kind": "package-json",
             "path": "packages/web-components/package.json",
             "selector": "engines"
-          },
-          {
-            "kind": "package-json",
-            "path": "packages/web-components/package.json",
-            "selector": "peerDependencies"
           }
         ]
       },
