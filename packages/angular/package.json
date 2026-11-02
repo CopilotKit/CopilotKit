@@ -55,6 +55,8 @@
     "check-types": "node scripts/generate-package-version.mjs && tsc --noEmit",
     "test": "node scripts/generate-package-version.mjs && vitest run",
     "test:watch": "node scripts/generate-package-version.mjs && vitest --watch",
+    "link:global": "pnpm link --global",
+    "unlink:global": "pnpm unlink --global",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
   },
