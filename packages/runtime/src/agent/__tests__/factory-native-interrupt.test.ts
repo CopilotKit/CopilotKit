@@ -14,7 +14,8 @@ import { streamText, tool } from "ai";
 import type { FlexibleSchema } from "ai";
 import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
 import { z } from "zod";
-import { BuiltInAgent, convertMessagesToVercelAISDKMessages } from "../index";
+import { BuiltInAgent } from "../index";
+import { convertMessagesToVercelAISDKMessages } from "../../ai-sdk/messages";
 import { collectEvents, createDefaultInput } from "./agent-test-helpers";
 
 const USAGE = {

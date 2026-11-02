@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { asSchema } from "ai";
 import { z as z4 } from "zod/v4";
-import { convertToolsToVercelAITools } from "../index";
+import { convertToolsToVercelAITools } from "../tools";
 
 /** Builds the same tool boundary a frontend nullable field reaches. */
 function setup(parameters: Record<string, unknown>) {

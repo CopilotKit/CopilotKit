@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { convertMessagesToVercelAISDKMessages } from "../index";
+import { convertMessagesToVercelAISDKMessages } from "../messages";
 import type { Message, ContentPart } from "@ag-ui/client";
 import type { ToolModelMessage, ToolResultPart, UserModelMessage } from "ai";
 

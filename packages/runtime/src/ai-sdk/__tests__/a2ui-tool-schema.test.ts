@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { asSchema } from "ai";
 import { RENDER_A2UI_TOOL } from "@ag-ui/a2ui-middleware";
-import { convertToolsToVercelAITools } from "../index";
+import { convertToolsToVercelAITools } from "../tools";
 
 test("A2UI component objects keep their model-visible fields open", async () => {
   const tools = convertToolsToVercelAITools([RENDER_A2UI_TOOL]);

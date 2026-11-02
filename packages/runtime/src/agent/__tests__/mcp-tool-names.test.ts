@@ -95,7 +95,7 @@ describe("resolveMCPToolNames", () => {
     });
   });
 
-  it("tells mcpClients users that their prefix is positional", () => {
+  it("tells users how to choose the prefix", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     resolveMCPToolNames(new Set(), [
@@ -104,7 +104,9 @@ describe("resolveMCPToolNames", () => {
     ]);
 
     expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining("`mcpClients` entries always use `mcp<N>`"),
+      expect.stringContaining(
+        "Set `name` on an `mcpServers` entry to choose its prefix.",
+      ),
     );
   });
 

@@ -1,24 +1,17 @@
 /**
  * Regression tests for #3510, driven by the REAL AI SDK `streamText` (via a
  * mock LanguageModelV3 — no network). When a tool's `execute` throws,
- * `streamText` emits a `tool-error` part. Both the classic BuiltInAgent path
- * and the factory (`convertAISDKStream`) path must surface it as a
- * TOOL_CALL_RESULT instead of finishing the run with no result and no error.
- * `streamText` also emits `tool-error` when a call's arguments fail the tool's
- * schema, including AG-UI frontend tools validated on the server.
+ * `streamText` emits a `tool-error` part. The factory (`convertAISDKStream`)
+ * path must surface it as a TOOL_CALL_RESULT instead of finishing the run with
+ * no result and no error.
  */
 import { describe, it, expect } from "vitest";
 import { EventType } from "@ag-ui/client";
-import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
-import { streamText, tool } from "ai";
-import type { FlexibleSchema } from "ai";
+import type { BaseEvent } from "@ag-ui/client";
+import { jsonSchema, streamText, tool } from "ai";
 import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
-import { z } from "zod";
-import {
-  BuiltInAgent,
-  convertMessagesToVercelAISDKMessages,
-  defineTool,
-} from "../index";
+import { BuiltInAgent } from "../index";
+import { convertMessagesToVercelAISDKMessages } from "../../ai-sdk/messages";
 import { collectEvents, createDefaultInput } from "./agent-test-helpers";
 
 const USAGE = {
@@ -28,7 +21,11 @@ const USAGE = {
 
 type GetCatsInput = { limit: number };
 
-const getCatsSchema = z.object({ limit: z.number() });
+const getCatsSchema = jsonSchema<GetCatsInput>({
+  type: "object",
+  properties: { limit: { type: "number" } },
+  required: ["limit"],
+});
 
 function modelCallingGetCats(): MockLanguageModelV3 {
   return new MockLanguageModelV3({
@@ -57,9 +54,7 @@ function throwMissingKey(): never {
 }
 
 const runInput = createDefaultInput({
-  messages: [
-    { id: "u1", role: "user", content: "Show me a cat" },
-  ] as RunAgentInput["messages"],
+  messages: [{ id: "u1", role: "user", content: "Show me a cat" }],
 });
 
 function expectToolErrorSurfaced(events: BaseEvent[]) {
@@ -74,22 +69,6 @@ function expectToolErrorSurfaced(events: BaseEvent[]) {
 }
 
 describe("tool execute throws (real streamText)", () => {
-  it("classic BuiltInAgent emits the error as a TOOL_CALL_RESULT", async () => {
-    const agent = new BuiltInAgent({
-      model: modelCallingGetCats(),
-      tools: [
-        defineTool({
-          name: "get_cats",
-          description: "Get cat images",
-          parameters: getCatsSchema,
-          execute: async () => throwMissingKey(),
-        }),
-      ],
-    });
-
-    expectToolErrorSurfaced(await collectEvents(agent.run(runInput)));
-  });
-
   it("factory aisdk agent emits the error as a TOOL_CALL_RESULT", async () => {
     const model = modelCallingGetCats();
     const agent = new BuiltInAgent({
@@ -101,8 +80,7 @@ describe("tool execute throws (real streamText)", () => {
           tools: {
             get_cats: tool<GetCatsInput, string>({
               description: "Get cat images",
-              inputSchema:
-                getCatsSchema as unknown as FlexibleSchema<GetCatsInput>,
+              inputSchema: getCatsSchema,
               execute: async () => throwMissingKey(),
             }),
           },
@@ -111,53 +89,5 @@ describe("tool execute throws (real streamText)", () => {
     });
 
     expectToolErrorSurfaced(await collectEvents(agent.run(runInput)));
-  });
-
-  it("frontend tool called with invalid arguments emits the validation error", async () => {
-    const model = new MockLanguageModelV3({
-      doStream: async () => ({
-        stream: simulateReadableStream({
-          chunks: [
-            {
-              type: "tool-call",
-              toolCallId: "tc-1",
-              toolName: "showCity",
-              input: JSON.stringify({ city: 42 }),
-            },
-            {
-              type: "finish",
-              finishReason: { unified: "tool-calls", raw: "tool-calls" },
-              usage: USAGE,
-            },
-          ],
-        }),
-      }),
-    });
-    const agent = new BuiltInAgent({ model });
-
-    const events = await collectEvents(
-      agent.run({
-        ...runInput,
-        tools: [
-          {
-            name: "showCity",
-            description: "Show a city",
-            parameters: {
-              type: "object",
-              properties: { city: { type: "string" } },
-              required: ["city"],
-            },
-          },
-        ],
-      }),
-    );
-
-    const results = events.filter((e) => e.type === EventType.TOOL_CALL_RESULT);
-    expect(results).toHaveLength(1);
-    expect(results[0]).toMatchObject({ toolCallId: "tc-1" });
-    expect((results[0] as unknown as { content: string }).content).toMatch(
-      /^Error: Invalid input for tool showCity: .*Invalid arguments for tool showCity/s,
-    );
-    expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
   });
 });

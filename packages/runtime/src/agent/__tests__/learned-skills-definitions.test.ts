@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { asSchema } from "ai";
 import { CopilotKitIntelligence } from "../../runtime/intelligence-platform/client";
 import { SkillRegistry } from "../../runtime/intelligence-platform/skill-registry";
 import type { LearnedSkillsSnapshotResult } from "../../runtime/intelligence-platform/learned-skills";
@@ -55,21 +54,6 @@ describe("learned skills definitions", () => {
       ["copilotkit_read_skill_file", ["skill_name", "path"]],
     ]);
     expect(Object.isFrozen(definitions)).toBe(true);
-  });
-
-  it("gives the AI SDK tools the same names, descriptions, and schemas", async () => {
-    const { definitions, tools } = await prepareFromFixture();
-    expect(Object.keys(tools)).toEqual([
-      "copilotkit_load_skill",
-      "copilotkit_read_skill_file",
-    ]);
-    for (const definition of definitions) {
-      const aiTool = tools[definition.name];
-      expect(aiTool.description).toBe(definition.description);
-      expect(await asSchema(aiTool.inputSchema).jsonSchema).toEqual(
-        definition.parameters,
-      );
-    }
   });
 
   it("loads a skill from the invocation snapshot", async () => {

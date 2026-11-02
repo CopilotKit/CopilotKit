@@ -1,24 +1,8 @@
 import { EventType } from "@ag-ui/client";
 import type { RunAgentInput } from "@ag-ui/client";
-import { streamText } from "ai";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { expect, test } from "vitest";
 import { BuiltInAgent } from "../index";
-import { collectEvents, mockStreamTextResponse } from "./test-helpers";
-
-vi.mock("ai", () => ({
-  streamText: vi.fn(),
-  tool: vi.fn((config) => config),
-  stepCountIs: vi.fn((count: number) => ({ type: "stepCount", count })),
-}));
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  vi.stubEnv("OPENAI_API_KEY", "test-key");
-});
-
-afterEach(() => {
-  vi.unstubAllEnvs();
-});
+import { collectEvents } from "./test-helpers";
 
 async function runAndCollectFinished(agent: BuiltInAgent) {
   const events = await collectEvents(agent.run(createInput()));
@@ -50,35 +34,6 @@ const finishPart = {
     totalTokens: 20,
   },
 };
-
-test("classic AI SDK runs include total token usage on RUN_FINISHED", async () => {
-  const model = {
-    specificationVersion: "v3" as const,
-    modelId: "test-model",
-    provider: "test-provider",
-    supportedUrls: {},
-    doGenerate: vi.fn(),
-    doStream: vi.fn(),
-  };
-  const agent = new BuiltInAgent({ model });
-  vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finishPart]));
-
-  const finished = await runAndCollectFinished(agent);
-
-  expect(finished).toMatchObject({
-    type: EventType.RUN_FINISHED,
-    metadata: { finishReason: "stop" },
-    usage: [
-      {
-        provider: "test-provider",
-        model: "test-model",
-        inputTokens: 12,
-        outputTokens: 8,
-        totalTokens: 20,
-      },
-    ],
-  });
-});
 
 test("AI SDK factory runs include total token usage on RUN_FINISHED", async () => {
   const agent = new BuiltInAgent({

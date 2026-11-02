@@ -20,7 +20,7 @@ export interface MCPClientConfigHTTP {
    * Optional name for this server. When a tool name collides with another
    * MCP server's tool or with an app tool, the MCP tool is exposed as
    * `<name>_<tool>`. Without a name, the prefix is `mcp<N>`, where N is the
-   * server's position among `mcpClients` and then `mcpServers`, from 1.
+   * server's position among `mcpServers`, from 1.
    * Give each server a different name: if a prefixed name is already in use,
    * a number is added (`<name>_<tool>_2`).
    */
@@ -46,7 +46,7 @@ export interface MCPClientConfigSSE {
    * Optional name for this server. When a tool name collides with another
    * MCP server's tool or with an app tool, the MCP tool is exposed as
    * `<name>_<tool>`. Without a name, the prefix is `mcp<N>`, where N is the
-   * server's position among `mcpClients` and then `mcpServers`, from 1.
+   * server's position among `mcpServers`, from 1.
    * Give each server a different name: if a prefixed name is already in use,
    * a number is added (`<name>_<tool>_2`).
    */

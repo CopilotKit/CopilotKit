@@ -1,7 +1,7 @@
 import { asSchema } from "ai";
 import { expect, test } from "vitest";
 import { z } from "zod/v4";
-import { convertToolsToVercelAITools } from "../index";
+import { convertToolsToVercelAITools } from "../tools";
 
 /** Creates the provider-facing validation boundary for an AG-UI tool. */
 function setup(parameters: Record<string, unknown>) {

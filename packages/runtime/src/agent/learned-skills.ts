@@ -1,5 +1,3 @@
-import { jsonSchema, tool } from "ai";
-import type { ToolSet } from "ai";
 import type {
   SkillRegistry,
   VerifiedSnapshot,
@@ -17,9 +15,8 @@ export type BuiltInAgentLearnedSkillsOptions = SkillRegistryOptions;
 
 /** One invocation's catalog and executable tools. Always present in factories. */
 export interface BuiltInAgentLearnedSkills {
+  /** The skills catalog to add to the system prompt. Empty when no skills are available. */
   readonly catalog: string;
-  /** The learned-skills tools as AI SDK tools, built from `definitions`. */
-  readonly tools: Readonly<ToolSet>;
   /**
    * The learned-skills tools as SDK-neutral specs. Map each one to your
    * model SDK's tool type. Empty when no skills are available.
@@ -41,7 +38,6 @@ const reservedToolNames = new Set<string>(LEARNED_SKILL_TOOL_NAMES);
 
 const empty: BuiltInAgentLearnedSkills = Object.freeze({
   catalog: "",
-  tools: Object.freeze({}),
   definitions: Object.freeze([]),
 });
 
@@ -63,11 +59,6 @@ export function assertNoSkillToolNameConflicts(names: Iterable<string>) {
       throw new Error(`Tool name is reserved for learned skills: ${name}`);
     }
   }
-}
-
-/** Do not allow client, host, or MCP tools to impersonate the delivery tools. */
-export function assertNoSkillToolConflicts(tools: ToolSet) {
-  assertNoSkillToolNameConflicts(Object.keys(tools));
 }
 
 /** The JSON Schema promises a string; reject anything else before a lookup. */
@@ -130,19 +121,6 @@ function createSkillToolDefinitions(snapshot: VerifiedSnapshot) {
   return Object.freeze(definitions.map((spec) => Object.freeze(spec)));
 }
 
-/** Wrap neutral specs as AI SDK tools for callers that still read `tools`. */
-function toAiSdkTools(definitions: readonly AgentToolSpec[]) {
-  const tools: ToolSet = {};
-  for (const definition of definitions) {
-    tools[definition.name] = tool({
-      description: definition.description,
-      inputSchema: jsonSchema<Record<string, unknown>>(definition.parameters),
-      execute: definition.execute,
-    });
-  }
-  return Object.freeze(tools);
-}
-
 /** Cancel this waiter, not the registry request shared by other agent clones. */
 async function acquireSnapshot(registry: SkillRegistry, signal: AbortSignal) {
   signal.throwIfAborted();
@@ -173,7 +151,6 @@ export async function prepareLearnedSkills(
   const definitions = createSkillToolDefinitions(snapshot);
   const learnedSkills: BuiltInAgentLearnedSkills = Object.freeze({
     catalog: formatSkillCatalog(snapshot),
-    tools: toAiSdkTools(definitions),
     definitions,
   });
   return learnedSkills;

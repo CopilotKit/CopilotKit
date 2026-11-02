@@ -1,82 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
+import type { ToolDefinition } from "../../agent";
+import { convertMessagesToVercelAISDKMessages } from "../messages";
 import {
-  resolveModel,
-  convertMessagesToVercelAISDKMessages,
   convertJsonSchemaToZodSchema,
   convertToolsToVercelAITools,
   convertToolDefinitionsToVercelAITools,
-  defineTool,
-} from "../index";
-import type { ToolDefinition } from "../index";
+} from "../tools";
 import type { Message } from "@ag-ui/client";
-
-describe("resolveModel", () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    process.env = { ...originalEnv };
-    process.env.OPENAI_API_KEY = "test-openai-key";
-    process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
-    process.env.GOOGLE_API_KEY = "test-google-key";
-  });
-
-  afterEach(() => {
-    process.env = originalEnv;
-  });
-
-  it("should resolve OpenAI models with / separator", () => {
-    const model = resolveModel("openai/gpt-4o");
-    expect(model).toBeDefined();
-    expect((model as { modelId: string }).modelId).toBe("gpt-4o");
-  });
-
-  it("should resolve OpenAI models with : separator", () => {
-    const model = resolveModel("openai:gpt-4o-mini");
-    expect(model).toBeDefined();
-    expect((model as { modelId: string }).modelId).toBe("gpt-4o-mini");
-  });
-
-  it("should resolve Anthropic models", () => {
-    const model = resolveModel("anthropic/claude-sonnet-4.5");
-    expect(model).toBeDefined();
-    expect((model as { modelId: string }).modelId).toBe("claude-sonnet-4.5");
-  });
-
-  it("should pass retired Anthropic model identifiers through unchanged", () => {
-    const retiredModel = ["claude", "3.7", "sonnet"].join("-");
-    const model = resolveModel(`anthropic/${retiredModel}`);
-
-    expect(model).toBeDefined();
-    expect((model as { modelId: string }).modelId).toBe(retiredModel);
-  });
-
-  it("should resolve Google models", () => {
-    const model = resolveModel("google/gemini-2.5-pro");
-    expect(model).toBeDefined();
-    expect((model as { modelId: string }).modelId).toBe("gemini-2.5-pro");
-  });
-
-  it("should handle gemini provider alias", () => {
-    const model = resolveModel("gemini/gemini-2.5-flash");
-    expect(model).toBeDefined();
-    expect((model as { modelId: string }).modelId).toBe("gemini-2.5-flash");
-  });
-
-  it("should throw error for invalid format", () => {
-    expect(() => resolveModel("invalid")).toThrow("Invalid model string");
-  });
-
-  it("should throw error for unknown provider", () => {
-    expect(() => resolveModel("unknown/model")).toThrow("Unknown provider");
-  });
-
-  it("should pass through LanguageModel instances", () => {
-    const mockModel = resolveModel("openai/gpt-4o");
-    const result = resolveModel(mockModel as any);
-    expect(result).toBe(mockModel);
-  });
-});
 
 describe("convertMessagesToVercelAISDKMessages", () => {
   it("should convert user messages", () => {
@@ -349,7 +280,7 @@ describe("convertJsonSchemaToZodSchema", () => {
           required: ["kind", "url"],
         },
       ],
-    } as any;
+    };
 
     const zodSchema = convertJsonSchemaToZodSchema(jsonSchema, true);
     expect(zodSchema).toBeInstanceOf(z.ZodUnion);
@@ -395,7 +326,7 @@ describe("convertJsonSchemaToZodSchema", () => {
         },
       },
       required: ["blocks"],
-    } as any;
+    };
 
     const zodSchema = convertJsonSchemaToZodSchema(jsonSchema, true);
     const parsed = zodSchema.parse({
@@ -440,7 +371,7 @@ describe("convertToolsToVercelAITools", () => {
       {
         name: "testTool",
         description: "A test tool",
-        parameters: { invalid: "schema" } as any,
+        parameters: { invalid: "schema" },
       },
     ];
 
@@ -519,9 +450,9 @@ describe("convertToolDefinitionsToVercelAITools", () => {
   });
 });
 
-describe("ensureObjectArgs via convertMessagesToVercelAISDKMessages", () => {
-  function makeAssistantWithToolArgs(argsJson: string): Message[] {
-    return [
+describe("tool call arguments in convertMessagesToVercelAISDKMessages", () => {
+  function convertToolCallArgs(argsJson: string) {
+    const [message] = convertMessagesToVercelAISDKMessages([
       {
         id: "1",
         role: "assistant",
@@ -530,108 +461,38 @@ describe("ensureObjectArgs via convertMessagesToVercelAISDKMessages", () => {
           {
             id: "call1",
             type: "function",
-            function: {
-              name: "myTool",
-              arguments: argsJson,
-            },
+            function: { name: "myTool", arguments: argsJson },
           },
         ],
       },
-    ];
+    ]);
+    return message;
   }
 
-  it("should pass through valid object arguments", () => {
-    const result = convertMessagesToVercelAISDKMessages(
-      makeAssistantWithToolArgs('{"key":"value"}'),
+  function assistantCalling(input: Record<string, unknown>) {
+    return {
+      role: "assistant",
+      content: [
+        { type: "text", text: "calling tool" },
+        { type: "tool-call", toolCallId: "call1", toolName: "myTool", input },
+      ],
+    };
+  }
+
+  it("passes valid object arguments through", () => {
+    expect(convertToolCallArgs('{"key":"value"}')).toEqual(
+      assistantCalling({ key: "value" }),
     );
-    const toolCall = (result[0] as any).content[1];
-    expect(toolCall.input).toEqual({ key: "value" });
   });
 
-  it("should replace a string argument with an empty object", () => {
-    const result = convertMessagesToVercelAISDKMessages(
-      makeAssistantWithToolArgs('""'),
-    );
-    const toolCall = (result[0] as any).content[1];
-    expect(toolCall.input).toEqual({});
-  });
-
-  it("should replace an array argument with an empty object", () => {
-    const result = convertMessagesToVercelAISDKMessages(
-      makeAssistantWithToolArgs("[1,2,3]"),
-    );
-    const toolCall = (result[0] as any).content[1];
-    expect(toolCall.input).toEqual({});
-  });
-
-  it("should replace a null argument with an empty object", () => {
-    const result = convertMessagesToVercelAISDKMessages(
-      makeAssistantWithToolArgs("null"),
-    );
-    const toolCall = (result[0] as any).content[1];
-    expect(toolCall.input).toEqual({});
-  });
-
-  it("should replace a numeric argument with an empty object", () => {
-    const result = convertMessagesToVercelAISDKMessages(
-      makeAssistantWithToolArgs("42"),
-    );
-    const toolCall = (result[0] as any).content[1];
-    expect(toolCall.input).toEqual({});
-  });
-
-  it("should replace a boolean argument with an empty object", () => {
-    const result = convertMessagesToVercelAISDKMessages(
-      makeAssistantWithToolArgs("true"),
-    );
-    const toolCall = (result[0] as any).content[1];
-    expect(toolCall.input).toEqual({});
-  });
-
-  it("should replace unparseable JSON with an empty object", () => {
-    const result = convertMessagesToVercelAISDKMessages(
-      makeAssistantWithToolArgs("{broken"),
-    );
-    const toolCall = (result[0] as any).content[1];
-    expect(toolCall.input).toEqual({});
-  });
-});
-
-describe("defineTool", () => {
-  it("should create a ToolDefinition", () => {
-    const tool = defineTool({
-      name: "myTool",
-      description: "My test tool",
-      parameters: z.object({
-        input: z.string(),
-      }),
-      execute: async () => undefined,
-    });
-
-    expect(tool).toEqual({
-      name: "myTool",
-      description: "My test tool",
-      parameters: expect.any(Object),
-      execute: expect.any(Function),
-    });
-
-    expect(tool.name).toBe("myTool");
-    expect(tool.description).toBe("My test tool");
-  });
-
-  it("should preserve type information", () => {
-    const tool = defineTool({
-      name: "calc",
-      description: "Calculate",
-      parameters: z.object({
-        a: z.number(),
-        b: z.number(),
-      }),
-      execute: async () => undefined,
-    });
-
-    // Should be able to parse valid input
-    const result = tool.parameters.parse({ a: 1, b: 2 });
-    expect(result).toEqual({ a: 1, b: 2 });
+  it.each([
+    ["a string", '""'],
+    ["an array", "[1,2,3]"],
+    ["null", "null"],
+    ["a number", "42"],
+    ["a boolean", "true"],
+    ["unparseable JSON", "{broken"],
+  ])("replaces %s with an empty object", (_label, argsJson) => {
+    expect(convertToolCallArgs(argsJson)).toEqual(assistantCalling({}));
   });
 });

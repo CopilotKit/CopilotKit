@@ -1,5 +1,4 @@
 import { it, expectTypeOf } from "vitest";
-import type { ToolSet } from "ai";
 import type { AgentFactoryContext, BuiltInAgentFactoryContext } from "../..";
 import type { BuiltInAgentLearnedSkills } from "../learned-skills";
 
@@ -11,14 +10,12 @@ it("exports distinct runtime and BuiltInAgent contexts", () => {
 });
 
 // Compiled by the package type check, never executed with a fabricated context.
-function immutableTools(context: BuiltInAgentLearnedSkills) {
-  // @ts-expect-error The invocation's frozen tool map cannot be mutated.
-  context.tools.extra = context.tools.copilotkit_load_skill;
-  const combined: ToolSet = { ...context.tools };
-  combined.extra = context.tools.copilotkit_load_skill;
-  return combined;
+function immutableDefinitions(context: BuiltInAgentLearnedSkills) {
+  // @ts-expect-error The invocation's frozen definitions cannot be mutated.
+  context.definitions.push(context.definitions[0]);
+  return [...context.definitions];
 }
-void immutableTools;
+void immutableDefinitions;
 
 // Canonical batch transport types are available through the public v2 entry.
 import type {

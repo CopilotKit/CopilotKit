@@ -3,11 +3,7 @@
  * label used to prefix them. `Tool` is any tool shape: an AI SDK tool, an
  * `AgentToolSpec`, or another SDK's tool.
  */
-// The `any` default only serves the classic `BuiltInAgent` run path, which
-// declares `MCPToolSource[]` and merges into an AI SDK `ToolSet` without
-// importing that type here. Drop the default when that path is removed.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export interface MCPToolSource<Tool = any> {
+export interface MCPToolSource<Tool> {
   label: string;
   tools: Record<string, Tool>;
 }
@@ -52,7 +48,7 @@ function warnOnce(message: string): void {
 export function resolveMCPToolNames(
   appToolNames: ReadonlySet<string>,
   sources: { label: string; names: string[] }[],
-  hint = " Set `name` on an `mcpServers` entry to choose its prefix. `mcpClients` entries always use `mcp<N>`.",
+  hint = " Set `name` on an `mcpServers` entry to choose its prefix.",
 ): string[][] {
   const sourceCount = new Map<string, number>();
   for (const { names } of sources) {

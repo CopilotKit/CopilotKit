@@ -465,23 +465,6 @@ export async function* convertTanStackStream(
     const raw = chunk as Record<string, unknown>;
     const type = raw.type as string;
 
-    // `@tanstack/ai` 0.x approval shape: a CUSTOM "approval-requested" chunk,
-    // which can arrive after RUN_FINISHED. The tool-call lifecycle was
-    // already streamed in the model pass.
-    if (type === "CUSTOM" && raw.name === "approval-requested") {
-      const value = isRecord(raw.value) ? raw.value : {};
-      const toolCallId = getNonEmptyString(value.toolCallId);
-      if (toolCallId) {
-        pendingInterrupts?.push(
-          createToolApprovalInterrupt(
-            toolCallId,
-            getNonEmptyString(value.toolName),
-          ),
-        );
-      }
-      continue;
-    }
-
     // Per-turn lifecycle markers are owned by the Agent wrapper, not forwarded.
     // In `@tanstack/ai` 1.x the turn that waits for approval ends with
     // `outcome: { type: "interrupt" }`.
