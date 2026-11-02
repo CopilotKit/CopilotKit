@@ -73,5 +73,4 @@ describe("setup content bundle", () => {
     // The mount, not just the agent construction.
     expect(source("agent-setup")).toContain("create_antigravity_app");
   });
-
 });
