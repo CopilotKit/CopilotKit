@@ -2938,9 +2938,6 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.2.7
         version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@scarf/scarf':
-        specifier: ^1.3.0
-        version: 1.4.0
       '@tanstack/react-virtual':
         specifier: ^3.14.13
         version: 3.14.13(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -3165,9 +3162,6 @@ importers:
       '@remix-run/node-fetch-server':
         specifier: ^0.13.0
         version: 0.13.0
-      '@scarf/scarf':
-        specifier: ^1.3.0
-        version: 1.4.0
       ai:
         specifier: '>=5.0.52'
         version: 6.0.156(zod@3.25.76)
@@ -12417,9 +12411,6 @@ packages:
   '@sapphire/snowflake@3.5.5':
     resolution: {integrity: sha512-xzvBr1Q1c4lCe7i6sRnrofxeO1QTP/LKQ6A6qy0iB4x5yfiSfARMEQEghojzTNALDTcv8En04qYNIco9/K9eZQ==}
     engines: {node: '>=v14.0.0', npm: '>=7.0.0'}
-
-  '@scarf/scarf@1.4.0':
-    resolution: {integrity: sha512-xxeapPiUXdZAE3che6f3xogoJPeZgig6omHEy1rIY5WVsB3H2BHNnZH+gHG6x91SCWyQCzWGsuL2Hh3ClO5/qQ==}
 
   '@schematics/angular@21.2.14':
     resolution: {integrity: sha512-rIEdtNTdCCTwuo7B4tMoq5qmbLXdBgmW6Ays1hyno//4OE+HFtvlWZd+hl6KceEyN00IcZ2HRaPnfd71E1JnoA==}
@@ -37604,8 +37595,6 @@ snapshots:
   '@sapphire/snowflake@3.5.3': {}
 
   '@sapphire/snowflake@3.5.5': {}
-
-  '@scarf/scarf@1.4.0': {}
 
   '@schematics/angular@21.2.14(chokidar@5.0.0)':
     dependencies:

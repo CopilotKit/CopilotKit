@@ -145,7 +145,7 @@ execution or recreate runtime configuration absent from the recording.
 
 ## Analytics & Privacy
 
-CopilotKit uses [Scarf](https://scarf.sh) for anonymous usage analytics to help improve the product. Scarf handles all privacy compliance and does not store raw IP addresses. This helps us understand how CopilotKit is being used and prioritize improvements.
+The runtime sends anonymous usage telemetry to help improve the product. This helps us understand how CopilotKit is being used and prioritize improvements.
 
 ### Opting Out
 
