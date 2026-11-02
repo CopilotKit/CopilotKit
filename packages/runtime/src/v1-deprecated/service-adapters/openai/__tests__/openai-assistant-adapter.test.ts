@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import type { OpenAI } from "openai";
+import type OpenAI from "openai";
 import { OpenAIAssistantAdapter } from "../openai-assistant-adapter";
+import type { OpenAIAssistantAdapterParams } from "../openai-assistant-adapter";
 import { TextMessage } from "../../../graphql/types/converted";
 import { MessageRole } from "../../../graphql/types/enums";
 import type { CopilotRuntimeChatCompletionRequest } from "../../service-adapter";
@@ -25,10 +26,10 @@ function createMockClient() {
 }
 
 async function getToolTypes(
-  params: Partial<{
-    codeInterpreterEnabled: boolean;
-    fileSearchEnabled: boolean;
-  }>,
+  params: Pick<
+    OpenAIAssistantAdapterParams,
+    "codeInterpreterEnabled" | "fileSearchEnabled"
+  >,
 ): Promise<string[]> {
   const { client, runsStream } = createMockClient();
   const adapter = new OpenAIAssistantAdapter({
@@ -47,7 +48,6 @@ async function getToolTypes(
     ],
     actions: [],
     eventSource: { stream: vi.fn() },
-    threadId: "thread_1",
   } as unknown as CopilotRuntimeChatCompletionRequest);
 
   const [, body] = runsStream.mock.calls[0] as unknown as [
@@ -72,5 +72,14 @@ describe("OpenAIAssistantAdapter tools", () => {
     expect(await getToolTypes({ fileSearchEnabled: false })).toEqual([
       "code_interpreter",
     ]);
+  });
+
+  it("sends no tools when both flags are false", async () => {
+    expect(
+      await getToolTypes({
+        codeInterpreterEnabled: false,
+        fileSearchEnabled: false,
+      }),
+    ).toEqual([]);
   });
 });
