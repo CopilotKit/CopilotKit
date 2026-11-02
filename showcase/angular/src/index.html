@@ -5,9 +5,9 @@
     <title>CopilotKit Angular Showcase</title>
     <base href="/angular/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Same theme protocol as the React demos (integrations/*/src/app/theme-script.ts):
-         sets class="dark" on <html> before first paint from the embedding page's
-         copilotkit:theme message, then ?theme=light|dark, then the system preference. -->
+    <!-- Same theme protocol as integrations/_shared/ts/theme.ts (static HTML can't
+         import it): sets class="dark" on <html> before first paint from the embedding
+         page's copilotkit:theme message, then ?theme=light|dark, then the system preference. -->
     <script>
       (function () {
         try {

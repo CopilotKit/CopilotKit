@@ -2,7 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { DemoThemeBridge } from "@/components/demo-theme-bridge";
 import { getRuntimeConfig } from "@/lib/runtime-config";
-import { themeScript } from "./theme-script";
+import { themeScript } from "../../../integrations/_shared/ts/theme";
 
 export const metadata: Metadata = {
   title: "CopilotKit Interactive Dojo",
@@ -64,8 +64,12 @@ export default function RootLayout({
           id="__showcase_config__"
           dangerouslySetInnerHTML={{ __html: injection }}
         />
-        {/* Sets the theme before first paint (see theme-script.ts). */}
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* Sets the theme before first paint (see _shared/ts/theme.ts). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: themeScript({ storageKey: "dojo:theme" }),
+          }}
+        />
         <link
           href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap"
           rel="stylesheet"

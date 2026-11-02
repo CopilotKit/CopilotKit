@@ -1,29 +1,27 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useSyncExternalStore } from "react";
 
-type Theme = "dark" | "light" | "system";
+type Theme = "dark" | "light";
+
+// The page theme belongs to the root layout's theme bootstrap
+// (`window.__copilotkitTheme`), which also follows the embedding page and the
+// system preference. Reading and setting it there keeps one source of truth.
+const subscribe = (onChange: () => void) =>
+  window.__copilotkitTheme?.subscribe(onChange) ?? (() => {});
+const getTheme = (): Theme => window.__copilotkitTheme?.get() ?? "light";
+const setTheme = (theme: Theme) => window.__copilotkitTheme?.set(theme);
 
 const ThemeContext = createContext<{
   theme: Theme;
   setTheme: (t: Theme) => void;
 }>({
-  theme: "system",
-  setTheme: () => {},
+  theme: "light",
+  setTheme,
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("system");
-
-  useEffect(() => {
-    // "system" keeps the page theme, which the root layout's theme script
-    // already sets from the embedding page or the system preference.
-    if (theme === "system") return;
-
-    const root = document.documentElement;
-    root.classList.remove("light", "dark");
-    root.classList.add(theme);
-  }, [theme]);
+  const theme = useSyncExternalStore(subscribe, getTheme, (): Theme => "light");
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>

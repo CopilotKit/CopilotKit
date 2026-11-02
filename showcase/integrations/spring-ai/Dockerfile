@@ -48,6 +48,9 @@ COPY src/app/ src/app/
 COPY src/components/ src/components/
 COPY src/lib/ src/lib/
 COPY public/ public/
+# The root layout inlines the shared theme bootstrap (_shared -> ../_shared,
+# dereferenced into the build context by stage_shared / showcase_build).
+COPY _shared/ts/theme.ts ./_shared/ts/theme.ts
 RUN npm run build
 
 # Stage 3: Production runtime (JRE + Node, no JDK, no Maven)

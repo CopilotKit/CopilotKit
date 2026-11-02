@@ -1175,7 +1175,7 @@ function ThemeToggle() {
       type="button"
       aria-label={label}
       title={label}
-      onClick={() => window.__dojoSetTheme?.(isDark ? "light" : "dark")}
+      onClick={() => window.__copilotkitTheme?.set(isDark ? "light" : "dark")}
       style={{
         // Out of flow, in the space right of the title, so the header
         // layout is unchanged.

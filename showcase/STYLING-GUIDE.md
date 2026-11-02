@@ -88,16 +88,22 @@ The `md:w-4/5` gives 80% width on desktop, creating natural side margins. Don't 
 
 Every demo supports light and dark mode and follows the page that embeds it.
 
-- `src/app/theme-script.ts` runs in `<head>` (see `layout.tsx`) and puts
+- `layout.tsx` inlines `themeScript()` from `_shared/ts/theme.ts` (the single
+  source, linked into every integration through `_shared`) in `<head>`. It puts
   `class="dark"` on `<html>` before first paint. It takes the theme from the
   embedding page (the demo sends `{ type: "copilotkit:theme-request" }` to its
   parent, and the parent answers with `{ type: "copilotkit:theme", theme }`),
   then from a `?theme=light|dark` query parameter, then from the system
-  preference. The shells and the docs answer through `DemoThemeBridge`.
+  preference. The shells and the docs answer through `installThemeBridge`
+  from the same file.
+- To change the theme from demo code, call `window.__copilotkitTheme.set()`.
+  It keeps one source of truth with the embedding page and the system
+  preference; don't toggle the `dark` class yourself.
 - `globals.css` declares the light tokens on `:root` and the dark ones on
   `.dark` (`--background`, `--foreground`, `--card`, `--muted`,
   `--muted-foreground`, `--border`, …), sets `color-scheme`, and makes
-  Tailwind's `dark:` variant follow the `.dark` class instead of the OS.
+  Tailwind's `dark:` variant follow the `.dark` class instead of the OS. In
+  dark mode a bare `border` takes `--border`, so it needs no `dark:` partner.
 - CopilotKit's components follow the `.dark` class on their own. Don't override
   their `cpk:` classes to force a theme.
 
