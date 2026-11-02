@@ -10,7 +10,7 @@ import type {
   RenderActivityMessageConfig,
   RenderToolCallConfig,
 } from "@copilotkit/angular";
-import { z } from "zod";
+import * as z from "zod";
 
 const backgroundTaskContentSchema = z
   .object({

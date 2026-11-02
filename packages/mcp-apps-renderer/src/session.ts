@@ -5,7 +5,7 @@ import {
 } from "@modelcontextprotocol/ext-apps/app-bridge";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { z } from "zod";
+import * as z from "zod";
 import { randomUUID } from "@copilotkit/shared";
 import { buildSandboxHTML, ɵmcpAppSandboxFlags } from "./sandbox";
 import {

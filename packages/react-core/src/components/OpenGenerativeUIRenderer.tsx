@@ -6,7 +6,7 @@ import React, {
   useState,
   useSyncExternalStore,
 } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import {
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
   ToolCallStatus,

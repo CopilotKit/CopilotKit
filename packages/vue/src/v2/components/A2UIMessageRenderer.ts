@@ -1,6 +1,6 @@
 import { computed, defineComponent, h } from "vue";
 import type { PropType } from "vue";
-import { z } from "zod";
+import * as z from "zod";
 import type { VueActivityMessageRenderer } from "../types";
 import type { A2UITheme } from "../types";
 import A2UISurfaceActivityRenderer from "./A2UISurfaceActivityRenderer.vue";

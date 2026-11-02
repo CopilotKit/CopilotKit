@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { actionParametersToJsonSchema } from "@copilotkit/shared";
 import type { Parameter } from "@copilotkit/shared";
 

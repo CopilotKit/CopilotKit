@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { IconSvg } from "../../components/icons/CopilotIcon";
 import type { IconSvgNode } from "../../components/icons/CopilotIcon";
-import { z } from "zod";
+import * as z from "zod";
 import {
   controlAria,
   useGenerativeUIAccessibility,

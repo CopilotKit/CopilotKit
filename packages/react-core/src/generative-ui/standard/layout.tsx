@@ -13,7 +13,7 @@ import type {
   MouseEvent,
   ReactNode,
 } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import type { GenerativeUIInvokeResult } from "../errors";
 import { child } from "../refs";
 import { Lightbox, openUrl } from "./lightbox";

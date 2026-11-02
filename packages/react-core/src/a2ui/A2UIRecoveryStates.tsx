@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { z } from "zod";
+import * as z from "zod";
 
 /**
  * Shared pre-paint lifecycle states for the A2UI surface renderer (OSS-162).

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import type { CSSProperties } from "react";
 import { textColor, textFont } from "./tokens";
 

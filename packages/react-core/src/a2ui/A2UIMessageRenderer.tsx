@@ -1,7 +1,7 @@
 import { useCopilotKit } from "../providers";
 import type { ReactActivityMessageRenderer } from "../types/react-activity-message-renderer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import {
   A2UIProvider,
   useA2UIActions,

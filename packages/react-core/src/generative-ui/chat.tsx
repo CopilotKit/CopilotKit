@@ -5,7 +5,7 @@ import React, {
   useLayoutEffect,
 } from "react";
 import type { ComponentType, ReactNode } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import {
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_CHAT_TARGET,

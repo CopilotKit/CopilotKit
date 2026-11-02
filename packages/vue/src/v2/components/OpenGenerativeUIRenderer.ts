@@ -8,7 +8,7 @@ import {
   watch,
 } from "vue";
 import type { PropType } from "vue";
-import { z } from "zod";
+import * as z from "zod";
 import {
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
   ToolCallStatus,

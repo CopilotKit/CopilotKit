@@ -5,7 +5,7 @@ import {
   DataModel,
   SurfaceModel,
 } from "@a2ui/web_core/v0_9";
-import { z } from "zod";
+import * as z from "zod";
 import {
   A2UI_COMPONENT_ENVELOPE_KEYS,
   GENERATIVE_UI_MAX_REJECTION_LENGTH,

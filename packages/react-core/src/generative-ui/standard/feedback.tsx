@@ -10,7 +10,7 @@ import React, {
 } from "react";
 import type { CSSProperties, KeyboardEvent, ReactNode, RefObject } from "react";
 import { createPortal } from "react-dom";
-import { z } from "zod";
+import * as z from "zod";
 import {
   controlAria,
   useGenerativeUIAccessibility,

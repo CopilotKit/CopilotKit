@@ -9,7 +9,7 @@ import {
 import { ActivatedRoute } from "@angular/router";
 import { injectInterrupt, registerHumanInTheLoop } from "@copilotkit/angular";
 import type { HumanInTheLoopConfig } from "@copilotkit/angular";
-import { z } from "zod";
+import * as z from "zod";
 
 import { agentIdForCurrentIntegration } from "../../feature-agent";
 import { integrationId } from "../../runtime-context";

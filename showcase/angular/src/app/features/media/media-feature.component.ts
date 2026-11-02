@@ -16,7 +16,7 @@ import {
   injectAgentStore,
   registerRenderToolCall,
 } from "@copilotkit/angular";
-import { z } from "zod";
+import * as z from "zod";
 
 import { agentIdForCurrentIntegration } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";

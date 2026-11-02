@@ -4,7 +4,7 @@ import type {
   GenerateSandboxedUiArgs,
   OpenGenerativeUIContent,
 } from "@copilotkit/core";
-import { z } from "zod";
+import * as z from "zod";
 
 export {
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
