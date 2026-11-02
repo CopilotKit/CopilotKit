@@ -218,7 +218,7 @@ describe("applyPatch", () => {
 });
 
 describe("the markdown transport", () => {
-  it("sends the model the system prompt and the conversation, and no tools", async () => {
+  it("preserves the production agent's state tools without injecting render_ui", async () => {
     const { MockLanguageModelV3 } = await import("ai/test");
     const seen: Array<{ tools?: unknown; roles: string[] }> = [];
     const spy = new MockLanguageModelV3({
@@ -238,7 +238,15 @@ describe("the markdown transport", () => {
       entry: { model: "x/y" },
       model: spy,
     });
-    expect(seen[0].tools).toBeUndefined();
+    expect(seen[0].tools).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "AGUISendStateSnapshot" }),
+        expect.objectContaining({ name: "AGUISendStateDelta" }),
+      ]),
+    );
+    expect(seen[0].tools).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "render_ui" })]),
+    );
     expect(seen[0].roles).toEqual(["system", "user"]);
   });
 });

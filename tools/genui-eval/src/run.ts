@@ -218,11 +218,16 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
     ...(options.repair ? { repair: true } : {}),
     ...(unknownDescriptions.length > 0 ? { unknownDescriptions } : {}),
     preset: plan.preset,
-    models: plan.models.map(({ id, model, provider }) => ({
+    models: plan.models.map(({ id, model, provider, params }) => ({
       id,
       model,
       ...(provider ? { provider } : {}),
+      params: {
+        ...params,
+        maxOutputTokens: params?.maxOutputTokens ?? MAX_OUTPUT_TOKENS,
+      },
     })),
+    validityMode: "raw",
     transports: plan.transports,
     split: options.split,
     samplesPerCase: plan.samples,
@@ -425,6 +430,12 @@ async function runTask(
             : [],
         score: qualityScore,
       },
+    },
+    recoveredValidity: {
+      pass: out.cut ? null : code.recoveredValidity.pass,
+      reasons: out.cut
+        ? ["cut at the output token cap", ...code.recoveredValidity.reasons]
+        : code.recoveredValidity.reasons,
     },
     promptTokens: out.promptTokens,
     outputTokens: out.outputTokens,

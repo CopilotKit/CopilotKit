@@ -22,6 +22,12 @@ export interface SurfaceCheck {
   missing?: string[];
   /** The ids of the components that render (reachable from the root). */
   reachable?: string[];
+  /** Final reachable instances, with bindings resolved in each template scope. */
+  renderedComponents?: Array<{
+    id: string;
+    component: string;
+    props: Record<string, unknown>;
+  }>;
 }
 
 export interface RenderRequest {

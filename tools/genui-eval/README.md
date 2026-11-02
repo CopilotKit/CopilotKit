@@ -2,7 +2,9 @@
 
 Measures how well models write A2UI with our generative UI prompts, and searches for better prompts.
 
-It runs the code that ships. For each case it builds what the client sends (the envelope and the markdown context entries), runs the runtime's `GenerativeUIMiddleware` and the built-in agent in-process with the model, and renders the resulting surfaces with the real surface manager and `SurfaceView` in jsdom. Nothing is copied, so a number in a report is a number about the product.
+For each case it builds the client's envelope and markdown context entries, runs the runtime's `GenerativeUIMiddleware` and built-in agent in-process with the model, and mounts the resulting surfaces with the real surface manager and `SurfaceView` in jsdom.
+
+This measures prompt performance on CopilotKit's built-in-agent and React-renderer path. Gemini is called through OpenRouter; Google ADK, `google-genai`, and the A2UI agent SDK's generation, compilation, and recovery paths are not exercised. The renderer does use `@a2ui/web_core`. The checks inspect the initial render; they do not click controls, verify subsequent interactions, or assess screenshots. The judge receives a textual outline. Map and Chart browser dependencies can fail in jsdom, so a passing result is not proof of browser visual quality. Separate integration and browser tests are needed for those claims.
 
 ## Quick start
 
@@ -37,22 +39,26 @@ Pass a model string straight to `--models`, and pick the judge and the reasoning
 pnpm -s --filter genui-eval eval run --preset smoke --models codex:gpt-5.6-luna --judge codex:gpt-6-astra --effort medium
 ```
 
-In the markdown transport every backend gets the same request: the system prompt the agent builds and the conversation, no tools. The codex backend makes `codex exec` as close to a plain model call as the CLI allows: the system prompt replaces Codex's own instructions (`model_instructions_file`), it runs in an empty directory with a Codex home that holds only your sign-in (no user config, skills, hooks or AGENTS.md), with no shell, web search or patch tools, in a read-only sandbox, and with a model catalog entry without code mode or multi-agent. About 2.5k tokens of Codex's own request overhead remain. Each call is captured under `results/codex/<date>/`: `instructions.md`, `prompt.md`, `command.json`, `events.jsonl`, `last-message.md` and `stderr.txt`; a sample's `log` field points at its call. The backend supports the markdown transport only. `GENUI_EVAL_CODEX_BIN` picks the binary; by default it is the first `codex` on the PATH that runs.
+The harness preserves the built-in agent's production tools and tool choice. Markdown mode omits `render_ui` but still offers the agent's two state tools. OpenRouter and fake backends receive those tools.
+
+The Codex backend is a text-only approximation: it ignores the two state tools and rejects other tools. It makes `codex exec` as close to a plain model call as the CLI allows: the system prompt replaces Codex's own instructions (`model_instructions_file`), it runs in an empty directory with a Codex home that holds only your sign-in (no user config, skills, hooks or AGENTS.md), with no shell, web search or patch tools, in a read-only sandbox, and with a model catalog entry without code mode or multi-agent. About 2.5k tokens of Codex's own request overhead remain. Each call is captured under `results/codex/<date>/`: `instructions.md`, `prompt.md`, `command.json`, `events.jsonl`, `last-message.md` and `stderr.txt`; a sample's `log` field points at its call. The backend supports the markdown transport only. `GENUI_EVAL_CODEX_BIN` picks the binary; by default it is the first `codex` on the PATH that runs. Treat its results as backend-specific, not as an identical production model request.
 
 A run stops, and scores nothing for it, when the provider of the model or of the judge is out of credit or the call is not signed in. A reply cut at the output token cap has its validity left ungraded (the report counts them), and a sample the judge could not grade has judgement and quality ungraded.
 
-`--repair` (an experiment) runs each broken fence line through [jsonrepair](https://github.com/josdejong/jsonrepair) before the client parses it, and keeps the repair only when it is shaped like an A2UI operation. The client itself repairs a complete line that is off by one closing brace; `--repair` also fixes worse breaks. Either way each sample records `repairedLines`, so validity as the model wrote it stays readable.
+`--repair` (an experiment) runs each broken fence line through [jsonrepair](https://github.com/josdejong/jsonrepair) before the client parses it, and keeps the repair only when it is shaped like an A2UI operation. The client itself repairs a complete line that is off by one closing brace; `--repair` also fixes worse breaks. Either repair makes raw validity fail. Each sample records `repairedLines` and `recoveredValidity`; reports show the repair count and validity after recovery separately. Legacy runs used post-repair validity and are labelled accordingly; their validity is not compared with new raw-validity runs.
 
 ## How a sample is scored
 
-| Tier      | Question                                                          | Scored by    |
-| --------- | ----------------------------------------------------------------- | ------------ |
-| validity  | Does it parse, follow A2UI 1.0, and render from a root?           | code         |
-| fidelity  | No rejected operation, no invalid props, the expected components? | code         |
-| judgement | UI exactly where it helps, no surface that only holds text?       | code + judge |
-| quality   | How good is the UI, measured against the case's reference answer? | judge        |
+| Tier      | Question                                                                         | Scored by    |
+| --------- | -------------------------------------------------------------------------------- | ------------ |
+| validity  | Does the unmodified model output parse, follow A2UI 1.0, and render from a root? | code         |
+| fidelity  | No rejected operation, no invalid props, the expected components?                | code         |
+| judgement | UI exactly where it helps, no surface that only holds text?                      | code + judge |
+| quality   | How good is the UI, measured against the case's reference answer?                | judge        |
 
 Each tier is reported on its own, with a 95% Wilson interval. Every case runs `samples` times per model and transport, because models are not deterministic.
+
+Expected props such as `EntityCard.image` are checked on final reachable instances, with bindings resolved in their template scope. An earlier or unreachable component cannot supply a missing prop. Run records include generation parameters. Baseline reports skip aliases whose model, pinned provider, or parameters changed; legacy records without parameters are flagged and their differences are not marked clear.
 
 Before trusting the judge, grade about 20 samples by hand:
 
@@ -111,3 +117,4 @@ pnpm nx run genui-eval:test
 ```
 
 The tests run offline: the whole pipeline, the optimizer and every command, with fake models.
+The `test / genui-eval` workflow runs the tests and typecheck on relevant pull requests and main pushes without model credentials.
