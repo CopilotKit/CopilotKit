@@ -31,6 +31,10 @@ export default defineConfig([
       "rxjs",
       "zod",
     ],
+    // Bundle websandbox so its dynamic import is inlined: a UMD script cannot
+    // `import()` a bare specifier, and the ES2018 target has no `import()`.
+    noExternal: ["@jetbrains/websandbox"],
+    inlineOnly: ["@jetbrains/websandbox"],
     codeSplitting: false,
     checks: { pluginTimings: false },
     outputOptions(options) {
