@@ -90,8 +90,8 @@
     "notice": "LICENSE"
   },
   {
-    "directory": "packages/markdown-renderer",
-    "names": ["@copilotkit/markdown-renderer"],
+    "directory": "packages/markdown",
+    "names": ["@copilotkit/markdown"],
     "license": "MIT",
     "notice": "LICENSE"
   },

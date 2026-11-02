@@ -77,7 +77,7 @@
     "@ag-ui/core": "1.0.2",
     "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/core": "workspace:*",
-    "@copilotkit/markdown-renderer": "workspace:*",
+    "@copilotkit/markdown": "workspace:*",
     "@copilotkit/mcp-apps-renderer": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkit/web-components": "workspace:*",

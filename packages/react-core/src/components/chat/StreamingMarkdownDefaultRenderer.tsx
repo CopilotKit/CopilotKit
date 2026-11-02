@@ -4,8 +4,8 @@ import React, { useMemo } from "react";
 import {
   StreamingMarkdownRenderer,
   createStreamingMarkdownNodeRenderers,
-} from "@copilotkit/markdown-renderer/react";
-import { warnUnsupportedRichSyntaxOnce } from "@copilotkit/markdown-renderer";
+} from "@copilotkit/markdown/react";
+import { warnUnsupportedRichSyntaxOnce } from "@copilotkit/markdown";
 import type {
   DefaultMarkdownRendererProps,
   MarkdownRendererProps,
@@ -25,7 +25,7 @@ const defaultNodeRenderers = createStreamingMarkdownNodeRenderers({
 
 /**
  * react-core's built-in default markdown renderer — a thin adapter over
- * `@copilotkit/markdown-renderer`'s streaming renderer. Maps the pluggable
+ * `@copilotkit/markdown`'s streaming renderer. Maps the pluggable
  * renderer contract (`{ content, isStreaming, className }`) onto the streaming
  * renderer for streaming-safe incremental rendering + per-token animation.
  * Still overridable via the slot/provider pluggable interface.

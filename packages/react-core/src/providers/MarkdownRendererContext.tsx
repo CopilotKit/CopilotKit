@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext } from "react";
-import type { StreamingMarkdownRendererProps } from "@copilotkit/markdown-renderer/react";
+import type { StreamingMarkdownRendererProps } from "@copilotkit/markdown/react";
 
 /** Props every markdown renderer (built-in or plugged-in) receives. */
 export interface MarkdownRendererProps {

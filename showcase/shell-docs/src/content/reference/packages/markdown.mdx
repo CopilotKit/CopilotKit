@@ -1,16 +1,16 @@
 ---
-title: "@copilotkit/markdown-renderer"
+title: "@copilotkit/markdown"
 description: "Zero-dependency streaming markdown parser with React, Vue, and React Native renderers — CopilotKit's built-in default for assistant messages"
 ---
 
 ## Overview
 
-`@copilotkit/markdown-renderer` is a zero-dependency, streaming-safe markdown package that ships as CopilotKit's **built-in default renderer** for assistant messages. It consists of four entry points:
+`@copilotkit/markdown` is a zero-dependency, streaming-safe markdown package that ships as CopilotKit's **built-in default renderer** for assistant messages. It consists of four entry points:
 
-- **Root** (`@copilotkit/markdown-renderer`) — a framework-agnostic headless incremental parser. Parses a growing markdown string token-by-token into a typed AST without re-parsing from scratch on each update.
-- **React** (`@copilotkit/markdown-renderer/react`) — a React renderer built on top of the headless parser. Provides the `StreamingMarkdownRenderer` component, a `useStreamingMarkdownParser` hook, and helpers for building custom node renderers.
-- **Vue** (`@copilotkit/markdown-renderer/vue`) — a Vue 3 renderer. Provides the `StreamingMarkdownRenderer` component driven by the same headless parser. Used as the built-in default by `@copilotkit/vue`.
-- **React Native** (`@copilotkit/markdown-renderer/react-native`) — a React Native renderer rendering GFM into native `<Text>` and `<View>` components. Used as the built-in default by `@copilotkit/react-native`.
+- **Root** (`@copilotkit/markdown`) — a framework-agnostic headless incremental parser. Parses a growing markdown string token-by-token into a typed AST without re-parsing from scratch on each update.
+- **React** (`@copilotkit/markdown/react`) — a React renderer built on top of the headless parser. Provides the `StreamingMarkdownRenderer` component, a `useStreamingMarkdownParser` hook, and helpers for building custom node renderers.
+- **Vue** (`@copilotkit/markdown/vue`) — a Vue 3 renderer. Provides the `StreamingMarkdownRenderer` component driven by the same headless parser. Used as the built-in default by `@copilotkit/vue`.
+- **React Native** (`@copilotkit/markdown/react-native`) — a React Native renderer rendering GFM into native `<Text>` and `<View>` components. Used as the built-in default by `@copilotkit/react-native`.
 
 Capabilities include streaming-safe incremental rendering (no flash of incomplete markdown), per-token fade-in animation via `Intl.Segmenter`, GFM (headings, bold, italic, strikethrough, lists, links, images, inline & fenced code, tables, blockquotes), autolinks, and citations. It does **not** do syntax highlighting, math, or diagram rendering — plug in a custom `markdownRenderer` for those.
 
@@ -25,7 +25,7 @@ Capabilities include streaming-safe incremental rendering (no flash of incomplet
 ## Install
 
 ```bash
-npm install @copilotkit/markdown-renderer
+npm install @copilotkit/markdown
 ```
 
 ## Root: Headless Parser
@@ -39,7 +39,7 @@ import {
   createStreamingMarkdownParserState,
   parseStreamingMarkdownChunk,
   finalizeStreamingMarkdown,
-} from "@copilotkit/markdown-renderer";
+} from "@copilotkit/markdown";
 ```
 
 ### API
@@ -63,7 +63,7 @@ import {
   createStreamingMarkdownParserState,
   parseStreamingMarkdownChunk,
   finalizeStreamingMarkdown,
-} from "@copilotkit/markdown-renderer";
+} from "@copilotkit/markdown";
 
 // Chunks as they arrive from a streaming model response.
 const chunks = ["# Hel", "lo\n\nSome **bo", "ld** text"];
@@ -107,7 +107,7 @@ import {
   StreamingMarkdownRenderer,
   createStreamingMarkdownNodeRenderers,
   useStreamingMarkdownParser,
-} from "@copilotkit/markdown-renderer/react";
+} from "@copilotkit/markdown/react";
 ```
 
 ### `StreamingMarkdownRenderer` Props
@@ -149,7 +149,7 @@ import {
 #### Basic streaming render
 
 ```tsx
-import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/react";
+import { StreamingMarkdownRenderer } from "@copilotkit/markdown/react";
 
 function AssistantBubble({ content, isComplete }: { content: string; isComplete: boolean }) {
   return (
@@ -166,7 +166,7 @@ function AssistantBubble({ content, isComplete }: { content: string; isComplete:
 import {
   StreamingMarkdownRenderer,
   createStreamingMarkdownNodeRenderers,
-} from "@copilotkit/markdown-renderer/react";
+} from "@copilotkit/markdown/react";
 
 const nodeRenderers = createStreamingMarkdownNodeRenderers({
   codeBlock: ({ node }) => (
@@ -195,7 +195,7 @@ function MarkdownMessage({
 #### Disable the streaming caret
 
 ```tsx
-import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/react";
+import { StreamingMarkdownRenderer } from "@copilotkit/markdown/react";
 
 function NoCaretBubble({ content, isComplete }: { content: string; isComplete: boolean }) {
   return (
@@ -211,7 +211,7 @@ function NoCaretBubble({ content, isComplete }: { content: string; isComplete: b
 A lower-level React hook that manages parser state in a component. Returns the current `StreamingMarkdownParserState` and updates it whenever `content` or `isComplete` changes.
 
 ```tsx
-import { useStreamingMarkdownParser } from "@copilotkit/markdown-renderer/react";
+import { useStreamingMarkdownParser } from "@copilotkit/markdown/react";
 
 function CustomRenderer({ content, isComplete }: { content: string; isComplete: boolean }) {
   const state = useStreamingMarkdownParser(content, undefined, isComplete);
@@ -231,7 +231,7 @@ function CustomRenderer({ content, isComplete }: { content: string; isComplete: 
 A helper that creates a type-safe `nodeRenderers` map. Pass an object keyed by `StreamingMarkdownNodeRendererKey` (camelCase keys such as `codeBlock`). Unspecified node types fall back to the default renderer. Do not use kebab-case AST types such as `code-block` as keys.
 
 ```tsx
-import { createStreamingMarkdownNodeRenderers } from "@copilotkit/markdown-renderer/react";
+import { createStreamingMarkdownNodeRenderers } from "@copilotkit/markdown/react";
 
 const nodeRenderers = createStreamingMarkdownNodeRenderers({
   heading: ({ node, children }) => (
@@ -262,17 +262,17 @@ const nodeRenderers = createStreamingMarkdownNodeRenderers({
 The `/vue` entry point provides a Vue 3 `StreamingMarkdownRenderer` component built on top of the same headless parser.
 
 <Callout type="info">
-  `@copilotkit/vue` already uses this as its built-in default for assistant and reasoning messages. You only need to import from `@copilotkit/markdown-renderer/vue` directly if you are building a custom rendering context outside the standard chat UI.
+  `@copilotkit/vue` already uses this as its built-in default for assistant and reasoning messages. You only need to import from `@copilotkit/markdown/vue` directly if you are building a custom rendering context outside the standard chat UI.
 </Callout>
 
 ### Import
 
 ```ts
-import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/vue";
+import { StreamingMarkdownRenderer } from "@copilotkit/markdown/vue";
 import type {
   VueStreamingMarkdownNodeRenderer,
   VueStreamingMarkdownNodeRenderers,
-} from "@copilotkit/markdown-renderer/vue";
+} from "@copilotkit/markdown/vue";
 ```
 
 ### `StreamingMarkdownRenderer` Props
@@ -307,7 +307,7 @@ import type {
 
 ```vue
 <script setup lang="ts">
-import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/vue";
+import { StreamingMarkdownRenderer } from "@copilotkit/markdown/vue";
 defineProps<{ content: string; isStreaming?: boolean }>();
 </script>
 
@@ -324,8 +324,8 @@ defineProps<{ content: string; isStreaming?: boolean }>();
 ```vue
 <script setup lang="ts">
 import { h } from "vue";
-import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/vue";
-import type { VueStreamingMarkdownNodeRenderers } from "@copilotkit/markdown-renderer/vue";
+import { StreamingMarkdownRenderer } from "@copilotkit/markdown/vue";
+import type { VueStreamingMarkdownNodeRenderers } from "@copilotkit/markdown/vue";
 
 const nodeRenderers: VueStreamingMarkdownNodeRenderers = {
   codeBlock: (node, defaultVNode) =>
@@ -353,7 +353,7 @@ defineProps<{ content: string; isComplete?: boolean }>();
 ```vue
 <!-- StreamingMarkdownDefault.vue -->
 <script setup lang="ts">
-import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/vue";
+import { StreamingMarkdownRenderer } from "@copilotkit/markdown/vue";
 defineProps<{ content: string; isStreaming?: boolean }>();
 </script>
 
@@ -388,7 +388,7 @@ import CustomMarkdown from "./StreamingMarkdownDefault.vue";
 The `/react-native` entry point provides a React Native `StreamingMarkdownRenderer` component that renders GFM into native `<Text>` and `<View>` primitives.
 
 <Callout type="info">
-  `@copilotkit/react-native`'s `CopilotMarkdown` component delegates to this renderer. Most React Native apps do not need to import from `@copilotkit/markdown-renderer/react-native` directly — use `CopilotMarkdown` from `@copilotkit/react-native` instead.
+  `@copilotkit/react-native`'s `CopilotMarkdown` component delegates to this renderer. Most React Native apps do not need to import from `@copilotkit/markdown/react-native` directly — use `CopilotMarkdown` from `@copilotkit/react-native` instead.
 </Callout>
 
 <Callout type="warn">
@@ -401,11 +401,11 @@ The `/react-native` entry point provides a React Native `StreamingMarkdownRender
 import {
   StreamingMarkdownRenderer,
   defaultMarkdownStyles,
-} from "@copilotkit/markdown-renderer/react-native";
+} from "@copilotkit/markdown/react-native";
 import type {
   StreamingMarkdownRendererProps,
   MarkdownStyle,
-} from "@copilotkit/markdown-renderer/react-native";
+} from "@copilotkit/markdown/react-native";
 ```
 
 ### `StreamingMarkdownRenderer` Props
@@ -431,7 +431,7 @@ import type {
 #### Basic render
 
 ```tsx
-import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/react-native";
+import { StreamingMarkdownRenderer } from "@copilotkit/markdown/react-native";
 
 function AssistantBubble({ content }: { content: string }) {
   return <StreamingMarkdownRenderer content={content} isComplete />;
@@ -441,7 +441,7 @@ function AssistantBubble({ content }: { content: string }) {
 #### Streaming render (finalizing on completion)
 
 ```tsx
-import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/react-native";
+import { StreamingMarkdownRenderer } from "@copilotkit/markdown/react-native";
 
 function StreamingBubble({
   content,
@@ -465,8 +465,8 @@ function StreamingBubble({
 import {
   StreamingMarkdownRenderer,
   defaultMarkdownStyles,
-} from "@copilotkit/markdown-renderer/react-native";
-import type { MarkdownStyle } from "@copilotkit/markdown-renderer/react-native";
+} from "@copilotkit/markdown/react-native";
+import type { MarkdownStyle } from "@copilotkit/markdown/react-native";
 
 const myStyles: MarkdownStyle = {
   ...defaultMarkdownStyles,
@@ -518,9 +518,9 @@ function MarkdownMessage({ content }: { content: string }) {
 
 The streaming renderer is already the built-in default across all CopilotKit framework packages:
 
-- **React** — `@copilotkit/react-core` uses `@copilotkit/markdown-renderer/react` for `CopilotChatAssistantMessage`. No configuration needed.
-- **Vue** — `@copilotkit/vue` uses `@copilotkit/markdown-renderer/vue` for both assistant and reasoning messages. No configuration needed.
-- **React Native** — `@copilotkit/react-native`'s `CopilotMarkdown` delegates to `@copilotkit/markdown-renderer/react-native`. No configuration needed.
+- **React** — `@copilotkit/react-core` uses `@copilotkit/markdown/react` for `CopilotChatAssistantMessage`. No configuration needed.
+- **Vue** — `@copilotkit/vue` uses `@copilotkit/markdown/vue` for both assistant and reasoning messages. No configuration needed.
+- **React Native** — `@copilotkit/react-native`'s `CopilotMarkdown` delegates to `@copilotkit/markdown/react-native`. No configuration needed.
 
 ### Configure the built-in renderer (without a wrapper)
 
@@ -588,7 +588,7 @@ import type { ReactNode } from "react";
 import {
   StreamingMarkdownRenderer,
   createStreamingMarkdownNodeRenderers,
-} from "@copilotkit/markdown-renderer/react";
+} from "@copilotkit/markdown/react";
 
 const myNodeRenderers = createStreamingMarkdownNodeRenderers({
   codeBlock: ({ node }) => <pre className="my-code">{node.text}</pre>,
@@ -615,7 +615,7 @@ The `markdownRenderer` resolution order is:
 
 1. **Per-message slot (React only)** — `markdownRenderer` on `CopilotChatAssistantMessage` wins.
 2. **Provider renderer** — `markdownRenderer` on `CopilotKitProvider` (React, Vue, React Native).
-3. **Built-in** — `@copilotkit/markdown-renderer` streaming renderer.
+3. **Built-in** — `@copilotkit/markdown` streaming renderer.
 
 ## Related
 

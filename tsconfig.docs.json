@@ -104,18 +104,12 @@
         "./packages/intelligence-mastra/src/index.ts"
       ],
       "@copilotkit/learning": ["./packages/learning/src/index.ts"],
-      "@copilotkit/markdown-renderer": [
-        "./packages/markdown-renderer/src/index.ts"
+      "@copilotkit/markdown": ["./packages/markdown/src/index.ts"],
+      "@copilotkit/markdown/react": ["./packages/markdown/src/react/index.ts"],
+      "@copilotkit/markdown/react-native": [
+        "./packages/markdown/src/react-native/index.ts"
       ],
-      "@copilotkit/markdown-renderer/react": [
-        "./packages/markdown-renderer/src/react/index.ts"
-      ],
-      "@copilotkit/markdown-renderer/react-native": [
-        "./packages/markdown-renderer/src/react-native/index.ts"
-      ],
-      "@copilotkit/markdown-renderer/vue": [
-        "./packages/markdown-renderer/src/vue/index.ts"
-      ],
+      "@copilotkit/markdown/vue": ["./packages/markdown/src/vue/index.ts"],
       "@copilotkit/mcp-apps-renderer": [
         "./packages/mcp-apps-renderer/src/index.ts"
       ],

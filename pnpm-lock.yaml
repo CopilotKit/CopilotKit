@@ -2804,7 +2804,7 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@25.6.0)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@26.1.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  packages/markdown-renderer:
+  packages/markdown:
     dependencies:
       react-native:
         specifier: '>=0.70'
@@ -2895,9 +2895,9 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
-      '@copilotkit/markdown-renderer':
+      '@copilotkit/markdown':
         specifier: workspace:*
-        version: link:../markdown-renderer
+        version: link:../markdown
       '@copilotkit/mcp-apps-renderer':
         specifier: workspace:*
         version: link:../mcp-apps-renderer
@@ -3022,9 +3022,9 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
-      '@copilotkit/markdown-renderer':
+      '@copilotkit/markdown':
         specifier: workspace:*
-        version: link:../markdown-renderer
+        version: link:../markdown
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../react-core
@@ -3436,9 +3436,9 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
-      '@copilotkit/markdown-renderer':
+      '@copilotkit/markdown':
         specifier: workspace:*
-        version: link:../markdown-renderer
+        version: link:../markdown
       '@copilotkit/mcp-apps-renderer':
         specifier: workspace:*
         version: link:../mcp-apps-renderer
@@ -3561,9 +3561,9 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
-      '@copilotkit/markdown-renderer':
+      '@copilotkit/markdown':
         specifier: workspace:*
-        version: link:../markdown-renderer
+        version: link:../markdown
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared

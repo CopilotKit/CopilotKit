@@ -2,8 +2,8 @@ import {
   createStreamingMarkdownParserState,
   finalizeStreamingMarkdown,
   parseStreamingMarkdownChunk,
-} from "@copilotkit/markdown-renderer";
-import type { StreamingMarkdownAstNode } from "@copilotkit/markdown-renderer";
+} from "@copilotkit/markdown";
+import type { StreamingMarkdownAstNode } from "@copilotkit/markdown";
 
 /** Inspector policy the HTML renderer applies to URLs and code blocks. */
 export type MarkdownHtmlOptions = Readonly<{

@@ -5,14 +5,9 @@ import type {
   StreamingMarkdownNodeType,
   StreamingMarkdownParserOptions,
   TextSegment,
-} from "@copilotkit/markdown-renderer";
-import {
-  Fragment,
-  type MouseEvent,
-  type ReactNode,
-  useMemo,
-  useRef,
-} from "react";
+} from "@copilotkit/markdown";
+import { Fragment, useMemo, useRef } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useStreamingMarkdownParser } from "./use-streaming-markdown-parser";
 
 // URL allowlists for link/image rendering — mirrors the Vue renderer so both

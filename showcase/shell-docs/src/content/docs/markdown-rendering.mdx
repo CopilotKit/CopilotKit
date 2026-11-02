@@ -105,7 +105,7 @@ Reasoning messages always use the built-in renderer.
 
 ## Choosing a renderer
 
-| Feature | Built-in (`@copilotkit/markdown-renderer`) | react-markdown / Streamdown (plug in) |
+| Feature | Built-in (`@copilotkit/markdown`) | react-markdown / Streamdown (plug in) |
 | --- | --- | --- |
 | Extra dependencies | none — ships with CopilotKit | `unified` + your plugins (shiki / katex / mermaid can add tens of MB) |
 | GFM, tables, autolinks, citations | ✅ | ✅ |
@@ -125,7 +125,7 @@ Most markdown renderers are built on the `unified`/remark/rehype pipeline and sh
 
 ## Option 1 — Use the built-in renderer (default)
 
-Do nothing. Out of the box, assistant messages render with [`@copilotkit/markdown-renderer`](/reference/packages/markdown-renderer): streaming-safe GFM, tables, autolinks, citations, and per-token fade-in animation (React/Vue). It escapes raw HTML and sanitizes link/image URLs to prevent XSS. It does **not** do syntax highlighting, math (KaTeX), or diagrams (mermaid) — if you need those, jump to [Option 3](#option-3--replace-the-renderer-escape-hatch).
+Do nothing. Out of the box, assistant messages render with [`@copilotkit/markdown`](/reference/packages/markdown): streaming-safe GFM, tables, autolinks, citations, and per-token fade-in animation (React/Vue). It escapes raw HTML and sanitizes link/image URLs to prevent XSS. It does **not** do syntax highlighting, math (KaTeX), or diagrams (mermaid) — if you need those, jump to [Option 3](#option-3--replace-the-renderer-escape-hatch).
 
 ## Option 2 — Configure the built-in renderer
 
@@ -229,7 +229,7 @@ export function App() {
 </Tabs>
 
 <Callout type="info">
-  For the full list of config fields, node-renderer keys, and `MarkdownStyle` keys, see the [`@copilotkit/markdown-renderer` reference](/reference/packages/markdown-renderer).
+  For the full list of config fields, node-renderer keys, and `MarkdownStyle` keys, see the [`@copilotkit/markdown` reference](/reference/packages/markdown).
 </Callout>
 
 ## Option 3 — Replace the renderer (escape hatch)

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, h, watchEffect } from "vue";
-import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/vue";
-import type { VueStreamingMarkdownNodeRenderer } from "@copilotkit/markdown-renderer/vue";
-import { warnUnsupportedRichSyntaxOnce } from "@copilotkit/markdown-renderer";
-import type { StreamingMarkdownParserOptions } from "@copilotkit/markdown-renderer";
+import { StreamingMarkdownRenderer } from "@copilotkit/markdown/vue";
+import type { VueStreamingMarkdownNodeRenderer } from "@copilotkit/markdown/vue";
+import { warnUnsupportedRichSyntaxOnce } from "@copilotkit/markdown";
+import type { StreamingMarkdownParserOptions } from "@copilotkit/markdown";
 import type { DefaultMarkdownRendererProps } from "../../providers/markdown-renderer";
 
 const props = withDefaults(
