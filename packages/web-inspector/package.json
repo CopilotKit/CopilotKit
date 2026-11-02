@@ -43,7 +43,6 @@
     "@copilotkit/core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "lit": "^3.2.0",
-    "lucide": "^0.525.0",
     "marked": "^12.0.2",
     "semver": "^7.8.5"
   },

@@ -27,7 +27,8 @@ import { notificationArticleStyles } from "./styles/notification-article.js";
 import inspectorLogoUrl from "./assets/inspector-logo.svg";
 import inspectorLogoKiteUrl from "./assets/inspector-logo-kite.svg";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
-import { icons } from "lucide";
+import { ICON_NODES } from "./lib/icons.js";
+import type { IconName, IconNode } from "./lib/icons.js";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
   CopilotKitCoreErrorCode,
@@ -271,12 +272,10 @@ const WHATS_NEW_VIEW_LABEL = "What's new";
 /** Menu key of the What's new leaf — the news signal's destination. */
 const WHATS_NEW_MENU_KEY = "whats-new";
 
-type LucideIconName = keyof typeof icons;
-
 type MenuItem = {
   key: MenuKey;
   label: string;
-  icon: LucideIconName;
+  icon: IconName;
 };
 
 // ── Launcher signals ──────────────────────────────────────────────────────
@@ -905,7 +904,7 @@ const THREADS_LOCKED_VIDEO_URL =
 const LEARNING_LOCKED_VIDEO_URL =
   "https://www.loom.com/embed/2978fbfe42324e509057ac5fd46b7a70?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true&hide_speed=true";
 type LockedFeatureOutlineItem = Readonly<{
-  icon: LucideIconName;
+  icon: IconName;
   title: string;
   description: string;
 }>;
@@ -7144,34 +7143,34 @@ export class WebInspectorElement extends LitElement {
     // showing Capabilities as well is a duplicate leaf.
     const hasCapabilities = hasCatalog;
     return [
-      { key: "home", label: "Home", icon: "Home" as LucideIconName },
+      { key: "home", label: "Home", icon: "Home" },
       {
         key: "whats-new",
         label: "What's New",
-        icon: "Megaphone" as LucideIconName,
+        icon: "Megaphone",
       },
       {
         key: WHATS_NEW_MENU_KEY,
         label: WHATS_NEW_VIEW_LABEL,
-        icon: "Megaphone" as LucideIconName,
+        icon: "Megaphone",
       },
       {
         key: "playground",
         label: "Playground",
-        icon: "MessageCircle" as LucideIconName,
+        icon: "MessageCircle",
       },
       {
         key: "ag-ui-events",
         label: "AG-UI Events",
-        icon: "Zap" as LucideIconName,
+        icon: "Zap",
       },
-      { key: "agents", label: "Agent", icon: "Bot" as LucideIconName },
+      { key: "agents", label: "Agent", icon: "Bot" },
       ...(hasFrontendTools
         ? [
             {
               key: "frontend-tools" as const,
               label: "Frontend Tools",
-              icon: "Hammer" as LucideIconName,
+              icon: "Hammer" as const,
             },
           ]
         : []),
@@ -7180,33 +7179,33 @@ export class WebInspectorElement extends LitElement {
             {
               key: "capabilities" as const,
               label: CAPABILITIES_TAB_LABEL,
-              icon: "SlidersHorizontal" as LucideIconName,
+              icon: "SlidersHorizontal" as const,
             },
           ]
         : []),
       {
         key: "agent-context",
         label: "Context",
-        icon: "FileText" as LucideIconName,
+        icon: "FileText",
       },
       ...(this._core?.ɵgenerativeUIDebugSource
         ? [
             {
               key: "generative-ui" as const,
               label: "Generative UI",
-              icon: "LayoutTemplate" as LucideIconName,
+              icon: "LayoutTemplate" as const,
             },
           ]
         : []),
       {
         key: "threads",
         label: "Rich Threads",
-        icon: "MessageSquare" as LucideIconName,
+        icon: "MessageSquare",
       },
       {
         key: "memories",
         label: LEARNING_VIEW_LABEL,
-        icon: "Brain" as LucideIconName,
+        icon: "Brain",
       },
     ];
   }
@@ -12425,7 +12424,7 @@ export class WebInspectorElement extends LitElement {
 
   private renderHudRow(args: {
     id: LauncherHudRowId;
-    icon: LucideIconName;
+    icon: IconName;
     connected?: boolean;
     introIndex: number;
   }): TemplateResult | typeof nothing {
@@ -14338,7 +14337,7 @@ export class WebInspectorElement extends LitElement {
                 class="inspector-intelligence-chain-step"
                 style="--step-index:${index}"
               >
-                <i>${this.renderIcon(step.icon as LucideIconName)}</i>
+                <i>${this.renderIcon(step.icon)}</i>
                 <strong>${step.name}</strong>
                 <small>${step.detail}</small>
               </span>
@@ -15950,8 +15949,8 @@ export class WebInspectorElement extends LitElement {
     });
   }
 
-  private renderIcon(name: LucideIconName) {
-    const iconNode = icons[name];
+  private renderIcon(name: IconName) {
+    const iconNode: IconNode = ICON_NODES[name];
     if (!iconNode) {
       return nothing;
     }
@@ -15975,16 +15974,16 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderWindowLayoutMenu() {
-    const dockAction =
+    const dockAction: { label: string; icon: IconName; mode: DockMode } =
       this.dockMode === "floating"
         ? {
             label: "Dock to left",
-            icon: "PanelLeft" as LucideIconName,
+            icon: "PanelLeft",
             mode: "docked-left" as DockMode,
           }
         : {
             label: "Float window",
-            icon: "Maximize2" as LucideIconName,
+            icon: "Maximize2",
             mode: "floating" as DockMode,
           };
 

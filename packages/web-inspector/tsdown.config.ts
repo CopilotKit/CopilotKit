@@ -36,7 +36,6 @@ export default defineConfig([
         "lit/directives/style-map.js": "LitDirectivesStyleMap",
         "lit/directives/unsafe-html.js": "LitDirectivesUnsafeHtml",
         marked: "marked",
-        lucide: "lucide",
         "@copilotkit/core": "CopilotKitCore",
         "@copilotkit/shared": "CopilotKitShared",
       };
