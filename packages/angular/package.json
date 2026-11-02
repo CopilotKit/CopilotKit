@@ -64,7 +64,6 @@
     "@copilotkit/shared": "workspace:^",
     "@copilotkit/web-components": "workspace:^",
     "@copilotkit/web-inspector": "workspace:^",
-    "@jetbrains/websandbox": "^1.1.3",
     "dompurify": "^3.4.1",
     "katex": "^0.16.22",
     "marked": "^12.0.2",

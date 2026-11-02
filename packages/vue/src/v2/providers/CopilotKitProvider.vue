@@ -25,7 +25,12 @@ import type {
   CopilotKitHeadersSource,
   FrontendTool,
 } from "@copilotkit/core";
-import { ɵresolveLicenseState, ɵwithHeaderDefaults } from "@copilotkit/core";
+import {
+  DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
+  GENERATE_SANDBOXED_UI_TOOL_NAME,
+  ɵresolveLicenseState,
+  ɵwithHeaderDefaults,
+} from "@copilotkit/core";
 import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import type {
   RuntimeEntitlementResponse,
@@ -91,16 +96,6 @@ const SANDBOX_FUNCTIONS_STABLE_WARNING =
 // interrupt reads the same across frameworks (see #5554).
 const HUMAN_IN_THE_LOOP_ABORTED_MESSAGE =
   "Human-in-the-loop interaction aborted";
-const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
-
-- Use a minimal, flat aesthetic. Avoid drop shadows and gradients — rely on subtle borders (1px solid, light gray like #e5e7eb) to define surfaces.
-- Neutral base palette: white backgrounds, zinc/slate gray text (#09090b for headings, #71717a for secondary text). One accent color for interactive elements.
-- Use system font stacks (system-ui, -apple-system, sans-serif) at readable sizes (14px body, 600 weight for headings). Tight line-heights.
-- Small, consistent border-radius (6–8px). Cards and containers use border, not shadow, for separation.
-- Buttons: solid fill for primary (dark bg, white text), outline for secondary (border + transparent bg). Subtle hover state (slight opacity or background shift).
-- Use CSS Grid or Flexbox for layout. Ensure the UI looks good at any width.
-- Minimal transitions (150ms) for hover/focus states only. No decorative animations.
-- Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
 
 /** The MCP Apps renderer with `mcpApps.allowSameOriginFallback` applied. */
 const SameOriginMCPAppsActivityRenderer: FunctionalComponent = (_, { attrs }) =>
@@ -449,7 +444,7 @@ const builtInFrontendTools = computed<VueFrontendTool[]>(() => {
   if (!openGenerativeUIActive.value) return [];
   return [
     {
-      name: "generateSandboxedUi",
+      name: GENERATE_SANDBOXED_UI_TOOL_NAME,
       description: GENERATE_SANDBOXED_UI_DESCRIPTION,
       parameters: GenerateSandboxedUiArgsSchema,
       handler: async () => "UI generated",
@@ -849,7 +844,7 @@ watch(
       copilotkit.value.addContext({
         description:
           "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
-        value: designSkill ?? DEFAULT_DESIGN_SKILL,
+        value: designSkill ?? DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
       }),
     );
 

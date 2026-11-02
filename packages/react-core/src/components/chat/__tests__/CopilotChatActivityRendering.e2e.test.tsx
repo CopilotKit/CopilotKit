@@ -1,4 +1,5 @@
 import React from "react";
+import type * as CoreModule from "@copilotkit/core";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { z } from "zod";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -153,11 +154,25 @@ vi.mock("phoenix", () => ({
   Socket: MockPhoenixSocket,
 }));
 
-vi.mock("@jetbrains/websandbox", () => ({
-  default: {
-    create: (...args: unknown[]) => mockWebsandboxCreate(...args),
-  },
-}));
+// Run the real core controller against a fake websandbox
+vi.mock("@copilotkit/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof CoreModule>();
+  class TestOpenGenerativeUIController
+    extends actual.ɵOpenGenerativeUIController
+  {
+    constructor() {
+      super({
+        loadWebsandbox: async () => ({
+          create: (...args) => mockWebsandboxCreate(...args),
+        }),
+      });
+    }
+  }
+  return {
+    ...actual,
+    ɵOpenGenerativeUIController: TestOpenGenerativeUIController,
+  };
+});
 
 function jsonResponse(body: unknown, status = 200): Response {
   return {
@@ -702,13 +717,15 @@ describe("CopilotChat activity message rendering", () => {
 
     renderOpenGenerativeUIChat();
 
+    // The restored chat can remount the activity while it reconnects, so wait
+    // until exactly one sandbox, the restored one, is alive.
     await waitFor(() => {
-      expect(mockWebsandboxCreate).toHaveBeenCalledTimes(2);
+      const created = mockWebsandboxCreate.mock.calls.length;
+      expect(created).toBeGreaterThanOrEqual(2);
+      expect(mockWebsandboxDestroy).toHaveBeenCalledTimes(created - 1);
     });
-    expect(mockWebsandboxCreate.mock.calls[1]?.[1]).toMatchObject({
+    expect(mockWebsandboxCreate.mock.calls.at(-1)?.[1]).toMatchObject({
       frameContent: restoredHtml,
     });
-
-    expect(mockWebsandboxDestroy).toHaveBeenCalledTimes(1);
   });
 });

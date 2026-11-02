@@ -9,55 +9,38 @@ import {
   inject,
   input,
   signal,
-  untracked,
   viewChild,
   InjectionToken,
 } from "@angular/core";
 import type { AbstractAgent, ActivityMessage } from "@ag-ui/client";
-import type { API } from "@jetbrains/websandbox/dist/types";
+import {
+  ɵOpenGenerativeUIController,
+  ɵloadWebsandbox,
+  type ɵWebsandboxLoader,
+} from "@copilotkit/core";
 import type { ActivityRenderer } from "../../activity-renderer";
-import type { OpenGenerativeUIContent } from "../../open-generative-ui";
+import {
+  OpenGenerativeUIContentSchema,
+  type OpenGenerativeUIContent,
+} from "../../open-generative-ui";
 import { injectCopilotKitConfig } from "../../config";
-import {
-  ensureHead,
-  extractCompleteStyles,
-  injectCssIntoHtml,
-  processPartialHtml,
-} from "./process-partial-html";
-import {
-  hasRenderableOpenGenerativeUIContent,
-  parseOpenGenerativeUIContent,
-  resolveWebsandboxConstructor,
-  shouldFlushOpenGenerativeUIImmediately,
-  type WebsandboxConstructor,
-  type WebsandboxInstance,
-  type WebsandboxModuleShape,
-} from "./open-generative-ui-renderer-utils";
 
-export const OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER = new InjectionToken<
-  () => Promise<WebsandboxConstructor>
->("OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER", {
-  providedIn: "root",
-  factory: () => async (): Promise<WebsandboxConstructor> => {
-    const websandboxModule =
-      (await import("@jetbrains/websandbox")) as unknown as WebsandboxModuleShape;
-    return resolveWebsandboxConstructor(websandboxModule);
-  },
-});
+/** Loads the websandbox class. Provide a fake in tests. */
+export const OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER =
+  new InjectionToken<ɵWebsandboxLoader>(
+    "OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER",
+    {
+      providedIn: "root",
+      factory: () => ɵloadWebsandbox,
+    },
+  );
 
-const THROTTLE_MS = 1000;
-
-type OpenGenerativeUIRenderState = {
-  content: OpenGenerativeUIContent;
-  fullHtml: string | undefined;
-  css: string | undefined;
-  hasPreview: boolean;
-  previewBody: string | undefined;
-  previewStyles: string;
-  jsFunctions: string | undefined;
-  jsExpressions: string[] | undefined;
-  generatingDone: boolean;
-};
+function parseOpenGenerativeUIContent(
+  content: unknown,
+): OpenGenerativeUIContent {
+  const parsed = OpenGenerativeUIContentSchema.safeParse(content);
+  return parsed.success ? parsed.data : {};
+}
 
 @Component({
   selector: "copilot-open-generative-ui-renderer",
@@ -172,432 +155,39 @@ export class CopilotOpenGenerativeUIRenderer implements OnChanges {
     unknown,
     ElementRef<HTMLDivElement>
   >("container", { read: ElementRef });
-  private readonly destroyRef = inject(DestroyRef);
-  private readonly config = injectCopilotKitConfig();
-  private readonly loadWebsandboxModule = inject(
-    OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER,
-  );
-  private readonly throttledContent = signal<OpenGenerativeUIContent>({});
-  private throttleTimer: ReturnType<typeof setTimeout> | undefined;
-  private latestContent: OpenGenerativeUIContent = {};
-  private sandbox: WebsandboxInstance | undefined;
-  private previewSandbox: WebsandboxInstance | undefined;
-  private sandboxReady = false;
-  private previewReady = false;
-  private executedExpressionIndex = 0;
-  private pendingQueue: string[] = [];
-  private jsFunctionsInjected = false;
-  private heightMeasured = false;
-  private autoHeight = signal<number | undefined>(undefined);
-  private hasReceivedContent = false;
-
-  protected readonly fullHtml = computed(() => {
-    const content = this.throttledContent();
-    return content.htmlComplete && content.html?.length
-      ? content.html.join("")
-      : undefined;
+  private readonly controller = new ɵOpenGenerativeUIController({
+    loadWebsandbox: inject(OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER),
   });
-
-  protected readonly css = computed(() => {
-    const content = this.throttledContent();
-    return content.cssComplete ? content.css : undefined;
-  });
-
-  protected readonly partialHtml = computed(() => {
-    const content = this.throttledContent();
-    return !content.htmlComplete && content.html?.length
-      ? content.html.join("")
-      : undefined;
-  });
-
-  protected readonly previewBody = computed(() => {
-    const partialHtml = this.partialHtml();
-    return partialHtml ? processPartialHtml(partialHtml) : undefined;
-  });
-
-  protected readonly previewStyles = computed(() => {
-    const partialHtml = this.partialHtml();
-    return partialHtml ? extractCompleteStyles(partialHtml) : "";
-  });
-
-  protected readonly hasPreview = computed(
-    () => !!this.throttledContent().cssComplete && !!this.previewBody()?.trim(),
-  );
+  private readonly state = signal(this.controller.getState());
 
   protected readonly hasVisibleSandbox = computed(
-    () => !!this.fullHtml() || this.hasPreview(),
+    () => this.state().phase !== "placeholder",
   );
-
-  protected readonly height = computed(
-    () => this.autoHeight() ?? this.throttledContent().initialHeight ?? 200,
-  );
-
-  protected readonly isGenerating = computed(
-    () => this.throttledContent().generating !== false,
-  );
-
-  private readonly renderState = computed<OpenGenerativeUIRenderState>(() => {
-    const content = this.throttledContent();
-    return {
-      content,
-      fullHtml: this.fullHtml(),
-      css: this.css(),
-      hasPreview: this.hasPreview(),
-      previewBody: this.previewBody(),
-      previewStyles: this.previewStyles(),
-      jsFunctions: content.jsFunctions,
-      jsExpressions: content.jsExpressions,
-      generatingDone: content.generating === false,
-    };
-  });
+  protected readonly isGenerating = computed(() => this.state().generating);
+  protected readonly height = computed(() => this.state().height);
 
   constructor() {
-    this.destroyRef.onDestroy(() => {
-      this.clearThrottle();
-      this.destroyPreviewSandbox();
-      this.destroyFinalSandbox();
-    });
-
-    afterRenderEffect({
-      write: (onCleanup) => {
-        const fullHtml = this.fullHtml();
-        const css = this.css();
-        const container = this.containerRef()?.nativeElement;
-
-        untracked(() => {
-          let cancelled = false;
-
-          onCleanup(() => {
-            cancelled = true;
-            this.destroyFinalSandbox();
-          });
-
-          this.resetFinalRuntimeState();
-          this.autoHeight.set(undefined);
-          if (!container || !fullHtml) return;
-
-          this.destroyPreviewSandbox();
-          void this.createFinalSandbox(
-            fullHtml,
-            css,
-            container,
-            () => cancelled,
-          );
-        });
-      },
+    this.controller.setSandboxFunctions(
+      injectCopilotKitConfig().openGenerativeUI?.sandboxFunctions ?? [],
+    );
+    const unsubscribe = this.controller.subscribe(() =>
+      this.state.set(this.controller.getState()),
+    );
+    inject(DestroyRef).onDestroy(() => {
+      unsubscribe();
+      this.controller.destroy();
     });
 
     afterRenderEffect({
       write: () => {
-        const state = this.renderState();
-        this.containerRef();
-        this.reconcileSandboxState(state);
-
-        if (!state.generatingDone || this.heightMeasured || !this.sandbox) {
-          return;
-        }
-        this.heightMeasured = true;
-        const cleanup = this.measureFinalHeight();
-        if (cleanup) this.destroyRef.onDestroy(cleanup);
+        this.controller.setHost(this.containerRef()?.nativeElement ?? null);
       },
     });
   }
 
   /** Applies input updates synchronously before the matching render pass. */
   ngOnChanges(): void {
-    const next = parseOpenGenerativeUIContent(this.content());
-    this.latestContent = next;
-    const previous = this.throttledContent();
-
-    if (!this.hasReceivedContent) {
-      this.hasReceivedContent = true;
-      this.clearThrottle();
-      this.commitContent(previous, next);
-      return;
-    }
-
-    if (shouldFlushOpenGenerativeUIImmediately(previous, next)) {
-      this.clearThrottle();
-      this.commitContent(previous, next);
-      return;
-    }
-
-    if (!this.throttleTimer) {
-      this.throttleTimer = setTimeout(() => {
-        this.throttleTimer = undefined;
-        this.throttledContent.set(this.latestContent);
-      }, THROTTLE_MS);
-    }
-  }
-
-  /** Commits content and synchronously removes stale sandbox DOM on restart. */
-  private commitContent(
-    previous: OpenGenerativeUIContent,
-    next: OpenGenerativeUIContent,
-  ): void {
-    this.throttledContent.set(next);
-
-    if (
-      hasRenderableOpenGenerativeUIContent(previous) &&
-      !hasRenderableOpenGenerativeUIContent(next)
-    ) {
-      this.destroyPreviewSandbox();
-      this.destroyFinalSandbox();
-      this.resetFinalRuntimeState();
-      this.autoHeight.set(undefined);
-    }
-  }
-
-  private clearThrottle(): void {
-    if (!this.throttleTimer) return;
-    clearTimeout(this.throttleTimer);
-    this.throttleTimer = undefined;
-  }
-
-  private async loadWebsandbox(): Promise<WebsandboxConstructor> {
-    return this.loadWebsandboxModule();
-  }
-
-  private createLocalApi(): API {
-    const api: API = {};
-    for (const fn of this.config.openGenerativeUI?.sandboxFunctions ?? []) {
-      api[fn.name] = fn.handler;
-    }
-    return api;
-  }
-
-  private createPreviewSandbox(state: OpenGenerativeUIRenderState): void {
-    const container = this.containerRef()?.nativeElement;
-    if (
-      !container ||
-      state.fullHtml ||
-      !state.hasPreview ||
-      this.previewSandbox
-    ) {
-      return;
-    }
-
-    void this.loadWebsandbox()
-      .then((Websandbox) => {
-        if (
-          !this.containerRef() ||
-          this.previewSandbox ||
-          this.renderState().fullHtml ||
-          !this.renderState().hasPreview
-        ) {
-          return;
-        }
-
-        const sandbox = Websandbox.create(
-          {},
-          {
-            frameContainer: container,
-            frameContent: "<head></head><body></body>",
-            allowAdditionalAttributes: "",
-          },
-        );
-        this.previewSandbox = sandbox;
-        sandbox.iframe.setAttribute(
-          "data-testid",
-          "open-generative-ui-preview-sandbox",
-        );
-        this.styleIframe(sandbox.iframe);
-
-        sandbox.promise.then(() => {
-          if (this.previewSandbox !== sandbox) return;
-          this.previewReady = true;
-          void sandbox.run(`
-            var s = document.createElement('style');
-            s.textContent = 'html, body { overflow: hidden !important; }';
-            document.head.appendChild(s);
-          `);
-          this.updatePreviewSandbox(this.renderState());
-        });
-      })
-      .catch((error: unknown) => {
-        console.error(
-          "[OpenGenerativeUI] Failed to load sandbox module:",
-          error,
-        );
-      });
-  }
-
-  private updatePreviewSandbox(state: OpenGenerativeUIRenderState): void {
-    if (!this.previewSandbox || !this.previewReady) return;
-
-    const headParts: string[] = [];
-    if (state.css) headParts.push(`<style>${state.css}</style>`);
-    if (state.previewStyles) headParts.push(state.previewStyles);
-    if (headParts.length) {
-      void this.previewSandbox.run(
-        `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
-      );
-    }
-    if (state.previewBody) {
-      void this.previewSandbox.run(
-        `document.body.innerHTML = ${JSON.stringify(state.previewBody)}`,
-      );
-    }
-  }
-
-  private reconcileSandboxState(state: OpenGenerativeUIRenderState): void {
-    if (!state.fullHtml) {
-      if (!state.hasPreview) {
-        this.destroyPreviewSandbox();
-        return;
-      }
-
-      this.createPreviewSandbox(state);
-      this.updatePreviewSandbox(state);
-      return;
-    }
-
-    this.destroyPreviewSandbox();
-    this.injectJsFunctions(state.jsFunctions);
-    void this.executeNewExpressions(state.jsExpressions);
-  }
-
-  private async createFinalSandbox(
-    fullHtml: string,
-    css: string | undefined,
-    container: HTMLDivElement,
-    isCancelled: () => boolean,
-  ): Promise<void> {
-    const htmlContent = css ? injectCssIntoHtml(fullHtml, css) : fullHtml;
-
-    try {
-      const Websandbox = await this.loadWebsandbox();
-      if (isCancelled()) return;
-
-      const sandbox = Websandbox.create(this.createLocalApi(), {
-        frameContainer: container,
-        frameContent: ensureHead(htmlContent),
-        allowAdditionalAttributes: "",
-      });
-      this.sandbox = sandbox;
-      sandbox.iframe.setAttribute(
-        "data-testid",
-        "open-generative-ui-final-sandbox",
-      );
-      this.styleIframe(sandbox.iframe);
-
-      sandbox.promise.then(() => {
-        if (isCancelled() || this.sandbox !== sandbox) return;
-        this.sandboxReady = true;
-        void sandbox.run(`
-          var s = document.createElement('style');
-          s.textContent = 'html, body { overflow: hidden !important; }';
-          document.head.appendChild(s);
-        `);
-        const queue = this.pendingQueue;
-        this.pendingQueue = [];
-        for (const code of queue) void sandbox.run(code);
-      });
-    } catch (error) {
-      console.error("[OpenGenerativeUI] Failed to load sandbox module:", error);
-    }
-  }
-
-  private resetFinalRuntimeState(): void {
-    this.executedExpressionIndex = 0;
-    this.jsFunctionsInjected = false;
-    this.heightMeasured = false;
-    this.pendingQueue = [];
-    this.sandboxReady = false;
-  }
-
-  private injectJsFunctions(jsFunctions: string | undefined): void {
-    if (!jsFunctions || this.jsFunctionsInjected) return;
-    this.jsFunctionsInjected = true;
-    this.runOrQueue(jsFunctions);
-  }
-
-  private async executeNewExpressions(
-    expressions: string[] | undefined,
-  ): Promise<void> {
-    if (!expressions?.length) return;
-
-    const startIndex = this.executedExpressionIndex;
-    if (startIndex >= expressions.length) return;
-    const newExpressions = expressions.slice(startIndex);
-    this.executedExpressionIndex = expressions.length;
-
-    if (this.sandboxReady && this.sandbox) {
-      for (const expression of newExpressions) {
-        await this.sandbox.run(expression);
-      }
-      return;
-    }
-
-    this.pendingQueue.push(...newExpressions);
-  }
-
-  private runOrQueue(code: string): void {
-    if (this.sandboxReady && this.sandbox) {
-      void this.sandbox.run(code);
-      return;
-    }
-    this.pendingQueue.push(code);
-  }
-
-  private measureFinalHeight(): (() => void) | undefined {
-    const sandbox = this.sandbox;
-    if (!sandbox) return undefined;
-
-    let handled = false;
-    const onMessage = (event: MessageEvent) => {
-      if (handled) return;
-      if (
-        event.source === sandbox.iframe.contentWindow &&
-        event.data?.type === "__ck_resize"
-      ) {
-        handled = true;
-        this.autoHeight.set(event.data.height);
-        window.removeEventListener("message", onMessage);
-      }
-    };
-
-    window.addEventListener("message", onMessage);
-
-    const measureOnce = `
-      (function() {
-        var s = document.createElement('style');
-        s.textContent = 'body { height: auto !important; min-height: 0 !important; }';
-        document.head.appendChild(s);
-        var h = document.body.scrollHeight;
-        var cs = getComputedStyle(document.body);
-        h += parseFloat(cs.marginTop) || 0;
-        h += parseFloat(cs.marginBottom) || 0;
-        s.remove();
-        parent.postMessage({ type: "__ck_resize", height: Math.ceil(h) }, "*");
-      })();
-    `;
-
-    this.runOrQueue(measureOnce);
-    return () => window.removeEventListener("message", onMessage);
-  }
-
-  private styleIframe(iframe: HTMLIFrameElement): void {
-    iframe.style.width = "100%";
-    iframe.style.height = "100%";
-    iframe.style.border = "none";
-    iframe.style.backgroundColor = "transparent";
-  }
-
-  private destroyPreviewSandbox(): void {
-    if (!this.previewSandbox) return;
-    this.previewSandbox.destroy();
-    this.previewSandbox = undefined;
-    this.previewReady = false;
-  }
-
-  private destroyFinalSandbox(): void {
-    if (this.sandbox) {
-      this.sandbox.destroy();
-      this.sandbox = undefined;
-    }
-    this.sandboxReady = false;
-    this.heightMeasured = false;
+    this.controller.setContent(parseOpenGenerativeUIContent(this.content()));
   }
 }
 

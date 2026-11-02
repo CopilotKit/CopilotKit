@@ -46,7 +46,6 @@ export default defineConfig({
         // (duplicate top-level lit binding → "Identifier 'h' has already been
         // declared") and risks double custom-element registration.
         /^@copilotkit\/web-components(\/.*)?$/,
-        "@jetbrains/websandbox",
         "zod",
         "zod-to-json-schema",
       ],

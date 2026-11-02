@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as CoreModule from "@copilotkit/core";
 import { render } from "@testing-library/vue";
 import { ref } from "vue";
 import type { Ref } from "vue";
@@ -37,12 +38,25 @@ const mockCreate = vi.fn<MockCreateFn>(() => ({
   destroy: mockDestroy,
 }));
 
-vi.mock("@jetbrains/websandbox", () => ({
-  default: {
-    create: (localApi: Record<string, unknown>, options: SandboxOptions) =>
-      mockCreate(localApi, options),
-  },
-}));
+// Run the real core controller against a fake websandbox
+vi.mock("@copilotkit/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof CoreModule>();
+  class TestOpenGenerativeUIController
+    extends actual.ɵOpenGenerativeUIController
+  {
+    constructor() {
+      super({
+        loadWebsandbox: async () => ({
+          create: (localApi, options) => mockCreate(localApi, options),
+        }),
+      });
+    }
+  }
+  return {
+    ...actual,
+    ɵOpenGenerativeUIController: TestOpenGenerativeUIController,
+  };
+});
 
 async function flushImport() {
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -176,6 +190,41 @@ describe("OpenGenerativeUIRenderer", () => {
     expect(mockCreate).toHaveBeenCalledTimes(2);
     const [, options] = mockCreate.mock.calls[1];
     expect(options.frameContent).toContain("v2");
+  });
+
+  it("sizes the container to the height the final sandbox reports", async () => {
+    const iframe = document.createElement("iframe");
+    mockCreate.mockImplementationOnce((_localApi, options) => {
+      (options.frameContainer as HTMLElement).appendChild(iframe);
+      return {
+        iframe,
+        promise: Promise.resolve(),
+        run: mockRun,
+        destroy: mockDestroy,
+      };
+    });
+    const { getByTestId } = renderRenderer({
+      initialHeight: 150,
+      html: ["<body><p>Chart</p></body>"],
+      htmlComplete: true,
+      generating: false,
+    });
+    await flushImport();
+    expect(getByTestId("open-generative-ui-renderer").style.height).toBe(
+      "150px",
+    );
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        source: iframe.contentWindow,
+        data: { type: "__ck_resize", height: 420 },
+      }),
+    );
+    await flushImport();
+
+    expect(getByTestId("open-generative-ui-renderer").style.height).toBe(
+      "420px",
+    );
   });
 
   it("destroys sandbox on unmount", async () => {

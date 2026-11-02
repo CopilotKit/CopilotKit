@@ -81,7 +81,6 @@
     "@copilotkit/shared": "workspace:*",
     "@copilotkit/web-components": "workspace:*",
     "@copilotkit/web-inspector": "workspace:*",
-    "@jetbrains/websandbox": "^1.1.3",
     "zod": "^3.25.75",
     "zod-to-json-schema": "^3.24.5"
   },
