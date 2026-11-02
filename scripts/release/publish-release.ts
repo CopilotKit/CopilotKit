@@ -31,7 +31,10 @@ import type { ReleaseScope } from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
 import { resolvePublishNpm } from "./lib/npm-cli.js";
 import { runCaptured } from "./lib/run-captured.js";
-import { publishWithRetry } from "./lib/publish-retry.js";
+import {
+  matchesPublishedTarball,
+  publishWithRetry,
+} from "./lib/publish-retry.js";
 import { checkRegistry, unregisteredHelp } from "./lib/publish-preflight.js";
 
 type PublishPhase = "all" | "dependencies" | "umbrella";
@@ -216,14 +219,30 @@ async function main() {
   console.log("\nPublishing packages...");
   for (const p of toPublish) {
     console.log(`  Publishing ${p.name}@${version}...`);
-    const output = await publishWithRetry(`${p.name}@${version}`, () =>
-      runCaptured(
-        npmBin,
-        ["publish", tarballOf(p.name), "--tag", "latest", "--access", "public"],
-        { cwd: p.dir },
-      ),
+    await publishWithRetry(
+      `${p.name}@${version}`,
+      () =>
+        runCaptured(
+          npmBin,
+          [
+            "publish",
+            tarballOf(p.name),
+            "--tag",
+            "latest",
+            "--access",
+            "public",
+          ],
+          { cwd: p.dir, stream: true },
+        ),
+      {
+        confirmPublished: () =>
+          matchesPublishedTarball(
+            p.name,
+            version,
+            join(p.dir, tarballOf(p.name)),
+          ),
+      },
     );
-    process.stdout.write(output);
   }
   const skipped = packagesToPublish.length - toPublish.length;
   if (skipped > 0) {

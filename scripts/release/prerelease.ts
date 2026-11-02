@@ -25,6 +25,7 @@
  * Usage: tsx scripts/release/prerelease.ts --scope <scope from release.config.json | all> [--dry-run]
  */
 
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import {
   getCurrentVersion,
@@ -39,7 +40,10 @@ import { emitGithubOutputs } from "./lib/github-output.js";
 import { resolvePublishNpm } from "./lib/npm-cli.js";
 import { mapWithConcurrency } from "./lib/concurrency.js";
 import { runCaptured } from "./lib/run-captured.js";
-import { publishWithRetry } from "./lib/publish-retry.js";
+import {
+  matchesPublishedTarball,
+  publishWithRetry,
+} from "./lib/publish-retry.js";
 import { checkRegistry, unregisteredHelp } from "./lib/publish-preflight.js";
 
 /**
@@ -163,34 +167,50 @@ async function main() {
   // We intentionally do NOT rebuild/retest here to keep NPM_TOKEN out
   // of the build process tree.
 
-  // `workspace:^` packs to a caret range, which can select an incompatible,
-  // semver-higher canary. Keep packages from this run together with exact pins.
-  const pinned = pinPrereleaseDependencies(packages);
-  console.log(`Exact-pinned ${pinned} same-run canary dependency edge(s).`);
-
-  // Preflight 2: pack and license-check every tarball before publishing any.
   const tarballOf = (p: PublishablePackage) =>
     `${p.name.replace("@", "").replace("/", "-")}-${p.pkg.version}.tgz`;
-  console.log(`\nPacking ${packages.length} package(s)...`);
-  const packed = await mapWithConcurrency(
-    packages,
-    PUBLISH_CONCURRENCY,
-    async (p) => {
-      await runCaptured("pnpm", ["pack"], { cwd: p.dir });
-      await runCaptured(
-        process.execPath,
-        [
-          "scripts/package-licenses/check.mjs",
-          "archive",
-          join(p.dir, tarballOf(p)),
-          relative(ROOT, p.dir),
-        ],
-        { cwd: ROOT },
-      );
-    },
-  );
-  if (reportFailures(packed, packages.length, "failed to pack") > 0) {
-    throw new Error("Preflight failed: nothing was published.");
+  // A dry run leaves the checkout as it found it: pinning rewrites package.json
+  // files, and packing writes a tarball into each package.
+  const manifests = packages.map((p) => ({
+    path: p.pkgJsonPath,
+    text: readFileSync(p.pkgJsonPath, "utf8"),
+  }));
+
+  try {
+    // `workspace:^` packs to a caret range, which can select an incompatible,
+    // semver-higher canary. Keep packages from this run together with exact pins.
+    const pinned = pinPrereleaseDependencies(packages);
+    console.log(`Exact-pinned ${pinned} same-run canary dependency edge(s).`);
+
+    // Preflight 2: pack and license-check every tarball before publishing any.
+    console.log(`\nPacking ${packages.length} package(s)...`);
+    const packed = await mapWithConcurrency(
+      packages,
+      PUBLISH_CONCURRENCY,
+      async (p) => {
+        await runCaptured("pnpm", ["pack"], { cwd: p.dir });
+        await runCaptured(
+          process.execPath,
+          [
+            "scripts/package-licenses/check.mjs",
+            "archive",
+            join(p.dir, tarballOf(p)),
+            relative(ROOT, p.dir),
+          ],
+          { cwd: ROOT },
+        );
+      },
+    );
+    if (reportFailures(packed, packages.length, "failed to pack") > 0) {
+      throw new Error("Preflight failed: nothing was published.");
+    }
+  } finally {
+    if (dryRun) {
+      for (const { path, text } of manifests) writeFileSync(path, text);
+      for (const p of packages) {
+        rmSync(join(p.dir, tarballOf(p)), { force: true });
+      }
+    }
   }
 
   if (dryRun) {
@@ -227,12 +247,22 @@ async function main() {
     PUBLISH_CONCURRENCY,
     async (p) => {
       const label = `${p.name}@${p.pkg.version}`;
-      await publishWithRetry(label, () =>
-        runCaptured(
-          npmBin,
-          ["publish", tarballOf(p), "--tag", distTag, "--access", "public"],
-          { cwd: p.dir },
-        ),
+      await publishWithRetry(
+        label,
+        () =>
+          runCaptured(
+            npmBin,
+            ["publish", tarballOf(p), "--tag", distTag, "--access", "public"],
+            { cwd: p.dir },
+          ),
+        {
+          confirmPublished: () =>
+            matchesPublishedTarball(
+              p.name,
+              p.pkg.version,
+              join(p.dir, tarballOf(p)),
+            ),
+        },
       );
       console.log(`  Published ${label} with tag ${distTag}`);
       return label;

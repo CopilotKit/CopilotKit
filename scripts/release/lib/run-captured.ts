@@ -10,11 +10,15 @@ import { ROOT } from "./config.js";
  * unreadable — and this log is the only forensic record when a publish fails.
  * A failure's message carries the full output, so callers can match on npm's
  * error text.
+ *
+ * `stream` also echoes the output as it arrives, for a caller that runs one
+ * command at a time: a command killed by the job timeout then still leaves
+ * what it printed in the log.
  */
 export function runCaptured(
   cmd: string,
   args: string[],
-  opts?: { cwd?: string },
+  opts?: { cwd?: string; stream?: boolean },
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
@@ -22,8 +26,14 @@ export function runCaptured(
       stdio: ["ignore", "pipe", "pipe"],
     });
     let output = "";
-    child.stdout?.on("data", (chunk) => (output += chunk));
-    child.stderr?.on("data", (chunk) => (output += chunk));
+    child.stdout?.on("data", (chunk) => {
+      output += chunk;
+      if (opts?.stream) process.stdout.write(chunk);
+    });
+    child.stderr?.on("data", (chunk) => {
+      output += chunk;
+      if (opts?.stream) process.stderr.write(chunk);
+    });
     child.on("error", reject);
     child.on("close", (status) => {
       if (status === 0) {

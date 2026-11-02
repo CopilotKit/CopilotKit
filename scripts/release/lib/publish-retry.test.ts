@@ -1,5 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
-import { publishWithRetry } from "./publish-retry.js";
+import { createHash } from "node:crypto";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  matchesPublishedTarball,
+  publishWithRetry,
+  tarballIntegrity,
+} from "./publish-retry.js";
 
 const TLOG_ERROR = `Command failed (exit 1): npm publish copilotkit-shared-2.0.0-rc.12.tgz --tag next --access public
 npm error code TLOG_CREATE_ENTRY_ERROR
@@ -70,31 +78,139 @@ describe("publishWithRetry", () => {
     expect(publish).toHaveBeenCalledTimes(3);
   });
 
-  it("counts a retry that finds the version taken as published", async () => {
+  it("counts a retry that finds this run's tarball on npm as published", async () => {
     const publish = attempts(
       new Error("npm error code ECONNRESET"),
       new Error(ALREADY_PUBLISHED_ERROR),
     );
+    const confirmPublished = vi.fn(async () => true);
     const opts = options();
 
     await expect(
-      publishWithRetry("@copilotkit/shared@2.0.0-rc.12", publish, opts),
+      publishWithRetry("@copilotkit/shared@2.0.0-rc.12", publish, {
+        ...opts,
+        confirmPublished,
+      }),
     ).resolves.toContain("previously published");
     expect(publish).toHaveBeenCalledTimes(2);
+    expect(confirmPublished).toHaveBeenCalledTimes(1);
     expect(opts.log).toHaveBeenLastCalledWith(
       "  @copilotkit/shared@2.0.0-rc.12 is on npm: an earlier attempt landed.",
     );
   });
 
+  it("fails when the version npm has is a different tarball", async () => {
+    const publish = attempts(
+      new Error("npm error code ECONNRESET"),
+      new Error(ALREADY_PUBLISHED_ERROR),
+    );
+
+    await expect(
+      publishWithRetry("@copilotkit/shared@2.0.0-rc.12", publish, {
+        ...options(),
+        confirmPublished: async () => false,
+      }),
+    ).rejects.toThrow("its tarball is not the one this run built");
+    expect(publish).toHaveBeenCalledTimes(2);
+  });
+
+  it("never counts a taken version as published without a way to confirm it", async () => {
+    const last = new Error(ALREADY_PUBLISHED_ERROR);
+    const publish = attempts(
+      new Error("npm error code ECONNRESET"),
+      new Error(ALREADY_PUBLISHED_ERROR),
+      last,
+    );
+
+    await expect(
+      publishWithRetry("@copilotkit/shared@2.0.0-rc.12", publish, options()),
+    ).rejects.toBe(last);
+  });
+
   it("does not count a taken version on the first attempt as published", async () => {
     // Before any attempt of ours, a taken version belongs to someone else.
     const publish = attempts(new Error(ALREADY_PUBLISHED_ERROR));
+    const confirmPublished = vi.fn(async () => true);
 
     await expect(
       publishWithRetry("@copilotkit/shared@2.0.0-rc.12", publish, {
         ...options(),
         attempts: 1,
+        confirmPublished,
       }),
     ).rejects.toThrow("previously published");
+    expect(confirmPublished).not.toHaveBeenCalled();
+  });
+});
+
+describe("matchesPublishedTarball", () => {
+  let dir: string;
+  let tarball: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "publish-retry-"));
+    tarball = join(dir, "copilotkit-shared-2.0.0-rc.12.tgz");
+    writeFileSync(tarball, "tarball bytes");
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("computes npm's integrity format for a tarball", () => {
+    expect(tarballIntegrity(tarball)).toBe(
+      `sha512-${createHash("sha512").update("tarball bytes").digest("base64")}`,
+    );
+  });
+
+  it("matches when npm recorded this tarball's integrity", async () => {
+    const fetchIntegrity = vi.fn(async () => tarballIntegrity(tarball));
+
+    await expect(
+      matchesPublishedTarball("@copilotkit/shared", "2.0.0-rc.12", tarball, {
+        fetchIntegrity,
+      }),
+    ).resolves.toBe(true);
+    expect(fetchIntegrity).toHaveBeenCalledWith(
+      "@copilotkit/shared",
+      "2.0.0-rc.12",
+    );
+  });
+
+  it("does not match a different tarball", async () => {
+    await expect(
+      matchesPublishedTarball("@copilotkit/shared", "2.0.0-rc.12", tarball, {
+        fetchIntegrity: async () => "sha512-somethingelse",
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it("waits for the registry to list a version it just accepted", async () => {
+    const fetchIntegrity = vi
+      .fn<() => Promise<string | null>>()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(tarballIntegrity(tarball));
+    const wait = vi.fn(async () => {});
+
+    await expect(
+      matchesPublishedTarball("@copilotkit/shared", "2.0.0-rc.12", tarball, {
+        fetchIntegrity,
+        wait,
+        delayMs: 1000,
+      }),
+    ).resolves.toBe(true);
+    expect(wait.mock.calls).toEqual([[1000], [1000]]);
+  });
+
+  it("throws when the registry never lists the version", async () => {
+    await expect(
+      matchesPublishedTarball("@copilotkit/shared", "2.0.0-rc.12", tarball, {
+        fetchIntegrity: async () => null,
+        wait: async () => {},
+        attempts: 3,
+        delayMs: 1000,
+      }),
+    ).rejects.toThrow("still does not list it after 2s");
   });
 });

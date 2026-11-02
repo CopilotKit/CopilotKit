@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchPublishedVersions } from "./npm-registry.js";
+import {
+  fetchPublishedIntegrity,
+  fetchPublishedVersions,
+} from "./npm-registry.js";
 
 function stubFetch(status: number, body?: unknown) {
   const fetchMock = vi.fn(
@@ -46,5 +49,32 @@ describe("fetchPublishedVersions", () => {
     await expect(
       fetchPublishedVersions("@copilotkit/react-core"),
     ).rejects.toThrow(/has no versions/);
+  });
+});
+
+describe("fetchPublishedIntegrity", () => {
+  it("returns the integrity npm recorded for the version", async () => {
+    stubFetch(200, {
+      versions: {
+        "2.0.0-rc.12": { dist: { integrity: "sha512-published" } },
+      },
+    });
+    await expect(
+      fetchPublishedIntegrity("@copilotkit/shared", "2.0.0-rc.12"),
+    ).resolves.toBe("sha512-published");
+  });
+
+  it("returns null while the registry does not list the version", async () => {
+    stubFetch(200, { versions: { "2.0.0-rc.11": {} } });
+    await expect(
+      fetchPublishedIntegrity("@copilotkit/shared", "2.0.0-rc.12"),
+    ).resolves.toBeNull();
+  });
+
+  it("returns null for a package that was never published", async () => {
+    stubFetch(404);
+    await expect(
+      fetchPublishedIntegrity("@copilotkit/new", "2.0.0-rc.0"),
+    ).resolves.toBeNull();
   });
 });
