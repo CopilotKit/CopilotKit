@@ -56,7 +56,7 @@
     "@langchain/core": ">=1.2.10 <2",
     "@langchain/langgraph": ">=1.4.14 <2",
     "langchain": ">=1.5.11 <2",
-    "zod": "^4.2.0"
+    "zod": "^3.25.76 || ^4.0.0"
   },
   "nx": {
     "targets": {

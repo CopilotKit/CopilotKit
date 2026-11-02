@@ -51,7 +51,7 @@
   },
   "peerDependencies": {
     "@mastra/core": ">=1.0.0 <2",
-    "zod": "^4.2.0"
+    "zod": "^3.25.76 || ^4.0.0"
   },
   "nx": {
     "targets": {
