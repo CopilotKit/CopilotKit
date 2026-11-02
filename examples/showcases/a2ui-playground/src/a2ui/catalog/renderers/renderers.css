@@ -1,0 +1,56 @@
+/* Colours the renderers hand to code (chart scenes, heat ramps, avatar tints) rather than to a class.
+   Light by default, dark under .dark (src/lib/theme.ts). The surface tokens they sit on live in globals.css. */
+:root {
+  /* chart-kit.tsx THEME and GRID: value labels, axis ticks, gridlines */
+  --a2-chart-fg: oklch(0.28 0.01 285);
+  --a2-chart-muted: oklch(0.52 0.012 285);
+  --a2-chart-grid: oklch(0.21 0.012 285 / 10%);
+  /* labels drawn beside marks (Sankey) */
+  --a2-chart-label: oklch(0.34 0.01 285);
+  /* the outline round a focused cell (Heatmap, Treemap) */
+  --a2-chart-focus: oklch(0.21 0.012 285);
+  /* the other series while one is highlighted */
+  --a2-chart-mute-1: oklch(0.8 0.008 285);
+  --a2-chart-mute-2: oklch(0.74 0.008 285);
+  --a2-chart-mute-3: oklch(0.86 0.008 285);
+  --a2-chart-mute-4: oklch(0.7 0.008 285);
+  /* Heatmap: the empty end of the ramp, and the value text on a strong and on a weak cell */
+  --a2-heat-low: oklch(0.965 0.006 285);
+  --a2-heat-legend-low: oklch(0.965 0.006 285);
+  --a2-heat-ink-hi: oklch(0.2 0.02 292);
+  --a2-heat-ink-lo: oklch(0.32 0.01 285);
+  /* the built-in chart tooltip */
+  --a2-tooltip-bg: oklch(1 0 0 / 0.97);
+  --a2-tooltip-fg: oklch(0.22 0.008 285);
+  --a2-tooltip-border: 1px solid oklch(0.21 0.012 285 / 10%);
+  --a2-tooltip-shadow: 0 12px 32px oklch(0.21 0.012 285 / 14%);
+}
+.dark {
+  --a2-chart-fg: oklch(0.93 0.004 285);
+  --a2-chart-muted: oklch(0.6 0.012 285);
+  --a2-chart-grid: oklch(1 0 0 / 6.5%);
+  --a2-chart-label: oklch(0.86 0.008 285);
+  --a2-chart-focus: oklch(0.97 0 0);
+  --a2-chart-mute-1: oklch(0.47 0.012 285);
+  --a2-chart-mute-2: oklch(0.4 0.012 285);
+  --a2-chart-mute-3: oklch(0.54 0.012 285);
+  --a2-chart-mute-4: oklch(0.36 0.012 285);
+  --a2-heat-low: oklch(0.27 0.01 285);
+  --a2-heat-legend-low: oklch(0.24 0.008 285);
+  --a2-heat-ink-hi: oklch(0.18 0.02 292);
+  --a2-heat-ink-lo: oklch(0.86 0.01 285);
+  --a2-tooltip-bg: oklch(0.2 0.006 285 / 0.94);
+  --a2-tooltip-fg: oklch(0.95 0.004 285);
+  --a2-tooltip-border: 1px solid oklch(1 0 0 / 10%);
+  --a2-tooltip-shadow: 0 12px 32px oklch(0 0 0 / 45%);
+}
+
+/* Initials avatars (data.tsx): a soft tint of the name's hue, set inline as --a2-hue. */
+.a2-avatar-tint {
+  background: oklch(0.93 0.045 var(--a2-hue));
+  color: oklch(0.42 0.1 var(--a2-hue));
+}
+.dark .a2-avatar-tint {
+  background: oklch(0.32 0.06 var(--a2-hue));
+  color: oklch(0.9 0.06 var(--a2-hue));
+}

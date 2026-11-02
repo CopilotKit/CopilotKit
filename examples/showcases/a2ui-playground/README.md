@@ -12,6 +12,7 @@ A hosted version runs at https://web-production-d0431.up.railway.app.
 - **A real catalog.** The 69 Gen UI 2.0 standard components, 52 of the playground's own (shadcn/ui, TanStack Charts, MapLibre) and 3 macros, `FlightCard`, `ProductCard` and `WeatherReport`, that the server expands into standard components.
 - **Any design system.** The picker beside the model chooses what draws each surface: CopilotKit's standard catalog, ChatCN (shadcn/ui), Material (Material 3 Expressive), or a hand-written in-house set standing in for your own components. The agent's A2UI never changes; switching repaints every surface on the page, which is the point of a catalog: a contract, not a look. `src/design-systems/` swaps leaf components (Button, Badge, Stat, Heading and the like) and themes the rest; `?ds=chatcn`, `?ds=material` or `?ds=byoc` picks one in a link. Material's stylesheet and typeface load the first time it is picked.
 - **Chat first, with the code beside it.** Each prompt shows its UI inline as it paints. The side pane shows the selected surface's Express (or JSON) lines as they are written, the JSON with an editor (live preview, no model; then "Ask the model to change this"), and the run's timings.
+- **Light or dark, and embeddable.** Light by default, dark from the header or `?theme=dark`; `?embed=1` is a compact version for an iframe (see Embed it).
 - **Take it home.** `/start` is one Copy prompt for a coding agent (Claude Code, Cursor, Gemini CLI, Codex) that adds A2UI to an existing app for the design system you pick, plus the two lines it comes down to by hand. `/components` documents every component, `/catalog.json` and the agent skill download (`/api/skills?format=express&download=1`) carry the catalog to other renderers and agents, `/evals` shows per-model scores (`pnpm evals`), and `examples/adk` is a Google ADK agent on the same catalog.
 
 ## Run it
@@ -49,15 +50,16 @@ The public site is one Railway service running `pnpm start` behind Railway's pro
 
 Set on Railway (keys come from the team's secret store; never commit one):
 
-| Variable                             |                                                                                                                                                                    |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `GEMINI_API_KEY`                     | Required. Gemini Flash, the default model. Use a key made for this deploy, so it can be revoked alone.                                                             |
-| `DISABLED_MODELS`                    | Comma-separated model ids (`gpt`, `gemma`) to show as unavailable without removing their keys. Set `gemma,gpt` on the public deploy unless you mean to offer them. |
-| `COPILOTKIT_TELEMETRY_DISABLED=true` | Optional. Turns off the CopilotKit runtime's usage telemetry.                                                                                                      |
-| `OPENAI_API_KEY`                     | Optional. Turns on GPT in the model picker.                                                                                                                        |
-| `AGENT_RUNS_PAUSED=1`                | The kill switch. Every agent route refuses runs, and the model picker says why.                                                                                    |
-| `AGENT_RUNS_PER_DAY`                 | Optional. Runs across every visitor per UTC day (default 3,000): the spend ceiling.                                                                                |
-| `AGENT_RUNS_PER_10_MIN`              | Optional. The per-visitor run limit (default 12).                                                                                                                  |
+| Variable                             |                                                                                                                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY`                     | Required. Gemini Flash, the default model. Use a key made for this deploy, so it can be revoked alone.                                                              |
+| `DISABLED_MODELS`                    | Comma-separated model ids (`gpt`, `gemma`) to show as unavailable without removing their keys. Set `gemma,gpt` on the public deploy unless you mean to offer them.  |
+| `COPILOTKIT_TELEMETRY_DISABLED=true` | Optional. Turns off the CopilotKit runtime's usage telemetry.                                                                                                       |
+| `OPENAI_API_KEY`                     | Optional. Turns on GPT in the model picker.                                                                                                                         |
+| `AGENT_RUNS_PAUSED=1`                | The kill switch. Every agent route refuses runs, and the model picker says why.                                                                                     |
+| `AGENT_RUNS_PER_DAY`                 | Optional. Runs across every visitor per UTC day (default 3,000): the spend ceiling.                                                                                 |
+| `AGENT_RUNS_PER_10_MIN`              | Optional. The per-visitor run limit (default 12).                                                                                                                   |
+| `FRAME_ANCESTORS`                    | Optional. More https origins that may show the playground in an iframe, space-separated, applied on the next deploy. `copilotkit.ai` and its subdomains always may. |
 
 Leave every `GEMMA_*` unset: Gemma on the shared Gemini key runs into its per-minute token limit, and without `GEMMA_BASE_URL` the picker tells visitors to run Gemma locally. Leave `ENABLE_MINIMAL`, `ENABLE_JEV`, `ENABLE_ADK` and `ENABLE_SNAPSHOT` unset too: in production `/minimal`, `/jev*`, `/adk`, `/snapshot` and their API routes answer 404 unless the matching one is `1` (`src/proxy.ts`). `/minimal` in particular is a stock agent on GPT-5.5 with no output cap that reads the visitor's whole chat (up to the 1 MB body cap).
 
@@ -83,6 +85,24 @@ A refused request gets a 429 (with `Retry-After`) or a 413, with a short message
 **Turning live runs off.** `AGENT_RUNS_PAUSED=1` makes every agent route refuse runs with "Live runs are paused on this server for now." The first-visit replay and `/watch` keep playing, since they never run the agent. Railway applies a variable change by redeploying the service, so time one before launch. To stop spending at once without a deploy, disable the key at the provider: runs then fail with a short error, and the replay still plays. After `AGENT_RUNS_PER_DAY` runs in a UTC day, runs are refused the same way until midnight UTC.
 
 **Spend.** A run makes at most 4 model calls (router, composer, one Express retry, a JSON fallback), each under the output caps above, so `AGENT_RUNS_PER_DAY` bounds a day's spend. It is not a budget: set one, with alerts, on the Google Cloud billing account behind the Gemini key (and on the OpenAI project, if GPT is on).
+
+## Embed it
+
+The website and docs show the playground in an iframe. `?embed=1` drops the site's navigation for a compact header with an "Open full playground" link, starts with the code pane closed, and fits frames down to 400 px square:
+
+```html
+<iframe
+  src="https://web-production-d0431.up.railway.app/?embed=1&ds=material"
+  width="600"
+  height="600"
+  title="A2UI Playground by CopilotKit"
+  allow="clipboard-write"
+  loading="lazy"
+  style="border: 0; border-radius: 16px"
+></iframe>
+```
+
+The page is light unless it is opened with `?theme=dark` (for a dark page) or the visitor picks dark in the header. `?ds=` picks the design system (`copilotkit`, `chatcn`, `material`, `byoc`). Only `copilotkit.ai`, its subdomains and the origins in `FRAME_ANCESTORS` may frame it (`Content-Security-Policy: frame-ancestors`). Runs from an embed spend the same key under the same limits as the site, so a busy launch page brings the day's ceiling closer.
 
 ## Use it in your app
 

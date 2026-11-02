@@ -8,8 +8,9 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type Ref,
 } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, PanelRightClose } from "lucide-react";
 import { highlightExpress, highlightJson } from "@/components/app/json-view";
 import { cn } from "@/lib/utils";
 import type { TimelineEvent } from "@/lib/run-store";
@@ -64,9 +65,24 @@ function SlidingTabs({
   const [pill, setPill] = useState<{ x: number; w: number } | null>(null);
   const ids = tabs.map(([t]) => t);
   const labels = tabs.map(([, l]) => l).join("|");
+  // Measured again whenever the tabs change size: the panel can mount hidden (collapsed, or the phone sheet
+  // before it opens), where every tab measures 0, and the web font can land after the first measure.
   useLayoutEffect(() => {
-    const el = bar.current?.querySelector<HTMLElement>(`[data-tab="${tab}"]`);
-    setPill(el ? { x: el.offsetLeft, w: el.offsetWidth } : null);
+    const root = bar.current;
+    if (!root) return;
+    const measure = () => {
+      const el = root.querySelector<HTMLElement>(`[data-tab="${tab}"]`);
+      setPill(
+        el && el.offsetWidth ? { x: el.offsetLeft, w: el.offsetWidth } : null,
+      );
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    root
+      .querySelectorAll<HTMLElement>("[data-tab]")
+      .forEach((t) => ro.observe(t));
+    return () => ro.disconnect();
   }, [tab, labels]);
   return (
     <div
@@ -109,7 +125,7 @@ function SlidingTabs({
 /**
  * "<Model> writes": the lines of the selected surface as the model writes them (Express, or JSON for a
  * JSON run), the whole surface as JSON with the editor, and the run's timings. Beside the conversation
- * from 900px; on a phone it opens over it, with a way back.
+ * from 900px, where it collapses to a rail; on a phone it opens over it, with a way back.
  */
 export const WritesPane = forwardRef<HTMLButtonElement, WritesPaneProps>(
   function WritesPane(
@@ -125,6 +141,8 @@ export const WritesPane = forwardRef<HTMLButtonElement, WritesPaneProps>(
       jsonWide,
       onJsonWide,
       onBack,
+      onCollapse,
+      collapseRef,
       className,
     },
     backRef,
@@ -137,7 +155,9 @@ export const WritesPane = forwardRef<HTMLButtonElement, WritesPaneProps>(
     const count = shown.lines.filter((l) => l.kind === "line").length;
     return (
       <section
+        id="wb-writes-pane"
         aria-labelledby="wb-writes"
+        data-wb-pane
         className={cn("wb-col flex min-h-0 flex-col", className)}
         onKeyDown={(e) => {
           // Phones: Escape goes back to the conversation (unless something inside used it, like unpinning a line).
@@ -149,7 +169,10 @@ export const WritesPane = forwardRef<HTMLButtonElement, WritesPaneProps>(
             onBack();
         }}
       >
-        <div className="flex h-[52px] flex-none items-center justify-between gap-3 border-b border-[var(--pg-line)] px-5 max-[899px]:pl-2 max-[899px]:pr-4">
+        <div
+          className="flex h-[52px] flex-none items-center justify-between gap-3 border-b border-[var(--pg-line)] px-5 max-[899px]:pl-2 max-[899px]:pr-4 min-[900px]:pr-2.5"
+          data-wb-pane-head
+        >
           <div className="flex min-w-0 items-center gap-1">
             <button
               ref={backRef}
@@ -175,18 +198,40 @@ export const WritesPane = forwardRef<HTMLButtonElement, WritesPaneProps>(
               {title}
             </h2>
           </div>
-          <span
-            className="min-w-0 flex-none truncate font-mono text-[12px] text-[var(--pg-dim)]"
-            data-lines-label
-          >
-            <span className={cn(count > 0 && "max-[1279px]:hidden")}>
-              {shown.format === "json" ? "A2UI JSON" : "A2UI Express"}
+          <div className="flex min-w-0 flex-none items-center gap-1.5">
+            <span
+              className="min-w-0 flex-none truncate font-mono text-[12px] text-[var(--pg-dim)]"
+              data-lines-label
+            >
+              <span className={cn(count > 0 && "max-[1279px]:hidden")}>
+                {shown.format === "json" ? "A2UI JSON" : "A2UI Express"}
+              </span>
+              {count ? <span className="max-[1279px]:hidden"> · </span> : null}
+              {count ? `${count} ${count === 1 ? "line" : "lines"}` : ""}
             </span>
-            {count ? <span className="max-[1279px]:hidden"> · </span> : null}
-            {count ? `${count} ${count === 1 ? "line" : "lines"}` : ""}
-          </span>
+            {/* Beside the conversation only: folds the panel to the rail at the window's edge. */}
+            <button
+              ref={collapseRef}
+              type="button"
+              onClick={onCollapse}
+              aria-expanded
+              aria-controls="wb-writes-pane"
+              aria-label="Collapse panel"
+              title="Collapse panel"
+              data-wb-collapse
+              className={cn(
+                "hidden size-8 flex-none items-center justify-center rounded-md text-[var(--pg-dim)] transition-colors hover:bg-[oklch(var(--ink)/5%)] hover:text-foreground min-[900px]:inline-flex",
+                focusRing,
+              )}
+            >
+              <PanelRightClose className="size-4" aria-hidden />
+            </button>
+          </div>
         </div>
-        <div className="flex-none border-b border-[var(--pg-line)] px-4 py-2">
+        <div
+          className="flex-none border-b border-[var(--pg-line)] px-4 py-2"
+          data-wb-pane-tabs
+        >
           <SlidingTabs tabs={tabs} tab={tab} onChange={onTab} />
         </div>
         <div
@@ -233,6 +278,9 @@ type WritesPaneProps = {
   onJsonWide: (wide: boolean) => void;
   /** Phones: back to the conversation. */
   onBack: () => void;
+  /** 900px and up: fold the panel away, leaving the conversation the full width. */
+  onCollapse: () => void;
+  collapseRef?: Ref<HTMLButtonElement>;
   className?: string;
 };
 

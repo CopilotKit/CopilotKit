@@ -59,7 +59,7 @@ function systemPrompt(manifest: GenerativeUIManifest, text: boolean) {
   const reply = text
     ? 'Reply with exactly one JSON object, {"components":[...],"data":{...}}: no prose and no code fence.'
     : "Call render_a2ui exactly once.";
-  return `You compose A2UI v1.0 surfaces for a dark chat app, from the CopilotKit Gen UI 2.0 standard components plus this app's own components. ${reply}
+  return `You compose A2UI v1.0 surfaces for a chat app, from the CopilotKit Gen UI 2.0 standard components plus this app's own components. ${reply}
 
 FORMAT
 - Write ${text ? "the keys" : "args"} in this order: components, data.

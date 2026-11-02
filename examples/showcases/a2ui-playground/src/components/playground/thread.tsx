@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  createContext,
   memo,
+  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -49,8 +51,11 @@ export type Selection = {
   ops: A2UIOp[] | null;
 };
 
-/** `turnId` null: the recording. `open`: on a phone, open the Express view too. */
+/** `turnId` null: the recording. `open`: on a phone, open the Express view too (and beside the conversation, the collapsed panel). */
 export type OnSelect = (turnId: string | null, open: boolean) => void;
+
+/** Whether the selected surface's lines are on screen beside the conversation (900px and up, panel not collapsed). */
+export const LinesBeside = createContext(true);
 
 /**
  * The conversation: a compact intro, then each prompt with the UI it asked for, inline, painting as the
@@ -74,6 +79,8 @@ export function Thread({
   const showReplay =
     (replay.status === "playing" || replay.status === "ended") && replay.sent;
   const lastId = turns[turns.length - 1]?.id ?? null;
+  // Something to look at: in a small frame the hero then steps aside (compact.css), so the answer leads.
+  const started = showReplay || turns.length > 0;
 
   // The last turn is at least as tall as the view, so a new prompt can scroll to the top and its UI paints below it, in view.
   useLayoutEffect(() => {
@@ -182,7 +189,11 @@ export function Thread({
       }}
     >
       <div className="mx-auto w-full max-w-[844px] px-8 max-[1279px]:px-6 max-[899px]:px-4">
-        <header className="pb-8 pt-8 max-[1279px]:pt-7 max-[899px]:pb-6 max-[899px]:pt-5">
+        <header
+          className="pb-8 pt-8 max-[1279px]:pt-7 max-[899px]:pb-6 max-[899px]:pt-5"
+          data-wb-hero
+          data-started={started || undefined}
+        >
           <h1 className="text-balance text-[32px] font-semibold leading-[1.08] tracking-[-0.025em] max-[1279px]:text-[28px] max-[899px]:text-[25px]">
             Watch an&nbsp;agent write&nbsp;UI.
           </h1>
@@ -198,6 +209,7 @@ export function Thread({
           <ol
             aria-label="Conversation"
             className="flex flex-col gap-10 pb-6 max-[899px]:gap-8"
+            data-wb-turns
           >
             {showReplay ? (
               <ReplayTurn
@@ -230,7 +242,10 @@ export function Thread({
         </HoverArea>
 
         {!turns.length && !showReplay && replay.status === "off" ? (
-          <div className="rounded-[14px] border border-dashed border-[var(--pg-line-strong)] px-6 py-10 text-center">
+          <div
+            className="rounded-[14px] border border-dashed border-[var(--pg-line-strong)] px-6 py-10 text-center"
+            data-wb-empty
+          >
             <p className="text-[15px] font-medium text-foreground/90">
               Your UI draws here, in the conversation.
             </p>
@@ -404,7 +419,10 @@ const TurnView = memo(function TurnView({
 function Bubble({ text }: { text: string }) {
   return (
     <div className="flex justify-end">
-      <p className="max-w-[min(80%,560px)] whitespace-pre-wrap break-words rounded-[14px] border border-[var(--pg-line)] bg-[var(--pg-panel)] px-4 py-2.5 text-[14.5px] leading-[1.5] text-foreground max-[899px]:max-w-[88%]">
+      <p
+        className="max-w-[min(80%,560px)] whitespace-pre-wrap break-words rounded-[14px] border border-[var(--pg-line)] bg-[var(--pg-panel)] px-4 py-2.5 text-[14.5px] leading-[1.5] text-foreground max-[899px]:max-w-[88%]"
+        data-wb-bubble
+      >
         {text}
       </p>
     </div>
@@ -523,6 +541,7 @@ function SurfaceMeta({
   meta: React.ReactNode;
   children?: React.ReactNode;
 }) {
+  const beside = useContext(LinesBeside);
   return (
     <div className="mb-2 flex min-h-7 min-w-0 items-center gap-3">
       {chip ? (
@@ -531,7 +550,7 @@ function SurfaceMeta({
           data-code-chip
           aria-pressed={selected}
           title={
-            selected
+            selected && beside
               ? "These lines show beside the conversation"
               : "Show the lines that made this UI"
           }

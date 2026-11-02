@@ -95,7 +95,7 @@ export function Decision({
                 className={cn(
                   "jev-row-in flex items-center gap-3 rounded-lg border px-3 py-2 text-[15px]",
                   picked
-                    ? "border-[oklch(0.72_0.17_292/45%)] bg-[var(--jev-accent-soft)] text-foreground"
+                    ? "border-[color-mix(in_oklch,var(--jev-accent)_45%,transparent)] bg-[var(--jev-accent-soft)] text-foreground"
                     : "border-transparent text-muted-foreground",
                 )}
                 style={{ animationDelay: `${i * 40}ms` }}

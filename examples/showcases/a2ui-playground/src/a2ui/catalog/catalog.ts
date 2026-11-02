@@ -138,10 +138,29 @@ export const playgroundUI = createGenerativeUI({
   },
 });
 
-/** The playground's dark palette for the standard components (`--a2ui-*`). */
+/** The playground's palette for the standard components (`--a2ui-*`): light, and dark under `.dark`. */
 export const playgroundTheme: GenerativeUITheme = {
   "--a2ui-font-family":
     "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+  "--a2ui-color-surface": "oklch(1 0 0)",
+  "--a2ui-color-surface-secondary": "oklch(0.97 0.003 285)",
+  "--a2ui-color-surface-elevated": "oklch(1 0 0)",
+  "--a2ui-color-surface-soft": "oklch(0.21 0.012 285 / 3%)",
+  "--a2ui-color-panel": "oklch(1 0 0)",
+  "--a2ui-color-border-default": "oklch(0.21 0.012 285 / 9%)",
+  "--a2ui-color-border-subtle": "oklch(0.21 0.012 285 / 6%)",
+  "--a2ui-color-border-strong": "oklch(0.21 0.012 285 / 15%)",
+  "--a2ui-color-text-default": "oklch(0.2 0.008 285)",
+  "--a2ui-color-text-secondary": "oklch(0.47 0.014 285)",
+  "--a2ui-color-accent": "oklch(0.52 0.2 292)",
+  "--a2ui-color-on-accent": "oklch(0.985 0.005 292)",
+  "--a2ui-chart-1": "oklch(0.55 0.2 292)",
+  "--a2ui-chart-2": "oklch(0.58 0.13 230)",
+  "--a2ui-chart-3": "oklch(0.6 0.14 162)",
+  "--a2ui-chart-4": "oklch(0.7 0.15 72)",
+  "--a2ui-chart-5": "oklch(0.6 0.2 18)",
+  "--a2ui-chart-6": "oklch(0.6 0.03 285)",
+  "--a2ui-radius-lg": "14px",
   dark: {
     "--a2ui-color-surface": "oklch(0.172 0.005 285)",
     "--a2ui-color-surface-secondary": "oklch(0.205 0.006 285)",

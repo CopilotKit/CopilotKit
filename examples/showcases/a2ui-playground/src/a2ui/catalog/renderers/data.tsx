@@ -1,5 +1,6 @@
 "use client";
 
+import "./renderers.css";
 import { useMemo, type ReactNode } from "react";
 import {
   columnFilteringFeature,
@@ -88,9 +89,10 @@ export const TONE: Record<
 > = {
   default: {
     text: "text-foreground/85",
-    soft: "bg-white/[0.06] text-foreground/85 border-white/[0.08]",
+    soft: "bg-black/[0.06] dark:bg-white/[0.06] text-foreground/85 border-black/[0.08] dark:border-white/[0.08]",
     solid: "bg-foreground/90 text-background border-transparent",
-    outline: "border-white/[0.14] text-foreground/85 bg-transparent",
+    outline:
+      "border-black/[0.14] dark:border-white/[0.14] text-foreground/85 bg-transparent",
     dot: "bg-muted-foreground",
     bar: "[&_[data-slot=progress-indicator]]:bg-foreground/70",
     color: "var(--muted-foreground)",
@@ -98,7 +100,8 @@ export const TONE: Record<
   positive: {
     text: "text-(--a2-positive)",
     soft: "bg-[color-mix(in_oklch,var(--a2-positive)_13%,transparent)] text-(--a2-positive) border-[color-mix(in_oklch,var(--a2-positive)_24%,transparent)]",
-    solid: "bg-(--a2-positive) text-black/80 border-transparent",
+    solid:
+      "bg-(--a2-positive) text-[#fff] dark:text-black/80 border-transparent",
     outline:
       "border-[color-mix(in_oklch,var(--a2-positive)_45%,transparent)] text-(--a2-positive) bg-transparent",
     dot: "bg-(--a2-positive)",
@@ -108,7 +111,8 @@ export const TONE: Record<
   negative: {
     text: "text-(--a2-negative)",
     soft: "bg-[color-mix(in_oklch,var(--a2-negative)_13%,transparent)] text-(--a2-negative) border-[color-mix(in_oklch,var(--a2-negative)_24%,transparent)]",
-    solid: "bg-(--a2-negative) text-black/80 border-transparent",
+    solid:
+      "bg-(--a2-negative) text-[#fff] dark:text-black/80 border-transparent",
     outline:
       "border-[color-mix(in_oklch,var(--a2-negative)_45%,transparent)] text-(--a2-negative) bg-transparent",
     dot: "bg-(--a2-negative)",
@@ -128,7 +132,7 @@ export const TONE: Record<
   info: {
     text: "text-(--a2-info)",
     soft: "bg-[color-mix(in_oklch,var(--a2-info)_13%,transparent)] text-(--a2-info) border-[color-mix(in_oklch,var(--a2-info)_24%,transparent)]",
-    solid: "bg-(--a2-info) text-black/80 border-transparent",
+    solid: "bg-(--a2-info) text-[#fff] dark:text-black/80 border-transparent",
     outline:
       "border-[color-mix(in_oklch,var(--a2-info)_45%,transparent)] text-(--a2-info) bg-transparent",
     dot: "bg-(--a2-info)",
@@ -138,7 +142,7 @@ export const TONE: Record<
   accent: {
     text: "text-(--a2-accent)",
     soft: "bg-[color-mix(in_oklch,var(--a2-accent)_14%,transparent)] text-(--a2-accent) border-[color-mix(in_oklch,var(--a2-accent)_26%,transparent)]",
-    solid: "bg-(--a2-accent) text-black/80 border-transparent",
+    solid: "bg-(--a2-accent) text-[#fff] dark:text-black/80 border-transparent",
     outline:
       "border-[color-mix(in_oklch,var(--a2-accent)_45%,transparent)] text-(--a2-accent) bg-transparent",
     dot: "bg-(--a2-accent)",
@@ -546,7 +550,7 @@ function DataTableView({
                     <TableHead
                       key={header.id}
                       className={cn(
-                        "h-9 bg-white/[0.015] px-4 text-[11.5px] font-medium text-muted-foreground",
+                        "h-9 bg-black/[0.015] dark:bg-white/[0.015] px-4 text-[11.5px] font-medium text-muted-foreground",
                         right && "text-right",
                       )}
                     >
@@ -579,7 +583,7 @@ function DataTableView({
             {table.getRowModel().rows.map((row) => (
               <TableRow
                 key={row.id}
-                className="border-(--a2-line) hover:bg-white/[0.025]"
+                className="border-(--a2-line) hover:bg-black/[0.025] dark:hover:bg-white/[0.025]"
               >
                 {row.getAllCells().map((cell) => {
                   const col = columns.find((c) => c.key === cell.column.id);
@@ -742,7 +746,7 @@ export const dataRenderers: RendererMap<DataKeys> = {
               className={cn(
                 "grid size-6 shrink-0 place-items-center rounded-md border",
                 tone === "default"
-                  ? "border-white/[0.08] bg-white/[0.04] text-muted-foreground"
+                  ? "border-black/[0.08] dark:border-white/[0.08] bg-black/[0.04] dark:bg-white/[0.04] text-muted-foreground"
                   : TONE[tone].soft,
               )}
             >
@@ -808,17 +812,14 @@ export const dataRenderers: RendererMap<DataKeys> = {
           {props.image ? <AvatarImage src={props.image} alt={name} /> : null}
           <AvatarFallback
             className={cn(
-              "font-medium",
+              "a2-avatar-tint font-medium",
               size === "lg"
                 ? "text-[14px]"
                 : size === "sm"
                   ? "text-[10px]"
                   : "text-[12px]",
             )}
-            style={{
-              background: `oklch(0.32 0.06 ${hue})`,
-              color: `oklch(0.9 0.06 ${hue})`,
-            }}
+            style={{ "--a2-hue": hue } as React.CSSProperties}
           >
             {initials(name)}
           </AvatarFallback>
@@ -878,11 +879,8 @@ export const dataRenderers: RendererMap<DataKeys> = {
                         <AvatarImage src={p.image} alt={name} />
                       ) : null}
                       <AvatarFallback
-                        className="text-[11px] font-medium"
-                        style={{
-                          background: `oklch(0.32 0.06 ${hue})`,
-                          color: `oklch(0.9 0.06 ${hue})`,
-                        }}
+                        className="a2-avatar-tint text-[11px] font-medium"
+                        style={{ "--a2-hue": hue } as React.CSSProperties}
                       >
                         {initials(name)}
                       </AvatarFallback>
@@ -1078,7 +1076,10 @@ export const dataRenderers: RendererMap<DataKeys> = {
         </div>
         <Progress
           value={v}
-          className={cn("h-1.5 bg-white/[0.07]", TONE[tone].bar)}
+          className={cn(
+            "h-1.5 bg-black/[0.07] dark:bg-white/[0.07]",
+            TONE[tone].bar,
+          )}
         />
         {props.caption ? (
           <span className="text-[11px] text-muted-foreground/80">
@@ -1133,7 +1134,7 @@ export const dataRenderers: RendererMap<DataKeys> = {
               return (
                 <span key={i} className="relative size-4">
                   <Star
-                    className="absolute inset-0 size-4 fill-white/[0.08] text-white/[0.12]"
+                    className="absolute inset-0 size-4 fill-black/[0.08] dark:fill-white/[0.08] text-black/[0.12] dark:text-white/[0.12]"
                     strokeWidth={1.5}
                   />
                   <span
@@ -1346,7 +1347,7 @@ export const dataRenderers: RendererMap<DataKeys> = {
               return (
                 <TableRow
                   key={ri}
-                  className="border-(--a2-line) hover:bg-white/[0.02]"
+                  className="border-(--a2-line) hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
                 >
                   <TableCell className="px-4 py-2.5 text-[12.5px] whitespace-normal text-foreground/85">
                     {str(r.feature)}

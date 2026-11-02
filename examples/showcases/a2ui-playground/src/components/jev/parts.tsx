@@ -42,21 +42,22 @@ export function JevBar({
         ×
       </span>
       {jev ? (
-        // TypeSafe's mark (cropped from the official logo) with the model name.
+        // TypeSafe's mark (cropped from the official logo) with the model name. The mark is drawn in white:
+        // inverted to black on the light page.
         <span className="flex items-center gap-2 text-foreground">
           <img
             src="/brand/typesafe-mark.svg"
             alt="TypeSafe"
-            className="h-[28px] w-auto"
+            className="h-[28px] w-auto invert dark:invert-0"
           />
           <span className="text-[24px] font-semibold tracking-tight">Jev</span>
         </span>
       ) : (
-        // Official TypeSafe AI logo, from typesafe.ai
+        // Official TypeSafe AI logo, from typesafe.ai (white; inverted to black on the light page)
         <img
           src="/brand/typesafe-ai.svg"
           alt="TypeSafe AI"
-          className="h-[27px] w-auto"
+          className="h-[27px] w-auto invert dark:invert-0"
         />
       )}
       {right ? (
@@ -303,7 +304,9 @@ export function Timing({
       {state.phase === "idle" ? (
         <span className="text-muted-foreground">Press Enter to ask Jev</span>
       ) : state.phase === "error" ? (
-        <span className="text-[oklch(0.75_0.15_25)]">{state.message}</span>
+        <span className="text-[oklch(0.52_0.18_25)] dark:text-[oklch(0.75_0.15_25)]">
+          {state.message}
+        </span>
       ) : state.phase === "running" ? (
         <>
           <Dot pulse />

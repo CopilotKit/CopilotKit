@@ -52,7 +52,7 @@ const NEXT: Array<{
 
 export default function StartPage() {
   return (
-    <div className="pg-root min-h-[100dvh] bg-black">
+    <div className="pg-root min-h-[100dvh] dark:bg-black">
       <SiteHeader active="start" />
       <main>
         <section className="landing-container pb-16 pt-16 sm:pt-20">
@@ -79,7 +79,7 @@ export default function StartPage() {
             <div className="mt-8 grid gap-4 md:grid-cols-2">
               {NEXT.map((n) => {
                 const className =
-                  "group flex flex-col rounded-xl border border-border bg-white/[0.02] p-6 transition-colors hover:border-[oklch(1_0_0/16%)] hover:bg-white/[0.035]";
+                  "group flex flex-col rounded-xl border border-border bg-card shadow-[0_1px_2px_oklch(var(--ink)/5%)] p-6 transition-colors hover:border-[oklch(var(--ink)/16%)] dark:bg-white/[0.02] dark:shadow-none dark:hover:bg-white/[0.035]";
                 const Icon = n.download
                   ? Download
                   : n.external

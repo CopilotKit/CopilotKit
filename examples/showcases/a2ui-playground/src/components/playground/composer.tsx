@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type FormEvent,
   type KeyboardEvent,
 } from "react";
@@ -52,6 +53,24 @@ export const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--wb-violet-ring)]";
 
 /**
+ * A short window or a small square (an iframe on CopilotKit's site, a landscape phone): the chrome around the
+ * answer shrinks. The same query is in compact.css, which does the shrinking; this is for what CSS cannot change.
+ */
+export const COMPACT =
+  "(max-height: 700px), (max-width: 899px) and (max-height: 860px) and (min-aspect-ratio: 3/4)";
+const subscribeCompact = (fn: () => void) => {
+  const mq = matchMedia(COMPACT);
+  mq.addEventListener("change", fn);
+  return () => mq.removeEventListener("change", fn);
+};
+export const useCompact = () =>
+  useSyncExternalStore(
+    subscribeCompact,
+    () => matchMedia(COMPACT).matches,
+    () => false,
+  );
+
+/**
  * Keeps a wrapping list to its first two rows: items that would start a third are hidden (and so leave the
  * tab order), measured again whenever the list changes width.
  */
@@ -62,6 +81,8 @@ function useTwoRows(ref: React.RefObject<HTMLElement | null>, on: boolean) {
     const fit = () => {
       const items = Array.from(list.children) as HTMLElement[];
       items.forEach((li) => (li.hidden = false));
+      // Compact: one row that scrolls sideways (compact.css), so every prompt stays.
+      if (getComputedStyle(list).flexWrap === "nowrap") return;
       const rows = [...new Set(items.map((li) => li.offsetTop))].sort(
         (a, b) => a - b,
       );
@@ -79,24 +100,29 @@ function useTwoRows(ref: React.RefObject<HTMLElement | null>, on: boolean) {
       fit();
     });
     ro.observe(list);
+    // The list switches between two wrapping rows and one scrolling row without changing width.
+    const mq = matchMedia(COMPACT);
+    mq.addEventListener("change", fit);
     return () => {
       live = false;
       ro.disconnect();
+      mq.removeEventListener("change", fit);
     };
   }, [ref, on]);
 }
 
 /** A swatch per design system, so the picker shows at a glance which one draws the surfaces. */
 const SWATCH: Record<DesignSystemId, string> = {
-  copilotkit: "bg-[oklch(0.72_0.17_292)]",
-  chatcn: "bg-[oklch(0.922_0_0)]",
+  copilotkit: "bg-[oklch(0.6_0.19_292)] dark:bg-[oklch(0.72_0.17_292)]",
+  // shadcn's primary: near-black on light, near-white on dark.
+  chatcn: "bg-[oklch(0.205_0_0)] dark:bg-[oklch(0.922_0_0)]",
   // Material's primary, in Material's own shape: the only round swatch.
-  material: "rounded-full bg-[#b2c5ff]",
+  material: "rounded-full bg-[#495d92] dark:bg-[#b2c5ff]",
   byoc: "bg-[#0b5cff]",
 };
 
 const trigger =
-  "h-8 flex-none rounded-lg border-[var(--pg-line-strong)] bg-transparent text-[13px] text-[var(--pg-dim)] hover:text-foreground dark:bg-transparent dark:hover:bg-white/[0.04]";
+  "h-8 flex-none rounded-lg border-[var(--pg-line-strong)] bg-transparent text-[13px] text-[var(--pg-dim)] hover:bg-[oklch(var(--ink)/4%)] hover:text-foreground dark:bg-transparent dark:hover:bg-[oklch(var(--ink)/4%)]";
 
 /**
  * The composer, pinned under the conversation: a few prompts to start from (until the visitor has asked
@@ -125,6 +151,7 @@ export function Composer({
   const box = useRef<HTMLTextAreaElement>(null);
   const chips = useRef<HTMLUListElement>(null);
   const noteId = useId();
+  const compact = useCompact();
   useTwoRows(chips, empty);
 
   // The queued prompt goes out once the run it waited for has ended.
@@ -198,10 +225,11 @@ export function Composer({
     <div className="wb-composer relative flex-none pb-4 pt-2 max-[899px]:pb-3">
       <div className="mx-auto w-full max-w-[844px] px-8 max-[1279px]:px-6 max-[899px]:px-4">
         {empty ? (
-          <div className="mb-2.5">
+          <div className="mb-2.5" data-wb-chips-wrap>
             <h2 className="sr-only">Try one</h2>
-            {/* At most two rows, so the conversation keeps its room: the prompts that would start a third are hidden. */}
-            <ul ref={chips} className="flex flex-wrap gap-1.5">
+            {/* At most two rows, so the conversation keeps its room: the prompts that would start a third are hidden.
+                In a small frame, one row that scrolls sideways (compact.css). */}
+            <ul ref={chips} className="flex flex-wrap gap-1.5" data-wb-chips>
               {SUGGESTIONS.map((s) => (
                 <li key={s.text} className="min-w-0 max-w-full">
                   <button
@@ -211,7 +239,7 @@ export function Composer({
                       go(s.text, s.tag === "macro" ? "dynamic" : undefined)
                     }
                     className={cn(
-                      "flex max-w-full items-center gap-2 rounded-[9px] border border-[var(--pg-line)] px-3 py-1.5 text-[13px] leading-snug text-[var(--pg-dim)] transition-colors hover:border-[var(--pg-line-strong)] hover:bg-white/[0.025] hover:text-foreground max-[899px]:rounded-full",
+                      "flex max-w-full items-center gap-2 rounded-[9px] border border-[var(--pg-line)] px-3 py-1.5 text-[13px] leading-snug text-[var(--pg-dim)] transition-colors hover:border-[var(--pg-line-strong)] hover:bg-[oklch(var(--ink)/3%)] dark:hover:bg-white/[0.025] hover:text-foreground max-[899px]:rounded-full",
                       focusRing,
                     )}
                   >
@@ -268,7 +296,7 @@ export function Composer({
         <form
           onSubmit={submit}
           aria-label="Ask for a UI"
-          className="wb-prompt rounded-[14px] border border-[var(--pg-line-strong)] bg-[var(--pg-surface)] shadow-[0_10px_30px_-12px_oklch(0_0_0/60%)] transition-[border-color,box-shadow] hover:border-[oklch(1_0_0/20%)] has-[textarea:focus-visible]:border-[var(--wb-violet)] has-[textarea:focus-visible]:shadow-[0_0_0_3px_var(--wb-violet-glow),0_10px_30px_-12px_oklch(0_0_0/60%)]"
+          className="wb-prompt rounded-[14px] border border-[var(--pg-line-strong)] bg-[var(--pg-surface)] shadow-[0_10px_30px_-12px_var(--pg-shadow)] transition-[border-color,box-shadow] hover:border-[oklch(var(--ink)/22%)] dark:hover:border-[oklch(1_0_0/20%)] has-[textarea:focus-visible]:border-[var(--wb-violet)] has-[textarea:focus-visible]:shadow-[0_0_0_3px_var(--wb-violet-glow),0_10px_30px_-12px_var(--pg-shadow)]"
         >
           <label htmlFor="wb-prompt" className="sr-only">
             What should the agent build?
@@ -291,126 +319,157 @@ export function Composer({
               if (ghost !== null) replay.stop();
             }}
             onKeyDown={onKeyDown}
-            rows={2}
+            rows={compact ? 1 : 2}
             aria-describedby={noteId}
-            placeholder="Ask for a UI, like a map of ramen spots in Osaka"
+            placeholder={
+              compact
+                ? "Ask for a UI, like a ramen map"
+                : "Ask for a UI, like a map of ramen spots in Osaka"
+            }
             className="block max-h-[168px] min-h-[54px] w-full resize-none bg-transparent px-3.5 pb-1 pt-3 text-[15.5px] leading-[1.45] text-foreground outline-none [field-sizing:content] placeholder:text-[var(--pg-dim)] max-[899px]:min-h-[46px] max-[899px]:text-[16px]"
           />
           <p id={noteId} className="sr-only">
             Enter builds it. Shift and Enter adds a line. While a run is going,
             Enter queues the prompt.
           </p>
-          <div className="flex flex-wrap items-center gap-2 px-2.5 pb-2.5 pt-1">
-            {/* The design system draws the answer; the model writes it. Switching it repaints every surface. */}
-            <Select
-              value={designSystem.id}
-              onValueChange={(v) => designSystem.setId(v as DesignSystemId)}
-            >
-              <SelectTrigger
-                size="sm"
-                aria-label="Design system"
-                data-design-system-picker
-                className={trigger}
+          <div
+            className="flex flex-wrap items-center gap-2 px-2.5 pb-2.5 pt-1"
+            data-wb-controls
+          >
+            {/* The pickers. A box of their own only in a small frame, where they scroll sideways in one row. */}
+            <div className="contents" data-wb-pickers>
+              {/* The design system draws the answer; the model writes it. Switching it repaints every surface. */}
+              <Select
+                value={designSystem.id}
+                onValueChange={(v) => designSystem.setId(v as DesignSystemId)}
               >
-                <SelectValue>
-                  <span className="flex items-center gap-2">
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "size-2 flex-none rounded-[3px]",
-                        SWATCH[designSystem.id],
-                      )}
-                    />
-                    {designSystemLabel(designSystem.id)}
-                  </span>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent position="popper" align="start" side="top">
-                {DESIGN_SYSTEMS.map((d) => (
-                  <SelectItem key={d.id} value={d.id} data-design-system={d.id}>
-                    <span className="flex items-start gap-2.5">
+                <SelectTrigger
+                  size="sm"
+                  aria-label="Design system"
+                  data-design-system-picker
+                  className={trigger}
+                >
+                  <SelectValue>
+                    <span className="flex items-center gap-2">
                       <span
                         aria-hidden
                         className={cn(
-                          "mt-[5px] size-2 flex-none rounded-[3px]",
-                          SWATCH[d.id],
+                          "size-2 flex-none rounded-[3px]",
+                          SWATCH[designSystem.id],
                         )}
                       />
-                      <span className="flex flex-col items-start gap-0.5">
-                        <span>
-                          {d.label}{" "}
-                          <span className="text-muted-foreground">
-                            {d.note}
+                      {designSystemLabel(designSystem.id)}
+                    </span>
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent position="popper" align="start" side="top">
+                  {DESIGN_SYSTEMS.map((d) => (
+                    <SelectItem
+                      key={d.id}
+                      value={d.id}
+                      data-design-system={d.id}
+                    >
+                      <span className="flex items-start gap-2.5">
+                        <span
+                          aria-hidden
+                          className={cn(
+                            "mt-[5px] size-2 flex-none rounded-[3px]",
+                            SWATCH[d.id],
+                          )}
+                        />
+                        <span className="flex flex-col items-start gap-0.5">
+                          <span>
+                            {d.label}{" "}
+                            <span className="text-muted-foreground">
+                              {d.note}
+                            </span>
+                          </span>
+                          <span className="max-w-[17rem] text-[11.5px] leading-snug text-muted-foreground">
+                            {d.hint}
                           </span>
                         </span>
-                        <span className="max-w-[17rem] text-[11.5px] leading-snug text-muted-foreground">
-                          {d.hint}
-                        </span>
                       </span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={model} onValueChange={(v) => setModel(v as ModelId)}>
-              <SelectTrigger
-                size="sm"
-                aria-label="Model"
-                data-model-picker
-                className={trigger}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={model}
+                onValueChange={(v) => setModel(v as ModelId)}
               >
-                <SelectValue>{modelLabel(model)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent position="popper" align="start" side="top">
-                {models.map((m) => (
-                  <SelectItem
-                    key={m.id}
-                    value={m.id}
-                    data-model={m.id}
-                    disabled={!m.available}
-                  >
-                    <span className="flex flex-col items-start gap-0.5">
-                      <span>
-                        {m.label}{" "}
-                        <span className="text-muted-foreground">{m.note}</span>
+                <SelectTrigger
+                  size="sm"
+                  aria-label="Model"
+                  data-model-picker
+                  className={trigger}
+                >
+                  <SelectValue>{modelLabel(model)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent position="popper" align="start" side="top">
+                  {models.map((m) => (
+                    <SelectItem
+                      key={m.id}
+                      value={m.id}
+                      data-model={m.id}
+                      disabled={!m.available}
+                    >
+                      <span className="flex flex-col items-start gap-0.5">
+                        <span>
+                          {m.label}{" "}
+                          <span className="text-muted-foreground">
+                            {m.note}
+                          </span>
+                        </span>
+                        {!m.available && m.reason ? (
+                          <span className="max-w-[16rem] text-[11.5px] leading-snug text-muted-foreground">
+                            Not available here. {m.reason}
+                          </span>
+                        ) : null}
                       </span>
-                      {!m.available && m.reason ? (
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={format}
+                onValueChange={(v) => setFormat(v as Format)}
+              >
+                <SelectTrigger
+                  size="sm"
+                  aria-label="Format the model writes"
+                  data-format-picker
+                  className={trigger}
+                >
+                  <SelectValue>
+                    {FORMAT_OPTIONS.find((f) => f.id === format)?.label}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent position="popper" align="start" side="top">
+                  {FORMAT_OPTIONS.map((f) => (
+                    <SelectItem key={f.id} value={f.id} data-format={f.id}>
+                      <span className="flex flex-col items-start gap-0.5">
+                        <span>{f.label}</span>
                         <span className="max-w-[16rem] text-[11.5px] leading-snug text-muted-foreground">
-                          Not available here. {m.reason}
+                          {f.hint}
                         </span>
-                      ) : null}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={format}
-              onValueChange={(v) => setFormat(v as Format)}
-            >
-              <SelectTrigger
-                size="sm"
-                aria-label="Format the model writes"
-                data-format-picker
-                className={trigger}
-              >
-                <SelectValue>
-                  {FORMAT_OPTIONS.find((f) => f.id === format)?.label}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent position="popper" align="start" side="top">
-                {FORMAT_OPTIONS.map((f) => (
-                  <SelectItem key={f.id} value={f.id} data-format={f.id}>
-                    <span className="flex flex-col items-start gap-0.5">
-                      <span>{f.label}</span>
-                      <span className="max-w-[16rem] text-[11.5px] leading-snug text-muted-foreground">
-                        {f.hint}
                       </span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {/* Small frames: the "Or start without AI" line folds in here. */}
+              <button
+                type="button"
+                onClick={onStartWithoutAI}
+                data-wb-no-ai-inline
+                className={cn(
+                  "hidden h-8 flex-none items-center whitespace-nowrap rounded-lg px-2 text-[12.5px] font-medium text-[var(--pg-dim)] underline decoration-[var(--pg-line-strong)] underline-offset-4 transition-colors hover:text-foreground hover:decoration-foreground",
+                  focusRing,
+                )}
+              >
+                Start without AI
+              </button>
+            </div>
             {started ? (
               <button
                 type="button"
@@ -433,7 +492,7 @@ export function Composer({
                 onClick={stop}
                 data-stop
                 className={cn(
-                  "ml-auto inline-flex h-9 flex-none items-center gap-2 rounded-[9px] border border-[var(--pg-line-strong)] bg-[var(--pg-raised)] px-3.5 text-[14px] font-medium text-foreground transition-colors hover:bg-[oklch(0.25_0.006_285)]",
+                  "ml-auto inline-flex h-9 flex-none items-center gap-2 rounded-[9px] border border-[var(--pg-line-strong)] bg-[var(--pg-raised)] px-3.5 text-[14px] font-medium text-foreground transition-colors hover:bg-[oklch(0.925_0.005_285)] dark:hover:bg-[oklch(0.25_0.006_285)]",
                   focusRing,
                 )}
               >
@@ -449,14 +508,17 @@ export function Composer({
                   focusRing,
                 )}
               >
-                Build it
+                <span data-build-label>Build it</span>
                 <ArrowUp className="size-4" aria-hidden />
               </button>
             )}
           </div>
         </form>
 
-        <p className="mt-2 text-[13px] leading-snug text-[var(--pg-dim)] max-[899px]:text-[12.5px]">
+        <p
+          className="mt-2 text-[13px] leading-snug text-[var(--pg-dim)] max-[899px]:text-[12.5px]"
+          data-wb-no-ai-line
+        >
           Or{" "}
           <button
             type="button"

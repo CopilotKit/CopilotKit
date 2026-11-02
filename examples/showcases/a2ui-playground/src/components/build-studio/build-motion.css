@@ -39,11 +39,15 @@
   --pin-drop-dur: 500ms;
   --pin-drop-distance: 14px;
   --pin-stagger: 90ms;
-  /* transitions.dev matrix loader, dark values */
+  /* transitions.dev matrix loader: light values, dark ones below */
   --matrix-cycle: 1200ms;
+  --matrix-base: #dcdce1;
+  --matrix-active: #6e6e78;
+  --matrix-ease: ease-in-out;
+}
+.dark .bs-root {
   --matrix-base: #3a3a40;
   --matrix-active: #a3a3ad;
-  --matrix-ease: ease-in-out;
 }
 
 /* recipe / slot placeholder (transitions.dev skeleton loader) */

@@ -22,7 +22,7 @@ const data = results as unknown as EvalData;
 
 function C({ children }: { children: React.ReactNode }) {
   return (
-    <code className="rounded-[5px] bg-white/[0.07] px-1.5 py-0.5 font-mono text-[0.86em] text-foreground">
+    <code className="rounded-[5px] bg-black/[0.07] dark:bg-white/[0.07] px-1.5 py-0.5 font-mono text-[0.86em] text-foreground">
       {children}
     </code>
   );
@@ -47,7 +47,7 @@ export default function EvalsPage() {
     ...new Set(data.runs.filter(hasScores).map((r) => r.composer)),
   ];
   return (
-    <div className="pg-root min-h-[100dvh] bg-black">
+    <div className="pg-root min-h-[100dvh] dark:bg-black">
       <SiteHeader active="evals" />
       <main>
         <section className="landing-container pb-12 pt-20">
@@ -57,14 +57,14 @@ export default function EvalsPage() {
           {data.label ? (
             <div
               data-eval-label
-              className="mt-8 flex max-w-[80ch] items-start gap-3.5 rounded-xl border border-amber-400/40 bg-amber-400/[0.08] px-5 py-4 text-amber-100"
+              className="mt-8 flex max-w-[80ch] items-start gap-3.5 rounded-xl border border-amber-400/40 bg-amber-400/[0.08] px-5 py-4 text-amber-800 dark:text-amber-100"
             >
-              <TriangleAlert className="mt-1 size-5 flex-none text-amber-300" />
+              <TriangleAlert className="mt-1 size-5 flex-none text-amber-700 dark:text-amber-300" />
               <div>
                 <p className="text-[18px] font-semibold leading-snug">
                   These are not model results.
                 </p>
-                <p className="mt-1.5 text-[15px] leading-relaxed text-amber-100/85">
+                <p className="mt-1.5 text-[15px] leading-relaxed text-amber-800/85 dark:text-amber-100/85">
                   This run used a {data.label}: a scripted stand-in that returns
                   the same canned surfaces whatever it is asked. It checks the
                   harness, not any model, so no model is named below and

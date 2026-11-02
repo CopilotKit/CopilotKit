@@ -39,7 +39,7 @@ export function CompareView() {
                   className={cn(
                     "jev-row-in flex items-center gap-2 rounded-full border px-3 py-1 text-[13.5px]",
                     picked
-                      ? "border-[oklch(0.72_0.17_292/50%)] bg-[var(--jev-accent-soft)] text-foreground"
+                      ? "border-[color-mix(in_oklch,var(--jev-accent)_50%,transparent)] bg-[var(--jev-accent-soft)] text-foreground"
                       : "border-[var(--jev-line)] text-muted-foreground",
                   )}
                   style={{ animationDelay: `${i * 40}ms` }}

@@ -5,6 +5,7 @@ import "@/design-systems/design-systems.css";
 import { Geist, Geist_Mono } from "next/font/google";
 import { StaticGenUIProvider } from "@/components/app/static-surface";
 import { SkipLink } from "@/components/site/site-header";
+import { THEME_SCRIPT } from "@/lib/theme-script";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
@@ -22,11 +23,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
+    // The theme script may add `dark` before React hydrates, so <html>'s class and color-scheme can differ from the server's.
     <html
       lang="en"
-      className={cn("dark", "font-sans", geist.variable, geistMono.variable)}
-      style={{ colorScheme: "dark" }}
+      className={cn("font-sans", geist.variable, geistMono.variable)}
+      style={{ colorScheme: "light" }}
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>
         <SkipLink />
         <StaticGenUIProvider>{children}</StaticGenUIProvider>

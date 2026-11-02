@@ -71,7 +71,7 @@ export function HeroView() {
                 </p>
               ) : null}
               {state.phase === "error" ? (
-                <p className="mt-2 text-[oklch(0.75_0.15_25)]">
+                <p className="mt-2 text-[oklch(0.52_0.18_25)] dark:text-[oklch(0.75_0.15_25)]">
                   {state.message}
                 </p>
               ) : null}

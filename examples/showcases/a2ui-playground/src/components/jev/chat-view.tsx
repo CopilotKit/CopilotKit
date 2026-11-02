@@ -203,7 +203,7 @@ function TurnView({
             <CopilotKitKite className="size-3.5 text-foreground" />
           </span>
           {turn.error ? (
-            <span className="text-[14px] text-[oklch(0.75_0.15_25)]">
+            <span className="text-[14px] text-[oklch(0.52_0.18_25)] dark:text-[oklch(0.75_0.15_25)]">
               {turn.error}
             </span>
           ) : turn.notice ? (

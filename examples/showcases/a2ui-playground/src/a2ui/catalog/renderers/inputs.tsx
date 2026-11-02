@@ -89,7 +89,7 @@ function Field({
 }
 
 const control =
-  "h-8.5 text-[13px] bg-white/[0.025] dark:bg-white/[0.025] border-white/[0.09] shadow-none";
+  "h-8.5 text-[13px] bg-transparent dark:bg-white/[0.025] border-input dark:border-white/[0.09] shadow-none";
 
 const buttonVariant = {
   default: "default",
@@ -257,13 +257,13 @@ export const inputRenderers: RendererMap<InputKeys> = {
           spacing={0}
           value={value}
           onValueChange={(v: string) => v && setValue(v)}
-          className="w-fit max-w-full overflow-x-auto rounded-lg border border-white/[0.09] bg-white/[0.025] p-0.5"
+          className="w-fit max-w-full overflow-x-auto rounded-lg border border-black/[0.09] dark:border-white/[0.09] bg-black/[0.025] dark:bg-white/[0.025] p-0.5"
         >
           {options.map((o) => (
             <ToggleGroupItem
               key={o.value}
               value={o.value}
-              className="h-7 rounded-md! px-3 text-[12.5px] font-medium text-muted-foreground data-[state=on]:bg-white/[0.09] data-[state=on]:text-foreground data-[state=on]:shadow-[0_1px_2px_oklch(0_0_0/35%)]"
+              className="h-7 rounded-md! px-3 text-[12.5px] font-medium text-muted-foreground data-[state=on]:bg-[#fff] dark:data-[state=on]:bg-white/[0.09] data-[state=on]:text-foreground data-[state=on]:shadow-[0_1px_2px_oklch(0.21_0.012_285/16%)] dark:data-[state=on]:shadow-[0_1px_2px_oklch(0_0_0/35%)]"
             >
               {o.label}
             </ToggleGroupItem>
@@ -312,7 +312,7 @@ export const inputRenderers: RendererMap<InputKeys> = {
                   "h-7 gap-1 rounded-full! border px-3 text-[12.5px] font-medium transition-colors",
                   on
                     ? "border-[color-mix(in_oklch,var(--a2-accent)_50%,transparent)] bg-[color-mix(in_oklch,var(--a2-accent)_14%,transparent)]! text-(--a2-accent)"
-                    : "border-white/[0.1] bg-white/[0.02] text-foreground/80 hover:bg-white/[0.05]",
+                    : "border-black/[0.1] dark:border-white/[0.1] bg-black/[0.02] dark:bg-white/[0.02] text-foreground/80 hover:bg-black/[0.05] dark:hover:bg-white/[0.05]",
                 )}
               >
                 {on ? <Check className="size-3" strokeWidth={2.75} /> : null}

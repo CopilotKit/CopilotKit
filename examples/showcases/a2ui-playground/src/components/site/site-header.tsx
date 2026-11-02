@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { useState, type SyntheticEvent } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { ArrowUpRight, Menu, X } from "lucide-react";
+import { ArrowUpRight, Menu, Moon, Sun, X } from "lucide-react";
 import "@/app/site.css";
+import { readStoredDesignSystem } from "@/design-systems/context";
+import { setTheme, useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { DOCS_URL, REPO_URL } from "@/components/start/links";
 import { A2UIMark, CopilotKitKite } from "./brand";
@@ -26,17 +29,35 @@ const NAV: Item[] = [
   { id: "start", label: "Get started", href: "/start" },
 ];
 
-/** Global site navbar: 64px, sticky, hairline bottom border. Below 960px (the width the links and the compact search need) the links move into a menu sheet. */
-export function SiteHeader({ active }: { active?: Active }) {
+const BAR = "site-header sticky top-0 z-40 w-full border-b border-border";
+
+/**
+ * Global site navbar: 64px, sticky, hairline bottom border. Below 960px (the width the links and the compact
+ * search need) the links move into a menu sheet. The playground shrinks it to 48px in a short window
+ * (compact.css). `embed` (the playground in an iframe): no nav, search or menu, which would navigate inside
+ * the frame; see EmbedHeader.
+ */
+export function SiteHeader({
+  active,
+  embed,
+}: {
+  active?: Active;
+  /** The page's query without `embed`, for the link out to the full playground. */
+  embed?: { query: string };
+}) {
+  if (embed) return <EmbedHeader query={embed.query} />;
   return (
-    <header className="site-header sticky top-0 z-40 w-full border-b border-border">
-      <div className="site-container flex h-[64px] min-w-0 items-center gap-3 min-[960px]:gap-5">
+    <header className={BAR}>
+      <div
+        className="site-container flex h-[64px] min-w-0 items-center gap-3 min-[960px]:gap-5"
+        data-site-bar
+      >
         <Link
           href="/"
           aria-label="A2UI Playground by CopilotKit, home"
           className="flex min-w-0 flex-none items-center gap-2.5 text-foreground"
         >
-          <A2UIMark className="size-[26px] flex-none" />
+          <A2UIMark className="size-[26px] flex-none" data-site-mark />
           {/* "by CopilotKit" credits the work without branding the page; on a phone it drops under the name. */}
           <span className="flex min-w-0 flex-col whitespace-nowrap min-[420px]:flex-row min-[420px]:items-baseline min-[420px]:gap-2">
             <span className="text-[17px] font-semibold leading-tight tracking-tight">
@@ -79,6 +100,7 @@ export function SiteHeader({ active }: { active?: Active }) {
               <GitHubIcon className="size-[17px]" />
             </a>
           ) : null}
+          <ThemeToggle />
           <div className="min-w-0">
             <CommandMenu />
           </div>
@@ -117,12 +139,97 @@ function NavLink({
   );
 }
 
+/**
+ * The playground in an iframe on CopilotKit's site or docs: 48px, the mark, the theme toggle and a way out to
+ * the full playground in a new tab. Nothing here navigates inside the frame.
+ */
+function EmbedHeader({ query }: { query: string }) {
+  const path = usePathname() || "/";
+  const theme = useTheme();
+  // The page as the visitor sees it now, without `embed`: read again on hover, focus and click, so a theme
+  // or design system picked inside the frame carries over. Both go in the link, since a frame on another
+  // site keeps its storage apart from the new tab's.
+  const refresh = (e: SyntheticEvent<HTMLAnchorElement>) => {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("embed");
+      url.searchParams.set("theme", theme);
+      const ds = readStoredDesignSystem();
+      if (ds) url.searchParams.set("ds", ds);
+      e.currentTarget.href = url.toString();
+    } catch {
+      // Keep the server's link.
+    }
+  };
+  return (
+    <header className={BAR} data-embed>
+      <div
+        className="site-container flex h-[48px] min-w-0 items-center gap-2"
+        data-site-bar
+      >
+        <span className="flex min-w-0 items-center gap-2 text-foreground">
+          <A2UIMark className="size-[22px] flex-none" />
+          <span className="truncate text-[15px] font-semibold leading-tight tracking-tight">
+            A2UI Playground
+          </span>
+          <span className="hidden flex-none items-center gap-1 whitespace-nowrap text-[12.5px] leading-tight text-muted-foreground min-[560px]:inline-flex">
+            by
+            <CopilotKitKite className="size-[12px] translate-y-[1px]" />
+            CopilotKit
+          </span>
+        </span>
+        <div className="ml-auto flex flex-none items-center gap-1.5">
+          <ThemeToggle />
+          <a
+            href={`${path}${query ? `?${query}` : ""}`}
+            target="_blank"
+            rel="noopener"
+            onPointerEnter={refresh}
+            onFocus={refresh}
+            onClick={refresh}
+            data-open-full
+            className="inline-flex h-8 flex-none items-center gap-1.5 rounded-md border border-border px-2.5 text-[13px] font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            {/* Under 440px: "Open", still named in full for screen readers. */}
+            <span className="max-[439px]:hidden">Open full playground</span>
+            <span className="min-[440px]:hidden">
+              Open<span className="sr-only"> full playground</span>
+            </span>
+            <ArrowUpRight className="size-3.5" aria-hidden />
+            <span className="sr-only"> (opens in a new tab)</span>
+          </a>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/** Light or dark for the whole site; the pick is remembered. */
+function ThemeToggle() {
+  const dark = useTheme() === "dark";
+  return (
+    <button
+      type="button"
+      onClick={() => setTheme(dark ? "light" : "dark")}
+      aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
+      title={dark ? "Light theme" : "Dark theme"}
+      className="flex size-8 flex-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+    >
+      {dark ? (
+        <Sun className="size-[17px]" />
+      ) : (
+        <Moon className="size-[17px]" />
+      )}
+    </button>
+  );
+}
+
 /** The nav as a sheet from the right, for screens under 960px. Radix handles focus, Escape and the backdrop. */
 function MenuSheet({ active }: { active?: Active }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
   const row =
-    "flex h-11 items-center rounded-md px-3 text-[16px] font-medium hover:bg-white/[0.05]";
+    "flex h-11 items-center rounded-md px-3 text-[16px] font-medium hover:bg-accent dark:hover:bg-white/[0.05]";
   return (
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
       <DialogPrimitive.Trigger
@@ -133,7 +240,7 @@ function MenuSheet({ active }: { active?: Active }) {
       </DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 motion-reduce:animate-none" />
-        <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-50 flex w-[min(320px,100%)] flex-col border-l border-border bg-[oklch(0.145_0.004_285)] p-4 shadow-2xl outline-none data-open:animate-in data-open:slide-in-from-right data-closed:animate-out data-closed:slide-out-to-right motion-reduce:animate-none">
+        <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-50 flex w-[min(320px,100%)] flex-col border-l border-border bg-background dark:bg-[oklch(0.145_0.004_285)] p-4 shadow-2xl outline-none data-open:animate-in data-open:slide-in-from-right data-closed:animate-out data-closed:slide-out-to-right motion-reduce:animate-none">
           <div className="flex h-10 items-center justify-between pl-3">
             <DialogPrimitive.Title className="text-[15px] font-semibold">
               Menu

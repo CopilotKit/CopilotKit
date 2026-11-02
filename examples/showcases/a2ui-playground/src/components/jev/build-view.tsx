@@ -246,7 +246,7 @@ function BuildTab({
           </p>
         )}
         {state.phase === "error" ? (
-          <p className="mt-3 text-[14px] text-[oklch(0.75_0.15_25)]">
+          <p className="mt-3 text-[14px] text-[oklch(0.52_0.18_25)] dark:text-[oklch(0.75_0.15_25)]">
             {state.message}
           </p>
         ) : null}

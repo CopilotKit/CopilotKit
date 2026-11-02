@@ -20,7 +20,7 @@ export const DESIGN_RULES = [
 
 export const CATALOG_TITLE = "A2UI Playground catalog";
 export const CATALOG_DESCRIPTION =
-  "CopilotKit's Gen UI 2.0 standard components plus the playground's charts, maps, data views, inputs and domain cards, for dark chat surfaces.";
+  "CopilotKit's Gen UI 2.0 standard components plus the playground's charts, maps, data views, inputs and domain cards, for chat surfaces.";
 
 export const catalogInstructions = () =>
   `## Design rules\n\n${DESIGN_RULES.map((r) => `- ${r}`).join("\n")}`;

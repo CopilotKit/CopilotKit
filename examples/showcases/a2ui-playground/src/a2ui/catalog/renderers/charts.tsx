@@ -98,10 +98,10 @@ const valueAxis = (
 
 /** Muted greys for the other series when one series is highlighted. */
 const MUTED = [
-  "oklch(0.47 0.012 285)",
-  "oklch(0.40 0.012 285)",
-  "oklch(0.54 0.012 285)",
-  "oklch(0.36 0.012 285)",
+  "var(--a2-chart-mute-1)",
+  "var(--a2-chart-mute-2)",
+  "var(--a2-chart-mute-3)",
+  "var(--a2-chart-mute-4)",
 ];
 
 function useStableSeries(rows: Row[], highlight?: string) {
@@ -810,7 +810,7 @@ export const chartRenderers: RendererMap<
       const shade = (v: unknown) => {
         const t = isNum(v) ? Math.max(0, Math.min(1, (v - min) / span)) : 0;
         const pct = Math.round(4 + Math.pow(t, 0.8) * 96);
-        return `color-mix(in oklch, var(--ts-chart-1) ${pct}%, oklch(0.27 0.01 285))`;
+        return `color-mix(in oklch, var(--ts-chart-1) ${pct}%, var(--a2-heat-low))`;
       };
       const showText = xs.length * ys.length <= 48 && xs.length <= 12;
       return defineChart({
@@ -826,7 +826,7 @@ export const chartRenderers: RendererMap<
             states: [
               {
                 when: { focus: "primary" },
-                style: { stroke: "oklch(0.97 0 0)", strokeWidth: 1.5 },
+                style: { stroke: "var(--a2-chart-focus)", strokeWidth: 1.5 },
               },
             ],
           }),
@@ -842,8 +842,8 @@ export const chartRenderers: RendererMap<
                     ),
                   fill: (r) =>
                     (r.value - min) / span > 0.55
-                      ? "oklch(0.18 0.02 292)"
-                      : "oklch(0.86 0.01 285)",
+                      ? "var(--a2-heat-ink-hi)"
+                      : "var(--a2-heat-ink-lo)",
                   fontSize: 10.5,
                   fontWeight: 600,
                 }),
@@ -914,7 +914,7 @@ export const chartRenderers: RendererMap<
                 className="h-1.5 w-20 rounded-full"
                 style={{
                   background:
-                    "linear-gradient(90deg, color-mix(in oklch, var(--ts-chart-1) 6%, oklch(0.24 0.008 285)), var(--ts-chart-1))",
+                    "linear-gradient(90deg, color-mix(in oklch, var(--ts-chart-1) 6%, var(--a2-heat-legend-low)), var(--ts-chart-1))",
                 }}
               />
               <span>
@@ -1032,7 +1032,7 @@ export const chartRenderers: RendererMap<
         ? "text-[var(--a2-positive)] bg-[color-mix(in_oklch,var(--a2-positive)_14%,transparent)]"
         : tone === "negative"
           ? "text-[var(--a2-negative)] bg-[color-mix(in_oklch,var(--a2-negative)_14%,transparent)]"
-          : "text-muted-foreground bg-white/5";
+          : "text-muted-foreground bg-black/5 dark:bg-white/5";
     return (
       <div className="a2-card a2-chart a2-enter flex w-full min-w-0 items-center gap-4 px-4 py-3">
         <div className="min-w-0 shrink-0">
@@ -1118,11 +1118,11 @@ export const chartRenderers: RendererMap<
               radialGrid({
                 values: [0.25, 0.5, 0.75, 1].map((f) => f * max),
                 shape: "polygon",
-                stroke: "oklch(1 0 0)",
+                stroke: "oklch(var(--ink))",
                 strokeOpacity: 0.08,
               }),
               angleGrid({
-                stroke: "oklch(1 0 0)",
+                stroke: "oklch(var(--ink))",
                 strokeOpacity: 0.07,
                 labelOffset: 12,
                 format: (v) => shortLabel(v, 16),
@@ -1395,7 +1395,7 @@ export const chartRenderers: RendererMap<
                 when: { focus: "primary" },
                 style: {
                   fillOpacity: 1,
-                  stroke: "oklch(0.98 0 0)",
+                  stroke: "var(--a2-chart-focus)",
                   strokeWidth: 1.5,
                 },
               },
@@ -1557,7 +1557,7 @@ export const chartRenderers: RendererMap<
                     `${shortLabel(n.data.id, 22)}  ${fmtValue(n.value, format === "currency" ? "currency" : "compact", format === "currency" ? undefined : unit)}`,
                   key: "key",
                   anchor: (n) => (flip(n) ? "end" : "start"),
-                  fill: "oklch(0.86 0.008 285)",
+                  fill: "var(--a2-chart-label)",
                   fontSize: 11,
                   fontWeight: 550,
                 }),
@@ -1648,7 +1648,7 @@ export const chartRenderers: RendererMap<
               radialArc(track, {
                 innerRadius: ({ radius }) => radius * 0.78,
                 cornerRadius: 999,
-                fill: "oklch(1 0 0 / 7%)",
+                fill: "oklch(var(--ink) / 7%)",
                 key: "id",
               }),
               radialArc(

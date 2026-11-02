@@ -17,7 +17,7 @@ export function CodeBlock({
   return (
     <figure
       className={cn(
-        "min-w-0 overflow-hidden rounded-xl border border-border bg-[#0b0b0d]",
+        "min-w-0 overflow-hidden rounded-xl border border-border bg-[oklch(0.975_0.003_285)] dark:bg-[#0b0b0d]",
         className,
       )}
     >
@@ -45,7 +45,7 @@ export function CommandLine({
   return (
     <div
       className={cn(
-        "flex min-w-0 items-center gap-3 rounded-xl border border-border bg-[#0b0b0d] py-1.5 pl-4 pr-1.5",
+        "flex min-w-0 items-center gap-3 rounded-xl border border-border bg-[oklch(0.975_0.003_285)] dark:bg-[#0b0b0d] py-1.5 pl-4 pr-1.5",
         className,
       )}
     >

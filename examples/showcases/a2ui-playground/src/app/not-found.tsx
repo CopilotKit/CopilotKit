@@ -7,7 +7,7 @@ export const metadata = { title: "Page not found · A2UI Playground" };
 /** Any URL with no page, and any notFound() that no closer segment handles. */
 export default function NotFound() {
   return (
-    <div className="pg-root min-h-[100dvh] bg-black">
+    <div className="pg-root min-h-[100dvh] dark:bg-black">
       <SiteHeader />
       <main className="landing-container pb-24 pt-20">
         <p className="font-mono text-[13px] text-muted-foreground">404</p>
@@ -27,13 +27,13 @@ export default function NotFound() {
           </Link>
           <Link
             href="/components"
-            className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-[14px] font-medium transition-colors hover:bg-white/[0.04]"
+            className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-[14px] font-medium transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
           >
             Browse the components
           </Link>
           <Link
             href="/"
-            className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-[14px] font-medium transition-colors hover:bg-white/[0.04]"
+            className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-[14px] font-medium transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
           >
             Go to the home page
           </Link>

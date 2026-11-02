@@ -4,11 +4,11 @@ import { Providers } from "@/components/app/providers";
 import { Workbench } from "@/components/playground/workbench";
 import { DesignSystemProvider } from "@/design-systems/context";
 
-export function PlaygroundClient() {
+export function PlaygroundClient({ embed = false }: { embed?: boolean }) {
   return (
     <DesignSystemProvider>
       <Providers>
-        <Workbench />
+        <Workbench embed={embed} />
       </Providers>
     </DesignSystemProvider>
   );

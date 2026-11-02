@@ -103,7 +103,7 @@ export const hasScores = (run: EvalRun) =>
 function Meter({ value, detail }: { value: number; detail?: string }) {
   return (
     <span className="flex items-center gap-2.5">
-      <span className="h-1.5 w-16 flex-none overflow-hidden rounded-full bg-white/[0.08]">
+      <span className="h-1.5 w-16 flex-none overflow-hidden rounded-full bg-black/[0.08] dark:bg-white/[0.08]">
         <span
           className="block h-full rounded-full bg-[var(--pg-fixed)]"
           style={{ width: `${value * 100}%` }}
@@ -140,7 +140,7 @@ function RunName({ run, label }: { run: EvalRun; label?: string }) {
 function NotRun({ reason }: { reason: string }) {
   return (
     <>
-      <span className="mr-2 rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[12px] text-foreground/80">
+      <span className="mr-2 rounded-md bg-black/[0.06] dark:bg-white/[0.06] px-1.5 py-0.5 font-mono text-[12px] text-foreground/80">
         not run
       </span>
       {reason}
@@ -169,7 +169,7 @@ export function EvalSummary({ data }: { data: EvalData }) {
         {rows.map(({ r, s, notRun, partial, key }) => (
           <li
             key={key}
-            className="rounded-xl border border-border px-4 py-3.5 text-[14.5px]"
+            className="rounded-xl border border-border bg-card shadow-[0_1px_2px_oklch(var(--ink)/5%)] dark:bg-transparent dark:shadow-none px-4 py-3.5 text-[14.5px]"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -230,12 +230,12 @@ export function EvalSummary({ data }: { data: EvalData }) {
           </li>
         ))}
       </ul>
-      <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
+      <div className="hidden overflow-x-auto rounded-xl border border-border bg-card shadow-[0_1px_2px_oklch(var(--ink)/5%)] dark:bg-transparent dark:shadow-none lg:block">
         <table
           data-eval-summary
           className="w-full min-w-[720px] text-left text-[14.5px]"
         >
-          <thead className="border-b border-border bg-white/[0.02] text-[13px] text-muted-foreground">
+          <thead className="border-b border-border bg-black/[0.02] dark:bg-white/[0.02] text-[13px] text-muted-foreground">
             <tr>
               <th className="px-5 py-3 font-medium">
                 {data.label ? "Run" : "Model"}
@@ -302,13 +302,13 @@ export function EvalSummary({ data }: { data: EvalData }) {
 export function EvalTasks({ data }: { data: EvalData }) {
   const ran = data.runs.filter(hasScores);
   return (
-    <div className="overflow-x-auto rounded-xl border border-border">
+    <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-[0_1px_2px_oklch(var(--ink)/5%)] dark:bg-transparent dark:shadow-none">
       <table
         data-eval-tasks
         className="w-full table-fixed text-left text-[13.5px]"
         style={{ minWidth: 300 + ran.length * 170 }}
       >
-        <thead className="border-b border-border bg-white/[0.02] text-[12.5px] text-muted-foreground">
+        <thead className="border-b border-border bg-black/[0.02] dark:bg-white/[0.02] text-[12.5px] text-muted-foreground">
           <tr>
             <th className="w-[300px] px-5 py-3 font-medium">Task</th>
             {ran.map((r) => (
@@ -349,7 +349,7 @@ export function EvalTasks({ data }: { data: EvalData }) {
                 if (noAnswer(x))
                   return (
                     <td key={key} className="px-4 py-3">
-                      <span className="inline-flex rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[12px] text-muted-foreground">
+                      <span className="inline-flex rounded-md bg-black/[0.06] dark:bg-white/[0.06] px-1.5 py-0.5 font-mono text-[12px] text-muted-foreground">
                         no answer
                       </span>
                       <span className="mt-1.5 block font-mono text-[11.5px] leading-relaxed text-muted-foreground">
@@ -369,10 +369,10 @@ export function EvalTasks({ data }: { data: EvalData }) {
                       className={cn(
                         "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-[12px]",
                         tone === "ok"
-                          ? "bg-emerald-400/10 text-emerald-300"
+                          ? "bg-emerald-400/10 text-emerald-700 dark:text-emerald-300"
                           : tone === "some"
-                            ? "bg-amber-400/10 text-amber-300"
-                            : "bg-red-400/10 text-red-300",
+                            ? "bg-amber-400/10 text-amber-700 dark:text-amber-300"
+                            : "bg-red-400/10 text-red-700 dark:text-red-300",
                       )}
                     >
                       {x.valid ? pct(x.choice) : "invalid"}

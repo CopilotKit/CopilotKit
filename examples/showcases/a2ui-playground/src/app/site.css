@@ -1,4 +1,5 @@
-/* Site chrome (header, docs, skill article). Reuses the tokens in globals.css. */
+/* Site chrome (header, docs, skill article). Reuses the tokens in globals.css. Light by default, with the
+   dark values under .dark (src/lib/theme.ts). */
 
 .site-container {
   width: 100%;
@@ -13,24 +14,43 @@
 }
 
 .site-header {
+  background: var(--background);
+}
+.dark .site-header {
   background: #000;
 }
 
 /* Framed preview stage with a dotted floor. */
 .docs-stage {
-  background-color: oklch(0.15 0.004 285);
-  background-image: radial-gradient(oklch(1 0 0 / 6%) 1px, transparent 1px);
+  --docs-floor: oklch(0.975 0.003 285);
+  background-color: var(--docs-floor);
+  background-image: radial-gradient(
+    oklch(var(--ink) / 9%) 1px,
+    transparent 1px
+  );
   background-size: 16px 16px;
+}
+.dark .docs-stage {
+  --docs-floor: oklch(0.15 0.004 285);
+  background-image: radial-gradient(oklch(1 0 0 / 6%) 1px, transparent 1px);
 }
 
 /* Tile preview: clipped to the tile's fixed height with a soft fade. */
 .docs-tile-preview {
-  background-color: oklch(0.15 0.004 285);
-  background-image: radial-gradient(oklch(1 0 0 / 5%) 1px, transparent 1px);
+  --docs-floor: oklch(0.975 0.003 285);
+  background-color: var(--docs-floor);
+  background-image: radial-gradient(
+    oklch(var(--ink) / 8%) 1px,
+    transparent 1px
+  );
   background-size: 14px 14px;
 }
+.dark .docs-tile-preview {
+  --docs-floor: oklch(0.15 0.004 285);
+  background-image: radial-gradient(oklch(1 0 0 / 5%) 1px, transparent 1px);
+}
 .docs-tile-fade {
-  background: linear-gradient(to bottom, transparent, oklch(0.15 0.004 285));
+  background: linear-gradient(to bottom, transparent, var(--docs-floor));
 }
 .docs-tile:hover .docs-tile-name {
   color: var(--foreground);
@@ -43,6 +63,22 @@
 
 /* Code panes (sugar-high). */
 .docs-code {
+  --sh-class: oklch(0.55 0.14 65);
+  --sh-identifier: oklch(0.3 0.02 285);
+  --sh-sign: oklch(0.5 0.02 285);
+  --sh-property: oklch(0.48 0.12 235);
+  --sh-entity: oklch(0.5 0.12 165);
+  --sh-jsxliterals: oklch(0.48 0.11 145);
+  --sh-string: oklch(0.48 0.11 145);
+  --sh-keyword: oklch(0.5 0.17 320);
+  --sh-comment: oklch(0.56 0.012 285);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 12.5px;
+  line-height: 1.65;
+  white-space: pre;
+  tab-size: 2;
+}
+.dark .docs-code {
   --sh-class: oklch(0.82 0.12 75);
   --sh-identifier: oklch(0.9 0.02 285);
   --sh-sign: oklch(0.62 0.02 285);
@@ -52,22 +88,20 @@
   --sh-string: oklch(0.82 0.06 140);
   --sh-keyword: oklch(0.75 0.13 320);
   --sh-comment: oklch(0.52 0.012 285);
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 12.5px;
-  line-height: 1.65;
-  white-space: pre;
-  tab-size: 2;
 }
 
 /* Thin scrollbars for sidebars and code panes. */
 .docs-scroll {
   scrollbar-width: thin;
+  scrollbar-color: oklch(var(--ink) / 14%) transparent;
+}
+.dark .docs-scroll {
   scrollbar-color: oklch(1 0 0 / 10%) transparent;
 }
 
 /* Skill article (rendered SKILL.md). */
 .docs-prose {
-  color: oklch(0.82 0.008 285);
+  color: oklch(0.33 0.01 285);
   font-size: 15px;
   line-height: 1.75;
 }
@@ -109,6 +143,12 @@
   color: var(--foreground);
   text-decoration: underline;
   text-underline-offset: 4px;
+  text-decoration-color: oklch(var(--ink) / 30%);
+}
+.dark .docs-prose {
+  color: oklch(0.82 0.008 285);
+}
+.dark .docs-prose a {
   text-decoration-color: oklch(1 0 0 / 25%);
 }
 .docs-prose a:hover {
@@ -130,6 +170,9 @@
   margin-top: 0.35em;
 }
 .docs-prose li::marker {
+  color: oklch(0.6 0.012 285);
+}
+.dark .docs-prose li::marker {
   color: oklch(0.5 0.012 285);
 }
 .docs-prose :not(pre) > code {
@@ -137,13 +180,16 @@
   font-size: 0.86em;
   padding: 0.15em 0.4em;
   border-radius: 6px;
-  background: oklch(1 0 0 / 7%);
+  background: oklch(var(--ink) / 6%);
   color: var(--foreground);
+}
+.dark .docs-prose :not(pre) > code {
+  background: oklch(1 0 0 / 7%);
 }
 .docs-prose pre {
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: oklch(0.155 0.004 285);
+  background: oklch(0.975 0.003 285);
   padding: 14px 16px;
   overflow-x: auto;
   font-size: 12.5px;
@@ -151,6 +197,12 @@
 }
 .docs-prose pre code {
   font-family: var(--font-mono), ui-monospace, monospace;
+  color: oklch(0.3 0.01 285);
+}
+.dark .docs-prose pre {
+  background: oklch(0.155 0.004 285);
+}
+.dark .docs-prose pre code {
   color: oklch(0.86 0.01 285);
 }
 .docs-prose blockquote {

@@ -1,15 +1,45 @@
 /**
- * Each design system's values for the standard components' `--a2ui-*` variables. The page is always dark,
- * so every value sits under `dark`. A new theme repaints the surfaces without remounting them.
+ * Each design system's values for the standard components' `--a2ui-*` variables. The page is light unless
+ * <html> has the `dark` class (src/lib/theme.ts): the top-level values are the light ones, and the values
+ * under `dark` replace them in dark mode. Each light set names the same variables as its dark set, so a
+ * variable never falls through to the library's own dark default in one mode only. A new theme repaints
+ * the surfaces without remounting them.
  */
 import type { GenerativeUITheme } from "@copilotkit/react-core/v2/generative-ui";
 import { playgroundTheme } from "@/a2ui/catalog/catalog";
 import type { DesignSystemId } from "./registry";
 
-/** shadcn/ui's neutral dark palette and chart colors, the base ChatCN's components share. */
+/** shadcn/ui's neutral palettes and chart colors (light and dark), the base ChatCN's components share. */
 const chatcnTheme: GenerativeUITheme = {
   "--a2ui-font-family":
     "var(--font-sans), ui-sans-serif, system-ui, sans-serif",
+  "--a2ui-color-surface": "oklch(1 0 0)",
+  "--a2ui-color-surface-secondary": "oklch(0.97 0 0)",
+  "--a2ui-color-surface-elevated": "oklch(1 0 0)",
+  "--a2ui-color-surface-soft": "oklch(0.97 0 0 / 50%)",
+  "--a2ui-color-panel": "oklch(1 0 0)",
+  "--a2ui-color-control": "oklch(1 0 0)",
+  "--a2ui-color-border-default": "oklch(0.922 0 0)",
+  "--a2ui-color-border-subtle": "oklch(0.95 0 0)",
+  "--a2ui-color-border-strong": "oklch(0.87 0 0)",
+  "--a2ui-color-border-control": "oklch(0.922 0 0)",
+  "--a2ui-color-text-default": "oklch(0.145 0 0)",
+  "--a2ui-color-text-prose": "oklch(0.145 0 0)",
+  "--a2ui-color-text-primary": "oklch(0.145 0 0)",
+  "--a2ui-color-text-secondary": "oklch(0.556 0 0)",
+  "--a2ui-color-text-tertiary": "oklch(0.556 0 0)",
+  "--a2ui-color-accent": "oklch(0.205 0 0)",
+  "--a2ui-color-on-accent": "oklch(0.985 0 0)",
+  "--a2ui-color-focus": "oklch(0.708 0 0)",
+  "--a2ui-chart-1": "oklch(0.646 0.222 41.116)",
+  "--a2ui-chart-2": "oklch(0.6 0.118 184.704)",
+  "--a2ui-chart-3": "oklch(0.398 0.07 227.392)",
+  "--a2ui-chart-4": "oklch(0.828 0.189 84.429)",
+  "--a2ui-chart-5": "oklch(0.769 0.188 70.08)",
+  "--a2ui-chart-6": "oklch(0.556 0 0)",
+  "--a2ui-radius-lg": "10px",
+  "--a2ui-radius-md": "8px",
+  "--a2ui-radius-sm": "6px",
   dark: {
     "--a2ui-color-surface": "oklch(0.205 0 0)",
     "--a2ui-color-surface-secondary": "oklch(0.269 0 0)",
@@ -43,7 +73,8 @@ const chatcnTheme: GenerativeUITheme = {
 
 /**
  * A light, square-cornered in-house system set in Helvetica Neue (Arial where it is missing): deliberately unlike the other two, so the
- * swap shows that the look belongs to the app, not to the protocol.
+ * swap shows that the look belongs to the app, not to the protocol. It stays light in dark mode too, the way an
+ * embedded third-party look keeps its own colors.
  */
 const LIGHT = {
   "--a2ui-color-text-default": "#0f172a",
@@ -133,13 +164,86 @@ const byocTheme: GenerativeUITheme = {
 };
 
 /**
- * Material's dark color roles, generated with Material Color Utilities (tonal spot) from the seed #0b57d0,
- * the same values design-systems.css gives Material's own components. Success and warning are custom
- * colors harmonized to that seed; Material defines no roles for them. Corners follow Material 3's shape
- * scale: 12px medium, 16px large, 28px extra large.
+ * Material's light and dark color roles, generated with Material Color Utilities 0.3.0 (SchemeTonalSpot,
+ * contrast 0) from the seed #0b57d0, the same values design-systems.css gives Material's own components.
+ * Each variable takes the same role in both schemes (text on-surface, surfaces surface-container, accent
+ * primary); a tone border takes the tone's 80 in light and its container (30) in dark, as outline-variant
+ * does. Success and warning are custom colors harmonized to that seed; Material defines no roles for them.
+ * Corners follow Material 3's shape scale: 12px medium, 16px large, 28px extra large.
  */
 const materialTheme: GenerativeUITheme = {
   "--a2ui-font-family": '"Roboto Flex Variable", Roboto, system-ui, sans-serif',
+  "--a2ui-color-text-default": "#1a1b21",
+  "--a2ui-color-text-prose": "#1a1b21",
+  "--a2ui-color-text-primary": "#1a1b21",
+  "--a2ui-color-text-emphasis": "#1a1b21",
+  "--a2ui-color-text-secondary": "#45464f",
+  "--a2ui-color-text-tertiary": "#757780",
+  "--a2ui-color-text-success": "#006c49",
+  "--a2ui-color-text-info": "#495d92",
+  "--a2ui-color-text-warning": "#8d4f00",
+  "--a2ui-color-text-caution": "#8d4f00",
+  "--a2ui-color-text-danger": "#ba1a1a",
+  "--a2ui-color-text-discovery": "#735471",
+  "--a2ui-color-surface": "#eeedf4",
+  "--a2ui-color-surface-secondary": "#e8e7ef",
+  "--a2ui-color-surface-tertiary": "#e2e2e9",
+  "--a2ui-color-surface-elevated": "#e8e7ef",
+  "--a2ui-color-surface-elevated-secondary": "#e2e2e9",
+  "--a2ui-color-surface-inverted": "#2f3036",
+  "--a2ui-color-surface-soft": "#f4f3fa",
+  "--a2ui-color-info": "rgba(73, 93, 146, 0.08)",
+  "--a2ui-color-warning": "rgba(141, 79, 0, 0.08)",
+  "--a2ui-color-caution": "rgba(141, 79, 0, 0.08)",
+  "--a2ui-color-success": "rgba(0, 108, 73, 0.08)",
+  "--a2ui-color-danger": "rgba(186, 26, 26, 0.08)",
+  "--a2ui-color-discovery": "rgba(115, 84, 113, 0.08)",
+  "--a2ui-color-info-soft": "rgba(73, 93, 146, 0.05)",
+  "--a2ui-color-warning-soft": "rgba(141, 79, 0, 0.05)",
+  "--a2ui-color-caution-soft": "rgba(141, 79, 0, 0.05)",
+  "--a2ui-color-success-soft": "rgba(0, 108, 73, 0.05)",
+  "--a2ui-color-danger-soft": "rgba(186, 26, 26, 0.05)",
+  "--a2ui-color-discovery-soft": "rgba(115, 84, 113, 0.05)",
+  "--a2ui-color-info-solid": "#495d92",
+  "--a2ui-color-warning-solid": "#8d4f00",
+  "--a2ui-color-caution-solid": "#8d4f00",
+  "--a2ui-color-success-solid": "#006c49",
+  "--a2ui-color-danger-solid": "#ba1a1a",
+  "--a2ui-color-discovery-solid": "#735471",
+  "--a2ui-color-border-default": "#c5c6d0",
+  "--a2ui-color-border-subtle": "#e2e2e9",
+  "--a2ui-color-border-strong": "#757780",
+  "--a2ui-color-border-info": "#b2c5ff",
+  "--a2ui-color-border-warning": "#ffb875",
+  "--a2ui-color-border-caution": "#ffb875",
+  "--a2ui-color-border-success": "#6ddba7",
+  "--a2ui-color-border-danger": "#ffb4ab",
+  "--a2ui-color-border-discovery": "#e1bbdd",
+  "--a2ui-color-border-control": "#757780",
+  "--a2ui-color-accent": "#495d92",
+  "--a2ui-color-on-accent": "#ffffff",
+  "--a2ui-color-panel": "#eeedf4",
+  "--a2ui-color-control": "#e2e2e9",
+  "--a2ui-color-focus": "#495d92",
+  "--a2ui-color-shimmer": "rgba(26, 27, 33, 0.08)",
+  "--a2ui-color-chart-cursor": "rgba(26, 27, 33, 0.06)",
+  "--a2ui-color-slider-track": "#c5c6d0",
+  "--a2ui-color-badge-secondary": "#e2e2e9",
+  "--a2ui-chart-1": "#495d92",
+  "--a2ui-chart-2": "#006c49",
+  "--a2ui-chart-3": "#8d4f00",
+  "--a2ui-chart-4": "#735471",
+  "--a2ui-chart-5": "#ba1a1a",
+  "--a2ui-chart-6": "#585e71",
+  "--a2ui-radius-2xs": "4px",
+  "--a2ui-radius-xs": "8px",
+  "--a2ui-radius-sm": "8px",
+  "--a2ui-radius-md": "12px",
+  "--a2ui-radius-lg": "16px",
+  "--a2ui-radius-xl": "20px",
+  "--a2ui-radius-2xl": "28px",
+  "--a2ui-radius-3xl": "28px",
+  "--a2ui-radius-4xl": "28px",
   dark: {
     "--a2ui-color-text-default": "#e2e2e9",
     "--a2ui-color-text-prose": "#e2e2e9",

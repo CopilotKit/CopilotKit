@@ -15,23 +15,23 @@ import type { RendererMap } from "./types";
 const ALERT = {
   info: {
     icon: Info,
-    cls: "border-sky-400/20 bg-sky-400/[0.06] text-sky-200",
-    ic: "text-sky-300",
+    cls: "border-sky-400/20 bg-sky-400/[0.06] text-sky-800 dark:text-sky-200",
+    ic: "text-sky-600 dark:text-sky-300",
   },
   success: {
     icon: CheckCircle2,
-    cls: "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-100",
-    ic: "text-emerald-300",
+    cls: "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-800 dark:text-emerald-100",
+    ic: "text-emerald-600 dark:text-emerald-300",
   },
   warning: {
     icon: AlertTriangle,
-    cls: "border-amber-400/25 bg-amber-400/[0.07] text-amber-100",
-    ic: "text-amber-300",
+    cls: "border-amber-400/25 bg-amber-400/[0.07] text-amber-800 dark:text-amber-100",
+    ic: "text-amber-600 dark:text-amber-300",
   },
   error: {
     icon: XCircle,
-    cls: "border-rose-400/25 bg-rose-400/[0.07] text-rose-100",
-    ic: "text-rose-300",
+    cls: "border-rose-400/25 bg-rose-400/[0.07] text-rose-800 dark:text-rose-100",
+    ic: "text-rose-600 dark:text-rose-300",
   },
 } as const;
 
@@ -66,7 +66,7 @@ export const feedbackRenderers: RendererMap<
 
   Callout: ({ props }) => (
     <div className="a2-enter @container relative flex w-full min-w-0 flex-wrap gap-3 overflow-hidden rounded-[var(--a2-radius)] border border-violet-400/20 bg-gradient-to-r from-violet-500/[0.10] via-violet-500/[0.04] to-transparent px-4 py-3.5">
-      <div className="grid size-8 flex-none place-items-center rounded-lg bg-violet-400/15 text-[15px] text-violet-200">
+      <div className="grid size-8 flex-none place-items-center rounded-lg bg-violet-400/15 text-[15px] text-violet-800 dark:text-violet-200">
         <Lightbulb className="size-4" />
       </div>
       <div className="min-w-[160px] flex-1">
@@ -131,8 +131,8 @@ export const feedbackRenderers: RendererMap<
   },
 
   EmptyState: ({ props }) => (
-    <div className="a2-enter flex w-full min-w-0 flex-col items-center gap-2 rounded-[var(--a2-radius)] border border-dashed border-white/12 px-6 py-8 text-center">
-      <div className="mb-1 grid size-10 place-items-center rounded-full border border-[var(--a2-line)] bg-white/[0.04] text-muted-foreground">
+    <div className="a2-enter flex w-full min-w-0 flex-col items-center gap-2 rounded-[var(--a2-radius)] border border-dashed border-black/12 dark:border-white/12 px-6 py-8 text-center">
+      <div className="mb-1 grid size-10 place-items-center rounded-full border border-[var(--a2-line)] bg-black/[0.04] dark:bg-white/[0.04] text-muted-foreground">
         <Inbox className="size-4.5" />
       </div>
       <p className="text-[14px] font-semibold">{props.title}</p>

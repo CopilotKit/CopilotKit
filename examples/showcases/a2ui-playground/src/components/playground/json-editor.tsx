@@ -520,7 +520,7 @@ function ProblemList({
                 <span className="text-muted-foreground">{where}</span>
                 {p.opKind ? <span>{p.opKind}</span> : null}
                 {p.componentId ? (
-                  <span className="text-[oklch(0.86_0.1_165)]">
+                  <span className="text-[oklch(0.45_0.11_165)] dark:text-[oklch(0.86_0.1_165)]">
                     #{p.componentId}
                   </span>
                 ) : null}

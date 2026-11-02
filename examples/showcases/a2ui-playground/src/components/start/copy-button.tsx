@@ -32,12 +32,12 @@ export function CopyButton({
         });
       }}
       className={cn(
-        "flex size-8 flex-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white/[0.07] hover:text-foreground",
+        "flex size-8 flex-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-black/[0.07] dark:hover:bg-white/[0.07] hover:text-foreground",
         className,
       )}
     >
       {copied ? (
-        <Check className="size-4 text-emerald-400" />
+        <Check className="size-4 text-emerald-600 dark:text-emerald-400" />
       ) : (
         <Copy className="size-4" />
       )}

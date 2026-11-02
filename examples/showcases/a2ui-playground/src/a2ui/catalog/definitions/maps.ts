@@ -13,7 +13,7 @@ const point = z.object({
 export const mapDefinitions = {
   MapView: def(
     "Maps",
-    "Interactive dark map (MapLibre) with numbered markers; fits all markers. markers [{name,lat,lon,description?}].",
+    "Interactive map (MapLibre) with numbered markers; fits all markers. markers [{name,lat,lon,description?}].",
     z.object({
       title: z.string().optional(),
       markers: z.array(point),

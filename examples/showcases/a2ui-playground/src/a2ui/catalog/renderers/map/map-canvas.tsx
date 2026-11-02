@@ -17,6 +17,7 @@ import {
   Source,
   type MapRef,
 } from "react-map-gl/maplibre";
+import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import {
   BASEMAP_STYLE,
@@ -43,7 +44,8 @@ export type MapCanvasProps = {
   padding?: number;
   /** Plain dot pins instead of numbered ones (single-place cards). */
   plainPins?: boolean;
-  /** "dark" (default, CARTO dark matter), "streets" (CARTO Voyager) or "liberty" (OpenFreeMap Liberty). */
+  /** "dark" (CARTO dark matter), "streets" (CARTO Voyager) or "liberty" (OpenFreeMap Liberty). Left out, the
+   * map follows the page: streets in light, dark in dark, restyled in place when the theme changes. */
   basemap?: "dark" | "streets" | "liberty";
   className?: string;
 };
@@ -59,8 +61,22 @@ if (
   );
 }
 
-const ACCENT = "#a78bfa";
-const ACCENT_DEEP = "#8b5cf6";
+/** Route colours per basemap: pale strokes on a dark casing over dark matter, deeper ones on a white casing
+ * over the light street maps. */
+const ROUTE = {
+  dark: {
+    glow: "#8b5cf6",
+    glowOpacity: 0.55,
+    casing: "#1c1530",
+    stops: ["#6ee7b7", "#a78bfa", "#c4b5fd"],
+  },
+  light: {
+    glow: "#8b5cf6",
+    glowOpacity: 0.28,
+    casing: "#ffffff",
+    stops: ["#059669", "#7c3aed", "#8b5cf6"],
+  },
+} as const;
 
 export default function MapCanvas({
   points = [],
@@ -73,9 +89,12 @@ export default function MapCanvas({
   zoom,
   padding = 56,
   plainPins = false,
-  basemap = "dark",
+  basemap,
   className,
 }: MapCanvasProps) {
+  const theme = useTheme();
+  const style = basemap ?? (theme === "dark" ? "dark" : "streets");
+  const routeColors = ROUTE[style === "dark" ? "dark" : "light"];
   const ref = useRef<MapRef>(null);
   const box = useRef<HTMLDivElement>(null);
   const [loaded, setLoaded] = useState(false);
@@ -214,19 +233,19 @@ export default function MapCanvas({
   return (
     <div
       ref={box}
-      data-basemap={basemap === "dark" ? "dark" : "streets"}
+      data-basemap={style === "dark" ? "dark" : "streets"}
       className={cn(
         "a2-map relative h-full w-full overflow-hidden",
-        basemap === "dark" ? "bg-[#0e0e11]" : "bg-[#f2efe9]",
+        style === "dark" ? "bg-[#0e0e11]" : "bg-[#f2efe9]",
         className,
       )}
     >
       <Map
         ref={ref}
         mapStyle={
-          basemap === "liberty"
+          style === "liberty"
             ? LIBERTY_STYLE
-            : basemap === "streets"
+            : style === "streets"
               ? STREETS_STYLE
               : BASEMAP_STYLE
         }
@@ -262,10 +281,10 @@ export default function MapCanvas({
               type="line"
               layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
-                "line-color": ACCENT_DEEP,
+                "line-color": routeColors.glow,
                 "line-width": 14,
                 "line-blur": 10,
-                "line-opacity": 0.55,
+                "line-opacity": routeColors.glowOpacity,
               }}
             />
             <Layer
@@ -273,7 +292,7 @@ export default function MapCanvas({
               type="line"
               layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
-                "line-color": "#1c1530",
+                "line-color": routeColors.casing,
                 "line-width": 6.5,
                 "line-opacity": 0.9,
               }}
@@ -289,11 +308,11 @@ export default function MapCanvas({
                   ["linear"],
                   ["line-progress"],
                   0,
-                  "#6ee7b7",
+                  routeColors.stops[0],
                   0.18,
-                  ACCENT,
+                  routeColors.stops[1],
                   1,
-                  "#c4b5fd",
+                  routeColors.stops[2],
                 ],
               }}
             />

@@ -11,7 +11,7 @@ import { buildPrompt, PROVIDER_LINE, UI_NOTE } from "./prompt";
 import { INSTALL } from "./snippets";
 
 const focusRing =
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.72_0.17_292/60%)]";
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklch,var(--primary)_60%,transparent)]";
 
 /**
  * The Get started call to action: pick the design system the app draws with, copy one prompt for a coding
@@ -37,7 +37,7 @@ export function CopyPrompt() {
 
   return (
     <div className="flex flex-col gap-10">
-      <div className="rounded-2xl border border-border bg-[#0b0b0d] p-5 sm:p-7">
+      <div className="rounded-2xl border border-border bg-card shadow-[0_1px_3px_oklch(var(--ink)/5%)] p-5 sm:p-7 dark:bg-[#0b0b0d] dark:shadow-none">
         <div
           role="radiogroup"
           aria-label="Design system"
@@ -79,8 +79,8 @@ export function CopyPrompt() {
                 className={cn(
                   "flex flex-col items-start gap-1 rounded-xl border px-4 py-3 text-left transition-colors",
                   on
-                    ? "border-[oklch(1_0_0/28%)] bg-white/[0.05]"
-                    : "border-border hover:border-[oklch(1_0_0/16%)] hover:bg-white/[0.025]",
+                    ? "border-[oklch(var(--ink)/28%)] bg-black/[0.035] dark:bg-white/[0.05]"
+                    : "border-border hover:border-[oklch(var(--ink)/16%)] hover:bg-black/[0.025] dark:hover:bg-white/[0.025]",
                   focusRing,
                 )}
               >
@@ -92,7 +92,7 @@ export function CopyPrompt() {
                       "grid size-4 place-items-center rounded-full border",
                       on
                         ? "border-foreground bg-foreground"
-                        : "border-[oklch(1_0_0/22%)]",
+                        : "border-[oklch(var(--ink)/22%)]",
                     )}
                   >
                     {on ? (
@@ -147,7 +147,7 @@ export function CopyPrompt() {
             />
             Read the prompt
           </summary>
-          <pre className="mt-4 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-black/40 p-4 font-mono text-[12.5px] leading-[1.65] text-[oklch(0.85_0.005_285)]">
+          <pre className="mt-4 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-[oklch(0.975_0.003_285)] p-4 font-mono text-[12.5px] leading-[1.65] text-[oklch(0.3_0.008_285)] dark:bg-black/40 dark:text-[oklch(0.85_0.005_285)]">
             {prompt}
           </pre>
         </details>

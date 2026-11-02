@@ -49,42 +49,51 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+/* The page is light unless <html> has the dark class (src/lib/theme.ts). Surface hosts repeat the tokens
+   because CopilotKit's chat scope ([data-copilotkit]) redefines them, and a surface keeps the app's. */
+:root,
+.a2-surface-host,
+.pg-canvas {
+  /* The color overlays and hairlines are drawn in: near-black on light, white on dark. */
+  --ink: 0.21 0.012 285;
+  --background: oklch(0.992 0.0015 285);
+  --foreground: oklch(0.2 0.008 285);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.2 0.008 285);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --popover-foreground: oklch(0.2 0.008 285);
+  --primary: oklch(0.5 0.2 292);
+  --primary-foreground: oklch(0.985 0.005 292);
+  --secondary: oklch(0.96 0.004 285);
+  --secondary-foreground: oklch(0.2 0.008 285);
+  --muted: oklch(0.96 0.004 285);
+  --muted-foreground: oklch(0.47 0.014 285);
+  --accent: oklch(0.95 0.006 285);
+  --accent-foreground: oklch(0.2 0.008 285);
+  --destructive: oklch(0.56 0.21 25);
+  --border: oklch(0.21 0.012 285 / 10%);
+  --input: oklch(0.21 0.012 285 / 15%);
+  --ring: oklch(0.5 0.2 292 / 50%);
+  --chart-1: oklch(0.55 0.2 292);
+  --chart-2: oklch(0.58 0.14 235);
+  --chart-3: oklch(0.62 0.15 162);
+  --chart-4: oklch(0.72 0.15 72);
+  --chart-5: oklch(0.6 0.2 20);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.98 0.002 285);
+  --sidebar-foreground: oklch(0.2 0.008 285);
+  --sidebar-primary: oklch(0.5 0.2 292);
+  --sidebar-primary-foreground: oklch(0.985 0.005 292);
+  --sidebar-accent: oklch(0.95 0.006 285);
+  --sidebar-accent-foreground: oklch(0.2 0.008 285);
+  --sidebar-border: oklch(0.21 0.012 285 / 10%);
+  --sidebar-ring: oklch(0.5 0.2 292 / 50%);
 }
 
-.dark {
+.dark,
+.dark .a2-surface-host,
+.dark .pg-canvas {
+  --ink: 1 0 0;
   --background: oklch(0.135 0.004 285);
   --foreground: oklch(0.97 0.003 285);
   --card: oklch(0.175 0.005 285);
@@ -137,6 +146,32 @@
 /* ───────────────────────── A2UI surface design tokens ─────────────────────────
    Every catalog renderer composes these. One place to restyle every surface. */
 :root {
+  --ts-chart-1: oklch(0.55 0.2 292);
+  --ts-chart-2: oklch(0.58 0.13 230);
+  --ts-chart-3: oklch(0.6 0.14 162);
+  --ts-chart-4: oklch(0.7 0.15 72);
+  --ts-chart-5: oklch(0.6 0.2 18);
+  --ts-chart-6: oklch(0.6 0.03 285);
+  --a2-surface: oklch(1 0 0);
+  --a2-surface-2: oklch(0.97 0.003 285);
+  --a2-line: oklch(var(--ink) / 9%);
+  --a2-line-strong: oklch(var(--ink) / 15%);
+  --a2-radius: 14px;
+  --a2-accent: oklch(0.52 0.2 292);
+  --a2-positive: oklch(0.52 0.13 160);
+  --a2-negative: oklch(0.56 0.2 22);
+  --a2-warning: oklch(0.53 0.14 62);
+  --a2-info: oklch(0.52 0.13 235);
+  --a2-card-sheen: transparent;
+  --a2-card-shadow:
+    0 1px 2px oklch(var(--ink) / 6%), 0 1px 3px oklch(var(--ink) / 4%);
+  --a2-chart-ink: oklch(0.45 0.012 285);
+  /* Dot grids under generated UI, a touch stronger on light grounds. */
+  --dot-stage: 6%;
+  --dot-grid: 7%;
+  --dot-floor: 7%;
+}
+.dark {
   --ts-chart-1: oklch(0.72 0.17 292);
   --ts-chart-2: oklch(0.76 0.12 225);
   --ts-chart-3: oklch(0.79 0.15 162);
@@ -147,12 +182,18 @@
   --a2-surface-2: oklch(0.205 0.006 285);
   --a2-line: oklch(1 0 0 / 7.5%);
   --a2-line-strong: oklch(1 0 0 / 12%);
-  --a2-radius: 14px;
   --a2-accent: oklch(0.72 0.17 292);
   --a2-positive: oklch(0.78 0.15 160);
   --a2-negative: oklch(0.7 0.18 18);
   --a2-warning: oklch(0.83 0.14 78);
   --a2-info: oklch(0.76 0.12 225);
+  --a2-card-sheen: oklch(1 0 0 / 2.2%);
+  --a2-card-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 4%), 0 1px 2px oklch(0 0 0 / 30%);
+  --a2-chart-ink: oklch(0.78 0.01 285);
+  --dot-stage: 5%;
+  --dot-grid: 6%;
+  --dot-floor: 5.5%;
 }
 
 /* A Gen UI 2.0 surface outside the chat draws no box of its own: the page around it frames it.
@@ -168,17 +209,15 @@
   /* Base card: every boxed component uses it. */
   .a2-card {
     background:
-      linear-gradient(180deg, oklch(1 0 0 / 2.2%), oklch(1 0 0 / 0%) 40%),
+      linear-gradient(180deg, var(--a2-card-sheen), transparent 40%),
       var(--a2-surface);
     border: 1px solid var(--a2-line);
     border-radius: var(--a2-radius);
-    box-shadow:
-      inset 0 1px 0 oklch(1 0 0 / 4%),
-      0 1px 2px oklch(0 0 0 / 30%);
+    box-shadow: var(--a2-card-shadow);
   }
   /* Inset well inside a card (rows, chips, mini panels). */
   .a2-well {
-    background: oklch(1 0 0 / 3%);
+    background: oklch(var(--ink) / 3%);
     border: 1px solid var(--a2-line);
     border-radius: 10px;
   }
@@ -189,7 +228,7 @@
     color: var(--muted-foreground);
   }
   .a2-chart {
-    color: oklch(0.78 0.01 285);
+    color: var(--a2-chart-ink);
   }
   .a2-chart svg text {
     font-family: var(--font-sans);
@@ -244,7 +283,7 @@
   font-size: 0.88em;
   padding: 0.1em 0.35em;
   border-radius: 5px;
-  background: oklch(1 0 0 / 7%);
+  background: oklch(var(--ink) / 7%);
 }
 .a2-md blockquote {
   border-left: 2px solid var(--a2-line-strong);
@@ -263,6 +302,17 @@
   text-align: left;
 }
 .a2-code {
+  --sh-class: oklch(0.55 0.14 70);
+  --sh-identifier: oklch(0.3 0.02 285);
+  --sh-sign: oklch(0.5 0.02 285);
+  --sh-property: oklch(0.48 0.12 235);
+  --sh-entity: oklch(0.5 0.13 160);
+  --sh-jsxliterals: oklch(0.4 0.05 285);
+  --sh-string: oklch(0.5 0.12 150);
+  --sh-keyword: oklch(0.5 0.18 300);
+  --sh-comment: oklch(0.58 0.015 285);
+}
+.dark .a2-code {
   --sh-class: oklch(0.82 0.12 75);
   --sh-identifier: oklch(0.9 0.02 285);
   --sh-sign: oklch(0.65 0.02 285);
@@ -276,6 +326,23 @@
 
 /* ───────────────────────── playground shell ───────────────────────── */
 .pg-root {
+  --pg-bg: oklch(0.985 0.002 285);
+  --pg-surface: oklch(0.975 0.003 285);
+  --pg-panel: oklch(1 0 0);
+  --pg-raised: oklch(0.955 0.004 285);
+  --pg-line: oklch(var(--ink) / 9%);
+  --pg-line-strong: oklch(var(--ink) / 16%);
+  --pg-text: oklch(0.22 0.008 285);
+  --pg-dim: oklch(0.47 0.014 285);
+  --pg-faint: oklch(0.54 0.012 285);
+  --pg-fixed: oklch(0.52 0.12 165);
+  --pg-dynamic: oklch(0.53 0.13 62);
+  --pg-data: oklch(0.52 0.12 240);
+  --pg-shadow: oklch(var(--ink) / 14%);
+  background: var(--pg-bg);
+}
+.dark .pg-root {
+  --pg-shadow: oklch(0 0 0 / 60%);
   --pg-bg: oklch(0.145 0.004 285);
   --pg-surface: oklch(0.158 0.004 285);
   --pg-panel: oklch(0.175 0.005 285);
@@ -288,72 +355,53 @@
   --pg-fixed: oklch(0.8 0.13 165);
   --pg-dynamic: oklch(0.82 0.13 72);
   --pg-data: oklch(0.78 0.11 230);
-  background: var(--pg-bg);
 }
 .pg-canvas {
   background-color: var(--pg-surface);
-  background-image: radial-gradient(oklch(1 0 0 / 5%) 1px, transparent 1px);
+  background-image: radial-gradient(
+    oklch(var(--ink) / var(--dot-stage)) 1px,
+    transparent 1px
+  );
   background-size: 18px 18px;
 }
+.pg-json {
+  --j-key: oklch(0.48 0.12 240);
+  --j-key-strong: oklch(0.48 0.12 165);
+  --j-bind: oklch(0.55 0.15 62);
+  --j-str: oklch(0.5 0.12 145);
+  --j-num: oklch(0.55 0.15 50);
+  --j-lit: oklch(0.5 0.17 320);
+  --j-text: oklch(0.4 0.01 285);
+  color: var(--j-text);
+  white-space: pre;
+}
+.dark .pg-json {
+  --j-key: oklch(0.78 0.08 230);
+  --j-key-strong: oklch(0.86 0.1 165);
+  --j-bind: oklch(0.84 0.12 72);
+  --j-str: oklch(0.82 0.06 140);
+  --j-num: oklch(0.8 0.11 60);
+  --j-lit: oklch(0.75 0.13 320);
+  --j-text: oklch(0.7 0.01 285);
+}
 .pg-json .j-key {
-  color: oklch(0.78 0.08 230);
+  color: var(--j-key);
 }
 .pg-json .j-key-strong {
-  color: oklch(0.86 0.1 165);
+  color: var(--j-key-strong);
 }
 .pg-json .j-bind {
-  color: oklch(0.84 0.12 72);
+  color: var(--j-bind);
   font-weight: 600;
 }
 .pg-json .j-str {
-  color: oklch(0.82 0.06 140);
+  color: var(--j-str);
 }
 .pg-json .j-num {
-  color: oklch(0.8 0.11 60);
+  color: var(--j-num);
 }
 .pg-json .j-lit {
-  color: oklch(0.75 0.13 320);
-}
-.pg-json {
-  color: oklch(0.7 0.01 285);
-  white-space: pre;
-}
-
-/* CopilotKit's chat scope ([data-copilotkit]) redefines the shadcn tokens.
-   Surfaces rendered inside it must keep the app's design tokens. */
-.a2-surface-host,
-.pg-canvas {
-  --background: oklch(0.135 0.004 285);
-  --foreground: oklch(0.97 0.003 285);
-  --card: oklch(0.175 0.005 285);
-  --card-foreground: oklch(0.97 0.003 285);
-  --popover: oklch(0.19 0.006 285);
-  --popover-foreground: oklch(0.97 0.003 285);
-  --primary: oklch(0.72 0.17 292);
-  --primary-foreground: oklch(0.16 0.02 292);
-  --secondary: oklch(0.24 0.006 285);
-  --secondary-foreground: oklch(0.97 0.003 285);
-  --muted: oklch(0.23 0.006 285);
-  --muted-foreground: oklch(0.68 0.012 285);
-  --accent: oklch(0.25 0.008 285);
-  --accent-foreground: oklch(0.97 0.003 285);
-  --destructive: oklch(0.68 0.2 22);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 11%);
-  --ring: oklch(0.72 0.17 292 / 60%);
-  --chart-1: oklch(0.72 0.17 292);
-  --chart-2: oklch(0.75 0.13 230);
-  --chart-3: oklch(0.78 0.15 165);
-  --chart-4: oklch(0.82 0.14 80);
-  --chart-5: oklch(0.7 0.18 15);
-  --sidebar: oklch(0.155 0.005 285);
-  --sidebar-foreground: oklch(0.97 0.003 285);
-  --sidebar-primary: oklch(0.72 0.17 292);
-  --sidebar-primary-foreground: oklch(0.16 0.02 292);
-  --sidebar-accent: oklch(0.23 0.006 285);
-  --sidebar-accent-foreground: oklch(0.97 0.003 285);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.72 0.17 292 / 60%);
+  color: var(--j-lit);
 }
 
 .pg-chat [data-copilotkit] {
@@ -362,7 +410,7 @@
 .pg-chat [data-testid="copilot-chat-input"] {
   background: var(--pg-panel);
   border: 1px solid var(--pg-line);
-  box-shadow: 0 10px 30px -12px oklch(0 0 0 / 60%);
+  box-shadow: 0 10px 30px -12px var(--pg-shadow);
 }
 .pg-chat [data-testid="copilot-chat-input"]:focus-within {
   border-color: var(--pg-line-strong);
@@ -408,7 +456,10 @@
 
 .pg-dots {
   background-color: var(--pg-bg);
-  background-image: radial-gradient(oklch(1 0 0 / 6%) 1px, transparent 1.2px);
+  background-image: radial-gradient(
+    oklch(var(--ink) / var(--dot-grid)) 1px,
+    transparent 1.2px
+  );
   background-size: 12px 12px;
 }
 .pg-chat .copilotKitChat [data-copilotkit] {
@@ -461,7 +512,10 @@ main[tabindex="-1"]:focus {
   outline: none;
 }
 .landing-stage {
-  background-image: radial-gradient(oklch(1 0 0 / 5%) 1px, transparent 1.2px);
+  background-image: radial-gradient(
+    oklch(var(--ink) / var(--dot-stage)) 1px,
+    transparent 1.2px
+  );
   background-size: 16px 16px;
 }
 
@@ -505,6 +559,9 @@ main[tabindex="-1"]:focus {
 /* ─────────────── JSON tab: editing mode (src/components/playground/json-editor.tsx) ─────────────── */
 .pg-jed {
   container-type: inline-size;
+  --pg-jed-error: oklch(0.56 0.2 22);
+}
+.dark .pg-jed {
   --pg-jed-error: oklch(0.72 0.17 22);
 }
 /* Narrow inspector: editor above, preview below. Widened: side by side. */
@@ -567,24 +624,24 @@ main[tabindex="-1"]:focus {
   overscroll-behavior: contain;
 }
 .pg-jed-input::selection {
-  background: oklch(0.72 0.17 292 / 32%);
+  background: color-mix(in oklch, var(--wb-violet) 32%, transparent);
 }
 .pg-jed-code {
   box-shadow: inset 0 0 0 1px transparent;
   transition: box-shadow 0.15s;
 }
 .pg-jed-code:focus-within {
-  box-shadow: inset 0 0 0 1px oklch(0.72 0.17 292 / 45%);
+  box-shadow: inset 0 0 0 1px var(--wb-violet-line);
 }
 .pg-jed-gutter {
   background: var(--pg-surface);
 }
 .pg-jed-error-band {
-  background: oklch(0.72 0.17 22 / 11%);
+  background: color-mix(in oklch, var(--pg-jed-error) 11%, transparent);
   box-shadow: inset 2px 0 0 var(--pg-jed-error);
 }
 .pg-jed-gutter-error {
-  background: oklch(0.72 0.17 22 / 16%);
+  background: color-mix(in oklch, var(--pg-jed-error) 16%, transparent);
 }
 .pg-jed-preview-stale > * {
   opacity: 0.55;
@@ -604,6 +661,23 @@ main[tabindex="-1"]:focus {
 
 /* ─────────────── Workbench: the front door (src/components/playground/workbench.tsx, thread.tsx, composer.tsx) ─────────────── */
 .pg-root {
+  --wb-violet: oklch(0.52 0.2 292);
+  --wb-violet-ring: oklch(0.52 0.2 292 / 55%);
+  --wb-violet-glow: oklch(0.52 0.2 292 / 10%);
+  --wb-violet-line: oklch(0.52 0.2 292 / 40%);
+  --wb-blue: oklch(0.52 0.13 240);
+  --wb-blue-wash: oklch(0.52 0.13 240 / 9%);
+  --wb-on-blue: oklch(0.99 0 0);
+  --wb-amber: oklch(0.53 0.12 70);
+  --wb-red: oklch(0.56 0.2 22);
+  --wb-red-line: oklch(0.56 0.2 22 / 30%);
+  --wb-red-wash: oklch(0.56 0.2 22 / 7%);
+  --wb-ln: oklch(0.55 0.012 285);
+  --wb-code: oklch(0.32 0.01 285);
+}
+.dark .pg-root {
+  --wb-on-blue: oklch(0.2 0.03 240);
+  --wb-code: oklch(0.82 0.01 285);
   --wb-violet: oklch(0.72 0.17 292);
   --wb-violet-ring: oklch(0.72 0.17 292 / 65%);
   --wb-violet-glow: oklch(0.72 0.17 292 / 16%);
@@ -617,12 +691,12 @@ main[tabindex="-1"]:focus {
   --wb-ln: oklch(0.56 0.012 285);
 }
 .pg-root ::selection {
-  background: oklch(0.72 0.17 292 / 32%);
+  background: color-mix(in oklch, var(--wb-violet) 32%, transparent);
   color: var(--foreground);
 }
 .wb-scroll {
   scrollbar-width: thin;
-  scrollbar-color: oklch(1 0 0 / 12%) transparent;
+  scrollbar-color: oklch(var(--ink) / 12%) transparent;
 }
 /* The composer sits under the conversation: what scrolls behind it fades out instead of being cut. */
 .wb-composer::before {
@@ -651,7 +725,7 @@ main[tabindex="-1"]:focus {
 
 /* Column header tabs: the sliding tabs, a size down. */
 .wb-tabs {
-  --tabs-bar-bg: oklch(1 0 0 / 4%);
+  --tabs-bar-bg: oklch(var(--ink) / 4%);
 }
 .wb-tabs .t-tab {
   height: 28px;
@@ -698,7 +772,7 @@ main[tabindex="-1"]:focus {
   box-shadow: inset 2px 0 0 var(--wb-blue);
 }
 .wb-line[data-pinned] .wb-line-btn {
-  background: oklch(0.79 0.1 232 / 18%);
+  background: color-mix(in oklch, var(--wb-blue) 18%, transparent);
   box-shadow: inset 2px 0 0 var(--wb-blue);
 }
 .wb-ln {
@@ -718,7 +792,7 @@ main[tabindex="-1"]:focus {
   text-indent: -2ch;
   font-size: inherit;
   line-height: inherit;
-  color: oklch(0.82 0.01 285);
+  color: var(--wb-code);
 }
 /* A line carrying data (a table's rows) would bury the one-line-per-component shape: three rows until it is pinned (a click or Enter), so hovering never reflows the lines below. */
 .wb-lines .wb-line:not([data-pinned]) .wb-code {
@@ -750,7 +824,7 @@ main[tabindex="-1"]:focus {
   content: "";
   flex: 1 1 16px;
   height: 1px;
-  background: oklch(0.84 0.12 78 / 30%);
+  background: color-mix(in oklch, var(--wb-amber) 30%, transparent);
 }
 .wb-divider span {
   flex: 0 1 auto;
@@ -777,7 +851,7 @@ main[tabindex="-1"]:focus {
   background-color: var(--pg-bg);
   background-image: radial-gradient(
     circle at 1px 1px,
-    oklch(1 0 0 / 5.5%) 1px,
+    oklch(var(--ink) / var(--dot-floor)) 1px,
     transparent 0
   );
   background-size: 18px 18px;
@@ -840,7 +914,8 @@ main[tabindex="-1"]:focus {
   pointer-events: none;
   border: 2px solid var(--wb-blue);
   border-radius: 14px;
-  box-shadow: 0 6px 24px -8px oklch(0.79 0.1 232 / 35%);
+  box-shadow: 0 6px 24px -8px
+    color-mix(in oklch, var(--wb-blue) 35%, transparent);
   transition:
     left 140ms cubic-bezier(0.22, 1, 0.36, 1),
     top 140ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -854,7 +929,7 @@ main[tabindex="-1"]:focus {
   padding: 1px 8px;
   border-radius: 999px;
   background: var(--wb-blue);
-  color: oklch(0.2 0.03 240);
+  color: var(--wb-on-blue);
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;

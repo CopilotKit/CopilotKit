@@ -34,10 +34,8 @@
   /* transitions.dev skeleton loader pulse */
   --pulse-dur: 1000ms;
   --pulse-min: 0.5;
-  /* transitions.dev shimmer text (dark values) */
+  /* transitions.dev shimmer text (colours: see the theme block below) */
   --shimmer-dur: 2000ms;
-  --shimmer-base: #7c7c7c;
-  --shimmer-highlight: #f2f2f2;
   --shimmer-band: 400%;
   --shimmer-ease: linear;
   /* transitions.dev number pop-in */
@@ -61,13 +59,9 @@
   /* transitions.dev card resize */
   --resize-dur: 300ms;
   --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  /* transitions.dev tabs sliding (dark values) */
+  /* transitions.dev tabs sliding (colours: see the theme block below) */
   --tabs-dur: 250ms;
   --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --tabs-text-muted: rgba(240, 240, 245, 0.62);
-  --tabs-text-active: #f4f4f6;
-  --tabs-bar-bg: rgba(255, 255, 255, 0.05);
-  --tabs-pill-bg: rgba(255, 255, 255, 0.1);
   /* transitions.dev success check */
   --check-opacity-dur: 500ms;
   --check-rotate-dur: 500ms;
@@ -83,23 +77,56 @@
   --check-ease-rotate: cubic-bezier(0.22, 1, 0.36, 1);
   --check-ease-bob: cubic-bezier(0.34, 1.35, 0.64, 1);
   --check-ease-path: cubic-bezier(0.22, 1, 0.36, 1);
-  /* transitions.dev matrix dot loader (dark values) */
+  /* transitions.dev matrix dot loader (colours: see the theme block below) */
   --matrix-cycle: 1200ms;
-  --matrix-base: #3a3a40;
-  --matrix-active: #a3a3ad;
   --matrix-ease: ease-in-out;
 }
 
-/* transitions.dev UI generation overlay, dark values (the app is dark; overrides src/vendor/transitions/ui-generation.css) */
+/* recipe / theme colours
+   The recipes' colours follow the page's theme (src/lib/theme.ts): light values by default, dark values
+   under .dark, never the operating system's preference. The UI generation overlay's light values are the
+   ones src/vendor/transitions/ui-generation.css ships; its own dark block answers prefers-color-scheme, so
+   these selectors are written to outrank it (the vendor file loads first). */
 :root,
 :root:not([data-theme="light"]) {
+  /* transitions.dev UI generation overlay */
+  --gen-line: #9a9a9a;
+  --gen-strong: #6c6c6c;
+  --gen-ink: rgba(13, 13, 13, 0.32);
+  --gen-surface: #ffffff;
+  --gen-text: #0d0d0d;
+  --gen-muted: #8b8b8b;
+  --gen-font: var(--font-mono), "Roboto Mono", ui-monospace, monospace;
+  /* shimmer text: a dark sweep across grey text */
+  --shimmer-base: #7a7a7a;
+  --shimmer-highlight: #111113;
+  /* tabs sliding: a white pill on a faint grey bar */
+  --tabs-text-muted: rgba(24, 24, 30, 0.6);
+  --tabs-text-active: #111114;
+  --tabs-bar-bg: rgba(0, 0, 0, 0.045);
+  --tabs-pill-bg: #ffffff;
+  --tabs-pill-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  /* matrix dot loader */
+  --matrix-base: #dcdce1;
+  --matrix-active: #6e6e78;
+}
+:root.dark {
   --gen-line: #6f6f6f;
   --gen-strong: #a3a3a3;
   --gen-ink: rgba(245, 245, 245, 0.3);
   --gen-surface: #0d0d10;
   --gen-text: #f2f2f2;
   --gen-muted: #8f8f8f;
-  --gen-font: var(--font-mono), "Roboto Mono", ui-monospace, monospace;
+  --shimmer-base: #7c7c7c;
+  --shimmer-highlight: #f2f2f2;
+  --tabs-text-muted: rgba(240, 240, 245, 0.62);
+  --tabs-text-active: #f4f4f6;
+  --tabs-bar-bg: rgba(255, 255, 255, 0.05);
+  --tabs-pill-bg: rgba(255, 255, 255, 0.1);
+  --tabs-pill-shadow: none;
+  --matrix-base: #3a3a40;
+  --matrix-active: #a3a3ad;
 }
 
 /* The runtime's own numbers, for the conversation's pending frames and landing components (below), so a
@@ -480,6 +507,7 @@
   height: 32px;
   width: 0;
   background: var(--tabs-pill-bg);
+  box-shadow: var(--tabs-pill-shadow);
   border-radius: 48px;
   transform: translateX(0);
   transition:

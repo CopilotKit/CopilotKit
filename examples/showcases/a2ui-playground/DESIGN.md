@@ -1,6 +1,6 @@
 ---
 name: A2UI Playground
-description: The CopilotKit x A2UI dark workbench where you watch an agent write UI, line by line, and your components draw it.
+description: The CopilotKit x A2UI workbench, light by default with a dark theme, where you watch an agent write UI, line by line, and your components draw it.
 colors:
   live-violet: "oklch(0.72 0.17 292)"
   violet-ink: "oklch(0.16 0.02 292)"
@@ -183,6 +183,8 @@ components:
 
 A near-black, graphite-and-hairline world where the mechanism is the display. The front door is a conversation with a bench beside it: each prompt with the UI it asked for painting inline under it, and next to the conversation the lines the model wrote for the selected surface, linked both ways. Chrome stays quiet and neutral so that the only colour on screen carries meaning: violet for what is happening now, blue for the line and component you are looking at together, amber and green for the macro and template tags.
 
+The page is light by default and dark from the header's toggle or `?theme=dark`. This document was written for the dark theme and gives its values; the light theme keeps every role and rule, with near-white grounds, white cards and near-black hairlines (see Light and Dark under Colors).
+
 Density is that of a developer tool, not a landing page. Text sits at 12.5 to 15.5px, columns are divided by 7.5% white hairlines instead of shadows, and the generated UI is set on a faint dot grid floor so it reads as work in progress on a bench rather than a finished page. Motion is short and functional: lines slide in 3px as they arrive, a block caret blinks where the model is writing, and UI is made in one visual language, the transitions.dev UI generation drawing: a UI that arrives whole is drawn in moving dots and revealed behind a scan line, and a UI that streams stands as the same dotted frames, each component scanning in as it lands.
 
 The workbench sits inside the site chrome (pure black header with the A2UI mark and "A2UI Playground by CopilotKit") and shares the catalog renderers' tokens, so a component drawn in the conversation is the same component the docs and chat show. The page reads as the A2UI demo, not a CopilotKit promotion: CopilotKit gets a credit line, not a lockup.
@@ -195,11 +197,15 @@ The workbench sits inside the site chrome (pure black header with the A2UI mark 
 - One violet for live state; one blue for the line-to-component link.
 - One loader: the dotted transitions.dev drawing, in neutral greys.
 - Dot-grid floors under generated UI only.
-- A white primary action, never a violet one.
+- An ink primary action (white on dark, near-black on light), never a violet one.
 
 ## Colors
 
 A cool graphite ramp with four signal hues, each bound to one meaning.
+
+### Light and Dark
+
+Light is the default; dark is the `dark` class on `<html>`, set before the first paint from `?theme=` or the visitor's last pick (`src/lib/theme-script.ts`). Every token has a value for each, light at `:root` and dark under `.dark` (`src/app/globals.css`, and the Gen UI themes' top-level and `dark` values). The roles below are named for dark. In light the grounds step down from near-white (page 0.992, workbench 0.985, well 0.975) to white cards and panels, hairlines are near-black at 9 to 16% (`--ink`), and the signal hues drop to about 0.52 to 0.6 lightness so they read on white: Live Violet becomes oklch(0.52 0.2 292), Link Blue oklch(0.52 0.13 240) with white tag text. Cards in light take a soft two-layer shadow in place of dark's inner highlight. Each design system has its own light and dark values too; Bring your own is light in both.
 
 ### Primary
 
@@ -218,7 +224,7 @@ A cool graphite ramp with four signal hues, each bound to one meaning.
 
 ### Neutral
 
-- **Header Black** (header-black): the site header bar only.
+- **Header Black** (header-black): the site header bar only (white in light).
 - **Page Ground** (page-ground): the app background and the text on the white Build button.
 - **Workbench Ground** (workbench-ground): the workbench columns and the floor under each surface's dot grid.
 - **Well Graphite** (well-graphite): sunken inputs: the prompt box, the "Asked:" echo, the JSON gutter.
@@ -231,7 +237,7 @@ A cool graphite ramp with four signal hues, each bound to one meaning.
 
 ### Named Rules
 
-**The Live-Only Violet Rule.** In the workbench chrome, violet means "in progress" or "keyboard focus" and nothing else. A static, finished, or merely important thing is never violet; the primary Build action is white.
+**The Live-Only Violet Rule.** In the workbench chrome, violet means "in progress" or "keyboard focus" and nothing else. A static, finished, or merely important thing is never violet; the primary Build action is ink, white on dark and near-black on light.
 
 **The One Link Colour Rule.** Blue appears only on the pair being linked, line and component, at the same moment. It is never used for navigation, buttons, or emphasis.
 
@@ -268,6 +274,10 @@ The workbench fills the window under the 64px sticky header, in two columns sepa
 The conversation and its composer share one measure: 780px of content, centred, with 32px side padding (24px under 1280px, 16px on phones). A new prompt scrolls its turn to the top and the last turn is at least as tall as the view, so the UI paints below the prompt, in sight. A turn started by a click inside a surface does not take the view. The writes pane opens with a 52px head (title left, mono status right), then the tabs. The Express list pads lines 8px left, 20px right.
 
 Under 900px the conversation is the whole screen: intro, thread, composer. Suggestions wrap to at most two rows at every width, so the composer stays short: the prompts that would start a third row are hidden (two remain on a phone), and the row never scrolls sideways. The writes pane opens over the conversation from the chip on a surface, with a "Chat" button back (Escape also closes it), and "start without AI" opens it on the JSON editor.
+
+From 900px the writes pane collapses to a 44px rail on the right edge, with a vertical label ("Gemini Flash writes · 13 lines"); the rail, the chip under a surface and "start without AI" bring it back. The choice is remembered.
+
+Small frames (any window 700px tall or less, and a single column up to 860px tall that is not a portrait phone: every square from 360 to 800px) shrink the chrome so the answer has the room: a 48px header, the intro reduced to its h1 and gone once a conversation or the replay shows, the suggestions and the pickers each in one row that scrolls sideways, a one-line prompt, and "start without AI" in the picker row. `?embed=1` is the playground in an iframe on CopilotKit's site and docs: a compact header with the mark, the theme toggle and "Open full playground" (a new tab, without `embed`), no site navigation, and the writes pane starting collapsed.
 
 Site pages outside the workbench use a 1400px container with 24px side padding (16px under 640px). Generated surfaces lay out by their own container width: grids drop from 4 to 2 columns at 520px, 3 to 2 at 400px, and to 1 at 260px.
 
@@ -342,7 +352,7 @@ One loader language, taken from the transitions.dev UI generation runtime (vendo
 ### Navigation
 
 - **Site header:** pure black, 64px, sticky, hairline below. On the left the A2UI mark, 17px/600 "A2UI Playground" and a 13px Ink Muted credit, "by" with the CopilotKit kite and "CopilotKit" (under 420px the credit drops under the name at 11.5px). Then 15px/500 nav links (Playground, Components, Get started) in Ink Muted that turn Ink on hover and when current. Under 960px the links move into a right-hand drawer (320px, workbench ground, hairline left edge).
-- **Design systems:** the composer's first picker chooses what draws the surfaces: CopilotKit (the standard catalog as shipped), ChatCN (shadcn/ui's neutral palette and primitives), Material (Material 3 Expressive components in a dark Material scheme generated from the seed #0b57d0, Roboto Flex, on a 28px-cornered Material surface) or Bring your own (a light, square-cornered in-house set in Helvetica Neue (Arial on Windows), a system stack so the build fetches no extra font, on its own #f4f6f8 app canvas inside the floor). The catalog and the agent's lines never change; `src/design-systems/` swaps leaf components (never containers, so nothing inside a Card remounts) and scopes tokens on the surface host (`data-ds`). A swatch in the picker (violet, near-white, a round periwinkle, blue) names each one at a glance; Material's is the only round one.
+- **Design systems:** the composer's first picker chooses what draws the surfaces: CopilotKit (the standard catalog as shipped), ChatCN (shadcn/ui's neutral palette and primitives), Material (Material 3 Expressive components in a Material scheme generated from the seed #0b57d0, light or dark with the page, Roboto Flex, on a 28px-cornered Material surface) or Bring your own (a light, square-cornered in-house set in Helvetica Neue (Arial on Windows), a system stack so the build fetches no extra font, on its own #f4f6f8 app canvas inside the floor, light in both themes). The catalog and the agent's lines never change; `src/design-systems/` swaps leaf components (never containers, so nothing inside a Card remounts) and scopes tokens on the surface host (`data-ds`). A swatch in the picker (violet, near-white, a round periwinkle, blue) names each one at a glance; Material's is the only round one.
 - **Column tabs (Express, JSON, Run):** the sliding-pill tabs at 28px tall, on a 4% white track.
 - **Phone lines view:** the writes pane over the conversation, entering with a 200ms 10px rise; its head leads with a "Chat" back button and a hairline divider.
 

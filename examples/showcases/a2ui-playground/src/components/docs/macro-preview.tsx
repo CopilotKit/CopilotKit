@@ -11,7 +11,7 @@ type Op = Record<string, unknown>;
 export function MacroPreview({ ops, name }: { ops: Op[]; name: string }) {
   const [view, setView] = useState<"render" | "json">("render");
   return (
-    <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-[#0b0b0d]">
+    <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-[oklch(0.975_0.003_285)] dark:bg-[#0b0b0d]">
       <div className="flex h-10 items-center justify-between border-b border-border pl-4 pr-1.5">
         <span className="font-mono text-[12.5px] text-muted-foreground">
           expanded on the server
@@ -32,7 +32,7 @@ export function MacroPreview({ ops, name }: { ops: Op[]; name: string }) {
               className={cn(
                 "rounded-md px-2.5 py-1 text-[12.5px] font-medium transition-colors",
                 view === v
-                  ? "bg-white/[0.08] text-foreground"
+                  ? "bg-black/[0.08] dark:bg-white/[0.08] text-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >

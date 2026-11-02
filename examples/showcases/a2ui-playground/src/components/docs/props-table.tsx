@@ -9,7 +9,7 @@ export type PropRow = {
 /** The props table on a component page. Scrolls sideways on narrow screens. */
 export function PropsTable({ rows }: { rows: PropRow[] }) {
   return (
-    <div className="docs-scroll mt-5 overflow-x-auto rounded-xl border border-border">
+    <div className="docs-scroll mt-5 overflow-x-auto rounded-xl border border-border bg-card shadow-[0_1px_2px_oklch(var(--ink)/5%)] dark:bg-transparent dark:shadow-none">
       <table className="w-full min-w-[620px] border-collapse text-left text-[13px]">
         <thead>
           <tr className="border-b border-border bg-secondary/30 text-[12.5px] text-muted-foreground">
@@ -31,7 +31,7 @@ export function PropsTable({ rows }: { rows: PropRow[] }) {
                 </span>
               </td>
               <td className="max-w-[340px] px-4 py-3">
-                <code className="break-words font-mono text-[12px] leading-relaxed text-[oklch(0.8_0.08_230)]">
+                <code className="break-words font-mono text-[12px] leading-relaxed text-[oklch(0.48_0.11_235)] dark:text-[oklch(0.8_0.08_230)]">
                   {p.type}
                 </code>
               </td>

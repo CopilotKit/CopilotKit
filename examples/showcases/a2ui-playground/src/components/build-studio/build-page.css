@@ -1,14 +1,23 @@
 /* /watch page layout: parts log / canvas / motion CSS. Motion recipes live in build-motion.css. */
 
+/* Light values by default, dark under .dark (src/lib/theme.ts). */
 .bs-root {
+  --bs-ink: oklch(0.27 0.008 285);
+  --bs-mid: oklch(0.46 0.01 285);
+  --bs-faint-c: oklch(0.58 0.01 285);
+  --bs-dot: oklch(0.21 0.012 285 / 11%);
+  --bs-ok-c: oklch(0.5 0.12 165);
+  --bs-hi: oklch(0.21 0.012 285 / 5%);
+  background: var(--background);
+  color: var(--bs-mid);
+}
+.dark .bs-root {
   --bs-ink: oklch(0.86 0.005 285);
   --bs-mid: oklch(0.66 0.008 285);
   --bs-faint-c: oklch(0.5 0.008 285);
   --bs-dot: oklch(1 0 0 / 9%);
   --bs-ok-c: oklch(0.8 0.13 165);
   --bs-hi: oklch(1 0 0 / 5%);
-  background: var(--background);
-  color: var(--bs-mid);
 }
 
 .bs-head {

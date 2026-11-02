@@ -91,14 +91,38 @@ function weatherKey(icon?: string, condition?: string): string {
 }
 
 const weatherTint: Record<string, { glow: string; icon: string }> = {
-  sun: { glow: "oklch(0.83 0.14 78 / 22%)", icon: "text-amber-300" },
-  "cloud-sun": { glow: "oklch(0.83 0.12 78 / 15%)", icon: "text-amber-200" },
-  cloud: { glow: "oklch(0.75 0.03 260 / 14%)", icon: "text-slate-300" },
-  fog: { glow: "oklch(0.75 0.02 260 / 12%)", icon: "text-slate-300" },
-  drizzle: { glow: "oklch(0.76 0.12 225 / 16%)", icon: "text-sky-300" },
-  rain: { glow: "oklch(0.7 0.14 240 / 20%)", icon: "text-sky-300" },
-  snow: { glow: "oklch(0.9 0.04 230 / 16%)", icon: "text-sky-100" },
-  storm: { glow: "oklch(0.65 0.17 292 / 22%)", icon: "text-violet-300" },
+  sun: {
+    glow: "oklch(0.83 0.14 78 / 22%)",
+    icon: "text-amber-500 dark:text-amber-300",
+  },
+  "cloud-sun": {
+    glow: "oklch(0.83 0.12 78 / 15%)",
+    icon: "text-amber-500 dark:text-amber-200",
+  },
+  cloud: {
+    glow: "oklch(0.75 0.03 260 / 14%)",
+    icon: "text-slate-400 dark:text-slate-300",
+  },
+  fog: {
+    glow: "oklch(0.75 0.02 260 / 12%)",
+    icon: "text-slate-400 dark:text-slate-300",
+  },
+  drizzle: {
+    glow: "oklch(0.76 0.12 225 / 16%)",
+    icon: "text-sky-500 dark:text-sky-300",
+  },
+  rain: {
+    glow: "oklch(0.7 0.14 240 / 20%)",
+    icon: "text-sky-500 dark:text-sky-300",
+  },
+  snow: {
+    glow: "oklch(0.9 0.04 230 / 16%)",
+    icon: "text-sky-400 dark:text-sky-100",
+  },
+  storm: {
+    glow: "oklch(0.65 0.17 292 / 22%)",
+    icon: "text-violet-500 dark:text-violet-300",
+  },
 };
 
 function WeatherIcon({
@@ -140,7 +164,7 @@ function Img({
 }
 
 const chip =
-  "inline-flex items-center gap-1 rounded-full border border-[var(--a2-line)] bg-white/[0.04] px-2 py-0.5 text-[11px] text-muted-foreground";
+  "inline-flex items-center gap-1 rounded-full border border-[var(--a2-line)] bg-black/[0.04] dark:bg-white/[0.04] px-2 py-0.5 text-[11px] text-muted-foreground";
 
 /** Parses "2026-11-14", "Nov 14 2026", ISO timestamps. Falls back to null for free text. */
 function parseDate(input?: string): Date | null {
@@ -247,7 +271,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
           </div>
           <WeatherIcon
             icon={key}
-            className="size-[72px] shrink-0 drop-shadow-[0_6px_24px_rgba(0,0,0,0.35)]"
+            className="size-[72px] shrink-0 drop-shadow-[0_6px_18px_oklch(0.21_0.012_285/14%)] dark:drop-shadow-[0_6px_24px_rgba(0,0,0,0.35)]"
           />
         </div>
 
@@ -280,7 +304,8 @@ export const domainRenderers: RendererMap<DomainKeys> = {
                   key={`${h.label}-${i}`}
                   className={cn(
                     "flex min-w-[52px] flex-1 flex-col items-center gap-1.5 rounded-[10px] py-2",
-                    i === 0 && "bg-white/[0.045] ring-1 ring-[var(--a2-line)]",
+                    i === 0 &&
+                      "bg-black/[0.045] dark:bg-white/[0.045] ring-1 ring-[var(--a2-line)]",
                   )}
                 >
                   <span
@@ -300,7 +325,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
                   </span>
                   <span
                     className={cn(
-                      "h-3 text-[10px] tabular-nums text-sky-300",
+                      "h-3 text-[10px] tabular-nums text-sky-700 dark:text-sky-300",
                       !(h.precip && h.precip > 0) && "opacity-0",
                     )}
                   >
@@ -324,13 +349,13 @@ export const domainRenderers: RendererMap<DomainKeys> = {
                 >
                   <span className="text-[13px] font-medium">{d.label}</span>
                   <WeatherIcon icon={weatherKey(d.icon)} className="size-4" />
-                  <span className="text-[10.5px] tabular-nums text-sky-300">
+                  <span className="text-[10.5px] tabular-nums text-sky-700 dark:text-sky-300">
                     {d.precip ? `${Math.round(d.precip)}%` : ""}
                   </span>
                   <span className="text-right text-[12.5px] tabular-nums text-muted-foreground">
                     {Math.round(d.min)}°
                   </span>
-                  <span className="relative h-[5px] rounded-full bg-white/[0.07]">
+                  <span className="relative h-[5px] rounded-full bg-black/[0.07] dark:bg-white/[0.07]">
                     <span
                       className="absolute inset-y-0 rounded-full"
                       style={{
@@ -383,7 +408,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
     ].filter(Boolean) as { icon: LucideIcon; value: string; href: string }[];
     return (
       <div className="a2-card a2-enter w-full min-w-0 overflow-hidden">
-        <div className="relative h-16 overflow-hidden bg-[linear-gradient(120deg,oklch(0.42_0.14_292),oklch(0.32_0.09_250)_55%,oklch(0.25_0.04_285))]">
+        <div className="relative h-16 overflow-hidden bg-[linear-gradient(120deg,oklch(0.8_0.1_292),oklch(0.87_0.06_250)_55%,oklch(0.95_0.015_285))] dark:bg-[linear-gradient(120deg,oklch(0.42_0.14_292),oklch(0.32_0.09_250)_55%,oklch(0.25_0.04_285))]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_-20%,oklch(1_0_0/18%),transparent_55%)]" />
         </div>
         <div className="px-4 pb-4">
@@ -392,7 +417,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
               {props.avatar ? (
                 <AvatarImage src={props.avatar} alt={props.name ?? ""} />
               ) : null}
-              <AvatarFallback className="bg-violet-500/20 text-[18px] font-semibold text-violet-200">
+              <AvatarFallback className="bg-violet-500/20 text-[18px] font-semibold text-violet-800 dark:text-violet-200">
                 {initials(props.name)}
               </AvatarFallback>
             </Avatar>
@@ -468,9 +493,9 @@ export const domainRenderers: RendererMap<DomainKeys> = {
                   href={c.href}
                   target={c.href.startsWith("http") ? "_blank" : undefined}
                   rel="noreferrer"
-                  className="group flex min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:bg-white/[0.04] hover:text-foreground"
+                  className="group flex min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.04] hover:text-foreground"
                 >
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05]">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-black/[0.05] dark:bg-white/[0.05]">
                     <c.icon className="size-3.5" />
                   </span>
                   <span className="truncate">{c.value}</span>
@@ -500,10 +525,10 @@ export const domainRenderers: RendererMap<DomainKeys> = {
     const statusTone = !status
       ? ""
       : /paid|complete|deliver|success|confirm/i.test(status)
-        ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
+        ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300"
         : /refund|cancel|fail/i.test(status)
-          ? "border-rose-400/25 bg-rose-400/10 text-rose-300"
-          : "border-amber-300/25 bg-amber-300/10 text-amber-200";
+          ? "border-rose-400/25 bg-rose-400/10 text-rose-700 dark:text-rose-300"
+          : "border-amber-300/25 bg-amber-300/10 text-amber-800 dark:text-amber-200";
     const rows = [
       { label: "Subtotal", value: money(subtotal, currency) },
       shipping
@@ -515,7 +540,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
         ? {
             label: "Discount",
             value: `-${money(discount, currency)}`,
-            tone: "text-emerald-300",
+            tone: "text-emerald-700 dark:text-emerald-300",
           }
         : null,
       tax ? { label: "Tax", value: money(tax, currency) } : null,
@@ -524,8 +549,8 @@ export const domainRenderers: RendererMap<DomainKeys> = {
       <div className="a2-card a2-enter w-full min-w-0 overflow-hidden">
         <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-4">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--a2-line)] bg-white/[0.04]">
-              <Receipt className="size-4 text-violet-300" />
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--a2-line)] bg-black/[0.04] dark:bg-white/[0.04]">
+              <Receipt className="size-4 text-violet-600 dark:text-violet-300" />
             </span>
             <span className="flex min-w-0 flex-col">
               <span className="truncate text-[14.5px] font-semibold tracking-tight">
@@ -561,7 +586,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
                   className="flex items-start justify-between gap-3 py-2"
                 >
                   <div className="flex min-w-0 items-start gap-2.5">
-                    <span className="mt-px flex h-5 min-w-5 shrink-0 items-center justify-center rounded-md bg-white/[0.06] px-1 text-[10.5px] font-semibold tabular-nums text-muted-foreground">
+                    <span className="mt-px flex h-5 min-w-5 shrink-0 items-center justify-center rounded-md bg-black/[0.06] dark:bg-white/[0.06] px-1 text-[10.5px] font-semibold tabular-nums text-muted-foreground">
                       {num(it.qty) ?? 1}
                     </span>
                     <span className="flex min-w-0 flex-col">
@@ -579,7 +604,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
                 </div>
               ))}
         </div>
-        <div className="mx-4 border-t border-dashed border-white/12" />
+        <div className="mx-4 border-t border-dashed border-black/12 dark:border-white/12" />
         <div className="flex flex-col gap-1.5 px-4 py-3">
           {rows.map((r) => (
             <div
@@ -598,7 +623,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
           </div>
         </div>
         {props.payment ? (
-          <div className="flex items-center gap-2 border-t border-[var(--a2-line)] bg-white/[0.015] px-4 py-2.5 text-[12px] text-muted-foreground">
+          <div className="flex items-center gap-2 border-t border-[var(--a2-line)] bg-black/[0.015] dark:bg-white/[0.015] px-4 py-2.5 text-[12px] text-muted-foreground">
             <CreditCard className="size-3.5" />
             {props.payment}
           </div>
@@ -616,7 +641,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
     return (
       <div className="a2-card a2-enter w-full min-w-0 overflow-hidden">
         {props.image ? (
-          <div className="relative h-32 overflow-hidden bg-white/[0.03]">
+          <div className="relative h-32 overflow-hidden bg-black/[0.03] dark:bg-white/[0.03]">
             <Img src={props.image} alt={props.title ?? ""} />
             <div className="absolute inset-0 bg-gradient-to-t from-[var(--a2-surface)] via-transparent to-transparent" />
           </div>
@@ -627,8 +652,8 @@ export const domainRenderers: RendererMap<DomainKeys> = {
             props.image ? "-mt-7 pt-0" : "pt-4",
           )}
         >
-          <div className="relative flex w-14 shrink-0 flex-col items-center self-start overflow-hidden rounded-[12px] border border-[var(--a2-line-strong)] bg-[var(--a2-surface-2)] shadow-[0_6px_18px_-6px_rgba(0,0,0,0.6)]">
-            <span className="w-full bg-(--a2-accent) py-[3px] text-center text-[11px] font-semibold leading-tight text-[oklch(0.16_0.02_292)]">
+          <div className="relative flex w-14 shrink-0 flex-col items-center self-start overflow-hidden rounded-[12px] border border-[var(--a2-line-strong)] bg-[var(--a2-surface-2)] shadow-[0_6px_18px_-6px_oklch(0.21_0.012_285/22%)] dark:shadow-[0_6px_18px_-6px_rgba(0,0,0,0.6)]">
+            <span className="w-full bg-(--a2-accent) py-[3px] text-center text-[11px] font-semibold leading-tight text-[#fff] dark:text-[oklch(0.16_0.02_292)]">
               {d ? d.toLocaleDateString("en-US", { month: "short" }) : "Date"}
             </span>
             <span className="pb-1 pt-1 text-[22px] font-semibold leading-none tabular-nums">
@@ -781,7 +806,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
       <div className="a2-card a2-enter @container w-full min-w-0 overflow-hidden">
         <div className="flex items-start justify-between gap-3 px-4 pt-4">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="hidden h-8 min-w-8 shrink-0 items-center justify-center rounded-[9px] border border-[var(--a2-line)] bg-white/[0.05] px-1.5 font-mono text-[10.5px] font-bold @[300px]:flex">
+            <span className="hidden h-8 min-w-8 shrink-0 items-center justify-center rounded-[9px] border border-[var(--a2-line)] bg-black/[0.05] dark:bg-white/[0.05] px-1.5 font-mono text-[10.5px] font-bold @[300px]:flex">
               {(props.symbol ?? "").slice(0, 4)}
             </span>
             <span className="flex min-w-0 flex-col">
@@ -796,7 +821,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
             </span>
           </div>
           {props.sample ? (
-            <Badge className="shrink-0 border border-amber-300/25 bg-amber-300/10 text-[10.5px] text-amber-200">
+            <Badge className="shrink-0 border border-amber-300/25 bg-amber-300/10 text-[10.5px] text-amber-800 dark:text-amber-200">
               Sample data
             </Badge>
           ) : null}
@@ -809,7 +834,9 @@ export const domainRenderers: RendererMap<DomainKeys> = {
             <span
               className={cn(
                 "inline-flex items-center gap-0.5 text-[13px] font-medium tabular-nums",
-                up ? "text-emerald-400" : "text-rose-400",
+                up
+                  ? "text-emerald-700 dark:text-emerald-400"
+                  : "text-rose-700 dark:text-rose-400",
               )}
             >
               {up ? (
@@ -840,7 +867,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
               x2={spark.W}
               y1={spark.base}
               y2={spark.base}
-              stroke="oklch(1 0 0 / 14%)"
+              className="stroke-black/[0.14] dark:stroke-white/[0.14]"
               strokeDasharray="2 4"
               vectorEffect="non-scaling-stroke"
             />
@@ -907,9 +934,9 @@ export const domainRenderers: RendererMap<DomainKeys> = {
     return (
       <div className="a2-card a2-enter @container w-full min-w-0 overflow-hidden">
         {props.image ? (
-          <div className="relative h-40 overflow-hidden bg-white/[0.03]">
+          <div className="relative h-40 overflow-hidden bg-black/[0.03] dark:bg-white/[0.03]">
             <Img src={props.image} alt={props.title ?? ""} />
-            <div className="absolute inset-0 bg-gradient-to-t from-[var(--a2-surface)] via-[oklch(0.172_0.005_285/45%)] to-[oklch(0.172_0.005_285/10%)]" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[var(--a2-surface)] via-[color-mix(in_oklch,var(--a2-surface)_45%,transparent)] to-[color-mix(in_oklch,var(--a2-surface)_10%,transparent)]" />
           </div>
         ) : null}
         <div
@@ -934,7 +961,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
                   key={t}
                   className={cn(
                     chip,
-                    "border-violet-400/20 bg-violet-500/10 text-violet-200",
+                    "border-violet-400/20 bg-violet-500/10 text-violet-800 dark:text-violet-200",
                   )}
                 >
                   {t}
@@ -951,7 +978,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
                 {done.size}/{ingredients.length}
               </span>
             </div>
-            <div className="h-[3px] overflow-hidden rounded-full bg-white/[0.06]">
+            <div className="h-[3px] overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.06]">
               <div
                 className="h-full rounded-full bg-violet-400 transition-[width] duration-300"
                 style={{
@@ -962,7 +989,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
             <ul className="flex flex-col">
               {ingredients.map((ing, i) => (
                 <li key={i}>
-                  <label className="flex cursor-pointer items-start gap-2.5 rounded-md px-1 py-1.5 transition-colors hover:bg-white/[0.03]">
+                  <label className="flex cursor-pointer items-start gap-2.5 rounded-md px-1 py-1.5 transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.03]">
                     <Checkbox
                       checked={done.has(i)}
                       onCheckedChange={() => toggle(i)}
@@ -972,7 +999,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
                       className={cn(
                         "text-[13px] leading-snug transition-colors",
                         done.has(i) &&
-                          "text-muted-foreground line-through decoration-white/30",
+                          "text-muted-foreground line-through decoration-black/30 dark:decoration-white/30",
                       )}
                     >
                       {ing}
@@ -987,7 +1014,7 @@ export const domainRenderers: RendererMap<DomainKeys> = {
             <ol className="flex flex-col gap-3">
               {steps.map((s, i) => (
                 <li key={i} className="flex gap-2.5">
-                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-violet-400/30 bg-violet-500/10 text-[10.5px] font-semibold tabular-nums text-violet-200">
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-violet-400/30 bg-violet-500/10 text-[10.5px] font-semibold tabular-nums text-violet-800 dark:text-violet-200">
                     {i + 1}
                   </span>
                   <span className="text-[13px] leading-relaxed text-foreground/85">

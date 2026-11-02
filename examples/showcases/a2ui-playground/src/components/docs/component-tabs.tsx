@@ -108,7 +108,7 @@ export function ComponentTabs({
             <StagePreview name={name} intrinsic={intrinsic} wide={wide} />
           </div>
         ) : (
-          <div className="relative overflow-hidden rounded-xl border border-border bg-[oklch(0.155_0.004_285)]">
+          <div className="relative overflow-hidden rounded-xl border border-border bg-[oklch(0.975_0.003_285)] dark:bg-[oklch(0.155_0.004_285)]">
             {copyText ? <CopyButton text={copyText} /> : null}
             <div className="docs-scroll max-h-[560px] overflow-auto p-5 pr-14">
               {tab === "json" ? (

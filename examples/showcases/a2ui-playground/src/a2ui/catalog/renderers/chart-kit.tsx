@@ -1,5 +1,6 @@
 "use client";
 
+import "./renderers.css";
 import { Component, type CSSProperties, type ReactNode } from "react";
 import type { ChartCurve, ChartTheme } from "@tanstack/charts";
 import type { RadialAreaOptions } from "@tanstack/charts/polar";
@@ -89,28 +90,29 @@ export const paletteAt = (i: number) =>
 export const POSITIVE = "var(--a2-positive)";
 export const NEGATIVE = "var(--a2-negative)";
 
-/** Scene theme shared by every chart: muted axis text, hairline grid, the a2 palette. */
+/** Scene theme shared by every chart: muted axis text, hairline grid, the a2 palette. The colours are
+ * variables (renderers.css), so a chart follows the page from light to dark without being rebuilt. */
 export const THEME: Partial<ChartTheme> = {
-  foreground: "oklch(0.93 0.004 285)",
-  muted: "oklch(0.6 0.012 285)",
-  grid: "oklch(1 0 0 / 6.5%)",
+  foreground: "var(--a2-chart-fg)",
+  muted: "var(--a2-chart-muted)",
+  grid: "var(--a2-chart-grid)",
   background: "transparent",
   palette: PALETTE,
   focusRing: { radius: 4.5, fill: "var(--a2-surface)", strokeWidth: 2 },
 };
 
 export const GRID = {
-  stroke: "oklch(1 0 0 / 6.5%)",
+  stroke: "var(--a2-chart-grid)",
   strokeDasharray: "2 4",
 } as const;
 
 /** Tooltip chrome, read by the built-in tooltip from the chart container. */
 const TOOLTIP_VARS = {
-  "--ts-chart-tooltip-background": "oklch(0.2 0.006 285 / 0.94)",
-  "--ts-chart-tooltip-color": "oklch(0.95 0.004 285)",
-  "--ts-chart-tooltip-border": "1px solid oklch(1 0 0 / 10%)",
+  "--ts-chart-tooltip-background": "var(--a2-tooltip-bg)",
+  "--ts-chart-tooltip-color": "var(--a2-tooltip-fg)",
+  "--ts-chart-tooltip-border": "var(--a2-tooltip-border)",
   "--ts-chart-tooltip-border-radius": "10px",
-  "--ts-chart-tooltip-shadow": "0 12px 32px oklch(0 0 0 / 45%)",
+  "--ts-chart-tooltip-shadow": "var(--a2-tooltip-shadow)",
   "--ts-chart-tooltip-padding": "8px 10px",
   "--ts-chart-tooltip-font": "500 11.5px/1.45 var(--font-sans)",
   "--ts-chart-tooltip-max-width": "240px",

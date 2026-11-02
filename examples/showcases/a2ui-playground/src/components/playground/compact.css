@@ -1,0 +1,221 @@
+/*
+ * The workbench in small frames: a short window, a landscape phone, or an iframe from 360 to 800px square on
+ * CopilotKit's site and docs. The answer is what a visitor came to see, so the chrome around it shrinks.
+ *
+ * Unlayered, so these rules win over the Tailwind utilities on the same elements. Everything is scoped to
+ * `.wb-page`, the playground's page root, because the site header is shared with the other pages.
+ *
+ * Keep the query in step with COMPACT in composer.tsx:
+ *   - any window 700px tall or less (landscape phones, short laptops, wide embeds), and
+ *   - a single column (under 900px) up to 860px tall that is not a portrait phone (3:4 or wider), which
+ *     covers every square embed from 360 to 800 and leaves a 375x812 phone as it was.
+ */
+
+/* ───────────────────────── the side panel, collapsed (900px and up) ───────────────────────── */
+
+.wb-rail {
+  display: none;
+}
+@media (min-width: 900px) {
+  /* `data-pane` comes from the workbench's state. Before it hydrates, <html data-wb-pane="collapsed"> (set
+     by the pre-paint script in src/lib/theme.ts) gives the same layout, so a remembered choice never flashes. */
+  .wb-main[data-pane="collapsed"],
+  html[data-wb-pane="collapsed"] .wb-main:not([data-pane]) {
+    grid-template-columns: minmax(0, 1fr) 44px;
+  }
+  .wb-main[data-pane="collapsed"] > [data-wb-pane],
+  html[data-wb-pane="collapsed"] .wb-main:not([data-pane]) > [data-wb-pane] {
+    display: none;
+  }
+  .wb-main[data-pane="collapsed"] > .wb-rail,
+  html[data-wb-pane="collapsed"] .wb-main:not([data-pane]) > .wb-rail {
+    display: flex;
+  }
+}
+.wb-rail-label {
+  writing-mode: vertical-rl;
+  white-space: nowrap;
+}
+
+/* ───────────────────────── short and small viewports ───────────────────────── */
+
+@media (max-height: 700px),
+  (max-width: 899px) and (max-height: 860px) and (min-aspect-ratio: 3/4) {
+  /* The site header: 64px to 48px. */
+  .wb-page [data-site-bar] {
+    height: 48px;
+  }
+  .wb-page [data-site-mark] {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* The hero: a smaller title and no paragraph (still read by screen readers). Once the replay or a
+     conversation is on screen, the title goes too, so the answer starts at the top of the thread. */
+  .wb-page [data-wb-hero] {
+    padding-top: 14px;
+    padding-bottom: 12px;
+  }
+  .wb-page [data-wb-hero] h1 {
+    font-size: 20px;
+    line-height: 1.15;
+  }
+  .wb-page [data-wb-hero] p,
+  .wb-page [data-wb-hero][data-started] h1 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .wb-page [data-wb-hero][data-started] {
+    padding: 12px 0 0;
+  }
+
+  /* The conversation: tighter turns, prompt bubbles and floors. */
+  .wb-page [data-wb-turns] {
+    gap: 24px;
+    padding-bottom: 12px;
+  }
+  .wb-page [data-turn] {
+    gap: 8px;
+  }
+  .wb-page [data-wb-bubble] {
+    padding: 6px 12px;
+    font-size: 14px;
+    border-radius: 12px;
+  }
+  .wb-page .wb-floor {
+    padding: 12px;
+  }
+  .wb-page [data-wb-empty] {
+    padding: 18px 16px;
+  }
+
+  /* The composer. */
+  .wb-page .wb-composer {
+    padding-top: 6px;
+    padding-bottom: 8px;
+  }
+  .wb-page [data-wb-chips-wrap] {
+    margin-bottom: 6px;
+  }
+  /* Suggestions: one row that scrolls sideways, fading out at the right edge. The padding keeps focus rings
+     inside the scroller; the end padding lets the last chip scroll clear of the fade. */
+  .wb-page [data-wb-chips] {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: -4px;
+    padding: 4px 32px 4px 4px;
+    scroll-padding-inline: 4px 32px;
+    mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  }
+  .wb-page [data-wb-chips]::-webkit-scrollbar {
+    display: none;
+  }
+  .wb-page [data-wb-chips] > li {
+    flex: none;
+  }
+  .wb-page [data-suggestion] {
+    padding: 4px 11px;
+    font-size: 12.5px;
+    border-radius: 999px;
+  }
+
+  /* One line to type in; it still grows (to four lines) for a longer prompt. */
+  .wb-page #wb-prompt {
+    min-height: 40px;
+    max-height: 104px;
+    padding-top: 9px;
+    padding-bottom: 5px;
+  }
+  .wb-page #wb-prompt::placeholder {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  @supports not (field-sizing: content) {
+    .wb-page #wb-prompt {
+      height: 40px;
+    }
+  }
+
+  /* The pickers on one row that scrolls sideways if it must; New chat and Build stay put at its end. */
+  .wb-page [data-wb-controls] {
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 2px 8px 8px;
+  }
+  .wb-page [data-wb-pickers] {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: -4px;
+    padding: 4px 24px 4px 4px;
+    scroll-padding-inline: 4px 24px;
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  }
+  .wb-page [data-wb-pickers]::-webkit-scrollbar {
+    display: none;
+  }
+  .wb-page [data-new-chat] {
+    padding-inline: 8px;
+  }
+  .wb-page [data-new-chat] > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  /* "Start without AI" moves from its own line into the picker row. */
+  .wb-page [data-wb-no-ai-line] {
+    display: none;
+  }
+  .wb-page [data-wb-no-ai-inline] {
+    display: inline-flex;
+  }
+
+  @media (max-width: 519px) {
+    /* Build is the arrow alone; its name stays for screen readers. */
+    .wb-page [data-build] {
+      width: 36px;
+      padding: 0;
+      justify-content: center;
+    }
+    .wb-page [data-build-label] {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
+  /* The side panel (and the sheet it becomes under 900px): a shorter header and tab row. */
+  .wb-page [data-wb-pane-head] {
+    height: 44px;
+  }
+  .wb-page [data-wb-pane-tabs] {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+  .wb-page [data-lines-footer] {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .wb-page [data-lines-note] {
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+}

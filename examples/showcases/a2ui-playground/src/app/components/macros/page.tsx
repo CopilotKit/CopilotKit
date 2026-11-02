@@ -14,7 +14,7 @@ export const metadata = {
 
 function C({ children }: { children: React.ReactNode }) {
   return (
-    <code className="rounded-[5px] bg-white/[0.07] px-1.5 py-0.5 font-mono text-[0.86em] text-foreground">
+    <code className="rounded-[5px] bg-black/[0.07] dark:bg-white/[0.07] px-1.5 py-0.5 font-mono text-[0.86em] text-foreground">
       {children}
     </code>
   );
@@ -115,7 +115,7 @@ export default function MacrosPage() {
                     lang="py"
                     className="[&_pre]:whitespace-pre-wrap [&_pre]:break-words"
                   />
-                  <div className="rounded-xl border border-border bg-white/[0.02] px-4 py-3">
+                  <div className="rounded-xl border border-border bg-card shadow-[0_1px_2px_oklch(var(--ink)/5%)] px-4 py-3 dark:bg-white/[0.02] dark:shadow-none">
                     <p className="text-[13px] text-muted-foreground">
                       Expands into
                     </p>

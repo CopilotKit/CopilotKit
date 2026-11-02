@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Material: the catalog drawn with Material 3 Expressive (`@language-lit/material3-expressive`), in a dark
- * Material color scheme generated from one seed (design-systems.css). Its stylesheet and Roboto Flex load
+ * Material: the catalog drawn with Material 3 Expressive (`@language-lit/material3-expressive`), in a light
+ * Material color scheme generated from one seed, dark under the dark theme (design-systems.css). Its stylesheet and Roboto Flex load
  * the first time Material is picked (`./material-assets`). As with the others, only leaves are swapped:
  * containers keep their implementation and take Material's colors and corners from the theme, so
  * switching never remounts what is inside them.

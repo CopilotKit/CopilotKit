@@ -40,7 +40,7 @@ const BLURB: Record<string, string> = {
   Content: "Text, media and code.",
   "Data display": "Numbers, people, tables and schedules.",
   Charts: "TanStack Charts, themed to the catalog.",
-  Maps: "MapLibre with a keyless dark basemap.",
+  Maps: "MapLibre with keyless basemaps that follow the page theme.",
   Inputs: "Form controls that write back to the data model.",
   Feedback: "Alerts, tips, loading and empty states.",
   Domain: "Ready-made cards for common agent answers.",
@@ -104,7 +104,7 @@ export default function ComponentsOverview() {
                 <div
                   key={name}
                   className={cn(
-                    "docs-tile group relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-[oklch(1_0_0/16%)]",
+                    "docs-tile group relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-[oklch(var(--ink)/16%)]",
                     SPAN[size],
                   )}
                 >
@@ -164,7 +164,7 @@ export default function ComponentsOverview() {
             <li key={name} className="min-w-0">
               <Link
                 href={`/components/${name}`}
-                className="docs-tile block h-full rounded-xl border border-border bg-card px-4 py-3 outline-none transition-colors hover:border-[oklch(1_0_0/16%)] focus-visible:ring-2 focus-visible:ring-ring"
+                className="docs-tile block h-full rounded-xl border border-border bg-card px-4 py-3 outline-none transition-colors hover:border-[oklch(var(--ink)/16%)] focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="docs-tile-name block text-[13.5px] font-medium text-foreground/90">
                   {name}

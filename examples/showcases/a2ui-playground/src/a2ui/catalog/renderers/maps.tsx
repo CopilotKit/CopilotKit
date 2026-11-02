@@ -35,19 +35,19 @@ function MapSkeleton({
   return (
     <div
       className={cn(
-        "relative h-full w-full overflow-hidden bg-[#0e0e11]",
+        "relative h-full w-full overflow-hidden bg-[#f2efe9] dark:bg-[#0e0e11]",
         className,
       )}
       style={{
         backgroundImage:
-          "linear-gradient(oklch(1 0 0 / 3.5%) 1px, transparent 1px), linear-gradient(90deg, oklch(1 0 0 / 3.5%) 1px, transparent 1px)",
+          "linear-gradient(oklch(var(--ink) / 3.5%) 1px, transparent 1px), linear-gradient(90deg, oklch(var(--ink) / 3.5%) 1px, transparent 1px)",
         backgroundSize: "28px 28px",
       }}
     >
       <div className="a2-shimmer absolute inset-0" />
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-        <span className="flex size-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04]">
-          <MapPin className="size-4 animate-pulse text-violet-300" />
+        <span className="flex size-8 items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-black/[0.04] dark:bg-white/[0.04]">
+          <MapPin className="size-4 animate-pulse text-violet-600 dark:text-violet-300" />
         </span>
         <span className="text-[11px]">{label}</span>
       </div>
@@ -96,7 +96,7 @@ function Header({
   return (
     <div className="flex min-w-0 items-center justify-between gap-3 px-4 pb-3 pt-3.5">
       <div className="flex min-w-0 items-center gap-2">
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-violet-500/15 text-violet-300">
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-violet-500/15 text-violet-700 dark:text-violet-300">
           <Icon className="size-3.5" />
         </span>
         <span className="truncate text-[14px] font-semibold tracking-tight">
@@ -115,7 +115,7 @@ function Header({
 function Rating({ value }: { value?: number }) {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   return (
-    <span className="inline-flex items-center gap-0.5 text-[11.5px] font-medium tabular-nums text-amber-300">
+    <span className="inline-flex items-center gap-0.5 text-[11.5px] font-medium tabular-nums text-amber-600 dark:text-amber-300">
       <Star className="size-3 fill-current" />
       {value.toFixed(1)}
     </span>
@@ -129,7 +129,7 @@ function NumberDot({ n, active }: { n: number; active?: boolean }) {
         "flex size-5 shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold tabular-nums transition-colors",
         active
           ? "bg-violet-400 text-white shadow-[0_0_0_3px_rgba(167,139,250,0.22)]"
-          : "bg-white/[0.07] text-muted-foreground",
+          : "bg-black/[0.07] dark:bg-white/[0.07] text-muted-foreground",
       )}
     >
       {n}
@@ -185,7 +185,7 @@ export const mapRenderers: RendererMap<
                   "flex max-w-[220px] shrink-0 items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-left text-[12px] transition-colors",
                   active === i
                     ? "border-violet-400/40 bg-violet-500/10 text-foreground"
-                    : "border-[var(--a2-line)] bg-white/[0.02] text-muted-foreground hover:text-foreground",
+                    : "border-[var(--a2-line)] bg-black/[0.02] dark:bg-white/[0.02] text-muted-foreground hover:text-foreground",
                 )}
               >
                 <NumberDot n={i + 1} active={active === i} />
@@ -221,7 +221,7 @@ export const mapRenderers: RendererMap<
           <div className="flex min-w-0 items-center gap-2.5">
             <Endpoint tone="start" label={props.from} />
             <span className="flex min-w-6 flex-1 items-center gap-1 text-muted-foreground/60">
-              <span className="h-px flex-1 border-t border-dashed border-white/15" />
+              <span className="h-px flex-1 border-t border-dashed border-black/15 dark:border-white/15" />
               <ArrowRight className="size-3.5 shrink-0" />
             </span>
             <Endpoint tone="end" label={props.to} />
@@ -238,9 +238,9 @@ export const mapRenderers: RendererMap<
               {stats.map((s) => (
                 <span
                   key={s.label}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-[oklch(0.16_0.006_285/82%)] px-2.5 py-1 text-[12px] font-medium tabular-nums shadow-lg backdrop-blur-md"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-[oklch(1_0_0/85%)] dark:border-white/10 dark:bg-[oklch(0.16_0.006_285/82%)] px-2.5 py-1 text-[12px] font-medium tabular-nums shadow-lg backdrop-blur-md"
                 >
-                  <s.icon className="size-3.5 text-violet-300" />
+                  <s.icon className="size-3.5 text-violet-600 dark:text-violet-300" />
                   {s.value}
                 </span>
               ))}
@@ -303,7 +303,7 @@ export const mapRenderers: RendererMap<
             {props.category ? (
               <Badge
                 variant="secondary"
-                className="shrink-0 border-[var(--a2-line)] bg-white/[0.05] text-[11px] text-muted-foreground"
+                className="shrink-0 border-[var(--a2-line)] bg-black/[0.05] dark:bg-white/[0.05] text-[11px] text-muted-foreground"
               >
                 {props.category}
               </Badge>
@@ -424,7 +424,7 @@ export const mapRenderers: RendererMap<
                         "group flex w-full min-w-0 items-start gap-2.5 rounded-[10px] border px-2.5 py-1.5 text-left transition-colors",
                         active === i
                           ? "border-violet-400/30 bg-violet-500/[0.09]"
-                          : "border-transparent hover:bg-white/[0.03]",
+                          : "border-transparent hover:bg-black/[0.03] dark:hover:bg-white/[0.03]",
                       )}
                     >
                       <span className="pt-px">
@@ -472,9 +472,11 @@ export const mapRenderers: RendererMap<
                   focus={touched ? selected : null}
                   padding={44}
                   basemap={
-                    props.basemap === "streets" || props.basemap === "liberty"
+                    props.basemap === "dark" ||
+                    props.basemap === "streets" ||
+                    props.basemap === "liberty"
                       ? props.basemap
-                      : "dark"
+                      : undefined
                   }
                 />
               ) : (
@@ -500,8 +502,8 @@ function Endpoint({ tone, label }: { tone: "start" | "end"; label?: string }) {
         className={cn(
           "flex size-6 shrink-0 items-center justify-center rounded-full border",
           tone === "start"
-            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
-            : "border-violet-400/30 bg-violet-500/15 text-violet-300",
+            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300"
+            : "border-violet-400/30 bg-violet-500/15 text-violet-700 dark:text-violet-300",
         )}
       >
         {tone === "start" ? (

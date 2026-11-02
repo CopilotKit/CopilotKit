@@ -253,7 +253,7 @@ export function BuildPanel({ runId }: { runId?: string | null } = {}) {
             className={cn(
               "flex flex-none items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[12.5px]",
               running || painting
-                ? "border-amber-400/30 text-amber-200"
+                ? "border-amber-400/30 text-amber-800 dark:text-amber-200"
                 : "border-[var(--pg-line)] text-muted-foreground",
             )}
           >
@@ -336,7 +336,8 @@ export function BuildPanel({ runId }: { runId?: string | null } = {}) {
                   <span
                     className={cn(
                       "truncate",
-                      p.state === "streaming" && "text-amber-200",
+                      p.state === "streaming" &&
+                        "text-amber-800 dark:text-amber-200",
                     )}
                   >
                     {p.type}

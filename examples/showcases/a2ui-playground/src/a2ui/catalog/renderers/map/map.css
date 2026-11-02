@@ -1,4 +1,5 @@
-/* MapLibre chrome restyled for the dark A2UI surface. Scoped to .a2-map. */
+/* MapLibre chrome on the map itself, so it follows the basemap (data-basemap on .a2-map), not the page: dark
+   controls over dark matter, light ones over the street maps. Scoped to .a2-map. */
 .a2-map .maplibregl-canvas {
   outline: none;
 }

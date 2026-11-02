@@ -1,7 +1,7 @@
 /**
  * Brand marks, inlined from public/brand/a2ui.svg and public/brand/copilotkit.svg.
  * Paths are untouched; only the dark ink fills are swapped to currentColor so
- * the marks read on the dark theme.
+ * the marks take the text colour of either theme.
  */
 import type { SVGProps } from "react";
 

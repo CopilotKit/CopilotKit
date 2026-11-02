@@ -114,9 +114,9 @@ export const contentRenderers: RendererMap<
         <figcaption className="flex items-center justify-between border-b border-[var(--a2-line)] px-3.5 py-2">
           <span className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
             <span className="flex gap-1">
-              <span className="size-2 rounded-full bg-white/15" />
-              <span className="size-2 rounded-full bg-white/15" />
-              <span className="size-2 rounded-full bg-white/15" />
+              <span className="size-2 rounded-full bg-black/15 dark:bg-white/15" />
+              <span className="size-2 rounded-full bg-black/15 dark:bg-white/15" />
+              <span className="size-2 rounded-full bg-black/15 dark:bg-white/15" />
             </span>
             {props.filename ?? props.language ?? "code"}
           </span>
@@ -126,7 +126,7 @@ export const contentRenderers: RendererMap<
               setCopied(true);
               setTimeout(() => setCopied(false), 1200);
             }}
-            className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground transition hover:bg-black/5 dark:hover:bg-white/5 hover:text-foreground"
           >
             {copied ? (
               <Check className="size-3" />
@@ -145,7 +145,7 @@ export const contentRenderers: RendererMap<
 
   Quote: ({ props }) => (
     <figure className="a2-enter relative w-full min-w-0 overflow-hidden rounded-[var(--a2-radius)] border border-[var(--a2-line)] bg-gradient-to-br from-violet-500/[0.07] to-transparent px-5 py-4">
-      <QuoteIcon className="absolute right-4 top-3 size-8 text-violet-300/15" />
+      <QuoteIcon className="absolute right-4 top-3 size-8 text-violet-700/15 dark:text-violet-300/15" />
       <blockquote className="text-[15px] font-medium leading-relaxed tracking-tight text-pretty">
         {props.text}
       </blockquote>
@@ -170,7 +170,7 @@ export const contentRenderers: RendererMap<
           <figure
             key={i}
             className={cn(
-              "group relative overflow-hidden rounded-[12px] border border-[var(--a2-line)] bg-white/[0.03]",
+              "group relative overflow-hidden rounded-[12px] border border-[var(--a2-line)] bg-black/[0.03] dark:bg-white/[0.03]",
               i === 0 &&
                 images.length > 3 &&
                 (images.length + 3) % cols === 0 &&
@@ -235,7 +235,7 @@ export const contentRenderers: RendererMap<
         {(props.keys ?? []).map((k, i) => (
           <kbd
             key={i}
-            className="min-w-6 rounded-md border border-b-2 border-white/15 bg-white/[0.06] px-1.5 py-0.5 text-center font-mono text-[11px] font-medium text-foreground/90"
+            className="min-w-6 rounded-md border border-b-2 border-black/15 dark:border-white/15 bg-black/[0.06] dark:bg-white/[0.06] px-1.5 py-0.5 text-center font-mono text-[11px] font-medium text-foreground/90"
           >
             {k}
           </kbd>

@@ -34,7 +34,7 @@ import { SurfaceStream, type Node } from "./surface";
 import { COMPOSER_MAX_TOKENS, MAX_MACROS } from "@/lib/limits";
 
 function systemPrompt(snippet: string) {
-  return `You compose A2UI surfaces for a dark chat app, from the CopilotKit Gen UI 2.0 standard components plus this app's own components and macros. Reply with exactly one <a2ui> block and nothing else.
+  return `You compose A2UI surfaces for a chat app, from the CopilotKit Gen UI 2.0 standard components plus this app's own components and macros. Reply with exactly one <a2ui> block and nothing else.
 
 WRITING ORDER
 - First line: root = ... . Then each parent before its children, in reading order: the surface paints line by line while you write.

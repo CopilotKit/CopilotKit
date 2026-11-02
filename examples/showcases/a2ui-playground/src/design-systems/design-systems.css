@@ -1,10 +1,57 @@
 /* ───────────────────────── Design systems ─────────────────────────
    One catalog, four looks. Each design system scopes its tokens to the surfaces it draws: the shadcn
-   tokens and the playground's --a2-* tokens (the --a2ui-* ones come from the provider's theme). The
-   [data-ds] attribute on top of the host class outranks the base `.a2-surface-host` token rule. */
+   tokens and the playground's --a2-* tokens (the --a2ui-* ones come from the provider's theme). Light is
+   the default; the dark values sit under a `.dark` ancestor (the class on <html>, src/lib/theme.ts).
+   Specificity: a light rule, host class plus [data-ds] (0,2,0), outranks globals.css's light host tokens
+   (0,1,0); a dark rule, `.dark` plus both (0,3,0), outranks its dark ones (`.dark .a2-surface-host`, 0,2,0).
+   Every color a light rule sets, its dark rule sets again, so nothing light leaks into dark mode; the
+   rest (type, corners, padding) is the same in both. */
 
+/* ChatCN: shadcn/ui v4's neutral palette, light and dark, with its chart colors. */
 .a2-surface-host[data-ds="chatcn"],
 .a2-static[data-ds="chatcn"] {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0.625rem;
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --ts-chart-1: oklch(0.646 0.222 41.116);
+  --ts-chart-2: oklch(0.6 0.118 184.704);
+  --ts-chart-3: oklch(0.398 0.07 227.392);
+  --ts-chart-4: oklch(0.828 0.189 84.429);
+  --ts-chart-5: oklch(0.769 0.188 70.08);
+  --ts-chart-6: oklch(0.556 0 0);
+  --a2-surface: oklch(1 0 0);
+  --a2-surface-2: oklch(0.97 0 0);
+  --a2-line: oklch(0.922 0 0);
+  --a2-line-strong: oklch(0.87 0 0);
+  --a2-radius: 12px;
+  --a2-accent: oklch(0.546 0.245 262.881);
+  --a2-positive: oklch(0.508 0.118 165.612);
+  --a2-negative: oklch(0.577 0.245 27.325);
+  --a2-warning: oklch(0.555 0.163 48.998);
+  --a2-info: oklch(0.546 0.245 262.881);
+}
+.dark :is(.a2-surface-host, .a2-static)[data-ds="chatcn"] {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -46,21 +93,139 @@
   --a2-warning: oklch(0.769 0.188 70.08);
   --a2-info: oklch(0.623 0.214 259.815);
 }
+/* shadcn's Card: its fill and its shadow-sm (a heavier shadow on the dark ground). */
 :is(.a2-surface-host, .a2-static)[data-ds="chatcn"] .a2-card {
   background: var(--a2-surface);
+  box-shadow:
+    0 1px 3px 0 oklch(0 0 0 / 10%),
+    0 1px 2px -1px oklch(0 0 0 / 10%);
+}
+.dark :is(.a2-surface-host, .a2-static)[data-ds="chatcn"] .a2-card {
   box-shadow: 0 1px 2px oklch(0 0 0 / 25%);
 }
 :is(.a2-surface-host, .a2-static)[data-ds="chatcn"] .a2-chart {
+  color: oklch(0.556 0 0);
+}
+.dark :is(.a2-surface-host, .a2-static)[data-ds="chatcn"] .a2-chart {
   color: oklch(0.708 0 0);
 }
 
-/* Material: Material 3 Expressive in a dark scheme generated from the seed #0b57d0 (Material Color
-   Utilities, tonal spot), on Material's own surface. The host also carries the library's .m3e-theme
-   scope (HOST_CLASS in registry.ts): its component tokens are declared there, so they resolve against
-   these roles instead of the library's light defaults on :root. Material has no success or warning
-   roles; --md-success and --md-warning are custom colors harmonized to the seed. */
+/* Material: Material 3 Expressive in a color scheme generated from the seed #0b57d0 (Material Color
+   Utilities 0.3.0, SchemeTonalSpot, contrast 0), light by default and dark under `.dark`, on Material's own
+   surface. The host also carries the library's .m3e-theme scope (HOST_CLASS in registry.ts): its component
+   tokens are declared there, so they resolve against these roles instead of the library's defaults on
+   :root. Material has no success or warning roles; --md-success and --md-warning are custom colors
+   harmonized to the seed. The shadcn and --a2-* tokens name the same role in both schemes. */
 .a2-surface-host[data-ds="material"],
 .a2-static[data-ds="material"] {
+  --m3e-sys-color-background: #faf8ff;
+  --m3e-sys-color-on-background: #1a1b21;
+  --m3e-sys-color-surface: #faf8ff;
+  --m3e-sys-color-surface-dim: #dad9e0;
+  --m3e-sys-color-surface-bright: #faf8ff;
+  --m3e-sys-color-surface-container-lowest: #ffffff;
+  --m3e-sys-color-surface-container-low: #f4f3fa;
+  --m3e-sys-color-surface-container: #eeedf4;
+  --m3e-sys-color-surface-container-high: #e8e7ef;
+  --m3e-sys-color-surface-container-highest: #e2e2e9;
+  --m3e-sys-color-on-surface: #1a1b21;
+  --m3e-sys-color-surface-variant: #e1e2ec;
+  --m3e-sys-color-on-surface-variant: #45464f;
+  --m3e-sys-color-inverse-surface: #2f3036;
+  --m3e-sys-color-inverse-on-surface: #f1f0f7;
+  --m3e-sys-color-outline: #757780;
+  --m3e-sys-color-outline-variant: #c5c6d0;
+  --m3e-sys-color-shadow: #000000;
+  --m3e-sys-color-scrim: #000000;
+  --m3e-sys-color-surface-tint: #495d92;
+  --m3e-sys-color-primary: #495d92;
+  --m3e-sys-color-on-primary: #ffffff;
+  --m3e-sys-color-primary-container: #dae2ff;
+  --m3e-sys-color-on-primary-container: #304578;
+  --m3e-sys-color-inverse-primary: #b2c5ff;
+  --m3e-sys-color-secondary: #585e71;
+  --m3e-sys-color-on-secondary: #ffffff;
+  --m3e-sys-color-secondary-container: #dce2f9;
+  --m3e-sys-color-on-secondary-container: #404659;
+  --m3e-sys-color-tertiary: #735471;
+  --m3e-sys-color-on-tertiary: #ffffff;
+  --m3e-sys-color-tertiary-container: #fed7f9;
+  --m3e-sys-color-on-tertiary-container: #5a3d59;
+  --m3e-sys-color-error: #ba1a1a;
+  --m3e-sys-color-on-error: #ffffff;
+  --m3e-sys-color-error-container: #ffdad6;
+  --m3e-sys-color-on-error-container: #93000a;
+  --m3e-sys-color-primary-fixed: #dae2ff;
+  --m3e-sys-color-primary-fixed-dim: #b2c5ff;
+  --m3e-sys-color-on-primary-fixed: #001847;
+  --m3e-sys-color-on-primary-fixed-variant: #304578;
+  --m3e-sys-color-secondary-fixed: #dce2f9;
+  --m3e-sys-color-secondary-fixed-dim: #c0c6dd;
+  --m3e-sys-color-on-secondary-fixed: #151b2c;
+  --m3e-sys-color-on-secondary-fixed-variant: #404659;
+  --m3e-sys-color-tertiary-fixed: #fed7f9;
+  --m3e-sys-color-tertiary-fixed-dim: #e1bbdd;
+  --m3e-sys-color-on-tertiary-fixed: #2b122b;
+  --m3e-sys-color-on-tertiary-fixed-variant: #5a3d59;
+  --md-success: #006c49;
+  --md-on-success: #ffffff;
+  --md-success-container: #8af8c2;
+  --md-on-success-container: #002113;
+  --md-warning: #8d4f00;
+  --md-on-warning: #ffffff;
+  --md-warning-container: #ffdcc0;
+  --md-on-warning-container: #2d1600;
+  --font-material: "Roboto Flex Variable", Roboto, system-ui, sans-serif;
+  --m3e-ref-typeface-plain: var(--font-material);
+  --m3e-ref-typeface-brand: var(--font-material);
+  --font-sans: var(--font-material);
+  --background: #faf8ff;
+  --foreground: #1a1b21;
+  --card: #eeedf4;
+  --card-foreground: #1a1b21;
+  --popover: #e8e7ef;
+  --popover-foreground: #1a1b21;
+  --primary: #495d92;
+  --primary-foreground: #ffffff;
+  --secondary: #dce2f9;
+  --secondary-foreground: #404659;
+  --muted: #e8e7ef;
+  --muted-foreground: #45464f;
+  --accent: #e2e2e9;
+  --accent-foreground: #1a1b21;
+  --destructive: #ba1a1a;
+  --border: #c5c6d0;
+  --input: #757780;
+  --ring: #495d92;
+  --radius: 0.75rem;
+  --chart-1: #495d92;
+  --chart-2: #006c49;
+  --chart-3: #8d4f00;
+  --chart-4: #735471;
+  --chart-5: #ba1a1a;
+  --ts-chart-1: #495d92;
+  --ts-chart-2: #006c49;
+  --ts-chart-3: #8d4f00;
+  --ts-chart-4: #735471;
+  --ts-chart-5: #ba1a1a;
+  --ts-chart-6: #585e71;
+  --a2-surface: #eeedf4;
+  --a2-surface-2: #e8e7ef;
+  --a2-line: #c5c6d0;
+  --a2-line-strong: #757780;
+  --a2-radius: 16px;
+  --a2-accent: #495d92;
+  --a2-positive: #006c49;
+  --a2-negative: #ba1a1a;
+  --a2-warning: #8d4f00;
+  --a2-info: #495d92;
+  color: #1a1b21;
+  font-family: var(--font-material);
+  background: #faf8ff;
+  border-radius: 28px;
+  padding: 16px;
+}
+.dark :is(.a2-surface-host, .a2-static)[data-ds="material"] {
   --m3e-sys-color-background: #121318;
   --m3e-sys-color-on-background: #e2e2e9;
   --m3e-sys-color-surface: #121318;
@@ -118,10 +283,6 @@
   --md-on-warning: #4b2800;
   --md-warning-container: #6b3b00;
   --md-on-warning-container: #ffdcc0;
-  --font-material: "Roboto Flex Variable", Roboto, system-ui, sans-serif;
-  --m3e-ref-typeface-plain: var(--font-material);
-  --m3e-ref-typeface-brand: var(--font-material);
-  --font-sans: var(--font-material);
   --background: #121318;
   --foreground: #e2e2e9;
   --card: #1e1f25;
@@ -140,7 +301,6 @@
   --border: #45464f;
   --input: #8f909a;
   --ring: #b2c5ff;
-  --radius: 0.75rem;
   --chart-1: #b2c5ff;
   --chart-2: #6ddba7;
   --chart-3: #ffb875;
@@ -156,17 +316,13 @@
   --a2-surface-2: #282a2f;
   --a2-line: #45464f;
   --a2-line-strong: #8f909a;
-  --a2-radius: 16px;
   --a2-accent: #b2c5ff;
   --a2-positive: #6ddba7;
   --a2-negative: #ffb4ab;
   --a2-warning: #ffb875;
   --a2-info: #b2c5ff;
   color: #e2e2e9;
-  font-family: var(--font-material);
   background: #121318;
-  border-radius: 28px;
-  padding: 16px;
 }
 :is(.a2-surface-host, .a2-static)[data-ds="material"] .a2-card {
   background: var(--a2-surface);
@@ -175,9 +331,18 @@
   box-shadow: none;
 }
 :is(.a2-surface-host, .a2-static)[data-ds="material"] .a2-chart {
+  color: #45464f;
+}
+.dark :is(.a2-surface-host, .a2-static)[data-ds="material"] .a2-chart {
   color: #c5c6d0;
 }
 .wb-floor :is(.a2-surface-host, .a2-static)[data-ds="material"] .a2-blueprint {
+  background-color: #faf8ff;
+}
+.dark
+  .wb-floor
+  :is(.a2-surface-host, .a2-static)[data-ds="material"]
+  .a2-blueprint {
   background-color: #121318;
 }
 
@@ -427,11 +592,16 @@
   letter-spacing: var(--m3e-sys-typescale-baseline-label-large-letter-spacing);
 }
 
-/* Bring your own: a light in-house system. The surface sits in its own app canvas, so a light UI reads
-   as itself on the dark page. --color-white flips Tailwind's translucent white overlays (bg-white/5 and
-   the like, written for a dark ground) into ink, their light-mode equivalent. */
+/* Bring your own: a light in-house system, light in dark mode too. The surface sits in its own app canvas,
+   so a light UI reads as itself on either page. The `.dark` selector repeats the rule so it outranks
+   globals.css's dark host tokens by specificity, not by load order. --ink draws the app's hairlines and
+   overlays in near-black whatever the page's mode, and --color-white flips Tailwind's translucent white
+   overlays (bg-white/5 and the like, written for a dark ground) into ink, their light-mode equivalent. A solid
+   white inside a surface is therefore written as a literal (#fff), not as Tailwind's white. */
 .a2-surface-host[data-ds="byoc"],
-.a2-static[data-ds="byoc"] {
+.a2-static[data-ds="byoc"],
+.dark :is(.a2-surface-host, .a2-static)[data-ds="byoc"] {
+  --ink: 0.21 0.012 285;
   --background: #f4f6f8;
   --foreground: #0f172a;
   --card: #ffffff;
