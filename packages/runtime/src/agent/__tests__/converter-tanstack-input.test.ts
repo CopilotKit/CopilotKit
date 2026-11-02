@@ -233,7 +233,7 @@ describe("convertInputToTanStackAI", () => {
       });
 
       const { tools } = convertInputToTanStackAI(input);
-      const schema = tools[0].inputSchema as Record<string, any>;
+      const schema = tools[0].inputSchema;
 
       expect(schema.properties.options.additionalProperties).toBe(false);
       expect(schema.properties.data.items.additionalProperties).toBe(false);
@@ -245,11 +245,15 @@ describe("convertInputToTanStackAI", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Context injection
+  // Context and state sections (same text as buildAgentSystemPrompt)
   // -------------------------------------------------------------------------
-  describe("context injection", () => {
-    it("appends context entries to systemPrompts", () => {
+  describe("context and state sections", () => {
+    it("appends the context section after the system messages", () => {
       const input = createDefaultInput({
+        messages: [
+          { id: "msg-1", role: "system", content: "Be brief" },
+          { id: "msg-2", role: "user", content: "Hi" },
+        ],
         context: [
           { description: "User preferences", value: "Dark mode enabled" },
           { description: "Current page", value: "/dashboard" },
@@ -258,55 +262,80 @@ describe("convertInputToTanStackAI", () => {
 
       const { systemPrompts } = convertInputToTanStackAI(input);
 
-      expect(systemPrompts).toContain("User preferences:\nDark mode enabled");
-      expect(systemPrompts).toContain("Current page:\n/dashboard");
+      expect(systemPrompts).toEqual([
+        "Be brief",
+        "\n## Context from the application\n" +
+          "User preferences:\nDark mode enabled\n" +
+          "Current page:\n/dashboard\n",
+      ]);
     });
 
-    it("does not add context when context array is empty", () => {
-      const input = createDefaultInput({ context: [] });
+    it("appends the state section, which names the state tools", () => {
+      const input = createDefaultInput({ state: { count: 42 } });
 
       const { systemPrompts } = convertInputToTanStackAI(input);
 
-      expect(systemPrompts).toHaveLength(0);
+      expect(systemPrompts).toEqual([
+        "\n## Application State\n" +
+          "This is state from the application that you can edit by calling AGUISendStateSnapshot or AGUISendStateDelta.\n" +
+          '```json\n{\n  "count": 42\n}\n```\n',
+      ]);
     });
-  });
 
-  // -------------------------------------------------------------------------
-  // State serialization
-  // -------------------------------------------------------------------------
-  describe("state serialization", () => {
-    it("serializes non-empty state into systemPrompts", () => {
+    it("puts context before state", () => {
       const input = createDefaultInput({
-        state: { count: 42, items: ["a", "b"] },
+        context: [{ description: "User", value: "Ada" }],
+        state: { step: 1 },
       });
 
       const { systemPrompts } = convertInputToTanStackAI(input);
 
-      const statePrompt = systemPrompts.find((p) =>
-        p.startsWith("Application State:"),
-      );
-      expect(statePrompt).toBeDefined();
-      expect(statePrompt).toContain('"count": 42');
+      expect(systemPrompts).toHaveLength(2);
+      expect(systemPrompts[0]).toMatch(/^\n## Context from the application\n/);
+      expect(systemPrompts[1]).toMatch(/^\n## Application State\n/);
     });
 
-    it("does not add state when state is empty object", () => {
-      const input = createDefaultInput({ state: {} });
+    it("adds no context section when the wire input omits context", () => {
+      const input = createDefaultInput({ context: undefined });
 
       const { systemPrompts } = convertInputToTanStackAI(input);
 
-      expect(
-        systemPrompts.find((p) => p.startsWith("Application State:")),
-      ).toBeUndefined();
+      expect(systemPrompts).toEqual([]);
     });
 
-    it("does not add state when state is null", () => {
+    it("adds no section for empty context or empty state", () => {
+      const input = createDefaultInput({ context: [], state: {} });
+
+      const { systemPrompts } = convertInputToTanStackAI(input);
+
+      expect(systemPrompts).toEqual([]);
+    });
+
+    it("adds no state section when state is null", () => {
       const input = createDefaultInput({ state: null });
 
       const { systemPrompts } = convertInputToTanStackAI(input);
 
-      expect(
-        systemPrompts.find((p) => p.startsWith("Application State:")),
-      ).toBeUndefined();
+      expect(systemPrompts).toEqual([]);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Run identity (chat() in @tanstack/ai 1.x requires threadId)
+  // -------------------------------------------------------------------------
+  describe("run identity", () => {
+    it("carries the thread id and run id for chat()", () => {
+      const input = createDefaultInput({
+        threadId: "thread-7",
+        runId: "run-3",
+      });
+
+      const { threadId, runId } = convertInputToTanStackAI(input);
+
+      expect({ threadId, runId }).toEqual({
+        threadId: "thread-7",
+        runId: "run-3",
+      });
     });
   });
 

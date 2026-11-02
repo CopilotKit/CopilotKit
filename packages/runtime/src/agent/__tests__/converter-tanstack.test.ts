@@ -1,6 +1,19 @@
 import { describe, it, expect } from "vitest";
 import { compactEvents, EventType } from "@ag-ui/client";
+import type { BaseEvent, Interrupt, RunAgentInput } from "@ag-ui/client";
 import { EventSchemas } from "@ag-ui/core/schemas";
+import { chat, EventType as TanStackEventType } from "@tanstack/ai";
+import type {
+  AdapterYieldChunk,
+  AnyTextAdapter,
+  TextOptions,
+  Tool,
+} from "@tanstack/ai";
+import {
+  convertInputToTanStackAI,
+  convertTanStackStream,
+} from "../converters/tanstack";
+import type { AgentRunFinishedDetails } from "../converters/usage";
 import {
   createAgent,
   createDefaultInput,
@@ -775,6 +788,379 @@ describe("TanStack AI converter — reasoning", () => {
     expect(endCount).toBe(1);
     expect(types.indexOf(EventType.REASONING_END)).toBeLessThan(
       types.indexOf(EventType.TEXT_MESSAGE_CHUNK),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A real chat() from @tanstack/ai 1.x, driven by a scripted text adapter. The
+// converter input goes into chat(), and chat()'s stream goes through
+// convertTanStackStream.
+// ---------------------------------------------------------------------------
+
+/** One model answer of the scripted adapter. */
+interface ScriptedTurn {
+  text?: string;
+  toolCalls?: Array<{ id: string; name: string; input: unknown }>;
+}
+
+/**
+ * A minimal `@tanstack/ai` 1.x text adapter. `chatStream` answers each model
+ * call with the next scripted turn, as AG-UI chunks, the way provider adapters
+ * do. It records every request so tests can read what chat() sent the model.
+ */
+function scriptedTextAdapter(turns: ScriptedTurn[]) {
+  const requests: TextOptions[] = [];
+  const model = "scripted-model";
+
+  async function* chatStream(
+    options: TextOptions,
+  ): AsyncIterable<AdapterYieldChunk> {
+    requests.push(options);
+    const turn = turns[requests.length - 1];
+    if (!turn) throw new Error("The scripted adapter has no turn left");
+    const runId = options.runId ?? "scripted-run";
+    const { threadId } = options;
+    const timestamp = Date.now();
+
+    yield { type: TanStackEventType.RUN_STARTED, runId, threadId, timestamp };
+    if (turn.text) {
+      const messageId = `${runId}-text`;
+      yield {
+        type: TanStackEventType.TEXT_MESSAGE_START,
+        messageId,
+        role: "assistant",
+        timestamp,
+      };
+      yield {
+        type: TanStackEventType.TEXT_MESSAGE_CONTENT,
+        messageId,
+        delta: turn.text,
+        timestamp,
+      };
+      yield { type: TanStackEventType.TEXT_MESSAGE_END, messageId, timestamp };
+    }
+    const toolCalls = turn.toolCalls ?? [];
+    for (const call of toolCalls) {
+      yield {
+        type: TanStackEventType.TOOL_CALL_START,
+        toolCallId: call.id,
+        toolCallName: call.name,
+        timestamp,
+      };
+      yield {
+        type: TanStackEventType.TOOL_CALL_ARGS,
+        toolCallId: call.id,
+        delta: JSON.stringify(call.input),
+        timestamp,
+      };
+      yield {
+        type: TanStackEventType.TOOL_CALL_END,
+        toolCallId: call.id,
+        timestamp,
+      };
+    }
+    yield {
+      type: TanStackEventType.RUN_FINISHED,
+      runId,
+      threadId,
+      model,
+      timestamp,
+      finishReason: toolCalls.length > 0 ? "tool_calls" : "stop",
+      usage: { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
+    };
+  }
+
+  const adapter: AnyTextAdapter = {
+    kind: "text",
+    name: "scripted",
+    model,
+    // Type-only slot of the adapter interface; chat() never reads it.
+    "~types": {
+      providerOptions: {},
+      inputModalities: ["text"],
+      messageMetadataByModality: {},
+      toolCapabilities: [],
+      toolCallMetadata: undefined,
+      systemPromptMetadata: undefined,
+    },
+    chatStream,
+    structuredOutput: async () => {
+      throw new Error("The scripted adapter has no structured output");
+    },
+  };
+  return { adapter, requests };
+}
+
+async function runRealChat(options: {
+  input: RunAgentInput;
+  turns: ScriptedTurn[];
+  serverTools?: Tool[];
+}) {
+  const { adapter, requests } = scriptedTextAdapter(options.turns);
+  const converted = convertInputToTanStackAI(options.input);
+  const stream = chat({
+    ...converted,
+    adapter,
+    tools: [...converted.tools, ...(options.serverTools ?? [])],
+    // chat() streams by default. Saying so picks the stream return type,
+    // which the non-strict tsconfig of this package cannot infer otherwise.
+    stream: true,
+  });
+
+  const pendingInterrupts: Interrupt[] = [];
+  const runFinishedDetails: AgentRunFinishedDetails = {};
+  const events: BaseEvent[] = [];
+  const converter = convertTanStackStream(
+    stream,
+    new AbortController().signal,
+    pendingInterrupts,
+    options.input.state,
+    runFinishedDetails,
+  );
+  for await (const event of converter) {
+    events.push(event);
+  }
+  return {
+    events,
+    types: events.map((event) => event.type),
+    text: events
+      .filter((event) => event.type === EventType.TEXT_MESSAGE_CHUNK)
+      .map((event) => eventField<string>(event, "delta"))
+      .join(""),
+    pendingInterrupts,
+    runFinishedDetails,
+    requests,
+  };
+}
+
+const showCardTool = {
+  name: "showCard",
+  description: "Show a card in the chat",
+  parameters: {
+    type: "object",
+    properties: { title: { type: "string" } },
+    required: ["title"],
+  },
+};
+
+function userInput(overrides?: Partial<RunAgentInput>) {
+  return createDefaultInput({
+    messages: [{ id: "u1", role: "user", content: "Hi" }],
+    ...overrides,
+  });
+}
+
+describe("TanStack AI converter: real chat() from @tanstack/ai 1.x", () => {
+  it("streams text and sends the system, context, and state prompts to the model", async () => {
+    const run = await runRealChat({
+      input: userInput({
+        messages: [
+          { id: "s1", role: "system", content: "Be brief" },
+          { id: "u1", role: "user", content: "Hi" },
+        ],
+        context: [{ description: "User", value: "Ada" }],
+        state: { count: 1 },
+      }),
+      turns: [{ text: "Hello Ada" }],
+    });
+
+    expect(run.types).toEqual([EventType.TEXT_MESSAGE_CHUNK]);
+    expect(run.text).toBe("Hello Ada");
+    expect(run.pendingInterrupts).toEqual([]);
+    expect(run.requests[0].systemPrompts).toEqual([
+      "Be brief",
+      "\n## Context from the application\nUser:\nAda\n",
+      "\n## Application State\n" +
+        "This is state from the application that you can edit by calling AGUISendStateSnapshot or AGUISendStateDelta.\n" +
+        '```json\n{\n  "count": 1\n}\n```\n',
+    ]);
+  });
+
+  it("reads the finish reason and model identity from 1.x run metadata", async () => {
+    const run = await runRealChat({
+      input: userInput(),
+      turns: [{ text: "Hello" }],
+    });
+
+    expect(run.runFinishedDetails.metadata).toMatchObject({
+      finishReason: "stop",
+    });
+    expect(run.runFinishedDetails.usage).toEqual([
+      {
+        provider: "scripted",
+        model: "scripted-model",
+        inputTokens: 10,
+        outputTokens: 2,
+        totalTokens: 12,
+      },
+    ]);
+  });
+
+  it("streams a frontend tool call and stops without an interrupt", async () => {
+    const run = await runRealChat({
+      input: userInput({ tools: [showCardTool] }),
+      turns: [
+        {
+          toolCalls: [
+            { id: "call-card", name: "showCard", input: { title: "Hi" } },
+          ],
+        },
+      ],
+    });
+
+    expect(run.types).toEqual([
+      EventType.TOOL_CALL_START,
+      EventType.TOOL_CALL_ARGS,
+      EventType.TOOL_CALL_END,
+    ]);
+    expect(eventField<string>(run.events[0], "toolCallName")).toBe("showCard");
+    expect(eventField<string>(run.events[1], "delta")).toBe('{"title":"Hi"}');
+    // The CopilotKit client runs the tool; the server run just ends.
+    expect(run.pendingInterrupts).toEqual([]);
+    expect(run.requests).toHaveLength(1);
+  });
+
+  it("turns a server state tool result into a state snapshot, then continues", async () => {
+    const stateSnapshotTool: Tool = {
+      name: "AGUISendStateSnapshot",
+      description: "Replace the application state",
+      inputSchema: {
+        type: "object",
+        properties: { snapshot: { type: "object" } },
+        required: ["snapshot"],
+      },
+      execute: async (args: { snapshot: unknown }) => ({
+        success: true,
+        snapshot: args.snapshot,
+      }),
+    };
+
+    const run = await runRealChat({
+      input: userInput({ state: { count: 1 } }),
+      serverTools: [stateSnapshotTool],
+      turns: [
+        {
+          toolCalls: [
+            {
+              id: "call-state",
+              name: "AGUISendStateSnapshot",
+              input: { snapshot: { count: 2 } },
+            },
+          ],
+        },
+        { text: "Saved" },
+      ],
+    });
+
+    expect(run.types).toEqual([
+      EventType.TOOL_CALL_START,
+      EventType.TOOL_CALL_ARGS,
+      EventType.TOOL_CALL_END,
+      EventType.STATE_SNAPSHOT,
+      EventType.TOOL_CALL_RESULT,
+      EventType.TEXT_MESSAGE_CHUNK,
+    ]);
+    const snapshot = run.events.find(
+      (event) => event.type === EventType.STATE_SNAPSHOT,
+    );
+    expect(eventField<unknown>(snapshot, "snapshot")).toEqual({ count: 2 });
+    expect(run.text).toBe("Saved");
+  });
+
+  it("turns a tool that needs approval into a tool_approval interrupt without running it", async () => {
+    const executed: unknown[] = [];
+    const deleteFileTool: Tool = {
+      name: "deleteFile",
+      description: "Delete a file",
+      needsApproval: true,
+      inputSchema: {
+        type: "object",
+        properties: { path: { type: "string" } },
+        required: ["path"],
+      },
+      execute: async (args: unknown) => {
+        executed.push(args);
+        return "deleted";
+      },
+    };
+
+    const run = await runRealChat({
+      input: userInput(),
+      serverTools: [deleteFileTool],
+      turns: [
+        {
+          toolCalls: [
+            { id: "call-del", name: "deleteFile", input: { path: "/a.txt" } },
+          ],
+        },
+      ],
+    });
+
+    expect(run.pendingInterrupts).toEqual([
+      {
+        id: "call-del",
+        toolCallId: "call-del",
+        reason: "tool_approval",
+        message: 'Approve "deleteFile"?',
+        metadata: { toolName: "deleteFile" },
+      },
+    ]);
+    expect(run.types).toEqual([
+      EventType.TOOL_CALL_START,
+      EventType.TOOL_CALL_ARGS,
+      EventType.TOOL_CALL_END,
+    ]);
+    expect(executed).toEqual([]);
+  });
+
+  it("continues after approval when the decision comes back as the tool result", async () => {
+    const run = await runRealChat({
+      input: userInput({
+        messages: [
+          { id: "u1", role: "user", content: "Delete /a.txt" },
+          {
+            id: "a1",
+            role: "assistant",
+            content: "",
+            toolCalls: [
+              {
+                id: "call-del",
+                type: "function",
+                function: {
+                  name: "deleteFile",
+                  arguments: '{"path":"/a.txt"}',
+                },
+              },
+            ],
+          },
+          {
+            id: "t1",
+            role: "tool",
+            toolCallId: "call-del",
+            content: '{"approved":true}',
+          },
+        ],
+      }),
+      serverTools: [
+        {
+          name: "deleteFile",
+          description: "Delete a file",
+          needsApproval: true,
+          inputSchema: { type: "object", properties: {} },
+        },
+      ],
+      turns: [{ text: "Deleted" }],
+    });
+
+    expect(run.text).toBe("Deleted");
+    expect(run.pendingInterrupts).toEqual([]);
+    expect(run.requests[0].messages).toContainEqual(
+      expect.objectContaining({
+        role: "tool",
+        toolCallId: "call-del",
+        content: '{"approved":true}',
+      }),
     );
   });
 });

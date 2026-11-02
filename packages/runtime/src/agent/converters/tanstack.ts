@@ -1,8 +1,12 @@
 import type {
+  AudioPart,
   BaseEvent,
+  DocumentPart,
+  ImagePart,
   Interrupt,
   RunAgentInput,
   Message,
+  PartSource,
   TextMessageChunkEvent,
   ToolCallArgsEvent,
   ToolCallEndEvent,
@@ -15,9 +19,11 @@ import type {
   ReasoningMessageContentEvent,
   ReasoningMessageEndEvent,
   ReasoningEndEvent,
+  VideoPart,
 } from "@ag-ui/client";
 import { contentToText, EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
+import { formatContextSection, formatStateSection } from "../prompt";
 import { createStateEventNormalizer } from "../state-delta";
 import {
   aggregateRunUsage,
@@ -28,25 +34,22 @@ import {
 } from "./usage";
 import type { AgentRunFinishedDetails } from "./usage";
 
-type ContentPartSource =
-  | { type: "data"; value: string; mimeType: string }
-  | { type: "url"; value: string; mimeType?: string };
+type MediaPart = ImagePart | AudioPart | VideoPart | DocumentPart;
 
 /**
- * A TanStack AI content part (text, image, audio, video, or document).
+ * A TanStack AI content part. In `@tanstack/ai` 1.x the media parts are the
+ * AG-UI media parts (same `source` shapes, including provider file handles).
+ * Only the text part differs: TanStack names the text field `content`.
  */
 export type TanStackContentPart =
   | { type: "text"; content: string }
-  | { type: "image"; source: ContentPartSource }
-  | { type: "audio"; source: ContentPartSource }
-  | { type: "video"; source: ContentPartSource }
-  | { type: "document"; source: ContentPartSource };
+  | { type: MediaPart["type"]; source: PartSource };
 
 /**
  * Message format expected by TanStack AI's `chat()`.
  *
  * Content is typed as `any[]` for the multimodal case so messages are directly
- * passable to any adapter without casts — different adapters constrain which
+ * passable to any adapter without casts: different adapters constrain which
  * modalities they accept (e.g. OpenAI only allows text + image).
  * Use `TanStackContentPart` to inspect individual parts if needed.
  */
@@ -67,7 +70,7 @@ export interface TanStackChatMessage {
  * A TanStack AI client-side tool, derived from a frontend-provided AG-UI tool.
  *
  * Shaped to match `@tanstack/ai`'s `ClientTool` (`__toolSide: "client"`, no
- * `execute`): the model may CALL it, but TanStack does not run it — it pauses
+ * `execute`): the model may CALL it, but TanStack does not run it. It pauses
  * the run and hands the call back to the AG-UI client (the CopilotKit frontend
  * / bot) to execute, mirroring CopilotKit's client-tool round-trip. `chat()`
  * accepts a JSON Schema directly as `inputSchema`, so the AG-UI tool's
@@ -82,7 +85,8 @@ export interface TanStackClientTool {
 }
 
 /**
- * Result of converting RunAgentInput to TanStack AI format.
+ * Result of converting RunAgentInput to TanStack AI format. Spread it into
+ * `chat()` and add an `adapter`.
  */
 export interface TanStackInputResult {
   /** Chat messages (only user/assistant/tool roles; all others excluded) */
@@ -97,6 +101,93 @@ export interface TanStackInputResult {
    * client-tool call and the client executes it.
    */
   tools: TanStackClientTool[];
+  /** The AG-UI thread id. `chat()` in `@tanstack/ai` 1.x requires it. */
+  threadId: string;
+  /** The AG-UI run id, so TanStack's run events carry the same id. */
+  runId: string;
+}
+
+type ChatRoleMessage = Extract<
+  Message,
+  { role: "user" | "assistant" | "tool" }
+>;
+
+function isChatRoleMessage(message: Message): message is ChatRoleMessage {
+  return (
+    message.role === "user" ||
+    message.role === "assistant" ||
+    message.role === "tool"
+  );
+}
+
+/**
+ * Reads an AG-UI part source. Data, URL, and provider file-handle sources pass
+ * through: `@tanstack/ai` 1.x takes the same three shapes. An adapter that
+ * cannot read file handles fails the run with TanStack's own error.
+ */
+function convertPartSource(source: unknown): PartSource | undefined {
+  if (!isRecord(source) || typeof source.value !== "string") return undefined;
+  const mimeType = getNonEmptyString(source.mimeType);
+  switch (source.type) {
+    case "data":
+      return mimeType
+        ? { type: "data", value: source.value, mimeType }
+        : undefined;
+    case "url":
+      return {
+        type: "url",
+        value: source.value,
+        ...(mimeType && { mimeType }),
+      };
+    case "file": {
+      const provider = getNonEmptyString(source.provider);
+      return {
+        type: "file",
+        value: source.value,
+        ...(provider && { provider }),
+        ...(mimeType && { mimeType }),
+      };
+    }
+    default:
+      return undefined;
+  }
+}
+
+/** Legacy BinaryInputContent (`{ type: "binary", mimeType, data | url }`). */
+function convertLegacyBinaryPart(
+  part: Record<string, unknown>,
+): TanStackContentPart | undefined {
+  const mimeType =
+    getNonEmptyString(part.mimeType) ?? "application/octet-stream";
+  const type = mimeType.startsWith("image/") ? "image" : "document";
+  if (typeof part.data === "string" && part.data) {
+    return { type, source: { type: "data", value: part.data, mimeType } };
+  }
+  if (typeof part.url === "string" && part.url) {
+    return { type, source: { type: "url", value: part.url, mimeType } };
+  }
+  return undefined;
+}
+
+function convertUserPart(part: unknown): TanStackContentPart | undefined {
+  if (!isRecord(part)) return undefined;
+  switch (part.type) {
+    case "text":
+      return typeof part.text === "string"
+        ? { type: "text", content: part.text }
+        : undefined;
+    case "image":
+    case "audio":
+    case "video":
+    case "document": {
+      const source = convertPartSource(part.source);
+      return source ? { type: part.type, source } : undefined;
+    }
+    case "binary":
+      return convertLegacyBinaryPart(part);
+    default:
+      return undefined;
+  }
 }
 
 /**
@@ -104,93 +195,49 @@ export interface TanStackInputResult {
  * Handles plain strings, multimodal parts (image/audio/video/document),
  * and legacy BinaryInputContent for backward compatibility.
  */
-function convertUserContent(
-  content: unknown,
-): string | null | TanStackContentPart[] {
+function convertUserContent(content: unknown) {
   if (!content) return null;
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return null;
   if (content.length === 0) return "";
 
-  const parts: TanStackContentPart[] = [];
+  const parts = content
+    .map(convertUserPart)
+    .filter((part): part is TanStackContentPart => part !== undefined);
+  return parts.length > 0 ? parts : "";
+}
 
-  for (const part of content) {
-    if (!part || typeof part !== "object" || !("type" in part)) continue;
-
-    switch ((part as { type: string }).type) {
-      case "text": {
-        const text = (part as { text?: string }).text;
-        if (text != null) parts.push({ type: "text", content: text });
-        break;
-      }
-
-      case "image":
-      case "audio":
-      case "video":
-      case "document": {
-        const source = (part as { source?: any }).source;
-        if (!source) break;
-        const partType = (part as { type: string }).type as
-          | "image"
-          | "audio"
-          | "video"
-          | "document";
-        if (source.type === "data") {
-          parts.push({
-            type: partType,
-            source: {
-              type: "data",
-              value: source.value,
-              mimeType: source.mimeType,
-            },
-          });
-        } else if (source.type === "file") {
-          // AG-UI 1.0 provider file handle: not a URL or inline data.
-          console.warn(
-            `[CopilotKit] Dropping a ${partType} part that references a provider file handle: it is not a URL or inline data, so it cannot be sent to the model here.`,
-          );
-        } else if (source.type === "url") {
-          parts.push({
-            type: partType,
-            source: {
-              type: "url",
-              value: source.value,
-              ...(source.mimeType ? { mimeType: source.mimeType } : {}),
-            },
-          });
-        }
-        break;
-      }
-
-      // Legacy BinaryInputContent backward compatibility
-      case "binary": {
-        const legacy = part as {
-          mimeType?: string;
-          data?: string;
-          url?: string;
-        };
-        const mimeType = legacy.mimeType ?? "application/octet-stream";
-        const isImage = mimeType.startsWith("image/");
-
-        if (legacy.data) {
-          const partType = isImage ? "image" : "document";
-          parts.push({
-            type: partType,
-            source: { type: "data", value: legacy.data, mimeType },
-          });
-        } else if (legacy.url) {
-          const partType = isImage ? "image" : "document";
-          parts.push({
-            type: partType,
-            source: { type: "url", value: legacy.url, mimeType },
-          });
-        }
-        break;
-      }
+function convertChatMessage(message: ChatRoleMessage) {
+  switch (message.role) {
+    case "user":
+      return {
+        role: message.role,
+        content: convertUserContent(message.content),
+      } satisfies TanStackChatMessage;
+    case "tool":
+      // A tool result is a string or a list of parts; TanStack takes text
+      // here, so the text parts are concatenated.
+      return {
+        role: message.role,
+        content: contentToText(message.content),
+        toolCallId: message.toolCallId,
+      } satisfies TanStackChatMessage;
+    case "assistant": {
+      const toolCalls = message.toolCalls?.map((call) => ({
+        id: call.id,
+        type: call.type,
+        function: {
+          name: call.function.name,
+          arguments: call.function.arguments,
+        },
+      }));
+      return {
+        role: message.role,
+        content: typeof message.content === "string" ? message.content : null,
+        ...(toolCalls && { toolCalls }),
+      } satisfies TanStackChatMessage;
     }
   }
-
-  return parts.length > 0 ? parts : "";
 }
 
 /**
@@ -207,31 +254,27 @@ function convertUserContent(
  * so we close open objects here to match. (Models can't supply free-form extra
  * keys either way — same as the classic path.)
  */
+// Recursive, so TypeScript needs the return type written out.
 function sanitizeClientToolSchema(schema: unknown): unknown {
   if (Array.isArray(schema)) {
     return schema.map(sanitizeClientToolSchema);
   }
-  if (!schema || typeof schema !== "object") {
+  if (!isRecord(schema)) {
     return schema;
   }
-  const node: Record<string, unknown> = {
-    ...(schema as Record<string, unknown>),
-  };
+  const node = { ...schema };
 
   // Any `additionalProperties` (empty `{}`, `true`, or a sub-schema) becomes
-  // `false` — the only form OpenAI accepts for strict function tools.
+  // `false`: the only form OpenAI accepts for strict function tools.
   if ("additionalProperties" in node) {
     node.additionalProperties = false;
   }
 
-  if (node.properties && typeof node.properties === "object") {
-    const props: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(
-      node.properties as Record<string, unknown>,
-    )) {
-      props[key] = sanitizeClientToolSchema(value);
-    }
-    node.properties = props;
+  if (isRecord(node.properties)) {
+    const entries = Object.entries(node.properties);
+    node.properties = Object.fromEntries(
+      entries.map(([key, value]) => [key, sanitizeClientToolSchema(value)]),
+    );
   }
 
   if ("items" in node) {
@@ -239,10 +282,9 @@ function sanitizeClientToolSchema(schema: unknown): unknown {
   }
 
   for (const combinator of ["anyOf", "allOf", "oneOf"] as const) {
-    if (Array.isArray(node[combinator])) {
-      node[combinator] = (node[combinator] as unknown[]).map(
-        sanitizeClientToolSchema,
-      );
+    const branches = node[combinator];
+    if (Array.isArray(branches)) {
+      node[combinator] = branches.map(sanitizeClientToolSchema);
     }
   }
 
@@ -254,47 +296,22 @@ function sanitizeClientToolSchema(schema: unknown): unknown {
  *
  * - Keeps only user/assistant/tool messages (activity, reasoning, and other roles are also excluded)
  * - Extracts system/developer messages into `systemPrompts`
- * - Appends context entries and application state to `systemPrompts`
+ * - Appends the context and application state sections (the same text as
+ *   `buildAgentSystemPrompt`) to `systemPrompts`
  * - Preserves tool calls on assistant messages and toolCallId on tool messages
+ * - Carries `threadId` and `runId`, which `chat()` needs
+ *
+ * @param input - The AG-UI run input.
+ *
+ * @example
+ * ```ts
+ * const stream = chat({ ...convertInputToTanStackAI(input), adapter });
+ * ```
  */
-export function convertInputToTanStackAI(
-  input: RunAgentInput,
-): TanStackInputResult {
-  // Allowlist: only pass user/assistant/tool messages to TanStack.
-  // Other roles (system, developer, activity, reasoning) are either
-  // extracted into systemPrompts or not applicable.
-  const chatRoles = new Set(["user", "assistant", "tool"]);
+export function convertInputToTanStackAI(input: RunAgentInput) {
   const messages: TanStackChatMessage[] = input.messages
-    .filter((m: Message) => chatRoles.has(m.role))
-    .map((m: Message): TanStackChatMessage => {
-      const msg: TanStackChatMessage = {
-        role: m.role as "user" | "assistant" | "tool",
-        content:
-          m.role === "user"
-            ? convertUserContent(m.content)
-            : m.role === "tool"
-              ? // A tool result is a string or a list of parts; TanStack takes
-                // text here, so the text parts are concatenated.
-                contentToText(m.content)
-              : typeof m.content === "string"
-                ? m.content
-                : null,
-      };
-      if (m.role === "assistant" && "toolCalls" in m && m.toolCalls) {
-        msg.toolCalls = m.toolCalls.map((tc) => ({
-          id: tc.id,
-          type: "function" as const,
-          function: {
-            name: tc.function.name,
-            arguments: tc.function.arguments,
-          },
-        }));
-      }
-      if (m.role === "tool" && "toolCallId" in m) {
-        msg.toolCallId = (m as Record<string, unknown>).toolCallId as string;
-      }
-      return msg;
-    });
+    .filter(isChatRoleMessage)
+    .map(convertChatMessage);
 
   const systemPrompts: string[] = [];
   for (const m of input.messages) {
@@ -305,26 +322,15 @@ export function convertInputToTanStackAI(
     }
   }
 
-  if (input.context?.length) {
-    for (const ctx of input.context) {
-      systemPrompts.push(`${ctx.description}:\n${ctx.value}`);
-    }
-  }
-
-  if (
-    input.state !== undefined &&
-    input.state !== null &&
-    typeof input.state === "object" &&
-    Object.keys(input.state).length > 0
-  ) {
-    systemPrompts.push(
-      `Application State:\n\`\`\`json\n${JSON.stringify(input.state, null, 2)}\n\`\`\``,
-    );
-  }
+  // The wire input can omit `context`, even though the type requires it.
+  const contextSection = formatContextSection(input.context ?? []);
+  if (contextSection) systemPrompts.push(contextSection);
+  const stateSection = formatStateSection(input.state);
+  if (stateSection) systemPrompts.push(stateSection);
 
   // Frontend-provided tools become client-side TanStack tools (no executor):
   // the model can call them, TanStack pauses the run, and the AG-UI client
-  // executes them and resumes — the CopilotKit client-tool round-trip.
+  // executes them and resumes: the CopilotKit client-tool round-trip.
   const tools: TanStackClientTool[] = (input.tools ?? []).map((t) => ({
     __toolSide: "client",
     name: t.name,
@@ -332,19 +338,70 @@ export function convertInputToTanStackAI(
     inputSchema: sanitizeClientToolSchema(t.parameters),
   }));
 
-  return { messages, systemPrompts, tools };
+  return {
+    messages,
+    systemPrompts,
+    tools,
+    threadId: input.threadId,
+    runId: input.runId,
+  } satisfies TanStackInputResult;
+}
+
+/**
+ * The CopilotKit interrupt for a tool that needs approval. Its id is the tool
+ * call id, so the resume entry becomes that call's tool result.
+ */
+function createToolApprovalInterrupt(
+  toolCallId: string,
+  toolName: string | undefined,
+) {
+  return {
+    id: toolCallId,
+    toolCallId,
+    reason: "tool_approval",
+    message: toolName ? `Approve "${toolName}"?` : undefined,
+    ...(toolName ? { metadata: { toolName } } : {}),
+  } satisfies Interrupt;
+}
+
+/**
+ * Reads the approval interrupts from a `@tanstack/ai` 1.x `RUN_FINISHED`
+ * `outcome`. TanStack also pauses on a client tool call
+ * (`metadata.kind: "client_tool"`); that is not an interrupt here, because the
+ * CopilotKit client runs frontend tools from the streamed tool call.
+ */
+function readApprovalInterrupts(outcome: unknown) {
+  if (!isRecord(outcome) || outcome.type !== "interrupt") return [];
+
+  const approvals: Interrupt[] = [];
+  const interrupts: unknown[] = Array.isArray(outcome.interrupts)
+    ? outcome.interrupts
+    : [];
+  for (const interrupt of interrupts) {
+    if (!isRecord(interrupt) || !isRecord(interrupt.metadata)) continue;
+    const toolCallId = getNonEmptyString(interrupt.toolCallId);
+    if (interrupt.metadata.kind !== "approval" || !toolCallId) continue;
+    approvals.push(
+      createToolApprovalInterrupt(
+        toolCallId,
+        getNonEmptyString(interrupt.metadata.toolName),
+      ),
+    );
+  }
+  return approvals;
 }
 
 /**
  * Converts a TanStack AI stream into AG-UI `BaseEvent` objects.
  *
- * This is a pure converter — it does NOT emit lifecycle events
+ * This is a pure converter: it does NOT emit lifecycle events
  * (RUN_STARTED / RUN_FINISHED / RUN_ERROR). The caller (Agent class)
  * is responsible for those.
  *
  * `pendingInterrupts`, when provided, is filled with one AG-UI Interrupt per
- * CUSTOM "approval-requested" chunk (a tool declared `needsApproval: true`).
- * The caller turns a non-empty array into a RUN_FINISHED `outcome:interrupt`.
+ * tool call that waits for approval (a tool declared `needsApproval: true`).
+ * `@tanstack/ai` 1.x reports these in the `RUN_FINISHED` `outcome`. The
+ * caller turns a non-empty array into a RUN_FINISHED `outcome:interrupt`.
  */
 export async function* convertTanStackStream(
   stream: AsyncIterable<unknown>,
@@ -408,31 +465,28 @@ export async function* convertTanStackStream(
     const raw = chunk as Record<string, unknown>;
     const type = raw.type as string;
 
-    // TanStack native human-in-the-loop: a tool declared `needsApproval: true`
-    // emits a CUSTOM "approval-requested" chunk. These are built from the
-    // finish event and can arrive around lifecycle markers, so handle them
-    // before dropping TanStack's per-turn lifecycle events.
-    // The tool-call lifecycle was already streamed in the model pass.
+    // `@tanstack/ai` 0.x approval shape: a CUSTOM "approval-requested" chunk,
+    // which can arrive after RUN_FINISHED. The tool-call lifecycle was
+    // already streamed in the model pass.
     if (type === "CUSTOM" && raw.name === "approval-requested") {
-      const value = (raw.value ?? {}) as {
-        toolCallId?: string;
-        toolName?: string;
-      };
-      const toolCallId = value.toolCallId;
+      const value = isRecord(raw.value) ? raw.value : {};
+      const toolCallId = getNonEmptyString(value.toolCallId);
       if (toolCallId) {
-        pendingInterrupts?.push({
-          id: toolCallId,
-          toolCallId,
-          reason: "tool_approval",
-          message: value.toolName ? `Approve "${value.toolName}"?` : undefined,
-          ...(value.toolName ? { metadata: { toolName: value.toolName } } : {}),
-        });
+        pendingInterrupts?.push(
+          createToolApprovalInterrupt(
+            toolCallId,
+            getNonEmptyString(value.toolName),
+          ),
+        );
       }
       continue;
     }
 
     // Per-turn lifecycle markers are owned by the Agent wrapper, not forwarded.
+    // In `@tanstack/ai` 1.x the turn that waits for approval ends with
+    // `outcome: { type: "interrupt" }`.
     if (type === "RUN_FINISHED") {
+      pendingInterrupts?.push(...readApprovalInterrupts(raw.outcome));
       collectTanStackRunFinishedDetails(raw, runFinishedDetails);
       continue;
     }
@@ -612,25 +666,45 @@ export async function* convertTanStackStream(
   yield* closeReasoningIfOpen();
 }
 
+/**
+ * Reads the model identity and finish reason of a TanStack `RUN_FINISHED`.
+ * `@tanstack/ai` 1.x puts them in `metadata.tanstack`
+ * (`{ model, finishReason, source: { provider, model } }`); top-level fields
+ * win when present.
+ */
+function readTanStackRunIdentity(event: Record<string, unknown>) {
+  const tanstack =
+    isRecord(event.metadata) && isRecord(event.metadata.tanstack)
+      ? event.metadata.tanstack
+      : {};
+  const source = isRecord(tanstack.source) ? tanstack.source : {};
+  const finishReason = [event.finishReason, tanstack.finishReason].find(
+    (value): value is string => typeof value === "string",
+  );
+  return {
+    provider:
+      getNonEmptyString(event.provider) ?? getNonEmptyString(source.provider),
+    model:
+      getNonEmptyString(event.model) ??
+      getNonEmptyString(tanstack.model) ??
+      getNonEmptyString(source.model),
+    finishReason,
+  };
+}
+
 /** Normalizes legacy and standard TanStack usage into AG-UI token usage. */
 function collectTanStackRunFinishedDetails(
   event: Record<string, unknown>,
   details?: AgentRunFinishedDetails,
-): void {
+) {
   if (!details) return;
 
-  const fallbackIdentity = {
-    provider: getNonEmptyString(event.provider),
-    model: getNonEmptyString(event.model),
-  };
+  const { finishReason, ...fallbackIdentity } = readTanStackRunIdentity(event);
   collectStandardRunFinishedDetails(event, details, fallbackIdentity);
 
   // TanStack's native finish reason becomes AG-UI terminal metadata.
-  if (typeof event.finishReason === "string") {
-    details.metadata = {
-      ...details.metadata,
-      finishReason: event.finishReason,
-    };
+  if (finishReason !== undefined) {
+    details.metadata = { ...details.metadata, finishReason };
   }
 
   const usage = event.usage;

@@ -1,18 +1,31 @@
 import { describe, it, expect } from "vitest";
 import { convertInputToTanStackAI } from "../converters/tanstack";
 import { createDefaultInput } from "./agent-test-helpers";
-import type { Message, InputContent } from "@ag-ui/client";
+import type { InputContent, Message } from "@ag-ui/client";
+
+/**
+ * Builds a user message from content the AG-UI types do not describe: legacy
+ * `binary` parts, parts with no source, unknown part types, null content.
+ * Old clients still send these, so the converter must survive them. The
+ * `Message` type cannot express them, which is why this is the one cast here.
+ */
+function wireUserMessage(content: unknown) {
+  return { id: "msg-wire", role: "user", content } as Message;
+}
+
+function convertMessage(message: Message) {
+  const { messages } = convertInputToTanStackAI(
+    createDefaultInput({ messages: [message] }),
+  );
+  return messages[0];
+}
 
 /**
  * Helper: build a user message with the given content parts, run through
  * convertInputToTanStackAI, and return the first converted message for assertion.
  */
 function convertUserContent(content: string | InputContent[]) {
-  const input = createDefaultInput({
-    messages: [{ role: "user", content } as Message],
-  });
-  const { messages } = convertInputToTanStackAI(input);
-  return messages[0];
+  return convertMessage({ id: "msg-1", role: "user", content });
 }
 
 /** Shorthand factories for AG-UI input parts */
@@ -158,54 +171,73 @@ describe("convertInputToTanStackAI — multimodal", () => {
     expect(result.content).toEqual([{ type: "text", content: "" }]);
   });
 
-  it("skips parts with missing source without crashing", () => {
+  it("passes a provider file-handle source through", () => {
     const result = convertUserContent([
-      { type: "text", text: "check this" },
-      { type: "image" } as any,
+      {
+        type: "document",
+        source: {
+          type: "file",
+          value: "file-abc123",
+          provider: "openai",
+          mimeType: "application/pdf",
+        },
+      },
     ]);
+    expect(result.content).toEqual([
+      {
+        type: "document",
+        source: {
+          type: "file",
+          value: "file-abc123",
+          provider: "openai",
+          mimeType: "application/pdf",
+        },
+      },
+    ]);
+  });
+
+  it("skips a data source with no mime type", () => {
+    const result = convertMessage(
+      wireUserMessage([
+        { type: "text", text: "see" },
+        { type: "image", source: { type: "data", value: "imgdata" } },
+      ]),
+    );
+    expect(result.content).toEqual([{ type: "text", content: "see" }]);
+  });
+
+  it("skips parts with missing source without crashing", () => {
+    const result = convertMessage(
+      wireUserMessage([
+        { type: "text", text: "check this" },
+        { type: "image" },
+      ]),
+    );
     expect(result.content).toEqual([{ type: "text", content: "check this" }]);
   });
 
   it("silently skips unknown part types", () => {
-    const result = convertUserContent([
-      { type: "text", text: "hello" },
-      { type: "spreadsheet", source: dataSource("data", "text/csv") } as any,
-    ]);
+    const result = convertMessage(
+      wireUserMessage([
+        { type: "text", text: "hello" },
+        { type: "spreadsheet", source: dataSource("data", "text/csv") },
+      ]),
+    );
     expect(result.content).toEqual([{ type: "text", content: "hello" }]);
   });
 
-  it("returns null for null or undefined content", () => {
-    const nullInput = createDefaultInput({
-      messages: [{ role: "user", content: null } as unknown as Message],
-    });
-    const { messages: nullMessages } = convertInputToTanStackAI(nullInput);
-    expect(nullMessages[0].content).toBeNull();
-
-    const undefinedInput = createDefaultInput({
-      messages: [{ role: "user", content: undefined } as unknown as Message],
-    });
-    const { messages: undefinedMessages } =
-      convertInputToTanStackAI(undefinedInput);
-    expect(undefinedMessages[0].content).toBeNull();
+  it.each([null, undefined])("returns null for %s content", (content) => {
+    expect(convertMessage(wireUserMessage(content)).content).toBeNull();
   });
 
   describe("legacy BinaryInputContent backward compat", () => {
     it("converts binary with image mimeType and data", () => {
-      const legacyPart = {
-        type: "binary",
-        mimeType: "image/jpeg",
-        data: "legacybase64",
-      };
-      const input = createDefaultInput({
-        messages: [
-          {
-            role: "user",
-            content: [legacyPart] as unknown as InputContent[],
-          } as Message,
-        ],
-      });
-      const { messages } = convertInputToTanStackAI(input);
-      expect(messages[0].content).toEqual([
+      const result = convertMessage(
+        wireUserMessage([
+          { type: "binary", mimeType: "image/jpeg", data: "legacybase64" },
+        ]),
+      );
+      expect(result.content).toEqual([
         {
           type: "image",
           source: {
@@ -218,38 +250,23 @@ describe("convertInputToTanStackAI — multimodal", () => {
     });
 
     it("skips binary with neither data nor url", () => {
-      const legacyPart = {
-        type: "binary",
-        mimeType: "image/png",
-      };
-      const input = createDefaultInput({
-        messages: [
-          {
-            role: "user",
-            content: [legacyPart] as unknown as InputContent[],
-          } as Message,
-        ],
-      });
-      const { messages } = convertInputToTanStackAI(input);
-      expect(messages[0].content).toBe("");
+      const result = convertMessage(
+        wireUserMessage([{ type: "binary", mimeType: "image/png" }]),
+      );
+      expect(result.content).toBe("");
     });
 
     it("converts binary with non-image mimeType and url", () => {
-      const legacyPart = {
-        type: "binary",
-        mimeType: "application/pdf",
-        url: "https://example.com/doc.pdf",
-      };
-      const input = createDefaultInput({
-        messages: [
+      const result = convertMessage(
+        wireUserMessage([
           {
-            role: "user",
-            content: [legacyPart] as unknown as InputContent[],
-          } as Message,
-        ],
-      });
-      const { messages } = convertInputToTanStackAI(input);
-      expect(messages[0].content).toEqual([
+            type: "binary",
+            mimeType: "application/pdf",
+            url: "https://example.com/doc.pdf",
+          },
+        ]),
+      );
+      expect(result.content).toEqual([
         {
           type: "document",
           source: {
@@ -266,13 +283,14 @@ describe("convertInputToTanStackAI — multimodal", () => {
     const input = createDefaultInput({
       messages: [
         {
+          id: "msg-1",
           role: "user",
           content: [
             { type: "text", text: "Look at this" },
             { type: "image", source: dataSource("imgdata", "image/png") },
           ],
-        } as Message,
-        { role: "assistant", content: "I see an image" } as Message,
+        },
+        { id: "msg-2", role: "assistant", content: "I see an image" },
       ],
     });
     const { messages } = convertInputToTanStackAI(input);
