@@ -66,7 +66,6 @@
     "@ag-ui/client": "1.0.2",
     "@ag-ui/core": "1.0.2",
     "@copilotkit/channels-ui": "workspace:~",
-    "@copilotkit/core": "workspace:^",
     "@copilotkit/shared": "workspace:^"
   },
   "devDependencies": {
