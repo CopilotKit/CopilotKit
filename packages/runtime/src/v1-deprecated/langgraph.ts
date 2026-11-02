@@ -33,7 +33,7 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * Use `HttpAgent` from `@ag-ui/client`, passed to the v2 `CopilotRuntime`.
-   * Exception: a v1 client still resuming interrupts through `forwardedProps.command.resume`. `LangGraphHttpAgent` keeps a back-compat bridge for that channel.
+   * Exception: a v1 client still resuming interrupts through `forwardedProps.command.resume` — `LangGraphHttpAgent` keeps a back-compat bridge for that channel.
    * Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/langgraph-python
    * Start with `@copilotkit/runtime/v2`.
    * V2 docs: https://docs.copilotkit.ai/

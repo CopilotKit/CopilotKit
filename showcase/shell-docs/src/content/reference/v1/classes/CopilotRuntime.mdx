@@ -63,16 +63,21 @@ Allows fetching and using tools defined on external MCP-compliant servers.
 Requires providing the `createMCPClient` function during instantiation.
 
 A request can also name its own servers, as `mcpServers` (or the older
-`mcpEndpoints`) inside `forwardedProps`. The frontend's `setMcpServers`
-sends them there. The runtime merges them with this list and connects to
-them from the server.
+`mcpEndpoints`) inside `forwardedProps` — that is what the frontend's
+`setMcpServers` sends. Those are merged with this list and connected from
+the server.
 
-So a caller can also choose the destination.
+That merge previously never ran: whatever the browser sent was accepted
+and discarded. It now takes effect, so a deployment that has been sending
+`setMcpServers` will start connecting to those endpoints without changing
+anything on its side.
+
+The destination is therefore caller-controlled, not only config-controlled.
 If your deployment does not mean to let the browser choose an MCP server,
 check `config.endpoint` inside `createMCPClient` and reject anything
 outside your allowlist. Without that check a request can aim the server at
 a loopback, link-local, or otherwise internal address (SSRF).
-Experimental: this API can change in a minor release.
+Experimental.
 </PropertyReference>
 
 <PropertyReference name="createMCPClient" type="CreateMCPClientFunction"  > 
@@ -103,7 +108,7 @@ const runtime = new CopilotRuntime({
 Define this once, at module scope, if you build a new `CopilotRuntime`
 per request. Connections are cached against the identity of this function
 plus the endpoint config, and an inline function is a new object on every
-request, so a per-request runtime with an inline factory opens a new
+request — so a per-request runtime with an inline factory opens a new
 connection each time and never reuses one. A module-scope factory, which
 is what the documented setup uses, shares connections across requests and
 keeps the cache bounded by how many distinct credentials are in play

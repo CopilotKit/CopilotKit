@@ -47,11 +47,7 @@
  * ## Example
  *
  * ```ts
- * import {
- *   CopilotRuntime,
- *   AnthropicAdapter,
- *   copilotRuntimeNextJSAppRouterEndpoint,
- * } from "@copilotkit/runtime";
+ * import { CopilotRuntime, AnthropicAdapter } from "@copilotkit/runtime";
  * import Anthropic from "@anthropic-ai/sdk";
  *
  * const copilotKit = new CopilotRuntime();
@@ -64,15 +60,9 @@
  *   anthropic,
  *   promptCaching: {
  *     enabled: true,
- *     debug: true,
- *   },
+ *     debug: true
+ *   }
  * });
- *
- * export const POST = copilotRuntimeNextJSAppRouterEndpoint({
- *   runtime: copilotKit,
- *   serviceAdapter,
- *   endpoint: "/api/copilotkit",
- * }).handleRequest;
  * ```
  */
 import type { LanguageModel } from "ai";

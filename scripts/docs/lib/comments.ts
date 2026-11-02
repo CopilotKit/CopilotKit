@@ -34,15 +34,13 @@ export class Comments {
 
         if (Comments.isV1DeprecationNotice(commentText)) return "";
 
-        // for now, remove @default annotations, and say what @experimental
-        // means instead of printing the tag
+        // for now, remove @default annotations, and print @experimental as
+        // a word instead of a tag
         commentText = commentText
           .split("\n")
           .filter((line) => !line.includes("@default"))
           .map((line) =>
-            line.trim() === "@experimental"
-              ? "Experimental: this API can change in a minor release."
-              : line,
+            line.trim() === "@experimental" ? "Experimental." : line,
           )
           .join("\n");
 
@@ -51,6 +49,15 @@ export class Comments {
       .filter((commentText) => commentText !== "")
       .join("\n")
       .trim();
+  }
+
+  /**
+   * True when the comment has the JSDoc tag `@<tag>`, read the way TypeScript
+   * reads it: the `@` starts the text or follows whitespace, and the tag name
+   * ends there. So `@internalNote` and `` `@internal` `` are not `@internal`.
+   */
+  static hasTag(commentText: string, tag: string): boolean {
+    return new RegExp(`(?:^|\\s)@${tag}(?![\\w$-])`).test(commentText);
   }
 
   static getDefaultValueForNode(

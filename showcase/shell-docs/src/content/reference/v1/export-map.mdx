@@ -3,8 +3,10 @@ title: "Complete v1 to v2 export map"
 description: "Every importable CopilotKit JavaScript and TypeScript v1 export, with its verified v2 replacement or an explicit no-direct-replacement marker."
 ---
 
-Find your v1 import in the tables below. Each row gives the v2 import that replaces it.
-When a row says No 1:1 replacement, open the linked v2 guide.
+This page is generated from the public package entrypoints. It is the exhaustive
+migration index for humans and coding agents. A row only names a v2 replacement
+when that export actually exists. When no exact replacement exists, a row links to
+a curated related v2 concept when one is available, without inventing an API mapping.
 
 [Read the step-by-step migration guide](https://docs.copilotkit.ai/migrate/v2).
 
@@ -204,7 +206,7 @@ When a row says No 1:1 replacement, open the linked v2 guide.
 | `GuardrailsValidationFailureResponse` | No 1:1 replacement. Start with `@copilotkit/runtime/v2`. | `packages/runtime/src/v2/index.ts` | [V2 docs](https://docs.copilotkit.ai/)<br />[V2 reference docs](https://docs.copilotkit.ai/reference/v2) |
 | `LangChainAdapter` | No 1:1 replacement. Start with `@copilotkit/runtime/v2`. | `packages/runtime/src/v2/index.ts` | [Runtime server adapter](https://docs.copilotkit.ai/runtime-server-adapter)<br />[V2 docs](https://docs.copilotkit.ai/)<br />[V2 reference docs](https://docs.copilotkit.ai/reference/v2) |
 | `LangGraphAgent` | No 1:1 replacement. Start with `@copilotkit/runtime/v2`. | `packages/runtime/src/v2/index.ts` | [LangGraph agents](https://docs.copilotkit.ai/langgraph-python)<br />[V2 docs](https://docs.copilotkit.ai/)<br />[V2 reference docs](https://docs.copilotkit.ai/reference/v2) |
-| `LangGraphHttpAgent` | Use `HttpAgent` from `@ag-ui/client`, passed to the v2 `CopilotRuntime`. Exception: a v1 client still resuming interrupts through `forwardedProps.command.resume`. `LangGraphHttpAgent` keeps a back-compat bridge for that channel. | `@ag-ui/client` | [LangGraph agents](https://docs.copilotkit.ai/langgraph-python)<br />[V2 docs](https://docs.copilotkit.ai/)<br />[V2 reference docs](https://docs.copilotkit.ai/reference/v2) |
+| `LangGraphHttpAgent` | Use `HttpAgent` from `@ag-ui/client`, passed to the v2 `CopilotRuntime`. Exception: a v1 client still resuming interrupts through `forwardedProps.command.resume` — `LangGraphHttpAgent` keeps a back-compat bridge for that channel. | `@ag-ui/client` | [LangGraph agents](https://docs.copilotkit.ai/langgraph-python)<br />[V2 docs](https://docs.copilotkit.ai/)<br />[V2 reference docs](https://docs.copilotkit.ai/reference/v2) |
 | `langGraphPlatformEndpoint` | No 1:1 replacement. Start with `@copilotkit/runtime/v2`. | `packages/runtime/src/v2/index.ts` | [LangGraph agents](https://docs.copilotkit.ai/langgraph-python)<br />[V2 docs](https://docs.copilotkit.ai/)<br />[V2 reference docs](https://docs.copilotkit.ai/reference/v2) |
 | `LogLevel` | No 1:1 replacement. Start with `@copilotkit/runtime/v2`. | `packages/runtime/src/v2/index.ts` | [V2 docs](https://docs.copilotkit.ai/)<br />[V2 reference docs](https://docs.copilotkit.ai/reference/v2) |
 | `MCPClient` | `import type { MCPClient } from "@copilotkit/runtime/v2";`<br />`type V2MCPClient = MCPClient;` | `packages/runtime/src/v2/index.ts` | [Open v2 API docs](https://docs.copilotkit.ai/runtime-server-adapter) |
@@ -234,7 +236,7 @@ When a row says No 1:1 replacement, open the linked v2 guide.
 | --- | --- | --- | --- |
 | `CustomEventNames` | No 1:1 replacement. Start with `@copilotkit/runtime/v2`. | `packages/runtime/src/v2/index.ts` | [LangGraph agents](https://docs.copilotkit.ai/langgraph-python)<br />[V2 docs](https://docs.copilotkit.ai/)<br />[V2 reference docs](https://docs.copilotkit.ai/reference/v2) |
 | `LangGraphAgent` | No 1:1 replacement. Start with `@copilotkit/runtime/v2`. | `packages/runtime/src/v2/index.ts` | [LangGraph agents](https://docs.copilotkit.ai/langgraph-python)<br />[V2 docs](https://docs.copilotkit.ai/)<br />[V2 reference docs](https://docs.copilotkit.ai/reference/v2) |
-| `LangGraphHttpAgent` | Use `HttpAgent` from `@ag-ui/client`, passed to the v2 `CopilotRuntime`. Exception: a v1 client still resuming interrupts through `forwardedProps.command.resume`. `LangGraphHttpAgent` keeps a back-compat bridge for that channel. | `@ag-ui/client` | [LangGraph agents](https://docs.copilotkit.ai/langgraph-python)<br />[V2 docs](https://docs.copilotkit.ai/)<br />[V2 reference docs](https://docs.copilotkit.ai/reference/v2) |
+| `LangGraphHttpAgent` | Use `HttpAgent` from `@ag-ui/client`, passed to the v2 `CopilotRuntime`. Exception: a v1 client still resuming interrupts through `forwardedProps.command.resume` — `LangGraphHttpAgent` keeps a back-compat bridge for that channel. | `@ag-ui/client` | [LangGraph agents](https://docs.copilotkit.ai/langgraph-python)<br />[V2 docs](https://docs.copilotkit.ai/)<br />[V2 reference docs](https://docs.copilotkit.ai/reference/v2) |
 | `PredictStateTool` | No 1:1 replacement. Start with `@copilotkit/runtime/v2`. | `packages/runtime/src/v2/index.ts` | [LangGraph agents](https://docs.copilotkit.ai/langgraph-python)<br />[V2 docs](https://docs.copilotkit.ai/)<br />[V2 reference docs](https://docs.copilotkit.ai/reference/v2) |
 | `TextMessageEvents` | No 1:1 replacement. Start with `@copilotkit/runtime/v2`. | `packages/runtime/src/v2/index.ts` | [LangGraph agents](https://docs.copilotkit.ai/langgraph-python)<br />[V2 docs](https://docs.copilotkit.ai/)<br />[V2 reference docs](https://docs.copilotkit.ai/reference/v2) |
 | `ToolCallEvents` | No 1:1 replacement. Start with `@copilotkit/runtime/v2`. | `packages/runtime/src/v2/index.ts` | [LangGraph agents](https://docs.copilotkit.ai/langgraph-python)<br />[V2 docs](https://docs.copilotkit.ai/)<br />[V2 reference docs](https://docs.copilotkit.ai/reference/v2) |

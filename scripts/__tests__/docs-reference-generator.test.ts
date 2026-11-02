@@ -147,6 +147,39 @@ describe("comment syntax removal", () => {
       "The chat labels.",
     );
   });
+
+  it("prints @experimental as a word, with no claim about what it means", () => {
+    const sourceFile = parse(
+      [
+        "/**",
+        " * Connects to MCP servers.",
+        " * @experimental",
+        " */",
+        "export const mcpServers = [];",
+      ].join("\n"),
+    );
+
+    expect(
+      Comments.getCleanedCommentsForNode(sourceFile.statements[0], sourceFile),
+    ).toBe("Connects to MCP servers.\nExperimental.");
+  });
+});
+
+describe("JSDoc tag matching", () => {
+  it("finds a tag the way TypeScript does", () => {
+    expect(Comments.hasTag("@internal Hidden.", "internal")).toBe(true);
+    expect(Comments.hasTag("Hidden.\n@internal", "internal")).toBe(true);
+    expect(Comments.hasTag("Hidden. @internal", "internal")).toBe(true);
+  });
+
+  it("does not take a longer tag or quoted text for the tag", () => {
+    expect(Comments.hasTag("@internalNote Shown.", "internal")).toBe(false);
+    expect(Comments.hasTag("@internal-api Shown.", "internal")).toBe(false);
+    expect(Comments.hasTag("Read the `@internal` docs.", "internal")).toBe(
+      false,
+    );
+    expect(Comments.hasTag("Uses an internal cache.", "internal")).toBe(false);
+  });
 });
 
 describe("Python docstring parsing", () => {
@@ -245,6 +278,8 @@ describe("TypeScript reference generation", () => {
       "  shown: string;",
       "  /** @internal Hidden. */",
       "  hidden?: string;",
+      "  /** Shown, though it names the `@internal` tag. */",
+      "  mentionsTag?: string;",
       "}",
       "export function useThing(",
       "  options: Options,",
@@ -261,10 +296,38 @@ describe("TypeScript reference generation", () => {
 
     expect(page).toContain('name="shown"');
     expect(page).not.toContain('name="hidden"');
+    expect(page).toContain('name="mentionsTag"');
     expect(page).toContain(
       '<PropertyReference name="dependencies" type="any[]" >',
     );
     expect(page).toContain("Values that run the hook again when they change.");
+  });
+
+  it("keeps the default of a commented second hook argument", async () => {
+    const file = writeSource([
+      "/**",
+      " * The hook page.",
+      " */",
+      "interface Options {",
+      "  /** Shown. */",
+      "  shown: string;",
+      "}",
+      "export function useThing(",
+      "  options: Options,",
+      "  /** The mode to run in. */",
+      '  mode: string = "auto",',
+      ") {}",
+    ]);
+
+    const page = await new ReferenceDoc({
+      sourcePath: file,
+      destinationPath: "unused/page.mdx",
+      hook: "useThing",
+    }).generatedDocsTypeScript();
+
+    expect(page).toContain(
+      `<PropertyReference name="mode" type="string" default="'auto'">`,
+    );
   });
 
   it("keeps only the type of an inline object argument and gives @returns its own section", async () => {

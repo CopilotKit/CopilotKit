@@ -54,8 +54,7 @@
  * ### With Observability Hooks
  *
  * To monitor user interactions, set `publicLicenseKey` on `<CopilotKit>` and pass the
- * `observabilityHooks` prop. Without the key, the hooks do not run and the chat shows an
- * error banner.
+ * `observabilityHooks` prop. Without the key, the hooks do not run.
  *
  * ```tsx
  * <CopilotKit publicLicenseKey="YOUR_PUBLIC_LICENSE_KEY">

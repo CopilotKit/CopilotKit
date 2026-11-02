@@ -21,7 +21,7 @@
  *
  * @copilotkit/runtime — LangGraphHttpAgent:
  *   Use `HttpAgent` from `@ag-ui/client`, passed to the v2 `CopilotRuntime`.
- *   Exception: a v1 client still resuming interrupts through `forwardedProps.command.resume`. `LangGraphHttpAgent` keeps a back-compat bridge for that channel.
+ *   Exception: a v1 client still resuming interrupts through `forwardedProps.command.resume` — `LangGraphHttpAgent` keeps a back-compat bridge for that channel.
  *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/langgraph-python
  *   Start at: @copilotkit/runtime/v2
  *   V2 docs: https://docs.copilotkit.ai/

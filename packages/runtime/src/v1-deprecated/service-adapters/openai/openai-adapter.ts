@@ -34,11 +34,7 @@
  * ## Example
  *
  * ```ts
- * import {
- *   CopilotRuntime,
- *   OpenAIAdapter,
- *   copilotRuntimeNextJSAppRouterEndpoint,
- * } from "@copilotkit/runtime";
+ * import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
  * import OpenAI from "openai";
  *
  * const copilotKit = new CopilotRuntime();
@@ -49,22 +45,12 @@
  * });
  *
  * const serviceAdapter = new OpenAIAdapter({ openai });
- *
- * export const POST = copilotRuntimeNextJSAppRouterEndpoint({
- *   runtime: copilotKit,
- *   serviceAdapter,
- *   endpoint: "/api/copilotkit",
- * }).handleRequest;
  * ```
  *
  * ## Example with Azure OpenAI
  *
  * ```ts
- * import {
- *   CopilotRuntime,
- *   OpenAIAdapter,
- *   copilotRuntimeNextJSAppRouterEndpoint,
- * } from "@copilotkit/runtime";
+ * import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
  * import OpenAI from "openai";
  *
  * // The name of your Azure OpenAI Instance.
@@ -90,12 +76,6 @@
  * });
  *
  * const serviceAdapter = new OpenAIAdapter({ openai });
- *
- * export const POST = copilotRuntimeNextJSAppRouterEndpoint({
- *   runtime: copilotKit,
- *   serviceAdapter,
- *   endpoint: "/api/copilotkit",
- * }).handleRequest;
  * ```
  */
 import type { LanguageModel } from "ai";

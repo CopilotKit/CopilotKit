@@ -34,11 +34,7 @@
  * ## Example
  *
  * ```ts
- * import {
- *   CopilotRuntime,
- *   GroqAdapter,
- *   copilotRuntimeNextJSAppRouterEndpoint,
- * } from "@copilotkit/runtime";
+ * import { CopilotRuntime, GroqAdapter } from "@copilotkit/runtime";
  * import { Groq } from "groq-sdk";
  *
  * const groq = new Groq({ apiKey: process.env["GROQ_API_KEY"] });
@@ -46,12 +42,6 @@
  * const copilotKit = new CopilotRuntime();
  *
  * const serviceAdapter = new GroqAdapter({ groq, model: "<model-name>" });
- *
- * export const POST = copilotRuntimeNextJSAppRouterEndpoint({
- *   runtime: copilotKit,
- *   serviceAdapter,
- *   endpoint: "/api/copilotkit",
- * }).handleRequest;
  * ```
  */
 import type { LanguageModel } from "ai";
