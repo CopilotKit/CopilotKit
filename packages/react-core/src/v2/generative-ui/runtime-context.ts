@@ -27,8 +27,11 @@ export interface GenerativeUIErrorBoundaryConfig {
    * them itself. For "render", `retry` renders the component again; for the
    * other kinds it does nothing. A fallback that throws is replaced by the
    * default for that component, and its error is reported to `onError` as
-   * "render". A failure of the surface outside its components keeps the
-   * default.
+   * "render". A fallback that suspends shows nothing for that component
+   * until it resumes (to show a loading state, do the suspending work in a
+   * child component and wrap that child in a Suspense of your own); the rest
+   * of the surface does not wait for it. A failure of the surface outside
+   * its components keeps the default.
    *
    * The fallback is mounted like a component, and runs again whenever the
    * failed component renders. A new function starts with fresh state, so a

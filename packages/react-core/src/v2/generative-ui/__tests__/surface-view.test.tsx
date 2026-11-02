@@ -768,7 +768,104 @@ describe("SurfaceView", () => {
           ]),
         );
       });
+      it("reports the failure and keeps the rest of the surface while the host fallback suspends", () => {
+        const pending = new Promise<never>(() => {});
+        const harness = setup({ fallback: () => React.use(pending) });
+        failure.arrange(harness);
+        expect(screen.getByText("Fine")).toBeTruthy();
+        expect(screen.queryByRole("alert")).toBeNull();
+        const reported = harness.reportError.mock.calls.map(([info]) => ({
+          ...info,
+          error: info.error.message,
+        }));
+        expect(reported).toEqual(
+          failure.reported
+            ? [
+                {
+                  kind: failure.kind,
+                  surfaceId: S,
+                  componentId: failure.componentId,
+                  error: failure.message,
+                },
+              ]
+            : [],
+        );
+      });
+
+      it("shows the host fallback once it resumes, with no second report", async () => {
+        let resume!: () => void;
+        const loaded = new Promise<void>((resolve) => {
+          resume = resolve;
+        });
+        const harness = setup({
+          fallback: (props) => {
+            React.use(loaded);
+            return tagged(props);
+          },
+        });
+        // Arranged in an awaited act, so React's retry once the fallback's
+        // promise settles is flushed by the act below rather than dropped.
+        await act(async () => {
+          failure.arrange(harness);
+        });
+        expect(
+          screen.queryByTestId(`fallback-${failure.componentId}`),
+        ).toBeNull();
+        const reportsBefore = harness.reportError.mock.calls.length;
+        await act(async () => {
+          resume();
+          await loaded;
+        });
+        expect(
+          screen.getByTestId(`fallback-${failure.componentId}`).textContent,
+        ).toBe(`${failure.kind}: ${failure.message}`);
+        expect(screen.getByText("Fine")).toBeTruthy();
+        expect(harness.reportError).toHaveBeenCalledTimes(reportsBefore);
+      });
+
+      it("shows the default for the node when the host fallback's loading fails", async () => {
+        let fail!: (error: Error) => void;
+        const loading = new Promise<never>((_, reject) => {
+          fail = reject;
+        });
+        loading.catch(() => {});
+        const harness = setup({ fallback: () => React.use(loading) });
+        await act(async () => {
+          failure.arrange(harness);
+        });
+        await act(async () => {
+          fail(new Error("host fallback failed to load"));
+          await loading.catch(() => {});
+        });
+        expect(alertText()).toBe(failure.defaultText);
+        expect(screen.getByText("Fine")).toBeTruthy();
+        expect(
+          harness.reportError.mock.calls.map(([info]) => info.error.message),
+        ).toContain("host fallback failed to load");
+      });
     });
+
+    describe.each(failures.filter((failure) => failure.kind !== "render"))(
+      "$kind retry",
+      (failure) => {
+        it("gives a retry that does nothing", () => {
+          let renders = 0;
+          const harness = setup({
+            fallback: ({ kind, retry }) => {
+              renders += 1;
+              return <button onClick={retry}>retry {kind}</button>;
+            },
+          });
+          failure.arrange(harness);
+          const before = renders;
+          const reportsBefore = harness.reportError.mock.calls.length;
+          fireEvent.click(screen.getByText(`retry ${failure.kind}`));
+          expect(renders).toBe(before);
+          expect(screen.getByText(`retry ${failure.kind}`)).toBeTruthy();
+          expect(harness.reportError).toHaveBeenCalledTimes(reportsBefore);
+        });
+      },
+    );
 
     it("gives a retry that renders a failed component again", () => {
       bombArmed = true;
@@ -781,21 +878,6 @@ describe("SurfaceView", () => {
       bombArmed = false;
       fireEvent.click(screen.getByText("retry render"));
       expect(screen.getByText("survived b1")).toBeTruthy();
-    });
-
-    it("gives a retry that does nothing for a failure a retry cannot fix", () => {
-      const { push, reportError } = setup({
-        fallback: ({ kind, retry }) => (
-          <button onClick={retry}>retry {kind}</button>
-        ),
-      });
-      push(
-        data("/n", "many"),
-        nodes({ id: "root", component: "Counter", value: { "@path": "/n" } }),
-      );
-      fireEvent.click(screen.getByText("retry props"));
-      expect(screen.getByText("retry props")).toBeTruthy();
-      expect(reportError).toHaveBeenCalledOnce();
     });
 
     it("lets a host fallback use hooks", () => {

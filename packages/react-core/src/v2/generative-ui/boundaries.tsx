@@ -1,4 +1,4 @@
-import React, { Component, useMemo } from "react";
+import React, { Component, Suspense, useMemo } from "react";
 import type { ReactNode } from "react";
 import { reportErrorSafely } from "./runtime-context";
 import type { GenerativeUIRuntime } from "./runtime-context";
@@ -185,14 +185,19 @@ export function NodeFallback({
       message={defaultMessage}
       retry={retry}
     >
-      <HostFallback
-        render={fallback}
-        kind={kind}
-        error={nodeError}
-        retry={retry ?? noRetry}
-        surfaceId={surfaceId}
-        componentId={componentId}
-      />
+      {/* A fallback that suspends shows nothing for this node while it
+          loads, and the node and the rest of the surface commit without
+          waiting for it, so the failure is reported on time. */}
+      <Suspense fallback={null}>
+        <HostFallback
+          render={fallback}
+          kind={kind}
+          error={nodeError}
+          retry={retry ?? noRetry}
+          surfaceId={surfaceId}
+          componentId={componentId}
+        />
+      </Suspense>
     </HostFallbackBoundary>
   );
 }
