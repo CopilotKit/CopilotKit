@@ -94,7 +94,8 @@ export function tarballIntegrity(tarballPath: string): string {
  * Whether npm's copy of `name@version` is the tarball at `tarballPath`.
  *
  * The registry can take minutes to list a version it has just accepted, so
- * this polls until the version shows up and throws if it never does.
+ * this polls, through failed lookups too, until the version shows up, and
+ * throws if it never does.
  */
 export async function matchesPublishedTarball(
   name: string,
@@ -114,7 +115,16 @@ export async function matchesPublishedTarball(
 ): Promise<boolean> {
   const expected = tarballIntegrity(tarballPath);
   for (let attempt = 1; ; attempt++) {
-    const published = await fetchIntegrity(name, version);
+    let published: string | null;
+    try {
+      published = await fetchIntegrity(name, version);
+    } catch (error) {
+      // npm has already accepted the version, so a registry hiccup here must
+      // not fail the package: look again.
+      if (attempt >= attempts) throw error;
+      await wait(delayMs);
+      continue;
+    }
     if (published !== null) return published === expected;
     if (attempt >= attempts) {
       throw new Error(

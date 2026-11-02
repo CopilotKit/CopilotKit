@@ -25,7 +25,7 @@
  * Usage: tsx scripts/release/prerelease.ts --scope <scope from release.config.json | all> [--dry-run]
  */
 
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import {
   getCurrentVersion,
@@ -170,11 +170,17 @@ async function main() {
   const tarballOf = (p: PublishablePackage) =>
     `${p.name.replace("@", "").replace("/", "-")}-${p.pkg.version}.tgz`;
   // A dry run leaves the checkout as it found it: pinning rewrites package.json
-  // files, and packing writes a tarball into each package.
-  const manifests = packages.map((p) => ({
-    path: p.pkgJsonPath,
-    text: readFileSync(p.pkgJsonPath, "utf8"),
-  }));
+  // files, and packing writes (or overwrites) a tarball in each package.
+  const snapshot = packages.flatMap((p) => {
+    const tarball = join(p.dir, tarballOf(p));
+    return [
+      { path: p.pkgJsonPath, bytes: readFileSync(p.pkgJsonPath) },
+      {
+        path: tarball,
+        bytes: existsSync(tarball) ? readFileSync(tarball) : null,
+      },
+    ];
+  });
 
   try {
     // `workspace:^` packs to a caret range, which can select an incompatible,
@@ -206,9 +212,9 @@ async function main() {
     }
   } finally {
     if (dryRun) {
-      for (const { path, text } of manifests) writeFileSync(path, text);
-      for (const p of packages) {
-        rmSync(join(p.dir, tarballOf(p)), { force: true });
+      for (const { path, bytes } of snapshot) {
+        if (bytes) writeFileSync(path, bytes);
+        else rmSync(path, { force: true });
       }
     }
   }

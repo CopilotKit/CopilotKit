@@ -189,21 +189,39 @@ async function main() {
   // tarball has packed and passed the license check: a failure on the fifth
   // package must not leave the first four on `latest`. Each publish is then
   // retried through transient registry failures (lib/publish-retry.ts).
+  //
+  // The Channels dependencies phase checks the umbrella as well, so an
+  // umbrella that cannot ship stops the run before its dependencies go out.
+  const preflight = phase === "dependencies" ? packages : packagesToPublish;
   const registry = await checkRegistry(
-    packagesToPublish.map((p) => ({ name: p.name, version })),
+    preflight.map((p) => ({ name: p.name, version })),
   );
   if (registry.unregistered.length > 0) {
     console.error(unregisteredHelp(registry.unregistered));
     process.exit(1);
   }
-  const toPublish = packagesToPublish.filter((p) => {
+  // A package already at this version is skipped only while it is `latest`,
+  // where an interrupted run of this same release leaves it. Any other copy
+  // of the version was published by something else.
+  const elsewhere: string[] = [];
+  const toPack = preflight.filter((p) => {
     if (!registry.published.includes(`${p.name}@${version}`)) return true;
-    console.log(`  Skipping ${p.name}@${version} (already published)`);
+    if (getPublishedVersion(p.name) === version) {
+      console.log(`  Skipping ${p.name}@${version} (already published)`);
+    } else {
+      elsewhere.push(`${p.name}@${version}`);
+    }
     return false;
   });
+  if (elsewhere.length > 0) {
+    console.error(
+      `Refusing to publish: npm already has ${elsewhere.join(", ")}, but not as latest.`,
+    );
+    process.exit(1);
+  }
   const tarballOf = (name: string) =>
     `${name.replace("@", "").replace("/", "-")}-${version}.tgz`;
-  for (const p of toPublish) {
+  for (const p of toPack) {
     run("pnpm", ["pack"], { cwd: p.dir });
     run(process.execPath, [
       "scripts/package-licenses/check.mjs",
@@ -216,6 +234,7 @@ async function main() {
   // The npm CLI is resolved ONCE up front rather than via `npx npm@<v>` per
   // package — see lib/npm-cli.ts for the measured cost of the old approach.
   const npmBin = resolvePublishNpm();
+  const toPublish = toPack.filter((p) => packagesToPublish.includes(p));
   console.log("\nPublishing packages...");
   for (const p of toPublish) {
     console.log(`  Publishing ${p.name}@${version}...`);

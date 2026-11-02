@@ -77,4 +77,11 @@ describe("fetchPublishedIntegrity", () => {
       fetchPublishedIntegrity("@copilotkit/new", "2.0.0-rc.0"),
     ).resolves.toBeNull();
   });
+
+  it("throws on any other error status", async () => {
+    stubFetch(503);
+    await expect(
+      fetchPublishedIntegrity("@copilotkit/shared", "2.0.0-rc.12"),
+    ).rejects.toThrow(/returned 503/);
+  });
 });

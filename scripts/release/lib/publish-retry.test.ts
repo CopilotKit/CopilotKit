@@ -203,6 +203,34 @@ describe("matchesPublishedTarball", () => {
     expect(wait.mock.calls).toEqual([[1000], [1000]]);
   });
 
+  it("looks again when a registry lookup fails", async () => {
+    const fetchIntegrity = vi
+      .fn<() => Promise<string | null>>()
+      .mockRejectedValueOnce(new Error("npm registry returned 503"))
+      .mockResolvedValueOnce(tarballIntegrity(tarball));
+    const wait = vi.fn(async () => {});
+
+    await expect(
+      matchesPublishedTarball("@copilotkit/shared", "2.0.0-rc.12", tarball, {
+        fetchIntegrity,
+        wait,
+      }),
+    ).resolves.toBe(true);
+    expect(fetchIntegrity).toHaveBeenCalledTimes(2);
+  });
+
+  it("rethrows the last failed lookup once attempts run out", async () => {
+    await expect(
+      matchesPublishedTarball("@copilotkit/shared", "2.0.0-rc.12", tarball, {
+        fetchIntegrity: async () => {
+          throw new Error("npm registry returned 503");
+        },
+        wait: async () => {},
+        attempts: 2,
+      }),
+    ).rejects.toThrow("returned 503");
+  });
+
   it("throws when the registry never lists the version", async () => {
     await expect(
       matchesPublishedTarball("@copilotkit/shared", "2.0.0-rc.12", tarball, {
