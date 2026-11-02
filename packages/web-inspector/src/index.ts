@@ -58,7 +58,11 @@ import type {
   RuntimeLicenseStatus,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
-import type { InspectorLearningSnapshotV1 } from "@copilotkit/shared";
+import { schemaToJsonSchema } from "@copilotkit/shared";
+import type {
+  InspectorLearningSnapshotV1,
+  StandardSchemaV1,
+} from "@copilotkit/shared";
 import { deriveLearningViewState } from "./components/learning-view.js";
 import type { LearningViewState } from "./components/learning-view.js";
 import "./components/generative-ui-view.js";
@@ -21068,63 +21072,29 @@ export class WebInspectorElement extends LitElement {
       return result;
     }
 
-    // Try Zod schema introspection
-    const zodDef = (parameters as { _def?: Record<string, unknown> })._def;
-    if (zodDef && typeof zodDef === "object") {
-      // Handle Zod object schema
-      if (zodDef.typeName === "ZodObject") {
-        const rawShape = zodDef.shape;
-        const shape =
-          typeof rawShape === "function"
-            ? (rawShape as () => Record<string, unknown>)()
-            : (rawShape as Record<string, unknown> | undefined);
-
-        if (!shape || typeof shape !== "object") {
-          return result;
-        }
-        const requiredKeys = new Set<string>();
-
-        // Get required fields
-        if (zodDef.unknownKeys === "strict" || !zodDef.catchall) {
-          Object.keys(shape || {}).forEach((key) => {
-            const candidate = (shape as Record<string, unknown>)[key];
-            const fieldDef = (
-              candidate as { _def?: Record<string, unknown> } | undefined
-            )?._def;
-            if (fieldDef && !this.isZodOptional(candidate)) {
-              requiredKeys.add(key);
-            }
-          });
-        }
-
-        // Extract properties
-        for (const [key, value] of Object.entries(shape || {})) {
-          const fieldInfo = this.extractZodFieldInfo(value);
-          result.properties.push({
-            name: key,
-            type: fieldInfo.type,
-            description: fieldInfo.description,
-            required: requiredKeys.has(key),
-            defaultValue: fieldInfo.defaultValue,
-            enum: fieldInfo.enum,
-          });
-        }
+    // Tool parameters are Standard Schemas (Zod 4, Valibot, ArkType, …) or
+    // plain JSON Schema. Describe a Standard Schema through its JSON Schema.
+    let jsonSchema = parameters as {
+      type?: string;
+      properties?: Record<string, unknown>;
+      required?: string[];
+    };
+    if ("~standard" in parameters) {
+      try {
+        jsonSchema = schemaToJsonSchema(
+          parameters as StandardSchemaV1,
+        ) as typeof jsonSchema;
+      } catch {
+        return result;
       }
-    } else if (
-      (parameters as { type?: string; properties?: Record<string, unknown> })
-        .type === "object" &&
-      (parameters as { properties?: Record<string, unknown> }).properties
-    ) {
-      // Handle JSON Schema format
-      const props = (parameters as { properties?: Record<string, unknown> })
-        .properties;
+    }
+
+    if (jsonSchema.type === "object" && jsonSchema.properties) {
       const required = new Set(
-        Array.isArray((parameters as { required?: string[] }).required)
-          ? (parameters as { required?: string[] }).required
-          : [],
+        Array.isArray(jsonSchema.required) ? jsonSchema.required : [],
       );
 
-      for (const [key, value] of Object.entries(props ?? {})) {
+      for (const [key, value] of Object.entries(jsonSchema.properties)) {
         const prop = value as Record<string, unknown>;
         result.properties.push({
           name: key,
@@ -21139,96 +21109,6 @@ export class WebInspectorElement extends LitElement {
     }
 
     return result;
-  }
-
-  private isZodOptional(zodSchema: unknown): boolean {
-    const schema = zodSchema as { _def?: Record<string, unknown> };
-    if (!schema?._def) return false;
-
-    const def = schema._def;
-
-    // Check if it's explicitly optional or nullable
-    if (def.typeName === "ZodOptional" || def.typeName === "ZodNullable") {
-      return true;
-    }
-
-    // Check if it has a default value
-    if (def.defaultValue !== undefined) {
-      return true;
-    }
-
-    return false;
-  }
-
-  private extractZodFieldInfo(zodSchema: unknown): {
-    type?: string;
-    description?: string;
-    defaultValue?: unknown;
-    enum?: unknown[];
-  } {
-    const info: {
-      type?: string;
-      description?: string;
-      defaultValue?: unknown;
-      enum?: unknown[];
-    } = {};
-
-    const schema = zodSchema as { _def?: Record<string, unknown> };
-    if (!schema?._def) return info;
-
-    let currentSchema = schema as { _def?: Record<string, unknown> };
-    let def = currentSchema._def as Record<string, unknown>;
-
-    // Unwrap optional/nullable
-    while (
-      def.typeName === "ZodOptional" ||
-      def.typeName === "ZodNullable" ||
-      def.typeName === "ZodDefault"
-    ) {
-      if (def.typeName === "ZodDefault" && def.defaultValue !== undefined) {
-        info.defaultValue =
-          typeof def.defaultValue === "function"
-            ? def.defaultValue()
-            : def.defaultValue;
-      }
-      currentSchema =
-        (def.innerType as { _def?: Record<string, unknown> }) ?? currentSchema;
-      if (!currentSchema?._def) break;
-      def = currentSchema._def as Record<string, unknown>;
-    }
-
-    // Extract description
-    info.description =
-      typeof def.description === "string" ? def.description : undefined;
-
-    const typeName =
-      typeof def.typeName === "string" ? def.typeName : undefined;
-
-    // Extract type
-    const typeMap: Record<string, string> = {
-      ZodString: "string",
-      ZodNumber: "number",
-      ZodBoolean: "boolean",
-      ZodArray: "array",
-      ZodObject: "object",
-      ZodEnum: "enum",
-      ZodLiteral: "literal",
-      ZodUnion: "union",
-      ZodAny: "any",
-      ZodUnknown: "unknown",
-    };
-    info.type = typeName
-      ? typeMap[typeName] || typeName.replace("Zod", "").toLowerCase()
-      : undefined;
-
-    // Extract enum values
-    if (typeName === "ZodEnum" && Array.isArray(def.values)) {
-      info.enum = def.values as unknown[];
-    } else if (typeName === "ZodLiteral" && def.value !== undefined) {
-      info.enum = [def.value];
-    }
-
-    return info;
   }
 
   private toggleToolExpansion(toolId: string): void {
