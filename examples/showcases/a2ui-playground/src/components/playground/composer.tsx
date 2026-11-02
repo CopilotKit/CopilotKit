@@ -90,6 +90,8 @@ function useTwoRows(ref: React.RefObject<HTMLElement | null>, on: boolean) {
 const SWATCH: Record<DesignSystemId, string> = {
   copilotkit: "bg-[oklch(0.72_0.17_292)]",
   chatcn: "bg-[oklch(0.922_0_0)]",
+  // Material's primary, in Material's own shape: the only round swatch.
+  material: "rounded-full bg-[#b2c5ff]",
   byoc: "bg-[#0b5cff]",
 };
 

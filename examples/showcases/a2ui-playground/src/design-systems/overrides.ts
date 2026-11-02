@@ -9,6 +9,7 @@ import type { ComponentType } from "react";
 import { byocOwn, byocStandard } from "./byoc";
 import { chatcnOwn, chatcnStandard } from "./chatcn";
 import { useDesignSystem } from "./context";
+import { materialOwn, materialStandard } from "./material";
 import type { DesignSystemId } from "./registry";
 
 type AnyComponent = ComponentType<never>;
@@ -24,6 +25,10 @@ const OVERRIDES: Record<DesignSystemId, Overrides> = {
   chatcn: {
     standard: chatcnStandard as Record<string, AnyComponent>,
     own: chatcnOwn as Record<string, AnyComponent>,
+  },
+  material: {
+    standard: materialStandard as Record<string, AnyComponent>,
+    own: materialOwn as Record<string, AnyComponent>,
   },
   byoc: {
     standard: byocStandard as Record<string, AnyComponent>,

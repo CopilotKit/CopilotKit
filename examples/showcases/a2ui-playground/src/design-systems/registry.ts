@@ -3,7 +3,7 @@
  * the catalog (component names and props) is the contract, and a design system is one implementation of it.
  * Switching repaints every surface on the page without asking the model again.
  */
-export type DesignSystemId = "copilotkit" | "chatcn" | "byoc";
+export type DesignSystemId = "copilotkit" | "chatcn" | "material" | "byoc";
 
 export const DESIGN_SYSTEMS: Array<{
   id: DesignSystemId;
@@ -26,6 +26,12 @@ export const DESIGN_SYSTEMS: Array<{
     hint: "The same catalog drawn with shadcn/ui primitives, the components ChatCN builds on.",
   },
   {
+    id: "material",
+    label: "Material",
+    note: "Material 3 Expressive",
+    hint: "The same catalog drawn with Material 3 Expressive components in a Material color scheme.",
+  },
+  {
     id: "byoc",
     label: "Bring your own",
     note: "Your components",
@@ -34,6 +40,11 @@ export const DESIGN_SYSTEMS: Array<{
 ];
 
 export const DEFAULT_DESIGN_SYSTEM: DesignSystemId = "copilotkit";
+
+/** A class the surface host carries under a design system: Material's tokens resolve inside its theme scope. */
+export const HOST_CLASS: Partial<Record<DesignSystemId, string>> = {
+  material: "m3e-theme",
+};
 
 export const isDesignSystem = (v: unknown): v is DesignSystemId =>
   DESIGN_SYSTEMS.some((d) => d.id === v);

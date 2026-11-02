@@ -41,7 +41,7 @@ export function CopyPrompt() {
         <div
           role="radiogroup"
           aria-label="Design system"
-          className="grid gap-2 sm:grid-cols-3"
+          className="grid grid-cols-2 gap-2 lg:grid-cols-4"
           onKeyDown={(e) => {
             // A radio group is one tab stop; the arrow keys move the choice, as with native radios.
             const step =

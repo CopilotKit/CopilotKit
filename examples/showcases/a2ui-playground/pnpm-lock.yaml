@@ -26,6 +26,12 @@ importers:
       '@copilotkit/shared':
         specifier: 1.83.0
         version: 1.83.0(@ag-ui/core@1.0.2(zod@3.25.76))
+      '@fontsource-variable/roboto-flex':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@language-lit/material3-expressive':
+        specifier: 1.2.2
+        version: 1.2.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/charts':
         specifier: 1.1.0
         version: 1.1.0(lit@3.3.3)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -748,6 +754,9 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
+  '@fontsource-variable/roboto-flex@5.3.0':
+    resolution: {integrity: sha512-bOxckUy0qXNRjhV6e4pcHGSvptix4ZRD1uaj5Za8h+p3qrb2GL4U4TQdpVmPSy0SmqwldfD+JJqEKdF68EyiAw==}
+
   '@graphql-tools/executor@2.0.4':
     resolution: {integrity: sha512-Rr0Q69vP9zE2svHibKi2bFsO4DF97JmlSvrTKBj4ldDuQqygeOWB7SxjQrAMNQHm/b9UjFYD36Rk5RRhi3lL3A==}
     engines: {node: '>=16.0.0'}
@@ -1020,6 +1029,12 @@ packages:
 
   '@langchain/protocol@0.0.19':
     resolution: {integrity: sha512-9hKcRrH7cBX6gfutdfXPoft1OCchHe4FEpALoDJMl5Qu+n/YG5ynZmyu8+8cxORlPwHBoKTxggvXz+76M1yX1Q==}
+
+  '@language-lit/material3-expressive@1.2.2':
+    resolution: {integrity: sha512-vVuAFFi/ZzNxrJuFlNsWcvS4JhqP/wgGed98OoK49wxEEYTKY/M/mrbMRJA8kn/oVYOoubqJywx7dTgHBgHkwA==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
 
   '@lit-labs/ssr-dom-shim@1.6.0':
     resolution: {integrity: sha512-VHb0ALPMTlgKjM6yIxxoQNnpKyUKLD04VzeQdsiXkMqkvYlAHxq9glGLmgbb889/1GsohSOAjvQYoiBppXFqrQ==}
@@ -6295,6 +6310,8 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
+  '@fontsource-variable/roboto-flex@5.3.0': {}
+
   '@graphql-tools/executor@2.0.4(graphql@16.14.2)':
     dependencies:
       '@graphql-tools/utils': 12.0.4(graphql@16.14.2)
@@ -6536,6 +6553,11 @@ snapshots:
       - react-dom
 
   '@langchain/protocol@0.0.19': {}
+
+  '@language-lit/material3-expressive@1.2.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+    dependencies:
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
 
   '@lit-labs/ssr-dom-shim@1.6.0': {}
 

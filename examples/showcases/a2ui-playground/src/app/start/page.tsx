@@ -65,7 +65,7 @@ export default function StartPage() {
             runtime route, so your agent answers with UI your app draws.
           </p>
           <div className="mt-10 max-w-[920px]">
-            <DesignSystemProvider>
+            <DesignSystemProvider draws={false}>
               <CopyPrompt />
             </DesignSystemProvider>
           </div>

@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -38,28 +39,63 @@ export function readStoredDesignSystem(): DesignSystemId | null {
   }
 }
 
+/** What a design system loads before it can draw. Material's stylesheet and font are fetched on first pick. */
+const ASSETS: Partial<Record<DesignSystemId, () => Promise<unknown>>> = {
+  material: () => import("./material-assets"),
+};
+
 /**
- * Holds the design system for the playground and remembers it for this viewer. `?ds=chatcn` (or `byoc`) in
- * the URL picks one for a shared link.
+ * Holds the design system for the playground and remembers it for this viewer. `?ds=chatcn` (or `material`,
+ * `byoc`) in the URL picks one for a shared link. A design system with assets switches once they have
+ * loaded, so its components never paint unstyled; `draws={false}` (a page that draws no surface) skips them.
  */
-export function DesignSystemProvider({ children }: { children: ReactNode }) {
+export function DesignSystemProvider({
+  children,
+  draws = true,
+}: {
+  children: ReactNode;
+  draws?: boolean;
+}) {
   const [id, setState] = useState<DesignSystemId>(DEFAULT_DESIGN_SYSTEM);
+  // Each pick waits for its assets; only the latest one may apply, so a slow load never undoes a later pick.
+  const latest = useRef(0);
+  const apply = useCallback(
+    async (next: DesignSystemId) => {
+      const pick = ++latest.current;
+      const load = draws ? ASSETS[next] : undefined;
+      if (load) {
+        try {
+          await load();
+        } catch (error) {
+          console.error(`Could not load the ${next} design system`, error);
+          return false;
+        }
+      }
+      if (pick !== latest.current) return false;
+      setState(next);
+      return true;
+    },
+    [draws],
+  );
   useEffect(() => {
     const stored = readStoredDesignSystem();
-    if (stored) setState(stored);
-  }, []);
-  const setId = useCallback((next: DesignSystemId) => {
-    setState(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-      // A shared `?ds=` link picked the first one; a later pick wins, so the URL must not bring the old one back.
-      const url = new URL(window.location.href);
-      if (url.searchParams.has("ds")) {
-        url.searchParams.delete("ds");
-        history.replaceState(history.state, "", url);
-      }
-    } catch {}
-  }, []);
+    if (stored) void apply(stored);
+  }, [apply]);
+  const setId = useCallback(
+    async (next: DesignSystemId) => {
+      if (!(await apply(next))) return;
+      try {
+        localStorage.setItem(STORAGE_KEY, next);
+        // A shared `?ds=` link picked the first one; a later pick wins, so the URL must not bring the old one back.
+        const url = new URL(window.location.href);
+        if (url.searchParams.has("ds")) {
+          url.searchParams.delete("ds");
+          history.replaceState(history.state, "", url);
+        }
+      } catch {}
+    },
+    [apply],
+  );
   return (
     <DesignSystemContext.Provider value={{ id, setId }}>
       {children}

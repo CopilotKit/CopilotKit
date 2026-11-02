@@ -93,13 +93,17 @@ export function useButton(props: StandardProps) {
   const label = props.children ?? props.child ?? str(props.label ?? props.text);
   const Icon = iconFor(str(props.icon));
   const check = failedCheck(props.checks);
+  const icon = Icon ? <Icon aria-hidden className="size-4" /> : null;
   return {
     content: (
       <>
-        {Icon ? <Icon aria-hidden className="size-4" /> : null}
+        {icon}
         {label}
       </>
     ),
+    /** The two parts of `content`, for a button that places its icon itself. */
+    icon,
+    label,
     attributes: {
       ...aria,
       "aria-label":

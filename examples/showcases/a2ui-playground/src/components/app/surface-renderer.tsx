@@ -25,6 +25,7 @@ import {
   type A2UIOp,
 } from "@/lib/run-store";
 import { useDesignSystem } from "@/design-systems/context";
+import { HOST_CLASS } from "@/design-systems/registry";
 import { ResizeBox } from "./build-sequence";
 import { useLandingReveal } from "./use-landing-reveal";
 import { useUIGeneration } from "./use-ui-generation";
@@ -126,6 +127,7 @@ function Mirrored(props: Props) {
         ref={host}
         className={cn(
           "a2-surface-host relative",
+          HOST_CLASS[ds],
           collapse && "[&_.a2-blueprint]:hidden",
           empty && "hidden",
         )}

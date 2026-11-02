@@ -17,6 +17,7 @@ import { EMPTY, type Observable } from "rxjs";
 import { playgroundUI } from "@/a2ui/catalog/catalog";
 import { CATALOG_ID } from "@/a2ui/catalog/ids";
 import { useDesignSystem } from "@/design-systems/context";
+import { HOST_CLASS } from "@/design-systems/registry";
 import { DESIGN_SYSTEM_THEMES } from "@/design-systems/themes";
 import { cn } from "@/lib/utils";
 import { surfaceIdOf, type A2UIOp } from "@/lib/run-store";
@@ -100,7 +101,7 @@ function Body({ ops, className }: { ops: A2UIOp[]; className?: string }) {
   const ds = useDesignSystem().id;
   if (!Base) return null;
   return (
-    <div className={cn("a2-static", className)} data-ds={ds}>
+    <div className={cn("a2-static", HOST_CLASS[ds], className)} data-ds={ds}>
       <CopilotChatConfigurationProvider threadId={threadId}>
         <Base
           activityType={GENERATIVE_UI_ACTIVITY_TYPE}
