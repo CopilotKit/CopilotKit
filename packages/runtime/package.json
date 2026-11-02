@@ -80,7 +80,7 @@
     "@copilotkit/channels-intelligence": "workspace:^",
     "@copilotkit/license-verifier": "~0.5.0",
     "@copilotkit/shared": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.18.2",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@remix-run/node-fetch-server": "^0.13.0",
     "ai": "^6.0.104",
     "clarinet": "^0.12.4",

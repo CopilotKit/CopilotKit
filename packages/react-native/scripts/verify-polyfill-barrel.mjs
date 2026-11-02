@@ -17,11 +17,9 @@
 //     natively, so asserting they are merely "defined" afterwards would pass on
 //     an empty barrel; clearing them first is what makes the check honest. It
 //     runs in a child process so the probe cannot poison this one.
-//   - ESM is checked structurally. It cannot be executed here: the encoding
-//     polyfill takes a named import from `text-encoding`, which is CommonJS.
-//     Metro rewrites that to a require() and it works in React Native; bare
-//     Node ESM refuses it. Asserting the five imports survive the bundler is
-//     the part this file exists to protect.
+//   - ESM is checked structurally: the CJS run already proves that each
+//     polyfill installs its globals. Asserting the five imports survive the
+//     bundler is the part this file exists to protect.
 //
 // Invoked from package.json `build`, so a barrel that installs nothing fails
 // the build rather than reaching npm.
@@ -73,7 +71,7 @@ export function assertBuilt(distDir) {
 
 /**
  * Which polyfill modules the ESM barrel no longer imports. Pure; the ESM barrel
- * is read as text rather than executed (see the header note on text-encoding).
+ * is read as text rather than executed (see the header note).
  */
 export function missingEsmImports(esmSource) {
   return GROUPS.filter(

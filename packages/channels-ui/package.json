@@ -52,9 +52,6 @@
     "publint": "publint .",
     "attw": "attw --pack . --profile esm-only"
   },
-  "dependencies": {
-    "@copilotkit/shared": "workspace:^"
-  },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",
     "@types/node": "^22.10.0",
