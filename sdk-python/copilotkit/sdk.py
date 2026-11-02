@@ -181,7 +181,7 @@ class CopilotKitRemoteEndpoint:
     )
     ```
 
-    To restrict the agents available to the Copilot, return a different list of agents based on the `context`:
+    To restrict the agents available to the Copilot, simply return a different list of agents based on the `context`:
 
     ```python
     from copilotkit import CopilotKitRemoteEndpoint

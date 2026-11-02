@@ -29,24 +29,11 @@
  * The adapter reads `GOOGLE_API_KEY` unless you pass `apiKey`.
  *
  * ```ts
- * import {
- *   CopilotRuntime,
- *   GoogleGenerativeAIAdapter,
- *   copilotRuntimeNextJSAppRouterEndpoint,
- * } from "@copilotkit/runtime";
+ * import { CopilotRuntime, GoogleGenerativeAIAdapter } from "@copilotkit/runtime";
  *
  * const copilotKit = new CopilotRuntime();
  *
- * const serviceAdapter = new GoogleGenerativeAIAdapter({
- *   model: "gemini-3.5-flash",
- *   apiVersion: "v1",
- * });
- *
- * export const POST = copilotRuntimeNextJSAppRouterEndpoint({
- *   runtime: copilotKit,
- *   serviceAdapter,
- *   endpoint: "/api/copilotkit",
- * }).handleRequest;
+ * const serviceAdapter = new GoogleGenerativeAIAdapter({ model: "gemini-3.5-flash", apiVersion: "v1" });
  * ```
  */
 import { LangChainAdapter } from "../langchain/langchain-adapter";

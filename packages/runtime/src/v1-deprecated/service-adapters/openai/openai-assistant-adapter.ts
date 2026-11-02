@@ -37,11 +37,7 @@
  * ## Example
  *
  * ```ts
- * import {
- *   CopilotRuntime,
- *   OpenAIAssistantAdapter,
- *   copilotRuntimeNextJSAppRouterEndpoint,
- * } from "@copilotkit/runtime";
+ * import { CopilotRuntime, OpenAIAssistantAdapter } from "@copilotkit/runtime";
  * import OpenAI from "openai";
  *
  * const copilotKit = new CopilotRuntime();
@@ -57,12 +53,6 @@
  *   codeInterpreterEnabled: true,
  *   fileSearchEnabled: true,
  * });
- *
- * export const POST = copilotRuntimeNextJSAppRouterEndpoint({
- *   runtime: copilotKit,
- *   serviceAdapter,
- *   endpoint: "/api/copilotkit",
- * }).handleRequest;
  * ```
  */
 import type OpenAI from "openai";

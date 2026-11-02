@@ -558,7 +558,7 @@ overrides.set("runtime-langgraph:LangGraphHttpAgent", {
 const langGraphHttpAgentReplacementNote = [
   "Use `HttpAgent` from `@ag-ui/client`, passed to the v2 `CopilotRuntime`.",
   "Exception: a v1 client still resuming interrupts through" +
-    " `forwardedProps.command.resume`. `LangGraphHttpAgent` keeps a" +
+    " `forwardedProps.command.resume` — `LangGraphHttpAgent` keeps a" +
     " back-compat bridge for that channel.",
 ];
 for (const key of [
@@ -574,10 +574,12 @@ for (const key of [
 
 // The v1 endpoint factories were renamed in v2, so the name-matching pass above
 // cannot find them either. Each replacement is a real export of
-// `@copilotkit/runtime/v2` or of one of its subpaths, and the mapping is stated
-// in showcase/shell-docs/src/content/docs/backend/copilot-runtime.mdx. The
-// v1 Node HTTP factory returns a `(req, res)` handler, so its replacement is
-// the Node listener, which also returns one.
+// `@copilotkit/runtime/v2` or of one of its subpaths. The Next.js and Express
+// mappings are stated in
+// showcase/shell-docs/src/content/docs/backend/copilot-runtime.mdx. The v1 Node
+// HTTP factory returns a `(req, res)` handler, so its replacement is
+// `createCopilotNodeListener`, which also returns one. docs/runtime-server-adapter.mdx
+// names it for Node.js HTTP.
 // `copilotRuntimeNextJSPagesRouterEndpoint` and `copilotRuntimeNestEndpoint` are
 // deliberately left alone: the docs group them under the same single-route mode
 // but never name a v2 counterpart for them, so a mapping here would be a guess.

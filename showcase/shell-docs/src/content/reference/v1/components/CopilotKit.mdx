@@ -74,7 +74,7 @@ headers={async () => ({ "Authorization": `Bearer ${await getToken()}` })}
 
 An async builder is only awaited on the request paths served by
 `<CopilotKit>`'s v2 provider (agent runs, threads, the inspector, and
-so on). The v1 `CopilotTask` / GraphQL path (and anything else
+so on). The legacy v1 `CopilotTask` / GraphQL path (and anything else
 that reads the internal `copilotApiConfig.headers` snapshot) never
 awaits it: an async builder is called once, its result (and any
 rejection) is discarded, and every read there gets an empty object

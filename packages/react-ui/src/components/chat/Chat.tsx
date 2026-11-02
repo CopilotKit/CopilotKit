@@ -59,8 +59,7 @@
  * ### With Observability Hooks
  *
  * To monitor user interactions, set `publicLicenseKey` on `<CopilotKit>` and pass the
- * `observabilityHooks` prop. Without the key, the hooks do not run and the chat shows an
- * error banner.
+ * `observabilityHooks` prop. Without the key, the hooks do not run.
  *
  * ```tsx
  * <CopilotKit publicLicenseKey="YOUR_PUBLIC_LICENSE_KEY">
@@ -162,7 +161,10 @@ export interface CopilotChatProps {
   /**
    * Custom instructions to be added to the system message. Use this property to
    * provide additional context or guidance to the language model, influencing
-   * its responses.
+   * its responses. These instructions can include specific directions,
+   * preferences, or criteria that the model should consider when generating
+   * its output, thereby tailoring the conversation more precisely to the
+   * user's needs or the application's requirements.
    */
   instructions?: string;
 
@@ -412,7 +414,7 @@ export interface CopilotChatProps {
   }) => React.ReactNode;
 
   /**
-   * Optional handler for debugging and observability.
+   * Optional handler for comprehensive debugging and observability.
    */
   onError?: CopilotErrorHandler;
 }

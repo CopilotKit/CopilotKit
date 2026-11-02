@@ -192,7 +192,7 @@ export class ReferenceDoc {
       const properties = (arg0Interface?.properties ?? []).filter(
         (property) =>
           !property.comment.includes("@deprecated") &&
-          !property.comment.includes("@internal"),
+          !Comments.hasTag(property.comment, "internal"),
       );
       const hasProperties =
         properties.length > 0 || extraHookArguments.length > 0;
@@ -215,8 +215,16 @@ export class ReferenceDoc {
       for (const argument of extraHookArguments) {
         const type = argument.type.replace(/"/g, "'");
         const required = argument.required && !argument.defaultValue;
+        const attributes = [
+          required ? "required" : "",
+          argument.defaultValue
+            ? `default="${argument.defaultValue.replace(/"/g, "'")}"`
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
 
-        result += `<PropertyReference name="${argument.name}" type="${type}" ${required ? "required" : ""}> \n`;
+        result += `<PropertyReference name="${argument.name}" type="${type}" ${attributes}> \n`;
         result += `${argument.description}\n`;
         result += `</PropertyReference>\n\n`;
       }

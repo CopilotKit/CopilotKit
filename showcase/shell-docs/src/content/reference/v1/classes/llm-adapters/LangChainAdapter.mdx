@@ -19,11 +19,7 @@ Copilot Runtime adapter for LangChain.
 ## Example
 
 ```ts
-import {
-  CopilotRuntime,
-  LangChainAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, LangChainAdapter } from "@copilotkit/runtime";
 import { ChatOpenAI } from "@langchain/openai";
 
 const copilotKit = new CopilotRuntime();
@@ -38,14 +34,8 @@ const serviceAdapter = new LangChainAdapter({
     return model.bindTools(tools).stream(messages);
     // or optionally enable strict mode
     // return model.bindTools(tools, { strict: true }).stream(messages);
-  },
+  }
 });
-
-export const POST = copilotRuntimeNextJSAppRouterEndpoint({
-  runtime: copilotKit,
-  serviceAdapter,
-  endpoint: "/api/copilotkit",
-}).handleRequest;
 ```
 
 The asynchronous handler function (`chainFn`) can return any of the following:
