@@ -162,14 +162,14 @@ export interface GenerativeUIEnvelopeOptions {
  *   includeCatalog: true,
  *   contextSent: false,
  * });
- * envelope["v1.0"].supportedCatalogIds; // [runtime.ui.id]
+ * envelope["1.0"].supportedCatalogIds; // [runtime.ui.id]
  * ```
  */
 export function buildGenerativeUIEnvelope(
   runtime: Pick<GenerativeUIRuntime, "ui" | "manager" | "dispatcher">,
   threadId: string | undefined,
   options: GenerativeUIEnvelopeOptions,
-) {
+): Extract<CopilotKitUIEnvelope, { "1.0": unknown }> {
   const { transport, includeCatalog, contextSent, action } = options;
   const manifest = buildGenerativeUIManifest(runtime, threadId);
   // The markdown guideline has only the rule groups that this manifest uses.
@@ -180,7 +180,7 @@ export function buildGenerativeUIEnvelope(
       : undefined);
   const omitComponents = transport === "markdown" && !includeCatalog;
   const envelope: CopilotKitUIEnvelope = {
-    "v1.0": {
+    "1.0": {
       supportedCatalogIds: manifest.catalogIds ?? [manifest.catalogId],
       inlineCatalogs: [
         {

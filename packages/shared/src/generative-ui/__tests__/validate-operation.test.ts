@@ -9,8 +9,10 @@ import {
 import type { ValidateOperationOptions } from "../validate-operation";
 import { A2UI_COMPONENT_ID_REF } from "../child-refs";
 import {
+  A2UI_VERSION,
   GENERATIVE_UI_AGENT_FUNCTION_CALLS,
   GENERATIVE_UI_AGENT_FUNCTION_CALLS_OFF_REASON,
+  toA2UIActionMessage,
 } from "../types";
 import type { GenerativeUIManifest } from "../types";
 
@@ -90,15 +92,33 @@ const reasonOf = (
 };
 
 describe("validateOperation: version and kind", () => {
-  it("rejects a v0.9 operation with a reason that names v1.0", () => {
+  it.each(["1.0", "v1.0"])("accepts %s operations", (version) => {
+    expect(reasonOf({ version, deleteSurface: { surfaceId: "s1" } })).toBe(
+      "ok",
+    );
+  });
+
+  it("emits the canonical version in user actions", () => {
+    expect(A2UI_VERSION).toBe("1.0");
+    expect(
+      toA2UIActionMessage({
+        name: "buy",
+        surfaceId: "s1",
+        componentId: "button",
+        context: {},
+      }).version,
+    ).toBe("1.0");
+  });
+
+  it("rejects a v0.9 operation with a reason that names 1.0", () => {
     expect(
       reasonOf({ version: "v0.9", deleteSurface: { surfaceId: "s1" } }),
-    ).toBe('unsupported version "v0.9"; use "v1.0"');
+    ).toBe('unsupported version "v0.9"; use "1.0"');
   });
 
   it("rejects an operation without a version", () => {
     expect(reasonOf({ deleteSurface: { surfaceId: "s1" } })).toBe(
-      'operation needs "version":"v1.0"',
+      'operation needs "version":"1.0"',
     );
   });
 

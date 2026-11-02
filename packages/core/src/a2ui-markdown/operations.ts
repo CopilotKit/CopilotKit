@@ -660,7 +660,11 @@ const OPERATION_NAMES = [
 
 /** Whether a value is shaped like one A2UI operation, with named components. */
 function isOperationShape(value: unknown): boolean {
-  if (!isRecord(value) || value.version !== "v1.0") return false;
+  if (
+    !isRecord(value) ||
+    (value.version !== A2UI_VERSION && value.version !== "v1.0")
+  )
+    return false;
   const names = OPERATION_NAMES.filter((name) => name in value);
   if (names.length !== 1 || Object.keys(value).length !== 2) return false;
   const body = value[names[0]!];

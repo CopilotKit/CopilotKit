@@ -114,6 +114,31 @@ function listen(manager: GenerativeUISurfaceManager) {
 }
 
 describe("GenerativeUISurfaceManager", () => {
+  it.each(["1.0", "v1.0"] as const)(
+    "applies a %s surface lifecycle",
+    (version) => {
+      const operations: A2UIOperation[] = [
+        create,
+        grid(["c1"]),
+        card("c1"),
+        data("/count", 2),
+      ].map((op) => ({ ...op, version }));
+      const { manager, surface } = managerWith(operations);
+      expect(surface.clientRejected).toEqual([]);
+      expect(surface.model.componentsModel.get("c1")?.properties.name).toBe(
+        "Card c1",
+      );
+      expect(surface.model.dataModel.get("/count")).toBe(2);
+      manager.ingest(
+        "t1",
+        "default",
+        content([...operations, { ...remove, version }]),
+      );
+      expect(surface.deleted).toBe(true);
+      expect(surface.clientRejected).toEqual([]);
+    },
+  );
+
   it("accepts the catalog id of a base catalog, and rejects an unknown one", () => {
     const shop = createGenerativeUI({
       id: "acme/shop@1",

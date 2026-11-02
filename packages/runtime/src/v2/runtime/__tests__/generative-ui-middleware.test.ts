@@ -29,7 +29,7 @@ class ScriptedAgent extends AbstractAgent {
 
 type Extensions = CopilotKitUIEnvelope["metadata"]["extensions"];
 type InlineCatalog = NonNullable<
-  CopilotKitUIEnvelope["v1.0"]["inlineCatalogs"]
+  NonNullable<CopilotKitUIEnvelope["1.0"]>["inlineCatalogs"]
 >[number];
 
 const catalog: InlineCatalog = {
@@ -74,7 +74,7 @@ function uiEnvelope(
     catalog?: Partial<InlineCatalog>;
     extensions?: Partial<Extensions>;
   } = {},
-): CopilotKitUIEnvelope {
+): Extract<CopilotKitUIEnvelope, { "v1.0": unknown }> {
   return {
     "v1.0": {
       supportedCatalogIds: ["shop"],
@@ -228,6 +228,18 @@ function guideText(input: RunAgentInput) {
 }
 
 describe("GenerativeUIMiddleware", () => {
+  it.each(["1.0", "v1.0"])(
+    "injects render_ui for %s capabilities",
+    async (version) => {
+      const { "v1.0": capabilities, ...rest } = uiEnvelope();
+      const { input } = await run([], {
+        copilotkit: { ui: { ...rest, [version]: capabilities } },
+      });
+      expect(input.tools.map((tool) => tool.name)).toContain("render_ui");
+      expect(guideText(input)).toContain('"version":"1.0"');
+    },
+  );
+
   it("passes runs without an envelope through unchanged", async () => {
     expectPassThrough(await run([], {}));
   });
@@ -668,7 +680,7 @@ describe("GenerativeUIMiddleware", () => {
   it("teaches A2UI v1.0 in the guide", async () => {
     const guide = guideText((await run([])).input);
     expect(guide).not.toContain("v0.9");
-    expect(guide).toContain('"version":"v1.0"');
+    expect(guide).toContain('"version":"1.0"');
     expect(guide).toContain('{"@path":"/data/path"}');
     expect(guide).toContain('{"@call":"@index"}');
     if (GENERATIVE_UI_AGENT_FUNCTION_CALLS) {
@@ -717,7 +729,7 @@ describe("GenerativeUIMiddleware", () => {
     );
     expect(activity(output)).toEqual([]);
     expect(toolResult(output).rejected).toEqual([
-      { index: 0, reason: 'unsupported version "v0.9"; use "v1.0"' },
+      { index: 0, reason: 'unsupported version "v0.9"; use "1.0"' },
     ]);
   });
 

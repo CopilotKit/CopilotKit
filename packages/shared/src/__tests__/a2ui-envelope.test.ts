@@ -3,7 +3,7 @@ import { envelopeToManifest, readCopilotKitUIEnvelope } from "../a2ui-envelope";
 import type { CopilotKitUIEnvelope } from "../a2ui-envelope";
 
 type InlineCatalog = NonNullable<
-  CopilotKitUIEnvelope["v1.0"]["inlineCatalogs"]
+  NonNullable<CopilotKitUIEnvelope["1.0"]>["inlineCatalogs"]
 >[number];
 type Extensions = CopilotKitUIEnvelope["metadata"]["extensions"];
 
@@ -50,7 +50,7 @@ function createCatalog(overrides?: Partial<InlineCatalog>): InlineCatalog {
 function createEnvelope(options?: {
   catalog?: Partial<InlineCatalog>;
   extensions?: Partial<Extensions>;
-}): CopilotKitUIEnvelope {
+}): Extract<CopilotKitUIEnvelope, { "v1.0": unknown }> {
   return {
     "v1.0": {
       supportedCatalogIds: ["acme/app@1"],
@@ -103,6 +103,32 @@ const withExtension = (key: string, value: unknown) => {
 };
 
 describe("readCopilotKitUIEnvelope", () => {
+  it("reads canonical capabilities and builds the manifest", () => {
+    const legacy = createEnvelope();
+    const { "v1.0": capabilities, ...rest } = legacy;
+    const canonical = { ...rest, "1.0": capabilities };
+    const envelope = readUI(canonical);
+    expect(envelope).toEqual(canonical);
+    expect(envelope && envelopeToManifest(envelope)).toEqual(
+      envelopeToManifest(legacy),
+    );
+  });
+
+  it("prefers canonical capabilities when both versions are present", () => {
+    const legacy = createEnvelope();
+    const envelope = readUI({
+      ...legacy,
+      "1.0": { supportedCatalogIds: ["canonical"] },
+    });
+    expect(envelope && envelopeToManifest(envelope).catalogId).toBe(
+      "canonical",
+    );
+  });
+
+  it("rejects malformed canonical capabilities even when legacy capabilities are valid", () => {
+    expect(readUI({ ...createEnvelope(), "1.0": null })).toBeUndefined();
+  });
+
   it("reads a markdown envelope from forwardedProps.copilotkit.ui", () => {
     const envelope = createEnvelope();
     expect(readUI(envelope)).toEqual(envelope);

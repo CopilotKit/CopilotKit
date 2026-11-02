@@ -171,7 +171,8 @@ export function validateOperation(
   options: ValidateOperationOptions,
 ) {
   if (!isRecord(op)) return fail("operation must be a JSON object");
-  if (op.version !== A2UI_VERSION) return fail(versionProblem(op.version));
+  if (op.version !== A2UI_VERSION && op.version !== "v1.0")
+    return fail(versionProblem(op.version));
   const kind = getOperationKind(op);
   if (!kind) {
     return fail(

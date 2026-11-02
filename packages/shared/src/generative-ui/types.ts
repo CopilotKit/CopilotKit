@@ -1,5 +1,5 @@
-/** A2UI protocol version used on the wire. */
-export const A2UI_VERSION = "v1.0";
+/** Canonical A2UI protocol version used on the wire. Legacy `v1.0` input is also accepted. */
+export const A2UI_VERSION = "1.0";
 /** Activity type of a generated surface message. */
 export const GENERATIVE_UI_ACTIVITY_TYPE = "generative-ui-surface";
 /** Activity type of a function call that the agent asks the client to run. */
@@ -83,7 +83,7 @@ export type A2UIFunctionCall = {
 
 export type A2UIOperation =
   | {
-      version: "v1.0";
+      version: typeof A2UI_VERSION | "v1.0";
       createSurface: {
         surfaceId: string;
         /** Left out by the model. The run's catalog id is filled in. */
@@ -97,20 +97,23 @@ export type A2UIOperation =
       };
     }
   | {
-      version: "v1.0";
+      version: typeof A2UI_VERSION | "v1.0";
       updateComponents: { surfaceId: string; components: A2UIComponentNode[] };
     }
   | {
-      version: "v1.0";
+      version: typeof A2UI_VERSION | "v1.0";
       /**
        * Sets `value` at `path`. A `null` value deletes the key at `path`.
        * With no `path`, or `"/"`, it sets the whole data model.
        */
       updateDataModel: { surfaceId: string; path?: string; value: unknown };
     }
-  | { version: "v1.0"; deleteSurface: { surfaceId: string } }
   | {
-      version: "v1.0";
+      version: typeof A2UI_VERSION | "v1.0";
+      deleteSurface: { surfaceId: string };
+    }
+  | {
+      version: typeof A2UI_VERSION | "v1.0";
       /** Runs an app function in the browser, with no user interaction. */
       callRendererFunction: {
         functionCallId: string;
@@ -273,7 +276,7 @@ export interface GenerativeUIUserEvent {
  * the visible user message.
  */
 export interface A2UIActionMessage {
-  version: typeof A2UI_VERSION;
+  version: typeof A2UI_VERSION | "v1.0";
   action: {
     name: string;
     surfaceId: string;
@@ -292,12 +295,12 @@ export interface A2UIActionMessage {
  * @example
  * ```ts
  * toA2UIActionMessage({ name: "buy", surfaceId: "s1", componentId: "b", context: { sku: "a" } });
- * // { version: "v1.0", action: { name: "buy", surfaceId: "s1", sourceComponentId: "b", timestamp: "2026-…", context: { sku: "a" } } }
+ * // { version: "1.0", action: { name: "buy", surfaceId: "s1", sourceComponentId: "b", timestamp: "2026-…", context: { sku: "a" } } }
  * ```
  */
 export function toA2UIActionMessage(
   event: GenerativeUIUserEvent,
-): A2UIActionMessage {
+): A2UIActionMessage & { version: typeof A2UI_VERSION } {
   return {
     version: A2UI_VERSION,
     action: {

@@ -12,6 +12,7 @@ import {
   GENERATIVE_UI_AGENT_FUNCTION_CALLS,
   randomUUID,
   readCopilotKitUIEnvelope,
+  toA2UIActionMessage,
 } from "@copilotkit/shared";
 import type { GenerativeUISurfaceContent } from "@copilotkit/shared";
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
@@ -129,7 +130,7 @@ function envelopeOf(input: RunAgentInput) {
 
 /** The one inline catalog of the envelope of a run. */
 function catalogOf(input: RunAgentInput) {
-  return envelopeOf(input)?.["v1.0"].inlineCatalogs?.[0];
+  return envelopeOf(input)?.["1.0"]?.inlineCatalogs?.[0];
 }
 
 function buttonSurface(surfaceId: string): GenerativeUISurfaceContent {
@@ -174,6 +175,17 @@ const origin = { surfaceId: "s1", componentId: "root" };
 afterEach(() => vi.restoreAllMocks());
 
 describe("useGenerativeUIRoot", () => {
+  it("returns an action typed with the canonical wire version", () => {
+    const action = toA2UIActionMessage({
+      name: "buy",
+      surfaceId: "s1",
+      componentId: "button",
+      context: {},
+    });
+    const version: "1.0" = action.version;
+    expect(version).toBe("1.0");
+  });
+
   it("exposes a declared function only while a handler is mounted", async () => {
     const { runtime, setHandler } = setup();
     const invoke = () =>
@@ -248,13 +260,13 @@ describe("useGenerativeUIRoot", () => {
   });
 
   describe("envelope", () => {
-    it("sends the tool envelope in the v1.0 capabilities shape, with the components and no instructions", async () => {
+    it("sends the tool envelope in the 1.0 capabilities shape, with the components and no instructions", async () => {
       const { copilotkit, agent } = setup();
 
       const envelope = envelopeOf(await runOnce(copilotkit, agent));
 
       expect(envelope).toStrictEqual({
-        "v1.0": {
+        "1.0": {
           supportedCatalogIds: ["shop"],
           inlineCatalogs: [
             {
@@ -650,7 +662,7 @@ describe("useGenerativeUIRoot", () => {
       await waitFor(() => expect(CapturingAgent.inputs).toHaveLength(1));
       const sent = envelopeOf(CapturingAgent.inputs[0]);
       expect(sent?.metadata.extensions.copilotkit_action).toEqual({
-        version: "v1.0",
+        version: "1.0",
         action: {
           name: "buy",
           surfaceId: "s1",
@@ -666,7 +678,7 @@ describe("useGenerativeUIRoot", () => {
       const elsewhere = readCopilotKitUIEnvelope(
         copilotkit.getPropertiesForAgent("other"),
       );
-      expect(elsewhere?.["v1.0"].supportedCatalogIds).toEqual(["shop"]);
+      expect(elsewhere?.["1.0"]?.supportedCatalogIds).toEqual(["shop"]);
       expect(elsewhere?.metadata.extensions).not.toHaveProperty(
         "copilotkit_action",
       );
