@@ -100,12 +100,13 @@
   --a2-warning: #a15c00;
   --a2-info: #0b5cff;
   --color-white: #0f172a;
-  --font-sans: var(--font-plex);
+  --font-byoc: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-byoc);
   --gen-line: #94a3b8;
   --gen-field: rgb(15 23 42 / 14%);
   color-scheme: light;
   color: #0f172a;
-  font-family: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-byoc);
   background: #f4f6f8;
   border: 1px solid #d9dee5;
   border-radius: 6px;
@@ -186,7 +187,7 @@
   background: #ffffff;
   color: #0f172a;
   font:
-    500 13px/1 var(--font-plex),
+    500 13px/1 var(--font-byoc),
     ui-sans-serif,
     system-ui,
     sans-serif;

@@ -42,7 +42,7 @@ const chatcnTheme: GenerativeUITheme = {
 };
 
 /**
- * A light, square-cornered in-house system on IBM Plex Sans: deliberately unlike the other two, so the
+ * A light, square-cornered in-house system set in Helvetica Neue (Arial where it is missing): deliberately unlike the other two, so the
  * swap shows that the look belongs to the app, not to the protocol.
  */
 const LIGHT = {
@@ -127,8 +127,7 @@ const LIGHT = {
 } satisfies GenerativeUITheme;
 
 const byocTheme: GenerativeUITheme = {
-  "--a2ui-font-family":
-    "var(--font-plex), ui-sans-serif, system-ui, sans-serif",
+  "--a2ui-font-family": '"Helvetica Neue", Helvetica, Arial, sans-serif',
   ...LIGHT,
   dark: LIGHT,
 };

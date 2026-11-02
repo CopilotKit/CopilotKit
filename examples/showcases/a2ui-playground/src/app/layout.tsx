@@ -2,19 +2,13 @@ import "@copilotkit/react-core/v2/styles.css";
 import "@/vendor/transitions/ui-generation.css";
 import "./globals.css";
 import "@/design-systems/design-systems.css";
-import { Geist, Geist_Mono, IBM_Plex_Sans } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { StaticGenUIProvider } from "@/components/app/static-surface";
 import { SkipLink } from "@/components/site/site-header";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
-// The typeface of the "Bring your own" design system, so its surfaces read as another app's.
-const plex = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex",
-});
 
 export const metadata = {
   title: "A2UI Playground by CopilotKit",
@@ -30,13 +24,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn(
-        "dark",
-        "font-sans",
-        geist.variable,
-        geistMono.variable,
-        plex.variable,
-      )}
+      className={cn("dark", "font-sans", geist.variable, geistMono.variable)}
       style={{ colorScheme: "dark" }}
     >
       <body>
