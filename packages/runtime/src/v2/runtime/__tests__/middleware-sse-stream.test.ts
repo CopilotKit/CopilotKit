@@ -48,6 +48,51 @@ describe("incremental SSE middleware parsing", () => {
     }
   });
 
+  it("does not repeatedly scan a large snapshot line across chunks", async () => {
+    const messages = [
+      { id: "snapshot-1", role: "assistant", content: "x".repeat(64 * 1024) },
+    ];
+    const snapshot = { type: "MESSAGES_SNAPSHOT", messages };
+    const body = `data: ${JSON.stringify(runStarted)}\n\ndata: ${JSON.stringify(snapshot)}`;
+    const bytes = encoder.encode(body);
+    const chunks = [];
+    for (let offset = 0; offset < bytes.length; offset += 512) {
+      chunks.push(bytes.subarray(offset, offset + 512));
+    }
+    const response = new Response(streamOf(chunks), { headers: sseHeaders });
+    const indexOf = String.prototype.indexOf;
+    let searchedCharacters = 0;
+    // Count the actual newline search ranges instead of using a timing limit.
+    const search = vi
+      .spyOn(String.prototype, "indexOf")
+      .mockImplementation(function (
+        this: string,
+        value: string,
+        position?: number,
+      ): number {
+        const result = indexOf.call(this, value, position);
+        if (value === "\n") {
+          const start = Math.min(
+            this.length,
+            Math.max(0, Math.trunc(position ?? 0) || 0),
+          );
+          searchedCharacters +=
+            (result === -1 ? this.length : result + 1) - start;
+        }
+        return result;
+      });
+
+    const result = await parseSSEResponse(response).finally(() =>
+      search.mockRestore(),
+    );
+
+    expect(searchedCharacters).toBeLessThanOrEqual(body.length * 2);
+    expect(result.messages).toEqual(messages);
+    expect(result.threadId).toBe("thread-1");
+    expect(result.runId).toBe("run-1");
+    expect(new Uint8Array(await result.response.arrayBuffer())).toEqual(bytes);
+  });
+
   it.each([1, 7, 1024])(
     "preserves raw bytes and parses UTF-8, CRLF and the final line with %i-byte chunks",
     async (chunkSize) => {

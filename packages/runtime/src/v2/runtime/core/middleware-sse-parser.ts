@@ -203,8 +203,23 @@ export async function parseSSEResponse(
     }
   };
 
+  const lineParts: string[] = [];
+  // Scan only new text and join fragments once, when a complete line arrives.
+  const processDecodedChunk = (text: string) => {
+    let start = 0;
+    let end: number;
+    while ((end = text.indexOf("\n", start)) !== -1) {
+      lineParts.push(text.slice(start, end));
+      processLine(lineParts.join(""));
+      lineParts.length = 0;
+      start = end + 1;
+    }
+    if (start < text.length) {
+      lineParts.push(text.slice(start));
+    }
+  };
+
   const decoder = new TextDecoder();
-  let pendingLine = "";
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   try {
     reader = parserResponse.body!.getReader();
@@ -215,20 +230,15 @@ export async function parseSSEResponse(
         // Copy the view, not its backing buffer, in case the producer reuses it.
         chunks.push(new Uint8Array(value));
       }
-      pendingLine += decoder.decode(value, { stream: true });
-      let start = 0;
-      let end: number;
-      while ((end = pendingLine.indexOf("\n", start)) !== -1) {
-        processLine(pendingLine.slice(start, end));
-        start = end + 1;
-      }
-      pendingLine = pendingLine.slice(start);
+      processDecodedChunk(decoder.decode(value, { stream: true }));
     }
-    processLine(pendingLine + decoder.decode());
-    pendingLine = "";
+    processDecodedChunk(decoder.decode());
+    processLine(lineParts.join(""));
+    lineParts.length = 0;
   } catch (error) {
     logger.warn("Failed to read SSE response body in afterRequestMiddleware");
     chunks.length = 0;
+    lineParts.length = 0;
     return {
       response: preserveMetadata
         ? response
