@@ -2629,6 +2629,9 @@ importers:
       '@tanstack/pacer':
         specifier: ^0.20.1
         version: 0.20.1
+      jsonrepair:
+        specifier: ^3.15.0
+        version: 3.15.0
       phoenix:
         specifier: ^1.8.4
         version: 1.8.4
@@ -3423,7 +3426,7 @@ importers:
     dependencies:
       openai:
         specifier: ^5.9.0
-        version: 5.23.2(ws@8.21.3)(zod@4.6.7)
+        version: 5.23.2(ws@8.21.3)(zod@3.25.76)
     devDependencies:
       '@copilotkit/runtime':
         specifier: workspace:*
@@ -3885,6 +3888,55 @@ importers:
       vue-tsc:
         specifier: ^2.1.10
         version: 2.2.12(typescript@5.8.2)
+
+  tools/genui-eval:
+    dependencies:
+      '@ag-ui/client':
+        specifier: 1.0.2
+        version: 1.0.2
+      '@ai-sdk/openai':
+        specifier: ^3.0.36
+        version: 3.0.36(zod@3.25.76)
+      '@ai-sdk/provider':
+        specifier: ^3.0.8
+        version: 3.0.14
+      '@copilotkit/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@copilotkit/react-core':
+        specifier: workspace:*
+        version: link:../../packages/react-core
+      '@copilotkit/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      '@copilotkit/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      ai:
+        specifier: '>=5.0.52'
+        version: 6.0.156(zod@3.25.76)
+      jsonrepair:
+        specifier: ^3.15.0
+        version: 3.15.0
+      rxjs:
+        specifier: 7.8.1
+        version: 7.8.1
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
+      zod:
+        specifier: ^3.25.18
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.3
+        version: 22.19.11
+      typescript:
+        specifier: 5.8.2
+        version: 5.8.2
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@22.19.11)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@29.1.0(@noble/hashes@1.8.0))(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
 
   tools/learned-skill-conformance:
     dependencies:
@@ -14474,7 +14526,7 @@ packages:
     resolution: {integrity: sha512-bdyo8rB3NnQbikdMpHaML9Z1OZPBu6fFOBo+OtxsBlvMJtysWskmBcnbIDhUqgC8tcxNv/a+BcV5U+2nQMm1OQ==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     peerDependencies:
-      vite: 7.3.2
+      vite: '>=6.4.2'
 
   '@vitejs/plugin-vue-jsx@4.2.0':
     resolution: {integrity: sha512-DSTrmrdLp+0LDNF77fqrKfx7X0ErRbOcUAgJL/HbSesqQwoUvUQ4uYQqaex+rovqgGcoPqVk+AwUh3v9CuiYIw==}
@@ -19405,6 +19457,10 @@ packages:
   jsonpointer@5.0.1:
     resolution: {integrity: sha512-p/nXbhSEcu3pZRdkW1OfJhpsVtW1gd4Wa1fnQc9YLiTfAjn0312eMKimbdIQzuZl9aa9xUGaRlP9T/CJE/ditQ==}
     engines: {node: '>=0.10.0'}
+
+  jsonrepair@3.15.0:
+    resolution: {integrity: sha512-wy8OTjwsJwQRnQJkKnMJJ9vcytRdBPAgIF/Hy6+s1dAj42BHMKiyL8JzEieIl3JY7idt8eyHwBWTO8mh/+mtwA==}
+    hasBin: true
 
   jsonwebtoken@9.0.3:
     resolution: {integrity: sha512-MT/xP0CrubFRNLNKvxJ2BYfy53Zkm++5bX9dtuPbqAeQpTVe0MQTFhao8+Cp//EmJp244xt6Drw/GVEGCUj40g==}
@@ -25042,7 +25098,7 @@ packages:
   vite-hot-client@2.2.0:
     resolution: {integrity: sha512-76Zs9zrHbH7M7wqeyooGQKdX+yg0pQ0xuQ1PbFp4z5a0Lzn2e5IPFoCswnmqZ4GiwqB4Jo3WcDAMO9jARTJl8w==}
     peerDependencies:
-      vite: 7.3.2
+      vite: '>=6.4.2'
 
   vite-node@3.2.4:
     resolution: {integrity: sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==}
@@ -26332,6 +26388,12 @@ snapshots:
       '@ai-sdk/provider-utils': 3.0.39(zod@4.6.7)
       zod: 4.6.7
 
+  '@ai-sdk/openai@3.0.36(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.15(zod@3.25.76)
+      zod: 3.25.76
+
   '@ai-sdk/openai@3.0.36(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
@@ -26379,6 +26441,13 @@ snapshots:
       eventsource-parser: 3.0.8
       undici: 5.29.0
       zod: 4.6.7
+
+  '@ai-sdk/provider-utils@4.0.15(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@standard-schema/spec': 1.1.0
+      eventsource-parser: 3.0.8
+      zod: 3.25.76
 
   '@ai-sdk/provider-utils@4.0.15(zod@4.6.7)':
     dependencies:
@@ -47045,6 +47114,8 @@ snapshots:
 
   jsonpointer@5.0.1: {}
 
+  jsonrepair@3.15.0: {}
+
   jsonwebtoken@9.0.3:
     dependencies:
       jws: 4.0.1
@@ -50013,6 +50084,11 @@ snapshots:
       zod: 4.6.7
     transitivePeerDependencies:
       - encoding
+
+  openai@5.23.2(ws@8.21.3)(zod@3.25.76):
+    optionalDependencies:
+      ws: 8.21.3
+      zod: 3.25.76
 
   openai@5.23.2(ws@8.21.3)(zod@4.6.7):
     optionalDependencies:

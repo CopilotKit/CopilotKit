@@ -47,18 +47,13 @@ const tableSchema = z.object({
     .string()
     .optional()
     .describe("A short name of the table for screen readers. It is not shown"),
-  columns: z
-    .array(tableColumn)
-    .optional()
-    .describe(
-      'Strings, { "label", "align"?, "width"?, "componentId"? } or { "componentId" }, or { "@path": "/x" }. Default []',
-    ),
+  columns: z.array(tableColumn).optional().describe("Default []"),
   // A cell is `unknown`, so booleans and null from bound data are valid too.
   rows: z
     .array(z.array(z.unknown()))
     .optional()
     .describe(
-      'A list of row lists, or { "@path": "/x" }. A cell is a string, a number, or { "componentId": "<id>" } to show a component. Default []',
+      'A list of row lists. A cell is a string, a number, or { "componentId": "<id>" } to show a component. Default []',
     ),
   columnSizing: z.enum(["auto", "equal"]).optional().describe('Default "auto"'),
   dividers: z.boolean().optional().describe("Default true"),
@@ -108,12 +103,7 @@ const LIST_MARKERS = ["bullet", "number", "rich", "none"] as const;
 type ListMarker = (typeof LIST_MARKERS)[number];
 
 const listSchema = z.object({
-  items: z
-    .array(listItemValue)
-    .optional()
-    .describe(
-      'Strings or { "label", "value"?, "description"?, "icon"? }, or { "@path": "/x" }',
-    ),
+  items: z.array(listItemValue).optional(),
   direction: z
     .enum(["vertical", "horizontal"])
     .optional()
@@ -760,7 +750,7 @@ export const dataComponents = {
   Table: {
     component: Table,
     description:
-      'A data table. Put it in a plain Column, not in a Card. Give "columns" and "rows" (a list of row lists). Or give "children": TableSection or TableRow ids, or a template { "componentId", "path" } that repeats a TableRow for each item of a data list. To show a component (Badge, Button, Icon, Text) in a cell or a column header, set it to { "componentId": "<id>" } and put the id in "cellComponents".',
+      'A data table, in a plain Column, not a Card. Give "columns" and "rows", or "children": TableSection or TableRow ids, or a template { "componentId", "path" } repeating a TableRow per item. A component in a cell or header (Badge, Button, Icon, Text): { "componentId": "<id>" }, with the id in "cellComponents".',
     props: tableSchema,
     slots: { children: "multiple", cellComponents: "multiple" } as const,
   },
@@ -791,7 +781,7 @@ export const dataComponents = {
   List: {
     component: List,
     description:
-      'A list in a Card or next to another component. A plain list of text is markdown, not a List. Give "items" (strings or { "label", "value"?, "description"?, "icon"? }); without an action, an item with a value is a key and value row, for facts like Price: $1,599. Or, when there are no items, give "children": ListItem ids or a template. With an "action", the user can pick an item: the event context gets "index", "label" and "value" of the item.',
+      'A list in a Card or next to another component; a plain list of text is markdown. Give "items": an item with a value and no action is a key-value row (Price: $1,599). Or give "children": ListItem ids or a template. With "action" the user picks an item; the event context gets its index, label and value.',
     props: listSchema,
     events: {
       action: {
@@ -824,7 +814,7 @@ export const dataComponents = {
   Map: {
     component: MapView,
     description:
-      'A map with markers. With "route", a line connects the markers in order. Bind "selected" to { "@path": "/x" } to get the label of the marker that the user picks. When maps are not available, it shows a list of the places.',
+      'A map with markers; with "route" a line connects them in order. Bind "selected" to get the label of the marker the user picks. Without maps it shows a list of the places.',
     props: mapSchema,
     writable: ["selected"] as const,
   },

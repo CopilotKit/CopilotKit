@@ -2,9 +2,11 @@
 
 This CLI template creates a Flutter chat app and a local Node runtime. Claude runs in a managed sandbox. CopilotKit Intelligence stores conversations and supplies published Skills to new Claude sessions.
 
-The Flutter SDK is a beta project. This template pins one SDK revision. The setup command downloads that revision into `flutter/.sdk/`. The app uses Flutter 3.47.0.
+The Flutter SDK is a beta project. This template pins one SDK revision. The setup command downloads that revision into `flutter/.sdk/`. The app and pinned SDK require stable Flutter 3.47 or later with Dart 3.13 or later, both below version 4. CI tests Flutter 3.47.0.
 
 ## Start the app
+
+Check `flutter --version` before setup. Flutter bundles its own Dart SDK; updating a separate Dart installation does not fix a Flutter version mismatch. If you have Dart 3.12, run `flutter upgrade` and check the versions again. FVM users can run `fvm install 3.47.0` and put that SDK's `bin` directory on `PATH` before setup.
 
 Run the CLI setup command:
 
@@ -63,7 +65,9 @@ flutter analyze
 flutter test
 ```
 
-Run `npm run setup:flutter` to restore the pinned SDK and get Dart packages. The SDK source stays in `flutter/.sdk/`. It is not committed with your app.
+If the CLI stopped at Flutter setup, fix the reported error, then run `npm run setup:flutter` and `npm run agent:apply` from the app root. The managed agent and environment still need to be created.
+
+Run `npm run setup:flutter` to restore the pinned SDK and get Dart packages. Setup checks both versions before downloading or changing the SDK checkout. It prints upgrade instructions if the toolchain is too old. The SDK source stays in `flutter/.sdk/`. It is not committed with your app.
 
 ## Before public use
 

@@ -189,7 +189,7 @@ export const COPILOTKIT_FUNCTIONS: Readonly<
 > = rendererOnly({
   calc: {
     description:
-      "The value of an arithmetic expression over the other args, by name: + - * / % ( ), comparisons, && || !, cond ? a : b, min max round floor ceil abs, 'text' + name",
+      "The value of an arithmetic expression over the other args, by name: + - * / % ( ), x ^ y (power), comparisons, && || !, cond ? a : b, min max round floor ceil abs pow sqrt exp ln log10, the constants pi and e, 'text' + name",
     parameters:
       "{ expression: string; [name: string]: number | string | boolean }",
     returnType: "any",
