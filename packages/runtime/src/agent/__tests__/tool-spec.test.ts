@@ -9,6 +9,8 @@ import {
   STATE_SNAPSHOT_TOOL_NAME,
   stateToolSpecs,
   toolDefinitionToSpec,
+  readInterruptDetails,
+  withInterruptDetails,
 } from "../tool-spec";
 
 function stateSpec(name: string) {
@@ -152,16 +154,32 @@ describe("toolDefinitionToSpec", () => {
     });
   });
 
-  it("throws for a Zod v3 tool when no Zod converter is given", () => {
+  it("converts a Zod v3 tool by default", () => {
     const definition = defineTool({
       name: "getWeather",
       description: "Get the weather for a city",
       parameters: z.object({ city: z.string() }),
     });
 
-    expect(() => toolDefinitionToSpec(definition)).toThrow(
-      'Cannot convert schema to JSON Schema. The schema (vendor: "zod")',
+    expect(toolDefinitionToSpec(definition).parameters).toMatchObject({
+      type: "object",
+      properties: { city: { type: "string" } },
+      required: ["city"],
+    });
+  });
+
+  it("marks a tool object with interrupt details the SDK cannot see", () => {
+    const tool = withInterruptDetails(
+      { name: "approvePayment" },
+      { reason: "payment_approval", message: "Approve this payment?" },
     );
+
+    expect(readInterruptDetails(tool)).toEqual({
+      reason: "payment_approval",
+      message: "Approve this payment?",
+    });
+    expect(Object.keys(tool)).toEqual(["name"]);
+    expect(readInterruptDetails({ name: "other" })).toBeUndefined();
   });
 
   it("carries the interrupt fields of an interrupt tool", () => {

@@ -32,6 +32,7 @@ export type {
   BuiltInAgentLearnedSkills,
   BuiltInAgentLearnedSkillsOptions,
 } from "./learned-skills";
+import type { InterruptDetails } from "./tool-spec";
 
 /**
  * Thrown by `AgentFactoryContext.interrupt()` on a fresh (non-resume) run to
@@ -43,6 +44,26 @@ export class InterruptSignal extends Error {
     super("CopilotKit interrupt: run paused awaiting human input");
     this.name = "InterruptSignal";
   }
+}
+
+/**
+ * Applies the details registered with `ctx.describeInterruptTool` to a native
+ * approval interrupt, matched by `metadata.toolName`.
+ */
+function applyInterruptDetails(
+  interrupt: Interrupt,
+  detailsByTool: ReadonlyMap<string, InterruptDetails>,
+) {
+  const toolName = interrupt.metadata?.["toolName"];
+  const details =
+    typeof toolName === "string" ? detailsByTool.get(toolName) : undefined;
+  if (!details) return interrupt;
+  const described: Interrupt = {
+    ...interrupt,
+    reason: details.reason ?? "tool_call",
+    message: details.message,
+  };
+  return described;
 }
 
 /**
@@ -133,6 +154,14 @@ export interface AgentFactoryContext {
    * Cleanup errors are logged and do not change the run's outcome.
    */
   onRunEnd: (cleanup: () => void | Promise<void>) => void;
+  /**
+   * Set the reason and message of the interrupt a tool's native approval
+   * request produces in this run (AI SDK or TanStack AI `needsApproval`).
+   * Without it, the interrupt has reason `"tool_approval"`. With it, the reason
+   * defaults to `"tool_call"`. The SDK helpers call this for `defineTool`
+   * tools with `interrupt: true`.
+   */
+  describeInterruptTool: (toolName: string, details: InterruptDetails) => void;
 }
 
 /** Public name that avoids the runtime's request-scoped AgentFactoryContext. */
@@ -336,10 +365,14 @@ export class BuiltInAgent extends AbstractAgent {
       subscriber.next(startEvent);
 
       const runEndCleanups: Array<() => void | Promise<void>> = [];
+      const interruptToolDetails = new Map<string, InterruptDetails>();
       const ctx: Omit<AgentFactoryContext, "learnedSkills"> = {
         input,
         onRunEnd: (cleanup) => {
           runEndCleanups.push(cleanup);
+        },
+        describeInterruptTool: (toolName, details) => {
+          interruptToolDetails.set(toolName, details);
         },
         abortController: controller,
         abortSignal: controller.signal,
@@ -523,7 +556,11 @@ export class BuiltInAgent extends AbstractAgent {
           // InterruptSignal path the `custom` factory's ctx.interrupt() uses,
           // which the catch below turns into RUN_FINISHED outcome:interrupt.
           if (pendingInterrupts.length > 0 && !controller.signal.aborted) {
-            throw new InterruptSignal(pendingInterrupts);
+            throw new InterruptSignal(
+              pendingInterrupts.map((interrupt) =>
+                applyInterruptDetails(interrupt, interruptToolDetails),
+              ),
+            );
           }
 
           if (!controller.signal.aborted) {
@@ -605,8 +642,10 @@ export class BuiltInAgent extends AbstractAgent {
 }
 
 export * from "./converters";
-export type { AgentToolSpec } from "./tool-spec";
+export type { AgentToolSpec, InterruptDetails } from "./tool-spec";
 export {
+  readInterruptDetails,
+  withInterruptDetails,
   STATE_DELTA_TOOL_NAME,
   STATE_SNAPSHOT_TOOL_NAME,
   stateToolSpecs,

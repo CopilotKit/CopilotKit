@@ -1,3 +1,4 @@
+import { zodToJsonSchema } from "zod-to-json-schema";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import type { SchemaToJsonSchemaOptions } from "@copilotkit/shared";
 import type { ToolDefinition } from "./index";
@@ -98,6 +99,31 @@ export const stateToolSpecs: AgentToolSpec[] = [
   },
 ];
 
+// Adapts zod-to-json-schema's Zod-specific signature to the injectable
+// `zodToJsonSchema` contract of `schemaToJsonSchema`, which only calls it for
+// schemas whose `~standard.vendor` is "zod".
+function zodV3ToJsonSchema(
+  schema: unknown,
+  options?: { $refStrategy?: string },
+): Record<string, unknown> {
+  const refStrategy = options?.$refStrategy;
+  // Called through a plain signature: the library's generic one makes tsc
+  // instantiate Zod's deep types ("excessively deep").
+  const convert = zodToJsonSchema as (
+    schema: unknown,
+    options: { $refStrategy?: "root" | "relative" | "none" | "seen" },
+  ) => Record<string, unknown>;
+  return convert(
+    schema,
+    refStrategy === "root" ||
+      refStrategy === "relative" ||
+      refStrategy === "none" ||
+      refStrategy === "seen"
+      ? { $refStrategy: refStrategy }
+      : {},
+  );
+}
+
 /**
  * Converts a `defineTool` result to an {@link AgentToolSpec}.
  *
@@ -106,8 +132,9 @@ export const stateToolSpecs: AgentToolSpec[] = [
  * interrupt fields are carried over unchanged.
  *
  * @param definition - The tool from `defineTool`.
- * @param options - Passed to `schemaToJsonSchema`. Zod v3 schemas do not
- *   implement Standard JSON Schema, so they need `options.zodToJsonSchema`.
+ * @param options - Passed to `schemaToJsonSchema`. Defaults to converting
+ *   Zod v3 schemas with `zod-to-json-schema`, since they do not implement
+ *   Standard JSON Schema.
  * @throws Error when the schema cannot be converted to JSON Schema.
  *
  * @example
@@ -119,7 +146,7 @@ export const stateToolSpecs: AgentToolSpec[] = [
  */
 export function toolDefinitionToSpec(
   definition: ToolDefinition,
-  options?: SchemaToJsonSchemaOptions,
+  options: SchemaToJsonSchemaOptions = { zodToJsonSchema: zodV3ToJsonSchema },
 ) {
   const spec: AgentToolSpec = {
     name: definition.name,
@@ -131,4 +158,36 @@ export function toolDefinitionToSpec(
     interruptMessage: definition.interruptMessage,
   };
   return spec;
+}
+
+/** The reason and message an interrupt tool puts on its AG-UI interrupt. */
+export interface InterruptDetails {
+  reason?: string;
+  message?: string;
+}
+
+const INTERRUPT_DETAILS = Symbol.for("copilotkit.interruptDetails");
+
+/**
+ * Marks an SDK tool object as an interrupt tool with these details. The mark
+ * is a non-enumerable symbol, so the SDK never sees it. The SDK helpers read
+ * it back with {@link readInterruptDetails} and pass it to
+ * `ctx.describeInterruptTool`.
+ */
+export function withInterruptDetails<T extends object>(
+  tool: T,
+  details: InterruptDetails,
+) {
+  Object.defineProperty(tool, INTERRUPT_DETAILS, {
+    value: details,
+    enumerable: false,
+  });
+  return tool;
+}
+
+/** The details set by {@link withInterruptDetails}, if any. */
+export function readInterruptDetails(tool: object) {
+  return (tool as { [INTERRUPT_DETAILS]?: InterruptDetails })[
+    INTERRUPT_DETAILS
+  ];
 }
