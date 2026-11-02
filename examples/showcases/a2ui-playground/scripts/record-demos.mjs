@@ -357,41 +357,20 @@ const scenes = [
     },
   },
   {
-    name: "05-skill-export",
-    label: "Skill export",
-    path: "/skills",
+    name: "05-get-started",
+    label: "Get started",
+    path: "/start",
     async run(d) {
       d.caption(
-        "Skill export: Google's A2UI TypeScript SDK compiles the catalog into agent skills.",
+        "Get started: one prompt for a coding agent, written for the design system you pick.",
       );
-      await sleep(2400);
-      await d.scroll(420, 1400);
-      await d.click('[data-skill-file="a2ui-core/SKILL.md"]');
-      d.caption(
-        "a2ui-core: how to write A2UI Express. The same for every catalog.",
-      );
-      await sleep(2600);
-      await d.click('[data-skill-file="a2ui-playground/SKILL.md"]');
-      d.caption(
-        "a2ui-playground: every component and macro, when to use each, and worked examples.",
-      );
+      await sleep(2200);
+      await d.click('[data-start-design-system="chatcn"]');
       await sleep(1200);
-      await d.page.$eval("[data-skill-preview]", (el) => {
-        const i = el.textContent.indexOf("### Examples");
-        el.dataset.target = String(
-          Math.max(0, (i / el.textContent.length) * el.scrollHeight - 120),
-        );
-      });
-      const target = Number(
-        await d.page.$eval("[data-skill-preview]", (el) => el.dataset.target),
+      await d.click("[data-copy-prompt]");
+      d.caption(
+        "Paste it into Claude Code, Cursor or Gemini CLI: it installs CopilotKit and registers your catalog.",
       );
-      await d.scroll(target, 2400, "[data-skill-preview]");
-      await sleep(2800);
-      await d.click('[data-skill-format="json"]');
-      d.caption("The same skills for agents that write A2UI JSON.");
-      await sleep(2400);
-      await d.point("[data-skill-download]", 600);
-      d.caption("Download them as a zip, or install them with one command.");
       await sleep(3000);
     },
   },

@@ -6,7 +6,7 @@ import { parseRecipes } from "@/components/build-studio/recipes";
 import type { RecordedRun } from "@/components/build-studio/types";
 
 export const metadata = {
-  title: "Watch a build | A2UI Playground",
+  title: "Watch a build · A2UI Playground",
   description:
     "A recorded playground run, replayed: the layout is drawn first, then each A2UI component fills in as it arrives.",
 };

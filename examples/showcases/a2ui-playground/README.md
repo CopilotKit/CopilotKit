@@ -1,4 +1,4 @@
-# A2UI Playground
+# A2UI Playground by CopilotKit
 
 Watch an agent write UI. Ask for anything ("Q3 sales by region as a dashboard", "compare three noise-cancelling headphones", "a signup form with a plan choice") and the answer arrives in the chat as real, interactive UI: an **A2UI 1.0** surface rendered by **CopilotKit Gen UI 2.0**. Beside the chat you see the **A2UI Express** the model writes, one line per component, and hovering a line lights up the component it made.
 
@@ -10,8 +10,9 @@ A hosted version runs at https://web-production-d0431.up.railway.app.
 - **A2UI Express by default.** The model writes one line per component and Google's `@a2ui/agent` SDK compiles it, usually about half the size of the same UI in JSON. JSON is the alternative. Express that still fails to compile after a retry is rewritten as JSON on the same surface.
 - **Any model.** Gemini Flash (`gemini-flash-latest`) is the default; Gemma 4 runs locally through Ollama (or any OpenAI-compatible server); GPT is in the picker too.
 - **A real catalog.** The 69 Gen UI 2.0 standard components, 52 of the playground's own (shadcn/ui, TanStack Charts, MapLibre) and 3 macros, `FlightCard`, `ProductCard` and `WeatherReport`, that the server expands into standard components.
+- **Any design system.** The picker beside the model chooses what draws each surface: CopilotKit's standard catalog, ChatCN (shadcn/ui), or a hand-written in-house set standing in for your own components. The agent's A2UI never changes; switching repaints every surface on the page, which is the point of a catalog: a contract, not a look. `src/design-systems/` swaps leaf components (Button, Badge, Stat, Heading and the like) and themes the rest; `?ds=chatcn` or `?ds=byoc` picks one in a link.
 - **Chat first, with the code beside it.** Each prompt shows its UI inline as it paints. The side pane shows the selected surface's Express (or JSON) lines as they are written, the JSON with an editor (live preview, no model; then "Ask the model to change this"), and the run's timings.
-- **Take it home.** `/components` documents every component, `/skills` builds and exports an agent skill for a chosen set of components, `/evals` shows per-model scores (`pnpm evals`), `/start` is the quick start, and `examples/adk` is a Google ADK agent on the same catalog.
+- **Take it home.** `/start` is one Copy prompt for a coding agent (Claude Code, Cursor, Gemini CLI, Codex) that adds A2UI to an existing app for the design system you pick, plus the two lines it comes down to by hand. `/components` documents every component, `/catalog.json` and the agent skill download (`/api/skills?format=express&download=1`) carry the catalog to other renderers and agents, `/evals` shows per-model scores (`pnpm evals`), and `examples/adk` is a Google ADK agent on the same catalog.
 
 ## Run it
 
@@ -27,10 +28,10 @@ Production: `pnpm build && pnpm start` (`PORT`, default 3100).
 
 ```bash
 pnpm catalog:export      # src/a2ui/export/{catalog,inference-catalog}.json (runs before dev and build)
-pnpm skills:export       # skills/generated/{express,json}: the skills /skills serves
+pnpm skills:export       # skills/generated/{express,json}: the agent skills /api/skills serves
 pnpm evals               # per-model scores -> src/data/evals.json, shown at /evals
 pnpm evals --models gemini --formats express --tasks sales-dashboard,flights --out /tmp/evals.json
-pnpm evals --skill path/to/skill.zip --formats json   # score a skill exported from /skills
+pnpm evals --skill path/to/skill.zip --formats json   # score an agent skill (the /start download, or your own)
 node scripts/record-replay.mjs dynamic "<prompt>"     # re-record the first-visit replay (dev server running)
 ```
 
@@ -42,44 +43,50 @@ node scripts/record-replay.mjs dynamic "<prompt>"     # re-record the first-visi
 4. **Macros expand on the server** (`src/a2ui/macros/`), and map markers are geocoded by name.
 5. **CopilotKit validates and renders** every operation in the browser with your components. A click on a surface goes back to the agent as an A2UI action, and a follow-up updates the surface in place.
 
-## Hosting
+## Hosting it safely
 
-The public site is one Railway service running `pnpm start` behind Railway's proxy. Every prompt spends the server's model keys, so a production build carries limits.
+The public site is one Railway service running `pnpm start` behind Railway's proxy. Every prompt spends the server's model keys, so a production build carries limits, a daily ceiling and a kill switch.
 
-Set on Railway:
+Set on Railway (keys come from the team's secret store; never commit one):
 
-| Variable                             |                                                                                                                                                       |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GEMINI_API_KEY`                     | Required. Gemini Flash, the default model.                                                                                                            |
-| `OPENAI_API_KEY`                     | Optional. Turns on GPT in the model picker.                                                                                                           |
-| `COPILOTKIT_TELEMETRY_DISABLED=true` | Optional. Turns off the CopilotKit runtime's usage telemetry.                                                                                         |
-| `DISABLED_MODELS`                    | Optional. Comma-separated model ids (`gpt`, `gemma`) to show as unavailable without removing their keys, e.g. while a provider account has no credit. |
-| `AGENT_RUNS_PER_10_MIN`              | Optional. The per-visitor run limit (default 12).                                                                                                     |
+| Variable                             |                                                                                                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GEMINI_API_KEY`                     | Required. Gemini Flash, the default model. Use a key made for this deploy, so it can be revoked alone.                                                             |
+| `DISABLED_MODELS`                    | Comma-separated model ids (`gpt`, `gemma`) to show as unavailable without removing their keys. Set `gemma,gpt` on the public deploy unless you mean to offer them. |
+| `COPILOTKIT_TELEMETRY_DISABLED=true` | Optional. Turns off the CopilotKit runtime's usage telemetry.                                                                                                      |
+| `OPENAI_API_KEY`                     | Optional. Turns on GPT in the model picker.                                                                                                                        |
+| `AGENT_RUNS_PAUSED=1`                | The kill switch. Every agent route refuses runs, and the model picker says why.                                                                                    |
+| `AGENT_RUNS_PER_DAY`                 | Optional. Runs across every visitor per UTC day (default 3,000): the spend ceiling.                                                                                |
+| `AGENT_RUNS_PER_10_MIN`              | Optional. The per-visitor run limit (default 12).                                                                                                                  |
 
-Leave every `GEMMA_*` unset: Gemma on the shared Gemini key runs into its per-minute token limit, and without `GEMMA_BASE_URL` the picker tells visitors to run Gemma locally. Leave `ENABLE_MINIMAL`, `ENABLE_JEV`, `ENABLE_ADK` and `ENABLE_SNAPSHOT` unset too: in production `/minimal`, `/jev*`, `/adk`, `/snapshot` and their API routes answer 404 unless the matching one is `1` (`src/proxy.ts`).
+Leave every `GEMMA_*` unset: Gemma on the shared Gemini key runs into its per-minute token limit, and without `GEMMA_BASE_URL` the picker tells visitors to run Gemma locally. Leave `ENABLE_MINIMAL`, `ENABLE_JEV`, `ENABLE_ADK` and `ENABLE_SNAPSHOT` unset too: in production `/minimal`, `/jev*`, `/adk`, `/snapshot` and their API routes answer 404 unless the matching one is `1` (`src/proxy.ts`). `/minimal` in particular is a stock agent on GPT-5.5 with no output cap that reads the visitor's whole chat (up to the 1 MB body cap).
 
 The limits are constants in `src/lib/limits.ts`:
 
 | What                                                                                       | Limit                                                                                            |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
 | Agent runs per IP (`/api/copilotkit` run and suggest requests, and the opt-in demo routes) | a burst of 6, then 12 per 10 minutes (`AGENT_RUNS_PER_10_MIN`)                                   |
-| Agent runs, all visitors together                                                          | a burst of 60, then 300 per hour                                                                 |
+| Agent runs, all visitors together                                                          | a burst of 60, then 300 per hour; 3,000 per UTC day (`AGENT_RUNS_PER_DAY`)                       |
+| Every request to an agent route per IP (`info`, `connect`, `stop` and runs)                | a burst of 60, then 120 per minute                                                               |
 | `/api/express`, `/api/skills` per IP                                                       | a burst of 30, then 60 per minute                                                                |
 | `/api/models` per IP                                                                       | a burst of 10, then 30 per minute                                                                |
 | Request body                                                                               | agent 1 MB, express 512 KB, skills 64 KB                                                         |
 | What the agent reads of a chat                                                             | the newest 40 messages, 4,000 characters per user message or tool call, 60,000 characters in all |
 | Lookups one prompt starts                                                                  | 4 data calls per run; 12 geocoded map pins and 6 macros per surface                              |
+| Nominatim lookups waiting, all visitors together                                           | 20; past that a lookup uses its fallback (Photon, Open-Meteo)                                    |
 | `/api/express`                                                                             | 1,000 components per request                                                                     |
 | The catalog the browser sends                                                              | 80,000 characters once it is a prompt (the real one is about 26,000)                             |
 | Model output per call                                                                      | router 4,096 tokens, composer 16,384 tokens                                                      |
 
-A refused request gets a 429 (with `Retry-After`) or a 413, with a short message the chat shows, such as "You're sending a lot of requests. Try again in a minute." The page's startup calls (`info`, `connect`) and requests that can't start a run are not counted. The IP is the first `X-Forwarded-For` address, else `X-Real-IP`. The counts are kept in memory: right for one instance, but each extra replica counts on its own, and a redeploy resets them. Listing and clearing threads answers 403, since the runtime has no `identifyUser`.
+A refused request gets a 429 (with `Retry-After`) or a 413, with a short message the chat shows, such as "You're sending a lot of requests. Try again in a minute." The page's startup calls (`info`, `connect`) and requests that can't start a run are not counted as runs. A run must be sent as `application/json`, so a page on another site can't start runs from its visitors' browsers (415 otherwise). The IP is the first `X-Forwarded-For` address, else `X-Real-IP`; an IPv6 address counts by its /64. The counts are kept in memory: right for one instance, but each extra replica counts on its own, and a redeploy resets them. Listing and clearing threads answers 403, since the runtime has no `identifyUser`.
 
-These limits slow a visitor down; they are not a budget. Set a spend cap on each provider key in its own dashboard (the Google Cloud billing account behind the Gemini key, the OpenAI project's budget), and use keys made for this deploy so either can be revoked alone.
+**Turning live runs off.** `AGENT_RUNS_PAUSED=1` makes every agent route refuse runs with "Live runs are paused on this server for now." The first-visit replay and `/watch` keep playing, since they never run the agent. Railway applies a variable change by redeploying the service, so time one before launch. To stop spending at once without a deploy, disable the key at the provider: runs then fail with a short error, and the replay still plays. After `AGENT_RUNS_PER_DAY` runs in a UTC day, runs are refused the same way until midnight UTC.
+
+**Spend.** A run makes at most 4 model calls (router, composer, one Express retry, a JSON fallback), each under the output caps above, so `AGENT_RUNS_PER_DAY` bounds a day's spend. It is not a budget: set one, with alerts, on the Google Cloud billing account behind the Gemini key (and on the OpenAI project, if GPT is on).
 
 ## Use it in your app
 
-The same setup in your own app, in three files (the page at `/start` walks through it). Install the versions this repo runs:
+The same setup in your own app, in three files (`/start` copies it as one prompt for a coding agent). Install the versions this repo runs:
 
 ```bash
 npm i @copilotkit/react-core@1.83.0 @copilotkit/runtime@1.83.0 zod@3.25.76
@@ -98,7 +105,7 @@ uv run server.py                 # http://localhost:8000/
 pnpm dev                         # from the repo root, then open http://localhost:3100/adk
 ```
 
-**Any renderer, any agent.** `/catalog.json` serves the catalog as an A2UI v1.0 catalog document (from `exportA2UICatalog`), for renderers outside React and for validators; `/skills` serves agent skills generated from the same catalog.
+**Any renderer, any agent.** `/catalog.json` serves the catalog as an A2UI v1.0 catalog document (from `exportA2UICatalog`), for renderers outside React and for validators; `/api/skills` serves agent skills generated from the same catalog (`/skills` now redirects to `/start`).
 
 ## Layout
 
@@ -108,7 +115,8 @@ pnpm dev                         # from the repo root, then open http://localhos
 | `src/a2ui/catalog/`          | Definitions (Zod), renderers and samples of the playground's components             |
 | `src/a2ui/macros/`           | The three macros and their samples                                                  |
 | `src/components/playground/` | The chat, composer, lines pane and the JSON editor                                  |
-| `src/app/`                   | Pages (`/`, `/components`, `/skills`, `/evals`, `/start`, `/watch`) and API routes  |
+| `src/design-systems/`        | CopilotKit, ChatCN and Bring-your-own implementations of the same catalog           |
+| `src/app/`                   | Pages (`/`, `/components`, `/evals`, `/start`, `/watch`) and API routes             |
 | `skills/`                    | The catalog skill and the generated agent skills                                    |
 | `examples/adk/`              | A Google ADK agent served over AG-UI                                                |
 | `scripts/`                   | Catalog and skill export, evals, the replay recorder, browser checks                |

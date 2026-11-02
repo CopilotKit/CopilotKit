@@ -7,7 +7,7 @@ import { ArrowUpRight, Menu, X } from "lucide-react";
 import "@/app/site.css";
 import { cn } from "@/lib/utils";
 import { DOCS_URL, REPO_URL } from "@/components/start/links";
-import { A2UIMark, CopilotKitKite, CopilotKitWordmark } from "./brand";
+import { A2UIMark, CopilotKitKite } from "./brand";
 import { CommandMenu } from "./command-menu";
 
 type Active =
@@ -15,15 +15,14 @@ type Active =
   | "playground"
   | "build"
   | "components"
-  | "skills"
   | "evals"
   | "start";
 type Item = { id: Active; label: string; href: string };
 
-/** The workbench is the home page (the logo); every page here is a step after it. */
+/** The workbench is the home page; the catalog and the way into your own app follow it. */
 const NAV: Item[] = [
+  { id: "playground", label: "Playground", href: "/" },
   { id: "components", label: "Components", href: "/components" },
-  { id: "skills", label: "Skills", href: "/skills" },
   { id: "start", label: "Get started", href: "/start" },
 ];
 
@@ -34,20 +33,20 @@ export function SiteHeader({ active }: { active?: Active }) {
       <div className="site-container flex h-[64px] min-w-0 items-center gap-3 min-[960px]:gap-5">
         <Link
           href="/"
-          aria-label="A2UI Playground home"
-          className="flex flex-none items-center gap-2.5 text-foreground"
+          aria-label="A2UI Playground by CopilotKit, home"
+          className="flex min-w-0 flex-none items-center gap-2.5 text-foreground"
         >
-          <CopilotKitKite className="size-[24px]" />
-          <CopilotKitWordmark className="h-[17px] w-auto translate-y-[1px] sm:h-[21px]" />
-          <span
-            className="px-1 text-[18px] font-light text-muted-foreground/70"
-            aria-hidden="true"
-          >
-            ×
-          </span>
-          <A2UIMark className="size-[26px]" />
-          <span className="text-[21px] font-semibold tracking-tight text-foreground">
-            A2UI
+          <A2UIMark className="size-[26px] flex-none" />
+          {/* "by CopilotKit" credits the work without branding the page; on a phone it drops under the name. */}
+          <span className="flex min-w-0 flex-col whitespace-nowrap min-[420px]:flex-row min-[420px]:items-baseline min-[420px]:gap-2">
+            <span className="text-[17px] font-semibold leading-tight tracking-tight">
+              A2UI Playground
+            </span>
+            <span className="inline-flex items-center gap-1 text-[11.5px] leading-tight text-muted-foreground min-[420px]:text-[13px]">
+              by
+              <CopilotKitKite className="size-[12px] translate-y-[1px] min-[420px]:size-[13px]" />
+              CopilotKit
+            </span>
           </span>
         </Link>
         <span
@@ -150,12 +149,6 @@ function MenuSheet({ active }: { active?: Active }) {
             Pages on this site
           </DialogPrimitive.Description>
           <nav aria-label="Main" className="mt-3 flex flex-col">
-            <NavLink
-              item={{ id: "playground", label: "Playground", href: "/" }}
-              active={active}
-              onClick={close}
-              className={row}
-            />
             {NAV.map((n) => (
               <NavLink
                 key={n.id}

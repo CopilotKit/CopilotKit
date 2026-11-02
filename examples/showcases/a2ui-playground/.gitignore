@@ -5,3 +5,5 @@ node_modules
 *.tsbuildinfo
 next-env.d.ts
 
+# Written by `next dev` (Next.js 16 agentRules)
+AGENTS.md

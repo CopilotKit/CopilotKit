@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { SiteHeader } from "@/components/site/site-header";
 
-export const metadata = { title: "Page not found | A2UI Playground" };
+export const metadata = { title: "Page not found · A2UI Playground" };
 
 /** Any URL with no page, and any notFound() that no closer segment handles. */
 export default function NotFound() {

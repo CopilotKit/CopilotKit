@@ -13,7 +13,7 @@ import { CodeBlock } from "@/components/start/code-block";
 import results from "@/data/evals.json";
 
 export const metadata: Metadata = {
-  title: "Evals | A2UI Playground",
+  title: "Evals · A2UI Playground",
   description:
     "Per-model scores for composing A2UI 1.0 surfaces: valid-render rate, component choice, latency and payload size, for Gemini, Gemma and GPT in Express and JSON.",
 };
@@ -37,8 +37,8 @@ ollama pull gemma4:e4b && pnpm evals --models gemma
 # a subset
 pnpm evals --models gemini --formats express --tasks flights,weather
 
-# a skill built on /skills: only its components, results in a file of their own
-pnpm evals --skill ~/Downloads/a2ui-forms-skills-express.zip --out forms-evals.json`;
+# an agent skill (the one on /start, or one generated from your catalog), results in a file of their own
+pnpm evals --skill ~/Downloads/a2ui-playground-skills-express.zip --out skill-evals.json`;
 
 const ranAt = `${new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(data.ranAt))} UTC`;
 
@@ -170,12 +170,12 @@ export default function EvalsPage() {
               </h2>
               <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
                 Models without a key or a server show as not run. Add tasks for
-                your own catalog, or evaluate a skill you{" "}
+                your own catalog, or evaluate an agent skill from{" "}
                 <Link
-                  href="/skills"
+                  href="/start"
                   className="text-foreground underline underline-offset-4"
                 >
-                  built
+                  Get started
                 </Link>
                 : <C>--skill</C> gives the composer only that skill&apos;s
                 components, in JSON, and a surface that uses anything else does
