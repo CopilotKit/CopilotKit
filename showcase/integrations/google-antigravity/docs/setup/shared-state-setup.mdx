@@ -1,0 +1,49 @@
+<Steps>
+  <Step>
+    ### Turn on `get_shared_state` and tell the model to read it
+
+    Antigravity sets an agent's instructions once, when the harness session
+    starts, and the adapter forwards only the user's messages. Shared state
+    therefore never reaches the prompt on its own. Instead, pass
+    `experimental_app_state=True` to `AntigravityAgent`. It gives the agent a
+    built-in `get_shared_state()` tool that returns the thread's shared state: what the UI sent with the current run (including edits made
+    with `agent.setState`), or what a server tool last stored, whichever is
+    newer. Say in the system instructions when to call it:
+
+    <DemoCode file="src/agents/shared_state.py" region="shared-state-read-write-agent" />
+
+    The tool is silent: it emits no `TOOL_CALL_*` events, so no tool card
+    appears in the chat. A tool of your own with the same name replaces it.
+
+  </Step>
+  <Step>
+    ### Write state from a server tool
+
+    Server tools are plain Python functions passed as `tools=[...]`. Inside
+    one, the adapter's `experimental_get_state()` returns the thread's shared state and
+    `experimental_set_state()` replaces it. `experimental_set_state()` streams a `STATE_SNAPSHOT` to the
+    browser straight away, before the tool's own result, so any component
+    subscribed with `useAgent` re-renders while the agent is still running.
+
+    <DemoCode file="src/agents/shared_state.py" region="shared-state-write-tool" />
+
+    Spread `experimental_get_state()` into the new value, as above: `experimental_set_state()` replaces
+    the whole object, so leaving it out drops the keys the UI owns, such as
+    `preferences`. Both helpers work only inside a server tool, where the
+    adapter knows which thread the call belongs to. Called anywhere else, they
+    raise.
+
+  </Step>
+</Steps>
+
+<Callout type="warn" title="The model sees state only when it asks">
+  Other frameworks can fold the UI's state into the system prompt on every
+  run. With Antigravity the model has to call `get_shared_state`. If the
+  instructions do not tell it to, UI edits do not reach that answer.
+</Callout>
+
+<Callout type="info" title="Experimental">
+  `experimental_app_state`, `experimental_get_state()` and
+  `experimental_set_state()` are experimental. Their names and behaviour may
+  change in a later release of the adapter.
+</Callout>
