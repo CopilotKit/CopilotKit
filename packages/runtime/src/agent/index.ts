@@ -127,6 +127,12 @@ export interface AgentFactoryContext {
    * `input.resume[].interruptId`.
    */
   interrupt: (interrupts: Interrupt[]) => Promise<ResumeEntry[]>;
+  /**
+   * Register cleanup that runs once when the run ends: finished, interrupted,
+   * failed, or aborted. Use it to close per-run resources such as MCP clients.
+   * Cleanup errors are logged and do not change the run's outcome.
+   */
+  onRunEnd: (cleanup: () => void | Promise<void>) => void;
 }
 
 /** Public name that avoids the runtime's request-scoped AgentFactoryContext. */
@@ -329,8 +335,12 @@ export class BuiltInAgent extends AbstractAgent {
       };
       subscriber.next(startEvent);
 
+      const runEndCleanups: Array<() => void | Promise<void>> = [];
       const ctx: Omit<AgentFactoryContext, "learnedSkills"> = {
         input,
+        onRunEnd: (cleanup) => {
+          runEndCleanups.push(cleanup);
+        },
         abortController: controller,
         abortSignal: controller.signal,
         interrupt: async (interrupts: Interrupt[]) => {
@@ -551,6 +561,16 @@ export class BuiltInAgent extends AbstractAgent {
             subscriber.error(error);
           }
         } finally {
+          for (const cleanup of runEndCleanups) {
+            try {
+              await cleanup();
+            } catch (error) {
+              console.error(
+                "[CopilotKit] BuiltInAgent run cleanup failed:",
+                error,
+              );
+            }
+          }
           if (this.abortController === controller)
             this.abortController = undefined;
         }
