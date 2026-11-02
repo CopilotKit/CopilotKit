@@ -13,7 +13,7 @@ import {
 } from "./generative-ui-view.js";
 
 const envelope = {
-  "v1.0": { supportedCatalogIds: ["shop@1"] },
+  "1.0": { supportedCatalogIds: ["shop@1"] },
   metadata: {
     extensions: {
       copilotkit_format: 3,
@@ -55,7 +55,7 @@ function snapshot(): ɵGenerativeUIDebugSnapshot {
         status: "ready",
         operations: [
           {
-            version: "v1.0",
+            version: "1.0",
             createSurface: {
               surfaceId: "cart-view",
               components: [
@@ -126,7 +126,7 @@ afterEach(() => {
 
 describe("generative UI view helpers", () => {
   it("names the kind of an operation", () => {
-    expect(operationKind({ version: "v1.0", updateComponents: {} })).toBe(
+    expect(operationKind({ version: "1.0", updateComponents: {} })).toBe(
       "updateComponents",
     );
     expect(operationKind(null)).toBe("unknown");
@@ -146,7 +146,7 @@ describe("generative UI view helpers", () => {
     };
     const operations = [
       {
-        version: "v1.0",
+        version: "1.0",
         createSurface: {
           surfaceId: "s1",
           components: [
@@ -161,7 +161,7 @@ describe("generative UI view helpers", () => {
         },
       },
       {
-        version: "v1.0",
+        version: "1.0",
         updateComponents: {
           surfaceId: "s1",
           components: [
@@ -176,7 +176,7 @@ describe("generative UI view helpers", () => {
         },
       },
       {
-        version: "v1.0",
+        version: "1.0",
         updateComponents: {
           surfaceId: "s1",
           components: [{ id: "late", component: "Card" }],
@@ -234,7 +234,7 @@ describe("generative UI view helpers", () => {
     };
     const operations = [
       {
-        version: "v1.0",
+        version: "1.0",
         createSurface: {
           surfaceId: "s1",
           components: [

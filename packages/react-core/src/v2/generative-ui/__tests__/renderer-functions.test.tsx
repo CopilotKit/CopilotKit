@@ -87,7 +87,7 @@ function fence(operations: object[]) {
 }
 
 const callLine = (call: GenerativeUIFunctionCallContent) => ({
-  version: "v1.0",
+  version: "1.0",
   callRendererFunction: call,
 });
 
@@ -222,7 +222,7 @@ function developerContents(input: RunAgentInput | undefined) {
 }
 
 const errorOf = (functionCallId: string, code: string) => ({
-  version: "v1.0",
+  version: "1.0",
   rendererFunctionResponse: {
     functionCallId,
     error: { code, message: expect.stringContaining("addToCart") },
@@ -404,7 +404,7 @@ describeAgentCalls.each([toolTransport, markdownTransport])(
 
       await waitFor(() => expect(answers(agent)).toHaveLength(6));
       expect(answers(agent).at(-1)).toEqual({
-        version: "v1.0",
+        version: "1.0",
         rendererFunctionResponse: {
           functionCallId: "f6",
           error: {
@@ -438,7 +438,7 @@ describeAgentCalls("agent-called functions, markdown transport only", () => {
         "m1",
         fence([
           {
-            version: "v1.0",
+            version: "1.0",
             callRendererFunction: {
               functionCallId: "f1",
               callFunction: { call: "addToCart", args: { sku: "p1" } },
@@ -452,7 +452,7 @@ describeAgentCalls("agent-called functions, markdown transport only", () => {
     await waitForRuns(2);
     expect(answers(agent)).toEqual([
       {
-        version: "v1.0",
+        version: "1.0",
         rendererFunctionResponse: {
           functionCallId: "f1",
           error: {
@@ -486,7 +486,7 @@ describeAgentCalls("agent-called functions, markdown transport only", () => {
     await waitForRuns(2);
     expect(answers(agent)).toEqual([
       {
-        version: "v1.0",
+        version: "1.0",
         rendererFunctionResponse: {
           functionCallId: "f1",
           error: {

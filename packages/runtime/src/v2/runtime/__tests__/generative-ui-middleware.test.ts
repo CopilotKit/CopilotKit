@@ -29,7 +29,7 @@ class ScriptedAgent extends AbstractAgent {
 
 type Extensions = CopilotKitUIEnvelope["metadata"]["extensions"];
 type InlineCatalog = NonNullable<
-  NonNullable<CopilotKitUIEnvelope["1.0"]>["inlineCatalogs"]
+  CopilotKitUIEnvelope["1.0"]["inlineCatalogs"]
 >[number];
 
 const catalog: InlineCatalog = {
@@ -74,9 +74,9 @@ function uiEnvelope(
     catalog?: Partial<InlineCatalog>;
     extensions?: Partial<Extensions>;
   } = {},
-): Extract<CopilotKitUIEnvelope, { "v1.0": unknown }> {
+): CopilotKitUIEnvelope {
   return {
-    "v1.0": {
+    "1.0": {
       supportedCatalogIds: ["shop"],
       inlineCatalogs: [{ ...catalog, ...overrides.catalog }],
     },
@@ -95,19 +95,19 @@ function withSurfaces(surfaces: Extensions["copilotkit_surfaces"]) {
 }
 
 const create = (surfaceId: string) => ({
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId, catalogId: "shop" },
 });
 const components = (surfaceId: string, ...nodes: unknown[]) => ({
-  version: "v1.0",
+  version: "1.0",
   updateComponents: { surfaceId, components: nodes },
 });
 const deleteSurface = (surfaceId: string) => ({
-  version: "v1.0",
+  version: "1.0",
   deleteSurface: { surfaceId },
 });
 const callFunction = (functionCallId: string, name = "addToCart") => ({
-  version: "v1.0",
+  version: "1.0",
   callRendererFunction: {
     functionCallId,
     callFunction: { "@call": name, args: { productId: "p1" } },
@@ -228,18 +228,6 @@ function guideText(input: RunAgentInput) {
 }
 
 describe("GenerativeUIMiddleware", () => {
-  it.each(["1.0", "v1.0"])(
-    "injects render_ui for %s capabilities",
-    async (version) => {
-      const { "v1.0": capabilities, ...rest } = uiEnvelope();
-      const { input } = await run([], {
-        copilotkit: { ui: { ...rest, [version]: capabilities } },
-      });
-      expect(input.tools.map((tool) => tool.name)).toContain("render_ui");
-      expect(guideText(input)).toContain('"version":"1.0"');
-    },
-  );
-
   it("passes runs without an envelope through unchanged", async () => {
     expectPassThrough(await run([], {}));
   });
@@ -276,7 +264,7 @@ describe("GenerativeUIMiddleware", () => {
       "a component has no props schema",
       {
         ...uiEnvelope(),
-        "v1.0": {
+        "1.0": {
           supportedCatalogIds: ["shop"],
           inlineCatalogs: [{ ...catalog, components: { X: {} } }],
         },
@@ -483,7 +471,7 @@ describe("GenerativeUIMiddleware", () => {
 
     it("rejects a createSurface whose inline components are not in the list", async () => {
       const op = {
-        version: "v1.0",
+        version: "1.0",
         createSurface: {
           surfaceId: "recs",
           components: [{ ...productCard, id: "root" }],
@@ -623,7 +611,7 @@ describe("GenerativeUIMiddleware", () => {
       const { output } = await run(
         renderCall({
           target: "recommendations",
-          operations: [{ version: "v1.0", createSurface }],
+          operations: [{ version: "1.0", createSurface }],
         }),
       );
       const [snapshot] = activity(output);
@@ -637,13 +625,13 @@ describe("GenerativeUIMiddleware", () => {
 
   it("keeps a catalogId of a base catalog that the envelope lists", async () => {
     const envelope = uiEnvelope();
-    envelope["v1.0"].supportedCatalogIds = ["shop", "copilotkit/standard@1"];
+    envelope["1.0"].supportedCatalogIds = ["shop", "copilotkit/standard@1"];
     const { output } = await run(
       renderCall({
         target: "recommendations",
         operations: [
           {
-            version: "v1.0",
+            version: "1.0",
             createSurface: {
               surfaceId: "recs",
               catalogId: "copilotkit/standard@1",
@@ -659,7 +647,7 @@ describe("GenerativeUIMiddleware", () => {
         catalogId: "copilotkit/standard@1",
         operations: [
           {
-            version: "v1.0",
+            version: "1.0",
             createSurface: {
               surfaceId: "recs",
               catalogId: "copilotkit/standard@1",
@@ -677,7 +665,7 @@ describe("GenerativeUIMiddleware", () => {
     expect(guide).not.toContain("catalogId");
   });
 
-  it("teaches A2UI v1.0 in the guide", async () => {
+  it("teaches A2UI 1.0 in the guide", async () => {
     const guide = guideText((await run([])).input);
     expect(guide).not.toContain("v0.9");
     expect(guide).toContain('"version":"1.0"');
@@ -691,7 +679,7 @@ describe("GenerativeUIMiddleware", () => {
 
   it("keeps the inline data model and components of a createSurface in the snapshot", async () => {
     const op = {
-      version: "v1.0",
+      version: "1.0",
       createSurface: {
         surfaceId: "recs",
         dataModel: { title: "Picks" },
@@ -706,7 +694,7 @@ describe("GenerativeUIMiddleware", () => {
       content: {
         operations: [
           {
-            version: "v1.0",
+            version: "1.0",
             createSurface: {
               surfaceId: "recs",
               catalogId: "shop",
@@ -722,7 +710,7 @@ describe("GenerativeUIMiddleware", () => {
     expect(toolResult(output)).toMatchObject({ applied: 1, rejected: [] });
   });
 
-  it("rejects a v0.9 operation with the v1.0 reason", async () => {
+  it("rejects a v0.9 operation with the 1.0 reason", async () => {
     const op = { version: "v0.9", createSurface: { surfaceId: "recs" } };
     const { output } = await run(
       renderCall({ target: "recommendations", operations: [op] }),

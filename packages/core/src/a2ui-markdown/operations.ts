@@ -607,12 +607,12 @@ function partialOperation(line: string) {
 }
 
 /**
- * A line that opens a new top-level operation: `{"version":"v…` or
+ * A line that opens a new top-level operation: `{"version":"1…` or
  * `{"<operation>":{`. Seen at the start of a line while an earlier object is
  * still unbalanced, it means that object is malformed and has ended.
  */
 const OPERATION_START = new RegExp(
-  `^\\{\\s*"(?:version"\\s*:\\s*"v\\d|(?:${OP_KEYS.join("|")})"\\s*:\\s*\\{)`,
+  `^\\{\\s*"(?:version"\\s*:\\s*"\\d|(?:${OP_KEYS.join("|")})"\\s*:\\s*\\{)`,
 );
 
 /**
@@ -660,11 +660,7 @@ const OPERATION_NAMES = [
 
 /** Whether a value is shaped like one A2UI operation, with named components. */
 function isOperationShape(value: unknown): boolean {
-  if (
-    !isRecord(value) ||
-    (value.version !== A2UI_VERSION && value.version !== "v1.0")
-  )
-    return false;
+  if (!isRecord(value) || value.version !== A2UI_VERSION) return false;
   const names = OPERATION_NAMES.filter((name) => name in value);
   if (names.length !== 1 || Object.keys(value).length !== 2) return false;
   const body = value[names[0]!];

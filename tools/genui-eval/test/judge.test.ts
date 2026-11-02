@@ -25,7 +25,7 @@ const out: SampleOutput = {
       rejected: [],
       operations: [
         {
-          version: "v1.0",
+          version: "1.0",
           createSurface: {
             surfaceId: "cafes",
             components: [{ id: "root", component: "Map", markers: [] }],
@@ -125,14 +125,14 @@ describe("judge", () => {
       surfaces: [
         surface("kept", [
           {
-            version: "v1.0",
+            version: "1.0",
             createSurface: {
               surfaceId: "kept",
               components: [{ id: "root", component: "Text", text: "old" }],
             },
           },
           {
-            version: "v1.0",
+            version: "1.0",
             updateComponents: {
               surfaceId: "kept",
               components: [{ id: "root", component: "Text", text: "new" }],
@@ -141,13 +141,13 @@ describe("judge", () => {
         ]),
         surface("gone", [
           {
-            version: "v1.0",
+            version: "1.0",
             createSurface: {
               surfaceId: "gone",
               components: [{ id: "root", component: "Chart" }],
             },
           },
-          { version: "v1.0", deleteSurface: { surfaceId: "gone" } },
+          { version: "1.0", deleteSurface: { surfaceId: "gone" } },
         ]),
       ],
     });
@@ -170,7 +170,7 @@ describe("judge", () => {
             rejected: [],
             operations: [
               {
-                version: "v1.0",
+                version: "1.0",
                 createSurface: {
                   surfaceId: "s",
                   components: [

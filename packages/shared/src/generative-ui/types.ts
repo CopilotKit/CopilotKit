@@ -1,4 +1,4 @@
-/** Canonical A2UI protocol version used on the wire. Legacy `v1.0` input is also accepted. */
+/** A2UI protocol version used on the wire. */
 export const A2UI_VERSION = "1.0";
 /** Activity type of a generated surface message. */
 export const GENERATIVE_UI_ACTIVITY_TYPE = "generative-ui-surface";
@@ -83,7 +83,7 @@ export type A2UIFunctionCall = {
 
 export type A2UIOperation =
   | {
-      version: typeof A2UI_VERSION | "v1.0";
+      version: typeof A2UI_VERSION;
       createSurface: {
         surfaceId: string;
         /** Left out by the model. The run's catalog id is filled in. */
@@ -97,11 +97,11 @@ export type A2UIOperation =
       };
     }
   | {
-      version: typeof A2UI_VERSION | "v1.0";
+      version: typeof A2UI_VERSION;
       updateComponents: { surfaceId: string; components: A2UIComponentNode[] };
     }
   | {
-      version: typeof A2UI_VERSION | "v1.0";
+      version: typeof A2UI_VERSION;
       /**
        * Sets `value` at `path`. A `null` value deletes the key at `path`.
        * With no `path`, or `"/"`, it sets the whole data model.
@@ -109,11 +109,11 @@ export type A2UIOperation =
       updateDataModel: { surfaceId: string; path?: string; value: unknown };
     }
   | {
-      version: typeof A2UI_VERSION | "v1.0";
+      version: typeof A2UI_VERSION;
       deleteSurface: { surfaceId: string };
     }
   | {
-      version: typeof A2UI_VERSION | "v1.0";
+      version: typeof A2UI_VERSION;
       /** Runs an app function in the browser, with no user interaction. */
       callRendererFunction: {
         functionCallId: string;
@@ -276,7 +276,7 @@ export interface GenerativeUIUserEvent {
  * the visible user message.
  */
 export interface A2UIActionMessage {
-  version: typeof A2UI_VERSION | "v1.0";
+  version: typeof A2UI_VERSION;
   action: {
     name: string;
     surfaceId: string;
@@ -300,7 +300,7 @@ export interface A2UIActionMessage {
  */
 export function toA2UIActionMessage(
   event: GenerativeUIUserEvent,
-): A2UIActionMessage & { version: typeof A2UI_VERSION } {
+): A2UIActionMessage {
   return {
     version: A2UI_VERSION,
     action: {

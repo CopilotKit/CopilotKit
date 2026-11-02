@@ -26,33 +26,26 @@ export const COPILOTKIT_FORWARDED_PROPS_KEY = "copilotkit";
 /** Version of the envelope shape (not of the UI protocol that it carries). */
 export const COPILOTKIT_UI_ENVELOPE_FORMAT = 3;
 
-/** The capabilities of the A2UI 1.0 renderer. */
-interface CopilotKitUICapabilities {
-  /**
-   * The catalog that the client renders comes first, then the catalogs of
-   * its `extends`. An operation can name any of them.
-   */
-  supportedCatalogIds: string[];
-  inlineCatalogs?: Array<{
-    catalogId: string;
-    protocolVersion: "1.0";
-    /** Not there when the client is set up with `includeCatalog: false`. */
-    components?: Record<string, GenerativeUIComponentManifest>;
-    /** The app functions that are mounted now. */
-    functions: Record<string, GenerativeUIFunctionManifest>;
-    /** The markdown guideline. Only the markdown transport sends it. */
-    instructions?: string;
-  }>;
-}
-
-/**
- * What the client renders and calls, and how the model must write UI.
- * New clients send `1.0`; legacy `v1.0` capabilities remain readable.
- */
-export type CopilotKitUIEnvelope = (
-  | { "1.0": CopilotKitUICapabilities; "v1.0"?: CopilotKitUICapabilities }
-  | { "1.0"?: CopilotKitUICapabilities; "v1.0": CopilotKitUICapabilities }
-) & {
+/** What the client renders and calls, and how the model must write UI. */
+export interface CopilotKitUIEnvelope {
+  /** The A2UI v1.0 renderer capabilities. */
+  "1.0": {
+    /**
+     * The catalog that the client renders comes first, then the catalogs of
+     * its `extends`. An operation can name any of them.
+     */
+    supportedCatalogIds: string[];
+    inlineCatalogs?: Array<{
+      catalogId: string;
+      protocolVersion: "1.0";
+      /** Not there when the client is set up with `includeCatalog: false`. */
+      components?: Record<string, GenerativeUIComponentManifest>;
+      /** The app functions that are mounted now. */
+      functions: Record<string, GenerativeUIFunctionManifest>;
+      /** The markdown guideline. Only the markdown transport sends it. */
+      instructions?: string;
+    }>;
+  };
   metadata: {
     extensions: {
       /** Envelope shape version. */
@@ -70,10 +63,10 @@ export type CopilotKitUIEnvelope = (
       copilotkit_action?: A2UIActionMessage;
     };
   };
-};
+}
 
 type InlineCatalog = NonNullable<
-  CopilotKitUICapabilities["inlineCatalogs"]
+  CopilotKitUIEnvelope["1.0"]["inlineCatalogs"]
 >[number];
 type Extensions = CopilotKitUIEnvelope["metadata"]["extensions"];
 
@@ -156,7 +149,7 @@ function isInlineCatalog(value: unknown): value is InlineCatalog {
   );
 }
 
-function isCapabilities(value: unknown): value is CopilotKitUICapabilities {
+function isCapabilities(value: unknown): value is CopilotKitUIEnvelope["1.0"] {
   return (
     isRecord(value) &&
     Array.isArray(value.supportedCatalogIds) &&
@@ -229,8 +222,7 @@ function isExtensions(value: unknown): value is Extensions {
 function isEnvelope(value: unknown): value is CopilotKitUIEnvelope {
   return (
     isRecord(value) &&
-    isCapabilities("1.0" in value ? value["1.0"] : value["v1.0"]) &&
-    (value["v1.0"] === undefined || isCapabilities(value["v1.0"])) &&
+    isCapabilities(value["1.0"]) &&
     isRecord(value.metadata) &&
     isExtensions(value.metadata.extensions)
   );
@@ -290,8 +282,7 @@ export function readCopilotKitUIEnvelope(forwardedProps: unknown) {
  * ```
  */
 export function envelopeToManifest(envelope: CopilotKitUIEnvelope) {
-  const { supportedCatalogIds, inlineCatalogs } = (envelope["1.0"] ??
-    envelope["v1.0"])!;
+  const { supportedCatalogIds, inlineCatalogs } = envelope["1.0"];
   const catalogId = supportedCatalogIds[0];
   const catalog = inlineCatalogs?.find(
     (entry) => entry.catalogId === catalogId,

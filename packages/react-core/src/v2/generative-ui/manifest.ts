@@ -169,7 +169,7 @@ export function buildGenerativeUIEnvelope(
   runtime: Pick<GenerativeUIRuntime, "ui" | "manager" | "dispatcher">,
   threadId: string | undefined,
   options: GenerativeUIEnvelopeOptions,
-): Extract<CopilotKitUIEnvelope, { "1.0": unknown }> {
+) {
   const { transport, includeCatalog, contextSent, action } = options;
   const manifest = buildGenerativeUIManifest(runtime, threadId);
   // The markdown guideline has only the rule groups that this manifest uses.
