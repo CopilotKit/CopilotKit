@@ -30,7 +30,6 @@
 
 import { processEnv } from "@copilotkit/shared";
 import createPinoLogger from "pino";
-import pretty from "pino-pretty";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -41,23 +40,22 @@ export function createLogger(options?: {
   component?: string;
 }) {
   const { level, component } = options || {};
-  const stream = pretty({ colorize: true });
 
-  const logger = createPinoLogger(
-    {
-      level: processEnv().LOG_LEVEL || level || "error",
-      // Drop `pid` and `hostname` with pino's own `base` switch rather than
-      // with `redact`. pino 9 validates every redact path by calling
-      // `Function(...)`, and edge runtimes such as Cloudflare Workers forbid
-      // code generation from strings. That throws while the logger is being
-      // built, and the validator reports the first path in the array, so the
-      // failure surfaces as the misleading "redact paths array contains an
-      // invalid path (pid)". `base: null` produces identical output and needs
-      // no code generation. See issue #2355.
-      base: null,
-    },
-    stream,
-  );
+  // Plain pino JSON lines on stdout. `pino-pretty` is a dev tool that needs
+  // Node streams, so the runtime does not ship it; pipe the output through
+  // `npx pino-pretty` to read it formatted.
+  const logger = createPinoLogger({
+    level: processEnv().LOG_LEVEL || level || "error",
+    // Drop `pid` and `hostname` with pino's own `base` switch rather than
+    // with `redact`. pino 9 validates every redact path by calling
+    // `Function(...)`, and edge runtimes such as Cloudflare Workers forbid
+    // code generation from strings. That throws while the logger is being
+    // built, and the validator reports the first path in the array, so the
+    // failure surfaces as the misleading "redact paths array contains an
+    // invalid path (pid)". `base: null` produces identical output and needs
+    // no code generation. See issue #2355.
+    base: null,
+  });
 
   if (component) {
     return logger.child({ component });

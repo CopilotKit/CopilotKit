@@ -9,7 +9,6 @@ vi.mock("pino", () => ({
     debug: vi.fn(),
   })),
 }));
-vi.mock("pino-pretty", () => ({ default: vi.fn() }));
 vi.mock("../../../telemetry", () => ({
   telemetry: { capture: vi.fn() },
 }));
