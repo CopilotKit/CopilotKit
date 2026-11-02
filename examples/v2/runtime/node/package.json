@@ -2,6 +2,7 @@
   "name": "@copilotkit/example-runtime-node",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "scripts": {
     "example-dev": "tsx watch src/index.ts",
     "example-build": "tsc",
