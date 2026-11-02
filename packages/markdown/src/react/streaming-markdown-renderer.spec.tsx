@@ -1,9 +1,9 @@
 import { fireEvent, render } from "@testing-library/react";
 import {
   createStreamingMarkdownNodeRenderers,
-  type StreamingMarkdownNodeRenderers,
   StreamingMarkdownRenderer,
 } from "./streaming-markdown-renderer";
+import type { StreamingMarkdownNodeRenderers } from "./streaming-markdown-renderer";
 
 test("StreamingMarkdownRenderer renders markdown blocks and citations from the AST", () => {
   const { container } = render(
