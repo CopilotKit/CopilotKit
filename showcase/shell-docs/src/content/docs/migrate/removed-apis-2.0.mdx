@@ -23,7 +23,8 @@ The codemod makes these changes:
 
 | Your code | Codemod change |
 | --- | --- |
-| `BasicAgent`, `BasicAgentConfiguration`, `createNodeFetchHandler`, `useA2UIStore` | Renames the import and every use in the file |
+| `BasicAgent`, `createNodeFetchHandler`, `useA2UIStore` | Renames the import and every use in the file |
+| `new BuiltInAgent({ model: "openai/gpt-5.5" })` and the same `BasicAgent` call | Rewrites the call to `tanstackAIAgent` and adds the imports |
 | `showDevConsole` on `CopilotKitProvider`, `registry` on `A2UIRenderer` | Deletes the prop |
 | The other removed imports, and `disclaimer` on `CopilotChatView` | Adds a `TODO(copilotkit-2.0)` comment |
 
@@ -31,12 +32,14 @@ The codemod makes these changes:
 
 | Removed | Use |
 | --- | --- |
-| `BasicAgent` | `BuiltInAgent` |
-| `BasicAgentConfiguration` | `BuiltInAgentClassicConfig` |
+| `BasicAgent` | `tanstackAIAgent` from `@copilotkit/runtime/tanstack-ai` |
+| `BasicAgentConfiguration` | `Parameters<typeof tanstackAIAgent>[0]` |
 | `createNodeFetchHandler` from `@copilotkit/runtime/node` | `createCopilotNodeHandler` |
 | `CopilotKitRequestHandler` | `CopilotRuntimeFetchHandler` |
 
-The first three replacements take the same arguments, so the rename is the full change.
+`BasicAgent` took a model string. See [Classic `BuiltInAgent`](#classic-builtinagent) for the new config.
+
+`createCopilotNodeHandler` takes the same arguments as `createNodeFetchHandler`, so the rename is the full change.
 
 `CopilotRuntimeFetchHandler` takes the `Request` directly. Remove the `{ request }` object from each call:
 
@@ -54,6 +57,48 @@ import type { CopilotRuntimeFetchHandler } from "@copilotkit/runtime";
 export function forward(handler: CopilotRuntimeFetchHandler, request: Request) {
   return handler(request);
 }
+```
+
+## Classic `BuiltInAgent`
+
+`new BuiltInAgent({ model: "openai/gpt-5.5" })` throws in 2.0. `BuiltInAgent` takes only a `factory`. Move the config to `tanstackAIAgent`, or to `aiSdkAgent` to stay on the AI SDK. For the steps and the option mapping, see [Classic `BuiltInAgent`](/migrate/runtime-2.0#classic-builtinagent) in the runtime guide.
+
+| Removed | Use |
+| --- | --- |
+| `new BuiltInAgent({ model, ... })` | `tanstackAIAgent({ adapter, ... })` from `@copilotkit/runtime/tanstack-ai`, or `aiSdkAgent({ model, ... })` from `@copilotkit/runtime/ai-sdk` |
+| `BuiltInAgentClassicConfig` | `Parameters<typeof tanstackAIAgent>[0]`, or `AiSdkAgentConfig` from `@copilotkit/runtime/ai-sdk` |
+| String models (`"openai/gpt-5.5"`), `BuiltInAgentModel`, `ModelSpecifier` | A TanStack AI adapter (`openaiText("gpt-5.5")`) or an AI SDK model (`openai("gpt-5.5")`) |
+| `resolveModel`, `classifyModelSpec` | Create the adapter or the model with its provider package |
+| `OverridableProperty` | `TanStackAIOverridableProperty` or `AiSdkOverridableProperty` |
+| `apiKey` | The provider environment variable, or the API key option of the provider package |
+| `mcpClients`, `MCPClientProvider` | `mcpServers`, or the client tools in `tools: (ctx) => ...` |
+| `MCPClient`, `MCPTransport` | Import the types from `@ai-sdk/mcp` |
+| `ctx.learnedSkills.tools` in a factory | `ctx.learnedSkills.definitions` |
+
+The codemod rewrites the `new BuiltInAgent` call. It adds a `TODO(copilotkit-2.0)` comment to `BuiltInAgentClassicConfig`. It does not change the other imports in this table, so TypeScript reports each one.
+
+### AI SDK helpers
+
+These exports moved from `@copilotkit/runtime` to `@copilotkit/runtime/ai-sdk`. Their arguments do not change, so change only the import path:
+
+- `convertMessagesToVercelAISDKMessages` and `MessageConversionOptions`
+- `convertToolsToVercelAITools`
+- `convertToolDefinitionsToVercelAITools`
+- `convertJsonSchemaToZodSchema`
+- `createSafeUrlDownload`, `CreateSafeUrlDownloadOptions`, and `SafeUrlDownloadOptions`
+
+```ts ignore title="Before"
+import { convertMessagesToVercelAISDKMessages } from "@copilotkit/runtime";
+```
+
+```ts title="After"
+import { convertMessagesToVercelAISDKMessages } from "@copilotkit/runtime/ai-sdk";
+```
+
+`@copilotkit/runtime` does not install `ai` or `@ai-sdk/*`. If your code imports them, add them to your app:
+
+```npm
+npm install ai @ai-sdk/openai
 ```
 
 ## React and Vue

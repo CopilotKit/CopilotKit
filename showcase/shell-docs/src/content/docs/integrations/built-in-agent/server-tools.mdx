@@ -4,24 +4,18 @@ icon: "lucide/Wrench"
 description: "Define backend tools for your Built-in Agent."
 ---
 
-## What are Server Tools?
+Your agent needs to read a database, call an internal API, or use a secret that must stay on the server. Give it a server tool: a function on your backend that the model can call.
 
-Server tools are functions that run on your backend that the Built-in Agent can invoke. They're defined using `defineTool()` with Zod schemas for type-safe parameters.
+Use a server tool when:
 
-## When should I use this?
+- The agent must reach databases, APIs, or other backend services.
+- The tool needs server-side secrets or resources.
+- You want the tool input validated against a schema.
 
-- Your agent needs to access databases, APIs, or other backend services
-- You want type-safe tool parameters with validation
-- The tool logic requires server-side secrets or resources
+<Callout type="warn" title="The tool runs on the server. The UI still runs in the browser.">
+`execute` runs on your server, so it can reach secrets, a database, or an internal service. It cannot touch the DOM, component state, or anything else in the page. When the *action* itself belongs in the browser, register it as a [frontend tool](/frontend-tools).
 
-<Callout type="warn" title="The tool runs on the server; the UI still runs in the browser">
-`execute` runs on your server, so it can reach secrets, a database, or an internal service —
-and it cannot touch the DOM, component state, or anything else in the page. When the *action*
-itself belongs in the browser, register it as a [frontend tool](/frontend-tools) instead.
-
-Rendering is separate from executing. A server tool's call still streams to the browser, so
-you can give it UI with a render-only registration under the same tool name while `execute`
-keeps running on the server.
+Rendering is separate from execution. The call of a server tool still streams to the browser. To show UI for it, register a render-only tool under the same name. `execute` keeps running on the server.
 
 <FrontendOnly frontend="react">
 Use [`useFrontendTool`](/frontend-tools) for the browser-side action and `useRenderTool` for
@@ -35,58 +29,70 @@ render-only registration.
 </FrontendOnly>
 </Callout>
 
-## Defining a tool
+## Define a tool
 
-```typescript title="src/copilotkit.ts"
-import { BuiltInAgent, defineTool } from "@copilotkit/runtime";
+Write the tool with `defineTool` from `@copilotkit/runtime`, then pass it in `tools`:
+
+```typescript title="src/tools.ts"
+import { defineTool } from "@copilotkit/runtime";
 import { z } from "zod";
 
-const getWeather = defineTool({
+export const getWeather = defineTool({
   name: "getWeather",
   description: "Get the current weather for a location",
   parameters: z.object({
     location: z.string().describe("The location's name"),
   }),
   execute: async ({ location }) => {
-    // Your implementation here
     return { temperature: 72, condition: "sunny", location };
   },
 });
+```
 
-const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
-  tools: [getWeather],
-  maxSteps: 2                   //Important for tool calls
+<Tabs groupId="agent-sdk" items={['TanStack AI', 'AI SDK']}>
+<Tab value="TanStack AI">
+```typescript title="src/copilotkit.ts"
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
+import { getWeather } from "./tools";
+
+const agent = tanstackAIAgent({
+  adapter: () => openaiText("gpt-5.5"),
+  tools: [getWeather], // [!code highlight]
+});
+```
+</Tab>
+<Tab value="AI SDK">
+```typescript title="src/copilotkit.ts"
+import { aiSdkAgent } from "@copilotkit/runtime/ai-sdk";
+import { openai } from "@ai-sdk/openai";
+import { getWeather } from "./tools";
+
+const agent = aiSdkAgent({
+  model: openai("gpt-5.5"),
+  tools: [getWeather], // [!code highlight]
+  maxSteps: 5, // [!code highlight]
 });
 ```
 
+The AI SDK stops after one model step by default. Set `maxSteps` so that the model can answer after the tool result comes back.
+</Tab>
+</Tabs>
+
+Ask the agent "What is the weather in Paris?". It calls `getWeather` on your server and answers with the result.
+
 <Callout type="warn" title="`parameters` takes a schema validator, not JSON Schema">
-`parameters` must be a Standard Schema v1 validator — Zod, Valibot, ArkType and others
-qualify. Handing it a plain JSON Schema object throws while the tool's schema is being
-converted. The validator is also what gives `execute` its inferred argument type, so a
-hand-written JSON Schema loses that too.
+`parameters` must be a Standard Schema v1 validator, such as Zod, Valibot, or ArkType. A plain JSON Schema object throws when the agent converts the tool. The validator also gives `execute` its argument type.
 </Callout>
 
-## Tool response
+## Several tools
 
-Tools can return any JSON-serializable value. The agent uses the response to continue the conversation.
-
-## Multiple tools
-
-Pass an array of tools — the agent chooses which to call based on the user's request:
-
-<Callout type="warn" title="Two names to avoid">
-`AGUISendStateSnapshot` and `AGUISendStateDelta` are injected for you whenever the Built-in
-Agent makes the model call itself. Defining your own tool under either name replaces the
-built-in one and breaks shared state.
-
-A server tool also wins any name collision with a frontend tool: define `getWeather` on both
-sides and the model only ever sees the server one, so the frontend handler never fires. Give
-each side a distinct name when both need their own.
-</Callout>
+Pass all of them in the array. The model picks the tool that fits the request:
 
 ```typescript title="src/copilotkit.ts"
-import { BuiltInAgent, defineTool } from "@copilotkit/runtime";
+import { defineTool } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
 import { db } from "./db";
 import { search } from "./search";
@@ -117,49 +123,95 @@ const createTicket = defineTool({
   },
 });
 
-const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+const agent = tanstackAIAgent({
+  adapter: () => openaiText("gpt-5.5"),
   tools: [searchDocs, createTicket], // [!code highlight]
-  maxSteps: 2                        
 });
 ```
 
-## Complex Zod schemas
+The agent can chain calls: search first, then create a ticket from the result. TanStack AI allows 5 model turns per run by default. With the AI SDK, set `maxSteps`. See [Advanced Configuration](/advanced-configuration#tool-calling-limit).
 
-Use nested objects, arrays, enums, and optional fields for sophisticated tool parameters:
+<Callout type="warn" title="Two names to avoid">
+The agent adds `AGUISendStateSnapshot` and `AGUISendStateDelta` to every run for shared state. A tool of your own with one of these names replaces the built-in tool and breaks shared state.
 
-```typescript
-import { defineTool } from "@copilotkit/runtime";
+A server tool also replaces a frontend tool with the same name. If you define `getWeather` on both sides, the model sees only the server tool, and the frontend handler never runs. Give each side a different name.
+</Callout>
+
+## Native SDK tools
+
+You can also pass tools in the native format of your SDK, including provider tools such as web search.
+
+<Tabs groupId="agent-sdk" items={['TanStack AI', 'AI SDK']}>
+<Tab value="TanStack AI">
+TanStack AI tools and `defineTool` tools can share one array:
+
+```typescript title="src/copilotkit.ts"
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { toolDefinition } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+import { webSearchTool } from "@tanstack/ai-openai/tools";
 import { z } from "zod";
-import { searchFlights } from "./flights";
+import { getWeather } from "./tools";
 
-const bookFlight = defineTool({
-  name: "bookFlight",
-  description: "Search for and book flights",
-  parameters: z.object({
-    trip: z.object({
-      origin: z.string().describe("Origin airport code (e.g., SFO)"),
-      destination: z.string().describe("Destination airport code (e.g., JFK)"),
-      date: z.string().describe("Departure date in YYYY-MM-DD format"),
-    }),
-    passengers: z.array(
-      z.object({
-        name: z.string(),
-        seatPreference: z.enum(["window", "middle", "aisle"]).optional(),
-      })
-    ).describe("List of passengers"),
-    class: z.enum(["economy", "business", "first"]).default("economy"),
-  }),
-  execute: async ({ trip, passengers, class: seatClass }) => {
-    const flights = await searchFlights(trip, seatClass);
-    return { flights, passengerCount: passengers.length };
-  },
+const getStock = toolDefinition({
+  name: "getStock",
+  description: "Get the stock level of a product",
+  inputSchema: z.object({ sku: z.string() }),
+}).server(async ({ sku }) => ({ sku, inStock: 12 }));
+
+const agent = tanstackAIAgent({
+  adapter: () => openaiText("gpt-5.5"),
+  tools: [getWeather, getStock, webSearchTool({ type: "web_search" })], // [!code highlight]
+});
+```
+</Tab>
+<Tab value="AI SDK">
+Pass an AI SDK `ToolSet` in place of the array:
+
+```typescript title="src/copilotkit.ts"
+import { aiSdkAgent } from "@copilotkit/runtime/ai-sdk";
+import { openai } from "@ai-sdk/openai";
+import { tool } from "ai";
+import { z } from "zod";
+
+const getStock = tool({
+  description: "Get the stock level of a product",
+  inputSchema: z.object({ sku: z.string() }),
+  execute: async ({ sku }) => ({ sku, inStock: 12 }),
+});
+
+const agent = aiSdkAgent({
+  model: openai("gpt-5.5"),
+  tools: { getStock, web_search: openai.tools.webSearch({}) }, // [!code highlight]
+  maxSteps: 5,
 });
 ```
 
-## Error handling
+`tools` takes a `ToolSet` or a `defineTool` array, not both. To use `defineTool` tools in a `ToolSet`, write them with `tool()` from `ai`.
+</Tab>
+</Tabs>
 
-Throw errors or return error objects from your tool — the agent will see the error and can inform the user or try a different approach:
+## Tools for each run
+
+To build the tools from the request, pass a function. It gets the run context and returns the tools for that run:
+
+```typescript title="src/copilotkit.ts"
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
+import { adminTools, userTools } from "./tools";
+
+const agent = tanstackAIAgent({
+  adapter: () => openaiText("gpt-5.5"),
+  tools: ({ input }) => // [!code highlight:2]
+    input.forwardedProps?.role === "admin" ? adminTools : userTools,
+});
+```
+
+`forwardedProps` comes from the browser. Use it only to pick between tool sets that are safe for any user. Do not use it for authorization.
+
+## Errors
+
+If a tool throws, the model sees the error. It can tell the user or try a different approach:
 
 ```typescript
 import { defineTool } from "@copilotkit/runtime";
@@ -183,58 +235,9 @@ const getUser = defineTool({
 ```
 
 <Callout type="warn" title="Return plain data">
-Whatever a tool returns is serialized before the model sees it. A class instance, a circular
-reference, or anything else `JSON.stringify` refuses is replaced by a placeholder string
-naming the tool, and the model reasons over that instead of your data. Return plain objects, arrays and primitives — including for error shapes.
+The agent serializes the return value of a tool before the model sees it. If `JSON.stringify` cannot serialize the value (a class instance or a circular reference), the model gets a placeholder string with the name of the tool. Return plain objects, arrays, and primitives, also for errors.
 </Callout>
 
-## Multi-step tool calling
-
-By default, the agent performs a single step. If your agent needs to chain tool calls (e.g., search first, then create a ticket), set `maxSteps`:
-
-```typescript
-import { BuiltInAgent, defineTool } from "@copilotkit/runtime";
-import { z } from "zod";
-
-const searchDocs = defineTool({
-  name: "searchDocs",
-  description: "Search the documentation",
-  parameters: z.object({ query: z.string() }),
-  execute: async ({ query }) => ({ results: [`Article about ${query}`] }),
-});
-
-const createTicket = defineTool({
-  name: "createTicket",
-  description: "Create a support ticket",
-  parameters: z.object({ title: z.string() }),
-  execute: async ({ title }) => ({ ticketId: "T-1", title }),
-});
-
-const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
-  maxSteps: 5, // [!code highlight]
-  tools: [searchDocs, createTicket],
-});
-```
-
-With `maxSteps: 5`, the agent can:
-1. Call `searchDocs` to find relevant info
-2. Process the result
-3. Call `createTicket` with details from the search
-4. Continue until done (up to 5 iterations)
-
-<Callout type="info">
-See [Advanced Configuration](/advanced-configuration) for more options like `toolChoice`, `temperature`, and `providerOptions`.
-</Callout>
-
-<Callout type="warn" title="A factory ignores the `tools` array">
-Everything on this page describes a Built-in Agent constructed with `model` and `tools`. If
-you build one from a `factory` instead, the `tools` array is not read — the factory owns the
-model call, so it has to pass the tools itself. Convert them with
-`convertToolDefinitionsToVercelAITools` for an AI SDK factory, or the equivalent converter for
-your runner, and pass the result into the call the factory makes.
-</Callout>
-
-<Callout type="info" title="Using a custom backend?">
-  If you're using the [Custom Agent](/backend/custom-agent) instead of `BuiltInAgent`, see the "With Tools" examples for how to wire tools with AI SDK, TanStack AI, or custom backends.
+<Callout type="info" title="Writing the model call yourself?">
+  In a [Custom Agent](/backend/custom-agent) factory, pass your tools to `tanstackAI(ctx, { tools })` or `aiSdk(ctx, { tools })`.
 </Callout>

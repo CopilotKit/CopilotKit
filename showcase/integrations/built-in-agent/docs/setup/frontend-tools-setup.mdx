@@ -1,39 +1,40 @@
 <Steps>
   <Step>
-    ### Nothing to wire in config mode
+    ### Nothing to wire with `tanstackAIAgent`
 
-    A `BuiltInAgent` built from configuration merges the request's tool
+    `tanstackAIAgent` merges the request's tool
     definitions into the tool list it hands the model, so the agent declares
     none of its own. A component registered with `useComponent` reaches the
     model by name with no extra wiring.
 
     ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-    import { BuiltInAgent } from "@copilotkit/runtime/v2";
+    import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+    import { openaiText } from "@tanstack/ai-openai";
 
-    const builtInAgent = new BuiltInAgent({
-      model: "openai:gpt-5.4-mini",
+    const builtInAgent = tanstackAIAgent({
+      adapter: () => openaiText("gpt-5.4-mini"),
       prompt: SYSTEM_PROMPT,
     });
     ```
 
-    Keep the `useComponent` name distinct from every tool in `config.tools`.
-    The runtime layers the configured tools over the forwarded ones, so a
+    Keep the `useComponent` name distinct from every tool in the agent's
+    `tools`. The agent layers its own tools over the forwarded ones, so a
     shared name resolves to the backend tool and the component never renders.
 
   </Step>
   <Step>
     ### In factory mode you pass the tools yourself
 
-    A factory owns the model call, so `BuiltInAgent` ignores `config.tools` and
-    forwards nothing on your behalf. Read the tools off `input` and pass them
+    A factory owns the model call, so `BuiltInAgent` forwards no tools on
+    your behalf. Read the tools off `input` and pass them
     to the model, or the component never renders.
 
     ```ts title="app/api/copilotkit/factory.ts"
+    import { BuiltInAgent } from "@copilotkit/runtime";
     import {
-      BuiltInAgent,
       convertMessagesToVercelAISDKMessages,
       convertToolsToVercelAITools,
-    } from "@copilotkit/runtime/v2";
+    } from "@copilotkit/runtime/ai-sdk";
     import { openai } from "@ai-sdk/openai";
     import { streamText } from "ai";
 

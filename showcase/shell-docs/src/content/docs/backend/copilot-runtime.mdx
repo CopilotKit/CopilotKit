@@ -118,10 +118,10 @@ see [Runtime HTTP endpoints](/backend/runtime-endpoints).
 
 ## Agents
 
-The runtime supports multiple agent types. `BuiltInAgent` is the primary agent class:
+The runtime supports multiple agent types. The built-in agent calls the model from inside your runtime:
 
-- **Simple mode:** pass a model string and let CopilotKit handle the rest. Best for quick setup. See [Quickstart](/quickstart).
-- **Factory mode:** bring your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/backend/custom-agent).
+- **Built-in agent:** `tanstackAIAgent` from `@copilotkit/runtime/tanstack-ai` (or `aiSdkAgent` from `@copilotkit/runtime/ai-sdk`). Pass a model adapter and let CopilotKit handle the rest. Best for quick setup. See [Quickstart](/quickstart).
+- **Factory mode:** `new BuiltInAgent({ type, factory })` with your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/backend/custom-agent).
 
 To register agent logic you wrote yourself, extend AG-UI's `AbstractAgent`. See [Write your own AG-UI agent](/backend/custom-ag-ui-agent).
 
@@ -156,12 +156,14 @@ for a single-user surface.
 If you register an agent under the name `"default"`, CopilotKit's prebuilt UI components will use it automatically without any additional configuration on the frontend. This is useful when you have one primary agent and don't want to specify an `agentId` everywhere.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
     // Frontend components use this agent unless given another agentId.
-    default: new BuiltInAgent({ model: "openai:gpt-4.1" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4.1") }),
   },
 });
 ```
@@ -246,9 +248,11 @@ The runtime exposes two first-class middleware options you can enable directly o
 Pass `a2ui: {}` to automatically apply `A2UIMiddleware` to all registered agents:
 
 ```ts title="app/api/copilotkit/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
-const myAgent = new BuiltInAgent({ model: "openai/gpt-4o-mini" });
+const myAgent = tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") });
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
@@ -259,9 +263,11 @@ const runtime = new CopilotRuntime({
 To scope it to specific agents only, pass an `agents` list:
 
 ```ts title="app/api/copilotkit/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
-const myAgent = new BuiltInAgent({ model: "openai/gpt-4o-mini" });
+const myAgent = tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") });
 
 const runtime = new CopilotRuntime({
   agents: { "my-agent": myAgent },
@@ -319,9 +325,11 @@ export const appConfig: ApplicationConfig = {
 Pass `mcpApps` to configure MCP servers for all agents from a single place:
 
 ```ts title="app/api/copilotkit/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
-const myAgent = new BuiltInAgent({ model: "openai/gpt-4o-mini" });
+const myAgent = tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") });
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
@@ -363,9 +371,11 @@ Headers you set on an agent (e.g. `new HttpAgent({ headers: { Authorization: "Be
 Pass `forwardHeaders` to `CopilotRuntime` to tune what forwards:
 
 ```ts title="app/api/copilotkit/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
-const myAgent = new BuiltInAgent({ model: "openai/gpt-4o-mini" });
+const myAgent = tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") });
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
@@ -386,9 +396,11 @@ The options:
 Empty or whitespace-only entries are ignored in every list.
 
 ```ts title="app/api/copilotkit/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
-const myAgent = new BuiltInAgent({ model: "openai/gpt-4o-mini" });
+const myAgent = tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") });
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },

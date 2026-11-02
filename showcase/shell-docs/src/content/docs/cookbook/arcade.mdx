@@ -136,11 +136,12 @@ tool's parameter names to the Arcade tool's own schema, or unknown params are si
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
   defineTool,
 } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
 import { getArcadeUserId, runArcadeTool } from "@/lib/arcade";
 
@@ -190,12 +191,11 @@ Before sending email, confirm the recipient and subject in one line. Keep replie
 tool cards show the details.`;
 
 function buildAgent(userId: string) {
-  return new BuiltInAgent({
-    model: process.env.OPENAI_MODEL || "openai/gpt-4o",
-    apiKey: process.env.OPENAI_API_KEY,
+  return tanstackAIAgent({
+    adapter: () => openaiText("gpt-4o"), // reads OPENAI_API_KEY
     prompt: SYSTEM_PROMPT,
     tools: buildTools(userId),
-    maxSteps: 6, // > 1 so the agent can call a tool and then respond
+    maxIterations: 6, // > 1 so the agent can call a tool and then respond
   });
 }
 
