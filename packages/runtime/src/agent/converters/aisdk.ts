@@ -17,12 +17,22 @@ import type {
 import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 import { createStateEventNormalizer } from "../state-delta";
-import { aggregateRunUsage, getTokenCount, tokenCountKeys } from "./usage";
+import {
+  aggregateRunUsage,
+  getTokenCount,
+  isRecord,
+  tokenCountKeys,
+} from "./usage";
 import type { AgentRunFinishedDetails, AgentRunUsage } from "./usage";
 
 /**
  * Reads aggregate usage from an AI SDK finish part without inventing values
  * when a provider omits a token count.
+ *
+ * Works with `ai` v6 and v7. v6 sets the deprecated top-level
+ * `reasoningTokens` / `cachedInputTokens`; v7 removed them, so those two
+ * counts fall back to `outputTokenDetails.reasoningTokens` and
+ * `inputTokenDetails.cacheReadTokens`.
  */
 export function getAISDKRunFinishedDetails(
   part: Record<string, unknown>,
@@ -34,19 +44,28 @@ export function getAISDKRunFinishedDetails(
     details.metadata = { finishReason: part.finishReason };
   }
 
-  if (
-    part.totalUsage === null ||
-    typeof part.totalUsage !== "object" ||
-    Array.isArray(part.totalUsage)
-  ) {
+  const totalUsage = part.totalUsage;
+  if (!isRecord(totalUsage)) {
     return details;
   }
 
-  const totalUsage = part.totalUsage as Record<string, unknown>;
+  const outputDetails = isRecord(totalUsage.outputTokenDetails)
+    ? totalUsage.outputTokenDetails
+    : {};
+  const inputDetails = isRecord(totalUsage.inputTokenDetails)
+    ? totalUsage.inputTokenDetails
+    : {};
+  const usage = {
+    ...totalUsage,
+    reasoningTokens:
+      totalUsage.reasoningTokens ?? outputDetails.reasoningTokens,
+    cachedInputTokens:
+      totalUsage.cachedInputTokens ?? inputDetails.cacheReadTokens,
+  };
   const counts: AgentRunUsage = {};
 
   for (const key of tokenCountKeys) {
-    const value = getTokenCount(totalUsage[key]);
+    const value = getTokenCount(usage[key]);
     if (value !== undefined) {
       counts[key] = value;
     }
@@ -329,6 +348,13 @@ export async function* convertAISDKStream(
           // was called. The preceding "tool-call" part already streamed the
           // tool name + args; this part carries the toolCallId to pause on.
           // (Some shapes nest the call under `toolCall` — read both.)
+          //
+          // AI SDK v7 also emits this part with `isAutomatic: true` when a
+          // tool approval policy approved or denied the call without a human.
+          // A `tool-approval-response` and the tool result (or
+          // `tool-output-denied`) follow in the same run, so it is not an
+          // interrupt.
+          if (p.isAutomatic === true) break;
           const nested = (p.toolCall ?? {}) as {
             toolCallId?: string;
             toolName?: string;
@@ -512,13 +538,18 @@ export async function* convertAISDKStream(
         // These AI SDK fullStream parts carry metadata that has no AG-UI event
         // equivalent. They are known and intentionally ignored; listing them
         // keeps the default's warning for genuinely new parts.
+        // `custom`, `reasoning-file`, and `tool-approval-response` are AI SDK
+        // v7 additions.
         case "start":
         case "start-step":
         case "finish-step":
         case "text-end":
         case "source":
         case "file":
+        case "reasoning-file":
+        case "custom":
         case "tool-output-denied":
+        case "tool-approval-response":
         case "raw":
           break;
 
