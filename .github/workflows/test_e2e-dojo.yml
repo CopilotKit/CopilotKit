@@ -338,8 +338,9 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=8192
           BASE_URL: http://localhost:9999
           PLAYWRIGHT_SUITE: ${{ matrix.suite }}
+          TEST_PATH: ${{ matrix.test_path }}
         run: |
-          pnpm test -- ${{ matrix.test_path }}
+          pnpm test "$TEST_PATH"
 
       - name: Upload traces – ${{ matrix.suite }}
         if: always() && steps.should-run.outputs.skip != 'true'
