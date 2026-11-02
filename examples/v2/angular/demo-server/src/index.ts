@@ -2,14 +2,16 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime";
-import { createOpenAI } from "@ai-sdk/openai";
+import { anthropicText } from "@tanstack/ai-anthropic";
+import { geminiText } from "@tanstack/ai-gemini";
+import { openaiText } from "@tanstack/ai-openai";
+import { openaiCompatibleText } from "@tanstack/ai-openai/compatible";
 import { SlowToolCallStreamingAgent } from "@copilotkit/demo-agents";
 import { A2UIDashboardAgent } from "./agents/a2ui-dashboard.js";
 import { A2UIRecoveryAgent } from "./agents/a2ui-recovery.js";
@@ -20,7 +22,7 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_OPENROUTER_MODEL = "anthropic/claude-opus-4-8";
 const DEFAULT_OPENROUTER_MAX_OUTPUT_TOKENS = 16_384;
 
-function determineOpenRouterModelId(): string {
+function determineOpenRouterModelId() {
   const configuredModel = process.env.OPENROUTER_MODEL?.trim();
 
   if (!configuredModel) {
@@ -34,11 +36,7 @@ function determineOpenRouterModelId(): string {
   return `openai/${configuredModel}`;
 }
 
-function determineMaxOutputTokens(): number | undefined {
-  if (!openRouterApiKey) {
-    return undefined;
-  }
-
+function determineOpenRouterMaxTokens() {
   const configuredLimit = Number(
     process.env.OPENROUTER_MAX_OUTPUT_TOKENS?.trim(),
   );
@@ -50,46 +48,40 @@ function determineMaxOutputTokens(): number | undefined {
   return DEFAULT_OPENROUTER_MAX_OUTPUT_TOKENS;
 }
 
-function determineModel(): BuiltInAgentClassicConfig["model"] {
+function determineAdapter() {
   if (openRouterApiKey) {
-    const openrouter = createOpenAI({
+    return openaiCompatibleText(determineOpenRouterModelId(), {
+      name: "openrouter",
       apiKey: openRouterApiKey,
       baseURL: process.env.OPENROUTER_BASE_URL?.trim() || OPENROUTER_BASE_URL,
     });
-
-    return openrouter(determineOpenRouterModelId());
   }
   if (openAIApiKey) {
-    return "openai/gpt-5.2";
+    return openaiText("gpt-5.2");
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
-    return "anthropic/claude-opus-4-8";
+    return anthropicText("claude-opus-4-8");
   }
   if (process.env.GOOGLE_API_KEY?.trim()) {
-    return "google/gemini-3.8-flash";
+    return geminiText("gemini-3.8-flash");
   }
-  return "openai/gpt-5.2";
+  return openaiText("gpt-5.2");
 }
 
-const builtInAgent = new BuiltInAgent({
-  model: determineModel(),
-  maxOutputTokens: determineMaxOutputTokens(),
+const builtInAgent = tanstackAIAgent({
+  adapter: determineAdapter(),
   prompt:
     "You are a helpful AI assistant. Use reasoning to answer the user's question. If you don't know the answer, say you don't know.",
-  providerOptions: {
-    ...(openAIApiKey
-      ? { openai: { reasoningEffort: "high", reasoningSummary: "detailed" } }
-      : {}),
-    ...(!openAIApiKey &&
-      !openRouterApiKey &&
-      !!process.env.ANTHROPIC_API_KEY?.trim() && {
-        anthropic: { thinking: { type: "adaptive" } },
-      }),
-  },
+  // OpenRouter speaks the Chat Completions API, so its limit is `max_tokens`.
+  // Other providers think hard and stream the reasoning summary: TanStack AI
+  // maps the level to each provider's own reasoning setting.
+  ...(openRouterApiKey
+    ? { modelOptions: { max_tokens: determineOpenRouterMaxTokens() } }
+    : { reasoning: "high" }),
 });
 
 // --- MCP Apps ---------------------------------------------------------------
-// Same scope as the React demo (examples/v2/react/demo): a BuiltInAgent wrapped in
+// Same scope as the React demo (examples/v2/react/demo): a TanStack AI agent wrapped in
 // MCPAppsMiddleware, pointed at the same ext-apps servers, so the Angular host
 // renders the same widgets.
 //
@@ -97,10 +89,10 @@ const builtInAgent = new BuiltInAgent({
 // page. Angular resolves `provideCopilotKit` from the root injector, so a
 // lazy-route override never takes effect; the agent is therefore registered by
 // name on the existing runtime and the page selects it with `[agentId]`.
-const mcpAgent = new BuiltInAgent({
-  model: determineModel(),
+const mcpAgent = tanstackAIAgent({
+  adapter: determineAdapter(),
   prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
-  temperature: 0.7,
+  modelOptions: { temperature: 0.7 },
 }).use(
   new MCPAppsMiddleware({
     // Port assignments - verified by checking each server's tools

@@ -2,7 +2,9 @@ import express from "express";
 import dotenv from "dotenv";
 import { z } from "zod";
 import type { ToolDefinition } from "@copilotkit/runtime";
-import { CopilotRuntime, BuiltInAgent, defineTool } from "@copilotkit/runtime";
+import { CopilotRuntime, defineTool } from "@copilotkit/runtime";
+import { openaiText } from "@tanstack/ai-openai";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 dotenv.config();
@@ -21,8 +23,8 @@ const roastTool = defineTool({
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({
-      model: "openai/gpt-5-mini",
+    default: tanstackAIAgent({
+      adapter: openaiText("gpt-5-mini"),
       tools: [roastTool],
     }),
   },

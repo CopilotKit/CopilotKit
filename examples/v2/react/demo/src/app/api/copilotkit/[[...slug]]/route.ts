@@ -2,10 +2,12 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-  BuiltInAgent,
 } from "@copilotkit/runtime";
-import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime";
-import { createOpenAI } from "@ai-sdk/openai";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { anthropicText } from "@tanstack/ai-anthropic";
+import { geminiText } from "@tanstack/ai-gemini";
+import { openaiText } from "@tanstack/ai-openai";
+import { openaiCompatibleText } from "@tanstack/ai-openai/compatible";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 
@@ -18,42 +20,34 @@ const determineOpenRouterModelId = () => {
   return process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL;
 };
 
-const determineModel = (): BuiltInAgentClassicConfig["model"] => {
+const determineAdapter = () => {
   if (openRouterApiKey) {
-    const openrouter = createOpenAI({
+    return openaiCompatibleText(determineOpenRouterModelId(), {
+      name: "openrouter",
       apiKey: openRouterApiKey,
       baseURL: process.env.OPENROUTER_BASE_URL?.trim() || OPENROUTER_BASE_URL,
     });
-
-    return openrouter(determineOpenRouterModelId());
   }
   if (openAIApiKey) {
-    return "openai/gpt-5.2";
+    return openaiText("gpt-5.2");
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
     // Claude Opus 4.8 supports adaptive thinking
-    return "anthropic/claude-opus-4-8";
+    return anthropicText("claude-opus-4-8");
   }
   if (process.env.GOOGLE_API_KEY?.trim()) {
-    return "google/gemini-3.8-flash";
+    return geminiText("gemini-3.8-flash");
   }
-  return "openai/gpt-5.2";
+  return openaiText("gpt-5.2");
 };
 
-const builtInAgent = new BuiltInAgent({
-  model: determineModel(),
+const builtInAgent = tanstackAIAgent({
+  adapter: determineAdapter(),
   prompt:
     "You are a helpful AI assistant. Use reasoning to answer the user's question. If you don't know the answer, say you don't know.",
-  providerOptions: {
-    ...(openAIApiKey
-      ? { openai: { reasoningEffort: "high", reasoningSummary: "detailed" } }
-      : {}),
-    ...(!openAIApiKey &&
-      !openRouterApiKey &&
-      !!process.env.ANTHROPIC_API_KEY?.trim() && {
-        anthropic: { thinking: { type: "adaptive" } },
-      }),
-  },
+  // Think hard and stream the reasoning summary. TanStack AI maps the level
+  // to each provider's own reasoning setting. OpenRouter models get none.
+  ...(!openRouterApiKey && { reasoning: "high" }),
 });
 
 // Set up transcription service if OpenAI API key is available

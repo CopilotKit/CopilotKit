@@ -21,9 +21,9 @@ and `ProductCard` components:
 />
 ```
 
-The agent is a TanStack AI agent (`BuiltInAgent` with `type: 'tanstack'`). It
-has server tools that read the catalog from SQLite through Prisma
-(`searchProducts`, `getProducts`, and more). The agent copies the product data
+The agent is a TanStack AI agent (`tanstackAIAgent` from
+`@copilotkit/runtime/tanstack-ai`). It has server tools that read the catalog
+from SQLite through Prisma (`searchProducts`, `getProducts`, and more). The agent copies the product data
 from the tool results into the props of each card. The browser does not fetch
 product data.
 

@@ -8,7 +8,9 @@
     "example-start": "node dist/index.js"
   },
   "dependencies": {
-    "@copilotkit/runtime": "workspace:^"
+    "@copilotkit/runtime": "workspace:^",
+    "@tanstack/ai": "^1.0.1",
+    "@tanstack/ai-openai": "^1.0.1"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",

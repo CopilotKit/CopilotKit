@@ -1,23 +1,22 @@
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
 import { LangGraphHttpAgent } from "@ag-ui/langgraph";
+import { openaiText } from "@tanstack/ai-openai";
 
-if (!process.env.OPENAI_API_KEY) {
-  console.warn(
-    "[copilotkit] OPENAI_API_KEY is not set. Chat turns will fail until you set it in .env.local and restart the dev server.",
-  );
-}
+// openaiText reads OPENAI_API_KEY when this module loads. If the key is not
+// set, the route fails with an error that names it. Set it in .env.local and
+// restart the dev server.
 
 // The built-in agent needs no generative UI setup. With the markdown
 // transport the provider sends the component schema and the fence guideline
 // as context. With the tool transport the runtime gives the agent the
 // render_ui tool. The prompt stays neutral so both transports work.
-const builtIn = new BuiltInAgent({
-  model: process.env.COPILOTKIT_MODEL ?? "openai/gpt-5.4",
+const builtIn = tanstackAIAgent({
+  adapter: openaiText("gpt-5.5"),
   prompt:
     "You are a helpful assistant. When a visual, interactive answer helps, render it with generative UI as described in your context.",
 });

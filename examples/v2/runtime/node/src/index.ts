@@ -2,13 +2,14 @@ import { createServer } from "node:http";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-  BuiltInAgent,
 } from "@copilotkit/runtime";
 import { createCopilotNodeHandler } from "@copilotkit/runtime/node";
+import { openaiText } from "@tanstack/ai-openai";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+    default: tanstackAIAgent({ adapter: openaiText("gpt-5-mini") }),
   },
 });
 

@@ -13,6 +13,8 @@
     "@ag-ui/langgraph": "0.0.44",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
+    "@tanstack/ai": "^1.0.1",
+    "@tanstack/ai-openai": "^1.0.1",
     "next": "15.5.15",
     "react": "19.1.0",
     "react-dom": "19.1.0"

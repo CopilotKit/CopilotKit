@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@copilotkit/runtime": "workspace:^",
-    "@hono/node-server": "^1.13.6"
+    "@hono/node-server": "^1.13.6",
+    "@tanstack/ai": "^1.0.1",
+    "@tanstack/ai-openai": "^1.0.1"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",

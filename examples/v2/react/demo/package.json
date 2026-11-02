@@ -14,7 +14,6 @@
   "dependencies": {
     "@ag-ui/client": "1.0.2",
     "@ag-ui/mcp-apps-middleware": "0.0.2",
-    "@ai-sdk/openai": "3.0.36",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/learning": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
@@ -22,6 +21,10 @@
     "@copilotkit/shared": "workspace:*",
     "@copilotkit/voice": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.18.2",
+    "@tanstack/ai": "^1.0.1",
+    "@tanstack/ai-anthropic": "^1.0.0",
+    "@tanstack/ai-gemini": "^1.0.1",
+    "@tanstack/ai-openai": "^1.0.1",
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "next": "15.5.15",

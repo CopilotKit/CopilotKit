@@ -1,26 +1,26 @@
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import {
-  BuiltInAgent,
-  CopilotRuntime,
-  InMemoryAgentRunner,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
+import { anthropicText } from "@tanstack/ai-anthropic";
+import { geminiText } from "@tanstack/ai-gemini";
+import { openaiText } from "@tanstack/ai-openai";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable } from "rxjs";
 
-const determineModel = () => {
+const determineAdapter = () => {
   if (process.env.OPENAI_API_KEY?.trim()) {
-    return "openai/gpt-5-mini";
+    return openaiText("gpt-5-mini");
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
-    return "anthropic/claude-sonnet-4-6";
+    return anthropicText("claude-sonnet-4-6");
   }
   if (process.env.GOOGLE_API_KEY?.trim()) {
-    return "google/gemini-3.8-flash";
+    return geminiText("gemini-3.8-flash");
   }
-  return "openai/gpt-5-mini";
+  return openaiText("gpt-5-mini");
 };
 
 const createTranscriptionService = () => {
@@ -158,10 +158,10 @@ class DemoButtonAgent extends AbstractAgent {
 export const createDefaultRuntime = () =>
   new CopilotRuntime({
     agents: {
-      default: new BuiltInAgent({
-        model: determineModel(),
+      default: tanstackAIAgent({
+        adapter: determineAdapter(),
         prompt: "You are a helpful AI assistant.",
-        temperature: 0.7,
+        modelOptions: { temperature: 0.7 },
       }),
       "demo-button": new DemoButtonAgent(),
     },
@@ -185,10 +185,10 @@ export const createCatalogOnlyRuntime = () =>
   });
 
 export const createMcpRuntime = () => {
-  const agent = new BuiltInAgent({
-    model: determineModel(),
+  const agent = tanstackAIAgent({
+    adapter: determineAdapter(),
     prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
-    temperature: 0.7,
+    modelOptions: { temperature: 0.7 },
   }).use(
     new MCPAppsMiddleware({
       mcpServers: [

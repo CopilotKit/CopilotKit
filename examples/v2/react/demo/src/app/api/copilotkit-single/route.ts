@@ -2,28 +2,31 @@ import {
   CopilotRuntime,
   InMemoryAgentRunner,
   createCopilotRuntimeHandler,
-  BuiltInAgent,
 } from "@copilotkit/runtime";
+import { anthropicText } from "@tanstack/ai-anthropic";
+import { geminiText } from "@tanstack/ai-gemini";
+import { openaiText } from "@tanstack/ai-openai";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 
-const determineModel = () => {
+const determineAdapter = () => {
   if (process.env.OPENAI_API_KEY?.trim()) {
-    return "openai/gpt-5-mini";
+    return openaiText("gpt-5-mini");
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
-    return "anthropic/claude-sonnet-4-6";
+    return anthropicText("claude-sonnet-4-6");
   }
   if (process.env.GOOGLE_API_KEY?.trim()) {
-    return "google/gemini-3.8-flash";
+    return geminiText("gemini-3.8-flash");
   }
-  return "openai/gpt-5-mini";
+  return openaiText("gpt-5-mini");
 };
 
-const agent = new BuiltInAgent({
-  model: determineModel(),
+const agent = tanstackAIAgent({
+  adapter: determineAdapter(),
   prompt: "You are a helpful AI assistant.",
-  temperature: 0.7,
+  modelOptions: { temperature: 0.7 },
 });
 
 // Set up transcription service if OpenAI API key is available
