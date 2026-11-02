@@ -49,7 +49,6 @@ export default defineConfig({
         // declared") and risks double custom-element registration.
         /^@copilotkit\/web-components(\/.*)?$/,
         "zod",
-        "zod-to-json-schema",
       ],
       output: {
         globals: { vue: "Vue" },

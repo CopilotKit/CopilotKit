@@ -93,7 +93,7 @@
     "lucide": "^0.525.0",
     "recharts": "^3.1.0",
     "use-stick-to-bottom": "^1.1.1",
-    "zod-to-json-schema": "^3.24.5"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "esbuild": "^0.27.0",
@@ -119,15 +119,14 @@
     "typescript": "^5.2.3",
     "valibot": "^1.2.0",
     "vitest": "^3.2.4",
-    "zod": ">=3.0.0",
     "@playwright/test": "^1.59.1",
-    "rxjs": "7.8.1"
+    "rxjs": "7.8.1",
+    "zod-v3": "npm:zod@^3.25.76"
   },
   "peerDependencies": {
     "maplibre-gl": "^5.0.0",
     "react": "^18 || ^19 || ^19.0.0-rc",
-    "react-dom": "^18 || ^19 || ^19.0.0-rc",
-    "zod": ">=3.25"
+    "react-dom": "^18 || ^19 || ^19.0.0-rc"
   },
   "peerDependenciesMeta": {
     "maplibre-gl": {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, act } from "@testing-library/react";
-import { z } from "zod";
+import { z } from "zod-v3";
 import { Catalog } from "@copilotkit/a2ui-renderer";
 
 // `@a2ui/web_core` is not a direct dependency of react-core, so we mirror the

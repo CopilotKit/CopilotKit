@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import type { Parameter } from "@copilotkit/shared";
 import {
   convertJsonSchemaToZodSchema,
@@ -24,8 +23,8 @@ describe("convertJsonSchemaToZodSchema", () => {
     });
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
-    const resultSchemaJson = zodToJsonSchema(result);
-    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+    const resultSchemaJson = z.toJSONSchema(result);
+    const expectedSchemaJson = z.toJSONSchema(expectedSchema);
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
@@ -56,8 +55,8 @@ describe("convertJsonSchemaToZodSchema", () => {
     });
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
-    const resultSchemaJson = zodToJsonSchema(result);
-    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+    const resultSchemaJson = z.toJSONSchema(result);
+    const expectedSchemaJson = z.toJSONSchema(expectedSchema);
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
@@ -79,8 +78,8 @@ describe("convertJsonSchemaToZodSchema", () => {
     });
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
-    const resultSchemaJson = zodToJsonSchema(result);
-    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+    const resultSchemaJson = z.toJSONSchema(result);
+    const expectedSchemaJson = z.toJSONSchema(expectedSchema);
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
@@ -103,8 +102,8 @@ describe("convertJsonSchemaToZodSchema", () => {
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, false);
 
-    const resultSchemaJson = zodToJsonSchema(result);
-    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+    const resultSchemaJson = z.toJSONSchema(result);
+    const expectedSchemaJson = z.toJSONSchema(expectedSchema);
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
@@ -127,8 +126,8 @@ describe("convertJsonSchemaToZodSchema", () => {
     });
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
-    const resultSchemaJson = zodToJsonSchema(result);
-    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+    const resultSchemaJson = z.toJSONSchema(result);
+    const expectedSchemaJson = z.toJSONSchema(expectedSchema);
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
@@ -141,8 +140,8 @@ describe("convertJsonSchemaToZodSchema", () => {
     const expectedSchema = z.object({});
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
-    const resultSchemaJson = zodToJsonSchema(result);
-    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+    const resultSchemaJson = z.toJSONSchema(result);
+    const expectedSchemaJson = z.toJSONSchema(expectedSchema);
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
@@ -161,8 +160,8 @@ describe("convertJsonSchemaToZodSchema", () => {
     };
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
     const statusSchema = (result as z.ZodObject<any>).shape.status;
-    expect(statusSchema._def.typeName).toBe("ZodEnum");
-    expect(statusSchema._def.values).toEqual(["todo", "done"]);
+    expect(statusSchema).toBeInstanceOf(z.ZodEnum);
+    expect(statusSchema.options).toEqual(["todo", "done"]);
   });
 
   it("should handle null-union type ['string', 'null'] as nullable", () => {
@@ -222,8 +221,8 @@ describe("convertJsonSchemaToZodSchema", () => {
       .optional();
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, false);
-    const resultSchemaJson = zodToJsonSchema(result);
-    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+    const resultSchemaJson = z.toJSONSchema(result);
+    const expectedSchemaJson = z.toJSONSchema(expectedSchema);
 
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
@@ -249,7 +248,7 @@ describe("convertJsonSchemaToZodSchema", () => {
     };
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
-    const resultJson = zodToJsonSchema(result);
+    const resultJson = z.toJSONSchema(result);
 
     const expectedSchema = z.object({
       address: z
@@ -259,7 +258,7 @@ describe("convertJsonSchemaToZodSchema", () => {
         })
         .describe("A postal address"),
     });
-    const expectedJson = zodToJsonSchema(expectedSchema);
+    const expectedJson = z.toJSONSchema(expectedSchema);
 
     expect(resultJson).toStrictEqual(expectedJson);
   });
@@ -304,12 +303,12 @@ describe("convertJsonSchemaToZodSchema", () => {
     // Inside root, "value" should be a string and "child" should be z.any()
     // (child is optional since it's not in required[], so unwrap ZodOptional)
     const rootShape = (shape.root as z.ZodObject<any>).shape;
-    expect(rootShape.value._def.typeName).toBe("ZodString");
-    const childDef = rootShape.child._def;
-    if (childDef.typeName === "ZodOptional") {
-      expect(childDef.innerType._def.typeName).toBe("ZodAny");
+    expect(rootShape.value).toBeInstanceOf(z.ZodString);
+    const child = rootShape.child;
+    if (child instanceof z.ZodOptional) {
+      expect(child.unwrap()).toBeInstanceOf(z.ZodAny);
     } else {
-      expect(childDef.typeName).toBe("ZodAny");
+      expect(child).toBeInstanceOf(z.ZodAny);
     }
 
     warnSpy.mockRestore();
@@ -344,8 +343,8 @@ describe("convertJsonSchemaToZodSchema", () => {
     const shape = (result as z.ZodObject<any>).shape;
 
     // Both should be fully resolved objects, NOT z.any()
-    expect(shape.billing._def.typeName).toBe("ZodObject");
-    expect(shape.shipping._def.typeName).toBe("ZodObject");
+    expect(shape.billing).toBeInstanceOf(z.ZodObject);
+    expect(shape.shipping).toBeInstanceOf(z.ZodObject);
 
     // No circular-ref warning should have been emitted
     expect(warnSpy).not.toHaveBeenCalled();
@@ -392,8 +391,8 @@ describe("convertJsonSchemaToZodSchema", () => {
     ).shape;
 
     // Both first and second should be fully resolved Leaf objects
-    expect(wrapperShape.first._def.typeName).toBe("ZodObject");
-    expect(wrapperShape.second._def.typeName).toBe("ZodObject");
+    expect(wrapperShape.first).toBeInstanceOf(z.ZodObject);
+    expect(wrapperShape.second).toBeInstanceOf(z.ZodObject);
 
     // No circular-ref warning should have been emitted
     expect(warnSpy).not.toHaveBeenCalled();
@@ -430,7 +429,7 @@ describe("convertJsonSchemaToZodSchema", () => {
 
     // Should produce a union inside the "pet" property
     const petSchema = (result as z.ZodObject<any>).shape.pet;
-    expect(petSchema._def.typeName).toBe("ZodUnion");
+    expect(petSchema).toBeInstanceOf(z.ZodUnion);
   });
 
   it("should handle integer type as z.number()", () => {
@@ -444,7 +443,7 @@ describe("convertJsonSchemaToZodSchema", () => {
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
     const shape = (result as z.ZodObject<any>).shape;
-    expect(shape.count._def.typeName).toBe("ZodNumber");
+    expect(shape.count).toBeInstanceOf(z.ZodNumber);
   });
 
   it("should handle null type", () => {
@@ -458,7 +457,7 @@ describe("convertJsonSchemaToZodSchema", () => {
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
     const shape = (result as z.ZodObject<any>).shape;
-    expect(shape.empty._def.typeName).toBe("ZodNull");
+    expect(shape.empty).toBeInstanceOf(z.ZodNull);
   });
 
   it("should warn and return z.any() for unsupported schema types", () => {
@@ -467,7 +466,7 @@ describe("convertJsonSchemaToZodSchema", () => {
     const jsonSchema = { type: "custom_unsupported" };
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
 
-    expect(result._def.typeName).toBe("ZodAny");
+    expect(result).toBeInstanceOf(z.ZodAny);
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining(
         'Unsupported JSON schema type "custom_unsupported"',
@@ -480,8 +479,8 @@ describe("convertJsonSchemaToZodSchema", () => {
 
 describe("getZodParameters", () => {
   it("returns an empty object schema without parameters", () => {
-    expect(zodToJsonSchema(getZodParameters(undefined))).toStrictEqual(
-      zodToJsonSchema(z.object({})),
+    expect(z.toJSONSchema(getZodParameters(undefined))).toStrictEqual(
+      z.toJSONSchema(z.object({})),
     );
   });
 

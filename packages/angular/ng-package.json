@@ -16,7 +16,6 @@
     "@copilotkit/web-components",
     "@copilotkit/web-inspector",
     "zod",
-    "zod-to-json-schema",
     "katex",
     "marked",
     "dompurify"

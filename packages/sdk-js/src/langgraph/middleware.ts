@@ -134,11 +134,13 @@ type WithJsonSchema<T> = T extends { "~standard": infer S }
  * `getJsonSchemaFromSchema` (called from `StateSchema.getJsonSchema`)
  * can serialize the field.
  *
- * Without this, Zod v4 fields carry `~standard.validate` + `vendor` only,
- * and `isStandardJSONSchema()` returns false, so the field is silently
- * dropped from the graph's `output_schema`. That makes AG-UI
- * `STATE_SNAPSHOT` events filter the field out of the payload sent to
- * the frontend even though the underlying thread state has the value.
+ * Zod 4.2+ schemas already implement `~standard.jsonSchema` and are
+ * returned unchanged. A Standard Schema without that hook carries
+ * `~standard.validate` + `vendor` only, so `isStandardJSONSchema()` returns
+ * false and the field is silently dropped from the graph's `output_schema`.
+ * That makes AG-UI `STATE_SNAPSHOT` events filter the field out of the
+ * payload sent to the frontend even though the underlying thread state has
+ * the value.
  *
  * Use this on any custom state field you want visible to the frontend
  * via `useAgent().state.*`.

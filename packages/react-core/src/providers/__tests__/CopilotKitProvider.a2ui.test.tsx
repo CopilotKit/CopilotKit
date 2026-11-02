@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
-import { z } from "zod";
+import { z } from "zod-v3";
 import {
   A2UI_SCHEMA_CONTEXT_DESCRIPTION,
   buildCatalogContextValue,

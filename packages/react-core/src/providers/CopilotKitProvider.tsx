@@ -33,7 +33,6 @@ import {
 import type { CopilotKitContextValue } from "../context";
 export type { CopilotKitContextValue } from "../context";
 export { CopilotKitContext, useLicenseContext } from "../context";
-import type { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import { CopilotKitInspectorContextProvider } from "../components/CopilotKitInspectorContext";
 import type { CopilotKitInspectorOpenRequest } from "../components/CopilotKitInspectorContext";
@@ -93,26 +92,6 @@ import { MarkdownRendererProvider } from "./MarkdownRendererContext";
 import type { MarkdownRenderer } from "./MarkdownRendererContext";
 import { CopilotStyleOptionsProvider } from "../styles/copilot-kit-styles";
 import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
-import { zodToJsonSchema } from "zod-to-json-schema";
-
-// Adapts zod-to-json-schema's zod-specific signature to the injectable
-// `zodToJsonSchema` contract of `schemaToJsonSchema`, which only invokes it
-// for schemas whose `~standard.vendor` is "zod".
-const zodToJsonSchemaAdapter = (
-  schema: unknown,
-  options?: { $refStrategy?: string },
-): Record<string, unknown> => {
-  const refStrategy = options?.$refStrategy;
-  return zodToJsonSchema(
-    schema as z.ZodType,
-    refStrategy === "root" ||
-      refStrategy === "relative" ||
-      refStrategy === "none" ||
-      refStrategy === "seen"
-      ? { $refStrategy: refStrategy }
-      : {},
-  );
-};
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
@@ -1281,9 +1260,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       sandboxFunctionsList.map((fn) => ({
         name: fn.name,
         description: fn.description,
-        parameters: schemaToJsonSchema(fn.parameters, {
-          zodToJsonSchema: zodToJsonSchemaAdapter,
-        }),
+        parameters: schemaToJsonSchema(fn.parameters),
       })),
     );
   }, [sandboxFunctionsList]);

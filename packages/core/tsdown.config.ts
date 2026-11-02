@@ -45,7 +45,6 @@ export default defineConfig([
         "@ag-ui/core": "AgUICore",
         rxjs: "rxjs",
         "rxjs/operators": "rxjs.operators",
-        "zod-to-json-schema": "zodToJsonSchema",
         zod: "Zod",
       };
       return options;

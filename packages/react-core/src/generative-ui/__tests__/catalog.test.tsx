@@ -63,9 +63,13 @@ describe("createGenerativeUI", () => {
         events: {
           onShare: {
             description: "Share",
-            parameters: objectSchema({ channel: { type: "string" } }, [
-              "channel",
-            ]),
+            // Event parameters are the Zod 4 JSON Schema as-is, which
+            // leaves `additionalProperties` open on a non-strict object.
+            parameters: {
+              type: "object",
+              properties: { channel: { type: "string" } },
+              required: ["channel"],
+            },
           },
         },
       },

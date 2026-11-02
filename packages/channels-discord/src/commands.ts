@@ -115,7 +115,7 @@ export function jsonSchemaToDiscordOptions(
       typeof prop.description === "string" ? prop.description : rawName;
     const description = truncateText(rawDescription, DESCRIPTION_MAX);
     const base = { name, description, required: required.has(rawName) };
-    // zod-to-json-schema can emit a nullable type as an array (e.g. ["string", "null"]).
+    // A JSON Schema converter can emit a nullable type as an array (e.g. ["string", "null"]).
     // Normalize to the first non-"null" member so the switch matches the real type
     // instead of falling through to the warn+string default.
     const type = Array.isArray(prop.type)

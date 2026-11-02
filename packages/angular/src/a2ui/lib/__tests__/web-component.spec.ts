@@ -1,7 +1,7 @@
 import { Component, signal } from "@angular/core";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
+import { z } from "zod-v3";
 import { ComponentContext } from "@a2ui/web_core/v0_9";
 import { createAngularCatalog } from "../create-catalog";
 import { CopilotA2UISurface } from "../surface";

@@ -62,11 +62,11 @@
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
     "@modelcontextprotocol/ext-apps": "^1.7.5",
-    "@modelcontextprotocol/sdk": "^1.29.0"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.2.0"
   },
   "peerDependencies": {
-    "@ag-ui/client": "^1.0.2",
-    "zod": ">=3.25"
+    "@ag-ui/client": "^1.0.2"
   },
   "devDependencies": {
     "@ag-ui/client": "1.0.2",
@@ -74,7 +74,6 @@
     "jsdom": "^26.1.0",
     "tsdown": "^0.20.3",
     "typescript": "5.9.2",
-    "vitest": "^3.2.4",
-    "zod": "^3.25.76"
+    "vitest": "^3.2.4"
   }
 }

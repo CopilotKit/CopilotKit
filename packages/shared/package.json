@@ -68,8 +68,7 @@
     "typescript": "^5.2.3",
     "valibot": "^1.2.0",
     "vitest": "^3.2.4",
-    "zod": "^3.23.3",
-    "zod-to-json-schema": "^3.23.5"
+    "zod": "^4.2.0"
   },
   "peerDependencies": {
     "@ag-ui/core": "^1.0.2"

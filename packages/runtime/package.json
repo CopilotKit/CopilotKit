@@ -88,7 +88,7 @@
     "phoenix": "^1.8.4",
     "pino": "^10.1.1",
     "rxjs": "7.8.1",
-    "zod": "^3.25.18"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@copilotkit/aimock": "latest",

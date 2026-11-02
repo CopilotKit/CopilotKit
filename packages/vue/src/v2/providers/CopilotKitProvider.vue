@@ -12,11 +12,11 @@ import {
   provide,
   ref,
   shallowRef,
+  toRaw,
   triggerRef,
   watch,
 } from "vue";
 import type { Component, FunctionalComponent } from "vue";
-import type { z } from "zod";
 import type { AbstractAgent } from "@ag-ui/client";
 import { ToolCallStatus } from "@copilotkit/core";
 import type {
@@ -36,7 +36,6 @@ import type {
   RuntimeEntitlementResponse,
   RuntimeLicenseStatus,
 } from "@copilotkit/shared";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { CopilotKitCoreVue } from "../lib/vue-core";
 import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
 import { registerA2UIBuiltInToolCallRenderer } from "../components/a2ui/A2UIBuiltInToolCallRenderer";
@@ -159,6 +158,12 @@ const initialHumanInTheLoop = props.humanInTheLoop;
 const initialRenderCustomMessages = props.renderCustomMessages;
 const initialRenderActivityMessages = props.renderActivityMessages;
 const initialSandboxFunctions = props.openGenerativeUI?.sandboxFunctions;
+
+// Props that come from reactive state arrive as deep proxies. Zod 4 schemas
+// break behind a Vue proxy (their `_zod` property is read-only and
+// non-configurable), so read tools and renderers through their raw objects.
+const rawEntries = <T>(entries: readonly T[] | undefined): T[] =>
+  [...toRaw(entries ?? [])].map((entry) => toRaw(entry));
 
 watch(
   () => props.frontendTools,
@@ -292,7 +297,7 @@ const processedHumanInTheLoop = computed(() => {
   const tools: FrontendTool[] = [];
   const renderToolCalls: VueToolCallRenderer<unknown>[] = [];
 
-  for (const tool of props.humanInTheLoop) {
+  for (const tool of rawEntries(props.humanInTheLoop)) {
     tools.push({
       type: "human-in-the-loop",
       name: tool.name,
@@ -369,7 +374,7 @@ const processedHumanInTheLoop = computed(() => {
 
 const allTools = computed(() => {
   const tools: FrontendTool[] = [];
-  for (const t of props.frontendTools) {
+  for (const t of rawEntries(props.frontendTools)) {
     tools.push(t as FrontendTool);
   }
   for (const t of builtInFrontendTools.value) {
@@ -381,9 +386,12 @@ const allTools = computed(() => {
 
 const allRenderToolCalls = computed(() => {
   const combined: VueToolCallRenderer<unknown>[] = [
-    ...(props.renderToolCalls ?? []),
+    ...rawEntries(props.renderToolCalls),
   ];
-  for (const tool of [...props.frontendTools, ...builtInFrontendTools.value]) {
+  for (const tool of [
+    ...rawEntries(props.frontendTools),
+    ...builtInFrontendTools.value,
+  ]) {
     if (tool.render) {
       const args =
         tool.parameters ?? (tool.name === "*" ? ɵanySchema : undefined);
@@ -428,18 +436,9 @@ const resolvedProperties = computed(() =>
     ? { ...props.properties, a2uiCatalogAvailable: true }
     : props.properties,
 );
-const sandboxFunctions = computed<readonly SandboxFunction[]>(
-  () => props.openGenerativeUI?.sandboxFunctions ?? [],
+const sandboxFunctions = computed<readonly SandboxFunction[]>(() =>
+  rawEntries(props.openGenerativeUI?.sandboxFunctions),
 );
-const zodToJsonSchemaCompat = (
-  schema: unknown,
-  options?: { $refStrategy?: string },
-): Record<string, unknown> =>
-  zodToJsonSchema(
-    schema as z.ZodTypeAny,
-    options as { $refStrategy?: "none" | "relative" | "root" | "seen" },
-  ) as Record<string, unknown>;
-
 const builtInFrontendTools = computed<VueFrontendTool[]>(() => {
   if (!openGenerativeUIActive.value) return [];
   return [
@@ -494,7 +493,7 @@ const builtInActivityRenderers = computed<
 });
 
 const allRenderActivityMessages = computed(() => [
-  ...(props.renderActivityMessages ?? []),
+  ...rawEntries(props.renderActivityMessages),
   ...builtInActivityRenderers.value,
 ]);
 
@@ -853,9 +852,7 @@ watch(
         functions.map((fn) => ({
           name: fn.name,
           description: fn.description,
-          parameters: schemaToJsonSchema(fn.parameters, {
-            zodToJsonSchema: zodToJsonSchemaCompat,
-          }),
+          parameters: schemaToJsonSchema(fn.parameters),
         })),
       );
       ids.push(
