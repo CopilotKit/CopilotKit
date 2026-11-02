@@ -30,11 +30,11 @@ export default defineConfig({
   // snippets against their real types instead of `ignore`-ing them. Keep each
   // range on the major a reader installs next to CopilotKit 2.0.
   externalPackages: {
-    // CopilotKit takes Standard Schema and peers zod >=3.25, so a reader
-    // installs zod 4. tsconfig.docs.json points `zod` at this copy: the zod 3
+    // CopilotKit 2.0 requires zod 4.2+ for tool schemas (Standard JSON
+    // Schema). tsconfig.docs.json points `zod` at this copy: the zod 3
     // copies in the workspace make Mastra's tool generics hit "Type
     // instantiation is excessively deep" and cost gigabytes of memory.
-    zod: "^4.0.0",
+    zod: "^4.2.0",
     // AG-UI integrations shown in the integration guides.
     "@ag-ui/agno": "^0.0.6",
     "@ag-ui/aws-strands": "^1.0.1",

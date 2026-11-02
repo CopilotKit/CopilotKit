@@ -129,6 +129,57 @@ v1 component-override props.
 
 </Step>
 <Step>
+### Upgrade to Zod 4.2 or later
+
+CopilotKit 2.0 sends every tool schema to the agent as JSON Schema. It reads
+that JSON Schema from the schema itself, through the
+[Standard JSON Schema](https://standardschema.dev) interface. Zod 4.2 and
+later implement this interface. Zod 3 does not, and 2.0 no longer converts
+Zod 3 schemas for you.
+
+**What breaks:** a Zod 3 schema in `parameters` (`useFrontendTool`,
+`useHumanInTheLoop`, `useComponent`), in the `args` of a tool renderer, or in
+an Open Generative UI sandbox function. CopilotKit throws
+`Cannot convert schema to JSON Schema` when it sends the tool to the agent.
+
+**How to fix it:** install Zod 4.2 or later. Your `z.object(...)` code does
+not change.
+
+```bash
+npm install zod@^4.2.0
+```
+
+Do not use `import { z } from "zod/v4"` to stay on Zod 3. The `zod/v4`
+subpath in Zod 3.25 does not implement Standard JSON Schema. Import from
+`zod`, not `zod/mini`, for the same reason.
+
+**Alternatives:** any library that implements Standard JSON Schema works in
+the same places:
+
+- [Valibot](https://valibot.dev) v1, with each schema wrapped in
+  `toStandardJsonSchema()` from `@valibot/to-json-schema`.
+- [ArkType](https://arktype.io) 2.1.28 or later.
+
+**A2UI catalogs stay on Zod 3.** The component schemas that you give to
+`createCatalog` go to `@a2ui/web_core`, which reads Zod 3 schema internals.
+If your app installs Zod 4, install Zod 3 next to it under an alias, and use
+the alias only in your catalog definitions:
+
+```bash
+npm install zod-v3@npm:zod@^3.25.76
+```
+
+{/* kiira: ignore, `zod-v3` is an npm alias that the reader installs */}
+```tsx ignore
+import { z } from "zod-v3";
+
+const definitions = {
+  StatusBadge: { props: z.object({ text: z.string() }) },
+};
+```
+
+</Step>
+<Step>
 ### Replace React UI imports
 
 UI components like `CopilotChat`, `CopilotSidebar`, and `CopilotPopup` are now exported from `@copilotkit/react-core`.
@@ -274,7 +325,8 @@ Note: If you only use CopilotKit's React packages, `@ag-ui/client` types are alr
   `useRenderToolCall` registration hook with `useRenderTool`. The 2.0 hook named
   `useRenderToolCall` is a different low-level consumer API.
 - **Schemas changed.** The 2.0 tool and interaction hooks use Standard Schema
-  objects such as `z.object(...)`, not the v1 `Parameter[]` shape.
+  objects such as `z.object(...)`, not the v1 `Parameter[]` shape. Zod
+  schemas must come from Zod 4.2 or later.
 - **Names can move packages.** React UI components move from
   `@copilotkit/react-ui` to `@copilotkit/react-core`.
 - **`CopilotTextarea` has no replacement.** 2.0 deleted
