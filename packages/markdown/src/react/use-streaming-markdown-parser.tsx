@@ -2,11 +2,11 @@ import {
   createStreamingMarkdownParserState,
   finalizeStreamingMarkdown,
   parseStreamingMarkdownChunk,
-} from "@copilotkit/markdown-renderer";
+} from "@copilotkit/markdown";
 import type {
   StreamingMarkdownParserOptions,
   StreamingMarkdownParserState,
-} from "@copilotkit/markdown-renderer";
+} from "@copilotkit/markdown";
 import { useMemo, useRef } from "react";
 
 interface StreamingMarkdownParserSession {

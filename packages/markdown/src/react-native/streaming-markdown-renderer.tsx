@@ -5,11 +5,11 @@ import {
   createStreamingMarkdownParserState,
   finalizeStreamingMarkdown,
   parseStreamingMarkdownChunk,
-} from "@copilotkit/markdown-renderer";
+} from "@copilotkit/markdown";
 import type {
   StreamingMarkdownAstNode,
   StreamingMarkdownParserState,
-} from "@copilotkit/markdown-renderer";
+} from "@copilotkit/markdown";
 
 // ---------------------------------------------------------------------------
 // Style types
@@ -430,7 +430,7 @@ function buildParserState(
 
 /**
  * React Native streaming markdown renderer powered by the zero-dependency
- * `@copilotkit/markdown-renderer` parser.
+ * `@copilotkit/markdown` parser.
  *
  * Defaults `segmenter: false` — safe on Hermes which may not ship `Intl.Segmenter`.
  * Pass `animate={true}` only when you have confirmed Segmenter availability.

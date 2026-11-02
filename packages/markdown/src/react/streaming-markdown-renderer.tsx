@@ -5,7 +5,7 @@ import type {
   StreamingMarkdownNodeType,
   StreamingMarkdownParserOptions,
   TextSegment,
-} from "@copilotkit/markdown-renderer";
+} from "@copilotkit/markdown";
 import { Fragment, useMemo, useRef } from "react";
 import type { MouseEvent, ReactNode } from "react";
 import { useStreamingMarkdownParser } from "./use-streaming-markdown-parser";

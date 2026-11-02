@@ -1,5 +1,5 @@
 /**
- * Minimal react-native stub for vitest in the markdown-renderer package.
+ * Minimal react-native stub for vitest in the markdown package.
  *
  * The real react-native package uses Flow syntax that vite/rollup cannot parse.
  * This stub allows import analysis to succeed. Individual tests override it via

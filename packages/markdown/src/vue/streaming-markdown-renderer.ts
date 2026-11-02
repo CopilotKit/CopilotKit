@@ -4,13 +4,13 @@ import {
   createStreamingMarkdownParserState,
   finalizeStreamingMarkdown,
   parseStreamingMarkdownChunk,
-} from "@copilotkit/markdown-renderer";
+} from "@copilotkit/markdown";
 import type {
   StreamingMarkdownAstNode,
   StreamingMarkdownParserOptions,
   StreamingMarkdownParserState,
   TextSegment,
-} from "@copilotkit/markdown-renderer";
+} from "@copilotkit/markdown";
 
 // ---------------------------------------------------------------------------
 // URL sanitization (allowlisted href and image src schemes)
@@ -453,7 +453,7 @@ export type VueStreamingMarkdownNodeRenderers = Partial<
 /**
  * Vue 3 streaming markdown renderer.
  *
- * Drives the `@copilotkit/markdown-renderer` zero-dep parser and walks the
+ * Drives the `@copilotkit/markdown` zero-dep parser and walks the
  * resulting AST into VNodes via `h()`.
  *
  * @public

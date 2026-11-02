@@ -1318,12 +1318,12 @@
       }
     },
     {
-      "name": "@copilotkit/markdown-renderer",
+      "name": "@copilotkit/markdown",
       "version": "1.59.2",
-      "sourceDirectory": "packages/markdown-renderer",
+      "sourceDirectory": "packages/markdown",
       "entrypoints": [
         {
-          "importPath": "@copilotkit/markdown-renderer",
+          "importPath": "@copilotkit/markdown",
           "exportKey": ".",
           "kind": "code",
           "conditions": {
@@ -1332,23 +1332,23 @@
           },
           "provenance": {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "exports[\".\"]"
           }
         },
         {
-          "importPath": "@copilotkit/markdown-renderer/package.json",
+          "importPath": "@copilotkit/markdown/package.json",
           "exportKey": "./package.json",
           "kind": "metadata",
           "conditions": "./package.json",
           "provenance": {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "exports[\"./package.json\"]"
           }
         },
         {
-          "importPath": "@copilotkit/markdown-renderer/react",
+          "importPath": "@copilotkit/markdown/react",
           "exportKey": "./react",
           "kind": "code",
           "conditions": {
@@ -1357,12 +1357,12 @@
           },
           "provenance": {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "exports[\"./react\"]"
           }
         },
         {
-          "importPath": "@copilotkit/markdown-renderer/react-native",
+          "importPath": "@copilotkit/markdown/react-native",
           "exportKey": "./react-native",
           "kind": "code",
           "conditions": {
@@ -1371,12 +1371,12 @@
           },
           "provenance": {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "exports[\"./react-native\"]"
           }
         },
         {
-          "importPath": "@copilotkit/markdown-renderer/vue",
+          "importPath": "@copilotkit/markdown/vue",
           "exportKey": "./vue",
           "kind": "code",
           "conditions": {
@@ -1385,7 +1385,7 @@
           },
           "provenance": {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "exports[\"./vue\"]"
           }
         }
@@ -1407,17 +1407,17 @@
         "provenance": [
           {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "engines"
           },
           {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "peerDependencies"
           },
           {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "peerDependenciesMeta.*.optional"
           }
         ]
@@ -1425,12 +1425,12 @@
       "provenance": {
         "name": {
           "kind": "package-json",
-          "path": "packages/markdown-renderer/package.json",
+          "path": "packages/markdown/package.json",
           "selector": "name"
         },
         "version": {
           "kind": "package-json",
-          "path": "packages/markdown-renderer/package.json",
+          "path": "packages/markdown/package.json",
           "selector": "version"
         },
         "releaseScope": {

@@ -7,7 +7,7 @@ description: "Restyle the markdown in assistant messages, or replace the markdow
 Assistant replies arrive as markdown. CopilotKit renders them through the
 `markdownRenderer` slot on `CopilotChatAssistantMessage`. Its default is the
 built-in streaming renderer from
-[`@copilotkit/markdown-renderer`](/reference/packages/markdown-renderer), which
+[`@copilotkit/markdown`](/reference/packages/markdown), which
 is built for text that is still streaming in. It renders GFM, tables, autolinks,
 and citations. It does not do syntax highlighting, math, or diagrams.
 
@@ -164,5 +164,5 @@ under different names:
 ## Reference
 
 - [`CopilotChatAssistantMessage`](/reference/components/CopilotChatAssistantMessage) — every slot on the assistant message.
-- [`@copilotkit/markdown-renderer`](/reference/packages/markdown-renderer) — every config field and node type.
+- [`@copilotkit/markdown`](/reference/packages/markdown) — every config field and node type.
 - [Slots](/custom-look-and-feel/slots) — how slot overrides work in general.

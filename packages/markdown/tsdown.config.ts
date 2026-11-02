@@ -7,7 +7,7 @@ import { defineConfig } from "tsdown";
 // `/vue` CJS bundles (shared interop assigned to the react-native chunk), and
 // `react-native/index.cjs` eagerly does `require("react-native")`. Because CJS
 // requires run for side effects, a web-only consumer doing
-// `require("@copilotkit/markdown-renderer/react")` would crash with
+// `require("@copilotkit/markdown/react")` would crash with
 // "Cannot find module 'react-native'" (react-native is an optional peer that web
 // apps don't install). Separate builds keep each entry self-contained.
 //
@@ -26,7 +26,7 @@ const shared = {
     "react-dom",
     "vue",
     "react-native",
-    "@copilotkit/markdown-renderer",
+    "@copilotkit/markdown",
   ],
 };
 

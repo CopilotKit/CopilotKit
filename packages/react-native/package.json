@@ -90,7 +90,7 @@
   "dependencies": {
     "@ag-ui/client": "1.0.2",
     "@copilotkit/core": "workspace:*",
-    "@copilotkit/markdown-renderer": "workspace:*",
+    "@copilotkit/markdown": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "web-streams-polyfill": "^4.2.0"

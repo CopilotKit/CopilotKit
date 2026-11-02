@@ -2,9 +2,9 @@ import React from "react";
 import {
   StreamingMarkdownRenderer,
   defaultMarkdownStyles as _streamingDefaultStyles,
-} from "@copilotkit/markdown-renderer/react-native";
-import type { MarkdownStyle as StreamingMarkdownStyle } from "@copilotkit/markdown-renderer/react-native";
-import { warnUnsupportedRichSyntaxOnce } from "@copilotkit/markdown-renderer";
+} from "@copilotkit/markdown/react-native";
+import type { MarkdownStyle as StreamingMarkdownStyle } from "@copilotkit/markdown/react-native";
+import { warnUnsupportedRichSyntaxOnce } from "@copilotkit/markdown";
 
 /**
  * Style map for CopilotMarkdown. Each key maps a node type to a React Native
@@ -45,7 +45,7 @@ export interface CopilotMarkdownProps {
 
 /**
  * GFM markdown renderer for React Native. Delegates to the shared
- * `StreamingMarkdownRenderer` from `@copilotkit/markdown-renderer/react-native`.
+ * `StreamingMarkdownRenderer` from `@copilotkit/markdown/react-native`.
  *
  * Public API is backward-compatible with the previous basic renderer:
  * - `CopilotMarkdownProps` — same shape.

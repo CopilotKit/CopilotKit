@@ -243,7 +243,7 @@ export default function Index() {
   // `markdownRenderer` prop, which accepts EITHER a config object or a
   // component. Three scenarios:
   //   "built-in"  = undefined -> CopilotKit's default streaming renderer
-  //                 (@copilotkit/markdown-renderer — zero extra deps,
+  //                 (@copilotkit/markdown — zero extra deps,
   //                 streaming-safe incremental rendering + per-token animation).
   //   "custom"    = a DefaultMarkdownRendererProps config object that configures
   //                 the built-in renderer with custom node renderers (here a
