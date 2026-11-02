@@ -26,6 +26,7 @@ import type { GenerativeUIRuntime } from "../runtime-context";
 import { invokeBoundEvent } from "../events";
 import { GenerativeUISurfaceManager } from "../surface-manager";
 import { SurfaceView } from "../SurfaceView";
+import { SurfaceBoundary } from "../boundaries";
 
 const mounts = new Map<string, number>();
 let bombArmed = false;
@@ -337,6 +338,19 @@ const texts = (element: HTMLElement) =>
 const type = (input: HTMLInputElement, value: string) =>
   fireEvent.change(input, { target: { value } });
 
+type HostFallback = NonNullable<GenerativeUIRuntime["errorFallback"]>;
+/** A host fallback that shows the failed node as "<kind>: <error message>". */
+const tagged: HostFallback = ({ kind, error, componentId }) => (
+  <span data-testid={`fallback-${componentId}`}>
+    {kind}: {error.message}
+  </span>
+);
+
+/** A child of the surface that fails outside any node. */
+const SurfaceExplodes = () => {
+  throw new Error("surface exploded");
+};
+
 describe("SurfaceView", () => {
   afterEach(() => {
     bombArmed = false;
@@ -570,6 +584,324 @@ describe("SurfaceView", () => {
     );
     expect(reportError).toHaveBeenCalled();
     expect(screen.getAllByRole("alert")).toHaveLength(2);
+  });
+
+  describe("errorBoundary.fallback", () => {
+    const fine = {
+      id: "ok",
+      component: "Card",
+      productId: "ok",
+      name: "Fine",
+    } as const;
+    // Each failure renders node "x" (or "a" for the cycle) next to a
+    // working card. The manager rejects an unknown component at ingest, so
+    // that node is injected directly to exercise the renderer's own check.
+    const failures = [
+      {
+        kind: "render",
+        componentId: "x",
+        message: "exploded b1",
+        defaultText: "Couldn’t display this part: exploded b1Retry",
+        reported: true,
+        arrange: ({ push }: ReturnType<typeof setup>) => {
+          bombArmed = true;
+          push(
+            nodes(
+              { id: "root", component: "Grid", children: ["x", "ok"] },
+              { id: "x", component: "Bomb", label: "b1" },
+              fine,
+            ),
+          );
+        },
+      },
+      {
+        kind: "props",
+        componentId: "x",
+        message: "Invalid props: value: Expected number, received string",
+        defaultText:
+          "Couldn’t display this part: invalid props (value: Expected number, received string)",
+        reported: true,
+        arrange: ({ push }: ReturnType<typeof setup>) =>
+          push(
+            data("/n", "many"),
+            nodes(
+              { id: "root", component: "Grid", children: ["x", "ok"] },
+              { id: "x", component: "Counter", value: { "@path": "/n" } },
+              fine,
+            ),
+          ),
+      },
+      {
+        kind: "unknown-component",
+        componentId: "x",
+        message: 'unknown component "Missing"',
+        defaultText: 'Couldn’t display this part: unknown component "Missing"',
+        reported: false,
+        arrange: ({ push, manager }: ReturnType<typeof setup>) => {
+          manager
+            .getSurface("t1", S)!
+            .model.componentsModel.addComponent(
+              new ComponentModel("x", "Missing", {}),
+            );
+          push(
+            nodes(
+              { id: "root", component: "Grid", children: ["x", "ok"] },
+              fine,
+            ),
+          );
+        },
+      },
+      {
+        kind: "cycle",
+        componentId: "a",
+        message: "cyclic reference to a",
+        defaultText: "Couldn’t display this part: cyclic reference to a",
+        reported: false,
+        arrange: ({ push }: ReturnType<typeof setup>) =>
+          push(
+            nodes(
+              { id: "root", component: "Grid", children: ["a", "ok"] },
+              { id: "a", component: "Grid", children: ["b"] },
+              { id: "b", component: "Grid", children: ["a"] },
+              fine,
+            ),
+          ),
+      },
+    ] as const;
+
+    describe.each(failures)("$kind", (failure) => {
+      it("renders the host fallback with the kind and ids, not the default", () => {
+        const fallback = vi.fn(tagged);
+        const harness = setup({ fallback });
+        failure.arrange(harness);
+        expect(
+          screen.getByTestId(`fallback-${failure.componentId}`).textContent,
+        ).toBe(`${failure.kind}: ${failure.message}`);
+        expect(screen.queryByRole("alert")).toBeNull();
+        expect(screen.getByText("Fine")).toBeTruthy();
+        expect(fallback).toHaveBeenCalledWith({
+          kind: failure.kind,
+          error: expect.objectContaining({ message: failure.message }),
+          retry: expect.any(Function),
+          surfaceId: S,
+          componentId: failure.componentId,
+        });
+      });
+
+      it("renders the default fallback, unchanged, without a host fallback", () => {
+        const harness = setup();
+        failure.arrange(harness);
+        expect(alertText()).toBe(failure.defaultText);
+        expect(
+          screen.getByRole("alert").getAttribute("data-generative-ui-error"),
+        ).toBe(failure.componentId);
+        expect(screen.getByText("Fine")).toBeTruthy();
+      });
+
+      it("renders nothing for the node when the host fallback returns null", () => {
+        const harness = setup({ fallback: () => null });
+        failure.arrange(harness);
+        expect(screen.queryByRole("alert")).toBeNull();
+        expect(screen.getByText("Fine")).toBeTruthy();
+      });
+
+      it("reports to onError the same way with or without a host fallback", () => {
+        const reports = (fallback?: HostFallback) => {
+          const harness = setup({ fallback });
+          failure.arrange(harness);
+          const calls = harness.reportError.mock.calls.map(([info]) => ({
+            ...info,
+            error: info.error.message,
+          }));
+          return calls;
+        };
+        const expected = failure.reported
+          ? [
+              {
+                kind: failure.kind,
+                surfaceId: S,
+                componentId: failure.componentId,
+                error: failure.message,
+              },
+            ]
+          : [];
+        expect(reports()).toEqual(expected);
+        expect(reports(tagged)).toEqual(expected);
+      });
+
+      it("shows the default for the node alone when the host fallback throws, and reports both errors", () => {
+        const harness = setup({
+          fallback: () => {
+            throw new Error("host fallback exploded");
+          },
+        });
+        expect(() => failure.arrange(harness)).not.toThrow();
+        expect(alertText()).toBe(failure.defaultText);
+        expect(
+          screen.getByRole("alert").getAttribute("data-generative-ui-error"),
+        ).toBe(failure.componentId);
+        expect(screen.getByText("Fine")).toBeTruthy();
+        const reports = harness.reportError.mock.calls.map(([info]) => ({
+          ...info,
+          error: info.error.message,
+        }));
+        const own = failure.reported
+          ? [
+              {
+                kind: failure.kind,
+                surfaceId: S,
+                componentId: failure.componentId,
+                error: failure.message,
+              },
+            ]
+          : [];
+        expect(reports).toHaveLength(own.length + 1);
+        expect(reports).toEqual(
+          expect.arrayContaining([
+            ...own,
+            {
+              kind: "render",
+              surfaceId: S,
+              componentId: failure.componentId,
+              error: "host fallback exploded",
+            },
+          ]),
+        );
+      });
+    });
+
+    it("gives a retry that renders a failed component again", () => {
+      bombArmed = true;
+      const { push } = setup({
+        fallback: ({ kind, retry }) => (
+          <button onClick={retry}>retry {kind}</button>
+        ),
+      });
+      push(nodes({ id: "root", component: "Bomb", label: "b1" }));
+      bombArmed = false;
+      fireEvent.click(screen.getByText("retry render"));
+      expect(screen.getByText("survived b1")).toBeTruthy();
+    });
+
+    it("gives a retry that does nothing for a failure a retry cannot fix", () => {
+      const { push, reportError } = setup({
+        fallback: ({ kind, retry }) => (
+          <button onClick={retry}>retry {kind}</button>
+        ),
+      });
+      push(
+        data("/n", "many"),
+        nodes({ id: "root", component: "Counter", value: { "@path": "/n" } }),
+      );
+      fireEvent.click(screen.getByText("retry props"));
+      expect(screen.getByText("retry props")).toBeTruthy();
+      expect(reportError).toHaveBeenCalledOnce();
+    });
+
+    it("lets a host fallback use hooks", () => {
+      bombArmed = true;
+      const { push } = setup({
+        fallback: ({ kind }) => {
+          const [label] = useState(`hooked ${kind}`);
+          return label;
+        },
+      });
+      push(
+        nodes(
+          { id: "root", component: "Grid", children: ["bomb", "a"] },
+          { id: "bomb", component: "Bomb", label: "b1" },
+          { id: "a", component: "Grid", children: ["b"] },
+          { id: "b", component: "Grid", children: ["a"] },
+        ),
+      );
+      expect(screen.getByText("hooked render")).toBeTruthy();
+      expect(screen.getByText("hooked cycle")).toBeTruthy();
+    });
+
+    it("gives the host fallback another try when the failure changes", () => {
+      const { push, reportError } = setup({
+        fallback: ({ error }) => {
+          if (error.message.includes("string")) {
+            throw new Error("host fallback exploded");
+          }
+          return "host fallback";
+        },
+      });
+      push(
+        data("/n", "many"),
+        nodes({ id: "root", component: "Counter", value: { "@path": "/n" } }),
+      );
+      expect(screen.getByRole("alert")).toBeTruthy();
+      const firstReports = reportError.mock.calls.map(([info]) => info.kind);
+      expect(firstReports.sort()).toEqual(["props", "render"]);
+      push(data("/n", true));
+      expect(screen.getByText("host fallback")).toBeTruthy();
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(reportError).toHaveBeenCalledTimes(3);
+      expect(reportError.mock.lastCall?.[0].kind).toBe("props");
+    });
+
+    it("keeps the default for a failure of the surface outside its components", () => {
+      const { runtime, reportError } = setup({ fallback: vi.fn(tagged) });
+      render(
+        <SurfaceBoundary surfaceId="s2" runtime={runtime}>
+          <SurfaceExplodes />
+        </SurfaceBoundary>,
+      );
+      expect(
+        screen.getByText(
+          "Couldn’t display this part: this generated UI failed to render",
+        ),
+      ).toBeTruthy();
+      expect(runtime.errorFallback).not.toHaveBeenCalled();
+      expect(reportError).toHaveBeenCalledWith({
+        kind: "render",
+        surfaceId: "s2",
+        error: expect.objectContaining({ message: "surface exploded" }),
+      });
+    });
+
+    it("mounts a new host fallback afresh when the host replaces it", () => {
+      const { push, runtime, reportError } = setup({
+        fallback: () => {
+          const [label] = useState("first fallback");
+          return label;
+        },
+      });
+      push(
+        data("/n", "many"),
+        nodes({ id: "root", component: "Counter", value: { "@path": "/n" } }),
+      );
+      expect(screen.getByText("first fallback")).toBeTruthy();
+      // The provider's runtime reads the fallback from the latest config.
+      Object.assign(runtime, {
+        errorFallback: () => {
+          const [label] = useState("second fallback");
+          return label;
+        },
+      });
+      push(data("/n", "lots"));
+      expect(screen.getByText("second fallback")).toBeTruthy();
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(reportError.mock.calls.map(([info]) => info.kind)).toEqual([
+        "props",
+      ]);
+    });
+
+    it("gives the host fallback the same props error on each render, and the one onError got", () => {
+      const fallback = vi.fn(tagged);
+      const { push, reportError } = setup({ fallback });
+      push(
+        data("/n", "many"),
+        nodes({ id: "root", component: "Counter", value: { "@path": "/n" } }),
+      );
+      push(data("/n", "lots"));
+      expect(fallback.mock.calls.length).toBeGreaterThan(1);
+      const errors = new Set(fallback.mock.calls.map(([props]) => props.error));
+      expect(errors.size).toBe(1);
+      expect(reportError).toHaveBeenCalledOnce();
+      expect(reportError.mock.calls[0][0].error).toBe([...errors][0]);
+    });
   });
 
   describe("bound props", () => {

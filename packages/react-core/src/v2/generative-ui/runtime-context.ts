@@ -11,8 +11,33 @@ import type { GenerativeUITheme } from "./theme";
 export type { GenerativeUITheme };
 
 export interface GenerativeUIErrorBoundaryConfig {
-  /** Replaces the default per-component fallback. */
+  /**
+   * Replaces the default fallback of a component that cannot be shown.
+   * `kind` says why: "render" when it threw while rendering, in an effect
+   * or in a lifecycle method, "props" when its props are invalid once bound
+   * and computed values resolve,
+   * "unknown-component" when the catalog has no component of its type at
+   * render time, "cycle" when it contains itself. An unknown type or an
+   * invalid literal prop sent by the agent is normally rejected on arrival,
+   * before it gets here; a rejection made in the browser is reported to
+   * `onError` as an "operation" error.
+   *
+   * Only "render" and "props" are also reported to `onError` (whose `kind`
+   * is a different list), so a fallback that hides the other two should log
+   * them itself. For "render", `retry` renders the component again; for the
+   * other kinds it does nothing. A fallback that throws is replaced by the
+   * default for that component, and its error is reported to `onError` as
+   * "render". A failure of the surface outside its components keeps the
+   * default.
+   *
+   * The fallback is mounted like a component, and runs again whenever the
+   * failed component renders. A new function starts with fresh state, so a
+   * fallback whose output keeps state (including the components it renders)
+   * should be a stable function, defined outside the render or memoized,
+   * rather than one written inline.
+   */
   fallback?: (props: {
+    kind: "render" | "props" | "unknown-component" | "cycle";
     error: Error;
     retry: () => void;
     surfaceId: string;

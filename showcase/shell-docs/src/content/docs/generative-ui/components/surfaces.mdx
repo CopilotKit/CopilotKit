@@ -87,7 +87,7 @@ A target can be specific. A product page can give each product its own target, s
 
 ## When a component fails
 
-Each component renders inside its own error boundary. One broken component shows a small fallback, and the rest of the surface keeps working. To report errors, or to draw your own fallback:
+Each component renders inside its own error boundary. One broken component shows a small fallback, and the rest of the surface keeps working. A component is broken when it throws while rendering or in an effect, when its props are invalid once bound and computed values resolve, when its type is missing from the catalog at render time, or when it contains itself. An unknown component or an invalid literal prop from the agent is normally rejected when it arrives, before it reaches the surface; a rejection made in the browser is reported to `onError` as an `operation` error. To report errors, or to draw your own fallback:
 
 ```tsx
 <CopilotKitProvider
@@ -96,11 +96,20 @@ Each component renders inside its own error boundary. One broken component shows
     ui: shopUI,
     errorBoundary: {
       onError: (info) => console.warn(info.kind, info.surfaceId, info.error.message),
-      fallback: ({ retry }) => <button onClick={retry}>Try again</button>,
+      fallback: ({ kind, error, retry, surfaceId }) => {
+        if (kind === "render") return <button onClick={retry}>Try again</button>;
+        // onError does not get these two, so log them here.
+        if (kind === "unknown-component" || kind === "cycle") {
+          console.warn(kind, surfaceId, error.message);
+        }
+        return null;
+      },
     },
   }}
 >
 ```
+
+`kind` says why the component is broken: `"render"`, `"props"`, `"unknown-component"` or `"cycle"`. It is not the `kind` that `onError` gets. Only `"render"` and `"props"` failures also reach `onError`, so a fallback that returns `null` for the other two should log them itself. Only a `"render"` failure can be retried. Return `null` to show nothing in its place. If your fallback throws, that component shows the default fallback instead, and the error reaches `onError` as `"render"`. The fallback renders like a component, so it can run more than once for the same failure: a real logger should deduplicate, and a fallback that keeps state should be a stable function rather than one written inline.
 
 ## What the agent knows about surfaces
 
