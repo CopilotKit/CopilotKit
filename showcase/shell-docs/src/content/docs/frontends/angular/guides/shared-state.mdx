@@ -60,6 +60,61 @@ Return state changes from nodes or tools. The
 [read/write agent implementation](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/langgraph-python/src/agents/shared_state_read_write.py)
 shows a state-writing tool and a custom model-call middleware.
 
+### LangGraph TypeScript
+
+For a TypeScript `StateGraph`, extend `CopilotKitStateAnnotation` and
+register the fields used by the Angular example. A chat-only
+`MessagesAnnotation` schema does not retain `notes` or `priority`.
+Read the current priority in the model-calling node on every run:
+
+```typescript title="agent.ts"
+import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
+import { SystemMessage } from "@langchain/core/messages";
+import { ChatOpenAI } from "@langchain/openai";
+import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+
+const WorkspaceStateAnnotation = Annotation.Root({
+  ...CopilotKitStateAnnotation.spec,
+  notes: Annotation<string[]>({
+    reducer: (_previous, next) => next,
+    default: () => [],
+  }),
+  priority: Annotation<"low" | "normal" | "high">({
+    reducer: (_previous, next) => next,
+    default: () => "normal",
+  }),
+});
+
+const model = new ChatOpenAI({ model: "gpt-5-mini" });
+
+const workflow = new StateGraph(WorkspaceStateAnnotation)
+  .addNode("chat", async (state) => {
+    const response = await model.invoke([
+      new SystemMessage(
+        `The current workspace priority is ${JSON.stringify(state.priority)}.`,
+      ),
+      ...state.messages,
+    ]);
+    return { messages: [response] };
+  })
+  .addEdge(START, "chat")
+  .addEdge("chat", END);
+
+export const graph = workflow.compile();
+```
+
+Point your `langgraph.json` graph entry at `./agent.ts:graph`, and use that
+same graph in the LangGraph agent connection from the quickstart. When
+served with `langgraphjs dev`, the server manages checkpointing. For a
+standalone graph, supply a checkpointer when compiling it and keep the
+same thread id across runs; see [Treat persistence separately](#treat-persistence-separately).
+
+The schema keeps the fields in graph state; the `SystemMessage` separately
+makes the current priority available to the model. `notes` is retained but
+not included in this prompt. The node returns only new messages, so it does
+not reset the stored priority. To change shared fields from agent code,
+return them from a node or a tool's state update as well.
+
 ### Deep Agents
 
 For Python Deep Agents, extend `DeepAgentState` to retain its built-in state
