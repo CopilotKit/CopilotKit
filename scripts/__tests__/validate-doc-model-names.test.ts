@@ -711,6 +711,28 @@ describe("Built-in Agent model table", () => {
     fs.rmSync(dir, { recursive: true });
   });
 
+  it("skips migration guides and release notes, which show earlier releases", () => {
+    const dir = createTempDir();
+    const tablePath = writeTable(dir);
+    const docs = path.join(dir, "docs");
+    const classic = [
+      "```ts",
+      'new BuiltInAgent({ model: "openai/gpt-4.1" });',
+      "```",
+    ].join("\n");
+    for (const page of ["migrate/runtime-2.0.mdx", "whats-new/v1-50.mdx"]) {
+      fs.mkdirSync(path.dirname(path.join(docs, page)), { recursive: true });
+      fs.writeFileSync(path.join(docs, page), classic);
+    }
+    fs.writeFileSync(path.join(docs, "guide.mdx"), classic);
+
+    expect(validateModelTable([docs], tablePath)).toEqual([
+      { file: path.join(docs, "guide.mdx"), line: 2, model: "openai:gpt-4.1" },
+    ]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
   it("fails on a model listed only in the How it works table", () => {
     const dir = createTempDir();
     const tablePath = writeTable(dir);

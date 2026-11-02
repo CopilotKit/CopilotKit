@@ -50,6 +50,14 @@ export default defineConfig({
     "@tanstack/ai": "^1.0.0",
     "@tanstack/ai-openai": "^1.0.0",
     "@tanstack/ai-anthropic": "^1.0.0",
+    "@tanstack/ai-gemini": "^1.0.0",
+    // The AI SDK providers the docs show. The runtime no longer depends on
+    // the AI SDK, so nothing in the workspace installs them.
+    "@ai-sdk/anthropic": "^3.0.0",
+    "@ai-sdk/mcp": "^1.0.0",
+    // The release @tanstack/ai-openai 1.x builds on. Its provider tool types
+    // (webSearchTool and others) come from this package.
+    openai: "^7.0.0",
     // Same AI SDK major as the runtime's `ai` / `@ai-sdk/openai`.
     "@ai-sdk/azure": "^3.0.0",
     // One copy for every import (see tsconfig.docs.json for why).

@@ -33,6 +33,19 @@
       "@tanstack/ai-anthropic": [
         "./node_modules/.kiira/node_modules/@tanstack/ai-anthropic"
       ],
+      "@tanstack/ai-gemini": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai-gemini"
+      ],
+      // @tanstack/openai-base types its provider tools with `openai`; the
+      // workspace copies are older and reject the current tool types.
+      "openai": ["./node_modules/.kiira/node_modules/openai"],
+      "openai/*": ["./node_modules/.kiira/node_modules/openai/*"],
+      "@tanstack/ai-openai/tools": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai-openai/dist/esm/tools/index.d.ts"
+      ],
+      "@tanstack/ai-openai/compatible": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai-openai/dist/esm/compatible/index.d.ts"
+      ],
       // ai@6 and @ai-sdk/mcp each pin an exact @ai-sdk/provider-utils, and the
       // workspace lockfile resolves them to two different releases, so their
       // `schemaSymbol`s differ and an MCP client is not assignable to the
@@ -162,6 +175,10 @@
         "./packages/runtime/src/internal/learned-skills.ts"
       ],
       "@copilotkit/runtime/node": ["./packages/runtime/src/node.ts"],
+      "@copilotkit/runtime/ai-sdk": ["./packages/runtime/src/ai-sdk/index.ts"],
+      "@copilotkit/runtime/tanstack-ai": [
+        "./packages/runtime/src/tanstack-ai/index.ts"
+      ],
       "@copilotkit/sdk-js": ["./packages/sdk-js/src/index.ts"],
       "@copilotkit/sdk-js/langchain": ["./packages/sdk-js/src/langchain.ts"],
       "@copilotkit/sdk-js/langgraph": [

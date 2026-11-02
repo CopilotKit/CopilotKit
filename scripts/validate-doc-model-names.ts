@@ -377,6 +377,14 @@ const MODEL_TABLE_PATH = path.resolve(
   "../showcase/shell-docs/src/content/docs/integrations/built-in-agent/model-selection.mdx",
 );
 
+/**
+ * Pages that show an earlier release on purpose: migration guides ("before"
+ * code) and release notes. A model string there is history, not a promise.
+ * In 2.0 the Built-in Agent takes no model strings, so the table is empty and
+ * every model string outside these pages fails.
+ */
+const HISTORY_PATH_REGEX = /[\\/]docs[\\/](?:migrate|whats-new)[\\/]/u;
+
 /** Trees whose `.mdx` pages can teach a Built-in Agent model string. */
 const MODEL_TABLE_DIRS = [
   DOCS_DIR,
@@ -490,6 +498,7 @@ export function validateModelTable(
   const violations: Violation[] = [];
   for (const dir of dirs) {
     for (const file of findMdxFiles(dir, [".mdx"])) {
+      if (HISTORY_PATH_REGEX.test(file)) continue;
       const content = fs.readFileSync(file, "utf-8");
       for (const { spec, line } of extractBuiltInAgentModels(content)) {
         if (!listed.has(spec)) violations.push({ file, line, model: spec });
