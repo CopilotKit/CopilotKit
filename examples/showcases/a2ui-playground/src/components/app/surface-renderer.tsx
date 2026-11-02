@@ -24,6 +24,7 @@ import {
   useRunStore,
   type A2UIOp,
 } from "@/lib/run-store";
+import { useDesignSystem } from "@/design-systems/context";
 import { ResizeBox } from "./build-sequence";
 import { useLandingReveal } from "./use-landing-reveal";
 import { useUIGeneration } from "./use-ui-generation";
@@ -118,6 +119,7 @@ function Mirrored(props: Props) {
     maxParts: 40,
   });
   useLandingReveal(host, !halted && !generating);
+  const ds = useDesignSystem().id;
   return (
     <ResizeBox>
       <div
@@ -127,6 +129,7 @@ function Mirrored(props: Props) {
           collapse && "[&_.a2-blueprint]:hidden",
           empty && "hidden",
         )}
+        data-ds={ds}
         data-surface-key={key}
         data-build={generating ? "building" : "done"}
         data-halted={collapse || undefined}

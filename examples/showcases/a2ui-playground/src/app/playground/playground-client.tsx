@@ -2,11 +2,14 @@
 
 import { Providers } from "@/components/app/providers";
 import { Workbench } from "@/components/playground/workbench";
+import { DesignSystemProvider } from "@/design-systems/context";
 
 export function PlaygroundClient() {
   return (
-    <Providers>
-      <Workbench />
-    </Providers>
+    <DesignSystemProvider>
+      <Providers>
+        <Workbench />
+      </Providers>
+    </DesignSystemProvider>
   );
 }

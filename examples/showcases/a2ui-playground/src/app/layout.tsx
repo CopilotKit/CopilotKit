@@ -1,18 +1,25 @@
 import "@copilotkit/react-core/v2/styles.css";
 import "@/vendor/transitions/ui-generation.css";
 import "./globals.css";
-import { Geist, Geist_Mono } from "next/font/google";
+import "@/design-systems/design-systems.css";
+import { Geist, Geist_Mono, IBM_Plex_Sans } from "next/font/google";
 import { StaticGenUIProvider } from "@/components/app/static-surface";
 import { SkipLink } from "@/components/site/site-header";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
+// The typeface of the "Bring your own" design system, so its surfaces read as another app's.
+const plex = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-plex",
+});
 
 export const metadata = {
-  title: "A2UI Playground",
+  title: "A2UI Playground by CopilotKit",
   description:
-    "Ask for anything and get an interface back. Gemini writes A2UI 1.0 in Express, and CopilotKit Gen UI 2.0 renders it with your own React components: the standard components plus a shadcn, chart and map catalog, and macros.",
+    "Ask an agent for an interface and watch it write A2UI 1.0, then draw the same answer with CopilotKit's standard catalog, ChatCN or your own components.",
 };
 
 export default function RootLayout({
@@ -23,7 +30,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("dark", "font-sans", geist.variable, geistMono.variable)}
+      className={cn(
+        "dark",
+        "font-sans",
+        geist.variable,
+        geistMono.variable,
+        plex.variable,
+      )}
       style={{ colorScheme: "dark" }}
     >
       <body>

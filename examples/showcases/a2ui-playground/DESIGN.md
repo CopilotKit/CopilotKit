@@ -185,7 +185,7 @@ A near-black, graphite-and-hairline world where the mechanism is the display. Th
 
 Density is that of a developer tool, not a landing page. Text sits at 12.5 to 15.5px, columns are divided by 7.5% white hairlines instead of shadows, and the generated UI is set on a faint dot grid floor so it reads as work in progress on a bench rather than a finished page. Motion is short and functional: lines slide in 3px as they arrive, a block caret blinks where the model is writing, and UI is made in one visual language, the transitions.dev UI generation drawing: a UI that arrives whole is drawn in moving dots and revealed behind a scan line, and a UI that streams stands as the same dotted frames, each component scanning in as it lands.
 
-The workbench sits inside the existing CopilotKit x A2UI site chrome (pure black header, CopilotKit kite and wordmark beside the A2UI mark) and shares the catalog renderers' tokens, so a component drawn in the conversation is the same component the docs and chat show.
+The workbench sits inside the site chrome (pure black header with the A2UI mark and "A2UI Playground by CopilotKit") and shares the catalog renderers' tokens, so a component drawn in the conversation is the same component the docs and chat show. The page reads as the A2UI demo, not a CopilotKit promotion: CopilotKit gets a credit line, not a lockup.
 
 **Key Characteristics:**
 
@@ -341,7 +341,8 @@ One loader language, taken from the transitions.dev UI generation runtime (vendo
 
 ### Navigation
 
-- **Site header:** pure black, 64px, sticky, hairline below. Lockup on the left (CopilotKit kite and wordmark, a light divider, the A2UI mark and 21px/600 "A2UI"), then 15px/500 nav links in Ink Muted that turn Ink on hover and when current. Under 960px the links move into a right-hand drawer (320px, workbench ground, hairline left edge).
+- **Site header:** pure black, 64px, sticky, hairline below. On the left the A2UI mark, 17px/600 "A2UI Playground" and a 13px Ink Muted credit, "by" with the CopilotKit kite and "CopilotKit" (under 420px the credit drops under the name at 11.5px). Then 15px/500 nav links (Playground, Components, Get started) in Ink Muted that turn Ink on hover and when current. Under 960px the links move into a right-hand drawer (320px, workbench ground, hairline left edge).
+- **Design systems:** the composer's first picker chooses what draws the surfaces: CopilotKit (the standard catalog as shipped), ChatCN (shadcn/ui's neutral palette and primitives) or Bring your own (a light, square-cornered in-house set on IBM Plex Sans, on its own #f4f6f8 app canvas inside the floor). The catalog and the agent's lines never change; `src/design-systems/` swaps leaf components (never containers, so nothing inside a Card remounts) and scopes tokens on the surface host (`data-ds`). A swatch in the picker (violet, near-white, blue) names each one at a glance.
 - **Column tabs (Express, JSON, Run):** the sliding-pill tabs at 28px tall, on a 4% white track.
 - **Phone lines view:** the writes pane over the conversation, entering with a 200ms 10px rise; its head leads with a "Chat" back button and a hairline divider.
 

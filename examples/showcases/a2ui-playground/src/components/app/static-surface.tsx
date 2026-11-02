@@ -14,13 +14,13 @@ import {
   type GenerativeUISurfaceContent,
 } from "@copilotkit/shared";
 import { EMPTY, type Observable } from "rxjs";
-import { playgroundTheme, playgroundUI } from "@/a2ui/catalog/catalog";
+import { playgroundUI } from "@/a2ui/catalog/catalog";
 import { CATALOG_ID } from "@/a2ui/catalog/ids";
+import { useDesignSystem } from "@/design-systems/context";
+import { DESIGN_SYSTEM_THEMES } from "@/design-systems/themes";
 import { cn } from "@/lib/utils";
 import { surfaceIdOf, type A2UIOp } from "@/lib/run-store";
 import { useBaseSurfaceRenderer } from "./surface-renderer";
-
-const GENERATIVE_UI = { ui: playgroundUI, theme: playgroundTheme };
 
 /** Static surfaces have no agent behind them; the provider still needs one to start. */
 class NoAgent extends AbstractAgent {
@@ -33,13 +33,20 @@ const AGENTS = { default: new NoAgent() };
 /**
  * A Gen UI 2.0 provider with no runtime, for pages that show surfaces without
  * a chat (catalog previews, the landing replay, recorded runs). Mounted once
- * in the root layout; the playground nests its own provider inside it.
+ * in the root layout; the playground nests its own provider inside it. Under
+ * a design system (the playground's JSON preview) it takes that theme, so the
+ * swapped components and the standard ones agree.
  */
 export function StaticGenUIProvider({ children }: { children: ReactNode }) {
+  const { id } = useDesignSystem();
+  const generativeUI = useMemo(
+    () => ({ ui: playgroundUI, theme: DESIGN_SYSTEM_THEMES[id] }),
+    [id],
+  );
   return (
     <CopilotKitProvider
       agents__unsafe_dev_only={AGENTS}
-      generativeUI={GENERATIVE_UI}
+      generativeUI={generativeUI}
       enableInspector={false}
       showDevConsole={false}
     >
@@ -90,9 +97,10 @@ function Body({ ops, className }: { ops: A2UIOp[]; className?: string }) {
     }),
     [content, surfaceId],
   );
+  const ds = useDesignSystem().id;
   if (!Base) return null;
   return (
-    <div className={cn("a2-static", className)}>
+    <div className={cn("a2-static", className)} data-ds={ds}>
       <CopilotChatConfigurationProvider threadId={threadId}>
         <Base
           activityType={GENERATIVE_UI_ACTIVITY_TYPE}

@@ -27,6 +27,7 @@ import {
   type GenerativeUITheme,
 } from "@copilotkit/react-core/v2/generative-ui";
 import { z } from "zod";
+import { useOverride } from "@/design-systems/overrides";
 import type { ComponentName } from "./definitions";
 import { ownEntries } from "./entries";
 import { CATALOG_ID } from "./ids";
@@ -62,9 +63,13 @@ const blueprintSchema = z.object({
 
 type AnyRender = ComponentType<{ props: Record<string, unknown> }>;
 
-/** Wraps a renderer in its `.a2-node` and turns the `onAction` event into the `action` closure renderers call. */
+/**
+ * Wraps a renderer in its `.a2-node` and turns the `onAction` event into the `action` closure renderers call.
+ * The selected design system can draw it with a component of its own (`src/design-systems`).
+ */
 function node(name: string, Render: AnyRender) {
   function Node(engineProps: Record<string, unknown>) {
+    const Swapped = useOverride("own", name) as AnyRender | undefined;
     const { onAction, ...rest } = engineProps as {
       onAction?: (args: object) => Promise<unknown>;
     } & Record<string, unknown>;
@@ -74,7 +79,7 @@ function node(name: string, Render: AnyRender) {
     return createElement(
       "div",
       { className: "a2-node", "data-a2-type": name },
-      createElement(Render, { props }),
+      createElement(Swapped ?? Render, { props }),
     );
   }
   Node.displayName = `A2UI(${name})`;
@@ -92,10 +97,13 @@ const own = ownEntries((name) =>
  */
 function marked(name: string, Base: ComponentType<Record<string, unknown>>) {
   function Std(props: Record<string, unknown>) {
+    const Swapped = useOverride("standard", name) as
+      | ComponentType<Record<string, unknown>>
+      | undefined;
     return createElement(
       "span",
       { className: "a2-std", "data-a2-type": name },
-      createElement(Base, props),
+      createElement(Swapped ?? Base, props),
     );
   }
   Std.displayName = `A2UI(${name})`;

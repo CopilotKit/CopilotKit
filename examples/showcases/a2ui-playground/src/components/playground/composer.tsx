@@ -14,6 +14,12 @@ import { ArrowUp, Square, SquarePen } from "lucide-react";
 import { forgetChat } from "@/components/app/agent-tap";
 import { useMode, type Mode } from "@/components/app/providers";
 import { useSend } from "@/components/app/use-send";
+import { useDesignSystem } from "@/design-systems/context";
+import {
+  DESIGN_SYSTEMS,
+  designSystemLabel,
+  type DesignSystemId,
+} from "@/design-systems/registry";
 import {
   Select,
   SelectContent,
@@ -80,6 +86,13 @@ function useTwoRows(ref: React.RefObject<HTMLElement | null>, on: boolean) {
   }, [ref, on]);
 }
 
+/** A swatch per design system, so the picker shows at a glance which one draws the surfaces. */
+const SWATCH: Record<DesignSystemId, string> = {
+  copilotkit: "bg-[oklch(0.72_0.17_292)]",
+  chatcn: "bg-[oklch(0.922_0_0)]",
+  byoc: "bg-[#0b5cff]",
+};
+
 const trigger =
   "h-8 flex-none rounded-lg border-[var(--pg-line-strong)] bg-transparent text-[13px] text-[var(--pg-dim)] hover:text-foreground dark:bg-transparent dark:hover:bg-white/[0.04]";
 
@@ -99,6 +112,7 @@ export function Composer({
   onStartWithoutAI: () => void;
 }) {
   const { model, setModel, format, setFormat, models } = useMode();
+  const designSystem = useDesignSystem();
   const { send, running } = useSend();
   const { agent } = useAgent({ agentId: "default", updates: [] });
   const { copilotkit } = useCopilotKit();
@@ -284,7 +298,58 @@ export function Composer({
             Enter builds it. Shift and Enter adds a line. While a run is going,
             Enter queues the prompt.
           </p>
-          <div className="flex items-center gap-2 px-2.5 pb-2.5 pt-1">
+          <div className="flex flex-wrap items-center gap-2 px-2.5 pb-2.5 pt-1">
+            {/* The design system draws the answer; the model writes it. Switching it repaints every surface. */}
+            <Select
+              value={designSystem.id}
+              onValueChange={(v) => designSystem.setId(v as DesignSystemId)}
+            >
+              <SelectTrigger
+                size="sm"
+                aria-label="Design system"
+                data-design-system-picker
+                className={trigger}
+              >
+                <SelectValue>
+                  <span className="flex items-center gap-2">
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "size-2 flex-none rounded-[3px]",
+                        SWATCH[designSystem.id],
+                      )}
+                    />
+                    {designSystemLabel(designSystem.id)}
+                  </span>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent position="popper" align="start" side="top">
+                {DESIGN_SYSTEMS.map((d) => (
+                  <SelectItem key={d.id} value={d.id} data-design-system={d.id}>
+                    <span className="flex items-start gap-2.5">
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "mt-[5px] size-2 flex-none rounded-[3px]",
+                          SWATCH[d.id],
+                        )}
+                      />
+                      <span className="flex flex-col items-start gap-0.5">
+                        <span>
+                          {d.label}{" "}
+                          <span className="text-muted-foreground">
+                            {d.note}
+                          </span>
+                        </span>
+                        <span className="max-w-[17rem] text-[11.5px] leading-snug text-muted-foreground">
+                          {d.hint}
+                        </span>
+                      </span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={model} onValueChange={(v) => setModel(v as ModelId)}>
               <SelectTrigger
                 size="sm"

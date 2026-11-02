@@ -3,7 +3,9 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 import type { GenerativeUIConfig } from "@copilotkit/react-core/v2/generative-ui";
-import { playgroundTheme, playgroundUI } from "@/a2ui/catalog/catalog";
+import { playgroundUI } from "@/a2ui/catalog/catalog";
+import { useDesignSystem } from "@/design-systems/context";
+import { DESIGN_SYSTEM_THEMES } from "@/design-systems/themes";
 import {
   MODEL_OPTIONS,
   type Format,
@@ -114,14 +116,24 @@ const RENDERERS = [surfaceRenderer];
  * Gen UI 2.0 with the tool transport: the browser sends the catalog to the
  * agent in the generative UI envelope, the agent streams A2UI v1.0
  * `generative-ui-surface` activities back, and CopilotKit renders them.
+ * The catalog never changes with the design system, only the theme does
+ * (and the components, through `src/design-systems/overrides.ts`), so the
+ * surfaces on the page repaint instead of starting over.
  */
-const GENERATIVE_UI: GenerativeUIConfig = {
-  ui: playgroundUI,
-  theme: playgroundTheme,
-  transport: "tool",
-};
+function useGenerativeUIConfig(): GenerativeUIConfig {
+  const { id } = useDesignSystem();
+  return useMemo(
+    () => ({
+      ui: playgroundUI,
+      theme: DESIGN_SYSTEM_THEMES[id],
+      transport: "tool",
+    }),
+    [id],
+  );
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  const generativeUI = useGenerativeUIConfig();
   const [mode, setMode] = useState<Mode>("auto");
   const { model, setModel, format, setFormat, setModelForNow } =
     useStoredChoice();
@@ -161,7 +173,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <CopilotKitProvider
         runtimeUrl="/api/copilotkit"
         properties={properties}
-        generativeUI={GENERATIVE_UI}
+        generativeUI={generativeUI}
         renderActivityMessages={RENDERERS}
         enableInspector={false}
       >

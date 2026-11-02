@@ -1,0 +1,419 @@
+/* ───────────────────────── Design systems ─────────────────────────
+   One catalog, three looks. Each design system scopes its tokens to the surfaces it draws: the shadcn
+   tokens and the playground's --a2-* tokens (the --a2ui-* ones come from the provider's theme). The
+   [data-ds] attribute on top of the host class outranks the base `.a2-surface-host` token rule. */
+
+.a2-surface-host[data-ds="chatcn"],
+.a2-static[data-ds="chatcn"] {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --radius: 0.625rem;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --ts-chart-1: oklch(0.623 0.214 259.815);
+  --ts-chart-2: oklch(0.696 0.17 162.48);
+  --ts-chart-3: oklch(0.769 0.188 70.08);
+  --ts-chart-4: oklch(0.627 0.265 303.9);
+  --ts-chart-5: oklch(0.645 0.246 16.439);
+  --ts-chart-6: oklch(0.556 0 0);
+  --a2-surface: oklch(0.205 0 0);
+  --a2-surface-2: oklch(0.269 0 0);
+  --a2-line: oklch(1 0 0 / 10%);
+  --a2-line-strong: oklch(1 0 0 / 15%);
+  --a2-radius: 12px;
+  --a2-accent: oklch(0.623 0.214 259.815);
+  --a2-positive: oklch(0.696 0.17 162.48);
+  --a2-negative: oklch(0.704 0.191 22.216);
+  --a2-warning: oklch(0.769 0.188 70.08);
+  --a2-info: oklch(0.623 0.214 259.815);
+}
+:is(.a2-surface-host, .a2-static)[data-ds="chatcn"] .a2-card {
+  background: var(--a2-surface);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 25%);
+}
+:is(.a2-surface-host, .a2-static)[data-ds="chatcn"] .a2-chart {
+  color: oklch(0.708 0 0);
+}
+
+/* Bring your own: a light in-house system. The surface sits in its own app canvas, so a light UI reads
+   as itself on the dark page. --color-white flips Tailwind's translucent white overlays (bg-white/5 and
+   the like, written for a dark ground) into ink, their light-mode equivalent. */
+.a2-surface-host[data-ds="byoc"],
+.a2-static[data-ds="byoc"] {
+  --background: #f4f6f8;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0b5cff;
+  --primary-foreground: #ffffff;
+  --secondary: #eef2f6;
+  --secondary-foreground: #0f172a;
+  --muted: #eef2f6;
+  --muted-foreground: #5b6b7f;
+  --accent: #eef2f6;
+  --accent-foreground: #0f172a;
+  --destructive: #c62828;
+  --border: #d9dee5;
+  --input: #c9d1db;
+  --ring: #0b5cff;
+  --radius: 0.25rem;
+  --chart-1: #0b5cff;
+  --chart-2: #00a3a3;
+  --chart-3: #f5a524;
+  --chart-4: #7c3aed;
+  --chart-5: #e5484d;
+  --ts-chart-1: #0b5cff;
+  --ts-chart-2: #00a3a3;
+  --ts-chart-3: #f5a524;
+  --ts-chart-4: #7c3aed;
+  --ts-chart-5: #e5484d;
+  --ts-chart-6: #64748b;
+  --a2-surface: #ffffff;
+  --a2-surface-2: #f1f4f8;
+  --a2-line: #e1e6ec;
+  --a2-line-strong: #c9d1db;
+  --a2-radius: 4px;
+  --a2-accent: #0b5cff;
+  --a2-positive: #047857;
+  --a2-negative: #c62828;
+  --a2-warning: #a15c00;
+  --a2-info: #0b5cff;
+  --color-white: #0f172a;
+  --font-sans: var(--font-plex);
+  --gen-line: #94a3b8;
+  --gen-field: rgb(15 23 42 / 14%);
+  color-scheme: light;
+  color: #0f172a;
+  font-family: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+  background: #f4f6f8;
+  border: 1px solid #d9dee5;
+  border-radius: 6px;
+  padding: 16px;
+}
+:is(.a2-surface-host, .a2-static)[data-ds="byoc"] .a2-card {
+  background: #ffffff;
+  border-color: #d9dee5;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+}
+:is(.a2-surface-host, .a2-static)[data-ds="byoc"] .a2-chart {
+  color: #475569;
+}
+.wb-floor :is(.a2-surface-host, .a2-static)[data-ds="byoc"] .a2-blueprint {
+  background-color: #f4f6f8;
+}
+
+.byoc-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #d9dee5;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+}
+.byoc-panel-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+.byoc-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid #d9dee5;
+  border-radius: 2px;
+  background: #eef2f6;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.byoc-tag:is([data-tone="success"]) {
+  background: #e7f6f0;
+  border-color: #8fd1bd;
+  color: #047857;
+}
+.byoc-tag:is([data-tone="danger"]) {
+  background: #fdecec;
+  border-color: #efa3a3;
+  color: #c62828;
+}
+.byoc-tag:is([data-tone="warning"], [data-tone="caution"]) {
+  background: #fdf4e5;
+  border-color: #e8c48a;
+  color: #a15c00;
+}
+.byoc-tag:is([data-tone="info"], [data-tone="discovery"]) {
+  background: #eaf1ff;
+  border-color: #9dbcff;
+  color: #0b5cff;
+}
+.byoc-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid #b8c1cc;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #0f172a;
+  font:
+    500 13px/1 var(--font-plex),
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+.byoc-button:hover:not(:disabled) {
+  background: #f1f4f8;
+}
+.byoc-button[data-kind="primary"] {
+  background: #0b5cff;
+  border-color: #0b5cff;
+  color: #ffffff;
+}
+.byoc-button[data-kind="primary"]:hover:not(:disabled) {
+  background: #0a4fd9;
+}
+.byoc-button[data-kind="quiet"] {
+  background: transparent;
+  border-color: transparent;
+  color: #0b5cff;
+}
+.byoc-button[data-kind="danger"] {
+  background: #c62828;
+  border-color: #c62828;
+  color: #ffffff;
+}
+.byoc-button svg {
+  width: 15px;
+  height: 15px;
+  margin-right: 6px;
+}
+.byoc-button[data-block] {
+  width: 100%;
+}
+.byoc-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.byoc-button:focus-visible {
+  outline: 2px solid #0b5cff;
+  outline-offset: 2px;
+}
+.byoc-rule {
+  width: 100%;
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid #d9dee5;
+}
+.byoc-rule[data-axis="y"] {
+  width: 0;
+  margin: 0 4px;
+  border-top: 0;
+  border-left: 1px solid #d9dee5;
+  align-self: stretch;
+}
+.byoc-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+.byoc-metric {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid #d9dee5;
+  border-left: 3px solid #0b5cff;
+  border-radius: 2px;
+}
+.byoc-metric-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+.byoc-metric-value {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.byoc-delta {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.byoc-delta[data-trend="up"] {
+  color: #047857;
+}
+.byoc-delta[data-trend="down"] {
+  color: #c62828;
+}
+.byoc-delta[data-trend="flat"] {
+  color: #64748b;
+}
+.byoc-delta[data-trend="up"]::before {
+  content: "▲ ";
+  font-size: 9px;
+}
+.byoc-delta[data-trend="down"]::before {
+  content: "▼ ";
+  font-size: 9px;
+}
+.byoc-note {
+  font-size: 12px;
+  color: #64748b;
+}
+.byoc-pairs {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+.byoc-pairs > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e8ecf1;
+  font-size: 13px;
+}
+.byoc-pairs > div:last-child {
+  border-bottom: 0;
+}
+.byoc-pairs dt {
+  color: #475569;
+}
+.byoc-pairs dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+.byoc-pairs small {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: #64748b;
+}
+.byoc-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.byoc-heading h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+}
+.byoc-heading[data-level="1"] h2 {
+  font-size: 24px;
+}
+.byoc-heading[data-level="3"] h2 {
+  font-size: 16px;
+}
+.byoc-heading p {
+  margin: 0;
+  font-size: 13px;
+  color: #475569;
+}
+.byoc-eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0b5cff;
+}
+.byoc-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #9dbcff;
+  border-left-width: 3px;
+  border-radius: 2px;
+  background: #f3f7ff;
+  color: #1e293b;
+  font-size: 13px;
+}
+.byoc-banner[data-tone="success"] {
+  border-color: #8fd1bd;
+  background: #f1faf6;
+}
+.byoc-banner[data-tone="warning"] {
+  border-color: #e8c48a;
+  background: #fdf8ee;
+}
+.byoc-banner[data-tone="error"] {
+  border-color: #efa3a3;
+  background: #fdf3f3;
+}
+.byoc-banner strong {
+  font-weight: 600;
+}
+.byoc-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+.byoc-progress-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #0f172a;
+}
+.byoc-progress-track {
+  height: 6px;
+  overflow: hidden;
+  background: #e5eaf0;
+  border-radius: 1px;
+}
+.byoc-progress-track > span {
+  display: block;
+  height: 100%;
+  background: #0b5cff;
+}

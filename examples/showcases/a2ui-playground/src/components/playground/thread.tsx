@@ -16,6 +16,8 @@ import { DotOutline } from "@/a2ui/catalog/renderers/blueprint";
 import { ResizeBox } from "@/components/app/build-sequence";
 import type { Mode } from "@/components/app/providers";
 import { StaticSurface } from "@/components/app/static-surface";
+import { useDesignSystem } from "@/design-systems/context";
+import { designSystemLabel } from "@/design-systems/registry";
 import { useLandingReveal } from "@/components/app/use-landing-reveal";
 import { useSend } from "@/components/app/use-send";
 import { useUIGeneration } from "@/components/app/use-ui-generation";
@@ -186,8 +188,9 @@ export function Thread({
           </h1>
           <p className="mt-2.5 max-w-[62ch] text-[14px] leading-[1.55] text-[var(--pg-dim)] max-[899px]:mt-2">
             A2UI 1.0 is Google&apos;s open protocol for agents that answer with
-            UI: the model writes one line per component, and your components
-            draw it.
+            UI. The model writes one line per component, and a design system
+            draws it: switch it under the prompt box and the same answer
+            repaints.
           </p>
         </header>
 
@@ -566,8 +569,19 @@ function SurfaceMeta({
           </span>
         </span>
       ) : null}
+      {chip ? <DrawnWith /> : null}
       {children}
     </div>
+  );
+}
+
+/** Which design system draws the surfaces: the A2UI above it is the same for every one. */
+function DrawnWith() {
+  const { id } = useDesignSystem();
+  return (
+    <span className="hidden flex-none font-mono text-[12px] text-[var(--pg-dim)] min-[640px]:inline">
+      <span aria-hidden>· </span>drawn with {designSystemLabel(id)}
+    </span>
   );
 }
 
