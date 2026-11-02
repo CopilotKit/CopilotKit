@@ -1,0 +1,7 @@
+Here is your monthly budget.
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"budget","components":[{"id":"root","component":"Chart","chartType":"bar","data":[{"item":"Rent","amount":1200},{"item":"Food","amount":450},{"item":"Transport","amount":120},{"item":"Fun","amount":200},{"item":"Savings","amount":500}],"xKey":"item","series":[{"key":"amount"}]}]}}
+```
+
+Rent is the largest share.

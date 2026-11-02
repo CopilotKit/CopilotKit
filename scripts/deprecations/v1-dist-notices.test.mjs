@@ -14,6 +14,57 @@ const inventory = getV1PublicApi();
 const emitState = inventory.inventories
   .find(({ entrypoint }) => entrypoint.id === "sdk-js-langchain")
   .exports.find((item) => item.name === "copilotKitEmitState");
+const forwardedHeaders = inventory.inventories.find(
+  ({ entrypoint }) => entrypoint.id === "sdk-js",
+);
+
+for (const existingNotice of ["declaration", "export specifier"]) {
+  test(`identical notices do not skip other exports when one ${existingNotice} is annotated`, () => {
+    const names = ["getForwardedHeaders", "withForwardedHeaders"];
+    const items = names.map((name) =>
+      forwardedHeaders.exports.find((item) => item.name === name),
+    );
+    const warning = renderDeprecationJsDoc(items[0]);
+    assert.equal(renderDeprecationJsDoc(items[1]), warning);
+    const source = [
+      existingNotice === "declaration" ? warning : "",
+      "declare function getForwardedHeaders(): void;",
+      "declare function withForwardedHeaders(): void;",
+      "export {",
+      existingNotice === "export specifier" ? warning : "",
+      "getForwardedHeaders,",
+      "withForwardedHeaders,",
+      "};",
+    ].join("\n");
+    const annotated = annotateDeclarationText(source, items);
+    const ast = ts.createSourceFile(
+      "index.d.mts",
+      annotated,
+      ts.ScriptTarget.Latest,
+      true,
+    );
+    const specifiers = ast.statements.find(ts.isExportDeclaration).exportClause
+      .elements;
+    for (const specifier of specifiers) {
+      const tags = ts
+        .getJSDocTags(specifier)
+        .filter((tag) => tag.tagName.text === "deprecated");
+      assert.equal(tags.length, 1, specifier.name.text);
+      assert.match(
+        ts.getTextOfJSDocComment(tags[0].comment),
+        /No 1:1 v2 replacement is available/,
+      );
+    }
+    assert.equal(annotateDeclarationText(annotated, items), annotated);
+  });
+}
+
+test("notices remain idempotent in indented export lists", () => {
+  const source =
+    "declare function copilotKitEmitState(): void;\nexport {\n  copilotKitEmitState,\n};\n";
+  const annotated = annotateDeclarationText(source, [emitState]);
+  assert.equal(annotateDeclarationText(annotated, [emitState]), annotated);
+});
 
 test("built declarations retain the deprecation notice", () => {
   const source = [

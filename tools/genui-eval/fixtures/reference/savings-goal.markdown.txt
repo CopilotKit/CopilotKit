@@ -1,0 +1,20 @@
+It comes down to one division: €10,000 ÷ your monthly amount = the number of months. At €300 a month that's 34 months, a little under three years. Set your own numbers below; the answer updates as you move the sliders.
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"savings-goal","dataModel":{"goal":10000,"saved":0,"monthly":300},"components":[{"id":"root","component":"Card","children":["title","caption","monthly","saved","goal","divider","result","detail","chart-label","chart"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"savings-goal","components":[{"id":"title","component":"Title","text":"Your savings timeline"},{"id":"caption","component":"Caption","text":"Saving the same amount every month, without interest"},{"id":"monthly","component":"Slider","label":"Monthly savings","min":50,"max":2000,"step":50,"unit":" €","value":{"@path":"/monthly"}},{"id":"saved","component":"Slider","label":"Already saved","min":0,"max":5000,"step":250,"unit":" €","value":{"@path":"/saved"}},{"id":"goal","component":"Slider","label":"Goal","min":1000,"max":30000,"step":500,"unit":" €","value":{"@path":"/goal"}},{"id":"divider","component":"Divider"},{"id":"result","component":"Title","size":"lg","text":{"@call":"calc","args":{"expression":"saved >= goal ? 'You have already reached your goal' : ((floor(ceil((goal - saved) / monthly) / 12) == 0 ? '' : (floor(ceil((goal - saved) / monthly) / 12) == 1 ? '1 year' : floor(ceil((goal - saved) / monthly) / 12) + ' years')) + (floor(ceil((goal - saved) / monthly) / 12) > 0 && (ceil((goal - saved) / monthly) % 12) > 0 ? ', ' : '') + ((ceil((goal - saved) / monthly) % 12) == 0 ? '' : ((ceil((goal - saved) / monthly) % 12) == 1 ? '1 month' : (ceil((goal - saved) / monthly) % 12) + ' months')))","goal":{"@path":"/goal"},"saved":{"@path":"/saved"},"monthly":{"@path":"/monthly"}}}},{"id":"detail","component":"Text","color":"secondary","text":{"@call":"formatString","args":{"value":"${calc(expression: 'max(0, ceil((goal - saved) / monthly))', goal: /goal, saved: /saved, monthly: /monthly)} monthly deposits of ${formatCurrency(value: /monthly, currency: 'EUR', decimals: 0)} to reach ${formatCurrency(value: /goal, currency: 'EUR', decimals: 0)}"}}},{"id":"chart-label","component":"Label","text":"Months to your goal at other monthly amounts"},{"id":"chart","component":"Chart","chartType":"bar","height":200,"xKey":"amount","series":[{"key":"months","label":"Months"}],"yAxis":{"label":"Months","min":0},"showValueLabels":true,"data":{"@call":"series","args":{"count":8,"item":{"amount":"€${i * 100 + 100}","months":"${max(0, ceil((goal - saved) / (i * 100 + 100)))}"},"goal":{"@path":"/goal"},"saved":{"@path":"/saved"}}}}]}}
+```
+
+A few reference points for €10,000 from zero:
+
+| Per month | Time to €10,000 |
+|---|---|
+| €100 | 8 years, 4 months |
+| €200 | 4 years, 2 months |
+| €300 | 2 years, 10 months |
+| €500 | 1 year, 8 months |
+| €1,000 | 10 months |
+
+**Interest helps a little, not a lot.** Over a few years the effect is small: at €300 a month in a savings account paying 2% a year, you'd get there in 33 months instead of 34. The habit matters far more than the rate.
+
+**To make it stick:** set up a standing order for the day after payday, so the money moves before you can spend it, and keep it in a separate account you don't see every day.

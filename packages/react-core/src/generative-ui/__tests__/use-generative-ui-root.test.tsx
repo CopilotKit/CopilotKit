@@ -58,6 +58,7 @@ const ui = createGenerativeUI({
 
 /** The guideline for this UI: no events, no multiple slot, and no function mounted. */
 const SMALL_GUIDELINE = buildGenerativeUIMarkdownGuidelines({
+  components: ["Box", "Button"],
   functions: false,
   events: false,
   templates: false,

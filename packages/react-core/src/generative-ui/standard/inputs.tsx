@@ -71,8 +71,7 @@ const optionList = z
       }),
     ]),
   )
-  .optional()
-  .describe('Strings or { "value", "label", "description"? }');
+  .optional();
 
 type OptionList = z.output<typeof optionList>;
 
@@ -1917,7 +1916,7 @@ export const inputComponents = {
   Button: {
     component: Button,
     description:
-      'A button that sends its onClick event. With href it opens the URL, and with copy it copies the text, both without the agent. Use variant "primary" for the one main Button in a Row, and the default for the others. With submit true inside a Form, it submits the Form. The child or children render instead of the label. With checks, it is disabled while a check fails.',
+      'Sends its onClick event; with href it opens the URL, with copy it copies the text. Variant "primary" for the one main Button in a Row. submit true submits the Form around it. Its children render instead of the label. With checks it is disabled while a check fails.',
     props: buttonSchema,
     events: {
       onClick: {
@@ -1944,7 +1943,7 @@ export const inputComponents = {
   Form: {
     component: Form,
     description:
-      'A layout container that is a form. It sends its onSubmit event when the user submits it (a Button with submit true, or Enter in a field). Put the values of its fields in the event context with { "@path": "/x" }.',
+      'A layout container that is a form. It sends onSubmit when the user submits (a Button with submit true, or Enter in a field). Put its field values in the event context with { "@path": "/x" }.',
     props: formSchema,
     events: {
       onSubmit: {
@@ -2012,14 +2011,14 @@ export const inputComponents = {
   ChoicePicker: {
     component: ChoicePicker,
     description:
-      'A list of options, as checkboxes or chips. The user picks one, or several with variant "multipleSelection". Bind value with { "@path": "/x" } to read the chosen values as a list. Give it a label.',
+      'Options as checkboxes or chips: pick one, or several with variant "multipleSelection". Its value is the list of chosen values. Give it a label.',
     props: choicePickerSchema,
     writable: VALUE_WRITABLE,
   },
   DateTimeInput: {
     component: DateTimeInput,
     description:
-      'A date picker, or a time picker with enableTime, or both. Set timeStep (minutes) to offer fixed times, e.g. 30 for a booking. The value is ISO 8601. Bind value with { "@path": "/x" } to read it. Give it a label.',
+      "A date picker, a time picker with enableTime, or both. timeStep (minutes) offers fixed times, e.g. 30 for a booking. The value is ISO 8601. Give it a label.",
     props: dateTimeInputSchema,
     writable: VALUE_WRITABLE,
   },
