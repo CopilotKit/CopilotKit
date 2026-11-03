@@ -1,4 +1,4 @@
-# Shell Docs v2: agent guidance
+# Shell Docs: agent guidance
 
 Read these before changing anything in this app:
 
