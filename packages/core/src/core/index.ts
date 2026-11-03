@@ -21,6 +21,9 @@ export {
   ɵtoolRendererShapeChanged,
 } from "./provider-config";
 export type {
+  ɵA2UIBaseOptions,
+  ɵCopilotKitLearningOptions,
+  ɵCopilotKitProviderBaseOptions,
   ɵProviderConfigDiagnostic,
   ɵProviderConfigDiagnosticCode,
   ɵProviderConfigInput,
