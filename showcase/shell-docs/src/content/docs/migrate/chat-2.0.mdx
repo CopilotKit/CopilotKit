@@ -1,6 +1,6 @@
 ---
 title: Chat UI in 2.0
-description: Replace removed chat exports, update full label objects and repeated tool registrations, and check the default text and behavior that changed in the Vue and Angular chat.
+description: Replace removed chat exports, update full label objects and repeated tool registrations, and check the default text, chat configuration, agent, and thread-list behavior that changed in React, Vue, and Angular.
 ---
 
 In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilotkit/core` can fail, or a type check can fail. The Vue and Angular chat can also show different text or act differently. The cause is one of these changes:
@@ -9,8 +9,9 @@ In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilot
 - The `CopilotChatLabels` type has more keys.
 - `CopilotKitCore.addTool` lets a newer tool replace an older tool with the same name.
 - Vue and Angular use the same default text and chat rules as React.
+- React, Vue, and Angular use the same rules for chat configuration, agents, and thread lists.
 
-The codemod does not change this code. Use the sections below.
+The codemod changes only the Angular `CopilotChatConfiguration` subclasses in [Chat configuration](#chat-configuration). For all other changes, use the sections below.
 
 ## Removed exports
 
@@ -141,3 +142,112 @@ In Angular:
 - **Removing a renderer:** When a component that called `registerRenderToolCall` is destroyed, only its renderer is removed. Tools with the same name stay registered.
 
 If a test or a screenshot depends on the earlier behavior, update it to the behavior above.
+
+## Chat configuration
+
+React, Vue, and Angular now use one set of rules for the agent, the thread, and the modal of a chat configuration.
+
+In Vue:
+
+- **Thread order:** The thread of a parent `CopilotChatConfigurationProvider` comes before a nested `threadId` that has `hasExplicitThreadId: false`. A nested `threadId` without `hasExplicitThreadId: false` still wins.
+- **Thread changes:** `setActiveThreadId` and `startNewThread` on a nested provider change the thread of the top-most provider. All providers in the chain then show that thread.
+- **Modal without a parent:** A provider without a parent and without `isModalDefaultOpen` has its own modal state. `isModalOpen` starts as `true`, and `setModalOpen` is a function. In earlier versions, both values were `undefined`.
+- **Modal start state:** A provider with `isModalDefaultOpen` starts with that value. In earlier versions, it started with the value of its parent.
+
+In React, a provider without a thread makes one thread ID and keeps it. In 1.x, the provider made a new ID each time its thread props changed.
+
+In Angular:
+
+- **Controlled thread:** When the `threadId` option controls the thread, `setActiveThreadId` and `startNewThread` log a warning. The call is still ignored.
+- **`_setOverride`:** `CopilotChatConfiguration` has no `_setOverride` method. `setActiveThreadId` and `startNewThread` do not call a method of that name.
+
+The codemod changes each `this._setOverride(threadId, explicit)` call in a subclass of `CopilotChatConfiguration`:
+
+```ts ignore title="Before"
+import { Injectable } from "@angular/core";
+import { CopilotChatConfiguration } from "@copilotkit/angular";
+
+@Injectable()
+export class RoutedChatConfiguration extends CopilotChatConfiguration {
+  openFromRoute(threadId: string) {
+    this._setOverride(threadId, true);
+  }
+}
+```
+
+```ts title="After"
+import { Injectable } from "@angular/core";
+import { CopilotChatConfiguration } from "@copilotkit/angular";
+
+@Injectable()
+export class RoutedChatConfiguration extends CopilotChatConfiguration {
+  openFromRoute(threadId: string) {
+    this.setActiveThreadId(threadId, { explicit: true });
+  }
+}
+```
+
+Update your code:
+
+1. Run the codemod.
+2. If a subclass defines its own `_setOverride`, the codemod adds a `TODO(copilotkit-2.0)` comment. Move that code into overrides of `setActiveThreadId` and `startNewThread`.
+3. If a nested Vue provider must keep its own thread, remove `hasExplicitThreadId: false` from it.
+4. If your Vue code reads `isModalOpen` or `setModalOpen` to find out whether a chat has a modal, remove that check. Both always have a value.
+
+## Agents before the runtime connects
+
+Before the runtime returns its agent list, `useAgent` gives you a stand-in agent, and `isReady` is `false`. When the runtime connects, `useAgent` gives you the real agent. Angular `injectAgentStore` works the same way.
+
+These rules changed:
+
+- **One stand-in for each agent ID:** In React and Vue, all `useAgent` calls with the same agent ID get the same stand-in. In 1.x, each call got its own stand-in.
+- **Data is kept:** Messages, state, and a run that your app starts on the stand-in move to the real agent. After that, changes to one agent are copied to the other agent. The stand-in also takes the `threadId` of the real agent.
+- **Request settings:** The stand-in uses the same `credentials`, message filter, debug settings, and Intelligence settings as the real agent. For example, with `credentials: "include"`, a run that starts before the runtime connects now sends cookies.
+
+If your code keeps the stand-in agent, use the agent that `useAgent` gives you after `isReady` becomes `true`.
+
+In Vue, `useAgent` now also returns `isReady` as a ref:
+
+```ts title="After"
+import { watch } from "vue";
+import { useAgent } from "@copilotkit/vue";
+
+const { agent, isReady } = useAgent({ agentId: "support" });
+
+watch(isReady, (ready) => {
+  if (ready) console.log("Connected agent:", agent.value?.agentId);
+});
+```
+
+The Vue `useAgent` also updates the component when a run starts. It collects the message, state, and run updates of one tick into one update. If a Vue test reads the output right after a message change, add `await nextTick()` first.
+
+## Agent context in Angular
+
+`connectAgentContext` and the `copilotkitAgentContext` directive now accept any JSON value. They send a value that is not a string as JSON text, as React and Vue do. In earlier versions, the directive sent the object itself.
+
+```ts title="After"
+import { Component } from "@angular/core";
+import { connectAgentContext } from "@copilotkit/angular";
+
+@Component({ selector: "app-account", template: "" })
+export class AccountComponent {
+  constructor() {
+    // The agent receives '{"plan":"pro","seats":5}'.
+    connectAgentContext({
+      description: "The current account",
+      value: { plan: "pro", seats: 5 },
+    });
+  }
+}
+```
+
+If your agent reads a context value as an object, parse the value as JSON in the agent.
+
+## Thread lists
+
+`useThreads` in React and Vue, and `injectThreads` in Angular, now use the same rules:
+
+- **New thread:** In Vue and Angular, `startNewThread` hides the `"Runtime URL is not configured"` and `"Thread endpoints are not available on this CopilotKit runtime"` errors. The error comes back when the runtime configuration changes. React already did this.
+- **One list request:** In React and Vue, the hook loads `/threads` one time when the runtime connects. It does not send the same request again until the agent, the filters, the Intelligence WebSocket URL, or the request headers change.
+
+If a test expects `error` to stay set after `startNewThread`, or expects two `/threads` requests, update the test.
