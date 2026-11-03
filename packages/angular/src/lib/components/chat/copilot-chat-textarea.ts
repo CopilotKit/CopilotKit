@@ -89,6 +89,7 @@ export class CopilotChatTextarea {
     // Measure again whenever `inputMaxRows` changes, not only once.
     afterRenderEffect(() => {
       this.inputMaxRows();
+      if (!isPlatformBrowser(this.platformId)) return;
       untracked(() => {
         this.calculateMaxHeight();
         this.adjustHeight();

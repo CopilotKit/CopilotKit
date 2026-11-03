@@ -14,8 +14,9 @@ import {
   afterRenderEffect,
   inject,
   DestroyRef,
+  PLATFORM_ID,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+import { CommonModule, isPlatformBrowser } from "@angular/common";
 import {
   ɵCOMPOSER_DEFAULT_MAX_ROWS,
   ɵcomposerButtonState,
@@ -570,6 +571,7 @@ export class CopilotChatInput implements OnDestroy {
   private readonly start = viewChild<ElementRef<HTMLElement>>("start");
   private readonly actions = viewChild<ElementRef<HTMLElement>>("actions");
   private readonly destroyRef = inject(DestroyRef);
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   /** Sizes the text box and picks the layout, as in React and Vue. */
   private readonly autosize = ɵcreateComposerAutosize({
     getElements: () => ({
@@ -585,6 +587,7 @@ export class CopilotChatInput implements OnDestroy {
    * the text has a line break, wraps, or is wider than the compact row.
    */
   evaluateLayout(): void {
+    if (!this.isBrowser) return;
     this.autosize.setMaxRows(
       this.textAreaMaxRows() ?? ɵCOMPOSER_DEFAULT_MAX_ROWS,
     );
