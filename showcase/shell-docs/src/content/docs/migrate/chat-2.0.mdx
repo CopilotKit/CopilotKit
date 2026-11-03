@@ -1,6 +1,6 @@
 ---
 title: Chat UI in 2.0
-description: Replace removed chat exports, update full label objects and repeated tool registrations, and check the default text and behavior that changed in the Vue and Angular chat.
+description: Replace removed chat exports, update full label objects and repeated tool registrations, and check the default text, chat behavior, interrupts, and human-in-the-loop tools that changed.
 ---
 
 In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilotkit/core` can fail, or a type check can fail. The Vue and Angular chat can also show different text or act differently. The cause is one of these changes:
@@ -9,6 +9,7 @@ In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilot
 - The `CopilotChatLabels` type has more keys.
 - `CopilotKitCore.addTool` lets a newer tool replace an older tool with the same name.
 - Vue and Angular use the same default text and chat rules as React.
+- Interrupts and human-in-the-loop tools work the same in React, Vue, and Angular.
 
 The codemod does not change this code. Use the sections below.
 
@@ -141,3 +142,112 @@ In Angular:
 - **Removing a renderer:** When a component that called `registerRenderToolCall` is destroyed, only its renderer is removed. Tools with the same name stay registered.
 
 If a test or a screenshot depends on the earlier behavior, update it to the behavior above.
+
+## Interrupts and human-in-the-loop
+
+React, Vue, and Angular now share one implementation of interrupts and human-in-the-loop tools. The imports and types do not change. Some behavior changes. Find the changes that apply to your app below.
+
+### Human-in-the-loop tools
+
+Each human-in-the-loop call now has its own `respond`. As a result, these calls now finish:
+
+- **Parallel calls in React and Vue:** The agent can call one `useHumanInTheLoop` tool two times at the same time. Each card now answers its own call. In 1.x, the first call did not finish.
+- **`"*"` tools in Angular:** A `"*"` tool from `addHumanInTheLoop` or `registerHumanInTheLoop` now finishes when the user responds. In 1.x, it did not finish.
+
+These changes can affect your code:
+
+- **`name` in a Vue `"*"` tool:** The render gets the name of the tool that the agent called, as in React. In 1.x, `name` was `"*"`.
+- **The `humanInTheLoop` prop in React and Vue:** A tool in this prop of `CopilotKitProvider` now uses all tool fields, as `useHumanInTheLoop` does. For example, `available: false` hides the tool from the agent.
+- **Renderer `args` in Vue:** A `humanInTheLoop` prop tool without `parameters` gets a renderer without `args`, as in React.
+- **Unmount:** When the provider unmounts, each call that waits for `respond` fails with the error `Human-in-the-loop interaction aborted`. The same occurs when you call `dispose()` on the core. In 1.x, these calls did not finish.
+
+To update your code:
+
+1. If a Vue `"*"` render compares `name` with `"*"`, remove the comparison. Use `name` to show the tool that the agent called.
+2. If a `humanInTheLoop` prop tool sets `available`, `reconnectBehavior`, or `webmcp`, make sure that you want this value to apply.
+
+```ts ignore title="Before"
+// Inside <script setup lang="ts">
+import { h } from "vue";
+import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import ApprovalCard from "./ApprovalCard.vue";
+
+useHumanInTheLoop({
+  name: "*",
+  render: (props) =>
+    h(ApprovalCard, {
+      toolName: props.name === "*" ? "a tool" : props.name,
+      onApprove: () => props.respond?.({ approved: true }),
+    }),
+});
+```
+
+```ts title="After"
+// Inside <script setup lang="ts">
+import { h } from "vue";
+import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import ApprovalCard from "./ApprovalCard.vue";
+
+useHumanInTheLoop({
+  name: "*",
+  render: (props) =>
+    h(ApprovalCard, {
+      toolName: props.name,
+      onApprove: () => props.respond?.({ approved: true }),
+    }),
+});
+```
+
+### Interrupts in React and Vue
+
+`useInterrupt` now follows the rules that `injectInterrupt` in Angular already used:
+
+- **Run errors:** A `RUN_ERROR` event removes the interrupt.
+- **Thread changes:** If the thread changes before the user answers, `resolve` and `cancel` do not resume the run. The interrupt is removed.
+- **Repeated answers:** A second `resolve` or `cancel` call during the start of the resume run returns the promise of the first call.
+- **Unknown IDs:** A `resolve` or `cancel` call with an `interruptId` that is not open does nothing. CopilotKit logs a warning.
+
+If a test expects the earlier behavior, update the test.
+
+### Interrupts in Vue
+
+`useInterrupt` in Vue now works as in React:
+
+- **Tool results:** An answer to a frontend tool-call interrupt adds the tool result to the messages before the resume run.
+- **Saved results:** If a frontend tool already gave a result, the resume run uses it. An answer for a completed call is ignored.
+- **Reloads:** An interrupt that the agent still holds shows again when the component mounts.
+- **Expired interrupts:** If you cancel an expired interrupt, the other answers can still resume the run.
+- **Errors:** If `enabled` throws, the interrupt does not show. If `handler` throws, `result` is `null`. CopilotKit logs both errors.
+
+Two changes can affect your code:
+
+- **`enabled` runs one time for each interrupt.** In 1.x, Vue ran `enabled` again when a ref that it reads changed.
+- **The `interrupt` ref is `null` while `enabled` returns `false`.** In 1.x, the ref held the event.
+
+If `enabled` reads a value that can change while an interrupt shows, move that check out of `enabled`:
+
+```ts ignore title="Before"
+// Inside <script setup lang="ts">
+import { ref } from "vue";
+import { useInterrupt } from "@copilotkit/vue/v2";
+
+const approvalsOn = ref(false);
+
+const { slotProps } = useInterrupt({
+  renderInChat: false,
+  enabled: () => approvalsOn.value,
+});
+```
+
+```ts title="After"
+// Inside <script setup lang="ts">
+import { computed, ref } from "vue";
+import { useInterrupt } from "@copilotkit/vue/v2";
+
+const approvalsOn = ref(false);
+
+const { slotProps } = useInterrupt({ renderInChat: false });
+
+// Use `approval` in the template, for example with `v-if="approval"`.
+const approval = computed(() => (approvalsOn.value ? slotProps.value : null));
+```
