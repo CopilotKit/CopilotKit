@@ -1,55 +1,107 @@
 ---
-title: Human in the Loop (HITL)
-icon: "lucide/User"
-description: Allow your agent and users to collaborate on complex tasks.
+title: Human-in-the-Loop
+icon: "lucide/Wrench"
+description: Create frontend tools and use them within your Pydantic AI agent for human-in-the-loop interactions.
 ---
 
-
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<IframeSwitcher
+  id="frontend-tools-based-hitl-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/pydantic-ai/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/pydantic-ai/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
 />
 
-{/* TODO: Add Example */}
-{/* <Callout>
-This video shows an example of our [AI Travel App](/langgraph/tutorials/ai-travel-app) using HITL to get user feedback.
+## What is this?
 
-</Callout> */}
+Some agent steps need a person's choice before the agent continues. A human-in-the-loop tool shows buttons in the chat and sends the user's pick back to the agent.
 
-## What is Human-in-the-Loop (HITL)?
-
-Human-in-the-loop (HITL) allows agents to request human input or approval during execution, making AI systems more reliable and trustworthy. This pattern is essential when building AI applications that need to handle complex decisions or actions that require human judgment.
-
-<Frame className="my-0">
-  <img
-    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-hitl-infographic.png"
-    alt="Agentic Copilot Human in the Loop"
-    className="mt-4 mb-0 shadow-md"
-  />
-</Frame>
+A human-in-the-loop tool is a frontend tool, so it runs in the user's browser. Frontend tools can also let [your agent control the UI](/pydantic-ai/frontend-tools) or render [generative UI](/pydantic-ai/generative-ui).
 
 ## When should I use this?
 
-Use HITL when the agent must ask a person before it acts, for example before it books a meeting.
+Use this when the agent must not continue until the user decides. For tools that read or change the browser without asking the user, see [Frontend Tools](/pydantic-ai/frontend-tools).
 
-## How can I use this?
+For a sample where the agent waits for the user to approve a draft, see [Pydantic AI Agents](/pydantic-ai/human-in-the-loop/agent).
 
-Read more about the approach to HITL in Pydantic AI Agents.
+## Implementation
 
-<CTACards
-  columns={1}
-  cards={[
-    {
-      iconKey: "share2",
-      title: "Agent-based",
-      description:
-        "Add Human-in-the-Loop steps to a Pydantic AI agent.",
-href: "/human-in-the-loop/agent",
-    },
-  ]}
-/> 
+<Steps>
+    <Step>
+      ### Run and connect your agent
+      <RunAndConnect components={props.components} />
+    </Step>
+
+    <Step>
+        ### Create a frontend human-in-the-loop tool
+
+        Register the tool with `useHumanInTheLoop`. Its `render` shows two buttons, and the user's click becomes the tool result.
+
+        In this example, the agent offers two options and waits for the user to pick one.
+
+        ```tsx title="page.tsx"
+        import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
+        import { z } from "zod"
+
+        export function Page() {
+          // ...
+
+          useHumanInTheLoop({
+            name: "offerOptions",
+            description: "Give the user a choice between two options and have them select one.",
+            parameters: z.object({
+              option_1: z.string().describe("The first option"),
+              option_2: z.string().describe("The second option"),
+            }),
+            render: ({ args, respond }) => {
+              if (!respond) return <></>;
+              return (
+                <div>
+                  {/* [!code highlight:2] */}
+                  <button onClick={() => respond(`${args.option_1} was selected`)}>{args.option_1}</button>
+                  <button onClick={() => respond(`${args.option_2} was selected`)}>{args.option_2}</button>
+                </div>
+              );
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ###  Set up your agent
+
+        Pydantic AI automatically picks up human-in-the-loop tools when you create your agent. No special configuration is needed:
+
+        ```python title="agent.py"
+        from pydantic_ai import Agent
+        from pydantic_ai.ui.ag_ui import AGUIAdapter
+        from starlette.applications import Starlette
+        from starlette.requests import Request
+        from starlette.responses import Response
+        from starlette.routing import Route
+
+        agent = Agent('openai:gpt-5.4-mini')
+
+
+        async def run_agent(request: Request) -> Response:
+            return await AGUIAdapter.dispatch_request(request, agent=agent)
+
+
+        app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
+        ```
+
+        The frontend tools are automatically populated by CopilotKit through the AG-UI protocol and are available to your agent.
+    </Step>
+    <Step>
+        ### Try it out
+
+        You've now given your agent the ability to show the user two options and have them select one. The agent will then be aware of the user's choice and can use it in subsequent steps.
+
+        ```
+        Can you show me two good options for a restaurant name?
+        ````
+    </Step>
+</Steps>
