@@ -27,6 +27,12 @@ const FRAMEWORK = `:framework(${V2_RESERVED_SEGMENTS}[^/]+)`;
 const FRAMEWORK_NOT_REFERENCE = `:framework((?!reference)${V2_RESERVED_SEGMENTS}[^/]+)`;
 /** As FRAMEWORK_NOT_REFERENCE; `intelligence` is a docs section, not a framework. */
 const FRAMEWORK_NOT_REFERENCE_OR_INTELLIGENCE = `:framework((?!reference|intelligence)${V2_RESERVED_SEGMENTS}[^/]+)`;
+/**
+ * The framework after `/slack` or `/teams`. Never `intelligence`: the
+ * channel sidebars link the Intelligence pages there
+ * (`/slack/intelligence/quickstart`), which aren't framework guides.
+ */
+const CHANNEL_FRAMEWORK = ":framework((?!intelligence)[^/]+)";
 
 const CHANNEL_REDIRECT_FRONTENDS = ["slack", "teams"];
 
@@ -401,12 +407,12 @@ const CHANNEL_ROOT_REDIRECTS = [
       `/${frontend}/connect`,
     ),
     ...permanentRedirectsWithSuffixes(
-      `/${frontend}/:framework/quickstart`,
+      `/${frontend}/${CHANNEL_FRAMEWORK}/quickstart`,
       `/${frontend}/:framework/connect`,
     ),
     ...permanentRedirectsWithSuffixes(`/${frontend}/overview`, `/${frontend}`),
     ...permanentRedirectsWithSuffixes(
-      `/${frontend}/:framework/overview`,
+      `/${frontend}/${CHANNEL_FRAMEWORK}/overview`,
       `/${frontend}/:framework`,
     ),
     ...permanentRedirectsWithSuffixes(
@@ -418,7 +424,7 @@ const CHANNEL_ROOT_REDIRECTS = [
       `/${frontend}`,
     ),
     ...permanentRedirectsWithSuffixes(
-      `/${frontend}/:framework/channels`,
+      `/${frontend}/${CHANNEL_FRAMEWORK}/channels`,
       `/${frontend}/:framework`,
     ),
     ...permanentRedirectsWithSuffixes(`/${frontend}/channels`, `/${frontend}`),
