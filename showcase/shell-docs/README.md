@@ -45,8 +45,13 @@ has pointer files for the images in `public/`, so the Dockerfile runs
 
 ```bash
 docker build -f showcase/shell-docs/Dockerfile -t shell-docs .
-docker run --rm -p 3000:3000 -e OPENAI_API_KEY shell-docs
+docker run --rm -p 10000:10000 -e OPENAI_API_KEY shell-docs
 ```
+
+The container listens on port 10000, as the Railway docs service expects, so
+open http://localhost:10000. Before the image is tagged, the build starts the
+server and fetches a few pages that render on request (the last step of the
+Dockerfile).
 
 ## Validate
 
