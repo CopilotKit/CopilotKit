@@ -109,7 +109,7 @@ const EXHAUST: Step[] = [
 
 function lastUserText(input: RunAgentInput): string {
   const message = [...input.messages]
-    .toReversed()
+    .reverse()
     .find((m) => m.role === "user");
   return typeof message?.content === "string" ? message.content : "";
 }
