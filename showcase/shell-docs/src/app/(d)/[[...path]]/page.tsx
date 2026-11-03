@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { ProtoArticle } from "@/proto/content";
 import { DExamples } from "@/proto/examples-d";
 import { DHome } from "@/proto/home-d";
 import { LiveArticle } from "@/proto/live-article";
@@ -11,7 +10,6 @@ import {
   catalogComponentSlug,
   catalogReferenceFromPath,
 } from "@/components/standard-catalog/catalog-reference";
-import { frameworkHref, parseLocation } from "@/proto/routes";
 import { frontendFallback, resolveLivePage } from "@/lib/live-docs";
 import { liveFramework } from "@/lib/live-scope";
 import { absoluteUrl } from "@/lib/seo/base-url";
@@ -53,14 +51,8 @@ export default async function Page({ params }: PageProps<"/[[...path]]">) {
   const fallback = frontendFallback(path);
   if (fallback) redirect(fallback);
 
-  // Anything the live docs don't have falls back to the prototype's pages.
-  const loc = parseLocation("d", path);
-  if (!loc) notFound();
-  // Readers arrive from the home page, so a framework opens on its quickstart.
-  if (loc.kind === "framework" && !loc.slug) {
-    redirect(frameworkHref("d", loc.framework, "quickstart"));
-  }
-  return <ProtoArticle variant="d" loc={loc} />;
+  // Anything else isn't a docs page.
+  notFound();
 }
 
 export async function generateMetadata({
@@ -92,7 +84,8 @@ export async function generateMetadata({
       },
     };
   }
-  if (!live) return { title: "CopilotKit Docs" };
+  // The page answers 404 (`not-found.tsx` sets its own title).
+  if (!live) return { robots: { index: false } };
   const { title, description } = live.page.data;
   // Canonical URL, Open Graph and Twitter cards, as shell-docs sets them.
   const seo = liveDocMetadata({ title, description, path: url });
