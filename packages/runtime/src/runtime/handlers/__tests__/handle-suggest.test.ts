@@ -1,12 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import type { RunAgentInput } from "@ag-ui/client";
 
-vi.mock("pino", () => ({
-  default: vi.fn(() => ({
-    child: vi.fn(() => ({ debug: vi.fn() })),
-    debug: vi.fn(),
-  })),
-}));
 vi.mock("../../telemetry", () => ({
   telemetry: { capture: vi.fn() },
 }));

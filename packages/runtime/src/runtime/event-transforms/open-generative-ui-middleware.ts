@@ -9,7 +9,8 @@ import type {
 } from "@ag-ui/client";
 import { Middleware, EventType } from "@ag-ui/client";
 import { Observable } from "rxjs";
-import clarinet from "clarinet";
+import { StreamingJsonScanner } from "./streaming-json-scanner";
+import type { JsonScalar } from "./streaming-json-scanner";
 
 const TOOL_NAME = "generateSandboxedUi";
 const ACTIVITY_TYPE = "open-generative-ui";
@@ -36,16 +37,14 @@ export type OnParamEvent = (event: BaseEvent) => void;
  * Emits activity events via the onEvent callback as parameters complete.
  */
 export class ArgsParser {
-  private parser: ReturnType<typeof clarinet.parser> & {
-    error?: Error | null;
-    textNode?: string;
-  };
+  private readonly scanner: StreamingJsonScanner;
   private currentKey: string | null = null;
   private depth = 0;
   private currentArrayKey: string | null = null;
   private snapshotEmitted = false;
 
-  // Streaming html state — reads parser.textNode to emit incremental chunks
+  // Streaming html state. flushHtmlChunks reads scanner.partialString to emit
+  // the html in chunks while it streams in.
   private streamingHtmlKey = false;
   private htmlEmittedLength = 0;
   private htmlArrayEmitted = false;
@@ -57,93 +56,81 @@ export class ArgsParser {
   constructor(toolCallId: string, onEvent: OnParamEvent) {
     this.messageId = `${toolCallId}-activity`;
     this.onEvent = onEvent;
-    this.parser = clarinet.parser();
+    // The scanner skips bad characters and warns by itself, so no error
+    // handler is needed here.
+    this.scanner = new StreamingJsonScanner({
+      onOpenObject: () => {
+        this.depth++;
+      },
 
-    this.parser.onopenobject = (key: string | undefined) => {
-      this.depth++;
-      if (key !== undefined && this.depth === 1) {
-        this.currentKey = key;
-        this.initHtmlStreaming(key);
-      }
-    };
+      onKey: (key) => {
+        if (this.depth === 1) {
+          this.currentKey = key;
+          this.initHtmlStreaming(key);
+        }
+      },
 
-    this.parser.onkey = (key: string) => {
-      if (this.depth === 1) {
-        this.currentKey = key;
-        this.initHtmlStreaming(key);
-      }
-    };
-
-    this.parser.onvalue = (value: string | boolean | number | null) => {
-      if (this.depth === 1 && this.currentKey) {
-        if (this.currentArrayKey) {
-          const strValue = String(value);
-          if (this.currentArrayKey === "jsExpressions") {
-            if (!this.params.jsExpressions) this.params.jsExpressions = [];
-            this.params.jsExpressions.push(strValue);
-          } else if (this.currentArrayKey === "placeholderMessages") {
-            if (!this.params.placeholderMessages)
-              this.params.placeholderMessages = [];
-            this.params.placeholderMessages.push(strValue);
+      onValue: (value) => {
+        if (this.depth === 1 && this.currentKey) {
+          if (this.currentArrayKey) {
+            const strValue = String(value);
+            if (this.currentArrayKey === "jsExpressions") {
+              if (!this.params.jsExpressions) this.params.jsExpressions = [];
+              this.params.jsExpressions.push(strValue);
+            } else if (this.currentArrayKey === "placeholderMessages") {
+              if (!this.params.placeholderMessages)
+                this.params.placeholderMessages = [];
+              this.params.placeholderMessages.push(strValue);
+            }
+            this.emitArrayItemDelta(this.currentArrayKey, strValue);
+          } else if (this.streamingHtmlKey) {
+            // The html string is complete. Emit the rest of it now, then htmlComplete.
+            const fullHtml = value != null ? String(value) : "";
+            this.params.html = fullHtml || undefined;
+            this.emitPendingHtml(fullHtml);
+            this.emitParamDelta("htmlComplete", true);
+            this.streamingHtmlKey = false;
+          } else {
+            this.setParam(this.currentKey, value);
           }
-          this.emitArrayItemDelta(this.currentArrayKey, strValue);
-        } else if (this.streamingHtmlKey) {
-          // HTML string completed — flush any remaining content immediately + htmlComplete
-          const fullHtml = value != null ? String(value) : "";
-          this.params.html = fullHtml || undefined;
-          this.emitPendingHtml(fullHtml);
-          this.emitParamDelta("htmlComplete", true);
-          this.streamingHtmlKey = false;
-        } else {
-          this.setParam(this.currentKey, value);
         }
-      }
-    };
+      },
 
-    this.parser.onopenarray = () => {
-      if (this.depth === 1 && this.currentKey) {
-        const key = this.currentKey;
-        if (key === "jsExpressions" || key === "placeholderMessages") {
-          this.currentArrayKey = key;
-          if (key === "jsExpressions") this.params.jsExpressions = [];
-          else this.params.placeholderMessages = [];
-          // Emit a delta to create the array in the activity content.
-          // Subsequent "add" ops with path "/<key>/-" append to this array.
-          this.emitParamDelta(key, []);
+      onOpenArray: () => {
+        if (this.depth === 1 && this.currentKey) {
+          const key = this.currentKey;
+          if (key === "jsExpressions" || key === "placeholderMessages") {
+            this.currentArrayKey = key;
+            if (key === "jsExpressions") this.params.jsExpressions = [];
+            else this.params.placeholderMessages = [];
+            // Emit a delta to create the array in the activity content.
+            // Subsequent "add" ops with path "/<key>/-" append to this array.
+            this.emitParamDelta(key, []);
+          }
         }
-      }
-    };
+      },
 
-    this.parser.onclosearray = () => {
-      if (this.depth === 1) {
-        if (this.currentArrayKey === "jsExpressions") {
-          this.emitParamDelta("jsExpressionsComplete", true);
+      onCloseArray: () => {
+        if (this.depth === 1) {
+          if (this.currentArrayKey === "jsExpressions") {
+            this.emitParamDelta("jsExpressionsComplete", true);
+          }
+          this.currentArrayKey = null;
         }
-        this.currentArrayKey = null;
-      }
-    };
+      },
 
-    this.parser.oncloseobject = () => {
-      this.depth--;
-    };
-
-    this.parser.onerror = (err: Error) => {
-      console.warn(
-        "[OpenGenerativeUI] JSON parse error in streaming args, resuming:",
-        err?.message ?? err,
-      );
-      // Reset error state so parsing can continue with the next chunk
-      this.parser.error = null;
-      this.parser.resume();
-    };
+      onCloseObject: () => {
+        this.depth--;
+      },
+    });
   }
 
-  write(chunk: string): void {
-    this.parser.write(chunk);
+  write(chunk: string) {
+    this.scanner.write(chunk);
     this.flushHtmlChunks();
   }
 
-  private initHtmlStreaming(key: string): void {
+  private initHtmlStreaming(key: string) {
     if (key === "html") {
       this.streamingHtmlKey = true;
       this.htmlEmittedLength = 0;
@@ -152,24 +139,25 @@ export class ArgsParser {
   }
 
   /**
-   * Read clarinet's internal textNode buffer to emit html chunks incrementally.
-   * Called after every write() so partial string content is emitted as it streams in.
+   * Emit the html read so far while the html string streams in.
+   * Called after every write(). It reads only while the top-level `html`
+   * value is being read, so a nested string is never emitted as html.
    */
-  private flushHtmlChunks(): void {
-    if (!this.streamingHtmlKey) return;
-    const textNode = this.parser.textNode;
-    if (typeof textNode !== "string") return;
-    if (textNode.length === this.htmlEmittedLength) return;
+  private flushHtmlChunks() {
+    if (!this.streamingHtmlKey || this.depth !== 1) return;
+    const partialHtml = this.scanner.partialString;
+    if (partialHtml === undefined) return;
+    if (partialHtml.length === this.htmlEmittedLength) return;
 
-    this.emitPendingHtml(textNode);
+    this.emitPendingHtml(partialHtml);
   }
 
   /**
    * Emit accumulated html content since the last emission.
    * Called by flushHtmlChunks and directly when html completes.
    */
-  private emitPendingHtml(textNode: string): void {
-    const newContent = textNode.slice(this.htmlEmittedLength);
+  private emitPendingHtml(html: string) {
+    const newContent = html.slice(this.htmlEmittedLength);
     if (newContent.length === 0) return;
 
     if (!this.htmlArrayEmitted) {
@@ -177,10 +165,10 @@ export class ArgsParser {
       this.emitParamDelta("html", []);
     }
     this.emitArrayItemDelta("html", newContent);
-    this.htmlEmittedLength = textNode.length;
+    this.htmlEmittedLength = html.length;
   }
 
-  private setParam(key: string, value: string | boolean | number | null): void {
+  private setParam(key: string, value: JsonScalar) {
     switch (key) {
       case "initialHeight":
         this.params.initialHeight =
@@ -206,7 +194,7 @@ export class ArgsParser {
     }
   }
 
-  private emitSnapshot(): void {
+  private emitSnapshot() {
     if (this.snapshotEmitted) return;
     this.snapshotEmitted = true;
 
@@ -219,7 +207,7 @@ export class ArgsParser {
     this.onEvent(event);
   }
 
-  private emitParamDelta(key: string, value: unknown): void {
+  private emitParamDelta(key: string, value: unknown) {
     // A JSON Patch "add" requires a value; emitting one without it (e.g. when
     // the LLM sends a null/empty jsFunctions or css) makes fast-json-patch
     // reject the whole patch client-side with OPERATION_VALUE_REQUIRED and
@@ -239,7 +227,7 @@ export class ArgsParser {
     this.onEvent(event);
   }
 
-  private emitArrayItemDelta(arrayKey: string, value: string): void {
+  private emitArrayItemDelta(arrayKey: string, value: string) {
     this.emitSnapshot();
     const event: ActivityDeltaEvent = {
       type: EventType.ACTIVITY_DELTA,

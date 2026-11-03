@@ -44,7 +44,7 @@ interface CreateSseEventResponseParams {
   debugEventBus?: DebugEventBus;
   agentId?: string;
   debug?: ResolvedDebugConfig;
-  /** Pre-created logger instance to avoid creating a new pino logger per request. */
+  /** Pre-created logger instance to avoid creating a new logger per request. */
   logger?: CopilotRuntimeLogger;
   /** Runtime-bound telemetry capture. Falls back for external direct callers. */
   telemetry?: TelemetryCapture;

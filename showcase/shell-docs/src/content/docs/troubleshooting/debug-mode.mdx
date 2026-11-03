@@ -37,7 +37,7 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-This produces structured Pino logs with a `copilotkit-debug` component label. The runtime writes them to stdout as JSON lines. To read them formatted, pipe your server output through `pino-pretty`:
+This produces JSON logs in the pino format, with a `copilotkit-debug` component label. The runtime writes them to stdout as JSON lines. To read them formatted, pipe your server output through `pino-pretty`:
 
 ```bash
 npm run dev | npx pino-pretty
@@ -86,7 +86,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 ```
 
-This forwards the debug configuration to the AG-UI client transport layer (`transformChunks`), which may produce transport-level debug output depending on the AG-UI library version. Note that the richest debug logging comes from the **server-side** `CopilotRuntime` — enable `debug: true` there for full structured Pino logs of every AG-UI event.
+This forwards the debug configuration to the AG-UI client transport layer (`transformChunks`), which may produce transport-level debug output depending on the AG-UI library version. Note that the richest debug logging comes from the **server-side** `CopilotRuntime`. Enable `debug: true` there to get JSON logs of every AG-UI event, in the pino format.
 
 <Callout type="info">
   The server and client debug toggles are independent. Enabling debug on the client does not affect the server, and vice versa.
