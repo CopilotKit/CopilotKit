@@ -333,7 +333,10 @@ describe("CopilotA2UIToolRenderer with a real catalog", () => {
             },
           },
         },
-        { provide: CopilotKit, useValue: { core } },
+        {
+          provide: CopilotKit,
+          useValue: { core, ɵa2uiCatalog: () => undefined },
+        },
       ],
     });
     const fixture = TestBed.createComponent(CopilotA2UIToolRenderer);

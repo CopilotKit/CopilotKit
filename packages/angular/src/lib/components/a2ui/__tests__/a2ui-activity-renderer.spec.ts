@@ -53,7 +53,7 @@ describe("CopilotA2UIActivityRenderer", () => {
         },
         {
           provide: CopilotKit,
-          useValue: { core },
+          useValue: { core, ɵa2uiCatalog: () => undefined },
         },
       ],
     });
@@ -276,7 +276,10 @@ describe("CopilotA2UIActivityRenderer with A2UI options", () => {
       imports: [CopilotA2UIActivityRenderer],
       providers: [
         { provide: COPILOT_KIT_CONFIG, useValue: { a2ui } },
-        { provide: CopilotKit, useValue: { core } },
+        {
+          provide: CopilotKit,
+          useValue: { core, ɵa2uiCatalog: () => undefined },
+        },
       ],
     });
     const fixture = TestBed.createComponent(CopilotA2UIActivityRenderer);

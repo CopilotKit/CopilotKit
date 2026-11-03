@@ -18,7 +18,7 @@ import { A2UIClientEventMessage, A2UISurfaceError } from "./a2ui-types";
   imports: [CopilotSlot],
   host: { style: "display: contents" },
   template: `
-    @if (a2ui?.catalog; as catalog) {
+    @if (catalog(); as catalog) {
       <copilot-slot
         style="display: contents"
         [slot]="catalog.surfaceComponent"
@@ -37,8 +37,13 @@ export class CopilotA2UISurfaceOutlet {
     ?.a2ui;
   private readonly copilotKit = inject(CopilotKit, { optional: true });
 
+  /** The configured catalog, without components disabled in the Inspector. */
+  protected readonly catalog = computed(
+    () => this.copilotKit?.ɵa2uiCatalog() ?? this.a2ui?.catalog,
+  );
+
   protected readonly context = computed(() => ({
-    catalog: this.a2ui?.catalog,
+    catalog: this.catalog(),
     operations: this.operations(),
     theme: this.a2ui?.theme,
     loadingComponent: this.a2ui?.loadingComponent,

@@ -55,6 +55,7 @@ const mockGetAgent = vi.fn();
 const mockGetTool = vi.fn();
 const mockAddContext = vi.fn();
 const mockRemoveContext = vi.fn();
+const mockSetCatalogComponents = vi.fn();
 
 const licenseKey = "ck_pub_" + "a".repeat(32);
 
@@ -92,6 +93,12 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     readonly addContext = mockAddContext;
     readonly removeContext = mockRemoveContext;
     readonly dispose = mockDispose;
+    readonly setCatalogComponents = mockSetCatalogComponents;
+    disabledCatalogComponents = new Set<string>();
+    isCatalogComponentEnabled(name: string) {
+      return !this.disabledCatalogComponents.has(name);
+    }
+    a2uiAgents: string[] | undefined = undefined;
     agents: Record<string, any> = {};
     runtimeUrl = undefined;
     runtimeTransport = "auto";
@@ -444,6 +451,55 @@ describe("CopilotKit", () => {
         value: A2UI_DEFAULT_DESIGN_GUIDELINES,
       }),
     );
+  });
+
+  it("scopes the A2UI context to the runtime's A2UI agents (#5369)", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({ licenseKey, a2ui: { catalog: testCatalog } }),
+      ],
+    });
+    const copilotKit = TestBed.inject(CopilotKit);
+    const core = copilotKit.core as any;
+    mockAddContext.mockClear();
+
+    core.a2uiAgents = ["chat"];
+    core.listener!.onRuntimeConnectionStatusChanged({ status: "connected" });
+
+    expect(
+      mockAddContext.mock.calls.map(([context]) => context.agentIds),
+    ).toEqual([["chat"], ["chat"], ["chat"], ["chat"]]);
+  });
+
+  it("registers catalog components for the Inspector and drops disabled ones", () => {
+    const customCatalog: A2UICatalog = Object.assign(
+      new Catalog("copilotkit://custom-catalog", [
+        { name: "FlightCard", schema: zodV3.object({}) },
+        { name: "Badge", schema: zodV3.object({}) },
+      ]),
+      { surfaceComponent: CopilotA2UIActivityRenderer },
+    );
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({ licenseKey, a2ui: { catalog: customCatalog } }),
+      ],
+    });
+    const copilotKit = TestBed.inject(CopilotKit);
+    const core = copilotKit.core as any;
+    expect(
+      mockSetCatalogComponents.mock.calls
+        .at(-1)![0]
+        .map((component: { name: string }) => component.name),
+    ).toEqual(["FlightCard", "Badge"]);
+
+    core.disabledCatalogComponents.add("Badge");
+    for (const [subscriber] of mockSubscribe.mock.calls) {
+      subscriber.onCatalogComponentsChanged?.({});
+    }
+
+    const filtered = copilotKit.ɵa2uiCatalog()!;
+    expect([...filtered.components.keys()]).toEqual(["FlightCard"]);
+    expect(filtered.surfaceComponent).toBe(CopilotA2UIActivityRenderer);
   });
 
   it("keeps A2UI off and warns once when the runtime enables it without a catalog", () => {
