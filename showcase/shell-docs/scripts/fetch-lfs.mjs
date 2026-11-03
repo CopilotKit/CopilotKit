@@ -10,6 +10,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO = process.env.LFS_REPO ?? "CopilotKit/CopilotKit";
+// Per request, body included. A stalled connection fails the build instead of
+// hanging it until the CI job's own timeout.
+const TIMEOUT_MS = Number(process.env.LFS_TIMEOUT_MS ?? 60_000);
 const SKIP = new Set(["node_modules", ".next", ".source"]);
 const POINTER =
   /^version https:\/\/git-lfs\.github\.com\/spec\/v1\noid sha256:([0-9a-f]{64})\nsize (\d+)\n/;
@@ -35,9 +38,17 @@ function findPointers(dir, found = new Map()) {
 }
 
 async function download(oid, { size, paths }, action) {
-  const response = await fetch(action.href, { headers: action.header });
-  if (!response.ok) throw new Error(`${paths[0]}: HTTP ${response.status}`);
-  const body = Buffer.from(await response.arrayBuffer());
+  let body;
+  try {
+    const response = await fetch(action.href, {
+      headers: action.header,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    body = Buffer.from(await response.arrayBuffer());
+  } catch (error) {
+    throw new Error(`${paths[0]}: ${error.message}`);
+  }
   const hash = createHash("sha256").update(body).digest("hex");
   if (body.length !== size || hash !== oid) {
     throw new Error(`${paths[0]}: content does not match its LFS pointer`);
@@ -63,6 +74,7 @@ for (let i = 0; i < oids.length; i += 100) {
         transfers: ["basic"],
         objects: batch.map((oid) => ({ oid, size: pointers.get(oid).size })),
       }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     },
   );
   if (!response.ok) {
