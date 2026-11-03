@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { Callout } from "fumadocs-ui/components/callout";
+import { useSiteHosts } from "@/components/site-hosts";
 import { trackEvent } from "@/lib/telemetry/analytics";
 import type { DocsScope } from "../scope";
 import { CtaCardBody, ctaCardClass } from "./cta-card";
@@ -11,11 +12,8 @@ import { usePageStack } from "./page-stack";
 
 // The docs' conversion links, with shell-docs' URLs, UTM parameters and
 // PostHog events (react/ops-platform-cta.tsx, react/signup-link.tsx,
-// react/docs-conversion.tsx, lib/docs-cta-href.ts).
-
-/** Where CopilotKit Intelligence sign-up starts (shell-docs' production default). */
-export const INTELLIGENCE_SIGNUP_URL =
-  "https://dashboard.operations.copilotkit.ai/";
+// react/docs-conversion.tsx, lib/docs-cta-href.ts). Sign-up starts on this
+// deployment's dashboard (`useSiteHosts`).
 
 interface DocsCtaAttribution {
   surface: string;
@@ -38,9 +36,10 @@ function addDocsCtaAttribution(
 
 /** The Intelligence sign-in entry, returning the reader to onboarding. */
 export function buildIntelligenceAuthEntryHref(
+  dashboardUrl: string,
   attribution: DocsCtaAttribution,
 ): string {
-  const url = new URL("/sign-in", INTELLIGENCE_SIGNUP_URL);
+  const url = new URL("/sign-in", dashboardUrl);
   url.searchParams.set("post_auth_redirect", "ready");
   return addDocsCtaAttribution(url, attribution);
 }
@@ -104,10 +103,11 @@ export function OpsPlatformCTA({
   ...props
 }: OpsPlatformCTAProps) {
   const { frontend, backend, fromPath } = useAttribution(scope, props);
+  const { dashboardUrl } = useSiteHosts();
   const attribution = { surface, frontend, backend };
   const href = hrefOverride
     ? buildTrackedDocsHref(hrefOverride, attribution)
-    : buildIntelligenceAuthEntryHref(attribution);
+    : buildIntelligenceAuthEntryHref(dashboardUrl, attribution);
   const onClick = () =>
     trackEvent(analyticsEvent, {
       location: surface,
@@ -171,9 +171,14 @@ export function SignupLink({
   ...props
 }: SignupLinkProps) {
   const { frontend, backend, fromPath } = useAttribution(scope, props);
+  const { dashboardUrl } = useSiteHosts();
   return (
     <a
-      href={buildIntelligenceAuthEntryHref({ surface, frontend, backend })}
+      href={buildIntelligenceAuthEntryHref(dashboardUrl, {
+        surface,
+        frontend,
+        backend,
+      })}
       target="_blank"
       rel="noreferrer"
       onClick={() =>

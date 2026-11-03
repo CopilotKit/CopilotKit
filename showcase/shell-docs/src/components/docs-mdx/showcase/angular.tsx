@@ -6,6 +6,7 @@
 
 import { ArrowUpRight } from "lucide-react";
 import { Callout } from "fumadocs-ui/components/callout";
+import { getSiteHosts } from "@/lib/runtime-config";
 import { DocsCode } from "../code";
 import {
   getAngularSourceRegion,
@@ -40,7 +41,6 @@ export function AngularSnippet({
   );
 }
 
-const SHOWCASE_ORIGIN = "https://showcase.copilotkit.ai";
 const PUBLIC_API = "/reference/angular/public-api";
 
 const API_BY_FEATURE: Record<string, string> = {
@@ -68,6 +68,7 @@ interface AngularFeatureDoc {
 function getAngularFeatureDocs(): AngularFeatureDoc[] {
   const features = getRegistry().feature_registry.features;
   const cells = getFrontendCatalog().filter((c) => c.frontend === "angular");
+  const { showcaseUrl } = getSiteHosts();
   return Object.entries(getFrontendRegistry().feature_support)
     .filter(([, support]) => support.angular?.state === "supported")
     .map(([id, support]) => {
@@ -79,7 +80,7 @@ function getAngularFeatureDocs(): AngularFeatureDoc[] {
           `Supported Angular feature ${JSON.stringify(id)} needs docs metadata and a catalog cell.`,
         );
       }
-      const route = `${SHOWCASE_ORIGIN}/angular/${cell.integration}/${id}`;
+      const route = `${showcaseUrl}/angular/${cell.integration}/${id}`;
       return {
         id,
         name: support.angular.docs?.name ?? feature.name,

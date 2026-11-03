@@ -12,6 +12,8 @@ import type { ComponentType, ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
+import { getSiteHosts } from "@/lib/runtime-config";
+import { demoOrigin } from "@/lib/site-hosts";
 import { DocsCode } from "../code";
 import type { DocsMdxContext } from "../context";
 import { getFrontendCatalog, getIntegration } from "../data";
@@ -144,6 +146,7 @@ function explorerFeatures(
   frontend: string,
 ): ExplorerFeature[] {
   const int = getIntegration(integration);
+  const hosts = getSiteHosts();
   const demos = getFrontendCatalog()
     .filter(
       (c) =>
@@ -161,9 +164,9 @@ function explorerFeatures(
           ...FEATURE_COPY[c.feature],
           src: new URL(
             frontend === "angular" ? `/angular/${c.feature}` : route,
-            int.backend_url,
+            demoOrigin(hosts, integration),
           ).href,
-          href: `https://showcase.copilotkit.ai/${frontend}/${integration}/${c.feature}`,
+          href: `${hosts.showcaseUrl}/${frontend}/${integration}/${c.feature}`,
           sourceHref:
             frontend !== "angular" && int.repo && route.startsWith("/demos/")
               ? `${int.repo}/src/app${route}`
