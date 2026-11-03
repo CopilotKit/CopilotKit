@@ -22,21 +22,91 @@ COPY showcase/shell-docs/ ./
 
 # A checkout without Git LFS has pointer files for the page images.
 RUN node scripts/fetch-lfs.mjs
-# `npm run build` runs prebuild (showcase-data) first.
-RUN npm run build
+
+# showcase_build passes these. The image has no git, so generate-registry
+# (in showcase-data) stamps frontend-catalog.json's source commit from
+# NEXT_PUBLIC_COMMIT_SHA; nothing reads them at runtime.
+ARG COMMIT_SHA=unknown
+ARG BRANCH=unknown
+ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
+ENV NEXT_PUBLIC_BRANCH=${BRANCH}
+
+# `npm run build` runs prebuild (showcase-data) first. Then drop what only the
+# build needed: dev dependencies, and Next's build cache (`next start` makes
+# its own .next/cache).
+RUN npm run build \
+    && npm prune --omit=dev \
+    && rm -rf .next/cache
 
 FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS runner
 WORKDIR /app/showcase/shell-docs
-ARG COMMIT_SHA=unknown
-ARG BRANCH=unknown
 ENV NODE_ENV=production
 # The Railway docs service routes to 10000.
 ENV PORT=10000
-ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
-ENV NEXT_PUBLIC_BRANCH=${BRANCH}
-COPY --from=builder /app/showcase/shell-docs ./
+# Owned by `node` so the server can write its .next/cache as that user.
+COPY --from=builder --chown=node:node /app/showcase/shell-docs ./
+USER node
 EXPOSE 10000
 CMD ["node_modules/.bin/next", "start", "-p", "10000"]
 
 # Fail the build if any base or install path regresses the accepted Node runtime.
 RUN test "$(node --version)" = "v22.23.4"
+
+# Start the server from the final filesystem and fetch pages that render on
+# request: `next build` prerenders only a handful, so a module missing from
+# this stage, or a page that throws while rendering, would otherwise first
+# show up on staging. Loopback only; this needs no model, key or backend.
+RUN --network=none node --input-type=module <<'JS'
+import { spawn } from 'node:child_process';
+import { connect } from 'node:net';
+import { setTimeout as delay } from 'node:timers/promises';
+
+const server = spawn(process.execPath, [
+  'node_modules/next/dist/bin/next', 'start',
+  '--hostname', '127.0.0.1', '--port', '10000',
+], { stdio: 'inherit' });
+
+try {
+  const deadline = Date.now() + 30_000;
+  for (;;) {
+    const listening = await new Promise((resolve) => {
+      const socket = connect(10000, '127.0.0.1');
+      socket.once('connect', () => { socket.destroy(); resolve(true); });
+      socket.once('error', () => { socket.destroy(); resolve(false); });
+    });
+    if (listening) break;
+    if (server.exitCode !== null || server.signalCode !== null) {
+      throw new Error('Docs server exited before listening');
+    }
+    if (Date.now() >= deadline) throw new Error('Docs server did not start');
+    await delay(250);
+  }
+
+  for (const [path, marker] of [
+    ['/', '<title>'],
+    ['/quickstart', '<title>Quickstart</title>'],
+    // Read from the Markdown sources at request time.
+    ['/quickstart.md', '# Quickstart'],
+    // The standard catalog imports its samples from ../shared, which this
+    // stage doesn't have.
+    ['/generative-ui/components', 'Let your agent render your React components'],
+    ['/generative-ui/components/standard-catalog', 'standardUI'],
+    ['/generative-ui/components/standard-catalog/button', '<title>Button</title>'],
+    // What verify-deploy's docs driver checks on every environment.
+    ['/api/telemetry/config', '"posthogKey"'],
+  ]) {
+    const response = await fetch(`http://127.0.0.1:10000${path}`, {
+      redirect: 'error', signal: AbortSignal.timeout(15_000),
+    });
+    if (response.status !== 200) {
+      throw new Error(`${path}: HTTP ${response.status}`);
+    }
+    if (!(await response.text()).includes(marker)) {
+      throw new Error(`${path}: missing expected content`);
+    }
+    console.log(`${path}: HTTP 200 and expected content`);
+  }
+} finally {
+  server.kill('SIGTERM');
+}
+JS
