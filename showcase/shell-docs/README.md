@@ -18,7 +18,7 @@ npm run dev
 
 The dev server runs on http://localhost:3003. The docs live at their
 docs.copilotkit.ai URLs (`/quickstart`, `/mastra/frontend-tools`,
-`/reference/v2/...`); the older Fumadocs scaffold pages stay at `/docs`.
+`/reference/v2/...`).
 
 "Ask AI" needs an OpenAI key: copy `.env.example` to `.env.local` and set
 `OPENAI_API_KEY`.
@@ -35,15 +35,6 @@ npm run check-live-mdx     # compile every page offline
 npm run check-live-pages   # request every page at its live URL (dev server up)
 npm run check-redirects    # legacy docs.copilotkit.ai redirects
 ```
-
-## Patches
-
-`npm install` applies `patches/` with [patch-package](https://github.com/ds300/patch-package).
-`@copilotkit+react-core+1.82.0.patch` keeps CopilotChat's scroll-to-bottom
-button hidden while only the pin-to-send spacer is below, and keeps the pin
-working under React StrictMode. It is the fix from
-[CopilotKit#8159](https://github.com/CopilotKit/CopilotKit/pull/8159); drop the
-patch once a release with it is installed.
 
 ## Docker
 
@@ -80,12 +71,8 @@ npm run lint
 | `src/components/telemetry`, `src/lib/telemetry` | shell-docs' analytics, same events and env vars             |
 | `src/lib/redirects`                             | shell-docs' legacy URL redirects                            |
 | `source.config.ts`                              | MDX options for every page and snippet                      |
-| `content/docs`                                  | Scaffold MDX pages at `/docs` and their `meta.json`         |
-| `src/lib/source.ts`                             | Content source (`fumadocs-mdx/macro`) and loader            |
 | `src/lib/shared.ts`                             | App name, routes, GitHub config                             |
 | `src/app/theme.css`                             | CopilotKit theme over Fumadocs' variables (see `DESIGN.md`) |
-| `src/lib/layout.shared.tsx`                     | Shared nav options for the home and docs layouts            |
-| `src/app/docs`                                  | Docs layout and page renderer                               |
 | `src/app/api/search`                            | Built-in Orama search endpoint                              |
 | `src/app/og`                                    | Generated OG images per page                                |
 | `src/app/llms*.txt`, `llms.mdx`                 | LLM-readable text and per-page markdown                     |
