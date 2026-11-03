@@ -2,9 +2,14 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { defineConfig } from "fumadocs-mdx/config";
 import { rehypeCodeDefaultOptions } from "fumadocs-core/mdx-plugins";
+import {
+  embedSource,
+  replaceSource,
+} from "fumadocs-core/mdx-plugins/stringifier";
 import type { Processor } from "unified";
 import { brandDark, brandLight } from "./src/proto/code-theme";
 import { NAMED_SNIPPETS } from "./src/lib/named-snippets";
+import { remarkFrameworkOverview } from "./src/lib/llms/remark-framework-overview";
 
 /**
  * MDX options for every page and snippet. Collections are declared with
@@ -30,6 +35,7 @@ export default defineConfig({
       remarkInlineSnippets,
       remarkTitleHeadings,
       remarkPropertyGroups,
+      remarkFrameworkOverview,
       ...plugins,
     ],
     // A snippet gets the page's components without being passed them, as
@@ -56,11 +62,8 @@ type EsmStatement = {
   source?: { value?: unknown };
   specifiers?: { type: string; local: { name: string } }[];
 };
-// The page being compiled (a VFile): its path, and where warnings go.
-type PageFile = {
-  path?: string;
-  message: (reason: string, options?: { ruleId?: string }) => unknown;
-};
+type VFile = Parameters<typeof embedSource>[0];
+type MdastNode = Parameters<typeof embedSource>[1];
 
 /**
  * Splices an imported snippet's content in place of its tag
@@ -68,11 +71,16 @@ type PageFile = {
  * `inlineSnippets` did, so its headings join the page's table of contents
  * and its text the page's search index and markdown. Nested snippets inline
  * too; a snippet used with children or inside a paragraph stays a component.
+ *
+ * The page's processed Markdown (`getText("processed")`) is its source with
+ * each plugin's edits, so the snippet's source is embedded too
+ * (`embedSource`): its text replaces the tag there, and edits to its nodes,
+ * like heading IDs, land in it rather than at the same offsets of the page.
  */
 function remarkInlineSnippets(this: Processor) {
   const processor = this;
 
-  function inline(tree: Node, file: string, seen: Set<string>, page: PageFile) {
+  function inline(tree: Node, file: string, seen: Set<string>, page: VFile) {
     const imports = new Map<string, string>();
     for (const node of tree.children ?? []) {
       if (node.type !== "mdxjsEsm") continue;
@@ -125,7 +133,7 @@ function remarkInlineSnippets(this: Processor) {
           walk(child);
           return [child];
         }
-        return snippetContent(target, seen, page);
+        return snippetContent(target, seen, child, page);
       });
     };
     walk(tree);
@@ -145,17 +153,20 @@ function remarkInlineSnippets(this: Processor) {
           ),
       );
     }
-    tree.children = tree.children?.filter(
-      (n) =>
-        n.type !== "mdxjsEsm" ||
-        ((n as EsmNode).data?.estree?.body.length ?? 1) > 0,
-    );
+    tree.children = tree.children?.filter((n) => {
+      if (n.type !== "mdxjsEsm") return true;
+      if (((n as EsmNode).data?.estree?.body.length ?? 1) > 0) return true;
+      // Out of the tree, so out of the processed Markdown too.
+      replaceSource(page, n as MdastNode, "");
+      return false;
+    });
   }
 
   function snippetContent(
     file: string,
     seen: Set<string>,
-    page: PageFile,
+    host: Node,
+    page: VFile,
   ): Node[] {
     let source: string;
     try {
@@ -172,11 +183,18 @@ function remarkInlineSnippets(this: Processor) {
     }
     const body = source.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
     const tree = processor.parse({ path: file, value: body }) as Node;
+    // Before nesting: a nested snippet's tag is placed by this embed.
+    embedSource(
+      page,
+      host as MdastNode,
+      body,
+      (tree.children ?? []) as MdastNode[],
+    );
     inline(tree, file, new Set([...seen, file]), page);
     return tree.children ?? [];
   }
 
-  return (tree: Node, file: PageFile) => {
+  return (tree: Node, file: VFile) => {
     if (file.path) inline(tree, file.path, new Set([file.path]), file);
   };
 }
