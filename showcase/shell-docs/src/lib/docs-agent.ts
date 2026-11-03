@@ -153,8 +153,11 @@ export function createDocsAgent() {
     prompt: PROMPT,
     tools: siteTools,
     mcpClients: [copilotkitMcp],
-    // A guide takes a search, a few page reads, and one long render_ui call.
-    maxSteps: 16,
+    // A guide takes a search or two, a few page reads, and one long render_ui
+    // call: about six steps. Each step sends the whole prompt again, so this
+    // leaves a few spare and no more. The output cap is per step, and fits
+    // a whole guide's render_ui call.
+    maxSteps: 10,
     maxOutputTokens: 12_000,
     // Docs answers are lookups, not puzzles: think briefly, then search.
     providerOptions: { openai: { reasoningEffort: "low" } },
