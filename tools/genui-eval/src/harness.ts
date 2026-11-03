@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { BaseEvent, Message, RunAgentInput } from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import { splitA2UIMarkdown, extractFenceOperations } from "@copilotkit/core";
-import { BuiltInAgent, GenerativeUIMiddleware } from "@copilotkit/runtime";
+import { GenerativeUIMiddleware } from "@copilotkit/runtime";
+import { aiSdkAgent } from "@copilotkit/runtime/ai-sdk";
 import {
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_CONTEXT_DESCRIPTION,
@@ -441,7 +442,7 @@ export async function runSample(input: {
     input: 0,
     output: 0,
   };
-  const agent = new BuiltInAgent({
+  const agent = aiSdkAgent({
     model: recordingModel(input.model, record),
     maxSteps: 1,
     temperature: input.entry.params?.temperature,
