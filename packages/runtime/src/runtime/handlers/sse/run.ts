@@ -15,7 +15,7 @@ interface HandleSseRunParams {
   input: RunAgentInput;
   agentId: string;
   debug?: ResolvedDebugConfig;
-  /** Pre-created logger instance to avoid creating a new pino logger per request. */
+  /** Pre-created logger instance to avoid creating a new logger per request. */
   logger?: CopilotRuntimeLogger;
   startTime?: number;
   /** Identity the run acts as; the runner records it as the thread owner. */
