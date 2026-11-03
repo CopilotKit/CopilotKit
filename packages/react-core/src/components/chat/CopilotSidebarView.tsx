@@ -5,7 +5,12 @@ import type {
   WelcomeScreenProps,
 } from "./CopilotChatView";
 import CopilotChatView from "./CopilotChatView";
-import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import {
+  CopilotChatDefaultLabels,
+  ɵcreateDockedSidebar,
+  ɵdimensionToCss,
+} from "@copilotkit/core";
+import type { ɵDockedSidebar } from "@copilotkit/core";
 import {
   ControlledModalOpenScope,
   CopilotChatConfigurationProvider,
@@ -92,20 +97,6 @@ function CopilotSidebarViewInternal({
     width ?? DEFAULT_SIDEBAR_WIDTH,
   );
 
-  // Helper to convert width to CSS value
-  const widthToCss = (w: number | string): string => {
-    return typeof w === "number" ? `${w}px` : w;
-  };
-
-  // Helper to extract numeric value for body margin (only works with px values)
-  const widthToMargin = (w: number | string): string => {
-    if (typeof w === "number") {
-      return `${w}px`;
-    }
-    // For string values, use as-is (assumes valid CSS unit)
-    return w;
-  };
-
   useEffect(() => {
     // If width is explicitly provided, don't measure
     if (width !== undefined) {
@@ -140,41 +131,30 @@ function CopilotSidebarViewInternal({
     return () => window.removeEventListener("resize", updateWidth);
   }, [width]);
 
-  // Manage body margin for sidebar docking (desktop only).
-  // useLayoutEffect runs before paint, so defaultOpen={true} never causes a
-  // visible layout shift — the margin is already applied on the first frame.
-  const hasMounted = useRef(false);
+  const widthCss = ɵdimensionToCss(sidebarWidth, DEFAULT_SIDEBAR_WIDTH);
+
+  // The page makes room on the docked edge (desktop only). Layout effects run
+  // before paint, so defaultOpen={true} never shows a layout shift: the
+  // margin is already there on the first frame.
+  const dockRef = useRef<ɵDockedSidebar | null>(null);
+  useLayoutEffect(() => {
+    const dock = ɵcreateDockedSidebar(document, {
+      transitionMs: SIDEBAR_TRANSITION_MS,
+    });
+    dockRef.current = dock;
+    return () => {
+      dock.dispose();
+      dockRef.current = null;
+    };
+  }, []);
 
   useLayoutEffect(() => {
-    if (
-      typeof window === "undefined" ||
-      typeof window.matchMedia !== "function"
-    )
-      return;
-    if (!window.matchMedia("(min-width: 768px)").matches) return;
-
-    const marginStyleProp =
-      position === "left" ? "marginInlineStart" : "marginInlineEnd";
-    const transitionCssProp =
-      position === "left" ? "margin-inline-start" : "margin-inline-end";
-
-    if (isSidebarOpen) {
-      if (hasMounted.current) {
-        document.body.style.transition = `${transitionCssProp} ${SIDEBAR_TRANSITION_MS}ms ease`;
-      }
-      document.body.style[marginStyleProp] = widthToMargin(sidebarWidth);
-    } else if (hasMounted.current) {
-      document.body.style.transition = `${transitionCssProp} ${SIDEBAR_TRANSITION_MS}ms ease`;
-      document.body.style[marginStyleProp] = "";
-    }
-
-    hasMounted.current = true;
-
-    return () => {
-      document.body.style[marginStyleProp] = "";
-      document.body.style.transition = "";
-    };
-  }, [isSidebarOpen, sidebarWidth, position]);
+    dockRef.current?.set({
+      open: isSidebarOpen,
+      position,
+      width: widthCss,
+    });
+  }, [isSidebarOpen, position, widthCss]);
 
   const headerElement = renderSlot(header, CopilotModalHeader, {});
   const toggleButtonElement = renderSlot(
@@ -202,7 +182,7 @@ function CopilotSidebarViewInternal({
         style={
           {
             // Use CSS custom property for responsive width
-            "--sidebar-width": widthToCss(sidebarWidth),
+            "--sidebar-width": widthCss,
             // Safe area insets for iOS
             paddingTop: "env(safe-area-inset-top)",
             paddingBottom: "env(safe-area-inset-bottom)",

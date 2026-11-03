@@ -1,11 +1,17 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { CopilotIcon } from "../icons/CopilotIcon";
-import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import {
+  CopilotChatDefaultLabels,
+  ɵbindDialogFocus,
+  ɵmorphViewTransition,
+} from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
 interface LightboxProps {
   onClose: () => void;
+  /** Accessible name of the dialog, for example the file name. */
+  label?: string;
   children: React.ReactNode;
 }
 
@@ -13,10 +19,15 @@ interface LightboxProps {
  * A full-screen preview portalled to `document.body`. It closes on Escape, a
  * click on the backdrop, or its close button, which is named by
  * `labels.attachmentPreviewCloseButtonLabel`.
+ *
+ * It is a modal dialog for assistive technology: focus moves to the close
+ * button when it opens, Tab stays inside it, and focus returns to the
+ * element that opened it when it closes.
  */
-export function Lightbox({ onClose, children }: LightboxProps) {
+export function Lightbox({ onClose, label, children }: LightboxProps) {
   const config = useCopilotChatConfiguration();
   const labels = config?.labels ?? CopilotChatDefaultLabels;
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -26,11 +37,25 @@ export function Lightbox({ onClose, children }: LightboxProps) {
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    return ɵbindDialogFocus(root);
+  }, []);
+
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="cpk-attachment-lightbox" onClick={onClose}>
+    <div
+      ref={rootRef}
+      className="cpk-attachment-lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+      onClick={onClose}
+    >
       <button
+        type="button"
         onClick={onClose}
         className="cpk-attachment-lightbox-close-button"
         aria-label={labels.attachmentPreviewCloseButtonLabel}
@@ -44,19 +69,14 @@ export function Lightbox({ onClose, children }: LightboxProps) {
   );
 }
 
-type DocWithVT = Document & {
-  startViewTransition?: (cb: () => void) => { finished: Promise<void> };
-};
-
 /**
  * Hook that manages lightbox open/close and uses the View Transition API to
  * morph the thumbnail into fullscreen content.
  *
- * The trick: `view-transition-name` must live on exactly ONE element at a time.
- * - Old state (thumbnail visible): name is on the thumbnail.
- * - New state (lightbox visible): name moves to the lightbox content.
- * `flushSync` ensures React commits the DOM change synchronously inside the
- * `startViewTransition` callback so the API can snapshot old → new correctly.
+ * `view-transition-name` must live on exactly ONE element at a time: on the
+ * thumbnail before the change and on the lightbox content (bind `vtName`)
+ * after it. `flushSync` commits the change inside the transition so the API
+ * can snapshot old → new correctly.
  */
 export function useLightbox() {
   const thumbnailRef = useRef<HTMLElement>(null);
@@ -64,40 +84,21 @@ export function useLightbox() {
   const vtName = useId();
 
   const openLightbox = useCallback(() => {
-    const thumb = thumbnailRef.current;
-    const doc = document as DocWithVT;
-
-    if (doc.startViewTransition && thumb) {
-      thumb.style.viewTransitionName = vtName;
-
-      doc.startViewTransition(() => {
-        thumb.style.viewTransitionName = "";
-        flushSync(() => setOpen(true));
-      });
-    } else {
-      setOpen(true);
-    }
+    ɵmorphViewTransition(
+      thumbnailRef.current,
+      vtName,
+      () => flushSync(() => setOpen(true)),
+      "open",
+    );
   }, [vtName]);
 
   const closeLightbox = useCallback(() => {
-    const thumb = thumbnailRef.current;
-    const doc = document as DocWithVT;
-
-    if (doc.startViewTransition && thumb) {
-      const transition = doc.startViewTransition(() => {
-        flushSync(() => setOpen(false));
-        thumb.style.viewTransitionName = vtName;
-      });
-      transition.finished
-        .then(() => {
-          thumb.style.viewTransitionName = "";
-        })
-        .catch(() => {
-          thumb.style.viewTransitionName = "";
-        });
-    } else {
-      setOpen(false);
-    }
+    ɵmorphViewTransition(
+      thumbnailRef.current,
+      vtName,
+      () => flushSync(() => setOpen(false)),
+      "close",
+    );
   }, [vtName]);
 
   return {

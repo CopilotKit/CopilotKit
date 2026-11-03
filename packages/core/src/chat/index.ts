@@ -128,6 +128,32 @@ export {
 } from "./audio-recorder";
 export type { ɵAudioRecorderState } from "./audio-recorder";
 
+// Chat DOM helpers (internal)
+export {
+  ɵdimensionToCss,
+  ɵDockedSidebarRegistry,
+  ɵdockedSidebarRegistryFor,
+  ɵDockedSidebar,
+  ɵcreateDockedSidebar,
+  ɵPOPUP_ANIMATION_MS,
+  ɵbindPopupDismiss,
+  ɵmorphViewTransition,
+  ɵbindDialogFocus,
+  ɵcanPreviewDocument,
+  ɵcreateObjectUrlFromSource,
+  ɵdecodeTextSource,
+  ɵSCROLL_BOTTOM_THRESHOLD_PX,
+  ɵisScrolledToBottom,
+} from "./dom";
+export type {
+  ɵSidebarPosition,
+  ɵDockedSidebarPlacement,
+  ɵDockedSidebarTransition,
+  ɵDockedSidebarState,
+  ɵPopupDismissOptions,
+  ɵDialogFocusOptions,
+} from "./dom";
+
 // Transcription
 export { TranscriptionErrorCode, TranscriptionError } from "./transcription";
 export type {

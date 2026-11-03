@@ -186,6 +186,34 @@ describe("CopilotChatAttachmentQueue", () => {
     ).toContain("hello attachment preview");
   });
 
+  it("decodes a text document as UTF-8", async () => {
+    const { getByTestId } = render(CopilotChatAttachmentQueue, {
+      props: {
+        attachments: [
+          createAttachment({
+            id: "doc-utf8",
+            type: "document",
+            status: "ready",
+            // "héllo ✓" in UTF-8, base64-encoded.
+            source: {
+              type: "data",
+              value: "aMOpbGxvIOKckw==",
+              mimeType: "text/plain",
+            },
+          }),
+        ],
+      },
+    });
+
+    await fireEvent.click(
+      getByTestId("copilot-chat-attachment-document-button"),
+    );
+    expect(
+      screen.getByTestId("copilot-chat-attachment-lightbox-document-text")
+        .textContent,
+    ).toContain("héllo ✓");
+  });
+
   it("non-previewable document remains inert", async () => {
     const { getByTestId, queryByTestId } = render(CopilotChatAttachmentQueue, {
       props: {
