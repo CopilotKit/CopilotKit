@@ -13,7 +13,7 @@
 import { processEnv } from "@copilotkit/shared";
 
 // Canonical telemetry docs page on main.
-// Mirror constant: packages/web-inspector/src/lib/telemetry.ts
+// Mirror constant: packages/web-inspector/src/shared/telemetry/privacy.ts
 const TELEMETRY_DOCS_URL = "https://docs.copilotkit.ai/telemetry";
 
 function isTelemetryDisabled(): boolean {
