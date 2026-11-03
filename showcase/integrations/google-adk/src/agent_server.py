@@ -105,7 +105,11 @@ def compile_authored_a2ui_template():
 for agent_name, spec in AGENT_REGISTRY.items():
     middleware = ADKAgent(
         adk_agent=spec.llm_agent,
-        **({"a2ui": {"inference_format": "express"}} if agent_name == "declarative_gen_ui" else {}),
+        **(
+            {"a2ui": {"inference_format": "express"}}
+            if agent_name == "declarative_gen_ui"
+            else {}
+        ),
         user_id="demo_user",
         session_timeout_seconds=3600,
         use_in_memory_services=True,
