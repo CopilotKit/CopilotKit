@@ -6,13 +6,8 @@ import { useMode } from "@/components/app/providers";
 import { modelLabel } from "@/lib/model-options";
 import { cn } from "@/lib/utils";
 import { nodeElements } from "@/lib/node-rects";
-import {
-  latestComponents,
-  runStore,
-  useRunStore,
-  type RunRecord,
-  type SurfaceRecord,
-} from "@/lib/run-store";
+import { latestComponents, runStore, useRunStore } from "@/lib/run-store";
+import type { RunRecord, SurfaceRecord } from "@/lib/run-store";
 import { kChars } from "./lines";
 
 /* ───────────────────────── measured parts ───────────────────────── */
@@ -600,7 +595,7 @@ function Models({ run }: { run?: RunRecord }) {
     : [modelLabel(model), format === "json" ? "A2UI JSON" : "A2UI Express"];
   return (
     <div className="flex flex-wrap items-center gap-1.5 font-mono text-[12.5px] text-muted-foreground">
-      {[...chips, "A2UI v1.0"].map((c) => (
+      {[...chips, "A2UI 1.0"].map((c) => (
         <span
           key={c}
           className="rounded-md border border-[var(--pg-line)] px-1.5 py-0.5"

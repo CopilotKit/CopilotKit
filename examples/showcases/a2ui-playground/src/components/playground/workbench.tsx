@@ -19,9 +19,11 @@ import { Composer, focusRing } from "./composer";
 import { editorMemory } from "./json-editor";
 import { LinkContext, useLinkState, useShownLines } from "./lines";
 import { useReplay } from "./replay";
-import { LinesBeside, Thread, type OnSelect, type Selection } from "./thread";
+import { LinesBeside, Thread } from "./thread";
+import type { OnSelect, Selection } from "./thread";
 import { isHandEdited, runOf, surfaceOfTurn, useTurns } from "./turns";
-import { WritesPane, type WritesTab } from "./writes-pane";
+import { WritesPane } from "./writes-pane";
+import type { WritesTab } from "./writes-pane";
 import "./compact.css";
 
 const NARROW = "(max-width: 899px)";

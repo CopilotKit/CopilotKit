@@ -7,10 +7,8 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
-  type FormEvent,
-  type KeyboardEvent,
-  type ReactNode,
 } from "react";
+import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 import { DropdownMenu } from "radix-ui";
 import {
@@ -28,20 +26,14 @@ import {
   SwatchBook,
 } from "lucide-react";
 import { forgetChat } from "@/components/app/agent-tap";
-import { useMode, type Mode } from "@/components/app/providers";
+import { useMode } from "@/components/app/providers";
+import type { Mode } from "@/components/app/providers";
 import { useSend } from "@/components/app/use-send";
 import { useDesignSystem } from "@/design-systems/context";
-import {
-  DESIGN_SYSTEMS,
-  designSystemLabel,
-  type DesignSystemId,
-} from "@/design-systems/registry";
-import {
-  FORMAT_OPTIONS,
-  modelLabel,
-  type Format,
-  type ModelId,
-} from "@/lib/model-options";
+import { DESIGN_SYSTEMS, designSystemLabel } from "@/design-systems/registry";
+import type { DesignSystemId } from "@/design-systems/registry";
+import { FORMAT_OPTIONS, modelLabel } from "@/lib/model-options";
+import type { Format, ModelId } from "@/lib/model-options";
 import { runStore } from "@/lib/run-store";
 import { cn } from "@/lib/utils";
 import type { Replay } from "./replay";

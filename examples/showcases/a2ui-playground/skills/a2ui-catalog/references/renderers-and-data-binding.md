@@ -83,7 +83,7 @@ The template binds `value: { "@path": "/form/email" }` and seeds the data model 
 }
 ```
 
-CopilotKit resolves the context, then starts a run with a visible user message naming the action (its first line is `event.userMessage` when the binding sets one) and the A2UI action in the envelope. The agent reads it with `envelopeToManifest(readCopilotKitUIEnvelope(input.forwardedProps)!).action`, which is `{ version: "v1.0", action: { name, surfaceId, sourceComponentId, timestamp, context } }`; values the user set also appear under `manifest.surfaces[surfaceId].dataModel`. A click while the agent is still running is not sent (`agent_busy`). The playground's `scripts/check-action.mjs` drives the signup form end to end. To verify binding in a test, read the data model, not just the DOM (the DOM keeps local state even when the data model did not change).
+CopilotKit resolves the context, then starts a run with a visible user message naming the action (its first line is `event.userMessage` when the binding sets one) and the A2UI action in the envelope. The agent reads it with `envelopeToManifest(readCopilotKitUIEnvelope(input.forwardedProps)!).action`, which is `{ version: "1.0", action: { name, surfaceId, sourceComponentId, timestamp, context } }`; values the user set also appear under `manifest.surfaces[surfaceId].dataModel`. A click while the agent is still running is not sent (`agent_busy`). The playground's `scripts/check-action.mjs` drives the signup form end to end. To verify binding in a test, read the data model, not just the DOM (the DOM keeps local state even when the data model did not change).
 
 ## Actions and children
 

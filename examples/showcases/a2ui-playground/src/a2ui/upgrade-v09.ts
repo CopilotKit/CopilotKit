@@ -1,10 +1,10 @@
 /**
  * Upgrades A2UI v0.9 surfaces written for the playground's first catalog to
- * A2UI v1.0 on the Gen UI 2.0 standard components.
+ * A2UI 1.0 on the Gen UI 2.0 standard components.
  *
  * The v0.9 catalog had its own Column, Row, Grid, Card, Tabs, Divider,
  * Carousel, Text, Markdown, Image, Badge, List, Button and form inputs. In
- * v1.0 those names are the standard components, whose props differ: a Card
+ * 1.0 those names are the standard components, whose props differ: a Card
  * no longer takes `title`/`description`, Text headings are `Title`, a Badge
  * says `label` and `color`, gaps are numbers. Bindings become `{ "@path" }`
  * and actions become event props (`onClick`, `onAction`).
@@ -63,7 +63,7 @@ const drop = <T extends Record<string, unknown>>(o: T, ...keys: string[]) =>
     Object.entries(o).filter(([k, v]) => !keys.includes(k) && v !== undefined),
   );
 
-/** One v0.9 node to one or more v1.0 nodes (a Card's title becomes its own Title node). */
+/** One v0.9 node to one or more 1.0 nodes (a Card's title becomes its own Title node). */
 function upgradeNode(raw: Node): Node[] {
   const n = upgradeBindings(raw) as Node;
   const { id } = n;

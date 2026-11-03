@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Copy, Pencil } from "lucide-react";
 import { ExpressView, JsonView } from "@/components/app/json-view";
 import { cn } from "@/lib/utils";
-import { useRunStore, type RunRecord } from "@/lib/run-store";
+import { useRunStore } from "@/lib/run-store";
+import type { RunRecord } from "@/lib/run-store";
 import {
   EditToggle,
   JsonEditPane,

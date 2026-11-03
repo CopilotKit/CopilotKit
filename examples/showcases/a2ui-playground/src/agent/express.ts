@@ -4,7 +4,7 @@
  * Express is the compact, Python-like inference format the A2UI SDKs default
  * to: the model writes one statement per component (`kpi = Stat("Revenue",
  * "$4.2M")`), and the SDK compiles it, against the catalog, into standard
- * A2UI v1.0 messages. It needs no tool calling, so any LLM can write it.
+ * A2UI 1.0 messages. It needs no tool calling, so any LLM can write it.
  *
  * The SDK also compiles a reply while it streams (`openExpressStream`): each
  * statement comes back as soon as it is complete, which is how an Express
@@ -16,23 +16,21 @@ import {
   ExpressDecompiler,
   ExpressFormatFactory,
   InMemoryCatalogProvider,
-  type A2uiRequestProcessor,
-  type AgentToRendererMessage,
-  type ResponsePart,
-  type ResponseStream,
 } from "@a2ui/agent";
-import {
-  childIdsAtRefs,
-  collectChildRefs,
-  type ChildRef,
-  type GenerativeUIJSONSchema,
-} from "@copilotkit/shared";
+import type {
+  A2uiRequestProcessor,
+  AgentToRendererMessage,
+  StreamPart,
+  ResponseStream,
+} from "@a2ui/agent";
+import { childIdsAtRefs, collectChildRefs } from "@copilotkit/shared";
+import type { GenerativeUIManifest } from "@copilotkit/shared";
 import inference from "@/a2ui/export/inference-catalog.json";
 import type { Node } from "./surface";
 
 type Doc = typeof inference & { components: Record<string, unknown> };
 const doc = inference as Doc;
-// The SDK spells the protocol version "1.0". CopilotKit 1.83 still writes "v1.0" on the wire, and `SurfaceStream` writes what CopilotKit reads.
+// The SDK and published CopilotKit 1.84 both use canonical "1.0".
 const CAPS = { "1.0": { supportedCatalogIds: [doc.catalogId] } };
 
 let generators:
@@ -59,14 +57,16 @@ export const expressProcessor = (surfaceId: string): A2uiRequestProcessor =>
 /**
  * Compiles a reply as it streams: `feed` each chunk, then `close`. Each
  * returns what it completed: `createSurface` once `root = ...` is written, then
- * each statement's components and data. Both throw the SDK's error at the first
- * statement that does not compile, and `close` also checks the finished tree.
+ * each statement's components and data. Rejected blocks return the SDK error
+ * alongside any completed parts; `close` also checks the finished tree.
  */
-export const openExpressStream = (surfaceId: string): ResponseStream =>
-  expressProcessor(surfaceId).openStream();
+export const openExpressStream = (
+  surfaceId: string,
+): ResponseStream<StreamPart> =>
+  expressProcessor(surfaceId).openStream({ afterRejectedBlock: "continue" });
 
 /** The A2UI messages among parsed parts. */
-export const messagesOf = (parts: ResponsePart[]): AgentToRendererMessage[] =>
+export const messagesOf = (parts: StreamPart[]): AgentToRendererMessage[] =>
   parts.flatMap((p) => (p.type === "a2ui" ? p.a2ui : []));
 
 /** Components and data model after a list of compiled messages. */
@@ -105,30 +105,32 @@ export function surfaceOf(messages: AgentToRendererMessage[]): {
   return { components: [...byId.values()], data };
 }
 
-/** The Express a list of v1.0 messages would be: what the same surface costs in Express. */
+/** The Express a list of 1.0 messages would be: what the same surface costs in Express. */
 export function toExpress(messages: AgentToRendererMessage[]): string {
   return sdk().decompiler.decompile(messages);
 }
 
-const refsByComponent = new Map<string, ChildRef[]>();
-function childRefsOf(component: string): ChildRef[] {
-  let refs = refsByComponent.get(component);
-  if (!refs) {
-    const schema = (
-      doc.components as Record<string, GenerativeUIJSONSchema | undefined>
-    )[component];
-    refs = schema ? collectChildRefs(schema) : [];
-    refsByComponent.set(component, refs);
-  }
-  return refs;
-}
-
-/** Ids the components name as children that are not among them: the ones a streaming reply has not written yet. */
-export function pendingChildren(components: Node[]): string[] {
-  const written = new Set(components.map((c) => c.id));
+/** Ids the components name as children that this streaming reply has not written yet. */
+export function pendingChildren(
+  components: Node[],
+  manifest: GenerativeUIManifest,
+): string[] {
+  const written = new Set(components.map((component) => component.id));
   const pending = new Set<string>();
-  for (const c of components)
-    for (const id of childIdsAtRefs(c, childRefsOf(c.component)))
+  for (const component of components) {
+    // Literal host schemas retain nested refs before portable catalog export
+    // wraps properties in binding/function alternatives. Slots are separate.
+    const entry = manifest.components[component.component];
+    if (!entry) continue;
+    const refs = [
+      ...collectChildRefs(entry.props),
+      ...Object.entries(entry.slots ?? {}).map(([name, kind]) => ({
+        path: [name],
+        kind,
+      })),
+    ];
+    for (const id of childIdsAtRefs(component, refs))
       if (!written.has(id)) pending.add(id);
+  }
   return [...pending];
 }

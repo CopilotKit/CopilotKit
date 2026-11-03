@@ -5,7 +5,7 @@ description: Turns an app's existing React components into a CopilotKit Gen UI 2
 
 # A2UI catalog: from your React components to Gen UI 2.0 in CopilotKit
 
-Built in `a2ui-playground` (123 components: CopilotKit's 69 standard ones plus 54 of the app's own; Next 16, CopilotKit 1.83 Gen UI 2.0, A2UI v1.0). Fixed surfaces paint in ~1.4 to 3 s, dynamic in ~3 s first paint with progressive streaming (measured on the v0.9 build of the same pipeline; re-measure after porting). Every step below links to a reference with the real code.
+Built in `a2ui-playground` (123 components: CopilotKit's 69 standard ones plus 54 of the app's own; Next 16, CopilotKit 1.83 Gen UI 2.0, A2UI 1.0). Fixed surfaces paint in ~1.4 to 3 s, dynamic in ~3 s first paint with progressive streaming (measured on the v0.9 build of the same pipeline; re-measure after porting). Every step below links to a reference with the real code.
 
 ## Quick start (minimum path)
 
@@ -55,7 +55,7 @@ One custom component rendering in CopilotKit chat, with the runtime giving a sto
      agents: {
        default: new BuiltInAgent({
          model: "openai:gpt-5.5",
-         prompt: "Answer with UI: call render_ui with A2UI v1.0 operations.",
+         prompt: "Answer with UI: call render_ui with A2UI 1.0 operations.",
        }),
      },
    });

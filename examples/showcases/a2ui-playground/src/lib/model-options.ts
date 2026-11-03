@@ -28,7 +28,7 @@ export const FORMAT_OPTIONS: Array<{
   {
     id: "json",
     label: "JSON",
-    hint: "A2UI JSON: the v1.0 operations written directly, as tool-call arguments",
+    hint: "A2UI JSON: the 1.0 operations written directly, as tool-call arguments",
   },
 ];
 

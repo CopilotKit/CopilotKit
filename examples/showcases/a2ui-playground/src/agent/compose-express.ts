@@ -5,23 +5,17 @@
  * the model writes plain text, one statement per component, with no tool
  * call, so any model can do it (a local Gemma included). `@a2ui/agent`
  * compiles the reply as it streams, and the surface paints as each statement
- * completes; at the end macros expand, and the result goes out as A2UI v1.0
+ * completes; at the end macros expand, and the result goes out as A2UI 1.0
  * operations like every other surface.
  *
  * A reply that does not compile gets one retry with the compiler's error.
  */
-import type { AgentToRendererMessage, ResponsePart } from "@a2ui/agent";
+import type { AgentToRendererMessage, StreamPart } from "@a2ui/agent";
 import { DESIGN_RULES } from "@/a2ui/catalog/instructions";
 import { macros } from "@/a2ui/macros/macros";
 import type { FlatNode } from "@/a2ui/macros/macro";
-import {
-  compose,
-  composeUserMessage,
-  payloadSizes,
-  type ComposeInput,
-  type ComposeResult,
-  type PayloadStats,
-} from "./composer";
+import { compose, composeUserMessage, payloadSizes } from "./composer";
+import type { ComposeInput, ComposeResult, PayloadStats } from "./composer";
 import { pipeline } from "./events";
 import {
   expressProcessor,
@@ -32,7 +26,8 @@ import {
 } from "./express";
 import { geoBudget, geoPatch } from "./geo";
 import { stripDashes } from "./repair";
-import { SurfaceStream, type Node } from "./surface";
+import { SurfaceStream } from "./surface";
+import type { Node } from "./surface";
 import { splitStatements } from "@/lib/express-lines";
 import { COMPOSER_MAX_TOKENS, MAX_MACROS } from "@/lib/limits";
 
@@ -100,10 +95,13 @@ export async function composeExpress(
     const express = openExpressStream(surfaceId);
     const parsed: AgentToRendererMessage[] = [];
     let error: unknown;
-    const read = (parts: () => ResponsePart[]) => {
+    const read = (parts: () => StreamPart[]) => {
       if (error) return;
       try {
-        const fresh = messagesOf(parts());
+        const ready = parts();
+        const rejected = ready.find((part) => part.type === "error");
+        if (rejected?.type === "error") error = rejected.error;
+        const fresh = messagesOf(ready);
         if (!fresh.length) return;
         parsed.push(...fresh);
         if (live) paint();
@@ -126,7 +124,7 @@ export async function composeExpress(
               }
             : c,
         ),
-        ...pendingChildren(components).map((id) => ({
+        ...pendingChildren(components, input.manifest).map((id) => ({
           id,
           component: "Blueprint",
           of: `#${id}`,
@@ -173,9 +171,8 @@ export async function composeExpress(
       if (delta.includes("\n") && text.includes("<a2ui>"))
         announce(splitStatements(text, false));
     }
-    // A reply can end without its </a2ui> tag. Closing the block for it still checks the finished tree,
-    // so a reply cut off mid-tree gets the retry rather than a surface with holes.
-    if (express.isInBlock) read(() => express.feed("\n</a2ui>"));
+    // Closing an incomplete SDK block is a retryable error, even if its
+    // prefix could compile; do not silently finalize a truncated reply.
     read(() => express.close());
     // The retry quotes the error to the model, and the stream can number a syntax error's line wrongly (in 0.1.0 it
     // depends on where the chunks split), so the error comes from compiling the whole reply when that fails too.

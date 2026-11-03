@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRef, useState, type SyntheticEvent } from "react";
+import { useRef, useState } from "react";
+import type { SyntheticEvent } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import {
   ArrowUpRight,

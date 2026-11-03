@@ -673,7 +673,7 @@ export function readAnswers(uc: UseCase, answers: Answers) {
   };
 }
 
-/** The surface as one A2UI v1.0 operation: createSurface with its components and data model inline. */
+/** The surface as one A2UI 1.0 operation: createSurface with its components and data model inline. */
 export function toOps(
   surfaceId: string,
   built: { components: Component[]; data: Record<string, unknown> },

@@ -13,8 +13,8 @@ import {
   h,
   isDynamic,
   MacroExpander,
-  type Value,
 } from "./macro";
+import type { Value } from "./macro";
 
 const onAction = (description: string) => ({
   onAction: { description, parameters: z.object({}).passthrough() },

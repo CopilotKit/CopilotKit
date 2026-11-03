@@ -8,8 +8,8 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type RefObject,
 } from "react";
+import type { RefObject } from "react";
 import type { ActivityMessage } from "@ag-ui/client";
 import { useAgent, useRenderActivityMessage } from "@copilotkit/react-core/v2";
 import { GENERATIVE_UI_ACTIVITY_TYPE } from "@copilotkit/shared";
@@ -23,17 +23,15 @@ import { useSend } from "@/components/app/use-send";
 import { useUIGeneration } from "@/components/app/use-ui-generation";
 import { modelLabel } from "@/lib/model-options";
 import { nodeElements, nodeRect } from "@/lib/node-rects";
-import {
-  latestComponents,
-  useRunStore,
-  type A2UIOp,
-  type RunRecord,
-} from "@/lib/run-store";
+import { latestComponents, useRunStore } from "@/lib/run-store";
+import type { A2UIOp, RunRecord } from "@/lib/run-store";
 import { cn } from "@/lib/utils";
 import { COMPACT, focusRing } from "./composer";
-import { activeId, runStatus, useLink, type LineFormat } from "./lines";
+import { activeId, runStatus, useLink } from "./lines";
+import type { LineFormat } from "./lines";
 import type { Replay } from "./replay";
-import { runOf, type Turn } from "./turns";
+import { runOf } from "./turns";
+import type { Turn } from "./turns";
 
 const reducedMotion = () =>
   typeof matchMedia === "function" &&

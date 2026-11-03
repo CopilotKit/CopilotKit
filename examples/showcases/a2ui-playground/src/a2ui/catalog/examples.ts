@@ -1,5 +1,5 @@
 /**
- * Worked examples of good surfaces from this catalog, as A2UI v1.0 messages.
+ * Worked examples of good surfaces from this catalog, as A2UI 1.0 messages.
  * The generated skills show them to a model (in Express or JSON), so an agent
  * outside the playground sees what a finished answer looks like.
  */

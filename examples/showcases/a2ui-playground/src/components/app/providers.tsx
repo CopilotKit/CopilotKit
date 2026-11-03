@@ -6,12 +6,8 @@ import type { GenerativeUIConfig } from "@copilotkit/react-core/v2/generative-ui
 import { playgroundUI } from "@/a2ui/catalog/catalog";
 import { useDesignSystem } from "@/design-systems/context";
 import { DESIGN_SYSTEM_THEMES } from "@/design-systems/themes";
-import {
-  MODEL_OPTIONS,
-  type Format,
-  type ModelChoice,
-  type ModelId,
-} from "@/lib/model-options";
+import { MODEL_OPTIONS } from "@/lib/model-options";
+import type { Format, ModelChoice, ModelId } from "@/lib/model-options";
 import { surfaceRenderer } from "./surface-renderer";
 
 export type Mode = "auto" | "fixed" | "dynamic";
@@ -114,7 +110,7 @@ const RENDERERS = [surfaceRenderer];
 
 /**
  * Gen UI 2.0 with the tool transport: the browser sends the catalog to the
- * agent in the generative UI envelope, the agent streams A2UI v1.0
+ * agent in the generative UI envelope, the agent streams A2UI 1.0
  * `generative-ui-surface` activities back, and CopilotKit renders them.
  * The catalog never changes with the design system, only the theme does
  * (and the components, through `src/design-systems/overrides.ts`), so the

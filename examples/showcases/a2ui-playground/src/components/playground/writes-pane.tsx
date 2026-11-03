@@ -7,9 +7,8 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent,
-  type Ref,
 } from "react";
+import type { KeyboardEvent, Ref } from "react";
 import { ArrowLeft, PanelRightClose } from "lucide-react";
 import { highlightExpress, highlightJson } from "@/components/app/json-view";
 import { cn } from "@/lib/utils";
@@ -17,7 +16,8 @@ import type { TimelineEvent } from "@/lib/run-store";
 import { BuildPanel } from "./build-panel";
 import { focusRing } from "./composer";
 import { JsonTab } from "./json-tab";
-import { activeId, kChars, useLink, type Shown, type ShownLine } from "./lines";
+import { activeId, kChars, useLink } from "./lines";
+import type { Shown, ShownLine } from "./lines";
 
 export type WritesTab = "lines" | "json" | "run";
 

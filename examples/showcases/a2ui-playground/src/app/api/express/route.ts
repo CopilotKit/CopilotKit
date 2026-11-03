@@ -1,12 +1,9 @@
-// A surface's A2UI v1.0 operations, decompiled to A2UI Express by Google's `@a2ui/agent` SDK
+// A surface's A2UI 1.0 operations, decompiled to A2UI Express by Google's `@a2ui/agent` SDK
 // (`toExpress` in `src/agent/express.ts`). The JSON tab uses it for surfaces no model wrote in Express:
 // templates, JSON runs and hand edits.
 //   POST /api/express { ops: [...] } -> { express, renamed } | { error }
-import {
-  collectChildRefs,
-  mapAtChildRef,
-  type GenerativeUIJSONSchema,
-} from "@copilotkit/shared";
+import { collectChildRefs, mapAtChildRef } from "@copilotkit/shared";
+import type { GenerativeUIJSONSchema } from "@copilotkit/shared";
 import inference from "@/a2ui/export/inference-catalog.json";
 import { toExpress } from "@/agent/express";
 import { identifierRenames } from "@/lib/express-lines";

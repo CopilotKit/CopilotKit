@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * The JSON tab's editing mode: a hand-rolled code editor over the A2UI v1.0
+ * The JSON tab's editing mode: a hand-rolled code editor over the A2UI 1.0
  * operations and a live preview next to it, with no model involved. Each
  * edit is parsed and validated (debounced) and, when valid, re-rendered by
  * the same engine the chat uses. While the text is broken the preview keeps
@@ -16,10 +16,8 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent,
-  type ReactNode,
-  type RefObject,
 } from "react";
+import type { KeyboardEvent, ReactNode, RefObject } from "react";
 import {
   Check,
   ChevronDown,
@@ -43,13 +41,8 @@ import { copyText } from "@/lib/copy-text";
 import { cn } from "@/lib/utils";
 import type { A2UIOp, SurfaceRecord } from "@/lib/run-store";
 import { AskModel } from "./ask-model";
-import {
-  analyzeOps,
-  lineColOf,
-  manifestOf,
-  type Analysis,
-  type Problem,
-} from "./json-analyze";
+import { analyzeOps, lineColOf, manifestOf } from "./json-analyze";
+import type { Analysis, Problem } from "./json-analyze";
 import { starters } from "./json-starters";
 import { sendable } from "./sendable";
 

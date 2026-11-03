@@ -1,14 +1,11 @@
 "use client";
 
-import { useEffect, useRef, type ComponentType } from "react";
-import {
-  useCopilotKit,
-  type ReactActivityMessageRenderer,
-} from "@copilotkit/react-core/v2";
-import {
-  GENERATIVE_UI_ACTIVITY_TYPE,
-  type GenerativeUISurfaceContent,
-} from "@copilotkit/shared";
+import { useEffect, useRef } from "react";
+import type { ComponentType } from "react";
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
+import { GENERATIVE_UI_ACTIVITY_TYPE } from "@copilotkit/shared";
+import type { GenerativeUISurfaceContent } from "@copilotkit/shared";
 import { z } from "zod";
 
 type Props = React.ComponentProps<
@@ -22,7 +19,7 @@ export const onSurfaceOps = { current: (_key: string, _ops: A2UIOp[]) => {} };
 /**
  * CopilotKit's own Gen UI 2.0 surface renderer: the one the provider registers
  * for `generative-ui-surface` activities when `generativeUI` is set. It
- * validates and applies each A2UI v1.0 operation and paints the surface.
+ * validates and applies each A2UI 1.0 operation and paints the surface.
  * The mirror below sits in front of it (user renderers are consulted first),
  * so it is looked up past that.
  */

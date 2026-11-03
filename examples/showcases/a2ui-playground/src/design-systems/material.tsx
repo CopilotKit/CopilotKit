@@ -17,18 +17,15 @@ import {
   IconButton,
   LinearProgress,
   Text,
-  type ButtonVariant,
-  type IconButtonVariant,
+} from "@language-lit/material3-expressive";
+import type {
+  ButtonVariant,
+  IconButtonVariant,
 } from "@language-lit/material3-expressive";
 import { asArray } from "@/a2ui/catalog/renderers/format";
 import type { RendererMap } from "@/a2ui/catalog/renderers/types";
-import {
-  str,
-  trendOf,
-  useButton,
-  valueText,
-  type StandardProps,
-} from "./shared";
+import { str, trendOf, useButton, valueText } from "./shared";
+import type { StandardProps } from "./shared";
 
 /** The standard Button's variants as Material's emphasis levels; anything else is outlined. */
 const BUTTON_VARIANT: Record<string, ButtonVariant> = {

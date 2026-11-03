@@ -1,9 +1,9 @@
 /**
- * Converts recordings made with A2UI v0.9 (src/data/*.json) to A2UI v1.0 on
+ * Converts recordings made with A2UI v0.9 (src/data/*.json) to A2UI 1.0 on
  * the Gen UI 2.0 standard components, in place.
  *
  * A v0.9 frame was a full snapshot (createSurface + the whole component list).
- * A v1.0 frame is what the chat really receives now: the surface's operation
+ * A 1.0 frame is what the chat really receives now: the surface's operation
  * list so far, where each later frame appends an `updateComponents` with only
  * the components that changed (and an `updateDataModel` when the data did).
  *
@@ -11,11 +11,8 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import {
-  A2UI_VERSION,
-  type A2UIComponentNode,
-  type A2UIOperation,
-} from "@copilotkit/shared";
+import { A2UI_VERSION } from "@copilotkit/shared";
+import type { A2UIComponentNode, A2UIOperation } from "@copilotkit/shared";
 import { upgradeComponents } from "@/a2ui/upgrade-v09";
 
 type Frame = { t: number; key?: string; ops: Array<Record<string, unknown>> };
@@ -49,7 +46,7 @@ for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".json"))) {
   if (
     rec.frames.every((f) => f.ops.every((op) => op.version === A2UI_VERSION))
   ) {
-    console.log(`${file}: already v1.0`);
+    console.log(`${file}: already 1.0`);
     continue;
   }
   const opsByKey = new Map<string, A2UIOperation[]>();

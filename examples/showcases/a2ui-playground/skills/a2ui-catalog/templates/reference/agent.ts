@@ -7,7 +7,7 @@
  *                                 └─▶ generate_a2ui ─▶ composer sub-agent (gpt-5.4-mini, streamed) ─▶ ops
  *
  * Everything is emitted as AG-UI events. Each surface is a Gen UI 2.0
- * `generative-ui-surface` activity carrying A2UI v1.0 operations
+ * `generative-ui-surface` activity carrying A2UI 1.0 operations
  * (`./surface.ts`): a fixed template paints its skeleton at tool pick and
  * fills in when the data lands; the composer appends one component at a time
  * while the model is still writing.
@@ -25,9 +25,11 @@ import {
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { compose, COMPOSER_MODEL, GENERATE_A2UI_TOOL_NAME } from "./composer";
 import { EventQueue, EventType, pipeline, uid } from "./events";
-import { SurfaceStream, type SurfaceRecord } from "./surface";
+import { SurfaceStream } from "./surface";
+import type { SurfaceRecord } from "./surface";
 import { blueprintOf, TEMPLATE_TREES } from "./surfaces/templates";
-import { DATA_TOOLS, FIXED_TOOLS, type ToolSpec } from "./tools";
+import { DATA_TOOLS, FIXED_TOOLS } from "./tools";
+import type { ToolSpec } from "./tools";
 
 export const ROUTER_MODEL = process.env.A2UI_ROUTER_MODEL ?? "gpt-5.5";
 

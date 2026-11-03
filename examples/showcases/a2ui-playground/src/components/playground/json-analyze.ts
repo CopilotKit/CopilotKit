@@ -1,5 +1,5 @@
 /**
- * Checks hand-edited A2UI v1.0 operations the way the renderer will:
+ * Checks hand-edited A2UI 1.0 operations the way the renderer will:
  * JSON syntax first, then `validateOperation` from `@copilotkit/shared`
  * against the catalog manifest (the same call CopilotKit's surface manager
  * makes), then the prop types the manager checks before it applies a
@@ -15,10 +15,11 @@ import {
   isCallBinding,
   isPathBinding,
   validateOperation,
-  type ValidateOperationOptions,
 } from "@copilotkit/shared";
+import type { ValidateOperationOptions } from "@copilotkit/shared";
 import type { GenerativeUI } from "@copilotkit/react-core/v2/generative-ui";
-import { latestComponents, surfaceIdOf, type A2UIOp } from "@/lib/run-store";
+import { latestComponents, surfaceIdOf } from "@/lib/run-store";
+import type { A2UIOp } from "@/lib/run-store";
 
 export type Problem = {
   severity: "error" | "warning";
@@ -113,7 +114,7 @@ export function analyzeOps(
           severity: "error",
           where: "json",
           message:
-            'Expected an array of A2UI operations: [{ "version": "v1.0", "createSurface": { ... } }, ...]',
+            'Expected an array of A2UI operations: [{ "version": "1.0", "createSurface": { ... } }, ...]',
           offset: 0,
         },
       ],

@@ -2,12 +2,13 @@
  * The chat version's agent: a CopilotKit BuiltInAgent in custom-factory mode.
  * Each turn is one Jev call (no language model): the decision goes out as a CUSTOM
  * event and the deterministic surface as a Gen UI 2.0 `generative-ui-surface`
- * activity (one A2UI v1.0 createSurface).
+ * activity (one A2UI 1.0 createSurface).
  */
 import type { RunAgentInput } from "@ag-ui/client";
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { EventQueue, EventType } from "@/agent/events";
-import { SurfaceStream, type Node } from "@/agent/surface";
+import { SurfaceStream } from "@/agent/surface";
+import type { Node } from "@/agent/surface";
 import { runJev } from "./decide.server";
 import type { UseCaseId } from "./usecases";
 
@@ -20,7 +21,7 @@ async function run(
     fixture?: boolean;
     usecase?: UseCaseId;
   };
-  const last = [...input.messages].reverse().find((m) => m.role === "user");
+  const last = [...input.messages].toReversed().find((m) => m.role === "user");
   const prompt = typeof last?.content === "string" ? last.content : "";
   const r = await runJev({
     usecase: props.usecase ?? "cafes",

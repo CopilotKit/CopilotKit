@@ -4,7 +4,7 @@ For the long tail, a `generate_a2ui` tool hands the request to a fast second mod
 
 ## What CopilotKit gives you, and what it does not
 
-- With the provider's tool transport and `generativeUI` left on, the runtime's `GenerativeUIMiddleware` adds a `render_ui` tool and its guide to the agent's run. The **primary** model then writes the surface itself as A2UI v1.0 operations (one model, long tool args). Each complete operation is validated against the catalog and committed at once.
+- With the provider's tool transport and `generativeUI` left on, the runtime's `GenerativeUIMiddleware` adds a `render_ui` tool and its guide to the agent's run. The **primary** model then writes the surface itself as A2UI 1.0 operations (one model, long tool args). Each complete operation is validated against the catalog and committed at once.
 - Paint granularity is the operation: a model that writes one `createSurface` holding every component paints when that operation closes, which is the end of the call.
 
 So this build sets `generativeUI: false` and implements `generate_a2ui` itself inside a `BuiltInAgent` custom factory (templates/reference/agent.ts, composer.ts). Reusable pieces from `@copilotkit/shared`: `readCopilotKitUIEnvelope`, `envelopeToManifest`, `validateOperation`, `generativeUISurfaceMessageId`, `GENERATIVE_UI_ACTIVITY_TYPE`, `A2UI_VERSION`; from `@copilotkit/runtime/v2`: `createSurfaceWriter`.

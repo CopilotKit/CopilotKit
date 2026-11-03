@@ -1,11 +1,12 @@
 /**
- * One sample call per macro, and its expansion as A2UI v1.0 operations. The
+ * One sample call per macro, and its expansion as A2UI 1.0 operations. The
  * sample for `WeatherReport` comes with a fixed forecast, so it expands
  * anywhere, with no network.
  */
 import { A2UI_VERSION } from "@copilotkit/shared";
 import type { Weather } from "@/agent/apis";
-import { flatten, type FlatNode } from "./macro";
+import { flatten } from "./macro";
+import type { FlatNode } from "./macro";
 import { macros, MACROS } from "./macros";
 
 const ev = (name: string, context?: Record<string, unknown>) => ({

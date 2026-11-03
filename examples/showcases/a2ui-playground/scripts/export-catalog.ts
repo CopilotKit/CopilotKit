@@ -1,5 +1,5 @@
 /**
- * Writes the playground's catalog as A2UI v1.0 catalog documents, with
+ * Writes the playground's catalog as A2UI 1.0 catalog documents, with
  * CopilotKit's own `exportA2UICatalog`:
  *
  *  - `src/a2ui/export/catalog.json` (served at /catalog.json): what the client
