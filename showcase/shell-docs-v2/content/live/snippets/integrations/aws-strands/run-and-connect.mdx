@@ -1,0 +1,27 @@
+
+You'll need to run your agent and connect it to CopilotKit before proceeding.
+
+If you don't already have CopilotKit and your agent connected, choose one of the following options:
+
+<Accordions>
+  <Accordion title="I already have an agent">
+    You can follow the instructions in the [quickstart](/aws-strands/quickstart) guide.
+  </Accordion>
+  <Accordion title="I want to start from scratch">
+    Run the following command to clone a brand new project with a pre-configured agent:
+
+    <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+      <Tab value="Python">
+        ```bash
+        npx copilotkit create --framework aws-strands-py
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```bash
+        npx copilotkit create --framework aws-strands-ts
+        ```
+      </Tab>
+    </Tabs>
+
+  </Accordion>
+</Accordions>

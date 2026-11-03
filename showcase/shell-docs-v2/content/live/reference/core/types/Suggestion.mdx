@@ -1,0 +1,60 @@
+---
+title: "Suggestion"
+description: "A single suggested prompt presented to the user."
+---
+
+## Overview
+
+`Suggestion` represents one suggested prompt shown to the user (typically as a clickable pill). Suggestions are produced from a [`SuggestionsConfig`](/reference/core/types/SuggestionsConfig) and surfaced through [`CopilotKitCoreSubscriber.onSuggestionsChanged`](/reference/core/types/CopilotKitCoreSubscriber).
+
+## Import
+
+```ts
+import type { Suggestion } from "@copilotkit/core";
+```
+
+## Definition
+
+```ts
+type Suggestion = {
+  title: string;
+  message: string;
+  isLoading: boolean;
+  className?: string;
+};
+```
+
+## Properties
+
+<PropertyReference name="title" type="string" required>
+  Short label displayed on the suggestion pill.
+</PropertyReference>
+
+<PropertyReference name="message" type="string" required>
+  The message sent to the agent when the suggestion is selected.
+</PropertyReference>
+
+<PropertyReference name="isLoading" type="boolean" required>
+  Indicates whether this suggestion is still being generated.
+</PropertyReference>
+
+<PropertyReference name="className" type="string">
+  Optional CSS class name applied to the suggestion pill.
+</PropertyReference>
+
+## Usage
+
+```ts
+import type { Suggestion } from "@copilotkit/core";
+
+const suggestion: Suggestion = {
+  title: "Summarize",
+  message: "Summarize the current document",
+  isLoading: false,
+};
+```
+
+## Related
+
+- [SuggestionsConfig](/reference/core/types/SuggestionsConfig)
+- [CopilotKitCoreSubscriber](/reference/core/types/CopilotKitCoreSubscriber)

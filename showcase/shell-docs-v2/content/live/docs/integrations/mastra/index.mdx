@@ -1,0 +1,100 @@
+---
+title: Introduction
+icon: "custom/mastra"
+description: Bring your Mastra agents to your users with CopilotKit via AG-UI.
+hideHeader: true
+# The landing page carries its own prompt button in the hero; the page-tools
+# row above the title would put a second one on the page. The data-record
+# partner pages render no such row, so this is also what keeps the two paths
+# looking alike. Same flag /intelligence/overview uses.
+hidePageActions: true
+---
+
+<FrameworkOverview
+  frameworkName="Mastra"
+  frameworkIcon={<MastraIcon className="h-12 w-12" />}
+  header="Bring your Mastra agents to your users"
+  subheader="Mastra runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer."
+  guideLink="/mastra/quickstart"
+  initCommand="npx copilotkit@latest init"
+  featuresLink="https://feature-viewer.copilotkit.ai/mastra/feature/agentic_chat"
+  lede="Mastra gives you agents, tools, workflows and working memory in TypeScript, and a server that runs them. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show what the agent is doing while it works, and a moment for a person to step in. Each capability below builds on something Mastra already does."
+  supportedFeatures={[
+    {
+      title: "Generative UI",
+      iconKey: "paintbrush",
+      description:
+        "Your agent keeps working memory across the session. CopilotKit renders that state as your own React components, so users watch the draft take shape instead of waiting for a final answer.",
+      documentationLink: "/mastra/generative-ui/state-rendering"
+    },
+    {
+      title: "Human-in-the-loop",
+      iconKey: "user",
+      description:
+        "Mastra's own suspend() stays inside Mastra's execution model. A frontend tool registered with useHumanInTheLoop renders UI, waits for the user's answer, and hands it back to the agent as the tool result.",
+      documentationLink: "/mastra/human-in-the-loop/tool-based"
+    },
+    {
+      title: "Shared state",
+      iconKey: "repeat",
+      description:
+        "Working memory lives on the server, scoped by resourceId. The useAgent hook mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      documentationLink: "/mastra/shared-state"
+    }
+  ]}
+  capabilitiesFootnote={{
+    text: "Chat surfaces, headless UI, frontend tools and background tasks work with Mastra too.",
+    linkLabel: "And more",
+    href: "/mastra/build-with-agents"
+  }}
+  connect={{
+    intro:
+      "Your Mastra service stays where it runs today. CopilotKit reaches it over HTTP through AG-UI and leaves it exactly where it is, so nothing inside Mastra changes.",
+    filename: "app/api/copilotkit/[[...slug]]/route.ts",
+    language: "ts",
+    guideLink: "/mastra/quickstart"
+  }}
+  showcase={{
+    integration: "mastra",
+    intro:
+      "Mastra and CopilotKit running together, in the React frontend. Every demo below is the same integration with one capability turned on.",
+    demos: [
+      { slug: "agentic-chat", title: "Pre-Built: CopilotChat" },
+      { slug: "hitl-in-chat", title: "Human In the Loop: In-chat" },
+      { slug: "shared-state-read-write", title: "Shared State: Read + Write" },
+      { slug: "gen-ui-agent", title: "Generative UI: Agent State" }
+    ]
+  }}
+>
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
+import { MastraAgent } from "@ag-ui/mastra";
+import { MastraClient } from "@mastra/client-js";
+
+const mastraClient = new MastraClient({
+  baseUrl: process.env.MASTRA_BASE_URL ?? "http://127.0.0.1:4111",
+});
+
+const runtime = new CopilotRuntime({
+  agents: () =>
+    MastraAgent.getRemoteAgents({
+      mastraClient,
+      // Local demo only. Use your authenticated user ID in a multi-user app.
+      resourceId: "local-demo-user",
+    }),
+  runner: new InMemoryAgentRunner(),
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handler;
+export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;
+```
+
+</FrameworkOverview>

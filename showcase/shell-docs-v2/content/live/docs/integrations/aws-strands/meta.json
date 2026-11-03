@@ -1,0 +1,37 @@
+{
+  "title": "AWS Strands",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "quickstart",
+    "cli",
+    "build-with-agents",
+    "---Basics---",
+    "prebuilt-components",
+    {
+      "title": "Threads",
+      "defaultOpen": true,
+      "pages": ["AG-UI-Streams", "headless-threads"]
+    },
+    "custom-look-and-feel",
+    "programmatic-control",
+    "inspector",
+    "---Generative UI---",
+    "...generative-ui",
+    "---App Control---",
+    "frontend-tools",
+    "shared-state",
+    "---Backend---",
+    "copilot-runtime",
+    "ag-ui",
+    "---Deploy---",
+    "deploy-agentcore",
+    "---Intelligence---",
+    "threads-import",
+    "---Troubleshooting---",
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
+  ]
+}

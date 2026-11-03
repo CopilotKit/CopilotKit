@@ -1,0 +1,34 @@
+{
+  "title": "LangGraph",
+  "root": true,
+  "pages": [
+    "index",
+    "cli",
+    "---Basics---",
+    "prebuilt-components",
+    {
+      "title": "AG-UI Streams",
+      "defaultOpen": true,
+      "pages": ["AG-UI-Streams", "headless-threads", "threads-import"]
+    },
+    "custom-look-and-feel",
+    "programmatic-control",
+    "---Generative UI---",
+    "...generative-ui",
+    "---App Control---",
+    "frontend-tools",
+    "shared-state",
+    "agent-app-context",
+    "---LangGraph---",
+    "human-in-the-loop/interrupt-flow",
+    "configurable",
+    "subgraphs",
+    "auth",
+    "guardrails",
+    "---Deploy---",
+    "deploy-agentcore",
+    "deploy-langsmith",
+    "---Tutorials---",
+    "...tutorials"
+  ]
+}

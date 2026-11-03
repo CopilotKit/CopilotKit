@@ -1,0 +1,14 @@
+{
+  "title": "Tutorial: Research ANA",
+  "pages": [
+    "step-1-checkout-repo",
+    "step-2-start-the-agent",
+    "step-3-setup-copilotkit",
+    "step-4-agentic-chat-ui",
+    "step-5-human-in-the-loop",
+    "step-6-shared-state",
+    "step-7-generative-ui",
+    "step-8-progressive-state-updates",
+    "next-steps"
+  ]
+}

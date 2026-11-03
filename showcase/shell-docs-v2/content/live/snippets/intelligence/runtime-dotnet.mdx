@@ -1,0 +1,66 @@
+Use the .NET 8 SDK. Create an ASP.NET Core application and install the [runtime package](https://www.nuget.org/packages/CopilotKit.Intelligence.Runtime):
+
+```bash
+dotnet new web --framework net8.0 --name CopilotKitApp
+cd CopilotKitApp
+dotnet add package CopilotKit.Intelligence.Runtime --version 0.1.0-rc.1
+```
+
+Set these variables in the server environment. Start your AG-UI agent at `AG_UI_AGENT_URL` before sending a message:
+
+```bash
+export CPK_INTELLIGENCE_API_KEY="your-project-api-key"
+export AG_UI_AGENT_URL="http://localhost:8001/agent"
+export APP_AUTH_TOKEN="replace-with-a-random-local-development-token"
+export APP_USER_ID="local-user"
+```
+
+This local example verifies one application token and maps it to a server-owned user ID. Use a different value for the application token and the Intelligence API key. In production, replace `IdentifyUser` with your application's verified session or token lookup. Never trust a browser-supplied user ID.
+
+Replace `Program.cs` with:
+
+```csharp
+using System.Security.Cryptography;
+using System.Text;
+using CopilotKit.Intelligence;
+
+static string Required(string name) =>
+    Environment.GetEnvironmentVariable(name) is { Length: > 0 } value
+        ? value : throw new InvalidOperationException($"Missing {name}");
+
+var token = Required("APP_AUTH_TOKEN");
+var userId = Required("APP_USER_ID");
+var expected = Encoding.UTF8.GetBytes($"Bearer {token}");
+using var agentClient = new HttpClient(new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(2)
+}) { Timeout = Timeout.InfiniteTimeSpan };
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddSingleton<IntelligenceRuntime>(_ => new IntelligenceRuntime(
+    new RuntimeOptions
+    {
+        ApiKey = Required("CPK_INTELLIGENCE_API_KEY"),
+        AllowedOrigins = new HashSet<string> { "http://localhost:3000" },
+        Agents = new Dictionary<string, IRuntimeAgent>
+        {
+            ["default"] = new HttpAgent(new Uri(Required("AG_UI_AGENT_URL")), agentClient)
+        },
+        IdentifyUser = (context, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var supplied = Encoding.UTF8.GetBytes(context.Request.Headers.Authorization.ToString());
+            RuntimeUser? user = CryptographicOperations.FixedTimeEquals(supplied, expected)
+                ? new RuntimeUser(userId) : null;
+            return ValueTask.FromResult(user);
+        }
+    }));
+
+await using var app = builder.Build();
+app.Services.GetRequiredService<IntelligenceRuntime>().Map(app, "/api/copilotkit");
+await app.RunAsync("http://127.0.0.1:8200");
+```
+
+Run `dotnet run --no-launch-profile`. The multi-route runtime URL is `http://localhost:8200/api/copilotkit`. Send `Authorization: Bearer <APP_AUTH_TOKEN>` with frontend requests, and keep `CPK_INTELLIGENCE_API_KEY` on the server. Replace the allowed `http://localhost:3000` origin for your deployment.
+
+ASP.NET Core disposes the singleton runtime asynchronously when the host shuts down. The application then disposes its agent HTTP client. `HttpAgent` accepts an optional `headers` dictionary for server-owned agent credentials; it does not forward browser credentials.

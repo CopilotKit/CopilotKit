@@ -1,0 +1,111 @@
+---
+title: "Dynamic Schema A2UI"
+icon: "lucide/Sparkles"
+description: "Generate a Mastra dashboard from a client-side A2UI catalog."
+snippet_cell: declarative-gen-ui
+---
+
+<InlineDemo demo="declarative-gen-ui" />
+
+Dynamic Schema A2UI lets an agent draw a surface from the conversation. The
+frontend supplies the allowed components and their props through a catalog;
+the agent generates the component tree and data for each request.
+
+## Frontend catalog
+
+Define your components, renderers, and catalog in the demo source. The same
+catalog works whether Mastra runs with the CopilotKit route or in a separate
+process.
+
+<Snippet region="definitions-zod" />
+
+<Snippet region="renderers-react" />
+
+<Snippet region="create-catalog" />
+
+Pass the catalog to the provider. Its `runtimeUrl` must point to a **CopilotKit
+endpoint**, and its `agent` must match a key returned by that endpoint.
+
+<Snippet region="provider-a2ui-prop" />
+
+## Mastra in the same process
+
+The live demo uses a dedicated CopilotKit runtime route and a local Mastra
+agent. Its agent already supplies its own `generate_a2ui` tool, so the route
+sets `injectA2UITool: false` to avoid registering the tool twice. The route
+also pins `defaultCatalogId` to the catalog registered by the page.
+
+Use this layout when the Mastra instance is imported into the same process as
+the runtime route. See the [Copilot Runtime guide](/mastra/copilot-runtime)
+for the local agent bridge.
+
+## Mastra in a separate process
+
+When Mastra runs as its own service, register a CopilotKit endpoint **on that
+service**. This keeps the Mastra agent local to the endpoint that injects and
+executes `generate_a2ui`, while the browser reaches it over HTTP. The example
+below is a runnable Mastra fixture under
+`showcase/integrations/mastra/tests/fixtures/remote-a2ui/mastra/index.ts`:
+
+Use `@ag-ui/mastra` 1.1.4 or later with compatible `@ag-ui/core` and
+`@ag-ui/client` versions. The Showcase fixture uses 1.1.4 and 0.0.58.
+
+```ts title="src/mastra/index.ts"
+import { Mastra } from "@mastra/core/mastra";
+import { Agent } from "@mastra/core/agent";
+import { getLocalAgent } from "@ag-ui/mastra";
+import { registerCopilotKit } from "@ag-ui/mastra/copilotkit";
+
+const dashboardAgent = new Agent({
+  id: "declarative-gen-ui",
+  name: "Dashboard",
+  model: yourModel,
+  instructions: "Call generate_a2ui for dashboard requests.",
+});
+
+export const mastra = new Mastra({
+  agents: { dashboardAgent },
+  server: {
+    apiRoutes: [
+      registerCopilotKit({
+        path: "/copilotkit",
+        resourceId: "demo-user",
+        agents: () => {
+          const agent = getLocalAgent({
+            mastra,
+            agentId: "dashboardAgent",
+            resourceId: "demo-user",
+          });
+          if (!agent) throw new Error("dashboardAgent is not registered");
+          return { "declarative-gen-ui": agent, default: agent };
+        },
+        a2ui: {
+          injectA2UITool: true,
+          defaultCatalogId: "declarative-gen-ui-catalog",
+        },
+        cors: { origin: "http://localhost:3000" },
+      }),
+    ],
+  },
+});
+```
+
+Set the provider's `runtimeUrl` to your Mastra service's `/copilotkit` URL (or
+proxy that path through your frontend). Keep the provider's agent name
+`declarative-gen-ui` and catalog ID `declarative-gen-ui-catalog` aligned with
+the route. Use the frontend origin in `cors.origin` when calling the service
+directly from the browser. In production, derive `resourceId` from the
+authenticated caller instead of using the fixed example value.
+
+The generic `MastraAgent.getRemoteAgents()` bridge described in the
+[runtime guide](/mastra/copilot-runtime) serves ordinary remote agent runs. For
+this A2UI configuration, use the registered endpoint so the A2UI tool runs
+beside the Mastra agent. A completed `render_a2ui` tool call alone does not
+prove that a surface rendered: check that the response contains nonempty
+`a2ui_operations` for components and data, and that the dashboard appears in
+the browser rather than remaining at “Building Interface.”
+
+## When to use dynamic schemas
+
+Use this approach when the user can ask for different layouts and data. If the
+shape is known ahead of time, use a [fixed schema](./fixed-schema).

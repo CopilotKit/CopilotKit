@@ -1,0 +1,39 @@
+{
+  "title": "Agno",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "quickstart",
+    "cli",
+    "build-with-agents",
+    "---Basics---",
+    "prebuilt-components",
+    {
+      "title": "AG-UI Streams",
+      "defaultOpen": true,
+      "pages": [
+        "AG-UI-Streams",
+        "prebuilt-components/copilot-threads-drawer",
+        "headless-threads",
+        "threads-lifecycle",
+        "threads-import"
+      ]
+    },
+    "custom-look-and-feel",
+    "programmatic-control",
+    "inspector",
+    "---Generative UI---",
+    "...generative-ui",
+    "---App Control---",
+    "frontend-tools",
+    "---Intelligence---",
+    "---Backend---",
+    "copilot-runtime",
+    "ag-ui",
+    "---Troubleshooting---",
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
+  ]
+}

@@ -1,0 +1,547 @@
+---
+title: Quickstart
+description: Turn your Mastra Agents into an agent-native application in 10 minutes.
+icon: "lucide/Play"
+hideTOC: true
+---
+
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
+
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
+import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coagents/self-host-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
+import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
+import CopilotUI from "@/snippets/copilot-ui.mdx";
+
+
+## Start with your coding agent
+
+Use this prompt to connect your Mastra agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
+
+## Prerequisites
+
+Before you begin, you'll need the following:
+
+- An OpenAI API key, or an Anthropic API key if you run the agent on Claude
+- Node.js 20+
+- Your favorite package manager
+
+## Getting started
+
+<Steps>
+    <Step>
+        ### Set up CopilotKit Intelligence
+
+        <SignupLink surface="docs_mastra_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
+    </Step>
+
+    <Step>
+        ### Choose your starting point
+
+        You can either start fresh with our starter template or integrate CopilotKit into your existing Mastra Agent.
+
+        <TailoredContent
+            className="step"
+            id="agent"
+        >
+        <TailoredContentOption
+            id="starter"
+            title="Start from scratch"
+            description="Get started quickly with our ready-to-go starter application."
+        >
+            <Step>
+                ### Run our CLI
+
+                ```bash
+                npx copilotkit@latest create
+                ```
+
+                The CLI walks you through:
+
+                - **Project name**
+                - **CopilotKit Intelligence** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Mastra setup.
+                - **Framework** — pick **Mastra** when prompted.
+            </Step>
+            <Step>
+                ### Install dependencies
+
+                ```npm
+                npm install
+                ```
+            </Step>
+            <Step>
+                ### Configure your environment
+
+                Create a `.env` file and add your OpenAI API key:
+
+                ```plaintext title=".env"
+                OPENAI_API_KEY=your_openai_api_key
+                ```
+
+                <ApiKeyHint provider="openai" />
+
+                <Callout type="info" title="Running the agent on Anthropic instead">
+                  The starter template runs on an OpenAI model, which is why the step
+                  above sets `OPENAI_API_KEY`. To run it on Claude instead, install
+                  Anthropic's AI SDK provider:
+
+                  ```bash
+                  npm install @ai-sdk/anthropic
+                  ```
+
+                  Set Anthropic's credential variable in the same `.env` (the agent reads
+                  `ANTHROPIC_API_KEY`, not `OPENAI_API_KEY`):
+
+                  ```plaintext title=".env"
+                  ANTHROPIC_API_KEY=your_anthropic_api_key
+                  ```
+
+                  Then, in the agent file the template scaffolded, import `anthropic`
+                  from `@ai-sdk/anthropic` and set the agent's `model` to
+                  `anthropic("claude-sonnet-4-6")` in place of the `openai(...)` call.
+
+                  <ApiKeyHint provider="anthropic" />
+
+                  Mastra takes any AI SDK provider, so the same three steps — install the
+                  provider, set its credential variable, swap the `model` setting — cover
+                  Google and the rest.
+                </Callout>
+            </Step>
+            <Step>
+                ### Start the development server
+
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        npm run dev
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        pnpm dev
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        yarn dev
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        bun dev
+                        ```
+                    </Tab>
+                </Tabs>
+
+                This will start both the UI and agent servers concurrently.
+            </Step>
+        </TailoredContentOption>
+        <TailoredContentOption
+            id="bring-your-own"
+            title="Use an existing agent"
+            description="I already have a Mastra Agent and want to add CopilotKit."
+        >
+            <Step>
+                ### Initialize your Mastra project
+
+                If you don't already have a Mastra project set up, create one:
+
+                ```bash
+                npx create-mastra@latest my-agent
+                cd my-agent
+                ```
+            </Step>
+            <Step>
+                ### Create your Mastra agent
+
+                Create a new agent file in your Mastra project:
+
+                ```ts title="src/mastra/agents/index.ts"
+                import { openai } from "@ai-sdk/openai";
+                import { Agent } from "@mastra/core/agent";
+
+                export const myAgent = new Agent({
+                  id: "my-agent",
+                  name: "My Agent",
+                  instructions: "You are a helpful assistant!",
+                  model: openai("gpt-5.4"),
+                });
+                ```
+
+                Then export it from your Mastra instance:
+
+                ```ts title="src/mastra/index.ts"
+                import { Mastra } from "@mastra/core";
+                import { myAgent } from "./agents";
+
+                export const mastra = new Mastra({
+                  agents: { myAgent },
+                });
+                ```
+
+                <Callout type="warn" title="The record key is the agent's name, not its `id`">
+                  Mastra advertises each agent under the **key you register it with** — `myAgent`
+                  here — and that key is what the runtime map, and so the provider's `agent` prop,
+                  is keyed by. The `name` above (`"My Agent"`) is display text, and an `id`, if you
+                  set one, is not used for routing either. `listAgents()` returns `myAgent` even
+                  when the agent declares `id: "my-agent"`.
+
+                  The same rule applies to tools: `tools: { weatherTool }` advertises
+                  `weatherTool`, so a `createTool({ id: "get-weather" })` registered under that key
+                  is still called `weatherTool` on the wire. Match your `useFrontendTool` name to
+                  the record key, not the `id`.
+                </Callout>
+
+                <Callout type="info" title="Running this agent on Anthropic instead">
+                  This example uses OpenAI's `gpt-5.4`. For Claude, install
+                  `@ai-sdk/anthropic`, then swap the import and the `model` setting:
+
+                  ```ts title="src/mastra/agents/index.ts"
+                  import { anthropic } from "@ai-sdk/anthropic";
+                  // model: anthropic("claude-sonnet-4-6"),
+                  ```
+
+                  The credential variable changes with the vendor — Anthropic's provider
+                  reads `ANTHROPIC_API_KEY`, so export that instead of
+                  `OPENAI_API_KEY` in the next step.
+
+                  <ApiKeyHint provider="anthropic" />
+                </Callout>
+            </Step>
+            <Step>
+                ### Configure your environment
+
+                Set your OpenAI API key as an environment variable:
+
+                ```bash
+                export OPENAI_API_KEY=your_openai_api_key
+                ```
+
+                <ApiKeyHint provider="openai" />
+            </Step>
+            <Step>
+                ### Start your agent
+
+                Leave the Mastra server running in its own terminal:
+
+                ```bash
+                npx mastra dev
+                ```
+
+                Note the port it prints. `mastra dev` takes 4111 when it is free and walks
+                up to 4131 when it is not, and the frontend you build next reaches this
+                agent over HTTP at that address.
+
+                Confirm it is serving your agent before you wire the frontend to it:
+
+                ```bash
+                curl http://127.0.0.1:4111/api/agents
+                ```
+
+                <Callout type="warn" title="A bare `GET /` is not a liveness check">
+                  Mastra serves its web console on the agent port and answers `200` whether
+                  or not any agent is registered. Check `/api/agents` and look for your
+                  agent by name.
+                </Callout>
+            </Step>
+            <Step>
+                ### Create your frontend
+
+                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+
+                Create it *beside* your Mastra project, not inside it:
+
+                ```bash
+                cd ..
+                npx create-next-app@latest my-copilot-app
+                cd my-copilot-app
+                ```
+
+                <Callout type="warn" title="Don't point `next dev` at your Mastra project root">
+                  On its first run Next.js rewrites the `tsconfig.json` at its own root:
+                  it forces `esModuleInterop`, `isolatedModules`, `resolveJsonModule` and
+                  `jsx`, sets `noEmit: true`, and replaces `include` and `exclude`. Pointed
+                  at a Mastra project that compiles with `tsc`, that rewrites the config
+                  your agent builds with. A sibling package leaves it untouched — and it is
+                  why this guide reaches the agent over HTTP rather than importing it.
+                </Callout>
+            </Step>
+            <Step>
+                ### Install CopilotKit packages
+
+                ```npm
+                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @ag-ui/core@1.0.2 @ag-ui/client@1.0.2 @mastra/client-js
+                ```
+            </Step>
+            <Step>
+                ### Setup Copilot Runtime
+
+                Create an API route that connects CopilotKit to the Mastra server you
+                started above. `MastraAgent.getRemoteAgents` asks that server which agents
+                it has and bridges each one over HTTP, so your agent keeps running as its
+                own process:
+
+                ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
+                import {
+                  CopilotKitIntelligence,
+                  CopilotRuntime,
+                  createCopilotRuntimeHandler,
+                } from "@copilotkit/runtime/v2";
+                import { MastraAgent } from "@ag-ui/mastra";
+                import { MastraClient } from "@mastra/client-js";
+
+                const mastraClient = new MastraClient({
+                  baseUrl: process.env.MASTRA_BASE_URL ?? "http://127.0.0.1:4111",
+                });
+
+                const runtime = new CopilotRuntime({
+                  // A factory, so the agent list is fetched per request rather than at
+                  // module load — the route survives an agent server that is not up yet.
+                  agents: ({ request }) =>
+                    MastraAgent.getRemoteAgents({
+                      mastraClient,
+                      // Scopes Mastra's own memory to the same user identified below.
+                      resourceId: request.headers.get("x-user-id") ?? "anonymous",
+                    }),
+                  // [!code highlight:8]
+                  intelligence: new CopilotKitIntelligence({
+                    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+                  }),
+                  // Threads are per-user. Without this, every visitor shares one history.
+                  identifyUser: (request) => ({
+                    id: request.headers.get("x-user-id") ?? "anonymous",
+                    name: request.headers.get("x-user-name") ?? "Anonymous",
+                  }),
+                });
+
+                const handler = createCopilotRuntimeHandler({
+                  runtime,
+                  basePath: "/api/copilotkit",
+                });
+
+                export const GET = handler;
+                export const POST = handler;
+                export const PATCH = handler;
+                export const DELETE = handler;
+                ```
+
+                From this frontend app directory, connect the runtime to an Intelligence project:
+
+                ```bash title="Terminal"
+                npx copilotkit@latest project select
+                ```
+
+                The command writes the server-side project API key to `.env`. Add the address of
+                the agent server to the same file; the frontend runtime reads both values here,
+                not in the Mastra project:
+
+                ```plaintext title=".env"
+                CPK_INTELLIGENCE_API_KEY=cpk-...
+                MASTRA_BASE_URL=http://127.0.0.1:4111
+                ```
+
+                `MASTRA_BASE_URL` defaults to `http://127.0.0.1:4111`, so you only need it
+                if your agent server took a different port or you are pointing at a
+                deployed Mastra service.
+
+                <Callout type="info" title="Embedding Mastra instead">
+                  If your Mastra instance lives inside this Next.js app rather than in its
+                  own process, swap `getRemoteAgents` for
+                  `MastraAgent.getLocalAgents({ mastra, resourceId })` and drop the client.
+                  See [local vs remote agents](/mastra/copilot-runtime#local-vs-remote-agents)
+                  for which one to choose.
+                </Callout>
+
+                <Callout type="info" title="Running without the Intelligence Platform?">
+                  Drop the `intelligence` and `identifyUser` options and the runtime falls back
+                  to SSE mode with an in-memory runner. Chat still works, but Threads and the
+                  Inspector stay locked and the key is never read. See
+                  [Connect your runtime to Intelligence](/intelligence/quickstart) for the
+                  full constructor and how to confirm the key is in use.
+                </Callout>
+            </Step>
+            <Step>
+                ### Configure CopilotKit Provider
+
+                Everything `@copilotkit/react-core/v2` exports is a client component, so
+                the provider goes in a file of your own marked `"use client"`:
+
+                ```tsx title="app/providers.tsx"
+                "use client";
+
+                import { CopilotKit } from "@copilotkit/react-core/v2";
+
+                export function Providers({ children }: { children: React.ReactNode }) {
+                  return (
+                    <CopilotKit runtimeUrl="/api/copilotkit" agent="myAgent" useSingleEndpoint={false}>
+                      {children}
+                    </CopilotKit>
+                  );
+                }
+                ```
+
+                Then wrap your application with that file:
+
+                ```tsx title="app/layout.tsx"
+                import { Providers } from "./providers"; // [!code highlight]
+                import "@copilotkit/react-core/v2/styles.css";
+                import './globals.css';
+
+                // ...
+
+                export default function RootLayout({ children }: {children: React.ReactNode}) {
+                  return (
+                    <html lang="en">
+                      <body>
+                        {/* [!code highlight:3] */}
+                        <Providers>
+                          {children}
+                        </Providers>
+                      </body>
+                    </html>
+                  );
+                }
+                ```
+
+                <Callout type="warn" title="Importing the provider straight into the layout breaks the build">
+                  `app/layout.tsx` is a server component. `@copilotkit/react-core/v2` is marked
+                  `"use client"` and re-exports `@copilotkit/core` and `@ag-ui/client` with
+                  `export *`, which Next.js cannot enumerate across that boundary. On Next.js 16
+                  with webpack the build fails and the page returns 500. A client file of your own
+                  between the two keeps that import inside the client graph.
+                </Callout>
+
+                <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
+                  `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
+                  same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
+                  server of its own and an absolute `runtimeUrl` such as
+                  `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
+                  `/angular` and `/react-native` each show that setup.
+                </Callout>
+            </Step>
+            <Step>
+              ### Add the chat interface
+
+              Add the CopilotSidebar component to your page:
+
+              ```tsx title="app/page.tsx"
+              "use client"; // [!code highlight]
+
+              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
+
+              export default function Page() {
+                return (
+                  <main>
+                    <h1>Your App</h1>
+                    {/* [!code highlight:1] */}
+                    <CopilotSidebar />
+                  </main>
+                );
+              }
+              ```
+            </Step>
+            <Step>
+                ### Start your UI
+
+                With the agent still running from earlier, start the frontend in a second
+                terminal:
+
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        npm run dev
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        pnpm dev
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        yarn dev
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        bun dev
+                        ```
+                    </Tab>
+                </Tabs>
+            </Step>
+        </TailoredContentOption>
+    </TailoredContent>
+    </Step>
+    <Step>
+        ### 🎉 Start chatting!
+
+        Your AI agent is now ready to use! Try asking it some questions:
+
+        ```
+        What tools do you have access to?
+        ```
+
+        ```
+        What do you think about React?
+        ```
+
+        ```
+        Show me some cool things you can do!
+        ```
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                - Make sure your Mastra agent is running on port 4111, and that `MASTRA_BASE_URL` points at it
+                - `curl http://127.0.0.1:4111/api/agents` should list your agent by name
+                - Check that your OpenAI API key is correctly set in the `.env` file
+            </Accordion>
+        </Accordions>
+    </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
+</Steps>
+
+## What's next?
+
+Now that you have your basic agent setup, explore these advanced features:
+
+<Cards>
+  <Card
+    title="Implement Human in the Loop"
+    description="Allow your users and agents to collaborate together on tasks."
+    href="/mastra/human-in-the-loop"
+    icon={<UserIcon />}
+  />
+  <Card
+    title="Add some generative UI"
+    description="Render your agent's progress and output in the UI."
+    href="/mastra/generative-ui/tool-rendering"
+    icon={<PaintbrushIcon />}
+  />
+  <Card
+    title="Setup frontend actions"
+    description="Give your agent the ability to call frontend tools, directly updating your application."
+    href="/mastra/frontend-tools"
+    icon={<WrenchIcon />}
+  />
+</Cards>
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>

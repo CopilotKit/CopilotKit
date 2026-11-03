@@ -1,0 +1,321 @@
+---
+title: "useAgent"
+description: "Vue 3 composable for accessing AG-UI agent instances"
+---
+
+## Overview
+
+`useAgent` is a Vue 3 composable that returns a reactive reference to an [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) instance. The composable subscribes to agent changes and triggers reactive updates when the agent's state, messages, or execution status changes.
+
+The composable returns `{ agent }`, where `agent` is typed as a Vue `shallowRef<AbstractAgent | null>` for API compatibility. During setup, it synchronously assigns an existing or provisional agent; if neither can be resolved, it throws instead of returning with `agent.value` set to `null`. Access the underlying instance with `agent.value` in `<script setup>`, or rely on auto-unwrapping in `<template>`. Optional chaining remains useful when consuming the nullable public type.
+
+<Callout type="warn">
+  Throws an error if no agent can be resolved for the given `agentId` after the runtime has synced (for example, when the id does not match any agent reported by your runtime `/info` or registered via `agents__unsafe_dev_only`).
+</Callout>
+
+## Signature
+
+```ts
+import { useAgent } from "@copilotkit/vue/v2";
+import type { ShallowRef } from "vue";
+import type { AbstractAgent } from "@ag-ui/client";
+
+function useAgent(props?: UseAgentProps): {
+  agent: ShallowRef<AbstractAgent | null>;
+};
+```
+
+## Parameters
+
+Reactive props accept `MaybeRefOrGetter`, so you can pass a plain value, a `ref`, or a getter function. The composable responds to each input according to the behavior described below.
+
+<PropertyReference name="props" type="UseAgentProps">
+  Configuration object for the composable.
+
+  <PropertyReference name="agentId" type="MaybeRefOrGetter<string | undefined>" default='"default"'>
+    ID of the agent to resolve. Resolution uses the explicit `agentId`, then the surrounding chat configuration's `agentId`, then `DEFAULT_AGENT_ID`. The id may resolve to an agent discovered by the runtime or registered by the provider. For thread-scoped use, it is the local id under which the private proxy is registered.
+  </PropertyReference>
+
+  <PropertyReference name="runtimeAgentId" type="MaybeRefOrGetter<string>">
+    Runtime agent id for thread-scoped use. Pass it together with `agentId` and `threadId` (all three are required) to register a private local proxy routed to this runtime agent. Partial combinations are invalid.
+  </PropertyReference>
+
+  <PropertyReference name="threadId" type="MaybeRefOrGetter<string>">
+    ID of the conversation thread for thread-scoped use. Pass it with `agentId` and `runtimeAgentId` to register the private proxy, route it to the runtime agent, and pin this thread onto the current proxy. Changing `threadId` repins that proxy. In the shared-agent form, omit it; an explicit thread from the current chat configuration is used when present.
+  </PropertyReference>
+
+  <PropertyReference name="updates" type="UseAgentUpdate[]" default="[OnMessagesChanged, OnStateChanged, OnRunStatusChanged]">
+    Controls which agent changes trigger reactive updates. Options:
+    - `UseAgentUpdate.OnMessagesChanged` - update when messages change
+    - `UseAgentUpdate.OnStateChanged` - update when state changes
+    - `UseAgentUpdate.OnRunStatusChanged` - update when execution status changes
+
+    Pass an empty array `[]` to prevent automatic reactive updates.
+  </PropertyReference>
+
+  <PropertyReference name="throttleMs" type="MaybeRefOrGetter<number | undefined>">
+    Throttle interval (in milliseconds) for updates triggered by `onMessagesChanged` and `onStateChanged`. Useful to reduce update frequency during high-frequency streaming.
+
+    Resolved as `throttleMs ?? provider defaultThrottleMs ?? 0`. Passing `throttleMs: 0` explicitly disables throttling even when the provider specifies a non-zero `defaultThrottleMs`.
+
+    Run lifecycle callbacks (`onRunInitialized`, `onRunFinalized`, `onRunFailed`, `onRunErrorEvent`) always fire immediately, regardless of throttling.
+  </PropertyReference>
+</PropertyReference>
+
+## Return Value
+
+<PropertyReference name="object" type="{ agent: ShallowRef<AbstractAgent | null> }">
+  Object containing the reactive agent reference.
+
+  <PropertyReference name="agent" type="ShallowRef<AbstractAgent | null>">
+    A Vue `shallowRef` holding the AG-UI agent instance. Its public type includes `null`, but the current implementation resolves synchronously during setup: it assigns an existing agent or a provisional proxy, or throws when it cannot resolve one. Read it with `agent.value` in `<script setup>`, or directly (auto-unwrapped) in `<template>`. The examples below retain `agent?.` / `v-if` guards because callers consume the nullable public type. See the [AbstractAgent documentation](https://docs.ag-ui.com/sdk/js/client/abstract-agent) for full interface details.
+
+    The properties and methods below belong to the unwrapped agent (`agent.value`).
+
+    ### Core Properties
+
+    <PropertyReference name="agentId" type="string | undefined">
+      Unique identifier for the agent instance.
+    </PropertyReference>
+
+    <PropertyReference name="description" type="string">
+      Human-readable description of the agent's purpose.
+    </PropertyReference>
+
+    <PropertyReference name="threadId" type="string">
+      Unique identifier for the current conversation thread.
+    </PropertyReference>
+
+    <PropertyReference name="messages" type="Message[]">
+      Array of conversation messages. Each message is an AG-UI `Message`. Common fields:
+      - `id: string` - unique message identifier
+      - `role: "user" | "assistant" | "system" | "tool" | "developer"` - message role (the per-message shape varies by role; for example, `tool` messages carry `toolCallId` instead of plain `content`)
+      - `content: string` - message content (text messages)
+    </PropertyReference>
+
+    <PropertyReference name="state" type="any">
+      Shared state object synchronized between application and agent. Both can read and modify this state.
+    </PropertyReference>
+
+    <PropertyReference name="isRunning" type="boolean">
+      Indicates whether the agent is currently executing.
+    </PropertyReference>
+
+    ### Methods
+
+    <PropertyReference name="runAgent" type="(parameters?: RunAgentParameters, subscriber?: AgentSubscriber) => Promise<RunAgentResult>">
+      Low-level: sends a run to the agent and resolves with a `RunAgentResult` (`{ result, newMessages }`) once the run finalizes. `result` is the final value of the run and `newMessages` are the messages produced during it.
+
+      It does not send your registered frontend tools or context, does not execute frontend tool calls, and does not chain follow-up runs. For a normal run, call `copilotkit.value.runAgent({ agent: agent.value })` from [`useCopilotKit`](/reference/vue/hooks/useCopilotKit) instead. It takes the same `forwardedProps` and resolves with the same `RunAgentResult`. Unlike `agent.runAgent()`, it does not reject when the run itself fails. The core reports the error (code `AGENT_RUN_FAILED`) to its error subscribers and resolves with `{ result: undefined, newMessages: [] }`.
+
+      **Parameters:**
+      - `parameters.forwardedProps?: any` - data to pass to the agent execution context
+
+      To answer an interrupt, use [`useInterrupt`](/reference/vue/hooks/useInterrupt). It resumes the run for you. To resume by hand, pass the standard `resume` array with the id of the interrupt that the paused run reported: `copilotkit.value.runAgent({ agent: agent.value, resume: [{ interruptId: interrupt.id, status: "resolved", payload }] })`. The older `forwardedProps: { command: { resume } }` form is the legacy path for `on_interrupt` custom events.
+
+      **Example:**
+      ```ts
+      const { copilotkit } = useCopilotKit();
+
+      if (agent.value) {
+        const { result, newMessages } = await copilotkit.value.runAgent({
+          agent: agent.value,
+          // Any data your agent reads from the run input.
+          forwardedProps: { source: "refresh-button" },
+        });
+      }
+      ```
+    </PropertyReference>
+
+    <PropertyReference name="setState" type="(newState: any) => void">
+      Updates the shared state. Changes are immediately available to both application and agent.
+
+      **Example:**
+      ```ts
+      agent.value.setState({
+        ...agent.value.state,
+        theme: "dark",
+      });
+      ```
+    </PropertyReference>
+
+    <PropertyReference name="subscribe" type="(subscriber: AgentSubscriber) => { unsubscribe: () => void }">
+      Subscribes to agent events. Returns a cleanup handle.
+
+      **Subscriber Events:**
+      - `onCustomEvent?: ({ event: { name: string, value: any } }) => void` - custom events
+      - `onRunStartedEvent?: () => void` - agent execution starts
+      - `onRunFinalized?: () => void` - agent execution completes
+      - `onStateChanged?: (params: { state: any, messages: Message[], agent: AbstractAgent }) => void` - state changes (read the new state from `params.state`)
+      - `onMessagesChanged?: (params: { messages: Message[], state: any, agent: AbstractAgent }) => void` - messages added or modified (read them from `params.messages`)
+    </PropertyReference>
+
+    <PropertyReference name="addMessage" type="(message: Message) => void">
+      Adds a single message to the conversation and notifies subscribers.
+    </PropertyReference>
+
+    <PropertyReference name="addMessages" type="(messages: Message[]) => void">
+      Adds multiple messages to the conversation and notifies subscribers once.
+    </PropertyReference>
+
+    <PropertyReference name="setMessages" type="(messages: Message[]) => void">
+      Replaces the entire message history with a new array of messages.
+    </PropertyReference>
+
+    <PropertyReference name="abortRun" type="() => void">
+      Aborts the currently running agent execution.
+    </PropertyReference>
+
+    <PropertyReference name="clone" type="() => AbstractAgent">
+      Creates a deep copy of the agent with cloned messages, state, and configuration.
+    </PropertyReference>
+
+  </PropertyReference>
+</PropertyReference>
+
+## Usage
+
+### Basic Usage
+
+```vue
+<script setup lang="ts">
+import { useAgent } from "@copilotkit/vue/v2";
+
+const { agent } = useAgent();
+</script>
+
+<template>
+  <div v-if="agent">
+    <div>Agent: {{ agent.agentId }}</div>
+    <div>Messages: {{ agent.messages.length }}</div>
+    <div>Running: {{ agent.isRunning ? "Yes" : "No" }}</div>
+  </div>
+</template>
+```
+
+### Accessing and Updating State
+
+```vue
+<script setup lang="ts">
+import { useAgent } from "@copilotkit/vue/v2";
+
+const { agent } = useAgent();
+
+function updateState() {
+  if (!agent.value) return;
+  agent.value.setState({ ...agent.value.state, count: 1 });
+}
+</script>
+
+<template>
+  <div>
+    <pre>{{ JSON.stringify(agent?.state, null, 2) }}</pre>
+    <button @click="updateState">Update State</button>
+  </div>
+</template>
+```
+
+### Event Subscription
+
+```vue
+<script setup lang="ts">
+import { watchEffect } from "vue";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const { agent } = useAgent();
+
+watchEffect((onCleanup) => {
+  if (!agent.value) return;
+  const { unsubscribe } = agent.value.subscribe({
+    onRunStartedEvent: () => console.log("Started"),
+    onRunFinalized: () => console.log("Finished"),
+  });
+
+  onCleanup(unsubscribe);
+});
+</script>
+
+<template>
+  <div />
+</template>
+```
+
+### Multiple Agents
+
+```vue
+<script setup lang="ts">
+import { useAgent } from "@copilotkit/vue/v2";
+
+const { agent: primary } = useAgent({ agentId: "primary" });
+const { agent: support } = useAgent({ agentId: "support" });
+</script>
+
+<template>
+  <div>
+    <div>Primary: {{ primary?.messages?.length ?? 0 }} messages</div>
+    <div>Support: {{ support?.messages?.length ?? 0 }} messages</div>
+  </div>
+</template>
+```
+
+### Thread-scoped Agent
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const threadId = ref("thread-1");
+
+// Registers a local proxy routed to the runtime agent and pins it to this thread.
+const { agent } = useAgent({
+  agentId: "thread-1",
+  runtimeAgentId: "default",
+  threadId,
+});
+</script>
+
+<template>
+  <div v-if="agent">Thread: {{ agent.threadId }} ({{ agent.messages.length }} messages)</div>
+</template>
+```
+
+### Optimizing Reactive Updates
+
+```vue
+<script setup lang="ts">
+import { useAgent, UseAgentUpdate } from "@copilotkit/vue/v2";
+
+// Only update when messages change.
+const { agent } = useAgent({
+  updates: [UseAgentUpdate.OnMessagesChanged],
+});
+</script>
+
+<template>
+  <div>Messages: {{ agent?.messages?.length ?? 0 }}</div>
+</template>
+```
+
+### Throttling High-Frequency Updates
+
+```ts
+import { useAgent } from "@copilotkit/vue/v2";
+
+// Coalesce streaming message and state updates into at most one update
+// per 100ms. Run lifecycle callbacks still fire immediately.
+const { agent } = useAgent({ throttleMs: 100 });
+```
+
+## Behavior
+
+- **Reactive updates**: The `agent` ref triggers reactivity when state, messages, or execution status changes (configurable via the `updates` parameter).
+- **Reactive inputs**: `agentId` and `runtimeAgentId` drive private-proxy registration; `agentId` plus core registry and connection changes drive resolution. `threadId` pins or repins the current agent. `updates`, `throttleMs`, and the provider's `defaultThrottleMs` drive subscription behavior.
+- **Agent binding**: The shared-agent form resolves the explicit `agentId`, then the chat configuration's `agentId`, then `DEFAULT_AGENT_ID`, and may return an agent discovered by the runtime or registered by the provider. The thread-scoped form registers a private proxy under the local `agentId`, routes it to `runtimeAgentId`, and pins `threadId` to that proxy. All three thread-scoped properties are required together; changing `threadId` repins the existing proxy.
+- **Throttling**: Message and state updates can be throttled via `throttleMs`, resolved as `throttleMs ?? provider defaultThrottleMs ?? 0`. Run lifecycle callbacks always fire immediately.
+- **Error handling**: Throws an error if no agent can be resolved for the specified `agentId` after the runtime has synced.
+- **State synchronization**: State updates via `setState()` are immediately available to both app and agent.
+
+## Related
+
+- [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) - full agent interface documentation

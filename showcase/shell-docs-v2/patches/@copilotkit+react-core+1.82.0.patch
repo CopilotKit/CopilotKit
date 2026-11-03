@@ -1,0 +1,96 @@
+diff --git a/node_modules/@copilotkit/react-core/dist/copilotkit-CVvbU9lV.cjs b/node_modules/@copilotkit/react-core/dist/copilotkit-CVvbU9lV.cjs
+index eadbdf5..1d65eea 100644
+--- a/node_modules/@copilotkit/react-core/dist/copilotkit-CVvbU9lV.cjs
++++ b/node_modules/@copilotkit/react-core/dist/copilotkit-CVvbU9lV.cjs
+@@ -11403,6 +11403,7 @@ function usePinToSend({ scrollRef, contentRef, spacerRef, topOffset = 16 }) {
+ 	const lastNonceRef = (0, react.useRef)(-1);
+ 	(0, react.useEffect)(() => {
+ 		if (sendNonce === lastNonceRef.current) return;
++		const previousNonce = lastNonceRef.current;
+ 		lastNonceRef.current = sendNonce;
+ 		if (!id) return;
+ 		const scrollEl = scrollRef.current;
+@@ -11418,7 +11419,9 @@ function usePinToSend({ scrollRef, contentRef, spacerRef, topOffset = 16 }) {
+ 		const bubbleHeight = Math.max(0, userMessageHeight - paddingTop);
+ 		const spacerHeight = Math.max(0, viewportHeight - bubbleHeight - topOffset);
+ 		spacerEl.style.height = `${spacerHeight}px`;
++		let pinned = false;
+ 		const raf = requestAnimationFrame(() => {
++			pinned = true;
+ 			const targetTop = computeOffsetTop(targetEl, scrollEl) + paddingTop - topOffset;
+ 			scrollEl.scrollTo({
+ 				top: Math.max(0, targetTop),
+@@ -11435,6 +11438,7 @@ function usePinToSend({ scrollRef, contentRef, spacerRef, topOffset = 16 }) {
+ 		return () => {
+ 			cancelAnimationFrame(raf);
+ 			ro.disconnect();
++			if (!pinned) lastNonceRef.current = previousNonce;
+ 		};
+ 	}, [
+ 		id,
+@@ -11829,13 +11833,16 @@ function CopilotChatView({ messageView, input, scrollView, suggestionView, welco
+ 			if (mode === "pin-to-bottom") return;
+ 			const scrollElement = nonAutoScrollEl;
+ 			if (!scrollElement) return;
++			const contentElement = contentRef.current;
+ 			const checkScroll = () => {
+-				setShowScrollButton(!(scrollElement.scrollHeight - scrollElement.scrollTop - scrollElement.clientHeight < 10));
++				const hiddenBelow = contentElement ? contentElement.getBoundingClientRect().bottom - scrollElement.getBoundingClientRect().bottom : scrollElement.scrollHeight - scrollElement.scrollTop - scrollElement.clientHeight;
++				setShowScrollButton(hiddenBelow >= 10);
+ 			};
+ 			checkScroll();
+ 			scrollElement.addEventListener("scroll", checkScroll);
+ 			const resizeObserver = new ResizeObserver(checkScroll);
+ 			resizeObserver.observe(scrollElement);
++			if (contentElement) resizeObserver.observe(contentElement);
+ 			return () => {
+ 				scrollElement.removeEventListener("scroll", checkScroll);
+ 				resizeObserver.disconnect();
+diff --git a/node_modules/@copilotkit/react-core/dist/copilotkit-DDReN1Px.mjs b/node_modules/@copilotkit/react-core/dist/copilotkit-DDReN1Px.mjs
+index 46e254a..958a8bb 100644
+--- a/node_modules/@copilotkit/react-core/dist/copilotkit-DDReN1Px.mjs
++++ b/node_modules/@copilotkit/react-core/dist/copilotkit-DDReN1Px.mjs
+@@ -11400,6 +11400,7 @@ function usePinToSend({ scrollRef, contentRef, spacerRef, topOffset = 16 }) {
+ 	const lastNonceRef = useRef(-1);
+ 	useEffect(() => {
+ 		if (sendNonce === lastNonceRef.current) return;
++		const previousNonce = lastNonceRef.current;
+ 		lastNonceRef.current = sendNonce;
+ 		if (!id) return;
+ 		const scrollEl = scrollRef.current;
+@@ -11415,7 +11416,9 @@ function usePinToSend({ scrollRef, contentRef, spacerRef, topOffset = 16 }) {
+ 		const bubbleHeight = Math.max(0, userMessageHeight - paddingTop);
+ 		const spacerHeight = Math.max(0, viewportHeight - bubbleHeight - topOffset);
+ 		spacerEl.style.height = `${spacerHeight}px`;
++		let pinned = false;
+ 		const raf = requestAnimationFrame(() => {
++			pinned = true;
+ 			const targetTop = computeOffsetTop(targetEl, scrollEl) + paddingTop - topOffset;
+ 			scrollEl.scrollTo({
+ 				top: Math.max(0, targetTop),
+@@ -11432,6 +11435,7 @@ function usePinToSend({ scrollRef, contentRef, spacerRef, topOffset = 16 }) {
+ 		return () => {
+ 			cancelAnimationFrame(raf);
+ 			ro.disconnect();
++			if (!pinned) lastNonceRef.current = previousNonce;
+ 		};
+ 	}, [
+ 		id,
+@@ -11826,13 +11830,16 @@ function CopilotChatView({ messageView, input, scrollView, suggestionView, welco
+ 			if (mode === "pin-to-bottom") return;
+ 			const scrollElement = nonAutoScrollEl;
+ 			if (!scrollElement) return;
++			const contentElement = contentRef.current;
+ 			const checkScroll = () => {
+-				setShowScrollButton(!(scrollElement.scrollHeight - scrollElement.scrollTop - scrollElement.clientHeight < 10));
++				const hiddenBelow = contentElement ? contentElement.getBoundingClientRect().bottom - scrollElement.getBoundingClientRect().bottom : scrollElement.scrollHeight - scrollElement.scrollTop - scrollElement.clientHeight;
++				setShowScrollButton(hiddenBelow >= 10);
+ 			};
+ 			checkScroll();
+ 			scrollElement.addEventListener("scroll", checkScroll);
+ 			const resizeObserver = new ResizeObserver(checkScroll);
+ 			resizeObserver.observe(scrollElement);
++			if (contentElement) resizeObserver.observe(contentElement);
+ 			return () => {
+ 				scrollElement.removeEventListener("scroll", checkScroll);
+ 				resizeObserver.disconnect();

@@ -1,0 +1,68 @@
+---
+title: "Step 4: Share agent state"
+---
+
+The travel UI and LangGraph agent both work with trips and the selected trip.
+The v2 `useAgent` hook gives the UI direct access to that shared state.
+
+## Select the agent
+
+The chat selects `travel` through `CopilotChatConfigurationProvider` in
+`app/page.tsx`. The state hook uses the same ID in
+`lib/hooks/use-trips.tsx`:
+
+```tsx title="examples/v1/travel/lib/hooks/use-trips.tsx"
+import { useAgent } from "@copilotkit/react-core/v2";
+
+export const TripsProvider = ({ children }: { children: ReactNode }) => {
+  const { agent, isReady } = useAgent({ agentId: "travel" });
+  const state = normalizeAgentState(agent.state);
+
+  // ...
+};
+```
+
+`agent.state` changes as AG-UI state events arrive. `normalizeAgentState`
+keeps the UI safe before the agent has sent its first complete state.
+
+## Initialize the shared state
+
+When the agent is ready, the provider fills any missing fields with the
+example's default trips:
+
+```tsx title="examples/v1/travel/lib/hooks/use-trips.tsx"
+useEffect(() => {
+  if (!isReady) return;
+  if (isAgentStateInitialized(agent.state)) return;
+
+  agent.setState(normalizeAgentState(agent.state));
+}, [agent, agent.state, isReady]);
+```
+
+## Update state from the UI
+
+UI controls call `agent.setState`. Each update starts from the latest agent
+state so it does not overwrite a newer change:
+
+```tsx title="examples/v1/travel/lib/hooks/use-trips.tsx"
+const setSelectedTripId = (trip_id: string | null) => {
+  agent.setState({
+    ...normalizeAgentState(agent.state),
+    selected_trip_id: trip_id,
+  });
+};
+
+const addTrip = (trip: Trip) => {
+  const currentState = normalizeAgentState(agent.state);
+  agent.setState({
+    ...currentState,
+    trips: [...currentState.trips, trip],
+  });
+};
+```
+
+Ask the running app which trips it can see, select another trip in the map,
+and ask again. Both the React controls and the agent read the same state.
+
+Next, see how the app renders search progress while the agent is still
+working.

@@ -1,0 +1,30 @@
+---
+title: AgentContentPart
+description: Provider-neutral text, image, audio, video, and document content passed from Channel attachments to an agent.
+---
+
+`AgentContentPart` is the multimodal prompt union used by Channels.
+
+```ts
+type MediaDataSource = {
+  type: "data";
+  value: string;
+  mimeType: string;
+};
+
+type AgentContentPart =
+  | { type: "text"; text: string }
+  | { type: "image"; source: MediaDataSource }
+  | { type: "audio"; source: MediaDataSource }
+  | { type: "video"; source: MediaDataSource }
+  | { type: "document"; source: MediaDataSource };
+```
+
+Binary `value` is base64. Managed ingress maps image, audio, video, and PDF
+files to binary parts, decodes `text/*` as text, and represents other binary
+types with a text note.
+
+Pass parts through `thread.runAgent({ prompt })`. The selected agent framework
+and model decide which media kinds they can consume.
+
+See [Files and multimodal input](/slack/files-and-multimodality).

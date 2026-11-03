@@ -1,0 +1,12 @@
+{
+  "title": "Docs",
+  "pages": [
+    "index",
+    "quickstart",
+    "---Picker ideas---",
+    "...ideas",
+    "[Picker prototypes](/proto)",
+    "---Internal---",
+    "theme"
+  ]
+}

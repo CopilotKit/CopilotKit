@@ -1,0 +1,47 @@
+---
+title: Input
+description: Render a portable text input and understand its current managed-provider callback limits.
+---
+
+`Input` describes a single- or multiline text field.
+
+```tsx
+import { Button, Input, Message } from "@copilotkit/channels/ui";
+
+<Message>
+  <Input
+    name="reason"
+    placeholder="Why should this be approved?"
+    multiline
+    onSubmit={async (ctx) => {
+      await ctx.thread.post(`Recorded: ${String(ctx.action.value)}`);
+    }}
+  />
+  <Button
+    value="approve"
+    onClick={async (ctx) => {
+      const reason = ctx.values?.reason;
+      if (reason !== undefined) {
+        await ctx.thread.post(`Recorded: ${String(reason)}`);
+      }
+    }}
+  >
+    Approve
+  </Button>
+</Message>;
+```
+
+## Props
+
+| Prop          | Type                   | Description                                                |
+| ------------- | ---------------------- | ---------------------------------------------------------- |
+| `name`        | `string`               | Logical field name.                                        |
+| `placeholder` | `string`               | Native placeholder or label text.                          |
+| `multiline`   | `boolean`              | Requests a multiline native input.                         |
+| `onSubmit`    | `ClickHandler<string>` | Text submission callback where the provider dispatches it. |
+
+Managed Slack renders a dispatching plain-text input block. Managed Teams
+renders `Input.Text`. Give the field a `name` and place it with a submitting
+`Button`; Teams sends the text to the Button callback in `ctx.values[name]`,
+while Slack invokes `Input.onSubmit` as soon as the input is dispatched. Teams
+does not dispatch `Input.onSubmit` independently.

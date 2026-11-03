@@ -1,0 +1,5 @@
+{
+  "icon": "lucide/Repeat",
+  "defaultOpen": true,
+  "pages": ["read", "write"]
+}

@@ -1,0 +1,479 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-26T22:03:32.753Z",
+  "title": "Design System: CopilotKit Docs",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Ground",
+        "canonical": "hsl(0, 0%, 96%)",
+        "hex": "#f5f5f5",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#999999",
+          "#b8b8b8",
+          "#d6d6d6",
+          "#f2f2f2"
+        ]
+      },
+      "frame": {
+        "role": "neutral",
+        "displayName": "Frame",
+        "canonical": "hsl(0, 0%, 94.7%)",
+        "hex": "#f1f1f1",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#999999",
+          "#b8b8b8",
+          "#d6d6d6",
+          "#f2f2f2"
+        ]
+      },
+      "popover": {
+        "role": "neutral",
+        "displayName": "Popover",
+        "canonical": "hsl(0, 0%, 98%)",
+        "hex": "#fafafa",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#999999",
+          "#b8b8b8",
+          "#d6d6d6",
+          "#f2f2f2"
+        ]
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "Raised",
+        "canonical": "hsl(0, 0%, 93.1%)",
+        "hex": "#ededed",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#999999",
+          "#b8b8b8",
+          "#d6d6d6",
+          "#f2f2f2"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "hsla(0, 0%, 80%, 0.5)",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#999999",
+          "#b8b8b8",
+          "#d6d6d6",
+          "#f2f2f2"
+        ]
+      },
+      "hover": {
+        "role": "neutral",
+        "displayName": "Hover",
+        "canonical": "hsla(0, 0%, 82%, 0.5)",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#999999",
+          "#b8b8b8",
+          "#d6d6d6",
+          "#f2f2f2"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#010507",
+        "oklch": "oklch(10.8% 0.015 220.9)",
+        "tonalRamp": [
+          "#050d10",
+          "#1c2629",
+          "#384245",
+          "#556063",
+          "#778286",
+          "#9ba7ab",
+          "#c1cdd1",
+          "#e4f1f5"
+        ]
+      },
+      "slate": {
+        "role": "neutral",
+        "displayName": "Slate",
+        "canonical": "#57575b",
+        "oklch": "oklch(45.8% 0.006 286.1)",
+        "tonalRamp": [
+          "#0b0b0e",
+          "#242427",
+          "#3f3f43",
+          "#5d5d61",
+          "#808084",
+          "#a4a4a8",
+          "#cacacf",
+          "#eeeef3"
+        ]
+      },
+      "lilac-ink": {
+        "role": "primary",
+        "displayName": "Lilac Ink",
+        "canonical": "#5057cc",
+        "oklch": "oklch(51.8% 0.178 275.7)",
+        "tonalRamp": [
+          "#120054",
+          "#1b0077",
+          "#2e279b",
+          "#474bbf",
+          "#6671e8",
+          "#8797ff",
+          "#abbeff",
+          "#cee3ff"
+        ]
+      },
+      "lilac": {
+        "role": "primary",
+        "displayName": "Lilac",
+        "canonical": "#bec2ff",
+        "oklch": "oklch(83.2% 0.085 281.4)",
+        "tonalRamp": [
+          "#09012d",
+          "#1f1c4b",
+          "#39396b",
+          "#56578d",
+          "#777ab2",
+          "#9b9fd9",
+          "#c0c5ff",
+          "#e4e9ff"
+        ]
+      },
+      "signal-blue": {
+        "role": "tertiary",
+        "displayName": "Signal Blue",
+        "canonical": "#1b70c4",
+        "oklch": "oklch(54.2% 0.152 252.8)",
+        "tonalRamp": [
+          "#000048",
+          "#001a69",
+          "#003c8c",
+          "#005db0",
+          "#3182d7",
+          "#58a8ff",
+          "#7fcfff",
+          "#a2f4ff"
+        ]
+      },
+      "mint-deep": {
+        "role": "tertiary",
+        "displayName": "Mint Deep",
+        "canonical": "#189370",
+        "oklch": "oklch(59.2% 0.115 167.7)",
+        "tonalRamp": [
+          "#001602",
+          "#003318",
+          "#005133",
+          "#007150",
+          "#1d9672",
+          "#4fbb96",
+          "#78e3bc",
+          "#9dffdf"
+        ]
+      },
+      "orange": {
+        "role": "tertiary",
+        "displayName": "Orange",
+        "canonical": "#ffac4d",
+        "oklch": "oklch(80.9% 0.146 66.5)",
+        "tonalRamp": [
+          "#2c0000",
+          "#4d0000",
+          "#6f2600",
+          "#924700",
+          "#b96b00",
+          "#e1902a",
+          "#ffb658",
+          "#ffda7d"
+        ]
+      },
+      "coral-red": {
+        "role": "tertiary",
+        "displayName": "Coral Red",
+        "canonical": "#fa5f67",
+        "oklch": "oklch(68.9% 0.189 20.6)",
+        "tonalRamp": [
+          "#3c0000",
+          "#630000",
+          "#89000a",
+          "#af082b",
+          "#da414d",
+          "#ff6970",
+          "#ff9195",
+          "#ffb6b8"
+        ]
+      },
+      "night-ground": {
+        "role": "neutral",
+        "displayName": "Night Ground",
+        "canonical": "hsl(0, 0%, 7.04%)",
+        "hex": "#121212",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#999999",
+          "#b8b8b8",
+          "#d6d6d6",
+          "#f2f2f2"
+        ]
+      },
+      "night-frame": {
+        "role": "neutral",
+        "displayName": "Night Frame",
+        "canonical": "hsl(0, 0%, 9.8%)",
+        "hex": "#191919",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#999999",
+          "#b8b8b8",
+          "#d6d6d6",
+          "#f2f2f2"
+        ]
+      },
+      "night-popover": {
+        "role": "neutral",
+        "displayName": "Night Popover",
+        "canonical": "hsl(0, 0%, 11.6%)",
+        "hex": "#1e1e1e",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#999999",
+          "#b8b8b8",
+          "#d6d6d6",
+          "#f2f2f2"
+        ]
+      },
+      "night-raised": {
+        "role": "neutral",
+        "displayName": "Night Raised",
+        "canonical": "hsl(0, 0%, 12.9%)",
+        "hex": "#212121",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#999999",
+          "#b8b8b8",
+          "#d6d6d6",
+          "#f2f2f2"
+        ]
+      },
+      "night-text": {
+        "role": "neutral",
+        "displayName": "Night Text",
+        "canonical": "hsl(0, 0%, 92%)",
+        "hex": "#ebebeb",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#999999",
+          "#b8b8b8",
+          "#d6d6d6",
+          "#f2f2f2"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page title (DocsTitle)."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section headings (h2)."
+      },
+      "subtitle": {
+        "displayName": "Subtitle",
+        "purpose": "Subsection headings (h3) and step titles."
+      },
+      "lead": {
+        "displayName": "Lead",
+        "purpose": "Page description under the title, in slate."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Prose in Spacious' 760px column."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Sidebar, TOC, tabs, table cells."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "Code blocks and inline code."
+      },
+      "button-mono": {
+        "displayName": "Button Mono",
+        "purpose": "Page-action buttons, like copilotkit.ai's Copy Prompt."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "fumadocs-default",
+        "value": "Fumadocs preset animations (fd-dialog-in, fd-popover-in, fd-sidebar-in, ...)",
+        "purpose": "The theme adds no motion of its own."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      }
+    ],
+    "layout": {
+      "name": "Fumadocs Spacious",
+      "imports": [
+        "fumadocs-ui/layouts/spacious",
+        "fumadocs-ui/css/generated/spacious.css"
+      ]
+    }
+  },
+  "components": [
+    {
+      "name": "Page Action Button",
+      "kind": "button",
+      "refersTo": "page-action-button",
+      "description": "Copy Markdown / Open, above each page body.",
+      "html": "<button class=\"ds-btn-action\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"8\" y=\"8\" width=\"14\" height=\"14\" rx=\"2\"/><path d=\"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2\"/></svg>Copy Markdown</button>",
+      "css": ".ds-btn-action{display:inline-flex;align-items:center;gap:8px;height:30px;padding:6px 8px;font-family:\"Spline Sans Mono\",ui-monospace,monospace;font-size:12px;font-weight:500;color:var(--color-fd-secondary-foreground,#010507);background:var(--color-fd-secondary,#ededed);border:1px solid var(--color-fd-border,#cccccc80);border-radius:8px;cursor:pointer;transition:background-color .15s,color .15s}.ds-btn-action svg{color:var(--color-fd-muted-foreground,#57575b)}.ds-btn-action:hover{background:var(--color-fd-accent,#d1d1d180);color:var(--color-fd-accent-foreground,#010507)}.ds-btn-action:focus-visible{outline:none;box-shadow:0 0 0 2px var(--color-fd-ring,#5057cc)}"
+    },
+    {
+      "name": "Sidebar Item",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Inactive and active sidebar links.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item\" href=\"#\">Quickstart</a><a class=\"ds-nav-item\" data-active=\"true\" href=\"#\">Theme reference</a><a class=\"ds-nav-item\" href=\"#\">Frontend tools</a></nav>",
+      "css": ".ds-nav{display:flex;flex-direction:column;gap:2px;width:236px;padding:8px;background:var(--color-fd-card,#f2f2f2);font-family:\"Plus Jakarta Sans\",ui-sans-serif,sans-serif}.ds-nav-item{display:block;padding:8px;border-radius:12px;font-size:14px;line-height:20px;color:var(--color-fd-muted-foreground,#57575b);text-decoration:none;transition:background-color .15s,color .15s}.ds-nav-item:hover{background:color-mix(in srgb,var(--color-fd-accent,#d1d1d180) 50%,transparent);color:var(--color-fd-accent-foreground,#010507)}.ds-nav-item[data-active=true]{background:color-mix(in srgb,var(--color-fd-primary,#5057cc) 10%,transparent);color:var(--color-fd-primary,#5057cc)}.ds-nav-item:focus-visible{outline:none;box-shadow:0 0 0 2px var(--color-fd-ring,#5057cc)}"
+    },
+    {
+      "name": "Search Trigger",
+      "kind": "input",
+      "refersTo": "search-trigger",
+      "description": "Opens Fumadocs search.",
+      "html": "<button class=\"ds-search\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"m20 20-3.5-3.5\"/></svg><span>Search</span><kbd>⌘</kbd><kbd>K</kbd></button>",
+      "css": ".ds-search{display:flex;align-items:center;gap:8px;width:236px;height:36px;padding:6px 6px 6px 8px;font-family:\"Plus Jakarta Sans\",ui-sans-serif,sans-serif;font-size:14px;color:var(--color-fd-muted-foreground,#57575b);background:color-mix(in srgb,var(--color-fd-secondary,#ededed) 50%,transparent);border:1px solid var(--color-fd-border,#cccccc80);border-radius:12px;cursor:pointer}.ds-search span{flex:1;text-align:left}.ds-search kbd{font-family:inherit;font-size:12px;padding:0 6px;border:1px solid var(--color-fd-border,#cccccc80);border-radius:8px;background:var(--color-fd-background,#f5f5f5)}.ds-search:hover{background:var(--color-fd-accent,#d1d1d180);color:var(--color-fd-accent-foreground,#010507)}.ds-search:focus-visible{outline:none;box-shadow:0 0 0 2px var(--color-fd-ring,#5057cc)}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Fumadocs Card for next-step links.",
+      "html": "<a class=\"ds-card\" href=\"#\"><p class=\"ds-card-title\">Quickstart</p><p class=\"ds-card-body\">Get a working chat in a few minutes.</p></a>",
+      "css": ".ds-card{display:block;width:320px;padding:16px;background:var(--color-fd-card,#f2f2f2);color:var(--color-fd-card-foreground,#010507);border:1px solid var(--color-fd-border,#cccccc80);border-radius:16px;text-decoration:none;font-family:\"Plus Jakarta Sans\",ui-sans-serif,sans-serif;transition:background-color .15s}.ds-card:hover{background:color-mix(in srgb,var(--color-fd-accent,#d1d1d180) 80%,var(--color-fd-card,#f2f2f2))}.ds-card:focus-visible{outline:none;box-shadow:0 0 0 2px var(--color-fd-ring,#5057cc)}.ds-card-title{margin:0 0 4px;font-size:14px;font-weight:500}.ds-card-body{margin:0;font-size:14px;color:var(--color-fd-muted-foreground,#57575b)}"
+    },
+    {
+      "name": "Inline Code and Link",
+      "kind": "custom",
+      "refersTo": "inline-code",
+      "description": "Prose link with lilac-ink underline next to inline code.",
+      "html": "<p class=\"ds-prose\">Call <code>useFrontendTool</code> or read the <a href=\"#\">quickstart</a>.</p>",
+      "css": ".ds-prose{font-family:\"Plus Jakarta Sans\",ui-sans-serif,sans-serif;font-size:16px;line-height:28px;color:color-mix(in oklab,var(--color-fd-foreground,#010507) 90%,transparent)}.ds-prose code{font-family:\"Spline Sans Mono\",ui-monospace,monospace;font-size:13px;padding:3px;border:1px solid var(--color-fd-border,#cccccc80);border-radius:5px;background:var(--color-fd-muted,#f5f5f5);color:var(--color-fd-foreground,#010507)}.ds-prose a{color:var(--color-fd-foreground,#010507);font-weight:500;text-decoration:underline;text-decoration-color:var(--color-fd-primary,#5057cc);text-underline-offset:3.5px;text-decoration-thickness:1.5px}.ds-prose a:hover{opacity:.8}"
+    },
+    {
+      "name": "Callout",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Fumadocs info callout on panel white.",
+      "html": "<div class=\"ds-callout\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"10\" fill=\"#1b70c4\"/><path d=\"M12 16v-4M12 8h.01\" stroke=\"#fff\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg><div><p class=\"ds-callout-title\">Bring your own agent</p><p class=\"ds-callout-body\">The runtime works with any AG-UI agent.</p></div></div>",
+      "css": ".ds-callout{display:flex;gap:8px;width:420px;padding:12px 16px;background:var(--color-fd-card,#f2f2f2);border:1px solid var(--color-fd-border,#cccccc80);border-radius:16px;font-family:\"Plus Jakarta Sans\",ui-sans-serif,sans-serif;font-size:14px;color:var(--color-fd-card-foreground,#010507)}.ds-callout svg{flex:none;margin-top:2px}.ds-callout-title{margin:0 0 4px;font-weight:500}.ds-callout-body{margin:0;color:var(--color-fd-muted-foreground,#57575b)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Calm Workbench",
+    "overview": "The docs are the bench a developer keeps beside the editor: a quiet neutral grey room, the page laid on one rounded panel, near-black type, and one lilac accent that marks where you are. The layout is Fumadocs' Spacious layout, the same one fumadocs.dev uses: the sidebar sits directly on the ground and the page floats in a bordered, rounded panel beside it. The type, the logo, and the accent come from copilotkit.ai (CopilotKit/website) and the copilotkit-branding skill. Every background stays neutral; that is a binding call from the docs owner and it overrides the website's pale-lavender surface.\n\nThe system is a token layer, not a fork. Every brand decision lives in `src/app/theme.css`: a few `--color-fd-*` variables (text greys and the accent) over the untouched neutral preset, Tailwind font and radius tokens, and some base-layer browser surfaces. The only other touchpoints are documented Fumadocs options: the Spacious layout import, its stylesheet in `global.css`, the nav title, and `className` on the page-action buttons. A Fumadocs upgrade should need nothing beyond checking that `theme.css` still maps onto the variables it ships.\n\nThe mood is calm, technical, and spacious. There is no decoration: no glows, gradients, or tinted fields.",
+    "keyCharacteristics": [
+      "Neutral grey ground and panel (achromatic in light and dark), near-black ink.",
+      "One accent, lilac ink, carried by Fumadocs' `primary` (active nav, tabs, TOC, link underlines, focus rings).",
+      "Plus Jakarta Sans for everything read; Spline Sans Mono for code and buttons.",
+      "The Spacious layout: sidebar on the ground, the page in a 24px-rounded panel.",
+      "Light and dark themes both supported; the system follows the reader's OS setting."
+    ],
+    "rules": [
+      {
+        "name": "The Neutral Ground Rule",
+        "body": "Every background and surface is achromatic grey, white, or black, in both themes. No tinted grounds, washes, glows, or gradients. Brand color never fills a region; it marks state.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Accent Rule",
+        "body": "Lilac ink is the only accent. Anything Fumadocs marks as \"active\" or \"focused\" gets it through `--color-fd-primary`; nothing else is colored. Callout colors appear only inside callouts.",
+        "section": "colors"
+      },
+      {
+        "name": "The Token-Only Rule",
+        "body": "Colors change in `theme.css` variables and nowhere else. If a Fumadocs component looks wrong, fix the variable it reads; never add a selector that restyles the component.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono-Is-For-Machines Rule",
+        "body": "Spline Sans Mono appears only on code, code-like text, and buttons. Never for paragraphs, headings, or labels a person reads as prose.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sentence Case Rule",
+        "body": "Plus Jakarta Sans is always sentence case. No all-caps headings or labels.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Room Rule",
+        "body": "Separation comes from neutral tone steps and hairlines, never from color, glow, or glass.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep every background and surface achromatic: grey, white, or black.",
+      "Do change the theme in `src/app/theme.css` by editing `--color-fd-*`, `--font-*`, or `--radius-*` values.",
+      "Do use Fumadocs' built-in components (Cards, Callout, Tabs, Steps, code blocks, TOC, search) before building anything custom.",
+      "Do use the official logo component at 28px tall or more, with clear space around it of half its height.",
+      "Do check new accent uses against 4.5:1 on the ground, the frame, and the 10% lilac-ink tint.",
+      "Do keep Spline Sans Mono for code and buttons only."
+    ],
+    "donts": [
+      "Don't tint a background: no lavender, cream, or colored grounds, washes, glows, or gradients.",
+      "Don't restyle a Fumadocs component with a selector (`#nd-sidebar a { … }`, `.prose h2 { … }`). Change the token it reads, or use a prop Fumadocs documents.",
+      "Don't add a second accent color, gradient text, glass panels, or blur circles.",
+      "Don't redraw, recolor, or rebuild the CopilotKit logo; use `CopilotKitLogo`.",
+      "Don't put headings or labels in all caps, or set prose in mono.",
+      "Don't add eyebrow labels above headings."
+    ]
+  }
+}

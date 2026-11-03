@@ -1,0 +1,82 @@
+---
+title: Introduction
+icon: "lucide/BrainCircuit"
+description: Bring your Deep Agents to your users with CopilotKit via AG-UI.
+hideHeader: true
+# The landing page carries its own prompt button in the hero; the page-tools
+# row above the title would put a second one on the page, which the data-record
+# partner pages do not have.
+hidePageActions: true
+---
+
+<FrameworkOverview
+  frameworkName="Deep Agents"
+  frameworkIcon={<DeepAgentsIcon className="h-12 w-12" />}
+  header="Bring your Deep Agents to your users"
+  subheader="Deep Agents runs your agent. CopilotKit gives it a surface your users can see, interrupt and steer."
+  guideLink="/deepagents/quickstart"
+  initCommand="npx copilotkit@latest init"
+  lede="Deep Agents gives you a planning agent on LangGraph: subagents, a task list and the state they share. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the plan while it is worked through, and a moment for a person to step in. Each capability below builds on something your agent already does."
+  supportedFeatures={[
+    {
+      title: "Generative UI",
+      iconKey: "paintbrush",
+      description:
+        "Your agent updates its plan and calls tools as it works. CopilotKit streams both to the browser and renders them as React components, so the user watches the task list fill in.",
+      documentationLink: "/deepagents/generative-ui"
+    },
+    {
+      title: "Human-in-the-loop",
+      iconKey: "user",
+      description:
+        "A node can interrupt and wait for a person. CopilotKit renders your own UI for that decision and resumes the run with the answer.",
+      documentationLink: "/deepagents/human-in-the-loop"
+    },
+    {
+      title: "Shared state",
+      iconKey: "repeat",
+      description:
+        "The graph carries one state object between subagents. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      documentationLink: "/deepagents/shared-state"
+    }
+  ]}
+  capabilitiesFootnote={{
+    text: "Chat surfaces, headless UI, frontend tools and subagent flows work with Deep Agents too.",
+    linkLabel: "And more",
+    href: "/deepagents/build-with-agents"
+  }}
+  connect={{
+    intro:
+      "Your agent stays where it runs today, on LangGraph Platform or your own service. CopilotKit reaches it over AG-UI, so nothing inside the agent changes.",
+    filename: "app/api/copilotkit/[[...slug]]/route.ts",
+    language: "ts",
+    guideLink: "/deepagents/quickstart"
+  }}
+>
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    sample_agent: new LangGraphAgent({
+      deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL!,
+      graphId: "sample_agent",
+      langsmithApiKey: process.env.LANGSMITH_API_KEY!,
+    }),
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handler;
+export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;
+```
+
+</FrameworkOverview>

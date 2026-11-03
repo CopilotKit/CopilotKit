@@ -1,0 +1,13 @@
+{
+  "title": "Agentic Protocols",
+  "icon": "lucide/Zap",
+  "frontend": {
+    "kind": "universal"
+  },
+  "pages": [
+    "ag-ui",
+    "ag-ui-middleware",
+    "mcp",
+    "a2a"
+  ]
+}

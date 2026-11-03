@@ -1,0 +1,96 @@
+
+<CodeShowcase tabs={[
+  { label: "Chat", icon: <MessageSquare />, filename: "app.tsx" },
+  { label: "Headless UI", icon: <Code />, filename: "chat.tsx" },
+  { label: "Generative UI", icon: <Layers />, filename: "weather-card.tsx" },
+  { label: "Runtime", icon: <Server />, filename: "route.ts" },
+]}>
+  <CodePanel>
+    ```tsx title="app.tsx"
+    import { CopilotKit } from "@copilotkit/react-core/v2";
+    import { CopilotSidebar } from "@copilotkit/react-core/v2";
+    import "@copilotkit/react-core/v2/styles.css";
+
+    export default function App() {
+      return (
+        <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+          <YourApp />
+          <CopilotSidebar/>
+        </CopilotKit>
+      );
+    }
+    ```
+
+  </CodePanel>
+  <CodePanel>
+    ```tsx title="chat.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2";
+
+    export default function Chat() {
+      const { run, messages, isRunning } = useAgent();
+
+      return (
+        <div>
+          {messages.map((m) => (
+            <p key={m.id}>{m.content}</p>
+          ))}
+          <button onClick={() => run("Hello!")}>
+            {isRunning ? "Thinking..." : "Send"}
+          </button>
+        </div>
+      );
+    }
+    ```
+
+  </CodePanel>
+  <CodePanel>
+    ```tsx title="weather-card.tsx"
+    import { z } from "zod";
+    import { useComponent } from "@copilotkit/react-core/v2";
+
+    useComponent({
+      name: "showWeather",
+      description: "Display a weather card.",
+      parameters: z.object({
+        city: z.string(),
+        temp: z.number(),
+      }),
+      render: ({ city, temp }) => (
+        <div className="rounded border p-3">
+          <div className="font-medium">{city}</div>
+          <div className="text-2xl">{temp}°F</div>
+        </div>
+      ),
+    });
+    ```
+
+  </CodePanel>
+  <CodePanel>
+    ```ts title="app/api/copilotkit/[[...slug]]/route.ts" linenumbers doctest="component"
+    import { HttpAgent } from "@ag-ui/client";
+    import {
+      CopilotRuntime,
+      createCopilotRuntimeHandler,
+      InMemoryAgentRunner,
+    } from "@copilotkit/runtime/v2";
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        default: new HttpAgent({ url: "https://your-agent.example.com" }),
+      },
+      runner: new InMemoryAgentRunner(),
+    });
+
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
+
+    export const GET = handler;
+    export const POST = handler;
+    export const PATCH = handler;
+    export const DELETE = handler;
+    ```
+
+  </CodePanel>
+</CodeShowcase>

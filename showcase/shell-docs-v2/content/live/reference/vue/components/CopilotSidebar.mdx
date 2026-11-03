@@ -1,0 +1,238 @@
+---
+title: "CopilotSidebar"
+description: "Sidebar variant of CopilotChat that renders in a fixed side panel"
+---
+
+## Overview
+
+`CopilotSidebar` renders a fixed sidebar panel for chat interaction. It wraps [`CopilotChat`](/reference/vue/components/CopilotChat) and provides sidebar-specific layout and open/close behavior. The sidebar includes a header with a title and a close button, and can be toggled via a floating toggle button.
+
+Because it builds on `CopilotChat`, it resolves the agent, subscribes to messages and running state, manages suggestions, and wires input and transcription for you. You typically only need to pick the agent and, optionally, set the initial open state, width, or override one of the named slots.
+
+<Callout type="info">
+  The `sidebar` feature requires a license. When it is not licensed, the
+  component renders an inline warning and logs a console warning. Visit
+  [copilotkit.ai/pricing](https://copilotkit.ai/pricing) for details.
+</Callout>
+
+## Import
+
+```vue
+<script setup lang="ts">
+import { CopilotSidebar } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+</script>
+```
+
+## Props
+
+All reactive props are declared with `defineProps`. `CopilotSidebar` extends the `CopilotChat` props (and through them the inherited `CopilotChatView` props) and adds two of its own.
+
+### Own props
+
+<PropertyReference name="defaultOpen" type="boolean" default="true">
+  Whether the sidebar is open when the component first mounts. After mount, the open/close state is driven by user interaction (the toggle button and the header's close button).
+</PropertyReference>
+
+<PropertyReference name="width" type="number | string">
+  Width of the sidebar panel. Accepts a number (pixels) or a CSS string (for example `"400px"` or `"30vw"`). When omitted, the default panel width is used.
+</PropertyReference>
+
+### Inherited CopilotChat props
+
+<PropertyReference name="agentId" type="string">
+  ID of the agent to connect. Must match an agent configured in `CopilotKitProvider`. Falls back to the `agentId` from a wrapping `CopilotChatConfigurationProvider`, then to the default agent when omitted.
+</PropertyReference>
+
+<PropertyReference name="threadId" type="string">
+  ID of the conversation thread. Pass a specific thread id to resume an existing conversation. When omitted, a thread id is minted locally and a new thread is created once the agent first runs.
+</PropertyReference>
+
+<PropertyReference name="throttleMs" type="number">
+  Throttle interval (in milliseconds) forwarded to `useAgent` for batching reactive updates as the agent streams.
+</PropertyReference>
+
+<PropertyReference name="labels" type="Partial<CopilotChatLabels>">
+  Partial label overrides for the text strings rendered inside the chat (input placeholder, welcome message, header title, toolbar buttons, disclaimer, etc.). Any label you omit falls back to the built-in default.
+</PropertyReference>
+
+<PropertyReference name="attachments" type="AttachmentsConfig">
+  Configuration for file attachments (accepted MIME types, upload handling, etc.). When set, the add-file action and drag-and-drop are enabled and the chat manages the attachment queue automatically.
+</PropertyReference>
+
+<PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
+  Error handler scoped to this chat's agent. Fires in addition to the provider-level error handling.
+</PropertyReference>
+
+### Inherited CopilotChatView props
+
+<PropertyReference name="autoScroll" type="AutoScrollMode | boolean" default="true">
+  Controls how the panel scrolls as new messages stream in. Accepts `"pin-to-bottom"` / `true` (stick to the bottom while at the bottom), `"pin-to-send"` (anchor the latest user message near the top while the assistant streams), or `"none"` / `false` (never auto-scroll).
+</PropertyReference>
+
+<PropertyReference name="welcomeScreen" type="boolean" default="true">
+  Whether to show the welcome screen when there are no messages and no explicit thread is selected. Pass `false` to disable it. Override the `welcome-screen` slot to fully customize it.
+</PropertyReference>
+
+<PropertyReference name="inputValue" type="string">
+  Controlled value for the chat input. When provided, the chat treats the input as controlled and mirrors changes back through the `input-change` event.
+</PropertyReference>
+
+<PropertyReference name="inputMode" type='"input" | "transcribe" | "processing"' default='"input"'>
+  Initial input mode. The component manages transitions between these modes during audio transcription.
+</PropertyReference>
+
+<PropertyReference name="inputToolsMenu" type='(ToolsMenuItem | "-")[]' default="[]">
+  Items for the input's tools menu. Each item has a `label` and either an `action` callback or nested `items`; use `"-"` for a separator.
+</PropertyReference>
+
+<PropertyReference name="onFinishTranscribeWithAudio" type="(audioBlob: Blob) => void | Promise<void>">
+  Custom handler invoked with the recorded audio blob when transcription finishes. When omitted, the audio is transcribed using the configured runtime and appended to the input.
+</PropertyReference>
+
+## Events
+
+`CopilotSidebar` re-emits the chat events from `CopilotChat` (listen with `@event-name` in templates). These fire in addition to the component's internal handling.
+
+| Event               | Payload                                  | Fired when                       |
+| ------------------- | ---------------------------------------- | -------------------------------- |
+| `submit-message`    | `value: string`                          | A message is submitted           |
+| `stop`              | none                                     | The stop button is pressed       |
+| `input-change`      | `value: string`                          | The input value changes          |
+| `select-suggestion` | `suggestion: Suggestion, index: number`  | A suggestion pill is selected    |
+| `add-file`          | none                                     | The add-file action is triggered |
+| `start-transcribe`  | none                                     | Audio transcription starts       |
+| `cancel-transcribe` | none                                     | Audio transcription is cancelled |
+| `finish-transcribe` | none                                     | Audio transcription finishes     |
+
+## Slots
+
+Vue uses named slots in place of React's render props and sub-component props. Provide a slot to replace the corresponding piece of the sidebar. Each slot receives scoped props you can destructure with `v-slot`.
+
+<PropertyReference name="header" type="{ title: string; onClose: () => void; isOpen: boolean }">
+  Replaces the default sidebar header. Receives the resolved `title`, an `onClose` callback, and the current `isOpen` state. The default header displays the title and a close button.
+</PropertyReference>
+
+<PropertyReference name="toggle-button" type="{ isOpen: boolean; toggle: () => void; open: () => void; close: () => void }">
+  Replaces the default floating toggle button. Receives the current `isOpen` state along with `toggle`, `open`, and `close` callbacks for controlling the panel.
+</PropertyReference>
+
+<PropertyReference name="chat-view" type="CopilotChatViewOverrideSlotProps">
+  Replaces the entire inner sidebar view. Receives all of the composed view state and handlers (`messages`, `isRunning`, `suggestions`, `inputValue`, `onSubmitMessage`, `onSelectSuggestion`, `onStop`, transcription and attachment handlers, etc.) so you can render a fully custom layout.
+</PropertyReference>
+
+<PropertyReference name="message-view" type="{ messages: Message[]; isRunning: boolean }">
+  Replaces the default message list rendering.
+</PropertyReference>
+
+<PropertyReference name="input" type="CopilotSidebarWelcomeScreenInputSlotProps">
+  Replaces the default chat input. Receives `modelValue`, `isRunning`, `inputMode`, `inputToolsMenu`, and handlers such as `onUpdateModelValue`, `onSubmitMessage`, `onStop`, and the transcription callbacks.
+</PropertyReference>
+
+<PropertyReference name="suggestion-view" type="CopilotSidebarWelcomeScreenSuggestionViewSlotProps">
+  Replaces the default suggestion pills. Receives `suggestions`, `loadingIndexes`, and `onSelectSuggestion`.
+</PropertyReference>
+
+<PropertyReference name="welcome-screen" type="CopilotChatWelcomeScreenSlotProps">
+  Replaces the default sidebar welcome screen shown when no messages exist. Receives the suggestion props plus the input model value and submission handlers.
+</PropertyReference>
+
+<PropertyReference name="welcome-message" type="() => unknown">
+  Replaces only the heading text inside the default welcome screen, leaving the surrounding layout intact.
+</PropertyReference>
+
+<Callout type="info">
+  The sidebar welcome screen lays out suggestions at the top, the welcome
+  message in the middle, and the input fixed at the bottom. Override the
+  `welcome-screen` slot to replace this layout entirely, or `welcome-message`
+  to change just the greeting.
+</Callout>
+
+## Usage
+
+### Basic usage
+
+```vue
+<script setup lang="ts">
+import { CopilotSidebar } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+</script>
+
+<template>
+  <CopilotSidebar
+    agent-id="my-agent"
+    :labels="{ chatInputPlaceholder: 'Ask me anything...' }"
+  />
+</template>
+```
+
+### Closed on mount with a custom width
+
+```vue
+<script setup lang="ts">
+import { CopilotSidebar } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotSidebar agent-id="my-agent" :default-open="false" :width="500" />
+</template>
+```
+
+### Custom header
+
+```vue
+<script setup lang="ts">
+import { CopilotSidebar } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotSidebar agent-id="my-agent">
+    <template #header="{ title, onClose }">
+      <div class="flex items-center justify-between bg-indigo-700 px-4 py-3 text-white">
+        <span>{{ title }}</span>
+        <button @click="onClose">Close</button>
+      </div>
+    </template>
+  </CopilotSidebar>
+</template>
+```
+
+### Custom toggle button
+
+```vue
+<script setup lang="ts">
+import { CopilotSidebar } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotSidebar agent-id="my-agent">
+    <template #toggle-button="{ isOpen, toggle }">
+      <button class="fixed bottom-6 right-6" @click="toggle">
+        {{ isOpen ? "Close chat" : "Open chat" }}
+      </button>
+    </template>
+  </CopilotSidebar>
+</template>
+```
+
+### Observing events
+
+```vue
+<script setup lang="ts">
+import { CopilotSidebar } from "@copilotkit/vue/v2";
+
+function onSubmit(value: string) {
+  console.log("user submitted:", value);
+}
+</script>
+
+<template>
+  <CopilotSidebar agent-id="my-agent" @submit-message="onSubmit" />
+</template>
+```
+
+## Related
+
+- [`CopilotChat`](/reference/vue/components/CopilotChat) - the base chat component used internally
+- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) - provides the agent configuration `CopilotSidebar` connects to
+- [`useAgent`](/reference/vue/hooks/useAgent) - composable used internally to resolve the agent

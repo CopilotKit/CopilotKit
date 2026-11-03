@@ -1,0 +1,119 @@
+---
+title: Theme reference
+description: Every Fumadocs element in the CopilotKit theme on one page. For checking the theme while it changes.
+---
+
+import { Step, Steps } from "fumadocs-ui/components/steps";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+This page exists to check the theme. It uses each element the docs rely on:
+prose, [links](/docs), `inline code`, code blocks, callouts, tabs, steps,
+cards, and tables. See `DESIGN.md` for how each one maps onto Fumadocs.
+
+## Add a chat to your app
+
+Wrap your app in the provider and point it at your runtime. The chat
+connects to the agent the runtime serves.
+
+```tsx title="app/page.tsx"
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <CopilotChat />
+    </CopilotKitProvider>
+  );
+}
+```
+
+<Callout title="Bring your own agent">
+  The runtime works with any AG-UI agent: LangGraph, Mastra, CrewAI, Pydantic AI,
+  or the built-in agent.
+</Callout>
+
+<Callout type="warn">
+  Keep API keys on the server. The browser only talks to your runtime.
+</Callout>
+
+<Callout type="error">
+  A 404 from `/api/copilotkit` means the runtime route is not mounted.
+</Callout>
+
+### Install
+
+<Tabs items={["npm", "pnpm", "yarn"]}>
+  <Tab value="npm">
+
+```bash
+npm install @copilotkit/react-core @copilotkit/runtime
+```
+
+  </Tab>
+  <Tab value="pnpm">
+
+```bash
+pnpm add @copilotkit/react-core @copilotkit/runtime
+```
+
+  </Tab>
+  <Tab value="yarn">
+
+```bash
+yarn add @copilotkit/react-core @copilotkit/runtime
+```
+
+  </Tab>
+</Tabs>
+
+## Give the agent a tool
+
+<Steps>
+  <Step>
+
+### Register the tool
+
+Call `useFrontendTool` in any component under the provider.
+
+```tsx
+useFrontendTool({
+  name: "getCurrentPage",
+  description: "Returns the page the user is looking at",
+  handler: () => window.location.pathname,
+});
+```
+
+  </Step>
+  <Step>
+
+### Ask for it
+
+The agent can now call `getCurrentPage` during a run.
+
+  </Step>
+</Steps>
+
+## Packages
+
+| Package                     | Role                             | Runs in |
+| --------------------------- | -------------------------------- | ------- |
+| `@copilotkit/react-core`    | Provider, hooks, chat components | Browser |
+| `@copilotkit/runtime`       | Connects your app to agents      | Server  |
+| `@copilotkit/a2ui-renderer` | Renders A2UI surfaces            | Browser |
+
+> AG-UI is the protocol between the runtime and the agent.
+
+## Next steps
+
+<Cards>
+  <Card
+    title="Quickstart"
+    href="/docs"
+    description="Get a working chat in a few minutes."
+  />
+  <Card
+    title="Fumadocs"
+    href="https://fumadocs.dev/docs"
+    description="The framework these docs run on."
+  />
+</Cards>

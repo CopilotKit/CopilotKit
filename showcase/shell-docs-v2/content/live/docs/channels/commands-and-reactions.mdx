@@ -1,0 +1,146 @@
+---
+title: Commands and reactions
+icon: "lucide/Command"
+description: Understand managed command routing and handle provider reactions through typed Channels APIs.
+doc_type: how-to
+---
+
+Managed Slack and Teams treat leading-slash text as ordinary message content.
+Reaction handlers let an agent respond to lightweight feedback without treating
+every emoji as a new chat message.
+
+## Managed commands are not dispatched
+
+The generated Slack manifest does not register slash commands, and managed
+Teams does not interpret `/name` prefixes. A message such as `/triage customer`
+therefore reaches `onMessage` or `onMention` as normal text.
+
+`defineChannelCommand`, `commands`, and `onCommand` remain available for direct
+adapters that emit native command events. They do not opt a managed Slack or
+Teams Channel into command routing.
+
+## Route mentions and ordinary messages
+
+Register `onMessage` for ordinary provider messages. A bot mention selects
+`onMention` when that handler is registered; otherwise the mention falls back
+to `onMessage`. Non-mention messages select `onMessage`, and one inbound message
+runs exactly one of those handler paths.
+
+<FrontendOnly frontend="slack">
+
+The current generated manifest subscribes to ordinary channel, private-channel,
+group-DM, and direct-message events in addition to `app_mention`. A Slack app
+created from an older manifest may need the current event subscriptions and bot
+scopes applied, followed by an app reinstall.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+Teams messages use the same `onMessage` and `onMention` selection after managed
+ingress normalizes the activity.
+
+</FrontendOnly>
+
+## Handle incoming reactions
+
+Known Slack shortcodes and Teams reaction tokens are normalized to portable
+names. The portable outbound set is `thumbs_up`, `thumbs_down`, `heart`, `fire`,
+`eyes`, `refresh`, `thinking`, and `tada`.
+
+```ts title="channel.ts"
+channel.onReaction("eyes", async ({ added, thread, user }) => {
+  await thread.post(
+    added
+      ? `${user?.name ?? "Someone"} marked this response for follow-up.`
+      : `${user?.name ?? "Someone"} removed the follow-up marker.`,
+  );
+});
+```
+
+Omit the emoji argument to receive every added and removed reaction:
+
+```ts title="channel.ts"
+channel.onReaction(async ({ emoji, rawEmoji, added, thread }) => {
+  audit.record({ emoji, rawEmoji, added });
+  await thread.post("Reaction recorded.");
+});
+```
+
+`emoji` is the normalized value when the SDK recognizes it. `rawEmoji` retains
+the provider token for custom or unmapped emoji.
+
+<Callout type="info" title="Output-free handlers are supported">
+  The SDK finalizes and acknowledges a managed turn even when its handler posts
+  no message. Managed delivery is still at-least-once, so make silent audit or
+  database writes idempotent.
+</Callout>
+
+<FrontendOnly frontend="slack">
+
+The generated Slack manifest subscribes to `reaction_added` and
+`reaction_removed`. Managed ingress routes reactions on bot output and on
+user-authored roots and replies back to their existing managed conversation;
+reactions on unrelated workspace messages are ignored.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+Teams `messageReaction` activities are normalized through the same handler.
+Classic reactions such as Like and Heart, plus recognized modern emoji tokens,
+map to the SDK's portable names.
+
+Outbound reaction add/remove uses Microsoft's public-preview reaction API.
+Managed setup verifies that API for the tenant and remains not ready when the
+tenant cannot use it.
+
+</FrontendOnly>
+
+## Attach a reaction handler to one message
+
+Use `Message.onReaction` when only one posted component should react:
+
+```tsx title="feedback-card.tsx"
+import { Message, Section } from "@copilotkit/channels/ui";
+
+export function FeedbackCard({ answerId }: { answerId: string }) {
+  return (
+    <Message
+      onReaction={async (emoji, reaction) => {
+        if (reaction.added && emoji === "thumbs_up") {
+          await feedback.record(answerId, reaction.user?.id);
+          await reaction.thread.post("Thanks for the feedback.");
+          return;
+        }
+        await reaction.thread.post("Reaction update received.");
+      }}
+    >
+      <Section>React with 👍 if this solved the problem.</Section>
+    </Message>
+  );
+}
+```
+
+Register `FeedbackCard` in `createChannel({ components: [FeedbackCard] })`.
+Surviving a process restart also requires a durable `StateStore`, because the
+SDK must reload the component snapshot that owns the callback.
+
+Add or remove the bot's reaction with the delivery-scoped reference from the
+current message or transcript:
+
+```ts title="channel.ts"
+channel.onMessage(async ({ message, thread }) => {
+  await thread.react(message.ref, "eyes");
+  await thread.unreact(message.ref, "eyes");
+});
+```
+
+The portable set works on managed Slack and Teams. A provider-native string is
+allowed when your code branches on the native provider: use `message.platform`
+in a message handler or `reaction.thread.platform` in `onReaction`.
+Unsupported values fail explicitly.
+
+See the [command reference](/reference/channels/functions/defineChannelCommand)
+and [Message reference](/reference/channels/components/Message) for the complete
+handler shapes.

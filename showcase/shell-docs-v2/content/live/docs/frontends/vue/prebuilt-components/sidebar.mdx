@@ -1,0 +1,50 @@
+---
+title: CopilotSidebar
+icon: "lucide/PanelRight"
+description: Drop-in collapsible sidebar chat for Vue applications.
+---
+
+## What is this?
+
+`<CopilotSidebar>` is a prebuilt Vue chat surface that docks to the side of an
+app and can slide open on demand. It is a good fit for an in-app copilot that
+must remain accessible without replacing the main workspace.
+
+## When should I use this?
+
+Use the sidebar for persistent, collapsible chat next to your application
+content. Use [CopilotPopup](/vue/prebuilt-components/popup) for an overlay
+launcher or [`<CopilotChat>`](/vue/prebuilt-components/chat) for a fully
+embedded pane.
+
+## Basic setup
+
+```vue title="App.vue"
+<script setup lang="ts">
+import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <main><!-- Your application --></main>
+    <CopilotSidebar agent-id="my-agent" :default-open="false" />
+  </CopilotKitProvider>
+</template>
+```
+
+## Configuring the sidebar
+
+`CopilotSidebar` accepts the chat props plus `width` and `default-open`. Use
+the `header` scoped slot to replace the header and `toggle-button` to replace
+the launcher. Their slot props include the current open state and actions such
+as `toggle`, `open`, and `close`.
+
+The component reports the same chat interaction events as `CopilotChat`,
+including `@submit-message`, `@input-change`, and `@select-suggestion`.
+
+## Styling
+
+Use [CSS customization](/vue/custom-look-and-feel/css) for design tokens or
+[slots](/vue/custom-look-and-feel/slots) to replace the header, launcher,
+message list, composer, and welcome state.

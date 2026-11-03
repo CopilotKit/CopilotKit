@@ -1,0 +1,142 @@
+---
+title: "Styling"
+description: "Customize the appearance of A2UI surfaces with CSS custom properties, fonts, and component-level overrides."
+---
+A2UI surfaces support theming through CSS custom properties scoped to the `.a2ui-surface` class.
+
+## Theme CSS
+
+Create a theme file and import it in your layout:
+
+```css title="src/a2ui/theme.css"
+.a2ui-surface {
+  --primary: #111111;
+  --primary-foreground: #ffffff;
+  --card: #ffffff;
+  --border: #e0e0e0;
+  --radius: 12px;
+  --foreground: #111111;
+  --input: #d4d4d4;
+  --background: #fafafa;
+}
+```
+
+```tsx title="src/app/layout.tsx"
+import "@/a2ui/theme.css";
+```
+
+## CSS custom properties reference
+
+| Variable | Default | Description |
+|---|---|---|
+| `--primary` | — | Primary accent color (buttons, links) |
+| `--primary-foreground` | — | Text color on primary backgrounds |
+| `--card` | — | Card background color |
+| `--border` | — | Border color for cards, dividers, inputs |
+| `--radius` | — | Border radius for cards and buttons |
+| `--foreground` | — | Default text color |
+| `--input` | — | Input field border color |
+| `--background` | — | Surface background color |
+
+<Callout type="info">
+These variables are scoped to `.a2ui-surface` — they won't affect the rest of your app. You can also set them on `:root` if you want global defaults.
+</Callout>
+
+## Custom fonts
+
+Override the font family on the surface container:
+
+```css title="src/a2ui/theme.css"
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+.a2ui-surface {
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+  letter-spacing: -0.01em;
+}
+```
+
+## Image sizing
+
+A2UI surfaces render Image components at their natural size. For consistent layouts (e.g., airline logos, avatars), constrain images with CSS:
+
+```css title="src/a2ui/theme.css"
+/* Constrain logos and avatars */
+.a2ui-surface img {
+  max-width: 28px;
+  max-height: 28px;
+  border-radius: 4px;
+}
+
+/* Smaller status indicator icons */
+.a2ui-surface img[alt="On Time"],
+.a2ui-surface img[alt="Delayed"] {
+  max-width: 10px;
+  max-height: 10px;
+  border-radius: 50%;
+}
+```
+
+## Card width
+
+When streaming cards one-by-one, a single card can collapse to a narrow width. Set a minimum:
+
+```css title="src/a2ui/theme.css"
+.a2ui-surface .a2ui-card {
+  min-width: 280px;
+}
+```
+
+## Dark mode
+
+Target dark mode with a class or media query:
+
+```css title="src/a2ui/theme.css"
+.dark .a2ui-surface,
+@media (prefers-color-scheme: dark) {
+  .a2ui-surface {
+    --primary: #e5e5e5;
+    --primary-foreground: #111111;
+    --card: #1a1a1a;
+    --border: #333333;
+    --foreground: #e5e5e5;
+    --input: #444444;
+    --background: #111111;
+  }
+}
+```
+
+## Full example
+
+Here's a complete theme file combining all the patterns above:
+
+```css title="src/a2ui/theme.css"
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+.a2ui-surface {
+  /* Colors */
+  --primary: #111111;
+  --primary-foreground: #ffffff;
+  --card: #ffffff;
+  --border: #e0e0e0;
+  --radius: 12px;
+  --foreground: #111111;
+  --input: #d4d4d4;
+  --background: #fafafa;
+
+  /* Typography */
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+  letter-spacing: -0.01em;
+}
+
+/* Image constraints */
+.a2ui-surface img {
+  max-width: 28px;
+  max-height: 28px;
+  border-radius: 4px;
+}
+
+/* Streaming card width */
+.a2ui-surface .a2ui-card {
+  min-width: 280px;
+}
+```

@@ -1,0 +1,104 @@
+---
+title: "Step 3: Connect CopilotKit v2"
+---
+
+The travel app uses the CopilotKit v2 React and runtime entry points. Both are
+subpaths of packages already declared in `examples/v1/travel/package.json`:
+
+- React hooks, providers, and chat UI come from `@copilotkit/react-core/v2`.
+- Runtime classes and handlers come from `@copilotkit/runtime/v2`.
+- LangGraph adapters come from `@copilotkit/runtime/langgraph`.
+
+See the [v1 to v2 migration guide](/migrate/v2) for the full import map.
+
+## Configure the React app
+
+`app/page.tsx` imports the provider, chat configuration, sidebar, and styles
+from the v2 React entry point:
+
+```tsx title="examples/v1/travel/app/page.tsx"
+import {
+  CopilotChatConfigurationProvider,
+  CopilotKit,
+  CopilotSidebar,
+} from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+```
+
+The provider uses the local runtime by default. If
+`NEXT_PUBLIC_CPK_PUBLIC_API_KEY` is set, it uses that Copilot Cloud project
+instead:
+
+```tsx title="examples/v1/travel/app/page.tsx"
+export default function Home() {
+  const publicApiKey = process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY;
+
+  return (
+    <CopilotKit
+      runtimeUrl={publicApiKey ? undefined : "/api/copilotkit"}
+      publicApiKey={publicApiKey}
+    >
+      <CopilotChatConfigurationProvider
+        agentId="travel"
+        isModalDefaultOpen={false}
+      >
+        <MainContent />
+        <CopilotSidebar
+          defaultOpen={false}
+          labels={{
+            modalHeaderTitle: "Travel Planner",
+            welcomeMessageText: "Hi! I'm here to plan your trips.",
+          }}
+        />
+      </CopilotChatConfigurationProvider>
+    </CopilotKit>
+  );
+}
+```
+
+`CopilotChatConfigurationProvider` selects the `travel` agent for the chat.
+The state and tool hooks in the next steps use the same agent ID.
+
+## Configure the local runtime
+
+`app/api/copilotkit/[[...slug]]/route.ts` connects the browser-facing runtime
+to the agent. For a local-only route, use `HttpAgent` to call the AG-UI
+endpoint started in Step 2. Add its package from `examples/v1/travel`:
+
+```shell
+pnpm add @ag-ui/client@1.0.2
+```
+
+Then configure the route:
+
+```ts title="examples/v1/travel/app/api/copilotkit/[[...slug]]/route.ts"
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { HttpAgent } from "@ag-ui/client";
+
+const travel = new HttpAgent({
+  url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
+});
+
+const runtime = new CopilotRuntime({
+  agents: { travel },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handler;
+export const POST = handler;
+```
+
+The [checked-in route](https://github.com/CopilotKit/CopilotKit/blob/main/examples/v1/travel/app/api/copilotkit/%5B%5B...slug%5D%5D/route.ts)
+also supports deployed LangGraph graphs through a compatibility adapter that
+preserves the example's CopilotKit state and events. Keep that route when using
+`LANGGRAPH_DEPLOYMENT_URL` and `LANGSMITH_API_KEY`. Leave the deployment URL
+unset for the local server from Step 2.
+
+Next, see how the React app reads and updates the agent's state.

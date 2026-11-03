@@ -1,0 +1,90 @@
+---
+title: Introduction
+icon: "custom/crewai"
+description: Bring your CrewAI Flow-based agents to your users with CopilotKit via AG-UI.
+hideHeader: true
+# The landing page carries its own prompt button in the hero; the page-tools
+# row above the title would put a second one on the page, which the data-record
+# partner pages do not have.
+hidePageActions: true
+---
+
+<FrameworkOverview
+  frameworkName="CrewAI Flows"
+  frameworkIcon={<CrewaiIcon className="h-12 w-12" />}
+  header="Bring your CrewAI Flow-based agents to your users"
+  subheader="CrewAI runs your flows. CopilotKit gives them a surface your users can see, interrupt and steer."
+  guideLink="/crewai-flows/quickstart"
+  initCommand="npx copilotkit@latest init"
+  lede="CrewAI gives you the flow: steps, state and the crew that works through them. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the flow while it runs, and a moment for a person to step in. Each capability below builds on something your flow already does."
+  supportedFeatures={[
+    {
+      title: "Generative UI",
+      iconKey: "paintbrush",
+      description:
+        "Your flow emits state and tool calls as each step completes. CopilotKit streams those to the browser and renders them as React components your users watch update while the flow runs.",
+      documentationLink: "/crewai-flows/generative-ui"
+    },
+    {
+      title: "Human-in-the-loop",
+      iconKey: "user",
+      description:
+        "A flow can stop and wait for a person. CopilotKit renders your own UI for that decision and resumes the flow with the answer.",
+      documentationLink: "/crewai-flows/human-in-the-loop/flow"
+    },
+    {
+      title: "Shared state",
+      iconKey: "repeat",
+      description:
+        "Flow state is the one object every step reads and writes. CopilotKit mirrors it into your app and back, so a user edit and a step write land in the same place.",
+      documentationLink: "/crewai-flows/shared-state"
+    }
+  ]}
+  capabilitiesFootnote={{
+    text: "Chat surfaces, headless UI, frontend tools and multi-agent flows work with CrewAI too.",
+    linkLabel: "And more",
+    href: "/crewai-flows/build-with-agents"
+  }}
+  connect={{
+    intro:
+      "Your flow keeps running as its own Python service, with the AG-UI bridge from ag_ui_crewai in front of it. CopilotKit reaches that service over HTTP, so nothing inside the flow changes.",
+    filename: "app/api/copilotkit/route.ts",
+    language: "ts",
+    guideLink: "/crewai-flows/quickstart"
+  }}
+  showcase={{
+    integration: "crewai-crews",
+    intro:
+      "CrewAI and CopilotKit running together, in the React frontend. Every demo below is the same integration with one capability turned on.",
+    demos: [
+      { slug: "agentic-chat", title: "Pre-Built: CopilotChat" },
+      { slug: "hitl-in-chat", title: "Human In the Loop: In-chat" },
+      { slug: "shared-state-read-write", title: "Shared State: Read + Write" },
+      { slug: "gen-ui-agent", title: "Generative UI: Agent State" }
+    ]
+  }}
+>
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { HttpAgent } from "@ag-ui/client";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    my_agent: new HttpAgent({ url: process.env.AGENT_URL! }),
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handler;
+export const POST = handler;
+```
+
+</FrameworkOverview>

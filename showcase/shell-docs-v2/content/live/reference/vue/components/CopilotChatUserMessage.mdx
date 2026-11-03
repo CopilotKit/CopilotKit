@@ -1,0 +1,310 @@
+---
+title: "CopilotChatUserMessage"
+description: "Vue 3 component for displaying user-authored messages with copy, edit, and branch navigation."
+---
+
+<Callout type="info">
+  This is the Vue 3 component. Import it from `@copilotkit/vue/v2`.
+</Callout>
+
+## Overview
+
+`CopilotChatUserMessage` renders a user-authored message aligned to the right of the chat. The default message renderer flattens the message content to text and displays it with `white-space: pre-wrap` so line breaks and spacing are preserved.
+
+Below the message it renders a toolbar containing a copy-to-clipboard button, an optional edit button, and optional branch navigation controls. The toolbar becomes visible on hover. The edit button is only shown when an `@edit-message` listener is attached, and the branch navigation is only shown when `numberOfBranches` is greater than 1 and a `@switch-to-branch` listener is attached.
+
+## Example
+
+```vue
+<script setup lang="ts">
+import { CopilotChatUserMessage } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+import type { UserMessage } from "@ag-ui/core";
+
+const message: UserMessage = {
+  id: "1",
+  role: "user",
+  content: "What is the capital of France?",
+};
+</script>
+
+<template>
+  <CopilotChatUserMessage :message="message" />
+</template>
+```
+
+## Props
+
+<PropertyReference name="message" type="UserMessage" required>
+  The user message object to render. The default renderer reads `content` (a
+  string, or an array of content parts whose `text` parts are joined with
+  newlines) and `id`. `UserMessage` is imported from `@ag-ui/core`.
+</PropertyReference>
+
+<PropertyReference name="branchIndex" type="number" default="0">
+  The zero-based index of the currently active branch. Used by the branch
+  navigation controls to display the current position (rendered as
+  `branchIndex + 1`) and to compute whether the previous/next arrows are
+  enabled.
+</PropertyReference>
+
+<PropertyReference name="numberOfBranches" type="number" default="1">
+  The total number of available branches for this message. Branch navigation is
+  only rendered when this value is greater than 1 and a `@switch-to-branch`
+  listener is attached.
+</PropertyReference>
+
+## Events
+
+The action callbacks are emitted as Vue events. Attaching a listener for an event also enables the corresponding control: the edit button only renders when an `@edit-message` listener is present, and the branch navigation only renders when a `@switch-to-branch` listener is present (and `numberOfBranches` is greater than 1).
+
+<PropertyReference name="edit-message" type="(payload: { message: UserMessage }) => void">
+  Emitted when the user clicks the edit button. The payload contains the
+  `message` being edited. When no listener is attached, the edit button is
+  hidden from the toolbar.
+
+```vue
+<CopilotChatUserMessage
+  :message="message"
+  @edit-message="({ message }) => openEditModal(message)"
+/>
+```
+
+</PropertyReference>
+
+<PropertyReference name="switch-to-branch" type="(payload: { message: UserMessage; branchIndex: number; numberOfBranches: number }) => void">
+  Emitted when the user navigates to a different branch using the
+  previous/next arrows. The payload contains the target `branchIndex`, the
+  total `numberOfBranches`, and the `message`. The branch navigation controls
+  are only rendered when this listener is attached and `numberOfBranches` is
+  greater than 1.
+
+```vue
+<CopilotChatUserMessage
+  :message="message"
+  :branch-index="currentBranch"
+  :number-of-branches="branches.length"
+  @switch-to-branch="({ branchIndex }) => (currentBranch = branchIndex)"
+/>
+```
+
+</PropertyReference>
+
+## Slots
+
+Each slot exposes scoped slot props (handlers and state) and falls back to the default rendering when not provided. Use a named template (`<template #slot-name="...">`) to override a slot.
+
+<PropertyReference name="message-renderer" type="{ message: UserMessage; content: string; isMultiline: boolean }">
+  Replaces the message content renderer. The default renders the flattened
+  `content` string in a rounded bubble with `white-space: pre-wrap`.
+
+```vue
+<CopilotChatUserMessage :message="message">
+  <template #message-renderer="{ content }">
+    <div class="font-mono text-sm">{{ content }}</div>
+  </template>
+</CopilotChatUserMessage>
+```
+
+</PropertyReference>
+
+<PropertyReference name="toolbar" type="{ message: UserMessage; showBranchNavigation: boolean; hasEditAction: boolean }">
+  Replaces the entire action toolbar container rendered below the message
+  content. `showBranchNavigation` and `hasEditAction` indicate which controls
+  the default toolbar would show.
+</PropertyReference>
+
+<PropertyReference name="toolbar-items" type="(no props)">
+  Inserts additional content at the start of the default toolbar, alongside the
+  copy, edit, and branch navigation controls. Use this to append custom actions
+  without replacing the whole toolbar.
+
+```vue
+<CopilotChatUserMessage :message="message">
+  <template #toolbar-items>
+    <button @click="pin(message.id)">Pin</button>
+  </template>
+</CopilotChatUserMessage>
+```
+
+</PropertyReference>
+
+<PropertyReference name="copy-button" type="{ onCopy: () => Promise<void>; copied: boolean; label: string }">
+  Replaces the copy-to-clipboard button. `onCopy` copies the flattened message
+  content to the clipboard, `copied` reflects the transient copied state (reset
+  after 2 seconds), and `label` is sourced from
+  `userMessageToolbarCopyMessageLabel`.
+</PropertyReference>
+
+<PropertyReference name="edit-button" type="{ onEdit: () => void; label: string }">
+  Replaces the edit button. Only rendered when an `@edit-message` listener is
+  attached. `onEdit` emits the `edit-message` event, and `label` is sourced
+  from `userMessageToolbarEditMessageLabel`.
+</PropertyReference>
+
+<PropertyReference name="branch-navigation" type="{ branchIndex: number; numberOfBranches: number; canGoPrev: boolean; canGoNext: boolean; goPrev: () => void; goNext: () => void }">
+  Replaces the branch navigation controls. Only rendered when
+  `numberOfBranches` is greater than 1 and a `@switch-to-branch` listener is
+  attached. `goPrev` and `goNext` emit `switch-to-branch` for the adjacent
+  branch; `canGoPrev` and `canGoNext` indicate whether navigation is available.
+
+```vue
+<CopilotChatUserMessage
+  :message="message"
+  :branch-index="branchIndex"
+  :number-of-branches="3"
+  @switch-to-branch="onSwitch"
+>
+  <template
+    #branch-navigation="{ branchIndex, numberOfBranches, canGoPrev, canGoNext, goPrev, goNext }"
+  >
+    <div class="flex items-center gap-1 text-xs">
+      <button :disabled="!canGoPrev" @click="goPrev">Prev</button>
+      <span>{{ branchIndex + 1 }} of {{ numberOfBranches }}</span>
+      <button :disabled="!canGoNext" @click="goNext">Next</button>
+    </div>
+  </template>
+</CopilotChatUserMessage>
+```
+
+</PropertyReference>
+
+<PropertyReference name="layout" type="{ message; content; isMultiline; showBranchNavigation; hasEditAction; branchIndex; numberOfBranches; canGoPrev; canGoNext; onCopy; onEdit; goPrev; goNext; copied }">
+  Replaces the entire component layout (the message renderer and the toolbar),
+  giving you full control over the markup while still receiving all the derived
+  state and handlers. Use this when overriding individual slots is not enough.
+</PropertyReference>
+
+## Usage
+
+### Basic user message
+
+```vue
+<script setup lang="ts">
+import { CopilotChatUserMessage } from "@copilotkit/vue/v2";
+import type { UserMessage } from "@ag-ui/core";
+
+defineProps<{ message: UserMessage }>();
+</script>
+
+<template>
+  <CopilotChatUserMessage :message="message" />
+</template>
+```
+
+### With edit support
+
+```vue
+<script setup lang="ts">
+import { CopilotChatUserMessage } from "@copilotkit/vue/v2";
+import type { UserMessage } from "@ag-ui/core";
+
+defineProps<{ message: UserMessage }>();
+
+function handleEdit(payload: { message: UserMessage }) {
+  console.log("Edit", payload.message.id);
+}
+</script>
+
+<template>
+  <CopilotChatUserMessage :message="message" @edit-message="handleEdit" />
+</template>
+```
+
+### With branch navigation
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import { CopilotChatUserMessage } from "@copilotkit/vue/v2";
+import type { UserMessage } from "@ag-ui/core";
+
+defineProps<{ message: UserMessage; branches: UserMessage[] }>();
+
+const currentBranch = ref(0);
+
+function handleSwitch(payload: { branchIndex: number }) {
+  currentBranch.value = payload.branchIndex;
+}
+</script>
+
+<template>
+  <CopilotChatUserMessage
+    :message="message"
+    :branch-index="currentBranch"
+    :number-of-branches="branches.length"
+    @switch-to-branch="handleSwitch"
+  />
+</template>
+```
+
+### Customizing appearance with slots
+
+```vue
+<script setup lang="ts">
+import { CopilotChatUserMessage } from "@copilotkit/vue/v2";
+import type { UserMessage } from "@ag-ui/core";
+
+defineProps<{ message: UserMessage }>();
+</script>
+
+<template>
+  <CopilotChatUserMessage
+    :message="message"
+    @edit-message="({ message }) => console.log('Edit:', message.id)"
+  >
+    <template #message-renderer="{ content }">
+      <div class="rounded-2xl bg-blue-600 px-4 py-2 text-white">
+        {{ content }}
+      </div>
+    </template>
+    <template #toolbar-items>
+      <button @click="$emit('pin')">Pin</button>
+    </template>
+  </CopilotChatUserMessage>
+</template>
+```
+
+### Full edit and branch workflow
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import { CopilotChatUserMessage } from "@copilotkit/vue/v2";
+import type { UserMessage } from "@ag-ui/core";
+
+defineProps<{ message: UserMessage; branches: UserMessage[] }>();
+
+const currentBranch = ref(0);
+
+function openEditModal(message: UserMessage) {
+  // open your edit modal
+}
+</script>
+
+<template>
+  <CopilotChatUserMessage
+    :message="message"
+    :branch-index="currentBranch"
+    :number-of-branches="branches.length"
+    @switch-to-branch="({ branchIndex }) => (currentBranch = branchIndex)"
+    @edit-message="({ message }) => openEditModal(message)"
+  />
+</template>
+```
+
+## Behavior
+
+- **Right-aligned layout**: User messages are rendered with right-aligned positioning to visually distinguish them from assistant messages.
+- **Content flattening**: When `message.content` is an array of parts, the default renderer joins the `text` parts with newlines. String content is rendered as-is.
+- **Whitespace preservation**: The default message renderer uses `white-space: pre-wrap`, so line breaks and spacing are preserved. The bubble gets extra vertical padding when the content is multiline.
+- **Hover-revealed toolbar**: The toolbar is invisible by default and becomes visible when the message is hovered.
+- **Transient copied state**: After a successful copy, the copy button shows a check icon for 2 seconds before reverting.
+- **Conditional edit button**: The edit button only appears when an `@edit-message` listener is attached.
+- **Conditional branch navigation**: The branch navigation only appears when `numberOfBranches` is greater than 1 and a `@switch-to-branch` listener is attached.
+- **Localized labels**: Toolbar button tooltips are sourced from the nearest configuration provider. See [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration) for available label keys.
+
+## Related
+
+- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) - Supplies the CopilotKit context to descendant components.
+- [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration) - Provider for localized toolbar labels.

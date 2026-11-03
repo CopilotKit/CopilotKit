@@ -1,0 +1,97 @@
+Use Go 1.22 or later. In a new application directory, install the [Go runtime module](https://pkg.go.dev/github.com/CopilotKit/CopilotKit/packages/runtime-go):
+
+```bash
+go mod init example.com/copilotkit-app
+go get github.com/CopilotKit/CopilotKit/packages/runtime-go@v0.0.0-20260930161409-37b078290a51
+```
+
+Set these variables in the server environment. Start your AG-UI agent at `AG_UI_AGENT_URL` before sending a message:
+
+```bash
+export CPK_INTELLIGENCE_API_KEY="your-project-api-key"
+export AG_UI_AGENT_URL="http://localhost:8001/agent"
+export APP_AUTH_TOKEN="replace-with-a-random-local-development-token"
+export APP_USER_ID="local-user"
+```
+
+This local example verifies one application token and maps it to a server-owned user ID. Use a different value for the application token and the Intelligence API key. In production, replace the callback with your application's verified session or token lookup. Never use an unverified browser-supplied user ID.
+
+Save this as `main.go`:
+
+```go
+package main
+
+import (
+    "context"
+    "crypto/subtle"
+    "errors"
+    "log"
+    "net/http"
+    "os"
+    "os/signal"
+    "syscall"
+    "time"
+
+    copilotkit "github.com/CopilotKit/CopilotKit/packages/runtime-go"
+)
+
+func required(name string) string {
+    value := os.Getenv(name)
+    if value == "" {
+        log.Fatalf("Missing environment variable: %s", name)
+    }
+    return value
+}
+
+func main() {
+    token, userID := required("APP_AUTH_TOKEN"), required("APP_USER_ID")
+    rt, err := copilotkit.New(copilotkit.Config{
+        APIKey: required("CPK_INTELLIGENCE_API_KEY"),
+        BasePath: "/api/copilotkit",
+        AllowedOrigins: []string{"http://localhost:3000"},
+        Agents: map[string]copilotkit.Agent{
+            "default": &copilotkit.HTTPAgent{URL: required("AG_UI_AGENT_URL")},
+        },
+        IdentifyUser: func(r *http.Request) (copilotkit.User, error) {
+            if subtle.ConstantTimeCompare(
+                []byte(r.Header.Get("Authorization")), []byte("Bearer "+token),
+            ) != 1 {
+                return copilotkit.User{}, errors.New("unauthorized")
+            }
+            return copilotkit.User{ID: userID, Name: "Local user"}, nil
+        },
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer func() {
+        if err := rt.Close(); err != nil {
+            log.Printf("Runtime shutdown: %v", err)
+        }
+    }()
+
+    mux := http.NewServeMux()
+    mux.Handle("/api/copilotkit/", rt)
+    server := &http.Server{Addr: "127.0.0.1:8200", Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+    stopped, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+    defer stop()
+    serverErrors := make(chan error, 1)
+    go func() { serverErrors <- server.ListenAndServe() }()
+    select {
+    case <-stopped.Done():
+    case err := <-serverErrors:
+        if !errors.Is(err, http.ErrServerClosed) {
+            log.Printf("HTTP server: %v", err)
+        }
+    }
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+    if err := server.Shutdown(ctx); err != nil {
+        log.Printf("HTTP shutdown: %v", err)
+    }
+}
+```
+
+Run `go run .`. The multi-route runtime URL is `http://localhost:8200/api/copilotkit`. Send `Authorization: Bearer <APP_AUTH_TOKEN>` with frontend requests; keep `CPK_INTELLIGENCE_API_KEY` on the server. Replace the allowed `http://localhost:3000` origin for your deployment.
+
+The server drains HTTP requests on shutdown, then `rt.Close()` cancels agent work and drains runtime resources. `HTTPAgent.Headers` lets you supply server-owned credentials for a protected agent endpoint; browser credentials are not forwarded.

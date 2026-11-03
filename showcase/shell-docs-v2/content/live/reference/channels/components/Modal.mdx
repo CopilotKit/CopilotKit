@@ -1,0 +1,45 @@
+---
+title: Modal
+description: Reference for the exported modal component vocabulary and its managed Channels availability.
+---
+
+The UI package exports `Modal`, `TextInput`, `ModalSelect`,
+`ModalSelectOption`, and `RadioButtons` for adapters with modal support.
+
+```tsx
+import {
+  Modal,
+  ModalSelect,
+  ModalSelectOption,
+  TextInput,
+} from "@copilotkit/channels/ui";
+
+<Modal callbackId="triage" title="Triage incident" submitLabel="Assign">
+  <TextInput id="summary" label="Summary" multiline />
+  <ModalSelect id="owner" label="Owner">
+    <ModalSelectOption label="Payments" value="payments" />
+  </ModalSelect>
+</Modal>;
+```
+
+<Callout type="warn" title="Not available on managed Slack or Teams">
+  The Intelligence adapter reports `supportsModals: false`; managed interaction
+  contexts do not expose `openModal`, and managed ingress does not deliver modal
+  submit or close events. Use a posted `Button` card and a later
+  `thread.resume(value)` instead.
+</Callout>
+
+## Modal props
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `callbackId` | `string` | Stable id for submit and close routing. |
+| `title` | `string` | Modal title. |
+| `submitLabel` | `string` | Optional submit label. |
+| `closeLabel` | `string` | Optional close label. |
+| `notifyOnClose` | `boolean` | Requests a close event on supporting adapters. |
+| `privateMetadata` | `string` | Opaque metadata echoed to submit or close handlers. |
+| `children` | `BotChildren` | Modal input components. |
+
+These components remain public for direct adapters. They are reference-only for
+the managed Slack and Teams setup documented here.

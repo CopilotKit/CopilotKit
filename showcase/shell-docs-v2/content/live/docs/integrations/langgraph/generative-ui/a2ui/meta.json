@@ -1,0 +1,9 @@
+{
+  "title": "Declarative Generative UI (A2UI)",
+  "pages": [
+    "fixed-schema",
+    "dynamic-schema",
+    "styling",
+    "advanced"
+  ]
+}

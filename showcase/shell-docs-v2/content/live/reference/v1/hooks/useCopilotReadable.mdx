@@ -1,0 +1,98 @@
+---
+title: "useCopilotReadable"
+description: "The useCopilotReadable hook allows you to provide knowledge to your copilot (e.g. application state)."
+---
+
+{
+ /*
+  * ATTENTION! DO NOT MODIFY THIS FILE!
+  * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
+  * packages/react-core/src/v1-deprecated/hooks/use-copilot-readable.ts
+  */
+}
+`useCopilotReadable` is a React hook that provides app-state and other information
+to the Copilot.
+ 
+## Usage
+ 
+### Simple Usage
+ 
+In its most basic usage, useCopilotReadable accepts a single string argument
+representing any piece of app state, making it available for the Copilot to use
+as context when responding to user input.
+ 
+```tsx
+import { useCopilotReadable } from "@copilotkit/react-core";
+ 
+export function MyComponent() {
+  const [employees, setEmployees] = useState([]);
+ 
+  useCopilotReadable({
+    description: "The list of employees",
+    value: employees,
+  });
+}
+```
+ 
+### Custom Serialization
+ 
+By default the value is serialized with `JSON.stringify`. Pass `convert` to
+control the string the Copilot sees. It is called with the description and the
+value, in that order:
+ 
+```tsx
+useCopilotReadable({
+  description: "The current user",
+  value: user,
+  convert: (description, value) => `${description}: ${value.firstName} ${value.lastName}`,
+});
+```
+ 
+### Conditional Usage
+ 
+Toggle `available` to add or remove the context as your app state changes.
+Switching to `"disabled"` removes the entry from the Copilot context; switching
+back to `"enabled"` re-adds it.
+ 
+```tsx
+useCopilotReadable({
+  description: "The list of employees",
+  value: employees,
+  available: showEmployees ? "enabled" : "disabled",
+});
+```
+ 
+### Re-running on Custom Dependencies
+ 
+The context is refreshed whenever `description`, `value`, `convert` or
+`available` change. Pass a second argument to add your own dependencies:
+ 
+```tsx
+useCopilotReadable(
+  {
+    description: "The selected employee",
+    value: employee,
+  },
+  [departmentId],
+);
+```
+
+## Parameters
+
+<PropertyReference name="description" type="string" required > 
+The description of the information to be added to the Copilot context.
+</PropertyReference>
+
+<PropertyReference name="value" type="any" required > 
+The value to be added to the Copilot context. Object values are automatically stringified.
+</PropertyReference>
+
+<PropertyReference name="available" type="'enabled' | 'disabled'"  > 
+Whether the context is available to the Copilot.
+</PropertyReference>
+
+<PropertyReference name="convert" type="(description: string, value: any) => string"  > 
+A custom conversion function to use to serialize the value to a string. If not provided, the value
+  will be serialized using `JSON.stringify`.
+</PropertyReference>
+

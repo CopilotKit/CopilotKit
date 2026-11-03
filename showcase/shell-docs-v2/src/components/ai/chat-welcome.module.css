@@ -1,0 +1,83 @@
+/*
+ * Ask CopilotKit's welcome badge (chat-parts.tsx). A circle of the blue
+ * stage whose pixel matrix sparkles: single squares light up and fade, in
+ * turn. The kite's disc settles in, and pulses while the composer has focus,
+ * so the badge shows it's listening. Nothing moves for reduced motion.
+ */
+
+/* Masked by the matrix's own tile, at its origin, so sparkles land on squares. */
+.sparkles {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  mask-image: url("/images/pixel-matrix.png");
+  mask-size: 400px 400px;
+  mask-repeat: repeat;
+  mask-position: 0 0;
+}
+
+.sparkle {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  translate: -50% -50%;
+  background: radial-gradient(
+    circle,
+    var(--matrix-square) 30%,
+    transparent 70%
+  );
+  opacity: 0;
+}
+
+.sonar {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sparkle {
+    animation: sparkle 5.3s ease-in-out infinite;
+  }
+
+  .settle {
+    animation: settle 560ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+  }
+
+  .welcome:focus-within .sonar {
+    animation: sonar 2.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  }
+}
+
+/* A quick light, then a long rest, so only a square or two shines at once. */
+@keyframes sparkle {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  22% {
+    opacity: 0;
+  }
+}
+
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+}
+
+@keyframes sonar {
+  from {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "python": {
+    "deps": [
+      "ag-ui-langgraph",
+      "copilotkit",
+      "fastapi",
+      "langchain",
+      "langchain-core",
+      "langchain-openai",
+      "langgraph",
+      "python-dotenv",
+      "uvicorn"
+    ]
+  },
+  "typescript": {
+    "deps": [
+      "@copilotkit/runtime@1.68.3",
+      "@ag-ui/client@0.0.57",
+      "next",
+      "@langchain/core@1.2.13",
+      "@langchain/langgraph@1.4.18",
+      "@langchain/openai@1.6.0"
+    ]
+  }
+}

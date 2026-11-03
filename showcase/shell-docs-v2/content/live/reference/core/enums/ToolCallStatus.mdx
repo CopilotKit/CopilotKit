@@ -1,0 +1,60 @@
+---
+title: "ToolCallStatus"
+description: "Lifecycle states of a tool call as it streams in and executes."
+---
+
+## Overview
+
+`ToolCallStatus` describes where a tool call is in its lifecycle, from arguments still streaming in to a fully executed result. You encounter it when rendering or reacting to tool calls in a frontend tool handler or custom render logic.
+
+## Import
+
+```ts
+import { ToolCallStatus } from "@copilotkit/core";
+```
+
+## Definition
+
+```ts
+enum ToolCallStatus {
+  InProgress = "inProgress",
+  Executing = "executing",
+  Complete = "complete",
+}
+```
+
+## Members
+
+<PropertyReference name="InProgress" type="inProgress">
+  The tool call is still being received — its arguments are streaming in and are not yet complete.
+</PropertyReference>
+
+<PropertyReference name="Executing" type="executing">
+  Arguments have fully arrived and the tool handler is running.
+</PropertyReference>
+
+<PropertyReference name="Complete" type="complete">
+  The handler has finished and a result is available.
+</PropertyReference>
+
+## Usage
+
+```ts
+import { ToolCallStatus } from "@copilotkit/core";
+
+function renderToolCall(status: ToolCallStatus) {
+  switch (status) {
+    case ToolCallStatus.InProgress:
+      return "Receiving arguments…";
+    case ToolCallStatus.Executing:
+      return "Running…";
+    case ToolCallStatus.Complete:
+      return "Done";
+  }
+}
+```
+
+## Related
+
+- [FrontendTool](/reference/core/types/FrontendTool) — tool handlers observe these statuses as a call progresses.
+- [CopilotKitCore](/reference/core/classes/CopilotKitCore)

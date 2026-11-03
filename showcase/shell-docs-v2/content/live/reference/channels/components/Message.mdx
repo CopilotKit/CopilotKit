@@ -1,0 +1,51 @@
+---
+title: Message
+description: Root container for portable Channels content and reaction behavior.
+---
+
+`Message` groups one portable message tree.
+
+```tsx
+import { Message, Section } from "@copilotkit/channels/ui";
+
+<Message>
+  <Section>Checkout latency is above the SLO.</Section>
+</Message>;
+```
+
+## Props
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `accent` | `string` | Optional renderer hint. Direct adapters may map it natively; the current managed Slack and Teams connectors ignore it. |
+| `onReaction` | `MessageReactionHandler` | Handles an added or removed reaction on this posted message. |
+| `children` | `BotChildren` | Portable Channels content. |
+
+`onReaction` receives the normalized emoji first and a reaction context second.
+The context contains `added`, `rawEmoji`, `user`, `thread`, `messageId`, and
+`messageRef`.
+
+```tsx
+<Message
+  onReaction={async (emoji, reaction) => {
+    const marked = reaction.added && emoji === "eyes";
+    await reaction.thread.post(
+      marked ? "Marked for follow-up." : "Reaction update received.",
+    );
+  }}
+>
+  <Section>React with 👀 to request follow-up.</Section>
+</Message>
+```
+
+Managed Slack routes reactions on bot-authored messages. Managed Teams routes
+delivered `messageReaction` activities. The managed adapter cannot add or
+remove the bot's own reactions.
+
+An output-free managed reaction callback is finalized and acknowledged. Silent
+audit-only work is supported, but make the side effect idempotent because
+managed delivery is at-least-once.
+
+Register named components containing `onReaction` in
+`createChannel({ components })`; a durable `StateStore` is also required for a
+reaction to an older message to survive a process restart.

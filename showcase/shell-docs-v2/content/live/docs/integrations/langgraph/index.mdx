@@ -1,0 +1,20 @@
+---
+title: Introduction
+description: Redirect notice for a landing page that is served from a data record.
+hideHeader: true
+hidePageActions: true
+---
+
+{/*
+  This folder's landing page is not served from here.
+
+  Every slug that uses it (`langgraph-python` and its variants) is `docs_mode:
+  generated` and has an entry in `src/data/frameworks/`, and the framework root
+  route gates on `overview && docsMode === "generated"` — so the record wins and
+  this file's `<FrameworkOverview>` never rendered. It still carried a full copy
+  of the landing page, which drifted: this file said "Bring your LangGraph
+  agents", the record rendered "Bring your LangChain agents", and only the
+  record was ever on screen.
+
+  Edit `src/data/frameworks/langgraph-python.ts` instead.
+*/}

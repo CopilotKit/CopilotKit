@@ -1,0 +1,114 @@
+---
+title: "Step 6: Add human approval"
+---
+
+The travel agent pauses before it adds, updates, or deletes trips. The React
+app shows the proposed change and sends the user's decision back to the paused
+run.
+
+## Pause the graph
+
+`agent/src/agent.py` routes trip tools through `trips_node` and compiles the
+graph with an interrupt after that node:
+
+```python title="examples/v1/travel/agent/src/agent.py"
+graph_builder.add_edge("trips_node", "perform_trips_node")
+
+graph = graph_builder.compile(
+    interrupt_after=["trips_node"],
+    checkpointer=MemorySaver(),
+)
+```
+
+The interrupt gives the frontend time to approve or reject the tool call
+before `perform_trips_node` changes state.
+
+## Register the approval UI
+
+The v2 `useHumanInTheLoop` hook pairs each trip tool with a React component.
+This example uses a Zod schema and the same `travel` agent ID as the provider:
+
+```tsx title="examples/v1/travel/lib/hooks/use-trips.tsx"
+import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+
+useHumanInTheLoop({
+  name: "add_trips",
+  agentId: "travel",
+  description: "Add some trips",
+  parameters: tripsSchema,
+  render: ({ args, status, respond }) => (
+    <AddTrips args={args} status={status} respond={respond} />
+  ),
+});
+```
+
+The update and delete tools use the same hook. They pass current trip state as
+a dependency because their approval cards need it:
+
+```tsx title="examples/v1/travel/lib/hooks/use-trips.tsx"
+useHumanInTheLoop(
+  {
+    name: "delete_trips",
+    agentId: "travel",
+    description: "Delete some trips",
+    parameters: z.object({
+      trip_ids: z.array(z.string()).describe("The IDs of the trips to delete"),
+    }),
+    render: ({ args, status, respond }) => (
+      <DeleteTrips
+        args={args}
+        status={status}
+        respond={respond}
+        trips={state.trips}
+      />
+    ),
+  },
+  [state.trips],
+);
+```
+
+## Send the decision
+
+The hook's `respond` function resumes the paused run. The approval components
+enable their buttons only while the tool call is waiting for a result:
+
+```tsx title="examples/v1/travel/components/humanInTheLoop/ActionButtons.tsx"
+import { ToolCallStatus } from "@copilotkit/react-core/v2";
+
+<Button
+  disabled={status !== ToolCallStatus.Executing || isPending}
+  onClick={async () => sendResponse("CANCEL")}
+>
+  {reject}
+</Button>
+<Button
+  disabled={status !== ToolCallStatus.Executing || isPending}
+  onClick={async () => sendResponse("SEND")}
+>
+  {approve}
+</Button>
+```
+
+`sendResponse` awaits `respond` and keeps the buttons disabled while the
+request is in flight. It also keeps a failed result so the user can retry.
+
+## Handle a rejection in the agent
+
+The response arrives as the latest `ToolMessage`. The agent stops the trip
+operation when its content is `CANCEL`:
+
+```python title="examples/v1/travel/agent/src/trips.py"
+async def perform_trips_node(state: AgentState, config: RunnableConfig):
+    ai_message = cast(AIMessage, state["messages"][-2])
+    tool_message = cast(ToolMessage, state["messages"][-1])
+
+    if tool_message.content == "CANCEL":
+        state["messages"].append(AIMessage(content="Cancelled the trip operation."))
+        await copilotkit_emit_message(config, "Cancelled the trip operation.")
+        return state
+
+    # Apply the approved add, update, or delete operation.
+```
+
+Ask the running app to add or delete a trip. Approve one request and reject
+another to exercise both paths.

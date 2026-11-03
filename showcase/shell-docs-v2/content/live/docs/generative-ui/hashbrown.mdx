@@ -1,0 +1,55 @@
+---
+title: Hashbrown
+description: Stream a structured sales dashboard through Hashbrown's UI kit and progressive JSON parser.
+icon: "lucide/Component"
+snippet_framework: built-in-agent
+snippet_cell: declarative-hashbrown
+---
+
+<InlineDemo
+  demo="declarative-hashbrown"
+  showAllFiles
+  llmFiles="src/app/demos/declarative-hashbrown/page.tsx,src/app/demos/declarative-hashbrown/chat.tsx,src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx"
+/>
+
+Hashbrown renders a dashboard while the assistant streams JSON. For frameworks with this demo, the **Code** tab shows its runnable source, and the Markdown page includes the key frontend files. The bundled demos pin `@hashbrownai/core` and `@hashbrownai/react` to `0.5.0-beta.4`; the chart components also need `recharts` and `zod`. Use the versions in your integration's `package.json` when copying the files.
+
+## When to use this
+
+- **Streaming dashboards** that should appear before the full response arrives.
+- **Agent-authored UI** constrained to components you expose in a UI kit.
+- **Apps already using Hashbrown** for progressive JSON rendering.
+
+For a validated `{ root, elements }` spec that renders as one tree, see [JSON Render](/generative-ui/json-render). Its agent output and React API are different from Hashbrown's.
+
+## Frontend
+
+The page wraps the chat in `HashBrownDashboard`. That provider creates the UI kit once and shares it with the assistant-message renderer. The chat registers `HashBrownRenderMessage` in the `assistantMessage` slot.
+
+The renderer exposes `metric`, `pieChart`, `barChart`, `dealCard`, and Markdown with their prop schemas. It passes `kit.schema` to `useJsonParser`, reads the parser's `value`, and calls `kit.render(value)`. Chart `data` is a JSON-encoded **string**; the chart wrappers parse it before passing an array to the chart components.
+
+Where available, the Code tab also includes the imported `metric-card.tsx`, chart components, `types.ts`, suggestion setup, runtime route, and agent source.
+
+## Backend
+
+The agent sends **one JSON object** as the assistant message, without a Markdown fence or prose before it. Its top-level `ui` array contains component names from the kit. Each component has a `props` object matching its schema. For example:
+
+```json title="example assistant message"
+{
+  "ui": [
+    { "metric": { "props": { "label": "Total Revenue", "value": "$1.2M" } } },
+    {
+      "pieChart": {
+        "props": {
+          "title": "Revenue by Segment",
+          "data": "[{\"label\":\"Enterprise\",\"value\":600000},{\"label\":\"SMB\",\"value\":400000},{\"label\":\"Startup\",\"value\":200000}]"
+        }
+      }
+    }
+  ]
+}
+```
+
+The bundled agents use this envelope and the same component names. The parser can render finished parts of `ui` while the rest of the JSON is still streaming.
+
+<IntegrationGrid path="declarative-hashbrown" />

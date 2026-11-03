@@ -1,0 +1,190 @@
+---
+title: "useThreads"
+description: "Vue 3 composable for listing and mutating CopilotKit threads"
+---
+
+<OpsPlatformCTA
+  variant="card"
+  title="useThreads needs a CopilotKit Intelligence project"
+  body="Connect your runtime to a cloud-hosted project to start syncing threads."
+  ctaLabel="Start cloud-hosted setup"
+  surface="docs_reference_vue_use_threads"
+/>
+
+## Overview
+
+`useThreads` is a Vue 3 composable for reading the active thread list for an agent and mutating that list from the client. It accepts reactive inputs for a required agent id, archived filter, page size, and an `enabled` flag. When `enabled` is `false`, the hook clears its thread-store context and skips `/threads` entirely; that is how the threads drawer stays idle while unlicensed.
+
+`useThreads` activates when the connected runtime provides the thread endpoints it needs. It stays idle when the runtime explicitly reports that thread listing is unavailable.
+
+The hook returns normalized thread records with only the fields the Vue UI consumes: `id`, `agentId`, `name`, `archived`, `createdAt`, `updatedAt`, and optional `lastRunAt`. Threads are ordered by `lastRunAt`, then `updatedAt`, then `createdAt`.
+
+<Callout type="info">
+  `error` includes runtime and configuration problems such as a missing runtime
+  URL or unsupported thread endpoints. `listError` only reports genuine list
+  and mutation failures from the thread store.
+</Callout>
+
+## Signature
+
+```ts
+import { useThreads } from "@copilotkit/vue/v2";
+
+function useThreads(input: UseThreadsInput): UseThreadsResult;
+```
+
+## Parameters
+
+<PropertyReference name="input" type="UseThreadsInput">
+  Configuration object for the composable.
+
+  <PropertyReference name="agentId" type="MaybeRefOrGetter<string>">
+    ID of the agent whose threads to list. Required.
+  </PropertyReference>
+
+  <PropertyReference name="includeArchived" type="MaybeRefOrGetter<boolean | undefined>">
+    Whether archived threads should be included in the list. Omit it, or pass
+    `false`, to show only active threads.
+  </PropertyReference>
+
+  <PropertyReference name="limit" type="MaybeRefOrGetter<number | undefined>">
+    Optional page size. When provided, the hook paginates the thread list and
+    exposes `hasMoreThreads` and `fetchMoreThreads`.
+  </PropertyReference>
+
+  <PropertyReference name="enabled" type="MaybeRefOrGetter<boolean | undefined>" default="true">
+    Controls whether the hook participates in thread fetching at all. When
+    `false`, it clears the store context and issues no `/threads` request.
+  </PropertyReference>
+</PropertyReference>
+
+## Return Value
+
+<PropertyReference name="object" type="UseThreadsResult">
+  Reactive thread state plus the thread mutations.
+
+  <PropertyReference name="threads" type="Ref<Thread[]>">
+    The current thread list, normalized to the fields the Vue components use.
+  </PropertyReference>
+
+  <PropertyReference name="isLoading" type="Ref<boolean>">
+    `true` while the hook is waiting for its first usable thread context or
+    loading the current page.
+  </PropertyReference>
+
+  <PropertyReference name="error" type="Ref<Error | null>">
+    The current error, including runtime and configuration errors.
+  </PropertyReference>
+
+  <PropertyReference name="listError" type="Ref<Error | null>">
+    The latest list or mutation error from the thread store, excluding runtime
+    and configuration errors.
+  </PropertyReference>
+
+  <PropertyReference name="fetchMoreError" type="Ref<Error | null>">
+    Error from the most recent failed pagination fetch, or `null`.
+  </PropertyReference>
+
+  <PropertyReference name="hasMoreThreads" type="Ref<boolean>">
+    Whether more pages remain.
+  </PropertyReference>
+
+  <PropertyReference name="isFetchingMoreThreads" type="Ref<boolean>">
+    Whether a pagination request is currently in flight.
+  </PropertyReference>
+
+  <PropertyReference name="isMutating" type="Ref<boolean>">
+    Whether a rename, archive, unarchive, or delete mutation is in flight.
+  </PropertyReference>
+
+  <PropertyReference name="fetchMoreThreads" type="() => void">
+    Requests the next page. No-ops when there is no next page or a fetch is
+    already in flight.
+  </PropertyReference>
+
+  <PropertyReference name="refetchThreads" type="() => void">
+    Re-reads the current page from the server.
+  </PropertyReference>
+
+  <PropertyReference name="startNewThread" type="() => void">
+    Notifies the thread store that a new thread started and clears stale
+    thread-list error state. It does not mint or switch the active chat thread
+    by itself. Use `useCopilotChatConfiguration().startNewThread()` to do that.
+  </PropertyReference>
+
+  <PropertyReference name="renameThread" type="(threadId: string, name: string) => Promise<void>">
+    Renames a thread optimistically.
+  </PropertyReference>
+
+  <PropertyReference name="archiveThread" type="(threadId: string) => Promise<void>">
+    Archives a thread optimistically.
+  </PropertyReference>
+
+  <PropertyReference name="unarchiveThread" type="(threadId: string) => Promise<void>">
+    Restores an archived thread optimistically.
+  </PropertyReference>
+
+  <PropertyReference name="deleteThread" type="(threadId: string) => Promise<void>">
+    Deletes a thread optimistically and rolls back if the server rejects.
+  </PropertyReference>
+</PropertyReference>
+
+## Usage
+
+### Listing threads
+
+```vue
+<script setup lang="ts">
+import { computed } from "vue";
+import { useThreads } from "@copilotkit/vue/v2";
+
+const { threads, isLoading, listError, refetchThreads } = useThreads({
+  agentId: "support-agent",
+  includeArchived: true,
+  limit: 20,
+});
+
+const activeThreads = computed(() =>
+  threads.value.filter((thread) => !thread.archived),
+);
+</script>
+```
+
+### Paginating manually
+
+```vue
+<script setup lang="ts">
+import { useThreads } from "@copilotkit/vue/v2";
+
+const { hasMoreThreads, fetchMoreThreads, fetchMoreError } = useThreads({
+  agentId: "support-agent",
+  limit: 20,
+});
+</script>
+```
+
+## Behavior
+
+- The hook stays reactive to `agentId`, `includeArchived`, `limit`, and `enabled`.
+- When the runtime URL is missing or the runtime reports thread endpoints as unsupported, `error` is set and `listError` stays focused on store failures.
+- `enabled: false` clears the thread-store context and skips `/threads`; that is what keeps unlicensed thread drawers from fetching.
+- Mutations are optimistic in the core store. Delete rolls back if the request fails.
+- `fetchMoreError` is tracked separately so a failed "load more" request can show inline without losing the loaded list.
+- Threads are sorted by `lastRunAt`, then `updatedAt`, then `createdAt`.
+
+## Related
+
+<Cards>
+  <Card title="CopilotKitProvider" href="/reference/vue/components/CopilotKitProvider">
+    Configure the runtime URL that powers thread syncing. For cloud-hosted Intelligence, keep `CPK_INTELLIGENCE_API_KEY` on the runtime server.
+  </Card>
+  <Card title="CopilotThreadsDrawer" href="/reference/vue/components/CopilotThreadsDrawer">
+    Use the prebuilt drawer that lists and manages threads with this composable.
+  </Card>
+  <Card title="useAgent" href="/reference/vue/hooks/useAgent">
+    Access and run the agent whose threads you are listing.
+  </Card>
+  <Card title="useCopilotChatConfiguration" href="/reference/vue/hooks/useCopilotChatConfiguration">
+    Read the shared chat configuration context.
+  </Card>
+</Cards>

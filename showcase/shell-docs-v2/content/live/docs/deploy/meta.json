@@ -1,0 +1,11 @@
+{
+  "title": "Deploy",
+  "frontend": {
+    "kind": "universal"
+  },
+  "pages": [
+    "agentcore",
+    "aws-lambda",
+    "langsmith"
+  ]
+}

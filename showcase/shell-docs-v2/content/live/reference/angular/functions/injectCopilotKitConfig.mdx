@@ -1,0 +1,55 @@
+---
+title: "injectCopilotKitConfig"
+description: "Angular function that reads the CopilotKitConfig provided through provideCopilotKit from the current injection context"
+---
+
+## Overview
+
+`injectCopilotKitConfig` returns the [`CopilotKitConfig`](/reference/angular/functions/provideCopilotKit#parameters) that you registered with [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit). It reads the value bound to the `COPILOT_KIT_CONFIG` injection token, so it must run inside an Angular injection context (a constructor, a field initializer, or a factory).
+
+Most applications do not call this directly. The [`CopilotKit`](/reference/angular/services/CopilotKit) service uses it internally to build its core. Reach for it when you need to read the raw config you provided, for example to read your own `properties` or `runtimeUrl`.
+
+## Signature
+
+```ts
+import { injectCopilotKitConfig } from "@copilotkit/angular";
+
+function injectCopilotKitConfig(): CopilotKitConfig;
+```
+
+## Return Value
+
+Returns the `CopilotKitConfig` bound to the `COPILOT_KIT_CONFIG` token. Note that the `headers` field reflects the merged headers computed by `provideCopilotKit`, which may include the `X-CopilotCloud-Public-Api-Key` header derived from your `licenseKey`.
+
+## Usage
+
+Call it from an injection context, such as a service constructor or a component field initializer.
+
+```ts title="src/app/runtime-info.service.ts"
+import { Injectable } from "@angular/core";
+import { injectCopilotKitConfig } from "@copilotkit/angular";
+
+@Injectable({ providedIn: "root" })
+export class RuntimeInfoService {
+  private readonly config = injectCopilotKitConfig();
+
+  get runtimeUrl(): string | undefined {
+    return this.config.runtimeUrl;
+  }
+}
+```
+
+## Related
+
+<Cards>
+  <Card
+    title="provideCopilotKit"
+    description="Register the CopilotKitConfig that this function reads back."
+    href="/reference/angular/functions/provideCopilotKit"
+  />
+  <Card
+    title="CopilotKit"
+    description="The service that consumes the configuration and exposes runtime state as signals."
+    href="/reference/angular/services/CopilotKit"
+  />
+</Cards>

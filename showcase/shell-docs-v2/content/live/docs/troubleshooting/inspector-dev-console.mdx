@@ -1,0 +1,72 @@
+---
+title: "Inspector and dev console"
+icon: "lucide/PanelTop"
+description: "Configure the CopilotKit Inspector in React, Vue, and Angular."
+---
+
+`enableInspector` controls the built-in Inspector in browser applications:
+
+- `true` or omitted: show it in development builds.
+- `false`: hide it in development builds.
+
+The Inspector is never loaded or rendered in production builds or during
+server-side rendering. This safety guard cannot be overridden by an explicit
+`true`, and development hostnames are unrestricted.
+
+## React v2
+
+```tsx
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+<CopilotKit runtimeUrl="/api/copilotkit" enableInspector={false}>
+  {children}
+</CopilotKit>;
+```
+
+Legacy `showDevConsole` values no longer control the Inspector. Use
+`enableInspector` for Inspector visibility.
+
+## Vue
+
+```vue
+<CopilotKitProvider runtime-url="/api/copilotkit" :enable-inspector="false">
+  <App />
+</CopilotKitProvider>
+```
+
+Vue's deprecated `showDevConsole` prop no longer controls the Inspector.
+
+## Angular
+
+```ts
+provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+  enableInspector: false,
+});
+```
+
+Angular has no `showDevConsole` alias. Configure the Inspector through
+`enableInspector` on `CopilotKitConfig`.
+
+## React v1
+
+The v1 compatibility component follows the same development-only
+`enableInspector` behavior. Its deprecated `showDevConsole?: boolean` prop
+controls error toasts and banners, not the Inspector.
+
+<Callout type="warn">
+  The Inspector cannot be enabled in a production build. Use a development build
+  when debugging a deployed or remote environment.
+</Callout>
+
+## React Native
+
+Native iOS and Android applications do not have a built-in Inspector yet. The
+current Inspector is a DOM web component and is not included in the React
+Native dependency graph.
+
+## Related
+
+- [Inspector](/inspector): what the Inspector shows and how to use it.
+- [Error Debugging](/troubleshooting/error-debugging): the error console and the programmatic `onError` callback.
+- [Migrate to v2](/migrate/v2): the full React v1 to v2 migration guide.

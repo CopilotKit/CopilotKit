@@ -1,0 +1,24 @@
+---
+title: Angular feature examples
+description: Browse examples, source, API docs, and support state for all 41 Angular features.
+hideTOC: true
+---
+
+The catalog covers all 41 supported Angular features. Forty entries include a runnable example. Every entry links to its source and the closest API documentation.
+
+## Shared setup
+
+Install `@copilotkit/angular` and the matching `@angular/cdk` major. Register the provider in your application config:
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [provideCopilotKit({ runtimeUrl: "/api/copilotkit" })],
+};
+```
+
+The source link opens the standalone Angular component used for that feature.
+
+<AngularFeatureCatalog />

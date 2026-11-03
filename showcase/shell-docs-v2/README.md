@@ -1,0 +1,94 @@
+# Shell Docs v2
+
+`showcase/shell-docs-v2` is a from-scratch rebuild of the CopilotKit docs on the
+latest [Fumadocs](https://fumadocs.dev) (Next.js + `fumadocs-mdx`). It is a
+work in progress and is not deployed; `showcase/shell-docs` still serves
+`docs.copilotkit.ai`.
+
+Like `shell-docs`, this is a standalone npm app outside the pnpm workspace.
+
+Design work starts from [`PRODUCT.md`](./PRODUCT.md) (who the docs serve, the
+binding brand source) and [`DESIGN.md`](./DESIGN.md) (the theme and how it maps
+onto Fumadocs). Theming stays inside Fumadocs' supported surface.
+
+## Run locally
+
+```bash
+cd showcase/shell-docs-v2
+npm install
+npm run dev
+```
+
+The dev server runs on http://localhost:3004. The docs live at their
+docs.copilotkit.ai URLs (`/quickstart`, `/mastra/frontend-tools`,
+`/reference/v2/...`); the older Fumadocs scaffold pages stay at `/docs`.
+
+"Ask AI" needs an OpenAI key: copy `.env.example` to `.env.local` and set
+`OPENAI_API_KEY`.
+
+## Content
+
+The docs pages live in `content/live`, and this app owns them. They started as
+a copy of `showcase/shell-docs/src/content`, but nothing syncs them: v2 is cut
+over gradually, so its pages can differ from shell-docs, and shell-docs stays
+untouched until v2 replaces it. Edit pages here, never in shell-docs.
+Components resolve by name, so a page imports only `.mdx` snippets, and a page
+with sub-pages is `X/index.mdx`.
+
+Images, logos and videos are in `public/` for the same reason.
+
+```bash
+npm run check-live-mdx     # compile every page offline
+npm run check-live-pages   # request every page at its live URL (dev server up)
+npm run check-redirects    # legacy docs.copilotkit.ai redirects
+```
+
+## Patches
+
+`npm install` applies `patches/` with [patch-package](https://github.com/ds300/patch-package).
+`@copilotkit+react-core+1.82.0.patch` keeps CopilotChat's scroll-to-bottom
+button hidden while only the pin-to-send spacer is below, and keeps the pin
+working under React StrictMode. It is the fix from
+[CopilotKit#8159](https://github.com/CopilotKit/CopilotKit/pull/8159); drop the
+patch once a release with it is installed.
+
+## Validate
+
+```bash
+npm run build
+npm run typecheck
+npm run lint
+```
+
+## Layout
+
+| Path                                            | Purpose                                                     |
+| ----------------------------------------------- | ----------------------------------------------------------- |
+| `content/live`                                  | The docs pages, this app's own copy                         |
+| `src/lib/live-source.ts`                        | Live docs and reference collections                         |
+| `src/lib/live-docs.ts`                          | Live URL to page, with its framework and frontend scope     |
+| `src/lib/live-nav.ts`                           | Live sidebars from shell-docs' `meta.json` files            |
+| `src/proto/live-article.tsx`                    | Renders a live page in D's docs panel                       |
+| `src/components/docs-mdx`                       | shell-docs' MDX components, by name                         |
+| `src/components/standard-catalog`               | Standard catalog pages: a Fumadocs Story per component      |
+| `src/lib/catalog-nav.ts`                        | The sidebar's Standard catalog folder, a page per component |
+| `src/components/telemetry`, `src/lib/telemetry` | shell-docs' analytics, same events and env vars             |
+| `src/lib/redirects`                             | shell-docs' legacy URL redirects                            |
+| `source.config.ts`                              | MDX options for every page and snippet                      |
+| `content/docs`                                  | Scaffold MDX pages at `/docs` and their `meta.json`         |
+| `src/lib/source.ts`                             | Content source (`fumadocs-mdx/macro`) and loader            |
+| `src/lib/shared.ts`                             | App name, routes, GitHub config                             |
+| `src/app/theme.css`                             | CopilotKit theme over Fumadocs' variables (see `DESIGN.md`) |
+| `src/lib/layout.shared.tsx`                     | Shared nav options for the home and docs layouts            |
+| `src/app/docs`                                  | Docs layout and page renderer                               |
+| `src/app/api/search`                            | Built-in Orama search endpoint                              |
+| `src/app/og`                                    | Generated OG images per page                                |
+| `src/app/llms*.txt`, `llms.mdx`                 | LLM-readable text and per-page markdown                     |
+| `src/proxy.ts`                                  | Serves markdown for `*.md` URLs and `Accept: text/markdown` |
+| `src/app/api/mcp`                               | MCP server (list, read, search pages) for outside agents    |
+| `src/app/api/copilotkit`                        | "Ask AI" runtime: per-IP rate limit and request caps        |
+| `src/lib/docs-agent.ts`                         | "Ask AI" agent: model, scope prompt, tools, hosted MCP      |
+| `src/components/ai`                             | "Ask AI" chat in Spacious' `aiChat` slot, frontend tools    |
+
+Scaffolded with `create-fumadocs-app@16.2.26` (`+next+fuma-docs-mdx`, `--src`,
+oxlint, Orama search, `next-og`).

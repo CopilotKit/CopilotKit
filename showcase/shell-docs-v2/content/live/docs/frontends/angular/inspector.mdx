@@ -1,0 +1,74 @@
+---
+title: Inspector
+description: The Inspector mounts itself in Angular applications. What changed, and what to remove if you mounted it by hand.
+icon: "lucide/SearchCheck"
+doc_type: how-to
+---
+
+`@copilotkit/angular` mounts the Inspector for you. It depends on
+`@copilotkit/web-inspector` directly, so there is nothing to install and no
+version to pin — the `CopilotKit` service creates `cpk-web-inspector`, supplies
+your application's core, and appends it to `document.body` after the first
+browser render.
+
+**[Inspector](/inspector)** is the page to read for what the panes show and how
+`enableInspector` controls visibility. Angular sets it through
+`provideCopilotKit`:
+
+```ts title="src/app/app.config.ts"
+provideCopilotKit({
+  runtimeUrl: "http://localhost:8200/api/copilotkit",
+  enableInspector: false, // hide it during development
+});
+```
+
+<Callout type="warn" title="Remove a hand-written mount before upgrading">
+  `@copilotkit/angular` did not mount the Inspector before **0.4.0**, and this
+  page previously described a `WebInspector` component that created the element
+  by hand. If your application still has that component, delete it — along with
+  its `<app-web-inspector />` usage and any direct `@copilotkit/web-inspector`
+  dependency in `package.json`.
+
+  Leaving it in place is worse than redundant. The framework reuses an existing
+  `cpk-web-inspector` rather than creating a second one, but the hand-written
+  component's `DestroyRef.onDestroy` removes that element unconditionally — so
+  a route change that destroys the component tears out the Inspector the
+  framework is now driving, and it does not come back without a full reload.
+</Callout>
+
+## Production and server rendering
+
+Nothing to do for either.
+
+The `@copilotkit/web-inspector` import is a dynamic `import()` inside the
+service, so the bundler splits it into its own chunk and a production build
+never requests it. Mounting runs in `afterNextRender` behind an
+`isPlatformBrowser` check, so the element is never created during a server
+render. Both matter, because the web component registers itself against
+`customElements`, which does not exist on the server.
+
+## Position the launcher
+
+The launcher defaults to the top-right corner, and the element positions itself
+with an inline transform. Override both from your global stylesheet. A
+bottom-left corner keeps the launcher clear of the close button on a chat panel
+or sidebar:
+
+```css title="src/styles.css"
+cpk-web-inspector {
+  /* The panel is draggable and sets an inline transform. Neutralize it before
+     choosing a corner. */
+  transform: none !important;
+  top: auto !important;
+  bottom: 1rem !important;
+  left: 1rem !important;
+  right: auto !important;
+}
+```
+
+## Next steps
+
+- [Inspector](/inspector)
+- [Troubleshooting Angular apps](/angular/guides/troubleshooting)
+- [AG-UI Event Inspector](/troubleshooting/event-inspector)
+- [Angular API: CopilotKit](/reference/angular/services/CopilotKit)

@@ -1,0 +1,27 @@
+---
+title: Image
+description: Render an image URL inside a portable Slack or Microsoft Teams message.
+---
+
+`Image` adds an externally reachable image to a rich message.
+
+```tsx
+import { Image, Message } from "@copilotkit/channels/ui";
+
+<Message>
+  <Image
+    url="https://example.com/status.png"
+    alt="Checkout latency over the last hour"
+  />
+</Message>;
+```
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `url` | `string` | Required image URL. |
+| `alt` | `string` | Accessible alternative text. |
+
+Managed Slack renders an image block. Managed Teams renders an Adaptive Card
+image. The provider client must be able to fetch the URL without your
+application's private cookies or headers. Use `thread.postFile()` when the
+image must be uploaded as bytes.

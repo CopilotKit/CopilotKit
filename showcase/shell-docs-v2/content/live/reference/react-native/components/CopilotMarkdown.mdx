@@ -1,0 +1,57 @@
+---
+title: "CopilotMarkdown"
+description: "Render Markdown text with React Native styling tuned for chat. Handles streaming content gracefully."
+---
+
+## Overview
+
+`CopilotMarkdown` renders a Markdown string with sensible React Native styling, built on [`react-native-streamdown`](https://www.npmjs.com/package/react-native-streamdown). It handles incomplete (streaming) Markdown gracefully, rendering incrementally as content arrives, which makes it ideal for assistant messages. Requires the `react-native-streamdown` peer dependency.
+
+## Import
+
+```tsx
+import { CopilotMarkdown, defaultMarkdownStyles } from "@copilotkit/react-native/components";
+```
+
+## Props
+
+<PropertyReference name="content" type="string" required>
+  The Markdown string to render.
+</PropertyReference>
+
+<PropertyReference name="style" type="MarkdownStyle">
+  Optional style overrides merged on top of the defaults. A map of Markdown
+  element names (e.g. `paragraph`, `h1`, `link`, `code`) to style objects, so
+  you only override what you need.
+</PropertyReference>
+
+<PropertyReference name="streamingAnimation" type="boolean" default="true">
+  Whether to enable the streaming fade-in animation as content arrives.
+</PropertyReference>
+
+## `defaultMarkdownStyles`
+
+The default style map. Spread it to extend rather than replace the built-in styling:
+
+```tsx
+import { CopilotMarkdown, defaultMarkdownStyles } from "@copilotkit/react-native/components";
+
+const styles = {
+  ...defaultMarkdownStyles,
+  h1: { fontSize: 28, fontWeight: "800" },
+};
+
+<CopilotMarkdown content="# Hello\nThis is **bold**." style={styles} />;
+```
+
+## Usage
+
+```tsx
+import { CopilotMarkdown } from "@copilotkit/react-native/components";
+
+<CopilotMarkdown content="**Hello** from CopilotKit!" />;
+```
+
+## Related
+
+- [`AssistantMessage`](/reference/react-native/components/AssistantMessage): renders its content through `CopilotMarkdown`

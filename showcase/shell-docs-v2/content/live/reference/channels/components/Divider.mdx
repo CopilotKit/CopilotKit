@@ -1,0 +1,20 @@
+---
+title: Divider
+description: Add a portable visual separator to a rich Channels message.
+---
+
+`Divider` takes no props or children.
+
+```tsx
+import { Divider, Message, Section } from "@copilotkit/channels/ui";
+
+<Message>
+  <Section>Summary</Section>
+  <Divider />
+  <Section>Next action</Section>
+</Message>;
+```
+
+Managed Slack renders a divider block. Adaptive Cards have no standalone rule
+element, so managed Teams renders an empty separated text block to create the
+visual boundary.

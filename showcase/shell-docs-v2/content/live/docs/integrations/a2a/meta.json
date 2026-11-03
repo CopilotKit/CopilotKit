@@ -1,0 +1,15 @@
+{
+  "title": "A2A",
+  "root": true,
+  "pages": [
+    "index",
+    "---Generative UI---",
+    "...generative-ui",
+    "---Intelligence---",
+    {
+      "title": "Threads",
+      "defaultOpen": true,
+      "pages": ["AG-UI-Streams", "headless-threads"]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+/*
+ * /ask fills the screen and never scrolls itself (its panels do), so the
+ * site's reserved scrollbar gutter (`scrollbar-gutter: stable` on html in
+ * global.css) would only leave an empty band down its right edge.
+ */
+:global(html):has(.page) {
+  scrollbar-gutter: auto;
+}

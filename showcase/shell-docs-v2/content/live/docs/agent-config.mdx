@@ -1,0 +1,145 @@
+---
+title: Agent Config
+description: Forward typed configuration from your UI into the agent's reasoning loop.
+icon: "lucide/SlidersHorizontal"
+snippet_cell: agent-config
+frontend: universal
+---
+
+<InlineDemo demo="agent-config" />
+
+You have a working agent and want the user to be able to tune how it behaves: tone, expertise level, response length, language, persona. By the end of this guide, your UI will own a typed config object that the agent reads on every run and rebuilds its system prompt from.
+
+## When to use this
+
+Reach for agent config whenever the agent's behaviour depends on user-controllable settings that don't fit naturally as chat input:
+
+- **Tone, voice, persona**: "playful", "formal", "casual"
+- **Expertise level**: "beginner", "intermediate", "expert"
+- **Response shape**: short / medium / long, structured / prose, language
+- **Domain switches**: which knowledge base to consult, which tool subset to enable
+
+If the values are a *channel* the user occasionally tunes (a settings panel, a toolbar of selects), agent config is the right shape. If the values are *content* the agent should write back to (notes, a document, a plan), use [Shared State](/shared-state) instead.
+
+How agent config flows from the UI into the agent's reasoning loop depends on your runtime architecture. Agents living behind a runtime read it from agent state on every run, while in-process agents receive the same object as forwarded properties on the provider — same UX, slightly different wiring on each side.
+
+<WhenFrameworkHas flag="agent_config_pattern" equals="shared-state">
+
+## How it works
+
+<FrameworkSetup concept="agent-config-setup" />
+
+Agent config is a typed object the frontend owns and publishes to the agent as
+runtime context. The backend reads that context entry and turns it into a
+system prompt.
+
+<FrontendOnly frontend="react">
+Hold the typed config in React state, then mirror every change into the agent
+through `useAgentContext`:
+
+```tsx title="frontend/src/app/page.tsx — UI publishes the typed config"
+function ConfigContextRelay({ config }: { config: AgentConfig }) {
+  useAgentContext({
+    description: "Agent response preferences",
+    value: {
+      tone: config.tone,
+      expertise: config.expertise,
+      responseLength: config.responseLength,
+    },
+  });
+  return null;
+}
+```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+Hold the config in an Angular signal and publish a computed context with
+`connectAgentContext`. The runnable Angular Showcase uses this exact
+signal-to-context bridge:
+
+<AngularSnippet
+  region="agent-config-context"
+  title="showcase/angular/src/app/features/app-settings/app-settings-feature.component.ts"
+/>
+</FrontendOnly>
+
+The framework setup above shows the exact backend bridge for the selected
+agent. In every framework, the flow is the same: read the latest valid context
+from the current run and use it to build the system prompt for that turn.
+
+```text title="Backend flow"
+config = latestValidConfig(currentRun.context)
+systemPrompt = buildSystemPrompt(config)
+model.invoke(systemPrompt, currentUserRequest)
+```
+
+The agent reads the latest typed config at the start of every turn, rebuilds the system prompt, runs the turn. This is the same shape as the [shared-state write-side pattern](/shared-state#writing-to-agent-state); agent config is just a specific use of that pattern with a UI-owned typed object on top.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="agent_config_pattern" equals="runtime-properties">
+
+## How it works
+
+The runtime owns the agent in-process, so config travels through frontend
+runtime properties rather than agent state. There's no separate backend service
+to push state into: the typed object becomes the input to the agent factory
+directly.
+
+<FrontendOnly frontend="react">
+Pass the typed object as `properties` on `<CopilotKit>`:
+
+```tsx title="frontend/src/app/page.tsx — config flows through the provider"
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  properties={{ tone, expertise, responseLength }}
+  useSingleEndpoint
+>
+  <Demo />
+</CopilotKit>
+```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+Update runtime properties whenever the Angular signal changes:
+
+```ts title="src/app/agent-config.component.ts"
+import { Component, effect, inject, signal } from "@angular/core";
+import { CopilotKit } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-agent-config",
+  standalone: true,
+  template: `
+    <button type="button" (click)="tone.set('concise')">Concise</button>
+    <button type="button" (click)="tone.set('detailed')">Detailed</button>
+  `,
+})
+export class AgentConfigComponent {
+  private readonly copilotKit = inject(CopilotKit);
+  protected readonly tone = signal<"concise" | "detailed">("concise");
+
+  constructor() {
+    effect(() => {
+      this.copilotKit.updateRuntime({
+        properties: { tone: this.tone() },
+      });
+    });
+  }
+}
+```
+</FrontendOnly>
+
+The runtime hands the same object to the agent factory on every call as `input.forwardedProps`. The factory uses those fields to build a system prompt before returning the agent for that turn:
+
+```ts title="backend/agent factory — synthesise the system prompt per turn"
+export const agentConfigFactory = async (input: AgentFactoryInput) => {
+  const { tone, expertise, responseLength } = input.forwardedProps ?? {};
+  const systemPrompt = buildSystemPrompt(tone, expertise, responseLength);
+  return makeAgent({ systemPrompt /* ... */ });
+};
+```
+
+</WhenFrameworkHas>
+
+<IntegrationGrid path="agent-config" />

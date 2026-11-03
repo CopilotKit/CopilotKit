@@ -1,0 +1,214 @@
+---
+title: Capture interactions
+description: Send browser interactions to CopilotKit Intelligence as Trajectories with the learning provider prop.
+icon: "lucide/MousePointer"
+frontend:
+  kind: frontend-variant
+  fallback: hide
+doc_type: how-to
+earlyAccess: trajectories
+search: false
+---
+
+## Overview
+
+Trajectories capture browser interactions as AG-UI `CUSTOM` events in CopilotKit Intelligence. This feature is in early access.
+
+This guide connects an existing React app to Intelligence. To start the local environment, use the [Trajectories quickstart](/intelligence/trajectories-quickstart).
+
+Capture includes URLs, page titles, referrers, element text, attributes, form values, browser-visible headers, and bounded body snapshots. Recognized credential fields are redacted in the browser. Redaction has limits. Read [Captured data](/intelligence/captured-data) before you enable capture.
+
+## Turn on capture
+
+<Steps>
+  <Step>
+    ### Connect your Runtime to Intelligence
+
+    Complete the [Trajectories quickstart](/intelligence/trajectories-quickstart) or the [Intelligence quickstart](/intelligence/quickstart).
+
+    The TypeScript Runtime needs `intelligence` and `identifyUser`, with Trajectories enabled for its project. `identifyUser` must return the user from your verified application session. Keep the project API key on the server.
+
+    During early access, our engineering team enables Trajectories for your project. If you are unsure whether access is ready, [book time with our engineers](https://www.copilotkit.ai/talk-to-an-engineer) before you continue.
+
+  </Step>
+  <Step>
+    ### Pass `learning` to the provider
+
+    Add `learning` to your existing provider:
+
+    ```tsx title="app/providers.tsx"
+    "use client";
+
+    import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" learning>
+          {children}
+        </CopilotKitProvider>
+      );
+    }
+    ```
+
+    Keep your existing Runtime URL and application authentication configuration. Capture starts after the provider mounts. A chat is not required.
+
+  </Step>
+  <Step>
+    ### Open the saved Trajectory
+
+    Click a control in your app. Wait at least two seconds for the next batch.
+
+    Open **Trajectories** in the same Intelligence project. Open the newest Trajectory. On its **Timeline**, expand **Product trajectory** and find the click. Refresh the page and check that the event remains.
+
+    To link a Thread, start an agent conversation while capture is active.
+
+  </Step>
+</Steps>
+
+Capture is on. The rest of this guide is optional.
+
+## Collect reply ratings
+
+Once a Trajectory has started while a chat is open, each finished reply with text in `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` gets a **Good response** and a **Bad response** button. You do not need to pass `onThumbsUp` or `onThumbsDown`. The buttons stay while capture reconnects or is stopped. A custom chat gets them when it renders its messages with `CopilotChatMessageView` inside a `CopilotChatConfigurationProvider`. To keep the thumbs to your own handlers, pass `messageFeedback: false` to the message view, for example `<CopilotChat messageView={{ messageFeedback: false }} />`.
+
+- Clicking a thumb rates the reply. A field for an optional comment opens next to it. Enter or leaving the field saves the comment. Escape, or a click on either thumb, discards an unsaved change. Switching to the other thumb starts the new rating without a comment.
+- Pointing at or keyboard-focusing the chosen thumb again opens its comment, so the user can add or change it later. On a touch screen, tapping the chosen thumb removes the rating instead.
+- Clicking the chosen thumb again removes the rating.
+- The chosen thumb and its comment stay while the page is open. After a reload the thumbs start unrated; a new rating replaces the earlier one in Intelligence.
+
+Each change sends a `message.feedback` event to the active Trajectory. The newest event for a `feedbackId` is the current rating, and `rating: null` means the user removed it:
+
+```json
+{
+  "type": "CUSTOM",
+  "name": "message.feedback",
+  "timestamp": 1790841239012,
+  "value": {
+    "seq": 12,
+    "feedbackId": "5f0c6b1e-0b8f-4f6e-9a57-2f3d1c9a4e21:msg-42",
+    "threadId": "5f0c6b1e-0b8f-4f6e-9a57-2f3d1c9a4e21",
+    "messageId": "msg-42",
+    "agentId": "default",
+    "runId": "run-9",
+    "rating": "down",
+    "comment": "Picked the wrong deal",
+    "response": "I approved deal 41 for you."
+  }
+}
+```
+
+Like any Trajectory event, a rating given while capture reconnects or is stopped is not sent, and a failed send is not retried; the chat still shows it. A rating belongs to its Thread, so a later Trajectory can carry a change to it. Intelligence shows the rating next to the reply in the Trajectory, and Automatic Learning reads it with the session.
+
+Your own `onThumbsUp` and `onThumbsDown` handlers still run when the user gives a rating, but not when the user removes one. To change the thumbs' tooltips, the comment placeholder, or the send button label, set the [chat labels](/reference/hooks/useCopilotChatConfiguration#copilotchatlabels). To restyle or replace the comment field, use the assistant message's `feedbackComment` slot. The comment popover is marked `data-copilotkit-ignore`, so capture records the saved comment, not each keystroke. Clicks on the thumbs are still captured as `click` events.
+
+## Control capture programmatically
+
+The sections below change when capture runs and what it records. For every option and method, see the [API reference](/intelligence/trajectories-reference).
+
+### Capture only after consent
+
+Pass a boolean to tie capture to your application's consent control:
+
+```tsx
+<CopilotKitProvider runtimeUrl="/api/copilotkit" learning={hasConsent}>
+  {children}
+</CopilotKitProvider>
+```
+
+The provider generates a Trajectory UUID. It stays the same across rerenders and reconnects while capture is on. When `hasConsent` becomes `false`, capture stops. Turning capture on again generates a new ID. Unmounting the provider also stops capture. Read the active ID from `copilotkit.trajectoryId`.
+
+### Start and stop a Trajectory yourself
+
+Set `autoStart: false`. The provider then waits for your app to start capture:
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  learning={{ autoStart: false }}
+>
+  {children}
+</CopilotKitProvider>
+```
+
+Call Core when your app decides a session starts:
+
+```tsx
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+
+function StartCaptureButton() {
+  const { copilotkit } = useCopilotKit();
+
+  async function startCapture() {
+    const result = await copilotkit.startTrajectory();
+    if (result.status === "error") {
+      console.warn("Trajectory capture:", result.code);
+    }
+  }
+
+  return (
+    <button onClick={startCapture}>Start capture</button>
+  );
+}
+```
+
+One Trajectory runs at a time. `copilotkit.stopTrajectory()` ends it and attempts a final batch. It does not wait for delivery or guarantee that the last events are saved.
+
+### Record outcomes
+
+A click shows what a person did. It does not show whether the work succeeded. After your application operation succeeds, emit the outcome:
+
+```tsx
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+
+function ApproveButton({
+  dealId,
+  approveDeal,
+}: {
+  dealId: string;
+  approveDeal: (id: string) => Promise<void>;
+}) {
+  const { copilotkit } = useCopilotKit();
+
+  async function approve() {
+    await approveDeal(dealId);
+    copilotkit.emitTrajectoryEvent("deal.approved", { dealId });
+  }
+
+  return (
+    <button onClick={approve}>
+      Approve
+    </button>
+  );
+}
+```
+
+The event belongs to the active Trajectory. Built-in names such as `click` are reserved. Your application controls the event payload. Automatic credential redaction does not inspect developer events.
+
+### Name the actions that matter
+
+Click events include a short control name in `target.label`, such as `Approve`. See [Click labels](/intelligence/captured-data#click-labels) for the sources and redaction rules.
+
+Add `data-copilotkit-action` for a stable, explicit action name:
+
+```tsx
+<button data-copilotkit-action="deal.approve" onClick={approve}>
+  Approve
+</button>
+```
+
+### Handle capture errors
+
+By default, Core logs setup errors with a code and a configuration hint. Pass `onError` to handle them in your app:
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  learning={{
+    onError: ({ code }) => console.warn("Trajectory capture:", code),
+  }}
+>
+  {children}
+</CopilotKitProvider>
+```
+
+Capture pauses during a connection loss and reconnects with fresh credentials. It does not buffer developer events during recovery or resend failed batches. See [Batches](/intelligence/captured-data#batches) for delivery limits and [Error codes](/intelligence/trajectories-reference#error-codes) for each code.
