@@ -44,19 +44,21 @@ export const scheduleMeeting = createTool({
 });
 ```
 
-In the frontend, `useInterrupt` renders the pause. The bridge sends the value as a JSON string, with your payload under `suspendPayload`. `resolve()` resumes the tool:
+In the frontend, `useInterrupt` renders the pause. The bridge puts your `suspend()` payload in `interrupt.metadata.mastra.suspendPayload`. `resolve()` resumes the tool:
 
 ```tsx title="ui/app/page.tsx"
 import { useInterrupt } from "@copilotkit/react-core/v2";
 
 function YourMainContent() {
   useInterrupt({
-    render: ({ event, resolve }) => {
-      const value = typeof event.value === "string" ? JSON.parse(event.value) : event.value;
-      const { topic } = value.suspendPayload ?? value;
+    render: ({ interrupt, event, resolve }) => {
+      // With emitInterruptOutcome: false, only the legacy event arrives, as a JSON string.
+      const payload = interrupt
+        ? interrupt.metadata?.mastra?.suspendPayload
+        : JSON.parse(event.value).suspendPayload;
       return (
         <div>
-          <p>Pick a time for {topic}</p>
+          <p>Pick a time for {payload?.topic}</p>
           <button onClick={() => resolve({ chosen_time: "Tomorrow 10:00 AM" })}>
             Tomorrow 10:00 AM
           </button>
