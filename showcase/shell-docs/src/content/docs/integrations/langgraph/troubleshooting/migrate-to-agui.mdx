@@ -4,8 +4,10 @@ description: Migration guide for agents streaming through the AG-UI protocol
 icon: "lucide/RefreshCw"
 ---
 
-If your `CopilotRuntime` still uses `remoteEndpoints` with `langGraphPlatformEndpoint`, or your FastAPI app serves the graph with `CopilotKitRemoteEndpoint`, move each agent to the `agents` map.
-Your graph code does not change.
+AG-UI is the new agent-to-UI protocol used in CopilotKit.
+It already integrates with LangGraph agents.
+
+This guide shows how to make the transition.
 
 <TailoredContent
         className="step"
@@ -36,7 +38,6 @@ Your graph code does not change.
         ```
         To
         ```typescript
-        import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
         let runtime = new CopilotRuntime({
             agents: {
@@ -48,7 +49,7 @@ Your graph code does not change.
             }
         })
         ```
-        Restart the runtime and send a message in your app. The agent answers in the chat.
+        And that's it! You're all set!
     </TailoredContentOption>
     <TailoredContentOption
         id="fastapi"
@@ -118,9 +119,6 @@ Everything else (mainly your graph) stays the same.
     </Step>
 
 </Steps>
-
-Restart the runtime and send a message in your app. The agent answers in the chat.
-
         <Accordions>
             <Accordion title="What about the old LangGraph config parameter which was used to configure the agent?">
                 The `langgraph_config` option doesn’t exist on the new agent.
