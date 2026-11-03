@@ -73,10 +73,12 @@ async function deliveryServer() {
 function toAiSdkTools(definitions: readonly AgentToolSpec[]) {
   const tools: ToolSet = {};
   for (const definition of definitions) {
+    const { execute } = definition;
+    if (!execute) throw new Error(`${definition.name} has no execute`);
     tools[definition.name] = tool({
       description: definition.description,
       inputSchema: jsonSchema<Record<string, unknown>>(definition.parameters),
-      execute: definition.execute,
+      execute,
     });
   }
   return tools;
