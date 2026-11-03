@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  GENERATE_SANDBOXED_UI_DESCRIPTION,
-  randomUUID,
-  ɵanySchema,
-} from "@copilotkit/shared";
+import { randomUUID, ɵanySchema } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   CopilotKitMessageFilter,
@@ -47,8 +43,9 @@ import type {
   CopilotKitHeadersSource,
 } from "@copilotkit/core";
 import {
-  DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
-  GENERATE_SANDBOXED_UI_TOOL_NAME,
+  ɵbuildOpenGenerativeUIContexts,
+  ɵcreateOpenGenerativeUITool,
+  ɵisOpenGenerativeUIActive,
   ɵresolveLicenseState,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";
@@ -62,7 +59,6 @@ import {
   OpenGenerativeUIContentSchema,
   OpenGenerativeUIActivityRenderer,
   OpenGenerativeUIToolRenderer,
-  GenerateSandboxedUiArgsSchema,
 } from "../components/OpenGenerativeUIRenderer";
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
 import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryStates";
@@ -96,7 +92,7 @@ import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
 import { MarkdownRendererProvider } from "./MarkdownRendererContext";
 import type { MarkdownRenderer } from "./MarkdownRendererContext";
 import { CopilotStyleOptionsProvider } from "../styles/copilot-kit-styles";
-import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
+import { shouldEnableInspector } from "@copilotkit/shared";
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
@@ -492,7 +488,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // Bumped by onCatalogComponentsChanged so the filtered catalog re-derives
   // when a component is enabled/disabled after mount.
   const [catalogToggleVersion, setCatalogToggleVersion] = useState(0);
-  const openGenUIActive = runtimeOpenGenUIEnabled || !!openGenerativeUI;
+  const openGenUIActive = ɵisOpenGenerativeUIActive({
+    runtimeEnabled: runtimeOpenGenUIEnabled,
+    configured: !!openGenerativeUI,
+  });
   // A catalog passed to the provider is enough to turn A2UI on: render the
   // surfaces locally and forward the catalog signal so the runtime injects the
   // render tool — no runtime-side `a2ui` config required.
@@ -835,13 +834,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     if (!openGenUIActive) return [];
     return [
       {
-        name: GENERATE_SANDBOXED_UI_TOOL_NAME,
-        description: GENERATE_SANDBOXED_UI_DESCRIPTION,
-        parameters: GenerateSandboxedUiArgsSchema,
-        handler: async () => "UI generated",
-        // This acknowledgement has no side effects and is safe to reconstruct.
-        reconnectBehavior: "resume-pending",
-        followUp: true,
+        ...ɵcreateOpenGenerativeUITool(),
         render: OpenGenerativeUIToolRenderer,
       },
     ];
@@ -1236,47 +1229,19 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     copilotkit.setDefaultThrottleMs(defaultThrottleMs);
   }, [copilotkit, defaultThrottleMs]);
 
-  // Register design skill as agent context for the generateSandboxedUi tool
-  const designSkill =
-    openGenerativeUI?.designSkill ?? DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL;
-
+  // Register the design skill and the sandbox functions as agent context for
+  // the generateSandboxedUi tool (entries shared with Vue and Angular).
+  const designSkill = openGenerativeUI?.designSkill;
   useLayoutEffect(() => {
     if (!copilotkit || !openGenUIActive) return;
-
-    const id = copilotkit.addContext({
-      description:
-        "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
-      value: designSkill,
-    });
+    const ids = ɵbuildOpenGenerativeUIContexts({
+      designSkill,
+      sandboxFunctions: sandboxFunctionsList,
+    }).map((entry) => copilotkit.addContext(entry));
     return () => {
-      copilotkit.removeContext(id);
+      for (const id of ids) copilotkit.removeContext(id);
     };
-  }, [copilotkit, designSkill, openGenUIActive]);
-
-  // Register sandbox functions as agent context so the LLM knows how to call them
-  const sandboxFunctionsDescriptors = useMemo(() => {
-    if (sandboxFunctionsList.length === 0) return null;
-    return JSON.stringify(
-      sandboxFunctionsList.map((fn) => ({
-        name: fn.name,
-        description: fn.description,
-        parameters: schemaToJsonSchema(fn.parameters),
-      })),
-    );
-  }, [sandboxFunctionsList]);
-
-  useLayoutEffect(() => {
-    if (!copilotkit || !sandboxFunctionsDescriptors || !openGenUIActive) return;
-
-    const id = copilotkit.addContext({
-      description:
-        "Sandbox functions available in generated sandboxed UI code. Call via: await Websandbox.connection.remote.<functionName>(args)",
-      value: sandboxFunctionsDescriptors,
-    });
-    return () => {
-      copilotkit.removeContext(id);
-    };
-  }, [copilotkit, sandboxFunctionsDescriptors, openGenUIActive]);
+  }, [copilotkit, designSkill, sandboxFunctionsList, openGenUIActive]);
 
   const contextValue = useMemo<CopilotKitContextValue>(
     () => ({
