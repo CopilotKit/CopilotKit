@@ -1,6 +1,9 @@
 import type { CopilotKitCore } from "@copilotkit/core";
-import type { InspectorOpenOptions, WebInspectorElement } from "./index.js";
-import type { NotificationContext } from "./lib/notifications.js";
+import type { NotificationContext } from "../domains/announcements/notifications.js";
+import type {
+  InspectorOpenOptions,
+  WebInspectorElement,
+} from "./web-inspector-element.js";
 
 /**
  * The parts of `@copilotkit/web-inspector` that mounting needs. Adapters pass a
