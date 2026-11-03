@@ -15,3 +15,5 @@ export * from "./a2ui-markdown";
 export * from "./chat";
 export * from "./open-generative-ui";
 export { shallowEqualRecord as ɵshallowEqualRecord } from "./utils/shallow-equal";
+export { cn as ɵcn } from "./utils/class-names";
+export type { ClassValue as ɵClassValue } from "./utils/class-names";
