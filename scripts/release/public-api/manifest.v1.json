@@ -1337,6 +1337,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/markdown/dom",
+          "exportKey": "./dom",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/dom/index.mjs",
+            "require": "./dist/dom/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/markdown/package.json",
+            "selector": "exports[\"./dom\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/markdown/package.json",
           "exportKey": "./package.json",
           "kind": "metadata",
