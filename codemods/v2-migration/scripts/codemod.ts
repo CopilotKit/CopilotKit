@@ -542,6 +542,7 @@ const codemod: Codemod<Lang> = async (root, options) => {
   edits.push(...markdownRendererEdits(rootNode, source, jsx));
   edits.push(...katexEdits(rootNode, source));
   edits.push(...licenseCheckerEdits(rootNode, source));
+  edits.push(...angularRuntimeConfigEdits(rootNode, source));
 
   const migratedPaths =
     edits.length === 0 ? migrated : rootNode.commitEdits(edits);
@@ -782,6 +783,83 @@ function licenseCheckerEdits(rootNode: Node, source: string): Edit[] {
     if (edit) edits.push(edit);
   }
   return edits;
+}
+
+const ANGULAR_SOURCE = "@copilotkit/angular";
+/** One of these keys gives the Angular provider a runtime to talk to. */
+const ANGULAR_RUNTIME_KEYS = new Set([
+  "runtimeUrl",
+  "licenseKey",
+  "agents",
+  "selfManagedAgents",
+]);
+const ANGULAR_RUNTIME_CONFIG_NOTE =
+  "2.0 throws in production when `provideCopilotKit` gets no `runtimeUrl`, `licenseKey`, `agents`, or `selfManagedAgents`. Add a `runtimeUrl` here. See https://docs.copilotkit.ai/migrate/providers-2.0#angular-a-missing-runtime-throws-in-production";
+
+/**
+ * Marks `provideCopilotKit()` calls whose config has no runtime: no
+ * `runtimeUrl`, `licenseKey`, `agents`, or `selfManagedAgents`. 2.0 throws for
+ * them in production. Only an object literal the codemod can read in full is
+ * marked: a spread, a computed key, or a variable can hold the missing key.
+ */
+function angularRuntimeConfigEdits(rootNode: Node, source: string): Edit[] {
+  if (!source.includes(ANGULAR_SOURCE)) return [];
+  const localNames = new Set<string>();
+  const imports = rootNode.findAll({ rule: { kind: "import_statement" } });
+  for (const statement of imports) {
+    const sourceNode = statement.field("source");
+    if (!sourceNode || unquote(sourceNode) !== ANGULAR_SOURCE) continue;
+    const specifier = specifiersOf(statement)?.find(
+      (candidate) =>
+        candidate.name === "provideCopilotKit" &&
+        !/^type\s/.test(candidate.text),
+    );
+    if (!specifier) continue;
+    localNames.add(
+      specifier.text.split(/\s+as\s+/)[1]?.trim() ?? specifier.name,
+    );
+  }
+  if (localNames.size === 0) return [];
+
+  const calls = rootNode.findAll({
+    rule: {
+      kind: "call_expression",
+      has: { field: "function", kind: "identifier" },
+    },
+  });
+  const edits: Edit[] = [];
+  for (const call of calls) {
+    const callee = call.field("function")?.text();
+    if (callee === undefined || !localNames.has(callee)) continue;
+    if (!configHasNoRuntime(call)) continue;
+    const edit = commentBefore(call, ANGULAR_RUNTIME_CONFIG_NOTE, source);
+    if (edit) edits.push(edit);
+  }
+  return edits;
+}
+
+/**
+ * True only when the call's config is visible in full and names no runtime:
+ * no argument, or one object literal with no spread and no computed key.
+ */
+function configHasNoRuntime(call: Node) {
+  const args = call.field("arguments")?.children() ?? [];
+  const values = args.filter(
+    (child) => !["(", ")", ",", "comment"].includes(child.kind()),
+  );
+  if (values.length === 0) return true;
+  const [config] = values;
+  if (values.length > 1 || config?.kind() !== "object") return false;
+  const entries = config.children().filter((child) => child.isNamed());
+  for (const entry of entries) {
+    if (entry.kind() === "comment") continue;
+    const isComputed = entry.field("key")?.kind() === "computed_property_name";
+    if (entry.kind() === "spread_element" || isComputed) return false;
+    const name = keyName(entry);
+    if (name === undefined) return false;
+    if (ANGULAR_RUNTIME_KEYS.has(name)) return false;
+  }
+  return true;
 }
 
 export default codemod;
