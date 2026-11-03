@@ -22,7 +22,9 @@ import type { AttachmentsConfig } from "@copilotkit/shared";
 import { AGUIConnectNotImplementedError } from "@ag-ui/client";
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import {
+  CopilotKitCoreErrorCode,
   isRunCompletionAware,
+  ɵInspectorThreadOverride,
   ɵcreateChatSubmitter,
   ɵisHttpAgent,
   ɵresolveChatNotice,
@@ -315,15 +317,60 @@ export class CopilotChat extends ChatState implements ChatRunControl {
       });
     }
     // Both ambient and standalone threads share reset and connection cleanup.
+    // The Inspector's "view thread" override takes the place of the chat's
+    // own thread while it lasts, like React and Vue.
+    const baseThreadId = this.config?.threadId ?? this.resolvedThreadId;
+    const baseHasExplicitThreadId =
+      this.config?.hasExplicitThreadId ?? this.hasExplicitThreadId;
+    this.bindInspectorThreadOverride(baseThreadId);
     connectActiveThread(
-      this.config ?? {
-        threadId: this.resolvedThreadId,
-        hasExplicitThreadId: this.hasExplicitThreadId,
+      {
+        threadId: computed(
+          () => this.inspectorOverride()?.threadId ?? baseThreadId(),
+        ),
+        hasExplicitThreadId: computed(
+          () => this.inspectorOverride() !== null || baseHasExplicitThreadId(),
+        ),
       },
       this.agentStore,
       (agent, selection) => this.connectToAgent(agent, selection),
       this.threads,
     );
+  }
+
+  private readonly inspectorThreadOverride = new ɵInspectorThreadOverride({
+    agentId: this.resolvedAgentId(),
+    baseThreadId: this.config?.threadId() ?? this.resolvedThreadId(),
+  });
+  private readonly inspectorOverride = signal(
+    this.inspectorThreadOverride.getSnapshot(),
+  );
+
+  private bindInspectorThreadOverride(baseThreadId: () => string) {
+    const controller = this.inspectorThreadOverride;
+    const unsubscribe = controller.subscribe(() => {
+      this.inspectorOverride.set(controller.getSnapshot());
+    });
+    explicitEffect(
+      () => ({ agentId: this.resolvedAgentId(), baseThreadId: baseThreadId() }),
+      (input) => controller.update(input),
+    );
+    // A connect that fails through core's error channel ends the override.
+    const errors = this.copilotKit.core.subscribe({
+      onError: ({ code, context }) => {
+        const current = this.inspectorOverride();
+        if (!current) return;
+        if (code !== CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED) return;
+        if (context?.agentId !== this.resolvedAgentId()) return;
+        if (context?.threadId !== current.threadId) return;
+        controller.fail(current.requestId);
+      },
+    });
+    this.destroyRef.onDestroy(() => {
+      errors.unsubscribe();
+      unsubscribe();
+      controller.dispose();
+    });
   }
 
   private connectToAgent(agent: AbstractAgent, selection: ɵThreadSelection) {
@@ -399,9 +446,11 @@ export class CopilotChat extends ChatState implements ChatRunControl {
             }
           })
           .catch((error: unknown) => {
-            if (disposed || error instanceof AGUIConnectNotImplementedError) {
-              return;
-            }
+            if (disposed) return;
+            // A failed connect ends the Inspector's "view thread" override.
+            const requestId = this.inspectorOverride()?.requestId;
+            if (requestId) this.inspectorThreadOverride.fail(requestId);
+            if (error instanceof AGUIConnectNotImplementedError) return;
             // The coordinator logs the failure and blocks sends on it.
             throw error;
           }),

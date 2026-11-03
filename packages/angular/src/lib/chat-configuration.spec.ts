@@ -1,6 +1,8 @@
 import { inject } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import { test, expect } from "vitest";
+import { test, expect, vi } from "vitest";
+import { provideCopilotKit } from "./config";
+import { CopilotKit } from "./copilotkit";
 import {
   CopilotChatConfiguration,
   provideCopilotChatConfiguration,
@@ -74,8 +76,40 @@ test("setters no-op when the threadId is controlled", () => {
     providers: [provideCopilotChatConfiguration({ threadId: "caller-1" })],
   });
   const c = TestBed.runInInjectionContext(() => injectChatConfiguration());
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   c.setActiveThreadId("ignored");
   expect(c.threadId()).toBe("caller-1");
+  // Like React and Vue, the ignored call is reported.
+  expect(warn).toHaveBeenCalledWith(
+    expect.stringContaining("Ignoring setActiveThreadId()"),
+  );
+  warn.mockRestore();
+});
+
+test("registers the shown thread with core and follows thread changes", () => {
+  TestBed.configureTestingModule({
+    providers: [
+      provideCopilotKit({}),
+      provideCopilotChatConfiguration({ agentId: "support" }),
+    ],
+  });
+  const core = TestBed.inject(CopilotKit).core;
+  const registrations: string[] = [];
+  vi.spyOn(core, "registerOpenThread").mockImplementation(
+    ({ agentId, threadId }) => {
+      registrations.push(`open ${agentId} ${threadId}`);
+      return {
+        update: (next) => registrations.push(`update ${next}`),
+        unregister: () => registrations.push("close"),
+      };
+    },
+  );
+  const c = TestBed.runInInjectionContext(() => injectChatConfiguration());
+  const minted = c.threadId();
+
+  c.setActiveThreadId("picked");
+
+  expect(registrations).toEqual([`open support ${minted}`, "update picked"]);
 });
 
 test("drawer registration toggles drawerRegistered and unregisters", () => {

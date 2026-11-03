@@ -1,4 +1,4 @@
-import { parseNotificationFeed } from "../lib/notifications.js";
+import { parseNotificationFeed } from "../domains/announcements/notifications.js";
 /** Convert historical test copy into the current wire contract. */
 export function notificationFixture(value: {
   timestamp?: string;

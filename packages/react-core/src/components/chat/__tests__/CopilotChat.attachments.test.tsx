@@ -80,7 +80,7 @@ describe("CopilotChat attachments", () => {
         expect(onUploadFailed).toHaveBeenCalledTimes(1);
       });
 
-      const error: AttachmentUploadError = onUploadFailed.mock.calls[0][0];
+      const error: AttachmentUploadError = onUploadFailed.mock.calls[0]![0];
       expect(error.reason).toBe("invalid-type");
       expect(error.file).toBe(pdfFile);
       expect(error.message).toContain("document.pdf");
@@ -100,7 +100,7 @@ describe("CopilotChat attachments", () => {
         expect(onUploadFailed).toHaveBeenCalledTimes(1);
       });
 
-      const error: AttachmentUploadError = onUploadFailed.mock.calls[0][0];
+      const error: AttachmentUploadError = onUploadFailed.mock.calls[0]![0];
       expect(error.reason).toBe("file-too-large");
       expect(error.file).toBe(largeFile);
       expect(error.message).toContain("big.png");
@@ -122,7 +122,7 @@ describe("CopilotChat attachments", () => {
         expect(onUploadFailed).toHaveBeenCalledTimes(1);
       });
 
-      const error: AttachmentUploadError = onUploadFailed.mock.calls[0][0];
+      const error: AttachmentUploadError = onUploadFailed.mock.calls[0]![0];
       expect(error.reason).toBe("upload-failed");
       expect(error.file).toBe(file);
       expect(error.message).toBe("S3 upload failed");
@@ -147,8 +147,8 @@ describe("CopilotChat attachments", () => {
         expect(onUploadFailed).toHaveBeenCalledTimes(2);
       });
 
-      expect(onUploadFailed.mock.calls[0][0].reason).toBe("invalid-type");
-      expect(onUploadFailed.mock.calls[1][0].reason).toBe("invalid-type");
+      expect(onUploadFailed.mock.calls[0]![0].reason).toBe("invalid-type");
+      expect(onUploadFailed.mock.calls[1]![0].reason).toBe("invalid-type");
     });
 
     it("does not fire for valid files", async () => {

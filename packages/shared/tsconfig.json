@@ -1,7 +1,9 @@
 {
-  "extends": "../tsconfig/base.json",
+  "extends": "@copilotkit/typescript-config/base.json",
   "include": ["."],
   "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "target": "es2017",
     "lib": ["es2017", "dom"],
     "resolveJsonModule": true

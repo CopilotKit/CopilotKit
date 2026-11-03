@@ -9,3 +9,15 @@
 export * from "./constants";
 export * from "./content-schema";
 export * from "./follow-up";
+export {
+  McpAppHost as ɵMcpAppHost,
+  loadMcpAppsRenderer as ɵloadMcpAppsRenderer,
+  MCP_APPS_RENDERER_MISSING_MESSAGE as ɵMCP_APPS_RENDERER_MISSING_MESSAGE,
+  MCP_APPS_NO_AGENT_MESSAGE as ɵMCP_APPS_NO_AGENT_MESSAGE,
+  MCP_APP_MAX_HEIGHT as ɵMCP_APP_MAX_HEIGHT,
+} from "./host";
+export type {
+  McpAppHostState as ɵMcpAppHostState,
+  McpAppHostOptions as ɵMcpAppHostOptions,
+  McpAppsRendererImporter as ɵMcpAppsRendererImporter,
+} from "./host";

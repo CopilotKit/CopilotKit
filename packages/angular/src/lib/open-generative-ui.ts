@@ -4,7 +4,10 @@ import type {
   GenerateSandboxedUiArgs,
   OpenGenerativeUIContent,
 } from "@copilotkit/core";
-import * as z from "zod";
+import {
+  ɵGENERATE_SANDBOXED_UI_ARGS_SCHEMA,
+  ɵOPEN_GENERATIVE_UI_CONTENT_SCHEMA,
+} from "@copilotkit/core";
 
 export {
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
@@ -18,27 +21,14 @@ export type {
 
 export { GENERATE_SANDBOXED_UI_DESCRIPTION } from "@copilotkit/shared";
 
-export const OpenGenerativeUIContentSchema = z.object({
-  initialHeight: z.number().optional(),
-  generating: z.boolean().optional(),
-  css: z.string().optional(),
-  cssComplete: z.boolean().optional(),
-  html: z.array(z.string()).optional(),
-  htmlComplete: z.boolean().optional(),
-  jsFunctions: z.string().optional(),
-  jsFunctionsComplete: z.boolean().optional(),
-  jsExpressions: z.array(z.string()).optional(),
-  jsExpressionsComplete: z.boolean().optional(),
-}) satisfies z.ZodType<OpenGenerativeUIContent>;
+/** Validates Open Generative UI activity content (shared with React and Vue). */
+export const OpenGenerativeUIContentSchema = ɵOPEN_GENERATIVE_UI_CONTENT_SCHEMA;
 
-export const GenerateSandboxedUiArgsSchema = z.object({
-  initialHeight: z.number().optional(),
-  placeholderMessages: z.array(z.string()).optional(),
-  css: z.string().optional(),
-  html: z.string().optional(),
-  jsFunctions: z.string().optional(),
-  jsExpressions: z.array(z.string()).optional(),
-}) satisfies z.ZodType<GenerateSandboxedUiArgs>;
+/**
+ * Schema for the generateSandboxedUi tool call arguments (shared with React
+ * and Vue). It also describes the arguments to the model as JSON Schema.
+ */
+export const GenerateSandboxedUiArgsSchema = ɵGENERATE_SANDBOXED_UI_ARGS_SCHEMA;
 
 export type SandboxFunction<
   Args extends Record<string, unknown> = Record<string, unknown>,

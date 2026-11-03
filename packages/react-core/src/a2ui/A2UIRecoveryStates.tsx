@@ -1,192 +1,83 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import * as z from "zod";
+import React from "react";
+import { ɵA2UI_LIFECYCLE_TEXT, ɵA2UI_SKELETON_ROWS } from "@copilotkit/core";
+import type {
+  ɵA2UIActivitySnapshot,
+  ɵA2UIProgressPhase,
+  ɵA2UIRecoveryOptions,
+  ɵA2UISkeletonPart,
+} from "@copilotkit/core";
 
 /**
- * Shared pre-paint lifecycle states for the A2UI surface renderer (OSS-162).
- *
- * The A2UI middleware drives the WHOLE generative-UI lifecycle on a single
- * `a2ui-surface` activity (one stable messageId, `replace: true`), so the states
- * below swap IN PLACE and the painted surface ultimately replaces them:
- *
- *   building  → animated skeleton + "Building interface" (+ optional ~N tokens)
- *   retrying  → same skeleton; once perceptible, the sub-label becomes
- *               "Retrying generation… (N/M attempts)" (threshold-gated so a fast
- *               transient retry never flashes), with debug detail per debugExposure
- *   failed    → a clean hard-failure card (replacing the skeleton), developer
- *               detail tucked into an expander gated by debugExposure
- *   painted   → the surface renderer owns the UI (these states render nothing)
- *
- * Timing (`showAfterMs` / `showAfterAttempts`) and how much debug detail to surface
- * (`debugExposure`) are client concerns; the server can override `debugExposure`
- * by stamping it onto the activity content (it wins over the client option).
+ * Pre-paint recovery and loading options: how long before the "Retrying…"
+ * label appears, and how much retry and debug detail to show. Core's
+ * `ɵA2UIActivityController` owns the rules; these components only draw its
+ * snapshot.
  */
-export type A2UIRecoveryRendererOptions = {
-  /** Delay (ms) before the "Retrying…" sub-label becomes visible. Default 2000. */
-  showAfterMs?: number;
-  /** Show the "Retrying…" sub-label immediately once `attempt` reaches this. Default 2. */
-  showAfterAttempts?: number;
-  /** How much retry/debug detail to surface. Default "collapsed". */
-  debugExposure?: "hidden" | "collapsed" | "verbose";
-};
-
-export type DebugExposure = "hidden" | "collapsed" | "verbose";
+export type A2UIRecoveryRendererOptions = ɵA2UIRecoveryOptions;
 
 /**
- * The pre-paint lifecycle fields the middleware stamps onto the `a2ui-surface`
- * activity content (alongside `a2ui_operations` on paint). `.loose()` keeps
- * `a2ui_operations` and any future fields intact.
+ * Draws the lifecycle state of an `a2ui-surface` activity: the failure card,
+ * the host's loading component while building, or the skeleton.
  */
-export const A2UILifecycleFields = {
-  status: z.enum(["building", "retrying", "failed"]).optional(),
-  attempt: z.number().optional(),
-  maxAttempts: z.number().optional(),
-  progressTokens: z.number().optional(),
-  error: z.string().optional(),
-  errors: z.array(z.any()).optional(),
-  attempts: z.array(z.any()).optional(),
-  // Server-side knob (stamped by the A2UI middleware): "hidden" | "collapsed" | "verbose".
-  debugExposure: z.enum(["hidden", "collapsed", "verbose"]).optional(),
-};
-
-/** Server-stamped debugExposure wins; else the client option; else "collapsed". */
-export function resolveDebugExposure(
-  content: any,
-  optionDebugExposure: DebugExposure,
-): DebugExposure {
-  return content?.debugExposure ?? optionDebugExposure;
-}
-
-// --- Lifecycle states ---------------------------------------------------------
-
-/** building: the generic skeleton + optional live token count. */
-export function A2UIBuildingState({ content }: { content: any }) {
-  const tokens =
-    typeof content?.progressTokens === "number"
-      ? content.progressTokens
-      : undefined;
-  return <A2UIGeneratingSkeleton label="Building interface" tokens={tokens} />;
-}
-
-/**
- * retrying: stays the generic skeleton through fast/transient retries; only once
- * the retry is perceptible (after `showAfterMs`, or once `attempt` crosses
- * `showAfterAttempts`) does the sub-label reveal "Retrying generation… (N/M)".
- */
-export function A2UIRetryingState({
-  content,
-  showAfterMs,
-  showAfterAttempts,
-  debugExposure,
+export function A2UILifecycleState({
+  snapshot,
+  loadingComponent: LoadingComponent,
 }: {
-  content: any;
-  showAfterMs: number;
-  showAfterAttempts: number;
-  debugExposure: DebugExposure;
+  snapshot: ɵA2UIActivitySnapshot;
+  loadingComponent?: React.ComponentType;
 }) {
-  const attempt =
-    typeof content?.attempt === "number" ? content.attempt : undefined;
-  const maxAttempts =
-    typeof content?.maxAttempts === "number" ? content.maxAttempts : undefined;
-  const immediate = attempt !== undefined && attempt >= showAfterAttempts;
-  const [revealed, setRevealed] = useState(immediate);
+  const { lifecycle } = snapshot;
+  const details = snapshot.showDebugDetails ? (
+    <A2UIDebugDetails
+      label={snapshot.debugDetailsLabel}
+      open={snapshot.debugDetailsOpen}
+      payload={snapshot.debugPayload}
+    />
+  ) : null;
 
-  useEffect(() => {
-    if (immediate) {
-      setRevealed(true);
-      return;
-    }
-    const timer = setTimeout(() => setRevealed(true), showAfterMs);
-    return () => clearTimeout(timer);
-  }, [immediate, showAfterMs]);
-
-  const tokens =
-    typeof content?.progressTokens === "number"
-      ? content.progressTokens
-      : undefined;
-
-  // Not yet perceptible → indistinguishable from normal building.
-  if (!revealed) {
+  if (lifecycle.status === "failed") {
     return (
-      <A2UIGeneratingSkeleton label="Building interface" tokens={tokens} />
+      <div className="cpk-a2ui-recovery-failure">
+        <div className="cpk-a2ui-recovery-failure-title">
+          {ɵA2UI_LIFECYCLE_TEXT.failureTitle}
+        </div>
+        <div className="cpk-a2ui-recovery-failure-description">
+          {ɵA2UI_LIFECYCLE_TEXT.failureDescription}
+        </div>
+        {details}
+      </div>
     );
   }
-
-  const label =
-    attempt !== undefined && maxAttempts !== undefined
-      ? `Retrying generation… (${attempt}/${maxAttempts} attempts)`
-      : "Retrying generation…";
-  const errors = Array.isArray(content?.errors) ? content.errors : [];
-
+  if (lifecycle.status === "building" && LoadingComponent) {
+    return <LoadingComponent />;
+  }
   return (
-    <A2UIGeneratingSkeleton label={label} tokens={tokens}>
-      {debugExposure !== "hidden" && errors.length > 0 && (
-        <A2UIDebugDetails
-          label="validation issues"
-          open={debugExposure === "verbose"}
-          payload={{ attempt: content?.attempt, errors }}
-        />
-      )}
+    <A2UIGeneratingSkeleton
+      label={snapshot.label}
+      tokens={lifecycle.progressTokens}
+      phase={snapshot.progressPhase}
+    >
+      {details}
     </A2UIGeneratingSkeleton>
   );
 }
 
-/** failed: a clean hard-failure card that replaces the skeleton in place. */
-export function A2UIRecoveryFailure({
-  content,
-  debugExposure,
-}: {
-  content: any;
-  debugExposure: DebugExposure;
-}) {
-  return (
-    <div className="cpk-a2ui-recovery-failure">
-      <div className="cpk-a2ui-recovery-failure-title">
-        Couldn't generate the UI
-      </div>
-      <div className="cpk-a2ui-recovery-failure-description">
-        Something went wrong rendering this. You can keep chatting and try
-        again.
-      </div>
-      {debugExposure !== "hidden" && (
-        <A2UIDebugDetails
-          label="developer details"
-          open={debugExposure === "verbose"}
-          payload={{ error: content?.error, attempts: content?.attempts }}
-        />
-      )}
-    </div>
-  );
-}
-
-// --- Skeleton + primitives (ported from the retired render_a2ui renderer) -----
-
 /**
- * Animated wireframe skeleton with a label, an optional live token count, and an
- * optional debug-detail slot below it. Pure CSS animation (no data dependency).
- * The `tokens` count drives a progressive reveal of skeleton rows.
+ * Animated wireframe skeleton with a label, an optional live token count, and
+ * an optional debug-detail slot below it. `phase` reveals the rows.
  */
 export function A2UIGeneratingSkeleton({
   label,
   tokens,
+  phase,
   children,
 }: {
   label: string;
   tokens?: number;
+  phase: ɵA2UIProgressPhase;
   children?: React.ReactNode;
 }) {
-  // No count yet → show the fuller skeleton rather than an empty box.
-  const phase =
-    tokens == null
-      ? 3
-      : tokens < 50
-        ? 0
-        : tokens < 200
-          ? 1
-          : tokens < 400
-            ? 2
-            : 3;
-
   return (
     <div style={{ margin: "12px 0", maxWidth: 320 }}>
       <div
@@ -200,7 +91,6 @@ export function A2UIGeneratingSkeleton({
           padding: "16px 18px 14px",
         }}
       >
-        {/* Top bar */}
         <div
           style={{
             display: "flex",
@@ -214,57 +104,37 @@ export function A2UIGeneratingSkeleton({
             <Dot />
             <Dot />
           </div>
-          <Bar
-            w={64}
-            h={6}
-            bg="#e4e4e7"
-            opacity={phase >= 1 ? 1 : 0.4}
-            transition="opacity 0.5s"
+          <div
+            style={{
+              width: 64,
+              height: 6,
+              borderRadius: 9999,
+              backgroundColor: "#e4e4e7",
+              opacity: phase >= 1 ? 1 : 0.4,
+              transition: "opacity 0.5s",
+            }}
           />
         </div>
 
-        {/* Skeleton lines */}
         <div style={{ display: "grid", gap: 7 }}>
-          <Row show={phase >= 0}>
-            <Bar w={36} h={7} bg="rgba(147,197,253,0.7)" anim={0} />
-            <Bar w={80} h={7} bg="rgba(219,234,254,0.8)" anim={0.2} />
-          </Row>
-          <Row show={phase >= 0} delay={0.1}>
-            <Spacer />
-            <Dot />
-            <Bar w={100} h={7} bg="rgba(24,24,27,0.2)" anim={0.3} />
-          </Row>
-          <Row show={phase >= 1} delay={0.15}>
-            <Spacer />
-            <Bar w={48} h={7} bg="rgba(24,24,27,0.15)" anim={0.1} />
-            <Bar w={40} h={7} bg="rgba(153,246,228,0.6)" anim={0.5} />
-            <Bar w={56} h={7} bg="rgba(147,197,253,0.6)" anim={0.3} />
-          </Row>
-          <Row show={phase >= 1} delay={0.2}>
-            <Spacer />
-            <Dot />
-            <Bar w={60} h={7} bg="rgba(24,24,27,0.15)" anim={0.4} />
-          </Row>
-          <Row show={phase >= 2} delay={0.25}>
-            <Bar w={40} h={7} bg="rgba(153,246,228,0.5)" anim={0.2} />
-            <Dot />
-            <Bar w={48} h={7} bg="rgba(24,24,27,0.15)" anim={0.6} />
-            <Bar w={64} h={7} bg="rgba(147,197,253,0.5)" anim={0.1} />
-          </Row>
-          <Row show={phase >= 2} delay={0.3}>
-            <Bar w={36} h={7} bg="rgba(147,197,253,0.6)" anim={0.5} />
-            <Bar w={36} h={7} bg="rgba(24,24,27,0.12)" anim={0.7} />
-          </Row>
-          <Row show={phase >= 3} delay={0.35}>
-            <Dot />
-            <Bar w={44} h={7} bg="rgba(24,24,27,0.18)" anim={0.3} />
-            <Dot />
-            <Bar w={56} h={7} bg="rgba(153,246,228,0.5)" anim={0.8} />
-            <Bar w={48} h={7} bg="rgba(147,197,253,0.5)" anim={0.4} />
-          </Row>
+          {ɵA2UI_SKELETON_ROWS.map((row, rowIndex) => (
+            <div
+              key={rowIndex}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                opacity: phase >= row.phase ? 1 : 0,
+                transition: `opacity 0.4s ${String(row.delay)}s`,
+              }}
+            >
+              {row.parts.map((part, partIndex) => (
+                <SkeletonPart key={partIndex} part={part} />
+              ))}
+            </div>
+          ))}
         </div>
 
-        {/* Shimmer */}
         <div
           style={{
             pointerEvents: "none",
@@ -278,7 +148,6 @@ export function A2UIGeneratingSkeleton({
         />
       </div>
 
-      {/* Label */}
       <div
         style={{
           display: "flex",
@@ -329,13 +198,13 @@ export function A2UIDebugDetails({
 }: {
   label: string;
   open: boolean;
-  payload: unknown;
+  payload: string;
 }) {
   return (
     <details open={open} className="cpk-a2ui-debug-details">
       <summary className="cpk-a2ui-debug-details-summary">{label}</summary>
       <pre className="cpk-a2ui-debug-details-payload" style={{ fontSize: 11 }}>
-        {JSON.stringify(payload, null, 2)}
+        {payload}
       </pre>
     </details>
   );
@@ -355,62 +224,18 @@ function Dot() {
   );
 }
 
-function Spacer() {
-  return <div style={{ width: 12 }} />;
-}
-
-function Bar({
-  w,
-  h,
-  bg,
-  anim,
-  opacity,
-  transition,
-}: {
-  w: number;
-  h: number;
-  bg: string;
-  anim?: number;
-  opacity?: number;
-  transition?: string;
-}) {
+function SkeletonPart({ part }: { part: ɵA2UISkeletonPart }) {
+  if (part === "dot") return <Dot />;
+  if (part === "spacer") return <div style={{ width: 12 }} />;
   return (
     <div
       style={{
-        width: w,
-        height: h,
+        width: part.w,
+        height: 7,
         borderRadius: 9999,
-        backgroundColor: bg,
-        ...(anim !== undefined
-          ? { animation: `cpk-a2ui-fade 2.4s ease-in-out ${anim}s infinite` }
-          : {}),
-        ...(opacity !== undefined ? { opacity } : {}),
-        ...(transition ? { transition } : {}),
+        backgroundColor: part.bg,
+        animation: `cpk-a2ui-fade 2.4s ease-in-out ${String(part.anim)}s infinite`,
       }}
     />
-  );
-}
-
-function Row({
-  children,
-  show,
-  delay = 0,
-}: {
-  children: React.ReactNode;
-  show: boolean;
-  delay?: number;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        opacity: show ? 1 : 0,
-        transition: `opacity 0.4s ${delay}s`,
-      }}
-    >
-      {children}
-    </div>
   );
 }

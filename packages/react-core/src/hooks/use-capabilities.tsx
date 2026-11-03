@@ -1,4 +1,5 @@
 import type { AgentCapabilities } from "@ag-ui/core";
+import { ɵgetAgentCapabilities } from "@copilotkit/core";
 import { useAgent } from "./use-agent";
 
 /**
@@ -18,10 +19,5 @@ export function useCapabilities(
   agentId?: string,
 ): AgentCapabilities | undefined {
   const { agent } = useAgent({ agentId });
-
-  if (agent && "capabilities" in agent) {
-    return (agent as { capabilities?: AgentCapabilities }).capabilities;
-  }
-
-  return undefined;
+  return ɵgetAgentCapabilities(agent);
 }

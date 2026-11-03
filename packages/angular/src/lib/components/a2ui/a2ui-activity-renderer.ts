@@ -1,62 +1,58 @@
-import {
-  Component,
-  NgZone,
-  PLATFORM_ID,
-  computed,
-  inject,
-  input,
-  signal,
-} from "@angular/core";
-import { isPlatformBrowser } from "@angular/common";
+import { Component, DestroyRef, inject, input, signal } from "@angular/core";
 import type { AbstractAgent, ActivityMessage } from "@ag-ui/client";
+import { ɵA2UIActivityController } from "@copilotkit/core";
+import type { ɵA2UIActivitySnapshot } from "@copilotkit/core";
 import type { ActivityRenderer } from "../../activity-renderer";
 import { injectCopilotKitConfig } from "../../config";
 import { explicitEffect } from "../../explicit-effect";
-import {
-  getA2UIOperations,
-  surfaceHasRenderableContent,
-} from "./a2ui-surface-host";
-import { CopilotA2UIRecovery } from "./a2ui-recovery";
+import { CopilotA2UILifecycleView } from "./a2ui-lifecycle-view";
+import { injectA2UIControllerScheduling } from "./a2ui-scheduling";
 import { CopilotA2UISurfaceOutlet } from "./surface-outlet";
 
+/**
+ * Renders an `a2ui-surface` activity: the lifecycle state before paint, then
+ * the surface, kept hidden under the loader until it has painted. Core's
+ * `ɵA2UIActivityController` decides which.
+ */
 @Component({
   selector: "copilot-a2ui-activity-renderer",
-  imports: [CopilotA2UIRecovery, CopilotA2UISurfaceOutlet],
+  imports: [CopilotA2UILifecycleView, CopilotA2UISurfaceOutlet],
   host: {
     class: "copilot-a2ui-surface-renderer-layout",
   },
   template: `
-    @if (hasOperations()) {
+    @let state = snapshot();
+    @if (state.view === "lifecycle") {
+      <copilot-a2ui-lifecycle-view
+        [snapshot]="state"
+        [loadingComponent]="config.a2ui?.loadingComponent"
+      />
+    } @else {
       <div class="handoff">
         <div
           class="surface-container"
           data-testid="a2ui-activity-surface-host"
-          [class.surface-pending]="!surfaceReady()"
-          [attr.aria-hidden]="!surfaceReady()"
+          [class.surface-pending]="state.view === 'handoff'"
+          [attr.aria-hidden]="state.view === 'handoff'"
         >
           <div
             class="copilot-a2ui-surface-scroll"
             data-testid="a2ui-activity-surface-scroll"
           >
             <copilot-a2ui-surface-outlet
-              [operations]="operations()"
+              [operations]="state.operations"
               [agent]="agent()"
-              (rendered)="handleRendered()"
+              (rendered)="controller.markRendered()"
             />
           </div>
         </div>
-        @if (!surfaceReady()) {
-          <copilot-a2ui-recovery
-            [content]="loaderContent()"
-            [options]="config.a2ui?.recovery"
+        @if (state.view === "handoff") {
+          <copilot-a2ui-lifecycle-view
+            [snapshot]="state"
+            [loadingComponent]="config.a2ui?.loadingComponent"
           />
         }
       </div>
-    } @else {
-      <copilot-a2ui-recovery
-        [content]="content()"
-        [options]="config.a2ui?.recovery"
-      />
     }
   `,
   styles: `
@@ -92,51 +88,24 @@ export class CopilotA2UIActivityRenderer implements ActivityRenderer<unknown> {
   readonly agent = input<AbstractAgent | undefined>();
 
   protected readonly config = injectCopilotKitConfig();
-  private readonly platformId = inject(PLATFORM_ID);
-  private readonly zone = inject(NgZone);
-  protected readonly operations = computed(() =>
-    getA2UIOperations(this.content()),
+  protected readonly controller = new ɵA2UIActivityController({
+    ...injectA2UIControllerScheduling(),
+    recovery: this.config.a2ui?.recovery,
+  });
+  protected readonly snapshot = signal<ɵA2UIActivitySnapshot>(
+    this.controller.getSnapshot(),
   );
-  protected readonly hasOperations = computed(
-    () => this.operations().length > 0,
-  );
-  protected readonly surfaceReady = signal(false);
-  protected readonly loaderContent = signal<unknown>({ status: "building" });
 
   constructor() {
-    explicitEffect(this.content, (content) => {
-      if (getA2UIOperations(content).length === 0) {
-        this.loaderContent.set(content);
-      }
+    const unsubscribe = this.controller.subscribe(() =>
+      this.snapshot.set(this.controller.getSnapshot()),
+    );
+    inject(DestroyRef).onDestroy(() => {
+      unsubscribe();
+      this.controller.dispose();
     });
-    explicitEffect(this.hasOperations, (hasOperations, onCleanup) => {
-      if (!hasOperations) {
-        this.surfaceReady.set(false);
-        return;
-      }
-      this.surfaceReady.set(false);
-      if (!isPlatformBrowser(this.platformId)) return;
-      const timeout = this.zone.runOutsideAngular(() =>
-        globalThis.setTimeout(
-          () => this.zone.run(() => this.surfaceReady.set(true)),
-          8000,
-        ),
-      );
-      onCleanup(() => globalThis.clearTimeout(timeout));
-    });
-  }
-
-  protected handleRendered(): void {
-    if (this.surfaceReady()) return;
-    if (!surfaceHasRenderableContent(this.operations())) return;
-    const reveal = () => this.zone.run(() => this.surfaceReady.set(true));
-    if (
-      isPlatformBrowser(this.platformId) &&
-      typeof globalThis.requestAnimationFrame === "function"
-    ) {
-      globalThis.requestAnimationFrame(reveal);
-    } else {
-      reveal();
-    }
+    explicitEffect(this.content, (content) =>
+      this.controller.setContent(content),
+    );
   }
 }

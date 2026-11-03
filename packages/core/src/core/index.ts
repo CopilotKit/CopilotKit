@@ -10,9 +10,60 @@ export * from "./suggestion-engine";
 export * from "./run-handler";
 export * from "./state-manager";
 export * from "./webmcp";
+export {
+  ɵAgentResolver,
+  ɵgetAgentResolver,
+  ɵvalidateAgentBinding,
+  ɵresolveAgentId,
+  ɵresolveAgentThreadId,
+  ɵsnapshotAgentState,
+  ɵagentUpdateHandlers,
+  ɵsubscribeToAgentUpdates,
+  ɵALL_AGENT_UPDATES,
+} from "./agent-resolver";
+export { ɵserializeContextValue, ɵgetAgentCapabilities } from "./agent-helpers";
+export type { ɵJsonSerializable, ɵAgentContextInput } from "./agent-helpers";
+export {
+  ɵrecordAnnotation,
+  ɵbuildLearnFromUserActionPayload,
+} from "./record-annotation";
+export type {
+  ɵRecordAnnotationArgs,
+  ɵRecordAnnotationResult,
+  ɵLearnFromUserActionFields,
+} from "./record-annotation";
+export type {
+  ɵAgentBindingInput,
+  ɵAgentResolveInput,
+  ɵAgentUpdateFlag,
+} from "./agent-resolver";
+export { ɵRendererRegistry } from "./renderer-registry";
+export type { ɵRendererKind, ɵRendererRegistryInit } from "./renderer-registry";
 export type * from "./generative-ui-debug";
 export {
   ɵclearAgentThreadCursors,
   ɵresetAgentThreadBaseline,
 } from "./thread-baseline";
 export type { ɵThreadBaselineResetOptions } from "./thread-baseline";
+export {
+  ɵCOPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
+  ɵCOPILOT_CLOUD_RUNTIME_URL,
+  ɵSTABLE_ARRAY_WARNINGS,
+  ɵpublicKeyHeaderDefaults,
+  ɵreportProviderConfigDiagnostics,
+  ɵresolveProviderConfig,
+  ɵtoolRendererShapeChanged,
+} from "./provider-config";
+export type {
+  ɵA2UIBaseOptions,
+  ɵCopilotKitLearningOptions,
+  ɵCopilotKitProviderBaseOptions,
+  ɵProviderConfigDiagnostic,
+  ɵProviderConfigDiagnosticCode,
+  ɵProviderConfigInput,
+  ɵReportProviderConfigDiagnosticsOptions,
+  ɵResolvedProviderConfig,
+  ɵToolRendererShape,
+} from "./provider-config";
+export { ɵRuntimeInfoStore } from "./runtime-info";
+export type { ɵRuntimeInfo } from "./runtime-info";

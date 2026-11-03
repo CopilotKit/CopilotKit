@@ -28,25 +28,15 @@ vi.mock("../../lib/react-core", () => {
     subscribe() {
       return { unsubscribe: () => {} };
     }
-    get a2uiEnabled() {
-      return false;
+    get ɵruntimeInfo() {
+      return { status: "disconnected" };
     }
-    get openGenerativeUIEnabled() {
-      return false;
+    ɵsubscribeToRuntimeInfo() {
+      return () => {};
     }
-    get licenseStatus() {
-      return undefined;
-    }
-    get a2uiAgents() {
-      return undefined;
-    }
-    setDefaultThrottleMs() {}
-    setRuntimeUrl() {}
-    setRuntimeTransport() {}
-    setHeaders() {}
-    setCredentials() {}
-    setProperties() {}
-    setMessageFilter() {}
+    ɵupdateConfig() {}
+    setErrorHandler() {}
+    dispose() {}
     setTools() {}
     setRenderToolCalls() {}
     setRenderActivityMessages() {}

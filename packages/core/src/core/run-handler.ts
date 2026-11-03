@@ -327,6 +327,12 @@ export class RunHandler {
   /** Prevent reconnects from starting an interaction already executing locally. */
   private _executingToolCalls = new WeakMap<AbstractAgent, Set<string>>();
 
+  /**
+   * Ids of the tool calls whose handler runs now, across every agent. Each
+   * change makes a new set, so callers can compare snapshots by identity.
+   */
+  private _executingToolCallIds: ReadonlySet<string> = new Set();
+
   private _connectionGenerations = new WeakMap<AbstractAgent, object>();
   private _runGenerations = new WeakMap<AbstractAgent, object>();
 
@@ -1298,6 +1304,7 @@ export class RunHandler {
               }
             } finally {
               executing.delete(executionKey);
+              this.clearToolCallExecuting(toolCall.id);
               if (interactionController) {
                 signal?.removeEventListener("abort", abortInteraction);
                 interactions.controllers.delete(interactionController);
@@ -1424,6 +1431,43 @@ export class RunHandler {
   }
 
   /** Identify transport placeholders that must not count as completed answers. */
+  /**
+   * Ids of the tool calls whose handler runs now. An id joins the set right
+   * after the handler is called (after `onToolExecutionStart`) and leaves it
+   * once the handler's result is in `agent.messages` (or the result was
+   * discarded). So a renderer that sees a call as executing always finds its
+   * handler waiting, and never sees a finished call without its result.
+   */
+  get executingToolCallIds() {
+    return this._executingToolCallIds;
+  }
+
+  private markToolCallExecuting(toolCallId: string) {
+    if (this._executingToolCallIds.has(toolCallId)) return;
+    this.replaceExecutingToolCallIds(
+      new Set([...this._executingToolCallIds, toolCallId]),
+    );
+  }
+
+  private clearToolCallExecuting(toolCallId: string) {
+    if (!this._executingToolCallIds.has(toolCallId)) return;
+    const next = new Set(this._executingToolCallIds);
+    next.delete(toolCallId);
+    this.replaceExecutingToolCallIds(next);
+  }
+
+  private replaceExecutingToolCallIds(next: ReadonlySet<string>) {
+    this._executingToolCallIds = next;
+    void this._internal.notifySubscribers(
+      (subscriber) =>
+        subscriber.onExecutingToolCallsChanged?.({
+          copilotkit: this.core,
+          executingToolCallIds: next,
+        }),
+      "Subscriber onExecutingToolCallsChanged error:",
+    );
+  }
+
   private isFrontendPlaceholderResult(message: Message): boolean {
     return (
       message.role === "tool" && isForwardedToClientPlaceholder(message.content)
@@ -1499,12 +1543,16 @@ export class RunHandler {
 
     if (!errorMessage) {
       try {
-        const result = await tool.handler!(parsedArgs as any, {
+        const pending = tool.handler!(parsedArgs as any, {
           toolCall: toolCall as any,
           agent,
           signal,
           ...(isReplay ? { isReplay } : {}),
         });
+        // Mark once the handler is called, so a renderer that sees
+        // "executing" (and offers a HITL `respond`) finds the handler waiting.
+        this.markToolCallExecuting(toolCall.id);
+        const result = await pending;
         ({ content: toolCallResult, text: toolCallText } =
           toToolResultContent(result));
       } catch (error) {
@@ -1706,7 +1754,7 @@ export class RunHandler {
 
       if (!errorMessage) {
         try {
-          const result = await wildcardTool.handler(wildcardArgs as any, {
+          const pending = wildcardTool.handler(wildcardArgs as any, {
             toolCall,
             agent,
             // Use the same execution signal as named tools, including the
@@ -1714,6 +1762,8 @@ export class RunHandler {
             signal,
             ...(isReplay ? { isReplay } : {}),
           });
+          this.markToolCallExecuting(toolCall.id);
+          const result = await pending;
           ({ content: toolCallResult, text: toolCallText } =
             toToolResultContent(result));
         } catch (error) {
@@ -1858,34 +1908,38 @@ export class RunHandler {
       isArgumentError: false,
     };
 
-    if (tool.handler) {
-      handlerResult = await this.executeToolHandler({
-        tool,
-        toolCall: assistantToolCall,
-        agent,
-        agentId: resolvedAgentId,
-        handlerArgs: parameters,
-        toolType: "runTool",
-      });
-    }
+    try {
+      if (tool.handler) {
+        handlerResult = await this.executeToolHandler({
+          tool,
+          toolCall: assistantToolCall,
+          agent,
+          agentId: resolvedAgentId,
+          handlerArgs: parameters,
+          toolType: "runTool",
+        });
+      }
 
-    // 6. Create and insert tool result message
-    const toolResultMessage: Message = {
-      id: randomUUID(),
-      role: "tool",
-      toolCallId,
-      content: handlerResult.content,
-      ...(handlerResult.error ? { error: handlerResult.error } : {}),
-    };
+      // 6. Create and insert tool result message
+      const toolResultMessage: Message = {
+        id: randomUUID(),
+        role: "tool",
+        toolCallId,
+        content: handlerResult.content,
+        ...(handlerResult.error ? { error: handlerResult.error } : {}),
+      };
 
-    const assistantIndex = agent.messages.findIndex(
-      (m) => m.id === assistantMessage.id,
-    );
-    if (assistantIndex !== -1) {
-      agent.messages.splice(assistantIndex + 1, 0, toolResultMessage);
-    } else {
-      // Fallback: push to end if assistant message was removed
-      agent.messages.push(toolResultMessage);
+      const assistantIndex = agent.messages.findIndex(
+        (m) => m.id === assistantMessage.id,
+      );
+      if (assistantIndex !== -1) {
+        agent.messages.splice(assistantIndex + 1, 0, toolResultMessage);
+      } else {
+        // Fallback: push to end if assistant message was removed
+        agent.messages.push(toolResultMessage);
+      }
+    } finally {
+      this.clearToolCallExecuting(toolCallId);
     }
 
     // 7. Handle followUp (only if no error)

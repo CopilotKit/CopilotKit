@@ -1,13 +1,12 @@
 import { useCopilotKit, useDefaultAgentId } from "../context";
-import { useMemo, useEffect, useReducer, useRef, useState } from "react";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import type { AbstractAgent } from "@ag-ui/client";
+import { useMemo, useEffect, useReducer, useSyncExternalStore } from "react";
 import {
-  ProxiedCopilotRuntimeAgent,
-  CopilotKitCoreRuntimeConnectionStatus,
-  ɵisHttpAgent,
+  ɵgetAgentResolver,
+  ɵresolveAgentId,
+  ɵresolveAgentThreadId,
+  ɵsubscribeToAgentUpdates,
+  ɵvalidateAgentBinding,
 } from "@copilotkit/core";
-import type { SubscribeToAgentSubscriber } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 
 export enum UseAgentUpdate {
@@ -146,71 +145,30 @@ export function useAgent({
   updates,
   throttleMs,
 }: UseAgentProps = {}) {
-  // `threadId` and `runtimeAgentId` are all-or-nothing. UseAgentProps already
-  // rejects a lone one at compile time; these are the runtime backstop for
-  // callers TypeScript doesn't cover — plain JS, `as any`, and props widened to
-  // `string | undefined` at a call boundary. Fail loud rather than silently
-  // mutating shared state or registering an agent that buys nothing.
-  //
-  // A threadId is written onto a single agent instance. An agent resolved by
-  // `agentId` alone is a shared singleton, so a per-hook threadId there would
-  // let two useAgent calls with the same agentId clobber each other's thread.
-  // runtimeAgentId is what lets the hook register a *private* proxied agent
-  // (below) and scope the threadId to that instead.
-  if (threadId != null && runtimeAgentId == null) {
-    throw new Error(
-      `useAgent: \`threadId\` requires \`runtimeAgentId\`. A threadId is written onto a ` +
-        `single agent, but an agent resolved by agentId alone is shared, so scoping a ` +
-        `thread to it would clobber other useAgent callers. Pass a distinct local \`agentId\` ` +
-        `and the runtime agent to route to, e.g. ` +
-        `useAgent({ agentId: "chat-1", runtimeAgentId: "${agentId ?? "default"}", threadId }).`,
-    );
-  }
+  // Runtime backstop for the all-or-nothing rule UseAgentProps enforces at
+  // compile time (plain JS, `as any`, props widened at a call boundary).
+  ɵvalidateAgentBinding({ agentId, threadId, runtimeAgentId });
 
-  // The converse: registering a private proxied agent is only worth doing in
-  // order to scope a thread to it. Without a threadId the proxy would source its
-  // thread from the chat configuration — exactly what binding to the shared
-  // agent by `agentId` already does, minus a registration and a local id the
-  // caller has to keep unique. Reject it rather than let it look meaningful.
-  if (runtimeAgentId != null && threadId == null) {
-    throw new Error(
-      `useAgent: \`runtimeAgentId\` requires \`threadId\`. A proxied agent exists to scope a ` +
-        `thread to a private instance; without a threadId it behaves like the shared agent ` +
-        `while adding a registration and a local agentId to keep unique. Either pass the ` +
-        `thread, e.g. useAgent({ agentId: "${agentId ?? "chat-1"}", runtimeAgentId: "${runtimeAgentId}", threadId }), ` +
-        `or bind to the agent directly with useAgent({ agentId: "${runtimeAgentId}" }).`,
-    );
-  }
-
-  // A proxied agent needs a local id of its own. Without an explicit `agentId`
-  // the resolution below falls back to the chat configuration's agentId and then
-  // DEFAULT_AGENT_ID — ids that already belong to real agents, so registering a
-  // proxy over one either throws `already registered` or silently shadows it,
-  // depending on whether runtime discovery has landed. Demand the caller name it.
-  if (runtimeAgentId != null && agentId == null) {
-    throw new Error(
-      `useAgent: \`runtimeAgentId\` requires an explicit \`agentId\`. The proxied agent is ` +
-        `registered under \`agentId\`, and the usual fallbacks (chat configuration, then ` +
-        `"${DEFAULT_AGENT_ID}") name agents that already exist — registering over one throws or ` +
-        `shadows it. Pick a local id for this hook, e.g. ` +
-        `useAgent({ agentId: "chat-1", runtimeAgentId: "${runtimeAgentId}", threadId }).`,
-    );
-  }
-
-  // Resolve agentId mirroring CopilotChat's precedence: an explicit prop wins,
-  // then the surrounding chat configuration's agentId, then the global default.
-  // Without the chat-config fallback, a useAgent() consumer rendered inside a
-  // <CopilotChat agentId="..."> subtree resolves to 'default' and throws once
-  // the runtime has synced only a non-default agent (#5533).
+  // Explicit prop, then the surrounding chat configuration (#5533), then the
+  // provider default, then DEFAULT_AGENT_ID.
   const chatConfig = useCopilotChatConfiguration();
   const providerAgentId = useDefaultAgentId();
-  const resolvedAgentId =
-    agentId ?? chatConfig?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
+  const resolvedAgentId = ɵresolveAgentId({
+    agentId,
+    chatAgentId: chatConfig?.agentId,
+    providerAgentId,
+  });
 
   const { copilotkit } = useCopilotKit();
+  const resolver = ɵgetAgentResolver(copilotkit);
+  const revision = useSyncExternalStore(
+    resolver.subscribe,
+    resolver.getSnapshot,
+    resolver.getSnapshot,
+  );
   // Read the provider-level default so it appears in the effect's dep array.
-  // subscribeToAgentWithOptions reads it from the core instance, but React needs the dep
-  // to know when to re-subscribe.
+  // subscribeToAgentWithOptions reads it from the core instance, but React
+  // needs the dep to know when to re-subscribe.
   const providerThrottleMs = copilotkit.defaultThrottleMs;
 
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
@@ -220,246 +178,65 @@ export function useAgent({
     [JSON.stringify(updates)],
   );
 
-  // Cache provisional agents to avoid creating new references on every render
-  // while the runtime is still connecting. A new reference would cascade into
-  // CopilotChat's connectAgent effect, causing unnecessary HTTP calls.
-  const provisionalAgentCache = useRef<Map<string, ProxiedCopilotRuntimeAgent>>(
-    new Map(),
-  );
-
-  // When runtimeAgentId is set, this hook owns a proxied agent registered under
-  // `resolvedAgentId` that routes to `runtimeAgentId`. Register/unregister as a
-  // single balanced effect (StrictMode-safe: the cleanup unregisters before the
-  // remount re-registers). Exposing the registered agent via state re-renders
-  // the hook so it swaps from the provisional stand-in to the real proxy
-  // deterministically, without depending on the provider's agents-changed
-  // subscription.
-  const [registeredProxyAgent, setRegisteredProxyAgent] =
-    useState<AbstractAgent | null>(null);
+  // Thread-scoped path: register a private proxied agent for this hook as one
+  // balanced effect (StrictMode-safe: the cleanup unregisters before the
+  // remount re-registers). The resolver notifies, so the hook swaps from the
+  // provisional stand-in to the real proxy.
   useEffect(() => {
-    if (runtimeAgentId == null) {
-      setRegisteredProxyAgent(null);
-      return;
-    }
-    const { agent: proxy, unregister } = copilotkit.registerProxiedAgent({
-      agentId: resolvedAgentId,
-      runtimeAgentId,
-    });
-    provisionalAgentCache.current.delete(resolvedAgentId);
-    setRegisteredProxyAgent(proxy);
-    return () => {
-      unregister();
-      setRegisteredProxyAgent(null);
-    };
-  }, [copilotkit, resolvedAgentId, runtimeAgentId]);
+    if (runtimeAgentId == null) return;
+    return resolver.bindProxy({ agentId: resolvedAgentId, runtimeAgentId });
+  }, [resolver, resolvedAgentId, runtimeAgentId]);
 
-  const { agent, isReady } = useMemo<{
-    agent: AbstractAgent;
-    isReady: boolean;
-  }>(() => {
-    // Proxied-agent path: this hook registers its own agent (routing to
-    // runtimeAgentId), so bypass the shared-singleton lookup entirely. Use the
-    // registered instance once the effect has run; until then return a
-    // provisional proxy so `agent` is never null and its reference stays stable
-    // across the pre-registration renders.
-    if (runtimeAgentId != null) {
-      if (registeredProxyAgent) {
-        provisionalAgentCache.current.delete(resolvedAgentId);
-        return { agent: registeredProxyAgent, isReady: true };
-      }
-      const cached = provisionalAgentCache.current.get(resolvedAgentId);
-      if (cached) {
-        copilotkit.applyHeadersToAgent(cached);
-        return { agent: cached, isReady: false };
-      }
-      const provisional = new ProxiedCopilotRuntimeAgent({
-        runtimeUrl: copilotkit.runtimeUrl,
+  // Keyed on the header generation, not header values: a builder returning a
+  // new token on every resolution must not re-resolve (#1937).
+  const headersGeneration = copilotkit.ɵheadersGeneration;
+  const { agent, isReady } = useMemo(
+    () =>
+      resolver.resolve({
         agentId: resolvedAgentId,
         runtimeAgentId,
-        transport: copilotkit.runtimeTransport,
-        runtimeMode: "pending",
-      });
-      copilotkit.applyHeadersToAgent(provisional);
-      provisionalAgentCache.current.set(resolvedAgentId, provisional);
-      return { agent: provisional, isReady: false };
-    }
-
-    const existing = copilotkit.getAgent(resolvedAgentId);
-    if (existing) {
-      // Real agent found — clear any cached provisional for this ID
-      provisionalAgentCache.current.delete(resolvedAgentId);
-      return { agent: existing, isReady: true };
-    }
-
-    const isRuntimeConfigured = copilotkit.runtimeUrl !== undefined;
-    const status = copilotkit.runtimeConnectionStatus;
-
-    // While runtime is not yet synced, return a provisional runtime agent
-    if (
-      isRuntimeConfigured &&
-      (status === CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
-        status === CopilotKitCoreRuntimeConnectionStatus.Connecting)
-    ) {
-      // Return cached provisional if available (keeps reference stable)
-      const cached = provisionalAgentCache.current.get(resolvedAgentId);
-      if (cached) {
-        return { agent: cached, isReady: false };
-      }
-
-      const provisional = new ProxiedCopilotRuntimeAgent({
-        runtimeUrl: copilotkit.runtimeUrl,
-        agentId: resolvedAgentId,
-        transport: copilotkit.runtimeTransport,
-        credentials: copilotkit.credentials,
-        runtimeMode: "pending",
-      });
-      // Apply current headers so runs/connects inherit them
-      copilotkit.applyHeadersToAgent(provisional);
-      provisionalAgentCache.current.set(resolvedAgentId, provisional);
-      return { agent: provisional, isReady: false };
-    }
-
-    // Runtime is in Error state — return a provisional agent instead of throwing.
-    // The error has already been emitted through the subscriber system
-    // (RUNTIME_INFO_FETCH_FAILED). Throwing here would crash the React tree;
-    // returning a provisional agent lets onError handlers fire while keeping
-    // the app alive.
-    if (
-      isRuntimeConfigured &&
-      status === CopilotKitCoreRuntimeConnectionStatus.Error
-    ) {
-      const cached = provisionalAgentCache.current.get(resolvedAgentId);
-      if (cached) {
-        return { agent: cached, isReady: false };
-      }
-      const provisional = new ProxiedCopilotRuntimeAgent({
-        runtimeUrl: copilotkit.runtimeUrl,
-        agentId: resolvedAgentId,
-        transport: copilotkit.runtimeTransport,
-        credentials: copilotkit.credentials,
-        runtimeMode: "pending",
-      });
-      copilotkit.applyHeadersToAgent(provisional);
-      provisionalAgentCache.current.set(resolvedAgentId, provisional);
-      return { agent: provisional, isReady: false };
-    }
-
-    // No runtime configured and agent doesn't exist — this is a configuration error.
-    const knownAgents = Object.keys(copilotkit.agents ?? {});
-    const runtimePart = isRuntimeConfigured
-      ? `runtimeUrl=${copilotkit.runtimeUrl}`
-      : "no runtimeUrl";
-    throw new Error(
-      `useAgent: Agent '${resolvedAgentId}' not found after runtime sync (${runtimePart}). ` +
-        (knownAgents.length
-          ? `Known agents: [${knownAgents.join(", ")}]`
-          : "No agents registered.") +
-        " Verify your runtime /info and/or agents__unsafe_dev_only.",
-    );
+        caller: "useAgent",
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    resolvedAgentId,
-    runtimeAgentId,
-    registeredProxyAgent,
-    copilotkit.agents,
-    copilotkit.runtimeConnectionStatus,
-    copilotkit.runtimeUrl,
-    copilotkit.runtimeTransport,
-    copilotkit.credentials,
-    JSON.stringify(copilotkit.headers),
-  ]);
+    [
+      resolver,
+      revision,
+      resolvedAgentId,
+      runtimeAgentId,
+      copilotkit.agents,
+      copilotkit.runtimeConnectionStatus,
+      copilotkit.runtimeUrl,
+      copilotkit.runtimeTransport,
+      copilotkit.credentials,
+      headersGeneration,
+    ],
+  );
 
-  useEffect(() => {
-    if (updateFlags.length === 0) return;
-
-    let active = true;
-    const handlers: SubscribeToAgentSubscriber = {};
-
-    // Microtask-batched forceUpdate: coalesces multiple synchronous
-    // notifications (e.g. OnStateChanged + OnRunStatusChanged firing in the
-    // same tick) into a single React re-render. This prevents the scroll
-    // jumping described in #3499 where rapid unbatched forceUpdate calls
-    // cause brief content height fluctuations during streaming.
-    let batchScheduled = false;
-    const batchedForceUpdate = () => {
-      if (!active) return;
-      if (!batchScheduled) {
-        batchScheduled = true;
-        queueMicrotask(() => {
-          batchScheduled = false;
-          if (active) {
-            forceUpdate();
-          }
-        });
-      }
-    };
-
-    if (updateFlags.includes(UseAgentUpdate.OnMessagesChanged)) {
-      handlers.onMessagesChanged = batchedForceUpdate;
-    }
-
-    if (updateFlags.includes(UseAgentUpdate.OnStateChanged)) {
-      handlers.onStateChanged = batchedForceUpdate;
-    }
-
-    if (updateFlags.includes(UseAgentUpdate.OnRunStatusChanged)) {
-      handlers.onRunInitialized = batchedForceUpdate;
-      handlers.onRunStartedEvent = batchedForceUpdate;
-      handlers.onRunFinalized = batchedForceUpdate;
-      handlers.onRunFailed = batchedForceUpdate;
-      // Protocol-level RUN_ERROR event (distinct from onRunFailed which
-      // handles local exceptions like network errors).
-      handlers.onRunErrorEvent = batchedForceUpdate;
-    }
-
-    const subscription = copilotkit.subscribeToAgentWithOptions(
-      agent,
-      handlers,
-      {
+  useEffect(
+    () =>
+      ɵsubscribeToAgentUpdates(copilotkit, agent, {
+        updates: updateFlags,
         throttleMs,
-      },
-    );
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
+        onUpdate: forceUpdate,
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, forceUpdate, throttleMs, providerThrottleMs, updateFlags]);
+    [agent, forceUpdate, throttleMs, providerThrottleMs, updateFlags],
+  );
 
-  // Keep HttpAgent request settings fresh without mutating inside useMemo,
-  // which is unsafe in concurrent mode (React may invoke useMemo multiple
-  // times and discard intermediate results, but mutations always land).
+  // Keep request settings fresh outside useMemo: mutating inside it is unsafe
+  // in concurrent mode.
   useEffect(() => {
-    if (ɵisHttpAgent(agent)) {
-      // Merge core headers on top of the agent's own headers rather than
-      // replacing them, so per-agent headers (e.g. an Authorization for a
-      // self-hosted backend) are preserved (see #5635).
-      copilotkit.applyHeadersToAgent(agent);
-    }
-    if (agent instanceof ProxiedCopilotRuntimeAgent) {
-      agent.credentials = copilotkit.credentials;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, JSON.stringify(copilotkit.headers), copilotkit.credentials]);
+    resolver.refreshRequestSettings(agent);
+  }, [resolver, agent, headersGeneration, copilotkit.credentials]);
 
-  // Propagate the caller-supplied threadId onto the agent. AbstractAgent's
-  // constructor auto-mints a UUID when no threadId is passed, so without this
-  // sync the agent ships its own random UUID in /agent/run, /agent/connect,
-  // /agent/stop — diverging from the threadId the app code intends.
-  //
-  // Resolution precedence:
-  //   1. An explicit `threadId` prop always wins. This lets headless callers
-  //      (e.g. React Native) scope the run to a thread without a
-  //      <CopilotChatConfigurationProvider> in the tree.
-  //   2. Otherwise fall back to the chat configuration's threadId, gated on
-  //      hasExplicitThreadId so a ThreadsProvider-minted placeholder UUID
-  //      doesn't overwrite the auto-minted agent UUID (both are random and
-  //      useless to the backend; the explicit gate keeps the agent's UUID
-  //      stable across renders).
-  const configThreadId = chatConfig?.threadId;
-  const configHasExplicitThreadId = chatConfig?.hasExplicitThreadId;
-  const resolvedThreadId =
-    threadId ?? (configHasExplicitThreadId ? configThreadId : undefined);
+  // Pin the thread onto the agent. AbstractAgent auto-mints a UUID, so without
+  // this the agent ships its own random id in /agent/run, /agent/connect and
+  // /agent/stop.
+  const resolvedThreadId = ɵresolveAgentThreadId({
+    threadId,
+    chatThreadId: chatConfig?.threadId,
+    chatHasExplicitThreadId: chatConfig?.hasExplicitThreadId,
+  });
   useEffect(() => {
     if (!resolvedThreadId) return;
     agent.threadId = resolvedThreadId;

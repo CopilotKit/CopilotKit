@@ -38,7 +38,7 @@ describe("exportA2UICatalog", () => {
   });
 
   it("writes component as a const, keeps references, and lets every other prop be a value, a binding or a call", () => {
-    const tabs = catalog.components.Tabs;
+    const tabs = catalog.components.Tabs!;
     expect(tabs.type).toBe("object");
     expect(tabs.required).toEqual(["component", "tabs"]);
     const properties = tabs.properties as Record<string, any>;
@@ -60,28 +60,28 @@ describe("exportA2UICatalog", () => {
       description: expect.any(String),
     });
     // A check condition is a function call at depth two.
-    const checks = (catalog.components.Button.properties as any).checks;
+    const checks = (catalog.components.Button!.properties as any).checks;
     expect(
       checks.anyOf[0].items.anyOf[0].properties.condition.anyOf[2],
     ).toEqual(ref("FunctionCall"));
-    const column = catalog.components.Column.properties as Record<string, any>;
+    const column = catalog.components.Column!.properties as Record<string, any>;
     expect(column.children).toEqual({ $ref: A2UI_CHILD_LIST_REF });
-    expect(catalog.components.Column.required).toEqual(["component"]);
-    const button = catalog.components.Button.properties as Record<string, any>;
+    expect(catalog.components.Column!.required).toEqual(["component"]);
+    const button = catalog.components.Button!.properties as Record<string, any>;
     expect(button.child).toEqual({ $ref: A2UI_COMPONENT_ID_REF });
     expect(button.onClick).toEqual({
       $ref: `${COMMON}Action`,
       description: expect.any(String),
     });
     expect(button.label.anyOf[0]).toEqual({ type: "string" });
-    expect(catalog.components.Button.description).toEqual(expect.any(String));
+    expect(catalog.components.Button!.description).toEqual(expect.any(String));
   });
 
   it("describes the built-in functions with their return type, callers and typed args", () => {
     const required = catalog.functions.required;
     expect(required).toEqual({
       type: "object",
-      description: GENERATIVE_UI_FUNCTIONS.required.description,
+      description: GENERATIVE_UI_FUNCTIONS.required!.description,
       returnType: "validationResult",
       allowedCallers: "rendererOnly",
       requiresUserActivation: false,
@@ -103,9 +103,9 @@ describe("exportA2UICatalog", () => {
     });
     // The metaschema's activation rule matches an entry without the key,
     // so every entry writes the value out.
-    expect(catalog.functions.formatNumber.requiresUserActivation).toBe(false);
+    expect(catalog.functions.formatNumber!.requiresUserActivation).toBe(false);
     // A list arg can be bound as a whole.
-    const and = catalog.functions.and.properties as Record<string, any>;
+    const and = catalog.functions.and!.properties as Record<string, any>;
     expect(and.args.properties.values).toEqual({
       anyOf: [
         { type: "array", items: ref("DynamicBoolean") },
@@ -113,10 +113,10 @@ describe("exportA2UICatalog", () => {
         ref("FunctionCall"),
       ],
     });
-    const length = catalog.functions.length.properties as Record<string, any>;
+    const length = catalog.functions.length!.properties as Record<string, any>;
     expect(length.args.properties.min).toEqual(ref("DynamicNumber"));
     expect(length.args.required).toEqual(["value"]);
-    const calc = catalog.functions.calc.properties as Record<string, any>;
+    const calc = catalog.functions.calc!.properties as Record<string, any>;
     expect(calc.args.additionalProperties).toEqual({
       anyOf: [
         ref("DynamicNumber"),
@@ -124,7 +124,7 @@ describe("exportA2UICatalog", () => {
         ref("DynamicBoolean"),
       ],
     });
-    expect(catalog.functions.series.returnType).toBe("array");
+    expect(catalog.functions.series!.returnType).toBe("array");
     expect(Object.keys(catalog.functions)).toEqual(
       Object.keys(GENERATIVE_UI_FUNCTIONS),
     );
@@ -192,7 +192,7 @@ describe("exportA2UICatalog", () => {
         },
       },
     });
-    expect(functions.formatNumber.description).toBeUndefined();
+    expect(functions.formatNumber!.description).toBeUndefined();
   });
 
   it("requires args only when an arg is required, escapes names in references, keeps literal defaults, and handles intersections", () => {
@@ -220,9 +220,9 @@ describe("exportA2UICatalog", () => {
       },
     });
     const catalog = exportA2UICatalog(ui);
-    expect(catalog.functions.ping.required).toEqual(["@call"]);
-    expect(catalog.functions.ping.requiresUserActivation).toBe(false);
-    expect(catalog.functions["acme/locate"].required).toEqual([
+    expect(catalog.functions.ping!.required).toEqual(["@call"]);
+    expect(catalog.functions.ping!.requiresUserActivation).toBe(false);
+    expect(catalog.functions["acme/locate"]!.required).toEqual([
       "@call",
       "args",
     ]);
@@ -232,10 +232,10 @@ describe("exportA2UICatalog", () => {
     expect(catalog.$defs.anyFunction.oneOf).toContainEqual({
       $ref: "#/functions/acme~1locate",
     });
-    const tags = (catalog.components["acme/Card"].properties as any).tags;
+    const tags = (catalog.components["acme/Card"]!.properties as any).tags;
     expect(tags.anyOf[0].default).toEqual({ items: ["a"] });
     // A prop named like a literal keyword is still a schema.
-    const defaultProp = (catalog.components["acme/Card"].properties as any)
+    const defaultProp = (catalog.components["acme/Card"]!.properties as any)
       .default;
     expect(defaultProp.anyOf[0].prefixItems).toHaveLength(2);
     // Zod 4 closes a tuple with `additionalItems: false`, which 2020-12
@@ -244,7 +244,7 @@ describe("exportA2UICatalog", () => {
     expect(tags.anyOf[0].properties.items.anyOf[0].items.anyOf[1]).toEqual(
       ref("DataBinding"),
     );
-    const locate = (catalog.functions["acme/locate"].properties as any).args;
+    const locate = (catalog.functions["acme/locate"]!.properties as any).args;
     // Zod 4 merges an intersection of objects into one object schema.
     expect(locate.properties.city.anyOf[1]).toEqual(ref("DataBinding"));
   });
@@ -292,7 +292,7 @@ describe("exportA2UICatalog", () => {
       },
     });
     const catalog = exportA2UICatalog(ui);
-    expect(catalog.functions.lookup.required).toEqual(["@call", "args"]);
+    expect(catalog.functions.lookup!.required).toEqual(["@call", "args"]);
     // A recursive schema refers to its own root with "#".
     const tree = exportA2UICatalog(
       createGenerativeUI({
@@ -321,12 +321,12 @@ describe("exportA2UICatalog", () => {
         components: {},
       }),
     );
-    const plant = (tree.functions.plant.properties as any).args;
+    const plant = (tree.functions.plant!.properties as any).args;
     expect(plant.properties.children.anyOf[0].items.anyOf[0]).toEqual({
       $ref: "#/functions/plant/properties/args",
     });
-    expect(catalog.functions.maybe.required).toEqual(["@call"]);
-    const args = (catalog.functions.locate.properties as any).args;
+    expect(catalog.functions.maybe!.required).toEqual(["@call"]);
+    const args = (catalog.functions.locate!.properties as any).args;
     expect(args.properties.point.anyOf[0]).toEqual({
       $ref: "#/functions/locate/properties/args/$defs/Point",
     });
@@ -363,7 +363,7 @@ describe("exportA2UICatalog", () => {
       not: {},
       discriminator: { propertyName: "component" },
     });
-    const args = (catalog.functions.locate.properties as any).args;
+    const args = (catalog.functions.locate!.properties as any).args;
     expect(args.properties.point.anyOf[0]).toEqual({
       type: "array",
       minItems: 2,
@@ -418,7 +418,7 @@ describe("exportA2UICatalog", () => {
         components: {},
       }),
     );
-    const read = (byPattern.functions.read.properties as any).args;
+    const read = (byPattern.functions.read!.properties as any).args;
     expect(
       read.properties.readings.anyOf[0].patternProperties["^a"].anyOf[1],
     ).toEqual(ref("DataBinding"));

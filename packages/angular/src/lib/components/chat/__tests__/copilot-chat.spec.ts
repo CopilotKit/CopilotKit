@@ -19,6 +19,11 @@ import {
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import type { Attachment } from "@copilotkit/shared";
 import { CopilotChatView } from "../copilot-chat-view";
+import {
+  emitInspectorViewThread,
+  onInspectorViewThreadResult,
+} from "@copilotkit/core";
+import type { InspectorViewThreadResultPayload } from "@copilotkit/core";
 import { CopilotChat } from "../copilot-chat";
 import { provideCopilotKit } from "../../../config";
 import {
@@ -866,6 +871,55 @@ describe("CopilotChat", () => {
         await vi.waitFor(() => expect(connect).toHaveBeenCalledOnce());
         await vi.waitFor(() => expect(readShowCursor(fixture)).toBe(false));
         expect(log).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("inspector thread override", () => {
+      test("connects to the thread the Inspector asks to view", async () => {
+        const { fixture, core } = createChatFixture();
+        const connect = vi.spyOn(core, "connectAgent").mockResolvedValue({
+          result: undefined,
+          newMessages: [],
+        });
+
+        const claimed = emitInspectorViewThread({
+          requestId: "inspect-1",
+          threadId: "inspected",
+          agentId: "default",
+        });
+        fixture.detectChanges();
+
+        expect(claimed).toBe(true);
+        await vi.waitFor(() => expect(connect).toHaveBeenCalledOnce());
+        expect(connect.mock.calls[0]![0].agent.threadId).toBe("inspected");
+      });
+
+      test("reports a failed connect to the Inspector and gives up the thread", async () => {
+        const { fixture, core } = createChatFixture();
+        vi.spyOn(core, "connectAgent").mockRejectedValue(new Error("down"));
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        const results: InspectorViewThreadResultPayload[] = [];
+        const off = onInspectorViewThreadResult((payload) =>
+          results.push(payload),
+        );
+
+        emitInspectorViewThread({
+          requestId: "inspect-2",
+          threadId: "inspected",
+          agentId: "default",
+        });
+        fixture.detectChanges();
+
+        await vi.waitFor(() =>
+          expect(results.at(-1)).toEqual({
+            requestId: "inspect-2",
+            threadId: "inspected",
+            agentId: "default",
+            ok: false,
+            reason: "connect-failed",
+          }),
+        );
+        off();
       });
     });
 
