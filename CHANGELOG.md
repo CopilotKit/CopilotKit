@@ -41,7 +41,7 @@ history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
 ### Other Changes
 
-- Fix/2653:  show loading indicator while chat thread is connecting (#7988) (590a6ca)
+- Fix/2653: show loading indicator while chat thread is connecting (#7988) (590a6ca)
 
 ### Breaking Changes
 
