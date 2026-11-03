@@ -253,7 +253,7 @@ function convertChatMessage(message: ChatRoleMessage) {
  * a function-tool schema.
  *
  * Frontend tools are often authored with permissive Zod (`z.any()`,
- * `z.record(...)`, `.passthrough()`), which serialize to open objects —
+ * `z.record(...)`, `.loose()`), which serialize to open objects —
  * `additionalProperties: {}` (an empty sub-schema) or `additionalProperties:
  * true`. OpenAI rejects both: strict mode requires `additionalProperties:
  * false`, and an empty `{}` sub-schema fails base validation ("schema must

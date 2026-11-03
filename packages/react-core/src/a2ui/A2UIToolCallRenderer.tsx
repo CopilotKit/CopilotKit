@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { defineToolCallRenderer } from "../types/defineToolCallRenderer";
-import { z } from "zod";
+import * as z from "zod";
 
 /**
  * Tool name used by the dynamic A2UI generation secondary LLM.

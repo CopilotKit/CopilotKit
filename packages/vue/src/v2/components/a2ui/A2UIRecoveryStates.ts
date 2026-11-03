@@ -1,6 +1,6 @@
 import { defineComponent, h, onBeforeUnmount, ref, watch } from "vue";
 import type { PropType, VNodeChild } from "vue";
-import { z } from "zod";
+import * as z from "zod";
 
 /**
  * Shared pre-paint lifecycle states for the A2UI surface renderer, ported from

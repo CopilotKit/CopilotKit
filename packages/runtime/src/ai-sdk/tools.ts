@@ -39,8 +39,13 @@ export function convertJsonSchemaToZodSchema(
   jsonSchema: JsonSchema,
   required: boolean,
 ): z.ZodSchema {
+  // Zod 4 emits an empty `description` into JSON Schema; Zod 3's converters
+  // dropped it. Only attach a description the JSON Schema actually had.
+  const describe = <T extends z.ZodType>(schema: T): T =>
+    jsonSchema.description ? schema.describe(jsonSchema.description) : schema;
+
   if (jsonSchema.type === "null") {
-    const schema = z.null().describe(jsonSchema.description ?? "");
+    const schema = describe(z.null());
     return required ? schema : schema.optional();
   }
 
@@ -60,9 +65,9 @@ export function convertJsonSchemaToZodSchema(
     const variantSchemas = unionVariants.map((variant) =>
       convertJsonSchemaToZodSchema(variant, true),
     );
-    const schema = z
-      .union(variantSchemas as [z.ZodSchema, z.ZodSchema, ...z.ZodSchema[]])
-      .describe(jsonSchema.description ?? "");
+    const schema = describe(
+      z.union(variantSchemas as [z.ZodSchema, z.ZodSchema, ...z.ZodSchema[]]),
+    );
     return required ? schema : schema.optional();
   }
 
@@ -83,29 +88,27 @@ export function convertJsonSchemaToZodSchema(
         jsonSchema.required ? jsonSchema.required.includes(key) : false,
       );
     }
-    const schema = z.object(spec).describe(jsonSchema.description ?? "");
+    const schema = describe(z.object(spec));
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "string") {
     if (jsonSchema.enum && jsonSchema.enum.length > 0) {
-      const schema = z
-        .enum(jsonSchema.enum as [string, ...string[]])
-        .describe(jsonSchema.description ?? "");
+      const schema = describe(z.enum(jsonSchema.enum as [string, ...string[]]));
       return required ? schema : schema.optional();
     }
-    const schema = z.string().describe(jsonSchema.description ?? "");
+    const schema = describe(z.string());
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "number" || jsonSchema.type === "integer") {
-    const schema = z.number().describe(jsonSchema.description ?? "");
+    const schema = describe(z.number());
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "boolean") {
-    const schema = z.boolean().describe(jsonSchema.description ?? "");
+    const schema = describe(z.boolean());
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "array") {
     if (!jsonSchema.items) {
       throw new Error("Array type must have items property");
     }
     const itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, true);
-    const schema = z.array(itemSchema).describe(jsonSchema.description ?? "");
+    const schema = describe(z.array(itemSchema));
     return required ? schema : schema.optional();
   }
   console.error("Invalid JSON schema:", JSON.stringify(jsonSchema, null, 2));

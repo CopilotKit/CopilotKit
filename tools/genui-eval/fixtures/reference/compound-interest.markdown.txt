@@ -1,0 +1,30 @@
+After 20 years at 7% a year, your €10,000 grows to about **€38,697**: the money you put in plus roughly **€28,697** of growth. That assumes you leave it alone, every gain is reinvested, and nothing comes out for fees or taxes along the way.
+
+Drag the return or the time span and watch the curve bend:
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"etf-growth","dataModel":{"rate":7,"years":20},"components":[{"id":"root","component":"Card","children":["title","caption","rate","years","divider","stats","chart","note"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"etf-growth","components":[{"id":"title","component":"Title","text":"ETF growth calculator"},{"id":"caption","component":"Caption","text":"€10,000 invested once, returns reinvested every year"},{"id":"rate","component":"Slider","label":"Average annual return","min":0,"max":12,"step":0.5,"unit":"%","marks":[{"value":0,"label":"0%"},{"value":4,"label":"4%"},{"value":8,"label":"8%"},{"value":12,"label":"12%"}],"value":{"@path":"/rate"}},{"id":"years","component":"Slider","label":"Years invested","min":1,"max":40,"step":1,"unit":" years","value":{"@path":"/years"}},{"id":"divider","component":"Divider"},{"id":"stats","component":"Grid","columns":3,"gap":4,"children":["stat-value","stat-gain","stat-mult"]},{"id":"stat-value","component":"Column","gap":1,"children":["stat-value-label","stat-value-num"]},{"id":"stat-value-label","component":"Caption","text":"Value at the end"},{"id":"stat-value-num","component":"Title","size":"lg","tabularNums":true,"text":{"@call":"formatString","args":{"value":"${formatCurrency(value: calc(expression: '10000 * (1 + r / 100) ^ y', r: /rate, y: /years), currency: 'EUR', decimals: 0)}"}}},{"id":"stat-gain","component":"Column","gap":1,"children":["stat-gain-label","stat-gain-num"]},{"id":"stat-gain-label","component":"Caption","text":"Growth on top of your €10,000"},{"id":"stat-gain-num","component":"Title","size":"lg","color":"success","tabularNums":true,"text":{"@call":"formatString","args":{"value":"+${formatCurrency(value: calc(expression: '10000 * (1 + r / 100) ^ y - 10000', r: /rate, y: /years), currency: 'EUR', decimals: 0)}"}}},{"id":"stat-mult","component":"Column","gap":1,"children":["stat-mult-label","stat-mult-num"]},{"id":"stat-mult-label","component":"Caption","text":"Your money multiplied by"},{"id":"stat-mult-num","component":"Title","size":"lg","tabularNums":true,"text":{"@call":"formatString","args":{"value":"${formatNumber(value: calc(expression: '(1 + r / 100) ^ y', r: /rate, y: /years), decimals: 1)}×"}}},{"id":"chart","component":"Chart","chartType":"line","height":240,"xKey":"year","format":"currency","currency":"EUR","series":[{"key":"value","label":"Your return"},{"key":"ref","label":"At 7%"},{"key":"invested","label":"Amount invested"}],"yAxis":{"min":0},"data":{"@call":"series","args":{"count":{"@call":"calc","args":{"expression":"y + 1","y":{"@path":"/years"}}},"start":0,"item":{"year":"${i}","value":"${round(10000 * g ^ i)}","ref":"${round(10000 * 1.07 ^ i)}","invested":10000},"g":{"@call":"calc","args":{"expression":"1 + r / 100","r":{"@path":"/rate"}}}}}},{"id":"note","component":"Caption","text":"Yearly compounding, no further deposits. Before fund fees, taxes and inflation; real returns go up and down from year to year."}]}}
+```
+
+### How much the rate changes it
+
+Small differences in the rate turn into big differences over 20 years, because each year's growth earns growth of its own:
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"rate-table","dataModel":{},"components":[{"id":"root","component":"Column","gap":3,"children":["table","formula"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"rate-table","components":[{"id":"table","component":"Table","caption":"Value of €10,000 after 20 years at different annual returns","columns":["Annual return",{"label":"After 20 years","align":"end"},{"label":"Growth","align":"end"},{"label":"Multiple","align":"end"}],"rows":[["0%","€10,000","€0","1.0×"],["3%","€18,061","€8,061","1.8×"],["5%","€26,533","€16,533","2.7×"],["7%","€38,697","€28,697","3.9×"],["9%","€56,044","€46,044","5.6×"],["12%","€96,463","€86,463","9.6×"]]},{"id":"formula","component":"Math","block":true,"value":"10{,}000 \\times 1.07^{20} \\approx 38{,}697"}]}}
+```
+
+Going from 5% to 9% doesn't add 80% to the result, it more than **doubles** it (€26,533 vs €56,044). A handy shortcut is the rule of 72: divide 72 by the rate to get roughly how many years it takes to double your money, about 10 years at 7%.
+
+Two things will pull the real number down:
+
+- **Fees:** a fund that charges 0.2% a year turns 7% into 6.8%, which costs you about €1,400 over 20 years (€37,276 instead of €38,697).
+- **Inflation:** at 2% inflation, €38,697 in 20 years buys roughly what €26,000 buys today.
+
+And 7% is an assumption, not a promise: broad stock ETFs have had years of −20% and years of +25% on the way to long-run averages like that.
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"etf-next","dataModel":{},"components":[{"id":"root","component":"FollowUp","items":[{"label":"Add a monthly savings plan","message":"What if I also add 200 euros every month?"},{"label":"Inflation and taxes","message":"How much is that worth after inflation and Austrian tax?"},{"label":"Which ETF?","message":"Which kind of ETF could realistically return around 7%?"}]}]}}
+```

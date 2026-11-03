@@ -11,8 +11,8 @@ export const learningContainerSchema = z.object({
   name: z.string().min(1),
   projectId: z.number().int().positive(),
   promptContext: z.string().nullable(),
-  createdAt: z.string().datetime({ offset: true }),
-  updatedAt: z.string().datetime({ offset: true }),
+  createdAt: z.iso.datetime({ offset: true }),
+  updatedAt: z.iso.datetime({ offset: true }),
 });
 export const learningContainerPageSchema = z.object({
   containers: z.array(learningContainerSchema).max(500),
@@ -80,8 +80,8 @@ export async function readLearningJson(
 }
 
 const learningSha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
-const learningUuidSchema = z.string().uuid();
-const learningDateTimeSchema = z.string().datetime({ offset: true });
+const learningUuidSchema = z.guid();
+const learningDateTimeSchema = z.iso.datetime({ offset: true });
 
 /** One immutable file in a proposed Skill candidate bundle. */
 export const learningSkillBundleFileSchema = z.object({
@@ -210,7 +210,7 @@ export interface LearningCandidateRequest extends LearningContainerRequest {
 }
 
 export const learningRunSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   learningContainerId: learningContainerIdSchema,
   projectId: z.number().int().positive(),
   status: z.enum([
@@ -278,7 +278,7 @@ export const learningInsightEvidenceSchema = z.union([
   }),
   z.object({
     kind: z.literal("trajectory"),
-    trajectoryId: z.string().uuid(),
+    trajectoryId: z.guid(),
     trajectoryPresent: z.boolean(),
     eventCount: z.number().int().nonnegative(),
     events: z.array(
@@ -323,5 +323,5 @@ export type LearningInsightEvidence =
 
 /** Validates object IDs independently from container IDs; neither may alter the path. */
 export function learningObjectId(id: string): string {
-  return z.string().uuid().parse(id);
+  return z.guid().parse(id);
 }

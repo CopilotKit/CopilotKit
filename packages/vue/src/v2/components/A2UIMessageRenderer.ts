@@ -1,6 +1,6 @@
 import { computed, defineComponent, h } from "vue";
 import type { PropType } from "vue";
-import { z } from "zod";
+import * as z from "zod";
 import type { VueActivityMessageRenderer } from "../types";
 import type { A2UITheme } from "../types";
 import A2UISurfaceActivityRenderer from "./A2UISurfaceActivityRenderer.vue";
@@ -31,7 +31,7 @@ export type A2UIMessageRendererOptions = {
  * The `a2ui-surface` activity carries the WHOLE generative-UI lifecycle on one
  * stable messageId: pre-paint `status` ("building" | "retrying" | "failed")
  * with recovery detail, then `a2ui_operations` on paint. The states swap in
- * place, so the painted surface replaces the skeleton. `.passthrough()` keeps
+ * place, so the painted surface replaces the skeleton. `.loose()` keeps
  * the operations and any future fields.
  */
 const A2UISurfaceContentSchema = z
@@ -39,7 +39,7 @@ const A2UISurfaceContentSchema = z
     a2ui_operations: z.array(z.any()).optional(),
     ...A2UILifecycleFields,
   })
-  .passthrough();
+  .loose();
 
 export function createA2UIMessageRenderer(
   options: A2UIMessageRendererOptions,

@@ -3,13 +3,6 @@ import { of } from "rxjs";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 
-vi.mock("pino", () => ({
-  default: vi.fn(() => ({
-    child: vi.fn(() => ({ debug: vi.fn() })),
-    debug: vi.fn(),
-  })),
-}));
-vi.mock("pino-pretty", () => ({ default: vi.fn() }));
 vi.mock("../../../telemetry", () => ({
   telemetry: { capture: vi.fn() },
 }));

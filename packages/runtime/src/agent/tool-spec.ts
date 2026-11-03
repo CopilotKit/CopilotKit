@@ -1,6 +1,4 @@
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { schemaToJsonSchema } from "@copilotkit/shared";
-import type { SchemaToJsonSchemaOptions } from "@copilotkit/shared";
 import type { ToolDefinition } from "./index";
 
 /**
@@ -99,31 +97,6 @@ export const stateToolSpecs: AgentToolSpec[] = [
   },
 ];
 
-// Adapts zod-to-json-schema's Zod-specific signature to the injectable
-// `zodToJsonSchema` contract of `schemaToJsonSchema`, which only calls it for
-// schemas whose `~standard.vendor` is "zod".
-function zodV3ToJsonSchema(
-  schema: unknown,
-  options?: { $refStrategy?: string },
-): Record<string, unknown> {
-  const refStrategy = options?.$refStrategy;
-  // Called through a plain signature: the library's generic one makes tsc
-  // instantiate Zod's deep types ("excessively deep").
-  const convert = zodToJsonSchema as (
-    schema: unknown,
-    options: { $refStrategy?: "root" | "relative" | "none" | "seen" },
-  ) => Record<string, unknown>;
-  return convert(
-    schema,
-    refStrategy === "root" ||
-      refStrategy === "relative" ||
-      refStrategy === "none" ||
-      refStrategy === "seen"
-      ? { $refStrategy: refStrategy }
-      : {},
-  );
-}
-
 /**
  * Converts a `defineTool` result to an {@link AgentToolSpec}.
  *
@@ -132,9 +105,6 @@ function zodV3ToJsonSchema(
  * interrupt fields are carried over unchanged.
  *
  * @param definition - The tool from `defineTool`.
- * @param options - Passed to `schemaToJsonSchema`. Defaults to converting
- *   Zod v3 schemas with `zod-to-json-schema`, since they do not implement
- *   Standard JSON Schema.
  * @throws Error when the schema cannot be converted to JSON Schema.
  *
  * @example
@@ -144,14 +114,11 @@ function zodV3ToJsonSchema(
  * );
  * ```
  */
-export function toolDefinitionToSpec(
-  definition: ToolDefinition,
-  options: SchemaToJsonSchemaOptions = { zodToJsonSchema: zodV3ToJsonSchema },
-) {
+export function toolDefinitionToSpec(definition: ToolDefinition) {
   const spec: AgentToolSpec = {
     name: definition.name,
     description: definition.description,
-    parameters: schemaToJsonSchema(definition.parameters, options),
+    parameters: schemaToJsonSchema(definition.parameters),
     execute: definition.execute,
     interrupt: definition.interrupt,
     interruptReason: definition.interruptReason,

@@ -43,6 +43,26 @@
           }
         },
         {
+          "importPath": "@copilotkit/a2ui-renderer/catalog-schema",
+          "exportKey": "./catalog-schema",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/catalog-schema.d.mts",
+              "default": "./dist/catalog-schema.mjs"
+            },
+            "require": {
+              "types": "./dist/catalog-schema.d.cts",
+              "default": "./dist/catalog-schema.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/a2ui-renderer/package.json",
+            "selector": "exports[\"./catalog-schema\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/a2ui-renderer/package.json",
           "exportKey": "./package.json",
           "kind": "metadata",
@@ -55,6 +75,9 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
           "react": "^18 || ^19 || ^19.0.0-rc",
           "react-dom": "^18 || ^19 || ^19.0.0-rc"
@@ -64,6 +87,11 @@
           "react-dom"
         ],
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/a2ui-renderer/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/a2ui-renderer/package.json",
@@ -204,6 +232,9 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
           "@angular/cdk": "^22.0.0",
           "@angular/common": "^22.0.0",
@@ -211,6 +242,11 @@
           "rxjs": "^7.8.0"
         },
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/angular/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/angular/package.json",
@@ -425,6 +461,9 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
         "peerDependencies": {
           "@microsoft/agents-activity": "^1.5.3",
           "@microsoft/agents-hosting": "^1.5.3",
@@ -440,6 +479,11 @@
           "takumi-js"
         ],
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/channels/package.json",
@@ -547,6 +591,9 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
         "peerDependencies": {
           "react": ">=18",
           "takumi-js": "^2.7.3"
@@ -556,6 +603,11 @@
           "takumi-js"
         ],
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-core/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/channels-core/package.json",
@@ -607,7 +659,16 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-discord/package.json",
+            "selector": "engines"
+          }
+        ]
       },
       "provenance": {
         "name": {
@@ -648,7 +709,16 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-intelligence/package.json",
+            "selector": "engines"
+          }
+        ]
       },
       "provenance": {
         "name": {
@@ -717,7 +787,16 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-slack/package.json",
+            "selector": "engines"
+          }
+        ]
       },
       "provenance": {
         "name": {
@@ -772,6 +851,9 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
         "peerDependencies": {
           "@microsoft/agents-activity": "^1.5.3",
           "@microsoft/agents-hosting": "^1.5.3",
@@ -783,6 +865,11 @@
           "express"
         ],
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-teams/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/channels-teams/package.json",
@@ -862,7 +949,16 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-ui/package.json",
+            "selector": "engines"
+          }
+        ]
       },
       "provenance": {
         "name": {
@@ -903,7 +999,16 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-whatsapp/package.json",
+            "selector": "engines"
+          }
+        ]
       },
       "provenance": {
         "name": {
@@ -1213,12 +1318,12 @@
       }
     },
     {
-      "name": "@copilotkit/markdown-renderer",
+      "name": "@copilotkit/markdown",
       "version": "1.59.2",
-      "sourceDirectory": "packages/markdown-renderer",
+      "sourceDirectory": "packages/markdown",
       "entrypoints": [
         {
-          "importPath": "@copilotkit/markdown-renderer",
+          "importPath": "@copilotkit/markdown",
           "exportKey": ".",
           "kind": "code",
           "conditions": {
@@ -1227,23 +1332,23 @@
           },
           "provenance": {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "exports[\".\"]"
           }
         },
         {
-          "importPath": "@copilotkit/markdown-renderer/package.json",
+          "importPath": "@copilotkit/markdown/package.json",
           "exportKey": "./package.json",
           "kind": "metadata",
           "conditions": "./package.json",
           "provenance": {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "exports[\"./package.json\"]"
           }
         },
         {
-          "importPath": "@copilotkit/markdown-renderer/react",
+          "importPath": "@copilotkit/markdown/react",
           "exportKey": "./react",
           "kind": "code",
           "conditions": {
@@ -1252,12 +1357,12 @@
           },
           "provenance": {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "exports[\"./react\"]"
           }
         },
         {
-          "importPath": "@copilotkit/markdown-renderer/react-native",
+          "importPath": "@copilotkit/markdown/react-native",
           "exportKey": "./react-native",
           "kind": "code",
           "conditions": {
@@ -1266,12 +1371,12 @@
           },
           "provenance": {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "exports[\"./react-native\"]"
           }
         },
         {
-          "importPath": "@copilotkit/markdown-renderer/vue",
+          "importPath": "@copilotkit/markdown/vue",
           "exportKey": "./vue",
           "kind": "code",
           "conditions": {
@@ -1280,14 +1385,14 @@
           },
           "provenance": {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "exports[\"./vue\"]"
           }
         }
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "peerDependencies": {
           "react": ">=18",
@@ -1302,17 +1407,17 @@
         "provenance": [
           {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "engines"
           },
           {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "peerDependencies"
           },
           {
             "kind": "package-json",
-            "path": "packages/markdown-renderer/package.json",
+            "path": "packages/markdown/package.json",
             "selector": "peerDependenciesMeta.*.optional"
           }
         ]
@@ -1320,12 +1425,12 @@
       "provenance": {
         "name": {
           "kind": "package-json",
-          "path": "packages/markdown-renderer/package.json",
+          "path": "packages/markdown/package.json",
           "selector": "name"
         },
         "version": {
           "kind": "package-json",
-          "path": "packages/markdown-renderer/package.json",
+          "path": "packages/markdown/package.json",
           "selector": "version"
         },
         "releaseScope": {
@@ -1389,11 +1494,18 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
-          "@ag-ui/client": ">=0.0.59",
-          "zod": ">=3.25"
+          "@ag-ui/client": "^1.0.2"
         },
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/mcp-apps-renderer/package.json",
@@ -1493,16 +1605,23 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
           "maplibre-gl": "^5.0.0",
           "react": "^18 || ^19 || ^19.0.0-rc",
-          "react-dom": "^18 || ^19 || ^19.0.0-rc",
-          "zod": ">=3.25"
+          "react-dom": "^18 || ^19 || ^19.0.0-rc"
         },
         "optionalPeerDependencies": [
           "maplibre-gl"
         ],
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/react-core/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/react-core/package.json",
@@ -1677,25 +1796,27 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
           "@gorhom/bottom-sheet": "^5.0.0",
           "expo-document-picker": ">=12.0.0",
           "expo-file-system": ">=17.0.0",
           "react": "^18 || ^19",
-          "react-native": ">=0.70",
-          "react-native-gesture-handler": ">=2.0.0",
-          "react-native-reanimated": ">=3.0.0",
-          "zod": ">=3.0.0"
+          "react-native": ">=0.70"
         },
         "optionalPeerDependencies": [
           "@gorhom/bottom-sheet",
           "expo-document-picker",
-          "expo-file-system",
-          "react-native-gesture-handler",
-          "react-native-reanimated",
-          "zod"
+          "expo-file-system"
         ],
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/react-native/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/react-native/package.json",
@@ -1889,14 +2010,21 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
-          "@langchain/core": ">=0.4.0 <2.0.0",
-          "@langchain/langgraph": ">=0.4.0 <2.0.0",
-          "langchain": ">=1.0.0",
-          "typescript": "^5.2.3",
-          "zod": "^3.23.3 || ^3.24.0 || ^3.25.0"
+          "@langchain/core": ">=1.1.41 <2",
+          "@langchain/langgraph": ">=1.2.9 <2",
+          "langchain": ">=1.3.4 <2",
+          "zod": "^4.2.0"
         },
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/sdk-js/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/sdk-js/package.json",
@@ -1942,20 +2070,6 @@
           }
         },
         {
-          "importPath": "@copilotkit/shared/event-transforms",
-          "exportKey": "./event-transforms",
-          "kind": "code",
-          "conditions": {
-            "import": "./dist/event-transforms/index.mjs",
-            "require": "./dist/event-transforms/index.cjs"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/shared/package.json",
-            "selector": "exports[\"./event-transforms\"]"
-          }
-        },
-        {
           "importPath": "@copilotkit/shared/package.json",
           "exportKey": "./package.json",
           "kind": "metadata",
@@ -1965,27 +2079,21 @@
             "path": "packages/shared/package.json",
             "selector": "exports[\"./package.json\"]"
           }
-        },
-        {
-          "importPath": "@copilotkit/shared/telemetry",
-          "exportKey": "./telemetry",
-          "kind": "code",
-          "conditions": {
-            "import": "./dist/telemetry/index.mjs",
-            "require": "./dist/telemetry/index.cjs"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/shared/package.json",
-            "selector": "exports[\"./telemetry\"]"
-          }
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
-          "@ag-ui/core": ">=0.0.48"
+          "@ag-ui/core": "^1.0.2"
         },
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/shared/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/shared/package.json",
@@ -2124,7 +2232,7 @@
           "node": "^20.19.3 || >=22.13.0"
         },
         "peerDependencies": {
-          "@copilotkit/runtime": "workspace:*"
+          "@copilotkit/runtime": "workspace:^"
         },
         "provenance": [
           {
@@ -2313,19 +2421,11 @@
         "engines": {
           "node": ">=20"
         },
-        "peerDependencies": {
-          "lit": "^3.3.2"
-        },
         "provenance": [
           {
             "kind": "package-json",
             "path": "packages/web-components/package.json",
             "selector": "engines"
-          },
-          {
-            "kind": "package-json",
-            "path": "packages/web-components/package.json",
-            "selector": "peerDependencies"
           }
         ]
       },

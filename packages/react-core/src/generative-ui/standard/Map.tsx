@@ -1,5 +1,5 @@
 import React, { useEffect, useInsertionEffect, useRef, useState } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import { useRequiredGenerativeUIRuntime } from "../runtime-context";
 import { useStableValue } from "./Chart";
 import {
@@ -25,10 +25,7 @@ export const mapMarker = z.object({
 export type MapMarker = z.output<typeof mapMarker>;
 
 export const mapSchema = z.object({
-  markers: z
-    .array(mapMarker)
-    .optional()
-    .describe('A list of places, or { "@path": "/x" }'),
+  markers: z.array(mapMarker).optional(),
   route: z
     .boolean()
     .optional()

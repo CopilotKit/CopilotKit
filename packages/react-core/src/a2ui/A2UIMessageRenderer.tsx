@@ -1,7 +1,7 @@
 import { useCopilotKit } from "../providers";
 import type { ReactActivityMessageRenderer } from "../types/react-activity-message-renderer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import {
   A2UIProvider,
   useA2UIActions,
@@ -94,14 +94,14 @@ export type A2UIMessageRendererOptions = {
  * stable messageId (OSS-162): pre-paint `status` ("building" | "retrying" |
  * "failed") with recovery detail, then `a2ui_operations` on paint. The states
  * swap in place, so the painted surface replaces the skeleton with no extra
- * coordination. `.passthrough()` preserves operations + any future fields.
+ * coordination. `.loose()` preserves operations + any future fields.
  */
 const A2UISurfaceContentSchema = z
   .object({
     a2ui_operations: z.array(z.any()).optional(),
     ...A2UILifecycleFields,
   })
-  .passthrough();
+  .loose();
 
 const IS_DEVELOPMENT = process.env.NODE_ENV !== "production";
 

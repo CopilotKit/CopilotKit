@@ -14,7 +14,7 @@ vi.mock("react-native", () => ({
 // Capture the props handed to the underlying streaming renderer so we can
 // assert how CopilotMarkdown translates its public style map.
 const capturedProps: any[] = [];
-vi.mock("@copilotkit/markdown-renderer/react-native", () => ({
+vi.mock("@copilotkit/markdown/react-native", () => ({
   StreamingMarkdownRenderer: (props: any) => {
     capturedProps.push(props);
     return null;

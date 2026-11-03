@@ -21,7 +21,7 @@
     "@microsoft/agents-hosting": "^1.5.3",
     "@tanstack/ai": "^1.0.1",
     "@tanstack/ai-openai": "^1.0.1",
-    "zod": "^3.25.76"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@microsoft/m365agentsplayground": "^0.2.27",

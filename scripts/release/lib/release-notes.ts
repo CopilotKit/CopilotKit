@@ -7,7 +7,9 @@ const FEATURE_SUBJECT = /^feat(?:\([^)]+\))?!?:/;
 const FIX_SUBJECT = /^fix(?:\([^)]+\))?!?:/;
 const TRAILER = /^[a-z][a-z0-9-]*(?: [a-z][a-z0-9-]*)?:[ \t]+/i;
 
-export function extractBreakingChangeNotes(commit: Commit): string[] {
+export function extractBreakingChangeNotes(
+  commit: Pick<Commit, "body">,
+): string[] {
   const lines = commit.body.split(/\r?\n/);
   const notes: string[] = [];
 
@@ -32,7 +34,9 @@ export function extractBreakingChangeNotes(commit: Commit): string[] {
   return notes;
 }
 
-function isBreakingCommit(commit: Commit): boolean {
+export function isBreakingCommit(
+  commit: Pick<Commit, "subject" | "body">,
+): boolean {
   return (
     BREAKING_SUBJECT.test(commit.subject) ||
     extractBreakingChangeNotes(commit).length > 0

@@ -1,4 +1,4 @@
-import { prerelease, satisfies, valid, validRange } from "semver";
+import { isStableVersion, isValidRange, satisfies } from "./semver.js";
 import type { NotificationContext } from "./notifications.js";
 
 /** Versioned CDN HUD contract. Keep the Intelligence copy and fixtures aligned. */
@@ -92,7 +92,7 @@ function parseRule(value: unknown): HudRule | null {
     typeof value.framework !== "string" ||
     !frameworkPattern.test(value.framework) ||
     !text(value.sdkVersion, 256) ||
-    validRange(value.sdkVersion) === null ||
+    !isValidRange(value.sdkVersion) ||
     !record(value.features) ||
     !Object.keys(value.features).length
   )
@@ -136,13 +136,7 @@ export function matchHudRule(
   context: HudContext,
 ): HudRule | null {
   const { development, framework, sdkVersion } = context;
-  if (
-    !development ||
-    !framework ||
-    !sdkVersion ||
-    valid(sdkVersion) === null ||
-    prerelease(sdkVersion) !== null
-  )
+  if (!development || !framework || !sdkVersion || !isStableVersion(sdkVersion))
     return null;
   return (
     feed.rules.find(

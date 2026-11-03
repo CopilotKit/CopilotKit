@@ -2,15 +2,68 @@ import type {
   OpenGenerativeUIConfig,
   SandboxFunction,
 } from "@copilotkit/angular";
-import { z } from "zod";
+import type {
+  StandardJSONSchemaV1,
+  StandardSchemaV1,
+} from "@copilotkit/shared";
 
 const VISUALIZATION_DESIGN_SKILL = `Create focused educational visualizations.
 Use semantic HTML, concise labels, high-contrast colors, responsive layout, and
 accessible text alternatives. Prefer diagrams and interactive explanations over
 decorative chrome. Keep generated controls keyboard operable.`;
 
-const expressionParameters = z.object({ expression: z.string() });
-const notificationParameters = z.object({ message: z.string().max(280) });
+type ParameterSchema<Args> = StandardSchemaV1<unknown, Args> &
+  StandardJSONSchemaV1<unknown, Args>;
+
+/**
+ * An object schema with one required string field.
+ *
+ * The app shell loads this file, so it does not use Zod. Zod here puts the
+ * full Zod bundle (about 430 KB) in the first load, because
+ * `@modelcontextprotocol/ext-apps` imports the whole `z` namespace.
+ */
+function stringFieldSchema<Key extends string>(
+  key: Key,
+  maxLength?: number,
+): ParameterSchema<Record<Key, string>> {
+  const jsonSchema = {
+    type: "object",
+    properties: { [key]: { type: "string", maxLength } },
+    required: [key],
+  };
+  return {
+    "~standard": {
+      version: 1,
+      vendor: "copilotkit-showcase",
+      validate: (value) => {
+        const field =
+          typeof value === "object" && value !== null
+            ? (value as Record<string, unknown>)[key]
+            : undefined;
+        if (typeof field !== "string") {
+          return { issues: [{ message: `Expected a string "${key}".` }] };
+        }
+        if (maxLength !== undefined && field.length > maxLength) {
+          return {
+            issues: [{ message: `"${key}" is longer than ${maxLength}.` }],
+          };
+        }
+        return { value: { [key]: field } as Record<Key, string> };
+      },
+      jsonSchema: { input: () => jsonSchema, output: () => jsonSchema },
+    },
+  };
+}
+
+function parseArgs<Args>(schema: ParameterSchema<Args>, value: unknown): Args {
+  const result = schema["~standard"].validate(value);
+  if (result instanceof Promise) throw new Error("Expected a sync schema.");
+  if (result.issues) throw new Error(result.issues[0]?.message);
+  return result.value;
+}
+
+const expressionParameters = stringFieldSchema("expression");
+const notificationParameters = stringFieldSchema("message", 280);
 
 const sandboxFunctions: readonly SandboxFunction[] = [
   {
@@ -20,7 +73,7 @@ const sandboxFunctions: readonly SandboxFunction[] = [
     parameters: expressionParameters,
     handler: async (args) => {
       try {
-        const { expression } = expressionParameters.parse(args);
+        const { expression } = parseArgs(expressionParameters, args);
         return { ok: true, value: evaluateArithmeticExpression(expression) };
       } catch (error) {
         return {
@@ -36,7 +89,7 @@ const sandboxFunctions: readonly SandboxFunction[] = [
       "Send a short status notification from generated UI to its host.",
     parameters: notificationParameters,
     handler: async (args) => {
-      const { message } = notificationParameters.parse(args);
+      const { message } = parseArgs(notificationParameters, args);
       return { ok: true, message };
     },
   },

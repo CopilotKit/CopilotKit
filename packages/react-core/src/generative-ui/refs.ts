@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import {
   A2UI_CHILD_LIST_MARK,
   A2UI_COMPONENT_ID_MARK,

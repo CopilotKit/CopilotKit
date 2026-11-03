@@ -8,9 +8,7 @@
   // when that fix lands.
   "alias": {
     "pino": "./stubs/pino.mjs",
-    "pino-pretty": "./stubs/pino-pretty.mjs",
     "@ai-sdk/google-vertex": "./stubs/google-vertex.mjs",
-    "yauzl": "./stubs/yauzl.mjs",
     "crypto": "./stubs/crypto.mjs",
   },
 }

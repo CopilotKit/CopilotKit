@@ -1,5 +1,5 @@
-// PE-1105: replace pino with a zero-dependency logger. pino-pretty, sonic-boom
-// and pino-abstract-transport need fs, worker_threads and stream.
+// PE-1105: replace pino with a zero-dependency logger. sonic-boom and
+// pino-abstract-transport need fs, worker_threads and stream.
 const noop = () => {};
 function createLogger() {
   const logger = {

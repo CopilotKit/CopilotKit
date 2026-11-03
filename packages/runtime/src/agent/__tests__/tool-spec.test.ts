@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
-import { z as z4 } from "zod/v4";
 import * as v from "valibot";
 import { toStandardJsonSchema } from "@valibot/to-json-schema";
 import { defineTool } from "../index";
@@ -133,28 +132,7 @@ describe("toolDefinitionToSpec", () => {
     expect(await spec.execute?.({ city: "Paris" })).toBe("Sunny in Paris");
   });
 
-  it("converts a Zod tool with the injected Zod converter", () => {
-    const parameters = z4.object({ city: z4.string() });
-
-    const spec = toolDefinitionToSpec(
-      defineTool({
-        name: "getWeather",
-        description: "Get the weather for a city",
-        parameters,
-      }),
-      { zodToJsonSchema: () => z4.toJSONSchema(parameters) },
-    );
-
-    expect(spec.parameters).toEqual({
-      $schema: "https://json-schema.org/draft/2020-12/schema",
-      type: "object",
-      properties: { city: { type: "string" } },
-      required: ["city"],
-      additionalProperties: false,
-    });
-  });
-
-  it("converts a Zod v3 tool by default", () => {
+  it("converts a Zod tool through Standard JSON Schema", () => {
     const definition = defineTool({
       name: "getWeather",
       description: "Get the weather for a city",

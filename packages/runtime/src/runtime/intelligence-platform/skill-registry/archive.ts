@@ -1,11 +1,19 @@
-import { fromBuffer } from "yauzl";
-import type { Entry, ZipFile } from "yauzl";
-import type { Readable } from "node:stream";
+import { Inflate } from "fflate";
 import { invalidSnapshot } from "./errors";
 
 /** Internal corruption bounds, including manifest and directory entries. */
 export const MAX_ARCHIVE_ENTRIES = 1_000;
 export const MAX_SNAPSHOT_BYTES = 32 * 1024 * 1024;
+
+const LOCAL_HEADER_SIGNATURE = 0x04034b50;
+const CENTRAL_HEADER_SIGNATURE = 0x02014b50;
+const END_OF_CENTRAL_DIRECTORY_SIGNATURE = 0x06054b50;
+const LOCAL_HEADER_SIZE = 30;
+const CENTRAL_HEADER_SIZE = 46;
+const END_OF_CENTRAL_DIRECTORY_SIZE = 22;
+// DEFLATE expands at most ~1032:1, so one pushed chunk decodes to ~16 MiB at
+// most before the size check below can stop a bomb.
+const INFLATE_CHUNK_BYTES = 16 * 1024;
 
 export function safeRelativePath(path: string): boolean {
   return (
@@ -20,173 +28,163 @@ export function safeRelativePath(path: string): boolean {
   );
 }
 
-/** Decode only the listed ZIP namespace. No filesystem is involved. */
-export function readArchive(
-  bytes: Buffer,
+function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
+  return (
+    left.length === right.length &&
+    left.every((byte, index) => byte === right[index])
+  );
+}
+
+/** Inflate raw DEFLATE data, failing as soon as it decodes past `size` bytes. */
+function inflate(data: Uint8Array, size: number): Uint8Array {
+  const out = new Uint8Array(size);
+  let written = 0;
+  const inflater = new Inflate((chunk) => {
+    if (written + chunk.length > size) throw invalidSnapshot();
+    out.set(chunk, written);
+    written += chunk.length;
+  });
+  let offset = 0;
+  do {
+    const end = Math.min(offset + INFLATE_CHUNK_BYTES, data.length);
+    inflater.push(data.subarray(offset, end), end === data.length);
+    offset = end;
+  } while (offset < data.length);
+  if (written !== size) throw invalidSnapshot();
+  return out;
+}
+
+/** Find the end-of-central-directory record; its comment must end the file. */
+function findEndOfCentralDirectory(bytes: Uint8Array, view: DataView): number {
+  const last = bytes.length - END_OF_CENTRAL_DIRECTORY_SIZE;
+  for (let offset = last; offset >= Math.max(0, last - 0xffff); offset--) {
+    if (view.getUint32(offset, true) !== END_OF_CENTRAL_DIRECTORY_SIGNATURE)
+      continue;
+    if (view.getUint16(offset + 20, true) !== last - offset)
+      throw invalidSnapshot();
+    return offset;
+  }
+  throw invalidSnapshot();
+}
+
+/**
+ * Decode only the listed ZIP namespace. No filesystem is involved.
+ *
+ * Parses the central directory directly and inflates with fflate, so it runs
+ * on Node and on edge runtimes alike. ZIP64, multi-disk, and encrypted
+ * archives are rejected: snapshots stay far below the ZIP64 limits.
+ */
+export async function readArchive(
+  bytes: Uint8Array,
   signal?: AbortSignal,
-): Promise<Map<string, Buffer>> {
-  return new Promise((resolve, reject) => {
-    let archive: ZipFile | undefined;
-    let stream: Readable | undefined;
-    let settled = false;
-    const finish = (error?: unknown) => {
-      if (settled) return;
-      settled = true;
-      signal?.removeEventListener("abort", abort);
-      stream?.destroy();
-      archive?.close();
-      if (error !== undefined) reject(error);
-      else resolve(files);
-    };
-    const abort = () => finish(signal?.reason ?? invalidSnapshot());
-    const files = new Map<string, Buffer>();
+): Promise<Map<string, Uint8Array>> {
+  const throwIfAborted = () => {
+    if (signal?.aborted) throw signal.reason ?? invalidSnapshot();
+  };
+  throwIfAborted();
+  try {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.length);
+    const end = findEndOfCentralDirectory(bytes, view);
+    if (view.getUint16(end + 4, true) !== 0) throw invalidSnapshot();
+    const entryCount = view.getUint16(end + 10, true);
+    if (entryCount > MAX_ARCHIVE_ENTRIES) throw invalidSnapshot();
+
+    const files = new Map<string, Uint8Array>();
     const names = new Set<string>();
     let decodedBytes = 0;
-    signal?.addEventListener("abort", abort, { once: true });
-    if (signal?.aborted) {
-      abort();
-      return;
+    let header = view.getUint32(end + 16, true);
+    for (let index = 0; index < entryCount; index++) {
+      throwIfAborted();
+      if (
+        header + CENTRAL_HEADER_SIZE > bytes.length ||
+        view.getUint32(header, true) !== CENTRAL_HEADER_SIGNATURE
+      )
+        throw invalidSnapshot();
+      const generalPurposeBitFlag = view.getUint16(header + 8, true);
+      const compressionMethod = view.getUint16(header + 10, true);
+      const compressedSize = view.getUint32(header + 20, true);
+      const uncompressedSize = view.getUint32(header + 24, true);
+      const nameLength = view.getUint16(header + 28, true);
+      const extraLength = view.getUint16(header + 30, true);
+      const commentLength = view.getUint16(header + 32, true);
+      const externalFileAttributes = view.getUint32(header + 38, true);
+      const local = view.getUint32(header + 42, true);
+      const nameStart = header + CENTRAL_HEADER_SIZE;
+      header = nameStart + nameLength + extraLength + commentLength;
+      if (header > bytes.length) throw invalidSnapshot();
+
+      // Decode the raw UTF-8 name ourselves instead of normalizing backslashes
+      // or consulting alternate Unicode-path extra fields.
+      const rawName = bytes.subarray(nameStart, nameStart + nameLength);
+      const name = new TextDecoder("utf-8", {
+        fatal: true,
+        ignoreBOM: true,
+      }).decode(rawName);
+      const directory = name.endsWith("/");
+      if (
+        !safeRelativePath(directory ? name.slice(0, -1) : name) ||
+        names.has(name)
+      )
+        throw invalidSnapshot();
+      names.add(name);
+      const fileType = (externalFileAttributes >>> 16) & 0o170000;
+      if (fileType !== 0 && fileType !== (directory ? 0o040000 : 0o100000))
+        throw invalidSnapshot();
+      // Bit 0 is traditional encryption, bit 6 strong encryption.
+      if (generalPurposeBitFlag & 0x41 || ![0, 8].includes(compressionMethod))
+        throw invalidSnapshot();
+      if (compressionMethod === 0 && compressedSize !== uncompressedSize)
+        throw invalidSnapshot();
+      decodedBytes += uncompressedSize;
+      if (
+        decodedBytes > MAX_SNAPSHOT_BYTES ||
+        (directory && uncompressedSize !== 0)
+      )
+        throw invalidSnapshot();
+      // Require the central directory and the local entry to name the same
+      // bytes. ZIP data descriptors may leave local sizes unset.
+      if (
+        local + LOCAL_HEADER_SIZE > bytes.length ||
+        view.getUint32(local, true) !== LOCAL_HEADER_SIGNATURE
+      )
+        throw invalidSnapshot();
+      if (
+        view.getUint16(local + 6, true) !== generalPurposeBitFlag ||
+        view.getUint16(local + 8, true) !== compressionMethod
+      )
+        throw invalidSnapshot();
+      const localNameLength = view.getUint16(local + 26, true);
+      const localExtraLength = view.getUint16(local + 28, true);
+      const localNameStart = local + LOCAL_HEADER_SIZE;
+      const dataStart = localNameStart + localNameLength + localExtraLength;
+      if (
+        dataStart + compressedSize > bytes.length ||
+        !equalBytes(
+          bytes.subarray(localNameStart, localNameStart + localNameLength),
+          rawName,
+        )
+      )
+        throw invalidSnapshot();
+      if (
+        !(generalPurposeBitFlag & 8) &&
+        (view.getUint32(local + 18, true) !== compressedSize ||
+          view.getUint32(local + 22, true) !== uncompressedSize)
+      )
+        throw invalidSnapshot();
+      if (directory) continue;
+
+      const data = bytes.subarray(dataStart, dataStart + compressedSize);
+      files.set(
+        name,
+        compressionMethod === 0
+          ? data.slice()
+          : inflate(data, uncompressedSize),
+      );
     }
-    fromBuffer(
-      bytes,
-      {
-        lazyEntries: true,
-        decodeStrings: false,
-        validateEntrySizes: true,
-        autoClose: false,
-      },
-      (error, zip) => {
-        if (error) {
-          finish(invalidSnapshot(error));
-          return;
-        }
-        archive = zip;
-        if (settled) {
-          zip.close();
-          return;
-        }
-        zip.on("error", (cause: unknown) => finish(invalidSnapshot(cause)));
-        zip.on("end", () => finish());
-        if (zip.entryCount > MAX_ARCHIVE_ENTRIES) {
-          finish(invalidSnapshot());
-          return;
-        }
-        zip.on("entry", (entry: Entry) => {
-          try {
-            // decodeStrings:false preserves raw UTF-8 names instead of normalizing
-            // backslashes or consulting alternate Unicode-path extra fields.
-            const rawName: unknown = entry.fileName;
-            if (!Buffer.isBuffer(rawName)) throw invalidSnapshot();
-            const name = new TextDecoder("utf-8", {
-              fatal: true,
-              ignoreBOM: true,
-            }).decode(rawName);
-            const directory = name.endsWith("/");
-            if (
-              !safeRelativePath(directory ? name.slice(0, -1) : name) ||
-              names.has(name)
-            )
-              throw invalidSnapshot();
-            names.add(name);
-            const fileType = (entry.externalFileAttributes >>> 16) & 0o170000;
-            if (
-              fileType !== 0 &&
-              fileType !== (directory ? 0o040000 : 0o100000)
-            )
-              throw invalidSnapshot();
-            if (
-              entry.isEncrypted() ||
-              ![0, 8].includes(entry.compressionMethod)
-            )
-              throw invalidSnapshot();
-            if (
-              !Number.isSafeInteger(entry.uncompressedSize) ||
-              entry.uncompressedSize < 0
-            )
-              throw invalidSnapshot();
-            decodedBytes += entry.uncompressedSize;
-            if (
-              decodedBytes > MAX_SNAPSHOT_BYTES ||
-              (directory && entry.uncompressedSize !== 0)
-            )
-              throw invalidSnapshot();
-            // Require the central directory and the local entry to name the same
-            // bytes. ZIP data descriptors may leave local sizes unset.
-            const local = entry.relativeOffsetOfLocalHeader;
-            if (
-              local < 0 ||
-              local + 30 > bytes.length ||
-              bytes.readUInt32LE(local) !== 0x04034b50
-            )
-              throw invalidSnapshot();
-            if (
-              bytes.readUInt16LE(local + 6) !== entry.generalPurposeBitFlag ||
-              bytes.readUInt16LE(local + 8) !== entry.compressionMethod
-            )
-              throw invalidSnapshot();
-            const localNameLength = bytes.readUInt16LE(local + 26);
-            const localExtraLength = bytes.readUInt16LE(local + 28);
-            const dataStart = local + 30 + localNameLength + localExtraLength;
-            if (
-              dataStart + entry.compressedSize > bytes.length ||
-              !bytes
-                .subarray(local + 30, local + 30 + localNameLength)
-                .equals(rawName)
-            )
-              throw invalidSnapshot();
-            if (
-              !(entry.generalPurposeBitFlag & 8) &&
-              (bytes.readUInt32LE(local + 18) !== entry.compressedSize ||
-                bytes.readUInt32LE(local + 22) !== entry.uncompressedSize)
-            )
-              throw invalidSnapshot();
-            if (directory) {
-              zip.readEntry();
-              return;
-            }
-            zip.openReadStream(entry, (readError, readStream) => {
-              if (readError) {
-                finish(invalidSnapshot(readError));
-                return;
-              }
-              stream = readStream;
-              if (settled) {
-                readStream.destroy();
-                return;
-              }
-              const chunks: Buffer[] = [];
-              let size = 0;
-              readStream.on("error", (cause: unknown) =>
-                finish(invalidSnapshot(cause)),
-              );
-              readStream.on("data", (chunk: Buffer) => {
-                size += chunk.length;
-                if (
-                  size > entry.uncompressedSize ||
-                  size > MAX_SNAPSHOT_BYTES
-                ) {
-                  finish(invalidSnapshot());
-                  return;
-                }
-                chunks.push(chunk);
-              });
-              readStream.on("end", () => {
-                if (settled) return;
-                if (size !== entry.uncompressedSize) {
-                  finish(invalidSnapshot());
-                  return;
-                }
-                files.set(name, Buffer.concat(chunks, size));
-                stream = undefined;
-                zip.readEntry();
-              });
-            });
-          } catch (cause) {
-            finish(invalidSnapshot(cause));
-          }
-        });
-        zip.readEntry();
-      },
-    );
-  });
+    throwIfAborted();
+    return files;
+  } catch (cause) {
+    throwIfAborted();
+    throw invalidSnapshot(cause);
+  }
 }

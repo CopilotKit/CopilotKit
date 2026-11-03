@@ -25,9 +25,8 @@ lands, remove its stub. The test then proves the fix.
 
 | Stub                    | Why it is needed                                                                       | Fix                                               |
 | ----------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `pino`, `pino-pretty`   | Logger transports need `fs`, `worker_threads`                                          | PE-1105 (zero-dependency logger)                  |
+| `pino`                  | Logger transports need `fs`, `worker_threads`                                          | PE-1105 (zero-dependency logger)                  |
 | `@ai-sdk/google-vertex` | `google-auth-library` needs `child_process`, `fs`                                      | PE-1102 (factory-only BuiltInAgent)               |
-| `yauzl`                 | Learned-skills archives need `fs`, `stream`, `zlib`                                    | PE-1107 blocker 5                                 |
 | `crypto`                | `@ag-ui/a2ui-middleware`, `@ag-ui/mcp-apps-middleware`, `@copilotkit/license-verifier` | Upstream ag-ui PRs; license-verifier `/web` entry |
 
 `src/worker.ts` also builds its agent per request. `@ag-ui/client` 1.0.3 and

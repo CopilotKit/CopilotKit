@@ -7,7 +7,8 @@
 import type { WatchSource } from "vue";
 import type { WebMCPToolConfig } from "@copilotkit/core";
 import type { Parameter, MappedParameterTypes } from "@copilotkit/shared";
-import { getZodParameters, parseJson } from "@copilotkit/shared";
+import { parseJson } from "@copilotkit/shared";
+import { getZodParameters } from "./zod-parameters";
 import { useFrontendTool as useFrontendToolV2 } from "../v2/hooks/use-frontend-tool";
 import { useHumanInTheLoop as useHumanInTheLoopV2 } from "../v2/hooks/use-human-in-the-loop";
 import { useRenderTool as useRenderToolV2 } from "../v2/hooks/use-render-tool";

@@ -5,7 +5,7 @@ import {
   DataModel,
   SurfaceModel,
 } from "@a2ui/web_core/v0_9";
-import { z } from "zod";
+import * as z from "zod";
 import {
   A2UI_COMPONENT_ENVELOPE_KEYS,
   GENERATIVE_UI_MAX_REJECTION_LENGTH,
@@ -173,7 +173,10 @@ export class GenerativeUISurfaceManager {
     private readonly ui: GenerativeUI,
     private readonly options: GenerativeUISurfaceManagerOptions = {},
   ) {
-    this.webCoreCatalog = new Catalog(
+    // `SurfaceModel` only needs component names; it never reads a schema.
+    // `Catalog<any>` because web_core types schemas as Zod 3 and this
+    // package uses Zod 4.
+    this.webCoreCatalog = new Catalog<any>(
       ui.id,
       [...ui.components.keys()].map((name) => ({ name, schema: z.any() })),
       [],

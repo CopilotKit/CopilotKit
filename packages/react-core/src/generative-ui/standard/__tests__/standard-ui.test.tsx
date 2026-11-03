@@ -21,7 +21,7 @@ vi.mock("maplibre-gl", () => {
 /** The fixture uses every standard component at least once. */
 const fixtureSchema = z.object({
   components: z.array(
-    z.object({ id: z.string(), component: z.string() }).passthrough(),
+    z.object({ id: z.string(), component: z.string() }).loose(),
   ),
   data: z.record(z.string(), z.unknown()),
 });

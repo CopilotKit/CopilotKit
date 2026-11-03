@@ -31,7 +31,7 @@
     "playwright": "^1.49.0",
     "react": "^19.1.0",
     "takumi-js": "^2.7.3",
-    "zod": "^3.25.76"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@notionhq/notion-mcp-server": "^2.2.1",

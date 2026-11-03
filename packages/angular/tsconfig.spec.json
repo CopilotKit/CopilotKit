@@ -2,6 +2,10 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "target": "es2016",
+    // Tests compile to ES2016, which needs helpers such as __awaiter. Import
+    // them from tslib (a dev dependency): vi.mock factories are hoisted above
+    // inlined helpers.
+    "importHelpers": true,
     "types": ["vitest/globals", "node"]
   },
   "files": ["src/test-setup.ts"],

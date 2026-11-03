@@ -18,7 +18,10 @@ type Node = SgNode<Lang>;
 
 const GUIDE = "https://docs.copilotkit.ai/migrate/v2";
 
-/** Import paths that only moved: the `/v2` subpaths are the package roots in 2.0. */
+/**
+ * Import paths that only moved: the `/v2` subpaths are the package roots in
+ * 2.0, and the server-only shared entries moved into the runtime.
+ */
 const PATHS: Record<string, string> = {
   "@copilotkit/react-core/v2": "@copilotkit/react-core",
   "@copilotkit/react-core/v2/headless": "@copilotkit/react-core/headless",
@@ -27,6 +30,7 @@ const PATHS: Record<string, string> = {
     "@copilotkit/react-core/generative-ui",
   "@copilotkit/runtime/v2": "@copilotkit/runtime",
   "@copilotkit/runtime/v2/node": "@copilotkit/runtime/node",
+  "@copilotkit/shared/event-transforms": "@copilotkit/runtime",
 };
 
 /**

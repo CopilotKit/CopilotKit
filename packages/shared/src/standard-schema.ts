@@ -27,18 +27,6 @@ export const ɵanySchema: StandardSchemaV1<unknown, unknown> = {
 export type InferSchemaOutput<S> =
   S extends StandardSchemaV1<any, infer O> ? O : never;
 
-export interface SchemaToJsonSchemaOptions {
-  /**
-   * Injected `zodToJsonSchema` function so that `shared` does not depend on
-   * `zod-to-json-schema`. Required when the schema is a Zod v3 schema that
-   * does not implement Standard JSON Schema V1.
-   */
-  zodToJsonSchema?: (
-    schema: unknown,
-    options?: { $refStrategy?: string },
-  ) => Record<string, unknown>;
-}
-
 /**
  * Check whether a schema implements the Standard JSON Schema V1 protocol.
  */
@@ -63,35 +51,29 @@ function hasStandardJsonSchema(
  * Strategy:
  * 1. If the schema implements Standard JSON Schema V1 (`~standard.jsonSchema`),
  *    call `schema['~standard'].jsonSchema.input({ target: 'draft-07' })`.
- * 2. If the schema exposes a `toJSONSchema()` method (Zod v4), call it directly.
- * 3. If the schema is a Zod v3 schema (`~standard.vendor === 'zod'`), use the
- *    injected `zodToJsonSchema()` function.
- * 4. Otherwise throw a descriptive error.
+ *    Zod 4.2+, ArkType 2.1.28+ and Valibot (via `toStandardJsonSchema`) do.
+ * 2. If the schema exposes a `toJSONSchema()` method, call it directly.
+ * 3. Otherwise throw a descriptive error. Zod 3 schemas land here: they
+ *    implement Standard Schema validation but cannot describe themselves as
+ *    JSON Schema.
  */
 export function schemaToJsonSchema(
   schema: StandardSchemaV1,
-  options?: SchemaToJsonSchemaOptions,
 ): Record<string, unknown> {
   // 1. Standard JSON Schema V1
   if (hasStandardJsonSchema(schema)) {
     return schema["~standard"].jsonSchema.input({ target: "draft-07" });
   }
 
-  // 2. Zod v4 native — exposes toJSONSchema() on the schema itself
+  // 2. Native toJSONSchema() method
   if (typeof (schema as any).toJSONSchema === "function") {
     return (schema as any).toJSONSchema() as Record<string, unknown>;
   }
 
-  // 3. Zod v3 fallback
   const vendor = schema["~standard"].vendor;
-  if (vendor === "zod" && options?.zodToJsonSchema) {
-    return options.zodToJsonSchema(schema, { $refStrategy: "none" });
-  }
-
   throw new Error(
-    `Cannot convert schema to JSON Schema. The schema (vendor: "${vendor}") does not implement Standard JSON Schema V1 ` +
-      `and no zodToJsonSchema fallback is available. ` +
-      `Use a library that supports Standard JSON Schema (e.g., Zod 3.24+, Valibot v1+, ArkType v2+) ` +
-      `or pass a zodToJsonSchema function in options.`,
+    `Cannot convert schema to JSON Schema. The schema (vendor: "${vendor}") does not implement Standard JSON Schema V1. ` +
+      `Use a library that does: Zod 4.2+ (Zod 3 is not supported), Valibot v1+ wrapped with ` +
+      `toStandardJsonSchema() from @valibot/to-json-schema, or ArkType v2.1.28+.`,
   );
 }

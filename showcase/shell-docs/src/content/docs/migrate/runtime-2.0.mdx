@@ -362,6 +362,23 @@ The full list of removed and moved exports is in
 not supported. If your server or CI uses an earlier version, upgrade Node.js
 before you upgrade CopilotKit.
 
+## Debug logs
+
+With `debug: true`, the runtime writes its debug logs as JSON lines. In 1.x it
+formatted them with `pino-pretty`, which needs Node streams and does not run on
+edge runtimes. To read the logs formatted, pipe your server output through
+`npx pino-pretty`.
+
+If your code calls `runtime.debugLogger` (type `CopilotRuntimeLogger`), it has
+only these methods in 2.0:
+
+- `debug`, `info`, `warn`, and `error`. Each one takes `(msg)` or `(obj, msg)`.
+- `child(bindings)`. It returns a logger that adds `bindings` to each line.
+
+Other pino `Logger` methods and fields are not available, for example `trace`,
+`fatal`, `level`, and `flush`. If your code uses them, change it to use the
+methods above. The `LOG_LEVEL` environment variable still sets the log level.
+
 ## Dependency cleanup
 
 Remove `hono`, `@hono/node-server`, `express`, and `cors` from your app only if your

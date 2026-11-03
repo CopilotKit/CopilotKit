@@ -3,26 +3,26 @@ import { z } from "zod";
 import * as v from "valibot";
 import { toStandardJsonSchema } from "@valibot/to-json-schema";
 import { type } from "arktype";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { schemaToJsonSchema, ɵanySchema } from "../standard-schema";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
 describe("schemaToJsonSchema", () => {
-  describe("Zod schemas (via injected zodToJsonSchema)", () => {
+  describe("Zod 4 schemas (native ~standard.jsonSchema)", () => {
     it("converts a simple zod object schema", () => {
       const schema = z.object({
-        name: z.string(),
+        name: z.string().describe("Full name"),
         age: z.number(),
       });
 
-      const result = schemaToJsonSchema(schema, { zodToJsonSchema });
-
-      expect(result).toHaveProperty("type", "object");
-      expect(result).toHaveProperty("properties.name.type", "string");
-      expect(result).toHaveProperty("properties.age.type", "number");
-      expect(result).toHaveProperty("required");
-      expect(result.required).toContain("name");
-      expect(result.required).toContain("age");
+      expect(schemaToJsonSchema(schema)).toEqual({
+        $schema: "http://json-schema.org/draft-07/schema#",
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Full name" },
+          age: { type: "number" },
+        },
+        required: ["name", "age"],
+      });
     });
 
     it("converts a zod schema with optional fields", () => {
@@ -31,12 +31,27 @@ describe("schemaToJsonSchema", () => {
         units: z.enum(["celsius", "fahrenheit"]).optional(),
       });
 
-      const result = schemaToJsonSchema(schema, { zodToJsonSchema });
+      const result = schemaToJsonSchema(schema);
 
       expect(result).toHaveProperty("type", "object");
       expect(result).toHaveProperty("properties.city.type", "string");
-      expect(result.required).toContain("city");
-      expect(result.required).not.toContain("units");
+      expect(result).toHaveProperty("properties.units.enum", [
+        "celsius",
+        "fahrenheit",
+      ]);
+      expect(result.required).toEqual(["city"]);
+    });
+
+    it("describes the input side, so fields with defaults are optional", () => {
+      const schema = z.object({
+        query: z.string(),
+        page: z.number().default(1),
+      });
+
+      const result = schemaToJsonSchema(schema);
+
+      expect(result.required).toEqual(["query"]);
+      expect(result).toHaveProperty("properties.page.default", 1);
     });
 
     it("has vendor 'zod' on ~standard", () => {
@@ -131,10 +146,9 @@ describe("schemaToJsonSchema", () => {
       expect(result.required).toContain("age");
     });
 
-    it("converts an arktype schema without needing zodToJsonSchema fallback", () => {
+    it("converts a single-field arktype schema", () => {
       const schema = type({ query: "string" });
 
-      // No zodToJsonSchema option needed — arktype uses Standard JSON Schema V1 natively
       const result = schemaToJsonSchema(schema);
 
       expect(result).toHaveProperty("type", "object");
@@ -179,38 +193,9 @@ describe("schemaToJsonSchema", () => {
         $target: "draft-07",
       });
     });
-
-    it("prefers ~standard.jsonSchema over zodToJsonSchema fallback", () => {
-      const mockSchema = {
-        "~standard": {
-          version: 1,
-          vendor: "zod",
-          validate: (value: unknown) => ({ value }),
-          jsonSchema: {
-            input: () => ({
-              type: "object",
-              properties: { fromJsonSchema: { type: "boolean" } },
-            }),
-          },
-        },
-      };
-
-      const zodFallback = () => ({
-        type: "object",
-        properties: { fromZodFallback: { type: "boolean" } },
-      });
-
-      const result = schemaToJsonSchema(mockSchema, {
-        zodToJsonSchema: zodFallback,
-      });
-
-      // Should use ~standard.jsonSchema, not the zod fallback
-      expect(result).toHaveProperty("properties.fromJsonSchema");
-      expect(result).not.toHaveProperty("properties.fromZodFallback");
-    });
   });
 
-  describe("Zod v4 schemas (via toJSONSchema method)", () => {
+  describe("schemas exposing a toJSONSchema() method", () => {
     it("calls toJSONSchema() when the method exists on the schema", () => {
       const expectedOutput = {
         type: "object",
@@ -231,7 +216,7 @@ describe("schemaToJsonSchema", () => {
       expect(result).toEqual(expectedOutput);
     });
 
-    it("uses toJSONSchema() even without zodToJsonSchema option", () => {
+    it("uses toJSONSchema() with no options", () => {
       const mockZod4Schema: StandardSchemaV1 = {
         "~standard": {
           version: 1,
@@ -247,32 +232,6 @@ describe("schemaToJsonSchema", () => {
       // No options passed — toJSONSchema() should still work
       const result = schemaToJsonSchema(mockZod4Schema);
       expect(result).toHaveProperty("properties.city.type", "string");
-    });
-
-    it("prefers toJSONSchema() over zodToJsonSchema fallback for Zod v4", () => {
-      const mockZod4Schema: StandardSchemaV1 = {
-        "~standard": {
-          version: 1,
-          vendor: "zod",
-          validate: (value: unknown) => ({ value }),
-        },
-        toJSONSchema: () => ({
-          type: "object",
-          properties: { fromNative: { type: "boolean" } },
-        }),
-      } as any;
-
-      const zodFallback = () => ({
-        type: "object",
-        properties: { fromFallback: { type: "boolean" } },
-      });
-
-      const result = schemaToJsonSchema(mockZod4Schema, {
-        zodToJsonSchema: zodFallback,
-      });
-
-      expect(result).toHaveProperty("properties.fromNative");
-      expect(result).not.toHaveProperty("properties.fromFallback");
     });
 
     it("prefers ~standard.jsonSchema over toJSONSchema()", () => {
@@ -303,7 +262,7 @@ describe("schemaToJsonSchema", () => {
   });
 
   describe("Error handling", () => {
-    it("throws when schema has no jsonSchema support and no zodToJsonSchema", () => {
+    it("throws when schema has no jsonSchema support", () => {
       const mockSchema: StandardSchemaV1 = {
         "~standard": {
           version: 1,
@@ -318,22 +277,10 @@ describe("schemaToJsonSchema", () => {
       expect(() => schemaToJsonSchema(mockSchema)).toThrow(/unknown-lib/);
     });
 
-    it("throws for non-zod vendor when zodToJsonSchema is not provided", () => {
-      const mockSchema: StandardSchemaV1 = {
-        "~standard": {
-          version: 1,
-          vendor: "some-other-lib",
-          validate: (value: unknown) => ({ value }),
-        },
-      };
-
-      expect(() => schemaToJsonSchema(mockSchema)).toThrow(
-        /no zodToJsonSchema fallback/,
-      );
-    });
-
-    it("uses zodToJsonSchema fallback for zod vendor schemas", () => {
-      const mockZodSchema: StandardSchemaV1 = {
+    it("rejects a Zod 3 schema and names the supported Zod version", () => {
+      // Zod 3 implements Standard Schema validation only: no
+      // `~standard.jsonSchema` and no `toJSONSchema()` method.
+      const zod3Like: StandardSchemaV1 = {
         "~standard": {
           version: 1,
           vendor: "zod",
@@ -341,19 +288,7 @@ describe("schemaToJsonSchema", () => {
         },
       };
 
-      const fallback = () => ({
-        type: "object",
-        properties: { test: { type: "string" } },
-      });
-
-      const result = schemaToJsonSchema(mockZodSchema, {
-        zodToJsonSchema: fallback,
-      });
-
-      expect(result).toEqual({
-        type: "object",
-        properties: { test: { type: "string" } },
-      });
+      expect(() => schemaToJsonSchema(zod3Like)).toThrow(/Zod 4\.2\+/);
     });
   });
 });

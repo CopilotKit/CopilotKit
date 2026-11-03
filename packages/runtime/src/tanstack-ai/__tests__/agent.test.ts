@@ -268,7 +268,7 @@ describe("tanstackAIAgent", () => {
     expect(calls).toEqual([{ q: "a" }]);
   });
 
-  it("runs a Zod v3 defineTool server tool", async () => {
+  it("runs a Zod defineTool server tool", async () => {
     const calls: unknown[] = [];
     const getWeather = defineTool({
       name: "getWeather",

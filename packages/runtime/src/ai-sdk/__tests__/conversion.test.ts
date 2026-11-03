@@ -232,8 +232,8 @@ describe("convertJsonSchemaToZodSchema", () => {
     };
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
     const statusSchema = (result as z.ZodObject<any>).shape.status;
-    expect(statusSchema._def.typeName).toBe("ZodEnum");
-    expect(statusSchema._def.values).toEqual(["todo", "done"]);
+    expect(statusSchema).toBeInstanceOf(z.ZodEnum);
+    expect(statusSchema.options).toEqual(["todo", "done"]);
   });
 
   it("should handle nested object schemas", () => {

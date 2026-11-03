@@ -1,4 +1,4 @@
-import { satisfies, valid, validRange, prerelease } from "semver";
+import { isStableVersion, isValidRange, satisfies } from "./semver.js";
 
 /** Versioned CDN notification contract. Keep the Intelligence copy and fixtures aligned. */
 export type NotificationFramework = "react" | "vue" | "angular";
@@ -92,7 +92,7 @@ export function validNotificationConditions(
     return false;
   return Object.entries(value).every(([key, expected]) => {
     if (!text(expected)) return false;
-    if (key === "sdkVersion") return validRange(expected) !== null;
+    if (key === "sdkVersion") return isValidRange(expected);
     if (key === "plan") return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(expected);
     return (
       Object.prototype.hasOwnProperty.call(conditionValues, key) &&
@@ -285,11 +285,7 @@ export function matchNotification(
 ): { matches: boolean; reasons: string[] } {
   if (!context.development)
     return { matches: false, reasons: ["Development only"] };
-  if (
-    !context.sdkVersion ||
-    !valid(context.sdkVersion) ||
-    prerelease(context.sdkVersion) !== null
-  )
+  if (!context.sdkVersion || !isStableVersion(context.sdkVersion))
     return {
       matches: false,
       reasons: ["Known stable SDK required"],
@@ -301,8 +297,7 @@ export function matchNotification(
       const matches =
         field === "sdkVersion"
           ? actual !== undefined &&
-            valid(actual) !== null &&
-            prerelease(actual) === null &&
+            isStableVersion(actual) &&
             satisfies(actual, expected)
           : actual === expected;
       if (!matches)

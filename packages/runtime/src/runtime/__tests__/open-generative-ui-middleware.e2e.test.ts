@@ -8,10 +8,7 @@ import type {
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import { Observable, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
-import {
-  OpenGenerativeUIMiddleware,
-  ArgsParser,
-} from "../open-generative-ui-middleware";
+import { OpenGenerativeUIMiddleware, ArgsParser } from "../event-transforms";
 
 /**
  * A minimal agent that records the input it receives and emits scripted events.
@@ -85,7 +82,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
     });
   });
 
-  describe("ArgsParser (streaming JSON via clarinet)", () => {
+  describe("ArgsParser (streaming JSON)", () => {
     const noop = () => {};
 
     it("parses a complete JSON object in one chunk", () => {
@@ -102,7 +99,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       });
     });
 
-    it("streams html as incremental chunks via textNode", () => {
+    it("streams html as incremental chunks", () => {
       const emitted: BaseEvent[] = [];
       const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
 
@@ -121,8 +118,8 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       ]);
 
       emitted.length = 0;
-      // More html content — note: clarinet needs a delimiter after the
-      // closing quote to emit onvalue, so include the trailing }
+      // The rest of the html. The value completes when its closing quote
+      // arrives. The trailing } only closes the object.
       parser.write('>hello</div>"}');
       // Should have more chunk(s) + htmlComplete
       const completeDelta = emitted.find(
@@ -563,7 +560,8 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       parser.write('{"initialHeight":100,');
       emitted.length = 0; // clear snapshot
 
-      // Trailing comma needed — clarinet fires onvalue after a delimiter
+      // The item value completes at its closing quote. The trailing comma
+      // is not needed for that. It only shows that more items follow.
       parser.write('"jsExpressions":["first",');
 
       // Should get array creation delta followed by item delta

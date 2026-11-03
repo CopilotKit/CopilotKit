@@ -133,7 +133,7 @@ function App() {
 
 ## Markdown rendering
 
-2.0 renders assistant messages with `@copilotkit/markdown-renderer`, not Streamdown. It does streaming-safe GFM, tables, autolinks, and citations. It does not do syntax highlighting, KaTeX math, or mermaid diagrams. Docs: https://docs.copilotkit.ai/migrate/markdown-renderer
+2.0 renders assistant messages with `@copilotkit/markdown`, not Streamdown. It does streaming-safe GFM, tables, autolinks, and citations. It does not do syntax highlighting, KaTeX math, or mermaid diagrams. Docs: https://docs.copilotkit.ai/migrate/markdown-renderer
 
 The `markdownRenderer` slot and the provider's `markdownRenderer` prop take one of these:
 

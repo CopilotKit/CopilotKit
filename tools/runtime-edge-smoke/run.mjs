@@ -27,9 +27,7 @@ const runtimeDist = resolve(here, "../../packages/runtime/dist");
 // entry when its fix lands.
 const STUBS = {
   pino: "./stubs/pino.mjs",
-  "pino-pretty": "./stubs/pino-pretty.mjs",
   "@ai-sdk/google-vertex": "./stubs/google-vertex.mjs",
-  yauzl: "./stubs/yauzl.mjs",
   crypto: "./stubs/crypto.mjs",
 };
 
