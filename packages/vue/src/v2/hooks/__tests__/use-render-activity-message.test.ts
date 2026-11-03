@@ -99,7 +99,8 @@ describe("useRenderActivityMessage", () => {
 
     expect(result).toBeNull();
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      "Failed to validate content for activity message 'progress'.",
+      "[CopilotKit] Failed to parse content for activity message 'progress':",
+      expect.any(Array),
     );
   });
 });

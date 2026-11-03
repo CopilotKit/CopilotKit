@@ -30,8 +30,18 @@ export {
   ɵresolveToolCallRenderer,
   ɵresolveActivityRenderer,
   ɵresolveCustomMessageRenderers,
+  ɵfindActivityRenderer,
+  ɵmatchActivityRenderer,
+  ɵdescribeActivityRendererFailure,
+  ɵgetCustomMessageRenderProps,
+  ɵresolveCustomMessageRenderContext,
 } from "./renderers";
-export type { ɵActivityRendererQuery } from "./renderers";
+export type {
+  ɵActivityRendererQuery,
+  ɵActivityRendererLookup,
+  ɵActivityRendererFailureReason,
+  ɵCustomMessageRunSource,
+} from "./renderers";
 
 // Tool-call render props and status (internal)
 export {
