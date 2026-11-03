@@ -138,7 +138,7 @@ function updateInspectorVisibility(): void {
     enableInspector: props.enableInspector,
     isBrowser: true,
     isDevelopment: process.env.NODE_ENV === "development",
-    hostname: window.location.hostname,
+    hostname: window.location?.hostname,
   });
 }
 

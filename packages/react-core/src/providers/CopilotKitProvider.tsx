@@ -449,7 +449,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         enableInspector,
         isBrowser: true,
         isDevelopment: process.env.NODE_ENV === "development",
-        hostname: window.location.hostname,
+        hostname: window.location?.hostname,
       }),
     );
   }, [enableInspector]);
