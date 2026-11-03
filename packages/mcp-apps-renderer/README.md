@@ -36,11 +36,19 @@ npm install @copilotkit/mcp-apps-renderer
 ```
 
 If it is missing, the adapter reports the package name in the setup error when
-the first MCP App renders; apps without MCP Apps never load it. One build-time
-exception: webpack older than 5.90.2 resolves that lazy `import()` eagerly
-(5.90.2 is the first release that treats an `import()` inside `try/catch` as
-optional), so bundling an adapter with an older webpack requires this package to
-be installed even for apps that never render an MCP App.
+the first MCP App renders; apps without MCP Apps never load it.
+
+Two build-time exceptions, both webpack-only — Vite, Rollup and esbuild warn on
+the unresolved dynamic import and let the runtime `.catch()` report it:
+
+- An Angular webpack build that includes `provideMCPApps` must install this
+  package whatever the webpack version, even when the app never renders a
+  widget. The Angular widget loads the bridge through a promise chain rather
+  than a `try` block, so webpack does not treat that `import()` as optional at
+  any version.
+- The React and Vue adapters load the bridge inside `try/catch`, which webpack
+  has treated as optional since 5.90.2. A build on an older webpack must
+  therefore install the package, or upgrade webpack.
 
 ## Script-tag / UMD usage
 
