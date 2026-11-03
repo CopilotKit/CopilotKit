@@ -107,6 +107,8 @@ const CANONICAL_FRAMEWORKS = [
   "strands-typescript",
   "ms-agent-python",
   "ms-agent-dotnet",
+  "ms-agent-harness-dotnet",
+  "google-antigravity",
   "claude-sdk-python",
   "claude-sdk-typescript",
   "langroid",

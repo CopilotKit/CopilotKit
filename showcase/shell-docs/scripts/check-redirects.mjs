@@ -485,6 +485,10 @@ for (const [from, to] of [
   ["/aws-strands/shared-state", "/strands/shared-state"],
   ["/microsoft-agent-framework/quickstart", "/ms-agent-dotnet/quickstart"],
   ["/mastra/tutorials/ai-travel-app", "/mastra/quickstart"],
+  [
+    "/ms-agent-harness-dotnet/tutorials/ai-todo-app/overview",
+    "/ms-agent-harness-dotnet/quickstart",
+  ],
   ["/direct-to-llm", "/"],
   ["/direct-to-llm/shared-state", "/shared-state"],
   ["/shared/frontend-tools", "/frontend-tools"],
