@@ -2,7 +2,9 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig([
   {
-    entry: ["src/index.ts"],
+    // `mount` holds no runtime import of `index`, so adapters can import it
+    // eagerly and still load the Inspector itself as a lazy chunk.
+    entry: ["src/index.ts", "src/mount.ts"],
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
