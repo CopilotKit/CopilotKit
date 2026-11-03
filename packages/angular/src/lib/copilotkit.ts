@@ -277,6 +277,14 @@ export class CopilotKit {
       ...this.#builtInActivityMessageRenderConfigs(),
     ]);
 
+  readonly #executingToolCallIds = signal(this.core.executingToolCallIds);
+  /**
+   * Ids of the tool calls whose frontend handler runs now. Mirrors
+   * `core.executingToolCallIds`: a call stays in it until its result is in
+   * the agent's messages.
+   */
+  readonly executingToolCallIds = this.#executingToolCallIds.asReadonly();
+
   /** Removes the built-in Open Generative UI tool, while it is registered. */
   #unregisterOpenGenerativeUITool: (() => void) | undefined;
   #openGenerativeUIContextIds: string[] = [];
@@ -351,6 +359,9 @@ export class CopilotKit {
     this.core.subscribe({
       onAgentsChanged: () => {
         this.#agents.set(this.core.agents);
+      },
+      onExecutingToolCallsChanged: ({ executingToolCallIds }) => {
+        this.#executingToolCallIds.set(executingToolCallIds);
       },
       onRuntimeConnectionStatusChanged: ({ status }) => {
         // Core assigns `threadEndpoints`/`intelligence` synchronously before it

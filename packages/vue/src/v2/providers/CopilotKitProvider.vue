@@ -21,7 +21,6 @@ import type { AbstractAgent } from "@ag-ui/client";
 import { ToolCallStatus } from "@copilotkit/core";
 import type {
   CopilotKitCoreErrorCode,
-  CopilotKitCoreSubscriber,
   CopilotKitHeadersSource,
   FrontendTool,
 } from "@copilotkit/core";
@@ -556,27 +555,17 @@ const executingToolCallIds = ref<ReadonlySet<string>>(new Set());
 watch(
   copilotkit,
   (core, _, onCleanup) => {
+    // Core keeps a call executing until its result is in the messages, so
+    // the status never drops back to in-progress between the two.
+    executingToolCallIds.value = core.executingToolCallIds;
     const sub1 = core.subscribe({
-      onToolExecutionStart: ({
-        toolCallId,
-      }: Parameters<
-        NonNullable<CopilotKitCoreSubscriber["onToolExecutionStart"]>
-      >[0]) => {
-        executingToolCallIds.value = new Set(executingToolCallIds.value).add(
-          toolCallId,
-        );
-      },
-      onToolExecutionEnd: ({
-        toolCallId,
-      }: Parameters<
-        NonNullable<CopilotKitCoreSubscriber["onToolExecutionEnd"]>
-      >[0]) => {
-        setTimeout(() => {
-          const next = new Set(executingToolCallIds.value);
-          next.delete(toolCallId);
-          executingToolCallIds.value = next;
-          triggerRef(copilotkit);
-        }, 0);
+      onExecutingToolCallsChanged: ({ executingToolCallIds: ids }) => {
+        const hasFinishedCall = ids.size < executingToolCallIds.value.size;
+        executingToolCallIds.value = ids;
+        // Core adds the result to `agent.messages` without a messages event,
+        // so re-read the agents once a call finishes. Not on start: that
+        // re-runs the agent subscriptions mid-run and drops a pending update.
+        if (hasFinishedCall) triggerRef(copilotkit);
       },
     });
     const sub2 = core.subscribe({

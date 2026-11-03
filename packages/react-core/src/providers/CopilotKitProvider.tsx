@@ -22,6 +22,7 @@ import {
   useReducer,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
 // Context extracted to ../context.ts for cross-platform reuse (React Native)
@@ -1006,39 +1007,21 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     };
   }, [copilotkit]);
 
-  // Track executing tool call IDs at the provider level.
-  // This is critical for HITL reconnection: when connecting to a thread with
-  // pending tool calls, the onToolExecutionStart event fires before child components
-  // (like CopilotChatToolCallsView) mount. By tracking at the provider level,
-  // we ensure the executing state is captured and available when children mount.
-  const [executingToolCallIds, setExecutingToolCallIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
-
-  useEffect(() => {
-    const subscription = copilotkit.subscribe({
-      onToolExecutionStart: ({ toolCallId }) => {
-        setExecutingToolCallIds((prev) => {
-          if (prev.has(toolCallId)) return prev;
-          const next = new Set(prev);
-          next.add(toolCallId);
-          return next;
-        });
-      },
-      onToolExecutionEnd: ({ toolCallId }) => {
-        setExecutingToolCallIds((prev) => {
-          if (!prev.has(toolCallId)) return prev;
-          const next = new Set(prev);
-          next.delete(toolCallId);
-          return next;
-        });
-      },
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [copilotkit]);
+  // Core tracks executing tool calls from the first `onToolExecutionStart`,
+  // so a HITL call resumed on reconnect (before the chat mounts) is already
+  // executing when children first read it.
+  const subscribeExecutingToolCalls = useCallback(
+    (onChange: () => void) =>
+      copilotkit.subscribe({ onExecutingToolCallsChanged: onChange })
+        .unsubscribe,
+    [copilotkit],
+  );
+  const getExecutingToolCallIds = () => copilotkit.executingToolCallIds;
+  const executingToolCallIds = useSyncExternalStore(
+    subscribeExecutingToolCalls,
+    getExecutingToolCallIds,
+    getExecutingToolCallIds,
+  );
 
   // onError subscription — forward core errors to user callback
   const onErrorRef = useRef(onError);
