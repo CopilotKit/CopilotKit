@@ -576,13 +576,6 @@
   font: revert-layer;
   color: revert-layer;
 }
-/* Gen UI also sizes h2 to h4 inside a surface (unlayered), which would flatten Material's heading roles. */
-:is(.a2-surface-host, .a2-static)[data-ds="material"]
-  .m3e-text:is(h1, h2, h3, h4, h5, h6) {
-  font-size: revert-layer;
-  font-weight: revert-layer;
-  line-height: revert-layer;
-}
 :is(.a2-surface-host, .a2-static)[data-ds="material"] .m3e-button {
   font-family: var(--m3e-sys-typescale-baseline-label-large-font-family);
   font-size: var(--m3e-sys-typescale-baseline-label-large-font-size);
@@ -593,13 +586,14 @@
 /* The containers keep the standard set's own text (a Section's title and subtitle, a card's title, a heading's
    context), so inside Material it takes Material's type roles: weights of 400 and 500 only, no tracking
    tighter than 0, a Section at title-large (22px), a card at title-medium (16px) and context at label-large.
-   Gen UI sizes every h3 in a surface at 1.25em, unlayered, so these are unlayered too. */
+   Unlayered, to outrank the Tailwind classes they replace. The weight and tracking rules sit under the role
+   rules in specificity (`:where`), so a role's own weight, title-large's 400, wins over the blanket 500. */
 :is(.a2-surface-host, .a2-static)[data-ds="material"]
-  :is(.tracking-tight, .tracking-tighter) {
+  :where(.tracking-tight, .tracking-tighter) {
   letter-spacing: 0;
 }
 :is(.a2-surface-host, .a2-static)[data-ds="material"]
-  :is(.font-semibold, .font-bold) {
+  :where(.font-semibold, .font-bold) {
   font-weight: 500;
 }
 :is(.a2-surface-host, .a2-static)[data-ds="material"] section > header h3 {

@@ -235,6 +235,17 @@
   }
 }
 
+/* Gen UI sizes every h2 to h4 inside a surface (1.5, 1.25 and 1em, all 600), unlayered, so it outranks the
+   catalog's own Tailwind sizes: a Heading came out at one size whatever its level, and a table's title at
+   20px beside a 13.5px chart title. Headings take their own type back here, and one that sets none keeps the
+   page's. Kept at one element's specificity so a design system's heading rules still win, and off Markdown,
+   which sizes its own headings (below). */
+:where(.a2ui-surface) :is(h2, h3, h4):where(:not(.a2-md *)) {
+  font-size: revert-layer;
+  font-weight: revert-layer;
+  line-height: revert-layer;
+}
+
 /* Markdown + code inside surfaces */
 .a2-md > * + * {
   margin-top: 0.6em;
