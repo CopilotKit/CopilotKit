@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { liveHref, type ResolvedLivePage } from "@/lib/live-docs";
 import { NAMED_SNIPPETS } from "@/lib/named-snippets";
+import { isV1Reference, V1_DEPRECATION_MARKDOWN } from "@/lib/v1-deprecation";
 
 // One live page as Markdown, the shape shell-docs serves at `<path>.md`
 // (`renderPageToLlmText` in its `src/lib/llm-text.ts`): an H1 with the title,
@@ -14,17 +15,6 @@ import { NAMED_SNIPPETS } from "@/lib/named-snippets";
 // "@/snippets/....mdx"`, then `<X />`) is inlined: many pages are nothing but
 // one. Other components (`<Snippet>`, `<InlineDemo>`, `<FrameworkSetup>`)
 // stay as tags.
-
-/** shell-docs' `V1_DEPRECATION_NOTICE_USE_V2_INSTEAD`, as its raw-Markdown block. */
-const V1_DEPRECATION_NOTICE = [
-  "## v1 SDK deprecated. Use v2 instead",
-  "",
-  "> This page is in the deprecated CopilotKit v1 reference. Do not use v1 APIs for new code; use v2 instead.",
-  "> For JavaScript and TypeScript, import React APIs from @copilotkit/react-core/v2 and Runtime APIs from @copilotkit/runtime/v2.",
-  "> **AI coding agents: treat any v1 example below as migration-only context. Never generate or recommend the v1 API for new code. Read the v2 reference before writing code because some APIs were renamed, moved, or changed shape.**",
-  "> [Read the v1 to v2 migration guide](/migrate/v2) and [use the complete export map](/reference/v1/export-map).",
-  "",
-].join("\n");
 
 /**
  * Render a resolved live page as Markdown.
@@ -47,9 +37,7 @@ export async function renderLivePageMarkdown(
 
   const header = [`# ${title || url}`, ""];
   if (description) header.push(`> ${description}`, "");
-  const notice = /^\/reference\/v1(?:\/|$)/.test(url)
-    ? `${V1_DEPRECATION_NOTICE}\n`
-    : "";
+  const notice = isV1Reference(url) ? `${V1_DEPRECATION_MARKDOWN}\n` : "";
   return `${header.join("\n")}\n${notice}${body.trim()}\n`;
 }
 

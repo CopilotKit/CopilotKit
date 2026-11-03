@@ -11,6 +11,8 @@ import {
   TOCDropdown,
   TOCPopover,
 } from "fumadocs-ui/layouts/spacious/page/slots/toc";
+import { Callout } from "fumadocs-ui/components/callout";
+import Link from "next/link";
 import { Feedback } from "@/components/feedback/client";
 import { VisibleTOCProvider } from "@/components/layout/visible-toc";
 import { docsPageComponents } from "@/components/docs-mdx";
@@ -21,6 +23,7 @@ import { Fragment } from "react";
 import { gitConfig } from "@/lib/shared";
 import type { ResolvedLivePage } from "@/lib/live-docs";
 import { ROOT_FRAMEWORK } from "@/lib/live-scope";
+import { isV1Reference, V1_DEPRECATION_NOTICE } from "@/lib/v1-deprecation";
 
 /** A page ported from shell-docs, at its live URL, in D's docs panel. */
 export async function LiveArticle({
@@ -81,12 +84,29 @@ export async function LiveArticle({
           href={inFramework(url, scope.framework)}
         />
       ) : null}
+      {isV1Reference(url) ? <V1DeprecationNotice /> : null}
       <DocsBody>
         {/* The same components snippet files get, links kept in scope. */}
         <MDX components={docsPageComponents(scope)} />
       </DocsBody>
       <Feedback onSendAction={sendPageFeedback} />
     </DocsPage>
+  );
+}
+
+/** The warning atop every v1 reference page, as shell-docs' reference route drew it. */
+function V1DeprecationNotice() {
+  const notice = V1_DEPRECATION_NOTICE;
+  return (
+    <Callout type="warning">
+      <strong>{notice.title}</strong> {notice.summary} {notice.importGuidance}
+      <br />
+      <strong>{notice.agentGuidance}</strong>{" "}
+      <Link href={notice.migrationHref}>
+        Read the v1 to v2 migration guide.
+      </Link>{" "}
+      <Link href={notice.exportMapHref}>Open the complete export map.</Link>
+    </Callout>
   );
 }
 
