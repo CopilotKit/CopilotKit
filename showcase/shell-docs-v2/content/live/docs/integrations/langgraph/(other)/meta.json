@@ -1,7 +1,4 @@
 {
   "title": "Other",
-  "pages": [
-    "contributing",
-    "telemetry"
-  ]
-} 
+  "pages": ["contributing", "telemetry"]
+}

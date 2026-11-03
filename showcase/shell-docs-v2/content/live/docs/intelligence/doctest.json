@@ -1,7 +1,5 @@
 {
   "typescript": {
-    "deps": [
-      "@copilotkit/runtime@1.72.0"
-    ]
+    "deps": ["@copilotkit/runtime@1.72.0"]
   }
 }

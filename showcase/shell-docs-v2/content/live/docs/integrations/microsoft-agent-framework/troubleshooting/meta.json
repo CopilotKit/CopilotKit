@@ -1,7 +1,4 @@
 {
   "title": "Troubleshooting Copilots",
-  "pages": [
-    "migrate-to-v2",
-    "common-issues"
-  ]
+  "pages": ["migrate-to-v2", "common-issues"]
 }

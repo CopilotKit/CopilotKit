@@ -6,39 +6,25 @@
       "title": "Controlled",
       "icon": "lucide/Component",
       "defaultOpen": true,
-      "pages": [
-        "tool-based",
-        "tool-rendering",
-        "state-rendering"
-      ]
+      "pages": ["tool-based", "tool-rendering", "state-rendering"]
     },
     {
       "title": "Frontend-Driven",
       "icon": "lucide/MousePointerClick",
       "defaultOpen": true,
-      "pages": [
-        "frontend-cards"
-      ]
+      "pages": ["frontend-cards"]
     },
     {
       "title": "Declarative",
       "icon": "lucide/FileJson",
       "defaultOpen": true,
-      "pages": [
-        "components",
-        "...a2ui",
-        "json-render",
-        "hashbrown"
-      ]
+      "pages": ["components", "...a2ui", "json-render", "hashbrown"]
     },
     {
       "title": "Open-Ended",
       "icon": "lucide/Globe",
       "defaultOpen": true,
-      "pages": [
-        "mcp-apps",
-        "open-generative-ui"
-      ]
+      "pages": ["mcp-apps", "open-generative-ui"]
     }
   ]
 }

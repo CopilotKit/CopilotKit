@@ -3,9 +3,5 @@
   "frontend": {
     "kind": "universal"
   },
-  "pages": [
-    "agentcore",
-    "aws-lambda",
-    "langsmith"
-  ]
+  "pages": ["agentcore", "aws-lambda", "langsmith"]
 }
