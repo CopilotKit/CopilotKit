@@ -870,22 +870,30 @@ export namespace CopilotChatView {
 
       const scrollElement = nonAutoScrollEl;
       if (!scrollElement) return;
+      const contentElement = contentRef.current;
 
+      // The button shows while messages sit below the viewport. That is the
+      // end of the messages, not the scroll height: in "pin-to-send" mode an
+      // empty spacer under them lets a sent message reach the top, and
+      // scrolling into it would only clear the screen.
       const checkScroll = () => {
-        const atBottom =
-          scrollElement.scrollHeight -
+        const hiddenBelow = contentElement
+          ? contentElement.getBoundingClientRect().bottom -
+            scrollElement.getBoundingClientRect().bottom
+          : scrollElement.scrollHeight -
             scrollElement.scrollTop -
-            scrollElement.clientHeight <
-          10;
-        setShowScrollButton(!atBottom);
+            scrollElement.clientHeight;
+        setShowScrollButton(hiddenBelow >= 10);
       };
 
       checkScroll();
       scrollElement.addEventListener("scroll", checkScroll);
 
-      // Also check on resize
+      // Also check when the viewport or the messages resize: a reply that
+      // streams past the bottom needs the button before anyone scrolls.
       const resizeObserver = new ResizeObserver(checkScroll);
       resizeObserver.observe(scrollElement);
+      if (contentElement) resizeObserver.observe(contentElement);
 
       return () => {
         scrollElement.removeEventListener("scroll", checkScroll);

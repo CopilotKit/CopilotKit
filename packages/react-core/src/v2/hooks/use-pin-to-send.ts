@@ -19,6 +19,7 @@ export function usePinToSend({
 
   useEffect(() => {
     if (sendNonce === lastNonceRef.current) return;
+    const previousNonce = lastNonceRef.current;
     lastNonceRef.current = sendNonce;
 
     if (!id) return;
@@ -50,7 +51,9 @@ export function usePinToSend({
 
     spacerEl.style.height = `${spacerHeight}px`;
 
+    let pinned = false;
     const raf = requestAnimationFrame(() => {
+      pinned = true;
       // Scroll so the BUBBLE is `topOffset` from the viewport top — the
       // padding above the bubble ends up scrolled off-screen.
       const targetTop =
@@ -75,6 +78,11 @@ export function usePinToSend({
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      // Torn down before the scroll ran, as React's StrictMode does right
+      // after mount (the first send mounts the message list): let the next
+      // run pin this send again. Skipping it would leave the spacer at its
+      // full height for good, with nothing to shrink it as the reply grows.
+      if (!pinned) lastNonceRef.current = previousNonce;
     };
   }, [id, sendNonce, scrollRef, contentRef, spacerRef, topOffset]);
 }
