@@ -477,6 +477,31 @@ describe("CopilotChatInput", () => {
     });
   });
 
+  it("opens the slash menu for typed text once commands arrive", async () => {
+    const toolsMenu = ref<{ label: string; action: () => void }[]>([]);
+    const Host = defineComponent({
+      setup: () => () =>
+        h(
+          CopilotChatConfigurationProvider,
+          { threadId: TEST_THREAD_ID },
+          {
+            default: () => h(CopilotChatInput, { toolsMenu: toolsMenu.value }),
+          },
+        ),
+    });
+    render(Host);
+
+    await fireEvent.input(screen.getByRole("textbox"), {
+      target: { value: "/sum" },
+    });
+    expect(screen.queryByTestId("copilot-slash-menu")).toBeNull();
+
+    toolsMenu.value = [{ label: "Summarize", action: vi.fn() }];
+
+    const menu = await screen.findByTestId("copilot-slash-menu");
+    expect(within(menu).getByRole("option").textContent).toContain("Summarize");
+  });
+
   it("limits slash menu height when commands exceed five items", async () => {
     const tools = Array.from({ length: 6 }, (_, index) => ({
       label: `Command ${index + 1}`,

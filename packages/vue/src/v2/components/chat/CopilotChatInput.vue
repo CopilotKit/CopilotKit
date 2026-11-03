@@ -8,7 +8,15 @@ import {
   useAttrs,
   watch,
 } from "vue";
-import { ɵcomposerButtonState, ɵresolveComposerKey } from "@copilotkit/core";
+import {
+  ɵclampSlashIndex,
+  ɵcomposerButtonState,
+  ɵfilterCommands,
+  ɵflattenCommandItems,
+  ɵparseSlashQuery,
+  ɵresolveComposerKey,
+  ɵresolveSlashKey,
+} from "@copilotkit/core";
 import {
   IconArrowUp,
   IconCheck,
@@ -251,35 +259,7 @@ function normalizeMenuItems() {
 const menuItems = computed(() => normalizeMenuItems());
 const hasMenuItems = computed(() => menuItems.value.length > 0);
 
-function flattenMenuForCommands(items: MenuEntry[]) {
-  const seen = new Set<string>();
-  const commands: ToolsMenuItem[] = [];
-
-  const walk = (entryList: MenuEntry[]) => {
-    for (const entry of entryList) {
-      if (entry === "-") {
-        continue;
-      }
-
-      if (isMenuGroup(entry) && entry.items.length > 0) {
-        walk(entry.items);
-        continue;
-      }
-
-      if (!entry.action || seen.has(entry.label)) {
-        continue;
-      }
-
-      seen.add(entry.label);
-      commands.push(entry);
-    }
-  };
-
-  walk(items);
-  return commands;
-}
-
-const commandItems = computed(() => flattenMenuForCommands(menuItems.value));
+const commandItems = computed(() => ɵflattenCommandItems(menuItems.value));
 
 function flattenMenuDisplay(items: MenuEntry[], depth = 0, prefix = "root") {
   const entries: MenuDisplayEntry[] = [];
@@ -314,32 +294,9 @@ function flattenMenuDisplay(items: MenuEntry[], depth = 0, prefix = "root") {
 
 const menuDisplayItems = computed(() => flattenMenuDisplay(menuItems.value));
 
-const filteredCommands = computed(() => {
-  if (commandQuery.value === null || commandItems.value.length === 0) {
-    return [] as ToolsMenuItem[];
-  }
-
-  const normalized = commandQuery.value.trim().toLowerCase();
-  if (normalized.length === 0) {
-    return commandItems.value;
-  }
-
-  const startsWith: ToolsMenuItem[] = [];
-  const contains: ToolsMenuItem[] = [];
-
-  for (const command of commandItems.value) {
-    const label = command.label.toLowerCase();
-    if (label.startsWith(normalized)) {
-      startsWith.push(command);
-      continue;
-    }
-    if (label.includes(normalized)) {
-      contains.push(command);
-    }
-  }
-
-  return [...startsWith, ...contains];
-});
+const filteredCommands = computed(() =>
+  ɵfilterCommands(commandItems.value, commandQuery.value),
+);
 
 const slashMenuVisible = computed(
   () => commandQuery.value !== null && commandItems.value.length > 0,
@@ -357,18 +314,7 @@ function clearInputValue() {
 }
 
 function updateSlashState(value: string) {
-  if (commandItems.value.length === 0) {
-    commandQuery.value = null;
-    return;
-  }
-
-  if (value.startsWith("/")) {
-    const firstLine = value.split(/\r?\n/, 1)[0] ?? "";
-    commandQuery.value = firstLine.slice(1);
-    return;
-  }
-
-  commandQuery.value = null;
+  commandQuery.value = ɵparseSlashQuery(value, commandItems.value.length > 0);
 }
 
 function runCommand(command: ToolsMenuItem) {
@@ -429,50 +375,24 @@ function handleKeydown(event: KeyboardEvent) {
     return;
   }
 
-  if (commandQuery.value !== null && props.mode === "input") {
-    if (event.key === "ArrowDown") {
-      if (filteredCommands.value.length > 0) {
-        event.preventDefault();
-        slashHighlightIndex.value =
-          slashHighlightIndex.value < 0
-            ? 0
-            : (slashHighlightIndex.value + 1) % filteredCommands.value.length;
-      }
+  const slash = ɵresolveSlashKey(event, {
+    query: props.mode === "input" ? commandQuery.value : null,
+    commands: filteredCommands.value,
+    highlightIndex: slashHighlightIndex.value,
+  });
+  if (slash.type !== "none") event.preventDefault();
+  switch (slash.type) {
+    case "highlight":
+      slashHighlightIndex.value = slash.index;
       return;
-    }
-
-    if (event.key === "ArrowUp") {
-      if (filteredCommands.value.length > 0) {
-        event.preventDefault();
-        if (slashHighlightIndex.value < 0) {
-          slashHighlightIndex.value = filteredCommands.value.length - 1;
-        } else {
-          slashHighlightIndex.value =
-            slashHighlightIndex.value <= 0
-              ? filteredCommands.value.length - 1
-              : slashHighlightIndex.value - 1;
-        }
-      }
+    case "run":
+      runCommand(slash.command);
       return;
-    }
-
-    if (event.key === "Enter") {
-      const selected =
-        slashHighlightIndex.value >= 0
-          ? filteredCommands.value[slashHighlightIndex.value]
-          : undefined;
-      if (selected) {
-        event.preventDefault();
-        runCommand(selected);
-        return;
-      }
-    }
-
-    if (event.key === "Escape") {
-      event.preventDefault();
+    case "close":
       commandQuery.value = null;
       return;
-    }
+    case "none":
+      break;
   }
 
   if (props.mode !== "input") {
@@ -852,9 +772,7 @@ watch(inputValue, (value) => {
 });
 
 watch(commandItems, () => {
-  if (commandItems.value.length === 0) {
-    commandQuery.value = null;
-  }
+  updateSlashState(inputValue.value);
 });
 
 watch(
@@ -876,20 +794,13 @@ watch(
 watch(
   [commandQuery, filteredCommands],
   () => {
-    if (commandQuery.value === null) {
-      slashHighlightIndex.value = 0;
-      return;
-    }
-    if (filteredCommands.value.length === 0) {
-      slashHighlightIndex.value = -1;
-      return;
-    }
-    if (
-      slashHighlightIndex.value < 0 ||
-      slashHighlightIndex.value >= filteredCommands.value.length
-    ) {
-      slashHighlightIndex.value = 0;
-    }
+    slashHighlightIndex.value =
+      commandQuery.value === null
+        ? 0
+        : ɵclampSlashIndex(
+            slashHighlightIndex.value,
+            filteredCommands.value.length,
+          );
   },
   { immediate: true },
 );

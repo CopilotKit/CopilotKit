@@ -13,8 +13,13 @@ import { CopilotIcon } from "../icons/CopilotIcon";
 
 import {
   CopilotChatDefaultLabels,
+  ɵclampSlashIndex,
   ɵcomposerButtonState,
+  ɵfilterCommands,
+  ɵflattenCommandItems,
+  ɵparseSlashQuery,
   ɵresolveComposerKey,
+  ɵresolveSlashKey,
 } from "@copilotkit/core";
 import type { CopilotChatLabels } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
@@ -206,70 +211,21 @@ export function CopilotChatInput({
   } | null>(null);
 
   const commandItems = useMemo(() => {
-    const entries: ToolsMenuItem[] = [];
-    const seen = new Set<string>();
-
-    const pushItem = (item: ToolsMenuItem | "-") => {
-      if (item === "-") {
-        return;
-      }
-
-      if (item.items && item.items.length > 0) {
-        for (const nested of item.items) {
-          pushItem(nested);
-        }
-        return;
-      }
-
-      if (!seen.has(item.label)) {
-        seen.add(item.label);
-        entries.push(item);
-      }
-    };
-
-    if (onAddFile) {
-      pushItem({
-        label: labels.chatInputToolbarAddButtonLabel,
-        action: onAddFile,
-      });
-    }
-
-    if (toolsMenu && toolsMenu.length > 0) {
-      for (const item of toolsMenu) {
-        pushItem(item);
-      }
-    }
-
-    return entries;
+    const menu: (ToolsMenuItem | "-")[] = toolsMenu ?? [];
+    return ɵflattenCommandItems(
+      onAddFile
+        ? [
+            { label: labels.chatInputToolbarAddButtonLabel, action: onAddFile },
+            ...menu,
+          ]
+        : menu,
+    );
   }, [labels.chatInputToolbarAddButtonLabel, onAddFile, toolsMenu]);
 
-  const filteredCommands = useMemo(() => {
-    if (commandQuery === null) {
-      return [] as ToolsMenuItem[];
-    }
-
-    if (commandItems.length === 0) {
-      return [] as ToolsMenuItem[];
-    }
-
-    const query = commandQuery.trim().toLowerCase();
-    if (query.length === 0) {
-      return commandItems;
-    }
-
-    const startsWith: ToolsMenuItem[] = [];
-    const contains: ToolsMenuItem[] = [];
-    for (const item of commandItems) {
-      const label = item.label.toLowerCase();
-      if (label.startsWith(query)) {
-        startsWith.push(item);
-      } else if (label.includes(query)) {
-        contains.push(item);
-      }
-    }
-
-    return [...startsWith, ...contains];
-  }, [commandItems, commandQuery]);
+  const filteredCommands = useMemo(
+    () => ɵfilterCommands(commandItems, commandQuery),
+    [commandItems, commandQuery],
+  );
 
   useEffect(() => {
     if (!autoFocus) {
@@ -283,12 +239,6 @@ export function CopilotChatInput({
 
     previousModalStateRef.current = config?.isModalOpen;
   }, [config?.isModalOpen, autoFocus]);
-
-  useEffect(() => {
-    if (commandItems.length === 0 && commandQuery !== null) {
-      setCommandQuery(null);
-    }
-  }, [commandItems.length, commandQuery]);
 
   const previousCommandQueryRef = useRef<string | null>(null);
 
@@ -305,20 +255,12 @@ export function CopilotChatInput({
   }, [commandQuery, filteredCommands.length]);
 
   useEffect(() => {
-    if (commandQuery === null) {
-      setSlashHighlightIndex(0);
-      return;
-    }
-
-    if (filteredCommands.length === 0) {
-      setSlashHighlightIndex(-1);
-    } else if (
-      slashHighlightIndex < 0 ||
-      slashHighlightIndex >= filteredCommands.length
-    ) {
-      setSlashHighlightIndex(0);
-    }
-  }, [commandQuery, filteredCommands, slashHighlightIndex]);
+    setSlashHighlightIndex((index) =>
+      commandQuery === null
+        ? 0
+        : ɵclampSlashIndex(index, filteredCommands.length),
+    );
+  }, [commandQuery, filteredCommands]);
 
   // Handle recording based on mode changes
   useEffect(() => {
@@ -347,18 +289,7 @@ export function CopilotChatInput({
 
   const updateSlashState = useCallback(
     (value: string) => {
-      if (commandItems.length === 0) {
-        setCommandQuery((prev) => (prev === null ? prev : null));
-        return;
-      }
-
-      if (value.startsWith("/")) {
-        const firstLine = value.split(/\r?\n/, 1)[0] ?? "";
-        const query = firstLine.slice(1);
-        setCommandQuery((prev) => (prev === query ? prev : query));
-      } else {
-        setCommandQuery((prev) => (prev === null ? prev : null));
-      }
+      setCommandQuery(ɵparseSlashQuery(value, commandItems.length > 0));
     },
     [commandItems.length],
   );
@@ -423,54 +354,24 @@ export function CopilotChatInput({
       return;
     }
 
-    if (commandQuery !== null && mode === "input") {
-      if (e.key === "ArrowDown") {
-        if (filteredCommands.length > 0) {
-          e.preventDefault();
-          setSlashHighlightIndex((prev) => {
-            if (filteredCommands.length === 0) {
-              return prev;
-            }
-            const next = prev === -1 ? 0 : (prev + 1) % filteredCommands.length;
-            return next;
-          });
-        }
+    const slash = ɵresolveSlashKey(e, {
+      query: mode === "input" ? commandQuery : null,
+      commands: filteredCommands,
+      highlightIndex: slashHighlightIndex,
+    });
+    if (slash.type !== "none") e.preventDefault();
+    switch (slash.type) {
+      case "highlight":
+        setSlashHighlightIndex(slash.index);
         return;
-      }
-
-      if (e.key === "ArrowUp") {
-        if (filteredCommands.length > 0) {
-          e.preventDefault();
-          setSlashHighlightIndex((prev) => {
-            if (filteredCommands.length === 0) {
-              return prev;
-            }
-            if (prev === -1) {
-              return filteredCommands.length - 1;
-            }
-            return prev <= 0 ? filteredCommands.length - 1 : prev - 1;
-          });
-        }
+      case "run":
+        runCommand(slash.command);
         return;
-      }
-
-      if (e.key === "Enter") {
-        const selected =
-          slashHighlightIndex >= 0
-            ? filteredCommands[slashHighlightIndex]
-            : undefined;
-        if (selected) {
-          e.preventDefault();
-          runCommand(selected);
-          return;
-        }
-      }
-
-      if (e.key === "Escape") {
-        e.preventDefault();
+      case "close":
         setCommandQuery(null);
         return;
-      }
+      case "none":
+        break;
     }
 
     // Enter without Shift never adds a line break, even when it does nothing.

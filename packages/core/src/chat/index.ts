@@ -86,10 +86,22 @@ export { ɵdeduplicateMessages, ɵmessagesFingerprint } from "./messages";
 
 // Chat input (internal)
 export { ɵcomposerButtonState, ɵresolveComposerKey } from "./composer";
+export {
+  ɵflattenCommandItems,
+  ɵfilterCommands,
+  ɵparseSlashQuery,
+  ɵnextSlashIndex,
+  ɵclampSlashIndex,
+  ɵresolveSlashKey,
+} from "./composer";
 export type {
   ɵComposerMode,
   ɵComposerInput,
   ɵComposerKeyEvent,
+  ɵCommandMenuItem,
+  ɵRunnableCommand,
+  ɵSlashMenuState,
+  ɵSlashKeyResult,
 } from "./composer";
 
 // Transcription
