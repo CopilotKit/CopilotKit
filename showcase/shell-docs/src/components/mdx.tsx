@@ -1,6 +1,5 @@
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import type { MDXComponents } from "mdx/types";
-import { StackVariants, Variant } from "@/components/stack/stack-variants";
 import { DemoFrame } from "@/components/demo-frame";
 import { StagedCodeBlockTabs, StagedPre } from "@/components/brand/staged-code";
 import { commandsOnly, fenceLang } from "@/components/brand/stage";
@@ -17,8 +16,6 @@ export function getMDXComponents(components?: MDXComponents) {
     ),
     DemoFrame,
     Hero,
-    StackVariants,
-    Variant,
     ...components,
   } satisfies MDXComponents;
 }
