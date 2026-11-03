@@ -16,6 +16,7 @@ import {
   CopilotChatDefaultLabels,
   CopilotKitCoreErrorCode,
   ɵcreateChatSubmitter,
+  ɵcreateLastUserMessageTracker,
   ɵisHttpAgent,
   ɵresolveChatNotice,
   ɵThreadSwitchCoordinator,
@@ -226,27 +227,11 @@ const shouldAllowStop = computed(
 // Track the latest user message id so descendants (notably `usePinToSend`
 // inside `CopilotChatView`) can anchor to the most recent user turn.
 // Mirrors React `CopilotChat.tsx` `lastUserMessageId` + `sendNonce` state.
-const lastUserMessageId = computed<string | null>(() => {
-  for (let i = messages.value.length - 1; i >= 0; i--) {
-    const message = messages.value[i];
-    if (message?.role === "user") return message.id;
-  }
-  return null;
-});
-const sendNonce = ref(0);
-// Seed with the current value so restoring a thread with existing messages
-// does not count as a new send. Only later id transitions bump.
-let prevLastUserMessageId: string | null = lastUserMessageId.value;
-watch(lastUserMessageId, (next) => {
-  if (next && next !== prevLastUserMessageId) {
-    sendNonce.value += 1;
-    prevLastUserMessageId = next;
-  }
-});
-const lastUserMessageState = computed<LastUserMessageState>(() => ({
-  id: lastUserMessageId.value,
-  sendNonce: sendNonce.value,
-}));
+// Messages the chat starts with (a restored thread) do not count as a send.
+const lastUserMessageTracker = ɵcreateLastUserMessageTracker(messages.value);
+const lastUserMessageState = computed<LastUserMessageState>(() =>
+  lastUserMessageTracker.update(messages.value),
+);
 provide(LastUserMessageKey, lastUserMessageState);
 
 watch(

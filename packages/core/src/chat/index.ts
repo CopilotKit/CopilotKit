@@ -121,6 +121,14 @@ export {
 } from "./message-view";
 export type { ɵMessageViewInput } from "./message-view";
 
+// Chat view (internal)
+export {
+  ɵcreateLastUserMessageTracker,
+  ɵgetChatViewState,
+  ɵgetLastUserMessageId,
+} from "./chat-view";
+export type { ɵChatViewStateInput, ɵLastUserMessageState } from "./chat-view";
+
 // Chat input (internal)
 export { ɵcomposerButtonState, ɵresolveComposerKey } from "./composer";
 export type {

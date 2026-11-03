@@ -18,6 +18,7 @@ import {
 } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import type { Attachment } from "@copilotkit/shared";
+import { CopilotChatView } from "../copilot-chat-view";
 import { CopilotChat } from "../copilot-chat";
 import { provideCopilotKit } from "../../../config";
 import {
@@ -283,6 +284,26 @@ describe("CopilotChat", () => {
 
         expect(config.hasExplicitThreadId()).toBe(false);
         expect(welcomeScreen()).not.toBeNull();
+      });
+
+      test("hides the welcome screen when [welcomeScreen] is false", () => {
+        const { fixture, welcomeScreen } = context;
+
+        fixture.componentRef.setInput("welcomeScreen", false);
+        fixture.detectChanges();
+
+        expect(welcomeScreen()).toBeNull();
+      });
+
+      test("passes [autoScroll] through to the chat view", () => {
+        const { fixture } = context;
+
+        fixture.componentRef.setInput("autoScroll", false);
+        fixture.detectChanges();
+
+        const view = fixture.debugElement.query(By.directive(CopilotChatView))
+          .componentInstance as CopilotChatView;
+        expect(view.autoScroll()).toBe(false);
       });
 
       test("hides the welcome screen once the configuration activates an explicit thread", () => {

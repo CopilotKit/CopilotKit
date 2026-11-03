@@ -15,6 +15,7 @@ import {
   CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
   ɵcreateChatSubmitter,
+  ɵcreateLastUserMessageTracker,
   ɵcreateThreadStore,
   ɵisHttpAgent,
   ɵmessagesFingerprint,
@@ -869,36 +870,15 @@ export function CopilotChat({
     [messagesMemoKey],
   );
 
-  // Compute the ID of the last user message for scroll-pinning logic.
-  const lastUserMessageId = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === "user") return messages[i].id;
-    }
-    return null;
-  }, [messages]);
-
-  // Track a nonce that increments each time a new user message ID appears.
-  // Using useState ensures the context value propagates correctly on the
-  // render that follows the state update (approach b from the design doc).
-  const [sendNonce, setSendNonce] = useState(0);
-  // Seed with the current value so restoring a thread with existing messages
-  // does not count as a new send. Only later-render id transitions bump.
-  const prevLastUserMessageIdRef = useRef<string | null>(lastUserMessageId);
-
-  useEffect(() => {
-    if (
-      lastUserMessageId &&
-      lastUserMessageId !== prevLastUserMessageIdRef.current
-    ) {
-      setSendNonce((n) => n + 1);
-      prevLastUserMessageIdRef.current = lastUserMessageId;
-    }
-  }, [lastUserMessageId]);
-
-  const lastUserMessageState = useMemo<LastUserMessageState>(
-    () => ({ id: lastUserMessageId, sendNonce }),
-    [lastUserMessageId, sendNonce],
+  // The latest user message and a send counter, for pin-to-send scrolling.
+  // Messages the chat starts with (a restored thread) do not count as a send.
+  // `update` keeps the same object until the last user message changes, so
+  // calling it during render is safe.
+  const [lastUserMessageTracker] = useState(() =>
+    ɵcreateLastUserMessageTracker(messages),
   );
+  const lastUserMessageState: LastUserMessageState =
+    lastUserMessageTracker.update(messages);
 
   const finalProps: CopilotChatViewProps = {
     ...mergedProps,

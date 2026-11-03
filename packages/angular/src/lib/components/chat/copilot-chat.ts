@@ -86,8 +86,11 @@ import type { ChatRunControl } from "./copilot-chat-run-control";
         [messages]="messages()"
         [state]="agentState()"
         [agentId]="resolvedAgentId()"
-        [autoScroll]="true"
+        [autoScroll]="autoScroll()"
         [showCursor]="showCursor()"
+        [isRunning]="isRunning()"
+        [isConnecting]="isConnecting()"
+        [welcomeScreen]="welcomeScreen()"
         [toolCallDisplay]="toolCallDisplay()"
         [inputComponent]="inputComponent()"
         [assistantMessageComponent]="assistantMessageComponent()"
@@ -124,6 +127,10 @@ export class CopilotChat extends ChatState implements ChatRunControl {
   readonly agentId = input<string | undefined>();
   readonly threadId = input<string | undefined>();
   readonly inputComponent = input<Type<any> | undefined>();
+  /** Whether the message list follows new messages to the bottom. Default `true`. */
+  readonly autoScroll = input<boolean>(true);
+  /** `false` turns the welcome screen off for an empty chat. Default `true`. */
+  readonly welcomeScreen = input<boolean>(true);
   /**
    * How assistant messages show tool calls: `"grouped"` (default), `"line"`,
    * `"stacked"` or `"separate"`. Forwarded to the message view. Angular
@@ -179,6 +186,8 @@ export class CopilotChat extends ChatState implements ChatRunControl {
   protected readonly showCursor = computed(
     () => this.connecting() || this.agentStore().isRunning(),
   );
+  /** `true` while the thread's connect is loading. */
+  protected readonly isConnecting = computed(() => this.connecting());
   /** `true` while the agent runs. The chat input shows stop. */
   readonly isRunning = computed(() => this.agentStore().isRunning());
   /** A run can stop when it runs and the chat has messages, as in React. */
