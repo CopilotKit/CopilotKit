@@ -1,7 +1,7 @@
 import { Component, input, signal } from "@angular/core";
 import type { Type } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import type { AssistantMessage } from "@ag-ui/client";
+import type { AssistantMessage, Message } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -44,6 +44,11 @@ class FrontendRenderer {
 class WildcardRenderer {
   readonly toolCall = input.required<AngularToolCall>();
   protected readonly label = "wildcard";
+}
+
+@Component({ template: "{{ toolCall().status }}", standalone: true })
+class StatusRenderer {
+  readonly toolCall = input.required<AngularToolCall>();
 }
 
 @Component({ template: "{{ label }}", standalone: true })
@@ -187,6 +192,11 @@ describe("tool renderer precedence", () => {
     function renderWeatherCall(
       renderers: RenderToolCallConfig[],
       agentId: string | undefined,
+      state: {
+        executingToolCallIds?: ReadonlySet<string>;
+        messages?: Message[];
+        isLoading?: boolean;
+      } = {},
     ) {
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({
@@ -199,6 +209,9 @@ describe("tool renderer precedence", () => {
               clientToolCallRenderConfigs: signal([]),
               humanInTheLoopToolRenderConfigs: signal([]),
               defaultToolRenderingEnabled: false,
+              executingToolCallIds: signal(
+                state.executingToolCallIds ?? new Set<string>(),
+              ),
             },
           },
         ],
@@ -216,8 +229,9 @@ describe("tool renderer precedence", () => {
           },
         ],
       } satisfies AssistantMessage);
-      fixture.componentRef.setInput("messages", []);
+      fixture.componentRef.setInput("messages", state.messages ?? []);
       fixture.componentRef.setInput("agentId", agentId);
+      fixture.componentRef.setInput("isLoading", state.isLoading ?? false);
       fixture.detectChanges();
       return fixture.nativeElement.textContent;
     }
@@ -233,6 +247,41 @@ describe("tool renderer precedence", () => {
       ];
 
       expect(renderWeatherCall(renderers, undefined)).toContain("scoped");
+    });
+
+    describe("status", () => {
+      const statusRenderers = [renderer("weather", StatusRenderer)];
+
+      it("is in progress when the run stopped and the call has no result or running handler", () => {
+        // Angular used to call this "executing" once the run stopped.
+        expect(
+          renderWeatherCall(statusRenderers, undefined, { isLoading: false }),
+        ).toContain("in-progress");
+      });
+
+      it("is executing while core runs the call's handler, even mid-run", () => {
+        expect(
+          renderWeatherCall(statusRenderers, undefined, {
+            isLoading: true,
+            executingToolCallIds: new Set(["tool-1"]),
+          }),
+        ).toContain("executing");
+      });
+
+      it("is complete once the result is in the messages", () => {
+        expect(
+          renderWeatherCall(statusRenderers, undefined, {
+            messages: [
+              {
+                id: "result-1",
+                role: "tool",
+                toolCallId: "tool-1",
+                content: "sunny",
+              },
+            ],
+          }),
+        ).toContain("complete");
+      });
     });
   });
 });

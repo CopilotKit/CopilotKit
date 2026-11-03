@@ -33,6 +33,16 @@ export {
 } from "./renderers";
 export type { ɵActivityRendererQuery } from "./renderers";
 
+// Tool-call render props and status (internal)
+export {
+  ɵgetToolCallStatus,
+  ɵfindToolMessage,
+  ɵparseToolCallArguments,
+  ɵbuildToolCallRenderProps,
+  ɵresolveToolCallAgentId,
+  ɵdescribeUnrenderedToolCalls,
+} from "./tool-call-render";
+
 // Interrupts (public)
 export { INTERRUPT_EVENT_NAME } from "./interrupt-types";
 export type {
