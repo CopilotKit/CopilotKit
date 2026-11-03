@@ -2,9 +2,9 @@
 title: "Step 6: Shared State"
 ---
 
-In LangGraph, your agents are stateful. As your graph moves from node to node, LangGraph updates and saves the agent state.
+In LangGraph, your agents are stateful. This means that they as your graph traverses nodes, the overall application state will be updated and persisted.
 
-With CopilotKit, you can read and update this state through two main hooks:
+CopilotKit allows you to easily read and update this state through the use of two main hooks:
 
 - [`useCoAgent`](/reference/v1/hooks/useCoAgent) - Provides a way to read and write Agent state anywhere in your application.
 - [`useCoAgentStateRender`](/reference/v1/hooks/useCoAgentStateRender) - Provides a way to render Agent state in the chat.
@@ -19,6 +19,8 @@ For this, we'll be using the `useCoAgent` hook.
   agent's progress in the chat.
 </Callout>
 
+<Steps>
+<Step>
 ## Understanding our agent's state
 The state of our agent can be found in `agent/state.py`.
 
@@ -38,22 +40,24 @@ class ResearchState(MessagesState):
     logs: List[dict]  # list of dicts logs to be sent to frontend with 'message', 'status'
 ```
 
-There are a few things to note here. Focus on the `proposal` field and `sections` field.
+There are a few things to note here, but let's focus on the `proposal` field and `sections` field.
 
 - The `proposal` field is a dictionary that stores the proposed research structure before the user approves it.
 - The `sections` field is a list of dictionaries, each containing a `title`, `content`, and `idx`. This is the actual research that will be displayed in the right panel.
 
 We've already wired up the approval of the `proposal` field in the previous step, so now we need to wire up rendering for the `sections` field.
 
-<Steps>
+</Step>
 <Step>
 
 ## The `useCoAgent` hook
 
-In the `useResearch` hook, replace the React state objects with the [`useCoAgent`](/reference/v1/hooks/useCoAgent) hook. This hook creates a bidirectional connection between the two states.
+Our current goal is to create a bidirectional connection between these two states. Luckily, the [`useCoAgent`](/reference/v1/hooks/useCoAgent) hook makes this easy.
+
+In the `useResearch` hook, we'll just replace our React state objects with the `useCoAgent` hook.
 
 ```tsx title="frontend/src/components/research-context.tsx" {3,8-11}
-import { useCoAgent } from "@copilotkit/react-core"; // [!code ++]
+// ...
 // ...
 
 interface ResearchContextType {
@@ -69,7 +73,7 @@ const ResearchContext = createContext<ResearchContextType | undefined>(undefined
 export function ResearchProvider({ children }: { children: ReactNode }) {
     const [sourcesModalOpen, setSourcesModalOpen] = useState<boolean>(false)
     // [!code ++:5]
-    const { state, setState, run } = useCoAgent<ResearchState>({
+    const { state, setState, run } = useAgent<ResearchState>({
         name: 'agent',
         initialState: {},
     });
@@ -111,16 +115,25 @@ It is not recommended, but you can ditch the type parameter and instead get an `
 
 In this example, we use the `useCoAgent` hook to wire up the application's state to the LangGraph agent's state.
 
-- For the generic type, we pass the `ResearchState` type that was already defined for the application in `@/lib/types.ts`.
+- For the generic type, we pass the `AgentState` type that was already defined for the application in `@/lib/types.ts`.
 - For the `name` parameter, we pass the name of the graph as defined in `agent/langgraph.json`.
-- For the `initialState` parameter, we pass an empty object, so the agent fills in the state.
+- For the `initialState` parameter, we pass the initial state of the LangGraph agent which is already defined in `@/lib/trips.ts`.
 
 </Step>
 </Steps>
 
 ## Recap
 
-Run the research again. When it ends, the report shows in the right panel.
+Now we can see the final result of the research in the right panel! To recap, we did the following:
+
+- Learned about the agent's state.
+- Added the `useCoAgent` hook to our application to render the `sections` field.
+
+Now, try running the agent again and going through the same steps. At the end, you'll see the completed research in the right panel.
+
+```
+Please research dogs!
+```
 
 <Frame className="mt-0">
   <ImageZoom
@@ -134,5 +147,5 @@ Run the research again. When it ends, the report shows in the right panel.
 
 Now, we can completely run our agent from start to finish _and_ see the finalized research in the right window.
 
-However, you may notice that the research takes a long time to complete without any indication of progress. In the next step, we'll use the CoAgent concepts
+However, you may notice that the research takes a long time to complete without any indication of progress. In the next step, we'll leverage the CoAgent concepts
 of **generative ui** to communicate the agent's progress in the chat.

@@ -2,7 +2,7 @@
 title: "Step 7: Agentic Generative UI"
 ---
 
-We're almost done. In this step, we're going to add generative UI to the application so that we can visualize the agent
+We're almost done! In this step, we're going to add generative UI to the application so that we can visualize the agent
 state in the chat UI. The end goal with this is to allow the user to see the progress of the agent's research as it is
 completed.
 
@@ -21,16 +21,14 @@ a sense of progress.
 <Steps>
 <Step>
 ## CopilotKit Python SDK
-This tutorial already comes with the CopilotKit Python SDK installed. With it, we can use CopilotKit-specific
+This tutorial already comes with the CopilotKit Python SDK installed. This allows us to utilize various CopilotKit specific
 features, such as emitting state.
 
 <Accordions>
 <Accordion title="Install command (optional)">
-  **This tutorial pins the package versions, so updating the dependencies could break the tutorial.**
+  **The package versions in this tutorial are pinned, so updating the dependencies could break the tutorial.**
 
-  ```bash
-  pip install copilotkit==0.1.70
-  ```
+  <InstallPythonSDK />
 </Accordion>
 </Accordions>
 
@@ -82,12 +80,7 @@ you want to emit state to the frontend, you can do so by calling `copilotkit_emi
 ## Render the emitted state
 Now, our state is being emitted to the frontend. However, we need to render it in the chat. To do this, we'll be using the `useCoAgentStateRender` hook.
 
-```tsx title="frontend/src/app/page.tsx"
-import { useCoAgentStateRender } from "@copilotkit/react-core"; // [!code ++]
-import { Progress } from "@/components/progress"; // [!code ++]
-import { ResearchState } from "@/lib/types"; // [!code ++]
-// ...
-
+```tsx title="frontend/src/app/layout.tsx"
 export default function HomePage() {
   //...
   const { state: researchState, setResearchState } = useResearch();
@@ -133,5 +126,10 @@ Please research dogs!
   />
 </Frame>
 
-We're almost done, with just one step to go. Now we're going to learn about **progressive state updates** which will allow us to render the sections as they are written into state. This will
+To recap, we did the following:
+
+- Learned about how to emit state whenever we want with `copilotkit_emit_state`.
+- Added the `useCoAgentStateRender` hook to our application to render the intermediate state in the chat.
+
+We're almost done, just one step to go! Now we're going to learn about **progressive state updates** which will allow us to render the sections as they are written into state. This will
 complete the agentic experience.
