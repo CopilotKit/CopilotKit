@@ -16,6 +16,40 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.84.0 - 2026-11-03
+
+### Features
+
+- feat(genui-eval): measure the generative UI prompt across models, and ship the improved prompt (#8102) (d168487)
+
+### Fixes
+
+- fix(react-core): show scroll-to-bottom only when messages are below (#8159) (3a956ad)
+- fix(react-core,vue): deprecate the inputMode prop CopilotChat ignores (#8152) (a7c4dde)
+- fix(react-native): pass CopilotChat's agent and thread to its hooks (#8136) (035c0db)
+- fix(vue): forward every chat-view slot through CopilotSidebar and CopilotPopup (#8135) (117de16)
+- fix(react-native): draw the interrupt element in the prebuilt chat (#8133) (bfb8236)
+- fix(runtime): make OpenAIAssistantAdapter honor disabled tools (#8131) (c5d73ce)
+- fix(genui)!: require canonical A2UI 1.0 messages (#8155) (57a2fbf)
+- fix: correct generative UI schemas and eval evidence (#8121) (8e843ae)
+- fix(react-core): preserve virtual chat position on width changes (#7370) (f1bab1d)
+- fix: reuse frontend results when resuming interrupts (#7998) (6cfc310)
+- fix(core): ignore malformed tool-call entries in the filter repair (#7984) (9cc2d2c)
+- fix(core): pair reused tool-call ids by transcript order (#7996) (c6124c7)
+- fix(runtime): carry the tool name onto LangChain ToolMessage (#7327) (e1281c7)
+- fix(react-core): widen input and header slot types to accept plain components (#7170) (fa171c7)
+
+### Other Changes
+
+- Fix/2653: show loading indicator while chat thread is connecting (#7988) (590a6ca)
+
+### Breaking Changes
+
+- fix(genui)!: require canonical A2UI 1.0 messages (#8155) (57a2fbf)
+  Gen UI requires version "1.0" and capability key "1.0".
+  Pre-release v1.0 operations and capability envelopes are no longer accepted.
+  Demos must update their payloads and align agent SDK/CopilotKit versions.
+
 ## 1.83.0 - 2026-10-28
 
 ### Other Changes
