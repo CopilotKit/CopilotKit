@@ -29,7 +29,7 @@ export const COPILOTKIT_UI_ENVELOPE_FORMAT = 3;
 /** What the client renders and calls, and how the model must write UI. */
 export interface CopilotKitUIEnvelope {
   /** The A2UI v1.0 renderer capabilities. */
-  "v1.0": {
+  "1.0": {
     /**
      * The catalog that the client renders comes first, then the catalogs of
      * its `extends`. An operation can name any of them.
@@ -66,7 +66,7 @@ export interface CopilotKitUIEnvelope {
 }
 
 type InlineCatalog = NonNullable<
-  CopilotKitUIEnvelope["v1.0"]["inlineCatalogs"]
+  CopilotKitUIEnvelope["1.0"]["inlineCatalogs"]
 >[number];
 type Extensions = CopilotKitUIEnvelope["metadata"]["extensions"];
 
@@ -149,7 +149,7 @@ function isInlineCatalog(value: unknown): value is InlineCatalog {
   );
 }
 
-function isCapabilities(value: unknown): value is CopilotKitUIEnvelope["v1.0"] {
+function isCapabilities(value: unknown): value is CopilotKitUIEnvelope["1.0"] {
   return (
     isRecord(value) &&
     Array.isArray(value.supportedCatalogIds) &&
@@ -222,7 +222,7 @@ function isExtensions(value: unknown): value is Extensions {
 function isEnvelope(value: unknown): value is CopilotKitUIEnvelope {
   return (
     isRecord(value) &&
-    isCapabilities(value["v1.0"]) &&
+    isCapabilities(value["1.0"]) &&
     isRecord(value.metadata) &&
     isExtensions(value.metadata.extensions)
   );
@@ -282,7 +282,7 @@ export function readCopilotKitUIEnvelope(forwardedProps: unknown) {
  * ```
  */
 export function envelopeToManifest(envelope: CopilotKitUIEnvelope) {
-  const { supportedCatalogIds, inlineCatalogs } = envelope["v1.0"];
+  const { supportedCatalogIds, inlineCatalogs } = envelope["1.0"];
   const catalogId = supportedCatalogIds[0];
   const catalog = inlineCatalogs?.find(
     (entry) => entry.catalogId === catalogId,

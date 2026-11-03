@@ -663,13 +663,13 @@ export const textComponents = {
   Title: {
     component: Title,
     description:
-      'A heading inside a Card or next to another component. A heading alone is markdown outside the fence. Use size "2xl" at most once in a surface, and "lg" for section headings. Size "sm" is an h4, "md" and "lg" are an h3 (default "md"), "xl" and larger are an h2. It is bold unless strong is false.',
+      'A heading in a Card or next to another component; a heading alone is markdown. Size "2xl" at most once per surface, "lg" for sections. "sm" is an h4, "md"/"lg" an h3 (default "md"), "xl" and up an h2. Bold unless strong is false.',
     props: titleSchema,
   },
   Text: {
     component: Text,
     description:
-      'Body text inside a Card or next to another component. A paragraph alone is markdown outside the fence. Use color "default" or "secondary". `text` can have inline markdown: **bold**, *italic*, ~~strike~~, ++underline++, `code` and [link](https://example.com). The `children` ids render inline after the text, for example a Badge.',
+      'Body text in a Card or next to another component; a paragraph alone is markdown outside the fence. Color "default" or "secondary". `text` takes inline markdown (**bold**, *italic*, ~~strike~~, ++underline++, `code`, [link](url)). `children` ids render inline after it, e.g. a Badge.',
     props: textSchema,
     slots: CHILDREN_SLOT,
   },
@@ -748,7 +748,7 @@ export const textComponents = {
   Tooltip: {
     component: Tooltip,
     description:
-      "Shows `content` when the user points at `trigger` or moves keyboard focus to it. `trigger` is one child id: a Text, Icon or Badge, not a Button or Link. `content` is one child id of short text, for example a Text. Do not put links or buttons in `content`.",
+      "Shows `content` when the user points at or focuses `trigger`. `trigger`: one child id, a Text, Icon or Badge (not a Button or Link). `content`: one child id of short text, no links or buttons.",
     slots: { trigger: "single", content: "single" } as const,
   },
 };

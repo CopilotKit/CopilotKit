@@ -39,7 +39,7 @@ import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
 On every run, the provider then sends the agent two context entries:
 
 - A compact schema of the components: their names, props, events, and slots.
-- A guide on how to write the code blocks. It has only the rules that your catalog needs.
+- A guide on how to write the code blocks. It has only the rules that your catalog needs, and it leaves out the advice that names a standard component your catalog does not have.
 
 The runtime adds no `render_ui` tool to these runs. The built-in agent puts the context entries into its system prompt. For a LangGraph Python agent, add `CopilotKitMiddleware`. Any other agent needs one thing: put the run's context entries into its system prompt.
 

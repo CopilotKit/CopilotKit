@@ -3,6 +3,8 @@ import {
   buildGenerativeUIPrompt,
   envelopeToManifest,
   generativeUIGuideFeatures,
+  defaultGenerativeUIPromptSpec,
+  renderGenerativeUISchema,
 } from "@copilotkit/shared";
 import type {
   ɵGenerativeUIDebugFunction,
@@ -17,7 +19,6 @@ import {
   buildGenerativeUIManifest,
 } from "./manifest";
 import type { GenerativeUIEnvelopeOptions } from "./manifest";
-import { buildCompactGenerativeUISchema } from "./markdown/context";
 import type { GenerativeUIRuntime } from "./runtime-context";
 
 type RuntimeParts = Pick<GenerativeUIRuntime, "ui" | "manager" | "dispatcher">;
@@ -65,7 +66,10 @@ export function describeGenerativeUIRun(
   const guideline = buildGenerativeUIMarkdownGuidelines(
     generativeUIGuideFeatures(manifest),
   );
-  const schema = JSON.stringify(buildCompactGenerativeUISchema(manifest));
+  const schema = renderGenerativeUISchema(
+    manifest,
+    defaultGenerativeUIPromptSpec().schema.markdown,
+  );
   return {
     envelope,
     prompt: [
