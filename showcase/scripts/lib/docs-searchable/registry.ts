@@ -199,9 +199,10 @@ export function getIntegration(slug: string): Integration | undefined {
  * entry and/or per-framework docs MDX. These are the "docs-only"
  * frameworks (`a2a`, `agent-spec`, `deepagents`). They never come
  * through the registry, so `docs_mode` resolution falls through to
- * this map. Keep entries here in sync with
- * `showcase/shell-docs/src/data/frameworks/index.ts` if a new docs-
- * only framework is added.
+ * this map. Keep entries here in sync with `DOCS_ONLY_FRAMEWORK_MODES` in
+ * `showcase/shell-docs/src/components/docs-mdx/data.ts` and in
+ * `showcase/scripts/probe-shell-docs.ts` if a new docs-only framework is
+ * added.
  */
 const DOCS_ONLY_FRAMEWORK_MODES: Record<string, "generated" | "authored"> = {
   a2a: "generated",
