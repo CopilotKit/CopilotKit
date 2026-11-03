@@ -1,7 +1,7 @@
 // Generates the showcase data the ported docs read (integration registry,
 // catalog, demo source, per-framework setup content, Angular source) into
 // src/data/, by running shell-docs' own generators from showcase/scripts,
-// unchanged.
+// unchanged, and derives the examples playground's catalog from the registry.
 //
 // Those generators write next to themselves (showcase/shell*/src/data). So
 // that this app never touches the other shells, each one is bundled with
@@ -114,4 +114,44 @@ writeFileSync(
   join(out, "docs-modes.json"),
   `${JSON.stringify(docsModes, null, 2)}\n`,
 );
-console.log(`[showcase-data] ${OUTPUTS.length + 1} files -> src/data`);
+
+// The examples playground's catalog (src/proto/examples.ts): each showcase
+// feature with the demos that run it, by framework. A framework the registry
+// hides, and a demo its manifest marks not supported, stay out. Only what
+// the playground shows is kept, since it ships to the browser.
+const demosByFeature = new Map();
+const repos = {};
+for (const int of registry.integrations) {
+  if (int.docs_mode === "hidden") continue;
+  repos[int.slug] = int.repo;
+  const unsupported = new Set(int.not_supported_features ?? []);
+  for (const demo of int.demos ?? []) {
+    if (!demo.route || unsupported.has(demo.id)) continue;
+    // "View the code" opens the first highlighted file that exists.
+    const file = (demo.highlight ?? []).find((f) =>
+      existsSync(join(showcase, "integrations", int.slug, f)),
+    );
+    if (!demosByFeature.has(demo.id)) demosByFeature.set(demo.id, {});
+    demosByFeature.get(demo.id)[int.slug] = { route: demo.route, file };
+  }
+}
+const features = registry.feature_registry.features
+  .filter((f) => demosByFeature.has(f.id))
+  .map((f) => ({
+    id: f.id,
+    name: f.name,
+    category: f.category,
+    demos: demosByFeature.get(f.id),
+  }));
+const used = new Set(features.map((f) => f.category));
+writeFileSync(
+  join(out, "examples.json"),
+  JSON.stringify({
+    repos,
+    categories: registry.feature_registry.categories
+      .filter((c) => used.has(c.id))
+      .map((c) => ({ id: c.id, name: c.name })),
+    features,
+  }) + "\n",
+);
+console.log(`[showcase-data] ${OUTPUTS.length + 2} files -> src/data`);

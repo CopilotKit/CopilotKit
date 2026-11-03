@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
@@ -8,7 +9,6 @@ import {
   DocsPage,
   DocsTitle,
 } from "fumadocs-ui/layouts/spacious/page";
-import { DemoFrame } from "@/components/demo-frame";
 import { Feedback } from "@/components/feedback/client";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
 import { sendPageFeedback } from "@/lib/feedback";
@@ -42,7 +42,6 @@ import {
 } from "./pieces";
 import { INTELLIGENCE_NAV, findNavTitle, navForFramework } from "./nav-d";
 import { sectionHref, type Location, type VariantId } from "./routes";
-import examples from "./examples.json";
 
 /* ---------- frontend-aware code ---------- */
 
@@ -110,51 +109,11 @@ function agentPhrase(name: string) {
   return /agent$/i.test(name) ? name : `${name} agent`;
 }
 
-/** Each topic's live showcase demo (a feature id in examples.json). */
-const TOPIC_DEMO: Partial<Record<TopicSlug, string>> = {
-  quickstart: "agentic-chat",
-  "generative-ui": "gen-ui-tool-based",
-  "human-in-the-loop": "hitl-in-chat",
-  "shared-state": "shared-state-read-write",
-};
-
-/**
- * The topic's real showcase demo, running on the reader's framework (or the
- * first framework that has it), in the docs' demo frame.
- */
-function TopicDemo({
-  topic,
-  framework,
-}: {
-  topic: TopicSlug;
-  framework: string;
-}) {
-  const feature = examples.features.find((f) => f.id === TOPIC_DEMO[topic]);
-  if (!feature) return null;
-  const fw = feature.frameworks.includes(framework)
-    ? framework
-    : feature.frameworks[0];
-  const demo = (
-    feature.demos as Record<
-      string,
-      { route: string; files: string[] } | undefined
-    >
-  )[fw];
-  if (!demo) return null;
-  const name = frameworkById(fw)?.name ?? fw;
-  return (
-    <DemoFrame
-      src={`${examples.host.replace("{slug}", fw)}${demo.route}`}
-      title={`${feature.name}, running on ${name}`}
-      label={feature.name}
-      sourceHref={
-        demo.files[0]
-          ? `${(examples.repos as Record<string, string>)[fw]}/${demo.files[0]}`
-          : (examples.repos as Record<string, string>)[fw]
-      }
-    />
-  );
-}
+// The topic's live showcase demo. It carries the examples catalog, so it
+// loads where it renders, not with every page the docs route serves.
+const TopicDemo = dynamic(() =>
+  import("./topic-demo").then((m) => m.TopicDemo),
+);
 
 function H2({ id, children }: { id: string; children: ReactNode }) {
   return <h2 id={id}>{children}</h2>;
