@@ -18,6 +18,7 @@ import {
 } from "vue";
 import type { Component, FunctionalComponent } from "vue";
 import type { AbstractAgent } from "@ag-ui/client";
+import type { Catalog, ComponentApi } from "@a2ui/web_core/v0_9";
 import { ToolCallStatus } from "@copilotkit/core";
 import type {
   CopilotKitCoreErrorCode,
@@ -39,7 +40,7 @@ import type {
 import { CopilotKitCoreVue } from "../lib/vue-core";
 import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
 import { registerA2UIBuiltInToolCallRenderer } from "../components/a2ui/A2UIBuiltInToolCallRenderer";
-import { registerA2UICatalogContext } from "../components/a2ui/A2UICatalogContext";
+import { registerA2UICatalog } from "../components/a2ui/A2UICatalogContext";
 import {
   GenerateSandboxedUiArgsSchema,
   OpenGenerativeUIActivityRenderer,
@@ -77,9 +78,6 @@ import type {
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
-// Canonical A2UI viewer theme default (matches @copilotkit/a2ui-renderer).
-// Defined locally to avoid pulling React dependencies from a2ui-renderer.
-const viewerTheme: Record<string, unknown> = {};
 
 const FRONTEND_TOOLS_STABLE_WARNING =
   "frontendTools must be a stable array. If you want to dynamically add or remove tools, use `useFrontendTool` instead.";
@@ -428,6 +426,11 @@ const a2uiCatalogProvided = computed(() => !!props.a2ui?.catalog);
 const a2uiActive = computed(
   () => runtimeA2UIEnabled.value || a2uiCatalogProvided.value,
 );
+// The catalog with components disabled in the Inspector removed; set by
+// `registerA2UICatalog` below once the core exists.
+const a2uiFilteredCatalog = shallowRef<Catalog<ComponentApi> | undefined>(
+  undefined,
+);
 // Forward a per-run signal when the provider has an A2UI catalog so the
 // runtime can turn A2UI on (and inject the render tool) without a separate
 // `a2ui.injectA2UITool` flag on the runtime.
@@ -481,8 +484,8 @@ const builtInActivityRenderers = computed<
   if (a2uiActive.value) {
     renderers.unshift(
       createA2UIMessageRenderer({
-        theme: props.a2ui?.theme ?? viewerTheme,
-        catalog: props.a2ui?.catalog,
+        theme: props.a2ui?.theme ?? {},
+        catalog: a2uiFilteredCatalog.value ?? props.a2ui?.catalog,
         loadingComponent: props.a2ui?.loadingComponent,
         recovery: props.a2ui?.recovery,
         onAction: props.a2ui?.onAction,
@@ -822,11 +825,15 @@ const a2uiIncludeSchema = computed(() => props.a2ui?.includeSchema ?? true);
 // A2UI tool call renderer (progress indicator) — auto-registered when A2UI enabled
 registerA2UIBuiltInToolCallRenderer(copilotkit, () => a2uiActive.value);
 
-// A2UI catalog context, schema, and generation/design guidelines
-registerA2UICatalogContext(copilotkit, {
+// A2UI catalog: component registration for the Inspector, the filtered
+// catalog, and the agent context (schema, generation/design guidelines).
+registerA2UICatalog(copilotkit, {
   enabled: () => a2uiActive.value,
   catalog: () => props.a2ui?.catalog,
   includeSchema: () => props.a2ui?.includeSchema ?? true,
+  onFilteredCatalog: (catalog) => {
+    a2uiFilteredCatalog.value = catalog;
+  },
 });
 
 const providerContextIds = ref<string[]>([]);
