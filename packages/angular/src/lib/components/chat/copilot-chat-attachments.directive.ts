@@ -7,21 +7,20 @@ import {
   inject,
   input,
 } from "@angular/core";
-import {
-  createAttachmentContent,
-  exceedsMaxSize,
-  formatFileSize,
-  generateVideoThumbnail,
-  getModalityFromMimeType,
-  matchesAcceptFilter,
-  randomUUID,
-  readFileAsBase64,
-  type Attachment,
-  type AttachmentsConfig,
-  type InputContent,
+import { ɵAttachmentQueue, ɵbuildUserMessageContent } from "@copilotkit/core";
+import type {
+  Attachment,
+  AttachmentsConfig,
+  InputContent,
 } from "@copilotkit/shared";
 import { ChatState } from "../../chat-state";
 
+/**
+ * Adds file attachments to the chat: drag-and-drop, paste and a hidden file
+ * picker. The queue itself (validation, uploads, ready state) lives in
+ * `@copilotkit/core`'s `ɵAttachmentQueue`; this directive mirrors it into
+ * {@link ChatState.attachments}.
+ */
 @Directive({
   selector: "[copilotChatAttachments]",
 })
@@ -32,8 +31,19 @@ export class CopilotChatAttachmentsDirective {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly renderer = inject(Renderer2);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly queue = new ɵAttachmentQueue(() => this.config());
 
   private fileInput?: HTMLInputElement;
+
+  constructor() {
+    const unsubscribe = this.queue.subscribe(() => {
+      this.chat.attachments.set(this.queue.getSnapshot());
+    });
+    this.destroyRef.onDestroy(() => {
+      unsubscribe();
+      this.queue.dispose();
+    });
+  }
 
   private get enabled(): boolean {
     return this.config()?.enabled ?? false;
@@ -57,33 +67,25 @@ export class CopilotChatAttachmentsDirective {
     event.stopPropagation();
     this.chat.dragOver.set(false);
 
-    if (!this.enabled) return;
-
     const files = Array.from(event.dataTransfer?.files ?? []);
     if (files.length > 0) {
-      await this.processFiles(files);
+      await this.processSafely(files, "Drop error");
     }
   }
 
   @HostListener("document:paste", ["$event"])
   async onPaste(event: ClipboardEvent): Promise<void> {
-    if (!this.enabled) return;
+    const target = event.target;
+    if (!(target instanceof Node) || !this.host.nativeElement.contains(target))
+      return;
 
-    const target = event.target as Node | null;
-    if (!target || !this.host.nativeElement.contains(target)) return;
-
-    const accept = this.config()?.accept ?? "*/*";
-    const files = Array.from(event.clipboardData?.items ?? [])
-      .filter((item) => item.kind === "file")
-      .map((item) => item.getAsFile())
-      .filter(
-        (file): file is File => !!file && matchesAcceptFilter(file, accept),
-      );
-
+    const files = this.queue.filterPastedFiles(
+      Array.from(event.clipboardData?.items ?? []),
+    );
     if (files.length === 0) return;
 
     event.preventDefault();
-    await this.processFiles(files);
+    await this.processSafely(files, "Paste error");
   }
 
   openFilePicker(): void {
@@ -93,42 +95,26 @@ export class CopilotChatAttachmentsDirective {
   }
 
   removeAttachment(id: string): void {
-    this.chat.attachments.update((attachments) =>
-      attachments.filter((attachment) => attachment.id !== id),
-    );
+    this.queue.remove(id);
   }
 
+  /** Takes the ready attachments for a message and resets the file picker. */
   consume(): Attachment[] {
-    const readyAttachments = this.chat
-      .attachments()
-      .filter((attachment) => attachment.status === "ready");
-
-    if (readyAttachments.length > 0) {
-      this.chat.attachments.update((attachments) =>
-        attachments.filter((attachment) => attachment.status !== "ready"),
-      );
-    }
-
+    const ready = this.queue.consumeReady();
     if (this.fileInput) {
       this.fileInput.value = "";
     }
-
-    return readyAttachments;
+    return ready;
   }
 
+  /**
+   * The content parts of a user message with these attachments: the text
+   * (as typed) and one part per attachment.
+   */
   buildContent(value: string, attachments: Attachment[]): InputContent[] {
-    const content: InputContent[] = [];
-    const trimmed = value.trim();
-
-    if (trimmed) {
-      content.push({ type: "text", text: trimmed });
-    }
-
-    for (const attachment of attachments) {
-      content.push(createAttachmentContent(attachment));
-    }
-
-    return content;
+    const content = ɵbuildUserMessageContent(value, attachments);
+    if (typeof content !== "string") return content;
+    return content.trim() ? [{ type: "text", text: content }] : [];
   }
 
   private ensureFileInput(): HTMLInputElement {
@@ -138,8 +124,8 @@ export class CopilotChatAttachmentsDirective {
     this.renderer.setAttribute(input, "type", "file");
     this.renderer.setProperty(input, "multiple", true);
     this.renderer.setStyle(input, "display", "none");
-    const unlisten = this.renderer.listen(input, "change", (event: Event) => {
-      void this.handleFileInputChange(event);
+    const unlisten = this.renderer.listen(input, "change", () => {
+      void this.handleFileInputChange(input);
     });
     this.renderer.appendChild(this.host.nativeElement, input);
 
@@ -152,98 +138,19 @@ export class CopilotChatAttachmentsDirective {
     return input;
   }
 
-  private async handleFileInputChange(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const files = Array.from(input.files ?? []);
+  private async handleFileInputChange(picker: HTMLInputElement): Promise<void> {
+    const files = Array.from(picker.files ?? []);
     if (files.length === 0) return;
-    await this.processFiles(files);
+    await this.processSafely(files, "Upload error");
+    // Clear the picker so choosing the same file again fires `change`.
+    picker.value = "";
   }
 
-  private async processFiles(files: File[]): Promise<void> {
-    const config = this.config();
-    if (!config?.enabled) {
-      return;
-    }
-
-    const accept = config.accept ?? "*/*";
-    const maxSize = config.maxSize ?? 20 * 1024 * 1024;
-
-    for (const file of files) {
-      if (!matchesAcceptFilter(file, accept)) {
-        config.onUploadFailed?.({
-          reason: "invalid-type",
-          file,
-          message: `File "${file.name}" is not accepted. Supported types: ${accept}`,
-        });
-        continue;
-      }
-
-      if (exceedsMaxSize(file, maxSize)) {
-        config.onUploadFailed?.({
-          reason: "file-too-large",
-          file,
-          message: `File "${
-            file.name
-          }" exceeds the maximum size of ${formatFileSize(maxSize)}`,
-        });
-        continue;
-      }
-
-      const placeholderId = randomUUID();
-      const modality = getModalityFromMimeType(file.type);
-      const placeholder: Attachment = {
-        id: placeholderId,
-        type: modality,
-        source: { type: "data", value: "", mimeType: file.type },
-        filename: file.name,
-        size: file.size,
-        status: "uploading",
-      };
-
-      this.chat.attachments.update((attachments) => [
-        ...attachments,
-        placeholder,
-      ]);
-
-      try {
-        const uploadResult = config.onUpload
-          ? await config.onUpload(file)
-          : {
-              type: "data" as const,
-              value: await readFileAsBase64(file),
-              mimeType: file.type,
-            };
-        const { metadata, ...source } = uploadResult;
-        const thumbnail =
-          modality === "video" ? await generateVideoThumbnail(file) : undefined;
-
-        this.chat.attachments.update((attachments) =>
-          attachments.map((attachment) =>
-            attachment.id === placeholderId
-              ? {
-                  ...attachment,
-                  source,
-                  status: "ready",
-                  thumbnail,
-                  metadata,
-                }
-              : attachment,
-          ),
-        );
-      } catch (error) {
-        this.chat.attachments.update((attachments) =>
-          attachments.filter((attachment) => attachment.id !== placeholderId),
-        );
-        console.error(`[CopilotKit] Failed to upload "${file.name}":`, error);
-        config.onUploadFailed?.({
-          reason: "upload-failed",
-          file,
-          message:
-            error instanceof Error
-              ? error.message
-              : `Failed to upload "${file.name}"`,
-        });
-      }
+  private async processSafely(files: File[], label: string): Promise<void> {
+    try {
+      await this.queue.processFiles(files);
+    } catch (error) {
+      console.error(`[CopilotKit] ${label}:`, error);
     }
   }
 }

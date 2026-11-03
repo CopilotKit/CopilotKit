@@ -84,6 +84,10 @@ export {
 // Messages (internal)
 export { ɵdeduplicateMessages, ɵmessagesFingerprint } from "./messages";
 
+// Attachments (internal)
+export { ɵAttachmentQueue, ɵbuildUserMessageContent } from "./attachment-queue";
+export type { ɵClipboardItem } from "./attachment-queue";
+
 // Chat input (internal)
 export { ɵcomposerButtonState, ɵresolveComposerKey } from "./composer";
 export type {
