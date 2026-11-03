@@ -4,7 +4,7 @@
  * finishing without a runtime.
  */
 import { useEffect, useMemo, useState } from "react";
-import type { Message } from "@copilotkit/react-core/v2";
+import type { Message } from "@copilotkit/react-core";
 import { toolCall } from "./fixtures";
 
 interface ScriptCall {

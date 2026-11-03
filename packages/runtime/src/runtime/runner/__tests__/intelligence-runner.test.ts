@@ -1,0 +1,2351 @@
+import { afterEach, describe, it, expect, beforeEach, vi } from "vitest";
+import type {
+  BaseEvent,
+  RunAgentInput,
+  RunAgentResult,
+  RunStartedEvent,
+  RunFinishedEvent,
+  RunErrorEvent,
+  TextMessageStartEvent,
+  TextMessageContentEvent,
+  TextMessageEndEvent,
+} from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import { EMPTY, firstValueFrom } from "rxjs";
+import { toArray } from "rxjs/operators";
+import type { MockPush } from "../../../../../core/src/__tests__/test-utils";
+import {
+  MockChannel,
+  MockSocket,
+  waitForCondition,
+} from "../../../../../core/src/__tests__/test-utils";
+
+let autoAcknowledgePushes = true;
+let mockChannels: MockRunnerChannel[] = [];
+let mockSockets: MockSocket[] = [];
+
+class MockRunnerChannel extends MockChannel {
+  state = "closed";
+
+  join(payload?: Record<string, any>): MockPush {
+    this.state = "joining";
+    return super.join(payload);
+  }
+
+  push(event: string, payload: any): MockPush {
+    const push = super.push(event, payload);
+    if (autoAcknowledgePushes) {
+      queueMicrotask(() => push.trigger("ok"));
+    }
+    return push;
+  }
+
+  beginRejoin(): void {
+    this.state = "joining";
+  }
+
+  triggerJoin(status: "ok" | "error" | "timeout", response?: unknown): void {
+    this.state =
+      status === "ok" ? "joined" : status === "error" ? "errored" : "closed";
+    super.triggerJoin(status, response);
+  }
+
+  triggerError(reason?: string): void {
+    this.state = "errored";
+    super.triggerError(reason);
+  }
+
+  leave(): void {
+    this.state = "closed";
+    super.leave();
+  }
+}
+
+class MockSocketImpl extends MockSocket {
+  constructor(url: string, opts?: any) {
+    super(url, opts);
+    mockSockets.push(this);
+  }
+
+  channel(topic: string, params: Record<string, any> = {}): MockRunnerChannel {
+    const ch = new MockRunnerChannel(topic, params);
+    this.channels.push(ch);
+    mockChannels.push(ch);
+    return ch;
+  }
+
+  isConnected(): boolean {
+    return this.connected && !this.disconnected;
+  }
+
+  triggerClose(event?: { code?: number }): void {
+    this.connected = false;
+    super.triggerClose(event);
+  }
+
+  triggerOpen(): void {
+    this.connected = true;
+    this.disconnected = false;
+    super.triggerOpen();
+  }
+}
+
+vi.mock("phoenix", () => ({
+  Socket: MockSocketImpl,
+  Channel: MockChannel,
+}));
+
+vi.mock("ws", () => ({ default: class MockWebSocket {} }));
+
+class MockAgent extends AbstractAgent {
+  aborted = false;
+  runCount = 0;
+  private events: BaseEvent[];
+
+  constructor(events: BaseEvent[] = []) {
+    super();
+    this.events = events;
+  }
+
+  async runAgent(
+    _input: RunAgentInput,
+    subscriber?: { onEvent?: (arg: { event: BaseEvent }) => void },
+  ): Promise<RunAgentResult> {
+    this.runCount += 1;
+    for (const event of this.events) {
+      subscriber?.onEvent?.({ event });
+    }
+    return { result: undefined, newMessages: [] };
+  }
+
+  abortRun(): void {
+    this.aborted = true;
+  }
+
+  clone(): AbstractAgent {
+    return new MockAgent(this.events);
+  }
+
+  run(): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+
+  protected connect(): ReturnType<AbstractAgent["connect"]> {
+    return EMPTY;
+  }
+}
+
+class PausingMockAgent extends AbstractAgent {
+  private subscriber:
+    | { onEvent?: (arg: { event: BaseEvent }) => void }
+    | undefined;
+  private resolveRun: (() => void) | undefined;
+
+  constructor(private initialEvents: BaseEvent[]) {
+    super();
+  }
+
+  async runAgent(
+    _input: RunAgentInput,
+    subscriber?: { onEvent?: (arg: { event: BaseEvent }) => void },
+  ): Promise<RunAgentResult> {
+    this.subscriber = subscriber;
+    for (const event of this.initialEvents) {
+      subscriber?.onEvent?.({ event });
+    }
+    await new Promise<void>((resolve) => {
+      this.resolveRun = resolve;
+    });
+    return { result: undefined, newMessages: [] };
+  }
+
+  emit(event: BaseEvent): void {
+    this.subscriber?.onEvent?.({ event });
+  }
+
+  finish(): void {
+    this.resolveRun?.();
+  }
+
+  abortRun(): void {}
+
+  clone(): AbstractAgent {
+    return new PausingMockAgent(this.initialEvents);
+  }
+
+  run(): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+
+  protected connect(): ReturnType<AbstractAgent["connect"]> {
+    return EMPTY;
+  }
+}
+
+class ThrowingMockAgent extends AbstractAgent {
+  aborted = false;
+  private errorMessage: string;
+
+  constructor(errorMessage = "Agent exploded") {
+    super();
+    this.errorMessage = errorMessage;
+  }
+
+  async runAgent(): Promise<RunAgentResult> {
+    throw new Error(this.errorMessage);
+  }
+
+  abortRun(): void {
+    this.aborted = true;
+  }
+
+  clone(): AbstractAgent {
+    return new ThrowingMockAgent(this.errorMessage);
+  }
+
+  run(): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+
+  protected connect(): ReturnType<AbstractAgent["connect"]> {
+    return EMPTY;
+  }
+}
+
+/**
+ * An agent whose runAgent() blocks until abortRun() is called,
+ * then rejects — simulating how a real agent's AbortController
+ * would cause in-flight work to fail on abort.
+ */
+class BlockingMockAgent extends AbstractAgent {
+  aborted = false;
+  private rejectFn: ((reason: Error) => void) | null = null;
+
+  constructor(private initialEvents: BaseEvent[] = []) {
+    super();
+  }
+
+  async runAgent(
+    _input: RunAgentInput,
+    subscriber?: { onEvent?: (arg: { event: BaseEvent }) => void },
+  ): Promise<RunAgentResult> {
+    for (const event of this.initialEvents) {
+      subscriber?.onEvent?.({ event });
+    }
+    return new Promise<RunAgentResult>((_resolve, reject) => {
+      this.rejectFn = reject;
+    });
+  }
+
+  abortRun(): void {
+    this.aborted = true;
+    this.rejectFn?.(new Error("Aborted"));
+  }
+
+  clone(): AbstractAgent {
+    return new BlockingMockAgent(this.initialEvents);
+  }
+
+  run(): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+
+  protected connect(): ReturnType<AbstractAgent["connect"]> {
+    return EMPTY;
+  }
+}
+
+function createRunInput(
+  overrides: Partial<RunAgentInput> & { threadId: string; runId: string },
+): RunAgentInput {
+  return {
+    messages: [],
+    tools: [],
+    context: [],
+    state: {},
+    forwardedProps: undefined,
+    ...overrides,
+  };
+}
+
+async function collectEvents(
+  observable: ReturnType<
+    import("../intelligence").IntelligenceAgentRunner["run"]
+  >,
+) {
+  return firstValueFrom(observable.pipe(toArray()));
+}
+
+// Must come after vi.mock so phoenix/ws are mocked when the module is loaded.
+const { IntelligenceAgentRunner } = await import("../intelligence");
+
+describe("IntelligenceAgentRunner", () => {
+  let runner: InstanceType<typeof IntelligenceAgentRunner>;
+
+  beforeEach(() => {
+    mockChannels = [];
+    mockSockets = [];
+    autoAcknowledgePushes = true;
+    runner = new IntelligenceAgentRunner({ url: "ws://localhost:4000/runner" });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("passes Phoenix authToken to the runner socket when configured", () => {
+    runner = new IntelligenceAgentRunner({
+      url: "ws://localhost:4000/runner",
+      authToken: "cpk_test_key",
+    });
+
+    const threadId = "t-auth";
+    const input = createRunInput({ threadId, runId: "r-auth" });
+    const agent = new MockAgent();
+
+    const sub = runner.run({ threadId, agent, input }).subscribe();
+
+    expect(mockSockets[0]?.opts).toMatchObject({
+      authToken: "cpk_test_key",
+    });
+
+    sub.unsubscribe();
+  });
+
+  it("sends Phoenix heartbeats every 15s on the runner socket by default", () => {
+    const threadId = "t-heartbeat-default";
+    const input = createRunInput({ threadId, runId: "r-heartbeat-default" });
+    const agent = new MockAgent();
+
+    const sub = runner.run({ threadId, agent, input }).subscribe();
+
+    expect(mockSockets[0]?.opts).toMatchObject({
+      heartbeatIntervalMs: 15_000,
+    });
+
+    sub.unsubscribe();
+  });
+
+  it("passes a configured heartbeatIntervalMs to the runner socket", () => {
+    runner = new IntelligenceAgentRunner({
+      url: "ws://localhost:4000/runner",
+      heartbeatIntervalMs: 5_000,
+    });
+
+    const threadId = "t-heartbeat-override";
+    const input = createRunInput({ threadId, runId: "r-heartbeat-override" });
+    const agent = new MockAgent();
+
+    const sub = runner.run({ threadId, agent, input }).subscribe();
+
+    expect(mockSockets[0]?.opts).toMatchObject({
+      heartbeatIntervalMs: 5_000,
+    });
+
+    sub.unsubscribe();
+  });
+
+  it("uses a per-run Phoenix authToken instead of the configured token", () => {
+    runner = new IntelligenceAgentRunner({
+      url: "ws://localhost:4000/runner",
+      authToken: "cpk_project_key",
+    });
+
+    const threadId = "t-runner-token";
+    const input = createRunInput({ threadId, runId: "r-runner-token" });
+    const agent = new MockAgent();
+
+    const sub = runner
+      .run({
+        threadId,
+        agent,
+        input,
+        authToken: "rnr_short_lived",
+      })
+      .subscribe();
+
+    expect(mockSockets[0]?.opts).toMatchObject({
+      authToken: "rnr_short_lived",
+    });
+
+    sub.unsubscribe();
+  });
+
+  describe("run", () => {
+    it("calls runAgent() and completes the Observable (events go to channel only)", async () => {
+      const threadId = "t-1";
+      const input = createRunInput({ threadId, runId: "r-1" });
+
+      const agentEvents: BaseEvent[] = [
+        {
+          type: EventType.RUN_STARTED,
+          threadId,
+          runId: "r-1",
+        } as RunStartedEvent,
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "Hello",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: "msg-1",
+        } as TextMessageEndEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-1",
+        } as RunFinishedEvent,
+      ];
+      const agent = new MockAgent(agentEvents);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      const events = await eventsPromise;
+
+      // Agent events are NOT emitted to the Observable — only to the channel.
+      // The Observable only receives finalization events (none needed here).
+      expect(events).toHaveLength(0);
+    });
+
+    it("pushes agent events to the Phoenix channel", async () => {
+      const threadId = "t-push";
+      const input = createRunInput({ threadId, runId: "r-push" });
+
+      const agentEvents: BaseEvent[] = [
+        {
+          type: EventType.RUN_STARTED,
+          threadId,
+          runId: "r-push",
+        } as RunStartedEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "hi",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-push",
+        } as RunFinishedEvent,
+      ];
+      const agent = new MockAgent(agentEvents);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      await eventsPromise;
+
+      // Agent events should be pushed to the ingestion channel under "event".
+      expect(ch.pushLog.every((p) => p.event === "event")).toBe(true);
+      const payloadTypes = ch.pushLog.map((p) => p.payload.type);
+      expect(payloadTypes).toContain(EventType.RUN_STARTED);
+      expect(payloadTypes).toContain(EventType.TEXT_MESSAGE_CONTENT);
+      expect(payloadTypes).toContain(EventType.RUN_FINISHED);
+      expect(ch.pushLog[0].payload).toMatchObject({
+        thread_id: threadId,
+        run_id: "r-push",
+      });
+      expect(ch.pushLog[0].payload.metadata.cpki_event_id).toEqual(
+        expect.any(String),
+      );
+      expect(ch.pushLog[0].payload.metadata.cpki_event_seq).toBe(1);
+      expect(ch.pushLog[1].payload.metadata.cpki_event_seq).toBe(2);
+      expect(ch.pushLog[2].payload.metadata.cpki_event_seq).toBe(3);
+    });
+
+    it("batches separate durable events after negotiating runner_event_batch_v1", async () => {
+      const threadId = "t-batch-negotiated";
+      const input = createRunInput({ threadId, runId: "r-batch-negotiated" });
+      const agent = new MockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "first",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "second",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: "msg-1",
+        } as TextMessageEndEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+
+      await eventsPromise;
+
+      expect(ch.pushLog).toHaveLength(1);
+      expect(ch.pushLog[0].event).toBe("events");
+      const events = ch.pushLog[0].payload.events;
+      expect(events.map((event: any) => event.type)).toEqual([
+        EventType.RUN_STARTED,
+        EventType.TEXT_MESSAGE_START,
+        EventType.TEXT_MESSAGE_CONTENT,
+        EventType.TEXT_MESSAGE_CONTENT,
+        EventType.TEXT_MESSAGE_END,
+        EventType.RUN_FINISHED,
+      ]);
+      expect(events.map((event: any) => event.metadata.cpki_event_id)).toEqual(
+        expect.arrayContaining([
+          expect.any(String),
+          expect.any(String),
+          expect.any(String),
+          expect.any(String),
+          expect.any(String),
+          expect.any(String),
+        ]),
+      );
+      expect(
+        new Set(events.map((event: any) => event.metadata.cpki_event_id)).size,
+      ).toBe(events.length);
+      expect(events.map((event: any) => event.metadata.cpki_event_seq)).toEqual(
+        [1, 2, 3, 4, 5, 6],
+      );
+    });
+
+    it("waits five milliseconds for a partial negotiated batch and flushes a full batch immediately", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-batch-flush";
+      const input = createRunInput({ threadId, runId: "r-batch-flush" });
+      const agent = new MockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        ...Array.from(
+          { length: 30 },
+          (_, index) =>
+            ({
+              type: EventType.TEXT_MESSAGE_CONTENT,
+              messageId: "msg-1",
+              delta: String(index),
+            }) as TextMessageContentEvent,
+        ),
+        {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: "msg-1",
+        } as TextMessageEndEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await Promise.resolve();
+
+      expect(ch.pushLog).toHaveLength(1);
+      expect(ch.pushLog[0]).toMatchObject({
+        event: "events",
+        payload: { events: expect.any(Array) },
+      });
+      expect(ch.pushLog[0].payload.events).toHaveLength(32);
+
+      ch.pushLog[0].push.trigger("ok");
+      await vi.advanceTimersByTimeAsync(4);
+      expect(ch.pushLog).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(ch.pushLog).toHaveLength(2);
+      expect(ch.pushLog[1].payload.events).toHaveLength(2);
+
+      ch.pushLog[1].push.trigger("ok");
+      await eventsPromise;
+    });
+
+    it("flushes an aged partial batch immediately after the active batch is acknowledged", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-batch-aged-behind-active";
+      const input = createRunInput({
+        threadId,
+        runId: "r-batch-aged-behind-active",
+      });
+      const agent = new PausingMockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        ...Array.from(
+          { length: 30 },
+          (_, index) =>
+            ({
+              type: EventType.TEXT_MESSAGE_CONTENT,
+              messageId: "msg-1",
+              delta: String(index),
+            }) as TextMessageContentEvent,
+        ),
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+
+      expect(ch.pushLog[0].payload.events).toHaveLength(32);
+      agent.emit({
+        type: EventType.TEXT_MESSAGE_END,
+        messageId: "msg-1",
+      } as TextMessageEndEvent);
+      await vi.advanceTimersByTimeAsync(10);
+      expect(ch.pushLog).toHaveLength(1);
+
+      ch.pushLog[0].push.trigger("ok");
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(ch.pushLog).toHaveLength(2);
+      expect(ch.pushLog[1].payload.events).toHaveLength(1);
+
+      agent.emit({
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: input.runId,
+      } as RunFinishedEvent);
+      agent.finish();
+      ch.pushLog[1].push.trigger("ok");
+      await vi.advanceTimersByTimeAsync(5);
+      ch.pushLog[2].push.trigger("ok");
+      await eventsPromise;
+    });
+
+    it("retries a negotiated batch with the same payload objects and keeps all members until acknowledgement", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-batch-retry";
+      const input = createRunInput({ threadId, runId: "r-batch-retry" });
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+
+      expect(ch.pushLog).toHaveLength(1);
+      const originalEvents = ch.pushLog[0].payload.events;
+      ch.pushLog[0].push.trigger("error", { reason: "redis_unavailable" });
+      await vi.advanceTimersByTimeAsync(105);
+
+      expect(ch.pushLog).toHaveLength(2);
+      expect(ch.pushLog[1]).toMatchObject({ event: "events" });
+      expect(ch.pushLog[1].payload.events).toEqual(originalEvents);
+      expect(ch.pushLog[1].payload.events[0]).toBe(originalEvents[0]);
+      expect(ch.pushLog[1].payload.events[1]).toBe(originalEvents[1]);
+      expect(await runner.isRunning({ threadId })).toBe(true);
+
+      ch.pushLog[1].push.trigger("ok");
+      await eventsPromise;
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+
+    it("snapshots nested event data before a durable retry", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-batch-retry-snapshot";
+      const input = createRunInput({
+        threadId,
+        runId: "r-batch-retry-snapshot",
+      });
+      const snapshot = { nested: { value: "original" } };
+      const agent = new PausingMockAgent([
+        {
+          type: EventType.STATE_SNAPSHOT,
+          snapshot,
+        } as BaseEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+
+      snapshot.nested.value = "mutated";
+      ch.pushLog[0].push.trigger("error", { reason: "redis_unavailable" });
+      await vi.advanceTimersByTimeAsync(105);
+
+      const retriedSnapshot = ch.pushLog[1].payload.events.find(
+        (event: BaseEvent) => event.type === EventType.STATE_SNAPSHOT,
+      );
+      expect(retriedSnapshot.snapshot).toEqual({
+        nested: { value: "original" },
+      });
+
+      ch.pushLog[1].push.trigger("ok");
+      agent.emit({
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: input.runId,
+      } as RunFinishedEvent);
+      agent.finish();
+      await vi.advanceTimersByTimeAsync(5);
+      ch.pushLog[2].push.trigger("ok");
+      await eventsPromise;
+    });
+
+    it("errors once and cleans up when the gateway permanently rejects queued events", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-permanent-rejection";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-permanent-rejection",
+      });
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+      let errors = 0;
+      let completions = 0;
+      let receivedError: Error | undefined;
+
+      runner.run({ threadId, agent, input }).subscribe({
+        error: (error) => {
+          errors++;
+          receivedError = error;
+        },
+        complete: () => completions++,
+      });
+      const ch = mockChannels[0];
+      const socket = mockSockets[0] as MockSocketImpl;
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+
+      socket.triggerClose({ code: 1006 });
+      ch.pushLog[0].push.trigger("error", {
+        reason: "invalid_event_batch",
+        retryable: false,
+      });
+      await Promise.resolve();
+
+      expect(errors).toBe(1);
+      expect(receivedError?.message).toBe(
+        "Runner event durability failed: invalid_event_batch",
+      );
+      expect(completions).toBe(0);
+      expect(await runner.isRunning({ threadId })).toBe(false);
+      expect(ch.left).toBe(true);
+      expect(socket.disconnected).toBe(true);
+      expect(ch.pushLog).toHaveLength(1);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(
+        ch.pushLog[0].payload.events.some(
+          (event: BaseEvent) => event.type === EventType.RUN_ERROR,
+        ),
+      ).toBe(false);
+    });
+
+    it("does not let failed-run teardown remove a synchronous replacement run", async () => {
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-failure-replacement";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-failure-replacement",
+      });
+      const replacementInput = createRunInput({
+        threadId,
+        runId: "r-event-failure-replacement-next",
+      });
+      const failedAgent = new BlockingMockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-failed",
+          role: "assistant",
+        } as TextMessageStartEvent,
+      ]);
+      const replacementAgent = new BlockingMockAgent();
+      let replacementSubscription:
+        | ReturnType<ReturnType<typeof runner.run>["subscribe"]>
+        | undefined;
+
+      runner.run({ threadId, agent: failedAgent, input }).subscribe({
+        error: () => {
+          replacementSubscription = runner
+            .run({
+              threadId,
+              agent: replacementAgent,
+              input: replacementInput,
+            })
+            .subscribe();
+        },
+      });
+      const failedChannel = mockChannels[0];
+      failedChannel.triggerJoin("ok");
+      await waitForCondition(() => failedChannel.pushLog.length === 1);
+      failedChannel.pushLog[0].push.trigger("error", { retryable: false });
+      await Promise.resolve();
+
+      expect(failedAgent.aborted).toBe(true);
+      expect(failedChannel.pushLog).toHaveLength(1);
+      expect(replacementSubscription).toBeDefined();
+      expect(await runner.isRunning({ threadId })).toBe(true);
+      expect(replacementAgent.aborted).toBe(false);
+      expect(mockChannels[1].left).toBe(false);
+      expect(mockSockets[1].disconnected).toBe(false);
+
+      replacementSubscription?.unsubscribe();
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+
+    it("ignores a late stop control event from a failed run after replacement startup", async () => {
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-failure-stale-stop";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-failure-stale-stop",
+      });
+      const replacementInput = createRunInput({
+        threadId,
+        runId: "r-event-failure-stale-stop-next",
+      });
+      const replacementAgent = new BlockingMockAgent();
+      let replacementSubscription:
+        | ReturnType<ReturnType<typeof runner.run>["subscribe"]>
+        | undefined;
+
+      runner.run({ threadId, agent: new MockAgent(), input }).subscribe({
+        error: () => {
+          replacementSubscription = runner
+            .run({
+              threadId,
+              agent: replacementAgent,
+              input: replacementInput,
+            })
+            .subscribe();
+          mockChannels[1].triggerJoin("ok");
+        },
+      });
+      const failedChannel = mockChannels[0];
+      failedChannel.triggerJoin("ok");
+      await waitForCondition(() => failedChannel.pushLog.length === 1);
+      failedChannel.pushLog[0].push.trigger("error", { retryable: false });
+
+      expect(mockChannels[1].state).toBe("joined");
+      expect(await runner.isRunning({ threadId })).toBe(true);
+      failedChannel.serverPush("ag-ui", {
+        type: EventType.CUSTOM,
+        name: "stop",
+      });
+
+      expect(replacementAgent.aborted).toBe(false);
+      expect(await runner.isRunning({ threadId })).toBe(true);
+
+      replacementSubscription?.unsubscribe();
+    });
+
+    it("rejects a second subscription to the same run observable without replacing its owner", async () => {
+      const threadId = "t-duplicate-run-subscription";
+      const input = createRunInput({
+        threadId,
+        runId: "r-duplicate-run-subscription",
+      });
+      const events = runner.run({
+        threadId,
+        agent: new BlockingMockAgent(),
+        input,
+      });
+      let secondError: Error | undefined;
+
+      const firstSubscription = events.subscribe();
+      const firstSocket = mockSockets[0];
+      const secondSubscription = events.subscribe({
+        error: (error) => (secondError = error),
+      });
+
+      expect(secondError?.message).toBe("Thread already running");
+      expect(secondSubscription.closed).toBe(true);
+      expect(mockSockets).toHaveLength(1);
+      expect(await runner.isRunning({ threadId })).toBe(true);
+      expect(firstSocket.disconnected).toBe(false);
+
+      firstSubscription.unsubscribe();
+      expect(await runner.isRunning({ threadId })).toBe(false);
+      expect(firstSocket.disconnected).toBe(true);
+    });
+
+    it("keeps retrying the original payload until its original durability deadline", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-durability-deadline";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-durability-deadline",
+      });
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+      let receivedError: Error | undefined;
+
+      runner.run({ threadId, agent, input }).subscribe({
+        error: (error) => (receivedError = error),
+      });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+
+      const originalEvents = ch.pushLog[0].payload.events;
+      ch.pushLog[0].push.trigger("error", { retryable: true });
+      await vi.advanceTimersByTimeAsync(100);
+      ch.pushLog[1].push.trigger("error", {});
+      await vi.advanceTimersByTimeAsync(200);
+      ch.pushLog[2].push.trigger("timeout");
+      await vi.advanceTimersByTimeAsync(400);
+
+      for (const replay of ch.pushLog.slice(1)) {
+        expect(replay.payload.events).toHaveLength(originalEvents.length);
+        replay.payload.events.forEach((event: BaseEvent, index: number) => {
+          expect(event).toBe(originalEvents[index]);
+        });
+        expect(
+          replay.payload.events.map(
+            (event: any) => event.metadata.cpki_event_id,
+          ),
+        ).toEqual(
+          originalEvents.map((event: any) => event.metadata.cpki_event_id),
+        );
+      }
+      await vi.advanceTimersByTimeAsync(60_000 - 5 - 100 - 200 - 400);
+
+      expect(receivedError).toBeInstanceOf(Error);
+      expect(receivedError?.message).toMatch(/durably deliver/i);
+      expect(await runner.isRunning({ threadId })).toBe(false);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("aborts a blocked producer when its queued event reaches the durability deadline", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(0);
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-deadline-abort-producer";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-deadline-abort-producer",
+      });
+      const agent = new BlockingMockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-blocked",
+          role: "assistant",
+        } as TextMessageStartEvent,
+      ]);
+      let errors = 0;
+
+      runner
+        .run({ threadId, agent, input })
+        .subscribe({ error: () => errors++ });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+      expect(ch.pushLog).toHaveLength(1);
+
+      await vi.advanceTimersByTimeAsync(60_000 - 5);
+
+      expect(errors).toBe(1);
+      expect(agent.aborted).toBe(true);
+      expect(ch.pushLog).toHaveLength(1);
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+
+    it("does not reset a queued event's durability deadline after rejoin", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-deadline-rejoin";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-deadline-rejoin",
+      });
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+      let errors = 0;
+
+      runner
+        .run({ threadId, agent, input })
+        .subscribe({ error: () => errors++ });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+      const originalEvents = ch.pushLog[0].payload.events;
+
+      ch.triggerError("channel_closed");
+      ch.beginRejoin();
+      await vi.advanceTimersByTimeAsync(59_000 - 5);
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+
+      expect(ch.pushLog).toHaveLength(2);
+      ch.pushLog[1].payload.events.forEach(
+        (event: BaseEvent, index: number) => {
+          expect(event).toBe(originalEvents[index]);
+        },
+      );
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(errors).toBe(1);
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+
+    it("fails and aborts an accepted blocked run on an explicit permanent rejoin error", async () => {
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-permanent-rejoin";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-permanent-rejoin",
+      });
+      const agent = new BlockingMockAgent();
+      let receivedError: Error | undefined;
+
+      runner.run({ threadId, agent, input }).subscribe({
+        error: (error) => (receivedError = error),
+      });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+      expect(ch.pushLog).toHaveLength(0);
+
+      ch.triggerJoin("error", {
+        reason: "runner_evicted",
+        retryable: false,
+      });
+      await Promise.resolve();
+
+      expect(receivedError?.message).toContain("runner_evicted");
+      expect(agent.aborted).toBe(true);
+      expect(ch.pushLog).toHaveLength(0);
+      expect(ch.left).toBe(true);
+      expect(mockSockets[0].disconnected).toBe(true);
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+
+    it("fails instead of replaying on rejoin at the exact durability deadline", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(0);
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-deadline-exact-rejoin";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-deadline-exact-rejoin",
+      });
+      let errors = 0;
+
+      runner
+        .run({
+          threadId,
+          agent: new MockAgent([
+            {
+              type: EventType.RUN_FINISHED,
+              threadId,
+              runId: input.runId,
+            } as RunFinishedEvent,
+          ]),
+          input,
+        })
+        .subscribe({ error: () => errors++ });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+      expect(ch.pushLog).toHaveLength(1);
+
+      ch.triggerError("channel_closed");
+      ch.beginRejoin();
+      vi.setSystemTime(60_000);
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+
+      expect(errors).toBe(1);
+      expect(ch.pushLog).toHaveLength(1);
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+
+    it("fails instead of accepting an acknowledgement at the exact durability deadline", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(0);
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-deadline-exact-ack";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-deadline-exact-ack",
+      });
+      let errors = 0;
+      let completions = 0;
+
+      runner
+        .run({
+          threadId,
+          agent: new MockAgent([
+            {
+              type: EventType.RUN_FINISHED,
+              threadId,
+              runId: input.runId,
+            } as RunFinishedEvent,
+          ]),
+          input,
+        })
+        .subscribe({
+          error: () => errors++,
+          complete: () => completions++,
+        });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+      expect(ch.pushLog).toHaveLength(1);
+
+      vi.setSystemTime(60_000);
+      ch.pushLog[0].push.trigger("ok");
+
+      expect(errors).toBe(1);
+      expect(completions).toBe(0);
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+
+    it("ignores late callbacks, agent emissions, and joins after terminal event cleanup", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-terminal-stale-callbacks";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-terminal-stale-callbacks",
+      });
+      const agent = new PausingMockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+      ]);
+      let errors = 0;
+
+      runner
+        .run({ threadId, agent, input })
+        .subscribe({ error: () => errors++ });
+      const ch = mockChannels[0];
+      const socket = mockSockets[0] as MockSocketImpl;
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+      const stalePush = ch.pushLog[0].push;
+      stalePush.trigger("error", { retryable: false });
+      socket.triggerOpen();
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      agent.emit({
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "msg-1",
+        delta: "late",
+      } as TextMessageContentEvent);
+      agent.finish();
+      stalePush.trigger("ok");
+      stalePush.trigger("error", { retryable: false });
+      await vi.runAllTimersAsync();
+
+      expect(errors).toBe(1);
+      expect(ch.pushLog).toHaveLength(1);
+      expect(await runner.isRunning({ threadId })).toBe(false);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("retries the original negotiated batch before events queued during its failed push", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-batch-retry-members";
+      const input = createRunInput({
+        threadId,
+        runId: "r-batch-retry-members",
+      });
+      const agent = new PausingMockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "first",
+        } as TextMessageContentEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+
+      const originalEvents = ch.pushLog[0].payload.events;
+      agent.emit({
+        type: EventType.TEXT_MESSAGE_END,
+        messageId: "msg-1",
+      } as TextMessageEndEvent);
+      agent.emit({
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: input.runId,
+      } as RunFinishedEvent);
+      agent.finish();
+      ch.pushLog[0].push.trigger("error", { reason: "redis_unavailable" });
+      await vi.advanceTimersByTimeAsync(105);
+
+      expect(ch.pushLog[1].payload.events).toEqual(originalEvents);
+      ch.pushLog[1].push.trigger("ok");
+      await vi.advanceTimersByTimeAsync(5);
+      expect(ch.pushLog[2].payload.events).toHaveLength(2);
+      ch.pushLog[2].push.trigger("ok");
+      await eventsPromise;
+    });
+
+    it("overrides conflicting event thread and run ownership before pushing to the channel", async () => {
+      const threadId = "t-canonical";
+      const input = createRunInput({ threadId, runId: "r-canonical" });
+
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "backend-thread",
+          runId: "backend-run",
+        } as RunStartedEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: "backend-thread",
+          runId: "backend-run",
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      await eventsPromise;
+
+      expect(ch.pushLog.map((entry) => entry.payload)).toEqual([
+        expect.objectContaining({
+          type: EventType.RUN_STARTED,
+          threadId,
+          runId: input.runId,
+          thread_id: threadId,
+          run_id: input.runId,
+        }),
+        expect.objectContaining({
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+          thread_id: threadId,
+          run_id: input.runId,
+        }),
+      ]);
+    });
+
+    it("rewrites RUN_STARTED input.messages to the unseen persisted subset", async () => {
+      const threadId = "t-persisted-input";
+      const input = createRunInput({
+        threadId,
+        runId: "r-persisted-input",
+        messages: [
+          {
+            id: "msg-existing",
+            role: "user",
+            content: "Existing",
+          },
+          {
+            id: "msg-new",
+            role: "user",
+            content: "New",
+          },
+        ],
+      });
+
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_STARTED,
+          threadId,
+          runId: "r-persisted-input",
+          input,
+        } as RunStartedEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-persisted-input",
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({
+          threadId,
+          agent,
+          input,
+          persistedInputMessages: [
+            {
+              id: "msg-new",
+              role: "user",
+              content: "New",
+            },
+          ],
+        }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      await eventsPromise;
+
+      expect(ch.pushLog[0].payload.type).toBe(EventType.RUN_STARTED);
+      expect(ch.pushLog[0].payload.input.messages).toEqual([
+        {
+          id: "msg-new",
+          role: "user",
+          content: "New",
+        },
+      ]);
+    });
+
+    it("synthesizes RUN_STARTED before other events when the agent omits it", async () => {
+      const threadId = "t-synth-run-started";
+      const input = createRunInput({
+        threadId,
+        runId: "r-synth-run-started",
+        messages: [
+          {
+            id: "msg-new",
+            role: "user",
+            content: "Persist me",
+          },
+        ],
+      });
+
+      const agent = new MockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "hello",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-synth-run-started",
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({
+          threadId,
+          agent,
+          input,
+          persistedInputMessages: input.messages,
+        }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      await eventsPromise;
+
+      expect(ch.pushLog[0].payload.type).toBe(EventType.RUN_STARTED);
+      expect(ch.pushLog[0].payload.input.messages).toEqual(input.messages);
+      expect(ch.pushLog[1].payload.type).toBe(EventType.TEXT_MESSAGE_CONTENT);
+    });
+
+    it("does not push any CUSTOM run event to the channel", async () => {
+      const threadId = "t-no-custom";
+      const input = createRunInput({ threadId, runId: "r-no-custom" });
+
+      const agentEvents: BaseEvent[] = [
+        {
+          type: EventType.RUN_STARTED,
+          threadId,
+          runId: "r-no-custom",
+        } as RunStartedEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-no-custom",
+        } as RunFinishedEvent,
+      ];
+      const agent = new MockAgent(agentEvents);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      await eventsPromise;
+
+      const customRunPush = ch.pushLog.find(
+        (p) => p.event === EventType.CUSTOM && p.payload?.name === "run",
+      );
+      expect(customRunPush).toBeUndefined();
+    });
+
+    it("pushes RUN_ERROR to the channel when agent throws", async () => {
+      const threadId = "t-err";
+      const input = createRunInput({ threadId, runId: "r-err" });
+      const agent = new ThrowingMockAgent("Something went wrong");
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      await eventsPromise;
+
+      const errorPush = ch.pushLog.find(
+        (p) => p.payload?.type === EventType.RUN_ERROR,
+      );
+      expect(errorPush).toBeDefined();
+      expect(errorPush!.payload).toMatchObject({
+        type: EventType.RUN_ERROR,
+        message: "Something went wrong",
+        threadId,
+        runId: input.runId,
+        thread_id: threadId,
+        run_id: input.runId,
+      });
+    });
+
+    it("does not push a TEXT_MESSAGE_END after an agent-emitted terminal (#5812)", async () => {
+      const threadId = "t-finalize";
+      const input = createRunInput({ threadId, runId: "r-fin" });
+
+      // Agent leaves a text message open, then emits its own RUN_FINISHED.
+      const agentEvents: BaseEvent[] = [
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "open-msg",
+          role: "assistant",
+        } as BaseEvent,
+        { type: EventType.RUN_FINISHED, threadId, runId: "r-fin" } as BaseEvent,
+      ];
+      const agent = new MockAgent(agentEvents);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      await eventsPromise;
+
+      // Once the agent emits a terminal, finalizeRunEvents must append nothing:
+      // the AG-UI verifier rejects any TEXT_MESSAGE_END streamed after the
+      // terminal ("the run has already finished"). RUN_FINISHED stays the last
+      // channel push — the open message is closed by the terminal on the client.
+      const chPayloadTypes = ch.pushLog.map((p) => p.payload.type);
+      expect(chPayloadTypes).toEqual([
+        EventType.RUN_STARTED,
+        EventType.TEXT_MESSAGE_START,
+        EventType.RUN_FINISHED,
+      ]);
+      expect(ch.pushLog.map((p) => p.payload.metadata.cpki_event_seq)).toEqual([
+        1, 2, 3,
+      ]);
+    });
+
+    it("preserves runner event order with increasing cpki_event_seq", async () => {
+      const threadId = "t-seq";
+      const input = createRunInput({ threadId, runId: "r-seq" });
+
+      const agent = new MockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "first",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "second",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "third",
+        } as TextMessageContentEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      await eventsPromise;
+
+      expect(
+        ch.pushLog.map((entry) => entry.payload.metadata.cpki_event_seq),
+      ).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it("keeps a completed run alive until every durable event is acknowledged", async () => {
+      autoAcknowledgePushes = false;
+      const threadId = "t-ack-boundary";
+      const input = createRunInput({ threadId, runId: "r-ack-boundary" });
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+      await waitForCondition(() => ch.pushLog.length === 1);
+
+      expect(await runner.isRunning({ threadId })).toBe(true);
+      expect(ch.left).toBe(false);
+      expect(mockSockets[0].disconnected).toBe(false);
+
+      ch.pushLog[0].push.trigger("ok");
+      await waitForCondition(() => ch.pushLog.length === 2);
+      expect(await runner.isRunning({ threadId })).toBe(true);
+
+      ch.pushLog[1].push.trigger("ok");
+      await eventsPromise;
+      expect(await runner.isRunning({ threadId })).toBe(false);
+      expect(ch.left).toBe(true);
+      expect(mockSockets[0].disconnected).toBe(true);
+    });
+
+    it("replays only unacknowledged payloads in sequence after channel rejoin", async () => {
+      autoAcknowledgePushes = false;
+      const threadId = "t-replay-unacked";
+      const input = createRunInput({ threadId, runId: "r-replay-unacked" });
+      const agent = new MockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "hello",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+      await waitForCondition(() => ch.pushLog.length === 1);
+
+      ch.pushLog[0].push.trigger("ok");
+      await waitForCondition(() => ch.pushLog.length === 2);
+      const unacknowledged = ch.pushLog[1].payload;
+      ch.triggerJoin("ok");
+      await waitForCondition(() => ch.pushLog.length === 3);
+
+      const replayed = ch.pushLog[2].payload;
+      expect(agent.runCount).toBe(1);
+      expect(replayed.metadata.cpki_event_id).toBe(
+        unacknowledged.metadata.cpki_event_id,
+      );
+      expect(replayed.metadata.cpki_event_seq).toBe(
+        unacknowledged.metadata.cpki_event_seq,
+      );
+
+      ch.pushLog[2].push.trigger("ok");
+      await waitForCondition(() => ch.pushLog.length === 4);
+      ch.pushLog[3].push.trigger("ok");
+      await eventsPromise;
+    });
+
+    it("waits for rejoin before replaying with the latest event protocol", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-rejoin-latest-protocol";
+      const input = createRunInput({
+        threadId,
+        runId: "r-rejoin-latest-protocol",
+      });
+      const agent = new PausingMockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "hello",
+        } as TextMessageContentEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+
+      expect(ch.pushLog).toHaveLength(1);
+      expect(ch.pushLog[0].event).toBe("events");
+      const originalEvents = ch.pushLog[0].payload.events;
+      const originalMetadata = originalEvents.map(
+        (event: any) => event.metadata,
+      );
+
+      ch.pushLog[0].push.trigger("error", { reason: "channel_closed" });
+      ch.triggerError("channel_closed");
+      await vi.advanceTimersByTimeAsync(100);
+
+      expect(ch.state).toBe("errored");
+      expect(ch.pushLog).toHaveLength(1);
+
+      ch.beginRejoin();
+      expect(ch.state).toBe("joining");
+      ch.triggerJoin("ok", { capabilities: [] });
+
+      for (const [index, metadata] of originalMetadata.entries()) {
+        const replay = ch.pushLog[index + 1];
+        expect(replay.event).toBe("event");
+        expect(replay.payload.metadata).toEqual(metadata);
+        replay.push.trigger("ok");
+      }
+      expect(ch.pushLog).toHaveLength(originalEvents.length + 1);
+
+      agent.emit({
+        type: EventType.TEXT_MESSAGE_END,
+        messageId: "msg-1",
+      } as TextMessageEndEvent);
+      agent.emit({
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: input.runId,
+      } as RunFinishedEvent);
+      agent.finish();
+      ch.pushLog.at(-1)!.push.trigger("ok");
+      ch.pushLog.at(-1)!.push.trigger("ok");
+      await eventsPromise;
+    });
+
+    it("preserves failed batch membership across a same-capability rejoin", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-rejoin-same-protocol";
+      const input = createRunInput({
+        threadId,
+        runId: "r-rejoin-same-protocol",
+      });
+      const agent = new PausingMockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "hello",
+        } as TextMessageContentEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+
+      const originalEvents = ch.pushLog[0].payload.events;
+      expect(originalEvents).toHaveLength(3);
+      agent.emit({
+        type: EventType.TEXT_MESSAGE_END,
+        messageId: "msg-1",
+      } as TextMessageEndEvent);
+      agent.emit({
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: input.runId,
+      } as RunFinishedEvent);
+      agent.finish();
+
+      ch.pushLog[0].push.trigger("error", { reason: "channel_closed" });
+      ch.triggerError("channel_closed");
+      ch.beginRejoin();
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+
+      expect(ch.pushLog).toHaveLength(2);
+      expect(ch.pushLog[1].event).toBe("events");
+      expect(ch.pushLog[1].payload.events).toEqual(originalEvents);
+      ch.pushLog[1].push.trigger("ok");
+      await vi.advanceTimersByTimeAsync(5);
+
+      expect(ch.pushLog[2].payload.events).toHaveLength(2);
+      expect(
+        ch.pushLog[2].payload.events.map(
+          (event: any) => event.metadata.cpki_event_seq,
+        ),
+      ).toEqual([4, 5]);
+      ch.pushLog[2].push.trigger("ok");
+      await eventsPromise;
+    });
+
+    it("waits for socket reconnect and rejoin before pushing pending events", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-rejoin-disconnected-socket";
+      const input = createRunInput({
+        threadId,
+        runId: "r-rejoin-disconnected-socket",
+      });
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      const socket = mockSockets[0] as MockSocketImpl;
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      socket.triggerClose({ code: 1006 });
+      await vi.advanceTimersByTimeAsync(5);
+
+      expect(ch.state).toBe("joined");
+      expect(socket.isConnected()).toBe(false);
+      expect(ch.pushLog).toHaveLength(0);
+
+      socket.triggerOpen();
+      expect(ch.pushLog).toHaveLength(0);
+      ch.beginRejoin();
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(ch.pushLog).toHaveLength(1);
+      expect(ch.pushLog[0].event).toBe("events");
+      expect(
+        ch.pushLog[0].payload.events.map(
+          (event: any) => event.metadata.cpki_event_seq,
+        ),
+      ).toEqual([1, 2]);
+      ch.pushLog[0].push.trigger("ok");
+      await eventsPromise;
+    });
+
+    it("retries an unacknowledged push after Redis recovers without a channel rejoin", async () => {
+      autoAcknowledgePushes = false;
+      const threadId = "t-retry-push";
+      const input = createRunInput({ threadId, runId: "r-retry-push" });
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+      await waitForCondition(() => ch.pushLog.length === 1);
+
+      const original = ch.pushLog[0].payload;
+      ch.pushLog[0].push.trigger("error", { reason: "redis_unavailable" });
+      await waitForCondition(() => ch.pushLog.length === 2);
+
+      expect(ch.joinCount).toBe(1);
+      expect(ch.pushLog[1].payload).toEqual(original);
+      ch.pushLog[1].push.trigger("ok");
+      await waitForCondition(() => ch.pushLog.length === 3);
+      ch.pushLog[2].push.trigger("ok");
+      await eventsPromise;
+    });
+
+    it("keeps retryable gateway_draining joins pending instead of emitting RUN_ERROR", async () => {
+      const threadId = "t-draining-join";
+      const input = createRunInput({ threadId, runId: "r-draining-join" });
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("error", {
+        reason: "gateway_draining",
+        retryable: true,
+      });
+
+      expect(await runner.isRunning({ threadId })).toBe(true);
+      expect(ch.left).toBe(false);
+      ch.triggerJoin("ok");
+      expect(await eventsPromise).toEqual([]);
+    });
+
+    it("throws when the thread is already running", () => {
+      const threadId = "t-dup";
+      const input = createRunInput({ threadId, runId: "r-dup" });
+      const agent = new MockAgent();
+
+      // Start a run and subscribe so the Observable body executes.
+      const sub = runner.run({ threadId, agent, input }).subscribe();
+
+      expect(() => runner.run({ threadId, agent, input })).toThrow(
+        "Thread already running",
+      );
+      sub.unsubscribe();
+    });
+
+    it("emits RUN_ERROR and completes when channel join fails", async () => {
+      const threadId = "t-join-err";
+      const input = createRunInput({ threadId, runId: "r-join-err" });
+      const agent = new MockAgent();
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+
+      ch.triggerJoin("error", { reason: "unauthorized" });
+
+      const events = await eventsPromise;
+
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe(EventType.RUN_ERROR);
+      expect((events[0] as RunErrorEvent).message).toContain("unauthorized");
+    });
+
+    it("emits RUN_ERROR and completes when channel join times out", async () => {
+      const threadId = "t-join-timeout";
+      const input = createRunInput({ threadId, runId: "r-join-timeout" });
+      const agent = new MockAgent();
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+
+      ch.triggerJoin("timeout");
+
+      const events = await eventsPromise;
+
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe(EventType.RUN_ERROR);
+      expect((events[0] as RunErrorEvent).message).toBe(
+        "Timed out joining channel",
+      );
+    });
+  });
+
+  describe("run channel ownership", () => {
+    it("uses runId for the ingestion channel topic", async () => {
+      const threadId = "t-jc";
+      const input = createRunInput({ threadId, runId: "r-jc" });
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-jc",
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      expect(ch.topic).toBe("ingestion:r-jc");
+      expect(ch.params).toEqual({ thread_id: threadId, run_id: "r-jc" });
+      ch.triggerJoin("ok");
+      await eventsPromise;
+    });
+
+    it("keeps pushed event payload ownership on canonical threadId and runId", async () => {
+      const threadId = "t-no-jc";
+      const input = createRunInput({ threadId, runId: "r-no-jc" });
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-no-jc",
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+      await eventsPromise;
+
+      expect(ch.pushLog[0].payload).toEqual(
+        expect.objectContaining({
+          threadId,
+          runId: "r-no-jc",
+          thread_id: threadId,
+          run_id: "r-no-jc",
+        }),
+      );
+    });
+  });
+
+  describe("connect", () => {
+    it("forwards thread channel events and completes on RUN_FINISHED", async () => {
+      const threadId = "t-connect";
+
+      const eventsPromise = collectEvents(runner.connect({ threadId }));
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      ch.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId,
+        runId: "r-hist",
+      } as BaseEvent);
+      ch.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: "r-hist",
+      } as BaseEvent);
+
+      const events = await eventsPromise;
+
+      expect(events.map((e) => e.type)).toEqual([
+        EventType.RUN_STARTED,
+        EventType.RUN_FINISHED,
+      ]);
+    });
+
+    it("does not push a CUSTOM connect event after joining", () => {
+      const threadId = "t-connect-no-push";
+      const sub = runner.connect({ threadId }).subscribe();
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      expect(ch.pushLog).toHaveLength(0);
+      sub.unsubscribe();
+    });
+
+    it("joins the thread topic when joinCode is provided", () => {
+      const threadId = "t-connect-jc";
+      const sub = runner
+        .connect({ threadId, joinCode: "join-connect-456" })
+        .subscribe();
+      const ch = mockChannels[0];
+
+      expect(ch.topic).toBe(`thread:${threadId}`);
+      sub.unsubscribe();
+    });
+
+    it("joins the thread topic when joinCode is not provided", () => {
+      const threadId = "t-connect-no-jc";
+      const sub = runner.connect({ threadId }).subscribe();
+      const ch = mockChannels[0];
+
+      expect(ch.topic).toBe(`thread:${threadId}`);
+      sub.unsubscribe();
+    });
+
+    it("errors the observable on channel join failure", async () => {
+      let error: Error | null = null;
+      const promise = new Promise<void>((resolve) => {
+        runner.connect({ threadId: "t-connect-err" }).subscribe({
+          error: (err) => {
+            error = err;
+            resolve();
+          },
+          complete: () => resolve(),
+        });
+      });
+      const ch = mockChannels[0];
+      ch.triggerJoin("error", { reason: "unauthorized" });
+
+      await promise;
+      expect(error).toBeInstanceOf(Error);
+      expect(error!.message).toContain("Failed to join channel");
+    });
+
+    it("errors the observable on channel join timeout", async () => {
+      let error: Error | null = null;
+      const promise = new Promise<void>((resolve) => {
+        runner.connect({ threadId: "t-connect-timeout" }).subscribe({
+          error: (err) => {
+            error = err;
+            resolve();
+          },
+          complete: () => resolve(),
+        });
+      });
+      const ch = mockChannels[0];
+      ch.triggerJoin("timeout");
+
+      await promise;
+      expect(error).toBeInstanceOf(Error);
+      expect(error!.message).toBe("Timed out joining channel");
+    });
+  });
+
+  describe("isRunning", () => {
+    it("returns false for unknown threads", async () => {
+      expect(await runner.isRunning({ threadId: "nope" })).toBe(false);
+    });
+
+    it("returns true while a run is active", async () => {
+      const threadId = "t-running";
+      const input = createRunInput({ threadId, runId: "r-running" });
+      const agent = new MockAgent();
+      const sub = runner.run({ threadId, agent, input }).subscribe();
+
+      expect(await runner.isRunning({ threadId })).toBe(true);
+      sub.unsubscribe();
+    });
+
+    it("returns false after a run completes", async () => {
+      const threadId = "t-done";
+      const input = createRunInput({ threadId, runId: "r-done" });
+
+      const agentEvents: BaseEvent[] = [
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-done",
+        } as RunFinishedEvent,
+      ];
+      const agent = new MockAgent(agentEvents);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+      await eventsPromise;
+
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+  });
+
+  describe("stop", () => {
+    it("does not stop a different run on the same thread", async () => {
+      const threadId = "t-stop-exact-run";
+      const input = createRunInput({ threadId, runId: "r-current" });
+      const agent = new MockAgent();
+      const sub = runner.run({ threadId, agent, input }).subscribe();
+
+      expect(await runner.stop({ threadId, runId: "r-superseded" })).toBe(
+        false,
+      );
+      expect(agent.aborted).toBe(false);
+      const stopping = runner.stop({ threadId, runId: "r-current" });
+      mockChannels[0].triggerJoin("ok");
+      expect(await stopping).toBe(true);
+      expect(agent.aborted).toBe(true);
+      sub.unsubscribe();
+    });
+
+    it("calls abortRun on the agent directly, no CUSTOM stop push", async () => {
+      const threadId = "t-stop";
+      const input = createRunInput({ threadId, runId: "r-stop" });
+      const agent = new MockAgent();
+      const sub = runner.run({ threadId, agent, input }).subscribe();
+
+      const stopping = runner.stop({ threadId });
+      mockChannels[0].triggerJoin("ok");
+      const result = await stopping;
+
+      expect(result).toBe(true);
+      expect(agent.aborted).toBe(true);
+
+      const ch = mockChannels[0];
+      const stopPush = ch.pushLog.find((p) => p.payload?.name === "stop");
+      expect(stopPush).toBeUndefined();
+      sub.unsubscribe();
+    });
+
+    it("returns false when the thread is not running", async () => {
+      expect(await runner.stop({ threadId: "nope" })).toBe(false);
+    });
+
+    it("returns false when stop has already been requested", async () => {
+      const threadId = "t-stop-twice";
+      const input = createRunInput({ threadId, runId: "r-stop2" });
+      const agent = new MockAgent();
+      const sub = runner.run({ threadId, agent, input }).subscribe();
+
+      const stopping = runner.stop({ threadId });
+      expect(await runner.stop({ threadId })).toBe(false);
+      mockChannels[0].triggerJoin("ok");
+      expect(await stopping).toBe(true);
+      sub.unsubscribe();
+    });
+  });
+
+  describe("cleanup", () => {
+    it("leaves the channel and disconnects the socket after the run completes", async () => {
+      const threadId = "t-cleanup";
+      const input = createRunInput({ threadId, runId: "r-cleanup" });
+
+      const agentEvents: BaseEvent[] = [
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: "r-cleanup",
+        } as RunFinishedEvent,
+      ];
+      const agent = new MockAgent(agentEvents);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+      await eventsPromise;
+
+      expect(ch.left).toBe(true);
+      // Per-run socket should also be disconnected.
+      // mockSockets[0] is the socket created for this run.
+      expect(mockSockets[0].disconnected).toBe(true);
+    });
+
+    it("leaves the channel and disconnects the socket after a join failure", async () => {
+      const threadId = "t-cleanup-err";
+      const input = createRunInput({ threadId, runId: "r-cleanup-err" });
+      const agent = new MockAgent();
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("error", { reason: "denied" });
+      await eventsPromise;
+
+      expect(ch.left).toBe(true);
+      expect(mockSockets[0].disconnected).toBe(true);
+    });
+  });
+
+  describe("per-run socket isolation", () => {
+    it("creates a separate socket for each run", () => {
+      const agent = new MockAgent();
+      const sub1 = runner
+        .run({
+          threadId: "t-iso-1",
+          agent,
+          input: createRunInput({ threadId: "t-iso-1", runId: "r-1" }),
+        })
+        .subscribe();
+      const sub2 = runner
+        .run({
+          threadId: "t-iso-2",
+          agent,
+          input: createRunInput({ threadId: "t-iso-2", runId: "r-2" }),
+        })
+        .subscribe();
+
+      // Each run should create its own socket (no shared socket).
+      expect(mockSockets.length).toBe(2);
+      expect(mockSockets[0]).not.toBe(mockSockets[1]);
+
+      sub1.unsubscribe();
+      sub2.unsubscribe();
+    });
+
+    it("disconnecting one run's socket does not affect another", async () => {
+      const agent1 = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: "t-a",
+          runId: "r-a",
+        } as RunFinishedEvent,
+      ]);
+      const agent2 = new MockAgent();
+
+      // Start two runs
+      const promise1 = collectEvents(
+        runner.run({
+          threadId: "t-a",
+          agent: agent1,
+          input: createRunInput({ threadId: "t-a", runId: "r-a" }),
+        }),
+      );
+      const sub2 = runner
+        .run({
+          threadId: "t-b",
+          agent: agent2,
+          input: createRunInput({ threadId: "t-b", runId: "r-b" }),
+        })
+        .subscribe();
+
+      // Complete run 1
+      mockChannels[0].triggerJoin("ok");
+      await promise1;
+
+      // Run 1's socket is disconnected, run 2's socket is untouched.
+      expect(mockSockets[0].disconnected).toBe(true);
+      expect(mockSockets[1].disconnected).toBe(false);
+
+      sub2.unsubscribe();
+    });
+  });
+
+  describe("socket recovery", () => {
+    it("does not abort the agent on a single socket error", () => {
+      const threadId = "t-single-err";
+      const input = createRunInput({ threadId, runId: "r-single-err" });
+      const agent = new BlockingMockAgent();
+
+      const sub = runner.run({ threadId, agent, input }).subscribe();
+      const socket = mockSockets[0];
+      mockChannels[0].triggerJoin("ok");
+
+      socket.triggerError(new Error("network blip"));
+
+      expect(agent.aborted).toBe(false);
+      sub.unsubscribe();
+    });
+
+    it("keeps an accepted run alive through prolonged abnormal reconnect failures", () => {
+      const threadId = "t-exhaust";
+      const input = createRunInput({ threadId, runId: "r-exhaust" });
+      const agent = new BlockingMockAgent();
+
+      const sub = runner.run({ threadId, agent, input }).subscribe();
+      const socket = mockSockets[0];
+      mockChannels[0].triggerJoin("ok");
+
+      socket.triggerClose({ code: 1006 });
+      for (let i = 0; i < 20; i++) {
+        socket.triggerError(new Error("connection lost"));
+        socket.triggerClose({ code: 1006 });
+      }
+
+      expect(agent.aborted).toBe(false);
+      socket.triggerOpen();
+      sub.unsubscribe();
+    });
+
+    it("retains the pre-join error budget before a run has been accepted", () => {
+      const threadId = "t-prejoin-exhaust";
+      const input = createRunInput({
+        threadId,
+        runId: "r-prejoin-exhaust",
+      });
+      const agent = new BlockingMockAgent();
+
+      const sub = runner.run({ threadId, agent, input }).subscribe();
+      const socket = mockSockets[0];
+
+      for (let i = 0; i < 5; i++) {
+        socket.triggerError(new Error("connection refused"));
+      }
+
+      expect(agent.aborted).toBe(true);
+      sub.unsubscribe();
+    });
+
+    it("does not spend the ordinary error budget during a planned 1012 restart", () => {
+      const threadId = "t-planned-restart";
+      const input = createRunInput({ threadId, runId: "r-planned-restart" });
+      const agent = new BlockingMockAgent();
+
+      const sub = runner.run({ threadId, agent, input }).subscribe();
+      const socket = mockSockets[0];
+      mockChannels[0].triggerJoin("ok");
+
+      socket.triggerClose({ code: 1012 });
+      for (let i = 0; i < 10; i++) {
+        socket.triggerError(new Error("replacement not ready"));
+        socket.triggerClose({ code: 1006 });
+      }
+
+      expect(agent.aborted).toBe(false);
+      socket.triggerOpen();
+      sub.unsubscribe();
+    });
+
+    it("resets the error counter on successful reconnection", () => {
+      const threadId = "t-reset";
+      const input = createRunInput({ threadId, runId: "r-reset" });
+      const agent = new BlockingMockAgent();
+
+      const sub = runner.run({ threadId, agent, input }).subscribe();
+      const socket = mockSockets[0];
+      mockChannels[0].triggerJoin("ok");
+
+      // 4 errors (just below threshold)
+      for (let i = 0; i < 4; i++) {
+        socket.triggerError();
+      }
+      expect(agent.aborted).toBe(false);
+
+      // Successful reconnect resets the counter
+      socket.triggerOpen();
+
+      // 4 more errors — still below threshold because counter was reset
+      for (let i = 0; i < 4; i++) {
+        socket.triggerError();
+      }
+      expect(agent.aborted).toBe(false);
+
+      sub.unsubscribe();
+    });
+  });
+});

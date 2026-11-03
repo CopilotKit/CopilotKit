@@ -2,7 +2,7 @@ import { Component, input } from "@angular/core";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { By } from "@angular/platform-browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
+import { z } from "zod-v3";
 import { A2UIProps } from "../../../../a2ui/lib/types";
 import { createAngularCatalog } from "../../../../a2ui/lib/create-catalog";
 import { injectA2UIComponentContext } from "../../../../a2ui/lib/component-context";

@@ -2,7 +2,7 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig([
   {
-    entry: ["src/index.ts"],
+    entry: { index: "src/index.ts", styles: "src/styles/index.ts" },
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
@@ -10,7 +10,12 @@ export default defineConfig([
     outDir: "dist",
     external: ["rxjs"],
     checks: { pluginTimings: false },
-    exports: true,
+    exports: {
+      customExports: (exports) => ({
+        ...exports,
+        "./styles.css": "./dist/styles.css",
+      }),
+    },
   },
   {
     entry: ["src/index.ts"],
@@ -26,6 +31,10 @@ export default defineConfig([
       "rxjs",
       "zod",
     ],
+    // Bundle websandbox so its dynamic import is inlined: a UMD script cannot
+    // `import()` a bare specifier, and the ES2018 target has no `import()`.
+    noExternal: ["@jetbrains/websandbox"],
+    inlineOnly: ["@jetbrains/websandbox"],
     codeSplitting: false,
     checks: { pluginTimings: false },
     outputOptions(options) {
@@ -36,7 +45,6 @@ export default defineConfig([
         "@ag-ui/core": "AgUICore",
         rxjs: "rxjs",
         "rxjs/operators": "rxjs.operators",
-        "zod-to-json-schema": "zodToJsonSchema",
         zod: "Zod",
       };
       return options;

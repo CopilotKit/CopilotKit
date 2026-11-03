@@ -1,0 +1,14 @@
+{
+  "name": "oxlint-rules",
+  "root": "tools/oxlint-rules",
+  "projectType": "library",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec vitest run tools/oxlint-rules"
+      },
+      "cache": false
+    }
+  }
+}

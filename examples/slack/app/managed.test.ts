@@ -44,11 +44,11 @@ vi.mock("@copilotkit/channels/slack", () => ({
   defaultSlackTools: [],
   defaultSlackContext: [],
 }));
-vi.mock("@copilotkit/runtime/v2", () => ({
+vi.mock("@copilotkit/runtime", () => ({
   CopilotRuntime: fakes.CopilotRuntime,
   CopilotKitIntelligence: fakes.CopilotKitIntelligence,
 }));
-vi.mock("@copilotkit/runtime/v2/node", () => ({
+vi.mock("@copilotkit/runtime/node", () => ({
   createCopilotNodeListener: fakes.createCopilotNodeListener,
 }));
 vi.mock("./tools/index.js", () => ({ appTools: [] }));

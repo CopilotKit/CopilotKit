@@ -5,8 +5,8 @@ import {
   OpenGenerativeUIActivityType,
   OpenGenerativeUIToolRenderer,
   ToolCallStatus,
-} from "@copilotkit/react-core/v2";
-import type { OpenGenerativeUIContent } from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
+import type { OpenGenerativeUIContent } from "@copilotkit/react-core";
 import { withMessageColumn } from "./support/layouts";
 
 /**

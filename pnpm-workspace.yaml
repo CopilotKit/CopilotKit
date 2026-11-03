@@ -1,6 +1,8 @@
 packages:
   - "packages/*"
+  - "codemods/*"
   - "tools/runtime-conformance"
+  - "tools/runtime-edge-smoke"
   - "tools/learned-skill-conformance"
   - "tools/genui-eval"
   - "examples/v1/*"

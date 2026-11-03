@@ -48,7 +48,11 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createVertex } from "@ai-sdk/google-vertex";
-import { safeParseToolArgs, classifyModelHost } from "@copilotkit/shared";
+import {
+  safeParseToolArgs,
+  classifyModelHost,
+  processEnv,
+} from "@copilotkit/shared";
 import type { ModelHostClass } from "@copilotkit/shared";
 import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
@@ -71,12 +75,12 @@ import {
 } from "./converters/usage";
 import type { AgentRunFinishedDetails } from "./converters/usage";
 import { createStateEventNormalizer } from "./state-delta";
-import { describeEndpoint } from "../v1-deprecated/lib/runtime/mcp-client-cache";
+import { describeEndpoint } from "../runtime/handlers/shared/describe-endpoint";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { randomUUID } from "@copilotkit/shared";
 
-import { SkillRegistry } from "../v2/runtime/intelligence-platform/skill-registry";
+import { SkillRegistry } from "../runtime/intelligence-platform/skill-registry";
 import {
   prepareLearnedSkills,
   assertNoSkillToolConflicts,
@@ -345,7 +349,7 @@ let loggedChatCompletionsRoute = false;
  * summaries) without an error, and the notice names the way back.
  */
 function openAIApiFor(baseURL: string | undefined): "responses" | "chat" {
-  const raw = process.env.COPILOTKIT_OPENAI_API;
+  const raw = processEnv().COPILOTKIT_OPENAI_API;
   const override = raw?.trim().toLowerCase();
   if (override === "responses" || override === "chat") return override;
   if (override) {
@@ -391,19 +395,19 @@ export function resolveModel(
       // Lazily create OpenAI provider
       // Use provided apiKey, or fall back to environment variable
       const openai = createOpenAI({
-        apiKey: apiKey || process.env.OPENAI_API_KEY!,
+        apiKey: apiKey || processEnv().OPENAI_API_KEY!,
         // Honor an OpenAI-COMPATIBLE endpoint (Azure OpenAI, OpenRouter, a gateway,
         // vLLM/LM Studio/Ollama, etc.) via the standard OPENAI_BASE_URL env var.
         // Undefined when unset, so the provider falls back to its default
         // (api.openai.com) — fully backward compatible.
-        baseURL: process.env.OPENAI_BASE_URL,
+        baseURL: processEnv().OPENAI_BASE_URL,
       });
       // Accepts any OpenAI model id, e.g. "gpt-4o", "gpt-4.1-mini", "o3-mini".
       // `openai(model)` targets the Responses API (`{base}/responses`), which
       // most OpenAI-compatible hosts do not serve. Off OpenAI and Azure hosts,
       // use Chat Completions (`{base}/chat/completions`) instead, unless
       // COPILOTKIT_OPENAI_API says otherwise.
-      return openAIApiFor(process.env.OPENAI_BASE_URL) === "chat"
+      return openAIApiFor(processEnv().OPENAI_BASE_URL) === "chat"
         ? openai.chat(model)
         : openai(model);
     }
@@ -412,9 +416,9 @@ export function resolveModel(
       // Lazily create Anthropic provider
       // Use provided apiKey, or fall back to environment variable
       const anthropic = createAnthropic({
-        apiKey: apiKey || process.env.ANTHROPIC_API_KEY!,
+        apiKey: apiKey || processEnv().ANTHROPIC_API_KEY!,
         // Honor a custom Anthropic-compatible endpoint via ANTHROPIC_BASE_URL (see OpenAI note).
-        baseURL: process.env.ANTHROPIC_BASE_URL,
+        baseURL: processEnv().ANTHROPIC_BASE_URL,
       });
       // Pass model identifiers through unchanged; the provider owns validation.
       return anthropic(model);
@@ -426,9 +430,9 @@ export function resolveModel(
       // Lazily create Google provider
       // Use provided apiKey, or fall back to environment variable
       const google = createGoogleGenerativeAI({
-        apiKey: apiKey || process.env.GOOGLE_API_KEY!,
+        apiKey: apiKey || processEnv().GOOGLE_API_KEY!,
         // Honor a custom Google-compatible endpoint via GOOGLE_GENERATIVE_AI_BASE_URL (see OpenAI note).
-        baseURL: process.env.GOOGLE_GENERATIVE_AI_BASE_URL,
+        baseURL: processEnv().GOOGLE_GENERATIVE_AI_BASE_URL,
       });
       // Accepts any Gemini id, e.g. "gemini-3.8-flash", "gemini-3.5-flash-lite"
       return google(model);
@@ -437,8 +441,8 @@ export function resolveModel(
     case "minimax": {
       const minimax = createOpenAI({
         name: "minimax",
-        apiKey: apiKey || process.env.MINIMAX_API_KEY!,
-        baseURL: process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1",
+        apiKey: apiKey || processEnv().MINIMAX_API_KEY!,
+        baseURL: processEnv().MINIMAX_BASE_URL || "https://api.minimax.io/v1",
       });
       return minimax(model);
     }
@@ -483,19 +487,19 @@ export function classifyModelSpec(spec: ModelSpecifier): ModelHostClass {
 
   switch (provider) {
     case "openai":
-      return classifyModelHost(process.env.OPENAI_BASE_URL, "openai");
+      return classifyModelHost(processEnv().OPENAI_BASE_URL, "openai");
     case "anthropic":
-      return classifyModelHost(process.env.ANTHROPIC_BASE_URL, "anthropic");
+      return classifyModelHost(processEnv().ANTHROPIC_BASE_URL, "anthropic");
     case "google":
     case "gemini":
     case "google-gemini":
       return classifyModelHost(
-        process.env.GOOGLE_GENERATIVE_AI_BASE_URL,
+        processEnv().GOOGLE_GENERATIVE_AI_BASE_URL,
         "google",
       );
     case "minimax":
       return classifyModelHost(
-        process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1",
+        processEnv().MINIMAX_BASE_URL || "https://api.minimax.io/v1",
         "minimax",
       );
     case "vertex":
@@ -842,8 +846,13 @@ export function convertJsonSchemaToZodSchema(
   jsonSchema: JsonSchema,
   required: boolean,
 ): z.ZodSchema {
+  // Zod 4 emits an empty `description` into JSON Schema; Zod 3's converters
+  // dropped it. Only attach a description the JSON Schema actually had.
+  const describe = <T extends z.ZodType>(schema: T): T =>
+    jsonSchema.description ? schema.describe(jsonSchema.description) : schema;
+
   if (jsonSchema.type === "null") {
-    const schema = z.null().describe(jsonSchema.description ?? "");
+    const schema = describe(z.null());
     return required ? schema : schema.optional();
   }
 
@@ -863,9 +872,9 @@ export function convertJsonSchemaToZodSchema(
     const variantSchemas = unionVariants.map((variant) =>
       convertJsonSchemaToZodSchema(variant, true),
     );
-    const schema = z
-      .union(variantSchemas as [z.ZodSchema, z.ZodSchema, ...z.ZodSchema[]])
-      .describe(jsonSchema.description ?? "");
+    const schema = describe(
+      z.union(variantSchemas as [z.ZodSchema, z.ZodSchema, ...z.ZodSchema[]]),
+    );
     return required ? schema : schema.optional();
   }
 
@@ -886,29 +895,27 @@ export function convertJsonSchemaToZodSchema(
         jsonSchema.required ? jsonSchema.required.includes(key) : false,
       );
     }
-    const schema = z.object(spec).describe(jsonSchema.description ?? "");
+    const schema = describe(z.object(spec));
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "string") {
     if (jsonSchema.enum && jsonSchema.enum.length > 0) {
-      const schema = z
-        .enum(jsonSchema.enum as [string, ...string[]])
-        .describe(jsonSchema.description ?? "");
+      const schema = describe(z.enum(jsonSchema.enum as [string, ...string[]]));
       return required ? schema : schema.optional();
     }
-    const schema = z.string().describe(jsonSchema.description ?? "");
+    const schema = describe(z.string());
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "number" || jsonSchema.type === "integer") {
-    const schema = z.number().describe(jsonSchema.description ?? "");
+    const schema = describe(z.number());
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "boolean") {
-    const schema = z.boolean().describe(jsonSchema.description ?? "");
+    const schema = describe(z.boolean());
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "array") {
     if (!jsonSchema.items) {
       throw new Error("Array type must have items property");
     }
     const itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, true);
-    const schema = z.array(itemSchema).describe(jsonSchema.description ?? "");
+    const schema = describe(z.array(itemSchema));
     return required ? schema : schema.optional();
   }
   console.error("Invalid JSON schema:", JSON.stringify(jsonSchema, null, 2));
@@ -1060,7 +1067,7 @@ export type BuiltInAgentFactoryContext = AgentFactoryContext;
  *
  * You own the `streamText()` call, so you also own its URL downloads. Pass
  * `experimental_download: createSafeUrlDownload({ signal: ctx.abortSignal })`
- * (imported from `@copilotkit/runtime/v2`) to keep the server from fetching
+ * (imported from `@copilotkit/runtime`) to keep the server from fetching
  * internal addresses named in request attachments, and to stop the downloads
  * when the run is aborted. BuiltInAgent's `urlDownload` setting does not apply
  * here: setting it in factory mode throws when the agent is constructed.
@@ -1313,7 +1320,7 @@ export class BuiltInAgent extends AbstractAgent {
       throw new Error(
         "BuiltInAgent: urlDownload has no effect in factory mode. Pass " +
           "experimental_download: createSafeUrlDownload({ signal: ctx.abortSignal }) " +
-          "(from @copilotkit/runtime/v2) to your own streamText() call instead.",
+          "(from @copilotkit/runtime) to your own streamText() call instead.",
       );
     }
     this.skillRegistry =
@@ -2633,19 +2640,6 @@ export class BuiltInAgent extends AbstractAgent {
     this.abortController?.abort();
   }
 }
-
-/**
- * @deprecated Use BuiltInAgent instead
- */
-export class BasicAgent extends BuiltInAgent {
-  constructor(config: BuiltInAgentConfiguration) {
-    super(config);
-    console.warn("BasicAgent is deprecated, use BuiltInAgent instead");
-  }
-}
-
-/** @deprecated Use BuiltInAgentClassicConfig instead */
-export type BasicAgentConfiguration = BuiltInAgentClassicConfig;
 
 export * from "./converters";
 export { createSafeUrlDownload } from "./url-download";

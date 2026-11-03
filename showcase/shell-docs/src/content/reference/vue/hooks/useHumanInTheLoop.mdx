@@ -20,12 +20,16 @@ Internally the composable wraps `useFrontendTool`. It generates a handler that r
 ## Signature
 
 ```ts
-import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import type { WatchSource } from "vue";
+import {
+  useHumanInTheLoop,
+  type VueHumanInTheLoop,
+} from "@copilotkit/vue/v2";
 
-function useHumanInTheLoop<T extends Record<string, unknown>>(
+useHumanInTheLoop satisfies <T extends Record<string, unknown>>(
   tool: VueHumanInTheLoop<T>,
   deps?: WatchSource<unknown>[],
-): void;
+) => void;
 ```
 
 ## Parameters

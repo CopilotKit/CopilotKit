@@ -19,11 +19,15 @@ By default, the composable publishes its state into [`CopilotChat`](/reference/v
 ## Signature
 
 ```ts
-import { useInterrupt } from "@copilotkit/vue/v2";
+import {
+  useInterrupt,
+  type UseInterruptConfig,
+  type UseInterruptResult,
+} from "@copilotkit/vue/v2";
 
-function useInterrupt<TValue = unknown, TResult = never>(
+useInterrupt satisfies <TValue = unknown, TResult = never>(
   config?: UseInterruptConfig<TValue, TResult>,
-): UseInterruptResult<TValue, TResult>;
+) => UseInterruptResult<TValue, TResult>;
 ```
 
 ## Parameters

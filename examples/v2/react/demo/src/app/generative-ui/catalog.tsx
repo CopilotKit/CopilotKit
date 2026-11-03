@@ -2,8 +2,8 @@
 import { useState } from "react";
 import { z } from "zod";
 import { COUPON_CODE } from "./cart";
-import { createGenerativeUI } from "@copilotkit/react-core/v2/generative-ui";
-import type { GenerativeUIComponentProps } from "@copilotkit/react-core/v2/generative-ui";
+import { createGenerativeUI } from "@copilotkit/react-core/generative-ui";
+import type { GenerativeUIComponentProps } from "@copilotkit/react-core/generative-ui";
 
 function ProductGrid({
   title,

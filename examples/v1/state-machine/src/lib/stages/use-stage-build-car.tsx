@@ -2,7 +2,7 @@ import { ShowCar, ShowCars } from "@/components/generative-ui/show-car";
 import { cars } from "@/lib/types";
 import type { Car } from "@/lib/types";
 import { useGlobalState } from "@/lib/stages";
-import { useAgentContext, useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { useAgentContext, useHumanInTheLoop } from "@copilotkit/react-core";
 import { z } from "zod";
 
 const carSchema = z.object({

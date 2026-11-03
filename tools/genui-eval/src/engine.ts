@@ -6,16 +6,16 @@
  * directly. Everything React-related comes from here, so one copy of React
  * is used.
  */
-export { standardUI } from "../../../packages/react-core/src/v2/generative-ui/standard";
-export { createGenerativeUI } from "../../../packages/react-core/src/v2/generative-ui/catalog";
-export type { GenerativeUI } from "../../../packages/react-core/src/v2/generative-ui/catalog";
+export { standardUI } from "../../../packages/react-core/src/generative-ui/standard";
+export { createGenerativeUI } from "../../../packages/react-core/src/generative-ui/catalog";
+export type { GenerativeUI } from "../../../packages/react-core/src/generative-ui/catalog";
 export {
   buildCatalogManifest,
   buildGenerativeUIEnvelope,
-} from "../../../packages/react-core/src/v2/generative-ui/manifest";
+} from "../../../packages/react-core/src/generative-ui/manifest";
 export {
   buildMarkdownSurfaces,
   fenceKey,
-} from "../../../packages/react-core/src/v2/generative-ui/markdown/source";
-export { GenerativeUISurfaceManager } from "../../../packages/react-core/src/v2/generative-ui/surface-manager";
-export { createGenerativeUIDispatcher } from "../../../packages/react-core/src/v2/generative-ui/dispatcher";
+} from "../../../packages/react-core/src/generative-ui/markdown/source";
+export { GenerativeUISurfaceManager } from "../../../packages/react-core/src/generative-ui/surface-manager";
+export { createGenerativeUIDispatcher } from "../../../packages/react-core/src/generative-ui/dispatcher";

@@ -10,8 +10,8 @@ import {
   CopilotChatConfigurationProvider,
   useAgent,
   useCopilotChatConfiguration,
-} from "@copilotkit/react-core/v2/headless";
-import { useCopilotKit } from "@copilotkit/react-core/v2/context";
+} from "@copilotkit/react-core/headless";
+import { useCopilotKit } from "@copilotkit/react-core/context";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 import type { InputContent } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";

@@ -89,6 +89,8 @@ Instead of publishing the element into `<CopilotChat>`, the hook returns the
 interrupt element directly so you can place it anywhere in your tree:
 
 ```tsx
+import { useInterrupt } from "@copilotkit/react-core";
+
 function ApprovalPanel() {
   const element = useInterrupt({
     renderInChat: false,
@@ -178,6 +180,13 @@ The preferred approach uses `useInterrupt` with `renderInChat: false` — no
 hand-rolled subscription, no `<CopilotChat>`, no render prop:
 
 ```tsx
+import { useAgent, useCopilotKit, useInterrupt } from "@copilotkit/react-core";
+
+const SLOTS = [
+  { iso: "2026-05-04T10:00:00Z", label: "Mon 10:00" },
+  { iso: "2026-05-05T14:00:00Z", label: "Tue 14:00" },
+];
+
 function HeadlessInterruptPanel() {
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: "interrupt-headless" });
@@ -215,6 +224,14 @@ If you need full control over the subscription (e.g. for a custom
 use the raw primitives from `useHeadlessInterrupt` defined above:
 
 ```tsx
+import { useAgent, useCopilotKit } from "@copilotkit/react-core";
+import { useHeadlessInterrupt } from "./use-headless-interrupt";
+
+const SLOTS = [
+  { iso: "2026-05-04T10:00:00Z", label: "Mon 10:00" },
+  { iso: "2026-05-05T14:00:00Z", label: "Tue 14:00" },
+];
+
 function HeadlessInterruptPanelRaw() {
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: "interrupt-headless" });

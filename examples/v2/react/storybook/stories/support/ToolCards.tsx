@@ -1,9 +1,6 @@
 import React from "react";
 import { Calculator, Search } from "lucide-react";
-import {
-  defineToolCallRenderer,
-  ToolCallStatus,
-} from "@copilotkit/react-core/v2";
+import { defineToolCallRenderer, ToolCallStatus } from "@copilotkit/react-core";
 import { z } from "zod";
 
 /**

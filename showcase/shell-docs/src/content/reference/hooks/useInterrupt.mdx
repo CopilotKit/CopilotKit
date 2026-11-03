@@ -14,19 +14,22 @@ By default, interrupt UI is rendered inside `<CopilotChat>` automatically. If yo
 ## Signature
 
 ```tsx
-import { useInterrupt } from "@copilotkit/react-core/v2";
+import type { ReactElement } from "react";
+import { useInterrupt, type UseInterruptConfig } from "@copilotkit/react-core";
 
-function useInterrupt<
+useInterrupt satisfies <
   TResult = never,
   TRenderInChat extends boolean | undefined = undefined,
 >(
-  config: UseInterruptConfig<any, TResult, TRenderInChat>,
-): TRenderInChat extends false
-  ? React.ReactElement | null
+  config: UseInterruptConfig<unknown, TResult, TRenderInChat>,
+) => TRenderInChat extends false
+  ? ReactElement | null
   : TRenderInChat extends true | undefined
     ? void
-    : React.ReactElement | null | void;
+    : ReactElement | null | void;
 ```
+
+The first type argument of `UseInterruptConfig` is the type of `event.value`. The hook passes `any` for it, so `event.value` is `any` in your callbacks.
 
 ## Parameters
 
@@ -83,6 +86,8 @@ function useInterrupt<
 ### In-chat interrupt UI (default)
 
 ```tsx
+import { useInterrupt } from "@copilotkit/react-core";
+
 function ApprovalInterrupt() {
   useInterrupt({
     render: ({ event, resolve }) => (
@@ -103,6 +108,8 @@ function ApprovalInterrupt() {
 ### Manual placement with async preprocessing
 
 ```tsx
+import { useInterrupt } from "@copilotkit/react-core";
+
 function SidePanelInterrupt() {
   const element = useInterrupt({
     renderInChat: false,
@@ -126,6 +133,8 @@ function SidePanelInterrupt() {
 ### AG-UI standard interrupt (approve / cancel)
 
 ```tsx
+import { useInterrupt } from "@copilotkit/react-core";
+
 function ApprovalInterrupt() {
   useInterrupt({
     render: ({ interrupt, resolve, cancel }) => (

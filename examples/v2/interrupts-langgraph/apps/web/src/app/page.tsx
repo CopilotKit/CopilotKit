@@ -1,27 +1,30 @@
 "use client";
 
-import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
-import { useInterrupt } from "@copilotkit/react-core/v2";
-import { useState } from "react";
+import {
+  CopilotSidebar,
+  useAgent,
+  useFrontendTool,
+  useInterrupt,
+  useRenderTool,
+} from "@copilotkit/react-core";
+import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
+import { z } from "zod";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/guides/frontend-actions
-  useCopilotAction(
+  useFrontendTool(
     {
       name: "setThemeColor",
       description: "Set the theme color of the page.",
-      parameters: [
-        {
-          name: "themeColor",
-          type: "string",
-          description: "The theme color to set. Make sure to pick nice colors.",
-          required: true,
-        },
-      ],
-      handler({ themeColor }) {
+      parameters: z.object({
+        themeColor: z
+          .string()
+          .describe("The theme color to set. Make sure to pick nice colors."),
+      }),
+      handler: async ({ themeColor }) => {
         // Defensive guard: during streaming, the LLM may invoke the handler
         // before the `themeColor` arg has fully arrived. Skipping the update
         // here avoids writing `undefined` into the CSS custom property, which
@@ -107,17 +110,14 @@ export default function CopilotKitPage() {
 
   return (
     <main
-      style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
-      }
+      style={{ "--copilot-kit-primary-color": themeColor } as CSSProperties}
     >
       <YourMainContent themeColor={themeColor} />
       <CopilotSidebar
-        clickOutsideToClose={false}
         defaultOpen={true}
         labels={{
-          title: "Popup Assistant",
-          initial:
+          modalHeaderTitle: "Popup Assistant",
+          welcomeMessageText:
             '👋 Hi, there! You\'re chatting with an agent. This agent comes with a few tools to get you started.\n\nFor example you can try:\n- **Frontend Tools**: "Set the theme to orange"\n- **Shared State**: "Write a proverb about AI"\n- **Generative UI**: "Get the weather in SF"\n- **Interrupts**: "Delete the first proverb" (will ask for confirmation)\n\nAs you interact with the agent, you\'ll see the UI update in real-time to reflect the agent\'s **state**, **tool calls**, and **progress**.',
         }}
       />
@@ -132,6 +132,9 @@ export default function CopilotKitPage() {
 type AgentState = {
   proverbs: string[];
 };
+
+const INITIAL_PROVERB =
+  "CopilotKit may be new, but it's the best thing since sliced bread.";
 
 // Shape of interrupt payloads produced by deleteProverb on the agent
 // side. Validated at runtime by `parseInterruptPayload` below. Kept
@@ -184,14 +187,17 @@ function parseInterruptPayload(value: unknown): ParseResult {
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
-  const { state, setState } = useCoAgent<AgentState>({
-    name: "default",
-    initialState: {
-      proverbs: [
-        "CopilotKit may be new, but it's the best thing since sliced bread.",
-      ],
-    },
-  });
+  const { agent } = useAgent({ agentId: "default" });
+  const state = agent.state as AgentState | undefined;
+  const setState = (update: (prev: AgentState | undefined) => AgentState) =>
+    agent.setState(update(agent.state as AgentState | undefined));
+
+  // Seed the shared state once, the way the v1 `initialState` option did.
+  useEffect(() => {
+    if (agent.state?.proverbs === undefined) {
+      agent.setState({ proverbs: [INITIAL_PROVERB] });
+    }
+  }, [agent]);
 
   // Defensive default: during transient state-sync, `state` or
   // `state.proverbs` can momentarily be undefined. Coalescing here
@@ -205,19 +211,16 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   //     `proverbs`, which is part of the agent's CoAgent state and is
   //     synced back to the graph on the next turn).
   //     https://docs.copilotkit.ai/coagents/shared-state
-  useCopilotAction(
+  useFrontendTool(
     {
       name: "addProverb",
       description: "Add a proverb to the list.",
-      parameters: [
-        {
-          name: "proverb",
-          type: "string",
-          description: "The proverb to add. Make it witty, short and concise.",
-          required: true,
-        },
-      ],
-      handler: ({ proverb }) => {
+      parameters: z.object({
+        proverb: z
+          .string()
+          .describe("The proverb to add. Make it witty, short and concise."),
+      }),
+      handler: async ({ proverb }) => {
         // Defensive guard: during streaming, the LLM may invoke the handler
         // before the `proverb` arg has fully arrived. Skipping the update
         // here avoids pushing `undefined` into the proverbs array, which
@@ -229,37 +232,21 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
         }));
       },
     },
-    [setState],
+    [agent],
   );
 
   //🪁 Generative UI: https://docs.copilotkit.ai/coagents/generative-ui
   //
-  // `available: "disabled"` is the correct pairing with `render:` here.
-  // In @copilotkit/react-core, useCopilotAction routes based on the
-  // `available` value (see
-  // node_modules/@copilotkit/react-core/src/hooks/use-copilot-action.ts
-  // `getActionConfig`):
-  //   - "enabled" / "remote"      → frontend tool (handler runs client-side)
-  //   - "frontend" / "disabled"   → render-only (registers a tool-call
-  //                                 renderer; no handler)
-  // We want the BACKEND `getWeather` tool in agent.ts to execute the
-  // handler server-side AND have the streamed tool-call args drive a
-  // client-side gen-UI render here. The render-only path (via
-  // useRenderToolCall) still adds this renderer to
-  // `copilotkit.renderToolCalls` regardless of `available`, so the
-  // WeatherCard fires during tool-call streaming (see
-  // examples/showcases/scene-creator/src/app/page.tsx for the same
-  // pattern). Setting `"enabled"` here would register a FRONTEND handler
-  // of the same name and collide with the backend tool.
-  useCopilotAction(
+  // `getWeather` runs on the backend (apps/agent/src/agent.ts). This only
+  // registers a renderer for its tool calls, so the streamed args draw the
+  // WeatherCard here without adding a frontend tool of the same name.
+  useRenderTool(
     {
       name: "getWeather",
-      description: "Get the weather for a given location.",
-      available: "disabled",
-      parameters: [{ name: "location", type: "string", required: true }],
-      render: ({ args }) => {
-        return <WeatherCard location={args.location} themeColor={themeColor} />;
-      },
+      parameters: z.object({ location: z.string() }),
+      render: ({ parameters }) => (
+        <WeatherCard location={parameters?.location} themeColor={themeColor} />
+      ),
     },
     [themeColor],
   );
@@ -296,7 +283,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
               <button
                 onClick={() =>
                   setState((prev) => ({
-                    ...(prev ?? {}),
+                    ...prev,
                     // Filter by value identity rather than captured index:
                     // between render and click, the agent may have
                     // inserted/removed proverbs, shifting `index` to point

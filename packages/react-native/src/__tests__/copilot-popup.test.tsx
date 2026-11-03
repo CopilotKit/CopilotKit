@@ -52,7 +52,7 @@ function createMockCore() {
 
 let mockCoreInstance: ReturnType<typeof createMockCore>;
 
-vi.mock("@copilotkit/react-core/v2/headless", () => {
+vi.mock("@copilotkit/react-core/headless", () => {
   function CopilotKitCoreReact(this: any, ...args: any[]) {
     hoisted.MockCoreConstructor(...args);
     const instance = hoisted.MockCoreConstructor.mock.results.at(-1)?.value;
@@ -92,7 +92,7 @@ vi.mock("@copilotkit/react-core/v2/headless", () => {
   };
 });
 
-vi.mock("@copilotkit/react-core/v2/context", () => {
+vi.mock("@copilotkit/react-core/context", () => {
   const _React = require("react");
   return {
     CopilotKitContext: hoisted.RealContext,

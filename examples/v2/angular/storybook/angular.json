@@ -18,10 +18,7 @@
             "polyfills": [],
             "tsConfig": "tsconfig.json",
             "assets": [],
-            "styles": [
-              "../../../../packages/angular/dist/styles.css",
-              ".storybook/preview.css"
-            ],
+            "styles": [".storybook/preview.css"],
             "scripts": []
           },
           "configurations": {

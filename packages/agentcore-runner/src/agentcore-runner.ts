@@ -1,14 +1,15 @@
 import { randomUUID } from "node:crypto";
-import {
-  EventType,
-  type BaseEvent,
-  type Message,
-  type MessagesSnapshotEvent,
-  type ToolCall,
-  type ToolCallResultEvent,
+import { EventType } from "@ag-ui/client";
+import type {
+  BaseEvent,
+  Message,
+  MessagesSnapshotEvent,
+  ToolCall,
+  ToolCallResultEvent,
 } from "@ag-ui/client";
-import { InMemoryAgentRunner } from "@copilotkit/runtime/v2";
-import { concatMap, Observable, of } from "rxjs";
+import { InMemoryAgentRunner } from "@copilotkit/runtime";
+import type { Observable } from "rxjs";
+import { concatMap, of } from "rxjs";
 
 /**
  * AgentCore stores conversation history server-side via AgentCoreMemorySaver /

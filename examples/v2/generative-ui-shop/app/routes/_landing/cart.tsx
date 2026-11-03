@@ -1,5 +1,5 @@
 import { Minus, Plus, Trash2, ArrowLeft, ShoppingBag } from "lucide-react";
-import { GenerativeUISurface } from "@copilotkit/react-core/v2/generative-ui";
+import { GenerativeUISurface } from "@copilotkit/react-core/generative-ui";
 import { Link } from "react-router";
 import { ProductCard } from "#app/components/product-card.tsx";
 import { useCart } from "#app/contexts/cart.js";

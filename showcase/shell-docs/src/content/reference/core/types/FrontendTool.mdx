@@ -15,24 +15,25 @@ import type { FrontendTool } from "@copilotkit/core";
 
 ## Definition
 
-```ts
-type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> = {
-  name: string;
-  description?: string;
-  parameters?: StandardSchemaV1<any, T>;
-  handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
-  followUp?: boolean;
-  reconnectBehavior?: "passive" | "resume-pending";
-  agentId?: string;
-  available?: boolean;
-};
+`FrontendTool<T>` takes the argument type `T` (default `Record<string, unknown>`). This tool sets every public field, and its handler names every field of the `FrontendToolHandlerContext` it receives:
 
-type FrontendToolHandlerContext = {
-  toolCall: ToolCall;
-  agent: AbstractAgent;
-  signal?: AbortSignal;
-  isReplay?: boolean;
-};
+```ts
+import type { FrontendTool } from "@copilotkit/core";
+import { z } from "zod";
+
+const lookupOrder = {
+  name: "lookupOrder",
+  description: "Look up an order by its id",
+  parameters: z.object({ orderId: z.string() }),
+  handler: async ({ orderId }, { toolCall, agent, signal, isReplay }) => {
+    return `Order ${orderId} is on its way`;
+  },
+  followUp: true,
+  reconnectBehavior: "passive",
+  agentId: "default",
+  available: true,
+  webmcp: { annotations: { readOnlyHint: true } },
+} satisfies FrontendTool<{ orderId: string }>;
 ```
 
 ## Properties
@@ -58,8 +59,8 @@ type FrontendToolHandlerContext = {
     The AG-UI tool call that triggered this handler.
   </PropertyReference>
 
-  <PropertyReference name="context.agent" type="AbstractAgent">
-    The agent instance that issued the tool call.
+  <PropertyReference name="context.agent" type="AbstractAgent | undefined">
+    The agent instance that issued the tool call. Absent when a browser agent calls the tool through WebMCP.
   </PropertyReference>
 
   <PropertyReference name="context.signal" type="AbortSignal">
@@ -85,6 +86,10 @@ type FrontendToolHandlerContext = {
 
 <PropertyReference name="available" type="boolean" default="true">
   Whether this tool is available to the agent. Set to `false` to hide the tool without unregistering it.
+</PropertyReference>
+
+<PropertyReference name="webmcp" type="boolean | WebMCPToolConfig">
+  Also exposes the tool to browser agents through the WebMCP API (`document.modelContext`). Pass `true` for default annotations, or `{ annotations: { readOnlyHint, untrustedContentHint } }`. When a browser agent calls the tool, the handler context has no `agent`. No-op where WebMCP is not available.
 </PropertyReference>
 
 ## Usage

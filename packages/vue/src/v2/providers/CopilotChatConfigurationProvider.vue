@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, inject, provide, ref } from "vue";
+import { computed, inject, onMounted, provide, ref, watch } from "vue";
 import type { ComputedRef } from "vue";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
-import { CopilotChatConfigurationKey } from "./keys";
+import type { OpenThreadRegistration } from "@copilotkit/core";
+import { CopilotChatConfigurationKey, CopilotKitKey } from "./keys";
 import { CopilotChatDefaultLabels } from "./types";
 import type { CopilotChatConfigurationValue, CopilotChatLabels } from "./types";
 import type { CopilotChatConfigurationProviderProps } from "./CopilotChatConfigurationProvider.types";
@@ -59,6 +60,32 @@ const resolvedThreadId = computed(() => {
   if (parentConfigValue.value?.threadId)
     return parentConfigValue.value.threadId;
   return fallbackThreadId;
+});
+
+// Tell Core which Thread this view shows, so captured interactions can link
+// to it. This provider also works without a CopilotKitProvider, and then there
+// is nothing to register with. Registration starts on mount, so a server
+// render never registers a Thread that it can't unregister.
+const copilotKitContext = inject(CopilotKitKey, null);
+let openThread: OpenThreadRegistration | null = null;
+onMounted(() => {
+  watch(
+    () => [copilotKitContext?.copilotkit.value, resolvedAgentId.value] as const,
+    ([core, agentId], _previous, onCleanup) => {
+      if (!core) return;
+      const registration = core.registerOpenThread({
+        agentId,
+        threadId: resolvedThreadId.value,
+      });
+      openThread = registration;
+      onCleanup(() => {
+        registration.unregister();
+        openThread = null;
+      });
+    },
+    { immediate: true },
+  );
+  watch(resolvedThreadId, (threadId) => openThread?.update(threadId));
 });
 
 const resolvedHasExplicitThreadId = computed(() => {

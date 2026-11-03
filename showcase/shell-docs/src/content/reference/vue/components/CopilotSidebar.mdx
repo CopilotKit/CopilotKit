@@ -7,7 +7,7 @@ description: "Sidebar variant of CopilotChat that renders in a fixed side panel"
 
 `CopilotSidebar` renders a fixed sidebar panel for chat interaction. It wraps [`CopilotChat`](/reference/vue/components/CopilotChat) and provides sidebar-specific layout and open/close behavior. The sidebar includes a header with a title and a close button, and can be toggled via a floating toggle button.
 
-Because it builds on `CopilotChat`, it resolves the agent, subscribes to messages and running state, manages suggestions, and wires input and transcription for you. You typically only need to pick the agent and, optionally, set the initial open state, width, or override one of the named slots.
+Because it builds on `CopilotChat`, it resolves the agent, subscribes to messages and running state, manages suggestions, and wires input and transcription for you. You typically only need to pick the agent and, optionally, set the initial open state, width, the edge it docks to, or override one of the named slots.
 
 <Callout type="info">
   The `sidebar` feature requires a license. When it is not licensed, the
@@ -20,13 +20,12 @@ Because it builds on `CopilotChat`, it resolves the agent, subscribes to message
 ```vue
 <script setup lang="ts">
 import { CopilotSidebar } from "@copilotkit/vue/v2";
-import "@copilotkit/vue/styles.css";
 </script>
 ```
 
 ## Props
 
-All reactive props are declared with `defineProps`. `CopilotSidebar` extends the `CopilotChat` props (and through them the inherited `CopilotChatView` props) and adds two of its own.
+All reactive props are declared with `defineProps`. `CopilotSidebar` extends the `CopilotChat` props (and through them the inherited `CopilotChatView` props) and adds three of its own.
 
 ### Own props
 
@@ -36,6 +35,10 @@ All reactive props are declared with `defineProps`. `CopilotSidebar` extends the
 
 <PropertyReference name="width" type="number | string">
   Width of the sidebar panel. Accepts a number (pixels) or a CSS string (for example `"400px"` or `"30vw"`). When omitted, the default panel width is used.
+</PropertyReference>
+
+<PropertyReference name="position" type='"left" | "right"' default='"right"'>
+  The edge of the page the sidebar docks to. The panel gets `data-position` with this value. On screens 768px wide or more, the page body gets a margin on the same edge, so the sidebar does not cover the page. With `"left"`, the toggle button also moves to the left edge.
 </PropertyReference>
 
 ### Inherited CopilotChat props
@@ -155,7 +158,6 @@ Vue uses named slots in place of React's render props and sub-component props. P
 ```vue
 <script setup lang="ts">
 import { CopilotSidebar } from "@copilotkit/vue/v2";
-import "@copilotkit/vue/styles.css";
 </script>
 
 <template>
@@ -175,6 +177,18 @@ import { CopilotSidebar } from "@copilotkit/vue/v2";
 
 <template>
   <CopilotSidebar agent-id="my-agent" :default-open="false" :width="500" />
+</template>
+```
+
+### Docked to the left edge
+
+```vue
+<script setup lang="ts">
+import { CopilotSidebar } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotSidebar agent-id="my-agent" position="left" />
 </template>
 ```
 

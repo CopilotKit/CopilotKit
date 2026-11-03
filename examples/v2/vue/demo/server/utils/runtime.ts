@@ -3,7 +3,7 @@ import {
   BuiltInAgent,
   CopilotRuntime,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 import { AbstractAgent, EventType } from "@ag-ui/client";

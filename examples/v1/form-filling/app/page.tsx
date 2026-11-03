@@ -1,6 +1,6 @@
 "use client";
 
-import { CopilotPopup, useAgentContext } from "@copilotkit/react-core/v2";
+import { CopilotPopup, useAgentContext } from "@copilotkit/react-core";
 import { IncidentReportForm } from "@/components/IncidentReportForm";
 import { retrieveUserInfo } from "@/lib/user-info";
 import type { CSSProperties } from "react";

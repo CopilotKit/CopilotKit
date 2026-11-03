@@ -29,7 +29,12 @@ Use it when:
   An *unset* `NODE_ENV` counts as everywhere else. A plain `node server.js` sets no value, so a self-hosted runtime does not expose the feed by accident. If you need it on such a host, ask for it explicitly:
 
   ```ts
-  const runtime = new CopilotRuntime({ agents, debug: true });
+  import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+
+  const runtime = new CopilotRuntime({
+    agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+    debug: true,
+  });
   ```
 
   Treat that as you would any other way of reading conversation content, and do not enable it on a runtime the public can reach.

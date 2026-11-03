@@ -1,4 +1,0 @@
-{
-  "name": "@copilotkit/runtime-client-gql",
-  "implicitDependencies": ["@copilotkit/runtime"]
-}

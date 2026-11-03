@@ -7,11 +7,11 @@ import os
 from typing import cast
 
 import httpx
-from copilotkit.langgraph import copilotkit_customize_config, copilotkit_emit_state
 from langchain.tools import tool
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 
+from src.agui_events import emit_state, with_predicted_state
 from src.state import AgentState
 
 
@@ -65,9 +65,9 @@ async def search_node(state: AgentState, config: RunnableConfig):
     """
     ai_message = cast(AIMessage, state["messages"][-1])
 
-    config = copilotkit_customize_config(
+    config = with_predicted_state(
         config,
-        emit_intermediate_state=[
+        [
             {
                 "state_key": "search_progress",
                 "tool": "search_for_places",
@@ -82,17 +82,17 @@ async def search_node(state: AgentState, config: RunnableConfig):
     for query in queries:
         state["search_progress"].append({"query": query, "results": [], "done": False})
 
-    await copilotkit_emit_state(config, state)
+    await emit_state(config, state)
 
     places = []
     async with httpx.AsyncClient() as client:
         for i, query in enumerate(queries):
             places.extend(await _search_places(client, query, i))
             state["search_progress"][i]["done"] = True
-            await copilotkit_emit_state(config, state)
+            await emit_state(config, state)
 
     state["search_progress"] = []
-    await copilotkit_emit_state(config, state)
+    await emit_state(config, state)
 
     state["messages"].append(
         ToolMessage(

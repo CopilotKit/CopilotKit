@@ -7,7 +7,7 @@ description: "React hook for reading an agent's declared capabilities"
 `useCapabilities` returns the [AG-UI `AgentCapabilities`](https://docs.ag-ui.com/concepts/capabilities) declared by an agent. Capabilities describe what an agent supports: tool calling, streaming, multi-agent coordination, human-in-the-loop, and more.
 
 <Callout type="info">
-  Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useCapabilities`](/reference/v2/hooks/useCapabilities); only the import path differs.
+  Re-exported from `@copilotkit/react-core`. It is identical to the [React `useCapabilities`](/reference/hooks/useCapabilities); only the import path differs.
 </Callout>
 
 Capabilities are populated from the runtime `/info` response at connection time. The value is `undefined` until the runtime handshake completes or if the agent doesn't declare capabilities.
@@ -15,9 +15,12 @@ Capabilities are populated from the runtime `/info` response at connection time.
 ## Signature
 
 ```tsx
-import { useCapabilities } from "@copilotkit/react-native";
+import {
+  useCapabilities,
+  type AgentCapabilities,
+} from "@copilotkit/react-native";
 
-function useCapabilities(agentId?: string): AgentCapabilities | undefined
+useCapabilities satisfies (agentId?: string) => AgentCapabilities | undefined;
 ```
 
 ## Parameters
@@ -137,4 +140,4 @@ function AgentInfo({ agentId }: { agentId: string }) {
 
 - [`useAgent`](/reference/react-native/hooks/useAgent): access the full agent instance (capabilities are a property of the agent)
 - [AG-UI Protocol](/agentic-protocols/ag-ui): the protocol that defines the capabilities schema
-- [React (V2) reference](/reference/v2/hooks/useCapabilities): the web `useCapabilities` this hook mirrors
+- [React reference](/reference/hooks/useCapabilities): the web `useCapabilities` this hook mirrors

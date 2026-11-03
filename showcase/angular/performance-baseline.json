@@ -4,21 +4,19 @@
   "command": "pnpm --dir showcase/angular build",
   "initial": {
     "files": [
-      "chunk-23X6UCB4.js",
-      "chunk-42362B7H.js",
-      "chunk-7ZJ3MNGF.js",
-      "chunk-ADEWBFZU.js",
       "chunk-ATLRY6HR.js",
-      "chunk-JZTJ4MUG.js",
-      "chunk-LZVNSNJ4.js",
-      "chunk-NT7KXIIJ.js",
+      "chunk-B3HT5VJY.js",
+      "chunk-JVNUEIQJ.js",
+      "chunk-LOMLFKHX.js",
+      "chunk-UDDQVQ63.js",
       "chunk-USOD3V74.js",
-      "main-RHWHNDKU.js",
-      "styles-K76BGNVN.css"
+      "chunk-XAPELXLE.js",
+      "main-PLNJN4V3.js",
+      "styles-J4P5M2XS.css"
     ],
-    "rawBytes": 1549171,
-    "gzipBytes": 212871,
-    "brotliBytes": 171586
+    "rawBytes": 1484994,
+    "gzipBytes": 201094,
+    "brotliBytes": 160760
   },
   "maximumRelativeRegression": 0.1,
   "absoluteCapBytes": 4600000,

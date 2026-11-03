@@ -10,7 +10,7 @@ The TypeScript runtime failed with `Agent-supplied identity reached the durable 
 The runner now removes agent-controlled durable identity before it assigns its own values.
 Other metadata remains intact. Internal retries retain the assigned identity.
 
-This intentionally strengthens the TypeScript reference in `packages/runtime/src/v2/runtime/runner/intelligence.ts`.
+This intentionally strengthens the TypeScript reference in `packages/runtime/src/runtime/runner/intelligence.ts`.
 The durable gateway requires unique event IDs and consecutive sequence numbers.
 An agent cannot assign these transport fields or collapse distinct events into one.
 
@@ -65,7 +65,7 @@ The same test passes for changes confined to React packages and documentation sc
 
 ## Preserve completion analytics after RUN_ERROR (human review)
 
-Source: `packages/runtime/src/v2/runtime/handlers/intelligence/run.ts` on main
+Source: `packages/runtime/src/runtime/handlers/intelligence/run.ts` on main
 `e2702705e9` captures `agent_execution_stream_ended` whenever the runner observable completes.
 A `RUN_ERROR` event does not prevent that completion callback. The PR had changed this
 count while removing private error text. That count change was not part of the privacy fix.

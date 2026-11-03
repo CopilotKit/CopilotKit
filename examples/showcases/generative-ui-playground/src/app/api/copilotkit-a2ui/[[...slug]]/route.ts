@@ -7,10 +7,9 @@
 
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
-import { handle } from "hono/vercel";
 import { A2AAgent } from "@ag-ui/a2a";
 import { A2AClient } from "@a2a-js/sdk/client";
 
@@ -31,10 +30,11 @@ const runtime = new CopilotRuntime({
 });
 
 // Create Hono endpoint
-const app = createCopilotEndpoint({
+const app = createCopilotRuntimeHandler({
+  cors: true,
   runtime,
   basePath: "/api/copilotkit-a2ui",
 });
 
-export const GET = handle(app);
-export const POST = handle(app);
+export const GET = app;
+export const POST = app;

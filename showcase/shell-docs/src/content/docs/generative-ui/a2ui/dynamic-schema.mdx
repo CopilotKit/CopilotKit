@@ -102,6 +102,12 @@ the next step. Attach it to the AG-UI agent:
 
 ```typescript
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
+import { LangGraphAgent } from "@ag-ui/langgraph";
+
+const agent = new LangGraphAgent({
+  deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123",
+  graphId: "a2ui_dynamic_schema",
+});
 
 agent.use(new A2UIMiddleware({ injectA2UITool: false }));
 ```

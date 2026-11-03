@@ -28,12 +28,17 @@ Each line is one [A2UI v1.0](https://a2ui.org) operation. The UI is plain text, 
 Set the markdown transport on the provider:
 
 ```tsx title="app/providers.tsx"
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+"use client";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import { standardUI } from "@copilotkit/react-core/generative-ui";
 
-<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown" }}>
-  {children}
-</CopilotKitProvider>;
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown" }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 On every run, the provider then sends the agent two context entries:
@@ -69,10 +74,17 @@ The agent sometimes puts a title or a paragraph inside a block. That text is lif
 Some backends build the prompt themselves. Turn the context entries off, and read the same data from the run instead:
 
 ```tsx
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  generativeUI={{ ui: standardUI, transport: "markdown", sendContext: false }}
->
+"use client";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import { standardUI } from "@copilotkit/react-core/generative-ui";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown", sendContext: false }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 Every run carries it at `forwardedProps.copilotkit.ui`, in the A2UI v1.0 renderer capabilities shape:
@@ -121,10 +133,6 @@ Two more options for these backends:
 
 - `includeCatalog: false` leaves `components` out, for a backend that already has them.
 - `agentIds: ["chat"]` sends the context and this data to those agents only.
-
-## The v1 chat
-
-The v1 chat components in `@copilotkit/react-ui` (`CopilotChat`, `CopilotSidebar`, `CopilotPopup`) render `a2ui` blocks too. Give the v1 `<CopilotKit>` provider the same `generativeUI` prop. Without it, a block renders as plain code.
 
 ## Limits
 

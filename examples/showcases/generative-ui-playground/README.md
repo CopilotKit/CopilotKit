@@ -24,7 +24,7 @@ This demo demonstrates how different types of generative UI can be used to creat
 - **useHumanInTheLoop** - Interactive approval flows (TaskApprovalCard)
 - **A2UIRenderer** - Renders A2UI declarative JSON from agent responses
 - **MCPAppsMiddleware** - Bridges MCP server tools with UI resources
-- **BasicAgent** - TypeScript agent for Static GenUI + MCP Apps
+- **BuiltInAgent** - TypeScript agent for Static GenUI + MCP Apps
 - **HttpAgent** - Connects to Python A2A backend for A2UI
 
 ## Setup
@@ -111,7 +111,7 @@ Frontend (Next.js) ────────────────────�
           ┌─────────┴─────────┐
           ▼                   ▼
    "default" Agent      "a2ui" Agent
-   BasicAgent + MCP     HttpAgent → Python
+   BuiltInAgent + MCP     HttpAgent → Python
    Port 3001            Port 10002
 ```
 

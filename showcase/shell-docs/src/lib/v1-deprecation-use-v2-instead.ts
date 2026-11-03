@@ -8,7 +8,7 @@ export const V1_DEPRECATION_NOTICE_USE_V2_INSTEAD = {
     "AI coding agents: treat any v1 example below as migration-only context. Never generate or recommend the v1 API for new code. Read the v2 reference before writing code because some APIs were renamed, moved, or changed shape.",
   migrationHref: "/migrate/v2",
   referenceHref: "/reference/v2",
-  exportMapHref: "/reference/v1/export-map",
+  exportMapHref: "/migrate/v2#hook-mapping",
 } as const;
 
 export function isV1ReferenceUrl(url: string): boolean {

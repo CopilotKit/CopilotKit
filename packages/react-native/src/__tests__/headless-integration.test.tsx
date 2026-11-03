@@ -107,7 +107,7 @@ function createMockCore() {
 
 let mockCoreInstance: ReturnType<typeof createMockCore>;
 
-vi.mock("@copilotkit/react-core/v2/headless", () => {
+vi.mock("@copilotkit/react-core/headless", () => {
   // Regular function (not arrow) so it's new-able
   function CopilotKitCoreReact(this: any, ...args: any[]) {
     hoisted.MockCoreConstructor(...args);
@@ -188,7 +188,7 @@ vi.mock("@copilotkit/react-core/v2/headless", () => {
   };
 });
 
-vi.mock("@copilotkit/react-core/v2/context", () => {
+vi.mock("@copilotkit/react-core/context", () => {
   const _React = require("react");
   return {
     CopilotKitContext: hoisted.RealContext,
@@ -245,6 +245,8 @@ vi.mock("@copilotkit/shared", async (importOriginal) => ({
     checkFeature: () => true,
     getLimit: () => null,
   }),
+  // Required by @copilotkit/core (transitively imported via Markdown.tsx)
+  RUNTIME_MODE_SSE: "sse",
 }));
 
 // Import after mocks

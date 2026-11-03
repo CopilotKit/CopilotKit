@@ -4,8 +4,8 @@ import { RotateCcw } from "lucide-react";
 import {
   CopilotChatMessageView,
   WildcardToolCallRender,
-} from "@copilotkit/react-core/v2";
-import type { CopilotChatToolCallDisplay } from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
+import type { CopilotChatToolCallDisplay } from "@copilotkit/react-core";
 import { withMessageColumn } from "./support/layouts";
 import { demoToolRenderers } from "./support/ToolCards";
 import {

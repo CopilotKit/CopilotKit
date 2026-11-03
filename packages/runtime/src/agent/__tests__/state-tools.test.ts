@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { BasicAgent } from "../index";
+import { BuiltInAgent } from "../index";
 import { compactEvents, EventType } from "@ag-ui/client";
 import { EventSchemas } from "@ag-ui/core/schemas";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
@@ -68,7 +68,7 @@ describe("State Update Tools", () => {
 
   describe("AGUISendStateSnapshot", () => {
     it("should emit STATE_SNAPSHOT event when tool is called", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -109,7 +109,7 @@ describe("State Update Tools", () => {
     });
 
     it("should still emit TOOL_CALL_RESULT for the LLM", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -155,7 +155,7 @@ describe("State Update Tools", () => {
 
   describe("AGUISendStateDelta", () => {
     const emitStateDelta = async (delta: unknown[], state: unknown) => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -190,7 +190,7 @@ describe("State Update Tools", () => {
     };
 
     it("should initialize a missing array before appending to it", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -242,7 +242,7 @@ describe("State Update Tools", () => {
     });
 
     it("should preserve an existing input array when appending", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -411,7 +411,7 @@ describe("State Update Tools", () => {
           value: { text: "Buy milk", callback },
         },
       ];
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -444,7 +444,7 @@ describe("State Update Tools", () => {
     });
 
     it("should emit STATE_DELTA event when tool is called", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -485,7 +485,7 @@ describe("State Update Tools", () => {
     });
 
     it("should handle add operations", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -518,7 +518,7 @@ describe("State Update Tools", () => {
     });
 
     it("should handle replace operations", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -551,7 +551,7 @@ describe("State Update Tools", () => {
     });
 
     it("should handle remove operations", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -584,7 +584,7 @@ describe("State Update Tools", () => {
     });
 
     it("should handle multiple operations in a single delta", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -621,7 +621,7 @@ describe("State Update Tools", () => {
     });
 
     it("should still emit TOOL_CALL_RESULT for the LLM", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -666,7 +666,7 @@ describe("State Update Tools", () => {
 
   describe("State Tools Integration", () => {
     it("should handle both snapshot and delta in same run", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -711,7 +711,7 @@ describe("State Update Tools", () => {
     });
 
     it("should not emit state events for non-state tools", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 

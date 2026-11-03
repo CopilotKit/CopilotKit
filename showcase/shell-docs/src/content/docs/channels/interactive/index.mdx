@@ -142,9 +142,8 @@ export function ApprovalCard({ summary }: { summary: string }) {
 <FrontendOnly frontend="slack">
 
 ```tsx title="channel.tsx"
-import { createChannel } from "@copilotkit/channels";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 import { ApprovalCard } from "./approval-card.js";
-import { makeAgent } from "./agent.js";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -155,7 +154,8 @@ function required(name: string): string {
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   components: [ApprovalCard],
 });
 
@@ -172,9 +172,8 @@ channel.onInterrupt<{ summary: string }>(
 <FrontendOnly frontend="teams">
 
 ```tsx title="channel.tsx"
-import { createChannel } from "@copilotkit/channels";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 import { ApprovalCard } from "./approval-card.js";
-import { makeAgent } from "./agent.js";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -185,7 +184,8 @@ function required(name: string): string {
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   components: [ApprovalCard],
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useFrontendTool, useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { useFrontendTool, useHumanInTheLoop } from "@copilotkit/react-core";
 import { z } from "zod";
 import { WeatherCard, WeatherLoadingState } from "./static-tools/WeatherCard";
 import { StockCard, StockLoadingState } from "./static-tools/StockCard";

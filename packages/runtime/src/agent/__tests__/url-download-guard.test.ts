@@ -37,10 +37,14 @@ import {
   collectEventsIncludingErrors,
   createDefaultInput,
 } from "./agent-test-helpers";
-import { blockConnects, interceptConnects } from "./url-download-helpers";
+import {
+  blockConnects,
+  interceptConnects,
+  stubBuiltinModule,
+} from "./url-download-helpers";
 import type { ConnectAttempt } from "./url-download-helpers";
 
-const dns = vi.hoisted(() => ({
+const dns = {
   answers: new Map<string, LookupAddress[]>([
     // As common resolvers answer it; real DNS is not asked.
     [
@@ -54,19 +58,20 @@ const dns = vi.hoisted(() => ({
     ["slow.test", [{ address: "1.1.1.1", family: 4 }]],
   ]),
   lookups: [] as string[],
-}));
+};
 
-vi.mock("node:dns/promises", async (importOriginal) => {
-  const actual = await importOriginal<typeof DnsPromises>();
+const restoreDns = stubBuiltinModule("node:dns/promises", (actual) => {
+  const real = actual as typeof DnsPromises;
   const lookup = async (
     hostname: string,
     options: { all: true; verbatim?: boolean },
   ) => {
     dns.lookups.push(hostname);
-    return dns.answers.get(hostname) ?? actual.lookup(hostname, options);
+    return dns.answers.get(hostname) ?? real.lookup(hostname, options);
   };
-  return { ...actual, lookup, default: { ...actual, lookup } };
+  return { ...real, lookup };
 });
+afterAll(restoreDns);
 
 const SECRET = "INTERNAL-SECRET-BYTES";
 

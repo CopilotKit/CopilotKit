@@ -1,0 +1,73 @@
+/* "turn" tool-call display: the collapsible around the text of a reply. It
+   clips its content, so it reaches 0.5rem past each side and pads it back. */
+:where(.cpk-assistant-message-work-text) {
+  margin-inline: -0.5rem;
+}
+:where(.cpk-assistant-message-work-text-content) {
+  padding-inline: 0.5rem;
+}
+
+/* Typography comes from .cpk-markdown (markdown.css). */
+:where(.cpk-assistant-message-markdown) {
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+:where(.cpk-assistant-message-toolbar) {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  margin-top: 0;
+  margin-left: -5px;
+  background-color: transparent;
+}
+:where(.cpk-assistant-message-toolbar-items) {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.25rem;
+}
+:where(.cpk-assistant-message-toolbar-icon) {
+  width: 18px;
+  height: 18px;
+}
+:where(.cpk-assistant-message-read-aloud-icon) {
+  width: 20px;
+  height: 20px;
+}
+
+/* Feedback comment: a popover next to the chosen thumb. */
+:where(.cpk-assistant-message-feedback-popover) {
+  z-index: 1300;
+}
+:where(.cpk-assistant-message-feedback-comment) {
+  display: flex;
+  width: 20rem;
+  max-width: calc(100vw - 1rem);
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: calc(infinity * 1px);
+  background-color: var(--background);
+  padding: 0.125rem 0.125rem 0.125rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: calc(1.25 / 0.875);
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.1),
+    0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+:where(.cpk-assistant-message-feedback-comment-input) {
+  min-width: 0;
+  flex: 1;
+  background-color: transparent;
+  padding-block: 0.25rem;
+  color: var(--foreground);
+  outline-style: none;
+}
+:where(.cpk-assistant-message-feedback-comment-input)::placeholder {
+  color: var(--muted-foreground);
+}
+:where(.cpk-assistant-message-feedback-comment-submit-icon) {
+  width: 16px;
+  height: 16px;
+}

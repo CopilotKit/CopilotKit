@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { BasicAgent } from "../index";
+import { BuiltInAgent } from "../index";
 import { EventType } from "@ag-ui/client";
 import { streamText } from "ai";
 import { LLMock, MCPMock } from "@copilotkit/aimock";
@@ -96,7 +96,7 @@ describe("mcpServers — real MCP server integration", () => {
     llm = result.llm;
     mcpMock = result.mcpMock;
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpServers: [{ type: "http", url: result.mcpUrl }],
     });
@@ -132,7 +132,7 @@ describe("mcpServers — real MCP server integration", () => {
     const { port } = server.address() as AddressInfo;
 
     try {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         mcpServers: [
           {
@@ -173,7 +173,7 @@ describe("mcpServers — real MCP server integration", () => {
     llm = result.llm;
     mcpMock = result.mcpMock;
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpServers: [{ type: "sse", url: result.mcpUrl }],
     });
@@ -198,7 +198,7 @@ describe("mcpServers — real MCP server integration", () => {
     llm = result.llm;
     mcpMock = result.mcpMock;
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpServers: [
         { type: "http", url: "http://127.0.0.1:1/mcp" }, // unreachable
@@ -226,7 +226,7 @@ describe("mcpServers — real MCP server integration", () => {
     llm = result.llm;
     mcpMock = result.mcpMock;
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpServers: [{ type: "http", url: result.mcpUrl }],
     });
@@ -262,7 +262,7 @@ describe("mcpServers — real MCP server integration", () => {
     llm = result.llm;
     mcpMock = result.mcpMock;
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpServers: [{ type: "http", url: result.mcpUrl }],
     });
@@ -296,7 +296,7 @@ describe("mcpServers — real MCP server integration", () => {
   });
 
   it("the only MCP server being unreachable does NOT fail the run", async () => {
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpServers: [{ type: "http", url: "http://localhost:59999" }],
     });
@@ -320,7 +320,7 @@ describe("mcpServers — real MCP server integration", () => {
     llm = result.llm;
     mcpMock = result.mcpMock;
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpServers: [{ type: "http", url: result.mcpUrl }],
     });
@@ -367,7 +367,7 @@ describe("mcpServers — real MCP server integration", () => {
     llm = result.llm;
     mcpMock = result.mcpMock;
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpServers: [{ type: "http", url: result.mcpUrl }],
     });
@@ -408,7 +408,7 @@ describe("mcpServers — real MCP server integration", () => {
     await llm2.start();
 
     try {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         mcpServers: [
           { type: "http", url: result1.mcpUrl },
@@ -457,7 +457,7 @@ describe("mcpServers — real MCP server integration", () => {
     llm.mount("/production", production);
     await llm.start();
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpServers: [
         { type: "http", url: `${llm.url}/staging`, name: "staging" },

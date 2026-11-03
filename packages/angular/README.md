@@ -328,8 +328,12 @@ provideCopilotKit({
 ## Prebuilt UI
 
 All UI exports are standalone Angular components. Import the component classes
-directly and import `@copilotkit/angular/styles.css` once in the application's
-global stylesheet.
+directly. They add their own styles, so you don't import a stylesheet. To load
+the CSS as a cached file instead, add `@copilotkit/core/styles.css` to the
+`styles` in `angular.json` and set `injectStyles: false` in `provideCopilotKit`.
+For a CSP nonce, provide Angular's `CSP_NONCE`. If you build a layout from the
+chat parts without `<copilot-chat>`, `<copilot-chat-view>`, `<copilot-popup>`
+or `<copilot-sidebar>`, render `<copilot-kit-styles />` once.
 
 ### Full-page chat
 

@@ -15,11 +15,43 @@ A **surface** is one piece of generated UI. Each surface renders in a **target**
 
 ## Add a page target
 
-Wrap an area of your page in `GenerativeUISurface`. Give it an id, and tell the agent what the area is for:
+The examples on this page use a small shop catalog. See [Catalogs](/generative-ui/components/catalogs) for how to write one:
 
-```tsx title="app/page.tsx"
-import { GenerativeUISurface } from "@copilotkit/react-core/v2/generative-ui";
-import { shopUI } from "./catalog";
+```tsx title="app/catalog.tsx" group=shop-surfaces
+import type { ReactNode } from "react";
+import { z } from "zod";
+import { createGenerativeUI } from "@copilotkit/react-core/generative-ui";
+
+function ProductGrid({ children }: { children?: ReactNode }) {
+  return <div className="grid grid-cols-2 gap-4">{children}</div>;
+}
+
+function ProductCard({ name, price }: { name: string; price: number }) {
+  return (
+    <article>
+      <h4>{name}</h4>
+      <p>${price}</p>
+    </article>
+  );
+}
+
+export const shopUI = createGenerativeUI({
+  id: "acme/shop@1",
+  components: {
+    ProductGrid: { component: ProductGrid, slots: { children: "multiple" } },
+    ProductCard: {
+      component: ProductCard,
+      props: z.object({ name: z.string(), price: z.number() }),
+    },
+  },
+});
+```
+
+Wrap an area of your page in `GenerativeUISurface`. Give it an id, and tell the agent what the area is for. In your app, import `shopUI` from `./catalog`. `ProductRow` is your own row of products:
+
+```tsx title="app/page.tsx" group=shop-surfaces
+import { GenerativeUISurface } from "@copilotkit/react-core/generative-ui";
+import { ProductRow, type Product } from "./products";
 
 export function FeaturedProducts({ products }: { products: Product[] }) {
   return (
@@ -47,8 +79,10 @@ Now "show me cheap running shoes" swaps the row, and "show the featured products
 
 A product row must hold product cards, not a slider or a chart. `components` names the only components that the agent can use in this target, the root included:
 
-```tsx
-<GenerativeUISurface id="featured" ui={shopUI} components={["ProductGrid", "ProductCard"]} />
+```tsx group=shop-surfaces
+export function FeaturedRow() {
+  return <GenerativeUISurface id="featured" ui={shopUI} components={["ProductGrid", "ProductCard"]} />;
+}
 ```
 
 - The agent gets the list, so it knows what fits.
@@ -62,7 +96,11 @@ Leave out `components` (and `ui`) to allow every component of the catalog.
 When the agent starts to render into a target, the page scrolls to it, unless it is already on screen. Turn this off for one target:
 
 ```tsx
-<GenerativeUISurface id="sidebar-notes" autoScroll={false} />
+import { GenerativeUISurface } from "@copilotkit/react-core/generative-ui";
+
+export function SidebarNotes() {
+  return <GenerativeUISurface id="sidebar-notes" autoScroll={false} />;
+}
 ```
 
 With a sticky header, give surfaces some room at the top in your CSS:
@@ -78,28 +116,42 @@ With a sticky header, give surfaces some room at the top in your CSS:
 A target can be specific. A product page can give each product its own target, so its recommendations stay with it when the user moves between products:
 
 ```tsx
-<GenerativeUISurface
-  key={product.id}
-  id={`recommendations-${product.id}`}
-  description={`The "You might also like" row under ${product.name}. Show related products here. Never include ${product.name} itself.`}
-/>
+import { GenerativeUISurface } from "@copilotkit/react-core/generative-ui";
+
+export function Recommendations({ product }: { product: { id: string; name: string } }) {
+  return (
+    <GenerativeUISurface
+      key={product.id}
+      id={`recommendations-${product.id}`}
+      description={`The "You might also like" row under ${product.name}. Show related products here. Never include ${product.name} itself.`}
+    />
+  );
+}
 ```
 
 ## When a component fails
 
 Each component renders inside its own error boundary. One broken component shows a small fallback, and the rest of the surface keeps working. To report errors, or to draw your own fallback:
 
-```tsx
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  generativeUI={{
-    ui: shopUI,
-    errorBoundary: {
-      onError: (info) => console.warn(info.kind, info.surfaceId, info.error.message),
-      fallback: ({ retry }) => <button onClick={retry}>Try again</button>,
-    },
-  }}
->
+```tsx title="app/providers.tsx" group=shop-surfaces
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      generativeUI={{
+        ui: shopUI,
+        errorBoundary: {
+          onError: (info) => console.warn(info.kind, info.surfaceId, info.error.message),
+          fallback: ({ retry }) => <button onClick={retry}>Try again</button>,
+        },
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ## What the agent knows about surfaces

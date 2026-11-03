@@ -1,13 +1,14 @@
-import { Provider, Type, inject, InjectionToken } from "@angular/core";
-import { AbstractAgent } from "@ag-ui/client";
-import {
+import type { Provider, Type } from "@angular/core";
+import { inject, InjectionToken } from "@angular/core";
+import type { AbstractAgent } from "@ag-ui/client";
+import type {
   ClientTool,
   FrontendToolConfig,
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "./tools";
 import { LICENSE_WATERMARK_ENABLED } from "./license-watermark";
-import { RenderActivityMessageConfig } from "./activity-renderer";
+import type { RenderActivityMessageConfig } from "./activity-renderer";
 // Type-only: a VALUE import here would pull the whole `@copilotkit/core`
 // dist into the app's startup graph, since `config.ts` sits on it
 // (`provideCopilotKit` runs at bootstrap). The public-key header default is
@@ -18,8 +19,8 @@ import type {
   CopilotKitMessageFilter,
   SuggestionsConfig,
 } from "@copilotkit/core";
-import { OpenGenerativeUIConfig } from "./open-generative-ui";
-import { A2UICatalog } from "./components/a2ui/a2ui-types";
+import type { OpenGenerativeUIConfig } from "./open-generative-ui";
+import type { A2UICatalog } from "./components/a2ui/a2ui-types";
 
 export interface A2UIConfig {
   theme?: Record<string, unknown>;
@@ -112,6 +113,13 @@ export interface CopilotKitConfig {
    * always disabled in production and during server rendering.
    */
   enableInspector?: boolean;
+  /**
+   * Set to `false` when you list `@copilotkit/core/styles.css` in your
+   * `angular.json` styles, so browsers cache the CSS as a file. CopilotKit then
+   * adds no `<style>` tag. For a CSP nonce, provide Angular's `CSP_NONCE`.
+   * @default true
+   */
+  injectStyles?: boolean;
 }
 
 const COPILOT_CLOUD_PUBLIC_API_KEY_HEADER = "X-CopilotCloud-Public-Api-Key";

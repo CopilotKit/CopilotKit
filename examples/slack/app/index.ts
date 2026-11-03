@@ -29,8 +29,8 @@
 import "dotenv/config";
 import { createServer } from "node:http";
 import { createChannel, HttpAgent } from "@copilotkit/channels";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 import type {
   PlatformAdapter,
   ChannelTool,

@@ -134,19 +134,26 @@ the UI.
 </Callout>
 
 ```tsx title="app/page.tsx"
+import { useRenderTool } from "@copilotkit/react-core"; // [!code highlight]
+import { z } from "zod";
 // ...
+
+const weatherParams = z.object({
+  location: z.string().describe("The location to get weather for"),
+});
 
 const YourMainContent = () => {
   // ...
-  // [!code highlight:12]
+  // [!code highlight:14]
   useRenderTool({
     name: "get_weather",
-    render: ({ status, args }) => {
+    parameters: weatherParams,
+    render: ({ status, parameters }) => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
           {status === "complete" &&
-            `Called the weather API for ${args.location}.`}
+            `Called the weather API for ${parameters.location}.`}
         </p>
       );
     },

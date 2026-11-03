@@ -1,0 +1,33 @@
+/* <PopoverContent>: fades and zooms in on open, sliding 0.25rem vertically. */
+:where(.cpk-popover) {
+  z-index: 50;
+  outline-style: none;
+}
+:where(.cpk-popover[data-state="open"]) {
+  animation: cpk-popover-enter 150ms ease;
+}
+:where(.cpk-popover[data-state="open"][data-side="bottom"]) {
+  animation-name: cpk-popover-enter-from-top;
+}
+:where(.cpk-popover[data-state="open"][data-side="top"]) {
+  animation-name: cpk-popover-enter-from-bottom;
+}
+
+@keyframes cpk-popover-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+@keyframes cpk-popover-enter-from-top {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem) scale(0.95);
+  }
+}
+@keyframes cpk-popover-enter-from-bottom {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem) scale(0.95);
+  }
+}

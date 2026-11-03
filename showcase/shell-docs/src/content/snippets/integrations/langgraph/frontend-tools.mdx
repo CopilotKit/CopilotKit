@@ -17,25 +17,32 @@ import {
             <Tab value="Python">
                 ```python title="agent.py"
                 from langchain_core.runnables import RunnableConfig
+                from langchain_openai import ChatOpenAI
+                from copilotkit import CopilotKitState
 
-                async def agent_node(state: YourAgentState, config: RunnableConfig):
-                # Access the tools from the copilotkit property
+                async def agent_node(state: CopilotKitState, config: RunnableConfig):
+                    # Access the tools from the copilotkit property
+                    tools = state.get("copilotkit", {}).get("actions", []) # [!code highlight]
+                    model = ChatOpenAI(model="gpt-5.4").bind_tools(tools)
 
-                tools = state.get("copilotkit", {}).get("actions", []) # [!code highlight]
-                model = ChatOpenAI(model="gpt-5.4").bind_tools(tools)
-
-                # ...
+                    # ...
                 ```
             </Tab>
             <Tab value="TypeScript">
                 ```typescript title="agent-js/src/agent.ts"
-                async function agentNode(state: YourAgentState, config: RunnableConfig): Promise<YourAgentState> {
-                // Access the tools from the copilotkit property
+                import type { RunnableConfig } from "@langchain/core/runnables";
+                import { ChatOpenAI } from "@langchain/openai";
+                import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
-                const tools = state.copilotkit?.actions; // [!code highlight]
-                const model = ChatOpenAI({ model: 'gpt-5.4' }).bindTools(tools);
+                type AgentState = typeof CopilotKitStateAnnotation.State;
 
-                // ...
+                async function agentNode(state: AgentState, config: RunnableConfig) {
+                  // Access the tools from the copilotkit property
+                  const tools = state.copilotkit?.actions ?? []; // [!code highlight]
+                  const model = new ChatOpenAI({ model: "gpt-5.4" }).bindTools(tools);
+
+                  const response = await model.invoke(state.messages, config);
+                  return { messages: [response] };
                 }
                 ```
             </Tab>

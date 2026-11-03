@@ -13,21 +13,20 @@
 import { describe, it, expect } from "vitest";
 import { EMPTY, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type Message,
-  type MessagesSnapshotEvent,
-  type RunAgentInput,
-  type RunFinishedEvent,
-  type RunStartedEvent,
-  type ToolCallResultEvent,
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type {
+  BaseEvent,
+  Message,
+  MessagesSnapshotEvent,
+  RunAgentInput,
+  RunFinishedEvent,
+  RunStartedEvent,
+  ToolCallResultEvent,
 } from "@ag-ui/client";
 import type {
   AgentRunnerConnectRequest,
   AgentRunnerRunRequest,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { AgentCoreRunner } from "..";
 
 // ---------------------------------------------------------------------------

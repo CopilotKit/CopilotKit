@@ -15,9 +15,17 @@ In the dynamic-schema approach, a secondary LLM generates the entire UI — sche
 
 Enable A2UI on your `CopilotRuntime` with `injectA2UITool: true`:
 
-```typescript title="app/api/copilotkit/route.ts"
+```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
+
 const runtime = new CopilotRuntime({
-  agents: { default: myAgent },
+  agents: {
+    default: new LangGraphAgent({
+      deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
+      graphId: "default",
+    }),
+  },
   a2ui: {
     injectA2UITool: true,
   },
@@ -28,10 +36,19 @@ const runtime = new CopilotRuntime({
 
 Register your component catalog on the provider so the LLM knows what it can draw (see [Bring Your Own Catalog](../../../../generative-ui/a2ui/dynamic-schema) for the catalog `definitions` / `renderers` / `createCatalog` split):
 
-```tsx title="frontend/src/app/page.tsx"
-<CopilotKit a2ui={{ catalog: myCatalog }}>
-  {/* ... */}
-</CopilotKit>
+```tsx title="frontend/src/app/providers.tsx"
+"use client";
+
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import { myCatalog } from "./a2ui/catalog";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ catalog: myCatalog }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ## Backend

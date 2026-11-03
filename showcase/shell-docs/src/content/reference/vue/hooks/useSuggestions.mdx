@@ -20,9 +20,15 @@ Suggestions are configured via [`useConfigureSuggestions`](/reference/vue/hooks/
 ## Signature
 
 ```ts
-import { useSuggestions } from "@copilotkit/vue/v2";
+import {
+  useSuggestions,
+  type UseSuggestionsOptions,
+  type UseSuggestionsResult,
+} from "@copilotkit/vue/v2";
 
-function useSuggestions(options?: UseSuggestionsOptions): UseSuggestionsResult;
+useSuggestions satisfies (
+  options?: UseSuggestionsOptions,
+) => UseSuggestionsResult;
 ```
 
 ## Parameters

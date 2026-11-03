@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { userEvent, within } from "storybook/test";
-import { CopilotChatToolCallsView } from "@copilotkit/react-core/v2";
-import type { AssistantMessage, Message } from "@copilotkit/react-core/v2";
+import { CopilotChatToolCallsView } from "@copilotkit/react-core";
+import type { AssistantMessage, Message } from "@copilotkit/react-core";
 import { toolCall, toolResult } from "./support/fixtures";
 import { withMessageColumn } from "./support/layouts";
 import { withDefaultToolRenderer } from "./support/providers";

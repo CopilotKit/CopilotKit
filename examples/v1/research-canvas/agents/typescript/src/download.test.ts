@@ -8,8 +8,8 @@ const dependencyMocks = vi.hoisted(() => ({
     vi.fn<(input: string, signal: AbortSignal) => Promise<string>>(),
 }));
 
-vi.mock("@copilotkit/sdk-js/langgraph", () => ({
-  copilotkitEmitState: dependencyMocks.emitState,
+vi.mock("./agui-events", () => ({
+  emitState: dependencyMocks.emitState,
 }));
 
 vi.mock("html-to-text", () => ({
@@ -24,12 +24,6 @@ import { download_node, downloadResource, getResource } from "./download";
 
 function createAgentState(url: string): AgentState {
   return {
-    copilotkit: {
-      actions: [],
-      context: [],
-      interceptedToolCalls: [],
-      originalAIMessageId: "",
-    },
     logs: [],
     messages: [],
     model: "openai",

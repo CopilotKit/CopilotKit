@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import type {
   InputContentPart,
   UserMessage as AgUiUserMessage,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 import { UserMessage } from "./chat-message";
 

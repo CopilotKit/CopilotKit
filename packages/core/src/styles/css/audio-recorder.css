@@ -1,0 +1,10 @@
+:where(.cpk-audio-recorder) {
+  width: 100%;
+  padding-block: 0.75rem;
+  padding-inline: 1.25rem;
+}
+:where(.cpk-audio-recorder-canvas) {
+  display: block;
+  width: 100%;
+  height: 26px;
+}

@@ -1,11 +1,8 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import {
-  CopilotModalHeader,
-  CopilotPopupView,
-} from "@copilotkit/react-core/v2";
-import type { CopilotPopupViewProps } from "@copilotkit/react-core/v2";
+import { CopilotModalHeader, CopilotPopupView } from "@copilotkit/react-core";
+import type { CopilotPopupViewProps } from "@copilotkit/react-core";
 import { reactHooksConversation, starterSuggestions } from "./support/fixtures";
 import { HostPage } from "./support/HostPage";
 

@@ -1,4 +1,6 @@
 import type { AbstractAgent } from "@ag-ui/client";
+import { schemaToJsonSchema } from "@copilotkit/shared";
+import type { StandardSchemaV1 } from "@copilotkit/shared";
 import type { InspectorToolDefinition, LiveInspectionState } from "../state.js";
 
 export type ToolSource = Readonly<{
@@ -122,85 +124,22 @@ export function refreshToolsSnapshot(
   return true;
 }
 
-function zodOptional(schema: unknown): boolean {
-  if (!schema || typeof schema !== "object") return false;
-  const definition = objectProperty(schema, "_def");
-  if (!definition || typeof definition !== "object") return false;
-  const typeName = objectProperty(definition, "typeName");
-  return (
-    typeName === "ZodOptional" ||
-    typeName === "ZodNullable" ||
-    objectProperty(definition, "defaultValue") !== undefined
-  );
+/** Tool parameters as JSON Schema; a Standard Schema is converted. */
+function toolJsonSchema(parameters: object): unknown {
+  // Tool parameters are Standard Schemas (Zod 4, Valibot, ArkType, …) or plain
+  // JSON Schema. Describe a Standard Schema through its JSON Schema.
+  if (!("~standard" in parameters)) return parameters;
+  try {
+    return schemaToJsonSchema(parameters as StandardSchemaV1);
+  } catch {
+    return null;
+  }
 }
 
-function zodFieldInfo(
-  schema: unknown,
-): Omit<ToolSchemaProperty, "name" | "required"> {
-  const info: Omit<ToolSchemaProperty, "name" | "required"> = {};
-  if (!schema || typeof schema !== "object") return info;
-  let definition = objectProperty(schema, "_def");
-  if (!definition || typeof definition !== "object") return info;
-  let typeName = objectProperty(definition, "typeName");
-  while (
-    typeName === "ZodOptional" ||
-    typeName === "ZodNullable" ||
-    typeName === "ZodDefault"
-  ) {
-    const defaultValue = objectProperty(definition, "defaultValue");
-    if (typeName === "ZodDefault" && defaultValue !== undefined) {
-      info.defaultValue =
-        typeof defaultValue === "function" ? defaultValue() : defaultValue;
-    }
-    const inner = objectProperty(definition, "innerType");
-    if (!inner || typeof inner !== "object") break;
-    const nextDefinition = objectProperty(inner, "_def");
-    if (!nextDefinition || typeof nextDefinition !== "object") break;
-    definition = nextDefinition;
-    typeName = objectProperty(definition, "typeName");
-  }
-  const description = objectProperty(definition, "description");
-  info.description = typeof description === "string" ? description : undefined;
-  const typeMap: Record<string, string> = {
-    ZodString: "string",
-    ZodNumber: "number",
-    ZodBoolean: "boolean",
-    ZodArray: "array",
-    ZodObject: "object",
-    ZodEnum: "enum",
-    ZodLiteral: "literal",
-    ZodUnion: "union",
-    ZodAny: "any",
-    ZodUnknown: "unknown",
-  };
-  if (typeof typeName === "string") {
-    info.type = typeMap[typeName] ?? typeName.replace("Zod", "").toLowerCase();
-  }
-  const values = objectProperty(definition, "values");
-  const value = objectProperty(definition, "value");
-  if (typeName === "ZodEnum" && Array.isArray(values)) info.enum = values;
-  else if (typeName === "ZodLiteral" && value !== undefined)
-    info.enum = [value];
-  return info;
-}
-
-export function extractSchemaInfo(parameters: unknown): ToolSchemaProperty[] {
+export function extractSchemaInfo(input: unknown): ToolSchemaProperty[] {
+  if (!input || typeof input !== "object") return [];
+  const parameters = toolJsonSchema(input);
   if (!parameters || typeof parameters !== "object") return [];
-  const definition = objectProperty(parameters, "_def");
-  if (definition && typeof definition === "object") {
-    if (objectProperty(definition, "typeName") !== "ZodObject") return [];
-    const rawShape = objectProperty(definition, "shape");
-    const shape = typeof rawShape === "function" ? rawShape() : rawShape;
-    if (!shape || typeof shape !== "object") return [];
-    const requireFields =
-      objectProperty(definition, "unknownKeys") === "strict" ||
-      !objectProperty(definition, "catchall");
-    return Object.entries(shape).map(([name, field]) => ({
-      name,
-      ...zodFieldInfo(field),
-      required: requireFields && !zodOptional(field),
-    }));
-  }
   if (objectProperty(parameters, "type") !== "object") return [];
   const properties = objectProperty(parameters, "properties");
   if (!properties || typeof properties !== "object") return [];

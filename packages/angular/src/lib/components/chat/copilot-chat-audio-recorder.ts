@@ -12,6 +12,7 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
+import { cn } from "../../utils";
 import {
   AudioRecorderState,
   AudioRecorderError,
@@ -25,7 +26,7 @@ import {
     <div [class]="computedClass()">
       <canvas
         #canvasRef
-        class="cpk:w-full cpk:h-full"
+        class="cpk-audio-recorder-canvas"
         [style.imageRendering]="'pixelated'"
       ></canvas>
     </div>
@@ -47,8 +48,7 @@ export class CopilotChatAudioRecorder implements AfterViewInit {
   readonly state = signal<AudioRecorderState>("idle");
 
   readonly computedClass = computed(() => {
-    const baseClasses = "cpk:h-11 cpk:w-full cpk:px-5";
-    return `${baseClasses} ${this.inputClass() || ""}`;
+    return cn("cpk-audio-recorder", this.inputClass());
   });
 
   // Capture resources

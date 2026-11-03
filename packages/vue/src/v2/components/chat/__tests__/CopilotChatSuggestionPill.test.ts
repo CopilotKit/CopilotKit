@@ -34,7 +34,7 @@ describe("CopilotChatSuggestionPill", () => {
     );
     expect(button.attributes("aria-busy")).toBe("true");
     expect(button.attributes("disabled")).toBeDefined();
-    expect(wrapper.find(".cpk\\:animate-spin").exists()).toBe(true);
+    expect(wrapper.find(".cpk-suggestion-pill-spinner").exists()).toBe(true);
   });
 
   it("renders icon component when provided", () => {

@@ -10,6 +10,7 @@
     "install:agent": "cd agent && uv sync"
   },
   "dependencies": {
+    "@ag-ui/langgraph": "0.0.44",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "next": "15.5.15",

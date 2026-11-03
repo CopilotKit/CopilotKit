@@ -15,10 +15,7 @@
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "assets": ["src/favicon.ico", "src/assets"],
-            "styles": [
-              "../../../../packages/angular/src/styles/generated.css",
-              "src/styles.css"
-            ],
+            "styles": ["src/styles.css"],
             "optimization": false
           }
         },

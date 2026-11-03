@@ -2,12 +2,12 @@
 
 from typing import List, Literal, cast
 
-from copilotkit.langgraph import copilotkit_customize_config
 from langchain.tools import tool
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
+from src.lib.agui_events import with_predicted_state
 from src.lib.download import get_resource
 from src.lib.model import get_model
 from src.lib.state import AgentState
@@ -40,9 +40,9 @@ async def chat_node(
     Chat Node
     """
 
-    config = copilotkit_customize_config(
+    config = with_predicted_state(
         config,
-        emit_intermediate_state=[
+        [
             {
                 "state_key": "report",
                 "tool": "WriteReport",

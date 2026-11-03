@@ -9,11 +9,11 @@ The `CopilotRuntime` package gives you everything you need to host CopilotKit ag
 
 ```ts
 import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
-import { BasicAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BasicAgent({
+    default: new BuiltInAgent({
       model: "openai/gpt-5-mini",
       prompt: "You are a helpful assistant.",
     }),
@@ -42,7 +42,7 @@ new CopilotRuntime(options: CopilotRuntimeOptions)
 
 ### Passing Agents
 
-- Provide a plain object mapping agent ids to instances. The helper `BasicAgent` covers common OpenAI/Anthropic/Gemini setups, but you can supply any `AbstractAgent`.
+- Provide a plain object mapping agent ids to instances. The helper `BuiltInAgent` covers common OpenAI/Anthropic/Gemini setups, but you can supply any `AbstractAgent`.
 - Because `agents` may be an async function, you can lazily load credentials or fetch configuration before returning the record.
 - Each request clones the selected agent instance so per-request state (messages, headers, tool registration) does not leak between threads.
 - `Authorization` and `x-*` headers on the incoming request are forwarded to the cloned agent automatically. Override or strip them inside `beforeRequestMiddleware` if needed.
@@ -264,14 +264,14 @@ import { AppModule } from "./app.module";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
-import { BasicAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   const runtime = new CopilotRuntime({
     agents: {
-      default: new BasicAgent({
+      default: new BuiltInAgent({
         model: "openai/gpt-5-mini",
         prompt: "You are helpful.",
       }),
@@ -324,7 +324,7 @@ Calling `GET /info` (or the `info` single-route method) returns:
   "agents": {
     "default": {
       "name": "default",
-      "className": "BasicAgent",
+      "className": "BuiltInAgent",
       "description": "You are a helpful assistant."
     }
   },

@@ -29,7 +29,7 @@ import { injectChatLabels } from "../../chat-config";
     >
       <copilot-icon
         [img]="ChevronDown"
-        class="cpk:w-4 cpk:h-4 cpk:text-gray-600 cpk:dark:text-white"
+        iconClass="cpk-chat-view-scroll-to-bottom-icon"
       >
       </copilot-icon>
     </button>
@@ -52,21 +52,7 @@ export class CopilotChatViewScrollToBottomButton {
   // Computed class matching React exactly
   get computedClass(): string {
     return cn(
-      // Base button styles
-      "cpk:rounded-full cpk:w-10 cpk:h-10 cpk:p-0",
-      // Background colors
-      "cpk:bg-white cpk:dark:bg-gray-900",
-      // Border and shadow
-      "cpk:shadow-lg cpk:border cpk:border-gray-200 cpk:dark:border-gray-700",
-      // Hover states
-      "cpk:hover:bg-gray-50 cpk:dark:hover:bg-gray-800",
-      // Layout
-      "cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer",
-      // Transition
-      "cpk:transition-colors",
-      // Focus states
-      "cpk:focus:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-offset-2",
-      // Custom classes
+      "cpk-button cpk-button-outline cpk-button-size-sm cpk-chat-view-scroll-to-bottom-button",
       this.inputClass(),
     );
   }

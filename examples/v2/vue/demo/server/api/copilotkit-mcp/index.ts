@@ -1,4 +1,4 @@
 import { copilotMcpEndpoint } from "../../utils/endpoints";
-import { defineHonoEventHandler } from "../../utils/hono-handler";
+import { defineFetchEventHandler } from "../../utils/fetch-handler";
 
-export default defineHonoEventHandler(copilotMcpEndpoint);
+export default defineFetchEventHandler(copilotMcpEndpoint);

@@ -14,40 +14,49 @@ Render-only generative UI lets you register React components as tools your agent
 
 <Tabs items={['page.tsx', 'chart.tsx']}>
   <Tab value="page.tsx">
-  ```tsx
+  `Chart` and `ChartProps` come from `chart.tsx`, in the next tab. In your app, import them with `import { Chart, ChartProps } from "./chart"`.
 
-useComponent({
-name: "showChart",
-description: "Populate data and show the user a chart",
-parameters: ChartProps,
-render: Chart
-});
+  ```tsx group=display-chart
+  "use client";
+  import { useComponent } from "@copilotkit/react-core";
 
-````
-</Tab>
-<Tab value="chart.tsx">
-```tsx
+  export function ChartTool() {
+    useComponent({
+      name: "showChart",
+      description: "Populate data and show the user a chart",
+      parameters: ChartProps,
+      render: Chart,
+    });
+    return null;
+  }
+  ```
+  </Tab>
+  <Tab value="chart.tsx">
+  ```tsx group=display-chart
+  import { z } from "zod";
+  import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-export const ChartProps = z.object({
-  title: z.string(),
-  data: z.array(z.object({ label: z.string(), value: z.number() })),
-});
+  export const ChartProps = z.object({
+    title: z.string(),
+    data: z.array(z.object({ label: z.string(), value: z.number() })),
+  });
 
-export function Chart({ title, data }: z.infer<typeof ChartProps>) {
-  return (
-    <div>
-      <h3>{title}</h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={data}>
-          <XAxis dataKey="label" /><YAxis /><Tooltip />
-          <Bar dataKey="value" fill="#6366f1" />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-````
-
+  export function Chart({ title, data }: z.infer<typeof ChartProps>) {
+    return (
+      <div>
+        <h3>{title}</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={data}>
+            <XAxis dataKey="label" />
+            <YAxis />
+            <Tooltip />
+            <Bar dataKey="value" fill="#6366f1" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
+  ```
   </Tab>
 </Tabs>
 

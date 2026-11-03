@@ -7,7 +7,6 @@ const nextConfig: NextConfig = {
   // The API routes import @copilotkit/runtime/v2 (server-only); keep it external
   // so Next.js does not try to bundle it. Base package name covers the /v2 subpath.
   serverExternalPackages: ["@copilotkit/runtime"],
-  // Note: NOT using standalone mode - hono/vercel adapter requires regular next start
 };
 
 export default nextConfig;

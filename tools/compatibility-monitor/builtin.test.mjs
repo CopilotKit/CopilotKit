@@ -34,7 +34,7 @@ test("built-in consumer uses public runtime and preserves every native contract"
       join(work, "learned-skills-native.test.ts"),
       "utf8",
     );
-    assert.match(native, /from "@copilotkit\/runtime\/v2"/);
+    assert.match(native, /from "@copilotkit\/runtime"/);
     assert.doesNotMatch(native, /from "\.\.\//);
     assert.match(native, /classic-single-step/);
     assert.match(native, /pauses on an interrupt/);

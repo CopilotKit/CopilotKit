@@ -28,7 +28,7 @@ When you are done, your app sends batches of events to your own endpoint. You ca
   <Step>
     ### Create a collector and start it
 
-    ```ts title="src/capture.ts"
+    ```ts title="src/capture.ts" group=standalone-collector
     import { createCollector, httpSink } from "@copilotkit/learning";
 
     export const collector = createCollector({
@@ -46,7 +46,7 @@ When you are done, your app sends batches of events to your own endpoint. You ca
 
     Clicks show what a person did. They do not show whether it worked. Emit an event when the outcome is known:
 
-    ```ts
+    ```ts group=standalone-collector
     collector.emit("report.exported", { format: "csv", rows: 120 });
     ```
 
@@ -56,7 +56,7 @@ When you are done, your app sends batches of events to your own endpoint. You ca
   <Step>
     ### Stop when the session ends
 
-    ```ts
+    ```ts group=standalone-collector
     collector.stop();
     ```
 
@@ -73,10 +73,9 @@ A sink is a function that receives each batch. Use it to forward events to your 
 
 ```ts
 import { createCollector } from "@copilotkit/learning";
-import type { LearningBatch } from "@copilotkit/learning";
 
 const collector = createCollector({
-  sink: async (batch: LearningBatch) => {
+  sink: async (batch) => {
     const response = await fetch("https://events.example.com/ingest", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -95,6 +94,8 @@ Add your sink's URL to `ignoreUrls`, so the collector does not record its own re
 `enrich` adds fields to each click from the element that was clicked:
 
 ```ts
+import { createCollector, httpSink } from "@copilotkit/learning";
+
 const collector = createCollector({
   sink: httpSink("/api/learning-events"),
   enrich: (element) => ({

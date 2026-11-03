@@ -6,17 +6,55 @@ import {
   linkedSignal,
   signal,
   untracked,
+  ViewEncapsulation,
 } from "@angular/core";
+import { hostStyles } from "../host-styles";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
+import {
+  ɵformatLabel,
+  ɵformatReasoningDuration,
+  ɵformatCountLabel,
+} from "@copilotkit/core";
+import type { CopilotChatLabels } from "@copilotkit/core";
 import { cn } from "../../utils";
 import { CopilotChatAssistantMessageRenderer } from "./copilot-chat-assistant-message-renderer";
-import { formatReasoningDuration } from "./copilot-chat-reasoning-message-utils";
 import { injectChatLabels } from "../../chat-config";
+import { ChevronRight, CopilotIcon } from "../icons/copilot-icon";
+
+/**
+ * The reasoning time as label text, such as "4 seconds" or "1m 5s".
+ *
+ * @param seconds - The elapsed time in seconds. It may have a fraction.
+ * @param labels - The chat labels that hold the duration texts.
+ */
+function formatDuration(seconds: number, labels: CopilotChatLabels) {
+  const duration = ɵformatReasoningDuration(seconds);
+  switch (duration.unit) {
+    case "fewSeconds":
+      return labels.reasoningMessageDurationFewSeconds;
+    case "seconds":
+      return ɵformatLabel(labels.reasoningMessageDurationSeconds, {
+        count: duration.seconds,
+      });
+    case "minutes":
+      return ɵformatCountLabel(duration.minutes, {
+        one: labels.reasoningMessageDurationMinutesOne,
+        other: labels.reasoningMessageDurationMinutesOther,
+      });
+    case "minutesSeconds":
+      return ɵformatLabel(labels.reasoningMessageDurationMinutesSeconds, {
+        minutes: duration.minutes,
+        seconds: duration.seconds,
+      });
+  }
+}
 
 @Component({
   selector: "copilot-chat-reasoning-message",
-  imports: [CopilotChatAssistantMessageRenderer],
+  imports: [CopilotChatAssistantMessageRenderer, CopilotIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  encapsulation: ViewEncapsulation.None,
+  styles: [hostStyles],
   template: `
     <div
       [class]="computedClass()"
@@ -31,50 +69,34 @@ import { injectChatLabels } from "../../chat-config";
         [attr.aria-expanded]="hasContent() ? open() : null"
         (click)="toggle()"
       >
-        <span class="cpk:font-medium">{{ label() }}</span>
+        <span class="cpk-reasoning-message-label">{{ label() }}</span>
         @if (isStreaming() && !hasContent()) {
-          <span class="cpk:inline-flex cpk:items-center cpk:ml-1">
-            <span
-              class="cpk:w-1.5 cpk:h-1.5 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse"
-            ></span>
+          <span class="cpk-reasoning-message-indicator">
+            <span class="cpk-reasoning-message-indicator-dot"></span>
           </span>
         }
         @if (hasContent()) {
-          <svg
-            aria-hidden="true"
-            focusable="false"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            [class]="chevronClass()"
-          >
-            <path d="m9 18 6-6-6-6"></path>
-          </svg>
+          <copilot-icon
+            [img]="ChevronRightIcon"
+            [iconClass]="chevronClass()"
+          ></copilot-icon>
         }
       </button>
 
       @if (hasContent() || isStreaming()) {
         <div
-          class="cpk:grid cpk:transition-[grid-template-rows] cpk:duration-200 cpk:ease-in-out"
+          class="cpk-reasoning-message-toggle"
           [style.grid-template-rows]="open() ? '1fr' : '0fr'"
         >
-          <div class="cpk:overflow-hidden">
-            <div class="cpk:pb-2 cpk:pt-1">
-              <div class="cpk:text-sm cpk:text-muted-foreground">
+          <div class="cpk-reasoning-message-toggle-content">
+            <div class="cpk-reasoning-message-content">
+              <div class="cpk-reasoning-message-text">
                 <copilot-chat-assistant-message-renderer
                   [content]="reasoningContent()"
-                  inputClass="cpk:text-sm cpk:text-muted-foreground cpk:leading-relaxed cpk:[&_p]:m-0 cpk:[&_p+p]:mt-2 cpk:[&_strong]:font-semibold cpk:[&_strong]:text-foreground cpk:[&_ul]:my-1 cpk:[&_ol]:my-1 cpk:[&_li]:ml-4"
                 ></copilot-chat-assistant-message-renderer>
                 @if (isStreaming() && hasContent()) {
-                  <span
-                    class="cpk:inline-flex cpk:items-center cpk:ml-1 cpk:align-middle"
-                  >
-                    <span
-                      class="cpk:w-2 cpk:h-2 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse-cursor"
-                    ></span>
+                  <span class="cpk-reasoning-message-cursor">
+                    <span class="cpk-reasoning-message-cursor-dot"></span>
                   </span>
                 }
               </div>
@@ -91,6 +113,7 @@ export class CopilotChatReasoningMessage {
   readonly isRunning = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
   private readonly labels = injectChatLabels();
+  protected readonly ChevronRightIcon = ChevronRight;
 
   private readonly userToggled = signal(false);
 
@@ -133,31 +156,34 @@ export class CopilotChatReasoningMessage {
     () => this.message().content ?? "",
   );
 
-  /** `labels.reasoningMessageThinkingLabel` while streaming, then "Thought for …". */
+  /**
+   * `labels.reasoningMessageThinkingLabel` while streaming, then
+   * `labels.reasoningMessageThoughtForLabel` ("Thought for 4 seconds").
+   */
   protected readonly label = computed(() => {
     const start = this.startTime();
     if (this.isStreaming()) return this.labels.reasoningMessageThinkingLabel;
     const seconds = start === undefined ? 0 : (Date.now() - start) / 1000;
-    return `Thought for ${formatReasoningDuration(seconds)}`;
+    return ɵformatLabel(this.labels.reasoningMessageThoughtForLabel, {
+      duration: formatDuration(seconds, this.labels),
+    });
   });
 
   protected readonly computedClass = computed(() =>
-    cn("cpk:my-1", this.inputClass()),
+    cn("cpk-reasoning-message", this.inputClass()),
   );
 
   protected readonly headerClass = computed(() =>
     cn(
-      "cpk:inline-flex cpk:items-center cpk:gap-1 cpk:py-1 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:select-none",
-      this.hasContent()
-        ? "cpk:hover:text-foreground cpk:cursor-pointer"
-        : "cpk:cursor-default",
+      "cpk-reasoning-message-header",
+      this.hasContent() && "cpk-reasoning-message-header-expandable",
     ),
   );
 
   protected readonly chevronClass = computed(() =>
     cn(
-      "cpk:size-3.5 cpk:shrink-0 cpk:transition-transform cpk:duration-200",
-      this.open() && "cpk:rotate-90",
+      "cpk-reasoning-message-chevron",
+      this.open() && "cpk-reasoning-message-chevron-open",
     ),
   );
 

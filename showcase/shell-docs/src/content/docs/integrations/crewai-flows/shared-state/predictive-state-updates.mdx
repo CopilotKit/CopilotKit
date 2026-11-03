@@ -186,46 +186,32 @@ included in the function's final returned state. Otherwise, they will be overwri
         These predictions will be emitted as the agent runs, allowing you to track its progress before the final state is determined.
 
         ```tsx title="ui/app/page.tsx"
+        "use client";
 
-        // ...
+        import { useAgent } from "@copilotkit/react-core";
 
-        const YourMainContent = () => {
-            // Get access to both predicted and final states
-            const { agent } = useAgent({ agentId: "sample_agent" });
+        type AgentState = {
+          observed_steps: string[];
+        };
 
-            // Add a state renderer to observe predictions
-            useAgent({
-                agentId: "sample_agent",
-                render: ({ state }) => {
-                    if (!state.observed_steps?.length) return null;
-                    return (
-                        <div>
-                            <h3>Current Progress:</h3>
-                            <ul>
-                                {state.observed_steps.map((step, i) => (
-                                    <li key={i}>{step}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    );
-                },
-            });
+        export function YourMainContent() {
+          // useAgent re-renders on every state update, including the predicted
+          // state that streams in while the agent is still running.
+          const { agent } = useAgent({ agentId: "sample_agent" });
+          const state: Partial<AgentState> = agent.state ?? {};
 
-            return (
-                <div>
-                    <h1>Agent Progress</h1>
-                    {agent.state?.observed_steps?.length > 0 && (
-                        <div>
-                            <h3>Final Steps:</h3>
-                            <ul>
-                                {agent.state.observed_steps.map((step, i) => (
-                                    <li key={i}>{step}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-                </div>
-            )
+          if (!state.observed_steps?.length) return null;
+
+          return (
+            <div>
+              <h3>{agent.isRunning ? "Current progress:" : "Final steps:"}</h3>
+              <ul>
+                {state.observed_steps.map((step, i) => (
+                  <li key={i}>{step}</li>
+                ))}
+              </ul>
+            </div>
+          );
         }
         ```
     </Step>

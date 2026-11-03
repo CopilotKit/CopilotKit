@@ -23,8 +23,11 @@ thread identifiers from its value. The SDK passes that same value to your
 every quickstart creates a fresh agent and assigns its `threadId`.
 
 ```ts title="agent.ts"
+import { HttpAgent } from "@copilotkit/channels";
+
 export function makeAgent(threadId: string) {
-  const agent = createAgentForYourFramework();
+  // Any AG-UI agent works. HttpAgent connects to an agent served over HTTP.
+  const agent = new HttpAgent({ url: "http://localhost:8000/agent" });
   agent.threadId = threadId;
   return agent;
 }
@@ -56,6 +59,21 @@ It is a lifecycle event, not a synthetic user message, so it does not run
 `onMessage` or add a made-up user turn to the conversation.
 
 ```ts title="channel.ts"
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  identifyUser: "platform",
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
+});
+
 channel.onWelcome(async ({ thread, user }) => {
   await thread.post(
     user ? `Welcome, ${user.name}.` : "Welcome. How can I help?",
@@ -74,6 +92,21 @@ history. `runAgent()` automatically injects it when `prompt` is omitted; pass
 an explicit combined prompt when a turn can contain both text and attachments:
 
 ```ts title="channel.ts"
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  identifyUser: "platform",
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
+});
+
 channel.onMessage(async ({ thread, message }) => {
   await thread.runAgent({
     prompt: message.contentParts?.length

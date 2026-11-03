@@ -1,5 +1,7 @@
 import type { Preview } from "@storybook/angular";
+import { componentWrapperDecorator, moduleMetadata } from "@storybook/angular";
 import { withThemeByClassName } from "@storybook/addon-themes";
+import { CopilotKitStyles } from "@copilotkit/angular";
 
 const preview: Preview = {
   parameters: {
@@ -42,6 +44,11 @@ const preview: Preview = {
     },
   },
   decorators: [
+    // The chat surfaces add CopilotKit's CSS themselves. Stories that render a
+    // single part (an input, a message) need <copilot-kit-styles />, as an app
+    // with a custom layout would.
+    moduleMetadata({ imports: [CopilotKitStyles] }),
+    componentWrapperDecorator((story) => `<copilot-kit-styles />${story}`),
     withThemeByClassName({
       themes: {
         light: "", // default = no extra class

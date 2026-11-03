@@ -179,6 +179,75 @@ const THREADS_SELF_MANAGED_RETIREMENT_REDIRECTS: PermanentRedirect[] = [
   ),
 ];
 
+// CopilotKit 2.0 deleted the v1 React and Runtime APIs, so their reference
+// pages under /reference/v1 are gone. Send every published HTML and raw-doc URL
+// to the 2.0 page for the same job in one hop. The generated SDK pages under
+// /reference/v1/sdk/* are still live and keep their URLs.
+const RETIRED_V1_REFERENCE_PAGES = [
+  ["export-map", "/migrate/v2"],
+  ["components/CopilotKit", "/reference/components/CopilotKit"],
+  // CopilotTextarea has no 2.0 equivalent.
+  ["components/CopilotTextarea", "/migrate/v2"],
+  ["components/chat", "/reference/components/CopilotChat"],
+  ["components/chat/CopilotChat", "/reference/components/CopilotChat"],
+  ["components/chat/CopilotPopup", "/reference/components/CopilotPopup"],
+  ["components/chat/CopilotSidebar", "/reference/components/CopilotSidebar"],
+  ["hooks/useAgent", "/reference/hooks/useAgent"],
+  ["hooks/useCoAgent", "/reference/hooks/useAgent"],
+  ["hooks/useCoAgentStateRender", "/reference/hooks/useAgent"],
+  ["hooks/useCopilotAction", "/reference/hooks/useFrontendTool"],
+  [
+    "hooks/useCopilotAdditionalInstructions",
+    "/reference/hooks/useAgentContext",
+  ],
+  ["hooks/useCopilotChat", "/reference/hooks/useAgent"],
+  ["hooks/useCopilotChatHeadless_c", "/reference/hooks/useAgent"],
+  [
+    "hooks/useCopilotChatSuggestions",
+    "/reference/hooks/useConfigureSuggestions",
+  ],
+  ["hooks/useCopilotReadable", "/reference/hooks/useAgentContext"],
+  ["hooks/useDefaultTool", "/reference/hooks/useDefaultRenderTool"],
+  ["hooks/useFrontendTool", "/reference/hooks/useFrontendTool"],
+  ["hooks/useHumanInTheLoop", "/reference/hooks/useHumanInTheLoop"],
+  ["hooks/useLangGraphInterrupt", "/reference/hooks/useInterrupt"],
+  ["hooks/useRenderToolCall", "/reference/hooks/useRenderTool"],
+  ["classes/CopilotRuntime", "/backend/copilot-runtime"],
+  ["classes/CopilotTask", "/programmatic-control"],
+  // 2.0 has no service adapters. A model runs in a BuiltInAgent.
+  ...[
+    "AnthropicAdapter",
+    "GoogleGenerativeAIAdapter",
+    "GroqAdapter",
+    "LangChainAdapter",
+    "OpenAIAdapter",
+    "OpenAIAssistantAdapter",
+  ].map(
+    (adapter) =>
+      [`classes/llm-adapters/${adapter}`, "/model-selection"] as const,
+  ),
+] as const;
+
+const V1_REFERENCE_RETIREMENT_REDIRECTS: PermanentRedirect[] =
+  RETIRED_V1_REFERENCE_PAGES.flatMap(([legacyPath, destination]) =>
+    permanentRedirectsWithSuffixes(`/reference/v1/${legacyPath}`, destination),
+  );
+
+// The CopilotTextarea tutorial is deleted for good: CopilotTextarea has no 2.0
+// equivalent. Unlike the other retired tutorials (302 to `/` below, kept on
+// disk for a rewrite), it will not come back, so it gets a 301 to the
+// quickstart, the same page the framework-scoped tutorial URLs land on.
+const TEXTAREA_TUTORIAL_RETIREMENT_REDIRECTS: PermanentRedirect[] = [
+  ...permanentRedirectsWithSuffixes(
+    "/tutorials/ai-powered-textarea",
+    "/quickstart",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/tutorials/ai-powered-textarea/:path*",
+    "/quickstart",
+  ),
+];
+
 function channelChildRedirects(
   legacySlug: string,
   canonicalSlug: string,
@@ -603,6 +672,10 @@ const nextConfig: NextConfig = {
       // Self-managed thread persistence is retired; its URLs land on the
       // AG-UI Streams overview.
       ...THREADS_SELF_MANAGED_RETIREMENT_REDIRECTS,
+      // The v1 React and Runtime reference and the CopilotTextarea tutorial
+      // are deleted; their URLs land on the closest 2.0 page.
+      ...V1_REFERENCE_RETIREMENT_REDIRECTS,
+      ...TEXTAREA_TUTORIAL_RETIREMENT_REDIRECTS,
       // OSS-615: legacy global, scoped, generated-reference, and Bots URLs
       // resolve directly to the canonical Slack/Teams guide trees.
       ...CHANNEL_REDIRECTS,

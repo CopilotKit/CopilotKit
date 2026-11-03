@@ -18,12 +18,12 @@ Call it from an injection context such as a constructor or field initializer. Th
 ## Signature
 
 ```ts
-import { injectAgentStore } from "@copilotkit/angular";
+import { injectAgentStore, type AgentStore } from "@copilotkit/angular";
 import type { Signal } from "@angular/core";
 
-function injectAgentStore(
+injectAgentStore satisfies (
   agentId: string | Signal<string | undefined>,
-): Signal<AgentStore>;
+) => Signal<AgentStore>;
 ```
 
 ## Parameters

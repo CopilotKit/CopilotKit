@@ -40,7 +40,7 @@ function readJson<T>(path: string): T {
  * Script text that fails unless the loaded runtime reports `expected`.
  *
  * The runtime's version is injected at build time rather than imported from
- * package.json (see packages/runtime/src/v2/runtime/core/package-info.ts).
+ * package.json (see packages/runtime/src/runtime/core/package-info.ts).
  * Source that runs without the injection reports a placeholder, so this is
  * what proves the published build carries the real version, in each format.
  */
@@ -112,7 +112,7 @@ function main(): void {
         "node",
         "--eval",
         `require("@copilotkit/runtime");
-const { VERSION } = require("@copilotkit/runtime/v2");
+const { VERSION } = require("@copilotkit/runtime");
 ${assertVersion(runtimeVersion)}`,
       ],
       consumerDir,
@@ -131,7 +131,7 @@ const channelsIntelligenceUrl = import.meta.resolve(
   runtimePackageUrl,
 );
 await import(channelsIntelligenceUrl);
-const { VERSION } = await import("@copilotkit/runtime/v2");
+const { VERSION } = await import("@copilotkit/runtime");
 ${assertVersion(runtimeVersion)}`,
       ],
       consumerDir,

@@ -6,7 +6,7 @@ import {
   useHumanInTheLoop,
   useRenderTool,
   ToolCallStatus,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { AddTrips, EditTrips, DeleteTrips } from "@/components/humanInTheLoop";

@@ -33,6 +33,22 @@ export const Default: Story = {
   },
 };
 
+export const RightPosition: Story = {
+  args: {
+    autoScroll: true,
+    position: "right",
+    width: 480,
+  },
+};
+
+export const LeftPosition: Story = {
+  args: {
+    autoScroll: true,
+    position: "left",
+    width: 480,
+  },
+};
+
 export const CustomHeader: Story = {
   render: (args) => ({
     components: {

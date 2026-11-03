@@ -7,8 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()  # pylint: disable=wrong-import-position
 
 import uvicorn
-from ag_ui_langgraph import add_langgraph_fastapi_endpoint
-from copilotkit import LangGraphAGUIAgent
+from ag_ui_langgraph import LangGraphAgent, add_langgraph_fastapi_endpoint
 from fastapi import FastAPI
 
 from src.agent import graph
@@ -16,7 +15,7 @@ from src.agent import graph
 app = FastAPI()
 add_langgraph_fastapi_endpoint(
     app=app,
-    agent=LangGraphAGUIAgent(
+    agent=LangGraphAgent(
         name="travel",
         description="An agent for travel planning.",
         graph=graph,
@@ -33,14 +32,7 @@ def main():
         host="localhost",
         port=port,
         reload=True,
-        reload_dirs=(
-            ["."]
-            + (
-                ["../../../sdk-python/copilotkit"]
-                if os.path.exists("../../../sdk-python/copilotkit")
-                else []
-            )
-        ),
+        reload_dirs=["."],
     )
 
 

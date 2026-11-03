@@ -1,10 +1,12 @@
-import type { AssistantMessage } from "@ag-ui/core";
+import type { AssistantMessage, Message } from "@ag-ui/core";
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import {
   CopilotChatAssistantMessage,
   CopilotChatConfigurationProvider,
+  CopilotChatMessageView,
   CopilotKitProvider,
 } from "@copilotkit/vue";
+import type { CopilotKitLearningOptions } from "@copilotkit/vue";
 
 const createAlertHandler = (message: string) => () => window.alert(message);
 const createLogHandler = (message: string) => () => console.log(message);
@@ -284,6 +286,24 @@ const codeBlocksMessage: AssistantMessage = {
   role: "assistant",
 };
 
+/**
+ * Automatic Learning capture with a sink that drops the events, so the thumbs
+ * record reply ratings without a runtime.
+ */
+const dropEvents: CopilotKitLearningOptions = {
+  sink: () => {},
+  capture: { clicks: false, navigation: false, network: false, inputs: false },
+};
+
+const ratedConversation: Message[] = [
+  { id: "rating-user", role: "user", content: "Is the deal approved?" },
+  {
+    id: "rating-reply",
+    role: "assistant",
+    content: "Yes. The deal is approved and the contract is on its way.",
+  },
+];
+
 const meta = {
   title: "UI/CopilotChatAssistantMessage",
   component: CopilotChatAssistantMessage,
@@ -444,4 +464,32 @@ export const CodeBlocksWithLanguages: Story = {
   args: {
     message: codeBlocksMessage,
   },
+};
+
+/**
+ * Reply ratings while Automatic Learning captures: click a thumb to rate the
+ * reply and open its comment popover.
+ */
+export const WithReplyRatings: Story = {
+  render: () => ({
+    components: {
+      CopilotKitProvider,
+      CopilotChatConfigurationProvider,
+      CopilotChatMessageView,
+    },
+    setup() {
+      return { messages: ratedConversation, learning: dropEvents };
+    },
+    template: `
+      <div style="display:flex; justify-content:center; align-items:flex-start; min-height:100vh; padding:16px">
+        <div style="width:100%; max-width:640px">
+          <CopilotKitProvider runtime-url="https://copilotkit.ai" :learning="learning">
+            <CopilotChatConfigurationProvider thread-id="storybook-thread">
+              <CopilotChatMessageView :messages="messages" />
+            </CopilotChatConfigurationProvider>
+          </CopilotKitProvider>
+        </div>
+      </div>
+    `,
+  }),
 };

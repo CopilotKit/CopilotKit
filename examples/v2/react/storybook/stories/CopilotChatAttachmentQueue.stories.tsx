@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { CopilotChatAttachmentQueue } from "@copilotkit/react-core/v2";
-import type { Attachment } from "@copilotkit/react-core/v2";
+import { CopilotChatAttachmentQueue } from "@copilotkit/react-core";
+import type { Attachment } from "@copilotkit/react-core";
 import {
   audioAttachment,
   docAttachment,

@@ -1,5 +1,5 @@
-import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
-import type { CopilotChatAssistantMessageProps } from "@copilotkit/react-core/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/react-core";
+import type { CopilotChatAssistantMessageProps } from "@copilotkit/react-core";
 
 function CustomAssistantMessageComponent(
   props: CopilotChatAssistantMessageProps,

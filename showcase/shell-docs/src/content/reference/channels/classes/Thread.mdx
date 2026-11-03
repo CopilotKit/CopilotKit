@@ -25,9 +25,15 @@ tools, and JSX callbacks receive it.
 | `postFile(args)`                            | `Promise<{ ok, fileId?, assetId?, error? }>` | Upload bytes with a filename when supported.                                                        |
 | `postEphemeral(user, ui, { fallbackToDM })` | `Promise<EphemeralResult \| null>` | Provider-capability-gated private reply. The required boolean chooses whether to fall back to a direct message. |
 
-```tsx title="handler.tsx"
-const ref = await thread.post("Working…");
-await thread.update(ref, "Done.");
+```ts title="handler.ts"
+import { createChannel } from "@copilotkit/channels";
+
+const channel = createChannel({ name: "support", identifyUser: "platform" });
+
+channel.onMessage(async ({ thread }) => {
+  const ref = await thread.post("Working…");
+  await thread.update(ref, "Done.");
+});
 ```
 
 The `MessageRef` returned by `thread.post()` is updateable or deletable only
@@ -66,6 +72,15 @@ branch first on `ok`.
 | `memory`     | `{ user?, project? }`           | Per-run Intelligence Memory access. Each scope is `"none"`, `"read"`, or `"read-write"`; omission disables Memory.      |
 
 ```ts title="channel.ts"
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+
+const channel = createChannel({
+  name: "support",
+  identifyUser: "platform",
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
+});
+
 channel.onMessage(async ({ thread, message }) => {
   await thread.runAgent({
     prompt: message.contentParts?.length
@@ -88,11 +103,24 @@ handler, and call `resume(value)` when a later click arrives. Do not call
 
 Personal Memory on resume needs a trusted subject selector:
 
-```ts
-await thread.resume(value, {
-  memory: { user: "read", project: "read" },
-  subject: "initiator", // or "actor"
-});
+```tsx title="approve-button.tsx"
+import { Button } from "@copilotkit/channels/ui";
+
+export function ApproveButton() {
+  return (
+    <Button
+      value={{ approved: true }}
+      onClick={async ({ thread, action }) => {
+        await thread.resume(action.value, {
+          memory: { user: "read", project: "read" },
+          subject: "initiator", // or "actor"
+        });
+      }}
+    >
+      Approve
+    </Button>
+  );
+}
 ```
 
 `initiator` keeps the application user that started this HITL chain. `actor`

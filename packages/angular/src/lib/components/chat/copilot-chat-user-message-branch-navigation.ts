@@ -20,7 +20,7 @@ import { UserMessage } from "@ag-ui/core";
   encapsulation: ViewEncapsulation.None,
   template: `
     @if (showNavigation()) {
-      <div [class]="computedClass()">
+      <div data-testid="copilot-branch-navigation" [class]="computedClass()">
         <button
           type="button"
           [attr.aria-label]="labels.userMessageToolbarPreviousBranchLabel"
@@ -28,11 +28,12 @@ import { UserMessage } from "@ag-ui/core";
           [disabled]="!canGoPrev()"
           (click)="handlePrevious()"
         >
-          <copilot-icon [img]="ChevronLeftIcon" [size]="20"></copilot-icon>
+          <copilot-icon
+            [img]="ChevronLeftIcon"
+            iconClass="cpk-user-message-branch-icon"
+          ></copilot-icon>
         </button>
-        <span
-          class="cpk:text-sm cpk:text-muted-foreground cpk:px-0 cpk:font-medium"
-        >
+        <span class="cpk-user-message-branch-counter">
           {{ currentBranch() + 1 }}/{{ numberOfBranches() }}
         </span>
         <button
@@ -42,7 +43,10 @@ import { UserMessage } from "@ag-ui/core";
           [disabled]="!canGoNext()"
           (click)="handleNext()"
         >
-          <copilot-icon [img]="ChevronRightIcon" [size]="20"></copilot-icon>
+          <copilot-icon
+            [img]="ChevronRightIcon"
+            iconClass="cpk-user-message-branch-icon"
+          ></copilot-icon>
         </button>
       </div>
     }
@@ -59,22 +63,8 @@ export class CopilotChatUserMessageBranchNavigation {
   readonly ChevronRightIcon = ChevronRight;
   readonly labels = injectChatLabels();
 
-  readonly buttonClass = cn(
-    // Flex centering
-    "cpk:inline-flex cpk:items-center cpk:justify-center",
-    // Cursor
-    "cpk:cursor-pointer",
-    // Background and text
-    "cpk:p-0 cpk:text-[rgb(93,93,93)] cpk:hover:bg-[#E8E8E8]",
-    // Dark mode
-    "cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
-    // Shape and sizing
-    "cpk:h-6 cpk:w-6 cpk:rounded-md",
-    // Interactions
-    "cpk:transition-colors",
-    // Disabled state
-    "cpk:disabled:opacity-50 cpk:disabled:cursor-not-allowed",
-  );
+  readonly buttonClass =
+    "cpk-button cpk-button-assistant-message-toolbar cpk-button-size-default cpk-user-message-branch-button";
 
   showNavigation = computed(() => this.numberOfBranches() > 1);
 
@@ -85,7 +75,7 @@ export class CopilotChatUserMessageBranchNavigation {
   );
 
   computedClass = computed(() => {
-    return cn("cpk:flex cpk:items-center cpk:gap-1", this.inputClass());
+    return cn("cpk-user-message-branch-navigation", this.inputClass());
   });
 
   handlePrevious(): void {

@@ -1,6 +1,6 @@
 "use client";
 
-import { CopilotSidebar, useAgentContext } from "@copilotkit/react-core/v2";
+import { CopilotSidebar, useAgentContext } from "@copilotkit/react-core";
 import { Dashboard } from "../components/Dashboard";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";

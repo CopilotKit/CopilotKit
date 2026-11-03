@@ -21,11 +21,49 @@ npm install @copilotkit/angular @angular/cdk
 
 ## Styling
 
-When using the prebuilt UI components, import the stylesheet once in your global styles. It is self-contained, so the chat renders without any other CSS.
+The UI components include their own styles. You don't import a stylesheet. `<copilot-chat>`, `<copilot-chat-view>`, `<copilot-popup>`, and `<copilot-sidebar>` add one `<style>` tag to the page, and it is included in server-rendered HTML.
 
-```css title="src/styles.css"
-@import "@copilotkit/angular/styles.css";
+If you render other chat components without a chat surface, add `<copilot-kit-styles />` once. Import `CopilotKitStyles` from `@copilotkit/angular`.
+
+If your Content-Security-Policy limits `style-src` to a nonce, provide it with Angular's `CSP_NONCE` token. Angular adds it to the `<style>` tag:
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig, CSP_NONCE } from "@angular/core";
+// The nonce your server puts in the Content-Security-Policy header.
+import { nonce } from "./csp-nonce";
+
+export const appConfig: ApplicationConfig = {
+  providers: [{ provide: CSP_NONCE, useValue: nonce }],
+};
 ```
+
+You can also set the `ngCspNonce` attribute on your root element. See [Angular's security guide](https://angular.dev/best-practices/security#content-security-policy).
+
+### Load the CSS as a cached file
+
+The `<style>` tag is part of your JavaScript, so browsers cache it with your app's code. Server-rendered pages also send it in the HTML of each full page load. To have browsers cache the CSS as its own file, add it to your global styles and turn off the `<style>` tag:
+
+```json title="angular.json"
+"styles": ["node_modules/@copilotkit/core/styles.css", "src/styles.css"]
+```
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "/api/copilotkit",
+      injectStyles: false,
+    }),
+  ],
+};
+```
+
+This is optional. Install `@copilotkit/core` as a direct dependency so the path resolves.
+
+To update an app that still imports `@copilotkit/angular/styles.css`, remove that import. The components now add their own styles.
 
 ## Provider setup
 

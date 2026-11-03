@@ -36,7 +36,7 @@ content.
 
 ```tsx title="app/event-card.tsx"
 import { z } from "zod";
-import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
+import type { ReactActivityMessageRenderer } from "@copilotkit/react-core";
 
 const contentSchema = z.object({
   title: z.string(),
@@ -60,17 +60,17 @@ export const eventCardRenderer: ReactActivityMessageRenderer<
 ### 2. Register it on the provider
 
 ```tsx title="app/page.tsx"
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core";
 import { eventCardRenderer } from "./event-card";
 
 export default function Page() {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       renderActivityMessages={[eventCardRenderer]} // [!code highlight]
     >
       <CopilotChat />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 ```
@@ -82,7 +82,7 @@ Get the live agent with `useAgent()`, then call `addMessage` with
 
 ```tsx title="app/deployment-watcher.tsx"
 import { useEffect } from "react";
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 
 export function DeploymentWatcher() {
   const { agent } = useAgent();

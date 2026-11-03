@@ -6,7 +6,8 @@ import tailwindStyles from "../styles/generated.css";
 import inspectorLogoUrl from "../assets/inspector-logo.svg";
 import inspectorLogoKiteUrl from "../assets/inspector-logo-kite.svg";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
-import { icons } from "lucide";
+import { ICON_NODES } from "../ui/icons/icons.js";
+import type { IconName, IconNode } from "../ui/icons/icons.js";
 import type { CopilotKitCore, CopilotKitCoreErrorCode } from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import type {
@@ -399,12 +400,10 @@ interface RuntimeEntitlementDisplayDiagnostic {
   };
 }
 
-type LucideIconName = keyof typeof icons;
-
 type MenuItem = {
   key: MenuKey;
   label: string;
-  icon: LucideIconName;
+  icon: IconName;
 };
 
 /**
@@ -868,29 +867,29 @@ export class WebInspectorElement extends LitElement {
     // showing Capabilities as well is a duplicate leaf.
     const hasCapabilities = hasCatalog;
     return [
-      { key: "home", label: "Home", icon: "Home" as LucideIconName },
+      { key: "home", label: "Home", icon: "Home" as IconName },
       {
         key: WHATS_NEW_MENU_KEY,
         label: WHATS_NEW_VIEW_LABEL,
-        icon: "Megaphone" as LucideIconName,
+        icon: "Megaphone" as IconName,
       },
       {
         key: "playground",
         label: "Playground",
-        icon: "MessageCircle" as LucideIconName,
+        icon: "MessageCircle" as IconName,
       },
       {
         key: "ag-ui-events",
         label: "AG-UI Events",
-        icon: "Zap" as LucideIconName,
+        icon: "Zap" as IconName,
       },
-      { key: "agents", label: "Agent", icon: "Bot" as LucideIconName },
+      { key: "agents", label: "Agent", icon: "Bot" as IconName },
       ...(hasFrontendTools
         ? [
             {
               key: "frontend-tools" as const,
               label: "Frontend Tools",
-              icon: "Hammer" as LucideIconName,
+              icon: "Hammer" as IconName,
             },
           ]
         : []),
@@ -899,33 +898,33 @@ export class WebInspectorElement extends LitElement {
             {
               key: "capabilities" as const,
               label: CAPABILITIES_TAB_LABEL,
-              icon: "SlidersHorizontal" as LucideIconName,
+              icon: "SlidersHorizontal" as IconName,
             },
           ]
         : []),
       {
         key: "agent-context",
         label: "Context",
-        icon: "FileText" as LucideIconName,
+        icon: "FileText" as IconName,
       },
       ...(this._core?.ɵgenerativeUIDebugSource
         ? [
             {
               key: "generative-ui" as const,
               label: "Generative UI",
-              icon: "LayoutTemplate" as LucideIconName,
+              icon: "LayoutTemplate" as IconName,
             },
           ]
         : []),
       {
         key: "threads",
         label: "Rich Threads",
-        icon: "MessageSquare" as LucideIconName,
+        icon: "MessageSquare" as IconName,
       },
       {
         key: "memories",
         label: LEARNING_VIEW_LABEL,
-        icon: "Brain" as LucideIconName,
+        icon: "Brain" as IconName,
       },
     ];
   }
@@ -1874,7 +1873,7 @@ export class WebInspectorElement extends LitElement {
       featureIcon: isThreads
         ? unsafeHTML(this.customTabIcons.threads)
         : this.renderIcon("Brain"),
-      renderIcon: (name) => this.renderIcon(name as LucideIconName),
+      renderIcon: (name) => this.renderIcon(name as IconName),
       onTalkToEngineer: this.handleThreadsTalkToEngineerClick,
     });
   }
@@ -3790,8 +3789,8 @@ export class WebInspectorElement extends LitElement {
     this.windowShell.close();
   }
 
-  private renderIcon(name: LucideIconName) {
-    const iconNode = icons[name];
+  private renderIcon(name: IconName) {
+    const iconNode: IconNode = ICON_NODES[name];
     if (!iconNode) {
       return nothing;
     }
@@ -5198,7 +5197,7 @@ export class WebInspectorElement extends LitElement {
       embedded: options.embedded,
       failedRunEventId,
       clipboard: this.getClipboard(),
-      renderIcon: (name) => this.renderIcon(name as LucideIconName),
+      renderIcon: (name) => this.renderIcon(name as IconName),
       renderJson: renderJsonValue,
       onFilterInput: this.handleEventFilterInput,
       onAgentChange: this.handleEventAgentChange,
@@ -5331,13 +5330,13 @@ export class WebInspectorElement extends LitElement {
             state: this.live,
             tools: toolsForAgent(this.live, agentId),
             available: this._core !== null,
-            renderIcon: (name) => this.renderIcon(name as LucideIconName),
+            renderIcon: (name) => this.renderIcon(name as IconName),
             onToggle: (id) => this.toggleToolExpansion(id),
           })
         : nothing,
       eventsSection: this.renderLiveEventsTable({ embedded: true }),
       clipboard: this.getClipboard(),
-      renderIcon: (name) => this.renderIcon(name as LucideIconName),
+      renderIcon: (name) => this.renderIcon(name as IconName),
       renderJson: renderJsonValue,
       onViewEvents: () => this.handleMenuSelect("ag-ui-events"),
     });
@@ -5349,7 +5348,7 @@ export class WebInspectorElement extends LitElement {
       agentsOnly: this.selectedMenu === "agents",
       iconRail,
       open: this.contextMenuOpen,
-      renderIcon: (name) => this.renderIcon(name as LucideIconName),
+      renderIcon: (name) => this.renderIcon(name as IconName),
       onToggle: this.handleContextDropdownToggle,
       onSelect: (key) => this.handleContextOptionSelect(key),
       onPointerEnter: this.handleIconRailContextPointerEnter,
@@ -5697,7 +5696,7 @@ export class WebInspectorElement extends LitElement {
       available: core !== null,
       tools,
       catalog,
-      renderIcon: (name) => this.renderIcon(name as LucideIconName),
+      renderIcon: (name) => this.renderIcon(name as IconName),
       onToggleTool: (row) => this.handleToggleTool(row),
       onToggleCatalog: (row) => this.handleToggleCatalogComponent(row.name),
     });
@@ -5733,7 +5732,7 @@ export class WebInspectorElement extends LitElement {
       state: this.live,
       tools,
       available: this._core !== null,
-      renderIcon: (name) => this.renderIcon(name as LucideIconName),
+      renderIcon: (name) => this.renderIcon(name as IconName),
       onToggle: (id) => this.toggleToolExpansion(id),
     });
   }
@@ -5751,7 +5750,7 @@ export class WebInspectorElement extends LitElement {
     return renderLiveContextView({
       state: this.live,
       clipboard: this.getClipboard(),
-      renderIcon: (name) => this.renderIcon(name as LucideIconName),
+      renderIcon: (name) => this.renderIcon(name as IconName),
       renderJson: renderJsonValue,
       onToggle: (id) => this.toggleContextExpansion(id),
     });

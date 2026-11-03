@@ -11,7 +11,7 @@ import {
   CopilotKitProvider,
   CopilotSidebar,
   CopilotPopup,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
 interface OpenGenUIPageProps {

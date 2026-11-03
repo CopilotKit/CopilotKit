@@ -1,11 +1,10 @@
 import {
   CopilotRuntime,
   InMemoryAgentRunner,
-  createCopilotEndpointSingleRoute,
+  createCopilotRuntimeHandler,
   BuiltInAgent,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
-import { handle } from "hono/vercel";
 import OpenAI from "openai";
 
 const determineModel = () => {
@@ -42,9 +41,11 @@ const singleRuntime = new CopilotRuntime({
   transcriptionService,
 });
 
-const app = createCopilotEndpointSingleRoute({
+const app = createCopilotRuntimeHandler({
+  mode: "single-route",
+  cors: true,
   runtime: singleRuntime,
   basePath: "/api/copilotkit-single",
 });
 
-export const POST = handle(app);
+export const POST = app;

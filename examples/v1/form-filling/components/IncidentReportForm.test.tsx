@@ -1,13 +1,13 @@
 import type { PropsWithChildren } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test, vi } from "vitest";
-import { useAgentContext, useFrontendTool } from "@copilotkit/react-core/v2";
+import { useAgentContext, useFrontendTool } from "@copilotkit/react-core";
 import { applyIncidentReportFormValues } from "@/lib/apply-incident-report-form-values";
 import { serializeIncidentDate } from "@/lib/incident-date";
 import { prompt } from "@/lib/prompt";
 import { IncidentReportForm } from "./IncidentReportForm";
 
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   useAgentContext: vi.fn(),
   useFrontendTool: vi.fn(),
 }));

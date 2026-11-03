@@ -158,6 +158,144 @@ describe("retired self-managed thread persistence docs", () => {
   });
 });
 
+describe("retired v1 reference docs", () => {
+  it("redirects every deleted v1 page to its 2.0 page in one hop", async () => {
+    for (const suffix of RAW_DOC_SUFFIXES) {
+      const redirects = [
+        ["/reference/v1/export-map", "/migrate/v2"],
+        [
+          "/reference/v1/components/CopilotKit",
+          "/reference/components/CopilotKit",
+        ],
+        ["/reference/v1/components/CopilotTextarea", "/migrate/v2"],
+        ["/reference/v1/components/chat", "/reference/components/CopilotChat"],
+        [
+          "/reference/v1/components/chat/CopilotChat",
+          "/reference/components/CopilotChat",
+        ],
+        [
+          "/reference/v1/components/chat/CopilotPopup",
+          "/reference/components/CopilotPopup",
+        ],
+        [
+          "/reference/v1/components/chat/CopilotSidebar",
+          "/reference/components/CopilotSidebar",
+        ],
+        ["/reference/v1/hooks/useAgent", "/reference/hooks/useAgent"],
+        ["/reference/v1/hooks/useCoAgent", "/reference/hooks/useAgent"],
+        [
+          "/reference/v1/hooks/useCoAgentStateRender",
+          "/reference/hooks/useAgent",
+        ],
+        [
+          "/reference/v1/hooks/useCopilotAction",
+          "/reference/hooks/useFrontendTool",
+        ],
+        [
+          "/reference/v1/hooks/useCopilotAdditionalInstructions",
+          "/reference/hooks/useAgentContext",
+        ],
+        ["/reference/v1/hooks/useCopilotChat", "/reference/hooks/useAgent"],
+        [
+          "/reference/v1/hooks/useCopilotChatHeadless_c",
+          "/reference/hooks/useAgent",
+        ],
+        [
+          "/reference/v1/hooks/useCopilotChatSuggestions",
+          "/reference/hooks/useConfigureSuggestions",
+        ],
+        [
+          "/reference/v1/hooks/useCopilotReadable",
+          "/reference/hooks/useAgentContext",
+        ],
+        [
+          "/reference/v1/hooks/useDefaultTool",
+          "/reference/hooks/useDefaultRenderTool",
+        ],
+        [
+          "/reference/v1/hooks/useFrontendTool",
+          "/reference/hooks/useFrontendTool",
+        ],
+        [
+          "/reference/v1/hooks/useHumanInTheLoop",
+          "/reference/hooks/useHumanInTheLoop",
+        ],
+        [
+          "/reference/v1/hooks/useLangGraphInterrupt",
+          "/reference/hooks/useInterrupt",
+        ],
+        [
+          "/reference/v1/hooks/useRenderToolCall",
+          "/reference/hooks/useRenderTool",
+        ],
+        ["/reference/v1/classes/CopilotRuntime", "/backend/copilot-runtime"],
+        ["/reference/v1/classes/CopilotTask", "/programmatic-control"],
+        [
+          "/reference/v1/classes/llm-adapters/AnthropicAdapter",
+          "/model-selection",
+        ],
+        [
+          "/reference/v1/classes/llm-adapters/GoogleGenerativeAIAdapter",
+          "/model-selection",
+        ],
+        ["/reference/v1/classes/llm-adapters/GroqAdapter", "/model-selection"],
+        [
+          "/reference/v1/classes/llm-adapters/LangChainAdapter",
+          "/model-selection",
+        ],
+        [
+          "/reference/v1/classes/llm-adapters/OpenAIAdapter",
+          "/model-selection",
+        ],
+        [
+          "/reference/v1/classes/llm-adapters/OpenAIAssistantAdapter",
+          "/model-selection",
+        ],
+      ] as const;
+
+      for (const [source, destination] of redirects) {
+        await expectPermanentOneHop(
+          `${source}${suffix}`,
+          `${destination}${suffix}`,
+        );
+      }
+    }
+  });
+
+  it("leaves the generated v1 SDK pages and the v1 index live", async () => {
+    for (const source of [
+      "/reference/v1",
+      "/reference/v1/sdk/js/LangGraph",
+      "/reference/v1/sdk/python/LangGraph",
+      "/reference/v1/sdk/python/LangGraphAGUIAgent",
+      "/reference/v1/sdk/python/CrewAI",
+      "/reference/v1/sdk/python/CrewAIAgent",
+      "/reference/v1/sdk/python/RemoteEndpoints",
+    ]) {
+      for (const suffix of RAW_DOC_SUFFIXES) {
+        expect(await resolveFirstRedirect(`${source}${suffix}`)).toBeNull();
+      }
+    }
+  });
+});
+
+describe("retired CopilotTextarea tutorial", () => {
+  it("sends the tutorial and each of its steps to the quickstart in one hop", async () => {
+    for (const suffix of RAW_DOC_SUFFIXES) {
+      for (const source of [
+        "/tutorials/ai-powered-textarea",
+        "/tutorials/ai-powered-textarea/overview",
+        "/tutorials/ai-powered-textarea/step-3-copilot-textarea",
+      ]) {
+        await expectPermanentOneHop(
+          `${source}${suffix}`,
+          `/quickstart${suffix}`,
+        );
+      }
+    }
+  });
+});
+
 function interpolateDestination(
   destination: string,
   params: Record<string, unknown>,

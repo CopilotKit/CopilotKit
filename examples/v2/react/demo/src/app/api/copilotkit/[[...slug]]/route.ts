@@ -1,13 +1,12 @@
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
-} from "@copilotkit/runtime/v2";
-import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
+import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime";
 import { createOpenAI } from "@ai-sdk/openai";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
-import { handle } from "hono/vercel";
 import OpenAI from "openai";
 
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
@@ -64,7 +63,7 @@ const transcriptionService = openAIApiKey
     })
   : undefined;
 
-const honoRuntime = new CopilotRuntime({
+const runtime = new CopilotRuntime({
   agents: {
     default: builtInAgent,
   },
@@ -74,10 +73,11 @@ const honoRuntime = new CopilotRuntime({
   openGenerativeUI: true,
 });
 
-const app = createCopilotEndpoint({
-  runtime: honoRuntime,
+const app = createCopilotRuntimeHandler({
+  cors: true,
+  runtime: runtime,
   basePath: "/api/copilotkit",
 });
 
-export const GET = handle(app);
-export const POST = handle(app);
+export const GET = app;
+export const POST = app;

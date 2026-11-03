@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 
 /**
  * CopilotKit's design tokens, rendered live. Names are read from the
- * `[data-copilotkit]` rule in `packages/react-core/src/v2/styles/globals.css`
+ * `[data-copilotkit]` rule in `packages/core/src/styles/css/theme.css`
  * as loaded on the page, and every swatch paints `var(--token)` inside a
  * `data-copilotkit` scope, so edits to the stylesheet and the theme toggle
  * show up here immediately.

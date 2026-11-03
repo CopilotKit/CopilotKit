@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
-import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { createCopilotRuntimeHandler } from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -20,10 +20,12 @@ app.get("/", (c) =>
 app.get("/health", (c) => c.json({ status: "healthy" }));
 
 // CopilotKit endpoints
-app.route(
-  "/",
-  createCopilotHonoHandler({ runtime, basePath: "/api/copilotkit" }),
-);
+const handler = createCopilotRuntimeHandler({
+  cors: true,
+  runtime,
+  basePath: "/api/copilotkit",
+});
+app.all("/api/copilotkit/*", (c) => handler(c.req.raw));
 
 const port = Number(process.env.PORT ?? 4003);
 serve({ fetch: app.fetch, port }, () => {

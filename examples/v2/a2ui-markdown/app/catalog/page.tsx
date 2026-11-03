@@ -6,12 +6,12 @@ import {
   CopilotKitProvider,
   useAgent,
   useCopilotKit,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import {
   GenerativeUISurface,
   standardUI,
-} from "@copilotkit/react-core/v2/generative-ui";
-import type { GenerativeUIErrorInfo } from "@copilotkit/react-core/v2/generative-ui";
+} from "@copilotkit/react-core/generative-ui";
+import type { GenerativeUIErrorInfo } from "@copilotkit/react-core/generative-ui";
 import {
   createCatalogAgent,
   sampleOperations,

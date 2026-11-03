@@ -4,19 +4,15 @@ title: "Step 6: Shared State"
 
 In LangGraph, your agents are stateful. This means that they as your graph traverses nodes, the overall application state will be updated and persisted.
 
-CopilotKit allows you to easily read and update this state through the use of two main hooks:
-
-- [`useCoAgent`](/reference/v1/hooks/useCoAgent) - Provides a way to read and write Agent state anywhere in your application.
-- [`useCoAgentStateRender`](/reference/v1/hooks/useCoAgentStateRender) - Provides a way to render Agent state in the chat.
+CopilotKit allows you to easily read and update this state through the [`useAgent`](/reference/hooks/useAgent) hook. It returns the agent, whose
+`state` you can read anywhere in your application and update with `agent.setState`.
 
 With this in mind, our current goal is to create a bidirectional connection between the application's state and the LangGraph agent's state. This will
 allow us to render the agent's completed research in the right panel.
 
-For this, we'll be using the `useCoAgent` hook.
-
 <Callout>
-  The `useCoAgentStateRender` will be used in the next step to render the
-  agent's progress in the chat.
+  We'll use the same agent state in the next step to render the agent's
+  progress.
 </Callout>
 
 <Steps>
@@ -50,14 +46,16 @@ We've already wired up the approval of the `proposal` field in the previous step
 </Step>
 <Step>
 
-## The `useCoAgent` hook
+## The `useAgent` hook
 
-Our current goal is to create a bidirectional connection between these two states. Luckily, the [`useCoAgent`](/reference/v1/hooks/useCoAgent) hook makes this easy.
+Our current goal is to create a bidirectional connection between these two states. Luckily, the [`useAgent`](/reference/hooks/useAgent) hook makes this easy.
 
-In the `useResearch` hook, we'll just replace our React state objects with the `useCoAgent` hook.
+In the `useResearch` hook, we'll just replace our React state objects with the agent from `useAgent`.
 
-```tsx title="frontend/src/components/research-context.tsx" {3,8-11}
-// ...
+```tsx title="frontend/src/components/research-context.tsx"
+import { createContext, useContext, useState, type ReactNode } from "react";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core"; // [!code ++]
+import type { ResearchState } from "@/lib/types";
 // ...
 
 interface ResearchContextType {
@@ -72,12 +70,18 @@ const ResearchContext = createContext<ResearchContextType | undefined>(undefined
 
 export function ResearchProvider({ children }: { children: ReactNode }) {
     const [sourcesModalOpen, setSourcesModalOpen] = useState<boolean>(false)
-    // [!code ++:5]
-    const { state, setState, run } = useAgent<ResearchState>({
-        name: 'agent',
-        initialState: {},
-    });
-    const [state, setState] = useState<ResearchState>({} as ResearchState) // [!code --]
+    // [!code ++:10]
+    const { agent } = useAgent({ agentId: "agent" });
+    const { copilotkit } = useCopilotKit();
+    const state: ResearchState = agent.state;
+
+    const setResearchState: ResearchContextType["setResearchState"] = (newState) => {
+        agent.setState(typeof newState === "function" ? newState(state) : newState);
+    };
+
+    const runAgent = () => {
+        copilotkit.runAgent({ agent });
+    };
 
     // ...
 
@@ -85,11 +89,10 @@ export function ResearchProvider({ children }: { children: ReactNode }) {
         <ResearchContext.Provider
             value={{
               state,
-              setResearchState: setState as ResearchContextType['setResearchState'],
+              setResearchState, // [!code ++]
               setSourcesModalOpen,
               sourcesModalOpen,
-              runAgent: run  // [!code ++]
-              runAgent: () => {} // [!code --]
+              runAgent, // [!code ++]
             }}>
             {children}
         </ResearchContext.Provider>
@@ -106,18 +109,15 @@ export function useResearch() {
 ```
 
 <Callout>
-The `useCoAgent` hook is generic. What this means is that we can specify a type for that represents the state of the LangGraph agent.
-If you are going to specify a type, you should be very careful that the type has the same shape as the state of your LangGraph agent.
-
-It is not recommended, but you can ditch the type parameter and instead get an `any` type.
-
+`agent.state` is untyped. Here we read it as the `ResearchState` type that is already defined for the application in `@/lib/types.ts`.
+If you do this, be very careful that the type has the same shape as the state of your LangGraph agent.
 </Callout>
 
-In this example, we use the `useCoAgent` hook to wire up the application's state to the LangGraph agent's state.
+In this example, we use the `useAgent` hook to wire up the application's state to the LangGraph agent's state.
 
-- For the generic type, we pass the `AgentState` type that was already defined for the application in `@/lib/types.ts`.
-- For the `name` parameter, we pass the name of the graph as defined in `agent/langgraph.json`.
-- For the `initialState` parameter, we pass the initial state of the LangGraph agent which is already defined in `@/lib/trips.ts`.
+- For the `agentId` parameter, we pass the name of the graph as defined in `agent/langgraph.json`.
+- `setResearchState` writes to the agent with `agent.setState`.
+- `runAgent` re-runs the agent with `copilotkit.runAgent`.
 
 </Step>
 </Steps>
@@ -127,7 +127,7 @@ In this example, we use the `useCoAgent` hook to wire up the application's state
 Now we can see the final result of the research in the right panel! To recap, we did the following:
 
 - Learned about the agent's state.
-- Added the `useCoAgent` hook to our application to render the `sections` field.
+- Added the `useAgent` hook to our application to render the `sections` field.
 
 Now, try running the agent again and going through the same steps. At the end, you'll see the completed research in the right panel.
 
@@ -147,5 +147,5 @@ Please research dogs!
 
 Now, we can completely run our agent from start to finish _and_ see the finalized research in the right window.
 
-However, you may notice that the research takes a long time to complete without any indication of progress. In the next step, we'll leverage the CoAgent concepts
+However, you may notice that the research takes a long time to complete without any indication of progress. In the next step, we'll leverage the agent concepts
 of **generative ui** to communicate the agent's progress in the chat.

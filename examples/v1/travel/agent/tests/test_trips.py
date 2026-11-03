@@ -98,7 +98,7 @@ class PerformTripsNodeTest(unittest.IsolatedAsyncioTestCase):
             ["kept-place", "added-place"],
         )
 
-        with patch("src.trips.copilotkit_emit_message", new_callable=AsyncMock):
+        with patch("src.trips.emit_message", new_callable=AsyncMock):
             result = await perform_trips_node(state, {})
 
         self.assertEqual(
@@ -115,7 +115,7 @@ class PerformTripsNodeTest(unittest.IsolatedAsyncioTestCase):
             ["kept-place", "kept-place", "added-place"],
         )
 
-        with patch("src.trips.copilotkit_emit_message", new_callable=AsyncMock):
+        with patch("src.trips.emit_message", new_callable=AsyncMock):
             result = await perform_trips_node(state, {})
 
         self.assertEqual(
@@ -137,7 +137,7 @@ class PerformTripsNodeTest(unittest.IsolatedAsyncioTestCase):
             [trip("trip-a", ["a-removed"]), trip("trip-b", ["b-removed"])],
         )
 
-        with patch("src.trips.copilotkit_emit_message", new_callable=AsyncMock):
+        with patch("src.trips.emit_message", new_callable=AsyncMock):
             result = await perform_trips_node(state, {})
 
         self.assertEqual(
@@ -152,7 +152,7 @@ class PerformTripsNodeTest(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
-            patch("src.trips.copilotkit_emit_message", new_callable=AsyncMock),
+            patch("src.trips.emit_message", new_callable=AsyncMock),
             self.assertRaisesRegex(ValueError, "Unsupported place operation: append"),
         ):
             await perform_trips_node(state, {})
@@ -180,7 +180,7 @@ class PerformTripsNodeTest(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
-        with patch("src.trips.copilotkit_emit_message", new_callable=AsyncMock):
+        with patch("src.trips.emit_message", new_callable=AsyncMock):
             result = await perform_trips_node(state, {})
 
         self.assertEqual(
@@ -213,7 +213,7 @@ class PerformTripsNodeTest(unittest.IsolatedAsyncioTestCase):
             [],
         )
 
-        with patch("src.trips.copilotkit_emit_message", new_callable=AsyncMock):
+        with patch("src.trips.emit_message", new_callable=AsyncMock):
             result = await perform_trips_node(state, {})
 
         self.assertEqual(
@@ -237,7 +237,7 @@ class PerformTripsNodeTest(unittest.IsolatedAsyncioTestCase):
             [trip("trip-1", ["existing-place"])],
         )
 
-        with patch("src.trips.copilotkit_emit_message", new_callable=AsyncMock):
+        with patch("src.trips.emit_message", new_callable=AsyncMock):
             result = await perform_trips_node(state, {})
 
         self.assertEqual(result["trips"], [trip("trip-1", ["existing-place"])])
@@ -267,7 +267,7 @@ class PerformTripsNodeTest(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
-        with patch("src.trips.copilotkit_emit_message", new_callable=AsyncMock):
+        with patch("src.trips.emit_message", new_callable=AsyncMock):
             result = await perform_trips_node(state, {})
 
         self.assertEqual(

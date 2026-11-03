@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
-import { StreamMarkdown } from "streamdown-vue";
 import { IconChevronRight } from "../icons";
-import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
-import { CopilotChatDefaultLabels } from "../../providers/types";
+import StreamingMarkdownDefault from "./StreamingMarkdownDefault.vue";
+import { ɵformatLabel, ɵformatReasoningDuration } from "@copilotkit/core";
+import type { CopilotChatLabels } from "@copilotkit/core";
+import { useChatLabels } from "./use-chat-labels";
 
 const props = withDefaults(
   defineProps<{
@@ -69,13 +70,29 @@ defineSlots<{
   }) => unknown;
 }>();
 
-function formatDuration(seconds: number): string {
-  if (seconds < 1) return "a few seconds";
-  if (seconds < 60) return `${Math.round(seconds)} seconds`;
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.round(seconds % 60);
-  if (secs === 0) return `${mins} minute${mins > 1 ? "s" : ""}`;
-  return `${mins}m ${secs}s`;
+/** How long the model reasoned, in the chat's labels: "4 seconds", "1m 5s". */
+function formatDuration(labels: Readonly<CopilotChatLabels>, seconds: number) {
+  const duration = ɵformatReasoningDuration(seconds);
+  switch (duration.unit) {
+    case "fewSeconds":
+      return labels.reasoningMessageDurationFewSeconds;
+    case "seconds":
+      return ɵformatLabel(labels.reasoningMessageDurationSeconds, {
+        count: duration.seconds,
+      });
+    case "minutes":
+      return ɵformatLabel(
+        duration.minutes === 1
+          ? labels.reasoningMessageDurationMinutesOne
+          : labels.reasoningMessageDurationMinutesOther,
+        { count: duration.minutes },
+      );
+    case "minutesSeconds":
+      return ɵformatLabel(labels.reasoningMessageDurationMinutesSeconds, {
+        minutes: duration.minutes,
+        seconds: duration.seconds,
+      });
+  }
 }
 
 const normalizedContent = computed(() =>
@@ -133,13 +150,14 @@ onBeforeUnmount(() => {
   clearElapsedInterval();
 });
 
-const config = useCopilotChatConfiguration();
+const labels = useChatLabels();
 /** `labels.reasoningMessageThinkingLabel` while streaming, then "Thought for …". */
 const label = computed(() =>
   isStreaming.value
-    ? (config.value?.labels ?? CopilotChatDefaultLabels)
-        .reasoningMessageThinkingLabel
-    : `Thought for ${formatDuration(elapsed.value)}`,
+    ? labels.value.reasoningMessageThinkingLabel
+    : ɵformatLabel(labels.value.reasoningMessageThoughtForLabel, {
+        duration: formatDuration(labels.value, elapsed.value),
+      }),
 );
 
 function toggleOpen() {
@@ -150,7 +168,11 @@ function toggleOpen() {
 </script>
 
 <template>
-  <div data-copilotkit class="cpk:my-1" :data-message-id="message.id">
+  <div
+    data-copilotkit
+    class="cpk-reasoning-message"
+    :data-message-id="message.id"
+  >
     <slot
       name="layout"
       :message="message"
@@ -189,28 +211,22 @@ function toggleOpen() {
       >
         <button
           type="button"
-          class="cpk:inline-flex cpk:items-center cpk:gap-1 cpk:py-1 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:select-none"
-          :class="
-            hasContent
-              ? 'cpk:hover:text-foreground cpk:cursor-pointer'
-              : 'cpk:cursor-default'
-          "
+          class="cpk-reasoning-message-header"
+          :class="{ 'cpk-reasoning-message-header-expandable': hasContent }"
           :aria-expanded="hasContent ? isOpen : undefined"
           @click="hasContent ? toggleOpen() : undefined"
         >
-          <span class="cpk:font-medium">{{ label }}</span>
+          <span class="cpk-reasoning-message-label">{{ label }}</span>
           <span
             v-if="isStreaming && !hasContent"
-            class="cpk:inline-flex cpk:items-center cpk:ml-1"
+            class="cpk-reasoning-message-indicator"
           >
-            <span
-              class="cpk:w-1.5 cpk:h-1.5 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse"
-            />
+            <span class="cpk-reasoning-message-indicator-dot" />
           </span>
           <IconChevronRight
             v-if="hasContent"
-            class="cpk:size-3.5 cpk:shrink-0 cpk:transition-transform cpk:duration-200"
-            :class="{ 'cpk:rotate-90': isOpen }"
+            class="cpk-reasoning-message-chevron"
+            :class="{ 'cpk-reasoning-message-chevron-open': isOpen }"
           />
         </button>
       </slot>
@@ -225,26 +241,32 @@ function toggleOpen() {
         }"
       >
         <div
-          class="cpk:grid cpk:transition-[grid-template-rows] cpk:duration-200 cpk:ease-in-out"
+          class="cpk-reasoning-message-toggle"
           :style="{ gridTemplateRows: isOpen ? '1fr' : '0fr' }"
         >
-          <div class="cpk:overflow-hidden">
+          <div class="cpk-reasoning-message-toggle-content">
             <slot
               name="content-view"
               :is-streaming="isStreaming"
               :has-content="hasContent"
               :content="normalizedContent"
             >
-              <div v-if="hasContent || isStreaming" class="cpk:pb-2 cpk:pt-1">
-                <div class="cpk:text-sm cpk:text-muted-foreground">
-                  <StreamMarkdown :content="normalizedContent" />
+              <div
+                v-if="hasContent || isStreaming"
+                class="cpk-reasoning-message-content"
+              >
+                <div class="cpk-reasoning-message-text">
+                  <!-- Reasoning content uses the streaming renderer (same as assistant);
+                       the pluggable provider renderer applies to assistant messages only. -->
+                  <StreamingMarkdownDefault
+                    :content="normalizedContent"
+                    :is-streaming="isStreaming"
+                  />
                   <span
                     v-if="isStreaming && hasContent"
-                    class="cpk:inline-flex cpk:items-center cpk:ml-1 cpk:align-middle"
+                    class="cpk-reasoning-message-cursor"
                   >
-                    <span
-                      class="cpk:w-2 cpk:h-2 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse-cursor"
-                    />
+                    <span class="cpk-reasoning-message-cursor-dot" />
                   </span>
                 </div>
               </div>

@@ -43,22 +43,33 @@ Image rendering is opt-in. React and Takumi, the rasterizer, are optional peer d
     - To combine a snapshot with native text or buttons, put the snapshot inside `<Render>`.
 
     ```tsx
-    /** @jsxImportSource @copilotkit/channels-ui */
-    import { Message, Header, Section } from "@copilotkit/channels-ui";
+    import { createChannel } from "@copilotkit/channels";
+    import { takumiRenderer } from "@copilotkit/channels/takumi";
+    import { Message, Header, Section } from "@copilotkit/channels/ui";
 
-    await thread.post(
-      <Message>
-        <Header>Deploy complete</Header>
-        <Section>Shipped v2.4.0 to production.</Section>
-      </Message>,
-    );
+    const channel = createChannel({
+      name: "support",
+      identifyUser: "platform",
+      render: { renderer: takumiRenderer },
+    });
 
-    await thread.post(
-      <div style={{ display: "flex", padding: 32, backgroundColor: "white" }}>
-        <span style={{ fontSize: 48, color: "black" }}>MRR: $48,200</span>
-      </div>,
-      { altText: "Monthly recurring revenue is $48,200" },
-    );
+    channel.onMessage(async ({ thread }) => {
+      // Native: renders as Block Kit or an Adaptive Card.
+      await thread.post(
+        <Message>
+          <Header>Deploy complete</Header>
+          <Section>Shipped v2.4.0 to production.</Section>
+        </Message>,
+      );
+
+      // Host markup: rendered to a PNG and uploaded.
+      await thread.post(
+        <div style={{ display: "flex", padding: 32, backgroundColor: "white" }}>
+          <span style={{ fontSize: 48, color: "black" }}>MRR: $48,200</span>
+        </div>,
+        { altText: "Monthly recurring revenue is $48,200" },
+      );
+    });
     ```
 
     Use pure presentational components. Top-level component functions are expanded outside React's hook dispatcher, so hooks, browser APIs, and effects are unsupported. A reused native element renders again on each post or update; its output is not cached.
@@ -73,13 +84,15 @@ Image rendering is opt-in. React and Takumi, the rasterizer, are optional peer d
     Takumi is a static, browser-free rasterizer with no system fonts, only a built-in Latin (Geist) fallback. Register the renderer, your fonts, and your compiled CSS once on `createChannel({ render })`, and every image post picks them up:
 
     ```ts title="bot.ts"
-    import { createChannel } from "@copilotkit/channels";
+    import { createChannel, HttpAgent } from "@copilotkit/channels";
     import { takumiRenderer } from "@copilotkit/channels/takumi";
     import { readFileSync } from "node:fs";
 
     const bot = createChannel({
       name: "support", // managed channel configured in Intelligence
-      agent: (threadId) => /* ... */,
+      identifyUser: "platform",
+      agent: (threadId) =>
+        new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
       render: {
         renderer: takumiRenderer, // required to post images
         fonts: [
@@ -112,9 +125,14 @@ Image rendering is opt-in. React and Takumi, the rasterizer, are optional peer d
     To include remote resources, opt in to an origin you control with `allowImageUrl`. This setting applies to server-side snapshot rendering; it does not restrict native `<Image url>` messages rendered by Slack or Teams.
 
     ```ts title="bot.ts"
+    import { createChannel } from "@copilotkit/channels";
+    import { takumiRenderer } from "@copilotkit/channels/takumi";
+
     const bot = createChannel({
-      // ...
+      name: "support",
+      identifyUser: "platform",
       render: {
+        renderer: takumiRenderer,
         // Allow resources only from a trusted CDN.
         allowImageUrl: (url) => new URL(url).origin === "https://cdn.example.com",
       },
@@ -131,12 +149,32 @@ Image rendering is opt-in. React and Takumi, the rasterizer, are optional peer d
     Canvas dimensions, fonts, and stylesheets can be overridden for a single post, handy for a wider dashboard, a taller card, or an extra font just for that message:
 
     ```tsx
-    await thread.post(<WideDashboard data={rows} />, { width: 1200 });
-    await thread.post(<CjkReport data={rows} />, { fonts: [notoSansJP] });
-    await thread.post(<MrrCard value="$48,200" delta={12} />, {
-      filename: "mrr.png",
-      title: "MRR",
-      altText: "Monthly recurring revenue card",
+    import { readFileSync } from "node:fs";
+    import { createChannel, type RenderFont } from "@copilotkit/channels";
+    import { takumiRenderer } from "@copilotkit/channels/takumi";
+    import { CjkReport, MrrCard, WideDashboard } from "./cards.js";
+    import { rows } from "./data.js";
+
+    const channel = createChannel({
+      name: "support",
+      identifyUser: "platform",
+      render: { renderer: takumiRenderer },
+    });
+
+    const notoSansJP = {
+      name: "Noto Sans JP",
+      data: readFileSync("./fonts/NotoSansJP-Regular.woff2"),
+      weight: 400,
+    } satisfies RenderFont;
+
+    channel.onMessage(async ({ thread }) => {
+      await thread.post(<WideDashboard data={rows} />, { width: 1200 });
+      await thread.post(<CjkReport data={rows} />, { fonts: [notoSansJP] });
+      await thread.post(<MrrCard value="$48,200" delta={12} />, {
+        filename: "mrr.png",
+        title: "MRR",
+        altText: "Monthly recurring revenue card",
+      });
     });
     ```
 
@@ -150,6 +188,15 @@ Image rendering is opt-in. React and Takumi, the rasterizer, are optional peer d
     A component nested inside a host card is resolved for you, so you can compose freely:
 
     ```tsx
+    import { createChannel } from "@copilotkit/channels";
+    import { takumiRenderer } from "@copilotkit/channels/takumi";
+
+    const channel = createChannel({
+      name: "support",
+      identifyUser: "platform",
+      render: { renderer: takumiRenderer },
+    });
+
     function Kpi({ label, value }: { label: string; value: string }) {
       return (
         <div className="flex flex-col gap-1.5 p-4 bg-card border rounded-xl">
@@ -159,12 +206,14 @@ Image rendering is opt-in. React and Takumi, the rasterizer, are optional peer d
       );
     }
 
-    await thread.post(
-      <div className="flex gap-3 p-6 bg-background">
-        <Kpi label="Stars" value="22.4k" />
-        <Kpi label="Downloads" value="118k" />
-      </div>,
-    );
+    channel.onMessage(async ({ thread }) => {
+      await thread.post(
+        <div className="flex gap-3 p-6 bg-background">
+          <Kpi label="Stars" value="22.4k" />
+          <Kpi label="Downloads" value="118k" />
+        </div>,
+      );
+    });
     ```
 
   </Step>

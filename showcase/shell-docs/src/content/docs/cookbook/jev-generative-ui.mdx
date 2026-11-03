@@ -38,7 +38,7 @@ This recipe renders [shared agent state](/shared-state). For tool-call-based ren
 Use a Next.js App Router project with TypeScript, React 19, a root layout, and the `@/*` alias pointing to the project root. If your project uses `src/`, place all files below inside `src/` and point the alias there. Use Node.js 22 or later.
 
 ```bash
-npm install @copilotkit/core@1.73.0 @copilotkit/react-core@1.73.0 @copilotkit/runtime@1.73.0 @ag-ui/client@1.0.1 @ag-ui/core@1.0.1 @typesafe-ai/sdk@0.6.0 rxjs@7.8.1 zod@4.6.5 @langchain/openai@1.5.13 @langchain/core@1.2.11
+npm install @copilotkit/core@2 @copilotkit/react-core@2 @copilotkit/runtime@2 @ag-ui/client@1.0.1 @ag-ui/core@1.0.1 @typesafe-ai/sdk@0.6.0 rxjs@7.8.1 zod@4.6.5 @langchain/openai@1.5.13 @langchain/core@1.2.11
 ```
 
 Get a Jev key using the [TypeSafe quickstart](https://docs.typesafe.ai/introduction/quickstart). Add it and an OpenAI key to your server environment. Neither key belongs in a `NEXT_PUBLIC_` variable.
@@ -58,7 +58,7 @@ The OpenAI model handles requests outside the two prepared panels. It is not cal
 
 Start with three rooms and two panel types: a question and a comparison. Keep the user’s selection separate from the panel so browsing options never selects a room for them.
 
-```ts title="lib/workspaces.ts"
+```ts title="lib/workspaces.ts" group=workspaces
 import { z } from "zod";
 
 export const candidates = [
@@ -70,7 +70,7 @@ export const candidates = [
 
 Next, add the shape of the UI state to the same file. `panel` describes what to show; `selectedId` records the room the user actually picked. The clarification options give users a quick way to explain what they need.
 
-```ts title="lib/workspaces.ts"
+```ts title="lib/workspaces.ts" group=workspaces
 export const PanelSchema = z.object({
   type: z.enum(["clarification", "comparison"]),
   title: z.string(),
@@ -98,7 +98,7 @@ Build `lib/choose-panel.ts` from the following three blocks, in order. The first
 
 Ask Jev two things in one call: “What should I show next?” and “How well does each room fit?” The [TypeSafe SDK](https://docs.typesafe.ai/sdk) evaluates these questions independently against the same state, then your code sorts the scores. Each question needs enough context to stand on its own.
 
-```ts title="lib/choose-panel.ts"
+```ts title="lib/choose-panel.ts" group=choose-panel
 import { TypeSafeClient, choice, score } from "@typesafe-ai/sdk";
 import { candidates, PanelSchema, clarificationOptions } from "./workspaces";
 import type { Guidance, PickerState } from "./workspaces";
@@ -128,7 +128,7 @@ export async function choosePanel(
 
 Continue inside `choosePanel` by adding one score question per room. Send all the questions together with the request and the available rooms.
 
-```ts title="lib/choose-panel.ts"
+```ts title="lib/choose-panel.ts" group=choose-panel
   for (const candidate of candidates) {
     questions[`fit_${candidate.id}`] = score(
       `How well does candidate ${candidate.id} fit the request and relevant publishedGuidance?`,
@@ -144,7 +144,7 @@ Continue inside `choosePanel` by adding one score question per room. Send all th
 
 Now read the answers. Sort the rooms by fit, then build the panel Jev selected. Returning `null` tells the agent to handle the request with its language-model fallback.
 
-```ts title="lib/choose-panel.ts"
+```ts title="lib/choose-panel.ts" group=choose-panel
   const control = result.answers.control;
   if (control?.type !== "choice") throw new Error("Missing Jev control answer");
   const ranked = candidates.map((candidate) => {
@@ -179,7 +179,7 @@ Jev controls the order of the options; your catalog controls which rooms exist. 
 
 First, give the picker a fallback for requests that need an explanation. Create `lib/picker-agent.ts` and start with the imports and this helper. The helper uses normal async/await and returns text.
 
-```ts title="lib/picker-agent.ts"
+```ts title="lib/picker-agent.ts" group=picker-agent
 import { AbstractAgent } from "@ag-ui/client";
 import { EventType, type BaseEvent, type RunAgentInput } from "@ag-ui/core";
 import { Observable } from "rxjs";
@@ -205,7 +205,7 @@ async function explain(message: string, state: PickerState, signal: AbortSignal)
 
 Append a helper for button responses. A room selection updates state directly: the user has already chosen, so Jev doesn’t need to choose again. A clarification answer becomes a more specific request for Jev.
 
-```ts title="lib/picker-agent.ts"
+```ts title="lib/picker-agent.ts" group=picker-agent
 function readAction(message: string, state: PickerState) {
   if (message.startsWith("Select workspace: ")) {
     const id = message.slice("Select workspace: ".length);
@@ -227,7 +227,7 @@ function readAction(message: string, state: PickerState) {
 
 Now bring those pieces together in the same file. Each turn starts from the current state, handles any button response, and asks Jev for a panel when needed. If Jev defers, `explain` supplies the answer.
 
-```ts title="lib/picker-agent.ts"
+```ts title="lib/picker-agent.ts" group=picker-agent
 async function respond(input: RunAgentInput, state: PickerState, signal: AbortSignal) {
   const latest = [...input.messages].reverse().find((m) => m.role === "user");
   if (typeof latest?.content !== "string") throw new Error("Expected a text request");
@@ -244,7 +244,7 @@ async function respond(input: RunAgentInput, state: PickerState, signal: AbortSi
 
 AG-UI carries the response back to React. Append `runPicker` to announce the run, clear the previous panel, and send the updated state. Text answers also become chat messages.
 
-```ts title="lib/picker-agent.ts"
+```ts title="lib/picker-agent.ts" group=picker-agent
 async function runPicker(
   input: RunAgentInput, signal: AbortSignal, emit: (event: BaseEvent) => void,
 ) {
@@ -269,7 +269,7 @@ async function runPicker(
 
 Finish the file with the adapter below. [AG-UI’s `AbstractAgent`](https://docs.ag-ui.com/sdk/js/client/abstract-agent) expects an RxJS `Observable` from `run`. This small wrapper connects your async function to that event stream and cancels its work when the user stops the run. The picker logic itself needs no RxJS operators.
 
-```ts title="lib/picker-agent.ts"
+```ts title="lib/picker-agent.ts" group=picker-agent
 export class PickerAgent extends AbstractAgent {
   constructor() { super({ agentId: "picker" }); }
   override clone() { return new PickerAgent(); }
@@ -302,26 +302,25 @@ To add booking later, connect a tool that checks availability and permissions af
 Register the picker with your runtime, then render its state in React. Each button sends the user’s answer back through CopilotKit to start the next turn.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { CopilotRuntime, createCopilotEndpoint } from "@copilotkit/runtime/v2";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
 import { PickerAgent } from "@/lib/picker-agent";
 
 export const runtime = "nodejs";
-const endpoint = createCopilotEndpoint({
+const handler = createCopilotRuntimeHandler({
   runtime: new CopilotRuntime({ agents: { picker: new PickerAgent() } }),
   basePath: "/api/copilotkit",
 });
-const handler = (request: Request) => endpoint.fetch(request);
 export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };
 ```
 
 Next, build `app/page.tsx` from the following blocks in order. Start with the provider and the picker’s local state. `useAgent` reads the state sent by your agent; `useCopilotKit` lets you start a turn.
 
-```tsx title="app/page.tsx"
+```tsx title="app/page.tsx" group=page
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CopilotKitProvider, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
-import { StateSchema } from "@/lib/workspaces";
+import { CopilotKitProvider, useAgent, useCopilotKit } from "@copilotkit/react-core";
+import { StateSchema } from "../lib/workspaces";
 
 export default function Page() {
   return <CopilotKitProvider runtimeUrl="/api/copilotkit"><Picker /></CopilotKitProvider>;
@@ -342,7 +341,7 @@ function Picker() {
 
 Continue inside `Picker`. Subscribe to agent errors so the user sees a failed request, then add `send` to turn typed requests and button clicks into user messages. The `sending` guard prevents duplicate submissions.
 
-```tsx title="app/page.tsx"
+```tsx title="app/page.tsx" group=page
   useEffect(() => {
     if (!isReady) return;
     const subscription = agent.subscribe({ onRunErrorEvent: ({ event }) => setError(event.message) });
@@ -364,7 +363,7 @@ Continue inside `Picker`. Subscribe to agent errors so the user sees a failed re
 
 Finish `Picker` by rendering the form and the current panel. Each option sends either a clarification answer or a room selection—the two message formats handled by `readAction` above.
 
-```tsx title="app/page.tsx"
+```tsx title="app/page.tsx" group=page
   return <main>
     <h1>Find a workspace</h1>
     <form onSubmit={(event) => { event.preventDefault(); void send(text); }}>
@@ -414,7 +413,7 @@ Collect completed interactions, including what users corrected and what happened
 
 Next, make the approved Skills available to Jev. [Skill delivery](/intelligence/learned-skills) provides a registry of published Skills. The helper below reads their `SKILL.md` contents so you can pass them into `systemOne` as guidance. This is your application’s connection to Jev; installing a model adapter alone does not make that connection.
 
-Install `@copilotkit/intelligence-langgraph@1.71.2` alongside the pinned stack above and configure server-only `CPK_INTELLIGENCE_API_KEY` and `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID`. Omit `CPK_INTELLIGENCE_SKILLS_REVISION` to follow the latest approved version, or set a published revision to keep using a specific set of Skills.
+Install `@copilotkit/intelligence-langgraph` alongside the stack above and configure server-only `CPK_INTELLIGENCE_API_KEY` and `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID`. Omit `CPK_INTELLIGENCE_SKILLS_REVISION` to follow the latest approved version, or set a published revision to keep using a specific set of Skills.
 
 ```ts title="lib/learned-guidance.ts"
 import { SkillRegistry } from "@copilotkit/intelligence-langgraph";

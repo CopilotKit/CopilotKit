@@ -8,7 +8,7 @@
     "lib": ["es2023", "dom"],
     "types": ["node"],
     "skipLibCheck": true,
-    "paths": { "@copilotkit/runtime/v2": ["../../dist/v2/index.d.mts"] }
+    "paths": { "@copilotkit/runtime": ["../../dist/index.d.mts"] }
   },
   "include": ["consumer.ts"]
 }

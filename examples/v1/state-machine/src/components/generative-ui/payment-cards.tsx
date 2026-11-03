@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/utils/cn";
 import { availableCardInfo } from "@/lib/types";
 import type { CardInfo } from "@/lib/types";
-import { ToolCallStatus } from "@copilotkit/react-core/v2";
+import { ToolCallStatus } from "@copilotkit/react-core";
 
 interface PaymentCardsProps {
   onSubmit: (cardInfo: CardInfo) => void;

@@ -3,11 +3,11 @@
   "version": "0.0.1-next.0",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter @copilotkit/vue run build:css && sleep 1 && concurrently \"pnpm --filter @copilotkit/vue run dev\" \"pnpm --filter @copilotkit/web-inspector run dev\" \"storybook dev -p 6008 --no-open\"",
-    "build": "pnpm --filter @copilotkit/vue run build:css && storybook build",
+    "dev": "concurrently \"pnpm --filter @copilotkit/vue run dev\" \"pnpm --filter @copilotkit/web-inspector run dev\" \"storybook dev -p 6008 --no-open\"",
+    "build": "storybook build",
     "check-types": "pnpm --filter @copilotkit/vue exec vue-tsc --noEmit -p \"$PWD/tsconfig.json\"",
-    "storybook:dev": "pnpm --filter @copilotkit/vue run build:css && sleep 1 && concurrently \"pnpm --filter @copilotkit/vue run dev\" \"pnpm --filter @copilotkit/web-inspector run dev\" \"storybook dev -p 6008 --no-open\"",
-    "storybook:build": "pnpm --filter @copilotkit/vue run build:css && storybook build"
+    "storybook:dev": "concurrently \"pnpm --filter @copilotkit/vue run dev\" \"pnpm --filter @copilotkit/web-inspector run dev\" \"storybook dev -p 6008 --no-open\"",
+    "storybook:build": "storybook build"
   },
   "dependencies": {
     "@storybook/vue3-vite": "10.1.11",

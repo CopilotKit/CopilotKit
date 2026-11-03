@@ -1,3 +1,8 @@
+/*
+ * CopilotKit's components bring their own CSS, so the preview imports none.
+ * The story-* classes below style the custom slot content the stories pass in.
+ */
+
 /* Storybook dark mode custom background */
 html.dark {
   background-color: #212121;
@@ -94,4 +99,103 @@ html.dark .sb-main-padded {
   50% {
     transform: translateY(-5px);
   }
+}
+
+/* Custom slot content in the stories */
+.story-toolbar-button {
+  display: flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 0.375rem;
+  background-color: #f3f4f6;
+  cursor: pointer;
+}
+.story-toolbar-button:hover {
+  background-color: #e5e7eb;
+}
+.story-toolbar-button-blue {
+  background-color: transparent;
+  color: #2563eb;
+}
+.story-toolbar-button-blue:hover {
+  background-color: #dbeafe;
+}
+.story-ml-1 {
+  margin-left: 0.25rem;
+}
+.story-ml-2 {
+  margin-left: 0.5rem;
+}
+.story-send-button {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-right: 0.5rem;
+  border-radius: 9999px;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 150ms;
+}
+.story-send-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.story-send-button-blue {
+  background-color: #3b82f6;
+}
+.story-send-button-blue:hover {
+  background-color: #2563eb;
+}
+.story-send-button-green {
+  background-color: #22c55e;
+}
+.story-send-button-green:hover {
+  background-color: #16a34a;
+}
+.story-send-button-purple {
+  background-color: #a855f7;
+}
+.story-send-button-purple:hover {
+  background-color: #9333ea;
+}
+.story-send-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-inline: auto;
+}
+.story-gradient-button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  background-image: linear-gradient(to right, #3b82f6, #9333ea);
+  color: #fff;
+  cursor: pointer;
+}
+.story-gradient-button:disabled {
+  opacity: 0.5;
+}
+.story-user-message-blue {
+  padding: 1rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.5rem;
+  background-color: #eff6ff;
+}
+.story-user-message-gradient {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background-image: linear-gradient(to right, #f3e8ff, #fce7f3);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+.story-bubble-blue {
+  color: #1e3a8a;
+  font-weight: 500;
+}
+.story-bubble-mono {
+  display: inline-block;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background-color: rgb(255 255 255 / 0.5);
+  color: #6b21a8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }

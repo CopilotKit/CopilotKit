@@ -118,3 +118,28 @@ export function blockConnects(pattern: RegExp): string[] {
   interceptConnects(pattern, ({ host }) => attempts.push(host));
   return attempts;
 }
+
+type GetBuiltinModule = (id: string) => unknown;
+type ProcessWithBuiltins = typeof process & {
+  getBuiltinModule: GetBuiltinModule;
+};
+
+/**
+ * Replace one module returned by `process.getBuiltinModule`, which the
+ * downloader uses to load Node networking modules (so `vi.mock` of the
+ * specifier does not reach it). A plain swap rather than `vi.spyOn`, so
+ * `vi.restoreAllMocks()` in a test's `afterEach` does not undo it; call the
+ * returned function to restore.
+ */
+export function stubBuiltinModule(
+  id: string,
+  replace: (actual: unknown) => unknown,
+): () => void {
+  const target = process as ProcessWithBuiltins;
+  const original = target.getBuiltinModule;
+  target.getBuiltinModule = (requested: string) =>
+    requested === id ? replace(original(requested)) : original(requested);
+  return () => {
+    target.getBuiltinModule = original;
+  };
+}

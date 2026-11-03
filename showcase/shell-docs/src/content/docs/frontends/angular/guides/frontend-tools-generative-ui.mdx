@@ -41,16 +41,26 @@ export class IncidentCardComponent implements ToolRenderer<IncidentArgs> {
 }
 ```
 
-```ts
-registerComponent({
-  name: "show_incident",
-  description: "Show one incident from the incident table.",
-  parameters: z.object({
-    id: z.string().describe("The incident id, such as INC-4711"),
-    severity: z.string().describe("One of sev1, sev2, sev3"),
-  }),
-  component: IncidentCardComponent,
-});
+```ts title="src/app/chat.component.ts"
+import { Component } from "@angular/core";
+import { z } from "zod";
+import { registerComponent } from "@copilotkit/angular";
+import { IncidentCardComponent } from "./incident-card.component";
+
+@Component({ selector: "app-chat", template: `` })
+export class ChatComponent {
+  constructor() {
+    registerComponent({
+      name: "show_incident",
+      description: "Show one incident from the incident table.",
+      parameters: z.object({
+        id: z.string().describe("The incident id, such as INC-4711"),
+        severity: z.string().describe("One of sev1, sev2, sev3"),
+      }),
+      component: IncidentCardComponent,
+    });
+  }
+}
 ```
 
 There is no `handler`, and nothing changes in your agent. The tool is declared by
@@ -116,30 +126,51 @@ export class WeatherCardComponent implements ToolRenderer<WeatherArgs> {
 
 Pass the class as `component` when the tool runs in the browser:
 
-```ts
-registerFrontendTool({
-  name: "getWeather",
-  description: "Get the current weather for a city",
-  parameters: z.object({ city: z.string() }),
-  component: WeatherCardComponent,
-  handler: async ({ city }, { signal }) => {
-    const response = await fetch(`/api/weather?city=${encodeURIComponent(city)}`, {
-      signal,
+```ts title="src/app/chat.component.ts"
+import { Component } from "@angular/core";
+import { z } from "zod";
+import { registerFrontendTool } from "@copilotkit/angular";
+import { WeatherCardComponent } from "./weather-card.component";
+
+@Component({ selector: "app-chat", template: `` })
+export class ChatComponent {
+  constructor() {
+    registerFrontendTool({
+      name: "getWeather",
+      description: "Get the current weather for a city",
+      parameters: z.object({ city: z.string() }),
+      component: WeatherCardComponent,
+      handler: async ({ city }, { signal }) => {
+        const response = await fetch(
+          `/api/weather?city=${encodeURIComponent(city)}`,
+          { signal },
+        );
+        return response.text();
+      },
     });
-    return response.text();
-  },
-});
+  }
+}
 ```
 
 Use `registerRenderToolCall` instead when the tool runs on the server and the
 browser only renders its call:
 
-```ts
-registerRenderToolCall({
-  name: "getWeather",
-  args: z.object({ city: z.string() }),
-  component: WeatherCardComponent,
-});
+```ts title="src/app/chat.component.ts"
+import { Component } from "@angular/core";
+import { z } from "zod";
+import { registerRenderToolCall } from "@copilotkit/angular";
+import { WeatherCardComponent } from "./weather-card.component";
+
+@Component({ selector: "app-chat", template: `` })
+export class ChatComponent {
+  constructor() {
+    registerRenderToolCall({
+      name: "getWeather",
+      args: z.object({ city: z.string() }),
+      component: WeatherCardComponent,
+    });
+  }
+}
 ```
 
 ## Choose a generative UI path
@@ -166,11 +197,15 @@ import {
 } from "@copilotkit/angular";
 import { z } from "zod";
 
-const setDashboardFilter: SandboxFunction<{ filter: string }> = {
+const dashboardFilter = z.object({ filter: z.string() });
+
+const setDashboardFilter: SandboxFunction = {
   name: "setDashboardFilter",
   description: "Set the active dashboard filter",
-  parameters: z.object({ filter: z.string() }),
-  handler: async ({ filter }) => {
+  parameters: dashboardFilter,
+  handler: async (args) => {
+    // Generated code calls this, so validate the arguments it sends.
+    const { filter } = dashboardFilter.parse(args);
     sessionStorage.setItem("dashboard-filter", filter);
     return { applied: filter };
   },

@@ -20,4 +20,24 @@ describe("LicenseWarningBanner", () => {
 
     expect(wrapper.find("button").exists()).toBe(false);
   });
+
+  it("says the license expires soon when the day count is unknown", () => {
+    const wrapper = mount(LicenseWarningBanner, {
+      props: { type: "expiring" },
+    });
+
+    expect(wrapper.get("span").text()).toBe(
+      "Your CopilotKit license expires soon. Please renew.",
+    );
+  });
+
+  it("counts the days left before the license expires", () => {
+    const wrapper = mount(LicenseWarningBanner, {
+      props: { type: "expiring", graceRemaining: 1 },
+    });
+
+    expect(wrapper.get("span").text()).toBe(
+      "Your CopilotKit license expires in 1 day. Please renew.",
+    );
+  });
 });

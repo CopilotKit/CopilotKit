@@ -15,10 +15,7 @@ import type { AIMessage } from "@langchain/core/messages";
 import { SystemMessage, ToolMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
 import { createSearchProgress } from "./search-progress";
-import {
-  copilotkitCustomizeConfig,
-  copilotkitEmitState,
-} from "@copilotkit/sdk-js/langgraph";
+import { emitState, withPredictedState } from "./agui-events";
 
 const ResourceInput = z.object({
   url: z.string().describe("The URL of the resource"),
@@ -48,7 +45,7 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
 
   const searchProgress = createSearchProgress(logs, queries);
   const { messages, ...restOfState } = state;
-  await copilotkitEmitState(config, {
+  await emitState(config, {
     ...restOfState,
     logs,
     resources,
@@ -61,7 +58,7 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
     const response = await tavilyClient.search(query, {});
     search_results.push(response);
     searchProgress.complete(i);
-    await copilotkitEmitState(config, {
+    await emitState(config, {
       ...restOfState,
       logs,
       resources,
@@ -80,15 +77,13 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
     name: "Search",
   });
 
-  const customConfig = copilotkitCustomizeConfig(config, {
-    emitIntermediateState: [
-      {
-        stateKey: "resources",
-        tool: "ExtractResources",
-        toolArgument: "resources",
-      },
-    ],
-  });
+  const customConfig = withPredictedState(config, [
+    {
+      stateKey: "resources",
+      tool: "ExtractResources",
+      toolArgument: "resources",
+    },
+  ]);
 
   const model = getModel(state);
   const invokeArgs: Record<string, any> = {};
@@ -98,7 +93,7 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
 
   logs = [];
 
-  await copilotkitEmitState(config, {
+  await emitState(config, {
     ...restOfState,
     resources,
     logs,

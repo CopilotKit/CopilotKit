@@ -41,7 +41,7 @@ const keepLastTurn = (messages: any[]) => messages.slice(-1);
 /** A second, distinguishable filter, for asserting a swap took effect. */
 const keepLastTwo = (messages: any[]) => messages.slice(-2);
 
-vi.mock("@copilotkit/react-core/v2/headless", () => {
+vi.mock("@copilotkit/react-core/headless", () => {
   // Regular function (not arrow) so it's new-able
   function CopilotKitCoreReact(this: any, ...args: any[]) {
     hoisted.MockCoreConstructor(...args);
@@ -51,7 +51,7 @@ vi.mock("@copilotkit/react-core/v2/headless", () => {
   return { CopilotKitCoreReact };
 });
 
-vi.mock("@copilotkit/react-core/v2/context", () => {
+vi.mock("@copilotkit/react-core/context", () => {
   const _React = require("react");
   return {
     CopilotKitContext: hoisted.RealContext,

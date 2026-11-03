@@ -6,7 +6,7 @@
 
   /* Threads-panel theme-map — values pulled verbatim from CopilotKit's V2
      design system (the same one mastra's CopilotSidebar renders with;
-     see @copilotkit/react-core/src/v2/styles/globals.css). The drawer is a
+     see @copilotkit/core/src/styles/css/theme.css). The drawer is a
      left-side companion to that LIGHT sidebar, so it inherits the sidebar's
      exact neutral-gray palette, charcoal "primary" (NOT a brand accent — the
      sidebar's primary buttons are near-black), and 0.625rem radius scale.

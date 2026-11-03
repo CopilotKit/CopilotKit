@@ -8,16 +8,3 @@ declare const __DEV__: boolean;
 // (`g`) instead of repeating `(globalThis as any)` on every line — same pattern as
 // packages/angular/src/test-setup.ts. Files without imports add `export {}` so
 // TypeScript treats them as modules with isolated scope.
-
-declare module "text-encoding" {
-  export class TextEncoder {
-    encode(input?: string): Uint8Array;
-  }
-  export class TextDecoder {
-    constructor(label?: string, options?: { fatal?: boolean });
-    decode(
-      input?: ArrayBufferView | ArrayBuffer,
-      options?: { stream?: boolean },
-    ): string;
-  }
-}

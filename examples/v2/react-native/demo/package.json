@@ -16,7 +16,7 @@
     "react": "19.2.3",
     "react-native": "0.85.2",
     "react-native-safe-area-context": "^5.5.2",
-    "zod": "^3.25.76"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

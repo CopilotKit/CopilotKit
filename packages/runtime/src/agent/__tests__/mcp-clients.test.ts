@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { BasicAgent } from "../index";
+import { BuiltInAgent } from "../index";
 import type { MCPClientProvider } from "../index";
 import { EventType } from "@ag-ui/client";
 import type { RunAgentInput } from "@ag-ui/client";
@@ -70,7 +70,7 @@ describe("mcpClients — user-managed MCP clients", () => {
     };
     const provider = makeMockProvider(mockTools);
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpClients: [provider],
     });
@@ -92,7 +92,7 @@ describe("mcpClients — user-managed MCP clients", () => {
       myTool: { description: "A tool", execute: vi.fn() },
     });
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpClients: [provider],
     });
@@ -120,7 +120,7 @@ describe("mcpClients — user-managed MCP clients", () => {
       close: vi.fn(),
     } as any);
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpClients: [provider],
       mcpServers: [
@@ -154,7 +154,7 @@ describe("mcpClients — user-managed MCP clients", () => {
       shared: { description: "from provider 2", execute: vi.fn() },
     });
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpClients: [provider1, provider2],
     });
@@ -181,7 +181,7 @@ describe("mcpClients — user-managed MCP clients", () => {
       search: { description: "from mcp", execute: vi.fn() },
     });
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpClients: [provider],
     });
@@ -224,7 +224,7 @@ describe("mcpClients — user-managed MCP clients", () => {
       close: vi.fn(),
     } as any);
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpClients: [provider],
       mcpServers: [
@@ -245,7 +245,7 @@ describe("mcpClients — user-managed MCP clients", () => {
 
   it("warns about a collision once, not on every run", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpClients: [
         makeMockProvider({ repeated: { description: "a", execute: vi.fn() } }),
@@ -269,7 +269,7 @@ describe("mcpClients — user-managed MCP clients", () => {
 
   it("tools with unique names keep their names and log no warning", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpClients: [
         makeMockProvider({ toolA: { description: "a", execute: vi.fn() } }),
@@ -293,7 +293,7 @@ describe("mcpClients — user-managed MCP clients", () => {
   });
 
   it("empty mcpClients array is a no-op", async () => {
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpClients: [],
     });
@@ -316,7 +316,7 @@ describe("mcpClients — user-managed MCP clients", () => {
       tools: vi.fn().mockRejectedValue(new Error("MCP connection lost")),
     };
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpClients: [failingProvider],
     });
@@ -355,7 +355,7 @@ describe("mcpClients — user-managed MCP clients", () => {
         }),
     );
     const second = makeMockProvider({});
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpClients: [first, second],
     });
@@ -383,7 +383,7 @@ describe("mcpClients — user-managed MCP clients", () => {
       tools: vi.fn(() => new Promise(() => {})),
       close: vi.fn().mockResolvedValue(undefined),
     };
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpServers: [{ type: "http", url: "http://localhost:8000/mcp" }],
     });
@@ -416,7 +416,7 @@ describe("mcpClients — user-managed MCP clients", () => {
       vi.mocked(createMCPClient).mockResolvedValue(
         client as unknown as Awaited<ReturnType<typeof createMCPClient>>,
       );
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         mcpServers: [
           { type: "http", url: "http://localhost:8000/first" },
@@ -443,7 +443,7 @@ describe("mcpClients — user-managed MCP clients", () => {
     );
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         mcpServers: [
           {
@@ -466,7 +466,7 @@ describe("mcpClients — user-managed MCP clients", () => {
   it("clone() shares the same mcpClients references", () => {
     const provider = makeMockProvider({});
 
-    const agent = new BasicAgent({
+    const agent = new BuiltInAgent({
       model: "openai/gpt-4o",
       mcpClients: [provider],
     });

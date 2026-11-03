@@ -1,86 +1,90 @@
 import { describe, expect, it } from "vitest";
+import { h } from "vue";
 import { mount } from "@vue/test-utils";
-import {
-  IconArrowUp,
-  IconCheck,
-  IconCheckCircle,
-  IconChevronDown,
-  IconChevronLeft,
-  IconChevronRight,
-  IconCircle,
-  IconCopy,
-  IconEdit,
-  IconLoader2,
-  IconMessageCircle,
-  IconMic,
-  IconPlus,
-  IconRefreshCw,
-  IconSquare,
-  IconThumbsDown,
-  IconThumbsUp,
-  IconVolume2,
-  IconX,
-} from "../index";
+import { CopilotIcon, IconCircle, IconPlay, IconX } from "../index";
 
-describe("icons adapter", () => {
-  it("exports all expected icon aliases", () => {
-    const icons = [
-      IconMessageCircle,
-      IconX,
-      IconChevronDown,
-      IconPlus,
-      IconMic,
-      IconArrowUp,
-      IconCheck,
-      IconSquare,
-      IconLoader2,
-      IconCopy,
-      IconEdit,
-      IconChevronLeft,
-      IconChevronRight,
-      IconThumbsUp,
-      IconThumbsDown,
-      IconVolume2,
-      IconRefreshCw,
-      IconCheckCircle,
-      IconCircle,
-    ];
+describe("CopilotIcon", () => {
+  it("draws the named icon with Lucide's classes and default attributes", () => {
+    const svg = mount(CopilotIcon, { props: { name: "X" } }).find("svg");
 
-    for (const icon of icons) {
-      expect(icon).toBeDefined();
-    }
+    expect(svg.classes()).toEqual(["lucide", "lucide-x"]);
+    expect(svg.attributes()).toMatchObject({
+      xmlns: "http://www.w3.org/2000/svg",
+      width: "24",
+      height: "24",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+    });
+    expect(svg.findAll("path").map((path) => path.attributes("d"))).toEqual([
+      "M18 6 6 18",
+      "m6 6 12 12",
+    ]);
   });
 
-  it("renders svg icons from aliases", () => {
-    const xWrapper = mount(IconX);
-    const loaderWrapper = mount(IconLoader2);
+  it("draws circle and polygon nodes", () => {
+    const circle = mount(IconCircle).find("svg").find("circle");
+    const polygon = mount(IconPlay).find("svg").find("polygon");
 
-    expect(xWrapper.find("svg").exists()).toBe(true);
-    expect(loaderWrapper.find("svg").exists()).toBe(true);
+    expect(circle.attributes()).toMatchObject({ cx: "12", cy: "12", r: "10" });
+    expect(polygon.attributes("points")).toBe("6 3 20 12 6 21 6 3");
   });
 
-  it("passes through classes, size, style, and accessibility attributes", () => {
-    const wrapper = mount(IconX, {
+  it("applies size, color and stroke-width", () => {
+    const svg = mount(IconX, {
+      props: { size: 18, color: "red", strokeWidth: 1.75 },
+    }).find("svg");
+
+    expect(svg.attributes()).toMatchObject({
+      width: "18",
+      height: "18",
+      stroke: "red",
+      "stroke-width": "1.75",
+    });
+  });
+
+  it("passes other attributes to the svg after the Lucide classes", () => {
+    const svg = mount(IconX, {
       attrs: {
         class: "icon-class",
-        width: "18",
-        height: "20",
-        "stroke-width": "1.5",
-        role: "img",
-        "aria-hidden": "true",
+        fill: "currentColor",
+        "data-testid": "close-icon",
         style: "color: rgb(255, 0, 0);",
       },
-    });
+    }).find("svg");
 
-    const svg = wrapper.find("svg");
+    expect(svg.classes()).toEqual(["lucide", "lucide-x", "icon-class"]);
+    expect(svg.attributes("fill")).toBe("currentColor");
+    expect(svg.attributes("data-testid")).toBe("close-icon");
+    expect(svg.attributes("style")).toContain("color: rgb(255, 0, 0)");
+  });
 
-    expect(svg.exists()).toBe(true);
-    expect(svg.classes()).toContain("icon-class");
-    expect(svg.attributes("width")).toBe("18");
-    expect(svg.attributes("height")).toBe("20");
-    expect(svg.attributes("stroke-width")).toBe("1.5");
-    expect(svg.attributes("role")).toBe("img");
+  it("hides an unnamed icon from screen readers", () => {
+    const svg = mount(IconX).find("svg");
+
     expect(svg.attributes("aria-hidden")).toBe("true");
-    expect(svg.attributes("style")).toContain("color");
+  });
+
+  it("keeps a named icon visible to screen readers", () => {
+    const labelled = mount(IconX, { attrs: { "aria-label": "Close" } }).find(
+      "svg",
+    );
+    const withRole = mount(IconX, { attrs: { role: "img" } }).find("svg");
+
+    expect(labelled.attributes("aria-hidden")).toBeUndefined();
+    expect(labelled.attributes("aria-label")).toBe("Close");
+    expect(withRole.attributes("aria-hidden")).toBeUndefined();
+  });
+
+  it("keeps an icon with slot content visible to screen readers", () => {
+    const svg = mount(IconX, {
+      slots: { default: () => h("title", "Close") },
+    }).find("svg");
+
+    expect(svg.attributes("aria-hidden")).toBeUndefined();
+    expect(svg.find("title").text()).toBe("Close");
   });
 });

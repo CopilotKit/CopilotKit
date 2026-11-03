@@ -1,5 +1,8 @@
 export { default as CopilotKitProvider } from "./CopilotKitProvider.vue";
-export type { CopilotKitProviderProps } from "./CopilotKitProvider.types";
+export type {
+  CopilotKitLearningOptions,
+  CopilotKitProviderProps,
+} from "./CopilotKitProvider.types";
 export type { DebugConfig } from "@copilotkit/shared";
 export { default as CopilotChatConfigurationProvider } from "./CopilotChatConfigurationProvider.vue";
 export type { CopilotChatConfigurationProviderProps } from "./CopilotChatConfigurationProvider.types";
@@ -19,3 +22,4 @@ export {
   type CopilotChatConfigurationValue,
 } from "./types";
 export type { CopilotKitContextValue } from "./keys";
+export * from "./markdown-renderer";

@@ -15,6 +15,7 @@ npm install @copilotkit/core
 
 ```ts
 import { CopilotKitCore } from "@copilotkit/core";
+import { z } from "zod";
 
 const copilotkit = new CopilotKitCore({
   runtimeUrl: "/api/copilotkit",
@@ -23,17 +24,23 @@ const copilotkit = new CopilotKitCore({
 // Register a frontend tool the agent can call.
 copilotkit.addTool({
   name: "showAlert",
-  handler: ({ message }: { message: string }) => {
+  description: "Show a browser alert with a message",
+  parameters: z.object({ message: z.string() }),
+  handler: async ({ message }) => {
     window.alert(message);
+    return "shown";
   },
 });
 
-// Agents populate after the runtime responds. In real apps, react via
-// `copilotkit.subscribe({ onAgentsChanged })`; here we assume it's ready.
-const agent = copilotkit.getAgent("default");
-if (agent) {
-  await copilotkit.runAgent({ agent });
-}
+// Agents populate after the runtime responds, so run once they arrive.
+copilotkit.subscribe({
+  onAgentsChanged: async ({ agents }) => {
+    const agent = agents["default"];
+    if (agent) {
+      await copilotkit.runAgent({ agent });
+    }
+  },
+});
 ```
 
 ## Reference

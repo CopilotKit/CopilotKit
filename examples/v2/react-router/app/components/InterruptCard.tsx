@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Interrupt } from "@copilotkit/react-core/v2";
+import type { Interrupt } from "@copilotkit/react-core";
 
 export interface InterruptCardProps {
   interrupt: Interrupt;

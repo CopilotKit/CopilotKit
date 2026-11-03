@@ -361,12 +361,18 @@ is a situation where a user and an agent are working together to solve a problem
   </Step>
   <Step>
     ### Render state of the agent in the chat
-    Now we can utilize `useAgent` to read the state of our agent and render it **in the chat**.
+    Now register a custom message renderer with the provider's `renderCustomMessages` prop to render the state of your agent **in the chat**. The renderer receives the state snapshot of each agent run.
 
     ```tsx title="app/page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2";
+    "use client";
 
-    // For type safety, define the state type matching your agent's state snapshot
+    import {
+      CopilotChat,
+      CopilotKitProvider,
+      type ReactCustomMessageRenderer,
+    } from "@copilotkit/react-core";
+
+    // Define the state type matching your agent's state snapshot
     type AgentState = {
       searches: {
         query: string;
@@ -374,30 +380,40 @@ is a situation where a user and an agent are working together to solve a problem
       }[];
     };
 
-    function YourMainContent() {
-      // ...
+    // [!code highlight:21]
+    // styles omitted for brevity
+    const searchProgressRenderer: ReactCustomMessageRenderer = {
+      agentId: "sample_agent",
+      render: ({ position, messageIndexInRun, numberOfMessagesInRun, stateSnapshot }) => {
+        // Render once per run, after the run's last message.
+        if (position !== "after" || messageIndexInRun !== numberOfMessagesInRun - 1) {
+          return null;
+        }
+        const state: Partial<AgentState> = stateSnapshot ?? {};
+        return (
+          <div>
+            {state.searches?.map((search, index) => (
+              <div key={index}>
+                {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
+              </div>
+            ))}
+          </div>
+        );
+      },
+    };
 
-      // [!code highlight:3]
-      const { agent } = useAgent({
-        agentId: "sample_agent",
-      });
+    // Keep the array at module scope: the provider needs a stable array.
+    const renderCustomMessages = [searchProgressRenderer];
 
-      // styles omitted for brevity
-      // [!code highlight:9]
-      const renderedState = (
-        <div>
-          {agent.state?.searches?.map((search, index) => (
-            <div key={index}>
-              {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
-            </div>
-          ))}
-        </div>
+    export default function Page() {
+      return (
+        <CopilotKitProvider
+          runtimeUrl="/api/copilotkit"
+          renderCustomMessages={renderCustomMessages} // [!code highlight]
+        >
+          <CopilotChat agentId="sample_agent" />
+        </CopilotKitProvider>
       );
-
-      // ...
-
-      // [!code highlight]
-      return <div>{renderedState}</div>;
     }
     ```
   </Step>
@@ -407,7 +423,7 @@ is a situation where a user and an agent are working together to solve a problem
     other than the chat.
 
     ```tsx title="app/page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { useAgent } from "@copilotkit/react-core"; // [!code highlight]
     // ...
 
     // Define the state type matching your agent's state snapshot
@@ -425,6 +441,7 @@ is a situation where a user and an agent are working together to solve a problem
       const { agent } = useAgent({
         agentId: "sample_agent",
       })
+      const state: Partial<AgentState> = agent.state ?? {};
 
       // ...
 
@@ -433,7 +450,7 @@ is a situation where a user and an agent are working together to solve a problem
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
             {/* [!code highlight:5] */}
-            {agent.state?.searches?.map((search, index) => (
+            {state.searches?.map((search, index) => (
               <div key={index} className="flex flex-row">
                 {search.done ? "✅" : "❌"} {search.query}
               </div>

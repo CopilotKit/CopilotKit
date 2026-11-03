@@ -5,7 +5,7 @@ import {
   useFrontendTool,
   CopilotSidebar,
   CopilotChatConfigurationProvider,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { z } from "zod";

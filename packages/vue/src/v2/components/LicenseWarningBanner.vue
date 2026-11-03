@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted } from "vue";
+import { ɵformatLabel } from "@copilotkit/core";
+import { useChatLabels } from "./chat/use-chat-labels";
 
 // Total reserved vertical space for the fixed license banner: banner height
 // (~36px) + bottom offset (8px) + visual gap above the chat input (~8px).
@@ -36,45 +38,59 @@ interface BannerSpec {
   actionUrl: string;
 }
 
+const labels = useChatLabels();
+
+function expiringMessage(days: number | undefined) {
+  if (days === undefined) return labels.value.licenseExpiringText;
+  const template =
+    days === 1
+      ? labels.value.licenseExpiringInDaysOne
+      : labels.value.licenseExpiringInDaysOther;
+  return ɵformatLabel(template, { days });
+}
+
 const spec = computed<BannerSpec | null>(() => {
+  const text = labels.value;
   switch (props.type) {
     case "no_license":
       return {
         severity: "info",
-        message: "Powered by CopilotKit",
-        actionLabel: "Get a license",
+        message: text.licensePoweredByText,
+        actionLabel: text.licenseGetLicenseLabel,
         actionUrl: "https://copilotkit.ai/pricing",
       };
     case "feature_unlicensed":
       return {
         severity: "warning",
-        message: `⚠ The "${props.featureName ?? ""}" feature requires a CopilotKit license.`,
-        actionLabel: "Get a license",
+        message: ɵformatLabel(text.licenseFeatureUnlicensedText, {
+          feature: props.featureName ?? "",
+        }),
+        actionLabel: text.licenseGetLicenseLabel,
         actionUrl: "https://copilotkit.ai/pricing",
       };
-    case "expiring": {
-      const days = props.graceRemaining;
-      const dayLabel = days === 1 ? "day" : "days";
+    case "expiring":
       return {
         severity: "warning",
-        message: `Your CopilotKit license expires in ${days} ${dayLabel}. Please renew.`,
-        actionLabel: "Renew",
+        message: expiringMessage(props.graceRemaining),
+        actionLabel: text.licenseRenewLabel,
         actionUrl: "https://dashboard.operations.copilotkit.ai",
       };
-    }
     case "expired":
       return {
         severity: "critical",
-        message: `Your CopilotKit license expired${props.expiryDate ? ` on ${props.expiryDate}` : ""}. Please renew at copilotkit.ai/pricing`,
-        actionLabel: "Renew now",
+        message: props.expiryDate
+          ? ɵformatLabel(text.licenseExpiredOnDateText, {
+              date: props.expiryDate,
+            })
+          : text.licenseExpiredText,
+        actionLabel: text.licenseRenewNowLabel,
         actionUrl: "https://copilotkit.ai/pricing",
       };
     case "invalid":
       return {
         severity: "critical",
-        message:
-          "Invalid CopilotKit license token. Please check your configuration.",
-        actionLabel: "Get a license",
+        message: text.licenseInvalidText,
+        actionLabel: text.licenseGetLicenseLabel,
         actionUrl: "https://copilotkit.ai/pricing",
       };
     default:

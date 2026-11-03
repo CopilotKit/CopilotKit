@@ -28,7 +28,10 @@ export default defineConfig({
         "@a2ui/web_core/v0_9/basic_catalog",
         "@ag-ui/client",
         "@ag-ui/core",
-        "@copilotkit/core",
+        // The framework-neutral A2UI catalog description subpath (no React).
+        "@copilotkit/a2ui-renderer/catalog-schema",
+        // Core and its `/styles` subpath, so the stylesheet isn't bundled here.
+        /^@copilotkit\/core(\/.*)?$/,
         // Keep the shared MCP Apps host + its subpaths external. The root entry
         // carries the ext-apps AppBridge and is loaded through a dynamic
         // import() in the renderer, so it must stay a real runtime import (not
@@ -45,12 +48,7 @@ export default defineConfig({
         // (duplicate top-level lit binding → "Identifier 'h' has already been
         // declared") and risks double custom-element registration.
         /^@copilotkit\/web-components(\/.*)?$/,
-        "@jetbrains/websandbox",
-        "streamdown-vue",
-        "katex",
-        "lucide-vue-next",
         "zod",
-        "zod-to-json-schema",
       ],
       output: {
         globals: { vue: "Vue" },

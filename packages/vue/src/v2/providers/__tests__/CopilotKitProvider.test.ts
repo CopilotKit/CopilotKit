@@ -810,6 +810,23 @@ describe("CopilotKitProvider", () => {
     });
   });
 
+  describe("Unmount", () => {
+    it("disposes the core it created, so subscribers stop hearing from it", () => {
+      const { getCore, wrapper } = mountWithProvider(() => h("div"));
+      const core = getCore();
+      const onPropertiesChanged = vi.fn();
+      core.subscribe({ onPropertiesChanged });
+
+      core.setProperties({ before: "unmount" });
+      expect(onPropertiesChanged).toHaveBeenCalledTimes(1);
+
+      wrapper.unmount();
+      core.setProperties({ after: "unmount" });
+
+      expect(onPropertiesChanged).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("inspector visibility", () => {
     async function settleInspectorLoad(): Promise<void> {
       await vi.dynamicImportSettled();
@@ -876,39 +893,6 @@ describe("CopilotKitProvider", () => {
         props: {
           runtimeUrl: "/api/copilotkit",
           enableInspector: true,
-        },
-        slots: { default: "child" },
-      });
-
-      await settleInspectorLoad();
-      expect(view.container.querySelector("cpk-web-inspector")).toBeNull();
-      expect(defineWebInspector).not.toHaveBeenCalled();
-      view.unmount();
-    });
-
-    it("does not let legacy showDevConsole disable the development Inspector", async () => {
-      const view = render(CopilotKitProvider, {
-        props: {
-          runtimeUrl: "/api/copilotkit",
-          showDevConsole: false,
-        },
-        slots: { default: "child" },
-      });
-
-      await waitFor(() => {
-        expect(
-          view.container.querySelector("cpk-web-inspector"),
-        ).not.toBeNull();
-      });
-      view.unmount();
-    });
-
-    it("does not let legacy showDevConsole enable the production Inspector", async () => {
-      vi.stubEnv("NODE_ENV", "production");
-      const view = render(CopilotKitProvider, {
-        props: {
-          runtimeUrl: "/api/copilotkit",
-          showDevConsole: "auto",
         },
         slots: { default: "child" },
       });

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, onMounted } from "vue";
 import { fireEvent, render, screen } from "@testing-library/vue";
-import type { Message, ReasoningMessage } from "@ag-ui/core";
+import type { ReasoningMessage } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
 import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
@@ -16,6 +16,8 @@ import { CopilotModalHeader, CopilotSidebarView } from "../index";
 // hard-coded English.
 const germanLabels: Partial<Record<keyof CopilotChatLabels, string>> = {
   reasoningMessageThinkingLabel: "Denkt nach…",
+  reasoningMessageThoughtForLabel: "Gedacht für {duration}",
+  reasoningMessageDurationFewSeconds: "ein paar Sekunden",
   chatInputSlashMenuLabel: "Befehle",
   chatInputSlashMenuEmptyText: "Keine Befehle gefunden",
   attachmentRemoveButtonLabel: "Anhang entfernen",
@@ -26,11 +28,11 @@ const germanLabels: Partial<Record<keyof CopilotChatLabels, string>> = {
   sidebarLabel: "Chat-Seitenleiste",
 };
 
-const reasoning = {
+const reasoning: ReasoningMessage = {
   id: "reasoning-1",
   role: "reasoning",
   content: "",
-} as ReasoningMessage;
+};
 
 const video: Attachment = {
   id: "clip",
@@ -66,7 +68,7 @@ function renderWithLabels(template: string) {
       return {
         labels: germanLabels,
         reasoning,
-        reasoningMessages: [reasoning] as Message[],
+        reasoningMessages: [reasoning],
         attachments: [video],
         toolsMenu: [{ label: "Say hi", action: vi.fn() }],
       };
@@ -110,6 +112,19 @@ describe("chat strings from labels", () => {
 
     expect(screen.getByText("Denkt nach…")).toBeDefined();
     expect(screen.queryByText("Thinking…")).toBeNull();
+  });
+
+  it("uses the configured duration labels once the model is done", () => {
+    renderWithLabels(`
+      <CopilotChatReasoningMessage
+        :message="reasoning"
+        :messages="reasoningMessages"
+        :is-running="false"
+      />
+    `);
+
+    expect(screen.getByText("Gedacht für ein paar Sekunden")).toBeDefined();
+    expect(screen.queryByText(/Thought for/)).toBeNull();
   });
 
   it("passes the elapsed reasoning time to a custom header", async () => {

@@ -1,0 +1,20 @@
+/* Clicks pass through the row; the pills turn them back on. */
+:where(.cpk-suggestion-view) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  padding-left: 0;
+  padding-right: 1rem;
+  pointer-events: none;
+}
+@media (width >= 40rem) {
+  :where(.cpk-suggestion-view) {
+    gap: 0.5rem;
+  }
+}
+@container (width >= 48rem) {
+  :where(.cpk-suggestion-view) {
+    padding-inline: 0;
+  }
+}

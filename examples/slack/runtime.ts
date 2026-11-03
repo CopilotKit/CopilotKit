@@ -44,8 +44,8 @@ import {
   BuiltInAgent,
   CopilotSseRuntime,
   convertInputToTanStackAI,
-} from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+} from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { webSearchTool } from "@tanstack/ai-openai/tools";

@@ -1,8 +1,7 @@
 "use client";
 
 import "./globals.css";
-import "@copilotkit/react-core/v2/styles.css";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import { GlobalStateProvider } from "@/lib/stages";
 import { CarSalesChat } from "@/components/car-sales-chat";
 

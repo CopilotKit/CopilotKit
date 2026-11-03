@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 export const RENDER_A2UI_TOOL_NAME = "render_a2ui";
 export const AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME = "AGUISendStateSnapshot";

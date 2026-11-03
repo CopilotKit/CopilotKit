@@ -10,14 +10,14 @@ export const incidentReportFormSchema = z.object({
   }),
   incidentType: z
     .string({
-      required_error: "Please select an incident type.",
+      error: "Please select an incident type.",
     })
     .min(1, {
       message: "Please select an incident type.",
     }),
   date: z
     .date({
-      required_error: "Please select the date when the incident occurred.",
+      error: "Please select the date when the incident occurred.",
     })
     .refine(isIncidentDateAllowed, {
       message: "Incident date must be from January 1, 1900 through today.",
@@ -27,7 +27,7 @@ export const incidentReportFormSchema = z.object({
   }),
   impactLevel: z
     .string({
-      required_error: "Please select an impact level.",
+      error: "Please select an impact level.",
     })
     .min(1, {
       message: "Please select an impact level.",

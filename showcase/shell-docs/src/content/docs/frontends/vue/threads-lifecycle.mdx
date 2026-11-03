@@ -67,10 +67,15 @@ Read the current conversation from `agent.value.messages`; replace or append wit
 Your application owns end-user authentication. For an Intelligence-enabled runtime, implement `identifyUser(request)` with the server-verified session or token and return a stable user id and name:
 
 ```ts title="server.ts"
-import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime/v2";
+import {
+  BuiltInAgent,
+  CopilotKitIntelligence,
+  CopilotRuntime,
+} from "@copilotkit/runtime";
+import { verifyAppSession } from "./auth";
 
 const runtime = new CopilotRuntime({
-  agents: { default: agent },
+  agents: { default: new BuiltInAgent({ model: "openai:gpt-5-mini" }) },
   intelligence: new CopilotKitIntelligence({
     apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
   }),
@@ -128,6 +133,12 @@ A common ask is to intercept the first message, create a row through your own ba
 **Recommended: mint up front and drive the id.** Create the thread before rendering the chat, or from the New chat action, then pass it through the configuration:
 
 ```ts
+// Inside <script setup lang="ts">
+import { useCopilotChatConfiguration } from "@copilotkit/vue/v2";
+import { myApi } from "./api";
+
+const config = useCopilotChatConfiguration();
+
 async function startConversation() {
   const { id } = await myApi.createThread();
   config.value?.setActiveThreadId(id, { explicit: true });
@@ -137,6 +148,13 @@ async function startConversation() {
 **At submit-time, use a headless input.** Compose your own input and handler, set the id on the agent before adding the message, then run the agent:
 
 ```ts
+// Inside <script setup lang="ts">
+import { useAgent, useCopilotKit } from "@copilotkit/vue/v2";
+import { myApi } from "./api";
+
+const { agent } = useAgent();
+const { copilotkit } = useCopilotKit();
+
 async function submit(text: string) {
   const current = agent.value;
   if (!current) return;

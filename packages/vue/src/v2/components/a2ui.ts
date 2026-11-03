@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 export type A2UIOperation = Record<string, unknown>;
 

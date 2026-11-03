@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import { useAgentContext, useRenderTool } from "@copilotkit/react-core/v2";
+import { useAgentContext, useRenderTool } from "@copilotkit/react-core";
 import { z } from "zod";
 import { AreaChart } from "./ui/area-chart";
 import { BarChart } from "./ui/bar-chart";

@@ -8,8 +8,8 @@ import {
   useAgentContext,
   useConfigureSuggestions,
   useFrontendTool,
-} from "@copilotkit/react-core/v2";
-import type { ToolsMenuItem, SandboxFunction } from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
+import type { ToolsMenuItem, SandboxFunction } from "@copilotkit/react-core";
 import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
 import { DEMO_RUNTIME_URL } from "./runtime-url";

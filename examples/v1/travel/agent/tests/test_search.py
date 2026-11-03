@@ -39,7 +39,7 @@ class SearchNodeTest(unittest.IsolatedAsyncioTestCase):
         with (
             patch("src.search._search_places", new_callable=AsyncMock, return_value=[]),
             patch(
-                "src.search.copilotkit_emit_state",
+                "src.search.emit_state",
                 new_callable=AsyncMock,
                 side_effect=capture_progress,
             ),
@@ -97,7 +97,7 @@ class SearchNodeTest(unittest.IsolatedAsyncioTestCase):
                     "Places requests must not block the event loop"
                 ),
             ),
-            patch("src.search.copilotkit_emit_state", new_callable=AsyncMock),
+            patch("src.search.emit_state", new_callable=AsyncMock),
         ):
             await search_node(state, {})
 
@@ -142,7 +142,7 @@ class SearchNodeTest(unittest.IsolatedAsyncioTestCase):
             patch.dict(os.environ, {"GOOGLE_MAPS_API_KEY": TEST_API_KEY}),
             patch("httpx.AsyncClient", return_value=client_context),
             patch("src.search.gmaps", create=True) as legacy_client,
-            patch("src.search.copilotkit_emit_state", new_callable=AsyncMock),
+            patch("src.search.emit_state", new_callable=AsyncMock),
         ):
             legacy_client.places.return_value = {"results": []}
             result = await search_node(state, {})

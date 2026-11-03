@@ -12,6 +12,11 @@ const EMPTY_DEPS: WatchSource<unknown>[] = [];
  * The tool registration is reactive to provided dependencies and is cleaned up
  * automatically when the current scope is disposed.
  *
+ * A tool with the same name and `agentId` as a tool that is already
+ * registered (for example a provider `frontendTools` entry) takes its place
+ * while this scope is active. When the scope is disposed, the earlier tool is
+ * active again.
+ *
  * @example
  * ```ts
  * useFrontendTool({
@@ -42,13 +47,10 @@ export function useFrontendTool<T extends Record<string, unknown>>(
       const core = copilotkit.value;
       const name = tool.name;
 
-      if (core.getTool({ toolName: name, agentId: tool.agentId })) {
-        console.warn(
-          `Tool '${name}' already exists for agent '${tool.agentId || "global"}'. Overriding with latest registration.`,
-        );
-        core.removeTool(name, tool.agentId);
-      }
-      core.addTool(tool);
+      // Registrations stack in core: this one shadows an earlier tool with the
+      // same name and agentId (a provider tool, or another component's), and
+      // unregistering it brings that tool back.
+      const unregister = core.addTool(tool);
 
       // The render function is registered even when tool.parameters is
       // undefined — tools like HITL confirm dialogs have no parameters
@@ -62,9 +64,7 @@ export function useFrontendTool<T extends Record<string, unknown>>(
         } as VueToolCallRenderer<unknown>);
       }
 
-      onCleanup(() => {
-        core.removeTool(name, tool.agentId);
-      });
+      onCleanup(unregister);
     },
     { immediate: true },
   );

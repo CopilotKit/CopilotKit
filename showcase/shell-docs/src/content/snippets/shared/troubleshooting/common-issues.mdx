@@ -20,22 +20,32 @@ If you're encountering network or API errors, here's how to troubleshoot:
 
         <FrontendOnly frontend="react">
         ```tsx
-        <CopilotKit
-          runtimeUrl="/api/copilotkit"
-        >
-          {/* Your app */}
-        </CopilotKit>
+        import type { ReactNode } from "react";
+        import { CopilotKitProvider } from "@copilotkit/react-core";
+
+        export function Providers({ children }: { children: ReactNode }) {
+          return (
+            <CopilotKitProvider runtimeUrl="/api/copilotkit">
+              {children}
+            </CopilotKitProvider>
+          );
+        }
         ```
         </FrontendOnly>
 
         <FrontendOnly frontend="react">
         or, if using CopilotCloud
         ```tsx
-        <CopilotKit
-            publicApiKey="<your-copilot-cloud-public-api-key>"
-        >
-            {/* Your app */}
-        </CopilotKit>
+        import type { ReactNode } from "react";
+        import { CopilotKitProvider } from "@copilotkit/react-core";
+
+        export function Providers({ children }: { children: ReactNode }) {
+          return (
+            <CopilotKitProvider publicApiKey="<your-copilot-cloud-public-api-key>">
+              {children}
+            </CopilotKitProvider>
+          );
+        }
         ```
         </FrontendOnly>
 

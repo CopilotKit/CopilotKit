@@ -218,7 +218,7 @@ describe("convertInputToTanStackAI", () => {
                 options: { type: "object", additionalProperties: {} },
                 data: {
                   type: "array",
-                  // .passthrough() → additionalProperties: true on items
+                  // .loose() → additionalProperties: true on items
                   items: {
                     type: "object",
                     properties: { v: { type: "number" } },

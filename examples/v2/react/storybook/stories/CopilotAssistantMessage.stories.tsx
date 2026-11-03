@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
-import type { CopilotChatAssistantMessageProps } from "@copilotkit/react-core/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/react-core";
+import type { CopilotChatAssistantMessageProps } from "@copilotkit/react-core";
 import { withMessageColumn } from "./support/layouts";
 
 // Simple default message

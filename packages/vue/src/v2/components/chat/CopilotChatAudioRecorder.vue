@@ -263,7 +263,7 @@ defineExpose({
 </script>
 
 <template>
-  <div data-copilotkit class="cpk:w-full cpk:px-5 cpk:py-3" v-bind="attrs">
-    <canvas ref="canvasRef" class="cpk:block cpk:h-[26px] cpk:w-full" />
+  <div data-copilotkit class="cpk-audio-recorder" v-bind="attrs">
+    <canvas ref="canvasRef" class="cpk-audio-recorder-canvas" />
   </div>
 </template>

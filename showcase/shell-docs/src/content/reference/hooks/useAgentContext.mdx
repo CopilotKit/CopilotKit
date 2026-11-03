@@ -7,14 +7,17 @@ description: "React hook for providing dynamic context to agents"
 
 `useAgentContext` registers a dynamic context object with the active Copilot runtime for the lifetime of the component. The hook adds the context on mount and removes it on unmount, so the agent always sees an up-to-date snapshot of your application state without manual cleanup.
 
-Update the incoming context object to refresh what the agent sees. This is the v2 equivalent of `useCopilotReadable` -- it lets you surface any serializable application state (user preferences, selected items, computed values, etc.) as context that agents can reference when generating responses or making decisions.
+Update the incoming context object to refresh what the agent sees. It replaces the v1 `useCopilotReadable` hook. It lets you surface any serializable application state (user preferences, selected items, computed values, etc.) as context that agents can reference when generating responses or making decisions.
 
 ## Signature
 
 ```tsx
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import {
+  useAgentContext,
+  type AgentContextInput,
+} from "@copilotkit/react-core";
 
-function useAgentContext(context: AgentContextInput): void;
+useAgentContext satisfies (context: AgentContextInput) => void;
 ```
 
 ## Parameters
@@ -39,6 +42,8 @@ function useAgentContext(context: AgentContextInput): void;
 Provide simple application state as context for the agent.
 
 ```tsx
+import { useAgentContext } from "@copilotkit/react-core";
+
 function UserGreeting({ user }: { user: { name: string; role: string } }) {
   useAgentContext({
     description: "The currently logged-in user",
@@ -54,6 +59,9 @@ function UserGreeting({ user }: { user: { name: string; role: string } }) {
 The context updates automatically when the value changes between renders.
 
 ```tsx
+import { useState } from "react";
+import { useAgentContext } from "@copilotkit/react-core";
+
 function ProductCatalog() {
   const [selectedCategory, setSelectedCategory] = useState("electronics");
   const [priceRange, setPriceRange] = useState({ min: 0, max: 500 });
@@ -87,6 +95,9 @@ function ProductCatalog() {
 Each component can register its own context. All registered contexts are visible to the agent simultaneously.
 
 ```tsx
+import { useState } from "react";
+import { useAgentContext } from "@copilotkit/react-core";
+
 function Dashboard() {
   useAgentContext({
     description: "Current dashboard view and layout",
@@ -109,7 +120,15 @@ function Sidebar() {
     value: { collapsed, activeSection: "reports" },
   });
 
-  return <nav>{/* ... */}</nav>;
+  return (
+    <nav>
+      <button onClick={() => setCollapsed(!collapsed)}>Toggle</button>
+    </nav>
+  );
+}
+
+function MainPanel() {
+  return <main>{/* ... */}</main>;
 }
 ```
 
@@ -120,10 +139,15 @@ Every registered entry reaches the agent as `{ description, value }`, and `value
 Registering this:
 
 ```tsx
-useAgentContext({
-  description: "Incident dashboard records",
-  value: [{ id: "INC-1041", severity: "sev1" }],
-});
+import { useAgentContext } from "@copilotkit/react-core";
+
+function IncidentDashboard() {
+  useAgentContext({
+    description: "Incident dashboard records",
+    value: [{ id: "INC-1041", severity: "sev1" }],
+  });
+  return null;
+}
 ```
 
 delivers this to the agent:
@@ -148,13 +172,17 @@ def dashboard_records(context):
     return None if entry is None else json.loads(entry["value"])
 ```
 
-In a TypeScript agent:
+In a TypeScript agent, the list is the run input's `context`:
 
 ```ts
-const entry = context.find(
-  (item) => item.description === "Incident dashboard records",
-);
-const records = entry ? JSON.parse(entry.value) : undefined;
+import type { RunAgentInput } from "@ag-ui/client";
+
+function dashboardRecords(input: RunAgentInput) {
+  const entry = input.context.find(
+    (item) => item.description === "Incident dashboard records",
+  );
+  return entry ? JSON.parse(entry.value) : undefined;
+}
 ```
 
 Where that context list surfaces in your agent depends on your framework's AG-UI adapter.
@@ -194,8 +222,8 @@ for a complete agent example.
 - **Reactive updates**: When the `context` object changes between renders, the agent immediately sees the updated value.
 - **Serialization**: The `value` must conform to `JsonSerializable` (`string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }`). Non-serializable values such as functions, class instances, or symbols will cause errors. Strings are sent through unchanged; every other value is stringified, so the agent always reads a string -- see [What the agent receives](#what-the-agent-receives).
 - **Multiple contexts**: Multiple `useAgentContext` calls across your component tree are all visible to the agent concurrently. Each is identified by its description and value.
-- **No return value**: The hook returns `void`. Unlike `useCopilotReadable`, it does not return an ID for parent-child hierarchies.
+- **No return value**: The hook returns `void`. Unlike the v1 `useCopilotReadable`, it does not return an ID for parent-child hierarchies.
 
 ## Related
 
-- [`useCopilotReadable`](/reference/v1/hooks/useCopilotReadable) -- v1 equivalent for providing context
+- [Migrate to 2.0](/migrate/v2) -- how `useCopilotReadable` maps to `useAgentContext`

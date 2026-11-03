@@ -16,7 +16,7 @@
     "@langchain/core": "^1.1.26",
     "@langchain/langgraph": "1.1.5",
     "@langchain/openai": "^1.2.8",
-    "zod": "^3.25.76"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.19.11",

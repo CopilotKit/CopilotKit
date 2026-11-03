@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
 import type { UserMessage } from "@ag-ui/core";
+import type {
+  AudioInputPart,
+  DocumentInputPart,
+  ImageInputPart,
+  VideoInputPart,
+} from "@copilotkit/shared";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
 import {
@@ -10,6 +16,8 @@ import {
   IconCopy,
   IconEdit,
 } from "../icons";
+import CopilotTooltip from "../ui/CopilotTooltip.vue";
+import CopilotChatAttachmentRenderer from "./CopilotChatAttachmentRenderer.vue";
 import type {
   CopilotChatUserMessageBranchNavigationSlotProps,
   CopilotChatUserMessageCopyButtonSlotProps,
@@ -61,12 +69,9 @@ const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 const copied = ref(false);
 let copiedResetTimeout: ReturnType<typeof setTimeout> | null = null;
 
-const toolbarButtonClass = [
-  "cpk:inline-flex cpk:h-8 cpk:w-8 cpk:items-center cpk:justify-center cpk:rounded-md cpk:p-0",
-  "cpk:cursor-pointer cpk:text-[rgb(93,93,93)] cpk:transition-colors cpk:hover:bg-[#E8E8E8]",
-  "cpk:hover:text-[rgb(93,93,93)] cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
-  "cpk:dark:hover:text-[rgb(243,243,243)] cpk:disabled:pointer-events-none cpk:disabled:opacity-50",
-].join(" ");
+// Styles live in @copilotkit/core (ui/button.css, user-message.css).
+const toolbarButtonClass =
+  "cpk-button cpk-button-assistant-message-toolbar cpk-button-size-default";
 
 function flattenUserMessageContent(content?: UserMessage["content"]): string {
   if (!content) {
@@ -93,6 +98,38 @@ function flattenUserMessageContent(content?: UserMessage["content"]): string {
     .filter((text) => text.length > 0)
     .join("\n");
 }
+
+type MediaPart =
+  | ImageInputPart
+  | AudioInputPart
+  | VideoInputPart
+  | DocumentInputPart;
+
+function getMediaParts(content: UserMessage["content"]): MediaPart[] {
+  if (!content || typeof content === "string") return [];
+  return content.filter(
+    (part): part is MediaPart =>
+      part.type === "image" ||
+      part.type === "audio" ||
+      part.type === "video" ||
+      part.type === "document",
+  );
+}
+
+function getFilename(part: MediaPart): string | undefined {
+  const meta = part.metadata;
+  if (
+    meta != null &&
+    typeof meta === "object" &&
+    "filename" in meta &&
+    typeof meta.filename === "string"
+  ) {
+    return meta.filename;
+  }
+  return undefined;
+}
+
+const mediaParts = computed(() => getMediaParts(props.message.content));
 
 const flattenedContent = computed(() =>
   flattenUserMessageContent(props.message.content),
@@ -204,21 +241,31 @@ onBeforeUnmount(() => {
     <div
       data-copilotkit
       data-testid="copilot-user-message"
-      class="cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-10"
+      class="copilotKitMessage copilotKitUserMessage cpk-user-message"
       :data-message-id="message.id"
       v-bind="$attrs"
     >
+      <div
+        v-if="mediaParts.length > 0"
+        class="cpk-user-message-attachments"
+        data-testid="copilot-user-message-attachments"
+      >
+        <CopilotChatAttachmentRenderer
+          v-for="(part, index) in mediaParts"
+          :key="index"
+          :type="part.type"
+          :source="part.source"
+          :filename="getFilename(part)"
+        />
+      </div>
+
       <slot
         name="message-renderer"
         :message="message"
         :content="flattenedContent"
         :is-multiline="isMultiline"
       >
-        <div
-          class="cpk:prose cpk:dark:prose-invert cpk:bg-muted cpk:relative cpk:max-w-[80%] cpk:rounded-[18px] cpk:px-4 cpk:py-1.5 cpk:inline-block cpk:whitespace-pre-wrap"
-          :data-multiline="isMultiline ? 'true' : undefined"
-          :class="{ 'cpk:py-3': isMultiline }"
-        >
+        <div class="cpk-user-message-bubble">
           {{ flattenedContent }}
         </div>
       </slot>
@@ -230,9 +277,10 @@ onBeforeUnmount(() => {
         :has-edit-action="hasEditAction"
       >
         <div
-          class="cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-[5px] cpk:mt-[4px] cpk:invisible cpk:group-hover:visible"
+          data-testid="copilot-user-toolbar"
+          class="cpk-user-message-toolbar"
         >
-          <div class="cpk:flex cpk:items-center cpk:gap-1 cpk:justify-end">
+          <div class="cpk-user-message-toolbar-items">
             <slot name="toolbar-items" />
 
             <slot
@@ -241,17 +289,26 @@ onBeforeUnmount(() => {
               :copied="copied"
               :label="labels.userMessageToolbarCopyMessageLabel"
             >
-              <button
-                data-testid="copilot-user-copy-button"
-                type="button"
-                :class="toolbarButtonClass"
-                :aria-label="labels.userMessageToolbarCopyMessageLabel"
-                :title="labels.userMessageToolbarCopyMessageLabel"
-                @click="handleCopyMessage"
+              <CopilotTooltip
+                v-slot="{ triggerProps }"
+                :content="labels.userMessageToolbarCopyMessageLabel"
+                side="bottom"
               >
-                <IconCheck v-if="copied" class="cpk:size-[18px]" />
-                <IconCopy v-else class="cpk:size-[18px]" />
-              </button>
+                <button
+                  data-testid="copilot-user-copy-button"
+                  type="button"
+                  :class="toolbarButtonClass"
+                  :aria-label="labels.userMessageToolbarCopyMessageLabel"
+                  v-bind="triggerProps"
+                  @click="handleCopyMessage"
+                >
+                  <IconCheck
+                    v-if="copied"
+                    class="cpk-user-message-toolbar-icon"
+                  />
+                  <IconCopy v-else class="cpk-user-message-toolbar-icon" />
+                </button>
+              </CopilotTooltip>
             </slot>
 
             <slot
@@ -260,15 +317,22 @@ onBeforeUnmount(() => {
               :on-edit="handleEditMessage"
               :label="labels.userMessageToolbarEditMessageLabel"
             >
-              <button
-                type="button"
-                :class="toolbarButtonClass"
-                :aria-label="labels.userMessageToolbarEditMessageLabel"
-                :title="labels.userMessageToolbarEditMessageLabel"
-                @click="handleEditMessage"
+              <CopilotTooltip
+                v-slot="{ triggerProps }"
+                :content="labels.userMessageToolbarEditMessageLabel"
+                side="bottom"
               >
-                <IconEdit class="cpk:size-[18px]" />
-              </button>
+                <button
+                  data-testid="copilot-edit-button"
+                  type="button"
+                  :class="toolbarButtonClass"
+                  :aria-label="labels.userMessageToolbarEditMessageLabel"
+                  v-bind="triggerProps"
+                  @click="handleEditMessage"
+                >
+                  <IconEdit class="cpk-user-message-toolbar-icon" />
+                </button>
+              </CopilotTooltip>
             </slot>
 
             <slot
@@ -284,33 +348,32 @@ onBeforeUnmount(() => {
               :go-prev="goPrev"
               :go-next="goNext"
             >
-              <div class="cpk:flex cpk:items-center cpk:gap-1">
+              <div
+                data-testid="copilot-branch-navigation"
+                class="cpk-user-message-branch-navigation"
+              >
                 <button
                   type="button"
                   :class="toolbarButtonClass"
-                  class="cpk:h-6 cpk:w-6 cpk:p-0"
+                  class="cpk-user-message-branch-button"
                   :disabled="!canGoPrev"
                   :aria-label="labels.userMessageToolbarPreviousBranchLabel"
-                  :title="labels.userMessageToolbarPreviousBranchLabel"
                   @click="goPrev"
                 >
-                  <IconChevronLeft class="cpk:size-[20px]" />
+                  <IconChevronLeft class="cpk-user-message-branch-icon" />
                 </button>
-                <span
-                  class="cpk:text-sm cpk:text-muted-foreground cpk:px-0 cpk:font-medium"
-                >
+                <span class="cpk-user-message-branch-counter">
                   {{ branchIndex + 1 }}/{{ numberOfBranches }}
                 </span>
                 <button
                   type="button"
                   :class="toolbarButtonClass"
-                  class="cpk:h-6 cpk:w-6 cpk:p-0"
+                  class="cpk-user-message-branch-button"
                   :disabled="!canGoNext"
                   :aria-label="labels.userMessageToolbarNextBranchLabel"
-                  :title="labels.userMessageToolbarNextBranchLabel"
                   @click="goNext"
                 >
-                  <IconChevronRight class="cpk:size-[20px]" />
+                  <IconChevronRight class="cpk-user-message-branch-icon" />
                 </button>
               </div>
             </slot>

@@ -1,9 +1,6 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import {
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotChat, useConfigureSuggestions } from "@copilotkit/react-core";
 import {
   longReasoning,
   reactHooksConversation,

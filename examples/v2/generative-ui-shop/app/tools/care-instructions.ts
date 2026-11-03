@@ -1,4 +1,4 @@
-import { toolDefinition } from "#app/tools/tool-definition.ts";
+import { toolDefinition } from "@tanstack/ai";
 import { z } from "zod";
 import { getProductById } from "#app/domain/products.server.ts";
 

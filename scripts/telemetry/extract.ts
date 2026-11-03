@@ -3,8 +3,8 @@
 // Two surfaces, two mechanisms (see docs/telemetry-registry-publish-roadmap.md
 // in oss-path-to-production):
 //   - runtime → typed catalog. Event names + property names live in the
-//     `AnalyticsEvents` type map (packages/shared/.../events.ts, duplicated in
-//     the v2 runtime). `readRuntimeCatalog` reads that type; call sites come
+//     `AnalyticsEvents` type map (packages/runtime/.../telemetry/events.ts).
+//     `readCatalogFile` reads that type; call sites come
 //     from a name-based scan (the emit sites pass non-literal props, so their
 //     inline keys are NOT authoritative — the catalog is).
 //   - docs (showcase/shell-docs) → inline `posthog.capture("name", { ... })`.
@@ -293,29 +293,6 @@ export function readCatalogFile(
     out.set(event, [...new Set(props)].sort());
   }
   return out;
-}
-
-// Read both the v1 and v2 catalogs and fail loud if they diverge — the two are
-// duplicated byte-for-byte today, and silent drift between them is exactly the
-// risk this emitter exists to catch.
-function serializeCatalog(m: Map<string, string[]>): string {
-  return JSON.stringify(
-    [...m.entries()].sort((x, y) => x[0].localeCompare(y[0])),
-  );
-}
-
-export function readRuntimeCatalog(
-  v1: { path: string; content: string },
-  v2: { path: string; content: string },
-): Map<string, string[]> {
-  const a = readCatalogFile(v1.path, v1.content);
-  const b = readCatalogFile(v2.path, v2.content);
-  if (serializeCatalog(a) !== serializeCatalog(b)) {
-    throw new Error(
-      `Runtime v1 and v2 telemetry catalogs diverge.\n  v1 (${v1.path}): ${serializeCatalog(a)}\n  v2 (${v2.path}): ${serializeCatalog(b)}`,
-    );
-  }
-  return a;
 }
 
 // Combine catalog properties (authoritative) with call sites discovered by a

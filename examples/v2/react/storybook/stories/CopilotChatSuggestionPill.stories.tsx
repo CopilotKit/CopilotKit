@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { Sparkles, ArrowRight } from "lucide-react";
-import { CopilotChatSuggestionPill } from "@copilotkit/react-core/v2";
+import { CopilotChatSuggestionPill } from "@copilotkit/react-core";
 
 const meta = {
   title: "UI/CopilotChatSuggestionPill",

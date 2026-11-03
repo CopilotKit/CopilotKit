@@ -33,7 +33,7 @@ vi.mock("@/lib/utils/cn", () => ({
     classNames.filter(Boolean).join(" "),
 }));
 
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   CopilotChat: ({ labels }: { labels?: { welcomeMessageText?: string } }) => {
     const assistantMessage = chatState.messages.find(
       (message) => message.role === "assistant",

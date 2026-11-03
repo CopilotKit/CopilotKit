@@ -540,7 +540,7 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
   });
 
   describe("8. Integration Tests", () => {
-    it("keeps the transparent-background utility on the positioning wrapper", () => {
+    it("keeps the positioning wrapper class on the popup's parent", () => {
       const Host = defineComponent({
         components: { CopilotPopupView },
         setup() {
@@ -554,8 +554,8 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
       const positioningWrapper = popup?.parentElement;
 
       expect(positioningWrapper?.hasAttribute("data-copilotkit")).toBe(true);
-      // jsdom does not load the generated stylesheet; this guards the utility-class contract only.
-      expect(positioningWrapper?.classList.contains("cpk:bg-transparent")).toBe(
+      // jsdom does not load the stylesheet; this guards the class contract only.
+      expect(positioningWrapper?.classList.contains("cpk-popup-view")).toBe(
         true,
       );
     });

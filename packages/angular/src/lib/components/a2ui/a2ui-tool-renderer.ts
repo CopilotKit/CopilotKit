@@ -31,6 +31,22 @@ import { CopilotA2UISurfaceOutlet } from "./surface-outlet";
       <copilot-a2ui-progress [phase]="phase()" [tokens]="tokens()" />
     }
   `,
+  styles: `
+    :host {
+      display: block;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .copilot-a2ui-surface-scroll {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: auto;
+      overflow-y: visible;
+      padding-top: 0.25rem;
+      padding-bottom: 0.5rem;
+    }
+  `,
 })
 export class CopilotA2UIToolRenderer implements ToolRenderer<RenderA2UIArgs> {
   readonly toolCall = input.required<AngularToolCall<RenderA2UIArgs>>();

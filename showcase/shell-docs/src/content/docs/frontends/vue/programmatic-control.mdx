@@ -92,7 +92,11 @@ Both methods trigger the agent, but they operate at different levels:
 `agent.subscribe(subscriber)` returns `{ unsubscribe }`. The subscriber accepts every AG-UI lifecycle callback: `onCustomEvent`, `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, and the streaming deltas. Use it to drive progress UI, forward events to analytics, or inspect framework pause/resume events.
 
 ```ts
+// Inside <script setup lang="ts">
 import { watch } from "vue";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const { agent } = useAgent();
 
 watch(
   agent,
@@ -116,6 +120,9 @@ watch(
 For product UI, use `useInterrupt({ renderInChat: false })`. It subscribes to the standard AG-UI interrupt outcome and the legacy `on_interrupt` event, stages the pending interrupt until finalization, and exposes `resolve` / `cancel` methods that resume through `copilotkit.runAgent`:
 
 ```ts
+// Inside <script setup lang="ts">
+import { useInterrupt } from "@copilotkit/vue/v2";
+
 const { slotProps } = useInterrupt({
   agentId: "sales",
   renderInChat: false,

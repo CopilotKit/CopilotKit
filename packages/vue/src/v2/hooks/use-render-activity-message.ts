@@ -1,19 +1,11 @@
 import { computed } from "vue";
 import type { Component } from "vue";
 import type { ActivityMessage } from "@ag-ui/core";
-import type { AbstractAgent } from "@ag-ui/client";
+import { ɵresolveActivityRenderer } from "@copilotkit/core";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../providers/useCopilotChatConfiguration";
-import type {
-  VueActivityMessageRenderer,
-  VueActivityMessageRendererProps,
-} from "../types";
-
-interface ActivityRendererResult {
-  renderer: Component<VueActivityMessageRendererProps<unknown>>;
-  props: VueActivityMessageRendererProps<unknown>;
-}
+import type { VueActivityMessageRendererProps } from "../types";
 
 /**
  * Returns helpers for rendering activity messages.
@@ -21,70 +13,57 @@ interface ActivityRendererResult {
  * Matches the React `useRenderActivityMessage` API: `findRenderer` locates a
  * registered renderer by activity type (preferring agent-scoped over global,
  * with `"*"` as a wildcard fallback), and `renderActivityMessage` resolves the
- * renderer and validates the content schema.
+ * renderer and validates the content with the renderer's `content` schema
+ * (any Standard Schema, such as zod).
  */
 export function useRenderActivityMessage() {
   const { copilotkit } = useCopilotKit();
   const config = useCopilotChatConfiguration();
   const agentId = computed(() => config.value?.agentId ?? DEFAULT_AGENT_ID);
 
-  const renderers = computed(() => [
-    ...copilotkit.value.renderActivityMessages,
-  ]);
-
-  function findRenderer(
-    activityType: string,
-  ): VueActivityMessageRenderer<unknown> | null {
-    const list = renderers.value;
-    if (!list.length) {
-      return null;
-    }
-
-    const matches = list.filter(
+  function findRenderer(activityType: string) {
+    const renderers = copilotkit.value.renderActivityMessages;
+    const matches = renderers.filter(
       (renderer) => renderer.activityType === activityType,
     );
 
     return (
       matches.find((candidate) => candidate.agentId === agentId.value) ??
       matches.find((candidate) => candidate.agentId === undefined) ??
-      list.find((candidate) => candidate.activityType === "*") ??
+      renderers.find((candidate) => candidate.activityType === "*") ??
       null
     );
   }
 
-  function renderActivityMessage(
-    message: ActivityMessage,
-  ): ActivityRendererResult | null {
-    const renderer = findRenderer(message.activityType);
-
-    if (!renderer) {
-      return null;
-    }
-
-    const parseResult = renderer.content.safeParse(message.content);
-
-    if (!parseResult.success) {
-      console.warn(
-        `Failed to parse content for activity message ` +
-          `'${message.activityType}':`,
-        parseResult.error,
-      );
-      return null;
-    }
-
-    const agent: AbstractAgent | undefined = copilotkit.value.getAgent(
-      agentId.value,
+  function renderActivityMessage(message: ActivityMessage) {
+    const match = ɵresolveActivityRenderer(
+      copilotkit.value.renderActivityMessages,
+      {
+        activityType: message.activityType,
+        agentId: agentId.value,
+        content: message.content,
+      },
     );
 
+    if (!match) {
+      if (findRenderer(message.activityType)) {
+        console.warn(
+          `Failed to validate content for activity message ` +
+            `'${message.activityType}'.`,
+        );
+      }
+      return null;
+    }
+
     return {
-      renderer: renderer.render as Component<
+      renderer: match.renderer.render as Component<
         VueActivityMessageRendererProps<unknown>
       >,
       props: {
         activityType: message.activityType,
-        content: parseResult.data,
+        content: match.content,
         message,
-        agent,
+        agent: copilotkit.value.getAgent(agentId.value),
       },
     };
   }

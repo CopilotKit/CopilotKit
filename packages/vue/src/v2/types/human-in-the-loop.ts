@@ -1,37 +1,13 @@
-import type { FrontendTool, ToolCallStatus } from "@copilotkit/core";
+import type { FrontendTool, HumanInTheLoopRenderProps } from "@copilotkit/core";
 import type { Component, VNodeChild } from "vue";
 
-export type VueHumanInTheLoopRenderProps<T> =
-  | {
-      name: string;
-      description: string;
-      toolCallId: string;
-      agentId?: string;
-      args: Partial<T>;
-      status: ToolCallStatus.InProgress;
-      result: undefined;
-      respond: undefined;
-    }
-  | {
-      name: string;
-      description: string;
-      toolCallId: string;
-      agentId?: string;
-      args: T;
-      status: ToolCallStatus.Executing;
-      result: undefined;
-      respond: (result: unknown) => Promise<void>;
-    }
-  | {
-      name: string;
-      description: string;
-      toolCallId: string;
-      agentId?: string;
-      args: T;
-      status: ToolCallStatus.Complete;
-      result: string;
-      respond: undefined;
-    };
+/**
+ * Props a Vue human-in-the-loop renderer receives. Same as core's
+ * `HumanInTheLoopRenderProps`.
+ *
+ * @typeParam T - The shape of the tool arguments.
+ */
+export type VueHumanInTheLoopRenderProps<T> = HumanInTheLoopRenderProps<T>;
 
 export type VueHumanInTheLoopRenderFn<T> =
   | ((props: VueHumanInTheLoopRenderProps<T>) => VNodeChild)

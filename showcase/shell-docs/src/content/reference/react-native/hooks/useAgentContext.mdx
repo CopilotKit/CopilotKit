@@ -8,17 +8,20 @@ description: "React hook for providing dynamic context to agents"
 `useAgentContext` registers a dynamic context object with the active Copilot runtime for the lifetime of the component. The hook adds the context on mount and removes it on unmount, so the agent always sees an up-to-date snapshot of your application state without manual cleanup.
 
 <Callout type="info">
-  Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useAgentContext`](/reference/v2/hooks/useAgentContext); only the import path differs.
+  Re-exported from `@copilotkit/react-core`. It is identical to the [React `useAgentContext`](/reference/hooks/useAgentContext); only the import path differs.
 </Callout>
 
-Update the incoming context object to refresh what the agent sees. This is the v2 equivalent of `useCopilotReadable`. It lets you surface any serializable application state (user preferences, selected items, computed values, and so on) as context that agents can reference when generating responses or making decisions.
+Update the incoming context object to refresh what the agent sees. It replaces `useCopilotReadable` from CopilotKit 1.x. It lets you surface any serializable application state (user preferences, selected items, computed values, and so on) as context that agents can reference when generating responses or making decisions.
 
 ## Signature
 
 ```tsx
-import { useAgentContext } from "@copilotkit/react-native";
+import {
+  useAgentContext,
+  type AgentContextInput,
+} from "@copilotkit/react-native";
 
-function useAgentContext(context: AgentContextInput): void;
+useAgentContext satisfies (context: AgentContextInput) => void;
 ```
 
 ## Parameters
@@ -105,6 +108,7 @@ Each component can register its own context. All registered contexts are visible
 import { useState } from "react";
 import { useAgentContext } from "@copilotkit/react-native";
 import { View } from "react-native";
+import { MainPanel } from "./MainPanel";
 
 function Dashboard() {
   useAgentContext({
@@ -139,10 +143,16 @@ Every registered entry reaches the agent as `{ description, value }`, and `value
 Registering this:
 
 ```tsx
-useAgentContext({
-  description: "Incident dashboard records",
-  value: [{ id: "INC-1041", severity: "sev1" }],
-});
+import { useAgentContext } from "@copilotkit/react-native";
+
+function IncidentDashboard() {
+  useAgentContext({
+    description: "Incident dashboard records",
+    value: [{ id: "INC-1041", severity: "sev1" }],
+  });
+
+  return null;
+}
 ```
 
 delivers this to the agent:
@@ -170,10 +180,14 @@ def dashboard_records(context):
 In a TypeScript agent:
 
 ```ts
-const entry = context.find(
-  (item) => item.description === "Incident dashboard records",
-);
-const records = entry ? JSON.parse(entry.value) : undefined;
+import type { RunAgentInput } from "@ag-ui/client";
+
+function dashboardRecords({ context }: RunAgentInput) {
+  const entry = context.find(
+    (item) => item.description === "Incident dashboard records",
+  );
+  return entry ? JSON.parse(entry.value) : undefined;
+}
 ```
 
 Where that context list surfaces in your agent depends on your framework's AG-UI adapter: see your integration's guide for the field it populates.
@@ -197,5 +211,4 @@ Where that context list surfaces in your agent depends on your framework's AG-UI
 
 ## Related
 
-- [`useCopilotReadable`](/reference/v1/hooks/useCopilotReadable): v1 equivalent for providing context
-- [React (V2) reference](/reference/v2/hooks/useAgentContext): the web `useAgentContext` this hook mirrors
+- [React reference](/reference/hooks/useAgentContext): the web `useAgentContext` this hook mirrors

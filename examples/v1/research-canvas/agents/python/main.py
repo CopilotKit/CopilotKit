@@ -3,8 +3,7 @@
 import os
 
 import uvicorn
-from ag_ui_langgraph import add_langgraph_fastapi_endpoint
-from copilotkit import LangGraphAGUIAgent
+from ag_ui_langgraph import LangGraphAgent, add_langgraph_fastapi_endpoint
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
@@ -16,14 +15,14 @@ app = FastAPI()
 
 add_langgraph_fastapi_endpoint(
     app=app,
-    agent=LangGraphAGUIAgent(
+    agent=LangGraphAgent(
         name="research_agent", description="Research agent.", graph=graph
     ),
     path="/copilotkit/agents/research_agent",
 )
 # add_langgraph_fastapi_endpoint(
 #     app=app,
-#     agent=LangGraphAGUIAgent(
+#     agent=LangGraphAgent(
 #         name="research_agent_google_genai", description="Research agent.", graph=graph
 #     ),
 #     path="/copilotkit/agents/research_agent_google_genai",
@@ -44,14 +43,7 @@ def main():
         host="0.0.0.0",
         port=port,
         reload=True,
-        reload_dirs=(
-            ["."]
-            + (
-                ["../../../../sdk-python/copilotkit"]
-                if os.path.exists("../../../../sdk-python/copilotkit")
-                else []
-            )
-        ),
+        reload_dirs=["."],
     )
 
 

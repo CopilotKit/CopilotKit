@@ -29,7 +29,7 @@ Mastra does not emit AG-UI interrupt events. While Mastra has a `suspend()` API 
   Define a frontend tool that renders UI and waits for the user's response:
 
   ```tsx title="ui/app/page.tsx"
-  import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+  import { useHumanInTheLoop } from "@copilotkit/react-core";
   import { z } from "zod";
 
   function YourMainContent() {

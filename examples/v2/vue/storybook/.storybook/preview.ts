@@ -1,6 +1,6 @@
 import type { Preview } from "@storybook/vue3-vite";
 import { withThemeByClassName } from "@storybook/addon-themes";
-import "@copilotkit/vue/styles.css";
+import { CopilotKitStyles } from "@copilotkit/vue";
 import "./preview.css";
 
 const preview: Preview = {
@@ -21,6 +21,12 @@ const preview: Preview = {
     },
   },
   decorators: [
+    // Stories often render a single part (an input, a message) without
+    // CopilotChat, which is what normally renders the styles.
+    (story) => ({
+      components: { story, CopilotKitStyles },
+      template: "<CopilotKitStyles /><story />",
+    }),
     withThemeByClassName({
       themes: {
         light: "",

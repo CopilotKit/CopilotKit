@@ -109,7 +109,7 @@ describe("CopilotSidebar", () => {
     await second.whenStable();
 
     const firstClose: HTMLButtonElement = first.nativeElement.querySelector(
-      "[aria-label='Close Copilot sidebar']",
+      ".cpk-modal-header-close-button",
     );
     firstClose.click();
     first.detectChanges();

@@ -2,7 +2,7 @@ import type {
   AssistantMessage as AgUiAssistantMessage,
   Message,
   UserMessage as AgUiUserMessage,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import type { ReactNode } from "react";
 
 interface UserMessageProps {

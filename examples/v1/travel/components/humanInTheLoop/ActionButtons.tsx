@@ -1,4 +1,4 @@
-import { ToolCallStatus } from "@copilotkit/react-core/v2";
+import { ToolCallStatus } from "@copilotkit/react-core";
 import { Button } from "../ui/button";
 import { useEffect, useRef, useState } from "react";
 import { submitResponse } from "./response-submission";

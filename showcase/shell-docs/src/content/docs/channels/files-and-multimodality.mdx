@@ -17,6 +17,15 @@ Managed conversation history does not contain the current inbound turn.
 both `message.text` and `message.contentParts`:
 
 ```ts title="channel.ts"
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+
+const channel = createChannel({
+  name: "support",
+  identifyUser: "platform",
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
+});
+
 channel.onMessage(async ({ thread, message }) => {
   const prompt = message.contentParts?.length
     ? [
@@ -140,20 +149,26 @@ SharePoint-reference uploads separately.
 unsupported provider capability:
 
 ```ts title="export-report.ts"
-const csv = new TextEncoder().encode(
-  ["id,status", "INC-421,investigating"].join("\n"),
-);
+import { createChannel } from "@copilotkit/channels";
 
-const result = await thread.postFile({
-  bytes: csv,
-  filename: "incident-report.csv",
-  title: "Incident report",
-  altText: "CSV export of the incident report",
+const channel = createChannel({ name: "support", identifyUser: "platform" });
+
+channel.onMessage(async ({ thread }) => {
+  const csv = new TextEncoder().encode(
+    ["id,status", "INC-421,investigating"].join("\n"),
+  );
+
+  const result = await thread.postFile({
+    bytes: csv,
+    filename: "incident-report.csv",
+    title: "Incident report",
+    altText: "CSV export of the incident report",
+  });
+
+  if (!result.ok) {
+    await thread.post(`The report could not be attached: ${result.error}`);
+  }
 });
-
-if (!result.ok) {
-  await thread.post(`The report could not be attached: ${result.error}`);
-}
 ```
 
 On managed Channels, `result.ok` means Intelligence stored the managed asset,

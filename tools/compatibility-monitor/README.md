@@ -2,7 +2,7 @@
 
 Run this tool locally or dispatch it manually through GitHub Actions. The Intelligence monitor can also dispatch `intelligence-compatibility-monitor.yml` with one JSON request. This runner executes native adapter tests against independent installed artifacts. It does not contact Intelligence, Slack, or a paid model.
 
-The six adapters are TypeScript LangGraph, Mastra, the built-in agent, Python LangGraph, Python ADK, and .NET Agent Framework. The built-in agent ships in `@copilotkit/runtime/v2` and watches exact `ai` and `zod` versions. Regular learned-skill CI also runs its installed source consumer against the frozen workspace dependency versions.
+The six adapters are TypeScript LangGraph, Mastra, the built-in agent, Python LangGraph, Python ADK, and .NET Agent Framework. The built-in agent ships in `@copilotkit/runtime` and watches exact `ai` and `zod` versions. Regular learned-skill CI also runs its installed source consumer against the frozen workspace dependency versions.
 
 ## Request
 

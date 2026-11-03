@@ -25,9 +25,9 @@ vi.mock("./model", () => ({
   getModel: () => ({ bindTools: () => ({ invoke: dependencies.invoke }) }),
 }));
 
-vi.mock("@copilotkit/sdk-js/langgraph", () => ({
-  copilotkitCustomizeConfig: (config: RunnableConfig) => config,
-  copilotkitEmitState: async () => {},
+vi.mock("./agui-events", () => ({
+  withPredictedState: (config: RunnableConfig) => config,
+  emitState: async () => {},
 }));
 
 vi.mock("./resource-cache", async (importOriginal) => {
@@ -41,12 +41,6 @@ vi.mock("./resource-cache", async (importOriginal) => {
 /** Creates a research state with resource metadata and no retained document body. */
 function createState(url: string): AgentState {
   return {
-    copilotkit: {
-      actions: [],
-      context: [],
-      interceptedToolCalls: [],
-      originalAIMessageId: "",
-    },
     logs: [],
     messages: [],
     model: "openai",

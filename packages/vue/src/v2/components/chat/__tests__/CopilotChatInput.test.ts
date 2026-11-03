@@ -35,7 +35,9 @@ const mockLayoutMetrics = (
   container: HTMLElement,
   options?: { gridWidth?: number; addWidth?: number; actionsWidth?: number },
 ) => {
-  const grid = container.querySelector("div.cpk\\:grid") as HTMLElement | null;
+  const grid = container.querySelector(
+    ".cpk-chat-input-grid",
+  ) as HTMLElement | null;
   if (!grid) {
     throw new Error("Grid container not found in CopilotChatInput layout");
   }
@@ -557,6 +559,38 @@ describe("CopilotChatInput", () => {
     expect(screen.getByRole("button", { name: "Stop" })).toBe(getSendButton());
   });
 
+  describe("Enter while the agent runs", () => {
+    async function pressEnterWhileRunning(modelValue: string) {
+      const onStop = vi.fn();
+      renderWithProvider({
+        props: { modelValue, isRunning: true },
+        listeners: { onSubmitMessage: mockOnSubmitMessage, onStop },
+      });
+      await fireEvent.keyDown(
+        screen.getByPlaceholderText("Type a message..."),
+        {
+          key: "Enter",
+          shiftKey: false,
+        },
+      );
+      return onStop;
+    }
+
+    it("sends the typed text and does not stop the run", async () => {
+      const onStop = await pressEnterWhileRunning("  next question  ");
+
+      expect(mockOnSubmitMessage).toHaveBeenCalledWith("next question");
+      expect(onStop).not.toHaveBeenCalled();
+    });
+
+    it("stops the run when the input is empty", async () => {
+      const onStop = await pressEnterWhileRunning("");
+
+      expect(onStop).toHaveBeenCalledOnce();
+      expect(mockOnSubmitMessage).not.toHaveBeenCalled();
+    });
+  });
+
   it("names the send button with the configured labels", () => {
     renderWithProvider({
       template: `
@@ -694,9 +728,8 @@ describe("CopilotChatInput", () => {
     const layoutCell = textarea.parentElement as HTMLElement;
     const gridContainer = layoutCell.parentElement as HTMLElement;
 
-    expect(layoutCell.className).toContain("col-start-2");
-    expect(layoutCell.className).not.toContain("col-span-3");
-    expect(gridContainer.className).toContain("items-center");
+    expect(layoutCell.className).toContain("cpk-chat-input-field");
+    expect(gridContainer.getAttribute("data-layout")).toBe("compact");
   });
 
   it("toggles textarea padding based on multiline state", async () => {
@@ -706,8 +739,10 @@ describe("CopilotChatInput", () => {
     mockLayoutMetrics(container);
 
     const textarea = screen.getByRole("textbox");
-    expect(textarea.className).toContain("pr-5");
-    expect(textarea.className).not.toContain("px-5");
+    expect(textarea.className).toContain("cpk-chat-input-textarea-compact");
+    expect(textarea.className).not.toContain(
+      "cpk-chat-input-textarea-expanded",
+    );
 
     await fireEvent.input(textarea, {
       target: {
@@ -717,8 +752,10 @@ describe("CopilotChatInput", () => {
     });
 
     await waitFor(() => {
-      expect(textarea.className).toContain("px-5");
-      expect(textarea.className).not.toContain("pr-5");
+      expect(textarea.className).toContain("cpk-chat-input-textarea-expanded");
+      expect(textarea.className).not.toContain(
+        "cpk-chat-input-textarea-compact",
+      );
     });
   });
 
@@ -738,13 +775,16 @@ describe("CopilotChatInput", () => {
       },
     });
     await waitFor(() => {
-      expect(layoutCell.className).toContain("col-span-3");
+      expect(layoutCell.parentElement?.getAttribute("data-layout")).toBe(
+        "expanded",
+      );
     });
 
     await fireEvent.input(textarea, { target: { value: "short" } });
     await waitFor(() => {
-      expect(layoutCell.className).toContain("col-start-2");
-      expect(layoutCell.className).not.toContain("col-span-3");
+      expect(layoutCell.parentElement?.getAttribute("data-layout")).toBe(
+        "compact",
+      );
     });
   });
 
@@ -760,8 +800,9 @@ describe("CopilotChatInput", () => {
 
     await waitFor(() => {
       const layoutCell = textarea.parentElement as HTMLElement;
-      expect(layoutCell.className).toContain("col-span-3");
-      expect(layoutCell.className).not.toContain("col-start-2");
+      expect(layoutCell.parentElement?.getAttribute("data-layout")).toBe(
+        "expanded",
+      );
     });
   });
 
@@ -790,7 +831,7 @@ describe("CopilotChatInput", () => {
 
     await fireEvent.click(addButton);
     const menuItem = await screen.findByRole("menuitem", {
-      name: "Add photos or files",
+      name: "Add attachments",
     });
     await fireEvent.click(menuItem);
     expect(handleAddFile).toHaveBeenCalledTimes(1);

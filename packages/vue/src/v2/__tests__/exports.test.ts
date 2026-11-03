@@ -8,6 +8,7 @@ describe("package exports", () => {
     expect(typeof VuePackage.CopilotChat.View).toBe("object");
     expect(typeof VuePackage.CopilotChatMessageView).toBe("object");
     expect(typeof VuePackage.CopilotChatToolCallsView).toBe("object");
+    expect(typeof VuePackage.CopilotChatToolCallGroup).toBe("object");
     expect(typeof VuePackage.CopilotChatInput).toBe("object");
     expect(typeof VuePackage.CopilotChatAssistantMessage).toBe("object");
     expect(typeof VuePackage.CopilotChatUserMessage).toBe("object");
@@ -32,11 +33,12 @@ describe("package exports", () => {
     expect(VuePackage.vueBasicCatalog.components.size).toBeGreaterThan(0);
   });
 
-  it("exports the vue stylesheet entrypoint", () => {
+  it("exports CopilotKitStyles and no stylesheet, since the CSS is injected", () => {
     const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
       exports?: Record<string, unknown>;
     };
 
-    expect(packageJson.exports?.["./styles.css"]).toBe("./dist/styles.css");
+    expect(typeof VuePackage.CopilotKitStyles).toBe("object");
+    expect(packageJson.exports?.["./styles.css"]).toBeUndefined();
   });
 });

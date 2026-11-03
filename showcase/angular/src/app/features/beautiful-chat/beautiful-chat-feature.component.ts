@@ -19,7 +19,7 @@ import {
   signal,
 } from "@angular/core";
 import { mcpAppsActivityRendererConfig } from "@copilotkit/angular/mcp-apps";
-import { z } from "zod";
+import * as z from "zod";
 
 import { agentIdForCurrentIntegration } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
@@ -211,7 +211,7 @@ export class BeautifulChatFeatureComponent {
     this.registerModeTool("enableChatMode", "chat");
     registerRenderToolCall({
       name: "*",
-      args: z.record(z.unknown()),
+      args: z.record(z.string(), z.unknown()),
       component: asRenderer(BeautifulToolReasoningCard),
     });
   }

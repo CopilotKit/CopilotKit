@@ -94,7 +94,7 @@ const require = createRequire(import.meta.url);
 assert.throws(() => require.resolve('@copilotkit/intelligence-delivery-core'), e => e.code === 'MODULE_NOT_FOUND');
 const load = process.argv[2] === 'require' ? async s => require(s) : s => import(s);
 const { SkillRegistry, SkillDeliveryError, createSkillRegistryProcessor } = await load('@copilotkit/intelligence-mastra');
-const { CopilotKitIntelligence } = await load('@copilotkit/runtime/v2');
+const { CopilotKitIntelligence } = await load('@copilotkit/runtime');
 const { zipSync, strToU8 } = await load('fflate');
 const bytes = zipSync({'manifest.json':strToU8(JSON.stringify({schemaVersion:1,revision:'A',skills:[]}))});
 const client = new CopilotKitIntelligence({apiKey:'local-test'});

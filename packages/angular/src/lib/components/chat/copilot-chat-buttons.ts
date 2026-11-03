@@ -19,53 +19,11 @@ import { injectChatLabels } from "../../chat-config";
 import { CopilotTooltip } from "../../directives/tooltip";
 import { cn } from "../../utils";
 
-// Base button classes matching React's button variants
-const buttonBase = cn(
-  "cpk:inline-flex cpk:items-center cpk:justify-center cpk:gap-2 cpk:whitespace-nowrap cpk:rounded-md cpk:text-sm cpk:font-medium",
-  "cpk:transition-all cpk:disabled:pointer-events-none cpk:disabled:opacity-50",
-  "cpk:shrink-0 cpk:outline-none",
-  "cpk:focus-visible:border-ring cpk:focus-visible:ring-ring/50 cpk:focus-visible:ring-[3px]",
-);
-
-const chatInputToolbarPrimary = cn(
-  "cpk:cursor-pointer",
-  // Background and text
-  "cpk:bg-black cpk:text-white",
-  // Dark mode
-  "cpk:dark:bg-white cpk:dark:text-black cpk:dark:focus-visible:outline-white",
-  // Shape and sizing
-  "cpk:rounded-full cpk:h-9 cpk:w-9",
-  // Interactions
-  "cpk:transition-colors",
-  // Focus states
-  "cpk:focus:outline-none",
-  // Hover states
-  "cpk:hover:opacity-70 cpk:disabled:hover:opacity-100",
-  // Disabled states
-  "cpk:disabled:cursor-not-allowed cpk:disabled:bg-[#00000014] cpk:disabled:text-[rgb(13,13,13)]",
-  "cpk:dark:disabled:bg-[#454545] cpk:dark:disabled:text-white",
-);
-
-const chatInputToolbarSecondary = cn(
-  "cpk:cursor-pointer",
-  // Background and text
-  "cpk:bg-transparent cpk:text-[#444444]",
-  // Dark mode
-  "cpk:dark:text-white cpk:dark:border-[#404040]",
-  // Shape and sizing
-  "cpk:rounded-full cpk:h-9 cpk:w-9",
-  // Interactions
-  "cpk:transition-colors",
-  // Focus states
-  "cpk:focus:outline-none",
-  // Hover states
-  "cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333]",
-  "cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF]",
-  // Disabled states
-  "cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50",
-  "cpk:disabled:hover:bg-transparent cpk:disabled:hover:text-[#444444]",
-  "cpk:dark:disabled:hover:bg-transparent cpk:dark:disabled:hover:text-[#CCCCCC]",
-);
+// Same classes as React's <Button> variants (core's ui/button.css).
+const chatInputToolbarPrimary =
+  "cpk-button cpk-button-chat-input-toolbar-primary cpk-button-size-chat-input-toolbar-icon";
+const chatInputToolbarSecondary =
+  "cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon";
 
 @Component({
   selector: "copilot-chat-send-button",
@@ -73,7 +31,7 @@ const chatInputToolbarSecondary = cn(
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <div class="cpk:mr-[10px]">
+    <div class="cpk-chat-input-send">
       <button
         type="button"
         [attr.aria-label]="labels.chatInputToolbarSendButtonLabel"
@@ -81,11 +39,13 @@ const chatInputToolbarSecondary = cn(
         [class]="buttonClass"
         (click)="onClick()"
       >
-        <copilot-icon [img]="ArrowUpIcon" [size]="18"></copilot-icon>
+        <copilot-icon
+          [img]="ArrowUpIcon"
+          iconClass="cpk-chat-input-send-icon"
+        ></copilot-icon>
       </button>
     </div>
   `,
-  styles: [``],
 })
 export class CopilotChatSendButton {
   disabled = input(false);
@@ -93,7 +53,7 @@ export class CopilotChatSendButton {
   readonly labels = injectChatLabels();
 
   readonly ArrowUpIcon = ArrowUp;
-  buttonClass = cn(buttonBase, chatInputToolbarPrimary);
+  buttonClass = chatInputToolbarPrimary;
 
   onClick(): void {
     if (!this.disabled()) {
@@ -117,10 +77,12 @@ export class CopilotChatSendButton {
       tooltipPosition="below"
       (click)="onClick()"
     >
-      <copilot-icon [img]="MicIcon" [size]="18"></copilot-icon>
+      <copilot-icon
+        [img]="MicIcon"
+        iconClass="cpk-chat-input-toolbar-icon"
+      ></copilot-icon>
     </button>
   `,
-  styles: [``],
 })
 export class CopilotChatStartTranscribeButton {
   disabled = input(false);
@@ -129,7 +91,7 @@ export class CopilotChatStartTranscribeButton {
   readonly labels = injectChatLabels();
 
   readonly MicIcon = Mic;
-  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "cpk:mr-2");
+  buttonClass = `${chatInputToolbarSecondary} cpk-chat-input-start-transcribe-button`;
 
   get label(): string {
     return this.labels.chatInputToolbarStartTranscribeButtonLabel;
@@ -157,10 +119,12 @@ export class CopilotChatStartTranscribeButton {
       tooltipPosition="below"
       (click)="onClick()"
     >
-      <copilot-icon [img]="XIcon" [size]="18"></copilot-icon>
+      <copilot-icon
+        [img]="XIcon"
+        iconClass="cpk-chat-input-toolbar-icon"
+      ></copilot-icon>
     </button>
   `,
-  styles: [``],
 })
 export class CopilotChatCancelTranscribeButton {
   disabled = input(false);
@@ -169,7 +133,7 @@ export class CopilotChatCancelTranscribeButton {
   readonly labels = injectChatLabels();
 
   readonly XIcon = X;
-  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "cpk:mr-2");
+  buttonClass = `${chatInputToolbarSecondary} cpk-chat-input-cancel-transcribe-button`;
 
   get label(): string {
     return this.labels.chatInputToolbarCancelTranscribeButtonLabel;
@@ -197,10 +161,12 @@ export class CopilotChatCancelTranscribeButton {
       tooltipPosition="below"
       (click)="onClick()"
     >
-      <copilot-icon [img]="CheckIcon" [size]="18"></copilot-icon>
+      <copilot-icon
+        [img]="CheckIcon"
+        iconClass="cpk-chat-input-toolbar-icon"
+      ></copilot-icon>
     </button>
   `,
-  styles: [``],
 })
 export class CopilotChatFinishTranscribeButton {
   disabled = input(false);
@@ -209,7 +175,7 @@ export class CopilotChatFinishTranscribeButton {
   readonly labels = injectChatLabels();
 
   readonly CheckIcon = Check;
-  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "cpk:mr-[10px]");
+  buttonClass = `${chatInputToolbarSecondary} cpk-chat-input-finish-transcribe-button`;
 
   get label(): string {
     return this.labels.chatInputToolbarFinishTranscribeButtonLabel;
@@ -237,10 +203,12 @@ export class CopilotChatFinishTranscribeButton {
       tooltipPosition="below"
       (click)="onClick()"
     >
-      <copilot-icon [img]="PlusIcon" [size]="20"></copilot-icon>
+      <copilot-icon
+        [img]="PlusIcon"
+        iconClass="cpk-chat-input-add-menu-icon"
+      ></copilot-icon>
     </button>
   `,
-  styles: [``],
 })
 export class CopilotChatAddFileButton {
   disabled = input(false);
@@ -249,7 +217,7 @@ export class CopilotChatAddFileButton {
   readonly labels = injectChatLabels();
 
   readonly PlusIcon = Plus;
-  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "cpk:ml-2");
+  buttonClass = `${chatInputToolbarSecondary} cpk-chat-input-add-menu-button`;
 
   get label(): string {
     return this.labels.chatInputToolbarAddButtonLabel;
@@ -281,7 +249,6 @@ export class CopilotChatAddFileButton {
       <ng-content></ng-content>
     </button>
   `,
-  styles: [``],
 })
 export class CopilotChatToolbarButton {
   disabled = input(false);
@@ -296,7 +263,7 @@ export class CopilotChatToolbarButton {
       this.variant() === "primary"
         ? chatInputToolbarPrimary
         : chatInputToolbarSecondary;
-    return cn(buttonBase, variantClass, this.customClass());
+    return cn(variantClass, this.customClass());
   });
 
   onClick(): void {

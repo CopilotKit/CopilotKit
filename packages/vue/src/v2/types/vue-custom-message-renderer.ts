@@ -1,24 +1,20 @@
-import type { Message } from "@ag-ui/core";
+import type {
+  CustomMessageRendererDef,
+  CustomMessageRendererPosition,
+  CustomMessageRenderProps,
+} from "@copilotkit/core";
 import type { Component, VNodeChild } from "vue";
 
-export type VueCustomMessageRendererPosition = "before" | "after";
+/** Where a custom message renderer draws. Same as core's type. */
+export type VueCustomMessageRendererPosition = CustomMessageRendererPosition;
 
-export interface VueCustomMessageRendererProps {
-  message: Message;
-  position: VueCustomMessageRendererPosition;
-  runId: string;
-  messageIndex: number;
-  messageIndexInRun: number;
-  numberOfMessagesInRun: number;
-  agentId: string;
-  stateSnapshot: unknown;
-}
+/** Props a Vue custom message renderer receives. Same as core's type. */
+export type VueCustomMessageRendererProps = CustomMessageRenderProps;
 
 export type VueCustomMessageRendererRenderFn =
   | ((props: VueCustomMessageRendererProps) => VNodeChild)
   | Component<VueCustomMessageRendererProps>;
 
-export interface VueCustomMessageRenderer {
-  agentId?: string;
-  render: VueCustomMessageRendererRenderFn;
-}
+/** A Vue custom message renderer registration. */
+export type VueCustomMessageRenderer =
+  CustomMessageRendererDef<VueCustomMessageRendererRenderFn>;

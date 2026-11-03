@@ -1,12 +1,12 @@
 import { jsonSchema, tool } from "ai";
 import type { ToolSet } from "ai";
-import type { SkillRegistry } from "../v2/runtime/intelligence-platform/skill-registry";
+import type { SkillRegistry } from "../runtime/intelligence-platform/skill-registry";
 import {
   formatSkillCatalog,
   loadSkill,
   readSkillFile,
-} from "../v2/runtime/intelligence-platform/skill-registry";
-import type { SkillRegistryOptions } from "../v2/runtime/intelligence-platform/skill-registry";
+} from "../runtime/intelligence-platform/skill-registry";
+import type { SkillRegistryOptions } from "../runtime/intelligence-platform/skill-registry";
 
 /** Opt in to learned skills from one or more Intelligence learning containers. */
 export type BuiltInAgentLearnedSkillsOptions = SkillRegistryOptions;

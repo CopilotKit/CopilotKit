@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { BasicAgent } from "../index";
+import { BuiltInAgent } from "../index";
 import type { RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
 import { mockStreamTextResponse, finish, collectEvents } from "./test-helpers";
@@ -41,7 +41,7 @@ describe("Property Overrides - Edge Cases", () => {
 
   describe("Model Override", () => {
     it("should override model when allowed", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         overridableProperties: ["model"],
       });
@@ -69,7 +69,7 @@ describe("Property Overrides - Edge Cases", () => {
     });
 
     it("should accept LanguageModel instance for override", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         overridableProperties: ["model"],
       });
@@ -100,7 +100,7 @@ describe("Property Overrides - Edge Cases", () => {
     });
 
     it("should ignore invalid model override types", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         overridableProperties: ["model"],
       });
@@ -128,7 +128,7 @@ describe("Property Overrides - Edge Cases", () => {
 
   describe("ToolChoice Override", () => {
     it("should override with 'auto'", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         toolChoice: "required",
         overridableProperties: ["toolChoice"],
@@ -155,7 +155,7 @@ describe("Property Overrides - Edge Cases", () => {
     });
 
     it("should override with 'required'", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         toolChoice: "auto",
         overridableProperties: ["toolChoice"],
@@ -182,7 +182,7 @@ describe("Property Overrides - Edge Cases", () => {
     });
 
     it("should override with 'none'", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         toolChoice: "auto",
         overridableProperties: ["toolChoice"],
@@ -209,7 +209,7 @@ describe("Property Overrides - Edge Cases", () => {
     });
 
     it("should override with specific tool selection", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         toolChoice: "auto",
         overridableProperties: ["toolChoice"],
@@ -241,7 +241,7 @@ describe("Property Overrides - Edge Cases", () => {
     });
 
     it("should ignore invalid toolChoice values", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         toolChoice: "auto",
         overridableProperties: ["toolChoice"],
@@ -270,7 +270,7 @@ describe("Property Overrides - Edge Cases", () => {
 
   describe("StopSequences Override", () => {
     it("should override stopSequences with valid array", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         stopSequences: ["STOP"],
         overridableProperties: ["stopSequences"],
@@ -297,7 +297,7 @@ describe("Property Overrides - Edge Cases", () => {
     });
 
     it("should ignore stopSequences with non-string elements", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         stopSequences: ["STOP"],
         overridableProperties: ["stopSequences"],
@@ -324,7 +324,7 @@ describe("Property Overrides - Edge Cases", () => {
     });
 
     it("should ignore non-array stopSequences", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         stopSequences: ["STOP"],
         overridableProperties: ["stopSequences"],
@@ -353,7 +353,7 @@ describe("Property Overrides - Edge Cases", () => {
 
   describe("Numeric Property Overrides", () => {
     it("should override all numeric properties when allowed", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         maxOutputTokens: 100,
         temperature: 0.5,
@@ -412,7 +412,7 @@ describe("Property Overrides - Edge Cases", () => {
     });
 
     it("should ignore non-numeric values for numeric properties", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         temperature: 0.5,
         overridableProperties: ["temperature"],
@@ -441,7 +441,7 @@ describe("Property Overrides - Edge Cases", () => {
 
   describe("Multiple Property Overrides", () => {
     it("should only override allowed properties", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         temperature: 0.5,
         topP: 0.9,
@@ -476,7 +476,7 @@ describe("Property Overrides - Edge Cases", () => {
     });
 
     it("should handle undefined forwardedProps", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         temperature: 0.5,
         overridableProperties: ["temperature"],
@@ -503,7 +503,7 @@ describe("Property Overrides - Edge Cases", () => {
     });
 
     it("should handle non-object forwardedProps", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         temperature: 0.5,
         overridableProperties: ["temperature"],
@@ -530,7 +530,7 @@ describe("Property Overrides - Edge Cases", () => {
     });
 
     it("should handle undefined property values in forwardedProps", async () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         temperature: 0.5,
         overridableProperties: ["temperature"],
@@ -559,7 +559,7 @@ describe("Property Overrides - Edge Cases", () => {
 
   describe("canOverride method", () => {
     it("should return true for overridable properties", () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         overridableProperties: ["temperature", "topP"],
       });
@@ -569,7 +569,7 @@ describe("Property Overrides - Edge Cases", () => {
     });
 
     it("should return false for non-overridable properties", () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         overridableProperties: ["temperature"],
       });
@@ -579,7 +579,7 @@ describe("Property Overrides - Edge Cases", () => {
     });
 
     it("should return false when overridableProperties is undefined", () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
       });
 
@@ -588,7 +588,7 @@ describe("Property Overrides - Edge Cases", () => {
     });
 
     it("should return false when overridableProperties is empty array", () => {
-      const agent = new BasicAgent({
+      const agent = new BuiltInAgent({
         model: "openai/gpt-4o",
         overridableProperties: [],
       });

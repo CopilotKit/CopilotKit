@@ -24,8 +24,8 @@ This guide shows how to make the transition.
         description="I am using LangGraph's Platform to serve my agent (cloud or self hosted)."
     >
         ### Change your current `CopilotRuntime` instantiation from
-        ```typescript
-
+        {/* kiira: ignore, shows the v1 code this guide migrates away from */}
+        ```typescript ignore
         let runtime = new CopilotRuntime({
             remoteEndpoints: [
                 langGraphPlatformEndpoint({
@@ -38,6 +38,8 @@ This guide shows how to make the transition.
         ```
         To
         ```typescript
+        import { CopilotRuntime } from "@copilotkit/runtime";
+        import { LangGraphAgent } from "@ag-ui/langgraph";
 
         let runtime = new CopilotRuntime({
             agents: {
@@ -106,6 +108,7 @@ Everything else (mainly your graph) stays the same.
     <Step>
         ### Then, in your `CopilotRuntime` instantiation, point an `HttpAgent` at that endpoint
         ```typescript
+        import { CopilotRuntime } from "@copilotkit/runtime";
         import { HttpAgent } from "@ag-ui/client";
 
         let runtime = new CopilotRuntime({
@@ -122,7 +125,7 @@ Everything else (mainly your graph) stays the same.
         <Accordions>
             <Accordion title="What about the old LangGraph config parameter which was used to configure the agent?">
                 The `langgraph_config` option doesn’t exist on the new agent.
-                Configure the agent via the `useCoAgent` hook or with the new `config` parameter on the agent class.
+                Configure the agent with the new `config` parameter on the agent class, or set agent state from the frontend with the `useAgent` hook.
             </Accordion>
         </Accordions>
     </TailoredContentOption>

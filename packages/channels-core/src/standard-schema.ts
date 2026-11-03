@@ -2,7 +2,7 @@
  * Schema-library-agnostic helpers for the Channels SDK.
  *
  * The public API accepts any [Standard Schema](https://standardschema.dev)
- * validator — Zod 3.24+, Valibot v1+, ArkType v2+, and anything else that
+ * validator — Zod 4.2+, Valibot v1+, ArkType v2+, and anything else that
  * implements the `~standard` protocol. We deliberately keep `zod` out of
  * the public type surface so consumers aren't locked to a single library
  * or a single Zod major (the v3 ↔ v4 type split otherwise leaks into
@@ -18,7 +18,6 @@ import type {
   StandardJSONSchemaV1,
   InferSchemaOutput,
 } from "@copilotkit/shared";
-import { zodToJsonSchema } from "zod-to-json-schema";
 
 export type { StandardSchemaV1, StandardJSONSchemaV1, InferSchemaOutput };
 
@@ -36,25 +35,15 @@ export type ObjectSchema = StandardSchemaV1<unknown, Record<string, unknown>>;
 
 /**
  * Convert any Standard Schema to a JSON Schema object suitable for an LLM
- * tool/parameter descriptor. Prefers a native JSON Schema (Standard JSON
- * Schema for Valibot/ArkType, `toJSONSchema()` for Zod v4); falls back to
- * `zod-to-json-schema` only for Zod v3 schemas, which don't emit JSON
- * Schema themselves. `$ref`s are inlined (`$refStrategy: "none"`) because
- * most LLM tool-call APIs reject composite `$ref` schemas.
+ * tool/parameter descriptor. The schema must describe itself: Standard JSON
+ * Schema (`~standard.jsonSchema`, which Zod 4.2+, ArkType and Valibot's
+ * `toStandardJsonSchema` implement) or a `toJSONSchema()` method. Zod 3
+ * schemas cannot, and throw.
  */
 export function toJsonSchema(
   schema: StandardSchemaV1,
 ): Record<string, unknown> {
-  return sharedSchemaToJsonSchema(schema, {
-    // Adapt `zod-to-json-schema`'s `(schema: ZodType, ...)` signature to
-    // shared's `(schema: unknown, ...)` injection point. Only invoked for
-    // Zod v3 inputs that don't emit Standard JSON Schema themselves.
-    zodToJsonSchema: (s, options) =>
-      zodToJsonSchema(
-        s as Parameters<typeof zodToJsonSchema>[0],
-        options as never,
-      ) as Record<string, unknown>,
-  });
+  return sharedSchemaToJsonSchema(schema);
 }
 
 /** Discriminated result of validating a value against a Standard Schema. */
@@ -181,7 +170,7 @@ function parsedTypeOf(value: unknown): string {
  * it replaces: the field is required, must be a string of at least one
  * character, and unknown keys are stripped rather than rejected (Zod's
  * default `strip` mode for `z.object`). The emitted document is what
- * `zod-to-json-schema` emitted for that object, so the descriptor the model
+ * `zod-to-json-schema` emitted for that Zod 3 object, so the descriptor the model
  * is shown does not change. Its body is target-agnostic — `type`,
  * `properties`, `required`, `minLength` and `additionalProperties` mean the
  * same thing in draft-07 and draft-2020-12 — so one document serves every
@@ -211,8 +200,8 @@ export function singleStringParameterSchema<
   const { name, description } = options as { name: Name; description: string };
   type Output = { [K in Name]: string };
 
-  // Built per call, never shared. `zodToJsonSchema` returned a fresh document
-  // every time, and `toAgentToolDescriptors` hands its result straight to the
+  // Built per call, never shared. `zod-to-json-schema` returned a fresh
+  // document every time, and `toAgentToolDescriptors` hands its result straight to the
   // caller. A single shared object would let one consumer's in-place edit —
   // stripping `$schema` for a provider that rejects it, say — silently change
   // what every later turn in the process is shown.

@@ -5,7 +5,7 @@ import {
   useFrontendTool,
   useHumanInTheLoop,
   useRenderTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { useLocation, useNavigate } from "react-router";
 import { z } from "zod";
 import { useCart } from "#app/contexts/cart.tsx";

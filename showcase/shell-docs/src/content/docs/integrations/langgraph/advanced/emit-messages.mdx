@@ -82,7 +82,17 @@ Manually emitted messages are great for **when you don't want to wait for the no
             </Tab>
             <Tab value="TypeScript">
                 ```typescript
+                import type { RunnableConfig } from "@langchain/core/runnables";
+                import { AIMessage, SystemMessage } from "@langchain/core/messages";
+                import { StateSchema } from "@langchain/langgraph";
+                import { ChatOpenAI } from "@langchain/openai";
+                import { copilotkitEmitMessage, CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
                 // ...
+
+                const AgentStateSchema = new StateSchema({
+                    ...CopilotKitStateSchema.fields,
+                });
+                type AgentState = typeof AgentStateSchema.State;
 
                 async function chat_node(state: AgentState, config: RunnableConfig) {
                     const model = new ChatOpenAI({ model: "gpt-5.4" });

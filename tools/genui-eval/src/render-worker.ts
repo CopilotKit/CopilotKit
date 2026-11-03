@@ -286,9 +286,9 @@ const act = React.act;
 const [engine, { GenerativeUIRuntimeContext }, { SurfaceView }, resolveModule] =
   await Promise.all([
     import("./engine"),
-    import("../../../packages/react-core/src/v2/generative-ui/runtime-context"),
-    import("../../../packages/react-core/src/v2/generative-ui/SurfaceView"),
-    import("../../../packages/react-core/src/v2/generative-ui/resolve"),
+    import("../../../packages/react-core/src/generative-ui/runtime-context"),
+    import("../../../packages/react-core/src/generative-ui/SurfaceView"),
+    import("../../../packages/react-core/src/generative-ui/resolve"),
   ]).catch((error: unknown) => {
     parentPort?.postMessage({
       fatal: String((error as Error)?.stack ?? error),

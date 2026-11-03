@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { BaseEvent, Message, RunAgentInput } from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import { splitA2UIMarkdown, extractFenceOperations } from "@copilotkit/core";
-import { BuiltInAgent, GenerativeUIMiddleware } from "@copilotkit/runtime/v2";
+import { BuiltInAgent, GenerativeUIMiddleware } from "@copilotkit/runtime";
 import {
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_CONTEXT_DESCRIPTION,

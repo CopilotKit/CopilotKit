@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { ɵanySchema } from "@copilotkit/shared";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import type { VueToolCallRenderer } from "./vue-tool-call-renderer";
 import type { VueToolCallRendererRenderFn } from "./vue-tool-call-renderer";
@@ -7,6 +7,7 @@ export function defineToolCallRenderer(def: {
   name: "*";
   render: VueToolCallRendererRenderFn<unknown>;
   agentId?: string;
+  group?: boolean;
 }): VueToolCallRenderer<unknown>;
 
 export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
@@ -14,6 +15,7 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
   args: S;
   render: VueToolCallRendererRenderFn<InferSchemaOutput<S>>;
   agentId?: string;
+  group?: boolean;
 }): VueToolCallRenderer<InferSchemaOutput<S>>;
 
 export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
@@ -21,12 +23,15 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
   args?: S;
   render: VueToolCallRendererRenderFn<unknown>;
   agentId?: string;
+  group?: boolean;
 }): VueToolCallRenderer<unknown> {
-  const argsSchema = def.name === "*" && !def.args ? z.any() : def.args;
+  // Only a "*" renderer may leave out `args`; it accepts any arguments.
+  const args = def.args ?? ɵanySchema;
   return {
     name: def.name,
-    args: argsSchema as StandardSchemaV1<any, unknown>,
-    render: def.render as VueToolCallRenderer<unknown>["render"],
+    args,
+    render: def.render,
     ...(def.agentId ? { agentId: def.agentId } : {}),
+    ...(def.group ? { group: true } : {}),
   };
 }

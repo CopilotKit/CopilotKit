@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils/cn";
-import type { ToolCallStatus } from "@copilotkit/react-core/v2";
+import type { ToolCallStatus } from "@copilotkit/react-core";
 import { AnimatePresence } from "motion/react";
 import * as motion from "motion/react-client";
 

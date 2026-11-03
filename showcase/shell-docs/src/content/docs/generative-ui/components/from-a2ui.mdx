@@ -10,27 +10,51 @@ The `a2ui` provider option and `@copilotkit/a2ui-renderer` render A2UI v0.9: you
 
 ## Before and after
 
-The provider takes a UI instead of a catalog, and the runtime needs no A2UI option:
+The provider takes a UI instead of a catalog, and the runtime needs no A2UI option. `myCatalog` and `appUI` are the catalogs from [Convert a custom catalog](#convert-a-custom-catalog) below:
 
-```tsx title="Before"
-<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ catalog: myCatalog }}>
+```tsx title="Before" group=a2ui-before
+"use client";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ catalog: myCatalog }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
-```tsx title="After"
-<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: appUI }}>
+```tsx title="After" group=a2ui-after
+"use client";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: appUI }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ```ts title="Runtime, before"
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+
 const runtime = new CopilotRuntime({
-  agents,
+  agents: { shop: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
   a2ui: { injectA2UITool: false, agents: ["shop"] },
 });
 ```
 
 ```ts title="Runtime, after"
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+
 // Nothing: a run that carries a catalog gets the render_ui tool and the guide.
 // To force or limit it: generativeUI: true, or generativeUI: { agents: ["shop"] }.
-const runtime = new CopilotRuntime({ agents });
+const runtime = new CopilotRuntime({
+  agents: { shop: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+});
 ```
 
 The chat renders surfaces on its own. For an area of the page, mount [`<GenerativeUISurface id="...">`](/generative-ui/components/surfaces). For an agent that cannot call tools, use the [markdown transport](/generative-ui/components/markdown-mode). The agent keeps writing A2UI operations; see [Bindings and actions](#bindings-and-actions) for what changed in them.
@@ -39,7 +63,8 @@ The chat renders surfaces on its own. For an area of the page, mount [`<Generati
 
 Before, a catalog was definitions plus renderers, and a bound prop had to be declared as a union with the binding object:
 
-```ts title="Before"
+```tsx title="Before" group=a2ui-before
+import { z } from "zod";
 import { createCatalog, DynamicStringSchema } from "@copilotkit/a2ui-renderer";
 
 const definitions = {
@@ -48,20 +73,43 @@ const definitions = {
   },
   Arrow: { props: z.object({}) },
 };
-const renderers = { Airport, Arrow };
-export const myCatalog = createCatalog(definitions, renderers, {
-  catalogId: "acme/flights",
-  includeBasicCatalog: true,
-});
+
+export const myCatalog = createCatalog(
+  definitions,
+  {
+    Airport: ({ props }) => (
+      <div>
+        <strong>{props.code}</strong>
+        <span>{props.city}</span>
+      </div>
+    ),
+    Arrow: () => <span aria-hidden="true">→</span>,
+  },
+  { catalogId: "acme/flights", includeBasicCatalog: true },
+);
 ```
 
 After, each component is one entry, with the React component, a description and plain prop types:
 
-```ts title="After"
+```tsx title="After" group=a2ui-after
+import { z } from "zod";
 import {
   createGenerativeUI,
   standardUI,
-} from "@copilotkit/react-core/v2/generative-ui";
+} from "@copilotkit/react-core/generative-ui";
+
+function Airport({ code, city }: { code: string; city: string }) {
+  return (
+    <div>
+      <strong>{code}</strong>
+      <span>{city}</span>
+    </div>
+  );
+}
+
+function Arrow() {
+  return <span aria-hidden="true">→</span>;
+}
 
 export const appUI = createGenerativeUI({
   id: "acme/flights@1",

@@ -1,7 +1,12 @@
 import { ChangeDetectionStrategy, Component } from "@angular/core";
+import { HttpAgent } from "@ag-ui/client";
 import type { Meta, StoryObj } from "@storybook/angular";
-import { moduleMetadata } from "@storybook/angular";
-import { CopilotPopup, CopilotSidebar } from "@copilotkit/angular";
+import { applicationConfig, moduleMetadata } from "@storybook/angular";
+import {
+  CopilotPopup,
+  CopilotSidebar,
+  provideCopilotKit,
+} from "@copilotkit/angular";
 
 @Component({
   selector: "storybook-chat-placeholder",
@@ -74,5 +79,29 @@ export const DockedSidebar: Story = {
       />
     `,
     props: { chatComponent: ChatPlaceholder },
+  }),
+};
+
+// The surfaces with the real chat inside, as in React's CopilotPopup and
+// CopilotSidebar stories. The agent is never called: the welcome screen
+// sends nothing.
+const withChatAgent = applicationConfig({
+  providers: [
+    provideCopilotKit({
+      selfManagedAgents: {
+        default: new HttpAgent({ url: "http://localhost/storybook-agent" }),
+      },
+    }),
+  ],
+});
+export const PopupWithChat: Story = {
+  decorators: [withChatAgent],
+  render: () => ({ template: `<copilot-popup title="CopilotKit Chat" />` }),
+};
+
+export const SidebarWithChat: Story = {
+  decorators: [withChatAgent],
+  render: () => ({
+    template: `<copilot-sidebar title="CopilotKit Chat" mode="docked" />`,
   }),
 };

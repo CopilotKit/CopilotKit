@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { CopilotChatView } from "../copilot-chat-view";
 import { ChatState } from "../../../chat-state";
 import { provideCopilotKit } from "../../../config";
+import { COPILOT_CHAT_WELCOME_LAYOUT } from "../copilot-chat-welcome-layout";
 import type { Message } from "@ag-ui/core";
 
 @Injectable()
@@ -51,6 +52,30 @@ describe("CopilotChatView", () => {
     expect(element.textContent).toContain("How can I help you today?");
   });
 
+  it.each([
+    ["popup", ".cpk-popup-view-welcome-screen"],
+    ["sidebar", ".cpk-sidebar-view-welcome-screen"],
+  ] as const)(
+    "renders React's %s welcome screen inside that surface",
+    (layout, selector) => {
+      TestBed.overrideProvider(COPILOT_CHAT_WELCOME_LAYOUT, {
+        useValue: layout,
+      });
+      const fixture = TestBed.createComponent(CopilotChatView);
+      fixture.componentRef.setInput("messages", []);
+      fixture.detectChanges();
+
+      const welcome = (fixture.nativeElement as HTMLElement).querySelector(
+        '[data-testid="copilot-welcome-screen"]',
+      );
+      expect(welcome?.matches(selector)).toBe(true);
+      // Message first, then the input at the bottom, as in React.
+      expect(
+        welcome?.lastElementChild?.querySelector("copilot-chat-input"),
+      ).not.toBeNull();
+    },
+  );
+
   it("suppresses the welcome screen when a thread is explicitly selected", () => {
     const fixture = TestBed.createComponent(CopilotChatView);
 
@@ -88,12 +113,16 @@ describe("CopilotChatView", () => {
     );
     const scrollContainer = scrollViewHost?.querySelector("[cdkScrollable]");
 
-    expect(scrollViewHost?.classList.contains("cpk:flex-1")).toBe(true);
-    expect(scrollViewHost?.classList.contains("cpk:min-h-0")).toBe(true);
-    expect(scrollContainer?.classList.contains("cpk:flex-1")).toBe(true);
-    expect(scrollContainer?.classList.contains("cpk:min-h-0")).toBe(true);
-    expect(scrollContainer?.classList.contains("cpk:overflow-y-auto")).toBe(
-      true,
+    // The shared CSS gives these classes flex: 1, min-height: 0 and
+    // overflow-y: auto, as in React's chat view.
+    expect(
+      scrollViewHost?.classList.contains("cpk-chat-view-scroll-view"),
+    ).toBe(true);
+    expect(
+      scrollContainer?.classList.contains("cpk-chat-view-scroll-viewport"),
+    ).toBe(true);
+    expect(scrollContainer?.parentElement?.className).toBe(
+      "cpk-chat-view-scroll-area",
     );
   });
 
@@ -147,9 +176,9 @@ describe("CopilotChatView", () => {
 
     // A viewport-based height (calc(100vh - 9rem)) overshoots any embedded
     // container; the wrapper must track the panel it is placed in instead.
-    expect(wrapper?.className).toContain("cpk:h-full");
-    expect(wrapper?.className).toContain("cpk:max-h-full");
-    expect(wrapper?.className).not.toContain("100vh");
+    // .cpk-chat-view-scroll-area has height and max-height 100%.
+    expect(wrapper?.className).toBe("cpk-chat-view-scroll-area");
+    expect(wrapper?.getAttribute("style") ?? "").not.toContain("100vh");
   });
 
   it("measures the floating input after transitioning from welcome screen to chat", async () => {

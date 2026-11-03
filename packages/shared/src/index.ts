@@ -1,16 +1,9 @@
 export * from "./types";
 export * from "./utils";
 export * from "./constants";
-// Telemetry is split deliberately. `TelemetryClient` imports
-// `@segment/analytics-node`, which imports `node-fetch`, which imports the
-// Node built-ins `stream`, `http`, `https` and `zlib`. Browser bundlers
-// resolve the whole module graph before they tree-shake, so re-exporting
-// that module here made every browser build of a dependent package print
-// "Module ... has been externalized for browser compatibility" warnings,
-// even when the consumer never touched telemetry (#4151). Only the
-// browser-safe telemetry surface is re-exported from this entry. Server
-// code that needs the client imports it from `@copilotkit/shared/telemetry`.
-// This mirrors the license-verifier note below.
+// Only browser-safe telemetry helpers live here. The runtime owns its
+// telemetry client (`packages/runtime/src/runtime/telemetry`), so this package
+// imports no Node-only analytics SDK (#4151).
 export { isTelemetryDisabled } from "./telemetry/telemetry-disabled";
 export * from "./telemetry/sampling";
 // Pure string classification with no imports, so it carries no runtime edge
@@ -23,12 +16,6 @@ export {
   parseAndWarnTelemetryId,
 } from "./telemetry/lambda-client";
 export type { LambdaSendOptions } from "./telemetry/lambda-client";
-// Types only: erased at build time, so they add no runtime edge to
-// `telemetry-client.ts` and therefore none to @segment/analytics-node.
-export type {
-  TelemetryCapture,
-  TelemetryIdentity,
-} from "./telemetry/telemetry-client";
 export * from "./debug";
 export * from "./standard-schema";
 export * from "./attachments";

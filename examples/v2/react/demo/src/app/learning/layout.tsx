@@ -1,7 +1,7 @@
 "use client";
 
 import { httpSink } from "@copilotkit/learning";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import Link from "next/link";
 import { useState } from "react";
 

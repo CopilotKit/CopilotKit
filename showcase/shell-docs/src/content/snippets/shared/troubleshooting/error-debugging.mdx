@@ -1,27 +1,28 @@
 # How to Debug Errors
 
-CopilotKit provides visual error display for local development and debugging. This feature is completely free and requires no API keys.
+CopilotKit shows errors in the Inspector during local development. This feature is free and requires no API keys.
 
 ## Quick Setup
 
-```tsx
-import { CopilotKit } from "@copilotkit/react-core/v2";
+In development builds, `CopilotKitProvider` shows the Inspector by default, so you do not need to configure it. To turn it off, set `enableInspector` to `false`:
 
-export default function App() {
+```tsx
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="<your-runtime-url>"
-      showDevConsole={true} // [!code highlight]
+      enableInspector={false} // [!code highlight]
     >
-      {/* Your app */}
-    </CopilotKit>
+      {children}
+    </CopilotKitProvider>
   );
 }
 ```
 
-<Callout type="warning">
-  Avoid showing the dev console in production as it exposes internal error details to end users.
-</Callout>
+The Inspector shows only in development builds on localhost. It never shows in production, on remote hosts, or during server rendering, so end users do not see the error details.
 
 ## When to Use Development Debugging
 
@@ -29,29 +30,35 @@ export default function App() {
 - **Quick debugging** - No setup required, works out of the box
 - **Testing** - Verify error handling during development
 
-## Programmatic Error Handling (v2)
+## Programmatic Error Handling
 
-The v2 API provides an `onError` callback on both `CopilotKit` and `CopilotChat` for programmatic error handling. No `publicApiKey` is required.
+`CopilotKitProvider` and `CopilotChat` both take an `onError` callback for programmatic error handling. No `publicApiKey` is required.
 
 ### Provider-Level Error Handling
 
 Catches all errors across the entire application:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import { errorTracker } from "./error-tracker";
 
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  onError={(event) => {
-    // event.code — error type (e.g. "runtime_info_fetch_failed", "agent_run_failed")
-    // event.error — the Error object
-    // event.context — additional context (agentId, toolName, etc.)
-    console.error(`[CopilotKit ${event.code}]`, event.error.message);
-    errorTracker.capture(event);
-  }}
->
-  <App />
-</CopilotKit>
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      onError={(event) => {
+        // event.code — error type (e.g. "runtime_info_fetch_failed", "agent_run_failed")
+        // event.error — the Error object
+        // event.context — additional context (agentId, toolName, etc.)
+        console.error(`[CopilotKit ${event.code}]`, event.error.message);
+        errorTracker.capture(event);
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ### Chat-Level Error Handling
@@ -59,14 +66,19 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 Scoped to a specific chat's agent — fires in addition to the provider-level handler:
 
 ```tsx
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
+import { showToast } from "./toast";
 
-<CopilotChat
-  agentId="my-agent"
-  onError={(event) => {
-    showToast(`Agent error: ${event.error.message}`);
-  }}
-/>
+export function Chat() {
+  return (
+    <CopilotChat
+      agentId="my-agent"
+      onError={(event) => {
+        showToast(`Agent error: ${event.error.message}`);
+      }}
+    />
+  );
+}
 ```
 
 ### Error Codes
@@ -93,7 +105,8 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
 
 ### Development Debugging Issues
 
-- **Dev console not showing:**
-  - Confirm `showDevConsole={true}`
+- **Inspector not showing:**
+  - Confirm that the app runs as a development build on localhost
+  - Confirm that `enableInspector` is not `false`
   - Check for JavaScript errors in the browser console
   - Ensure no CSS is hiding the error banner

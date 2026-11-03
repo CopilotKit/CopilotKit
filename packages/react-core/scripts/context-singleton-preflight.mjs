@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Fails the build if `src/v2/context.ts` is inlined into any bundle other than
- * its own `dist/v2/context.*` entry (the self-contained UMD builds excepted).
+ * Fails the build if `src/context.ts` is inlined into any bundle other than
+ * its own `dist/context.*` entry (the self-contained UMD builds excepted).
  *
  * Why this needs a dedicated guard: a duplicated context module is invisible to
  * every other gate. `tsc`, vitest (which imports source, where there is only one
  * module), publint and attw all pass while the shipped package contains two
  * `createContext()` results. The only symptom is at runtime in a consumer app —
  * `CopilotKitProvider` publishes to the copy inlined in its own chunk, while
- * anything importing from `@copilotkit/react-core/v2/context` reads a second,
+ * anything importing from `@copilotkit/react-core/context` reads a second,
  * orphaned copy that nothing ever provides and so returns the defaults forever
  * (e.g. `useLicenseContext().status` pinned to `null` on a valid license).
  *
@@ -18,12 +18,12 @@
 import fs from "fs";
 import path from "path";
 
-const MARKER = "//#region src/v2/context.ts";
+const MARKER = "//#region src/context.ts";
 
 // Bundles that are allowed to contain the module:
-//   dist/v2/context.*  — the standalone entry itself
+//   dist/context.*  — the standalone entry itself
 //   *.umd.js           — UMD is intentionally self-contained (single-file drop-in)
-const ALLOWED = [/^v2\/context\.(mjs|cjs)$/, /\.umd\.js$/];
+const ALLOWED = [/^context\.(mjs|cjs)$/, /\.umd\.js$/];
 
 const distDir = path.resolve(process.argv[2] ?? "dist");
 
@@ -49,9 +49,9 @@ const rel = (f) => path.relative(distDir, f).split(path.sep).join("/");
 
 // Self-check: if the marker convention ever changes, this guard would silently
 // pass on everything. Require the standalone entry to carry it.
-if (!carriers.some((f) => /^v2\/context\.(mjs|cjs)$/.test(rel(f)))) {
+if (!carriers.some((f) => /^context\.(mjs|cjs)$/.test(rel(f)))) {
   console.error(
-    `context-singleton-preflight: marker ${MARKER} not found in dist/v2/context.*\n` +
+    `context-singleton-preflight: marker ${MARKER} not found in dist/context.*\n` +
       `The guard can no longer detect duplication — update MARKER to match the ` +
       `current bundler output before shipping.`,
   );
@@ -64,11 +64,11 @@ const offenders = carriers
 
 if (offenders.length > 0) {
   console.error(
-    `context-singleton-preflight: src/v2/context.ts is bundled into ${offenders.length} ` +
+    `context-singleton-preflight: src/context.ts is bundled into ${offenders.length} ` +
       `unexpected file(s):\n` +
       offenders.map((f) => `  - ${f}`).join("\n") +
       `\n\nThese ship a duplicate React context: whatever CopilotKitProvider ends up ` +
-      `in will publish to a different instance than @copilotkit/react-core/v2/context ` +
+      `in will publish to a different instance than @copilotkit/react-core/context ` +
       `exposes, so consumers of that subpath silently read stale defaults.\n` +
       `Fix: apply the \`externalizeContext\` plugin to that build in tsdown.config.ts.`,
   );
@@ -76,5 +76,5 @@ if (offenders.length > 0) {
 }
 
 console.log(
-  `context-singleton-preflight: OK — src/v2/context.ts bundled only into ${carriers.length} allowed target(s).`,
+  `context-singleton-preflight: OK — src/context.ts bundled only into ${carriers.length} allowed target(s).`,
 );

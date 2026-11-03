@@ -7,11 +7,10 @@
 
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
-} from "@copilotkit/runtime/v2";
-import { handle } from "hono/vercel";
+} from "@copilotkit/runtime";
 
 const MODEL = "openai/gpt-5-mini";
 
@@ -32,10 +31,11 @@ const runtime = new CopilotRuntime({
   openGenerativeUI: true,
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotRuntimeHandler({
+  cors: true,
   runtime,
   basePath: "/api/copilotkit-opengenui",
 });
 
-export const GET = handle(app);
-export const POST = handle(app);
+export const GET = app;
+export const POST = app;

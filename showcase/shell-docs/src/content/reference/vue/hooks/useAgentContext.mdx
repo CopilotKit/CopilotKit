@@ -19,9 +19,12 @@ Because the parameters accept `MaybeRefOrGetter`, you can pass plain values, ref
 ## Signature
 
 ```ts
-import { useAgentContext } from "@copilotkit/vue/v2";
+import {
+  useAgentContext,
+  type AgentContextInput,
+} from "@copilotkit/vue/v2";
 
-function useAgentContext(context: AgentContextInput): void;
+useAgentContext satisfies (context: AgentContextInput) => void;
 ```
 
 ## Parameters
@@ -198,10 +201,14 @@ def dashboard_records(context):
 In a TypeScript agent:
 
 ```ts
-const entry = context.find(
-  (item) => item.description === "Incident dashboard records",
-);
-const records = entry ? JSON.parse(entry.value) : undefined;
+import type { RunAgentInput } from "@ag-ui/client";
+
+function dashboardRecords({ context }: RunAgentInput) {
+  const entry = context.find(
+    (item) => item.description === "Incident dashboard records",
+  );
+  return entry ? JSON.parse(entry.value) : undefined;
+}
 ```
 
 Where that context list surfaces in your agent depends on your framework's AG-UI adapter - see your integration's guide for the field it populates.

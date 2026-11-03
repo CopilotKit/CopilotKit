@@ -8,10 +8,17 @@ It supports standard interrupt arrays and the legacy `on_interrupt` custom
 event, including multiple simultaneous decisions.
 
 ```ts
-function injectInterrupt<TValue = unknown, TResult = never>(
+import type { Signal } from "@angular/core";
+import {
+  injectInterrupt,
+  type InjectInterruptOptions,
+  type InterruptController,
+} from "@copilotkit/angular";
+
+injectInterrupt satisfies <TValue = unknown, TResult = never>(
   agentId?: string | Signal<string | undefined>,
   options?: Omit<InjectInterruptOptions<TValue, TResult>, "agentId">,
-): InterruptController<TValue, TResult>;
+) => InterruptController<TValue, TResult>;
 ```
 
 ```ts
@@ -67,8 +74,12 @@ For example, a matching refund interrupt is visible through both properties in
 this component:
 
 ```ts
+import { Component } from "@angular/core";
+import { injectAgentStore, injectInterrupt } from "@copilotkit/angular";
+
 type RefundRequest = { type: "refund"; amount: number };
 
+@Component({ template: `` })
 export class RefundPage {
   readonly store = injectAgentStore("ticketing");
   readonly refunds = injectInterrupt<RefundRequest>("ticketing", {

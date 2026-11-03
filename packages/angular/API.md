@@ -89,6 +89,7 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotChatInputMode`
 - `CopilotChatInputOutputs`
 - `CopilotChatInputSlots`
+- `CopilotChatInspectorButton`
 - `CopilotChatLabels`
 - `CopilotChatMessageView`
 - `CopilotChatMessageViewCursor`
@@ -100,6 +101,9 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotChatSuggestionView`
 - `CopilotChatTextarea`
 - `CopilotChatTextareaProps`
+- `CopilotChatToolCallDisplay`
+- `CopilotChatToolCallGroup`
+- `CopilotChatToolCallGroupAppearance`
 - `CopilotChatToolCallsView`
 - `CopilotChatToolbar`
 - `CopilotChatToolbarButton`
@@ -130,6 +134,7 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotKit`
 - `CopilotKitAgentContext`
 - `CopilotKitConfig`
+- `CopilotKitStyles`
 - `CopilotOpenGenerativeUIActivityRenderer`
 - `CopilotOpenGenerativeUIRenderer`
 - `CopilotOpenGenerativeUIToolRenderer`
@@ -189,6 +194,7 @@ Import these symbols from `@copilotkit/angular`.
 - `RenderActivityMessageConfig`
 - `RenderSlotOptions`
 - `RenderToolCallConfig`
+- `RenderToolCall`
 - `RenderToolCalls`
 - `ResizeObserverService`
 - `ResizeState`
@@ -211,6 +217,7 @@ Import these symbols from `@copilotkit/angular`.
 - `ThreadsStore`
 - `ThumbsDownButtonContext`
 - `ThumbsUpButtonContext`
+- `ToolCallEntry`
 - `ToolCallHandler`
 - `ToolRenderer`
 - `ToolbarContext`

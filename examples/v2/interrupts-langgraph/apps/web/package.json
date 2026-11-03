@@ -9,14 +9,14 @@
     "lint": "eslint . --max-warnings=0"
   },
   "dependencies": {
+    "@ag-ui/langgraph": "0.0.44",
     "@copilotkit/react-core": "workspace:*",
-    "@copilotkit/react-ui": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "next": "16.0.8",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "shiki": "^3.22.0",
-    "zod": "^3.25.76"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

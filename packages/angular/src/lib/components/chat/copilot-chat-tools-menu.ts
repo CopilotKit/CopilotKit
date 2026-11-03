@@ -29,32 +29,35 @@ import { CopilotTooltip } from "../../directives/tooltip";
       [copilotTooltip]="tooltipLabel()"
       tooltipPosition="below"
     >
-      <copilot-icon [img]="PlusIcon" [size]="20"></copilot-icon>
+      <copilot-icon
+        [img]="PlusIcon"
+        iconClass="cpk-chat-input-add-menu-icon"
+      ></copilot-icon>
     </button>
 
     <ng-template #menu>
       <div
         data-copilotkit
-        class="cpk:bg-popover cpk:text-popover-foreground cpk:z-50 cpk:max-h-[var(--radix-dropdown-menu-content-available-height)] cpk:min-w-[8rem] cpk:overflow-x-hidden cpk:overflow-y-auto cpk:rounded-md cpk:border cpk:p-1 cpk:shadow-md"
+        class="cpk-dropdown-menu-content"
+        data-state="open"
         cdkMenu
       >
         @for (item of menuItems(); track $index) {
           @if (item === "-") {
-            <div class="cpk:-mx-1 cpk:my-1 cpk:h-px cpk:bg-border"></div>
+            <div class="cpk-dropdown-menu-separator"></div>
           } @else if (isMenuItem(item)) {
             @if (item.items && item.items.length > 0) {
               <!-- Submenu trigger -->
               <button
                 type="button"
-                class="cpk:relative cpk:flex cpk:w-full cpk:cursor-default cpk:select-none cpk:items-center cpk:gap-2 cpk:rounded-sm cpk:border-none cpk:bg-transparent cpk:px-2 cpk:py-1.5 cpk:text-left cpk:text-sm cpk:outline-hidden cpk:hover:bg-accent cpk:hover:text-accent-foreground cpk:focus:bg-accent cpk:focus:text-accent-foreground"
+                class="cpk-dropdown-menu-sub-trigger"
                 [cdkMenuTriggerFor]="submenu"
                 cdkMenuItem
               >
                 {{ item.label }}
                 <copilot-icon
                   [img]="ChevronRightIcon"
-                  [size]="12"
-                  class="cpk:ml-auto"
+                  iconClass="cpk-dropdown-menu-sub-trigger-icon"
                 ></copilot-icon>
               </button>
 
@@ -62,16 +65,17 @@ import { CopilotTooltip } from "../../directives/tooltip";
               <ng-template #submenu>
                 <div
                   data-copilotkit
-                  class="cpk:bg-popover cpk:text-popover-foreground cpk:z-50 cpk:max-h-[var(--radix-dropdown-menu-content-available-height)] cpk:min-w-[8rem] cpk:overflow-x-hidden cpk:overflow-y-auto cpk:rounded-md cpk:border cpk:p-1 cpk:shadow-md"
+                  class="cpk-dropdown-menu-sub-content"
+                  data-state="open"
                   cdkMenu
                 >
                   @for (subItem of item.items; track $index) {
                     @if (subItem === "-") {
-                      <div class="cpk:-mx-1 cpk:my-1 cpk:h-px cpk:bg-border"></div>
+                      <div class="cpk-dropdown-menu-separator"></div>
                     } @else if (isMenuItem(subItem)) {
                       <button
                         type="button"
-                        class="cpk:relative cpk:flex cpk:w-full cpk:cursor-default cpk:select-none cpk:items-center cpk:gap-2 cpk:rounded-sm cpk:border-none cpk:bg-transparent cpk:px-2 cpk:py-1.5 cpk:text-left cpk:text-sm cpk:outline-hidden cpk:hover:bg-accent cpk:hover:text-accent-foreground cpk:focus:bg-accent cpk:focus:text-accent-foreground"
+                        class="cpk-dropdown-menu-item"
                         (click)="handleItemClick(subItem)"
                         cdkMenuItem
                       >
@@ -85,7 +89,7 @@ import { CopilotTooltip } from "../../directives/tooltip";
               <!-- Regular menu item -->
               <button
                 type="button"
-                class="cpk:relative cpk:flex cpk:w-full cpk:cursor-default cpk:select-none cpk:items-center cpk:gap-2 cpk:rounded-sm cpk:border-none cpk:bg-transparent cpk:px-2 cpk:py-1.5 cpk:text-left cpk:text-sm cpk:outline-hidden cpk:hover:bg-accent cpk:hover:text-accent-foreground cpk:focus:bg-accent cpk:focus:text-accent-foreground"
+                class="cpk-dropdown-menu-item"
                 (click)="handleItemClick(item)"
                 cdkMenuItem
               >
@@ -110,22 +114,6 @@ import { CopilotTooltip } from "../../directives/tooltip";
       .cdk-overlay-container {
         position: fixed;
         z-index: 1000;
-      }
-
-      /* Menu animation */
-      [cdkMenu] {
-        animation: menuFadeIn 0.15s ease-out;
-      }
-
-      @keyframes menuFadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(4px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
       }
     `,
   ],
@@ -186,29 +174,12 @@ export class CopilotChatToolsMenu {
       : this.labels.chatInputToolbarToolsButtonLabel,
   );
 
-  buttonClass = computed(() => {
-    const baseClasses = cn(
-      // Base button styles
-      "cpk:inline-flex cpk:items-center cpk:justify-center cpk:gap-2 cpk:whitespace-nowrap cpk:rounded-full cpk:text-sm cpk:font-medium",
-      "cpk:transition-all cpk:disabled:pointer-events-none cpk:disabled:opacity-50",
-      "cpk:shrink-0 cpk:outline-none",
-      "cpk:focus-visible:ring-[3px]",
-      // chatInputToolbarSecondary variant
-      "cpk:cursor-pointer",
-      "cpk:bg-transparent cpk:text-[#444444]",
-      "cpk:dark:text-white cpk:dark:border-[#404040]",
-      "cpk:transition-colors",
-      "cpk:focus:outline-none",
-      "cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333]",
-      "cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF]",
-      "cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50",
-      "cpk:disabled:hover:bg-transparent cpk:disabled:hover:text-[#444444]",
-      "cpk:dark:disabled:hover:bg-transparent cpk:dark:disabled:hover:text-[#CCCCCC]",
-      // Size
-      "cpk:h-9 cpk:w-9",
-    );
-    return cn(baseClasses, this.customClass());
-  });
+  buttonClass = computed(() =>
+    cn(
+      "cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-add-menu-button",
+      this.customClass(),
+    ),
+  );
 
   isMenuItem(item: any): item is ToolsMenuItem {
     return item && typeof item === "object" && "label" in item;

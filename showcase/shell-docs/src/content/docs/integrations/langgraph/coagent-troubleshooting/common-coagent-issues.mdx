@@ -74,11 +74,19 @@ If you're seeing this error, it means CopilotKit couldn't find the LangGraph age
         }
         ```
 
-        ```tsx title="layout.tsx"
-        {/* [!code highlight:1] */}
-        <CopilotKit agent="my_agent">
-            {/* Your application components */}
-        </CopilotKit>
+        ```tsx title="providers.tsx"
+        "use client";
+
+        import { CopilotKitProvider } from "@copilotkit/react-core";
+
+        export function Providers({ children }: { children: React.ReactNode }) {
+          return (
+            // [!code highlight:1]
+            <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent">
+              {children}
+            </CopilotKitProvider>
+          );
+        }
         ```
 
         Common issues:
@@ -101,7 +109,10 @@ If you're seeing this error, it means CopilotKit couldn't find the LangGraph age
         }
         ```
 
-        ```typescript title="/copilotkit/api/route.ts"
+        ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
+        import { CopilotRuntime } from "@copilotkit/runtime";
+        import { LangGraphAgent } from "@ag-ui/langgraph";
+
         const runtime = new CopilotRuntime({
           // ... The rest of your CopilotRuntime definition
           // [!code highlight:7]
@@ -131,32 +142,15 @@ If you're seeing this error, it means CopilotKit couldn't find the LangGraph age
         ```
 
         ```tsx title="MyComponent.tsx"
+        import { useAgent } from "@copilotkit/react-core";
+
         // Your React component
-        useAgent({
+        function MyComponent() {
+          const { agent } = useAgent({
             agentId: "my_agent", // [!code focus]
-        });
-        ```
-    </Accordion>
-    <Accordion title="Check your agent name in useCoAgentStateRender">
-        Make sure that the agent defined in `langgraph.json` matches the `name` you pass to the `useCoAgentStateRender` hook:
-
-        ```json title="langgraph.json"
-        {
-            "python_version": "3.12",
-            "dockerfile_lines": [],
-            "dependencies": ["."],
-            "graphs": {
-                "my_agent": "./src/agent.py:graph"// In this case, "my_agent" is the agent you're using // [!code highlight]
-            },
-            "env": ".env"
+          });
+          return <p>{agent.agentId}</p>;
         }
-        ```
-
-        ```tsx title="MyComponent.tsx"
-        // Your React component
-        useCoAgentStateRender({
-            name: "my_agent", // [!code focus] This must match exactly
-        });
         ```
     </Accordion>
 
@@ -268,9 +262,9 @@ persisted at the end of a node.
                 from copilotkit.langgraph import copilotkit_customize_config
 
                 async def chat_node(state: AgentState, config: RunnableConfig):
-                    # 1) Call the model with CopilotKit's modified config
+                    # 1) Call the model with the node's config
                     model = ChatOpenAI(model="gpt-5.4")
-                    response = await model.ainvoke(state["messages"], modifiedConfig)
+                    response = await model.ainvoke(state["messages"], config)
 
                     # 2) Make sure to return the new messages
                     return {
@@ -280,11 +274,16 @@ persisted at the end of a node.
             </Tab>
             <Tab value="TypeScript">
                 ```typescript
+                import type { RunnableConfig } from "@langchain/core/runnables";
+                import { MessagesAnnotation } from "@langchain/langgraph";
+                import { ChatOpenAI } from "@langchain/openai";
 
-                async function chatNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-                    // 1) Call the model with CopilotKit's modified config
+                type AgentState = typeof MessagesAnnotation.State;
+
+                async function chatNode(state: AgentState, config: RunnableConfig) {
+                    // 1) Call the model with the node's config
                     const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.4" });
-                    const response = await model.invoke(state.messages, modifiedConfig);
+                    const response = await model.invoke(state.messages, config);
 
                     // 2) Make sure to return the new messages
                     return {
@@ -322,8 +321,14 @@ persisted at the end of a node.
             </Tab>
             <Tab value="TypeScript">
                 ```typescript
+                import type { RunnableConfig } from "@langchain/core/runnables";
+                import { MessagesAnnotation } from "@langchain/langgraph";
+                import { ChatOpenAI } from "@langchain/openai";
+                import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js/langgraph";
 
-                async function chatNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+                type AgentState = typeof MessagesAnnotation.State;
+
+                async function chatNode(state: AgentState, config: RunnableConfig) {
                     // 1) Configure CopilotKit not to emit messages
                     const modifiedConfig = copilotkitCustomizeConfig(config, {
                         emitMessages: false, // if you want to disable message streaming

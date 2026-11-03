@@ -56,6 +56,8 @@ pre-commit:
         - "showcase/aimock/shared/**"
         - "showcase/aimock/d4/**"
         - "showcase/aimock/d6/**"
+        # Codemod fixtures are compared byte for byte.
+        - "codemods/*/tests/**"
       # Use `set --` so the staged files become positional args; this is the
       # only shell-portable way to test "are there any" without breaking on
       # multi-file expansion. The old `[ -n "{staged_files}" ]` form failed

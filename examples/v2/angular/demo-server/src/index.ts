@@ -2,16 +2,15 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import {
-  BasicAgent,
   BuiltInAgent,
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime/v2";
+import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime";
 import { createOpenAI } from "@ai-sdk/openai";
-import { SlowToolCallStreamingAgent } from "@copilotkit/demo-agents";
+import { SlowToolCallStreamingAgent } from "./agents/slow-tool-call-streaming.js";
 import { A2UIDashboardAgent } from "./agents/a2ui-dashboard.js";
 import { A2UIRecoveryAgent } from "./agents/a2ui-recovery.js";
 
@@ -90,7 +89,7 @@ const builtInAgent = new BuiltInAgent({
 });
 
 // --- MCP Apps ---------------------------------------------------------------
-// Same scope as the React demo (examples/v2/react/demo): a BasicAgent wrapped in
+// Same scope as the React demo (examples/v2/react/demo): a BuiltInAgent wrapped in
 // MCPAppsMiddleware, pointed at the same ext-apps servers, so the Angular host
 // renders the same widgets.
 //
@@ -98,7 +97,7 @@ const builtInAgent = new BuiltInAgent({
 // page. Angular resolves `provideCopilotKit` from the root injector, so a
 // lazy-route override never takes effect; the agent is therefore registered by
 // name on the existing runtime and the page selects it with `[agentId]`.
-const mcpAgent = new BasicAgent({
+const mcpAgent = new BuiltInAgent({
   model: determineModel(),
   prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
   temperature: 0.7,
@@ -161,13 +160,14 @@ app.use(
 );
 
 // Create the CopilotKit endpoint
-const copilotApp = createCopilotEndpoint({
+const copilotApp = createCopilotRuntimeHandler({
+  cors: true,
   runtime,
   basePath: "/api/copilotkit",
 });
 
 // Mount the CopilotKit app
-app.route("/", copilotApp);
+app.all("/api/copilotkit/*", (c) => copilotApp(c.req.raw));
 
 const port = Number(process.env.PORT || 3001);
 const server = serve({ fetch: app.fetch, port });

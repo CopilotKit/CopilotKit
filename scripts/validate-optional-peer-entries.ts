@@ -11,7 +11,7 @@ import ts from "typescript";
 // before a single line of their code runs.
 //
 // This is #7278: moving `express` from `dependencies` to an optional peer while
-// `@copilotkit/runtime/v2` still re-exported the Express adapter would have
+// `@copilotkit/runtime` still re-exported the Express adapter would have
 // broken every Hono and Next.js consumer, because the barrel's graph reached
 // `import express from "express"`. Nothing caught it -- the workspace installs
 // express for its own tests, so CI stayed green. The fix was to require express

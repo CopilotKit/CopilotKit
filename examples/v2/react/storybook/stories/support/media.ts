@@ -3,7 +3,7 @@
  * browser (inline SVG, synthesized WAV/PDF, a canvas-recorded clip), so no
  * story fetches an asset.
  */
-import type { Attachment } from "@copilotkit/react-core/v2";
+import type { Attachment } from "@copilotkit/react-core";
 
 const toBase64 = (text: string) => btoa(unescape(encodeURIComponent(text)));
 

@@ -1,4 +1,4 @@
-import { EventType, HttpAgent } from "@copilotkit/react-core/v2";
+import { EventType, HttpAgent } from "@copilotkit/react-core";
 import type { CatalogSample } from "./samples";
 import {
   sampleOperations,

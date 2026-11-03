@@ -16,24 +16,40 @@ import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 ## Definition
 
 Every callback is optional, receives an event object that always includes the
-`copilotkit` instance, and returns `void` or `Promise<void>`. The shape below
-shows the representative `onRuntimeConnectionStatusChanged` callback; the
-[Properties](#properties) section documents each callback's exact event shape.
+`copilotkit` instance, and returns `void` or `Promise<void>`. This subscriber
+names every callback and the fields of its event. The
+[Properties](#properties) section describes each one.
 
 ```ts
-interface CopilotKitCoreSubscriber {
-  onRuntimeConnectionStatusChanged?: (event: {
-    copilotkit: CopilotKitCore;
-    status: CopilotKitCoreRuntimeConnectionStatus;
-  }) => void | Promise<void>;
-  // ...one optional callback per lifecycle event (tool execution, agents,
-  // context, suggestions, properties, headers, Inspector metadata, errors,
-  // and thread stores).
-  // See the Properties section below for each callback's event shape.
-}
+import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
+
+const subscriber = {
+  onTrajectoryChanged: ({ copilotkit, trajectoryId }) => {},
+  onRuntimeConnectionStatusChanged: ({ copilotkit, status }) => {},
+  onToolExecutionStart: ({ copilotkit, toolCallId, agentId, toolName, args }) => {},
+  onToolExecutionEnd: ({ copilotkit, toolCallId, agentId, toolName, result, error }) => {},
+  onAgentsChanged: ({ copilotkit, agents }) => {},
+  onAgentRunStarted: ({ copilotkit, agent }) => {},
+  onContextChanged: ({ copilotkit, context }) => {},
+  onCatalogComponentsChanged: ({ copilotkit, catalogComponents }) => {},
+  onSuggestionsConfigChanged: ({ copilotkit, suggestionsConfig }) => {},
+  onSuggestionsChanged: ({ copilotkit, agentId, suggestions }) => {},
+  onSuggestionsStartedLoading: ({ copilotkit, agentId }) => {},
+  onSuggestionsFinishedLoading: ({ copilotkit, agentId }) => {},
+  onPropertiesChanged: ({ copilotkit, properties }) => {},
+  onHeadersChanged: ({ copilotkit, headers }) => {},
+  onInspectorMetadataChanged: ({ copilotkit, inspectorMetadata }) => {},
+  onError: ({ copilotkit, error, code, context }) => {},
+  onThreadStoreRegistered: ({ copilotkit, agentId, store }) => {},
+  onThreadStoreUnregistered: ({ copilotkit, agentId, prevStore }) => {},
+} satisfies CopilotKitCoreSubscriber;
 ```
 
 ## Properties
+
+<PropertyReference name="onTrajectoryChanged" type="(event) => void | Promise<void>">
+  Fired when the active learning trajectory starts or stops. Event: `{ copilotkit, trajectoryId }`, where `trajectoryId` is `null` when no trajectory is active.
+</PropertyReference>
 
 <PropertyReference name="onRuntimeConnectionStatusChanged" type="(event) => void | Promise<void>">
   Fired when the runtime connection status changes. Event: `{ copilotkit, status }` where `status` is a [`CopilotKitCoreRuntimeConnectionStatus`](/reference/core/enums/CopilotKitCoreRuntimeConnectionStatus).
@@ -51,8 +67,16 @@ interface CopilotKitCoreSubscriber {
   Fired when the registered agents change. Event: `{ copilotkit, agents }`.
 </PropertyReference>
 
+<PropertyReference name="onAgentRunStarted" type="(event) => void | Promise<void>">
+  Fired when an agent run or connect begins. Event: `{ copilotkit, agent }`. The `agent` can be a per-thread clone that is not in `copilotkit.agents`, so `onAgentsChanged` does not fire for it.
+</PropertyReference>
+
 <PropertyReference name="onContextChanged" type="(event) => void | Promise<void>">
   Fired when the shared context changes. Event: `{ copilotkit, context }`.
+</PropertyReference>
+
+<PropertyReference name="onCatalogComponentsChanged" type="(event) => void | Promise<void>">
+  Fired when the A2UI catalog component list changes, or when a component is enabled or disabled. Event: `{ copilotkit, catalogComponents }`.
 </PropertyReference>
 
 <PropertyReference name="onSuggestionsConfigChanged" type="(event) => void | Promise<void>">
@@ -105,6 +129,10 @@ interface CopilotKitCoreSubscriber {
 ## Usage
 
 ```ts
+import { CopilotKitCore } from "@copilotkit/core";
+
+const copilotkit = new CopilotKitCore({ runtimeUrl: "/api/copilotkit" });
+
 const subscription = copilotkit.subscribe({
   onRuntimeConnectionStatusChanged: ({ status }) => {
     console.log("connection:", status);

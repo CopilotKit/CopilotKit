@@ -18,18 +18,16 @@ For a template-driven alternative, use the [`CopilotKitAgentContext`](/reference
 ## Signature
 
 ```ts
-import { connectAgentContext } from "@copilotkit/angular";
-import type { Injector } from "@angular/core";
+import {
+  connectAgentContext,
+  type ConnectAgentContextConfig,
+} from "@copilotkit/angular";
 import type { Context } from "@ag-ui/client";
 
-interface ConnectAgentContextConfig {
-  injector?: Injector;
-}
-
-function connectAgentContext(
+connectAgentContext satisfies (
   context: Context | (() => Context),
   config?: ConnectAgentContextConfig,
-): void;
+) => void;
 ```
 
 ## Parameters

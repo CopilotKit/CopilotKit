@@ -13,7 +13,7 @@ export interface UsePinToSendOptions {
 }
 
 /**
- * Vue counterpart of React's `usePinToSend` (`packages/react-core/src/v2/hooks/use-pin-to-send.ts`).
+ * Vue counterpart of React's `usePinToSend` (`packages/react-core/src/hooks/use-pin-to-send.ts`).
  *
  * Anchors the chat scroll container so the most recent user message stays
  * pinned near the top of the viewport while the assistant streams a

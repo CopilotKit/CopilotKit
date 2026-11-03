@@ -120,15 +120,16 @@ Background tasks fit any work that is too slow to hold the chat hostage:
   surface renders registered activity messages inline, so no custom message list is needed.
 
   <FrontendOnly frontend="react">
-  Register the renderer on `<CopilotKit>` via `renderActivityMessages`.
+  Register the renderer on `<CopilotKitProvider>` via `renderActivityMessages`.
 
   ```tsx title="ui/app/activity-card.tsx"
   import { z } from "zod";
-  import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
+  import type { ReactActivityMessageRenderer } from "@copilotkit/react-core";
 
-  const contentSchema = z
-    .object({ status: z.string().optional(), args: z.record(z.unknown()).optional() })
-    .passthrough();
+  const contentSchema = z.looseObject({
+    status: z.string().optional(),
+    args: z.record(z.string(), z.unknown()).optional(),
+  });
 
   export const backgroundTaskActivityRenderer: ReactActivityMessageRenderer<
     z.infer<typeof contentSchema>
@@ -137,7 +138,7 @@ Background tasks fit any work that is too slow to hold the chat hostage:
     content: contentSchema,
     render: ({ content }) => {
       const working = content.status !== "completed" && content.status !== "failed";
-      const topic = (content.args?.topic as string | undefined) ?? "task";
+      const topic = typeof content.args?.topic === "string" ? content.args.topic : "task";
       return (
         <div data-status={content.status ?? "running"}>
           <strong>Deep research</strong> — {topic}
@@ -149,18 +150,18 @@ Background tasks fit any work that is too slow to hold the chat hostage:
   ```
 
   ```tsx title="ui/app/page.tsx"
-  import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+  import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core";
   import { backgroundTaskActivityRenderer } from "./activity-card";
 
   export default function Page() {
     return (
-      <CopilotKit
+      <CopilotKitProvider
         runtimeUrl="/api/copilotkit"
-        agent="backgroundAgentsAgent"
+        agentId="backgroundAgentsAgent"
         renderActivityMessages={[backgroundTaskActivityRenderer]} // [!code highlight]
       >
         <CopilotChat />
-      </CopilotKit>
+      </CopilotKitProvider>
     );
   }
   ```
@@ -232,22 +233,37 @@ Two switches, both required:
    the OM lifecycle in the first place):
 
    ```typescript title="src/mastra/agents/index.ts"
-   memory: new Memory({
-     storage,
-     options: {
-       observationalMemory: {
-         scope: "thread",
-         observation: { messageTokens: 600, bufferTokens: 300 },
-         model: openai("gpt-4.1"),
+   import { Agent } from "@mastra/core/agent";
+   import { LibSQLStore } from "@mastra/libsql";
+   import { Memory } from "@mastra/memory";
+   import { openai } from "@ai-sdk/openai";
+
+   export const backgroundAgentsAgent = new Agent({
+     id: "background-agents",
+     name: "Background Agents Agent",
+     model: openai("gpt-4.1"),
+     instructions: "You are a research assistant.",
+     // [!code highlight:10]
+     memory: new Memory({
+       storage: new LibSQLStore({ id: "mastra-storage", url: "file:./mastra.db" }),
+       options: {
+         observationalMemory: {
+           scope: "thread",
+           observation: { messageTokens: 600, bufferTokens: 300 },
+           model: openai("gpt-4.1"),
+         },
        },
-     },
-   }),
+     }),
+   });
    ```
 
 2. **The adapter must be told to forward it** — pass `observationalMemory: true` (or an array of
    agent ids) to `getLocalAgents`:
 
    ```typescript title="app/api/copilotkit/route.ts"
+   import { getLocalAgents } from "@ag-ui/mastra";
+   import { mastra } from "@/mastra"; // your Mastra instance
+
    const localAgents = getLocalAgents({
      mastra,
      resourceId: "user-1",
@@ -261,15 +277,41 @@ renderer for that activity type:
 
 <FrontendOnly frontend="react">
 ```tsx title="app/page.tsx"
-const observationalMemoryActivityRenderer = {
+import { z } from "zod";
+import {
+  CopilotChat,
+  CopilotKitProvider,
+  type ReactActivityMessageRenderer,
+} from "@copilotkit/react-core";
+
+const omContentSchema = z.looseObject({
+  cycleId: z.string().optional(),
+  phase: z.enum(["observation", "buffering", "activation"]).optional(),
+  status: z.string().optional(),
+});
+
+const observationalMemoryActivityRenderer: ReactActivityMessageRenderer<
+  z.infer<typeof omContentSchema>
+> = {
   activityType: "mastra-observational-memory", // [!code highlight]
-  render: ({ content }) => <OMActivityCard content={content} />,
+  content: omContentSchema,
+  render: ({ content }) => (
+    <div data-phase={content.phase}>
+      Memory {content.phase ?? "observation"}: {content.status ?? "running"}
+    </div>
+  ),
 };
 
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  renderActivityMessages={[observationalMemoryActivityRenderer]} // [!code highlight]
->
+export default function Page() {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      renderActivityMessages={[observationalMemoryActivityRenderer]} // [!code highlight]
+    >
+      <CopilotChat />
+    </CopilotKitProvider>
+  );
+}
 ```
 </FrontendOnly>
 

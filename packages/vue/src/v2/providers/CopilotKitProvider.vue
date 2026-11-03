@@ -1,17 +1,22 @@
 <script setup lang="ts">
-import { GENERATE_SANDBOXED_UI_DESCRIPTION } from "@copilotkit/shared";
+import {
+  GENERATE_SANDBOXED_UI_DESCRIPTION,
+  randomUUID,
+  ɵanySchema,
+} from "@copilotkit/shared";
 import {
   computed,
   h,
   onMounted,
+  onUnmounted,
   provide,
   ref,
   shallowRef,
+  toRaw,
   triggerRef,
   watch,
 } from "vue";
 import type { Component, FunctionalComponent } from "vue";
-import { z } from "zod";
 import type { AbstractAgent } from "@ag-ui/client";
 import { ToolCallStatus } from "@copilotkit/core";
 import type {
@@ -20,13 +25,17 @@ import type {
   CopilotKitHeadersSource,
   FrontendTool,
 } from "@copilotkit/core";
-import { ɵwithHeaderDefaults } from "@copilotkit/core";
+import {
+  DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
+  GENERATE_SANDBOXED_UI_TOOL_NAME,
+  ɵresolveLicenseState,
+  ɵwithHeaderDefaults,
+} from "@copilotkit/core";
 import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import type {
   RuntimeEntitlementResponse,
   RuntimeLicenseStatus,
 } from "@copilotkit/shared";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { CopilotKitCoreVue } from "../lib/vue-core";
 import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
 import { registerA2UIBuiltInToolCallRenderer } from "../components/a2ui/A2UIBuiltInToolCallRenderer";
@@ -43,16 +52,21 @@ import {
   MCPAppsActivityRenderer,
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
-import { CopilotKitKey, InspectorKey, SandboxFunctionsKey } from "./keys";
-import type { VueInspectorOpenRequest } from "./keys";
 import {
-  LicenseContextKey,
-  createLicenseContextValue,
-} from "./license-context";
-import type { LicenseContextValue } from "./license-context";
+  CopilotKitKey,
+  CopilotStyleOptionsKey,
+  InspectorKey,
+  SandboxFunctionsKey,
+} from "./keys";
+import type { VueInspectorOpenRequest } from "./keys";
+import { MARKDOWN_RENDERER_KEY } from "./markdown-renderer";
+import { LicenseContextKey } from "./license-context";
 import CopilotKitInspector from "../components/CopilotKitInspector.vue";
 import LicenseWarningBanner from "../components/LicenseWarningBanner.vue";
-import type { CopilotKitProviderProps } from "./CopilotKitProvider.types";
+import type {
+  CopilotKitLearningOptions,
+  CopilotKitProviderProps,
+} from "./CopilotKitProvider.types";
 import type {
   SandboxFunction,
   VueActivityMessageRenderer,
@@ -81,16 +95,6 @@ const SANDBOX_FUNCTIONS_STABLE_WARNING =
 // interrupt reads the same across frameworks (see #5554).
 const HUMAN_IN_THE_LOOP_ABORTED_MESSAGE =
   "Human-in-the-loop interaction aborted";
-const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
-
-- Use a minimal, flat aesthetic. Avoid drop shadows and gradients — rely on subtle borders (1px solid, light gray like #e5e7eb) to define surfaces.
-- Neutral base palette: white backgrounds, zinc/slate gray text (#09090b for headings, #71717a for secondary text). One accent color for interactive elements.
-- Use system font stacks (system-ui, -apple-system, sans-serif) at readable sizes (14px body, 600 weight for headings). Tight line-heights.
-- Small, consistent border-radius (6–8px). Cards and containers use border, not shadow, for separation.
-- Buttons: solid fill for primary (dark bg, white text), outline for secondary (border + transparent bg). Subtle hover state (slight opacity or background shift).
-- Use CSS Grid or Flexbox for layout. Ensure the UI looks good at any width.
-- Minimal transitions (150ms) for hover/focus states only. No decorative animations.
-- Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
 
 /** The MCP Apps renderer with `mcpApps.allowSameOriginFallback` applied. */
 const SameOriginMCPAppsActivityRenderer: FunctionalComponent = (_, { attrs }) =>
@@ -113,7 +117,16 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   a2ui: undefined,
   mcpApps: undefined,
   enableInspector: undefined,
+  nonce: undefined,
+  injectStyles: true,
+  // A missing boolean prop would otherwise read as `false`.
+  learning: undefined,
 });
+
+provide(
+  CopilotStyleOptionsKey,
+  computed(() => ({ nonce: props.nonce, inject: props.injectStyles })),
+);
 
 const shouldRenderInspector = ref(false);
 
@@ -145,6 +158,12 @@ const initialHumanInTheLoop = props.humanInTheLoop;
 const initialRenderCustomMessages = props.renderCustomMessages;
 const initialRenderActivityMessages = props.renderActivityMessages;
 const initialSandboxFunctions = props.openGenerativeUI?.sandboxFunctions;
+
+// Props that come from reactive state arrive as deep proxies. Zod 4 schemas
+// break behind a Vue proxy (their `_zod` property is read-only and
+// non-configurable), so read tools and renderers through their raw objects.
+const rawEntries = <T>(entries: readonly T[] | undefined): T[] =>
+  [...toRaw(entries ?? [])].map((entry) => toRaw(entry));
 
 watch(
   () => props.frontendTools,
@@ -278,7 +297,7 @@ const processedHumanInTheLoop = computed(() => {
   const tools: FrontendTool[] = [];
   const renderToolCalls: VueToolCallRenderer<unknown>[] = [];
 
-  for (const tool of props.humanInTheLoop) {
+  for (const tool of rawEntries(props.humanInTheLoop)) {
     tools.push({
       type: "human-in-the-loop",
       name: tool.name,
@@ -344,7 +363,7 @@ const processedHumanInTheLoop = computed(() => {
 
       renderToolCalls.push({
         name: tool.name,
-        args: tool.parameters ?? z.any(),
+        args: tool.parameters ?? ɵanySchema,
         render,
         ...(tool.agentId && { agentId: tool.agentId }),
       } as VueToolCallRenderer<unknown>);
@@ -355,7 +374,7 @@ const processedHumanInTheLoop = computed(() => {
 
 const allTools = computed(() => {
   const tools: FrontendTool[] = [];
-  for (const t of props.frontendTools) {
+  for (const t of rawEntries(props.frontendTools)) {
     tools.push(t as FrontendTool);
   }
   for (const t of builtInFrontendTools.value) {
@@ -367,11 +386,15 @@ const allTools = computed(() => {
 
 const allRenderToolCalls = computed(() => {
   const combined: VueToolCallRenderer<unknown>[] = [
-    ...(props.renderToolCalls ?? []),
+    ...rawEntries(props.renderToolCalls),
   ];
-  for (const tool of [...props.frontendTools, ...builtInFrontendTools.value]) {
+  for (const tool of [
+    ...rawEntries(props.frontendTools),
+    ...builtInFrontendTools.value,
+  ]) {
     if (tool.render) {
-      const args = tool.parameters ?? (tool.name === "*" ? z.any() : undefined);
+      const args =
+        tool.parameters ?? (tool.name === "*" ? ɵanySchema : undefined);
       if (args) {
         combined.push({
           name: tool.name,
@@ -413,23 +436,14 @@ const resolvedProperties = computed(() =>
     ? { ...props.properties, a2uiCatalogAvailable: true }
     : props.properties,
 );
-const sandboxFunctions = computed<readonly SandboxFunction[]>(
-  () => props.openGenerativeUI?.sandboxFunctions ?? [],
+const sandboxFunctions = computed<readonly SandboxFunction[]>(() =>
+  rawEntries(props.openGenerativeUI?.sandboxFunctions),
 );
-const zodToJsonSchemaCompat = (
-  schema: unknown,
-  options?: { $refStrategy?: string },
-): Record<string, unknown> =>
-  zodToJsonSchema(
-    schema as z.ZodTypeAny,
-    options as { $refStrategy?: "none" | "relative" | "root" | "seen" },
-  ) as Record<string, unknown>;
-
 const builtInFrontendTools = computed<VueFrontendTool[]>(() => {
   if (!openGenerativeUIActive.value) return [];
   return [
     {
-      name: "generateSandboxedUi",
+      name: GENERATE_SANDBOXED_UI_TOOL_NAME,
       description: GENERATE_SANDBOXED_UI_DESCRIPTION,
       parameters: GenerateSandboxedUiArgsSchema,
       handler: async () => "UI generated",
@@ -448,7 +462,7 @@ const builtInActivityRenderers = computed<
   const renderers: VueActivityMessageRenderer<unknown>[] = [
     {
       activityType: MCPAppsActivityType,
-      content: MCPAppsActivityContentSchema as unknown as z.ZodSchema<unknown>,
+      content: MCPAppsActivityContentSchema,
       render: (props.mcpApps?.allowSameOriginFallback
         ? SameOriginMCPAppsActivityRenderer
         : MCPAppsActivityRenderer) as unknown as VueActivityMessageRenderer<unknown>["render"],
@@ -458,7 +472,7 @@ const builtInActivityRenderers = computed<
   if (openGenerativeUIActive.value) {
     renderers.push({
       activityType: OpenGenerativeUIActivityType,
-      content: OpenGenerativeUIContentSchema as unknown as z.ZodSchema<unknown>,
+      content: OpenGenerativeUIContentSchema,
       render:
         OpenGenerativeUIActivityRenderer as unknown as VueActivityMessageRenderer<unknown>["render"],
     });
@@ -470,6 +484,7 @@ const builtInActivityRenderers = computed<
         theme: props.a2ui?.theme ?? viewerTheme,
         catalog: props.a2ui?.catalog,
         loadingComponent: props.a2ui?.loadingComponent,
+        recovery: props.a2ui?.recovery,
       }),
     );
   }
@@ -478,7 +493,7 @@ const builtInActivityRenderers = computed<
 });
 
 const allRenderActivityMessages = computed(() => [
-  ...(props.renderActivityMessages ?? []),
+  ...rawEntries(props.renderActivityMessages),
   ...builtInActivityRenderers.value,
 ]);
 
@@ -493,6 +508,19 @@ const applyDefaultThrottleMs = (core: CopilotKitCoreVue) => {
   }
   core.setDefaultThrottleMs(props.defaultThrottleMs);
 };
+
+function toLearningConfig(
+  learning: boolean | CopilotKitLearningOptions | undefined,
+): CopilotKitLearningOptions | undefined {
+  // `true` uses the default authenticated capture options.
+  if (learning === true) return {};
+  if (learning === false || learning === undefined) return undefined;
+  // `autoStart` only controls the provider; Core never receives it.
+  const { autoStart: _autoStart, ...config } = learning;
+  return config;
+}
+
+const learningConfig = computed(() => toLearningConfig(props.learning));
 
 const createCopilotKit = () => {
   const core = new CopilotKitCoreVue({
@@ -513,6 +541,7 @@ const createCopilotKit = () => {
     renderActivityMessages: allRenderActivityMessages.value,
     renderCustomMessages: allRenderCustomMessages.value,
     debug: props.debug,
+    learning: learningConfig.value,
   });
   // Initialize synchronously so child hooks can read the value on first render.
   applyDefaultThrottleMs(core);
@@ -695,7 +724,94 @@ onMounted(() => {
   runtimeEntitlementRetryPending.value =
     copilotkit.value.runtimeEntitlementRetryPending;
   didMountRef.value = true;
+  // After the runtime URL is set, so CopilotKit's own runtime traffic is never
+  // captured. Created here, the watchers stop (and stop capture) on unmount.
+  watchLearning();
 });
+
+const learningEnabled = computed(() => learningConfig.value !== undefined);
+// `true` is the options-free form, so only an object can opt out.
+const learningAutoStart = computed(
+  () =>
+    learningEnabled.value &&
+    (typeof props.learning !== "object" || props.learning.autoStart !== false),
+);
+const suppliedTrajectoryId = computed(() =>
+  learningAutoStart.value ? learningConfig.value?.trajectoryId : undefined,
+);
+const generatesTrajectoryId = computed(
+  () => learningAutoStart.value && suppliedTrajectoryId.value === undefined,
+);
+
+function watchLearning() {
+  let learningContainerIds = learningConfig.value?.learningContainerIds;
+
+  watch(
+    [learningConfig, learningAutoStart],
+    ([config, autoStart]) => {
+      copilotkit.value.setLearningConfig(config);
+      learningContainerIds = config?.learningContainerIds;
+      // Automatic starts report unsupported options in Core. With manual
+      // starts, the provider's container option is not part of
+      // startTrajectory() options.
+      if (
+        config?.sink === undefined &&
+        !autoStart &&
+        config?.learningContainerIds !== undefined
+      ) {
+        console.warn(
+          "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture ignores it; assign Learning Spaces on the server with getTrajectoryLearningContainerIds on CopilotKitIntelligence, and remove learningContainerIds from the capture options.",
+        );
+      }
+    },
+    { immediate: true },
+  );
+
+  // Watched as a boolean so a new inline `learning` object warns once.
+  watch(
+    () =>
+      !learningAutoStart.value &&
+      learningConfig.value?.trajectoryId !== undefined,
+    (ignoresTrajectoryId) => {
+      if (!ignoresTrajectoryId) return;
+      console.warn(
+        "[CopilotKit] learning.trajectoryId is ignored when autoStart is false; pass the ID to startTrajectory() instead.",
+      );
+    },
+    { immediate: true },
+  );
+
+  // Runs only when these change, so option changes that keep generating keep
+  // the generated Trajectory; generating again starts one with a new ID.
+  watch(
+    [learningEnabled, generatesTrajectoryId, suppliedTrajectoryId],
+    ([enabled, generates, supplied], _previous, onCleanup) => {
+      if (!enabled) return;
+      let disposed = false;
+      const core = copilotkit.value;
+      const trajectoryId = generates ? randomUUID() : supplied;
+      if (trajectoryId !== undefined) {
+        void core
+          .startTrajectory({ trajectoryId, learningContainerIds })
+          .catch(() => {
+            // Expected authentication/connection failures resolve with an
+            // error result; Core reports them to LearningConfig.onError or
+            // warns once. Consume unexpected rejections without logging
+            // credentials or errors from a previous start after a new
+            // Trajectory has already started.
+            if (!disposed) {
+              console.warn("[CopilotKit] Failed to start interaction capture.");
+            }
+          });
+      }
+      onCleanup(() => {
+        disposed = true;
+        core.stopTrajectory();
+      });
+    },
+    { immediate: true },
+  );
+}
 
 const a2uiTheme = computed(() => props.a2ui?.theme);
 const a2uiCatalog = computed(() => props.a2ui?.catalog);
@@ -727,7 +843,7 @@ watch(
       copilotkit.value.addContext({
         description:
           "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
-        value: designSkill ?? DEFAULT_DESIGN_SKILL,
+        value: designSkill ?? DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
       }),
     );
 
@@ -736,9 +852,7 @@ watch(
         functions.map((fn) => ({
           name: fn.name,
           description: fn.description,
-          parameters: schemaToJsonSchema(fn.parameters, {
-            zodToJsonSchema: zodToJsonSchemaCompat,
-          }),
+          parameters: schemaToJsonSchema(fn.parameters),
         })),
       );
       ids.push(
@@ -769,74 +883,28 @@ provide(CopilotKitKey, {
   a2uiIncludeSchema,
 });
 provide(SandboxFunctionsKey, sandboxFunctions);
+provide(MARKDOWN_RENDERER_KEY, props.markdownRenderer);
 
-// License context — driven by structured and legacy Runtime authority.
-const retryableRuntimeEntitlementFailure = computed(
-  () =>
-    runtimeEntitlements.value?.status !== "ready" &&
-    runtimeEntitlements.value?.error.retryable === true,
+// License context and banner, from the runtime license status and the
+// structured entitlement response.
+const licenseState = computed(() =>
+  ɵresolveLicenseState({
+    status: runtimeLicenseStatus.value,
+    entitlements: runtimeEntitlements.value,
+    retryPending: runtimeEntitlementRetryPending.value,
+    publicKey: resolvedPublicKey.value,
+  }),
 );
-const hasNonReadyRuntimeEntitlement = computed(
-  () =>
-    runtimeEntitlements.value !== undefined &&
-    runtimeEntitlements.value.status !== "ready",
-);
-const hasLegacyRuntimeEntitlementFallback = computed(
-  () =>
-    runtimeLicenseStatus.value === "valid" ||
-    runtimeLicenseStatus.value === "expiring",
-);
-const runtimeEntitlementRetryInProgress = computed(
-  () =>
-    retryableRuntimeEntitlementFailure.value &&
-    runtimeEntitlementRetryPending.value &&
-    !hasLegacyRuntimeEntitlementFallback.value,
-);
-// Only a terminal failure denies features. A retryable failure (a timeout,
-// a network error, a 5xx) says nothing about what the project may use.
-const terminalRuntimeEntitlementFailure = computed(
-  () =>
-    hasNonReadyRuntimeEntitlement.value &&
-    !retryableRuntimeEntitlementFailure.value &&
-    !hasLegacyRuntimeEntitlementFallback.value,
-);
-const licenseContextValue = computed<LicenseContextValue>(() => {
-  const runtimeLicenseContext = createLicenseContextValue(
-    runtimeEntitlementRetryInProgress.value
-      ? undefined
-      : runtimeLicenseStatus.value,
-    runtimeEntitlements.value,
-  );
-  if (!terminalRuntimeEntitlementFailure.value) {
-    return runtimeLicenseContext;
-  }
-
-  return {
-    ...runtimeLicenseContext,
-    checkFeature: () => false,
-    getLimit: () => null,
-  };
-});
+const licenseContextValue = computed(() => licenseState.value.context);
 provide(LicenseContextKey, licenseContextValue);
+const licenseBannerType = computed(() => licenseState.value.bannerType);
 
-const runtimeLicenseWarningStatus = computed(() =>
-  runtimeEntitlementRetryInProgress.value
-    ? undefined
-    : (licenseContextValue.value.status ?? undefined),
-);
-const showNoLicenseBanner = computed(
-  () =>
-    runtimeLicenseWarningStatus.value === "none" && !resolvedPublicKey.value,
-);
-const showExpiredBanner = computed(
-  () => runtimeLicenseWarningStatus.value === "expired",
-);
-const showInvalidBanner = computed(
-  () => runtimeLicenseWarningStatus.value === "invalid",
-);
-const showExpiringBanner = computed(
-  () => runtimeLicenseWarningStatus.value === "expiring",
-);
+// The provider created this core, so it stops the core's runs, timers and
+// subscriptions. `onUnmounted` runs after the children unmount, so their
+// cleanup still reaches a live core.
+onUnmounted(() => {
+  copilotkit.value.dispose();
+});
 </script>
 
 <template>
@@ -847,8 +915,5 @@ const showExpiringBanner = computed(
     :open-request="inspectorOpenRequest"
   />
   <!-- License warnings — driven by server-reported status -->
-  <LicenseWarningBanner v-if="showNoLicenseBanner" type="no_license" />
-  <LicenseWarningBanner v-if="showExpiredBanner" type="expired" />
-  <LicenseWarningBanner v-if="showInvalidBanner" type="invalid" />
-  <LicenseWarningBanner v-if="showExpiringBanner" type="expiring" />
+  <LicenseWarningBanner v-if="licenseBannerType" :type="licenseBannerType" />
 </template>

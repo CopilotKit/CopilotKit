@@ -14,12 +14,6 @@ afterEach(() => {
 /** Creates a complete agent state without calling an external service. */
 function createState(model: string): AgentState {
   return {
-    copilotkit: {
-      actions: [],
-      context: [],
-      interceptedToolCalls: [],
-      originalAIMessageId: "",
-    },
     logs: [],
     messages: [],
     model,

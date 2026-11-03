@@ -77,42 +77,41 @@ describe("live tool model", () => {
     ]);
   });
 
-  it("extracts optional and defaulted Zod-like fields", () => {
-    const optionalString = {
-      _def: {
-        typeName: "ZodOptional",
-        innerType: { _def: { typeName: "ZodString", description: "Label" } },
-      },
-    };
-    const defaultNumber = {
-      _def: {
-        typeName: "ZodDefault",
-        defaultValue: () => 3,
-        innerType: { _def: { typeName: "ZodNumber" } },
+  it("describes a Standard Schema tool's parameters through its JSON Schema", () => {
+    const parameters = {
+      "~standard": {
+        version: 1,
+        vendor: "zod",
+        validate: (value: unknown) => ({ value }),
+        jsonSchema: {
+          input: () => ({
+            type: "object",
+            properties: {
+              city: { type: "string", description: "City name" },
+              units: { type: "string", enum: ["c", "f"], default: "c" },
+            },
+            required: ["city"],
+          }),
+        },
       },
     };
 
-    expect(
-      extractSchemaInfo({
-        _def: {
-          typeName: "ZodObject",
-          unknownKeys: "strict",
-          shape: () => ({ label: optionalString, count: defaultNumber }),
-        },
-      }),
-    ).toEqual([
+    expect(extractSchemaInfo(parameters)).toEqual([
       {
-        name: "label",
+        name: "city",
         type: "string",
-        description: "Label",
-        required: false,
+        description: "City name",
+        required: true,
+        defaultValue: undefined,
+        enum: undefined,
       },
       {
-        name: "count",
-        type: "number",
+        name: "units",
+        type: "string",
         description: undefined,
-        defaultValue: 3,
         required: false,
+        defaultValue: "c",
+        enum: ["c", "f"],
       },
     ]);
   });

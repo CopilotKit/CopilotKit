@@ -69,11 +69,13 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
 
     Add an Intelligence client. The client is the same for every agent framework.
 
-    ```ts title="Your CopilotKit runtime"
+    ```ts title="Your CopilotKit runtime" group=intelligence-runtime
     import {
+      BuiltInAgent,
       CopilotKitIntelligence,
       CopilotRuntime,
-    } from "@copilotkit/runtime/v2";
+    } from "@copilotkit/runtime";
+    import { authenticateApplicationUser } from "./auth";
 
     // Create the Intelligence client with your project API key. Keep this key on the server.
     const intelligence = new CopilotKitIntelligence({
@@ -81,7 +83,8 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
     });
 
     const runtime = new CopilotRuntime({
-      agents,
+      // Your existing agent registration
+      agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
       // Pass the Intelligence client to the runtime
       intelligence,
       // Identify the user from a verified session or token
@@ -111,7 +114,8 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
 
     An open-source runtime often passes `runner`. That option chooses where runs are stored. Intelligence stores the runs itself. Remove `runner` when you add `intelligence`.
 
-    ```ts
+    {/* kiira: ignore, a diff that shows the `runner` line to remove; TypeScript rejects `runner` with `intelligence` on purpose, and the checked setup above is the result */}
+    ```ts ignore
     const runtime = new CopilotRuntime({
       agents,
       runner: new InMemoryAgentRunner(), // [!code --]
@@ -135,8 +139,8 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
 
     Create one handler and mount it for all runtime subpaths and HTTP methods in the server you already use. For Next.js, use a catch-all route:
 
-    ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-    import { createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+    ```ts title="app/api/copilotkit/[[...slug]]/route.ts" group=intelligence-runtime
+    import { createCopilotRuntimeHandler } from "@copilotkit/runtime";
 
     const handler = createCopilotRuntimeHandler({
       runtime,
@@ -180,7 +184,8 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
       Set `useSingleEndpoint={false}` for the multi-route servers above. If you kept an existing TypeScript single-route server, keep `useSingleEndpoint={true}` instead.
 
       ```tsx title="Your CopilotKit provider"
-      import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+      import { CopilotKitProvider } from "@copilotkit/react-core";
+      import { YourApp } from "./YourApp";
 
       export function App() {
         return (
@@ -326,6 +331,8 @@ All runtimes default to cloud-hosted Intelligence. For self-hosting, replace the
 Set both `apiUrl` and `wsUrl` on `CopilotKitIntelligence`. Pass a bare WebSocket base; the client appends `/runner` and `/client`.
 
 ```ts
+import { CopilotKitIntelligence } from "@copilotkit/runtime";
+
 const intelligence = new CopilotKitIntelligence({
   apiUrl: "https://api.intelligence.internal",
   wsUrl: "wss://realtime.intelligence.internal",

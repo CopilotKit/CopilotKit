@@ -12,7 +12,7 @@ import { stageInstructions } from "@/lib/system-prompt";
 import type { Stage } from "@/lib/system-prompt";
 import { createAgentContextValue } from "@/lib/stages/agent-context";
 
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 
 export type { Stage } from "@/lib/system-prompt";
 

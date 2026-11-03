@@ -2,11 +2,8 @@
 
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
-import { GenerativeUISurface } from "@copilotkit/react-core/v2/generative-ui";
+import { CopilotChat, useConfigureSuggestions } from "@copilotkit/react-core";
+import { GenerativeUISurface } from "@copilotkit/react-core/generative-ui";
 import Link from "next/link";
 import { Providers } from "./providers";
 import type { ExampleAgent, ExampleTransport } from "./providers";

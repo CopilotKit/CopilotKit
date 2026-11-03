@@ -154,6 +154,22 @@ describe("CopilotChatMessageView", () => {
     ).not.toBeNull();
   });
 
+  it("renders a message the agent lists twice as one row", () => {
+    const fixture = TestBed.createComponent(MessageViewHostComponent);
+    fixture.componentInstance.messages = [
+      userMessage,
+      assistantMessage,
+      { id: "assistant-1", role: "assistant", content: "" },
+    ];
+    fixture.detectChanges();
+
+    const rows = (fixture.nativeElement as HTMLElement).querySelectorAll(
+      '[data-testid="copilot-assistant-message"]',
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.textContent).toContain("Assistant reply");
+  });
+
   it("passes assistantMessageClass to the assistant message container", () => {
     const fixture = TestBed.createComponent(CopilotChatMessageView);
     fixture.componentRef.setInput("messages", [userMessage, assistantMessage]);
@@ -214,13 +230,19 @@ describe("CopilotChatMessageView", () => {
       "Designing dashboard layout",
     );
     const header = reasoningElement?.querySelector<HTMLButtonElement>("button");
-    const panel = reasoningElement?.querySelector<HTMLElement>(".cpk\\:grid");
+    const panel = reasoningElement?.querySelector<HTMLElement>(
+      ".cpk-reasoning-message-toggle",
+    );
     const chevron = reasoningElement?.querySelector<SVGElement>("svg");
     expect(header?.getAttribute("aria-expanded")).toBe("true");
     expect(panel?.style.gridTemplateRows).toBe("1fr");
     expect(chevron).not.toBeNull();
-    expect(chevron?.classList.contains("cpk:size-3.5")).toBe(true);
-    expect(chevron?.classList.contains("cpk:rotate-90")).toBe(true);
+    expect(chevron?.classList.contains("cpk-reasoning-message-chevron")).toBe(
+      true,
+    );
+    expect(
+      chevron?.classList.contains("cpk-reasoning-message-chevron-open"),
+    ).toBe(true);
     expect(
       (reasoningElement?.textContent ?? "")
         .split("\n")
@@ -232,7 +254,9 @@ describe("CopilotChatMessageView", () => {
 
     expect(header?.getAttribute("aria-expanded")).toBe("false");
     expect(panel?.style.gridTemplateRows).toBe("0fr");
-    expect(chevron?.classList.contains("cpk:rotate-90")).toBe(false);
+    expect(
+      chevron?.classList.contains("cpk-reasoning-message-chevron-open"),
+    ).toBe(false);
   });
 
   it("renders a custom reasoning-message component with the reasoning context", () => {
@@ -265,13 +289,17 @@ describe("CopilotChatMessageView", () => {
       '[data-testid="copilot-chat-reasoning-message"]',
     );
     const header = reasoningElement?.querySelector<HTMLButtonElement>("button");
-    const panel = reasoningElement?.querySelector<HTMLElement>(".cpk\\:grid");
+    const panel = reasoningElement?.querySelector<HTMLElement>(
+      ".cpk-reasoning-message-toggle",
+    );
     const chevron = reasoningElement?.querySelector<SVGElement>("svg");
 
     expect(nativeElement.textContent).toContain("Thought for a few seconds");
     expect(header?.getAttribute("aria-expanded")).toBe("false");
     expect(panel?.style.gridTemplateRows).toBe("0fr");
-    expect(chevron?.classList.contains("cpk:size-3.5")).toBe(true);
+    expect(chevron?.classList.contains("cpk-reasoning-message-chevron")).toBe(
+      true,
+    );
 
     header?.click();
     fixture.detectChanges();

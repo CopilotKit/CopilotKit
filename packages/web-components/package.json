@@ -66,14 +66,13 @@
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
   },
-  "peerDependencies": {
+  "dependencies": {
     "lit": "^3.3.2"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
     "jsdom": "^26.1.0",
-    "lit": "^3.3.2",
     "tsdown": "^0.20.3",
     "tsx": "^4.19.2",
     "typescript": "5.9.2",

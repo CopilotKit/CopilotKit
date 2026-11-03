@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod-v3";
 import type { A2UICatalogDefinitions } from "@copilotkit/angular/a2ui";
 import { ChildListSchema, DynamicNumberSchema } from "@copilotkit/angular/a2ui";
 

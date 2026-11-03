@@ -106,14 +106,14 @@ describe("CopilotChat icon buttons", () => {
     );
 
     expect(labels).toEqual([
-      "Add photos or files",
-      "Add photos or files",
+      "Add attachments",
+      "Add attachments",
       "Transcribe",
       "Cancel",
       "Finish",
       "Send message",
-      "Previous message branch",
-      "Next message branch",
+      "Previous branch",
+      "Next branch",
       "Scroll to bottom",
     ]);
   });

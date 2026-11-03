@@ -65,6 +65,19 @@ You can disable all message streaming and tool call streaming by passing `emit_m
     </Tab>
     <Tab value="TypeScript">
         ```typescript
+        import type { RunnableConfig } from "@langchain/core/runnables";
+        import { StateSchema } from "@langchain/langgraph";
+        import { ChatOpenAI } from "@langchain/openai";
+        import {
+            convertActionsToDynamicStructuredTools,
+            copilotkitCustomizeConfig,
+            CopilotKitStateSchema,
+        } from "@copilotkit/sdk-js/langgraph";
+
+        const AgentStateSchema = new StateSchema({
+            ...CopilotKitStateSchema.fields,
+        });
+        type AgentState = typeof AgentStateSchema.State;
 
         async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
             // 1) Configure CopilotKit not to emit messages
@@ -77,7 +90,7 @@ You can disable all message streaming and tool call streaming by passing `emit_m
             const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.4" });
             const modelWithTools = model.bindTools!([
                 ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions || []),
-                ...tools,
+                // ... any tools you want to make available to the model
             ]);
 
             // 3) Call the model with CopilotKit's modified config

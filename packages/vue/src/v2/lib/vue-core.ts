@@ -44,7 +44,9 @@ export class CopilotKitCoreVue extends CopilotKitCore {
   private _interruptState: InterruptRenderProps<unknown, unknown> | null = null;
 
   constructor(config: CopilotKitCoreVueConfig) {
-    super(config);
+    // Tool handlers can change reactive state. `nextTick` lets Vue flush those
+    // updates before core starts the follow-up run.
+    super({ ...config, ɵwaitForFrameworkUpdates: () => nextTick() });
     this._renderToolCalls = config.renderToolCalls ?? [];
     this._renderCustomMessages = config.renderCustomMessages ?? [];
     this._renderActivityMessages = config.renderActivityMessages ?? [];
@@ -153,9 +155,5 @@ export class CopilotKitCoreVue extends CopilotKitCore {
     subscriber: CopilotKitCoreVueSubscriber,
   ): CopilotKitCoreSubscription {
     return super.subscribe(subscriber);
-  }
-
-  async waitForPendingFrameworkUpdates(): Promise<void> {
-    await nextTick();
   }
 }

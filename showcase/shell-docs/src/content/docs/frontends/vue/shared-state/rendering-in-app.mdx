@@ -99,11 +99,21 @@ import Canvas from "./components/Canvas.vue";
 The same agent exposes `setState`, so your canvas can be interactive rather than a read-only mirror. A click handler can push a new value that the agent reads on its next turn:
 
 ```ts
+// Inside <script setup lang="ts"> of Canvas.vue
+import { useAgent } from "@copilotkit/vue/v2";
+
+type CanvasState = {
+  title: string;
+  items: { id: string; label: string; done: boolean }[];
+};
+
+const { agent } = useAgent();
+
 function toggleItem(id: string) {
   const currentAgent = agent.value;
   if (!currentAgent) return;
 
-  const current = (currentAgent.state ?? {}) as Partial<CanvasState>;
+  const current: Partial<CanvasState> = currentAgent.state ?? {};
   currentAgent.setState({
     ...current,
     items: (current.items ?? []).map((item) =>

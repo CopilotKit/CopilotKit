@@ -96,7 +96,6 @@ export const THREAD_INSPECTOR_PROPERTIES = {
   provider: { attribute: false },
   thread: { attribute: false },
   runtimeUrl: { attribute: false },
-  headers: { attribute: false },
   resolveHeaders: { attribute: false },
   headersGeneration: { attribute: false },
   threadInspectionAvailable: { attribute: false },

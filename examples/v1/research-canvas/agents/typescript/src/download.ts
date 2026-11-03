@@ -7,7 +7,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { AgentState } from "./state";
 import { htmlToText } from "html-to-text";
-import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph";
+import { emitState } from "./agui-events";
 import { withAbortTimeout } from "./abort-timeout";
 import { fetchPublicText } from "./public-url-fetch";
 import { getCachedResource, getOrLoadResource } from "./resource-cache";
@@ -51,7 +51,7 @@ export async function download_node(state: AgentState, config: RunnableConfig) {
 
   // Emit the state to let the UI update
   const { messages, ...restOfState } = state;
-  await copilotkitEmitState(config, {
+  await emitState(config, {
     ...restOfState,
     resources,
     logs,
@@ -70,14 +70,14 @@ export async function download_node(state: AgentState, config: RunnableConfig) {
       failure.message = `Failed to download ${resource.url}: ${failure.message}`;
       logs[logsOffset + i]["message"] = failure.message;
       if (resource.downloaded) {
-        await copilotkitEmitState(config, { ...restOfState, resources, logs });
+        await emitState(config, { ...restOfState, resources, logs });
         throw failure;
       }
       // A failed first download must not be retried on every later turn.
       resources = resources.filter((item) => item.url !== resource.url);
     }
     logs[logsOffset + i]["done"] = true;
-    await copilotkitEmitState(config, { ...restOfState, resources, logs });
+    await emitState(config, { ...restOfState, resources, logs });
   }
   return {
     resources,

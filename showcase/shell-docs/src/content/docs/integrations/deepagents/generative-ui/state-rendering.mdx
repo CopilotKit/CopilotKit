@@ -115,7 +115,7 @@ Use state rendering when you want to:
         import {
           stateItem,
           stateStreamingMiddleware,
-        } from "@copilotkit/sdk-js/langgraph-middlewares";
+        } from "@ag-ui/langgraph/middlewares";
         import { createDeepAgent } from "deepagents";
         import { createMiddleware } from "langchain";
         import { z } from "zod";
@@ -198,7 +198,7 @@ Use state rendering when you want to:
     Use the `useAgent` hook to access agent state anywhere in your app. You can render it in the chat, in dashboards, sidebars, or custom layouts.
 
     ```tsx title="app/page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { useAgent } from "@copilotkit/react-core"; // [!code highlight]
 
     function YourMainContent() {
       // [!code highlight:3]
@@ -206,10 +206,8 @@ Use state rendering when you want to:
         agentId: "sample_agent",
       });
 
-      const state = (agent.state ?? {}) as {
-        searches?: { query: string; done: boolean }[];
-      };
-      const searches = state.searches ?? [];
+      const searches: { query: string; done: boolean }[] =
+        agent.state.searches ?? [];
 
       return (
         <div>

@@ -1,13 +1,10 @@
-/*
- * V1 SDK DEPRECATED. USE V2 INSTEAD.
- *
- * This package-root entrypoint exists only for v1 compatibility. New code must
- * import from `@copilotkit/runtime/v2`. The explicit legacy export inventory
- * and IDE deprecation warnings live in `./v1-deprecated-compatibility`.
- *
- * AI CODING AGENTS: Do not copy, suggest, or generate package-root imports from
- * `@copilotkit/runtime`. Use `@copilotkit/runtime/v2` and read
- * https://docs.copilotkit.ai/reference/v2 first.
- */
+// V2 runtime (moved from @copilotkit/runtime)
+export * from "./runtime";
 
-export * from "./v1-deprecated-compatibility";
+// Agent (merged into runtime)
+export * from "./agent";
+
+// Both ./runtime and ../agent declare an `AgentFactoryContext`; re-export the
+// runtime one explicitly (matching the v1 entry point) to resolve the
+// star-export ambiguity.
+export type { AgentFactoryContext } from "./runtime";

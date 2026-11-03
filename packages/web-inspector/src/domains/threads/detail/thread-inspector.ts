@@ -69,9 +69,6 @@ import { threadInspectorStyles } from "./thread-inspector.styles.js";
 
 export type { ThreadDetailsTab } from "./thread-inspector-model.js";
 
-// Sentinel identity: tells whether a host actually set `resolveHeaders`.
-const DEFAULT_RESOLVE_HEADERS: InspectorHeadersResolver = () => ({});
-
 export class CpkThreadInspector extends PortableLitElement {
   static properties = THREAD_INSPECTOR_PROPERTIES;
 
@@ -81,12 +78,8 @@ export class CpkThreadInspector extends PortableLitElement {
   provider: ThreadDebuggerProvider | null = null;
   thread: ThreadDebuggerMetadata | ɵThread | null = null;
   runtimeUrl = "";
-  /**
-   * @deprecated Set `resolveHeaders`, which resolves fresh headers at send
-   * time (#1937). Used only while `resolveHeaders` keeps its default.
-   */
-  headers: Record<string, string> = {};
-  resolveHeaders: InspectorHeadersResolver = DEFAULT_RESOLVE_HEADERS;
+  /** Resolves the request headers each time a request is sent (#1937). */
+  resolveHeaders: InspectorHeadersResolver = () => ({});
   /** Bumped only by a header-source change; never by a new header value. */
   headersGeneration = 0;
   threadInspectionAvailable = false;
@@ -495,11 +488,7 @@ export class CpkThreadInspector extends PortableLitElement {
       runtimeUrl: this.runtimeUrl,
       threadId,
       signal: controller.signal,
-      // `resolveHeaders` when a host set it; else the deprecated `headers`.
-      resolveHeaders: () =>
-        this.resolveHeaders === DEFAULT_RESOLVE_HEADERS
-          ? this.headers
-          : this.resolveHeaders(),
+      resolveHeaders: () => this.resolveHeaders(),
     };
   }
 

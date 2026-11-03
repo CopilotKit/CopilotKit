@@ -1,7 +1,7 @@
 ---
 title: "Connecting Backend Emit APIs to Frontend Hooks"
 icon: "lucide/ArrowLeftRight"
-description: "End-to-end guide: how LangGraph SDK emit functions map to React v2 frontend hooks."
+description: "End-to-end guide: how LangGraph SDK emit functions map to React frontend hooks."
 ---
 
 ## What is this?
@@ -12,7 +12,7 @@ This page shows exactly how the two sides connect so you can build predictable, 
 
 ## The mapping at a glance
 
-| Backend (Python SDK) | Frontend (React v2) | What it does |
+| Backend (Python SDK) | Frontend (React) | What it does |
 |---|---|---|
 | `copilotkit_emit_tool_call(config, name, args)` | `useFrontendTool` | Agent manually fires a tool call; the registered handler runs in the browser |
 | LLM calls a frontend tool normally (via `bind_tools`) | `useFrontendTool` | Agent lets the LLM decide when to call the tool; same handler, same result |
@@ -36,11 +36,12 @@ This pattern lets a LangGraph node **directly invoke** a frontend function — f
 ### Step 1: Register the frontend tool
 
 ```tsx title="app/page.tsx"
+import { useState } from "react";
 import { z } from "zod";
-import { useFrontendTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useFrontendTool } from "@copilotkit/react-core"; // [!code highlight]
 
 export function Page() {
-  const [status, setStatus] = React.useState("");
+  const [status, setStatus] = useState("");
 
   // [!code highlight:10]
   useFrontendTool({
@@ -101,7 +102,7 @@ This pattern lets the LLM decide when to render a custom React component in the 
 ### Step 1: Register the component
 
 ```tsx title="app/page.tsx"
-import { useComponent } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useComponent } from "@copilotkit/react-core"; // [!code highlight]
 import { z } from "zod";
 
 function WeatherCard({ city, temperature, condition }: {
