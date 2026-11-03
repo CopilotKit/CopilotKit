@@ -141,11 +141,11 @@
   }
 
   /* One line to type in; it still grows (to four lines) for a longer prompt. */
+  .wb-page .wb-prompt {
+    padding: 6px;
+  }
   .wb-page #wb-prompt {
-    min-height: 40px;
     max-height: 104px;
-    padding-top: 9px;
-    padding-bottom: 5px;
   }
   .wb-page #wb-prompt::placeholder {
     white-space: nowrap;
@@ -154,21 +154,18 @@
   }
   @supports not (field-sizing: content) {
     .wb-page #wb-prompt {
-      height: 40px;
+      height: 36px;
     }
   }
 
-  /* The pickers on one row that scrolls sideways if it must; New chat and Build stay put at its end. */
-  .wb-page [data-wb-controls] {
+  /* The pickers on one row under the prompt that scrolls sideways if it must. */
+  .wb-page [data-wb-under] {
     flex-wrap: nowrap;
-    gap: 6px;
-    padding: 2px 8px 8px;
+    margin-top: 4px;
   }
   .wb-page [data-wb-pickers] {
-    display: flex;
     flex: 1 1 auto;
-    align-items: center;
-    gap: 6px;
+    margin-left: 0;
     min-width: 0;
     overflow-x: auto;
     scrollbar-width: none;
@@ -179,17 +176,6 @@
   }
   .wb-page [data-wb-pickers]::-webkit-scrollbar {
     display: none;
-  }
-  .wb-page [data-new-chat] {
-    padding-inline: 8px;
-  }
-  .wb-page [data-new-chat] > span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
   /* An embed keeps one picker, the design system, so the row fits without scrolling and nothing reads
      as cut off (480px tall or less, it folds away: see the end of this block). The model and the format stay in the full playground, one link away. */
@@ -205,52 +191,18 @@
     display: inline-flex;
   }
 
-  @media (max-width: 519px) {
-    /* Build is the arrow alone; its name stays for screen readers. */
-    .wb-page [data-build] {
-      width: 36px;
-      padding: 0;
-      justify-content: center;
-    }
-    .wb-page [data-build-label] {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
-    }
-  }
-
   /* The smallest embeds (480px tall or less, a 320 to 480 square on a phone or in a docs column): the answer
-     needs every row it can get. The suggestions go (the placeholder still suggests one) and the prompt is one
-     line with Build beside it. The design system and "start without AI" are in the full playground, and
-     `?ds=` still picks the design system for the frame. */
+     needs every row it can get. The suggestions, the "+" menu and the row under the prompt go (the placeholder
+     still suggests one), leaving the prompt and Build. The design system and "start without AI" are in the
+     full playground, and `?ds=` still picks the design system for the frame. */
   @media (max-height: 480px) {
     .wb-page[data-embed] [data-wb-chips-wrap],
-    .wb-page[data-embed] [data-wb-pickers],
-    .wb-page[data-embed] [data-new-chat] {
+    .wb-page[data-embed] [data-wb-plus],
+    .wb-page[data-embed] [data-wb-under] {
       display: none;
     }
-    .wb-page[data-embed] .wb-prompt {
-      display: flex;
-      align-items: flex-end;
-    }
     .wb-page[data-embed] #wb-prompt {
-      flex: 1;
-      min-width: 0;
-      min-height: 48px;
-      padding-top: 12px;
-      padding-bottom: 12px;
-    }
-    @supports not (field-sizing: content) {
-      .wb-page[data-embed] #wb-prompt {
-        height: 48px;
-      }
-    }
-    .wb-page[data-embed] [data-wb-controls] {
-      flex: none;
-      padding: 6px;
+      padding-inline: 8px;
     }
   }
 
