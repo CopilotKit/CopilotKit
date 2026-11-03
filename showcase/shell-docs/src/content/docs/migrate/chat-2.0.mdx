@@ -1,6 +1,6 @@
 ---
 title: Chat UI in 2.0
-description: Replace removed chat exports, update full label objects and repeated tool registrations, and check the default text and behavior that changed in the Vue and Angular chat.
+description: Replace removed chat exports, update full label objects, renderer lists, and repeated tool registrations, and check the default text and behavior that changed in the chat and its tool-call rendering.
 ---
 
 In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilotkit/core` can fail, or a type check can fail. The Vue and Angular chat can also show different text or act differently. The cause is one of these changes:
@@ -9,8 +9,9 @@ In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilot
 - The `CopilotChatLabels` type has more keys.
 - `CopilotKitCore.addTool` lets a newer tool replace an older tool with the same name.
 - Vue and Angular use the same default text and chat rules as React.
+- Tool-call rendering follows one set of rules in React, Vue, and Angular.
 
-The codemod does not change this code. Use the sections below.
+The codemod adds a `TODO(copilotkit-2.0)` comment above a complete `CopilotChatLabels` object and above a change to a renderer list. It does not change the other code. Use the sections below.
 
 ## Removed exports
 
@@ -67,7 +68,27 @@ export const labels: CopilotChatLabels = {
 
 In Vue, the values of `CopilotChatDefaultLabels` now have the type `string`, not literal string types.
 
+The built-in tool-call card also uses labels for its status and headings. For example, `toolCallStatusUnknownLabel` is the text for a status that the card does not know.
+
 All label keys are in [CopilotChatLabels](/reference/hooks/useCopilotChatConfiguration#copilotchatlabels).
+
+## Renderer lists
+
+In React, `copilotkit.renderToolCalls` and `copilotkit.renderActivityMessages` are read-only arrays. The `renderToolCalls` value of the `onRenderToolCallsChanged` event is read-only too. Code that adds to one of these arrays in place fails to type-check. In 1.x, this change also did not tell the chat to draw again.
+
+To change a list, give a new list to its setter:
+
+```tsx ignore title="Before"
+const { copilotkit } = useCopilotKit();
+copilotkit.renderToolCalls.push(searchRenderer);
+```
+
+```tsx ignore title="After"
+const { copilotkit } = useCopilotKit();
+copilotkit.setRenderToolCalls([...copilotkit.renderToolCalls, searchRenderer]);
+```
+
+To add one tool-call renderer from a component, use `useRenderTool`.
 
 ## Tool registration
 
@@ -132,12 +153,58 @@ In Vue:
 
 - **Enter during a run:** Enter with text in the input sends the message. Enter in an empty input stops the run.
 - **Activity renderers:** A renderer with `activityType: "*"` draws every activity that has no renderer of its own.
-- **Custom message renderers:** The chat tries each renderer in turn. The first renderer that returns content is used.
+- **Custom message renderers:** The chat uses the first renderer for the current agent. If there is none, it uses the first renderer without an `agentId`.
 
 In Angular:
 
 - **Stop button:** While the agent runs, the send button becomes a stop button.
 - **Tool-call renderers:** The chat uses a renderer from another agent when no renderer for the current agent matches. A `"*"` renderer applies to all agents. A frontend tool for the current agent comes before a global renderer with the same name.
-- **Removing a renderer:** When a component that called `registerRenderToolCall` is destroyed, only its renderer is removed. Tools with the same name stay registered.
+- **Two renderers for one tool:** If two renderers have the same tool name and `agentId`, the chat uses the newer renderer. This applies to `addRenderToolCall` and `registerRenderToolCall`. In 1.x, the first renderer stayed active.
+- **Removing a renderer:** When a component that called `registerRenderToolCall` is destroyed, only its renderer is removed. Tools with the same name stay registered. A renderer from the `renderToolCalls` configuration is active again.
+- **Activity without an agent:** `<copilot-activity>` with no `agentId` uses the default agent. It picks the renderers of that agent and passes that agent to the renderer. In 1.x, it used no agent.
 
 If a test or a screenshot depends on the earlier behavior, update it to the behavior above.
+
+## Tool-call rendering
+
+React, Vue, and Angular now draw tool calls with the same rules. These changes can show in your app or in your tests.
+
+### Tool-call status in Angular
+
+The status of a tool call without a result is `"executing"` only while its frontend handler runs. At other times, the status is `"in-progress"`. In 1.x, the status was `"in-progress"` while the agent ran and `"executing"` after the run stopped.
+
+A tool that has a renderer but no handler now stays `"in-progress"` until its result arrives. If your renderer shows a control only for `"executing"`, use a frontend tool or a human-in-the-loop tool with a handler.
+
+### Tool-call arguments in React and Vue
+
+A tool-call renderer gets `args` as an object. While the agent streams the arguments, the object has the parts that arrived. After that, if the arguments are not valid JSON, `args` is `{ _raw: "<the text>" }`. If they are JSON but not an object, `args` is `{ _value: <the value> }`. In 1.x, the renderer got `{}` in both cases. Angular already used these keys.
+
+If your renderer reads `args`, make sure that it accepts these two shapes.
+
+### Built-in tool-call card
+
+The built-in card (`useDefaultRenderTool` in React and Vue) changed in these ways:
+
+- **Text:** The status badge and the "Arguments" and "Result" headings come from the chat labels. The default text is the same as in 1.x.
+- **Unknown status:** A status that the card does not know shows `toolCallStatusUnknownLabel` ("Unknown status") and `data-status="unknown"`. In 1.x, the card showed the status as it was sent.
+- **Payloads:** A circular reference in the arguments or the result shows as `"[Circular]"`. A `bigint` shows as `"12n"`.
+- **Data attributes:** If `data-args` or `data-result` cannot be written as JSON, the attribute is empty.
+
+If a test reads the text or the `data-*` attributes of the card, update the test.
+
+### Activity warning
+
+When the content of an activity message fails the schema of its renderer, React, Vue, and Angular log the same warning:
+
+```text
+[CopilotKit] Failed to parse content for activity message '<activity type>':
+```
+
+If a test looks for the earlier text, update the test.
+
+### Executing tool calls
+
+`CopilotKitCore.executingToolCallIds` holds the ids of the tool calls whose frontend handler runs now. Subscribe with `onExecutingToolCallsChanged`. In Angular, use the `executingToolCallIds` signal on the `CopilotKit` service.
+
+An id stays in the set until the result of the call is in the agent messages. As a result, a renderer never sees a finished call without its result. In React, `executingToolCallIds` from `useCopilotKit()` follows the same rule.
+
