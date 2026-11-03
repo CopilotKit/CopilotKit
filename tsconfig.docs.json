@@ -93,7 +93,6 @@
         "./packages/agentcore-runner/src/index.ts"
       ],
       "@copilotkit/core": ["./packages/core/src/index.ts"],
-      "@copilotkit/demo-agents": ["./packages/demo-agents/src/index.ts"],
       "@copilotkit/intelligence-langgraph": [
         "./packages/intelligence-langgraph/src/index.ts"
       ],

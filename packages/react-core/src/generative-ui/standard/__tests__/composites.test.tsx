@@ -28,9 +28,9 @@ describe("compositeComponents", () => {
       "ImageGrid",
     ]);
     for (const name of names) {
-      expect(standardUI.manifestComponents[name].description).toMatch(/\S/);
+      expect(standardUI.manifestComponents[name]!.description).toMatch(/\S/);
     }
-    expect(standardUI.manifestComponents.FollowUp.events).toHaveProperty(
+    expect(standardUI.manifestComponents.FollowUp!.events).toHaveProperty(
       "onFollowUp",
     );
   });
@@ -65,7 +65,7 @@ describe("standard catalog: composites", () => {
       },
     ]);
     fireEvent.click(await v.findByRole("button", { name: /Docs/ }));
-    expect(v.forwardEvent.mock.calls[0][0].name).toBe("open_docs");
+    expect(v.forwardEvent.mock.calls[0]![0].name).toBe("open_docs");
   });
 
   it("Citation shows its source on click", async () => {
@@ -111,7 +111,7 @@ describe("standard catalog: composites", () => {
     ]);
     fireEvent.click(await v.findByRole("button", { name: "Luxury" }));
     expect(v.forwardEvent).toHaveBeenCalledTimes(1);
-    const event = v.forwardEvent.mock.calls[0][0];
+    const event = v.forwardEvent.mock.calls[0]![0];
     expect(event.name).toBe("follow_up");
     expect(event.context).toMatchObject({ message: "Make it luxury" });
   });
@@ -126,7 +126,7 @@ describe("standard catalog: composites", () => {
     ]);
     fireEvent.click(await v.findByRole("button", { name: "Make it cheaper" }));
     expect(v.forwardEvent).toHaveBeenCalledTimes(1);
-    expect(v.forwardEvent.mock.calls[0][0]).toMatchObject({
+    expect(v.forwardEvent.mock.calls[0]![0]).toMatchObject({
       name: "follow_up",
       componentId: "root",
       userMessage: "Make it cheaper",
@@ -154,7 +154,7 @@ describe("standard catalog: composites", () => {
     expect(v.getByText("Popular")).not.toBeNull();
     expect(v.getByLabelText("4.5 out of 5")).not.toBeNull();
     fireEvent.click(v.getByRole("button", { name: "Pick" }));
-    const event = v.forwardEvent.mock.calls[0][0];
+    const event = v.forwardEvent.mock.calls[0]![0];
     expect(event.name).toBe("pick");
     expect(event.context).toMatchObject({ label: "Pick" });
   });

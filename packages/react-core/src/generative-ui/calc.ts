@@ -53,7 +53,7 @@ function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
   while (i < source.length) {
-    const char = source[i];
+    const char = source[i]!;
     if (/\s/.test(char)) {
       i++;
       continue;
@@ -119,21 +119,23 @@ function describe(value: unknown) {
   return typeof value === "string" ? `"${value}"` : String(value);
 }
 
+// `name` checks the count against ARITY before a call. A missing arg is
+// NaN here, which is also what Math gives for `undefined`.
 const MATH: Record<string, (args: number[]) => number> = {
   min: (args) => Math.min(...args),
   max: (args) => Math.max(...args),
-  abs: ([x]) => Math.abs(x),
-  floor: ([x]) => Math.floor(x),
-  ceil: ([x]) => Math.ceil(x),
-  round: ([x, decimals = 0]) => {
+  abs: ([x = NaN]) => Math.abs(x),
+  floor: ([x = NaN]) => Math.floor(x),
+  ceil: ([x = NaN]) => Math.ceil(x),
+  round: ([x = NaN, decimals = 0]) => {
     const factor = 10 ** Math.trunc(decimals);
     return Math.round(x * factor) / factor;
   },
-  pow: ([x, y]) => x ** y,
-  sqrt: ([x]) => Math.sqrt(x),
-  exp: ([x]) => Math.exp(x),
-  ln: ([x]) => Math.log(x),
-  log10: ([x]) => Math.log10(x),
+  pow: ([x = NaN, y = NaN]) => x ** y,
+  sqrt: ([x = NaN]) => Math.sqrt(x),
+  exp: ([x = NaN]) => Math.exp(x),
+  ln: ([x = NaN]) => Math.log(x),
+  log10: ([x = NaN]) => Math.log10(x),
 };
 
 /** How many args a function takes, at least and at most; min and max take any. */
@@ -165,10 +167,23 @@ class CalcParser {
 
   parse(): Value {
     const value = this.ternary();
-    if (this.tokens[this.pos].kind !== "end") {
-      this.fail(`unexpected "${this.text(this.tokens[this.pos])}"`);
+    const token = this.peek();
+    if (token.kind !== "end") {
+      this.fail(`unexpected "${this.text(token)}"`);
     }
     return value;
+  }
+
+  /**
+   * The token at `pos`. The parser never moves past the "end" token, which
+   * `tokenize` always adds last, so there is always one.
+   */
+  private peek() {
+    const token = this.tokens[this.pos];
+    if (token === undefined) {
+      throw new Error(`calc: no token at ${this.pos} in "${this.source}"`);
+    }
+    return token;
   }
 
   private fail(what: string): never {
@@ -180,7 +195,7 @@ class CalcParser {
   }
 
   private peekOp(...ops: string[]) {
-    const token = this.tokens[this.pos];
+    const token = this.peek();
     return token.kind === "op" && ops.includes(token.value)
       ? token.value
       : undefined;
@@ -188,9 +203,7 @@ class CalcParser {
 
   private expectOp(op: string) {
     if (this.peekOp(op) === undefined) {
-      this.fail(
-        `expected "${op}" but found "${this.text(this.tokens[this.pos])}"`,
-      );
+      this.fail(`expected "${op}" but found "${this.text(this.peek())}"`);
     }
     this.pos++;
   }
@@ -363,7 +376,8 @@ class CalcParser {
   }
 
   private primary(): Value {
-    const token = this.tokens[this.pos++];
+    const token = this.peek();
+    this.pos++;
     switch (token.kind) {
       case "number":
         return token.value;
@@ -415,7 +429,7 @@ class CalcParser {
     if (this.skipDepth > 0) return null;
     if (!Object.prototype.hasOwnProperty.call(this.scope, name)) {
       if (Object.prototype.hasOwnProperty.call(CONSTANTS, name)) {
-        return CONSTANTS[name];
+        return CONSTANTS[name]!;
       }
       this.fail(`unknown name ${name}; pass it as an arg`);
     }

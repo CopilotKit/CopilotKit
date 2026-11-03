@@ -40,7 +40,7 @@ describe("CopilotKitProvider onError", () => {
       expect(onError).toHaveBeenCalled();
     });
 
-    const event = onError.mock.calls[0][0];
+    const event = onError.mock.calls[0]![0];
     expect(event.code).toBe(CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED);
     expect(event.error).toBeInstanceOf(Error);
     expect(event.error.message).toContain("network failure");

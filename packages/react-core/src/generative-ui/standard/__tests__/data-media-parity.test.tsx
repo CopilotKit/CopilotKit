@@ -140,7 +140,7 @@ describe("standard catalog: data and media (parity)", () => {
     ]);
     fireEvent.click(await v.findByRole("button", { name: "Graz" }));
     expect(v.queryByText("graz")).toBeNull();
-    expect(v.forwardEvent.mock.calls[0][0].context).toMatchObject({
+    expect(v.forwardEvent.mock.calls[0]![0].context).toMatchObject({
       label: "Graz",
       value: "graz",
     });
@@ -218,7 +218,7 @@ describe("standard catalog: data and media (parity)", () => {
     expect(v.container.querySelector("svg")).not.toBeNull();
     const iframes = v.container.querySelectorAll("iframe");
     expect(iframes.length).toBe(1);
-    expect(iframes[0].getAttribute("sandbox")).toBe("");
+    expect(iframes[0]!.getAttribute("sandbox")).toBe("");
     expect((window as unknown as { __x?: number }).__x).toBeUndefined();
     // A plain video URL plays in a native element, with no third party.
     expect(v.container.querySelector("video")?.getAttribute("src")).toBe(
@@ -265,7 +265,7 @@ describe("standard catalog: data and media (parity)", () => {
       },
     ]);
     fireEvent.click(await v.findByRole("button", { name: "Save" }));
-    expect(v.forwardEvent.mock.calls[0][0].name).toBe("save");
+    expect(v.forwardEvent.mock.calls[0]![0].name).toBe("save");
   });
 
   it("Image hoverZoom and position apply", async () => {

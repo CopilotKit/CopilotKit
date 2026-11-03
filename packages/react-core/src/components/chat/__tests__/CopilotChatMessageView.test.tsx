@@ -128,7 +128,9 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
     expect(assistantMessages).toHaveLength(1);
 
     // Original text content must survive despite later empty-content duplicates
-    expect(assistantMessages[0].textContent).toContain("Let me record that...");
+    expect(assistantMessages[0]!.textContent).toContain(
+      "Let me record that...",
+    );
   });
 
   it("uses latest content when all assistant duplicates have non-empty content", () => {
@@ -147,7 +149,7 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
       "copilot-assistant-message",
     );
     expect(assistantMessages).toHaveLength(1);
-    expect(assistantMessages[0].textContent).toContain(
+    expect(assistantMessages[0]!.textContent).toContain(
       "Full response from the assistant.",
     );
 

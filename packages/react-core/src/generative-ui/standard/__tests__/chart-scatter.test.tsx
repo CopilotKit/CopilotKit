@@ -46,11 +46,11 @@ function scatterPoints(container: HTMLElement) {
 
 function expectGapRatios(coordinates: number[], ratios: number[]) {
   expect(coordinates).toHaveLength(ratios.length + 1);
-  const firstGap = coordinates[1] - coordinates[0];
+  const firstGap = coordinates[1]! - coordinates[0]!;
   expect(Math.abs(firstGap)).toBeGreaterThan(0);
   ratios.forEach((ratio, index) => {
     expect(
-      (coordinates[index + 1] - coordinates[index]) / firstGap,
+      (coordinates[index + 1]! - coordinates[index]!) / firstGap,
     ).toBeCloseTo(ratio, 5);
   });
 }
@@ -97,7 +97,7 @@ describe("Chart scatter spacing", () => {
         const seriesPoints = points.slice(index * 4, (index + 1) * 4);
         // Read SVG marks in data order, then compare by their input x value.
         const ordered = data
-          .map((row, rowIndex) => ({ row, point: seriesPoints[rowIndex] }))
+          .map((row, rowIndex) => ({ row, point: seriesPoints[rowIndex]! }))
           .sort((a, b) => a.row.amount - b.row.amount);
         expectGapRatios(
           ordered.map(({ point }) =>

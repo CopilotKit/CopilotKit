@@ -840,7 +840,7 @@ describe("CopilotKitProvider", () => {
           );
         // Both present; user-provided comes first (index 0)
         expect(renderers.length).toBeGreaterThanOrEqual(1);
-        expect(renderers[0].render).toBe(userRenderer.render);
+        expect(renderers[0]!.render).toBe(userRenderer.render);
       });
     });
   });

@@ -2,7 +2,7 @@
   "name": "CopilotKit",
   "private": true,
   "scripts": {
-    "build": "nx run-many -t build --projects=packages/** --exclude=@copilotkit/demo-agents,runtime-python,runtime-go,runtime-ruby,runtime-dotnet,intelligence-delivery-python-core,intelligence-langgraph-python,intelligence-adk-python,intelligence-agent-framework-dotnet",
+    "build": "nx run-many -t build --projects=packages/** --exclude=runtime-python,runtime-go,runtime-ruby,runtime-dotnet,intelligence-delivery-python-core,intelligence-langgraph-python,intelligence-adk-python,intelligence-agent-framework-dotnet",
     "build:native-runtimes": "nx run-many -t build -p runtime-python,runtime-go,runtime-ruby,runtime-dotnet",
     "build:skill-adapters": "nx run-many -t build -p intelligence-delivery-python-core,intelligence-langgraph-python,intelligence-adk-python,intelligence-agent-framework-dotnet",
     "build:examples": "nx run-many -t build --projects=examples/**",

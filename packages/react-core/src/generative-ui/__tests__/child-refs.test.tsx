@@ -130,7 +130,7 @@ describe("typed child references", () => {
       undefined,
     );
     const compact = buildCompactGenerativeUISchema(manifest);
-    expect(compact.components.Tabs.props).toEqual({
+    expect(compact.components.Tabs!.props).toEqual({
       tabs: "{ title: string; child: componentId }[]",
     });
     // A description given to child() survives next to the reference.
@@ -143,7 +143,7 @@ describe("typed child references", () => {
         },
       },
     });
-    expect(Described.manifestComponents.Box.props).toEqual({
+    expect(Described.manifestComponents.Box!.props).toEqual({
       type: "object",
       properties: {
         child: { $ref: expect.any(String), description: "The panel" },
@@ -151,11 +151,11 @@ describe("typed child references", () => {
       required: ["child"],
       additionalProperties: false,
     });
-    expect(compact.components.Deck.props.slides).toBe(
+    expect(compact.components.Deck!.props.slides).toBe(
       "{ name: string; items: componentId[] | { componentId: string; path: string } }[]",
     );
-    expect(JSON.parse(JSON.stringify(manifest.components.Tabs.props))).toEqual(
-      manifest.components.Tabs.props,
+    expect(JSON.parse(JSON.stringify(manifest.components.Tabs!.props))).toEqual(
+      manifest.components.Tabs!.props,
     );
   });
 });

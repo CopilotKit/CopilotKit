@@ -209,7 +209,7 @@ describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)"
 
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(connectSpy).toHaveBeenCalled();
-    expect(connectSpy.mock.calls[0][0].threadId).toBe("user-thread-abc");
+    expect(connectSpy.mock.calls[0]![0].threadId).toBe("user-thread-abc");
   });
 
   it("calls connect() when a threadId is supplied via configuration provider", async () => {
@@ -225,7 +225,7 @@ describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)"
 
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(connectSpy).toHaveBeenCalled();
-    expect(connectSpy.mock.calls[0][0].threadId).toBe("config-thread-xyz");
+    expect(connectSpy.mock.calls[0]![0].threadId).toBe("config-thread-xyz");
   });
 
   it("uses the SDK-generated threadId for frontend tool follow-up runs", async () => {
@@ -312,7 +312,7 @@ describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)"
       "sdk-generated-thread",
       "sdk-generated-thread",
     ]);
-    expect(agent.runInputs[0].messages).toEqual(
+    expect(agent.runInputs[0]!.messages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           role: "user",

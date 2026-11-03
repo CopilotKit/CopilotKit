@@ -49,7 +49,7 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
       });
 
       expect(result.current).toHaveLength(1);
-      expect(result.current[0].name).toBe("myFn");
+      expect(result.current[0]!.name).toBe("myFn");
     });
 
     it("provides empty array when openGenerativeUI is not set", () => {

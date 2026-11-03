@@ -954,9 +954,12 @@ it("hides every message shortcut until reload without disabling Inspector", asyn
     );
   const view = renderMessages();
   expect(screen.getAllByTestId("copilot-inspector-button")).toHaveLength(2);
-  fireEvent.pointerEnter(screen.getAllByTestId("copilot-inspector-button")[0], {
-    pointerType: "mouse",
-  });
+  fireEvent.pointerEnter(
+    screen.getAllByTestId("copilot-inspector-button")[0]!,
+    {
+      pointerType: "mouse",
+    },
+  );
   fireEvent.click(
     await screen.findByRole("menuitem", { name: /hide this icon/i }),
   );
