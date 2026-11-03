@@ -119,3 +119,27 @@ export type {
   CopilotIconDefinition,
 } from "./icons";
 export { ɵcopilotIcons, ɵcopilotIconSvgAttributes } from "./icons";
+
+// Message feedback (internal)
+export {
+  ɵMESSAGE_FEEDBACK_EVENT_NAME,
+  ɵMESSAGE_FEEDBACK_MAX_COMMENT_LENGTH,
+  ɵFEEDBACK_COMMENT_CLOSE_DELAY_MS,
+  ɵgetMessageFeedback,
+  ɵsubscribeToMessageFeedback,
+  ɵsetMessageFeedback,
+  ɵresetMessageFeedbackCache,
+  ɵisLearningFeedbackEnabled,
+  ɵsubscribeToLearningFeedbackEnabled,
+  ɵgetMessageFeedbackControls,
+  ɵFeedbackCommentController,
+} from "./message-feedback";
+export type {
+  ɵMessageFeedbackRating,
+  ɵMessageFeedback,
+  ɵMessageFeedbackScope,
+  ɵMessageFeedbackControls,
+  ɵFeedbackCommentState,
+  ɵFeedbackCommentVia,
+  ɵFeedbackCommentControllerOptions,
+} from "./message-feedback";

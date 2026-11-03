@@ -10,12 +10,12 @@ import { useCopilotKit } from "../../../providers/useCopilotKit";
 import CopilotChatMessageView from "../CopilotChatMessageView.vue";
 import CopilotChatAssistantMessage from "../CopilotChatAssistantMessage.vue";
 import {
-  MESSAGE_FEEDBACK_EVENT_NAME,
-  getMessageFeedback,
-  setMessageFeedback,
+  ɵFEEDBACK_COMMENT_CLOSE_DELAY_MS as FEEDBACK_COMMENT_CLOSE_DELAY_MS,
+  ɵMESSAGE_FEEDBACK_EVENT_NAME as MESSAGE_FEEDBACK_EVENT_NAME,
+  ɵgetMessageFeedback as getMessageFeedback,
+  ɵsetMessageFeedback as setMessageFeedback,
   ɵresetMessageFeedbackCache,
-} from "../../../lib/message-feedback";
-import { FEEDBACK_COMMENT_CLOSE_DELAY_MS } from "../message-feedback";
+} from "@copilotkit/core";
 
 const THREAD_ID = "thread-1";
 const AGENT_ID = "agent-1";

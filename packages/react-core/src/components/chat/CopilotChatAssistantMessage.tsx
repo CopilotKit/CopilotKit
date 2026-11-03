@@ -51,8 +51,8 @@ import {
 } from "../../components/ui/popover";
 import { useFeedbackComment, useMessageFeedback } from "./message-feedback";
 import type { FeedbackComment } from "./message-feedback";
-import { MESSAGE_FEEDBACK_MAX_COMMENT_LENGTH } from "../../lib/message-feedback";
-import type { MessageFeedbackRating } from "../../lib/message-feedback";
+import { ɵMESSAGE_FEEDBACK_MAX_COMMENT_LENGTH } from "@copilotkit/core";
+import type { ɵMessageFeedbackRating as MessageFeedbackRating } from "@copilotkit/core";
 
 export type CopilotChatFeedbackMessage = AssistantMessage & {
   rawEvent?: unknown;
@@ -939,7 +939,7 @@ export namespace CopilotChatAssistantMessage {
         <input
           ref={inputRef}
           value={value}
-          maxLength={MESSAGE_FEEDBACK_MAX_COMMENT_LENGTH}
+          maxLength={ɵMESSAGE_FEEDBACK_MAX_COMMENT_LENGTH}
           onChange={(event) => onChange(event.target.value)}
           placeholder={labels.assistantMessageFeedbackCommentPlaceholder}
           aria-label={labels.assistantMessageFeedbackCommentPlaceholder}

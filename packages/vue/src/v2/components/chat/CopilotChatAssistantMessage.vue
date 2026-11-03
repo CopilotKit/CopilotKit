@@ -34,7 +34,7 @@ import CopilotChatInspectorButton from "./CopilotChatInspectorButton.vue";
 import { useInspectorShortcutsHidden } from "./inspector-shortcuts";
 import { InspectorKey } from "../../providers/keys";
 import { useFeedbackComment, useMessageFeedback } from "./message-feedback";
-import type { MessageFeedbackRating } from "../../lib/message-feedback";
+import type { ɵMessageFeedbackRating as MessageFeedbackRating } from "@copilotkit/core";
 import type {
   CopilotChatAssistantMessageCopyButtonSlotProps,
   CopilotChatAssistantMessageFeedbackCommentSlotProps,
