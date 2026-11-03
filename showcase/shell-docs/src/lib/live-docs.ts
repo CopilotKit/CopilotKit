@@ -1,6 +1,7 @@
 import type { DocsScope } from "@/components/docs-mdx/scope";
 import type { FrontendId } from "@/proto/data";
 import {
+  CHANNEL_GUIDES,
   FRAMEWORK_WINS,
   scopedHref,
   LIVE_FRAMEWORKS,
@@ -107,15 +108,18 @@ export function resolveLivePage(input: string[]): ResolvedLivePage | null {
     if (guide) return found(guide, scope);
   }
 
+  // `using-these-docs` is a frontend's own page when it has one (Vue's),
+  // else its docs status.
   const own =
     !tail || tail === "quickstart"
       ? docPage(`frontends/${first}`)
       : tail === "using-these-docs"
-        ? docPage(
+        ? (docPage(`frontends/${first}/using-these-docs`) ??
+          docPage(
             first === "angular"
               ? "frontends/angular/docs-status"
               : "frontends/docs-status",
-          )
+          ))
         : docPage(`frontends/${first}/${tail}`);
   if (own) return found(own, scope);
   return resolveScoped(rest, frontend);
@@ -130,24 +134,10 @@ export function resolveLivePage(input: string[]): ResolvedLivePage | null {
 function channelGuide(channel: string, tail: string) {
   if (!tail || tail === "overview") return docPage("channels");
   if (tail === "connect") return docPage(`frontends/${channel}`);
-  return CHANNEL_GUIDES.has(tail) ? docPage(`channels/${tail}`) : undefined;
+  return CHANNEL_GUIDES.some((guide) => guide.slug === tail)
+    ? docPage(`channels/${tail}`)
+    : undefined;
 }
-
-const CHANNEL_GUIDES = new Set([
-  "intelligence",
-  "tools",
-  "identity-and-memory",
-  "rich-messages",
-  "posting-jsx-as-images",
-  "render-and-carousel",
-  "interactive",
-  "commands-and-reactions",
-  "files-and-multimodality",
-  "threads-and-state",
-  "persistence-and-scaling",
-  "history-and-transcripts",
-  "deploy-and-operate",
-]);
 
 function resolveScoped(
   path: string[],

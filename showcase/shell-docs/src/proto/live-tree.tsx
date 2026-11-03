@@ -30,14 +30,22 @@ import {
   toNav,
   type NavNode,
 } from "@/lib/live-sidebar";
+import {
+  angularSidebar,
+  channelSidebar,
+  pageSlugs,
+  reactNativeSidebar,
+  vueSidebar,
+} from "@/lib/live-frontend-sidebar";
 import { frameworkById } from "./data";
 
 /**
  * The live sidebar for a URL, built the way shell-docs builds production's
  * (`src/lib/live-sidebar.ts`): the root surface is the built-in agent's, a
  * framework that authors its docs gets its own meta.json, a generated one the
- * root tree plus its overrides. Every link stays in the URL's scope; section
- * headings and the top rows take D's accent and glyphs.
+ * root tree plus its overrides. A frontend other than React gets its own
+ * (`src/lib/live-frontend-sidebar.ts`). Every link stays in the URL's scope;
+ * section headings and the top rows take D's accent and glyphs.
  */
 export function liveTree(nav: LiveNav, pathname: string): PageTree.Root {
   const path = pathname.split("/").filter(Boolean);
@@ -50,31 +58,64 @@ export function liveTree(nav: LiveNav, pathname: string): PageTree.Root {
   }
 
   const scope = scopeFromPath(path);
-  const slug = scope.framework ?? ROOT_FRAMEWORK;
-  const fw = liveFramework(slug);
-  const root = toNav(nav.root);
-  const sidebar =
-    fw?.mode === "authored" && nav.folders[fw.folder]
-      ? authoredSidebar(
-          toNav(nav.folders[fw.folder], `/integrations/${fw.folder}`),
-          root,
-          !scope.framework,
-        )
-      : generatedSidebar(
-          fw
-            ? toNav(
-                nav.overrides[fw.folder] ?? [],
-                `/integrations/${fw.folder}`,
-              )
-            : [],
-          root,
-          frameworkById(slug)?.name ?? slug,
-        );
   const href = (n: Extract<NavNode, { type: "page" }>) =>
     n.href ?? (`${scope.prefix}/${n.slug}`.replace(/\/$/, "") || "/");
   return {
     name: "Docs",
-    children: dropEmptySections(sidebar.map((n) => node(n, href))),
+    children: dropEmptySections(
+      frontendSidebar(nav, scope).map((n) => node(n, href)),
+    ),
+  };
+}
+
+/** The sidebar of the URL's frontend, for its backend (`/vue/mastra`). */
+function frontendSidebar(
+  nav: LiveNav,
+  scope: ReturnType<typeof scopeFromPath>,
+): NavNode[] {
+  const served = new Set(nav.frontendPages[scope.frontend]);
+  switch (scope.frontend) {
+    case "slack":
+    case "teams":
+      return channelSidebar();
+    case "react-native":
+      return reactNativeSidebar();
+    case "vue":
+      return vueSidebar(backendSidebar(nav, null).sidebar, (slug) =>
+        served.has(slug),
+      );
+    case "angular": {
+      const { sidebar, own } = backendSidebar(nav, scope.framework);
+      return angularSidebar(
+        sidebar,
+        (slug) => served.has(slug) || own.has(slug),
+      );
+    }
+    default:
+      return backendSidebar(nav, scope.framework).sidebar;
+  }
+}
+
+/**
+ * React's sidebar for a backend (the built-in agent's root surface when the
+ * URL names none), and the slugs of the backend's own pages.
+ */
+function backendSidebar(nav: LiveNav, framework: string | null) {
+  const slug = framework ?? ROOT_FRAMEWORK;
+  const fw = liveFramework(slug);
+  const root = toNav(nav.root);
+  const authored = fw?.mode === "authored" && nav.folders[fw.folder];
+  const own = fw
+    ? toNav(
+        (authored ? nav.folders[fw.folder] : nav.overrides[fw.folder]) ?? [],
+        `/integrations/${fw.folder}`,
+      )
+    : [];
+  return {
+    sidebar: authored
+      ? authoredSidebar(own, root, !framework)
+      : generatedSidebar(own, root, frameworkById(slug)?.name ?? slug),
+    own: new Set(pageSlugs(own)),
   };
 }
 
@@ -204,6 +245,9 @@ const SECTION_ACCENT = "text-sidebar-primary";
 
 /** The same glyphs D's sidebar gave each section (`nav-d.ts`). */
 const SECTION_GLYPHS: Record<string, ReactNode> = {
+  "Getting Started": <QuickstartGlyph />,
+  Build: <CapabilitiesGlyph />,
+  Production: <BackendGlyph />,
   Basics: <BasicsGlyph />,
   "Generative UI": <GenerativeUIGlyph />,
   Interactivity: <InteractivityGlyph />,
@@ -256,9 +300,10 @@ const RECIPE_ICONS: Record<string, ReactNode> = {
   "custom/google-adk": <RecipeLogo src="/logos/google-adk.png" />,
 };
 
-/** The top rows: Quickstart, Build with agents, Intelligence. */
+/** The top rows: Quickstart, Build with agents, Intelligence, a frontend's docs status. */
 const ROW_GLYPHS: Record<string, ReactNode> = {
   play: <QuickstartGlyph />,
   brain: <AgentsGlyph />,
   kite: <IntelligenceGlyph />,
+  book: <DocsGlyph />,
 };
