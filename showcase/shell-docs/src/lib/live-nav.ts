@@ -1,4 +1,5 @@
 import type * as PageTree from "fumadocs-core/page-tree";
+import type { FrontendId } from "@/proto/data";
 import {
   LIVE_FRAMEWORKS,
   REFERENCE_FOLDERS,
@@ -9,6 +10,7 @@ import {
   GROUP_OPEN,
   GROUP_OPEN_EXPANDED,
   folderSource,
+  frontendPolicy,
   liveSource,
   referenceSource,
 } from "./live-source";
@@ -33,6 +35,12 @@ export interface LiveNav {
   reference: Record<string, PageTree.Node[]>;
   /** The cookbook's recipes, from `docs/cookbook/meta.json`. */
   cookbook: PageTree.Node[];
+  /**
+   * The unscoped pages Vue and Angular serve, by slug. Their sidebars list
+   * only these, plus, on Angular, the backend's own pages
+   * (`src/lib/live-frontend-sidebar.ts`).
+   */
+  frontendPages: Partial<Record<FrontendId, string[]>>;
 }
 
 let cached: LiveNav | undefined;
@@ -53,8 +61,40 @@ export function getLiveNav(): LiveNav {
     overrides,
     reference: referenceNav(),
     cookbook: strip(folderSource("cookbook").getPageTree().children, true),
+    frontendPages: {
+      vue: frontendPages("vue"),
+      angular: frontendPages("angular"),
+    },
   };
   return cached;
+}
+
+/**
+ * Pages Vue reuses although they predate the frontend policy
+ * (shell-docs' `VUE_SHARED_ROOT_DOC_SLUGS`).
+ */
+const VUE_SHARED_PAGES = ["AG-UI-Streams", "threads-import", "inspector"];
+
+/**
+ * What a frontend serves beyond its quickstart, as shell-docs'
+ * `frontend-doc-policy.ts` decides it: its own pages
+ * (`frontends/vue/frontend-tools.mdx` is `frontend-tools`) and every page
+ * whose policy is `universal`. A React page with neither is left out.
+ */
+function frontendPages(frontend: FrontendId): string[] {
+  const out = new Set(frontend === "vue" ? VUE_SHARED_PAGES : []);
+  for (const page of liveSource.getPages()) {
+    const [head, ...rest] = page.slugs;
+    if (head === "frontends") {
+      if (rest[0] === frontend) out.add(rest.slice(1).join("/"));
+    } else if (
+      head !== "integrations" &&
+      frontendPolicy(page) === "universal"
+    ) {
+      out.add(page.slugs.join("/"));
+    }
+  }
+  return [...out];
 }
 
 function withoutRootPages(
