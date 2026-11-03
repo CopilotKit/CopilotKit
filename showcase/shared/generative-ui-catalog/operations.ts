@@ -11,17 +11,17 @@ export function sampleOperations(
   catalogId: string,
 ) {
   return [
-    { version: "v1.0", createSurface: { surfaceId, catalogId } },
+    { version: "1.0", createSurface: { surfaceId, catalogId } },
     ...(sample.data === undefined
       ? []
       : [
           {
-            version: "v1.0",
+            version: "1.0",
             updateDataModel: { surfaceId, path: "/", value: sample.data },
           },
         ]),
     {
-      version: "v1.0",
+      version: "1.0",
       updateComponents: { surfaceId, components: sample.components },
     },
   ];

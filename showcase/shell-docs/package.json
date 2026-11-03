@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.6.2",
-    "@copilotkit/react-core": "1.81.0",
+    "@copilotkit/react-core": "1.84.0",
     "@radix-ui/react-popover": "^1.1.15",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -42,6 +42,7 @@
     "yaml": "^2.7.0"
   },
   "devDependencies": {
+    "@copilotkit/shared": "1.84.0",
     "@tailwindcss/postcss": "^4.0.0",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22.0.0",

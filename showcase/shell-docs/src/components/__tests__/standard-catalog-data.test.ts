@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+import { validateOperation } from "@copilotkit/shared";
 import {
   SAMPLES,
   sampleOperations,
@@ -7,6 +8,30 @@ import {
 } from "@/components/standard-catalog/catalog-data";
 
 describe("standard catalog samples", () => {
+  it("emits canonical operations accepted by the published renderer", () => {
+    const manifest = {
+      catalogId: standardUI.id,
+      catalogIds: [standardUI.id],
+      components: standardUI.manifestComponents,
+    };
+    for (const [index, sample] of SAMPLES.entries()) {
+      const surfaceId = sampleSurfaceId(index);
+      const knownSurfaces = new Set<string>();
+      for (const operation of sampleOperations(
+        sample,
+        surfaceId,
+        standardUI.id,
+      )) {
+        expect(operation.version, sample.title).toBe("1.0");
+        expect(
+          validateOperation(operation, { manifest, knownSurfaces }),
+          sample.title,
+        ).toEqual({ ok: true });
+        if ("createSurface" in operation) knownSurfaces.add(surfaceId);
+      }
+    }
+  });
+
   it("covers the actual standard catalog without stale or invented component names", () => {
     const actual = Object.keys(standardUI.manifestComponents).sort();
     const covered = [
@@ -36,7 +61,7 @@ describe("standard catalog samples", () => {
       });
       if (sample.data)
         expect(operations).toContainEqual({
-          version: "v1.0",
+          version: "1.0",
           updateDataModel: { surfaceId, path: "/", value: sample.data },
         });
     }
