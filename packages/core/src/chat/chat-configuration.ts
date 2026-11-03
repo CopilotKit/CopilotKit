@@ -1,5 +1,6 @@
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 import type { OpenThreadRegistration } from "../core/learning-bridge";
+import { ɵisMobileViewport } from "./viewport";
 
 /**
  * Chat configuration state shared by React `CopilotChatConfigurationProvider`,
@@ -47,22 +48,6 @@ export interface ɵOpenThreadRegistry {
     agentId: string;
     threadId: string;
   }): OpenThreadRegistration;
-}
-
-/**
- * Below this width the chat modal and the thread drawer are mutually
- * exclusive. Matches the `(max-width: 767px)` split of the chat input.
- */
-const MOBILE_MEDIA_QUERY = "(max-width: 767px)";
-
-function isMobileViewport() {
-  if (
-    typeof window === "undefined" ||
-    typeof window.matchMedia !== "function"
-  ) {
-    return false;
-  }
-  return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
 }
 
 const CONTROLLED_SET_WARNING =
@@ -212,7 +197,7 @@ export class ɵChatConfigurationStore {
 
   /** Open or close the chat modal (closing the drawer on mobile). */
   setModalOpen = (open: boolean) => {
-    if (open && isMobileViewport()) this.setDrawerOpen(false);
+    if (open && ɵisMobileViewport()) this.setDrawerOpen(false);
     this.#setModalState(open);
   };
 
@@ -224,7 +209,7 @@ export class ɵChatConfigurationStore {
     }
     this.#ownDrawerOpen = open;
     this.#refresh();
-    if (!open || !isMobileViewport()) return;
+    if (!open || !ɵisMobileViewport()) return;
     const latestCloser = this.#modalClosers[this.#modalClosers.length - 1];
     const closeModal = latestCloser ?? ((next) => this.#setModalState(next));
     closeModal(false);
