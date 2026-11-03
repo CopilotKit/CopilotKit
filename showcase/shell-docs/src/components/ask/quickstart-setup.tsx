@@ -51,6 +51,8 @@ type Feature = (typeof FEATURES)[number]["id"];
 const ids = <T extends { id: string }>(list: readonly T[]) =>
   list.map((item) => item.id) as [T["id"], ...T["id"][]];
 
+const FEATURE_ID = z.enum(ids(FEATURES));
+
 const SETUP_PARAMS = z.object({
   frontend: z
     .enum(ids(APP_FRONTENDS))
@@ -65,12 +67,39 @@ const SETUP_PARAMS = z.object({
     .optional()
     .describe("A new app, or adding CopilotKit to an existing one"),
   features: z
-    .array(z.enum(ids(FEATURES)))
+    .array(FEATURE_ID)
     .optional()
     .describe("The features they asked about, if any; chat if none"),
 });
 
 type Setup = z.infer<typeof SETUP_PARAMS>;
+
+/**
+ * The agent's guesses, as the card's defaults. The tool call's arguments are
+ * the model's, unchecked and still streaming, so anything that isn't one of
+ * the card's options falls back to the card's own default.
+ */
+function guesses(args: unknown) {
+  const raw = (args && typeof args === "object" ? args : {}) as Record<
+    string,
+    unknown
+  >;
+  const pick = <T,>(schema: z.ZodType<T | undefined>, value: unknown) => {
+    const parsed = schema.safeParse(value);
+    return parsed.success ? parsed.data : undefined;
+  };
+  const { shape } = SETUP_PARAMS;
+  const features = Array.isArray(raw.features)
+    ? [...new Set(raw.features.flatMap((f) => pick(FEATURE_ID, f) ?? []))]
+    : [];
+  return {
+    frontend: pick(shape.frontend, raw.frontend) ?? "react",
+    framework:
+      pick(shape.agentFramework, raw.agentFramework) ?? DEFAULT_FRAMEWORK,
+    starting: pick(shape.starting, raw.starting) ?? "new",
+    features: features.length ? features : (["chat"] as Feature[]),
+  };
+}
 
 /** What the agent gets back: the reader's answers, by name. */
 interface Answers {
@@ -125,11 +154,12 @@ function SetupCard({
   const [starting, setStarting] = useState<Start | null>(null);
   const [features, setFeatures] = useState<Feature[] | null>(null);
 
+  const guessed = guesses(args);
   const chosen = {
-    frontend: frontend ?? args.frontend ?? "react",
-    framework: framework ?? args.agentFramework ?? DEFAULT_FRAMEWORK,
-    starting: starting ?? args.starting ?? "new",
-    features: features ?? (args.features?.length ? args.features : ["chat"]),
+    frontend: frontend ?? guessed.frontend,
+    framework: framework ?? guessed.framework,
+    starting: starting ?? guessed.starting,
+    features: features ?? guessed.features,
   };
   const live = status === "executing" && !!respond;
 
