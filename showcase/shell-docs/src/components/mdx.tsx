@@ -3,7 +3,6 @@ import type { MDXComponents } from "mdx/types";
 import { DemoFrame } from "@/components/demo-frame";
 import { StagedCodeBlockTabs, StagedPre } from "@/components/brand/staged-code";
 import { commandsOnly, fenceLang } from "@/components/brand/stage";
-import { Hero } from "@/components/home/hero";
 
 export function getMDXComponents(components?: MDXComponents) {
   return {
@@ -15,7 +14,6 @@ export function getMDXComponents(components?: MDXComponents) {
       <StagedCodeBlockTabs {...props} compact={commandsOnly(props.children)} />
     ),
     DemoFrame,
-    Hero,
     ...components,
   } satisfies MDXComponents;
 }
