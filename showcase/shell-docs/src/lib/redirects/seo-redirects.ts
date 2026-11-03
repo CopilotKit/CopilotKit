@@ -16,8 +16,8 @@
  * redirects to the same page at the root, as on shell-docs (DOCS-root,
  * DOCS-wild, R2 `/docs/api`, and the `/docs/integrations/*` DI-* family).
  *
- * Not ported, because v2 serves these paths itself: R16A `/integrations` and
- * FI-intelligence `/intelligence`.
+ * Not ported, because v2 serves this path itself: FI-intelligence
+ * `/intelligence`.
  *
  * Spec & Inventory: https://www.notion.so/33c3aa38185281d7b243c5cf0a7c14cb
  */
@@ -551,7 +551,7 @@ const ROOT_RENAMES: RedirectEntry[] = [
     source: "/integrations/built-in-agent",
     destination: "/",
   },
-  // R16A (`/integrations` → `/`) not ported: v2 serves `/integrations`.
+  { id: "R16A", source: "/integrations", destination: "/" },
   { id: "R18", source: "/mcp", destination: "/build-with-agents" },
   { id: "R19", source: "/vibe-coding-mcp", destination: "/build-with-agents" },
   {
