@@ -604,6 +604,57 @@ describe("IntelligenceAgent", () => {
       expect(socket.disconnected).toBe(true);
     });
 
+    it("restores the join's cursor when a live run's replay fails", async () => {
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      runChannel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+        metadata: { cpki_event_id: "event-1", cpki_event_seq: 1 },
+      } as BaseEvent);
+      runChannel.serverPush("replay_failed", { reason: "run_replay_gap" });
+      await promise;
+
+      // The failed replay never delivered the run whole, so the next connect
+      // must ask for that history again rather than resume after event-1.
+      mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+      connectWithTestAccess(agent, defaultInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await waitForConnection(agent);
+
+      expect(getChannel(agent)!.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: null,
+      });
+    });
+
+    it("names the client's run in the replay error when the credentials omit it", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse(runtimeCredentials({ runId: null })),
+      );
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush("replay_failed", { reason: "run_replay_gap" });
+
+      const result = await promise;
+      expect(result.error).toMatchObject({
+        code: "INTELLIGENCE_REPLAY_FAILED",
+        threadId: "thread-1",
+        runId: "run-1",
+      });
+    });
+
     it("cleans up socket and channel on RUN_FINISHED", async () => {
       const agent = createAgent();
       const promise = collectEvents(agent);
