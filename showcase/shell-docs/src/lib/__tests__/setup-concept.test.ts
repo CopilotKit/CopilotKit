@@ -15,6 +15,26 @@ beforeEach(() => {
   mocks.mdxRemote.mockClear();
 });
 
+test("the visual FrameworkSetup path renders Antigravity's nested sub-agent region", async () => {
+  const result = await FrameworkSetup({
+    concept: "subagents-setup",
+    currentFramework: "google-antigravity",
+  });
+  expect(result).not.toBeNull();
+  if (!result) {
+    throw new Error("Expected Google Antigravity subagents setup content");
+  }
+  const source = (result.props as { children?: unknown }).children;
+
+  expect(source).toContain("async def research_agent");
+  expect(source).toContain(
+    "tools=[research_agent, writing_agent, critique_agent]",
+  );
+  expect(source).not.toContain("<DemoCode");
+  expect(source).not.toContain("@region[");
+  expect(mocks.mdxRemote).toHaveBeenCalledOnce();
+});
+
 // A snippet that is not bundled and a bundled snippet that fails to compile both left
 // `FrameworkSetup` returning `null`, so a rendering defect shipped looking exactly like a
 // deliberate omission — the only trace a `console.error` nobody reads in production

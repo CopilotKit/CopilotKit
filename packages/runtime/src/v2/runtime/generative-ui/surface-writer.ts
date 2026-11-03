@@ -1,6 +1,7 @@
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 import {
+  A2UI_VERSION,
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_ROOT_ID,
   generativeUISurfaceMessageId,
@@ -52,7 +53,10 @@ export function createSurfaceWriter(emit: (event: BaseEvent) => void) {
         target,
         catalogId: catalog,
         operations: [
-          { version: "v1.0", createSurface: { surfaceId, catalogId: catalog } },
+          {
+            version: A2UI_VERSION,
+            createSurface: { surfaceId, catalogId: catalog },
+          },
         ],
         status: "streaming",
         rejected: [],
@@ -67,7 +71,7 @@ export function createSurfaceWriter(emit: (event: BaseEvent) => void) {
       return {
         setRoot: (node) =>
           append({
-            version: "v1.0",
+            version: A2UI_VERSION,
             updateComponents: {
               surfaceId,
               components: [
@@ -77,12 +81,12 @@ export function createSurfaceWriter(emit: (event: BaseEvent) => void) {
           }),
         upsert: (...nodes) =>
           append({
-            version: "v1.0",
+            version: A2UI_VERSION,
             updateComponents: { surfaceId, components: nodes },
           }),
         updateData: (path, value) =>
           append({
-            version: "v1.0",
+            version: A2UI_VERSION,
             updateDataModel: { surfaceId, path, value },
           }),
         close: () =>

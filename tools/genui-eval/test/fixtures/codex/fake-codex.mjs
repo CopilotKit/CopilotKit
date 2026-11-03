@@ -1,0 +1,66 @@
+#!/usr/bin/env node
+// Stands in for `codex exec --json`: replies with what it was given, so a
+// test can see the instructions file, the prompt on stdin and the options.
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+const args = process.argv.slice(2);
+if (args[0] === "--version") {
+  console.log("codex-cli 0.0.0-test");
+  process.exit(0);
+}
+const config = Object.fromEntries(
+  args.flatMap((a, i) =>
+    args[i - 1] === "-c" ? [a.split(/=(.*)/s).slice(0, 2)] : [],
+  ),
+);
+const instructions = readFileSync(
+  JSON.parse(config.model_instructions_file),
+  "utf8",
+);
+const prompt = readFileSync(0, "utf8");
+// For the rate-limit test: refuse with 429 until the counter file reaches 2.
+const limited = process.env.FAKE_CODEX_429_FILE;
+if (limited) {
+  const n = Number(
+    (() => {
+      try {
+        return readFileSync(limited, "utf8");
+      } catch {
+        return "0";
+      }
+    })(),
+  );
+  if (n < 2) {
+    writeFileSync(limited, String(n + 1));
+    process.stdout.write(
+      `${JSON.stringify({ type: "turn.failed", error: { message: "exceeded retry limit, last status: 429 Too Many Requests" } })}\n`,
+    );
+    process.exit(1);
+  }
+}
+// For the pool test: record when this call runs, and take a while.
+const trace = process.env.FAKE_CODEX_TRACE;
+if (trace) appendFileSync(trace, `start ${Date.now()}\n`);
+await new Promise((r) =>
+  setTimeout(r, Number(process.env.FAKE_CODEX_DELAY_MS ?? 0)),
+);
+if (trace) appendFileSync(trace, `end ${Date.now()}\n`);
+const reply = `INSTRUCTIONS:${instructions.split("\n")[0]}\nPROMPT:${prompt}\nMODEL:${args[args.indexOf("--model") + 1]}\nEFFORT:${config.model_reasoning_effort ?? "-"}\nHOME:${process.env.CODEX_HOME}`;
+writeFileSync(args[args.indexOf("--output-last-message") + 1], reply);
+for (const event of [
+  { type: "thread.started", thread_id: "t" },
+  { type: "turn.started" },
+  {
+    type: "item.completed",
+    item: { id: "i", type: "agent_message", text: reply },
+  },
+  {
+    type: "turn.completed",
+    usage: {
+      input_tokens: 120,
+      cached_input_tokens: 20,
+      output_tokens: 30,
+      reasoning_output_tokens: 10,
+    },
+  },
+])
+  process.stdout.write(`${JSON.stringify(event)}\n`);

@@ -1,7 +1,8 @@
-import { computed, type Signal } from "@angular/core";
+import { computed, inject, type Signal } from "@angular/core";
 import type { AgentCapabilities } from "@ag-ui/core";
+import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { injectAgentStore } from "./agent";
-import { injectChatConfiguration } from "./chat-configuration";
+import { COPILOT_CHAT_CONFIGURATION } from "./chat-configuration";
 
 /**
  * Returns the capabilities declared by the resolved AG-UI agent.
@@ -12,7 +13,10 @@ import { injectChatConfiguration } from "./chat-configuration";
 export function injectCapabilities(
   agentId?: string | Signal<string | undefined>,
 ): Signal<AgentCapabilities | undefined> {
-  const resolvedAgentId = agentId ?? injectChatConfiguration().agentId;
+  const resolvedAgentId =
+    agentId ??
+    inject(COPILOT_CHAT_CONFIGURATION, { optional: true })?.agentId ??
+    DEFAULT_AGENT_ID;
   const agentStore = injectAgentStore(resolvedAgentId);
 
   return computed(() => {

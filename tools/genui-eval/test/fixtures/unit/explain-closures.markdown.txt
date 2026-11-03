@@ -1,0 +1,5 @@
+A closure keeps its scope.
+
+```a2ui
+{"version":"1.0","callRendererFunction":{"functionCallId":"f1","callFunction":{"@call":"noSuchFunction","args":{}}}}
+```

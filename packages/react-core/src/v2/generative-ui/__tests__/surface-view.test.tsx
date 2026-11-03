@@ -258,15 +258,15 @@ function CartState({ cart }: { cart: Cart }) {
 
 const S = "s1";
 const create: A2UIOperation = {
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId: S, catalogId: "shop" },
 };
 const nodes = (...components: A2UIComponentNode[]): A2UIOperation => ({
-  version: "v1.0",
+  version: "1.0",
   updateComponents: { surfaceId: S, components },
 });
 const data = (path: string, value: unknown): A2UIOperation => ({
-  version: "v1.0",
+  version: "1.0",
   updateDataModel: { surfaceId: S, path, value },
 });
 const content = (operations: A2UIOperation[]): GenerativeUISurfaceContent => ({

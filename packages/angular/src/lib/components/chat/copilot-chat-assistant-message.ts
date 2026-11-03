@@ -430,6 +430,7 @@ export class CopilotChatAssistantMessage {
     return cn(
       "copilotKitMessage copilotKitAssistantMessage cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert",
       this.customClass(),
+      this.inputClass(),
     );
   });
 

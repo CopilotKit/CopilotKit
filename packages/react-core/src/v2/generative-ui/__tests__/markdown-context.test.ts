@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  defaultGenerativeUIPromptSpec,
   GENERATIVE_UI_AGENT_FUNCTION_CALLS,
   GENERATIVE_UI_FUNCTIONS,
   GENERATIVE_UI_MARKDOWN_GUIDELINES,
+  renderGenerativeUISchema,
 } from "@copilotkit/shared";
 import { createGenerativeUIDispatcher } from "../dispatcher";
 import { exportA2UICatalog } from "../catalog-export";
@@ -173,16 +175,27 @@ describe("buildCompactGenerativeUISchema", () => {
   });
 });
 
-function compactStandardSchema() {
+function standardManifest() {
   const manager = new GenerativeUISurfaceManager(standardUI);
   const dispatcher = createGenerativeUIDispatcher({
     getDeclared: () => standardUI.functions,
   });
-  const manifest = buildGenerativeUIManifest(
+  return buildGenerativeUIManifest(
     { ui: standardUI, manager, dispatcher },
     undefined,
   );
-  return buildCompactGenerativeUISchema(manifest);
+}
+
+function compactStandardSchema() {
+  return buildCompactGenerativeUISchema(standardManifest());
+}
+
+/** The schema text that ships: the standard components in the default notation. */
+function shippedStandardSchema() {
+  return renderGenerativeUISchema(
+    standardManifest(),
+    defaultGenerativeUIPromptSpec().schema.markdown,
+  );
 }
 
 describe("buildCompactGenerativeUISchema with standardUI", () => {
@@ -194,17 +207,13 @@ describe("buildCompactGenerativeUISchema with standardUI", () => {
       GenerativeUIJSONSchema
     >;
     const axis = properties.yAxis.description as string;
-    for (const field of [
-      "label?: string",
-      "min?: number",
-      "max?: number",
-      "width?: number",
-    ]) {
-      expect(axis).toContain(field);
-    }
+    // The fields are in the type; the description only explains them.
+    expect(compact.components.Chart.props["yAxis?"]).toContain(
+      "{ label?: string; min?: number; max?: number; width?: number }",
+    );
     expect(axis).toContain('label: "Revenue (USD)"');
-    expect(axis).toContain("horizontal value axis");
-    expect(axis).toContain("width sets the width of the category axis");
+    expect(axis).toContain("horizontal axis");
+    expect(axis).toContain("width sets the category axis width");
     expect(axis).not.toContain("width: 64");
     expect(compact.components.Chart.props["yAxis?"]).toContain(axis);
 
@@ -239,11 +248,12 @@ describe("buildCompactGenerativeUISchema with standardUI", () => {
   });
 
   it("keeps the schema and the guideline of the standard components small", () => {
-    const schema = JSON.stringify(compactStandardSchema());
-    expect(schema.length).toBeLessThan(52_000);
+    // About 38k and 14k characters today (13.0k o200k tokens together).
+    const schema = shippedStandardSchema();
+    expect(schema.length).toBeLessThan(40_000);
     expect(
       schema.length + GENERATIVE_UI_MARKDOWN_GUIDELINES.length,
-    ).toBeLessThan(56_000);
+    ).toBeLessThan(54_000);
   });
 
   it("lists the built-in functions with their signatures, from the manifest", () => {
@@ -301,7 +311,7 @@ describe("buildCompactGenerativeUISchema with standardUI", () => {
     },
   );
 
-  it("explains commonProps in the guideline", () => {
-    expect(GENERATIVE_UI_MARKDOWN_GUIDELINES).toContain("includesCommonProps");
+  it("explains the common props of the lines schema in the guideline", () => {
+    expect(GENERATIVE_UI_MARKDOWN_GUIDELINES).toContain("+common");
   });
 });

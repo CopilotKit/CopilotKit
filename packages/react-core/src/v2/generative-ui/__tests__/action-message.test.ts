@@ -23,7 +23,7 @@ function userEvent(
 
 function updateComponents(...components: A2UIComponentNode[]): A2UIOperation {
   return {
-    version: "v1.0",
+    version: "1.0",
     updateComponents: { surfaceId: "plans", components },
   };
 }
@@ -131,7 +131,7 @@ describe("buildActionMessageText with a label resolver", () => {
 describe("createComponentLabelResolver", () => {
   const operations: A2UIOperation[] = [
     {
-      version: "v1.0",
+      version: "1.0",
       createSurface: { surfaceId: "plans", catalogId: "shop" },
     },
     updateComponents(
@@ -173,7 +173,7 @@ describe("createComponentLabelResolver", () => {
   it("reads the components of an inline createSurface", () => {
     const inline = createComponentLabelResolver([
       {
-        version: "v1.0",
+        version: "1.0",
         createSurface: {
           surfaceId: "plans",
           components: [{ id: "g", component: "Button", label: "Inline" }],

@@ -1,0 +1,13 @@
+<Callout type="warn" title="Antigravity streams state per tool call, not per token">
+  The Antigravity harness hands the adapter each tool call with its arguments
+  already complete, so there is no partial argument to map into a state key
+  while the model is still generating. Token-by-token state streaming is not
+  available with Antigravity.
+</Callout>
+
+The closest pattern is a tool that writes state each time the model calls it.
+`experimental_set_state()` streams a `STATE_SNAPSHOT` as the tool finishes, so a plan that
+the model sends step by step, one call per update, still assembles in the UI
+while the run continues.
+
+<DemoCode file="src/agents/gen_ui_agent.py" region="gen-ui-agent-state-tool" />

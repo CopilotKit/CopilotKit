@@ -4,6 +4,7 @@ import agentSpec from "./agent-spec";
 import claudeSdkPython from "./claude-sdk-python";
 import claudeSdkTypescript from "./claude-sdk-typescript";
 import googleAdk from "./google-adk";
+import googleAntigravity from "./google-antigravity";
 import langgraphPython from "./langgraph-python";
 import strands from "./strands";
 
@@ -28,6 +29,7 @@ export const frameworkOverviews: Record<string, FrameworkOverviewData> = {
   // Authored discovery sections live in content/framework-overviews; keep
   // these slot overrides here rather than editing extracted data records.
   "google-adk": { ...googleAdk, hasAfterFeaturesMdx: true },
+  "google-antigravity": googleAntigravity,
   "langgraph-python": {
     ...langgraphPython,
     hasAfterFeaturesMdx: true,

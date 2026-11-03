@@ -1,0 +1,75 @@
+<Steps>
+  <Step>
+    ### Install the Antigravity AG-UI adapter
+
+    ```bash
+    pip install ag-ui-antigravity google-antigravity
+    ```
+
+  </Step>
+  <Step>
+    ### Ask for the human with a frontend tool
+
+    The simplest route is an ordinary frontend tool. Register it in the
+    browser with `useHumanInTheLoop`, or with `useFrontendTool` and an `async`
+    handler that resolves once the user has answered. Each run carries that
+    tool definition to the agent, the adapter rebuilds it as a custom
+    Antigravity tool, and when the model calls it the call parks as an awaited
+    coroutine — the SSE response for that run closes, and the adapter resolves
+    the parked call from a later HTTP run with whatever the handler returned.
+    The model receives that value as the tool's real return value, so there is
+    no proxy tool and no fire-and-forget long-running-tool workaround.
+
+  </Step>
+  <Step>
+    ### Or pause a server tool with `experimental_interrupt()`
+
+    When the backend decides it needs the user, a Python server tool can pause
+    itself on an AG-UI interrupt with the adapter's experimental
+    `experimental_interrupt()` and carry on with the answer:
+
+    ```python
+    from ag_ui_antigravity import experimental_interrupt
+
+    async def schedule_meeting(topic: str, attendee: str) -> str:
+        """Books a meeting once the user picks a time."""
+        answer = await experimental_interrupt(
+            "schedule_meeting",
+            message=f"Pick a time for {topic}",
+            metadata={"topic": topic, "attendee": attendee},
+        )
+        if not answer.resolved:
+            return f"Not scheduled ({answer.status})."
+        return f"Scheduled for {answer.payload['chosen_label']}."
+    ```
+
+    The run ends with `RUN_FINISHED` carrying an interrupt outcome, which
+    `useInterrupt` renders; the payload the user resolves it with comes back
+    unchanged in `answer.payload`. `answer.status` is `"resolved"`,
+    `"cancelled"` or `"abandoned"` (the user sent a new message instead).
+
+  </Step>
+  <Step>
+    ### Name the tool in the agent's instructions
+
+    That leaves the agent with one job: knowing the tool exists and when to
+    call it. A model that is never told about `book_call` will answer in prose
+    and the picker will never mount.
+
+    <DemoCode file="src/agents/hitl.py" region="hitl-frontend-tool-agent" />
+
+    The frontend tool is dispatched to the browser at most once per turn
+    (`deduplicate_tool_calls`, on by default), so a model that re-issues the
+    same call after the harness backgrounds it does not ask the user twice.
+
+  </Step>
+</Steps>
+
+<Callout type="info" title="ask_question is off in this showcase">
+  Antigravity's own `ask_question` built-in tool — the one primitive that would
+  park on a real AG-UI interrupt — is disabled here with
+  `CapabilitiesConfig(enabled_tools=[BuiltinTools.FINISH])`. The CopilotKit
+  demos answer a tool call with a `ToolMessage`, not an interrupt `resume`, so
+  a turn that parked on `ask_question` would wait forever. `FINISH` has to stay
+  enabled: it is how the harness ends a turn.
+</Callout>

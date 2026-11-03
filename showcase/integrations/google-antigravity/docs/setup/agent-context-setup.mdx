@@ -1,0 +1,60 @@
+<Steps>
+  <Step>
+    ### Turn on `get_app_context` and tell the model to read it
+
+    Each `useAgentContext` entry reaches the agent as part of the run's
+    `RunAgentInput.context`. Antigravity sets an agent's instructions once,
+    when the harness session starts, and the adapter forwards only the user's
+    messages, so the entries cannot be folded into the prompt. Instead, pass
+    `experimental_app_context=True` to `AntigravityAgent`. It gives the agent a
+    built-in `get_app_context()` tool that returns the current run's entries
+    as a list of `{"description", "value"}` objects. Say in the system
+    instructions when to call it:
+
+    <DemoCode file="src/agents/app_context.py" region="agent-context-setup" />
+
+    The tool is silent: it emits no `TOOL_CALL_*` events, so no tool card
+    appears in the chat. It is also read-only. The agent has no tool that
+    writes these values back to the UI. Without the flag, the agent never
+    sees the context.
+
+  </Step>
+  <Step>
+    ### Read context from a server tool
+
+    A server tool can read the same entries with the adapter's
+    `experimental_get_context()`, for example to filter a query by the user's
+    timezone without asking the model to pass it along. It works with or
+    without the flag.
+
+    ```python
+    from ag_ui_antigravity import experimental_get_context
+
+
+    async def upcoming_events() -> list[dict]:
+        """Lists the user's upcoming events in their own timezone."""
+        timezone = next(
+            (
+                c["value"]
+                for c in experimental_get_context()
+                if "timezone" in c["description"]
+            ),
+            "UTC",
+        )
+        ...
+    ```
+
+  </Step>
+</Steps>
+
+<Callout type="warn" title="The model sees context only when it asks">
+  Other frameworks can inject the context entries into the prompt on every
+  turn. With Antigravity the model has to call `get_app_context`. If the
+  instructions do not tell it to, it answers without them.
+</Callout>
+
+<Callout type="info" title="Experimental">
+  `experimental_app_context` and `experimental_get_context()` are
+  experimental. Their names and behaviour may change in a later release of
+  the adapter.
+</Callout>

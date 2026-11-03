@@ -25,10 +25,7 @@ export const mapMarker = z.object({
 export type MapMarker = z.output<typeof mapMarker>;
 
 export const mapSchema = z.object({
-  markers: z
-    .array(mapMarker)
-    .optional()
-    .describe('A list of places, or { "@path": "/x" }'),
+  markers: z.array(mapMarker).optional(),
   route: z
     .boolean()
     .optional()

@@ -195,6 +195,50 @@ describe("usePinToSend", () => {
     }
   });
 
+  it("still pins a send whose message list mounts under StrictMode", () => {
+    // The first send mounts the message list, and StrictMode then runs the
+    // effect, its cleanup, and the effect again, all before a frame. Queue
+    // frames so that cleanup can cancel the first one, as a browser would.
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 1;
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      frames.set(nextFrame, cb);
+      return nextFrame++;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (handle: number) => {
+      frames.delete(handle);
+    });
+    const observers: { disconnect: ReturnType<typeof vi.fn> }[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      vi.fn().mockImplementation(() => {
+        const observer = {
+          observe: vi.fn(),
+          unobserve: vi.fn(),
+          disconnect: vi.fn(),
+        };
+        observers.push(observer);
+        return observer;
+      }),
+    );
+    const scrollTo = vi.fn();
+    HTMLElement.prototype.scrollTo = scrollTo;
+
+    render(
+      <React.StrictMode>
+        <Harness lastUserMessage={{ id: "m3", sendNonce: 1 }} />
+      </React.StrictMode>,
+    );
+    act(() => {
+      for (const cb of frames.values()) cb(0);
+    });
+
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    // The observer that shrinks the spacer as the reply grows is still on.
+    expect(observers.at(-1)?.disconnect).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it("cancels the scheduled rAF on unmount (cleanup)", async () => {
     // Use a real rAF handle so we can assert the cancel was issued with it.
     const cancelSpy = vi.spyOn(global, "cancelAnimationFrame");

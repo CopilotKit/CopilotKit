@@ -715,7 +715,7 @@ export const feedbackComponents = {
   Popover: {
     component: Popover,
     description:
-      "A small overlay next to a trigger. Put exactly two children in it: one PopoverTrigger, then one PopoverContent. A click on the trigger opens and closes the content. Escape or a click outside closes it.",
+      "A small overlay: exactly two children, one PopoverTrigger then one PopoverContent. A click on the trigger toggles it; Escape or a click outside closes it.",
     props: popoverSchema,
     slots: CHILDREN_SLOT,
     writable: ["open"] as const,
