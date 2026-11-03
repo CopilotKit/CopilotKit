@@ -2546,12 +2546,7 @@
       "name": "Human in the Loop: Headless Interrupts",
       "description": "Resolve langgraph interrupts headlessly via agent.subscribe + copilotkit.runAgent — no chat, no useInterrupt render prop",
       "category": "controlled-generative-ui",
-      "frameworks": [
-        "mastra",
-        "crewai-crews",
-        "strands",
-        "strands-typescript"
-      ],
+      "frameworks": ["mastra", "crewai-crews", "strands", "strands-typescript"],
       "demos": {
         "mastra": {
           "route": "/demos/interrupt-headless",
@@ -4505,10 +4500,7 @@
         },
         "ms-agent-dotnet": {
           "route": "/demos/tool-rendering",
-          "files": [
-            "agent/Program.cs",
-            "src/app/demos/tool-rendering/page.tsx"
-          ]
+          "files": ["agent/Program.cs", "src/app/demos/tool-rendering/page.tsx"]
         },
         "ms-agent-harness-dotnet": {
           "route": "/demos/tool-rendering",
@@ -6726,9 +6718,7 @@
       "name": "Background Agents",
       "description": "A long-running deep-research tool dispatched as a background task, surfaced inline as a live \"working\" activity card",
       "category": "multi-agent",
-      "frameworks": [
-        "mastra"
-      ],
+      "frameworks": ["mastra"],
       "demos": {
         "mastra": {
           "route": "/demos/background-agents",
@@ -6747,9 +6737,7 @@
       "name": "Observational Memory",
       "description": "Conversation context is compressed and activated out of band; the background work surfaces inline as activity cards",
       "category": "agent-state",
-      "frameworks": [
-        "mastra"
-      ],
+      "frameworks": ["mastra"],
       "demos": {
         "mastra": {
           "route": "/demos/observational-memory",
@@ -6767,9 +6755,7 @@
       "name": "Browser Use",
       "description": "The agent drives a real local headless browser to fetch pages and renders the results inline in chat",
       "category": "platform",
-      "frameworks": [
-        "mastra"
-      ],
+      "frameworks": ["mastra"],
       "demos": {
         "mastra": {
           "route": "/demos/browser-use",
