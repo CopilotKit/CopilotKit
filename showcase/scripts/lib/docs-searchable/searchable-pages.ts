@@ -157,7 +157,7 @@ export function canonicalDocsSlug(slug: string): string {
  * file's canonical slug.
  *
  * The search-index generator lives in another package and cannot import
- * `canonicalDocsSlug` — see `scripts/emit-searchable-pages.ts` for why — so
+ * `canonicalDocsSlug` — see `emit-searchable-pages.ts` for why — so
  * it receives this mapping as data instead, and canonicalization stays
  * defined exactly once.
  *

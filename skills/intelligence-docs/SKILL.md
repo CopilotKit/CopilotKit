@@ -35,12 +35,13 @@ Inspector pane callouts (`inspector-docs`).
 
 Edit these in the same change as the feature or docs page:
 
-| Surface                              | File                                                                        |
-| ------------------------------------ | --------------------------------------------------------------------------- |
-| Hero CTA and cards                   | `showcase/shell-docs/src/components/docs-mdx/showcase/intelligence.tsx`     |
-| Body, quickstart link, hosting links | `showcase/shell-docs/src/content/snippets/shared/intelligence/overview.mdx` |
-| Section nav                          | `showcase/shell-docs/src/content/docs/intelligence/meta.json`               |
-| Root sidebar Intelligence group      | `showcase/shell-docs/src/content/docs/meta.json`                            |
+| Surface                              | File                                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Hero CTA and cards                   | `showcase/shell-docs/src/components/docs-mdx/showcase/intelligence.tsx`                                |
+| Body, quickstart link, hosting links | `showcase/shell-docs/src/content/snippets/shared/intelligence/overview.mdx`                            |
+| Section nav                          | `showcase/shell-docs/src/content/docs/intelligence/meta.json`                                          |
+| Root sidebar Intelligence group      | `showcase/shell-docs/src/content/docs/meta.json`                                                       |
+| Intelligence sidebar section         | `showcase/shell-docs/src/lib/live-sidebar.ts` (hard-coded; `meta.json` alone doesn't add a page to it) |
 
 The root overview page only wraps the snippet. Do not duplicate landing copy
 in `docs/intelligence/overview.mdx`.
@@ -52,14 +53,16 @@ in `docs/intelligence/overview.mdx`.
 1. Add or update the guide page under `docs/intelligence/` (or the existing
    threads/channels path the feature already uses).
 2. Put the page in `intelligence/meta.json` and in the Intelligence group in
-   `docs/meta.json` when it belongs in the sidebar.
+   `docs/meta.json` when it belongs in the sidebar, and add it to the
+   Intelligence section in `live-sidebar.ts`.
 3. Link the page from the shared snippet. A user-facing pillar gets a card in
-   `INTELLIGENCE_FEATURES` in `intelligence.tsx` with a unique CTA label. A
+   `INTELLIGENCE_FEATURES` in `intelligence.tsx` (`title`, `body`, `href`,
+   `Icon`) with a unique title. A
    hosting or account page gets a link under **Choose where Intelligence
    runs**. Every link must be a real URL.
 4. Do not add a second link for the same page. One page, one landing entry.
-5. If the feature is a named pillar in the hero, add it to the subtitle.
-6. Run `npm run check-live-mdx intelligence` in `showcase/shell-docs`.
+5. Run `npm run check-live-mdx intelligence` in `showcase/shell-docs`. It only
+   compiles the pages, so open each new card `href` on the dev server too.
 
 ### Procedure 2: Rename or move a page
 
