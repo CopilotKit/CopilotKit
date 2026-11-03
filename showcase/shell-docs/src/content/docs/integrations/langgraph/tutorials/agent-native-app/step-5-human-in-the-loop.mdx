@@ -3,16 +3,10 @@ title: "Step 5: Human in the Loop"
 ---
 
 Now that we have the ability to chat with our agent, we can move on to implementing human-in-the-loop. This is where the user can review the agent's output and provide feedback. We'll be
-implementing this in our application by allowing the user to review and approve an outline prior to the research being conducted.
+implementing this in our application by allowing the user to review and approve an outline before the agent conducts the research.
 
-<Steps>
-<Step>
-## Understanding Human-in-the-Loop
-
-In LangGraph, the current suggested way to implement human-in-the-loop is to use the [interrupt](https://docs.langchain.com/oss/python/langgraph/interrupts) method. Calling this
-function will pause the node at the call site and rerun the node with the user's decision. You can learn more about interrupt [here](https://docs.langchain.com/langsmith/interrupt-concurrent).
-
-All together, this process will look like this:
+In LangGraph, the suggested way to implement human-in-the-loop is the [interrupt](https://docs.langchain.com/oss/python/langgraph/interrupts) method.
+Calling this function pauses the node at the call site, and the node runs again with the user's decision:
 
 <Frame>
   <img
@@ -21,9 +15,7 @@ All together, this process will look like this:
   />
 </Frame>
 
-The implementation of all of this is actually quite simple, but understanding how it all fits together is key.
-
-</Step>
+<Steps>
 <Step>
 ## Add `useLangGraphInterrupt` to the frontend
 
@@ -69,7 +61,7 @@ Now, when the LangGraph is interrupted the `ProposalViewer` component will be re
 will be called with the user's decision.
 
 <Callout>
-Checkout the `ProposalViewer` component code in the `frontend/src/components/ProposalViewer.tsx` file for more details about rendering.
+Checkout the `ProposalViewer` component code in the `frontend/src/components/structure-proposal-viewer.tsx` file for more details about rendering.
 
 It's just a standard React component with some styling, a form, and a submit button.
 
@@ -79,17 +71,7 @@ It's just a standard React component with some styling, a form, and a submit but
 
 ## Recap
 
-It is really as simple as that! Now, we've implemented human-in-the-loop for our agent. To recap, we did the following:
-
-- Learned about human-in-the-loop in LangGraph.
-- Added the `useLangGraphInterrupt` hook to our application.
-- Rendered a `ProposalViewer` component to the user in the chat
-
-Try asking the agent to research something, like Dogs. Eventually you'll see it ask you for feedback about the proposal.
-
-```
-Please research dogs!
-```
+Ask the agent to research a topic, for example `Please research dogs!`. A proposal form appears in the chat.
 
 <Frame className="mt-0">
   <ImageZoom
@@ -102,4 +84,4 @@ Please research dogs!
 </Frame>
 
 Now, we can completely run our agent from start to finish to conduct research. However, you may notice that the research does not populate in the right window
-as it completes. In the next step, we'll leverage the CoAgent concept of shared state to populate the research in the right window.
+as it completes. In the next step, we'll use the CoAgent concept of shared state to populate the research in the right window.
