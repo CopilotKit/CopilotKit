@@ -329,10 +329,6 @@ function LinesView({ shown }: { shown: Shown }) {
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const tabbable = focusKey && ids.includes(focusKey) ? focusKey : ids[0];
   const count = lines.filter((l) => l.kind === "line").length;
-  const where =
-    shown.source === "recorded" || shown.source === "derived"
-      ? "Recorded run."
-      : null;
 
   // Follow the newest line while the model writes, unless the visitor scrolled up to read.
   useLayoutEffect(() => {
@@ -387,12 +383,12 @@ function LinesView({ shown }: { shown: Shown }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {shown.note || where ? (
+      {shown.note ? (
         <p
           className="flex-none border-b border-[var(--pg-line)] px-5 py-2.5 text-[12.5px] leading-snug text-[var(--pg-dim)] max-[899px]:px-4"
           data-lines-note
         >
-          {[where, shown.note].filter(Boolean).join(" ")}
+          {shown.note}
         </p>
       ) : null}
       <div
