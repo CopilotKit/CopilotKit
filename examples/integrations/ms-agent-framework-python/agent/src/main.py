@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from urllib.parse import urlparse
 
 import uvicorn
@@ -15,7 +16,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from agent import create_agent
 from model import parse_agent_model
 
+# agent/.env first: the CLI writes the model key there. Then the starter's
+# root .env, which holds COPILOTKIT_AGENT_MODEL and OPENAI_BASE_URL. A bare
+# load_dotenv() stops at agent/.env and would never read the root file. Values
+# already set win, so agent/.env and the shell override the root file.
 load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 
 # Chat Completions endpoints that Anthropic and Google serve for OpenAI clients.

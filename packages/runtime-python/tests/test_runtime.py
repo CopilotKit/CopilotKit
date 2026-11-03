@@ -458,3 +458,98 @@ async def test_stop_uses_current_scoped_canonical_ownership(scenario, status, st
         app._runs.clear()
         app._gateways.clear()
         await app.aclose()
+
+
+HISTORY_RUN_BODY = {
+    "threadId": "thread",
+    "runId": "run",
+    "messages": [
+        {"id": "msg-existing", "role": "user", "content": "First turn"},
+        {"id": "msg-new", "role": "user", "content": "Second turn"},
+    ],
+}
+
+
+@pytest.mark.parametrize(
+    "history",
+    [
+        pytest.param([{"id": "msg-existing"}], id="ids-only"),
+        pytest.param(
+            [
+                {"id": "msg-existing", "role": "user", "content": "First turn"},
+                {"id": "msg-reply", "role": "assistant", "content": "Reply"},
+            ],
+            id="full-transcript-from-server-ignoring-fields",
+        ),
+    ],
+)
+async def test_history_lookup_requests_only_message_ids(monkeypatch, history):
+    from copilotkit_runtime.gateway import Gateway
+    from copilotkit_runtime.runtime import IntelligenceRuntime
+
+    queries = []
+    executed = []
+
+    async def join(self):
+        return None
+
+    async def execute(self, agent_id, input, messages, gateway, lease=None):
+        executed.append(messages)
+
+    monkeypatch.setattr(Gateway, "join", join)
+    monkeypatch.setattr(IntelligenceRuntime, "_execute", execute)
+
+    def platform(request):
+        if request.url.path.endswith("/messages"):
+            queries.append(dict(request.url.params))
+            return httpx.Response(200, json={"messages": history})
+        if request.method == "POST":
+            return httpx.Response(
+                200, json={"threadId": "canonical", "runId": "canonical-run", "joinToken": "token"}
+            )
+        return httpx.Response(200, json={})
+
+    app = runtime(platform)
+    try:
+        response = await app._run("default", HISTORY_RUN_BODY, User("user"))
+        assert response.status_code == 200
+        task, _, _ = app._runs["canonical"]
+        await task
+        assert queries == [{"userId": "user", "fields": "id"}]
+        assert executed == [[{"id": "msg-new", "role": "user", "content": "Second turn"}]]
+    finally:
+        await app.aclose()
+
+
+async def test_history_lookup_failure_releases_lock(monkeypatch):
+    from copilotkit_runtime.gateway import Gateway
+    from copilotkit_runtime.models import PlatformError
+
+    cleanup = []
+
+    async def join(self):
+        raise AssertionError("gateway joined after failed history lookup")
+
+    monkeypatch.setattr(Gateway, "join", join)
+
+    def platform(request):
+        if request.url.path.endswith("/messages"):
+            return httpx.Response(500)
+        if request.method == "DELETE":
+            cleanup.append(request.url.path)
+            return httpx.Response(204)
+        if request.method == "POST":
+            return httpx.Response(
+                200, json={"threadId": "canonical", "runId": "canonical-run", "joinToken": "token"}
+            )
+        return httpx.Response(200, json={})
+
+    app = runtime(platform)
+    try:
+        with pytest.raises(PlatformError) as error:
+            await app._run("default", HISTORY_RUN_BODY, User("user"))
+        assert error.value.status == 500
+        assert cleanup == ["/api/threads/canonical/lock"]
+        assert not app._runs
+    finally:
+        await app.aclose()

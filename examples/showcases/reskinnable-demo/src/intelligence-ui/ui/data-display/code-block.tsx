@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react';
+import type { ReactNode } from "react";
 
-import { CopyButton, type ClipboardWriter } from './copy-button';
-import styles from './data-display.module.css';
+import { CopyButton } from "./copy-button";
+import type { ClipboardWriter } from "./copy-button";
+import styles from "./data-display.module.css";
 
 export interface CodeBlockProps {
   readonly code: string;

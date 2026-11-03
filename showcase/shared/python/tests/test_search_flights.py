@@ -19,57 +19,56 @@ _FULL_FLIGHT = {
 }
 
 
+def _payload(ops, key):
+    """Return the payload of the v0.9 operation carrying `key`."""
+    return next(op[key] for op in ops if key in op)
+
+
 def test_returns_a2ui_operations():
     result = search_flights_impl([_FULL_FLIGHT])
     assert "a2ui_operations" in result
 
 
-def test_operations_structure():
-    flights = [{"airline": "Test"}]
-    result = search_flights_impl(flights)
+def test_operations_use_v09_nested_shape():
+    result = search_flights_impl([{"airline": "Test"}])
     ops = result["a2ui_operations"]
-    assert any(op["type"] == "create_surface" for op in ops)
-    assert any(op["type"] == "update_components" for op in ops)
-
-
-def test_all_three_operation_types_present():
-    result = search_flights_impl([_FULL_FLIGHT])
-    ops = result["a2ui_operations"]
-    types = [op["type"] for op in ops]
-    assert "create_surface" in types
-    assert "update_components" in types
-    assert "update_data_model" in types
+    assert all(op["version"] == "v0.9" for op in ops)
+    assert [key for op in ops for key in op if key != "version"] == [
+        "createSurface",
+        "updateComponents",
+        "updateDataModel",
+    ]
 
 
 def test_surface_and_catalog_ids():
     result = search_flights_impl([_FULL_FLIGHT])
     ops = result["a2ui_operations"]
-    create_op = next(op for op in ops if op["type"] == "create_surface")
-    assert create_op["surfaceId"] == SURFACE_ID
-    assert create_op["catalogId"] == CATALOG_ID
+    create = _payload(ops, "createSurface")
+    assert create["surfaceId"] == SURFACE_ID
+    assert create["catalogId"] == CATALOG_ID
+    assert _payload(ops, "updateComponents")["surfaceId"] == SURFACE_ID
+    assert _payload(ops, "updateDataModel")["surfaceId"] == SURFACE_ID
 
 
 def test_flight_data_embedded_in_data_model():
     flights = [_FULL_FLIGHT, {"airline": "Second Air"}]
     result = search_flights_impl(flights)
-    ops = result["a2ui_operations"]
-    data_op = next(op for op in ops if op["type"] == "update_data_model")
-    assert data_op["data"]["flights"] == flights
+    data = _payload(result["a2ui_operations"], "updateDataModel")
+    assert data["path"] == "/"
+    assert data["value"]["flights"] == flights
 
 
 def test_empty_flights_list():
     result = search_flights_impl([])
     ops = result["a2ui_operations"]
     assert len(ops) == 3
-    data_op = next(op for op in ops if op["type"] == "update_data_model")
-    assert data_op["data"]["flights"] == []
+    assert _payload(ops, "updateDataModel")["value"]["flights"] == []
 
 
 def test_properly_formed_flight_objects():
     result = search_flights_impl([_FULL_FLIGHT])
-    ops = result["a2ui_operations"]
-    data_op = next(op for op in ops if op["type"] == "update_data_model")
-    flight = data_op["data"]["flights"][0]
+    data = _payload(result["a2ui_operations"], "updateDataModel")
+    flight = data["value"]["flights"][0]
     for key in (
         "airline",
         "flightNumber",

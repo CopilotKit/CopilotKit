@@ -5,7 +5,10 @@
  * talks to /api/learning/v1 directly.
  */
 export interface HostedApiClient {
-  readonly getJson: <T>(path: string, options?: { readonly signal?: AbortSignal }) => Promise<T>;
+  readonly getJson: <T>(
+    path: string,
+    options?: { readonly signal?: AbortSignal },
+  ) => Promise<T>;
 }
 
 export class ApiClientError extends Error {
@@ -26,7 +29,7 @@ export class ApiClientError extends Error {
     readonly traceId?: string | null;
   }) {
     super(input.message);
-    this.name = 'ApiClientError';
+    this.name = "ApiClientError";
     this.category = input.category ?? null;
     this.code = input.code ?? null;
     this.requestId = input.requestId ?? null;

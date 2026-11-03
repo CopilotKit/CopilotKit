@@ -1,5 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createCollector } from "../collector";
+import type * as InputCapture from "../inputs";
+
+// jsdom cannot create trusted input; retain the real capture and lifecycle.
+vi.mock("../inputs", async (importOriginal) => {
+  const actual = await importOriginal<typeof InputCapture>();
+  return {
+    ...actual,
+    installInputCapture: (
+      params: Parameters<typeof actual.installInputCapture>[0],
+    ) => actual.installInputCapture({ ...params, isTrusted: () => true }),
+  };
+});
 import type { CollectorOptions, LearningBatch, LearningSink } from "../types";
 
 const NOW = 1_790_000_000_000;
@@ -19,6 +31,7 @@ beforeEach(() => {
 afterEach(() => {
   stopCurrent?.();
   stopCurrent = undefined;
+  document.body.innerHTML = "";
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -304,4 +317,143 @@ describe("createCollector", () => {
 
     expect(sends).toEqual([{ beacon: true }]);
   });
+});
+
+it.each(["emit", "stop", "pagehide"])(
+  "the batched collector flushes pending input before %s",
+  (action) => {
+    const { collector, batches } = setup();
+    document.body.innerHTML = "<input>";
+    collector.start({ trajectoryId: "input-session" });
+    const input = document.querySelector("input")!;
+    input.value = "final text";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    if (action === "emit") collector.emit("app.approved", {});
+    else if (action === "pagehide") {
+      window.dispatchEvent(new Event("pagehide"));
+      expect(names(batches)).toEqual(["page", "input"]);
+      expect(batches[0]?.events[1]?.value).toMatchObject({
+        target: { value: "final text" },
+      });
+    }
+    collector.stop();
+    const events = batches.flatMap((batch) => batch.events);
+    expect(events.map((event) => event.name)).toEqual([
+      "page",
+      "input",
+      ...(action === "emit" ? ["app.approved"] : []),
+    ]);
+    expect(events.map((event) => event.value.seq)).toEqual(
+      action === "emit" ? [1, 2, 3] : [1, 2],
+    );
+    expect(vi.getTimerCount()).toBe(0);
+  },
+);
+
+it("records input before a fast Enter-to-send network response outside a form", async () => {
+  const beforeSend = vi.fn<NonNullable<CollectorOptions["beforeSend"]>>(
+    (event) => event,
+  );
+  const { collector } = setup({ beforeSend });
+  document.body.innerHTML = "<input>";
+  collector.start({ trajectoryId: "enter-session" });
+  const input = document.querySelector("input")!;
+  let response: Promise<Response> | undefined;
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    response = fetch("/todos", { method: "POST" });
+    input.value = "";
+  });
+  input.value = "Buy milk";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await vi.advanceTimersByTimeAsync(100);
+  input.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+  );
+  await response;
+  await vi.advanceTimersByTimeAsync(0);
+
+  const events = beforeSend.mock.calls.map(([event]) => event);
+  expect(events.map((event) => event.name)).toEqual([
+    "page",
+    "input",
+    "network",
+  ]);
+  expect(events.map((event) => event.value.seq)).toEqual([1, 2, 3]);
+  expect(events[1]).toMatchObject({
+    timestamp: NOW + 100,
+    value: { target: { value: "Buy milk" } },
+  });
+  await vi.advanceTimersByTimeAsync(300);
+  expect(beforeSend).toHaveBeenCalledTimes(3);
+});
+
+it("network capture does not flush or delay pending text in the batched collector", async () => {
+  const beforeSend = vi.fn<NonNullable<CollectorOptions["beforeSend"]>>(
+    (event) => event,
+  );
+  const { collector, batches } = setup({ beforeSend });
+  document.body.innerHTML = "<input>";
+  collector.start({ trajectoryId: "typeahead-session" });
+  const input = document.querySelector("input")!;
+  input.value = "pending search";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await vi.advanceTimersByTimeAsync(100);
+
+  await fetch("/typeahead?q=pending");
+  await vi.advanceTimersByTimeAsync(0);
+
+  expect(beforeSend.mock.calls.map(([event]) => event.name)).toEqual([
+    "page",
+    "network",
+  ]);
+  await vi.advanceTimersByTimeAsync(199);
+  expect(beforeSend.mock.calls.map(([event]) => event.name)).toEqual([
+    "page",
+    "network",
+  ]);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(beforeSend.mock.calls.map(([event]) => event.name)).toEqual([
+    "page",
+    "network",
+    "input",
+  ]);
+  expect(beforeSend.mock.calls[2]?.[0]).toMatchObject({
+    timestamp: NOW + 300,
+    value: { seq: 3, target: { value: "pending search" } },
+  });
+  collector.stop();
+  expect(names(batches)).toEqual(["page", "network", "input"]);
+});
+
+it("a reentrant stop/restart during input flush preserves the new batched session", () => {
+  const { collector, batches } = setup({
+    beforeSend(event) {
+      if (event.name === "input") {
+        collector.stop();
+        collector.start({ trajectoryId: "new-session" });
+      }
+      return event;
+    },
+  });
+  document.body.innerHTML = "<input>";
+  collector.start({ trajectoryId: "old-session" });
+  document.querySelector("input")!.value = "pending";
+  document
+    .querySelector("input")!
+    .dispatchEvent(new Event("input", { bubbles: true }));
+  collector.stop();
+  expect(collector.trajectoryId).toBe("new-session");
+  collector.emit("new.action", {});
+  collector.stop();
+  expect(
+    batches.map((batch) => [
+      batch.trajectoryId,
+      batch.events.map((event) => event.name),
+    ]),
+  ).toEqual([
+    ["old-session", ["page"]],
+    ["new-session", ["page", "new.action"]],
+  ]);
+  expect(vi.getTimerCount()).toBe(0);
 });

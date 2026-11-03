@@ -30,8 +30,10 @@ export interface RecordAnnotationArgs {
    */
   runtimeUrl: string;
   /**
-   * Extra HTTP headers forwarded from `copilotkit.headers` — typically used
-   * for customer auth tokens that the BFF needs to identify the user.
+   * Extra, request-specific headers to send in addition to the current core
+   * headers. Callers pass `fetch: copilotkit.ɵruntimeFetch`, which already
+   * resolves and overlays the current core headers at send time (#1937), so
+   * this is typically `{}`.
    */
   headers: Record<string, string>;
   /**
@@ -71,7 +73,9 @@ export interface RecordAnnotationArgs {
  *
  * The function uses the same transport as `useLearnFromUserAction`:
  * - `runtimeUrl` from `copilotkit.runtimeUrl` (BFF proxies to the platform)
- * - `headers` from `copilotkit.headers` (customer auth forwarded to BFF)
+ * - `fetch: copilotkit.ɵruntimeFetch`, which adds the current core headers at
+ *   send time (#1937); `headers` here is only for extra request-specific
+ *   headers on top of that
  * - `clientEventId` auto-generated via `randomUUID()` when omitted
  * - `userId` is resolved server-side by the runtime; the client never sends it
  * - Errors propagate to the caller (fire-and-propagate, not fire-and-forget)

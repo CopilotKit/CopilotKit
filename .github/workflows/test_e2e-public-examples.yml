@@ -30,7 +30,7 @@ on:
       - "packages/web-components/**"
       - "packages/web-inspector/**"
   pull_request:
-    branches: [main]
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
     paths:
       - "examples/**"
       - "scripts/__tests__/examples-readme-catalog.test.mjs"
@@ -207,7 +207,7 @@ jobs:
 
       - name: Set up uv for Travel tests
         if: matrix.example == 'travel'
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           python-version: "3.12"
           enable-cache: true

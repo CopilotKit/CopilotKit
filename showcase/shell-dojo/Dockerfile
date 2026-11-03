@@ -1,14 +1,17 @@
-FROM node:20-slim AS builder
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS builder
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
 WORKDIR /app
 
 # Copy only what shell-dojo + scripts need
 COPY showcase/scripts/package.json ./scripts/package.json
+COPY showcase/scripts/package-lock.json ./scripts/package-lock.json
 COPY showcase/shell-dojo/package.json ./shell-dojo/package.json
+COPY showcase/shell-dojo/package-lock.json ./shell-dojo/package-lock.json
 
-# Install deps for both (standalone, no workspace)
-RUN cd scripts && npm install --silent && cd ../shell-dojo && npm install --silent
+# Use the committed standalone locks; fresh resolution can crash npm's peer resolver.
+RUN cd scripts && npm ci --no-audit --no-fund \
+    && cd ../shell-dojo && npm ci --no-audit --no-fund
 
 # Copy source
 COPY showcase/shared/ ./shared/
@@ -43,7 +46,7 @@ RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-demo-content.ts \
     && cd ../shell-dojo && npx next build
 
-FROM node:20-slim AS runner
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS runner
 WORKDIR /app
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
@@ -58,3 +61,6 @@ COPY --from=builder /app/shell-dojo/package.json ./
 
 EXPOSE 10000
 CMD ["npx", "next", "start", "-p", "10000"]
+
+# Fail the build if any base or install path regresses the accepted Node runtime.
+RUN test "$(node --version)" = "v22.23.4"

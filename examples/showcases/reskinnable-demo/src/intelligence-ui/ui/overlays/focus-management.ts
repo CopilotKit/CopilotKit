@@ -1,16 +1,17 @@
-import { type RefObject, useEffect, useLayoutEffect } from 'react';
+import { useEffect, useLayoutEffect } from "react";
+import type { RefObject } from "react";
 
 const focusableSelector = [
-  'a[href]',
-  'button:not([disabled])',
-  'input:not([disabled])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
   '[tabindex]:not([tabindex="-1"])',
-].join(',');
+].join(",");
 
 const useModalInertnessEffect =
-  typeof window === 'undefined' ? useEffect : useLayoutEffect;
+  typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 const modalInertnessRecords = new WeakMap<
   Element,
@@ -25,7 +26,7 @@ const modalInertnessRecords = new WeakMap<
  */
 export function getFocusableElements(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(focusableSelector))
-    .filter((element) => !element.hasAttribute('disabled'))
+    .filter((element) => !element.hasAttribute("disabled"))
     .filter(
       (element) => !element.closest('[hidden], [inert], [aria-hidden="true"]'),
     );
@@ -41,7 +42,7 @@ export function cycleFocus(
   event: React.KeyboardEvent,
   container: HTMLElement,
 ): void {
-  if (event.key !== 'Tab') {
+  if (event.key !== "Tab") {
     return;
   }
 
@@ -124,19 +125,19 @@ export function useModalInertness(
         record.count += 1;
       } else {
         modalInertnessRecords.set(element, {
-          ariaHidden: element.getAttribute('aria-hidden'),
+          ariaHidden: element.getAttribute("aria-hidden"),
           count: 1,
           inert:
             element instanceof HTMLElement
               ? element.inert
-              : element.hasAttribute('inert'),
+              : element.hasAttribute("inert"),
         });
       }
-      element.setAttribute('aria-hidden', 'true');
+      element.setAttribute("aria-hidden", "true");
       if (element instanceof HTMLElement) {
         element.inert = true;
       } else {
-        element.setAttribute('inert', '');
+        element.setAttribute("inert", "");
       }
     });
 
@@ -154,14 +155,14 @@ export function useModalInertness(
 
         modalInertnessRecords.delete(element);
         if (record.ariaHidden === null) {
-          element.removeAttribute('aria-hidden');
+          element.removeAttribute("aria-hidden");
         } else {
-          element.setAttribute('aria-hidden', record.ariaHidden);
+          element.setAttribute("aria-hidden", record.ariaHidden);
         }
         if (element instanceof HTMLElement) {
           element.inert = record.inert;
         } else {
-          element.toggleAttribute('inert', record.inert);
+          element.toggleAttribute("inert", record.inert);
         }
       });
     };

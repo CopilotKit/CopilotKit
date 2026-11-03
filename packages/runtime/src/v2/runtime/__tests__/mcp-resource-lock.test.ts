@@ -57,7 +57,7 @@ function fixture() {
       created: false,
     })),
     updateThread: vi.fn(async () => ({})),
-    getThreadMessages: vi.fn(async () => ({ messages: [] })),
+    ɵgetThreadMessageIds: vi.fn(async () => []),
     ɵacquireThreadLock: acquire,
     ɵcleanupThreadLock: vi.fn(async () => {
       locked = false;

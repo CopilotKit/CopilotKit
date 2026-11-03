@@ -185,9 +185,13 @@ test.each([
   {
     body: { runId: "run-1" },
     status: 200,
-    call: { threadId: "thread-1", runId: "run-1" },
+    call: { threadId: "thread-1", runId: "run-1", ownerId: "" },
   },
-  { body: undefined, status: 200, call: { threadId: "thread-1" } },
+  {
+    body: undefined,
+    status: 200,
+    call: { threadId: "thread-1", ownerId: "" },
+  },
   { body: "not-json", status: 400, call: undefined },
 ])(
   "SSE stop applies the same run scope rules as Intelligence for body $body",
@@ -196,6 +200,7 @@ test.each([
       agents: {
         default: new HttpAgent({ url: "http://localhost:9999/agent" }),
       },
+      threads: { access: "open" },
     });
     const stop = vi.spyOn(runtime.runner, "stop").mockResolvedValue(true);
     const request = new Request(

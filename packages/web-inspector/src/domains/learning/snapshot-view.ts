@@ -5,6 +5,10 @@ import type {
 } from "@copilotkit/shared";
 
 import { deriveLearningViewState } from "./snapshot-state.js";
+import {
+  evidenceCountLabel,
+  renderInsightEvidence,
+} from "./snapshot-evidence.js";
 import { learningSnapshotBaseStyles } from "./snapshot-view.base.styles.js";
 import { learningSnapshotPanelStyles } from "./snapshot-view.panel.styles.js";
 
@@ -37,6 +41,8 @@ export class CpkLearningView extends LitElement {
   private promptTrigger: HTMLElement | null = null;
   private expandedSkillId: string | null = null;
   private selectedInsightId: string | null = null;
+  /** Evidence groups showing every row, keyed by Insight id and kind. */
+  private readonly expandedEvidence = new Set<string>();
   private skillPageKey = "";
 
   static styles = [learningSnapshotBaseStyles, learningSnapshotPanelStyles];
@@ -338,43 +344,18 @@ export class CpkLearningView extends LitElement {
           ×
         </button>
       </div>
-      <div class="evidence-list">
-        ${
-          insight.evidence.length === 0
-            ? html`
-                <div class="evidence-unavailable">Evidence is no longer available</div>
-              `
-            : insight.evidence.map((evidence) =>
-                evidence.status === "unavailable"
-                  ? html`
-                      <div class="evidence-unavailable">Evidence is no longer available</div>
-                    `
-                  : html`<button
-                    class="evidence-link"
-                    type="button"
-                    @click=${() =>
-                      this.emit("learning-open-evidence", {
-                        threadId: evidence.threadId,
-                        messageId: evidence.messageIds[0],
-                      })}
-                  >
-                    ⌁
-                    ${
-                      evidence.threadName ??
-                      `Thread ${evidence.threadId.slice(0, 8)}`
-                    }
-                    <span>Open Thread →</span>
-                  </button>`,
-              )
-        }
-      </div>
-      ${
-        insight.evidenceTruncated
-          ? html`
-              <p class="supporting-unavailable">Evidence response shortened</p>
-            `
-          : nothing
-      }
+      ${renderInsightEvidence(insight, {
+        expanded: this.expandedEvidence,
+        onToggleGroup: (key) => {
+          if (!this.expandedEvidence.delete(key))
+            this.expandedEvidence.add(key);
+          this.requestUpdate();
+        },
+        onOpenThread: (threadId, messageId) =>
+          this.emit("learning-open-evidence", { threadId, messageId }),
+        onOpenTrajectory: () =>
+          this.emit("learning-web-link", { category: "trajectory" }),
+      })}
     </section>`;
   }
 
@@ -441,12 +422,7 @@ export class CpkLearningView extends LitElement {
                         ${this.supportingInsightLabel(
                           skill.sourceInsight.statement,
                         )}<small
-                          >${skill.sourceInsight.totalThreadCount}
-                          ${
-                            skill.sourceInsight.totalThreadCount === 1
-                              ? "Thread"
-                              : "Threads"
-                          }</small
+                          >${evidenceCountLabel(skill.sourceInsight)}</small
                         >
                       </button>`
                       : html`
@@ -521,8 +497,7 @@ export class CpkLearningView extends LitElement {
                   <p>${insight.impact}</p>
                 </div>
                 <span class="evidence-count"
-                  >${insight.totalThreadCount}
-                  ${insight.totalThreadCount === 1 ? "Thread" : "Threads"}</span
+                  >${evidenceCountLabel(insight)}</span
                 >
               </button>`,
             )}

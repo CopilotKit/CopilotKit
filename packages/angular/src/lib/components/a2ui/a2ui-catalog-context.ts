@@ -18,8 +18,16 @@ type CatalogSchemas = Pick<A2UICatalog, "id" | "components">;
 
 const basicComponentNames = new Set(BASIC_COMPONENTS.map((api) => api.name));
 
-/** Describes the catalog's id and its components beyond the basic catalog. */
-export function buildCatalogContextValue(catalog: CatalogSchemas): string {
+/**
+ * Describes the catalog's id and its components beyond the basic catalog.
+ *
+ * When `options.includeSchema` is `false`, custom components are listed by name
+ * only and their JSON schemas are omitted.
+ */
+export function buildCatalogContextValue(
+  catalog: CatalogSchemas,
+  options?: { includeSchema?: boolean },
+): string {
   const lines: string[] = ["Available A2UI catalog:"];
 
   if (catalog.id === A2UI_BASIC_CATALOG_ID) {
@@ -43,6 +51,10 @@ export function buildCatalogContextValue(catalog: CatalogSchemas): string {
 
   for (const [name, component] of catalog.components) {
     if (basicComponentNames.has(name)) continue;
+    if (options?.includeSchema === false) {
+      lines.push(`  - ${name}`);
+      continue;
+    }
     const jsonSchema = zodToJsonSchema(component.schema);
     lines.push(`  - ${name}:`);
     lines.push(

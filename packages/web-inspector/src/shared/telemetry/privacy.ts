@@ -4,6 +4,7 @@ import {
   isTelemetryOptedOut,
   markTelemetryDisclosureShown,
 } from "../persistence/telemetry.js";
+import type { InspectorGroupKey, InspectorLeafKey } from "./navigation-keys.js";
 import type {
   InspectorLearningCountBucket,
   InspectorLearningDurationBucket,
@@ -253,18 +254,6 @@ export type ThreadsUsageBucket =
   | "unlimited"
   | "unknown_limit";
 export type ThreadsExpiryBucket = "unavailable" | "zero" | "positive";
-export type InspectorGroupKey = "home" | "workbench" | "inspect";
-export type InspectorLeafKey =
-  | "home"
-  | "whats-new"
-  | "playground"
-  | "threads"
-  | "ag-ui-events"
-  | "agents"
-  | "frontend-tools"
-  | "capabilities"
-  | "agent-context"
-  | "memories";
 export type MetadataActionPlacement = "threads_footer" | "threads_locked";
 export type ExampleTourStep = 1 | 2 | 3;
 export type ExampleTourTab = "timeline" | "raw-events" | "state";
@@ -571,7 +560,7 @@ export function trackLearningPageChanged(props: {
 }
 
 export function trackLearningWebAppOpened(props: {
-  category: "learning" | "runs" | "candidates";
+  category: "learning" | "runs" | "candidates" | "trajectory";
 }): void {
   track(TELEMETRY_EVENTS.learningWebAppOpened, props);
 }

@@ -2,6 +2,10 @@ import type { CopilotKitCore } from "@copilotkit/core";
 
 import type { NotificationContext } from "./domains/announcements/notifications.js";
 
+import {
+  CpkGenerativeUIView,
+  GENERATIVE_UI_VIEW_TAG,
+} from "./domains/generative-ui/view.js";
 import { CpkMemoryList } from "./domains/learning/memory-list.js";
 import { CpkLearningView } from "./domains/learning/snapshot-view.js";
 import {
@@ -74,6 +78,7 @@ export function defineWebInspector(
   defineElementOnce(registry, "cpk-thread-details", ɵCpkThreadDetails);
   defineElementOnce(registry, "cpk-memory-list", CpkMemoryList);
   defineElementOnce(registry, "cpk-learning-view", CpkLearningView);
+  defineElementOnce(registry, GENERATIVE_UI_VIEW_TAG, CpkGenerativeUIView);
   defineElementOnce(
     registry,
     INSPECTOR_JSON_BLOCK_TAG,

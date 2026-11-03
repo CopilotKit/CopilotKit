@@ -8,7 +8,7 @@
       "@ag-ui/a2a-middleware",
       "@ag-ui/agno",
       "@ag-ui/llamaindex",
-      "@daytonaio/sdk",
+      "@daytonaio/sdk@0.182.0",
       "next",
       "openai",
       "zod"

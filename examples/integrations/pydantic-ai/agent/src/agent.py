@@ -1,9 +1,10 @@
+from dataclasses import dataclass, field
 from pathlib import Path
 from textwrap import dedent
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.ui import StateDeps
-from ag_ui.core import EventType, StateSnapshotEvent
+from ag_ui.core import Context, EventType, StateSnapshotEvent
 from model import resolve_model
 
 # load environment variables
@@ -25,6 +26,18 @@ class ProverbsState(BaseModel):
     )
 
 
+@dataclass
+class AppDeps(StateDeps[ProverbsState]):
+    """Per-run deps: the proverbs state plus what the page shares (`useAgentContext`).
+
+    Pydantic AI's `AGUIAdapter` never passes the run's AG-UI `context` to the
+    agent (deliberately: the entries are client-submitted), so `main.py` copies
+    it here and `get_app_context` hands it to the model as data.
+    """
+
+    context: list[Context] = field(default_factory=list)
+
+
 # =====
 # Agent
 # =====
@@ -32,7 +45,7 @@ agent = Agent(
     # COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this;
     # unset, the agent uses gpt-5-mini.
     model=resolve_model("openai:gpt-5-mini"),
-    deps_type=StateDeps[ProverbsState],
+    deps_type=AppDeps,
     system_prompt=dedent("""
     You are a helpful assistant that helps manage and discuss proverbs.
     
@@ -41,6 +54,9 @@ agent = Agent(
     
     When discussing proverbs, ALWAYS use the get_proverbs tool to see the current list before
     mentioning, updating, or discussing proverbs with the user.
+
+    The app can share facts about the user and the page they are on. Call get_app_context
+    before answering a question that may depend on them.
   """).strip(),
 )
 
@@ -48,6 +64,12 @@ agent = Agent(
 # =====
 # Tools
 # =====
+@agent.tool
+def get_app_context(ctx: RunContext[AppDeps]) -> list[Context]:
+    """Get the facts the app shared about the user and the page, each a description and a value."""
+    return ctx.deps.context
+
+
 @agent.tool
 def get_proverbs(ctx: RunContext[StateDeps[ProverbsState]]) -> list[str]:
     """Get the current list of proverbs."""

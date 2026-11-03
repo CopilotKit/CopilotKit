@@ -487,10 +487,8 @@ export function createPbClient(config: PbClientConfig): PbClient {
     collection: string,
     id: string,
   ): Promise<boolean> {
-    const res = await request(
-      `/api/collections/${encodeURIComponent(collection)}/records/${encodeURIComponent(id)}`,
-      { method: "DELETE" },
-    );
+    const path = `/api/collections/${encodeURIComponent(collection)}/records/${encodeURIComponent(id)}`;
+    const res = await request(path, { method: "DELETE" });
     if (res.status === 404) {
       // Delete-of-missing is idempotent but we want to surface the gap
       // for anyone asking "why didn't my delete do anything?".
@@ -498,7 +496,13 @@ export function createPbClient(config: PbClientConfig): PbClient {
       return false;
     }
     if (!res.ok) {
-      throw new Error(`pb delete failed: ${res.status}`);
+      // Typed status so callers can tell a per-row refusal (e.g. a 400 from
+      // a required relation) from a systemic failure such as PB being down.
+      throw new PbHttpError({
+        statusCode: res.status,
+        bodyText: await res.text().catch(() => ""),
+        path,
+      });
     }
     return true;
   }

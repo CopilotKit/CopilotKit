@@ -13,6 +13,7 @@ name: Lint Release Workflows
 #   release / create-pr  -> .github/workflows/stable-release.yml
 #   release / publish    -> .github/workflows/publish-release.yml
 #   canary / publish     -> .github/workflows/canary.yml
+#   release / rc         -> .github/workflows/rc.yml
 
 on:
   push:
@@ -21,6 +22,7 @@ on:
       - ".github/workflows/stable-release.yml"
       - ".github/workflows/publish-release.yml"
       - ".github/workflows/canary.yml"
+      - ".github/workflows/rc.yml"
       - ".github/workflows/lint-release-workflows.yml"
       - "scripts/release/**"
       - "release.config.json"
@@ -30,6 +32,7 @@ on:
       - ".github/workflows/stable-release.yml"
       - ".github/workflows/publish-release.yml"
       - ".github/workflows/canary.yml"
+      - ".github/workflows/rc.yml"
       - ".github/workflows/lint-release-workflows.yml"
       - "scripts/release/**"
       - "release.config.json"
@@ -47,7 +50,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run actionlint on release workflows
-        uses: reviewdog/action-actionlint@a8ac3eea598697a830f7d8e701fc9fcbfde88974 # v1.80.0
+        uses: reviewdog/action-actionlint@6a9ff88b9bb9c12ff3d7340e267f0f59effaa7cd # v1.80.1
         with:
           reporter: github-check
           level: error
@@ -56,6 +59,7 @@ jobs:
             .github/workflows/stable-release.yml
             .github/workflows/publish-release.yml
             .github/workflows/canary.yml
+            .github/workflows/rc.yml
             .github/workflows/lint-release-workflows.yml
 
   shellcheck:

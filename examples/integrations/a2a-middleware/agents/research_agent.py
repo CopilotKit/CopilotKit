@@ -18,7 +18,7 @@ from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.utils import new_agent_text_message
 from _banner import print_banner
-from _model import langchain_model
+from _model import langchain_model, warn_if_api_key_missing
 from langgraph.graph import StateGraph, END
 from typing import TypedDict, Optional, List
 from pydantic import BaseModel, Field
@@ -155,11 +155,7 @@ public_agent_card = AgentCard(
 
 
 def main():
-    if not os.getenv("OPENAI_API_KEY"):
-        print("⚠️  Warning: OPENAI_API_KEY not set!")
-        print("   Set it with: export OPENAI_API_KEY='your-key-here'")
-        print("   Get a key from: https://platform.openai.com/api-keys")
-        print()
+    warn_if_api_key_missing("openai:gpt-5-mini")
 
     request_handler = DefaultRequestHandler(
         agent_executor=ResearchAgentExecutor(),

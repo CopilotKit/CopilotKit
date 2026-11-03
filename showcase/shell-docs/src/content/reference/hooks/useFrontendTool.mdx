@@ -95,9 +95,15 @@ function useFrontendTool<T extends Record<string, unknown>>(
 </PropertyReference>
 
 <PropertyReference name="deps" type="ReadonlyArray<unknown>">
-  An optional dependency array, similar to `useEffect`. When provided, the tool
-  registration is refreshed whenever any value in the array changes. Use this
-  when your handler or render function captures external state.
+  An optional dependency array. When provided, the tool registration is
+  refreshed whenever a value in the array changes. Use this when your handler
+  or render function captures external state.
+
+  `deps` compares plain data (strings, numbers, booleans, `null`, dates, and
+  plain objects and arrays of those) by value, so an inline literal such as
+  `[{ status }]` re-registers only when its contents change. A function never counts as changed, as before, so keep a changing callback
+  in a ref. Class instances and other objects compare by identity, so a
+  circular value such as the `agent` from `useAgent` is safe to pass. Adding or removing an entry counts as a change.
 </PropertyReference>
 
 ## Usage
@@ -260,7 +266,7 @@ See [Ensuring your agent reliably calls frontend tools](/integrations/langgraph/
 
 - **Duplicate detection**: If a tool with the same `name` is already registered, the hook logs a warning. Only one tool per name is active at a time.
 - **Mount/Unmount lifecycle**: The tool and its optional render component are registered on mount and removed on unmount.
-- **Dependency tracking**: When `deps` is provided, the tool registration is refreshed whenever any dependency value changes, similar to `useEffect`.
+- **Dependency tracking**: When `deps` is provided, the tool registration is refreshed whenever a dependency changes. Plain data compares by value; functions and other objects compare by identity.
 - **WebMCP registration**: With `webmcp` set, the tool is also registered on `document.modelContext` and unregistered on unmount. The tool needs a `description` for this (WebMCP rejects tools without one).
 - **Render component lifecycle**: If a `render` function is provided, it is added to the internal render tool calls registry. It receives streaming `args` (partial during `InProgress`, complete during `Executing` and `Complete`).
 - **No return value**: The hook returns `void`.

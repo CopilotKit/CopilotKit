@@ -15,11 +15,21 @@ import type {
   HomeServiceTile,
 } from "./model.js";
 import type { HomeFeaturePromptCopyState } from "./feature-setup.js";
+import { isLearningStatusPending } from "../../shared/learning/status.js";
+import type { LearningStatus } from "../../shared/learning/status.js";
+
+const LEARNING_STATUS_LABELS: Record<LearningStatus, string> = {
+  configured: "Learning configured",
+  not_configured: "Learning not configured",
+  unavailable: "Learning status unavailable",
+  checking: "Checking Learning status",
+};
 
 export type HomeViewActions = HomeIntelligenceViewActions &
   Readonly<{
     copyFeaturePrompt: (service: HomeServiceTile, event: Event) => void;
     openLastEvent: (eventId: string, agentId?: string) => void;
+    retryLearningStatus: (event: Event) => void;
   }>;
 
 export type HomeViewOptions = Omit<HomeIntelligenceViewOptions, "renderIcon"> &
@@ -29,6 +39,8 @@ export type HomeViewOptions = Omit<HomeIntelligenceViewOptions, "renderIcon"> &
     featurePromptCopyState: (
       serviceId: HomeServiceId,
     ) => HomeFeaturePromptCopyState;
+    learningStatus: LearningStatus;
+    learningRetryDisabled: boolean;
     renderIcon: (
       name: HomeIntelligenceIconName | "Bot" | "Copy",
     ) => TemplateResult | DirectiveResult | typeof nothing;
@@ -239,15 +251,31 @@ function renderFeatures(
   actions: HomeViewActions,
   options: HomeViewOptions,
 ) {
-  const enabled = model.services.filter((service) => service.enabled);
-  const disabled = model.services.filter((service) => !service.enabled);
+  // A failed or pending Learning read is neither enabled nor available to add.
+  const learningPending = isLearningStatusPending(options.learningStatus);
+  const isPending = (service: HomeServiceTile) =>
+    service.id === "memory" && learningPending;
+  const pending = model.services.filter(isPending);
+  const enabled = model.services.filter(
+    (service) => service.enabled && !isPending(service),
+  );
+  const disabled = model.services.filter(
+    (service) => !service.enabled && !isPending(service),
+  );
   const renderService = (service: HomeModel["services"][number]) => {
     const copyState = options.featurePromptCopyState(service.id);
-    const stateDescription = `${service.label} is ${
-      service.enabled
-        ? "enabled in your runtime"
-        : "not enabled in your runtime"
-    }`;
+    const learningLabel =
+      service.id === "memory"
+        ? LEARNING_STATUS_LABELS[options.learningStatus]
+        : null;
+    const unavailable = isPending(service);
+    const stateDescription =
+      learningLabel ??
+      `${service.label} is ${
+        service.enabled
+          ? "enabled in your runtime"
+          : "not enabled in your runtime"
+      }`;
     const copyLabel =
       copyState === "copied"
         ? "Copied"
@@ -258,7 +286,7 @@ function renderFeatures(
     <div
       class="inspector-home-feature"
       data-inspector-service=${service.id}
-      data-state=${service.enabled ? "on" : "off"}
+      data-state=${unavailable ? "unavailable" : service.enabled ? "on" : "off"}
       role="listitem"
     >
       <span
@@ -277,14 +305,27 @@ function renderFeatures(
         rel="noopener noreferrer"
         aria-label="Open ${service.label} documentation in a new tab"
       >
-        <span>${service.label}</span>
+        <span>${learningLabel ?? service.label}</span>
         <span class="inspector-home-feature-label-icon" aria-hidden="true">
           ${options.renderIcon("ArrowUpRight")}
         </span>
       </a>
       <span class="inspector-home-feature-actions">
         ${
-          service.enabled
+          unavailable
+            ? html`<button
+              type="button"
+              class="inspector-home-feature-action"
+              aria-label="Retry Learning status"
+              ?disabled=${options.learningRetryDisabled}
+              @click=${actions.retryLearningStatus}
+            >
+              Retry
+            </button>`
+            : nothing
+        }
+        ${
+          service.enabled || unavailable
             ? nothing
             : html`<button
               type="button"
@@ -308,7 +349,7 @@ function renderFeatures(
             </button>`
         }
         ${
-          service.enabled
+          service.enabled || unavailable
             ? nothing
             : html`<span class="sr-only" aria-live="polite">
               ${
@@ -367,6 +408,19 @@ function renderFeatures(
               </p>
             `
           : html`<div class="inspector-home-feature-groups">
+            ${
+              pending.length > 0
+                ? html`<section
+                  class="inspector-home-feature-group"
+                  data-feature-state-group="unavailable"
+                  aria-label="Feature status unavailable"
+                >
+                  <div class="inspector-home-feature-list" role="list">
+                    ${pending.map(renderService)}
+                  </div>
+                </section>`
+                : nothing
+            }
             ${renderGroup("active", enabled)}${renderGroup(
               "available",
               disabled,

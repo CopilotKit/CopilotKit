@@ -7,6 +7,12 @@ import type {
 import type { Integration } from "./registry";
 
 export { COMPATIBILITY_SNAPSHOT };
+export interface CompatibilitySnapshot {
+  date: string;
+  assessedAt: string;
+  methodology: string;
+  rows: CompatibilitySnapshotRow[];
+}
 
 export interface SdkAssessment extends CompatibilitySnapshotPackage {}
 
@@ -29,10 +35,6 @@ export interface CompatibilityPlatform {
   name: string;
   variants: CompatibilityVariant[];
 }
-
-const assessments = new Map<string, CompatibilitySnapshotRow>(
-  COMPATIBILITY_SNAPSHOT.rows.map((row) => [row.slug, row]),
-);
 
 const families: Record<string, { id: string; name: string; label: string }> = {
   "langgraph-python": { id: "langgraph", name: "LangGraph", label: "Python" },
@@ -110,7 +112,9 @@ function toAssessment(row: CompatibilitySnapshotRow): CompatibilityAssessment {
 
 export function getCompatibilityPlatforms(
   integrations: Integration[],
+  snapshot: CompatibilitySnapshot = COMPATIBILITY_SNAPSHOT,
 ): CompatibilityPlatform[] {
+  const assessments = new Map(snapshot.rows.map((row) => [row.slug, row]));
   const platforms = new Map<string, CompatibilityPlatform>();
   for (const integration of integrations) {
     const row = assessments.get(integration.slug);

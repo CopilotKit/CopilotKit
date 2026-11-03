@@ -9,23 +9,14 @@
  * the resolved `ChipColor` (green | amber | red | gray), never the lower-level
  * `State`.
  *
- * ── OQ-5 decision: IMPORT, not mirror ────────────────────────────────────
- * `showcase/shell-dashboard` is intentionally OUTSIDE the pnpm workspace (npm),
- * while `showcase/scripts` is in it. But ChipColor derivation must have ONE
- * source of truth — duplicating `buildCellModel`'s ~300-line ladder/U7/U8 logic
- * here would be a guaranteed-to-drift second copy of the very thing the gate
- * exists to honor. So we import it by RELATIVE PATH
- * (`../shell-dashboard/src/lib/cell-model`). This is the lower-blast option and
- * is already an established pattern in this directory:
- * `redirect-decommission-core.test.ts` imports `../shell/src/lib/seo-redirects`
- * the same way. The dashboard lib subtree we pull in
- * (`cell-model → live-status → staleness → format-ts`) has ZERO React/Next/`@/`
- * dependencies — it is a pure-TS subtree — so the import resolves cleanly under
- * tsx / vitest / tsc (`moduleResolution: bundler`, extensionless) without
- * dragging the dashboard into the pnpm graph or the gate into npm. tsc on
- * `scripts/tsconfig.json` (`include: ["*.ts", …]`) follows the relative import
- * and typechecks the subtree with `skipLibCheck`. No tsconfig `paths` mapping
- * and no mirror+parity-test were needed.
+ * ── Shared model: IMPORT, not mirror ─────────────────────────────────────
+ * The dashboard and this gate use the canonical pure-TS cell model in the
+ * harness. Import that implementation directly: the standalone dashboard's
+ * package has no `type: module`, so its `export *` compatibility barrels are
+ * treated as CommonJS by the real Node/tsx CLI and do not expose the required
+ * named exports. Vitest's transformed imports hide that startup failure.
+ * Direct imports preserve one color/freshness implementation without changing
+ * the dashboard's module format or bringing it into the pnpm workspace.
  *
  * ── Gate rules (spec §6.3) ────────────────────────────────────────────────
  *   - FAIL only on a cell that is `green` on STAGING and NOT-`green` on PROD,
@@ -48,17 +39,17 @@
  * re-sweep freshness — only prod was just re-swept.)
  */
 
-import { buildCellModel } from "../shell-dashboard/src/lib/cell-model";
+import { buildCellModel } from "../harness/src/shared/cell-model/cell-model.js";
 import type {
   ChipColor,
   CellModelInput,
-} from "../shell-dashboard/src/lib/cell-model";
+} from "../harness/src/shared/cell-model/cell-model.js";
 import {
   keyFor,
   CATALOG_TO_D5_KEY,
   STARTER_ROW_LEVELS,
-} from "../shell-dashboard/src/lib/live-status";
-import type { LiveStatusMap } from "../shell-dashboard/src/lib/live-status";
+} from "../harness/src/shared/cell-model/live-status.js";
+import type { LiveStatusMap } from "../harness/src/shared/cell-model/live-status.js";
 
 /** A feature-bearing cell to compare across environments. */
 export type GateCell = Omit<CellModelInput, "featureId"> & {

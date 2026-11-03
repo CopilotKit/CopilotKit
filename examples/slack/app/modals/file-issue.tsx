@@ -6,8 +6,8 @@
  *  - Slack  → the rich form: text inputs + team/priority dropdowns + a type radio.
  *  - Discord→ text-only, ≤5 inputs (discord.js modals take only text inputs), so
  *             the dropdowns/radio drop out and `issueFromValues` applies defaults.
- *  - Telegram→ no modals at all; the `/file-issue` command (Task 5) detects the
- *             missing trigger and falls back to a conversational flow.
+ *  - Surfaces without modals use the `/file-issue` command's conversational
+ *    fallback when there is no modal trigger.
  */
 import {
   Modal,

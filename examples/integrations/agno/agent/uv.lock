@@ -542,7 +542,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "ag-ui-protocol", specifier = ">=0.1.8" },
-    { name = "agno", specifier = ">=1.7.8" },
+    { name = "agno", specifier = ">=2.3.3" },
     { name = "anthropic", specifier = ">=0.108.0,<1" },
     { name = "fastapi", specifier = ">=0.115.13" },
     { name = "google-genai", specifier = ">=2.29.0,<3" },

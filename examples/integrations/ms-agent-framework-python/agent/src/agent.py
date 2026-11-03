@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
+from contextvars import ContextVar
 from textwrap import dedent
-from typing import Annotated
+from typing import Annotated, Any
 
-from agent_framework import Agent, SupportsChatGetResponse, tool
+from agent_framework import Agent, ContextProvider, SupportsChatGetResponse, tool
 from agent_framework_ag_ui import AgentFrameworkAgent
 from pydantic import Field
 
@@ -65,6 +67,44 @@ def get_weather(
     )
 
 
+# What the page shares (`useAgentContext`) for the run in progress.
+_page_context: ContextVar[list[dict[str, Any]] | None] = ContextVar(
+    "page_context", default=None
+)
+
+
+class PageContextAgent(AgentFrameworkAgent):
+    """Make the run's AG-UI `context` available to `PageContextProvider`.
+
+    agent-framework-ag-ui only reads `context` for A2UI and does not add it to
+    the prompt itself, so without this the model never sees it.
+    """
+
+    async def run(self, input_data: dict[str, Any]) -> AsyncGenerator[Any, None]:
+        _page_context.set(input_data.get("context") or [])
+        async for event in super().run(input_data):
+            yield event
+
+
+class PageContextProvider(ContextProvider):
+    """Append the page's shared context to the agent's instructions."""
+
+    def __init__(self) -> None:
+        super().__init__("page_context")
+
+    async def before_run(self, *, context, **_: Any) -> None:
+        entries = _page_context.get()
+        if not entries:
+            return
+        shared = "\n\n".join(
+            f"{entry.get('description', '')}:\n{entry.get('value', '')}"
+            for entry in entries
+        )
+        context.extend_instructions(
+            self.source_id, f"Context provided by the application:\n\n{shared}"
+        )
+
+
 def create_agent(chat_client: SupportsChatGetResponse) -> AgentFrameworkAgent:
     """Instantiate the CopilotKit demo agent backed by Microsoft Agent Framework."""
     base_agent = Agent(
@@ -106,9 +146,10 @@ def create_agent(chat_client: SupportsChatGetResponse) -> AgentFrameworkAgent:
         # `go_to_moon` is a frontend-only tool registered by
         # `useHumanInTheLoop`. AG-UI adds it to each run automatically.
         tools=[update_proverbs, get_weather],
+        context_providers=[PageContextProvider()],
     )
 
-    return AgentFrameworkAgent(
+    return PageContextAgent(
         agent=base_agent,
         name="CopilotKitMicrosoftAgentFrameworkAgent",
         description="Manages proverbs, weather snippets, and human-in-the-loop moon launches.",

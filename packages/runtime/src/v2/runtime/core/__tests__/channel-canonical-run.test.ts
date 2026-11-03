@@ -478,6 +478,8 @@ test("runCanonical acquires the standard lock and uses the runner project key", 
     agentId: "support-agent",
     ttlSeconds: 20,
     channelDeliveryId: "dlv_delivery_1",
+    // A Channels delivery is one request, so its delivery id is the request id.
+    requestId: "dlv_delivery_1",
   });
   expect(request).not.toHaveProperty("authToken");
   // The thread id reaching the runner must stay the canonical product thread id,

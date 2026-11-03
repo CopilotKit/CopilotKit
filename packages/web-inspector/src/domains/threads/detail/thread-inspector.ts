@@ -47,10 +47,17 @@ import {
 } from "./thread-inspector-view.js";
 import type { PanelTemplateCacheEntries } from "./thread-inspector-view.js";
 import {
-  fetchRuntimeEvents,
-  fetchRuntimeMessages,
-  fetchRuntimeState,
+  loadThreadEvents,
+  loadThreadMessages,
+  loadThreadState,
 } from "./thread-runtime.js";
+import type {
+  InspectorHeadersResolver,
+  ThreadResourceRequest,
+} from "./thread-runtime.js";
+import { MessageRefreshScheduler } from "./message-refresh.js";
+import { findFocusedMessage, pulseMessage } from "./focus.js";
+import { DividerResize } from "./divider-resize.js";
 import {
   conversationRunErrors,
   streamingToolCallIds,
@@ -62,6 +69,9 @@ import { threadInspectorStyles } from "./thread-inspector.styles.js";
 
 export type { ThreadDetailsTab } from "./thread-inspector-model.js";
 
+// Sentinel identity: tells whether a host actually set `resolveHeaders`.
+const DEFAULT_RESOLVE_HEADERS: InspectorHeadersResolver = () => ({});
+
 export class CpkThreadInspector extends PortableLitElement {
   static properties = THREAD_INSPECTOR_PROPERTIES;
 
@@ -71,7 +81,14 @@ export class CpkThreadInspector extends PortableLitElement {
   provider: ThreadDebuggerProvider | null = null;
   thread: ThreadDebuggerMetadata | ɵThread | null = null;
   runtimeUrl = "";
+  /**
+   * @deprecated Set `resolveHeaders`, which resolves fresh headers at send
+   * time (#1937). Used only while `resolveHeaders` keeps its default.
+   */
   headers: Record<string, string> = {};
+  resolveHeaders: InspectorHeadersResolver = DEFAULT_RESOLVE_HEADERS;
+  /** Bumped only by a header-source change; never by a new header value. */
+  headersGeneration = 0;
   threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
@@ -130,13 +147,16 @@ export class CpkThreadInspector extends PortableLitElement {
   private _lastSeenLiveMessageVersion = 0;
   private _metadataAbort: AbortController | null = null;
   private _messagesAbort: AbortController | null = null;
+  private readonly _messageRefresh = new MessageRefreshScheduler(1_000);
   private _eventsAbort: AbortController | null = null;
   private _stateAbort: AbortController | null = null;
   private _hasConnectedOnce = false;
-  private _dividerResizing = false;
-  private _dividerPointerId = -1;
-  private _dividerStartX = 0;
-  private _dividerStartWidth = 0;
+  private readonly _divider = new DividerResize(
+    () => this._detailPanelWidth,
+    (width) => {
+      this._detailPanelWidth = width;
+    },
+  );
   private static nextDomId = 1;
   private readonly domIdPrefix = `cpk-thread-detail-${CpkThreadInspector.nextDomId++}`;
 
@@ -269,9 +289,8 @@ export class CpkThreadInspector extends PortableLitElement {
       this.liveMessageVersion !== this._lastSeenLiveMessageVersion
     ) {
       this._lastSeenLiveMessageVersion = this.liveMessageVersion;
-      this._messagesAbort?.abort();
-      this._messagesAbort = null;
-      void this.fetchMessages(this.threadId, true);
+      this._messageRefresh.request();
+      this.scheduleMessagesRefresh();
     }
 
     const focusedContentChanged =
@@ -295,28 +314,17 @@ export class CpkThreadInspector extends PortableLitElement {
 
   private scrollToFocusedMessage(): void {
     if (!this.focusMessageId) return;
-    const message = Array.from(
-      this.shadowRoot?.querySelectorAll<HTMLElement>(
-        `#${this.panelDomId(this._tab)}:not([hidden]) [data-message-id]`,
-      ) ?? [],
-    ).find((candidate) => candidate.dataset.messageId === this.focusMessageId);
+    const message = findFocusedMessage(
+      this.shadowRoot,
+      this.panelDomId(this._tab),
+      this.focusMessageId,
+    );
     if (!message) return;
     message.scrollIntoView?.({ block: "center" });
     this._scrolledFocusRequestId = this.focusRequestId;
-    this.pulseFocusedMessage(message);
-  }
-
-  private pulseFocusedMessage(message: HTMLElement): void {
     if (this.focusRequestId === this._highlightedFocusRequestId) return;
     this._highlightedFocusRequestId = this.focusRequestId;
-    message.classList.remove("cpk-td__focus-pulse");
-    void message.offsetWidth;
-    message.classList.add("cpk-td__focus-pulse");
-    message.addEventListener(
-      "animationend",
-      () => message.classList.remove("cpk-td__focus-pulse"),
-      { once: true },
-    );
+    pulseMessage(message);
   }
 
   connectedCallback(): void {
@@ -356,6 +364,7 @@ export class CpkThreadInspector extends PortableLitElement {
   }
 
   private resetLoadedThreadData(): void {
+    this._messageRefresh.reset();
     this._tab = "timeline";
     this._activatedTabs = new Set(["timeline"]);
     this._panelTplCache = new Map();
@@ -417,6 +426,7 @@ export class CpkThreadInspector extends PortableLitElement {
       if (!silent) this._conversation = [];
       return;
     }
+    this._messageRefresh.started();
     this._messagesAbort?.abort();
     const controller = new AbortController();
     const loadKey = createThreadLoadKey(this);
@@ -427,16 +437,10 @@ export class CpkThreadInspector extends PortableLitElement {
       this._messageRefreshError = null;
     }
     try {
-      const messages = this.provider?.getMessages
-        ? await this.provider.getMessages(threadId, {
-            signal: controller.signal,
-          })
-        : await fetchRuntimeMessages({
-            runtimeUrl: this.runtimeUrl,
-            threadId,
-            headers: this.headers,
-            signal: controller.signal,
-          });
+      const messages = await loadThreadMessages(
+        this.provider,
+        this.runtimeRequest(threadId, controller),
+      );
       if (!this.isCurrentLoad(controller, this._messagesAbort, loadKey)) return;
       this._conversation = adaptThreadMessages(messages);
       this._messagesError = null;
@@ -453,11 +457,50 @@ export class CpkThreadInspector extends PortableLitElement {
           "Could not refresh messages. Showing the last loaded conversation.";
       }
     } finally {
-      // A live refresh can replace the initial request before it finishes.
-      if (this.isCurrentLoad(controller, this._messagesAbort, loadKey)) {
-        this._loadingMessages = false;
+      // A stale provider may ignore abort and settle after a new source loads.
+      if (this._messagesAbort === controller) {
+        this._messagesAbort = null;
+        if (
+          !controller.signal.aborted &&
+          createThreadLoadKey(this) === loadKey
+        ) {
+          this._loadingMessages = false;
+          this.scheduleMessagesRefresh();
+        }
       }
     }
+  }
+
+  /** Starts a queued live refresh once no request is in flight. */
+  private scheduleMessagesRefresh(): void {
+    const threadId = this.threadId;
+    const loadKey = this._lastLoadKey;
+    const canRun = () =>
+      this.isConnected &&
+      !this._messagesAbort &&
+      !!threadId &&
+      this.canFetch("messages") &&
+      this._lastLoadKey === loadKey &&
+      createThreadLoadKey(this) === loadKey;
+    this._messageRefresh.schedule(canRun, () => {
+      if (threadId) void this.fetchMessages(threadId, true);
+    });
+  }
+
+  private runtimeRequest(
+    threadId: string,
+    controller: AbortController,
+  ): ThreadResourceRequest {
+    return {
+      runtimeUrl: this.runtimeUrl,
+      threadId,
+      signal: controller.signal,
+      // `resolveHeaders` when a host set it; else the deprecated `headers`.
+      resolveHeaders: () =>
+        this.resolveHeaders === DEFAULT_RESOLVE_HEADERS
+          ? this.headers
+          : this.resolveHeaders(),
+    };
   }
 
   private async fetchEvents(threadId: string): Promise<void> {
@@ -472,19 +515,10 @@ export class CpkThreadInspector extends PortableLitElement {
     this._loadingEvents = true;
     this._eventsError = null;
     try {
-      const result = this.provider?.getEvents
-        ? {
-            status: "available" as const,
-            events: await this.provider.getEvents(threadId, {
-              signal: controller.signal,
-            }),
-          }
-        : await fetchRuntimeEvents({
-            runtimeUrl: this.runtimeUrl,
-            threadId,
-            headers: this.headers,
-            signal: controller.signal,
-          });
+      const result = await loadThreadEvents(
+        this.provider,
+        this.runtimeRequest(threadId, controller),
+      );
       if (!this.isCurrentLoad(controller, this._eventsAbort, loadKey)) return;
       if (result.status === "not-available") {
         this._eventsNotAvailable = true;
@@ -518,19 +552,10 @@ export class CpkThreadInspector extends PortableLitElement {
     this._loadingState = true;
     this._stateError = null;
     try {
-      const result = this.provider?.getState
-        ? {
-            status: "available" as const,
-            state: await this.provider.getState(threadId, {
-              signal: controller.signal,
-            }),
-          }
-        : await fetchRuntimeState({
-            runtimeUrl: this.runtimeUrl,
-            threadId,
-            headers: this.headers,
-            signal: controller.signal,
-          });
+      const result = await loadThreadState(
+        this.provider,
+        this.runtimeRequest(threadId, controller),
+      );
       if (!this.isCurrentLoad(controller, this._stateAbort, loadKey)) return;
       if (result.status === "not-available") {
         this._stateNotAvailable = true;
@@ -632,34 +657,6 @@ export class CpkThreadInspector extends PortableLitElement {
     return this._fetchedMetadata ?? this.thread ?? null;
   }
 
-  private onDetailDividerDown = (event: PointerEvent): void => {
-    this._dividerResizing = true;
-    this._dividerPointerId = event.pointerId;
-    this._dividerStartX = event.clientX;
-    this._dividerStartWidth = this._detailPanelWidth;
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    event.preventDefault();
-  };
-
-  private onDetailDividerMove = (event: PointerEvent): void => {
-    if (!this._dividerResizing || this._dividerPointerId !== event.pointerId)
-      return;
-    const delta = this._dividerStartX - event.clientX;
-    this._detailPanelWidth = Math.max(
-      160,
-      Math.min(400, this._dividerStartWidth + delta),
-    );
-  };
-
-  private onDetailDividerUp = (event: PointerEvent): void => {
-    if (this._dividerPointerId !== event.pointerId) return;
-    const target = event.currentTarget as HTMLElement;
-    if (target.hasPointerCapture(this._dividerPointerId)) {
-      target.releasePointerCapture(this._dividerPointerId);
-    }
-    this._dividerResizing = false;
-  };
-
   render() {
     return renderThreadInspectorView({
       activeTab: this._tab,
@@ -671,9 +668,9 @@ export class CpkThreadInspector extends PortableLitElement {
       panelDomId: (id) => this.panelDomId(id),
       onActivateTab: (id) => this.activateTab(id),
       onTabKeyDown: (event, id) => this.handleTabKeyDown(event, id),
-      onDetailDividerDown: this.onDetailDividerDown,
-      onDetailDividerMove: this.onDetailDividerMove,
-      onDetailDividerUp: this.onDetailDividerUp,
+      onDetailDividerDown: this._divider.down,
+      onDetailDividerMove: this._divider.move,
+      onDetailDividerUp: this._divider.up,
       threadHeader: renderThreadHeader({
         title: this.showThreadTitle
           ? this.metadata?.name || this.thread?.name || "Rich Thread"

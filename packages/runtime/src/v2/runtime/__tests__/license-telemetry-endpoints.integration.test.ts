@@ -125,7 +125,7 @@ describe("license token → telemetry sink across endpoints/modes (integration)"
         thread: { id: "thread-1", name: null },
         created: false,
       }),
-      getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+      ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
       ɵacquireThreadLock: vi.fn().mockResolvedValue({
         threadId: "thread-1",
         runId: "run-1",

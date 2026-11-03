@@ -628,6 +628,7 @@ If a delegation's \`status\` field is \`"failed"\`, treat it as a real error: do
     options: {
       workingMemory: {
         enabled: true,
+        scope: "thread",
         schema: SubagentsAgentState,
       },
     },

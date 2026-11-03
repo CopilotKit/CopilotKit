@@ -4,13 +4,14 @@ import type { Logger } from "../types/index.js";
 import type { TypedEventBus } from "../events/event-bus.js";
 import type { HarnessRole } from "../fleet/role-config.js";
 import { registerDeployWebhook } from "./webhooks/deploy.js";
-import { registerProbesRoutes, type ProbesRouteDeps } from "./probes.js";
-import {
-  registerFleetRunsRoutes,
-  type FleetRunsRouteDeps,
-} from "./fleet-runs.js";
+import { registerProbesRoutes } from "./probes.js";
+import type { ProbesRouteDeps } from "./probes.js";
+import { registerFleetRunsRoutes } from "./fleet-runs.js";
+import type { FleetRunsRouteDeps } from "./fleet-runs.js";
 import { registerMatrixRoute } from "./matrix.js";
-import { renderPrometheus, type MetricsRegistry } from "./metrics.js";
+import { registerCompatibilityRoutes } from "./compatibility.js";
+import { renderPrometheus } from "./metrics.js";
+import type { MetricsRegistry } from "./metrics.js";
 
 export interface ServerDeps {
   pb: PbClient;
@@ -139,6 +140,12 @@ export function buildServer(deps: ServerDeps): Hono {
   // unconditionally — it is a pure read over `pb` (always on ServerDeps) with
   // no mutating route, matching /api/runs' exposure posture (§11.7).
   registerMatrixRoute(app, { pb: deps.pb, logger: deps.logger });
+  registerCompatibilityRoutes(app, {
+    pb: deps.pb,
+    logger: deps.logger,
+    secrets: deps.webhookSecrets ?? [],
+    environmentId: process.env.RAILWAY_ENVIRONMENT_ID,
+  });
 
   if (deps.metrics) {
     const registry = deps.metrics;

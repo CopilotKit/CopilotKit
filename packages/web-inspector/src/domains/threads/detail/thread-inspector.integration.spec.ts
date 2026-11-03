@@ -20,7 +20,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 type ThreadDetailsInternals = {
   threadId: string | null;
   runtimeUrl: string;
-  headers: Record<string, string>;
+  resolveHeaders: () =>
+    | Record<string, string>
+    | Promise<Record<string, string>>;
+  headersGeneration: number;
   threadInspectionAvailable: boolean;
   liveMessageVersion: number;
   provider: ThreadDebuggerProvider | null;
@@ -142,7 +145,7 @@ describe("ɵCpkThreadDetails caching", () => {
       const { el, internals } = createThreadDetails();
 
       internals.runtimeUrl = "http://localhost:4000";
-      internals.headers = { Authorization: "Bearer test-token" };
+      internals.resolveHeaders = () => ({ Authorization: "Bearer test-token" });
       internals.threadId = "t1";
       await el.updateComplete;
 
@@ -713,7 +716,8 @@ describe("CpkThreadInspector provider contract", () => {
     });
   });
 
-  it("refetches runtime thread data when headers change for the same thread", async () => {
+  it("resolves headers at send time but only reloads thread inspection on a headersGeneration change", async () => {
+    let token = "first";
     const fetchMock = vi.fn(
       (_url: string, init?: { headers?: Record<string, string> }) =>
         Promise.resolve(
@@ -748,7 +752,7 @@ describe("CpkThreadInspector provider contract", () => {
 
     internals.runtimeUrl = "http://runtime";
     internals.threadInspectionAvailable = true;
-    internals.headers = { Authorization: "Bearer first" };
+    internals.resolveHeaders = () => ({ Authorization: `Bearer ${token}` });
     internals.threadId = "thread-1";
     await flushProviderWork(el);
 
@@ -759,7 +763,18 @@ describe("CpkThreadInspector provider contract", () => {
       });
     });
 
-    internals.headers = { Authorization: "Bearer second" };
+    // Discriminating assertion first: a token rotation through the SAME
+    // builder identity, with no `headersGeneration` bump, must not reload
+    // (re-fetch) the already-loaded thread.
+    token = "second";
+    internals.resolveHeaders = () => ({ Authorization: `Bearer ${token}` });
+    await flushProviderWork(el);
+    expect(eventFetches()).toHaveLength(1);
+
+    // A `headersGeneration` bump (mirroring a real `core.setHeaders` source
+    // change) does reload, exactly once, and the reload's request resolves
+    // headers at send time (the current, rotated token).
+    internals.headersGeneration = 1;
     await flushProviderWork(el);
 
     await vi.waitFor(() => {
@@ -771,6 +786,10 @@ describe("CpkThreadInspector provider contract", () => {
     expect(eventFetches().at(-1)?.[1]?.headers).toMatchObject({
       Authorization: "Bearer second",
     });
+
+    // Settles: no extra reload trails behind.
+    await flushProviderWork(el);
+    expect(eventFetches()).toHaveLength(2);
   });
 
   it("loads runtime messages when event history is empty so timeline fallback and counts work", async () => {

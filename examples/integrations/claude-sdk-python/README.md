@@ -38,7 +38,8 @@ agent updates through the adapter's built-in `ag_ui_update_state` tool.
    ```
 
    The other values are optional and already set to sensible defaults:
-   `CLAUDE_MODEL=claude-sonnet-5` and `AGENT_URL=http://localhost:8000`.
+   `COPILOTKIT_AGENT_MODEL=anthropic:claude-sonnet-5` and `AGENT_URL=http://localhost:8000`.
+   This agent runs Anthropic models only.
 
 3. **Install dependencies:**
 
@@ -125,7 +126,7 @@ it) before treating the Channel as working.
     ├── pyproject.toml                     # Agent dependencies (managed by uv)
     └── src/
         ├── agent.py                       # The agent: backend tools → ClaudeAgentAdapter
-        ├── model.py                       # Model resolution (CLAUDE_MODEL)
+        ├── model.py                       # Model resolution (COPILOTKIT_AGENT_MODEL)
         ├── query.py                       # query_data tool
         ├── a2ui_fixed_schema.py           # search_flights tool (fixed A2UI schema)
         ├── a2ui_dynamic_schema.py         # generate_a2ui tool (LLM-designed dashboard)

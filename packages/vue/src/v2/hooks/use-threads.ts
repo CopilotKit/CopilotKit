@@ -133,13 +133,11 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
         ),
   );
 
-  const headersKey = computed(() =>
-    JSON.stringify(
-      Object.entries(copilotkit.value.headers ?? {}).sort(([left], [right]) =>
-        left.localeCompare(right),
-      ),
-    ),
-  );
+  // Keyed on the source's generation, not on header VALUES: a builder's
+  // returned token can change on every resolution without a new source ever
+  // being set, and this must not re-dispatch the thread context on that (see
+  // #1937).
+  const headersKey = computed(() => copilotkit.value.ɵheadersGeneration);
 
   const threads = ref<Thread[]>([]);
   const storeIsLoading = ref(false);
@@ -248,9 +246,12 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
         return;
       }
 
+      // No `headers` here: the store's `fetch` is `copilotkit.value.ɵruntimeFetch`,
+      // which already resolves and overlays the current core headers at send
+      // time (#1937) — a snapshot here would go stale the moment the builder
+      // returns something new.
       const context: ɵThreadRuntimeContext = {
         runtimeUrl,
-        headers: { ...copilotkit.value.headers },
         wsUrl,
         agentId,
         includeArchived,

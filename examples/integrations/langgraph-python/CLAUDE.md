@@ -127,10 +127,11 @@ The todo list uses **CopilotKit v2's agent state pattern** where state lives in 
 ```python
 from langchain.agents import create_agent
 from copilotkit import CopilotKitMiddleware
+from src.model import create_chat_model
 from src.todos import todo_tools, AgentState
 
 agent = create_agent(
-    model="gpt-5.2",
+    model=create_chat_model("openai:gpt-5.4-mini"),  # COPILOTKIT_AGENT_MODEL overrides it
     tools=[*todo_tools, ...],  # manage_todos, get_todos
     middleware=[CopilotKitMiddleware()],
     state_schema=AgentState,  # Defines state shape
@@ -225,7 +226,7 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
 ## Tech Stack
 
 - **Frontend**: Next.js 16, React 19, TailwindCSS 4
-- **Agent**: LangGraph (Python), OpenAI GPT-5.2
+- **Agent**: LangGraph (Python), the model in `COPILOTKIT_AGENT_MODEL` (default OpenAI gpt-5.4-mini)
 - **CopilotKit**: React hooks for agent integration (v2)
 - **Build**: npm with concurrently for parallel dev processes
 - **Other**: Recharts for generative UI examples
@@ -250,9 +251,9 @@ npm run build
 ### Environment Setup
 
 ```bash
-# Set OpenAI API key
 cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
+# Add the key of the model provider in .env. COPILOTKIT_AGENT_MODEL chooses
+# the provider and model, for example anthropic:claude-sonnet-4-5.
 ```
 
 ## Design Principles

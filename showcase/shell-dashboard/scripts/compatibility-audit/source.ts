@@ -75,6 +75,7 @@ export function captureSourceFiles(
   repo: string,
   fullSha: string,
   mapping: VariantMapping[],
+  roster: "all" | "selected" = "all",
 ): { path: string; body: string }[] {
   if (!isAbsolute(repo))
     throw new Error("Git repository path must be absolute");
@@ -109,7 +110,15 @@ export function captureSourceFiles(
   }
   const manifests = [...files.keys()].filter((path) => MANIFEST.test(path));
   const manifestSlugs = manifests.map((path) => MANIFEST.exec(path)![1]);
-  assertMappingCoverage(mapping, manifestSlugs);
+  if (roster === "all") assertMappingCoverage(mapping, manifestSlugs);
+  else {
+    for (const variant of mapping) {
+      if (!manifestSlugs.includes(variant.slug))
+        throw new Error(
+          `Integration is absent from deployed source: ${variant.slug}`,
+        );
+    }
+  }
 
   const paths = new Set<string>();
   for (const variant of mapping) {

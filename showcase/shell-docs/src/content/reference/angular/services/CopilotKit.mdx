@@ -51,7 +51,14 @@ All reactive state is exposed as read-only Angular signals. Read a signal by cal
 </PropertyReference>
 
 <PropertyReference name="headers" type="Signal<Record<string, string>>">
-  The HTTP headers currently sent with runtime requests.
+  The headers as of the last header source change (a `setHeaders`-style call
+  through `updateRuntime`), not necessarily current when `headers` is a
+  builder. It updates from `onHeadersChanged`, which fires only on a real
+  source change — never when a builder merely resolves a fresh token for a
+  request. With a builder this can read `{}` (or a stale record) between
+  source changes even though requests already carry the current token. For
+  the value a builder would resolve right now, call
+  `copilotKit.core.resolveHeaders()`.
 </PropertyReference>
 
 <PropertyReference name="credentials" type="Signal<RequestCredentials | undefined>">
@@ -184,6 +191,14 @@ All reactive state is exposed as read-only Angular signals. Read a signal by cal
   `runtimeUrl`, `runtimeTransport`, `headers`, and `credentials` also update the
   corresponding signals. `credentials` and `messageFilter` are applied whenever
   the key is present, so passing either as `undefined` clears it.
+
+  `headers` accepts a record, a sync builder, or an async builder — the same
+  as [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit).
+  Re-passing the same builder function is a no-op. On a user switch, call
+  `updateRuntime({ headers })` with a new function (or a record), or remount,
+  so Inspector metadata and thread lists reload for the new user (this does
+  not refetch the runtime's `/info`). Passing a record equal (by value) to
+  the currently applied one is also a no-op.
 </PropertyReference>
 
 ## Usage

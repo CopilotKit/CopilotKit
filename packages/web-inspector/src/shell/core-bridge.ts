@@ -80,3 +80,16 @@ export function getCoreStatusSummary(input: {
       input.lastErrorMessage ?? "Waiting for CopilotKit runtime to connect.",
   };
 }
+
+/**
+ * Resolve the attached core's request headers at send time. A core released
+ * before `resolveHeaders()` existed has only the static `headers` map, so an
+ * inspector attached to it falls back to a copy of that map.
+ */
+export function resolveAttachedCoreHeaders(
+  core: CopilotKitCore,
+): Record<string, string> | Promise<Record<string, string>> {
+  return typeof core.resolveHeaders === "function"
+    ? core.resolveHeaders()
+    : { ...core.headers };
+}

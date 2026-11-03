@@ -368,7 +368,7 @@ describe("CopilotKitCore headers", () => {
     });
   });
 
-  it("applies headers to remote agents fetched from runtime info", async () => {
+  it("applies headers to remote agents fetched from runtime info (headers now applied at send time, #1937)", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -394,16 +394,32 @@ describe("CopilotKitCore headers", () => {
 
     const remoteAgent = core.getAgent("remote") as HttpAgent | undefined;
     expect(remoteAgent).toBeDefined();
-    expect(remoteAgent?.headers).toMatchObject({
-      Authorization: "Bearer cfg",
-      "X-Team": "angular",
-    });
+
+    // Headers are no longer baked onto the agent at registration time (see
+    // #1937) — `ɵruntimeFetch` (installed as `agent.fetch`) adds the current
+    // core headers when the request is actually sent. Assert on the request.
+    await remoteAgent!.fetch("https://runtime.example/agent/remote/run", {});
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://runtime.example/agent/remote/run",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer cfg",
+          "X-Team": "angular",
+        }),
+      }),
+    );
 
     core.setHeaders({ Authorization: "Bearer updated" });
 
-    expect(remoteAgent?.headers).toMatchObject({
-      Authorization: "Bearer updated",
-    });
+    await remoteAgent!.fetch("https://runtime.example/agent/remote/run", {});
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://runtime.example/agent/remote/run",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer updated",
+        }),
+      }),
+    );
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://runtime.example/info",
@@ -497,7 +513,7 @@ describe("CopilotKitCore headers", () => {
     expect(core.headers).toEqual({ Authorization: "" });
   });
 
-  it("clears the header on remote agents fetched from runtime info", async () => {
+  it("clears the header on remote agents fetched from runtime info (headers now applied at send time, #1937)", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -525,12 +541,26 @@ describe("CopilotKitCore headers", () => {
     // Remote agents are ProxiedCopilotRuntimeAgent (which extends HttpAgent),
     // so the clear propagates to them the same way it does to local agents.
     expect(remoteAgent).toBeInstanceOf(ProxiedCopilotRuntimeAgent);
-    expect(remoteAgent.headers).toMatchObject({
-      Authorization: "Bearer token",
-    });
+
+    // Headers are no longer baked onto the agent at registration time (see
+    // #1937) — `ɵruntimeFetch` (installed as `agent.fetch`) adds the current
+    // core headers when the request is actually sent. Assert on the request.
+    await remoteAgent.fetch("https://runtime.example/agent/remote/run", {});
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://runtime.example/agent/remote/run",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer token",
+        }),
+      }),
+    );
 
     core.setHeaders({ Authorization: null });
 
-    expect("Authorization" in remoteAgent.headers).toBe(false);
+    await remoteAgent.fetch("https://runtime.example/agent/remote/run", {});
+    const [, lastInit] = fetchMock.mock.calls.at(-1)!;
+    expect(
+      new Headers((lastInit as RequestInit).headers).has("authorization"),
+    ).toBe(false);
   });
 });

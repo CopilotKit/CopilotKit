@@ -100,7 +100,7 @@ export interface Erosion {
  * `<showcaseRoot>/integrations/<slug>`), so a self-contained fixture tree with
  * its own `shared/` validates against ITS roots, not the repo's:
  *   tools / shared-tools → showcase/shared/{python,typescript}/tools (either)
- *   data                 → showcase/shared/python/data
+ *   data                 → showcase/shared/python/tools/data
  *   _shared              → showcase/integrations/_shared (the canonical dir the
  *                          per-slug `_shared` symlinks all point at)
  */
@@ -114,7 +114,7 @@ export function expectedTargets(
     return [path.join(integrationsDir, "_shared")];
   }
   if (linkName === "data") {
-    return [path.join(showcaseRoot, "shared", "python", "data")];
+    return [path.join(showcaseRoot, "shared", "python", "tools", "data")];
   }
   // tools / shared-tools: accept either language's shared tools dir; a slug uses
   // exactly one, but the guard doesn't need to know which — either is valid.

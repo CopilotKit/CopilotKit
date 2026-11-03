@@ -4,6 +4,7 @@ import type {
   Memory,
 } from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import type { InspectorLearningSnapshotV1 } from "@copilotkit/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebInspectorElement } from "../../index.js";
 import type { LearningState } from "./state.js";
@@ -534,5 +535,96 @@ describe("WebInspectorElement memories — tab telemetry + detach reset", () => 
     expect(learning.memoriesLoading).toBe(false);
     expect(learning.memoriesError).toBeNull();
     expect(learning.memoriesAvailable).toBe(true);
+  });
+});
+
+// ── 6.8  Learning request headers (#1937) ─────────────────────────────────
+//
+// The Learning request used to ALSO pass a separately resolved `headers:`
+// snapshot alongside `fetch: core.ɵruntimeFetch`, which already resolves and
+// overlays current headers at send time. That called the header builder twice
+// per request and could let a header the builder stopped returning ride along
+// on the static snapshot. `ɵruntimeFetch` is the ONLY thing that should
+// resolve headers for this request.
+
+describe("WebInspectorElement memories — Learning request headers", () => {
+  const configuredSnapshot: InspectorLearningSnapshotV1 = {
+    schemaVersion: 1,
+    projectKey: "project-safe-key",
+    snapshotVersion: "snapshot-results",
+    webAppOrigin: "https://intelligence.customer.example",
+    configuration: {
+      state: "configured",
+      container: { id: "container-1", name: "Checkout Assistant" },
+    },
+    pendingThreadCount: 0,
+    run: { hasActiveRun: false, hasEverSucceeded: true, latest: null },
+    pendingCandidateCount: 0,
+    skillsPage: { page: 1, pageSize: 3, total: 0, totalPages: 0, items: [] },
+    insightsPage: { page: 1, pageSize: 4, total: 0, totalPages: 0, items: [] },
+    links: {
+      learning: "https://intelligence.customer.example/learning",
+      candidates: null,
+      runs: null,
+    },
+  };
+
+  it("resolves headers once per Learning request through ɵruntimeFetch, and drops a header the builder stopped returning", async () => {
+    const state = { includeStaleKey: true };
+    const resolveHeadersSpy = vi.fn(() => ({
+      Authorization: "Bearer constant",
+      ...(state.includeStaleKey ? { "X-Old-Key": "stale" } : {}),
+    }));
+    const requests: Array<Record<string, string>> = [];
+    // Mirrors the real `ɵruntimeFetch` contract: resolve the current headers
+    // once, overlay them onto the request, then send it.
+    const runtimeFetch = vi.fn(
+      async (
+        _input: RequestInfo | URL,
+        init?: RequestInit,
+      ): Promise<Response> => {
+        const resolved = await resolveHeadersSpy();
+        requests.push({
+          ...(init?.headers as Record<string, string> | undefined),
+          ...resolved,
+        });
+        return new Response(JSON.stringify(configuredSnapshot), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    );
+    const core = Object.assign(makeCoreWithMemory([]), {
+      runtimeUrl: "https://runtime.customer.example/api/copilotkit",
+      runtimeTransport: "rest" as const,
+      inspectorLearning: true,
+      ɵruntimeFetch: runtimeFetch,
+      resolveHeaders: resolveHeadersSpy,
+    });
+
+    const el = await mountMemories(core);
+    await vi.waitFor(() => {
+      expect(requests.length).toBeGreaterThan(0);
+    });
+
+    // Discriminating assertion first: exactly one resolve per Learning
+    // request. A separately `await`-ed `headers:` snapshot on top of
+    // `ɵruntimeFetch`'s own resolve would call the builder twice per request.
+    expect(resolveHeadersSpy).toHaveBeenCalledTimes(requests.length);
+    expect(requests[0]?.["X-Old-Key"]).toBe("stale");
+    expect(requests[0]?.Authorization).toBe("Bearer constant");
+
+    state.includeStaleKey = false;
+    const requestsBeforeRefresh = requests.length;
+    await (
+      el as unknown as { refreshLearningSnapshot: () => Promise<void> }
+    ).refreshLearningSnapshot();
+
+    await vi.waitFor(() => {
+      expect(requests.length).toBeGreaterThan(requestsBeforeRefresh);
+    });
+    expect(resolveHeadersSpy).toHaveBeenCalledTimes(requests.length);
+    expect(requests.at(-1)?.["X-Old-Key"]).toBeUndefined();
+    expect(requests.at(-1)?.Authorization).toBe("Bearer constant");
   });
 });

@@ -255,7 +255,10 @@ export interface ThreadsViewModel {
   loadingWithoutRows: boolean;
   showingExamples: boolean;
   runtimeUrl: string;
-  headers: Readonly<Record<string, string>>;
+  resolveHeaders: () =>
+    | Record<string, string>
+    | Promise<Record<string, string>>;
+  headersGeneration: number;
   threadInspectionAvailable: boolean;
   liveMessageVersion: number;
   viewInAppMode: "hidden" | "view" | "stop";
@@ -366,7 +369,8 @@ export function renderThreadsView(
                       .thread=${selectedThread}
                       .provider=${model.provider}
                       .runtimeUrl=${model.runtimeUrl}
-                      .headers=${model.headers}
+                      .resolveHeaders=${model.resolveHeaders}
+                      .headersGeneration=${model.headersGeneration}
                       .threadInspectionAvailable=${model.threadInspectionAvailable}
                       .liveMessageVersion=${model.liveMessageVersion}
                       .viewInAppMode=${model.viewInAppMode}

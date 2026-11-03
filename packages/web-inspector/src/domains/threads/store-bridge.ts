@@ -135,15 +135,18 @@ export function ensureOwnedThreadStore(
   if (state.ownedThreadStores.has(agentId) || core.getThreadStore(agentId)) {
     return;
   }
-  const runtimeFetch =
-    typeof core.ɵruntimeFetch === "function"
-      ? core.ɵruntimeFetch
-      : globalThis.fetch;
-  const store = ɵcreateThreadStore({ fetch: runtimeFetch });
+  // `ɵruntimeFetch` already resolves and overlays the current core headers
+  // at send time (#1937), so the context must not also carry a `headers`
+  // snapshot: a header the source no longer returns would keep riding along.
+  // Only a core without `ɵruntimeFetch` needs the static snapshot.
+  const hasRuntimeFetch = typeof core.ɵruntimeFetch === "function";
+  const store = ɵcreateThreadStore({
+    fetch: hasRuntimeFetch ? core.ɵruntimeFetch : globalThis.fetch,
+  });
   store.start();
   store.setContext({
     runtimeUrl: core.runtimeUrl,
-    headers: { ...core.headers },
+    ...(hasRuntimeFetch ? {} : { headers: { ...core.headers } }),
     wsUrl: core.intelligence?.wsUrl,
     agentId,
   });
@@ -204,10 +207,13 @@ export function updateOwnedThreadStoreHeaders(
   endpointsAvailable: boolean,
 ): void {
   if (!endpointsAvailable || !core?.runtimeUrl) return;
+  // The context omits `headers` when `ɵruntimeFetch` resolves them at send
+  // time; re-dispatching it only triggers the store's refetch.
+  const hasRuntimeFetch = typeof core.ɵruntimeFetch === "function";
   for (const [agentId, store] of state.ownedThreadStores) {
     store.setContext({
       runtimeUrl: core.runtimeUrl,
-      headers: { ...headers },
+      ...(hasRuntimeFetch ? {} : { headers: { ...headers } }),
       wsUrl: core.intelligence?.wsUrl,
       agentId,
     });

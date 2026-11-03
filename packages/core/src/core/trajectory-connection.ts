@@ -12,6 +12,7 @@ import type {
 } from "@copilotkit/learning";
 import type { CopilotKitCore } from "./core";
 import type { CopilotRuntimeTransport } from "../types";
+import { abortable, isPromiseLike } from "./header-source";
 
 const TIMEOUT_MS = 10_000;
 const BATCH_INTERVAL_MS = 2_000;
@@ -246,7 +247,11 @@ export class TrajectoryConnection {
   stop(): void {
     const session = this.session;
     if (!session) return;
-    // Best effort only: stop stays synchronous and never waits for an ACK.
+    // Drain settled input while this session can still enqueue it, before the
+    // best-effort transport flush. Stop stays synchronous and never waits for ACK.
+    const collector = session.collector;
+    session.collector = undefined;
+    collector?.stop();
     if (session.ready && session.connection)
       this.flush(session, session.connection);
     this.end(session, { status: "error", code: "CANCELLED" });
@@ -387,8 +392,9 @@ export class TrajectoryConnection {
     } finally {
       if (socket) {
         socket.off(connection.socketRefs);
-        // A token is consumed on socket connection. Never let Phoenix reconnect
-        // this socket; a new attempt must first obtain a new Runtime grant.
+        // Phoenix's heartbeat timeout can schedule a reconnect after disconnect
+        // returns. Retire this one-use socket; recovery needs a fresh grant.
+        socket.connect = () => undefined;
         socket.disconnect();
       }
     }
@@ -401,15 +407,17 @@ export class TrajectoryConnection {
     retryable = true,
   ): void {
     if (!this.current(session, connection)) return;
-    session.collector?.stop();
-    session.collector = undefined;
     if (session.ready && session.started) {
       // A new start during recovery must await a fresh join, not an old success.
       session.promise = new Promise((resolve) => {
         session.resolve = resolve;
       });
     }
+    // Closing capture may drain a pending edit; it must not reach a failed
+    // connection or fill a batch while recovery is discarding queued events.
     session.ready = false;
+    session.collector?.stop();
+    session.collector = undefined;
     this.discardQueue(session);
     // A discarded or unconfirmed link is sent again on the next run.
     session.linkedThreads.clear();
@@ -464,6 +472,15 @@ export class TrajectoryConnection {
         if (!this.current(session, connection)) return;
       }
       const rest = transport === "rest";
+      // Resolved fresh, not the last snapshot: with a builder, `core.headers`
+      // is `{}` before the first request and an old token after that (#1937).
+      // Only an async builder is awaited, so a sync source still sends in the
+      // same tick.
+      const resolved = this.core.resolveHeaders();
+      const coreHeaders = isPromiseLike(resolved)
+        ? await abortable(resolved, connection.abort.signal)
+        : resolved;
+      if (!this.current(session, connection)) return;
       const response = await fetch(
         rest
           ? `${runtimeUrl}/trajectory/${encodeURIComponent(session.trajectoryId)}/connect`
@@ -472,7 +489,7 @@ export class TrajectoryConnection {
           method: "POST",
           redirect: "error",
           signal: connection.abort.signal,
-          headers: { ...this.core.headers, "Content-Type": "application/json" },
+          headers: { ...coreHeaders, "Content-Type": "application/json" },
           credentials: this.core.credentials,
           body: JSON.stringify(
             rest
@@ -631,7 +648,11 @@ export class TrajectoryConnection {
     connection: Connection,
     event: TrajectoryEvent,
   ): void {
-    if (!this.current(session, connection) || !session.ready) return;
+    if (!this.current(session, connection)) return;
+    if (!session.ready) {
+      this.addDropped(session, 1, false);
+      return;
+    }
     if (!this.connected(connection)) {
       this.addDropped(session, 1);
       this.fail(session, connection, "CONNECTION_LOST");

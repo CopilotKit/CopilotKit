@@ -5,21 +5,30 @@ Keep it updated whenever React parity work lands in `packages/vue`.
 
 ## Scope and source of truth
 
-- Scope: `packages/vue/**` only.
+- Primary implementation and parity-matrix scope: `packages/vue/**`. This file may point to executable Vue integration surfaces without duplicating their ownership data.
 - Canonical source: `packages/react-core/`, `packages/react-ui/`, `packages/react-textarea/`.
 - Goal: semantic parity plus high discoverability.
-- Current priority: package-only parity. Avoid upstream/shared changes outside the Vue package until the Vue port is ready to merge.
+- Current priority: package parity within the established Vue package, documentation, and Showcase integration boundaries. Avoid broad shared-policy changes.
 
 ## Package boundary and documentation placement
 
 - `@copilotkit/vue` follows the same single-package direction as `@copilotkit/react`.
 - Core hooks/providers/types and UI-facing rendering primitives should live in this package.
 - Keep scope aligned with React's package surface; avoid introducing a parallel `vue-ui` package split.
-- Do not add Vue-only hook/component pages to the shared `docs/` V2 reference unless the repository adopts an explicit Vue section there.
-- Keep user-facing package usage and API docs in `README.md`.
-- Keep user-facing visual docs/examples in `examples/v2/vue/storybook/**`.
+- Long-form user documentation and API reference belong in `showcase/shell-docs/`.
+- Keep `README.md` as the npm-facing package entry point for installation and concise usage.
+- Runnable visual examples belong to the Showcase Vue host and generated frontend catalogs; Storybook is not the canonical integration surface.
 - Keep parity policy, translation rules, checklist, and the living React-to-Vue matrix in this file.
-- Treat Storybook/demo parity as follow-up work outside this package unless the task explicitly enters a repo-wide parity phase.
+- Showcase coverage and build ownership live in `showcase/shared/frontend-registry.json`, the generated frontend catalogs, and the existing Showcase validation/build workflows. Link to those sources instead of duplicating cell counts, feature counts, or a second coverage table here.
+- Vue documentation governance: React root IA is canonical; Vue navigation is derived and filtered through frontend resolution; shared pages and Vue variants follow the established policy; automated tests, not a duplicated route table, verify parity.
+- Vue-local documentation exceptions preserve the shared AG-UI Streams, thread-import, and Inspector pages without changing other frontend policy, while keeping A2UI and detailed v1 material outside the accepted Vue surface.
+
+## Verification boundary
+
+- Package behavior is verified by the Vue package's Nx test, type-check, lint, and build targets as applicable.
+- Existing Showcase validation and build workflows provide automatic canonical-artifact, integration-image staging/build, and hosting-contract validation for relevant pull requests.
+- There is no full automatic Vue browser/runtime matrix on every pull request. Artifact and image-build success is not browser/runtime passing evidence.
+- Currently visible consumer type failures remain outside this passing evidence; this document does not suppress, allowlist, or redefine them.
 
 ## API compatibility policy
 
@@ -364,14 +373,14 @@ For package-level parity work, all items below are required before a ported Reac
 4. Code-level docs parity:
    New public hooks/composables include JSDoc on implementation with at least one usage example.
 5. Package docs parity:
-   User-facing Vue notes remain documented in `README.md`.
+   Concise npm-facing Vue notes remain documented in `README.md`; long-form user documentation and reference live in shell-docs.
 
-Out-of-package follow-up, when the repo enters repo-wide parity work:
+Executable integration follow-up for user-visible features:
 
 1. Visual parity:
-   Add or update the corresponding Vue Storybook story for user-visible features.
+   Add or update the corresponding runnable surface in the Showcase Vue host/catalog.
 2. Demo/example parity:
-   Add or update runnable Vue demo/example usage for user-visible features.
+   Update the Showcase-owned registry/catalog inputs without duplicating coverage data in this file.
 
 ## React -> Vue Parity Matrix
 
@@ -405,6 +414,7 @@ are all in the MCP Apps area: one `partial`, one `unmapped` and one `vue-only`.
 
 | React test/feature anchor                              | Vue counterpart                                       | Status  | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ------------------------------------------------------ | ----------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CopilotKitProvider.sandboxReplay.test.tsx`            | `CopilotKitProvider.sandboxReplay.test.ts`            | matched | Real provider registration and core restore path: original sandbox results, pending approval gating, saved completions, and ordinary-handler safety.                                                                                                                                                                                                                                                                                                                 |
 | `CopilotKitProvider.test.tsx`                          | `CopilotKitProvider.test.ts`                          | matched | Core provider behavior, including the development-only Inspector default, production and SSR guards, hydration-safe post-mount activation, legacy `showDevConsole` isolation, client-only loading, and pre-connection core binding.                                                                                                                                                                                                                                  |
 | `CopilotKitProvider.wildcard.test.tsx`                 | `CopilotKitProvider.wildcard.test.ts`                 | matched | Wildcard behavior parity.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `CopilotChatConfigurationProvider.test.tsx`            | `CopilotChatConfigurationProvider.test.ts`            | matched | Configuration provider parity.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -452,8 +462,8 @@ are all in the MCP Apps area: one `partial`, one `unmapped` and one `vue-only`.
 | React `CopilotChatInput.tsx` `bottomAnchored` prop + `CopilotChatView.tsx` main-overlay forwarding | `CopilotChatInput.bottomAnchored.test.ts`         | matched  | Dedicated Vue counterpart for the `P1` license-banner offset contract (no React test counterpart exists at this granularity, so the file documents the Vue-side contract directly). Verifies `padding-bottom: var(--copilotkit-license-banner-offset, 0px)` is applied on the `[data-testid="copilot-chat-input-container"]` when `positioning="absolute"`, when `bottomAnchored=true` with `positioning="static"`, and is **not** applied for the welcome-screen static input. Also asserts `CopilotChatView`'s main run-state input forwards `bottomAnchored=true`.                                                                                 |
 | React `CopilotChat.tsx` / `CopilotSidebar.tsx` / `CopilotPopup.tsx` inline feature-warning surface | `CopilotChat.licenseWarning.test.ts`              | matched  | Dedicated Vue counterpart for the `P1` inline license-warning parity surface. Mirrors React's `InlineFeatureWarning featureName="Chat"` / `"Sidebar"` / `"Popup"` rendering and `console.warn('[CopilotKit] Warning: "<feature>" feature is not licensed. Visit copilotkit.ai/pricing')` semantics. The default permissive `createLicenseContextValue(null)` path renders no warning; an explicit gated `LicenseContextKey` provided **inside** `CopilotKitProvider` (which itself re-`provide`s the permissive default) renders the inline warning + emits the matching console warning.                                                             |
 | `CopilotModalHeader.slots.e2e.test.tsx`                                                            | `CopilotModalHeader.slots.e2e.test.ts`            | matched  | Dedicated strict counterpart now mirrors React section/case structure (`24` cases) via Vue slot translation, including layout/drill-down and mixed integration scenarios.                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `CopilotPopupView.slots.e2e.test.tsx`                                                              | `CopilotPopupView.slots.e2e.test.ts`              | matched  | Dedicated strict counterpart now mirrors the full React section/case structure (`31` cases) across header slots, inherited chat-view slots, popup-specific props, integration, and toggle-button matrix.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `CopilotSidebarView.slots.e2e.test.tsx`                                                            | `CopilotSidebarView.slots.e2e.test.ts`            | matched  | Dedicated strict counterpart now mirrors the full React section/case structure (`25` cases) across header slots, inherited chat-view slots, width/mixed customization, integration, and toggle-button matrix.                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `CopilotPopupView.slots.e2e.test.tsx`                                                              | `CopilotPopupView.slots.e2e.test.ts`              | matched  | Dedicated strict counterpart now mirrors the full React section/case structure (`31` cases) across header slots, inherited chat-view slots, popup-specific props, integration, and toggle-button matrix. `CopilotPopupView` and `CopilotPopup` now forward every chat-view slot, including message-level slots such as `assistant-message` and `tool-call-<name>`.                                                                                                                                                                                                                                                                                    |
+| `CopilotSidebarView.slots.e2e.test.tsx`                                                            | `CopilotSidebarView.slots.e2e.test.ts`            | matched  | Dedicated strict counterpart now mirrors the full React section/case structure (`25` cases) across header slots, inherited chat-view slots, width/mixed customization, integration, and toggle-button matrix. `CopilotSidebarView` and `CopilotSidebar` now forward every chat-view slot, including message-level slots such as `assistant-message` and `tool-call-<name>`.                                                                                                                                                                                                                                                                           |
 
 ### Hooks and integration depth
 

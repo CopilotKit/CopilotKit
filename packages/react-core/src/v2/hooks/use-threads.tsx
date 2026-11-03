@@ -271,13 +271,7 @@ export function useThreads({
     ɵselectIsFetchingNextPage,
   );
   const isMutating = useThreadStoreSelector(store, ɵselectIsMutating);
-  const headersKey = useMemo(() => {
-    return JSON.stringify(
-      Object.entries(copilotkit.headers ?? {}).sort(([left], [right]) =>
-        left.localeCompare(right),
-      ),
-    );
-  }, [copilotkit.headers]);
+  const headersKey = copilotkit.ɵheadersGeneration;
   const runtimeStatus = copilotkit.runtimeConnectionStatus;
   const threadListEndpointSupported =
     copilotkit.threadEndpoints?.list !== false;
@@ -414,7 +408,6 @@ export function useThreads({
 
     const context: ɵThreadRuntimeContext = {
       runtimeUrl: copilotkit.runtimeUrl,
-      headers: { ...copilotkit.headers },
       wsUrl: copilotkit.intelligence?.wsUrl,
       agentId,
       includeArchived,

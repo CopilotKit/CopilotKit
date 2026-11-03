@@ -24,26 +24,22 @@ export function createProviderLoadKey(
   ].join("|");
 }
 
-export function createHeadersLoadKey(headers: Record<string, string>): string {
-  return JSON.stringify(
-    Object.entries(headers).sort(([leftKey], [rightKey]) =>
-      leftKey.localeCompare(rightKey),
-    ),
-  );
-}
-
 export function createThreadLoadKey(input: {
   threadId: string | null;
   provider: ThreadDebuggerProvider | null;
   runtimeUrl: string;
-  headers: Record<string, string>;
+  /**
+   * Bumped only when the header source changes. Header values are never part
+   * of the key, so a rotated token does not reload thread inspection.
+   */
+  headersGeneration: number;
   threadInspectionAvailable: boolean;
 }): string {
   return [
     input.threadId ?? "thread:none",
     createProviderLoadKey(input.provider),
     `runtime:${input.runtimeUrl}`,
-    `headers:${createHeadersLoadKey(input.headers)}`,
+    `headersGen:${input.headersGeneration}`,
     `inspect:${input.threadInspectionAvailable ? "1" : "0"}`,
   ].join("||");
 }

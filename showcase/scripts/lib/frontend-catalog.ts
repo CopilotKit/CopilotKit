@@ -79,7 +79,7 @@ export function generateFrontendCatalog(
   revisions: FrontendCatalogRevisionIdentity,
 ): FrontendCatalog {
   const frontends = frontendRegistry.frontends.filter(
-    (frontend) => frontend.feature_support_required,
+    (frontend) => frontend.runnable,
   );
   const cells: FrontendCatalogCell[] = [];
 
@@ -95,10 +95,13 @@ export function generateFrontendCatalog(
       const declaration =
         frontendRegistry.feature_support[backendCell.feature][frontend.id];
       if (declaration === undefined) {
-        throw new Error(
-          `feature "${backendCell.feature}" is missing required frontend ` +
-            `"${frontend.id}"`,
-        );
+        if (frontend.feature_support_required) {
+          throw new Error(
+            `feature "${backendCell.feature}" is missing required frontend ` +
+              `"${frontend.id}"`,
+          );
+        }
+        continue;
       }
       cells.push({
         id: `${frontend.id}/${backendCell.id}`,
@@ -108,9 +111,9 @@ export function generateFrontendCatalog(
         frontend_status: declaration.state,
         backend_status: backendCell.status,
         demo_route:
-          frontend.id === "angular"
-            ? `/angular/${backendCell.feature}`
-            : `/demos/${backendCell.feature}`,
+          frontend.id === "react"
+            ? `/demos/${backendCell.feature}`
+            : `/${frontend.id}/${backendCell.feature}`,
         fixture_identity: backendCell.id,
         ...revisions,
         runnable:

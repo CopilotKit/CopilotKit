@@ -1,6 +1,10 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useRenderTool } from "./use-render-tool";
+import {
+  ToolCallGroupContext,
+  ToolCallRow,
+} from "../components/chat/CopilotChatToolCallGroup";
 
 export type DefaultRenderProps = {
   /** The name of the tool being called. */
@@ -128,6 +132,12 @@ export function adaptRendererProps(
 export function useDefaultRenderTool(
   config?: {
     render?: (props: DefaultRenderProps) => React.ReactElement | null;
+    /**
+     * Let the chat group calls your `render` draws, like it groups the
+     * built-in card's (see `toolCallDisplay` on `CopilotChatMessageView`).
+     * Off by default for a custom `render`, since it may draw nothing.
+     */
+    group?: boolean;
   },
   deps?: ReadonlyArray<unknown>,
 ): void {
@@ -150,6 +160,8 @@ export function useDefaultRenderTool(
       // adapts to the documented shape and may return `null`. We cast through
       // `unknown` to bridge both gaps without `as any`.
       render: registered as unknown as (props: unknown) => React.ReactElement,
+      // The built-in card draws a row inside a group; a custom render opts in.
+      group: userRender ? config?.group === true : true,
     },
     deps,
   );
@@ -186,10 +198,38 @@ export function DefaultToolCallRenderer({
   status,
   result,
 }: DefaultRenderProps): React.ReactElement {
+  const group = useContext(ToolCallGroupContext);
   const [isExpanded, setIsExpanded] = useState(false);
 
   const isActive = status === "inProgress" || status === "executing";
   const isComplete = status === "complete";
+
+  // Inside a group of calls, a row that fits the group instead of a card.
+  if (group) {
+    return (
+      <ToolCallRow
+        data-testid="copilot-tool-render"
+        data-tool-name={name}
+        data-tool-call-id={toolCallId}
+        data-status={status}
+        data-args={safeStringifyForAttr(parameters)}
+        data-result={safeStringifyForAttr(result)}
+        name={name}
+        parameters={parameters}
+        result={result}
+        status={
+          isComplete
+            ? group.failedIds.has(toolCallId)
+              ? "failed"
+              : "done"
+            : group.active
+              ? "running"
+              : "stopped"
+        }
+        appearance={group.appearance}
+      />
+    );
+  }
 
   const statusLabel = isActive ? "Running" : isComplete ? "Done" : status;
   const dotClassName = isActive

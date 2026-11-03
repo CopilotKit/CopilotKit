@@ -76,7 +76,11 @@ interface CopilotKitCoreSubscriber {
 </PropertyReference>
 
 <PropertyReference name="onHeadersChanged" type="(event) => void | Promise<void>">
-  Fired when the request headers change. Event: `{ copilotkit, headers }`.
+  Fired when `setHeaders` accepts a real change — a record whose normalized
+  values differ, a new builder function, or a record↔builder switch. Not
+  fired when a builder merely resolves a fresh token for a request (a token
+  rotation on its own never triggers this callback). Event:
+  `{ copilotkit, headers }`.
 </PropertyReference>
 
 <PropertyReference name="onInspectorMetadataChanged" type="(event) => void | Promise<void>">

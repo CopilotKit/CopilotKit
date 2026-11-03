@@ -49,3 +49,28 @@ def resolve_model(default_spec: str) -> str | BaseLlm:
     if provider == "google":
         return model
     return LiteLlm(model=f"{provider}/{model}")
+
+
+# The key each provider reads. Google's SDKs also accept GEMINI_API_KEY.
+_API_KEYS = {
+    "openai": ("OPENAI_API_KEY",),
+    "anthropic": ("ANTHROPIC_API_KEY",),
+    "google": ("GOOGLE_API_KEY", "GEMINI_API_KEY"),
+}
+
+
+def warn_if_api_key_missing(default_spec: str) -> None:
+    """Print a startup warning naming the chosen provider's key, if it is unset.
+
+    Args:
+        default_spec: The agent's default when ``COPILOTKIT_AGENT_MODEL`` is unset.
+    """
+    provider, _ = parse_agent_model(
+        (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec
+    )
+    names = _API_KEYS[provider]
+    if not any(os.getenv(name) for name in names):
+        print(f"⚠️  Warning: {names[0]} environment variable not set!")
+        print(f"   Add {names[0]} to the .env file, or set COPILOTKIT_AGENT_MODEL")
+        print("   to a provider whose key you have.")
+        print()

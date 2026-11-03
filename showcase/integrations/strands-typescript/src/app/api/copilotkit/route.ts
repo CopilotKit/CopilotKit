@@ -126,6 +126,7 @@ const agentNames = [
 // pauses natively; the reasoning demos need the Responses API with reasoning
 // summaries, which the shared chat-completions agent does not emit.
 const dedicatedAgentPaths: Record<string, string> = {
+  "beautiful-chat": "/beautiful-chat/",
   "gen-ui-interrupt": "/interrupt/",
   "interrupt-headless": "/interrupt/",
   "reasoning-default": "/reasoning/",

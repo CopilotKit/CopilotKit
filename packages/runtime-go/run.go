@@ -252,7 +252,7 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 			return
 		}
 	}
-	history, e := r.platform(req.Context(), "GET", "/api/threads/"+url.PathEscape(canonicalThread)+"/messages?userId="+url.QueryEscape(u.ID), nil, nil)
+	history, e := r.platform(req.Context(), "GET", "/api/threads/"+url.PathEscape(canonicalThread)+"/messages?userId="+url.QueryEscape(u.ID)+"&fields=id", nil, nil)
 	if e != nil {
 		cleanup()
 		bad(w, 502, "Thread history lookup failed")

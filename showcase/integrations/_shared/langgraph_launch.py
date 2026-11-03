@@ -11,10 +11,10 @@ from langgraph_api.cli import run_server
 
 
 def main() -> None:
-    # langgraph-cli 0.4.21 drops disable_persistence during validation, then
+    # langgraph-cli 0.4.34 drops disable_persistence during validation, then
     # passes False to run_server and overrides the exported environment flag.
     # Keep this forwarding in step with the pinned CLI if either API changes.
-    expected = {"langgraph-cli": "0.4.21", "langgraph-api": "0.7.101"}
+    expected = {"langgraph-cli": "0.4.34", "langgraph-api": "0.16.0"}
     for package, pinned in expected.items():
         installed = version(package)
         if installed != pinned:
@@ -61,6 +61,11 @@ def main() -> None:
                 webhooks=config.get("webhooks"),
                 checkpointer=config.get("checkpointer"),
                 disable_persistence=True,
+                # run_server defaults to one background worker. langgraph-api
+                # 0.7.101 loaded its config before applying that and so ran
+                # the config default of 10; 0.16 applies it, serializing every
+                # run until probes time out. Keep the concurrency explicit.
+                n_jobs_per_worker=10,
             )
         finally:
             os.chdir(cwd)

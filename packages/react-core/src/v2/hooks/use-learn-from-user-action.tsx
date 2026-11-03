@@ -101,7 +101,9 @@ export function useLearnFromUserAction(): UseLearnFromUserActionRecorder {
       return recordAnnotation({
         fetch: copilotkit.ɵruntimeFetch,
         runtimeUrl,
-        headers: copilotkit.headers ?? {},
+        // ɵruntimeFetch already resolves and overlays the current core
+        // headers at send time (#1937); no snapshot to pass here.
+        headers: {},
         type: "user_action",
         payload: Object.keys(payload).length > 0 ? payload : undefined,
         threadId: input.threadId,

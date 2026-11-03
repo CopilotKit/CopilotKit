@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 64 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 65 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -63,11 +63,11 @@ AI-powered canvas applications with visual card interfaces, real-time state sync
 | [gemini](./canvas/gemini/)                           | Open Gemini Canvas — post generator and stack analyzer agents (Gemini + LangGraph)      |
 | [mastra-pm](./canvas/mastra-pm/)                     | CopilotKit v2 + Mastra project manager — shared project state and tool UI               |
 
-## Showcases (33)
+## Showcases (34)
 
 Full-featured demo applications highlighting CopilotKit capabilities in real-world scenarios.
 
-### Current showcases (25)
+### Current showcases (26)
 
 | Example                                                                 | Description                                                                                                         |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -96,6 +96,7 @@ Full-featured demo applications highlighting CopilotKit capabilities in real-wor
 | [todo](./showcases/todo/)                                               | Simple todo app built with CopilotKit                                                                               |
 | [strands-crm](./showcases/strands-crm/)                                 | Enterprise sales CRM — dashboard, pipeline, products, quotes, reports & agentic canvas (TypeScript Strands + AG-UI) |
 | [manufact-mcp-apps](./showcases/manufact-mcp-apps/)                     | Built-in Agent rendering an MCP App built with Manufact's mcp-use SDK (inline Leaflet map)                          |
+| [antigravity-repo-doctor](./showcases/antigravity-repo-doctor/)         | Google Antigravity agent that fixes failing CI and proves the fix, with approval cards, a diff card and A2UI tests  |
 
 ### Retired hosted demos (8)
 

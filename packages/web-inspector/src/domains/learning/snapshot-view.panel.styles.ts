@@ -292,7 +292,9 @@ export const learningSnapshotPanelStyles = css`
     text-align: left;
   }
   .evidence-link {
+    box-sizing: border-box;
     width: 100%;
+    text-decoration: none;
     cursor: pointer;
   }
   .evidence-link span {
@@ -302,6 +304,40 @@ export const learningSnapshotPanelStyles = css`
   .evidence-unavailable {
     color: var(--learning-muted-strong);
     font-style: italic;
+  }
+  .evidence-coverage {
+    margin: 12px 0 0;
+    color: var(--learning-muted-strong);
+    font-size: 11px;
+  }
+  .evidence-group-heading {
+    margin: 6px 0 0;
+    color: var(--learning-muted-strong);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .evidence-group-heading:first-child {
+    margin-top: 0;
+  }
+  .evidence-id {
+    color: var(--learning-muted-strong);
+    font:
+      10px ui-monospace,
+      SFMono-Regular,
+      Menlo,
+      monospace;
+  }
+  .evidence-more {
+    justify-self: start;
+    padding: 2px 0;
+    color: var(--learning-purple-dark);
+    background: none;
+    border: 0;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
   }
   .pagination {
     display: flex;

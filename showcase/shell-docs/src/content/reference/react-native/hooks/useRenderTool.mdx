@@ -140,13 +140,12 @@ useRenderTool<S extends StandardSchemaV1>(
   the renderer re-registers — it does not re-read the latest closure on every
   render.
 
-  `deps` are compared by **serializing the whole array with `JSON.stringify`**,
-  not by reference identity the way React's own `useEffect` compares. So `deps`
-  is a working remedy only for values JSON can represent: strings, numbers,
-  booleans, `null`, `Date`, and plain objects or arrays of those. A function,
-  `Map`, `Set`, symbol, or class instance serializes to the same constant on
-  every render, so listing one never re-registers anything. See [Values `deps`
-  cannot see](#values-deps-cannot-see) for what to do with those.
+  `deps` compares plain data (strings, numbers, booleans, `null`, dates, and
+  plain objects and arrays of those) by value, so an inline literal such as
+  `[{ status }]` re-registers only when its contents change. A function never counts as changed, as before, so keep a changing callback
+  in a ref. Class instances and other objects compare by identity, so a
+  circular value such as the `agent` from `useAgent` is safe to pass. Adding or removing an entry counts as a change. See [Dependency
+  comparison](#dependency-comparison).
 </PropertyReference>
 
 ### `RenderToolProps<S>`
@@ -333,27 +332,33 @@ renderer of its own.
 - **`render` is captured at registration.** It is not refreshed on every render
   — only when the renderer re-registers, which happens when `name` changes or
   when `deps` compare as changed. If your `render` closes over component state
-  or props that change over time, list a JSON-comparable form of them in `deps`,
-  or read them through a ref (see [below](#values-deps-cannot-see)); otherwise
+  or props that change over time, list them in `deps`, or read them through a
+  ref (see [below](#dependency-comparison)); otherwise
   the chat keeps invoking the stale closure and paints outdated UI.
 - **No cleanup on unmount.** The renderer entry is deliberately kept, so tool
   calls already in the chat history still render after you navigate away.
 
-### Values `deps` cannot see
+### Dependency comparison
 
-The hook decides whether to re-register by comparing
-[`JSON.stringify(deps)`](https://github.com/CopilotKit/CopilotKit/blob/main/packages/react-core/src/v2/hooks/use-render-tool.tsx)
-against the previous render's. Serialization, not reference identity, is the
-comparison — which has consequences worth knowing before you reach for `deps`:
+The hook reduces `deps` to a version number
+([source](https://github.com/CopilotKit/CopilotKit/blob/main/packages/react-core/src/v2/hooks/tool-registration.ts))
+and never serializes it:
 
-- **Non-serializable deps are inert.** Inside the array, a function or symbol serializes to `null`, and a `Map`, a `Set`, or a class instance keeping its state in private fields or getters serializes to `{}` — the same string on every render, forever. Listing a callback or a `Map` in `deps` type-checks, reads like a fix, and re-registers nothing.
-- **Circular values throw.** `JSON.stringify` raises a `TypeError` while the hook renders, so a dep with a cycle in it crashes the screen instead of failing quietly.
-- **Key order counts.** Two plain objects holding the same entries in a different insertion order serialize differently and *do* re-register, even though nothing meaningful changed.
+- Plain data compares by value: strings, numbers, booleans, `null`,
+  `undefined`, dates, and plain objects and arrays of those. An inline literal
+  such as `[{ status }]` or `[items.filter(isOpen)]` re-registers only when its
+  contents change. Key order does not matter.
+- A function never counts as changed, as before: a new callback in `deps`
+  does not re-register the tool. Read a changing callback through a ref (below).
+- Class instances, `Map`, `Set` and other non-plain objects compare by
+  identity.
+- A circular value, such as the `agent` returned by `useAgent`, is safe to list.
+  A cycle inside plain data is safe too.
+- Adding or removing an entry counts as a change.
 
-For a value JSON cannot compare, do not put it in `deps` — it will not work.
-Either derive a primitive that tracks the change (`[selection.size]` rather than
-`[selection]`), or keep the value in a ref that `render` dereferences when it
-runs:
+When what changes is behavior rather than displayed data, a ref avoids
+re-registering at all. Keep the value in a ref that `render` dereferences when
+it runs:
 
 ```tsx
 function SeatPicker({ onSelect }: { onSelect: (id: string) => void }) {

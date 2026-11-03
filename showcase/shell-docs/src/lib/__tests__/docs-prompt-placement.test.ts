@@ -13,7 +13,7 @@ test("body prompts take precedence, including prompts inherited from snippets", 
     "intelligence/quickstart",
     "webmcp",
     "backend/runtime-endpoints",
-    "threads",
+    "AG-UI-Streams",
     "headless-threads",
     "channels/index",
   ]) {

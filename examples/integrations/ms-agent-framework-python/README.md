@@ -46,8 +46,11 @@ This is a starter template for building CopilotKit experiences using the [Micros
 
    ```
    OPENAI_API_KEY=sk-...your-openai-key-here...
-   OPENAI_CHAT_MODEL_ID=gpt-4o-mini
    ```
+
+   The model comes from `COPILOTKIT_AGENT_MODEL` in the root `.env` (copy
+   `.env.example`), for example `anthropic:claude-sonnet-4-5` with
+   `ANTHROPIC_API_KEY`. The agent reads `agent/.env` first, then the root `.env`.
 
    **Azure OpenAI**
 

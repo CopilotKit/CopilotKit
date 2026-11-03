@@ -95,14 +95,12 @@ function useFrontendTool<T extends Record<string, unknown>>(
   value your `handler` or `render` captures and that changes over time — both are
   captured at registration, not re-read on every render.
 
-  Despite the shape, this is **not** compared the way `useEffect` compares
-  dependencies. `useEffect` compares each element with `Object.is`; this hook
-  serialises the whole array with `JSON.stringify` and compares the resulting
-  string. Only JSON-representable values compare reliably — a function, a `Map`,
-  a `Set` or a `#private`-field class instance is invisible to it, and a circular
-  value throws during render. See [Dependency
-  comparison](#dependency-comparison) for the exact rules and the two patterns
-  that do work.
+  `deps` compares plain data (strings, numbers, booleans, `null`, dates, and
+  plain objects and arrays of those) by value, so an inline literal such as
+  `[{ status }]` re-registers only when its contents change. A function never counts as changed, as before, so keep a changing callback
+  in a ref. Class instances and other objects compare by identity, so a
+  circular value such as the `agent` from `useAgent` is safe to pass. Adding or removing an entry counts as a change. See [Dependency
+  comparison](#dependency-comparison).
 </PropertyReference>
 
 ## Usage
@@ -305,59 +303,32 @@ string is rejected there without any annotation.
 
 - **Duplicate detection**: If a tool with the same `name` is already registered, the hook logs a warning. Only one tool per name is active at a time.
 - **Mount/Unmount lifecycle**: The tool and its optional render component are registered on mount and removed on unmount.
-- **Dependency tracking**: When `deps` is provided, the registration is refreshed whenever the **serialised** array changes — `JSON.stringify(deps)`, not `useEffect`'s per-element `Object.is`. See [Dependency comparison](#dependency-comparison) below; the difference is load-bearing.
-- **Handler and render are captured at registration**: Neither closure is re-read on every render. A value your `handler` or `render` reads from component state or props is frozen at whatever it was when the tool was last registered, so it must be declared in `deps` (subject to the comparison rules below).
+- **Dependency tracking**: When `deps` is provided, the registration is refreshed whenever a dependency changes. Plain data compares by value; functions and other objects compare by identity. See [Dependency comparison](#dependency-comparison) below.
+- **Handler and render are captured at registration**: Neither closure is re-read on every render. A value your `handler` or `render` reads from component state or props is frozen at whatever it was when the tool was last registered, so it must be declared in `deps`.
 - **Render component lifecycle**: If a `render` function is provided, it is added to the internal render tool calls registry. It receives streaming `args` (partial during `InProgress`, complete during `Executing` and `Complete`).
 - **`render`'s return type is `ReactNode`, not `ReactElement | null`**: a bare string typechecks and then throws in the chat's `FlatList`. Annotate the renderer with [`FrontendToolRenderFunction<T>`](#the-render-type-react-native-needs) to have the compiler reject it.
 - **No return value**: The hook returns `void`.
 
 ## Dependency comparison
 
-The registration effect's real dependency list is
-`[tool.name, tool.available, copilotkit, JSON.stringify(extraDeps)]`
-(`packages/react-core/src/v2/hooks/use-frontend-tool.tsx:45`, where `extraDeps`
-is your `deps ?? []`). Your array reaches React as **one serialised string**, so
-the reference identity that `useEffect` compares never enters into it.
+The hook reduces `deps` to a version number and puts only that number in its
+registration effect (`packages/react-core/src/v2/hooks/tool-registration.ts`).
+`deps` is never serialized. Each entry is compared with the previous render's:
 
-What that means in practice — the middle column is actual `JSON.stringify` output
-for the value wrapped in an array:
+- Plain data compares by value: strings, numbers, booleans, `null`,
+  `undefined`, dates, and plain objects and arrays of those. An inline literal
+  such as `[{ status }]` or `[items.filter(isOpen)]` re-registers only when its
+  contents change. Key order does not matter.
+- A function never counts as changed, as before: a new callback in `deps`
+  does not re-register the tool. Read a changing callback through a ref (below).
+- Class instances, `Map`, `Set` and other non-plain objects compare by
+  identity.
+- A circular value, such as the `agent` returned by `useAgent`, is safe to list.
+  A cycle inside plain data is safe too.
+- Adding or removing an entry counts as a change.
 
-| Value in `deps`                                                         | Serialises to                      | Effect                                                                 |
-| ----------------------------------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------- |
-| Primitives: `string`, `number`, `boolean`, `null`                       | themselves                         | Compared correctly. Prefer these.                                      |
-| A function                                                              | `null`                             | **Never re-registers** — every function serialises identically.         |
-| `undefined`, a `Symbol`                                                 | `null`                             | **Never re-registers.**                                                |
-| `new Map([["a", 1]])`, `new Set([1, 2, 3])`                             | `{}`                               | **Never re-registers** — an empty and a populated `Map` compare equal.  |
-| Class instance with own enumerable fields (`this.n = n`)                | `{"n":1}`                          | Compared correctly.                                                    |
-| Class instance whose state is in `#private` fields                      | `{}`                               | **Never re-registers.**                                                |
-| Class instance whose state is behind a prototype getter                 | `{}` (only own fields appear)      | **Never re-registers** on the getter's value.                           |
-| `{ x: 1, y: 2 }` vs `{ y: 2, x: 1 }`                                    | `{"x":1,"y":2}` vs `{"y":2,"x":1}` | Re-registers even though the objects are equivalent — key order counts. |
-| A circular object, a `BigInt`                                           | throws `TypeError`                 | **Crashes the component** — see below.                                 |
-
-<Callout type="warn">
-  A circular value in `deps` is not a silent bug. `JSON.stringify` throws
-  `TypeError: Converting circular structure to JSON` while the component is
-  rendering, which takes the component down. Never put a value that may
-  reference itself — a graph node, a parent-linked tree, a store instance — into
-  `deps`. A `BigInt` throws the same way (`Do not know how to serialize a
-  BigInt`).
-</Callout>
-
-### Passing values that do not serialise
-
-Two patterns work.
-
-**Derive a primitive** that changes exactly when the thing you care about
-changes, and put that in `deps`:
-
-```tsx
-// Not `[items]`, `[cache]`, `[onSubmit]` — those are invisible or unstable.
-useFrontendTool({ ...tool }, [items.length, cache.size, selectedId, revision]);
-```
-
-**Or keep the value out of `deps` and read it through a latest-value ref.** The
-registration stays stable while the closure always sees the current value. This
-is the only option for a changing callback, which `deps` cannot detect at all:
+To keep the registration stable while the closure always sees the current
+value, keep the value out of `deps` and read it through a latest-value ref:
 
 ```tsx
 import { useEffect, useRef } from "react";
@@ -384,9 +355,7 @@ function DraftTool({ onSubmit }: { onSubmit: () => Promise<string> }) {
 }
 ```
 
-The same ref pattern applies to a `render` component that needs live state, and
-to any `Map`, `Set` or class instance you would otherwise have been tempted to
-list in `deps`.
+The same ref pattern applies to a `render` component that needs live state.
 
 ## Related
 

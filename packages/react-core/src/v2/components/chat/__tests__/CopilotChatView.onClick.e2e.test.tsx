@@ -122,10 +122,11 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
     describe("input -> sendButton onClick", () => {
       it("should handle onClick on sendButton via input props drill-down", () => {
         const onClick = vi.fn();
-        const { container } = render(
+        render(
           <TestWrapper>
             <CopilotChatView
               messages={createMessages()}
+              onSubmitMessage={vi.fn()}
               input={{
                 sendButton: { onClick },
               }}
@@ -133,14 +134,12 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
           </TestWrapper>,
         );
 
-        // Find send button by aria-label or common patterns
-        const sendBtn =
-          container.querySelector('button[aria-label*="Send"]') ||
-          container.querySelector('button[type="submit"]');
-        if (sendBtn) {
-          fireEvent.click(sendBtn);
-          expect(onClick).toHaveBeenCalled();
-        }
+        // The send button is enabled once the composer holds text.
+        fireEvent.change(screen.getByRole("textbox"), {
+          target: { value: "Hello" },
+        });
+        fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+        expect(onClick).toHaveBeenCalled();
       });
     });
 

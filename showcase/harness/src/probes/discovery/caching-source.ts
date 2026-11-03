@@ -85,6 +85,11 @@ export function cacheKey(config: unknown, logger?: Logger): string {
  *     bug — no cache serve).
  *   - Concurrent calls with the same config collapse into a single
  *     upstream `enumerate` call; all joiners share the same promise.
+ *   - Fresh-only source calls invalidate that config's cache, never store
+ *     their results, and never join in-flight calls. Error types and auth
+ *     tracking are preserved, but no failure can serve an old roster.
+ *     Invalidation also revokes earlier calls' cache access and joins;
+ *     those calls may still return their own upstream result.
  */
 export function withCache<T>(
   source: DiscoverySource<T>,
@@ -92,25 +97,36 @@ export function withCache<T>(
 ): DiscoverySource<T> {
   const cache = new Map<string, CacheEntry<T>>();
   const inflight = new Map<string, Promise<T[]>>();
+  const generations = new Map<string, symbol>();
   const now = opts.now ?? (() => Date.now());
 
   return {
     name: source.name,
     configSchema: source.configSchema,
+    cachePolicy: source.cachePolicy,
 
     enumerate(ctx: DiscoveryContext, config: unknown): Promise<T[]> {
       const key = cacheKey(config, opts.logger);
+      const allowStale = source.cachePolicy?.(ctx) !== "fresh-only";
+      if (!allowStale) {
+        generations.set(key, Symbol());
+        cache.delete(key);
+        inflight.delete(key);
+      }
+      const generation = generations.get(key);
+      const canUseCache = () =>
+        allowStale && generations.get(key) === generation;
 
       // Concurrent collapse: if an identical call is already in flight,
       // join it rather than issuing a second upstream request.
-      const existing = inflight.get(key);
+      const existing = allowStale ? inflight.get(key) : undefined;
       if (existing) return existing;
 
       const pipeline = (async () => {
         try {
           const results = await source.enumerate(ctx, config);
           const ts = now();
-          cache.set(key, { results, fetchedAt: ts });
+          if (canUseCache()) cache.set(key, { results, fetchedAt: ts });
 
           // Eviction sweep: remove entries that are 2x past TTL.
           // The map is small (~10 entries per source) so a full
@@ -141,7 +157,7 @@ export function withCache<T>(
           if (!(err instanceof DiscoverySourceError)) throw err;
 
           const ts = now();
-          const entry = cache.get(key);
+          const entry = canUseCache() ? cache.get(key) : undefined;
           const hasFreshCache =
             entry != null && ts - entry.fetchedAt < opts.ttlMs;
           const cacheStatus = hasFreshCache
@@ -167,7 +183,8 @@ export function withCache<T>(
             }
           }
 
-          if (hasFreshCache) {
+          // Tracking can await while another call invalidates this generation.
+          if (hasFreshCache && canUseCache()) {
             opts.logger?.warn("discovery.cache.serving-stale", {
               source: source.name,
               cacheKey: key,
@@ -183,10 +200,12 @@ export function withCache<T>(
         }
       })();
 
+      if (!allowStale) return pipeline;
+
       // Attach cleanup BEFORE storing so every consumer (including the
       // first caller) sees the same promise that self-cleans.
       const tracked = pipeline.finally(() => {
-        inflight.delete(key);
+        if (inflight.get(key) === tracked) inflight.delete(key);
       });
       inflight.set(key, tracked);
       return tracked;

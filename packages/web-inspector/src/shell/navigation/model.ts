@@ -1,4 +1,4 @@
-import type { InspectorLeafKey } from "../../shared/telemetry/privacy.js";
+import type { InspectorLeafKey } from "../../shared/telemetry/navigation-keys.js";
 
 export type ShellGroupKey = "home" | "workbench" | "inspect";
 
@@ -11,6 +11,7 @@ export const INSPECTOR_GROUPS = {
     "frontend-tools",
     "capabilities",
     "agent-context",
+    "generative-ui",
   ],
 } as const satisfies Record<ShellGroupKey, readonly InspectorLeafKey[]>;
 

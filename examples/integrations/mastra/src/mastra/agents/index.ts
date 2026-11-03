@@ -1,4 +1,5 @@
 import { Agent } from "@mastra/core/agent";
+import type { RequestContext } from "@mastra/core/request-context";
 import { weatherTool } from "@/mastra/tools";
 import { LibSQLStore } from "@mastra/libsql";
 import { z } from "zod";
@@ -9,6 +10,28 @@ export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),
 });
 
+/**
+ * Append what the page shares (`useAgentContext`) to the agent's instructions.
+ *
+ * `@ag-ui/mastra` stores a run's AG-UI `context` on the request context under
+ * `"ag-ui"` and does not add it to the prompt itself, so without this the
+ * model never sees it.
+ */
+function withPageContext(
+  instructions: string,
+  requestContext: RequestContext,
+): string {
+  const agUi = requestContext.get("ag-ui") as
+    | { context?: { description: string; value: string }[] }
+    | undefined;
+  const entries = agUi?.context ?? [];
+  if (entries.length === 0) return instructions;
+  const shared = entries
+    .map(({ description, value }) => `${description}:\n${value}`)
+    .join("\n\n");
+  return `${instructions}\n\nContext provided by the application:\n\n${shared}`;
+}
+
 export const weatherAgent = new Agent({
   id: "weather-agent",
   name: "Weather Agent",
@@ -16,7 +39,8 @@ export const weatherAgent = new Agent({
   // COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this;
   // unset, the agent uses gpt-5-mini.
   model: createLanguageModel("openai:gpt-5-mini"),
-  instructions: "You are a helpful assistant.",
+  instructions: ({ requestContext }) =>
+    withPageContext("You are a helpful assistant.", requestContext),
   memory: new Memory({
     storage: new LibSQLStore({
       id: "weather-agent-memory",

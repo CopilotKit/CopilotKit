@@ -1065,6 +1065,8 @@ type HeaderMockCore = {
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
+  resolveHeaders: () => Record<string, string>;
+  ɵheadersGeneration: number;
   intelligence?: { wsUrl: string };
   ɵruntimeFetch: typeof fetch;
   threadEndpoints: {
@@ -1096,9 +1098,17 @@ function createHeaderMockCore(
   const subscribers = new Set<CopilotKitCoreSubscriber>();
   // Delegates to the live `globalThis.fetch` so every existing assertion on the
   // fetch stub keeps working, while a regression back to the global leaves this
-  // spy uncalled.
-  const runtimeFetch = vi.fn<typeof fetch>((...args) =>
-    globalThis.fetch(...args),
+  // spy uncalled. Mirrors the real `ɵruntimeFetch`'s contract (#1937): it
+  // overlays the CURRENT core headers onto the request at send time, so a
+  // caller routing through it must not also bake in a headers snapshot.
+  const runtimeFetch = vi.fn<typeof fetch>((input, init) =>
+    globalThis.fetch(input, {
+      ...init,
+      headers: {
+        ...(init?.headers as Record<string, string> | undefined),
+        ...core.headers,
+      },
+    }),
   );
   const core: HeaderMockCore = {
     agents,
@@ -1109,6 +1119,8 @@ function createHeaderMockCore(
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeUrl: "http://localhost/api",
     headers,
+    resolveHeaders: () => core.headers,
+    ɵheadersGeneration: 0,
     intelligence: { wsUrl: "wss://localhost/intelligence" },
     ɵruntimeFetch: runtimeFetch,
     threadEndpoints: {
@@ -1146,6 +1158,7 @@ function createHeaderMockCore(
     },
     emitHeadersChanged(nextHeaders: Record<string, string>) {
       core.headers = nextHeaders;
+      core.ɵheadersGeneration += 1;
       subscribers.forEach((s) =>
         s.onHeadersChanged?.({ copilotkit: asCore(), headers: nextHeaders }),
       );

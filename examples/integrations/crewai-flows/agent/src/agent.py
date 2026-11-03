@@ -7,9 +7,9 @@ import json
 
 from ag_ui_crewai.sdk import CopilotKitState, copilotkit_stream
 from crewai.flow.flow import Flow, listen, router, start
-from litellm import completion
+from litellm import acompletion
 
-from src.model import resolve_model
+from src.model import completion_options, resolve_model
 
 
 class AgentState(CopilotKitState):
@@ -22,6 +22,9 @@ class AgentState(CopilotKitState):
     """
 
     proverbs: list[str] = []
+    # What the page shares (useAgentContext). ag-ui-crewai writes the run's
+    # AG-UI context here but never adds it to the prompt; see page_context().
+    context: list[dict] = []
     # your_custom_agent_state: str = ""
 
 
@@ -56,6 +59,21 @@ tool_handlers = {
 }
 
 
+def page_context(context: list[dict]) -> str:
+    """Render what the page shares (`useAgentContext`) for the system prompt.
+
+    ag-ui-crewai copies a run's AG-UI `context` into the flow state's
+    `context` field and does not add it to the prompt itself, so without this
+    the model never sees it. Empty context renders as an empty string.
+    """
+    if not context:
+        return ""
+    shared = "\n\n".join(
+        f"{entry['description']}:\n{entry['value']}" for entry in context
+    )
+    return f"\n\nContext provided by the application:\n\n{shared}"
+
+
 class SampleAgentFlow(Flow[AgentState]):
     """
     This is a sample flow that uses the CopilotKit framework to create a chat agent.
@@ -80,17 +98,21 @@ class SampleAgentFlow(Flow[AgentState]):
         For more about the ReAct design pattern, see:
         https://www.perplexity.ai/search/react-agents-NcXLQhreS0WDzpVaS4m9Cg
         """
-        system_prompt = f"You are a helpful assistant. The current proverbs are {self.state.proverbs}."
+        system_prompt = (
+            f"You are a helpful assistant. The current proverbs are {self.state.proverbs}."
+            + page_context(self.state.context)
+        )
 
         # 1. Run the model and stream the response
         #    Note: In order to stream the response, wrap the completion call in
         #    copilotkit_stream and set stream=True.
+        # 1.1 Specify the model to use. COPILOTKIT_AGENT_MODEL (e.g.
+        #     "anthropic:claude-sonnet-4-5") overrides it; unset, the agent
+        #     uses gpt-5-mini.
+        model = resolve_model("openai:gpt-5-mini")
         response = await copilotkit_stream(
-            completion(
-                # 1.1 Specify the model to use. COPILOTKIT_AGENT_MODEL (e.g.
-                #     "anthropic:claude-sonnet-4-5") overrides it; unset, the
-                #     agent uses gpt-5-mini.
-                model=resolve_model("openai:gpt-5-mini"),
+            await acompletion(
+                model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     *self.state.messages,
@@ -99,44 +121,52 @@ class SampleAgentFlow(Flow[AgentState]):
                 tools=[*self.state.copilotkit.actions, GET_WEATHER_TOOL],
                 # 1.3 Disable parallel tool calls to avoid race conditions,
                 #     enable this for faster performance if you want to manage
-                #     the complexity of running tool calls in parallel.
-                parallel_tool_calls=False,
+                #     the complexity of running tool calls in parallel. Gemini
+                #     refuses this option with several tools, so it keeps its
+                #     default.
+                **completion_options(model),
                 stream=True,
             )
         )
 
         message = response.choices[0].message
 
-        # 2. Append the message to the messages in state
+        # Gemini keeps parallel tool calls on (see 1.3), so a reply can hold
+        # several tool calls. Every call in the history needs a result before
+        # the next model call.
+        tool_calls = message.get("tool_calls") or []
+        action_names = {
+            action["function"]["name"] for action in self.state.copilotkit.actions
+        }
+        frontend_calls = [
+            call for call in tool_calls if call["function"]["name"] in action_names
+        ]
+
+        # 2. If any tool call is a CopilotKit action, keep only the actions and
+        #    return the response to CopilotKit. The frontend runs them and sends
+        #    their results back. The model asks again for a dropped backend call.
+        if frontend_calls:
+            message["tool_calls"] = frontend_calls
+            self.state.messages.append(message)
+            return "route_end"
+
+        # 3. Append the message to the messages in state
         self.state.messages.append(message)
 
-        # 3. Handle tool calls
-        if message.get("tool_calls"):
-            tool_call = message["tool_calls"][0]
-            tool_call_id = tool_call["id"]
-            tool_call_name = tool_call["function"]["name"]
-            tool_call_args = json.loads(tool_call["function"]["arguments"])
-
-            # 4. Check for tool calls in the response and handle them. If the tool call
-            #    is a CopilotKit action, we return the response to CopilotKit to handle
-            if tool_call_name in [
-                action["function"]["name"] for action in self.state.copilotkit.actions
-            ]:
-                return "route_end"
-
-            # 5. Otherwise, we handle the tool call on the backend
-            handler = tool_handlers[tool_call_name]
-            result = handler(tool_call_args)
-
-            # 6. Append the result to the messages in state
+        # 4. Otherwise, handle each tool call on the backend, and append its
+        #    result to the messages in state
+        for tool_call in tool_calls:
+            handler = tool_handlers[tool_call["function"]["name"]]
+            result = handler(json.loads(tool_call["function"]["arguments"]))
             self.state.messages.append(
-                {"role": "tool", "content": result, "tool_call_id": tool_call_id}
+                {"role": "tool", "content": result, "tool_call_id": tool_call["id"]}
             )
 
-            # 7. Return to the follow up route to continue the conversation
+        # 5. Return to the follow up route to continue the conversation
+        if tool_calls:
             return "route_follow_up"
 
-        # 8. If there are no tool calls, return to the end route
+        # 6. If there are no tool calls, return to the end route
         return "route_end"
 
     @listen("route_end")

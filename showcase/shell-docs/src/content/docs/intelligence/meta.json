@@ -10,9 +10,17 @@
     "intelligence-platform",
     "memories",
     "learned-skills",
-    "capture-interactions",
+    {
+      "title": "Trajectories",
+      "pages": [
+        "trajectories",
+        "trajectories-quickstart",
+        "capture-interactions",
+        "captured-data",
+        "trajectories-reference"
+      ]
+    },
     "standalone-collector",
-    "captured-data",
     "analytics",
     "channels",
     "managed-intelligence-platform",

@@ -3,6 +3,8 @@ import type { TemplateResult } from "lit";
 import { styleMap } from "lit/directives/style-map.js";
 
 import inspectorLogoKiteUrl from "../../assets/inspector-logo-kite.svg";
+import { isLearningStatusPending } from "../../shared/learning/status.js";
+import type { LearningStatus } from "../../shared/learning/status.js";
 import type { InspectorColorScheme } from "../contracts.js";
 import { LAUNCHER_SIGNAL_COLORS } from "../styles.js";
 import type { LauncherController } from "./controller.js";
@@ -41,6 +43,9 @@ export type LauncherViewOptions = Readonly<{
   getHudAvailability: () => LauncherHudAvailability;
   /** Launcher HUD copy: built-ins until a remote feed rule matches. */
   hudContent: HudContent;
+  learningStatus: LearningStatus;
+  learningRetryDisabled: boolean;
+  onRetryLearningStatus: (event: Event) => void;
   renderIcon: (name: LauncherHudIconName) => unknown;
   onPointerDown: (event: PointerEvent) => void;
   onPointerMove: (event: PointerEvent) => void;
@@ -206,6 +211,29 @@ function renderHudRow(
   }>,
 ): TemplateResult | typeof nothing {
   if (args.connected) return nothing;
+  if (
+    args.id === "learning" &&
+    isLearningStatusPending(options.learningStatus)
+  ) {
+    return html`<li class="cpk-launcher-hud__row" data-cpk-hud-row="learning">
+      <span class="cpk-launcher-hud__label" role="status"
+        >${
+          options.learningStatus === "unavailable"
+            ? "Learning status unavailable"
+            : "Checking Learning status"
+        }</span
+      >
+      <button
+        type="button"
+        class="cpk-launcher-hud__action"
+        aria-label="Retry Learning status"
+        ?disabled=${options.learningRetryDisabled}
+        @click=${options.onRetryLearningStatus}
+      >
+        Retry
+      </button>
+    </li>`;
+  }
   const { controller } = options;
   const detailId = `cpk-hud-detail-${args.id}`;
   // Feed text is bound as text, never as markup.

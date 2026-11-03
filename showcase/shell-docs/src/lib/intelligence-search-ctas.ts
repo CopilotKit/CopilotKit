@@ -62,7 +62,7 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     // free. What Intelligence adds is the durable, resumable storage
     // behind them, so this must not read as "threads are a paid feature".
     body: "Threads are built into CopilotKit. Intelligence stores them for you, so conversations resume across reloads, sessions and devices without you running a database.",
-    primary: { label: "Read the AG-UI Streams guide", href: "/threads" },
+    primary: { label: "Read the AG-UI Streams guide", href: "/AG-UI-Streams" },
     secondary: [
       {
         label: "How thread persistence works",
@@ -103,7 +103,7 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     },
     secondary: [
       { label: "Connect Intelligence", href: "/intelligence/quickstart" },
-      { label: "AG-UI Streams guide", href: "/threads" },
+      { label: "AG-UI Streams guide", href: "/AG-UI-Streams" },
     ],
   },
   {
@@ -118,7 +118,7 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     },
     secondary: [
       { label: "Connect Intelligence", href: "/intelligence/quickstart" },
-      { label: "AG-UI Streams guide", href: "/threads" },
+      { label: "AG-UI Streams guide", href: "/AG-UI-Streams" },
     ],
   },
   {
@@ -135,7 +135,7 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     },
     secondary: [
       { label: "Connect in 5 minutes", href: "/intelligence/quickstart" },
-      { label: "AG-UI Streams guide", href: "/threads" },
+      { label: "AG-UI Streams guide", href: "/AG-UI-Streams" },
       { label: "Self-hosting", href: "/intelligence/self-hosting" },
     ],
   },

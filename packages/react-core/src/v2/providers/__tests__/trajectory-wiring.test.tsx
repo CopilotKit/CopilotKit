@@ -194,7 +194,7 @@ afterEach(() => {
 
 describe("CopilotKitProvider authenticated Trajectories", () => {
   const CONTAINER_WARNING =
-    "learningContainerIds is supported only with a custom sink";
+    "learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture ignores it; assign Learning Spaces on the server with getTrajectoryLearningContainerIds";
   function containerWarnings(warn: ReturnType<typeof vi.spyOn>): number {
     return warn.mock.calls.filter(([message]) =>
       String(message).includes(CONTAINER_WARNING),

@@ -27,7 +27,11 @@ import {
   getCoreStatusSummary as buildCoreStatusSummary,
   readCoreInspectorMetadata,
   readRuntimeLicense,
+  resolveAttachedCoreHeaders,
 } from "./core-bridge.js";
+import { deriveLearningStatus } from "../shared/learning/status.js";
+import type { InspectorGroupKey } from "../shared/telemetry/navigation-keys.js";
+import type { LearningStatus } from "../shared/learning/status.js";
 import type { CoreStatusSummary } from "./core-bridge.js";
 import {
   getSystemColorScheme,
@@ -361,7 +365,6 @@ import type {
   ExampleKind,
   ExampleTourStep,
   ExampleTourTab,
-  InspectorGroupKey,
   InspectorMetadataLicenseBucket,
   InspectorMetadataModuleViewedTelemetryProps,
   InspectorMetadataTelemetryModule,
@@ -514,6 +517,14 @@ export class WebInspectorElement extends LitElement {
   } as const;
 
   private _core: CopilotKitCore | null = null;
+  // Memoized so `<cpk-thread-details>`'s `.resolveHeaders=` binding gets a
+  // stable function across renders; a fresh closure would look like a changed
+  // property on every host update. It reads `this._core` at call time.
+  private readonly resolveCoreHeaders = ():
+    | Record<string, string>
+    | Promise<Record<string, string>> =>
+    this._core ? resolveAttachedCoreHeaders(this._core) : {};
+  private generativeUIUnsubscribe: (() => void) | null = null;
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
   private runtimeStatus: CopilotKitCoreRuntimeConnectionStatus | null = null;
@@ -897,6 +908,15 @@ export class WebInspectorElement extends LitElement {
         label: "Context",
         icon: "FileText" as LucideIconName,
       },
+      ...(this._core?.ɵgenerativeUIDebugSource
+        ? [
+            {
+              key: "generative-ui" as const,
+              label: "Generative UI",
+              icon: "LayoutTemplate" as LucideIconName,
+            },
+          ]
+        : []),
       {
         key: "threads",
         label: "Rich Threads",
@@ -1222,8 +1242,9 @@ export class WebInspectorElement extends LitElement {
 
   // Keep inspector-owned thread stores in sync when the host updates headers
   // at runtime (e.g. a refreshed auth/CSRF token via core.setHeaders). Mirrors
-  // useThreads(), which re-dispatches the context whenever core.headers change,
-  // so the owned stores' /threads requests stay authorized.
+  // useThreads(), which re-dispatches the context whenever `onHeadersChanged`
+  // fires. A token rotation alone does not call this, so it does not refetch;
+  // `ɵruntimeFetch` resolves the current headers at send time.
   private updateOwnedThreadStoreHeaders(
     headers: Readonly<Record<string, string>>,
   ): void {
@@ -1357,6 +1378,12 @@ export class WebInspectorElement extends LitElement {
     } satisfies CopilotKitCoreSubscriber;
 
     this.coreUnsubscribe = core.subscribe(this.coreSubscriber).unsubscribe;
+    // The Generative UI leaf shows only while a provider sets a debug source.
+    this.generativeUIUnsubscribe =
+      core.ɵsubscribeToGenerativeUIDebugSource?.(() => {
+        this.reconcileSelectedMenuVisibility();
+        this.requestUpdate();
+      }) ?? null;
     this.processAgentsChanged(core.agents);
 
     if (core.runtimeConnectionStatus === "connected") {
@@ -1562,8 +1589,10 @@ export class WebInspectorElement extends LitElement {
             this.learningSnapshot?.insightsPage.page ??
             1,
         },
+        // `ɵruntimeFetch` already resolves and overlays the current core
+        // headers at send time (#1937). A separate `headers` snapshot would
+        // call the builder twice and could keep a header the source dropped.
         fetch: core.ɵruntimeFetch,
-        headers: core.headers,
         credentials: core.credentials,
         signal: controller.signal,
       });
@@ -1644,15 +1673,9 @@ export class WebInspectorElement extends LitElement {
         return;
       if (error instanceof InspectorLearningUnsupportedError) {
         loadOutcome = "unsupported";
-        this.learningSupported = false;
-        this.learningSnapshot = null;
-      } else {
-        this.learningError =
-          error instanceof Error
-            ? error.message
-            : "Learning data is unavailable.";
-        this.learningPollFailureCount += 1;
       }
+      this.learningError = "Learning status unavailable";
+      this.learningPollFailureCount += 1;
     } finally {
       if (generation === this.learningRequestGeneration) {
         this.learningLoading = false;
@@ -1906,6 +1929,8 @@ export class WebInspectorElement extends LitElement {
       this.coreUnsubscribe();
       this.coreUnsubscribe = null;
     }
+    this.generativeUIUnsubscribe?.();
+    this.generativeUIUnsubscribe = null;
     resetLearningState(this.learning);
     this.coreSubscriber = null;
     this.runtimeStatus = null;
@@ -2517,6 +2542,9 @@ export class WebInspectorElement extends LitElement {
       isDragging: this.isDragging,
       pointerContextIsButton: this.pointerContext === "button",
       hudContent: this.hudContent,
+      learningStatus: this.getLearningStatus(),
+      learningRetryDisabled: this.learningLoading || this.learningRefreshing,
+      onRetryLearningStatus: this.retryLearningStatus,
       getHudAvailability: () => {
         const homeModel = this.getHomeModel();
         return {
@@ -2904,6 +2932,23 @@ export class WebInspectorElement extends LitElement {
     });
   }
 
+  private getLearningStatus(): LearningStatus {
+    return deriveLearningStatus({
+      error: this.learningError,
+      supported: this.learningSupported,
+      snapshot: this.learningSnapshot,
+    });
+  }
+
+  private retryLearningStatus = (event: Event): void => {
+    event.stopPropagation();
+    // refreshLearningSnapshot owns errors and cancellation for this request.
+    this.refreshLearningSnapshot().catch(() => {
+      this.learningError = "Learning status unavailable";
+      this.requestUpdate();
+    });
+  };
+
   private renderHomeView() {
     const model = this.getHomeModel();
     const activeAnnouncement = this.announcements.active;
@@ -2928,12 +2973,15 @@ export class WebInspectorElement extends LitElement {
         openLastEvent: (eventId, agentId) =>
           this.handleHomeLastEventSelect(eventId, agentId),
         pinStoryBeat: (index) => this.handleIntelligenceStoryBeatSelect(index),
+        retryLearningStatus: this.retryLearningStatus,
       },
       {
         announcementPreview,
         appendRefParam: (href, ref) => this.appendRefParam(href, ref),
         featurePromptCopyState: (serviceId) =>
           homeFeaturePromptCopyState(this.homeFeatureSetup, serviceId),
+        learningStatus: this.getLearningStatus(),
+        learningRetryDisabled: this.learningLoading || this.learningRefreshing,
         intelligenceLogoUrl: inspectorLogoKiteUrl,
         renderIcon: (name) => this.renderIcon(name),
         state: this.homeIntelligence,
@@ -3949,7 +3997,7 @@ export class WebInspectorElement extends LitElement {
     const loaded = await loadPlaygroundThread(this.playground, {
       thread,
       runtimeUrl: core.runtimeUrl,
-      headers: core.headers,
+      headers: { ...(await resolveAttachedCoreHeaders(core)) },
       fetch: globalThis.fetch.bind(globalThis),
       requestUpdate: () => this.requestUpdate(),
     });
@@ -3986,7 +4034,7 @@ export class WebInspectorElement extends LitElement {
       const loaded = await loadPlaygroundThreadSnapshot({
         thread,
         runtimeUrl: core.runtimeUrl,
-        headers: core.headers,
+        headers: { ...(await resolveAttachedCoreHeaders(core)) },
         fetch: globalThis.fetch.bind(globalThis),
       });
       if (isCurrent()) {
@@ -4116,6 +4164,13 @@ export class WebInspectorElement extends LitElement {
 
     if (this.selectedMenu === "agent-context") {
       return this.renderLiveContextView();
+    }
+
+    if (this.selectedMenu === "generative-ui") {
+      return html`<cpk-generative-ui-view
+        data-color-scheme=${this.colorScheme}
+        .source=${this._core?.ɵgenerativeUIDebugSource}
+      ></cpk-generative-ui-view>`;
     }
 
     if (this.selectedMenu === "threads") {
@@ -4920,7 +4975,7 @@ export class WebInspectorElement extends LitElement {
         }}
         @learning-web-link=${(
           event: CustomEvent<{
-            category: "learning" | "runs" | "candidates";
+            category: "learning" | "runs" | "candidates" | "trajectory";
           }>,
         ) => {
           if (!this.core?.telemetryDisabled) {
@@ -5045,7 +5100,8 @@ export class WebInspectorElement extends LitElement {
         loadingWithoutRows,
         showingExamples,
         runtimeUrl,
-        headers: this._core?.headers ?? {},
+        resolveHeaders: this.resolveCoreHeaders,
+        headersGeneration: this._core?.ɵheadersGeneration ?? 0,
         threadInspectionAvailable:
           selectedThreadIsLocalExample ||
           (this.areThreadEndpointsAvailable() &&

@@ -1,14 +1,8 @@
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
-import { classNames } from '../class-names';
-import styles from './popover.module.css';
+import { classNames } from "../class-names";
+import styles from "./popover.module.css";
 
 export type PopoverProps = {
   readonly triggerLabel: ReactNode;
@@ -75,10 +69,10 @@ export function Popover({
       setOpen(false);
     };
 
-    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener("pointerdown", handlePointerDown);
 
     return () => {
-      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
     };
   }, [isOpen, setOpen]);
 
@@ -86,7 +80,7 @@ export function Popover({
     <div className={classNames(styles.root, className)} ref={rootRef}>
       <button
         aria-controls={isOpen ? contentId : undefined}
-        aria-expanded={isOpen ? 'true' : 'false'}
+        aria-expanded={isOpen ? "true" : "false"}
         aria-haspopup="dialog"
         className={classNames(styles.trigger, triggerClassName)}
         onClick={() => setOpen(!isOpen)}
@@ -101,7 +95,7 @@ export function Popover({
           className={styles.content}
           id={contentId}
           onKeyDown={(event) => {
-            if (event.key === 'Escape') {
+            if (event.key === "Escape") {
               event.stopPropagation();
               setOpen(false);
             }

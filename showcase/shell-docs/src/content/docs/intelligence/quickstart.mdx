@@ -129,6 +129,8 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
 
     You can keep `runner` and omit `intelligence`. The runtime then stays in SSE mode, and Threads in Inspector stay locked. See [AgentRunner and persistence](/backend/agent-runner).
 
+    Keep the other runtime options that you already pass, such as `mcpApps`, `a2ui`, and `openGenerativeUI`. They apply to the agent on each run, and they work the same way with `intelligence`. For an app that uses MCP Apps, see [MCP Apps with Intelligence](/generative-ui/mcp-apps#mcp-apps-with-intelligence).
+
     #### Mount the TypeScript handler
 
     Create one handler and mount it for all runtime subpaths and HTTP methods in the server you already use. For Next.js, use a catch-all route:

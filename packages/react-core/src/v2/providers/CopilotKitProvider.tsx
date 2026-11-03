@@ -44,7 +44,11 @@ import type {
   RuntimeEntitlementResponse,
   RuntimeLicenseStatus,
 } from "@copilotkit/shared";
-import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import type {
+  CopilotKitCoreErrorCode,
+  CopilotKitHeadersSource,
+} from "@copilotkit/core";
+import { ɵwithHeaderDefaults } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
   MCPAppsActivityRenderer,
@@ -61,6 +65,14 @@ import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
 import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryStates";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
 import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
+import { useGenerativeUIRoot } from "../generative-ui/use-generative-ui-root";
+import type { GenerativeUIConfig } from "../generative-ui/runtime-context";
+import {
+  createGenerativeUIActivityRenderer,
+  createGenerativeUIFunctionCallActivityRenderer,
+  GenerativeUIToolCallRenderer,
+} from "../generative-ui/chat";
+import { GenerativeUIRuntimeContext } from "../generative-ui/runtime-context";
 import { viewerTheme, filterCatalog, Catalog } from "@copilotkit/a2ui-renderer";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
@@ -120,10 +132,20 @@ const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follo
 - Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
 
 // Provider props interface
+/** The MCP Apps renderer with `mcpApps.allowSameOriginFallback` applied. */
+const SameOriginMCPAppsActivityRenderer: typeof MCPAppsActivityRenderer = (
+  props,
+) => <MCPAppsActivityRenderer {...props} allowSameOriginFallback />;
+
 export interface CopilotKitProviderProps {
   children: ReactNode;
   runtimeUrl?: string;
-  headers?: Record<string, string> | (() => Record<string, string>);
+  /**
+   * Headers sent with every request. A record, or a sync or async builder
+   * that runs when each request is sent. An inline arrow is fine. The builder
+   * should be cheap; cache tokens in it (Clerk's `getToken()` already does).
+   */
+  headers?: CopilotKitHeadersSource;
   /**
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
@@ -277,7 +299,16 @@ export interface CopilotKitProviderProps {
      * When true (the default), the full component schemas from the catalog are
      * sent as agent context so the agent knows what components and props are
      * available. The A2UI middleware can overwrite this with a server-side
-     * schema if configured. Set to false to disable.
+     * schema if configured.
+     *
+     * When false, the agent context still describes the catalog, but only by its
+     * catalog ID and the names of its custom components, without their JSON
+     * schemas. The component schema entry and the A2UI generation and design
+     * guidelines are not sent. With the CopilotKit LangGraph middleware's
+     * injected A2UI tool, the A2UI subagent then gets the component names only;
+     * a host can still give it a composition guide through the middleware's
+     * guidelines (`a2uiParams.guidelines.compositionGuide` in TypeScript,
+     * `a2ui_params["guidelines"]["composition_guide"]` in Python).
      */
     includeSchema?: boolean;
     /**
@@ -286,6 +317,35 @@ export interface CopilotKitProviderProps {
      * much retry/debug detail to surface. When omitted, sane defaults apply.
      */
     recovery?: A2UIRecoveryRendererOptions;
+  };
+  /**
+   * Experimental. Native generative UI: `generativeUI={{ ui }}`, where `ui`
+   * comes from `createGenerativeUI`. The agent renders your React components
+   * into chat or into `<GenerativeUISurface id>` mounts. Props that match
+   * the declared state and events that match the declared functions are
+   * bound by the library, and the model does not see them.
+   */
+  generativeUI?: GenerativeUIConfig;
+  /**
+   * Configuration for the built-in MCP Apps renderer.
+   *
+   * @example
+   * ```tsx
+   * <CopilotKit runtimeUrl="/api/copilotkit" mcpApps={{ allowSameOriginFallback: true }}>
+   *   {children}
+   * </CopilotKit>
+   * ```
+   */
+  mcpApps?: {
+    /**
+     * Restore `allow-same-origin` on the MCP App sandbox. Default `false`.
+     *
+     * **Unsafe.** The widget then runs with your page's origin: it can read
+     * your cookies, storage and DOM, and call your APIs as the signed-in user.
+     * Only set it for widgets you wrote and trust that need `localStorage`,
+     * `IndexedDB` or cookies. By default widgets get an opaque origin.
+     */
+    allowSameOriginFallback?: boolean;
   };
   /**
    * Default throttle interval (in milliseconds) for `useAgent` re-renders
@@ -333,7 +393,8 @@ type LearningProp = LearningConfig & {
   trajectoryId?: string;
   /**
    * Used only by explicit custom sinks. Authenticated capture warns and ignores
-   * this option; it does not assign Learning Containers.
+   * this option; assign Learning Spaces on the server with
+   * `getTrajectoryLearningContainerIds` on `CopilotKitIntelligence`.
    */
   learningContainerIds?: string[];
 };
@@ -375,7 +436,7 @@ function useStableArrayProp<T>(
   return value;
 }
 
-// Provider component
+/** Provide a shared core instance and synchronize runtime, tool, and UI configuration. */
 export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   children,
   runtimeUrl,
@@ -400,6 +461,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useSingleEndpoint,
   onError,
   a2ui,
+  generativeUI,
+  mcpApps,
   defaultThrottleMs,
   debug,
   learning,
@@ -438,6 +501,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // render tool — no runtime-side `a2ui` config required.
   const a2uiCatalogProvided = !!a2ui?.catalog;
   const a2uiActive = runtimeA2UIEnabled || a2uiCatalogProvided;
+  const generativeUIActive = !!generativeUI?.ui;
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
     RuntimeLicenseStatus | undefined
   >(undefined);
@@ -525,6 +589,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawCatalog, catalogToggleVersion]);
 
+  const mcpAppsAllowSameOrigin = mcpApps?.allowSameOriginFallback === true;
+
   // Built-in activity renderers that are always included
   const builtInActivityRenderers = useMemo<
     ReactActivityMessageRenderer<any>[]
@@ -533,7 +599,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       {
         activityType: MCPAppsActivityType,
         content: MCPAppsActivityContentSchema,
-        render: MCPAppsActivityRenderer,
+        render: mcpAppsAllowSameOrigin
+          ? SameOriginMCPAppsActivityRenderer
+          : MCPAppsActivityRenderer,
       },
     ];
 
@@ -560,8 +628,22 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       );
     }
 
+    if (generativeUIActive) {
+      renderers.push(
+        createGenerativeUIActivityRenderer(),
+        createGenerativeUIFunctionCallActivityRenderer(),
+      );
+    }
+
     return renderers;
-  }, [a2uiActive, openGenUIActive, a2ui, filteredCatalog]);
+  }, [
+    a2uiActive,
+    openGenUIActive,
+    generativeUIActive,
+    a2ui,
+    filteredCatalog,
+    mcpAppsAllowSameOrigin,
+  ]);
 
   // Combine user-provided activity renderers with built-in ones
   // User-provided renderers take precedence (come first) so they can override built-ins
@@ -592,19 +674,33 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }, [hasSelfManagedAgents, resolvedPublicKey]);
 
-  // Resolve headers from function or static object
-  const headers =
-    typeof headersProp === "function" ? headersProp() : headersProp;
-
-  // Merge a provided publicApiKey into headers (without overwriting an explicit header).
-  const mergedHeaders = useMemo(() => {
-    if (!resolvedPublicKey) return headers;
-    if (headers[HEADER_NAME]) return headers;
-    return {
-      ...headers,
-      [HEADER_NAME]: resolvedPublicKey,
-    };
-  }, [headers, resolvedPublicKey]);
+  // The latest builder, read when a request is sent (never during render).
+  // Assigned during render itself (not in a `useEffect`) so a child effect
+  // that fires in the SAME commit as a new builder closure — e.g. a run
+  // kicked off from an effect right after a token changed — reads the new
+  // closure rather than the previous commit's.
+  const headersRef = useRef(headersProp);
+  headersRef.current = headersProp;
+  const isHeadersBuilder = typeof headersProp === "function";
+  // The read below can return a sync record or an async promise depending on
+  // what `headersRef.current` happens to be at call time, which
+  // `CopilotKitHeadersSource`'s shape can't express in one function
+  // signature (sync-only OR async-only) — same rationale as the cast inside
+  // `ɵwithHeaderDefaults`.
+  const stableHeadersBuilder = useCallback(() => {
+    const current = headersRef.current;
+    return typeof current === "function" ? current() : current;
+  }, []) as () => Record<string, string>;
+  // A record keeps today's identity semantics; a builder is stable.
+  const headersInput = isHeadersBuilder ? stableHeadersBuilder : headersProp;
+  const headersSource = useMemo(
+    () =>
+      ɵwithHeaderDefaults(
+        headersInput,
+        resolvedPublicKey ? { [HEADER_NAME]: resolvedPublicKey } : {},
+      ),
+    [headersInput, resolvedPublicKey],
+  );
 
   if (!runtimeUrl && !resolvedPublicKey && !hasLocalAgents) {
     const message =
@@ -746,6 +842,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         description: GENERATE_SANDBOXED_UI_DESCRIPTION,
         parameters: GenerateSandboxedUiArgsSchema,
         handler: async () => "UI generated",
+        // This acknowledgement has no side effects and is safe to reconstruct.
+        reconnectBehavior: "resume-pending",
         followUp: true,
         render: OpenGenerativeUIToolRenderer,
       },
@@ -815,7 +913,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           : useSingleEndpoint === false
             ? "rest"
             : "auto",
-      headers: mergedHeaders,
+      headers: headersSource,
       credentials,
       messageFilter,
       properties,
@@ -834,6 +932,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }
   const copilotkit = copilotkitRef.current;
+  const generativeUIRuntime = useGenerativeUIRoot(copilotkit, generativeUI);
 
   // Register the full A2UI catalog component list onto core so the inspector can
   // read `core.catalogComponents`, and re-derive the filtered catalog whenever
@@ -990,11 +1089,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           ? "rest"
           : "auto",
     );
-    copilotkit.setHeaders(mergedHeaders);
+    copilotkit.setHeaders(headersSource);
     copilotkit.setCredentials(credentials);
     // Forward a per-run signal when the provider has an A2UI catalog so the
     // runtime can turn A2UI on (and inject the render tool) without a separate
     // `a2ui.injectA2UITool` flag on the runtime.
+    //
+    // The generative UI envelope is not in these properties: useGenerativeUIRoot
+    // adds it as scoped properties, so this call does not replace it.
     copilotkit.setProperties(
       a2uiCatalogProvided
         ? { ...properties, a2uiCatalogAvailable: true }
@@ -1012,7 +1114,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [
     copilotkit,
     chatApiEndpoint,
-    mergedHeaders,
+    headersSource,
     credentials,
     properties,
     a2uiCatalogProvided,
@@ -1048,7 +1150,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       learningConfig?.learningContainerIds !== undefined
     ) {
       console.warn(
-        "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture does not assign Learning Containers; remove learningContainerIds from the capture options.",
+        "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture ignores it; assign Learning Spaces on the server with getTrajectoryLearningContainerIds on CopilotKitIntelligence, and remove learningContainerIds from the capture options.",
       );
     }
   }, [copilotkit, learningConfig, autoStart]);
@@ -1242,6 +1344,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       <CopilotKitContext.Provider value={contextValue}>
         <LicenseContext.Provider value={licenseContextValue}>
           {a2uiActive && <A2UIBuiltInToolCallRenderer />}
+          {generativeUIActive && <GenerativeUIToolCallRenderer />}
           {a2uiActive && (
             <A2UICatalogContext
               catalog={filteredCatalog}
@@ -1257,7 +1360,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
               `CopilotKitAgentIdContext` comment in `../context`.
             */}
             <CopilotKitAgentIdContext.Provider value={agentId}>
-              {children}
+              <GenerativeUIRuntimeContext.Provider value={generativeUIRuntime}>
+                {children}
+              </GenerativeUIRuntimeContext.Provider>
             </CopilotKitAgentIdContext.Provider>
             {shouldRenderInspector ? (
               <CopilotKitInspector

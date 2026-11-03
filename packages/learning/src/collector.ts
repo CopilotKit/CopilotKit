@@ -27,6 +27,7 @@ interface Session {
   dropped: number;
   uninstalls: (() => void)[];
   timer: ReturnType<typeof setInterval> | undefined;
+  flushInputs?: () => void;
 }
 
 /**
@@ -79,6 +80,8 @@ export function createCollector(options: CollectorOptions) {
   const record = (name: string, value: Record<string, unknown>) => {
     const current = session;
     if (current === null) return;
+    if (name !== "input" && name !== "network") current.flushInputs?.();
+    if (session !== current) return;
     try {
       seq += 1;
       const event: LearningEvent = {
@@ -88,7 +91,7 @@ export function createCollector(options: CollectorOptions) {
         timestamp: Date.now(),
       };
       const kept = beforeSend === undefined ? event : beforeSend(event);
-      if (kept === null) return;
+      if (kept === null || session !== current) return;
       current.queue.push(kept);
       if (current.queue.length >= FLUSH_SIZE) flush();
     } catch {
@@ -146,10 +149,11 @@ export function createCollector(options: CollectorOptions) {
           redact,
         }),
       );
-    if (capture.inputs)
-      current.uninstalls.push(
-        installInputCapture({ emit: recordCurrent, redact }),
-      );
+    if (capture.inputs) {
+      const inputs = installInputCapture({ emit: recordCurrent, redact });
+      current.flushInputs = inputs.flush;
+      current.uninstalls.push(inputs);
+    }
     const onPageHide = () => flush({ beacon: true });
     window.addEventListener("pagehide", onPageHide);
     current.uninstalls.push(() =>
@@ -167,6 +171,8 @@ export function createCollector(options: CollectorOptions) {
   const stop = () => {
     const current = session;
     if (current === null) return;
+    current.flushInputs?.();
+    if (session !== current) return;
     clearInterval(current.timer);
     for (const uninstall of current.uninstalls) uninstall();
     flush();

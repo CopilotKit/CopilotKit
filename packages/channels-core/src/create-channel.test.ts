@@ -697,7 +697,12 @@ describe("createChannel", () => {
     });
 
     await channel.ɵruntime.start();
-    fake.emitTurn({ userText: "create a thing", conversationKey: "c1" });
+    const user = { id: "U1", kind: "human" as const };
+    fake.emitTurn({
+      userText: "create a thing",
+      conversationKey: "c1",
+      actor: user,
+    });
     await tick();
 
     const button = findNode(fake.posted[0]!, "button")!;
@@ -706,7 +711,7 @@ describe("createChannel", () => {
     // Telegram can't carry the button value in callback_data, so the event has
     // no `value`. The waiter must still resolve with the button's value, which
     // the registry recovers from the rendered element.
-    fake.emitInteraction({ id, conversationKey: "c1" });
+    fake.emitInteraction({ id, conversationKey: "c1", actor: user });
     await tick();
 
     expect(chosen).toEqual({ confirmed: true });
@@ -847,7 +852,8 @@ describe("createChannel", () => {
     });
 
     await channel.ɵruntime.start();
-    fake.emitTurn({ userText: "decide", conversationKey: "c1" });
+    const user = { id: "U1", kind: "human" as const };
+    fake.emitTurn({ userText: "decide", conversationKey: "c1", actor: user });
     await tick();
 
     const button = findNode(fake.posted[0]!, "button")!;
@@ -856,6 +862,7 @@ describe("createChannel", () => {
     fake.emitInteraction({
       id,
       conversationKey: "c1",
+      actor: user,
       value: { confirmed: true },
     });
     await tick();
@@ -2183,5 +2190,19 @@ describe("createChannel slash commands", () => {
     const fake = new FakeAdapter();
     channel.ɵruntime.addAdapter(fake);
     expect(channel.adapters).toEqual([fake]);
+  });
+});
+
+describe("createChannel render config", () => {
+  it("accepts a render config without throwing and starts", async () => {
+    const adapter = new FakeAdapter();
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [adapter],
+      render: { stylesheets: [".card{color:red}"], width: 800 },
+    });
+    await channel.ɵruntime.start();
+    expect(adapter.started).toBe(true);
+    await channel.ɵruntime.stop();
   });
 });

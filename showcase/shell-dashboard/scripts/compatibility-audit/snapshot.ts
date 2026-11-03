@@ -27,6 +27,8 @@ export interface AssessmentInput {
   mapping: VariantMapping[];
   read: SavedFileReader;
   inventories: Inventory[];
+  sourceCommits?: Record<string, string>;
+  readForVariant?: (slug: string, path: string) => string;
 }
 
 export interface PackageAssessment {
@@ -39,6 +41,7 @@ export interface PackageAssessment {
   sourcePath: string;
   lockPath: string | null;
   sourceFact: VersionFact;
+  sourceSha?: string;
   releasePolicy: LibraryMapping["releasePolicy"];
   sourceUrl: string;
   selection: ReleaseSelection;
@@ -128,7 +131,11 @@ export function assessCompatibility(input: AssessmentInput): {
       const key = inventoryKey(library.registry, library.name);
       const inventory = byInventory.get(key);
       if (!inventory) throw new Error(`Missing release inventory for ${key}`);
-      const sourceFact = resolveSourceFact(library, input.read);
+      const sourceFact = resolveSourceFact(library, (path) =>
+        input.readForVariant
+          ? input.readForVariant(variant.slug, path)
+          : input.read(path),
+      );
       const selection = selectRelease(
         inventory,
         library.releasePolicy,
@@ -159,6 +166,9 @@ export function assessCompatibility(input: AssessmentInput): {
         sourcePath: library.source.path,
         lockPath: library.source.lockPath ?? null,
         sourceFact,
+        ...(input.sourceCommits
+          ? { sourceSha: input.sourceCommits[variant.slug] }
+          : {}),
         releasePolicy: library.releasePolicy,
         sourceUrl: inventory.sourceUrl,
         selection,

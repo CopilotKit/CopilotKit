@@ -1,0 +1,189 @@
+---
+title: Trajectories API reference
+nav_title: API reference
+description: Options and methods for capturing Trajectories in CopilotKit Intelligence from React, Core, and the Runtime.
+icon: "lucide/BookOpen"
+frontend: universal
+doc_type: reference
+earlyAccess: trajectories
+search: false
+---
+
+## Overview
+
+This page lists the `learning` prop, the Core methods, and the `CopilotKitIntelligence` options that control Trajectory capture. To set up capture, see [Capture interactions](/intelligence/capture-interactions); for the fields in each event, see [Captured data](/intelligence/captured-data).
+
+## `learning` prop on `CopilotKitProvider`
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  learning={{
+    capture: { inputs: false },
+    ignoreUrls: ["https://payments.example.com/"],
+    onError: ({ code }) => console.warn("Trajectory capture:", code),
+  }}
+>
+  {children}
+</CopilotKitProvider>
+```
+
+<PropertyReference name="learning" type="boolean | object">
+  Turns on Trajectory capture. `learning` or `learning={true}` captures with the default options. Pass an object to set options. `false` or no prop turns capture off and stops the active Trajectory.
+
+  Capture starts after the provider mounts and stops when it unmounts, including Trajectories started with `startTrajectory()`. Option changes apply to the next Trajectory; they do not restart the active one.
+
+  <PropertyReference name="autoStart" type="boolean" default="true">
+    Starts a Trajectory after mount. Set `false` to start capture yourself with [`startTrajectory()`](#starttrajectory).
+  </PropertyReference>
+
+  <PropertyReference name="trajectoryId" type="string">
+    The UUID for the Trajectory that the provider starts. Without it, the provider generates a UUID that stays the same across rerenders, reconnects, and option changes. Changing this value starts a new Trajectory with the new ID. Turning capture off, or setting `autoStart: false`, ends a generated Trajectory; the next one gets a new ID. With `autoStart: false`, the provider ignores this option and logs a warning; pass the ID to `startTrajectory()` instead.
+  </PropertyReference>
+
+  <PropertyReference name="capture" type="{ clicks?: boolean; inputs?: boolean; navigation?: boolean; network?: boolean }" default="all true">
+    Turns capture modules on or off. A module is on unless you set it to `false`. The `page` event at start and developer events are always sent.
+
+    <PropertyReference name="clicks" type="boolean" default="true">
+      Records `click` events.
+    </PropertyReference>
+
+    <PropertyReference name="inputs" type="boolean" default="true">
+      Records `input` events from inputs, selects, text areas, and editable elements.
+    </PropertyReference>
+
+    <PropertyReference name="navigation" type="boolean" default="true">
+      Records `navigation` events.
+    </PropertyReference>
+
+    <PropertyReference name="network" type="boolean" default="true">
+      Records `network` events for browser `fetch` and XHR requests.
+    </PropertyReference>
+  </PropertyReference>
+
+  <PropertyReference name="ignoreUrls" type="(string | RegExp)[]" default="[]">
+    Requests that network capture skips. A string matches as a prefix of the absolute request URL. A regular expression is tested against the absolute URL. Core always adds the `runtimeUrl`, the Runtime endpoint, `https://telemetry.copilotkit.ai/`, and `https://cdn.copilotkit.ai/`.
+  </PropertyReference>
+
+  <PropertyReference name="beforeSend" type="(event: TrajectoryEvent) => TrajectoryEvent | null">
+    Runs in the browser for each event, after built-in redaction and before validation and delivery. Return the event, a changed copy, or `null` to drop it. It also runs for developer events and `thread.linked`. If it throws or returns an invalid event, Core drops the event and reports `INVALID_EVENT`.
+
+    `TrajectoryEvent` is `{ type: "CUSTOM"; name: string; timestamp: number; value: JsonValue }`.
+  </PropertyReference>
+
+  <PropertyReference name="onError" type="(error: { code: string; message: string }) => void">
+    Receives capture errors without interrupting the app. Errors thrown by the callback are ignored. Without `onError`, Core logs a warning with a setup hint once per error code when capture fails to start or stops on its own. See [Error codes](#error-codes).
+  </PropertyReference>
+</PropertyReference>
+
+## Core methods
+
+Read these from `copilotkit`, returned by `useCopilotKit()`.
+
+```tsx
+const { copilotkit } = useCopilotKit();
+
+const result = await copilotkit.startTrajectory();
+if (result.status === "error") console.warn(result.code);
+```
+
+<PropertyReference name="trajectoryId" type="string | null">
+  The ID of the connected Trajectory. It is `null` while capture is stopped, while a start is connecting, and while capture reconnects. Subscribers receive `onTrajectoryChanged({ copilotkit, trajectoryId })` when it changes.
+</PropertyReference>
+
+<PropertyReference name="startTrajectory(options?): Promise<StartResult>" type="method">
+  Starts one Trajectory. Core authorizes the browser through the Runtime, then joins the connection to Intelligence. The promise resolves after the join or the failure; it does not reject for capture errors.
+
+  One Trajectory runs at a time. A call with no ID, or with the active ID, returns the active start. A call with a different ID stops the active Trajectory and starts the new one. If the first connection fails, the start resolves with an error and does not retry.
+
+  <PropertyReference name="options.trajectoryId" type="string">
+    A UUID for the Trajectory. Omit it to generate one. The Runtime rejects an ID that is not a UUID with `INVALID_REQUEST`.
+  </PropertyReference>
+
+  <PropertyReference name="StartResult" type='{ status: "started"; trajectoryId: string } | { status: "error"; code: string }'>
+    `status` is `"started"` after the join, with the `trajectoryId` in use. `status` is `"error"` when capture did not start, with a `code` from [Error codes](#error-codes).
+  </PropertyReference>
+</PropertyReference>
+
+<PropertyReference name="stopTrajectory(): void" type="method">
+  Stops capture and removes capture listeners. A pending start resolves with `CANCELLED`. Core attempts one final batch if no earlier batch is waiting for a receipt. It does not wait for the receipt, so the last events may not be saved.
+</PropertyReference>
+
+<PropertyReference name="emitTrajectoryEvent(name: string, value?: JsonValue): void" type="method">
+  Records an outcome that clicks cannot show, such as an approved deal. Call it after your operation succeeds.
+
+  `name` must be non-empty, at most 200 characters, and not a built-in name: `page`, `navigation`, `click`, `input`, `network`, or `thread.linked`. `value` defaults to `{}` and must be JSON. Core adds `seq` to an object value. Arrays, primitives, and objects that already contain `seq` are sent under `value.data`.
+
+  The call does nothing while no Trajectory runs. Events emitted while capture reconnects count as dropped. Automatic credential redaction does not inspect these events.
+</PropertyReference>
+
+### Error codes
+
+`startTrajectory()` returns these codes in `StartResult`, and `onError` receives them, except where noted.
+
+<Callout type="info" title="Early access support">
+  During early access, our engineering team helps with Trajectories licenses, project access, and deployment support. For errors related to these requirements, [book time with our engineers](https://www.copilotkit.ai/talk-to-an-engineer).
+</Callout>
+
+| Code | Meaning | Action |
+| --- | --- | --- |
+| `LEARNING_DISABLED` | No `learning` config is set. Start result only. | Pass the `learning` prop. |
+| `CANCELLED` | `stopTrajectory()`, unmount, or a start with another ID ended this start. Start result only. | None. |
+| `RUNTIME_REQUIRED` | Core has no `runtimeUrl`. | Set `runtimeUrl` on the provider. |
+| `INVALID_REQUEST` | The Trajectory ID is not a UUID. | Pass a UUID, such as `crypto.randomUUID()`. |
+| `INTELLIGENCE_RUNTIME_REQUIRED` | The Runtime has no `intelligence` configured. | Configure `CopilotRuntime` with `intelligence`. |
+| `IDENTITY_REQUIRED` | The Runtime has no `identifyUser`, or it did not identify the user. | Configure `identifyUser` and send the app session with Runtime requests. |
+| `CONNECTION_FAILED` | The Runtime could not connect to Intelligence, or Intelligence rejected the request. | Check the Intelligence credentials on the Runtime and the Runtime logs. |
+| `CONNECTION_TIMEOUT` | The Runtime or Intelligence did not answer within 10 seconds. | Check the network and the Runtime. |
+| `INVALID_GRANT` | The Runtime response was not a capture grant. | Check that `runtimeUrl` points to a `CopilotRuntime`. |
+| `JOIN_FAILED` | Intelligence refused the connection without a known reason. | Check the Intelligence deployment. |
+| `TRAJECTORIES_NOT_ENABLED` | Trajectories are off for this Intelligence project. | Ask our engineering team to enable project access. |
+| `TRAJECTORIES_UNAVAILABLE` | This Intelligence deployment does not serve Trajectory capture. | Ask our engineering team to check deployment support. |
+| `TRAJECTORIES_ENTITLEMENT_UNAVAILABLE` | Intelligence could not confirm that Trajectories are enabled. | Try again later. If the error continues, contact our engineering team. |
+| `MARKETPLACE_LICENSE_REQUIRED` | The project has no CopilotKit license for capture. | Ask our engineering team to check the license. |
+| `RATE_LIMIT_EXCEEDED` | Intelligence rate-limited the connection request. | Try again later. |
+| `TRAJECTORY_APP_USER_CONFLICT` | Intelligence refused this Trajectory ID for this user. | Start with a new UUID. |
+| `CONNECTION_LOST` | The connection closed, or the browser went offline. | None after start: Core reconnects. Before start, start again. |
+| `CAPTURE_FAILED` | Browser listeners could not start. Capture ends. | Start again. |
+| `UNAUTHORIZED`, `TRAJECTORY_MISMATCH` | Intelligence refused a batch for this connection. Capture ends. | Start a new Trajectory. |
+
+After capture starts, Core reconnects with fresh credentials after network errors, timeouts, and server errors, and reports each failure to `onError`. Other failures end capture.
+
+These codes go to `onError` only. Capture continues.
+
+| Code | Meaning | Action |
+| --- | --- | --- |
+| `INVALID_EVENT` | An event has an invalid name or a value that is not JSON, or `beforeSend` threw. Core drops it. | Fix the event or `beforeSend`. |
+| `EVENT_TOO_LARGE` | An event exceeds 16 KiB of serialized JSON. Core drops it. | Shorten the value, or trim it in `beforeSend`. |
+| `EVENTS_DROPPED` | Core discarded queued events. The next batch counts them in `dropped`. | None. |
+| `EVENTS_REJECTED` | Intelligence rejected some events in a batch. | Check event names and values. |
+| `PERSISTENCE_UNKNOWN` | No receipt arrived for a batch. Intelligence may have saved it. Core does not resend it. | Reopen the Trajectory to check. |
+| `INVALID_BATCH`, `BATCH_TOO_LARGE`, `BATCH_TOO_MANY_EVENTS`, `UNSUPPORTED_EVENT`, `TRAJECTORY_OVER_SHARE`, `TRAJECTORY_OUTBOX_FULL` | Intelligence refused a batch. Its events count as dropped. | None. |
+| `SEQUENCE_EXHAUSTED` | Core ran out of sequence numbers. Core drops the event. | Reload the page. |
+
+See [Batches](/intelligence/captured-data#batches) for delivery limits.
+
+## Trajectory options on `CopilotKitIntelligence`
+
+Set these on the server, in `@copilotkit/runtime/v2`. Capture also needs `identifyUser` on `CopilotRuntime`.
+
+```ts
+import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+  getTrajectoryLearningContainerIds: ({ trajectoryId, user }) => ["expense-review"],
+});
+```
+
+<PropertyReference name="getTrajectoryLearningContainerIds" type="(input: { trajectoryId: string; user: { id: string; name: string } }, signal?: AbortSignal) => string[] | null | undefined | Promise<string[] | null | undefined>">
+  Selects existing Learning Spaces for a Trajectory each time the browser connects or reconnects. `trajectoryId` comes from the browser. `user` comes from `identifyUser` on the Runtime. The browser cannot choose Spaces.
+
+  Return up to 100 Space IDs. Each ID has 1 to 64 lowercase letters, numbers, and single hyphens. Return `[]` to request no new assignments, or `null` or `undefined` to send none. Assignments are additive, so keep the selection stable for a Trajectory.
+
+  The callback has a five-second deadline. `signal` aborts when the request ends or the deadline passes. If the callback throws, times out, or returns invalid IDs, or a selected Space does not exist, the Runtime logs the problem and connects the Trajectory without assignments. Capture still starts.
+
+  See [Assign browser activity to a Learning Space](/learning#assign-browser-activity-to-a-learning-space).
+</PropertyReference>
+
+For self-hosted Intelligence, capture connects to the client socket derived from `wsUrl`. Set `apiUrl` and `wsUrl` for the same deployment.

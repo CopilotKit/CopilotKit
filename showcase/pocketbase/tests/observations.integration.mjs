@@ -352,6 +352,104 @@ const beforeStale = await snapshot(thirdJob.id);
 assert.equal((await apply(third)).data.data.code, "basis_conflict");
 assert.deepEqual(await snapshot(thirdJob.id), beforeStale);
 console.log("PASS stale prepared basis rejects without effects");
+// Sustained ticks are audited like transitions: retention, not suppression,
+// bounds status_history. Each step applies against the current status row.
+const sustainedStep = async (state, transition, failCount, historyState) => {
+  const stepJob = await ok(collection("probe_jobs"), "POST", {
+    probe_key: key,
+    status: "done",
+  });
+  const row = (await list("status"))[0];
+  const at = new Date(Date.parse(row.observed_at) + 60_000).toISOString();
+  return {
+    jobId: stepJob.id,
+    body: {
+      ...input,
+      jobId: stepJob.id,
+      fingerprint: (failCount + 10).toString(16).padStart(64, "c"),
+      basis: basisOf(row),
+      status: {
+        mode: "upsert",
+        values: { ...values, state, fail_count: failCount, observed_at: at },
+      },
+      history: {
+        ...history,
+        state: historyState ?? state,
+        transition,
+        observed_at: at,
+      },
+      outcome: {
+        kind: "write",
+        value: {
+          ...outcome.value,
+          previousState: row.state,
+          newState: state,
+          transition,
+          failCount,
+        },
+      },
+    },
+  };
+};
+// An invalid history row on a sustained tick still fails the whole plan.
+const invalidSustained = await sustainedStep(
+  "degraded",
+  "sustained_red",
+  3,
+  "INVALID",
+);
+const beforeInvalidSustained = await snapshot(invalidSustained.jobId);
+const invalidSustainedResult = await apply(invalidSustained.body);
+console.log(
+  JSON.stringify({
+    case: "invalid sustained history",
+    result: invalidSustainedResult,
+  }),
+);
+assert.equal(
+  invalidSustainedResult.status,
+  500,
+  JSON.stringify(invalidSustainedResult),
+);
+assert.equal(
+  invalidSustainedResult.data.data?.code,
+  "persistence_failure",
+  JSON.stringify(invalidSustainedResult),
+);
+assert.deepEqual(
+  await snapshot(invalidSustained.jobId),
+  beforeInvalidSustained,
+);
+console.log(
+  "PASS invalid sustained history rejects without status/history/receipt effects",
+);
+for (const [state, transition, failCount] of [
+  ["degraded", "sustained_red", 3],
+  ["red", "sustained_red", 4],
+  ["green", "red_to_green", 0],
+  ["green", "sustained_green", 0],
+]) {
+  const before = (await list("status_history")).length;
+  const step = await sustainedStep(state, transition, failCount);
+  const result = await apply(step.body);
+  assert.equal(result.status, 200, JSON.stringify(result));
+  const rows = await snapshot(step.jobId);
+  assert.equal(rows.status[0].state, state);
+  assert.equal(rows.status[0].fail_count, failCount);
+  assert.equal(rows.history.length, before + 1);
+  assert.ok(
+    rows.history.some(
+      (h) =>
+        h.state === state &&
+        h.transition === transition &&
+        h.observed_at === rows.status[0].observed_at,
+    ),
+    JSON.stringify(rows.history),
+  );
+}
+console.log(
+  "PASS red<->degraded, sustained_red, and sustained_green ticks each write a history row",
+);
 // An absent-row history fallback is an observation in its own right. A later
 // status row must not make its replay take the now-available overlay route.
 const fallbackKey = key + "-fallback";

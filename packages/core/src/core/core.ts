@@ -26,6 +26,7 @@ import type { CopilotKitMessageFilter } from "./message-filter";
 import { AgentRegistry } from "./agent-registry";
 import type { ScopedContext } from "./context-store";
 import { ContextStore } from "./context-store";
+import { isForAgent } from "./agent-scope";
 import { SuggestionEngine } from "./suggestion-engine";
 import type {
   CopilotKitCoreRunAgentParams,
@@ -40,6 +41,7 @@ import type {
   DebugConfig,
   RuntimeEntitlementResponse,
 } from "@copilotkit/shared";
+import { randomUUID } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
@@ -48,7 +50,31 @@ import type { LearningConfig, TrajectoryStartOptions } from "./learning-bridge";
 import type { JsonValue, StartResult } from "@copilotkit/learning";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
+import type { ɵGenerativeUIDebugSource } from "./generative-ui-debug";
 import type { ɵMemoryStore } from "../memory";
+import { HeaderSourceResolver, isHeaderResolutionError } from "./header-source";
+import type { CopilotKitHeadersSource } from "./header-source";
+
+/**
+ * Run properties that go only to the runs of some agents.
+ * See `CopilotKitCore.addScopedProperties`.
+ */
+export interface ScopedProperties {
+  /** The properties to merge on top of the base run properties. */
+  properties: Record<string, unknown>;
+  /** The agents that get these properties. When omitted, every agent gets them. */
+  agentIds?: string[];
+}
+
+/** True for an object literal. Arrays, `null`, and class instances are not plain objects. */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.getPrototypeOf(value) === Object.prototype
+  );
+}
 
 /** Configuration options for `CopilotKitCore`. */
 export interface CopilotKitCoreConfig {
@@ -68,11 +94,11 @@ export interface CopilotKitCoreConfig {
   /** Mapping from agent name to its `AbstractAgent` instance. For development only - production requires CopilotRuntime. */
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
   /**
-   * Headers sent with every runtime request and merged on top of each
-   * `HttpAgent`'s own headers (the core value wins on a key conflict). See
-   * `setHeaders`.
+   * Headers sent with every runtime request: a record, or a sync or async
+   * builder that runs when each request is sent. Merged on top of each
+   * `HttpAgent`'s own headers (core wins on a key conflict). See `setHeaders`.
    */
-  headers?: Record<string, string>;
+  headers?: CopilotKitHeadersSource;
   /** Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies). */
   credentials?: RequestCredentials;
   /**
@@ -166,6 +192,11 @@ export enum CopilotKitCoreErrorCode {
   TRANSCRIPTION_AUTH_FAILED = "transcription_auth_failed",
   TRANSCRIPTION_NETWORK_ERROR = "transcription_network_error",
   SUBSCRIBER_CALLBACK_FAILED = "subscriber_callback_failed",
+  /**
+   * The `headers` builder threw, rejected, or returned something other than
+   * an object. The request was not sent. `error.cause` is the builder's error.
+   */
+  HEADER_RESOLUTION_FAILED = "header_resolution_failed",
 }
 
 export interface CopilotKitCoreSubscriber {
@@ -383,6 +414,9 @@ export interface CopilotKitCoreFriendsAccess {
 
   // Getters for internal state
   readonly headers: Readonly<Record<string, string>>;
+  resolveHeaders():
+    | Readonly<Record<string, string>>
+    | Promise<Readonly<Record<string, string>>>;
   readonly credentials: RequestCredentials | undefined;
   readonly messageFilter: CopilotKitMessageFilter | undefined;
   readonly properties: Readonly<Record<string, unknown>>;
@@ -392,14 +426,27 @@ export interface CopilotKitCoreFriendsAccess {
   // Internal methods
   buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
   getContextForAgent(agentId?: string): Context[];
+  getPropertiesForAgent(agentId?: string): Record<string, unknown>;
   getAgent(id: string): AbstractAgent | undefined;
   /**
-   * Re-apply the current core headers to a single agent, merged on top of the
-   * headers the agent was constructed with. The single source of truth for
-   * header application; the run handler uses it so a run never clobbers
-   * per-agent headers (see #5635).
+   * Re-apply the last resolved header snapshot to a single agent, merged on
+   * top of the headers the agent was constructed with (see #5635). Never
+   * invokes the headers builder — safe to call from anywhere without risking
+   * a synchronous throw or an unhandled async rejection from a user-supplied
+   * builder.
    */
   applyHeadersToAgent(agent: AbstractAgent): void;
+
+  /**
+   * Resolve headers fresh (including invoking a sync/async builder) and
+   * apply them to `agent` right before a run or connect actually sends
+   * (#1937). Friends-only — only the run handler should call this, since
+   * unlike `applyHeadersToAgent` it can throw synchronously or return a
+   * rejecting promise. Returns a promise only when an async builder must be
+   * awaited first; callers that need the write to have landed before
+   * continuing must await a returned promise.
+   */
+  prepareAgentHeadersForRun(agent: AbstractAgent): void | Promise<void>;
 
   // References to delegate subsystems
   readonly suggestionEngine: {
@@ -425,27 +472,12 @@ export interface CopilotKitCoreFriendsAccess {
   };
 }
 
-/**
- * Normalize a header map to the internal invariant: a `Record<string, string>`
- * with no `null`/`undefined` values. Entries whose value is `null`/`undefined`
- * are dropped (this is how a header is cleared). Shared by the constructor and
- * `setHeaders` so both write paths into `_headers` enforce the same invariant.
- */
-function normalizeHeaders(
-  headers: Record<string, string | null | undefined>,
-): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(headers).filter(
-      (entry): entry is [string, string] => entry[1] != null,
-    ),
-  );
-}
-
 export class CopilotKitCore {
-  private _headers: Record<string, string>;
+  private headerSource: HeaderSourceResolver;
   private _credentials?: RequestCredentials;
   private _messageFilter?: CopilotKitMessageFilter;
   private _properties: Record<string, unknown>;
+  private _scopedProperties: Map<string, ScopedProperties> = new Map();
   private _defaultThrottleMs?: number;
   private _debug?: DebugConfig;
 
@@ -461,6 +493,8 @@ export class CopilotKitCore {
   private learningBridge: LearningBridge;
   private notifiedTrajectoryId: string | null = null;
   private readonly learningConfiguredListeners = new Set<() => void>();
+  private _generativeUIDebugSource: ɵGenerativeUIDebugSource | undefined;
+  private readonly generativeUIDebugListeners = new Set<() => void>();
   /**
    * The single core-owned memory store, created lazily on first
    * `getMemoryStore()` and kept user-scoped for the lifetime of the core.
@@ -490,7 +524,14 @@ export class CopilotKitCore {
     debug,
     learning,
   }: CopilotKitCoreConfig) {
-    this._headers = normalizeHeaders(headers);
+    this.headerSource = new HeaderSourceResolver((error) => {
+      void this.emitError({
+        error,
+        code: CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED,
+        context: { source: "headers" },
+      });
+    });
+    this.headerSource.setSource(headers);
     this._credentials = credentials;
     this._messageFilter = messageFilter;
     this._properties = properties;
@@ -629,6 +670,13 @@ export class CopilotKitCore {
     code: CopilotKitCoreErrorCode;
     context?: Record<string, any>;
   }): Promise<void> {
+    if (
+      code !== CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED &&
+      isHeaderResolutionError(error)
+    ) {
+      // Already reported once as HEADER_RESOLUTION_FAILED.
+      return;
+    }
     await this.notifySubscribers(
       (subscriber) =>
         subscriber.onError?.({
@@ -712,8 +760,28 @@ export class CopilotKitCore {
     return this.agentRegistry.runtimeVersion;
   }
 
+  /**
+   * The last resolved headers. With a builder this is the value from the most
+   * recent request, not necessarily current; call `resolveHeaders()` for that.
+   */
   get headers(): Readonly<Record<string, string>> {
-    return this._headers;
+    return this.headerSource.headers;
+  }
+
+  /**
+   * Resolve the current headers. Synchronous for a record or a sync builder,
+   * a promise for an async builder. Concurrent calls share one builder call.
+   * The returned object is shared; copy it before modifying.
+   */
+  resolveHeaders():
+    | Readonly<Record<string, string>>
+    | Promise<Readonly<Record<string, string>>> {
+    return this.headerSource.resolve();
+  }
+
+  /** Changes only on `setHeaders` or a new source, never on a new token. */
+  get ɵheadersGeneration(): number {
+    return this.headerSource.generation;
   }
 
   get credentials(): RequestCredentials | undefined {
@@ -883,9 +951,17 @@ export class CopilotKitCore {
    * with, set it at the provider/core level instead of on the agent, or update
    * it on the agent directly. The clear-on-logout pattern above is for
    * core-level headers.
+   *
+   * Pass a function to have headers evaluated when each request is sent
+   * (sync or async). Setting the same function again is a no-op. A new token
+   * from the builder doesn't notify `onHeadersChanged`. On a user switch,
+   * call `setHeaders` with a NEW function (or a record), or remount.
+   *
+   * Passing a record equal (by value) to the currently applied record is
+   * also a no-op — safe to call on every render with a fresh object literal.
    */
-  setHeaders(headers: Record<string, string | null | undefined>): void {
-    this._headers = normalizeHeaders(headers);
+  setHeaders(headers: CopilotKitHeadersSource): void {
+    if (!this.headerSource.setSource(headers)) return;
     if (this._memoryStore) this.syncMemoryContext();
     this.agentRegistry.applyHeadersToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
@@ -921,6 +997,65 @@ export class CopilotKitCore {
     this.agentRegistry.applyMessageFilterToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
+  }
+
+  /**
+   * Add run properties that go only to the runs of `agentIds`. When
+   * `agentIds` is omitted, every agent gets them. They merge on top of the
+   * base `properties`.
+   *
+   * When an entry value and the existing value under the same key are both
+   * plain objects, their keys merge one level deep. So several entries can
+   * add keys under one namespace (for example `copilotkit`).
+   *
+   * @param entry - The properties and the optional agent ids.
+   * @returns The id to pass to `removeScopedProperties`.
+   *
+   * @example
+   * const id = copilotkit.addScopedProperties({
+   *   properties: { copilotkit: { theme: "dark" } },
+   *   agentIds: ["research"],
+   * });
+   * copilotkit.removeScopedProperties(id);
+   */
+  addScopedProperties({ properties, agentIds }: ScopedProperties) {
+    let id = randomUUID();
+    // An id source that repeats itself (a mock, say) must not replace an
+    // earlier entry: every call adds one.
+    for (let n = 1; this._scopedProperties.has(id); n++) id = `${id}-${n}`;
+    this._scopedProperties.set(id, {
+      properties,
+      ...(agentIds ? { agentIds } : {}),
+    });
+    return id;
+  }
+
+  /** Remove an entry that `addScopedProperties` added. An unknown id does nothing. */
+  removeScopedProperties(id: string) {
+    this._scopedProperties.delete(id);
+  }
+
+  /**
+   * Build the forwarded properties for a run of the given agent: the base
+   * properties plus every scoped entry that matches the agent. An entry with
+   * `agentIds` does not match when `agentId` is omitted.
+   */
+  getPropertiesForAgent(agentId?: string) {
+    const merged: Record<string, unknown> = { ...this._properties };
+    const entries = this._scopedProperties.values();
+    for (const entry of entries) {
+      if (!isForAgent(entry.agentIds, agentId)) continue;
+
+      const properties = Object.entries(entry.properties);
+      for (const [key, value] of properties) {
+        const base = merged[key];
+        merged[key] =
+          isPlainObject(base) && isPlainObject(value)
+            ? { ...base, ...value }
+            : value;
+      }
+    }
+    return merged;
   }
 
   setProperties(properties: Record<string, unknown>): void {
@@ -1002,11 +1137,50 @@ export class CopilotKitCore {
     return this.learningBridge.isConfigured;
   }
 
+  /**
+   * @internal Whether captured events may carry agent message text: false
+   * without a `learning` config, or when a custom sink sets
+   * `capture.agentText` to false. A running custom-sink capture keeps the
+   * choice it started with.
+   */
+  get ɵlearningCapturesAgentText(): boolean {
+    return this.learningBridge.capturesAgentText;
+  }
+
   /** @internal Calls `listener` when {@link ɵlearningConfigured} changes. */
   ɵsubscribeToLearningConfigured(listener: () => void): () => void {
     this.learningConfiguredListeners.add(listener);
     return () => {
       this.learningConfiguredListeners.delete(listener);
+    };
+  }
+
+  /**
+   * @internal The generative UI of the framework package, for the inspector.
+   * `undefined` when no provider has a `generativeUI` config.
+   */
+  get ɵgenerativeUIDebugSource(): ɵGenerativeUIDebugSource | undefined {
+    return this._generativeUIDebugSource;
+  }
+
+  /** @internal Set by the framework package. `undefined` removes it. */
+  ɵsetGenerativeUIDebugSource(source: ɵGenerativeUIDebugSource | undefined) {
+    if (source === this._generativeUIDebugSource) return;
+    this._generativeUIDebugSource = source;
+    for (const listener of [...this.generativeUIDebugListeners]) {
+      try {
+        listener();
+      } catch (error) {
+        console.error("Generative UI debug listener error:", error);
+      }
+    }
+  }
+
+  /** @internal Calls `listener` when {@link ɵgenerativeUIDebugSource} is set or removed. */
+  ɵsubscribeToGenerativeUIDebugSource(listener: () => void): () => void {
+    this.generativeUIDebugListeners.add(listener);
+    return () => {
+      this.generativeUIDebugListeners.delete(listener);
     };
   }
 
@@ -1069,8 +1243,8 @@ export class CopilotKitCore {
   }
 
   /**
-   * Re-apply the current headers to a single agent (delegated to
-   * AgentRegistry). Core headers are merged on top of the agent's own
+   * Re-apply the last resolved header snapshot to a single agent (delegated
+   * to AgentRegistry). Core headers are merged on top of the agent's own
    * construction-time headers rather than replacing them, so headers
    * configured directly on an `HttpAgent` (e.g. an `Authorization` for a
    * self-hosted backend) survive header updates instead of being silently
@@ -1081,9 +1255,32 @@ export class CopilotKitCore {
    * afterwards is `setHeaders` (which re-applies to every agent), not mutating
    * `agent.headers` directly — a direct mutation is overwritten on the next
    * re-apply.
+   *
+   * A `ProxiedCopilotRuntimeAgent` keeps only its own construction-time
+   * headers here — core headers are added by `ɵruntimeFetch` when each
+   * request is sent (see #1937), so `agent.headers` never carries a stale
+   * copy of a core header the builder has since stopped returning.
+   *
+   * Never invokes the headers builder (unlike the run/connect path's
+   * internal `prepareAgentHeadersForRun`): safe to call from a dev-only
+   * registration helper or a React effect that re-runs on every render
+   * without risking a synchronous throw or an unhandled async rejection from
+   * a user-supplied builder.
    */
   applyHeadersToAgent(agent: AbstractAgent): void {
     this.agentRegistry.applyHeadersToAgent(agent);
+  }
+
+  /**
+   * Resolve headers fresh and apply them to `agent` right before a run or
+   * connect actually sends (#1937). Friends-only (delegated to
+   * AgentRegistry) — the run handler is the sole caller, since resolving can
+   * invoke a user-supplied builder that throws or rejects.
+   */
+  private prepareAgentHeadersForRun(
+    agent: AbstractAgent,
+  ): void | Promise<void> {
+    return this.agentRegistry.prepareAgentHeadersForRun(agent);
   }
 
   /**
@@ -1157,9 +1354,14 @@ export class CopilotKitCore {
   /**
    * Pushes the current runtime wiring into the memory store. When the runtime
    * is connected and both the intelligence WebSocket URL and runtime URL are
-   * available, the store receives a context (runtime URL, WebSocket URL, and a
-   * copy of the current headers); otherwise its context is cleared. No-op when
-   * the store has not been created yet.
+   * available, the store receives a context (runtime URL, WebSocket URL);
+   * otherwise its context is cleared. No-op when the store has not been
+   * created yet.
+   *
+   * Headers are deliberately NOT part of this context: the store's `fetch` is
+   * `ɵruntimeFetch` (see `ensureMemoryStore`), which already resolves and
+   * overlays the current core headers at send time (#1937) — a header
+   * snapshot copied here would go stale between context syncs.
    */
   private syncMemoryContext(): void {
     if (!this._memoryStore) return;
@@ -1172,7 +1374,6 @@ export class CopilotKitCore {
       this._memoryStore.setContext({
         runtimeUrl: this.runtimeUrl,
         wsUrl: this.intelligence.wsUrl,
-        headers: { ...this.headers },
       });
     } else {
       this._memoryStore.setContext(null);

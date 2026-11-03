@@ -1,6 +1,7 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   CopilotKitCoreErrorCode,
+  CopilotKitHeadersSource,
   CopilotKitMessageFilter,
 } from "@copilotkit/core";
 import type { DebugConfig } from "@copilotkit/shared";
@@ -17,7 +18,12 @@ import type { Component } from "vue";
 
 export interface CopilotKitProviderProps {
   runtimeUrl?: string;
-  headers?: Record<string, string> | (() => Record<string, string>);
+  /**
+   * Headers sent with every request. A record, or a sync or async builder
+   * that runs when each request is sent. An inline arrow is fine. The builder
+   * should be cheap; cache tokens in it.
+   */
+  headers?: CopilotKitHeadersSource;
   credentials?: RequestCredentials;
   /**
    * Rewrites the message list sent to runtime agents on every run.
@@ -84,7 +90,34 @@ export interface CopilotKitProviderProps {
     theme?: A2UITheme;
     catalog?: any;
     loadingComponent?: Component;
+    /**
+     * When true (the default), the full component schemas from the catalog are
+     * sent as agent context so the agent knows what components and props are
+     * available. The A2UI middleware can overwrite this with a server-side
+     * schema if configured.
+     *
+     * When false, the agent context still describes the catalog, but only by its
+     * catalog ID and the names of its custom components, without their JSON
+     * schemas. The component schema entry and the A2UI generation and design
+     * guidelines are not sent. With the CopilotKit LangGraph middleware's
+     * injected A2UI tool, the A2UI subagent then gets the component names only;
+     * a host can still give it a composition guide through the middleware's
+     * guidelines (`a2uiParams.guidelines.compositionGuide` in TypeScript,
+     * `a2ui_params["guidelines"]["composition_guide"]` in Python).
+     */
     includeSchema?: boolean;
+  };
+  /** Configuration for the built-in MCP Apps renderer. */
+  mcpApps?: {
+    /**
+     * Restore `allow-same-origin` on the MCP App sandbox. Default `false`.
+     *
+     * **Unsafe.** The widget then runs with your page's origin: it can read
+     * your cookies, storage and DOM, and call your APIs as the signed-in user.
+     * Only set it for widgets you wrote and trust that need `localStorage`,
+     * `IndexedDB` or cookies. By default widgets get an opaque origin.
+     */
+    allowSameOriginFallback?: boolean;
   };
   /**
    * Enable debug logging for the client-side event pipeline.

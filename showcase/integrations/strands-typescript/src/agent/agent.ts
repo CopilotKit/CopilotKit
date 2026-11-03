@@ -52,7 +52,9 @@ export class ShowcaseStrandsAgent extends BoardStateStrandsAgent {
 }
 // @endregion[agent-config-context-registration]
 
-export async function buildShowcaseAgent(): Promise<StrandsAgent> {
+export async function buildShowcaseAgent(
+  openaiApi: "chat" | "responses" = "chat",
+): Promise<StrandsAgent> {
   const config: StrandsAgentConfig = {
     toolBehaviors: {
       // The tool keeps the sales pipeline in appState; this snapshot, built
@@ -82,7 +84,7 @@ export async function buildShowcaseAgent(): Promise<StrandsAgent> {
   };
 
   const strandsAgent = new Agent({
-    model: await createModel(),
+    model: await createModel({ openaiApi }),
     systemPrompt: SYSTEM_PROMPT,
     tools: SHOWCASE_TOOLS,
   });
@@ -94,6 +96,16 @@ export async function buildShowcaseAgent(): Promise<StrandsAgent> {
       "A polished CopilotKit demo assistant: chat, tools, shared state, HITL, sub-agents.",
     config,
   });
+}
+
+/**
+ * Published Strands Chat Completions drops parallel call indices before native
+ * aggregation. Responses preserves each call and emits complete, ordered blocks.
+ * Rich chat intentionally buffers tool arguments; the shared agent keeps Chat
+ * for demos that demonstrate progressive state and UI updates.
+ */
+export function buildRichChatAgent(): Promise<StrandsAgent> {
+  return buildShowcaseAgent("responses");
 }
 
 /** Tool-free agent for the voice demo (transcription + basic chat). */

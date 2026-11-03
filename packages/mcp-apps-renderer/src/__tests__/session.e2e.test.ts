@@ -104,6 +104,10 @@ function captureOutgoing(iframe: HTMLIFrameElement) {
   return captured;
 }
 
+/** The sandbox-resource-ready notification the host sent to the proxy. */
+const resourceReady = (captured: any[]) =>
+  captured.find((m) => m?.method === "ui/notifications/sandbox-resource-ready");
+
 let sessions: McpAppSession[] = [];
 let iframes: HTMLIFrameElement[] = [];
 
@@ -123,6 +127,7 @@ async function bindAndConnect(
   agent: AbstractAgent,
   content = makeContent(),
   hooks?: Parameters<typeof bindMcpApp>[0]["hooks"],
+  options?: Parameters<typeof bindMcpApp>[0]["options"],
 ) {
   const session = bindMcpApp({
     iframe,
@@ -130,13 +135,17 @@ async function bindAndConnect(
     getAgent: () => agent,
     host: { runAgent: async () => ({ result: undefined, newMessages: [] }) },
     hooks,
+    options,
   });
   sessions.push(session);
   await tick(60); // let fetchResource + bridge.connect settle
   const captured = captureOutgoing(iframe);
+  // Same shape the real proxy sends (sandbox.ts); the bridge rejects a
+  // notification without params.
   fromIframe(iframe, {
     jsonrpc: "2.0",
     method: "ui/notifications/sandbox-proxy-ready",
+    params: {},
   });
   await tick(30);
   return { session, captured };
@@ -302,6 +311,45 @@ describe("bindMcpApp", () => {
 // - the host context seeded at AppBridge construction is advertised at
 //   initialize (deterministic, not a post-connect race).
 // ---------------------------------------------------------------------------
+describe("bindMcpApp sandbox isolation", () => {
+  // SEP-1865: allow-same-origin is only safe when the Sandbox has a different
+  // origin from the Host. The srcdoc proxy inherits the host origin (#6910).
+  it("gives both frames an opaque origin by default", async () => {
+    const onSandboxReady = vi.fn();
+    const iframe = mount();
+    const { captured } = await bindAndConnect(
+      iframe,
+      makeAgent(),
+      makeContent(),
+      { onSandboxReady },
+    );
+
+    expect(iframe.getAttribute("sandbox")).toBe("allow-scripts allow-forms");
+    expect(resourceReady(captured)?.params).toEqual({
+      html: "<html><body>Widget</body></html>",
+      sandbox: "allow-scripts allow-forms",
+    });
+    expect(iframe.srcdoc).not.toContain("allow-same-origin");
+    // The handshake still completes without allow-same-origin.
+    expect(onSandboxReady).toHaveBeenCalledOnce();
+  });
+
+  it("restores allow-same-origin on both frames with allowSameOriginFallback", async () => {
+    const iframe = mount();
+    const { captured } = await bindAndConnect(
+      iframe,
+      makeAgent(),
+      makeContent(),
+      undefined,
+      { allowSameOriginFallback: true },
+    );
+
+    const sameOrigin = "allow-scripts allow-same-origin allow-forms";
+    expect(iframe.getAttribute("sandbox")).toBe(sameOrigin);
+    expect(resourceReady(captured)?.params.sandbox).toBe(sameOrigin);
+  });
+});
+
 describe("bindMcpApp ui/initialize negotiation", () => {
   const LATEST_PROTOCOL_VERSION = "2026-01-26";
 

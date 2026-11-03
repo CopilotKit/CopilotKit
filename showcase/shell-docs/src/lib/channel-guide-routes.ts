@@ -62,6 +62,18 @@ export const CHANNEL_GUIDE_ROUTES = [
     section: "build",
   },
   {
+    slug: "posting-jsx-as-images",
+    sourceSlug: "channels/posting-jsx-as-images",
+    navTitle: "Posting JSX as images",
+    section: "build",
+  },
+  {
+    slug: "render-and-carousel",
+    sourceSlug: "channels/render-and-carousel",
+    navTitle: "Render and carousel",
+    section: "build",
+  },
+  {
     slug: "interactive",
     sourceSlug: "channels/interactive",
     navTitle: "Interactive messages and approvals",

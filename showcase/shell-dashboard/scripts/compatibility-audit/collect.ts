@@ -31,7 +31,11 @@ export interface CollectAdapters {
 
 export interface AuditReport {
   schemaVersion: 1;
-  source: { sha: string; label: "prototype-source" };
+  source: {
+    sha: string;
+    label: "prototype-source" | "deployed-source";
+    commits?: Record<string, string>;
+  };
   asOf: string;
   observations: Pick<RawResponse, "url" | "status" | "observedAt">[];
   packages: PackageAssessment[];
@@ -108,6 +112,25 @@ export async function collectAudit(
   const savedSources = new Map(
     sourceFiles.map((file) => [file.path, file.body]),
   );
+  const deployedSources = new Map<string, Map<string, string>>();
+  if (options.sourceCommits) {
+    for (const variant of COMPATIBILITY_MAPPING) {
+      if (variant.excludedReason !== undefined) continue;
+      const sha = options.sourceCommits[variant.slug];
+      if (!sha || !/^[a-fA-F0-9]{40}$/.test(sha))
+        throw new Error(`Missing deployed source commit for ${variant.slug}`);
+      const files = (injectedAdapters.captureSourceFiles ?? captureSourceFiles)(
+        repo,
+        sha,
+        [variant],
+        "selected",
+      );
+      deployedSources.set(
+        variant.slug,
+        new Map(files.map((file) => [file.path, file.body])),
+      );
+    }
+  }
   const clock = injectedAdapters.clock ?? (() => new Date());
   const transport =
     injectedAdapters.httpClient ?? createLiveHttpClient({ clock });
@@ -174,6 +197,15 @@ export async function collectAudit(
     asOf: options.asOf,
     mapping: COMPATIBILITY_MAPPING,
     inventories,
+    sourceCommits: options.sourceCommits,
+    readForVariant: options.sourceCommits
+      ? (slug, path) => {
+          const body = deployedSources.get(slug)?.get(path);
+          if (body === undefined)
+            throw new Error(`Missing deployed source file: ${slug}/${path}`);
+          return body;
+        }
+      : undefined,
     read(path) {
       const body = savedSources.get(path);
       if (body === undefined)
@@ -183,7 +215,13 @@ export async function collectAudit(
   });
   const report: AuditReport = {
     schemaVersion: 1,
-    source: { sha: sourceSha, label: "prototype-source" },
+    source: options.sourceCommits
+      ? {
+          sha: sourceSha,
+          label: "deployed-source",
+          commits: options.sourceCommits,
+        }
+      : { sha: sourceSha, label: "prototype-source" },
     asOf: options.asOf,
     observations: [...observations.values()].sort((a, b) =>
       compare(a.url, b.url),

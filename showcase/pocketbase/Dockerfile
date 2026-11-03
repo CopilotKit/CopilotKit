@@ -39,7 +39,10 @@ LABEL org.opencontainers.image.description="PocketBase for CopilotKit showcase p
 # binary). Used by entrypoint.sh to run PocketBase as `pocketbase` while
 # still being able to chown /pb_data at container start — see the
 # entrypoint for the full rationale.
-RUN apk add --no-cache ca-certificates su-exec
+# `sqlite` is the sqlite3 CLI used by the copy-and-swap compaction scripts
+# (scripts/compact-build.sh, run by hand; scripts/compact-swap.sh, run by
+# entrypoint.sh before PocketBase starts).
+RUN apk add --no-cache ca-certificates su-exec sqlite
 # Create a non-root user + group for the runtime. PocketBase needs write
 # access to /pb_data (SQLite db + uploads). We pre-create the directory
 # and chown it at build time for the case where no volume is mounted,
@@ -58,7 +61,10 @@ COPY --from=fetch /pb/pocketbase /usr/local/bin/pocketbase
 COPY --chown=pocketbase:pocketbase pb_migrations /pb_migrations
 COPY --chown=pocketbase:pocketbase pb_hooks /pb_hooks
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY scripts/ /usr/local/lib/pb-compact/
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/lib/pb-compact/compact-build.sh \
+        /usr/local/lib/pb-compact/compact-swap.sh \
+    && ln -s /usr/local/lib/pb-compact/compact-build.sh /usr/local/bin/pb-compact-build
 VOLUME ["/pb_data"]
 EXPOSE 8090
 # Run as root so entrypoint.sh can chown the freshly-mounted volume.

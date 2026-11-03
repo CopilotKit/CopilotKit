@@ -1,14 +1,15 @@
-import { useSyncExternalStore, type ReactNode } from 'react';
+import { useSyncExternalStore } from "react";
+import type { ReactNode } from "react";
 
-import { Check, Copy } from 'lucide-react';
-import { classNames } from '../class-names';
-import { Button } from '../primitives';
-import styles from './data-display.module.css';
-import {
-  useCopyToClipboard,
-  type ClipboardWriter,
-  type CopyToClipboardStatus,
-} from './use-copy-to-clipboard';
+import { Check, Copy } from "lucide-react";
+import { classNames } from "../class-names";
+import { Button } from "../primitives";
+import styles from "./data-display.module.css";
+import { useCopyToClipboard } from "./use-copy-to-clipboard";
+import type {
+  ClipboardWriter,
+  CopyToClipboardStatus,
+} from "./use-copy-to-clipboard";
 
 export type { ClipboardWriter };
 
@@ -18,8 +19,8 @@ export interface CopyButtonProps {
   readonly copiedLabel?: string;
   readonly failedLabel?: string;
   /** `icon` / `icon-sm` render the glyph only and name the button with `label`. */
-  readonly size?: 'icon' | 'icon-sm' | 'md' | 'sm';
-  readonly variant?: 'ghost' | 'outline';
+  readonly size?: "icon" | "icon-sm" | "md" | "sm";
+  readonly variant?: "ghost" | "outline";
   readonly writeText?: ClipboardWriter;
   /**
    * Layout-only class for the button, such as placement in a code block's
@@ -28,7 +29,7 @@ export interface CopyButtonProps {
   readonly className?: string;
 }
 
-const designAttribute = 'data-cpki-design';
+const designAttribute = "data-cpki-design";
 
 /**
  * Watches the document root's design boundary.
@@ -53,7 +54,7 @@ function subscribeToDesign(notify: () => void): () => void {
  * @returns True when the root carries `data-cpki-design="workspace"`.
  */
 function readWorkspaceDesign(): boolean {
-  return document.documentElement.getAttribute(designAttribute) === 'workspace';
+  return document.documentElement.getAttribute(designAttribute) === "workspace";
 }
 
 /**
@@ -88,12 +89,12 @@ function labelFor(
   },
 ): string {
   switch (status) {
-    case 'copied':
+    case "copied":
       return labels.copied;
-    case 'failed':
-    case 'unavailable':
+    case "failed":
+    case "unavailable":
       return labels.failed;
-    case 'idle':
+    case "idle":
       return labels.idle;
   }
 }
@@ -117,11 +118,11 @@ function labelFor(
  */
 export function CopyButton({
   value,
-  label = 'Copy',
-  copiedLabel = 'Copied',
-  failedLabel = 'Copy failed',
-  size = 'md',
-  variant = 'outline',
+  label = "Copy",
+  copiedLabel = "Copied",
+  failedLabel = "Copy failed",
+  size = "md",
+  variant = "outline",
   writeText,
   className,
 }: CopyButtonProps): ReactNode {
@@ -132,18 +133,18 @@ export function CopyButton({
   });
   const labels = { copied: copiedLabel, failed: failedLabel, idle: label };
   const statusLabel = labelFor(status, labels);
-  const iconOnly = size === 'icon' || size === 'icon-sm';
+  const iconOnly = size === "icon" || size === "icon-sm";
   const sharedProps = {
-    'data-copy-state': status === 'unavailable' ? 'failed' : status,
+    "data-copy-state": status === "unavailable" ? "failed" : status,
     disabled: value.length === 0,
     onClick: (): void => {
       copy(value);
     },
-    type: 'button',
+    type: "button",
   } as const;
   const announcement = (
     <span className={styles.visuallyHidden} role="status">
-      {announcedStatus === 'idle' ? '' : labelFor(announcedStatus, labels)}
+      {announcedStatus === "idle" ? "" : labelFor(announcedStatus, labels)}
     </span>
   );
 
@@ -170,7 +171,7 @@ export function CopyButton({
         size={size}
         variant={variant}
       >
-        {status === 'copied' ? (
+        {status === "copied" ? (
           <Check size={14} aria-hidden="true" />
         ) : (
           <Copy size={14} aria-hidden="true" />

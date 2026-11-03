@@ -277,6 +277,45 @@ describe("status-writer", () => {
     expect(out.failCount).toBe(2);
   });
 
+  it("every tick appends a status_history row, sustained ticks included", async () => {
+    // status_history is bounded by 30-day retention, not by skipping
+    // sustained ticks. A key stable for longer than the retention window
+    // still needs recent rows, and red<->degraded is a sustained_red state
+    // change that only the audit row records.
+    const writer = createStatusWriter({
+      pb: env.pb,
+      bus: createEventBus(),
+      logger,
+    });
+    const ticks = [
+      ["green", "2026-04-20T00:00:00Z", "first"],
+      ["green", "2026-04-20T00:05:00Z", "sustained_green"],
+      ["red", "2026-04-20T00:10:00Z", "green_to_red"],
+      ["red", "2026-04-20T00:15:00Z", "sustained_red"],
+      ["degraded", "2026-04-20T00:20:00Z", "sustained_red"],
+      ["red", "2026-04-20T00:25:00Z", "sustained_red"],
+      ["green", "2026-04-20T00:30:00Z", "red_to_green"],
+    ] as const;
+    for (const [state, observedAt, transition] of ticks) {
+      const before = env.history.length;
+      const out = await writer.write({ ...probeResult(state), observedAt });
+      expect(out.transition).toBe(transition);
+      // One audit row per tick, written for this tick.
+      expect(env.history).toHaveLength(before + 1);
+      expect(env.history.at(-1)).toMatchObject({
+        key: "smoke:mastra",
+        state,
+        transition,
+        observed_at: observedAt,
+      });
+      // The status row is upserted on this tick, sustained or not.
+      expect(env.rows.get("smoke:mastra")).toMatchObject({
+        state,
+        observed_at: observedAt,
+      });
+    }
+  });
+
   it("red_to_green clears first_failure_at and fail_count", async () => {
     const writer = createStatusWriter({
       pb: env.pb,

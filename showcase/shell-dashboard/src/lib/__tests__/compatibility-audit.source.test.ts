@@ -96,6 +96,18 @@ describe("pinned source capture", () => {
     ]);
   });
 
+  it("captures only selected integration files at a deployed commit", () => {
+    const { repo, sha } = fixture({
+      [manifest]: "slug: example\n",
+      [requirements]: "framework==1.2.3\n",
+      "showcase/integrations/other/manifest.yaml": "slug: other\n",
+    });
+    expect(captureSourceFiles(repo, sha, mapping(), "selected")).toEqual([
+      { path: requirements, body: "framework==1.2.3\n" },
+    ]);
+    expect(() => captureSourceFiles(repo, sha, mapping())).toThrow();
+  });
+
   it("resolves only the local origin/main tracking ref to one full commit", () => {
     const { repo, sha } = fixture({
       [manifest]: "slug: example\n",
