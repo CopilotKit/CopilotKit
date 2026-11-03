@@ -158,6 +158,7 @@ import type { ɵUserMessageMediaPart } from "@copilotkit/core";
                 <copilot-chat-user-message-branch-navigation
                   [currentBranch]="branchIndexValue()"
                   [numberOfBranches]="numberOfBranchesValue()"
+                  [branchSwitchEnabled]="branchSwitchEnabled()"
                   [message]="message()!"
                   [inputClass]="branchNavigationClass()"
                   (switchToBranch)="handleSwitchToBranch($event)"
@@ -202,6 +203,14 @@ export class CopilotChatUserMessage {
   message = input<UserMessage>();
   branchIndex = input<number | undefined>();
   numberOfBranches = input<number | undefined>();
+  /**
+   * Whether something handles `switchToBranch`, so the branch arrows can work.
+   * With `false` the branch navigation stays hidden, as React and Vue hide it
+   * without an `onSwitchToBranch` handler. An Angular `output()` cannot tell
+   * whether a listener is bound, so this defaults to `true`: navigation shows
+   * whenever there is more than one branch.
+   */
+  branchSwitchEnabled = input<boolean>(true);
   additionalToolbarItems = input<TemplateRef<any> | undefined>();
   inputClass = input<string | undefined>();
 
@@ -222,14 +231,12 @@ export class CopilotChatUserMessage {
     CopilotChatUserMessageBranchNavigation;
 
   // Computed values
-  // An Angular `output()` cannot tell whether a listener is bound, so the
-  // navigation always counts as switchable here.
   showBranchNavigation = computed(
     () =>
       ɵgetBranchNavState({
         branchIndex: this.branchIndexValue(),
         numberOfBranches: this.numberOfBranchesValue(),
-        canSwitch: true,
+        canSwitch: this.branchSwitchEnabled(),
       }).show,
   );
 

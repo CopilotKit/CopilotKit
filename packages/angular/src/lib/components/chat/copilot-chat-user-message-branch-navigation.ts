@@ -56,6 +56,14 @@ import { UserMessage } from "@ag-ui/core";
 export class CopilotChatUserMessageBranchNavigation {
   currentBranch = input<number>(0);
   numberOfBranches = input<number>(1);
+  /**
+   * Whether something handles `switchToBranch`, so the branch arrows can work.
+   * With `false` the branch navigation stays hidden, as React and Vue hide it
+   * without an `onSwitchToBranch` handler. An Angular `output()` cannot tell
+   * whether a listener is bound, so this defaults to `true`: navigation shows
+   * whenever there is more than one branch.
+   */
+  branchSwitchEnabled = input<boolean>(true);
   message = input<UserMessage>();
   inputClass = input<string | undefined>();
   switchToBranch = output<CopilotChatUserMessageOnSwitchToBranchProps>();
@@ -67,13 +75,11 @@ export class CopilotChatUserMessageBranchNavigation {
   readonly buttonClass =
     "cpk-button cpk-button-assistant-message-toolbar cpk-button-size-default cpk-user-message-branch-button";
 
-  // An Angular `output()` cannot tell whether a listener is bound, so the
-  // navigation always counts as switchable here.
   readonly #navState = computed(() =>
     ɵgetBranchNavState({
       branchIndex: this.currentBranch(),
       numberOfBranches: this.numberOfBranches(),
-      canSwitch: true,
+      canSwitch: this.branchSwitchEnabled(),
     }),
   );
 
