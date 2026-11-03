@@ -11,3 +11,21 @@ export * from "./run-handler";
 export * from "./state-manager";
 export * from "./webmcp";
 export type * from "./generative-ui-debug";
+export {
+  ɵCOPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
+  ɵCOPILOT_CLOUD_RUNTIME_URL,
+  ɵSTABLE_ARRAY_WARNINGS,
+  ɵreportProviderConfigDiagnostics,
+  ɵresolveProviderConfig,
+  ɵtoolRendererShapeChanged,
+} from "./provider-config";
+export type {
+  ɵProviderConfigDiagnostic,
+  ɵProviderConfigDiagnosticCode,
+  ɵProviderConfigInput,
+  ɵReportProviderConfigDiagnosticsOptions,
+  ɵResolvedProviderConfig,
+  ɵToolRendererShape,
+} from "./provider-config";
+export { ɵRuntimeInfoStore } from "./runtime-info";
+export type { ɵRuntimeInfo } from "./runtime-info";
