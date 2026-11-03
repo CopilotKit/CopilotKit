@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type SyntheticEvent } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { ArrowUpRight, Menu, Moon, Sun, X } from "lucide-react";
+import { ArrowUpRight, Maximize2, Menu, Moon, Sun, X } from "lucide-react";
 import "@/app/site.css";
 import { readStoredDesignSystem } from "@/design-systems/context";
 import { setTheme, useTheme } from "@/lib/theme";
@@ -187,15 +187,12 @@ function EmbedHeader({ query }: { query: string }) {
             onFocus={refresh}
             onClick={refresh}
             data-open-full
-            className="inline-flex h-8 flex-none items-center gap-1.5 rounded-md border border-border px-2.5 text-[13px] font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            // A quiet icon button beside the theme toggle, so the frame's header stays out of the answer's way.
+            aria-label="Open full playground (opens in a new tab)"
+            title="Open full playground"
+            className="flex size-8 flex-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            {/* Under 440px: "Open", still named in full for screen readers. */}
-            <span className="max-[439px]:hidden">Open full playground</span>
-            <span className="min-[440px]:hidden">
-              Open<span className="sr-only"> full playground</span>
-            </span>
-            <ArrowUpRight className="size-3.5" aria-hidden />
-            <span className="sr-only"> (opens in a new tab)</span>
+            <Maximize2 className="size-[16px]" aria-hidden />
           </a>
         </div>
       </div>

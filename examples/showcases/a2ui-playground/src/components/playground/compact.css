@@ -108,6 +108,22 @@
   .wb-page [data-wb-empty] {
     padding: 18px 16px;
   }
+  /* In a narrow frame (the square embeds), the answer gets the width: 10px gutters, a closer floor, and the
+     generated UI drawn at 7/8 size, so a dashboard reads as a whole instead of filling the frame. `zoom` sits
+     on the surface itself: the resize box around it eases to its zoomed height, and the link outline and the
+     drawing, placed from on-screen rects outside it, stay on it. */
+  @media (max-width: 899px) {
+    .wb-page [data-thread] > div,
+    .wb-page .wb-composer > div {
+      padding-inline: 10px;
+    }
+    .wb-page .wb-floor {
+      padding: 8px;
+    }
+    .wb-page .wb-surface .t-resize > div > :is(.a2-surface-host, .a2-static) {
+      zoom: 0.875;
+    }
+  }
 
   /* The composer. */
   .wb-page .wb-composer {

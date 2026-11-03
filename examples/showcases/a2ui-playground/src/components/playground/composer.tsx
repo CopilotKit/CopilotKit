@@ -269,9 +269,9 @@ function SuggestionTag({ tag }: { tag: Tag }) {
 }
 
 /**
- * The composer, pinned under the conversation: a few prompts to start from (until the visitor has asked
- * something), the prompt box (a "+" menu, the prompt, Build or Stop), and until then, under it, the way in
- * without a model. The design system, model and format pickers are in the "+" menu.
+ * The composer, pinned under the conversation: a few prompts to start from (in an empty chat), the prompt
+ * box (a "+" menu, the prompt, Build or Stop), and until the visitor has asked something, under it, the way
+ * in without a model. The design system, model and format pickers are in the "+" menu.
  */
 export function Composer({
   replay,
@@ -298,7 +298,10 @@ export function Composer({
   const noteId = useId();
   const compact = useCompact();
   const narrow = useNarrow();
-  useTwoRows(chips, empty);
+  // The prompts to start from belong to an empty chat. After the replay or a conversation, the box is for a
+  // follow-up and stands alone ("Try a prompt" in the "+" menu still lists them).
+  const suggest = empty && replay.status === "off";
+  useTwoRows(chips, suggest);
   // The "+" menu portals into the playground's root rather than <body>: its colours are scoped to `.pg-root`.
   const wrap = useRef<HTMLDivElement>(null);
   const [portal, setPortal] = useState<HTMLElement | null>(null);
@@ -506,7 +509,7 @@ export function Composer({
       className="wb-composer relative flex-none pb-4 pt-2 max-[899px]:pb-3"
     >
       <div className="mx-auto w-full max-w-[844px] px-8 max-[1279px]:px-6 max-[899px]:px-4">
-        {empty ? (
+        {suggest ? (
           <div className="mb-2.5" data-wb-chips-wrap>
             <h2 className="sr-only">Try one</h2>
             {/* At most two rows, so the conversation keeps its room: the prompts that would start a third are hidden.
