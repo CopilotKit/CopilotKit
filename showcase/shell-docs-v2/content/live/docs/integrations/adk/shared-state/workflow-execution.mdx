@@ -1,5 +1,5 @@
 ---
-title: Workflow Execution
+title: State Inputs and Outputs
 icon: "lucide/Play"
 description: Decide which state properties are received and returned to the frontend.
 ---
@@ -10,7 +10,7 @@ import AngularStateWorkflow from "@/snippets/shared/angular/shared-state-workflo
 ## What is this?
 
 Not all state properties are relevant for frontend-backend sharing.
-This guide shows how to ensure only the right portion of state is communicated back and forth.
+This guide shows how to send only the right portion of state back and forth.
 
 ## When should I use this?
 
@@ -23,7 +23,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
   <Step>
     ### Examine your state structure
     ADK agents are stateful. As you execute tools and callbacks, that state is updated and available throughout the session. For this example,
-    let's assume that the state our agent should be using can be described like this:
+    assume that the agent uses this state:
 
     ```python title="agent.py"
     from typing import Dict, List
@@ -41,14 +41,15 @@ In addition, some state properties contain a lot of information. Syncing them ba
   <Step>
     ### Organize state by purpose
     Our example case lists several state properties, each with its own purpose:
-      - The **question** is being asked by the user, expecting the LLM to answer
-      - The **answer** is what the LLM returns
-      - The **resources** list will be used by the LLM to answer the question, and should not be communicated to the user, or set by them
+      - **question**: the user asks it, and the LLM answers it.
+      - **answer**: what the LLM returns.
+      - **resources**: a list that the LLM uses to answer the question. The UI does not show it or set it.
 
     Here's a complete example showing how to structure your agent with these considerations:
 
     ```python title="agent.py"
     from typing import Dict, List
+    import uvicorn
     from fastapi import FastAPI
     from pydantic import BaseModel
     from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
@@ -60,7 +61,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
         """State for the agent."""
         question: str = ""       # Input: received from frontend
         answer: str = ""         # Output: sent to frontend
-        resources: List[str] = []  # Internal: not shared with frontend
+        resources: List[str] = []  # Internal: the UI receives it but does not use it
 
 
     def answer_question(tool_context: ToolContext, answer: str) -> Dict[str, str]:
@@ -127,7 +128,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
     Now that we know which state properties our agent uses, we can work with them in the UI:
     - **question**: Set by the UI to ask the agent something
     - **answer**: Read from the agent's response
-    - **resources**: Not accessible to the UI (internal agent use only)
+    - **resources**: Written by the agent for its own use. ADK sends all session state to the UI, so the UI also receives it. Do not put data in session state that the user must not see.
 
     <FrontendOnly frontend="react">
     ```tsx title="ui/app/page.tsx"
@@ -222,15 +223,12 @@ In addition, some state properties contain a lot of information. Syncing them ba
     </FrontendOnly>
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` that you pass to `useAgent` must match the agent name in your CopilotRuntime `agents` configuration (for example, `my_agent` from the quickstart).
     </Callout>
 
   </Step>
   <Step>
-    ### Give it a try!
-    Now that we've organized state by purpose:
-    - The UI can set `question` and read `answer`
-    - The agent uses `resources` internally without exposing it to the frontend
-    - State updates flow efficiently between frontend and backend
+    ### Give it a try
+    Start the agent and the app. Type a question and click **Ask Question**. The **Answer** line shows the answer that the agent stored in state.
   </Step>
 </Steps>

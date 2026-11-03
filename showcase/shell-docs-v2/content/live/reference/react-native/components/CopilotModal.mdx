@@ -10,6 +10,8 @@ Like [`CopilotChat`](/reference/react-native/components/CopilotChat), `CopilotMo
 - **Headless** (`@copilotkit/react-native`) is a thin wrapper around `CopilotChat` that mirrors the web SDK's `CopilotModal` API. It provides agent wiring only; you handle modal presentation with React Native's `Modal` (or any overlay) and build the chat UI from [`useCopilotChatContext`](/reference/react-native/components/CopilotChat#usecopilotchatcontext).
 - **Prebuilt UI** (`@copilotkit/react-native/components`) is a ready-made chat in a [`@gorhom/bottom-sheet`](https://ui.gorhom.dev/components/bottom-sheet/) with snap points and swipe-to-dismiss. See [Prebuilt UI](#prebuilt-ui).
 
+For a drawer or a floating button, see [`CopilotSidebar`](/reference/react-native/components/CopilotSidebar) or [`CopilotPopup`](/reference/react-native/components/CopilotPopup).
+
 ## Headless `CopilotModal`
 
 ```tsx
@@ -127,9 +129,3 @@ export function ChatScreen() {
   );
 }
 ```
-
-## Related
-
-- [`CopilotChat`](/reference/react-native/components/CopilotChat): the underlying chat primitive and prebuilt UI
-- [`CopilotSidebar`](/reference/react-native/components/CopilotSidebar): slide-in drawer variant
-- [`CopilotPopup`](/reference/react-native/components/CopilotPopup): floating action button + overlay

@@ -11,7 +11,7 @@ You call `registerFrontendTool` inside an Angular injection context (a component
 
 The handler runs inside the same injector that registered the tool, so it can call `inject()` to reach your other Angular services.
 
-If there is nothing to run in the browser and you only want the agent to display a component with the arguments it supplies, use [`registerComponent`](/reference/angular/functions/registerComponent) instead of a stub handler.
+If there is nothing to run in the browser and you only want the agent to display a component with the arguments it supplies, use [`registerComponent`](/reference/angular/functions/registerComponent) instead of a stub handler. To wait for a user decision instead, use [`registerHumanInTheLoop`](/reference/angular/functions/registerHumanInTheLoop).
 
 <Callout type="info">
   Import from the package root, `@copilotkit/angular`. There is no `/v2`
@@ -58,19 +58,21 @@ function registerFrontendTool<Args extends Record<string, unknown>>(
   <PropertyReference
     name="handler"
     type="(args: Args, context: FrontendToolHandlerContext) => Promise<unknown>"
-    required
   >
     An async function that runs when the agent calls the tool. It receives the
     parsed `args` cast to the inferred type and a `context` object, and runs inside the
     injection context that registered the tool, so you can call `inject()`
     inside it. The resolved value is returned to the agent as the tool result.
+    The handler is optional. Leave it out for a tool that only renders
+    `component`, or use
+    [`registerComponent`](/reference/angular/functions/registerComponent).
 
     <PropertyReference name="context.toolCall" type="ToolCall">
       The raw AG-UI tool call metadata, including the tool call `id`.
     </PropertyReference>
 
     <PropertyReference name="context.agent" type="AbstractAgent | undefined">
-      The agent instance that invoked the tool. Absent when the tool is invoked
+      The agent instance that called the tool. Absent when the tool is called
       through WebMCP.
     </PropertyReference>
 
@@ -100,7 +102,7 @@ function registerFrontendTool<Args extends Record<string, unknown>>(
   </PropertyReference>
 
   <PropertyReference name="reconnectBehavior" type='"passive" | "resume-pending"' default='"passive"'>
-    What happens to a call of this tool that is still unanswered when the thread's history is restored, for example after a page reload. With `"passive"`, the call is shown but the handler does not run. With `"resume-pending"`, the handler runs for that call with `isReplay: true` in its context, and the run then continues as usual. Opt in only for a handler that is safe to run more than once. A call does not start twice at the same time on one page, but it can run again after a stop or a thread switch if its result never reached the agent, and two tabs that restore the same thread can each run it. If the agent calls this tool together with a tool that stays passive, the follow-up run sends the passive call without a result, which some model providers reject.
+    What happens to a call of this tool that is still unanswered when the thread's history is restored, for example after a page reload. With `"passive"`, the call is shown but the handler does not run. With `"resume-pending"`, the handler runs for that call with `isReplay: true` in its context, and the run then continues as usual. Opt in only for a handler that is safe to run more than once. A call does not start twice at the same time on one page. A call can run again after a stop or a thread switch, if its result never reached the agent. Two tabs that restore the same thread can each run the call. If the agent calls this tool together with a tool that stays passive, the follow-up run sends the passive call without a result, which some model providers reject.
   </PropertyReference>
 
   <PropertyReference name="agentId" type="string">
@@ -195,11 +197,11 @@ export class WeatherComponent {
       description: "Fetch weather information for a city",
       parameters: z.object({
         city: z.string().describe("City name"),
-        units: z.enum(["celsius", "fahrenheit"]).default("celsius"),
+        units: z.enum(["celsius", "fahrenheit"]).optional(),
       }),
       handler: async ({ city, units }, { signal }) => {
         const weather = inject(WeatherService);
-        const result = await weather.fetch(city, units, { signal });
+        const result = await weather.fetch(city, units ?? "celsius", { signal });
         return JSON.stringify(result);
       },
     });
@@ -215,7 +217,7 @@ Pass a standalone component as `component` to visualize the tool call in chat. T
 import { Component, input } from "@angular/core";
 import { AngularToolCall, ToolRenderer } from "@copilotkit/angular";
 
-type WeatherArgs = { city: string; units: "celsius" | "fahrenheit" };
+type WeatherArgs = { city: string; units?: "celsius" | "fahrenheit" };
 
 @Component({
   selector: "app-weather-tool-view",
@@ -264,10 +266,12 @@ export class WeatherComponent {
       description: "Fetch and display weather information for a city",
       parameters: z.object({
         city: z.string().describe("City name"),
-        units: z.enum(["celsius", "fahrenheit"]).default("celsius"),
+        units: z.enum(["celsius", "fahrenheit"]).optional(),
       }),
       handler: async ({ city, units }, { signal }) => {
-        const result = await inject(WeatherService).fetch(city, units, { signal });
+        const result = await inject(WeatherService).fetch(city, units ?? "celsius", {
+          signal,
+        });
         return JSON.stringify(result);
       },
       component: WeatherToolViewComponent,
@@ -275,28 +279,3 @@ export class WeatherComponent {
   }
 }
 ```
-
-## Related
-
-<Cards>
-  <Card
-    title="registerComponent"
-    description="Let the agent display one of your components, with no handler and nothing to add on the agent side."
-    href="/reference/angular/functions/registerComponent"
-  />
-  <Card
-    title="registerRenderToolCall"
-    description="Register a renderer for a tool call (including server-side and agentic tools) with full access to status and results."
-    href="/reference/angular/functions/registerRenderToolCall"
-  />
-  <Card
-    title="registerHumanInTheLoop"
-    description="Register a tool that pauses the agent and waits for the user to respond from a rendered component."
-    href="/reference/angular/functions/registerHumanInTheLoop"
-  />
-  <Card
-    title="CopilotKit service"
-    description="The central service that holds agents, tools, and the runtime connection."
-    href="/reference/angular/services/CopilotKit"
-  />
-</Cards>

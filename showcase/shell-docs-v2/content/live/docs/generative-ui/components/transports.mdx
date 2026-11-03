@@ -29,6 +29,8 @@ Start with the tool transport. If your agent cannot call client tools, or you wa
 This is the default, so the provider needs only the catalog:
 
 ```tsx
+import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+
 <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
 ```
 

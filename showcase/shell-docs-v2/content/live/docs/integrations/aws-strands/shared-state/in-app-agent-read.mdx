@@ -20,7 +20,7 @@ description: Read the realtime agent state in your native application.
 
 ## What is this?
 
-You can easily use the realtime agent state not only in the chat UI, but also in the native application UX.
+Show the agent's state in your own components, outside the chat. The UI updates each time the agent state changes.
 
 ## When should I use this?
 
@@ -35,9 +35,9 @@ state updates, you can reflect these updates natively in your application.
     <RunAndConnect />
   </Step>
   <Step>
-    ### Setup your agent with state
+    ### Read the state in your agent
 
-    Define your agent's state schema. AWS Strands maintains state throughout execution.
+    Your agent reads `language` from the state that the UI sends. The state context builder adds the value to each prompt.
 
     <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
         <Tab value="Python">
@@ -128,8 +128,7 @@ state updates, you can reflect these updates natively in your application.
   <Step>
     ### Use the `useAgent` Hook
 
-    With your agent connected and running, call the `useAgent` hook, wait for the real agent, and
-    initialize any missing UI-owned state with `agent.setState`.
+    Call `useAgent` with the ID of your agent. When `isReady` is true, set any missing state with `agent.setState`.
 
     ```tsx title="ui/app/page.tsx"
     import { useEffect } from "react";
@@ -170,38 +169,10 @@ state updates, you can reflect these updates natively in your application.
   </Step>
 
   <Step>
-    ### Give it a try!
+    ### Give it a try
 
-    As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
-    language set to "spanish" after the connected agent is ready.
+    Open the page. After the agent connects, the Language line shows spanish. Ask the agent a question in English.
+    The agent answers in Spanish, because the state context builder adds `language` from the state to each prompt.
 
   </Step>
 </Steps>
-
-## Rendering agent state in your app
-
-You can render the agent state in any React component under `<CopilotKit>`. Read `agent.state` and return ordinary JSX.
-
-```tsx title="ui/app/page.tsx"
-import { useAgent } from "@copilotkit/react-core/v2";
-
-// Define the agent state type, should match the actual state of your agent
-type AgentState = {
-  language: "english" | "spanish";
-};
-
-function YourMainContent() {
-  const { agent } = useAgent({
-    agentId: "strands_agent",
-  });
-  const state = (agent.state ?? {}) as Partial<AgentState>;
-
-  if (!state.language) return null;
-  return <div>Language: {state.language}</div>;
-}
-```
-
-<Callout type="info">
-  The `agent.state` in `useAgent` is reactive and will automatically update when
-  the agent state changes.
-</Callout>

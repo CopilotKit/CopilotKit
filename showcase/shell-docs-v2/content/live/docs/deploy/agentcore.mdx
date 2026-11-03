@@ -1,22 +1,18 @@
 ---
 title: AWS AgentCore
 icon: "lucide/Cloud"
-description: Add a production-ready frontend to your AWS AgentCore agents with CopilotKit.
-hideHeader: true
+description: Add a frontend to your AWS AgentCore agents with CopilotKit.
 ---
 
-## CopilotKit + AWS AgentCore
-
 [AWS Bedrock AgentCore](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/what-is-bedrock-agentcore.html)
-gives you a secure, serverless runtime for deploying AG-UI agents at scale — handling auth, session
-isolation, and infrastructure. CopilotKit gives those agents a production-ready frontend.
+gives you a secure, serverless runtime for deploying AG-UI agents at scale. It handles auth, session
+isolation, and infrastructure. CopilotKit gives those agents a chat UI, shared state, and generative UI in your React or Angular app.
 
 ## How it works
 
 The two connect through **CopilotKit Runtime**, a lightweight server-side layer that sits between
-your browser and AgentCore. It's the same runtime you'd use with any CopilotKit-powered agent —
-AgentCore just requires it to run server-side (browsers can't call AgentCore directly due to
-SigV4/OAuth2 authentication).
+your browser and AgentCore. This is the same runtime that every CopilotKit agent uses. For
+AgentCore, it must run on the server. Browsers cannot sign AgentCore requests with SigV4 or OAuth2.
 
 ```
 Browser → CopilotKit Runtime → AgentCore Runtime → your agent
@@ -24,11 +20,11 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
 ## What you get
 
-- **Chat UI** — prebuilt chat interface, or headless APIs to build your own
-- **Shared state** — bidirectional sync between agent state and your application UI
-- **Generative UI** — render custom components from tool calls in real time
-- **Human-in-the-loop** — let users review, approve, or redirect agent actions
-- **AgentCore memory** — conversation history persists across sessions via AgentCore's memory layer
+- **Chat UI**: prebuilt chat interface, or headless APIs to build your own
+- **[Shared state](/shared-state)**: bidirectional sync between agent state and your application UI
+- **[Generative UI](/generative-ui/tool-rendering)**: render custom components from tool calls in real time
+- **Human-in-the-loop**: let users review, approve, or redirect agent actions
+- **AgentCore memory**: conversation history persists across sessions via AgentCore's memory layer
 
 ## Quickstart
 
@@ -61,7 +57,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         Use the generated project for its AgentCore agent, runtime, Cognito, and
         deployment infrastructure. The sample browser application is
         hook-based; connect your Angular application to the generated
-        Copilot Runtime URL using the Angular steps in the existing-agent path
+        CopilotKit Runtime URL using the Angular steps in the existing-agent path
         below.
       </Callout>
       </FrontendOnly>
@@ -86,12 +82,21 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         stack_name_base: my-agentcore-app   # prefix for all AWS resources (max 35 chars)
         admin_user_email: you@example.com   # where your Cognito invite will be sent
         ```
+
+        Then create the `.env` file in the project root:
+
+        ```bash
+        cp .env.example .env
+        ```
+
+        In `.env`, set `CPK_INTELLIGENCE_API_KEY` to the API key of your CopilotKit Intelligence project.
+        The deploy script stops if this key is not set. It stores the key in AWS Secrets Manager.
       </Step>
 
       <Step>
         ### Deploy
 
-        One command deploys everything — CDK infrastructure, AgentCore Runtime, and the frontend:
+        One command deploys the CDK infrastructure, AgentCore Runtime, and the frontend:
 
         <AgentCoreCommandTabs
           lgCommand="./deploy-langgraph.sh"
@@ -108,7 +113,8 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       <Step>
         ### Run locally
 
-        To run the full stack locally — agent, CopilotKit runtime, and frontend — without deploying:
+        After you deploy, you can run the agent, the CopilotKit runtime, and the frontend locally.
+        The local stack still uses the Cognito user pool and the AgentCore memory of the deployed stack:
 
         ```bash
         cd docker
@@ -166,7 +172,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         ### Set up CopilotKit Runtime
 
         CopilotKit Runtime is the server-side layer that connects your frontend to AgentCore. It handles
-        the communication protocol, middleware, and — with AgentCore specifically — the server-side
+        the communication protocol, middleware, and (with AgentCore specifically) the server-side
         authentication that browsers can't perform directly.
 
         Create an API route:
@@ -178,7 +184,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           InMemoryAgentRunner,
         } from "@copilotkit/runtime/v2";
         import { HttpAgent } from "@ag-ui/client";
-        import { AgentCoreRunner } from "./agent-core-runner";
+        import { AgentCoreRunner } from "../agent-core-runner";
 
         const runtime = new CopilotRuntime({
           agents: {
@@ -202,7 +208,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         ```
 
         <Callout type="info" title="What is AGENTCORE_ENDPOINT_URL?">
-          This is the invocation URL for your deployed AgentCore Runtime — the URL you call to reach
+          This is the invocation URL for your deployed AgentCore Runtime. You call this URL to reach
           your agent. It takes the form:
           `https://bedrock-agentcore.{region}.amazonaws.com/runtimes/{encoded-arn}/invocations`
         </Callout>
@@ -210,7 +216,9 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         <Callout type="info" title="Auth in production">
           The example above uses a static token for simplicity. In production you'll want to pass the
           user's Cognito JWT from the frontend through to AgentCore. See the
-          [full-stack example](/agentcore/full-stack-example) for a complete Cognito OIDC implementation.
+          [AgentCore template](https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agentcore) for a complete Cognito OIDC implementation.
+          To validate the frontend session at the runtime before you forward identity to AgentCore, see
+          [Authentication](/auth).
         </Callout>
       </Step>
 
@@ -220,9 +228,9 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         AgentCore's memory layer stores conversation history server-side. When CopilotKit reconnects
         to an existing thread (e.g. on page refresh), two issues arise that require a custom runner:
 
-        1. **Unknown threads** — CopilotKit may call `connect()` before any `run()` has happened.
+        1. **Unknown threads**: CopilotKit may call `connect()` before any `run()` has happened.
            Without handling this, you'll get an error on first load.
-        2. **Missing tool-call results** — AgentCore's replayed history includes assistant messages
+        2. **Missing tool-call results**: AgentCore's replayed history includes assistant messages
            with tool calls, but omits the corresponding results. CopilotKit needs those to reconcile
            its message state, so the runner synthesises empty results for each past tool call.
 
@@ -302,8 +310,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         }
         ```
 
-        `app/layout.tsx` is a server component and cannot import the provider
-        directly, so it renders your client file instead:
+        Render `Providers` around your app in `app/layout.tsx`:
 
         ```tsx title="app/layout.tsx"
         import { Providers } from "./providers";
@@ -330,13 +337,17 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
         ```ts title="src/app/app.config.ts"
         import { ApplicationConfig } from "@angular/core";
-        import { provideCopilotKit } from "@copilotkit/angular";
+        import {
+          provideCopilotChatConfiguration,
+          provideCopilotKit,
+        } from "@copilotkit/angular";
 
         export const appConfig: ApplicationConfig = {
           providers: [
             provideCopilotKit({
               runtimeUrl: "/api/copilotkit",
             }),
+            ...provideCopilotChatConfiguration({ agentId: "my_agent" }),
           ],
         };
         ```
@@ -381,7 +392,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           template: `
             <main>
               <h1>My App</h1>
-              <copilot-sidebar agentId="my_agent" />
+              <copilot-sidebar />
             </main>
           `,
         })
@@ -393,7 +404,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       <Step>
         ### 🎉 Run it
 
-        Point the Copilot Runtime server at the AgentCore runtime you deployed via AWS's
+        Point the CopilotKit Runtime server at the AgentCore runtime you deployed via AWS's
         [Deploy an AG-UI agent to AgentCore Runtime](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-agui.html)
         guide. Configure its environment:
 
@@ -403,7 +414,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         ```
 
         Start the runtime and your frontend application using their normal
-        development commands. The frontend calls Copilot Runtime; the runtime
+        development commands. The frontend calls CopilotKit Runtime; the runtime
         forwards each request to the AgentCore invocation URL using the
         server-held token.
 
@@ -412,8 +423,8 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         npm run dev
         ```
 
-        Navigate to `localhost:3000`. The frontend runs locally while the agent stays on AgentCore —
-        the `/api/copilotkit` route forwards each call to the invocation URL using your token.
+        Navigate to `localhost:3000`. The frontend runs locally while the agent stays on AgentCore.
+        The `/api/copilotkit` route forwards each call to the invocation URL using your token.
         </FrontendOnly>
 
         <FrontendOnly frontend="angular">
@@ -444,7 +455,7 @@ when a request reaches an AgentCore or API Gateway endpoint with no credentials,
 path matches no deployed route. Check the following, in order:
 
 - **The runtime is actually sending a token.** Set `AGENTCORE_ACCESS_TOKEN` in the environment of the
-  Copilot Runtime **server**, not the frontend. If the variable is unset, the `Authorization` header
+  CopilotKit Runtime **server**, not the frontend. If the variable is unset, the `Authorization` header
   interpolates to `Bearer undefined`, which AWS rejects exactly like a missing header.
 - **The token has not expired.** Cognito access tokens are short-lived. Mint a fresh one and retry
   before you debug anything else.
@@ -454,7 +465,7 @@ path matches no deployed route. Check the following, in order:
   stops short of `/invocations` matches no route, and AWS reports that as
   `Missing Authentication Token` rather than as a 404.
 - **The browser is not calling AgentCore directly.** AgentCore requires SigV4 or OAuth2 signing,
-  which a browser cannot perform. Point the frontend at your Copilot Runtime endpoint and let the
+  which a browser cannot perform. Point the frontend at your CopilotKit Runtime endpoint and let the
   runtime make the AgentCore call server-side.
 
 <Callout type="warn" title="This error does not apply to the local quickstart">
@@ -462,12 +473,3 @@ path matches no deployed route. Check the following, in order:
   server never returns `Missing Authentication Token`. If you see this error, the runtime is pointed
   at a deployed AWS endpoint.
 </Callout>
-
-## What's next?
-
-- [Generative UI](/generative-ui/tool-rendering) — render application
-  components from agent tool calls.
-- [Shared State](/shared-state) — synchronize structured state between the
-  agent and application.
-- [Authentication](/auth) — validate the frontend session at Copilot Runtime
-  before forwarding identity to AgentCore.

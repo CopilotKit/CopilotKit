@@ -5,9 +5,11 @@ description: "High-level chat component that connects an agent to a chat view"
 
 ## Overview
 
-`CopilotChat` is a high-level chat container that wires an agent into `CopilotChatView` while providing configuration context. It obtains the agent via `useAgent`, triggers an initial `runAgent` when mounting CopilotKit agents, manages pending state, and auto-clears the input after submission. Override any of the internal slots by passing `CopilotChatView` props directly.
+`CopilotChat` is a high-level chat container that wires an agent into [`CopilotChatView`](/reference/components/CopilotChatView) while providing configuration context. It obtains the agent via [`useAgent`](/reference/hooks/useAgent), connects to the thread on mount when you pass a `threadId`, manages pending state, and auto-clears the input after submission. Override any of the internal slots by passing `CopilotChatView` props directly.
 
 `CopilotChat` manages messages, running state, and suggestions automatically -- you only need to specify which agent to connect and, optionally, customise labels or slot overrides.
+
+For a walkthrough, see [Prebuilt components](/prebuilt-components). To restyle parts of the chat, see [Slots](/custom-look-and-feel/slots).
 
 ## Import
 
@@ -37,7 +39,7 @@ import "@copilotkit/react-core/v2/styles.css";
   back to the built-in default.
 </PropertyReference>
 
-<PropertyReference name="chatView" type="SlotValue<typeof CopilotChatView>">
+<PropertyReference name="chatView" type="SlotValue<React.ComponentType<CopilotChatViewProps>>">
   Slot override for the inner `CopilotChatView` component. Accepts a replacement
   component, a `className` string merged into the default, or a partial props
   object to extend the default.
@@ -70,28 +72,45 @@ import "@copilotkit/react-core/v2/styles.css";
 </PropertyReference>
 
 <PropertyReference name="isModalDefaultOpen" type="boolean">
-  When used inside `CopilotPopup` or `CopilotSidebar`, controls whether the
+  When used inside [`CopilotPopup`](/reference/components/CopilotPopup) or
+  [`CopilotSidebar`](/reference/components/CopilotSidebar), controls whether the
   modal starts in the open state. Stored in the chat configuration context so
   child components can read it.
 </PropertyReference>
 
-### Inherited CopilotChatView Props
-
-`CopilotChat` accepts all props from [`CopilotChatViewProps`](/reference/components/CopilotChatView) **except** `messages`, `isRunning`, `suggestions`, `suggestionLoadingIndexes`, and `onSelectSuggestion`, which are managed internally by the agent connection.
-
-This means you can pass slot overrides such as `messageView`, `input`, `scrollView`, `inputContainer`, `feather`, `disclaimer`, `suggestionView`, and `welcomeScreen` directly to `CopilotChat`.
-
-<PropertyReference name="autoScroll" type="boolean" default="true">
-  Whether the chat scrolls to the bottom automatically when new messages arrive.
+<PropertyReference name="attachments" type="AttachmentsConfig">
+  Turns on file attachments (images, audio, video, documents) in the chat
+  input. See [Multimodal Attachments](/multimodal-attachments).
 </PropertyReference>
 
-<PropertyReference
-  name="inputProps"
-  type="Partial<Omit<CopilotChatInputProps, 'children'>>"
->
-  Additional props forwarded to the inner `CopilotChatInput` component. Use this
-  to configure auto-focus, custom submission handlers, transcription callbacks,
-  or tools menus.
+<PropertyReference name="throttleMs" type="number">
+  Throttle interval in milliseconds for re-renders when messages change.
+  Overrides the provider-level `defaultThrottleMs` for this chat. When both are
+  unset, re-renders are not throttled. `0` turns off throttling for this chat.
+</PropertyReference>
+
+<PropertyReference name="generativeUISurface" type="React.ComponentType<GenerativeUIChatSurfaceProps>">
+  Experimental. Wrapper for the generative UI surfaces in this chat. It receives
+  `surfaceId`, `isStreaming`, `error`, `rejected`, and `children`.
+</PropertyReference>
+
+### Inherited CopilotChatView Props
+
+`CopilotChat` accepts all props from [`CopilotChatViewProps`](/reference/components/CopilotChatView) **except** `messages`, `isRunning`, `suggestions`, `suggestionLoadingIndexes`, and `onSelectSuggestion`, which are managed internally by the agent connection. `CopilotChat` also manages the view's attachment props (`onRemoveAttachment`, `onAddFile`, `dragOver`, `onDragOver`, `onDragLeave`, and `onDrop`) internally. Its own `attachments` prop takes an `AttachmentsConfig`, not the view's `Attachment[]`.
+
+This means you can pass the slot overrides `messageView`, `scrollView`, `input`, `suggestionView`, `welcomeScreen`, and `intelligenceIndicator` directly to `CopilotChat`. To change the disclaimer, pass `input={{ disclaimer: MyDisclaimer }}`.
+
+<PropertyReference name="autoScroll" type="AutoScrollMode | boolean" default="true">
+  Controls how the chat scrolls when messages arrive. `AutoScrollMode` is
+  `"pin-to-bottom"`, `"pin-to-send"`, or `"none"`. `true` is `"pin-to-bottom"`,
+  and `false` is `"none"`. With `"pin-to-send"`, the chat scrolls only when the
+  user sends a message, and pins that message to the top of the view.
+</PropertyReference>
+
+<PropertyReference name="input" type="SlotValue<React.ComponentType<CopilotChatInputProps>>">
+  Slot for the inner `CopilotChatInput` component. Pass a partial props object
+  to configure the default input, for example `input={{ autoFocus: true }}`, or
+  pass a replacement component.
 </PropertyReference>
 
 <PropertyReference
@@ -175,14 +194,7 @@ function App() {
 ## Behavior
 
 - **Agent wiring**: On mount, `CopilotChat` calls `useAgent` with the provided `agentId` and binds the agent's `messages`, `isRunning`, and suggestion state to `CopilotChatView`.
-- **Initial run**: If the agent has not been run yet, `CopilotChat` triggers `runAgent` automatically so the agent can send an initial greeting or set up state.
+- **Initial connect**: When a `threadId` is set, `CopilotChat` calls `connectAgent` on mount to load the thread's history. The agent runs when the user sends a message.
 - **Auto-clear input**: After a message is submitted, the input field is cleared automatically.
 - **Configuration context**: Wraps children in `CopilotChatConfigurationProvider`, making `labels`, `agentId`, `threadId`, and modal state available to all descendant components via `useCopilotChatConfiguration`.
 - **Suggestion management**: Subscribes to the agent's suggestion system and passes suggestions, loading states, and selection callbacks down to `CopilotChatView`.
-
-## Related
-
-- [`CopilotChatView`](/reference/components/CopilotChatView) -- the layout component used internally
-- [`CopilotPopup`](/reference/components/CopilotPopup) -- popup variant of `CopilotChat`
-- [`CopilotSidebar`](/reference/components/CopilotSidebar) -- sidebar variant of `CopilotChat`
-- [`useAgent`](/reference/hooks/useAgent) -- hook used internally to access the agent

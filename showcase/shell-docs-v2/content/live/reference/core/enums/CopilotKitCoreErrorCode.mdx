@@ -5,7 +5,7 @@ description: "Stable error codes surfaced through the onError subscriber callbac
 
 ## Overview
 
-`CopilotKitCoreErrorCode` enumerates the stable, machine-readable codes that `CopilotKitCore` attaches to errors. You encounter it in the `onError` callback of a subscriber, where you can branch on `code` to handle specific failures.
+`CopilotKitCoreErrorCode` enumerates the stable, machine-readable codes that [`CopilotKitCore`](/reference/core/classes/CopilotKitCore) attaches to errors. You encounter it in the [`onError`](/reference/core/types/CopilotKitCoreSubscriber) callback of a subscriber, where you can branch on `code` to handle specific failures.
 
 ## Import
 
@@ -53,7 +53,7 @@ enum CopilotKitCoreErrorCode {
 </PropertyReference>
 
 <PropertyReference name="AGENT_RUN_FAILED_EVENT" type="agent_run_failed_event">
-  The agent emitted a `RUN_FAILED` event during execution.
+  The run failed on the client, for example because of a network error or an event stream that the client cannot parse.
 </PropertyReference>
 
 <PropertyReference name="AGENT_RUN_ERROR_EVENT" type="agent_run_error_event">
@@ -61,7 +61,7 @@ enum CopilotKitCoreErrorCode {
 </PropertyReference>
 
 <PropertyReference name="TOOL_ARGUMENT_PARSE_FAILED" type="tool_argument_parse_failed">
-  A tool call's arguments could not be parsed against the tool's schema.
+  A tool call's arguments were not valid JSON, or did not parse to an object. The arguments are not checked against the tool's schema.
 </PropertyReference>
 
 <PropertyReference name="TOOL_HANDLER_FAILED" type="tool_handler_failed">
@@ -69,7 +69,7 @@ enum CopilotKitCoreErrorCode {
 </PropertyReference>
 
 <PropertyReference name="TOOL_NOT_FOUND" type="tool_not_found">
-  The agent called a tool that is not registered.
+  `copilotkit.runTool()` named a tool that is not registered.
 </PropertyReference>
 
 <PropertyReference name="AGENT_NOT_FOUND" type="agent_not_found">
@@ -79,6 +79,8 @@ enum CopilotKitCoreErrorCode {
 <PropertyReference name="AGENT_THREAD_LOCKED" type="agent_thread_locked">
   An agent run failed because the thread is already locked by another active run.
 </PropertyReference>
+
+CopilotKitCore does not emit the six `TRANSCRIPTION_*` codes below. Transcription errors arrive as `TranscriptionErrorCode` values from `@copilotkit/shared`.
 
 <PropertyReference name="TRANSCRIPTION_FAILED" type="transcription_failed">
   Audio transcription failed for an unspecified reason.
@@ -126,8 +128,3 @@ copilotkit.subscribe({
   },
 });
 ```
-
-## Related
-
-- [CopilotKitCoreSubscriber](/reference/core/types/CopilotKitCoreSubscriber) — the `onError` callback receives this code.
-- [CopilotKitCore](/reference/core/classes/CopilotKitCore)

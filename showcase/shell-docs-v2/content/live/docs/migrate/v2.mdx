@@ -26,14 +26,6 @@ call site.
 | `@copilotkit/runtime`                  | `@copilotkit/runtime/v2`                  |
 | `@copilotkit/vue`                      | `@copilotkit/vue/v2`                      |
 
-## Why v1 is deprecated. Use v2 instead
-
-V2 is the current CopilotKit SDK surface. Keeping overlapping v1 and v2 names
-available without strong migration signals causes developers and coding agents
-to select stale examples and combine incompatible API shapes. Deprecating every
-v1 export makes the correct v2 import and documentation visible at the point of
-use while preserving existing applications during migration.
-
 ## Minimum version and coexistence
 
 The exhaustive IDE warnings are available starting in CopilotKit `1.68.2`.
@@ -61,20 +53,20 @@ import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 #### After
 
 ```tsx
-import { CopilotKit, useAgent } from "@copilotkit/react-core/v2";
+import { CopilotKit, useAgentContext, useFrontendTool } from "@copilotkit/react-core/v2";
 ```
 
 #### Hook mapping from v1 to v2
 
 Use this table to find the v2 replacement for each v1 hook:
 
-| v1 hook                            | v2 hook                                                          |
-| ---------------------------------- | ---------------------------------------------------------------- |
-| `useCopilotAction`                 | `useFrontendTool`                                                |
-| `useCopilotReadable`               | `useAgentContext`                                                |
-| `useCopilotAdditionalInstructions` | `useAgentContext`                                                |
-| `useCoAgent`                       | `useAgent`                                                       |
-| `useCopilotChat`                   | `useAgent` (low-level headless chat: `useCopilotChatHeadless_c`) |
+| v1 hook                            | v2 hook                                                                       |
+| ---------------------------------- | ----------------------------------------------------------------------------- |
+| `useCopilotAction`                 | `useFrontendTool`                                                             |
+| `useCopilotReadable`               | `useAgentContext`                                                             |
+| `useCopilotAdditionalInstructions` | `useAgentContext`                                                             |
+| `useCoAgent`                       | `useAgent`                                                                    |
+| `useCopilotChat`                   | `useAgent` (custom chat UI: [Headless UI](/custom-look-and-feel/headless-ui)) |
 
 Chat-UI customization props were also renamed in v2:
 
@@ -132,7 +124,7 @@ const runtime = new CopilotRuntime({ agents: {} });
 
 </Step>
 <Step>
-### Update Vue imports
+### If you use Vue, update Vue imports
 
 Vue v2 lives at the same package's `/v2` subpath. The v1 `CopilotKit`
 component becomes `CopilotKitProvider`; most exports otherwise retain their
@@ -232,3 +224,5 @@ export function App() {
   );
 }
 ```
+
+Run your type check. It must pass. When no import in your IDE shows the v1 deprecation warning, the migration is complete.

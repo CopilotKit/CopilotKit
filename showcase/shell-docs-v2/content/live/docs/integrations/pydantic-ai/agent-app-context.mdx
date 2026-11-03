@@ -1,5 +1,5 @@
 ---
-title: Readables
+title: Agent App Context
 icon: "lucide/BookA"
 description: Share app specific context with your Pydantic AI agent.
 ---
@@ -7,24 +7,17 @@ description: Share app specific context with your Pydantic AI agent.
 import AgentContextJsonString from "@/snippets/shared/basics/agent-context-json-string.mdx";
 
 
-One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
-This way, you can notify CopilotKit of what is going on in your app in real time.
-Some examples might be: the current user, the current page, etc.
-
-This context can then be shared with your Pydantic AI agent.
+Your agent can answer only about data it can see. Register app data, such as the current user or the current page, with `useAgentContext`.
+Pydantic AI's AG-UI adapter does not pass those entries to the agent, so you hand them over yourself.
 
 ## Implementation
 
 
 <AgentContextJsonString />
-<Callout>
-    Check out the [Frontend Data documentation](/langgraph-python/agent-app-context) to understand what this is and how to use it.
-</Callout>
-
 <Callout type="warn">
-  Unlike `messages`, `tools` and `state`, Pydantic AI's AG-UI adapter does **not** pass
-  `context` to your agent on its own — and it does not warn when it drops it, so an agent
-  that never received your entries will still answer confidently about them. This is
+  Pydantic AI's AG-UI adapter passes `messages`, `tools`, and `state` to your agent. It does
+  **not** pass `context`, and it does not warn when it drops the entries. An agent that never
+  received your entries still answers confidently about them. This is
   deliberate: entries are client-submitted, so Pydantic AI leaves it to you to decide what
   to trust. Read them off `run_input` and hand them to the agent yourself, as shown below.
   See Pydantic AI's [AG-UI Context guide](https://pydantic.dev/docs/ai/integrations/ui/ag-ui/#context).
@@ -39,7 +32,7 @@ This context can then be shared with your Pydantic AI agent.
   <Step>
     ### Add the data to the Copilot
 
-    The [`useAgentContext` hook](/reference/v2/hooks/useAgentContext) is used to add data as context to the Copilot.
+    The [`useAgentContext` hook](/reference/v2/hooks/useAgentContext) adds data as context to the Copilot.
 
     ```tsx title="YourComponent.tsx"
     "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
@@ -142,20 +135,20 @@ This context can then be shared with your Pydantic AI agent.
   </Step>
 
   <Step>
-    ### Give it a try!
-    Ask your agent a question about the context, like "Who are my colleagues?". It should be able to answer!
+    ### Give it a try
+    Ask your agent a question about the context, like "Who are my colleagues?". It should be able to answer.
   </Step>
 </Steps>
 
 ## Keep entries as data, not instructions
 
-Every entry is a claim your frontend made, so it describes a request — it never establishes
+Every entry is a claim your frontend made, so it describes a request. It never establishes
 who is making it. Deliver entries to the model as **data**, the way the tool above does.
 Do not build [`instructions`](https://pydantic.dev/docs/ai/agents/#instructions) out of
 them: instructions carry operator authority, so composing them from client-submitted text
 lets a prompt injection inherit that authority.
 
-Facts your *server* established — the authenticated user, the workspace, the tenant — are
+Facts your *server* established (the authenticated user, the workspace, the tenant) are
 what belong in instructions. To let a client-supplied fact change how the agent behaves,
 authenticate it first, look up the policy your server holds for it, and write the
 instruction from that. The entry itself stays data.

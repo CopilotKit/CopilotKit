@@ -6,8 +6,8 @@ description: Render the state of your agent with custom UI components.
 
 <IframeSwitcher
   id="agent-state-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_generative_ui?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/pydantic-ai/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/pydantic-ai/feature/agentic_generative_ui?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -15,8 +15,7 @@ description: Render the state of your agent with custom UI components.
 
 ## What is this?
 
-All Pydantic AI Agents are stateful. This means that as your agent progresses through nodes, a state object is passed between them perserving
-the overall state of a session. CopilotKit allows you to render this state in your application with custom UI components, which we call **Agentic Generative UI**.
+A Pydantic AI agent keeps shared state when you set `deps_type=StateDeps[YourState]`. Its tools read and change that state during a session. With CopilotKit, you can render this state in your application with custom UI components, which we call **Agentic Generative UI**.
 
 ## When should I use this?
 
@@ -36,49 +35,77 @@ is a situation where a user and an agent are working together to solve a problem
     Create your Pydantic AI agent with a stateful structure. Here's a complete example that tracks searches:
 
     ```python title="agent.py"
-    // ...
+    from ag_ui.core import EventType, StateSnapshotEvent
+    from pydantic import BaseModel, Field
+    from pydantic_ai import Agent, RunContext
+    from pydantic_ai.ui import StateDeps
+    from pydantic_ai.ui.ag_ui import AGUIAdapter
+    from starlette.applications import Starlette
+    from starlette.requests import Request
+    from starlette.responses import Response
+    from starlette.routing import Route
 
-    // Define the state of the agent, should match the state of your Pydantic AI Agent.
-    type AgentState = {
-      searches: {
-        query: string;
-        done: boolean;
-      }[];
-    };
 
-    function YourMainContent() {
-      // ...
+    class Search(BaseModel):
+        query: str
+        done: bool = False
 
-      // [!code highlight:13]
-      // styles omitted for brevity
-      useAgent({
-        agentId: "my_agent",
-        render: ({ state }) => (
-          <div>
-            {state.searches?.map((search, index) => (
-              <div key={index}>
-                {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
-              </div>
-            ))}
-          </div>
-        ),
-      });
 
-      // ...
+    # The state of the agent. The frontend reads it as `agent.state`.
+    class AgentState(BaseModel):
+        searches: list[Search] = Field(default_factory=list)
 
-      return <div>...</div>;
-    }
+
+    agent = Agent(
+        "openai:gpt-5-mini",
+        deps_type=StateDeps[AgentState], # [!code highlight]
+        instructions="Use add_search once per query, then call run_searches.",
+    )
+
+
+    @agent.tool
+    async def add_search(
+        ctx: RunContext[StateDeps[AgentState]], query: str
+    ) -> StateSnapshotEvent:
+        """Add a search to the list of searches."""
+        ctx.deps.state.searches.append(Search(query=query))
+        # [!code highlight:4]
+        return StateSnapshotEvent(
+            type=EventType.STATE_SNAPSHOT,
+            snapshot=ctx.deps.state.model_dump(),
+        )
+
+
+    @agent.tool
+    async def run_searches(ctx: RunContext[StateDeps[AgentState]]) -> StateSnapshotEvent:
+        """Run the searches and mark each one done."""
+        for search in ctx.deps.state.searches:
+            search.done = True
+        return StateSnapshotEvent(
+            type=EventType.STATE_SNAPSHOT,
+            snapshot=ctx.deps.state.model_dump(),
+        )
+
+
+    async def run_agent(request: Request) -> Response:
+        adapter = await AGUIAdapter.from_request(request, agent=agent)
+        # Fresh state for each request, so threads do not share searches
+        deps = StateDeps(state=AgentState())
+        return adapter.streaming_response(adapter.run_stream(deps=deps))
+
+
+    app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
+
+    if __name__ == "__main__":
+        import uvicorn
+
+        uvicorn.run("agent:app", host="0.0.0.0", port=8000, reload=True)
     ```
-
-    <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
-    </Callout>
 
   </Step>
   <Step>
     ### Render state outside of the chat
-    You can also render the state of your agent **outside of the chat**. This is useful when you want to render the state of your agent anywhere
-    other than the chat.
+    You can also render the state of your agent **outside of the chat**.
 
     ```tsx title="app/page.tsx"
     import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
@@ -119,23 +146,13 @@ is a situation where a user and an agent are working together to solve a problem
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` must exactly match the agent key in the `agents` map of your CopilotRuntime (for example, `my_agent` from the quickstart).
     </Callout>
 
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
 
-    You've now created a component that will render the agent's state in the chat.
-
-    <video
-      src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-generative-ui.mp4"
-      className="rounded-lg shadow-xl"
-      loop
-      playsInline
-      controls
-      autoPlay
-      muted
-    />
+    Ask the agent: "Search for flights to Paris and hotels in Rome." Each search appears on the page as not done. When the agent calls `run_searches`, every search changes to done.
   </Step>
 </Steps>

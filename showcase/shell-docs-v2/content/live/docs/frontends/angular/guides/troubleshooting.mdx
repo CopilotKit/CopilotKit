@@ -119,14 +119,18 @@ starts. Do not cache it outside the injector that created it.
 
 ## SSR, hydration, or zoneless problems
 
-- Keep provider configuration and initial component inputs identical between
-  the server render and first browser render.
-- Do not start agent runs, resume interrupts, or access browser APIs during
-  server rendering.
-- Put application-owned DOM and media work behind an Angular platform guard or
+- **Hydration mismatch on the chat.** Cause: the server render and the first
+  browser render used different provider options or initial inputs. Fix: use
+  the same `provideCopilotKit` options and initial component inputs in both.
+- **Errors from agent or browser code during server rendering.** Cause: code
+  starts an agent run, resumes an interrupt, or reads a browser API on the
+  server. Fix: do this work only in the browser.
+- **Your own DOM or media code fails on the server.** Cause: it runs during
+  server rendering. Fix: put it behind an Angular platform guard or
   `afterNextRender`.
-- Read CopilotKit signals from templates or computed signals so zoneless
-  change detection observes updates.
+- **The UI does not update in a zoneless app.** Cause: the code reads
+  CopilotKit state outside a reactive context. Fix: read CopilotKit signals
+  from templates or computed signals.
 
 The complete contract is in
 [Angular production and lifecycle](/reference/angular/production-lifecycle).
@@ -135,8 +139,9 @@ The complete contract is in
 
 The [Inspector](/inspector) overlays the running application and reports the
 AG-UI event stream, the advertised agents, agent state, your registered tools,
-and the context you sent. It is a web component that an Angular application
-mounts itself; that page has the mount component and the production guard.
+and the context you sent. `@copilotkit/angular` mounts it for you in
+development browser builds. To hide it, set `enableInspector: false` in
+`provideCopilotKit`.
 
 ## Continue through the shared stack
 

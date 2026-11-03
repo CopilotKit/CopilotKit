@@ -105,7 +105,7 @@ The view forwards message, input, scroll-button, input-container, feather, and d
 </PropertyReference>
 
 <PropertyReference name="assistantMessageClass" type="string">
-  CSS classes forwarded to assistant messages.
+  CSS classes for each assistant message. The default `CopilotChatAssistantMessage` adds them to its container. A custom assistant-message component or template receives them as `inputClass`.
 </PropertyReference>
 
 <PropertyReference name="reasoningMessageComponent" type="Type<any>">
@@ -274,23 +274,3 @@ export class ChatComponent extends ChatState {
   }
 }
 ```
-
-## Related
-
-<Cards>
-  <Card
-    title="CopilotChat"
-    description="The all-in-one component that wires an agent and renders this view."
-    href="/reference/angular/components/CopilotChat"
-  />
-  <Card
-    title="CopilotChatInput"
-    description="The default input rendered inside the view: textarea, send, tools menu, file upload, and transcription."
-    href="/reference/angular/components/CopilotChatInput"
-  />
-  <Card
-    title="provideCopilotKit"
-    description="Configures the runtime connection and agents that power the chat."
-    href="/reference/angular/functions/provideCopilotKit"
-  />
-</Cards>

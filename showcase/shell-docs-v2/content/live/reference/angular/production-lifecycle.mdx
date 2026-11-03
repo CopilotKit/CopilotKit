@@ -4,9 +4,8 @@ description: "Cleanup, errors, SSR, hydration, and zoneless behavior for @copilo
 ---
 
 `@copilotkit/angular` uses signals and standalone Angular APIs and is compatible
-with zoneless Angular. Most UI components use `OnPush`; `RenderToolCalls`
-currently uses Angular's default change-detection strategy. This page describes
-the environment and ownership rules that apply across the public API.
+with zoneless Angular. Most UI components use `OnPush`. `RenderToolCalls`
+uses the `Eager` change-detection strategy.
 
 ## Minimal production setup
 
@@ -57,7 +56,8 @@ manually constructed advanced stores; injected stores clean themselves up.
 
 - Agent lookup throws an error containing the requested agent, runtime URL,
   and known agent IDs after runtime synchronization cannot resolve it.
-- Activity-renderer content must pass its Standard Schema before rendering.
+- Activity-renderer content must pass the renderer's `content` schema (its
+  `safeParse` method) before rendering.
   Frontend-tool and tool-call-renderer schemas define advertised JSON Schema and
   TypeScript types, but runtime arguments are only JSON-parsed. Unknown tools
   remain hidden unless `defaultToolRendering` is explicitly enabled.

@@ -6,17 +6,17 @@ a `sample_agent` graph through LangGraph Server:
 npx @langchain/langgraph-cli dev --port 8123 --no-browser
 ```
 
-Point the native LangGraph adapter at that deployment:
+Point `LangGraphAgent` at that deployment:
 
 ```dotenv title=".env"
 LANGGRAPH_DEPLOYMENT_URL=http://localhost:8123
 ```
 
-The Runtime package installed by the Channels quickstart includes the native
-LangGraph adapter.
+The Runtime package installed by the Channels quickstart includes
+`LangGraphAgent`.
 
 Deep Agents compile to LangGraph graphs, so use `LangGraphAgent` rather than
-`HttpAgent`. Return a fresh adapter for every channel thread:
+`HttpAgent`. Return a new agent for every channel thread:
 
 ```ts title="agent.ts"
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";

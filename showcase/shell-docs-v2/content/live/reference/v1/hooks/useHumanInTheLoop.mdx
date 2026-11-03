@@ -7,12 +7,12 @@ description: "The useHumanInTheLoop hook enables human approval and interaction 
   This is the v1 `useHumanInTheLoop`, which takes an array of parameter definitions. It is still supported, but we recommend migrating to the [v2 `useHumanInTheLoop`](/reference/v2/hooks/useHumanInTheLoop) (from `@copilotkit/react-core/v2`), which uses Zod schemas for parameters.
 </Callout>
 
-`useHumanInTheLoop` pauses AI execution to request human input or approval. When the AI calls this
+`useHumanInTheLoop` pauses the agent to request human input or approval. When the agent calls this
 tool, it stops and waits for the user to respond through your custom UI before continuing. This is
 essential for sensitive operations, confirmations, or collecting information that only the user can provide.
 
 Unlike `useFrontendTool`, there's no handler function. Instead, your render function receives a `respond`
-callback that sends the user's input back to the AI. The AI execution remains paused until `respond` is called,
+callback that sends the user's input back to the agent. The agent remains paused until `respond` is called,
 making this a true blocking interaction.
 
 ## Usage
@@ -198,7 +198,7 @@ The name of the tool.
 </PropertyReference>
 
 <PropertyReference name="description" type="string"  >
-A description of the tool. This is used to instruct the Copilot on when to request human input.
+A description of the tool. The agent reads it to decide when to ask the user.
 </PropertyReference>
 
 <PropertyReference name="parameters" type="T"  >
@@ -207,7 +207,7 @@ Array of parameter definitions that will be passed to the render function. Each 
 - `type` (string): The parameter type (e.g., "string", "number", "boolean", "string[]", "object")
 - `description` (string): A description of what the parameter is for
 - `required` (boolean): Whether the parameter is required
-- `properties` (array, optional): For object types, define nested properties using the same schema
+- `attributes` (array, optional): For object types, define nested properties using the same schema
 
 Simple example: `[{ name: "itemName", type: "string", description: "Name of the item", required: true }]`
 
@@ -219,7 +219,7 @@ Nested example:
     type: "object",
     description: "Approval request details",
     required: true,
-    properties: [
+    attributes: [
       { name: "action", type: "string", description: "Action requiring approval", required: true },
       { name: "reason", type: "string", description: "Reason for the action", required: false }
     ]
@@ -234,4 +234,12 @@ A React component that renders the interactive UI for human input. The component
 
 <PropertyReference name="available" type="'disabled' | 'enabled'"  >
 Currently non-functional in this v1 hook. The value is accepted for API compatibility but ignored, so setting `"disabled"` does not prevent the tool from being registered or called.
+</PropertyReference>
+
+<PropertyReference name="followUp" type="boolean"  >
+Set to `false` to stop the agent from replying after the user responds.
+</PropertyReference>
+
+<PropertyReference name="dependencies" type="any[]"  >
+The second argument of the hook. When a value in it changes, the hook picks up the latest `render` function.
 </PropertyReference>

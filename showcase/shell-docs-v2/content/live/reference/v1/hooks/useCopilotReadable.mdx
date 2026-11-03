@@ -1,6 +1,6 @@
 ---
 title: "useCopilotReadable"
-description: "The useCopilotReadable hook allows you to provide knowledge to your copilot (e.g. application state)."
+description: "The useCopilotReadable hook gives your copilot knowledge (e.g. application state)."
 ---
 
 {
@@ -10,36 +10,39 @@ description: "The useCopilotReadable hook allows you to provide knowledge to you
   * packages/react-core/src/v1-deprecated/hooks/use-copilot-readable.ts
   */
 }
+<Callout type="info">
+  In v2, use [`useAgentContext`](/reference/v2/hooks/useAgentContext) from `@copilotkit/react-core/v2`.
+</Callout>
+
 `useCopilotReadable` is a React hook that provides app-state and other information
 to the Copilot.
- 
+
 ## Usage
- 
+
 ### Simple Usage
- 
-In its most basic usage, useCopilotReadable accepts a single string argument
-representing any piece of app state, making it available for the Copilot to use
-as context when responding to user input.
- 
+
+Pass a `description` and a `value`. The hook adds them to the context that the
+Copilot reads when it answers.
+
 ```tsx
 import { useCopilotReadable } from "@copilotkit/react-core";
- 
+
 export function MyComponent() {
   const [employees, setEmployees] = useState([]);
- 
+
   useCopilotReadable({
     description: "The list of employees",
     value: employees,
   });
 }
 ```
- 
+
 ### Custom Serialization
- 
+
 By default the value is serialized with `JSON.stringify`. Pass `convert` to
 control the string the Copilot sees. It is called with the description and the
 value, in that order:
- 
+
 ```tsx
 useCopilotReadable({
   description: "The current user",
@@ -47,13 +50,13 @@ useCopilotReadable({
   convert: (description, value) => `${description}: ${value.firstName} ${value.lastName}`,
 });
 ```
- 
+
 ### Conditional Usage
- 
+
 Toggle `available` to add or remove the context as your app state changes.
 Switching to `"disabled"` removes the entry from the Copilot context; switching
 back to `"enabled"` re-adds it.
- 
+
 ```tsx
 useCopilotReadable({
   description: "The list of employees",
@@ -61,12 +64,12 @@ useCopilotReadable({
   available: showEmployees ? "enabled" : "disabled",
 });
 ```
- 
+
 ### Re-running on Custom Dependencies
- 
+
 The context is refreshed whenever `description`, `value`, `convert` or
 `available` change. Pass a second argument to add your own dependencies:
- 
+
 ```tsx
 useCopilotReadable(
   {
@@ -76,6 +79,11 @@ useCopilotReadable(
   [departmentId],
 );
 ```
+
+## Return Value
+
+`string | undefined`: the id of the context entry. It is `undefined` on the first
+render and while `available` is `"disabled"`.
 
 ## Parameters
 
@@ -93,6 +101,6 @@ Whether the context is available to the Copilot.
 
 <PropertyReference name="convert" type="(description: string, value: any) => string"  > 
 A custom conversion function to use to serialize the value to a string. If not provided, the value
-  will be serialized using `JSON.stringify`.
+will be serialized using `JSON.stringify`.
 </PropertyReference>
 

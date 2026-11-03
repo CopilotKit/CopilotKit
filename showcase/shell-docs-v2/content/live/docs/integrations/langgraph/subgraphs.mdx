@@ -20,13 +20,7 @@ icon: "lucide/Network"
 
 ## What are Subgraphs?
 
-A subgraph is simply a graph used as a node inside another graph.
-Think of it as encapsulation for LangGraph: each subgraph is a self-contained unit that can be combined to build larger, more complex systems.
-
-## When should I use this?
-
-Subgraphs are useful when you need to structure a graph into smaller, reusable pieces.
-They let you build multi-agent systems, reuse node sets across multiple graphs, and let different teams develop separate parts of a graph independently.
+If your LangGraph graph uses [subgraphs](https://docs.langchain.com/oss/python/langgraph/use-subgraphs), CopilotKit streams their state and interrupts to your UI like a single graph.
 
 ## How does CopilotKit support this?
 
@@ -37,6 +31,8 @@ All you need to do is subscribe to the agent state in your frontend:
 
 <FrontendOnly frontend="react">
 ```tsx
+import { useAgent } from "@copilotkit/react-core/v2";
+
 const { agent } = useAgent({
   agentId: "sample_agent",
 });

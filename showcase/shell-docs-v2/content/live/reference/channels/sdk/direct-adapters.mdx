@@ -13,8 +13,7 @@ import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
 | Cloud-hosted Intelligence | `createChannel({ name, identifyUser, agent })`           | CopilotKit Intelligence stores provider credentials and owns ingress and egress           | Slack and Microsoft Teams                               |
 | Direct adapter       | `createChannel({ name, adapters, identifyUser, agent })` | Your Channels process stores provider credentials and owns the provider socket or webhook | Slack, Microsoft Teams, Discord, and WhatsApp           |
 
-Cloud-hosted Intelligence support for Discord and WhatsApp is coming soon. Their
-direct adapters already ship in `@copilotkit/channels`.
+Discord and WhatsApp are available as direct adapters only.
 
 <Callout type="info" title="Direct does not mean standalone">
   A direct adapter moves the provider connection into your process. The
@@ -110,32 +109,44 @@ import {
 } from "@copilotkit/channels/teams";
 ```
 
-`TeamsAdapterOptions` accepts `clientId`, `clientSecret`, `tenantId`,
-`port`, `host`, and `allowedServiceUrls`. `clientId` and `clientSecret` are required for real Teams;
-`tenantId` may be omitted for a multi-tenant deployment. These values fall
-back to the lowercase `clientId`, `clientSecret`, and `tenantId` environment
-variables. All three may be omitted only for anonymous local development with
-the Microsoft 365 Agents Playground. The adapter serves
-`POST /api/messages` on port `3978` by default.
+`TeamsAdapterOptions` fields:
 
-With a `clientId`, every request to `POST /api/messages` must carry a valid
-Bot Framework or Azure AD token for the app, from an issuer configured for it,
-or it is rejected with `401`. The activity's `serviceUrl` must be a Microsoft
-connector host (Teams commercial, GCC, GCC High, DoD and 21Vianet,
-`*.botframework.com`, `*.botframework.azure.us`) and, when the token has a
-`serviceurl` claim, match it, or it is rejected with `403`; the bot sends its app token
-to that URL. Use `allowedServiceUrls` to add other connector origins, such as
-`http://localhost:<port>` for the Bot Framework Emulator. Plain `http` is
-accepted only for loopback hosts. A Bot Framework token's signing key must
-also be endorsed for the activity's `channelId`.
+- `clientId` and `clientSecret`: required for real Teams.
+- `tenantId`: may be omitted for a multi-tenant deployment.
+- `port`: the port for `POST /api/messages`. The default is `3978`.
+- `host`: the interface the endpoint listens on.
+- `allowedServiceUrls`: other Bot Connector origins the bot can reply to,
+  such as `http://localhost:<port>` for the Bot Framework Emulator.
 
-Without a `clientId` the endpoint is unauthenticated, so it listens on
-`127.0.0.1` only. Setting `host` to a non-loopback address such as `0.0.0.0`
-exposes that unauthenticated endpoint to the network. Startup fails when the
-configured `clientId` conflicts with the `Connections__*` environment settings,
-or when only the Bot Framework SDK's `MicrosoftAppId` / `MicrosoftAppPassword`
-variables are set; use `clientId` / `clientSecret` / `tenantId` or
-`Connections__<id>__Settings__*` instead.
+`clientId`, `clientSecret`, and `tenantId` fall back to the lowercase
+`clientId`, `clientSecret`, and `tenantId` environment variables. All three
+may be omitted only for anonymous local development with the Microsoft 365
+Agents Playground.
+
+How the endpoint checks each request:
+
+- **With a `clientId`:** every request to `POST /api/messages` must carry a
+  valid Bot Framework or Azure AD token for the app, from an issuer configured
+  for it. Otherwise the request is rejected with `401`.
+- **Service URL:** the activity's `serviceUrl` must be a Microsoft connector
+  host (Teams commercial, GCC, GCC High, DoD and 21Vianet,
+  `*.botframework.com`, `*.botframework.azure.us`) or an origin in
+  `allowedServiceUrls`. When the token has a `serviceurl` claim, the two must
+  match. Otherwise the request is rejected with `403`. The bot sends its app
+  token to that URL. Plain `http` is accepted only for loopback hosts.
+- **Signing key:** a Bot Framework token's signing key must also be endorsed
+  for the activity's `channelId`.
+- **Without a `clientId`:** the endpoint is unauthenticated, so it listens on
+  `127.0.0.1` only. Setting `host` to a non-loopback address such as `0.0.0.0`
+  exposes that unauthenticated endpoint to the network.
+
+Startup fails in these cases:
+
+- The configured `clientId` conflicts with the `Connections__*` environment
+  settings.
+- Only the Bot Framework SDK's `MicrosoftAppId` / `MicrosoftAppPassword`
+  variables are set. Use `clientId` / `clientSecret` / `tenantId` or
+  `Connections__<id>__Settings__*` instead.
 
 The Teams entry point also exports its server, Adaptive Card renderer,
 conversation store, message stream, interaction helpers, file helpers, and
@@ -180,10 +191,8 @@ history stores, built-in context and tools, file helpers, and `WA_LIMITS`.
 ## Capability boundaries
 
 Direct and managed adapters do not have identical capabilities. For example,
-the direct Slack adapter supports modals, reactions, incremental streaming, and
-ephemeral messages. Managed Slack accepts the streaming API but buffers the
-stream and posts it once instead of updating incrementally; it does not support
-the other three capabilities. Check
+the direct Slack adapter supports modals. Managed Slack and Teams do not support
+modals, but they support streaming, reactions, and ephemeral messages. Check
 the direct adapter instance's read-only `capabilities` property when you own
 the adapter. Capability-result Thread methods can also return `{ ok: false }`;
 handle that result instead of assuming a provider name guarantees one

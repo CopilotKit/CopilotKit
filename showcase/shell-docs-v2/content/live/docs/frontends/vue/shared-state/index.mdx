@@ -2,11 +2,12 @@
 title: Shared State
 description: Create a two-way connection between your UI and agent state.
 icon: "lucide/Repeat"
+snippet_framework: langgraph-python
 ---
 
 ## What is shared state?
 
-Agentic Copilots maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
+Shared state connects your UI with the agent's run. With shared state you can:
 
 - Display the agent's current progress and intermediate results
 - Update the agent's state through UI interactions
@@ -88,13 +89,13 @@ function setTone(tone: string) {
 </template>
 ```
 
-This is what makes the channel two-way: the UI doesn't just observe the agent, it can hand the agent fresh inputs — preferences, selections, or partial work — without going through the chat thread.
+The UI can also send the agent new inputs, such as preferences, selections, or partial work, without the chat.
 
 ## Rendering shared state in the UI
 
 Because `agent.state` is plain data exposed through a Vue ref, the UI layer is ordinary Vue. The example above wires the agent's outputs into a list and feeds user edits back through `setState`.
 
-Nothing about this is chat-specific: `useAgent` works in any component under `CopilotKitProvider`, so you can render agent state in your main view or canvas, not just inside the chat panel. See **[Render agent state in your app](/vue/shared-state/rendering-in-app)** for the full main-view pattern.
+Nothing about this is chat-specific: `useAgent` works in any component under `CopilotKitProvider`, so you can render shared state in your main view or canvas, not just inside the chat panel. See **[Render agent state in your app](/vue/shared-state/rendering-in-app)** for the full main-view pattern.
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
@@ -112,7 +113,7 @@ import SharedWorkspace from "./components/SharedWorkspace.vue";
 
 ## Streaming partial state updates
 
-By default, agent state only updates *between* backend checkpoints, so a long-running tool call appears as one big burst at the end. State streaming forwards a specific tool argument straight into a state key *as it's being generated*, so the UI can watch the answer assemble token-by-token.
+By default, shared state only updates *between* backend checkpoints, so a long-running tool call appears as one big burst at the end. State streaming copies a tool argument into a state key while the model writes it, so the UI can watch the answer assemble token-by-token. The sample below is the LangGraph (Python) version.
 
 <Snippet region="state-streaming-middleware" cell="shared-state-streaming" title="backend: streaming state update" />
 

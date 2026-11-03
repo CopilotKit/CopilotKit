@@ -5,7 +5,7 @@ description: "A prebuilt slide-in drawer from the right edge of the screen that 
 
 ## Overview
 
-`CopilotSidebar` renders a slide-in drawer from the right edge of the screen, with a header bar, a backdrop, and an optional floating action button (FAB) to toggle it. The drawer's chat area wraps a headless [`CopilotChat`](/reference/react-native/components/CopilotChat). Render your chat UI as `children` (consuming [`useCopilotChatContext`](/reference/react-native/components/CopilotChat#usecopilotchatcontext)) or drop in the prebuilt UI `CopilotChat` from `@copilotkit/react-native/components`.
+`CopilotSidebar` renders a slide-in drawer from the right edge of the screen, with a header bar, a backdrop, and an optional floating action button (FAB) to toggle it. The drawer's chat area wraps a headless [`CopilotChat`](/reference/react-native/components/CopilotChat). Render your chat UI as `children` (consuming [`useCopilotChatContext`](/reference/react-native/components/CopilotChat#usecopilotchatcontext)) or drop in the prebuilt UI `CopilotChat` from `@copilotkit/react-native/components`. For a centered card, see [`CopilotPopup`](/reference/react-native/components/CopilotPopup).
 
 Control it imperatively through a `CopilotSidebarHandle` ref.
 
@@ -84,8 +84,3 @@ export function ChatScreen() {
 - **Animation**: slides in/out over 300ms using the React Native `Animated` API.
 - **Backdrop**: a semi-transparent, pressable backdrop dismisses the drawer.
 - **FAB**: when `showToggleButton` is `true`, a floating button opens the drawer and hides while it is open.
-
-## Related
-
-- [`CopilotPopup`](/reference/react-native/components/CopilotPopup): floating action button plus centered overlay
-- [`CopilotChat`](/reference/react-native/components/CopilotChat): the chat primitive wrapped inside the drawer

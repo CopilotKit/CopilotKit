@@ -5,15 +5,17 @@ icon: "lucide/MessagesSquare"
 doc_type: how-to
 ---
 
-CrewAI Conversational Flows are an execution mode for CrewAI Flows, not a separate CopilotKit integration. Start with the [CrewAI Quickstart](/crewai-flows/quickstart), then opt your existing Flow and its AG-UI endpoint into conversational execution.
+A regular Flow starts a new run for each chat turn. To keep one multi-turn CrewAI session per chat thread, switch your existing Flow to CrewAI's conversational mode. Start with the [CrewAI Quickstart](/crewai-flows/quickstart), then opt your existing Flow and its AG-UI endpoint into conversational execution.
 
 Each CopilotKit turn is passed to CrewAI's `stream_turn` API. The integration maps the CopilotKit `threadId` to CrewAI's `session_id`, so each browser thread gets an isolated, multi-turn conversation.
 
 <Callout type="info" title="Full CopilotKit support">
   Conversational Flows support the same CopilotKit features as regular CrewAI
-  Flows, including chat components, headless chat, frontend tools, tool
-  rendering, generative UI, shared state, reasoning, human-in-the-loop,
-  subagents, voice, and multimodal input. Your CopilotKit frontend code does not
+  Flows, including chat components, headless chat, frontend tools, [tool
+  rendering](/crewai-flows/generative-ui/tool-rendering), generative UI,
+  [shared state](/crewai-flows/shared-state), reasoning,
+  [human-in-the-loop](/crewai-flows/human-in-the-loop), subagents, voice, and
+  multimodal input. Your CopilotKit frontend code does not
   change when you promote a Flow.
 </Callout>
 
@@ -64,13 +66,19 @@ pip install -U "crewai>=1.15.11,<2" ag-ui-crewai
     )
     ```
 
-    The endpoint now calls `stream_turn(message, session_id=thread_id)` instead of starting the Flow through the regular `kickoff` or `astream` path.
+    With this flag, the endpoint calls `stream_turn(message, session_id=thread_id)`. It does not start the Flow through the regular `kickoff` or `astream` path.
   </Step>
 
   <Step>
     ### Keep the CopilotKit frontend unchanged
 
     Continue using the same `<CopilotKit>`, chat component, hooks, tools, and generative UI components from the Quickstart and feature guides. The execution-mode change is entirely in the CrewAI backend.
+  </Step>
+
+  <Step>
+    ### Try it
+
+    Send two messages in one chat thread. The second reply uses the first turn. A new chat thread starts a new CrewAI session.
   </Step>
 </Steps>
 
@@ -118,11 +126,4 @@ class SupportFlow(Flow[AppState]):
 
 ## Runtime contract
 
-Both opt-ins are required. If the endpoint requests conversational execution but the Flow does not declare `conversational = True` or expose `stream_turn`, the integration returns a correlated `RUN_ERROR` instead of silently falling back to regular Flow execution.
-
-## Next steps
-
-- **Build the base integration:** [CrewAI Quickstart](/crewai-flows/quickstart) — create the Flow and CopilotKit application that this guide promotes.
-- **Add generative UI:** [Tool rendering](/crewai-flows/generative-ui/tool-rendering) — render CrewAI tool activity with application components.
-- **Synchronize application state:** [Shared state](/crewai-flows/shared-state) — let your Conversational Flow read and update frontend state.
-- **Pause for user input:** [Human in the loop](/crewai-flows/human-in-the-loop) — suspend a turn and resume it with structured user feedback.
+Both opt-ins are required. If the endpoint requests conversational execution but the Flow does not declare `conversational = True` or expose `stream_turn`, the integration returns a correlated `RUN_ERROR`. It does not silently fall back to regular Flow execution.

@@ -17,7 +17,7 @@ Keep your Strands agent and its durable storage connected so you can continue th
 
 ## Include earlier conversations (optional)
 
-To let users reopen conversations recorded before Intelligence was connected, use the importer below to copy supported historical content. Importing does not enable live delivery or establish ongoing database replication, and it cannot recover history the source no longer exposes.
+To let users reopen conversations recorded before Intelligence was connected, use the importer below to copy supported historical content. Importing does not enable live delivery or establish ongoing database replication, and it cannot recover history that is missing from the source.
 
 The Strands importer reads saved single-agent conversations from local session files or S3 for Python and TypeScript. Python also supports AgentCore Memory sessions saved by `AgentCoreMemorySessionManager`. It brings over saved messages, rich tool results, attachments, and agent state where available. Some interactive content, such as MCP app views, may not have been saved in the original history. External media references are not downloaded automatically.
 
@@ -143,7 +143,9 @@ For AWS sources, use your existing AWS profile, SSO session, or role credentials
 
 Replace `support` with your native Strands agent ID. To select several agents across sessions, use comma-separated IDs, such as `"support,sales"`, in `STRANDS_PY_IMPORT_AGENT_IDS` or `STRANDS_TS_IMPORT_AGENT_IDS`. Each session must belong to a single agent; orchestrated multi-agent sessions are not supported.
 
-The source ID is a name you choose for this store. Keep it the same when you import again, including when switching between local files and S3 for the same store. Run the import while these conversations are idle. Only saved history can be imported: snapshot imports use the latest saved view, and deleted messages or expired AgentCore events cannot be recovered.
+- The source ID is a name that you choose for this store. Keep it the same on every import, also when you switch between local files and S3 for the same store.
+- Run the import while these conversations are idle.
+- Only saved history is imported. Snapshot imports use the latest saved view. Deleted messages and expired AgentCore events cannot be recovered.
 
 ## Run a dry run
 
@@ -263,9 +265,9 @@ Use `--replace` to refresh them; running or continued conversations are left unc
 
 Importing copies supported history; it does not establish ongoing database replication. Intelligence rename, archive, and delete operations affect only Intelligence records, leaving the native Strands records unchanged.
 
-Your app sends future conversations through CopilotKit to CopilotKit Intelligence. Keep the app connected to the original native session and agent in the same storage backend (including the same memory and actor for AgentCore), with its normal read/write credentials, and reopen the imported conversation from the Threads Drawer to pick up where you left off, including supported pending approvals and requests for input.
+Your app sends future conversations through CopilotKit to CopilotKit Intelligence. Keep the app connected to the original native session and agent in the same storage backend. For AgentCore, use the same memory and actor. Keep the normal read and write credentials. To continue a conversation, open it from the Threads Drawer. Supported pending approvals and requests for input continue too.
 
-Keep the app's frontend tools, approval handlers, and UI renderers configured. For native A2UI output without generation wrappers, set `a2uiGenerationToolNames: []` in your A2UI middleware configuration; if your app uses generation wrappers, list their tool names instead. See [A2UI setup](/generative-ui/a2ui).
+Keep the app's frontend tools, approval handlers, and UI renderers configured. See [A2UI setup](/generative-ui/a2ui).
 
 - **Threads Drawer:** already included in CLI-created starters. Use the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer) to customize its ready-made thread UI.
 - **Headless Threads:** use the [Headless Threads guide](/headless-threads) only when you need a custom UI. Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.

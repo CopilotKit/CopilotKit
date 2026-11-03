@@ -6,8 +6,8 @@ description: Bring your agents from any framework to your users through AG-UI an
 
 ## What is the AG-UI Protocol?
 
-AG-UI is a lightweight, event-based protocol that standardizes how AI agents connect to user-facing applications.
-Built for simplicity and flexibility, it enables seamless integration between AI agents, real time user context, and user interfaces.
+Build your agent with LangGraph, Mastra, Pydantic AI, or another framework, and CopilotKit's UI talks to it the same way.
+That shared language is AG-UI, an open event protocol. For the protocol itself, see [docs.ag-ui.com](https://docs.ag-ui.com).
 AG-UI is an open standard, developed by the CopilotKit team and several agent framework partners.
 
 <Image
@@ -27,22 +27,22 @@ AG-UI is an open standard, developed by the CopilotKit team and several agent fr
 
 ## How CopilotKit uses AG-UI
 
-CopilotKit uses AG-UI to abstract the connection between your applications and the AI Agents that power your copilots. Your agents can be built using any AG-UI supporting Agent Framework (a growing list, including LangGraph, Mastra, Pydantic AI and others). This abstraction has several advantages over bespoke framework integrations.
+CopilotKit uses AG-UI to abstract the connection between your applications and the AI Agents that power your copilots. Your agents can be built using any agent framework that supports AG-UI, including LangGraph, Mastra, and Pydantic AI. [Pick yours](/) to open its quickstart.
 
-- **Flexibility and Interoperability**: By adhering to the AG-UI standard, CopilotKit components become interchangeable, allowing developers to use them with any AG-UI-compatible agent or to switch between different backend models without changing the UI.
-- **Unified Communication**: CopilotKit uses the AG-UI protocol to manage all the back-and-forth communication between the frontend and the AI agent, replacing custom WebSocket formats and text parsing.
-- **Frontend Tool Calls**: When an agent needs to use a tool that's integrated into the frontend application, AG-UI events facilitate this interaction.
+- **Flexibility and Interoperability**: CopilotKit components work with any AG-UI agent. You can change the backend model and keep the UI.
+- **Unified Communication**: CopilotKit uses the AG-UI protocol to manage all the back-and-forth communication between the frontend and the AI agent.
+- **Frontend Tool Calls**: When an agent needs to use a tool that's integrated into the frontend application, AG-UI events handle this interaction.
 
 <FrontendOnly frontend="react">
-- **UI Components**: CopilotKit provides React components that are built for the AG-UI protocol. These components use AG-UI events to receive and display streaming AI responses and other data from the agent, creating a rich user experience.
+- **UI Components**: CopilotKit provides React components that are built for the AG-UI protocol. These components use AG-UI events to receive and display streaming AI responses and other data from the agent.
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
-- **UI Components**: CopilotKit provides Angular components that are built for the AG-UI protocol. These components use AG-UI events to receive and display streaming AI responses and other data from the agent, creating a rich user experience.
+- **UI Components**: CopilotKit provides Angular components that are built for the AG-UI protocol. These components use AG-UI events to receive and display streaming AI responses and other data from the agent.
 </FrontendOnly>
 
 <FrontendOnly frontend="vue">
-- **UI Components**: CopilotKit provides Vue components that are built for the AG-UI protocol. These components use AG-UI events to receive and display streaming AI responses and other data from the agent, creating a rich user experience.
+- **UI Components**: CopilotKit provides Vue components that are built for the AG-UI protocol. These components use AG-UI events to receive and display streaming AI responses and other data from the agent.
 </FrontendOnly>
 
 - **State Management**: The AG-UI protocol includes events for managing shared state between the frontend and the agent. CopilotKit can then use these events to keep the application's UI and the agent's state synchronized in real-time.

@@ -4,10 +4,10 @@ icon: "lucide/Code"
 description: "Extend AG-UI's AbstractAgent, register it in the Copilot Runtime, and keep its fields across the runtime's per-request clone."
 ---
 
-The Copilot Runtime's `agents` map takes AG-UI `AbstractAgent` instances. The
-framework adapters and `HttpAgent` are subclasses of it, and you can write your
-own. Use this when your agent logic lives in the same process as the runtime and
-is not built on a framework that CopilotKit already integrates with.
+Your agent logic runs in the same process as the runtime, and it is not built
+on a framework that CopilotKit integrates with. Subclass AG-UI's
+`AbstractAgent` and register the instance in the runtime's `agents` map. The
+framework adapters and `HttpAgent` are subclasses of `AbstractAgent` too.
 
 If you only want to call a model with your own code, [`BuiltInAgent` factory
 mode](/backend/custom-agent) is shorter: it emits the run lifecycle events for
@@ -16,14 +16,18 @@ use [`HttpAgent`](#remote-agents-use-httpagent) instead.
 
 ## Install
 
-```bash
-npm install @copilotkit/runtime @ag-ui/client@1.0.2 rxjs
-```
-
 Your `@ag-ui/client` must be the version your `@copilotkit/runtime` depends on,
-so the app has one copy of it. Run `npm ls @ag-ui/client`: it should show a
-single, deduped version. If it shows two, reinstall `@ag-ui/client` at the
-version listed under `@copilotkit/runtime`.
+so the app has one copy of it.
+
+1. Install the packages:
+
+   ```bash
+   npm install @copilotkit/runtime @ag-ui/client@1.0.2 rxjs
+   ```
+
+2. Run `npm ls @ag-ui/client`. It shows one deduped version.
+3. If it shows two versions, reinstall `@ag-ui/client` at the version listed
+   under `@copilotkit/runtime`.
 
 ## A minimal agent
 
@@ -96,11 +100,13 @@ The agent runs inside the route handler's process. There is no separate agent
 server and no URL to configure. The frontend setup is the same as in the
 [quickstart](/quickstart).
 
+Open the chat and send `hello`. The agent replies `You said: hello`.
+
 ## Override `clone` when the agent has its own fields
 
 The runtime does not run the instance you registered. For every request it calls
 `agent.clone()` and runs the copy, so per-request changes never touch the
-original.
+original. See [how agents slot into the runtime](/backend/ag-ui#how-agents-slot-into-the-runtime).
 
 The base `AbstractAgent.clone()` copies only the fields `AbstractAgent` itself
 defines, such as the agent ID, thread ID, messages, state, subscribers, and
@@ -164,7 +170,7 @@ export class SupportAgent extends AbstractAgent {
 Start from `super.clone()` and add your fields to it, the same way `HttpAgent`
 copies its `url` and `headers`. Do not return `new SupportAgent(this.client)`:
 a new instance starts with no middleware, so anything you attached with
-`agent.use(...)` at startup silently stops running.
+[`agent.use(...)`](/agentic-protocols/ag-ui-middleware) at startup silently stops running.
 
 You only need to copy fields that hold configuration. A field that `run` resets
 at the start of every run holds per-run scratch state, and losing it on the copy
@@ -205,9 +211,3 @@ const runtime = new CopilotRuntime({
 
 `HttpAgent` already overrides `clone`. The URL is the agent service's own
 endpoint, not the runtime's. See [Copilot Runtime](/backend/copilot-runtime#agents).
-
-## Related
-
-- [How agents slot into the runtime](/backend/ag-ui#how-agents-slot-into-the-runtime): the request path every registered agent goes through.
-- [Use any model router](/backend/custom-agent): `BuiltInAgent` factory mode, which handles lifecycle events for you.
-- [AG-UI middleware](/agentic-protocols/ag-ui-middleware): attach behavior to any agent with `agent.use(...)`.

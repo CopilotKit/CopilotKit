@@ -17,8 +17,7 @@ import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 
 ## What is this?
 
-All Mastra Agents are stateful through working memory. This means that as your agent progresses, working memory is preserved
-across the session. CopilotKit allows you to render this state in your application with custom UI components, which we call **Agentic Generative UI**.
+A Mastra agent with working memory keeps that memory across the session. With CopilotKit, you can render this state in your application with custom UI components, which we call **Agentic Generative UI**.
 
 ## When should I use this?
 
@@ -65,7 +64,7 @@ is a situation where a user and an agent are working together to solve a problem
       }),
       description: "Add a search to the agent's list of searches",
       execute: async ({ query }) => {
-        // Tool implementation - working memory is automatically updated
+        // The model saves the search with Mastra's updateWorkingMemory tool
         return { success: true, query };
       },
     });
@@ -80,6 +79,7 @@ is a situation where a user and an agent are working together to solve a problem
         IMPORTANT:
         - Use the addSearch tool to add a search to the agent's state
         - ONLY USE THE addSearch TOOL ONCE FOR A GIVEN QUERY
+        - After each addSearch call, update your working memory: add the search to searches with done set to false
       `,
       tools: {
         addSearch,
@@ -99,11 +99,11 @@ is a situation where a user and an agent are working together to solve a problem
   </Step>
   <Step>
     ### Render state of the agent in the chat
-    Now we can utilize `useAgent` with a `render` function to render the state of our agent **in the chat**.
+    Use `useAgent` to read the state of your agent, and render it **in the chat** with the `messageView` slot of `CopilotChat`.
 
     ```tsx title="app/page.tsx"
     // ...
-    import { useAgent } from "@copilotkit/react-core/v2";
+    import { CopilotChat, useAgent } from "@copilotkit/react-core/v2";
     // ...
 
     // Define the state of the agent, should match the working memory of your Mastra Agent.
@@ -117,36 +117,43 @@ is a situation where a user and an agent are working together to solve a problem
     function YourMainContent() {
       // ...
 
-      // [!code highlight:13]
-      // styles omitted for brevity
-      useAgent({
+      // [!code highlight:4]
+      const { agent } = useAgent({
         agentId: "searchAgent",
-        render: ({ state }) => (
-          <div>
-            {state.searches?.map((search, index) => (
-              <div key={index}>
-                {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
-              </div>
-            ))}
-          </div>
-        ),
       });
+      const state = (agent.state ?? {}) as Partial<AgentState>;
 
-      // ...
-
-      return <div>...</div>;
+      // styles omitted for brevity
+      // [!code highlight:18]
+      return (
+        <CopilotChat
+          agentId="searchAgent"
+          messageView={{
+            children: ({ messageElements, interruptElement }) => (
+              <div>
+                {messageElements}
+                {state.searches?.map((search, index) => (
+                  <div key={index}>
+                    {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
+                  </div>
+                ))}
+                {interruptElement}
+              </div>
+            ),
+          }}
+        />
+      );
     }
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your Mastra instance (e.g., `searchAgent` from above).
+      The `agentId` must exactly match the key you register the agent under in your Mastra instance (for example, `searchAgent` in `agents: { searchAgent }`).
     </Callout>
 
   </Step>
   <Step>
     ### Render state outside of the chat
-    You can also render the state of your agent **outside of the chat**. This is useful when you want to render the state of your agent anywhere
-    other than the chat.
+    You can also render the state of your agent **outside of the chat**.
 
     ```tsx title="app/page.tsx"
     import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
@@ -187,14 +194,14 @@ is a situation where a user and an agent are working together to solve a problem
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your Mastra instance (e.g., `searchAgent` from above).
+      The `agentId` must exactly match the key you register the agent under in your Mastra instance (for example, `searchAgent` in `agents: { searchAgent }`).
     </Callout>
 
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
 
-    You've now created a component that will render the agent's working memory in the chat.
+    Ask the agent: `Add a search for flights to Tokyo.` After the agent updates its working memory, the search appears in the list, marked as not done.
 
     <video
       src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-generative-ui.mp4"

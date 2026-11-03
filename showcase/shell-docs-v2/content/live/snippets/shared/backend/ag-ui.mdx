@@ -1,10 +1,7 @@
-CopilotKit is built on the [AG-UI protocol](https://ag-ui.com), a lightweight,
-event-based standard that defines how AI agents communicate with user-facing
-applications over Server-Sent Events (SSE).
-
-Messages, state updates, tool calls, and agent lifecycle events all flow
-through AG-UI. Understanding this layer helps you debug and extend any
-CopilotKit integration.
+You can read every event that your agent streams, and you can connect any
+agent that speaks AG-UI. CopilotKit uses the [AG-UI protocol](https://ag-ui.com)
+for this. Agents send messages, state updates, tool calls, and lifecycle events
+to your app as Server-Sent Events (SSE).
 
 <FrontendOnly frontend="react">
 ## Accessing your agent with `useAgent`
@@ -165,7 +162,20 @@ frontend interacts with agents.
 ## How agents slot into the runtime
 
 On the server, `CopilotRuntime` accepts a map of AG-UI `AbstractAgent`
-instances. A framework adapter, an `HttpAgent` pointing at a remote server,
+instances. For example, register an agent that runs on a remote AG-UI server:
+
+```ts
+import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import { HttpAgent } from "@ag-ui/client";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+  },
+});
+```
+
+A framework adapter, an `HttpAgent` pointing at a remote server,
 and a custom implementation all use the same request path:
 
 1. The runtime resolves the target agent by ID.
@@ -178,5 +188,6 @@ and a custom implementation all use the same request path:
 The backend framework can change without forcing a corresponding change to
 the frontend AG-UI contract.
 
-To write the custom implementation yourself, and keep its own fields through
-the clone in step 2, see [Write your own AG-UI agent](/backend/custom-ag-ui-agent).
+To write your own agent class, see [Write your own AG-UI agent](/backend/custom-ag-ui-agent).
+That page also shows how to keep your custom fields when the runtime clones the
+agent in step 2.

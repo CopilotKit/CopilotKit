@@ -21,7 +21,7 @@ import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 
 ## What is this?
 
-You can easily use the realtime agent state not only in the chat UI, but also in the native application UX.
+Show the agent's working memory in your own components, outside the chat. The UI updates each time the working memory changes.
 
 <Callout type="info" title="Important">
   This guide assumes you are embedding your Mastra agent inside of Copilot Runtime, like so.
@@ -37,7 +37,7 @@ You can easily use the realtime agent state not only in the chat UI, but also in
 
 ## When should I use this?
 
-You can use this when you want to provide the user with feedback about what your working memory. As your agent's
+Use this when you want to show the user what your agent keeps in working memory. As your agent's
 state updates, you can reflect these updates natively in your application.
 
 ## Implementation
@@ -49,7 +49,7 @@ state updates, you can reflect these updates natively in your application.
   </Step>
   <Step>
     ### Define the Agent State
-    Mastra has advanced [working memory concepts](https://mastra.ai/en/docs/memory/working-memory) to provide statefulness to your agents. CopilotKit leverages Mastra's working memory concept to allow you to
+    Mastra has advanced [working memory concepts](https://mastra.ai/en/docs/memory/working-memory) to provide statefulness to your agents. CopilotKit uses Mastra's working memory concept to let you
     implement shared state between your agent and your application.
 
     Providing working memory to your agent is as simple as providing a Zod schema to your agent.
@@ -68,7 +68,7 @@ state updates, you can reflect these updates natively in your application.
     });
 
     // 2. Infer the agent state type from the schema
-    export const AgentState = z.infer<typeof AgentStateSchema>;
+    export type AgentState = z.infer<typeof AgentStateSchema>;
 
     // 3. Create the agent
     export const languageAgent = new Agent({
@@ -91,13 +91,12 @@ state updates, you can reflect these updates natively in your application.
   </Step>
   <Step>
     ### Use the `useAgent` Hook
-    With your agent connected and running all that is left is to call the `useAgent` hook, pass the agent's name, and
-    initialize missing UI-owned state after the connected agent is ready.
+    Call `useAgent` with the key of your agent in the Mastra `agents` map. When `isReady` is true, set any missing state with `agent.setState`.
 
     ```tsx title="ui/app/page.tsx"
     import { useEffect } from "react";
     import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
-    import { AgentState } from "@/mastra/agents/language-agent";
+    import type { AgentState } from "@/mastra/agents/language-agent";
 
     function YourMainContent() {
       // [!code highlight:5]
@@ -128,34 +127,7 @@ state updates, you can reflect these updates natively in your application.
     </Callout>
   </Step>
   <Step>
-    ### Give it a try!
-    As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
-    language set to "english" after the connected agent is ready.
+    ### Give it a try
+    The Language line shows `english` once the agent is ready. Tell the agent that you prefer Spanish. When the agent updates its working memory, the Language line changes to `spanish`.
   </Step>
 </Steps>
-
-## Rendering agent state in your app
-
-You can render the agent state in any React component under `<CopilotKit>`. Read `agent.state` and return ordinary JSX.
-
-```tsx title="ui/app/page.tsx"
-import { useAgent } from "@copilotkit/react-core/v2";
-
-type AgentState = {
-  language: "english" | "spanish";
-};
-
-function YourMainContent() {
-  const { agent } = useAgent({
-    agentId: "your-mastra-agent-name",
-  });
-  const state = (agent.state ?? {}) as Partial<AgentState>;
-
-  if (!state.language) return null;
-  return <div>Language: {state.language}</div>;
-}
-```
-
-<Callout type="info">
-  The `agent.state` in `useAgent` is reactive and will automatically update when the working memory changes.
-</Callout>

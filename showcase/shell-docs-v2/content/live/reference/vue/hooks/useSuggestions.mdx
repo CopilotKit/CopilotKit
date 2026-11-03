@@ -11,7 +11,7 @@ Suggestions are configured via [`useConfigureSuggestions`](/reference/vue/hooks/
 
 <Callout type="info">
   `useSuggestions` must be called within a component that has access to the
-  CopilotKit instance provided by `CopilotKitProvider`. Like all Vue
+  CopilotKit instance provided by [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider). Like all Vue
   composables, call it synchronously inside `<script setup>` or a `setup()`
   function so its subscription is bound to the component lifecycle and cleaned
   up automatically on unmount.
@@ -46,12 +46,12 @@ The composable returns an object of Vue refs and control functions. Because `sug
   Object containing the reactive suggestions state and control functions.
 
 <PropertyReference name="suggestions" type="Ref<Suggestion[]>">
-  Reactive array of current suggestions. Each `Suggestion` contains: -
-  `title: string` -- Short display title for the suggestion. - `message: string`
-  -- The message content to send when the suggestion is selected. -
-  `isLoading: boolean` -- Whether this individual suggestion is still being
-  generated. - `className?: string` -- Optional CSS class applied to the
-  suggestion pill.
+  Reactive array of current suggestions. Each `Suggestion` contains:
+
+  - `title: string`: short display title for the suggestion.
+  - `message: string`: the message content to send when the suggestion is selected.
+  - `isLoading: boolean`: whether this individual suggestion is still being generated.
+  - `className?: string`: optional CSS class applied to the suggestion pill.
 </PropertyReference>
 
 <PropertyReference name="isLoading" type="Ref<boolean>">
@@ -166,9 +166,3 @@ const { suggestions } = useSuggestions({ agentId: activeAgentId });
 - **Re-subscription on change**: When the resolved agent ID or the underlying CopilotKit instance changes, the composable re-reads the current suggestions and re-subscribes so events are scoped to the new agent.
 - **Loading state**: `isLoading` becomes `true` when a dynamic suggestion reload begins and returns to `false` when generation completes.
 - **Initial state**: On setup, the composable synchronously reads the current suggestions and loading state from the core instance, so there is no unnecessary loading flash for static suggestions.
-
-## Related
-
-- [`useConfigureSuggestions`](/reference/vue/hooks/useConfigureSuggestions) - configure static or dynamic suggestions
-- [`useCopilotKit`](/reference/vue/hooks/useCopilotKit) - access the underlying CopilotKit instance
-- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) - provides the CopilotKit instance to descendant composables

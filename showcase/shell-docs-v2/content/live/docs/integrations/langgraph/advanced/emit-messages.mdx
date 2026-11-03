@@ -16,12 +16,12 @@ While most agent interactions happen automatically through shared state updates 
 />
 <Callout>
   This video shows the result of `npx copilotkit@latest init` with the
-  [implementation](#implementation) section applied to it!
+  [implementation](#implementation) section applied to it.
 </Callout>
 
 ## What is this?
 
-In LangGraph, messages are only emitted when a node is completed. CopilotKit allows you to manually emit messages
+In LangGraph, messages are only emitted when a node is completed. With CopilotKit, you can manually emit messages
 in the middle of a node's execution to provide immediate feedback to the user.
 
 ## When should I use this?
@@ -45,7 +45,7 @@ Manually emitted messages are great for **when you don't want to wait for the no
     </Step>
     <Step>
         ### Manually emit a message
-        The `copilotkit_emit_message` method allows you to emit messages early in a node's execution to communicate status updates to the user. This is particularly useful for long running tasks.
+        The `copilotkit_emit_message` method lets you emit messages early in a node's execution to communicate status updates to the user. This is particularly useful for long running tasks.
 
         <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
@@ -82,6 +82,7 @@ Manually emitted messages are great for **when you don't want to wait for the no
             </Tab>
             <Tab value="TypeScript">
                 ```typescript
+                import { copilotkitEmitMessage } from "@copilotkit/sdk-js/langgraph";
                 // ...
 
                 async function chat_node(state: AgentState, config: RunnableConfig) {
@@ -110,7 +111,7 @@ Manually emitted messages are great for **when you don't want to wait for the no
         </Tabs>
     </Step>
     <Step>
-        ### Give it a try!
+        ### Give it a try
         Now when you talk to your agent you'll notice that it immediately responds with the message "Thinking really hard..."
         before giving you a response 2 seconds later.
     </Step>

@@ -15,21 +15,13 @@ description: Create frontend tools and use them within your Pydantic AI agent fo
 
 ## What is this?
 
-Frontend tools enable you to define client-side functions that your Pydantic AI agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
-the logic runs on the client side, giving you direct access to the frontend environment.
+Some agent steps need a person's choice before the agent continues. A human-in-the-loop tool shows buttons in the chat and sends the user's pick back to the agent.
 
-This can be utilized to let [your agent control the UI](/pydantic-ai/frontend-tools), [generative UI](/pydantic-ai/frontend-tools), or for Human-in-the-loop interactions.
-
-In this guide, we cover the use of frontend tools for Human-in-the-loop.
+A human-in-the-loop tool is a frontend tool, so it runs in the user's browser. Frontend tools can also let [your agent control the UI](/pydantic-ai/frontend-tools) or render [generative UI](/pydantic-ai/generative-ui).
 
 ## When should I use this?
 
-Use frontend tools when you need your agent to interact with client-side primitives such as:
-- Reading or modifying React component state
-- Accessing browser APIs like localStorage, sessionStorage, or cookies
-- Triggering UI updates or animations
-- Interacting with third-party frontend libraries
-- Performing actions that require the user's immediate browser context
+Use this when the agent must not continue until the user decides. For tools that read or change the browser without asking the user, see [Frontend Tools](/pydantic-ai/frontend-tools).
 
 ## Implementation
 
@@ -42,11 +34,9 @@ Use frontend tools when you need your agent to interact with client-side primiti
     <Step>
         ### Create a frontend human-in-the-loop tool
 
-        Frontend tools can be leveraged in a variety of ways. One of those ways is to have a human-in-the-loop flow where the response
-        of the tool is gated by a user's decision.
+        Register the tool with `useHumanInTheLoop`. Its `render` shows two buttons, and the user's click becomes the tool result.
 
-        In this example we will simulate an "approval" flow for executing a command. First, use the `useHumanInTheLoop` hook to create a tool that
-        prompts the user for approval.
+        In this example, the agent offers two options and waits for the user to pick one.
 
         ```tsx title="page.tsx"
         import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
@@ -104,7 +94,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
         The frontend tools are automatically populated by CopilotKit through the AG-UI protocol and are available to your agent.
     </Step>
     <Step>
-        ### Try it out!
+        ### Try it out
 
         You've now given your agent the ability to show the user two options and have them select one. The agent will then be aware of the user's choice and can use it in subsequent steps.
 

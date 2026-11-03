@@ -5,7 +5,7 @@ description: "Vue 3 composable for reading reactive chat UI configuration and la
 
 ## Overview
 
-`useCopilotChatConfiguration` is a Vue 3 composable that reads the chat configuration context injected by the nearest `CopilotChatConfigurationProvider`. That provider is mounted automatically by the CopilotKit chat components (`CopilotChat`, `CopilotPopup`, and `CopilotSidebar`) — `CopilotKitProvider` does **not** mount it — or you can mount it directly. It returns a `ComputedRef` that resolves to the current `CopilotChatConfigurationValue`, or `null` when no provider is present in the component tree.
+`useCopilotChatConfiguration` is a Vue 3 composable that reads the chat configuration context injected by the nearest `CopilotChatConfigurationProvider`. [`CopilotChat`](/reference/vue/components/CopilotChat), [`CopilotPopup`](/reference/vue/components/CopilotPopup), and [`CopilotSidebar`](/reference/vue/components/CopilotSidebar) mount this provider for you. [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) does **not** mount it. You can also mount it yourself. It returns a `ComputedRef` that resolves to the current `CopilotChatConfigurationValue`, or `null` when no provider is present in the component tree.
 
 Because the composable returns a `ComputedRef`, the value stays reactive: when labels, the active agent or thread, the modal state, or the drawer state change, the resolved value updates automatically. This provides a lightweight, reactive context for localized labels, agent/thread binding, modal state, and the shared drawer controls used by the chat UI components.
 
@@ -44,8 +44,8 @@ import { CopilotChatConfigurationProvider } from "@copilotkit/vue/v2";
 ### Props
 
 <PropertyReference name="labels" type="Partial<CopilotChatLabels>">
-  Partial set of label overrides. Any labels not provided fall back to the
-  built-in defaults, then to any parent provider's labels. See
+  Partial set of label overrides. Any labels not provided come from the parent
+  provider, then from the built-in defaults. See
   [CopilotChatLabels](#copilotchatlabels) below for all available keys.
 </PropertyReference>
 
@@ -68,9 +68,9 @@ import { CopilotChatConfigurationProvider } from "@copilotkit/vue/v2";
 </PropertyReference>
 
 <PropertyReference name="isModalDefaultOpen" type="boolean">
-  When provided, this provider owns modal open/close state and uses this value
-  as the initial state. If omitted, modal state is inherited from the parent
-  provider (if any).
+  When provided, this provider owns modal open/close state. It starts from the
+  parent's open state when a parent owns one, and from this value when not. If
+  omitted, modal state is inherited from the parent provider (if any).
 </PropertyReference>
 
 The injected configuration value also carries shared drawer state and thread
@@ -87,7 +87,9 @@ import { useCopilotChatConfiguration } from "@copilotkit/vue/v2";
 import type { ComputedRef } from "vue";
 import type { CopilotChatConfigurationValue } from "@copilotkit/vue/v2";
 
-function useCopilotChatConfiguration(): ComputedRef<CopilotChatConfigurationValue | null>;
+function useCopilotChatConfiguration(): ComputedRef<
+  CopilotChatConfigurationValue | null
+>;
 ```
 
 ### Parameters
@@ -148,12 +150,14 @@ Returns a `ComputedRef`. Its `.value` is `null` when the composable is used outs
 </PropertyReference>
 
 <PropertyReference name="setActiveThreadId" type="(threadId: string, options?: { explicit?: boolean }) => void">
-  Switches the active thread from code. When `options.explicit` is `true`, the
-  new thread is treated as an explicit caller choice.
+  Switches the active thread from code. `options.explicit` defaults to `true`,
+  which marks the thread as a caller choice. If the provider has a `threadId`
+  prop, the call does nothing and logs a warning.
 </PropertyReference>
 
 <PropertyReference name="startNewThread" type="() => void">
-  Resets the current chat to a fresh, non-explicit thread.
+  Resets the current chat to a fresh, non-explicit thread. If the provider has a
+  `threadId` prop, the call does nothing and logs a warning.
 </PropertyReference>
 
 ## CopilotChatLabels
@@ -282,6 +286,31 @@ import ChatModal from "./ChatModal.vue";
 </template>
 ```
 
+```vue
+<!-- ToggleButton.vue -->
+<script setup lang="ts">
+import { useCopilotChatConfiguration } from "@copilotkit/vue/v2";
+
+const config = useCopilotChatConfiguration();
+
+function toggle() {
+  const value = config.value;
+  if (!value?.setModalOpen) return;
+  value.setModalOpen(!value.isModalOpen);
+}
+</script>
+
+<template>
+  <button v-if="config?.setModalOpen" @click="toggle">
+    {{
+      config.isModalOpen
+        ? config.labels.chatToggleCloseLabel
+        : config.labels.chatToggleOpenLabel
+    }}
+  </button>
+</template>
+```
+
 ### Drawer State Management
 
 Use the shared drawer state when you need to open or close the threads drawer
@@ -304,31 +333,6 @@ function toggleDrawer() {
 <template>
   <button v-if="config" @click="toggleDrawer">
     {{ config.drawerOpen ? "Close drawer" : "Open drawer" }}
-  </button>
-</template>
-```
-
-```vue
-<!-- ToggleButton.vue -->
-<script setup lang="ts">
-import { useCopilotChatConfiguration } from "@copilotkit/vue/v2";
-
-const config = useCopilotChatConfiguration();
-
-function toggle() {
-  const value = config.value;
-  if (!value?.setModalOpen) return;
-  value.setModalOpen(!value.isModalOpen);
-}
-</script>
-
-<template>
-  <button v-if="config?.setModalOpen" @click="toggle">
-    {{
-      config.isModalOpen
-        ? config.labels.chatToggleCloseLabel
-        : config.labels.chatToggleOpenLabel
-    }}
   </button>
 </template>
 ```
@@ -367,9 +371,4 @@ import SalesChat from "./SalesChat.vue";
 - **Modal state ownership**: Modal state (`isModalOpen` / `setModalOpen`) is only created when a provider sets `isModalDefaultOpen`. Providers without this prop pass through the parent's modal state, and both fields are `undefined` when no provider owns modal state.
 - **Drawer state ownership**: Drawer state (`drawerOpen` / `setDrawerOpen`) is shared through the provider chain, and `drawerRegistered` / `registerDrawer` track whether a drawer is mounted so mobile launchers can appear.
 - **Thread overrides**: `setActiveThreadId` and `startNewThread` are imperative helpers used by the threads drawer and other host UI. `hasExplicitThreadId` still determines whether the resolved thread is treated as caller-controlled.
-- **Null resolution**: The returned ref resolves to `null` when used outside any `CopilotChatConfigurationProvider`, rather than throwing. Components should handle this case gracefully.
-
-## Related
-
-- [`useCopilotKit`](/reference/vue/hooks/useCopilotKit) - access the underlying CopilotKit instance
-- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) - provides the CopilotKit instance to descendant composables (the chat configuration context is mounted by the chat components, not by `CopilotKitProvider`)
+- **Null resolution**: The returned ref resolves to `null` when used outside any `CopilotChatConfigurationProvider`, rather than throwing. Components should handle this case.

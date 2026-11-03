@@ -1,4 +1,3 @@
-
 CopilotKit has a variety of ways to customize colors and structures of the Copilot UI components.
 
 - [CSS Variables](#css-variables-easiest)
@@ -6,24 +5,16 @@ CopilotKit has a variety of ways to customize colors and structures of the Copil
 - [Custom Icons](#custom-icons)
 - [Custom Labels](#custom-labels)
 
-If you want to customize the style as well as the functionality of the Copilot UI, you can also try the following:
+If you want to customize the style as well as the behavior of the Copilot UI, you can also try the following:
 
-- [Custom Sub-Components](/custom-look-and-feel/bring-your-own-components)
+- [Custom Sub-Components](/custom-look-and-feel/slots)
 - [Headless UI](/custom-look-and-feel/headless-ui)
 
 ## CSS Variables (Easiest)
 
-The easiest way to change the colors using in the Copilot UI components is to override CopilotKit CSS variables.
+To change the colors of the Copilot UI components, override the CopilotKit CSS variables.
 
-<Callout type="info">
-  Hover over the interactive UI elements below to see the available CSS
-  variables.
-</Callout>
-
-<CopilotKitCSS />
-<InteractiveCSSInspector />
-
-Once you've found the right variable, you can import `CopilotKitCSSProperties` and simply wrap CopilotKit in a div and override the CSS variables.
+Find the variable you need in the reference table below. Then import `CopilotKitCSSProperties`, wrap CopilotKit in a div, and override the CSS variables.
 
 ```tsx
 import { CopilotKitCSSProperties } from "@copilotkit/react-ui";
@@ -54,7 +45,7 @@ import { CopilotKitCSSProperties } from "@copilotkit/react-ui";
 
 ## Custom CSS
 
-In addition to customizing the colors, the CopilotKit CSS is structured to easily allow customization via CSS classes.
+In addition to customizing the colors, the CopilotKit CSS is structured to allow customization via CSS classes.
 
 ```css title="globals.css"
 .copilotKitButton {
@@ -74,7 +65,7 @@ In addition to customizing the colors, the CopilotKit CSS is structured to easil
 
 <Callout>
   For a full list of styles and classes used in CopilotKit, click
-  [here](https://github.com/CopilotKit/CopilotKit/blob/main/src/v1.x/packages/react-ui/src/css/).
+  [here](https://github.com/CopilotKit/CopilotKit/tree/main/packages/react-ui/src/css).
 </Callout>
 
 | CSS Class                                                                     | Description                                                                 |
@@ -103,7 +94,6 @@ In addition to customizing the colors, the CopilotKit CSS is structured to easil
 | `.copilotKitDevConsole`                                                       | Development debugging console container                                     |
 | `.copilotKitDevConsoleWarnOutdated`                                           | Warning styles for outdated dev console                                     |
 | `.copilotKitVersionInfo`                                                      | Version information display styles                                          |
-| `.copilotKitDebugMenuButton`                                                  | Debug menu toggle button styling                                            |
 | `.copilotKitDebugMenu`                                                        | Debug options menu container                                                |
 | `.copilotKitDebugMenuItem`                                                    | Individual debug menu option styling                                        |
 
@@ -113,11 +103,11 @@ You can customize the fonts by updating the `fontFamily` property in the various
 
 ```css title="globals.css"
 .copilotKitMessages {
-  font-family: "Arial, sans-serif";
+  font-family: Arial, sans-serif;
 }
 
 .copilotKitInput {
-  font-family: "Arial, sans-serif";
+  font-family: Arial, sans-serif;
 }
 ```
 
@@ -168,9 +158,9 @@ To customize labels, pass the `labels` property to the `CopilotSidebar`, `Copilo
 ```tsx
 <CopilotChat
   labels={{
-    welcomeMessageText: "Hello! How can I help you today?",
-    modalHeaderTitle: "My Copilot",
-    chatInputPlaceholder: "Ask me anything!",
+    initial: "Hello! How can I help you today?",
+    title: "My Copilot",
+    placeholder: "Ask me anything!",
     stopGenerating: "Stop",
     regenerateResponse: "Regenerate",
   }}
@@ -181,8 +171,8 @@ To customize labels, pass the `labels` property to the `CopilotSidebar`, `Copilo
 
 | Label                  | Description                                          |
 | ---------------------- | ---------------------------------------------------- |
-| `welcomeMessageText`   | The initial message(s) to display in the chat window |
-| `modalHeaderTitle`     | The title to display in the header                   |
-| `chatInputPlaceholder` | The placeholder to display in the input              |
+| `initial`              | The initial message(s) to display in the chat window |
+| `title`                | The title to display in the header                   |
+| `placeholder`          | The placeholder to display in the input              |
 | `stopGenerating`       | The label to display on the stop button              |
 | `regenerateResponse`   | The label to display on the regenerate button        |

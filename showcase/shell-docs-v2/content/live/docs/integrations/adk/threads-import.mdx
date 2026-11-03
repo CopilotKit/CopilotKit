@@ -17,7 +17,7 @@ Keep your ADK agent and its durable storage connected so you can continue the sa
 
 ## Include earlier conversations (optional)
 
-To let users reopen conversations recorded before Intelligence was connected, use the importer below to copy supported historical content. Importing does not enable live delivery or establish ongoing database replication, and it cannot recover history the source no longer exposes.
+To let users reopen conversations recorded before Intelligence was connected, use the importer below to copy supported historical content. Importing does not enable live delivery or establish ongoing database replication, and it cannot recover history that is missing from the source.
 
 The ADK importer reads persisted sessions from ADK database session stores and Vertex/Agent Engine session history. It brings over saved messages, rich tool results, attachments, and agent state where available. Some interactive content, such as MCP app views, may not have been saved in the original history.
 
@@ -31,7 +31,13 @@ The following prerequisites and commands apply only to that historical import. U
 - An agent map from ADK `app_name` values to your live CopilotKit `agentId`s.
 
 <Callout type="warning" title="Legacy ADK pickle stores">
-  Legacy ADK pickle stores are not parsed by the importer. Migrate those sessions with ADK's session migration command first, then re-run the import against the migrated store.
+  The importer does not parse ADK pickle stores. Migrate the store first, then re-run the import:
+
+  ```bash title="Terminal"
+  adk migrate session --from 0
+  ```
+
+  If your ADK version prints a different migration command, use that command.
 </Callout>
 
 ## Confirm the target project
@@ -119,7 +125,7 @@ export CPK_INTELLIGENCE_API_KEY="cpk-..."
 
 You can also pass the destination directly with `--api-url` and `--api-key` instead.
 
-## Import the sessions
+## Import the conversations
 
 Run the import after the dry run and agent map look right.
 
@@ -142,7 +148,7 @@ npx copilotkit@latest import \
 
 ADK user attribution defaults to `session.user_id`. This value must match the application user ID returned by your runtime's `identifyUser`. Sessions without a recoverable user are omitted by default; use `--unrecoverable imported-unknown` only when you intentionally want to place those sessions under an imported fallback user.
 
-## Verify the imported sessions
+## Verify the imported conversations
 
 Sign in as the application user whose ID you imported. Open the conversation from the Threads Drawer and make sure that its earlier messages appear. Send a message and make sure that ADK updates the same native session.
 
@@ -163,7 +169,7 @@ npx copilotkit@latest import \
 
 Importing copies supported history; it does not establish ongoing database replication. Intelligence rename, archive, and delete operations affect only Intelligence records, leaving the native ADK session records unchanged.
 
-Your app sends future conversations through CopilotKit to CopilotKit Intelligence. Keep the original ADK agent and its durable storage connected, and reopen the imported conversation from the Threads Drawer to pick up where you left off, including supported pending approvals and requests for input.
+Your app sends future conversations through CopilotKit to CopilotKit Intelligence. Keep the original ADK agent and its durable storage connected. To continue a conversation, open it from the Threads Drawer. Supported pending approvals and requests for input continue too.
 
 - **Threads Drawer:** already included in CLI-created starters. Use the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer) to customize its ready-made thread UI.
 - **Headless Threads:** use the [Headless Threads guide](/headless-threads) only when you need a custom UI. Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.

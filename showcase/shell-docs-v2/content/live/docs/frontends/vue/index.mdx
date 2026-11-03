@@ -67,10 +67,10 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
     <Step>
         ### Create the Copilot Runtime
 
-        Add a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers a `default` built-in agent:
+        Add a small runtime server that hosts Copilot Runtime at `/api/copilotkit` and registers a `default` built-in agent:
 
         <Callout type="warn" title="Already have an agent? Do not use BuiltInAgent">
-          `BuiltInAgent` is CopilotKit's own agent — it calls the model directly.
+          `BuiltInAgent` is CopilotKit's own agent. It calls the model directly.
           Registering it as `default` means chat talks to it, not to an agent you
           already wrote. It replaces your agent rather than connecting to it.
 
@@ -110,7 +110,7 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
         ```
 
         <Callout type="info" title="Vite and Copilot Runtime run on separate origins">
-          Vite serves the Vue app (usually on `http://localhost:5173`) while this Node server runs on `http://localhost:8200`. Because the browser calls across those origins, `cors: true` is required for local development; the Node listener does not enable CORS by default.
+          Vite serves the Vue app (usually on `http://localhost:5173`) while the runtime server runs on `http://localhost:8200`. Because the browser calls across those origins, `cors: true` is required for local development. `createCopilotNodeListener` does not enable CORS by default.
         </Callout>
     </Step>
     <Step>
@@ -174,7 +174,7 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
             <Accordion title="Troubleshooting">
                 - **Chat renders unstyled**: Make sure you imported `@copilotkit/vue/styles.css` in your app entry.
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
-                - **CORS errors**: The Vite app and Node runtime use different origins. Keep `cors: true` in `createCopilotNodeListener` for local development; the Node listener is CORS-disabled by default. Configure an explicit allowed origin before deploying.
+                - **CORS errors**: The Vite app and the runtime server use different origins. Keep `cors: true` in `createCopilotNodeListener` for local development. It is CORS-disabled by default. Configure an explicit allowed origin before deploying.
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
             </Accordion>
         </Accordions>
@@ -187,7 +187,6 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
 ## Where to go next
 
 - [Copilot Runtime](/backend/copilot-runtime): the backend layer this frontend connects to.
-- [Built-in Agent quickstart](/integrations/built-in-agent/quickstart): a framework-neutral path if you want CopilotKit to own the agent too.
 - [Generative UI](/vue/generative-ui/tool-based): render a tool result as a card or another interactive surface instead of plain text.
 - [AG-UI Streams](/vue/AG-UI-Streams): persist conversations and work with the thread API directly.
 - [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer): add a ready-made thread switcher beside the chat.

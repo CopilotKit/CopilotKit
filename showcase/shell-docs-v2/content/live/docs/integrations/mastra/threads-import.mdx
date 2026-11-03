@@ -161,7 +161,7 @@ npx copilotkit@latest import \
 
 Importing copies supported history; it does not establish ongoing database replication. Intelligence rename, archive, and delete operations affect only Intelligence records, leaving the native Mastra records unchanged.
 
-Your app sends future conversations through CopilotKit to CopilotKit Intelligence. Keep the original Mastra agent and its durable storage connected, and reopen the imported conversation from the Threads Drawer to pick up where you left off, including supported pending approvals and requests for input.
+Your app sends future conversations through CopilotKit to CopilotKit Intelligence. Keep the original Mastra agent and its durable storage connected. To continue a conversation, open it from the Threads Drawer. Supported pending approvals and requests for input continue too.
 
 - **Threads Drawer:** already included in CLI-created starters. Use the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer) to customize its ready-made thread UI.
 - **Headless Threads:** use the [Headless Threads guide](/headless-threads) only when you need a custom UI. Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.

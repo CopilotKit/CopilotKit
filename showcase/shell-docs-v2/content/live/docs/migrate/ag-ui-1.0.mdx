@@ -4,8 +4,8 @@ description: What changes for your app when CopilotKit moves to AG-UI 1.0
 icon: "lucide/RefreshCw"
 ---
 
-CopilotKit now uses AG-UI 1.0 (`@ag-ui/core`, `@ag-ui/client`, `@ag-ui/encoder` and `@ag-ui/proto` 1.0.0).
-Most apps need no change. This page lists what keeps working and what you can need to update.
+CopilotKit now uses AG-UI 1.0 (`@ag-ui/core`, `@ag-ui/client`, and `@ag-ui/encoder` 1.0.2).
+Most apps need no change. This page lists what keeps working and what you must update in some apps.
 
 For the protocol-level changes, read the AG-UI guide
 [Migrating to 1.0](https://docs.ag-ui.com/migrating-to-1-0).
@@ -21,7 +21,7 @@ For the protocol-level changes, read the AG-UI guide
   `RunAgentInputSchema` and the other `*Schema` validators.
 - **An `HttpAgent` from your own `@ag-ui/client` copy.** CopilotKit still applies its headers to it.
 
-## What you can need to change
+## What can change for you
 
 ### If your app depends on `@ag-ui/*` packages directly
 

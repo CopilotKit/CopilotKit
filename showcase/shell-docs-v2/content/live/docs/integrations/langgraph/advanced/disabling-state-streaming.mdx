@@ -1,17 +1,18 @@
 ---
-title: "Disabling state streaming"
+title: "Disabling message streaming"
 icon: "lucide/Cog"
 description: "Granularly control what is streamed to the frontend."
 ---
 
 ## What is this?
 
-By default, CopilotKit will stream both your state and tool calls to the frontend.
-You can disable this by using CopilotKit's custom `RunnableConfig`.
+Some LLM calls must stay private, such as a call that reads the records of other employees.
+By default, CopilotKit streams the messages and tool calls of every LLM call in your graph to the frontend.
+Pass a customized `RunnableConfig` to the private calls to stop this.
 
 ## When should I use this?
 
-Occasionally, you'll want to disable streaming temporarily — for example, the LLM may be
+Occasionally, you'll want to disable streaming temporarily. For example, the LLM may be
 doing something the current user should not see, like emitting tool calls or questions
 pertaining to other employees in an HR system.
 
@@ -65,6 +66,10 @@ You can disable all message streaming and tool call streaming by passing `emit_m
     </Tab>
     <Tab value="TypeScript">
         ```typescript
+        import {
+            copilotkitCustomizeConfig,
+            convertActionsToDynamicStructuredTools,
+        } from "@copilotkit/sdk-js/langgraph";
 
         async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
             // 1) Configure CopilotKit not to emit messages

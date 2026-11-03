@@ -6,20 +6,17 @@ icon: "lucide/MessagesSquare"
 
 # Understanding Thread Persistence
 
-CrewAI Flows supports threads, a way to group messages together and maintain a continuous chat history across sessions. CopilotKit provides mechanisms to ensure conversation state is properly persisted between the frontend and backend.
+CrewAI Flows supports threads, a way to group messages together and maintain a continuous chat history across sessions. CopilotKit provides mechanisms to keep conversation state properly persisted between the frontend and backend.
 
 This guide assumes you have already gone through the [quickstart](/crewai-flows/quickstart) guide.
 
 <Callout>
-  **Note:** While the frontend uses `threadId` to manage conversation sessions,
-  true persistence across sessions requires backend setup. The backend agent
-  needs to implement a persistence mechanism (like the one shown in
-  [Message Persistence](/crewai-flows/persistence/message-persistence))
-  to save and load the state associated with each `threadId`.
-
-See the [sample agent implementation](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-starter-crewai-flows/agent-py/sample_agent/agent.py#L291)
-for a concrete example.
-
+  **Note:** CopilotKit loads the messages of a `threadId` from the runtime's
+  agent runner. The default runner keeps them in memory, so they are lost when
+  the server restarts. For history that survives a restart, use a durable
+  runner (see [Agent runner](/backend/agent-runner)). CrewAI's `@persist`
+  keeps the Flow's own state (see
+  [Message Persistence](/crewai-flows/persistence/message-persistence)).
 </Callout>
 
 ## Frontend: Setting the ThreadId

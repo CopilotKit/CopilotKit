@@ -1,5 +1,5 @@
 ---
-title: Workflow Execution
+title: State Inputs and Outputs
 icon: "lucide/Play"
 description: Decide which state properties are received and returned to the frontend
 ---
@@ -10,7 +10,7 @@ import AngularStateWorkflow from "@/snippets/shared/angular/shared-state-workflo
 ## What is this?
 
 Not all state properties are relevant for frontend-backend sharing.
-This guide shows how to ensure only the right portion of state is communicated back and forth.
+This guide shows how to make sure only the right portion of state is communicated back and forth.
 
 This guide is based on [LangGraph's Input/Output Schema feature](https://docs.langchain.com/oss/python/langgraph/use-graph-api#define-input-and-output-schemas)
 
@@ -25,12 +25,12 @@ In addition, some state properties contain a lot of information. Syncing them ba
   <Step>
       ### Examine our old state
       LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
-      let's assume that the state our agent should be using, can be described like this:
+      assume that the state our agent should be using, can be described like this:
       <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
         <Tab value="Python">
         ```python title="agent.py"
         from copilotkit import CopilotKitState
-        from typing import Literal
+        from typing import List
 
         class AgentState(CopilotKitState):
             question: str
@@ -56,17 +56,20 @@ In addition, some state properties contain a lot of information. Syncing them ba
   </Step>
   <Step>
     ### Divide state to Input and Output
-    Our example case lists several state properties, which with its own purpose:
-      - The question is being asked by the user, expecting the llm to answer
-      - The answer is what the LLM returns
-      - The resources list will be used by the LLM to answer the question, and should not be communicated to the user, or set by them.
+    The example state has three properties. Each property has its own purpose:
+      - `question`: the user asks it, and the LLM answers it.
+      - `answer`: the LLM returns it.
+      - `resources`: the LLM uses this list to answer the question. The user does not see it and cannot set it.
 
       <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
           <Tab value="Python">
           ```python title="agent.py"
+          from typing import List
+          from langchain_core.messages import SystemMessage
           from langchain_core.runnables import RunnableConfig
+          from langchain_openai import ChatOpenAI
+          from langgraph.graph import StateGraph, START, END
           from copilotkit import CopilotKitState
-          from typing import Literal
 
           # Divide the state to 3 parts
 
@@ -112,7 +115,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
 
           # finally, before compiling the graph, we define the 3 state components
-          builder = StateGraph(OverallState, input=InputState, output=OutputState)
+          builder = StateGraph(OverallState, input_schema=InputState, output_schema=OutputState)
 
           # add all the different nodes and edges and compile the graph
           builder.add_node("answer_node", answer_node)
@@ -159,7 +162,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
                   content: `You are a helpful assistant. Answer the question: ${state.question}.`,
                 });
 
-                const response = await modelWithTools.invoke(
+                const response = await model.invoke(
                   [systemMessage, ...state.messages],
                   config
                 );
@@ -190,7 +193,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
       </Tabs>
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
     Now that we know which state properties our agent emits, we can inspect the state and expect the following to happen:
     - While we are able to provide a question, we will not receive it back from the agent. If we are using it in our UI, we need to remember the UI is the source of truth for it
     - Answer will change once it's returned back from the agent

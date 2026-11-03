@@ -5,22 +5,26 @@ description: "Primary text input and control surface for chat interactions in Vu
 
 ## Overview
 
-`CopilotChatInput` is the Vue 3 primary text input and control surface for chat interactions. It provides a multi-line textarea that auto-grows up to a configurable maximum number of rows (default 5), action buttons for sending messages and voice transcription, and an optional tools menu for declarative command surfaces (which also surfaces a file-attachment item when you bind `@add-file`, and is reachable via inline `/` slash commands).
+`CopilotChatInput` is the Vue 3 primary text input and control surface for chat interactions. It provides:
+
+- A textarea that grows up to `maxRows` rows (default 5).
+- Buttons to send a message and to record voice.
+- An optional tools menu. Binding `@add-file` adds a file item to it.
+- `/` slash commands for the menu items.
 
 The component operates in three modes: `"input"` (default text entry), `"transcribe"` (replaces the textarea with an audio recorder), and `"processing"` (shows a spinner while background processing is underway). When text spans multiple rows, the layout stacks the textarea above the control row.
 
 It supports both `v-model` (via `modelValue` / `update:modelValue`) and uncontrolled usage. When uncontrolled, the component manages its own text state internally and clears on submit (configurable via `clearOnSubmit`).
 
 <Callout type="info">
-  The transcription buttons (microphone, cancel, finish) are only rendered when
-  their corresponding event has a listener attached — for example, the
-  microphone button appears only when you bind `@start-transcribe`. The send
-  button, by contrast, always renders: it stays disabled until a
-  `@submit-message` listener is attached and the input is non-empty, and while
-  the agent is running it switches to a stop affordance that is enabled only
-  when a `@stop` listener is attached. Binding `@add-file` adds a file-attachment
-  item to the tools menu rather than a standalone button. This means you opt into
-  features by listening for the events you intend to handle.
+  You opt into each control by listening for its event:
+
+  - Microphone: renders only with `@start-transcribe`.
+  - Cancel: renders only with `@cancel-transcribe`.
+  - Finish: renders only with `@finish-transcribe` or `@finish-transcribe-with-audio`.
+  - Send: always renders. It is enabled when a `@submit-message` listener is attached and the input has text.
+  - Stop: while the agent runs, the send button becomes a stop button. It is enabled only with `@stop`.
+  - Add file: binding `@add-file` adds a file item to the tools menu.
 </Callout>
 
 ## Import
@@ -65,11 +69,11 @@ function handleSubmit(text: string) {
   type='"input" | "transcribe" | "processing"'
   default='"input"'
 >
-  The current operating mode of the input component. - `"input"` -- Standard
-  text entry mode with textarea and send button. - `"transcribe"` -- Replaces
-  the textarea with the audio recorder component for voice input. -
-  `"processing"` -- Replaces the textarea with a loading spinner to indicate
-  background processing is underway.
+  The current operating mode of the input component.
+
+  - `"input"`: standard text entry mode with textarea and send button.
+  - `"transcribe"`: replaces the textarea with the audio recorder component for voice input.
+  - `"processing"`: replaces the textarea with a loading spinner to indicate background processing is underway.
 </PropertyReference>
 
 <PropertyReference name="disabled" type="boolean" default="false">
@@ -102,9 +106,10 @@ function handleSubmit(text: string) {
 <PropertyReference name="toolsMenu" type="(ToolsMenuItem | '-')[]" default="[]">
   Declarative configuration for a tools menu. Each entry is either a
   `ToolsMenuItem` object or a separator string `"-"`. See
-  [ToolsMenuItem](#toolsmenuitem) for the item structure. When non-empty, a menu
-  button is shown and the items become available as `/` slash commands inside
-  the textarea.
+  [ToolsMenuItem](#toolsmenuitem) for the item structure. The menu button
+  always renders. It is disabled while the menu has no items (from `toolsMenu`
+  or `@add-file`). Each leaf item is also available as a `/` slash command
+  inside the textarea.
 </PropertyReference>
 
 <PropertyReference name="maxRows" type="number" default="5">
@@ -180,7 +185,7 @@ event has a listener attached.
   Emitted when the user finishes voice transcription. Always emitted on finish
   (after `finish-transcribe-with-audio` when an audio blob is available). The
   finish button is only rendered during `"transcribe"` mode and when a
-  `@finish-transcribe` listener is present.
+  `@finish-transcribe` or `@finish-transcribe-with-audio` listener is present.
 </PropertyReference>
 
 <PropertyReference
@@ -230,7 +235,7 @@ same logic as the defaults.
 <PropertyReference name="finish-transcribe-button" type="slot">
   Replaces the button that completes transcription. Scoped props: `disabled`,
   `onClick`, and `labels`. Only rendered during `"transcribe"` mode and when a
-  `@finish-transcribe` listener is present.
+  `@finish-transcribe` or `@finish-transcribe-with-audio` listener is present.
 </PropertyReference>
 
 <PropertyReference name="audio-recorder" type="slot">
@@ -294,7 +299,7 @@ const toolsMenu = [
 
 ### Nested Submenus
 
-Menu items with an `items` array render as expandable submenus:
+A menu item with an `items` array renders as a group. The menu shows its label as a heading and lists the child items under it, indented:
 
 ```ts
 const toolsMenu = [
@@ -324,9 +329,11 @@ import { CopilotChatAudioRecorder } from "@copilotkit/vue/v2";
 </script>
 ```
 
-### Imperative API (CopilotChatAudioRecorderRef)
+### Imperative API
 
-The component exposes the following members via a template `ref`:
+The component exposes the following members via a template `ref`. Type the ref
+as `InstanceType<typeof CopilotChatAudioRecorder>`, as in the usage example
+below.
 
 <PropertyReference name="state" type='"idle" | "recording" | "processing"'>
   The current state of the recorder.
@@ -424,6 +431,8 @@ const toolsMenu: (ToolsMenuItem | "-")[] = [
 
 ### With Stop Button During Execution
 
+This sample reads the running state from [`useAgent`](/reference/vue/hooks/useAgent).
+
 ```vue
 <script setup lang="ts">
 import { CopilotChatInput, useAgent, useCopilotKit } from "@copilotkit/vue/v2";
@@ -487,10 +496,4 @@ import { CopilotChatInput } from "@copilotkit/vue/v2";
 - **Layout Stacking**: When the input text spans multiple rows, the layout switches from inline (textarea and buttons side by side) to stacked (textarea above the control row containing the action buttons). On narrow viewports the stacked layout is used unconditionally.
 - **Mode Switching**: Setting `mode` to `"transcribe"` replaces the textarea with the `audio-recorder` slot and automatically starts the recorder. The cancel and finish buttons replace the standard send button. Setting `mode` to `"processing"` shows a spinner in place of the textarea.
 - **Controlled and Uncontrolled**: The component supports controlled mode (via `v-model` / `modelValue`) and uncontrolled mode (internal state). With `clearOnSubmit` enabled (the default), the input clears after each submission.
-- **Tools Menu and Slash Commands**: A non-empty `toolsMenu` renders a menu button and also exposes the leaf actions as `/` slash commands typed inline. Use arrow keys to navigate the slash menu and Enter to run the highlighted command.
-- **Listener-Gated Controls**: The transcription buttons (microphone, cancel, finish) are only rendered when their corresponding event listener is attached. The send button always renders but stays disabled until a `@submit-message` listener is attached and the input is non-empty; while the agent is running it switches to a stop affordance, enabled only when a `@stop` listener is attached. Binding `@add-file` adds a file-attachment item to the tools menu (not a standalone button). You opt into each feature by handling its event.
-
-## Related
-
-- [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration) -- Provider/composable for localized input labels
-- [`useAgent`](/reference/vue/hooks/useAgent) -- Access the active agent to drive submission and stop handling
+- **Tools Menu and Slash Commands**: The menu button always renders, and it is disabled while the menu has no items. The leaf actions of a non-empty `toolsMenu` are also available as `/` slash commands typed inline. Use arrow keys to navigate the slash menu and Enter to run the highlighted command.

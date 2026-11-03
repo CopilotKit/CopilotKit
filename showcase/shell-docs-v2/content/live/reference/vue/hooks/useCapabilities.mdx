@@ -26,8 +26,8 @@ function useCapabilities(agentId?: string): ComputedRef<AgentCapabilities | unde
 
 ## Parameters
 
-<PropertyReference name="agentId" type="string" default='"default"'>
-  ID of the agent whose capabilities to read. If omitted, uses the default agent. Unlike `useAgent` / `useThreads` / `useSuggestions`, this argument is a plain `string` captured once when the composable runs — it is not a `MaybeRefOrGetter` and does not react to changes. To read a different agent's capabilities at runtime, re-mount the component (for example with a changing `:key`).
+<PropertyReference name="agentId" type="string">
+  ID of the agent whose capabilities to read. If omitted, uses the agent of the surrounding chat configuration, then `"default"`. `agentId` is a plain string, not a `MaybeRefOrGetter`. The composable reads it one time and does not react to changes. To read a different agent's capabilities at runtime, re-mount the component (for example with a changing `:key`).
 </PropertyReference>
 
 ## Return Value
@@ -58,7 +58,7 @@ function useCapabilities(agentId?: string): ComputedRef<AgentCapabilities | unde
   </PropertyReference>
 
   <PropertyReference name="multiAgent" type="MultiAgentCapabilities">
-    Multi-agent coordination: `supported`, `delegation`, `handoffs`, `subAgents`.
+    Multi-agent coordination: `supported`, `delegation`, `handoffs`, `subagents`.
   </PropertyReference>
 
   <PropertyReference name="reasoning" type="ReasoningCapabilities">
@@ -74,7 +74,7 @@ function useCapabilities(agentId?: string): ComputedRef<AgentCapabilities | unde
   </PropertyReference>
 
   <PropertyReference name="humanInTheLoop" type="HumanInTheLoopCapabilities">
-    Human-in-the-loop: `supported`, `approvals`, `interventions`, `feedback`.
+    Human-in-the-loop: `supported`, `approvals`, `interventions`, `feedback`, `interrupts`, `approveWithEdits`.
   </PropertyReference>
 
   <PropertyReference name="custom" type="Record<string, unknown>">
@@ -146,8 +146,3 @@ watch(capabilities, (caps) => {
 
 - **Synchronous read.** The composable reads `capabilities` directly from the agent instance via [`useAgent`](/reference/vue/hooks/useAgent). There is no separate loading state or async fetch: the value is `undefined` until the runtime `/info` handshake populates it, then becomes defined.
 - **Reactive computed.** The returned `ComputedRef` recomputes when the underlying agent ref changes, so your component (or watcher) updates once capabilities arrive.
-
-## Related
-
-- [`useAgent`](/reference/vue/hooks/useAgent) - access the full agent instance (capabilities are derived from the agent)
-- [AG-UI Protocol](https://docs.ag-ui.com/concepts/capabilities) - the protocol that defines the capabilities schema

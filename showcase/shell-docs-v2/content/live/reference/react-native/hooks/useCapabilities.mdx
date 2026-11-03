@@ -4,7 +4,7 @@ description: "React hook for reading an agent's declared capabilities"
 ---
 ## Overview
 
-`useCapabilities` returns the [AG-UI `AgentCapabilities`](https://docs.ag-ui.com/concepts/capabilities) declared by an agent. Capabilities describe what an agent supports: tool calling, streaming, multi-agent coordination, human-in-the-loop, and more.
+`useCapabilities` returns the [AG-UI `AgentCapabilities`](https://docs.ag-ui.com/concepts/capabilities) declared by an agent. Capabilities describe what an agent supports: tool calling, streaming, multi-agent coordination, human-in-the-loop, and more. The [AG-UI protocol](/agentic-protocols/ag-ui) defines this schema.
 
 <Callout type="info">
   Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useCapabilities`](/reference/v2/hooks/useCapabilities); only the import path differs.
@@ -54,7 +54,7 @@ function useCapabilities(agentId?: string): AgentCapabilities | undefined
   </PropertyReference>
 
   <PropertyReference name="multiAgent" type="MultiAgentCapabilities">
-    Multi-agent coordination: `supported`, `delegation`, `handoffs`, `subAgents`.
+    Multi-agent coordination: `supported`, `delegation`, `handoffs`, `subagents`.
   </PropertyReference>
 
   <PropertyReference name="reasoning" type="ReasoningCapabilities">
@@ -70,7 +70,7 @@ function useCapabilities(agentId?: string): AgentCapabilities | undefined
   </PropertyReference>
 
   <PropertyReference name="humanInTheLoop" type="HumanInTheLoopCapabilities">
-    Human-in-the-loop: `supported`, `approvals`, `interventions`, `feedback`.
+    Human-in-the-loop: `supported`, `approvals`, `interventions`, `feedback`, `interrupts`, `approveWithEdits`.
   </PropertyReference>
 
   <PropertyReference name="custom" type="Record&lt;string, unknown&gt;">
@@ -130,11 +130,5 @@ function AgentInfo({ agentId }: { agentId: string }) {
 ## Behavior
 
 - **Synchronous read**: The hook reads `capabilities` directly from the agent instance. There is no separate loading state or async fetch. The value stays `undefined` until the runtime `/info` handshake populates it, then becomes defined.
-- **Re-renders**: The hook calls `useAgent()` internally, so the component re-renders on agent state, message, and run-status changes (the default `updates` set). If you only need capabilities and want fewer re-renders, read `agent.capabilities` directly via `useAgent({ updates: [] })`.
+- **Re-renders**: The hook calls [`useAgent()`](/reference/react-native/hooks/useAgent) internally, so the component re-renders on agent state, message, and run-status changes (the default `updates` set). If you only need capabilities and want fewer re-renders, read `agent.capabilities` directly via `useAgent({ updates: [] })`.
 - **Stable reference**: The capabilities object reference only changes when the agent reconnects or the runtime response changes. It does not change on every render.
-
-## Related
-
-- [`useAgent`](/reference/react-native/hooks/useAgent): access the full agent instance (capabilities are a property of the agent)
-- [AG-UI Protocol](/agentic-protocols/ag-ui): the protocol that defines the capabilities schema
-- [React (V2) reference](/reference/v2/hooks/useCapabilities): the web `useCapabilities` this hook mirrors

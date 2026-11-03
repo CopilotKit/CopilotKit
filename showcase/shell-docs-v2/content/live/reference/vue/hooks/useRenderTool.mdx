@@ -10,7 +10,7 @@ You can target a specific tool name (with a typed Zod `parameters` schema) or us
 
 The render target is a Vue render function (returning a `VNodeChild`) or a Vue `Component`. It receives the tool `name`, the parsed `parameters`, the current `status`, and the `result` (when complete). This is not JSX; you render with Vue's `h()`, a setup-defined render function, or by passing a single-file Vue component.
 
-This composable only handles rendering. It does not register a frontend handler.
+This composable only handles rendering. It does not register a frontend handler. To register a handler, use [`useFrontendTool`](/reference/vue/hooks/useFrontendTool).
 
 <Callout type="info">
   Call `useRenderTool` from inside `setup()` (or `<script setup>`) of a component mounted under [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider). It reads the active CopilotKit instance from provider context, so it cannot be called outside that tree.
@@ -121,7 +121,7 @@ The three states are:
 
 ## Behavior
 
-- Builds a renderer entry with `defineToolCallRenderer` and registers it on the active CopilotKit instance via `addHookRenderToolCall`.
+- Builds a renderer entry with `defineToolCallRenderer` (exported from `@copilotkit/vue/v2`) and registers it on the active CopilotKit instance via `addHookRenderToolCall`.
 - Maps the internal `args` prop onto `parameters` before calling `render`, so your render function always sees `parameters`.
 - Deduplicates by `agentId:name` key (latest registration wins).
 - Intentionally does not remove the renderer on cleanup, so previous chat history can still render.
@@ -247,9 +247,3 @@ useRenderTool(
   <slot />
 </template>
 ```
-
-## Related
-
-- `defineToolCallRenderer` -- build a renderer entry directly
-- [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) -- register tools with handlers
-- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) -- provide the CopilotKit instance to the tree

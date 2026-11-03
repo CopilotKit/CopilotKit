@@ -4,9 +4,9 @@ description: "Use CopilotKit's built-in agent with any model."
 ---
 
 
-The **Built-in Agent** is CopilotKit's simplest agent option, i.e what you get "built-in". It connects directly to an LLM with full support for tools, generative UI, shared state, and all CopilotKit features — without requiring an external agent framework.
+The **Built-in Agent** is CopilotKit's simplest agent option, i.e what you get "built-in". It connects directly to an LLM with full support for tools, generative UI, shared state, and all CopilotKit features. It does not require an external agent framework.
 
-It supports most popular models from OpenAI, Anthropic, Google, and AI-SDK defined models out of the box
+It has built-in support for most popular models from OpenAI, Anthropic, Google, and AI-SDK defined models.
 
 <OpsPlatformCTA
   variant="card"
@@ -18,12 +18,12 @@ It supports most popular models from OpenAI, Anthropic, Google, and AI-SDK defin
 
 ## When to use Built-in Agent
 
-- **Quick setup** — no external agent framework to configure or deploy
-- **Chat + tools** — your use case is primarily conversational with frontend and server tools
-- **Direct model access** — you want to use OpenAI, Anthropic, Google, or AI-SDK models directly
+- **Quick setup**: no external agent framework to configure or deploy
+- **Chat + tools**: your use case is primarily conversational with frontend and server tools
+- **Direct model access**: you want to use OpenAI, Anthropic, Google, or AI-SDK models directly
 
 <Callout type="info">
-If you need more control over your agent loop, consider using an [agent framework](/#explore-by-ai-backend) instead.
+If you need more control over your agent loop, consider using an [agent framework](/#backends) instead.
 </Callout>
 
 ## Features
@@ -34,7 +34,7 @@ If you need more control over your agent loop, consider using an [agent framewor
   <Card title="Server Tools" href="/server-tools" description="Define backend tools with Zod schemas that the agent can invoke." icon={<Server className="text-primary" />} />
   <Card title="MCP Servers" href="/mcp-servers" description="Connect MCP servers for extended tool capabilities." icon={<Plug className="text-primary" />} />
   <Card title="Shared State" href="/shared-state" description="Bidirectional state sharing between your app and the agent." icon={<ArrowLeftRight className="text-primary" />} />
-  <Card title="Model Selection" href="/model-selection" description="Choose from OpenAI, Anthropic, and Google models — or bring your own." icon={<Cpu className="text-primary" />} />
+  <Card title="Model Selection" href="/model-selection" description="Choose from OpenAI, Anthropic, and Google models, or bring your own." icon={<Cpu className="text-primary" />} />
   <Card title="Agent Context" href="/agent-app-context" description="Share app-specific context with the agent automatically." icon={<BookA className="text-primary" />} />
   <Card title="Advanced Configuration" href="/advanced-configuration" description="Fine-tune temperature, tool choice, multi-step calling, and more." icon={<Cog className="text-primary" />} />
   <Card title="Custom Agent" href="/backend/custom-agent" description="Bring your own AI SDK, TanStack AI, or custom LLM backend." icon={<Blocks className="text-primary" />} />

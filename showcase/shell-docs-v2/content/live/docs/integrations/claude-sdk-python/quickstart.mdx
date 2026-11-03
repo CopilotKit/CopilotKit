@@ -16,7 +16,7 @@ Use this prompt to connect your Claude Agent SDK for Python agent to CopilotKit 
 
 This quickstart gives you two working paths:
 
-- **Start from scratch** to scaffold the full Claude Agent SDK Python showcase.
+- **Start from scratch** to scaffold the Claude Agent SDK Python starter app.
 - **Use an existing agent** to expose your own Claude Agent SDK process over AG-UI and connect it to a React app.
 
 ## Prerequisites
@@ -24,8 +24,8 @@ This quickstart gives you two working paths:
 Before you begin, you'll need the following:
 
 - An Anthropic API key
-- Python 3.11+
-- Node.js 20+
+- Python 3.12 or 3.13
+- Node.js 20.9+
 - `uv` for Python dependency management
 - Your favorite JavaScript package manager
 
@@ -50,9 +50,9 @@ Before you begin, you'll need the following:
 
           The starter contains three pieces:
 
-          - `src/agent_server.py` - the FastAPI Claude Agent SDK backend process
-          - `src/agents/claude_agent_sdk_adapter.py` - the Claude SDK to AG-UI adapter bridge
-          - `src/app/api/copilotkit/route.ts` - the CopilotKit runtime route that proxies to the agent
+          - `agent/main.py` - the FastAPI server that serves the agent over AG-UI
+          - `agent/src/agent.py` - the agent: its backend tools and the `ClaudeAgentAdapter`
+          - `src/app/api/copilotkit/[[...slug]]/route.ts` - the CopilotKit runtime route that proxies to the agent
         </Step>
 
         <Step>
@@ -291,8 +291,7 @@ Before you begin, you'll need the following:
           }
           ```
 
-          `app/layout.tsx` is a server component and cannot import the provider
-          directly, so it renders your client file instead:
+          Render the provider from `app/layout.tsx`:
 
           ```tsx title="app/layout.tsx"
           import { Providers } from "./providers";

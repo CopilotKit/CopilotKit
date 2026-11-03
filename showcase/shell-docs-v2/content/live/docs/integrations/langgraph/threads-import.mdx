@@ -67,7 +67,7 @@ Choose the same setup you use in the [LangGraph quickstart](/quickstart): **Lang
     Download the export helper into your Python app's tooling directory:
 
     ```bash title="Terminal"
-    curl -fsSL https://unpkg.com/copilotkit@4.22.0/exporters/langgraph/export_checkpointer.py \
+    curl -fsSL https://unpkg.com/copilotkit@latest/exporters/langgraph/export_checkpointer.py \
       -o export_checkpointer.py
     ```
 
@@ -139,7 +139,7 @@ export CPK_INTELLIGENCE_API_KEY="cpk-..."
 
 You can also pass the destination directly with `--api-url` and `--api-key` instead.
 
-## Import the threads
+## Import the conversations
 
 Run the import after the dry run and agent mapping look right. Import earlier history before the first connected run for those threads. If live recording or another import already reserved the native thread ID, the importer reports `IMPORT_NATIVE_ID_CONFLICT`. It does not overwrite that record.
 
@@ -169,7 +169,7 @@ Run the import after the dry run and agent mapping look right. Import earlier hi
 
 For self-hosted CopilotKit Intelligence, add `--api-url "$INTELLIGENCE_API_URL"` and `--api-key "$CPK_INTELLIGENCE_API_KEY"` to the command. Add `--yes` to skip the confirmation prompt.
 
-## Verify the imported threads
+## Verify the imported conversations
 
 Sign in as the application user whose ID you imported. Open the conversation from the Threads Drawer and make sure that its earlier messages appear. Send a message and make sure that LangGraph updates the same native thread. Intelligence records this new interaction alongside the imported history.
 
@@ -183,12 +183,12 @@ Use `--replace` to refresh them; running or continued conversations are left unc
 
 Importing copies supported history; it does not establish ongoing database replication. Intelligence rename, archive, and delete operations affect only Intelligence records, leaving the native LangGraph thread records unchanged.
 
-Your app sends future conversations through CopilotKit to CopilotKit Intelligence. Keep the original LangGraph agent and its durable storage connected, and reopen the imported conversation from the Threads Drawer to pick up where you left off, including supported pending approvals and requests for input.
+Your app sends future conversations through CopilotKit to CopilotKit Intelligence. Keep the original LangGraph agent and its durable storage connected. To continue a conversation, open it from the Threads Drawer. Supported pending approvals and requests for input continue too.
 
 - **Threads Drawer:** already included in CLI-created starters. Use the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer) to customize its ready-made thread UI.
 - **Headless Threads:** use the [Headless Threads guide](/headless-threads) only when you need a custom UI. Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
 
-If your backend maps CopilotKit thread IDs to LangGraph thread IDs, keep that mapping stable so a resumed CopilotKit thread reaches the expected LangGraph thread. LangGraph Platform thread IDs must be UUIDs, so persist a mapping instead of reusing the CopilotKit `threadId` when necessary.
+If your backend maps CopilotKit thread IDs to LangGraph thread IDs, keep that mapping stable so a resumed CopilotKit thread reaches the expected LangGraph thread. LangGraph Platform thread IDs must be UUIDs, so persist a mapping rather than reusing the CopilotKit `threadId` when necessary.
 
 Open an imported conversation and send a follow-up to continue it.
 

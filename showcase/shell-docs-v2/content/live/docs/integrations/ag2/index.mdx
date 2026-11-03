@@ -36,7 +36,7 @@ hidePageActions: true
       title: "Shared state",
       iconKey: "repeat",
       description:
-        "Your agents carry state across turns. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+        "Your agents carry state across turns. CopilotKit mirrors it into your app and back, so changes from the user and the agent go to the same state.",
       documentationLink: "/ag2/shared-state"
     }
   ]}
@@ -48,7 +48,7 @@ hidePageActions: true
   connect={{
     intro:
       "Your agents keep running as their own Python service, with AGUIStream from ag2.ag_ui in front of them. CopilotKit reaches that service over HTTP, so nothing inside AG2 changes.",
-    filename: "app/api/copilotkit/route.ts",
+    filename: "app/api/copilotkit/[[...slug]]/route.ts",
     language: "ts",
     guideLink: "/ag2/quickstart"
   }}
@@ -65,7 +65,7 @@ hidePageActions: true
   }}
 >
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,

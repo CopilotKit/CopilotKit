@@ -1,6 +1,4 @@
-We are grateful for your interest in contributing to CopilotKit. We welcome new contributors and appreciate your help in making CopilotKit better.
-
-This guide will help you get started as smoothly as possible.
+Set up the monorepo, run an example against your local packages, and open a pull request.
 
 ## Step 1: Install Prerequisites
 
@@ -18,7 +16,7 @@ Then, clone your fork to your local machine:
 
 ```bash
 git clone https://github.com/<your-username>/CopilotKit
-cd CopilotKit/src/v1.x
+cd CopilotKit
 ```
 
   </Step>
@@ -37,7 +35,7 @@ pnpm install
   </Step>
   <Step>
   ### Build Packages
-  To make sure everything works, let's build all packages once:
+  To make sure everything works, build all packages once:
   ```bash
   pnpm run build
   ```
@@ -65,7 +63,7 @@ Now you can start making changes to the code.
 
 ## Step 4: Test Changes in Real-Time
 
-In most cases, you want to seamlessly be able to test your changes in real-time as you develop.
+In most cases, you want to test your changes in real-time as you develop.
 
 We have an `examples` folder in the monorepo with a few different examples using CopilotKit. You can run these examples to test your changes, as they are linked to the `@copilotkit/*` packages in the monorepo.
 
@@ -88,13 +86,13 @@ Now navigate to http://localhost:3000/presentation and you should see the exampl
 
 ## Step 5: Formatting and Linting
 
-Before committing your changes, ensure your files are formatted properly by running the following at the root of the monorepo:
+Before committing your changes, make sure that your files are formatted properly by running the following at the root of the monorepo:
 
 ```bash
 pnpm run format
 ```
 
-Additionally, ensure you have no linting errors:
+Additionally, make sure that you have no linting errors:
 
 ```bash
 pnpm run lint
@@ -102,40 +100,11 @@ pnpm run lint
 
 ## Step 6: Submit a Pull Request
 
-Now that you've made your changes, commit and push them. Then, simply head over to the [Pull Requests page](https://github.com/CopilotKit/CopilotKit/pulls) and create a pull request. Well done!
-
-## Starting a dev environment with hot reload
-
-CopilotKit contains a ready-made script for starting a development environment based on one of the CoAgent examples. It lets you work on CopilotKit internals in the core Typescript and Python code while seeing your changes applied to the chosen example.
-
-As a prerequisite, make sure you have GNU parallel and langgraph CLI installed.
-
-Next, go to the `CopilotKit/` directory and run the `example.sh` script for the example you want to work on:
-
-```bash
-./scripts/develop/example.sh coagents-starter
-```
-
-This will start a development environment with hot reload.
-
-You can optionally run the same example on LangGraph platform by running:
-
-```bash
-./scripts/develop/example.sh coagents-starter langgraph-platform
-```
+Now that you've made your changes, commit and push them. Then, go to the [Pull Requests page](https://github.com/CopilotKit/CopilotKit/pulls) and create a pull request.
 
 ## Debugging
 
-Every time you run CopilotKit on localhost, you will be able to see the **CopilotKit Dev Console** in the chat window. The Dev Console provides you with useful functionality to debug your copilot (e.g. see what state the copilot is aware of, actions it can perform, etc).
-
-<Frame description="CopilotKit Dev Console">
-  <img
-    src="https://cdn.copilotkit.ai/docs/copilotkit/images/contributing/copilotkit-dev-console.png"
-    className="w-auto max-w-[420px]"
-  />
-</Frame>
-
-If you'd like to disable the Dev Console locally, simply set `showDevConsole` to `false` in your `<CopilotKit />` provider.
+In development builds, the CopilotKit Inspector shows agent messages, agent state, and AG-UI events. To hide it, set `enableInspector={false}` on `<CopilotKit>`.
 
 ## (Advanced) Package Linking
 

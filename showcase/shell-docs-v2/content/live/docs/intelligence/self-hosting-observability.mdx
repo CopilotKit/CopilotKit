@@ -8,7 +8,7 @@ doc_type: how-to
 
 ## Overview
 
-A self-hosted CopilotKit Intelligence deployment can send its telemetry to an OpenTelemetry collector that you run. From there, you forward it to the tracing and logging tools that your team already uses. This page lists each stream, what it contains, how to turn it on, and which signals show that the installation is healthy.
+A self-hosted CopilotKit Intelligence deployment can send its telemetry to an OpenTelemetry collector that you run. From there, you forward it to the tracing and logging tools that your team already uses.
 
 Intelligence does not install a collector. The streams on this page go only to the endpoints that you configure, and each stream is off until you configure one.
 
@@ -136,9 +136,11 @@ appApi:
 | `eip.learning.skill_approved` | A reviewer approves a skill |
 | `eip.learning.skill_pulled` | A runtime pulls a skill |
 
+Product Analytics shows the same usage inside Intelligence. See [Product Analytics](/intelligence/analytics).
+
 Every attribute name starts with `copilotkit.`. The key that you use to remove duplicates after a retry is different for each event family:
 
-- **Thread and Learning events:** `copilotkit.event_id`, in the form `<event>:<organization>:<project>:<resource>`. On `eip.learning.skill_pulled`, the resource part is a new random ID for each pull. Two pulls of the same skill are two events.
+- **Thread and Automatic Learning events:** `copilotkit.event_id`, in the form `<event>:<organization>:<project>:<resource>`. On `eip.learning.skill_pulled`, the resource part is a new random ID for each pull. Two pulls of the same skill are two events.
 - **`eip.channel.inbound`:** `copilotkit.channel_event_id`, the ID of the inbound message event.
 - **`eip.channel.created` and `eip.channel.attached`:** no event ID. Do not remove duplicates of these events by an ID.
 
@@ -256,9 +258,3 @@ With the marketplace build, the app API uses `/api/health/live` and `/api/health
 
 - No probe checks Redis, object storage, or the connection between the app API and the realtime gateway. A Redis failure shows up only as request errors and error spans.
 - No service exports health metrics or connection counts. Use the signals above in your own tools.
-
-## Next steps
-
-- [Self-host on Kubernetes](/intelligence/self-hosting) has the full Helm configuration reference.
-- [Self-host on ECS](/intelligence/self-hosting-ecs) has the full ECS configuration.
-- [Product Analytics](/intelligence/analytics) shows usage inside Intelligence.

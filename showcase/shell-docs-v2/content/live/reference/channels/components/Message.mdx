@@ -18,12 +18,14 @@ import { Message, Section } from "@copilotkit/channels/ui";
 | Prop | Type | Description |
 | --- | --- | --- |
 | `accent` | `string` | Optional renderer hint. Direct adapters may map it natively; the current managed Slack and Teams connectors ignore it. |
+| `fallbackText` | `string` | Plain-text notification and screen-reader summary for rich Slack output. |
 | `onReaction` | `MessageReactionHandler` | Handles an added or removed reaction on this posted message. |
 | `children` | `BotChildren` | Portable Channels content. |
 
 `onReaction` receives the normalized emoji first and a reaction context second.
-The context contains `added`, `rawEmoji`, `user`, `thread`, `messageId`, and
-`messageRef`.
+The context contains `emoji`, `rawEmoji`, `added`, `user`, `actor`, `thread`,
+`messageId`, and `messageRef`. `actor` is the provider account that reacted. Use
+it when `user` is `null`.
 
 ```tsx
 <Message
@@ -39,13 +41,14 @@ The context contains `added`, `rawEmoji`, `user`, `thread`, `messageId`, and
 ```
 
 Managed Slack routes reactions on bot-authored messages. Managed Teams routes
-delivered `messageReaction` activities. The managed adapter cannot add or
-remove the bot's own reactions.
+delivered `messageReaction` activities. The bot can also add and remove its own
+reactions with `thread.react(ref, emoji)` and `thread.unreact(ref, emoji)`.
 
 An output-free managed reaction callback is finalized and acknowledged. Silent
 audit-only work is supported, but make the side effect idempotent because
 managed delivery is at-least-once.
 
 Register named components containing `onReaction` in
-`createChannel({ components })`; a durable `StateStore` is also required for a
-reaction to an older message to survive a process restart.
+`createChannel({ components })`. A reaction to an older message survives a
+process restart when the snapshot is in a durable `StateStore`: the default
+managed store, or your own `store.adapter`.

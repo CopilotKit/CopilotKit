@@ -8,13 +8,10 @@ hideTOC: true
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
 
-import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
 import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
 import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
 import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coagents/self-host-configure-copilotkit-provider.mdx";
-import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
-import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
 import CopilotUI from "@/snippets/copilot-ui.mdx";
 
 
@@ -65,8 +62,8 @@ Before you begin, you'll need the following:
                 The CLI walks you through:
 
                 - **Project name**
-                - **CopilotKit Intelligence** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Mastra setup.
-                - **Framework** — pick **Mastra** when prompted.
+                - **CopilotKit Intelligence**: persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Mastra setup.
+                - **Framework**: pick **Mastra** when prompted.
             </Step>
             <Step>
                 ### Install dependencies
@@ -88,29 +85,17 @@ Before you begin, you'll need the following:
 
                 <Callout type="info" title="Running the agent on Anthropic instead">
                   The starter template runs on an OpenAI model, which is why the step
-                  above sets `OPENAI_API_KEY`. To run it on Claude instead, install
-                  Anthropic's AI SDK provider:
-
-                  ```bash
-                  npm install @ai-sdk/anthropic
-                  ```
-
-                  Set Anthropic's credential variable in the same `.env` (the agent reads
-                  `ANTHROPIC_API_KEY`, not `OPENAI_API_KEY`):
+                  above sets `OPENAI_API_KEY`. The starter reads its model from
+                  `COPILOTKIT_AGENT_MODEL`. To run it on Claude, add these lines to the same `.env`:
 
                   ```plaintext title=".env"
                   ANTHROPIC_API_KEY=your_anthropic_api_key
+                  COPILOTKIT_AGENT_MODEL=anthropic:claude-sonnet-4-6
                   ```
-
-                  Then, in the agent file the template scaffolded, import `anthropic`
-                  from `@ai-sdk/anthropic` and set the agent's `model` to
-                  `anthropic("claude-sonnet-4-6")` in place of the `openai(...)` call.
 
                   <ApiKeyHint provider="anthropic" />
 
-                  Mastra takes any AI SDK provider, so the same three steps — install the
-                  provider, set its credential variable, swap the `model` setting — cover
-                  Google and the rest.
+                  For Gemini, set `COPILOTKIT_AGENT_MODEL=google:<model>` and `GOOGLE_API_KEY`.
                 </Callout>
             </Step>
             <Step>
@@ -186,16 +171,9 @@ Before you begin, you'll need the following:
                 ```
 
                 <Callout type="warn" title="The record key is the agent's name, not its `id`">
-                  Mastra advertises each agent under the **key you register it with** — `myAgent`
-                  here — and that key is what the runtime map, and so the provider's `agent` prop,
-                  is keyed by. The `name` above (`"My Agent"`) is display text, and an `id`, if you
-                  set one, is not used for routing either. `listAgents()` returns `myAgent` even
-                  when the agent declares `id: "my-agent"`.
-
-                  The same rule applies to tools: `tools: { weatherTool }` advertises
-                  `weatherTool`, so a `createTool({ id: "get-weather" })` registered under that key
-                  is still called `weatherTool` on the wire. Match your `useFrontendTool` name to
-                  the record key, not the `id`.
+                  Mastra names each agent by the key you register it under, here `myAgent`. The
+                  runtime and the provider's `agent` prop use that key. The `name` and the `id` are
+                  not used for routing.
                 </Callout>
 
                 <Callout type="info" title="Running this agent on Anthropic instead">
@@ -207,7 +185,7 @@ Before you begin, you'll need the following:
                   // model: anthropic("claude-sonnet-4-6"),
                   ```
 
-                  The credential variable changes with the vendor — Anthropic's provider
+                  The credential variable changes with the vendor. Anthropic's provider
                   reads `ANTHROPIC_API_KEY`, so export that instead of
                   `OPENAI_API_KEY` in the next step.
 
@@ -245,9 +223,7 @@ Before you begin, you'll need the following:
                 ```
 
                 <Callout type="warn" title="A bare `GET /` is not a liveness check">
-                  Mastra serves its web console on the agent port and answers `200` whether
-                  or not any agent is registered. Check `/api/agents` and look for your
-                  agent by name.
+                  `GET /` returns `200` even when no agent is registered. Look for your agent in `/api/agents`.
                 </Callout>
             </Step>
             <Step>
@@ -263,13 +239,8 @@ Before you begin, you'll need the following:
                 cd my-copilot-app
                 ```
 
-                <Callout type="warn" title="Don't point `next dev` at your Mastra project root">
-                  On its first run Next.js rewrites the `tsconfig.json` at its own root:
-                  it forces `esModuleInterop`, `isolatedModules`, `resolveJsonModule` and
-                  `jsx`, sets `noEmit: true`, and replaces `include` and `exclude`. Pointed
-                  at a Mastra project that compiles with `tsc`, that rewrites the config
-                  your agent builds with. A sibling package leaves it untouched — and it is
-                  why this guide reaches the agent over HTTP rather than importing it.
+                <Callout type="warn" title="Keep `next dev` out of your Mastra project root">
+                  On its first run, Next.js rewrites the `tsconfig.json` in its root. A sibling folder keeps the build config of your agent as it is.
                 </Callout>
             </Step>
             <Step>
@@ -360,8 +331,9 @@ Before you begin, you'll need the following:
 
                 <Callout type="info" title="Running without the Intelligence Platform?">
                   Drop the `intelligence` and `identifyUser` options and the runtime falls back
-                  to SSE mode with an in-memory runner. Chat still works, but Threads and the
-                  Inspector stay locked and the key is never read. See
+                  to SSE mode with an in-memory runner. Chat and the Inspector still work.
+                  Threads, including the Rich Threads view of the Inspector, stay locked, and
+                  the key is never read. See
                   [Connect your runtime to Intelligence](/intelligence/quickstart) for the
                   full constructor and how to confirm the key is in use.
                 </Callout>
@@ -369,8 +341,7 @@ Before you begin, you'll need the following:
             <Step>
                 ### Configure CopilotKit Provider
 
-                Everything `@copilotkit/react-core/v2` exports is a client component, so
-                the provider goes in a file of your own marked `"use client"`:
+                Put the provider in a client file of your own:
 
                 ```tsx title="app/providers.tsx"
                 "use client";
@@ -409,20 +380,8 @@ Before you begin, you'll need the following:
                 }
                 ```
 
-                <Callout type="warn" title="Importing the provider straight into the layout breaks the build">
-                  `app/layout.tsx` is a server component. `@copilotkit/react-core/v2` is marked
-                  `"use client"` and re-exports `@copilotkit/core` and `@ag-ui/client` with
-                  `export *`, which Next.js cannot enumerate across that boundary. On Next.js 16
-                  with webpack the build fails and the page returns 500. A client file of your own
-                  between the two keeps that import inside the client graph.
-                </Callout>
-
                 <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
-                  `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
-                  same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
-                  server of its own and an absolute `runtimeUrl` such as
-                  `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
-                  `/angular` and `/react-native` each show that setup.
+                  For a client-only frontend, see the guides at `/react-spa`, `/vue`, `/angular`, and `/react-native`.
                 </Callout>
             </Step>
             <Step>
@@ -479,9 +438,9 @@ Before you begin, you'll need the following:
     </TailoredContent>
     </Step>
     <Step>
-        ### 🎉 Start chatting!
+        ### Start chatting
 
-        Your AI agent is now ready to use! Try asking it some questions:
+        Your AI agent is now ready to use. Try asking it some questions:
 
         ```
         What tools do you have access to?

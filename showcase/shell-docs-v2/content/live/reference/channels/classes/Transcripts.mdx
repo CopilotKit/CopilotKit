@@ -51,7 +51,9 @@ const entries = await channel.transcripts.list({
 });
 ```
 
-Entries are oldest-first and can be filtered by platform, `threadId`, or role.
+Entries are oldest-first. Filter them with `platforms` (for example
+`["slack"]`), `threadId`, or `roles`. Each entry has `role`, `text`,
+`platform`, `threadId`, `userId`, and `ts`.
 On managed Channels, `platform` is the native provider (`"slack"` or
 `"teams"`). Use the stable application `userId` to carry context between
 providers, and filter by platform only when you want one provider's entries.

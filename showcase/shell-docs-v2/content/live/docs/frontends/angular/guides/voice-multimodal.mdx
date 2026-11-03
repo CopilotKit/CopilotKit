@@ -10,12 +10,6 @@ input is transcribed through Copilot Runtime and inserted into the composer as
 text. Multimodal input sends image or document content parts with the user's
 message.
 
-## What is voice and multimodal input?
-
-Voice input turns recorded speech into editable text before a message is sent.
-Multimodal input attaches typed image or document content parts to that
-message, so a compatible model can reason about more than text.
-
 ## Accept voice input
 
 No component option is required to display the microphone. The browser asks
@@ -42,12 +36,23 @@ The route must omit `transcriptionService` when the dedicated credential is
 absent. Copilot Runtime then reports `audioFileTranscriptionEnabled: false` on
 `/info`, and the chat hides the mic instead of exposing a control that cannot
 work. When the service is configured, the browser sends recorded audio to
-`/api/copilotkit-voice/transcribe`.
+`{runtimeUrl}/transcribe`. Point `runtimeUrl` in `provideCopilotKit` at the
+runtime route that has the transcription service.
 
 Voice requests can call the same backend tools as typed requests. Register
-renderers only for the exact tool names your backend exposes:
+renderers only for the exact tool names your backend exposes. Call
+`registerRenderToolCall` from an Angular injection context:
 
-<AngularSnippet region="voice-tool-renderers" />
+```ts
+registerRenderToolCall({
+  name: "getWeather",
+  args: z.object({ city: z.string() }),
+  component: WeatherCardComponent,
+});
+```
+
+`WeatherCardComponent` is the renderer from
+[Render a tool result](/angular/guides/frontend-tools-generative-ui#render-a-tool-result).
 
 The renderer registration is optional. It changes how matching tool calls are
 displayed, not how speech is captured or transcribed.
@@ -58,6 +63,14 @@ Define an `AttachmentsConfig` and bind it to the chat surface. The runnable
 Showcase accepts images and PDFs up to 10 MiB:
 
 <AngularSnippet region="multimodal-attachments" />
+
+Expose the config as a field on your chat component:
+
+```ts
+protected readonly multimodalAttachments = MULTIMODAL_ATTACHMENTS;
+```
+
+Then bind the field in the template:
 
 ```html title="media-chat.component.html"
 <copilot-chat [attachments]="multimodalAttachments" />
@@ -81,6 +94,10 @@ Add that message to the selected agent and run the agent. Keep the MIME type
 authoritative: use an `image` part for images and a `document` part for PDFs
 and other documents. The chosen model and backend converter must support each
 MIME type you accept.
+
+Open the chat. When the runtime has a transcription service, the mic button
+shows in the composer. Record a sentence, and the text appears in the input for
+you to edit and send.
 
 ## Next steps
 

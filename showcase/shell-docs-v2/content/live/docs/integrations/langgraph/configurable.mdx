@@ -6,11 +6,9 @@ description: "Choose the supported channel for LangGraph runtime values and exec
 
 ## Choose the right channel
 
-Some LangGraph adapters merge browser-supplied `forwardedProps.config` into
-LangGraph's `RunnableConfig`. Those values remain browser-controlled and
-untrusted, even when a LangGraph config schema accepts them. Never use them for
-credentials, tenant identity, authorization, or server execution controls.
-Keep the trust boundary explicit and use the channel that matches the value:
+Your graph can need values from outside the graph: a user preference, the
+signed-in user, or an execution setting such as a recursion limit. Each kind of
+value has one safe channel:
 
 | Value | Supported channel |
 | --- | --- |
@@ -18,10 +16,13 @@ Keep the trust boundary explicit and use the channel that matches the value:
 | Authentication and authorization | Send an `Authorization` header and validate it for every request; see [Authentication](/auth). |
 | Graph execution settings | Set them in the trusted backend that invokes or serves the graph. |
 
-<Callout type="warning" title="Do not send credentials as run properties">
-  Run properties are application payload, not an authentication or LangGraph
-  configuration channel. Validate credentials at the server boundary and pass
-  only the resolved identity to the graph.
+<Callout type="warning" title="Do not send credentials as forwarded properties">
+  Some LangGraph adapters merge browser-supplied forwarded properties
+  (`forwardedProps.config`) into LangGraph's `RunnableConfig`. Those values
+  remain browser-controlled and untrusted, even when a LangGraph config schema
+  accepts them. Never use them for credentials, tenant identity, authorization,
+  or server execution controls. Validate credentials at the server boundary and
+  pass only the resolved identity to the graph.
 </Callout>
 
 ## Model-visible UI preferences
@@ -43,8 +44,8 @@ how CopilotKit middleware exposes the latest values on every turn.
 
 ## Authentication
 
-Authentication belongs in request headers, not graph state or runtime
-properties. The [Authentication guide](/auth) covers both
+Authentication belongs in request headers, not graph state or forwarded
+properties (`forwardedProps`). The [Authentication guide](/auth) covers both
 LangGraph Platform and self-hosted AG-UI endpoints. In both cases, validate the
 current request before the graph runs and inject only a resolved user or tenant
 identifier.

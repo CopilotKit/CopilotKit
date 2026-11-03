@@ -35,7 +35,7 @@ const ir = renderToIR(
 The runtime calls this automatically before binding callbacks and rendering a
 message. Use it directly for component tests or a custom adapter.
 
-Strings—and numbers used as component children—become `text` nodes. `false`,
+Strings and numbers used as component children become `text` nodes. `false`,
 `null`, and `undefined` render nothing. Function components are evaluated
 immediately, so keep them pure and free of provider side effects.
 

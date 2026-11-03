@@ -1,106 +1,86 @@
 ---
-title: Interrupts (Not Supported)
+title: Interrupts
 icon: "lucide/CirclePause"
-description: Mastra does not support native interrupt flow. Use the tool-based HITL approach instead.
+description: Pause a Mastra tool with suspend() and answer it in your UI with useInterrupt.
 ---
 
-<Callout type="warning">
-  **Mastra does not support native interrupt flow.** The framework lacks LangGraph-style `interrupt()` primitives that pause execution mid-tool and emit AG-UI interrupt events. This page documents the interrupt pattern for reference, but it **will not work** with Mastra.
+<Callout type="info">
+  A Mastra tool can pause with `suspend()`. The `@ag-ui/mastra` bridge sends the pause to your frontend as an AG-UI interrupt, and `useInterrupt` renders it.
 
-  For working Human-in-the-Loop functionality with Mastra, use the [tool-based approach](/mastra/human-in-the-loop/tool-based) with `useHumanInTheLoop` instead.
+  If the work can run in the browser, use the [tool-based approach](/mastra/human-in-the-loop/tool-based) with `useHumanInTheLoop` instead.
 </Callout>
 
 ## What are interrupts?
 
-Some frameworks (like LangGraph) provide native interrupt capabilities where tools can pause their own execution mid-stream via an `interrupt()` or `suspend()` call, emit an AG-UI interrupt event to the frontend, and wait for the user's response before resuming. CopilotKit's `useInterrupt` hook captures these events and renders custom UI.
+In LangGraph and Mastra, a tool can pause with `interrupt()` or `suspend()`. The agent then sends an AG-UI interrupt event to the frontend. The run waits for the answer of the user, then continues. CopilotKit's `useInterrupt` hook receives these events and renders your UI.
 
-## Why doesn't Mastra support this?
+## How does Mastra raise an interrupt?
 
-Mastra does not emit AG-UI interrupt events. While Mastra has a `suspend()` API for tool approval workflows, it operates within Mastra's own execution model and does not integrate with CopilotKit's interrupt handling via the AG-UI protocol. Any `useInterrupt` hook in a Mastra application will listen for events that never arrive, leaving the UI stuck on tool-call placeholders.
+Return `suspend()` from the tool's `execute` function. The `@ag-ui/mastra` bridge sends the pause as an AG-UI interrupt. When the user answers, Mastra runs `execute` again with the answer in `resumeData`. Resume needs `storage` on your `Mastra` instance.
+
+```ts title="src/mastra/tools/schedule-meeting.ts"
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod";
+
+export const scheduleMeeting = createTool({
+  id: "schedule_meeting",
+  description: "Ask the user to pick a meeting time.",
+  inputSchema: z.object({ topic: z.string() }),
+  suspendSchema: z.object({ topic: z.string() }),
+  resumeSchema: z.object({
+    chosen_time: z.string().optional(),
+    cancelled: z.boolean().optional(),
+  }),
+  execute: async (inputData, context) => {
+    const { suspend, resumeData } = context?.agent ?? {};
+    if (resumeData) {
+      return resumeData.cancelled
+        ? "The user cancelled."
+        : `Scheduled "${inputData.topic}" for ${resumeData.chosen_time}.`;
+    }
+    // Return suspend() directly, so the agent pauses here.
+    return suspend?.({ topic: inputData.topic });
+  },
+});
+```
+
+In the frontend, `useInterrupt` renders the pause. The bridge sends the value as a JSON string, with your payload under `suspendPayload`. `resolve()` resumes the tool:
+
+```tsx title="ui/app/page.tsx"
+import { useInterrupt } from "@copilotkit/react-core/v2";
+
+function YourMainContent() {
+  useInterrupt({
+    render: ({ event, resolve }) => {
+      const value = typeof event.value === "string" ? JSON.parse(event.value) : event.value;
+      const { topic } = value.suspendPayload ?? value;
+      return (
+        <div>
+          <p>Pick a time for {topic}</p>
+          <button onClick={() => resolve({ chosen_time: "Tomorrow 10:00 AM" })}>
+            Tomorrow 10:00 AM
+          </button>
+          <button onClick={() => resolve({ cancelled: true })}>Cancel</button>
+        </div>
+      );
+    },
+  });
+
+  return <div>{/* Your UI */}</div>;
+}
+```
+
+Register `scheduleMeeting` in the `tools` of your agent. Then ask the agent to schedule a meeting about the roadmap. The chat shows your time picker. Click **Tomorrow 10:00 AM**, and the agent replies that the meeting is scheduled.
 
 ## What should I use instead?
 
-**Use the tool-based approach with `useHumanInTheLoop`.** This is the supported and working pattern for Mastra:
-
-<Steps>
-<Step>
-  ### Register a frontend tool
-
-  Define a frontend tool that renders UI and waits for the user's response:
-
-  ```tsx title="ui/app/page.tsx"
-  import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
-  import { z } from "zod";
-
-  function YourMainContent() {
-    useHumanInTheLoop({
-      agentId: "my-agent",
-      name: "confirm_action",
-      description: "Ask the user to confirm before performing a critical action",
-      parameters: z.object({
-        action: z.string().describe("Description of the action to confirm"),
-      }),
-      render: ({ args, respond }) => {
-        if (!respond) return null;
-        return (
-          <div>
-            <p>{args.action}</p>
-            <button onClick={() => respond({ confirmed: true })}>
-              Approve
-            </button>
-            <button onClick={() => respond({ confirmed: false })}>
-              Reject
-            </button>
-          </div>
-        );
-      },
-    });
-
-    return <div>{/* Your UI */}</div>;
-  }
-  ```
-</Step>
-
-<Step>
-  ### Agent automatically uses the tool
-
-  Mastra natively supports the AG-UI protocol. When your agent calls the `confirm_action` tool (defined on the frontend), CopilotKit automatically routes the call to your `useHumanInTheLoop` handler, renders the UI, and waits for the user's response.
-
-  No backend tool definition is needed—the frontend tool registration is sufficient.
-</Step>
-
-<Step>
-  ### Give it a try
-
-  Ask your agent something that requires confirmation:
-
-  ```
-  Can you delete all inactive user accounts?
-  ```
-
-  The agent will call the `confirm_action` tool, render your approval UI, and wait for the user's response before continuing.
-</Step>
-</Steps>
-
-## Full working example
-
-For a complete implementation, see the [tool-based Human-in-the-Loop guide](/mastra/human-in-the-loop/tool-based), which includes:
-
-- Multiple frontend tools with different UI patterns
-- Parameter validation with Zod schemas
-- Error handling and loading states
-- Production-ready examples
+If the work can run in the browser, use the [tool-based approach](/mastra/human-in-the-loop/tool-based) with `useHumanInTheLoop`. The agent calls a frontend tool, so you need no backend tool and no `suspend()`.
 
 ## Comparison: Interrupts vs. Tool-based
 
-| Feature | Interrupts (LangGraph) | Tool-based (Mastra) |
-|---------|------------------------|---------------------|
-| **Backend support** | ✅ Native `interrupt()` | ❌ No interrupt events |
+| Feature | Interrupts | Tool-based |
+|---------|------------|------------|
+| **Backend** | The tool returns `suspend()` | No backend tool |
 | **Frontend hook** | `useInterrupt` | `useHumanInTheLoop` |
 | **Execution model** | Tool pauses mid-execution | Agent calls frontend tool |
-| **When to use** | LangGraph, frameworks with native interrupt support | Mastra, frameworks without interrupt primitives |
-| **Works with Mastra?** | ❌ No | ✅ Yes |
-
----
-
-**Ready to implement HITL with Mastra?** Head to the [tool-based approach guide](/mastra/human-in-the-loop/tool-based) for working examples and best practices.
+| **When to use** | The tool runs on the server | The work runs in the browser |

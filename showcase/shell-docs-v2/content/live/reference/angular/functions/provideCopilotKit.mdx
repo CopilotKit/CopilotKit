@@ -17,12 +17,12 @@ You typically configure the connection one of two ways: point at a CopilotKit ru
 import { provideCopilotKit } from "@copilotkit/angular";
 import type { Provider } from "@angular/core";
 
-function provideCopilotKit(config: CopilotKitConfig): Provider;
+function provideCopilotKit(config?: CopilotKitConfig): Provider;
 ```
 
 ## Parameters
 
-<PropertyReference name="config" type="CopilotKitConfig" required>
+<PropertyReference name="config" type="CopilotKitConfig" default="{}">
   The CopilotKit configuration object.
 
 <PropertyReference name="runtimeUrl" type="string">
@@ -30,13 +30,13 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
   through a runtime (for example a Next.js, Express, or Hono backend).
 </PropertyReference>
 
-<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>) | (() => Promise<Record<string, string>>)">
+<PropertyReference name="headers" type="Record<string, string | null | undefined> | (() => Record<string, string | null | undefined>) | (() => Promise<Record<string, string | null | undefined>>)">
   Extra HTTP headers sent with every runtime request, for example an
   `Authorization` header. Pass an object for static headers, or a function
   (sync or async) to build them fresh. A builder runs when each request is
   sent, so a refreshed token is always used.
 
-  Cache inside the builder — a builder that calls the network every time adds
+  Cache inside the builder. A builder that calls the network every time adds
   one call per request. If the builder throws or rejects, that request is not
   sent and `onError` gets `header_resolution_failed`.
 
@@ -46,8 +46,8 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
   remount, so Inspector metadata and thread lists reload for the new user.
   This does not refetch the runtime's `/info`.
 
-  Core headers are also sent to any `selfManagedAgents` /
-  `agents__unsafe_dev_only` agent, including ones on other origins. Don't put
+  Core headers are also sent to any `agents` or `selfManagedAgents`
+  agent, including ones on other origins. Don't put
   a bearer token in core headers if those agents point at a third party.
 
   If you pass a format-valid `licenseKey`, a `X-CopilotCloud-Public-Api-Key`
@@ -63,10 +63,11 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
 <PropertyReference name="messageFilter" type="(messages: Message[], context: { agentId: string }) => Message[]">
   Rewrites the message list sent to the agent on every run.
 
-CopilotKit sends the whole thread with each request. When your agent already
-stores the conversation — a LangGraph checkpointer, a Mastra memory store, a
-Strands `SessionManager` — most of that payload is waste, and an agent that
-merges the inbound list with its own store can show the model every turn twice.
+CopilotKit sends the whole thread with each request. Some agents already store
+the conversation, for example with a LangGraph checkpointer, a Mastra memory
+store, or a Strands `SessionManager`. For these agents, most of that payload is
+waste. An agent that merges the inbound list with its own store can show the
+model every turn twice.
 
 Return the messages to send:
 
@@ -94,8 +95,7 @@ passing the key explicitly as `undefined`.
 <PropertyReference name="licenseKey" type="string">
   Your CopilotCloud public key. A value matching `ck_pub_` followed by 32
   hexadecimal characters is sent as the `X-CopilotCloud-Public-Api-Key` header
-  unless that header is already set. Watermark rendering and missing-key
-  warnings are disabled in the current package.
+  unless that header is already set.
 </PropertyReference>
 
 <PropertyReference name="properties" type="Record<string, unknown>">
@@ -156,8 +156,8 @@ passing the key explicitly as `undefined`.
 
 <PropertyReference name="frontendTools" type="FrontendToolConfig[]">
   Client-side tools registered at startup, each with a `name`, `description`,
-  `parameters` schema, async `handler`, and optional `component` renderer,
-  `followUp`, and `agentId`. Handlers run inside the root injection context, so
+  and `parameters` schema, plus optional `handler`, `component` renderer,
+  `followUp`, `reconnectBehavior`, `webmcp`, and `agentId`. Handlers run inside the root injection context, so
   they can use `inject()`. Prefer
   [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool)
   for tools scoped to a component.
@@ -241,7 +241,7 @@ passing the key explicitly as `undefined`.
 
 ## Return Value
 
-Returns an Angular `Provider` that binds your (header-augmented) config to the `COPILOT_KIT_CONFIG` injection token. Add it to the application providers.
+Returns an Angular `Provider` that binds your config, unchanged, to the `COPILOT_KIT_CONFIG` injection token. Add it to the application providers. The root `CopilotKit` service adds the license-key header when it sends requests.
 
 ## Usage
 
@@ -267,6 +267,8 @@ export const appConfig: ApplicationConfig = {
   ],
 };
 ```
+
+Then add [`CopilotChat`](/reference/angular/components/CopilotChat) to a template.
 
 ### Connect directly to an AG-UI agent
 
@@ -319,28 +321,7 @@ export const appConfig: ApplicationConfig = {
 - The provided config is bound to the `COPILOT_KIT_CONFIG` injection token. Read it with [`injectCopilotKitConfig`](/reference/angular/functions/injectCopilotKitConfig).
 - A format-valid `licenseKey` is merged into the
   `X-CopilotCloud-Public-Api-Key` header unless that header is already present.
-  The current package does not render a watermark or log a missing-key warning.
 - `agents` and `selfManagedAgents` are merged together when the underlying core is created, so an id present in both resolves to the `selfManagedAgents` entry.
 - The Inspector receives that same core instance. Angular reuses an existing
   `cpk-web-inspector` element when present and removes only an element it created
   when the root service is destroyed.
-
-## Related
-
-<Cards>
-  <Card
-    title="injectCopilotKitConfig"
-    description="Read the CopilotKitConfig you provided here from within an injection context."
-    href="/reference/angular/functions/injectCopilotKitConfig"
-  />
-  <Card
-    title="CopilotKit"
-    description="The service that consumes this configuration and exposes agents, tools, and runtime state."
-    href="/reference/angular/services/CopilotKit"
-  />
-  <Card
-    title="CopilotChat"
-    description="The prebuilt chat component to drop into a template once the provider is registered."
-    href="/reference/angular/components/CopilotChat"
-  />
-</Cards>

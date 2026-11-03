@@ -14,7 +14,7 @@ Each entry is the same `ReactFrontendTool` object that `useFrontendTool` takes. 
 ## Signature
 
 ```tsx
-import { useFrontendTools } from "@copilotkit/react-core/v2";
+import { useFrontendTools, ToolCallStatus } from "@copilotkit/react-core/v2";
 
 function useFrontendTools(
   tools: ReadonlyArray<ReactFrontendTool<any>> | undefined,
@@ -76,6 +76,8 @@ When `reports` grows, the new tools are registered. When a report disappears fro
 ### Tools described by the backend
 
 ```tsx
+import { z } from "zod";
+
 function BackendTools() {
   const { data, isLoading } = useQuery({
     queryKey: ["tool-descriptors"],
@@ -153,6 +155,8 @@ function ChartTools({ metrics }: { metrics: Metric[] }) {
 }
 ```
 
+To render a tool call without a handler, use [`useRenderTool`](/reference/hooks/useRenderTool). To wait for the user before the tool returns, use [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop).
+
 ## Behavior
 
 - **Value-based re-registration**: The array is normally built inline, so its identity changes on every render. The hook keys on the `name`, `description`, `agentId`, `available`, and `webmcp` of every entry instead. A re-render that produces an equal list does not re-register anything.
@@ -164,9 +168,3 @@ function ChartTools({ metrics }: { metrics: Metric[] }) {
 - **Render component lifecycle**: Entries with a `render` function register a renderer. Renderers are deliberately left in place after unmount so that past tool calls still render in the chat history.
 - **Handlers and parameters are not part of the key**: A `handler` is a function and a `parameters` schema is an object, so neither can be compared by value. Changing only one of them does not re-register on its own. Pass `deps` when a handler closes over a value that must stay current, as the examples above do with `navigate`.
 - **No return value**: The hook returns `void`.
-
-## Related
-
-- [`useFrontendTool`](/reference/hooks/useFrontendTool) -- register a single tool; the reference for the tool shape
-- [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) -- for tools that pause execution and wait for user input
-- [`useRenderTool`](/reference/hooks/useRenderTool) -- register renderer-only tool call UI (named or wildcard)

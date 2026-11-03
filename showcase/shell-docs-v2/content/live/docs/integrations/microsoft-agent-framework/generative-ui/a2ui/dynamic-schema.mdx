@@ -1,8 +1,10 @@
 ---
 title: "Dynamic Schema A2UI"
-description: "LLM-generated A2UI — a secondary LLM creates both the schema and data from any prompt."
+description: "LLM-generated A2UI: a secondary LLM creates both the schema and data from any prompt."
 ---
-In the dynamic-schema approach, a secondary LLM generates the entire UI — schema, data, and layout — based on the conversation context. It's the most flexible A2UI flavor: the agent can render any UI for any request without pre-defined schemas.
+Use this approach when your agent must draw a different UI for each request, such as a dashboard for any question. A secondary LLM writes the layout and the data. You supply the components it can use.
+
+It is the most flexible A2UI approach: the agent can render any UI for any request without pre-defined schemas.
 
 ## How it works
 
@@ -24,7 +26,7 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-`injectA2UITool: true` is the single switch: it forwards the decision to the agent so the A2UI tool is injected. Set it to `false` to turn A2UI off entirely — nothing is injected and no surfaces render.
+`injectA2UITool: true` forwards the decision to the agent, so the agent gets the A2UI tool. With `injectA2UITool: false`, no tool is injected, but surfaces from your own tools still render. To turn A2UI off, set `a2ui: { enabled: false }`.
 
 Register your component catalog on the provider so the LLM knows what it can draw (see [Bring Your Own Catalog](../../../../generative-ui/a2ui/dynamic-schema) for the catalog `definitions` / `renderers` / `createCatalog` split):
 
@@ -34,7 +36,12 @@ Register your component catalog on the provider so the LLM knows what it can dra
 </CopilotKit>
 ```
 
-## Backend — auto-injected tool
+## Backend: auto-injected tool
+
+<Callout type="info" title="Using .NET?">
+  The backend steps below are for a Python agent. A .NET agent binds its own `generate_a2ui` tool, so set `injectA2UITool: false` on the runtime.
+  For a working .NET agent, see [`DeclarativeGenUiAgent.cs`](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/ms-agent-dotnet/agent/DeclarativeGenUiAgent.cs).
+</Callout>
 
 The agent binds no A2UI tool of its own. When `injectA2UITool` is on, the `agent-framework-ag-ui` adapter auto-injects `generate_a2ui` (built from your agent's own model) and executes it:
 
@@ -57,14 +64,13 @@ base_agent = Agent(
 agent = AgentFrameworkAgent(agent=base_agent)
 ```
 
-The system prompt can be used to tell the model *when* to draw; the adapter supplies and runs the tool.
+Use the system prompt to tell the model *when* to draw. The adapter supplies and runs the tool.
 
-## Backend — recovery and other policy
+## Backend: recovery and other policy
 
-The auto-inject path takes an optional `a2ui_config` on the endpoint — a backend
-policy dict the adapter reads when it injects the tool. This is where the
-error-recovery demo pins the validate→retry loop's attempt cap (and where MAF's
-upstream recovery example puts its config). The agent stays a plain agent; only
+The auto-inject path takes an optional `a2ui_config` on the endpoint. The adapter
+reads this policy dict when it injects the tool. Use `a2ui_config` to set the retry
+limit and the catalog for the injected tool. The agent stays a plain agent, and only
 the endpoint config changes:
 
 ```python title="src/agents/agent_server.py"
@@ -79,24 +85,20 @@ add_agent_framework_fastapi_endpoint(
 )
 ```
 
-`a2ui_config` accepts the same params the adapter uses under the hood:
+`a2ui_config` accepts the same params the adapter uses internally:
 
-- **`recovery`** — the validate→retry loop config, e.g. `{"maxAttempts": 3}`. When every attempt is invalid the tool returns a graceful `a2ui_recovery_exhausted` fallback.
-- **`default_catalog_id`** — binds generated surfaces to your catalog (BYOC). Catalog ownership stays with the host; the model never picks it.
-- **`guidelines`** — optional prompt knobs for the render sub-agent (which components exist and how to compose them).
+- **`recovery`**: the validate-and-retry loop config, e.g. `{"maxAttempts": 3}`. When every attempt is invalid the tool returns a graceful `a2ui_recovery_exhausted` fallback.
+- **`default_catalog_id`**: binds generated surfaces to your catalog (BYOC). Catalog ownership stays with the host; the model never picks it.
+- **`guidelines`**: optional prompt knobs for the render sub-agent (which components exist and how to compose them).
 
 ## Progressive streaming
 
-The secondary LLM's `render_a2ui` tool call streams through the agent as `TOOL_CALL_ARGS` events. The A2UI middleware:
+The secondary LLM's `render_a2ui` tool call streams through the agent as `TOOL_CALL_ARGS` events. The A2UI middleware draws the surface when the component list is complete, then adds list items as they stream in.
 
-1. Extracts the `components` array as it streams — waits for the full schema before rendering
-2. Extracts `surfaceId` and `root` from the partial JSON
-3. Once the schema is complete, emits `createSurface` + `updateComponents`
-4. Extracts complete `items` objects progressively and emits `updateDataModel` for each
-5. Cards appear one by one as data streams in
+Ask the agent for a sales dashboard. A skeleton shows first. Then cards appear as the data streams in.
 
 ## Built-in progress indicator
 
 CopilotKit includes a built-in progress indicator that shows while the schema is being generated. It appears automatically and hides once data items start streaming.
 
-To replace it with a custom component, see the [Advanced — Custom A2UI Progress Renderer](./advanced#custom-a2ui-progress-renderer) guide.
+To replace it with a custom component, pass the component as `loadingComponent` in the provider's `a2ui` prop. See [Custom A2UI Progress Renderer](./advanced#custom-a2ui-progress-renderer).

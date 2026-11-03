@@ -55,6 +55,12 @@ Start the server:
 python -m uvicorn app:app --host 127.0.0.1 --port 8200
 ```
 
-The multi-route runtime URL is `http://localhost:8200/api/copilotkit`. Send `Authorization: Bearer <APP_AUTH_TOKEN>` with frontend requests. Keep `CPK_INTELLIGENCE_API_KEY` on the server. The CORS configuration allows a frontend at `http://localhost:3000`; replace that origin for your deployment.
+The multi-route runtime URL is `http://localhost:8200/api/copilotkit`.
 
-Uvicorn runs the ASGI lifespan, which closes the runtime on shutdown. If you mount it inside a host that manages lifespan separately, call `await app.aclose()` from that host's shutdown handler. `HttpAgent` does not forward browser credentials; configure its `headers` explicitly if your agent requires authentication.
+1. Send `Authorization: Bearer <APP_AUTH_TOKEN>` with each frontend request.
+2. Keep `CPK_INTELLIGENCE_API_KEY` on the server.
+3. Before you deploy, replace the allowed `http://localhost:3000` origin in `allowed_origins`.
+
+Uvicorn runs the ASGI lifespan, which closes the runtime on shutdown. If you mount it inside a host that manages lifespan separately, call `await app.aclose()` from that host's shutdown handler.
+
+`HttpAgent` does not forward browser credentials. If your agent requires authentication, set its `headers`.

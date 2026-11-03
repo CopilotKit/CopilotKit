@@ -1,18 +1,13 @@
 
-## CopilotKit + AWS AgentCore
-
 [AWS Bedrock AgentCore](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/what-is-bedrock-agentcore.html)
-gives you a secure, serverless runtime for deploying AG-UI agents at scale — handling auth, session
-isolation, and infrastructure. CopilotKit gives those agents a production-ready frontend:
-
-**Chat UI** · **Shared State** · **Generative UI** · **Human-in-the-loop**
+gives you a secure, serverless runtime for deploying AG-UI agents at scale. It handles auth, session
+isolation, and infrastructure. CopilotKit gives those agents a frontend.
 
 ## How it works
 
 The two connect through **CopilotKit Runtime**, a lightweight server-side layer that sits between
-your browser and AgentCore. It's the same runtime you'd use with any CopilotKit-powered agent —
-AgentCore just requires it to run server-side (browsers can't call AgentCore directly due to
-SigV4/OAuth2 authentication).
+your browser and AgentCore. This is the same runtime as for any CopilotKit agent. With AgentCore,
+the runtime must run on the server. Browsers cannot sign SigV4 or OAuth2 requests to AgentCore.
 
 ```
 Browser → CopilotKit Runtime → AgentCore Runtime → your agent
@@ -20,11 +15,11 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
 ## What you get
 
-- **Chat UI** — prebuilt chat interface, or headless APIs to build your own
-- **Shared state** — bidirectional sync between agent state and your frontend UI
-- **Generative UI** — render custom components from tool calls in real time
-- **Human-in-the-loop** — let users review, approve, or redirect agent actions
-- **AgentCore memory** — conversation history persists across sessions via AgentCore's memory layer
+- **Chat UI**: prebuilt chat interface, or headless APIs to build your own
+- **Shared state**: bidirectional sync between agent state and your frontend UI
+- **Generative UI**: render custom components from tool calls in real time
+- **Human-in-the-loop**: let users review, approve, or redirect agent actions
+- **AgentCore memory**: conversation history persists across sessions via AgentCore's memory layer
 
 ## Quickstart
 
@@ -79,7 +74,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       <Step>
         ### Deploy
 
-        One command deploys everything — CDK infrastructure, AgentCore Runtime, and the frontend:
+        One command deploys everything (CDK infrastructure, AgentCore Runtime, and the frontend):
 
         <AgentCoreCommandTabs
           framework={framework}
@@ -89,7 +84,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       </Step>
 
       <Step>
-        ### 🎉 Open your app
+        ### Open your app
 
         The deploy script prints an Amplify URL when it finishes. Open it and sign in with your `admin_user_email`.
       </Step>
@@ -97,19 +92,20 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       <Step>
         ### Run locally
 
-        To run the full stack locally — agent, CopilotKit runtime, and frontend — without deploying:
+        To run the full stack locally (agent, CopilotKit runtime, and frontend) without deploying:
 
         ```bash
-        cd docker
         cp .env.example .env
-        # Fill in AWS credentials and STACK_NAME
+        cp docker/.env.example docker/.env
+        cd docker
+        # Fill in AWS credentials in docker/.env
         ./up.sh --build
         ```
 
         | Service | Port | Description |
         |---|---|---|
         | `agent` | 8080 | Your agent, hot-reloads on `.py` changes |
-        | `runtime` | 3001 | CopilotKit Runtime |
+        | `bridge` | 3001 | CopilotKit Runtime |
         | `frontend` | 3000 | Vite dev server |
       </Step>
 
@@ -147,7 +143,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         ### Set up CopilotKit Runtime
 
         CopilotKit Runtime is the server-side layer that connects your frontend to AgentCore. It handles
-        the communication protocol, middleware, and — with AgentCore specifically — the server-side
+        the communication protocol, middleware, and (with AgentCore specifically) the server-side
         authentication that browsers can't perform directly.
 
         Create an API route:
@@ -183,7 +179,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         ```
 
         <Callout type="info" title="What is AGENTCORE_ENDPOINT_URL?">
-          This is the invocation URL for your deployed AgentCore Runtime — the URL you call to reach
+          This is the invocation URL for your deployed AgentCore Runtime: the URL you call to reach
           your agent. It takes the form:
           `https://bedrock-agentcore.{region}.amazonaws.com/runtimes/{encoded-arn}/invocations`
         </Callout>
@@ -191,7 +187,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         <Callout type="info" title="Auth in production">
           The example above uses a static token for simplicity. In production you'll want to pass the
           user's Cognito JWT from the frontend through to AgentCore. See the
-          [full-stack example](/agentcore/full-stack-example) for a complete Cognito OIDC implementation.
+          [AgentCore template](https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agentcore) for a complete Cognito OIDC implementation.
         </Callout>
       </Step>
 
@@ -201,9 +197,9 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         AgentCore's memory layer stores conversation history server-side. When CopilotKit reconnects
         to an existing thread (e.g. on page refresh), two issues arise that require a custom runner:
 
-        1. **Unknown threads** — CopilotKit may call `connect()` before any `run()` has happened.
+        1. **Unknown threads**: CopilotKit may call `connect()` before any `run()` has happened.
            Without handling this, you'll get an error on first load.
-        2. **Missing tool-call results** — AgentCore's replayed history includes assistant messages
+        2. **Missing tool-call results**: AgentCore's replayed history includes assistant messages
            with tool calls, but omits the corresponding results. CopilotKit needs those to reconcile
            its message state, so the runner synthesises empty results for each past tool call.
 
@@ -282,8 +278,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         }
         ```
 
-        `app/layout.tsx` is a server component and cannot import the provider
-        directly, so it renders your client file instead:
+        Render `Providers` in `app/layout.tsx`:
 
         ```tsx title="app/layout.tsx"
         import { Providers } from "./providers";
@@ -323,7 +318,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       </Step>
 
       <Step>
-        ### 🎉 Run it
+        ### Run it
 
         Point the Next.js app at the AgentCore runtime you deployed via AWS's
         [Deploy an AG-UI agent to AgentCore Runtime](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-agui.html)
@@ -340,13 +335,15 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         npm run dev
         ```
 
-        Navigate to `localhost:3000`. The frontend runs locally while the agent stays on AgentCore —
-        the `/api/copilotkit` route forwards each call to the invocation URL using your token.
+        Navigate to `localhost:3000`. The frontend runs locally while the agent stays on AgentCore.
+        The `/api/copilotkit` route forwards each call to the invocation URL using your token.
       </Step>
     </TailoredContentOption>
 
   </TailoredContent>
 </Steps>
+
+To render components from tool calls, see [Generative UI](/generative-ui/tool-rendering).
 
 ## Troubleshooting
 
@@ -380,20 +377,3 @@ path matches no deployed route. Check the following, in order:
   server never returns `Missing Authentication Token`. If you see this error, the runtime is pointed
   at a deployed AWS endpoint.
 </Callout>
-
-## What's next?
-
-<Cards>
-  <Card
-    title="Generative UI"
-    description="Render custom frontend components directly from your agent's tool calls."
-    href="/generative-ui/tool-rendering"
-    icon={<PaintbrushIcon />}
-  />
-  <Card
-    title="Shared State"
-    description="Sync structured state between your agent and your frontend UI bidirectionally."
-    href="/shared-state/in-app-agent-read"
-    icon={<RepeatIcon />}
-  />
-</Cards>

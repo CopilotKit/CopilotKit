@@ -5,7 +5,7 @@
 
 Add reconnection, catch-up, and delivery across devices to the conversations your agent already manages. Follow the [Intelligence quickstart](/intelligence/quickstart) to connect your existing CopilotKit app and Runtime, then verify that a new conversation is saved. That setup enables AG-UI streams for runs through CopilotKit; importing old conversations is not required.
 
-Your framework continues managing agent context and execution state. Keep your durable LangGraph checkpointer or durable ADK session service configured and keep the mapping between CopilotKit `threadId` values and native framework conversation identifiers stable. See [AG-UI Streams & Framework Threads](/intelligence/threads-explained#how-threads-work-with-framework-storage) for the responsibilities of each layer.
+Your framework continues managing agent context and execution state. Keep your durable LangGraph checkpointer or ADK session service configured. Keep the mapping between CopilotKit `threadId` values and native conversation IDs stable. See [AG-UI Streams & Framework Threads](/intelligence/threads-explained#how-threads-work-with-framework-storage) for the responsibilities of each layer.
 
 For a concrete example without historical import, see [keep an existing LangGraph conversation](/intelligence/bring-your-own-thread-system#example-keep-an-existing-langgraph-conversation).
 
@@ -22,115 +22,39 @@ Use Threads Drawer or `useThreads` to select a conversation, and pass its `threa
 | Google ADK | [Add AG-UI streams to ADK sessions](/google-adk/threads-import) | Persisted ADK sessions from a database session service or Vertex/Agent Engine session service. |
 | LangGraph | [Add AG-UI streams to LangGraph threads](/langgraph-python/threads-import) | Saved conversations from LangGraph Server / LangSmith deployments or Python FastAPI apps with durable persistence. |
 | Mastra | [Add AG-UI streams to Mastra conversations](/mastra/threads-import) | Saved conversations from a local LibSQL database or a Mastra server. |
-| AWS Strands | [Python](/strands/threads-import) · [TypeScript](/strands-typescript/threads-import) | Saved single-agent conversations from local session files or S3; Python also supports AgentCore Memory native sessions. |
+| AWS Strands | [Python](/strands/threads-import), [TypeScript](/strands-typescript/threads-import) | Saved single-agent conversations from local session files or S3; Python also supports AgentCore Memory native sessions. |
+
+Open the guide for your source and follow it from start to finish. Each guide covers the target project, the dry run, the agent map, the destination, and the import command.
 
 ## What gets imported?
 
-The importer preserves conversation content that can render in the CopilotKit chat UI or help downstream learning systems:
+The importer preserves conversation content that can render in the CopilotKit chat UI or help downstream learning systems.
 
-- user, assistant, tool, system, and developer messages
-- tool calls and tool results
-- reasoning traces when the source exposes them
-- media that can be resolved during extraction
-- saved agent state when supported by the source
-- original timestamps
-- import provenance and per-conversation import outcomes
+Always imported:
+
+- User, assistant, tool, system, and developer messages
+- Tool calls and tool results
+- Original timestamps
+
+Imported when the source has them:
+
+- Reasoning traces
+- Media that can be resolved during extraction
+- Saved agent state
 
 It does not import framework transport noise, LangSmith traces, or unsupported source stores. What is available depends on what your source saved; see your framework’s import guide for details.
 
 ## Import flow
 
+After you run the import in your source guide, check the result and keep your framework's persistence:
+
 <Steps>
-  <Step>
-    ### Confirm the target project
-
-    Choose the Intelligence project that will receive the history. Its app-api URL and project-scoped runtime key select the destination. You will export those values before importing.
-
-    For a CLI-created app, you can select a cloud-hosted project:
-
-    ```bash title="Terminal"
-    npx copilotkit@latest project select
-    ```
-
-    The command updates the project selected for the current directory and writes its project-scoped runtime key to the app's generated `.env`.
-  </Step>
-
-  <Step>
-    ### Run a dry run
-
-    A dry run reads the source, discovers source agent keys, counts conversations, reports skips, and estimates upload size without opening an import batch. It does not need a CopilotKit Intelligence URL or API key.
-
-    <Tabs groupId="thread_import_source" items={['ADK', 'LangGraph', 'Mastra']}>
-      <Tab value="ADK">
-        [Configure the ADK source](/google-adk/threads-import#configure-the-source), then run:
-
-        ```bash
-        npx copilotkit@latest import --source adk --dry-run
-        ```
-      </Tab>
-      <Tab value="LangGraph">
-        [Configure the LangGraph source](/langgraph-python/threads-import#configure-the-source) and its user IDs, then run:
-
-        ```bash
-        npx copilotkit@latest import --source langgraph --user-source metadata.user_id --dry-run
-        ```
-      </Tab>
-      <Tab value="Mastra">
-        Configure your source using the [Mastra import guide](/mastra/threads-import#configure-the-source), then run:
-
-        ```bash
-        npx copilotkit@latest import --source mastra --dry-run
-        ```
-      </Tab>
-    </Tabs>
-  </Step>
-
-  <Step>
-    ### Map source agents
-
-    The importer maps each source agent key to the `agentId` your live CopilotKit runtime uses. Use the same agent ID for import and later runs. The imported application user ID must also match the ID returned by your runtime's `identifyUser`.
-
-    For scripted imports, put the mapping in a JSON file:
-
-    ```json title="agent-map.json"
-    {
-      "support-agent": "support-agent",
-      "sales-agent": "sales-agent"
-    }
-    ```
-  </Step>
-
-  <Step>
-    ### Prepare the CopilotKit Intelligence destination
-
-    A real import needs the destination app-api URL and project-scoped runtime key. A CLI-created starter writes them to `.env`, but the importer reads the current process environment and does not load `.env` or `.copilotkit/project.json` automatically.
-
-    Copy the generated values into your shell before importing:
-
-    ```bash title="Terminal"
-    export INTELLIGENCE_API_URL="https://..."
-    export CPK_INTELLIGENCE_API_KEY="cpk-..."
-    ```
-
-    `COPILOTKIT_API_KEY` is also accepted for the key. You can pass the same values directly with `--api-url` and `--api-key` instead.
-  </Step>
-
-  <Step>
-    ### Run the import
-
-    Run the source-specific import after the dry run looks right:
-
-    - [Add AG-UI streams to ADK sessions](/google-adk/threads-import)
-    - [Add AG-UI streams to LangGraph threads](/langgraph-python/threads-import)
-    - [Add AG-UI streams to Mastra conversations](/mastra/threads-import)
-
-    Already-imported threads are skipped by default. Use `--replace` to refresh them; running or continued threads are left unchanged.
-  </Step>
-
   <Step>
     ### Verify the imported conversations
 
     Sign in as the application user assigned to the imported conversation. Open it from the Threads Drawer and make sure that its history appears. Send a message and make sure that your native framework continues the same conversation.
+
+    The importer also records import provenance and the outcome for each conversation.
   </Step>
 
   <Step>

@@ -19,13 +19,13 @@ function useCapabilities(agentId?: string): AgentCapabilities | undefined
 ## Parameters
 
 <PropertyReference name="agentId" type="string" default='"default"'>
-  ID of the agent whose capabilities to read. If omitted, uses the default agent.
+  ID of the agent whose capabilities to read. If omitted, the hook uses the agent of the surrounding chat configuration, then the provider's agent, then `"default"`.
 </PropertyReference>
 
 ## Return Value
 
 <PropertyReference name="capabilities" type="AgentCapabilities | undefined">
-  The agent's capability declaration, or `undefined` if the agent hasn't reported capabilities yet (e.g., the runtime handshake is still in progress) or doesn't implement `getCapabilities()`.
+  The agent's capability declaration, or `undefined` if the agent hasn't reported capabilities yet (e.g., the runtime handshake is still in progress) or has no `capabilities` property. Runtime agents get this property from the `/info` response. A local agent returns `undefined` unless its class defines a `capabilities` property.
 
   When defined, the object contains these optional categories:
 
@@ -50,7 +50,7 @@ function useCapabilities(agentId?: string): AgentCapabilities | undefined
   </PropertyReference>
 
   <PropertyReference name="multiAgent" type="MultiAgentCapabilities">
-    Multi-agent coordination: `supported`, `delegation`, `handoffs`, `subAgents`.
+    Multi-agent coordination: `supported`, `delegation`, `handoffs`, `subagents`.
   </PropertyReference>
 
   <PropertyReference name="reasoning" type="ReasoningCapabilities">
@@ -66,7 +66,7 @@ function useCapabilities(agentId?: string): AgentCapabilities | undefined
   </PropertyReference>
 
   <PropertyReference name="humanInTheLoop" type="HumanInTheLoopCapabilities">
-    Human-in-the-loop: `supported`, `approvals`, `interventions`, `feedback`.
+    Human-in-the-loop: `supported`, `approvals`, `interventions`, `feedback`, `interrupts`, `approveWithEdits`.
   </PropertyReference>
 
   <PropertyReference name="custom" type="Record&lt;string, unknown&gt;">
@@ -124,10 +124,5 @@ function AgentInfo({ agentId }: { agentId: string }) {
 ## Behavior
 
 - **Synchronous read** -- The hook reads `capabilities` directly from the agent instance. There is no separate loading state or async fetch -- the value is `undefined` until the runtime `/info` handshake populates it, then becomes defined.
-- **Re-renders** -- The hook calls `useAgent()` internally, so the component re-renders on agent state, message, and run-status changes (the default `updates` set). If you only need capabilities and want fewer re-renders, read `agent.capabilities` directly via `useAgent({ updates: [] })`.
+- **Re-renders** -- The hook calls [`useAgent()`](/reference/hooks/useAgent) internally, so the component re-renders on agent state, message, and run-status changes (the default `updates` set). If you only need capabilities and want fewer re-renders, read `agent.capabilities` directly via `useAgent({ updates: [] })`.
 - **Stable reference** -- The capabilities object reference only changes when the agent reconnects or the runtime response changes. It does not change on every render.
-
-## Related
-
-- [`useAgent`](/reference/v2/hooks/useAgent) -- access the full agent instance (capabilities are a property of the agent)
-- [AG-UI Protocol](/agentic-protocols/ag-ui) -- the protocol that defines the capabilities schema

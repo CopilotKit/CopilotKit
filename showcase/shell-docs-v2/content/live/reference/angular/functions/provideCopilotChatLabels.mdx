@@ -5,7 +5,7 @@ description: "Angular provider that overrides the default text labels used by th
 
 ## Overview
 
-`provideCopilotChatLabels` returns an Angular [`Provider`](https://angular.dev/guide/di/dependency-injection-providers) that customizes the text labels used throughout the prebuilt chat components, such as the input placeholder, toolbar button labels, the disclaimer text, and the welcome message. You pass a partial set of labels and they are merged over the defaults, so you only override the strings you want to change.
+`provideCopilotChatLabels` returns an Angular [`Provider`](https://angular.dev/guide/di/dependency-injection-providers) that customizes the text labels used throughout the [prebuilt chat components](/reference/angular/components/CopilotChat), such as the input placeholder, toolbar button labels, the disclaimer text, and the welcome message. You pass a partial set of labels and they are merged over the defaults, so you only override the strings you want to change.
 
 Add it to an application or component `providers` array. Components read the merged labels through [`injectChatLabels`](/reference/angular/functions/injectChatLabels).
 
@@ -126,18 +126,3 @@ export const appConfig: ApplicationConfig = {
 ```
 
 You can also scope labels to part of your app by adding the provider to a feature component's `providers` array instead of the application config.
-
-## Related
-
-<Cards>
-  <Card
-    title="injectChatLabels"
-    description="Read the merged chat labels from within an injection context."
-    href="/reference/angular/functions/injectChatLabels"
-  />
-  <Card
-    title="CopilotChat"
-    description="The prebuilt chat component whose text these labels customize."
-    href="/reference/angular/components/CopilotChat"
-  />
-</Cards>

@@ -8,22 +8,11 @@ hideTOC: true
 import AgentContextJsonString from "@/snippets/shared/basics/agent-context-json-string.mdx";
 
 
-One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
-This way, you can notify CopilotKit of what is going in your app in real time.
-Some examples might be: the current user, the current page, etc.
+Your AG2 agent cannot see what is on the user's screen, such as the current user or the current page. Register that data with `useAgentContext`. Then CopilotKit knows what is going on in your app in real time, and sends it to your AG2 backend with every run.
 
-This context can then be shared with your AG2 backend. With AG2 1.1.2 or newer, `AGUIStream` already hands every `useAgentContext` entry to the model, so a plain AG-UI endpoint needs no extra code. On AG2 1.0.x the entries never reach the model, so upgrade first.
+With AG2 1.1.2 or newer, `AGUIStream` already hands every `useAgentContext` entry to the model, so a plain AG-UI endpoint needs no extra code. On AG2 1.0.x the entries never reach the model, so upgrade first.
 
 ## Implementation
-<Callout>
-    Check out the [Frontend Data documentation](/langgraph/agent-app-context) to understand what this is and how to use it.
-</Callout>
-
-<Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
-</Callout>
-
-<AgentContextJsonString />
 
 <TailoredContent
     className="step"
@@ -38,7 +27,7 @@ This context can then be shared with your AG2 backend. With AG2 1.1.2 or newer, 
             <Step>
                 ### Add the data to the Copilot
 
-                The [`useAgentContext` hook](/reference/v2/hooks/useAgentContext) is used to add data as context to the Copilot.
+                The [`useAgentContext` hook](/reference/v2/hooks/useAgentContext) adds data as context to the Copilot.
 
                 ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
                 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
@@ -66,6 +55,11 @@ This context can then be shared with your AG2 backend. With AG2 1.1.2 or newer, 
 
             <Step>
                 ### Serve your agent as usual
+
+                <Callout type="info">
+                  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+                </Callout>
+
                 Entries sent in `RunAgentInput.context` are added to the run's system prompt, after the agent's own prompt, as one block:
 
                 ```text
@@ -104,7 +98,7 @@ This context can then be shared with your AG2 backend. With AG2 1.1.2 or newer, 
                     )
                 ```
 
-                Don't add the readables to `dispatch(prompt=...)` yourself: that would repeat them, and `prompt=` replaces the agent's own prompt rather than adding to it.
+                Don't add the context entries to `dispatch(prompt=...)` yourself: that would repeat them, and `prompt=` replaces the agent's own prompt rather than adding to it.
             </Step>
 
             <Step>
@@ -139,8 +133,10 @@ This context can then be shared with your AG2 backend. With AG2 1.1.2 or newer, 
             </Step>
 
             <Step>
-                ### Pass the readable into the run as a variable
-                The prompt block is only prose. To give a tool the value itself, decode the entry from `RunAgentInput.context` and pass it as a conversation variable. The `Variable()` annotation injects it into the tool without the LLM having to pass it around.
+                ### Pass the context entry into the run as a variable
+                The prompt block is only prose. To give a tool the value itself, decode the context entry from `RunAgentInput.context` and pass it as a conversation variable. The `Variable()` annotation injects it into the tool without the LLM having to pass it around.
+
+                <AgentContextJsonString />
 
                 ```python title="agent.py"
                 import json

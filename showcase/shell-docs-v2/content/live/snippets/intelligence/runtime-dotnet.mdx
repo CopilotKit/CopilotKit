@@ -61,6 +61,11 @@ app.Services.GetRequiredService<IntelligenceRuntime>().Map(app, "/api/copilotkit
 await app.RunAsync("http://127.0.0.1:8200");
 ```
 
-Run `dotnet run --no-launch-profile`. The multi-route runtime URL is `http://localhost:8200/api/copilotkit`. Send `Authorization: Bearer <APP_AUTH_TOKEN>` with frontend requests, and keep `CPK_INTELLIGENCE_API_KEY` on the server. Replace the allowed `http://localhost:3000` origin for your deployment.
+1. Run `dotnet run --no-launch-profile`. The multi-route runtime URL is `http://localhost:8200/api/copilotkit`.
+2. Send `Authorization: Bearer <APP_AUTH_TOKEN>` with each frontend request.
+3. Keep `CPK_INTELLIGENCE_API_KEY` on the server.
+4. Before you deploy, replace the allowed `http://localhost:3000` origin.
 
-ASP.NET Core disposes the singleton runtime asynchronously when the host shuts down. The application then disposes its agent HTTP client. `HttpAgent` accepts an optional `headers` dictionary for server-owned agent credentials; it does not forward browser credentials.
+When the host shuts down, ASP.NET Core disposes the singleton runtime asynchronously. Then the application disposes its agent HTTP client.
+
+`HttpAgent` does not forward browser credentials. To send server-owned credentials to your agent, pass a `headers` dictionary.

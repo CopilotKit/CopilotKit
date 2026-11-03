@@ -2,7 +2,7 @@
 title: "Advanced: Package Linking"
 ---
 
-In this guide, we'll teach you how to link the CopilotKit packages to your own project to test your changes. This way, you can run `pnpm run dev` in the CopilotKit monorepo, and see changes in your own project immediately.
+Link your local CopilotKit packages into your own project to test your changes there. Then, when you run `pnpm run dev` in the CopilotKit monorepo, your project gets your changes.
 
 ## Global Package Linking With `pnpm`
 
@@ -11,7 +11,7 @@ We will use pnpm's [global linking feature](https://pnpm.io/cli/link#pnpm-link--
 <Steps>
   <Step>
   ### In The CopilotKit Monorepo
-  Assuming you followed all steps in the contribution guide, you should have everything set up properly and ready to go.
+  First, set up the monorepo with the [code contribution guide](/contributing/code-contributions).
 
   Navigate to the CopilotKit monorepo and run the following command to link the packages globally:
 
@@ -21,7 +21,7 @@ We will use pnpm's [global linking feature](https://pnpm.io/cli/link#pnpm-link--
   </Step>
   <Step>
   ### In Your Project
-  In your project, ensure you have pnpm configured. This will not prevent you from using npm or yarn as well. But for the purpose of global linking, you must use pnpm.
+  In your project, make sure you have pnpm configured. This will not prevent you from using npm or yarn as well. But for the purpose of global linking, you must use pnpm.
 
   ```bash
   cd your-project
@@ -49,7 +49,7 @@ We will use pnpm's [global linking feature](https://pnpm.io/cli/link#pnpm-link--
   pnpm install
   ```
 
-  That's it, everything is now back to normal!
+  That's it, everything is now back to normal.
   </Step>
 </Steps>
 

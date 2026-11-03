@@ -10,8 +10,8 @@ snippet_cell: agentic-chat
 
 ## Pre-built components for agentic chat
 
-CopilotKit's chat components give you a fully functional, customizable AI chat interface out of the box.
-They handle streaming, generative UI, and deep customization so you can focus on your agent's behavior, not UI plumbing.
+`<CopilotChat>` renders a chat panel that streams your agent's replies.
+It also renders generative UI from tool calls, and you can change its look and its parts.
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-chat-ui.mp4"
@@ -29,8 +29,22 @@ The live `agentic-chat` cell above is built from a single, small page. Wrap your
 
 <Snippet region="provider-setup" title="frontend/src/app/page.tsx — CopilotKit provider" />
 
+`<Chat />` is a component in your app that renders `<CopilotChat>`:
+
+<Snippet region="render-chat" title="frontend/src/app/page.tsx" />
+
+Set `agent` and `agentId` to the name of the agent in your runtime. Without them, CopilotKit uses the agent named `default`.
+
+For a floating or side-panel chat, see [Popup](/prebuilt-components/popup) and [Sidebar](/prebuilt-components/sidebar). To change the parts of the chat, see [Slots](/custom-look-and-feel/slots).
+
 Inside the chat, the `useConfigureSuggestions` hook lets you show contextual
-starter prompts. The example below uses it to seed a simple "Write a sonnet"
+starter prompts. Import it from `@copilotkit/react-core/v2`:
+
+```tsx
+import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+```
+
+The example below uses it to seed a simple "Write a sonnet"
 suggestion:
 
 <Snippet region="configure-suggestions" title="frontend/src/app/page.tsx — starter suggestions" />

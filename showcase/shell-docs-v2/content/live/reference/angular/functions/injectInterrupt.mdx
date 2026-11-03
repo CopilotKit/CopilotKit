@@ -42,8 +42,14 @@ export class ApprovalView {
 - `handler(props)`: synchronous or asynchronous preprocessing whose result is
   exposed through the controller's `result` signal.
 
-The previous `injectInterrupt({ agentId, enabled, handler })` form remains
-supported.
+For a standard interrupt, `event.value` is the first `Interrupt` (`id`,
+`reason`, `message`, `metadata`). For a legacy `on_interrupt` event, it is the
+event payload.
+
+You can also pass one options object:
+`injectInterrupt({ agentId, enabled, handler })`.
+
+## Return value
 
 The controller exposes `event`, `interrupt`, `interrupts`, `result`, `error`,
 `hasInterrupt`, and `view` signals plus `resolve(payload?, interruptId?)` and
@@ -67,12 +73,12 @@ For example, a matching refund interrupt is visible through both properties in
 this component:
 
 ```ts
-type RefundRequest = { type: "refund"; amount: number };
+type RefundRequest = { reason: string; metadata?: { amount?: number } };
 
 export class RefundPage {
   readonly store = injectAgentStore("ticketing");
   readonly refunds = injectInterrupt<RefundRequest>("ticketing", {
-    enabled: event => event.value.type === "refund",
+    enabled: (event) => event.value.reason === "refund",
   });
 
   // For a matching interrupt, both expressions are true:
@@ -86,9 +92,11 @@ Render `refunds` for this decision and do not also render
 the interrupt; it cannot resume anything unless application code calls its
 `resolve` or `cancel` method.
 
-The agent subscription is disconnected when the owning injector is destroyed.
-Thread changes and new or failed runs clear stale decisions. Predicate and
-handler failures are captured by `error`; expired decisions use
-`InterruptExpiredError`. A resume failure clears pending state and rejects—it
-is never retried automatically. The controller performs no DOM work and is SSR
-safe, but applications should not resume an agent during server rendering.
+## Behavior
+
+- Destroy: the agent subscription disconnects when the owning injector is destroyed.
+- Thread changes, new runs, and failed runs clear stale decisions.
+- Predicate and handler failures go to `error`.
+- Expired decisions use `InterruptExpiredError`.
+- A failed resume clears the pending state and rejects. CopilotKit does not retry it.
+- SSR: the controller does no DOM work and is safe during SSR. Do not resume an agent during server rendering.

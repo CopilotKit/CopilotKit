@@ -32,6 +32,7 @@
     "agent-app-context",
     "---CrewAI Flows---",
     "advanced",
+    "persistence",
     "multi-agent-flows",
     "---Backend---",
     "copilot-runtime",

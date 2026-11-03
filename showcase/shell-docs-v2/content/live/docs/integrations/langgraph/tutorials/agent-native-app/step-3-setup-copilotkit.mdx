@@ -2,17 +2,17 @@
 title: "Step 3: Setup CopilotKit"
 ---
 
-Now that we have both our application and agent running, let's connect them using CopilotKit. The necessary dependencies are already installed in the `frontend` directory:
+Now that we have both our application and agent running, connect them using CopilotKit. The necessary dependencies are already installed in the `frontend` directory:
 
-- `@copilotkit/react-core`: Core CopilotKit functionality and hooks
+- `@copilotkit/react-core`: Core CopilotKit features and hooks
 - `@copilotkit/react-ui`: Pre-built UI components for chat interfaces
 
 <Accordions>
 <Accordion title="Install command (optional)">
-  **The package versions in this tutorial are pinned, so updating the dependencies could break the tutorial.**
+  **This tutorial pins the package versions, so updating the dependencies could break the tutorial.**
 
-```npm
-npm install @copilotkit/react-core
+```bash
+pnpm add @copilotkit/react-core@1.5.20 @copilotkit/react-ui@1.5.20
 ```
 
 </Accordion>
@@ -21,7 +21,7 @@ npm install @copilotkit/react-core
 <Steps>
 <Step>
 ### Set up Copilot Cloud
-Create a [Copilot Cloud account](https://dashboard.operations.copilotkit.ai/sign-in) to get started. This provides a production-ready proxy to your LLMs.
+Create a [Copilot Cloud account](https://dashboard.operations.copilotkit.ai/sign-in) to get started.
 
 <Callout>Copilot Cloud includes free LLM credits for development.</Callout>
 
@@ -60,8 +60,8 @@ NEXT_PUBLIC_CPK_PUBLIC_API_KEY=...
 Wrap your application with the CopilotKit provider:
 
 ```tsx title="frontend/src/app/layout.tsx"
-"use client";
-
+import "@copilotkit/react-ui/styles.css"; // [!code ++]
+import { CopilotKit } from "@copilotkit/react-core"; // [!code ++]
 // ...
 // ...
 
@@ -91,7 +91,7 @@ export default function RootLayout({
 
 We provide several customizeable components for you to interact with your copilot. Some of these are [`<CopilotPopup/>`](/reference/v1/components/chat/CopilotPopup), [`<CopilotSidebar/>`](/reference/v1/components/chat/CopilotSidebar), and [`<CopilotChat/>`](/reference/v1/components/chat/CopilotChat), and your own fully custom UI via [`useCopilotChat`](/reference/v1/hooks/useCopilotChat).
 
-In this tutorial, we'll use the `<CopilotChat/>` component as we want to aim for a non-modal chat interface.
+This tutorial uses the `<CopilotChat/>` component because we want a non-modal chat interface.
 
 <Callout>
   The `Chat` component will serve as a wrapper around the CopilotKit
@@ -99,17 +99,18 @@ In this tutorial, we'll use the `<CopilotChat/>` component as we want to aim for
   along the way.
 </Callout>
 
-```tsx title="frontend/src/components/Chat.tsx"
+```tsx title="frontend/src/components/chat.tsx"
 "use client"
 
+import { CopilotChat } from "@copilotkit/react-ui"; // [!code ++]
 
 export default function Chat({ onSubmitMessage }: { onSubmitMessage: () => void }) {
   return (
       // [!code ++:10]
       <CopilotChat
           labels={{
-              modalHeaderTitle: MAIN_CHAT_TITLE,
-              welcomeMessageText: INITIAL_MESSAGE,
+              title: MAIN_CHAT_TITLE,
+              initial: INITIAL_MESSAGE,
           }}
           className="h-full w-full font-noto"
           onSubmitMessage={onSubmitMessage}
@@ -127,13 +128,7 @@ export default function Chat({ onSubmitMessage }: { onSubmitMessage: () => void 
 
 ## Recap
 
-And we're done! Here's what we did:
-
-- We setup our Copilot cloud account and got an API key.
-- We configured the CopilotKit provider in our application to use our API key.
-- We added the CopilotSidebar to our application.
-
-Now, head back to the app and you'll find a chat interface on the left side of the page. At this point, you can start interacting with your copilot! 🎉
+Open the app. A chat now shows on the left side of the page.
 
 <Frame>
   <ImageZoom

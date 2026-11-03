@@ -5,13 +5,13 @@ description: "Render interactive UI components from MCP servers directly in your
 ---
 ## What is this?
 
-MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, CopilotKit automatically fetches and renders the UI component in the chat — no additional frontend code required.
+MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, CopilotKit automatically fetches and renders the UI component in the chat. No additional frontend code is required.
 
 Key benefits:
-- **Zero frontend code** — UI components are served by the MCP server
-- **Full interactivity** — Components can use HTML, CSS, and JavaScript
-- **Secure sandboxing** — Content runs in isolated iframes
-- **Thread persistence** — MCP Apps are stored in conversation history and restored on reconnect
+- **Zero frontend code**: UI components are served by the MCP server
+- **Full interactivity**: Components can use HTML, CSS, and JavaScript
+- **Secure sandboxing**: Content runs in isolated iframes
+- **Thread persistence**: MCP Apps are stored in conversation history and restored on reconnect
 
 ## Implementation
 
@@ -74,17 +74,17 @@ Key benefits:
     ```
 
     <Callout type="info" title="Server ID">
-      Always provide a `serverId` for production deployments. Without it, CopilotKit generates a hash from the server URL. If your URL changes (e.g., different environments), previously stored MCP Apps in conversation history won't load correctly.
+      Always provide a `serverId` for production deployments. Without it, CopilotKit generates a hash from the server URL. If your URL changes (e.g., different environments), MCP Apps already stored in conversation history won't load correctly.
     </Callout>
 
     <Callout type="info" title="Using Intelligence?">
-      On a runtime connected to Intelligence, configure the servers with the runtime's `mcpApps` option instead, and pass `intelligence` in place of `runner`. See [MCP Apps with Intelligence](/generative-ui/mcp-apps#mcp-apps-with-intelligence).
+      On a runtime connected to Intelligence, configure the servers with the runtime's `mcpApps` option instead, and pass `intelligence` in place of `runner`. See [MCP Apps with Intelligence](/langgraph-python/generative-ui/mcp-apps#mcp-apps-with-intelligence).
     </Callout>
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
 
-    That's it. MCP Apps will render automatically when the agent uses tools that have associated UI resources. No changes to your agent code or frontend are needed.
+    Ask the agent to sketch a system diagram. The agent calls an Excalidraw tool, and the Excalidraw app renders in the chat. MCP Apps render automatically when the agent uses tools that have associated UI resources, with no changes to your agent code or frontend.
   </Step>
 </Steps>
 

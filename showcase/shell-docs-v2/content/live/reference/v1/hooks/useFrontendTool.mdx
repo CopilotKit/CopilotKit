@@ -7,14 +7,14 @@ description: "The useFrontendTool hook allows the Copilot to execute tools in th
   This is the v1 `useFrontendTool`, which takes an array of parameter definitions. It is still supported, but we recommend migrating to the [v2 `useFrontendTool`](/reference/v2/hooks/useFrontendTool) (from `@copilotkit/react-core/v2`), which uses Zod schemas for parameters.
 </Callout>
 
-`useFrontendTool` allows you to define executable actions that the AI can call with a handler function.
-This is the primary way to give your AI agent the ability to perform actions in your application, whether
+`useFrontendTool` lets you define executable actions that the agent can call with a handler function.
+This is the primary way to give your agent the ability to perform actions in your application, whether
 that's updating state, making API calls, or triggering side effects.
 
-The hook requires three main pieces:
-1. A name and description so the AI knows when to call it
+The hook takes three main pieces. Only the `name` is required:
+1. A name and description so the agent knows when to call it
 2. A parameters definition describing what inputs the tool accepts
-3. A handler function that executes when the AI calls the tool
+3. A handler function that executes when the agent calls the tool
 
 Optionally, you can provide a `render` function to display custom UI showing the tool's execution
 status and results in the chat interface.
@@ -89,13 +89,11 @@ useFrontendTool({
 
 ## Generative UI
 
-This hook enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/generative-ui/your-components/display-only) page.
+This hook lets you dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/generative-ui/your-components/display-only) page.
 
 ## Migration from useCopilotAction
 
-If you're migrating from `useCopilotAction`, here are the key differences:
-
-1. The render component props include `name` and `description`
+If you are migrating from `useCopilotAction` with a `handler`, change the hook name. The options and the render props stay the same.
 
 ### Migration Example
 
@@ -140,7 +138,7 @@ The name of the tool.
 </PropertyReference>
 
 <PropertyReference name="description" type="string"  >
-A description of the tool. This is used to instruct the Copilot on how to use the tool.
+A description of the tool. The agent reads it to decide when to call the tool.
 </PropertyReference>
 
 <PropertyReference name="parameters" type="T"  >
@@ -149,7 +147,7 @@ Array of parameter definitions for the tool. Each parameter object should have:
 - `type` (string): The parameter type (e.g., "string", "number", "boolean", "string[]", "object")
 - `description` (string): A description of what the parameter is for
 - `required` (boolean): Whether the parameter is required
-- `properties` (array, optional): For object types, define nested properties using the same schema
+- `attributes` (array, optional): For object types, define nested properties using the same schema
 
 Simple example: `[{ name: "query", type: "string", description: "The search query", required: true }]`
 
@@ -161,7 +159,7 @@ Nested example:
     type: "object",
     description: "User information",
     required: true,
-    properties: [
+    attributes: [
       { name: "name", type: "string", description: "User's name", required: true },
       { name: "age", type: "number", description: "User's age", required: false }
     ]
@@ -175,7 +173,7 @@ The handler function that executes the tool logic.
 </PropertyReference>
 
 <PropertyReference name="followUp" type="boolean"  >
-Whether to report the result of the tool call to the LLM which will then provide a follow-up response. Pass `false` to disable.
+Whether to send the result of the tool call back to the agent, which then writes a follow-up response. Pass `false` to disable.
 </PropertyReference>
 
 <PropertyReference name="render" type="FrontendAction<T>['render']"  >
@@ -184,4 +182,12 @@ A React component that renders custom UI for the tool.
 
 <PropertyReference name="available" type="'disabled' | 'enabled'"  >
 Whether the tool is available. Set to "disabled" to prevent the tool from being called.
+</PropertyReference>
+
+<PropertyReference name="webmcp" type="boolean | WebMCPToolConfig"  >
+Also expose the tool to browser agents through the WebMCP API (`document.modelContext`). Pass `true` for the default annotations, or `{ annotations }` to set your own.
+</PropertyReference>
+
+<PropertyReference name="dependencies" type="any[]"  >
+The second argument of the hook. When a value in it changes, the hook picks up the latest `handler` and `render`.
 </PropertyReference>

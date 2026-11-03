@@ -38,7 +38,12 @@ This page lists the `learning` prop, the Core methods, and the `CopilotKitIntell
   </PropertyReference>
 
   <PropertyReference name="trajectoryId" type="string">
-    The UUID for the Trajectory that the provider starts. Without it, the provider generates a UUID that stays the same across rerenders, reconnects, and option changes. Changing this value starts a new Trajectory with the new ID. Turning capture off, or setting `autoStart: false`, ends a generated Trajectory; the next one gets a new ID. With `autoStart: false`, the provider ignores this option and logs a warning; pass the ID to `startTrajectory()` instead.
+    The UUID for the Trajectory that the provider starts.
+
+    - Without it, the provider generates a UUID that stays the same across rerenders, reconnects, and option changes.
+    - A new value starts a new Trajectory with the new ID.
+    - Turning capture off, or setting `autoStart: false`, ends a generated Trajectory. The next one gets a new ID.
+    - With `autoStart: false`, the provider ignores this option and logs a warning. Pass the ID to `startTrajectory()` instead.
   </PropertyReference>
 
   <PropertyReference name="capture" type="{ clicks?: boolean; inputs?: boolean; navigation?: boolean; network?: boolean }" default="all true">
@@ -81,6 +86,8 @@ This page lists the `learning` prop, the Core methods, and the `CopilotKitIntell
 Read these from `copilotkit`, returned by `useCopilotKit()`.
 
 ```tsx
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+
 const { copilotkit } = useCopilotKit();
 
 const result = await copilotkit.startTrajectory();

@@ -11,7 +11,7 @@ The chat is a good place for an answer. It is a bad place for the product grid o
 A **surface** is one piece of generated UI. Each surface renders in a **target**, a place where generated UI can go:
 
 - **The chat.** Always there. The agent can use every component of the catalog.
-- **A page target.** An area of your page that you mark with `GenerativeUISurface`. The agent sees it only while it is on screen.
+- **A page target.** An area of your page that you mark with `GenerativeUISurface`. The agent sees it only while it is mounted.
 
 ## Add a page target
 
@@ -106,7 +106,7 @@ Each component renders inside its own error boundary. One broken component shows
 
 On every run, the agent gets:
 
-- The targets that are on screen, with their descriptions and component limits.
+- The targets that are mounted, with their descriptions and component limits.
 - The surfaces that already exist, so it can update one in place instead of building a new one.
 - The values the user typed into a surface. The agent cannot write over those values.
 - The operations that the browser rejected, with the reason, so the agent can fix them.

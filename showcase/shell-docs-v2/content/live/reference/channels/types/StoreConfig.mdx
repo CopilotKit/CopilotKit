@@ -44,12 +44,11 @@ interface StoreConfig<TStateSchema> {
 | `"serial"`             | Later turns on the same conversation wait until the in-flight turn finishes (per-conversation queue).                                      |
 | `"drop"`               | Later turns are discarded while a turn is already in flight.                                                                               |
 
-A configured **singleton** agent (`agent: sharedInstance`) is isolated per run via `agent.clone()` under the hood, so parallel mode does not mutate one shared agent object. Prefer an agent factory when you want explicit control:
+Channels runs every turn on a clone of the configured agent (`agent.clone()`). This is true for a shared instance (`agent: sharedInstance`) and for an agent that a factory returns. The clone gets the turn's `threadId`, so parallel mode does not mutate one shared agent object. Use a factory to build a fresh agent for each conversation:
 
 ```ts
 agent: (threadId) => {
   const a = new HttpAgent({ url });
-  a.threadId = threadId;
   return a;
 };
 ```
@@ -74,7 +73,7 @@ const channel = createChannel({
 
 `thread.setState(value)` replaces the entire stored value and validates it
 against `state`. It does not merge patches. Under `"parallel"`, concurrent
-turns that both call `setState` can race — use `"serial"` for workflows that
+turns that both call `setState` can race. Use `"serial"` for workflows that
 depend on exclusive state updates.
 
 On the managed path, Intelligence owns cross-instance delivery claims and

@@ -15,6 +15,8 @@ Call it from an Angular injection context such as a component field initializer
 or constructor. The list subscription, realtime connection, and core store
 registration are removed automatically when the owning injector is destroyed.
 
+For a full walkthrough, see the [Angular threads guide](/angular/guides/threads-memory-attachments-headless).
+
 ## Signature
 
 ```ts
@@ -121,7 +123,7 @@ export class ThreadListComponent {
 }
 ```
 
-Bind the selected id to a chat component in the same feature:
+Bind the selected id to a [`CopilotChat`](/reference/angular/components/CopilotChat) component in the same feature:
 
 ```html
 <copilot-chat agentId="support" [threadId]="selectedThreadId()" />
@@ -138,26 +140,3 @@ before calling it.
 Use `listError` for end-user messaging. The broader `error` signal can include
 configuration details such as a missing runtime URL or unavailable thread
 endpoints and is intended for developer diagnostics.
-
-## Related
-
-<Cards>
-  <Card
-    title="Angular threads and headless UI guide"
-    description="Build thread selection, memory, attachments, and a custom signal-based chat."
-    href="/angular/guides/threads-memory-attachments-headless"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="Threads explained"
-    description="Understand persistence, realtime synchronization, naming, replay, and failure behavior."
-    href="/angular/intelligence/threads-explained"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="CopilotChat"
-    description="Connect the selected thread to the prebuilt Angular chat."
-    href="/reference/angular/components/CopilotChat"
-    icon={<LinkIcon />}
-  />
-</Cards>

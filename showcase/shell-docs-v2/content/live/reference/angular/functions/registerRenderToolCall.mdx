@@ -9,7 +9,7 @@ description: "Angular function for registering a renderer component for a tool c
 
 You call `registerRenderToolCall` inside an Angular injection context (a component or service constructor, or a field initializer). The renderer registers immediately. When the owning injector is destroyed, CopilotKit removes tool and renderer registrations with the same name and optional agent id.
 
-If you want to run a browser handler and render UI, use [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool) with its `component` field instead. If the agent does not already have the tool and you only want it to display one of your components, use [`registerComponent`](/reference/angular/functions/registerComponent), which declares the tool from the frontend so nothing has to be added on the agent side.
+If you want to run a browser handler and render UI, use [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool) with its `component` field instead. If the agent does not already have the tool and you only want it to display one of your components, use [`registerComponent`](/reference/angular/functions/registerComponent), which declares the tool from the frontend so nothing has to be added on the agent side. To wait for a user decision, use [`registerHumanInTheLoop`](/reference/angular/functions/registerHumanInTheLoop).
 
 <Callout type="info">
   Import from the package root, `@copilotkit/angular`. There is no `/v2`
@@ -109,8 +109,8 @@ type AngularToolCall<Args extends Record<string, unknown>> =
     };
 ```
 
-- **`in-progress`** means the arguments are still streaming in, so `args` is `Partial<Args>` and `result` is `undefined`.
-- **`executing`** means the arguments have fully arrived and the tool is running, so `args` is the complete `Args` and `result` is still `undefined`.
+- **`in-progress`** means the agent run is still active and the tool has no result yet. `args` is `Partial<Args>` because the arguments can still be streaming, and `result` is `undefined`.
+- **`executing`** means the run has stopped and the tool has no result yet, for example while a frontend tool's handler runs. `args` is the complete `Args` and `result` is still `undefined`. A server-side tool usually goes from `in-progress` straight to `complete`.
 - **`complete`** means the tool finished, so `args` is complete and `result` holds the string result.
 
 ## Usage
@@ -132,9 +132,6 @@ type SearchArgs = { query: string };
     @let call = toolCall();
     @switch (call.status) {
       @case ("in-progress") {
-        <div class="text-sm opacity-70">Preparing search...</div>
-      }
-      @case ("executing") {
         <div class="text-sm opacity-70">Searching for "{{ call.args.query }}"...</div>
       }
       @case ("complete") {
@@ -202,28 +199,3 @@ registerRenderToolCall({
   passAgent: true,
 });
 ```
-
-## Related
-
-<Cards>
-  <Card
-    title="registerComponent"
-    description="Let the agent display one of your components, with no handler and nothing to add on the agent side."
-    href="/reference/angular/functions/registerComponent"
-  />
-  <Card
-    title="registerFrontendTool"
-    description="Register a client-side tool with an async handler and an optional renderer component."
-    href="/reference/angular/functions/registerFrontendTool"
-  />
-  <Card
-    title="registerHumanInTheLoop"
-    description="Register a tool that pauses the agent and waits for the user to respond from a rendered component."
-    href="/reference/angular/functions/registerHumanInTheLoop"
-  />
-  <Card
-    title="CopilotKit service"
-    description="The central service that holds agents, tools, and the runtime connection."
-    href="/reference/angular/services/CopilotKit"
-  />
-</Cards>

@@ -33,7 +33,7 @@ CrewAIAgent lets you define your agent for use with CopilotKit.
     See [the CrewAI docs](https://docs.crewai.com/concepts/cli#9-chat) for more information.
 
     ```python
-    from copilotkit import CrewAIAgent
+    from copilotkit.crewai import CrewAIAgent
 
 
     CrewAIAgent(
@@ -64,12 +64,12 @@ CrewAIAgent lets you define your agent for use with CopilotKit.
 The name of the agent.
 </PropertyReference>
 
-<PropertyReference name="crew" type="Crew" required> 
-When using a Crew based agent, pass in a `Crew` object to the `crew` parameter.
+<PropertyReference name="crew" type="Optional[Crew]" > 
+When using a Crew based agent, pass in a `Crew` object to the `crew` parameter. Pass exactly one of `crew` or `flow`.
 </PropertyReference>
 
-<PropertyReference name="flow" type="Flow" required> 
-When using a Flow based agent, pass in a `Flow` object to the `flow` parameter.
+<PropertyReference name="flow" type="Optional[Flow]" > 
+When using a Flow based agent, pass in a `Flow` object to the `flow` parameter. Pass exactly one of `crew` or `flow`.
 </PropertyReference>
 
 <PropertyReference name="description" type="Optional[str]" > 
@@ -92,17 +92,20 @@ CopilotKit config for CrewAIAgent
     def merge_state(
         *,
         state: dict,
-        messages: List[BaseMessage],
+        messages: List[Any],
         actions: List[Any],
-        agent_name: str
+        agent_name: str,
+        flow: Flow,
     ):
         # ...implementation...
 
     ```
 
+    merge_state runs only for flow-based agents.
+
 ### Parameters
 
-<PropertyReference name="merge_state" type="Callable" required> 
-This function lets you customize how CopilotKit merges the agent state.
+<PropertyReference name="merge_state" type="Optional[Callable]" > 
+This function lets you customize how CopilotKit merges the agent state. Defaults to the built-in merge.
 </PropertyReference>
 

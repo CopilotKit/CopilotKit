@@ -14,16 +14,12 @@ description: Write to agent's state from your application.
 />
 
 <Callout type="info">
-  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state).
+  This example shows how to write to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state).
 </Callout>
-
-## What is this?
-
-This guide shows you how to write to your agent's state from your application.
 
 ## When should I use this?
 
-You can use this when you need to update agent state from your application — for example, changing user preferences, toggling settings, or providing user input that affects agent behavior.
+You can use this when you need to update agent state from your application. For example, you can change user preferences, toggle settings, or provide user input that affects agent behavior.
 
 ## Implementation
 
@@ -160,7 +156,7 @@ You can use this when you need to update agent state from your application — f
     // Example usage in a pseudo React component
     function YourMainContent() {
       const { agent, isReady } = useAgent({
-        agentId: "sample_agent",
+        agentId: "my_agent",
       });
       const state = (agent.state ?? {}) as Partial<AgentState>;
 
@@ -190,14 +186,9 @@ You can use this when you need to update agent state from your application — f
     ```
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
     You can now use `agent.setState` to update the agent state and `agent.state` to read it. Try toggling the language button
     and talking to your agent. You'll see the language change to match the agent's state.
-
-<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
-<Callout>
-  This video shows the result of `npx copilotkit@latest init` with the implementation section applied to it!
-</Callout>
   </Step>
 </Steps>
 
@@ -205,10 +196,10 @@ You can use this when you need to update agent state from your application — f
 
 ### Re-run the agent with a hint about what's changed
 
-The new agent state will be used next time the agent runs.
-If you want to re-run it manually, use `copilotkit.runAgent()`.
+The agent uses the new state on its next run.
+To run it now, call `copilotkit.runAgent()`.
 
-The agent will be re-run with the latest updated state. You can also add a hint message before re-running.
+`copilotkit.runAgent()` runs the agent again with the new state. You can also add a hint message before you run it.
 
 ```tsx title="ui/app/page.tsx"
 import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
@@ -217,7 +208,7 @@ import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
 function YourMainContent() {
   const { agent } = useAgent({
-    agentId: "sample_agent",
+    agentId: "my_agent",
   });
   const { copilotkit } = useCopilotKit(); // [!code highlight]
 
@@ -243,4 +234,4 @@ function YourMainContent() {
 ```
 
 ### Notes on state updates
-Depending on your agent implementation, you may choose to surface progress via tool responses or messages rather than frequent state snapshots. See [Generative UI](/microsoft-agent-framework/generative-ui/tool-rendering) for recommended patterns.
+Depending on your agent implementation, you may choose to surface progress via tool responses or messages rather than frequent state snapshots. See [Generative UI](/generative-ui/tool-rendering) for recommended patterns.

@@ -18,7 +18,7 @@ If your project was created from a CopilotKit CLI starter, the Drawer and its sh
   />
 </Frame>
 
-Under the hood, the Vue component is an SSR-safe wrapper around the self-contained `copilotkit-threads-drawer` web component. It is fed by [`useThreads`](/reference/vue/hooks/useThreads) and the current chat configuration.
+Internally, the Vue component is an SSR-safe wrapper around the self-contained `copilotkit-threads-drawer` web component. It is fed by [`useThreads`](/reference/vue/hooks/useThreads) and the current chat configuration.
 
 Prefer to build your own thread UI? The same data and actions are available through `useThreads`; see [Headless Threads](/vue/headless-threads). Thread **rename** is one of those headless actions: the prebuilt drawer covers archive, unarchive, and delete, so use your own rows when rename is required.
 
@@ -31,7 +31,7 @@ Use the drawer when you want:
 - A self-contained, themeable UI that follows your app's light/dark theme
 - A mobile-ready off-canvas drawer with its own launcher
 
-It requires CopilotKit Intelligence because threads are stored and synchronized server-side. <SignupLink surface="docs_drawer">Get a free developer account</SignupLink> to set that up.
+It requires CopilotKit Intelligence because threads are stored and synchronized server-side. To compare thread UI and deployment paths, see the [AG-UI Streams overview](/vue/AG-UI-Streams). <SignupLink surface="docs_drawer">Get a free developer account</SignupLink> to set that up.
 
 For multi-user applications, configure the runtime to [scope Rich Threads to the signed-in user](/vue/threads-lifecycle#scope-rich-threads-to-the-signed-in-user).
 
@@ -44,7 +44,10 @@ For multi-user applications, configure the runtime to [scope Rich Threads to the
 
 ## Set up the Threads Drawer
 
-Place `<CopilotThreadsDrawer>` next to `<CopilotChat>` and wrap **both** in a shared `<CopilotChatConfigurationProvider>`. That shared configuration lets the Drawer drive the chat: selecting a row connects the chat to that thread and replays its history; the New Conversation row resets the chat to a fresh welcome screen.
+Place `<CopilotThreadsDrawer>` next to [`<CopilotChat>`](/reference/vue/components/CopilotChat) and wrap **both** in a shared `<CopilotChatConfigurationProvider>`. That shared configuration lets the Drawer drive the chat:
+
+- Select a row: the chat connects to that thread and replays its history.
+- Select New Conversation: the chat shows a fresh welcome screen.
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
@@ -139,45 +142,8 @@ How it works:
   no row stays selected.
 - The new thread appears in the Drawer list after its first run. An empty
   thread does not get a row.
-- If you set `threadId` on `<CopilotChatConfigurationProvider>`, your app
-  controls the thread. Then the configuration's `startNewThread()` and
-  `setActiveThreadId()` do nothing and log a warning. Keep the id in your own
-  state and pass the Drawer `onThreadSelect` and `onNewThread` callbacks. Your
-  button updates the same state:
-
-  ```vue title="src/components/ControlledChat.vue"
-  <script setup lang="ts">
-  import { ref } from "vue";
-  import {
-    CopilotChat,
-    CopilotChatConfigurationProvider,
-    CopilotThreadsDrawer,
-  } from "@copilotkit/vue/v2";
-
-  const threadId = ref<string>(crypto.randomUUID());
-  const selectThread = (id: string) => {
-    threadId.value = id;
-  };
-  const startNewConversation = () => {
-    threadId.value = crypto.randomUUID();
-  };
-  </script>
-
-  <template>
-    <CopilotChatConfigurationProvider :thread-id="threadId">
-      <CopilotThreadsDrawer
-        :on-thread-select="selectThread"
-        :on-new-thread="startNewConversation"
-      />
-      <button type="button" @click="startNewConversation">
-        New conversation
-      </button>
-      <CopilotChat />
-    </CopilotChatConfigurationProvider>
-  </template>
-  ```
-
-  Render `ControlledChat` inside your `<CopilotKitProvider>`.
+- If you set `threadId` on `<CopilotChatConfigurationProvider>`, see
+  [Control the thread id yourself](#control-the-thread-id-yourself).
 
 To show only your button, hide the Drawer's own new-conversation controls with
 their CSS parts. `new-thread-button` is the row in the open Drawer.
@@ -189,6 +155,48 @@ copilotkit-threads-drawer::part(launcher-new-thread) {
   display: none;
 }
 ```
+
+## Control the thread id yourself
+
+If you set `threadId` on `<CopilotChatConfigurationProvider>`, your app
+controls the thread. Then the configuration's `startNewThread()` and
+`setActiveThreadId()` do nothing and log a warning. Keep the id in your own
+state and pass the Drawer `onThreadSelect` and `onNewThread` callbacks. Your
+button updates the same state:
+
+```vue title="src/components/ControlledChat.vue"
+<script setup lang="ts">
+import { ref } from "vue";
+import {
+  CopilotChat,
+  CopilotChatConfigurationProvider,
+  CopilotThreadsDrawer,
+} from "@copilotkit/vue/v2";
+
+const threadId = ref<string>(crypto.randomUUID());
+const selectThread = (id: string) => {
+  threadId.value = id;
+};
+const startNewConversation = () => {
+  threadId.value = crypto.randomUUID();
+};
+</script>
+
+<template>
+  <CopilotChatConfigurationProvider :thread-id="threadId">
+    <CopilotThreadsDrawer
+      :on-thread-select="selectThread"
+      :on-new-thread="startNewConversation"
+    />
+    <button type="button" @click="startNewConversation">
+      New conversation
+    </button>
+    <CopilotChat />
+  </CopilotChatConfigurationProvider>
+</template>
+```
+
+Render `ControlledChat` inside your `<CopilotKitProvider>`.
 
 ## Configuring the drawer
 
@@ -235,10 +243,3 @@ The drawer renders in a shadow root with self-contained, theme-inheriting styles
 ## License
 
 Threads require CopilotKit Intelligence. Without a valid Threads license, the drawer shows a locked view in place of the list.
-
-## Related
-
-- [AG-UI Streams overview](/vue/AG-UI-Streams): compare thread UI and deployment paths.
-- [Headless Threads](/vue/headless-threads): build a custom UI with the `useThreads` data layer.
-- [Threads Drawer reference (Vue)](/reference/vue/components/CopilotThreadsDrawer).
-- [CopilotChat](/reference/vue/components/CopilotChat): the chat the drawer connects to.

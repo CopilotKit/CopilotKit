@@ -10,50 +10,55 @@ description: "CopilotTask is used to execute one-off tasks, for example on butto
   * packages/react-core/src/v1-deprecated/lib/copilot-task.ts
   */
 }
+<Callout type="info">
+  `CopilotTask` has no direct v2 replacement. See the [v1 to v2 export map](/reference/v1/export-map).
+</Callout>
+
 This class is used to execute one-off tasks, for example on button press. It can use the context available via [useCopilotReadable](/reference/v1/hooks/useCopilotReadable) and the actions provided by [useCopilotAction](/reference/v1/hooks/useCopilotAction), or you can provide your own context and actions.
- 
+
 ## Example
 In the simplest case, use CopilotTask in the context of your app by giving it instructions on what to do.
- 
+
 ```tsx
+import { useState } from "react";
 import { CopilotTask, useCopilotContext } from "@copilotkit/react-core";
- 
+
 export function MyComponent() {
   const context = useCopilotContext();
- 
+  const [message, setMessage] = useState("");
+
   const task = new CopilotTask({
     instructions: "Set a random message",
     actions: [
       {
         name: "setMessage",
-      description: "Set the message.",
-      argumentAnnotations: [
-        {
-          name: "message",
-          type: "string",
-          description:
-            "A message to display.",
-          required: true,
-        },
-      ],
-     }
-    ]
+        description: "Set the message.",
+        parameters: [
+          {
+            name: "message",
+            type: "string",
+            description: "A message to display.",
+            required: true,
+          },
+        ],
+        handler: ({ message }) => setMessage(message),
+      },
+    ],
   });
- 
+
   const executeTask = async () => {
-    await task.run(context, action);
-  }
- 
+    await task.run(context);
+  };
+
   return (
     <>
-      <button onClick={executeTask}>
-        Execute task
-      </button>
+      <button onClick={executeTask}>Execute task</button>
+      <p>{message}</p>
     </>
-  )
+  );
 }
 ```
- 
+
 Have a look at the [Presentation Example App](https://github.com/CopilotKit/CopilotKit/blob/main/examples/v1/next-openai/src/app/presentation/page.tsx) for a more complete example.
 
 ## Constructor Parameters

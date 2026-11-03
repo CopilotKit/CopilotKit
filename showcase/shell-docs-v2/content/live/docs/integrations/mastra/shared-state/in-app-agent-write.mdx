@@ -21,7 +21,7 @@ import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 
 ## What is this?
 
-You can easily write to your agent's state from your native application, allowing you to update the agent's working memory from your UI.
+When the user changes a setting in your UI, such as the reply language, write it to the agent's state. The agent reads the new value on its next run.
 
 <Callout type="info" title="Important">
   This guide assumes you are embedding your Mastra agent inside of Copilot Runtime, like so.
@@ -48,7 +48,7 @@ You can use this when you want to provide user input or control to your agent's 
   </Step>
   <Step>
     ### Define the Agent State
-    Mastra has advanced [working memory concepts](https://mastra.ai/en/docs/memory/working-memory) to provide statefulness to your agents. CopilotKit leverages Mastra's working memory concept to allow you to
+    Mastra has advanced [working memory concepts](https://mastra.ai/en/docs/memory/working-memory) to provide statefulness to your agents. CopilotKit uses Mastra's working memory concept to let you
     implement shared state between your agent and your application.
 
     Providing working memory to your agent is as simple as providing a Zod schema to your agent.
@@ -67,7 +67,7 @@ You can use this when you want to provide user input or control to your agent's 
     });
 
     // 2. Infer the agent state type from the schema
-    export const AgentState = z.infer<typeof AgentStateSchema>;
+    export type AgentState = z.infer<typeof AgentStateSchema>;
 
     // 3. Create the agent
     export const languageAgent = new Agent({
@@ -90,13 +90,12 @@ You can use this when you want to provide user input or control to your agent's 
   </Step>
   <Step>
     ### Use the `useAgent` Hook
-    With your agent connected and running all that is left is to call the `useAgent` hook, pass the agent's name, and
-    use `agent.setState` to update the agent state.
+    Call `useAgent` with the key of your agent in the Mastra `agents` map. Then call `agent.setState` to update the agent state.
 
     ```tsx title="ui/app/page.tsx"
     import { useEffect } from "react";
     import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
-    import { AgentState } from "@/mastra/agents/language-agent";
+    import type { AgentState } from "@/mastra/agents/language-agent";
 
     function YourMainContent() {
       // [!code highlight:5]
@@ -130,7 +129,7 @@ You can use this when you want to provide user input or control to your agent's 
     </Callout>
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
     You can now use the `setState` function to update the agent state and `state` to read it. Try toggling the language button
     and talking to your agent. You'll see the language change to match the agent's state.
 

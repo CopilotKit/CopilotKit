@@ -1,6 +1,6 @@
 ---
 title: "Fixed Schema A2UI"
-description: "Pre-defined A2UI schema with dynamic data. The fastest approach — no LLM schema generation needed."
+description: "Pre-defined A2UI schema with dynamic data. The fastest approach: no LLM schema generation needed."
 ---
 In the fixed-schema approach, you design the UI schema once (in a JSON file or using the [A2UI Composer](https://a2ui-composer.ag-ui.com/)) and your agent tool only provides the data. The surface appears instantly when the tool returns.
 
@@ -67,9 +67,9 @@ def search_flights(flights: list[Flight]) -> str:
 ```
 
 Key points:
-- The `Flight` TypedDict is essential — LangChain serializes it into the tool's JSON schema, which is what the LLM sees when deciding what data to generate.
-- The Python SDK's `a2ui.render` does not yet support the `action_handlers=` keyword, so the example keeps the button schema but does not declare server-side handlers. Button clicks are forwarded to the agent, but this example has no server-side handler for them.
-- `"book_flight"` is the action name used by the schema button and can be handled with the frontend APIs in the [Advanced — Action Handlers](./advanced#action-handlers) guide.
+- The `Flight` TypedDict is essential. LangChain serializes it into the tool's JSON schema, which is what the LLM sees when deciding what data to generate.
+- Button clicks go to the agent as a user action. This example has no server-side handler for them.
+- `"book_flight"` is the action name used by the schema button and can be handled with the frontend APIs in the [Advanced: Action Handlers](./advanced#action-handlers) guide.
 </Step>
 
 <Step>
@@ -102,9 +102,11 @@ const runtime = new CopilotRuntime({
 </Step>
 </Steps>
 
+Ask the agent for flights from SFO to JFK. The flight cards appear in the chat as soon as the `search_flights` tool returns.
+
 ## Action handler details
 
-The current Python SDK does not support the `action_handlers=` option. The button schema can still define the action context used by frontend handlers. Here's how the schema side looks:
+The button schema defines the action context that frontend handlers receive:
 
 ### Button with action context
 
@@ -128,8 +130,8 @@ In your `flight_schema.json`, buttons declare an `action` with data-bound contex
 }
 ```
 
-When this button is clicked on a card showing flight AA100 at $350, frontend action handling receives `context: { flightNumber: "AA100", price: "$350" }`. The Python `action_handlers=` path is not yet supported.
+When this button is clicked on a card showing flight AA100 at $350, frontend action handling receives `context: { flightNumber: "AA100", price: "$350" }`.
 
 <Callout type="info">
-For custom frontend handling with `createA2UIMessageRenderer` and its `onAction` option, see the [Advanced — Action Handlers](./advanced#action-handlers) guide.
+For custom frontend handling with `createA2UIMessageRenderer` and its `onAction` option, see the [Advanced: Action Handlers](./advanced#action-handlers) guide.
 </Callout>

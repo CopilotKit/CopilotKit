@@ -10,23 +10,26 @@ import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 ## What is this?
 
 Mastra's [background tasks](https://mastra.ai/docs/agents/background-tasks) let a tool run
-outside the agentic loop instead of blocking it. When a tool is flagged
+outside the agentic loop without blocking it. When a tool is flagged
 `background: { enabled: true }`, Mastra dispatches it to its `BackgroundTaskManager`, emits a
 `background-task-started` lifecycle chunk, and returns a placeholder result so the conversation
 keeps flowing.
 
-`MastraAgent` (the AG-UI adapter) maps that lifecycle to an AG-UI **activity event** (activity
-type `mastra-background-task`) and **suppresses the normal tool pill** — so the work surfaces
-only as a live "working" card, never as an orphan tool call. A registered CopilotKit activity
-renderer paints that card inline in the transcript.
+`MastraAgent`, the AG-UI adapter, turns that lifecycle into an AG-UI **activity event** of type
+`mastra-background-task`. It **hides the normal tool pill**, so the work shows only as a live
+"working" card. A registered CopilotKit activity renderer paints that card inline in the
+transcript.
+
+If your agent uses Mastra's Observational Memory, you can show its memory cycles as the same
+kind of card. See [Observational Memory as background activity](#observational-memory-as-background-activity).
 
 ## When should I use this?
 
 Background tasks fit any work that is too slow to hold the chat hostage:
 
-- **Deep research / long lookups** — kick off a multi-step investigation and let the user keep chatting
-- **Report or artifact generation** — build something in the background and surface progress
-- **Batch or fan-out work** — dispatch several jobs without serializing the conversation
+- **Deep research / long lookups**: kick off a multi-step investigation and let the user keep chatting
+- **Report or artifact generation**: build something in the background and surface progress
+- **Batch or fan-out work**: dispatch several jobs without serializing the conversation
 
 <Callout type="info">
   Completion is delivered **out of band**. On the dispatching turn Mastra emits only the
@@ -150,6 +153,8 @@ Background tasks fit any work that is too slow to hold the chat hostage:
   ```
 
   ```tsx title="ui/app/page.tsx"
+  "use client";
+
   import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
   import { backgroundTaskActivityRenderer } from "./activity-card";
 
@@ -191,7 +196,7 @@ Background tasks fit any work that is too slow to hold the chat hostage:
 </Step>
 
 <Step>
-  ### Give it a try!
+  ### Give it a try
 
   Ask the agent to research something.
 
@@ -200,7 +205,7 @@ Background tasks fit any work that is too slow to hold the chat hostage:
   ```
 
   The agent calls `run_deep_research`, Mastra dispatches it in the background, and a live
-  "working" activity card appears inline — with no blocking tool pill — while the conversation
+  "working" activity card appears inline (with no blocking tool pill) while the conversation
   stays responsive.
 </Step>
 </Steps>
@@ -208,12 +213,12 @@ Background tasks fit any work that is too slow to hold the chat hostage:
 ## Completion is out of band
 
 By design, the dispatching run's stream carries only the `started` lifecycle plus a placeholder
-result — the tool's `execute` has not finished by the time the stream closes. So within that turn
+result. The tool's `execute` has not finished by the time the stream closes. So within that turn
 the card stays "working"; the finished result is delivered out of band.
 
-Mastra exposes `untilIdle: true` (via `getLocalAgents`) to hold the run open and pipe the manager
-pubsub chunks — including `background-task-completed` — into the same stream so the card could flip
-to "Completed" in-turn. That only works when a **background worker actually executes the dispatched
+`getLocalAgents` accepts `untilIdle: true`. It holds the run open and sends the pubsub chunks of
+the task manager, including `background-task-completed`, into the same stream. Then the card can
+change to "Completed" in the same turn. That only works when a **background worker actually executes the dispatched
 task before the idle window closes**. In a single-process app with no such worker the task is never
 executed within the run, so no completion chunk is produced and `untilIdle` only holds the stream
 open with no benefit. When you run a deployment with a real background worker, enable `untilIdle`
@@ -224,7 +229,7 @@ automatically. Otherwise, retrieve results out of band via the task manager
 ## Observational Memory as background activity
 
 If your agent uses Mastra's [Observational Memory](https://mastra.ai/docs/memory/observational-memory),
-you can surface its observation/buffering/activation cycles the same way — as a live activity card
+you can surface its observation/buffering/activation cycles the same way, as a live activity card
 instead of invisible background work. This is opt-in and OFF by default.
 
 Two switches, both required:
@@ -245,7 +250,7 @@ Two switches, both required:
    }),
    ```
 
-2. **The adapter must be told to forward it** — pass `observationalMemory: true` (or an array of
+2. **The adapter must be told to forward it**: pass `observationalMemory: true` (or an array of
    agent ids) to `getLocalAgents`:
 
    ```typescript title="app/api/copilotkit/route.ts"
@@ -257,13 +262,14 @@ Two switches, both required:
    ```
 
 With both on, `MastraAgent` maps the OM lifecycle to AG-UI activity events under activity type
-`mastra-observational-memory`. Render them exactly like the background-task card — register a
+`mastra-observational-memory`. Render them exactly like the background-task card. Register a
 renderer for that activity type:
 
 <FrontendOnly frontend="react">
 ```tsx title="app/page.tsx"
 const observationalMemoryActivityRenderer = {
   activityType: "mastra-observational-memory", // [!code highlight]
+  content: z.object({ cycleId: z.string(), phase: z.string(), status: z.string() }).passthrough(),
   render: ({ content }) => <OMActivityCard content={content} />,
 };
 
@@ -285,6 +291,6 @@ The activity content carries the cycle (`cycleId`, `phase: "observation" | "buff
 cycle from start to completion.
 
 <Callout type="info">
-  OM cycles trigger on **unobserved message-token size**, not turn count — short chats may never
+  OM cycles trigger on **unobserved message-token size**, not turn count. Short chats may never
   trip one. If you're testing the card, drive a few sizable messages.
 </Callout>

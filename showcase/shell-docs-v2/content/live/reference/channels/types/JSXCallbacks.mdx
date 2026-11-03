@@ -38,13 +38,15 @@ or omit a component when the native provider has no equivalent.
 
 | Component                                             | Key props                                                                  |
 | ----------------------------------------------------- | -------------------------------------------------------------------------- |
-| `Message`                                             | `accent?`, `onReaction?`, `children?`                                      |
+| `Message`                                             | `accent?`, `fallbackText?`, `onReaction?`, `children?`                     |
 | `Header`, `Section`, `Markdown`, `Context`, `Actions` | `children?`                                                                |
 | `Fields` / `Field`                                    | `children?`; `Field` also accepts `label?`                                 |
 | `Button`                                              | `value?`, `onClick?`, `url?`, `style?: "primary" \| "danger"`, `children?` |
 | `Select`                                              | `name?`, `options`, `placeholder?`, `multi?`, `onSelect?`                  |
 | `Input`                                               | `name?`, `placeholder?`, `multiline?`, `onSubmit?`                         |
 | `Image`                                               | `url`, `alt?`                                                              |
+| `Render`                                              | `alt`, `width?`, `height?`, `children?`                                    |
+| `Carousel` / `CarouselCard`                           | `children?`                                                                |
 | `Divider`                                             | No props or children                                                       |
 | `Table` / `Row` / `Cell`                              | `Table.columns?`; nested rows and cells are children                       |
 | `Chart`                                               | `data`, plus optional `type`, `title`, `xAxisTitle`, and `yAxisTitle`      |
@@ -108,11 +110,12 @@ failed card update cannot strand the interrupted run.
 ## Reaction callback
 
 `Message.onReaction` receives `(emoji, reaction)`. The reaction contains
-`added`, `user`, `messageId`, `messageRef`, and `thread`. Managed reaction
+`emoji`, `rawEmoji`, `added`, `user`, `actor`, `messageId`, `messageRef`, and
+`thread`. Managed reaction
 delivery is provider-dependent; do not require it for a cross-platform
-approval. An output-free managed callback is finalized and acknowledged, but
-application side effects should remain idempotent because managed delivery is
-at-least-once.
+approval. A managed callback that posts nothing is still finalized and
+acknowledged. Managed delivery is at-least-once, so keep application side
+effects idempotent.
 
 ## Registration and persistence
 
@@ -142,8 +145,9 @@ const channel = createChannel({
 The same Channel declaration handles managed Slack and Teams deliveries.
 
 Registration allows the action registry to rebuild the callback from the
-component name and serializable props. A durable `StateStore` is still required
-for clicks on messages posted before a process restart.
+component name and serializable props. Clicks on messages posted before a
+process restart need a durable `StateStore`: the default managed store, or your
+own `store.adapter`.
 
 See the interactive messages and approvals guide for
 [Slack](/slack/interactive) or [Teams](/teams/interactive) for the full

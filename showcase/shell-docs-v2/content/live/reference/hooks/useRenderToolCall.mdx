@@ -9,7 +9,14 @@ description: "React hook that returns a renderer function for tool calls in the 
   The v2 `useRenderToolCall` (this page, from `@copilotkit/react-core/v2`) is a **no-argument hook** that *returns* a renderer function for consuming tool calls. It is **not** the v1 [`useRenderToolCall`](/reference/v1/hooks/useRenderToolCall), which takes a `{ name, parameters, render }` config object to *register* a renderer. To register renderers for existing backend tools in v2, use [`useRenderTool`](/reference/hooks/useRenderTool).
 </Callout>
 
-`useRenderToolCall` returns a renderer function that maps tool calls to React elements. The returned function looks up the matching render configuration by tool name (preferring a renderer scoped to the active `agentId`, then an unscoped one, then a wildcard `"*"` renderer if no exact match is found), partially parses the JSON arguments, determines the current `ToolCallStatus`, and returns the appropriate React element. When neither a per-tool nor a wildcard renderer is registered, it falls back to the framework's built-in `DefaultToolCallRenderer`, so the returned element is effectively always non-null (the signature keeps `ReactElement | null` for type compatibility).
+`useRenderToolCall` returns a renderer function that maps tool calls to React elements. The returned function:
+
+1. Finds the renderer for the tool name: one scoped to the active `agentId`, then an unscoped one, then a wildcard `"*"` renderer.
+2. Parses the partial JSON arguments.
+3. Sets the `ToolCallStatus`.
+4. Returns the React element.
+
+When no named or wildcard renderer matches, the function returns `null`. In development it logs a warning that names the tool. To show a card for every tool call, call [`useDefaultRenderTool()`](/reference/hooks/useDefaultRenderTool).
 
 This hook is primarily used by chat UI components to display visual feedback for tool calls. In most applications you will not call it directly; instead, you register render components for existing backend tools via `useRenderTool`, and the chat components use `useRenderToolCall` internally to resolve them.
 
@@ -71,12 +78,13 @@ function CustomChatMessage({ message }) {
   const renderToolCall = useRenderToolCall();
 
   if (message.type === "tool_call") {
-    // Always returns an element: your registered renderer, the wildcard
-    // ("*") renderer, or the framework's built-in DefaultToolCallRenderer.
+    // Returns your named renderer, the wildcard ("*") renderer, or null
+    // when neither matches.
     const element = renderToolCall({
       toolCall: message.toolCall,
       toolMessage: message.toolMessage,
     });
+    if (!element) return null;
 
     return <div className="tool-call-container">{element}</div>;
   }
@@ -85,121 +93,14 @@ function CustomChatMessage({ message }) {
 }
 ```
 
-### Registering Renderers with useRenderTool
+### Registering renderers
 
-Tool call renderers for existing backend tools are registered through `useRenderTool` or directly via the `renderToolCalls` prop on the provider. The `useRenderToolCall` hook resolves these registrations at render time.
-
-```tsx
-import { useRenderTool } from "@copilotkit/react-core/v2";
-import { z } from "zod";
-
-function App() {
-  useRenderTool(
-    {
-      name: "searchDatabase",
-      parameters: z.object({
-        query: z.string().describe("Search query"),
-      }),
-      render: ({ parameters, status, result }) => {
-        if (status === "inProgress") {
-          return <div>Preparing search...</div>;
-        }
-        if (status === "executing") {
-          return <div>Searching for "{parameters.query}"...</div>;
-        }
-        if (status === "complete" && result) {
-          return <div>Search complete: {result}</div>;
-        }
-        return null;
-      },
-    },
-    [],
-  );
-
-  return <ChatInterface />;
-}
-```
-
-### Wildcard Renderer
-
-If no exact name match is found, the hook falls back to a wildcard `"*"` renderer. This is useful for providing a generic UI for all unhandled tool calls.
-
-```tsx
-function App() {
-  return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      renderToolCalls={[
-        {
-          name: "*",
-          render: ({ name, args, status, result }) => {
-            if (status === ToolCallStatus.InProgress) {
-              return (
-                <div className="text-gray-500 text-sm">Running {name}...</div>
-              );
-            }
-            if (status === ToolCallStatus.Complete) {
-              return (
-                <div className="text-green-600 text-sm">{name} completed.</div>
-              );
-            }
-            return null;
-          },
-        },
-      ]}
-    >
-      <YourApp />
-    </CopilotKit>
-  );
-}
-```
+To register the renderers this function uses, see [`useRenderTool`](/reference/hooks/useRenderTool), or pass them in the `renderToolCalls` prop of [`CopilotKitProvider`](/reference/components/CopilotKit).
 
 ## Behavior
 
-- **Name-based lookup with agent scoping**: The renderer searches registered render configurations for an exact tool name match first. When multiple match the same name, it prefers the one scoped to the active `agentId`, then an unscoped renderer, then the first match. If no exact match exists, it falls back to a wildcard (`"*"`) renderer, and finally to the framework's built-in `DefaultToolCallRenderer`.
+- **Name-based lookup with agent scoping**: The renderer searches registered render configurations for an exact tool name match first. When multiple match the same name, it prefers the one scoped to the active `agentId`, then an unscoped renderer, then the first match. If no exact match exists, it falls back to a wildcard (`"*"`) renderer. If neither matches, it returns `null`.
 - **Partial JSON parsing**: The tool call's `arguments` string is parsed with `partialJSONParse` before being passed to the render component, so partially-streamed arguments can render incrementally while the tool call is still `InProgress`.
 - **Status inference**: Status is determined from the presence of the `toolMessage` prop and whether the tool call id is in the provider's executing set. The render component always receives a consistent shape with `name`, `toolCallId`, `args`, `status`, and `result`.
-- **Default renderer for unmatched tools**: If no renderer is registered for the tool name and no wildcard renderer exists, the function falls back to the built-in `DefaultToolCallRenderer` rather than returning `null`, so unhandled tool calls still paint out-of-the-box.
+- **No renderer for unmatched tools**: If no renderer is registered for the tool name and no wildcard renderer exists, the function returns `null`. In development it logs a warning that names the tool. Call [`useDefaultRenderTool()`](/reference/hooks/useDefaultRenderTool) to show a built-in card for these tool calls.
 - **Used internally by chat components**: The built-in `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` components use this hook to render tool calls. You only need to call it directly when building custom chat UIs.
-
-### Disable default tool rendering
-
-Because the hook falls back to the built-in `DefaultToolCallRenderer` when no renderer matches, tool calls paint UI out-of-the-box. To turn that off, register a renderer that produces no UI (an empty fragment, `() => <></>`). A registered renderer takes priority over the default, so no fallback UI is shown.
-
-Register a wildcard (`"*"`) renderer with [`useRenderTool`](/reference/hooks/useRenderTool) to disable the default for **all** tool calls. The wildcard overload takes no `parameters` schema, so no Zod is required. Any tool with its own named renderer still paints.
-
-```tsx
-function App() {
-  // Suppress the built-in DefaultToolCallRenderer for every tool call
-  // without its own named renderer.
-  useRenderTool({ name: "*", render: () => <></> }, []);
-
-  return <YourApp />;
-}
-```
-
-#### For specific tools
-
-To disable rendering for a single tool, register a renderer under that tool's name. Named renderers take a `parameters` schema; when you only want to suppress UI, pass a pass-through schema (`z.any()`):
-
-```tsx
-import { z } from "zod";
-
-function App() {
-  useRenderTool(
-    { name: "specificTool", parameters: z.any(), render: () => <></> },
-    [],
-  );
-
-  return <YourApp />;
-}
-```
-
-You can also opt out conditionally — render nothing for some statuses and real UI for others (for example, hide while `InProgress` but show a result on `Complete`), since the `render` function receives the current `status`.
-
-## Related
-
-- [`useRenderTool`](/reference/hooks/useRenderTool) -- register a renderer by tool name or wildcard (no schema needed for `"*"`)
-- [`useFrontendTool`](/reference/hooks/useFrontendTool) -- register tools with render components
-- [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) -- register interactive tools with render components
-- [`CopilotKit`](/reference/v2) -- configure static render tool calls at the provider level

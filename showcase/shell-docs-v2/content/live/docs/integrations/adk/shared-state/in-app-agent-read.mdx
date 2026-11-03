@@ -20,7 +20,7 @@ description: Read the realtime agent state in your native application.
 
 ## What is this?
 
-You can easily use the realtime agent state not only in the chat UI, but also in the native application UX.
+Show the agent's state in your own components, outside the chat. The UI updates each time the agent state changes.
 
 ## When should I use this?
 
@@ -41,6 +41,7 @@ state updates, you can reflect these updates natively in your application.
 
     ```python title="agent.py"
     from typing import Dict
+    import uvicorn
     from fastapi import FastAPI
     from pydantic import BaseModel
     from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
@@ -96,8 +97,7 @@ state updates, you can reflect these updates natively in your application.
   </Step>
   <Step>
     ### Use the `useAgent` Hook
-    With your agent connected and running all that is left is to call the `useAgent` hook, pass the agent's name, and
-    initialize missing UI-owned state after the connected agent is ready.
+    Call `useAgent` with the ID of your agent. When `isReady` is true, set any missing state with `agent.setState`.
 
     ```tsx title="ui/app/page.tsx"
     import { useEffect } from "react";
@@ -134,7 +134,7 @@ state updates, you can reflect these updates natively in your application.
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` must exactly match the agent key in the `agents` map of your CopilotRuntime (for example, `my_agent` from the quickstart).
     </Callout>
 
     <Callout type="info">
@@ -143,40 +143,7 @@ state updates, you can reflect these updates natively in your application.
 
   </Step>
   <Step>
-    ### Give it a try!
-    As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
-    language set to "english" after the connected agent is ready.
+    ### Give it a try
+    Ask the agent to answer in Spanish. The agent calls `set_language`, and the Language line changes to the new language.
   </Step>
 </Steps>
-
-## Rendering agent state in your app
-
-You can render the agent state in any React component under `<CopilotKit>`. Read `agent.state` and return ordinary JSX.
-
-```tsx title="ui/app/page.tsx"
-import { useAgent } from "@copilotkit/react-core/v2";
-
-type AgentState = {
-  language: "english" | "spanish";
-};
-
-function YourMainContent() {
-  const { agent } = useAgent({
-    agentId: "my_agent",
-  });
-  const state = (agent.state ?? {}) as Partial<AgentState>;
-
-  if (!state.language) return null;
-  return <div>Language: {state.language}</div>;
-}
-```
-
-<Callout type="warn" title="Important">
-  The `name` parameter must exactly match the agent name you defined in your
-  CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
-</Callout>
-
-<Callout type="info">
-  The `agent.state` in `useAgent` is reactive and will automatically update when
-  the agent's state changes.
-</Callout>

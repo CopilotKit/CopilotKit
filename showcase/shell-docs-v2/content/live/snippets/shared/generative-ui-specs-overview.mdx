@@ -16,49 +16,16 @@
 
 ## **Generative UI Specifications**
 
-Several recently released specifications enable agents to return generative UI, increasing the power and flexibility of the Agent-to-User conversation.
-
-**A2UI**, **MCP Apps**, and **Open-JSON-UI** are all generative UI specifications that allow agents to respond to users not only with text but also with dynamic UI components.
-CopilotKit now provides universal support for all major Generative UI specifications.
+These specifications let an agent return UI components as well as text. CopilotKit renders A2UI and MCP Apps.
 
 | **Specification** | **Origin / Maintainer** | **Purpose**                                                                                                          |
 | ----------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **A2UI**          | Google                  | A declarative, LLM-friendly Generative UI spec. JSONL-based and streaming, designed for platform-agnostic rendering. |
+| [**A2UI**](/generative-ui/a2ui) | Google                  | A declarative, LLM-friendly Generative UI spec. JSONL-based and streaming, designed for platform-agnostic rendering. |
 | **Open-JSON-UI**  | OpenAI                  | An open standardization of OpenAI's internal declarative Generative UI schema.                                       |
-| **MCP Apps**      | MCP Ecosystem           | Iframe-based Generative UI extending MCP, enabling servers to return interactive UI components.                      |
+| [**MCP Apps**](/generative-ui/mcp-apps) | MCP Ecosystem           | Iframe-based Generative UI extending MCP, enabling servers to return interactive UI components.                      |
 
 ## **AG-UI vs Generative UI Specs**
 
-Despite the naming similarities, **AG-UI is not a generative UI specification** — it's a **User Interaction protocol** that provides the **bi-directional runtime connection** between the agent and the application.
+[AG-UI](/agentic-protocols/ag-ui) is the protocol that connects your agent to your app, in both directions. It carries the UI from any of these specs. You can also define your own generative UI format on AG-UI.
 
-AG-UI natively supports all of the above generative UI specs and allows developers to define **their own custom generative UI standards** as well.
-
-## **Learn More**
-
-Explore each specification in detail:
-
-- [A2UI](/generative-ui/a2ui) - Google's declarative Generative UI spec
-- [MCP Apps](/generative-ui/mcp-apps) - Iframe-based Generative UI extending MCP
-
-Or learn about related Generative UI capabilities:
-
-- [Open Generative UI](/generative-ui/open-generative-ui) - Let agents generate fully interactive HTML/CSS/JS UIs that stream live into the chat
-- [AG-UI Protocol](/ag-ui-protocol) - The user interaction protocol that supports all these specs
-- [Generative UI Guide](/generative-ui) - Build with Generative UI in CopilotKit
-
-## **Supported Frameworks**
-
-Generative UI works with every agent framework CopilotKit integrates with — pick yours to get started:
-
-- [LangGraph (Python)](/langgraph-python/quickstart) · [LangGraph (TypeScript)](/langgraph-typescript/quickstart)
-- [Google ADK](/google-adk/quickstart)
-- [Microsoft Agent Framework](/ms-agent-python/quickstart)
-- [AWS Strands](/strands/quickstart)
-- [Mastra](/mastra/quickstart)
-- [PydanticAI](/pydantic-ai/quickstart)
-- [CrewAI](/crewai-crews/quickstart)
-- [Agno](/agno/quickstart)
-- [AG2](/ag2/quickstart)
-- [LlamaIndex](/llamaindex/quickstart)
-- [Claude Agent SDK](/claude-sdk-python/quickstart)
-- [Deep Agents](/deepagents/quickstart)
+Pick your agent framework in the sidebar to get started.

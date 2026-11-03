@@ -10,14 +10,11 @@ Create a theme file and import it in your layout:
 
 ```css title="src/a2ui/theme.css"
 .a2ui-surface {
-  --primary: #111111;
-  --primary-foreground: #ffffff;
-  --card: #ffffff;
-  --border: #e0e0e0;
-  --radius: 12px;
-  --foreground: #111111;
-  --input: #d4d4d4;
-  --background: #fafafa;
+  --a2ui-color-surface: #ffffff;
+  --a2ui-color-border: #e0e0e0;
+  --a2ui-color-muted: #737373;
+  --a2ui-color-error: #dc2626;
+  --a2ui-primary-color: #111111;
 }
 ```
 
@@ -29,17 +26,16 @@ import "@/a2ui/theme.css";
 
 | Variable | Default | Description |
 |---|---|---|
-| `--primary` | — | Primary accent color (buttons, links) |
-| `--primary-foreground` | — | Text color on primary backgrounds |
-| `--card` | — | Card background color |
-| `--border` | — | Border color for cards, dividers, inputs |
-| `--radius` | — | Border radius for cards and buttons |
-| `--foreground` | — | Default text color |
-| `--input` | — | Input field border color |
-| `--background` | — | Surface background color |
+| `--a2ui-color-surface` | `#fff` | Card, modal, chip, and button backgrounds |
+| `--a2ui-color-border` | `#ccc` | Borders, dividers, and the tab rule |
+| `--a2ui-color-muted` | `#666` | Captions and secondary text |
+| `--a2ui-color-error` | `red` | Validation errors |
+| `--a2ui-primary-color` | `#007bff` | Primary buttons, selected chips, and the active tab |
+
+The built-in components set their own border radius, so there is no radius variable.
 
 <Callout type="info">
-These variables are scoped to `.a2ui-surface` — they won't affect the rest of your app. You can also set them on `:root` if you want global defaults.
+These variables are scoped to `.a2ui-surface`, so they won't affect the rest of your app. You can also set them on `:root` if you want global defaults.
 </Callout>
 
 ## Custom fonts
@@ -57,7 +53,7 @@ Override the font family on the surface container:
 
 ## Image sizing
 
-A2UI surfaces render Image components at their natural size. For consistent layouts (e.g., airline logos, avatars), constrain images with CSS:
+An Image with no `variant` stretches to the width of its container. To keep logos and avatars small, set `variant` to `icon` or `avatar` in the schema, or constrain them with CSS:
 
 ```css title="src/a2ui/theme.css"
 /* Constrain logos and avatars */
@@ -76,32 +72,16 @@ A2UI surfaces render Image components at their natural size. For consistent layo
 }
 ```
 
-## Card width
-
-When streaming cards one-by-one, a single card can collapse to a narrow width. Set a minimum:
-
-```css title="src/a2ui/theme.css"
-.a2ui-surface .a2ui-card {
-  min-width: 280px;
-}
-```
-
 ## Dark mode
 
-Target dark mode with a class or media query:
+CopilotKit sets dark A2UI colors for you when `.dark` is on an ancestor of the chat. To use your own dark colors, scope the variables under `.dark`:
 
 ```css title="src/a2ui/theme.css"
-.dark .a2ui-surface,
-@media (prefers-color-scheme: dark) {
-  .a2ui-surface {
-    --primary: #e5e5e5;
-    --primary-foreground: #111111;
-    --card: #1a1a1a;
-    --border: #333333;
-    --foreground: #e5e5e5;
-    --input: #444444;
-    --background: #111111;
-  }
+.dark .a2ui-surface {
+  --a2ui-color-surface: #1a1a1a;
+  --a2ui-color-border: #333333;
+  --a2ui-color-muted: #a3a3a3;
+  --a2ui-primary-color: #3b82f6;
 }
 ```
 
@@ -114,14 +94,11 @@ Here's a complete theme file combining all the patterns above:
 
 .a2ui-surface {
   /* Colors */
-  --primary: #111111;
-  --primary-foreground: #ffffff;
-  --card: #ffffff;
-  --border: #e0e0e0;
-  --radius: 12px;
-  --foreground: #111111;
-  --input: #d4d4d4;
-  --background: #fafafa;
+  --a2ui-color-surface: #ffffff;
+  --a2ui-color-border: #e0e0e0;
+  --a2ui-color-muted: #737373;
+  --a2ui-color-error: #dc2626;
+  --a2ui-primary-color: #111111;
 
   /* Typography */
   font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
@@ -135,8 +112,11 @@ Here's a complete theme file combining all the patterns above:
   border-radius: 4px;
 }
 
-/* Streaming card width */
-.a2ui-surface .a2ui-card {
-  min-width: 280px;
+/* Dark mode */
+.dark .a2ui-surface {
+  --a2ui-color-surface: #1a1a1a;
+  --a2ui-color-border: #333333;
+  --a2ui-color-muted: #a3a3a3;
+  --a2ui-primary-color: #3b82f6;
 }
 ```

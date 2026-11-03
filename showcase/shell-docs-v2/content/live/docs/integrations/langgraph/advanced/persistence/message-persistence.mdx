@@ -3,14 +3,7 @@ title: "Message Persistence"
 icon: "lucide/Database"
 ---
 
-<Callout>
-  To learn about how to load previous messages and agent states, check out the
-  [Loading Message
-  History](/langgraph/advanced/persistence/loading-message-history) and [Loading
-  Agent State](/langgraph/advanced/persistence/loading-agent-state) pages.
-</Callout>
-
-To persist LangGraph messages to a database, you can use either `AsyncPostgresSaver` or `AsyncSqliteSaver`. Set up the asynchronous memory by configuring the graph within a lifespan function, as follows:
+To keep the threads of a self-hosted agent after a server restart, compile the graph with a database checkpointer, such as `AsyncPostgresSaver` or `AsyncSqliteSaver`. Set up the checkpointer in a FastAPI lifespan function, as follows. In this sample, `workflow` is your `StateGraph` builder.
 
 ```python
 from fastapi import FastAPI
@@ -19,7 +12,6 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from copilotkit import LangGraphAGUIAgent
 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 
-graph = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with AsyncPostgresSaver.from_conn_string(
@@ -29,21 +21,24 @@ async def lifespan(app: FastAPI):
         await checkpointer.setup()
         # Create an async graph
         graph = workflow.compile(checkpointer=checkpointer)
+        # Serve the compiled graph, now that it exists
+        add_langgraph_fastapi_endpoint(
+            app=app,
+            agent=LangGraphAGUIAgent(
+                name="research_agent",
+                description="Research agent.",
+                graph=graph,
+            ),
+            path="/agents/research_agent"
+        )
         yield
-        # Create SDK with the graph
 
 app = FastAPI(lifespan=lifespan)
 
-add_langgraph_fastapi_endpoint(
-    app=app,
-    agent=LangGraphAGUIAgent(
-        name="research_agent",
-        description="Research agent.",
-        graph=graph,
-    ),
-    path="/agents/research_agent"
-)
-
 ```
+
+Restart the server and send a message on an existing thread. The agent answers with the earlier messages of that thread in its context.
+
+To load earlier messages and agent state in the frontend, see [Loading Message History](/langgraph/advanced/persistence/loading-message-history) and [Loading Agent State](/langgraph/advanced/persistence/loading-agent-state).
 
 To learn more about persistence in LangGraph, check out the [LangGraph documentation](https://docs.langchain.com/oss/python/langgraph/persistence).

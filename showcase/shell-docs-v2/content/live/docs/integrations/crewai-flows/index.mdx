@@ -16,7 +16,7 @@ hidePageActions: true
   subheader="CrewAI runs your flows. CopilotKit gives them a surface your users can see, interrupt and steer."
   guideLink="/crewai-flows/quickstart"
   initCommand="npx copilotkit@latest init"
-  lede="CrewAI gives you the flow: steps, state and the crew that works through them. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the flow while it runs, and a moment for a person to step in. Each capability below builds on something your flow already does."
+  lede="CrewAI gives you the flow: steps, state and the crew that works through them. What it does not give you is the surface. Your users need a place to talk to the flow, a view of each step while it runs, and a way to step in. Each capability below builds on something your flow already does."
   supportedFeatures={[
     {
       title: "Generative UI",
@@ -36,7 +36,7 @@ hidePageActions: true
       title: "Shared state",
       iconKey: "repeat",
       description:
-        "Flow state is the one object every step reads and writes. CopilotKit mirrors it into your app and back, so a user edit and a step write land in the same place.",
+        "Flow state is the one object every step reads and writes. CopilotKit mirrors it into your app and back, so a change from the user and a change from the flow go to the same state.",
       documentationLink: "/crewai-flows/shared-state"
     }
   ]}
@@ -48,7 +48,7 @@ hidePageActions: true
   connect={{
     intro:
       "Your flow keeps running as its own Python service, with the AG-UI bridge from ag_ui_crewai in front of it. CopilotKit reaches that service over HTTP, so nothing inside the flow changes.",
-    filename: "app/api/copilotkit/route.ts",
+    filename: "app/api/copilotkit/[[...slug]]/route.ts",
     language: "ts",
     guideLink: "/crewai-flows/quickstart"
   }}
@@ -65,7 +65,7 @@ hidePageActions: true
   }}
 >
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,

@@ -9,7 +9,7 @@ import InspectorPaneState from "@/snippets/shared/inspector/open-inspector-pane-
 
 ## What is shared state?
 
-Agentic Copilots maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
+Agentic Copilots maintain a shared state that connects your UI with the agent's execution. This shared state lets you:
 
 - Display the agent's current progress and intermediate results
 - Update the agent's state through UI interactions
@@ -28,8 +28,8 @@ Agentic Copilots maintain a shared state that seamlessly connects your UI with t
 ## When should I use this?
 
 Use shared state when you want the agent and the user to collaborate through the
-same application state. The agent's outputs are reflected in the UI, and user
-updates in the UI are reflected in the agent's execution.
+same application state. The UI shows what the agent writes. The agent reads what
+the user changes in the UI.
 
 <OpsPlatformCTA
   variant="inline"
@@ -61,9 +61,9 @@ back on its next turn. The UI's writes visibly steer the model.
 
 <Snippet region="use-agent-write" cell="shared-state-read-write" title="frontend/src/app/page.tsx: agent.setState" />
 
-This is what makes the channel two-way: the UI doesn't just observe the
-agent, it can hand the agent fresh inputs (preferences, selections, partial
-work) without going through the chat thread.
+This makes shared state two-way. The UI can also send the agent new inputs,
+such as preferences, selections, or partial work. These inputs do not go
+through the chat.
 
 ## Rendering shared state in the UI
 
@@ -83,8 +83,8 @@ full main-view pattern.
 
 By default, agent state only updates *between* backend checkpoints, so a
 long-running tool call appears as one big burst at the end. State streaming
-forwards a specific tool argument straight into a state key *as it's being
-generated*, so the UI can watch the answer assemble token-by-token.
+copies one tool argument into a state key while the model writes it. The UI
+shows the answer token by token.
 
 <Snippet region="state-streaming-middleware" cell="shared-state-streaming" title="backend: streaming state update" />
 

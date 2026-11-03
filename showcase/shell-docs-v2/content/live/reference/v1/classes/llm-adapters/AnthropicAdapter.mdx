@@ -10,34 +10,48 @@ description: "Copilot Runtime adapter for Anthropic."
   * packages/runtime/src/v1-deprecated/service-adapters/anthropic/anthropic-adapter.ts
   */
 }
+<Callout type="info">
+  `AnthropicAdapter` has no direct v2 replacement. For v2, see [Runtime server adapter](/runtime-server-adapter).
+</Callout>
+
 Copilot Runtime adapter for Anthropic.
- 
+
 ## Example
- 
+
 ```ts
-import { CopilotRuntime, AnthropicAdapter } from "@copilotkit/runtime";
+import {
+  CopilotRuntime,
+  AnthropicAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
 import Anthropic from "@anthropic-ai/sdk";
- 
+
 const copilotKit = new CopilotRuntime();
- 
+
 const anthropic = new Anthropic({
   apiKey: "<your-api-key>",
 });
- 
-return new AnthropicAdapter({
+
+const serviceAdapter = new AnthropicAdapter({
   anthropic,
   promptCaching: {
     enabled: true,
-    debug: true
-  }
+    debug: true,
+  },
 });
+
+export const POST = copilotRuntimeNextJSAppRouterEndpoint({
+  runtime: copilotKit,
+  serviceAdapter,
+  endpoint: "/api/copilotkit",
+}).handleRequest;
 ```
 
 ## Constructor Parameters
 
 <PropertyReference name="anthropic" type="SdkClientLike"  > 
 An optional Anthropic instance to use.  If not provided, a new instance will be
-  created.
+created.
 </PropertyReference>
 
 <PropertyReference name="model" type="string"  > 
@@ -46,11 +60,11 @@ The model to use.
 
 <PropertyReference name="promptCaching" type="AnthropicPromptCachingConfig"  > 
 Configuration for prompt caching.
-  See: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+See: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
 </PropertyReference>
 
 <PropertyReference name="maxInputTokens" type="number"  > 
 Optional maximum input token limit. Overrides the default limit
-  used when trimming messages to fit the context window.
+used when trimming messages to fit the context window.
 </PropertyReference>
 

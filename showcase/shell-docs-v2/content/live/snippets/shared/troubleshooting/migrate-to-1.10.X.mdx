@@ -8,11 +8,17 @@ CopilotKit 1.10.X introduces a new headless UI system and simplified message for
 - New headless UI hook available for advanced use cases
 - Backwards compatibility maintained for most features
 
-## Key Improvements & Changes
+## Migration steps
+
+1. Replace message class constructors with plain objects.
+2. Replace `isTextMessage()` checks with `message.role`.
+3. Optional: replace `subComponent` with `message.generativeUI?.()`.
+
+The sections below show each change.
 
 ### Enhanced Message Format
 
-Messages now use plain objects instead of classes for better performance and simpler handling.
+Messages are now plain objects instead of classes.
 
 #### Before
 
@@ -34,8 +40,7 @@ const message = {
 
 ### Simplified Message Type Checking
 
-Message type checking has been streamlined for better developer experience. Instead of using the previous
-`isTextMessage` or adjacent methods, you can now check the `role` property of the message.
+Check the `role` property of the message instead of `isTextMessage()` and the other type methods.
 
 #### Before
 
@@ -68,7 +73,7 @@ if (message.role === "assistant") {
 }
 
 if (message.role === "user") {
-  console.log(message.content, message.image);
+  console.log(message.content);
 }
 ```
 
@@ -76,7 +81,7 @@ if (message.role === "user") {
 
 Previously, you had to use the `subComponent` property to render custom assistant messages. Now you can use the `generativeUI` property instead.
 
-**Important!** Both will continue to work.
+**Important:** Both will continue to work.
 
 #### Before
 
@@ -98,7 +103,7 @@ import { AssistantMessageProps } from "@copilotkit/react-ui";
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { message } = props;
 
-  return <div style={{ marginBottom: "0.5rem" }}>{message.generativeUI}</div>;
+  return <div style={{ marginBottom: "0.5rem" }}>{message?.generativeUI?.()}</div>;
 };
 ```
 
@@ -130,6 +135,8 @@ New `useCopilotChatHeadless_c` hook provides complete control over chat UI:
   muted
 />
 
+`useCopilotChatHeadless_c` needs a `publicLicenseKey` on `<CopilotKit>`. Without it, the hook returns empty values and shows a banner.
+
 An example of how you might use the new Headless UI hook:
 
 ```tsx
@@ -138,7 +145,7 @@ const { messages, suggestions, interrupt } = useCopilotChatHeadless_c();
 return (
   <div>
     {suggestions.map((suggestion) => (
-      <div key={suggestion.id}>{suggestion.title}</div>
+      <div key={suggestion.title}>{suggestion.title}</div>
     ))}
 
     {interrupt}
@@ -146,10 +153,10 @@ return (
     {messages.map((message) => {
       switch (message.role) {
         case "assistant":
-          if (message.generativeUI) return message.generativeUI;
+          if (message.generativeUI) return <div key={message.id}>{message.generativeUI()}</div>;
           return <div key={message.id}>{message.content}</div>;
         case "user":
-          return <div key={message.id}>{message.content}</div>;
+          return <div key={message.id}>{typeof message.content === "string" ? message.content : null}</div>;
       }
     })}
   </div>
@@ -162,7 +169,7 @@ return (
 
 With the introduction of the new headless UI hook, we are starting the deprecation of `useCopilotChat`. While it will remain supported for several months in maintenance mode, all new headless UI features will be added to `useCopilotChatHeadless_c`.
 
-We recommend migrating to the new hook for new projects. However, please feel free to continue using `useCopilotChat` until you are ready to migrate.
+For new projects, use the v2 `useAgent` hook from `@copilotkit/react-core/v2`. See [Migrate to v2](/migrate/v2). You can keep `useCopilotChat` until you are ready to migrate.
 
 ### When to Migrate
 
@@ -174,7 +181,6 @@ We recommend migrating to the new hook for new projects. However, please feel fr
 
 **Migrate to `useCopilotChatHeadless_c` if:**
 
-- Starting a new project
 - Building new headless UI implementations
 - Need generative UI capabilities
 - Want access to advanced suggestions and interrupts

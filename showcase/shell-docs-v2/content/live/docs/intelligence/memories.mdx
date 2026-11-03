@@ -8,9 +8,9 @@ doc_type: explanation
 
 ## Overview
 
-AG-UI Streams remember a conversation. User Memory remembers a person. This page explains
-what a memory is, how recall selects them, and what has to be true of your
-deployment before the memory surfaces exist at all.
+AG-UI Streams remember a conversation. User Memory remembers a person. Save a
+fact about a signed-in user once, and your agent can recall it in later
+conversations.
 
 If you are looking for the persistence architecture beneath a single
 conversation, read [AG-UI Streams & Framework Threads](/intelligence/threads-explained)
@@ -50,13 +50,19 @@ When you are done, your app will be able to save a memory for a signed-in user a
   <Step>
     ### Confirm memory access
 
-    Check your deployment's memory entitlement and embedding configuration using [Activating memory](#activating-memory) below. Cloud-hosted deployments require no embedder configuration on your side. Self-hosted deployments need both a memory-enabled license and a configured embedder.
+    Check your deployment's memory entitlement and embedding configuration using [Activating memory](#activating-memory) below. Cloud-hosted deployments require no embedder configuration on your side. Self-hosted deployments need both a memory-enabled license and a configured embedder. In a TypeScript runtime, also set `memory.access` (see [Limiting access per request](#limiting-access-per-request)).
   </Step>
 
   <Step>
     ### Save and recall a memory
 
-    Choose the appropriate [reading and writing interface](#reading-and-writing-memories) for your app. Save a memory for the signed-in user, then recall it with a related query in a new conversation. Confirm the saved memory is returned.
+    In a React app:
+
+    1. Render `useMemories()` in a component. See [React](#react) below.
+    2. Ask the agent to remember a preference. The new memory appears in the `useMemories()` list.
+    3. In a new conversation, ask about that preference. Make sure that the reply uses the saved memory.
+
+    For other frontends and REST, see [Reading and writing memories](#reading-and-writing-memories).
   </Step>
 </Steps>
 
@@ -125,15 +131,18 @@ and no `memory.enabled` Helm value. Access is granted by entitlement, and the
 embedder is configured separately at startup.
 </Callout>
 
-Two independent things must be true before a caller can use memory:
+Three things must be true before a caller can use memory:
 
 1. The deployment or organization is **entitled** to memory.
 2. app-api has valid **embedder configuration**.
+3. A TypeScript runtime sets **`memory.access`**. Without it, and without the deprecated options described below, the browser memory routes return 404 and agent runs get no memory tools. See [Limiting access per request](#limiting-access-per-request).
 
 Entitlement resolution fails closed. An unresolved entitlement, an inactive one,
 or a dependency outage all deny memory rather than allowing it.
 
 ### Self-hosted
+
+This section is for operators who run [self-hosted Intelligence](/intelligence/self-hosting). On cloud-hosted Intelligence, skip to [Cloud-hosted](#cloud-hosted).
 
 The signed deployment license is the authority. Memory is available when that
 license carries the `memory` feature, which today ships in the enterprise plan.
@@ -191,7 +200,7 @@ enterprise override. Nothing needs configuring on your side.
 
 ## Limiting access per request
 
-The runtime configuration in this section uses the TypeScript API. Python, Go, Ruby, and C#/.NET have different policy callbacks; see [Memory policies in other runtime languages](#memory-policies-in-other-runtime-languages).
+The runtime configuration shown here uses the TypeScript API. Python, Go, Ruby, and C#/.NET have different policy callbacks; see [Memory policies in other runtime languages](#memory-policies-in-other-runtime-languages).
 
 Entitlement decides whether memory exists for a deployment. `memory.access`
 decides what one request may do with it. It is a single policy on the
@@ -199,13 +208,13 @@ Intelligence runtime, and it governs **both** memory surfaces: the tools an
 agent gets during a run, and the browser routes behind `useMemories()`.
 
 <Callout type="warn">
-Omitting the `memory` option does not switch memory off — it removes the limit.
-On its own it leaves both surfaces off, but either can still be turned on without
-a policy, and then it runs with `read-write` on both scopes for every
-authenticated request:
+Without `memory`, both surfaces are off. Two deprecated options can still turn
+a surface on with no policy. That surface then gets `read-write` on both scopes
+for every authenticated request:
 
-- With `enableEnterpriseLearning` on, agent runs get all three memory tools,
-  subject only to your organization's entitlement.
+- The deprecated `enableEnterpriseLearning` option on `CopilotKitIntelligence`
+  gives agent runs all three memory tools, subject only to your organization's
+  entitlement. Use `memory.access` instead.
 - The deprecated `exposeMemoryRoutes: true` flag mounts the browser routes with
   no policy behind them.
 
@@ -245,7 +254,7 @@ Return a grant naming both scopes, or `null`. Each scope takes `"none"`,
 
 ### What each outcome does
 
-`null` and a grant with every scope at `"none"` are one outcome, not two — both
+`null` and a grant with every scope at `"none"` are one outcome, not two. Both
 mean "this request gets no memory". What that costs depends on what the caller
 asked for:
 
@@ -259,7 +268,7 @@ asked for:
 The asymmetry is deliberate. A conversation asked for something other than
 memories, so switching memory off must not cost the user their assistant. The
 browser routes exist only to serve memories, so "you may not have them" answers
-the question actually asked — and an empty list would falsely imply none exist.
+the question actually asked. An empty list would falsely imply none exist.
 
 A missing return is treated as a broken policy rather than a restrictive one,
 so a branch that forgets to `return` fails loudly instead of quietly switching
@@ -444,12 +453,3 @@ excluded.
 This is why the embedding space matters so much. Comparability is a property of
 the space, not of the text, so memories written under one model cannot be
 meaningfully ranked against a query embedded under another.
-
-## Next steps
-
-- **Threads:** [AG-UI Streams & Framework Threads](/intelligence/threads-explained), the
-  persistence model for a single conversation
-- **Platform:** [CopilotKit Intelligence](/intelligence/overview), where
-  memory sits among the other pillars
-- **Self-hosting:** [Self-hosting Intelligence](/intelligence/self-hosting),
-  chart values, dependencies, and deployment modes

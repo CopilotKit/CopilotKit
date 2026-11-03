@@ -27,8 +27,8 @@ This approach uses `useHumanInTheLoop` to register a frontend tool that renders 
 
 ## Why should I use this?
 
-Human-in-the-loop is a powerful way to implement complex workflows that are production ready. By having a human in the loop,
-you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
+Use it when the agent must not continue until a person decides, for example when it picks between options or runs an action
+that costs money.
 
 ## Implementation
 
@@ -75,11 +75,11 @@ you can ensure that the agent is always making the right decisions and ultimatel
 
   <Step>
     ### Setup the Mastra Agent
-    On the agent side, we are already done! Mastra natively supports the AG-UI protocol and will automatically
+    On the agent side, we are already done. Mastra natively supports the AG-UI protocol and will automatically
     pass control back to the frontend when the `offerOptions` tool is called by the agent.
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
     Try asking your agent something that requires a choice.
 
     ```

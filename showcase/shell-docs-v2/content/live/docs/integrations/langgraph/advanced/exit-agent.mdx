@@ -3,15 +3,11 @@ title: "Exiting the agent loop"
 icon: "lucide/DoorOpen"
 ---
 
-After your agent has finished a workflow, you'll usually want to explicitly end that loop by calling the CopilotKit exit method in your agent code.
+After your agent has finished a workflow, you can signal the end of that workflow by calling the CopilotKit exit method in your agent code.
 
-Exiting the agent has different effects depending on mode:
+The exit call sends an AG-UI custom event named `Exit` to the frontend. CopilotKit does not act on this event. To react to it in your app, subscribe to the agent with an `onCustomEvent` handler and check for the name `Exit`.
 
-- **Router Mode**: Exiting the agent hands responsibility for handling input back to the router, which can initiate chat, call actions, other agents, etc. The router can return to this agent later (starting a new loop) to satisfy a user request.
-
-- **Agent Lock Mode**: Exiting the agent restarts the workflow loop for the current agent.
-
-In this example from [our email-sending app](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-qa), the `send_email` node explicitly exits, then manually sends a response back to the user as a `ToolMessage`:
+In this example, the `send_email_node` node exits, then returns an `AIMessage` to the user:
 
 <Steps>
     <Step>
@@ -21,7 +17,7 @@ In this example from [our email-sending app](https://github.com/copilotkit/copil
 
     <Step>
         ### Exit the agent loop
-        This will exit the agent session as soon as the current LangGraph run is finished, either by a breakpoint or by reaching the `END` node.
+        Call the exit method in the node. It sends the `Exit` event to the frontend.
 
         <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
@@ -48,6 +44,7 @@ In this example from [our email-sending app](https://github.com/copilotkit/copil
             </Tab>
             <Tab value="TypeScript">
                 ```typescript
+                import { copilotkitExit } from "@copilotkit/sdk-js/langgraph";
 
                 // ...
 
@@ -60,11 +57,11 @@ In this example from [our email-sending app](https://github.com/copilotkit/copil
                     const lastMessage = state.messages[state.messages.length - 1] as ToolMessage;
                     if (lastMessage.content === "CANCEL") {
                         return {
-                            messages: [new AIMessage(content="❌ Cancelled sending email.")],
+                            messages: [new AIMessage({ content: "❌ Cancelled sending email." })],
                         }
                     } else {
                         return {
-                            messages: [new AIMessage(content="✅ Sent email.")],
+                            messages: [new AIMessage({ content: "✅ Sent email." })],
                         }
                     }
                 }

@@ -9,10 +9,6 @@ snippet_cell: tool-rendering
 
 Tools are how an LLM invokes predefined, typically-deterministic functions. Tool rendering lets you decide how each of those tool calls appears in the chat. Instead of showing raw JSON, you register a Vue component that draws a branded card for the call (arguments, live status, and the eventual result). This is the **Generative UI** variant CopilotKit calls **tool rendering**.
 
-<Callout type="info">
-  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
-</Callout>
-
 ## When should I use this?
 
 Render tool calls when you want to:
@@ -26,7 +22,7 @@ Render tool calls when you want to:
 
 The simplest entry point is `useDefaultRenderTool()` with no arguments. CopilotKit registers its built-in default renderer as the `*` wildcard: every tool call renders as a status card (tool name, live **Running → Done** state, collapsible arguments/result) without you writing any UI.
 
-Without this composable the runtime has no `*` renderer and tool calls are invisible; the user only sees the assistant's final text summary.
+Without this composable, CopilotKit has no `*` renderer and tool calls are not shown. The user only sees the assistant's final text summary.
 
 ```vue title="src/components/AgentExperience.vue"
 <script setup lang="ts">
@@ -50,46 +46,63 @@ useDefaultRenderTool({ render: BrandedToolCard });
 
 The most expressive path is one renderer per tool name. Each renderer receives the tool's parsed arguments, a live `status`, and, once the agent returns, the `result`.
 
-```vue title="src/components/WeatherToolCard.vue"
-<script setup lang="ts">
-defineProps<{
-  parameters: { city?: string };
-  status: "inProgress" | "executing" | "complete";
-  result?: string;
-}>();
-</script>
+1. Write the card component:
 
-<template>
-  <p v-if="status !== 'complete'">Checking {{ parameters.city ?? "…" }}</p>
-  <article v-else>
-    <strong>{{ parameters.city }}</strong>
-    <pre>{{ result }}</pre>
-  </article>
-</template>
-```
+   ```vue title="src/components/WeatherToolCard.vue"
+   <script setup lang="ts">
+   defineProps<{
+     parameters: { city?: string };
+     status: "inProgress" | "executing" | "complete";
+     result?: string;
+   }>();
+   </script>
 
-```vue title="src/components/AgentExperience.vue"
-<script setup lang="ts">
-import { z } from "zod";
-import { CopilotChat, useDefaultRenderTool, useRenderTool } from "@copilotkit/vue/v2";
-import WeatherToolCard from "./WeatherToolCard.vue";
+   <template>
+     <p v-if="status !== 'complete'">Checking {{ parameters.city ?? "…" }}</p>
+     <article v-else>
+       <strong>{{ parameters.city }}</strong>
+       <pre>{{ result }}</pre>
+     </article>
+   </template>
+   ```
 
-useRenderTool({
-  name: "get_weather",
-  parameters: z.object({ city: z.string() }),
-  render: WeatherToolCard,
-});
+2. Register it with `useRenderTool` in a component:
 
-useDefaultRenderTool(); // wildcard fallback for every other tool
-</script>
+   ```vue title="src/components/AgentExperience.vue"
+   <script setup lang="ts">
+   import { z } from "zod";
+   import { CopilotChat, useDefaultRenderTool, useRenderTool } from "@copilotkit/vue/v2";
+   import WeatherToolCard from "./WeatherToolCard.vue";
 
-<template><CopilotChat /></template>
-```
+   useRenderTool({
+     name: "get_weather",
+     parameters: z.object({ city: z.string() }),
+     render: WeatherToolCard,
+   });
+
+   useDefaultRenderTool(); // wildcard fallback for every other tool
+   </script>
+
+   <template><CopilotChat /></template>
+   ```
+
+3. Mount that component under `CopilotKitProvider`:
+
+   ```vue title="src/App.vue"
+   <script setup lang="ts">
+   import { CopilotKitProvider } from "@copilotkit/vue/v2";
+   import AgentExperience from "./components/AgentExperience.vue";
+   </script>
+
+   <template>
+     <CopilotKitProvider runtime-url="/api/copilotkit"><AgentExperience /></CopilotKitProvider>
+   </template>
+   ```
 
 `parameters` is partial while arguments stream. Read required fields only after the status advances from `inProgress`. The result is a string when status is `complete`; parse it only if your backend deliberately returns a documented serialized shape.
 
 <Callout type="info">
-  The `name` you pass to `useRenderTool` must match the tool name the agent exposes; that's how the runtime routes the call to your component.
+  The `name` you pass to `useRenderTool` must match the tool name the agent exposes. That is how CopilotKit routes the call to your component.
 </Callout>
 
 Per-tool renderers compose with a catch-all: named renderers claim the "interesting" tools and a wildcard handles everything else. The example registers the built-in wildcard after the named `get_weather` renderer.
@@ -98,19 +111,6 @@ If the renderer closes over reactive values, pass Vue watch sources as the secon
 
 ```ts
 useRenderTool({ name: "get_weather", parameters, render: WeatherToolCard }, [locale]);
-```
-
-Finally, mount the registration component beneath the provider:
-
-```vue title="src/App.vue"
-<script setup lang="ts">
-import { CopilotKitProvider } from "@copilotkit/vue/v2";
-import AgentExperience from "./components/AgentExperience.vue";
-</script>
-
-<template>
-  <CopilotKitProvider runtime-url="/api/copilotkit"><AgentExperience /></CopilotKitProvider>
-</template>
 ```
 
 ## The backend tool definition

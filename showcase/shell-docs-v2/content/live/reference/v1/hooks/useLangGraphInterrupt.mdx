@@ -7,12 +7,12 @@ description: "The useLangGraphInterrupt hook allows setting the generative UI to
 <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 
 <Callout type="warning">
-  `useLangGraphInterrupt` is still supported, but we recommend migrating to [`useInterrupt`](/reference/v2/hooks/useInterrupt) from the v2 API. `useInterrupt` is the shape-equivalent replacement. It uses the same `render: ({ event, resolve }) => ...` pattern to render UI for an interrupt and resume the agent with the user's response.
+  `useLangGraphInterrupt` is still supported, but we recommend migrating to [`useInterrupt`](/reference/v2/hooks/useInterrupt) from the v2 API. `useInterrupt` uses the same `render: ({ event, resolve }) => ...` pattern to render UI for an interrupt and resume the agent with the user's response. In v2, `event.value` can arrive as a JSON string. Parse it before you read its fields.
 </Callout>
 
 `useLangGraphInterrupt` is a React hook that you can use in your application to provide
 custom UI to be rendered when using `interrupt` by LangGraph.
-Once an Interrupt event is emitted, that hook would execute, allowing to receive user input with a user experience to your choice.
+When LangGraph emits an interrupt, the hook renders your component. The user answers in it, and `resolve` sends the answer back to the agent.
 
 ## Usage
 
@@ -48,14 +48,10 @@ const YourMainContent = () => {
 
 ## Parameters
 
-<PropertyReference name="action" type="Action" required>
+<PropertyReference name="action" type='Omit<LangGraphInterruptRender<TEventValue>, "id">' required>
   The action to perform when an Interrupt event is emitted. Either `handler` or `render` must be defined as arguments
 
-    <PropertyReference name="name" type="string" required>
-      The name of the action.
-    </PropertyReference>
-
-    <PropertyReference name="handler" type="(args: LangGraphInterruptRenderProps<T>) => any | Promise<any>">
+    <PropertyReference name="handler" type="(props: LangGraphInterruptRenderHandlerProps<TEventValue>) => any | Promise<any>">
       A handler to programmatically resolve the Interrupt, or perform operations which result will be passed to the `render` method
     </PropertyReference>
 

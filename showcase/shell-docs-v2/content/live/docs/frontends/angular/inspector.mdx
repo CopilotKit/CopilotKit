@@ -1,17 +1,17 @@
 ---
 title: Inspector
-description: The Inspector mounts itself in Angular applications. What changed, and what to remove if you mounted it by hand.
+description: The Inspector mounts itself in Angular development builds. Hide it, move its launcher, or remove a hand-written mount.
 icon: "lucide/SearchCheck"
 doc_type: how-to
 ---
 
 `@copilotkit/angular` mounts the Inspector for you. It depends on
 `@copilotkit/web-inspector` directly, so there is nothing to install and no
-version to pin — the `CopilotKit` service creates `cpk-web-inspector`, supplies
+version to pin. The `CopilotKit` service creates `cpk-web-inspector`, supplies
 your application's core, and appends it to `document.body` after the first
 browser render.
 
-**[Inspector](/inspector)** is the page to read for what the panes show and how
+**[Inspector](/built-in-agent/inspector)** is the page to read for what the panes show and how
 `enableInspector` controls visibility. Angular sets it through
 `provideCopilotKit`:
 
@@ -23,17 +23,16 @@ provideCopilotKit({
 ```
 
 <Callout type="warn" title="Remove a hand-written mount before upgrading">
-  `@copilotkit/angular` did not mount the Inspector before **0.4.0**, and this
-  page previously described a `WebInspector` component that created the element
-  by hand. If your application still has that component, delete it — along with
-  its `<app-web-inspector />` usage and any direct `@copilotkit/web-inspector`
+  `@copilotkit/angular` did not mount the Inspector before **0.4.0**. If your
+  application has a hand-written component that creates `cpk-web-inspector`,
+  such as a `WebInspector` component, delete it. Also delete its
+  `<app-web-inspector />` usage and any direct `@copilotkit/web-inspector`
   dependency in `package.json`.
 
   Leaving it in place is worse than redundant. The framework reuses an existing
-  `cpk-web-inspector` rather than creating a second one, but the hand-written
-  component's `DestroyRef.onDestroy` removes that element unconditionally — so
-  a route change that destroys the component tears out the Inspector the
-  framework is now driving, and it does not come back without a full reload.
+  `cpk-web-inspector`. The hand-written component removes that element in
+  `DestroyRef.onDestroy`. A route change then removes the Inspector, and it
+  comes back only after a full reload.
 </Callout>
 
 ## Production and server rendering
@@ -66,9 +65,12 @@ cpk-web-inspector {
 }
 ```
 
+Reload the app in development. The Inspector launcher shows in the bottom-left
+corner.
+
 ## Next steps
 
-- [Inspector](/inspector)
+- [Inspector](/built-in-agent/inspector)
 - [Troubleshooting Angular apps](/angular/guides/troubleshooting)
 - [AG-UI Event Inspector](/troubleshooting/event-inspector)
 - [Angular API: CopilotKit](/reference/angular/services/CopilotKit)

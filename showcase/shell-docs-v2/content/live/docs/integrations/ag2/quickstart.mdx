@@ -16,7 +16,13 @@ Use this prompt to connect your AG2 agent to CopilotKit and verify a working con
 
 ## Introduction
 
-This quickstart guide shows how to build a **Weather Agent** using AG2 and CopilotKit. In just minutes, you'll have a working application where users can ask for real-time weather conditions in any city worldwide — powered by AG2's `AGUIStream` over the AG-UI protocol and rendered with CopilotKit's chat UI.
+Build a **Weather Agent** with AG2 and connect it to CopilotKit's chat UI. Users ask the agent for the weather in a city. AG2's `AGUIStream` sends the agent's events to the UI over the AG-UI protocol.
+
+Pick the path that fits you:
+
+- To run the AG2 sample, follow [Getting started](#getting-started).
+- To generate a starter project, use the [AG2 Bootstrap Template](#ag2-bootstrap-template).
+- To connect an AG2 agent that you already have, go to [Connect your own AG2 agent](#connect-your-own-ag2-agent).
 
 <Callout type="info">
   CopilotKit consumes AG-UI 1.0 protocol events streamed by AG2 (1.1.2 or newer) over HTTP. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
@@ -36,7 +42,7 @@ Follow the prompts to pick AG2 and the features you want, then run the install/s
 
 Before you begin, you'll need the following:
 
-- **Python 3.10–3.14** for running the AG2 backend
+- **Python 3.10 to 3.14** for running the AG2 backend
 - <a href="https://docs.astral.sh/uv/getting-started/installation/" target="_blank">uv</a> (for Python dependency management)
 - <a href="https://nodejs.org/en/download" target="_blank">Node.js</a> 20.9 or newer
 - <a href="https://pnpm.io/installation" target="_blank">pnpm</a> (for frontend package management)
@@ -107,21 +113,13 @@ Before you begin, you'll need the following:
         </Callout>
     </Step>
     <Step>
-        ### 🎉 Talk to your agent!
+        ### Talk to your agent
 
-        Congrats! You've successfully integrated an AG2 Agent chatbot into your application. Enter a name to sign in, then try asking a few questions:
+        Enter a name to sign in, then ask a question:
 
-        ```
-        What's the weather in London?
-        ```
-
-        ```
-        Weather in Tokyo
-        ```
-
-        ```
-        What's the weather here?
-        ```
+        - `What's the weather in London?`
+        - `Weather in Tokyo`
+        - `What's the weather here?`
 
         The sample also shows the AG-UI 1.0 features next to the chat:
 
@@ -202,11 +200,9 @@ app = FastAPI()
 app.mount("/chat", stream.build_asgi())
 ```
 
-Point the `HttpAgent` in your Copilot Runtime at `http://localhost:8000/chat` and your agent is live in the UI. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a> for supported protocol events, interrupts, capabilities, and shared-state details.
+Register the agent in your [Copilot Runtime](/ag2/copilot-runtime) with `new HttpAgent({ url: "http://localhost:8000/chat" })`. Then the agent answers in the CopilotKit UI. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a> for supported protocol events, interrupts, capabilities, and shared-state details.
 
 ## What's next?
-
-You've now got a Weather Agent running with CopilotKit! This demonstrates how quickly you can build practical AI applications by combining AG2's `AGUIStream` with CopilotKit's user interface components.
 
 <Cards>
   <Card
@@ -216,13 +212,3 @@ You've now got a Weather Agent running with CopilotKit! This demonstrates how qu
     icon={<UserIcon />}
   />
 </Cards>
-
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>

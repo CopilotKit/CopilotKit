@@ -10,9 +10,9 @@
 
 ## What is this?
 
-Frontend tools enable you to define client-side functions that your agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool, the logic runs on the client side, giving you direct access to the frontend environment.
+A frontend tool is a function that you register in the browser. Your agent can call it, and the function runs in the user's browser. The function can read and change your app's state and use browser APIs.
 
-This can be utilized to let your agent control the UI, for generative UI, or for Human-in-the-loop interactions. In this guide, we cover the use of frontend tools driving and interacting with the UI.
+Use frontend tools to let your agent control the UI. To render a component for a tool call, see [Generative UI](/generative-ui). To ask the user before a tool runs, see [Human-in-the-loop](/human-in-the-loop).
 
 ## When should I use this?
 
@@ -51,3 +51,5 @@ export function Page() {
   // ...
 }
 ```
+
+Ask the agent to say hello to Ada. The browser shows the alert "Hello, Ada!", and the agent gets "Said hello to Ada!" as the tool result.

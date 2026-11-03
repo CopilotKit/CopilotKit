@@ -19,14 +19,25 @@ consumer or WebSocket worker.
 Run Node.js 22 or later. The managed launcher relies on the global `WebSocket`
 available in Node.js 22+.
 
-After changing either package, run the same real-provider smoke test used for
-the initial quickstart.
+<FrontendOnly frontend="slack">
+
+After you change either package, send a real message again, as in
+[Connect and run your agent](/slack/connect).
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+After you change either package, send a real message again, as in
+[Connect and run your agent](/teams/connect).
+
+</FrontendOnly>
 
 ## Settle before reporting ready
 
-Creating the Node listener starts the managed connection — a declared Channel
-connects because it was declared, with no start call to forget. Await `ready()`
-to observe that activation settling, then inspect `status()`:
+Creating the Node listener starts the managed connection for every declared
+Channel. Await `ready()` to wait for activation to settle, then inspect
+`status()`:
 
 ```ts title="health.ts"
 const channels = listener.channels;
@@ -51,13 +62,13 @@ The runtime status values are:
 | `online`         | The managed connection is healthy and can claim delivery invitations                   |
 | `setup_required` | The Intelligence provider setup is incomplete                                          |
 | `reconnecting`   | The gateway connection dropped and is retrying                                         |
-| `error`          | Activation failed, or reconnect give-up (~60s default) marked the session not-sendable |
+| `error`          | Activation failed, reconnect give-up (~60s default) marked the session not-sendable, or the provider (Slack or Teams) is unhealthy. Read `status().detail` to see which |
 | `stopped`        | The Channels control was stopped                                                       |
 
 Treat post-online `error` carefully: after reconnect give-up the client marks
-`error` while Phoenix **keeps retrying underneath**. A successful rejoin
+`error` while the gateway connection **keeps retrying**. A successful rejoin
 restores `online` without a process restart. Activation-time `error` (bad key,
-unreachable gateway, config) is different — fix configuration and restart the
+unreachable gateway, config) is different. Fix configuration and restart the
 worker.
 
 The Intelligence UI translates provider and runtime details into its own
@@ -69,11 +80,11 @@ operator-facing states such as **Waiting for runtime**, **Conflict**,
 - Liveness answers whether the Node process and event loop are running.
 - Readiness answers whether `channels.status().overall` is `online`.
 
-Do not restart immediately for a short `reconnecting` episode; the realtime
-client owns bounded reconnect and rejoin (default reconnect give-up window is
-about 60 seconds, then status becomes `error` while retries continue). Alert on
-`error`; restart only when your own outage budget is exceeded or activation
-failed before ever going online.
+- Do not restart for a short `reconnecting` episode. The gateway connection
+  reconnects by itself.
+- Alert on `error`.
+- Restart when your own outage budget runs out.
+- Restart when activation failed before the Channel was ever online.
 
 Poll `status()` from your health endpoint or monitoring loop. Do not cache the
 startup result forever because an online session can later become reconnecting
@@ -83,7 +94,7 @@ or error.
 
 Register signal handlers before **creating the listener**, not just before
 `ready()`. Creating it begins activation, so a signal that arrives during the
-connect window must already have somewhere to land — otherwise it hits Node's
+connect window must already have somewhere to land. Otherwise it hits Node's
 default handler and leaves a live gateway session behind:
 
 ```ts title="channel.ts"
@@ -146,11 +157,14 @@ public Channel configuration option.
 
 ## Observe the full delivery path
 
-At minimum, record:
+At minimum, record these status events:
 
 - startup and the first non-online status
 - transitions to `reconnecting`, `error`, and back to `online`
 - Channel Code and provider, without credentials
+
+Also record these errors and correlation ids:
+
 - application tool errors and their idempotency ids
 - `message.eventId`, `message.turnId`, and `message.deliveryId` for correlation
 - `thread.postFile()` failures
@@ -160,16 +174,21 @@ secrets, or raw provider payloads by default.
 
 ## Release checklist
 
+Before release:
+
 1. Build and typecheck the runner on Node.js 22.
 2. Confirm the exact package pair is in the lockfile.
 3. Start the intended replica set and wait for each listener to report `online`.
 4. Send a real provider message and verify a reply.
-5. Exercise one tool, one rich message, and one interaction.
-6. Restart with a pending approval and confirm your persistence promise.
-7. Test a brief network drop and observe `reconnecting` recovery.
-8. Send concurrent messages and verify replicas claim distinct deliveries
+5. Send `SIGTERM` and confirm graceful shutdown.
+
+Resilience checks:
+
+1. Exercise one tool, one rich message, and one interaction.
+2. Restart with a pending approval and confirm your persistence promise.
+3. Test a brief network drop and observe `reconnecting` recovery.
+4. Send concurrent messages and verify replicas claim distinct deliveries
    within their local bounds.
-9. Send `SIGTERM` and confirm graceful shutdown.
 
 Use the [Intelligence walkthrough](/channels/intelligence) for control-plane
 statuses and [persistence and scaling](/channels/persistence-and-scaling) for

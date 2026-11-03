@@ -81,6 +81,9 @@ channel.onMessage(async ({ thread }) => {
 });
 ```
 
+Send any message in the conversation. The incident card appears with its
+header, summary, owner, and status.
+
 Use named components with JSON-serializable props when they contain callbacks,
 then register them in `createChannel({ components: [...] })`. Pure display
 components do not need registration.
@@ -109,11 +112,12 @@ To post your own React component as an image, see
 with React snapshots in one message, see
 [Render and carousel](/channels/render-and-carousel).
 
-`Select` and `Input` have different interaction behavior by provider. Managed
-Slack dispatches those controls directly. Managed Teams renders Adaptive Card
-fields and submits them with a `Button`'s `Action.Submit`; that Button callback
-receives the other named fields in `ctx.values`. Teams does not dispatch
-`Select.onSelect` or `Input.onSubmit` independently.
+`Select` and `Input` behave differently by provider:
+
+- Managed Slack: `Select` and `Input` dispatch their own callbacks.
+- Managed Teams: the fields submit with a `Button`'s `Action.Submit`, and that
+  Button callback receives them in `ctx.values`. `Select.onSelect` and
+  `Input.onSubmit` do not run.
 
 <FrontendOnly frontend="slack">
 

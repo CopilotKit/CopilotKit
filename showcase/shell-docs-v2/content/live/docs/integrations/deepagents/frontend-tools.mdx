@@ -15,12 +15,10 @@ hideTOC: true
 />
 
 ## What is this?
-Frontend tools enable you to define client-side functions that your Deep Agents agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+A frontend tool is a function that runs in the user's browser. Your Deep Agent calls it like any other tool. When your agent calls a frontend tool,
 the logic runs on the client side, giving you direct access to the frontend environment.
 
-This can be utilized to let your agent control the UI, for generative UI, or for Human-in-the-loop interactions.
-
-In this guide, we cover the use of frontend tools driving and interacting with the UI.
+Your agent can use frontend tools to control the UI, to show generative UI, or to ask the user for input (Human-in-the-loop).
 
 ## When should I use this?
 Use frontend tools when you need your agent to interact with client-side primitives such as:
@@ -71,7 +69,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
     <Step>
         ### Install the CopilotKit SDK
 
-        Now, we'll need to modify the agent to access these frontend tools. In your terminal, navigate to your agent's folder and continue from there!
+        Now, we'll need to modify the agent to access these frontend tools. In your terminal, navigate to your agent's folder and continue from there.
 
         <InstallSDKSnippet/>
     </Step>
@@ -82,13 +80,18 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
         <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
             <Tab value="Python">
-                In Python, inherit from `CopilotKitState` in your agent's state definition:
+                In Python, pass `CopilotKitMiddleware()` to `create_deep_agent`. The middleware adds the `copilotkit` state and gives the frontend tools to the model on every call:
 
-                ```python title="agent.py"
-                from copilotkit import CopilotKitState # [!code highlight]
+                ```python title="main.py"
+                from deepagents import create_deep_agent
+                from copilotkit import CopilotKitMiddleware # [!code highlight]
 
-                class YourAgentState(CopilotKitState): # [!code highlight]
-                    your_additional_properties: str
+                agent = create_deep_agent(
+                    model="openai:gpt-4o",
+                    tools=[],
+                    middleware=[CopilotKitMiddleware()], # [!code highlight]
+                    system_prompt="You are a helpful assistant.",
+                )
                 ```
             </Tab>
             <Tab value="TypeScript">
@@ -112,23 +115,19 @@ Use frontend tools when you need your agent to interact with client-side primiti
             </Tab>
         </Tabs>
 
-        By doing this, your agent's state will include the `copilotkit` property, which contains the frontend tools that can be accessed and invoked.
+        By doing this, your agent's state will include the `copilotkit` property, which contains the frontend tools that the agent can call.
     </Step>
     <Step>
         ### Accessing Frontend Tools
 
-        Once your agent's state includes the `copilotkit` property, you can access the frontend tools and utilize them within your agent's logic.
+        Once your agent's state includes the `copilotkit` property, your agent can call the frontend tools.
 
-        Here's how you can call a frontend tool from your agent:
-
-        <FrontEndToolsImpl />
+        The CopilotKit middleware adds your frontend tools to every model call, so the agent calls them like any other tool. You do not write code to call them.
 
         These tools are automatically populated by CopilotKit and are compatible with LangChain's tool call definitions, making it straightforward to integrate them into your agent's workflow.
     </Step>
     <Step>
-        ### Give it a try!
-        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
-
-        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+        ### Give it a try
+        Ask the agent: `Say hello to Ada.` The browser shows an alert with `Hello, Ada!`, and the agent replies after it gets the result.
     </Step>
 </Steps>

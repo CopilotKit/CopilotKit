@@ -10,25 +10,11 @@
 
 ## What is this?
 
-Frontend tools enable you to define client-side functions that your agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool, the logic runs on the client side, giving you direct access to the frontend environment.
-
-This can be utilized for UI control, generative UI, or Human-in-the-loop interactions. In this guide, we cover the use of frontend tools for Human-in-the-loop.
-
-## When should I use this?
-
-Use frontend tools when you need your agent to interact with client-side primitives such as:
-
-- Reading or modifying React component state
-- Accessing browser APIs like localStorage, sessionStorage, or cookies
-- Triggering UI updates or animations
-- Interacting with third-party frontend libraries
-- Performing actions that require the user's immediate browser context
+Some agent actions need a person to say yes first, such as running a command. `useHumanInTheLoop` shows your approval UI in the chat and sends the user's answer back to the agent.
 
 ## Create a frontend human-in-the-loop tool
 
-Frontend tools can be leveraged in a variety of ways. One of those ways is to have a human-in-the-loop flow where the response of the tool is gated by a user's decision.
-
-In this example we will simulate an "approval" flow for executing a command. Use the `useHumanInTheLoop` hook to create a tool that prompts the user for approval.
+This example asks the user to approve a command before the agent runs it. Use the `useHumanInTheLoop` hook to create a tool that prompts the user for approval.
 
 ```tsx title="page.tsx"
 import { useHumanInTheLoop } from "@copilotkit/react-core/v2"; // [!code highlight]
@@ -66,3 +52,5 @@ export function Page() {
   // ...
 }
 ```
+
+Ask the agent to run `ls`. An **Approve** and a **Deny** button appear in the chat. Click **Approve**, and the agent says that the command ran.

@@ -4,7 +4,7 @@ description: "Learn how to debug errors in CopilotKit with dev console and set u
 icon: "lucide/TriangleAlert"
 ---
 
-CopilotKit provides comprehensive error handling capabilities to help you debug issues and monitor your application's behavior. Whether you're developing locally or running in production, CopilotKit offers tools to capture, understand, and resolve errors effectively.
+Use the dev console to see errors in your UI while you develop. Use `onError` to send errors to a monitoring service in production.
 
 ## Quick Start
 
@@ -69,7 +69,7 @@ export default function App() {
 <Callout type="info">
   **Need a publicApiKey?** Go to
   [https://dashboard.operations.copilotkit.ai](https://dashboard.operations.copilotkit.ai) and get one for
-  free!
+  free.
 </Callout>
 
 </Step>
@@ -78,7 +78,11 @@ export default function App() {
 
 ## Error Handling Options
 
+For every provider prop, see the [CopilotKit reference](/reference/v1/components/CopilotKit).
+
 ### Dev Console (`showDevConsole`)
+
+`showDevConsole` is deprecated. It still shows error banners. To inspect agent events, messages, and state, use `enableInspector`.
 
 The dev console provides immediate visual feedback during development:
 
@@ -90,10 +94,10 @@ The dev console provides immediate visual feedback during development:
 
 **Features:**
 
-- ✅ **No API key required** - works with any setup
-- ✅ **Visual error banner** - errors appear as banner in your UI
-- ✅ **Real-time feedback** - see errors immediately as they occur
-- ✅ **Development-focused** - detailed error information for debugging
+- **No API key required** - works with any setup
+- **Visual error banner** - errors appear as banner in your UI
+- **Real-time feedback** - see errors immediately as they occur
+- **Development-focused** - detailed error information for debugging
 
 **Best for:**
 
@@ -119,15 +123,6 @@ The error observability hooks provide programmatic access to detailed error info
       case "error":
         logToService("Critical error", errorEvent);
         break;
-      case "request":
-        logToService("Request started", errorEvent);
-        break;
-      case "response":
-        logToService("Response received", errorEvent);
-        break;
-      case "agent_state":
-        logToService("Agent state change", errorEvent);
-        break;
     }
   }}
 >
@@ -137,10 +132,9 @@ The error observability hooks provide programmatic access to detailed error info
 
 **Features:**
 
-- ✅ **Rich error context** - detailed information about what went wrong
-- ✅ **Request/response tracking** - monitor the full conversation flow
-- ✅ **Agent state monitoring** - track agent interactions and state changes
-- ✅ **Production-ready** - structured data perfect for monitoring services
+- **Rich error context** - detailed information about what went wrong
+- **Error events** - each failed request or agent run arrives with `type: "error"`
+- **Production-ready** - structured data perfect for monitoring services
 
 **Requirements:**
 
@@ -155,7 +149,7 @@ The error observability hooks provide programmatic access to detailed error info
 
 ## Error Event Structure
 
-The `onError` handler receives detailed error events with rich context:
+The `onError` handler receives detailed error events with rich context. CopilotKit passes only events with `type: "error"` to `onError`:
 
 ```typescript
 interface CopilotErrorEvent {
@@ -326,15 +320,9 @@ To use error observability hooks, you'll need a Copilot Cloud account:
    </CopilotKit>
    ```
 
-<Callout type="info">
-  Copilot Cloud is free to get started and provides production-ready
-  infrastructure for your AI copilots, including comprehensive error
-  observability and monitoring capabilities.
-</Callout>
-
 ## Best Practices
 
-### ✅ Do
+### Do
 
 - **Use `showDevConsole={true}` during development** for immediate feedback
 - **Set `showDevConsole={false}` in production** to hide errors from users
@@ -342,7 +330,7 @@ To use error observability hooks, you'll need a Copilot Cloud account:
 - **Monitor error patterns** to identify and fix issues proactively
 - **Use structured logging** to make error analysis easier
 
-### ❌ Don't
+### Don't
 
 - **Don't expose detailed errors to end users** in production
 - **Don't ignore error events** - they provide valuable debugging information
@@ -357,19 +345,13 @@ If your `onError` hook isn't being called:
 
 1. **Check your publicApiKey** - error observability requires a valid API key
 2. **Verify the key format** - should start with `ck_pub_`
-3. **Ensure the key is set** - check your environment variables
+3. **Confirm the key is set** - check your environment variables
 4. **Test with dev console** - use `showDevConsole={true}` to see if errors are occurring
 
 ### Dev Console Not Showing
 
 If the dev console isn't displaying errors:
 
-1. **Check showDevConsole setting** - ensure it's set to `true`
+1. **Check showDevConsole setting** - make sure it's set to `true`
 2. **Look for console errors** - check browser dev tools for JavaScript errors
 3. **Verify error occurrence** - make sure errors are actually happening
-
-## Next Steps
-
-- Learn about [Copilot Cloud features](https://dashboard.operations.copilotkit.ai)
-- Explore the [CopilotKit reference documentation](/reference/v1/components/CopilotKit)
-- Check out [troubleshooting guides](/troubleshooting/common-issues) for common issues

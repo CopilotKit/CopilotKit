@@ -11,12 +11,7 @@ Use it when:
 - You want to understand the AG-UI event lifecycle (e.g., how `RUN_STARTED` flows through `TEXT_MESSAGE_CONTENT` chunks to `RUN_FINISHED`)
 - You need to inspect tool call arguments or state deltas for a specific interaction
 
-<Callout type="info">
-  The in-app Inspector locks the Threads tab when the Runtime does not advertise
-  the Threads list capability, regardless of license metadata. The locked view
-  offers **Copy setup prompt** and **Talk to an Engineer**. See
-  [Inspector](/inspector#enable-or-repair-intelligence) for the setup flow.
-</Callout>
+To debug on the client instead, use the in-app [Inspector](/inspector).
 
 ## Prerequisites
 
@@ -48,9 +43,9 @@ Use it when:
 
 <Steps>
 <Step>
-### Ensure your runtime is running in development mode
+### Run your runtime in development mode
 
-The debug event endpoint is available at `GET {runtimeUrl}/cpk-debug-events`. It activates automatically when `NODE_ENV` is `development`, which `next dev` and most dev servers set for you — no extra configuration needed. On a host that sets no `NODE_ENV`, set `debug: true` on the runtime instead.
+The debug event endpoint is available at `GET {runtimeUrl}/cpk-debug-events`. It activates automatically when `NODE_ENV` is `development`, which `next dev` and most dev servers set for you. No extra configuration is needed. On a host that sets no `NODE_ENV`, set `debug: true` on the runtime instead.
 
 The path is relative to the `basePath` the runtime is mounted at, not to the server's origin. A runtime mounted at `/api/copilotkit` on port 8200 serves the stream at `http://localhost:8200/api/copilotkit/cpk-debug-events`; requesting `http://localhost:8200/cpk-debug-events` returns `404 {"error":"Not found"}`. Confirm the URL before you connect:
 
@@ -62,7 +57,7 @@ A working endpoint responds immediately with `: connected` and then holds the co
 </Step>
 
 <Step>
-### Open the AG-UI Inspector
+### Open the AG-UI Event Inspector
 
 Open the VS Code command palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and run:
 
@@ -76,22 +71,22 @@ This opens a dedicated webview panel.
 <Step>
 ### Enter your runtime URL and connect
 
-Type your runtime URL in the input field at the top of the panel (default: `http://localhost:4000`) and click **Connect**. Use the full mounted runtime URL — the same value your frontend passes as `runtimeUrl`, including its base path — not just the origin. The panel status indicator turns green when the SSE connection is established.
+Type your runtime URL in the input field at the top of the panel (default: `http://localhost:4000`) and click **Connect**. Use the full mounted runtime URL (the same value your frontend passes as `runtimeUrl`, including its base path), not just the origin. The panel status indicator turns green when the SSE connection is established.
 </Step>
 
 <Step>
 ### Trigger an agent interaction
 
-Go to your app and perform an action that triggers an agent run — send a chat message, invoke a tool, or interact with any CopilotKit-powered component. Events start streaming into the inspector immediately.
+Go to your app and perform an action that triggers an agent run: send a chat message, invoke a tool, or interact with any CopilotKit-powered component. Events start streaming into the AG-UI Event Inspector immediately.
 </Step>
 
 <Step>
 ### Read the event stream
 
 Each event row shows:
-- **Timestamp** — relative time since the first event (e.g., `+0.142s`)
-- **Event type badge** — color-coded by category (see table below)
-- **Summary** — key fields like message ID, tool name, or a text preview
+- **Timestamp**: relative time since the first event (e.g., `+0.142s`)
+- **Event type badge**: color-coded by category (see table below)
+- **Summary**: key fields like message ID, tool name, or a text preview
 </Step>
 
 <Step>
@@ -114,7 +109,7 @@ Click any event row to expand the full JSON payload in the detail panel. This sh
 | **Lifecycle** | Purple | `RUN_STARTED`, `RUN_FINISHED` | Marks the start and end of an agent run |
 | **Errors** | Red | `RUN_ERROR` | An error occurred during the agent run |
 | **Text Messages** | Blue | `TEXT_MESSAGE_START`, `TEXT_MESSAGE_CONTENT`, `TEXT_MESSAGE_END`, `TEXT_MESSAGE_CHUNK` | Text streamed from the agent to the client |
-| **Tool Calls** | Orange | `TOOL_CALL_START`, `TOOL_CALL_ARGS`, `TOOL_CALL_END`, `TOOL_CALL_CHUNK`, `TOOL_CALL_RESULT` | Tool invocation lifecycle — name, arguments, and result |
+| **Tool Calls** | Orange | `TOOL_CALL_START`, `TOOL_CALL_ARGS`, `TOOL_CALL_END`, `TOOL_CALL_CHUNK`, `TOOL_CALL_RESULT` | Tool invocation lifecycle: name, arguments, and result |
 | **Reasoning** | Green | `REASONING_START`, `REASONING_MESSAGE_START`, `REASONING_MESSAGE_CONTENT`, `REASONING_MESSAGE_END`, `REASONING_END` | Model reasoning/chain-of-thought events |
 | **State** | Teal | `STATE_SNAPSHOT`, `STATE_DELTA` | Agent state snapshots and incremental updates |
 | **Activity/UI** | Yellow | `ACTIVITY_SNAPSHOT`, `ACTIVITY_DELTA` | UI activity indicators and progress updates |

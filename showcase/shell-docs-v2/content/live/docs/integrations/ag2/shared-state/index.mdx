@@ -15,13 +15,16 @@ icon: "lucide/Repeat"
 
 ## What is shared state?
 
-CoAgents maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
+Your agent and your UI share one state object. With shared state, you can:
 
-- Display the agent's current progress and intermediate results
-- Update the agent's state through UI interactions
+- Display the agent's current progress and intermediate results. See [Reading agent state](/ag2/shared-state/read).
+- Update the agent's state through UI interactions. See [Writing agent state](/ag2/shared-state/write).
 - React to state changes in real-time across your application
 
-The foundation of this system is built on AG2 **conversation variables** (`Context.variables`) and AG-UI `StateSnapshotEvent`s, which `AGUIStream` emits automatically at the start of the run (when the agent or `dispatch()` defines initial variables) and again at the end of the run when a tool has changed the variables.
+AG2 keeps shared state in **conversation variables** (`Context.variables`). `AGUIStream` sends them to the UI as an AG-UI `StateSnapshotEvent`:
+
+- At the start of a run, when the agent or `dispatch()` defines initial variables.
+- At the end of a run, when a tool changed the variables.
 
 <Callout type="info">
   CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
@@ -29,7 +32,7 @@ The foundation of this system is built on AG2 **conversation variables** (`Conte
 
 ## When should I use this?
 
-State streaming is perfect when you want to facilitate collaboration between your agent and the user. Any state that your AG2 backend
+Use shared state when the agent and the user work on the same data. Any state that your AG2 backend
 emits in snapshot events will be automatically shared by the UI. Similarly, any state that the user updates in the UI will be automatically reflected.
 
 This allows for a consistent experience where both the agent and the user are on the same page.

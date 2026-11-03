@@ -7,10 +7,16 @@ hideTOC: true
 
 ## Prebuilt components for agentic chat
 
-`@copilotkit/vue/v2` ships three chat surfaces: [**CopilotChat**](/vue/prebuilt-components/chat),
-[**CopilotSidebar**](/vue/prebuilt-components/sidebar), and
-[**CopilotPopup**](/vue/prebuilt-components/popup). They share the same chat
-primitives while choosing different layouts. Pick the surface that fits the
+`@copilotkit/vue/v2` ships three chat surfaces:
+
+- [**CopilotChat**](/vue/prebuilt-components/chat): an inline pane that fills
+  the container you give it.
+- [**CopilotSidebar**](/vue/prebuilt-components/sidebar): a collapsible,
+  docked surface.
+- [**CopilotPopup**](/vue/prebuilt-components/popup): a floating launcher and
+  overlay chat.
+
+They share the same chat primitives while choosing different layouts. Pick the surface that fits the
 product; each handles streaming messages, tool rendering, suggestions, and
 Vue slot customization.
 
@@ -50,23 +56,17 @@ import "@copilotkit/vue/styles.css";
 </template>
 ```
 
-The Vue Showcase currently exposes this `agentic-chat` surface. Other
-prebuilt-component variations do not have a runnable Vue Showcase route yet.
-
 ## Starter suggestions
 
-Call `useConfigureSuggestions` inside a child component of
-`CopilotKitProvider`. Its reactive configuration is then available to the
-nearest chat surface.
+Call [`useConfigureSuggestions`](/reference/vue/hooks/useConfigureSuggestions)
+inside a child component of `CopilotKitProvider`. Its reactive configuration is
+then available to the nearest chat surface:
 
-## Pick a surface
-
-- [`<CopilotChat>`](/vue/prebuilt-components/chat): an inline pane that fills
-  the container you give it.
-- [`<CopilotSidebar>`](/vue/prebuilt-components/sidebar): a collapsible,
-  docked surface.
-- [`<CopilotPopup>`](/vue/prebuilt-components/popup): a floating launcher and
-  overlay chat.
+```ts
+useConfigureSuggestions({
+  suggestions: [{ title: "Summarize", message: "Summarize this page" }],
+});
+```
 
 For controlling a popup or sidebar from your own UI, and for feedback actions,
 see [Open, close, and feedback](/vue/prebuilt-components/chat-controls).

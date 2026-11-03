@@ -20,12 +20,12 @@ description: Write to agent's state from your application.
 
 ## What is this?
 
-This guide shows you how to write to your agent's state from your application.
+Your agent sometimes needs a value that the user sets in your UI. Write that value to the agent's state with `agent.setState`.
 
 ## When should I use this?
 
-You can use this when you want to provide the user with feedback about what your agent is doing, specifically
-when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+Use this when a setting in your UI must change how the agent works, such as the reply language. Write the new value
+to the agent's state, and the agent receives it on its next run.
 
 ## Implementation
 
@@ -41,6 +41,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
     ```python title="agent.py"
     from typing import Dict
+    import uvicorn
     from fastapi import FastAPI
     from pydantic import BaseModel
     from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
@@ -141,12 +142,12 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` value must match the key that you registered the agent under in your CopilotRuntime configuration (for example, `my_agent` in the quickstart).
     </Callout>
 
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
     You can now use `agent.setState` to update the agent state and `agent.state` to read it. Try toggling the language button
     and talking to your agent. You'll see the language change to match the agent's state.
   </Step>
@@ -156,12 +157,13 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
 ### Re-run the agent with a hint about what's changed
 
-The new agent state will be used next time the agent runs.
-If you want to re-run it manually, use `copilotkit.runAgent()`.
+The agent uses the new state on its next run.
+To run it now, call `copilotkit.runAgent()`.
 
-The agent will be re-run with the latest updated state. You can also add a hint message before re-running.
+`copilotkit.runAgent()` runs the agent again with the new state. You can also add a hint message before you run it.
 
 ```tsx title="ui/app/page.tsx"
+import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
 // ...
 

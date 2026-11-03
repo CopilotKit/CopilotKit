@@ -1,7 +1,7 @@
 ---
 title: Reasoning
 icon: "lucide/Brain"
-description: Surface the agent's thinking chain in the chat — default or fully custom.
+description: Surface the agent's thinking chain in the chat, with the default card or a fully custom one.
 hideTOC: true
 ---
 
@@ -9,7 +9,7 @@ hideTOC: true
 
 Some models emit **reasoning tokens**, internal reasoning traces that explain how the model is working toward its answer. CopilotKit surfaces these as first-class messages: when a `REASONING_MESSAGE_*` event arrives from the agent, the chat renders it inline so the user can follow the agent's thinking.
 
-Reasoning isn't a custom-renderer plumb-in; it's a dedicated message type on the chat view. You can either accept the built-in rendering or override the `reasoning-message` scoped slot with your own component.
+Reasoning is its own message type in the chat. You can either accept the built-in rendering or override the `reasoning-message` scoped slot with your own component.
 
 ## When should I use this?
 
@@ -22,7 +22,7 @@ Expose reasoning in the UI when you want to:
 
 ## Default reasoning rendering (zero-config)
 
-Out of the box, reasoning events render inside CopilotKit's built-in `CopilotChatReasoningMessage` card:
+By default, reasoning events render inside CopilotKit's built-in `CopilotChatReasoningMessage` card:
 
 - A **"Thinking…"** label with a pulsing indicator while the model reasons.
 - Auto-expanded content so users can follow the reasoning live.
@@ -66,9 +66,7 @@ import { CopilotChat } from "@copilotkit/vue/v2";
 
 Render `AgentChat` as a descendant of the provider from the first example. Swap in your own component or markup to match your product's tone.
 
-<Callout type="info">
-  The Vue customization boundary is the `reasoning-message` scoped slot. React `messageView.reasoningMessage` component and sub-slot objects are not Vue APIs.
-</Callout>
+To change only the header or the content of the built-in card, see [Reasoning Messages](/vue/custom-look-and-feel/reasoning-messages).
 
 Reasoning is produced by the model and forwarded by your agent/runtime. The Vue frontend cannot make a model emit reasoning; select a reasoning-capable model and make sure your adapter forwards AG-UI reasoning events. Only emit reasoning content that is safe for the end user to see.
 

@@ -14,8 +14,7 @@ This way, you can notify your agent of what is going on in your app in real time
 
 ## When should I use this?
 
-You can use this when you want to provide the user with feedback about what is in your working memory. As your agent's
-state updates, you can reflect these updates natively in your application.
+Use this when the agent's answer has to be about data your app holds.
 
 Some examples might be: the current user, the current page, etc. This can be shared with your agent in real time.
 
@@ -26,7 +25,7 @@ Some examples might be: the current user, the current page, etc. This can be sha
     <Step>
         ### Share data with your agent
 
-        The [`useAgentContext` hook](/reference/v2/hooks/useAgentContext) is used to add data as context to the Copilot.
+        The [`useAgentContext` hook](/reference/v2/hooks/useAgentContext) adds data as context to the Copilot.
 
         ```tsx title="YourComponent.tsx" showLineNumbers
         "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
@@ -58,8 +57,8 @@ Some examples might be: the current user, the current page, etc. This can be sha
     <Step>
         ### Consume the data in your Mastra agent
 
-        Mastra has `RuntimeContext` class that can be used to set and access the extra context at run time.
-        The context from CopilotKit is automatically injected there, and can be used immediately.
+        The AG-UI adapter puts the context from CopilotKit on Mastra's `RequestContext`, under the `ag-ui` key.
+        The adapter does not add it to the prompt. Read it in a dynamic `instructions` function, as shown below.
         You can read more about it [here](https://mastra.ai/en/docs/agents/runtime-context)
 
         ```tsx title="agent.ts"
@@ -90,7 +89,7 @@ Some examples might be: the current user, the current page, etc. This can be sha
         ```
     </Step>
     <Step>
-        ### Give it a try!
-        Ask your agent a question about the context. It should be able to answer!
+        ### Give it a try
+        Ask your agent: `Who are my colleagues?` The agent names John Doe, Jane Smith, and Bob Wilson with their roles.
     </Step>
 </Steps>

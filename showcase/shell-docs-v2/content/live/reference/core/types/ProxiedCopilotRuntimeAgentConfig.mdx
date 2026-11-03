@@ -26,6 +26,7 @@ interface ProxiedCopilotRuntimeAgentConfig
   capabilities?: AgentCapabilities;
   debug?: ResolvedDebugConfig;
   runtimeAgentId?: string;
+  messageFilter?: CopilotKitMessageFilter;
 }
 ```
 
@@ -44,7 +45,7 @@ interface ProxiedCopilotRuntimeAgentConfig
 </PropertyReference>
 
 <PropertyReference name="runtimeMode" type='"sse" | "intelligence" | "pending"' default="sse">
-  Runtime mode. `"sse"` and `"intelligence"` are the resolved modes; `"pending"` marks the mode as not-yet-resolved (resolved via a runtime-info fetch on the Intelligence delegate path).
+  Runtime mode. `"sse"` and `"intelligence"` are the resolved modes. `"pending"` means that the mode is not resolved yet. The agent fetches runtime info before its first `run()` or `connect()`.
 </PropertyReference>
 
 <PropertyReference name="intelligence" type="IntelligenceRuntimeInfo">
@@ -63,6 +64,10 @@ interface ProxiedCopilotRuntimeAgentConfig
   When set, runtime requests are routed to this agent on the runtime instead of `agentId`. The local `agentId` remains the registry key used for subscriber bookkeeping; only outbound routing is overridden.
 </PropertyReference>
 
+<PropertyReference name="messageFilter" type="CopilotKitMessageFilter">
+  Rewrites the outbound message list before each HTTP `run` or `connect` request. Not applied in Intelligence mode.
+</PropertyReference>
+
 ## Usage
 
 ```ts
@@ -75,8 +80,3 @@ const agent = new ProxiedCopilotRuntimeAgent({
   credentials: "include",
 });
 ```
-
-## Related
-
-- [ProxiedCopilotRuntimeAgent](/reference/core/classes/ProxiedCopilotRuntimeAgent)
-- [CopilotKitCore](/reference/core/classes/CopilotKitCore)

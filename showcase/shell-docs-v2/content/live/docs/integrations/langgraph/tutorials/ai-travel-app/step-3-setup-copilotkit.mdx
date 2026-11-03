@@ -7,7 +7,7 @@ subpaths of packages already declared in `examples/v1/travel/package.json`:
 
 - React hooks, providers, and chat UI come from `@copilotkit/react-core/v2`.
 - Runtime classes and handlers come from `@copilotkit/runtime/v2`.
-- LangGraph adapters come from `@copilotkit/runtime/langgraph`.
+- `LangGraphAgent`, for a deployed LangGraph graph, comes from `@copilotkit/runtime/langgraph`, a deprecated v1 entry point. For a local agent server, use `HttpAgent` from `@ag-ui/client`, as the route below does.
 
 See the [v1 to v2 migration guide](/migrate/v2) for the full import map.
 

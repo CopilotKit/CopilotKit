@@ -5,13 +5,18 @@ description: "React hook for handling agent interrupt events and resuming execut
 
 ## Overview
 
-`useInterrupt` handles agent interrupts and resumes execution with user input. It supports the **AG-UI standard interrupt flow** — `RUN_FINISHED` with `outcome.type === "interrupt"` carrying an `interrupts` array — and the legacy custom-event flow (`on_interrupt`). For standard interrupts, your `render`/`handler` receive `interrupt` (the primary one) and `interrupts` (the full open set); call `resolve(payload)` to resume or `cancel()` to cancel.
+`useInterrupt` handles agent interrupts and resumes execution with user input. It supports two interrupt flows:
+
+- **AG-UI standard**: `RUN_FINISHED` with `outcome.type === "interrupt"`, carrying an `interrupts` array.
+- **Custom event**: an `on_interrupt` custom event.
+
+In your `render` callback, call `resolve(payload)` to resume or `cancel()` to cancel. See [`render`](#parameters) for every prop it receives. For a pause that is a tool call, use [`useHumanInTheLoop`](/reference/react-native/hooks/useHumanInTheLoop).
 
 <Callout type="info">
   Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useInterrupt`](/reference/v2/hooks/useInterrupt); only the import path differs.
 </Callout>
 
-By default, interrupt UI is rendered inside [`CopilotChat`](/reference/react-native/components/CopilotChat) automatically. If you set `renderInChat: false`, the hook returns the element so you can place it manually. The element returned by `render` is a React Native element.
+The prebuilt [`CopilotChat`](/reference/react-native/components/CopilotChat#prebuilt-ui) and [`CopilotModal`](/reference/react-native/components/CopilotModal) from `@copilotkit/react-native/components` draw the in-chat interrupt element after the last message. The headless `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` do not. With those, pass `renderInChat: false`, and the hook returns the element so you can render it in your own view. The element returned by `render` is a React Native element.
 
 `event.value` is typed as `any` since the interrupt payload shape depends on your agent. Type-narrow it in your callbacks (e.g. `handler`, `enabled`, `render`) as needed.
 
@@ -40,11 +45,11 @@ function useInterrupt<
   <PropertyReference name="render" type="(props: InterruptRenderProps<any, TResult | null>) => React.ReactElement" required>
     Render callback for interrupt UI. Called when an interrupt is available. The callback receives:
     - `event`: interrupt event (`{ name, value }`). `value` is `any`; type-narrow in your callback as needed.
-    - `interrupt`: the primary standard `Interrupt` (`{ id, reason, message?, toolCallId?, responseSchema?, expiresAt?, metadata? }`), or `null` for legacy interrupts.
-    - `interrupts`: all open standard interrupts (empty array for legacy interrupts).
+    - `interrupt`: the primary standard `Interrupt` (`{ id, reason, message?, toolCallId?, responseSchema?, expiresAt?, metadata? }`), or `null` for custom-event interrupts.
+    - `interrupts`: all open standard interrupts (empty array for custom-event interrupts).
     - `result`: inferred from `handler` return type, or `null`
-    - `resolve(payload?, interruptId?)`: for standard interrupts, records `{ status: "resolved", payload }` for the target interrupt (defaults to the primary) and submits once all open interrupts are addressed. For legacy interrupts, resumes immediately via `command.resume = payload`.
-    - `cancel(interruptId?)`: for standard interrupts, records `{ status: "cancelled" }` for the target interrupt and resumes once all are addressed. Not supported for legacy interrupts (dismisses without resuming).
+    - `resolve(payload?, interruptId?)`: for standard interrupts, records `{ status: "resolved", payload }` for the target interrupt (defaults to the primary) and submits once all open interrupts are addressed. For custom-event interrupts, resumes immediately via `command.resume = payload`.
+    - `cancel(interruptId?)`: for standard interrupts, records `{ status: "cancelled" }` for the target interrupt and resumes once all are addressed. Not supported for custom-event interrupts (dismisses without resuming).
   </PropertyReference>
 
 <PropertyReference
@@ -63,13 +68,15 @@ function useInterrupt<
 </PropertyReference>
 
 <PropertyReference name="agentId" type="string">
-  Optional agent id. Defaults to the currently configured chat agent.
+  Optional agent id. Defaults to `"default"`. React Native's `CopilotChat` does
+  not pass its `agentId` to this hook, so set `agentId` when your chat uses
+  another agent.
 </PropertyReference>
 
   <PropertyReference name="renderInChat" type="boolean" default="true">
     Controls where UI renders:
-    - `true` (default): publishes interrupt UI into [`CopilotChat`](/reference/react-native/components/CopilotChat)
-    - `false`: returns interrupt element from the hook for manual placement
+    - `true` (default): publishes the element to the CopilotKit core. The prebuilt `CopilotChat` and `CopilotModal` draw it. Headless views do not.
+    - `false`: returns the interrupt element from the hook for manual placement. Use this with headless views.
   </PropertyReference>
 </PropertyReference>
 
@@ -84,14 +91,15 @@ function useInterrupt<
 
 ## Usage
 
-### In-chat interrupt UI (default)
+### Interrupt UI in your chat view
 
 ```tsx
 import { Text, TouchableOpacity, View } from "react-native";
 import { useInterrupt } from "@copilotkit/react-native";
 
 function ApprovalInterrupt() {
-  useInterrupt({
+  const element = useInterrupt({
+    renderInChat: false,
     render: ({ event, resolve }) => (
       <View style={{ padding: 12, borderWidth: 1, borderRadius: 8 }}>
         <Text>{event.value.question}</Text>
@@ -107,7 +115,7 @@ function ApprovalInterrupt() {
     ),
   });
 
-  return null;
+  return <>{element}</>;
 }
 ```
 
@@ -118,7 +126,8 @@ import { Text, TouchableOpacity, View } from "react-native";
 import { useInterrupt } from "@copilotkit/react-native";
 
 function ApprovalInterrupt() {
-  useInterrupt({
+  const element = useInterrupt({
+    renderInChat: false,
     render: ({ interrupt, resolve, cancel }) => (
       <View style={{ padding: 12, borderWidth: 1, borderRadius: 8 }}>
         <Text>{interrupt?.message ?? "Approve this action?"}</Text>
@@ -134,7 +143,7 @@ function ApprovalInterrupt() {
     ),
   });
 
-  return null;
+  return <>{element}</>;
 }
 ```
 
@@ -166,7 +175,7 @@ function SidePanelInterrupt() {
 
 ## Behavior
 
-- Standard interrupts are detected from `RUN_FINISHED` (`outcome.type === "interrupt"`); legacy interrupts from `on_interrupt` custom events.
+- Standard interrupts are detected from `RUN_FINISHED` (`outcome.type === "interrupt"`); custom-event interrupts from `on_interrupt` events.
 - `resolve`/`cancel` accumulate one response per open interrupt; the resume run starts once every open interrupt is addressed.
 - Expired interrupts (past `expiresAt`) are not resumed.
 - Interrupt UI is surfaced when the run finalizes.
@@ -174,10 +183,3 @@ function SidePanelInterrupt() {
 - `event.value` is `any`; type-narrow in your callbacks as needed. For standard interrupts, `event.value` is the primary `Interrupt`.
 - `render.result` is inferred from `handler` return type and is always `TResult | null`.
 - If `handler` throws or rejects, `result` is set to `null`.
-
-## Related
-
-- [`useHumanInTheLoop`](/reference/react-native/hooks/useHumanInTheLoop): structured interactive tool workflows
-- [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool): client-side tool registration
-- [`useAgent`](/reference/react-native/hooks/useAgent): access and subscribe to agent events
-- [React (V2) reference](/reference/v2/hooks/useInterrupt)

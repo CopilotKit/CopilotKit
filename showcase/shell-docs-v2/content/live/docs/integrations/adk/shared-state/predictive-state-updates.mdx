@@ -64,83 +64,77 @@ When your agent finishes executing, **its final state becomes the single source 
   <Step>
     ### Emit the intermediate state
 
-    <TailoredContent
-        id="state-emission"
-        header={
-            <div>
-                <p className="text-xl font-semibold">How would you like to emit state updates?</p>
-                <p className="text-base">
-                    You can either manually emit state updates or configure specific tool calls to emit updates.
-                </p>
-            </div>
-        }
-    >
-        <TailoredContentOption
-            id="tool-emission"
-            title="Tool-Based Predictive State Updates"
-            description="Configure specific tool calls to automatically emit intermediate state updates."
-            icon={<FaWrench />}
-        >
-            For long-running tasks, you can create a tool that updates state and emits it to the frontend. In this example, we'll create a step progress tool that the LLM calls to report its progress.
+    For long-running tasks, you can create a tool that updates state and emits it to the frontend. In this example, we'll create a step progress tool that the LLM calls to report its progress.
 
-            ```python title="agent.py"
-            from typing import Dict, List
-            from fastapi import FastAPI
-            from pydantic import BaseModel
-            from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
-            from google.adk.agents import LlmAgent
-            from google.adk.tools import ToolContext
+    ```python title="agent.py"
+    from typing import Dict, List
+    import uvicorn
+    from fastapi import FastAPI
+    from pydantic import BaseModel
+    from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+    from ag_ui_adk.config import PredictStateMapping
+    from google.adk.agents import LlmAgent
+    from google.adk.tools import ToolContext
 
 
-            class AgentState(BaseModel):
-                """State for the agent."""
-                observed_steps: List[str] = []
+    class AgentState(BaseModel):
+        """State for the agent."""
+        observed_steps: List[str] = []
 
 
-            def step_progress(tool_context: ToolContext, steps: List[str]) -> Dict[str, str]:
-                """Reports the current progress steps.
+    def step_progress(tool_context: ToolContext, steps: List[str]) -> Dict[str, str]:
+        """Reports the current progress steps.
 
-                Args:
-                    tool_context (ToolContext): The tool context for accessing state.
-                    steps (List[str]): The list of steps completed so far.
+        Args:
+            tool_context (ToolContext): The tool context for accessing state.
+            steps (List[str]): The list of steps completed so far.
 
-                Returns:
-                    Dict[str, str]: A dictionary indicating the progress was received.
-                """
-                tool_context.state["observed_steps"] = steps
-                return {"status": "success", "message": "Progress received."}
+        Returns:
+            Dict[str, str]: A dictionary indicating the progress was received.
+        """
+        tool_context.state["observed_steps"] = steps
+        return {"status": "success", "message": "Progress received."}
 
 
-            agent = LlmAgent(
-                name="my_agent",
-                model="gemini-3.8-flash",
-                instruction="""
-                You are a task performer. When given a task, break it down into steps
-                and report your progress using the step_progress tool after completing each step.
-                """,
-                tools=[step_progress],
-            )
+    agent = LlmAgent(
+        name="my_agent",
+        model="gemini-3.8-flash",
+        instruction="""
+        You are a task performer. When given a task, break it down into steps
+        and report your progress using the step_progress tool after completing each step.
+        """,
+        tools=[step_progress],
+    )
 
-            adk_agent = ADKAgent(
-                adk_agent=agent,
-                app_name="demo_app",
-                user_id="demo_user",
-                session_timeout_seconds=3600,
-                use_in_memory_services=True,
-            )
+    adk_agent = ADKAgent(
+        adk_agent=agent,
+        app_name="demo_app",
+        user_id="demo_user",
+        session_timeout_seconds=3600,
+        use_in_memory_services=True,
+        # Stream the `steps` argument into `observed_steps` while the model writes it
+        predict_state=[
+            PredictStateMapping(
+                state_key="observed_steps",
+                tool="step_progress",
+                tool_argument="steps",
+                emit_confirm_tool=False,
+                stream_tool_call=True,
+            ),
+        ],
+        streaming_function_call_arguments=True,
+    )
 
-            app = FastAPI()
-            add_adk_fastapi_endpoint(app, adk_agent, path="/")
+    app = FastAPI()
+    add_adk_fastapi_endpoint(app, adk_agent, path="/")
 
-            if __name__ == "__main__":
-                uvicorn.run(app, host="0.0.0.0", port=8000)
-            ```
+    if __name__ == "__main__":
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    ```
 
-            <Callout>
-              With this configuration, the agent emits state updates each time it calls the `step_progress` tool, giving the frontend real-time visibility into progress.
-            </Callout>
-        </TailoredContentOption>
-    </TailoredContent>
+    <Callout>
+      With `predict_state`, the frontend gets `observed_steps` while the model writes the `steps` argument of `step_progress`. When the tool runs, `tool_context.state` stores the final value.
+    </Callout>
 
   </Step>
   <Step>
@@ -150,42 +144,25 @@ When your agent finishes executing, **its final state becomes the single source 
     ```tsx title="ui/app/page.tsx"
     "use client";
 
+    import { useAgent } from "@copilotkit/react-core/v2";
 
-    // ...
     type AgentState = {
         observed_steps: string[];
     };
 
     const YourMainContent = () => {
-        // Get access to both predicted and final states
+        // agent.state holds the predicted steps during the run and the final steps after it
         const { agent } = useAgent({ agentId: "my_agent" });
-
-        // Add a state renderer to observe predictions
-        useAgent({
-            agentId: "my_agent",
-            render: ({ state }) => {
-                if (!state.observed_steps?.length) return null;
-                return (
-                    <div>
-                        <h3>Current Progress:</h3>
-                        <ul>
-                            {state.observed_steps.map((step, i) => (
-                                <li key={i}>{step}</li>
-                            ))}
-                        </ul>
-                    </div>
-                );
-            },
-        });
+        const observedSteps = (agent.state as AgentState | undefined)?.observed_steps ?? [];
 
         return (
             <div>
                 <h1>Agent Progress</h1>
-                {agent.state?.observed_steps?.length > 0 && (
+                {observedSteps.length > 0 && (
                     <div>
-                        <h3>Final Steps:</h3>
+                        <h3>Current Progress:</h3>
                         <ul>
-                            {agent.state.observed_steps.map((step, i) => (
+                            {observedSteps.map((step, i) => (
                                 <li key={i}>{step}</li>
                             ))}
                         </ul>
@@ -197,13 +174,13 @@ When your agent finishes executing, **its final state becomes the single source 
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` value must match the key of the agent in your `CopilotRuntime` `agents` map (for example, `my_agent`).
     </Callout>
 
   </Step>
   <Step>
-    ### Give it a try!
-    Now you'll notice that the state predictions are emitted as the agent makes progress, giving you insight into its work before the final state is determined.
+    ### Give it a try
+    Ask the agent: "Plan a three-day trip to Rome." The Current Progress list grows while the agent writes each `step_progress` call.
     You can apply this pattern to any long-running task in your agent.
   </Step>
 </Steps>

@@ -20,7 +20,7 @@ description: Write to agent's state from your application.
 
 ## What is this?
 
-You can easily write to your agent's state from your native application, allowing you to update the agent's state from your UI.
+When the user changes a setting in your UI, such as the reply language, write it to the agent's state. The agent reads the new value on its next run.
 
 ## When should I use this?
 
@@ -34,7 +34,7 @@ You can use this when you want to provide user input or control to your agent's 
     <RunAndConnect />
   </Step>
   <Step>
-    ### Setup your agent with state
+    ### Set up your agent with state
 
     Define your agent's state schema. AWS Strands maintains state throughout execution.
 
@@ -127,8 +127,8 @@ You can use this when you want to provide user input or control to your agent's 
   <Step>
     ### Use the `useAgent` Hook
 
-    With your agent connected and running, call the `useAgent` hook, pass the agent's name, and
-    use `agent.setState` to update the agent state.
+    With your agent connected and running, call the `useAgent` hook with the key that your `CopilotRuntime`
+    registers the agent under (`strands_agent` in the quickstart), and use `agent.setState` to update the agent state.
 
     ```tsx title="ui/app/page.tsx"
     import { useEffect } from "react";
@@ -142,7 +142,7 @@ You can use this when you want to provide user input or control to your agent's 
     function YourMainContent() {
       // [!code highlight:5]
       const { agent, isReady } = useAgent({
-        agentId: "languageAgent",
+        agentId: "strands_agent",
       });
       const state = (agent.state ?? {}) as Partial<AgentState>;
 
@@ -152,7 +152,12 @@ You can use this when you want to provide user input or control to your agent's 
       }, [agent, isReady, state.language]);
 
       const toggleLanguage = () => {
-        agent.setState({ ...(agent.state ?? {}), language: state.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        // [!code highlight:5]
+        agent.setState({
+          ...(agent.state ?? {}),
+          language:
+            state.language === "english" ? "spanish" : "english",
+        });
       };
 
       return (
@@ -173,7 +178,7 @@ You can use this when you want to provide user input or control to your agent's 
   </Step>
 
   <Step>
-    ### Give it a try!
+    ### Give it a try
 
     You can now use the `setState` function to update the agent state and `state` to read it. Try toggling the language button
     and talking to your agent. You'll see the language change to match the agent's state.

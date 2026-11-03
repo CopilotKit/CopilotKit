@@ -18,7 +18,7 @@ customization and component options.
   />
 </Frame>
 
-Under the hood it's a thin React wrapper around the self-contained
+Internally, it's a thin React wrapper around the self-contained
 `copilotkit-threads-drawer` web component, fed by [`useThreads`](/reference/hooks/useThreads)
 and your chat configuration.
 
@@ -41,7 +41,7 @@ It requires CopilotKit Intelligence (threads are stored and synced
 server-side). <SignupLink surface="docs_drawer">Start cloud-hosted setup</SignupLink> to create or select a project.
 
 For multi-user applications, configure the Runtime to
-[scope AG-UI Streams to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user).
+[scope threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user).
 
 <OpsPlatformCTA
   variant="inline"
@@ -52,22 +52,13 @@ For multi-user applications, configure the Runtime to
 
 ## Set up the Threads Drawer
 
-Place `<CopilotThreadsDrawer>` next to `<CopilotChat>` and wrap **both** in a
+Place `<CopilotThreadsDrawer>` next to [`<CopilotChat>`](/prebuilt-components/chat) and wrap **both** in a
 shared `<CopilotChatConfigurationProvider>`. If you are using a CLI-created
-starter, this structure is already in place. That shared
-configuration is what lets the Drawer drive the chat: with no callbacks,
-selecting a row connects the chat to that thread and replays its history; the
-"New Conversation" row resets the chat to a fresh welcome screen. The following
-example shows the essential structure to add to an existing app or preserve
-while customizing a starter.
-
-<Callout type="warn">
-  **The Drawer ships only in `@copilotkit/react-core/v2`.** There is no v1
-  Drawer, so take the Drawer, the chat and the provider from that one package.
-  Watch the import path: `@copilotkit/react-ui` is the [deprecated v1
-  package](/migrate/v2) and it exports its own `CopilotChat` and
-  `CopilotSidebar` under those same names.
-</Callout>
+starter, this structure is already in place. The shared configuration lets
+the Drawer control the chat. Select a row, and the chat loads that thread and
+its history. Select "New Conversation", and the chat shows the welcome screen.
+The following example shows the essential structure to add to an existing app
+or preserve while customizing a starter.
 
 ```tsx title="app/page.tsx"
 import {
@@ -92,11 +83,11 @@ export default function Page() {
 }
 ```
 
-That's the whole integration. A hand-rolled sidebar would have you track the
-active `threadId` in your own state and pass selection/new-thread handlers
-between the list and the chat; here the drawer and the
-`CopilotChatConfigurationProvider` share that state, so there is none of that
-wiring to write.
+Import the Drawer, the chat, and the provider from `@copilotkit/react-core/v2`.
+
+Start your app and send a message. After the run, the thread appears in the
+Drawer. Select "New Conversation", then select the first thread. The chat
+shows its history again.
 
 ## Use the Drawer with a sidebar chat
 
@@ -135,9 +126,9 @@ export default function Page() {
 
 <Callout type="info">
   The launcher button that opens the Drawer from the chat header appears on
-  mobile viewports only. On desktop the Drawer is a persistent in-flow panel
-  that is always visible, so a launcher there would do nothing. A missing
-  desktop launcher is the design, not a broken wiring.
+  mobile viewports only. On desktop the Drawer is an in-flow panel. Its own
+  collapse toggle hides it, and its floating launcher opens it again, so the
+  chat header shows no launcher there.
 </Callout>
 
 ## Add your own "New conversation" button
@@ -202,10 +193,12 @@ How it works:
   thread does not get a row.
 - If you set the `threadId` prop on `<CopilotChatConfigurationProvider>`, your
   app controls the thread. Then `startNewThread()` and the Drawer's own row
-  selection do nothing and log a warning. Keep the thread id in your own state,
-  and pass the Drawer two callbacks that update that state: `onThreadSelect`
-  for a selected row, and `onNewThread` for its "New Conversation" row. Your
-  button runs the same code as `onNewThread`:
+  selection do nothing and log a warning. To control the thread:
+
+  1. Keep the thread id in your own state.
+  2. Pass it as `threadId` to `<CopilotChatConfigurationProvider>`.
+  3. Pass `onThreadSelect` and `onNewThread` to the Drawer.
+  4. Call the same function as `onNewThread` from your button.
 
   ```tsx
   function ControlledChat() {
@@ -273,7 +266,7 @@ the chat to another agent together, set `agentId` once on the shared
 | Prop | Description |
 |------|-------------|
 | `agentId` | Agent whose threads to list. Defaults to the chat configuration's agent, then `agentId` on `<CopilotKitProvider>`, then `"default"`. See [Which agent's threads the drawer shows](#which-agents-threads-the-drawer-shows). |
-| `label` | Accessible name for the drawer region and thread listbox. Defaults to `"Threads"`. The redesigned header has no visible title. |
+| `label` | Accessible name for the drawer region and thread listbox. Defaults to `"Threads"`. The header shows no title. |
 | `recentLabel` | Section heading shown above the thread list. Defaults to `"Recent Conversations"`. |
 | `onThreadSelect` | Escape hatch to take over thread selection yourself. |
 | `onNewThread` | Escape hatch to handle the "New Conversation" row yourself. |
@@ -322,9 +315,4 @@ The locked view appears whenever the Runtime reports no active entitlement: a
 self-hosted deployment whose license token is missing or expired, or a cloud-hosted
 project whose subscription is inactive.
 
-## Related
-
-- [AG-UI Streams overview](/AG-UI-Streams): compare thread UI and deployment paths
-- [Headless Threads](/headless-threads): build a custom UI with the `useThreads` data layer
-- [Threads Drawer reference (React)](/reference/components/CopilotThreadsDrawer)
-- [CopilotChat](/prebuilt-components/chat): the chat the drawer connects to
+To compare thread UIs and deployment paths, see the [threads overview](/AG-UI-Streams).
