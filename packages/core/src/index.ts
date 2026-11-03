@@ -14,3 +14,10 @@ export * from "./inspector-thread-bridge";
 export * from "./a2ui-markdown";
 export * from "./chat";
 export * from "./open-generative-ui";
+export { ɵThreadsController, ɵprojectThread } from "./threads-controller";
+export type {
+  ɵThreadSummary,
+  ɵThreadsInput,
+  ɵThreadsSnapshot,
+  ɵThreadsCore,
+} from "./threads-controller";
