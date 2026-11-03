@@ -15,11 +15,8 @@ import { macros } from "../src/a2ui/macros/macros";
 import { compose } from "../src/agent/composer";
 import type { ComposeInput } from "../src/agent/composer";
 import { composeExpress } from "../src/agent/compose-express";
-import {
-  compileExpress,
-  previewComponents,
-  toExpress,
-} from "../src/agent/express";
+import { pendingChildren, toExpress } from "../src/agent/express";
+import { compileExpress } from "./lib-express-test";
 import { EventQueue } from "../src/agent/events";
 import { MODELS } from "../src/agent/models";
 
@@ -80,50 +77,39 @@ function inputFor(replies: string[], prior?: ComposeInput["prior"]) {
 const valid = '<a2ui>\nroot = Text("Hello world")\n</a2ui>';
 const invalid = "<a2ui>\nroot = Missing()\n</a2ui>";
 
-test("Blueprint frames preserve pending children and macros without replacing known children", () => {
-  const known = new Set<string>();
-  const frames = previewComponents(
-    [{ id: "root", component: "Column", children: ["card"] }],
-    known,
-    manifest,
-    (name) => macros.isMacro(name),
-  );
-  assert.equal(frames.find((c) => c.id === "card")?.state, "pending");
-  const macro = previewComponents(
-    [{ ...MACRO_SAMPLES.ProductCard, id: "card" }],
-    known,
-    manifest,
-    (name) => macros.isMacro(name),
-  );
-  assert.equal(macro[0].component, "Blueprint");
-  assert.equal(macro[0].of, "ProductCard");
-  assert.equal(
-    previewComponents(
+test("Blueprint refs preserve pending children without replacing written children", () => {
+  assert.deepEqual(
+    pendingChildren(
       [{ id: "root", component: "Column", children: ["card"] }],
-      known,
       manifest,
-      () => false,
-    ).length,
-    1,
+    ),
+    ["card"],
+  );
+  assert.deepEqual(
+    pendingChildren(
+      [
+        { id: "root", component: "Column", children: ["card"] },
+        { ...MACRO_SAMPLES.ProductCard, id: "card" },
+      ],
+      manifest,
+    ),
+    [],
   );
 });
 
 test("Blueprint frames include nested tab children before they arrive", () => {
-  const frame = previewComponents(
-    [
-      {
-        id: "root",
-        component: "Tabs",
-        tabs: [{ title: "Overview", child: "body" }],
-      },
-    ],
-    new Set(),
-    manifest,
-    () => false,
-  );
-  assert.equal(
-    frame.find((component) => component.id === "body")?.state,
-    "pending",
+  assert.deepEqual(
+    pendingChildren(
+      [
+        {
+          id: "root",
+          component: "Tabs",
+          tabs: [{ title: "Overview", child: "body" }],
+        },
+      ],
+      manifest,
+    ),
+    ["body"],
   );
 });
 

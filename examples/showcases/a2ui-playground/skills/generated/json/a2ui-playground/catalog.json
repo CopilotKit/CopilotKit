@@ -581,7 +581,7 @@
   },
   "Card": {
    "type": "object",
-   "description": "A bordered, padded container, only for an interactive panel (controls, a form, a configurator).",
+   "description": "A bordered panel, only for an interactive panel (controls, a form, a configurator); tables, charts and text need none.",
    "properties": {
     "component": {
      "const": "Card"
@@ -999,7 +999,7 @@
   },
   "Carousel": {
    "type": "object",
-   "description": "A row that scrolls horizontally and snaps to its slides, with previous and next arrows.",
+   "description": "A horizontally scrolling row that snaps to its CarouselItem or CarouselMediaItem children, with arrows.",
    "properties": {
     "component": {
      "const": "Carousel"
@@ -1310,7 +1310,7 @@
   },
   "CarouselMediaItem": {
    "type": "object",
-   "description": "A slide of a Carousel with an image on top and its children (a Caption, a Text) under it.",
+   "description": "A Carousel slide: an image with its children (a Caption, a Text) under it.",
    "properties": {
     "component": {
      "const": "CarouselMediaItem"
@@ -1660,7 +1660,7 @@
   },
   "Title": {
    "type": "object",
-   "description": "A heading inside a Card or next to another component.",
+   "description": "A heading in a Card or next to another component; a heading alone is markdown.",
    "properties": {
     "component": {
      "const": "Title"
@@ -1789,7 +1789,7 @@
   },
   "Text": {
    "type": "object",
-   "description": "Body text inside a Card or next to another component.",
+   "description": "Body text in a Card or next to another component; a paragraph alone is markdown outside the fence.",
    "properties": {
     "component": {
      "const": "Text"
@@ -2685,7 +2685,7 @@
   },
   "Tooltip": {
    "type": "object",
-   "description": "Shows `content` when the user points at `trigger` or moves keyboard focus to it.",
+   "description": "Shows `content` when the user points at or focuses `trigger`.",
    "properties": {
     "component": {
      "const": "Tooltip"
@@ -2703,7 +2703,7 @@
   },
   "Button": {
    "type": "object",
-   "description": "A button that sends its onClick event.",
+   "description": "Sends its onClick event; with href it opens the URL, with copy it copies the text.",
    "properties": {
     "component": {
      "const": "Button"
@@ -3509,7 +3509,6 @@
      ]
     },
     "options": {
-     "description": "Strings or { \"value\", \"label\", \"description\"? }",
      "anyOf": [
       {
        "type": "array",
@@ -3903,7 +3902,6 @@
      ]
     },
     "options": {
-     "description": "Strings or { \"value\", \"label\", \"description\"? }",
      "anyOf": [
       {
        "type": "array",
@@ -4284,7 +4282,6 @@
      ]
     },
     "options": {
-     "description": "Strings or { \"value\", \"label\", \"description\"? }",
      "anyOf": [
       {
        "type": "array",
@@ -4450,7 +4447,7 @@
   },
   "ChoicePicker": {
    "type": "object",
-   "description": "A list of options, as checkboxes or chips.",
+   "description": "Options as checkboxes or chips: pick one, or several with variant \"multipleSelection\".",
    "properties": {
     "component": {
      "const": "ChoicePicker"
@@ -4470,7 +4467,6 @@
      ]
     },
     "options": {
-     "description": "Strings or { \"value\", \"label\", \"description\"? }",
      "anyOf": [
       {
        "type": "array",
@@ -4658,7 +4654,7 @@
   },
   "DateTimeInput": {
    "type": "object",
-   "description": "A date picker, or a time picker with enableTime, or both.",
+   "description": "A date picker, a time picker with enableTime, or both.",
    "properties": {
     "component": {
      "const": "DateTimeInput"
@@ -4999,7 +4995,7 @@
   },
   "Popover": {
    "type": "object",
-   "description": "A small overlay next to a trigger.",
+   "description": "A small overlay: exactly two children, one PopoverTrigger then one PopoverContent.",
    "properties": {
     "component": {
      "const": "Popover"
@@ -5198,13 +5194,13 @@
   },
   "Table": {
    "type": "object",
-   "description": "A data table.",
+   "description": "A data table, in a plain Column, not a Card.",
    "properties": {
     "component": {
      "const": "Table"
     },
     "columns": {
-     "description": "Strings, { \"label\", \"align\"?, \"width\"?, \"componentId\"? } or { \"componentId\" }, or { \"@path\": \"/x\" }. Default []",
+     "description": "Default []",
      "anyOf": [
       {
        "type": "array",
@@ -5352,7 +5348,7 @@
      ]
     },
     "rows": {
-     "description": "A list of row lists, or { \"@path\": \"/x\" }. A cell is a string, a number, or { \"componentId\": \"<id>\" } to show a component. Default []",
+     "description": "A list of row lists. A cell is a string, a number, or { \"componentId\": \"<id>\" } to show a component. Default []",
      "anyOf": [
       {
        "type": "array",
@@ -5681,13 +5677,12 @@
   },
   "List": {
    "type": "object",
-   "description": "A list in a Card or next to another component.",
+   "description": "A list in a Card or next to another component; a plain list of text is markdown.",
    "properties": {
     "component": {
      "const": "List"
     },
     "items": {
-     "description": "Strings or { \"label\", \"value\"?, \"description\"?, \"icon\"? }, or { \"@path\": \"/x\" }",
      "anyOf": [
       {
        "type": "array",
@@ -6040,7 +6035,6 @@
      "const": "Chart"
     },
     "data": {
-     "description": "A list of objects, or { \"@path\": \"/x\" }",
      "anyOf": [
       {
        "type": "array",
@@ -6092,7 +6086,7 @@
      ]
     },
     "series": {
-     "description": "The value fields: strings or { \"key\", \"label\"?, \"color\"? }. Default: every number field except xKey",
+     "description": "Default: every number field except xKey",
      "anyOf": [
       {
        "type": "array",
@@ -6225,7 +6219,7 @@
      ]
     },
     "yAxis": {
-     "description": "The value axis configuration object: {label?: string, min?: number, max?: number, width?: number}. Example: {label: \"Revenue (USD)\", min: 0, max: 100}. In horizontal charts, label, min and max apply to the horizontal value axis, and width sets the width of the category axis on the left.",
+     "description": "Example: {label: \"Revenue (USD)\", min: 0, max: 100}. In a horizontal chart it is the horizontal axis, and width sets the category axis width",
      "anyOf": [
       {
        "type": "object",
@@ -6482,7 +6476,7 @@
      ]
     },
     "format": {
-     "description": "Number formatting. With \"percent\", data values and axis min/max are fractions: 0.4 displays as 40%. For 0% to 10%, use min: 0 and max: 0.1.",
+     "description": "With \"percent\", data values and axis min/max are fractions: 0.4 shows as 40%; for 0% to 10%, use min: 0 and max: 0.1.",
      "anyOf": [
       {
        "type": "string",
@@ -6534,13 +6528,12 @@
   },
   "Map": {
    "type": "object",
-   "description": "A map with markers.",
+   "description": "A map with markers; with \"route\" a line connects them in order.",
    "properties": {
     "component": {
      "const": "Map"
     },
     "markers": {
-     "description": "A list of places, or { \"@path\": \"/x\" }",
      "anyOf": [
       {
        "type": "array",
@@ -7740,7 +7733,7 @@
   },
   "Video": {
    "type": "object",
-   "description": "A video player for a video file URL (with optional captions), or a YouTube link in privacy-enhanced mode: the poster shows first, and the player loads when the user presses play.",
+   "description": "A video file URL (optional captions) or a YouTube link, privacy-enhanced: the poster shows until play.",
    "properties": {
     "component": {
      "const": "Video"
@@ -7968,7 +7961,7 @@
   },
   "LinkCard": {
    "type": "object",
-   "description": "A preview card of a URL: the favicon and domain, the title, a description and a thumbnail.",
+   "description": "A preview of a URL: favicon and domain, title, description, thumbnail.",
    "properties": {
     "component": {
      "const": "LinkCard"
@@ -8070,7 +8063,7 @@
   },
   "Citation": {
    "type": "object",
-   "description": "An inline source marker ([1]) that shows the source on hover or click: the title, a snippet and a link.",
+   "description": "An inline source marker ([1]) showing title, snippet and link on hover or click.",
    "properties": {
     "component": {
      "const": "Citation"
@@ -8166,13 +8159,12 @@
   },
   "FollowUp": {
    "type": "object",
-   "description": "Suggested next prompts as pills.",
+   "description": "Suggested next prompts as pills; a click sends the pill's message as the user's next turn, no event needed.",
    "properties": {
     "component": {
      "const": "FollowUp"
     },
     "items": {
-     "description": "Strings or { \"label\", \"message\"? }, or { \"@path\": \"/x\" }",
      "anyOf": [
       {
        "type": "array",
@@ -8263,7 +8255,7 @@
   },
   "EntityCard": {
    "type": "object",
-   "description": "A card for one thing (a product, place, person or listing): an image, title, subtitle, description, a price or meta line, a badge, a rating and up to three buttons.",
+   "description": "A card for one product, place, person or listing: image, title, subtitle, description, a price or meta line, badge, rating and up to three buttons.",
    "properties": {
     "component": {
      "const": "EntityCard"
@@ -8567,7 +8559,6 @@
      "const": "ImageGrid"
     },
     "images": {
-     "description": "A list of { \"url\", \"description\"?, \"caption\"?, \"href\"? }, or { \"@path\": \"/x\" }",
      "anyOf": [
       {
        "type": "array",

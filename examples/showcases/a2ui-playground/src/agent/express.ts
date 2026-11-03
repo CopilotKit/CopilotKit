@@ -6,8 +6,9 @@
  * "$4.2M")`), and the SDK compiles it, against the catalog, into standard
  * A2UI 1.0 messages. It needs no tool calling, so any LLM can write it.
  *
- * SDK 0.1 reads each response incrementally. Blueprint frames are a
- * playground presentation of pending children and server-side macros.
+ * The SDK also compiles a reply while it streams (`openExpressStream`): each
+ * statement comes back as soon as it is complete, which is how an Express
+ * surface paints while the model is still writing.
  */
 import {
   A2uiGenerator,
@@ -16,21 +17,24 @@ import {
   ExpressFormatFactory,
   InMemoryCatalogProvider,
 } from "@a2ui/agent";
-import type { A2uiRequestProcessor, AgentToRendererMessage } from "@a2ui/agent";
-import { collectChildRefs, childIdsAtRefs } from "@copilotkit/shared";
+import type {
+  A2uiRequestProcessor,
+  AgentToRendererMessage,
+  StreamPart,
+  ResponseStream,
+} from "@a2ui/agent";
+import { childIdsAtRefs, collectChildRefs } from "@copilotkit/shared";
 import type { GenerativeUIManifest } from "@copilotkit/shared";
 import inference from "@/a2ui/export/inference-catalog.json";
 import type { Node } from "./surface";
 
 type Doc = typeof inference & { components: Record<string, unknown> };
 const doc = inference as Doc;
+// The SDK and published CopilotKit 1.84 both use canonical "1.0".
 const CAPS = { "1.0": { supportedCatalogIds: [doc.catalogId] } };
 
 let generators:
-  | {
-      main: A2uiGenerator;
-      decompiler: ExpressDecompiler;
-    }
+  | { main: A2uiGenerator; decompiler: ExpressDecompiler }
   | undefined;
 function sdk() {
   if (!generators) {
@@ -49,6 +53,22 @@ function sdk() {
 
 export const expressProcessor = (surfaceId: string): A2uiRequestProcessor =>
   sdk().main.createProcessor(CAPS, new ExpressFormatFactory({ surfaceId }));
+
+/**
+ * Compiles a reply as it streams: `feed` each chunk, then `close`. Each
+ * returns what it completed: `createSurface` once `root = ...` is written, then
+ * each statement's components and data. Rejected blocks return the SDK error
+ * alongside any completed parts; `close` also checks the finished tree.
+ */
+export const openExpressStream = (
+  surfaceId: string,
+): ResponseStream<StreamPart> =>
+  expressProcessor(surfaceId).openStream({ afterRejectedBlock: "continue" });
+
+/** The A2UI messages among parsed parts. */
+export const messagesOf = (parts: StreamPart[]): AgentToRendererMessage[] =>
+  parts.flatMap((p) => (p.type === "a2ui" ? p.a2ui : []));
+
 /** Components and data model after a list of compiled messages. */
 export function surfaceOf(messages: AgentToRendererMessage[]): {
   components: Node[];
@@ -85,67 +105,21 @@ export function surfaceOf(messages: AgentToRendererMessage[]): {
   return { components: [...byId.values()], data };
 }
 
-/** Compiles a whole response. Throws the SDK's error (with its message) when it does not compile. */
-export function compileExpress(reply: string, surfaceId: string) {
-  const parts = expressProcessor(surfaceId).parseResponse(reply);
-  const messages = parts.flatMap((p) => (p.type === "a2ui" ? p.a2ui : []));
-  if (!messages.length) throw new Error("The reply has no <a2ui> block.");
-  return { messages, ...surfaceOf(messages) };
-}
-
 /** The Express a list of 1.0 messages would be: what the same surface costs in Express. */
 export function toExpress(messages: AgentToRendererMessage[]): string {
   return sdk().decompiler.decompile(messages);
 }
 
-/* Code-pane line announcements only. Compilation uses the SDK stream. */
-
-/** Splits the inside of an `<a2ui>` block into complete statements (brackets closed, no open string). */
-export function completeStatements(text: string): {
-  statements: string[];
-  rest: string;
-} {
-  const start = text.indexOf("<a2ui>");
-  if (start < 0) return { statements: [], rest: "" };
-  const body = text.slice(start + 6).split("</a2ui>")[0];
-  const statements: string[] = [];
-  let depth = 0;
-  let quote: string | null = null;
-  let from = 0;
-  for (let i = 0; i < body.length; i++) {
-    const ch = body[i];
-    if (quote) {
-      if (ch === "\\") i++;
-      else if (body.startsWith(quote, i)) {
-        i += quote.length - 1;
-        quote = null;
-      }
-      continue;
-    }
-    if (ch === '"') quote = body.startsWith('"""', i) ? '"""' : '"';
-    else if ("([{".includes(ch)) depth++;
-    else if (")]}".includes(ch)) depth--;
-    else if (ch === "\n" && depth === 0) {
-      const s = body.slice(from, i).trim();
-      if (s && !s.startsWith("#")) statements.push(s);
-      from = i + 1;
-    }
-  }
-  return { statements, rest: body.slice(from) };
-}
-
-/** Add app-specific frames to SDK-compiled components, without recompiling the prefix. */
-export function previewComponents(
+/** Ids the components name as children that this streaming reply has not written yet. */
+export function pendingChildren(
   components: Node[],
-  known: Set<string>,
   manifest: GenerativeUIManifest,
-  isMacro: (name: string) => boolean,
-): Node[] {
-  for (const component of components) known.add(component.id);
+): string[] {
+  const written = new Set(components.map((component) => component.id));
   const pending = new Set<string>();
   for (const component of components) {
-    // The host manifest keeps literal child refs and slots before portable
-    // catalog export wraps every prop in binding/function alternatives.
+    // Literal host schemas retain nested refs before portable catalog export
+    // wraps properties in binding/function alternatives. Slots are separate.
     const entry = manifest.components[component.component];
     if (!entry) continue;
     const refs = [
@@ -156,24 +130,7 @@ export function previewComponents(
       })),
     ];
     for (const id of childIdsAtRefs(component, refs))
-      if (!known.has(id)) pending.add(id);
+      if (!written.has(id)) pending.add(id);
   }
-  return [
-    ...components.map((component) =>
-      isMacro(component.component)
-        ? {
-            id: component.id,
-            component: "Blueprint",
-            of: component.component,
-            state: "streaming",
-          }
-        : component,
-    ),
-    ...[...pending].map((id) => ({
-      id,
-      component: "Blueprint",
-      of: `#${id}`,
-      state: "pending",
-    })),
-  ];
+  return [...pending];
 }

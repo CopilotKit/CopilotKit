@@ -3,13 +3,14 @@
  *
  * Same job as `./composer.ts`, in the format Google's A2UI SDKs default to:
  * the model writes plain text, one statement per component, with no tool
- * call, so any model can do it (a local Gemma included). As each statement
- * arrives, the SDK incrementally compiles it and the surface paints; at
- * the end the whole reply is compiled by `@a2ui/agent`, macros expand, and
- * the result goes out as A2UI 1.0 operations like every other surface.
+ * call, so any model can do it (a local Gemma included). `@a2ui/agent`
+ * compiles the reply as it streams, and the surface paints as each statement
+ * completes; at the end macros expand, and the result goes out as A2UI 1.0
+ * operations like every other surface.
  *
  * A reply that does not compile gets one retry with the compiler's error.
  */
+import type { AgentToRendererMessage, StreamPart } from "@a2ui/agent";
 import { DESIGN_RULES } from "@/a2ui/catalog/instructions";
 import { macros } from "@/a2ui/macros/macros";
 import type { FlatNode } from "@/a2ui/macros/macro";
@@ -17,15 +18,17 @@ import { compose, composeUserMessage, payloadSizes } from "./composer";
 import type { ComposeInput, ComposeResult, PayloadStats } from "./composer";
 import { pipeline } from "./events";
 import {
-  compileExpress,
-  previewComponents,
-  completeStatements,
   expressProcessor,
+  messagesOf,
+  openExpressStream,
+  pendingChildren,
+  surfaceOf,
 } from "./express";
 import { geoBudget, geoPatch } from "./geo";
 import { stripDashes } from "./repair";
 import { SurfaceStream } from "./surface";
 import type { Node } from "./surface";
+import { splitStatements } from "@/lib/express-lines";
 import { COMPOSER_MAX_TOKENS, MAX_MACROS } from "@/lib/limits";
 
 function systemPrompt(snippet: string) {
@@ -86,32 +89,47 @@ export async function composeExpress(
     let firstTokenAt = 0;
     let done = 0;
     let painted = false;
-    const response = processor.openStream({ afterRejectedBlock: "continue" });
-    const known = new Set<string>();
-    let error: Error | undefined;
-    const paint = (parts: ReturnType<typeof response.feed>) => {
-      // Keep reading the model's reply for the code pane, then use the existing
-      // retry/JSON fallback flow for any block the SDK rejected.
-      for (const part of parts) if (part.type === "error") error ??= part.error;
-      if (!live) return;
-      const components = parts.flatMap((part) =>
-        part.type === "a2ui"
-          ? part.a2ui.flatMap((message) =>
-              "updateComponents" in message
-                ? message.updateComponents.components
-                : "createSurface" in message
-                  ? (message.createSurface.components ?? [])
-                  : [],
-            )
-          : [],
-      );
-      if (!components.length) return;
-      const frame = previewComponents(
-        components as Node[],
-        known,
-        input.manifest,
-        (name) => macros.isMacro(name),
-      );
+    // The SDK compiles the reply as it arrives. The first statement that does not compile ends the stream,
+    // and the surface stops painting there; `error` is what the retry tells the model.
+    const express = openExpressStream(surfaceId);
+    const parsed: AgentToRendererMessage[] = [];
+    let error: unknown;
+    const read = (parts: () => StreamPart[]) => {
+      if (error) return;
+      try {
+        const ready = parts();
+        const rejected = ready.find((part) => part.type === "error");
+        if (rejected?.type === "error") error = rejected.error;
+        const fresh = messagesOf(ready);
+        if (!fresh.length) return;
+        parsed.push(...fresh);
+        if (live) paint();
+      } catch (err) {
+        error = err;
+      }
+    };
+    // Components named but not written yet show as pending Blueprint frames, and macros (which expand on
+    // the server at the end) as frames of their own.
+    const paint = () => {
+      const { components } = surfaceOf(parsed);
+      const frame: Node[] = [
+        ...components.map((c) =>
+          macros.isMacro(c.component)
+            ? {
+                id: c.id,
+                component: "Blueprint",
+                of: c.component,
+                state: "streaming",
+              }
+            : c,
+        ),
+        ...pendingChildren(components, input.manifest).map((id) => ({
+          id,
+          component: "Blueprint",
+          of: `#${id}`,
+          state: "pending",
+        })),
+      ];
       send(...stripDashes(frame));
       if (!painted) {
         painted = true;
@@ -148,22 +166,32 @@ export async function composeExpress(
         pipeline(q, t0, "compose:first-token");
       }
       text += delta;
-      paint(response.feed(delta));
-      if (!delta.includes("\n")) continue;
-      const { statements } = completeStatements(text);
-      if (statements.length === done) continue;
-      announce(statements);
+      read(() => express.feed(delta));
+      if (delta.includes("\n") && text.includes("<a2ui>"))
+        announce(splitStatements(text, false));
     }
-    paint(response.close());
+    // Closing an incomplete SDK block is a retryable error, even if its
+    // prefix could compile; do not silently finalize a truncated reply.
+    read(() => express.close());
+    // The retry quotes the error to the model, and the stream can number a syntax error's line wrongly (in 0.1.0 it
+    // depends on where the chunks split), so the error comes from compiling the whole reply when that fails too.
+    if (error)
+      try {
+        expressProcessor(surfaceId).parseResponse(text);
+      } catch (err) {
+        error = err;
+      }
+    if (!error && !parsed.length)
+      error = new Error("The reply has no <a2ui> block.");
     // The last statement can end at </a2ui> with no newline after it.
-    const { statements, rest } = completeStatements(text);
-    const tail = rest.trim();
-    announce(
-      text.includes("</a2ui>") && tail && !tail.startsWith("#")
-        ? [...statements, tail]
-        : statements,
-    );
-    return { text, firstTokenAt, error };
+    if (text.includes("<a2ui>"))
+      announce(splitStatements(text, text.includes("</a2ui>")));
+    return { text, firstTokenAt, parsed, error };
+  };
+  /** The reply's components and data. Throws the compiler's error when it did not compile. */
+  const resultOf = (reply: Awaited<ReturnType<typeof write>>) => {
+    if (reply.error) throw reply.error;
+    return surfaceOf(reply.parsed);
   };
 
   const conversation: Array<{
@@ -174,10 +202,9 @@ export async function composeExpress(
     { role: "user", content: user },
   ];
   let reply = await write(conversation, progressive);
-  let compiled: ReturnType<typeof compileExpress>;
+  let compiled: ReturnType<typeof resultOf>;
   try {
-    if (reply.error) throw reply.error;
-    compiled = compileExpress(reply.text, surfaceId);
+    compiled = resultOf(reply);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     pipeline(q, t0, "validate", {
@@ -195,8 +222,7 @@ export async function composeExpress(
     );
     reply = await write(conversation, false);
     try {
-      if (reply.error) throw reply.error;
-      compiled = compileExpress(reply.text, surfaceId);
+      compiled = resultOf(reply);
     } catch (retryErr) {
       if (input.noFallback) throw retryErr;
       // Still no compile: write the same surface as JSON, whose repair step fixes prop types the Express compiler rejects.

@@ -1,5 +1,5 @@
 /*
- * The workbench in small frames: a short window, a landscape phone, or an iframe from 360 to 800px square on
+ * The workbench in small frames: a short window, a landscape phone, or an iframe from 320 to 800px square on
  * CopilotKit's site and docs. The answer is what a visitor came to see, so the chrome around it shrinks.
  *
  * Unlayered, so these rules win over the Tailwind utilities on the same elements. Everything is scoped to
@@ -8,7 +8,7 @@
  * Keep the query in step with COMPACT in composer.tsx:
  *   - any window 700px tall or less (landscape phones, short laptops, wide embeds), and
  *   - a single column (under 900px) up to 860px tall that is not a portrait phone (3:4 or wider), which
- *     covers every square embed from 360 to 800 and leaves a 375x812 phone as it was.
+ *     covers every square embed from 320 to 800 and leaves a 375x812 phone as it was.
  */
 
 /* ───────────────────────── the side panel, collapsed (900px and up) ───────────────────────── */
@@ -73,6 +73,20 @@
   }
   .wb-page [data-wb-hero][data-started] {
     padding: 12px 0 0;
+  }
+  /* Before anything is on screen (the replay's prompt still typing), the title stands in the middle of the
+     empty thread at its full small-screen size, instead of at the top edge over a blank frame. */
+  .wb-page [data-thread] > div {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+  }
+  .wb-page [data-wb-hero]:not([data-started]) {
+    margin-block: auto;
+    text-align: center;
+  }
+  .wb-page [data-wb-hero]:not([data-started]) h1 {
+    font-size: 25px;
   }
 
   /* The conversation: tighter turns, prompt bubbles and floors. */
@@ -177,6 +191,12 @@
     clip-path: inset(50%);
     white-space: nowrap;
   }
+  /* An embed keeps one picker, the design system, so the row fits without scrolling and nothing reads
+     as cut off (480px tall or less, it folds away: see the end of this block). The model and the format stay in the full playground, one link away. */
+  .wb-page[data-embed] [data-model-picker],
+  .wb-page[data-embed] [data-format-picker] {
+    display: none;
+  }
   /* "Start without AI" moves from its own line into the picker row. */
   .wb-page [data-wb-no-ai-line] {
     display: none;
@@ -199,6 +219,38 @@
       overflow: hidden;
       clip-path: inset(50%);
       white-space: nowrap;
+    }
+  }
+
+  /* The smallest embeds (480px tall or less, a 320 to 480 square on a phone or in a docs column): the answer
+     needs every row it can get. The suggestions go (the placeholder still suggests one) and the prompt is one
+     line with Build beside it. The design system and "start without AI" are in the full playground, and
+     `?ds=` still picks the design system for the frame. */
+  @media (max-height: 480px) {
+    .wb-page[data-embed] [data-wb-chips-wrap],
+    .wb-page[data-embed] [data-wb-pickers],
+    .wb-page[data-embed] [data-new-chat] {
+      display: none;
+    }
+    .wb-page[data-embed] .wb-prompt {
+      display: flex;
+      align-items: flex-end;
+    }
+    .wb-page[data-embed] #wb-prompt {
+      flex: 1;
+      min-width: 0;
+      min-height: 48px;
+      padding-top: 12px;
+      padding-bottom: 12px;
+    }
+    @supports not (field-sizing: content) {
+      .wb-page[data-embed] #wb-prompt {
+        height: 48px;
+      }
+    }
+    .wb-page[data-embed] [data-wb-controls] {
+      flex: none;
+      padding: 6px;
     }
   }
 

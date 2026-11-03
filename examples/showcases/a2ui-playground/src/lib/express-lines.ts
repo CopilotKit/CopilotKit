@@ -5,8 +5,11 @@
  * and on the server.
  */
 
-/** Splits Express (with or without its `<a2ui>` tags) into statements: brackets closed, no open string, comments left out. */
-export function splitStatements(text: string): string[] {
+/**
+ * Splits Express (with or without its `<a2ui>` tags) into statements: brackets closed, no open string, comments left out.
+ * With `withTail` false, the text after the last line break is left out, since a reply still streaming may not have finished it.
+ */
+export function splitStatements(text: string, withTail = true): string[] {
   const start = text.indexOf("<a2ui>");
   const body = (start >= 0 ? text.slice(start + 6) : text).split("</a2ui>")[0];
   const out: string[] = [];
@@ -35,7 +38,7 @@ export function splitStatements(text: string): string[] {
       from = i + 1;
     }
   }
-  push(body.slice(from));
+  if (withTail) push(body.slice(from));
   return out;
 }
 

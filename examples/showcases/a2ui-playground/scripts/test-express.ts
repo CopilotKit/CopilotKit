@@ -1,11 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  compileExpress,
-  expressProcessor,
-  surfaceOf,
-  toExpress,
-} from "../src/agent/express";
+import { expressProcessor, surfaceOf, toExpress } from "../src/agent/express";
+
+import { compileExpress } from "./lib-express-test";
 
 const reply =
   '<a2ui>\nroot = Column([hello])\nhello = Text("Hello world")\n</a2ui>';

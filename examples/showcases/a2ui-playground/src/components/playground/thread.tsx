@@ -8,8 +8,8 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type RefObject,
 } from "react";
+import type { RefObject } from "react";
 import type { ActivityMessage } from "@ag-ui/client";
 import { useAgent, useRenderActivityMessage } from "@copilotkit/react-core/v2";
 import { GENERATIVE_UI_ACTIVITY_TYPE } from "@copilotkit/shared";
@@ -25,17 +25,15 @@ import { useSend } from "@/components/app/use-send";
 import { useUIGeneration } from "@/components/app/use-ui-generation";
 import { modelLabel } from "@/lib/model-options";
 import { nodeElements, nodeRect } from "@/lib/node-rects";
-import {
-  latestComponents,
-  useRunStore,
-  type A2UIOp,
-  type RunRecord,
-} from "@/lib/run-store";
+import { latestComponents, useRunStore } from "@/lib/run-store";
+import type { A2UIOp, RunRecord } from "@/lib/run-store";
 import { cn } from "@/lib/utils";
-import { focusRing } from "./composer";
-import { activeId, runStatus, useLink, type LineFormat } from "./lines";
+import { COMPACT, focusRing } from "./composer";
+import { activeId, runStatus, useLink } from "./lines";
+import type { LineFormat } from "./lines";
 import type { Replay } from "./replay";
-import { runOf, type Turn } from "./turns";
+import { runOf } from "./turns";
+import type { Turn } from "./turns";
 
 const reducedMotion = () =>
   typeof matchMedia === "function" &&
@@ -619,6 +617,7 @@ function ReplayTurn({
   last: boolean;
 }) {
   const floor = useRef<HTMLDivElement>(null);
+  useChartInView(scroller, floor, replay.status === "playing", replay.runKey);
   return (
     <li
       data-turn="replay"
@@ -685,6 +684,89 @@ function ReplayTurn({
       </div>
     </li>
   );
+}
+
+/**
+ * In a small frame (a square embed, a short window) the recorded answer is several screens tall, and its chart
+ * lands out of sight below the numbers. When the first chart arrives, the view eases down to show it whole and
+ * stays there, so the frame rests on the most visual part of the answer. It scrolls the thread itself, never
+ * with scrollIntoView, which would also scroll the page an embed sits in. Once the visitor scrolls, or stops
+ * the replay by typing, the view is theirs.
+ */
+function useChartInView(
+  scroller: RefObject<HTMLDivElement | null>,
+  floor: RefObject<HTMLDivElement | null>,
+  playing: boolean,
+  runKey: string,
+) {
+  const live = useRef(playing);
+  live.current = playing;
+  useEffect(() => {
+    const el = scroller.current;
+    const host = floor.current;
+    if (!el || !host || !live.current || !matchMedia(COMPACT).matches) return;
+    let taken = false;
+    let timer = 0;
+    const take = () => {
+      taken = true;
+    };
+    const keys = (e: KeyboardEvent) => {
+      if (/^(Arrow(Up|Down)|Page(Up|Down)|Home|End| )$/.test(e.key))
+        taken = true;
+    };
+    const show = () => {
+      const chart = host.querySelector<HTMLElement>("figure.a2-chart");
+      if (taken || !live.current || !chart) return;
+      const view = el.getBoundingClientRect();
+      const box = chart.getBoundingClientRect();
+      if (box.top >= view.top && box.bottom <= view.bottom) return;
+      const gap = 16;
+      const at = (e: Element) =>
+        e.getBoundingClientRect().top - view.top + el.scrollTop;
+      const top = at(chart);
+      // Whole, with what comes before it above when there is room, the view starting at a heading or a card
+      // rather than through a line of text. A chart taller than the view shows its plot, down to the axis:
+      // from just under its caption (in the gap before the plot) when the plot fits, else as much as fits.
+      const from = top + box.height + gap - view.height;
+      const caption = chart.querySelector(":scope > figcaption");
+      const plot = caption
+        ? at(caption) + caption.getBoundingClientRect().height
+        : top;
+      const to =
+        box.height + gap * 2 <= view.height
+          ? Math.max(
+              from,
+              Math.min(
+                top,
+                ...[...host.querySelectorAll("h1, h2, h3, h4, .a2-card")]
+                  .map(at)
+                  .filter((t) => t >= from),
+              ) - gap,
+            )
+          : Math.max(from, plot + 4);
+      el.scrollTo({
+        top: Math.max(0, to),
+        behavior: reducedMotion() ? "auto" : "smooth",
+      });
+    };
+    // Wait for the chart's card to reach its height before measuring it.
+    const mo = new MutationObserver(() => {
+      if (!host.querySelector("figure.a2-chart")) return;
+      mo.disconnect();
+      timer = window.setTimeout(show, 350);
+    });
+    mo.observe(host, { childList: true, subtree: true });
+    el.addEventListener("wheel", take, { passive: true });
+    el.addEventListener("touchmove", take, { passive: true });
+    el.addEventListener("keydown", keys);
+    return () => {
+      mo.disconnect();
+      clearTimeout(timer);
+      el.removeEventListener("wheel", take);
+      el.removeEventListener("touchmove", take);
+      el.removeEventListener("keydown", keys);
+    };
+  }, [scroller, floor, runKey]);
 }
 
 /* ───────────────────────── line -> component ───────────────────────── */

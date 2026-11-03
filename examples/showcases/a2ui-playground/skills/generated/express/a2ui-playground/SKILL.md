@@ -51,7 +51,7 @@ Use these exact positional signatures to instantiate components. Do not output p
   - wrap: Must be one of: 'nowrap', 'wrap', 'wrap-reverse'
   - gap: 4px steps when a number
 • Button(label?, onClick? (static), text?, variant?, block?, disabled?, loading?, submit?, icon?, href?, copy?, child? (component ID), children?, color?, size?)
-  - Description: A button that sends its onClick event.
+  - Description: Sends its onClick event; with href it opens the URL, with copy it copies the text.
   - label: The button text
   - onClick: Sent when the user clicks the button.
   - text: Same as label. Used when label is not set
@@ -79,7 +79,7 @@ Use these exact positional signatures to instantiate components. Do not output p
   - fontWeight: Default "normal" Must be one of: 'normal', 'medium', 'semibold', 'bold'
   - textAlign: Must be one of: 'start', 'center', 'end'
 • Card(children?, child? (component ID), variant?, onVisible? (static), align?, justify?, wrap?, gap?, size?)
-  - Description: A bordered, padded container, only for an interactive panel (controls, a form, a configurator).
+  - Description: A bordered panel, only for an interactive panel (controls, a form, a configurator); tables, charts and text need none.
   - variant: Must be one of: 'default', 'outline', 'section', 'soft', 'elevated', 'transparent'
   - onVisible: Sent once, the first time the container scrolls into view. Use it to load more content lazily.
   - align: Must be one of: 'start', 'center', 'end', 'baseline', 'stretch'
@@ -88,7 +88,7 @@ Use these exact positional signatures to instantiate components. Do not output p
   - gap: 4px steps when a number
   - size: The padding preset: 8, 16 or 24px. Default "md" Must be one of: 'sm', 'md', 'lg'
 • Carousel(children?, activeIndex?, label?, visibleItems?, showArrows?, previousLabel?, nextLabel?, snap?, snapAlign?, onVisible? (static), align?, justify?, wrap?, gap?)
-  - Description: A row that scrolls horizontally and snaps to its slides, with previous and next arrows.
+  - Description: A horizontally scrolling row that snaps to its CarouselItem or CarouselMediaItem children, with arrows.
   - activeIndex: The index of the slide in view. Bind it with { "@path": "/x" } to read or set it
   - label: A short name of the carousel for screen readers
   - showArrows: Default true
@@ -109,7 +109,7 @@ Use these exact positional signatures to instantiate components. Do not output p
   - wrap: Must be one of: 'nowrap', 'wrap', 'wrap-reverse'
   - gap: 4px steps when a number
 • CarouselMediaItem(url, children?, onClick? (static), description?, href?, lightbox?, onVisible? (static), align?, justify?, wrap?, gap?, size?)
-  - Description: A slide of a Carousel with an image on top and its children (a Caption, a Text) under it.
+  - Description: A Carousel slide: an image with its children (a Caption, a Text) under it.
   - url: Image URL
   - onClick: Sent when the user clicks the image. It replaces the full-screen view.
   - description: What the image shows, for screen readers
@@ -123,12 +123,11 @@ Use these exact positional signatures to instantiate components. Do not output p
   - size: The width: "sm" 160px, "md" 240px, "lg" 320px. Default "md" Must be one of: 'sm', 'md', 'lg'
 • Chart(data?, xKey?, series?, chartType?, stacked?, layout?, yAxis?, showDots?, barRadius?, innerRadius?, outerRadius?, startAngle?, endAngle?, cornerRadius?, paddingAngle?, showLabelLines?, showLegend?, showGrid?, showTooltip?, showValueLabels?, format?, currency?, title?)
   - Description: A bar, line, area, scatter, pie or donut chart.
-  - data: A list of objects, or { "@path": "/x" }
   - xKey: The field of the category axis
-  - series: The value fields: strings or { "key", "label"?, "color"? }. Default: every number field except xKey
+  - series: Default: every number field except xKey
   - chartType: Default "bar" Must be one of: 'bar', 'line', 'area', 'scatter', 'pie', 'donut'
   - layout: "horizontal" draws the bars from left to right. Default "vertical" Must be one of: 'vertical', 'horizontal'
-  - yAxis: The value axis configuration object: {label?: string, min?: number, max?: number, width?: number}. Example: {label: "Revenue (USD)", min: 0, max: 100}. In horizontal charts, label, min and max apply to the horizontal value axis, and width sets the width of the category axis on the left.
+  - yAxis: Example: {label: "Revenue (USD)", min: 0, max: 100}. In a horizontal chart it is the horizontal axis, and width sets the category axis width
   - showDots: Point markers on a line or area
   - barRadius: The corner radius of a bar, in pixels
   - innerRadius: Pie and donut
@@ -141,7 +140,7 @@ Use these exact positional signatures to instantiate components. Do not output p
   - showLegend: Default true
   - showGrid: Default true
   - showTooltip: Default true
-  - format: Number formatting. With "percent", data values and axis min/max are fractions: 0.4 displays as 40%. For 0% to 10%, use min: 0 and max: 0.1. Must be one of: 'number', 'currency', 'percent'
+  - format: With "percent", data values and axis min/max are fractions: 0.4 shows as 40%; for 0% to 10%, use min: 0 and max: 0.1. Must be one of: 'number', 'currency', 'percent'
   - currency: ISO code. Default "USD"
 • CheckBox(label?, value?, disabled?, required?, shape?)
   - Description: A checkbox with a label.
@@ -151,15 +150,14 @@ Use these exact positional signatures to instantiate components. Do not output p
 • ChipSelect(label?, value?, options)
   - Description: Multi-select chips bound to a string-list path: extras, interests, dietary needs.
 • ChoicePicker(label?, options?, value?, variant?, displayStyle?, filterable?, disabled?, required?)
-  - Description: A list of options, as checkboxes or chips.
+  - Description: Options as checkboxes or chips: pick one, or several with variant "multipleSelection".
   - label: The visible label of the field. Always set it
-  - options: Strings or { "value", "label", "description"? }
   - value: The chosen option values. Bind it with { "@path": "/x" } to a string list
   - variant: Default "mutuallyExclusive": the user picks one option Must be one of: 'multipleSelection', 'mutuallyExclusive'
   - displayStyle: Default "checkbox". "chips" shows the options as pills Must be one of: 'checkbox', 'chips'
   - filterable: Default false. Shows a field that filters the options
 • Citation(index?, title?, url?, label?, snippet?, source?)
-  - Description: An inline source marker ([1]) that shows the source on hover or click: the title, a snippet and a link.
+  - Description: An inline source marker ([1]) showing title, snippet and link on hover or click.
   - index: The marker number. Default 1
   - title: The source title
   - url: The source URL (http, https)
@@ -187,7 +185,7 @@ Use these exact positional signatures to instantiate components. Do not output p
 • DatePicker(label?, value?, placeholder?)
   - Description: Date picker with calendar popover; value ISO date bound to a path.
 • DateTimeInput(label?, value?, enableDate?, enableTime?, timeStep?, min?, max?, placeholder?, disabled?, required?, clearable?, block?)
-  - Description: A date picker, or a time picker with enableTime, or both.
+  - Description: A date picker, a time picker with enableTime, or both.
   - label: The visible label of the field. Always set it
   - value: ISO 8601: "YYYY-MM-DD", "HH:MM" or "YYYY-MM-DDTHH:MM". Bind it with { "@path": "/x" }
   - enableDate: The user picks a date. Default true unless only enableTime is set
@@ -204,7 +202,7 @@ Use these exact positional signatures to instantiate components. Do not output p
   - Description: Empty or zero-results state with icon, title, hint and optional action: no matches, nothing scheduled, inbox zero.
   - onAction: Fires when the action button is clicked.
 • EntityCard(title, actions?, onAction? (static), onClick? (static), subtitle?, description?, image?, imageAspectRatio?, meta?, badge?, rating?, ratingCount?, href?, layout?)
-  - Description: A card for one thing (a product, place, person or listing): an image, title, subtitle, description, a price or meta line, a badge, a rating and up to three buttons.
+  - Description: A card for one product, place, person or listing: image, title, subtitle, description, a price or meta line, badge, rating and up to three buttons.
   - title: The name
   - actions: Up to three buttons. A button without href sends onAction with its label
   - onAction: Sent when the user clicks a button without href. The args carry the label of the button.
@@ -249,8 +247,7 @@ Use these exact positional signatures to instantiate components. Do not output p
   - wrap: Must be one of: 'nowrap', 'wrap', 'wrap-reverse'
   - gap: 4px steps when a number
 • FollowUp(items?, onFollowUp? (static), title?)
-  - Description: Suggested next prompts as pills.
-  - items: Strings or { "label", "message"? }, or { "@path": "/x" }
+  - Description: Suggested next prompts as pills; a click sends the pill's message as the user's next turn, no event needed.
   - onFollowUp: Sent when the user clicks a pill. The args carry the message of the pill.
   - title: A caption above the pills
 • Form(children?, onSubmit? (static), label?, align?, justify?, wrap?, gap?)
@@ -305,7 +302,6 @@ Use these exact positional signatures to instantiate components. Do not output p
   - Description: Grid of images with captions.
 • ImageGrid(images?, columns?, layout?, gap?)
   - Description: A gallery of images in a grid.
-  - images: A list of { "url", "description"?, "caption"?, "href"? }, or { "@path": "/x" }
   - columns: Default 3
   - layout: Default "grid". "bento" makes the first image twice as large Must be one of: 'grid', 'bento'
   - gap: Default 2
@@ -330,7 +326,7 @@ Use these exact positional signatures to instantiate components. Do not output p
   - text: Link text
   - href: URL
 • LinkCard(href, title, onClick? (static), description?, image?, domain?, favicon?)
-  - Description: A preview card of a URL: the favicon and domain, the title, a description and a thumbnail.
+  - Description: A preview of a URL: favicon and domain, title, description, thumbnail.
   - href: The URL (http, https)
   - title: The page title
   - onClick: Sent when the user clicks the card, instead of the link.
@@ -339,8 +335,7 @@ Use these exact positional signatures to instantiate components. Do not output p
   - domain: Shown next to the favicon. Default: the host of href
   - favicon: Default true
 • List(items?, children?, action? (static), direction?, marker?, connector?, start?, maxMarkerSize?, align?, gap?)
-  - Description: A list in a Card or next to another component.
-  - items: Strings or { "label", "value"?, "description"?, "icon"? }, or { "@path": "/x" }
+  - Description: A list in a Card or next to another component; a plain list of text is markdown.
   - action: Runs when the user picks an item. The args are the index, label and value of the item.
   - direction: Default "vertical". "horizontal" scrolls sideways Must be one of: 'vertical', 'horizontal'
   - marker: Default "bullet" Must be one of: 'bullet', 'number', 'rich', 'none'
@@ -359,8 +354,7 @@ Use these exact positional signatures to instantiate components. Do not output p
 • LocationCard(name, address?, lat, lon, category?, rating?, hours?)
   - Description: Single place (venue, hotel, office): mini map, name, address, category, rating, actions. Use instead of MapView for one place.
 • Map(markers?, selected?, route?, zoom?, center?)
-  - Description: A map with markers.
-  - markers: A list of places, or { "@path": "/x" }
+  - Description: A map with markers; with "route" a line connects them in order.
   - selected: The label of the selected marker. Bind it with { "@path": "/x" } to read the choice of the user
   - route: Draws a line through the markers in order
   - zoom: With two or more markers, only the highest zoom of the fit
@@ -385,7 +379,7 @@ Use these exact positional signatures to instantiate components. Do not output p
   - Description: Split view: ranked list of places linked to a map; hovering/clicking a row highlights its marker. selected (row index) starts with that row highlighted.
   - basemap: Must be one of: 'dark', 'streets', 'liberty'
 • Popover(children?, open?, showOnHover?, hoverOpenDelay?)
-  - Description: A small overlay next to a trigger.
+  - Description: A small overlay: exactly two children, one PopoverTrigger then one PopoverContent.
   - open: Default false
   - hoverOpenDelay: Milliseconds before a hover opens it. Default 0
 • PopoverContent(children?, side?, sideOffset?, align?)
@@ -437,7 +431,6 @@ Use these exact positional signatures to instantiate components. Do not output p
 • RadioGroup(label?, options?, value?, direction?, variant?, disabled?, required?)
   - Description: A group of radio buttons.
   - label: The visible label of the field. Always set it
-  - options: Strings or { "value", "label", "description"? }
   - value: Bind it with { "@path": "/x" } to read what the user entered
   - direction: Default "row" Must be one of: 'row', 'col'
   - variant: Must be one of: 'list', 'pills', 'cards'
@@ -467,7 +460,6 @@ Use these exact positional signatures to instantiate components. Do not output p
 • SegmentedControl(label?, options?, value?, block?, variant?, disabled?, size?)
   - Description: A row of segments.
   - label: The visible label of the field. Always set it
-  - options: Strings or { "value", "label", "description"? }
   - value: Bind it with { "@path": "/x" } to read what the user entered
   - block: Full width
   - variant: Default "ghost" Must be one of: 'solid', 'soft', 'outline', 'ghost'
@@ -475,7 +467,6 @@ Use these exact positional signatures to instantiate components. Do not output p
 • Select(label?, options?, value?, placeholder?, required?, disabled?, clearable?, clearLabel?, searchable?, icon?, block?, size?)
   - Description: A dropdown list of options.
   - label: The visible label of the field. Always set it
-  - options: Strings or { "value", "label", "description"? }
   - value: Bind it with { "@path": "/x" } to read what the user entered
   - clearLabel: The label of the empty option
   - icon: Lucide icon shown before the value
@@ -525,9 +516,9 @@ Use these exact positional signatures to instantiate components. Do not output p
 • Switch(label, value?, description?)
   - Description: On/off toggle with label and description.
 • Table(columns?, rows?, children?, caption?, columnSizing?, dividers?, stickyHeader?, emptyLabel?, cellComponents?)
-  - Description: A data table.
-  - columns: Strings, { "label", "align"?, "width"?, "componentId"? } or { "componentId" }, or { "@path": "/x" }. Default []
-  - rows: A list of row lists, or { "@path": "/x" }. A cell is a string, a number, or { "componentId": "<id>" } to show a component. Default []
+  - Description: A data table, in a plain Column, not a Card.
+  - columns: Default []
+  - rows: A list of row lists. A cell is a string, a number, or { "componentId": "<id>" } to show a component. Default []
   - caption: A short name of the table for screen readers. It is not shown
   - columnSizing: Default "auto" Must be one of: 'auto', 'equal'
   - dividers: Default true
@@ -552,7 +543,7 @@ Use these exact positional signatures to instantiate components. Do not output p
   - Description: Wrapping list of tags/chips.
   - tone: Must be one of: 'default', 'positive', 'negative', 'warning', 'info', 'accent'
 • Text(text?, children?, color?, fontWeight?, textAlign?, tabularNums?, size?, strong?)
-  - Description: Body text inside a Card or next to another component.
+  - Description: Body text in a Card or next to another component; a paragraph alone is markdown outside the fence.
   - text: Text with inline markdown. A bound number shows as text
   - color: One of default|prose|primary|emphasis|secondary|tertiary|success|info|warning|caution|danger|discovery or a CSS color
   - fontWeight: Must be one of: 'normal', 'medium', 'semibold', 'bold'
@@ -574,7 +565,7 @@ Use these exact positional signatures to instantiate components. Do not output p
 • Timeline(items)
   - Description: Vertical timeline of dated events or steps with status.
 • Title(text, color?, fontWeight?, textAlign?, tabularNums?, size?, strong?)
-  - Description: A heading inside a Card or next to another component.
+  - Description: A heading in a Card or next to another component; a heading alone is markdown.
   - text: Heading text
   - color: One of default|prose|primary|emphasis|secondary|tertiary|success|info|warning|caution|danger|discovery or a CSS color
   - fontWeight: Must be one of: 'normal', 'medium', 'semibold', 'bold'
@@ -582,14 +573,14 @@ Use these exact positional signatures to instantiate components. Do not output p
   - size: Default "md" Must be one of: 'sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl'
   - strong: Default true
 • Tooltip(trigger? (component ID), content? (component ID))
-  - Description: Shows `content` when the user points at `trigger` or moves keyboard focus to it.
+  - Description: Shows `content` when the user points at or focuses `trigger`.
 • Treemap(title?, subtitle?, height?, format?, unit?, data)
   - Description: Nested part-to-whole as rectangles. data [{name,value,group?}].
   - format: Must be one of: 'number', 'currency', 'percent', 'compact'
 • Underline(text)
   - Description: Underlined inline text.
 • Video(url, title?, captions?, posterUrl?)
-  - Description: A video player for a video file URL (with optional captions), or a YouTube link in privacy-enhanced mode: the poster shows first, and the player loads when the user presses play.
+  - Description: A video file URL (optional captions) or a YouTube link, privacy-enhanced: the poster shows until play.
   - url: The URL of a video file, or of a YouTube video or short. A page on another video site shows as a link
   - title: Names the video for screen readers
   - captions: Caption tracks of a video file

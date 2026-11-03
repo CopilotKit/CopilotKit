@@ -42,7 +42,7 @@ node scripts/record-replay.mjs dynamic "<prompt>"     # re-record the first-visi
 
 1. **The browser sends its catalog.** `src/a2ui/catalog/catalog.ts` builds it with `createGenerativeUI({ id, extends: [standardUI], components })`, and every run carries it in the generative UI envelope.
 2. **The agent picks a path** (`src/agent/agent.ts`): a pre-built template filled with real data (Open-Meteo, OpenStreetMap, OSRM, Frankfurter), or `generate_a2ui`, which hands a brief to a composer sub-agent.
-3. **The composer writes the surface** in Express (`src/agent/compose-express.ts`) or JSON (`src/agent/composer.ts`). Each finished line is compiled and sent at once, so the UI paints while the model is still writing; components it has named but not finished show as dotted frames.
+3. **The composer writes the surface** in Express (`src/agent/compose-express.ts`) or JSON (`src/agent/composer.ts`). Each finished line is compiled and sent at once, so the UI paints while the model is still writing; components it has named but not finished show as dotted frames. Express compiles as it streams with `@a2ui/agent`'s `openStream()`.
 4. **Macros expand on the server** (`src/a2ui/macros/`), and map markers are geocoded by name.
 5. **CopilotKit validates and renders** every operation in the browser with your components. A click on a surface goes back to the agent as an A2UI action, and a follow-up updates the surface in place.
 
