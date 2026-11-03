@@ -112,6 +112,15 @@ export type {
   ɵThreadSelectionInput,
 } from "./thread-switch";
 
+// Message list (internal)
+export {
+  ɵcreateMessageViewModel,
+  ɵduplicateMessagesWarning,
+  ɵMessageViewModel,
+  ɵshouldShowMessageCursor,
+} from "./message-view";
+export type { ɵMessageViewInput } from "./message-view";
+
 // Chat input (internal)
 export { ɵcomposerButtonState, ɵresolveComposerKey } from "./composer";
 export type {
