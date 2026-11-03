@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Material: the catalog drawn with Material 3 Expressive (`@language-lit/material3-expressive`), in a light
- * Material color scheme generated from one seed, dark under the dark theme (design-systems.css). Its stylesheet and Roboto Flex load
+ * Material: the catalog drawn with Material 3 Expressive (`@language-lit/material3-expressive`), in Google's
+ * own Material 3 color scheme, light or dark with the page (design-systems.css). Its stylesheet and Roboto Flex load
  * the first time Material is picked (`./material-assets`). As with the others, only leaves are swapped:
  * containers keep their implementation and take Material's colors and corners from the theme, so
  * switching never remounts what is inside them.
@@ -224,14 +224,17 @@ export const materialOwn: Partial<RendererMap<Own>> = {
   ),
   Heading: ({ props }) => (
     <header className="md-heading">
-      {props.eyebrow ? (
-        <Text variant="labelLarge" className="md-eyebrow">
-          {props.eyebrow}
+      {/* Material's type scale has no overline: the context follows the title, as a Section's does. */}
+      <div className="md-row md-heading-line">
+        <Text as="h2" variant={HEADING[props.level ?? "2"] ?? "headlineSmall"}>
+          {props.text}
         </Text>
-      ) : null}
-      <Text as="h2" variant={HEADING[props.level ?? "2"] ?? "headlineSmall"}>
-        {props.text}
-      </Text>
+        {props.eyebrow ? (
+          <Text variant="labelLarge" className="md-muted">
+            {props.eyebrow}
+          </Text>
+        ) : null}
+      </div>
       {props.subtitle ? (
         <Text as="p" variant="bodyMedium" className="md-muted">
           {props.subtitle}

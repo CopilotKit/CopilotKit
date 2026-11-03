@@ -135,7 +135,7 @@ const SWATCH: Record<DesignSystemId, string> = {
   // shadcn's primary: near-black on light, near-white on dark.
   chatcn: "bg-[oklch(0.205_0_0)] dark:bg-[oklch(0.922_0_0)]",
   // Material's primary, in Material's own shape: the only round swatch.
-  material: "rounded-full bg-[#495d92] dark:bg-[#b2c5ff]",
+  material: "rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa]",
   byoc: "bg-[#0b5cff]",
 };
 
