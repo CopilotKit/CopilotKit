@@ -311,8 +311,9 @@ function todoLines(name: string, entry: V1Export | undefined): string[] {
  *   API, and get a TODO comment otherwise;
  * - `CopilotKit` becomes `CopilotKitProvider`, and the v1-only props of
  *   `<CopilotKit>` are renamed or marked;
- * - Streamdown props on the `markdownRenderer` slot are marked, and calls of
- *   the removed Vue `useKatexStyles` are deleted;
+ * - Streamdown props on the `markdownRenderer` slot are marked, calls of the
+ *   removed Vue `useKatexStyles` are deleted, and imports of the markdown AST
+ *   types are marked;
  * - reads of the removed `runtime.licenseChecker` are marked;
  * - 1.x deprecations that 2.0 removed are renamed to their replacement, or
  *   marked when the replacement has a different API.
@@ -541,6 +542,7 @@ const codemod: Codemod<Lang> = async (root, options) => {
   const jsx = !/\.[mc]?ts$/.test(root.filename());
   edits.push(...markdownRendererEdits(rootNode, source, jsx));
   edits.push(...katexEdits(rootNode, source));
+  edits.push(...markdownAstEdits(rootNode, source));
   edits.push(...licenseCheckerEdits(rootNode, source));
 
   const migratedPaths =
@@ -759,6 +761,48 @@ function katexEdits(rootNode: Node, source: string): Edit[] {
       edits.push(deleteLine(call, source));
   }
   return edits;
+}
+
+const MARKDOWN_AST_SOURCES = [
+  "@copilotkit/markdown",
+  "@copilotkit/markdown/react",
+  "@copilotkit/markdown/vue",
+];
+
+/**
+ * Types whose unions grew in 2.0, so an exhaustive `switch` or a map keyed by
+ * every member stops type-checking.
+ */
+const MARKDOWN_AST_TYPES = new Set([
+  "StreamingMarkdownAstNode",
+  "StreamingMarkdownNodeType",
+  "StreamingMarkdownNodeRendererKey",
+  "VueStreamingMarkdownNodeRendererKey",
+]);
+
+const MARKDOWN_AST_NOTE = `The \`@copilotkit/markdown\` AST changed in 2.0. The node types include \`math\` (parsed only with the \`enableMath\` option), and a task-list item has \`checked\` and no \`[ ]\` or \`[x]\` marker in its text. Add a \`math\` case to exhaustive switches and maps keyed by node type, and read \`checked\` for task items: ${MARKDOWN_GUIDE}#code-that-reads-the-ast`;
+
+/**
+ * Marks imports of the markdown AST types. The new `math` node and the
+ * task-list `checked` field need a decision in the app's own code, so the
+ * codemod does not rewrite it.
+ */
+function markdownAstEdits(rootNode: Node, source: string): Edit[] {
+  if (!source.includes("@copilotkit/markdown")) return [];
+  const comment = `// ${TODO} ${MARKDOWN_AST_NOTE}`;
+  if (source.includes(comment)) return [];
+  const imports = rootNode.findAll({ rule: { kind: "import_statement" } });
+  const statement = imports.find((candidate) => {
+    const sourceNode = candidate.field("source");
+    if (!sourceNode || !MARKDOWN_AST_SOURCES.includes(unquote(sourceNode)))
+      return false;
+    return (specifiersOf(candidate) ?? []).some((specifier) =>
+      MARKDOWN_AST_TYPES.has(specifier.name),
+    );
+  });
+  if (!statement) return [];
+  const start = statement.range().start.index;
+  return [{ startPos: start, endPos: start, insertedText: `${comment}\n` }];
 }
 
 const LICENSE_CHECKER_NOTE =
