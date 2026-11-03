@@ -117,3 +117,22 @@ Notes:
 
 Run the tests of the Kumo components with
 `pnpm nx run @copilotkit/example-a2ui-markdown:test`.
+
+## Deploy to Cloudflare Workers
+
+The example runs on Cloudflare Workers through
+[OpenNext](https://opennext.js.org/cloudflare). One Worker serves the pages,
+the static files and the `/api/copilotkit` runtime. The config is in
+`wrangler.jsonc` and `open-next.config.ts`; every page is prerendered, so
+the pages come from Workers static assets and no R2 or KV is needed.
+
+```bash
+cd examples/v2/a2ui-markdown
+npx wrangler login
+pnpm example-cf-preview    # build, then run the Worker locally on :8787
+pnpm example-cf-deploy     # build, then deploy
+npx wrangler secret put OPENAI_API_KEY
+```
+
+For the local preview, put `OPENAI_API_KEY=...` in `.dev.vars`. The build
+first builds `@copilotkit/react-core` and `@copilotkit/runtime` with nx.

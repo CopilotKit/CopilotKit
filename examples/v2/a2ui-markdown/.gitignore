@@ -5,3 +5,6 @@ agent/.venv
 agent/.env
 *.tsbuildinfo
 __pycache__
+.open-next
+.wrangler
+.dev.vars

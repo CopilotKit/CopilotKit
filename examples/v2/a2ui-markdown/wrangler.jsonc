@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "a2ui-markdown-kumo",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "services": [
+    {
+      // OpenNext calls the Worker itself through this binding. The service
+      // name must match the Worker name.
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "a2ui-markdown-kumo",
+    },
+  ],
+  // Workers Logs: per-request logs including CPU time.
+  "observability": { "enabled": true },
+  // OPENAI_API_KEY is a secret: `wrangler secret put OPENAI_API_KEY`.
+  // Locally, put it in .dev.vars.
+}
