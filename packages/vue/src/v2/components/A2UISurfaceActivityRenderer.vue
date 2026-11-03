@@ -6,10 +6,8 @@ import type { A2UIOperation } from "./a2ui";
 import { useCopilotKit } from "../providers";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
 import type { SurfaceModel } from "@a2ui/web_core/v0_9";
-import {
-  A2UIOperationApplier,
-  A2UISurfaceDiagnostics,
-} from "@copilotkit/a2ui-renderer/engine";
+import { A2UIOperationApplier } from "@copilotkit/a2ui-renderer/engine";
+import { A2UISurfaceDiagnostics } from "@copilotkit/a2ui-renderer/engine-core";
 import { ɵrunA2UIAction, ɵtoA2UIClientEvent } from "@copilotkit/core";
 import type {
   ɵA2UIActionAgent,

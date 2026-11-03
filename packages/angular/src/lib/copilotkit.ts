@@ -79,6 +79,7 @@ import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-gener
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { CopilotInspector } from "./inspector";
 import { COPILOT_CHAT_CONFIGURATION } from "./chat-configuration";
+import { ɵOpenThreadBindings } from "./open-thread-bindings";
 
 /** Map Angular's option names onto core's provider config input. */
 function toProviderConfigInput(config: CopilotKitConfig): ɵProviderConfigInput {
@@ -326,8 +327,12 @@ export class CopilotKit {
   readonly ɵa2uiCatalog = this.#filteredA2UICatalog.asReadonly();
 
   constructor() {
+    // Chat configurations register their shown Thread with this core.
+    const openThreads = inject(ɵOpenThreadBindings);
+    openThreads.attach(this.core);
     // This service creates `core`, so it owns it and stops it on destroy.
     inject(DestroyRef).onDestroy(() => {
+      openThreads.attach(undefined);
       this.#a2uiCatalog.dispose();
       this.core.dispose();
     });

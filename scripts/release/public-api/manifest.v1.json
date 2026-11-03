@@ -83,6 +83,26 @@
           }
         },
         {
+          "importPath": "@copilotkit/a2ui-renderer/engine-core",
+          "exportKey": "./engine-core",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/engine-core.d.mts",
+              "default": "./dist/engine-core.mjs"
+            },
+            "require": {
+              "types": "./dist/engine-core.d.cts",
+              "default": "./dist/engine-core.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/a2ui-renderer/package.json",
+            "selector": "exports[\"./engine-core\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/a2ui-renderer/package.json",
           "exportKey": "./package.json",
           "kind": "metadata",
@@ -1065,6 +1085,20 @@
             "kind": "package-json",
             "path": "packages/core/package.json",
             "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/core/chat-configuration",
+          "exportKey": "./chat-configuration",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/chat-configuration.mjs",
+            "require": "./dist/chat-configuration.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/core/package.json",
+            "selector": "exports[\"./chat-configuration\"]"
           }
         },
         {

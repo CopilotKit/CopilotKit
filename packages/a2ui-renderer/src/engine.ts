@@ -5,8 +5,11 @@
  * nothing from React and loads through the
  * `@copilotkit/a2ui-renderer/engine` subpath.
  *
- * The web_core-free half (reading operations, the action envelope, the
- * diagnostics and the pre-paint lifecycle) lives in `@copilotkit/core`.
+ * This entry does not import `@copilotkit/core`, so it can sit in an app's
+ * initial bundle on its own. The helpers that need core (surface
+ * diagnostics, tool-call snapshots) load from
+ * `@copilotkit/a2ui-renderer/engine-core`. The web_core-free half (reading
+ * operations, the action envelope, the lifecycle) lives in `@copilotkit/core`.
  *
  * Internal to CopilotKit: it can change in any release.
  */
@@ -15,17 +18,6 @@ export {
   applyA2UIOperations,
   A2UIOperationApplier,
 } from "./engine/apply-operations";
-export { A2UISurfaceDiagnostics } from "./engine/surface-diagnostics";
-export type {
-  A2UISurfaceDiagnosticsOptions,
-  A2UISurfaceLookup,
-} from "./engine/surface-diagnostics";
-export {
-  AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
-  operationsFromA2UISnapshot as ɵoperationsFromA2UISnapshot,
-  getRenderedA2UIToolOperations as ɵgetRenderedA2UIToolOperations,
-} from "./engine/tool-operations";
-export type { A2UIToolCallLike as ɵA2UIToolCallLike } from "./engine/tool-operations";
 export {
   LEAF_MARGIN,
   CONTAINER_PADDING,
