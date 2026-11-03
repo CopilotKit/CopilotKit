@@ -8,6 +8,8 @@
 // framework can't run yet): the page says so once (`MissingDemoBanner`).
 
 import { DemoFrame } from "@/components/demo-frame";
+import { getSiteHosts } from "@/lib/runtime-config";
+import { demoOrigin } from "@/lib/site-hosts";
 import type { DocsScope } from "../scope";
 import { DemoSource } from "./demo-source";
 import { inlineDemoTarget } from "./sources";
@@ -54,7 +56,7 @@ export function InlineDemo({
       views={[
         {
           label: "Demo",
-          src: `${int.backend_url}/demos/${demo}`,
+          src: `${demoOrigin(getSiteHosts(), slug)}/demos/${demo}`,
           title: `${int.name}: ${name} live demo`,
         },
         {

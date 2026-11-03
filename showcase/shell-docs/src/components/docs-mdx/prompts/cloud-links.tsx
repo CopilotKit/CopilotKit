@@ -1,17 +1,16 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
+import { getSiteHosts } from "@/lib/runtime-config";
 import { docsHref } from "../href";
 import type { DocsScope } from "../scope";
 import { CtaCardBody, ctaCardClass } from "./cta-card";
 
-/** The Copilot Cloud dashboard, as shell-docs' MDX registry links it. */
-const COPILOT_CLOUD_URL = "https://dashboard.operations.copilotkit.ai";
-
 /**
- * An inline link to Copilot Cloud. shell-docs' registry version always said
- * "CopilotKit Cloud"; this one keeps the authored link text when there is
- * some. `asButton` is accepted and ignored: every use is inline.
+ * An inline link to Copilot Cloud, on this deployment's dashboard.
+ * shell-docs' registry version always said "CopilotKit Cloud"; this one keeps
+ * the authored link text when there is some. `asButton` is accepted and
+ * ignored: every use is inline.
  */
 export function LinkToCopilotCloud({
   children,
@@ -19,7 +18,9 @@ export function LinkToCopilotCloud({
   children?: ReactNode;
   asButton?: boolean;
 }) {
-  return <a href={COPILOT_CLOUD_URL}>{children ?? "CopilotKit Cloud"}</a>;
+  return (
+    <a href={getSiteHosts().dashboardUrl}>{children ?? "CopilotKit Cloud"}</a>
+  );
 }
 
 /** The "Sign up for CopilotKit Cloud" box from the What's new page. */
@@ -27,7 +28,7 @@ export function SignUpSection() {
   return (
     <div className="not-prose my-6 rounded-xl border bg-card p-4">
       <a
-        href={COPILOT_CLOUD_URL}
+        href={getSiteHosts().dashboardUrl}
         className="group inline-flex items-center gap-1.5 text-sm font-semibold text-primary no-underline"
       >
         Sign up for CopilotKit Cloud

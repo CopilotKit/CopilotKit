@@ -3,8 +3,13 @@
 // touches a key. A port of shell-docs' api-key-hint.tsx.
 
 import { ExternalLink, KeyRound } from "lucide-react";
+import { getSiteHosts } from "@/lib/runtime-config";
+import type { SiteHosts } from "@/lib/site-hosts";
 
-const PROVIDERS: Record<string, { label: string; url: string }> = {
+const PROVIDERS: Record<
+  string,
+  { label: string; url: string | ((hosts: SiteHosts) => string) }
+> = {
   openai: {
     label: "OpenAI API key",
     url: "https://platform.openai.com/api-keys",
@@ -23,7 +28,7 @@ const PROVIDERS: Record<string, { label: string; url: string }> = {
   },
   copilotkit: {
     label: "CopilotKit Intelligence API key",
-    url: "https://dashboard.operations.copilotkit.ai/",
+    url: (hosts) => `${hosts.dashboardUrl}/`,
   },
 };
 
@@ -32,13 +37,15 @@ export function ApiKeyHint({ provider }: { provider: string }) {
     ? PROVIDERS[provider]
     : undefined;
   if (!meta) return null;
+  const url =
+    typeof meta.url === "string" ? meta.url : meta.url(getSiteHosts());
   return (
     <p className="not-prose mt-2 flex items-center gap-1.5 text-[0.8125rem] text-muted-foreground">
       <KeyRound className="size-3.5 shrink-0" aria-hidden="true" />
       <span>
         Get your{" "}
         <a
-          href={meta.url}
+          href={url}
           target="_blank"
           rel="noopener noreferrer"
           className="text-primary underline-offset-4 hover:underline"
