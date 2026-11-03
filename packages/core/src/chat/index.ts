@@ -176,3 +176,23 @@ export type {
   ɵKeyboardState,
   ɵPinMessageToTopOptions,
 } from "./viewport";
+
+// Message display (internal)
+export {
+  ɵformatReasoningDurationLabel,
+  ɵgetWorkSummaryText,
+  ɵflattenUserMessageContent,
+  ɵgetUserMessageMediaParts,
+  ɵgetUserMessageMediaFilename,
+  ɵgetBranchNavState,
+  ɵhasAssistantMessageText,
+  ɵshouldShowAssistantToolbar,
+  ɵCOPY_FEEDBACK_RESET_MS,
+  ɵCopyFeedback,
+} from "./message-display";
+export type {
+  ɵWorkSummaryInput,
+  ɵUserMessageMediaPart,
+  ɵBranchNavInput,
+  ɵAssistantToolbarInput,
+} from "./message-display";

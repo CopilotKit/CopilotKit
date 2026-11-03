@@ -5,12 +5,7 @@
  * for 9s · 7 tools" and toggles the work it folded away.
  */
 import { computed, ref, watch } from "vue";
-import {
-  ɵcountFailedToolCalls,
-  ɵformatLabel,
-  ɵformatWorkDuration,
-  ɵformatCountLabel,
-} from "@copilotkit/core";
+import { ɵgetWorkSummaryText } from "@copilotkit/core";
 import { IconChevronRight } from "../icons";
 import type { CopilotChatWorkSummarySlotProps } from "./types";
 import { useChatLabels } from "./use-chat-labels";
@@ -34,40 +29,14 @@ watch(
 );
 
 const labels = useChatLabels();
-const failed = computed(() => ɵcountFailedToolCalls(props.calls));
-const liveMs = computed(() =>
-  props.elapsedMs !== undefined && props.workingSince !== undefined
-    ? props.elapsedMs + Math.max(0, now.value - props.workingSince)
-    : undefined,
-);
-// A finished reply worked for at least a second.
-const duration = computed(() =>
-  props.elapsedMs !== undefined
-    ? ɵformatWorkDuration(Math.max(1000, props.elapsedMs))
-    : undefined,
-);
-const toolCount = computed(() =>
-  ɵformatCountLabel(props.calls.length, {
-    one: labels.value.toolCallToolCountOne,
-    other: labels.value.toolCallToolCountOther,
-  }),
-);
-const doneLabel = computed(() =>
-  duration.value
-    ? ɵformatLabel(labels.value.workSummaryWorkedForLabel, {
-        duration: duration.value,
-      })
-    : ɵformatCountLabel(props.calls.length, {
-        one: labels.value.toolCallUsedToolsOne,
-        other: labels.value.toolCallUsedToolsOther,
-      }),
-);
-const liveDuration = computed(() =>
-  liveMs.value !== undefined ? ɵformatWorkDuration(liveMs.value) : undefined,
-);
-const failedLabel = computed(() =>
-  ɵformatLabel(labels.value.toolCallFailedCountLabel, {
-    count: failed.value,
+const text = computed(() =>
+  ɵgetWorkSummaryText({
+    isWorking: props.isWorking,
+    calls: props.calls,
+    elapsedMs: props.elapsedMs,
+    workingSince: props.workingSince,
+    now: now.value,
+    labels: labels.value,
   }),
 );
 </script>
@@ -81,25 +50,20 @@ const failedLabel = computed(() =>
     :aria-expanded="isOpen ? 'true' : 'false'"
     class="cpk-work-summary"
   >
-    <template v-if="isWorking">
-      <span class="cpk-work-summary-label cpk-shimmer">{{
-        labels.workSummaryWorkingLabel
-      }}</span>
-      <span
-        v-if="liveDuration !== undefined"
-        class="cpk-work-summary-detail cpk-work-summary-timer"
-        >{{ liveDuration }}</span
-      >
-    </template>
-    <template v-else>
-      <span class="cpk-work-summary-label">{{ doneLabel }}</span>
-      <span v-if="duration" class="cpk-work-summary-detail">{{
-        toolCount
-      }}</span>
-      <span v-if="failed > 0" class="cpk-work-summary-failed">{{
-        failedLabel
-      }}</span>
-    </template>
+    <span :class="['cpk-work-summary-label', isWorking && 'cpk-shimmer']">{{
+      text.label
+    }}</span>
+    <span
+      v-if="text.detail !== null"
+      :class="[
+        'cpk-work-summary-detail',
+        isWorking && 'cpk-work-summary-timer',
+      ]"
+      >{{ text.detail }}</span
+    >
+    <span v-if="text.failed !== null" class="cpk-work-summary-failed">{{
+      text.failed
+    }}</span>
     <IconChevronRight
       aria-hidden="true"
       :class="[

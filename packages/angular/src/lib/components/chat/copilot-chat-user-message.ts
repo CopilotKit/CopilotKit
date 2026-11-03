@@ -32,11 +32,12 @@ import { hostStyles } from "../host-styles";
 import { UserMessage } from "@ag-ui/core";
 import { CopilotChatAttachmentRenderer } from "./copilot-chat-attachment-renderer";
 import {
-  flattenUserMessageContent,
-  getUserMessageMediaFilename,
-  getUserMessageMediaParts,
-  type UserMessageMediaPart,
-} from "./copilot-chat-user-message-utils";
+  ɵflattenUserMessageContent,
+  ɵgetBranchNavState,
+  ɵgetUserMessageMediaFilename,
+  ɵgetUserMessageMediaParts,
+} from "@copilotkit/core";
+import type { ɵUserMessageMediaPart } from "@copilotkit/core";
 
 @Component({
   selector: "copilot-chat-user-message",
@@ -221,7 +222,16 @@ export class CopilotChatUserMessage {
     CopilotChatUserMessageBranchNavigation;
 
   // Computed values
-  showBranchNavigation = computed(() => (this.numberOfBranches() ?? 1) > 1);
+  // An Angular `output()` cannot tell whether a listener is bound, so the
+  // navigation always counts as switchable here.
+  showBranchNavigation = computed(
+    () =>
+      ɵgetBranchNavState({
+        branchIndex: this.branchIndexValue(),
+        numberOfBranches: this.numberOfBranchesValue(),
+        canSwitch: true,
+      }).show,
+  );
 
   computedClass = computed(() =>
     cn(
@@ -232,10 +242,10 @@ export class CopilotChatUserMessage {
 
   // Context for slots (reactive via signals)
   flattenedContent = computed(() =>
-    flattenUserMessageContent(this.message()?.content),
+    ɵflattenUserMessageContent(this.message()?.content),
   );
   mediaParts = computed(() =>
-    getUserMessageMediaParts(this.message()?.content),
+    ɵgetUserMessageMediaParts(this.message()?.content),
   );
 
   messageRendererContext = computed<MessageRendererContext>(() => ({
@@ -272,8 +282,7 @@ export class CopilotChatUserMessage {
     this.switchToBranch.emit(props);
   }
 
-  filenameFor(part: UserMessageMediaPart): string | undefined {
-    return getUserMessageMediaFilename(part);
+  filenameFor(part: ɵUserMessageMediaPart) {
+    return ɵgetUserMessageMediaFilename(part);
   }
-  constructor() {}
 }
