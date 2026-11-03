@@ -1,5 +1,6 @@
 // Compiles every page in src/content with the live collection's MDX options
-// and lists the ones that fail, without a dev server or a full build.
+// and lists the ones that fail (or import a snippet that doesn't exist),
+// without a dev server or a full build.
 //   node scripts/check-live-mdx.mjs [filter]
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -33,7 +34,15 @@ for (const file of files) {
   const content = fm ? raw.slice(fm[0].length) : raw;
   if (fm) parse(fm[1]);
   try {
-    await compile({ value: content, path: join(root, file) }, options);
+    const out = await compile(
+      { value: content, path: join(root, file) },
+      options,
+    );
+    // A snippet import whose file doesn't exist compiles to a warning callout
+    // (source.config.ts); here it fails, as a broken import would.
+    for (const m of out.messages) {
+      if (m.ruleId === "missing-snippet") failures.push(`${file}: ${m.reason}`);
+    }
   } catch (err) {
     failures.push(`${file}: ${String(err.message ?? err).split("\n")[0]}`);
   }
