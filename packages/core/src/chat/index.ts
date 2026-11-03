@@ -72,6 +72,7 @@ export type {
   WorkTime as ɵWorkTime,
   ToolCallRowStatus as ɵToolCallRowStatus,
   ReasoningDuration as ɵReasoningDuration,
+  ToolCallGroupAppearance as ɵToolCallGroupAppearance,
 } from "./tool-call-layout";
 export {
   getToolResults as ɵgetToolResults,
@@ -84,6 +85,10 @@ export {
   getWorkOpenState as ɵgetWorkOpenState,
   recordWorkTime as ɵrecordWorkTime,
   getToolCallRowStatus as ɵgetToolCallRowStatus,
+  getToolCallGroupState as ɵgetToolCallGroupState,
+  toolCallAppearance as ɵtoolCallAppearance,
+  TOOL_CALL_STATUS_LABEL_KEYS as ɵTOOL_CALL_STATUS_LABEL_KEYS,
+  TOOL_CALL_STATUS_ICONS as ɵTOOL_CALL_STATUS_ICONS,
   getArgumentPreview as ɵgetArgumentPreview,
   getToolCallPreview as ɵgetToolCallPreview,
   formatToolNames as ɵformatToolNames,

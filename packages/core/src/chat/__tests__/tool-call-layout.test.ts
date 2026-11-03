@@ -10,7 +10,9 @@ import {
   getToolCallLayouts,
   getToolCallPreview,
   getToolCallRendererNames,
+  getToolCallGroupState,
   getToolCallRowStatus,
+  toolCallAppearance,
   getTurnWork,
   getWorkOpenState,
   isTurnWorkOpen,
@@ -526,5 +528,85 @@ describe("durations", () => {
       { unit: "minutes", minutes: 2 },
       { unit: "minutesSeconds", minutes: 1, seconds: 5 },
     ]);
+  });
+});
+
+describe("getToolCallGroupState", () => {
+  it("names the first unfinished call while the group is active", () => {
+    const calls = [
+      entry("a", "read_file", result("a")),
+      entry("b", "run_command"),
+      entry("c", "run_command"),
+    ];
+
+    const state = getToolCallGroupState(calls, true, false);
+
+    expect(state.current?.toolCall.id).toBe("b");
+    expect(state.preview).toBe("cmd b");
+    expect(state.status).toBe("running");
+    expect(state.done).toBe(1);
+    expect(state.statuses).toEqual(["done", "running", "running"]);
+  });
+
+  it("keeps the latest call as the subject between calls of an active group", () => {
+    const calls = [entry("a", "x", result("a")), entry("b", "x", result("b"))];
+
+    expect(getToolCallGroupState(calls, true, false).current?.toolCall.id).toBe(
+      "b",
+    );
+  });
+
+  it("is failed when a call failed, before stopped", () => {
+    const calls = [entry("a", "x", result("a", "boom")), entry("b")];
+
+    const state = getToolCallGroupState(calls, false, false);
+
+    expect(state.current).toBeUndefined();
+    expect(state.status).toBe("failed");
+    expect([...state.failedIds]).toEqual(["a"]);
+    expect(state.statusById.get("b")).toBe("stopped");
+  });
+
+  it("is stopped when a call never got a result, and done when all did", () => {
+    expect(getToolCallGroupState([entry("a")], false, false).status).toBe(
+      "stopped",
+    );
+    expect(
+      getToolCallGroupState([entry("a", "x", result("a"))], false, false)
+        .status,
+    ).toBe("done");
+  });
+
+  it("shows at most two cards behind a closed stack, and none while open", () => {
+    const calls = ["a", "b", "c", "d"].map((id) => entry(id));
+
+    expect(getToolCallGroupState(calls, false, false).behind).toBe(2);
+    expect(getToolCallGroupState(calls.slice(0, 2), false, false).behind).toBe(
+      1,
+    );
+    expect(getToolCallGroupState(calls, false, true).behind).toBe(0);
+    expect(getToolCallGroupState([], false, false).behind).toBe(0);
+  });
+
+  it("describes the latest call for the top of a stack", () => {
+    const state = getToolCallGroupState(
+      [entry("a", "x", result("a")), entry("b")],
+      true,
+      false,
+    );
+
+    expect(state.latest?.toolCall.id).toBe("b");
+    expect(state.latestStatus).toBe("running");
+    expect(state.latestPreview).toBe("cmd b");
+  });
+});
+
+describe("toolCallAppearance", () => {
+  it("maps each display to its group appearance", () => {
+    expect(
+      (["grouped", "line", "stacked", "turn", "separate"] as const).map(
+        toolCallAppearance,
+      ),
+    ).toEqual(["card", "line", "stack", undefined, undefined]);
   });
 });

@@ -1,5 +1,7 @@
 import type { Message, ToolCall, ToolMessage } from "@ag-ui/core";
 import { partialJSONParse } from "@copilotkit/shared";
+import type { CopilotIconName } from "./icons";
+import type { CopilotChatLabels } from "./labels";
 
 /**
  * How the chat shows tool calls.
@@ -533,6 +535,120 @@ export function getToolCallRowStatus(entry: ToolCallEntry, active: boolean) {
   if (toolMessage) status = toolMessage.error ? "failed" : "done";
   else status = active ? "running" : "stopped";
   return status;
+}
+
+/** How a group of tool calls looks: a card, a quiet line, or a stack. */
+export type ToolCallGroupAppearance = "card" | "line" | "stack";
+
+/** The chat label for each call status ("Running", "Done", ...). */
+export const TOOL_CALL_STATUS_LABEL_KEYS = {
+  running: "toolCallStatusRunningLabel",
+  done: "toolCallStatusDoneLabel",
+  failed: "toolCallStatusFailedLabel",
+  stopped: "toolCallStatusStoppedLabel",
+} as const satisfies Record<ToolCallRowStatus, keyof CopilotChatLabels>;
+
+/** The icon for each call status: spinner, check, cross or circle. */
+export const TOOL_CALL_STATUS_ICONS = {
+  running: "Loader2",
+  done: "Check",
+  failed: "X",
+  stopped: "Circle",
+} as const satisfies Record<ToolCallRowStatus, CopilotIconName>;
+
+/**
+ * The group appearance for a chat's `toolCallDisplay`, or `undefined` for a
+ * display that draws no group card (`"turn"` and `"separate"`).
+ *
+ * @param display - The chat's tool-call display.
+ */
+export function toolCallAppearance(display: CopilotChatToolCallDisplay) {
+  switch (display) {
+    case "grouped":
+      return "card" satisfies ToolCallGroupAppearance;
+    case "line":
+      return "line" satisfies ToolCallGroupAppearance;
+    case "stacked":
+      return "stack" satisfies ToolCallGroupAppearance;
+    case "turn":
+    case "separate":
+      return undefined;
+  }
+}
+
+/** The most cards a closed stack shows behind its top card. */
+const MAX_STACK_BEHIND = 2;
+
+/**
+ * Everything a tool-call group draws from its calls.
+ *
+ * - `current`: the call the agent works on now. Only an active group has one:
+ *   the first call without a result, or the latest call between calls (so the
+ *   label does not flicker).
+ * - `preview`: the main argument of `current`.
+ * - `done`: how many calls have a result.
+ * - `statuses`: each call's row status, in order, and `statusById` the same
+ *   by call id.
+ * - `failedIds`: the ids of calls that finished with an error.
+ * - `status`: the group's status: running while there is a `current` call,
+ *   else failed if any call failed, else stopped if any stopped, else done.
+ * - `behind`: how many cards a stack shows behind its top card (none while
+ *   open, at most two).
+ * - `latest`, `latestStatus`, `latestPreview`: the last call, its row status
+ *   and its main argument, for the top card of a stack.
+ *
+ * @param calls - The calls in the group, in order.
+ * @param isActive - The agent may still finish the group's calls.
+ * @param open - The user opened the group.
+ *
+ * @example
+ * ```ts
+ * const state = getToolCallGroupState(calls, isActive, open);
+ * label = state.current
+ *   ? formatLabel(labels.toolCallRunningLabel, { name: state.current.toolCall.function.name })
+ *   : labels[TOOL_CALL_STATUS_LABEL_KEYS[state.status]];
+ * ```
+ */
+export function getToolCallGroupState(
+  calls: readonly ToolCallEntry[],
+  isActive: boolean,
+  open: boolean,
+) {
+  const latest = calls.at(-1);
+  const current = isActive
+    ? (calls.find((call) => !call.toolMessage) ?? latest)
+    : undefined;
+  const statuses = calls.map((call) => getToolCallRowStatus(call, isActive));
+  const statusById = new Map(
+    calls.map((call, index) => [call.toolCall.id, statuses[index]!]),
+  );
+  const failedIds = new Set(
+    calls
+      .filter((_, index) => statuses[index] === "failed")
+      .map((call) => call.toolCall.id),
+  );
+  let status: ToolCallRowStatus = "done";
+  if (current) status = "running";
+  else if (failedIds.size > 0) status = "failed";
+  else if (statuses.includes("stopped")) status = "stopped";
+
+  return {
+    latest,
+    current,
+    preview: current ? getToolCallPreview(current) : undefined,
+    done: calls.filter((call) => call.toolMessage).length,
+    statuses,
+    statusById,
+    failedIds,
+    status,
+    behind: open
+      ? 0
+      : Math.max(0, Math.min(calls.length - 1, MAX_STACK_BEHIND)),
+    latestStatus: latest
+      ? getToolCallRowStatus(latest, isActive)
+      : ("done" satisfies ToolCallRowStatus),
+    latestPreview: latest ? getToolCallPreview(latest) : undefined,
+  };
 }
 
 /**

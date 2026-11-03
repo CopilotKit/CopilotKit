@@ -182,7 +182,6 @@ export function DefaultToolCallRenderer({
 
   // A status a newer runtime could send reads "unknown".
   const cardStatus = ɵnormalizeToolCallStatus(status);
-  const isComplete = cardStatus === "complete";
 
   // Inside a group of calls, a row that fits the group instead of a card.
   if (group) {
@@ -197,15 +196,7 @@ export function DefaultToolCallRenderer({
         name={name}
         parameters={parameters}
         result={result}
-        status={
-          isComplete
-            ? group.failedIds.has(toolCallId)
-              ? "failed"
-              : "done"
-            : group.active
-              ? "running"
-              : "stopped"
-        }
+        status={group.statusById.get(toolCallId) ?? "done"}
         appearance={group.appearance}
       />
     );

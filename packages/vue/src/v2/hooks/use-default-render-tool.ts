@@ -131,14 +131,7 @@ const DefaultToolCallRenderer = defineComponent({
           name: props.name,
           parameters: props.parameters,
           result: props.result,
-          status:
-            cardStatus === "complete"
-              ? group.failedIds.has(props.toolCallId)
-                ? "failed"
-                : "done"
-              : group.active
-                ? "running"
-                : "stopped",
+          status: group.statusById.get(props.toolCallId) ?? "done",
           appearance: group.appearance,
         });
       }

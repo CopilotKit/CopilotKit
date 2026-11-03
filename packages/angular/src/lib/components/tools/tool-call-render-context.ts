@@ -1,23 +1,22 @@
 import { InjectionToken } from "@angular/core";
 import type { Signal } from "@angular/core";
-import type { CopilotChatLabels, ɵToolCallRowStatus } from "@copilotkit/core";
+import { ɵTOOL_CALL_STATUS_LABEL_KEYS } from "@copilotkit/core";
+import type {
+  ɵToolCallGroupAppearance,
+  ɵToolCallRowStatus,
+} from "@copilotkit/core";
 
 /** A grouped call that never got a result after the run ended is "stopped". */
 export type ToolCallRowStatus = ɵToolCallRowStatus;
 
-export type CopilotChatToolCallGroupAppearance = "card" | "line" | "stack";
+export type CopilotChatToolCallGroupAppearance = ɵToolCallGroupAppearance;
 
 /**
  * The label key for each row status, so a row's status reads from the chat
  * labels in scope.
  * @internal
  */
-export const toolCallRowStatusLabelKeys = {
-  running: "toolCallStatusRunningLabel",
-  done: "toolCallStatusDoneLabel",
-  failed: "toolCallStatusFailedLabel",
-  stopped: "toolCallStatusStoppedLabel",
-} satisfies Record<ToolCallRowStatus, keyof CopilotChatLabels>;
+export const toolCallRowStatusLabelKeys = ɵTOOL_CALL_STATUS_LABEL_KEYS;
 
 /**
  * Handed to each tool-call renderer through its injector, like React's
