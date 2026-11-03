@@ -52,6 +52,22 @@ working under React StrictMode. It is the fix from
 [CopilotKit#8159](https://github.com/CopilotKit/CopilotKit/pull/8159); drop the
 patch once a release with it is installed.
 
+## PR previews
+
+A pull request that changes `showcase/shell-docs-v2/**` gets a preview of this
+app only, from Railway PR environments in a project of its own. No showcase
+backends run: the embedded demos load the production ones. Railway builds the
+[`Dockerfile`](./Dockerfile) from the repo root, because showcase-data reads
+the sibling `showcase/` folders. Railway's GitHub builds skip Git LFS, so the
+Dockerfile runs `scripts/fetch-lfs.mjs` to download the images in `public/`.
+
+To build and run it locally:
+
+```bash
+docker build -f showcase/shell-docs-v2/Dockerfile -t shell-docs-v2 .
+docker run --rm -p 3000:3000 -e OPENAI_API_KEY shell-docs-v2
+```
+
 ## Validate
 
 ```bash
