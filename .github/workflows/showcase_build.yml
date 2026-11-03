@@ -143,6 +143,8 @@ jobs:
           # single-line strings, but mixing styles (list vs. string)
           # in the same filters block is easy to misread during review.
           filters: |
+            shared_theme:
+              - 'showcase/integrations/_shared/ts/theme.ts'
             workflow_config:
               - '.github/workflows/showcase_build_check.yml'
             angular:
@@ -369,6 +371,10 @@ jobs:
               ($dispatch == "" and (
                 ($workflow_changed or ($changes | index("workflow_config") != null)) or
                 ($changes | index($fk) != null) or
+                (($changes | index("shared_theme") != null) and (
+                  (.context | startswith("showcase/integrations/")) or
+                  (.dispatch_name | IN("shell", "shell-dojo", "shell-dashboard", "shell-docs"))
+                )) or
                 (($changes | index("angular") != null) and (
                   (.context | startswith("showcase/integrations/")) or
                   .dispatch_name == "shell"

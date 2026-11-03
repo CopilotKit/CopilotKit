@@ -53,6 +53,8 @@ jobs:
         id: filter
         with:
           filters: |
+            shared_theme:
+              - 'showcase/integrations/_shared/ts/theme.ts'
             workflow_config:
               - '.github/workflows/showcase_build.yml'
               - '.github/workflows/showcase_build_check.yml'
@@ -254,7 +256,11 @@ jobs:
               if .build_args_branch == "__GH_REF_NAME__" then .build_args_branch = $ref else . end |
               (.filter_key as $fk | select(
               ($changes | index("workflow_config") != null) or
-              ($changes | index($fk) != null)
+              ($changes | index($fk) != null) or
+              (($changes | index("shared_theme") != null) and (
+                (.context | startswith("showcase/integrations/")) or
+                (.dispatch_name | IN("shell", "shell-dojo", "shell-dashboard", "shell-docs"))
+              ))
             ))]
           ')
 
