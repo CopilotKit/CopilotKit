@@ -1649,7 +1649,7 @@ export class BuiltInAgent extends AbstractAgent {
       // Set up MCP clients if configured and process the stream
       const mcpClients: MCPClient[] = [];
 
-      (async () => {
+      void (async () => {
         let terminalEventEmitted = false;
         let messageId = randomUUID();
         let reasoningMessageId = randomUUID();
@@ -2403,7 +2403,7 @@ export class BuiltInAgent extends AbstractAgent {
         },
       };
 
-      (async () => {
+      void (async () => {
         const runFinishedDetails: AgentRunFinishedDetails = {};
         try {
           // Resume injection (aisdk/tanstack): map each ResumeEntry to a tool-role

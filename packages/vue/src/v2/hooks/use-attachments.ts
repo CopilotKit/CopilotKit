@@ -240,15 +240,19 @@ export function useAttachments(
     await processFiles(files);
   }
 
+  function onPaste(event: ClipboardEvent) {
+    void handlePaste(event);
+  }
+
   onMounted(() => {
     if (typeof document !== "undefined") {
-      document.addEventListener("paste", handlePaste);
+      document.addEventListener("paste", onPaste);
     }
   });
 
   onBeforeUnmount(() => {
     if (typeof document !== "undefined") {
-      document.removeEventListener("paste", handlePaste);
+      document.removeEventListener("paste", onPaste);
     }
   });
 

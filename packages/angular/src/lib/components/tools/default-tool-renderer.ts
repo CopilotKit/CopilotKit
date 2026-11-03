@@ -254,6 +254,7 @@ export class CopilotDefaultToolRenderer implements ToolRenderer {
         return this.labels.toolCallStatusRunningLabel;
       case "done":
         return this.labels.toolCallStatusDoneLabel;
+      case "other":
       default:
         return "Unknown status";
     }
