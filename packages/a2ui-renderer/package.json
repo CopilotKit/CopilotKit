@@ -52,6 +52,16 @@
         "default": "./dist/engine.cjs"
       }
     },
+    "./engine-core": {
+      "import": {
+        "types": "./dist/engine-core.d.mts",
+        "default": "./dist/engine-core.mjs"
+      },
+      "require": {
+        "types": "./dist/engine-core.d.cts",
+        "default": "./dist/engine-core.cjs"
+      }
+    },
     "./catalog-schema": {
       "import": {
         "types": "./dist/catalog-schema.d.mts",

@@ -7,9 +7,11 @@ import {
   signal,
 } from "@angular/core";
 import type { Provider, Signal } from "@angular/core";
-import { ɵChatConfigurationStore } from "@copilotkit/core";
+// The store's own entry, not the core index: a chat configuration is often
+// provided in an app's initial bundle, which must not load all of core.
+import { ɵChatConfigurationStore } from "@copilotkit/core/chat-configuration";
 import { COPILOT_KIT_CONFIG } from "./config";
-import { CopilotKit } from "./copilotkit";
+import { ɵOpenThreadBindings } from "./open-thread-bindings";
 
 /**
  * Options for configuring the CopilotChat session.
@@ -63,7 +65,7 @@ export class CopilotChatConfiguration {
     const hasCopilotKit =
       inject(COPILOT_KIT_CONFIG, { optional: true }) !== null;
     const unbindOpenThread = hasCopilotKit
-      ? this.#store.bindOpenThread(inject(CopilotKit).core)
+      ? inject(ɵOpenThreadBindings).add(this.#store)
       : undefined;
     destroyRef.onDestroy(() => {
       unbindOpenThread?.();
