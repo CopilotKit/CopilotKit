@@ -24,11 +24,9 @@ import { buildAngularFeatureSearchEntries } from "./lib/angular-feature-search";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-// MDX docs content now lives in shell-docs. shell-docs consumes the index
-// at build time for <SearchModal>; shell keeps a copy so its header search
-// (which links to docs routes) stays functional — destinations 301 across
-// to docs.showcase.copilotkit.ai. We SCAN from shell-docs (source of truth)
-// and WRITE to both.
+// The docs pages live in shell-docs. The showcase shell's header search links
+// to docs routes, so the index scans shell-docs' pages. It also still writes a
+// copy into shell-docs/src/data, which the docs app itself doesn't read.
 const SHELL_DOCS_ROOT = path.join(ROOT, "shell-docs");
 const SHELL_DOCS_DIR = path.join(SHELL_DOCS_ROOT, "src");
 const SHELL_DIR = path.join(ROOT, "shell", "src");
@@ -242,8 +240,8 @@ interface SearchablePagesPayload {
  *
  * Run as a SUBPROCESS, not imported, with shell-docs as the working
  * directory: the rules read the docs content and the generated registry
- * relative to it. NODE_PATH points the child at this package's
- * node_modules for `gray-matter`, so no shell-docs install is needed.
+ * relative to it. The rules sit in this package, so `gray-matter` resolves
+ * from its node_modules and no shell-docs install is needed.
  *
  * Throws when the toolchain is missing. It used to return null and let the
  * caller ship an index with no docs rows, which was wrong: the `shell`
@@ -289,18 +287,7 @@ function loadSearchablePages(): SearchablePagesPayload {
   const result = spawnSync(process.execPath, [tsxCli, emitScript, outputPath], {
     cwd: SHELL_DOCS_ROOT,
     stdio: ["ignore", "inherit", "inherit"],
-    env: {
-      ...process.env,
-      // shell-docs' library imports `gray-matter`, which Node resolves by
-      // walking up from the importing FILE — so when shell-docs is not
-      // installed, its own tree carries nothing. This package declares
-      // gray-matter too; NODE_PATH is what lets the child find it there.
-      // Only meaningful for CommonJS resolution, which is what tsx uses for
-      // shell-docs (its package.json has no `"type": "module"`).
-      NODE_PATH: [scriptsModules, process.env.NODE_PATH]
-        .filter(Boolean)
-        .join(path.delimiter),
-    },
+    env: process.env,
   });
 
   if (result.status !== 0) {
@@ -519,7 +506,7 @@ async function main() {
     throw new Error(
       `[generate-search-index] docs coverage collapsed: ${docsEntryCount} ` +
         `docs entries, expected at least ${MIN_DOCS_ENTRIES}. The navigation ` +
-        `walk in shell-docs/src/lib/searchable-pages is the likely cause — ` +
+        `walk in lib/docs-searchable/searchable-pages is the likely cause — ` +
         `a nearly empty search must not ship.`,
     );
   }

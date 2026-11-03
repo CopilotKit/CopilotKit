@@ -475,7 +475,7 @@ export function loadSnippetComponentNames(): Set<string> {
 
 const SNIPPET_WITH_PROPS_RE = /<([A-Z]\w*)\s+[^>]*(?:>|\/>)/g;
 
-// Matches the same shape that inlineSnippets() in docs-render.tsx resolves at
+// Matches the same shape that remarkInlineSnippets in shell-docs' source.config.ts resolves at
 // render time. Per-match check (not per-name) so a page with both <Foo /> and
 // <Foo framework="x" /> correctly flags only the latter.
 const INLINE_HANDLED_RE = /^<[A-Z]\w*\s*(?:components=\{[^}]*\}\s*)?\/>/;
