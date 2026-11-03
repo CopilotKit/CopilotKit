@@ -1,4 +1,5 @@
 import type { AbstractAgent } from "@ag-ui/client";
+import { isPlatformBrowser } from "@angular/common";
 import type {
   FrontendTool,
   CopilotRuntimeTransport,
@@ -15,6 +16,7 @@ import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
   ɵbindSuggestionsConfig,
+  ɵLearningAutoStarter,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";
 import type { Signal, WritableSignal } from "@angular/core";
@@ -22,6 +24,7 @@ import {
   DestroyRef,
   Injectable,
   Injector,
+  PLATFORM_ID,
   computed,
   effect,
   runInInjectionContext,
@@ -292,6 +295,7 @@ export class CopilotKit {
     // This service creates `core`, so it owns it and stops it on destroy.
     inject(DestroyRef).onDestroy(() => this.core.dispose());
     void this.#inspector.isInspectorEnabled;
+    this.#startLearning();
     // A builder is only evaluated at send time, so it can't be read here.
     // The record branch below already has its own key-header fallback.
     ensureLicenseWatermark(
@@ -763,6 +767,17 @@ export class CopilotKit {
         current.filter((candidate) => candidate !== humanInTheLoopTool),
       );
     };
+  }
+
+  /** Applies `config.learning` in the browser; capture stops on destroy. */
+  #startLearning() {
+    const { learning } = this.#config;
+    if (learning === undefined || !isPlatformBrowser(inject(PLATFORM_ID))) {
+      return;
+    }
+    const learningStarter = new ɵLearningAutoStarter(this.core);
+    learningStarter.update(learning);
+    inject(DestroyRef).onDestroy(() => learningStarter.dispose());
   }
 
   addSuggestionsConfig(config: SuggestionsConfig): string {
