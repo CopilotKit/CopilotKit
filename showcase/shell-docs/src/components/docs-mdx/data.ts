@@ -278,6 +278,30 @@ export function getSetupContent(): SetupContentBundle {
   });
 }
 
+/** Frameworks that reuse another's setup concepts. */
+const SETUP_CONTENT_FALLBACKS: Record<string, string[]> = {
+  "langgraph-fastapi": ["langgraph-python"],
+};
+
+/**
+ * A framework's bundled `<FrameworkSetup concept>` MDX, or null when none is
+ * bundled: a deliberate "no setup needed here".
+ */
+export function getSetupSource(
+  framework: string,
+  concept: string,
+): string | null {
+  const { concepts } = getSetupContent();
+  for (const candidate of [
+    framework,
+    ...(SETUP_CONTENT_FALLBACKS[framework] ?? []),
+  ]) {
+    const source = concepts[`${candidate}::${concept}`]?.source;
+    if (source !== undefined) return source;
+  }
+  return null;
+}
+
 /** One `(frontend, integration, feature)` cell of the frontend catalog. */
 export interface FrontendCatalogCell {
   id: string;
