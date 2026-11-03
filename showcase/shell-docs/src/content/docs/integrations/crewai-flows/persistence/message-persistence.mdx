@@ -3,6 +3,8 @@ title: "Message Persistence"
 icon: "lucide/Database"
 ---
 
+To keep a Flow's conversation after a restart, store its state with CrewAI's `@persist` decorator. For example, use the default `SQLiteFlowPersistence` or your own persistence class.
+
 <Callout>
   To learn about how to load previous messages and agent states, check out the
   [Loading Message History](/crewai-flows/persistence/loading-message-history)
@@ -10,14 +12,12 @@ icon: "lucide/Database"
   pages.
 </Callout>
 
-To persist CrewAI Flow messages to a database, you can use the `@persist` decorator. For example, you might use the default `SQLiteFlowPersistence` or provide your own custom persistence class.
-
 <Callout type="info" title="Conversational Flow sessions">
-  No separate CopilotKit persistence adapter is required. CopilotKit's
-  `threadId` becomes the CrewAI `session_id`, so CrewAI's `@persist` support
-  stores and restores the corresponding conversational session.
+  CopilotKit's `threadId` becomes the CrewAI `session_id`, so CrewAI's
+  `@persist` support stores and restores the corresponding conversational
+  session. The chat history in the UI comes from the runtime's agent runner.
+  For history that survives a server restart, use a durable runner (see
+  [Agent runner](/backend/agent-runner)).
 </Callout>
-
-For a concrete example of how a custom persistence class like `InMemoryFlowPersistence` can be implemented and used with the `@persist` decorator, see the [sample agent implementation](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-starter-crewai-flows/agent-py/sample_agent/agent.py).
 
 Read more about persistence in the [CrewAI Flows documentation](https://docs.crewai.com/concepts/flows#class-level-persistence).

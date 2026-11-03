@@ -23,28 +23,6 @@ Before you begin, you'll need the following:
 - Your favorite package manager
 - (Optional) A LangSmith API key - only required if using an existing LangGraph agent
 
-<Callout type="info" title="Zod version for TypeScript agents">
-When adding `@copilotkit/sdk-js` to a TypeScript agent, install Zod 3 alongside it:
-
-```bash
-npm install @copilotkit/sdk-js zod@3
-```
-
-An unversioned `zod` install selects Zod 4, which does not satisfy the SDK's `zod` peer dependency (`^3`). Use `zod@3` with pnpm or Yarn too. If your agent already requires Zod 4, check SDK compatibility before changing its dependencies; do not bypass the conflict with `--force` or `--legacy-peer-deps`.
-
-The SDK also has a peer dependency on `langchain`. If your agent pins `@langchain/core` to an exact version, npm installs the newest `langchain`, which can require a newer `@langchain/core` and fail with `ERESOLVE`. Install a `langchain` release whose peer range includes your `@langchain/core`. To see each release's range, run:
-
-```bash
-npm view langchain@1 peerDependencies
-```
-
-For example, `langchain@1.5.9` requires `@langchain/core ^1.2.8`, so it is the newest release that works with `@langchain/core@1.2.8`. Pin it exactly. A caret range such as `^1.5.9` lets a later install pick `langchain@1.5.19`, which requires `@langchain/core ^1.2.20`:
-
-```bash
-npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
-```
-</Callout>
-
 ## Getting started
 
 <Steps>
@@ -82,8 +60,8 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
                 The CLI walks you through:
 
                 - **Project name**
-                - **CopilotKit Intelligence** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard LangGraph setup.
-                - **Framework** — pick **LangGraph (Python)** or **LangGraph (JavaScript)**.
+                - **CopilotKit Intelligence**: persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard LangGraph setup.
+                - **Framework**: pick **LangGraph (Python)** or **LangGraph (JavaScript)**.
             </Step>
             <Step>
                 ### Install dependencies
@@ -190,10 +168,9 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
                   uv add langgraph langchain-openai langchain-core python-dotenv
                   ```
 
-                  Both tabs in the next step import all four. The **FastAPI** tab installs what
-                  its own code needs on top of these — `ag-ui-langgraph`, `fastapi`,
-                  `uvicorn` and `copilotkit` — in its own step; the LangSmith path
-                  imports none of them, so they are not in this line.
+                  Both tabs in the next step import these four packages. The **FastAPI** tab
+                  installs four more (`ag-ui-langgraph`, `fastapi`, `uvicorn`, and
+                  `copilotkit`) in its own step.
 
                   <Callout type="warn" title="Project with pinned dependencies?">
                     `uv add` resolves and rewrites your lockfile. If your project
@@ -310,7 +287,7 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
                     `langgraph dev` refuses to load the graph
                     (`ValueError: ... includes a custom checkpointer ... persistence is
                     handled automatically by the platform`) and a deployed graph
-                    ignores it. The **FastAPI** tab is the opposite case — see the
+                    ignores it. The **FastAPI** tab is the opposite case. See the
                     note there.
                   </Callout>
 
@@ -340,7 +317,7 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
                   uv add ag-ui-langgraph fastapi uvicorn copilotkit
                   ```
 
-                  Then create a simple LangGraph agent, add a FastAPI app, and build attach our agent as an AG-UI endpoint.
+                  Then create a LangGraph agent and a FastAPI app, and add the agent as an AG-UI endpoint:
 
                   ```python title="main.py" doctest="server"
                   import os
@@ -408,7 +385,7 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
                     persistence. `ag-ui-langgraph` reads thread state via
                     `graph.aget_state(...)`, which raises
                     `ValueError: No checkpointer set` on a graph compiled without
-                    one — hence `MemorySaver()`. It keeps state in process memory
+                    one, hence `MemorySaver()`. It keeps state in process memory
                     only; swap in a durable saver (e.g. Postgres) for production.
                     Do **not** copy this into the LangSmith tab's graph.
                   </Callout>
@@ -454,8 +431,11 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
               ### Install CopilotKit packages
 
               ```npm
-              npm install @copilotkit/react-core @copilotkit/runtime
+              npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
               ```
+
+              The **FastAPI** route below imports `HttpAgent` from `@ag-ui/client`.
+              Version `1.0.2` matches the one `@copilotkit/runtime` uses.
 
               The components used below (`CopilotKitProvider`, `CopilotSidebar`) and the
               stylesheet all come from `@copilotkit/react-core/v2`, so
@@ -469,21 +449,6 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
               ```sh
               mkdir -p "app/api/copilotkit/[[...slug]]" && touch "app/api/copilotkit/[[...slug]]/route.ts"
               ```
-
-              <Callout type="info" title="A catch-all route for four verbs">
-                The example below mounts the Runtime on a catch-all route
-                (`app/api/copilotkit/[[...slug]]/route.ts`) for `GET`, `POST`,
-                `PATCH`, and `DELETE`. The LangGraph starters, the
-                [Intelligence quickstart](/intelligence/quickstart), and the
-                [runtime endpoints page](/backend/runtime-endpoints) use the
-                same mount.
-
-                If your app already serves the Runtime on one `POST` route with
-                `mode: "single-route"`, keep it. It also carries AG-UI Streams,
-                User Memory, and Inspector requests. Set `useSingleEndpoint` on
-                the provider to match. See
-                [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
-              </Callout>
 
               If your agent is in TypeScript, use the **LangSmith** tab.
               `LangGraphAgent` connects to the LangGraph API server that
@@ -572,6 +537,8 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
               </Tab>
             </Tabs>
 
+              If your app already serves the runtime on one `POST` route, see [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
+
               From this frontend app directory, connect the runtime to an Intelligence project:
 
               ```bash title="Terminal"
@@ -597,12 +564,6 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
 
               Wrap your application with the CopilotKit provider:
 
-              <Callout type="info" title="Match the provider to the handler">
-                `useSingleEndpoint={false}` pins the provider to the multi-route
-                handler above. See
-                [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
-              </Callout>
-
               ```tsx title="app/providers.tsx"
               "use client";
 
@@ -617,8 +578,7 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
               }
               ```
 
-              `app/layout.tsx` is a server component and cannot import the provider
-              directly, so it renders your client file instead:
+              Render the provider from `app/layout.tsx`:
 
               ```tsx title="app/layout.tsx"
               // [!code highlight:2]
@@ -673,7 +633,7 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
           </Step>
           <Step>
               ### Start your agent
-              From your agent directory, start the agent server:
+              From the `frontend` directory, go back to your agent directory and start the agent server:
 
               <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
                 <Tab value="TypeScript">
@@ -683,7 +643,7 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
                   ```
 
                   `--port 8123` matches the `http://localhost:8123` fallback in
-                  the runtime route. A bare `langgraph dev` serves on **2024**.
+                  the runtime route. Without `--port`, the LangGraph CLI serves on **2024**.
                 </Tab>
                 <Tab value="Python">
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
@@ -694,12 +654,11 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
                   ```
 
                   <Callout type="warn" title="Port 8123 is not the default">
-                    A bare `langgraph dev` (either the Python `langgraph-cli` or
-                    `@langchain/langgraph-cli`) serves on **2024**. This guide
+                    Without `--port`, the LangGraph CLI serves on **2024**. This guide
                     pins **8123** with `--port 8123` to match the
                     `http://localhost:8123` fallback in the route above. Keep the
                     flag, or drop it and change the route's URL to
-                    `http://localhost:2024` — but do not mix the two, or the
+                    `http://localhost:2024`, but do not mix the two, or the
                     runtime will fail to connect with no diagnostic beyond a
                     connection error.
                   </Callout>
@@ -756,9 +715,9 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
     </TailoredContent>
     </Step>
     <Step>
-        ### 🎉 Start chatting!
+        ### Start chatting
 
-        Your AI agent is now ready to use! Try asking it some questions:
+        Your AI agent is now ready to use. Try asking it some questions:
 
         ```
         Can you tell me a joke?
@@ -774,24 +733,34 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
-                - **Connection issues? Keep `localhost`, don't swap in a literal IP.** Which loopback address reaches the agent depends on the runtime, and `0.0.0.0` is a bind-all address for a server, never a valid target in a client URL.
+                **Connection refused from the runtime**
+
+                - Check the port. Without `--port`, the LangGraph CLI listens on `2024`. This guide pins `8123` with `--port 8123`. The `LANGGRAPH_DEPLOYMENT_URL` of the runtime (or its fallback) must name the port that the agent uses.
+                - Keep `localhost` in the URL. Do not use a literal IP. The loopback address that reaches the agent depends on the CLI. `0.0.0.0` is a bind-all address for a server, never a valid target in a client URL.
 
                   <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
                     <Tab value="Python">
-                      `langgraph dev` (the Python CLI) defaults to `--host 127.0.0.1`, so both `http://127.0.0.1:8123` and `http://localhost:8123` reach it. `http://[::1]:8123` does not — the server is not listening on IPv6.
+                      `langgraph dev` (the Python `langgraph-cli` package) defaults to `--host 127.0.0.1`, so both `http://127.0.0.1:8123` and `http://localhost:8123` reach it. `http://[::1]:8123` does not reach it, because the server does not listen on IPv6.
                     </Tab>
                     <Tab value="TypeScript">
-                      `@langchain/langgraph-cli` (the `langgraphjs` binary) defaults to `--host localhost`, which Node resolves to IPv6 on a dual-stack machine, binding `::1` **only**. So `http://localhost:8123` and `http://[::1]:8123` reach it, while `http://127.0.0.1:8123` is refused by that same running server — switching to `127.0.0.1` is what breaks it. If you need IPv4, bind it explicitly with `langgraphjs dev --host 127.0.0.1`.
+                      `npx @langchain/langgraph-cli dev` defaults to `--host localhost`. On a dual-stack machine, Node resolves `localhost` to IPv6 and binds `::1` **only**. So `http://localhost:8123` and `http://[::1]:8123` reach it, and the server refuses `http://127.0.0.1:8123`. If you need IPv4, add `--host 127.0.0.1` to the start command.
                     </Tab>
                   </Tabs>
-                - Make sure your agent folder contains a `langgraph.json` file
-                - In the `langgraph.json` file, reference the path to a `.env` file
-                - Check that your OpenAI API key is correctly set in the `.env` file
-                - If using an existing agent, ensure your LangSmith API key is also configured
-                - Make sure you're in the same folder as your `langgraph.json` file when running the `langgraph dev` command
-                - **Connection refused from the runtime?** Check the port. A bare `langgraph dev` listens on `2024`; this guide's start command pins `8123` with `--port 8123`. The runtime's `LANGGRAPH_DEPLOYMENT_URL` (or its fallback) has to name the port the agent actually bound.
-                - **"graph is nullish" error (JavaScript starters):** This means the LangGraph CLI couldn't load your graph. Ensure the export name in your `langgraph.json` matches your code (e.g., `"starterAgent": "./src/agent.ts:graph"` requires `export const graph = ...` in `agent.ts`). Also verify all dependencies are installed with `npm install` in your agent directory.
-                - Make sure the runtime endpoint path matches the `runtimeUrl` in your CopilotKit provider
+
+                **"graph is nullish" (TypeScript agents)**
+
+                The LangGraph CLI fails to load your graph.
+
+                - Run `npx @langchain/langgraph-cli dev` from the folder that holds `langgraph.json`.
+                - Make sure that the export name in `langgraph.json` matches your code. For example, `"sample_agent": "./src/agent.ts:graph"` needs `export const graph = ...` in `src/agent.ts`.
+                - Run `npm install` in your agent directory.
+
+                **The agent does not answer**
+
+                - Make sure that the `env` field in `langgraph.json` points to your `.env` file.
+                - Make sure that `OPENAI_API_KEY` is set in the `.env` file.
+                - If you use an existing agent, set your LangSmith API key too.
+                - Make sure that the runtime endpoint path matches the `runtimeUrl` in your CopilotKit provider.
             </Accordion>
         </Accordions>
 
@@ -815,25 +784,25 @@ Now that you have your basic agent setup, explore these advanced features:
   <Card
     title="Implement Human in the Loop"
     description="Allow your users and agents to collaborate together on tasks."
-    href="/langgraph/human-in-the-loop"
+    href="/human-in-the-loop"
     icon={<UserIcon />}
   />
   <Card
     title="Utilize Shared State"
     description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
-    href="/langgraph/shared-state"
+    href="/shared-state"
     icon={<RepeatIcon />}
   />
   <Card
     title="Add some generative UI"
     description="Render your agent's progress and output in the UI."
-    href="/langgraph/generative-ui/tool-rendering"
+    href="/generative-ui/tool-rendering"
     icon={<PaintbrushIcon />}
   />
   <Card
     title="Setup frontend actions"
     description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/langgraph/frontend-tools"
+    href="/frontend-tools"
     icon={<WrenchIcon />}
   />
 </Cards>

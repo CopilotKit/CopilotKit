@@ -64,7 +64,7 @@ Run these steps in your app's folder. If you don't have an app yet, create one w
     npx copilotkit@latest local setup
     ```
 
-    The CLI checks Docker before asking for an Automatic Learning model, which you can add later, and whether to add sample conversations. For a new stack, it then picks the latest release, gets your license, and installs the stack.
+    The CLI checks Docker first. Then it asks for an Automatic Learning model, which you can add later. Then it asks whether to add sample conversations. For a new stack, it then picks the latest release, gets your license, and installs the stack.
 
     While it works, the CLI shows each step with its time. The image download shows how many images are done, the size so far, and the speed. When setup finishes, it opens the dashboard and signs you in.
   </Step>
@@ -90,6 +90,24 @@ Run these steps in your app's folder. If you don't have an app yet, create one w
     CPK_INTELLIGENCE_API_KEY=cpk-...
     SL_ENABLED=true
     ```
+  </Step>
+
+  <Step>
+    ### Pass the values to your runtime
+
+    The runtime does not read these URLs from the environment. Pass them to the Intelligence client in your TypeScript runtime:
+
+    ```ts title="Your CopilotKit runtime"
+    import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+
+    const intelligence = new CopilotKitIntelligence({
+      apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+      apiUrl: process.env.INTELLIGENCE_API_URL!,
+      wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL!,
+    });
+    ```
+
+    If your runtime does not pass `intelligence` yet, follow [Connect your runtime](/intelligence/quickstart#connect-your-runtime).
   </Step>
 
   <Step>
@@ -182,7 +200,7 @@ The CLI rewrites loopback model URLs, including `localhost`, to `host.k3d.intern
 
 On a healthy, running stack, switching from one model to another restarts only the Automatic Learning service. Adding the first model or removing it with `local setup --defer-model` also restarts app-api, which enables or disables Automatic Learning runs. Running `local setup` again with the same model choice changes nothing. Saving a configuration does not prove the model works. A real Automatic Learning run does.
 
-Until a model is connected, Learning runs are off. Threads, Learning Spaces, and saved results still work. The dashboard shows **No AI model connected** and the command that fixes it.
+Until a model is connected, Automatic Learning runs are off. Threads, Learning Spaces, and saved results still work. The dashboard shows **No AI model connected** and the command that fixes it.
 
 ### Add sample conversations
 
@@ -223,7 +241,7 @@ A copy of an app folder can share the original stack when you add `--share-stack
 npx copilotkit@latest local update
 ```
 
-`local update` finds the latest release and moves the stack to it, keeping your threads, Learning results, project, and credentials. It shows its progress like setup does. If the stack already runs the latest release, it says so and changes nothing. If a release cannot update the stack's database in place, the CLI says so and leaves your data unchanged.
+`local update` finds the latest release and moves the stack to it, keeping your threads, Automatic Learning results, project, and credentials. It shows its progress like setup does. If the stack already runs the latest release, it says so and changes nothing. If a release cannot update the stack's database in place, the CLI says so and leaves your data unchanged.
 
 ## License and renewal
 
@@ -233,8 +251,8 @@ Your evaluation license follows your organization's current plan:
 - **Enterprise:** the license lasts until your paid term ends, or 30 days when no end date is on record.
 - **Paid plans in bad standing** do not receive a license.
 
-To renew, run `npx copilotkit@latest local renew`. Renewal needs internet access and a CopilotKit sign-in, and it runs the same plan checks. It keeps your data and does not restart Learning jobs already accepted. If the stack is stopped, `local start` applies the saved renewal.
+To renew, run `npx copilotkit@latest local renew`. Renewal needs internet access and a CopilotKit sign-in, and it runs the same plan checks. It keeps your data and does not restart Automatic Learning jobs already accepted. If the stack is stopped, `local start` applies the saved renewal.
 
-When the license expires, new Learning runs stop. Saved threads and Learning results stay readable, and the dashboard explains how to renew.
+When the license expires, new Automatic Learning runs stop. Saved threads and Automatic Learning results stay readable, and the dashboard explains how to renew.
 
 The license is tied to the organization you chose at sign-in. Renewal cannot move a stack to a different organization.

@@ -18,12 +18,12 @@ description: Write to agent's state from your application.
 
 ## What is this?
 
-This guide shows you how to write to your agent's state from your application.
+Your agent sometimes needs a value that the user sets in your UI. Call `agent.setState` to write that value to the agent's state.
 
 ## When should I use this?
 
-You can use this when you want to provide the user with feedback about what your agent is doing, specifically
-when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+Use this when a setting in your UI must change how the agent works, such as the reply language. Write the new value
+to the agent's state, and the agent receives it on its next run.
 
 ## Implementation
 
@@ -35,7 +35,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
   <Step>
     ### Define the Agent State
     LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
-    let's assume that our agent state looks something like this.
+    assume that our agent state looks something like this.
 
     <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
       <Tab value="Python">
@@ -99,13 +99,13 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     ```
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
     You can now use the `setState` function to update the agent state and `state` to read it. Try toggling the language button
     and talking to your agent. You'll see the language change to match the agent's state.
 
     <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
     <Callout>
-      This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
+      This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it.
     </Callout>
   </Step>
 </Steps>
@@ -114,7 +114,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
 ### Re-run the agent with updated state
 
-The new agent state will be used next time the agent runs.
+The agent uses the new state on its next run.
 If you want to re-run it manually, call `copilotkit.runAgent({ agent })` after updating state. Running through `copilotkit` sends your frontend tools and context with the run and executes any frontend tool calls.
 
 ```tsx title="ui/app/page.tsx"
@@ -152,4 +152,4 @@ which means state updates will be discontinuous and delayed.
 
 You likely want to render the agent state as it updates **continuously.**
 
-See **[predictive state updates](/langgraph/shared-state/predictive-state-updates).**
+See **[predictive state updates](/shared-state/predictive-state-updates).**

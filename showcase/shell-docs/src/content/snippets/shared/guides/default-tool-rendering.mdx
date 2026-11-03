@@ -1,4 +1,4 @@
-`useDefaultRenderTool` provides a catch-all renderer for **any tool** that doesn't have a specific `useRenderToolCall` defined. This is useful for:
+Some tool calls have no renderer of their own, such as MCP tools. To show them in the chat, register a catch-all renderer with `useDefaultRenderTool`. It renders **any tool** that has no renderer registered with `useRenderTool`. This is useful for:
 
 - Displaying all tool calls during development
 - Rendering MCP (Model Context Protocol) tools
@@ -12,7 +12,7 @@ const YourMainContent = () => {
   // ...
   // [!code highlight:15]
   useDefaultRenderTool({
-    render: ({ name, args, status, result }) => {
+    render: ({ name, status, result }) => {
       return (
         <div style={{ color: "black" }}>
           <span>
@@ -31,14 +31,8 @@ const YourMainContent = () => {
 ```
 
 <Callout type="info">
-  Unlike `useRenderToolCall`, which targets a specific tool by name,
-  `useDefaultRenderTool` catches **all** tools that don't have a dedicated
-  renderer.
-</Callout>
-
-<Callout type="info">
-  In v2, use [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool)
-  for wildcard fallback rendering, and
-  [`useRenderTool`](/reference/v2/hooks/useRenderTool) for named or wildcard
-  renderer registration.
+  Unlike [`useRenderTool`](/reference/v2/hooks/useRenderTool) with a `name`,
+  which targets one tool,
+  [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool) catches
+  **all** tools that have no renderer of their own.
 </Callout>

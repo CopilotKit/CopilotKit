@@ -1,9 +1,9 @@
 ---
 title: "API Reference"
-description: "API Reference for the next-generation CopilotKit React API."
+description: "API Reference for the CopilotKit v2 React API."
 ---
 
-The v2 React API (`@copilotkit/react-core/v2`) is the next-generation interface for building copilot-powered applications. It provides a streamlined set of hooks and components built on top of the [AG-UI](https://docs.ag-ui.com) agent protocol.
+The v2 React API (`@copilotkit/react-core/v2`) gives you hooks and components for apps that talk to agents over the [AG-UI](https://docs.ag-ui.com) protocol.
 
 ## Provider Setup
 
@@ -160,6 +160,44 @@ The [`<CopilotKit>`](/reference/components/CopilotKit) export is the v1 compatib
   handler and a tool call renderer.
 </PropertyReference>
 
+<PropertyReference name="messageFilter" type="(messages: Message[], context: { agentId: string }) => Message[]">
+  Rewrites the message list sent to runtime agents on every run. Return the
+  messages to send. The transcript that the UI renders does not change.
+  Intelligence runs and suggestion runs are not filtered. Pass a stable
+  reference (`useCallback`).
+</PropertyReference>
+
+<PropertyReference name="showIntelligenceIndicator" type="boolean" default="true">
+  Whether to mount the Intelligence indicator in chat automatically.
+</PropertyReference>
+
+<PropertyReference name="a2ui" type="{ theme?: A2UITheme; catalog?: any; loadingComponent?: React.ComponentType; includeSchema?: boolean; recovery?: A2UIRecoveryRendererOptions }">
+  Options for the A2UI renderer. The renderer turns on when `a2ui` is
+  configured in `CopilotRuntime`. Use this prop to override the theme, the
+  component catalog, or the loading component. `includeSchema` (default
+  `true`) sends the component schemas of the catalog to the agent as context.
+</PropertyReference>
+
+<PropertyReference name="generativeUI" type="GenerativeUIConfig">
+  Experimental. Native generative UI: pass `{ ui }`, where `ui` comes from
+  `createGenerativeUI`. The agent renders your React components into chat or
+  into `<GenerativeUISurface id>` mounts.
+</PropertyReference>
+
+<PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean }">
+  Options for the built-in MCP Apps renderer. `allowSameOriginFallback`
+  (default `false`) restores `allow-same-origin` on the MCP App sandbox. The
+  widget then runs with the origin of your page, so set it only for widgets
+  that you wrote and trust.
+</PropertyReference>
+
+<PropertyReference name="learning" type="boolean | LearningProp">
+  Turns on interaction capture (`@copilotkit/learning`). Pass `true` for the
+  default options, or an object for options such as `autoStart` and
+  `trajectoryId`. Omit the prop or pass `false` to turn capture off. Capture
+  starts after mount and stops on unmount.
+</PropertyReference>
+
 <PropertyReference name="enableInspector" type="boolean">
   Controls the CopilotKit Inspector in development browser builds on localhost
   or loopback hosts. It is shown by default unless set to `false`, and is never
@@ -168,14 +206,14 @@ The [`<CopilotKit>`](/reference/components/CopilotKit) export is the v1 compatib
 </PropertyReference>
 
 <PropertyReference name="showDevConsole" type='boolean | "auto"'>
-  **Deprecated for Inspector control:** this prop no longer changes Inspector
+  **Deprecated for Inspector control:** this prop does not change Inspector
   visibility. Use `enableInspector` instead.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
   Error handler called when CopilotKit encounters an error. Fires for all error types: runtime connection failures, agent errors, and tool errors.
 
-Unlike the v1 `onError`, this does **not** require a `publicApiKey`; error handling works with any configuration.
+`onError` works with any configuration. It does not need a `publicApiKey`.
 
 ```tsx
 <CopilotKitProvider
@@ -240,12 +278,10 @@ import "@copilotkit/react-core/v2/styles.css";
     title="Hooks"
     description="React hooks for agents, tools, context, and chat configuration."
     href="/reference/hooks/useAgent"
-    icon={<LinkIcon />}
   />
   <Card
     title="UI Components"
     description="Pre-built chat components: CopilotChat, CopilotPopup, CopilotSidebar, and more."
     href="/reference/components/CopilotChat"
-    icon={<LinkIcon />}
   />
 </Cards>

@@ -6,6 +6,7 @@ icon: "lucide/Rocket"
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
+
 ## Start with your coding agent
 
 Use this prompt to connect your Deep Agents agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
@@ -19,7 +20,7 @@ Before you begin, you'll need the following:
 - An OpenAI API key
 - Node.js 20+
 - Your favorite package manager
-- A LangGraph Platform API key - only required if deploying to the Deep Agent platform
+- A LangSmith API key, only if you deploy the agent to LangGraph Platform
 
 ## Getting started
 
@@ -65,10 +66,10 @@ Before you begin, you'll need the following:
                 ```
             </Tab>
             <Tab value="TypeScript">
-                Add the `deepagents`, `@langchain/langgraph`, `@copilotkit/sdk-js`, and `@langchain/openai` packages:
+                Add the `deepagents`, `@langchain/langgraph`, `@copilotkit/sdk-js`, `@langchain/openai`, `langchain`, and `zod` packages. `@copilotkit/sdk-js` needs Zod 3:
 
                 ```bash
-                npm install deepagents @langchain/langgraph @copilotkit/sdk-js @langchain/openai
+                npm install deepagents @langchain/langgraph @copilotkit/sdk-js @langchain/openai langchain zod@3
                 ```
             </Tab>
         </Tabs>
@@ -96,7 +97,7 @@ Before you begin, you'll need the following:
                 )
                 ```
 
-                Then to test and deploy with Deep Agent, create a `langgraph.json`:
+                To run the agent with the LangGraph CLI, create a `langgraph.json`:
 
                 ```sh
                 touch langgraph.json
@@ -141,7 +142,7 @@ Before you begin, you'll need the following:
                 });
                 ```
 
-                Then to test and deploy with Deep Agent, create a `langgraph.json`:
+                To run the agent with the LangGraph CLI, create a `langgraph.json`:
 
                 ```sh
                 touch langgraph.json
@@ -389,8 +390,7 @@ Before you begin, you'll need the following:
         }
         ```
 
-        `app/layout.tsx` is a server component and cannot import the provider
-        directly, so it renders your client file instead:
+        Render the provider from `app/layout.tsx`:
 
         ```tsx title="app/layout.tsx"
         import { Providers } from "./providers";
@@ -459,11 +459,13 @@ Before you begin, you'll need the following:
         <Tabs groupId="deployment_method" items={['Deep Agent', 'FastAPI']}>
             <Tab value="Deep Agent">
                 ```bash
+                cd ..
                 npx @langchain/langgraph-cli dev --port 8123 --no-browser
                 ```
             </Tab>
             <Tab value="FastAPI">
                 ```bash
+                cd ..
                 uv run main.py
                 ```
             </Tab>
@@ -473,7 +475,7 @@ Before you begin, you'll need the following:
 
         <Callout type="info">
             If port 8123 is already in use, change the `--port` flag (or the `port=` argument
-            in the FastAPI `main.py`) and update `LANGGRAPH_DEPLOYMENT_URL` in Step 7 to match.
+            in the FastAPI `main.py`) and update `LANGGRAPH_DEPLOYMENT_URL` in the **Setup Copilot Runtime** step to match.
         </Callout>
     </Step>
     <Step>
@@ -503,6 +505,8 @@ Before you begin, you'll need the following:
                 ```
             </Tab>
         </Tabs>
+
+        Open `http://localhost:3000` and ask the agent: `What is the weather in Paris?` The sidebar shows a **Called get_weather** entry, and the agent replies that the weather in Paris is sunny.
     </Step>
     <Step>
         <OpenInspectorStep components={props.components} />

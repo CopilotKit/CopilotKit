@@ -8,7 +8,7 @@ hideTOC: true
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
 
-`@copilotkit/angular` provides Angular components, directives, and services for CopilotKit. This guide gets you to a working Angular app with a chat UI backed by [Copilot Runtime](/backend/copilot-runtime). When you select an agent backend in the sidebar, the backend step below changes with it; without a selection, the guide uses CopilotKit's `BuiltInAgent`.
+This guide takes an Angular app to a working chat UI backed by [Copilot Runtime](/backend/copilot-runtime). When you select an agent backend in the sidebar, the backend step below changes with it. Without a selection, the guide uses CopilotKit's `BuiltInAgent`.
 
 The runtime runs on your server, keeps model credentials out of the browser, and exposes the `default` agent that `CopilotChat` uses automatically.
 
@@ -24,12 +24,6 @@ The runtime runs on your server, keeps model credentials out of the browser, and
 Use this prompt to connect your Angular app to Copilot Runtime with the selected agent backend, then verify a working conversation. You can also follow the manual steps below.
 
 <PageAgentPrompt />
-
-## What is CopilotKit for Angular?
-
-CopilotKit for Angular is the first-party, signal-based Angular frontend for
-AG-UI agents and Copilot Runtime. It provides complete chat surfaces and
-headless APIs, and it supports zoneless applications.
 
 ## Prerequisites
 
@@ -53,7 +47,7 @@ headless APIs, and it supports zoneless applications.
     <Step>
         ### Install CopilotKit
 
-        Install the Angular frontend package, `@angular/cdk`, and `@copilotkit/runtime` for your local Copilot Runtime server:
+        `@copilotkit/angular` gives you Angular components, directives, and services for CopilotKit. It supports zoneless applications. Install it with `@angular/cdk`, and install `@copilotkit/runtime` for your local Copilot Runtime server:
 
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
@@ -116,22 +110,7 @@ headless APIs, and it supports zoneless applications.
         ```
 
         <Callout type="info" title="Angular runs the runtime as its own process">
-          Angular has no route handler, so Copilot Runtime is a **separate
-          process** from your app — a second terminal here, and a third once you
-          add an agent backend. Nothing proxies it for you, which is why
-          `runtimeUrl` below is an absolute URL rather than a relative path.
-
-          `8200` is only this guide's default. The server above reads `PORT`, so
-          move it without editing any source:
-
-          ```bash
-          PORT=8250 npx tsx server.ts
-          ```
-
-          Set `runtimeUrl` to the matching port when you do. Worth doing
-          deliberately if you run more than one CopilotKit project on the same
-          machine — the default collides, and a runtime that binds a port
-          another project is already using is a confusing failure to diagnose.
+          Copilot Runtime runs as its own process, so `runtimeUrl` is an absolute URL. To use another port, run `PORT=8250 npx tsx server.ts` and set `runtimeUrl` to match.
         </Callout>
       </Step>
     </WhenAngularBackend>
@@ -139,16 +118,12 @@ headless APIs, and it supports zoneless applications.
       <Step>
         ### Connect the selected agent backend
 
-        This URL keeps the agent backend selected. The Angular setup remains
-        shared; the backend setup below comes from that integration's canonical
-        showcase source.
-
         <FrameworkSetup concept="agent-setup" />
 
         <Callout type="info" title="Expose the selected backend through Copilot Runtime">
           Configure Copilot Runtime to register this backend as the `default`
           agent at `/api/copilotkit`. Continue with the selected backend's
-          [Copilot Runtime guide](backend/copilot-runtime) for its runtime
+          [Copilot Runtime guide](/backend/copilot-runtime) for its runtime
           adapter, credentials, and server command. Do not replace it with the
           `BuiltInAgent` server from the standalone Angular path.
         </Callout>
@@ -262,9 +237,12 @@ headless APIs, and it supports zoneless applications.
 
 ## Next steps
 
-- [Runtime and backend docs](backend/copilot-runtime): configure the server, secure requests, and deploy without leaving the selected Angular surface.
-- [CopilotKit Intelligence](intelligence/overview): add threads, inspection, and cloud-hosted or self-hosted operations.
-- [Angular task guides](guides/chat-ui): build chat UI, tools, generative UI, interrupts, shared state, threads, memory, attachments, and headless UI.
-- [Angular feature examples](features): find runnable examples and canonical shared Angular source for each supported feature.
+1. [Angular task guides](/angular/guides/chat-ui): build chat UI, tools, generative UI, interrupts, shared state, threads, memory, attachments, and headless UI.
+2. [Angular feature examples](/angular/features): find runnable examples and canonical shared Angular source for each supported feature.
+3. [Runtime and backend docs](/backend/copilot-runtime): configure the server, secure requests, and deploy without leaving the selected Angular surface.
+
+Later:
+
+- [CopilotKit Intelligence](/intelligence/overview): add threads, inspection, and cloud-hosted or self-hosted operations.
 - [Angular API reference](/reference/angular): use components, signals, tools, context, and runtime services.
 - [Production and lifecycle](/reference/angular/production-lifecycle): handle cleanup, errors, server rendering, hydration, zoneless Angular, and browser-only features.

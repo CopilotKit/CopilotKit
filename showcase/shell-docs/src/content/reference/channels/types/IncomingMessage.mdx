@@ -15,6 +15,7 @@ interface IncomingMessage {
   actor: ProviderActor;
   ref: MessageRef;
   platform: string;
+  operation?: MessageOperation;
   contentParts?: AgentContentPart[];
   eventId?: string;
   turnId?: string;
@@ -29,6 +30,7 @@ interface IncomingMessage {
 | `actor`        | Provider account that caused the event. It includes a required actor kind.                              |
 | `ref`          | In ordinary message handlers this may have an empty id; do not assume every inbound turn can be edited. |
 | `platform`     | Native source: `"slack"` or `"teams"` for message deliveries.                                           |
+| `operation`    | Present on `onMessage` and `onMention` turns: `kind` (`"created"`, `"updated"`, or `"deleted"`), `logicalMessageId`, `revisionId`, and `mentioned`. Edits and deletes also reach these handlers, so check `kind` before you run the agent. |
 | `contentParts` | Hydrated file/media parts when attachments were retrieved.                                              |
 | `eventId`      | Stable provider-event id for application idempotency.                                                   |
 | `turnId`       | Managed turn correlation id.                                                                            |

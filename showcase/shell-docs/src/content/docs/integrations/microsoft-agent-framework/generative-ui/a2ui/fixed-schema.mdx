@@ -1,6 +1,6 @@
 ---
 title: "Fixed Schema A2UI"
-description: "Pre-defined A2UI schema with dynamic data. The fastest approach — no LLM schema generation needed."
+description: "Pre-defined A2UI schema with dynamic data. The fastest approach: no LLM schema generation needed."
 ---
 In the fixed-schema approach, you design the UI schema once (in a JSON file or using the [A2UI Composer](https://a2ui-composer.ag-ui.com/)) and your agent tool only provides the data. The surface appears instantly when the tool returns.
 
@@ -20,12 +20,17 @@ In the fixed-schema approach, you design the UI schema once (in a JSON file or u
 Design your schema using the [A2UI Composer](https://a2ui-composer.ag-ui.com/) or write it by hand. Save it as a JSON file:
 
 ```
-apps/agent/src/a2ui/schemas/flight_schema.json
+src/agents/a2ui_schemas/flight_schema.json
 ```
 </Step>
 
 <Step>
 ### Define the agent tool (Python)
+
+<Callout type="info" title="Using .NET?">
+  The tool steps below are in Python. A .NET agent returns the same `a2ui_operations` container from a `display_flight` function tool.
+  For a working .NET agent, see [`A2uiFixedSchemaAgent.cs`](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/ms-agent-dotnet/agent/A2uiFixedSchemaAgent.cs).
+</Callout>
 
 ```python title="src/agents/a2ui_fixed.py"
 import json
@@ -60,9 +65,9 @@ def display_flight(
 ```
 
 Key points:
-- The `Annotated` + `Field` parameters are essential — Microsoft Agent Framework serializes them into the tool's JSON schema, which is what the LLM sees when deciding what data to generate.
+- The `Annotated` + `Field` parameters are essential. Microsoft Agent Framework serializes them into the tool's JSON schema, which is what the LLM sees when deciding what data to generate.
 - The tool builds the `a2ui_operations` container by hand and does not declare server-side action handlers. Button clicks are forwarded to the agent, but this example has no server-side handler for them.
-- `"book_flight"` is the action name used by the schema button and can be handled with the frontend APIs in the [Advanced — Action Handlers](./advanced#action-handlers) guide.
+- `"book_flight"` is the action name used by the schema button and can be handled with the frontend APIs in the [Advanced: Action Handlers](./advanced#action-handlers) guide.
 </Step>
 
 <Step>
@@ -84,9 +89,36 @@ agent = AgentFrameworkAgent(agent=base_agent)
 </Step>
 
 <Step>
+### Register the catalog (TypeScript)
+
+The tool creates the surface with the catalog ID `copilotkit://flight-fixed-catalog`. Register a catalog with the same ID on the provider. If no catalog has this ID, the renderer stops with `Catalog not found` and no card appears.
+
+```tsx title="src/app/a2ui/catalog.ts"
+import { createCatalog } from "@copilotkit/a2ui-renderer";
+import { definitions } from "./definitions";
+import { renderers } from "./renderers";
+
+export const catalog = createCatalog(definitions, renderers, {
+  catalogId: "copilotkit://flight-fixed-catalog",
+  includeBasicCatalog: true,
+});
+```
+
+`definitions` and `renderers` hold the custom components that your schema uses. If the schema uses only built-in components, pass `{}` for both. `includeBasicCatalog: true` adds the built-in components, such as `Card`, `Row`, `Text`, and `Button`.
+
+Pass the catalog to the provider:
+
+```tsx title="src/app/page.tsx"
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ catalog }}>
+  {/* ... */}
+</CopilotKit>
+```
+</Step>
+
+<Step>
 ### Configure the runtime (TypeScript)
 
-Enable A2UI in your CopilotRuntime. The middleware auto-detects A2UI operations in any tool result, so no tool injection is needed here — the agent's `display_flight` tool returns them directly.
+Enable A2UI in your CopilotRuntime. The middleware auto-detects A2UI operations in any tool result, so no tool injection is needed here. The agent's `display_flight` tool returns them directly.
 
 ```typescript title="app/api/copilotkit-a2ui-fixed-schema/route.ts"
 const runtime = new CopilotRuntime({
@@ -99,34 +131,38 @@ const runtime = new CopilotRuntime({
 </Step>
 </Steps>
 
+Ask the agent for a flight from SFO to JFK. The flight card appears in the chat as soon as the tool returns.
+
 ## Action handler details
 
-The current Python SDK does not support the `action_handlers=` option. The button schema can still define the action context used by frontend handlers. Here's how the schema side looks:
+The button schema defines the action context that frontend handlers receive:
 
 ### Button with action context
 
-In your `flight_schema.json`, buttons declare an `action` with data-bound context fields. When clicked, the values are resolved from that specific card's data:
+In your `flight_schema.json`, buttons declare an `action` with data-bound context fields. When clicked, the values are resolved from that specific card's data. The tool writes its data at the root of the data model, so the paths start with `/`:
 
 ```json
 {
-  "id": "book-button",
+  "id": "bookButton",
   "component": "Button",
-  "child": "book-label",
   "variant": "primary",
+  "child": "bookButtonLabel",
   "action": {
     "event": {
       "name": "book_flight",
       "context": {
-        "flightNumber": { "path": "flightNumber" },
-        "price": { "path": "price" }
+        "origin": { "path": "/origin" },
+        "destination": { "path": "/destination" },
+        "airline": { "path": "/airline" },
+        "price": { "path": "/price" }
       }
     }
   }
 }
 ```
 
-When this button is clicked on a card showing flight AA100 at $350, frontend action handling receives `context: { flightNumber: "AA100", price: "$350" }`. The Python `action_handlers=` path is not yet supported.
+When this button is clicked on a United card from SFO to JFK at $289, frontend action handling receives `context: { origin: "SFO", destination: "JFK", airline: "United", price: "$289" }`.
 
 <Callout type="info">
-For custom frontend handling with `createA2UIMessageRenderer` and its `onAction` option, see the [Advanced — Action Handlers](./advanced#action-handlers) guide.
+For custom frontend handling with `createA2UIMessageRenderer` and its `onAction` option, see the [Advanced: Action Handlers](./advanced#action-handlers) guide.
 </Callout>

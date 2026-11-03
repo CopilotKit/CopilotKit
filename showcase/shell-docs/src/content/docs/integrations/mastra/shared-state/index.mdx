@@ -4,15 +4,14 @@ description: Create a two-way connection between your UI and Mastra agent state.
 icon: "lucide/Repeat"
 ---
 
-<Frame>
-    <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-state-diagram.png" alt="Agentic Copilot State Diagram" />
-</Frame>
+Your UI and your Mastra agent can share one state object. The agent writes to it, your UI shows it, and the changes
+of the user reach the agent on its next run. Read and write the state with the `useAgent` hook.
 
-The foundation of this system is built on Mastra's stateful architecture via AG-UI. Mastra agents can maintain their
-internal state throughout execution, which you can access via the `useAgent` hook.
+- To show the agent's state in your UI, see [Reading agent state](/mastra/shared-state/in-app-agent-read).
+- To change the agent's state from your UI, see [Writing agent state](/mastra/shared-state/in-app-agent-write).
 
 ## When should I use this?
-State streaming is perfect when you want to facilitate collaboration between your agent and the user. Any state that your Mastra agent
+Use shared state when the agent and the user work on the same data. Any state that your Mastra agent
 persists will be automatically shared by the UI. Similarly, any state that the user updates in the UI will be automatically reflected.
 
 This allows for a consistent experience where both the agent and the user are on the same page.

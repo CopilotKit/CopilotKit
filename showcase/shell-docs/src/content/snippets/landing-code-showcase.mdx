@@ -24,18 +24,24 @@
   </CodePanel>
   <CodePanel>
     ```tsx title="chat.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2";
+    import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
     export default function Chat() {
-      const { run, messages, isRunning } = useAgent();
+      const { agent } = useAgent();
+      const { copilotkit } = useCopilotKit();
+
+      const send = () => {
+        agent.addMessage({ id: crypto.randomUUID(), role: "user", content: "Hello!" });
+        void copilotkit.runAgent({ agent });
+      };
 
       return (
         <div>
-          {messages.map((m) => (
+          {agent.messages.map((m) => (
             <p key={m.id}>{m.content}</p>
           ))}
-          <button onClick={() => run("Hello!")}>
-            {isRunning ? "Thinking..." : "Send"}
+          <button onClick={send}>
+            {agent.isRunning ? "Thinking..." : "Send"}
           </button>
         </div>
       );
@@ -48,20 +54,24 @@
     import { z } from "zod";
     import { useComponent } from "@copilotkit/react-core/v2";
 
-    useComponent({
-      name: "showWeather",
-      description: "Display a weather card.",
-      parameters: z.object({
-        city: z.string(),
-        temp: z.number(),
-      }),
-      render: ({ city, temp }) => (
-        <div className="rounded border p-3">
-          <div className="font-medium">{city}</div>
-          <div className="text-2xl">{temp}°F</div>
-        </div>
-      ),
-    });
+    // Render <WeatherCardTool /> inside <CopilotKit>.
+    export function WeatherCardTool() {
+      useComponent({
+        name: "showWeather",
+        description: "Display a weather card.",
+        parameters: z.object({
+          city: z.string(),
+          temp: z.number(),
+        }),
+        render: ({ city, temp }) => (
+          <div className="rounded border p-3">
+            <div className="font-medium">{city}</div>
+            <div className="text-2xl">{temp}°F</div>
+          </div>
+        ),
+      });
+      return null;
+    }
     ```
 
   </CodePanel>

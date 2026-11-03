@@ -4,31 +4,32 @@ description: Learn how to load chat messages and threads within the CopilotKit f
 icon: "lucide/MessagesSquare"
 ---
 
-LangGraph supports threads, a way to group messages together and ultimately maintain a continuous chat history. CopilotKit
-provides a few different ways to interact with this concept.
+A user who reloads the page or opens an old conversation expects to see its earlier messages. Set `threadId` on `<CopilotKit>` to load a thread.
 
 This guide assumes you have already gone through the [quickstart](/langgraph/quickstart) guide.
 
 ## Loading an Existing Thread
 
-To load an existing thread in CopilotKit, you can simply set the `threadId` property on `<CopilotKit>` like so.
+To load an existing thread in CopilotKit, you can set the `threadId` property on `<CopilotKit>` like so.
 
 <Callout>When using LangGraph platform, the `threadId` must be a UUID.</Callout>
 
 ```tsx
-{
-  /* [!code highlight:1] */
-}
+{/* [!code highlight:1] */}
 <CopilotKit threadId="37aa68d0-d15b-45ae-afc1-0ba6c3e11353">
   <YourApp />
-</CopilotKit>;
+</CopilotKit>
 ```
 
 ## Dynamically Switching Threads
 
-You can also make the `threadId` dynamic. Once it is set, CopilotKit will load the previous messages for that thread.
+You can also make the `threadId` dynamic. When it changes, CopilotKit loads the messages that the runtime's agent runner kept for that thread. The default `InMemoryAgentRunner` keeps them only in server memory, so a server restart loses them. To keep threads across restarts, use a persistent runner such as `SqliteAgentRunner` from `@copilotkit/sqlite-runner`.
 
 ```tsx
+"use client";
+
+import { useState } from "react";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 const Page = () => {
   const [threadId, setThreadId] = useState("af2fa5a4-36bd-4e02-9b55-2580ab584f89"); // [!code highlight]
@@ -43,9 +44,11 @@ const Page = () => {
 const YourApp = ({ setThreadId }) => {
   return (
     {/* [!code highlight:1] */}
-    <Button onClick={() => setThreadId("679e8da5-ee9b-41b1-941b-80e0cc73a008")}>
+    <button onClick={() => setThreadId("679e8da5-ee9b-41b1-941b-80e0cc73a008")}>
       Change Thread
-    </Button>
+    </button>
   )
 }
 ```
+
+Click **Change Thread**. The chat shows the messages that the runtime kept for the new thread.

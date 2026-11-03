@@ -14,7 +14,7 @@ agents to a compact [CopilotKit](https://www.copilotkit.ai/) chat over [AG-UI](h
 The example is a focused finance assistant. Ask what a recurring investment could grow to and the managed
 agent calculates in its hosted workspace, calls one backend tool, and CopilotKit renders an interactive growth
 projection inline. It is adapted from Anthropic's
-[Claude Managed Agents × CopilotKit quickstart](https://github.com/anthropics/claude-quickstarts/tree/main/managed-agents/copilot-kit-ag-ui),
+[Claude Managed Agents and CopilotKit quickstart](https://github.com/anthropics/claude-quickstarts/tree/main/managed-agents/copilot-kit-ag-ui),
 reduced to one interaction that fits a Cookbook pane.
 
 ## How it works
@@ -125,39 +125,38 @@ wherever the demo is deployed.
 
 At runtime, the AG-UI adapter owns managed-session creation and maps it to the CopilotKit thread. The visual tool
 is supplied as a session override, so changing its schema does not require a new managed-agent version.
-`CopilotSseRuntime` is imported under that exact name; it is CopilotKit's V2 runtime for direct SSE connections.
+`CopilotSseRuntime` is the CopilotKit runtime that streams agent events over SSE.
 The adapter requires only the managed agent and environment IDs, while this recipe adds `backendTools` for the
 interactive projection:
 
 ```ts title="server/src/index.ts"
+import express from "express";
 import { CopilotSseRuntime } from "@copilotkit/runtime/v2";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
 import { ManagedAgentsAgent } from "@ag-ui/claude-managed-agents";
-import {
-  createCopilotRequestBodyParser,
-  createFinancialAssistantAgentConfig,
-} from "./runtimeLimits";
-import { configureDemoRunLimits } from "./requestLimits";
+import { financialAssistantTools } from "./financialAssistantTools";
+import { loadAgentIds } from "./setup";
+
+const ids = loadAgentIds();
 
 const runtime = new CopilotSseRuntime({
   agents: {
-    "financial-assistant": new ManagedAgentsAgent(
-      createFinancialAssistantAgentConfig(ids),
-    ),
+    "financial-assistant": new ManagedAgentsAgent({
+      managedAgentId: ids.agentId,
+      environmentId: ids.environmentId,
+      backendTools: financialAssistantTools,
+    }),
   },
 });
 
-configureDemoRunLimits(app, createCopilotRequestBodyParser());
+const app = express();
+app.use(createCopilotExpressHandler({ runtime, basePath: "/api/copilotkit" }));
 ```
 
-The runtime helper keeps the public demo bounded: it leaves `turnTimeoutMs` at 90 seconds and rejects request bodies
-over 256 KB. The adapter already serializes runs per thread.
+To keep the public demo bounded, the example also sets `turnTimeoutMs` to 90 seconds and rejects request bodies
+over 256 KB (`server/src/runtimeLimits.ts`). The adapter already serializes runs per thread.
 
-Only the canonical `POST /api/copilotkit/agent/financial-assistant/run` path, with one optional trailing slash, can
-start the provider-backed agent. Run aliases, unknown agents, and suggestion routes are rejected before the runtime.
-Provider-like attempts are limited to 20 per client IP per minute before body parsing, and the process accepts
-2,000 successful run requests per 24-hour window. Other CopilotKit routes do not use these allowances.
-
-The single [backend tool](/generative-ui/tool-rendering#the-backend-tool-definition) declares the exact data the
+The single [backend tool](/generative-ui/tool-rendering) declares the exact data the
 UI needs. Its handler only acknowledges the render because the streamed tool call itself is the user-visible
 result:
 
@@ -219,21 +218,15 @@ ALLOWED_ORIGINS=https://your-app.example.com
 `ANTHROPIC_MODEL` is used by setup, not by the running server. To change models on Railway, reprovision first and
 then update `ANTHROPIC_ENVIRONMENT_ID` and `ANTHROPIC_AGENT_ID` with the replacement IDs.
 
-On Railway, the per-IP limiter uses Railway's `X-Real-IP` header and normalizes IPv6 client addresses with
-`express-rate-limit`. It does not enable Express proxy trust or use `X-Forwarded-For`. Missing or malformed
-`X-Real-IP` values share one conservative bucket; local and direct deployments use the socket-derived
-`request.ip` instead.
-
 <Callout type="warning" title="Protect the runtime before going public">
-  The example endpoint has no user authentication, and every message spends your Anthropic API credits.
-  When `ALLOWED_ORIGINS` is set, the server rejects requests without the exact matching Origin header, including
-  when the frontend and runtime are hosted separately. That browser check is not authentication because custom
-  clients can forge the header. The public demo therefore adds route-specific per-IP and process-wide in-memory
-  limits. The counters reset on restart and are not shared across replicas, and the 2,000-start allowance is not a
-  fixed dollar ceiling. Scope the API key to a dedicated, non-default
-  [Anthropic workspace](https://platform.claude.com/docs/en/manage-claude/workspaces) with the desired monthly spend
-  limit as the durable cost backstop. Put the runtime behind your application session check before using this
-  pattern in production.
+  - Put the runtime behind your application session check before you go to production.
+  - Scope `ANTHROPIC_API_KEY` to a dedicated, non-default
+    [Anthropic workspace](https://platform.claude.com/docs/en/manage-claude/workspaces) with a monthly spend limit.
+  - Set `ALLOWED_ORIGINS`. The server then rejects requests without the exact matching Origin header. Custom
+    clients can forge that header, so this check is not authentication.
+
+  The example has no user authentication, and every message spends your Anthropic API credits. The public demo
+  also limits runs per IP and per process. See `server/src/requestLimits.ts`.
 </Callout>
 
 The adapter's default session store is in memory. A server restart starts fresh managed sessions, while the

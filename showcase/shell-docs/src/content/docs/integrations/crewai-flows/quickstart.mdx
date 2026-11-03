@@ -19,13 +19,24 @@ Use this prompt to connect your CrewAI agent to CopilotKit and verify a working 
 
 Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/first-flow). It can run locally or on infrastructure you manage; a CrewAI Enterprise deployment is optional. If you use the CopilotKit CLI path below, the starter creates the Flow integration for you.
 
+The CLI starter also needs:
+
+- Node.js 20.9+
+- Python 3.10 to 3.13
+- [uv](https://docs.astral.sh/uv/)
+- An OpenAI API key
+
 ## Getting started
 
 <Steps>
 <Step>
     ### Optional: Set up CopilotKit Intelligence
 
-    <SignupLink surface="docs_crewai_flows_quickstart_step1">Start cloud-hosted setup</SignupLink> and create or select a project if you want persistent threads and the inspector. The CLI's `init` flow writes the server-side project API key to `.env` as `CPK_INTELLIGENCE_API_KEY`; cloud-hosted setup does not issue `COPILOTKIT_LICENSE_TOKEN`. A Copilot Cloud account is not required to run a local CrewAI Flow with CopilotKit.
+    <SignupLink surface="docs_crewai_flows_quickstart_step1">Start cloud-hosted setup</SignupLink> and create or select a project if you want persistent threads and the inspector.
+
+    - The CLI's `init` flow writes the server-side project API key to `.env` as `CPK_INTELLIGENCE_API_KEY`.
+    - Cloud-hosted setup does not issue `COPILOTKIT_LICENSE_TOKEN`.
+    - You do not need a Copilot Cloud account to run a local CrewAI Flow with CopilotKit.
 </Step>
 
 <Step>
@@ -49,7 +60,7 @@ Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/
 
             <Accordions>
                 <Accordion title="Don't have a Next.js application?">
-                    No problem! Just use `create-next-app` to make one quickly.
+                    No problem. Just use `create-next-app` to make one quickly.
                     ```bash
                     npx create-next-app@latest
                     ```
@@ -63,22 +74,33 @@ Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/
             The starter uses a regular CrewAI Flow. To make it session-aware, finish this Quickstart and then [promote the Flow to a Conversational Flow](/crewai-flows/conversational-flows). Your CopilotKit frontend stays the same.
         </Step>
         <Step>
-            ### 🎉 Talk to your agent!
+            ### Start the app
 
-            Congrats! You've successfully integrated a CrewAI Flow agent chatbot to your application. Depending on the
+            In the project directory, copy the example environment file:
+
+            ```bash
+            cp .env.example .env
+            ```
+
+            Set `OPENAI_API_KEY` in `.env`. Then install the dependencies and start the app:
+
+            ```bash
+            npm install
+            npm run dev
+            ```
+
+            `npm install` also installs the Python dependencies of the Flow with `uv`. `npm run dev` starts the UI and the Flow server.
+        </Step>
+        <Step>
+            ### Talk to your agent
+
+            You've successfully integrated a CrewAI Flow agent chatbot to your application. Depending on the
             template you chose, you may see some different UI elements. To start, try asking a few questions to your agent.
 
-            ```
-            Can you tell me a joke?
-            ```
+            - Can you tell me a joke?
+            - Can you help me understand AI?
+            - What do you think about React?
 
-            ```
-            Can you help me understand AI?
-            ```
-
-            ```
-            What do you think about React?
-            ```
         </Step>
 
     <Step>
@@ -113,6 +135,8 @@ Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/
             ```
 
             Start the server locally with `uvicorn server:app --host 0.0.0.0 --port 8000`, then deploy it to a public HTTPS URL that Copilot Cloud can reach.
+
+            This path connects the Flow through Copilot Cloud, so the Flow must have a public HTTPS URL. To keep the Flow local, use the CLI path, or register the Flow with an `HttpAgent` in your own [Copilot Runtime](/crewai-flows/copilot-runtime).
         </Step>
 
         <Step>
@@ -150,9 +174,10 @@ Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/
         <Step>
             ### Connect to Copilot Cloud
             1. Go to [Copilot Cloud](https://dashboard.operations.copilotkit.ai), sign in and click Get Started
-            2. Click "Add Remote Endpoint" and enter the public AG-UI URL you verified above. Note: If your Agent Name contains multiple words, use underscores (`_`) as separators.
-            3. Click "Save Endpoint"
-            4. Copy the Copilot Cloud Public API Key
+            2. Click "Add Remote Endpoint" and enter the public AG-UI URL you verified above.
+            3. If the agent name has more than one word, separate the words with underscores (`_`).
+            4. Click "Save Endpoint"
+            5. Copy the Copilot Cloud Public API Key
 
             <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilot-cloud/crewai-flow-cpk-setup.gif" alt="CrewAI Flow Copilot Setup" className="rounded-lg shadow-xl mt-4" />
         </Step>
@@ -161,28 +186,34 @@ Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/
             ### Install CopilotKit
             First, install the latest packages for CopilotKit into your frontend.
             ```npm
-            npm install @copilotkit/react-core
+            npm install @copilotkit/react-core zod
             ```
         </Step>
 
         <Step>
             ### Setup the CopilotKit Provider
-            The [`<CopilotKit>`](/reference/v1/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
-            it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
-
-            <CloudCopilotKit />
+            <CopilotCloudConfigureCopilotKit />
         </Step>
         <Step>
             ### Choose a Copilot UI
-            You are almost there! Now it's time to setup your Copilot UI.
+            You are almost there. Now it's time to setup your Copilot UI.
             <CopilotUI />
         </Step>
         <Step>
             ### Create a CrewAI Flow component
             Place the following snippet in your **main page** (e.g. `page.tsx` in Next.js) or wherever you want to use CopilotKit.
+            Set `NEXT_PUBLIC_COPILOT_API_KEY` to the Copilot Cloud public API key. Set `NEXT_PUBLIC_COPILOTKIT_AGENT_NAME` to the agent name that you saved.
 
             ```tsx title="page.tsx"
             "use client";
+
+            import { useState } from "react";
+            import { z } from "zod";
+            import {
+              CopilotKit,
+              CopilotChat,
+              useFrontendTool,
+            } from "@copilotkit/react-core/v2";
 
             const publicApiKey = process.env.NEXT_PUBLIC_COPILOT_API_KEY || "";
             /**
@@ -224,7 +255,7 @@ Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/
                         className="h-full"
                         labels={{
                           welcomeMessageText: "Hi, I'm an agent. Want to chat?",
-                          placeholder: "Type a message...",
+                          chatInputPlaceholder: "Type a message...",
                         }}
                       />
                     </div>
@@ -244,27 +275,17 @@ Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/
             ```
         </Step>
         <Step>
-            ### 🎉 Talk to your agent!
+            ### Talk to your agent
 
-            Congrats! You've successfully integrated a CrewAI Flow chatbot to your application. To start, try asking a few questions to your agent.
+            You've successfully integrated a CrewAI Flow chatbot to your application. To start, try asking a few questions to your agent.
 
-            ```
-            Can you tell me a joke?
-            ```
-
-            ```
-            Can you help me understand AI?
-            ```
-
-            ```
-            What do you think about React?
-            ```
-
-            <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+            - Can you tell me a joke?
+            - Can you help me understand AI?
+            - What do you think about React?
 
             <Accordions className="mb-4">
                 <Accordion title="Having trouble?">
-                    - Try changing the host to `0.0.0.0` or `127.0.0.1` instead of `localhost`.
+                    - Try changing the host from `localhost` to `0.0.0.0` or `127.0.0.1`.
                 </Accordion>
             </Accordions>
         </Step>
@@ -282,9 +303,6 @@ Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/
 ---
 
 ## What's next?
-
-You've now got a CrewAI Flow running in CopilotKit! Now you can start exploring the various ways that CopilotKit
-can help you build powerful agent-native applications.
 
 <Cards>
   <Card
@@ -318,13 +336,3 @@ can help you build powerful agent-native applications.
     icon={<WrenchIcon />}
   />
 </Cards>
-
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>

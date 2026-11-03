@@ -6,13 +6,13 @@ showIcon: true
 doc_type: how-to
 ---
 
-[Daytona](https://www.daytona.io) gives AI agents isolated cloud **sandboxes** — full Linux runtimes with
+[Daytona](https://www.daytona.io) gives AI agents isolated cloud **sandboxes**: full Linux runtimes with
 their own filesystem, network, and CPU/RAM. This recipe adds a server tool to CopilotKit's
-[Built-in Agent](/) that runs code inside one of those sandboxes and returns the result to
-the chat, so the agent can execute code it writes without touching your host.
+[Built-in Agent](/). The tool runs code in a Daytona sandbox and returns the output to the chat.
+The code never runs on your server.
 
 This guide assumes you already have a running Built-in Agent app. If you don't, follow the
-[Quickstart](/quickstart) first — it takes a few minutes.
+[Quickstart](/quickstart) first. It takes a few minutes.
 
 ## Try it live
 
@@ -27,7 +27,7 @@ This guide assumes you already have a running Built-in Agent app. If you don't, 
 ## Prerequisites
 
 - A running Built-in Agent app (see the [Quickstart](/quickstart)).
-- A Daytona account and API key — create one in the [Daytona dashboard](https://app.daytona.io/dashboard/keys).
+- A Daytona account and API key. Create one in the [Daytona dashboard](https://app.daytona.io/dashboard/keys).
 
 Add the key to your `.env`:
 
@@ -44,7 +44,7 @@ npm install @daytonaio/sdk
 ## Define the sandbox tool
 
 Add a `runCode` [server tool](/server-tools) and register it on your `BuiltInAgent`. The
-tool creates a fresh sandbox, runs the code, returns stdout, and cleans the sandbox up — so every call is
+tool creates a fresh sandbox, runs the code, returns stdout, and cleans the sandbox up, so every call is
 isolated.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
@@ -104,7 +104,7 @@ export const DELETE = handler;
 
 <Callout type="info" title="Sandbox networking on the free tier">
   Daytona Tier 1 & 2 organizations run sandboxes with restricted networking, but package registries
-  (npm, PyPI) and major AI APIs (Anthropic, OpenAI, Google) are whitelisted — so this recipe works on the
+  (npm, PyPI) and major AI APIs (Anthropic, OpenAI, Google) are whitelisted. As a result, this recipe works on the
   free tier. Code that needs to reach arbitrary external URLs requires Tier 3+. See
   [Daytona's limits](https://app.daytona.io/dashboard/limits).
 </Callout>
@@ -128,10 +128,10 @@ The agent writes the code, calls `runCode`, and reports back the sandbox's outpu
 
 - **Reuse a sandbox** to avoid per-call startup cost: create one lazily and cache it instead of deleting it
   each call. Pause it with `sandbox.stop()` when idle.
-- **Run a server and preview it** — expose a port with `sandbox.getPreviewLink(port)` to hand back a live
+- **Run a server and preview it**: expose a port with `sandbox.getPreviewLink(port)` to hand back a live
   URL for an app the agent builds.
-- **Custom environments** — preinstall packages with a snapshot so sandboxes start ready to go.
-- **Any other language** — `codeRun` covers Python, TypeScript, and JavaScript. For anything else (Go,
+- **Custom environments**: preinstall packages with a snapshot so sandboxes start ready to go.
+- **Any other language**: `codeRun` covers Python, TypeScript, and JavaScript. For anything else (Go,
   Rust, a shell pipeline), use `sandbox.process.executeCommand(...)` instead, optionally on a custom image
   with the toolchain installed.
 
@@ -143,23 +143,28 @@ Paste this prompt into your coding agent (Cursor, Claude Code, etc.) to add the 
 Built-in Agent app:
 
 ```text
-In my existing CopilotKit Built-in Agent app, add a Daytona-backed code execution tool:
+In my existing CopilotKit Built-in Agent app, add a Daytona-backed code
+execution tool:
 
 1. Install the Daytona SDK: `npm install @daytonaio/sdk`.
 2. Add DAYTONA_API_KEY to my .env (I'll supply the value).
-3. In my CopilotKit runtime route, create a Daytona client with `new Daytona()` and define a
-   server tool with `defineTool` from "@copilotkit/runtime/v2":
+3. In my CopilotKit runtime route, create a Daytona client with
+   `new Daytona()` and define a server tool with `defineTool` from
+   "@copilotkit/runtime/v2":
    - name: "runCode"
-   - description: "Execute code in an isolated Daytona sandbox and return its output."
-   - parameters: a Zod object with a `code` string field and a `language` enum
-     ("python" | "typescript" | "javascript", default "python").
-   - execute: create a sandbox with `daytona.create({ language })`, run the code with
-     `const res = await sandbox.process.codeRun(code)` — note that `codeRun` returns an
-     `ExecuteResponse` where stdout lives on `res.result` (not `res.stdout`), so return
-     `{ stdout: res.result, exitCode: res.exitCode }`. Call `sandbox.delete()` in a finally
-     block so the sandbox is cleaned up even on error.
-4. Register the tool on my BuiltInAgent (`tools: [runCode]`) and set `maxSteps: 2` so it can call the
-   tool and then respond.
+   - description: "Execute code in an isolated Daytona sandbox and return
+     its output."
+   - parameters: a Zod object with a `code` string field and a `language`
+     enum ("python" | "typescript" | "javascript", default "python").
+   - execute: create a sandbox with `daytona.create({ language })`, run the
+     code with `const res = await sandbox.process.codeRun(code)`. Note that
+     `codeRun` returns an `ExecuteResponse` where stdout lives on
+     `res.result` (not `res.stdout`), so return
+     `{ stdout: res.result, exitCode: res.exitCode }`. Call
+     `sandbox.delete()` in a finally block so the sandbox is cleaned up even
+     on error.
+4. Register the tool on my BuiltInAgent (`tools: [runCode]`) and set
+   `maxSteps: 2` so it can call the tool and then respond.
 
 Keep my existing model and runtime setup unchanged.
 ```

@@ -3,11 +3,14 @@ title: "Display-only"
 icon: "lucide/Eye"
 description: "Register React components that your agent can render in the chat."
 ---
+import LangGraphFrontendTools from "@/snippets/integrations/langgraph/frontend-tools.mdx";
+
+
 ## What is this?
 
-`useComponent` lets you register a React component as a tool your agent can invoke. When the agent calls the tool, CopilotKit renders your component directly in the chat with the tool's arguments as props.
+Your agent can answer only in text, but some answers read better as a card or a chart. Register a React component with `useComponent`, and the agent can show it in the chat. When the agent calls the tool, CopilotKit renders your component with the tool's arguments as props.
 
-This is the simplest form of Generative UI — your agent decides when to show a component, and CopilotKit renders it. No handler logic, no user interaction required.
+This is the simplest form of Generative UI. Your agent decides when to show a component, and CopilotKit renders it. You do not write a handler, and the user does not need to click anything.
 
 ## When should I use this?
 
@@ -101,12 +104,12 @@ For components that need user interaction, see [Interactive](/langgraph/generati
   <Step>
     ### Agent calls the component
 
-    When your agent's LLM decides to use the tool, CopilotKit automatically renders your component in the chat. The tool is registered as a frontend tool that the agent can discover and call.
+    When your agent's LLM decides to use the tool, CopilotKit automatically renders your component in the chat. The model can call the tool only after your agent gives it the frontend tools. Pick your agent type:
 
-    <FrontEndToolsImpl />
+    <LangGraphFrontendTools />
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
 
     Ask your agent something that would trigger the component (e.g. "What's the weather in San Francisco?"). You should see your `WeatherCard` rendered directly in the chat.
   </Step>

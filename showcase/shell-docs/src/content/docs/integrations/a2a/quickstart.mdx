@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Turn your A2A Agents into an agent-native application in 10 minutes.
+description: Run the A2A starter agent with a CopilotKit chat UI.
 icon: "lucide/Play"
 hideTOC: true
 ---
@@ -10,7 +10,7 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
 
 ## Start with your coding agent
 
-Use this prompt to connect your A2A agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+Use this prompt to run the A2A starter with CopilotKit and verify a working conversation. The starter includes its own A2A agent. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
 
 <PageAgentPrompt />
 
@@ -20,7 +20,8 @@ Before you begin, you'll need the following:
 
 - A Google Gemini API key
 - Node.js 20+
-- Python 3.9+
+- Python 3.13+
+- [uv](https://docs.astral.sh/uv/)
 - Your favorite package manager
 
 ## Getting started
@@ -92,9 +93,9 @@ Before you begin, you'll need the following:
         This will start both the UI and agent servers concurrently.
     </Step>
     <Step>
-        ### 🎉 Start chatting!
+        ### Start chatting
 
-        Your AI agent is now ready to use! Navigate to `localhost:3000` and start prompting it:
+        Your AI agent is now ready to use. Navigate to `localhost:3000` and start prompting it:
 
         ```
         Show me chinese restaurants in NYC
@@ -129,13 +130,3 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<PaintbrushIcon />}
   />
 </Cards>
-
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>

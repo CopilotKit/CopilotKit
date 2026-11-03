@@ -17,12 +17,9 @@ import AgnoFrontendToolPersistence from "@/snippets/integrations/agno/frontend-t
 />
 
 ## What is this?
-Frontend tools enable you to define client-side functions that your Agno agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
-the logic runs on the client side, giving you direct access to the frontend environment.
+A frontend tool is a function that runs in the user's browser. Your Agno agent calls it like any other tool, so the tool has direct access to the frontend environment.
 
-This can be utilized for to let [your agent control the UI](/agno/frontend-tools), [generative UI](/agno/frontend-tools), or for [Human-in-the-loop](/agno/human-in-the-loop) interactions.
-
-In this guide, we cover the use of frontend tools driving and interacting with the UI.
+Your agent can use frontend tools to control the UI, to show [generative UI](/agno/generative-ui/tool-based), or to ask the user with [Human-in-the-loop](/agno/human-in-the-loop).
 
 ## When should I use this?
 Use frontend tools when you need your agent to interact with client-side primitives such as:
@@ -45,7 +42,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
     <Step>
         ### Create a frontend tool
 
-        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/v1/hooks/useFrontendTool) hook. Here's a simple one to get you started
+        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/v2/hooks/useFrontendTool) hook. Here's a simple one to get you started
         that says hello to the user.
 
         ```tsx title="page.tsx"
@@ -77,7 +74,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
         Now, we'll need to modify the agent to access these frontend tools.
 
-        In your Agno agent, define a tool with the `@tool(external_execution=True)` decorator. This tells Agno that the tool will be executed externally (on the frontend).
+        In your Agno agent, define a tool with the `@tool(external_execution=True)` decorator. This tells Agno that the tool runs outside the agent, in the frontend.
 
         ```python title="tools/frontend.py"
         from agno.tools import tool
@@ -117,9 +114,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
         ```
     </Step>
     <Step>
-        ### Give it a try!
-        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+        ### Give it a try
 
-        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+        Ask the agent: "Say hello to Ada." The browser shows an alert with "Hello, Ada!", and the agent replies after it gets the result.
     </Step>
 </Steps>

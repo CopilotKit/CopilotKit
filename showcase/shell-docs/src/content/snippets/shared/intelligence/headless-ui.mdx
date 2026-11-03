@@ -9,7 +9,7 @@
 
 ## Overview
 
-Headless UI uses the `useCopilotChatHeadless_c` hook. You build the chat UI. CopilotKit still runs threads, generative UI, suggestions, and interrupts.
+To build the chat UI yourself, use the `useCopilotChatHeadless_c` hook. You build the chat UI. CopilotKit still runs threads, generative UI, suggestions, and interrupts.
 
 <Callout type="warn">
   **This hook needs a public license key.**
@@ -21,42 +21,40 @@ Headless UI uses the `useCopilotChatHeadless_c` hook. You build the chat UI. Cop
 
 ## Navigation
 
-This page has all the information you need to get started with CopilotKit's headless UI. Select where you'd like to get started below.
-
 <Cards className="gap-6">
   <Card
-    icon={<MessageCircleDashed className="text-primary" />}
+    icon={<MessageCircleDashed />}
     className="p-6 rounded-xl text-base md:col-span-2"
     title="Getting started"
     description="Build a Headless UI chat from the ground up to get started."
     href="#getting-started"
   />
   <Card
-    icon={<Blocks className="text-primary" />}
+    icon={<Blocks />}
     className="p-6 rounded-xl text-base"
     title="Generative UI"
     description="Learn how to work with generative UI to render tools and other UI elements."
     href="#working-with-generative-ui"
   />
   <Card
-    icon={<LayoutList className="text-primary" />}
+    icon={<LayoutList />}
     className="p-6 rounded-xl text-base"
     title="Suggestions"
     description="Learn how to work with suggestions to provide your users with a list of generated or static options to operate the chat with."
     href="#working-with-suggestions"
   />
   <Card
-    icon={<UserPen className="text-primary" />}
+    icon={<UserPen />}
     className="p-6 rounded-xl text-base"
     title="Human-in-the-loop"
     description="Learn how to work with human-in-the-loop to pause the chat and wait for a human to respond."
     href="#working-with-human-in-the-loop"
   />
   <Card
-    icon={<BookOpen className="text-primary" />}
+    icon={<BookOpen />}
     className="p-6 rounded-xl text-base"
     title="Reference"
-    description="Reference documentation for the `useCopilotChatHeadless_c` hook."
+    description="Reference documentation for the useCopilotChatHeadless_c hook."
     href="/reference/v1/hooks/useCopilotChatHeadless_c"
   />
 </Cards>
@@ -72,23 +70,17 @@ This page has all the information you need to get started with CopilotKit's head
   muted
 />
 
-These steps need a `publicLicenseKey`. `npx copilotkit@latest create` creates a
-**cloud-hosted** project, which receives `CPK_INTELLIGENCE_API_KEY` and no license
-key, so do not follow this section for a CLI-scaffolded project. Use
-[Headless UI](/built-in-agent/custom-look-and-feel/headless-ui) instead.
-
 <Steps>
 <Step>
 ### Create a new application
 
-Scaffold a self-hosted or open-source CopilotKit project:
+Create a CopilotKit app that runs its own
+[Copilot Runtime](/backend/copilot-runtime). Do not scaffold it with
+`npx copilotkit@latest create`, because that command creates a cloud-hosted
+project with no license key.
 
-```bash
-npx copilotkit@latest create
-```
-
-Then [self-host the Runtime](/intelligence/self-hosting) and get a free public
-license key for the provider.
+Then get a free public license key from the sign-up card at the top of this
+page.
 </Step>
 
 <Step>
@@ -186,7 +178,7 @@ export const Chat = () => {
 
   useFrontendTool({
     name: "showCustomComponent",
-    handler: () => "Foo, Bar, Baz",
+    handler: async () => "Foo, Bar, Baz",
     render: ({ result, args, status }) => (
       <div
         style={{
@@ -206,11 +198,11 @@ export const Chat = () => {
   return (
     <div>
       {messages.map((message) => (
-        <p key={message.id}>
+        <div key={message.id}>
           {message.role === "user" ? "User: " : "Assistant: "}
           {message.content}
           {message.role === "assistant" && message.generativeUI?.()}
-        </p>
+        </div>
       ))}
     </div>
   );
@@ -230,14 +222,14 @@ export const Chat = () => {
   return (
     <div>
       {messages.map((message) => (
-        <p key={message.id}>
+        <div key={message.id}>
           {message.role === "assistant" &&
             message.toolCalls?.map((toolCall) => (
               <p key={toolCall.id}>
                 {toolCall.function.name}: {toolCall.function.arguments}
               </p>
             ))}
-        </p>
+        </div>
       ))}
     </div>
   );
@@ -320,7 +312,7 @@ useEffect(() => {
 
 ## Working with human-in-the-loop
 
-Human-in-the-loop (HITL) pauses the chat and waits for the user's input. It comes in two flavors: **tool-based** and **interrupt-based** (certain frameworks only).
+Human-in-the-loop (HITL) pauses the chat and waits for the user's input. It comes in two flavors: **tool-based** and **interrupt-based** (certain frameworks only). This section shows the tool-based flow. For interrupt-based HITL, read the `interrupt` value in the [`useCopilotChatHeadless_c` reference](/reference/v1/hooks/useCopilotChatHeadless_c).
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/videos/hitl.mp4"
@@ -338,7 +330,7 @@ Tool-based HITL pauses tool execution until the user responds. The response beco
 ```tsx title="src/app/components/chat.tsx"
 import { useState } from "react";
 import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
-import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { ToolCallStatus, useHumanInTheLoop } from "@copilotkit/react-core/v2";
 
 const NameForm = ({ defaultName, onSubmit }) => {
   const [name, setName] = useState(defaultName || "");
@@ -358,10 +350,10 @@ const NameForm = ({ defaultName, onSubmit }) => {
 export const Chat = () => {
   const { messages } = useCopilotChatHeadless_c();
 
-  useFrontendTool({
+  useHumanInTheLoop({
     name: "getName",
-    renderAndWaitForResponse: ({ respond, args, status }) => {
-      if (status === "complete") return <div>Name retrieved…</div>;
+    render: ({ respond, args, status }) => {
+      if (status === ToolCallStatus.Complete) return <div>Name retrieved…</div>;
 
       // `respond` resolves the pending tool call, so call it only on submit.
       // Editing the field must not complete the turn on the first keystroke.
@@ -372,11 +364,11 @@ export const Chat = () => {
   return (
     <>
       {messages.map((message) => (
-        <p key={message.id}>
+        <div key={message.id}>
           {message.role === "user" ? "User: " : "Assistant: "}
           {message.content}
           {message.role === "assistant" && message.generativeUI?.()}
-        </p>
+        </div>
       ))}
     </>
   );

@@ -18,7 +18,7 @@ Use this prompt to build a working chat with CopilotKit's built-in agent. Your c
 
 Before you begin, you'll need the following:
 
-- An OpenAI API key (or Anthropic/Google — see [Model Selection](/model-selection))
+- An OpenAI API key (or Anthropic/Google, see [Model Selection](/model-selection))
 - Node.js 20+
 - Your favorite package manager
 
@@ -58,7 +58,7 @@ Before you begin, you'll need the following:
         `@copilotkit/react-ui` is not needed for this setup.
 
         <Callout type="info" title="TypeScript: use bundler module resolution">
-          CopilotKit's `/v2` subpaths are published through the package `exports` map, which TypeScript's legacy `"moduleResolution": "node"` (`node10`) ignores. Under that setting, type checking fails with `Cannot find module '@copilotkit/react-core/v2'` even though the app runs. Set `"moduleResolution": "bundler"` in `tsconfig.json`; if `module` is `commonjs` or unset, also set `"module": "esnext"`. `create-next-app` already uses `bundler`.
+          CopilotKit's `/v2` subpaths are published through the package `exports` map, which TypeScript's `"moduleResolution": "node"` (`node10`) setting ignores. Under that setting, type checking fails with `Cannot find module '@copilotkit/react-core/v2'` even though the app runs. Set `"moduleResolution": "bundler"` in `tsconfig.json`; if `module` is `commonjs` or unset, also set `"module": "esnext"`. `create-next-app` already uses `bundler`.
         </Callout>
     </Step>
     <Step>
@@ -75,20 +75,18 @@ Before you begin, you'll need the following:
         </Callout>
     </Step>
     <Step>
-        ### Setup Copilot Runtime
+        ### Add the Copilot Runtime route
 
         Create an API route with the `BuiltInAgent` and `CopilotRuntime`:
 
         <Callout type="warn" title="Already have an agent? Do not use BuiltInAgent">
-          `BuiltInAgent` is CopilotKit's *own* agent — it calls the model
+          `BuiltInAgent` is CopilotKit's *own* agent. It calls the model
           directly. Registering it as `default` means chat talks to it, not to
           any agent you already wrote. It replaces your agent rather than
           connecting to it.
 
-          If you already have a LangGraph, CrewAI, Mastra, ADK, Pydantic AI or
-          other agent, take the frontend steps from this page but get the runtime
-          wiring from **your framework's** quickstart, which registers *your*
-          agent instead — for example
+          If you already have an agent, keep the frontend steps from this page.
+          Take the runtime step from **your framework's** quickstart, for example
           [LangGraph (Python)](/langgraph-python/quickstart). Pick yours from
           [the docs landing](/).
         </Callout>
@@ -105,7 +103,7 @@ Before you begin, you'll need the following:
         });
 
         const runtime = new CopilotRuntime({
-          agents: { default: builtInAgent }, // [!code highlight],
+          agents: { default: builtInAgent }, // [!code highlight]
         });
 
         const handler = createCopilotRuntimeHandler({
@@ -138,8 +136,7 @@ Before you begin, you'll need the following:
         }
         ```
 
-        `app/layout.tsx` is a server component and cannot import the provider
-        directly, so it renders your client file instead:
+        Render `Providers` around your app in `app/layout.tsx`:
 
         ```tsx title="app/layout.tsx"
         import { Providers } from "./providers"; // [!code highlight]
@@ -166,8 +163,8 @@ Before you begin, you'll need the following:
           `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
           same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
           server of its own and an absolute `runtimeUrl` such as
-          `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
-          `/angular` and `/react-native` each show that setup.
+          `http://localhost:8200/api/copilotkit`. See the [React SPA](/react-spa), [Vue](/vue),
+          [Angular](/angular), and [React Native](/react-native) guides for that setup.
         </Callout>
     </Step>
     <Step>
@@ -220,35 +217,17 @@ Before you begin, you'll need the following:
     <Step>
         ### Start chatting
 
-        Your AI agent is now ready to use! Try asking it some questions:
+        Open http://localhost:3000 and open the sidebar. Send one of these messages, and the agent replies in the sidebar:
 
-        ```
-        Can you tell me a joke?
-        ```
-
-        ```
-        Can you help me understand AI?
-        ```
-
-        ```
-        What do you think about React?
-        ```
-
-        <video
-          src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-          className="rounded-lg shadow-xl"
-          loop
-          playsInline
-          controls
-          autoPlay
-          muted
-        />
+        - Can you tell me a joke?
+        - Can you help me understand AI?
+        - What do you think about React?
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
-                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
-                - Check that your API key is correctly set in the `.env` file
-                - Make sure the runtime endpoint path matches the `runtimeUrl` in your CopilotKit provider
+                - **The browser cannot reach `localhost:3000`:** open `http://127.0.0.1:3000` instead.
+                - **The agent does not reply, and the dev server log shows an OpenAI authentication error:** set `OPENAI_API_KEY` in `.env`, then restart the dev server.
+                - **Requests to `/api/copilotkit` return 404:** make sure that the route file is at `app/api/copilotkit/[[...slug]]/route.ts` and that `runtimeUrl` in the provider is `/api/copilotkit`.
             </Accordion>
         </Accordions>
 

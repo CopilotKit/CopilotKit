@@ -10,11 +10,13 @@ snippet_cell: gen-ui-tool-based
 
 ## What is this?
 
-Render-only generative UI lets you register React components as tools your agent can invoke. When the agent calls the tool, CopilotKit renders your component directly in the chat with the tool's arguments as props; no handler logic or user interaction required.
+A display component is a React component that your agent can call as a tool. When the agent calls the tool, CopilotKit renders your component directly in the chat with the tool's arguments as props. You do not write a handler, and the user does not need to do anything.
 
 <Tabs items={['page.tsx', 'chart.tsx']}>
   <Tab value="page.tsx">
   ```tsx
+import { useComponent } from "@copilotkit/react-core/v2";
+import { Chart, ChartProps } from "./chart";
 
 useComponent({
 name: "showChart",
@@ -27,6 +29,8 @@ render: Chart
 </Tab>
 <Tab value="chart.tsx">
 ```tsx
+import { z } from "zod";
+import { ResponsiveContainer, BarChart, XAxis, YAxis, Tooltip, Bar } from "recharts";
 
 export const ChartProps = z.object({
   title: z.string(),
@@ -53,7 +57,7 @@ export function Chart({ title, data }: z.infer<typeof ChartProps>) {
 
 ## When should I use this?
 
-Use render-only generative UI when you want to:
+Use a display component when you want to:
 
 - Display rich UI (cards, charts, tables) inline in the chat
 - Show structured data from agent responses
@@ -64,14 +68,18 @@ Use render-only generative UI when you want to:
 
 <FrameworkSetup concept="frontend-tools-setup" />
 
-The renderer component receives the tool's arguments as typed props and
-mounts inline in the chat. Below is the chart renderer wired up in the
-canonical demo — the agent emits the data, the component draws it.
+The display component receives the tool's arguments as typed props and
+mounts inline in the chat. Below is the bar chart from the demo. The
+agent sends the data, and the component draws it.
 
 <Snippet
   region="bar-chart-renderer"
   title="frontend/src/app/page.tsx — bar chart renderer"
   highlight="1-6"
 />
+
+Ask the agent for a chart, for example `Show me a bar chart of quarterly
+sales for Q1, Q2, Q3, Q4`. The chart renders in the chat with the data
+that the agent filled in.
 
 <IntegrationGrid path="render-only" />

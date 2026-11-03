@@ -4,16 +4,16 @@ icon: "lucide/Monitor"
 description: Preview supported CopilotKit UI sources, A2UI catalog components, and the AG-UI event stream without leaving VS Code.
 frontend: universal
 ---
-The CopilotKit VS Code extension is a three-in-one workbench for iterating on CopilotKit features inside your editor. Install it once and you get three sidebars under the CopilotKit activity-bar icon:
+You want to see your render hooks, A2UI components, or agent events without running the whole app. The CopilotKit VS Code extension shows each one in your editor. Install it once and you get three sidebars under the CopilotKit activity-bar icon:
 
 <FrontendOnly frontend="react">
-- **CopilotKit Hooks** — discover every `useCopilotAction`, `useRenderTool`, `useCoAgentStateRender`, etc. in your workspace, and live-preview their `render` components with auto-generated form controls.
+- **CopilotKit Hooks**: discover every `useCopilotAction`, `useRenderTool`, `useCoAgentStateRender`, etc. in your workspace, and live-preview their `render` components with auto-generated form controls.
 </FrontendOnly>
 <FrontendOnly frontend="angular">
-- **CopilotKit Hooks** — currently targets hook-based frontend source; use the Angular feature catalog and linked Showcase source for Angular component examples.
+- **CopilotKit Hooks**: currently targets hook-based frontend source; use the Angular feature catalog and linked Showcase source for Angular component examples.
 </FrontendOnly>
-- **A2UI Catalog** — live preview of your A2UI catalog components with fixture-driven scenarios and hot-reload on save.
-- **AG-UI Inspector** — a real-time, color-coded, filterable stream of every AG-UI event your runtime emits.
+- **A2UI Catalog**: live preview of your A2UI catalog components with fixture-driven scenarios and hot-reload on save.
+- **AG-UI Inspector**: a real-time, color-coded, filterable stream of every AG-UI event your runtime emits.
 
 The A2UI catalog preview runs without a localhost server, browser tab, or agent
 run. The AG-UI Inspector connects to a running development runtime.
@@ -24,11 +24,17 @@ run. The AG-UI Inspector connects to a running development runtime.
 <Step>
 ### Install the extension
 
-Open VS Code, go to Extensions (`Ctrl+Shift+X` / `Cmd+Shift+X`), search for **CopilotKit**, and click Install. Or from a terminal:
+From a terminal, run:
 
 ```bash
 code --install-extension copilotkit.copilotkit
 ```
+
+Or install it from VS Code:
+
+1. Press `Cmd+Shift+X` (macOS) or `Ctrl+Shift+X` to open Extensions.
+2. Search for **CopilotKit**.
+3. Click Install.
 </Step>
 
 <Step>
@@ -40,7 +46,7 @@ Click the **CopilotKit icon** in the Activity Bar on the left edge of VS Code. T
 2. **A2UI Catalog**
 3. **AG-UI Inspector**
 
-Each is a self-contained tool — pick the one that matches what you're working on.
+Each is a self-contained tool. Pick the one that matches what you're working on.
 </Step>
 </Steps>
 
@@ -51,9 +57,9 @@ You have a file that calls `useCopilotAction`, `useRenderTool`, or any other ren
 
 Extra niceties:
 
-- A `▶️ Preview Component` CodeLens sits directly above every render-hook call in your editor — one click opens the preview for exactly that site.
+- A `▶️ Preview Component` CodeLens sits directly above every render-hook call in your editor. One click opens the preview for exactly that site.
 - A `</>` button on each sidebar row jumps to the source file.
-- Cross-file hook switches auto-recover — a forced render-prop crash in one hook doesn't strand the whole webview.
+- Cross-file hook switches auto-recover: a forced render-prop crash in one hook doesn't strand the whole webview.
 
 <Callout type="info">
   Full walkthrough, hook coverage table, and limitations: [Hook Explorer](/troubleshooting/hook-explorer).
@@ -80,13 +86,15 @@ You have a file that exports an A2UI catalog via `createCatalog` (or imports `@c
 
 Open the **A2UI Catalog** sidebar. Each row is a catalog file (discovered by scanning for `@copilotkit/a2ui-renderer` imports). Rows with fixture files expand to show named scenarios; rows without one get an `auto` badge and render with a default empty surface.
 
-Hover any row to reveal a `</>` button that jumps to the source — on fixture rows, it jumps to the named fixture key inside the fixture file.
+Hover any row to reveal a `</>` button that jumps to the source. On fixture rows, it jumps to the named fixture key inside the fixture file.
 </Step>
 
 <Step>
 ### Preview a component
 
-Click a component row to open the preview. If the component has fixtures, click the row to expand and pick a fixture — otherwise the click previews directly. Edit the file and save — the preview rebundles and re-renders automatically.
+1. Click a component row. The preview opens.
+2. If the row has fixtures, expand it and pick one.
+3. Edit the component file and save. The preview rebundles and re-renders.
 </Step>
 
 <Step>
@@ -143,7 +151,7 @@ Each top-level key is a named fixture. Switch between them from the fixture drop
 
 ## AG-UI Inspector
 
-You're running a CopilotKit runtime and something in an agent interaction is off — a tool call isn't firing, a state delta is wrong, or the run ends before the UI settles. The **AG-UI Inspector** sidebar opens a dedicated SSE connection to `{runtimeUrl}/cpk-debug-events` and renders every event in a filterable, color-coded stream. Click any event row to expand the full JSON payload. That path is relative to the base path the runtime is mounted at, so give the panel the full runtime URL rather than just the origin.
+You're running a CopilotKit runtime and something in an agent interaction is off: a tool call isn't firing, a state delta is wrong, or the run ends before the UI settles. The **AG-UI Inspector** sidebar opens a dedicated SSE connection to `{runtimeUrl}/cpk-debug-events` and renders every event in a filterable, color-coded stream. Click any event row to expand the full JSON payload. That path is relative to the base path the runtime is mounted at. In the AG-UI Inspector sidebar, enter the full runtime URL (for example `http://localhost:3000/api/copilotkit`), not only the origin.
 
 <Callout type="info">
   Full walkthrough, event-type color reference, and production guard details: [AG-UI Event Inspector](/troubleshooting/event-inspector).
