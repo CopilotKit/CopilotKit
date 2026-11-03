@@ -7,7 +7,7 @@ import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
 import { EventType } from "@ag-ui/client";
 import { BuiltInAgent } from "../index";
 import type { AgentToolSpec } from "../tool-spec";
-import { convertMessagesToVercelAISDKMessages } from "../../ai-sdk/messages";
+import { aiSdk, convertMessagesToVercelAISDKMessages } from "../../ai-sdk";
 import { collectEvents, createDefaultInput } from "./agent-test-helpers";
 import fixtures from "../../../../intelligence-delivery-core/conformance/snapshots.v1.json";
 
@@ -82,117 +82,239 @@ function toAiSdkTools(definitions: readonly AgentToolSpec[]) {
   return tools;
 }
 
+/** A factory that streams with the learned-skills tools and catalog. */
+function skillsFactoryAgent(
+  model: MockLanguageModelV3,
+  options: {
+    learnedSkills: Awaited<ReturnType<typeof deliveryServer>>["options"];
+    maxSteps?: number;
+    extraTools?: ToolSet;
+  },
+) {
+  return new BuiltInAgent({
+    type: "aisdk",
+    learnedSkills: options.learnedSkills,
+    factory: ({ input, abortSignal, learnedSkills }) =>
+      streamText({
+        model,
+        system: ["Host instructions", learnedSkills.catalog]
+          .filter(Boolean)
+          .join("\n\n"),
+        messages: convertMessagesToVercelAISDKMessages(input.messages),
+        tools: {
+          ...toAiSdkTools(learnedSkills.definitions),
+          ...options.extraTools,
+        },
+        stopWhen: stepCountIs(options.maxSteps ?? 4),
+        abortSignal,
+      }),
+  });
+}
+
 describe("native AI SDK skill delivery over canonical HTTP transport", () => {
-  it("a factory executes both skill tools and refreshes on resume", async () => {
+  it.each([false, true])(
+    "pauses on an interrupt with prior skill loading: %s",
+    async (loadFirst) => {
+      const server = await deliveryServer();
+      let calls = 0;
+      const model = new MockLanguageModelV3({
+        doStream: async () => {
+          const load = loadFirst && calls++ === 0;
+          return {
+            stream: simulateReadableStream<StreamPart>({
+              chunks: [
+                {
+                  type: "tool-call",
+                  toolCallId: load ? "load" : "approval",
+                  toolName: load ? "copilotkit_load_skill" : "approve",
+                  input: JSON.stringify(
+                    load ? { skill_name: "refund-policy" } : {},
+                  ),
+                },
+                {
+                  type: "finish",
+                  finishReason: { unified: "tool-calls", raw: "tool_calls" },
+                  usage,
+                },
+              ],
+            }),
+          };
+        },
+      });
+      const agent = skillsFactoryAgent(model, {
+        learnedSkills: server.options,
+        extraTools: {
+          approve: tool({
+            description: "Ask for approval",
+            inputSchema: jsonSchema<Record<string, never>>({
+              type: "object",
+              properties: {},
+            }),
+            needsApproval: true,
+          }),
+        },
+      });
+      const events = await collectEvents(
+        agent.run(
+          createDefaultInput({
+            messages: [{ id: "user", role: "user", content: "Get approval." }],
+          }),
+        ),
+      );
+      expect(model.doStreamCalls).toHaveLength(loadFirst ? 2 : 1);
+      expect(
+        events.find((event) => event.type === EventType.RUN_FINISHED),
+      ).toMatchObject({
+        outcome: { type: "interrupt", interrupts: [{ id: "approval" }] },
+      });
+      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(
+        false,
+      );
+    },
+  );
+
+  it("sends the catalog when a factory run has no conversation messages", async () => {
     const server = await deliveryServer();
-    let calls = 0;
     const model = new MockLanguageModelV3({
       doStream: async () => ({
         stream: simulateReadableStream<StreamPart>({
-          chunks:
-            calls++ === 0
-              ? [
-                  {
-                    type: "tool-call",
-                    toolCallId: "load",
-                    toolName: "copilotkit_load_skill",
-                    input: JSON.stringify({ skill_name: "refund-policy" }),
-                  },
-                  {
-                    type: "tool-call",
-                    toolCallId: "read",
-                    toolName: "copilotkit_read_skill_file",
-                    input: JSON.stringify({
-                      skill_name: "refund-policy",
-                      path: "reference.txt",
-                    }),
-                  },
-                  {
-                    type: "finish",
-                    finishReason: {
-                      unified: "tool-calls",
-                      raw: "tool_calls",
-                    },
-                    usage,
-                  },
-                ]
-              : [
-                  { type: "text-start", id: "answer" },
-                  {
-                    type: "text-delta",
-                    id: "answer",
-                    delta: "Answer based on guidance.",
-                  },
-                  { type: "text-end", id: "answer" },
-                  {
-                    type: "finish",
-                    finishReason: { unified: "stop", raw: "stop" },
-                    usage,
-                  },
-                ],
+          chunks: [
+            {
+              type: "finish",
+              finishReason: { unified: "stop", raw: "stop" },
+              usage,
+            },
+          ],
         }),
       }),
     });
+    // The AI SDK rejects empty `messages`; the aiSdk helper moves the
+    // catalog into `messages` as a system message instead.
     const agent = new BuiltInAgent({
       type: "aisdk",
       learnedSkills: server.options,
-      factory: ({ input, abortSignal, learnedSkills }) =>
-        streamText({
-          model,
-          system: ["Host instructions", learnedSkills.catalog]
-            .filter(Boolean)
-            .join("\n\n"),
-          messages: convertMessagesToVercelAISDKMessages(input.messages),
-          tools: toAiSdkTools(learnedSkills.definitions),
-          stopWhen: stepCountIs(4),
-          abortSignal,
-        }),
+      factory: async (ctx) => streamText({ ...(await aiSdk(ctx)), model }),
     });
-    const input = createDefaultInput({
-      messages: [
-        { id: "user", role: "user", content: "Explain the refund policy." },
-      ],
-    });
-    const events = await collectEvents(agent.run(input));
-    const results = events.filter(
-      (event) => event.type === EventType.TOOL_CALL_RESULT,
+
+    const events = await collectEvents(agent.run(createDefaultInput()));
+
+    expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(
+      false,
     );
-    expect(results).toHaveLength(2);
-    expect(JSON.stringify(results)).toContain(
-      "Use the published refund policy",
-    );
-    expect(JSON.stringify(results)).toContain("30 days");
-    expect(model.doStreamCalls).toHaveLength(2);
-    const firstPrompt = JSON.stringify(model.doStreamCalls[0].prompt);
-    expect(firstPrompt).toContain("Host instructions");
-    expect(firstPrompt).toContain("refund-policy");
-    expect(firstPrompt).not.toContain("30 days");
-    expect(JSON.stringify(model.doStreamCalls[1].prompt)).toContain("30 days");
-    expect(server.requests).toHaveLength(1);
-    expect(server.requests[0].url).toContain("learning");
-    expect(server.requests[0].authorization).toContain("test-delivery-key");
-    server.empty();
-    await collectEvents(
-      agent.run(
-        createDefaultInput({
-          runId: "resumed",
-          messages: input.messages,
-          resume: [
-            { interruptId: "approval", status: "resolved", payload: true },
-          ],
-        }),
-      ),
-    );
-    expect(server.requests).toHaveLength(2);
-    expect(server.requests[1].etag).toBe(
-      fixtures.cases.find((item) => item.name === "text-skill")!.etag,
-    );
-    expect(JSON.stringify(model.doStreamCalls[2].prompt)).not.toContain(
-      "copilotkit_learned_skills",
-    );
-    expect(
-      model.doStreamCalls[2].tools?.map((tool) => tool.name) ?? [],
-    ).not.toContain("copilotkit_load_skill");
-    expect(input.state).toEqual({});
+    const prompt = model.doStreamCalls[0].prompt;
+    expect(prompt).toHaveLength(1);
+    expect(prompt[0].role).toBe("system");
+    expect(prompt[0].content).toContain("copilotkit_learned_skills");
   });
+
+  it.each(["factory", "factory-single-step"] as const)(
+    "%s executes both skill tools and refreshes on resume",
+    async (mode) => {
+      const server = await deliveryServer();
+      let calls = 0;
+      const model = new MockLanguageModelV3({
+        doStream: async () => ({
+          stream: simulateReadableStream<StreamPart>({
+            chunks:
+              calls++ === 0
+                ? [
+                    {
+                      type: "tool-call",
+                      toolCallId: "load",
+                      toolName: "copilotkit_load_skill",
+                      input: JSON.stringify({ skill_name: "refund-policy" }),
+                    },
+                    {
+                      type: "tool-call",
+                      toolCallId: "read",
+                      toolName: "copilotkit_read_skill_file",
+                      input: JSON.stringify({
+                        skill_name: "refund-policy",
+                        path: "reference.txt",
+                      }),
+                    },
+                    {
+                      type: "finish",
+                      finishReason: {
+                        unified: "tool-calls",
+                        raw: "tool_calls",
+                      },
+                      usage,
+                    },
+                  ]
+                : [
+                    { type: "text-start", id: "answer" },
+                    {
+                      type: "text-delta",
+                      id: "answer",
+                      delta: "Answer based on guidance.",
+                    },
+                    { type: "text-end", id: "answer" },
+                    {
+                      type: "finish",
+                      finishReason: { unified: "stop", raw: "stop" },
+                      usage,
+                    },
+                  ],
+          }),
+        }),
+      });
+      const agent = skillsFactoryAgent(model, {
+        learnedSkills: server.options,
+        ...(mode === "factory-single-step" ? { maxSteps: 1 } : {}),
+      });
+      const input = createDefaultInput({
+        messages: [
+          { id: "user", role: "user", content: "Explain the refund policy." },
+        ],
+      });
+      const events = await collectEvents(agent.run(input));
+      const results = events.filter(
+        (event) => event.type === EventType.TOOL_CALL_RESULT,
+      );
+      expect(results).toHaveLength(2);
+      expect(JSON.stringify(results)).toContain(
+        "Use the published refund policy",
+      );
+      expect(JSON.stringify(results)).toContain("30 days");
+      const expectedCalls = mode === "factory-single-step" ? 1 : 2;
+      expect(model.doStreamCalls).toHaveLength(expectedCalls);
+      const firstPrompt = JSON.stringify(model.doStreamCalls[0].prompt);
+      expect(firstPrompt).toContain("Host instructions");
+      expect(firstPrompt).toContain("refund-policy");
+      expect(firstPrompt).not.toContain("30 days");
+      if (expectedCalls === 2) {
+        expect(JSON.stringify(model.doStreamCalls[1].prompt)).toContain(
+          "30 days",
+        );
+      }
+      expect(server.requests).toHaveLength(1);
+      expect(server.requests[0].url).toContain("learning");
+      expect(server.requests[0].authorization).toContain("test-delivery-key");
+      server.empty();
+      await collectEvents(
+        agent.run(
+          createDefaultInput({
+            runId: "resumed",
+            messages: input.messages,
+            resume: [
+              { interruptId: "approval", status: "resolved", payload: true },
+            ],
+          }),
+        ),
+      );
+      expect(server.requests).toHaveLength(2);
+      expect(server.requests[1].etag).toBe(
+        fixtures.cases.find((item) => item.name === "text-skill")!.etag,
+      );
+      expect(
+        JSON.stringify(model.doStreamCalls[expectedCalls].prompt),
+      ).not.toContain("copilotkit_learned_skills");
+      expect(
+        model.doStreamCalls[expectedCalls].tools?.map((tool) => tool.name) ??
+          [],
+      ).not.toContain("copilotkit_load_skill");
+      expect(input.state).toEqual({});
+    },
+  );
 });

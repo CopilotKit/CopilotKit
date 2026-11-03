@@ -36,7 +36,7 @@ test("built-in consumer uses public runtime and preserves every native contract"
     );
     assert.match(native, /from "@copilotkit\/runtime"/);
     assert.doesNotMatch(native, /from "\.\.\//);
-    assert.match(native, /classic-single-step/);
+    assert.match(native, /factory-single-step/);
     assert.match(native, /pauses on an interrupt/);
     assert.match(native, /server\.empty\(\)/);
     const types = readFileSync(
