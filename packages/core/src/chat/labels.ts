@@ -51,6 +51,7 @@ export const CopilotChatDefaultLabels = Object.freeze({
   chatToggleOpenLabel: "Open chat",
   chatToggleCloseLabel: "Close chat",
   chatScrollToBottomLabel: "Scroll to bottom",
+  chatConnectingLabel: "Loading conversation",
   modalHeaderTitle: "CopilotKit Chat",
   welcomeMessageText: "How can I help you today?",
   reasoningMessageThinkingLabel: "Thinking…",

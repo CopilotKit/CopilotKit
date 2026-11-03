@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, useAttrs } from "vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
-import { MOBILE_MAX_WIDTH_QUERY } from "../../lib/is-mobile-viewport";
+import { ɵwatchMobileViewport } from "@copilotkit/core";
 import CopilotModalHeaderCloseButton from "./CopilotModalHeaderCloseButton";
 import CopilotModalHeaderTitle from "./CopilotModalHeaderTitle";
 import { IconPanelLeftOpen } from "../icons";
@@ -45,34 +45,22 @@ function handleClose() {
   config.value?.setModalOpen?.(false);
 }
 
-// Tracks whether the viewport is in the mobile range (MOBILE_MAX_WIDTH_QUERY) — the same
-// breakpoint the drawer + chat coordination use. SSR-safe: starts `false`
-// (desktop) so the server render and first client render agree, then syncs
-// on mount and on viewport changes.
+// Tracks whether the viewport is in the mobile range — the same breakpoint
+// the drawer + chat coordination use. SSR-safe: starts `false` (desktop) so
+// the server render and first client render agree, then syncs on mount and
+// on viewport changes.
 const isMobile = ref(false);
-let mobileMediaQuery: MediaQueryList | null = null;
-
-function syncIsMobile() {
-  if (mobileMediaQuery) {
-    isMobile.value = mobileMediaQuery.matches;
-  }
-}
+let stopWatchingMobile: (() => void) | undefined;
 
 onMounted(() => {
-  if (
-    typeof window === "undefined" ||
-    typeof window.matchMedia !== "function"
-  ) {
-    return;
-  }
-  mobileMediaQuery = window.matchMedia(MOBILE_MAX_WIDTH_QUERY);
-  mobileMediaQuery.addEventListener("change", syncIsMobile);
-  syncIsMobile();
+  stopWatchingMobile = ɵwatchMobileViewport((mobile) => {
+    isMobile.value = mobile;
+  });
 });
 
 onBeforeUnmount(() => {
-  mobileMediaQuery?.removeEventListener("change", syncIsMobile);
-  mobileMediaQuery = null;
+  stopWatchingMobile?.();
+  stopWatchingMobile = undefined;
 });
 
 // The thread-list launcher renders ONLY when a <CopilotThreadsDrawer> wrapper

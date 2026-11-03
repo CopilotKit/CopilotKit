@@ -169,7 +169,7 @@ describe("standard catalog: inputs (parity)", () => {
       },
     ]);
     const select = (await v.findByLabelText("Plan")) as HTMLSelectElement;
-    expect(select.options[0].textContent).toBe("Any plan");
+    expect(select.options[0]!.textContent).toBe("Any plan");
     expect(select.style.width).toBe("100%");
     expect(select.style.paddingLeft).not.toBe("");
   });
@@ -215,7 +215,7 @@ describe("standard catalog: inputs (parity)", () => {
     ]);
     fireEvent.click(await v.findByText("Row"));
     expect(v.forwardEvent).toHaveBeenCalledTimes(1);
-    expect(v.forwardEvent.mock.calls[0][0].name).toBe("item-a");
+    expect(v.forwardEvent.mock.calls[0]![0].name).toBe("item-a");
   });
 
   it("Pressable tooltip, ariaPressed and insetBorder apply", async () => {

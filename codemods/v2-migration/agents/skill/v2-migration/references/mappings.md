@@ -145,6 +145,14 @@ function App() {
 }
 ```
 
+### Angular copy buttons
+
+`copied` on `CopilotChatUserMessageCopyButton` and `CopilotChatAssistantMessageCopyButton` is a read-only signal. The codemod marks each `.copied.set(...)` and `.copied.update(...)` with a TODO. To copy the text and show the check mark, call `handleCopy()` on the button. It copies the `content` input and shows the check mark for 2 seconds. If the app copies by its own logic, render its own button in the `copyButton` slot and keep the state in that button.
+
+```ts
+this.copyButton().handleCopy();
+```
+
 ## Markdown rendering
 
 2.0 renders assistant messages with `@copilotkit/markdown`, not Streamdown. It does streaming-safe GFM, tables, autolinks, and citations. It does not do syntax highlighting, KaTeX math, or mermaid diagrams. Docs: https://docs.copilotkit.ai/migrate/markdown-renderer

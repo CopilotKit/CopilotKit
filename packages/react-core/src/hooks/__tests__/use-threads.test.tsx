@@ -312,9 +312,9 @@ describe("useThreads", () => {
       expect.objectContaining({ method: "POST" }),
     );
 
-    const socket = getMockSockets()[0];
+    const socket = getMockSockets()[0]!;
     expect(socket.connected).toBe(true);
-    expect(socket.channels[0].topic).toBe("user_meta:jc-1");
+    expect(socket.channels[0]!.topic).toBe("user_meta:jc-1");
   });
 
   it("routes thread requests through the core's instrumented fetch", async () => {
@@ -532,7 +532,7 @@ describe("useThreads", () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    const channel = getMockSockets()[0].channels[0];
+    const channel = getMockSockets()[0]!.channels[0]!;
 
     act(() => {
       channel.serverPush("thread_metadata", {
@@ -550,7 +550,7 @@ describe("useThreads", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.threads[0].name).toBe("Renamed Thread");
+      expect(result.current.threads[0]!.name).toBe("Renamed Thread");
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -570,7 +570,7 @@ describe("useThreads", () => {
     });
 
     act(() => {
-      getMockSockets()[0].channels[0].serverPush("thread_metadata", {
+      getMockSockets()[0]!.channels[0]!.serverPush("thread_metadata", {
         operation: "deleted",
         threadId: "t-2",
         userId: "user-2",
@@ -585,7 +585,7 @@ describe("useThreads", () => {
     });
     // Identity-check the remaining thread so a regression that removes
     // the wrong thread (e.g. a swapped index) is caught.
-    expect(result.current.threads[0].id).toBe("t-1");
+    expect(result.current.threads[0]!.id).toBe("t-1");
   });
 
   it("renames a thread through the runtime contract", async () => {
@@ -824,8 +824,8 @@ describe("useThreads", () => {
       expect(getMockSockets().length).toBe(1);
     });
 
-    const socket = getMockSockets()[0];
-    const channel = socket.channels[0];
+    const socket = getMockSockets()[0]!;
+    const channel = socket.channels[0]!;
 
     // Threshold is sourced from production (ɵMAX_SOCKET_RETRIES) so a
     // future change to the retry budget cannot silently desync the test.
@@ -860,8 +860,8 @@ describe("useThreads", () => {
       expect(getMockSockets().length).toBe(1);
     });
 
-    const socket = getMockSockets()[0];
-    const channel = socket.channels[0];
+    const socket = getMockSockets()[0]!;
+    const channel = socket.channels[0]!;
 
     unmount();
 

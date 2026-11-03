@@ -10,44 +10,11 @@ import {
 } from "@angular/core";
 import { hostStyles } from "../host-styles";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
-import {
-  ɵformatLabel,
-  ɵformatReasoningDuration,
-  ɵformatCountLabel,
-} from "@copilotkit/core";
-import type { CopilotChatLabels } from "@copilotkit/core";
+import { ɵformatLabel, ɵformatReasoningDurationLabel } from "@copilotkit/core";
 import { cn } from "../../utils";
 import { CopilotChatAssistantMessageRenderer } from "./copilot-chat-assistant-message-renderer";
 import { injectChatLabels } from "../../chat-config";
 import { ChevronRight, CopilotIcon } from "../icons/copilot-icon";
-
-/**
- * The reasoning time as label text, such as "4 seconds" or "1m 5s".
- *
- * @param seconds - The elapsed time in seconds. It may have a fraction.
- * @param labels - The chat labels that hold the duration texts.
- */
-function formatDuration(seconds: number, labels: CopilotChatLabels) {
-  const duration = ɵformatReasoningDuration(seconds);
-  switch (duration.unit) {
-    case "fewSeconds":
-      return labels.reasoningMessageDurationFewSeconds;
-    case "seconds":
-      return ɵformatLabel(labels.reasoningMessageDurationSeconds, {
-        count: duration.seconds,
-      });
-    case "minutes":
-      return ɵformatCountLabel(duration.minutes, {
-        one: labels.reasoningMessageDurationMinutesOne,
-        other: labels.reasoningMessageDurationMinutesOther,
-      });
-    case "minutesSeconds":
-      return ɵformatLabel(labels.reasoningMessageDurationMinutesSeconds, {
-        minutes: duration.minutes,
-        seconds: duration.seconds,
-      });
-  }
-}
 
 @Component({
   selector: "copilot-chat-reasoning-message",
@@ -165,7 +132,7 @@ export class CopilotChatReasoningMessage {
     if (this.isStreaming()) return this.labels.reasoningMessageThinkingLabel;
     const seconds = start === undefined ? 0 : (Date.now() - start) / 1000;
     return ɵformatLabel(this.labels.reasoningMessageThoughtForLabel, {
-      duration: formatDuration(seconds, this.labels),
+      duration: ɵformatReasoningDurationLabel(seconds, this.labels),
     });
   });
 

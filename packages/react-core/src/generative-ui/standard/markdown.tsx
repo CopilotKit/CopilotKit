@@ -203,14 +203,14 @@ export function parseBlockMarkdown(source: string) {
   };
   let index = 0;
   while (index < lines.length) {
-    const line = lines[index];
+    const line = lines[index]!;
     const fence = FENCE.exec(line);
     if (fence) {
       flushParagraph();
       const code: string[] = [];
       index++;
-      while (index < lines.length && !FENCE.test(lines[index])) {
-        code.push(lines[index++]);
+      while (index < lines.length && !FENCE.test(lines[index]!)) {
+        code.push(lines[index++]!);
       }
       index++; // The closing fence, or the end of the input.
       blocks.push({
@@ -230,8 +230,8 @@ export function parseBlockMarkdown(source: string) {
       flushParagraph();
       blocks.push({
         kind: "heading",
-        level: heading[1].length,
-        text: heading[2],
+        level: heading[1]!.length,
+        text: heading[2]!,
       });
       index++;
       continue;
@@ -247,9 +247,9 @@ export function parseBlockMarkdown(source: string) {
       const ordered = NUMBERED.test(line);
       const items: string[] = [];
       while (index < lines.length) {
-        const item = listItem(lines[index]);
-        if (!item || NUMBERED.test(lines[index]) !== ordered) break;
-        items.push(item[1]);
+        const item = listItem(lines[index]!);
+        if (!item || NUMBERED.test(lines[index]!) !== ordered) break;
+        items.push(item[1]!);
         index++;
       }
       blocks.push({ kind: "list", ordered, items });
@@ -260,7 +260,7 @@ export function parseBlockMarkdown(source: string) {
       const quoted: string[] = [];
       let quote = QUOTE.exec(lines[index] ?? "");
       while (quote) {
-        quoted.push(quote[1]);
+        quoted.push(quote[1]!);
         index++;
         quote = QUOTE.exec(lines[index] ?? "");
       }
@@ -286,6 +286,10 @@ export function renderBlockMarkdown(source: string) {
     switch (block.kind) {
       case "heading": {
         const Tag = HEADING_TAGS[block.level - 1];
+        // HEADING matches 1 to 6 "#", so a parsed level always has a tag.
+        if (Tag === undefined) {
+          throw new Error(`markdown: no tag for heading level ${block.level}`);
+        }
         return <Tag key={key}>{renderInlineMarkdown(block.text)}</Tag>;
       }
       case "paragraph":

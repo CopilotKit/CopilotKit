@@ -194,7 +194,7 @@ describe("useAttachments", () => {
         inFlight++;
         peakInFlight = Math.max(peakInFlight, inFlight);
         try {
-          await gates[index].promise;
+          await gates[index]!.promise;
         } finally {
           inFlight--;
         }
@@ -389,9 +389,9 @@ describe("useAttachments", () => {
       });
 
       await act(async () => {
-        gates[1].reject(new Error("storage rejected the file"));
-        gates[0].resolve();
-        gates[2].resolve();
+        gates[1]!.reject(new Error("storage rejected the file"));
+        gates[0]!.resolve();
+        gates[2]!.resolve();
         await processing;
       });
 
@@ -401,7 +401,7 @@ describe("useAttachments", () => {
         "file-2.png",
       ]);
       expect(onUploadFailed).toHaveBeenCalledTimes(1);
-      expect(onUploadFailed.mock.calls[0][0]).toMatchObject({
+      expect(onUploadFailed.mock.calls[0]![0]).toMatchObject({
         reason: "upload-failed",
         message: "storage rejected the file",
       });
