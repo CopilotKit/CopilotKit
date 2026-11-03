@@ -175,11 +175,7 @@ function toCharIndex(source: string, byteIndex: number) {
 
 /** The `// ...` lines right above `lineStart`, trimmed. */
 function commentsAbove(source: string, lineStart: number) {
-  const lines = source
-    .slice(0, lineStart)
-    .split("\n")
-    .slice(0, -1)
-    .reverse();
+  const lines = source.slice(0, lineStart).split("\n").slice(0, -1).reverse();
   const comments = new Set<string>();
   for (const line of lines) {
     const trimmed = line.trim();
