@@ -15,7 +15,7 @@ def stream(chunks):
 
 
 def test_a_line_missing_a_brace_is_repaired():
-    broken = '{"version":"v1.0","updateComponents":{"surfaceId":"s","components":[{"id":"a","component":"Text","text":{"@call":"formatString","args":{"value":"x"}},{"id":"b","component":"Text","text":"y"}]}}'
+    broken = '{"version":"1.0","updateComponents":{"surfaceId":"s","components":[{"id":"a","component":"Text","text":{"@call":"formatString","args":{"value":"x"}},{"id":"b","component":"Text","text":"y"}]}}'
     fixed = json.loads(repair_line(broken))
     assert fixed["updateComponents"]["components"][0]["id"] == "a"
 
@@ -23,7 +23,7 @@ def test_a_line_missing_a_brace_is_repaired():
 def test_prose_streams_untouched_and_fences_come_out_valid():
     reply = [
         "Warming has sped up since 1980.\n\n```a2",
-        'ui\n{"version":"v1.0","createSurface":{"surfaceId":"s","components":[{"id":"root",',
+        'ui\n{"version":"1.0","createSurface":{"surfaceId":"s","components":[{"id":"root",',
         '"component":"Text","text":"hi"}]}\n',
         "```\nThat is the trend.",
     ]
@@ -41,7 +41,7 @@ def test_prose_without_fences_is_emitted_as_it_arrives():
 
 
 def test_flattened_function_calls_get_their_args_nested():
-    line = '{"version":"v1.0","updateComponents":{"surfaceId":"s","components":[{"id":"t","component":"Text","text":{"@call":"calc","expression":"a * b","a":{"@path":"/a"},"b":2}}]}}'
+    line = '{"version":"1.0","updateComponents":{"surfaceId":"s","components":[{"id":"t","component":"Text","text":{"@call":"calc","expression":"a * b","a":{"@path":"/a"},"b":2}}]}}'
     text = json.loads(repair_line(line))["updateComponents"]["components"][0]["text"]
     assert text == {
         "@call": "calc",
@@ -50,14 +50,14 @@ def test_flattened_function_calls_get_their_args_nested():
 
 
 def test_a_valid_line_is_left_byte_for_byte():
-    line = '{"version":"v1.0","deleteSurface":{"surfaceId":"s"}}'
+    line = '{"version":"1.0","deleteSurface":{"surfaceId":"s"}}'
     assert repair_line(line) == line
 
 
 def test_wrapped_events_and_props_move_onto_the_component():
     line = json.dumps(
         {
-            "version": "v1.0",
+            "version": "1.0",
             "updateComponents": {
                 "surfaceId": "s",
                 "components": [
@@ -85,7 +85,7 @@ def test_wrapped_events_and_props_move_onto_the_component():
 def test_a_submit_button_with_its_own_click_event_keeps_it():
     line = json.dumps(
         {
-            "version": "v1.0",
+            "version": "1.0",
             "updateComponents": {
                 "surfaceId": "s",
                 "components": [
@@ -115,7 +115,7 @@ def test_a_submit_button_with_its_own_click_event_keeps_it():
 def test_table_cells_that_show_components_are_slotted():
     line = json.dumps(
         {
-            "version": "v1.0",
+            "version": "1.0",
             "updateComponents": {
                 "surfaceId": "s",
                 "components": [
@@ -139,7 +139,7 @@ def test_table_cells_that_show_components_are_slotted():
 def test_raw_chart_colors_give_way_to_the_theme():
     line = json.dumps(
         {
-            "version": "v1.0",
+            "version": "1.0",
             "updateComponents": {
                 "surfaceId": "s",
                 "components": [
@@ -164,7 +164,7 @@ def test_raw_chart_colors_give_way_to_the_theme():
 
 def test_components_on_one_line_stream_out_one_at_a_time():
     line = (
-        '{"version":"v1.0","updateComponents":{"surfaceId":"s","components":['
+        '{"version":"1.0","updateComponents":{"surfaceId":"s","components":['
         '{"id":"root","component":"Column","children":["t","c"]},'
         '{"id":"t","component":"Title","text":"Life expectancy"},'
         '{"id":"c","component":"Chart","series":[{"name":"World","color":"#ff0000","data":[1,2]}]}'
@@ -204,7 +204,7 @@ def test_a_streamed_line_with_a_broken_last_component_is_salvaged():
     text = stream(
         [
             "```a2ui\n",
-            '{"version":"v1.0","updateComponents":{"surfaceId":"s","components":[',
+            '{"version":"1.0","updateComponents":{"surfaceId":"s","components":[',
             '{"id":"a","component":"Text","text":"one"},',
             '{"id":"b","component":"Text","text":"two"\n',
             "```\n",
@@ -220,14 +220,27 @@ def test_a_data_model_line_waits_until_it_is_complete():
     partial = repairer.feed(
         TextMessageContentEvent(
             message_id="m",
-            delta='{"version":"v1.0","updateDataModel":{"surfaceId":"s","path":"/","value":{"a":1',
+            delta='{"version":"1.0","updateDataModel":{"surfaceId":"s","path":"/","value":{"a":1',
         )
     )
     assert "".join(e.delta for e in partial) == ""
 
 
 def test_a_root_card_draws_no_box_of_its_own():
-    line = '{"version":"v1.0","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Card","child":"c"},{"id":"inner","component":"Card","child":"x"}]}}'
+    line = '{"version":"1.0","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Card","child":"c"},{"id":"inner","component":"Card","child":"x"}]}}'
     components = json.loads(repair_line(line))["updateComponents"]["components"]
     assert components[0]["variant"] == "section"
     assert "variant" not in components[1]
+
+
+def test_stream_header_defaults_to_canonical_version():
+    content = stream(
+        [
+            "```a2ui\n",
+            '{"updateComponents":{"surfaceId":"s","components":[',
+            '{"id":"root","component":"Text","text":"Canonical"}]}}\n',
+            "```\n",
+        ]
+    )
+    operation = json.loads(content.split("```a2ui\n")[1].split("\n")[0])
+    assert operation["version"] == "1.0"

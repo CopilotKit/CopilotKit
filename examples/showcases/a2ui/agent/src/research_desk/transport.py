@@ -172,7 +172,7 @@ class _Snapshots:
                 if changed:
                     result.append(
                         {
-                            "version": "v1.0",
+                            "version": "1.0",
                             "updateComponents": {
                                 "surfaceId": surface_id,
                                 "components": changed,
@@ -182,7 +182,7 @@ class _Snapshots:
                 if "dataModel" in create and data != data_by_surface.get(surface_id):
                     result.append(
                         {
-                            "version": "v1.0",
+                            "version": "1.0",
                             "updateDataModel": {
                                 "surfaceId": surface_id,
                                 "path": "/",
@@ -204,11 +204,10 @@ class _Snapshots:
         return result
 
 
-# WORKAROUND(a2ui-agent-sdk 0.9.0): ExpressParser.supports_streaming is False
-# and parse_chunk raises NotImplementedError. Recompile valid prefixes and diff
-# snapshots until the SDK provides incremental v1.0 operations. Regressions:
-# tests/test_transport.py (early render, arbitrary splits), test_snapshots.py.
-# This is demo-local; remove this compiler-stream bridge when upstream supports it.
+# App transport boundary: SDK 0.10 has native streaming, but its authoritative
+# RendererState requires prior component trees and commits deletes immediately.
+# Keep manifest-only prior updates and defer destructive programs until final
+# validation. Parsing and compilation remain entirely owned by the SDK.
 class _Markdown:
     def __init__(self, compiler, snapshots):
         self.compiler = compiler

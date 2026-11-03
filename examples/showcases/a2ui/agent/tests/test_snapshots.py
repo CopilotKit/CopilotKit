@@ -22,7 +22,7 @@ def test_explicit_component_update_does_not_hide_a_later_revert():
     result = program(state, 'surface("s")\nroot = Text("A")')
     assert result == [
         {
-            "version": "v1.0",
+            "version": "1.0",
             "updateComponents": {
                 "surfaceId": "s",
                 "components": [{"id": "root", "component": "Text", "text": "A"}],
@@ -36,10 +36,12 @@ def test_explicit_data_update_does_not_hide_a_later_revert(path):
     state = snapshots()
     source = 'surface("s")\nroot = Text("A")\n$/value = 1\n$/nested/value = 2'
     program(state, source)
-    program(state, f'surface("s", update=true)\n${path} = null')
+    program(
+        state, f'surface("s", update=true)\n${path} = {"{}" if path == "/" else "null"}'
+    )
     result = program(state, source)
     assert {
-        "version": "v1.0",
+        "version": "1.0",
         "updateDataModel": {
             "surfaceId": "s",
             "path": "/",
@@ -69,7 +71,7 @@ def test_tiny_chunks_emit_delete_once_and_next_program_can_delete_again():
     assert sum("createSurface" in operation for operation in emitted) == 1
     state.begin()
     assert state.compile('deleteSurface("old")', final=True) == [
-        {"version": "v1.0", "deleteSurface": {"surfaceId": "old"}},
+        {"version": "1.0", "deleteSurface": {"surfaceId": "old"}},
     ]
 
 
@@ -114,7 +116,8 @@ def test_known_surface_streams_component_and_data_updates_without_root():
         "updateDataModel",
     ]
     assert result[0]["updateComponents"]["components"][0]["text"] == "Updated"
-    assert result[1]["updateDataModel"]["value"] == {"label": "Updated"}
+    assert result[1]["updateDataModel"]["path"] == "/label"
+    assert result[1]["updateDataModel"]["value"] == "Updated"
     assert state.compile(source, final=True) == []
 
 
@@ -140,7 +143,7 @@ def test_deleted_surface_waits_for_recreation_before_more_updates():
     assert state.compile(prefix) == []
     result = state.compile(prefix + "root = Text(text=$/label)", final=True)
     assert len(result) == 2
-    assert result[0] == {"version": "v1.0", "deleteSurface": {"surfaceId": "s"}}
+    assert result[0] == {"version": "1.0", "deleteSurface": {"surfaceId": "s"}}
     assert result[1]["createSurface"]["dataModel"] == {"label": "New"}
 
 
@@ -170,7 +173,7 @@ def test_invalid_partial_batch_does_not_emit_destructive_effects():
 
 def test_update_graph_validates_against_previous_components():
     incoming = make_input()
-    incoming.forwarded_props["copilotkit"]["ui"]["v1.0"]["inlineCatalogs"][0][
+    incoming.forwarded_props["copilotkit"]["ui"]["1.0"]["inlineCatalogs"][0][
         "components"
     ]["Column"] = {
         "props": {"type": "object", "properties": {}},
@@ -190,7 +193,7 @@ def test_update_graph_validates_against_previous_components():
 
 def test_nested_component_identities_remain_stable_across_updates():
     incoming = make_input()
-    incoming.forwarded_props["copilotkit"]["ui"]["v1.0"]["inlineCatalogs"][0][
+    incoming.forwarded_props["copilotkit"]["ui"]["1.0"]["inlineCatalogs"][0][
         "components"
     ]["Column"] = {
         "props": {"type": "object", "properties": {}},
@@ -210,7 +213,7 @@ def test_partial_prior_surface_stays_partial_after_updating_its_root():
     incoming = make_input()
     extensions = incoming.forwarded_props["copilotkit"]["ui"]["metadata"]["extensions"]
     extensions["copilotkit_surfaces"] = {"s": {"target": "notes"}}
-    catalog = incoming.forwarded_props["copilotkit"]["ui"]["v1.0"]["inlineCatalogs"][0]
+    catalog = incoming.forwarded_props["copilotkit"]["ui"]["1.0"]["inlineCatalogs"][0]
     catalog["components"]["Column"] = {
         "props": {"type": "object", "properties": {}},
         "slots": {"children": "multiple"},

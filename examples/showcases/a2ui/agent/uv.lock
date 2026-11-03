@@ -4,24 +4,23 @@ requires-python = ">=3.12, <3.14"
 
 [[package]]
 name = "a2ui-agent-sdk"
-version = "0.9.0"
+version = "0.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "a2ui-core" },
     { name = "antlr4-python3-runtime" },
-    { name = "httpx" },
     { name = "jsonschema" },
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/71/0c/d959c21d4320206b525cf931c60dbd89c799b3f9a972346de122888a0da2/a2ui_agent_sdk-0.9.0.tar.gz", hash = "sha256:3caa48ab0b2d9bc835e2d96976a3698256d6f4bba778ccc03a25a9c654ad6294", size = 305820, upload-time = "2026-10-17T01:03:34.863Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/21/db/7d11ffeeff358b604e406dc2fa1428ff38ad8a6327b51308fa447a391518/a2ui_agent_sdk-0.10.0.tar.gz", hash = "sha256:6ec0ca6e8237584fbd156711064eceb703d431f8dd9af29c201dd9b14d47e1e3", size = 405243, upload-time = "2026-11-02T02:42:51.104Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/74/0c/c9097e6b5eba90a0166020b0c3416fb573d51ca0b9afa6675bfd594a7ef2/a2ui_agent_sdk-0.9.0-py3-none-any.whl", hash = "sha256:d195025e3a88db32957c79295e9f1555a7a2a884ce3077f96722b31fab7f23d9", size = 251596, upload-time = "2026-10-17T01:03:32.367Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/c8/2dd79dc705aadf5ecf0f2c7b6e68df531d354170c26adb5c9961c65b0184/a2ui_agent_sdk-0.10.0-py3-none-any.whl", hash = "sha256:1d5bdec10456c19d604464f0f5b53cd54aa33d51b128809fef0b5a938a34fa2d", size = 318578, upload-time = "2026-11-02T02:42:45.347Z" },
 ]
 
 [[package]]
 name = "a2ui-core"
-version = "0.4.0"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "babel" },
@@ -30,23 +29,23 @@ dependencies = [
     { name = "referencing" },
     { name = "regex" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/33/b4/bc9c54a5b19f2aa1548f1791f7f7e0f75888b93668b7c03ede4474c804d9/a2ui_core-0.4.0.tar.gz", hash = "sha256:840749f45c477a1a4958a64a9c521dca13192693d745cbf45caafb34902ed6fc", size = 278287, upload-time = "2026-10-17T01:03:33.709Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/db/71/0edb713697a23d12618ab47816c9e2abb12c002498ba47e1b7f87a13c2d6/a2ui_core-0.5.0.tar.gz", hash = "sha256:ea1d9a59808bd92c13d55b6af9ae5a21ba6f4f8eb3e874ffc8727b92c9e8cc24", size = 334963, upload-time = "2026-11-02T02:42:49.815Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/11/30/07a774bccf1d3339c402877753329d3c2d727104fb41ea67e6415c48f0e0/a2ui_core-0.4.0-py3-none-any.whl", hash = "sha256:e9839f96003d731b44e40cf6e8ad251282ded398281067412f08b0bbcd16951d", size = 247823, upload-time = "2026-10-17T01:03:30.985Z" },
+    { url = "https://files.pythonhosted.org/packages/57/7f/734cad38a5b595b0bb11171b653dd928e4fdaa10ad569851cdb8d18050df/a2ui_core-0.5.0-py3-none-any.whl", hash = "sha256:609404f78c663126960bcafa4002934a49e76cf29ac928777be9d88d5118ef8c", size = 282941, upload-time = "2026-11-02T02:42:43.482Z" },
 ]
 
 [[package]]
 name = "ag-ui-a2ui-toolkit"
-version = "0.0.5"
+version = "0.0.6"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/fe/dc/96a776fcac704747bf860fbdd7c4e53ca5d98623baf5fc782e278e3e45f1/ag_ui_a2ui_toolkit-0.0.5.tar.gz", hash = "sha256:ee5fc12282e439a83f3d77f11ff22b79f820cb60cec7ac2b5cb86130fc6a0e57", size = 19056, upload-time = "2026-10-16T08:45:01.817Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7b/fd/31d73e2b31dd82c3c8104a3699023b9be06af580cffcc8ce7ae28bb56362/ag_ui_a2ui_toolkit-0.0.6.tar.gz", hash = "sha256:063576165d92149957e1b9cf17626b6feff0b9d758d4cf9fdebc81fa3f5be746", size = 19329, upload-time = "2026-11-02T19:58:59.686Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/92/a3/6da8b2311efadf1a68c476e271bc8f2e81bf83f5ae558ddfe9ac66ec5f81/ag_ui_a2ui_toolkit-0.0.5-py3-none-any.whl", hash = "sha256:26084f9e2bc46fdd9c216caec2482731fe687e1bb8c303754f5027353e981bfd", size = 21361, upload-time = "2026-10-16T08:45:00.839Z" },
+    { url = "https://files.pythonhosted.org/packages/6e/22/5ee5d58ae73bd25963c28e59e577186ae0be5dc540451d1280ecce6016ab/ag_ui_a2ui_toolkit-0.0.6-py3-none-any.whl", hash = "sha256:c4730b485f322b50cae40861cb2cf2ed617258917ffcb1c0d2a1d5f434c8d371", size = 21670, upload-time = "2026-11-02T19:58:58.829Z" },
 ]
 
 [[package]]
 name = "ag-ui-adk"
-version = "0.11.0"
+version = "0.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "a2ui-agent-sdk" },
@@ -61,9 +60,9 @@ dependencies = [
     { name = "sse-starlette" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d5/5c/ab1070964e17c1805089709f9e8c660228c132d7ddac256e7fb97c7a0629/ag_ui_adk-0.11.0.tar.gz", hash = "sha256:e27a3d9f2182d44b88964756beaf0c89f75c32d8e0d44077e414d1cae5fd988f", size = 127509, upload-time = "2026-10-21T07:06:06.264Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8e/3e/ec718af6cc5a4c83265a0c2abc51a6cdeaed4fd7c224585be3af50f94b44/ag_ui_adk-0.12.0.tar.gz", hash = "sha256:325762117273ec6936083ff7d8b33b628fd267320e2239807bca6e456ef75b56", size = 136764, upload-time = "2026-11-03T01:10:27.116Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/60/3764b035346751743dd0dc5cb8b60a3e07516e8ab6431f15805b109289d3/ag_ui_adk-0.11.0-py3-none-any.whl", hash = "sha256:43c43e86f547ef55d399302878a53583d314421cee08be3888d0f3f88c2db7ce", size = 135439, upload-time = "2026-10-21T07:06:04.918Z" },
+    { url = "https://files.pythonhosted.org/packages/f2/d3/6e759a45d1f8d219f31fa1cfe426e5087552cc288693d9ec35389ba0ca48/ag_ui_adk-0.12.0-py3-none-any.whl", hash = "sha256:1f7111980d3ecfe60cec1067b1d28e15f528b8beea7f0cfe84dce2e83d991ca1", size = 144466, upload-time = "2026-11-03T01:10:25.307Z" },
 ]
 
 [[package]]
@@ -1286,9 +1285,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "a2ui-agent-sdk", specifier = "==0.9.0" },
-    { name = "a2ui-core", specifier = "==0.4.0" },
-    { name = "ag-ui-adk", specifier = "==0.11.0" },
+    { name = "a2ui-agent-sdk", specifier = "==0.10.0" },
+    { name = "a2ui-core", specifier = "==0.5.0" },
+    { name = "ag-ui-adk", specifier = "==0.12.0" },
     { name = "ag-ui-protocol", specifier = "==1.0.0" },
     { name = "composio", specifier = "==0.30.0" },
     { name = "composio-client", specifier = "==2.0.0rc19" },

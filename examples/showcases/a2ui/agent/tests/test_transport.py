@@ -17,7 +17,7 @@ from research_desk.transport import prepare_express_input, transform_express_eve
 
 def envelope():
     return {
-        "v1.0": {
+        "1.0": {
             "supportedCatalogIds": ["demo"],
             "inlineCatalogs": [
                 {

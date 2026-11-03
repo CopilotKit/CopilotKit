@@ -6,7 +6,7 @@ from research_desk.express import ExpressCompiler
 
 def envelope():
     return {
-        "v1.0": {
+        "1.0": {
             "inlineCatalogs": [
                 {
                     "catalogId": "demo",
@@ -84,7 +84,7 @@ def test_instructions_preserve_nested_literal_contracts_and_validation():
             },
         ]
     }
-    catalog["v1.0"]["inlineCatalogs"][0]["components"]["LocationView"] = {
+    catalog["1.0"]["inlineCatalogs"][0]["components"]["LocationView"] = {
         "props": {
             "type": "object",
             "properties": {"markers": markers, "center": center},
@@ -130,7 +130,7 @@ $/title = "Hello"
         final=True,
     )
     assert len(operations) == 1
-    assert operations[0]["version"] == "v1.0"
+    assert operations[0]["version"] == "1.0"
     created = operations[0]["createSurface"]
     assert created["surfaceId"] == "result"
     assert created["catalogId"] == "demo"
@@ -167,7 +167,7 @@ def test_unknown_component_and_missing_required_prop_rejected_on_final():
 def test_delete_surface_and_explicit_surface_name():
     compiler = ExpressCompiler(envelope())
     assert compiler.compile('deleteSurface("old")', final=True) == [
-        {"version": "v1.0", "deleteSurface": {"surfaceId": "old"}}
+        {"version": "1.0", "deleteSurface": {"surfaceId": "old"}}
     ]
     assert (
         compiler.compile('surface("chosen")\nroot = Text("Hi")', final=True)[0][
@@ -179,11 +179,11 @@ def test_delete_surface_and_explicit_surface_name():
 
 def test_single_slot_template_and_function_value_maps():
     catalog = envelope()
-    catalog["v1.0"]["inlineCatalogs"][0]["components"]["Card"] = {
+    catalog["1.0"]["inlineCatalogs"][0]["components"]["Card"] = {
         "props": {"type": "object", "properties": {}},
         "slots": {"child": "single"},
     }
-    catalog["v1.0"]["inlineCatalogs"][0]["functions"]["calc"] = {
+    catalog["1.0"]["inlineCatalogs"][0]["functions"]["calc"] = {
         "parameters": {
             "type": "object",
             "description": "{ expression: string; [name: string]: number }",
@@ -210,7 +210,7 @@ def test_explicit_null_data_update_is_not_dropped():
     )
     assert operations == [
         {
-            "version": "v1.0",
+            "version": "1.0",
             "updateDataModel": {
                 "surfaceId": "existing",
                 "path": "/nested/value",
@@ -224,7 +224,7 @@ def test_nested_check_functions_from_standard_control_schema():
     catalog = envelope()
     # The relevant shape from standardUI TextField.props: dynamic values are
     # allowed recursively, including inside each check's condition.
-    catalog["v1.0"]["inlineCatalogs"][0]["components"]["TextField"] = {
+    catalog["1.0"]["inlineCatalogs"][0]["components"]["TextField"] = {
         "props": {
             "type": "object",
             "properties": {
@@ -244,7 +244,7 @@ def test_nested_check_functions_from_standard_control_schema():
             "additionalProperties": False,
         }
     }
-    catalog["v1.0"]["inlineCatalogs"][0]["functions"]["email"] = {
+    catalog["1.0"]["inlineCatalogs"][0]["functions"]["email"] = {
         "parameters": {"type": "object", "description": "{ value: string }"},
         "returnType": "boolean",
     }
@@ -317,7 +317,7 @@ def test_forward_child_reference_waits_for_a_valid_complete_graph():
 
 def action_catalog():
     value = envelope()
-    value["v1.0"]["inlineCatalogs"][0]["functions"]["saveNote"] = {
+    value["1.0"]["inlineCatalogs"][0]["functions"]["saveNote"] = {
         "parameters": {
             "type": "object",
             "properties": {"text": {"type": "string"}},
@@ -363,7 +363,7 @@ def test_action_guidance_documents_supported_syntax_and_no_server_execution():
 
 def test_parameter_order_preserves_native_component_calling_convention():
     catalog = envelope()
-    catalog["v1.0"]["inlineCatalogs"][0]["components"]["Button"]["parameterOrder"] = [
+    catalog["1.0"]["inlineCatalogs"][0]["components"]["Button"]["parameterOrder"] = [
         "onClick",
         "label",
     ]
@@ -373,3 +373,56 @@ def test_parameter_order_preserves_native_component_calling_convention():
     node = result[0]["createSurface"]["components"][0]
     assert node["label"] == "Go"
     assert node["onClick"] == {"event": {"name": "go"}}
+
+
+def test_legacy_capability_key_is_rejected():
+    legacy = envelope()
+    legacy["v1.0"] = legacy.pop("1.0")
+    with pytest.raises(ValueError, match="inline component catalog"):
+        ExpressCompiler(legacy)
+
+
+def test_canonical_sdk_baseline_supports_native_streaming():
+    compiler = ExpressCompiler(envelope())
+    assert compiler.parser.supports_streaming
+    stream = compiler.parser.open_stream(wrapped=False)
+    parts = stream.feed('root = Text("Canonical")\n') + stream.close()
+    operations = [
+        message.model_dump(mode="json", by_alias=True, exclude_unset=True)
+        for part in parts
+        for message in getattr(part, "a2ui", [])
+    ]
+    assert operations
+    assert {operation["version"] for operation in operations} == {"1.0"}
+
+
+def test_native_stream_requires_prior_surface_tree():
+    # The browser manifest carries ids/data, not the omitted component tree.
+    # Do not fabricate a root to seed RendererState for older surfaces.
+    from a2ui.core import A2uiError
+
+    stream = ExpressCompiler(envelope()).parser.open_stream(wrapped=False)
+    with pytest.raises(A2uiError):
+        stream.feed('surface("prior", update=true)\nroot = Text("Updated")\n')
+        stream.close()
+
+
+def test_native_stream_commits_delete_before_final_validation():
+    from a2ui.core import A2uiError
+    from a2ui.utils import RendererState
+
+    compiler = ExpressCompiler(envelope())
+    state = RendererState(compiler.catalogs)
+    state.apply(compiler.compile('surface("prior")\nroot = Text("Ready")', final=True))
+    stream = compiler.parser.open_stream(wrapped=False, state=state)
+    parts = stream.feed('deleteSurface("prior")\n')
+    assert any(
+        "deleteSurface" in message.model_dump(by_alias=True)
+        for part in parts
+        for message in getattr(part, "a2ui", [])
+    )
+    assert state.get_surface("prior") is None
+    with pytest.raises(A2uiError):
+        stream.feed('root = MissingComponent("invalid")\n')
+        stream.close()
+    assert state.get_surface("prior") is None

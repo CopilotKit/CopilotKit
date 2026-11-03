@@ -413,7 +413,7 @@ The rendered view and its A2UI occupy one frame. The source plate sits underneat
 
 - **Divider:** a 2px Solarized blue line, shown on hover, while dragging, and whenever the plate is revealed.
 - **Grip:** a 26px mono pill with a braces glyph and "A2UI". At rest it is paper with a rule-strong border, parked at the frame's top right; on hover its border and label turn blue; once revealed it fills Desk Blue with paper text. It rides the divider but never leaves the frame.
-- **Plate:** base03 with a top bar reading "A2UI v1.0 · n operations · n components" and a Copy button; keys in base1, strings cyan, component names bold yellow, numbers green.
+- **Plate:** base03 with a top bar reading "A2UI 1.0 · n operations · n components" and a Copy button; keys in base1, strings cyan, component names bold yellow, numbers green.
 - **Behavior:** a click toggles fully open or closed; a drag past 4px moves the divider and snaps within 6% of either edge; the keyboard drives it as a slider (arrows step 10, Shift steps 25, Home and End jump). The glide is 520ms on ease-out and turns off while dragging and under reduced motion.
 - **Streaming:** while the agent writes, a 2px blue sweep crosses the top edge every 1.4s and each component fades in over 420ms.
 
