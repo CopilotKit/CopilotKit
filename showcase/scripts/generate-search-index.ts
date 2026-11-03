@@ -5,7 +5,7 @@
  * a search index JSON for the shell's Cmd-K search modal.
  *
  * Docs pages are filtered to the ones a reader can actually reach from a
- * sidebar — see shell-docs/src/lib/searchable-pages.ts.
+ * sidebar — see lib/docs-searchable/searchable-pages.ts.
  *
  * Usage: npx tsx showcase/scripts/generate-search-index.ts
  *
@@ -237,22 +237,13 @@ interface SearchablePagesPayload {
 }
 
 /**
- * Ask shell-docs which docs pages a reader can reach.
+ * Work out which docs pages a reader can reach
+ * (lib/docs-searchable/emit-searchable-pages.ts).
  *
- * Run as a SUBPROCESS, not imported. This script is invoked from several
- * working directories — shell-docs locally and in its Docker build, `shell`
- * in its own build and in Validate Showcase — and the rules it needs live
- * in shell-docs behind two things that do not survive a cross-directory
- * import: the `@/…` path alias, which tsx resolves from whichever tsconfig
- * it finds at startup, and `gray-matter`, which Node resolves from the
- * importing package's tree. An earlier version pointed `process.chdir` at
- * shell-docs and imported dynamically; that fixed neither, because alias
- * resolution is fixed when tsx boots and dependency resolution follows the
- * file, not the cwd. It passed locally (run from shell-docs) and failed in
- * both CI build contexts.
- *
- * A child process with its own cwd and its own resolution root fixes both,
- * and keeps the reachability rules defined exactly once.
+ * Run as a SUBPROCESS, not imported, with shell-docs as the working
+ * directory: the rules read the docs content and the generated registry
+ * relative to it. NODE_PATH points the child at this package's
+ * node_modules for `gray-matter`, so no shell-docs install is needed.
  *
  * Throws when the toolchain is missing. It used to return null and let the
  * caller ship an index with no docs rows, which was wrong: the `shell`
@@ -264,8 +255,9 @@ interface SearchablePagesPayload {
  */
 function loadSearchablePages(): SearchablePagesPayload {
   const emitScript = path.join(
-    SHELL_DOCS_ROOT,
-    "scripts",
+    __dirname,
+    "lib",
+    "docs-searchable",
     "emit-searchable-pages.ts",
   );
   const scriptsModules = path.join(__dirname, "node_modules");
@@ -285,8 +277,7 @@ function loadSearchablePages(): SearchablePagesPayload {
         `${SHELL_DOCS_ROOT}/node_modules or ${scriptsModules}.\n` +
         `Every build that ships docs rows needs the reachability decision, so ` +
         `this cannot be skipped.\n` +
-        `A Docker build must stage shell-docs/src/lib, shell-docs/scripts and ` +
-        `shell-docs/tsconfig.json (see showcase/shell/Dockerfile).`,
+        `A Docker build must stage showcase/scripts (see showcase/shell/Dockerfile).`,
     );
   }
 

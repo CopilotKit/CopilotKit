@@ -7,7 +7,7 @@ on:
       - "showcase/aimock/d6/mastra/gen-ui-declarative.json"
       - "showcase/harness/src/probes/scripts/d6-gen-ui-remote.mjs"
       - "showcase/shell-docs/src/content/docs/integrations/mastra/generative-ui/a2ui/dynamic-schema.mdx"
-      - "showcase/shell-docs/src/lib/docs-render.tsx"
+      - "showcase/shell-docs/src/components/docs-mdx/showcase/snippet.tsx"
       - ".github/workflows/showcase_mastra_remote_a2ui.yml"
 
 permissions:
