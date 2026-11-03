@@ -44,7 +44,15 @@ export interface A2UIInlineCatalogSchema {
   components: Record<string, JsonSchema>;
   functions?: A2UIFunctionSchema[];
   theme?: Record<string, JsonSchema>;
+  /**
+   * One copy of each common type the schemas reference, so every
+   * `common_types.json#/$defs/<Name>` ref resolves within this payload.
+   */
+  "common_types.json"?: { $defs: A2UICommonTypes };
 }
+
+/** Common type shapes keyed by their `common_types.json` `$defs` name. */
+export type A2UICommonTypes = Record<string, JsonSchema>;
 
 /**
  * Serialize a catalog's Zod schemas in the A2UI v0.9 inline catalog format.
@@ -63,10 +71,18 @@ export interface A2UIInlineCatalogSchema {
  *
  * - Reused Zod schemas are inlined rather than emitted as local `$ref`s, which
  *   would dangle once properties move under `allOf[1]`.
- * - A `REF:<ref>|<description>` marker keeps the inlined shape and adds the
- *   `$ref` alongside it. Agent SDKs that understand `common_types.json` (such
- *   as Google's A2UI SDK used by ADK) read the `$ref`; agents that only see
- *   this JSON as prompt text still get the concrete shape.
+ * - A `REF:<ref>|<description>` marker becomes a bare `$ref`, as upstream, but
+ *   the shape it replaced is kept once under
+ *   `"common_types.json": { "$defs": { <Name>: ... } }`. Every
+ *   `common_types.json#/$defs/<Name>` ref therefore resolves within the
+ *   payload, both for agents that only see it as prompt text and for SDKs
+ *   (such as Google's A2UI SDK used by ADK) that read the `$ref`. Each type is
+ *   stated once rather than at every use site, which keeps the payload small.
+ *   A use whose shape differs from the stored one keeps its shape inline next
+ *   to the `$ref`, so the agent never sees a looser type than the client
+ *   accepts.
+ * - A `REF:` marker on a schema's root only sets its description; replacing
+ *   the root would drop every property.
  * - A component's root `.describe()` is kept as the component `description`.
  * - Function parameters drop `$schema` and the description already given on
  *   the function itself, to keep the prompt small.
@@ -74,10 +90,13 @@ export interface A2UIInlineCatalogSchema {
 export function extractA2UICatalogSchemas(
   catalog: A2UICatalogSchemaSource,
 ): A2UIInlineCatalogSchema {
-  const components: Record<string, JsonSchema> = {};
+  // Null prototypes, so a component or type named `__proto__` is kept as an
+  // entry.
+  const components: Record<string, JsonSchema> = Object.create(null);
+  const commonTypes: A2UICommonTypes = Object.create(null);
 
   for (const [name, component] of catalog.components) {
-    const schema = serializeA2UISchema(component.schema);
+    const schema = serializeA2UISchema(component.schema, commonTypes);
     const properties = (schema.properties ?? {}) as Record<string, JsonSchema>;
     const required = (schema.required ?? []) as string[];
 
@@ -96,7 +115,10 @@ export function extractA2UICatalogSchemas(
   }
 
   const functions = catalogFunctions(catalog.functions).map((fn) => {
-    const { description, ...parameters } = serializeA2UISchema(fn.schema);
+    const { description, ...parameters } = serializeA2UISchema(
+      fn.schema,
+      commonTypes,
+    );
     return {
       name: fn.name,
       ...(typeof description === "string" ? { description } : {}),
@@ -106,7 +128,7 @@ export function extractA2UICatalogSchemas(
   });
 
   const theme = catalog.themeSchema
-    ? (serializeA2UISchema(catalog.themeSchema).properties as
+    ? (serializeA2UISchema(catalog.themeSchema, commonTypes).properties as
         | Record<string, JsonSchema>
         | undefined)
     : undefined;
@@ -116,12 +138,18 @@ export function extractA2UICatalogSchemas(
     components,
     ...(functions.length > 0 ? { functions } : {}),
     ...(theme ? { theme } : {}),
+    ...(Object.keys(commonTypes).length > 0
+      ? { "common_types.json": { $defs: commonTypes } }
+      : {}),
   };
 }
 
 /**
  * Build a context string describing the catalog's id and the components it
  * adds beyond the basic catalog.
+ *
+ * Schemas are serialized as in {@link extractA2UICatalogSchemas}, with the
+ * common types they reference listed once after the components.
  *
  * When `options.includeSchema` is `false`, custom components are listed by name
  * only and their JSON schemas are omitted.
@@ -152,23 +180,33 @@ export function buildA2UICatalogContextValue(
     lines.push("  Custom components:");
   }
 
+  const commonTypes: A2UICommonTypes = Object.create(null);
+
   for (const [name, component] of catalog.components) {
     if (basicComponentNames.has(name)) continue;
     if (options?.includeSchema === false) {
       lines.push(`  - ${name}`);
       continue;
     }
-    const jsonSchema = serializeA2UISchema(component.schema);
     lines.push(`  - ${name}:`);
-    lines.push(
-      `    ${JSON.stringify(jsonSchema, null, 2).split("\n").join("\n    ")}`,
-    );
+    lines.push(indented(serializeA2UISchema(component.schema, commonTypes)));
+  }
+
+  if (Object.keys(commonTypes).length > 0) {
+    lines.push("  Common types referenced above (common_types.json#/$defs):");
+    lines.push(indented(commonTypes));
   }
 
   return lines.join("\n");
 }
 
-const serializedSchemas = new WeakMap<object, JsonSchema>();
+/** JSON for the catalog context value, indented under a list item. */
+function indented(value: unknown): string {
+  return `    ${JSON.stringify(value, null, 2).split("\n").join("\n    ")}`;
+}
+
+/** Raw zod-to-json-schema output per Zod schema, stored as JSON text. */
+const serializedSchemas = new WeakMap<object, string>();
 
 /**
  * zod-to-json-schema's own parameter type. Casting to it (rather than to
@@ -178,14 +216,23 @@ type ZodSchemaArg = Parameters<typeof zodToJsonSchema>[0];
 
 /**
  * Convert one A2UI Zod schema to JSON Schema 2019-09, inlining reused schemas
- * and resolving `REF:` markers (see {@link extractA2UICatalogSchemas}).
- * Results are cached per schema object; each call returns a fresh copy.
+ * and resolving `REF:` markers (see {@link extractA2UICatalogSchemas}). The
+ * shapes behind `common_types.json` refs are recorded in `commonTypes`; pass
+ * the same map for every schema of one payload.
+ *
+ * The raw conversion is cached per schema object as JSON text, and every call
+ * parses a fresh copy. The JSON round-trip, unlike structuredClone, never
+ * throws on values such as a function or a Vue reactive proxy in a
+ * `.default()`, and yields exactly what the agent receives.
  */
-export function serializeA2UISchema(schema: unknown): JsonSchema {
+export function serializeA2UISchema(
+  schema: unknown,
+  commonTypes: A2UICommonTypes = Object.create(null),
+): JsonSchema {
   const key = typeof schema === "object" && schema !== null ? schema : null;
   let serialized = key ? serializedSchemas.get(key) : undefined;
-  if (!serialized) {
-    serialized = zodToJsonSchema(schema as ZodSchemaArg, {
+  if (serialized === undefined) {
+    const jsonSchema = zodToJsonSchema(schema as ZodSchemaArg, {
       target: "jsonSchema2019-09",
       $refStrategy: "none",
       // With "none", zod-to-json-schema already turns a recursive reference
@@ -199,14 +246,21 @@ export function serializeA2UISchema(schema: unknown): JsonSchema {
           ? {}
           : ignoreOverride,
     }) as JsonSchema;
-    delete serialized.$schema;
-    applyRefMarkers(serialized);
+    delete jsonSchema.$schema;
+    serialized = JSON.stringify(jsonSchema);
     if (key) serializedSchemas.set(key, serialized);
   }
-  return structuredClone(serialized);
+
+  const root = JSON.parse(serialized) as JsonSchema;
+  const marker = parseRefMarker(root.description);
+  if (marker) {
+    delete root.description;
+    if (marker.description) root.description = marker.description;
+  }
+  return resolveSubschemas(root, commonTypes);
 }
 
-/** Keywords whose value is a single subschema. */
+/** Keywords whose value is a subschema, or an array of subschemas. */
 const SUBSCHEMA_KEYWORDS = [
   "items",
   "additionalItems",
@@ -219,9 +273,11 @@ const SUBSCHEMA_KEYWORDS = [
   "if",
   "then",
   "else",
+  "allOf",
+  "anyOf",
+  "oneOf",
+  "prefixItems",
 ];
-/** Keywords whose value is an array of subschemas. */
-const SUBSCHEMA_ARRAY_KEYWORDS = ["allOf", "anyOf", "oneOf", "prefixItems"];
 /** Keywords whose value maps names to subschemas. */
 const SUBSCHEMA_MAP_KEYWORDS = [
   "properties",
@@ -231,54 +287,91 @@ const SUBSCHEMA_MAP_KEYWORDS = [
   "definitions",
 ];
 
+const COMMON_TYPE_REF = /^common_types\.json#\/\$defs\/([^/]+)$/;
+
+function isObject(value: unknown): value is JsonSchema {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /**
- * Resolve `REF:<ref>|<description>` markers in place. The `REF:` convention
- * comes from `MessageProcessor.processRefs` in `@a2ui/web_core`, which
- * replaces the whole subtree with `$ref`; here the subtree is kept (see
- * {@link extractA2UICatalogSchemas}).
+ * Split a `REF:<ref>|<description>` marker at its first `|`, so a description
+ * containing `|` is kept whole. The convention comes from
+ * `MessageProcessor.processRefs` in `@a2ui/web_core`.
+ */
+function parseRefMarker(
+  description: unknown,
+): { ref: string; description?: string } | undefined {
+  if (typeof description !== "string" || !description.startsWith("REF:")) {
+    return undefined;
+  }
+  const body = description.slice(4);
+  const separator = body.indexOf("|");
+  return separator === -1
+    ? { ref: body }
+    : { ref: body.slice(0, separator), description: body.slice(separator + 1) };
+}
+
+/**
+ * Resolve `REF:` markers in a schema's subschemas, innermost first, so a
+ * stored common type refers to the types it contains by bare `$ref` too.
  *
  * Only schema-valued keywords are traversed, so literal values under
- * `default`, `const`, `enum` or `examples` (which zod-to-json-schema may share
- * with the caller's live Zod schema) are never rewritten.
+ * `default`, `const`, `enum` or `examples` are never rewritten.
  */
-function applyRefMarkers(schema: unknown): void {
-  if (typeof schema !== "object" || schema === null) return;
-  if (Array.isArray(schema)) {
-    for (const item of schema) applyRefMarkers(item);
-    return;
-  }
+function resolveSubschemas(
+  node: JsonSchema,
+  commonTypes: A2UICommonTypes,
+): JsonSchema {
+  const resolve = (value: unknown): unknown =>
+    Array.isArray(value)
+      ? value.map(resolve)
+      : isObject(value)
+        ? resolveRefMarker(resolveSubschemas(value, commonTypes), commonTypes)
+        : value;
 
-  const node = schema as JsonSchema;
-  if (
-    typeof node.description === "string" &&
-    node.description.startsWith("REF:")
-  ) {
-    const body = node.description.slice(4);
-    const separator = body.indexOf("|");
-    const ref = separator === -1 ? body : body.slice(0, separator);
-    const description =
-      separator === -1 ? undefined : body.slice(separator + 1);
-    // Rebuild the node so `$ref` and the description lead, then the shape.
-    const { description: _marker, ...shape } = node;
-    for (const key of Object.keys(node)) delete node[key];
-    Object.assign(
-      node,
-      { $ref: ref },
-      description ? { description } : {},
-      shape,
-    );
-  }
-
-  for (const keyword of SUBSCHEMA_KEYWORDS) applyRefMarkers(node[keyword]);
-  for (const keyword of SUBSCHEMA_ARRAY_KEYWORDS) {
-    applyRefMarkers(node[keyword]);
+  const out: JsonSchema = { ...node };
+  for (const keyword of SUBSCHEMA_KEYWORDS) {
+    if (keyword in out) out[keyword] = resolve(out[keyword]);
   }
   for (const keyword of SUBSCHEMA_MAP_KEYWORDS) {
-    const map = node[keyword];
-    if (typeof map === "object" && map !== null) {
-      for (const child of Object.values(map)) applyRefMarkers(child);
+    const map = out[keyword];
+    if (isObject(map)) {
+      out[keyword] = Object.fromEntries(
+        Object.entries(map).map(([name, child]) => [name, resolve(child)]),
+      );
     }
   }
+  return out;
+}
+
+/**
+ * Turn a node carrying a `REF:` marker into a bare `$ref`, recording the
+ * shape it replaced under its `common_types.json` name. A shape that differs
+ * from the one already recorded, or a ref outside `common_types.json`, stays
+ * inline next to the `$ref`.
+ */
+function resolveRefMarker(
+  node: JsonSchema,
+  commonTypes: A2UICommonTypes,
+): JsonSchema {
+  const marker = parseRefMarker(node.description);
+  if (!marker) return node;
+
+  const { description: _marker, ...shape } = node;
+  const ref: JsonSchema = {
+    $ref: marker.ref,
+    ...(marker.description ? { description: marker.description } : {}),
+  };
+  const name = COMMON_TYPE_REF.exec(marker.ref)?.[1];
+  if (name !== undefined) {
+    const known = commonTypes[name];
+    if (known === undefined) {
+      commonTypes[name] = shape;
+      return ref;
+    }
+    if (JSON.stringify(known) === JSON.stringify(shape)) return ref;
+  }
+  return { ...ref, ...shape };
 }
 
 interface CatalogFunction {

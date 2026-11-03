@@ -74,8 +74,8 @@ describe("buildCatalogContextValue", () => {
 /**
  * Upstream's inline catalog, minus the differences we make on purpose: no
  * `$schema` or duplicated description in function parameters, and absent
- * rather than undefined `functions`/`theme`. REF-tagged subtrees are compared
- * with toMatchObject, since we keep the inlined shape next to the `$ref`.
+ * rather than undefined `functions`/`theme`. Compared with toMatchObject,
+ * since we also add the `common_types.json` block.
  */
 function upstreamInlineCatalog(catalog: Catalog<ComponentApi>) {
   const canonical = new MessageProcessor([catalog]).getClientCapabilities({
@@ -113,7 +113,7 @@ describe("extractCatalogComponentSchemas", () => {
     expect(schema.theme).toBeUndefined();
   });
 
-  it("adds component reference $refs alongside the inlined shape and preserves property order", () => {
+  it("exports component reference markers as $refs with one copy of each type, preserving property order", () => {
     const catalog = new Catalog<ComponentApi>("copilotkit://composed", [
       {
         name: "Card",
@@ -151,7 +151,6 @@ describe("extractCatalogComponentSchemas", () => {
             child: {
               $ref: "common_types.json#/$defs/ComponentId",
               description: "Card content",
-              type: "string",
             },
           },
           required: ["component", "title", "child"],
@@ -173,6 +172,16 @@ describe("extractCatalogComponentSchemas", () => {
       ],
     });
     expect(schema).toMatchObject(upstreamInlineCatalog(catalog));
+    expect(schema["common_types.json"]?.$defs).toEqual({
+      ComponentId: { type: "string" },
+      ChildList: { type: "array", items: { type: "string" } },
+      Action: {
+        type: "object",
+        properties: { event: { type: "string" } },
+        required: ["event"],
+        additionalProperties: false,
+      },
+    });
     const card = schema.components.Card.allOf as {
       properties?: Record<string, unknown>;
     }[];
@@ -210,9 +219,9 @@ describe("extractCatalogComponentSchemas", () => {
           .describe("REF:common_types.json#/$defs/Color|Main color"),
       }),
     );
-    expect(extractCatalogComponentSchemas(catalog)).toMatchObject(
-      upstreamInlineCatalog(catalog),
-    );
+    const schema = extractCatalogComponentSchemas(catalog);
+    expect(schema).toMatchObject(upstreamInlineCatalog(catalog));
+    expect(schema.functions?.[0]?.parameters).not.toHaveProperty("$schema");
   });
 
   it("inlines reused Zod schemas so no local $ref is left dangling", () => {

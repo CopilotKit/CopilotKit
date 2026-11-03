@@ -191,6 +191,7 @@ export {
 } from "./a2ui-catalog-schema";
 export type {
   A2UICatalogSchemaSource,
+  A2UICommonTypes,
   A2UIFunctionSchema,
   A2UIInlineCatalogSchema,
 } from "./a2ui-catalog-schema";

@@ -69,6 +69,8 @@ export function buildCatalogContextValue(
  */
 export interface InlineCatalogSchema extends Omit<InlineCatalog, "components"> {
   components: Record<string, Record<string, unknown>>;
+  /** One copy of each common type the components, functions and theme reference. */
+  "common_types.json"?: { $defs: Record<string, Record<string, unknown>> };
 }
 
 /**

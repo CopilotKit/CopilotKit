@@ -30,50 +30,99 @@ function props(
   return allOf[1].properties;
 }
 
+function commonTypes(schema: ReturnType<typeof extractA2UICatalogSchemas>) {
+  return schema["common_types.json"]?.$defs ?? {};
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
 describe("extractA2UICatalogSchemas", () => {
-  it("adds the REF marker's $ref next to the inlined shape", () => {
+  it("replaces a REF marker with a bare $ref and stores its shape once", () => {
+    const action = () =>
+      z
+        .object({ event: z.object({ name: z.string() }) })
+        .describe("REF:common_types.json#/$defs/Action|Click action");
     const schema = extractA2UICatalogSchemas(
       catalog({
         Button: z.object({
-          action: z
-            .object({ event: z.object({ name: z.string() }) })
-            .describe("REF:common_types.json#/$defs/Action|Click action"),
+          action: action(),
           child: z
             .string()
             .describe("REF:common_types.json#/$defs/ComponentId"),
         }),
+        Link: z.object({ action: action() }),
       }),
     );
 
-    const { action, child } = props(schema, "Button");
-    expect(action).toEqual({
+    expect(props(schema, "Button").action).toEqual({
       $ref: "common_types.json#/$defs/Action",
       description: "Click action",
-      type: "object",
-      properties: {
-        event: {
-          type: "object",
-          properties: { name: { type: "string" } },
-          required: ["name"],
-          additionalProperties: false,
-        },
-      },
-      required: ["event"],
-      additionalProperties: false,
     });
-    expect(Object.keys(action)[0]).toBe("$ref");
-    expect(child).toEqual({
+    expect(props(schema, "Link").action).toEqual(
+      props(schema, "Button").action,
+    );
+    expect(props(schema, "Button").child).toEqual({
       $ref: "common_types.json#/$defs/ComponentId",
-      type: "string",
+    });
+    expect(commonTypes(schema)).toEqual({
+      Action: {
+        type: "object",
+        properties: {
+          event: {
+            type: "object",
+            properties: { name: { type: "string" } },
+            required: ["name"],
+            additionalProperties: false,
+          },
+        },
+        required: ["event"],
+        additionalProperties: false,
+      },
+      ComponentId: { type: "string" },
     });
     expect(JSON.stringify(schema)).not.toContain("REF:");
   });
 
-  it("resolves nested REF markers inside an inlined shape", () => {
+  it("omits the common types block when nothing references one", () => {
+    const schema = extractA2UICatalogSchemas(
+      catalog({ Text: z.object({ text: z.string() }) }),
+    );
+
+    expect(schema).not.toHaveProperty(["common_types.json"]);
+  });
+
+  it("keeps a use whose shape differs from the stored type inline", () => {
+    const schema = extractA2UICatalogSchemas(
+      catalog({
+        Text: z.object({
+          text: z
+            .union([z.string(), z.object({ path: z.string() })])
+            .describe("REF:common_types.json#/$defs/DynamicString"),
+        }),
+        Badge: z.object({
+          label: z
+            .string()
+            .describe("REF:common_types.json#/$defs/DynamicString|Label"),
+        }),
+      }),
+    );
+
+    expect(props(schema, "Text").text).toEqual({
+      $ref: "common_types.json#/$defs/DynamicString",
+    });
+    expect(props(schema, "Badge").label).toEqual({
+      $ref: "common_types.json#/$defs/DynamicString",
+      description: "Label",
+      type: "string",
+    });
+    expect(commonTypes(schema).DynamicString).toMatchObject({
+      anyOf: [{ type: "string" }, { type: "object" }],
+    });
+  });
+
+  it("stores nested common types by bare $ref too", () => {
     const dynamicString = z
       .union([z.string(), z.object({ path: z.string() })])
       .describe("REF:common_types.json#/$defs/DynamicString");
@@ -87,11 +136,15 @@ describe("extractA2UICatalogSchemas", () => {
       }),
     );
 
-    const action = props(schema, "Card").action as {
-      properties: Record<string, Record<string, unknown>>;
-    };
-    expect(action.properties.label).toMatchObject({
-      $ref: "common_types.json#/$defs/DynamicString",
+    expect(props(schema, "Card").action).toEqual({
+      $ref: "common_types.json#/$defs/Action",
+    });
+    expect(commonTypes(schema).Action).toMatchObject({
+      properties: {
+        label: { $ref: "common_types.json#/$defs/DynamicString" },
+      },
+    });
+    expect(commonTypes(schema).DynamicString).toMatchObject({
       anyOf: [{ type: "string" }, { properties: { path: { type: "string" } } }],
     });
   });
@@ -173,9 +226,11 @@ describe("extractA2UICatalogSchemas", () => {
     expect(schema.theme?.body).toMatchObject({
       properties: { font: { type: "string" } },
     });
-    expect(schema.theme?.heading).toMatchObject({
+    expect(schema.theme?.heading).toEqual({
       $ref: "common_types.json#/$defs/Typography",
-      properties: { font: { type: "string" } },
+    });
+    expect(commonTypes(schema).Typography).toMatchObject({
+      properties: { font: { type: "string", description: "Label text" } },
     });
   });
 
@@ -203,6 +258,35 @@ describe("extractA2UICatalogSchemas", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it("keeps a component named __proto__ as a regular entry", () => {
+    const schema = extractA2UICatalogSchemas({
+      id: "copilotkit://test",
+      components: new Map([
+        ["__proto__", { schema: z.object({ text: z.string() }) }],
+      ]),
+    });
+
+    expect(Object.keys(schema.components)).toEqual(["__proto__"]);
+    expect(JSON.parse(JSON.stringify(schema)).components).toHaveProperty(
+      "__proto__",
+    );
+  });
+
+  it("does not throw on default values structuredClone cannot copy", () => {
+    const schema = extractA2UICatalogSchemas(
+      catalog({
+        Widget: z.object({
+          meta: z
+            .object({ label: z.string() })
+            .passthrough()
+            .default({ label: "x", onClick: () => {} } as { label: string }),
+        }),
+      }),
+    );
+
+    expect(props(schema, "Widget").meta.default).toEqual({ label: "x" });
+  });
+
   it("keeps a component's root description", () => {
     const schema = extractA2UICatalogSchemas(
       catalog({
@@ -215,7 +299,7 @@ describe("extractA2UICatalogSchemas", () => {
     expect(schema.components.FlightCard.description).toBe("Shows one flight");
   });
 
-  it("exports functions with REF-stripped descriptions and no $schema", () => {
+  it("exports functions with REF-stripped root descriptions and no $schema", () => {
     const schema = extractA2UICatalogSchemas(
       catalog(
         {},
@@ -244,7 +328,6 @@ describe("extractA2UICatalogSchemas", () => {
         description: "Formats a value",
         returnType: "string",
         parameters: {
-          $ref: "common_types.json#/$defs/FunctionCall",
           type: "object",
           properties: { value: { type: "string" } },
           required: ["value"],
@@ -310,6 +393,10 @@ describe("buildA2UICatalogContextValue", () => {
     expect(value).not.toContain("  - Text:");
     expect(value).toContain('"$ref": "common_types.json#/$defs/ComponentId"');
     expect(value).toContain('"description": "Card body"');
+    expect(value).toContain(
+      "  Common types referenced above (common_types.json#/$defs):",
+    );
+    expect(value).toContain('"ComponentId": {');
     expect(value).toContain('"type": "string"');
     expect(value).not.toContain("REF:");
   });
