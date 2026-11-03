@@ -9,10 +9,12 @@ import type {
   RuntimeLicenseStatus,
   SuggestionsConfig,
   ThreadEndpointRuntimeInfo,
+  ɵSuggestionsConfigInput,
 } from "@copilotkit/core";
 import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
+  ɵbindSuggestionsConfig,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";
 import type { Signal, WritableSignal } from "@angular/core";
@@ -21,9 +23,11 @@ import {
   Injectable,
   Injector,
   computed,
+  effect,
   runInInjectionContext,
   signal,
   inject,
+  untracked,
 } from "@angular/core";
 import type {
   FrontendToolConfig,
@@ -71,6 +75,7 @@ import {
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { CopilotInspector } from "./inspector";
+import { COPILOT_CHAT_CONFIGURATION } from "./chat-configuration";
 
 /**
  * Advertise a client-provided A2UI catalog to the runtime without mutating the
@@ -762,6 +767,54 @@ export class CopilotKit {
 
   addSuggestionsConfig(config: SuggestionsConfig): string {
     return this.core.addSuggestionsConfig(config);
+  }
+
+  /**
+   * Registers a suggestions config for as long as the calling context lives:
+   * the Angular counterpart of `useConfigureSuggestions` in React and Vue.
+   *
+   * Call it in an injection context (a constructor or field initializer), or
+   * pass `injector`. A global config (no `consumerAgentId`, or `"*"`) loads
+   * for the surrounding chat configuration's agent and every idle agent. The
+   * config is removed when that context is destroyed or `dispose()` is called.
+   * Pass a function to re-apply the config when signals it reads change;
+   * configs with equal content are no-ops.
+   *
+   * @example
+   * readonly suggestions = inject(CopilotKit).configureSuggestions(() => ({
+   *   instructions: `Suggest next steps about ${this.topic()}`,
+   *   available: "always",
+   * }));
+   */
+  configureSuggestions(
+    config:
+      | ɵSuggestionsConfigInput
+      | null
+      | undefined
+      | (() => ɵSuggestionsConfigInput | null | undefined),
+    options: { injector?: Injector } = {},
+  ) {
+    const injector = options.injector ?? inject(Injector);
+    const chatConfig = injector.get(COPILOT_CHAT_CONFIGURATION, null);
+    const readConfig = typeof config === "function" ? config : () => config;
+    const readChatAgentId = () => chatConfig?.agentId();
+    const binding = ɵbindSuggestionsConfig(this.core, untracked(readConfig), {
+      chatAgentId: untracked(readChatAgentId),
+    });
+    const watcher = effect(
+      () => {
+        const next = readConfig();
+        const chatAgentId = readChatAgentId();
+        untracked(() => binding.update(next, { chatAgentId }));
+      },
+      { injector },
+    );
+    const dispose = () => {
+      watcher.destroy();
+      binding.dispose();
+    };
+    injector.get(DestroyRef).onDestroy(dispose);
+    return { reload: () => binding.reload(), dispose };
   }
 
   removeSuggestionsConfig(id: string): void {
