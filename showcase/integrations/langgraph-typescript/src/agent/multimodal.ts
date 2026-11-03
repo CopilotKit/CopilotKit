@@ -30,7 +30,10 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
 
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 import pdfParse from "pdf-parse";
@@ -186,10 +189,17 @@ async function rewriteMessages(
 async function chatNode(state: AgentState, config: RunnableConfig) {
   // gpt-5-mini is the vision-capable default; temperature kept low for
   // deterministic image-Q&A behavior.
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     model: "gpt-5-mini",
     temperature: 0.2,
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //   model: "gpt-5-mini",
+  //   temperature: 0.2,
+  // });
+  // @doc-end
 
   const messages = await rewriteMessages(state.messages);
 

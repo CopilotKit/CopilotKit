@@ -17,16 +17,25 @@ import {
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
+// @doc-replace
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
+// @doc-as
+// @doc-end
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 export const POST = async (req: NextRequest) => {
   try {
+    // @doc-replace
     const headers = extractForwardedHeaders(req);
+    // @doc-as
+    // @doc-end
     const multimodalAgent = new HttpAgent({
       url: `${AGENT_URL}/multimodal-demo`,
+      // @doc-replace
       headers,
+      // @doc-as
+      // @doc-end
     });
 
     const runtime = new CopilotRuntime({

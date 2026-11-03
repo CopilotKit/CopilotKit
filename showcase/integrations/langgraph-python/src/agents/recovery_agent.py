@@ -44,9 +44,12 @@ from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from ag_ui_langgraph import get_a2ui_tools
 
+# @doc-replace
 from src.agents._header_forwarding_middleware import (
     AuxiliaryModelHeaderForwardingMiddleware,
 )
+# @doc-as
+# @doc-end
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +97,10 @@ graph = create_agent(
         )
     ],
     middleware=[
+        # @doc-replace
         AuxiliaryModelHeaderForwardingMiddleware(_A2UI_MODEL),
+        # @doc-as
+        # @doc-end
         CopilotKitMiddleware(),
     ],
     system_prompt=SYSTEM_PROMPT,

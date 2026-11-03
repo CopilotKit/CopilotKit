@@ -17,10 +17,13 @@ import {
 } from "@copilotkit/runtime/v2";
 import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
 import { createTranscriptionService } from "@/lib/transcription-service";
+// @doc-replace
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
 // LLM calls. See @/lib/header-forwarding for the full rationale.
 import { withForwardedHeaders } from "@/lib/header-forwarding";
+// @doc-as
+// @doc-end
 
 let cachedHandler: ((req: Request) => Promise<Response>) | null = null;
 function getHandler(): (req: Request) => Promise<Response> {
@@ -39,6 +42,7 @@ function getHandler(): (req: Request) => Promise<Response> {
   return cachedHandler;
 }
 
+// @doc-replace
 export const POST = (req: NextRequest) =>
   withForwardedHeaders(req, () => getHandler()(req));
 export const GET = (req: NextRequest) =>
@@ -47,4 +51,10 @@ export const PUT = (req: NextRequest) =>
   withForwardedHeaders(req, () => getHandler()(req));
 export const DELETE = (req: NextRequest) =>
   withForwardedHeaders(req, () => getHandler()(req));
+// @doc-as
+// export const POST = (req: NextRequest) => getHandler()(req);
+// export const GET = (req: NextRequest) => getHandler()(req);
+// export const PUT = (req: NextRequest) => getHandler()(req);
+// export const DELETE = (req: NextRequest) => getHandler()(req);
+// @doc-end
 // @endregion[voice-runtime]

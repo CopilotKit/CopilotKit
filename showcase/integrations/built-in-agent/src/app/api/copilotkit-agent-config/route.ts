@@ -13,12 +13,15 @@ import {
 } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+// @doc-replace
 // `withForwardedHeaders` snapshots inbound x-* headers (e.g.
 // x-aimock-context) into an AsyncLocalStorage scope; `forwardingFetch`
 // re-attaches them on every outbound LLM call. Required because
 // `@tanstack/ai-openai`'s `openaiText()` adapter has no per-request
 // header hook. See @/lib/header-forwarding for the full rationale.
 import { forwardingFetch, withForwardedHeaders } from "@/lib/header-forwarding";
+// @doc-as
+// @doc-end
 
 const TONE_GUIDANCE: Record<string, string> = {
   professional:
@@ -75,7 +78,11 @@ function createAgentConfigAgent() {
       const props = (input.forwardedProps ?? {}) as Record<string, unknown>;
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
       return chat({
+        // @doc-replace
         adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
+        // @doc-as
+        // adapter: openaiText("gpt-4o"),
+        // @doc-end
         messages,
         systemPrompts: [buildConfigSystemPrompt(props), ...systemPrompts],
         tools: [],
@@ -96,6 +103,7 @@ const handler = createCopilotRuntimeHandler({
   mode: "single-route",
 });
 
+// @doc-replace
 async function withProbeCompat(req: Request): Promise<Response> {
   const res = await handler(req);
   if (res.status === 404) {
@@ -104,10 +112,18 @@ async function withProbeCompat(req: Request): Promise<Response> {
   }
   return res;
 }
+// @doc-as
+// @doc-end
 
+// @doc-replace
 export const GET = (req: Request) =>
   withForwardedHeaders(req, () => handler(req));
 export const POST = (req: Request) =>
   withForwardedHeaders(req, () => withProbeCompat(req));
 export const OPTIONS = (req: Request) =>
   withForwardedHeaders(req, () => handler(req));
+// @doc-as
+// export const GET = (req: Request) => handler(req);
+// export const POST = (req: Request) => handler(req);
+// export const OPTIONS = (req: Request) => handler(req);
+// @doc-end

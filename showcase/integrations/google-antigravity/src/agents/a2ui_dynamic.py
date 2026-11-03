@@ -59,7 +59,11 @@ from ag_ui_a2ui_toolkit import (
 )
 from ag_ui_antigravity import experimental_get_context
 
+# @doc-replace
 from agents._common import MODEL, aimock_headers, api_key, gemini_base_url
+# @doc-as
+# from agents._common import MODEL, api_key, gemini_base_url
+# @doc-end
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +162,11 @@ async def render_once(system_prompt: str, request: str) -> dict | None:
     the error block the toolkit appends to ``system_prompt``.
     """
     base = gemini_base_url() or "https://generativelanguage.googleapis.com"
+    # @doc-replace
     headers = aimock_headers()
+    # @doc-as
+    # headers: dict[str, str] = {}
+    # @doc-end
     key = api_key()
     if key:
         headers["x-goog-api-key"] = key

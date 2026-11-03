@@ -20,22 +20,34 @@ import {
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
+// @doc-replace
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
+// @doc-as
+// @doc-end
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 export const POST = async (req: NextRequest) => {
   try {
+    // @doc-replace
     const headers = extractForwardedHeaders(req);
+    // @doc-as
+    // @doc-end
 
     const agents = {
       "open-gen-ui": new HttpAgent({
         url: `${AGENT_URL}/open_gen_ui`,
+        // @doc-replace
         headers,
+        // @doc-as
+        // @doc-end
       }),
       "open-gen-ui-advanced": new HttpAgent({
         url: `${AGENT_URL}/open_gen_ui_advanced`,
+        // @doc-replace
         headers,
+        // @doc-as
+        // @doc-end
       }),
     };
 

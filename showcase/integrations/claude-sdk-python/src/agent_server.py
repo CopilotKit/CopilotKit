@@ -38,6 +38,7 @@ from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from typing import Any
 
+# @doc-replace
 # CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
 # dropped L1-H slot). Importing this module configures the root logger via
 # ``logging.basicConfig`` so the ``agents._header_forwarding`` (and sibling
@@ -60,6 +61,8 @@ from agents._header_forwarding import (
 )
 
 install_global_httpx_hook()
+# @doc-as
+# @doc-end
 
 import uvicorn
 from ag_ui.core import RunAgentInput
@@ -146,6 +149,7 @@ def _stream_agent_response(
 
 app = create_app()
 
+# @doc-replace
 # CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
 # boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
 # response.complete, error.caught) as structured CVDIAG envelopes. Added right
@@ -155,6 +159,8 @@ app = create_app()
 # flow. Gated behind ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the
 # middleware fast-paths to a bare pass-through when the flag is unset.
 app.add_middleware(CvdiagBackendMiddleware)
+# @doc-as
+# @doc-end
 
 # Tighten CORS: the dedicated endpoints share the same CORS policy as the
 # default route, which `create_app` already opens up with `*`. No extra

@@ -20,6 +20,7 @@ import os
 import uuid
 from typing import Any, AsyncIterator, List, Optional, Set, Union
 
+# @doc-replace
 # CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
 # dropped L1-H slot). Importing this module configures the root logger via
 # ``logging.basicConfig`` so the ``agents._header_forwarding`` (and sibling
@@ -47,6 +48,8 @@ install_global_httpx_hook()
 # the time the secondary call's outbound httpx hook fires, and aimock
 # can't match the right fixture for the request.
 install_executor_contextvar_propagation()
+# @doc-as
+# @doc-end
 
 import dotenv
 from ag_ui.core import (
@@ -873,6 +876,7 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(HealthMiddleware)
 
+# @doc-replace
 # Capture inbound CopilotKit ``x-*`` headers (e.g. ``x-aimock-context``) so
 # downstream LLM/provider httpx calls inside the request scope copy them
 # onto their outbound requests. Paired with ``install_global_httpx_hook``
@@ -887,9 +891,12 @@ app.add_middleware(HeaderForwardingHTTPMiddleware)
 # flow. Gated behind ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the
 # middleware fast-paths to a bare pass-through when the flag is unset.
 app.add_middleware(CvdiagBackendMiddleware)
+# @doc-as
+# @doc-end
 
 
 def main():
+    # @doc-replace
     """Run the uvicorn server.
 
     ``loop="asyncio"`` pins uvicorn's event-loop factory to the stdlib
@@ -908,6 +915,9 @@ def main():
     launches uvicorn via its CLI rather than this ``serve`` path, pins the
     same loop via ``--loop asyncio`` in ``entrypoint.sh``.
     """
+    # @doc-as
+    # """Run the uvicorn server."""
+    # @doc-end
     port = int(os.getenv("PORT", "8000"))
     agent_os.serve(
         app="agent_server:app",

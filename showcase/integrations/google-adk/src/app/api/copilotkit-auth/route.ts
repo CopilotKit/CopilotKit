@@ -11,21 +11,27 @@ import {
 import { HttpAgent } from "@ag-ui/client";
 
 import { DEMO_AUTH_HEADER } from "@/app/demos/auth/demo-token";
+// @doc-replace
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
+// @doc-as
+// @doc-end
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 const BASE_PATH = "/api/copilotkit-auth";
 
-// Build runtime+handler per-request so we can pass inbound `x-*` headers
-// (e.g. `x-aimock-context`) into the HttpAgent's outbound fetch to the
-// Python agent_server. See `src/lib/header-forwarding.ts` for the
-// rationale.
+// @doc-replace
 function buildHandler(forwardedHeaders: Record<string, string>) {
   const authDemoAgent = new HttpAgent({
     url: `${AGENT_URL}/auth`,
     headers: forwardedHeaders,
   });
+  // @doc-as
+  // function buildHandler() {
+  //   const authDemoAgent = new HttpAgent({
+  //     url: `${AGENT_URL}/auth`,
+  //   });
+  // @doc-end
 
   const runtime = new CopilotRuntime({
     agents: {
@@ -55,7 +61,12 @@ function buildHandler(forwardedHeaders: Record<string, string>) {
   });
 }
 
+// @doc-replace
 export const POST = (req: NextRequest) =>
   buildHandler(extractForwardedHeaders(req))(req);
 export const GET = (req: NextRequest) =>
   buildHandler(extractForwardedHeaders(req))(req);
+// @doc-as
+// export const POST = (req: NextRequest) => buildHandler()(req);
+// export const GET = (req: NextRequest) => buildHandler()(req);
+// @doc-end

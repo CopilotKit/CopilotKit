@@ -31,7 +31,10 @@ from langgraph.types import Command
 
 from copilotkit import CopilotKitMiddleware
 
+# @doc-replace
 from src.agents._header_forwarding_middleware import HeaderForwardingMiddleware
+# @doc-as
+# @doc-end
 
 
 # ---------------------------------------------------------------------------
@@ -78,6 +81,7 @@ class AgentState(BaseAgentState):
 # the supervisor only sees their return value.
 _sub_model = ChatOpenAI(model="gpt-5.4")
 
+# @doc-replace
 # Each sub-agent gets the minimal HeaderForwardingMiddleware so the
 # inbound x-aimock-context (and other x-*) headers from the supervisor's
 # inbound HTTP request propagate to the sub-agent's outbound LLM call.
@@ -115,6 +119,35 @@ _critique_agent = create_agent(
     ),
     middleware=[HeaderForwardingMiddleware()],
 )
+# @doc-as
+# _research_agent = create_agent(
+#     model=_sub_model,
+#     tools=[],
+#     system_prompt=(
+#         "You are a research sub-agent. Given a topic, produce a concise "
+#         "bulleted list of 3-5 key facts. No preamble, no closing."
+#     ),
+# )
+#
+# _writing_agent = create_agent(
+#     model=_sub_model,
+#     tools=[],
+#     system_prompt=(
+#         "You are a writing sub-agent. Given a brief and optional source "
+#         "facts, produce a polished 1-paragraph draft. Be clear and "
+#         "concrete. No preamble."
+#     ),
+# )
+#
+# _critique_agent = create_agent(
+#     model=_sub_model,
+#     tools=[],
+#     system_prompt=(
+#         "You are an editorial critique sub-agent. Given a draft, give "
+#         "2-3 crisp, actionable critiques. No preamble."
+#     ),
+# )
+# @doc-end
 # @endregion[subagent-setup]
 
 

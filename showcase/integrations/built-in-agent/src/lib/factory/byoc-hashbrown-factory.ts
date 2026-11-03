@@ -3,11 +3,14 @@ import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+// @doc-replace
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
 // can match fixtures by integration context. See ../header-forwarding.ts
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
+// @doc-as
+// @doc-end
 import { DEMO_AGENT_LOOP_STRATEGY, throwOnRunError } from "./demo-stream";
 
 const BYOC_HASHBROWN_SYSTEM_PROMPT = `\
@@ -124,7 +127,11 @@ export function createByocHashbrownAgent() {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
 
       const stream = chat({
+        // @doc-replace
         adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+        // @doc-as
+        // adapter: openaiText("gpt-5.4"),
+        // @doc-end
         messages,
         systemPrompts: [BYOC_HASHBROWN_SYSTEM_PROMPT, ...systemPrompts],
         tools: [],
