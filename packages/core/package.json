@@ -18,6 +18,10 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
+    "./chat-configuration": {
+      "import": "./dist/chat-configuration.mjs",
+      "require": "./dist/chat-configuration.cjs"
+    },
     "./styles": {
       "import": "./dist/styles.mjs",
       "require": "./dist/styles.cjs"
