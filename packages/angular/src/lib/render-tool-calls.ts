@@ -25,7 +25,6 @@ import type {
 } from "./tools";
 import { DEFAULT_AGENT_ID, partialJSONParse } from "@copilotkit/shared";
 import { ɵresolveToolCallRenderer } from "@copilotkit/core";
-import { HumanInTheLoop } from "./human-in-the-loop";
 import { CopilotDefaultToolRenderer } from "./components/tools/default-tool-renderer";
 import { TOOL_CALL_RENDER_CONTEXT } from "./components/tools/tool-call-render-context";
 import type { ToolCallRenderContext } from "./components/tools/tool-call-render-context";
@@ -203,7 +202,6 @@ export function pickToolCallHandler(
 })
 export class RenderToolCall {
   readonly #copilotKit = inject(CopilotKit);
-  readonly #hitl = inject(HumanInTheLoop);
   readonly #injector = inject(Injector);
   readonly toolCall = input.required<ToolCall>();
   /** The assistant message the call belongs to (or whose group it joined). */
@@ -323,8 +321,10 @@ export class RenderToolCall {
       this.isLoading(),
     ) as Args;
     const message = this.#getToolMessage(toolCall.id);
+    // Keyed by call id, so a catch-all ("*") and parallel calls of one tool
+    // each reach their own parked call.
     const respond = (result: unknown) => {
-      this.#hitl.addResult(toolCall.id, toolCall.function.name, result);
+      this.#copilotKit.core.ɵhumanInTheLoop.respond(toolCall.id, result);
     };
 
     if (message) {

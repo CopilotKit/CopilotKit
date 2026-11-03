@@ -11,7 +11,6 @@ import { z } from "zod";
 import { z as zodV3 } from "zod-v3";
 import { CopilotKit } from "./copilotkit";
 import { provideCopilotKit } from "./config";
-import { HumanInTheLoop } from "./human-in-the-loop";
 import {
   GENERATE_SANDBOXED_UI_TOOL_NAME,
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
@@ -92,6 +91,7 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     readonly addContext = mockAddContext;
     readonly removeContext = mockRemoveContext;
     readonly dispose = mockDispose;
+    readonly ɵhumanInTheLoop = new actual.ɵHumanInTheLoopRegistry();
     agents: Record<string, any> = {};
     runtimeUrl = undefined;
     runtimeTransport = "auto";
@@ -268,16 +268,13 @@ describe("CopilotKit", () => {
     expect(copilotKit.clientToolCallRenderConfigs()).toHaveLength(1);
   });
 
-  it("registers human-in-the-loop tools and delegates responses", async () => {
-    const onResultSpy = vi
-      .spyOn(HumanInTheLoop.prototype, "onResult")
-      .mockResolvedValue("result");
-
+  it("registers human-in-the-loop tools that park calls in the core registry", async () => {
     TestBed.configureTestingModule({
       providers: [provideCopilotKit({ licenseKey })],
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
+    const registry = copilotKit.core.ɵhumanInTheLoop;
 
     const toolConfig = {
       name: "approval",
@@ -297,23 +294,17 @@ describe("CopilotKit", () => {
     );
 
     const tool = mockAddTool.mock.calls.at(-1)![0];
-    const controller = new AbortController();
-    const mockAgent = { agentId: "agent-1" };
-    await tool.handler(
+    const result = tool.handler(
       {},
       {
         toolCall: { id: "call-1", function: { name: "approval" } },
-        agent: mockAgent,
-        signal: controller.signal,
+        agent: { agentId: "agent-1" },
+        signal: new AbortController().signal,
       },
     );
-    expect(onResultSpy).toHaveBeenCalledWith(
-      "call-1",
-      "approval",
-      controller.signal,
-    );
-
-    onResultSpy.mockRestore();
+    expect(registry.isPending("call-1")).toBe(true);
+    registry.respond("call-1", "result");
+    await expect(result).resolves.toBe("result");
   });
 
   it("registers Open Generative UI tool, activity renderer, and contexts", async () => {

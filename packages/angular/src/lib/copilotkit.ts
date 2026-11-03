@@ -13,6 +13,7 @@ import type {
 import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
+  ɵbuildHumanInTheLoopTool,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";
 import type { Signal, WritableSignal } from "@angular/core";
@@ -45,7 +46,6 @@ import {
   injectCopilotKitConfig,
   ɵresolvePublicKeyHeaderDefaults,
 } from "./config";
-import { HumanInTheLoop } from "./human-in-the-loop";
 import { ensureLicenseWatermark } from "./license-watermark";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
 import {
@@ -93,7 +93,6 @@ export class CopilotKit {
   readonly #extensionActivityMessageRenderers = inject(
     ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
   );
-  readonly #hitl = inject(HumanInTheLoop);
   readonly #rootInjector = inject(Injector);
   readonly #inspector = inject(CopilotInspector);
   /** Whether unknown tools may use the built-in text-only fallback renderer. */
@@ -715,22 +714,6 @@ export class CopilotKit {
     this.#openGenerativeUIContextIds = [];
   }
 
-  #bindHumanInTheLoopTool(
-    humanInTheLoopTool: HumanInTheLoopConfig,
-  ): FrontendTool {
-    return {
-      ...humanInTheLoopTool,
-      type: "human-in-the-loop",
-      handler: (args, { toolCall, signal: abortSignal }) => {
-        return this.#hitl.onResult(
-          toolCall.id,
-          humanInTheLoopTool.name,
-          abortSignal,
-        );
-      },
-    };
-  }
-
   /**
    * Register a human-in-the-loop tool and the component that asks the user.
    *
@@ -749,7 +732,10 @@ export class CopilotKit {
       ...current,
     ]);
 
-    const tool = this.#bindHumanInTheLoopTool(humanInTheLoopTool);
+    const tool = ɵbuildHumanInTheLoopTool(
+      humanInTheLoopTool,
+      this.core.ɵhumanInTheLoop,
+    );
     const unregisterTool = this.core.addTool(tool);
 
     return () => {
