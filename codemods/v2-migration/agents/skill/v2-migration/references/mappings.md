@@ -131,6 +131,10 @@ function App() {
 }
 ```
 
+### Angular `CopilotChatTextarea`
+
+`CopilotChatTextarea` from `@copilotkit/angular` has no `ngAfterViewInit()` in 2.0. It measures its height after each render. The codemod deletes `super.ngAfterViewInit()` in subclasses and removes `override` from their `ngAfterViewInit`. If a subclass still calls `ngAfterViewInit()` on another instance of the text box, delete that call. See [Chat UI in 2.0](https://docs.copilotkit.ai/migrate/chat-2.0#angular-text-box) for the behavior changes in the chat input, recorder, sidebar, and previews.
+
 ## Markdown rendering
 
 2.0 renders assistant messages with `@copilotkit/markdown`, not Streamdown. It does streaming-safe GFM, tables, autolinks, and citations. It does not do syntax highlighting, KaTeX math, or mermaid diagrams. Docs: https://docs.copilotkit.ai/migrate/markdown-renderer
