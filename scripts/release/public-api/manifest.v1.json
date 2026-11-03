@@ -2467,6 +2467,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/web-inspector/mount",
+          "exportKey": "./mount",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/mount.mjs",
+            "require": "./dist/mount.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/web-inspector/package.json",
+            "selector": "exports[\"./mount\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/web-inspector/package.json",
           "exportKey": "./package.json",
           "kind": "metadata",
