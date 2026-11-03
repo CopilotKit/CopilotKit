@@ -225,7 +225,11 @@ export function llmsFullEntries(): LiveEntry[] {
     urls.push(referenceUrl(page.slugs));
   }
 
-  return collect(urls, true).sort((a, b) => a.url.localeCompare(b.url));
+  // A generated framework's landing serves its quickstart's text, which is
+  // already listed under the quickstart's own URL.
+  return collect(urls, true)
+    .filter((entry) => !entry.live.overview)
+    .sort((a, b) => a.url.localeCompare(b.url));
 }
 
 // ---------------------------------------------------------------------------

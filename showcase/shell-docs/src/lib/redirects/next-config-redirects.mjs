@@ -872,8 +872,8 @@ const PAGE_REDIRECTS = [
     permanent: true,
   },
 
-  // Stale pages hidden pre-launch: 307, the URLs may come back.
-  { source: "/tutorials/:path*", destination: "/", permanent: false },
+  // The root tutorials are retired (their pages are deleted), so permanent.
+  { source: "/tutorials/:path*", destination: "/", permanent: true },
   {
     source: "/coding-agent-setup",
     destination: "/coding-agents",

@@ -364,8 +364,8 @@ for (const [from, to, status] of [
     "/concepts/generative-ui-overview",
     PERMANENT,
   ],
-  ["/tutorials", "/", TEMPORARY],
-  ["/tutorials/ai-travel-app", "/", TEMPORARY],
+  ["/tutorials", "/", PERMANENT],
+  ["/tutorials/ai-travel-app", "/", PERMANENT],
   ["/coding-agent-setup", "/coding-agents", TEMPORARY],
   ["/copilot-suggestions", "/reference/v2/hooks/useSuggestions", PERMANENT],
   [
@@ -504,6 +504,7 @@ for (const [from, to] of [
   ["/docs/integrations/unselected/frontend-tools", "/frontend-tools"],
   ["/docs/integrations/something/else", "/something/else"],
   ["/integrations", "/"],
+  ["/intelligence", "/intelligence/overview"],
 ]) {
   redirect(from, to, MOVED);
 }
@@ -519,13 +520,19 @@ for (const path of [
   "/custom-look-and-feel/slots",
   "/quickstart",
   "/runtime-server-adapter",
+  // Framework landings render (authored index.mdx, or a generated record).
+  "/mastra",
+  "/mastra.md",
+  "/google-adk",
+  "/langgraph-python",
+  "/langgraph-python.md",
+  "/ms-agent-harness-dotnet",
 ]) {
   none(path);
 }
 
 // --- v2's own routes: never redirected -----------------------------------
 for (const path of [
-  "/intelligence",
   "/examples",
   "/proto/threads",
   "/og/threads",
