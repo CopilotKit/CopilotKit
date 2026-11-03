@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
 import { ArrowRight, Check, ChevronsUpDown, Info, Search } from "lucide-react";
 import { IntelligenceGlyph } from "@/components/icons/glyphs";
@@ -11,6 +11,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/cn";
+import { frontendHref, liveFrontend, scopeFromPath } from "@/lib/live-scope";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -93,9 +94,11 @@ function FrameworkList({
   );
 }
 
-function useFrameworkNav(variant: VariantId, slug: string) {
+/** `prefix` keeps the URL's frontend (`/vue`). */
+function useFrameworkNav(variant: VariantId, slug: string, prefix = "") {
   const router = useRouter();
-  return (id: string) => router.push(frameworkHref(variant, id, slug));
+  return (id: string) =>
+    router.push(`${prefix}${frameworkHref(variant, id, slug)}`);
 }
 
 /** A framework menu trigger. `look` changes only the trigger. */
@@ -660,8 +663,9 @@ function StackRow({
 
 /**
  * Frontend and agent framework as two rows, like the current docs sidebar.
- * The frontend switches in place; the framework changes the URL and keeps
- * your page.
+ * Each changes the URL and keeps your page: the frontend is the URL's
+ * (`/vue/mastra/...`, React when it names none), since that is what the page
+ * renders.
  */
 export function StackRows({
   variant,
@@ -675,9 +679,16 @@ export function StackRows({
   /** Replaces navigating to the same page under the new framework. */
   onFramework?: (id: string) => void;
 }) {
-  const { frontend, setFrontend } = useFrontend();
+  const { setFrontend } = useFrontend();
+  const router = useRouter();
+  const path = usePathname().split("/").filter(Boolean);
+  const { frontend } = scopeFromPath(path);
   const [open, setOpen] = useState<"frontend" | "framework" | null>(null);
-  const nav = useFrameworkNav(variant, slug);
+  const nav = useFrameworkNav(
+    variant,
+    slug,
+    liveFrontend(path[0]) ? `/${path[0]}` : "",
+  );
   const go = onFramework ?? nav;
   const fw = frameworkById(framework);
   return (
@@ -701,8 +712,11 @@ export function StackRows({
                 key={f.id}
                 type="button"
                 onClick={() => {
-                  setFrontend(f.id);
                   setOpen(null);
+                  if (f.id === frontend) return;
+                  // Remembered for the pages that aren't per frontend.
+                  setFrontend(f.id);
+                  router.push(frontendHref(path, f.id));
                 }}
                 className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm hover:bg-accent"
               >
