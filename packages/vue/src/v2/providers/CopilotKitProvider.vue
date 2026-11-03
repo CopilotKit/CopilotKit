@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import {
-  GENERATE_SANDBOXED_UI_DESCRIPTION,
-  randomUUID,
-  ɵanySchema,
-} from "@copilotkit/shared";
+import { randomUUID, ɵanySchema } from "@copilotkit/shared";
 import {
   computed,
   h,
@@ -27,12 +23,13 @@ import type {
   FrontendTool,
 } from "@copilotkit/core";
 import {
-  DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
-  GENERATE_SANDBOXED_UI_TOOL_NAME,
+  ɵbuildOpenGenerativeUIContexts,
+  ɵcreateOpenGenerativeUITool,
+  ɵisOpenGenerativeUIActive,
   ɵresolveLicenseState,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";
-import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
+import { shouldEnableInspector } from "@copilotkit/shared";
 import type {
   RuntimeEntitlementResponse,
   RuntimeLicenseStatus,
@@ -42,7 +39,6 @@ import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
 import { registerA2UIBuiltInToolCallRenderer } from "../components/a2ui/A2UIBuiltInToolCallRenderer";
 import { registerA2UICatalog } from "../components/a2ui/A2UICatalogContext";
 import {
-  GenerateSandboxedUiArgsSchema,
   OpenGenerativeUIActivityRenderer,
   OpenGenerativeUIActivityType,
   OpenGenerativeUIContentSchema,
@@ -416,8 +412,11 @@ const runtimeEntitlements = ref<RuntimeEntitlementResponse | undefined>(
   undefined,
 );
 const runtimeEntitlementRetryPending = ref(false);
-const openGenerativeUIActive = computed(
-  () => runtimeOpenGenerativeUIEnabled.value || !!props.openGenerativeUI,
+const openGenerativeUIActive = computed(() =>
+  ɵisOpenGenerativeUIActive({
+    runtimeEnabled: runtimeOpenGenerativeUIEnabled.value,
+    configured: !!props.openGenerativeUI,
+  }),
 );
 // A catalog passed to the provider is enough to turn A2UI on: render the
 // surfaces locally and forward the catalog signal so the runtime injects the
@@ -446,13 +445,7 @@ const builtInFrontendTools = computed<VueFrontendTool[]>(() => {
   if (!openGenerativeUIActive.value) return [];
   return [
     {
-      name: GENERATE_SANDBOXED_UI_TOOL_NAME,
-      description: GENERATE_SANDBOXED_UI_DESCRIPTION,
-      parameters: GenerateSandboxedUiArgsSchema,
-      handler: async () => "UI generated",
-      // This acknowledgement has no side effects and is safe to reconstruct.
-      reconnectBehavior: "resume-pending",
-      followUp: true,
+      ...ɵcreateOpenGenerativeUITool(),
       render:
         OpenGenerativeUIToolRenderer as unknown as VueFrontendTool["render"],
     } as VueFrontendTool,
@@ -846,31 +839,10 @@ watch(
   ([active, functions, designSkill], _previous, onCleanup) => {
     if (!active) return;
 
-    const ids: string[] = [];
-    ids.push(
-      copilotkit.value.addContext({
-        description:
-          "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
-        value: designSkill ?? DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
-      }),
-    );
-
-    if (functions.length > 0) {
-      const descriptors = JSON.stringify(
-        functions.map((fn) => ({
-          name: fn.name,
-          description: fn.description,
-          parameters: schemaToJsonSchema(fn.parameters),
-        })),
-      );
-      ids.push(
-        copilotkit.value.addContext({
-          description:
-            "Sandbox functions available in generated sandboxed UI code. Call via Websandbox.connection.remote.<functionName>(args).",
-          value: descriptors,
-        }),
-      );
-    }
+    const ids = ɵbuildOpenGenerativeUIContexts({
+      designSkill,
+      sandboxFunctions: functions,
+    }).map((entry) => copilotkit.value.addContext(entry));
 
     providerContextIds.value = ids;
     onCleanup(() => {

@@ -8,11 +8,13 @@ import {
   watch,
 } from "vue";
 import type { PropType } from "vue";
-import * as z from "zod";
 import {
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
   ToolCallStatus,
+  ɵGENERATE_SANDBOXED_UI_ARGS_SCHEMA,
+  ɵOPEN_GENERATIVE_UI_CONTENT_SCHEMA,
   ɵOpenGenerativeUIController,
+  ɵPlaceholderCycler,
 } from "@copilotkit/core";
 import type {
   GenerateSandboxedUiArgs,
@@ -24,27 +26,14 @@ export type { GenerateSandboxedUiArgs, OpenGenerativeUIContent };
 
 export const OpenGenerativeUIActivityType = OPEN_GENERATIVE_UI_ACTIVITY_TYPE;
 
-export const OpenGenerativeUIContentSchema = z.object({
-  initialHeight: z.number().optional(),
-  generating: z.boolean().optional(),
-  css: z.string().optional(),
-  cssComplete: z.boolean().optional(),
-  html: z.array(z.string()).optional(),
-  htmlComplete: z.boolean().optional(),
-  jsFunctions: z.string().optional(),
-  jsFunctionsComplete: z.boolean().optional(),
-  jsExpressions: z.array(z.string()).optional(),
-  jsExpressionsComplete: z.boolean().optional(),
-}) satisfies z.ZodType<OpenGenerativeUIContent>;
+/** Validates Open Generative UI activity content (shared with React and Angular). */
+export const OpenGenerativeUIContentSchema = ɵOPEN_GENERATIVE_UI_CONTENT_SCHEMA;
 
-export const GenerateSandboxedUiArgsSchema = z.object({
-  initialHeight: z.number().optional(),
-  placeholderMessages: z.array(z.string()).optional(),
-  css: z.string().optional(),
-  html: z.string().optional(),
-  jsFunctions: z.string().optional(),
-  jsExpressions: z.array(z.string()).optional(),
-}) satisfies z.ZodType<GenerateSandboxedUiArgs>;
+/**
+ * Schema for the generateSandboxedUi tool call arguments (shared with React
+ * and Angular). It also describes the arguments to the model as JSON Schema.
+ */
+export const GenerateSandboxedUiArgsSchema = ɵGENERATE_SANDBOXED_UI_ARGS_SCHEMA;
 
 /**
  * Renders Open Generative UI content. The core controller throttles the
@@ -84,7 +73,7 @@ export const OpenGenerativeUIRenderer = defineComponent({
     });
 
     return () => {
-      const { phase, generating, height } = state.value;
+      const { phase, height, showSpinner, showOverlay } = state.value;
       const hasVisibleSandbox = phase !== "placeholder";
       return h(
         "div",
@@ -105,48 +94,57 @@ export const OpenGenerativeUIRenderer = defineComponent({
           },
         },
         [
-          !hasVisibleSandbox
-            ? h("div", { "data-testid": "open-generative-ui-placeholder" }, [
-                h(
-                  "svg",
-                  {
-                    width: "48",
-                    height: "48",
-                    viewBox: "0 0 24 24",
-                    fill: "none",
-                    style: { animation: "ck-spin 1s linear infinite" },
+          showOverlay
+            ? h(
+                "div",
+                {
+                  "data-testid": "open-generative-ui-progress-overlay",
+                  style: {
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 10,
+                    pointerEvents: "all",
+                    backgroundColor: "rgba(255, 255, 255, 0.5)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   },
-                  [
-                    h("circle", {
-                      cx: "12",
-                      cy: "12",
-                      r: "10",
-                      stroke: "#e0e0e0",
-                      "stroke-width": "3",
-                    }),
-                    h("path", {
-                      d: "M12 2a10 10 0 0 1 10 10",
-                      stroke: "#999",
-                      "stroke-width": "3",
-                      "stroke-linecap": "round",
-                    }),
-                  ],
-                ),
-                h(
-                  "style",
-                  "@keyframes ck-spin { to { transform: rotate(360deg) } }",
-                ),
-              ])
-            : null,
-          generating
-            ? h("div", {
-                "data-testid": "open-generative-ui-progress-overlay",
-                style: {
-                  position: "absolute",
-                  inset: 0,
-                  backgroundColor: "rgba(255,255,255,0.45)",
                 },
-              })
+                showSpinner
+                  ? [
+                      h(
+                        "svg",
+                        {
+                          "data-testid": "open-generative-ui-spinner",
+                          width: "48",
+                          height: "48",
+                          viewBox: "0 0 24 24",
+                          fill: "none",
+                          style: { animation: "ck-spin 1s linear infinite" },
+                        },
+                        [
+                          h("circle", {
+                            cx: "12",
+                            cy: "12",
+                            r: "10",
+                            stroke: "#e0e0e0",
+                            "stroke-width": "3",
+                          }),
+                          h("path", {
+                            d: "M12 2a10 10 0 0 1 10 10",
+                            stroke: "#999",
+                            "stroke-width": "3",
+                            "stroke-linecap": "round",
+                          }),
+                        ],
+                      ),
+                      h(
+                        "style",
+                        "@keyframes ck-spin { to { transform: rotate(360deg) } }",
+                      ),
+                    ]
+                  : [],
+              )
             : null,
         ],
       );
@@ -186,35 +184,35 @@ export const OpenGenerativeUIToolRenderer = defineComponent({
     result: { type: String as PropType<string | undefined>, required: false },
   },
   setup(props) {
-    const visibleMessageIndex = ref(0);
-
+    const cycler = new ɵPlaceholderCycler();
+    const message = shallowRef(cycler.getSnapshot().message);
+    const unsubscribe = cycler.subscribe(() => {
+      message.value = cycler.getSnapshot().message;
+    });
     watch(
-      () => props.args.placeholderMessages,
-      (messages, _, onCleanup) => {
-        if (!messages?.length || props.status === ToolCallStatus.Complete)
-          return;
-        visibleMessageIndex.value = Math.max(messages.length - 1, 0);
-        const timer = window.setInterval(() => {
-          visibleMessageIndex.value =
-            (visibleMessageIndex.value + 1) % Math.max(messages.length, 1);
-        }, 5000);
-        onCleanup(() => window.clearInterval(timer));
-      },
+      () =>
+        [
+          props.args.placeholderMessages,
+          props.status === ToolCallStatus.Complete,
+        ] as const,
+      ([messages, complete]) => cycler.update(messages, complete),
       { immediate: true },
     );
+    onBeforeUnmount(() => {
+      unsubscribe();
+      cycler.dispose();
+    });
 
     return () => {
-      if (props.status === ToolCallStatus.Complete) return null;
-      const messages = props.args.placeholderMessages;
-      if (!messages?.length) return null;
-      const currentMessage = messages[visibleMessageIndex.value] ?? messages[0];
+      // Nothing once complete — the activity renderer handles the UI.
+      if (message.value === undefined) return null;
       return h(
         "div",
         {
           style: { padding: "8px 12px", color: "#999", fontSize: "14px" },
           "data-testid": "open-generative-ui-tool-placeholder",
         },
-        currentMessage,
+        message.value,
       );
     };
   },
