@@ -264,3 +264,16 @@ interface ToolCallBadge {
   tone: "running" | "done" | "other";
   labelKey: keyof CopilotChatLabels;
 }
+
+/**
+ * The description of a tool that shows a component in the chat
+ * (`useComponent`, `registerComponent`), so the model reads the same text
+ * whichever framework registered it.
+ *
+ * @param name - The tool (and component) name.
+ * @param description - Extra text from the app, added after a blank line.
+ */
+export function ɵcomponentToolDescription(name: string, description?: string) {
+  const prefix = `Use this tool to display the "${name}" component in the chat. This tool renders a visual UI component for the user.`;
+  return description ? `${prefix}\n\n${description}` : prefix;
+}

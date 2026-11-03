@@ -1,4 +1,5 @@
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
+import { ɵcomponentToolDescription } from "@copilotkit/core";
 import type { ComponentType } from "react";
 import { useFrontendTool } from "./use-frontend-tool";
 
@@ -70,10 +71,10 @@ export function useComponent<
   },
   deps?: ReadonlyArray<unknown>,
 ): void {
-  const prefix = `Use this tool to display the "${config.name}" component in the chat. This tool renders a visual UI component for the user.`;
-  const fullDescription = config.description
-    ? `${prefix}\n\n${config.description}`
-    : prefix;
+  const fullDescription = ɵcomponentToolDescription(
+    config.name,
+    config.description,
+  );
 
   useFrontendTool(
     {

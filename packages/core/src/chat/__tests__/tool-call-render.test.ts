@@ -3,6 +3,7 @@ import type { Message, ToolCall, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "../../types";
 import {
   ɵbuildToolCallRenderProps,
+  ɵcomponentToolDescription,
   ɵdescribeUnrenderedToolCalls,
   ɵfindToolMessage,
   ɵgetToolCallBadge,
@@ -197,5 +198,17 @@ describe("ɵgetToolCallBadge", () => {
       { tone: "done", labelKey: "toolCallStatusDoneLabel" },
       { tone: "other", labelKey: "toolCallStatusUnknownLabel" },
     ]);
+  });
+});
+
+describe("ɵcomponentToolDescription", () => {
+  it("tells the model the tool shows the component, then adds the app's text", () => {
+    const prefix =
+      'Use this tool to display the "card" component in the chat. This tool renders a visual UI component for the user.';
+
+    expect(ɵcomponentToolDescription("card")).toBe(prefix);
+    expect(ɵcomponentToolDescription("card", "Shows a card.")).toBe(
+      `${prefix}\n\nShows a card.`,
+    );
   });
 });

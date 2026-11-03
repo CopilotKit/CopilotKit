@@ -53,6 +53,7 @@ export {
   ɵdescribeUnrenderedToolCalls,
   ɵnormalizeToolCallStatus,
   ɵgetToolCallBadge,
+  ɵcomponentToolDescription,
 } from "./tool-call-render";
 export type { ɵToolCallCardStatus } from "./tool-call-render";
 
