@@ -499,7 +499,7 @@ export function generateMessages(n: number): BaseEvent[] {
 
   for (let i = 0; i < n; i++) {
     const msgId = `gen-msg-${i}`;
-    const text = SAMPLE_ASSISTANT_TEXTS[i % SAMPLE_ASSISTANT_TEXTS.length];
+    const text = SAMPLE_ASSISTANT_TEXTS[i % SAMPLE_ASSISTANT_TEXTS.length]!;
 
     // Stream content in ~20-char chunks to simulate real streaming
     for (let offset = 0; offset < text.length; offset += 20) {

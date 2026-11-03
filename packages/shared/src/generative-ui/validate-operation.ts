@@ -703,11 +703,11 @@ function childRefProblem(
     // A bound or computed value, at the reference or above it, is known
     // only at render.
     if (isDynamic(value)) return undefined;
-    if (steps.length === 0) {
+    const [head, ...rest] = steps;
+    if (head === undefined) {
       const reason = slotProblem(value, ref.kind, ownId);
       return reason ? `${label}: ${reason}` : undefined;
     }
-    const [head, ...rest] = steps;
     if (head === "*") {
       if (!Array.isArray(value)) return undefined;
       for (const item of value) {

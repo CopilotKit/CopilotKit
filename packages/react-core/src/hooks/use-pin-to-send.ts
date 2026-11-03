@@ -25,6 +25,7 @@ export function usePinToSend({
 
   useEffect(() => {
     if (sendNonce === lastNonceRef.current) return;
+    const previousNonce = lastNonceRef.current;
     lastNonceRef.current = sendNonce;
 
     if (!id) return;
@@ -33,12 +34,19 @@ export function usePinToSend({
     const spacerEl = spacerRef.current;
     if (!scrollEl || !contentEl || !spacerEl) return;
 
-    return ɵpinMessageToTop({
+    const unpin = ɵpinMessageToTop({
       scrollEl,
       contentEl,
       spacerEl,
       messageId: id,
       topOffset,
     });
+    return () => {
+      // Torn down before the scroll ran, as React's StrictMode does right
+      // after mount (the first send mounts the message list): let the next
+      // run pin this send again. Skipping it would leave the spacer at its
+      // full height for good, with nothing to shrink it as the reply grows.
+      if (!unpin()) lastNonceRef.current = previousNonce;
+    };
   }, [id, sendNonce, scrollRef, contentRef, spacerRef, topOffset]);
 }

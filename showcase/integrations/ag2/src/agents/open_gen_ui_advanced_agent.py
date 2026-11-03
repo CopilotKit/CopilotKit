@@ -15,9 +15,12 @@ Mirrors the langgraph-python `open_gen_ui_advanced_agent.py` reference.
 
 from __future__ import annotations
 
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
+from ag2 import Agent
+from ag2.ag_ui import AGUIStream
+from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
+
+from ._loop_cap import loop_cap
 
 
 SYSTEM_PROMPT = """You are a UI-generating assistant for the Open Generative UI (Advanced) demo.
@@ -67,13 +70,11 @@ Generation guidance:
 """
 
 
-agent = ConversableAgent(
-    name="open_gen_ui_advanced_assistant",
-    system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-5-mini", "stream": True}),
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=4,
-    functions=[],
+agent = Agent(
+    "open_gen_ui_advanced_assistant",
+    prompt=SYSTEM_PROMPT,
+    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    middleware=[loop_cap(4)],
 )
 
 stream = AGUIStream(agent)

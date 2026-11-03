@@ -169,6 +169,9 @@ const offsetTopWithin = (el: HTMLElement, stopAt: HTMLElement) =>
  * `requestAnimationFrame` and the spacer updates without `ResizeObserver`.
  *
  * @returns A function that cancels the scroll and stops the spacer updates.
+ * It returns `false` when it cancelled a scroll that had not run yet, so the
+ * caller can pin the same send again. React's StrictMode tears an effect
+ * down before the next frame, so the first run never scrolls.
  *
  * @example
  * ```ts
@@ -187,7 +190,7 @@ export function ɵpinMessageToTop({
   const targetEl = contentEl.querySelector<HTMLElement>(
     `[data-message-id="${escapeSelectorValue(messageId)}"]`,
   );
-  if (!targetEl) return () => {};
+  if (!targetEl) return () => true;
 
   const viewportHeight = scrollEl.clientHeight;
   const userMessageHeight = targetEl.getBoundingClientRect().height;
@@ -196,9 +199,11 @@ export function ɵpinMessageToTop({
   const spacerHeight = Math.max(0, viewportHeight - bubbleHeight - topOffset);
   spacerEl.style.height = `${spacerHeight}px`;
 
+  let scrolled = false;
   const frame =
     typeof requestAnimationFrame === "function"
       ? requestAnimationFrame(() => {
+          scrolled = true;
           const targetTop =
             offsetTopWithin(targetEl, scrollEl) + paddingTop - topOffset;
           scrollEl.scrollTo({
@@ -224,9 +229,10 @@ export function ɵpinMessageToTop({
         });
   observer?.observe(contentEl);
 
-  return () => {
+  return (): boolean => {
     if (frame !== null && typeof cancelAnimationFrame === "function")
       cancelAnimationFrame(frame);
     observer?.disconnect();
+    return frame === null || scrolled;
   };
 }

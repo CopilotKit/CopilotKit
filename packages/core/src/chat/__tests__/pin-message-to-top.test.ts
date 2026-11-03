@@ -141,6 +141,20 @@ describe("ɵpinMessageToTop", () => {
     expect(spacerEl.style.height).toBe("524px");
   });
 
+  it("reports whether the scroll ran before it was unpinned", () => {
+    const { runFrames } = stubFrameAndResize();
+    const { scrollEl, contentEl, spacerEl } = chat();
+    const pin = () =>
+      ɵpinMessageToTop({ scrollEl, contentEl, spacerEl, messageId: "m1" });
+
+    // Torn down before the frame, as React's StrictMode does after mount.
+    expect(pin()()).toBe(false);
+
+    const unpin = pin();
+    runFrames();
+    expect(unpin()).toBe(true);
+  });
+
   it("finds ids with selector characters", () => {
     stubFrameAndResize();
     const { scrollEl, contentEl, spacerEl, message } = chat();

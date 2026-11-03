@@ -145,7 +145,6 @@ function MyComponent() {
 
 ### Styling and Theming
 - Uses Tailwind CSS for styling
-- Shared configuration in [utilities/tailwind-config/](mdc:utilities/tailwind-config/)
 - Custom components in [components.json](mdc:docs/components.json)
 - UI components follow modern design patterns
 

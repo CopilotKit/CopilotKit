@@ -296,6 +296,7 @@ export class CopilotChatAssistantMessage {
     return cn(
       "copilotKitMessage copilotKitAssistantMessage",
       this.customClass(),
+      this.inputClass(),
     );
   });
 

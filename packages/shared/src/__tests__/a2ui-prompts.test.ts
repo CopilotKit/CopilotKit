@@ -33,9 +33,9 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
     );
   });
 
-  it("asks for one JSON object per line, each with the v1.0 version and no catalogId", () => {
+  it("asks for one JSON object per line, each with the 1.0 version and no catalogId", () => {
     expect(guide).toContain("write one JSON object per line and nothing else");
-    expect(guide).toContain('Give every operation "version":"v1.0".');
+    expect(guide).toContain('Give every operation "version":"1.0".');
     expect(guide).not.toContain("v0.9");
     expect(guide).not.toContain("catalogId");
   });
@@ -45,7 +45,7 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
       'Start a surface with one createSurface. Put all the initial data in "dataModel" and the "root" component in "components".',
     );
     expect(guide).toContain(
-      '{"version":"v1.0","createSurface":{"surfaceId":"plan-picker","dataModel":{ ...initial data... },"components":[{"id":"root"',
+      '{"version":"1.0","createSurface":{"surfaceId":"plan-picker","dataModel":{ ...initial data... },"components":[{"id":"root"',
     );
     expect(guide.indexOf('"createSurface"')).toBeLessThan(
       guide.indexOf('"updateComponents"'),
@@ -149,14 +149,14 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
     "describes callRendererFunction, its unique id, and the developer-message response",
     () => {
       expect(guide).toContain(
-        '{"version":"v1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}',
+        '{"version":"1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}',
       );
       expect(guide).toContain(
         "Give every callRendererFunction a new functionCallId.",
       );
       expect(guide).toContain('"callers": "UI or agent" or "agent only"');
       expect(guide).toContain(
-        '{"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}',
+        '{"version":"1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}',
       );
       expect(guide).toContain("Then you get a new turn.");
     },

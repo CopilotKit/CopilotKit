@@ -905,7 +905,9 @@ interface DateTimeParts {
 /** The date and the time of an ISO 8601 value: a date, a time, or both. */
 export function splitDateTime(value: string): DateTimeParts {
   const [head, tail] = value.split("T");
-  if (tail !== undefined) return { date: head, time: tail };
+  if (head !== undefined && tail !== undefined) {
+    return { date: head, time: tail };
+  }
   if (/^\d{4}-/.test(value)) return { date: value, time: "" };
   if (/^\d{1,2}:\d{2}/.test(value)) return { date: "", time: value };
   return { date: "", time: "" };
@@ -971,12 +973,15 @@ function minuteToTime(minute: number) {
 function fullTime(time: string) {
   const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(time);
   if (!match) return time;
-  return `${match[1].padStart(2, "0")}:${match[2]}:${match[3] ?? "00"}`;
+  return `${match[1]!.padStart(2, "0")}:${match[2]!}:${match[3] ?? "00"}`;
 }
 
 /** The minute of the day of a time, rounded up to a whole minute. */
 function timeToMinute(time: string) {
-  const [hours, minutes, seconds] = fullTime(time).split(":").map(Number);
+  // A missing part is NaN, the same result as math with `undefined`.
+  const [hours = NaN, minutes = NaN, seconds = NaN] = fullTime(time)
+    .split(":")
+    .map(Number);
   return hours * 60 + minutes + (seconds > 0 ? 1 : 0);
 }
 
@@ -1729,8 +1734,10 @@ function SegmentedControl(props: SegmentedControlProps) {
   ) => {
     const next = nextOptionIndex(event.key, index, options.length);
     if (next === undefined) return;
+    const option = options[next];
+    if (option === undefined) return;
     event.preventDefault();
-    props.setValue(options[next].value);
+    props.setValue(option.value);
     segments.current[next]?.focus();
   };
   return (
