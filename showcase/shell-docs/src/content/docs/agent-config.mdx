@@ -142,7 +142,7 @@ export const agentConfigAgent = new BuiltInAgent({
       {}) as Record<string, string>;
     const { messages, systemPrompts } = convertInputToTanStackAI(input);
     return chat({
-      adapter: openaiText("gpt-4o"),
+      adapter: openaiText("gpt-5.4-mini"),
       messages,
       systemPrompts: [
         buildSystemPrompt(tone, expertise, responseLength),
