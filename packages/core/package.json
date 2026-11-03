@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/core",
-  "version": "1.83.0",
+  "version": "1.84.0",
   "description": "Core web utilities for CopilotKit2",
   "license": "MIT",
   "repository": {
@@ -61,6 +61,7 @@
     "arktype": "^2.1.29",
     "cross-env": "^10.1.0",
     "esbuild": "^0.27.0",
+    "jsdom": "^29.1.0",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "valibot": "^1.2.0",

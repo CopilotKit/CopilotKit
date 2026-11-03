@@ -786,3 +786,33 @@ cite [^ref]
 
   expect([...seenTypes].sort()).toEqual(allTypes.sort());
 });
+
+test("StreamingMarkdownRenderer renders GFM task items as disabled checkboxes", () => {
+  const { container } = render(
+    <StreamingMarkdownRenderer isComplete>
+      {"- [x] done\n- [ ] todo"}
+    </StreamingMarkdownRenderer>,
+  );
+
+  const boxes = Array.from(
+    container.querySelectorAll<HTMLInputElement>("li input[type=checkbox]"),
+  );
+  expect(boxes.map((box) => [box.checked, box.disabled])).toEqual([
+    [true, true],
+    [false, true],
+  ]);
+  expect(container.querySelector("li")?.textContent).toBe(" done");
+});
+
+test("StreamingMarkdownRenderer adds nodeClassNames to default elements", () => {
+  const { container } = render(
+    <StreamingMarkdownRenderer isComplete nodeClassNames={{ codeBlock: "cb" }}>
+      {"```ts\nx\n```"}
+    </StreamingMarkdownRenderer>,
+  );
+
+  expect(container.querySelector("pre")?.className).toBe("cb");
+  expect(
+    container.querySelector("pre code")?.getAttribute("data-code-info"),
+  ).toBe("ts");
+});

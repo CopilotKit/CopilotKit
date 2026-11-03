@@ -2,6 +2,7 @@ import { createContext, useContext, useRef, useState, useMemo } from "react";
 import type { ReactNode } from "react";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
 import { basicCatalog } from "../a2ui-react";
+import { A2UIOperationApplier } from "../../engine/apply-operations";
 import type { A2UIContextValue, A2UIActions } from "./store";
 import { ThemeProvider } from "../theme/ThemeContext";
 import type { OnActionCallback } from "../types";
@@ -73,6 +74,15 @@ export function A2UIProvider({
     );
   }
   const processor = processorRef.current;
+  const applierRef = useRef<A2UIOperationApplier<any> | null>(null);
+  if (!applierRef.current) {
+    applierRef.current = new A2UIOperationApplier(
+      processor,
+      (catalog ?? basicCatalog).id,
+    );
+  }
+  const applier = applierRef.current;
+  const lastSurfacesRef = useRef<readonly unknown[]>([]);
 
   // Version counter for triggering re-renders
   const [version, setVersion] = useState(0);
@@ -94,6 +104,20 @@ export function A2UIProvider({
         }
         setError(null);
         setVersion((v) => v + 1);
+      },
+
+      applyOperations: (operations: readonly unknown[]) => {
+        const before = lastSurfacesRef.current;
+        try {
+          lastSurfacesRef.current = applier.apply(operations);
+        } catch (err) {
+          console.warn("[A2UI] processMessages error:", err);
+          setError(err instanceof Error ? err.message : String(err));
+          return;
+        }
+        setError(null);
+        // The applier returns the same array when the snapshot changed nothing.
+        if (lastSurfacesRef.current !== before) setVersion((v) => v + 1);
       },
 
       dispatch: (message: any) => onActionRef.current?.(message),

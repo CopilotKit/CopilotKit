@@ -70,9 +70,12 @@ const toolCall: ToolCall = {
 };
 
 // Resolves and renders the tool call using the production resolver.
-function ResolverProbe({ toolMessage }: { toolMessage?: ToolMessage } = {}) {
+function ResolverProbe({
+  toolMessage,
+  call = toolCall,
+}: { toolMessage?: ToolMessage; call?: ToolCall } = {}) {
   const renderToolCall = useRenderToolCall();
-  return <>{renderToolCall({ toolCall, toolMessage })}</>;
+  return <>{renderToolCall({ toolCall: call, toolMessage })}</>;
 }
 
 describe("useRenderToolCall — opt-in default tool-call rendering", () => {
@@ -152,6 +155,32 @@ describe("useRenderToolCall — opt-in default tool-call rendering", () => {
 
     const custom = await screen.findByTestId("custom-card");
     expect(custom.textContent).toBe("complete:Invoice INV-2291 attached.");
+  });
+
+  it("keeps malformed arguments of a finished call as raw text", async () => {
+    const malformed: ToolCall = {
+      ...toolCall,
+      function: { ...toolCall.function, arguments: '{"city":' },
+    };
+    const toolMessage: ToolMessage = {
+      id: "tm-1",
+      role: "tool",
+      toolCallId: toolCall.id,
+      content: "done",
+    };
+    function Harness() {
+      useDefaultRenderTool({
+        render: ({ parameters }: DefaultRenderProps) => (
+          <div data-testid="custom-card">{JSON.stringify(parameters)}</div>
+        ),
+      });
+      return <ResolverProbe toolMessage={toolMessage} call={malformed} />;
+    }
+
+    render(<Harness />);
+
+    const custom = await screen.findByTestId("custom-card");
+    expect(custom.textContent).toBe('{"_raw":"{\\"city\\":"}');
   });
 
   it("hands a string tool result to the renderer unchanged", async () => {

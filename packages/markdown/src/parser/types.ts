@@ -20,6 +20,11 @@ export type StreamingMarkdownParserOptions = {
   segmenter: SegmenterOptions;
   enableTables: boolean;
   enableAutolinks: boolean;
+  /**
+   * Parses `$…$` inline math and `$$…$$` display math into `math` nodes.
+   * Off by default: without it, dollar signs stay plain text.
+   */
+  enableMath?: boolean;
 };
 
 /**
@@ -48,7 +53,8 @@ export type StreamingMarkdownNodeType =
   | "image"
   | "link"
   | "autolink"
-  | "citation";
+  | "citation"
+  | "math";
 
 /**
  * Parsing mode for block-level processing.
@@ -158,6 +164,11 @@ export type StreamingMarkdownListNode = StreamingMarkdownAstNodeBase & {
  */
 export type StreamingMarkdownListItemNode = StreamingMarkdownAstNodeBase & {
   type: "list-item";
+  /**
+   * GFM task-list state: `true` for `[x]`, `false` for `[ ]`, absent for a
+   * plain list item.
+   */
+  checked?: boolean;
   children: number[];
 };
 
@@ -317,6 +328,17 @@ export type StreamingMarkdownCitationNode = StreamingMarkdownAstNodeBase & {
 };
 
 /**
+ * AST node representing TeX math (only parsed when `enableMath` is set).
+ * `text` is the TeX source without its `$` delimiters.
+ * @public
+ */
+export type StreamingMarkdownMathNode = StreamingMarkdownAstNodeBase & {
+  type: "math";
+  text: string;
+  display: boolean;
+};
+
+/**
  * Union of all AST node shapes.
  * @public
  */
@@ -342,7 +364,8 @@ export type StreamingMarkdownAstNode =
   | StreamingMarkdownImageNode
   | StreamingMarkdownLinkNode
   | StreamingMarkdownAutolinkNode
-  | StreamingMarkdownCitationNode;
+  | StreamingMarkdownCitationNode
+  | StreamingMarkdownMathNode;
 
 /**
  * Citation definition captured during parsing.

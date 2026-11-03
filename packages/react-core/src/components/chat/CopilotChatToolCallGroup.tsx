@@ -8,25 +8,25 @@ import React, {
 import { CopilotIcon } from "../icons/CopilotIcon";
 import {
   CopilotChatDefaultLabels,
+  ɵTOOL_CALL_STATUS_ICONS,
+  ɵTOOL_CALL_STATUS_LABEL_KEYS,
   ɵcountFailedToolCalls,
   ɵformatLabel,
   ɵformatToolNames,
   ɵgetArgumentPreview,
-  ɵgetToolCallPreview,
-  ɵgetToolCallRowStatus,
+  ɵgetToolCallGroupState,
   ɵstringifyToolCallPayload,
   ɵformatCountLabel,
 } from "@copilotkit/core";
 import type {
-  CopilotChatLabels,
-  CopilotIconName,
   ToolCallEntry,
+  ɵToolCallGroupAppearance,
   ɵToolCallRowStatus,
 } from "@copilotkit/core";
 import { cn } from "../../lib/utils";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
-export type CopilotChatToolCallGroupAppearance = "card" | "line" | "stack";
+export type CopilotChatToolCallGroupAppearance = ɵToolCallGroupAppearance;
 
 /**
  * Set by a group around the calls it shows, so CopilotKit's built-in tool card
@@ -34,27 +34,13 @@ export type CopilotChatToolCallGroupAppearance = "card" | "line" | "stack";
  * @internal
  */
 export const ToolCallGroupContext = createContext<{
-  appearance: "card" | "line" | "stack";
+  appearance: CopilotChatToolCallGroupAppearance;
   failedIds: ReadonlySet<string>;
+  /** Each call's row status, by call id. */
+  statusById: ReadonlyMap<string, ɵToolCallRowStatus>;
   /** The agent may still finish the group's calls; see `isActive`. */
   active: boolean;
 } | null>(null);
-
-/** The label key for each call status. */
-const STATUS_LABEL_KEYS = {
-  running: "toolCallStatusRunningLabel",
-  done: "toolCallStatusDoneLabel",
-  failed: "toolCallStatusFailedLabel",
-  stopped: "toolCallStatusStoppedLabel",
-} satisfies Record<ɵToolCallRowStatus, keyof CopilotChatLabels>;
-
-/** The icon for each call status. */
-const STATUS_ICONS = {
-  running: "Loader2",
-  done: "Check",
-  failed: "X",
-  stopped: "Circle",
-} satisfies Record<ɵToolCallRowStatus, CopilotIconName>;
 
 /** The chat labels from the nearest chat configuration, or the defaults. */
 function useLabels() {
@@ -106,7 +92,7 @@ function StatusIcon({
 }) {
   return (
     <CopilotIcon
-      name={STATUS_ICONS[status]}
+      name={ɵTOOL_CALL_STATUS_ICONS[status]}
       aria-hidden="true"
       className={cn(
         "cpk-tool-call-status-icon",
@@ -239,7 +225,7 @@ export function ToolCallRow({
           data-testid="copilot-tool-render-status"
           className="cpk-tool-call-row-status"
         >
-          {labels[STATUS_LABEL_KEYS[status]]}
+          {labels[ɵTOOL_CALL_STATUS_LABEL_KEYS[status]]}
         </span>
         <Chevron open={open} className="cpk-tool-call-row-chevron" />
       </button>
@@ -293,33 +279,24 @@ export function CopilotChatToolCallGroup({
   const labels = useLabels();
   const [open, setOpen] = useState(false);
   const bodyId = useId();
-  const latest = calls[calls.length - 1];
+  const {
+    latest,
+    current,
+    preview,
+    done,
+    failedIds,
+    statusById,
+    status,
+    behind,
+    latestStatus,
+    latestPreview,
+  } = ɵgetToolCallGroupState(calls, isActive, open);
   if (!latest) return null;
-
-  // Only an active group has a call in progress. Between calls nothing is
-  // running, so the latest call stays the subject (or the label flickers).
-  const current = isActive
-    ? (calls.find((call) => !call.toolMessage) ?? latest)
-    : undefined;
-  const preview = current ? ɵgetToolCallPreview(current) : undefined;
-  const done = calls.filter((call) => call.toolMessage).length;
-  const statuses = calls.map((call) => ɵgetToolCallRowStatus(call, isActive));
-  const failedIds = new Set(
-    calls
-      .filter((_, index) => statuses[index] === "failed")
-      .map((call) => call.toolCall.id),
-  );
-  const status: ɵToolCallRowStatus = current
-    ? "running"
-    : failedIds.size > 0
-      ? "failed"
-      : statuses.includes("stopped")
-        ? "stopped"
-        : "done";
+  const groupContext = { failedIds, statusById, active: isActive };
 
   const rows = (rowAppearance: "card" | "line") => (
     <ToolCallGroupContext.Provider
-      value={{ appearance: rowAppearance, failedIds, active: isActive }}
+      value={{ ...groupContext, appearance: rowAppearance }}
     >
       {calls.map((call) => (
         <React.Fragment key={call.toolCall.id}>
@@ -361,7 +338,7 @@ export function CopilotChatToolCallGroup({
           )}
         >
           <ToolCallGroupContext.Provider
-            value={{ appearance: "line", failedIds, active: isActive }}
+            value={{ ...groupContext, appearance: "line" }}
           >
             {renderCall(latest)}
           </ToolCallGroupContext.Provider>
@@ -409,10 +386,7 @@ export function CopilotChatToolCallGroup({
   if (appearance === "stack") {
     // A lone call is the top card of a stack with nothing behind it yet.
     // One toggle in both states, so it keeps keyboard focus when pressed.
-    const behind = open ? 0 : Math.min(calls.length - 1, 2);
     const layer = "cpk-tool-call-group-stack-layer";
-    const latestStatus = ɵgetToolCallRowStatus(latest, isActive);
-    const latestPreview = ɵgetToolCallPreview(latest);
     return (
       <div
         {...groupProps}
@@ -484,7 +458,7 @@ export function CopilotChatToolCallGroup({
                   )}
                   {/* The status icon is decorative, so say the status. */}
                   <span className="cpk-tool-call-group-stack-status">
-                    {labels[STATUS_LABEL_KEYS[latestStatus]]}
+                    {labels[ɵTOOL_CALL_STATUS_LABEL_KEYS[latestStatus]]}
                   </span>
                 </span>
                 <span className="cpk-tool-call-group-stack-meta">
@@ -509,14 +483,14 @@ export function CopilotChatToolCallGroup({
           <span aria-live="polite" className="cpk-tool-call-group-stack-live">
             {open
               ? ""
-              : `${latest.toolCall.function.name}: ${labels[STATUS_LABEL_KEYS[latestStatus]]}`}
+              : `${latest.toolCall.function.name}: ${labels[ɵTOOL_CALL_STATUS_LABEL_KEYS[latestStatus]]}`}
           </span>
         </div>
         {open && (
           // Each call gets the collapsed stack's card, easing out of the stack.
           <div id={bodyId} className="cpk-tool-call-group-stack-items">
             <ToolCallGroupContext.Provider
-              value={{ appearance: "stack", failedIds, active: isActive }}
+              value={{ ...groupContext, appearance: "stack" }}
             >
               {calls.map((call, index) => (
                 <div
@@ -568,7 +542,7 @@ export function CopilotChatToolCallGroup({
           ) : (
             <span className="cpk-tool-call-group-card-status">
               {status !== "running"
-                ? labels[STATUS_LABEL_KEYS[status]]
+                ? labels[ɵTOOL_CALL_STATUS_LABEL_KEYS[status]]
                 : done > 0 &&
                   ɵformatLabel(labels.toolCallDoneCountLabel, { count: done })}
             </span>

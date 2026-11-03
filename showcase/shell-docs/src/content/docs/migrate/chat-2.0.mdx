@@ -1,6 +1,6 @@
 ---
 title: Chat UI in 2.0
-description: Replace removed chat exports, update full label objects and repeated tool registrations, and check the default text, chat behavior, interrupts, and human-in-the-loop tools that changed.
+description: Replace removed chat exports, update full label objects, renderer lists, repeated tool registrations, and writes to the Angular copy buttons, and check the default text and behavior that changed in tool-call rendering, chat configuration, agents, thread lists, sends, attachments, the Angular welcome screen, the chat input, the audio recorder, the sidebar, attachment previews, the Inspector, suggestions, interrupts, and human-in-the-loop tools.
 ---
 
 In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilotkit/core` can fail, or a type check can fail. The Vue and Angular chat can also show different text or act differently. The cause is one of these changes:
@@ -9,9 +9,16 @@ In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilot
 - The `CopilotChatLabels` type has more keys.
 - `CopilotKitCore.addTool` lets a newer tool replace an older tool with the same name.
 - Vue and Angular use the same default text and chat rules as React.
+- Tool-call rendering follows one set of rules in React, Vue, and Angular.
+- The Angular copy buttons and the license warnings changed.
+- React, Vue, and Angular use the same rules for chat configuration, agents, and thread lists.
+- React, Vue, and Angular use one set of rules to send messages and upload attachments.
+- React, Vue, and Angular share one chat input, audio recorder, docked sidebar, and attachment preview.
+- The Inspector in Vue and Angular follows the same rules as in React.
+- `useConfigureSuggestions` loads suggestions for the agent of the chat, in React and in Vue.
 - Interrupts and human-in-the-loop tools work the same in React, Vue, and Angular.
 
-The codemod does not change this code. Use the sections below.
+The codemod adds a `TODO(copilotkit-2.0)` comment above a complete `CopilotChatLabels` object, above a change to a renderer list, and above a write to an Angular copy button. It changes the Angular `CopilotChatConfiguration` subclasses in [Chat configuration](#chat-configuration) and the Angular text box subclasses in [Angular text box](#angular-text-box). It does not change the other code. Use the sections below.
 
 ## Removed exports
 
@@ -68,7 +75,27 @@ export const labels: CopilotChatLabels = {
 
 In Vue, the values of `CopilotChatDefaultLabels` now have the type `string`, not literal string types.
 
+The built-in tool-call card also uses labels for its status and headings. For example, `toolCallStatusUnknownLabel` is the text for a status that the card does not know.
+
 All label keys are in [CopilotChatLabels](/reference/hooks/useCopilotChatConfiguration#copilotchatlabels).
+
+## Renderer lists
+
+In React, `copilotkit.renderToolCalls` and `copilotkit.renderActivityMessages` are read-only arrays. The `renderToolCalls` value of the `onRenderToolCallsChanged` event is read-only too. Code that adds to one of these arrays in place fails to type-check. In 1.x, this change also did not tell the chat to draw again.
+
+To change a list, give a new list to its setter:
+
+```tsx ignore title="Before"
+const { copilotkit } = useCopilotKit();
+copilotkit.renderToolCalls.push(searchRenderer);
+```
+
+```tsx ignore title="After"
+const { copilotkit } = useCopilotKit();
+copilotkit.setRenderToolCalls([...copilotkit.renderToolCalls, searchRenderer]);
+```
+
+To add one tool-call renderer from a component, use `useRenderTool`.
 
 ## Tool registration
 
@@ -94,6 +121,63 @@ removeSearch();
 ```
 
 `useFrontendTool` in React and Vue uses this function. When a component that replaces a provider tool unmounts, the provider tool is active again.
+
+## Angular copy buttons
+
+`copied` on `CopilotChatUserMessageCopyButton` and `CopilotChatAssistantMessageCopyButton` is a read-only signal in 2.0. Code that calls `copied.set()` or `copied.update()` fails to type-check. The codemod puts a TODO comment above each of these calls.
+
+The button shows its check mark for 2 seconds after each copy. A second copy in that time starts the 2 seconds again.
+
+To copy the text and show the check mark, call `handleCopy()` on the button. It copies the `content` input of the button:
+
+```ts ignore title="Before"
+this.copyButton().copied.set(true);
+```
+
+```ts title="After"
+import { Component, viewChild } from "@angular/core";
+import { CopilotChatUserMessageCopyButton } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-copy-reply",
+  imports: [CopilotChatUserMessageCopyButton],
+  template: `<copilot-chat-user-message-copy-button #copy content="Hello" />`,
+})
+export class CopyReplyComponent {
+  readonly copyButton =
+    viewChild.required<CopilotChatUserMessageCopyButton>("copy");
+
+  copyReply() {
+    this.copyButton().handleCopy();
+  }
+}
+```
+
+If your app copies the text with its own logic, render your own button in the `copyButton` slot. Keep the copied state in that button.
+
+## License warning text
+
+The license warnings use the chat labels in React and Vue:
+
+- **React:** In 1.x, the license warnings always used the default text. Now the warning in `CopilotChat` uses the `labels` that you give the chat. The other warnings use the labels of a surrounding `CopilotChatConfigurationProvider`. Without one, they use the default text.
+- **Vue:** The license warning in `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` uses the `licenseFeatureUnlicensedText` label. The default text is the same as in 1.x.
+
+If your labels set `licenseFeatureUnlicensedText`, the warning now shows your text. To show the default text, remove this key. To set your own text, pass the label:
+
+```tsx title="After"
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return (
+    <CopilotChat
+      agentId="my-agent"
+      labels={{
+        licenseFeatureUnlicensedText: 'The "{feature}" feature needs a license.',
+      }}
+    />
+  );
+}
+```
 
 ## Default text in Vue and Angular
 
@@ -133,15 +217,416 @@ In Vue:
 
 - **Enter during a run:** Enter with text in the input sends the message. Enter in an empty input stops the run.
 - **Activity renderers:** A renderer with `activityType: "*"` draws every activity that has no renderer of its own.
-- **Custom message renderers:** The chat tries each renderer in turn. The first renderer that returns content is used.
+- **Custom message renderers:** The chat uses the first renderer for the current agent. If there is none, it uses the first renderer without an `agentId`.
+- **Copy without the Clipboard API:** When the browser has no Clipboard API, the copy buttons write an error to the console. They do not show the check mark.
 
 In Angular:
 
 - **Stop button:** While the agent runs, the send button becomes a stop button.
 - **Tool-call renderers:** The chat uses a renderer from another agent when no renderer for the current agent matches. A `"*"` renderer applies to all agents. A frontend tool for the current agent comes before a global renderer with the same name.
-- **Removing a renderer:** When a component that called `registerRenderToolCall` is destroyed, only its renderer is removed. Tools with the same name stay registered.
+- **Two renderers for one tool:** If two renderers have the same tool name and `agentId`, the chat uses the newer renderer. This applies to `addRenderToolCall` and `registerRenderToolCall`. In 1.x, the first renderer stayed active.
+- **Removing a renderer:** When a component that called `registerRenderToolCall` is destroyed, only its renderer is removed. Tools with the same name stay registered. A renderer from the `renderToolCalls` configuration is active again.
+- **Activity without an agent:** `<copilot-activity>` with no `agentId` uses the default agent. It picks the renderers of that agent and passes that agent to the renderer. In 1.x, it used no agent.
+- **Assistant message toolbar:** The toolbar is hidden while the latest message streams. It shows for a message without text when the Inspector shortcut is on. `CopilotChatAssistantMessage` now needs the `provideCopilotKit` providers. If a test renders it alone, add `provideCopilotKit({})` to the test providers.
 
 If a test or a screenshot depends on the earlier behavior, update it to the behavior above.
+
+## Tool-call rendering
+
+React, Vue, and Angular now draw tool calls with the same rules. These changes can show in your app or in your tests.
+
+### Tool-call status in Angular
+
+The status of a tool call without a result is `"executing"` only while its frontend handler runs. At other times, the status is `"in-progress"`. In 1.x, the status was `"in-progress"` while the agent ran and `"executing"` after the run stopped.
+
+A tool that has a renderer but no handler now stays `"in-progress"` until its result arrives. If your renderer shows a control only for `"executing"`, use a frontend tool or a human-in-the-loop tool with a handler.
+
+### Tool-call arguments in React and Vue
+
+A tool-call renderer gets `args` as an object. While the agent streams the arguments, the object has the parts that arrived. After that, if the arguments are not valid JSON, `args` is `{ _raw: "<the text>" }`. If they are JSON but not an object, `args` is `{ _value: <the value> }`. In 1.x, the renderer got `{}` in both cases. Angular already used these keys.
+
+If your renderer reads `args`, make sure that it accepts these two shapes.
+
+### Built-in tool-call card
+
+The built-in card (`useDefaultRenderTool` in React and Vue) changed in these ways:
+
+- **Text:** The status badge and the "Arguments" and "Result" headings come from the chat labels. The default text is the same as in 1.x.
+- **Unknown status:** A status that the card does not know shows `toolCallStatusUnknownLabel` ("Unknown status") and `data-status="unknown"`. In 1.x, the card showed the status as it was sent.
+- **Payloads:** A circular reference in the arguments or the result shows as `"[Circular]"`. A `bigint` shows as `"12n"`.
+- **Data attributes:** If `data-args` or `data-result` cannot be written as JSON, the attribute is empty.
+
+If a test reads the text or the `data-*` attributes of the card, update the test.
+
+### Activity warning
+
+When the content of an activity message fails the schema of its renderer, React, Vue, and Angular log the same warning:
+
+```text
+[CopilotKit] Failed to parse content for activity message '<activity type>':
+```
+
+If a test looks for the earlier text, update the test.
+
+### Executing tool calls
+
+`CopilotKitCore.executingToolCallIds` holds the ids of the tool calls whose frontend handler runs now. Subscribe with `onExecutingToolCallsChanged`. In Angular, use the `executingToolCallIds` signal on the `CopilotKit` service.
+
+An id stays in the set until the result of the call is in the agent messages. As a result, a renderer never sees a finished call without its result. In React, `executingToolCallIds` from `useCopilotKit()` follows the same rule.
+
+## Chat configuration
+
+React, Vue, and Angular now use one set of rules for the agent, the thread, and the modal of a chat configuration.
+
+In Vue:
+
+- **Thread order:** The thread of a parent `CopilotChatConfigurationProvider` comes before a nested `threadId` that has `hasExplicitThreadId: false`. A nested `threadId` without `hasExplicitThreadId: false` still wins.
+- **Thread changes:** `setActiveThreadId` and `startNewThread` on a nested provider change the thread of the top-most provider. All providers in the chain then show that thread.
+- **Modal without a parent:** A provider without a parent and without `isModalDefaultOpen` has its own modal state. `isModalOpen` starts as `true`, and `setModalOpen` is a function. In earlier versions, both values were `undefined`.
+- **Modal start state:** A provider with `isModalDefaultOpen` starts with that value. In earlier versions, it started with the value of its parent.
+
+In React, a provider without a thread makes one thread ID and keeps it. In 1.x, the provider made a new ID each time its thread props changed.
+
+In Angular:
+
+- **Controlled thread:** When the `threadId` option controls the thread, `setActiveThreadId` and `startNewThread` log a warning. The call is still ignored.
+- **`_setOverride`:** `CopilotChatConfiguration` has no `_setOverride` method. `setActiveThreadId` and `startNewThread` do not call a method of that name.
+
+The codemod changes each `this._setOverride(threadId, explicit)` call in a subclass of `CopilotChatConfiguration`:
+
+```ts ignore title="Before"
+import { Injectable } from "@angular/core";
+import { CopilotChatConfiguration } from "@copilotkit/angular";
+
+@Injectable()
+export class RoutedChatConfiguration extends CopilotChatConfiguration {
+  openFromRoute(threadId: string) {
+    this._setOverride(threadId, true);
+  }
+}
+```
+
+```ts title="After"
+import { Injectable } from "@angular/core";
+import { CopilotChatConfiguration } from "@copilotkit/angular";
+
+@Injectable()
+export class RoutedChatConfiguration extends CopilotChatConfiguration {
+  openFromRoute(threadId: string) {
+    this.setActiveThreadId(threadId, { explicit: true });
+  }
+}
+```
+
+Update your code:
+
+1. Run the codemod.
+2. If a subclass defines its own `_setOverride`, the codemod adds a `TODO(copilotkit-2.0)` comment. Move that code into overrides of `setActiveThreadId` and `startNewThread`.
+3. If a nested Vue provider must keep its own thread, remove `hasExplicitThreadId: false` from it.
+4. If your Vue code reads `isModalOpen` or `setModalOpen` to find out whether a chat has a modal, remove that check. Both always have a value.
+
+## Agents before the runtime connects
+
+Before the runtime returns its agent list, `useAgent` gives you a stand-in agent, and `isReady` is `false`. When the runtime connects, `useAgent` gives you the real agent. Angular `injectAgentStore` works the same way.
+
+These rules changed:
+
+- **One stand-in for each agent ID:** In React and Vue, all `useAgent` calls with the same agent ID get the same stand-in. In 1.x, each call got its own stand-in.
+- **Data is kept:** Messages, state, and a run that your app starts on the stand-in move to the real agent. After that, changes to one agent are copied to the other agent. The stand-in also takes the `threadId` of the real agent.
+- **Request settings:** The stand-in uses the same `credentials`, message filter, debug settings, and Intelligence settings as the real agent. For example, with `credentials: "include"`, a run that starts before the runtime connects now sends cookies.
+
+If your code keeps the stand-in agent, use the agent that `useAgent` gives you after `isReady` becomes `true`.
+
+In Vue, `useAgent` now also returns `isReady` as a ref:
+
+```ts title="After"
+import { watch } from "vue";
+import { useAgent } from "@copilotkit/vue";
+
+const { agent, isReady } = useAgent({ agentId: "support" });
+
+watch(isReady, (ready) => {
+  if (ready) console.log("Connected agent:", agent.value?.agentId);
+});
+```
+
+The Vue `useAgent` also updates the component when a run starts. It collects the message, state, and run updates of one tick into one update. If a Vue test reads the output right after a message change, add `await nextTick()` first.
+
+## Agent context in Angular
+
+`connectAgentContext` and the `copilotkitAgentContext` directive now accept any JSON value. They send a value that is not a string as JSON text, as React and Vue do. In earlier versions, the directive sent the object itself.
+
+```ts title="After"
+import { Component } from "@angular/core";
+import { connectAgentContext } from "@copilotkit/angular";
+
+@Component({ selector: "app-account", template: "" })
+export class AccountComponent {
+  constructor() {
+    // The agent receives '{"plan":"pro","seats":5}'.
+    connectAgentContext({
+      description: "The current account",
+      value: { plan: "pro", seats: 5 },
+    });
+  }
+}
+```
+
+If your agent reads a context value as an object, parse the value as JSON in the agent.
+
+## Thread lists
+
+`useThreads` in React and Vue, and `injectThreads` in Angular, now use the same rules:
+
+- **New thread:** In Vue and Angular, `startNewThread` hides the `"Runtime URL is not configured"` and `"Thread endpoints are not available on this CopilotKit runtime"` errors. The error comes back when the runtime configuration changes. React already did this.
+- **One list request:** In React and Vue, the hook loads `/threads` one time when the runtime connects. It does not send the same request again until the agent, the filters, the Intelligence WebSocket URL, or the request headers change.
+
+If a test expects `error` to stay set after `startNewThread`, or expects two `/threads` requests, update the test.
+
+## Sending messages
+
+React, Vue, and Angular now use the same rules to send a message. A test or a custom input that sends at a specific time can see a different result.
+
+| Rule | Changed in |
+| --- | --- |
+| A new message waits until the current run ends. It does not stop that run. | Vue |
+| A new message waits until the thread loads. If the thread does not load, the chat shows `threadLoadErrorText` and puts your text back in the input. | Vue, Angular |
+| While a file uploads, the chat does not send. It shows `chatAttachmentsUploadingText` for 5 seconds and keeps your text in the input. | Vue, Angular |
+| Text that is empty or only spaces is not sent. | React, Vue |
+| A suggestion with `isLoading: true` is not sent. | React, Vue |
+
+Angular now sends the text as the user typed it. It does not remove spaces at the start and end of the text. `CopilotChatAttachmentsDirective.buildContent` also keeps the spaces. The chat input already removes these spaces before it sends.
+
+If a Vue test sends a second message while a run is active, end the first run before you look for the second message:
+
+```ts ignore title="Before"
+await submitMessage("First question");
+await agent.emit(runStartedEvent());
+await submitMessage("Second question");
+expect(screen.getByText("Second question")).toBeDefined();
+```
+
+```ts ignore title="After"
+await submitMessage("First question");
+await agent.emit(runStartedEvent());
+await agent.emit(runFinishedEvent());
+await submitMessage("Second question");
+await waitFor(() => {
+  expect(screen.getByText("Second question")).toBeDefined();
+});
+```
+
+## Attachment uploads
+
+These rules for attachments apply in React, Vue, and Angular:
+
+- `maxConcurrentUploads` now applies in Vue and Angular. The default is `1`, so files upload one at a time unless you set a larger value.
+- All files that the user picks show as uploading at once. Before, Vue and Angular added each file only after the previous upload ended.
+- `processFiles` from `useAttachments` does nothing when `enabled` is not `true`. This applies in React and Vue.
+- After each upload, the chat clears the file input. As a result, the user can pick the same file again.
+
+If your code calls `processFiles`, set `enabled: true` in the attachments configuration:
+
+```tsx ignore title="Before"
+const { processFiles } = useAttachments({
+  config: { accept: "image/*", onUpload: uploadToStorage },
+});
+```
+
+```tsx ignore title="After"
+const { processFiles } = useAttachments({
+  config: { enabled: true, accept: "image/*", onUpload: uploadToStorage },
+});
+```
+
+## Welcome screen and suggestions in Angular
+
+`<copilot-chat>` now has these inputs:
+
+- `[welcomeScreen]`: set it to `false` to show the message list, not the welcome screen, when the chat is empty.
+- `[autoScroll]`: set it to `false` to stop the message list from scrolling to new messages.
+
+`<copilot-chat-view>` now hides the welcome screen while the thread loads. It also hides the suggestions while the agent runs or the thread loads. These rules use the new `[isRunning]` and `[isConnecting]` inputs.
+
+If you put `<copilot-chat-view>` in your own template, give it these inputs. If you do not, the suggestions show while the agent runs:
+
+```html title="After"
+<copilot-chat-view
+  [messages]="messages()"
+  [isRunning]="isRunning()"
+  [isConnecting]="isConnecting()"
+  [welcomeScreen]="false"
+/>
+```
+
+## Console messages
+
+If a test reads the console, update these messages:
+
+- **Vue:** The development warning for messages with the same ID now starts with `CopilotChatMessageView: Merged`.
+- **Angular:** A failed thread load now logs `CopilotChat: connection failed`.
+
+The loading cursor in Vue now uses the last message that the chat shows. Before, it used the last message that the agent sent, which can be a hidden duplicate.
+
+## Angular text box
+
+`CopilotChatTextarea` no longer has an `ngAfterViewInit()` method. The text box measures its height after each render. It also measures again when `inputMaxRows` changes.
+
+If your component extends `CopilotChatTextarea`, a call to `super.ngAfterViewInit()` fails to type-check. The codemod deletes the call and removes `override` from your method:
+
+```ts ignore title="Before"
+import { Component } from "@angular/core";
+import { CopilotChatTextarea } from "@copilotkit/angular";
+
+@Component({ selector: "textarea[appTextarea]", template: "" })
+export class AppTextarea extends CopilotChatTextarea {
+  override ngAfterViewInit(): void {
+    super.ngAfterViewInit();
+    console.log("ready");
+  }
+}
+```
+
+```ts title="After"
+import { Component } from "@angular/core";
+import { CopilotChatTextarea } from "@copilotkit/angular";
+
+@Component({ selector: "textarea[appTextarea]", template: "" })
+export class AppTextarea extends CopilotChatTextarea {
+  ngAfterViewInit(): void {
+    console.log("ready");
+  }
+}
+```
+
+## Audio recorder
+
+All three packages use one recorder. `AudioRecorderError` is the same class in `@copilotkit/react-core`, `@copilotkit/vue`, and `@copilotkit/angular`, so `instanceof` works for an error from any of them.
+
+These rules changed:
+
+- **A second `start()` rejects.** While the recorder starts or records, `start()` rejects with an `AudioRecorderError` that has the message `"Recorder is already active"`. In Angular, `start()` returned without an error. In React and Vue, a second call during the microphone prompt opened a second stream.
+- **Angular `error` output:** It now emits for every failure of `start()` and `stop()`. This includes `"No active recording"` when you call `stop()` and nothing records.
+
+If your Angular code calls `start()` on a recorder that can already record, do one of these:
+
+1. Call `start()` only when `getState()` returns `"idle"`.
+2. Catch the rejection.
+
+```ts title="After"
+import type { CopilotChatAudioRecorder } from "@copilotkit/angular";
+
+export async function startRecording(recorder: CopilotChatAudioRecorder) {
+  if (recorder.getState() !== "idle") return;
+  await recorder.start();
+}
+```
+
+## Docked sidebar
+
+The docked sidebar adds an inline margin to `document.body` on its side. In 2.0, React and Vue use the same rules as Angular:
+
+- **One owner:** Only one open docked sidebar on a page adds the margin. A second one logs a warning and adds no margin.
+- **Margins come back:** When the sidebar closes or unmounts, the body gets back the margins that it had before. React set them to `""`.
+- **Viewport changes:** The margin goes away when the viewport becomes 767px or narrower, and comes back when it becomes wider. If the browser has no `matchMedia`, the sidebar docks. React did not dock without `matchMedia`, for example in jsdom tests.
+- **Vue server rendering:** Vue sets the margin when the sidebar mounts. The server-rendered HTML has no margin and no `<style>` element for it.
+
+In Angular, the sidebar becomes a modal at `(max-width: 767px)`. Before, the breakpoint was `47.999rem`, which moved with the root font size.
+
+If a test expects no body margin in jsdom, or reads the margin from a `<style>` element, update it to read `document.body.style`.
+
+## Slash commands in React
+
+The slash menu lists only menu items that have an `action`. A group with no items, such as `{ label: "Tools", items: [] }`, is not listed. Vue already worked this way.
+
+## Attachment previews
+
+In React, the preview that opens from an attachment is now a modal dialog, as in Vue and Angular:
+
+- The dialog has the file name as its accessible name.
+- Focus moves to the close button when the preview opens.
+- Tab and Shift+Tab stay inside the preview.
+- Focus goes back to the element that opened the preview when it closes.
+
+In React and Vue, a text attachment shows its base64 data decoded as UTF-8. Before, characters outside ASCII showed incorrectly.
+
+If a test reads `document.activeElement` after it opens a preview, update it to expect the close button.
+
+## Scroll to bottom in Angular
+
+`StickToBottom` and `ScrollPosition` now count 12px or less from the end as the bottom. Before, the default was 10px. Vue uses 12px.
+
+To keep 10px, set the threshold:
+
+```html title="chat.component.html"
+<div copilotStickToBottom [threshold]="10">
+  <!-- messages -->
+</div>
+```
+
+## Inspector in Vue and Angular
+
+Vue and Angular now show the Inspector with the same rules as React:
+
+- **Local hosts only:** The Inspector mounts only on `localhost`, `127.0.0.1`, or `[::1]`. On a LAN address or a tunnel URL, it does not mount, even with `enableInspector: true`.
+- **Message action:** The Inspector action on a message shows only while the Inspector is visible. When the user hides the Inspector, the action is hidden too.
+- **Vue component attributes:** `<CopilotKitInspector>` gives text attributes and event listeners to the `cpk-web-inspector` element. It does not give object values to the element.
+
+If you open the dev server from another device, open the app on the machine that runs the server, at `http://localhost`. The Inspector then mounts.
+
+If you give an object value to `<CopilotKitInspector>` in Vue, write it as text:
+
+```vue ignore title="Before"
+<CopilotKitInspector :style="{ zIndex: 50 }" />
+```
+
+```vue title="After"
+<script setup lang="ts">
+import { CopilotKitInspector } from "@copilotkit/vue";
+</script>
+
+<template>
+  <CopilotKitInspector style="z-index: 50" />
+</template>
+```
+
+## Suggestions
+
+`useConfigureSuggestions` now loads and reloads suggestions with the same rules in React and Vue. A global config is a config without `consumerAgentId`, or with `consumerAgentId: "*"`.
+
+- **Outside a chat (React):** A global config loads for the `agentId` of `<CopilotKitProvider>`. Before 2.0, it loaded for the `"default"` agent.
+- **Before the agent list loads (Vue):** A global config loads for the agent of the chat at once. Static suggestions show on the welcome screen before the runtime sends its agents.
+- **Agent added later (Vue):** A dynamic config waits until its agent registers. Then it generates suggestions.
+- **Agent that runs (React):** A global config skips an agent while that agent runs. When the run ends, the suggestions of that agent reload.
+- **`deps` (React and Vue):** A change in `deps` reloads the suggestions. The first render does not reload a second time.
+
+If your app reads the suggestions of the `"default"` agent outside a chat, remove the `agentId` option. `useSuggestions` then reads the suggestions of the provider agent:
+
+```tsx ignore title="Before"
+const { suggestions } = useSuggestions({ agentId: "default" });
+```
+
+```tsx title="After"
+"use client";
+import { useConfigureSuggestions, useSuggestions } from "@copilotkit/react-core";
+
+export function StarterPrompts() {
+  useConfigureSuggestions({
+    suggestions: [{ title: "Plan a trip", message: "Help me plan a trip" }],
+    available: "always",
+  });
+  const { suggestions } = useSuggestions();
+  return (
+    <ul>
+      {suggestions.map((suggestion) => (
+        <li key={suggestion.title}>{suggestion.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+If a test counts suggestion reloads, update the count to the behavior above.
 
 ## Interrupts and human-in-the-loop
 

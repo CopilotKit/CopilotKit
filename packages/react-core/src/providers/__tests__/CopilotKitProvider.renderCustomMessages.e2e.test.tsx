@@ -360,7 +360,7 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
     });
 
     // Only first renderer should execute since it returns a result.
-    const reactMajor = parseInt(React.version.split(".")[0], 10);
+    const reactMajor = parseInt(React.version.split(".")[0]!, 10);
     if (reactMajor >= 19) {
       expect(executionOrder).toEqual(["first"]);
     } else {

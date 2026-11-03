@@ -50,6 +50,34 @@ describe("CopilotSidebar", () => {
     expect(document.body.style.marginInlineStart).toBe("");
   });
 
+  it("gives the page its own margins back when it closes", async () => {
+    document.body.style.marginInlineEnd = "24px";
+    const fixture = await render({ width: 400 });
+    expect(document.body.style.marginInlineEnd).toBe("400px");
+
+    fixture.destroy();
+
+    expect(document.body.style.marginInlineEnd).toBe("24px");
+  });
+
+  it("becomes a modal below 768px, whatever the root font size", async () => {
+    vi.spyOn(window, "matchMedia").mockImplementation(
+      (query: string) =>
+        ({
+          matches: query === "(max-width: 767px)",
+          addEventListener: () => {},
+          removeEventListener: () => {},
+        }) as unknown as MediaQueryList, // Only `matches` and the listeners are read.
+    );
+    const fixture = await render();
+
+    const sidebar = fixture.nativeElement.querySelector(
+      "[data-copilot-sidebar]",
+    );
+    expect(sidebar.getAttribute("role")).toBe("dialog");
+    expect(document.body.style.marginInlineEnd).toBe("");
+  });
+
   it("uses modal semantics and no body docking in overlay mode", async () => {
     const fixture = await render({ mode: "overlay", position: "right" });
     const sidebar = fixture.nativeElement.querySelector(

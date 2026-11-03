@@ -19,7 +19,10 @@ import { CopilotChatMessageViewCursor } from "./copilot-chat-message-view-cursor
 import { CopilotChatReasoningMessage } from "./copilot-chat-reasoning-message";
 import { CopilotActivity } from "../activity/copilot-activity";
 import { cn } from "../../utils";
-import { ɵdeduplicateMessages } from "@copilotkit/core";
+import {
+  ɵdeduplicateMessages,
+  ɵshouldShowMessageCursor,
+} from "@copilotkit/core";
 import {
   commitRowKeyStore,
   createRowKeyStore,
@@ -247,9 +250,16 @@ export class CopilotChatMessageView {
   private readonly rowKeyStoreCommit = afterRenderEffect(() => {
     commitRowKeyStore(this.rowKeyStore, this.renderedMessages());
   });
-  protected showCursorValue = computed(
-    () => this.showCursor() && this.lastMessage()?.role !== "reasoning",
-  );
+  protected showCursorValue = computed(() => {
+    const display = this.toolCallDisplay();
+    return ɵshouldShowMessageCursor({
+      isRunning: this.showCursor(),
+      lastMessage: this.lastMessage(),
+      // Angular draws "turn" as "grouped" (it has no work summary yet), so the
+      // cursor stays the progress indicator there.
+      display: display === "turn" ? "grouped" : display,
+    });
+  });
   protected isLoadingValue = computed(() => this.isLoading());
 
   readonly #copilotKit = inject(CopilotKit);

@@ -1,69 +1,20 @@
-import { defineComponent, h, onBeforeUnmount, ref, watch } from "vue";
-import type { PropType, VNodeChild } from "vue";
-import * as z from "zod";
+import { h } from "vue";
+import type { Component, VNodeChild } from "vue";
+import { ɵA2UI_LIFECYCLE_TEXT, ɵA2UI_SKELETON_ROWS } from "@copilotkit/core";
+import type {
+  ɵA2UIActivitySnapshot,
+  ɵA2UIProgressPhase,
+  ɵA2UIRecoveryOptions,
+  ɵA2UISkeletonPart,
+} from "@copilotkit/core";
 
 /**
- * Shared pre-paint lifecycle states for the A2UI surface renderer, ported from
- * React's `A2UIRecoveryStates`.
- *
- * The A2UI middleware drives the WHOLE generative-UI lifecycle on a single
- * `a2ui-surface` activity (one stable messageId, `replace: true`), so the states
- * below swap IN PLACE and the painted surface ultimately replaces them:
- *
- *   building  → animated skeleton + "Building interface" (+ optional ~N tokens)
- *   retrying  → same skeleton; once perceptible, the sub-label becomes
- *               "Retrying generation… (N/M attempts)" (threshold-gated so a fast
- *               transient retry never flashes), with debug detail per debugExposure
- *   failed    → a clean hard-failure card (replacing the skeleton), developer
- *               detail tucked into an expander gated by debugExposure
- *   painted   → the surface renderer owns the UI (these states render nothing)
- *
- * Timing (`showAfterMs` / `showAfterAttempts`) and how much debug detail to
- * surface (`debugExposure`) are client concerns; the server can override
- * `debugExposure` by stamping it onto the activity content (it wins over the
- * client option).
+ * Pre-paint recovery and loading options: how long before the "Retrying…"
+ * label appears, and how much retry and debug detail to show. Core's
+ * `ɵA2UIActivityController` owns the rules; this module only draws its
+ * snapshot.
  */
-export type A2UIRecoveryRendererOptions = {
-  /** Delay (ms) before the "Retrying…" sub-label becomes visible. Default 2000. */
-  showAfterMs?: number;
-  /** Show the "Retrying…" sub-label immediately once `attempt` reaches this. Default 2. */
-  showAfterAttempts?: number;
-  /** How much retry/debug detail to surface. Default "collapsed". */
-  debugExposure?: "hidden" | "collapsed" | "verbose";
-};
-
-export type DebugExposure = "hidden" | "collapsed" | "verbose";
-
-/**
- * The pre-paint lifecycle fields the middleware stamps onto the `a2ui-surface`
- * activity content (alongside `a2ui_operations` on paint).
- */
-export const A2UILifecycleFields = {
-  status: z.enum(["building", "retrying", "failed"]).optional(),
-  attempt: z.number().optional(),
-  maxAttempts: z.number().optional(),
-  progressTokens: z.number().optional(),
-  error: z.string().optional(),
-  errors: z.array(z.any()).optional(),
-  attempts: z.array(z.any()).optional(),
-  // Server-side knob (stamped by the A2UI middleware).
-  debugExposure: z.enum(["hidden", "collapsed", "verbose"]).optional(),
-};
-
-/** Server-stamped debugExposure wins; else the client option. */
-export function resolveDebugExposure(
-  content: any,
-  optionDebugExposure: DebugExposure,
-): DebugExposure {
-  return content?.debugExposure ?? optionDebugExposure;
-}
-
-const tokensOf = (content: any): number | undefined =>
-  typeof content?.progressTokens === "number"
-    ? content.progressTokens
-    : undefined;
-
-// --- Skeleton + primitives ---------------------------------------------------
+export type A2UIRecoveryRendererOptions = ɵA2UIRecoveryOptions;
 
 const dot = () =>
   h("div", {
@@ -76,69 +27,30 @@ const dot = () =>
     },
   });
 
-const spacer = () => h("div", { style: { width: "12px" } });
-
-const bar = (
-  w: number,
-  ht: number,
-  bg: string,
-  anim?: number,
-  opacity?: number,
-  transition?: string,
-) =>
-  h("div", {
+function skeletonPart(part: ɵA2UISkeletonPart) {
+  if (part === "dot") return dot();
+  if (part === "spacer") return h("div", { style: { width: "12px" } });
+  return h("div", {
     style: {
-      width: `${w}px`,
-      height: `${ht}px`,
+      width: `${String(part.w)}px`,
+      height: "7px",
       borderRadius: "9999px",
-      backgroundColor: bg,
-      ...(anim !== undefined
-        ? {
-            animation: `cpk-a2ui-fade 2.4s ease-in-out ${anim}s infinite`,
-          }
-        : {}),
-      ...(opacity !== undefined ? { opacity } : {}),
-      ...(transition ? { transition } : {}),
+      backgroundColor: part.bg,
+      animation: `cpk-a2ui-fade 2.4s ease-in-out ${String(part.anim)}s infinite`,
     },
   });
-
-const row = (show: boolean, delay: number, children: VNodeChild[]) =>
-  h(
-    "div",
-    {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: "6px",
-        opacity: show ? 1 : 0,
-        transition: `opacity 0.4s ${delay}s`,
-      },
-    },
-    children,
-  );
+}
 
 /**
  * Animated wireframe skeleton with a label, an optional live token count, and
- * optional debug detail below it. The `tokens` count drives a progressive
- * reveal of skeleton rows.
+ * optional debug detail below it. `phase` reveals the rows.
  */
-export function renderA2UIGeneratingSkeleton(
+function renderA2UIGeneratingSkeleton(
   label: string,
-  tokens?: number,
-  children?: VNodeChild[],
-): VNodeChild {
-  // No count yet → show the fuller skeleton rather than an empty box.
-  const phase =
-    tokens == null
-      ? 3
-      : tokens < 50
-        ? 0
-        : tokens < 200
-          ? 1
-          : tokens < 400
-            ? 2
-            : 3;
-
+  tokens: number | undefined,
+  phase: ɵA2UIProgressPhase,
+  children: VNodeChild[],
+) {
   return h("div", { style: { margin: "12px 0", maxWidth: "320px" } }, [
     h(
       "div",
@@ -154,7 +66,6 @@ export function renderA2UIGeneratingSkeleton(
         },
       },
       [
-        // Top bar
         h(
           "div",
           {
@@ -171,57 +82,37 @@ export function renderA2UIGeneratingSkeleton(
               dot(),
               dot(),
             ]),
-            bar(
-              64,
-              6,
-              "#e4e4e7",
-              undefined,
-              phase >= 1 ? 1 : 0.4,
-              "opacity 0.5s",
-            ),
+            h("div", {
+              style: {
+                width: "64px",
+                height: "6px",
+                borderRadius: "9999px",
+                backgroundColor: "#e4e4e7",
+                opacity: phase >= 1 ? 1 : 0.4,
+                transition: "opacity 0.5s",
+              },
+            }),
           ],
         ),
-        // Skeleton lines
-        h("div", { style: { display: "grid", gap: "7px" } }, [
-          row(phase >= 0, 0, [
-            bar(36, 7, "rgba(147,197,253,0.7)", 0),
-            bar(80, 7, "rgba(219,234,254,0.8)", 0.2),
-          ]),
-          row(phase >= 0, 0.1, [
-            spacer(),
-            dot(),
-            bar(100, 7, "rgba(24,24,27,0.2)", 0.3),
-          ]),
-          row(phase >= 1, 0.15, [
-            spacer(),
-            bar(48, 7, "rgba(24,24,27,0.15)", 0.1),
-            bar(40, 7, "rgba(153,246,228,0.6)", 0.5),
-            bar(56, 7, "rgba(147,197,253,0.6)", 0.3),
-          ]),
-          row(phase >= 1, 0.2, [
-            spacer(),
-            dot(),
-            bar(60, 7, "rgba(24,24,27,0.15)", 0.4),
-          ]),
-          row(phase >= 2, 0.25, [
-            bar(40, 7, "rgba(153,246,228,0.5)", 0.2),
-            dot(),
-            bar(48, 7, "rgba(24,24,27,0.15)", 0.6),
-            bar(64, 7, "rgba(147,197,253,0.5)", 0.1),
-          ]),
-          row(phase >= 2, 0.3, [
-            bar(36, 7, "rgba(147,197,253,0.6)", 0.5),
-            bar(36, 7, "rgba(24,24,27,0.12)", 0.7),
-          ]),
-          row(phase >= 3, 0.35, [
-            dot(),
-            bar(44, 7, "rgba(24,24,27,0.18)", 0.3),
-            dot(),
-            bar(56, 7, "rgba(153,246,228,0.5)", 0.8),
-            bar(48, 7, "rgba(147,197,253,0.5)", 0.4),
-          ]),
-        ]),
-        // Shimmer
+        h(
+          "div",
+          { style: { display: "grid", gap: "7px" } },
+          ɵA2UI_SKELETON_ROWS.map((row) =>
+            h(
+              "div",
+              {
+                style: {
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  opacity: phase >= row.phase ? 1 : 0,
+                  transition: `opacity 0.4s ${String(row.delay)}s`,
+                },
+              },
+              row.parts.map(skeletonPart),
+            ),
+          ),
+        ),
         h("div", {
           style: {
             pointerEvents: "none",
@@ -235,7 +126,6 @@ export function renderA2UIGeneratingSkeleton(
         }),
       ],
     ),
-    // Label
     h(
       "div",
       {
@@ -259,25 +149,22 @@ export function renderA2UIGeneratingSkeleton(
           },
           label,
         ),
-        ...(typeof tokens === "number" && tokens > 0
-          ? [
-              h(
-                "span",
-                {
-                  style: {
-                    fontSize: "11px",
-                    color: "#d4d4d8",
-                    fontVariantNumeric: "tabular-nums",
-                  },
+        typeof tokens === "number" && tokens > 0
+          ? h(
+              "span",
+              {
+                style: {
+                  fontSize: "11px",
+                  color: "#d4d4d8",
+                  fontVariantNumeric: "tabular-nums",
                 },
-                `~${tokens.toLocaleString()} tokens`,
-              ),
-            ]
-          : []),
+              },
+              `~${tokens.toLocaleString()} tokens`,
+            )
+          : null,
       ],
     ),
-    ...(children ?? []),
-    // Keyframe styles
+    ...children,
     h(
       "style",
       `
@@ -294,151 +181,64 @@ export function renderA2UIGeneratingSkeleton(
   ]);
 }
 
-function renderDebugDetails(
-  label: string,
-  open: boolean,
-  payload: unknown,
-): VNodeChild {
-  return h("details", { open, class: "cpk-a2ui-debug-details" }, [
-    h("summary", { class: "cpk-a2ui-debug-details-summary" }, label),
-    h(
-      "pre",
-      { class: "cpk-a2ui-debug-details-payload", style: { fontSize: "11px" } },
-      JSON.stringify(payload, null, 2),
-    ),
-  ]);
-}
-
-// --- Lifecycle states ---------------------------------------------------------
-
-/** building: the generic skeleton + optional live token count. */
-export const A2UIBuildingState = defineComponent({
-  name: "A2UIBuildingState",
-  props: {
-    content: { type: null as unknown as PropType<any>, default: undefined },
-  },
-  setup(props) {
-    return () =>
-      renderA2UIGeneratingSkeleton(
-        "Building interface",
-        tokensOf(props.content),
-      );
-  },
-});
-
 /**
- * retrying: stays the generic skeleton through fast/transient retries; only
- * once the retry is perceptible (after `showAfterMs`, or once `attempt`
- * crosses `showAfterAttempts`) does the sub-label reveal
- * "Retrying generation… (N/M)".
+ * Draws the lifecycle state of an `a2ui-surface` activity: the failure card,
+ * the host's loading component while building, or the skeleton.
+ *
+ * @param snapshot - The activity controller's snapshot.
+ * @param loadingComponent - Shown instead of the skeleton while building.
  */
-export const A2UIRetryingState = defineComponent({
-  name: "A2UIRetryingState",
-  props: {
-    content: { type: null as unknown as PropType<any>, default: undefined },
-    showAfterMs: { type: Number, required: true },
-    showAfterAttempts: { type: Number, required: true },
-    debugExposure: {
-      type: String as PropType<DebugExposure>,
-      required: true,
-    },
-  },
-  setup(props) {
-    const attempt = () =>
-      typeof props.content?.attempt === "number"
-        ? (props.content.attempt as number)
-        : undefined;
-    const immediate = () => {
-      const current = attempt();
-      return current !== undefined && current >= props.showAfterAttempts;
-    };
-    const revealed = ref(immediate());
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    watch(
-      [immediate, () => props.showAfterMs],
-      ([isImmediate, showAfterMs]) => {
-        clearTimeout(timer);
-        if (isImmediate) {
-          revealed.value = true;
-          return;
-        }
-        timer = setTimeout(() => {
-          revealed.value = true;
-        }, showAfterMs);
-      },
-      { immediate: true },
-    );
-    onBeforeUnmount(() => clearTimeout(timer));
-
-    return () => {
-      const tokens = tokensOf(props.content);
-      // Not yet perceptible → indistinguishable from normal building.
-      if (!revealed.value) {
-        return renderA2UIGeneratingSkeleton("Building interface", tokens);
-      }
-      const current = attempt();
-      const maxAttempts =
-        typeof props.content?.maxAttempts === "number"
-          ? props.content.maxAttempts
-          : undefined;
-      const label =
-        current !== undefined && maxAttempts !== undefined
-          ? `Retrying generation… (${current}/${maxAttempts} attempts)`
-          : "Retrying generation…";
-      const errors = Array.isArray(props.content?.errors)
-        ? props.content.errors
-        : [];
-      return renderA2UIGeneratingSkeleton(
-        label,
-        tokens,
-        props.debugExposure !== "hidden" && errors.length > 0
-          ? [
-              renderDebugDetails(
-                "validation issues",
-                props.debugExposure === "verbose",
-                { attempt: props.content?.attempt, errors },
-              ),
-            ]
-          : [],
-      );
-    };
-  },
-});
-
-/** failed: a clean hard-failure card that replaces the skeleton in place. */
-export const A2UIRecoveryFailure = defineComponent({
-  name: "A2UIRecoveryFailure",
-  props: {
-    content: { type: null as unknown as PropType<any>, default: undefined },
-    debugExposure: {
-      type: String as PropType<DebugExposure>,
-      required: true,
-    },
-  },
-  setup(props) {
-    return () =>
-      h("div", { class: "cpk-a2ui-recovery-failure" }, [
+export function renderA2UILifecycleState(
+  snapshot: ɵA2UIActivitySnapshot,
+  loadingComponent: Component | undefined,
+) {
+  const details: VNodeChild[] = snapshot.showDebugDetails
+    ? [
         h(
-          "div",
-          { class: "cpk-a2ui-recovery-failure-title" },
-          "Couldn't generate the UI",
-        ),
-        h(
-          "div",
-          { class: "cpk-a2ui-recovery-failure-description" },
-          "Something went wrong rendering this. You can keep chatting and try again.",
-        ),
-        props.debugExposure !== "hidden"
-          ? renderDebugDetails(
-              "developer details",
-              props.debugExposure === "verbose",
+          "details",
+          { open: snapshot.debugDetailsOpen, class: "cpk-a2ui-debug-details" },
+          [
+            h(
+              "summary",
+              { class: "cpk-a2ui-debug-details-summary" },
+              snapshot.debugDetailsLabel,
+            ),
+            h(
+              "pre",
               {
-                error: props.content?.error,
-                attempts: props.content?.attempts,
+                class: "cpk-a2ui-debug-details-payload",
+                style: { fontSize: "11px" },
               },
-            )
-          : null,
-      ]);
-  },
-});
+              snapshot.debugPayload,
+            ),
+          ],
+        ),
+      ]
+    : [];
+  const { lifecycle } = snapshot;
+
+  if (lifecycle.status === "failed") {
+    return h("div", { class: "cpk-a2ui-recovery-failure" }, [
+      h(
+        "div",
+        { class: "cpk-a2ui-recovery-failure-title" },
+        ɵA2UI_LIFECYCLE_TEXT.failureTitle,
+      ),
+      h(
+        "div",
+        { class: "cpk-a2ui-recovery-failure-description" },
+        ɵA2UI_LIFECYCLE_TEXT.failureDescription,
+      ),
+      ...details,
+    ]);
+  }
+  if (lifecycle.status === "building" && loadingComponent) {
+    return h(loadingComponent);
+  }
+  return renderA2UIGeneratingSkeleton(
+    snapshot.label,
+    lifecycle.progressTokens,
+    snapshot.progressPhase,
+    details,
+  );
+}

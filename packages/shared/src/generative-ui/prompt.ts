@@ -111,7 +111,7 @@ export function buildGenerativeUIPrompt(
     `## Generative UI
 ${intro}
 
-${when}Every operation has "version":"v1.0" and exactly one of:
+${when}Every operation has "version":"1.0" and exactly one of:
 ${operations.map((op) => `- ${op}`).join("\n")}
 
 Rules:

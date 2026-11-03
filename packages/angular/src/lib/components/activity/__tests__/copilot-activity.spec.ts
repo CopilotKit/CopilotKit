@@ -90,14 +90,21 @@ describe("CopilotActivity", () => {
     expect(getAgent).toHaveBeenCalledWith("demo-button");
   });
 
-  it("leaves agent undefined when no agentId is set", () => {
+  it("uses the default agent when no agentId is set", () => {
     renderers.set([
       {
         activityType: "a2ui-surface",
         content: anyActivityContentSchema,
+        component: WildcardActivityRenderer,
+      },
+      {
+        activityType: "a2ui-surface",
+        agentId: "default",
+        content: anyActivityContentSchema,
         component: PrimaryActivityRenderer,
       },
     ]);
+    getAgent.mockReturnValue({ agentId: "default" });
 
     const host = render(activityMessage());
 
@@ -105,8 +112,8 @@ describe("CopilotActivity", () => {
       host
         .querySelector('[data-testid="primary-activity"]')
         ?.getAttribute("data-has-agent"),
-    ).toBe("false");
-    expect(getAgent).not.toHaveBeenCalled();
+    ).toBe("true");
+    expect(getAgent).toHaveBeenCalledWith("default");
   });
 
   it("renders the wildcard renderer for unregistered activity types", () => {
@@ -139,7 +146,7 @@ describe("CopilotActivity", () => {
 
     expect(host.querySelector('[data-testid="primary-activity"]')).toBeNull();
     expect(warn).toHaveBeenCalledWith(
-      "Failed to parse content for activity message 'a2ui-surface':",
+      "[CopilotKit] Failed to parse content for activity message 'a2ui-surface':",
       expect.anything(),
     );
     warn.mockRestore();

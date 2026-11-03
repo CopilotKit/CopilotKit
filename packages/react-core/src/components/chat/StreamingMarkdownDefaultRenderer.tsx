@@ -1,27 +1,15 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
+import { StreamingMarkdownRenderer } from "@copilotkit/markdown/react";
 import {
-  StreamingMarkdownRenderer,
-  createStreamingMarkdownNodeRenderers,
-} from "@copilotkit/markdown/react";
-import { warnUnsupportedRichSyntaxOnce } from "@copilotkit/markdown";
+  CHAT_MARKDOWN_NODE_CLASS_NAMES,
+  warnUnsupportedRichSyntaxOnce,
+} from "@copilotkit/markdown";
 import type {
   DefaultMarkdownRendererProps,
   MarkdownRendererProps,
 } from "../../providers/MarkdownRendererContext";
-
-// Theme code blocks to CopilotKit's readable, theme-aware treatment
-// (light/dark safe). Key is "codeBlock" (camelCase) per NODE_TYPE_TO_RENDERER_KEY.
-// The code-block AST node is a leaf: its raw source text lives in node.text;
-// node.info holds the language/info string (e.g. "ts" from ```ts).
-const defaultNodeRenderers = createStreamingMarkdownNodeRenderers({
-  codeBlock: ({ node }) => (
-    <pre className="cpk-markdown-code-block">
-      <code data-code-info={node.info ?? undefined}>{node.text}</code>
-    </pre>
-  ),
-});
 
 /**
  * react-core's built-in default markdown renderer — a thin adapter over
@@ -40,20 +28,6 @@ export function StreamingMarkdownDefaultRenderer({
   onLinkClick,
   onCitationClick,
 }: MarkdownRendererProps & DefaultMarkdownRendererProps) {
-  // Hooks must run unconditionally and in a stable order on every render, so
-  // this useMemo stays above the early return below — a streaming message
-  // commonly renders empty first, then non-empty, which would otherwise change
-  // the hook count between renders (Rules of Hooks violation + runtime crash).
-  const mergedNodeRenderers = useMemo(
-    () =>
-      nodeRenderers
-        ? createStreamingMarkdownNodeRenderers({
-            ...defaultNodeRenderers,
-            ...nodeRenderers,
-          })
-        : defaultNodeRenderers,
-    [nodeRenderers],
-  );
   if (!content) return null;
   // Dev-only: nudge upgraders from the bundled Streamdown default when their
   // content needs math/syntax highlighting the built-in renderer doesn't do.
@@ -63,7 +37,8 @@ export function StreamingMarkdownDefaultRenderer({
       className={className}
       isComplete={!isStreaming}
       caret={caret ?? !!isStreaming}
-      nodeRenderers={mergedNodeRenderers}
+      nodeRenderers={nodeRenderers}
+      nodeClassNames={CHAT_MARKDOWN_NODE_CLASS_NAMES}
       options={options}
       onLinkClick={onLinkClick}
       onCitationClick={onCitationClick}

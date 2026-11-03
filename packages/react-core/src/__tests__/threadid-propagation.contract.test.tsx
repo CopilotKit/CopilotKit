@@ -11,6 +11,19 @@ import {
   ProxiedCopilotRuntimeAgent,
 } from "@copilotkit/core";
 
+/** Core's `ɵruntimeInfo` snapshot, built from a fake core's runtime fields. */
+function runtimeInfoOf(core: {
+  runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+  threadEndpoints?: unknown;
+  intelligence?: unknown;
+}) {
+  return {
+    status: core.runtimeConnectionStatus,
+    threadEndpoints: core.threadEndpoints,
+    intelligence: core.intelligence,
+  };
+}
+
 vi.mock("../context", async (importOriginal) => ({
   ...(await importOriginal<typeof ContextModule>()),
   useCopilotKit: vi.fn(),
@@ -46,6 +59,7 @@ describe("useAgent → agent.threadId sync from chat configuration", () => {
     getAgent: ReturnType<typeof vi.fn>;
     registerProxiedAgent: ReturnType<typeof vi.fn>;
     runtimeUrl: string | undefined;
+    readonly ɵruntimeInfo: unknown;
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
     runtimeTransport: string;
     headers: Record<string, string>;
@@ -92,6 +106,9 @@ describe("useAgent → agent.threadId sync from chat configuration", () => {
         },
       ),
       runtimeUrl: "http://localhost:3000/api/copilotkit",
+      get ɵruntimeInfo() {
+        return runtimeInfoOf(this);
+      },
       runtimeConnectionStatus:
         CopilotKitCoreRuntimeConnectionStatus.Disconnected,
       runtimeTransport: "rest",

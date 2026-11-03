@@ -15,12 +15,12 @@ import { useCopilotKit } from "../../../context";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
 import type { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import {
-  MESSAGE_FEEDBACK_EVENT_NAME,
-  getMessageFeedback,
-  setMessageFeedback,
+  ɵFEEDBACK_COMMENT_CLOSE_DELAY_MS as FEEDBACK_COMMENT_CLOSE_DELAY_MS,
+  ɵMESSAGE_FEEDBACK_EVENT_NAME as MESSAGE_FEEDBACK_EVENT_NAME,
+  ɵgetMessageFeedback as getMessageFeedback,
+  ɵsetMessageFeedback as setMessageFeedback,
   ɵresetMessageFeedbackCache,
-} from "../../../lib/message-feedback";
-import { FEEDBACK_COMMENT_CLOSE_DELAY_MS } from "../message-feedback";
+} from "@copilotkit/core";
 
 // The shared setup stubs Radix tooltips; these tests check how the thumbs'
 // real tooltips give way to the comment popover.

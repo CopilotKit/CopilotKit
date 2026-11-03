@@ -10,6 +10,7 @@ import {
   output,
 } from "@angular/core";
 import { isPlatformBrowser } from "@angular/common";
+import { ɵSCROLL_BOTTOM_THRESHOLD_PX } from "@copilotkit/core";
 import { ScrollPosition } from "../scroll-position";
 import { ResizeObserverService } from "../resize-observer";
 import { Subject } from "rxjs";
@@ -30,7 +31,7 @@ export type ScrollBehavior = "smooth" | "instant" | "auto";
  * ```html
  * <div copilotStickToBottom
  *      [enabled]="true"
- *      [threshold]="10"
+ *      [threshold]="12"
  *      [initialBehavior]="'smooth'"
  *      [resizeBehavior]="'smooth'"
  *      (isAtBottomChange)="onBottomChange($event)">
@@ -45,7 +46,8 @@ export type ScrollBehavior = "smooth" | "instant" | "auto";
 })
 export class StickToBottom implements AfterViewInit, OnDestroy {
   enabled = input<boolean>(true);
-  threshold = input<number>(10);
+  /** Pixels from the end that still count as the bottom. Default: 12. */
+  threshold = input<number>(ɵSCROLL_BOTTOM_THRESHOLD_PX);
   initialBehavior = input<ScrollBehavior>("smooth");
   resizeBehavior = input<ScrollBehavior>("smooth");
   debounceMs = input<number>(100);

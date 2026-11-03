@@ -17,7 +17,7 @@ import { COPILOT_CHAT_WELCOME_LAYOUT } from "../chat/copilot-chat-welcome-layout
 import { CopilotKitStyles } from "../copilot-kit-styles";
 import { CopilotIcon, MessageCircle, X } from "../icons/copilot-icon";
 import { injectChatLabels } from "../../chat-config";
-import { dimensionToCss } from "./modal-utils";
+import { ɵdimensionToCss } from "@copilotkit/core";
 
 /** Accessible, responsive floating chat surface with an explicit open model. */
 @Component({
@@ -189,10 +189,10 @@ export class CopilotPopup {
   protected readonly dialogId = `copilot-popup-${randomUUID()}`;
   protected readonly titleId = `${this.dialogId}-title`;
   protected readonly resolvedWidth = computed(() =>
-    dimensionToCss(this.width(), 420),
+    ɵdimensionToCss(this.width(), 420),
   );
   protected readonly resolvedHeight = computed(() =>
-    dimensionToCss(this.height(), 560),
+    ɵdimensionToCss(this.height(), 560),
   );
   private readonly launcher =
     viewChild.required<ElementRef<HTMLButtonElement>>("launcher");

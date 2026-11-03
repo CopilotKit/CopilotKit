@@ -89,6 +89,22 @@ describe("CopilotChatView", () => {
     ).toBeNull();
   });
 
+  it.each([
+    ["the app turned it off", "welcomeScreen", false],
+    ["the thread is connecting", "isConnecting", true],
+  ])("suppresses the welcome screen when %s", (_reason, inputName, value) => {
+    const fixture = TestBed.createComponent(CopilotChatView);
+
+    fixture.componentRef.setInput("messages", []);
+    fixture.componentRef.setInput(inputName, value);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(
+      element.querySelector('[data-testid="copilot-welcome-screen"]'),
+    ).toBeNull();
+  });
+
   it("sizes the default scroll view as the flex child that owns vertical scrolling", async () => {
     const fixture = TestBed.createComponent(CopilotChatView);
     const messages: Message[] = [

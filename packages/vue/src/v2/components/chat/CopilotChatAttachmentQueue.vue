@@ -6,6 +6,11 @@ import {
   getSourceUrl,
 } from "@copilotkit/shared";
 import type { Attachment } from "@copilotkit/shared";
+import {
+  ɵcanPreviewDocument,
+  ɵcreateObjectUrlFromSource,
+  ɵdecodeTextSource,
+} from "@copilotkit/core";
 import type { CopilotChatAttachmentQueueProps } from "./types";
 import { IconPlay } from "../icons";
 import CopilotChatLightbox from "./CopilotChatLightbox.vue";
@@ -24,6 +29,7 @@ const labels = useChatLabels();
 
 const activeLightboxAttachment = ref<Attachment | null>(null);
 const documentBlobUrl = ref<string | null>(null);
+let revokeDocumentBlobUrl = () => {};
 
 const lightboxLabel = computed(() => {
   const attachment = activeLightboxAttachment.value;
@@ -38,19 +44,13 @@ const lightboxLabel = computed(() => {
 const isPreviewableDocument = computed(() => {
   const attachment = activeLightboxAttachment.value;
   if (!attachment || attachment.type !== "document") return false;
-  const mimeType = attachment.source.mimeType;
-  return isPdf(mimeType) || isText(mimeType);
+  return ɵcanPreviewDocument(attachment.source.mimeType) !== null;
 });
 const decodedTextPreview = computed(() => {
   const attachment = activeLightboxAttachment.value;
   if (!attachment || attachment.type !== "document") return null;
-  const mimeType = attachment.source.mimeType;
-  if (!isText(mimeType) || attachment.source.type !== "data") return null;
-  try {
-    return atob(attachment.source.value);
-  } catch {
-    return attachment.source.value;
-  }
+  if (ɵcanPreviewDocument(attachment.source.mimeType) !== "text") return null;
+  return ɵdecodeTextSource(attachment.source);
 });
 const lightboxDocumentSource = computed(() => {
   const attachment = activeLightboxAttachment.value;
@@ -62,10 +62,7 @@ const lightboxDocumentSource = computed(() => {
 watch(
   activeLightboxAttachment,
   (next, previous) => {
-    if (documentBlobUrl.value) {
-      URL.revokeObjectURL(documentBlobUrl.value);
-      documentBlobUrl.value = null;
-    }
+    revokeDocumentBlobUrl();
 
     if (
       !next ||
@@ -76,22 +73,22 @@ watch(
       return;
     }
 
-    const mimeType = next.source.mimeType;
-    if (!isPdf(mimeType) && !isText(mimeType)) {
+    if (ɵcanPreviewDocument(next.source.mimeType) === null) {
       return;
     }
 
-    const blobUrl = createBlobUrl(next.source.value, mimeType);
-    documentBlobUrl.value = blobUrl;
+    const objectUrl = ɵcreateObjectUrlFromSource(next.source);
+    documentBlobUrl.value = objectUrl?.url ?? null;
+    revokeDocumentBlobUrl = () => {
+      objectUrl?.revoke();
+      documentBlobUrl.value = null;
+    };
   },
   { immediate: true },
 );
 
 onBeforeUnmount(() => {
-  if (documentBlobUrl.value) {
-    URL.revokeObjectURL(documentBlobUrl.value);
-    documentBlobUrl.value = null;
-  }
+  revokeDocumentBlobUrl();
 });
 
 function openLightbox(attachment: Attachment) {
@@ -123,32 +120,12 @@ function cardClassName(attachment: Attachment) {
   return "cpk-attachment-queue-item-document";
 }
 
-function isPdf(mimeType: string | undefined): boolean {
-  return !!mimeType && mimeType.includes("pdf");
+function isPdf(mimeType: string | undefined) {
+  return ɵcanPreviewDocument(mimeType) === "pdf";
 }
 
-function isText(mimeType: string | undefined): boolean {
-  return !!mimeType && mimeType.startsWith("text/");
-}
-
-function createBlobUrl(
-  base64Value: string,
-  mimeType: string | undefined,
-): string | null {
-  try {
-    const binary = atob(base64Value);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i += 1) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    const blob = new Blob([bytes], {
-      type: mimeType || "application/octet-stream",
-    });
-    return URL.createObjectURL(blob);
-  } catch (error) {
-    console.error("[CopilotKit] Failed to decode attachment data:", error);
-    return null;
-  }
+function isText(mimeType: string | undefined) {
+  return ɵcanPreviewDocument(mimeType) === "text";
 }
 </script>
 

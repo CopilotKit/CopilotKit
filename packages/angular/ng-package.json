@@ -13,11 +13,10 @@
     "@copilotkit/mcp-apps-renderer",
     "@copilotkit/shared",
     "@copilotkit/core",
+    "@copilotkit/markdown",
     "@copilotkit/web-components",
     "@copilotkit/web-inspector",
     "zod",
-    "katex",
-    "marked",
-    "dompurify"
+    "katex"
   ]
 }

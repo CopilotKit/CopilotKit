@@ -28,13 +28,19 @@ function isProduction(): boolean {
  *
  * No-op in production and after the first warning. Only the built-in default
  * renderers call this — a custom `markdownRenderer` never triggers it.
+ * Pass `{ rendersMath: true }` from a default renderer that typesets math, so
+ * only code blocks are flagged.
  *
  * @internal
  */
-export function warnUnsupportedRichSyntaxOnce(content: string): void {
+export function warnUnsupportedRichSyntaxOnce(
+  content: string,
+  { rendersMath = false }: { rendersMath?: boolean } = {},
+): void {
   if (warned || !content || isProduction()) return;
 
-  const hasMath = BLOCK_MATH.test(content) || BRACKET_MATH.test(content);
+  const hasMath =
+    !rendersMath && (BLOCK_MATH.test(content) || BRACKET_MATH.test(content));
   const hasHighlightableCode = HIGHLIGHTABLE_CODE.test(content);
   if (!hasMath && !hasHighlightableCode) return;
 

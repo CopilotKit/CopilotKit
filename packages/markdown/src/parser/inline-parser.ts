@@ -174,6 +174,16 @@ export function parseInline(
       continue;
     }
 
+    const math = context.options.enableMath
+      ? parseMathInline(text, i, absoluteStart, path, nodes.length)
+      : null;
+    if (math) {
+      flushTextBuffer();
+      nodes.push(math.node);
+      i = math.next;
+      continue;
+    }
+
     const strong =
       parseDelimitedInline(
         text,
@@ -726,6 +736,43 @@ function parseInlineCode(
       children: [],
     },
     next: close + len,
+  };
+}
+
+// `$$…$$` display math may span lines. Inline `$…$` may not start with or end
+// on whitespace and may not be followed by a digit, so currency such as
+// "$349 … $289" stays prose. Unclosed delimiters stay text while streaming.
+const DISPLAY_MATH = /^\$\$([\s\S]+?)\$\$/;
+const INLINE_MATH = /^\$(?!\s)([^$\n]*?\S)\$(?!\d)/;
+
+function parseMathInline(
+  text: string,
+  at: number,
+  start: number,
+  path: string,
+  index: number,
+): { node: DraftNode; next: number } | null {
+  if (text[at] !== "$") {
+    return null;
+  }
+
+  const rest = text.slice(at);
+  const display = DISPLAY_MATH.exec(rest);
+  const match = display ?? INLINE_MATH.exec(rest);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    node: {
+      path: `${path}.${index}`,
+      type: "math",
+      range: { start: start + at, end: start + at + match[0].length },
+      closed: true,
+      props: { text: match[1], display: display !== null },
+      children: [],
+    },
+    next: at + match[0].length,
   };
 }
 

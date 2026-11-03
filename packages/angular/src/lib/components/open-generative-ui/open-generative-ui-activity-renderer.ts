@@ -38,8 +38,9 @@ export const OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER =
 function parseOpenGenerativeUIContent(
   content: unknown,
 ): OpenGenerativeUIContent {
-  const parsed = OpenGenerativeUIContentSchema.safeParse(content);
-  return parsed.success ? parsed.data : {};
+  const result = OpenGenerativeUIContentSchema["~standard"].validate(content);
+  if (result instanceof Promise || result.issues) return {};
+  return result.value;
 }
 
 @Component({
@@ -53,48 +54,29 @@ function parseOpenGenerativeUIContent(
       [style.height.px]="height()"
       [class.has-visible-sandbox]="hasVisibleSandbox()"
     >
-      @if (!hasVisibleSandbox() && isGenerating()) {
-        <div
-          data-testid="open-generative-ui-placeholder"
-          class="copilot-open-generative-ui-placeholder"
-        >
-          <svg
-            width="48"
-            height="48"
-            viewBox="0 0 24 24"
-            fill="none"
-            class="copilot-open-generative-ui-spinner"
-          >
-            <circle cx="12" cy="12" r="10" stroke="#e0e0e0" stroke-width="3" />
-            <path
-              d="M12 2a10 10 0 0 1 10 10"
-              stroke="#999"
-              stroke-width="3"
-              stroke-linecap="round"
-            />
-          </svg>
-        </div>
-      }
-      @if (hasVisibleSandbox() && isGenerating()) {
+      @if (state().showOverlay) {
         <div
           data-testid="open-generative-ui-progress-overlay"
           class="copilot-open-generative-ui-overlay"
         >
-          <svg
-            width="48"
-            height="48"
-            viewBox="0 0 24 24"
-            fill="none"
-            class="copilot-open-generative-ui-spinner"
-          >
-            <circle cx="12" cy="12" r="10" stroke="#e0e0e0" stroke-width="3" />
-            <path
-              d="M12 2a10 10 0 0 1 10 10"
-              stroke="#999"
-              stroke-width="3"
-              stroke-linecap="round"
-            />
-          </svg>
+          @if (state().showSpinner) {
+            <svg
+              data-testid="open-generative-ui-spinner"
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              class="copilot-open-generative-ui-spinner"
+            >
+              <circle cx="12" cy="12" r="10" stroke="#e0e0e0" stroke-width="3" />
+              <path
+                d="M12 2a10 10 0 0 1 10 10"
+                stroke="#999"
+                stroke-width="3"
+                stroke-linecap="round"
+              />
+            </svg>
+          }
         </div>
       }
     </div>
@@ -117,12 +99,6 @@ function parseOpenGenerativeUIContent(
         background-color: transparent;
         border: none;
         display: block;
-      }
-
-      .copilot-open-generative-ui-placeholder {
-        display: flex;
-        align-items: center;
-        justify-content: center;
       }
 
       .copilot-open-generative-ui-overlay {
@@ -158,12 +134,11 @@ export class CopilotOpenGenerativeUIRenderer implements OnChanges {
   private readonly controller = new ɵOpenGenerativeUIController({
     loadWebsandbox: inject(OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER),
   });
-  private readonly state = signal(this.controller.getState());
+  protected readonly state = signal(this.controller.getState());
 
   protected readonly hasVisibleSandbox = computed(
     () => this.state().phase !== "placeholder",
   );
-  protected readonly isGenerating = computed(() => this.state().generating);
   protected readonly height = computed(() => this.state().height);
 
   constructor() {

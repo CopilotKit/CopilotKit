@@ -1,236 +1,65 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useCopilotKit } from "../context";
+import { useEffect, useRef } from "react";
+import { useCopilotKit, useDefaultAgentId } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import { ɵbindSuggestionsConfig } from "@copilotkit/core";
 import type {
-  DynamicSuggestionsConfig,
-  StaticSuggestionsConfig,
-  SuggestionsConfig,
-  Suggestion,
+  ɵSuggestionsBinding,
+  ɵSuggestionsConfigInput,
 } from "@copilotkit/core";
 
-type StaticSuggestionInput = Omit<Suggestion, "isLoading"> &
-  Partial<Pick<Suggestion, "isLoading">>;
-
-type StaticSuggestionsConfigInput = Omit<
-  StaticSuggestionsConfig,
-  "suggestions"
-> & {
-  suggestions: StaticSuggestionInput[];
-};
-
-type SuggestionsConfigInput =
-  | DynamicSuggestionsConfig
-  | StaticSuggestionsConfigInput;
-
+/**
+ * Registers a suggestions configuration (dynamic or static) for the current
+ * chat. A global config (no `consumerAgentId`, or `"*"`) applies to every
+ * agent and loads for the surrounding chat's agent first.
+ *
+ * Pass `deps` to reload suggestions when values the config reads change.
+ *
+ * @example
+ * useConfigureSuggestions({
+ *   instructions: "Suggest concise next steps for the user",
+ *   available: "always",
+ * });
+ */
 export function useConfigureSuggestions(
-  config: SuggestionsConfigInput | null | undefined,
+  config: ɵSuggestionsConfigInput | null | undefined,
   deps?: ReadonlyArray<unknown>,
 ): void {
   const { copilotkit } = useCopilotKit();
   const chatConfig = useCopilotChatConfiguration();
+  const providerAgentId = useDefaultAgentId();
+  const chatAgentId =
+    chatConfig?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
   const extraDeps = deps ?? [];
 
-  const resolvedConsumerAgentId = useMemo(
-    () => chatConfig?.agentId ?? DEFAULT_AGENT_ID,
-    [chatConfig?.agentId],
-  );
-
-  const rawConsumerAgentId = useMemo(
-    () =>
-      config ? (config as SuggestionsConfigInput).consumerAgentId : undefined,
-    [config],
-  );
-
-  const normalizationCacheRef = useRef<{
-    serialized: string | null;
-    config: SuggestionsConfig | null;
-  }>({
-    serialized: null,
-    config: null,
-  });
-
-  const { normalizedConfig, serializedConfig } = useMemo(() => {
-    if (!config) {
-      normalizationCacheRef.current = { serialized: null, config: null };
-      return { normalizedConfig: null, serializedConfig: null };
-    }
-
-    if (config.available === "disabled") {
-      normalizationCacheRef.current = { serialized: null, config: null };
-      return { normalizedConfig: null, serializedConfig: null };
-    }
-
-    let built: SuggestionsConfig;
-    if (isDynamicConfig(config)) {
-      built = {
-        ...config,
-      } satisfies DynamicSuggestionsConfig;
-    } else {
-      const normalizedSuggestions = normalizeStaticSuggestions(
-        config.suggestions,
-      );
-      const baseConfig: StaticSuggestionsConfig = {
-        ...config,
-        suggestions: normalizedSuggestions,
-      };
-      built = baseConfig;
-    }
-
-    const serialized = JSON.stringify(built);
-    const cache = normalizationCacheRef.current;
-    if (cache.serialized === serialized && cache.config) {
-      return { normalizedConfig: cache.config, serializedConfig: serialized };
-    }
-
-    normalizationCacheRef.current = { serialized, config: built };
-    return { normalizedConfig: built, serializedConfig: serialized };
-  }, [config, resolvedConsumerAgentId, ...extraDeps]);
-  const latestConfigRef = useRef<SuggestionsConfig | null>(null);
-  latestConfigRef.current = normalizedConfig;
-  const previousSerializedConfigRef = useRef<string | null>(null);
-
-  const targetAgentId = useMemo(() => {
-    if (!normalizedConfig) {
-      return resolvedConsumerAgentId;
-    }
-    const consumer = (
-      normalizedConfig as StaticSuggestionsConfig | DynamicSuggestionsConfig
-    ).consumerAgentId;
-    if (!consumer || consumer === "*") {
-      return resolvedConsumerAgentId;
-    }
-    return consumer;
-  }, [normalizedConfig, resolvedConsumerAgentId]);
-
-  const isGlobalConfig =
-    rawConsumerAgentId === undefined || rawConsumerAgentId === "*";
-
-  const isDynamicConfigType = useMemo(
-    () => !!normalizedConfig && "instructions" in normalizedConfig,
-    [normalizedConfig],
-  );
-
-  const requestReload = useCallback(() => {
-    if (!normalizedConfig) {
-      return;
-    }
-
-    if (isGlobalConfig) {
-      const seen = new Set<string>();
-      const agents = Object.values(copilotkit.agents ?? {});
-      for (const entry of agents) {
-        const agentId = entry.agentId;
-        if (!agentId) {
-          continue;
-        }
-        seen.add(agentId);
-        if (!entry.isRunning) {
-          copilotkit.reloadSuggestions(agentId);
-        }
-      }
-      // Also reload for the chat's resolved consumer agent. The registry can
-      // be empty at this point (e.g. runtime info still loading), in which
-      // case the loop above wouldn't have fired for the agent the user is
-      // actually chatting with — and the welcome screen would render with
-      // no suggestions until they navigate away and back.
-      if (targetAgentId && !seen.has(targetAgentId)) {
-        copilotkit.reloadSuggestions(targetAgentId);
-      }
-      return;
-    }
-
-    if (!targetAgentId) {
-      return;
-    }
-
-    copilotkit.reloadSuggestions(targetAgentId);
-  }, [copilotkit, isGlobalConfig, normalizedConfig, targetAgentId]);
+  const bindingRef = useRef<ɵSuggestionsBinding | null>(null);
+  const latestRef = useRef({ config, chatAgentId });
+  latestRef.current = { config, chatAgentId };
 
   useEffect(() => {
-    if (!serializedConfig || !latestConfigRef.current) {
-      return;
-    }
-
-    const id = copilotkit.addSuggestionsConfig(latestConfigRef.current);
-
-    requestReload();
-
-    return () => {
-      copilotkit.removeSuggestionsConfig(id);
-    };
-  }, [copilotkit, serializedConfig, requestReload]);
-
-  useEffect(() => {
-    if (!normalizedConfig) {
-      previousSerializedConfigRef.current = null;
-      return;
-    }
-    if (
-      serializedConfig &&
-      previousSerializedConfigRef.current === serializedConfig
-    ) {
-      return;
-    }
-    if (serializedConfig) {
-      previousSerializedConfigRef.current = serializedConfig;
-    }
-    requestReload();
-  }, [normalizedConfig, requestReload, serializedConfig]);
-
-  useEffect(() => {
-    if (!normalizedConfig || extraDeps.length === 0) {
-      return;
-    }
-    requestReload();
-  }, [extraDeps.length, normalizedConfig, requestReload, ...extraDeps]);
-
-  // When agents arrive after the initial render (runtime info just landed),
-  // re-request a reload so dynamic configs that need a real agent can finally
-  // generate.  Skip for static configs — they don't need an agent and the
-  // initial mount reload already handled them.  Skip when the target agent
-  // is already in the registry — the initial reload already covered it, and
-  // re-firing on every subsequent `onAgentsChanged` (e.g. dev-mode hot
-  // reloads, sibling chat configs mounting) would stack overlapping
-  // generations.
-  useEffect(() => {
-    if (!normalizedConfig || !isDynamicConfigType) return;
-    if (!targetAgentId) return;
-
-    const initiallyPresent = !!copilotkit.getAgent(targetAgentId);
-    if (initiallyPresent) return;
-
-    const subscription = copilotkit.subscribe({
-      onAgentsChanged: () => {
-        if (copilotkit.getAgent(targetAgentId)) {
-          requestReload();
-          subscription.unsubscribe();
-        }
-      },
+    const latest = latestRef.current;
+    const binding = ɵbindSuggestionsConfig(copilotkit, latest.config, {
+      chatAgentId: latest.chatAgentId,
     });
+    bindingRef.current = binding;
     return () => {
-      subscription.unsubscribe();
+      binding.dispose();
+      if (bindingRef.current === binding) bindingRef.current = null;
     };
-  }, [
-    copilotkit,
-    normalizedConfig,
-    isDynamicConfigType,
-    targetAgentId,
-    requestReload,
-  ]);
-}
+  }, [copilotkit]);
 
-function isDynamicConfig(
-  config: SuggestionsConfigInput,
-): config is DynamicSuggestionsConfig {
-  return "instructions" in config;
-}
+  // The binding compares configs by content, so a new inline object on every
+  // render is a no-op.
+  useEffect(() => {
+    bindingRef.current?.update(config, { chatAgentId });
+  }, [config, chatAgentId]);
 
-function normalizeStaticSuggestions(
-  suggestions: StaticSuggestionInput[],
-): Suggestion[] {
-  return suggestions.map((suggestion) => ({
-    ...suggestion,
-    isLoading: suggestion.isLoading ?? false,
-  }));
+  const depsMountedRef = useRef(false);
+  useEffect(() => {
+    if (!depsMountedRef.current) {
+      depsMountedRef.current = true;
+      return;
+    }
+    if (extraDeps.length > 0) bindingRef.current?.reload();
+  }, [extraDeps.length, ...extraDeps]);
 }

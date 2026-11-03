@@ -5,14 +5,8 @@ import {
   computed,
   input,
 } from "@angular/core";
-import {
-  Check,
-  Circle,
-  CopilotIcon,
-  Loader2,
-  X,
-  type CopilotIconData,
-} from "../icons/copilot-icon";
+import { ɵTOOL_CALL_STATUS_ICONS, ɵcopilotIcons } from "@copilotkit/core";
+import { CopilotIcon, type CopilotIconData } from "../icons/copilot-icon";
 import type { ToolCallRowStatus } from "./tool-call-render-context";
 import { cn } from "../../utils";
 
@@ -53,10 +47,7 @@ export class CopilotCollapsible {
 export class CopilotToolCallStatusIcon {
   readonly status = input.required<ToolCallRowStatus>();
   protected readonly icon = computed<CopilotIconData>(
-    () =>
-      ({ running: Loader2, done: Check, failed: X, stopped: Circle })[
-        this.status()
-      ],
+    () => ɵcopilotIcons[ɵTOOL_CALL_STATUS_ICONS[this.status()]].nodes,
   );
   protected readonly iconClass = computed(() =>
     cn(

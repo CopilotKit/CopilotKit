@@ -319,7 +319,7 @@ function findLucideIcon(icons: IconMap, name: string) {
   const pascalName = kebabToPascal(name);
   const key = pascalName in icons ? pascalName : name in icons ? name : null;
   if (key === null) return null;
-  const nodes: IconSvgNode[] = icons[key].map(([tag, attributes]) => ({
+  const nodes: IconSvgNode[] = icons[key]!.map(([tag, attributes]) => ({
     tag,
     attributes,
   }));

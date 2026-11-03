@@ -39,7 +39,7 @@ function compactPropOf(schema: GenerativeUIJSONSchema) {
       },
     }),
   );
-  return compact.components.Box.props["value?"];
+  return compact.components.Box!.props["value?"];
 }
 
 describe("buildCompactGenerativeUISchema", () => {
@@ -202,32 +202,32 @@ describe("buildCompactGenerativeUISchema with standardUI", () => {
   it("preserves chart and series guidance in the exported catalog and compact schema", () => {
     const catalog = exportA2UICatalog(standardUI);
     const compact = compactStandardSchema();
-    const properties = catalog.components.Chart.properties as Record<
+    const properties = catalog.components.Chart!.properties as Record<
       string,
       GenerativeUIJSONSchema
     >;
-    const axis = properties.yAxis.description as string;
+    const axis = properties.yAxis!.description as string;
     // The fields are in the type; the description only explains them.
-    expect(compact.components.Chart.props["yAxis?"]).toContain(
+    expect(compact.components.Chart!.props["yAxis?"]).toContain(
       "{ label?: string; min?: number; max?: number; width?: number }",
     );
     expect(axis).toContain('label: "Revenue (USD)"');
     expect(axis).toContain("horizontal axis");
     expect(axis).toContain("width sets the category axis width");
     expect(axis).not.toContain("width: 64");
-    expect(compact.components.Chart.props["yAxis?"]).toContain(axis);
+    expect(compact.components.Chart!.props["yAxis?"]).toContain(axis);
 
-    const format = properties.format.description as string;
+    const format = properties.format!.description as string;
     expect(format).toContain("data values and axis min/max");
     expect(format).toContain("0.4");
     expect(format).toContain("40%");
     expect(format).toContain("max: 0.1");
-    expect(compact.components.Chart.props["format?"]).toContain(format);
-    expect(catalog.functions.series.description).toBe(
-      GENERATIVE_UI_FUNCTIONS.series.description,
+    expect(compact.components.Chart!.props["format?"]).toContain(format);
+    expect(catalog.functions.series!.description).toBe(
+      GENERATIVE_UI_FUNCTIONS.series!.description,
     );
-    expect(compact.functions.series.description).toBe(
-      GENERATIVE_UI_FUNCTIONS.series.description,
+    expect(compact.functions.series!.description).toBe(
+      GENERATIVE_UI_FUNCTIONS.series!.description,
     );
   });
 
@@ -238,13 +238,13 @@ describe("buildCompactGenerativeUISchema with standardUI", () => {
     expect(Object.keys(common)).toEqual(
       expect.arrayContaining(["gap?", "padding?", "border?", "radius?"]),
     );
-    expect(schema.components.Column.includesCommonProps).toBe(true);
-    expect(schema.components.Column.props).not.toHaveProperty("gap?");
-    expect(schema.components.Card.includesCommonProps).toBe(true);
-    expect(schema.components.Card.props).toHaveProperty("variant?");
+    expect(schema.components.Column!.includesCommonProps).toBe(true);
+    expect(schema.components.Column!.props).not.toHaveProperty("gap?");
+    expect(schema.components.Card!.includesCommonProps).toBe(true);
+    expect(schema.components.Card!.props).toHaveProperty("variant?");
     // A component without the layout props keeps all of its own.
-    expect(schema.components.Text.includesCommonProps).toBeUndefined();
-    expect(schema.components.Text.props).toHaveProperty("text?");
+    expect(schema.components.Text!.includesCommonProps).toBeUndefined();
+    expect(schema.components.Text!.props).toHaveProperty("text?");
   });
 
   it("keeps the schema and the guideline of the standard components small", () => {
@@ -263,7 +263,7 @@ describe("buildCompactGenerativeUISchema with standardUI", () => {
       parameters:
         "{ value: number; currency: string; decimals?: number; grouping?: boolean }",
     });
-    expect(schema.functions.calc.parameters).toContain("expression: string");
+    expect(schema.functions.calc!.parameters).toContain("expression: string");
   });
 
   it.skipIf(GENERATIVE_UI_AGENT_FUNCTION_CALLS)(
