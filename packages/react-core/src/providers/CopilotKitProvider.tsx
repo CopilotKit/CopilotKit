@@ -61,6 +61,7 @@ import {
   OpenGenerativeUIToolRenderer,
 } from "../components/OpenGenerativeUIRenderer";
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
+import type { A2UIActionInterceptor } from "../a2ui/A2UIMessageRenderer";
 import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryStates";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
 import { useGenerativeUIRoot } from "../generative-ui/use-generative-ui-root";
@@ -307,6 +308,13 @@ export interface CopilotKitProviderProps {
      * much retry/debug detail to surface. When omitted, sane defaults apply.
      */
     recovery?: A2UIRecoveryRendererOptions;
+    /**
+     * Intercept A2UI user actions before they reach the agent: return `null`
+     * to handle an action client-side (e.g. a `navigate` event), return an
+     * action to forward that one instead, or return nothing to forward it
+     * unchanged.
+     */
+    onAction?: A2UIActionInterceptor;
   };
   /**
    * Experimental. Native generative UI: `generativeUI={{ ui }}`, where `ui`
@@ -620,6 +628,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           catalog: filteredCatalog,
           loadingComponent: a2ui?.loadingComponent,
           recovery: a2ui?.recovery,
+          onAction: a2ui?.onAction,
         }),
       );
     }

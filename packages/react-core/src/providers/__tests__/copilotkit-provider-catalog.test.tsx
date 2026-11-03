@@ -12,9 +12,14 @@ type ComponentApi = { name: string; schema: z.ZodType<any> };
 // `createA2UIMessageRenderer` from `../a2ui/A2UIMessageRenderer` (not from the
 // package), so that is the module to stub.
 const rendererCatalogs: Array<Catalog<ComponentApi> | undefined> = [];
+const rendererOnActions: unknown[] = [];
 vi.mock("../../a2ui/A2UIMessageRenderer", () => ({
-  createA2UIMessageRenderer: (opts: { catalog?: Catalog<ComponentApi> }) => {
+  createA2UIMessageRenderer: (opts: {
+    catalog?: Catalog<ComponentApi>;
+    onAction?: unknown;
+  }) => {
     rendererCatalogs.push(opts?.catalog);
+    rendererOnActions.push(opts?.onAction);
     return {
       activityType: "a2ui-surface",
       content: z.object({}),
@@ -159,5 +164,15 @@ describe("CopilotKitProvider A2UI catalog toggling", () => {
     const lastRenderer = rendererCatalogs.at(-1)!;
     expect(lastRenderer.components.has("FlightCard")).toBe(true);
     expect(advertises("FlightCard")).toBe(true);
+  });
+
+  it("passes a2ui.onAction to the A2UI renderer", () => {
+    const onAction = () => null;
+    render(
+      <CopilotKitProvider a2ui={{ catalog: makeCatalog(), onAction }}>
+        <CoreCapture />
+      </CopilotKitProvider>,
+    );
+    expect(rendererOnActions.at(-1)).toBe(onAction);
   });
 });
