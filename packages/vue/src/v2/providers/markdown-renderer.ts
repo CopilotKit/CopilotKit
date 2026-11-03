@@ -1,6 +1,10 @@
 import { inject } from "vue";
 import type { Component, InjectionKey } from "vue";
-import type { VueStreamingMarkdownNodeRenderers } from "@copilotkit/markdown/vue";
+import type {
+  VueStreamingMarkdownCitationClickHandler,
+  VueStreamingMarkdownLinkClickHandler,
+  VueStreamingMarkdownNodeRenderers,
+} from "@copilotkit/markdown/vue";
 import type { StreamingMarkdownParserOptions } from "@copilotkit/markdown";
 
 /** Config for the built-in Vue default renderer (pass instead of a component). */
@@ -9,6 +13,8 @@ export interface DefaultMarkdownRendererProps {
   caret?: boolean;
   options?: Partial<StreamingMarkdownParserOptions>;
   class?: string;
+  onLinkClick?: VueStreamingMarkdownLinkClickHandler;
+  onCitationClick?: VueStreamingMarkdownCitationClickHandler;
 }
 
 export type MarkdownRendererValue = Component | DefaultMarkdownRendererProps;
