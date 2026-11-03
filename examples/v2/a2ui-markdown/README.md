@@ -136,3 +136,7 @@ npx wrangler secret put OPENAI_API_KEY
 
 For the local preview, put `OPENAI_API_KEY=...` in `.dev.vars`. The build
 first builds `@copilotkit/react-core` and `@copilotkit/runtime` with nx.
+
+The account needs the Workers Paid plan. A long streamed answer uses a few
+seconds of CPU, and the free plan stops it after about 2 s, mid-answer.
+`wrangler.jsonc` raises the limit to 60 s, which only Workers Paid allows.

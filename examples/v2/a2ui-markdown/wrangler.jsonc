@@ -18,6 +18,9 @@
   ],
   // Workers Logs: per-request logs including CPU time.
   "observability": { "enabled": true },
+  // A long streamed answer takes seconds of CPU; the free plan stops it
+  // after about 2 s. Raising the limit requires the Workers Paid plan.
+  "limits": { "cpu_ms": 60000 },
   // OPENAI_API_KEY is a secret: `wrangler secret put OPENAI_API_KEY`.
   // Locally, put it in .dev.vars.
 }
