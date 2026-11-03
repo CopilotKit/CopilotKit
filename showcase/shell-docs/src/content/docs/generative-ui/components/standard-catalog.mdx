@@ -65,22 +65,20 @@ Use it as it is:
 
 A few things to know:
 
-- **Every input validates.** `checks` holds the `Checkable` rules of A2UI 1.0: `[{ "condition": { "@call": "email", "args": { "value": { "@path": "/form/email" } } }, "message": "Enter a valid email" }]`. An input shows the first failed message once the user has been in it, and a `Button` with the same checks is disabled while one fails. A result carries the A2UI `ValidationResult` fields: the built-in validators set a `code` (`required`, `pattern`, `tooShort`, `tooLong`, `notANumber`, `tooSmall`, `tooLarge`, `email`), and a `severity` of `"warning"` or `"info"` (from a bound result or your own validator) shows the message in its own colour without making the input invalid or holding the `Button` back.
-- **`Video` takes any URL.** A video file plays in the native player, with `captions` as WebVTT tracks; a YouTube link shows a poster until the user presses play, then loads the privacy-enhanced embed. A page on another video site (Vimeo, Loom, TikTok, …) and a file that fails to load show a link card instead of a dead player. YouTube is the only provider that embeds; to embed another one, [replace the component](#replace-a-component). `Tabs` takes `tabs: [{ "title", "child" }]` with the id of each panel.
 - **Inputs keep what users type.** When the agent binds an input to a value, what the user types stays. A later agent update cannot write over it.
 - **`Button` and `Pressable` can act in the browser.** `href` opens a URL, and `Button` with `copy` copies text, with no message to the agent.
-- **`Map` needs one package.** Run `npm install maplibre-gl` if your agent draws maps. Without it, the map shows a list of the places. In Angular, also add `provideGenerativeUIMap()` from `@copilotkit/angular/generative-ui/map` to the root providers. In Vue, also add `app.use(GenerativeUIMap)` from `@copilotkit/vue/v2/generative-ui/map`.
-- **`Chart` works out of the box.** It uses `recharts`, which comes with CopilotKit. In Angular, `Chart` draws with `chart.js` and `Icon` with `lucide`: install them and add `provideGenerativeUIChart()` and `provideGenerativeUIIcons()` from the `/chart` and `/icons` entries of `@copilotkit/angular/generative-ui`. Without them, a chart shows its data as a table and an icon shows nothing. In Vue, `Chart` draws with `chart.js`: install it and add `app.use(GenerativeUIChart)` from `@copilotkit/vue/v2/generative-ui/chart`. Without it, a chart shows its data as a table. Icons work with no setup.
+- **`Map` needs one package.** Run `npm install maplibre-gl` if your agent draws maps. Without it, the map shows a list of the places.
+- **`Chart` needs no extra install.** It uses `recharts`, which comes with CopilotKit.
+
+Component details:
+
+- **Every input validates.** `checks` holds the `Checkable` rules of A2UI 1.0: `[{ "condition": { "@call": "email", "args": { "value": { "@path": "/form/email" } } }, "message": "Enter a valid email" }]`. An input shows the first failed message once the user has been in it, and a `Button` with the same checks is disabled while one fails. A failed check gives an A2UI `ValidationResult`. The built-in validators set a `code`: `required`, `pattern`, `tooShort`, `tooLong`, `notANumber`, `tooSmall`, `tooLarge`, or `email`. A result with `severity: "warning"` or `"info"` (from a bound result or your own validator) shows its message in its own color. It does not make the input invalid or disable the `Button`.
+- **`Video` takes any URL.** A video file plays in the native player, with `captions` as WebVTT tracks; a YouTube link shows a poster until the user presses play, then loads the privacy-enhanced embed. A page on another video site (Vimeo, Loom, TikTok, …) and a file that fails to load show a link card instead of a dead player. YouTube is the only provider that embeds; to embed another one, [replace the component](#replace-a-component).
+- **`Tabs` takes a list of panels.** `tabs: [{ "title", "child" }]`, with the id of each panel.
 
 Each standalone component has a dedicated page with the existing live examples, copyable surface operations, and API reference. Structural parts are documented on their parent component's page. Previews use local sample data and do not require a model connection.
 
-## Express calling conventions
-
-The standard catalog exports content, children, labels/values and common actions before presentation parameters. For example, the short prefixes are `Text(text?, children?)`, `Column(children?)`, `Button(label?, onClick?)`, `TextField(label?, value?)` and `Chart(data?, xKey?, series?, chartType?)`. Other component-specific fields follow, then shared layout and typography fields. Optional styling is easiest to pass by name.
-
-This is CopilotKit's catalog design, not a prescribed list of signatures from A2UI. The official Express specification defines how JSON property order becomes argument order. The standard catalog applies that rule through [`exportA2UICatalog`](/generative-ui/components/catalogs#positional-parameter-order), so agents consuming the exported catalog receive the same calling convention regardless of framework.
-
-Compared with the initial experimental style-first catalog, this changes positional meanings. Start a fresh conversation when moving to this catalog and regenerate saved positional Express source against its signatures. Named arguments and JSON property values keep their meaning.
+For the positional order of each component in A2UI Express, see [Positional parameter order](/generative-ui/components/catalogs#positional-parameter-order).
 
 ## Add your own components
 
@@ -132,7 +130,7 @@ See [Catalogs](/generative-ui/components/catalogs) for how to declare a componen
 
 ## Drop components
 
-Every component makes the prompt a little longer. If your app never needs a map or a video, remove them. `omit` returns a copy of the catalog without them, and the agent no longer sees them:
+Every component makes the prompt a little longer. If your app never needs a map or a video, remove them. `omit` returns a copy of the catalog without them, and the agent does not see them:
 
 ```ts
 export const appUI = createGenerativeUI({

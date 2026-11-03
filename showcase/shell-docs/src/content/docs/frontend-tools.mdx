@@ -14,9 +14,9 @@ import InspectorPaneFrontendTools from "@/snippets/shared/inspector/open-inspect
 
 ## What is this?
 
-Frontend tools let your agent define and invoke client-side functions that run entirely in the user's browser. Because the handler executes on the frontend, it has direct access to component state, browser APIs, and any third-party UI library the page already uses. That's how an agent can "reach into" the app: update React state, trigger animations, read `localStorage`, pop a toast, or steer the user's view.
+A frontend tool is a function that you register in the browser. Your agent can call it, and the function runs in the user's browser. Because the handler runs in the browser, it has direct access to component state, browser APIs, and any third-party UI library the page already uses. That's how an agent can "reach into" the app: update React state, trigger animations, read `localStorage`, pop a toast, or steer the user's view.
 
-This page covers the "agent drives the UI" shape of frontend tools. The same primitive also powers Generative UI and Human-in-the-loop; see those pages for interaction patterns.
+This page covers the "agent drives the UI" shape of frontend tools. To render a component for a tool call, see [Generative UI](/generative-ui). To ask the user before a tool runs, see [Human-in-the-loop](/human-in-the-loop).
 
 ## When should I use this?
 
@@ -27,7 +27,6 @@ Use frontend tools when your agent needs to:
 - Trigger UI updates, animations, or transitions
 - Show alerts, toasts, or notifications
 - Interact with third-party frontend libraries
-- Perform anything that requires the user's immediate browser context
 
 ## How it works in code
 
@@ -43,6 +42,8 @@ is sent back to the agent as the tool result so the model can reason about
 what happened.
 
 <Snippet region="frontend-tool-handler" title="frontend/src/app/page.tsx — handler body" />
+
+Ask the agent to change the background to a blue gradient. The page background changes, and the agent gets `{ status: "success" }` as the tool result.
 
 ## Registering a list of tools
 
@@ -64,9 +65,13 @@ useFrontendTools(
 );
 ```
 
-Tools that leave the array are unregistered, tools that join it are registered,
-and a re-render that produces an equal list does not re-register anything. A
-description built from your data stays current on its own. The second argument
+On each render:
+
+- A tool that leaves the array is unregistered.
+- A tool that joins the array is registered.
+- A re-render that produces an equal list does not re-register anything.
+
+A description built from your data stays current on its own. The second argument
 is for values a handler closes over, such as `navigate` above.
 
 <IntegrationGrid path="frontend-tools" />

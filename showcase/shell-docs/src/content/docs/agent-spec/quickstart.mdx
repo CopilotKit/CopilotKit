@@ -7,6 +7,7 @@ hideTOC: true
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
+
 ## Start with your coding agent
 
 Use this prompt to connect your Agent Spec agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
@@ -16,7 +17,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
 ## Prerequisites
 
 - Node.js 20+
-- Python 3.10–3.13
+- Python 3.10 to 3.13
 
 ## Getting started
 
@@ -44,7 +45,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
       <Step>
           ### Install the Agent Spec AG‑UI adapter (backend)
 
-          The AG‑UI integration for Agent Spec lives in `ag-ui/integrations/agent-spec/python`. You will need it to activate your agent environment in the starter. Here's how to install it:
+          The AG‑UI integration for Agent Spec lives in `ag-ui/integrations/agent-spec/python`. The starter installs this adapter from PyPI for you. Clone it only if you want to read or change the adapter source. Here's how to install it:
 
           ```bash
           # Clone the adapter and move into the Python package
@@ -54,44 +55,44 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           cd integrations/agent-spec/python
           ```
 
-          This will setup AG-UI integration which will be used by the starter repository to install starter templates agent. This is only for agent environment setup
-          As this integration package uses `uv` as the package manager, you can easily install it with:
+          The adapter uses `uv` as its package manager. Install the adapter with both frameworks that can run an Agent Spec agent: LangGraph and WayFlow (Oracle's reference agent framework, with native support for Agent Spec).
 
           ```bash
-          uv sync
+          uv sync --extra langgraph --extra wayflow
           ```
 
-          Agent Spec is a specification language that declares the structure of your agents and workflows. Agent Spec agents can be run on various agent frameworks. Currently, we support LangGraph and WayFlow (Oracle's reference agent framework, with native support for Agent Spec).
-          Here are the different installation options depending on which agent framework you want to execute your Agent Spec agent on:
+          <Accordions className="mb-4">
+            <Accordion title="Other ways to install">
+              To install one framework only, use one of these `uv` commands:
 
-          ```bash
-          uv sync --extra langgraph                         # for LangGraph
-          uv sync --extra wayflow                           # for WayFlow
-          uv sync --extra langgraph --extra wayflow         # for both
-          ```
+              ```bash
+              uv sync --extra langgraph                         # for LangGraph
+              uv sync --extra wayflow                           # for WayFlow
+              ```
 
-          Alternatively, you can use `pip`:
+              You can also use `pip`:
 
-          ```bash
-          pip install -e .[wayflow]
-          pip install -e .[langgraph]
-          pip install -e .[wayflow,langgraph]
-          ```
+              ```bash
+              pip install -e .[wayflow]
+              pip install -e .[langgraph]
+              pip install -e .[wayflow,langgraph]
+              ```
 
-          Note: these commands would install [`pyagentspec`](https://github.com/oracle/agent-spec) and [`wayflowcore`](https://github.com/oracle/wayflow) packages from source (i.e. the respective GitHub repos).
-          Instead, you can install these packages from PyPI separately:
+              These commands install [`pyagentspec`](https://github.com/oracle/agent-spec) and [`wayflowcore`](https://github.com/oracle/wayflow) from source (their GitHub repos). To install these packages from PyPI:
 
-          ```bash
-          pip install pyagentspec[langgraph]
-          pip install wayflowcore
-          ```
+              ```bash
+              pip install pyagentspec[langgraph]
+              pip install wayflowcore
+              ```
 
-          or you can also use uv (In case you encounter any issues with pip installation)
+              If the `pip` install fails, use `uv`:
 
-          ```bash
-          uv add pyagentspec[langgraph]
-          uv add wayflowcore
-          ```
+              ```bash
+              uv add pyagentspec[langgraph]
+              uv add wayflowcore
+              ```
+            </Accordion>
+          </Accordions>
 
       </Step>
       <Step>
@@ -99,10 +100,11 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
 
           ```bash
           export OPENAI_API_KEY=...
-          export OPENAI_MODEL=gpt-6-luna
+          export OPENAI_MODEL=gpt-5.4
+          export OPENAI_BASE_URL=https://api.openai.com/v1
           ```
 
-          Note that these environment variables can point to any OpenAI-compatible LLM provider (e.g., local vLLM server, Together AI), but the variable names need to be `OPENAI_API_KEY` and `OPENAI_MODEL`.
+          To use another OpenAI-compatible LLM provider (for example, a local vLLM server or Together AI), set `OPENAI_BASE_URL` to its URL.
 
           Reference: Agent Spec docs AG‑UI tutorial at https://oracle.github.io/agent-spec/26.1.0/howtoguides/howto_ag_ui.html.
       </Step>
@@ -147,9 +149,9 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           ```
       </Step>
       <Step>
-        ### 🎉 Start chatting!
+        ### Start chatting
 
-        Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
+        Your AI agent is now ready to use. Navigate to `localhost:3000` and try asking it some questions:
 
         ```
         Can you tell me a joke?
@@ -198,43 +200,44 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           cd integrations/agent-spec/python
           ```
 
-          As this integration package uses `uv` as the package manager, you can easily install it with:
+          The adapter uses `uv` as its package manager. Install the adapter with both frameworks that can run an Agent Spec agent: LangGraph and WayFlow (Oracle's reference agent framework, with native support for Agent Spec).
 
           ```bash
-          uv sync
+          uv sync --extra langgraph --extra wayflow
           ```
 
-          Agent Spec is a specification language that declares the structure of your agents and workflows. Agent Spec agents can be run on various agent frameworks. Currently, we support LangGraph and WayFlow (Oracle's reference agent framework, with native support for Agent Spec).
-          Here are the different installation options depending on which agent framework you want to execute your Agent Spec agent on:
+          <Accordions className="mb-4">
+            <Accordion title="Other ways to install">
+              To install one framework only, use one of these `uv` commands:
 
-          ```bash
-          uv sync --extra langgraph                         # for LangGraph
-          uv sync --extra wayflow                           # for WayFlow
-          uv sync --extra langgraph --extra wayflow         # for both
-          ```
+              ```bash
+              uv sync --extra langgraph                         # for LangGraph
+              uv sync --extra wayflow                           # for WayFlow
+              ```
 
-          Alternatively, you can use `pip`:
+              You can also use `pip`:
 
-          ```bash
-          pip install -e .[wayflow]
-          pip install -e .[langgraph]
-          pip install -e .[wayflow,langgraph]
-          ```
+              ```bash
+              pip install -e .[wayflow]
+              pip install -e .[langgraph]
+              pip install -e .[wayflow,langgraph]
+              ```
 
-          Note: these commands would install [`pyagentspec`](https://github.com/oracle/agent-spec) and [`wayflowcore`](https://github.com/oracle/wayflow) packages from source (i.e. the respective GitHub repos).
-          Instead, you can install these packages from PyPI separately:
+              These commands install [`pyagentspec`](https://github.com/oracle/agent-spec) and [`wayflowcore`](https://github.com/oracle/wayflow) from source (their GitHub repos). To install these packages from PyPI:
 
-          ```bash
-          pip install pyagentspec[langgraph]
-          pip install wayflowcore
-          ```
+              ```bash
+              pip install pyagentspec[langgraph]
+              pip install wayflowcore
+              ```
 
-           or you can also use uv (In case you encounter any issues with pip installation)
+              If the `pip` install fails, use `uv`:
 
-          ```bash
-          uv add pyagentspec[langgraph]
-          uv add wayflowcore
-          ```
+              ```bash
+              uv add pyagentspec[langgraph]
+              uv add wayflowcore
+              ```
+            </Accordion>
+          </Accordions>
       </Step>
       <Step>
           ### Configure your environment
@@ -244,7 +247,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           export OPENAI_MODEL=gpt-6-luna
           ```
 
-          Note that these environment variables can point to any OpenAI-compatible LLM provider (e.g., local vLLM server, Together AI), but the variable names need to be `OPENAI_API_KEY` and `OPENAI_MODEL`.
+          The `main.py` below sets the model and the provider URL in `OpenAiCompatibleConfig`. To use another OpenAI-compatible LLM provider (for example, a local vLLM server or Together AI), change `model_id` and `url` there.
 
           Reference: Agent Spec docs AG‑UI tutorial at https://oracle.github.io/agent-spec/26.1.0/howtoguides/howto_ag_ui.html.
       </Step>
@@ -285,7 +288,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
 
 
           #OR you can specify your own agent_spec_config like below
-          #agent_spec_config = <loaded json/yaml string of your Agent Spec agent>
+          #agent_spec_config = <your Agent Spec agent as a JSON string>
 
           runtime = "langgraph"  # or "wayflow"
 
@@ -318,7 +321,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
       <Step>
           ### Setup Copilot Runtime
 
-          Create an API route to connect CopilotKit to your Pydantic AI agent:
+          Create an API route to connect CopilotKit to your Agent Spec agent:
 
           ```tsx title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
           import {
@@ -391,8 +394,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           }
           ```
 
-          `app/layout.tsx` is a server component and cannot import the provider
-          directly, so it renders your client file instead:
+          Render `Providers` around your app in `app/layout.tsx`:
 
           ```tsx title="app/layout.tsx"
           import { Providers } from "./providers"; // [!code highlight]
@@ -490,9 +492,9 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
            </Tabs>
       </Step>
       <Step>
-        ### 🎉 Start chatting!
+        ### Start chatting
 
-        Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
+        Your AI agent is now ready to use. Navigate to `localhost:3000` and try asking it some questions:
 
         ```
         Can you tell me a joke?
@@ -543,16 +545,16 @@ tool_registry = {"get_weather": get_weather}
 
 app = FastAPI()
 agent = AgentSpecAgent(
-    agent_spec_config=<json/yaml string of your Agent Spec Agent>,
+    agent_spec_config=<your Agent Spec config as a JSON string>,
     runtime="langgraph",  # or "wayflow"
     tool_registry=tool_registry,
 )
 add_agentspec_fastapi_endpoint(app, agentspec_agent=agent, path="/")
 ```
 
-Frontend tools (corresponding to Agent Spec `ClientTool`) run in the browser and don't need to be added to the tool registry — see [Generative UI Frontend Tools](/frontend-tools) for details.
+Frontend tools (corresponding to Agent Spec `ClientTool`) run in the browser and don't need to be added to the tool registry. See [Generative UI Frontend Tools](/frontend-tools) for details.
 
-## What is happening under the hood
+## How it works
 
 Agent Spec, and the `pyagentspec` SDK, helps you define agents and workflows in a readable and portable config object/JSON file.
 The different adapters, LangGraph and WayFlow, loads your Agent Spec configs into framework-specific objects and executes them. In other words, Agent Spec is the "compiler", and the frameworks are the "runtimes".
@@ -564,10 +566,3 @@ In the frontend, CopilotKit converts and renders AG-UI events into the UI.
 ## Next steps
 
 Follow per-adapter tutorials: [LangGraph integration](/agent-spec/langgraph) and [WayFlow integration](/agent-spec/wayflow).
-
-## Learn more
-
-- AG-UI docs: https://docs.ag-ui.com/introduction
-- Agent Spec docs: https://oracle.github.io/agent-spec/development/docs_home.html
-- Agent Spec x AG-UI tutorial: https://oracle.github.io/agent-spec/26.1.0/howtoguides/howto_ag_ui.html
-- Agent Spec Tracing: https://oracle.github.io/agent-spec/development/agentspec/tracing.html

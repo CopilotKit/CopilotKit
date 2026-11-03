@@ -8,11 +8,11 @@ doc_type: explanation
 
 ## Overview
 
-Skill delivery makes published skills from one or more Learning containers available to an agent without another CLI download or process restart. A framework adapter adds an alphabetical catalog and two tools.
+Skill delivery makes published skills from one or more Learning Spaces available to an agent without another CLI download or process restart. A framework adapter adds an alphabetical catalog and two tools.
 
 <Image
   src="/images/cloud-hosted/cloud-hosted-skill-delivery.png"
-  alt="The Skills tab of a Learning container in cloud-hosted Intelligence. The Skill delivery toggle is on, and skill candidates wait for review."
+  alt="The Skills tab of a Learning Space in cloud-hosted Intelligence. The Skill delivery toggle is on, and skill candidates wait for review."
   width={2000}
   height={1447}
   className="my-8 w-full rounded-xl border border-[var(--border)]"
@@ -20,7 +20,7 @@ Skill delivery makes published skills from one or more Learning containers avail
 
 The model decides when to load and follow a skill.
 
-Developer instructions retain precedence. Skills cannot override the agent's role, safety rules, tool restrictions, or application policy.
+The catalog tells the model that your instructions take precedence over skill content. The adapter does not enforce this rule. Review each Skill before you publish it, and enforce hard limits in your tools and server code. Skills cannot add tools: the adapter adds only `copilotkit_load_skill` and `copilotkit_read_skill_file`.
 
 <Callout type="info">
   Start with [Automatic Learning](/learning) to collect threads, configure daily runs, and review skills. Before connecting an adapter, check that **Skill delivery** is enabled in the container's **Skills** tab. For guided setup, select **Set up skill delivery** there and copy the prompt into your coding agent.
@@ -32,9 +32,9 @@ The Intelligence SDK adapters load published Skills into your agent automaticall
 
 Complete these steps before you run an example:
 
-1. Create a Learning container in your Intelligence project.
+1. Create a Learning Space in your Intelligence project.
 2. Publish a Skill and enable **Skill delivery** in the container's **Skills** tab.
-3. Configure the agent with your project key and Learning container ID.
+3. Configure the agent with your project key and Learning Space ID. The API calls a Learning Space a container (`containerId`).
 
 For one container, you can set the container and revision **in code or with environment variables**. The examples below show code parameters. To use environment variables instead, omit the corresponding parameters from the code. You can mix both approaches: an explicit code value overrides its environment variable.
 
@@ -69,15 +69,13 @@ TypeScript uses the canonical client from `@copilotkit/runtime/v2`. Python uses 
 
 ## Native setup
 
-These adapters require the server and canonical client releases described below.
+Follow only the section for your framework. The [Choose an adapter](#choose-an-adapter) table links to each one.
 
 Each example shows an optional revision pin. Replace `"exact-revision-id"` with a published revision ID, or remove that parameter to use the environment fallback. If neither code nor environment specifies a revision, the adapter follows the latest published Skills. The SDK does not support `"auto"` as a special value.
 
 ### BuiltInAgent
 
 Configure `learnedSkills` directly on `BuiltInAgent`. No wrapper or separate adapter package is required.
-
-Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
@@ -86,7 +84,6 @@ const agent = new BuiltInAgent({
   model: "openai/gpt-6-luna",
   prompt: "Follow the application's support policy.",
   learnedSkills: {
-    // Set these here, or omit them to use environment variables (linked above).
     containerId: "support-learning",
     revision: "exact-revision-id", // Optional: pin a published revision.
   },
@@ -101,8 +98,6 @@ Classic mode adds the catalog and both executable skill tools before the model c
 
 BuiltInAgent fetches the snapshot before it calls your factory. Connect the catalog and tools to your model call:
 
-Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
-
 ```typescript
 import {
   BuiltInAgent,
@@ -114,7 +109,6 @@ import { stepCountIs, streamText } from "ai";
 const agent = new BuiltInAgent({
   type: "aisdk",
   learnedSkills: {
-    // Set these here, or omit them to use environment variables (linked above).
     containerId: "support-learning",
     revision: "exact-revision-id", // Optional: pin a published revision.
   },
@@ -149,8 +143,6 @@ Use Python 3.11 or later with native asynchronous agents from `langchain.agents.
 pip install copilotkit-intelligence-langgraph
 ```
 
-Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
-
 ```python
 import asyncio
 
@@ -160,7 +152,6 @@ from langchain.agents import create_agent
 
 async def main():
     skills = create_skill_registry_middleware(
-        # Set these here, or omit them to use environment variables (linked above).
         container_id="support-learning",
         revision="exact-revision-id",  # Optional: pin a published revision.
     )  # Uses the environment above for the project key.
@@ -195,8 +186,6 @@ npm install --save-dev tsx
 
 Save this example as `agent.mts`. Run it with `npx tsx agent.mts`:
 
-Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
-
 ```typescript
 import { createAgent } from "langchain";
 import {
@@ -205,7 +194,6 @@ import {
 } from "@copilotkit/intelligence-langgraph";
 
 const registry = new SkillRegistry({
-  // Set these here, or omit them to use environment variables (linked above).
   containerId: "support-learning",
   revision: "exact-revision-id", // Optional: pin a published revision.
 }); // Uses the environment above for the project key.
@@ -224,9 +212,7 @@ const result = await agent.invoke({
 console.log(result.messages.at(-1)?.content);
 ```
 
-The wrapper is currently required because affected LangChain/LangGraph versions cannot keep private transient middleware state correctly. Use the wrapped agent for `invoke`, `stream`, and `streamEvents`, including native `Command` resumes. `withConfig` retains the wrapper. Apply default cancellation signals with `agent.withConfig` after wrapping, or pass the signal to each invocation. Stream objects, readers, and native cancellation remain available. Calling the middleware without its wrapper returns `INVALID_CONFIG`.
-
-After the native framework fix passes the same lifecycle tests, middleware-only setup will become the default. The wrapper will be optional, and existing wrapped agents will continue to work.
+Wrap the agent with `skills.wrapAgent`. Use the wrapped agent for `invoke`, `stream`, and `streamEvents`, including native `Command` resumes. `withConfig` retains the wrapper. Apply default cancellation signals with `agent.withConfig` after wrapping, or pass the signal to each invocation. Stream objects, readers, and native cancellation remain available. Calling the middleware without its wrapper returns `INVALID_CONFIG`.
 
 Attach this middleware and its wrapper to each selected agent. Several agents can share one registry, but each wrapped invocation captures its own snapshot. Skills do not propagate automatically to arbitrary subagents. The wrapper supports the native agent's graph execution entry points for integrations that access `.graph`; graph batching and arbitrary compiled graph adaptation are outside this integration.
 
@@ -243,8 +229,6 @@ npm install --save-dev tsx
 
 Save this example as `agent.mts`. Run it with `npx tsx agent.mts`. Register the processor and its tools on the native `Agent`:
 
-Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
-
 ```typescript
 import { Agent } from "@mastra/core/agent";
 import {
@@ -253,7 +237,6 @@ import {
 } from "@copilotkit/intelligence-mastra";
 
 const registry = new SkillRegistry({
-  // Set these here, or omit them to use environment variables (linked above).
   containerId: "support-learning",
   revision: "exact-revision-id", // Optional: pin a published revision.
 }); // Uses the environment above for the project key.
@@ -288,8 +271,6 @@ Use Python 3.11 or later and add `SkillToolset` to a standard ADK `LlmAgent`.
 pip install copilotkit-intelligence-adk
 ```
 
-Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
-
 ```python
 import asyncio
 
@@ -302,7 +283,6 @@ from google.genai import types
 
 async def main():
     registry = SkillRegistry(
-        # Set these here, or omit them to use environment variables (linked above).
         container_id="support-learning",
         revision="exact-revision-id",  # Optional: pin a published revision.
     )
@@ -340,15 +320,12 @@ The adapter supports `google-adk>=1.17,<2`. Several selected agents can share on
 
 Use the provider's native agent factory with your application's `IChatClient`:
 
-Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
-
 ```csharp
 using CopilotKit.Intelligence.AgentFramework;
 using Microsoft.Agents.AI;
 
 using var skills = new SkillRegistryContextProvider(new SkillRegistryOptions
 {
-    // Set these here, or omit them to use environment variables (linked above).
     ContainerId = "support-learning",
     Revision = "exact-revision-id", // Optional: pin a published revision.
 });
@@ -365,7 +342,7 @@ The adapter targets .NET 9 and Agent Framework `>=1.0.0,<2.0.0`. `AddCopilotKitI
 
 ## Configure several containers
 
-Use `containers` to combine Skills from several Learning containers in the same project.
+Use `containers` to combine Skills from several Learning Spaces in the same project.
 Each entry has an `id` and an optional `revision` pin.
 An entry without a revision follows that container's latest published Skills.
 
@@ -420,17 +397,17 @@ var options = new SkillRegistryOptions
 };
 ```
 
-The list must contain 1–50 entries, with unique, nonempty IDs.
+The list must contain 1 to 50 entries, with unique, nonempty IDs.
 Credentials, timeouts, and the freshness window apply to every entry.
 All selected containers must belong to the project that the client key identifies.
 
-Do not combine `containers` with the old `containerId` or top-level `revision` fields.
+Do not combine `containers` with the single-container `containerId` or top-level `revision` fields.
 The SDK rejects this combination, including the corresponding Python and .NET fields.
 TypeScript also rejects the combination at compile time.
 
 An explicit `containers` list ignores `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID` and `CPK_INTELLIGENCE_SKILLS_REVISION`.
 Connection environment variables still apply.
-The [single-container interface](#configure-one-container) and its environment defaults remain supported unchanged.
+The [single-container configuration](#configure-one-container) reads its environment defaults.
 
 ### One request for several containers
 
@@ -440,18 +417,18 @@ The response carries a snapshot, an unchanged result, or an error for each conta
 Fresh cached containers need no request.
 An explicit `containers` list uses this endpoint even when it contains one entry.
 
-The new interface requires an Intelligence server that supports `POST /api/v1/learning/skills/batch`.
+Multi-container configuration requires an Intelligence server that supports `POST /api/v1/learning/skills/batch`.
 For self-hosted Intelligence, update the server before you enable `containers`.
 The SDK does not fall back to separate requests on older servers.
-The original single-container interface keeps its existing endpoint.
+Single-container configuration uses a separate endpoint.
 
 ### Skill names and failures
 
-The new interface prefixes every Skill name with its container ID, even for a list with one entry.
+Multi-container configuration prefixes every Skill name with its container ID, even for a list with one entry.
 For example, `support/refund-policy` and `company-wide/refund-policy` remain separate Skills.
 The SDK URI-encodes the container ID in this prefix.
 Tool calls use the exact name from the catalog.
-The old interface keeps its original, unprefixed names.
+Single-container configuration keeps unprefixed names.
 
 Each container keeps its own revision, cache, and refresh state.
 An invocation captures the complete combined catalog before model work starts.
@@ -462,14 +439,14 @@ A warm container can use its cached Skills after a transient failure.
 A confirmed access denial or revoked revision blocks the whole invocation.
 The SDK never silently supplies only part of the selected catalog.
 
-For the new interface, each entry in `status.containers` reports its container's revision and refresh status.
+With multi-container configuration, each entry in `status.containers` reports its container's revision and refresh status.
 .NET exposes the entries through `MultiSkillRegistryStatus.Containers`.
 The aggregate status has no server revision to pin.
 Its mode is `pinned` only when every container has a revision pin.
 
 ## Configure one container
 
-The original interface selects one Learning container. Set `containerId` in TypeScript, `container_id` in Python, or `ContainerId` in .NET, as shown above. BuiltInAgent uses `learnedSkills.containerId`.
+Single-container configuration selects one Learning Space. Set `containerId` in TypeScript, `container_id` in Python, or `ContainerId` in .NET, as shown above. BuiltInAgent uses `learnedSkills.containerId`.
 
 The singular fields accept one stable container ID. To combine containers, use the separate `containers` interface above. Several agents can share a registry.
 
@@ -494,8 +471,6 @@ Initialization can run during application startup. A valid empty container initi
 
 If your server already creates an Intelligence client, pass that client to the registry. This reuses its project key and endpoint.
 
-Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
-
 ```typescript
 import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { SkillRegistry } from "@copilotkit/intelligence-mastra";
@@ -506,7 +481,6 @@ const intelligence = new CopilotKitIntelligence({
 });
 const registry = new SkillRegistry({
   client: intelligence,
-  // Set these here, or omit them to use environment variables (linked above).
   containerId: "support-learning",
   revision: "exact-revision-id", // Optional: pin a published revision.
 });
@@ -525,7 +499,7 @@ For framework adapters, this check requires automatic updates. Remove `revision`
 4. Publish a new revision, wait past the freshness window, and start another invocation.
 5. Make sure that the loaded revision in the adapter's status changed to the newly published revision.
 
-For the original single-container interface, read `registry.status.revision` in TypeScript, `skills.status.revision` for LangGraph Python, `registry.status.revision` for ADK, or `skills.Status.Revision` in .NET. BuiltInAgent does not expose a public registry status; inspect the loaded Skill's content in the tool result for your published change. A valid empty container can initialize successfully, so initialization alone does not prove that a Skill exists.
+For single-container configuration, read `registry.status.revision` in TypeScript, `skills.status.revision` for LangGraph Python, `registry.status.revision` for ADK, or `skills.Status.Revision` in .NET. BuiltInAgent does not expose a public registry status; inspect the loaded Skill's content in the tool result for your published change. A valid empty container can initialize successfully, so initialization alone does not prove that a Skill exists.
 
 The model chooses whether to call the skill tools. A run without a skill tool call does not prove that delivery failed. Inspect the catalog and registry status too.
 
@@ -578,6 +552,6 @@ See the [Automatic Learning guide](/learning) for the manual workflow.
 
 ## Deployment requirements
 
-Cloud-hosted and self-hosted Intelligence use the same delivery contract. The server migration and v1 delivery endpoint must deploy before adapters rely on them. Each adapter also requires a published canonical client version with the learned-snapshot operation.
+Cloud-hosted and self-hosted Intelligence use the same delivery API. For self-hosted, upgrade Intelligence to a release that serves the delivery endpoints before you enable an adapter.
 
-Pausing new Learning runs does not stop delivery. Entitlement, explicit delivery disablement, and revision revocation control access to published snapshots separately.
+Pausing new Automatic Learning runs does not stop delivery. Entitlement, explicit delivery disablement, and revision revocation control access to published snapshots separately.

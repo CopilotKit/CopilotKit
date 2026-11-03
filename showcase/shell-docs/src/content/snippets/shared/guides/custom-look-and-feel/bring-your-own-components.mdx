@@ -1,4 +1,4 @@
-You can swap out any of the sub-components of any Copilot UI to build up a completely custom look and feel. All components are fully typed with TypeScript for better development experience.
+You can swap out any of the sub-components of any Copilot UI to build up a completely custom look and feel.
 
 | Component                               | Description                                         |
 | --------------------------------------- | --------------------------------------------------- |
@@ -10,7 +10,7 @@ You can swap out any of the sub-components of any Copilot UI to build up a compl
 | [Messages](#messages)                   | The chat messages area                              |
 | [Suggestions](#suggestions)             | Customize how suggestions are displayed             |
 | [Input](#input)                         | The chat input                                      |
-| [Actions](#actions)                     | Customize how actions (tools) are displayed         |
+| [Frontend tools](#frontend-tools)       | Customize how frontend tools are displayed          |
 | [Agent State](#agent-state)             | Customize how agent state messages are displayed    |
 | [Reasoning Message](#reasoning-message) | Customize how model reasoning/thinking is displayed |
 
@@ -20,7 +20,7 @@ The user message is what displays when the user sends a message to the chat. In 
 
 ![Custom user message](https://cdn.copilotkit.ai/docs/copilotkit/images/custom-user-message.png)
 
-The main thing to be aware of here is the `message` prop, which is the message text from the user.
+The main thing to be aware of here is the `message` prop, the message object from the user. For a text message, `message.content` is the text.
 
 ```tsx
 import { type UserMessageProps } from "@copilotkit/react-ui";
@@ -100,7 +100,7 @@ const CustomAssistantMessage = (props: AssistantMessageProps) => {
 **Key concepts**
 
 - `subComponent` - This is where any generative UI will be rendered.
-- `message` - This is the message text from the LLM, typically in markdown format.
+- `message` - The message object from the LLM. `message.content` holds the text, usually in Markdown.
 - `isLoading` - This is a boolean that indicates if the message is still loading.
 
 ## Window
@@ -196,7 +196,7 @@ function Header({}: HeaderProps) {
           <BookOpenIcon className="w-6 h-6" />
         </a>
       </div>
-      <div className="text-lg">{labels.modalHeaderTitle}</div>
+      <div className="text-lg">{labels.title}</div>
       <div className="w-24 flex justify-end">
         <button onClick={() => setOpen(false)} aria-label="Close">
           {icons.headerCloseIcon}
@@ -239,6 +239,7 @@ export default function CustomMessages({
           <RenderMessage
             key={index}
             message={message}
+            messages={messages}
             inProgress={inProgress}
             index={index}
             isCurrentMessage={isCurrentMessage}
@@ -256,7 +257,7 @@ export default function CustomMessages({
 
 ## Suggestions
 
-The suggestions component allows you to customize how suggestions are displayed. In this example, we add a label to the list and change the suggestion chip look
+With the suggestions component, you can customize how suggestions are displayed. In this example, we add a label to the list and change the suggestion chip look
 
 ![Custom suggestions list](https://cdn.copilotkit.ai/docs/copilotkit/images/custom-suggestions-list.png)
 
@@ -358,9 +359,9 @@ function CustomInput({ inProgress, onSend, isVisible }: InputProps) {
 </CopilotKit>;
 ```
 
-## Actions
+## Frontend tools
 
-Actions allow the LLM to interact with your application's functionality. When an action is called by the LLM, you can provide custom components to visualize its execution and results. This example demonstrates a calendar meeting card implementation.
+A frontend tool lets the LLM call a function in your app. You can render a component that shows its progress and result. This example demonstrates a calendar meeting card implementation.
 
 ![Render-only example](https://cdn.copilotkit.ai/docs/copilotkit/images/render-only-example.png)
 
@@ -421,11 +422,11 @@ export function YourComponent() {
 
 ## Agent State
 
-The Agent State component allows you to visualize the internal state and progress of your CoAgents. When working with CoAgents, you can provide a custom component to render the agent's state. This example demonstrates a progress bar that updates as the agent runs.
+With the Agent State component, you can visualize the internal state and progress of your CoAgents. When working with CoAgents, you can provide a custom component to render the agent's state. This example demonstrates a progress bar that updates as the agent runs.
 
 <Callout title="Not started with CoAgents yet?">
-  If you haven't gotten started with CoAgents yet, you can get started in 10
-  minutes with the [quickstart guide](/langgraph-python/quickstart).
+  If you haven't gotten started with CoAgents yet, follow the
+  [quickstart guide](/langgraph-python/quickstart).
 </Callout>
 
 ![Agentic generative UI](https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/AgenticGenerativeUI.gif)
@@ -440,66 +441,23 @@ type AgentState = {
   logs: string[];
 };
 
-useCoAgentStateRender<AgentState>({
-  name: "basic_agent",
-  render: ({ state, nodeName, status }) => {
-    if (!state.logs || state.logs.length === 0) {
-      return null;
-    }
+export function YourComponent() {
+  useCoAgentStateRender<AgentState>({
+    name: "basic_agent",
+    render: ({ state, nodeName, status }) => {
+      if (!state.logs || state.logs.length === 0) {
+        return null;
+      }
 
-    // Progress is a component we are omitting from this example for brevity.
-    return <Progress logs={state.logs} />;
-  },
-});
+      // Progress is a component we are omitting from this example for brevity.
+      return <Progress logs={state.logs} />;
+    },
+  });
+
+  return <>...</>;
+}
 ```
 
 ## Reasoning Message
 
-Models like OpenAI `gpt-6-luna` emit **reasoning tokens** (chain-of-thought traces). CopilotKit renders them automatically in a collapsible card. You can fully replace it or swap individual sub-components (header, content, toggle) via slot props.
-
-For a complete guide, see [Reasoning Messages](/custom-look-and-feel/reasoning-messages).
-
-```tsx
-import { type CopilotChatReasoningMessageProps } from "@copilotkit/react-core/v2";
-import { CopilotKit } from "@copilotkit/react-core/v2";
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
-
-function CustomReasoningMessage({
-  message,
-  messages,
-  isRunning,
-}: CopilotChatReasoningMessageProps) {
-  const isLatest = messages?.[messages.length - 1]?.id === message.id;
-  const isStreaming = !!(isRunning && isLatest);
-
-  if (!message.content && !isStreaming) return null;
-
-  // [!code highlight:8]
-  return (
-    <details open={isStreaming} className="my-2 rounded border p-3">
-      <summary className="cursor-pointer font-medium text-sm">
-        {isStreaming ? "Thinking..." : "View reasoning"}
-      </summary>
-      <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">
-        {message.content}
-      </p>
-    </details>
-  );
-}
-
-<CopilotKit>
-  <CopilotSidebar
-    messageView={{
-      reasoningMessage: CustomReasoningMessage,
-    }}
-  />
-</CopilotKit>;
-```
-
-**Key concepts**
-
-- `message`: The reasoning message object. `message.content` holds the thinking text.
-- `messages`: All messages in the conversation, used to determine if this is the latest message.
-- `isRunning`: Whether the agent is currently running.
-- **Slot props:** Instead of replacing the whole component, you can override just the `header`, `contentView`, or `toggle` sub-components. See the [full guide](/custom-look-and-feel/reasoning-messages).
+For v2 chat components, see [Reasoning Messages](/custom-look-and-feel/reasoning-messages).

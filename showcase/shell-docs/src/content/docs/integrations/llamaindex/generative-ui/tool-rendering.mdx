@@ -13,18 +13,17 @@ description: Render your agent's tool calls with custom UI components.
 />
 
 <Callout>
-  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/llama-index/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
+  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/llama-index/feature/backend_tool_rendering" target="_blank">CopilotKit feature viewer</a>.
 </Callout>
 
 ## What is this?
 
-Tools are a way for the LLM to call predefined, typically, deterministic functions. CopilotKit allows you to render these tools in the UI
-as a custom component, which we call **Generative UI**.
+While your LlamaIndex agent calls a tool, the chat shows nothing until the agent replies. Render each tool call as your own component, so the user sees what the agent is doing. CopilotKit calls this **Generative UI**.
 
 ## When should I use this?
 
 Rendering tools in the UI is useful when you want to provide the user with feedback about what your agent is doing, specifically
-when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+when your agent is calling tools. You can fully customize how CopilotKit renders these tools in the chat.
 
 ## Implementation
 
@@ -43,7 +42,7 @@ from fastapi import FastAPI
 from llama_index.llms.openai import OpenAI
 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
-def getWeather(location: str) -> str:
+def get_weather(location: str) -> str:
     """Get the weather for a given location."""
     return f"The weather in {location} is sunny and 70 degrees."
 
@@ -54,7 +53,7 @@ llm = OpenAI(model="gpt-6-luna")
 agentic_chat_router = get_ag_ui_workflow_router(
     llm=llm,
     # These are the tools that only have a render function in the frontend
-    backend_tools=[getWeather],
+    backend_tools=[get_weather],
     system_prompt="You are a helpful AI assistant with access to various tools and capabilities.",
 )
 
@@ -86,24 +85,25 @@ we just need to add a `useRenderTool` hook to render the tool call in
 the UI.
 
 <Callout type="info" title="Important">
-  In order to render a tool call in the UI, the name of the action must match
-  the name of the tool.
+  The `name` you pass to `useRenderTool` must match the name of the tool in your agent.
 </Callout>
 
 ```tsx title="app/page.tsx"
+import { z } from "zod"; // [!code highlight]
 import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
   // ...
-  // [!code highlight:12]
+  // [!code highlight:13]
   useRenderTool({
-    name: "getWeather",
-    render: ({status, args}) => {
+    name: "get_weather",
+    parameters: z.object({ location: z.string() }),
+    render: ({status, parameters}) => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" && `Called the weather API for ${args.location}.`}
+          {status === "complete" && `Called the weather API for ${parameters.location}.`}
         </p>
       );
     },
@@ -114,7 +114,7 @@ const YourMainContent = () => {
 
 </Step>
 <Step>
-### Give it a try!
+### Give it a try
 
 Try asking the agent to get the weather for a location. You should see the custom UI component that we added
 render the tool call and display the arguments that were passed to the tool.

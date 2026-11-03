@@ -10,9 +10,9 @@ import AgentContextJsonString from "@/snippets/shared/basics/agent-context-json-
 Share your application's state and context with the Built-in Agent using the `useAgentContext` hook. The Built-in Agent receives this context automatically, with no backend configuration.
 
 <Callout>
-    That last part is specific to the Built-in Agent. An agent you host yourself receives the same
-    entries on the AG-UI run input, and each framework decides what reaches the model from there —
-    see your framework's own Agent App Context page, such as [ADK](/adk/agent-app-context),
+    Only the Built-in Agent adds the context to the prompt for you. An agent you host yourself receives the same
+    entries on the AG-UI run input, and each framework decides what reaches the model from there.
+    See your framework's own Agent App Context page, such as [ADK](/adk/agent-app-context),
     [LangGraph](/langgraph/agent-app-context) or [Mastra](/mastra/agent-app-context).
 </Callout>
 
@@ -74,7 +74,7 @@ export function Dashboard() {
 </Step>
 
 <Step>
-### That's it — no backend setup needed
+### That's it: no backend setup needed
 
 Unlike LangGraph where you need to configure agent state to receive context, the Built-in Agent handles this automatically. The context you register is included in the agent's system prompt, so it can reference your app data immediately.
 

@@ -1,5 +1,5 @@
 ---
-title: Readables
+title: Agent App Context
 icon: "lucide/BookA"
 description: Share app specific context with your agent.
 ---
@@ -7,19 +7,10 @@ description: Share app specific context with your agent.
 import AgentContextJsonString from "@/snippets/shared/basics/agent-context-json-string.mdx";
 
 
-One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
-This way, you can notify CopilotKit of what is going in your app in real time.
-Some examples might be: the current user, the current page, etc.
-
-This context can then be shared with your AG-UI server and agent logic.
+Your agent can answer only about data it can see. Register page data, such as the current user or the current page, with `useAgentContext`.
+Then add that data to the agent's messages in your AG-UI server, as shown below.
 
 ## Implementation
-
-<Callout>
-  Check out the [Frontend Data
-  documentation](/integrations/langgraph/agent-app-context)
-  to understand what this is and how to use it.
-</Callout>
 
 <AgentContextJsonString />
 
@@ -30,10 +21,12 @@ This context can then be shared with your AG-UI server and agent logic.
     <Step>
         ### Add the data to the Copilot
 
-        The [`useAgentContext` hook](/reference/v2/hooks/useAgentContext) is used to add data as context to the Copilot.
+        The [`useAgentContext` hook](/reference/v2/hooks/useAgentContext) adds data as context to the Copilot.
 
         ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
         "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
+        import { useAgentContext } from "@copilotkit/react-core/v2";
+        import { useState } from "react";
 
         export function YourComponent() {
             // Create colleagues state with some sample data
@@ -232,16 +225,16 @@ This context can then be shared with your AG-UI server and agent logic.
         </Tabs>
 
         <Callout type="info">
-          Context registered with `useAgentContext` is forwarded in `RunAgentInput.Context` as `AGUIContext` entries. `TryGetRunAgentInput` recovers the request without depending on hosting-layer keys.
+          Context registered with `useAgentContext` is forwarded in `RunAgentInput.Context` as `AGUIContext` entries. `TryGetRunAgentInput` reads that `RunAgentInput` from the chat options.
         </Callout>
 
         <Callout type="tip">
-          **Configuration & Error Handling**: This example uses `OPENAI_API_KEY` for configuration. Set it with user secrets or an environment variable. For production deployments, add appropriate error handling and consider using the [Quickstart](/microsoft-agent-framework/quickstart) or [Authentication](/microsoft-agent-framework/auth) guides for complete setup patterns.
+          **Configuration & Error Handling**: This example uses `OPENAI_API_KEY` for configuration. Set it with user secrets or an environment variable. For production deployments, add appropriate error handling and consider using the [Quickstart](/quickstart) or [Authentication](/auth) guides for complete setup patterns.
         </Callout>
     </Step>
     <Step>
-        ### Give it a try!
-        Ask your agent a question about the context (e.g., "Who are my colleagues?"). The agent will use the forwarded context to answer!
+        ### Give it a try
+        Ask your agent a question about the context (e.g., "Who are my colleagues?"). The agent will use the forwarded context to answer.
     </Step>
 
 </Steps>

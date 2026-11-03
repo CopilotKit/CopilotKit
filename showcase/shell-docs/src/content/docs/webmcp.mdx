@@ -10,7 +10,7 @@ frontend: universal
 
 WebMCP lets your website tell compatible browser agents what they can do. Instead of guessing which buttons to click, an agent discovers a named tool with a description, a typed input schema, and a JavaScript handler.
 
-CopilotKit can publish an existing frontend tool to [`document.modelContext`](https://webmachinelearning.github.io/webmcp/). The same handler then works for your CopilotKit agent and for WebMCP-aware browser agents.
+CopilotKit can publish an existing [frontend tool](/frontend-tools) to [`document.modelContext`](https://webmachinelearning.github.io/webmcp/). The same handler then works for your CopilotKit agent and for WebMCP-aware browser agents.
 
 <Callout type="warn" title="WebMCP is experimental">
   WebMCP is a draft Community Group report, not a W3C Standard. Chrome offers
@@ -201,12 +201,19 @@ This path does not configure a Runtime or an agent. It only registers browser-si
 
 ## Design tools agents can use reliably
 
+Required:
+
 - Give every WebMCP tool a non-empty, specific `description`. CopilotKit skips WebMCP registration when it is missing.
-- Keep each tool focused on one action and give every parameter a useful description.
 - Use `readOnlyHint: true` only when the handler cannot change state.
+- Set the frontend tool to unavailable when the action cannot currently run; CopilotKit removes it from WebMCP until it is available again.
+
+For better results:
+
+- Keep each tool focused on one action and give every parameter a useful description.
 - Use `untrustedContentHint: true` when results may contain user-generated or external content.
 - Return concise, structured results that tell the caller what happened.
-- Set the frontend tool to unavailable when the action cannot currently run; CopilotKit removes it from WebMCP until it is available again.
+
+For more, see Chrome's [WebMCP best practices](https://developer.chrome.com/docs/ai/webmcp/best-practices).
 
 Annotations are hints for browser agents, not security controls. Enforce authentication, authorization, validation, rate limits, and required user confirmation inside the handler or the API it calls. See Chrome's [WebMCP tool security guidance](https://developer.chrome.com/docs/ai/webmcp/secure-tools).
 
@@ -219,25 +226,23 @@ Annotations are hints for browser agents, not security controls. Enforce authent
 
 ## Test the complete path
 
+Set up the browser:
+
 1. Open Chrome 149 or newer and enable the WebMCP origin trial or local testing flag.
 2. Load the app in an [origin-isolated document](https://developer.chrome.com/docs/ai/webmcp#origin-isolation). The `tools` permissions policy defaults to `self`; cross-origin iframes also need `allow="tools"`.
-3. Confirm that `document.modelContext` exists.
-4. Use Chrome's [Model Context Tool Inspector](https://developer.chrome.com/docs/ai/webmcp#imitate-agent-chat-with-the-inspector-extension) to confirm the tool name and schema, call it with representative inputs, and inspect its result.
-5. Ask the inspector's agent to complete the user task in natural language. Verify that it chooses the right tool and that authentication and confirmation boundaries still hold.
+3. Make sure that `document.modelContext` exists.
 
-If the tool does not appear, check the browser setup first, then verify that the tool has a description, `webmcp` is enabled, and the frontend tool is currently available.
+Test the tool:
 
-## Related
+1. Open Chrome's [Model Context Tool Inspector](https://developer.chrome.com/docs/ai/webmcp#imitate-agent-chat-with-the-inspector-extension).
+2. Make sure that the tool name and schema appear.
+3. Call the tool with representative inputs and read its result.
+4. Ask the inspector's agent to complete the user task in natural language.
+5. Make sure that the agent chooses the right tool, and that authentication and confirmation boundaries still hold.
 
-- [Frontend tools](/frontend-tools)
-<FrontendOnly frontend="react">
-- [React `useFrontendTool` reference](/reference/hooks/useFrontendTool)
-</FrontendOnly>
-<FrontendOnly frontend="vue">
-- [Vue `useFrontendTool` reference](/reference/vue/hooks/useFrontendTool)
-</FrontendOnly>
-<FrontendOnly frontend="angular">
-- [Angular `registerFrontendTool` reference](/reference/angular/functions/registerFrontendTool)
-</FrontendOnly>
-- [WebMCP specification](https://webmachinelearning.github.io/webmcp/)
-- [Chrome WebMCP best practices](https://developer.chrome.com/docs/ai/webmcp/best-practices)
+If the tool does not appear, make sure that:
+
+1. The browser setup is complete.
+2. The tool has a `description`.
+3. `webmcp` is set on the tool.
+4. The frontend tool is available.

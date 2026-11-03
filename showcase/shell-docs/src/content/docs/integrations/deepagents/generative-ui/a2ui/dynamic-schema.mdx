@@ -1,8 +1,8 @@
 ---
 title: "Dynamic Schema A2UI"
-description: "LLM-generated A2UI — a secondary LLM creates both the schema and data from any prompt."
+description: "LLM-generated A2UI: a secondary LLM creates both the schema and data from any prompt."
 ---
-In the dynamic-schema approach, a secondary LLM generates the entire UI — schema, data, and layout — based on the conversation context. It's the most flexible A2UI flavor: the agent can render any UI for any request without pre-defined schemas.
+Use this approach when your agent must draw a different UI for each request, such as a dashboard for any question. A secondary LLM generates the entire UI (schema, data, and layout) from the conversation context. You supply the components it can use. It is the most flexible A2UI approach: the agent can render any UI for any request without pre-defined schemas.
 
 ## How it works
 
@@ -24,7 +24,7 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-`injectA2UITool: true` is the single switch: it forwards the decision to the agent so the A2UI tool is injected. Set it to `false` to turn A2UI off entirely — nothing is injected and no surfaces render.
+`injectA2UITool: true` forwards the decision to the agent, so the agent gets the A2UI tool. With `injectA2UITool: false`, no tool is injected, but surfaces from your own tools still render. To turn A2UI off, set `a2ui: { enabled: false }`.
 
 Register your component catalog on the provider so the LLM knows what it can draw (see [Bring Your Own Catalog](../../../../generative-ui/a2ui/dynamic-schema) for the catalog `definitions` / `renderers` / `createCatalog` split):
 
@@ -36,7 +36,7 @@ Register your component catalog on the provider so the LLM knows what it can dra
 
 ## Backend
 
-Just add `CopilotKitMiddleware` — it auto-injects `generate_a2ui` (built from your agent's own model) when `injectA2UITool` is on, and executes it:
+Just add `CopilotKitMiddleware`. It auto-injects `generate_a2ui` (built from your agent's own model) when `injectA2UITool` is on, and executes it:
 
 ```python title="agent/a2ui_dynamic.py"
 from copilotkit import CopilotKitMiddleware
@@ -55,20 +55,16 @@ graph = create_deep_agent(
 )
 ```
 
-The system prompt can be used to tell the model *when* to draw; the middleware supplies and runs the tool.
+Use the system prompt to tell the model *when* to draw. The middleware supplies and runs the tool.
 
 ## Progressive streaming
 
-The secondary LLM's `render_a2ui` tool call streams through LangGraph as `TOOL_CALL_ARGS` events. The A2UI middleware:
+The secondary LLM's `render_a2ui` tool call streams through LangGraph as `TOOL_CALL_ARGS` events. The A2UI middleware draws the surface when the component list is complete, then adds list items to the data model as they stream in. For the details, see the [`@ag-ui/a2ui-middleware` package](https://www.npmjs.com/package/@ag-ui/a2ui-middleware).
 
-1. Extracts the `components` array as it streams — waits for the full schema before rendering
-2. Extracts `surfaceId` and `root` from the partial JSON
-3. Once the schema is complete, emits `createSurface` + `updateComponents`
-4. Extracts complete `items` objects progressively and emits `updateDataModel` for each
-5. Cards appear one by one as data streams in
+Ask the agent for a sales dashboard. A skeleton shows, then cards appear as the data streams in.
 
 ## Built-in progress indicator
 
 CopilotKit includes a built-in progress indicator that shows while the schema is being generated. It appears automatically and hides once data items start streaming.
 
-To replace it with a custom component, see the [Advanced — Custom A2UI Progress Renderer](./advanced#custom-a2ui-progress-renderer) guide.
+To replace it with a custom component, pass the component as `loadingComponent` in the provider's `a2ui` prop. See [Custom A2UI Progress Renderer](./advanced#custom-a2ui-progress-renderer).

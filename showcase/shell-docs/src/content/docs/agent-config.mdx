@@ -21,7 +21,7 @@ Reach for agent config whenever the agent's behaviour depends on user-controllab
 
 If the values are a *channel* the user occasionally tunes (a settings panel, a toolbar of selects), agent config is the right shape. If the values are *content* the agent should write back to (notes, a document, a plan), use [Shared State](/shared-state) instead.
 
-How agent config flows from the UI into the agent's reasoning loop depends on your runtime architecture. Agents living behind a runtime read it from agent state on every run, while in-process agents receive the same object as forwarded properties on the provider — same UX, slightly different wiring on each side.
+How agent config flows from the UI into the agent's reasoning loop depends on your runtime architecture. Most agents read the config from the context that the UI publishes with `useAgentContext`. The Built-in Agent reads it from `input.forwardedProps`, which the UI sets with the `properties` prop on `<CopilotKit>`.
 
 <WhenFrameworkHas flag="agent_config_pattern" equals="shared-state">
 
@@ -38,6 +38,10 @@ Hold the typed config in React state, then mirror every change into the agent
 through `useAgentContext`:
 
 ```tsx title="frontend/src/app/page.tsx — UI publishes the typed config"
+import { useAgentContext } from "@copilotkit/react-core/v2";
+
+type AgentConfig = { tone: string; expertise: string; responseLength: string };
+
 function ConfigContextRelay({ config }: { config: AgentConfig }) {
   useAgentContext({
     description: "Agent response preferences",
@@ -73,18 +77,13 @@ systemPrompt = buildSystemPrompt(config)
 model.invoke(systemPrompt, currentUserRequest)
 ```
 
-The agent reads the latest typed config at the start of every turn, rebuilds the system prompt, runs the turn. This is the same shape as the [shared-state write-side pattern](/shared-state#writing-to-agent-state); agent config is just a specific use of that pattern with a UI-owned typed object on top.
+At the start of every turn, the agent reads the latest config. Then it rebuilds the system prompt and runs the turn.
 
 </WhenFrameworkHas>
 
 <WhenFrameworkHas flag="agent_config_pattern" equals="runtime-properties">
 
 ## How it works
-
-The runtime owns the agent in-process, so config travels through frontend
-runtime properties rather than agent state. There's no separate backend service
-to push state into: the typed object becomes the input to the agent factory
-directly.
 
 <FrontendOnly frontend="react">
 Pass the typed object as `properties` on `<CopilotKit>`:
@@ -93,7 +92,6 @@ Pass the typed object as `properties` on `<CopilotKit>`:
 <CopilotKit
   runtimeUrl="/api/copilotkit"
   properties={{ tone, expertise, responseLength }}
-  useSingleEndpoint
 >
   <Demo />
 </CopilotKit>
@@ -101,7 +99,7 @@ Pass the typed object as `properties` on `<CopilotKit>`:
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
-Update runtime properties whenever the Angular signal changes:
+Pass the config as `properties` to `updateRuntime` whenever the Angular signal changes:
 
 ```ts title="src/app/agent-config.component.ts"
 import { Component, effect, inject, signal } from "@angular/core";
@@ -130,16 +128,34 @@ export class AgentConfigComponent {
 ```
 </FrontendOnly>
 
-The runtime hands the same object to the agent factory on every call as `input.forwardedProps`. The factory uses those fields to build a system prompt before returning the agent for that turn:
+The runtime hands the same object to the agent factory on every call as `input.forwardedProps`. The factory uses those fields to build a system prompt, then returns the model stream for that turn:
 
 ```ts title="backend/agent factory — synthesise the system prompt per turn"
-export const agentConfigFactory = async (input: AgentFactoryInput) => {
-  const { tone, expertise, responseLength } = input.forwardedProps ?? {};
-  const systemPrompt = buildSystemPrompt(tone, expertise, responseLength);
-  return makeAgent({ systemPrompt /* ... */ });
-};
+import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import { chat } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+
+export const agentConfigAgent = new BuiltInAgent({
+  type: "tanstack",
+  factory: ({ input, abortController }) => {
+    const { tone, expertise, responseLength } = (input.forwardedProps ??
+      {}) as Record<string, string>;
+    const { messages, systemPrompts } = convertInputToTanStackAI(input);
+    return chat({
+      adapter: openaiText("gpt-4o"),
+      messages,
+      systemPrompts: [
+        buildSystemPrompt(tone, expertise, responseLength),
+        ...systemPrompts,
+      ],
+      abortController,
+    });
+  },
+});
 ```
 
 </WhenFrameworkHas>
+
+Change the tone in your UI and send a message. The next reply uses the new tone.
 
 <IntegrationGrid path="agent-config" />

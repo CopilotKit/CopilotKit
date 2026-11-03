@@ -1,7 +1,7 @@
 ---
 title: "A2A and MCP Handshake"
 icon: "lucide/Handshake"
-description: "AG-UI handshakes enable seamless protocol interoperability"
+description: "AG-UI handshakes enable protocol interoperability"
 hideTOC: true
 ---
 
@@ -11,7 +11,7 @@ AG-UI now includes **handshakes** with both **MCP** and **A2A** protocols, ensur
 
 ## What Are Protocol Handshakes?
 
-Protocol handshakes allow AG-UI to seamlessly communicate with agents using different interaction protocols. This means you can connect your frontend to agents that internally use MCP or A2A without any additional configuration.
+Protocol handshakes allow AG-UI to communicate with agents using different interaction protocols. This means you can connect your frontend to agents that use MCP or A2A internally. To set up each protocol, see [MCP](/agentic-protocols/mcp) and [A2A](/agentic-protocols/a2a).
 
 ## Benefits
 
@@ -19,23 +19,12 @@ Protocol handshakes allow AG-UI to seamlessly communicate with agents using diff
 
 If your host agent connects to subagents using **MCP** or **A2A**, their UI properties can be propagated all the way through to the user-facing application.
 
-### Security and Control
-
-Handshakes preserve **full security, policy, and observability controls** throughout the communication chain.
-
 ### Simplified Architecture
 
-No need to choose between protocols—use them all together in a single application.
+One application can use AG-UI, MCP, and A2A together.
 
 ## How It Works
 
-1. **Frontend connects via AG-UI** - Your application uses AG-UI to connect to the host agent
-2. **Host agent uses MCP/A2A** - The host agent can communicate with subagents using MCP or A2A
+1. **Frontend connects via AG-UI** - Your application uses [AG-UI](/agentic-protocols/ag-ui) to connect to the host agent
+2. **Host agent uses MCP/A2A** - The host agent can communicate with subagents using [MCP](/agentic-protocols/mcp) or [A2A](/agentic-protocols/a2a)
 3. **UI properties propagate** - Generative UI and other properties flow back to your frontend automatically
-
-## Learn More
-
-- [AG-UI Protocol](/ag-ui-protocol)
-- [MCP Integration](/connect-mcp-servers)
-- [A2A Protocol](/a2a-protocol)
-- [Agentic Protocols](/agentic-protocols)

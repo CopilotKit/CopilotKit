@@ -20,7 +20,7 @@ Before you begin, you'll need the following:
 
 - An OpenAI API key
 - Node.js 20+
-- Python 3.9+
+- Python 3.12+
 - Your favorite package manager
 
 ## Getting started
@@ -29,7 +29,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_agno_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
+        <SignupLink surface="docs_agno_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. You will connect the app after you create it below.
     </Step>
 
     <Step>
@@ -56,8 +56,8 @@ Before you begin, you'll need the following:
                 The CLI walks you through:
 
                 - **Project name**
-                - **CopilotKit Intelligence** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Agno setup.
-                - **Framework** — pick **Agno** when prompted.
+                - **CopilotKit Intelligence**: persistent threads and the Inspector. Choose **Yes** for a project that is wired to Intelligence. Choose **No** for a standard Agno setup.
+                - **Framework**: pick **Agno** when prompted.
             </Step>
             <Step>
                 ### Install dependencies
@@ -142,7 +142,7 @@ Before you begin, you'll need the following:
                 ```
 
                 <Callout type="info" title="What about other models?">
-                  This example uses OpenAI's GPT-6 Luna, but you can modify it to use any language model supported by Agno.
+                  This example uses OpenAI's `gpt-5.4`. To use another model, change `OpenAIChat(id=...)`, or use any model that Agno supports.
                 </Callout>
             </Step>
             <Step>
@@ -191,7 +191,7 @@ Before you begin, you'll need the following:
                 ```
             </Step>
             <Step>
-                ### Setup Copilot Runtime
+                ### Add the Copilot Runtime route
 
                 Create an API route to connect CopilotKit to your Agno agent:
 
@@ -207,11 +207,12 @@ Before you begin, you'll need the following:
                   agents: {
                     my_agent: new AgnoAgent({ url: "http://localhost:8000/agui" }),
                   },
-                  // [!code highlight:8]
+                  // [!code highlight:9]
                   intelligence: new CopilotKitIntelligence({
                     apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
                   }),
-                  // Threads are per-user. Without this, every visitor shares one history.
+                  // Demo only: the browser sends no x-user-id header, so all visitors share
+                  // one "anonymous" history. Before you deploy, return the verified session user.
                   identifyUser: (request) => ({
                     id: request.headers.get("x-user-id") ?? "anonymous",
                     name: request.headers.get("x-user-name") ?? "Anonymous",
@@ -225,6 +226,8 @@ Before you begin, you'll need the following:
 
                 export const GET = handler;
                 export const POST = handler;
+                export const PATCH = handler;
+                export const DELETE = handler;
                ```
 
                 From this frontend app directory, connect the runtime to an Intelligence project:
@@ -266,8 +269,7 @@ Before you begin, you'll need the following:
                 }
                 ```
 
-                `app/layout.tsx` is a server component and cannot import the provider
-                directly, so it renders your client file instead:
+                Render `Providers` around your app in `app/layout.tsx`:
 
                 ```tsx title="app/layout.tsx"
                 import { Providers } from "./providers"; // [!code highlight]
@@ -294,8 +296,8 @@ Before you begin, you'll need the following:
                   `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
                   same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
                   server of its own and an absolute `runtimeUrl` such as
-                  `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
-                  `/angular` and `/react-native` each show that setup.
+                  `http://localhost:8200/api/copilotkit`. See the [React SPA](/react-spa), [Vue](/vue),
+                  [Angular](/angular), and [React Native](/react-native) guides for that setup.
                 </Callout>
             </Step>
             <Step>
@@ -367,28 +369,19 @@ Before you begin, you'll need the following:
     </TailoredContent>
     </Step>
     <Step>
-        ### 🎉 Start chatting!
+        ### Start chatting
 
-        Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
+        Your AI agent is now ready to use. Navigate to `localhost:3000` and try asking it some questions:
 
-        ```
-        Can you tell me a joke?
-        ```
-
-        ```
-        Can you help me understand AI?
-        ```
-
-        ```
-        What do you think about React?
-        ```
+        - Can you tell me a joke?
+        - Can you help me understand AI?
+        - What do you think about React?
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
-                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
-                - Make sure your agent is running on port 8000
-                - Check that your OpenAI API key is correctly set
-                - Verify that the `@ag-ui/client` package is installed in your frontend
+                - **The chat shows a connection error.** Make sure that the agent runs on port 8000. If it does, use `127.0.0.1` instead of `localhost` in the agent URL of your runtime route.
+                - **The agent does not answer.** Make sure that `OPENAI_API_KEY` is set in the environment of the agent.
+                - **The frontend build fails with a missing `@ag-ui/agno` module.** Run the install step again in your frontend directory.
             </Accordion>
         </Accordions>
 
@@ -418,19 +411,9 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<PaintbrushIcon />}
   />
   <Card
-    title="Setup frontend tools"
+    title="Add frontend tools"
     description="Give your agent the ability to call frontend tools, directly updating your application."
     href="/agno/frontend-tools"
     icon={<WrenchIcon />}
   />
 </Cards>
-
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>

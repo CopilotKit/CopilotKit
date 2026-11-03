@@ -41,14 +41,11 @@ export class WorkspaceAssistant {
 | `chatComponent`       | `Type<unknown>`              | `CopilotChat` | Replacement chat body component      |
 | `headerComponent`     | `Type<unknown> \| undefined` | `undefined`   | Replacement header component         |
 
-Overlay mode uses modal dialog semantics, focus trapping, Escape closing, and
-launcher-focus restoration. Docked mode uses a complementary landmark and
-adjusts the document's logical body margin. Compact viewports always use the
-modal presentation.
+## Behavior
 
-Only one docked sidebar may own document layout at a time. A second open docked
-sidebar is rejected and logs a clear warning; independent overlay sidebars are
-allowed. On close or destroy, the owner restores the exact prior body margin
-and removes its media-query listener. DOM and media-query work is browser-only
-and begins after render, so SSR remains inert. Keep `open`, `mode`, and
-`position` stable through hydration.
+- Overlay mode: uses modal dialog semantics and traps focus. Escape closes the sidebar, and focus returns to the launcher.
+- Docked mode: uses a complementary landmark and adjusts the logical body margin of the document.
+- Compact viewports: always use the modal presentation.
+- One docked sidebar per document: a second open docked sidebar is rejected and logs a warning. Overlay sidebars do not have this limit.
+- Close or destroy: the owner restores the exact prior body margin and removes its media-query listener.
+- SSR: DOM and media-query work runs only in the browser, after render. Keep `open`, `mode`, and `position` stable through hydration.

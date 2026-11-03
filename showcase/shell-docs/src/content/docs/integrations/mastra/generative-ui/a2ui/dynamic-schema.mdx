@@ -19,6 +19,8 @@ process.
 
 <Snippet region="definitions-zod" />
 
+The demo renderers use the demo's own `Card`, `Badge`, and `Button` components, its chart colors, and `recharts` for the charts. Use your own components in their place:
+
 <Snippet region="renderers-react" />
 
 <Snippet region="create-catalog" />
@@ -30,10 +32,21 @@ endpoint**, and its `agent` must match a key returned by that endpoint.
 
 ## Mastra in the same process
 
-The live demo uses a dedicated CopilotKit runtime route and a local Mastra
-agent. Its agent already supplies its own `generate_a2ui` tool, so the route
-sets `injectA2UITool: false` to avoid registering the tool twice. The route
-also pins `defaultCatalogId` to the catalog registered by the page.
+Add an `a2ui` block to your runtime route, and pin `defaultCatalogId` to the
+catalog that your page registers:
+
+```ts title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { "declarative-gen-ui": agent },
+  a2ui: {
+    defaultCatalogId: "declarative-gen-ui-catalog",
+  },
+});
+```
+
+If your agent defines its own `generate_a2ui` tool, also set
+`injectA2UITool: false`, so the tool is not registered twice. The demo agent
+does this.
 
 Use this layout when the Mastra instance is imported into the same process as
 the runtime route. See the [Copilot Runtime guide](/mastra/copilot-runtime)
@@ -43,12 +56,11 @@ for the local agent bridge.
 
 When Mastra runs as its own service, register a CopilotKit endpoint **on that
 service**. This keeps the Mastra agent local to the endpoint that injects and
-executes `generate_a2ui`, while the browser reaches it over HTTP. The example
-below is a runnable Mastra fixture under
-`showcase/integrations/mastra/tests/fixtures/remote-a2ui/mastra/index.ts`:
+executes `generate_a2ui`, while the browser reaches it over HTTP.
 
-Use `@ag-ui/mastra` 1.1.4 or later with compatible `@ag-ui/core` and
-`@ag-ui/client` versions. The Showcase fixture uses 1.1.4 and 0.0.58.
+Use `@ag-ui/mastra` 1.1.4 or later, with matching `@ag-ui/core` and
+`@ag-ui/client` versions. For example, `@ag-ui/mastra` 1.1.4 works with
+`@ag-ui/core` and `@ag-ui/client` 0.0.58.
 
 ```ts title="src/mastra/index.ts"
 import { Mastra } from "@mastra/core/mastra";
@@ -90,20 +102,25 @@ export const mastra = new Mastra({
 });
 ```
 
-Set the provider's `runtimeUrl` to your Mastra service's `/copilotkit` URL (or
-proxy that path through your frontend). Keep the provider's agent name
-`declarative-gen-ui` and catalog ID `declarative-gen-ui-catalog` aligned with
-the route. Use the frontend origin in `cors.origin` when calling the service
-directly from the browser. In production, derive `resourceId` from the
-authenticated caller instead of using the fixed example value.
+Then connect the frontend:
+
+1. Set the provider's `runtimeUrl` to the `/copilotkit` URL of your Mastra
+   service, or proxy that path through your frontend.
+2. Use the agent name `declarative-gen-ui` and the catalog ID
+   `declarative-gen-ui-catalog` on both sides.
+3. If the browser calls the service directly, set `cors.origin` to your
+   frontend origin.
+4. In production, set `resourceId` from the signed-in user, not from the fixed
+   example value.
 
 The generic `MastraAgent.getRemoteAgents()` bridge described in the
 [runtime guide](/mastra/copilot-runtime) serves ordinary remote agent runs. For
 this A2UI configuration, use the registered endpoint so the A2UI tool runs
-beside the Mastra agent. A completed `render_a2ui` tool call alone does not
-prove that a surface rendered: check that the response contains nonempty
-`a2ui_operations` for components and data, and that the dashboard appears in
-the browser rather than remaining at “Building Interface.”
+beside the Mastra agent.
+
+To check that it works, ask for a dashboard. The dashboard appears in the
+browser. If it stays at "Building Interface", make sure that the response has
+nonempty `a2ui_operations` for the components and the data.
 
 ## When to use dynamic schemas
 

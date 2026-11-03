@@ -14,15 +14,14 @@ description: Render the state of your agent with custom UI components.
   muted
 />
 <Callout>
-  This video demonstrates the [implementation](#implementation) section applied
-  to our [coagents starter
-  project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-flows).
+  This video shows a starter app with the [implementation](#implementation)
+  section applied.
 </Callout>
 
 ## What is this?
 
 All CrewAI Flow agents are stateful. This means that as your agent progresses through nodes, a state object is passed between them perserving
-the overall state of a session. CopilotKit allows you to render this state in your application with custom UI components, which we call **Agentic Generative UI**.
+the overall state of a session. With CopilotKit, you can render this state in your application with custom UI components, which we call **Agentic Generative UI**.
 
 ## When should I use this?
 
@@ -34,23 +33,23 @@ is a situation where a user and an agent are working together to solve a problem
 <Steps>
   <Step>
     ### Run and Connect your CrewAI Flow to CopilotKit
-    First, you'll need to make sure you have a running CrewAI Flow. If you haven't already done this, you can follow the [getting started guide](/crewai-flows/quickstart)
+    First, you'll need to make sure you have a running CrewAI Flow. If you haven't already done this, you can follow the [getting started guide](/quickstart)
 
-    This guide uses the [CoAgents starter repo](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-flows) as its starting point.
+    If you do not have a Flow yet, start from the [CrewAI Flows starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/crewai-flows).
 
   </Step>
   <Step>
     ### Define your agent state
-    If you're not familiar with CrewAI, your flows are stateful. As you progress through function, a state object is updated between them. CopilotKit
-    allows you to easily render this state in your application.
+    If you are not familiar with CrewAI, your flows are stateful. A CrewAI Flow keeps its state in `self.state`. Each method of the Flow can read and change it. With CopilotKit,
+    you can render this state in your application.
 
-    For the sake of this guide, let's say our state looks like this in our agent.
+    For this example, say our state looks like this in our agent.
 
     <Tabs groupId="language_crewai-flows_agent" items={['Python']} default="Python" persist>
         <Tab value="Python">
           ```python title="agent.py"
           # ...
-          from copilotkit.crewai import CopilotKitState # extends MessagesState
+          from copilotkit.crewai import CopilotKitState # extends the CrewAI FlowState
           # ...
 
           # This is the state of the agent.
@@ -64,12 +63,13 @@ is a situation where a user and an agent are working together to solve a problem
   </Step>
   <Step>
     ### Simulate state updates
-    Next, let's write some logic into our agent that will simulate state updates occurring.
+    Next, write some logic into our agent that will simulate state updates occurring.
 
     <Tabs groupId="language_crewai-flows_agent" items={['Python']} default="Python" persist>
       <Tab value="Python">
         ```python title="agent.py"
-        from crewai.flow.flow import start
+        import asyncio
+        from crewai.flow.flow import Flow, start
         from litellm import completion
         from copilotkit.crewai import copilotkit_stream, CopilotKitState, copilotkit_emit_state
         from typing import TypedDict
@@ -81,34 +81,33 @@ is a situation where a user and an agent are working together to solve a problem
         class AgentState(CopilotKitState):
             searches: list[Searches] = [] # [!code highlight]
 
-        @start
-        async def chat(self):
-            self.state.searches = [
-                {"query": "Initial research", "done": False},
-                {"query": "Retrieving sources", "done": False},
-                {"query": "Forming an answer", "done": False},
-            ]
-            await copilotkit_emit_state(self.state)
-
-            # Simulate state updates # [!code highlight:4]
-            for search in self.state.searches:
-                await asyncio.sleep(1)
-                search["done"] = True
+        class SearchFlow(Flow[AgentState]):
+            @start()
+            async def chat(self):
+                self.state.searches = [
+                    {"query": "Initial research", "done": False},
+                    {"query": "Retrieving sources", "done": False},
+                    {"query": "Forming an answer", "done": False},
+                ]
                 await copilotkit_emit_state(self.state)
 
-            # Run the model to generate a response
-            response = await copilotkit_stream(
-                completion(
-                    reasoning_effort="none",
-                    allowed_openai_params=["reasoning_effort"],
-                    model="openai/gpt-6-luna",
-                    messages=[
-                        {"role": "system", "content": "You are a helpful assistant."},
-                        *self.state.get("messages", [])
-                    ],
-                    stream=True
+                # Simulate state updates # [!code highlight:4]
+                for search in self.state.searches:
+                    await asyncio.sleep(1)
+                    search["done"] = True
+                    await copilotkit_emit_state(self.state)
+
+                # Run the model to generate a response
+                response = await copilotkit_stream(
+                    completion(
+                        model="openai/gpt-5.4",
+                        messages=[
+                            {"role": "system", "content": "You are a helpful assistant."},
+                            *self.state.messages
+                        ],
+                        stream=True
+                    )
                 )
-            )
         ```
       </Tab>
     </Tabs>
@@ -116,10 +115,10 @@ is a situation where a user and an agent are working together to solve a problem
   </Step>
   <Step>
     ### Render state of the agent in the chat
-    Now we can utilize `useAgent` with a `render` function to render the state of our agent **in the chat**.
+    Use `useAgent` to read the state of your agent, and render it **in the chat** with the `messageView` slot of `CopilotChat`.
 
     ```tsx title="app/page.tsx"
-    // ...
+    import { CopilotChat, useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
     // ...
 
     // Define the state of the agent, should match the state of the agent in your Flow.
@@ -133,34 +132,42 @@ is a situation where a user and an agent are working together to solve a problem
     function YourMainContent() {
       // ...
 
-      // [!code highlight:13]
-      // styles omitted for brevity
-      useAgent({
+      // [!code highlight:4]
+      const { agent } = useAgent({
         agentId: "sample_agent",
-        render: ({ state }) => (
-          <div>
-            {state.searches?.map((search, index) => (
-              <div key={index}>
-                {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
-              </div>
-            ))}
-          </div>
-        ),
       });
+      const state = (agent.state ?? {}) as Partial<AgentState>;
 
-      // ...
-
-      return <div>...</div>;
+      // styles omitted for brevity
+      // [!code highlight:18]
+      return (
+        <CopilotChat
+          agentId="sample_agent"
+          messageView={{
+            children: ({ messageElements, interruptElement }) => (
+              <div>
+                {messageElements}
+                {state.searches?.map((search, index) => (
+                  <div key={index}>
+                    {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
+                  </div>
+                ))}
+                {interruptElement}
+              </div>
+            ),
+          }}
+        />
+      );
     }
     ```
 
   </Step>
   <Step>
     ### Render state outside of the chat
-    You can also render the state of your agent **outside of the chat**. This is useful when you want to render the state of your agent anywhere
-    other than the chat.
+    You can also render the state of your agent **outside of the chat**.
 
     ```tsx title="app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
     // ...
 
     // Define the state of the agent, should match the state of the agent in your Flow.
@@ -199,9 +206,9 @@ is a situation where a user and an agent are working together to solve a problem
 
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
 
-    You've now created a component that will render the agent's state in the chat.
+    Send the agent any message. Three searches appear in the chat, and they change to done one at a time, one second apart.
 
   </Step>
 </Steps>

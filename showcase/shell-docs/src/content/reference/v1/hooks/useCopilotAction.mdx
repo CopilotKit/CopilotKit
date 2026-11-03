@@ -7,35 +7,19 @@ description: "The useCopilotAction hook allows your copilot to take action in th
   `useCopilotAction` is still supported, but we recommend migrating to [`useFrontendTool`](/reference/v2/hooks/useFrontendTool) from the v2 API.
 </Callout>
 
-<br />
-<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/use-copilot-action/useCopilotAction.gif" width="500" />
+<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/use-copilot-action/useCopilotAction.gif" />
 
-`useCopilotAction` is a React hook that you can use in your application to provide
-custom actions that can be called by the AI. Essentially, it allows the Copilot to
-execute these actions contextually during a chat, based on the user’s interactions
-and needs.
+`useCopilotAction` is a React hook that registers an action that the agent can call during a chat.
 
-Here's how it works:
-
-Use `useCopilotAction` to set up actions that the Copilot can call. To provide
-more context to the Copilot, you can provide it with a `description` (for example to explain
-what the action does, under which conditions it can be called, etc.).
-
-Then you define the parameters of the action, which can be simple, e.g. primitives like strings or numbers,
-or complex, e.g. objects or arrays.
-
-Finally, you provide a `handler` function that receives the parameters and returns a result.
-CopilotKit takes care of automatically inferring the parameter types, so you get type safety
-and autocompletion for free.
-
-To render a custom UI for the action, you can provide a `render()` function. This function
-lets you render a custom component or return a string to display.
+Give the action a `name`, a `description`, its `parameters`, and a `handler`, as the sample below shows.
 
 ## Usage
 
 ### Simple Usage
 
 ```tsx
+import { useCopilotAction } from "@copilotkit/react-core";
+
 useCopilotAction({
   name: "sayHello",
   description: "Say hello to someone.",
@@ -54,37 +38,41 @@ useCopilotAction({
 
 ## Generative UI
 
-This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/generative-ui/your-components/display-only) page.
+This hook lets you dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/generative-ui/your-components/display-only) page.
 
 ## Parameters
 
 <PropertyReference name="action" type="Action" required>
-  The function made available to the Copilot. See [Action](#action).
+  The action that the agent can call.
 
     <PropertyReference name="name" type="string" required>
-      The name of the action.
+      The name of the action. Set it to `"*"` to render every tool call that has no action of its own. A `"*"` action takes `render` or `renderAndWaitForResponse`, and its render props also hold the `name` of the tool call.
     </PropertyReference>
 
-    <PropertyReference name="handler" type="(args) => Promise<any>" required>
-      The handler of the action.
+    <PropertyReference name="handler" type="(args) => any | Promise<any>">
+      The handler of the action. It runs in the browser when the agent calls the action. Omit it to only render a tool call that runs on the agent. Do not set it together with `renderAndWaitForResponse`.
     </PropertyReference>
 
     <PropertyReference name="description" type="string">
-      A description of the action. This is used to instruct the Copilot on how to
-      use the action.
+      A description of the action. The agent reads it to decide when to call the
+      action.
     </PropertyReference>
 
-    <PropertyReference name="available" type="'enabled' | 'disabled' | 'remote'">
-      Use this property to control when the action is available to the Copilot. When set to `"remote"`, the action is 
-      available only for remote agents.
+    <PropertyReference name="available" type="'enabled' | 'disabled' | 'remote' | 'frontend'">
+      Use this property to control when the action is available to the agent. `"enabled"` and `"remote"` register the action for the agent.
+      `"disabled"` and `"frontend"` do not send the action to the agent and only register its `render`.
     </PropertyReference>
 
     <PropertyReference name="followUp" type="boolean" default="true">
-        Whether to report the result of a function call to the LLM which will then provide a follow-up response. Pass `false` to disable
+        Whether to send the result of the action back to the agent, which then writes a follow-up response. Pass `false` to disable
+    </PropertyReference>
+
+    <PropertyReference name="webmcp" type="boolean | WebMCPToolConfig">
+      Also expose the action to browser agents through the WebMCP API (`document.modelContext`). Pass `true` for the default annotations, or `{ annotations }` to set your own.
     </PropertyReference>
 
     <PropertyReference name="parameters" type="Parameter[]">
-      The parameters of the action. See [Parameter](#parameter).
+      The parameters of the action.
 
       <PropertyReference name="name" type="string" required>
         The name of the parameter.
@@ -93,9 +81,8 @@ This hooks enables you to dynamically generate UI elements and render them in th
       <PropertyReference
         name="type"
         type="string"
-        required
       >
-        The type of the argument. One of:
+        The type of the argument. Defaults to `"string"`. One of:
         - `"string"`
         - `"number"`
         - `"boolean"`
@@ -107,8 +94,8 @@ This hooks enables you to dynamically generate UI elements and render them in th
       </PropertyReference>
 
       <PropertyReference name="description" type="string">
-        A description of the argument. This is used to instruct the Copilot on what
-        this argument is used for.
+        A description of the argument. The agent reads it to know what the argument
+        is for.
       </PropertyReference>
 
       <PropertyReference name="enum" type="string[]">
@@ -145,7 +132,7 @@ This hooks enables you to dynamically generate UI elements and render them in th
       </PropertyReference>
     </PropertyReference>
 
-    <PropertyReference name="render" type="string | (props: ActionRenderProps<T>) => string">
+    <PropertyReference name="render" type="string | (props: ActionRenderProps<T>) => string | React.ReactElement">
       Render lets you define a custom component or string to render instead of the
       default. You can either pass in a string or a function that takes the following props:
 

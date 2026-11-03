@@ -8,7 +8,7 @@ import InspectorPaneGenerativeUI from "@/snippets/shared/inspector/open-inspecto
 
 
 <Callout type="warn" title="Experimental">
-  Components and surfaces implements [A2UI 1.0](https://a2ui.org) as of spec revision [`cbaa5ee`](https://github.com/a2ui-project/a2ui/tree/cbaa5ee62c737b50d0695c1e5794d0f648b61dca/specification/v1_0) (October 2026). Upstream still calls 1.0 a candidate, and the API of this feature can change. What the [support matrix](/generative-ui/components/from-a2ui#support-matrix) lists is the supported scope; anything it does not list is not supported, rather than partly supported.
+  Components and surfaces implements [A2UI 1.0](https://a2ui.org) as of spec revision [`cbaa5ee`](https://github.com/a2ui-project/a2ui/tree/cbaa5ee62c737b50d0695c1e5794d0f648b61dca/specification/v1_0) (October 2026). Upstream still calls 1.0 a candidate, and the API of this feature can change. The [support matrix](/generative-ui/components/from-a2ui#support-matrix) lists what is supported. Anything that it does not list is not supported.
 </Callout>
 
 ## What is this?
@@ -714,7 +714,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     </template>
     ```
 
-    Write the binding in camelCase: `:generativeUI`. Vue reads `:generative-ui` as a different prop, so the provider does not get the catalog.
+  The catalog holds React components, so the provider must be created in a client component. Wrap your layout in it, so every page shares one provider. Then put a chat on a page:
 
     Charts and maps draw with optional libraries. Icons need nothing more. When you want charts or maps, install the library of each one you use:
 

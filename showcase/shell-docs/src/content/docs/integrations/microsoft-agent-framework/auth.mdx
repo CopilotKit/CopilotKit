@@ -7,7 +7,7 @@ description: "Secure your Microsoft Agent Framework agents with user authenticat
 
 Forward user authentication from your frontend to your AG-UI server:
 
-- **Frontend**: Pass tokens via `<CopilotKit headers={{ Authorization: token }}>`
+- **Frontend**: Pass tokens via `<CopilotKit headers={{ Authorization: "Bearer " + token }}>`
 - **Backend**: Validate tokens using ASP.NET Core authentication middleware
 
 ## Frontend Setup
@@ -31,6 +31,12 @@ Configure authentication in your AG-UI server:
 
 <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
   <Tab value=".NET">
+    Add the JWT bearer package to your project:
+
+    ```bash
+    dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
+    ```
+
     ```csharp title="Program.cs"
 #pragma warning disable OPENAI001
 using Microsoft.Extensions.AI;
@@ -85,8 +91,9 @@ using Microsoft.Extensions.AI;
     ```python title="agent/src/main.py (excerpt)"
     from __future__ import annotations
     import os
-    from fastapi import FastAPI, HTTPException, Request, status
+    from fastapi import FastAPI, Request, status
     from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.responses import JSONResponse
     from agent_framework import SupportsChatGetResponse
     from agent_framework.openai import OpenAIChatClient
     from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
@@ -110,10 +117,10 @@ using Microsoft.Extensions.AI;
         if REQUIRED_BEARER_TOKEN and request.url.path == "/":
             auth_header = request.headers.get("Authorization", "")
             if not auth_header.startswith("Bearer "):
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
+                return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": "Missing bearer token"})
             token = auth_header.split(" ", 1)[1].strip()
             if token != REQUIRED_BEARER_TOKEN:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+                return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": "Invalid token"})
         return await call_next(request)
 
     # Build a chat client (same pattern as the Quickstart)
@@ -169,28 +176,23 @@ Add settings to your server configuration:
   </Tab>
 </Tabs>
 
+### Check the protection
+
+1. Send a request without a token to your AG-UI server. The quickstart serves it at `http://localhost:8000/`:
+
+```bash
+curl -i -X POST http://localhost:8000/ -H "Content-Type: application/json" -d '{}'
+```
+
+The server returns `401 Unauthorized`.
+
+2. Sign in to your app and send a message in the chat. The agent replies.
+
 ### CORS (if needed)
 
-If your frontend and backend are on different origins:
+The browser sends requests to your CopilotKit runtime. The runtime then calls the AG-UI server from your server, so the AG-UI server does not need CORS for your frontend.
 
-```csharp title="Program.cs"
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.WithOrigins("http://localhost:3000")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
-});
-
-// ...
-
-app.UseCors();
-app.UseAuthentication();
-app.UseAuthorization();
-```
+If your frontend and your CopilotKit runtime are on different origins, configure CORS on the server that hosts the runtime.
 
 ## Security Best Practices
 
@@ -210,8 +212,8 @@ app.UseAuthorization();
 
 **Token not reaching server**: Verify the `Authorization` header is set in `<CopilotKit>` and forwarded through any proxies.
 
-**Invalid token**: Ensure the token includes the `Bearer ` prefix.
+**Invalid token**: Make sure the token includes the `Bearer ` prefix.
 
-**CORS errors**: Configure CORS if frontend and backend are on different origins (see [CORS section](#cors-if-needed)).
+**CORS errors**: If your frontend and your CopilotKit runtime are on different origins, configure CORS on the runtime server (see [CORS section](#cors-if-needed)).
 
 For more details, see [Microsoft's JWT authentication guide](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/configure-jwt-bearer-authentication).

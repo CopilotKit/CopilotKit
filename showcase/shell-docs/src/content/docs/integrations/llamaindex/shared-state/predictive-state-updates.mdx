@@ -57,139 +57,120 @@ When your agent finishes executing, **its final state becomes the single source 
     ```
   </Step>
   <Step>
-    ### Emit the intermediate state
+    ### Emit state from a tool
 
-    <TailoredContent
-        id="state-emission"
-        header={
-            <div>
-                <p className="text-xl font-semibold">How would you like to emit state updates?</p>
-                <p className="text-base">
-                    You can either manually emit state updates or configure specific tool calls to emit updates.
-                </p>
-            </div>
-        }
-    >
-        <TailoredContentOption
-            id="tool-emission"
-            title="Tool-Based Predictive State Updates"
-            description="Configure specific tool calls to automatically emit intermediate state updates."
-            icon={<FaWrench />}
-        >
-            For long-running tasks, you can create a tool that updates state and emits it to the frontend. In this example, we'll create a step progress tool that the LLM calls to report its progress.
+    For long-running tasks, you can create a tool that updates state and emits it to the frontend. In this example, we'll create a step progress tool that the LLM calls to report its progress.
 
-            ```python title="agent.py"
-            import asyncio
-            from typing import Annotated, List
-            from pydantic import BaseModel
-            from fastapi import FastAPI
-            from llama_index.core.workflow import Context
-            from llama_index.llms.openai import OpenAI
-            from llama_index.protocols.ag_ui.events import StateSnapshotWorkflowEvent
-            from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+    ```python title="agent.py"
+    import asyncio
+    from typing import Annotated, List
+    from pydantic import BaseModel
+    from fastapi import FastAPI
+    from llama_index.core.workflow import Context
+    from llama_index.llms.openai import OpenAI
+    from llama_index.protocols.ag_ui.events import StateSnapshotWorkflowEvent
+    from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
 
-            class Step(BaseModel):
-                """A single step in a task."""
-                description: str
+    class Step(BaseModel):
+        """A single step in a task."""
+        description: str
 
 
-            class Task(BaseModel):
-                """A task with a list of steps to execute."""
-                steps: List[Step]
+    class Task(BaseModel):
+        """A task with a list of steps to execute."""
+        steps: List[Step]
 
 
-            async def execute_task(ctx: Context, task: Task) -> str:
-                """Execute a list of steps for any task. Use this for any task the user wants to accomplish.
-                
-                Args:
-                    ctx: The workflow context for accessing and updating state.
-                    task: The task containing the list of steps to execute.
-                
-                Returns:
-                    str: Confirmation that the task was completed.
-                """
-                task = Task.model_validate(task)
-                
-                async with ctx.store.edit_state() as global_state:
-                    state = global_state.get("state", {})
-                    if state is None:
-                        state = {}
-                    
-                    # Initialize all steps as pending
-                    state["observed_steps"] = [
-                        {"description": step.description, "status": "pending"}
-                        for step in task.steps
-                    ]
-                    
-                    # Send initial state snapshot
-                    ctx.write_event_to_stream(
-                        StateSnapshotWorkflowEvent(snapshot=state)
-                    )
-                    
-                    # Simulate step execution with delays
-                    await asyncio.sleep(0.5)
-                    
-                    # Update each step to completed one by one
-                    for i in range(len(state["observed_steps"])):
-                        state["observed_steps"][i]["status"] = "completed"
-                        
-                        # Emit updated state after each step
-                        ctx.write_event_to_stream(
-                            StateSnapshotWorkflowEvent(snapshot=state)
-                        )
-                        
-                        # Small delay between steps for visual effect
-                        await asyncio.sleep(0.5)
-                    
-                    global_state["state"] = state
-                
-                return "Task completed successfully!"
-
-
-            # Initialize the LLM
-            llm = OpenAI(model="gpt-6-luna")
-
-            # Create the AG-UI workflow router
-            agentic_chat_router = get_ag_ui_workflow_router(
-                llm=llm,
-                system_prompt=(
-                    "You are a helpful assistant that can help the user with their task. "
-                    "When the user asks you to do any task (like creating a recipe, planning something, etc.), "
-                    "use the execute_task tool with a list of steps. Use your best judgment to describe the steps. "
-                    "Always use the tool for any actionable request."
-                ),
-                backend_tools=[execute_task],
-                initial_state={
-                    "observed_steps": [],
-                },
+    async def execute_task(ctx: Context, task: Task) -> str:
+        """Execute a list of steps for any task. Use this for any task the user wants to accomplish.
+        
+        Args:
+            ctx: The workflow context for accessing and updating state.
+            task: The task containing the list of steps to execute.
+        
+        Returns:
+            str: Confirmation that the task was completed.
+        """
+        task = Task.model_validate(task)
+        
+        async with ctx.store.edit_state() as global_state:
+            state = global_state.get("state", {})
+            if state is None:
+                state = {}
+            
+            # Initialize all steps as pending
+            state["observed_steps"] = [
+                {"description": step.description, "status": "pending"}
+                for step in task.steps
+            ]
+            
+            # Send initial state snapshot
+            ctx.write_event_to_stream(
+                StateSnapshotWorkflowEvent(snapshot=state)
             )
+            
+            # Simulate step execution with delays
+            await asyncio.sleep(0.5)
+            
+            # Update each step to completed one by one
+            for i in range(len(state["observed_steps"])):
+                state["observed_steps"][i]["status"] = "completed"
+                
+                # Emit updated state after each step
+                ctx.write_event_to_stream(
+                    StateSnapshotWorkflowEvent(snapshot=state)
+                )
+                
+                # Small delay between steps for visual effect
+                await asyncio.sleep(0.5)
+            
+            global_state["state"] = state
+        
+        return "Task completed successfully!"
 
-            # Create FastAPI app
-            app = FastAPI(
-                title="LlamaIndex Agent",
-                description="A LlamaIndex agent integrated with CopilotKit",
-                version="1.0.0"
-            )
 
-            # Include the router
-            app.include_router(agentic_chat_router)
+    # Initialize the LLM
+    llm = OpenAI(model="gpt-5.4")
 
-            # Health check endpoint
-            @app.get("/health")
-            async def health_check():
-                return {"status": "healthy", "agent": "llamaindex"}
+    # Create the AG-UI workflow router
+    agentic_chat_router = get_ag_ui_workflow_router(
+        llm=llm,
+        system_prompt=(
+            "You are a helpful assistant that can help the user with their task. "
+            "When the user asks you to do any task (like creating a recipe, planning something, etc.), "
+            "use the execute_task tool with a list of steps. Use your best judgment to describe the steps. "
+            "Always use the tool for any actionable request."
+        ),
+        backend_tools=[execute_task],
+        initial_state={
+            "observed_steps": [],
+        },
+    )
 
-            if __name__ == "__main__":
-                import uvicorn
-                uvicorn.run(app, host="localhost", port=8000)
-            ```
+    # Create FastAPI app
+    app = FastAPI(
+        title="LlamaIndex Agent",
+        description="A LlamaIndex agent integrated with CopilotKit",
+        version="1.0.0"
+    )
 
-            <Callout>
-              With this configuration, the agent emits state updates each time it calls the `stepProgress` tool, giving the frontend real-time visibility into progress.
-            </Callout>
-        </TailoredContentOption>
-    </TailoredContent>
+    # Include the router
+    app.include_router(agentic_chat_router)
+
+    # Health check endpoint
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy", "agent": "llamaindex"}
+
+    if __name__ == "__main__":
+        import uvicorn
+        uvicorn.run(app, host="localhost", port=8000)
+    ```
+
+    <Callout>
+      With this configuration, the agent sends a state snapshot each time `execute_task` marks a step as completed.
+    </Callout>
   </Step>
   <Step>
     ### Observe the predictions
@@ -198,8 +179,7 @@ When your agent finishes executing, **its final state becomes the single source 
     ```tsx title="ui/app/page.tsx"
     "use client";
 
-    import { useAgent } from "@copilotkit/react-core/v2";
-    import { CopilotSidebar } from '@copilotkit/react-ui';
+    import { CopilotSidebar, useAgent } from "@copilotkit/react-core/v2";
     import '@copilotkit/react-core/v2/styles.css';
 
     interface Step {
@@ -212,35 +192,9 @@ When your agent finishes executing, **its final state becomes the single source 
     }
 
     export default function Page() {
-        // Get access to both predicted and final states
+        // agent.state holds the steps during the run and after it
         const { agent } = useAgent({ agentId: "my_agent" });
-
-        // Add a state renderer to show progress in the chat
-        useAgent({
-            agentId: "my_agent",
-            render: ({ state, status }) => {
-                if (!state?.observed_steps?.length) return null;
-                return (
-                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 my-2">
-                        <h3 className="font-semibold text-gray-700 mb-2">
-                            {status === 'inProgress' ? '⏳ Progress:' : '✅ Completed:'}
-                        </h3>
-                        <ul className="space-y-1">
-                            {state.observed_steps.map((step, i) => (
-                                <li key={i} className="flex items-center gap-2">
-                                    <span>
-                                        {step.status === 'completed' ? '✅' : '⏳'}
-                                    </span>
-                                    <span className={step.status === 'completed' ? 'text-green-700' : 'text-gray-600'}>
-                                        {step.description}
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                );
-            },
-        });
+        const observedSteps = (agent.state as AgentState | undefined)?.observed_steps ?? [];
 
         return (
             <div>
@@ -249,12 +203,12 @@ When your agent finishes executing, **its final state becomes the single source 
                 </header>
 
                 <main>
-                    {/* Side panel showing final state */}
+                    {/* Side panel showing the steps */}
                     <aside>
-                        <h2>Agent State</h2>
-                        {agent.state?.observed_steps?.length > 0 ? (
+                        <h2>{agent.isRunning ? '⏳ Progress' : 'Agent State'}</h2>
+                        {observedSteps.length > 0 ? (
                             <ul>
-                                {agent.state.observed_steps.map((step, i) => (
+                                {observedSteps.map((step, i) => (
                                     <li key={i}>
                                         <span>{step.status === 'completed' ? '✅' : '⏳'}</span>
                                         <span>{step.description}</span>
@@ -281,12 +235,12 @@ When your agent finishes executing, **its final state becomes the single source 
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` value must match the key of the agent in your `CopilotRuntime` `agents` map (for example, `my_agent`).
     </Callout>
   </Step>
   <Step>
-    ### Give it a try!
-    Now you'll notice that the state predictions are emitted as the agent makes progress, giving you insight into its work before the final state is determined.
+    ### Give it a try
+    Ask the agent: "Teach me how to fix a tire." The side panel lists the steps with ⏳, and each step changes to ✅ as `execute_task` completes it.
     You can apply this pattern to any long-running task in your agent.
   </Step>
 </Steps>

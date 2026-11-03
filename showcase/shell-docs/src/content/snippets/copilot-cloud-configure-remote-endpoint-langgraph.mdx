@@ -1,8 +1,8 @@
 
-To connect to LangGraph agents through Copilot Cloud, we leverage a concept called "Remote Endpoints"
+To connect to LangGraph agents through Copilot Cloud, you use a concept called "Remote Endpoints"
 which allow CopilotKit runtime to connect to various backends.
 
-Navigate to <LinkToCopilotCloud asButton={false}>dashboard.operations.copilotkit.ai</LinkToCopilotCloud> and follow the video!
+Navigate to <LinkToCopilotCloud asButton={false}>dashboard.operations.copilotkit.ai</LinkToCopilotCloud> and follow the steps under the video.
 
 You'll need a LangSmith API key which you can get with [this guide](https://docs.smith.langchain.com/administration/how_to_guides/organization_management/create_account_api_key#create-an-api-key) on LangSmith's website.
 
@@ -25,4 +25,10 @@ You'll need a LangSmith API key which you can get with [this guide](https://docs
   />
 </Frame>
 
-🎉 You should now see your LangGraph agent in the list of available agents in CopilotKit!
+1. Under **Remote Endpoints**, click **+ Add New**.
+2. Select **LangGraph Platform**.
+3. In **LangGraph Cloud Deployment URL**, paste the URL of your deployment.
+4. In **LangSmith API Key**, paste your LangSmith API key.
+5. Click **Test Endpoint**. When the test passes, click **Save LangGraph Cloud Endpoint**.
+
+Your LangGraph agent appears in the list of available agents in CopilotKit.

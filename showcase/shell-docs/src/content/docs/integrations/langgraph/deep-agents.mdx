@@ -1,10 +1,10 @@
 ---
 title: Deep Agents
-description: Leverage LangGraph Deep Agents to build sophisticated agentic applications.
+description: Use LangGraph Deep Agents to build sophisticated agentic applications.
 icon: "lucide/BrainCircuit"
 ---
 <Callout type="info" title="Deep Agents is now a first-class integration">
-  Deep Agents has been promoted to its own top-level integration. Head to the [Deep Agents integration](/deepagents) for the full documentation.
+  For the full Deep Agents documentation, see the [Deep Agents integration](/deepagents).
 </Callout>
 
 ## Prerequisites
@@ -90,7 +90,7 @@ Before you begin, you'll need the following:
                 uv add ag-ui-langgraph fastapi uvicorn
                 ```
 
-                Then create a simple LangGraph agent, add a FastAPI app, and build attach our agent as an AG-UI endpoint.
+                Create the agent in `main.py`. The FastAPI app serves it as an AG-UI endpoint:
 
                 ```python title="main.py"
                 import os
@@ -157,7 +157,7 @@ Before you begin, you'll need the following:
         ```
 
         <Callout type="info" title="What about other models?">
-        The starter template is configured to use OpenAI's GPT-6 Luna by default, but you can modify it to use any language model supported by LangGraph.
+        This agent uses `openai:gpt-5.4`. To use another model supported by LangGraph, change the `model` argument of `create_deep_agent`.
         </Callout>
     </Step>
     <Step>
@@ -183,7 +183,7 @@ Before you begin, you'll need the following:
         Create an API route to connect CopilotKit to your LangGraph agent:
 
         ```sh
-        mkdir -p app/api/copilotkit && touch app/api/copilotkit/route.ts
+        mkdir -p "app/api/copilotkit/[[...slug]]" && touch "app/api/copilotkit/[[...slug]]/route.ts"
         ```
 
         <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
@@ -268,8 +268,7 @@ Before you begin, you'll need the following:
         }
         ```
 
-        `app/layout.tsx` is a server component and cannot import the provider
-        directly, so it renders your client file instead:
+        Render your `Providers` component in `app/layout.tsx`:
 
         ```tsx title="app/layout.tsx"
         // [!code highlight:2]
@@ -305,14 +304,14 @@ Before you begin, you'll need the following:
 
     export default function Page() {
         useDefaultRenderTool({
-        render: ({name, status, args, result}) => (
+        render: ({name, status, parameters, result}) => (
             <details>
                 <summary>
                     {status === "complete"? `Called ${name}` : `Calling ${name}`}
                 </summary>
 
                 <p>Status: {status}</p>
-                <p>Args: {JSON.stringify(args)}</p>
+                <p>Args: {JSON.stringify(parameters)}</p>
                 <p>Result: {JSON.stringify(result)}</p>
             </details>
         )})
@@ -378,5 +377,10 @@ Before you begin, you'll need the following:
                 ```
             </Tab>
         </Tabs>
+    </Step>
+    <Step>
+        ### Chat with your agent
+
+        Open `http://localhost:3000` and ask "What is the weather in Paris?". The sidebar shows a `Called get_weather` row, and the agent answers that it is sunny.
     </Step>
 </Steps>

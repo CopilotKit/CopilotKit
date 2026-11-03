@@ -3,9 +3,9 @@
     ### Wire CopilotKit middleware into your agent
 
     Deep Agents compile to LangGraph graphs, and `CopilotKitMiddleware` is the
-    bridge. It reads the forwarded tools off the request and merges them into
-    the tool list the model sees, so a component registered with `useComponent`
-    only reaches the model when the middleware is present.
+    bridge. It reads the frontend tools from the request. It adds them to the
+    tool list that the model sees. Without the middleware, a tool that you
+    register with `useFrontendTool` or `useComponent` never reaches the model.
 
     ```python title="agent.py"
     from deepagents import create_deep_agent

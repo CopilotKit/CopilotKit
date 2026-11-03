@@ -7,8 +7,8 @@ frontend: universal
 
 # Debug Mode
 
-When your agent isn't behaving as expected — events are missing, state isn't
-updating, or tool calls aren't executing — you need visibility into the event
+When your agent isn't behaving as expected (events are missing, state isn't
+updating, or tool calls aren't executing), you need visibility into the event
 pipeline. Runtime debug mode provides structured server-side logging; the
 frontend can inspect the resulting stream with browser network tools or the
 AG-UI Event Inspector.
@@ -60,6 +60,10 @@ This produces structured Pino logs (formatted by `pino-pretty`) with a `copilotk
     loggedEventCount: 4
 ```
 
+<Callout type="warn">
+  Do not turn on debug mode in production. Debug mode writes a large volume of logs, especially in verbose mode.
+</Callout>
+
 <FrontendOnly frontend="react">
 ### Client-Side
 
@@ -74,7 +78,7 @@ Pass `debug={true}` to the `<CopilotKit>` provider:
 </CopilotKit>
 ```
 
-This forwards the debug configuration to the AG-UI client transport layer (`transformChunks`), which may produce transport-level debug output depending on the AG-UI library version. Note that the richest debug logging comes from the **server-side** `CopilotRuntime` — enable `debug: true` there for full structured Pino logs of every AG-UI event.
+The client passes this setting to the AG-UI transport. The AG-UI library decides if it logs anything. For full event logs, turn on `debug` in `CopilotRuntime`.
 
 <Callout type="info">
   The server and client debug toggles are independent. Enabling debug on the client does not affect the server, and vice versa.
@@ -131,21 +135,23 @@ debug: { events: true, lifecycle: false, verbose: true }
 
 ### Events Not Reaching the Client
 
-Enable debug on the server side for the most detailed visibility:
-1. Check server logs for `Event emitted` — are the expected events being sent?
-2. Verify `SSE stream completed` shows the expected `eventCount`.
-3. Use the browser Network tab to confirm SSE events are arriving over the wire.
+Turn on debug mode on the server, then:
+
+1. Find `Event emitted` in the server logs. Make sure that the expected events are there.
+2. Make sure that `SSE stream completed` shows the expected `eventCount`.
+3. Open the Network tab in the browser. Make sure that the SSE events arrive.
 
 ### Tool Calls Not Executing
 
-Enable server-side debug and look for:
-1. `TOOL_CALL_START` events being emitted on the server
-2. `TOOL_CALL_ARGS` and `TOOL_CALL_END` events following correctly
-3. Confirm the events appear in the SSE stream via the browser Network tab
+Turn on debug mode on the server, then:
+
+1. Find `TOOL_CALL_START` in the server logs.
+2. Make sure that `TOOL_CALL_ARGS` and `TOOL_CALL_END` follow it.
+3. Make sure that the same events appear in the SSE stream in the Network tab.
 
 ### State Not Updating
 
-Look for `STATE_SNAPSHOT` or `STATE_DELTA` events in server logs. If they appear on the server but not in the browser's SSE stream, there may be a connection issue.
+Look for `STATE_SNAPSHOT` or `STATE_DELTA` events in server logs. If they appear in the server logs but not in the browser's SSE stream, something between the server and the browser drops them. Open the Network tab and make sure that a proxy does not buffer or cut off the response.
 
 ## What Gets Logged
 
@@ -161,19 +167,9 @@ Look for `STATE_SNAPSHOT` or `STATE_DELTA` events in server logs. If they appear
 
 In **summary mode** (verbose off), event logs include key identifiers like `messageId`, `toolCallId`, `toolCallName`, `role`, and content lengths instead of full payloads.
 
-<FrontendOnly frontend="react">
-### Client-Side
-
-On the client, the `debug` configuration is passed through to the AG-UI transport layer. The AG-UI client library controls what (if any) debug output is produced. CopilotKit itself does not emit `console.debug` calls — the debug flag configures the underlying AG-UI event pipeline.
-</FrontendOnly>
-
 <FrontendOnly frontend="angular">
 ### Client-side
 
 Use the browser's Network panel or the AG-UI Event Inspector for client-side
 visibility. The Angular package does not add a second console-debug stream.
 </FrontendOnly>
-
-<Callout type="warn">
-  Debug mode can produce a large volume of log output, especially in verbose mode. Use it during development and debugging, not in production.
-</Callout>

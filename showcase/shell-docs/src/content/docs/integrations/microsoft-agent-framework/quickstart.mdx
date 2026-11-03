@@ -19,7 +19,8 @@ Use this prompt to connect your Microsoft Agent Framework agent to CopilotKit an
 Before you begin, you'll need the following:
 
 - An [OpenAI API key](https://platform.openai.com/api-keys) for the .NET starter
-- .NET 9.0 SDK or later
+- .NET 9.0 SDK or later, for a .NET agent
+- Python 3.12 or later and [uv](https://docs.astral.sh/uv/), for a Python agent
 - Node.js 20+
 - Your favorite package manager (npm, pnpm, yarn, or bun)
 
@@ -29,7 +30,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_microsoft_agent_framework_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
+        <SignupLink surface="docs_microsoft_agent_framework_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. You will connect the app after you create it below.
     </Step>
 
     <Step>
@@ -56,8 +57,8 @@ Before you begin, you'll need the following:
                 The CLI walks you through:
 
                 - **Project name**
-                - **CopilotKit Intelligence** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Microsoft Agent Framework setup.
-                - **Framework** — pick **Microsoft Agent Framework (.NET)** or **Microsoft Agent Framework (Python)**.
+                - **CopilotKit Intelligence**: persistent threads and the Inspector. Choose **Yes** for a project that is wired to Intelligence. Choose **No** for a standard Microsoft Agent Framework setup.
+                - **Framework**: pick **Microsoft Agent Framework (.NET)** or **Microsoft Agent Framework (Python)**.
             </Step>
             <Step>
                 ### Install dependencies
@@ -160,11 +161,12 @@ Before you begin, you'll need the following:
             <Step>
                 ### Start your Microsoft Agent Framework agent
 
-                Make sure your agent is running and exposing an AG-UI endpoint. Here's a minimal example:
+                Serve your agent over an AG-UI endpoint. This is a minimal example:
 
                 <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
                     <Tab value=".NET">
-                        First, setup a new .NET project:
+                        1. Create the project and add the packages:
+
                         ```bash
                         dotnet new web -n AGUIServer
                         cd AGUIServer
@@ -173,7 +175,7 @@ Before you begin, you'll need the following:
                         dotnet user-secrets init
                         ```
 
-                        Build a minimal agent and serve it via AG-UI:
+                        2. Write `Program.cs`. It builds a minimal agent and serves it over AG-UI:
 
                         ```csharp title="Program.cs"
 #pragma warning disable OPENAI001
@@ -206,24 +208,29 @@ using Microsoft.Extensions.AI;
                         app.Run("http://localhost:8000");
                         ```
 
-                        Set the key, then run the agent:
+                        3. Set the API key:
 
                         ```bash
                         dotnet user-secrets set OPENAI_API_KEY "<your-openai-api-key>"
+                        ```
+
+                        4. Run the agent:
+
+                        ```bash
                         dotnet run
                         ```
                     </Tab>
                     <Tab value="Python">
 
-                        Create a python project
+                        1. Create the project and add the packages:
 
                         ```bash
                         uv init my-agent
                         cd my-agent
-                        uv add agent-framework-ag-ui python-dotenv uvicorn agent-framework-openai
+                        uv add agent-framework-ag-ui python-dotenv uvicorn agent-framework-openai azure-identity
                         ```
-                        Create a minimal FastAPI server that exposes a Microsoft Agent Framework agent over AG-UI:
-                        Replace main.py file with the following
+
+                        2. Replace the contents of `main.py` with this FastAPI server. It serves a Microsoft Agent Framework agent over AG-UI:
 
                         ```python title="main.py"
                         from __future__ import annotations
@@ -271,19 +278,18 @@ using Microsoft.Extensions.AI;
                             uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
                         ```
 
-                        Then set your environment and run:
+                        3. Create a `.env` file in `my-agent` with your OpenAI key:
+
+                        ```plaintext title=".env"
+                        OPENAI_API_KEY=sk-...your-openai-key-here...
+                        OPENAI_CHAT_MODEL_ID=gpt-5.4-mini
+                        ```
+
+                        For Azure OpenAI, set `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` instead. If you do not use `az login`, also set `AZURE_OPENAI_API_KEY`.
+
+                        4. Run the agent:
 
                         ```bash
-                        # OpenAI (agent/.env)
-                        OPENAI_API_KEY=sk-...your-openai-key-here...
-                        OPENAI_CHAT_MODEL_ID=gpt-6-luna
-                        # or Azure OpenAI (agent/.env)
-                        AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-                        AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-6-luna
-                        # Optional when az login is unavailable:
-                        # AZURE_OPENAI_API_KEY=...
-
-                        # Run the agent
                         uv run main.py
                         ```
                     </Tab>
@@ -309,7 +315,7 @@ using Microsoft.Extensions.AI;
                 ```
             </Step>
             <Step>
-                ### Setup Copilot Runtime
+                ### Add the Copilot Runtime route
 
                 CopilotKit requires a Copilot Runtime endpoint to safely communicate with your agent. This can be served
                 anywhere that Node.js can run, but for this example we'll use Next.js.
@@ -324,28 +330,23 @@ using Microsoft.Extensions.AI;
                 } from "@copilotkit/runtime/v2";
                 import { HttpAgent } from "@ag-ui/client";
 
-                // 1. You can use any service adapter here for multi-agent support. We use
-                //    the empty adapter since we're only using one agent.
-
-                // 2. Create the CopilotRuntime instance and utilize the Microsoft Agent Framework
-                //    AG-UI integration to setup the connection.
                 // [!code highlight:5]
                 const runtime = new CopilotRuntime({
                   agents: {
                     my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
                   },
-                  // [!code highlight:8]
+                  // [!code highlight:9]
                   intelligence: new CopilotKitIntelligence({
                     apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
                   }),
-                  // Threads are per-user. Without this, every visitor shares one history.
+                  // Demo only: the browser sends no x-user-id header, so all visitors share
+                  // one "anonymous" history. Before you deploy, return the verified session user.
                   identifyUser: (request) => ({
                     id: request.headers.get("x-user-id") ?? "anonymous",
                     name: request.headers.get("x-user-name") ?? "Anonymous",
                   }),
                 });
 
-                // 3. Build a Next.js API route that handles the CopilotKit runtime requests.
                 const handler = createCopilotRuntimeHandler({
                   runtime,
                   basePath: "/api/copilotkit",
@@ -353,6 +354,8 @@ using Microsoft.Extensions.AI;
 
                 export const GET = handler;
                 export const POST = handler;
+                export const PATCH = handler;
+                export const DELETE = handler;
                 ```
 
                 From this frontend app directory, connect the runtime to an Intelligence project:
@@ -369,8 +372,8 @@ using Microsoft.Extensions.AI;
 
                 <Callout type="info" title="Running without the Intelligence Platform?">
                   Drop the `intelligence` and `identifyUser` options and the runtime falls back
-                  to SSE mode with an in-memory runner. Chat still works, but Threads and the
-                  Inspector stay locked and the key is never read. See
+                  to SSE mode with an in-memory runner. Chat and the Inspector still work, but
+                  Rich Threads stay locked and the key is never read. See
                   [Connect your runtime to Intelligence](/intelligence/quickstart) for the
                   full constructor and how to confirm the key is in use.
                 </Callout>
@@ -395,8 +398,7 @@ using Microsoft.Extensions.AI;
                 }
                 ```
 
-                `app/layout.tsx` is a server component and cannot import the provider
-                directly, so it renders your client file instead:
+                Render `Providers` around your app in `app/layout.tsx`:
 
                 ```tsx title="app/layout.tsx"
                 import { Providers } from "./providers"; // [!code highlight]
@@ -421,8 +423,8 @@ using Microsoft.Extensions.AI;
                   `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
                   same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
                   server of its own and an absolute `runtimeUrl` such as
-                  `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
-                  `/angular` and `/react-native` each show that setup.
+                  `http://localhost:8200/api/copilotkit`. See the [React SPA](/react-spa), [Vue](/vue),
+                  [Angular](/angular), and [React Native](/react-native) guides for that setup.
                 </Callout>
             </Step>
             <Step>
@@ -483,32 +485,24 @@ using Microsoft.Extensions.AI;
     </TailoredContent>
     </Step>
     <Step>
-        ### 🎉 Start chatting!
+        ### Start chatting
 
-        Your AI agent is now ready to use! Try asking it some questions:
+        Open http://localhost:3000 and open the sidebar. Send one of these messages, and the agent replies in the sidebar:
 
-        ```
-        Can you tell me a joke?
-        ```
-
-        ```
-        Can you help me understand AI?
-        ```
-
-        ```
-        What do you think about .NET?
-        ```
+        - Can you tell me a joke?
+        - Can you help me understand AI?
+        - What do you think about .NET?
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
                 **Agent Connection Issues**
                 - If you see "I'm having trouble connecting to my tools", make sure:
-                  - The C# agent is running on port 8000
-                  - Your OpenAI API key is set via .NET user secrets
+                  - The agent is running on port 8000
+                  - Your OpenAI API key is set: in .NET user secrets for a .NET agent, or in the `.env` file of a Python agent
                   - Both servers started successfully (check terminal output)
 
                 **OpenAI API Key Issues**
-                - If the agent fails with "OPENAI_API_KEY not found":
+                - If the .NET agent fails with "OPENAI_API_KEY not found":
                   ```bash
                   cd agent
                   dotnet user-secrets set OPENAI_API_KEY "<your-openai-api-key>"
@@ -528,8 +522,9 @@ using Microsoft.Extensions.AI;
 
                 **Port Conflicts**
                 - If port 8000 is already in use, you can change it in:
-                  - `agent/Properties/launchSettings.json` - Update `applicationUrl`
-                  - `src/app/api/copilotkit/route.ts` - Update the remote endpoint URL
+                  - .NET agent: `agent/Properties/launchSettings.json` - Update `applicationUrl`
+                  - Python agent: `agent/.env` - Set `AGENT_PORT`
+                  - Frontend: `.env` - Set `AGENT_URL` to the new agent URL (read in `src/agent.ts`)
             </Accordion>
         </Accordions>
 
@@ -565,19 +560,9 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<PaintbrushIcon />}
   />
   <Card
-    title="Setup frontend actions"
+    title="Add frontend tools"
     description="Give your agent the ability to call frontend tools, directly updating your application."
     href="/microsoft-agent-framework/frontend-tools"
     icon={<WrenchIcon />}
   />
 </Cards>
-
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>

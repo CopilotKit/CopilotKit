@@ -21,6 +21,7 @@ Before you begin, you'll need the following:
 - An OpenAI or Anthropic API key
 - Node.js 20+
 - Python 3.12+ (Python agents only)
+- [uv](https://docs.astral.sh/uv/) (Python agents only)
 - Your favorite package manager
 
 ## Getting started
@@ -65,8 +66,8 @@ Before you begin, you'll need the following:
                 The CLI walks you through:
 
                 - **Project name**
-                - **CopilotKit Intelligence** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard AWS Strands setup.
-                - **Framework** — the command selects the AWS Strands template for this page.
+                - **CopilotKit Intelligence**: persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard AWS Strands setup.
+                - **Framework**: the command selects the AWS Strands template for this page.
             </Step>
             <Step>
                 ### Install dependencies
@@ -87,43 +88,14 @@ Before you begin, you'll need the following:
                 <ApiKeyHint provider="openai" />
 
                 <Callout type="info" title="Using Anthropic instead">
-                  Add `ANTHROPIC_API_KEY` to `agent/.env`, then swap the model:
+                  The starter reads its model from `COPILOTKIT_AGENT_MODEL`. Add these lines to `agent/.env`:
 
-                  <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
-                      <Tab value="Python">
-                          In `agent/pyproject.toml`, change `strands-agents[OpenAI]` to
-                          `strands-agents[OpenAI,anthropic]` and run `uv sync`. In
-                          `agent/main.py`, replace the `OpenAIModel(...)` block:
+                  ```plaintext title="agent/.env"
+                  ANTHROPIC_API_KEY=your_anthropic_api_key
+                  COPILOTKIT_AGENT_MODEL=anthropic:claude-sonnet-4-6
+                  ```
 
-                          ```python title="agent/main.py"
-                          from strands.models.anthropic import AnthropicModel
-
-                          model = AnthropicModel(
-                              client_args={"api_key": os.getenv("ANTHROPIC_API_KEY", "")},
-                              model_id="claude-sonnet-4-6",
-                              max_tokens=8192,  # required
-                          )
-                          ```
-                      </Tab>
-                      <Tab value="TypeScript">
-                          Run `npm install @anthropic-ai/sdk` in `agent/`. In
-                          `agent/src/agent.ts`, delete the `OPENAI_API_KEY` check and replace
-                          the `new OpenAIModel(...)` block:
-
-                          ```typescript title="agent/src/agent.ts"
-                          import { AnthropicModel } from "@strands-agents/sdk/models/anthropic";
-
-                          const model = new AnthropicModel({
-                            apiKey: process.env.ANTHROPIC_API_KEY,
-                            modelId: "claude-sonnet-4-6",
-                            maxTokens: 8192,
-                          });
-                          ```
-                      </Tab>
-                  </Tabs>
-
-                  The dynamic A2UI tool still calls OpenAI, so keep `OPENAI_API_KEY` if you
-                  use it.
+                  Every model call in the agent then uses Claude. This includes the A2UI tool.
                 </Callout>
             </Step>
             <Step>
@@ -178,6 +150,7 @@ Before you begin, you'll need the following:
                         ```bash
                         mkdir my-agent && cd my-agent
                         npm init -y
+                        npm pkg set type=module
                         npm install -D typescript @types/node tsx
                         npx tsc --init
                         ```
@@ -412,8 +385,8 @@ Before you begin, you'll need the following:
 
                 <Callout type="info" title="Running without the Intelligence Platform?">
                   Drop the `intelligence` and `identifyUser` options and the runtime falls back
-                  to SSE mode with an in-memory runner. Chat still works, but Threads and the
-                  Inspector stay locked and the key is never read. See
+                  to SSE mode with an in-memory runner. Chat and the Inspector still work, but
+                  Rich Threads stay locked and the key is never read. See
                   [Connect your runtime to Intelligence](/intelligence/quickstart) for the
                   full constructor and how to confirm the key is in use.
                 </Callout>
@@ -437,8 +410,7 @@ Before you begin, you'll need the following:
                 }
                 ```
 
-                `app/layout.tsx` is a server component and cannot import the provider
-                directly, so it renders your client file instead:
+                Render `Providers` in `app/layout.tsx`:
 
                 ```tsx title="app/layout.tsx"
                 import { Providers } from "./providers"; // [!code highlight]
@@ -485,7 +457,7 @@ Before you begin, you'll need the following:
             <Step>
                 ### Start your agent
 
-                From your agent directory, start the agent server:
+                From the `frontend` directory, go back to the agent directory and start the agent server:
 
                 <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
                     <Tab value="Python">
@@ -540,9 +512,9 @@ Before you begin, you'll need the following:
     </TailoredContent>
     </Step>
     <Step>
-        ### 🎉 Start chatting!
+        ### Start chatting
 
-        Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
+        Your AI agent is now ready to use. Navigate to `localhost:3000` and try asking it some questions:
 
         ```
         What can you do?
@@ -595,13 +567,3 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<WrenchIcon />}
   />
 </Cards>
-
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>

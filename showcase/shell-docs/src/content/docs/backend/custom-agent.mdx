@@ -1,12 +1,14 @@
 ---
-title: "Use any model router"
+title: "Use your own LLM backend (factory mode)"
 icon: "lucide/Blocks"
 description: "Use BuiltInAgent's factory mode to bring your own AI SDK, TanStack AI, or custom LLM backend."
 ---
 
-`BuiltInAgent`'s factory mode gives you full control over the LLM call. You provide
-a factory function that talks to any backend, and CopilotKit handles converting
-the stream to AG-UI events, managing lifecycle, and wiring it into the runtime.
+You have an LLM backend (AI SDK, TanStack AI, or your own HTTP API) and want a
+CopilotKit chat on top of it. Factory mode runs your backend inside
+`BuiltInAgent`. You provide a factory function that calls your backend.
+CopilotKit turns the stream into AG-UI events, manages the run lifecycle, and
+wires the agent into the runtime.
 
 ## When to use Simple Mode vs Factory Mode
 
@@ -19,7 +21,7 @@ the stream to AG-UI events, managing lifecycle, and wiring it into the runtime.
 | **Best for** | Quick setup, standard use cases | Full control, non-standard backends |
 
 <Callout type="info">
-If simple mode covers your needs, stick with it. Use factory mode when you need
+If simple mode does what you need, use simple mode. Use factory mode when you need
 control that simple mode doesn't offer.
 </Callout>
 
@@ -28,7 +30,7 @@ To write the whole agent yourself instead of a factory, extend AG-UI's
 
 ## Quick Start
 
-You have an existing LLM backend and you want a CopilotKit copilot using it. Pick your backend:
+Pick your backend:
 
 <Tabs items={["AI SDK", "TanStack AI", "Custom"]}>
 <Tab value="AI SDK">
@@ -58,11 +60,11 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const copilotEndpoint = createCopilotEndpoint({
+const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
-export default copilotEndpoint;
+export default handler;
 ```
 </Tab>
 <Tab value="TanStack AI">
@@ -95,11 +97,11 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const copilotEndpoint = createCopilotEndpoint({
+const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
-export default copilotEndpoint;
+export default handler;
 ```
 </Tab>
 <Tab value="Custom">
@@ -144,17 +146,19 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const copilotEndpoint = createCopilotEndpoint({
+const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
-export default copilotEndpoint;
+export default handler;
 ```
 </Tab>
 </Tabs>
 
 The frontend setup is the same as [BuiltInAgent](/quickstart): configure the
 CopilotKit provider and add a chat component.
+
+Open the chat and send a message. The reply streams in from your backend.
 
 ## How It Works
 
@@ -178,10 +182,10 @@ CopilotKit handles everything else: `RUN_STARTED` and `RUN_FINISHED` lifecycle e
 
 <Callout type="warn" title="Don't call `.abort()` on the controller you were handed">
 `abortController` is passed in for backends like TanStack AI that require a full
-`AbortController` — hand it to them and let them own it. Aborting it yourself from inside the
-factory cancels the stream underneath CopilotKit rather than through it, so the run's own
-teardown does not happen. To cancel a run, call `abortRun()` on the agent. For anything that
-accepts a signal — the AI SDK, `fetch`, a custom backend — pass `abortSignal` instead.
+`AbortController`. Hand it to them and let them own it. If you abort it inside the
+factory, the stream stops, but CopilotKit does not run the teardown for the run.
+To cancel a run, call `abortRun()` on the agent. For anything that accepts a
+signal (the AI SDK, `fetch`, a custom backend), pass `abortSignal` instead.
 </Callout>
 
 The `runner: new InMemoryAgentRunner()` in the examples above is the persistence
@@ -315,7 +319,7 @@ const agent = new BuiltInAgent({
 });
 ```
 
-With `type: "custom"`, you yield AG-UI events directly. See the [AG-UI event reference](/backend/ag-ui) for all available event types.
+With `type: "custom"`, you yield AG-UI events directly. See the [AG-UI event reference](https://docs.ag-ui.com/concepts/events) for all available event types.
 </Tab>
 </Tabs>
 
@@ -350,16 +354,12 @@ const agent = new BuiltInAgent({
 Reasoning events (`REASONING_START`, `REASONING_MESSAGE_CONTENT`, `REASONING_END`) are automatically extracted from the AI SDK stream.
 
 <Callout type="info">
-Pick the model with reasoning **visibility** in mind. From Claude Opus 4.7 onward (including Sonnet 5 and Opus 5), Anthropic defaults thinking `display` to `"omitted"` — the model still reasons, but no reasoning text comes back, so the events above arrive empty. `@ai-sdk/anthropic` does not expose `display` yet, so choose a model that defaults to summarized thinking (such as `claude-sonnet-4-6`) when you want the reasoning to be visible.
+Pick the model with reasoning **visibility** in mind. Some Anthropic models return no reasoning text by default, so the events above arrive empty. See Anthropic's [extended thinking docs](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking) for the `display` setting.
 </Callout>
 
-Using `BuiltInAgent` without a custom factory? The same options go through its `providerOptions` — see [Advanced Configuration](/advanced-configuration#provider-specific-options).
+Using `BuiltInAgent` without a custom factory? The same options go through its `providerOptions`. See [Advanced Configuration](/advanced-configuration#provider-specific-options).
 </Tab>
 <Tab value="TanStack AI">
-<Callout type="warn">
-The TanStack AI converter does not surface reasoning events (`REASONING_START`, `REASONING_MESSAGE_CONTENT`, `REASONING_END`). Even if the underlying model supports thinking/reasoning, those events will not be forwarded to the frontend. Use the AI SDK backend if you need reasoning events.
-</Callout>
-
 ```typescript title="src/copilotkit.ts"
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
@@ -381,6 +381,8 @@ const agent = new BuiltInAgent({
   },
 });
 ```
+
+Reasoning chunks from the model arrive as `REASONING_*` events.
 </Tab>
 </Tabs>
 
@@ -543,21 +545,11 @@ Forward those preferences from the frontend provider:
 <FrontendOnly frontend="react">
 ```tsx title="app/page.tsx"
 <CopilotKit
-  properties={{ model: "openai/gpt-6-luna", temperature: 0.3 }}
-  useSingleEndpoint={false}
+  properties={{ model: "openai/gpt-4o-mini", temperature: 0.3 }}
 >
   <CopilotChat />
 </CopilotKit>
 ```
-
-<Callout type="info" title="About the explicit useSingleEndpoint">
-  The route above serves multi-route, the default. `<CopilotKitProvider>`
-  negotiates the transport when the prop is omitted, but every released
-  `<CopilotKit>` still pins it to `true` internally — which selects the
-  single-route transport and 404s against a multi-route route. Keep the
-  `{false}`. See
-  [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
-</Callout>
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
