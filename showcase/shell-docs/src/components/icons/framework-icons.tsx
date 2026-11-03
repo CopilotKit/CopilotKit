@@ -358,6 +358,66 @@ const FRAMEWORK_ICONS: Record<string, React.ComponentType<IconProps>> = {
   "spring-ai": SpringIcon,
 };
 
+/**
+ * Official colored marks, taken from each framework's own website (favicon or
+ * app icon). `tile` marks ship on their own square, so they get rounded corners.
+ */
+const BRAND_LOGOS: Record<
+  string,
+  { src: string; dark?: string; tile?: boolean }
+> = {
+  mastra: { src: "/logos/frameworks/mastra.svg", tile: true },
+  "langgraph-python": { src: "/logos/frameworks/langgraph.png", tile: true },
+  "langgraph-typescript": {
+    src: "/logos/frameworks/langgraph.png",
+    tile: true,
+  },
+  "langgraph-fastapi": { src: "/logos/frameworks/langgraph.png", tile: true },
+  "crewai-crews": { src: "/logos/frameworks/crewai-crews.png" },
+  "crewai-conversational-flows": { src: "/logos/frameworks/crewai-crews.png" },
+  "pydantic-ai": { src: "/logos/frameworks/pydantic-ai.svg" },
+  "google-adk": { src: "/logos/frameworks/google-adk.png" },
+  llamaindex: { src: "/logos/frameworks/llamaindex.png", tile: true },
+  agno: { src: "/logos/frameworks/agno.png", tile: true },
+  ag2: {
+    src: "/logos/frameworks/ag2-light.svg",
+    dark: "/logos/frameworks/ag2-dark.svg",
+  },
+  "ms-agent-python": { src: "/logos/frameworks/ms-agent-python.svg" },
+  "ms-agent-dotnet": { src: "/logos/frameworks/ms-agent-python.svg" },
+  "ms-agent-harness-dotnet": { src: "/logos/frameworks/ms-agent-python.svg" },
+  strands: { src: "/logos/frameworks/strands.svg", tile: true },
+  // Langroid's own mark (langroid.github.io), Antigravity's (antigravity.google).
+  langroid: { src: "/logos/frameworks/langroid.png" },
+  "google-antigravity": { src: "/logos/frameworks/google-antigravity.png" },
+  "strands-typescript": { src: "/logos/frameworks/strands.svg", tile: true },
+  // Oracle's Agent Spec mark, as shell-docs shows it.
+  "agent-spec": { src: "/logos/oracle-agent-spec.png" },
+};
+
+function BrandImage({
+  src,
+  size,
+  className,
+}: {
+  src: string;
+  size: number;
+  className?: string;
+}) {
+  return (
+    // oxlint-disable-next-line nextjs/no-img-element -- tiny static marks; next/image adds nothing here
+    <img
+      src={src}
+      alt=""
+      aria-hidden="true"
+      width={size}
+      height={size}
+      className={className}
+      style={{ width: size, height: size, objectFit: "contain" }}
+    />
+  );
+}
+
 interface FrameworkLogoProps {
   slug: string;
   fallbackSrc?: string | null;
@@ -371,6 +431,28 @@ export function FrameworkLogo({
   className,
   size = 16,
 }: FrameworkLogoProps) {
+  const brand = BRAND_LOGOS[slug];
+  if (brand) {
+    const cls = [className, brand.tile && "rounded-[22%]"]
+      .filter(Boolean)
+      .join(" ");
+    if (!brand.dark)
+      return <BrandImage src={brand.src} size={size} className={cls} />;
+    return (
+      <>
+        <BrandImage
+          src={brand.src}
+          size={size}
+          className={`${cls} dark:hidden`}
+        />
+        <BrandImage
+          src={brand.dark}
+          size={size}
+          className={`${cls} hidden dark:inline-block`}
+        />
+      </>
+    );
+  }
   const Icon = FRAMEWORK_ICONS[slug];
   if (Icon) {
     return <Icon className={className} width={size} height={size} />;

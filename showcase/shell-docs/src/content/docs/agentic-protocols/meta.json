@@ -4,5 +4,10 @@
   "frontend": {
     "kind": "universal"
   },
-  "pages": ["index", "ag-ui", "ag-ui-middleware", "mcp", "a2a"]
+  "pages": [
+    "ag-ui",
+    "ag-ui-middleware",
+    "mcp",
+    "a2a"
+  ]
 }

@@ -1,152 +1,99 @@
 # Shell Docs
 
-`showcase/shell-docs` is the Next.js app that builds and serves
-`docs.copilotkit.ai`. Author CopilotKit product documentation here, not in the retired
-top-level `docs/` app.
+`showcase/shell-docs` serves the CopilotKit docs at `docs.copilotkit.ai`. It is
+built on the latest [Fumadocs](https://fumadocs.dev) (Next.js +
+`fumadocs-mdx`), as a standalone npm app outside the pnpm workspace.
 
-## Run Locally
+Design work starts from [`PRODUCT.md`](./PRODUCT.md) (who the docs serve, the
+binding brand source) and [`DESIGN.md`](./DESIGN.md) (the theme and how it maps
+onto Fumadocs). Theming stays inside Fumadocs' supported surface.
 
-Shell-docs is a standalone npm-based app. You do not need a root install just to run the
-docs app locally.
+## Run locally
 
 ```bash
-cd showcase/scripts
-npm install
-
-cd ../shell-docs
+cd showcase/shell-docs
 npm install
 npm run dev
 ```
 
-The local dev server runs on port `3003`.
+The dev server runs on http://localhost:3003. The docs live at their
+docs.copilotkit.ai URLs (`/quickstart`, `/mastra/frontend-tools`,
+`/reference/v2/...`); the older Fumadocs scaffold pages stay at `/docs`.
 
-```text
-http://localhost:3003
+"Ask AI" needs an OpenAI key: copy `.env.example` to `.env.local` and set
+`OPENAI_API_KEY`.
+
+## Content
+
+The docs pages live in `src/content`. Components resolve by name, so a page
+imports only `.mdx` snippets, and a page with sub-pages is `X/index.mdx`.
+Images, logos and videos are in `public/`: only icons, plus the images a page
+shows, which go through Git LFS.
+
+```bash
+npm run check-live-mdx     # compile every page offline
+npm run check-live-pages   # request every page at its live URL (dev server up)
+npm run check-redirects    # legacy docs.copilotkit.ai redirects
 ```
 
-The shell-docs npm lifecycle generates registry, demo-content, setup-content, and search
-data before `dev`, `build`, and `typecheck`.
+## Patches
 
-## Validate Changes
+`npm install` applies `patches/` with [patch-package](https://github.com/ds300/patch-package).
+`@copilotkit+react-core+1.82.0.patch` keeps CopilotChat's scroll-to-bottom
+button hidden while only the pin-to-send spacer is below, and keeps the pin
+working under React StrictMode. It is the fix from
+[CopilotKit#8159](https://github.com/CopilotKit/CopilotKit/pull/8159); drop the
+patch once a release with it is installed.
 
-Run these from `showcase/shell-docs`:
+## Docker
+
+The [`Dockerfile`](./Dockerfile) builds from the repo root, because
+showcase-data reads the sibling `showcase/` folders. A checkout without Git LFS
+has pointer files for the images in `public/`, so the Dockerfile runs
+`scripts/fetch-lfs.mjs` to download them.
+
+```bash
+docker build -f showcase/shell-docs/Dockerfile -t shell-docs .
+docker run --rm -p 3000:3000 -e OPENAI_API_KEY shell-docs
+```
+
+## Validate
 
 ```bash
 npm run build
 npm run typecheck
-npm run test
+npm run lint
 ```
 
-For repo-level CI parity, prefer Nx when a shell-docs target is available in the current
-checkout and root dependencies are installed. For normal shell-docs local development, the
-npm commands above are the canonical path.
+## Layout
 
-### Test scope
+| Path                                            | Purpose                                                     |
+| ----------------------------------------------- | ----------------------------------------------------------- |
+| `src/content`                                   | The docs pages                                              |
+| `src/lib/live-source.ts`                        | Live docs and reference collections                         |
+| `src/lib/live-docs.ts`                          | Live URL to page, with its framework and frontend scope     |
+| `src/lib/live-nav.ts`                           | Live sidebars from shell-docs' `meta.json` files            |
+| `src/proto/live-article.tsx`                    | Renders a live page in D's docs panel                       |
+| `src/components/docs-mdx`                       | shell-docs' MDX components, by name                         |
+| `src/components/standard-catalog`               | Standard catalog pages: a Fumadocs Story per component      |
+| `src/lib/catalog-nav.ts`                        | The sidebar's Standard catalog folder, a page per component |
+| `src/components/telemetry`, `src/lib/telemetry` | shell-docs' analytics, same events and env vars             |
+| `src/lib/redirects`                             | shell-docs' legacy URL redirects                            |
+| `source.config.ts`                              | MDX options for every page and snippet                      |
+| `content/docs`                                  | Scaffold MDX pages at `/docs` and their `meta.json`         |
+| `src/lib/source.ts`                             | Content source (`fumadocs-mdx/macro`) and loader            |
+| `src/lib/shared.ts`                             | App name, routes, GitHub config                             |
+| `src/app/theme.css`                             | CopilotKit theme over Fumadocs' variables (see `DESIGN.md`) |
+| `src/lib/layout.shared.tsx`                     | Shared nav options for the home and docs layouts            |
+| `src/app/docs`                                  | Docs layout and page renderer                               |
+| `src/app/api/search`                            | Built-in Orama search endpoint                              |
+| `src/app/og`                                    | Generated OG images per page                                |
+| `src/app/llms*.txt`, `llms.mdx`                 | LLM-readable text and per-page markdown                     |
+| `src/proxy.ts`                                  | Serves markdown for `*.md` URLs and `Accept: text/markdown` |
+| `src/app/api/mcp`                               | MCP server (list, read, search pages) for outside agents    |
+| `src/app/api/copilotkit`                        | "Ask AI" runtime: per-IP rate limit and request caps        |
+| `src/lib/docs-agent.ts`                         | "Ask AI" agent: model, scope prompt, tools, hosted MCP      |
+| `src/components/ai`                             | "Ask AI" chat in Spacious' `aiChat` slot, frontend tools    |
 
-Keep the unit suite small and focused on reader actions: internal links and navigation
-entries resolve, redirects preserve old links, search results navigate by click and
-keyboard, framework selectors switch routes, tabs switch and persist, and prompt/page
-buttons copy usable text. Preserve parser/rendering error cases, auth/runtime-config
-safety, and dependency compatibility checks that keep documented commands usable.
-
-Do not add tests that pin prose, CSS classes, spacing, icons, page composition, search
-ranking, telemetry event detail, or every framework's example. Review content and appearance
-when changing them. Keep guidance checks tied to real API/version relationships.
-
-Local `test` and CI `test:ci` run the same suite with two workers. There is no quarantine
-manifest. The path-scoped `test_unit-shell-docs.yml` workflow installs only ShellDocs and
-the content generators, generates data once, typechecks, and runs the smoke suite.
-
-### Channels package compatibility
-
-After changing the shared Channels install recommendation, run
-`npm run test:channels-sdk` with Node.js 22 or later. This installs the published
-packages in a temporary directory, typechecks the complete Slack and Teams
-runner examples, and loads them with the documented `tsx` command. It needs npm
-registry access but no credentials; it does not start a connection or send a
-Slack message. Verify a real provider reply separately before a release.
-
-## Authoring Recipes
-
-### Standard Component Catalog
-
-The interactive catalog at `/generative-ui/components/standard-catalog` uses the
-published SDK pinned in this app's `package.json`. Its fixtures and surface operations
-live in `showcase/shared/generative-ui-catalog/` and are shared with
-`examples/v2/a2ui-markdown/app/catalog/`. Add examples there when the SDK catalog grows;
-the coverage check compares fixture component names with the pinned SDK manifest.
-The index links to standalone component pages with a focused category sidebar.
-Structural parts are anchored sections on their parent's page; ownership and URLs
-come from `src/components/standard-catalog/catalog-reference.ts`. Shared templates
-reuse the SDK descriptions, prop schemas, and existing examples. Examples load their
-renderer on demand, and their scripted streams and events stay in the browser.
-
-### Showcase-Driven Framework Docs
-
-Showcase-driven frameworks use `docs_mode: generated`. The docs are assembled from showcase
-registry/generated data, demos, source regions, shared/root MDX, snippets, and sparse
-framework overrides.
-
-To update showcase-driven docs:
-
-1. Edit the showcase source of truth: manifests, demos, feature coverage, source regions, or
-   registry inputs.
-2. Edit shared/root MDX only when the change applies across generated frameworks.
-3. Add sparse framework overrides only for real framework-specific differences.
-4. Edit the landing-page record under `src/data/frameworks/` by hand. Despite an
-   older header on some of these files, nothing generates them — the script it
-   named does not exist in this repository. Only `docs_mode: generated` slugs
-   have a record here; an `authored` slug's landing page is its
-   `integrations/<docsFolder>/index.mdx`.
-5. Validate routes, sidebar state, search results, snippets, and framework switching.
-
-### Authored Framework Docs
-
-Authored frameworks use `docs_mode: authored`. The framework owns an MDX tree under
-`src/content/docs/integrations/<docsFolder>/` with a `meta.json` sidebar.
-
-To update authored docs:
-
-1. Check `getDocsFolder()` in `src/lib/registry.ts`; the URL slug and folder name may differ.
-2. Edit the MDX page under `src/content/docs/integrations/<docsFolder>/`.
-3. Update that folder's `meta.json` when adding, removing, or moving pages.
-4. Reuse shared snippets from `src/content/snippets/` when content should stay consistent
-   across frameworks.
-5. Validate the framework route, sidebar, search result, and any shared snippet render.
-
-### Reference Docs
-
-Edit API reference pages under `src/content/reference/`.
-
-The v2 reference does not use `meta.json`; navigation is generated by walking the tree and
-reading each page's `title` and `description` frontmatter. Only the legacy `reference/v1/`
-tree uses `meta.json`.
-
-### Snippets
-
-Reusable snippets live under `src/content/snippets/`. Snippets may be rendered by root docs,
-authored framework pages, and showcase-driven framework pages, so keep them general unless
-the path is intentionally framework-specific.
-
-### Frontend Applicability
-
-Frontend routes use page-level applicability metadata, independent from where the content is
-authored. A page can be authored MDX, showcase-generated content, mirrored protocol docs, or
-reference content and still be universal across frontends.
-
-Use the `frontend` field in page frontmatter or `meta.json` when a root doc should appear in
-non-React frontend docs:
-
-- `universal` — render the same page under `/<frontend>/...`.
-- `frontend-variant` — render only when a matching page exists under
-  `src/content/docs/frontends/<frontend>/...`.
-- `hide` — omit the page from frontend-scoped docs.
-
-Do not use "showcase-driven" as a proxy for frontend availability. Showcase derivation is an
-authoring/source detail; frontend applicability controls routing and sidebar inclusion.
-
-## Top-Level Docs Symlink
-
-The repository's top-level `docs/` path is a symlink to `showcase/shell-docs/` for
-contributor muscle memory. It is not a separate docs app. Do not recreate the old
-`docs/content/docs/` tree; author CopilotKit docs in `showcase/shell-docs/src/content/`.
+Scaffolded with `create-fumadocs-app@16.2.26` (`+next+fuma-docs-mdx`, `--src`,
+oxlint, Orama search, `next-og`).

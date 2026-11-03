@@ -1,0 +1,26 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+/* Fumadocs' shadcn preset: every --color-fd-* token (and the sidebar's)
+ * reads the shadcn variables, so Fumadocs and shadcn/ui share one palette. */
+@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/generated/spacious.css";
+@import "fumadocs-ui/css/preset.css";
+/* Fumadocs Story: the standard catalog's component previews. */
+@import "@fumadocs/story/css/preset.css";
+@import "./theme.css";
+
+@custom-variant dark (&:is(.dark *));
+
+html {
+  scrollbar-gutter: stable;
+}
+
+/* The docs pages in src/content hold classes of their own (a demo's
+ * `h-[640px]`), so Tailwind scans them too. */
+@source "../content";
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
