@@ -23,15 +23,7 @@ vi.mock("../../a2ui/A2UIMessageRenderer", () => ({
   },
 }));
 
-// Capture the catalog handed to the advertisement path.
-const contextCatalogs: Array<Catalog<ComponentApi> | undefined> = [];
-vi.mock("../../a2ui/A2UICatalogContext", () => ({
-  A2UICatalogContext: ({ catalog }: { catalog?: Catalog<ComponentApi> }) => {
-    contextCatalogs.push(catalog);
-    return null;
-  },
-}));
-
+import { randomUUID } from "@copilotkit/shared";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
 import type { CopilotKitCore } from "@copilotkit/core";
 
@@ -52,6 +44,14 @@ function makeCatalog(): Catalog<ComponentApi> {
 }
 
 let capturedCore: CopilotKitCore | null = null;
+/** Whether the catalog capabilities context the agent sees lists a component. */
+function advertises(name: string) {
+  const capabilities = Object.values(capturedCore!.context).find((entry) =>
+    entry.description.startsWith("A2UI catalog capabilities"),
+  );
+  return capabilities!.value.includes(`  - ${name}:`);
+}
+
 function CoreCapture() {
   const { copilotkit } = useCopilotKit();
   capturedCore = copilotkit;
@@ -61,7 +61,12 @@ function CoreCapture() {
 describe("CopilotKitProvider A2UI catalog toggling", () => {
   beforeEach(() => {
     rendererCatalogs.length = 0;
-    contextCatalogs.length = 0;
+    // The shared test setup returns one fixed id, which would make the four
+    // A2UI context entries overwrite each other in core's context store.
+    let contextId = 0;
+    vi.mocked(randomUUID).mockImplementation(
+      () => `context-${String((contextId += 1))}`,
+    );
     capturedCore = null;
   });
 
@@ -85,9 +90,8 @@ describe("CopilotKitProvider A2UI catalog toggling", () => {
       </CopilotKitProvider>,
     );
     const lastRenderer = rendererCatalogs.at(-1)!;
-    const lastContext = contextCatalogs.at(-1)!;
     expect(lastRenderer.components.has("FlightCard")).toBe(true);
-    expect(lastContext.components.has("FlightCard")).toBe(true);
+    expect(advertises("FlightCard")).toBe(true);
   });
 
   it("removes a disabled component from BOTH the render and advertisement catalogs", () => {
@@ -100,11 +104,10 @@ describe("CopilotKitProvider A2UI catalog toggling", () => {
       capturedCore!.setCatalogComponentEnabled("FlightCard", false);
     });
     const lastRenderer = rendererCatalogs.at(-1)!;
-    const lastContext = contextCatalogs.at(-1)!;
     expect(lastRenderer.components.has("FlightCard")).toBe(false);
     expect(lastRenderer.components.has("PieChart")).toBe(true);
-    expect(lastContext.components.has("FlightCard")).toBe(false);
-    expect(lastContext.components.has("PieChart")).toBe(true);
+    expect(advertises("FlightCard")).toBe(false);
+    expect(advertises("PieChart")).toBe(true);
   });
 
   it("does not register components when no catalog is provided", () => {
@@ -154,8 +157,7 @@ describe("CopilotKitProvider A2UI catalog toggling", () => {
       capturedCore!.setCatalogComponentEnabled("FlightCard", true);
     });
     const lastRenderer = rendererCatalogs.at(-1)!;
-    const lastContext = contextCatalogs.at(-1)!;
     expect(lastRenderer.components.has("FlightCard")).toBe(true);
-    expect(lastContext.components.has("FlightCard")).toBe(true);
+    expect(advertises("FlightCard")).toBe(true);
   });
 });

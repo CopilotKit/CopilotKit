@@ -67,7 +67,6 @@ import {
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
 import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryStates";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
-import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import { useGenerativeUIRoot } from "../generative-ui/use-generative-ui-root";
 import type { GenerativeUIConfig } from "../generative-ui/runtime-context";
 import {
@@ -76,7 +75,13 @@ import {
   GenerativeUIToolCallRenderer,
 } from "../generative-ui/chat";
 import { GenerativeUIRuntimeContext } from "../generative-ui/runtime-context";
-import { viewerTheme, filterCatalog, Catalog } from "@copilotkit/a2ui-renderer";
+import {
+  viewerTheme,
+  filterCatalog,
+  Catalog,
+  basicCatalog as a2uiBasicCatalog,
+} from "@copilotkit/a2ui-renderer";
+import { A2UICatalogController } from "@copilotkit/a2ui-renderer/catalog-schema";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
 import type {
@@ -563,14 +568,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // Raw catalog provided by the caller (typed loosely to match `a2ui.catalog?: any`).
   const rawCatalog = a2ui?.catalog as Catalog<any> | undefined;
 
-  // Derive the FILTERED catalog: only components currently enabled on core.
-  // Re-derives when enablement changes (catalogToggleVersion bump from the
-  // onCatalogComponentsChanged subscription below). Passed to BOTH the render
-  // path (createA2UIMessageRenderer) and the advertisement path (A2UICatalogContext)
-  // so a disabled component vanishes from what the model sees AND what can paint.
+  // Derive the FILTERED catalog for the render path: only components currently
+  // enabled on core. Re-derives when enablement changes (catalogToggleVersion
+  // bump from `a2uiCatalogController` below). The advertisement path is that
+  // controller, which filters with the same `filterCatalog`, so a disabled
+  // component vanishes from what the model sees AND what can paint.
   const filteredCatalog = useMemo(() => {
     if (!rawCatalog) return rawCatalog;
-    // `filterCatalog` rebuilds a real `Catalog` (reads `.functions`). Callers may
+    // Only genuine `Catalog` instances are filtered (as the controller does). Callers may
     // also pass a minimal catalog-shaped object; only filter genuine instances.
     if (!(rawCatalog instanceof Catalog)) return rawCatalog;
     const core = copilotkitRef.current;
@@ -927,36 +932,31 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const copilotkit = copilotkitRef.current;
   const generativeUIRuntime = useGenerativeUIRoot(copilotkit, generativeUI);
 
-  // Register the full A2UI catalog component list onto core so the inspector can
-  // read `core.catalogComponents`, and re-derive the filtered catalog whenever
-  // enablement changes. Descriptions are undefined here because the built
-  // ComponentApi does not carry them (see plan A2 rationale).
+  // Shared with Vue and Angular: registers the catalog's components with core
+  // (for the inspector), tells this provider when one is toggled so the
+  // filtered catalog above re-derives, and owns the A2UI agent context entries
+  // (scoped to `copilotkit.a2uiAgents`, #5369).
+  const [a2uiCatalogController] = useState(
+    () => new A2UICatalogController<Catalog<any>>(copilotkit, a2uiBasicCatalog),
+  );
+  useEffect(
+    () =>
+      a2uiCatalogController.subscribe(() =>
+        setCatalogToggleVersion((v) => v + 1),
+      ),
+    [a2uiCatalogController],
+  );
   useEffect(() => {
-    if (!rawCatalog) return;
-    // Only register components for genuine `Catalog` instances, mirroring the
-    // `filteredCatalog` guard above. A non-`Catalog` catalog-shaped object is
-    // passed through UNFILTERED by `filteredCatalog`, so registering its
-    // components here would make them toggleable in the inspector while
-    // disabling never actually removes them from what the model sees — a silent
-    // enforcement divergence. Guarding here keeps registration and filtering
-    // consistent (nothing registered → nothing to toggle → nothing to filter)
-    // and also avoids a mount-time throw when `.components` isn't a Map.
-    if (!(rawCatalog instanceof Catalog)) return;
-    const components = Array.from(rawCatalog.components.values()).map(
-      (comp: { name: string; schema: unknown }) => ({
-        name: comp.name,
-        description: undefined as string | undefined,
-        schema: comp.schema,
-      }),
-    );
-    copilotkit.setCatalogComponents(components);
-    const subscription = copilotkit.subscribe({
-      onCatalogComponentsChanged: () => {
-        setCatalogToggleVersion((v) => v + 1);
-      },
+    a2uiCatalogController.update({
+      enabled: a2uiActive,
+      catalog: rawCatalog,
+      includeSchema: a2ui?.includeSchema,
     });
-    return () => subscription.unsubscribe();
-  }, [copilotkit, rawCatalog]);
+  }, [a2uiCatalogController, a2uiActive, rawCatalog, a2ui?.includeSchema]);
+  useEffect(
+    () => () => a2uiCatalogController.dispose(),
+    [a2uiCatalogController],
+  );
 
   // Sync runtime feature flags from the core once runtime info is fetched.
   //
@@ -1316,12 +1316,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           <LicenseContext.Provider value={licenseState.context}>
             {a2uiActive && <A2UIBuiltInToolCallRenderer />}
             {generativeUIActive && <GenerativeUIToolCallRenderer />}
-            {a2uiActive && (
-              <A2UICatalogContext
-                catalog={filteredCatalog}
-                includeSchema={a2ui?.includeSchema}
-              />
-            )}
             <MarkdownRendererProvider renderer={markdownRenderer}>
               <CopilotKitInspectorContextProvider value={inspectorContextValue}>
                 {/*
