@@ -2105,6 +2105,9 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
+      '@copilotkit/shared':
+        specifier: workspace:*
+        version: link:../shared
       clsx:
         specifier: ^2.1.1
         version: 2.1.1

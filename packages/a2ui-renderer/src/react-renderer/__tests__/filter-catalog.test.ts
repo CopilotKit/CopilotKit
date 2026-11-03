@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { Catalog, createFunctionImplementation } from "@a2ui/web_core/v0_9";
 import type { ComponentApi } from "@a2ui/web_core/v0_9";
-import { filterCatalog } from "../filter-catalog";
+import { filterCatalog } from "../../filter-catalog";
 // Namespace import of the package's SOURCE entry, used by the export test below.
 // Deliberately top-level: pulling in the root barrel transforms the whole
 // renderer graph (markdown-it, zod), which takes longer than vitest's 5s
