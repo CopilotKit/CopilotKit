@@ -107,7 +107,10 @@ function useThreads(input: UseThreadsInput): UseThreadsResult
   </PropertyReference>
 
   <PropertyReference name="startNewThread" type="() => void">
-    Switch to a new client-side thread. The thread appears in `threads` after its first run is saved on the server.
+    Clears a stale thread-list error, so the welcome state shows cleanly. It
+    does not create or switch the chat's thread. To start a new conversation,
+    pass a new `threadId` to [`CopilotChat`](/reference/react-native/components/CopilotChat).
+    A thread appears in `threads` after its first run is saved on the server.
   </PropertyReference>
 
   <PropertyReference name="renameThread" type="(threadId: string, name: string) => Promise<void>">
