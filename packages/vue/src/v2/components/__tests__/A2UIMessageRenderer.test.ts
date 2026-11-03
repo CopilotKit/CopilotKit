@@ -1,17 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { defineComponent, h, ref } from "vue";
-import { render, waitFor } from "@testing-library/vue";
+import { fireEvent, render, waitFor } from "@testing-library/vue";
 import { createA2UIMessageRenderer } from "../A2UIMessageRenderer";
 import { CopilotKitKey } from "../../providers/keys";
 
-function copilotKitProvide() {
+function copilotKitProvide(
+  onRunAgent: (properties: Record<string, unknown>) => void = () => undefined,
+) {
+  const copilotkit = {
+    properties: {} as Record<string, unknown>,
+    setProperties(properties: Record<string, unknown>) {
+      copilotkit.properties = properties;
+    },
+    runAgent: async () => {
+      onRunAgent(copilotkit.properties);
+    },
+  };
   return {
     [CopilotKitKey as symbol]: {
-      copilotkit: ref({
-        properties: {},
-        setProperties: () => undefined,
-        runAgent: async () => undefined,
-      }),
+      copilotkit: ref(copilotkit),
       executingToolCallIds: ref(new Set()),
       a2uiTheme: ref({}),
       a2uiCatalog: ref(undefined),
@@ -293,6 +300,65 @@ describe("createA2UIMessageRenderer", () => {
     await waitFor(() => {
       expect(container.querySelector("[data-surface-id='s1']")).not.toBeNull();
       expect(container.querySelector("[data-surface-id='s2']")).not.toBeNull();
+    });
+  });
+
+  it("forwards a button click to the agent wrapped as an A2UI userAction envelope", async () => {
+    const forwarded: Record<string, unknown>[] = [];
+    const renderer = createA2UIMessageRenderer({ theme: {} });
+    const { findByRole } = render(renderer.render, {
+      props: {
+        activityType: "a2ui-surface",
+        content: {
+          a2ui_operations: [
+            {
+              version: "v0.9",
+              createSurface: {
+                surfaceId: "form",
+                catalogId:
+                  "https://a2ui.org/specification/v0_9/basic_catalog.json",
+              },
+            },
+            {
+              version: "v0.9",
+              updateComponents: {
+                surfaceId: "form",
+                components: [
+                  {
+                    id: "root",
+                    component: "Button",
+                    child: "label",
+                    action: { event: { name: "confirm", context: { n: 1 } } },
+                  },
+                  { id: "label", component: "Text", text: "Confirm" },
+                ],
+              },
+            },
+          ],
+        },
+        message: {},
+        agent: { agentId: "a" },
+      },
+      global: {
+        provide: copilotKitProvide((properties) =>
+          forwarded.push({ ...properties }),
+        ),
+      },
+    });
+
+    await fireEvent.click(await findByRole("button"));
+
+    await waitFor(() => expect(forwarded).toHaveLength(1));
+    expect(forwarded[0]).toEqual({
+      a2uiAction: {
+        userAction: {
+          name: "confirm",
+          surfaceId: "form",
+          sourceComponentId: "root",
+          context: { n: 1 },
+          timestamp: expect.any(String),
+        },
+      },
     });
   });
 });

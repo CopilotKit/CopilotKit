@@ -7,7 +7,7 @@ import type { A2UIOperation } from "./a2ui";
 import { getOperationSurfaceId } from "./a2ui";
 import { useCopilotKit } from "../providers";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
-import type { SurfaceModel } from "@a2ui/web_core/v0_9";
+import type { A2uiClientAction, SurfaceModel } from "@a2ui/web_core/v0_9";
 import { vueBasicCatalog, A2uiSurface } from "./a2ui/index";
 import type { VueComponentImplementation } from "./a2ui/index";
 
@@ -40,8 +40,20 @@ function getOrCreateProcessor(): MessageProcessor<VueComponentImplementation> {
     const catalog = props.catalog ?? vueBasicCatalog;
     processorRef.value = new MessageProcessor<VueComponentImplementation>(
       [catalog],
-      (action: unknown) => {
-        handleAction(action);
+      (action: A2uiClientAction) => {
+        // The runtimes (TS @ag-ui/a2ui-middleware and Python) read
+        // `forwardedProps.a2uiAction.userAction`, so the raw web_core action
+        // must be wrapped in the A2UI client-event envelope, as React and
+        // Angular do.
+        handleAction({
+          userAction: {
+            name: action?.name ?? "unknown",
+            surfaceId: action?.surfaceId ?? DEFAULT_SURFACE_ID,
+            sourceComponentId: action?.sourceComponentId,
+            context: action?.context,
+            timestamp: action?.timestamp ?? new Date().toISOString(),
+          },
+        });
       },
     );
   }
