@@ -1,7 +1,7 @@
 import { Component, computed, input } from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { AngularToolCall, ToolRenderer } from "../../tools";
-import { ɵgetRenderedA2UIToolOperations } from "@copilotkit/a2ui-renderer/engine";
+import { ɵgetRenderedA2UIToolOperations } from "@copilotkit/a2ui-renderer/engine-core";
 import { ɵgetA2UIProgressPhase } from "@copilotkit/core";
 import { CopilotA2UIProgress } from "./a2ui-progress";
 import {

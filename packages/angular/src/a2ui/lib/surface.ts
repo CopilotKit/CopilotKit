@@ -12,10 +12,8 @@ import {
   Type,
 } from "@angular/core";
 import { MessageProcessor, SurfaceModel } from "@a2ui/web_core/v0_9";
-import {
-  A2UIOperationApplier,
-  A2UISurfaceDiagnostics,
-} from "@copilotkit/a2ui-renderer/engine";
+import { A2UIOperationApplier } from "@copilotkit/a2ui-renderer/engine";
+import type { A2UISurfaceDiagnostics } from "@copilotkit/a2ui-renderer/engine-core";
 import { A2UIClientEventMessage, A2UISurfaceError } from "@copilotkit/angular";
 import { A2UI_SURFACE_REVISION, CopilotA2UINode } from "./node";
 import { CopilotA2UICatalog } from "./catalog";
@@ -193,11 +191,12 @@ export class CopilotA2UISurface implements OnDestroy {
   private applierKey: { catalog: CopilotA2UICatalog; theme: string } | null =
     null;
   private lastSurfaces: readonly Surface[] = [];
-  private readonly diagnostics = isDevMode()
-    ? new A2UISurfaceDiagnostics({ warn: (message) => console.warn(message) })
-    : null;
+  /** Loaded on demand in development, so core stays out of the initial bundle. */
+  private diagnostics: A2UISurfaceDiagnostics | null = null;
+  private destroyed = false;
 
   constructor() {
+    if (isDevMode()) void this.loadDiagnostics();
     effect(() => {
       const catalog = this.catalog();
       const operations = this.operations();
@@ -207,7 +206,26 @@ export class CopilotA2UISurface implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.reset();
+  }
+
+  /**
+   * The diagnostics use `@copilotkit/core`, which an app that only renders
+   * surfaces does not otherwise load. The first check runs on the operations
+   * applied while they load.
+   */
+  private async loadDiagnostics(): Promise<void> {
+    const { A2UISurfaceDiagnostics } =
+      await import("@copilotkit/a2ui-renderer/engine-core");
+    if (this.destroyed) return;
+    this.diagnostics = new A2UISurfaceDiagnostics({
+      warn: (message) => console.warn(message),
+    });
+    const processor = this.processor;
+    if (processor && this.lastSurfaces.length > 0) {
+      this.diagnostics.check(untracked(this.operations), processor.model);
+    }
   }
 
   /** Drops the processor and everything rendered from it. */
