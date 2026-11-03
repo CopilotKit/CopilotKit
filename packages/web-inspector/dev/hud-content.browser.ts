@@ -1,9 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./browser-test.js";
 import type { Page, Route } from "@playwright/test";
 
 const HUD_FEED_URL = "https://cdn.copilotkit.ai/inspector-hud/v1.json";
-const NOTIFICATION_FEED_URL =
-  "https://cdn.copilotkit.ai/notifications/v1.json*";
 const LAB_URL =
   "/?scenario=oss-intelligence-disabled&sdk-framework=react&sdk-version=1.78.0&replay-notification=1&reset=1";
 const SCREENSHOT_DIR = process.env.HUD_SCREENSHOT_DIR;
@@ -26,15 +24,9 @@ function feed(
   };
 }
 
-/** Serve the HUD feed and keep the notification feed off the network. */
+/** Serve the HUD feed; the shared fixture keeps notifications off the network. */
 async function openLab(page: Page, response: FeedResponse): Promise<void> {
   const hudRequests: string[] = [];
-  await page.route(NOTIFICATION_FEED_URL, (route) =>
-    route.fulfill({
-      contentType: "application/json",
-      body: JSON.stringify({ schemaVersion: 1, notifications: [] }),
-    }),
-  );
   await page.route(HUD_FEED_URL, (route) => {
     hudRequests.push(route.request().url());
     return route.fulfill(response);

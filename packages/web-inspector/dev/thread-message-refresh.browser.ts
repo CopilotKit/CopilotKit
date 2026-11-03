@@ -1,5 +1,5 @@
 import { writeFile } from "node:fs/promises";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./browser-test.js";
 import type { Request } from "@playwright/test";
 import type { WebInspectorElement } from "@copilotkit/web-inspector";
 
@@ -43,12 +43,6 @@ test("coalesces streaming transcript refreshes and eventually shows the last sav
     pending.delete(request);
   });
 
-  await page.route("https://cdn.copilotkit.ai/notifications/**", (route) =>
-    route.fulfill({ json: { schemaVersion: 1, notifications: [] } }),
-  );
-  await page.route("https://cdn.copilotkit.ai/inspector-hud/**", (route) =>
-    route.fulfill({ json: { schemaVersion: 1, rules: [] } }),
-  );
   await page.goto("/?scenario=pro-enabled-existing&reset=1");
   await expect(page.locator("body")).toHaveAttribute("data-lab-ready", "true");
   const inspector = page.locator("cpk-web-inspector");
