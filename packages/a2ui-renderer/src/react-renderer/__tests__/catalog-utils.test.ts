@@ -71,6 +71,35 @@ describe("buildCatalogContextValue", () => {
   });
 });
 
+/**
+ * Upstream's inline catalog, minus the differences we make on purpose: no
+ * `$schema` or duplicated description in function parameters, and absent
+ * rather than undefined `functions`/`theme`. REF-tagged subtrees are compared
+ * with toMatchObject, since we keep the inlined shape next to the `$ref`.
+ */
+function upstreamInlineCatalog(catalog: Catalog<ComponentApi>) {
+  const canonical = new MessageProcessor([catalog]).getClientCapabilities({
+    includeInlineCatalogs: true,
+  })["v0.9"].inlineCatalogs![0];
+  const { functions, theme, ...rest } = canonical;
+  return {
+    ...rest,
+    ...(theme ? { theme } : {}),
+    ...(functions
+      ? {
+          functions: functions.map((fn) => {
+            const {
+              $schema: _schema,
+              description: _description,
+              ...parameters
+            } = fn.parameters as Record<string, unknown>;
+            return { ...fn, parameters };
+          }),
+        }
+      : {}),
+  };
+}
+
 describe("extractCatalogComponentSchemas", () => {
   it("supports component-only legacy catalogs without function metadata", () => {
     const catalog = makeCustomCatalog();
@@ -84,7 +113,7 @@ describe("extractCatalogComponentSchemas", () => {
     expect(schema.theme).toBeUndefined();
   });
 
-  it("exports component reference markers in canonical form and preserves property order", () => {
+  it("adds component reference $refs alongside the inlined shape and preserves property order", () => {
     const catalog = new Catalog<ComponentApi>("copilotkit://composed", [
       {
         name: "Card",
@@ -122,6 +151,7 @@ describe("extractCatalogComponentSchemas", () => {
             child: {
               $ref: "common_types.json#/$defs/ComponentId",
               description: "Card content",
+              type: "string",
             },
           },
           required: ["component", "title", "child"],
@@ -142,11 +172,7 @@ describe("extractCatalogComponentSchemas", () => {
         },
       ],
     });
-    expect(schema).toEqual(
-      new MessageProcessor([catalog]).getClientCapabilities({
-        includeInlineCatalogs: true,
-      })["v0.9"].inlineCatalogs![0],
-    );
+    expect(schema).toMatchObject(upstreamInlineCatalog(catalog));
     const card = schema.components.Card.allOf as {
       properties?: Record<string, unknown>;
     }[];
@@ -158,7 +184,7 @@ describe("extractCatalogComponentSchemas", () => {
     ]);
   });
 
-  it("exports function and theme schemas using the canonical capability format", () => {
+  it("exports function and theme schemas in the upstream capability format", () => {
     const catalog = new Catalog<ComponentApi>(
       "copilotkit://themed",
       [],
@@ -184,14 +210,12 @@ describe("extractCatalogComponentSchemas", () => {
           .describe("REF:common_types.json#/$defs/Color|Main color"),
       }),
     );
-    const canonical = new MessageProcessor([catalog]).getClientCapabilities({
-      includeInlineCatalogs: true,
-    })["v0.9"].inlineCatalogs![0];
-
-    expect(extractCatalogComponentSchemas(catalog)).toEqual(canonical);
+    expect(extractCatalogComponentSchemas(catalog)).toMatchObject(
+      upstreamInlineCatalog(catalog),
+    );
   });
 
-  it("inlines reused Zod schemas before reference markers remove their source subtree", () => {
+  it("inlines reused Zod schemas so no local $ref is left dangling", () => {
     const schema = extractCatalogComponentSchemas();
 
     // Text/Image/TextField reuse DynamicString internals from accessibility.label.

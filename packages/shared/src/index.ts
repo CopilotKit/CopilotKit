@@ -183,6 +183,18 @@ export {
 } from "./a2ui-prompts";
 export type { GenerativeUIGuideFeatures } from "./a2ui-prompts";
 export {
+  A2UI_BASIC_CATALOG_ID,
+  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+  buildA2UICatalogContextValue,
+  extractA2UICatalogSchemas,
+  serializeA2UISchema,
+} from "./a2ui-catalog-schema";
+export type {
+  A2UICatalogSchemaSource,
+  A2UIFunctionSchema,
+  A2UIInlineCatalogSchema,
+} from "./a2ui-catalog-schema";
+export {
   COPILOTKIT_FORWARDED_PROPS_KEY,
   COPILOTKIT_UI_ENVELOPE_FORMAT,
   envelopeToManifest,
