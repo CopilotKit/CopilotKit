@@ -6,19 +6,18 @@ import React from "react";
  * Regression test for the cold-first-load race that stranded the threads drawer
  * on "Loading threads…".
  *
- * The core kicks off its `/info` fetch synchronously from its constructor
- * (during render). On a cold load (incognito / hard refresh) JS-compile
- * congestion can delay the provider's passive subscribe effect until AFTER
- * `/info` has already resolved and fired `onRuntimeConnectionStatusChanged`.
- * When that happens the event is missed, so the provider must instead READ the
- * already-settled values immediately. It previously read only `a2uiEnabled`,
- * leaving `licenseStatus` null forever → `licensePending` never clears →
- * <CopilotThreadsDrawer> is pinned to "Loading threads…".
+ * On a cold load (incognito / hard refresh) JS-compile congestion can delay
+ * the provider's passive subscribe effect until AFTER `/info` has already
+ * resolved and notified. When that happens the event is missed, so the
+ * provider must instead READ the already-settled runtime info immediately. It
+ * once read only `a2uiEnabled`, leaving `licenseStatus` null forever →
+ * `licensePending` never clears → <CopilotThreadsDrawer> is pinned to
+ * "Loading threads…".
  *
- * This test simulates "the connection event fired before we subscribed" by
- * giving the fake core a settled `licenseStatus` up front and a `subscribe`
- * that NEVER invokes the callback. The only way `status` can resolve is the
- * provider's immediate catch-up read.
+ * This test simulates "the event fired before we subscribed" by giving the
+ * fake core a settled `ɵruntimeInfo` up front and a subscription that NEVER
+ * invokes the callback. The only way `status` can resolve is the provider's
+ * immediate catch-up read.
  */
 
 const { FAKE_LICENSE_STATUS } = vi.hoisted(() => ({
@@ -30,32 +29,32 @@ const { FAKE_LICENSE_STATUS } = vi.hoisted(() => ({
 // happened before the provider got to subscribe. Defined inside the (hoisted)
 // factory so it is available when the mocked module is first imported.
 vi.mock("../../lib/react-core", () => {
+  const settledInfo = Object.freeze({
+    status: "connected",
+    a2uiEnabled: false,
+    openGenerativeUIEnabled: false,
+    licenseStatus: FAKE_LICENSE_STATUS,
+    runtimeEntitlementRetryPending: false,
+  });
   class FakeSettledCore {
-    get a2uiEnabled() {
-      return false;
-    }
-    get openGenerativeUIEnabled() {
-      return false;
-    }
-    get licenseStatus() {
-      return FAKE_LICENSE_STATUS;
+    get ɵruntimeInfo() {
+      return settledInfo;
     }
     get a2uiAgents() {
       return undefined;
     }
-    // subscribe: return an inert subscription and NEVER call any handler.
+    // Inert subscriptions that NEVER call any handler.
     subscribe() {
       return { unsubscribe: () => {} };
     }
-    // All configuration setters the provider drives in effects are no-ops here.
-    setDefaultThrottleMs() {}
-    setRuntimeUrl() {}
-    setRuntimeTransport() {}
+    ɵsubscribeToRuntimeInfo() {
+      return () => {};
+    }
+    // All configuration calls the provider drives in effects are no-ops here.
+    ɵupdateConfig() {}
+    setErrorHandler() {}
     connect() {}
-    setHeaders() {}
-    setCredentials() {}
-    setProperties() {}
-    setMessageFilter() {}
+    dispose() {}
     setTools() {}
     setRenderToolCalls() {}
     setRenderActivityMessages() {}

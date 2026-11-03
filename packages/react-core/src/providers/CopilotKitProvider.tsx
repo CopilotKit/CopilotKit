@@ -7,9 +7,11 @@ import {
 } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
-  CopilotKitMessageFilter,
   FrontendTool,
-  LearningConfig,
+  ɵA2UIBaseOptions,
+  ɵCopilotKitLearningOptions,
+  ɵCopilotKitProviderBaseOptions,
+  ɵRuntimeInfo,
 } from "@copilotkit/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import type React from "react";
@@ -23,6 +25,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { ɵuseOwnedCore } from "./use-owned-core";
 import type { ReactNode } from "react";
 // Context extracted to ../context.ts for cross-platform reuse (React Native)
 import {
@@ -37,19 +40,15 @@ import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import { CopilotKitInspectorContextProvider } from "../components/CopilotKitInspectorContext";
 import type { CopilotKitInspectorOpenRequest } from "../components/CopilotKitInspectorContext";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
-import type {
-  DebugConfig,
-  RuntimeEntitlementResponse,
-  RuntimeLicenseStatus,
-} from "@copilotkit/shared";
-import type {
-  CopilotKitCoreErrorCode,
-  CopilotKitHeadersSource,
-} from "@copilotkit/core";
 import {
   DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
   GENERATE_SANDBOXED_UI_TOOL_NAME,
+  ɵSTABLE_ARRAY_WARNINGS,
+  ɵpublicKeyHeaderDefaults,
+  ɵreportProviderConfigDiagnostics,
   ɵresolveLicenseState,
+  ɵresolveProviderConfig,
+  ɵtoolRendererShapeChanged,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";
 import {
@@ -93,8 +92,6 @@ import type { MarkdownRenderer } from "./MarkdownRendererContext";
 import { CopilotStyleOptionsProvider } from "../styles/copilot-kit-styles";
 import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 
-const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
-const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
 // Stable frozen defaults keep provider effects from re-running just because a
 // caller omitted an object prop on a rerender.
 const EMPTY_HEADERS: Readonly<Record<string, string>> = Object.freeze({});
@@ -113,19 +110,8 @@ const SameOriginMCPAppsActivityRenderer: typeof MCPAppsActivityRenderer = (
   props,
 ) => <MCPAppsActivityRenderer {...props} allowSameOriginFallback />;
 
-export interface CopilotKitProviderProps {
+export interface CopilotKitProviderProps extends ɵCopilotKitProviderBaseOptions {
   children: ReactNode;
-  runtimeUrl?: string;
-  /**
-   * Headers sent with every request. A record, or a sync or async builder
-   * that runs when each request is sent. An inline arrow is fine. The builder
-   * should be cheap; cache tokens in it (Clerk's `getToken()` already does).
-   */
-  headers?: CopilotKitHeadersSource;
-  /**
-   * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
-   */
-  credentials?: RequestCredentials;
   /**
    * CSP nonce for the `<style>` tags CopilotKit adds. Set it when your
    * Content-Security-Policy limits `style-src` to a nonce.
@@ -138,43 +124,6 @@ export interface CopilotKitProviderProps {
    */
   injectStyles?: boolean;
   /**
-   * Rewrites the message list sent to runtime agents on every run.
-   *
-   * CopilotKit sends the whole thread each time. When your agent already
-   * stores the conversation, most of that payload is waste, and an agent that
-   * merges the inbound list with its own store can show the model every turn
-   * twice. Return the messages to send:
-   *
-   * ```tsx
-   * <CopilotKit
-   *   runtimeUrl="/api/copilotkit"
-   *   messageFilter={(messages) => messages.slice(-1)}
-   * />
-   * ```
-   *
-   * The filter changes the request body only. The transcript the UI renders is
-   * untouched. Broken tool-call pairs are repaired before the request is sent,
-   * so a filter this blunt cannot strand a tool result mid-HITL.
-   *
-   * Agents reached through your CopilotRuntime honor this. An agent your app
-   * passes in directly does not, and neither Intelligence runs nor suggestion
-   * runs are ever filtered.
-   *
-   * Prefer a stable reference (`useCallback`). An inline arrow re-registers the
-   * filter on every render, which is harmless but needless.
-   */
-  messageFilter?: CopilotKitMessageFilter;
-  /** Your CopilotKit public license key. */
-  publicApiKey?: string;
-  /** Your public license key for accessing CopilotKit Intelligence features. */
-  publicLicenseKey?: string;
-  /**
-   * Signed license token for offline verification of CopilotKit Intelligence features.
-   * Obtain from https://dashboard.operations.copilotkit.ai.
-   */
-  licenseToken?: string;
-  properties?: Record<string, unknown>;
-  /**
    * The id of the agent every `<CopilotChat>` under this provider talks to,
    * unless a chat names its own with the `agentId` prop.
    *
@@ -183,9 +132,6 @@ export interface CopilotKitProviderProps {
    * agent. Defaults to `"default"`.
    */
   agentId?: string;
-  useSingleEndpoint?: boolean;
-  agents__unsafe_dev_only?: Record<string, AbstractAgent>;
-  selfManagedAgents?: Record<string, AbstractAgent>;
   renderToolCalls?: ReactToolCallRenderer<any>[];
   renderActivityMessages?: ReactActivityMessageRenderer<any>[];
   renderCustomMessages?: ReactCustomMessageRenderer[];
@@ -247,15 +193,6 @@ export interface CopilotKitProviderProps {
    */
   showIntelligenceIndicator?: boolean;
   /**
-   * Error handler called when CopilotKit encounters an error.
-   * Fires for all error types (runtime connection failures, agent errors, tool errors).
-   */
-  onError?: (event: {
-    error: Error;
-    code: CopilotKitCoreErrorCode;
-    context: Record<string, any>;
-  }) => void | Promise<void>;
-  /**
    * Configuration for the A2UI (Agent-to-UI) renderer.
    * The built-in A2UI renderer is activated automatically when the runtime reports
    * that `a2ui` is configured in `CopilotRuntime`. This prop is optional and only
@@ -268,7 +205,7 @@ export interface CopilotKitProviderProps {
    * </CopilotKit>
    * ```
    */
-  a2ui?: {
+  a2ui?: ɵA2UIBaseOptions & {
     /**
      * Override the default A2UI viewer theme.
      * When omitted, the built-in `viewerTheme` from `@copilotkit/a2ui-renderer` is used.
@@ -285,22 +222,6 @@ export interface CopilotKitProviderProps {
      */
     loadingComponent?: React.ComponentType;
     /**
-     * When true (the default), the full component schemas from the catalog are
-     * sent as agent context so the agent knows what components and props are
-     * available. The A2UI middleware can overwrite this with a server-side
-     * schema if configured.
-     *
-     * When false, the agent context still describes the catalog, but only by its
-     * catalog ID and the names of its custom components, without their JSON
-     * schemas. The component schema entry and the A2UI generation and design
-     * guidelines are not sent. With the CopilotKit LangGraph middleware's
-     * injected A2UI tool, the A2UI subagent then gets the component names only;
-     * a host can still give it a composition guide through the middleware's
-     * guidelines (`a2uiParams.guidelines.compositionGuide` in TypeScript,
-     * `a2ui_params["guidelines"]["composition_guide"]` in Python).
-     */
-    includeSchema?: boolean;
-    /**
      * Options for the A2UI error-recovery status UI (OSS-162): how long before
      * the transient "Retrying…" hint appears, after how many attempts, and how
      * much retry/debug detail to surface. When omitted, sane defaults apply.
@@ -315,78 +236,9 @@ export interface CopilotKitProviderProps {
    * bound by the library, and the model does not see them.
    */
   generativeUI?: GenerativeUIConfig;
-  /**
-   * Configuration for the built-in MCP Apps renderer.
-   *
-   * @example
-   * ```tsx
-   * <CopilotKit runtimeUrl="/api/copilotkit" mcpApps={{ allowSameOriginFallback: true }}>
-   *   {children}
-   * </CopilotKit>
-   * ```
-   */
-  mcpApps?: {
-    /**
-     * Restore `allow-same-origin` on the MCP App sandbox. Default `false`.
-     *
-     * **Unsafe.** The widget then runs with your page's origin: it can read
-     * your cookies, storage and DOM, and call your APIs as the signed-in user.
-     * Only set it for widgets you wrote and trust that need `localStorage`,
-     * `IndexedDB` or cookies. By default widgets get an opaque origin.
-     */
-    allowSameOriginFallback?: boolean;
-  };
-  /**
-   * Default throttle interval (in milliseconds) for `useAgent` re-renders
-   * triggered by `OnMessagesChanged` notifications. This value is used as
-   * a fallback when neither the `useAgent()` hook nor `<CopilotChat>` /
-   * `<CopilotSidebar>` / `<CopilotPopup>` specify an explicit `throttleMs`.
-   *
-   * @default undefined (components/hooks without an explicit throttleMs will be unthrottled)
-   */
-  defaultThrottleMs?: number;
-  /**
-   * Enable debug logging for the client-side event pipeline.
-   */
-  debug?: DebugConfig;
-  /**
-   * Turns on interaction capture (`@copilotkit/learning`). `learning` (short
-   * for `learning={true}`) records with the default options; pass an object
-   * for options. `false` or omitting the prop turns capture off and cancels
-   * startup. Without a sink, Core authenticates with the runtime and sends
-   * browser events to Intelligence; a custom sink keeps the standalone
-   * collector behavior. Updated settings apply to the next Trajectory.
-   *
-   * Capture starts after mount. Set `trajectoryId` to use your own ID;
-   * otherwise the provider generates one. The generated ID stays the same
-   * across rerenders, reconnects and option changes; turning capture off,
-   * setting `autoStart: false` or supplying a `trajectoryId` ends it, and the
-   * next generated Trajectory gets a new ID. Read the active ID from
-   * `copilotkit.trajectoryId`.
-   *
-   * Set `autoStart: false` to start capture yourself with `startTrajectory()`.
-   * Capture stops on unmount, including manually started Trajectories.
-   *
-   * @example
-   * <CopilotKitProvider runtimeUrl="/api/copilotkit" learning>
-   */
-  learning?: boolean | LearningProp;
 }
 
-type LearningProp = LearningConfig & {
-  /**
-   * Starts a Trajectory after mount. Defaults to `true`; set `false` to call
-   * `startTrajectory()` yourself.
-   */
-  autoStart?: boolean;
-  trajectoryId?: string;
-  /**
-   * Used only by explicit custom sinks. Authenticated capture warns and ignores
-   * this option; assign Learning Spaces on the server with
-   * `getTrajectoryLearningContainerIds` on `CopilotKitIntelligence`.
-   */
-  learningContainerIds?: string[];
-};
+type LearningProp = ɵCopilotKitLearningOptions;
 
 // `learning={true}` uses the default authenticated capture options. One shared
 // object keeps the config stable across renders.
@@ -482,8 +334,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   const [inspectorOpenRequest, setInspectorOpenRequest] =
     useState<CopilotKitInspectorOpenRequest | null>(null);
-  const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
-  const [runtimeOpenGenUIEnabled, setRuntimeOpenGenUIEnabled] = useState(false);
+  // Core's runtime info snapshot, projected once the core exists (see the
+  // subscription effect below). `null` until the first sync.
+  const [runtimeInfo, setRuntimeInfo] = useState<ɵRuntimeInfo | null>(null);
+  const runtimeA2UIEnabled = runtimeInfo?.a2uiEnabled ?? false;
+  const runtimeOpenGenUIEnabled = runtimeInfo?.openGenerativeUIEnabled ?? false;
   // Bumped by onCatalogComponentsChanged so the filtered catalog re-derives
   // when a component is enabled/disabled after mount.
   const [catalogToggleVersion, setCatalogToggleVersion] = useState(0);
@@ -494,14 +349,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const a2uiCatalogProvided = !!a2ui?.catalog;
   const a2uiActive = runtimeA2UIEnabled || a2uiCatalogProvided;
   const generativeUIActive = !!generativeUI?.ui;
-  const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
-    RuntimeLicenseStatus | undefined
-  >(undefined);
-  const [runtimeEntitlements, setRuntimeEntitlements] = useState<
-    RuntimeEntitlementResponse | undefined
-  >(undefined);
-  const [runtimeEntitlementRetryPending, setRuntimeEntitlementRetryPending] =
-    useState(false);
+  const runtimeLicenseStatus = runtimeInfo?.licenseStatus;
+  const runtimeEntitlements = runtimeInfo?.runtimeEntitlements;
+  const runtimeEntitlementRetryPending =
+    runtimeInfo?.runtimeEntitlementRetryPending ?? false;
 
   const requestInspectorOpen = useCallback(
     (request: CopilotKitInspectorOpenRequest) => {
@@ -527,31 +378,21 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // Normalize array props to stable references with clear dev warnings
   const renderToolCallsList = useStableArrayProp<ReactToolCallRenderer<any>>(
     renderToolCalls,
-    "renderToolCalls must be a stable array. If you want to dynamically add or remove tools, use `useFrontendTool` instead.",
-    (initial, next) => {
-      // Only warn if the shape (names+agentId) changed. Allow identity changes
-      // to support updated closures from parents (e.g., Storybook state).
-      const key = (rc?: ReactToolCallRenderer<unknown>) =>
-        `${rc?.agentId ?? ""}:${rc?.name ?? ""}`;
-      const setFrom = (arr: ReactToolCallRenderer<unknown>[]) =>
-        new Set(arr.map(key));
-      const a = setFrom(initial);
-      const b = setFrom(next);
-      if (a.size !== b.size) return true;
-      for (const k of a) if (!b.has(k)) return true;
-      return false;
-    },
+    ɵSTABLE_ARRAY_WARNINGS.renderToolCalls,
+    // Only warn if the shape (names+agentId) changed. Allow identity changes
+    // to support updated closures from parents (e.g., Storybook state).
+    ɵtoolRendererShapeChanged,
   );
 
   const renderCustomMessagesList =
     useStableArrayProp<ReactCustomMessageRenderer>(
       renderCustomMessages,
-      "renderCustomMessages must be a stable array.",
+      ɵSTABLE_ARRAY_WARNINGS.renderCustomMessages,
     );
 
   const renderActivityMessagesList = useStableArrayProp<
     ReactActivityMessageRenderer<any>
-  >(renderActivityMessages, "renderActivityMessages must be a stable array.");
+  >(renderActivityMessages, ɵSTABLE_ARRAY_WARNINGS.renderActivityMessages);
 
   // Stable core instance ref, declared here (before the activity-renderer memo)
   // so the filtered-catalog memo can read enablement off the current instance.
@@ -643,28 +484,39 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     return [...renderActivityMessagesList, ...builtInActivityRenderers];
   }, [renderActivityMessagesList, builtInActivityRenderers]);
 
-  const resolvedPublicKey = publicApiKey ?? publicLicenseKey;
-  const mergedAgents = useMemo(
-    () => ({ ...agents, ...selfManagedAgents }),
-    [agents, selfManagedAgents],
+  // Key fallback, Copilot Cloud URL, transport, agent merge and the catalog
+  // property all come from core.
+  const resolvedConfig = useMemo(
+    () =>
+      ɵresolveProviderConfig({
+        runtimeUrl,
+        publicApiKey,
+        publicLicenseKey,
+        useSingleEndpoint,
+        agents__unsafe_dev_only: agents,
+        selfManagedAgents,
+        properties,
+        a2uiCatalog: a2ui?.catalog,
+      }),
+    [
+      runtimeUrl,
+      publicApiKey,
+      publicLicenseKey,
+      useSingleEndpoint,
+      agents,
+      selfManagedAgents,
+      properties,
+      a2ui?.catalog,
+    ],
   );
-  const hasLocalAgents = mergedAgents && Object.keys(mergedAgents).length > 0;
-
-  // `selfManagedAgents` is part of CopilotKit's Enterprise Intelligence tier.
-  // The signal is advisory and client-side only (not enforced): warn — in both
-  // development and production — when it is used without a license key so
-  // production usage is surfaced. `agents__unsafe_dev_only` is the free local-dev
-  // escape hatch and is intentionally NOT gated here.
-  const hasSelfManagedAgents = Object.keys(selfManagedAgents).length > 0;
-  useEffect(() => {
-    if (hasSelfManagedAgents && !resolvedPublicKey) {
-      console.warn(
-        "[CopilotKit] `selfManagedAgents` is part of CopilotKit's Enterprise " +
-          "Intelligence tier. Provide a `publicLicenseKey` for production " +
-          "use — contact the CopilotKit team about licensing.",
-      );
-    }
-  }, [hasSelfManagedAgents, resolvedPublicKey]);
+  const resolvedPublicKey = resolvedConfig.publicKey;
+  // Throws in production for a missing runtime config; otherwise warns, once
+  // per provider for each message.
+  const loggedDiagnosticsRef = useRef(new Set<string>());
+  ɵreportProviderConfigDiagnostics(resolvedConfig.diagnostics, {
+    isProduction: process.env.NODE_ENV === "production",
+    logged: loggedDiagnosticsRef.current,
+  });
 
   // The latest builder, read when a request is sent (never during render).
   // Assigned during render itself (not in a `useEffect`) so a child effect
@@ -689,28 +541,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     () =>
       ɵwithHeaderDefaults(
         headersInput,
-        resolvedPublicKey ? { [HEADER_NAME]: resolvedPublicKey } : {},
+        ɵpublicKeyHeaderDefaults(resolvedPublicKey),
       ),
     [headersInput, resolvedPublicKey],
   );
 
-  if (!runtimeUrl && !resolvedPublicKey && !hasLocalAgents) {
-    const message =
-      "Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'";
-    if (process.env.NODE_ENV === "production") {
-      throw new Error(message);
-    } else {
-      // In dev/test we warn but allow to facilitate local agents and unit tests.
-      console.warn(message);
-    }
-  }
-
-  const chatApiEndpoint =
-    runtimeUrl ?? (resolvedPublicKey ? COPILOT_CLOUD_CHAT_URL : undefined);
-
   const frontendToolsList = useStableArrayProp<ReactFrontendTool>(
     frontendTools,
-    "frontendTools must be a stable array. If you want to dynamically add or remove tools, use `useFrontendTool` instead.",
+    ɵSTABLE_ARRAY_WARNINGS.frontendTools,
   );
   /**
    * A `humanInTheLoop` prop tool call that is parked, waiting on the user.
@@ -725,11 +563,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   const humanInTheLoopList = useStableArrayProp<ReactHumanInTheLoop>(
     humanInTheLoop,
-    "humanInTheLoop must be a stable array. If you want to dynamically add or remove human-in-the-loop tools, use `useHumanInTheLoop` instead.",
+    ɵSTABLE_ARRAY_WARNINGS.humanInTheLoop,
   );
   const sandboxFunctionsList = useStableArrayProp<SandboxFunction>(
     openGenerativeUI?.sandboxFunctions,
-    "openGenerativeUI.sandboxFunctions must be a stable array.",
+    ɵSTABLE_ARRAY_WARNINGS.sandboxFunctions,
   );
 
   // Note: warnings for array identity changes are handled by useStableArrayProp
@@ -888,43 +726,38 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     processedHumanInTheLoopTools,
   ]);
 
-  // Stable instance: created once for the provider lifetime (ref declared above
-  // so the filtered-catalog memo can read enablement off it).
-  // Updates are applied via setter effects below rather than recreating the instance.
-  if (copilotkitRef.current === null) {
-    copilotkitRef.current = new CopilotKitCoreReact({
-      runtimeUrl: chatApiEndpoint,
-      // Defer the `/info` fetch out of construction. The core is constructed
-      // during render, and React can start-and-discard renders (concurrent
-      // rendering / Suspense / StrictMode) — a network request in the ctor
-      // would fire once per discarded attempt (issue #5801). `connect()` below
-      // starts the single request from a commit-phase effect.
-      deferInitialConnection: true,
-      runtimeTransport:
-        useSingleEndpoint === true
-          ? "single"
-          : useSingleEndpoint === false
-            ? "rest"
-            : "auto",
-      headers: headersSource,
-      credentials,
-      messageFilter,
-      properties,
-      agents__unsafe_dev_only: mergedAgents,
-      tools: allTools,
-      renderToolCalls: allRenderToolCalls,
-      renderActivityMessages: allActivityRenderers,
-      renderCustomMessages: renderCustomMessagesList,
-      debug,
-      learning: learningConfig,
-    });
-    // Set initial defaultThrottleMs synchronously so child hooks see the
-    // correct value on their first render (before useEffect fires).
-    if (defaultThrottleMs !== undefined) {
-      copilotkitRef.current.setDefaultThrottleMs(defaultThrottleMs);
-    }
-  }
-  const copilotkit = copilotkitRef.current;
+  // One core for the provider lifetime (ref declared above so the
+  // filtered-catalog memo can read enablement off it), disposed on unmount.
+  // Updates are applied via setter effects below rather than recreating the
+  // instance.
+  const copilotkit = ɵuseOwnedCore(
+    copilotkitRef,
+    () =>
+      new CopilotKitCoreReact({
+        runtimeUrl: resolvedConfig.runtimeUrl,
+        // Defer the `/info` fetch out of construction. The core is constructed
+        // during render, and React can start-and-discard renders (concurrent
+        // rendering / Suspense / StrictMode) — a network request in the ctor
+        // would fire once per discarded attempt (issue #5801). `connect()`
+        // below starts the single request from a commit-phase effect.
+        deferInitialConnection: true,
+        runtimeTransport: resolvedConfig.runtimeTransport,
+        headers: headersSource,
+        credentials,
+        messageFilter,
+        properties: resolvedConfig.properties,
+        agents__unsafe_dev_only: resolvedConfig.agents,
+        tools: allTools,
+        renderToolCalls: allRenderToolCalls,
+        renderActivityMessages: allActivityRenderers,
+        renderCustomMessages: renderCustomMessagesList,
+        debug,
+        // Set at construction so child hooks see it on their first render.
+        defaultThrottleMs,
+        onError,
+        learning: learningConfig,
+      }),
+  );
   const generativeUIRuntime = useGenerativeUIRoot(copilotkit, generativeUI);
 
   // Register the full A2UI catalog component list onto core so the inspector can
@@ -958,37 +791,15 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     return () => subscription.unsubscribe();
   }, [copilotkit, rawCatalog]);
 
-  // Sync runtime feature flags from the core once runtime info is fetched.
-  //
-  // The core kicks off its `/info` fetch synchronously from its constructor
-  // (during render), so `onRuntimeConnectionStatusChanged` can fire BEFORE this
-  // passive effect runs and subscribes — especially on a cold first load
-  // (incognito/hard refresh) where JS compile congestion delays the effect flush
-  // past the `/info` resolution. If that happens, the settled values would be
-  // lost forever. To close the race we read the CURRENT values immediately, so a
-  // status that already resolved is captured whether or not we caught its event.
-  // This MUST mirror the subscriber below (all five values), otherwise a missed
-  // event leaves e.g. `licenseStatus` null indefinitely — which pins the threads
-  // drawer to its "Loading threads…" state (licensePending never clears).
+  // Project core's runtime info snapshot (one object with every `/info`
+  // field, so no field can be missed — a missed `licenseStatus` once pinned
+  // the threads drawer to "Loading threads…"). The catch-up read after
+  // subscribing reflects a status that settled before this effect ran.
   useEffect(() => {
-    const syncRuntimeInfo = () => {
-      setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
-      setRuntimeOpenGenUIEnabled(copilotkit.openGenerativeUIEnabled);
-      setRuntimeLicenseStatus(copilotkit.licenseStatus);
-      setRuntimeEntitlements(copilotkit.runtimeEntitlements);
-      setRuntimeEntitlementRetryPending(
-        copilotkit.runtimeEntitlementRetryPending,
-      );
-    };
-    const subscription = copilotkit.subscribe({
-      onRuntimeConnectionStatusChanged: syncRuntimeInfo,
-    });
-    // Catch-up read after subscribing, so a status that settled between the
-    // subscribe call and now is still reflected.
+    const syncRuntimeInfo = () => setRuntimeInfo(copilotkit.ɵruntimeInfo);
+    const unsubscribe = copilotkit.ɵsubscribeToRuntimeInfo(syncRuntimeInfo);
     syncRuntimeInfo();
-    return () => {
-      subscription.unsubscribe();
-    };
+    return unsubscribe;
   }, [copilotkit]);
 
   // Subscribe to render tool calls changes to force re-renders
@@ -1040,80 +851,45 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     };
   }, [copilotkit]);
 
-  // onError subscription — forward core errors to user callback
-  const onErrorRef = useRef(onError);
+  // Core calls `onError`, and logs the error itself when there is none.
   useEffect(() => {
-    onErrorRef.current = onError;
-  }, [onError]);
+    copilotkit.setErrorHandler(onError);
+  }, [copilotkit, onError]);
 
   useEffect(() => {
-    const subscription = copilotkit.subscribe({
-      onError: (event) => {
-        if (onErrorRef.current) {
-          onErrorRef.current(event);
-        } else {
-          console.error(
-            `[CopilotKit] Error (${event.code}):`,
-            event.error,
-            event.context ?? {},
-          );
-        }
-      },
+    // Core applies the message filter first, so an agent discovered by the
+    // connection below is built with it. The generative UI envelope is not in
+    // these properties: useGenerativeUIRoot adds it as scoped properties, so
+    // this call does not replace it.
+    copilotkit.ɵupdateConfig({
+      messageFilter,
+      runtimeUrl: resolvedConfig.runtimeUrl,
+      runtimeTransport: resolvedConfig.runtimeTransport,
+      headers: headersSource,
+      credentials,
+      properties: resolvedConfig.properties,
+      agents__unsafe_dev_only: resolvedConfig.agents,
+      debug,
+      defaultThrottleMs,
     });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [copilotkit]);
-
-  // Declared before the effect that calls `connect()` so React runs it first:
-  // an agent discovered by that connection is then constructed with the filter
-  // already in place, rather than making its first run with the full thread.
-  useEffect(() => {
-    copilotkit.setMessageFilter(messageFilter);
-  }, [copilotkit, messageFilter]);
-
-  useEffect(() => {
-    copilotkit.setRuntimeUrl(chatApiEndpoint);
-    copilotkit.setRuntimeTransport(
-      useSingleEndpoint === true
-        ? "single"
-        : useSingleEndpoint === false
-          ? "rest"
-          : "auto",
-    );
-    copilotkit.setHeaders(headersSource);
-    copilotkit.setCredentials(credentials);
-    // Forward a per-run signal when the provider has an A2UI catalog so the
-    // runtime can turn A2UI on (and inject the render tool) without a separate
-    // `a2ui.injectA2UITool` flag on the runtime.
-    //
-    // The generative UI envelope is not in these properties: useGenerativeUIRoot
-    // adds it as scoped properties, so this call does not replace it.
-    copilotkit.setProperties(
-      a2uiCatalogProvided
-        ? { ...properties, a2uiCatalogAvailable: true }
-        : properties,
-    );
-    copilotkit.setAgents__unsafe_dev_only(mergedAgents);
-    copilotkit.setDebug(debug);
     // Start the runtime `/info` connection now that we're in the commit phase.
     // The ctor deferred it (see `deferInitialConnection` above) so discarded
     // renders never fetch; `connect()` is idempotent, so StrictMode's
     // double-invoked effect and re-runs on unrelated prop changes collapse to a
     // single request (a real runtimeUrl/transport change reconnects via the
-    // setters above). See #5801.
+    // update above). See #5801.
     copilotkit.connect();
   }, [
     copilotkit,
-    chatApiEndpoint,
+    messageFilter,
+    resolvedConfig.runtimeUrl,
+    resolvedConfig.runtimeTransport,
     headersSource,
     credentials,
-    properties,
-    a2uiCatalogProvided,
-    mergedAgents,
-    useSingleEndpoint,
+    resolvedConfig.properties,
+    resolvedConfig.agents,
     debug,
+    defaultThrottleMs,
   ]);
 
   // Start the Trajectory in the commit phase, after the runtime URL is set, so
@@ -1223,18 +999,15 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [copilotkit, renderCustomMessagesList]);
 
   // Mark mount complete — must be declared AFTER the setter effects
-  // so it runs last in the effect queue on the initial mount cycle.
+  // so it runs last in the effect queue on the initial mount cycle. Reset on
+  // cleanup, so a remount (StrictMode) or a replacement core skips the setters
+  // again instead of overwriting tools the children just registered.
   useEffect(() => {
     didMountRef.current = true;
-  }, []);
-
-  // Sync defaultThrottleMs to the core instance on prop changes.
-  // Initial value is set synchronously during instance creation (inside the
-  // ref-init block above) so child hooks see the correct value on first render.
-  // This effect handles subsequent updates when the prop changes.
-  useEffect(() => {
-    copilotkit.setDefaultThrottleMs(defaultThrottleMs);
-  }, [copilotkit, defaultThrottleMs]);
+    return () => {
+      didMountRef.current = false;
+    };
+  }, [copilotkit]);
 
   // Register design skill as agent context for the generateSandboxedUi tool
   const designSkill =
