@@ -35,7 +35,7 @@ type StubCore = Pick<
   | "getAgent"
   | "runtimeUrl"
   | "runtimeTransport"
-  | "runtimeConnectionStatus"
+  | "ɵruntimeInfo"
   | "headers"
   | "subscribeToAgentWithOptions"
   | "runAgent"
@@ -66,8 +66,11 @@ function createStubCore(sources: {
     get runtimeTransport() {
       return sources.runtimeTransport();
     },
-    get runtimeConnectionStatus() {
-      return sources.runtimeConnectionStatus();
+    get ɵruntimeInfo() {
+      return {
+        ...coreInstance.ɵruntimeInfo,
+        status: sources.runtimeConnectionStatus(),
+      };
     },
     get headers() {
       return coreInstance.headers;

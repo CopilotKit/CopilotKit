@@ -86,9 +86,7 @@ function isSameThreadsSnapshot(a: ɵThreadsSnapshot, b: ɵThreadsSnapshot) {
 export type ɵThreadsCore = Pick<
   CopilotKitCore,
   | "runtimeUrl"
-  | "runtimeConnectionStatus"
-  | "threadEndpoints"
-  | "intelligence"
+  | "ɵruntimeInfo"
   | "ɵheadersGeneration"
   | "registerThreadStore"
   | "unregisterThreadStore"
@@ -225,13 +223,13 @@ export class ɵThreadsController {
 
   get #isConnected() {
     return (
-      this.#core.runtimeConnectionStatus ===
+      this.#core.ɵruntimeInfo.status ===
       CopilotKitCoreRuntimeConnectionStatus.Connected
     );
   }
 
   get #listSupported() {
-    return this.#core.threadEndpoints?.list !== false;
+    return this.#core.ɵruntimeInfo.threadEndpoints?.list !== false;
   }
 
   get #endpointsUnavailable() {
@@ -284,7 +282,7 @@ export class ɵThreadsController {
     // the current core headers at send time (#1937).
     const context: ɵThreadRuntimeContext = {
       runtimeUrl,
-      wsUrl: this.#core.intelligence?.wsUrl,
+      wsUrl: this.#core.ɵruntimeInfo.intelligence?.wsUrl,
       agentId,
       includeArchived,
       limit,
@@ -328,7 +326,8 @@ export class ɵThreadsController {
     // A configuration change brings a dismissed error back.
     if (runtimeChanged || endpointsChanged) this.#configErrorDismissed = false;
 
-    const mutationsSupported = this.#core.threadEndpoints?.mutations !== false;
+    const mutationsSupported =
+      this.#core.ɵruntimeInfo.threadEndpoints?.mutations !== false;
     if (mutationsSupported) {
       this.#mutationsError = null;
     } else {

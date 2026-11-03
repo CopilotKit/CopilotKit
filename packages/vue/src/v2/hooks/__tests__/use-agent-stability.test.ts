@@ -11,6 +11,19 @@ import {
   ProxiedCopilotRuntimeAgent,
 } from "@copilotkit/core";
 
+/** Core's `ɵruntimeInfo` snapshot, built from a fake core's runtime fields. */
+function runtimeInfoOf(core: {
+  runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+  threadEndpoints?: unknown;
+  intelligence?: unknown;
+}) {
+  return {
+    status: core.runtimeConnectionStatus,
+    threadEndpoints: core.threadEndpoints,
+    intelligence: core.intelligence,
+  };
+}
+
 // Mock the CopilotKitProvider to control copilotkit state directly
 vi.mock("../../providers/useCopilotKit", () => ({
   useCopilotKit: vi.fn(),
@@ -29,6 +42,7 @@ describe("useAgent stability during runtime connection", () => {
   type MockCopilotkit = {
     getAgent: ReturnType<typeof vi.fn>;
     runtimeUrl: string | undefined;
+    readonly ɵruntimeInfo: unknown;
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
     runtimeTransport: string;
     headers: Record<string, string>;
@@ -48,6 +62,9 @@ describe("useAgent stability during runtime connection", () => {
     copilotkitRef = ref({
       getAgent: vi.fn(() => undefined),
       runtimeUrl: "http://localhost:3000/api/copilotkit",
+      get ɵruntimeInfo() {
+        return runtimeInfoOf(this);
+      },
       runtimeConnectionStatus:
         CopilotKitCoreRuntimeConnectionStatus.Disconnected,
       runtimeTransport: "rest",

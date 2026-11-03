@@ -347,7 +347,7 @@ export class ɵAgentResolver {
     }
 
     const isRuntimeConfigured = this.#core.runtimeUrl !== undefined;
-    const status = this.#core.runtimeConnectionStatus;
+    const status = this.#core.ɵruntimeInfo.status;
     const isWaitingForRuntime =
       isRuntimeConfigured &&
       status !== CopilotKitCoreRuntimeConnectionStatus.Connected;
@@ -449,7 +449,7 @@ export class ɵAgentResolver {
       transport: core.runtimeTransport,
       credentials: core.credentials,
       runtimeMode: "pending",
-      intelligence: core.intelligence,
+      intelligence: core.ɵruntimeInfo.intelligence,
       debug: core.debug ? resolveDebugConfig(core.debug) : undefined,
       messageFilter: core.messageFilter,
     });

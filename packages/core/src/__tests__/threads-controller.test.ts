@@ -4,6 +4,7 @@ import { ɵcreateThreadStore } from "../threads";
 import type { ɵThread } from "../threads";
 import { ɵThreadsController, ɵprojectThread } from "../threads-controller";
 import type { ɵThreadsCore, ɵThreadsInput } from "../threads-controller";
+import type { ɵRuntimeInfo } from "../core/runtime-info";
 
 function endpoints(overrides: { list?: boolean; mutations?: boolean } = {}) {
   return {
@@ -15,12 +16,18 @@ function endpoints(overrides: { list?: boolean; mutations?: boolean } = {}) {
   };
 }
 
-function createCore(overrides: Partial<ɵThreadsCore> = {}): ɵThreadsCore {
+type CoreOverrides = Partial<Omit<ɵThreadsCore, "ɵruntimeInfo">> &
+  Partial<Pick<ɵRuntimeInfo, "status" | "threadEndpoints" | "intelligence">>;
+
+function createCore({
+  status = CopilotKitCoreRuntimeConnectionStatus.Connected,
+  threadEndpoints = endpoints(),
+  intelligence,
+  ...overrides
+}: CoreOverrides = {}): ɵThreadsCore {
   return {
     runtimeUrl: "https://runtime.local/api",
-    runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
-    threadEndpoints: endpoints(),
-    intelligence: undefined,
+    ɵruntimeInfo: { status, threadEndpoints, intelligence } as ɵRuntimeInfo,
     ɵheadersGeneration: 0,
     registerThreadStore: vi.fn(),
     unregisterThreadStore: vi.fn(),
@@ -73,7 +80,7 @@ describe("ɵprojectThread", () => {
 describe("ɵThreadsController context", () => {
   it("waits for the runtime connection and shows loading meanwhile", () => {
     const core = createCore({
-      runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connecting,
+      status: CopilotKitCoreRuntimeConnectionStatus.Connecting,
     });
     const { controller, setContext, input } = createController({ core });
 

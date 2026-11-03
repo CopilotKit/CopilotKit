@@ -208,14 +208,8 @@ export class ThreadsStore implements InjectThreadsResult {
       get runtimeUrl() {
         return service.runtimeUrl();
       },
-      get runtimeConnectionStatus() {
-        return service.runtimeConnectionStatus();
-      },
-      get threadEndpoints() {
-        return service.threadEndpoints();
-      },
-      get intelligence() {
-        return service.intelligence();
+      get ɵruntimeInfo() {
+        return core.ɵruntimeInfo;
       },
       get ɵheadersGeneration() {
         return service.ɵheadersGeneration();

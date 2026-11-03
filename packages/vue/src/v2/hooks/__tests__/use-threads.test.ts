@@ -4,6 +4,19 @@ import type { Ref } from "vue";
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { useCopilotKit } from "../../providers/useCopilotKit";
 
+/** Core's `ɵruntimeInfo` snapshot, built from a fake core's runtime fields. */
+function runtimeInfoOf(core: {
+  runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+  threadEndpoints?: unknown;
+  intelligence?: unknown;
+}) {
+  return {
+    status: core.runtimeConnectionStatus,
+    threadEndpoints: core.threadEndpoints,
+    intelligence: core.intelligence,
+  };
+}
+
 type ThreadRecord = {
   id: string;
   organizationId: string;
@@ -411,6 +424,7 @@ const supportedThreadEndpoints: ThreadEndpointRuntimeInfo = {
 
 type MockCopilotKit = {
   runtimeUrl: string | undefined;
+  readonly ɵruntimeInfo: unknown;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   headers: Record<string, string>;
   /**
@@ -434,6 +448,9 @@ function setupCopilotKit(
 ) {
   const copilotkit = ref<MockCopilotKit>({
     runtimeUrl,
+    get ɵruntimeInfo() {
+      return runtimeInfoOf(this);
+    },
     runtimeConnectionStatus,
     headers: { Authorization: "Bearer test-token" },
     ɵheadersGeneration: 0,
@@ -982,6 +999,9 @@ describe("useThreads", () => {
       // exactly one list fetch (+ one subscribe after it lands).
       copilotkit.value = {
         ...copilotkit.value,
+        get ɵruntimeInfo() {
+          return runtimeInfoOf(this);
+        },
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connected,
         intelligence: { wsUrl: "ws://localhost:4000/client" },
@@ -1037,6 +1057,9 @@ describe("useThreads", () => {
 
       copilotkit.value = {
         ...copilotkit.value,
+        get ɵruntimeInfo() {
+          return runtimeInfoOf(this);
+        },
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Disconnected,
       };
