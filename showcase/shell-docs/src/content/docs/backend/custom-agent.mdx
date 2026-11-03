@@ -257,17 +257,20 @@ const getWeather = toolDefinition({
 const agent = new BuiltInAgent({
   type: "tanstack",
   factory: ({ input, abortController }) => {
-    const { messages, systemPrompts } = convertInputToTanStackAI(input);
+    const { messages, systemPrompts, tools } = convertInputToTanStackAI(input);
     return chat({
       adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
-      tools: [getWeather],
+      tools: [...tools, getWeather],
       abortController,
     });
   },
 });
 ```
+
+`convertInputToTanStackAI` also returns the frontend-defined tools as `tools`.
+Pass them to `chat()` with your server tools, or the model never sees them.
 </Tab>
 <Tab value="Custom">
 ```typescript title="src/copilotkit.ts"
@@ -570,7 +573,7 @@ These utilities are exported from `@copilotkit/runtime/v2` to help convert betwe
 
 | Utility | Description |
 |---|---|
-| `convertInputToTanStackAI(input)` | Converts `RunAgentInput` to `{ messages, systemPrompts }` for TanStack AI's `chat()`. Handles system/developer messages, context, and state. |
+| `convertInputToTanStackAI(input)` | Converts `RunAgentInput` to `{ messages, systemPrompts, tools }` for TanStack AI's `chat()`. Handles system/developer messages, context, state, and frontend tools. |
 | `convertMessagesToVercelAISDKMessages(messages)` | Converts AG-UI messages to Vercel AI SDK's `ModelMessage[]` format. |
 | `convertToolsToVercelAITools(tools)` | Converts frontend-defined tools (JSON Schema) to AI SDK's `ToolSet`. |
 | `convertToolDefinitionsToVercelAITools(tools)` | Converts `defineTool()` definitions (Standard Schema) to AI SDK's `ToolSet`. |

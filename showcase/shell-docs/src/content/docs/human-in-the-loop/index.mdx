@@ -51,7 +51,7 @@ but they're wired differently on the backend, and each has its own niche.
 | Pattern | Who decides to pause? | Backend surface |
 | --- | --- | --- |
 | `useHumanInTheLoop` | The **LLM**, by calling a registered client-side tool | A frontend-only tool description (Zod schema + `render`) |
-| `useInterrupt` | Your **agent code**, at a step that must stop for a person | An interrupt your agent emits: LangGraph `interrupt()`, or a Built-in Agent tool with `interrupt: true` |
+| `useInterrupt` | Your **agent code**, at a step that must stop for a person | An interrupt your agent emits, for example LangGraph `interrupt()` |
 
 **Pick `useHumanInTheLoop`** when the pause is an _agent-initiated_
 decision (the model chose to ask the user) and you want the picker UI

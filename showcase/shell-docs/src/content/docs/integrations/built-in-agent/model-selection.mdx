@@ -251,6 +251,9 @@ To let each request pick the model, add `overridableProperties: ["model"]` to
 the agent. The frontend then sends `model` in the provider's `properties`, which
 reach the agent as `forwardedProps`. See
 [Overridable properties](/advanced-configuration#overridable-properties).
+The agent then runs any provider and model the browser names, on your server's
+keys. To limit the choice, check `forwardedProps.model` against your own list in
+a [factory](/backend/custom-agent#with-forwardedprops) instead.
 Otherwise, construct the agent with the desired `model` on your own backend.
 For full control over the runtime you can also use a
 [Custom Agent](/backend/custom-agent).

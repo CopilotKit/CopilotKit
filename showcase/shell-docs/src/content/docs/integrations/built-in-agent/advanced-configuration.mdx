@@ -115,6 +115,14 @@ The frontend sends overrides in the provider's `properties`, which reach the age
 </CopilotKitProvider>
 ```
 
+<Callout type="warn">
+  The browser picks these values. With `model` overridable, any client can run
+  any provider and model on your server's keys. With `prompt` overridable, any
+  client can replace the system prompt. To let users choose from a fixed set,
+  check the value on the server in a
+  [factory](/backend/custom-agent#with-forwardedprops).
+</Callout>
+
 The full list of overridable properties:
 `model`, `toolChoice`, `maxOutputTokens`, `temperature`, `topP`, `topK`, `presencePenalty`, `frequencyPenalty`, `stopSequences`, `seed`, `maxRetries`, `prompt`, `providerOptions`
 

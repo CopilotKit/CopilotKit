@@ -19,10 +19,10 @@ Quickly scaffold the UI, then wire your backend endpoint that streams AG‑UI ev
    npx copilotkit@latest create
    ```
 
-2. Set your backend endpoint in `.env.local` (default `http://localhost:8000/copilotkit`):
+2. Set your backend endpoint in `.env.local` (default `http://localhost:8000/`):
 
    ```dotenv title=".env.local"
-   COPILOTKIT_REMOTE_ENDPOINT=http://localhost:8000/copilotkit
+   AGENT_URL=http://localhost:8000/
    ```
 
 3. Start your Agent Spec FastAPI server. For backend installation and endpoint wiring, follow the [Quickstart](/agent-spec/quickstart) and the per-adapter guides: [LangGraph integration](/agent-spec/langgraph) and [WayFlow integration](/agent-spec/wayflow).
