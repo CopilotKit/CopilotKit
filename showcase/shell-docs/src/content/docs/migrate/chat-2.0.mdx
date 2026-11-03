@@ -1,6 +1,6 @@
 ---
 title: Chat UI in 2.0
-description: Replace removed chat exports, update full label objects and repeated tool registrations, and check the default text and behavior that changed in the Vue and Angular chat.
+description: Replace removed chat exports, update full label objects and repeated tool registrations, and check the default text and behavior that changed in the chat, including sends, attachments, and the Angular welcome screen.
 ---
 
 In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilotkit/core` can fail, or a type check can fail. The Vue and Angular chat can also show different text or act differently. The cause is one of these changes:
@@ -9,6 +9,7 @@ In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilot
 - The `CopilotChatLabels` type has more keys.
 - `CopilotKitCore.addTool` lets a newer tool replace an older tool with the same name.
 - Vue and Angular use the same default text and chat rules as React.
+- React, Vue, and Angular use one set of rules to send messages and upload attachments.
 
 The codemod does not change this code. Use the sections below.
 
@@ -141,3 +142,88 @@ In Angular:
 - **Removing a renderer:** When a component that called `registerRenderToolCall` is destroyed, only its renderer is removed. Tools with the same name stay registered.
 
 If a test or a screenshot depends on the earlier behavior, update it to the behavior above.
+
+## Sending messages
+
+React, Vue, and Angular now use the same rules to send a message. A test or a custom input that sends at a specific time can see a different result.
+
+| Rule | Changed in |
+| --- | --- |
+| A new message waits until the current run ends. It does not stop that run. | Vue |
+| A new message waits until the thread loads. If the thread does not load, the chat shows `threadLoadErrorText` and puts your text back in the input. | Vue, Angular |
+| While a file uploads, the chat does not send. It shows `chatAttachmentsUploadingText` for 5 seconds and keeps your text in the input. | Vue, Angular |
+| Text that is empty or only spaces is not sent. | React, Vue |
+| A suggestion with `isLoading: true` is not sent. | React, Vue |
+
+Angular now sends the text as the user typed it. It does not remove spaces at the start and end of the text. `CopilotChatAttachmentsDirective.buildContent` also keeps the spaces. The chat input already removes these spaces before it sends.
+
+If a Vue test sends a second message while a run is active, end the first run before you look for the second message:
+
+```ts ignore title="Before"
+await submitMessage("First question");
+await agent.emit(runStartedEvent());
+await submitMessage("Second question");
+expect(screen.getByText("Second question")).toBeDefined();
+```
+
+```ts ignore title="After"
+await submitMessage("First question");
+await agent.emit(runStartedEvent());
+await agent.emit(runFinishedEvent());
+await submitMessage("Second question");
+await waitFor(() => {
+  expect(screen.getByText("Second question")).toBeDefined();
+});
+```
+
+## Attachment uploads
+
+These rules for attachments apply in React, Vue, and Angular:
+
+- `maxConcurrentUploads` now applies in Vue and Angular. The default is `1`, so files upload one at a time unless you set a larger value.
+- All files that the user picks show as uploading at once. Before, Vue and Angular added each file only after the previous upload ended.
+- `processFiles` from `useAttachments` does nothing when `enabled` is not `true`. This applies in React and Vue.
+- After each upload, the chat clears the file input. As a result, the user can pick the same file again.
+
+If your code calls `processFiles`, set `enabled: true` in the attachments configuration:
+
+```tsx ignore title="Before"
+const { processFiles } = useAttachments({
+  config: { accept: "image/*", onUpload: uploadToStorage },
+});
+```
+
+```tsx ignore title="After"
+const { processFiles } = useAttachments({
+  config: { enabled: true, accept: "image/*", onUpload: uploadToStorage },
+});
+```
+
+## Welcome screen and suggestions in Angular
+
+`<copilot-chat>` now has these inputs:
+
+- `[welcomeScreen]`: set it to `false` to show the message list, not the welcome screen, when the chat is empty.
+- `[autoScroll]`: set it to `false` to stop the message list from scrolling to new messages.
+
+`<copilot-chat-view>` now hides the welcome screen while the thread loads. It also hides the suggestions while the agent runs or the thread loads. These rules use the new `[isRunning]` and `[isConnecting]` inputs.
+
+If you put `<copilot-chat-view>` in your own template, give it these inputs. If you do not, the suggestions show while the agent runs:
+
+```html title="After"
+<copilot-chat-view
+  [messages]="messages()"
+  [isRunning]="isRunning()"
+  [isConnecting]="isConnecting()"
+  [welcomeScreen]="false"
+/>
+```
+
+## Console messages
+
+If a test reads the console, update these messages:
+
+- **Vue:** The development warning for messages with the same ID now starts with `CopilotChatMessageView: Merged`.
+- **Angular:** A failed thread load now logs `CopilotChat: connection failed`.
+
+The loading cursor in Vue now uses the last message that the chat shows. Before, it used the last message that the agent sent, which can be a hidden duplicate.
