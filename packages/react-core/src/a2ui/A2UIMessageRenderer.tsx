@@ -16,7 +16,7 @@ import {
   injectStyles,
 } from "@copilotkit/a2ui-renderer";
 import type { Theme, A2UIClientEventMessage } from "@copilotkit/a2ui-renderer";
-import { A2UISurfaceDiagnostics } from "@copilotkit/a2ui-renderer/engine";
+import { A2UISurfaceDiagnostics } from "@copilotkit/a2ui-renderer/engine-core";
 import {
   ɵA2UIActivityController,
   ɵA2UI_SURFACE_ACTIVITY_TYPE,
