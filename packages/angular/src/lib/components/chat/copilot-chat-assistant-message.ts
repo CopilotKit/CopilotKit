@@ -78,6 +78,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
         } @else {
           <copilot-chat-assistant-message-renderer
             [content]="message().content || ''"
+            [isStreaming]="isStreaming()"
             [inputClass]="markdownRendererClass()"
           >
           </copilot-chat-assistant-message-renderer>
@@ -303,6 +304,15 @@ export class CopilotChatAssistantMessage {
   protected readonly CopilotChatAssistantMessageCopyButton =
     CopilotChatAssistantMessageCopyButton;
   protected readonly CopilotChatToolCallsView = CopilotChatToolCallsView;
+
+  // Like React: only the latest assistant message streams while running.
+  readonly isStreaming = computed(() => {
+    const messages = this.messages();
+    return (
+      this.isLoading() &&
+      messages[messages.length - 1]?.id === this.message().id
+    );
+  });
 
   // Context for slots (reactive via signals)
   markdownRendererContext = computed<AssistantMessageMarkdownRendererContext>(

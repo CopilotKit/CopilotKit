@@ -64,13 +64,12 @@
     "@ag-ui/core": "1.0.2",
     "@copilotkit/a2ui-renderer": "workspace:^",
     "@copilotkit/core": "workspace:^",
+    "@copilotkit/markdown": "workspace:^",
     "@copilotkit/mcp-apps-renderer": "workspace:^",
     "@copilotkit/shared": "workspace:^",
     "@copilotkit/web-components": "workspace:^",
     "@copilotkit/web-inspector": "workspace:^",
-    "dompurify": "^3.4.1",
     "katex": "^0.16.22",
-    "marked": "^12.0.2",
     "zod": "^4.2.0"
   },
   "devDependencies": {
