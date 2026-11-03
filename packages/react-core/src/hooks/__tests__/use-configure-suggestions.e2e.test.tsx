@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
   renderWithCopilotKit,
   MockStepwiseAgent,
@@ -17,7 +17,10 @@ import type {
   RunAgentResult,
 } from "@ag-ui/client";
 import { AbstractAgent } from "@ag-ui/client";
-import { useCopilotKit } from "../../providers/CopilotKitProvider";
+import {
+  CopilotKitProvider,
+  useCopilotKit,
+} from "../../providers/CopilotKitProvider";
 
 class ImmediateSuggestionsProviderAgent extends AbstractAgent {
   constructor(private responses: Suggestion[]) {
@@ -691,6 +694,33 @@ describe("useConfigureSuggestions dependencies", () => {
       expect(screen.getByTestId("suggestions-json").textContent).toContain(
         "Deferred",
       );
+    });
+  });
+});
+
+describe("useConfigureSuggestions agent fallback", () => {
+  it("loads a global config for the provider's default agent outside a chat", async () => {
+    function ProviderDefaultHarness() {
+      useConfigureSuggestions({
+        suggestions: [{ title: "Hi", message: "Say hi" }],
+        available: "always",
+      });
+      const { suggestions } = useSuggestions({ agentId: "support" });
+      return (
+        <div data-testid="titles">
+          {suggestions.map((suggestion) => suggestion.title).join(",")}
+        </div>
+      );
+    }
+
+    render(
+      <CopilotKitProvider agentId="support">
+        <ProviderDefaultHarness />
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("titles").textContent).toBe("Hi");
     });
   });
 });
