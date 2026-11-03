@@ -443,13 +443,13 @@ export function argsSchemaFromSignature(
     if (field === "") continue;
     const index = field.match(/^\[\w+: string\]:\s*(.+)$/);
     if (index) {
-      additionalProperties = typeSchema(index[1]);
+      additionalProperties = typeSchema(index[1]!);
       continue;
     }
     const named = field.match(/^(\w+)(\?)?:\s*(.+)$/);
     if (!named) continue;
-    properties[named[1]] = typeSchema(named[3]);
-    if (!named[2]) required.push(named[1]);
+    properties[named[1]!] = typeSchema(named[3]!);
+    if (!named[2]) required.push(named[1]!);
   }
   return {
     type: "object",

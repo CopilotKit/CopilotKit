@@ -135,7 +135,7 @@ function App({ learning }: { learning?: Learning }) {
 
 async function authorize(index: number, trajectoryId: string) {
   await act(async () => {
-    pendingAuth[index].resolve(
+    pendingAuth[index]!.resolve(
       new Response(
         JSON.stringify({
           joinToken: "test-token",
@@ -152,7 +152,7 @@ async function authorize(index: number, trajectoryId: string) {
 
 async function join(index = 0) {
   await act(async () => {
-    const channel = transport.sockets[index].channels[0];
+    const channel = transport.sockets[index]!.channels[0]!;
     channel.state = "joined";
     channel.joined.reply("ok");
   });
@@ -258,7 +258,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
           : core.startTrajectory({ trajectoryId: manualStartId });
       expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
       expect(
-        JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)),
+        JSON.parse(String(vi.mocked(fetch).mock.calls[0]![1]?.body)),
       ).toEqual({
         method: "trajectory/connect",
         params: { trajectoryId: connectedId },
@@ -270,7 +270,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       await manualStart;
       await flushCapture();
       const sent = JSON.stringify(
-        transport.sockets[0].channels[0].pushes[0].payload,
+        transport.sockets[0]!.channels[0]!.pushes[0]!.payload,
       );
       expect(sent).not.toContain("learningContainerIds");
       expect(sent).not.toContain("private-container");
@@ -289,9 +289,9 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     await join();
 
     expect(core.trajectoryId).toBe(FIRST_ID);
-    expect(transport.sockets[0].channels[0].pushes).toEqual([]);
+    expect(transport.sockets[0]!.channels[0]!.pushes).toEqual([]);
     await flushCapture();
-    expect(transport.sockets[0].channels[0].pushes).toEqual([
+    expect(transport.sockets[0]!.channels[0]!.pushes).toEqual([
       {
         event: "events",
         payload: {
@@ -315,7 +315,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       },
     ]);
     view.unmount();
-    expect(transport.sockets[0].disconnected).toBe(true);
+    expect(transport.sockets[0]!.disconnected).toBe(true);
     expect(History.prototype.pushState).toBe(nativePushState);
   });
 
@@ -330,7 +330,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
 
     expect(core.trajectoryId).toBe(SECOND_ID);
     expect(transport.sockets).toHaveLength(1);
-    expect(transport.sockets[0].channels[0].topic).toBe(
+    expect(transport.sockets[0]!.channels[0]!.topic).toBe(
       `trajectory:${SECOND_ID}`,
     );
   });
@@ -347,8 +347,8 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     expect(core.trajectoryId).toBe(FIRST_ID);
 
     view.rerender(<App />);
-    expect(transport.sockets[0].channels[0].left).toBe(true);
-    expect(transport.sockets[0].disconnected).toBe(true);
+    expect(transport.sockets[0]!.channels[0]!.left).toBe(true);
+    expect(transport.sockets[0]!.disconnected).toBe(true);
     expect(History.prototype.pushState).toBe(nativePushState);
   });
 
@@ -373,8 +373,8 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     view.unmount();
     await join();
 
-    expect(transport.sockets[0].channels[0].left).toBe(true);
-    expect(transport.sockets[0].channels[0].pushes).toEqual([]);
+    expect(transport.sockets[0]!.channels[0]!.left).toBe(true);
+    expect(transport.sockets[0]!.channels[0]!.pushes).toEqual([]);
     expect(History.prototype.pushState).toBe(nativePushState);
   });
 
@@ -388,8 +388,8 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     await join();
     expect(transport.sockets).toHaveLength(1);
     await flushCapture();
-    expect(transport.sockets[0].channels[0].pushes).toHaveLength(1);
-    transport.sockets[0].channels[0].pushes[0].push.reply("ok", {
+    expect(transport.sockets[0]!.channels[0]!.pushes).toHaveLength(1);
+    transport.sockets[0]!.channels[0]!.pushes[0]!.push.reply("ok", {
       highestSeq: SEQ_BASE,
       accepted: 1,
       rejected: 0,
@@ -397,10 +397,12 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
 
     history.pushState(null, "", "/next");
     await flushCapture();
-    expect(transport.sockets[0].channels[0].pushes).toHaveLength(2);
-    expect(transport.sockets[0].channels[0].pushes[1].payload).toMatchObject({
-      events: [{ name: "navigation", value: { seq: SEQ_BASE + 1 } }],
-    });
+    expect(transport.sockets[0]!.channels[0]!.pushes).toHaveLength(2);
+    expect(transport.sockets[0]!.channels[0]!.pushes[1]!.payload).toMatchObject(
+      {
+        events: [{ name: "navigation", value: { seq: SEQ_BASE + 1 } }],
+      },
+    );
     view.unmount();
     expect(History.prototype.pushState).toBe(nativePushState);
   });
@@ -466,7 +468,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
 
       const [id] = connectedIds();
       expect(id).toMatch(UUID);
-      await authorize(0, id);
+      await authorize(0, id!);
       await join();
       expect(core.trajectoryId).toBe(id);
       expect(core.ɵlearningConfigured).toBe(true);
@@ -487,7 +489,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       view.rerender(<App learning />);
       view.rerender(<App learning={true} />);
       const [id] = connectedIds();
-      await authorize(0, id);
+      await authorize(0, id!);
       await join();
       view.rerender(<App learning />);
 
@@ -501,8 +503,8 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
 
       const [id] = connectedIds();
       expect(connectedIds()).toEqual([id, id]);
-      await authorize(0, id);
-      await authorize(1, id);
+      await authorize(0, id!);
+      await authorize(1, id!);
       await join();
       expect(transport.sockets).toHaveLength(1);
       expect(core.trajectoryId).toBe(id);
@@ -511,16 +513,16 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     it("keeps the generated ID through connection loss and reconnect", async () => {
       render(<App learning />);
       const [id] = connectedIds();
-      await authorize(0, id);
+      await authorize(0, id!);
       await join(0);
 
-      transport.sockets[0].disconnected = true;
+      transport.sockets[0]!.disconnected = true;
       act(() => core.emitTrajectoryEvent("app.lost", {}));
       expect(core.trajectoryId).toBeNull();
       await act(async () => {
         await vi.advanceTimersByTimeAsync(10_000);
       });
-      await authorize(1, id);
+      await authorize(1, id!);
       await join(1);
 
       expect(connectedIds()).toEqual([id, id]);
@@ -530,12 +532,12 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     it("stops on disable and starts a new Trajectory with a new ID when enabled again", async () => {
       const view = render(<App learning />);
       const [first] = connectedIds();
-      await authorize(0, first);
+      await authorize(0, first!);
       await join(0);
 
       view.rerender(<App learning={false} />);
-      expect(transport.sockets[0].channels[0].left).toBe(true);
-      expect(transport.sockets[0].disconnected).toBe(true);
+      expect(transport.sockets[0]!.channels[0]!.left).toBe(true);
+      expect(transport.sockets[0]!.disconnected).toBe(true);
       expect(core.trajectoryId).toBeNull();
       expect(core.ɵlearningConfigured).toBe(false);
 
@@ -543,19 +545,19 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       const [, second] = connectedIds();
       expect(second).toMatch(UUID);
       expect(second).not.toBe(first);
-      await authorize(1, second);
+      await authorize(1, second!);
       await join(1);
       expect(core.trajectoryId).toBe(second);
     });
 
     it("stops capture on unmount", async () => {
       const view = render(<App learning />);
-      await authorize(0, connectedIds()[0]);
+      await authorize(0, connectedIds()[0]!);
       await join();
 
       view.unmount();
-      expect(transport.sockets[0].channels[0].left).toBe(true);
-      expect(transport.sockets[0].disconnected).toBe(true);
+      expect(transport.sockets[0]!.channels[0]!.left).toBe(true);
+      expect(transport.sockets[0]!.disconnected).toBe(true);
       expect(History.prototype.pushState).toBe(nativePushState);
     });
 
@@ -563,7 +565,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       render(<App learning />);
       const manual = core.startTrajectory();
       const [id] = connectedIds();
-      await authorize(0, id);
+      await authorize(0, id!);
       await join();
 
       await expect(manual).resolves.toEqual({
@@ -577,7 +579,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       render(<App learning />);
       await act(async () => {
-        pendingAuth[0].resolve(
+        pendingAuth[0]!.resolve(
           new Response(
             JSON.stringify({
               code: "IDENTITY_REQUIRED",
@@ -591,7 +593,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       expect(core.trajectoryId).toBeNull();
       expect(transport.sockets).toHaveLength(0);
       expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn.mock.calls[0][0]).toContain(
+      expect(warn.mock.calls[0]![0]).toContain(
         "[CopilotKit] Trajectory capture did not start (IDENTITY_REQUIRED).",
       );
     });
@@ -618,7 +620,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
 
       const [id] = connectedIds();
       expect(id).toMatch(UUID);
-      await authorize(0, id);
+      await authorize(0, id!);
       await join();
       expect(core.trajectoryId).toBe(id);
     });
@@ -629,21 +631,21 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       view.rerender(<App learning={{ onError }} />);
       view.rerender(<App learning={{ onError }} />);
       const [id] = connectedIds();
-      await authorize(0, id);
+      await authorize(0, id!);
       await join();
       view.rerender(<App learning={{ onError }} />);
 
       expect(connectedIds()).toEqual([id]);
       expect(core.trajectoryId).toBe(id);
       expect(transport.sockets).toHaveLength(1);
-      expect(transport.sockets[0].channels[0].left).toBe(false);
+      expect(transport.sockets[0]!.channels[0]!.left).toBe(false);
     });
 
     it("keeps the generated ID when switching between generating forms", async () => {
       const onError = vi.fn();
       const view = render(<App learning />);
       const [id] = connectedIds();
-      await authorize(0, id);
+      await authorize(0, id!);
       await join();
 
       view.rerender(<App learning={{ onError }} />);
@@ -654,19 +656,19 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       expect(connectedIds()).toEqual([id]);
       expect(core.trajectoryId).toBe(id);
       expect(transport.sockets).toHaveLength(1);
-      expect(transport.sockets[0].channels[0].left).toBe(false);
+      expect(transport.sockets[0]!.channels[0]!.left).toBe(false);
     });
 
     it("stops when autoStart turns off and generates a new ID when it turns on again", async () => {
       const onError = vi.fn();
       const view = render(<App learning={{ onError }} />);
       const [first] = connectedIds();
-      await authorize(0, first);
+      await authorize(0, first!);
       await join(0);
 
       view.rerender(<App learning={{ onError, autoStart: false }} />);
-      expect(transport.sockets[0].channels[0].left).toBe(true);
-      expect(transport.sockets[0].disconnected).toBe(true);
+      expect(transport.sockets[0]!.channels[0]!.left).toBe(true);
+      expect(transport.sockets[0]!.disconnected).toBe(true);
       expect(core.trajectoryId).toBeNull();
       expect(core.ɵlearningConfigured).toBe(true);
 
@@ -674,7 +676,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       const [, second] = connectedIds();
       expect(second).toMatch(UUID);
       expect(second).not.toBe(first);
-      await authorize(1, second);
+      await authorize(1, second!);
       await join(1);
       expect(core.trajectoryId).toBe(second);
     });
@@ -686,8 +688,8 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       const [id] = connectedIds();
       expect(id).toMatch(UUID);
       expect(connectedIds()).toEqual([id, id]);
-      await authorize(0, id);
-      await authorize(1, id);
+      await authorize(0, id!);
+      await authorize(1, id!);
       await join();
       expect(transport.sockets).toHaveLength(1);
       expect(core.trajectoryId).toBe(id);
@@ -728,7 +730,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       expect(fetch).not.toHaveBeenCalled();
       expect(core.trajectoryId).toBeNull();
       expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn.mock.calls[0][0]).toContain(
+      expect(warn.mock.calls[0]![0]).toContain(
         "[CopilotKit] learning.trajectoryId is ignored when autoStart is false",
       );
       expect(JSON.stringify(warn.mock.calls)).not.toContain(FIRST_ID);
@@ -800,7 +802,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     await authorize(0, FIRST_ID);
     await join(0);
     expect(core.trajectoryId).toBe(FIRST_ID);
-    transport.sockets[0].disconnected = true;
+    transport.sockets[0]!.disconnected = true;
     act(() => core.emitTrajectoryEvent("app.lost", {}));
     expect(core.trajectoryId).toBeNull();
     await act(async () => {

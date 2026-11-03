@@ -38,7 +38,7 @@ describe("CopilotChatAssistantMessage thumbs callbacks (#3457)", () => {
     fireEvent.click(thumbsUpButton);
 
     expect(onThumbsUp).toHaveBeenCalledTimes(1);
-    const arg = onThumbsUp.mock.calls[0][0];
+    const arg = onThumbsUp.mock.calls[0]![0];
     // Should receive AssistantMessage
     expect(arg).toHaveProperty("id", "msg-1");
     expect(arg).toHaveProperty("role", "assistant");
@@ -63,7 +63,7 @@ describe("CopilotChatAssistantMessage thumbs callbacks (#3457)", () => {
     fireEvent.click(thumbsDownButton);
 
     expect(onThumbsDown).toHaveBeenCalledTimes(1);
-    const arg = onThumbsDown.mock.calls[0][0];
+    const arg = onThumbsDown.mock.calls[0]![0];
     expect(arg).toHaveProperty("id", "msg-1");
     expect(arg).toHaveProperty("role", "assistant");
     expect(arg).toHaveProperty("content", "Hello from the assistant");

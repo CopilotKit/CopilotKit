@@ -64,14 +64,14 @@ describe("feedbackComponents", () => {
       "Modal",
     ]);
     for (const name of names) {
-      expect(ui.manifestComponents[name].description).toMatch(/\S/);
+      expect(ui.manifestComponents[name]!.description).toMatch(/\S/);
     }
     for (const name of ["Popover", "PopoverTrigger", "PopoverContent"]) {
-      expect(ui.manifestComponents[name].slots).toEqual({
+      expect(ui.manifestComponents[name]!.slots).toEqual({
         children: "multiple",
       });
     }
-    expect(ui.manifestComponents.FlashcardFlip.slots).toBeUndefined();
+    expect(ui.manifestComponents.FlashcardFlip!.slots).toBeUndefined();
   });
 });
 

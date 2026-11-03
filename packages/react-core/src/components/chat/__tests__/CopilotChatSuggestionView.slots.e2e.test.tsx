@@ -259,7 +259,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
 
       const customPills = screen.queryAllByTestId("custom-pill");
       expect(customPills.length).toBe(3);
-      expect(customPills[0].textContent).toBe("[Suggestion 1]");
+      expect(customPills[0]!.textContent).toBe("[Suggestion 1]");
     });
 
     it("should pass isLoading to custom suggestion component", () => {
@@ -287,9 +287,9 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
       );
 
       const pills = screen.queryAllByTestId("custom-pill");
-      expect(pills[0].getAttribute("data-loading")).toBe("true");
-      expect(pills[0].textContent).toBe("Loading...");
-      expect(pills[1].getAttribute("data-loading")).toBe("false");
+      expect(pills[0]!.getAttribute("data-loading")).toBe("true");
+      expect(pills[0]!.textContent).toBe("Loading...");
+      expect(pills[1]!.getAttribute("data-loading")).toBe("false");
     });
   });
 
@@ -315,7 +315,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
       );
 
       expect(childrenFn).toHaveBeenCalled();
-      const callArgs = childrenFn.mock.calls[0][0];
+      const callArgs = childrenFn.mock.calls[0]![0];
       expect(callArgs).toHaveProperty("container");
       expect(callArgs).toHaveProperty("suggestion");
       expect(callArgs).toHaveProperty("suggestions");
@@ -338,7 +338,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
         </TestWrapper>,
       );
 
-      const callArgs = childrenFn.mock.calls[0][0];
+      const callArgs = childrenFn.mock.calls[0]![0];
       expect(callArgs.suggestions).toBe(suggestions);
       expect(callArgs.suggestions.length).toBe(3);
     });
@@ -361,7 +361,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
         </TestWrapper>,
       );
 
-      const callArgs = childrenFn.mock.calls[0][0];
+      const callArgs = childrenFn.mock.calls[0]![0];
       expect(callArgs.loadingIndexes).toBe(loadingIndexes);
     });
 

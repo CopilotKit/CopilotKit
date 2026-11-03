@@ -283,7 +283,8 @@ export function readCopilotKitUIEnvelope(forwardedProps: unknown) {
  */
 export function envelopeToManifest(envelope: CopilotKitUIEnvelope) {
   const { supportedCatalogIds, inlineCatalogs } = envelope["v1.0"];
-  const catalogId = supportedCatalogIds[0];
+  // `readCopilotKitUIEnvelope` only accepts a non-empty `supportedCatalogIds`.
+  const catalogId = supportedCatalogIds[0]!;
   const catalog = inlineCatalogs?.find(
     (entry) => entry.catalogId === catalogId,
   );

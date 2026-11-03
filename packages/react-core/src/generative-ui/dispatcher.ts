@@ -298,7 +298,14 @@ export function createGenerativeUIDispatcher(
     args: unknown,
     origin: GenerativeUICallOrigin,
   ): GenerativeUIInvokeResult => {
-    const refused = callerError(name, GENERATIVE_UI_FUNCTIONS[name], origin);
+    const info = GENERATIVE_UI_FUNCTIONS[name];
+    const run = BASIC_FUNCTIONS[name];
+    if (info === undefined || run === undefined) {
+      // `invoke` calls this only for a name of BASIC_FUNCTIONS, and a test
+      // pins that GENERATIVE_UI_FUNCTIONS has the same names.
+      throw new Error(`"${name}" is not a basic function`);
+    }
+    const refused = callerError(name, info, origin);
     if (refused) return failWith(name, origin, refused);
     const isObject =
       typeof args === "object" && args !== null && !Array.isArray(args);
@@ -315,7 +322,7 @@ export function createGenerativeUIDispatcher(
     try {
       return {
         ok: true,
-        result: BASIC_FUNCTIONS[name]((args ?? {}) as Record<string, unknown>),
+        result: run((args ?? {}) as Record<string, unknown>),
       };
     } catch (error) {
       return failWith(

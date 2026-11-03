@@ -343,7 +343,7 @@ class ExpressionParser {
   }
 
   private skipSpace() {
-    while (this.pos < this.source.length && /\s/.test(this.source[this.pos])) {
+    while (this.pos < this.source.length && /\s/.test(this.source[this.pos]!)) {
       this.pos++;
     }
   }

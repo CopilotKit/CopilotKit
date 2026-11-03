@@ -59,16 +59,16 @@ describe("dataComponents", () => {
       "Map",
     ]);
     for (const name of names) {
-      expect(ui.manifestComponents[name].description).toMatch(/\S/);
+      expect(ui.manifestComponents[name]!.description).toMatch(/\S/);
     }
-    expect(ui.manifestComponents.Table.slots).toEqual({
+    expect(ui.manifestComponents.Table!.slots).toEqual({
       children: "multiple",
       cellComponents: "multiple",
     });
-    expect(Object.keys(ui.manifestComponents.List.events ?? {})).toEqual([
+    expect(Object.keys(ui.manifestComponents.List!.events ?? {})).toEqual([
       "action",
     ]);
-    expect(Object.keys(ui.manifestComponents.ListItem.events ?? {})).toEqual([
+    expect(Object.keys(ui.manifestComponents.ListItem!.events ?? {})).toEqual([
       "action",
     ]);
   });
@@ -95,7 +95,7 @@ describe("Table", () => {
       "Feature",
       "Team",
     ]);
-    expect(headers[0].getAttribute("scope")).toBe("col");
+    expect(headers[0]!.getAttribute("scope")).toBe("col");
     expect(rowTexts(view)).toEqual([
       "Feature|Team",
       "Price|$29/seat",
@@ -287,7 +287,7 @@ describe("List", () => {
     ]);
     await click(await view.findByRole("button", { name: "Graz" }));
     expect(view.forwardEvent).toHaveBeenCalledOnce();
-    expect(view.forwardEvent.mock.calls[0][0]).toMatchObject({
+    expect(view.forwardEvent.mock.calls[0]![0]).toMatchObject({
       name: "pick",
       context: { index: 1, label: "Graz", value: "graz", source: "list" },
     });
@@ -304,7 +304,7 @@ describe("List", () => {
       },
     ]);
     await click(await view.findByRole("button", { name: "Open details" }));
-    expect(view.forwardEvent.mock.calls[0][0]).toMatchObject({
+    expect(view.forwardEvent.mock.calls[0]![0]).toMatchObject({
       name: "open",
       context: { id: "7" },
     });

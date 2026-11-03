@@ -1,10 +1,9 @@
-import {
-  AbstractAgent,
+import type {
   RunAgentInput,
-  EventType,
   BaseEvent,
   ToolCallResultEvent,
 } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import { Observable } from "rxjs";
 
 export class SlowToolCallStreamingAgent extends AbstractAgent {

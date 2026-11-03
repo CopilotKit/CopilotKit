@@ -1,6 +1,8 @@
 {
-  "extends": "../tsconfig/react-library.json",
+  "extends": "@copilotkit/typescript-config/react-library.json",
   "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "lib": ["dom", "dom.iterable", "ES2023"],
     "types": ["vitest/globals"]
   },

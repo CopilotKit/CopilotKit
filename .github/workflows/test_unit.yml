@@ -213,9 +213,9 @@ jobs:
             echo "test_unit.yml changed in range → running ALL packages."
           fi
           if [ "$FULL" = "true" ]; then
-            PROJECTS=$(npx nx show projects --projects='packages/**' --exclude=@copilotkit/demo-agents,runtime-python,runtime-go,runtime-ruby,runtime-dotnet,intelligence-delivery-python-core,intelligence-langgraph-python,intelligence-adk-python,intelligence-agent-framework-dotnet -t test --json)
+            PROJECTS=$(npx nx show projects --projects='packages/**' --exclude=runtime-python,runtime-go,runtime-ruby,runtime-dotnet,intelligence-delivery-python-core,intelligence-langgraph-python,intelligence-adk-python,intelligence-agent-framework-dotnet -t test --json)
           else
-            PROJECTS=$(npx nx show projects --affected --base="$NX_BASE" --head="$NX_HEAD" --projects='packages/**' --exclude=@copilotkit/demo-agents,runtime-python,runtime-go,runtime-ruby,runtime-dotnet,intelligence-delivery-python-core,intelligence-langgraph-python,intelligence-adk-python,intelligence-agent-framework-dotnet -t test --json)
+            PROJECTS=$(npx nx show projects --affected --base="$NX_BASE" --head="$NX_HEAD" --projects='packages/**' --exclude=runtime-python,runtime-go,runtime-ruby,runtime-dotnet,intelligence-delivery-python-core,intelligence-langgraph-python,intelligence-adk-python,intelligence-agent-framework-dotnet -t test --json)
           fi
           LIST=$(printf '%s' "$PROJECTS" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.parse(d).join(',')))")
           echo "projects=$LIST" >> "$GITHUB_OUTPUT"
@@ -246,7 +246,7 @@ jobs:
         # already pass `--parallel=1` for the same reason.
         env:
           PROJECTS: ${{ steps.select.outputs.projects }}
-        run: npx nx run-many -t build,test --projects="$PROJECTS" --parallel=2 --exclude=@copilotkit/demo-agents,runtime-python,runtime-go,runtime-ruby,runtime-dotnet,intelligence-delivery-python-core,intelligence-langgraph-python,intelligence-adk-python,intelligence-agent-framework-dotnet
+        run: npx nx run-many -t build,test --projects="$PROJECTS" --parallel=2 --exclude=runtime-python,runtime-go,runtime-ruby,runtime-dotnet,intelligence-delivery-python-core,intelligence-langgraph-python,intelligence-adk-python,intelligence-agent-framework-dotnet
 
       - name: No affected packages
         if: steps.select.outputs.has != 'true'
