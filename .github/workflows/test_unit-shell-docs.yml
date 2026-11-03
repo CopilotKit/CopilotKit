@@ -103,6 +103,12 @@ jobs:
         working-directory: showcase/shell-docs
         run: npm run lint
 
+      # The checkout has Git LFS pointer files for the page images, and
+      # compiling a page reads the size of each image it shows.
+      - name: Fetch the page images
+        working-directory: showcase/shell-docs
+        run: node scripts/fetch-lfs.mjs
+
       - name: Compile every docs page
         working-directory: showcase/shell-docs
         run: npm run check-live-mdx
