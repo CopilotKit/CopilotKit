@@ -4,7 +4,7 @@ import type {
   CopilotKitCoreErrorCode,
   CopilotKitHeadersSource,
   CopilotKitMessageFilter,
-  LearningConfig,
+  ɵLearningProp,
 } from "@copilotkit/core";
 import type { DebugConfig } from "@copilotkit/shared";
 import type {
@@ -176,17 +176,4 @@ export interface CopilotKitProviderProps {
 }
 
 /** The object form of the `learning` prop. */
-export type CopilotKitLearningOptions = LearningConfig & {
-  /**
-   * Starts a Trajectory after mount. Defaults to `true`; set `false` to call
-   * `startTrajectory()` yourself.
-   */
-  autoStart?: boolean;
-  trajectoryId?: string;
-  /**
-   * Used only by explicit custom sinks. Authenticated capture warns and ignores
-   * this option; assign Learning Spaces on the server with
-   * `getTrajectoryLearningContainerIds` on `CopilotKitIntelligence`.
-   */
-  learningContainerIds?: string[];
-};
+export type CopilotKitLearningOptions = ɵLearningProp;
