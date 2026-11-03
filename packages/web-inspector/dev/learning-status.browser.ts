@@ -20,6 +20,9 @@ for (const origin of [
         runs: null,
       },
     };
+    await page.route("https://cdn.copilotkit.ai/notifications/**", (route) =>
+      route.fulfill({ json: { schemaVersion: 1, notifications: [] } }),
+    );
     await page.route(
       "**/inspector-learning-lab/data-error/inspector-learning?*",
       async (route) => {
@@ -37,6 +40,11 @@ for (const origin of [
     await page
       .getByRole("button", { name: "Web Inspector", exact: true })
       .click();
+    // The Learning error signal opens the inspector on Automatic Learning, and
+    // the workbench toolbar covers the sidebar top. Reach Home by keyboard.
+    await page
+      .getByRole("button", { name: "Home", exact: true })
+      .press("Enter");
     const learning = page.locator('[data-inspector-service="memory"]');
     await expect(learning).toContainText("Learning status unavailable");
     await expect(
