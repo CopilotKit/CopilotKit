@@ -127,3 +127,17 @@ export type {
   ɵChatConfigurationSnapshot,
   ɵOpenThreadRegistry,
 } from "./chat-configuration";
+
+// Threads drawer binding (internal)
+export {
+  ɵtoDrawerThread,
+  ɵgetThreadsDrawerElementProps,
+  ɵfindChatInput,
+  ɵcreateThreadsDrawerActions,
+} from "./threads-drawer";
+export type {
+  ɵDrawerThread,
+  ɵThreadsDrawerThreads,
+  ɵThreadsDrawerConfig,
+  ɵThreadsDrawerCallbacks,
+} from "./threads-drawer";
