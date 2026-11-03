@@ -125,6 +125,18 @@ describe("ɵbuildHumanInTheLoopTool", () => {
   });
 });
 
+describe("ɵbuildHumanInTheLoopTool with a registry getter", () => {
+  it("reads the registry when a call arrives", async () => {
+    let registry: ɵHumanInTheLoopRegistry | undefined;
+    const tool = ɵbuildHumanInTheLoopTool({ name: "approve" }, () => registry!);
+    registry = new ɵHumanInTheLoopRegistry();
+
+    const result = tool.handler({}, { toolCall: toolCall("call") });
+    expect(registry.respond("call", "late core")).toBe(true);
+    await expect(result).resolves.toBe("late core");
+  });
+});
+
 describe("ɵhitlRenderProps", () => {
   const registry = new ɵHumanInTheLoopRegistry();
   const tool = { name: "approve", description: "Ask", agentId: "agent" };

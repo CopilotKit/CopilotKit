@@ -97,7 +97,8 @@ export class ɵHumanInTheLoopRegistry {
 /**
  * @internal Build the frontend tool core runs for a human-in-the-loop
  * registration: the registration's fields, `type: "human-in-the-loop"`, and
- * a handler that parks each call in `registry`.
+ * a handler that parks each call in `registry`. Pass a getter when the
+ * registry's core does not exist yet; it is read on each call.
  */
 export function ɵbuildHumanInTheLoopTool<
   T extends Record<string, unknown> = Record<string, unknown>,
@@ -107,7 +108,7 @@ export function ɵbuildHumanInTheLoopTool<
   >,
 >(
   config: TConfig,
-  registry: ɵHumanInTheLoopRegistry,
+  registry: ɵHumanInTheLoopRegistry | (() => ɵHumanInTheLoopRegistry),
 ): TConfig &
   FrontendTool<T> & {
     handler: NonNullable<FrontendTool<T>["handler"]>;
@@ -115,7 +116,11 @@ export function ɵbuildHumanInTheLoopTool<
   return {
     ...config,
     type: "human-in-the-loop",
-    handler: registry.createHandler<T>(),
+    handler: (_args, context) =>
+      (typeof registry === "function" ? registry() : registry).wait(
+        context.toolCall.id,
+        context.signal,
+      ),
   };
 }
 
