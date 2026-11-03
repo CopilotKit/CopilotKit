@@ -38,7 +38,6 @@ import { PanelActions } from "@/components/layout/panel-actions";
 import { AdaptiveThemeSwitch } from "@/components/layout/theme-toggle";
 import { FRAMEWORKS, FRAMEWORK_FAMILIES } from "./data";
 import { FamilyMenuCard, IntegrationCardBody } from "./link-card";
-import examples from "./examples.json";
 import { rememberFramework, useLastFramework } from "./last-framework";
 import { frameworkHref, locationFromPathname, type VariantId } from "./routes";
 import { SidebarTop, buildTree, layoutTabs } from "./variants";
@@ -232,8 +231,8 @@ const INTEGRATIONS_MENU: MenuItem[] = FRAMEWORKS.flatMap((f): MenuItem[] => {
 /**
  * The Examples menu: a two-row "all demos" tile, then seven demos worth
  * opening first, filling three even columns. Each opens a live showcase demo
- * in the playground (on your framework). Ids are showcase feature ids
- * (src/proto/examples.json).
+ * in the playground (on your framework). Ids are showcase feature ids; the
+ * menu shows the ones the playground has (`examples`).
  */
 const FEATURED_EXAMPLES = [
   {
@@ -278,7 +277,7 @@ const FEATURED_EXAMPLES = [
     description: "Your UI and the agent edit the same state.",
     icon: <SharedStateGlyph />,
   },
-].filter((e) => examples.features.some((f) => f.id === e.id));
+];
 
 /** A compact menu card: glyph tile, title, and a one-line description. */
 function MenuRow({
@@ -331,7 +330,13 @@ function GalleryTile() {
 }
 
 /** Prototype D's home: Fumadocs' navbar-only Home Layout. */
-function DHomeLayout({ children }: { children: ReactNode }) {
+function DHomeLayout({
+  examples,
+  children,
+}: {
+  examples: readonly string[];
+  children: ReactNode;
+}) {
   const [framework] = useLastFramework();
   const pathname = usePathname();
   const links: LinkItemType[] = [
@@ -382,14 +387,16 @@ function DHomeLayout({ children }: { children: ReactNode }) {
             children: <GalleryTile />,
           },
         },
-        ...FEATURED_EXAMPLES.map((e) => ({
-          text: e.title,
-          url: `/examples?feature=${e.id}`,
-          menu: {
-            className: `${CARD.className} flex-row items-center gap-3 p-2.5`,
-            children: <MenuRow {...e} />,
-          },
-        })),
+        ...FEATURED_EXAMPLES.filter((e) => examples.includes(e.id)).map(
+          (e) => ({
+            text: e.title,
+            url: `/examples?feature=${e.id}`,
+            menu: {
+              className: `${CARD.className} flex-row items-center gap-3 p-2.5`,
+              children: <MenuRow {...e} />,
+            },
+          }),
+        ),
         MENU_TRAY,
       ],
     },
@@ -466,11 +473,14 @@ function DHomeLayout({ children }: { children: ReactNode }) {
 export function ProtoLayout({
   variant,
   liveNav,
+  examples = [],
   children,
 }: {
   variant: VariantId;
   /** The live docs' sidebars; D's docs pages use them when given. */
   liveNav?: LiveNav;
+  /** The feature ids the examples playground has, for the Examples menu. */
+  examples?: readonly string[];
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -495,7 +505,7 @@ export function ProtoLayout({
       loc?.kind === "examples" ||
       pathname === "/ask")
   ) {
-    return <DHomeLayout>{children}</DHomeLayout>;
+    return <DHomeLayout examples={examples}>{children}</DHomeLayout>;
   }
 
   const tree =
