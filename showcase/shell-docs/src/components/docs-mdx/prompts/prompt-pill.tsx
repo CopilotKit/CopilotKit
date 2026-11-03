@@ -42,7 +42,7 @@ export function PromptGuidance() {
 
 /**
  * copilotkit.ai's "Copy prompt" pill (the white mono pill with the Claude and
- * Codex marks, as in `src/proto/copy-prompt-d.tsx`) with shell-docs'
+ * Codex marks), the site's one hand-off to a coding agent, with shell-docs'
  * behavior: each click builds a fresh payload, "View prompt" shows exactly
  * what would be copied, and a blocked clipboard opens it for manual copying.
  * Analytics run through the payload's callbacks and never block the copy.
@@ -50,11 +50,24 @@ export function PromptGuidance() {
 export function PromptPill({
   createPrompt,
   surface,
+  viewPrompt = true,
+  compact = false,
+  disabled = false,
 }: {
-  createPrompt: () => PromptPayload;
+  /** The prompt, built on each click; `null` when there's nothing to copy yet. */
+  createPrompt: () => PromptPayload | null;
   /** Analytics surface; also read by the global copy tracker. */
   surface?: string;
+  /**
+   * Show "View prompt" beside the pill. Without it, the prompt opens only
+   * when the clipboard is blocked, anchored to the pill.
+   */
+  viewPrompt?: boolean;
+  /** The smaller pill, for a toolbar. */
+  compact?: boolean;
+  disabled?: boolean;
 }) {
+  const pill = useRef<HTMLButtonElement>(null);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -107,12 +120,19 @@ export function PromptPill({
       data-docs-copy-surface={surface}
     >
       <Button
+        ref={pill}
         variant="outline"
-        disabled={busy}
+        disabled={disabled || busy}
         data-surface={surface}
         data-docs-copy-surface={surface}
-        onClick={() => copy(createPrompt(), "copy")}
-        className="h-11 gap-2.5 rounded-full bg-card px-4 font-mono shadow-lift"
+        onClick={() => {
+          const payload = createPrompt();
+          if (payload) void copy(payload, "copy");
+        }}
+        className={cn(
+          "gap-2.5 rounded-full bg-card font-mono shadow-lift",
+          compact ? "h-8 gap-2 px-3 text-xs max-md:h-10" : "h-11 px-4",
+        )}
       >
         {copied ? (
           <Check className="text-primary" aria-hidden="true" />
@@ -120,23 +140,22 @@ export function PromptPill({
           <Copy className="text-muted-foreground" aria-hidden="true" />
         )}
         <span>{copied ? "Copied" : "Copy prompt"}</span>
-        <span className="h-5 w-px bg-border" aria-hidden="true" />
+        <span
+          className={cn("w-px bg-border", compact ? "h-4" : "h-5")}
+          aria-hidden="true"
+        />
         {/* Says the prompt is for a coding agent; the marks open nothing. */}
         <span className="flex items-center gap-1.5" aria-hidden="true">
-          <Image
-            unoptimized
-            src="/images/prompt-claude.webp"
-            alt=""
-            width={18}
-            height={18}
-          />
-          <Image
-            unoptimized
-            src="/images/prompt-codex.webp"
-            alt=""
-            width={18}
-            height={18}
-          />
+          {["claude", "codex"].map((mark) => (
+            <Image
+              key={mark}
+              unoptimized
+              src={`/images/prompt-${mark}.webp`}
+              alt=""
+              width={compact ? 16 : 18}
+              height={compact ? 16 : 18}
+            />
+          ))}
         </span>
       </Button>
       <Popover
@@ -144,6 +163,7 @@ export function PromptPill({
         onOpenChange={(next) => {
           if (next) {
             const payload = createPrompt();
+            if (!payload) return;
             record(payload, "view_prompt");
             setPreview(payload);
             setMessage("");
@@ -151,17 +171,20 @@ export function PromptPill({
           setOpen(next);
         }}
       >
-        <PopoverTrigger
-          className={cn(
-            buttonVariants({ variant: "ghost" }),
-            "h-11 gap-2 rounded-full px-4 font-mono text-muted-foreground",
-          )}
-        >
-          <Eye aria-hidden="true" />
-          View prompt
-        </PopoverTrigger>
+        {viewPrompt ? (
+          <PopoverTrigger
+            className={cn(
+              buttonVariants({ variant: "ghost" }),
+              "h-11 gap-2 rounded-full px-4 font-mono text-muted-foreground",
+            )}
+          >
+            <Eye aria-hidden="true" />
+            View prompt
+          </PopoverTrigger>
+        ) : null}
         <PopoverContent
           align="start"
+          anchor={viewPrompt ? undefined : pill}
           className="w-[min(32rem,calc(100vw-2rem))] gap-3 p-3"
         >
           <PopoverHeader>
