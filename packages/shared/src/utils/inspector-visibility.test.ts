@@ -41,3 +41,29 @@ describe("shouldEnableInspector", () => {
     ).toBe(false);
   });
 });
+
+describe("shouldEnableInspector hostname rule", () => {
+  const developmentBrowser = { isBrowser: true, isDevelopment: true };
+
+  it.each(["localhost", "127.0.0.1", "[::1]"])(
+    "shows on the loopback host %s",
+    (hostname) => {
+      expect(shouldEnableInspector({ ...developmentBrowser, hostname })).toBe(
+        true,
+      );
+    },
+  );
+
+  it.each(["192.168.1.20", "dev.example.com", "my-tunnel.ngrok.app"])(
+    "hides on the remote host %s, even when explicitly enabled",
+    (hostname) => {
+      expect(
+        shouldEnableInspector({
+          ...developmentBrowser,
+          enableInspector: true,
+          hostname,
+        }),
+      ).toBe(false);
+    },
+  );
+});
