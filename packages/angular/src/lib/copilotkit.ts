@@ -31,7 +31,6 @@ import type {
   RenderToolCallConfig,
 } from "./tools";
 import type { RuntimeEntitlementResponse } from "@copilotkit/shared";
-import { schemaToJsonSchema } from "@copilotkit/shared";
 import type { RenderActivityMessageConfig } from "./activity-renderer";
 import {
   ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
@@ -58,12 +57,14 @@ import {
 } from "./components/a2ui/a2ui-tool-types";
 import type { GenerateSandboxedUiArgs } from "./open-generative-ui";
 import {
-  DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
-  GENERATE_SANDBOXED_UI_DESCRIPTION,
   GENERATE_SANDBOXED_UI_TOOL_NAME,
-  GenerateSandboxedUiArgsSchema,
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
 } from "./open-generative-ui";
+import {
+  ɵbuildOpenGenerativeUIContexts,
+  ɵcreateOpenGenerativeUITool,
+  ɵisOpenGenerativeUIActive,
+} from "@copilotkit/core";
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { CopilotInspector } from "./inspector";
@@ -615,7 +616,10 @@ export class CopilotKit {
   }
 
   #isOpenGenerativeUIActive(): boolean {
-    return !!this.#config.openGenerativeUI || this.core.openGenerativeUIEnabled;
+    return ɵisOpenGenerativeUIActive({
+      runtimeEnabled: this.core.openGenerativeUIEnabled,
+      configured: !!this.#config.openGenerativeUI,
+    });
   }
 
   /** Register sandbox rendering with a side-effect-free acknowledgement safe to replay. */
@@ -623,14 +627,8 @@ export class CopilotKit {
     injector: Injector;
   } {
     return {
-      name: GENERATE_SANDBOXED_UI_TOOL_NAME,
-      description: GENERATE_SANDBOXED_UI_DESCRIPTION,
-      parameters: GenerateSandboxedUiArgsSchema,
+      ...ɵcreateOpenGenerativeUITool(),
       component: CopilotOpenGenerativeUIToolRenderer,
-      handler: async () => "UI generated",
-      // This acknowledgement has no side effects and is safe to reconstruct.
-      reconnectBehavior: "resume-pending",
-      followUp: true,
       injector: this.#rootInjector,
     };
   }
@@ -663,36 +661,12 @@ export class CopilotKit {
 
   #syncOpenGenerativeUIContexts(): void {
     this.#removeOpenGenerativeUIContexts();
-
-    const designSkill =
-      this.#config.openGenerativeUI?.designSkill ??
-      DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL;
-    this.#openGenerativeUIContextIds.push(
-      this.core.addContext({
-        description:
-          "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
-        value: designSkill,
-      }),
-    );
-
-    const sandboxFunctions =
-      this.#config.openGenerativeUI?.sandboxFunctions ?? [];
-    if (!sandboxFunctions.length) return;
-
-    const descriptors = JSON.stringify(
-      sandboxFunctions.map((fn) => ({
-        name: fn.name,
-        description: fn.description,
-        parameters: schemaToJsonSchema(fn.parameters),
-      })),
-    );
-
-    this.#openGenerativeUIContextIds.push(
-      this.core.addContext({
-        description:
-          "Sandbox functions available in generated sandboxed UI code. Call via: await Websandbox.connection.remote.<functionName>(args)",
-        value: descriptors,
-      }),
+    const entries = ɵbuildOpenGenerativeUIContexts({
+      designSkill: this.#config.openGenerativeUI?.designSkill,
+      sandboxFunctions: this.#config.openGenerativeUI?.sandboxFunctions ?? [],
+    });
+    this.#openGenerativeUIContextIds = entries.map((entry) =>
+      this.core.addContext(entry),
     );
   }
 
