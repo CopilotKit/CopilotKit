@@ -194,10 +194,10 @@ export class ɵInterruptController<TValue = unknown, TResult = unknown> {
         legacy = null;
         standard = null;
       },
-      onRunFailed: ({ error }) => {
+      onRunFailed: (params) => {
         legacy = null;
         standard = null;
-        this.#clear(error);
+        this.#clear(params?.error ?? null);
       },
       onRunErrorEvent: ({ event }) => {
         legacy = null;
@@ -384,7 +384,8 @@ export class ɵInterruptController<TValue = unknown, TResult = unknown> {
     const pending = this.#snapshot.pending;
     let run: Promise<RunAgentResult>;
     try {
-      run = this.#runner.runAgent({ agent, ...params });
+      // Promise.resolve tolerates a runner that returns a plain value.
+      run = Promise.resolve(this.#runner.runAgent({ agent, ...params }));
     } catch (error) {
       this.#clear(error);
       return Promise.reject(error);

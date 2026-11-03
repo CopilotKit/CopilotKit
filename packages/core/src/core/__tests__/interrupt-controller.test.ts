@@ -331,6 +331,28 @@ describe("ɵInterruptController", () => {
     expect(controller.getSnapshot().pending).toBeNull();
   });
 
+  it("accepts a runner that returns a plain value", async () => {
+    const agent = new FakeAgent();
+    const controller = new ɵInterruptController({
+      runAgent: () => undefined as unknown as Promise<RunAgentResult>,
+    });
+    controller.connect(agent.asAgent);
+    finalizeStandard(agent, [makeInterrupt("one")]);
+    await expect(controller.resolve("yes")).resolves.toBeUndefined();
+  });
+
+  it("clears pending state when a run fails without error details", () => {
+    const { agent, controller } = setup();
+    finalizeStandard(agent, [makeInterrupt("one")]);
+    expect(() =>
+      agent.subscriber?.onRunFailed?.(undefined as never),
+    ).not.toThrow();
+    expect(controller.getSnapshot()).toMatchObject({
+      pending: null,
+      error: null,
+    });
+  });
+
   it("does not let an old resume failure clear a newer interrupt", async () => {
     const agentA = new FakeAgent();
     const agentB = new FakeAgent();
