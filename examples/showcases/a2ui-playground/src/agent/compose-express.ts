@@ -176,6 +176,14 @@ export async function composeExpress(
     // so a reply cut off mid-tree gets the retry rather than a surface with holes.
     if (express.isInBlock) read(() => express.feed("\n</a2ui>"));
     read(() => express.close());
+    // The retry quotes the error to the model, and the stream can number a syntax error's line wrongly (in 0.1.0 it
+    // depends on where the chunks split), so the error comes from compiling the whole reply when that fails too.
+    if (error)
+      try {
+        expressProcessor(surfaceId).parseResponse(text);
+      } catch (err) {
+        error = err;
+      }
     if (!error && !parsed.length)
       error = new Error("The reply has no <a2ui> block.");
     // The last statement can end at </a2ui> with no newline after it.
