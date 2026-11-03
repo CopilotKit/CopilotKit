@@ -158,47 +158,18 @@
     }
   }
 
-  /* The pickers on one row under the prompt that scrolls sideways if it must. */
-  .wb-page [data-wb-under] {
-    flex-wrap: nowrap;
-    margin-top: 4px;
-  }
-  .wb-page [data-wb-pickers] {
-    flex: 1 1 auto;
-    margin-left: 0;
-    min-width: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-    margin: -4px;
-    padding: 4px 24px 4px 4px;
-    scroll-padding-inline: 4px 24px;
-    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
-  }
-  .wb-page [data-wb-pickers]::-webkit-scrollbar {
-    display: none;
-  }
-  /* An embed keeps one picker, the design system, so the row fits without scrolling and nothing reads
-     as cut off (480px tall or less, it folds away: see the end of this block). The model and the format stay in the full playground, one link away. */
-  .wb-page[data-embed] [data-model-picker],
-  .wb-page[data-embed] [data-format-picker] {
-    display: none;
-  }
-  /* "Start without AI" moves from its own line into the picker row. */
+  /* "Start without AI" under the prompt goes: it is in the "+" menu, with the pickers. */
   .wb-page [data-wb-no-ai-line] {
     display: none;
   }
-  .wb-page [data-wb-no-ai-inline] {
-    display: inline-flex;
-  }
 
   /* The smallest embeds (480px tall or less, a 320 to 480 square on a phone or in a docs column): the answer
-     needs every row it can get. The suggestions, the "+" menu and the row under the prompt go (the placeholder
-     still suggests one), leaving the prompt and Build. The design system and "start without AI" are in the
-     full playground, and `?ds=` still picks the design system for the frame. */
+     needs every row it can get. The suggestions and the "+" menu go (the placeholder still suggests one),
+     leaving the prompt and Build. The pickers and "start without AI" are in the full playground, and `?ds=`
+     still picks the design system for the frame. */
   @media (max-height: 480px) {
     .wb-page[data-embed] [data-wb-chips-wrap],
-    .wb-page[data-embed] [data-wb-plus],
-    .wb-page[data-embed] [data-wb-under] {
+    .wb-page[data-embed] [data-wb-plus] {
       display: none;
     }
     .wb-page[data-embed] #wb-prompt {

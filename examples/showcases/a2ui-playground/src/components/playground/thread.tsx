@@ -200,8 +200,8 @@ export function Thread({
           <p className="mt-2.5 max-w-[62ch] text-[14px] leading-[1.55] text-[var(--pg-dim)] max-[899px]:mt-2">
             A2UI 1.0 is Google&apos;s open protocol for agents that answer with
             UI. The model writes one line per component, and a design system
-            draws it: switch it under the prompt box and the same answer
-            repaints.
+            draws it: switch it in the prompt box&apos;s + menu and the same
+            answer repaints.
           </p>
         </header>
 
