@@ -30,7 +30,9 @@ export const myDefinitions = {
         .enum(["start", "center", "end", "stretch", "baseline"])
         .optional(),
       justify: z.enum(["start", "center", "end", "spaceBetween"]).optional(),
-      children: z.array(z.string()),
+      children: z
+        .array(z.string())
+        .describe("REF:common_types.json#/$defs/ChildList"),
     }),
   },
 
@@ -42,7 +44,9 @@ export const myDefinitions = {
       align: z
         .enum(["start", "center", "end", "stretch", "baseline"])
         .optional(),
-      children: z.array(z.string()),
+      children: z
+        .array(z.string())
+        .describe("REF:common_types.json#/$defs/ChildList"),
     }),
   },
 
@@ -61,7 +65,10 @@ export const myDefinitions = {
     props: z.object({
       title: z.string(),
       subtitle: z.string().optional(),
-      child: z.string().optional(),
+      child: z
+        .string()
+        .describe("REF:common_types.json#/$defs/ComponentId")
+        .optional(),
     }),
   },
 
