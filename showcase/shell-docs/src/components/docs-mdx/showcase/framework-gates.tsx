@@ -41,13 +41,20 @@ export function WhenFrameworkHas({
   children?: ReactNode;
 }) {
   const slug = framework ?? scope.framework ?? defaultFramework;
-  if (!slug) return null;
-  const integration = getIntegration(slug);
-  if (!integration) return null;
+  return frameworkHas(slug, flag, { equals, absent }) ? <>{children}</> : null;
+}
+
+/** Whether `<WhenFrameworkHas>` shows its children for framework `slug`. */
+export function frameworkHas(
+  slug: string | null | undefined,
+  flag: string,
+  { equals, absent }: { equals?: string; absent?: boolean },
+): boolean {
+  const integration = slug ? getIntegration(slug) : undefined;
+  if (!integration) return false;
   const value = (integration as unknown as Record<string, unknown>)[flag];
-  if (absent) return value == null ? <>{children}</> : null;
-  if (value == null || equals === undefined || value !== equals) return null;
-  return <>{children}</>;
+  if (absent) return value == null;
+  return value != null && equals !== undefined && value === equals;
 }
 
 /**
@@ -67,6 +74,10 @@ export function WhenAngularBackend({
   children?: ReactNode;
 }) {
   const framework = scope.framework ?? currentFramework;
-  const hasBackend = Boolean(framework && framework !== ROOT_FRAMEWORK);
-  return hasBackend === selected ? <>{children}</> : null;
+  return hasAngularBackend(framework) === selected ? <>{children}</> : null;
+}
+
+/** The URL names an agent backend, not the standalone built-in agent. */
+export function hasAngularBackend(framework: string | null | undefined) {
+  return Boolean(framework && framework !== ROOT_FRAMEWORK);
 }

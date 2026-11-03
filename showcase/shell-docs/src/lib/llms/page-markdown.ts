@@ -1,5 +1,11 @@
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import {
+  expandFrameworkSetups,
+  expandShowcase,
+  missingDemoNote,
+  type ShowcasePage,
+} from "./showcase-markdown";
 import { liveHref, type ResolvedLivePage } from "@/lib/live-docs";
 import { NAMED_SNIPPETS } from "@/lib/named-snippets";
 import { isV1Reference, V1_DEPRECATION_MARKDOWN } from "@/lib/v1-deprecation";
@@ -13,8 +19,9 @@ import { isV1Reference, V1_DEPRECATION_MARKDOWN } from "@/lib/v1-deprecation";
 // MDX with imports dropped and component tags kept as written. Like
 // shell-docs, a shared snippet a page imports (`import X from
 // "@/snippets/....mdx"`, then `<X />`) is inlined: many pages are nothing but
-// one. Other components (`<Snippet>`, `<InlineDemo>`, `<FrameworkSetup>`)
-// stay as tags.
+// one. The showcase components (`<Snippet>`, `<FrameworkSetup>`, the
+// framework and frontend gates) resolve as the page renders them, in
+// `showcase-markdown.ts`; other components stay as tags.
 
 /**
  * Render a resolved live page as Markdown.
@@ -30,10 +37,28 @@ export async function renderLivePageMarkdown(
     live.page.data.getText("processed"),
     live.page.data.getText("raw"),
   ]);
-  const body = rewriteScopedLinks(
-    inlineSnippets(processed, snippetImports(raw, SNIPPETS_DIR)),
-    (href) => liveHref(href, live.scope) ?? href,
+  const { snippet_framework, snippet_cell } = live.page.data;
+  const showcase: ShowcasePage = {
+    scope: live.scope,
+    defaultFramework:
+      typeof snippet_framework === "string" ? snippet_framework : undefined,
+    defaultCell: typeof snippet_cell === "string" ? snippet_cell : undefined,
+  };
+  const imports = snippetImports(raw, SNIPPETS_DIR);
+  // A framework's setup MDX can use shared snippets of its own.
+  const mdx = inlineSnippets(
+    expandFrameworkSetups(inlineSnippets(processed, imports), showcase),
+    imports,
   );
+  const body = [
+    missingDemoNote(showcase, url),
+    rewriteScopedLinks(
+      expandShowcase(mdx, showcase),
+      (href) => liveHref(href, live.scope) ?? href,
+    ).trim(),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
   const header = [`# ${title || url}`, ""];
   if (description) header.push(`> ${description}`, "");
@@ -114,7 +139,7 @@ function readSnippet(file: string, depth: number): string | null {
 /** Apply `fn` to the text between fenced code blocks. */
 function outsideFences(text: string, fn: (text: string) => string): string {
   return text
-    .split(/(^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?^ {0,3}\2[ \t]*$)/m)
+    .split(/(^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^[ \t]*\2[ \t]*$)/m)
     .map((part, index) =>
       index % 3 === 0 ? fn(part) : index % 3 === 1 ? part : "",
     )
@@ -123,7 +148,8 @@ function outsideFences(text: string, fn: (text: string) => string): string {
 
 /**
  * Rewrite root-relative Markdown links and `href="/..."` attributes, leaving
- * fenced code untouched (shell-docs' `rewriteScopedDocsLinks`).
+ * fenced code untouched (shell-docs' `rewriteScopedDocsLinks`). Fences may be
+ * indented: MDX has no indented code, and JSX children serialize indented.
  */
 function rewriteScopedLinks(
   body: string,
@@ -134,7 +160,7 @@ function rewriteScopedLinks(
     .split("\n")
     .map((line) => {
       if (fence) {
-        const closing = line.match(/^ {0,3}([`~]+)[ \t]*$/);
+        const closing = line.match(/^[ \t]*([`~]+)[ \t]*$/);
         if (
           closing &&
           closing[1][0] === fence.marker &&
@@ -144,7 +170,7 @@ function rewriteScopedLinks(
         }
         return line;
       }
-      const opening = line.match(/^ {0,3}(`{3,}|~{3,})/);
+      const opening = line.match(/^[ \t]*(`{3,}|~{3,})/);
       if (opening) {
         fence = { marker: opening[1][0], length: opening[1].length };
         return line;
