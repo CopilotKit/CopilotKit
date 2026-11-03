@@ -843,7 +843,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
       // Multiple assistant messages have custom copy buttons
       const customCopyButtons = screen.queryAllByTestId("custom-copy");
       if (customCopyButtons.length > 0) {
-        fireEvent.click(customCopyButtons[0]);
+        fireEvent.click(customCopyButtons[0]!);
         expect(customOnClick).toHaveBeenCalled();
       }
     });

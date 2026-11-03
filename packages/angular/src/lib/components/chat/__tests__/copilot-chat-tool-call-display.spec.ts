@@ -78,6 +78,7 @@ function provideKit(
           humanInTheLoopToolRenderConfigs: signal([]),
           activityMessageRenderConfigs: signal([]),
           defaultToolRenderingEnabled: defaultToolRendering,
+          executingToolCallIds: signal(new Set<string>()),
           getAgent: vi.fn(),
         },
       },

@@ -29,7 +29,11 @@ vi.mock("@copilotkit/react-core/headless", () => ({
 
 vi.mock("@copilotkit/react-core/context", () => ({
   useCopilotKit: vi.fn(() => ({
-    copilotkit: { runAgent: hoisted.mockRunAgent },
+    copilotkit: {
+      runAgent: hoisted.mockRunAgent,
+      interruptElement: null,
+      subscribe: () => ({ unsubscribe: () => {} }),
+    },
     executingToolCallIds: hoisted.mockExecutingToolCallIds,
   })),
 }));

@@ -1,10 +1,17 @@
 import { defineComponent, h, inject, ref } from "vue";
 import type { WatchSource } from "vue";
 import type { Component, VNodeChild } from "vue";
-import { ToolCallStatus } from "@copilotkit/core";
+import {
+  ɵgetToolCallBadge,
+  ɵnormalizeToolCallStatus,
+  ɵstringifyToolCallAttr,
+  ɵstringifyToolCallPayload,
+} from "@copilotkit/core";
+import type { ToolCallStatus } from "@copilotkit/core";
 import { useRenderTool } from "./use-render-tool";
 import { ToolCallGroupContextKey } from "../components/chat/tool-call-display-context";
 import { ToolCallRow } from "../components/chat/tool-call-group-parts";
+import { useChatLabels } from "../components/chat/use-chat-labels";
 
 type DefaultRenderProps = {
   name: string;
@@ -30,24 +37,16 @@ const warnedUnknownStatuses = new Set<string>();
 function mapToolCallStatus(
   status: ToolCallStatus,
 ): DefaultRenderProps["status"] {
-  switch (status) {
-    case ToolCallStatus.Complete:
-      return "complete";
-    case ToolCallStatus.Executing:
-      return "executing";
-    case ToolCallStatus.InProgress:
-      return "inProgress";
-    default: {
-      const key = String(status);
-      if (!warnedUnknownStatuses.has(key)) {
-        warnedUnknownStatuses.add(key);
-        console.warn(
-          `[CopilotKit] Unknown ToolCallStatus "${key}" in default tool-call renderer; falling back to "inProgress".`,
-        );
-      }
-      return "inProgress";
-    }
+  const normalized = ɵnormalizeToolCallStatus(status);
+  if (normalized !== "unknown") return normalized;
+  const key = String(status);
+  if (!warnedUnknownStatuses.has(key)) {
+    warnedUnknownStatuses.add(key);
+    console.warn(
+      `[CopilotKit] Unknown ToolCallStatus "${key}" in default tool-call renderer; falling back to "inProgress".`,
+    );
   }
+  return "inProgress";
 }
 
 /**
@@ -82,30 +81,6 @@ function adaptRendererProps(raw: AdaptInput): DefaultRenderProps {
   };
 }
 
-/**
- * Guarded JSON.stringify for the expanded `<pre>` blocks. A circular reference
- * would otherwise crash the Vue render.
- */
-function safeStringifyForPre(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch (err) {
-    console.warn(
-      "[CopilotKit] Failed to JSON.stringify tool-call payload for default renderer; falling back to String():",
-      err,
-    );
-    try {
-      return String(value);
-    } catch (innerErr) {
-      console.warn(
-        "[CopilotKit] safeStringifyForPre: value could not be stringified:",
-        innerErr,
-      );
-      return "[unserializable]";
-    }
-  }
-}
-
 const DefaultToolCallRenderer = defineComponent({
   props: {
     name: {
@@ -127,7 +102,7 @@ const DefaultToolCallRenderer = defineComponent({
     },
     result: {
       // Typeless on purpose: the renderer body handles both string results
-      // and structured (object) results via `safeStringifyForPre`. Declaring
+      // and structured (object) results via `ɵstringifyToolCallPayload`. Declaring
       // `type: String` would trip Vue's dev-mode prop-type warning on every
       // non-string result and make the defensive branch unreachable.
       type: null,
@@ -138,42 +113,31 @@ const DefaultToolCallRenderer = defineComponent({
   setup(props) {
     const isExpanded = ref(false);
     const groupContext = inject(ToolCallGroupContextKey, null);
+    const labels = useChatLabels();
 
     return () => {
       const group = groupContext?.value;
+      // A status a newer runtime could send reads "unknown".
+      const cardStatus = ɵnormalizeToolCallStatus(props.status);
       // Inside a group of calls, a row that fits the group instead of a card.
       if (group) {
         return h(ToolCallRow, {
           "data-testid": "copilot-tool-render",
           "data-tool-name": props.name,
           "data-tool-call-id": props.toolCallId,
-          "data-status": props.status,
-          "data-args": safeStringifyForAttr(props.parameters),
-          "data-result": safeStringifyForAttr(props.result),
+          "data-status": cardStatus,
+          "data-args": ɵstringifyToolCallAttr(props.parameters),
+          "data-result": ɵstringifyToolCallAttr(props.result),
           name: props.name,
           parameters: props.parameters,
           result: props.result,
-          status:
-            props.status === "complete"
-              ? group.failedIds.has(props.toolCallId)
-                ? "failed"
-                : "done"
-              : group.active
-                ? "running"
-                : "stopped",
+          status: group.statusById.get(props.toolCallId) ?? "done",
           appearance: group.appearance,
         });
       }
 
-      const isActive =
-        props.status === "inProgress" || props.status === "executing";
-      const isComplete = props.status === "complete";
-      const statusLabel = isActive
-        ? "Running"
-        : isComplete
-          ? "Done"
-          : props.status;
-      const tone = isActive ? "running" : isComplete ? "done" : "other";
+      const { tone, labelKey } = ɵgetToolCallBadge(cardStatus);
+      const statusLabel = labels.value[labelKey];
 
       // Markup and classes match React's DefaultToolCallRenderer; styles live
       // in @copilotkit/core (default-tool-call.css).
@@ -183,9 +147,9 @@ const DefaultToolCallRenderer = defineComponent({
           "data-testid": "copilot-tool-render",
           "data-tool-name": props.name,
           "data-tool-call-id": props.toolCallId,
-          "data-status": props.status,
-          "data-args": safeStringifyForAttr(props.parameters),
-          "data-result": safeStringifyForAttr(props.result),
+          "data-status": cardStatus,
+          "data-args": ɵstringifyToolCallAttr(props.parameters),
+          "data-result": ɵstringifyToolCallAttr(props.result),
           class: "cpk-default-tool-call",
         },
         [
@@ -252,12 +216,12 @@ const DefaultToolCallRenderer = defineComponent({
                     h(
                       "div",
                       { class: "cpk-default-tool-call-label" },
-                      "Arguments",
+                      labels.value.toolCallArgumentsLabel,
                     ),
                     h(
                       "pre",
                       { class: "cpk-default-tool-call-code" },
-                      safeStringifyForPre(props.parameters ?? {}),
+                      ɵstringifyToolCallPayload(props.parameters ?? {}),
                     ),
                   ]),
                   props.result !== undefined
@@ -265,14 +229,12 @@ const DefaultToolCallRenderer = defineComponent({
                         h(
                           "div",
                           { class: "cpk-default-tool-call-label" },
-                          "Result",
+                          labels.value.toolCallResultLabel,
                         ),
                         h(
                           "pre",
                           { class: "cpk-default-tool-call-code" },
-                          typeof props.result === "string"
-                            ? props.result
-                            : safeStringifyForPre(props.result),
+                          ɵstringifyToolCallPayload(props.result),
                         ),
                       ])
                     : null,
@@ -284,28 +246,6 @@ const DefaultToolCallRenderer = defineComponent({
     };
   },
 });
-
-function safeStringifyForAttr(value: unknown): string {
-  if (value === undefined || value === null) return "";
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value);
-  } catch (err) {
-    console.warn(
-      "[CopilotKit] Failed to JSON.stringify tool-call payload for data-* attribute; falling back to String():",
-      err,
-    );
-    try {
-      return String(value);
-    } catch (innerErr) {
-      console.warn(
-        "[CopilotKit] safeStringifyForAttr: value could not be stringified:",
-        innerErr,
-      );
-      return "";
-    }
-  }
-}
 
 export function useDefaultRenderTool(
   config?: {

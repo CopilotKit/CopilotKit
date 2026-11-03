@@ -5,23 +5,10 @@ import {
   ref,
   shallowRef,
   toValue,
-  watch,
 } from "vue";
 import type { MaybeRefOrGetter, Ref } from "vue";
-import {
-  randomUUID,
-  getModalityFromMimeType,
-  exceedsMaxSize,
-  readFileAsBase64,
-  generateVideoThumbnail,
-  matchesAcceptFilter,
-  formatFileSize,
-} from "@copilotkit/shared";
-import type {
-  Attachment,
-  AttachmentUploadResult,
-  AttachmentsConfig,
-} from "@copilotkit/shared";
+import { ɵAttachmentQueue } from "@copilotkit/core";
+import type { Attachment, AttachmentsConfig } from "@copilotkit/shared";
 
 export interface UseAttachmentsProps {
   config?: MaybeRefOrGetter<AttachmentsConfig | undefined>;
@@ -33,6 +20,7 @@ export interface UseAttachmentsReturn {
   dragOver: Ref<boolean>;
   fileInputRef: Ref<HTMLInputElement | null>;
   containerRef: Ref<HTMLElement | null>;
+  /** Process files (validate, upload, add to state). No-op while attachments are disabled. */
   processFiles: (files: File[]) => Promise<void>;
   handleFileUpload: (event: Event) => Promise<void>;
   handleDragOver: (event: DragEvent) => void;
@@ -42,133 +30,43 @@ export interface UseAttachmentsReturn {
   consumeAttachments: () => Attachment[];
 }
 
+/**
+ * Manages file attachment state — uploads, drag-and-drop, paste. The queue
+ * itself (validation, uploads, ready state) lives in `@copilotkit/core`'s
+ * `ɵAttachmentQueue`; this composable adds the DOM wiring and projects the
+ * queue into a `shallowRef`.
+ */
 export function useAttachments(
   props: UseAttachmentsProps,
 ): UseAttachmentsReturn {
-  const attachments = shallowRef<Attachment[]>([]);
+  const queue = new ɵAttachmentQueue(() => toValue(props.config));
+  const attachments = shallowRef<Attachment[]>(queue.getSnapshot());
+  const unsubscribe = queue.subscribe(() => {
+    attachments.value = queue.getSnapshot();
+  });
   const dragOver = ref(false);
   const fileInputRef = ref<HTMLInputElement | null>(null);
   const containerRef = ref<HTMLElement | null>(null);
-  const configRef = ref<AttachmentsConfig | undefined>(toValue(props.config));
-  const attachmentsRef = shallowRef<Attachment[]>(attachments.value);
-  const enabled = computed(() => configRef.value?.enabled ?? false);
+  const enabled = computed(() => toValue(props.config)?.enabled ?? false);
 
-  watch(
-    () => toValue(props.config),
-    (next) => {
-      configRef.value = next;
-    },
-    { immediate: true },
-  );
+  function processFiles(files: File[]) {
+    return queue.processFiles(files);
+  }
 
-  const setAttachments = (next: Attachment[]) => {
-    attachments.value = next;
-    attachmentsRef.value = next;
-  };
-
-  const updateAttachments = (
-    updater: (previous: Attachment[]) => Attachment[],
-  ) => {
-    setAttachments(updater(attachmentsRef.value));
-  };
-
-  async function processFiles(files: File[]) {
-    const config = configRef.value;
-    const accept = config?.accept ?? "*/*";
-    const maxSize = config?.maxSize ?? 20 * 1024 * 1024;
-
-    const rejectedFiles = files.filter(
-      (file) => !matchesAcceptFilter(file, accept),
-    );
-    for (const file of rejectedFiles) {
-      config?.onUploadFailed?.({
-        reason: "invalid-type",
-        file,
-        message: `File "${file.name}" is not accepted. Supported types: ${accept}`,
-      });
-    }
-
-    const validFiles = files.filter((file) =>
-      matchesAcceptFilter(file, accept),
-    );
-    for (const file of validFiles) {
-      if (exceedsMaxSize(file, maxSize)) {
-        config?.onUploadFailed?.({
-          reason: "file-too-large",
-          file,
-          message: `File "${file.name}" exceeds the maximum size of ${formatFileSize(maxSize)}`,
-        });
-        continue;
-      }
-
-      const modality = getModalityFromMimeType(file.type);
-      const placeholderId = randomUUID();
-      updateAttachments((previous) => [
-        ...previous,
-        {
-          id: placeholderId,
-          type: modality,
-          source: { type: "data", value: "", mimeType: file.type },
-          filename: file.name,
-          size: file.size,
-          status: "uploading",
-        },
-      ]);
-
-      try {
-        let source: Attachment["source"];
-        let uploadMetadata: Record<string, unknown> | undefined;
-        if (config?.onUpload) {
-          const uploadResult: AttachmentUploadResult =
-            await config.onUpload(file);
-          const { metadata, ...uploadSource } = uploadResult;
-          source = uploadSource;
-          uploadMetadata = metadata;
-        } else {
-          const base64 = await readFileAsBase64(file);
-          source = { type: "data", value: base64, mimeType: file.type };
-        }
-
-        let thumbnail: string | undefined;
-        if (modality === "video") {
-          thumbnail = await generateVideoThumbnail(file);
-        }
-
-        updateAttachments((previous) =>
-          previous.map((attachment) =>
-            attachment.id === placeholderId
-              ? {
-                  ...attachment,
-                  source,
-                  status: "ready",
-                  thumbnail,
-                  metadata: uploadMetadata,
-                }
-              : attachment,
-          ),
-        );
-      } catch (error) {
-        updateAttachments((previous) =>
-          previous.filter((attachment) => attachment.id !== placeholderId),
-        );
-        console.error(`[CopilotKit] Failed to upload "${file.name}":`, error);
-        config?.onUploadFailed?.({
-          reason: "upload-failed",
-          file,
-          message:
-            error instanceof Error
-              ? error.message
-              : `Failed to upload "${file.name}"`,
-        });
-      }
+  async function processSafely(files: File[], label: string) {
+    try {
+      await queue.processFiles(files);
+    } catch (error) {
+      console.error(`[CopilotKit] ${label}:`, error);
     }
   }
 
   async function handleFileUpload(event: Event) {
-    const target = event.target as HTMLInputElement | null;
-    if (!target?.files?.length) return;
-    await processFiles(Array.from(target.files));
-    if (target) target.value = "";
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || !target.files?.length) return;
+    await processSafely(Array.from(target.files), "Upload error");
+    // Clear the picker so choosing the same file again fires `change`.
+    target.value = "";
   }
 
   function handleDragOver(event: DragEvent) {
@@ -188,56 +86,32 @@ export function useAttachments(
     event.preventDefault();
     event.stopPropagation();
     dragOver.value = false;
-    if (!enabled.value) return;
-
     const files = Array.from(event.dataTransfer?.files ?? []);
-    if (files.length > 0) {
-      await processFiles(files);
-    }
+    if (files.length > 0) await processSafely(files, "Drop error");
   }
 
   function removeAttachment(id: string) {
-    updateAttachments((previous) =>
-      previous.filter((attachment) => attachment.id !== id),
-    );
+    queue.remove(id);
   }
 
   function consumeAttachments() {
-    const ready = attachmentsRef.value.filter(
-      (attachment) => attachment.status === "ready",
-    );
-    if (ready.length === 0) {
-      return ready;
-    }
-    updateAttachments((previous) =>
-      previous.filter((attachment) => attachment.status !== "ready"),
-    );
-    if (fileInputRef.value) {
+    const ready = queue.consumeReady();
+    if (ready.length > 0 && fileInputRef.value) {
       fileInputRef.value.value = "";
     }
     return ready;
   }
 
   async function handlePaste(event: ClipboardEvent) {
-    if (!enabled.value) return;
-
-    const target = event.target as HTMLElement | null;
-    if (!target || !containerRef.value?.contains(target)) return;
-
-    const accept = configRef.value?.accept ?? "*/*";
-    const items = Array.from(event.clipboardData?.items ?? []);
-    const fileItems = items.filter((item) => {
-      if (item.kind !== "file") return false;
-      const file = item.getAsFile();
-      return file !== null && matchesAcceptFilter(file, accept);
-    });
-    if (fileItems.length === 0) return;
-
+    const target = event.target;
+    if (!(target instanceof Node) || !containerRef.value?.contains(target))
+      return;
+    const files = queue.filterPastedFiles(
+      Array.from(event.clipboardData?.items ?? []),
+    );
+    if (files.length === 0) return;
     event.preventDefault();
-    const files = fileItems
-      .map((item) => item.getAsFile())
-      .filter((file): file is File => file !== null);
-    await processFiles(files);
+    await processSafely(files, "Paste error");
   }
 
   onMounted(() => {
@@ -250,6 +124,8 @@ export function useAttachments(
     if (typeof document !== "undefined") {
       document.removeEventListener("paste", handlePaste);
     }
+    unsubscribe();
+    queue.dispose();
   });
 
   return {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import type { AbstractAgent } from "@ag-ui/client";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 
@@ -27,12 +27,7 @@ export type {
 } from "@copilotkit/mcp-apps-renderer/activity";
 
 import type { MCPAppsActivityContent } from "@copilotkit/mcp-apps-renderer/activity";
-// Type-only imports: erased at build, so they never pull the ext-apps bridge
-// into the bundle. Only the dynamic import() below does, and only lazily.
-import type {
-  McpAppSession,
-  FetchedResource,
-} from "@copilotkit/mcp-apps-renderer";
+import { ɵMcpAppHost } from "@copilotkit/mcp-apps-renderer/activity";
 
 /**
  * Props for the activity renderer component
@@ -53,9 +48,10 @@ interface MCPAppsActivityRendererProps {
 /**
  * MCP Apps Extension Activity Renderer
  *
- * Renders MCP Apps UI in a sandboxed iframe with full protocol support.
- * Fetches resource content on-demand via proxied MCP requests. The React shell
- * owns the iframe; `bindMcpApp` owns the protocol.
+ * Renders MCP Apps UI in a sandboxed iframe with full protocol support. The
+ * shared `ɵMcpAppHost` owns the iframe, its size and its state, and binds the
+ * protocol session (`bindMcpApp`, loaded lazily); this component only draws
+ * the state around it.
  */
 export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
   function MCPAppsActivityRenderer({
@@ -65,209 +61,67 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     allowSameOriginFallback,
   }) {
     const { copilotkit } = useCopilotKit();
-    // The activity message id. Passed to the session so it self-subscribes to the
-    // agent's activity stream and pushes tool input/result itself (the adapter no
-    // longer forwards them).
-    const messageId = (message as { id?: string } | undefined)?.id;
     const containerRef = useRef<HTMLDivElement>(null);
-    const iframeRef = useRef<HTMLIFrameElement | null>(null);
-    const sessionRef = useRef<McpAppSession | null>(null);
-    const [error, setError] = useState<Error | null>(null);
-    // Recoverable: an activity update the content schema rejected, from the
-    // store or from props. Cleared as soon as valid content resumes, unlike
-    // `error`, which is a fatal setup failure.
-    const [contentError, setContentError] = useState<Error | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [iframeSize, setIframeSize] = useState<{
-      width?: number;
-      height?: number;
-    }>({});
-    const [fetchedResource, setFetchedResource] =
-      useState<FetchedResource | null>(null);
+    // The activity message id: the session follows it in the agent's store.
+    const messageId = (message as { id?: string } | undefined)?.id;
 
-    // Latest content/agent for the session's live getters (they must read the
-    // current values on every proxied request, not the values at bind time).
-    const contentRef = useRef(content);
-    contentRef.current = content;
-    const agentRef = useRef(agent);
-    agentRef.current = agent;
+    // A new host or sandbox setting needs a new host object.
+    const app = useMemo(
+      () =>
+        new ɵMcpAppHost({
+          host: copilotkit,
+          sessionOptions: { allowSameOriginFallback },
+          importRenderer: () => import("@copilotkit/mcp-apps-renderer"),
+        }),
+      [copilotkit, allowSameOriginFallback],
+    );
 
-    // Effect 1: create the sandbox iframe and bind the MCP session. Re-binds
-    // only when the widget identity (resourceUri/serverHash/serverId) or the
-    // agent/host changes - NOT when tool input/result stream in (those are
-    // pushed by the effects below without recreating the iframe).
+    const state = useSyncExternalStore(
+      app.subscribe,
+      app.getState,
+      app.getState,
+    );
+
     useEffect(() => {
-      const container = containerRef.current;
-      if (!container) {
-        return;
-      }
-      if (!agent) {
-        setError(new Error("No agent available to fetch resource"));
-        setIsLoading(false);
-        return;
-      }
-
-      let mounted = true;
-      setIsLoading(true);
-      setError(null);
-      setContentError(null);
-
-      // The host owns the iframe: create + mount it here (bindMcpApp only
-      // configures the sandbox contract + talks to it through the bridge).
-      const iframe = document.createElement("iframe");
-      iframe.style.width = "100%";
-      iframe.style.height = "100px";
-      iframe.style.border = "none";
-      iframe.style.backgroundColor = "transparent";
-      iframe.style.display = "block";
-      container.appendChild(iframe);
-      iframeRef.current = iframe;
-
-      const setup = async () => {
-        try {
-          // Load the bridge package lazily. The bridge is heavy (it pulls the
-          // MCP SDK Protocol + zod schemas, ~40-50 kB gzipped); keeping it behind
-          // a dynamic import() means a non-MCP `<CopilotKit>` app never pays for
-          // it. The `.catch` below rethrows with an actionable message if the
-          // package (or its ext-apps dependency) is missing - a raw module
-          // resolution error would not say what to install.
-          const mod = await import("@copilotkit/mcp-apps-renderer").catch(
-            (importErr) => {
-              throw new Error(
-                "MCP Apps require '@copilotkit/mcp-apps-renderer' and its " +
-                  "'@modelcontextprotocol/ext-apps' dependency. Reinstall your " +
-                  "dependencies if this package is missing.",
-                { cause: importErr },
-              );
-            },
-          );
-          if (!mounted) {
-            iframe.remove();
-            return;
-          }
-
-          const session = mod.bindMcpApp({
-            iframe,
-            getContent: () => contentRef.current,
-            getAgent: () => agentRef.current,
-            host: copilotkit,
-            // Self-driving: the session subscribes to the agent's activity
-            // stream (filtered by messageId) and pushes tool input/result to the
-            // widget itself, so this adapter does not forward STORE-backed
-            // activities. It still calls syncContent for activities rendered
-            // from an external messages list (see the seed below).
-            messageId,
-            options: { allowSameOriginFallback },
-            hooks: {
-              onResource: (resource) => {
-                if (!mounted) return;
-                setFetchedResource(resource);
-                setIsLoading(false);
-              },
-              onSizeChanged: (size) => {
-                if (mounted) setIframeSize(size);
-              },
-              onContentError: (err) => {
-                if (mounted) setContentError(err);
-              },
-              onError: (err) => {
-                if (!mounted) return;
-                setError(err);
-                setIsLoading(false);
-              },
-            },
-          });
-          sessionRef.current = session;
-          // Seed the initial content now: the forwarding effect below first runs
-          // at mount, before this async import resolved sessionRef, so it no-ops
-          // and never re-runs for unchanged props. Without this seed, an activity
-          // rendered from an external messages list (absent from agent.messages)
-          // would never receive its initial tool input/result. Deduped + store
-          // precedence make this a no-op for agent-backed activities.
-          session.syncContent(contentRef.current);
-        } catch (err) {
-          console.error("[MCPAppsRenderer] Setup error:", err);
-          if (mounted) {
-            setError(err instanceof Error ? err : new Error(String(err)));
-            setIsLoading(false);
-          }
-        }
-      };
-
-      void setup();
-
-      return () => {
-        mounted = false;
-        sessionRef.current?.teardown();
-        sessionRef.current = null;
-        iframe.remove();
-        iframeRef.current = null;
-      };
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [
-      agent,
-      copilotkit,
-      messageId,
-      allowSameOriginFallback,
-      content.resourceUri,
-      content.serverHash,
-      content.serverId,
-    ]);
-
-    // Effect 2: size the iframe when the widget reports a new content size.
+      app.setAgent(agent);
+      app.setMessageId(messageId);
+    }, [app, agent, messageId]);
     useEffect(() => {
-      if (iframeRef.current) {
-        if (iframeSize.width !== undefined) {
-          // Use minWidth with min() to allow expansion but cap at 100%
-          iframeRef.current.style.minWidth = `min(${iframeSize.width}px, 100%)`;
-          iframeRef.current.style.width = "100%";
-        }
-        if (iframeSize.height !== undefined) {
-          iframeRef.current.style.height = `${iframeSize.height}px`;
-        }
-      }
-    }, [iframeSize]);
-
-    // Forward tool input/result from the content prop. The session is
-    // self-driving for activities that live in the agent's message store, but a
-    // host can render an activity from an EXTERNAL messages list (CopilotChatView's
-    // `messages` prop) that is absent from `agent.messages`; this keeps such
-    // widgets fed. `syncContent` is deduped and shares the subscription's dedup,
-    // so the agent-driven path never double-sends.
+      app.setContent(content);
+    }, [app, content]);
     useEffect(() => {
-      sessionRef.current?.syncContent(contentRef.current);
-    }, [content.toolInput, content.result]);
+      app.setContainer(containerRef.current);
+      return () => app.destroy();
+    }, [app]);
 
-    // Determine border styling based on prefersBorder metadata from fetched resource
-    // true = show border/background, false = none, undefined = host decides (we default to none)
-    const prefersBorder = fetchedResource?._meta?.ui?.prefersBorder;
-    const borderStyle =
-      prefersBorder === true
-        ? {
-            borderRadius: "8px",
-            backgroundColor: "#f9f9f9",
-            border: "1px solid #e0e0e0",
-          }
-        : {};
+    // prefersBorder: true = border and background; otherwise none.
+    const borderStyle = state.prefersBorder
+      ? {
+          borderRadius: "8px",
+          backgroundColor: "#f9f9f9",
+          border: "1px solid #e0e0e0",
+        }
+      : {};
+    const shownError = state.error ?? state.contentError;
 
     return (
       <div
         ref={containerRef}
         style={{
           width: "100%",
-          height: iframeSize.height ? `${iframeSize.height}px` : "auto",
+          height: state.size.height ? `${state.size.height}px` : "auto",
           minHeight: "100px",
           overflow: "hidden",
           position: "relative",
           ...borderStyle,
         }}
       >
-        {isLoading && (
+        {state.loading && (
           <div style={{ padding: "1rem", color: "#666" }}>Loading...</div>
         )}
-        {(error ?? contentError) && (
+        {shownError && (
           <div style={{ color: "red", padding: "1rem" }}>
-            Error: {(error ?? contentError)!.message}
+            Error: {shownError}
           </div>
         )}
       </div>

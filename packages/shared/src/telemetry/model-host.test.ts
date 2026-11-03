@@ -1,9 +1,6 @@
 import { describe, it, expect } from "vitest";
-import {
-  classifyModelHost,
-  MODEL_HOST_CLASSES,
-  type ModelHostClass,
-} from "./model-host";
+import { classifyModelHost, MODEL_HOST_CLASSES } from "./model-host";
+import type { ModelHostClass } from "./model-host";
 
 describe("classifyModelHost", () => {
   describe("the case this exists for: an OpenAI-shaped client aimed elsewhere", () => {

@@ -2,10 +2,7 @@ import React, { useEffect, useState } from "react";
 import { CopilotIcon } from "../icons/CopilotIcon";
 import {
   CopilotChatDefaultLabels,
-  ɵcountFailedToolCalls,
-  ɵformatLabel,
-  ɵformatWorkDuration,
-  ɵformatCountLabel,
+  ɵgetWorkSummaryText,
 } from "@copilotkit/core";
 import type { ToolCallEntry } from "@copilotkit/core";
 import { cn } from "../../lib/utils";
@@ -58,20 +55,14 @@ export function CopilotChatWorkSummary({
   const config = useCopilotChatConfiguration();
   const labels = config?.labels ?? CopilotChatDefaultLabels;
   const now = useNow(isWorking);
-  const failed = ɵcountFailedToolCalls(calls);
-  const toolCount = ɵformatCountLabel(calls.length, {
-    one: labels.toolCallToolCountOne,
-    other: labels.toolCallToolCountOther,
+  const text = ɵgetWorkSummaryText({
+    isWorking,
+    calls,
+    elapsedMs,
+    workingSince,
+    now,
+    labels,
   });
-  const liveMs =
-    elapsedMs !== undefined && workingSince !== undefined
-      ? elapsedMs + Math.max(0, now - workingSince)
-      : undefined;
-  // A finished reply worked for at least a second.
-  const duration =
-    elapsedMs !== undefined
-      ? ɵformatWorkDuration(Math.max(1000, elapsedMs))
-      : undefined;
 
   return (
     <button
@@ -83,36 +74,23 @@ export function CopilotChatWorkSummary({
       className={cn("cpk-work-summary", className)}
       {...props}
     >
-      {isWorking ? (
-        <>
-          <span className="cpk-work-summary-label cpk-shimmer">
-            {labels.workSummaryWorkingLabel}
-          </span>
-          {liveMs !== undefined && (
-            <span className="cpk-work-summary-detail cpk-work-summary-timer">
-              {ɵformatWorkDuration(liveMs)}
-            </span>
+      <span
+        className={cn("cpk-work-summary-label", isWorking && "cpk-shimmer")}
+      >
+        {text.label}
+      </span>
+      {text.detail !== null && (
+        <span
+          className={cn(
+            "cpk-work-summary-detail",
+            isWorking && "cpk-work-summary-timer",
           )}
-        </>
-      ) : (
-        <>
-          <span className="cpk-work-summary-label">
-            {duration
-              ? ɵformatLabel(labels.workSummaryWorkedForLabel, { duration })
-              : ɵformatCountLabel(calls.length, {
-                  one: labels.toolCallUsedToolsOne,
-                  other: labels.toolCallUsedToolsOther,
-                })}
-          </span>
-          {duration && (
-            <span className="cpk-work-summary-detail">{toolCount}</span>
-          )}
-          {failed > 0 && (
-            <span className="cpk-work-summary-failed">
-              {ɵformatLabel(labels.toolCallFailedCountLabel, { count: failed })}
-            </span>
-          )}
-        </>
+        >
+          {text.detail}
+        </span>
+      )}
+      {text.failed !== null && (
+        <span className="cpk-work-summary-failed">{text.failed}</span>
       )}
       <CopilotIcon
         name="ChevronRight"

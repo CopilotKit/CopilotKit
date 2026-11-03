@@ -241,14 +241,14 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
             );
           });
           act(() => {
-            const row = virtualizer().measurementsCache[50];
+            const row = virtualizer().measurementsCache[50]!;
             container.scrollTop = row.start + 25;
             container.dispatchEvent(new Event("scroll"));
           });
           // Let the rows newly brought into view settle before resizing.
           act(() => {
             container.scrollTop =
-              virtualizer().measurementsCache[50].start + 25;
+              virtualizer().measurementsCache[50]!.start + 25;
             container.dispatchEvent(new Event("scroll"));
           });
           expect(
@@ -282,9 +282,9 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
             });
           resize(300);
           flushFrame();
-          expect(virtualizer().measurementsCache[0].size).toBe(600);
+          expect(virtualizer().measurementsCache[0]!.size).toBe(600);
           expect(
-            container.scrollTop - virtualizer().measurementsCache[50].start,
+            container.scrollTop - virtualizer().measurementsCache[50]!.start,
           ).toBe(25);
           expect(virtualizer().options.estimateSize(0)).toBe(600);
           const total = virtualizer().getTotalSize();
@@ -292,10 +292,10 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
           expect(virtualizer().getTotalSize()).toBe(total);
           resize(600);
           flushFrame();
-          expect(virtualizer().measurementsCache[0].size).toBe(300);
+          expect(virtualizer().measurementsCache[0]!.size).toBe(300);
           expect(virtualizer().options.estimateSize(0)).toBe(300);
           expect(
-            container.scrollTop - virtualizer().measurementsCache[50].start,
+            container.scrollTop - virtualizer().measurementsCache[50]!.start,
           ).toBe(25);
           // Replace the viewport after remeasurement, before the next frame
           // releases the old reading anchor.

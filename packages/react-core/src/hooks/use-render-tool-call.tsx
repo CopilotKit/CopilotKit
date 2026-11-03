@@ -6,16 +6,15 @@ import React, {
   useSyncExternalStore,
 } from "react";
 import type { ToolCall, ToolMessage } from "@ag-ui/core";
-import { contentToText } from "@ag-ui/core";
 import {
-  ToolCallStatus,
+  ɵbuildToolCallRenderProps,
+  ɵdescribeUnrenderedToolCalls,
   ɵgetToolCallRendererNames,
+  ɵresolveToolCallAgentId,
   ɵresolveToolCallRenderer,
 } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import { partialJSONParse } from "@copilotkit/shared";
 import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
 
 export interface UseRenderToolCallProps {
@@ -45,49 +44,13 @@ const ToolCallRenderer = React.memo(
     RenderComponent,
     isExecuting,
   }: ToolCallRendererProps) {
-    // Memoize args based on the arguments string to maintain stable reference
-    const args = useMemo(
-      () => partialJSONParse(toolCall.function.arguments),
-      [toolCall.function.arguments],
+    // Rebuild only when the call, its result, or its executing state changes,
+    // so `args` keeps a stable reference across unrelated renders.
+    const props = useMemo(
+      () => ɵbuildToolCallRenderProps(toolCall, toolMessage, { isExecuting }),
+      [toolCall, toolMessage, isExecuting],
     );
-
-    const toolName = toolCall.function.name;
-
-    // Render based on status to preserve discriminated union type inference
-    if (toolMessage) {
-      return (
-        <RenderComponent
-          name={toolName}
-          toolCallId={toolCall.id}
-          args={args}
-          status={ToolCallStatus.Complete}
-          // AG-UI 1.0 lets a tool result carry content parts; the renderer
-          // contract is `result: string`, so it gets the text parts (media is
-          // not something a string can hold — the message itself keeps it).
-          result={contentToText(toolMessage.content)}
-        />
-      );
-    } else if (isExecuting) {
-      return (
-        <RenderComponent
-          name={toolName}
-          toolCallId={toolCall.id}
-          args={args}
-          status={ToolCallStatus.Executing}
-          result={undefined}
-        />
-      );
-    } else {
-      return (
-        <RenderComponent
-          name={toolName}
-          toolCallId={toolCall.id}
-          args={args}
-          status={ToolCallStatus.InProgress}
-          result={undefined}
-        />
-      );
-    }
+    return <RenderComponent {...props} />;
   },
   // Custom comparison function to prevent re-renders when tool call data hasn't changed
   (prevProps, nextProps) => {
@@ -119,12 +82,11 @@ const ToolCallRenderer = React.memo(
 const IS_DEVELOPMENT = process.env.NODE_ENV !== "production";
 
 /**
- * Reports tool calls that resolved to no renderer.
+ * Reports tool calls that resolved to no renderer, once per tool name.
  *
  * A tool call with no renderer paints an empty message container and says
  * nothing else, so the only signal a developer gets today is a blank space in
- * the chat. This names the call and the renderers that *are* registered, which
- * is the whole diagnosis when the cause is a name that does not match.
+ * the chat.
  *
  * @param toolNames - The unmatched tool names collected during render.
  * @param registered - The registry as it stands now, re-read at report time.
@@ -135,26 +97,11 @@ function warnAboutUnrenderedToolCalls(
   registered: readonly { readonly name: string }[],
   alreadyWarned: Set<string>,
 ): void {
-  const registeredNames = Array.from(new Set(registered.map((rc) => rc.name)));
-  const hasWildcard = registeredNames.includes("*");
-
-  for (const toolName of toolNames) {
-    // Re-check against the current registry: a renderer registered after the
-    // render that recorded the miss makes the miss stale, not real.
-    if (hasWildcard || registeredNames.includes(toolName)) continue;
-    if (alreadyWarned.has(toolName)) continue;
+  const fresh = toolNames.filter((name) => !alreadyWarned.has(name));
+  const warnings = ɵdescribeUnrenderedToolCalls(fresh, registered);
+  for (const { toolName, message } of warnings) {
     alreadyWarned.add(toolName);
-
-    console.warn(
-      `[CopilotKit] The agent called the tool "${toolName}", and no renderer is ` +
-        `registered for it, so that message rendered nothing. ` +
-        (registeredNames.length === 0
-          ? "No tool-call renderers are registered. "
-          : `Registered renderers: ${registeredNames.map((name) => `"${name}"`).join(", ")}. `) +
-        `Register one with useRenderTool({ name: "${toolName}", ... }), or call ` +
-        `useDefaultRenderTool() for a built-in card that covers every tool the ` +
-        `agent calls. This warning is development-only.`,
-    );
+    console.warn(message);
   }
 }
 
@@ -193,7 +140,7 @@ export function useToolCallRendererNames() {
 export function useRenderToolCall() {
   const { copilotkit, executingToolCallIds } = useCopilotKit();
   const config = useCopilotChatConfiguration();
-  const agentId = config?.agentId ?? DEFAULT_AGENT_ID;
+  const agentId = ɵresolveToolCallAgentId(config?.agentId, undefined);
 
   // Development-only bookkeeping for the warning below. Collected during render
   // and reported afterwards, because the registry is not settled during render.
@@ -202,11 +149,9 @@ export function useRenderToolCall() {
 
   const renderToolCalls = useToolCallRenderers();
 
-  // Note: executingToolCallIds is now provided by CopilotKitProvider context.
-  // This is critical for HITL reconnection: when connecting to a thread with
-  // pending tool calls, the onToolExecutionStart event fires before child components
-  // mount. By tracking at the provider level, the executing state is already
-  // available when this hook first runs.
+  // `executingToolCallIds` mirrors core's set, which is filled from the first
+  // `onToolExecutionStart`. A HITL call resumed on reconnect, before this
+  // chat mounted, is therefore already executing on the first render.
 
   const renderToolCall = useCallback(
     ({

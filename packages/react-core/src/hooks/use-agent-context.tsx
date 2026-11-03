@@ -1,16 +1,12 @@
 import { useCopilotKit } from "../context";
 import { useLayoutEffect, useMemo } from "react";
+import { ɵserializeContextValue } from "@copilotkit/core";
+import type { ɵJsonSerializable } from "@copilotkit/core";
 
 /**
  * Represents any value that can be serialized to JSON.
  */
-export type JsonSerializable =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonSerializable[]
-  | { [key: string]: JsonSerializable };
+export type JsonSerializable = ɵJsonSerializable;
 
 /**
  * Context configuration for useAgentContext.
@@ -27,12 +23,7 @@ export function useAgentContext(context: AgentContextInput) {
   const { description, value } = context;
   const { copilotkit } = useCopilotKit();
 
-  const stringValue = useMemo(() => {
-    if (typeof value === "string") {
-      return value;
-    }
-    return JSON.stringify(value);
-  }, [value]);
+  const stringValue = useMemo(() => ɵserializeContextValue(value), [value]);
 
   useLayoutEffect(() => {
     if (!copilotkit) return;

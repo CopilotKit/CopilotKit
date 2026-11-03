@@ -9,6 +9,7 @@
  * the element that opened it (or `returnFocusTo`) when it closes.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { ɵbindDialogFocus } from "@copilotkit/core";
 import { IconX } from "../icons";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
@@ -29,49 +30,28 @@ const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 
 const root = ref<HTMLElement | null>(null);
 const closeButton = ref<HTMLButtonElement | null>(null);
-let previouslyFocused: HTMLElement | null = null;
-
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), audio[controls], video[controls], iframe, [tabindex]:not([tabindex="-1"])';
+let releaseFocus: (() => void) | undefined;
 
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === "Escape") emit("close");
 }
 
-/** Keeps Tab inside the lightbox while it is open. */
-function handleTab(event: KeyboardEvent) {
-  if (event.key !== "Tab" || !root.value) return;
-  const focusables = Array.from(
-    root.value.querySelectorAll<HTMLElement>(FOCUSABLE),
-  );
-  const first = focusables[0];
-  const last = focusables[focusables.length - 1];
-  if (!first || !last) return;
-  const active = document.activeElement;
-  if (event.shiftKey && (active === first || !root.value.contains(active))) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && active === last) {
-    event.preventDefault();
-    first.focus();
-  }
-}
-
 onMounted(() => {
   if (typeof document === "undefined") return;
-  previouslyFocused =
-    document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
   document.addEventListener("keydown", handleKeydown);
-  void nextTick(() => closeButton.value?.focus());
+  void nextTick(() => {
+    if (!root.value) return;
+    releaseFocus = ɵbindDialogFocus(root.value, {
+      initialFocus: closeButton.value,
+      returnFocusTo: props.returnFocusTo,
+    });
+  });
 });
 
 onBeforeUnmount(() => {
   if (typeof document === "undefined") return;
   document.removeEventListener("keydown", handleKeydown);
-  const target = props.returnFocusTo ?? previouslyFocused;
-  if (target?.isConnected) target.focus();
+  releaseFocus?.();
 });
 </script>
 
@@ -85,7 +65,6 @@ onBeforeUnmount(() => {
       :aria-label="label"
       data-testid="copilot-chat-attachment-lightbox"
       @click="emit('close')"
-      @keydown="handleTab"
     >
       <button
         ref="closeButton"

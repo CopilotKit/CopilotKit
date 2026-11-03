@@ -4,6 +4,19 @@ import type { Ref } from "vue";
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { useCopilotKit } from "../../providers/useCopilotKit";
 
+/** Core's `ɵruntimeInfo` snapshot, built from a fake core's runtime fields. */
+function runtimeInfoOf(core: {
+  runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+  threadEndpoints?: unknown;
+  intelligence?: unknown;
+}) {
+  return {
+    status: core.runtimeConnectionStatus,
+    threadEndpoints: core.threadEndpoints,
+    intelligence: core.intelligence,
+  };
+}
+
 type ThreadRecord = {
   id: string;
   organizationId: string;
@@ -54,7 +67,8 @@ function compareThreadsByActivity(left: ThreadRecord, right: ThreadRecord) {
   return rightKey.localeCompare(leftKey);
 }
 
-vi.mock("@copilotkit/core", () => {
+vi.mock("@copilotkit/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@copilotkit/core")>();
   class MockChannel {
     topic: string;
     left = false;
@@ -117,6 +131,16 @@ vi.mock("@copilotkit/core", () => {
     };
     private listeners = new Set<() => void>();
     private socket: MockSocket | null = null;
+
+    readonly selectors = {
+      threads: (state: ThreadState) => state.threads,
+      isLoading: (state: ThreadState) => state.isLoading,
+      error: (state: ThreadState) => state.error,
+      fetchMoreError: (state: ThreadState) => state.fetchMoreError,
+      hasNextPage: (state: ThreadState) => state.hasNextPage,
+      isFetchingNextPage: (state: ThreadState) => state.isFetchingNextPage,
+      isMutating: (state: ThreadState) => state.isMutating,
+    };
 
     start(): void {}
 
@@ -317,6 +341,10 @@ vi.mock("@copilotkit/core", () => {
       return this.state;
     }
 
+    getServerState(): ThreadState {
+      return { ...this.state, threads: [] };
+    }
+
     select<T>(selector: (state: ThreadState) => T) {
       return {
         subscribe: (callback: () => void) => {
@@ -357,6 +385,8 @@ vi.mock("@copilotkit/core", () => {
     ɵselectHasNextPage: select((state) => state.hasNextPage),
     ɵselectIsFetchingNextPage: select((state) => state.isFetchingNextPage),
     ɵselectIsMutating: select((state) => state.isMutating),
+    // The real view model, driving the mock store above.
+    ɵThreadsController: actual.ɵThreadsController,
   };
 });
 
@@ -394,6 +424,7 @@ const supportedThreadEndpoints: ThreadEndpointRuntimeInfo = {
 
 type MockCopilotKit = {
   runtimeUrl: string | undefined;
+  readonly ɵruntimeInfo: unknown;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   headers: Record<string, string>;
   /**
@@ -417,6 +448,9 @@ function setupCopilotKit(
 ) {
   const copilotkit = ref<MockCopilotKit>({
     runtimeUrl,
+    get ɵruntimeInfo() {
+      return runtimeInfoOf(this);
+    },
     runtimeConnectionStatus,
     headers: { Authorization: "Bearer test-token" },
     ɵheadersGeneration: 0,
@@ -965,6 +999,9 @@ describe("useThreads", () => {
       // exactly one list fetch (+ one subscribe after it lands).
       copilotkit.value = {
         ...copilotkit.value,
+        get ɵruntimeInfo() {
+          return runtimeInfoOf(this);
+        },
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connected,
         intelligence: { wsUrl: "ws://localhost:4000/client" },
@@ -1020,6 +1057,9 @@ describe("useThreads", () => {
 
       copilotkit.value = {
         ...copilotkit.value,
+        get ɵruntimeInfo() {
+          return runtimeInfoOf(this);
+        },
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Disconnected,
       };
@@ -1216,8 +1256,9 @@ describe("useThreads", () => {
 
       expect(fetchMock).not.toHaveBeenCalled();
       expect(getResult().threads.value).toEqual([]);
-      const lastDispatched = getDispatchedContexts().at(-1);
-      expect(lastDispatched).toBeNull();
+      // Nothing was ever sent, so nothing is cleared either (no extra
+      // queued list fetch).
+      expect(getDispatchedContexts()).toEqual([]);
       // A disabled consumer must not be stuck in a permanent loading state:
       // preConnectLoading must factor in `enabled`, otherwise isLoading would
       // stay true forever since hasDispatchedContext never gets set.
@@ -1240,7 +1281,7 @@ describe("useThreads", () => {
       // Disabled: inert, not loading, no fetch.
       expect(getResult().isLoading.value).toBe(false);
       expect(fetchMock).not.toHaveBeenCalled();
-      expect(getDispatchedContexts().at(-1)).toBeNull();
+      expect(getDispatchedContexts().filter(Boolean)).toEqual([]);
 
       // Re-enable: the pre-connect loading indicator must re-arm (i.e.
       // hasDispatchedContext was reset to false on disable) so consumers see
@@ -1343,8 +1384,9 @@ describe("useThreads", () => {
 
       expect(fetchMock).not.toHaveBeenCalled();
       expect(getResult().threads.value).toEqual([]);
-      const lastDispatched = getDispatchedContexts().at(-1);
-      expect(lastDispatched).toBeNull();
+      // Nothing was ever sent, so nothing is cleared either (no extra
+      // queued list fetch).
+      expect(getDispatchedContexts()).toEqual([]);
       expect(getResult().error.value?.message).toBe(
         "Thread endpoints are not available on this CopilotKit runtime",
       );

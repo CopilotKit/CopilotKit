@@ -9,6 +9,7 @@ import {
   watch,
 } from "vue";
 import type { Message } from "@ag-ui/core";
+import { ɵgetChatViewState } from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import type { Attachment } from "@copilotkit/shared";
 import { useChatLabels } from "./use-chat-labels";
@@ -167,13 +168,23 @@ const effectiveKeyboardHeight = computed(() =>
 const resolvedInputValue = computed(() =>
   isControlledInput.value ? (props.inputValue ?? "") : localInputValue.value,
 );
-const hasSuggestions = computed(
-  () =>
-    !props.isConnecting &&
-    !props.isRunning &&
-    Array.isArray(props.suggestions) &&
-    props.suggestions.length > 0,
+// Suggestions, the welcome screen and the bottom padding follow core's rules:
+// no suggestions while connecting or running, no generic welcome for a
+// connecting or caller-picked thread.
+const viewState = computed(() =>
+  ɵgetChatViewState({
+    messageCount: props.messages.length,
+    suggestionCount: Array.isArray(props.suggestions)
+      ? props.suggestions.length
+      : 0,
+    isRunning: props.isRunning,
+    isConnecting: props.isConnecting,
+    hasExplicitThreadId: props.hasExplicitThreadId,
+    welcomeScreenEnabled: props.welcomeScreen !== false,
+    inputContainerHeight: inputContainerHeight.value,
+  }),
 );
+const hasSuggestions = computed(() => viewState.value.hasSuggestions);
 const hasAttachments = computed(
   () => Array.isArray(props.attachments) && props.attachments.length > 0,
 );
@@ -191,18 +202,12 @@ const forwardedMessageViewSlotNames = computed(() =>
   ),
 );
 const shouldShowWelcomeScreen = computed(
-  () =>
-    props.messages.length === 0 &&
-    props.welcomeScreen !== false &&
-    !props.isConnecting &&
-    !props.hasExplicitThreadId,
+  () => viewState.value.showWelcomeScreen,
 );
-// Mirrors React: `paddingBottom = inputContainerHeight + (hasSuggestions ? 4 : 32)`.
-// React intentionally does NOT add bonus padding for attachments — the
-// attachment queue lives inside the input overlay, so its height is already
-// captured by the overlay's measured `inputContainerHeight`.
+// No bonus padding for attachments: the attachment queue lives inside the
+// input overlay, so its height is already in `inputContainerHeight`.
 const messagePaddingBottom = computed(
-  () => `${inputContainerHeight.value + (hasSuggestions.value ? 4 : 32)}px`,
+  () => `${viewState.value.paddingBottom}px`,
 );
 const showScrollToBottomButton = computed(
   () => !shouldShowWelcomeScreen.value && !isAtBottom.value,

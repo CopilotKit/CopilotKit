@@ -161,6 +161,31 @@
   color: #fff;
 }
 
+/* <CopilotChatView.ConnectingIndicator>, shown while a thread's history loads. */
+:where(.cpk-chat-view-connecting-indicator) {
+  display: flex;
+  justify-content: center;
+  padding-block: 2rem;
+}
+:where(.cpk-chat-view-connecting-spinner) {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--muted-foreground);
+  animation: cpk-spin 1s linear infinite;
+}
+/* Screen readers announce a status region's text, not its aria-label. */
+:where(.cpk-chat-view-connecting-label) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Input overlay, pinned to the bottom of the chat. */
 :where(.cpk-chat-view-input-overlay) {
   pointer-events: none;

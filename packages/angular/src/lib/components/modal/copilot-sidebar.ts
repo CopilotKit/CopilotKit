@@ -23,8 +23,11 @@ import { CopilotKitStyles } from "../copilot-kit-styles";
 import { CopilotIcon, MessageCircle, X } from "../icons/copilot-icon";
 import { injectChatLabels } from "../../chat-config";
 import { explicitEffect } from "../../explicit-effect";
-import { DockedSidebarRegistry } from "./docked-sidebar-registry";
-import { dimensionToCss } from "./modal-utils";
+import {
+  ɵMOBILE_MAX_WIDTH_QUERY,
+  ɵdimensionToCss,
+  ɵdockedSidebarRegistryFor,
+} from "@copilotkit/core";
 
 export type CopilotSidebarMode = "docked" | "overlay";
 export type CopilotSidebarPosition = "left" | "right";
@@ -229,7 +232,7 @@ export class CopilotSidebar {
   protected readonly sidebarId = `copilot-sidebar-${randomUUID()}`;
   protected readonly titleId = `${this.sidebarId}-title`;
   protected readonly resolvedWidth = computed(() =>
-    dimensionToCss(this.width(), 480),
+    ɵdimensionToCss(this.width(), 480),
   );
   protected readonly isCompact = signal(false);
   protected readonly isModal = computed(
@@ -238,8 +241,8 @@ export class CopilotSidebar {
   protected readonly dockAccepted = signal(true);
 
   private readonly owner = Symbol("copilot-sidebar");
-  private readonly registry = inject(DockedSidebarRegistry);
   private readonly document = inject(DOCUMENT);
+  private readonly registry = ɵdockedSidebarRegistryFor(this.document);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly destroyRef = inject(DestroyRef);
   private readonly launcher =
@@ -252,7 +255,7 @@ export class CopilotSidebar {
     afterNextRender(() => {
       if (this.open() && this.isModal()) this.focusModal();
       const media = this.document.defaultView?.matchMedia?.(
-        "(max-width: 47.999rem)",
+        ɵMOBILE_MAX_WIDTH_QUERY,
       );
       if (!media) return;
       const update = () => this.isCompact.set(media.matches);
@@ -283,14 +286,10 @@ export class CopilotSidebar {
         if (!this.ownsDock) {
           this.ownsDock = this.registry.acquire(this.owner);
           this.dockAccepted.set(this.ownsDock);
-          if (!this.ownsDock) {
-            console.warn(
-              "[CopilotKit] Only one docked CopilotSidebar may be open per document.",
-            );
-            return;
-          }
+          // The registry warns that only one docked sidebar can be open.
+          if (!this.ownsDock) return;
         }
-        this.registry.update(this.owner, position, width);
+        this.registry.update(this.owner, { position, width });
       },
     );
 

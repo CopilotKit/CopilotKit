@@ -8,13 +8,17 @@ import {
   useAttrs,
   watch,
 } from "vue";
+import { ɵcreateDockedSidebar, ɵdimensionToCss } from "@copilotkit/core";
+import type { ɵDockedSidebar } from "@copilotkit/core";
 import { CopilotChatDefaultLabels } from "../../providers/types";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import CopilotChatToggleButton from "./CopilotChatToggleButton.vue";
 import CopilotChatView from "./CopilotChatView.vue";
 import CopilotModalHeader from "./CopilotModalHeader.vue";
+import { forwardedSlotNames } from "./forwarded-slots";
 import type {
   CopilotChatFeatherSlotProps,
+  CopilotChatInterruptSlotProps,
   CopilotChatMessageViewSlotProps,
   CopilotChatScrollToBottomButtonSlotProps,
   CopilotChatScrollViewSlotProps,
@@ -59,13 +63,21 @@ defineSlots<{
   "scroll-to-bottom-button"?: (
     props: CopilotChatScrollToBottomButtonSlotProps,
   ) => unknown;
+  interrupt?: (props: CopilotChatInterruptSlotProps) => unknown;
   input?: (props: CopilotSidebarWelcomeScreenInputSlotProps) => unknown;
   "suggestion-view"?: (
     props: CopilotSidebarWelcomeScreenSuggestionViewSlotProps,
   ) => unknown;
   "welcome-screen"?: (props: CopilotChatWelcomeScreenSlotProps) => unknown;
   "welcome-message"?: () => unknown;
+  // Any other slot goes to the chat view, as on CopilotChat.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: ((props: any) => unknown) | undefined;
 }>();
+
+// Slots this component renders itself. It passes every other slot to the
+// chat view.
+const OWN_SLOTS = ["header", "toggle-button"] as const;
 
 const emit = defineEmits<{
   "submit-message": [value: string];
@@ -112,32 +124,23 @@ const asideAttrs = computed(() => {
 const asideStyle = computed(
   () =>
     ({
-      "--sidebar-width": widthToCss(resolvedSidebarWidth.value),
+      "--sidebar-width": widthCss.value,
       paddingTop: "env(safe-area-inset-top)",
       paddingBottom: "env(safe-area-inset-bottom)",
     }) as Record<string, string>,
 );
+const widthCss = computed(() =>
+  ɵdimensionToCss(resolvedSidebarWidth.value, DEFAULT_SIDEBAR_WIDTH),
+);
+
 // The page makes room on the docked edge (desktop only).
-const bodyMarginStyle = computed(() => {
-  const margin =
-    props.position === "left" ? "margin-inline-start" : "margin-inline-end";
-  return `
-@media (min-width: 768px) {
-  body {
-    ${margin}: ${widthToMargin(resolvedSidebarWidth.value)};
-    transition: ${margin} ${SIDEBAR_TRANSITION_MS}ms ease;
-  }
-}
-`;
-});
-
-function widthToCss(width: number | string): string {
-  return typeof width === "number" ? `${width}px` : width;
-}
-
-function widthToMargin(width: number | string): string {
-  return typeof width === "number" ? `${width}px` : width;
-}
+let dock: ɵDockedSidebar | undefined;
+watch(
+  [isSidebarOpen, () => props.position, widthCss],
+  ([open, position, width]) => {
+    dock?.set({ open, position, width });
+  },
+);
 
 function updateMeasuredWidth() {
   if (props.width !== undefined || !sidebarRef.value) {
@@ -235,6 +238,14 @@ watch(
 );
 
 onMounted(async () => {
+  dock = ɵcreateDockedSidebar(document, {
+    transitionMs: SIDEBAR_TRANSITION_MS,
+  });
+  dock.set({
+    open: isSidebarOpen.value,
+    position: props.position,
+    width: widthCss.value,
+  });
   await nextTick();
   updateMeasuredWidth();
 
@@ -253,16 +264,14 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  dock?.dispose();
+  dock = undefined;
   resizeObserver?.disconnect();
   resizeObserver = null;
 });
 </script>
 
 <template>
-  <component :is="'style'" v-if="isSidebarOpen">
-    {{ bodyMarginStyle }}
-  </component>
-
   <slot
     name="toggle-button"
     :is-open="isSidebarOpen"
@@ -317,42 +326,12 @@ onBeforeUnmount(() => {
           :on-finish-transcribe-with-audio="onFinishTranscribeWithAudio"
           v-bind="chatViewEventProps"
         >
-          <template v-if="$slots['message-view']" #message-view="slotProps">
-            <slot name="message-view" v-bind="slotProps" />
-          </template>
-
-          <template v-if="$slots['scroll-view']" #scroll-view="slotProps">
-            <slot name="scroll-view" v-bind="slotProps" />
-          </template>
-
-          <template v-if="$slots.feather" #feather>
-            <slot name="feather" />
-          </template>
-
           <template
-            v-if="$slots['scroll-to-bottom-button']"
-            #scroll-to-bottom-button="slotProps"
+            v-for="slotName in forwardedSlotNames($slots, OWN_SLOTS)"
+            :key="slotName"
+            #[slotName]="slotProps"
           >
-            <slot name="scroll-to-bottom-button" v-bind="slotProps" />
-          </template>
-
-          <template v-if="$slots.input" #input="slotProps">
-            <slot name="input" v-bind="slotProps" />
-          </template>
-
-          <template
-            v-if="$slots['suggestion-view']"
-            #suggestion-view="slotProps"
-          >
-            <slot name="suggestion-view" v-bind="slotProps" />
-          </template>
-
-          <template v-if="$slots['welcome-screen']" #welcome-screen="slotProps">
-            <slot name="welcome-screen" v-bind="slotProps" />
-          </template>
-
-          <template v-if="$slots['welcome-message']" #welcome-message>
-            <slot name="welcome-message" />
+            <slot :name="slotName" v-bind="slotProps" />
           </template>
         </CopilotChatView>
       </div>

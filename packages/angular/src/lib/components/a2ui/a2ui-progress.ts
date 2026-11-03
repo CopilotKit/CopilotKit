@@ -1,79 +1,11 @@
 import { ChangeDetectionStrategy, Component, input } from "@angular/core";
-
-type SkeletonPart =
-  | "dot"
-  | "spacer"
-  | { readonly w: number; readonly bg: string; readonly anim: number };
-
-/** The rows of React's `A2UIGeneratingSkeleton`, revealed by `phase`. */
-const SKELETON_ROWS: readonly {
-  readonly phase: number;
-  readonly delay: number;
-  readonly parts: readonly SkeletonPart[];
-}[] = [
-  {
-    phase: 0,
-    delay: 0,
-    parts: [
-      { w: 36, bg: "rgba(147,197,253,0.7)", anim: 0 },
-      { w: 80, bg: "rgba(219,234,254,0.8)", anim: 0.2 },
-    ],
-  },
-  {
-    phase: 0,
-    delay: 0.1,
-    parts: ["spacer", "dot", { w: 100, bg: "rgba(24,24,27,0.2)", anim: 0.3 }],
-  },
-  {
-    phase: 1,
-    delay: 0.15,
-    parts: [
-      "spacer",
-      { w: 48, bg: "rgba(24,24,27,0.15)", anim: 0.1 },
-      { w: 40, bg: "rgba(153,246,228,0.6)", anim: 0.5 },
-      { w: 56, bg: "rgba(147,197,253,0.6)", anim: 0.3 },
-    ],
-  },
-  {
-    phase: 1,
-    delay: 0.2,
-    parts: ["spacer", "dot", { w: 60, bg: "rgba(24,24,27,0.15)", anim: 0.4 }],
-  },
-  {
-    phase: 2,
-    delay: 0.25,
-    parts: [
-      { w: 40, bg: "rgba(153,246,228,0.5)", anim: 0.2 },
-      "dot",
-      { w: 48, bg: "rgba(24,24,27,0.15)", anim: 0.6 },
-      { w: 64, bg: "rgba(147,197,253,0.5)", anim: 0.1 },
-    ],
-  },
-  {
-    phase: 2,
-    delay: 0.3,
-    parts: [
-      { w: 36, bg: "rgba(147,197,253,0.6)", anim: 0.5 },
-      { w: 36, bg: "rgba(24,24,27,0.12)", anim: 0.7 },
-    ],
-  },
-  {
-    phase: 3,
-    delay: 0.35,
-    parts: [
-      "dot",
-      { w: 44, bg: "rgba(24,24,27,0.18)", anim: 0.3 },
-      "dot",
-      { w: 56, bg: "rgba(153,246,228,0.5)", anim: 0.8 },
-      { w: 48, bg: "rgba(147,197,253,0.5)", anim: 0.4 },
-    ],
-  },
-];
+import { ɵA2UI_LIFECYCLE_TEXT, ɵA2UI_SKELETON_ROWS } from "@copilotkit/core";
 
 /**
  * Presentational loading placeholder shown while an A2UI tool call is still
  * streaming. Renders an animated skeleton card whose rows reveal as the
- * estimated token count climbs through `phase`.
+ * estimated token count climbs through `phase` (see core's
+ * `ɵgetA2UIProgressPhase`).
  */
 @Component({
   selector: "copilot-a2ui-progress",
@@ -276,7 +208,7 @@ const SKELETON_ROWS: readonly {
 export class CopilotA2UIProgress {
   readonly phase = input.required<number>();
   readonly tokens = input(0);
-  readonly label = input("Building interface");
+  readonly label = input(ɵA2UI_LIFECYCLE_TEXT.building);
 
-  protected readonly rows = SKELETON_ROWS;
+  protected readonly rows = ɵA2UI_SKELETON_ROWS;
 }

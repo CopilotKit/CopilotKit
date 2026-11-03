@@ -9,7 +9,7 @@ import {
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import { CopilotKit } from "../../copilotkit";
 import { RenderToolCall } from "../../render-tool-calls";
-import type { CopilotChatToolCallGroupAppearance } from "../tools/tool-call-render-context";
+import { ɵtoolCallAppearance } from "@copilotkit/core";
 import { CopilotChatToolCallGroup } from "./copilot-chat-tool-call-group";
 import { TOOL_CALL_DISPLAY_CONTEXT } from "./tool-call-display-context";
 import {
@@ -17,20 +17,6 @@ import {
   getToolCallRendererNames,
 } from "./tool-call-layout";
 import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
-
-/**
- * The group appearance for each display. Angular has no `"turn"` view yet, so
- * a `"turn"` chat groups calls the same way as `"grouped"`.
- */
-const appearances = {
-  grouped: "card",
-  line: "line",
-  stacked: "stack",
-  turn: "card",
-} satisfies Record<
-  Exclude<CopilotChatToolCallDisplay, "separate">,
-  CopilotChatToolCallGroupAppearance
->;
 
 /**
  * An assistant message's tool calls, each drawn by its registered renderer.
@@ -95,10 +81,11 @@ export class CopilotChatToolCallsView {
   protected readonly resolvedDisplay = computed(
     () => this.display() ?? this.#context?.display() ?? "grouped",
   );
-  protected readonly appearance = computed(() => {
-    const display = this.resolvedDisplay();
-    return display === "separate" ? "card" : appearances[display];
-  });
+  // Angular has no `"turn"` view yet, so a `"turn"` chat groups calls the
+  // same way as `"grouped"`.
+  protected readonly appearance = computed(
+    () => ɵtoolCallAppearance(this.resolvedDisplay()) ?? "card",
+  );
   /**
    * Whether the agent may still finish a trailing group's calls. Without a
    * message view there's no run state, so a call with no result is assumed

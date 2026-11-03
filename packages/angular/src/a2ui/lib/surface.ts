@@ -4,6 +4,7 @@ import {
   effect,
   inject,
   input,
+  isDevMode,
   output,
   signal,
   untracked,
@@ -11,8 +12,11 @@ import {
   Type,
 } from "@angular/core";
 import { MessageProcessor, SurfaceModel } from "@a2ui/web_core/v0_9";
+import {
+  A2UIOperationApplier,
+  A2UISurfaceDiagnostics,
+} from "@copilotkit/a2ui-renderer/engine";
 import { A2UIClientEventMessage, A2UISurfaceError } from "@copilotkit/angular";
-import { applyA2UIOperations } from "./operations";
 import { A2UI_SURFACE_REVISION, CopilotA2UINode } from "./node";
 import { CopilotA2UICatalog } from "./catalog";
 import { CopilotA2UICatalogEntry } from "./types";
@@ -185,9 +189,13 @@ export class CopilotA2UISurface implements OnDestroy {
   private readonly revision = inject(A2UI_SURFACE_REVISION);
 
   private processor: MessageProcessor<CopilotA2UICatalogEntry> | null = null;
-  private processorCatalog: CopilotA2UICatalog | null = null;
-  private lastOperationsHash = "";
-  private appliedOperationsCount = 0;
+  private applier: A2UIOperationApplier<CopilotA2UICatalogEntry> | null = null;
+  private applierKey: { catalog: CopilotA2UICatalog; theme: string } | null =
+    null;
+  private lastSurfaces: readonly Surface[] = [];
+  private readonly diagnostics = isDevMode()
+    ? new A2UISurfaceDiagnostics({ warn: (message) => console.warn(message) })
+    : null;
 
   constructor() {
     effect(() => {
@@ -204,25 +212,33 @@ export class CopilotA2UISurface implements OnDestroy {
 
   /** Drops the processor and everything rendered from it. */
   private reset(): void {
+    this.diagnostics?.dispose();
     this.processor?.model.dispose();
     this.processor = null;
-    this.processorCatalog = null;
-    this.lastOperationsHash = "";
-    this.appliedOperationsCount = 0;
+    this.applier = null;
+    this.applierKey = null;
+    this.lastSurfaces = [];
     this.surfaces.set([]);
   }
 
-  private getProcessor(
+  /** The applier for this catalog and theme; a change of either starts over. */
+  private getApplier(
     catalog: CopilotA2UICatalog,
-  ): MessageProcessor<CopilotA2UICatalogEntry> {
-    if (!this.processor || this.processorCatalog !== catalog) {
-      this.reset();
-      this.processorCatalog = catalog;
-      this.processor = new MessageProcessor([catalog], (userAction) => {
-        this.action.emit({ userAction });
-      });
+    theme: Record<string, unknown> | undefined,
+  ): A2UIOperationApplier<CopilotA2UICatalogEntry> {
+    const themeKey = JSON.stringify(theme ?? null);
+    const key = this.applierKey;
+    if (this.applier && key?.catalog === catalog && key.theme === themeKey) {
+      return this.applier;
     }
-    return this.processor;
+    this.reset();
+    const processor = new MessageProcessor([catalog], (userAction) => {
+      this.action.emit({ userAction });
+    });
+    this.processor = processor;
+    this.applier = new A2UIOperationApplier(processor, catalog.id, theme);
+    this.applierKey = { catalog, theme: themeKey };
+    return this.applier;
   }
 
   private process(
@@ -238,30 +254,17 @@ export class CopilotA2UISurface implements OnDestroy {
     }
 
     try {
-      if (this.processorCatalog !== catalog) this.reset();
-
-      const hash = JSON.stringify({ operations, theme });
-      if (hash === this.lastOperationsHash) return;
-
-      // Only retain the model when the previously applied history is unchanged.
-      const prefixHash = JSON.stringify({
-        operations: operations.slice(0, this.appliedOperationsCount),
-        theme,
-      });
-      if (prefixHash !== this.lastOperationsHash) this.reset();
-
-      const processor = this.getProcessor(catalog);
-      applyA2UIOperations(
-        processor,
-        operations.slice(this.appliedOperationsCount),
-        catalog.id,
-        theme,
-      );
-      this.lastOperationsHash = hash;
-      this.appliedOperationsCount = operations.length;
+      const applier = this.getApplier(catalog, theme);
+      const surfaces = applier.apply(operations);
+      // The applier returns the same array when nothing changed.
+      if (surfaces === this.lastSurfaces) return;
+      this.lastSurfaces = surfaces;
       this.revision.update((value) => value + 1);
-      this.surfaces.set([...processor.model.surfacesMap.values()]);
+      this.surfaces.set([...surfaces]);
       this.errorMessage.set(null);
+      if (this.processor) {
+        this.diagnostics?.check(operations, this.processor.model);
+      }
       this.rendered.emit();
     } catch (error) {
       // A failed batch may have partially mutated the model; replay on recovery.
