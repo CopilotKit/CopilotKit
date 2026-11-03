@@ -4,7 +4,7 @@ Read these before changing anything in this app:
 
 - [`PRODUCT.md`](./PRODUCT.md): who the docs serve, scope, brand source, and constraints.
 - [`DESIGN.md`](./DESIGN.md): the theme and how it maps onto Fumadocs. The theme itself lives in
-  [`src/app/theme.css`](./src/app/theme.css); `/docs/theme` renders every element for checking it.
+  [`src/app/theme.css`](./src/app/theme.css).
 
 Stay on stock Fumadocs. Brand it only through Fumadocs' supported theming surface
 (its CSS variables, presets, layout options, and component props). Don't fork,

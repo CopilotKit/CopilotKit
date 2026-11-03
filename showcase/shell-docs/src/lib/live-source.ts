@@ -4,9 +4,8 @@ import { defineDocs } from "fumadocs-mdx/macro";
 import { metaSchema, pageSchema } from "fumadocs-core/source/schema";
 import { z } from "zod";
 
-// The live docs, this app's own copy of shell-docs' pages. Kept apart
-// from `source.ts` so routes that only need the /docs pages don't compile
-// all ~900 live pages. MDX options are global, in `source.config.ts`.
+// The docs pages in src/content. MDX options are global, in
+// `source.config.ts`.
 
 /**
  * shell-docs' meta.json allows an inline group in `pages`

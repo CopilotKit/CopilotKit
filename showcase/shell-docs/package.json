@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "postinstall": "patch-package",
     "predev": "node scripts/showcase-data.mjs",
     "dev": "next dev --port 3003",
     "prebuild": "node scripts/showcase-data.mjs",
@@ -54,7 +53,6 @@
     "esbuild": "^0.28.2",
     "js-yaml": "^4.3.2",
     "oxlint": "^1.89.0",
-    "patch-package": "8.0.1",
     "postcss": "^8.5.31",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",

@@ -5,18 +5,6 @@ import { DemoFrame } from "@/components/demo-frame";
 import { StagedCodeBlockTabs, StagedPre } from "@/components/brand/staged-code";
 import { commandsOnly, fenceLang } from "@/components/brand/stage";
 import { Hero } from "@/components/home/hero";
-import { IdeaReference } from "@/components/ideas/reference";
-import {
-  ClerkMock,
-  DirectoryMock,
-  ExpoMock,
-  PrismaMock,
-  ProductTabsMock,
-  QuickstartListMock,
-  SentryMock,
-  StorybookMock,
-  StripeMock,
-} from "@/components/ideas/ideas";
 
 export function getMDXComponents(components?: MDXComponents) {
   return {
@@ -29,16 +17,6 @@ export function getMDXComponents(components?: MDXComponents) {
     ),
     DemoFrame,
     Hero,
-    IdeaReference,
-    ClerkMock,
-    DirectoryMock,
-    ExpoMock,
-    PrismaMock,
-    ProductTabsMock,
-    QuickstartListMock,
-    SentryMock,
-    StorybookMock,
-    StripeMock,
     StackVariants,
     Variant,
     ...components,
