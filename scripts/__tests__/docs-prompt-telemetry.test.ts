@@ -1,121 +1,65 @@
 import { describe, it, expect } from "vitest";
-import ts from "typescript";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { extractCallees } from "../telemetry/extract";
+import {
+  DOCS_CALLEE_NAMES,
+  extractCallees,
+  findEmitCalls,
+} from "../telemetry/extract";
+import type { EmitCall } from "../telemetry/extract";
 
 const REPO_ROOT = path.join(__dirname, "..", "..");
 const DOCS_SRC = path.join(REPO_ROOT, "showcase/shell-docs/src");
+const PROMPTS = "showcase/shell-docs/src/components/docs-mdx/prompts";
 
-/** Every .ts/.tsx under the docs site, minus tests and pure MDX content. */
-function docsSourceFiles(dir: string): string[] {
-  const out: string[] = [];
+/**
+ * The files `emit-fragment.ts --surface docs` reads: every .ts/.tsx under the
+ * docs site except tests, as repo-relative paths.
+ */
+function docsSourceFiles(
+  dir: string,
+): Array<{ path: string; content: string }> {
+  const out: Array<{ path: string; content: string }> = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (entry.name !== "__tests__" && entry.name !== "content")
+      if (entry.name !== "__tests__" && entry.name !== "node_modules")
         out.push(...docsSourceFiles(full));
-    } else if (/\.tsx?$/.test(entry.name)) {
-      out.push(full);
+    } else if (
+      /\.tsx?$/.test(entry.name) &&
+      !/\.(test|spec)\.tsx?$/.test(entry.name)
+    ) {
+      out.push({
+        path: path.relative(REPO_ROOT, full),
+        content: fs.readFileSync(full, "utf8"),
+      });
     }
   }
   return out;
 }
 
-/** The inline object keys of a `capture(event, { ... })` second argument. */
-function inlineKeys(node: ts.Expression | undefined): string[] {
-  if (!node || !ts.isObjectLiteralExpression(node)) return [];
-  return node.properties.flatMap((prop) =>
-    prop.name && ts.isIdentifier(prop.name) ? [prop.name.text] : [],
-  );
-}
+const DOCS_FILES = docsSourceFiles(DOCS_SRC);
 
 describe("docs prompt controls", () => {
+  // Read through `extractCallees` with the emitter's own callee list, so this
+  // pins what the published `CopilotKit.docs` fragment says, not a parallel
+  // reading of two files.
   it("publishes intent and successful copy events with their action context", () => {
-    const prompts = path.join(DOCS_SRC, "components/docs-mdx/prompts");
-    const read = (file: string) =>
-      ts.createSourceFile(
-        file,
-        fs.readFileSync(path.join(prompts, file), "utf8"),
-        ts.ScriptTarget.Latest,
-        true,
-        ts.ScriptKind.TSX,
-      );
-
-    // The event names live in one constant, INTELLIGENCE_ONBOARDING_EVENTS.
-    const events = new Map<string, string>();
-    const visitEvents = (node: ts.Node) => {
-      if (
-        ts.isVariableDeclaration(node) &&
-        ts.isIdentifier(node.name) &&
-        node.name.text === "INTELLIGENCE_ONBOARDING_EVENTS" &&
-        node.initializer
-      ) {
-        const init = ts.isAsExpression(node.initializer)
-          ? node.initializer.expression
-          : node.initializer;
-        if (ts.isObjectLiteralExpression(init)) {
-          for (const prop of init.properties) {
-            if (
-              ts.isPropertyAssignment(prop) &&
-              ts.isIdentifier(prop.name) &&
-              ts.isStringLiteral(prop.initializer)
-            ) {
-              events.set(prop.name.text, prop.initializer.text);
-            }
-          }
-        }
-      }
-      ts.forEachChild(node, visitEvents);
-    };
-    visitEvents(read("onboarding.ts"));
-    expect(Object.fromEntries(events)).toMatchObject({
-      actionClicked: "docs.intelligence_onboarding_prompt_action_clicked",
-      promptCopied: "docs.intelligence_onboarding_prompt_copied",
+    const events = extractCallees(DOCS_FILES, {
+      calleeNames: DOCS_CALLEE_NAMES,
     });
-
-    // The page prompt sends both events with `action` plus one shared
-    // `properties` object.
-    const source = read("page-agent-prompt.tsx");
-    let properties: string[] = [];
-    const tracked = new Map<string, string[]>();
-    const visit = (node: ts.Node) => {
-      if (
-        ts.isVariableDeclaration(node) &&
-        ts.isIdentifier(node.name) &&
-        node.name.text === "properties"
-      ) {
-        properties = inlineKeys(node.initializer);
-      }
-      if (
-        ts.isCallExpression(node) &&
-        ts.isIdentifier(node.expression) &&
-        node.expression.text === "trackEvent" &&
-        ts.isPropertyAccessExpression(node.arguments[0]) &&
-        node.arguments[0].expression.getText(source) ===
-          "INTELLIGENCE_ONBOARDING_EVENTS"
-      ) {
-        const payload = node.arguments[1];
-        const keys = inlineKeys(payload);
-        const spreadsProperties =
-          !!payload &&
-          ts.isObjectLiteralExpression(payload) &&
-          payload.properties.some(
-            (prop) =>
-              ts.isSpreadAssignment(prop) &&
-              prop.expression.getText(source) === "properties",
-          );
-        tracked.set(
-          node.arguments[0].name.text,
-          spreadsProperties ? [...keys, ...properties] : keys,
-        );
-      }
-      ts.forEachChild(node, visit);
-    };
-    visit(source);
-
-    for (const name of ["actionClicked", "promptCopied"]) {
-      expect(tracked.get(name)?.toSorted()).toEqual([
+    for (const name of [
+      "docs.intelligence_onboarding_prompt_action_clicked",
+      "docs.intelligence_onboarding_prompt_copied",
+    ]) {
+      const event = events.find((e) => e.event === name);
+      expect(event?.call_sites).toEqual(
+        expect.arrayContaining([
+          `${PROMPTS}/page-agent-prompt.tsx`,
+          `${PROMPTS}/prompt-actions.tsx`,
+        ]),
+      );
+      expect(event?.properties_seen).toEqual([
         "action",
         "agent_framework",
         // The revision of the argument prose appended to the copied link,
@@ -133,52 +77,61 @@ describe("docs prompt controls", () => {
   });
 });
 
+/**
+ * Emit calls that belong to an onboarding prompt but don't say which control
+ * the developer used. A call belongs to a prompt if it sends a prompt event
+ * (`*_prompt_copied`, `*_prompt_action_clicked`) or carries a run id, which
+ * every prompt control mints.
+ */
+function unattributed(calls: EmitCall[]): string[] {
+  return calls
+    .filter(
+      (call) =>
+        (call.properties.includes("onboarding_run_id") ||
+          call.events.some((e) =>
+            /_prompt_(copied|action_clicked)$/.test(e.event),
+          )) &&
+        !call.properties.includes("action"),
+    )
+    .map(
+      (call) =>
+        `${call.path}:${call.line} (${call.events.map((e) => e.event).join(", ")})`,
+    );
+}
+
 // The wizard shipped a `prompt_copied` emitter with no `action`, and nothing
-// caught it: the pin above names two files by hand, `extractCallees` only reads
-// string-literal event names (the wizard passes a constant), and this file was
-// wired into no CI job at all. This walks the tree and keys off the event
-// shape instead of a file list or an event name, so a new prompt control
-// cannot ship unattributed. See PE-218.
+// caught it: the pin above names two files by hand, `extractCallees` only read
+// string-literal event names (the wizard passed a constant), and this file was
+// wired into no CI job at all. This walks every emit call the fragment
+// emitter finds and keys off the event shape instead of a file list, so a new
+// prompt control cannot ship unattributed. See PE-218.
 describe("every docs prompt emitter", () => {
   it("attributes its event to the control the developer used", () => {
-    const unattributed: string[] = [];
-    for (const file of docsSourceFiles(DOCS_SRC)) {
-      const source = ts.createSourceFile(
-        file,
-        fs.readFileSync(file, "utf8"),
-        ts.ScriptTarget.Latest,
-        true,
-      );
-      const visit = (node: ts.Node): void => {
-        if (ts.isCallExpression(node)) {
-          const callee = node.expression;
-          const name = ts.isIdentifier(callee)
-            ? callee.text
-            : ts.isPropertyAccessExpression(callee)
-              ? callee.name.text
-              : "";
-          const keys = inlineKeys(node.arguments[1]);
-          // A run id is what makes an event part of an onboarding prompt
-          // journey, and every prompt control mints one. Keying off it costs
-          // nothing to maintain and cannot be sidestepped by naming a new
-          // event or a new file.
-          if (
-            name === "capture" &&
-            keys.includes("onboarding_run_id") &&
-            !keys.includes("action")
-          ) {
-            const line =
-              source.getLineAndCharacterOfPosition(node.getStart(source)).line +
-              1;
-            unattributed.push(
-              `${path.relative(REPO_ROOT, file)}:${line} (${node.arguments[0].getText(source)})`,
-            );
-          }
-        }
-        ts.forEachChild(node, visit);
-      };
-      visit(source);
-    }
-    expect(unattributed).toEqual([]);
+    expect(unattributed(findEmitCalls(DOCS_FILES, DOCS_CALLEE_NAMES))).toEqual(
+      [],
+    );
+  });
+
+  it("flags a prompt emitter that drops the action", () => {
+    const files = [
+      {
+        path: "events.ts",
+        content: `export const EVENTS = { copied: "docs.x_prompt_copied" } as const;`,
+      },
+      {
+        path: "control.tsx",
+        content: `
+          function Control({ runId }: { runId: string }) {
+            const properties = { onboarding_run_id: runId, surface: "s" };
+            const onCopied = () => trackEvent(EVENTS.copied, { ...properties });
+            const onAction = (action: string) =>
+              trackEvent("docs.y_clicked", { ...properties, action });
+            return null;
+          }`,
+      },
+    ];
+    expect(unattributed(findEmitCalls(files, DOCS_CALLEE_NAMES))).toEqual([
+      "control.tsx:4 (docs.x_prompt_copied)",
+    ]);
   });
 });
