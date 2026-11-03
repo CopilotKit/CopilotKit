@@ -2,7 +2,7 @@
 
 Watch an agent write UI. Ask for anything ("Q3 sales by region as a dashboard", "compare three noise-cancelling headphones", "a signup form with a plan choice") and the answer arrives in the chat as real, interactive UI: an **A2UI 1.0** surface rendered by **CopilotKit Gen UI 2.0**. Beside the chat you see the **A2UI Express** the model writes, one line per component, and hovering a line lights up the component it made.
 
-This playground uses published `@copilotkit/*` 1.84.0 packages with canonical `"1.0"` wire operations and `@a2ui/agent` 0.1.0 native streaming. CopilotKit 1.84.0 includes the canonical protocol changes from [#8155](https://github.com/CopilotKit/CopilotKit/pull/8155).
+This playground uses published `@copilotkit/*` 1.84.1 packages with canonical `"1.0"` wire operations and `@a2ui/agent` 0.1.0 native streaming. These include the canonical protocol changes first released in CopilotKit 1.84.0 from [#8155](https://github.com/CopilotKit/CopilotKit/pull/8155).
 
 A hosted version of the pre-migration playground runs at https://web-production-d0431.up.railway.app.
 
@@ -111,7 +111,7 @@ The page is light unless it is opened with `?theme=dark` (for a dark page) or th
 The same setup in your own app, in three files (`/start` copies it as one prompt for a coding agent). Install the versions this repo runs:
 
 ```bash
-npm i @copilotkit/react-core@1.84.0 @copilotkit/runtime@1.84.0 zod@3.25.76
+npm i @copilotkit/react-core@1.84.1 @copilotkit/runtime@1.84.1 zod@3.25.76
 ```
 
 1. **Catalog** (`app/genui.tsx`): `createGenerativeUI({ id, extends: [standardUI], components: { WeatherCard: { component: WeatherCard, description, props: z.object({ ... }) } } })` from `@copilotkit/react-core/v2/generative-ui`. The agent can use only what the catalog defines.
