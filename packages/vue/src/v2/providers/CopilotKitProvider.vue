@@ -17,7 +17,6 @@ import {
   watch,
 } from "vue";
 import type { Component, FunctionalComponent } from "vue";
-import type { AbstractAgent } from "@ag-ui/client";
 import { ToolCallStatus } from "@copilotkit/core";
 import type {
   CopilotKitCoreSubscriber,

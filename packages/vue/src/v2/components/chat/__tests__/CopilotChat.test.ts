@@ -63,7 +63,7 @@ describe("CopilotChat", () => {
     emitError: (params: {
       error: Error;
       code: CopilotKitCoreErrorCode;
-      context?: Record<string, any>;
+      context?: Record<string, unknown>;
     }) => Promise<void>;
   }
 
