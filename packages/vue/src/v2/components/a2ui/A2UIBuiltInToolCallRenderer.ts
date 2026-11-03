@@ -1,14 +1,9 @@
 import { watch } from "vue";
 import type { ShallowRef } from "vue";
 import * as z from "zod";
+import { ɵRENDER_A2UI_TOOL_NAME as RENDER_A2UI_TOOL_NAME } from "@copilotkit/core";
 import type { CopilotKitCoreVue } from "../../lib/vue-core";
 import { defineToolCallRenderer } from "../../types/defineToolCallRenderer";
-
-/**
- * Tool name used by the dynamic A2UI generation secondary LLM.
- * This renderer is auto-registered when A2UI is enabled.
- */
-export const RENDER_A2UI_TOOL_NAME = "render_a2ui";
 
 /**
  * Registers a no-op renderer for the `render_a2ui` tool call so its raw

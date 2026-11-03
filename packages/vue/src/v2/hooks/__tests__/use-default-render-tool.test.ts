@@ -530,10 +530,8 @@ describe("useDefaultRenderTool", () => {
     expect(forwarded.result).toBe("ok");
   });
 
-  // Fix #5: circular-ref parameters must not crash the vue render; log.
-  it("default renderer survives circular-ref parameters and logs", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
+  // Fix #5: circular-ref parameters must not crash the vue render.
+  it("default renderer survives circular-ref parameters", async () => {
     const Harness = defineComponent({
       setup() {
         useDefaultRenderTool();
@@ -567,14 +565,16 @@ describe("useDefaultRenderTool", () => {
       }),
     ).not.toThrow();
 
+    const wrapper = screen.getByTestId("copilot-tool-render");
+    expect(wrapper.getAttribute("data-args")).toBe(
+      '{"a":1,"self":"[Circular]"}',
+    );
+
     const headerButton = screen
       .getByTestId("copilot-tool-render-name")
       .closest("button");
-    if (headerButton) {
-      await expect(fireEvent.click(headerButton)).resolves.not.toThrow();
-    }
-
-    expect(warnSpy).toHaveBeenCalled();
-    warnSpy.mockRestore();
+    expect(headerButton).not.toBeNull();
+    await fireEvent.click(headerButton!);
+    expect(wrapper.textContent).toContain('"self": "[Circular]"');
   });
 });

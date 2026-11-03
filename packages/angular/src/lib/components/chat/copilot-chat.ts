@@ -20,15 +20,17 @@ import { CopilotChatAttachmentsDirective } from "./copilot-chat-attachments.dire
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 import type { AttachmentsConfig } from "@copilotkit/shared";
 import { AGUIConnectNotImplementedError } from "@ag-ui/client";
-import type { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
+import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import {
-  TranscriptionError,
+  CopilotKitCoreErrorCode,
   isRunCompletionAware,
+  ɵInspectorThreadOverride,
+  ɵcreateChatSubmitter,
   ɵisHttpAgent,
-  ɵtranscribeAudio,
-  ɵtranscriptionErrorMessageKey,
+  ɵresolveChatNotice,
+  ɵThreadSwitchCoordinator,
 } from "@copilotkit/core";
-import type { Suggestion } from "@copilotkit/core";
+import type { Suggestion, ɵThreadSelection } from "@copilotkit/core";
 import { injectAgentStore } from "../../agent";
 import { CopilotKit } from "../../copilotkit";
 import { ChatState } from "../../chat-state";
@@ -39,9 +41,6 @@ import { explicitEffect } from "../../explicit-effect";
 import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
 import { COPILOT_CHAT_RUN_CONTROL } from "./copilot-chat-run-control";
 import type { ChatRunControl } from "./copilot-chat-run-control";
-
-/** How long a transcription error stays on screen, as in React. */
-const TRANSCRIPTION_ERROR_TIMEOUT_MS = 5000;
 
 /**
  * CopilotChat component - Angular equivalent of React's <CopilotChat>
@@ -89,8 +88,11 @@ const TRANSCRIPTION_ERROR_TIMEOUT_MS = 5000;
         [messages]="messages()"
         [state]="agentState()"
         [agentId]="resolvedAgentId()"
-        [autoScroll]="true"
+        [autoScroll]="autoScroll()"
         [showCursor]="showCursor()"
+        [isRunning]="isRunning()"
+        [isConnecting]="isConnecting()"
+        [welcomeScreen]="welcomeScreen()"
         [toolCallDisplay]="toolCallDisplay()"
         [inputComponent]="inputComponent()"
         [assistantMessageComponent]="assistantMessageComponent()"
@@ -127,6 +129,10 @@ export class CopilotChat extends ChatState implements ChatRunControl {
   readonly agentId = input<string | undefined>();
   readonly threadId = input<string | undefined>();
   readonly inputComponent = input<Type<any> | undefined>();
+  /** Whether the message list follows new messages to the bottom. Default `true`. */
+  readonly autoScroll = input<boolean>(true);
+  /** `false` turns the welcome screen off for an empty chat. Default `true`. */
+  readonly welcomeScreen = input<boolean>(true);
   /**
    * How assistant messages show tool calls: `"grouped"` (default), `"line"`,
    * `"stacked"` or `"separate"`. Forwarded to the message view. Angular
@@ -168,6 +174,11 @@ export class CopilotChat extends ChatState implements ChatRunControl {
   );
   readonly agentStore = injectAgentStore(this.resolvedAgentId);
   private readonly copilotKit = inject(CopilotKit);
+  /**
+   * Keeps the agent on the thread this chat shows, orders the teardown of the
+   * previous thread, and tracks connections a send must wait for.
+   */
+  private readonly threads = new ɵThreadSwitchCoordinator(this.copilotKit.core);
   readonly cdr = inject(ChangeDetectorRef);
   readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
@@ -177,6 +188,8 @@ export class CopilotChat extends ChatState implements ChatRunControl {
   protected readonly showCursor = computed(
     () => this.connecting() || this.agentStore().isRunning(),
   );
+  /** `true` while the thread's connect is loading. */
+  protected readonly isConnecting = computed(() => this.connecting());
   /** `true` while the agent runs. The chat input shows stop. */
   readonly isRunning = computed(() => this.agentStore().isRunning());
   /** A run can stop when it runs and the chat has messages, as in React. */
@@ -184,9 +197,29 @@ export class CopilotChat extends ChatState implements ChatRunControl {
     () =>
       this.agentStore().isRunning() && this.agentStore().messages().length > 0,
   );
-  /** The transcription error the chat shows, or `null`. */
-  protected readonly transcriptionError = signal<string | null>(null);
-  private transcriptionErrorTimer?: ReturnType<typeof setTimeout>;
+  /**
+   * The send side — queueing behind the run in flight and the thread's
+   * connection, the upload guard, stop, and transcription — lives in core.
+   */
+  private readonly submitter = ɵcreateChatSubmitter({
+    core: this.copilotKit.core,
+    getAgent: () => this.agentStore().agent,
+    input: {
+      get: () => this.inputValue(),
+      set: (value) => this.inputValue.set(value),
+    },
+    attachments: {
+      isUploading: () => this.attachmentsUploading(),
+      consumeReady: () => this.attachmentsDirective()?.consume() ?? [],
+    },
+    threads: this.threads,
+  });
+  private readonly submitterState = signal(this.submitter.getSnapshot());
+  /** The notice the chat shows (a failed transcription, a blocked send), or `null`. */
+  protected readonly transcriptionError = computed(() => {
+    const { notice } = this.submitterState();
+    return notice ? ɵresolveChatNotice(notice, this.labels) : null;
+  });
 
   protected messages = computed(() => this.agentStore().messages());
   protected agentState = computed(() => this.agentStore().state());
@@ -209,9 +242,17 @@ export class CopilotChat extends ChatState implements ChatRunControl {
   constructor() {
     super();
 
+    const unsubscribeSubmitter = this.submitter.subscribe(() => {
+      const state = this.submitter.getSnapshot();
+      this.submitterState.set(state);
+      this.isTranscribing.set(state.isTranscribing);
+      this.cdr.markForCheck();
+    });
     this.destroyRef.onDestroy(() => {
       this.activeConnection?.dispose();
-      clearTimeout(this.transcriptionErrorTimer);
+      unsubscribeSubmitter();
+      this.submitter.dispose();
+      this.threads.dispose();
     });
 
     const suggestionsSubscription = this.copilotKit.core.subscribe({
@@ -276,17 +317,63 @@ export class CopilotChat extends ChatState implements ChatRunControl {
       });
     }
     // Both ambient and standalone threads share reset and connection cleanup.
+    // The Inspector's "view thread" override takes the place of the chat's
+    // own thread while it lasts, like React and Vue.
+    const baseThreadId = this.config?.threadId ?? this.resolvedThreadId;
+    const baseHasExplicitThreadId =
+      this.config?.hasExplicitThreadId ?? this.hasExplicitThreadId;
+    this.bindInspectorThreadOverride(baseThreadId);
     connectActiveThread(
-      this.config ?? {
-        threadId: this.resolvedThreadId,
-        hasExplicitThreadId: this.hasExplicitThreadId,
+      {
+        threadId: computed(
+          () => this.inspectorOverride()?.threadId ?? baseThreadId(),
+        ),
+        hasExplicitThreadId: computed(
+          () => this.inspectorOverride() !== null || baseHasExplicitThreadId(),
+        ),
       },
       this.agentStore,
-      (agent) => this.connectToAgent(agent),
+      (agent, selection) => this.connectToAgent(agent, selection),
+      this.threads,
     );
   }
 
-  private connectToAgent(agent: AbstractAgent) {
+  private readonly inspectorThreadOverride = new ɵInspectorThreadOverride({
+    agentId: this.resolvedAgentId(),
+    baseThreadId: this.config?.threadId() ?? this.resolvedThreadId(),
+  });
+  private readonly inspectorOverride = signal(
+    this.inspectorThreadOverride.getSnapshot(),
+  );
+
+  private bindInspectorThreadOverride(baseThreadId: () => string) {
+    const controller = this.inspectorThreadOverride;
+    const unsubscribe = controller.subscribe(() => {
+      this.inspectorOverride.set(controller.getSnapshot());
+    });
+    explicitEffect(
+      () => ({ agentId: this.resolvedAgentId(), baseThreadId: baseThreadId() }),
+      (input) => controller.update(input),
+    );
+    // A connect that fails through core's error channel ends the override.
+    const errors = this.copilotKit.core.subscribe({
+      onError: ({ code, context }) => {
+        const current = this.inspectorOverride();
+        if (!current) return;
+        if (code !== CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED) return;
+        if (context?.agentId !== this.resolvedAgentId()) return;
+        if (context?.threadId !== current.threadId) return;
+        controller.fail(current.requestId);
+      },
+    });
+    this.destroyRef.onDestroy(() => {
+      errors.unsubscribe();
+      unsubscribe();
+      controller.dispose();
+    });
+  }
+
+  private connectToAgent(agent: AbstractAgent, selection: ɵThreadSelection) {
     let disposed = false;
     let initialized: RunAgentInput | undefined;
     let replaced = false;
@@ -349,104 +436,40 @@ export class CopilotChat extends ChatState implements ChatRunControl {
     };
     this.activeConnection = handle;
     this.connecting.set(true);
-    void Promise.resolve()
-      .then(async () => {
-        if (!disposed && !this.destroyRef.destroyed) {
-          await this.copilotKit.core.connectAgent({ agent });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!disposed && !(error instanceof AGUIConnectNotImplementedError)) {
-          console.error("[CopilotKit] Failed to connect to agent:", error);
-        }
-      })
+    // Tracked, so a send waits for the thread to load instead of racing it.
+    void this.threads
+      .trackConnection(selection, () =>
+        Promise.resolve()
+          .then(async () => {
+            if (!disposed && !this.destroyRef.destroyed) {
+              await this.copilotKit.core.connectAgent({ agent });
+            }
+          })
+          .catch((error: unknown) => {
+            if (disposed) return;
+            // A failed connect ends the Inspector's "view thread" override.
+            const requestId = this.inspectorOverride()?.requestId;
+            if (requestId) this.inspectorThreadOverride.fail(requestId);
+            if (error instanceof AGUIConnectNotImplementedError) return;
+            // The coordinator logs the failure and blocks sends on it.
+            throw error;
+          }),
+      )
       .finally(cleanup);
     return handle;
   }
 
-  // Match React: wait for the current agent pipeline before sending another turn.
-  private async waitForActiveRunToSettle(agent: AbstractAgent): Promise<void> {
-    const candidate: unknown = agent;
-    const completion = isRunCompletionAware(candidate)
-      ? candidate.activeRunCompletionPromise
-      : undefined;
-    if (agent.isRunning && completion) {
-      try {
-        await completion;
-      } catch (error) {
-        console.error(
-          "[CopilotKit] In-flight run rejected while queuing send:",
-          error,
-        );
-      }
-    }
-  }
-
   async submitInput(value: string): Promise<void> {
-    if (
-      this.destroyRef.destroyed ||
-      !value.trim() ||
-      this.attachmentsUploading()
-    )
-      return;
-    const agent = this.agentStore().agent;
-    const threadId = agent.threadId;
-    this.inputValue.set("");
-    await this.waitForActiveRunToSettle(agent);
-    if (
-      this.destroyRef.destroyed ||
-      this.agentStore().agent !== agent ||
-      agent.threadId !== threadId
-    )
-      return;
-
-    // An upload can begin while this send is waiting, just as in React.
-    if (this.attachmentsUploading()) {
-      this.inputValue.set(value);
-      console.error("[CopilotKit] Cannot send while attachments are uploading");
-      return;
-    }
-
-    try {
-      const attachments = this.attachmentsDirective();
-      const ready = attachments?.consume() ?? [];
-      const message: Message =
-        ready.length > 0
-          ? {
-              id: randomUUID(),
-              role: "user",
-              content: attachments!.buildContent(value, ready),
-            }
-          : { id: randomUUID(), role: "user", content: value };
-      agent.addMessage(message);
-      await this.copilotKit.core.runAgent({ agent });
-    } catch (error) {
-      console.error("[CopilotKit] Agent run error:", error);
-    }
+    if (this.destroyRef.destroyed) return;
+    await this.submitter.submit(value);
   }
 
   async selectSuggestion(
     suggestion: Suggestion,
     _index: number,
   ): Promise<void> {
-    const message = suggestion.message.trim();
-    if (this.destroyRef.destroyed || !message || suggestion.isLoading) return;
-    const agent = this.agentStore().agent;
-    const threadId = agent.threadId;
-    await this.waitForActiveRunToSettle(agent);
-    if (
-      this.destroyRef.destroyed ||
-      this.agentStore().agent !== agent ||
-      agent.threadId !== threadId
-    )
-      return;
-
-    try {
-      agent.addMessage({ id: randomUUID(), role: "user", content: message });
-      await this.copilotKit.core.runAgent({ agent });
-    } catch (error) {
-      console.error("[CopilotKit] Agent run error:", error);
-    }
+    if (this.destroyRef.destroyed) return;
+    await this.submitter.selectSuggestion(suggestion);
   }
 
   changeInput(value: string): void {
@@ -458,58 +481,11 @@ export class CopilotChat extends ChatState implements ChatRunControl {
    * `copilotkit.core.stopAgent`, or `agent.abortRun()` when that throws.
    */
   stop(): void {
-    const agent = this.agentStore().agent;
-    try {
-      this.copilotKit.core.stopAgent({ agent });
-    } catch (error) {
-      console.error("[CopilotKit] stopAgent failed:", error);
-      try {
-        agent.abortRun();
-      } catch (abortError) {
-        console.error("[CopilotKit] abortRun fallback failed:", abortError);
-      }
-    }
+    this.submitter.stop();
   }
 
   override async finishTranscription(audioBlob: Blob): Promise<void> {
-    this.isTranscribing.set(true);
-    this.showTranscriptionError(null);
-    this.cdr.markForCheck();
-
-    try {
-      const result = await ɵtranscribeAudio(this.copilotKit.core, audioBlob);
-      const text = result.text?.trim();
-      if (text) {
-        const previous = this.inputValue().trim();
-        this.inputValue.set(previous ? `${previous} ${text}` : text);
-      }
-    } catch (error) {
-      console.error("[CopilotKit] Transcription failed:", error);
-      this.showTranscriptionError(this.transcriptionErrorText(error));
-    } finally {
-      this.isTranscribing.set(false);
-      this.cdr.markForCheck();
-    }
-  }
-
-  /** The text to show the user for a failed transcription. */
-  private transcriptionErrorText(error: unknown) {
-    if (!(error instanceof TranscriptionError)) {
-      return this.labels.transcriptionErrorGenericText;
-    }
-    const key = ɵtranscriptionErrorMessageKey(error.info);
-    return key ? this.labels[key] : error.info.message;
-  }
-
-  /** Show a transcription error for a few seconds, or clear it with `null`. */
-  private showTranscriptionError(message: string | null): void {
-    clearTimeout(this.transcriptionErrorTimer);
-    this.transcriptionError.set(message);
-    if (message === null) return;
-    this.transcriptionErrorTimer = setTimeout(() => {
-      this.transcriptionError.set(null);
-      this.cdr.markForCheck();
-    }, TRANSCRIPTION_ERROR_TIMEOUT_MS);
+    await this.submitter.transcribe(audioBlob);
   }
 
   private syncSuggestionsFromCore(agentId: string): void {

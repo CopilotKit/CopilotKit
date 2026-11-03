@@ -1,23 +1,6 @@
 import { useCopilotKit } from "../context";
-import {
-  CopilotKitCoreRuntimeConnectionStatus,
-  ɵcreateThreadStore,
-  ɵselectThreads,
-  ɵselectThreadsError,
-  ɵselectFetchMoreError,
-  ɵselectThreadsIsLoading,
-  ɵselectHasNextPage,
-  ɵselectIsFetchingNextPage,
-  ɵselectIsMutating,
-} from "@copilotkit/core";
-import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { ɵThreadsController, ɵcreateThreadStore } from "@copilotkit/core";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 /**
  * A conversation thread managed by CopilotKit Intelligence.
@@ -170,27 +153,6 @@ export interface UseThreadsResult {
   deleteThread: (threadId: string) => Promise<void>;
 }
 
-function useThreadStoreSelector<T>(
-  store: ɵThreadStore,
-  selector: (state: ReturnType<ɵThreadStore["getState"]>) => T,
-): T {
-  return useSyncExternalStore(
-    useCallback(
-      (onStoreChange) => {
-        const subscription = store.select(selector).subscribe(onStoreChange);
-        return () => subscription.unsubscribe();
-      },
-      [store, selector],
-    ),
-    () => selector(store.getState()),
-    // getServerSnapshot: without this third argument React throws
-    // "Missing getServerSnapshot" during SSR/prerender (e.g. Next.js). The
-    // store has no client data while prerendering, so we project from its
-    // stable server state.
-    () => selector(store.getServerState()),
-  );
-}
-
 /**
  * React hook for listing and managing CopilotKit Intelligence threads.
  *
@@ -240,241 +202,65 @@ export function useThreads({
 }: UseThreadsInput): UseThreadsResult {
   const { copilotkit } = useCopilotKit();
 
-  const [store] = useState(() =>
-    ɵcreateThreadStore({
-      fetch: copilotkit.ɵruntimeFetch,
-    }),
-  );
-
-  const coreThreads = useThreadStoreSelector(store, ɵselectThreads);
-  const threads: Thread[] = useMemo(
+  // Core's ɵThreadsController owns the view model: thread projection, the
+  // configuration errors, the gated and de-duplicated context dispatch, the
+  // registry claim and the mutation guard. This hook feeds it and renders it.
+  const [controller] = useState(
     () =>
-      coreThreads.map(
-        ({ id, agentId, name, archived, createdAt, updatedAt, lastRunAt }) => ({
-          id,
-          agentId,
-          name,
-          archived,
-          createdAt,
-          updatedAt,
-          ...(lastRunAt !== undefined ? { lastRunAt } : {}),
-        }),
+      new ɵThreadsController(
+        ɵcreateThreadStore({ fetch: copilotkit.ɵruntimeFetch }),
+        { core: copilotkit, agentId, includeArchived, limit, enabled },
       ),
-    [coreThreads],
   );
-  const storeIsLoading = useThreadStoreSelector(store, ɵselectThreadsIsLoading);
-  const storeError = useThreadStoreSelector(store, ɵselectThreadsError);
-  const fetchMoreError = useThreadStoreSelector(store, ɵselectFetchMoreError);
-  const hasMoreThreads = useThreadStoreSelector(store, ɵselectHasNextPage);
-  const isFetchingMoreThreads = useThreadStoreSelector(
-    store,
-    ɵselectIsFetchingNextPage,
+  const {
+    threads,
+    isLoading,
+    error,
+    listError,
+    fetchMoreError,
+    hasMoreThreads,
+    isFetchingMoreThreads,
+    isMutating,
+  } = useSyncExternalStore(
+    controller.subscribe,
+    controller.getSnapshot,
+    controller.getServerSnapshot,
   );
-  const isMutating = useThreadStoreSelector(store, ɵselectIsMutating);
-  const headersKey = copilotkit.ɵheadersGeneration;
-  const runtimeStatus = copilotkit.runtimeConnectionStatus;
-  const threadListEndpointSupported =
-    copilotkit.threadEndpoints?.list !== false;
-  const threadMutationsSupported =
-    copilotkit.threadEndpoints?.mutations !== false;
-  const threadEndpointsUnavailable =
-    !!copilotkit.runtimeUrl &&
-    runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Connected &&
-    !threadListEndpointSupported;
-  const runtimeError = useMemo(() => {
-    if (copilotkit.runtimeUrl) {
-      return null;
-    }
 
-    return new Error("Runtime URL is not configured");
-  }, [copilotkit.runtimeUrl]);
-  const threadEndpointsError = useMemo(() => {
-    if (!threadEndpointsUnavailable) {
-      return null;
-    }
-
-    return new Error(
-      "Thread endpoints are not available on this CopilotKit runtime",
-    );
-  }, [threadEndpointsUnavailable]);
-  const threadMutationsError = useMemo(() => {
-    if (threadMutationsSupported) {
-      return null;
-    }
-
-    return new Error(
-      "Thread mutations are not available on this CopilotKit runtime",
-    );
-  }, [threadMutationsSupported]);
-
-  // Tracks whether we've dispatched the first real context to the store.
-  // The store itself starts with `isLoading: false`, so before we dispatch
-  // consumers would otherwise see an empty, non-loading state (empty-list
-  // flash). While runtimeUrl is set and we haven't dispatched yet, we
-  // synthesize `isLoading: true` so the UI keeps its loading indicator until
-  // the first fetch is in flight (at which point the store's own
-  // isLoading takes over).
-  const [hasDispatchedContext, setHasDispatchedContext] = useState(false);
-  const preConnectLoading =
-    enabled &&
-    !!copilotkit.runtimeUrl &&
-    !threadEndpointsUnavailable &&
-    !hasDispatchedContext;
-
-  // `startNewThread` resets to a clean welcome surface, so it should clear any
-  // lingering error banner — including the config/runtime-setup errors that
-  // otherwise outrank the store's own (already-cleared) error. We cannot clear
-  // a derived `runtimeError`/`threadEndpointsError` directly (they reflect
-  // current config), so we suppress them with a dismissal flag that resets
-  // whenever the underlying config-error identity changes (a genuine new config
-  // problem re-surfaces).
-  const [configErrorDismissed, setConfigErrorDismissed] = useState(false);
-  useEffect(() => {
-    setConfigErrorDismissed(false);
-  }, [runtimeError, threadEndpointsError]);
-
-  const activeRuntimeError = configErrorDismissed ? null : runtimeError;
-  const activeThreadEndpointsError = configErrorDismissed
-    ? null
-    : threadEndpointsError;
-
-  const isLoading =
-    activeRuntimeError || activeThreadEndpointsError
-      ? false
-      : preConnectLoading || storeIsLoading;
-  const error = activeRuntimeError ?? activeThreadEndpointsError ?? storeError;
-  // End-user-facing list/mutation error only: developer/config errors are
-  // excluded so a surface like <CopilotThreadsDrawer> does not show "Runtime URL is
-  // not configured" to an end user.
-  const listError = storeError;
+  useEffect(() => controller.start(), [controller]);
 
   useEffect(() => {
-    store.start();
-    return () => {
-      store.stop();
-    };
-  }, [store]);
-
-  // Defer setting the context until the runtime reports Connected. Before
-  // `/info` resolves we don't know `intelligence.wsUrl`, so dispatching the
-  // context early would issue a list fetch with `wsUrl: undefined`, then a
-  // second list fetch (and a `/threads/subscribe`) once the flag lands.
-  // Waiting lets the hook issue just one `/threads?…` + one `/threads/subscribe`.
-  //
-  // When `runtimeUrl` is absent we dispatch `null` to clear the store. For
-  // transient states (Disconnected/Connecting/Error with a URL still set) we
-  // leave the previously-dispatched context in place — any in-flight
-  // realtime subscription or cached thread list stays usable while the
-  // runtime recovers, and we don't re-trigger a fetch storm on transitions.
-  useEffect(() => {
-    // A disabled (e.g. unlicensed) drawer must not claim the agentId slot. The
-    // registry is single-slot/last-writer-wins, so registering an inert store
-    // would evict — and on unmount tear down — a co-mounted live store for the
-    // same agent. Staying unregistered while disabled leaves the live store's
-    // registration intact.
-    if (!enabled) return;
-    copilotkit.registerThreadStore(agentId, store);
-    return () => {
-      copilotkit.unregisterThreadStore(agentId);
-    };
-  }, [copilotkit, agentId, store, enabled]);
-
-  useEffect(() => {
-    // Disabled: stay inert. Clear any previously-dispatched context so an
-    // in-flight subscription is torn down and no further fetch is issued.
-    if (!enabled) {
-      store.setContext(null);
-      setHasDispatchedContext(false);
-      return;
-    }
-
-    if (!copilotkit.runtimeUrl) {
-      store.setContext(null);
-      setHasDispatchedContext(false);
-      return;
-    }
-
-    // Wait for /info to land so we can include `wsUrl` in the initial
-    // context and avoid a redundant second list fetch.
-    if (runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
-      return;
-    }
-
-    if (!threadListEndpointSupported) {
-      store.setContext(null);
-      setHasDispatchedContext(false);
-      return;
-    }
-
-    const context: ɵThreadRuntimeContext = {
-      runtimeUrl: copilotkit.runtimeUrl,
-      wsUrl: copilotkit.intelligence?.wsUrl,
+    controller.update({
+      core: copilotkit,
       agentId,
       includeArchived,
       limit,
-    };
-
-    store.setContext(context);
-    setHasDispatchedContext(true);
+      enabled,
+    });
   }, [
-    store,
-    enabled,
-    copilotkit.runtimeUrl,
-    runtimeStatus,
-    headersKey,
-    copilotkit.intelligence?.wsUrl,
-    threadListEndpointSupported,
+    controller,
+    copilotkit,
     agentId,
     includeArchived,
     limit,
+    enabled,
+    copilotkit.runtimeUrl,
+    copilotkit.runtimeConnectionStatus,
+    copilotkit.ɵheadersGeneration,
+    copilotkit.intelligence?.wsUrl,
+    copilotkit.threadEndpoints?.list,
+    copilotkit.threadEndpoints?.mutations,
   ]);
 
-  const guardMutation = useCallback(
-    <TArgs extends unknown[]>(
-      mutation: (...args: TArgs) => Promise<void>,
-    ): ((...args: TArgs) => Promise<void>) => {
-      return (...args: TArgs) => {
-        if (threadMutationsError) {
-          return Promise.reject(threadMutationsError);
-        }
-        return mutation(...args);
-      };
-    },
-    [threadMutationsError],
-  );
-
-  const renameThread = useMemo(
-    () =>
-      guardMutation((threadId: string, name: string) =>
-        store.renameThread(threadId, name),
-      ),
-    [store, guardMutation],
-  );
-
-  const archiveThread = useMemo(
-    () => guardMutation((threadId: string) => store.archiveThread(threadId)),
-    [store, guardMutation],
-  );
-
-  const unarchiveThread = useMemo(
-    () => guardMutation((threadId: string) => store.unarchiveThread(threadId)),
-    [store, guardMutation],
-  );
-
-  const deleteThread = useMemo(
-    () => guardMutation((threadId: string) => store.deleteThread(threadId)),
-    [store, guardMutation],
-  );
-
-  const fetchMoreThreads = useCallback(() => store.fetchNextPage(), [store]);
-  const refetchThreads = useCallback(() => store.refetchThreads(), [store]);
-  const startNewThread = useCallback(() => {
-    // The store's `newThreadStarted` reducer clears its own error; also dismiss
-    // the derived config/runtime-setup errors so the welcome surface renders
-    // with no stale error banner.
-    setConfigErrorDismissed(true);
-    store.startNewThread();
-  }, [store]);
+  const {
+    fetchMoreThreads,
+    refetchThreads,
+    startNewThread,
+    renameThread,
+    archiveThread,
+    unarchiveThread,
+    deleteThread,
+  } = controller;
 
   return {
     threads,

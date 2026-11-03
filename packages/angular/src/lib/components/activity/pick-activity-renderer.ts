@@ -1,5 +1,4 @@
-import { ɵresolveActivityRenderer } from "@copilotkit/core";
-import { ɵanySchema } from "@copilotkit/shared";
+import { ɵfindActivityRenderer } from "@copilotkit/core";
 import type { RenderActivityMessageConfig } from "../../activity-renderer";
 
 export interface PickActivityRendererOptions {
@@ -25,19 +24,7 @@ export interface PickActivityRendererOptions {
  */
 export function pickActivityRenderer(options: PickActivityRendererOptions) {
   const { activityType, agentId, renderers } = options;
-  // Core validates with a Standard Schema. A pass-through schema keeps core to
-  // the lookup and leaves validation with the caller.
-  const candidates = renderers.map((config) => ({
-    activityType: config.activityType,
-    agentId: config.agentId,
-    content: ɵanySchema,
-    render: config,
-  }));
-  const match = ɵresolveActivityRenderer(candidates, {
-    activityType,
-    agentId,
-    content: undefined,
-  });
-
-  return match?.renderer.render;
+  return (
+    ɵfindActivityRenderer(renderers, { activityType, agentId }) ?? undefined
+  );
 }

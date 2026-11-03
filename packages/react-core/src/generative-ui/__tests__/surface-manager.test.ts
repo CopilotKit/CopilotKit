@@ -45,11 +45,11 @@ const ui = createGenerativeUI({
 });
 
 const create: A2UIOperation = {
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId: "recs", catalogId: "shop" },
 };
 const update = (...components: A2UIComponentNode[]): A2UIOperation => ({
-  version: "v1.0",
+  version: "1.0",
   updateComponents: { surfaceId: "recs", components },
 });
 const grid = (children: string[]) =>
@@ -65,11 +65,11 @@ const card = (id: string, extra: Record<string, unknown> = {}) =>
 const badge = (extra: Record<string, unknown> = {}) =>
   update({ id: "badge", component: "CartBadge", label: "Cart", ...extra });
 const data = (path: string, value: unknown): A2UIOperation => ({
-  version: "v1.0",
+  version: "1.0",
   updateDataModel: { surfaceId: "recs", path, value },
 });
 const remove: A2UIOperation = {
-  version: "v1.0",
+  version: "1.0",
   deleteSurface: { surfaceId: "recs" },
 };
 const inlineCreate = (
@@ -77,7 +77,7 @@ const inlineCreate = (
     Extract<A2UIOperation, { createSurface: unknown }>["createSurface"]
   >,
 ): A2UIOperation => ({
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId: "recs", catalogId: "shop", ...extra },
 });
 const content = (
@@ -131,7 +131,7 @@ describe("GenerativeUISurfaceManager", () => {
       content(
         [
           {
-            version: "v1.0",
+            version: "1.0",
             createSurface: { surfaceId: "other", catalogId: "made/up@1" },
           },
         ],
@@ -141,7 +141,7 @@ describe("GenerativeUISurfaceManager", () => {
 
     expect(manager.getSurface("t1", "recs")).toBeDefined();
     expect(onOperationRejected).toHaveBeenCalledTimes(1);
-    expect(onOperationRejected.mock.calls[0][0]).toMatchObject({
+    expect(onOperationRejected.mock.calls[0]![0]).toMatchObject({
       reason: expect.stringContaining('unknown catalog "made/up@1"'),
     });
   });
@@ -207,7 +207,7 @@ describe("GenerativeUISurfaceManager", () => {
     expect(surface.model.componentsModel.get("c1")?.properties).toMatchObject({
       price: 10,
     });
-    expect(surface.clientRejected[0].reason).toMatch(/price/);
+    expect(surface.clientRejected[0]!.reason).toMatch(/price/);
   });
 
   describe("client rejections cover only the latest render_ui call", () => {
@@ -275,7 +275,7 @@ describe("GenerativeUISurfaceManager", () => {
     expect(surface.clientRejected).toEqual([]);
   });
 
-  describe("v1.0 operations", () => {
+  describe("1.0 operations", () => {
     it("applies the data model and the components of an inline createSurface", () => {
       const { surface } = managerWith([
         inlineCreate({
@@ -357,7 +357,7 @@ describe("GenerativeUISurfaceManager", () => {
 
     it("ignores a callRendererFunction in the surface content", () => {
       const call: A2UIOperation = {
-        version: "v1.0",
+        version: "1.0",
         callRendererFunction: {
           functionCallId: "f1",
           callFunction: { "@call": "addToCart", args: { productId: "p1" } },
@@ -533,7 +533,7 @@ describe("GenerativeUISurfaceManager", () => {
   it("re-ingesting content that ends in a root write is a no-op and does not mutate the content", () => {
     const manager = new GenerativeUISurfaceManager(ui);
     const rootWrite: A2UIOperation = {
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: { surfaceId: "recs", value: { items: [] } },
     };
     const c = content([create, grid([]), rootWrite]);
@@ -570,7 +570,7 @@ describe("GenerativeUISurfaceManager", () => {
       content(
         [
           {
-            version: "v1.0",
+            version: "1.0",
             createSurface: { surfaceId: "recs2", catalogId: "shop" },
           },
         ],
@@ -616,7 +616,7 @@ describe("GenerativeUISurfaceManager", () => {
         reason: "x".repeat(600),
       }));
       manager.ingest("t1", "default", content([create], { rejected }));
-      const lines = manager.describeSurfaces("t1").recs.rejected ?? [];
+      const lines = manager.describeSurfaces("t1").recs!.rejected ?? [];
       expect(lines).toHaveLength(20);
       expect(lines[19]).toBe(`operation 19: ${"x".repeat(486)}`);
     });
@@ -860,7 +860,7 @@ describe("GenerativeUISurfaceManager", () => {
       });
 
       append(manager, next, {
-        version: "v1.0",
+        version: "1.0",
         updateDataModel: { surfaceId: "recs", value: { title: "New" } },
       });
       expect(surface.model.dataModel.get("/")).toEqual({

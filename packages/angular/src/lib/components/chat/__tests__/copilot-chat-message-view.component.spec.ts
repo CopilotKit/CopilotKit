@@ -170,6 +170,21 @@ describe("CopilotChatMessageView", () => {
     expect(rows[0]!.textContent).toContain("Assistant reply");
   });
 
+  it("passes assistantMessageClass to the assistant message container", () => {
+    const fixture = TestBed.createComponent(CopilotChatMessageView);
+    fixture.componentRef.setInput("messages", [userMessage, assistantMessage]);
+    fixture.componentRef.setInput(
+      "assistantMessageClass",
+      "custom-assistant-class",
+    );
+    fixture.detectChanges();
+
+    const assistant = (
+      fixture.nativeElement as HTMLElement
+    ).querySelector<HTMLElement>('[data-testid="copilot-assistant-message"]');
+    expect(assistant?.classList.contains("custom-assistant-class")).toBe(true);
+  });
+
   it("renders activity messages through the activity component", () => {
     const activity: ActivityMessage = {
       id: "activity-1",

@@ -1,6 +1,7 @@
 import { Component, computed } from "@angular/core";
 import { DateTimeInputApi } from "@a2ui/web_core/v0_9/basic_catalog";
 import { CopilotA2UIBasicComponent } from "./basic-component";
+import { getDateTimeInputType } from "@copilotkit/a2ui-renderer/engine";
 import { uniqueId } from "./shared";
 
 @Component({
@@ -45,12 +46,7 @@ export class CopilotA2UIDateTimeInput extends CopilotA2UIBasicComponent<
   typeof DateTimeInputApi
 > {
   protected readonly inputId = uniqueId("datetime");
-  protected readonly type = computed(() => {
-    const { enableDate, enableTime } = this.props();
-    if (enableDate && !enableTime) return "date";
-    if (!enableDate && enableTime) return "time";
-    return "datetime-local";
-  });
+  protected readonly type = computed(() => getDateTimeInputType(this.props()));
 
   protected bound(value: unknown): string {
     return typeof value === "string" ? value : "";

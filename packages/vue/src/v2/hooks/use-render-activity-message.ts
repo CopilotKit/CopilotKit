@@ -1,7 +1,11 @@
 import { computed } from "vue";
 import type { Component } from "vue";
 import type { ActivityMessage } from "@ag-ui/core";
-import { ɵresolveActivityRenderer } from "@copilotkit/core";
+import {
+  ɵdescribeActivityRendererFailure,
+  ɵfindActivityRenderer,
+  ɵmatchActivityRenderer,
+} from "@copilotkit/core";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../providers/useCopilotChatConfiguration";
@@ -22,21 +26,14 @@ export function useRenderActivityMessage() {
   const agentId = computed(() => config.value?.agentId ?? DEFAULT_AGENT_ID);
 
   function findRenderer(activityType: string) {
-    const renderers = copilotkit.value.renderActivityMessages;
-    const matches = renderers.filter(
-      (renderer) => renderer.activityType === activityType,
-    );
-
-    return (
-      matches.find((candidate) => candidate.agentId === agentId.value) ??
-      matches.find((candidate) => candidate.agentId === undefined) ??
-      renderers.find((candidate) => candidate.activityType === "*") ??
-      null
-    );
+    return ɵfindActivityRenderer(copilotkit.value.renderActivityMessages, {
+      activityType,
+      agentId: agentId.value,
+    });
   }
 
   function renderActivityMessage(message: ActivityMessage) {
-    const match = ɵresolveActivityRenderer(
+    const match = ɵmatchActivityRenderer(
       copilotkit.value.renderActivityMessages,
       {
         activityType: message.activityType,
@@ -45,13 +42,13 @@ export function useRenderActivityMessage() {
       },
     );
 
-    if (!match) {
-      if (findRenderer(message.activityType)) {
-        console.warn(
-          `Failed to validate content for activity message ` +
-            `'${message.activityType}'.`,
-        );
-      }
+    if (!match.ok) {
+      // Explain why a message that has a renderer drew nothing.
+      const warning = ɵdescribeActivityRendererFailure(
+        message.activityType,
+        match,
+      );
+      if (warning) console.warn(warning.message, ...warning.details);
       return null;
     }
 

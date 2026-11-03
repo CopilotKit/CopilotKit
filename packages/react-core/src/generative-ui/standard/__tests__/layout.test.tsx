@@ -48,13 +48,13 @@ describe("layoutComponents", () => {
       "Tabs",
     ]);
     for (const name of names) {
-      expect(ui.manifestComponents[name].description).toMatch(/\S/);
+      expect(ui.manifestComponents[name]!.description).toMatch(/\S/);
     }
-    expect(ui.manifestComponents.Column.slots).toEqual({
+    expect(ui.manifestComponents.Column!.slots).toEqual({
       children: "multiple",
     });
-    expect(ui.manifestComponents.Divider.slots).toBeUndefined();
-    expect(ui.manifestComponents.Column.props).toMatchObject({
+    expect(ui.manifestComponents.Divider!.slots).toBeUndefined();
+    expect(ui.manifestComponents.Column!.props).toMatchObject({
       properties: expect.not.objectContaining({ children: expect.anything() }),
     });
   });
@@ -370,7 +370,7 @@ describe("standard layout", () => {
     );
     await view.findByText("Alpha");
     view.update({
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: {
         surfaceId: SURFACE_ID,
         path: "/items/1",

@@ -888,6 +888,10 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       });
 
       await agent.emit(runFinishedEvent());
+      // The tool call starts a follow-up run. A send waits for the run in
+      // flight (#5195), so finish the follow-up before the next message.
+      await agent.emit(runStartedEvent());
+      await agent.emit(runFinishedEvent());
 
       const overrideButton = screen.getByTestId("activate-override");
       fireEvent.click(overrideButton);

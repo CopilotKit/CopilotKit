@@ -57,15 +57,15 @@ const ui = createGenerativeUI({
 });
 
 const create = (surfaceId: string) => ({
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId, catalogId: "app" },
 });
 const components = (surfaceId: string, ...nodes: object[]) => ({
-  version: "v1.0",
+  version: "1.0",
   updateComponents: { surfaceId, components: nodes },
 });
 const data = (surfaceId: string, value: object) => ({
-  version: "v1.0",
+  version: "1.0",
   updateDataModel: { surfaceId, path: "/", value },
 });
 const button = (id: string, label: string) => ({
@@ -79,11 +79,11 @@ const inlineCreate = (
   dataModel: object,
   ...nodes: object[]
 ) => ({
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId, dataModel, components: nodes },
 });
 const callFunction = (functionCallId: string, sku: string) => ({
-  version: "v1.0",
+  version: "1.0",
   callRendererFunction: {
     functionCallId,
     callFunction: { "@call": "addToCart", args: { sku } },
@@ -381,7 +381,7 @@ describe("buildMarkdownSurfaces", () => {
     const { surfaces, fences } = build([message]);
 
     expect(surfaces).toHaveLength(1);
-    expect(surfaces[0].operations).toEqual([
+    expect(surfaces[0]!.operations).toEqual([
       create("s1"),
       components("s1", button("root", "Buy")),
       components("s1", button("root", "Buy now")),
@@ -402,7 +402,7 @@ describe("buildMarkdownSurfaces", () => {
     const { surfaces, fences } = build([first, later]);
 
     expect(surfaces.map((s) => s.surfaceId)).toEqual(["s1", "s1@m2"]);
-    expect(surfaces[1].operations).toEqual([
+    expect(surfaces[1]!.operations).toEqual([
       create("s1@m2"),
       components("s1@m2", button("root", "Buy now")),
     ]);
@@ -429,8 +429,8 @@ describe("buildMarkdownSurfaces", () => {
     const { surfaces } = build([first, later]);
 
     expect(surfaces.map((s) => s.surfaceId)).toEqual(["panel"]);
-    expect(surfaces[0].target).toBe("side");
-    expect(surfaces[0].operations).toHaveLength(3);
+    expect(surfaces[0]!.target).toBe("side");
+    expect(surfaces[0]!.operations).toHaveLength(3);
   });
 
   it("shows the new UI when a later reply sends a full createSurface for a page target", () => {
@@ -466,12 +466,12 @@ describe("buildMarkdownSurfaces", () => {
       const message = assistant(
         "m1",
         fence([
-          { version: "v1.0", createSurface },
+          { version: "1.0", createSurface },
           components("s1", button("root", "Buy")),
         ]),
       );
 
-      const [surface] = build([message]).surfaces;
+      const surface = build([message]).surfaces[0]!;
 
       expect(surface.rejected).toEqual([]);
       expect(surface.operations[0]).toEqual(create("s1"));
@@ -488,18 +488,18 @@ describe("buildMarkdownSurfaces", () => {
       "m1",
       fence([
         {
-          version: "v1.0",
+          version: "1.0",
           createSurface: { surfaceId: "s1", catalogId: "app" },
         },
         components("s1", button("root", "Buy")),
       ]),
     );
 
-    const [surface] = buildMarkdownSurfaces([message], {
+    const surface = buildMarkdownSurfaces([message], {
       ui: shop,
       functions: {},
       running: false,
-    }).surfaces;
+    }).surfaces[0]!;
 
     expect(surface.rejected).toEqual([]);
     expect(surface.catalogId).toBe("app");
@@ -516,7 +516,7 @@ describe("buildMarkdownSurfaces", () => {
       ]),
     );
 
-    const [surface] = build([message]).surfaces;
+    const surface = build([message]).surfaces[0]!;
 
     expect(surface.operations).toEqual([
       create("s1"),
@@ -531,10 +531,10 @@ describe("buildMarkdownSurfaces", () => {
     const complete = fence([create("s1")], { close: false });
     // The first component is complete, but the operation is not.
     const halfLine =
-      '{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Button","label":"Buy"},{"id":"mo';
+      '{"version":"1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Button","label":"Buy"},{"id":"mo';
     const message = assistant("m1", `${complete}${halfLine}`);
 
-    const [surface] = build([message], true).surfaces;
+    const surface = build([message], true).surfaces[0]!;
 
     expect(surface.status).toBe("streaming");
     expect(surface.operations).toEqual([
@@ -552,7 +552,7 @@ describe("buildMarkdownSurfaces", () => {
       ]),
     );
 
-    const [surface] = build([message]).surfaces;
+    const surface = build([message]).surfaces[0]!;
 
     expect(surface.operations).toEqual([
       create("s1"),
@@ -584,7 +584,7 @@ describe("buildMarkdownSurfaces", () => {
     }
 
     for (let i = 1; i < steps.length; i++) {
-      expect(steps[i].slice(0, steps[i - 1].length)).toEqual(steps[i - 1]);
+      expect(steps[i]!.slice(0, steps[i - 1]!.length)).toEqual(steps[i - 1]);
     }
     expect(steps.at(-1)).toHaveLength(5);
   });
@@ -668,7 +668,7 @@ describe("buildMarkdownSurfaces", () => {
     }
 
     for (let i = 1; i < steps.length; i++) {
-      expect(steps[i].slice(0, steps[i - 1].length)).toEqual(steps[i - 1]);
+      expect(steps[i]!.slice(0, steps[i - 1]!.length)).toEqual(steps[i - 1]);
     }
     expect(steps.at(-1)?.map((op) => JSON.parse(op))).toEqual([
       create("s1"),

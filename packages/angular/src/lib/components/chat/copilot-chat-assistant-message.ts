@@ -38,7 +38,15 @@ import {
   CopilotChatAssistantMessageThumbsDownButton,
 } from "./copilot-chat-assistant-message-buttons";
 import { CopilotChatAssistantMessageToolbar } from "./copilot-chat-assistant-message-toolbar";
-import { CopilotChatInspectorButton } from "./copilot-chat-inspector-button";
+import {
+  CopilotChatInspectorButton,
+  inspectorShortcutsHidden,
+} from "./copilot-chat-inspector-button";
+import { CopilotInspector } from "../../inspector";
+import {
+  ɵhasAssistantMessageText,
+  ɵshouldShowAssistantToolbar,
+} from "@copilotkit/core";
 import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
 import { cn } from "../../utils";
 import { hostStyles } from "../host-styles";
@@ -102,8 +110,8 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
         </copilot-chat-tool-calls-view>
       }
 
-      <!-- Toolbar: show only when there is assistant text content -->
-      @if (toolbarVisible() && hasMessageContent()) {
+      <!-- Toolbar: hidden while this message streams; needs text or the Inspector shortcut -->
+      @if (shouldShowToolbar()) {
         @if (toolbarTemplate || toolbarComponent()) {
           <copilot-slot
             [slot]="toolbarTemplate || toolbarComponent()"
@@ -288,6 +296,7 @@ export class CopilotChatAssistantMessage {
     return cn(
       "copilotKitMessage copilotKitAssistantMessage",
       this.customClass(),
+      this.inputClass(),
     );
   });
 
@@ -323,9 +332,23 @@ export class CopilotChatAssistantMessage {
   }));
 
   // Return true if assistant message has non-empty text content
-  hasMessageContent(): boolean {
-    return (this.message()?.content ?? "").trim().length > 0;
+  hasMessageContent() {
+    return ɵhasAssistantMessageText(this.message()?.content);
   }
+
+  readonly #inspector = inject(CopilotInspector);
+
+  /** Core's toolbar rule: also hides it while the latest message streams. */
+  readonly shouldShowToolbar = computed(() =>
+    ɵshouldShowAssistantToolbar({
+      toolbarVisible: this.toolbarVisible(),
+      hasContent: this.hasMessageContent(),
+      showInspectorShortcut:
+        this.#inspector.isInspectorEnabled && !inspectorShortcutsHidden(),
+      isRunning: this.isLoading(),
+      isLatest: this.messages().at(-1)?.id === this.message().id,
+    }),
+  );
 
   toolCallsViewContext = computed(() => ({
     message: this.message(),

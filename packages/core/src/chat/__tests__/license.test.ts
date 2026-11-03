@@ -1,10 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   LicenseContextValue,
   RuntimeEntitlementResponse,
   RuntimeLicenseStatus,
 } from "@copilotkit/shared";
-import { ɵresolveLicenseState, ɵresolveThreadsLicense } from "../license";
+import {
+  ɵgetInlineFeatureWarningSpec,
+  ɵgetLicenseBannerSpec,
+  ɵreserveLicenseBannerOffset,
+  ɵresolveLicenseState,
+  ɵresolveThreadsLicense,
+} from "../license";
+import { CopilotChatDefaultLabels } from "../labels";
 
 function failedEntitlements(retryable: boolean): RuntimeEntitlementResponse {
   return {
@@ -265,5 +272,136 @@ describe("ɵresolveThreadsLicense", () => {
       licensed: false,
       licensePending: false,
     });
+  });
+});
+
+describe("ɵgetLicenseBannerSpec", () => {
+  const labels = CopilotChatDefaultLabels;
+
+  it("asks for a license with an info banner when none is set", () => {
+    expect(ɵgetLicenseBannerSpec("no_license", labels)).toEqual({
+      severity: "info",
+      message: "Powered by CopilotKit",
+      actionLabel: "Get a license",
+      actionUrl: "https://copilotkit.ai/pricing",
+    });
+  });
+
+  it("names the unlicensed feature", () => {
+    expect(
+      ɵgetLicenseBannerSpec("feature_unlicensed", labels, {
+        featureName: "Chat",
+      }),
+    ).toEqual({
+      severity: "warning",
+      message: '⚠ The "Chat" feature requires a CopilotKit license.',
+      actionLabel: "Get a license",
+      actionUrl: "https://copilotkit.ai/pricing",
+    });
+  });
+
+  it("links an expiring license to the dashboard with the days left", () => {
+    expect(
+      ɵgetLicenseBannerSpec("expiring", labels, { graceRemaining: 3 }),
+    ).toEqual({
+      severity: "warning",
+      message: "Your CopilotKit license expires in 3 days. Please renew.",
+      actionLabel: "Renew",
+      actionUrl: "https://dashboard.operations.copilotkit.ai",
+    });
+  });
+
+  it("says one day in the singular", () => {
+    expect(
+      ɵgetLicenseBannerSpec("expiring", labels, { graceRemaining: 1 }).message,
+    ).toBe("Your CopilotKit license expires in 1 day. Please renew.");
+  });
+
+  it("says soon without a day count", () => {
+    expect(ɵgetLicenseBannerSpec("expiring", labels).message).toBe(
+      "Your CopilotKit license expires soon. Please renew.",
+    );
+  });
+
+  it("shows the expiry date of an expired license when known", () => {
+    expect(
+      ɵgetLicenseBannerSpec("expired", labels, { expiryDate: "2026-01-31" }),
+    ).toEqual({
+      severity: "critical",
+      message:
+        "Your CopilotKit license expired on 2026-01-31. Please renew at copilotkit.ai/pricing",
+      actionLabel: "Renew now",
+      actionUrl: "https://copilotkit.ai/pricing",
+    });
+    expect(ɵgetLicenseBannerSpec("expired", labels).message).toBe(
+      "Your CopilotKit license expired. Please renew at copilotkit.ai/pricing",
+    );
+  });
+
+  it("flags an invalid token as critical", () => {
+    expect(ɵgetLicenseBannerSpec("invalid", labels)).toEqual({
+      severity: "critical",
+      message:
+        "Invalid CopilotKit license token. Please check your configuration.",
+      actionLabel: "Get a license",
+      actionUrl: "https://copilotkit.ai/pricing",
+    });
+  });
+
+  it("uses the labels it is given", () => {
+    const custom = {
+      ...labels,
+      licenseInvalidText: "Token ungültig",
+      licenseGetLicenseLabel: "Lizenz holen",
+    };
+
+    expect(ɵgetLicenseBannerSpec("invalid", custom)).toMatchObject({
+      message: "Token ungültig",
+      actionLabel: "Lizenz holen",
+    });
+  });
+});
+
+describe("ɵgetInlineFeatureWarningSpec", () => {
+  it("uses the feature-unlicensed label and the pricing link", () => {
+    const custom = {
+      ...CopilotChatDefaultLabels,
+      licenseFeatureUnlicensedText: "{feature} braucht eine Lizenz.",
+    };
+
+    expect(ɵgetInlineFeatureWarningSpec("Sidebar", custom)).toEqual({
+      message: "Sidebar braucht eine Lizenz.",
+      actionLabel: "Get one at copilotkit.ai/pricing",
+      actionUrl: "https://copilotkit.ai/pricing",
+    });
+  });
+});
+
+describe("ɵreserveLicenseBannerOffset", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("sets the offset variable on the root element and removes it again", () => {
+    const properties = new Map<string, string>();
+    vi.stubGlobal("document", {
+      documentElement: {
+        style: {
+          setProperty: (name: string, value: string) =>
+            properties.set(name, value),
+          removeProperty: (name: string) => properties.delete(name),
+        },
+      },
+    });
+
+    const release = ɵreserveLicenseBannerOffset();
+    expect(Object.fromEntries(properties)).toEqual({
+      "--copilotkit-license-banner-offset": "52px",
+    });
+    release();
+
+    expect(properties.size).toBe(0);
+  });
+
+  it("does nothing without a document", () => {
+    expect(() => ɵreserveLicenseBannerOffset()()).not.toThrow();
   });
 });

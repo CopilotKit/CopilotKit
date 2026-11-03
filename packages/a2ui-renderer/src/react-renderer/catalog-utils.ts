@@ -3,11 +3,11 @@ import type { ComponentApi, Catalog } from "@a2ui/web_core/v0_9";
 import {
   buildCatalogContextValue as buildContextValue,
   extractCatalogComponentSchemas as extractComponentSchemas,
-} from "../catalog-schema";
-import type { InlineCatalogSchema } from "../catalog-schema";
+} from "../catalog-description";
+import type { InlineCatalogSchema } from "../catalog-description";
 
-export { A2UI_SCHEMA_CONTEXT_DESCRIPTION } from "../catalog-schema";
-export type { InlineCatalogSchema } from "../catalog-schema";
+export { A2UI_SCHEMA_CONTEXT_DESCRIPTION } from "../catalog-description";
+export type { InlineCatalogSchema } from "../catalog-description";
 
 /**
  * Check whether a catalog is a superset of the basic catalog

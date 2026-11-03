@@ -97,11 +97,12 @@ class CopilotKitStub {
     registerThreadStore: this.registerThreadStore,
     unregisterThreadStore: this.unregisterThreadStore,
     ɵruntimeFetch: this.runtimeFetch,
-    get intelligence() {
-      return stub.intelligence();
-    },
-    get threadEndpoints() {
-      return stub.threadEndpoints();
+    get ɵruntimeInfo() {
+      return {
+        status: stub.runtimeConnectionStatus(),
+        threadEndpoints: stub.threadEndpoints(),
+        intelligence: stub.intelligence(),
+      };
     },
   };
 

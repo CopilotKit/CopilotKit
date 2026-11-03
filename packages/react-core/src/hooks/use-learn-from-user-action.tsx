@@ -1,6 +1,9 @@
 import { useCallback } from "react";
 import { useCopilotKit } from "../context";
-import { recordAnnotation } from "../lib/record-annotation";
+import {
+  ɵbuildLearnFromUserActionPayload,
+  ɵrecordAnnotation,
+} from "@copilotkit/core";
 
 /**
  * Input to {@link UseLearnFromUserActionRecorder}, the function returned
@@ -20,7 +23,7 @@ export interface LearnFromUserActionInput {
   /** ISO-8601 client-asserted timestamp. Defaults to server NOW() when absent. */
   occurredAt?: string;
   /**
-   * Caller-supplied idempotency key. When omitted, `recordAnnotation` generates a
+   * Caller-supplied idempotency key. When omitted, `ɵrecordAnnotation` generates a
    * fresh UUID per call so retries collapse to the original row at the
    * platform. Supply your own to keep a single semantic event idempotent
    * across calls (e.g. a React re-render or a manual retry button).
@@ -90,22 +93,14 @@ export function useLearnFromUserAction(): UseLearnFromUserActionRecorder {
         );
       }
 
-      const payload: Record<string, unknown> = {
-        ...(input.title !== undefined ? { title: input.title } : {}),
-        ...(input.description !== undefined
-          ? { description: input.description }
-          : {}),
-        ...(input.data !== undefined ? { data: input.data } : {}),
-      };
-
-      return recordAnnotation({
+      return ɵrecordAnnotation({
         fetch: copilotkit.ɵruntimeFetch,
         runtimeUrl,
         // ɵruntimeFetch already resolves and overlays the current core
         // headers at send time (#1937); no snapshot to pass here.
         headers: {},
         type: "user_action",
-        payload: Object.keys(payload).length > 0 ? payload : undefined,
+        payload: ɵbuildLearnFromUserActionPayload(input),
         threadId: input.threadId,
         clientEventId: input.clientEventId,
         occurredAt: input.occurredAt,

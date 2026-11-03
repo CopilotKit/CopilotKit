@@ -79,7 +79,10 @@ describe("CopilotKitProvider sandbox functions", () => {
       },
     });
     const sandboxContext = findSandboxContext(observedCore.value!.context);
-    expect(sandboxContext).toBeDefined();
+    // The same model-visible call form React and Angular send.
+    expect(sandboxContext?.description).toBe(
+      "Sandbox functions available in generated sandboxed UI code. Call via: await Websandbox.connection.remote.<functionName>(args)",
+    );
   });
 
   it("does not register agent context when sandbox functions are empty", () => {

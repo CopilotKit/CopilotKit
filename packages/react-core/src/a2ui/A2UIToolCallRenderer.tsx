@@ -1,12 +1,8 @@
 import { useEffect } from "react";
+import { ɵRENDER_A2UI_TOOL_NAME as RENDER_A2UI_TOOL_NAME } from "@copilotkit/core";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { defineToolCallRenderer } from "../types/defineToolCallRenderer";
 import * as z from "zod";
-
-/**
- * Tool name used by the dynamic A2UI generation secondary LLM.
- */
-export const RENDER_A2UI_TOOL_NAME = "render_a2ui";
 
 /**
  * Registers a no-op renderer for the `render_a2ui` tool call so its raw streamed

@@ -9,15 +9,15 @@
  * frontend — so the graph ends after the model turn (no tool_node).
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
+import type { BaseMessage } from "@langchain/langgraph";
 import {
   Annotation,
   MemorySaver,
   START,
   StateGraph,
   messagesStateReducer,
-  BaseMessage,
 } from "@langchain/langgraph";
 import {
   convertActionsToDynamicStructuredTools,
