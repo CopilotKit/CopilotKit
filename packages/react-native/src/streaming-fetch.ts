@@ -280,9 +280,11 @@ export function installStreamingFetch(): void {
         const rawHeaders = xhr.getAllResponseHeaders() || "";
 
         setTimeout(() => {
-          // Safety net: if XHR completed but we never resolved/rejected, fail explicitly.
-          // This can happen when status === 0 and onerror doesn't fire (some RN networking impls).
-          if (readyState === 4 && !settled && !resp) {
+          // Safety net: if XHR completed with no status but we never resolved/rejected,
+          // fail explicitly. A non-zero status is a real response even when Android
+          // only reports the final readyState 4 (skipping 2/3) — let the branch
+          // below build it instead of rejecting a valid body.
+          if (readyState === 4 && !settled && !resp && xhrStatus === 0) {
             fail(
               new TypeError(
                 `Network request to ${url} completed with status ${xhrStatus} but no response was produced. ` +
@@ -303,7 +305,16 @@ export function installStreamingFetch(): void {
               }
             }
 
-            const responseHeaders = new Headers(respHeaders);
+            let responseHeaders: Headers;
+            try {
+              responseHeaders = new Headers(respHeaders);
+            } catch (error) {
+              // A lenient platform may report a header name or value the
+              // Headers constructor rejects. Fail the fetch instead of
+              // leaving it pending on an exception in a timer.
+              fail(error instanceof Error ? error : new Error(String(error)));
+              return;
+            }
 
             let bodyUsed = false;
 
