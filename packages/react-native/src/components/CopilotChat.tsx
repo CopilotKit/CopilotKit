@@ -436,11 +436,11 @@ export function CopilotChat({
   );
 
   // Send from the input field
-  const handleSend = useCallback(async () => {
+  const handleSend = useCallback(() => {
     const text = inputText.trim();
     if (!text) return;
     setInputText("");
-    await sendMessage(text);
+    void sendMessage(text);
   }, [inputText, sendMessage]);
 
   // Handle suggestion pill press
