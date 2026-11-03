@@ -1,3 +1,4 @@
+import path from "node:path";
 import { createMDX } from "fumadocs-mdx/next";
 import { nextConfigRedirects } from "./src/lib/redirects/next-config-redirects.mjs";
 
@@ -6,6 +7,13 @@ const withMDX = createMDX();
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
+
+  // The standard catalog imports its samples from ../shared. The Docker build
+  // (Dockerfile) has no monorepo lockfile for Turbopack to infer a root from,
+  // so name the showcase folder as the root, as shell-docs does.
+  turbopack: {
+    root: path.join(import.meta.dirname, ".."),
+  },
 
   // --- Legacy URL redirects (ported from showcase/shell-docs) -------------
   // The table lives in src/lib/redirects/next-config-redirects.mjs; the
