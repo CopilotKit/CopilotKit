@@ -9,8 +9,7 @@
  */
 
 import type { Attachment } from "@copilotkit/shared";
-
-const MOBILE_MEDIA_QUERY = "(max-width: 767px)";
+import { ɵMOBILE_MAX_WIDTH_QUERY } from "./viewport";
 
 // ---------------------------------------------------------------------------
 // CSS dimensions
@@ -195,7 +194,7 @@ export class ɵDockedSidebar {
     private readonly transitionMs: number,
   ) {
     this.registry = ɵdockedSidebarRegistryFor(document);
-    this.media = document.defaultView?.matchMedia?.(MOBILE_MEDIA_QUERY);
+    this.media = document.defaultView?.matchMedia?.(ɵMOBILE_MAX_WIDTH_QUERY);
     this.media?.addEventListener("change", this.apply);
   }
 

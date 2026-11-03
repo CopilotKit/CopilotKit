@@ -12,14 +12,13 @@
  */
 
 import type { ɵComposerMode } from "./composer";
+import { ɵMOBILE_MAX_WIDTH_QUERY } from "./viewport";
 
 /** Where the text box sits in the chat input. */
 export type ɵComposerLayout = "compact" | "expanded";
 
 /** The default number of rows the text box grows to before it scrolls. */
 export const ɵCOMPOSER_DEFAULT_MAX_ROWS = 5;
-
-const MOBILE_MEDIA_QUERY = "(max-width: 767px)";
 
 /** Sizes of the text box, read from the DOM by {@link ɵmeasureTextarea}. */
 export interface ɵTextareaMetrics {
@@ -39,7 +38,7 @@ function isMobileViewport() {
   return (
     typeof window !== "undefined" &&
     typeof window.matchMedia === "function" &&
-    window.matchMedia(MOBILE_MEDIA_QUERY).matches
+    window.matchMedia(ɵMOBILE_MAX_WIDTH_QUERY).matches
   );
 }
 

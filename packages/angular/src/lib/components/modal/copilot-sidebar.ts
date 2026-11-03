@@ -23,7 +23,11 @@ import { CopilotKitStyles } from "../copilot-kit-styles";
 import { CopilotIcon, MessageCircle, X } from "../icons/copilot-icon";
 import { injectChatLabels } from "../../chat-config";
 import { explicitEffect } from "../../explicit-effect";
-import { ɵdimensionToCss, ɵdockedSidebarRegistryFor } from "@copilotkit/core";
+import {
+  ɵMOBILE_MAX_WIDTH_QUERY,
+  ɵdimensionToCss,
+  ɵdockedSidebarRegistryFor,
+} from "@copilotkit/core";
 
 export type CopilotSidebarMode = "docked" | "overlay";
 export type CopilotSidebarPosition = "left" | "right";
@@ -250,8 +254,9 @@ export class CopilotSidebar {
   constructor() {
     afterNextRender(() => {
       if (this.open() && this.isModal()) this.focusModal();
-      const media =
-        this.document.defaultView?.matchMedia?.("(max-width: 767px)");
+      const media = this.document.defaultView?.matchMedia?.(
+        ɵMOBILE_MAX_WIDTH_QUERY,
+      );
       if (!media) return;
       const update = () => this.isCompact.set(media.matches);
       update();
