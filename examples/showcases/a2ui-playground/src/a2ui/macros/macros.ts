@@ -147,7 +147,7 @@ export const FlightCard = defineMacro({
 export const ProductCard = defineMacro({
   name: "ProductCard",
   description:
-    "Product tile: name, price (and compare-at), rating, short specs, badge, buy button. One per item when comparing products. Macro: expands into standard components.",
+    'Product tile: name, price (and compare-at), rating, short specs, badge, buy button. One per item when comparing products. price and compareAt are display text like "$399"; specs is a list of short strings. Macro: expands into standard components.',
   props: z.object({
     name: z.string(),
     price: z.string(),

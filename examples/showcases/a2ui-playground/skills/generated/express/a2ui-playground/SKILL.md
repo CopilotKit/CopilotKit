@@ -181,7 +181,7 @@ Use these exact positional signatures to instantiate components. Do not output p
 • Combobox(label?, value?, options, placeholder?)
   - Description: Searchable dropdown for long option lists (countries, cities, timezones).
 • ComparisonTable(title?, options, rows, highlight?)
-  - Description: Feature matrix comparing options side by side; values may be true/false/text; highlight marks the recommended option.
+  - Description: Feature matrix comparing options side by side. options are the option names as strings; rows [{feature, values}] with one value per option, in the same order, each true/false/text; highlight is the recommended option's index in options (0 is the first).
 • DataTable(title?, columns, rows, searchable?, pageSize?)
   - Description: Sortable, filterable table (TanStack Table). columns [{key,label,format?}], rows are objects keyed by column key.
 • DatePicker(label?, value?, placeholder?)
@@ -409,7 +409,7 @@ Use these exact positional signatures to instantiate components. Do not output p
   - gap: 4px steps when a number
   - insetBorder: A 1px border inside the box
 • ProductCard(name, price, compareAt?, image?, rating?, reviews?, badge?, specs?, actionLabel?, onAction? (static))
-  - Description: Product tile: name, price (and compare-at), rating, short specs, badge, buy button. One per item when comparing products. Macro: expands into standard components.
+  - Description: Product tile: name, price (and compare-at), rating, short specs, badge, buy button. One per item when comparing products. price and compareAt are display text like "$399"; specs is a list of short strings. Macro: expands into standard components.
   - onAction: Fires when the buy button is clicked.
 • ProfileCard(name, role?, company?, avatar?, location?, bio?, email?, phone?, website?, tags?, stats?)
   - Description: Person card: avatar, name, role, company, location, bio, contacts, tags, stats. Use for team members, speakers, candidates.

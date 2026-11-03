@@ -10490,7 +10490,7 @@
   },
   "ComparisonTable": {
    "type": "object",
-   "description": "Feature matrix comparing options side by side; values may be true/false/text; highlight marks the recommended option.",
+   "description": "Feature matrix comparing options side by side. options are the option names as strings; rows [{feature, values}] with one value per option, in the same order, each true/false/text; highlight is the recommended option's index in options (0 is the first).",
    "properties": {
     "component": {
      "const": "ComparisonTable"
@@ -15381,7 +15381,7 @@
   },
   "ProductCard": {
    "type": "object",
-   "description": "Product tile: name, price (and compare-at), rating, short specs, badge, buy button. One per item when comparing products. Macro: expands into standard components.",
+   "description": "Product tile: name, price (and compare-at), rating, short specs, badge, buy button. One per item when comparing products. price and compareAt are display text like \"$399\"; specs is a list of short strings. Macro: expands into standard components.",
    "properties": {
     "component": {
      "const": "ProductCard"

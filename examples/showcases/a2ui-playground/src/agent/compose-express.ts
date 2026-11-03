@@ -43,6 +43,7 @@ WRITING ORDER
 - First line: root = ... . Then each parent before its children, in reading order: the surface paints line by line while you write.
 - One component per line, named by what it is (head, kpis, revenue_chart). Never nest a component call inside another; reference it by name.
 - Put real values inline as literals. Use $/path bindings only for input values (seed them with $/path = value lines at the end) and inside _template rows.
+- Leave out an optional argument you have no value for; never write null. After one you skip, name the rest (caption="...").
 - Macros (FlightCard, ProductCard, WeatherReport) are one line each; the server expands them. WeatherReport("City") fetches live weather itself.
 
 DESIGN
