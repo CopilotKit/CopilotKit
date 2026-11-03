@@ -178,15 +178,48 @@ function frontendSegment(frontend: FrontendId) {
 export function scopeFromPath(path: string[]): DocsScope & {
   /** The URL's prefix for that scope (`/vue/mastra`). */
   prefix: string;
+  /** The page under it (`frontend-tools`). */
+  slug: string;
 } {
   const frontend = liveFrontend(path[0]);
   const fePrefix = frontend ? `/${path[0]}` : "";
   const framework = frontend ? path[1] : path[0];
+  const scoped = (n: number) => path.slice(n).join("/");
   return liveFramework(framework)
     ? {
         frontend: frontend ?? "react",
         framework: framework!,
         prefix: `${fePrefix}/${framework}`,
+        slug: scoped(frontend ? 2 : 1),
       }
-    : { frontend: frontend ?? "react", framework: null, prefix: fePrefix };
+    : {
+        frontend: frontend ?? "react",
+        framework: null,
+        prefix: fePrefix,
+        slug: scoped(frontend ? 1 : 0),
+      };
+}
+
+/**
+ * The URL's page under another frontend, as shell-docs' frontend picker maps
+ * it (`frontendPathForCurrentPath`): `/mastra/frontend-tools` on Vue is
+ * `/vue/mastra/frontend-tools`. An app's pages don't carry over to Slack or
+ * Teams, so those open the channel's overview; `slug` names another page
+ * (`""` for the frontend's quickstart).
+ */
+export function frontendHref(
+  path: string[],
+  frontend: FrontendId,
+  slug?: string,
+) {
+  const scope = scopeFromPath(path);
+  const isChannel = (id: FrontendId) => id === "slack" || id === "teams";
+  const page =
+    slug ??
+    (isChannel(frontend) && !isChannel(scope.frontend) ? "" : scope.slug);
+  const fe = frontend !== "react" ? `/${frontendSegment(frontend)}` : "";
+  const fw = scope.framework ? `/${scope.framework}` : "";
+  // React has no landing of its own: its quickstart is the framework's.
+  const tail = page || (frontend === "react" ? "quickstart" : "");
+  return `${fe}${fw}${tail ? `/${tail}` : ""}`;
 }
