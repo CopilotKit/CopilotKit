@@ -55,6 +55,7 @@ import type { ɵMemoryStore } from "../memory";
 import { HeaderSourceResolver, isHeaderResolutionError } from "./header-source";
 import type { CopilotKitHeadersSource } from "./header-source";
 import { shallowEqualRecord } from "../utils/shallow-equal";
+import { ɵHumanInTheLoopRegistry } from "./human-in-the-loop";
 
 /**
  * Run properties that go only to the runs of some agents.
@@ -506,6 +507,9 @@ export class CopilotKitCore {
   private readonly learningConfiguredListeners = new Set<() => void>();
   private _generativeUIDebugSource: ɵGenerativeUIDebugSource | undefined;
   private readonly generativeUIDebugListeners = new Set<() => void>();
+  private _interruptPayload: unknown = null;
+  private readonly interruptPayloadListeners = new Set<() => void>();
+  private _humanInTheLoop?: ɵHumanInTheLoopRegistry;
   /**
    * The single core-owned memory store, created lazily on first
    * `getMemoryStore()` and kept user-scoped for the lifetime of the core.
@@ -1217,6 +1221,44 @@ export class CopilotKitCore {
     };
   }
 
+  /**
+   * @internal What the active interrupt consumer publishes for in-chat
+   * rendering (a React element, Vue render props, ...). `null` when none.
+   */
+  get ɵinterruptPayload(): unknown {
+    return this._interruptPayload;
+  }
+
+  /** @internal Publish (or with `null`, remove) the in-chat interrupt payload. */
+  ɵsetInterruptPayload<T>(payload: T | null): void {
+    if (payload === this._interruptPayload) return;
+    this._interruptPayload = payload;
+    for (const listener of [...this.interruptPayloadListeners]) {
+      try {
+        listener();
+      } catch (error) {
+        console.error("Interrupt payload listener error:", error);
+      }
+    }
+  }
+
+  /** @internal Calls `listener` when {@link ɵinterruptPayload} changes. */
+  ɵsubscribeToInterruptPayload(listener: () => void): () => void {
+    this.interruptPayloadListeners.add(listener);
+    return () => {
+      this.interruptPayloadListeners.delete(listener);
+    };
+  }
+
+  /**
+   * @internal Parks human-in-the-loop tool calls until the UI responds. One
+   * registry per core, keyed by tool call id.
+   */
+  get ɵhumanInTheLoop(): ɵHumanInTheLoopRegistry {
+    this._humanInTheLoop ??= new ɵHumanInTheLoopRegistry();
+    return this._humanInTheLoop;
+  }
+
   /** The active capture's Trajectory ID, or null while capture is stopped. */
   get trajectoryId(): string | null {
     return this.learningBridge.trajectoryId;
@@ -1877,6 +1919,8 @@ export class CopilotKitCore {
     this.subscribers.clear();
     this.learningConfiguredListeners.clear();
     this.generativeUIDebugListeners.clear();
+    this.interruptPayloadListeners.clear();
+    this._humanInTheLoop?.dispose();
 
     this.runHandler.dispose(Object.values(this.agentRegistry.agents));
     this.suggestionEngine.dispose();

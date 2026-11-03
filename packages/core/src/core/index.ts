@@ -11,3 +11,5 @@ export * from "./run-handler";
 export * from "./state-manager";
 export * from "./webmcp";
 export type * from "./generative-ui-debug";
+export * from "./interrupt-controller";
+export * from "./human-in-the-loop";
