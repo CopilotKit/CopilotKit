@@ -474,7 +474,10 @@ export function messageGroup<S>(
   return { type: "group", ...group } as unknown as MessageGroup;
 }
 
+// Row keys are shared by React, the virtualizer and the scroll anchor. Each row
+// type has its own prefix, so a message ID can never equal a group's key.
 const GROUP_ROW_KEY_PREFIX = "copilotkit-group:";
+const MESSAGE_ROW_KEY_PREFIX = "copilotkit-message:";
 
 export type CopilotChatMessageViewProps = Omit<
   WithSlots<
@@ -862,7 +865,7 @@ export function CopilotChatMessageView({
   const rowKey = (row: MessageRow): string =>
     row.type === "group"
       ? `${GROUP_ROW_KEY_PREFIX}${stableGroupKey(row.key)}`
-      : (rowRenderKeys.get(row.message.id) ?? row.message.id);
+      : `${MESSAGE_ROW_KEY_PREFIX}${rowRenderKeys.get(row.message.id) ?? row.message.id}`;
 
   // One stable key per row, shared by React and the virtualizer. Rows shift
   // index constantly once messages are grouped or transformed — tool calls
