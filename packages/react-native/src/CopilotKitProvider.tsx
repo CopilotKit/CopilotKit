@@ -8,77 +8,37 @@ import type {
   CopilotKitContextValue,
   CopilotKitCoreReact as CopilotKitCoreReactInstance,
 } from "@copilotkit/react-core/context";
-import { CopilotKitCoreReact } from "@copilotkit/react-core/headless";
+import {
+  CopilotKitCoreReact,
+  ɵuseOwnedCore,
+} from "@copilotkit/react-core/headless";
 import type {
-  CopilotKitCoreErrorCode,
-  CopilotKitMessageFilter,
+  ɵCopilotKitProviderBaseOptions,
+  ɵRuntimeInfo,
 } from "@copilotkit/core";
-import type { DebugConfig, RuntimeLicenseStatus } from "@copilotkit/shared";
+import {
+  ɵreportProviderConfigDiagnostics,
+  ɵresolveProviderConfig,
+} from "@copilotkit/core";
 import { createLicenseContextValue } from "@copilotkit/shared";
 import { MarkdownRendererProvider } from "./components/MarkdownRendererContext";
 import type { MarkdownRendererValue } from "./components/MarkdownRendererContext";
 
-export interface CopilotKitNativeProviderProps {
+export interface CopilotKitNativeProviderProps extends Pick<
+  ɵCopilotKitProviderBaseOptions,
+  | "credentials"
+  | "messageFilter"
+  | "useSingleEndpoint"
+  | "properties"
+  | "onError"
+  | "debug"
+  | "defaultThrottleMs"
+> {
   children: ReactNode;
   /** URL of the CopilotKit runtime endpoint */
   runtimeUrl: string;
   /** Custom headers sent with every request */
   headers?: Record<string, string> | (() => Record<string, string>);
-  /**
-   * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
-   */
-  credentials?: RequestCredentials;
-  /**
-   * Rewrites the message list sent to runtime agents on every run.
-   *
-   * CopilotKit sends the whole thread each time. When your agent already
-   * stores the conversation, most of that payload is waste, and an agent that
-   * merges the inbound list with its own store can show the model every turn
-   * twice. Return the messages to send:
-   *
-   * ```tsx
-   * <CopilotKitProvider
-   *   runtimeUrl="/api/copilotkit"
-   *   messageFilter={(messages) => messages.slice(-1)}
-   * />
-   * ```
-   *
-   * The filter changes the request body only. The transcript the UI renders is
-   * untouched. Broken tool-call pairs are repaired before the request is sent,
-   * so a filter this blunt cannot strand a tool result mid-HITL.
-   *
-   * Agents reached through your CopilotRuntime honor this. An agent your app
-   * passes in directly does not, and neither Intelligence runs nor suggestion
-   * runs are ever filtered.
-   *
-   * Prefer a stable reference (`useCallback`). An inline arrow re-registers the
-   * filter on every render, which is harmless but needless.
-   */
-  messageFilter?: CopilotKitMessageFilter;
-  /** Whether the runtime uses a single-route endpoint */
-  useSingleEndpoint?: boolean;
-  /** Custom properties forwarded to agents */
-  properties?: Record<string, unknown>;
-  /**
-   * Error handler called when CopilotKit encounters an error.
-   * Fires for all error types (runtime connection failures, agent errors, tool errors).
-   * If not provided, errors are logged to console.error.
-   */
-  onError?: (event: {
-    error: Error;
-    code: CopilotKitCoreErrorCode;
-    context: Record<string, any>;
-  }) => void | Promise<void>;
-  /**
-   * Enable debug logging for the client-side event pipeline.
-   * When `true`, enables verbose logging from the core instance.
-   */
-  debug?: DebugConfig;
-  /**
-   * Default throttle interval (ms) for `onMessagesChanged` / `onStateChanged`
-   * subscriptions. Individual subscriptions can override with their own `throttleMs`.
-   */
-  defaultThrottleMs?: number;
   /**
    * Custom markdown renderer for assistant messages. Either a component (escape
    * hatch — receives `content` and an optional `isStreaming` flag) used instead
@@ -143,65 +103,74 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     [JSON.stringify(properties)],
   );
 
-  const copilotkitRef = useRef<CopilotKitCoreReactInstance | null>(null);
+  // Transport mapping and config checks come from core.
+  const resolvedConfig = useMemo(
+    () =>
+      ɵresolveProviderConfig({
+        runtimeUrl,
+        useSingleEndpoint,
+        properties: stableProperties,
+      }),
+    [runtimeUrl, useSingleEndpoint, stableProperties],
+  );
+  const loggedDiagnosticsRef = useRef(new Set<string>());
+  ɵreportProviderConfigDiagnostics(resolvedConfig.diagnostics, {
+    isProduction: process.env.NODE_ENV === "production",
+    logged: loggedDiagnosticsRef.current,
+  });
 
-  if (copilotkitRef.current === null) {
-    const instance: CopilotKitCoreReactInstance = new CopilotKitCoreReact({
-      runtimeUrl,
-      runtimeTransport:
-        useSingleEndpoint === true
-          ? "single"
-          : useSingleEndpoint === false
-            ? "rest"
-            : "auto",
+  // One core for the provider lifetime, disposed on unmount (StrictMode
+  // safe, see `ɵuseOwnedCore`).
+  const copilotkitRef = useRef<CopilotKitCoreReactInstance | null>(null);
+  const copilotkit = ɵuseOwnedCore(
+    copilotkitRef,
+    (): CopilotKitCoreReactInstance =>
+      new CopilotKitCoreReact({
+        runtimeUrl: resolvedConfig.runtimeUrl,
+        runtimeTransport: resolvedConfig.runtimeTransport,
+        // `/info` starts from the effect below, so a render React discards
+        // never fetches it (#5801).
+        deferInitialConnection: true,
+        headers: stableHeaders,
+        credentials,
+        messageFilter,
+        properties: resolvedConfig.properties,
+        debug,
+        // Set at construction so child hooks see it on their first render.
+        defaultThrottleMs,
+        onError,
+      }),
+  );
+
+  // Core calls `onError`, and logs the error itself when there is none.
+  useEffect(() => {
+    copilotkit.setErrorHandler(onError);
+  }, [copilotkit, onError]);
+
+  // Sync props to the core. Core applies only what changed.
+  useEffect(() => {
+    copilotkit.ɵupdateConfig({
+      messageFilter,
+      runtimeUrl: resolvedConfig.runtimeUrl,
+      runtimeTransport: resolvedConfig.runtimeTransport,
       headers: stableHeaders,
       credentials,
-      messageFilter,
-      properties: stableProperties,
+      properties: resolvedConfig.properties,
       debug,
+      defaultThrottleMs,
     });
-    // Set initial defaultThrottleMs synchronously so child hooks see the
-    // correct value on their first render (before useEffect fires).
-    if (defaultThrottleMs !== undefined) {
-      instance.setDefaultThrottleMs(defaultThrottleMs);
-    }
-    copilotkitRef.current = instance;
-  }
-
-  const copilotkit = copilotkitRef.current;
-
-  // Sync props to core instance
-  useEffect(() => {
-    copilotkit.setRuntimeUrl(runtimeUrl);
-    copilotkit.setRuntimeTransport(
-      useSingleEndpoint === true
-        ? "single"
-        : useSingleEndpoint === false
-          ? "rest"
-          : "auto",
-    );
-    copilotkit.setHeaders(stableHeaders);
-    copilotkit.setCredentials(credentials);
-    copilotkit.setMessageFilter(messageFilter);
-    copilotkit.setProperties(stableProperties);
-    copilotkit.setDebug(debug);
+    copilotkit.connect();
   }, [
-    runtimeUrl,
-    useSingleEndpoint,
+    copilotkit,
+    messageFilter,
+    resolvedConfig.runtimeUrl,
+    resolvedConfig.runtimeTransport,
     stableHeaders,
     credentials,
-    messageFilter,
-    stableProperties,
+    resolvedConfig.properties,
     debug,
-    copilotkit,
+    defaultThrottleMs,
   ]);
-
-  // Sync defaultThrottleMs to the core instance on prop changes.
-  // Initial value is set synchronously during instance creation (inside the
-  // ref guard above), so this only handles subsequent updates.
-  useEffect(() => {
-    copilotkit.setDefaultThrottleMs(defaultThrottleMs);
-  }, [copilotkit, defaultThrottleMs]);
 
   // Track executing tool call IDs at the provider level.
   // Critical for HITL reconnection: onToolExecutionStart fires before child
@@ -210,17 +179,19 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     ReadonlySet<string>
   >(() => new Set());
 
-  const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
-    RuntimeLicenseStatus | undefined
-  >(undefined);
+  const [runtimeInfo, setRuntimeInfo] = useState<ɵRuntimeInfo | null>(null);
+  const runtimeLicenseStatus = runtimeInfo?.licenseStatus;
 
-  // Use ref to avoid subscription churn when onError changes
-  const onErrorRef = useRef(onError);
+  // Project core's runtime info snapshot; the catch-up read reflects a status
+  // that settled before this effect ran.
   useEffect(() => {
-    onErrorRef.current = onError;
-  }, [onError]);
+    const syncRuntimeInfo = () => setRuntimeInfo(copilotkit.ɵruntimeInfo);
+    const unsubscribe = copilotkit.ɵsubscribeToRuntimeInfo(syncRuntimeInfo);
+    syncRuntimeInfo();
+    return unsubscribe;
+  }, [copilotkit]);
 
-  // Single subscription for tool execution tracking and error handling.
+  // Tool execution tracking.
   // Tool call IDs are tracked at the provider level because onToolExecutionStart
   // fires before child components mount — critical for HITL reconnection.
   useEffect(() => {
@@ -240,20 +211,6 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
           next.delete(toolCallId);
           return next;
         });
-      },
-      onError: (event) => {
-        if (onErrorRef.current) {
-          onErrorRef.current(event);
-        } else {
-          console.error(
-            `[CopilotKit] Error (${event.code}):`,
-            event.error,
-            event.context ?? {},
-          );
-        }
-      },
-      onRuntimeConnectionStatusChanged: () => {
-        setRuntimeLicenseStatus(copilotkit.licenseStatus);
       },
     });
     return () => subscription.unsubscribe();

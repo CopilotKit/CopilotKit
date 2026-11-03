@@ -70,7 +70,9 @@ const copilotKitContext = inject(CopilotKitKey, null);
 let openThread: OpenThreadRegistration | null = null;
 onMounted(() => {
   watch(
-    () => [copilotKitContext?.copilotkit.value, resolvedAgentId.value] as const,
+    // Two sources, so a `triggerRef` on the same core (runtime status
+    // events) does not register the Thread again.
+    [() => copilotKitContext?.copilotkit.value, resolvedAgentId],
     ([core, agentId], _previous, onCleanup) => {
       if (!core) return;
       const registration = core.registerOpenThread({

@@ -164,7 +164,7 @@ function normalizeSeries(
       label: ("label" in entry && entry.label) || entry.key,
       color:
         textColor("color" in entry ? entry.color : undefined) ??
-        CHART_PALETTE[index % CHART_PALETTE.length],
+        CHART_PALETTE[index % CHART_PALETTE.length]!,
     };
   });
 }

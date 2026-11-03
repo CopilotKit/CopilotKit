@@ -43,11 +43,7 @@ const mockSubscribe = vi.fn();
 const mockAddTool = vi.fn();
 const mockRemoveTool = vi.fn();
 const mockDispose = vi.fn();
-const mockSetRuntimeUrl = vi.fn();
-const mockSetRuntimeTransport = vi.fn();
-const mockSetHeaders = vi.fn();
-const mockSetProperties = vi.fn();
-const mockSetMessageFilter = vi.fn();
+const mockUpdateConfig = vi.fn();
 /** Keeps the final turn only — the shape #1482 asks for (see below). */
 const keepLastTurn = (messages: any[]) => messages.slice(-1);
 const mockSetAgents = vi.fn();
@@ -81,12 +77,10 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     readonly subscribe = mockSubscribe;
     readonly addTool = mockAddTool;
     readonly removeTool = mockRemoveTool;
-    readonly setRuntimeUrl = mockSetRuntimeUrl;
-    readonly setRuntimeTransport = mockSetRuntimeTransport;
-    readonly setHeaders = mockSetHeaders;
-    readonly setProperties = mockSetProperties;
-    readonly setMessageFilter = mockSetMessageFilter;
+    readonly ɵupdateConfig = mockUpdateConfig;
     readonly setAgents__unsafe_dev_only = mockSetAgents;
+    readonly connect = vi.fn();
+    readonly ɵsubscribeToRuntimeInfo = vi.fn(() => () => {});
     readonly getAgent = mockGetAgent;
     readonly getTool = mockGetTool;
     readonly addContext = mockAddContext;
@@ -101,6 +95,9 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     audioFileTranscriptionEnabled = false;
     runtimeConnectionStatus =
       CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+    get ɵruntimeInfo() {
+      return { status: this.runtimeConnectionStatus };
+    }
     listener?: Parameters<typeof mockSubscribe>[0];
 
     constructor(config: any) {
@@ -577,9 +574,8 @@ describe("CopilotKit", () => {
 
     copilotKit.updateRuntime({ properties: updatedProperties });
 
-    expect(mockSetProperties).toHaveBeenCalledWith({
-      locale: "en",
-      a2uiCatalogAvailable: true,
+    expect(mockUpdateConfig).toHaveBeenCalledWith({
+      properties: { locale: "en", a2uiCatalogAvailable: true },
     });
     expect(updatedProperties).toEqual({ locale: "en" });
   });
@@ -686,17 +682,19 @@ describe("CopilotKit", () => {
       agents: { a: {} as any },
     });
 
-    expect(mockSetRuntimeUrl).toHaveBeenCalledWith("https://other");
-    expect(mockSetRuntimeTransport).toHaveBeenCalledWith("single");
     // The public-key default (from this test's `licenseKey`) is re-applied on
     // every `updateRuntime({ headers })` call, not just at construction — a
     // later headers change must not silently drop it.
-    expect(mockSetHeaders).toHaveBeenCalledWith({
-      Authorization: "different",
-      "X-CopilotCloud-Public-Api-Key": licenseKey,
+    expect(mockUpdateConfig).toHaveBeenCalledWith({
+      runtimeUrl: "https://other",
+      runtimeTransport: "single",
+      headers: {
+        Authorization: "different",
+        "X-CopilotCloud-Public-Api-Key": licenseKey,
+      },
+      properties: { locale: "en" },
+      agents__unsafe_dev_only: { a: {} },
     });
-    expect(mockSetProperties).toHaveBeenCalledWith({ locale: "en" });
-    expect(mockSetAgents).toHaveBeenCalledWith({ a: {} });
   });
 
   // #1482: the message filter is the Angular half of the `messageFilter`
@@ -734,7 +732,9 @@ describe("CopilotKit", () => {
 
     copilotKit.updateRuntime({ messageFilter: keepLastTurn });
 
-    expect(mockSetMessageFilter).toHaveBeenCalledWith(keepLastTurn);
+    expect(mockUpdateConfig).toHaveBeenCalledWith({
+      messageFilter: keepLastTurn,
+    });
   });
 
   it("clears the message filter when updateRuntime passes undefined", () => {
@@ -753,7 +753,9 @@ describe("CopilotKit", () => {
     // `options.messageFilter !== undefined` guard would silently ignore it.
     copilotKit.updateRuntime({ messageFilter: undefined });
 
-    expect(mockSetMessageFilter).toHaveBeenCalledWith(undefined);
+    const [patch] = mockUpdateConfig.mock.calls.at(-1) ?? [];
+    expect(Object.keys(patch)).toEqual(["messageFilter"]);
+    expect(patch.messageFilter).toBeUndefined();
   });
 
   it("leaves the message filter alone when updateRuntime does not mention it", () => {
@@ -770,7 +772,11 @@ describe("CopilotKit", () => {
 
     copilotKit.updateRuntime({ runtimeUrl: "https://other" });
 
-    expect(mockSetMessageFilter).not.toHaveBeenCalled();
+    expect(mockUpdateConfig).toHaveBeenCalledWith({
+      runtimeUrl: "https://other",
+    });
+    const [patch] = mockUpdateConfig.mock.calls.at(-1) ?? [];
+    expect("messageFilter" in patch).toBe(false);
   });
 
   it("reflects agent updates from core subscriptions", () => {

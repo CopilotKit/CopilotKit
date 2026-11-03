@@ -2,7 +2,6 @@
 import {
   computed,
   inject,
-  onBeforeUnmount,
   onUpdated,
   ref,
   shallowRef,
@@ -34,7 +33,12 @@ import CopilotChatInspectorButton from "./CopilotChatInspectorButton.vue";
 import { useInspectorShortcutsHidden } from "./inspector-shortcuts";
 import { InspectorKey } from "../../providers/keys";
 import { useFeedbackComment, useMessageFeedback } from "./message-feedback";
-import type { MessageFeedbackRating } from "../../lib/message-feedback";
+import {
+  ɵhasAssistantMessageText,
+  ɵshouldShowAssistantToolbar,
+} from "@copilotkit/core";
+import type { ɵMessageFeedbackRating as MessageFeedbackRating } from "@copilotkit/core";
+import { useCopyFeedback } from "./use-copy-feedback";
 import type {
   CopilotChatAssistantMessageCopyButtonSlotProps,
   CopilotChatAssistantMessageFeedbackCommentSlotProps,
@@ -109,8 +113,7 @@ const emit = defineEmits<{
 
 const config = useCopilotChatConfiguration();
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
-const copied = ref(false);
-let copiedResetTimeout: ReturnType<typeof setTimeout> | null = null;
+const { copied, copy } = useCopyFeedback();
 
 function normalizeContent(content: unknown): string {
   if (!content) {
@@ -146,7 +149,9 @@ function normalizeContent(content: unknown): string {
 const normalizedContent = computed(() =>
   normalizeContent(props.message.content),
 );
-const hasContent = computed(() => normalizedContent.value.trim().length > 0);
+const hasContent = computed(() =>
+  ɵhasAssistantMessageText(normalizedContent.value),
+);
 
 const providerMarkdownRenderer = useMarkdownRenderer();
 const providerIsComponent = computed(() =>
@@ -190,11 +195,14 @@ const hasRegenerate = computed(() => typeof props.onRegenerate === "function");
 const isLatestAssistantMessage = computed(
   () => props.messages[props.messages.length - 1]?.id === props.message.id,
 );
-const shouldShowToolbar = computed(
-  () =>
-    props.toolbarVisible &&
-    (hasContent.value || showInspectorShortcut.value) &&
-    !(props.isRunning && isLatestAssistantMessage.value),
+const shouldShowToolbar = computed(() =>
+  ɵshouldShowAssistantToolbar({
+    toolbarVisible: props.toolbarVisible,
+    hasContent: hasContent.value,
+    showInspectorShortcut: showInspectorShortcut.value,
+    isRunning: props.isRunning,
+    isLatest: isLatestAssistantMessage.value,
+  }),
 );
 
 // A custom thumb that calls its handler without an event gives no element:
@@ -325,34 +333,8 @@ function handleInspect() {
   });
 }
 
-function resetCopiedStateWithDelay() {
-  if (copiedResetTimeout) {
-    clearTimeout(copiedResetTimeout);
-  }
-  copied.value = true;
-  copiedResetTimeout = setTimeout(() => {
-    copied.value = false;
-    copiedResetTimeout = null;
-  }, 2000);
-}
-
 async function handleCopyMessage() {
-  const content = normalizedContent.value;
-  if (!content) return;
-
-  if (
-    typeof navigator === "undefined" ||
-    typeof navigator.clipboard?.writeText !== "function"
-  ) {
-    return;
-  }
-
-  try {
-    await navigator.clipboard.writeText(content);
-    resetCopiedStateWithDelay();
-  } catch (error) {
-    console.error("Failed to copy to clipboard:", error);
-  }
+  await copy(normalizedContent.value);
 }
 
 function handleThumbsUp(event?: MouseEvent) {
@@ -371,12 +353,6 @@ function handleReadAloud() {
 function handleRegenerate() {
   emit("regenerate", props.message);
 }
-
-onBeforeUnmount(() => {
-  if (copiedResetTimeout) {
-    clearTimeout(copiedResetTimeout);
-  }
-});
 </script>
 
 <template>

@@ -10,7 +10,7 @@ import {
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime";
 import { createOpenAI } from "@ai-sdk/openai";
-import { SlowToolCallStreamingAgent } from "@copilotkit/demo-agents";
+import { SlowToolCallStreamingAgent } from "./agents/slow-tool-call-streaming.js";
 import { A2UIDashboardAgent } from "./agents/a2ui-dashboard.js";
 import { A2UIRecoveryAgent } from "./agents/a2ui-recovery.js";
 

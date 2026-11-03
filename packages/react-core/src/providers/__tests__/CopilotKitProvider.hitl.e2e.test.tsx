@@ -291,7 +291,7 @@ describe("CopilotKitProvider humanInTheLoop prop E2E", () => {
 
     await waitFor(() => {
       expect(toolExecutionEnds.length).toBeGreaterThan(0);
-      const last = toolExecutionEnds[toolExecutionEnds.length - 1];
+      const last = toolExecutionEnds[toolExecutionEnds.length - 1]!;
       expect(last.error).toBeDefined();
       expect(last.error).toContain("aborted");
     });

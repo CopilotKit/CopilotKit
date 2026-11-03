@@ -74,7 +74,7 @@ describe("scoreCode with real rendering", () => {
             rejected: [],
             operations: [
               {
-                version: "v1.0",
+                version: "1.0",
                 createSurface: {
                   surfaceId: "photos",
                   dataModel: {
@@ -104,7 +104,7 @@ describe("scoreCode with real rendering", () => {
               ...(scenario === "replaced" || scenario === "unreachable"
                 ? [
                     {
-                      version: "v1.0" as const,
+                      version: "1.0" as const,
                       updateComponents: {
                         surfaceId: "photos",
                         components:
@@ -160,7 +160,7 @@ describe("scoreCode with real rendering", () => {
           rejected: [],
           operations: [
             {
-              version: "v1.0",
+              version: "1.0",
               createSurface: {
                 surfaceId: "template-photos",
                 dataModel: {
@@ -250,9 +250,9 @@ describe("scoreCode with real rendering", () => {
         status: "ready",
         rejected: [],
         operations: [
-          { version: "v1.0", createSurface: { surfaceId: "s" } },
+          { version: "1.0", createSurface: { surfaceId: "s" } },
           {
-            version: "v1.0",
+            version: "1.0",
             updateComponents: {
               surfaceId: "s",
               components: [
@@ -286,14 +286,14 @@ describe("scoreCode with real rendering", () => {
         rejected: [],
         operations: [
           {
-            version: "v1.0",
+            version: "1.0",
             createSurface: {
               surfaceId: "t",
               dataModel: { tabs: [{ title: "Seats", child: "seats" }] },
             },
           },
           {
-            version: "v1.0",
+            version: "1.0",
             updateComponents: {
               surfaceId: "t",
               components: [
@@ -326,14 +326,14 @@ describe("scoreCode with real rendering", () => {
         rejected: [],
         operations: [
           {
-            version: "v1.0",
+            version: "1.0",
             createSurface: {
               surfaceId: `tpl-${items.length}`,
               dataModel: { items },
             },
           },
           {
-            version: "v1.0",
+            version: "1.0",
             updateComponents: {
               surfaceId: `tpl-${items.length}`,
               components: [
@@ -373,7 +373,7 @@ describe("scoreCode with real rendering", () => {
         rejected: [],
         operations: [
           {
-            version: "v1.0",
+            version: "1.0",
             createSurface: {
               surfaceId: "items",
               dataModel: {
@@ -385,7 +385,7 @@ describe("scoreCode with real rendering", () => {
             },
           },
           {
-            version: "v1.0",
+            version: "1.0",
             updateComponents: {
               surfaceId: "items",
               components: [
@@ -425,13 +425,13 @@ describe("scoreCode with real rendering", () => {
         rejected: [],
         operations: [
           {
-            version: "v1.0",
+            version: "1.0",
             createSurface: {
               surfaceId: "gone",
               components: [{ id: "root", component: "Text", text: "x" }],
             },
           },
-          { version: "v1.0", deleteSurface: { surfaceId: "gone" } },
+          { version: "1.0", deleteSurface: { surfaceId: "gone" } },
         ],
       } as never,
     ]);
@@ -448,9 +448,9 @@ describe("scoreCode with real rendering", () => {
         status: "ready",
         rejected: [],
         operations: [
-          { version: "v1.0", createSurface: { surfaceId: "calc" } },
+          { version: "1.0", createSurface: { surfaceId: "calc" } },
           {
-            version: "v1.0",
+            version: "1.0",
             updateComponents: {
               surfaceId: "calc",
               components: [
@@ -492,7 +492,7 @@ describe("scoreCode with real rendering", () => {
         rejected: [],
         operations: [
           {
-            version: "v1.0",
+            version: "1.0",
             createSurface: {
               surfaceId: "pick",
               components: [
@@ -521,7 +521,7 @@ describe("scoreCode with real rendering", () => {
         rejected: [],
         operations: [
           {
-            version: "v1.0",
+            version: "1.0",
             createSurface: {
               surfaceId: "hole",
               components: [
@@ -564,7 +564,7 @@ describe("scoreCode with real rendering", () => {
           rejected: [],
           operations: [
             {
-              version: "v1.0",
+              version: "1.0",
               createSurface: {
                 surfaceId: "s",
                 components: [

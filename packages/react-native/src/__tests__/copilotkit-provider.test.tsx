@@ -23,15 +23,18 @@ function createMockCore() {
       capturedSubscriber = subscriber;
       return { unsubscribe: unsubscribeMock };
     }),
-    setRuntimeUrl: vi.fn(),
-    setRuntimeTransport: vi.fn(),
-    setHeaders: vi.fn(),
-    setCredentials: vi.fn(),
-    setProperties: vi.fn(),
-    setMessageFilter: vi.fn(),
-    setDebug: vi.fn(),
-    setDefaultThrottleMs: vi.fn(),
+    ɵupdateConfig: vi.fn(),
+    ɵruntimeInfo: { status: "disconnected" },
+    ɵsubscribeToRuntimeInfo: vi.fn(() => () => {}),
+    setErrorHandler: vi.fn(),
+    connect: vi.fn(),
+    dispose: vi.fn(),
   };
+}
+
+/** The last config patch the provider pushed to the core. */
+function lastPatch() {
+  return mockCoreInstance.ɵupdateConfig.mock.calls.at(-1)?.[0];
 }
 
 let mockCoreInstance: ReturnType<typeof createMockCore>;
@@ -41,14 +44,16 @@ const keepLastTurn = (messages: any[]) => messages.slice(-1);
 /** A second, distinguishable filter, for asserting a swap took effect. */
 const keepLastTwo = (messages: any[]) => messages.slice(-2);
 
-vi.mock("@copilotkit/react-core/headless", () => {
+vi.mock("@copilotkit/react-core/headless", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@copilotkit/react-core/headless")>();
   // Regular function (not arrow) so it's new-able
   function CopilotKitCoreReact(this: any, ...args: any[]) {
     hoisted.MockCoreConstructor(...args);
     const instance = hoisted.MockCoreConstructor.mock.results.at(-1)?.value;
     if (instance) Object.assign(this, instance);
   }
-  return { CopilotKitCoreReact };
+  return { ...actual, CopilotKitCoreReact };
 });
 
 vi.mock("@copilotkit/react-core/context", () => {
@@ -70,7 +75,8 @@ vi.mock("@copilotkit/react-core/context", () => {
   };
 });
 
-vi.mock("@copilotkit/shared", () => ({
+vi.mock("@copilotkit/shared", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@copilotkit/shared")>()),
   createLicenseContextValue: () => ({
     status: null,
     license: null,
@@ -197,9 +203,7 @@ describe("CopilotKitProvider (React Native)", () => {
         </CopilotKitProvider>,
       );
 
-      expect(mockCoreInstance.setRuntimeUrl).toHaveBeenCalledWith(
-        "https://api.test/v2",
-      );
+      expect(lastPatch()?.runtimeUrl).toBe("https://api.test/v2");
     });
 
     it("calls setHeaders when headers content changes", () => {
@@ -209,7 +213,7 @@ describe("CopilotKitProvider (React Native)", () => {
         </CopilotKitProvider>,
       );
 
-      mockCoreInstance.setHeaders.mockClear();
+      mockCoreInstance.ɵupdateConfig.mockClear();
 
       rerender(
         <CopilotKitProvider runtimeUrl="https://api.test" headers={{ b: "2" }}>
@@ -217,7 +221,7 @@ describe("CopilotKitProvider (React Native)", () => {
         </CopilotKitProvider>,
       );
 
-      expect(mockCoreInstance.setHeaders).toHaveBeenCalledWith({ b: "2" });
+      expect(lastPatch()?.headers).toEqual({ b: "2" });
     });
 
     it("does not re-fire setHeaders when content is identical (JSON-stabilized)", () => {
@@ -227,7 +231,7 @@ describe("CopilotKitProvider (React Native)", () => {
         </CopilotKitProvider>,
       );
 
-      mockCoreInstance.setHeaders.mockClear();
+      mockCoreInstance.ɵupdateConfig.mockClear();
 
       // New object reference but same content
       rerender(
@@ -236,7 +240,7 @@ describe("CopilotKitProvider (React Native)", () => {
         </CopilotKitProvider>,
       );
 
-      expect(mockCoreInstance.setHeaders).not.toHaveBeenCalled();
+      expect(mockCoreInstance.ɵupdateConfig).not.toHaveBeenCalled();
     });
 
     // #1482: parity with the React, Vue and Angular providers. The filter's own
@@ -267,7 +271,7 @@ describe("CopilotKitProvider (React Native)", () => {
         </CopilotKitProvider>,
       );
 
-      mockCoreInstance.setMessageFilter.mockClear();
+      mockCoreInstance.ɵupdateConfig.mockClear();
 
       rerender(
         <CopilotKitProvider
@@ -278,9 +282,7 @@ describe("CopilotKitProvider (React Native)", () => {
         </CopilotKitProvider>,
       );
 
-      expect(mockCoreInstance.setMessageFilter).toHaveBeenCalledWith(
-        keepLastTwo,
-      );
+      expect(lastPatch()?.messageFilter).toBe(keepLastTwo);
     });
 
     it("clears the filter when the prop goes away", () => {
@@ -293,7 +295,7 @@ describe("CopilotKitProvider (React Native)", () => {
         </CopilotKitProvider>,
       );
 
-      mockCoreInstance.setMessageFilter.mockClear();
+      mockCoreInstance.ɵupdateConfig.mockClear();
 
       rerender(
         <CopilotKitProvider runtimeUrl="https://api.test">
@@ -301,7 +303,9 @@ describe("CopilotKitProvider (React Native)", () => {
         </CopilotKitProvider>,
       );
 
-      expect(mockCoreInstance.setMessageFilter).toHaveBeenCalledWith(undefined);
+      const patch = lastPatch();
+      expect(patch && "messageFilter" in patch).toBe(true);
+      expect(patch?.messageFilter).toBeUndefined();
     });
   });
 
@@ -403,7 +407,9 @@ describe("CopilotKitProvider (React Native)", () => {
   // ── Error handling ────────────────────────────────────────────────────
 
   describe("error handling", () => {
-    it("forwards errors to onError prop when provided", () => {
+    // Core calls the handler, and logs when there is none (core tests cover
+    // that). The provider's job is handing the handler over.
+    it("passes onError to the core at construction", () => {
       const onError = vi.fn();
       render(
         <CopilotKitProvider runtimeUrl="https://api.test" onError={onError}>
@@ -411,47 +417,12 @@ describe("CopilotKitProvider (React Native)", () => {
         </CopilotKitProvider>,
       );
 
-      const testError = new Error("test error");
-      act(() => {
-        capturedSubscriber.onError({
-          error: testError,
-          code: "RUNTIME_ERROR",
-          context: { detail: "info" },
-        });
-      });
-
-      expect(onError).toHaveBeenCalledWith({
-        error: testError,
-        code: "RUNTIME_ERROR",
-        context: { detail: "info" },
-      });
+      expect(hoisted.MockCoreConstructor).toHaveBeenCalledWith(
+        expect.objectContaining({ onError }),
+      );
     });
 
-    it("logs to console.error when onError is not provided", () => {
-      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-      render(
-        <CopilotKitProvider runtimeUrl="https://api.test">
-          <div />
-        </CopilotKitProvider>,
-      );
-
-      act(() => {
-        capturedSubscriber.onError({
-          error: new Error("fail"),
-          code: "AGENT_ERROR",
-          context: {},
-        });
-      });
-
-      expect(spy).toHaveBeenCalledWith(
-        expect.stringContaining("AGENT_ERROR"),
-        expect.any(Error),
-        expect.any(Object),
-      );
-      spy.mockRestore();
-    });
-
-    it("picks up new onError callback without resubscribing (ref pattern)", () => {
+    it("hands a new onError to the core", () => {
       const onError1 = vi.fn();
       const onError2 = vi.fn();
 
@@ -467,16 +438,9 @@ describe("CopilotKitProvider (React Native)", () => {
         </CopilotKitProvider>,
       );
 
-      act(() => {
-        capturedSubscriber.onError({
-          error: new Error("test"),
-          code: "RUNTIME_ERROR",
-          context: {},
-        });
-      });
-
-      expect(onError1).not.toHaveBeenCalled();
-      expect(onError2).toHaveBeenCalled();
+      expect(mockCoreInstance.setErrorHandler).toHaveBeenLastCalledWith(
+        onError2,
+      );
     });
   });
 
@@ -493,6 +457,37 @@ describe("CopilotKitProvider (React Native)", () => {
       unmount();
 
       expect(unsubscribeMock).toHaveBeenCalled();
+    });
+
+    it("disposes the core after unmount", async () => {
+      const { unmount } = render(
+        <CopilotKitProvider runtimeUrl="https://api.test">
+          <div />
+        </CopilotKitProvider>,
+      );
+
+      unmount();
+
+      await vi.waitFor(() =>
+        expect(mockCoreInstance.dispose).toHaveBeenCalledTimes(1),
+      );
+    });
+  });
+
+  // ── Runtime connection ──────────────────────────────────────────────
+
+  describe("runtime connection", () => {
+    it("defers /info to an effect", () => {
+      render(
+        <CopilotKitProvider runtimeUrl="https://api.test">
+          <div />
+        </CopilotKitProvider>,
+      );
+
+      expect(hoisted.MockCoreConstructor).toHaveBeenCalledWith(
+        expect.objectContaining({ deferInitialConnection: true }),
+      );
+      expect(mockCoreInstance.connect).toHaveBeenCalled();
     });
   });
 });

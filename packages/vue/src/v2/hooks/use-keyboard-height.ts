@@ -1,4 +1,6 @@
-import { onBeforeUnmount, onMounted, readonly, ref, type Ref } from "vue";
+import { onBeforeUnmount, onMounted, readonly, ref } from "vue";
+import type { Ref } from "vue";
+import { ɵinitialKeyboardState, ɵwatchKeyboardState } from "@copilotkit/core";
 
 /**
  * Vue-idiomatic result of {@link useKeyboardHeight}. Fields mirror the React
@@ -32,50 +34,25 @@ export interface KeyboardState {
  * ```
  */
 export function useKeyboardHeight(): KeyboardState {
-  const initialHeight = typeof window !== "undefined" ? window.innerHeight : 0;
-  const isKeyboardOpen = ref(false);
-  const keyboardHeight = ref(0);
-  const availableHeight = ref(initialHeight);
-  const viewportHeight = ref(initialHeight);
-
-  const updateKeyboardState = () => {
-    if (typeof window === "undefined") return;
-    const visualViewport = window.visualViewport;
-    if (!visualViewport) return;
-
-    const layoutHeight = window.innerHeight;
-    const visualHeight = visualViewport.height;
-
-    // Keyboard height = layout viewport minus visual viewport, clamped to 0.
-    const nextKeyboardHeight = Math.max(0, layoutHeight - visualHeight);
-    // Only treat the keyboard as open past the 150px threshold, matching
-    // the React implementation's mobile heuristic.
-    const nextIsOpen = nextKeyboardHeight > 150;
-
-    keyboardHeight.value = nextKeyboardHeight;
-    isKeyboardOpen.value = nextIsOpen;
-    availableHeight.value = visualHeight;
-    viewportHeight.value = layoutHeight;
-  };
-
-  let visualViewport: VisualViewport | null = null;
+  const initial = ɵinitialKeyboardState();
+  const isKeyboardOpen = ref(initial.isKeyboardOpen);
+  const keyboardHeight = ref(initial.keyboardHeight);
+  const availableHeight = ref(initial.availableHeight);
+  const viewportHeight = ref(initial.viewportHeight);
+  let stopWatching: (() => void) | undefined;
 
   onMounted(() => {
-    if (typeof window === "undefined") return;
-    visualViewport = window.visualViewport ?? null;
-    if (!visualViewport) return;
-
-    updateKeyboardState();
-
-    visualViewport.addEventListener("resize", updateKeyboardState);
-    visualViewport.addEventListener("scroll", updateKeyboardState);
+    stopWatching = ɵwatchKeyboardState((state) => {
+      keyboardHeight.value = state.keyboardHeight;
+      isKeyboardOpen.value = state.isKeyboardOpen;
+      availableHeight.value = state.availableHeight;
+      viewportHeight.value = state.viewportHeight;
+    });
   });
 
   onBeforeUnmount(() => {
-    if (!visualViewport) return;
-    visualViewport.removeEventListener("resize", updateKeyboardState);
-    visualViewport.removeEventListener("scroll", updateKeyboardState);
-    visualViewport = null;
+    stopWatching?.();
+    stopWatching = undefined;
   });
 
   return {

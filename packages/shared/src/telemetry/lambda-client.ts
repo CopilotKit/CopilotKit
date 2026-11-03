@@ -109,7 +109,11 @@ export function parseTelemetryIdFromLicense(token?: string): string | null {
   if (parts.length !== 3) return null;
   try {
     const payload = parts[1];
-    if (!/^[A-Za-z0-9_-]+$/.test(payload) || payload.length % 4 === 1) {
+    if (
+      payload === undefined ||
+      !/^[A-Za-z0-9_-]+$/.test(payload) ||
+      payload.length % 4 === 1
+    ) {
       return null;
     }
 

@@ -108,7 +108,7 @@ describe("useDefaultRenderTool", () => {
     });
 
     expect(customRender).toHaveBeenCalledTimes(1);
-    const forwardedProps = customRender.mock.calls[0][0];
+    const forwardedProps = customRender.mock.calls[0]![0];
     expect(forwardedProps).toMatchObject({
       toolCallId: "tc-forwarded-1",
     });
@@ -441,7 +441,7 @@ describe("useDefaultRenderTool", () => {
     } as unknown as Parameters<typeof config.render>[0]);
 
     expect(customRender).toHaveBeenCalledTimes(1);
-    const forwarded = customRender.mock.calls[0][0];
+    const forwarded = customRender.mock.calls[0]![0];
     // Key assertions — user MUST get parameters (not undefined) and a
     // documented string-union status.
     expect(forwarded.parameters).toEqual({ query: "copilot" });

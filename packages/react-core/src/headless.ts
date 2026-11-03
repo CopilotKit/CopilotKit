@@ -24,6 +24,9 @@
 // extensionless import is invalid in ESM declarations).
 export { CopilotKitCoreReact, useCopilotKit } from "./context";
 export type { CopilotKitCoreReactConfig } from "./context";
+// Internal: the provider's core lifecycle (dispose on unmount, StrictMode
+// safe), shared with `@copilotkit/react-native`'s provider.
+export { ɵuseOwnedCore } from "./providers/use-owned-core";
 
 // Chat configuration provider (no UI, just context)
 export {

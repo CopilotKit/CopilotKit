@@ -482,7 +482,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
       );
 
       expect(childrenFn).toHaveBeenCalled();
-      const callArgs = childrenFn.mock.calls[0][0];
+      const callArgs = childrenFn.mock.calls[0]![0];
       expect(callArgs).toHaveProperty("markdownRenderer");
       expect(callArgs).toHaveProperty("toolbar");
       expect(callArgs).toHaveProperty("copyButton");
@@ -518,7 +518,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
         </TestWrapper>,
       );
 
-      const callArgs = childrenFn.mock.calls[0][0];
+      const callArgs = childrenFn.mock.calls[0]![0];
       expect(callArgs.message).toBe(message);
       expect(callArgs.isRunning).toBe(true);
       expect(callArgs.toolbarVisible).toBe(false);

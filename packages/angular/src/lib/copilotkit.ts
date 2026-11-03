@@ -5,15 +5,19 @@ import type {
   CopilotKitCoreGetSuggestionsResult,
   CopilotKitHeadersSource,
   CopilotKitMessageFilter,
-  IntelligenceRuntimeInfo,
-  RuntimeLicenseStatus,
   SuggestionsConfig,
-  ThreadEndpointRuntimeInfo,
+  ɵCopilotKitCoreConfigPatch,
+  ɵProviderConfigInput,
+  ɵRuntimeInfo,
 } from "@copilotkit/core";
+import type { DebugConfig } from "@copilotkit/shared";
 import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
   ɵRendererRegistry,
+  ɵpublicKeyHeaderDefaults,
+  ɵreportProviderConfigDiagnostics,
+  ɵresolveProviderConfig,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";
 import type { Signal, WritableSignal } from "@angular/core";
@@ -21,17 +25,19 @@ import {
   DestroyRef,
   Injectable,
   Injector,
+  PLATFORM_ID,
   computed,
+  isDevMode,
   runInInjectionContext,
   signal,
   inject,
 } from "@angular/core";
+import { isPlatformBrowser } from "@angular/common";
 import type {
   FrontendToolConfig,
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "./tools";
-import type { RuntimeEntitlementResponse } from "@copilotkit/shared";
 import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
   A2UI_DEFAULT_GENERATION_GUIDELINES,
@@ -42,10 +48,8 @@ import {
   ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
   anyActivityContentSchema,
 } from "./activity-renderer";
-import {
-  injectCopilotKitConfig,
-  ɵresolvePublicKeyHeaderDefaults,
-} from "./config";
+import { injectCopilotKitConfig } from "./config";
+import type { CopilotKitConfig } from "./config";
 import { HumanInTheLoop } from "./human-in-the-loop";
 import { ensureLicenseWatermark } from "./license-watermark";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
@@ -73,19 +77,17 @@ import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-gener
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { CopilotInspector } from "./inspector";
 
-/**
- * Advertise a client-provided A2UI catalog to the runtime without mutating the
- * caller's properties object. The runtime uses this per-run capability to
- * enable A2UI middleware and inject its render tool when endpoint configuration
- * does not opt in separately; this mirrors the React provider contract.
- */
-function withA2UICatalogCapability(
-  properties: Record<string, unknown> | undefined,
-  hasCatalog: boolean,
-): Record<string, unknown> | undefined {
-  return hasCatalog
-    ? { ...properties, a2uiCatalogAvailable: true }
-    : properties;
+/** Map Angular's option names onto core's provider config input. */
+function toProviderConfigInput(config: CopilotKitConfig): ɵProviderConfigInput {
+  return {
+    runtimeUrl: config.runtimeUrl,
+    publicApiKey: config.licenseKey,
+    runtimeTransport: config.runtimeTransport,
+    agents__unsafe_dev_only: config.agents,
+    selfManagedAgents: config.selfManagedAgents,
+    properties: config.properties,
+    a2uiCatalog: config.a2ui?.catalog,
+  };
 }
 
 @Injectable({ providedIn: "root" })
@@ -104,11 +106,16 @@ export class CopilotKit {
     this.#config.agents ?? {},
   );
   readonly agents = this.#agents.asReadonly();
-  readonly #runtimeConnectionStatus =
-    signal<CopilotKitCoreRuntimeConnectionStatus>(
+  /**
+   * Core's runtime info snapshot (`core.ɵruntimeInfo`). Set in the
+   * constructor, then on every change. The runtime signals below read it.
+   */
+  readonly #runtimeInfo = signal<ɵRuntimeInfo | undefined>(undefined);
+  readonly runtimeConnectionStatus = computed(
+    () =>
+      this.#runtimeInfo()?.status ??
       CopilotKitCoreRuntimeConnectionStatus.Disconnected,
-    );
-  readonly runtimeConnectionStatus = this.#runtimeConnectionStatus.asReadonly();
+  );
   readonly #runtimeUrl = signal<string | undefined>(undefined);
   readonly runtimeUrl = this.#runtimeUrl.asReadonly();
   readonly #runtimeTransport = signal<CopilotRuntimeTransport>("auto");
@@ -137,26 +144,22 @@ export class CopilotKit {
   readonly ɵheadersGeneration = this.#headersGeneration.asReadonly();
   readonly #credentials = signal<RequestCredentials | undefined>(undefined);
   readonly credentials = this.#credentials.asReadonly();
-  readonly #threadEndpoints = signal<ThreadEndpointRuntimeInfo | undefined>(
-    undefined,
-  );
   /**
    * Thread-endpoint capability advertised by the connected runtime's `/info`
    * response, or `undefined` before the runtime reports `Connected`. Exposed
    * as a signal (rather than a plain `core.threadEndpoints` read) so reactive
    * consumers re-run when `/info` lands.
    */
-  readonly threadEndpoints = this.#threadEndpoints.asReadonly();
-  readonly #audioFileTranscriptionEnabled = signal(false);
+  readonly threadEndpoints = computed(
+    () => this.#runtimeInfo()?.threadEndpoints,
+  );
   /**
    * Voice transcription capability advertised by the connected runtime's
    * `/info` response. The value remains false until the runtime explicitly
    * reports support.
    */
-  readonly audioFileTranscriptionEnabled =
-    this.#audioFileTranscriptionEnabled.asReadonly();
-  readonly #intelligence = signal<IntelligenceRuntimeInfo | undefined>(
-    undefined,
+  readonly audioFileTranscriptionEnabled = computed(
+    () => this.#runtimeInfo()?.audioFileTranscriptionEnabled ?? false,
   );
   /**
    * Intelligence runtime info advertised by the connected runtime's `/info`
@@ -165,46 +168,50 @@ export class CopilotKit {
    * when `/info` populates it — even if the connection status does not
    * transition in the same turn.
    */
-  readonly intelligence = this.#intelligence.asReadonly();
-  readonly #licenseStatus = signal<RuntimeLicenseStatus | undefined>(undefined);
+  readonly intelligence = computed(() => this.#runtimeInfo()?.intelligence);
   /**
    * Server-reported license status from the connected runtime's `/info`
    * response, or `undefined` before the runtime reports it. Exposed as a signal
    * (rather than a plain `core.licenseStatus` read) so reactive consumers — e.g.
    * the threads drawer's license gate — re-run once the status resolves.
    */
-  readonly licenseStatus = this.#licenseStatus.asReadonly();
-  readonly #runtimeEntitlements = signal<
-    RuntimeEntitlementResponse | undefined
-  >(undefined);
+  readonly licenseStatus = computed(() => this.#runtimeInfo()?.licenseStatus);
   /**
    * Structured entitlement authority from the connected runtime's `/info`
    * response. Ready managed entitlements override legacy license status.
    */
-  readonly runtimeEntitlements = this.#runtimeEntitlements.asReadonly();
-  readonly #runtimeEntitlementRetryPending = signal(false);
+  readonly runtimeEntitlements = computed(
+    () => this.#runtimeInfo()?.runtimeEntitlements,
+  );
   /**
    * Whether Core still owes the one bounded retry for a retryable entitlement
    * lookup. Gated UI stays pending until that retry settles.
    */
-  readonly runtimeEntitlementRetryPending =
-    this.#runtimeEntitlementRetryPending.asReadonly();
+  readonly runtimeEntitlementRetryPending = computed(
+    () => this.#runtimeInfo()?.runtimeEntitlementRetryPending ?? false,
+  );
   readonly #suggestionsByAgent = signal<
     Record<string, CopilotKitCoreGetSuggestionsResult>
   >({});
   readonly suggestionsByAgent = this.#suggestionsByAgent.asReadonly();
 
   /**
-   * The public-key header default, computed once from this instance's config
-   * (license key / already-present header, see `resolveLicense` in
-   * `config.ts`).
+   * The provider inputs core normalizes (key fallback, Copilot Cloud URL,
+   * transport, agent merge, catalog property). `updateRuntime` replaces the
+   * keys it is given and resolves again.
    */
-  readonly #publicKeyDefaults = ɵresolvePublicKeyHeaderDefaults(this.#config);
+  #providerInput = toProviderConfigInput(this.#config);
+  readonly #initialConfig = ɵresolveProviderConfig(this.#providerInput);
+  /** The public-key header default. The key is fixed for this instance. */
+  readonly #publicKeyDefaults = ɵpublicKeyHeaderDefaults(
+    this.#initialConfig.publicKey,
+  );
 
   // `ɵwithHeaderDefaults` returns a new function for a function source on
   // every call. Remember the last source and its wrapper, so passing the same
   // builder again hands core the same function and stays a no-op (#1937).
   #lastHeadersSource: CopilotKitHeadersSource | undefined;
+  readonly #loggedDiagnostics = new Set<string>();
   #lastWrappedHeaders: CopilotKitHeadersSource | undefined;
 
   #withPublicKeyDefaults(
@@ -221,20 +228,21 @@ export class CopilotKit {
   }
 
   readonly core = new CopilotKitCore({
-    runtimeUrl: this.#config.runtimeUrl,
+    runtimeUrl: this.#initialConfig.runtimeUrl,
+    runtimeTransport: this.#initialConfig.runtimeTransport,
+    // `/info` starts in the constructor, and only in the browser, so server
+    // rendering never fetches it.
+    deferInitialConnection: true,
     headers: this.#withPublicKeyDefaults(this.#config.headers ?? {}),
     credentials: this.#config.credentials,
     messageFilter: this.#config.messageFilter,
-    agents__unsafe_dev_only: {
-      ...this.#config.agents,
-      ...this.#config.selfManagedAgents,
-    },
+    agents__unsafe_dev_only: this.#initialConfig.agents,
     tools: this.#config.tools,
     suggestionsConfig: this.#config.suggestionsConfig,
-    properties: withA2UICatalogCapability(
-      this.#config.properties,
-      this.#config.a2ui?.catalog !== undefined,
-    ),
+    properties: this.#initialConfig.properties,
+    debug: this.#config.debug,
+    defaultThrottleMs: this.#config.defaultThrottleMs,
+    onError: this.#config.onError,
   });
 
   /**
@@ -302,6 +310,11 @@ export class CopilotKit {
   constructor() {
     // This service creates `core`, so it owns it and stops it on destroy.
     inject(DestroyRef).onDestroy(() => this.core.dispose());
+    // Throws in production for a missing runtime config; otherwise warns.
+    ɵreportProviderConfigDiagnostics(this.#initialConfig.diagnostics, {
+      isProduction: !isDevMode(),
+      logged: this.#loggedDiagnostics,
+    });
     void this.#inspector.isInspectorEnabled;
     // A builder is only evaluated at send time, so it can't be read here.
     // The record branch below already has its own key-header fallback.
@@ -311,22 +324,15 @@ export class CopilotKit {
         : this.#config.headers,
     );
 
-    this.#runtimeConnectionStatus.set(this.core.runtimeConnectionStatus);
+    this.#runtimeInfo.set(this.core.ɵruntimeInfo);
+    this.core.ɵsubscribeToRuntimeInfo(() => {
+      this.#runtimeInfo.set(this.core.ɵruntimeInfo);
+    });
     this.#runtimeUrl.set(this.core.runtimeUrl);
     this.#runtimeTransport.set(this.core.runtimeTransport);
     this.#headers.set(this.core.headers);
     this.#headersGeneration.set(this.core.ɵheadersGeneration);
     this.#credentials.set(this.core.credentials);
-    this.#threadEndpoints.set(this.core.threadEndpoints);
-    this.#audioFileTranscriptionEnabled.set(
-      this.core.audioFileTranscriptionEnabled,
-    );
-    this.#intelligence.set(this.core.intelligence);
-    this.#licenseStatus.set(this.core.licenseStatus);
-    this.#runtimeEntitlements.set(this.core.runtimeEntitlements);
-    this.#runtimeEntitlementRetryPending.set(
-      this.core.runtimeEntitlementRetryPending,
-    );
     this.#renderers.subscribe((kind) => {
       if (kind === "toolCalls") {
         this.#toolCallRenderConfigs.set(this.#renderers.toolCalls);
@@ -365,10 +371,7 @@ export class CopilotKit {
     // The core constructor registers dev agents without announcing them, so
     // its run tracking (per-run state, subagents) never subscribes to them.
     // Publish them once, as the React provider does on mount.
-    const devAgents = {
-      ...this.#config.agents,
-      ...this.#config.selfManagedAgents,
-    };
+    const devAgents = this.#initialConfig.agents;
     if (Object.keys(devAgents).length > 0) {
       this.core.setAgents__unsafe_dev_only(devAgents);
     }
@@ -380,23 +383,9 @@ export class CopilotKit {
       onExecutingToolCallsChanged: ({ executingToolCallIds }) => {
         this.#executingToolCallIds.set(executingToolCallIds);
       },
-      onRuntimeConnectionStatusChanged: ({ status }) => {
-        // Core assigns `threadEndpoints`/`intelligence` synchronously before it
-        // notifies this callback (see agent-registry `ensureRuntimeMode`), so
-        // mirroring them here keeps the signals in lockstep with the status
-        // signal and lets reactive consumers observe `intelligence.wsUrl` once
-        // `/info` resolves.
-        this.#runtimeConnectionStatus.set(status);
-        this.#threadEndpoints.set(this.core.threadEndpoints);
-        this.#audioFileTranscriptionEnabled.set(
-          this.core.audioFileTranscriptionEnabled,
-        );
-        this.#intelligence.set(this.core.intelligence);
-        this.#licenseStatus.set(this.core.licenseStatus);
-        this.#runtimeEntitlements.set(this.core.runtimeEntitlements);
-        this.#runtimeEntitlementRetryPending.set(
-          this.core.runtimeEntitlementRetryPending,
-        );
+      // The runtime signals follow `ɵsubscribeToRuntimeInfo` above, which
+      // core updates before it notifies this callback.
+      onRuntimeConnectionStatusChanged: () => {
         this.#syncBuiltInActivityMessageRenderers();
         this.#syncBuiltInOpenGenerativeUI();
       },
@@ -431,6 +420,9 @@ export class CopilotKit {
     });
     this.#syncBuiltInActivityMessageRenderers();
     this.#syncBuiltInOpenGenerativeUI();
+    if (isPlatformBrowser(inject(PLATFORM_ID))) {
+      this.core.connect();
+    }
   }
 
   #setSuggestions(
@@ -850,6 +842,14 @@ export class CopilotKit {
     return this.core.getAgent(agentId);
   }
 
+  /**
+   * Change the runtime config after startup.
+   *
+   * A key that is present is applied. `runtimeUrl`, `credentials`,
+   * `messageFilter`, `debug` and `defaultThrottleMs` can be cleared by
+   * passing `undefined`; the other keys are ignored when `undefined`.
+   * `agents` and `selfManagedAgents` replace the last value of that key.
+   */
   updateRuntime(options: {
     runtimeUrl?: string;
     runtimeTransport?: CopilotRuntimeTransport;
@@ -859,44 +859,49 @@ export class CopilotKit {
     properties?: Record<string, unknown>;
     agents?: Record<string, AbstractAgent>;
     selfManagedAgents?: Record<string, AbstractAgent>;
+    debug?: DebugConfig;
+    defaultThrottleMs?: number;
   }): void {
-    if (options.runtimeUrl !== undefined) {
-      this.core.setRuntimeUrl(options.runtimeUrl);
-      this.#runtimeUrl.set(options.runtimeUrl);
-    }
-    if (options.runtimeTransport !== undefined) {
-      this.core.setRuntimeTransport(options.runtimeTransport);
-      this.#runtimeTransport.set(options.runtimeTransport);
-    }
-    if (options.headers !== undefined) {
-      this.core.setHeaders(this.#withPublicKeyDefaults(options.headers));
-      this.#headers.set(this.core.headers);
-    }
-    if ("credentials" in options) {
-      this.core.setCredentials(options.credentials);
-      this.#credentials.set(options.credentials);
-    }
-    // `in`, not `!== undefined`: clearing the filter is a real instruction, and
+    const hasRuntimeUrl = "runtimeUrl" in options;
+    const hasTransport = options.runtimeTransport !== undefined;
+    const hasProperties = options.properties !== undefined;
+    const hasAgents =
+      options.agents !== undefined || options.selfManagedAgents !== undefined;
+    this.#providerInput = {
+      ...this.#providerInput,
+      ...(hasRuntimeUrl && { runtimeUrl: options.runtimeUrl }),
+      ...(hasTransport && { runtimeTransport: options.runtimeTransport }),
+      ...(hasProperties && { properties: options.properties }),
+      ...(options.agents !== undefined && {
+        agents__unsafe_dev_only: options.agents,
+      }),
+      ...(options.selfManagedAgents !== undefined && {
+        selfManagedAgents: options.selfManagedAgents,
+      }),
+    };
+    const resolved = ɵresolveProviderConfig(this.#providerInput);
+
+    const patch: ɵCopilotKitCoreConfigPatch = {};
+    // `in`, not `!== undefined`: clearing these is a real instruction, and
     // `undefined` is the value that expresses it.
-    if ("messageFilter" in options) {
-      this.core.setMessageFilter(options.messageFilter);
+    if ("messageFilter" in options) patch.messageFilter = options.messageFilter;
+    if (hasRuntimeUrl) patch.runtimeUrl = resolved.runtimeUrl;
+    if (hasTransport) patch.runtimeTransport = resolved.runtimeTransport;
+    if (options.headers !== undefined) {
+      patch.headers = this.#withPublicKeyDefaults(options.headers);
     }
-    if (options.properties !== undefined) {
-      this.core.setProperties(
-        withA2UICatalogCapability(
-          options.properties,
-          this.#config.a2ui?.catalog !== undefined,
-        ) ?? options.properties,
-      );
+    if ("credentials" in options) patch.credentials = options.credentials;
+    if (hasProperties) patch.properties = resolved.properties;
+    if (hasAgents) patch.agents__unsafe_dev_only = resolved.agents;
+    if ("debug" in options) patch.debug = options.debug;
+    if ("defaultThrottleMs" in options) {
+      patch.defaultThrottleMs = options.defaultThrottleMs;
     }
-    if (
-      options.agents !== undefined ||
-      options.selfManagedAgents !== undefined
-    ) {
-      this.core.setAgents__unsafe_dev_only({
-        ...(options.agents ?? this.#config.agents),
-        ...(options.selfManagedAgents ?? this.#config.selfManagedAgents),
-      });
-    }
+    this.core.ɵupdateConfig(patch);
+
+    if (hasRuntimeUrl) this.#runtimeUrl.set(resolved.runtimeUrl);
+    if (hasTransport) this.#runtimeTransport.set(resolved.runtimeTransport);
+    if (options.headers !== undefined) this.#headers.set(this.core.headers);
+    if ("credentials" in options) this.#credentials.set(options.credentials);
   }
 }
