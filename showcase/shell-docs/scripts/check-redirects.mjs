@@ -196,6 +196,10 @@ withSuffixes(
 for (const suffix of SUFFIXES) {
   none(`/slack/tools${suffix}`);
   none(`/teams/mastra/threads-and-state${suffix}`);
+  // The channel sidebars' Intelligence links: Intelligence pages, not guides.
+  none(`/slack/intelligence/quickstart${suffix}`);
+  none(`/slack/intelligence/overview${suffix}`);
+  none(`/teams/intelligence/channels${suffix}`);
 }
 none("/channels/not-a-guide");
 none("/slack/mastra/channels/not-a-guide");
