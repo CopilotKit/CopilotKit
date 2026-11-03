@@ -193,4 +193,17 @@
     padding-top: 7px;
     padding-bottom: 7px;
   }
+
+  /* Editing by hand: the editor needs the rows more than the Ask footer's explanation does (still read by
+     screen readers). It stays when it says why Ask is off. */
+  .wb-page [data-json-ask]:not([data-blocked]) [data-json-ask-note] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }

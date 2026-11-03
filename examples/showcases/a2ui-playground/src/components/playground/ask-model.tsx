@@ -151,6 +151,7 @@ export function AskModel({
       onSubmit={submit}
       className="flex-none border-t border-[var(--pg-line)] bg-[var(--pg-surface)] px-4 py-2.5"
       data-json-ask
+      data-blocked={blocked ? "" : undefined}
     >
       <div className="flex items-center gap-2">
         <input
@@ -172,7 +173,11 @@ export function AskModel({
           Ask
         </button>
       </div>
-      <p id={noteId} className="mt-1.5 text-[11.5px] text-[var(--pg-faint)]">
+      <p
+        id={noteId}
+        className="mt-1.5 text-[11.5px] text-[var(--pg-faint)]"
+        data-json-ask-note
+      >
         {blocked ??
           "Puts this surface in the chat as the latest one, then sends your request. The model updates it in place."}
       </p>

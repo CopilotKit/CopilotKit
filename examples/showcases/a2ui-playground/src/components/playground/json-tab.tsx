@@ -91,14 +91,19 @@ export function useDecompiled(opsJson: string | null): Decompiled | null {
 
 /** The selected surface as it would be sent, in Express or JSON, read-only, or (Edit) hand-edited with a live preview and no model. */
 /** `jsonOnly`: the JSON alone, with no Express view (the workbench shows the Express in a tab of its own). */
+/** `editing` and `onEditing`: the workbench keeps the edit mode, since its panel changes with it. */
 export function JsonTab({
   wide,
   onWide,
   jsonOnly = false,
+  editing: editingProp,
+  onEditing,
 }: {
   wide: boolean;
   onWide: (wide: boolean) => void;
   jsonOnly?: boolean;
+  editing?: boolean;
+  onEditing?: (on: boolean) => void;
 }) {
   const surface = useRunStore((s) =>
     s.selected ? s.surfaces[s.selected] : undefined,
@@ -106,11 +111,13 @@ export function JsonTab({
   const run = useRunStore((s) =>
     surface?.runId ? s.runs.find((r) => r.id === surface.runId) : undefined,
   );
-  const [editing, setEditingState] = useState(() => editorMemory.editing);
+  const [editingState, setEditingState] = useState(() => editorMemory.editing);
+  const editing = editingProp ?? editingState;
   const [viewState, setViewState] = useState<View>(() => viewMemory.view);
   const view: View = jsonOnly ? "json" : viewState;
   const [copied, setCopied] = useState(false);
   const setEditing = (on: boolean) => {
+    if (onEditing) return onEditing(on);
     editorMemory.editing = on;
     setEditingState(on);
     if (!on) onWide(false);
@@ -144,6 +151,8 @@ export function JsonTab({
         wide={wide}
         onWide={onWide}
         onExit={() => setEditing(false)}
+        // The workbench's panel header has its own way out.
+        toggle={!onEditing}
       />
     );
   if (!surface || !sent) {

@@ -306,6 +306,8 @@ export function Composer({
   // Not on a touch screen, where the keyboard would come up over the answer.
   const toPrompt = useRef(false);
   const touched = useRef(false);
+  // "Start without AI" hands the focus to the editor it opens (the editor takes it itself).
+  const toEditor = useRef(false);
   useEffect(() => {
     setPortal(wrap.current?.closest<HTMLElement>(".pg-root") ?? null);
   }, []);
@@ -601,6 +603,11 @@ export function Composer({
                   }
                 }}
                 onCloseAutoFocus={(e) => {
+                  if (toEditor.current) {
+                    toEditor.current = false;
+                    e.preventDefault();
+                    return;
+                  }
                   const handBack = toPrompt.current && !touched.current;
                   toPrompt.current = false;
                   if (!handBack) return;
@@ -671,7 +678,10 @@ export function Composer({
                     </Opens>
                     <DropdownMenu.Separator className={rule} />
                     <DropdownMenu.Item
-                      onSelect={onStartWithoutAI}
+                      onSelect={() => {
+                        toEditor.current = true;
+                        onStartWithoutAI();
+                      }}
                       data-menu-no-ai
                       className={menuItem}
                     >
