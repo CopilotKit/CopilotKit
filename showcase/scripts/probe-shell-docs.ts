@@ -41,7 +41,7 @@ if (!Number.isInteger(CONCURRENCY) || CONCURRENCY < 1) {
   process.exit(1);
 }
 
-// Mirror getDocsFolder from shell-docs/src/lib/registry.ts. Single source
+// Mirror getDocsFolder from shell-docs/src/components/docs-mdx/data.ts. Single source
 // of truth lives there; duplicated here because this script is run via
 // tsx in scripts/ which doesn't share the shell-docs tsconfig paths.
 const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
@@ -58,7 +58,7 @@ const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
 };
 const getDocsFolder = (slug: string) => DOCS_FOLDER_OVERRIDES[slug] ?? slug;
 
-// Mirror DOCS_ONLY_FRAMEWORK_MODES from shell-docs/src/lib/registry.ts.
+// Mirror DOCS_ONLY_FRAMEWORK_MODES from shell-docs/src/components/docs-mdx/data.ts.
 // These slugs have no `showcase/integrations/<slug>/manifest.yaml` (so
 // they never appear in `registry.integrations`) but DO have a
 // `frameworkOverviews` entry that the route handler serves at

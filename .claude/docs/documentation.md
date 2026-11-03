@@ -29,7 +29,7 @@ Framework docs are in a hybrid state while showcase coverage is being completed.
 framework's `docs_mode` controls how shell-docs resolves routes, sidebars, snippets, and
 search content. The source of truth for showcase integrations is
 `showcase/integrations/<slug>/manifest.yaml`; shell-docs reads the generated registry via
-`showcase/shell-docs/src/lib/registry.ts`.
+`showcase/shell-docs/src/components/docs-mdx/data.ts`.
 
 Use these human-facing terms when discussing modes:
 
@@ -49,7 +49,7 @@ Content resolution differs by mode:
   the framework is ready to become authored or showcase-driven.
 
 Framework slugs do not always match docs folder names. Check `getDocsFolder()` in
-`showcase/shell-docs/src/lib/registry.ts` before creating or moving framework-owned pages.
+`showcase/shell-docs/src/components/docs-mdx/data.ts` before creating or moving framework-owned pages.
 
 ### How humans and agents should work
 
@@ -57,10 +57,10 @@ Before editing framework docs, check the framework's `docs_mode`.
 
 - For **showcase-driven frameworks (`docs_mode: generated`)**, update the showcase inputs:
   integration manifests, demos, feature coverage, source regions, generated registry inputs,
-  shared/root MDX, and sparse framework overrides. The landing-page record under
-  `showcase/shell-docs/src/data/frameworks/` is the exception — edit it by hand. Some of
-  those files carry a header crediting `scripts/extract-framework-overviews.ts`, which does
-  not exist in this repository and never has.
+  shared/root MDX, and sparse framework overrides. The framework's landing page is the
+  exception: it is authored in
+  `showcase/shell-docs/src/content/docs/integrations/<docsFolder>/index.mdx`
+  (`<FrameworkOverview>`), so edit it by hand.
 - For **authored frameworks (`docs_mode: authored`)**, update the framework MDX tree under
   `showcase/shell-docs/src/content/docs/integrations/<docsFolder>/` and its `meta.json`.
 - For **reference docs**, edit `showcase/shell-docs/src/content/reference/`. The v2
@@ -82,7 +82,7 @@ Before editing framework docs, check the framework's `docs_mode`.
 **API reference is different.** The v2 reference (`reference/{components,hooks,sdk}/`) has
 **no `meta.json`** — navigation is generated automatically by walking the tree and reading
 each page's `title`/`description` frontmatter (see
-`showcase/shell-docs/src/lib/reference-items.ts`). To add a reference page, drop an `.mdx`
+`showcase/shell-docs/src/lib/live-nav.ts`). To add a reference page, drop an `.mdx`
 file with frontmatter into the right subdirectory; it appears in nav on its own. Only the
 legacy `reference/v1/` tree uses `meta.json`. For the full new-hook checklist see
 [Hook Development](hooks.md).

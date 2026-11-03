@@ -32,40 +32,103 @@ function inlineKeys(node: ts.Expression | undefined): string[] {
 
 describe("docs prompt controls", () => {
   it("publishes intent and successful copy events with their action context", () => {
-    const root = path.join(__dirname, "..", "..");
-    const files = [
-      "showcase/shell-docs/src/components/hero-onboarding-prompt-button.tsx",
-      "showcase/shell-docs/src/components/ai/page-actions.tsx",
-    ];
-    const events = extractCallees(
-      files.map((file) => ({
-        path: file,
-        content: fs.readFileSync(path.join(root, file), "utf8"),
-      })),
-      { calleeNames: ["posthog.capture", "capture"] },
-    );
-    for (const name of [
-      "docs.intelligence_onboarding_prompt_action_clicked",
-      "docs.intelligence_onboarding_prompt_copied",
-    ]) {
-      expect(events.find((event) => event.event === name)).toEqual({
-        event: name,
-        call_sites: files.toSorted(),
-        properties_seen: [
-          "action",
-          "agent_framework",
-          // The revision of the argument prose appended to the copied link,
-          // and the prose itself. The hosted document versions its own text;
-          // these are the other half of what the developer copied (PE-255).
-          "argument_text",
-          "argument_version",
-          "channel",
-          "from_path",
-          "frontend",
-          "onboarding_run_id",
-          "surface",
-        ],
-      });
+    const prompts = path.join(DOCS_SRC, "components/docs-mdx/prompts");
+    const read = (file: string) =>
+      ts.createSourceFile(
+        file,
+        fs.readFileSync(path.join(prompts, file), "utf8"),
+        ts.ScriptTarget.Latest,
+        true,
+        ts.ScriptKind.TSX,
+      );
+
+    // The event names live in one constant, INTELLIGENCE_ONBOARDING_EVENTS.
+    const events = new Map<string, string>();
+    const visitEvents = (node: ts.Node) => {
+      if (
+        ts.isVariableDeclaration(node) &&
+        ts.isIdentifier(node.name) &&
+        node.name.text === "INTELLIGENCE_ONBOARDING_EVENTS" &&
+        node.initializer
+      ) {
+        const init = ts.isAsExpression(node.initializer)
+          ? node.initializer.expression
+          : node.initializer;
+        if (ts.isObjectLiteralExpression(init)) {
+          for (const prop of init.properties) {
+            if (
+              ts.isPropertyAssignment(prop) &&
+              ts.isIdentifier(prop.name) &&
+              ts.isStringLiteral(prop.initializer)
+            ) {
+              events.set(prop.name.text, prop.initializer.text);
+            }
+          }
+        }
+      }
+      ts.forEachChild(node, visitEvents);
+    };
+    visitEvents(read("onboarding.ts"));
+    expect(Object.fromEntries(events)).toMatchObject({
+      actionClicked: "docs.intelligence_onboarding_prompt_action_clicked",
+      promptCopied: "docs.intelligence_onboarding_prompt_copied",
+    });
+
+    // The page prompt sends both events with `action` plus one shared
+    // `properties` object.
+    const source = read("page-agent-prompt.tsx");
+    let properties: string[] = [];
+    const tracked = new Map<string, string[]>();
+    const visit = (node: ts.Node) => {
+      if (
+        ts.isVariableDeclaration(node) &&
+        ts.isIdentifier(node.name) &&
+        node.name.text === "properties"
+      ) {
+        properties = inlineKeys(node.initializer);
+      }
+      if (
+        ts.isCallExpression(node) &&
+        ts.isIdentifier(node.expression) &&
+        node.expression.text === "trackEvent" &&
+        ts.isPropertyAccessExpression(node.arguments[0]) &&
+        node.arguments[0].expression.getText(source) ===
+          "INTELLIGENCE_ONBOARDING_EVENTS"
+      ) {
+        const payload = node.arguments[1];
+        const keys = inlineKeys(payload);
+        const spreadsProperties =
+          !!payload &&
+          ts.isObjectLiteralExpression(payload) &&
+          payload.properties.some(
+            (prop) =>
+              ts.isSpreadAssignment(prop) &&
+              prop.expression.getText(source) === "properties",
+          );
+        tracked.set(
+          node.arguments[0].name.text,
+          spreadsProperties ? [...keys, ...properties] : keys,
+        );
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+
+    for (const name of ["actionClicked", "promptCopied"]) {
+      expect(tracked.get(name)?.toSorted()).toEqual([
+        "action",
+        "agent_framework",
+        // The revision of the argument prose appended to the copied link,
+        // and the prose itself. The hosted document versions its own text;
+        // these are the other half of what the developer copied (PE-255).
+        "argument_text",
+        "argument_version",
+        "channel",
+        "from_path",
+        "frontend",
+        "onboarding_run_id",
+        "surface",
+      ]);
     }
   });
 });
