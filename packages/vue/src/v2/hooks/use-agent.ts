@@ -1,15 +1,12 @@
 import { computed, shallowRef, toValue, triggerRef, watch } from "vue";
 import type { MaybeRefOrGetter } from "vue";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
 import {
-  ProxiedCopilotRuntimeAgent,
-  CopilotKitCoreRuntimeConnectionStatus,
-  ɵisHttpAgent,
-} from "@copilotkit/core";
-import type {
-  CopilotRuntimeTransport,
-  SubscribeToAgentSubscriber,
+  ɵgetAgentResolver,
+  ɵresolveAgentId,
+  ɵresolveAgentThreadId,
+  ɵsubscribeToAgentUpdates,
+  ɵvalidateAgentBinding,
 } from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../providers/useCopilotChatConfiguration";
@@ -126,7 +123,9 @@ export type UseAgentProps = UseAgentPropsBase &
  *
  * It returns a reactive `agent` ref that updates when the selected agent
  * changes, when runtime connection state changes, or when subscribed update
- * events fire.
+ * events fire, and an `isReady` ref: `false` while `agent` is a provisional
+ * stand-in used before the runtime `/info` sync lands (or after it failed),
+ * `true` once it is the real agent.
  *
  * @example
  * ```ts
@@ -134,348 +133,145 @@ export type UseAgentProps = UseAgentPropsBase &
  * ```
  */
 export function useAgent(props: UseAgentProps = {}) {
-  // `threadId`, `runtimeAgentId` and an explicit `agentId` are all-or-nothing.
-  // UseAgentProps rejects a partial set at compile time; these are the runtime
-  // backstop for callers TypeScript doesn't reach (plain JS, `as any`). Same
-  // three checks, same messages, as React's useAgent.
-  const hasThreadId = props.threadId !== undefined;
-  const hasRuntimeAgentId = props.runtimeAgentId !== undefined;
-  const hasAgentId = props.agentId !== undefined;
-
-  if (hasThreadId && !hasRuntimeAgentId) {
-    throw new Error(
-      "useAgent: `threadId` requires `runtimeAgentId`. A threadId is written onto a " +
-        "single agent, but an agent resolved by agentId alone is shared, so scoping a " +
-        "thread to it would clobber other useAgent callers. Pass a distinct local `agentId` " +
-        'and the runtime agent to route to, e.g. useAgent({ agentId: "chat-1", ' +
-        'runtimeAgentId: "assistant", threadId }).',
-    );
-  }
-
-  if (hasRuntimeAgentId && !hasThreadId) {
-    throw new Error(
-      "useAgent: `runtimeAgentId` requires `threadId`. A proxied agent exists to scope a " +
-        "thread to a private instance; without a threadId it behaves like the shared agent " +
-        "while adding a registration and a local agentId to keep unique. Either pass the " +
-        "thread, or bind to the agent directly with useAgent({ agentId }).",
-    );
-  }
-
-  if (hasRuntimeAgentId && !hasAgentId) {
-    throw new Error(
-      "useAgent: `runtimeAgentId` requires an explicit `agentId`. The proxied agent is " +
-        "registered under `agentId`, and the usual fallbacks (chat configuration, then " +
-        `"${DEFAULT_AGENT_ID}") name agents that already exist — registering over one throws ` +
-        "or shadows it. Pick a local id for this hook, e.g. " +
-        'useAgent({ agentId: "chat-1", runtimeAgentId: "assistant", threadId }).',
-    );
-  }
-
-  // After the guards, all three are present or none are.
-  const isThreadScoped = hasRuntimeAgentId;
+  // Runtime backstop for the all-or-nothing rule UseAgentProps enforces at
+  // compile time (plain JS, `as any`). Same checks and messages as React.
+  ɵvalidateAgentBinding({
+    agentId: toValue(props.agentId),
+    threadId: toValue(props.threadId),
+    runtimeAgentId: toValue(props.runtimeAgentId),
+  });
+  const isThreadScoped = props.runtimeAgentId !== undefined;
 
   const chatConfig = useCopilotChatConfiguration();
-  const agentId = computed(
-    () =>
-      toValue(props.agentId) ?? chatConfig.value?.agentId ?? DEFAULT_AGENT_ID,
+  const agentId = computed(() =>
+    ɵresolveAgentId({
+      agentId: toValue(props.agentId),
+      chatAgentId: chatConfig.value?.agentId,
+    }),
   );
   const runtimeAgentId = computed(() =>
     isThreadScoped ? toValue(props.runtimeAgentId) : undefined,
   );
-  // Mirrors React: an explicit `threadId` prop wins, otherwise the chat
-  // configuration's thread, gated on `hasExplicitThreadId` so a
-  // ThreadsProvider-minted placeholder UUID doesn't overwrite the agent's own
-  // auto-minted one (both are random and useless to the backend).
-  const resolvedThreadId = computed(
-    () =>
-      toValue(props.threadId) ??
-      (chatConfig.value?.hasExplicitThreadId
-        ? chatConfig.value.threadId
-        : undefined),
+  const resolvedThreadId = computed(() =>
+    ɵresolveAgentThreadId({
+      threadId: toValue(props.threadId),
+      chatThreadId: chatConfig.value?.threadId,
+      chatHasExplicitThreadId: chatConfig.value?.hasExplicitThreadId,
+    }),
   );
   const { copilotkit } = useCopilotKit();
+  const resolver = computed(() => ɵgetAgentResolver(copilotkit.value));
   const updateFlags = computed(() => props.updates ?? ALL_UPDATES);
   // Read the provider-level default so it appears in the subscribe watcher
-  // deps. `subscribeToAgentWithOptions` reads it from the core instance, but
-  // Vue still needs the dep to know when to resubscribe (same role it plays
-  // in React's `useEffect` dep array).
+  // deps: core reads it, but Vue needs the dep to resubscribe.
   const providerThrottleMs = computed(() => copilotkit.value.defaultThrottleMs);
   const hookThrottleMs = computed(() => toValue(props.throttleMs));
 
   const agent = shallowRef<AbstractAgent | null>(null);
-  const subscriptionAgent = shallowRef<AbstractAgent | null>(null);
-  const provisionalAgentCache = new Map<string, ProxiedCopilotRuntimeAgent>();
+  const isReady = shallowRef(false);
+  const resolverRevision = shallowRef(0);
+  watch(
+    resolver,
+    (current, _old, onCleanup) => {
+      onCleanup(
+        current.subscribe(() => {
+          resolverRevision.value = current.getSnapshot();
+        }),
+      );
+    },
+    { immediate: true },
+  );
 
-  const createProvisionalAgent = (
-    id: string,
-    runtimeUrl: string,
-    transport: CopilotRuntimeTransport,
-  ) => {
-    const provisional = new ProxiedCopilotRuntimeAgent({
-      runtimeUrl,
-      agentId: id,
-      transport,
-      runtimeMode: "pending",
-    });
-    // Never invokes the headers builder — installs `ɵruntimeFetch` and
-    // own-only headers on this proxied agent, so a request it actually sends
-    // resolves the current headers at send time (#1937).
-    copilotkit.value.applyHeadersToAgent(provisional);
-    return provisional;
-  };
-
-  // On the thread-scoped path this hook owns an agent registered under
-  // `agentId` that routes to `runtimeAgentId`. Register/unregister as one
-  // balanced watcher — the cleanup runs both when the ids change and when the
-  // scope is disposed. Mirrors React's registration effect, including its dep
-  // set (core identity plus the two ids).
-  const registeredProxy = shallowRef<AbstractAgent | null>(null);
+  // Thread-scoped path: this hook owns a proxied agent registered under
+  // `agentId` that routes to `runtimeAgentId`. The cleanup unregisters both
+  // when the ids change and when the scope is disposed.
   if (isThreadScoped) {
     watch(
-      [agentId, runtimeAgentId, () => copilotkit.value],
-      ([id, rtId], _old, onCleanup) => {
-        const { agent: proxy, unregister } =
-          copilotkit.value.registerProxiedAgent({
-            agentId: id as string,
-            runtimeAgentId: rtId as string,
-          });
-        provisionalAgentCache.delete(id as string);
-        registeredProxy.value = proxy;
-        onCleanup(() => {
-          unregister();
-          registeredProxy.value = null;
-        });
+      [agentId, runtimeAgentId, resolver],
+      ([id, rtId, current], _old, onCleanup) => {
+        if (rtId === undefined) return;
+        onCleanup(current.bindProxy({ agentId: id, runtimeAgentId: rtId }));
       },
       { immediate: true },
     );
   }
 
   const resolveAgent = () => {
-    const id = agentId.value;
-    const core = copilotkit.value;
-
-    // Proxied path: this hook registered its own agent, so bypass the shared
-    // registry lookup. Until registration lands, hand back a provisional proxy
-    // so `agent` is never null and its identity stays stable.
-    if (isThreadScoped) {
-      const proxy = registeredProxy.value;
-      if (proxy) {
-        provisionalAgentCache.delete(id);
-        const shouldForceUpdate = agent.value === proxy;
-        agent.value = proxy;
-        subscriptionAgent.value = proxy;
-        if (shouldForceUpdate) triggerRef(agent);
-        return;
-      }
-
-      const cachedProxy = provisionalAgentCache.get(id);
-      if (cachedProxy) {
-        core.applyHeadersToAgent(cachedProxy);
-        agent.value = cachedProxy;
-        subscriptionAgent.value = cachedProxy;
-        return;
-      }
-
-      const provisionalProxy = new ProxiedCopilotRuntimeAgent({
-        runtimeUrl: core.runtimeUrl,
-        agentId: id,
-        runtimeAgentId: runtimeAgentId.value as string,
-        transport: core.runtimeTransport,
-        runtimeMode: "pending",
-      });
-      core.applyHeadersToAgent(provisionalProxy);
-      provisionalAgentCache.set(id, provisionalProxy);
-      agent.value = provisionalProxy;
-      subscriptionAgent.value = provisionalProxy;
+    const resolved = resolver.value.resolve({
+      agentId: agentId.value,
+      runtimeAgentId: runtimeAgentId.value,
+      caller: "useAgent",
+    });
+    isReady.value = resolved.isReady;
+    if (agent.value === resolved.agent) {
+      triggerRef(agent);
       return;
     }
-
-    const existing = core.getAgent(id);
-    if (existing) {
-      provisionalAgentCache.delete(id);
-
-      const shouldForceUpdate = agent.value === existing;
-      agent.value = existing;
-      subscriptionAgent.value = existing;
-      if (shouldForceUpdate) {
-        triggerRef(agent);
-      }
-      return;
-    }
-
-    const isRuntimeConfigured = core.runtimeUrl !== undefined;
-    const status = core.runtimeConnectionStatus;
-
-    if (
-      isRuntimeConfigured &&
-      (status === CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
-        status === CopilotKitCoreRuntimeConnectionStatus.Connecting ||
-        status === CopilotKitCoreRuntimeConnectionStatus.Error)
-    ) {
-      const cached = provisionalAgentCache.get(id);
-      if (cached) {
-        core.applyHeadersToAgent(cached);
-        agent.value = cached;
-        subscriptionAgent.value = cached;
-        return;
-      }
-
-      const provisional = createProvisionalAgent(
-        id,
-        core.runtimeUrl!,
-        core.runtimeTransport,
-      );
-      provisionalAgentCache.set(id, provisional);
-      agent.value = provisional;
-      subscriptionAgent.value = provisional;
-      return;
-    }
-
-    const knownAgents = Object.keys(core.agents ?? {});
-    const runtimePart = isRuntimeConfigured
-      ? `runtimeUrl=${core.runtimeUrl}`
-      : "no runtimeUrl";
-    throw new Error(
-      `useAgent: Agent '${id}' not found after runtime sync (${runtimePart}). ` +
-        (knownAgents.length
-          ? `Known agents: [${knownAgents.join(", ")}]`
-          : "No agents registered.") +
-        " Verify your runtime /info and/or agents__unsafe_dev_only.",
-    );
+    agent.value = resolved.agent;
   };
 
   // Keyed on `ɵheadersGeneration`, not header VALUES: a builder's returned
   // token can change on every resolution without a new source ever being
-  // set (a run refreshing the snapshot), and this must not re-run
-  // `resolveAgent` (and force-trigger `agent`) on that (#1937).
-  // A genuine source change (a real `setHeaders()` call) still re-runs it,
-  // refreshing a cached provisional's headers via the branches above.
+  // set, and this must not re-run `resolveAgent` on that (#1937).
   //
-  // `registeredProxy` is wrapped as a getter (`() => registeredProxy.value`)
-  // rather than passed directly: Vue's multi-source `watch` sets
-  // `forceTrigger = true` for the WHOLE array whenever any raw element is
-  // itself a shallowRef/reactive object, which makes the callback run on
-  // ANY dependency dirtying regardless of whether a source's value actually
-  // changed — silently defeating the `ɵheadersGeneration` rekey above (and
-  // every other source's diffing) the moment `registeredProxy` is present.
-  // A getter reads the same value without contributing to that flag.
+  // Sources are getters, not refs: Vue's multi-source `watch` force-triggers
+  // the whole array when any raw element is a shallowRef, which would defeat
+  // the diffing of every other source.
   watch(
     [
       agentId,
-      () => registeredProxy.value,
+      () => resolverRevision.value,
       () => copilotkit.value.agents,
       () => copilotkit.value.runtimeConnectionStatus,
       () => copilotkit.value.runtimeUrl,
       () => copilotkit.value.runtimeTransport,
       () => copilotkit.value.ɵheadersGeneration,
+      () => copilotkit.value.credentials,
     ],
     resolveAgent,
     { immediate: true },
   );
 
-  // Pin the resolved thread onto the current agent. AbstractAgent auto-mints a
-  // UUID when none is given, so without this the agent would ship its own random
-  // id in /agent/run, /agent/connect and /agent/stop. Deps are deliberately just
-  // the agent and the thread — matching React — so status/header churn cannot
-  // re-fire this and overwrite a thread `CopilotChat` pinned for its own chat.
-  // `() => agent.value`, not `agent`: Vue sets `forceTrigger` when any array
-  // watch source is a shallow ref, which would re-run this on every
-  // `triggerRef(agent)` — i.e. every streamed message — and re-pin a thread that
-  // `CopilotChat` may have deliberately overridden for the chat it renders. A
-  // getter fires only when the identity actually changes.
+  // Pin the resolved thread onto the current agent. Deps are just the agent
+  // identity and the thread, so status or header churn cannot re-pin a thread
+  // `CopilotChat` set for the chat it renders.
   watch(
     [() => agent.value, resolvedThreadId],
     ([currentAgent, threadId]) => {
       if (!currentAgent || !threadId) return;
-      currentAgent.threadId = threadId as string;
+      currentAgent.threadId = threadId;
     },
     { immediate: true },
   );
 
-  // Keyed on `ɵheadersGeneration`, not header VALUES: a builder's returned
-  // token can change on every resolution without a new source ever being set,
-  // and this watcher must not re-fire on that (see #1937).
   watch(
-    [subscriptionAgent, () => copilotkit.value.ɵheadersGeneration],
+    [
+      () => agent.value,
+      () => copilotkit.value.ɵheadersGeneration,
+      () => copilotkit.value.credentials,
+    ],
     ([currentAgent]) => {
-      if (ɵisHttpAgent(currentAgent)) {
-        copilotkit.value.applyHeadersToAgent(currentAgent);
-      }
+      if (currentAgent) resolver.value.refreshRequestSettings(currentAgent);
     },
     { immediate: true },
   );
 
-  // Subscribe through the shared `CopilotKitCore.subscribeToAgentWithOptions`
-  // API. Core owns:
-  //   - shared leading+trailing throttle window across `onMessagesChanged`
-  //     and `onStateChanged` (parity with React)
-  //   - safeCall-guarded callbacks (errors in subscribers never poison the
-  //     agent notification loop)
-  //   - validation/fallback for invalid `throttleMs`
-  //   - `onRunErrorEvent` in the run-status callback set
-  //
-  // The hook only schedules a microtask-batched `triggerRef(agent)` so
-  // multiple synchronous notifications (e.g. state + run-status firing in
-  // the same tick) coalesce into a single Vue re-render — matching React's
-  // `queueMicrotask`-batched forceUpdate strategy.
+  // Core owns throttling, safe callbacks and `throttleMs` validation; the
+  // re-render is microtask-batched so notifications in one tick coalesce.
   watch(
-    [subscriptionAgent, updateFlags, hookThrottleMs, providerThrottleMs],
-    ([a, flags], _old, onCleanup) => {
-      const f = flags as UseAgentUpdate[];
-      if (!a || f.length === 0) return;
-
-      let active = true;
-      let batchScheduled = false;
-      const batchedRefresh = () => {
-        if (!active) return;
-        if (!batchScheduled) {
-          batchScheduled = true;
-          queueMicrotask(() => {
-            batchScheduled = false;
-            if (active) {
-              triggerRef(agent);
-            }
-          });
-        }
-      };
-
-      const handlers: SubscribeToAgentSubscriber = {};
-
-      if (f.includes(UseAgentUpdate.OnMessagesChanged)) {
-        // Messages fire immediately (no microtask indirection) so shared-
-        // window throttling in core sees an unadorned callback. Matches
-        // React's `handlers.onMessagesChanged = forceUpdate`.
-        handlers.onMessagesChanged = () => {
-          if (active) triggerRef(agent);
-        };
-      }
-
-      if (f.includes(UseAgentUpdate.OnStateChanged)) {
-        handlers.onStateChanged = batchedRefresh;
-      }
-
-      if (f.includes(UseAgentUpdate.OnRunStatusChanged)) {
-        handlers.onRunInitialized = batchedRefresh;
-        handlers.onRunFinalized = batchedRefresh;
-        handlers.onRunFailed = batchedRefresh;
-        // Protocol-level RUN_ERROR event (distinct from `onRunFailed`
-        // which handles local exceptions like network errors).
-        handlers.onRunErrorEvent = batchedRefresh;
-      }
-
-      const subscription = copilotkit.value.subscribeToAgentWithOptions(
-        a as AbstractAgent,
-        handlers,
-        { throttleMs: toValue(props.throttleMs) },
+    [() => agent.value, updateFlags, hookThrottleMs, providerThrottleMs],
+    ([currentAgent, flags], _old, onCleanup) => {
+      if (!currentAgent) return;
+      onCleanup(
+        ɵsubscribeToAgentUpdates(copilotkit.value, currentAgent, {
+          updates: flags,
+          throttleMs: toValue(props.throttleMs),
+          onUpdate: () => triggerRef(agent),
+        }),
       );
-
-      onCleanup(() => {
-        active = false;
-        subscription.unsubscribe();
-      });
     },
     { immediate: true },
   );
 
-  return { agent };
+  return { agent, isReady };
 }

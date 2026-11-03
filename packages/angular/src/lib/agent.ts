@@ -10,33 +10,23 @@ import {
 import { CopilotKit } from "./copilotkit";
 import { InterruptController, type InterruptRunner } from "./interrupt";
 import type { AbstractAgent } from "@ag-ui/client";
-import type { AgentSubscriber, Message, State } from "@ag-ui/client";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import type { Message } from "@ag-ui/client";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
-  ProxiedCopilotRuntimeAgent,
-  CopilotKitCoreRuntimeConnectionStatus,
+  ɵgetAgentResolver,
+  ɵresolveAgentId,
+  ɵsnapshotAgentState,
 } from "@copilotkit/core";
 
 /** Function signature for subscribing to an agent — derived from
  *  CopilotKitCore so the types stay in sync automatically. Injected
  *  by the factory so that AgentStore stays decoupled from the concrete class. */
 type SubscribeToAgentFn = CopilotKitCore["subscribeToAgentWithOptions"];
-type AgentWithCredentials = AbstractAgent & {
-  credentials?: RequestCredentials;
-};
-
 const missingInterruptRunner: InterruptRunner = async () => {
   throw new Error(
     "AgentStore.interruptController requires a store created by injectAgentStore().",
   );
 };
-
-function hasAgentCredentials(
-  agent: AbstractAgent,
-): agent is AgentWithCredentials {
-  return "credentials" in agent;
-}
 
 export class AgentStore {
   readonly #subscription?: {
@@ -69,7 +59,7 @@ export class AgentStore {
     this.#isRunning = signal(abstractAgent.isRunning);
     this.isRunning = this.#isRunning.asReadonly();
     this.#messages = signal([...abstractAgent.messages]);
-    this.#state = signal(snapshotState(abstractAgent.state));
+    this.#state = signal(ɵsnapshotAgentState(abstractAgent.state));
     this.messages = this.#messages.asReadonly();
     this.state = this.#state.asReadonly();
 
@@ -80,7 +70,7 @@ export class AgentStore {
       },
       onStateChanged: () => {
         this.#isRunning.set(abstractAgent.isRunning);
-        this.#state.set(snapshotState(abstractAgent.state));
+        this.#state.set(ɵsnapshotAgentState(abstractAgent.state));
       },
       onRunInitialized: () => {
         this.#isRunning.set(true);
@@ -123,16 +113,9 @@ export class AgentStore {
   }
 }
 
-function snapshotState(state: unknown): unknown {
-  if (Array.isArray(state)) return [...state];
-  if (state !== null && typeof state === "object") return { ...state };
-  return state;
-}
-
 @Injectable({ providedIn: "root" })
 export class CopilotkitAgentFactory {
   readonly #copilotkit = inject(CopilotKit);
-  readonly #provisionalCache = new Map<string, AgentHandoffBridge>();
 
   createAgentStoreSignal(
     agentId: Signal<string | undefined>,
@@ -140,78 +123,12 @@ export class CopilotkitAgentFactory {
   ): Signal<AgentStore> {
     let lastAgentStore: AgentStore | undefined;
     let lastAgent: AbstractAgent | undefined;
+    const core = this.#copilotkit.core;
+    const resolver = ɵgetAgentResolver(core);
     const subscribeToAgent: SubscribeToAgentFn =
-      this.#copilotkit.core.subscribeToAgentWithOptions.bind(
-        this.#copilotkit.core,
-      );
+      core.subscribeToAgentWithOptions.bind(core);
     const interruptRunner: InterruptRunner = (agent, runOptions) =>
-      this.#copilotkit.core.runAgent({ agent, ...runOptions });
-
-    const resolveAgent = (): AbstractAgent => {
-      const resolvedAgentId = agentId() || DEFAULT_AGENT_ID;
-      const existing = this.#copilotkit.getAgent(resolvedAgentId);
-      if (existing) {
-        const handoff = this.#provisionalCache.get(resolvedAgentId);
-        if (handoff && handoff.provisional !== existing) {
-          // Runtime discovery invalidates this computed. Handoff mirroring can
-          // synchronously notify the provisional store, whose subscriber must
-          // update signals outside the computed's read-only reactive context.
-          untracked(() => handoff.attachRegistered(existing));
-        }
-        this.#provisionalCache.delete(resolvedAgentId);
-        return existing;
-      }
-
-      const runtimeUrl = this.#copilotkit.runtimeUrl();
-      const isRuntimeConfigured = runtimeUrl !== undefined;
-      const { runtimeConnectionStatus } = this.#copilotkit.core;
-
-      if (
-        isRuntimeConfigured &&
-        (runtimeConnectionStatus ===
-          CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
-          runtimeConnectionStatus ===
-            CopilotKitCoreRuntimeConnectionStatus.Connecting ||
-          runtimeConnectionStatus ===
-            CopilotKitCoreRuntimeConnectionStatus.Error)
-      ) {
-        const credentials = this.#copilotkit.credentials();
-        const cached = this.#provisionalCache.get(resolvedAgentId);
-        if (cached) {
-          // Void, never invokes the builder: installs `ɵruntimeFetch` on a
-          // `ProxiedCopilotRuntimeAgent`, which resolves headers fresh at
-          // send time (#1937) rather than baking in a snapshot here.
-          this.#copilotkit.core.applyHeadersToAgent(cached.provisional);
-          if (hasAgentCredentials(cached.provisional)) {
-            cached.provisional.credentials = credentials;
-          }
-          return cached.provisional;
-        }
-
-        const provisional = new ProxiedCopilotRuntimeAgent({
-          runtimeUrl,
-          agentId: resolvedAgentId,
-          transport: this.#copilotkit.runtimeTransport(),
-          credentials,
-        });
-        this.#copilotkit.core.applyHeadersToAgent(provisional);
-        const handoff = new AgentHandoffBridge(provisional);
-        this.#provisionalCache.set(resolvedAgentId, handoff);
-        return provisional;
-      }
-
-      const knownAgents = Object.keys(this.#copilotkit.agents() ?? {});
-      const runtimePart = isRuntimeConfigured
-        ? `runtimeUrl=${runtimeUrl}`
-        : "no runtimeUrl";
-      throw new Error(
-        `injectAgentStore: Agent '${resolvedAgentId}' not found after runtime sync (${runtimePart}). ` +
-          (knownAgents.length
-            ? `Known agents: [${knownAgents.join(", ")}]`
-            : "No agents registered.") +
-          " Verify your runtime /info and/or agents__unsafe_dev_only.",
-      );
-    };
+      core.runAgent({ agent, ...runOptions });
 
     return computed(() => {
       this.#copilotkit.agents();
@@ -220,11 +137,22 @@ export class CopilotkitAgentFactory {
       this.#copilotkit.runtimeTransport();
       // Keyed on the generation, not header VALUES: a builder's returned
       // token can change on every resolution without a new source ever being
-      // set, and this must not re-run `resolveAgent` on that (#1937).
+      // set, and this must not re-run the resolution on that (#1937).
       this.#copilotkit.ɵheadersGeneration();
       this.#copilotkit.credentials();
+      const resolvedAgentId = ɵresolveAgentId({
+        agentId: agentId() || undefined,
+      });
 
-      const agent = resolveAgent();
+      // Runtime discovery invalidates this computed. The hand-off can notify
+      // the provisional store synchronously, and its subscriber must update
+      // signals outside the computed's read-only reactive context.
+      const { agent } = untracked(() =>
+        resolver.resolve({
+          agentId: resolvedAgentId,
+          caller: "injectAgentStore",
+        }),
+      );
 
       if (lastAgentStore && lastAgent === agent) {
         return lastAgentStore;
@@ -238,164 +166,10 @@ export class CopilotkitAgentFactory {
         subscribeToAgent,
         interruptRunner,
       );
-      const resolvedAgentId = agentId() || DEFAULT_AGENT_ID;
-      const handoff = this.#provisionalCache.get(resolvedAgentId);
-      if (handoff?.provisional === agent) {
-        handoff.start();
-      }
+      untracked(() => resolver.retainHandoffOrder(agent));
       return lastAgentStore;
     });
   }
-}
-
-type HandoffSide = "provisional" | "registered";
-type HandoffChannel = "messages" | "state";
-
-class AgentHandoffBridge {
-  readonly #provisional: AbstractAgent;
-  #provisionalSubscription?: { unsubscribe: () => void };
-  #registered?: AbstractAgent;
-  #registeredSubscription?: { unsubscribe: () => void };
-  readonly #suppressed: Record<HandoffSide, Record<HandoffChannel, number>> = {
-    provisional: { messages: 0, state: 0 },
-    registered: { messages: 0, state: 0 },
-  };
-
-  constructor(provisional: AbstractAgent) {
-    this.#provisional = provisional;
-  }
-
-  get provisional(): AbstractAgent {
-    return this.#provisional;
-  }
-
-  /**
-   * Subscribe before a provisional run starts. AG-UI snapshots subscribers at
-   * run initialization, so a bridge added only after runtime discovery cannot
-   * observe the remainder of an already-active run. Re-subscribing after each
-   * store is created also keeps the bridge last in the live subscriber list,
-   * so mirrored updates reach every consumer synchronously before suppression.
-   */
-  start(): void {
-    this.#provisionalSubscription?.unsubscribe();
-    this.#provisionalSubscription = this.#provisional.subscribe(
-      this.#subscriber(
-        this.#provisional,
-        () => this.#registered,
-        "provisional",
-        "registered",
-      ),
-    );
-  }
-
-  /** Attach the identity published by runtime discovery and synchronize it. */
-  attachRegistered(registered: AbstractAgent): void {
-    if (this.#registered === registered) return;
-    this.#registeredSubscription?.unsubscribe();
-    this.#registered = registered;
-    this.#registeredSubscription = registered.subscribe(
-      this.#subscriber(
-        registered,
-        () => this.#provisional,
-        "registered",
-        "provisional",
-      ),
-    );
-
-    if (hasAgentSessionData(this.#provisional)) {
-      this.#mirrorMessages(this.#provisional, registered, "registered");
-      this.#mirrorState(this.#provisional, registered, "registered");
-      return;
-    }
-
-    this.#mirrorMessages(registered, this.#provisional, "provisional");
-    this.#mirrorState(registered, this.#provisional, "provisional");
-  }
-
-  #subscriber(
-    source: AbstractAgent,
-    resolveTarget: () => AbstractAgent | undefined,
-    sourceSide: HandoffSide,
-    targetSide: HandoffSide,
-  ): AgentSubscriber {
-    const mirrorRunStatus = (): void => {
-      const target = resolveTarget();
-      if (!target) return;
-      this.#mirrorRunStatus(source, target, targetSide);
-    };
-    return {
-      onMessagesChanged: () => {
-        if (this.#consumeSuppression(sourceSide, "messages")) return;
-        const target = resolveTarget();
-        if (!target) return;
-        this.#mirrorMessages(source, target, targetSide);
-      },
-      onStateChanged: () => {
-        if (this.#consumeSuppression(sourceSide, "state")) return;
-        const target = resolveTarget();
-        if (!target) return;
-        this.#mirrorState(source, target, targetSide);
-      },
-      onRunInitialized: mirrorRunStatus,
-      onRunFinalized: mirrorRunStatus,
-      onRunFailed: mirrorRunStatus,
-      onRunErrorEvent: mirrorRunStatus,
-    };
-  }
-
-  #mirrorMessages(
-    source: AbstractAgent,
-    target: AbstractAgent,
-    targetSide: HandoffSide,
-  ): void {
-    this.#suppress(targetSide, "messages");
-    this.#syncMetadata(source, target);
-    target.setMessages([...source.messages]);
-  }
-
-  #mirrorState(
-    source: AbstractAgent,
-    target: AbstractAgent,
-    targetSide: HandoffSide,
-  ): void {
-    this.#suppress(targetSide, "state");
-    this.#syncMetadata(source, target);
-    target.setState(snapshotState(source.state) as State);
-  }
-
-  #mirrorRunStatus(
-    source: AbstractAgent,
-    target: AbstractAgent,
-    targetSide: HandoffSide,
-  ): void {
-    this.#suppress(targetSide, "state");
-    this.#syncMetadata(source, target);
-    target.setState(snapshotState(target.state) as State);
-  }
-
-  #syncMetadata(source: AbstractAgent, target: AbstractAgent): void {
-    target.isRunning = source.isRunning;
-    target.threadId = source.threadId;
-  }
-
-  #suppress(side: HandoffSide, channel: HandoffChannel): void {
-    this.#suppressed[side][channel]++;
-  }
-
-  #consumeSuppression(side: HandoffSide, channel: HandoffChannel): boolean {
-    if (this.#suppressed[side][channel] === 0) return false;
-    this.#suppressed[side][channel]--;
-    return true;
-  }
-}
-
-/** Return whether a provisional agent already owns observable session data. */
-function hasAgentSessionData(agent: AbstractAgent): boolean {
-  if (agent.isRunning || agent.messages.length > 0) return true;
-  const state = agent.state;
-  return (
-    state !== null && typeof state === "object" && Object.keys(state).length > 0
-  );
 }
 
 export function injectAgentStore(

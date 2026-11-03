@@ -31,10 +31,10 @@ describe("useAgent error state", () => {
 
     const TestComponent = defineComponent({
       setup() {
-        const { agent } = useAgent({ agentId: "nonexistent" });
-        return { agent };
+        const { agent, isReady } = useAgent({ agentId: "nonexistent" });
+        return { agent, isReady };
       },
-      template: `<div data-testid="agent-id">{{ agent.agentId }}</div>`,
+      template: `<div data-testid="agent-id">{{ agent.agentId }}</div><div data-testid="ready">{{ isReady }}</div>`,
     });
 
     const Host = defineComponent({
@@ -59,6 +59,8 @@ describe("useAgent error state", () => {
     // Should render without crashing — agent is provisional
     const el = await screen.findByTestId("agent-id");
     expect(el.textContent).toBe("nonexistent");
+    // A provisional stand-in is not the real agent.
+    expect(screen.getByTestId("ready").textContent).toBe("false");
     expect(capturedErrors).toEqual([]);
   });
 });
