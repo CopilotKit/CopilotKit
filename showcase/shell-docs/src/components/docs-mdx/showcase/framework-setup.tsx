@@ -11,25 +11,8 @@
 import { createCompiler } from "@fumadocs/mdx-remote";
 import { rehypeCodeDefaultOptions } from "fumadocs-core/mdx-plugins";
 import type { DocsMdxContext } from "../context";
-import { getSetupContent } from "../data";
+import { getSetupSource } from "../data";
 import type { DocsScope } from "../scope";
-
-/** Frameworks that reuse another's setup concepts. */
-const SETUP_CONTENT_FALLBACKS: Record<string, string[]> = {
-  "langgraph-fastapi": ["langgraph-python"],
-};
-
-function resolveSetupSource(framework: string, concept: string) {
-  const { concepts } = getSetupContent();
-  for (const candidate of [
-    framework,
-    ...(SETUP_CONTENT_FALLBACKS[framework] ?? []),
-  ]) {
-    const source = concepts[`${candidate}::${concept}`]?.source;
-    if (source !== undefined) return source;
-  }
-  return null;
-}
 
 // The live pages' MDX options (src/lib/live-source.ts): code in a language
 // Shiki doesn't ship reads as plain text, and blocks name their language.
@@ -75,7 +58,7 @@ export async function FrameworkSetup({
 
   // A concept nobody bundled for this framework is a deliberate "no setup
   // needed here".
-  const source = resolveSetupSource(framework, concept);
+  const source = getSetupSource(framework, concept);
   if (source === null) return null;
 
   let result: Compiled;

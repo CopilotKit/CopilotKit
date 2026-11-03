@@ -8,9 +8,9 @@
 // framework can't run yet): the page says so once (`MissingDemoBanner`).
 
 import { DemoFrame } from "@/components/demo-frame";
-import { getCatalogCell, getDemoRecord, getRegistry } from "../data";
 import type { DocsScope } from "../scope";
 import { DemoSource } from "./demo-source";
+import { inlineDemoTarget } from "./sources";
 
 const warned = new Set<string>();
 /** Once per reason in development, so authors learn an embed rendered nothing. */
@@ -22,10 +22,8 @@ function warnEmpty(reason: string) {
 
 export function InlineDemo({
   scope,
-  integration,
-  demo,
-  defaultFramework,
   showAllFiles,
+  ...props
 }: {
   scope: DocsScope;
   integration?: string;
@@ -34,32 +32,12 @@ export function InlineDemo({
   /** Show every file in the Code tab, not just the highlighted ones. */
   showAllFiles?: boolean;
 }) {
-  const slug = scope.framework ?? defaultFramework ?? integration;
-  if (!slug || !demo) {
-    warnEmpty(`missing props (integration=${slug}, demo=${demo})`);
+  const target = inlineDemoTarget(props, scope);
+  if ("empty" in target) {
+    if (target.empty) warnEmpty(target.empty);
     return null;
   }
-  const int = getRegistry().integrations.find((i) => i.slug === slug);
-  if (!int || !int.deployed) {
-    warnEmpty(
-      int
-        ? `"${slug}" is not deployed`
-        : `no integration "${slug}" in the registry`,
-    );
-    return null;
-  }
-  const catalog = getCatalogCell(slug, demo);
-  // A demo the framework can't run yet stays out of the page. When it's the
-  // page's own demo, `MissingDemoBanner` says so once at the top.
-  if (catalog?.status === "unsupported") return null;
-
-  const entry = int.demos.find((d) => d.id === demo);
-  // Not in this framework's showcase: a frame would load a 404. The page's
-  // `MissingDemoBanner` says so instead.
-  if (!entry && !getDemoRecord(slug, demo)) {
-    warnEmpty(`"${slug}" has no "${demo}" demo`);
-    return null;
-  }
+  const { slug, demo, int, entry } = target;
   const route = entry?.route ?? `/demos/${demo}`;
   const sourceHref =
     int.repo && route.startsWith("/demos/")
