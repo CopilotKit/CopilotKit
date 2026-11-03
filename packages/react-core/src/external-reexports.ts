@@ -148,6 +148,7 @@ export {
   ɵselectThreadsError,
   ɵselectThreadsIsLoading,
   ɵsetMessageFeedback,
+  ɵshallowEqualRecord,
   ɵstringifyToolCallPayload,
   ɵsubscribeToLearningFeedbackEnabled,
   ɵsubscribeToMessageFeedback,

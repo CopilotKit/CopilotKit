@@ -14,3 +14,4 @@ export * from "./inspector-thread-bridge";
 export * from "./a2ui-markdown";
 export * from "./chat";
 export * from "./open-generative-ui";
+export { shallowEqualRecord as ɵshallowEqualRecord } from "./utils/shallow-equal";

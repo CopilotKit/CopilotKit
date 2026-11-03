@@ -27,17 +27,26 @@ describe("useShallowStableRef", () => {
     expect(result.current).toEqual({ a: 2 });
   });
 
-  it("handles undefined without crashing", () => {
-    const { result } = renderHook(() =>
-      useShallowStableRef(undefined as unknown as { a: number }),
+  it("updates the reference when a different key holds undefined", () => {
+    const initial: { a?: number; b?: number } = { a: undefined };
+    const { result, rerender } = renderHook(
+      ({ value }) => useShallowStableRef(value),
+      { initialProps: { value: initial } },
     );
+
+    const firstRef = result.current;
+    rerender({ value: { b: undefined } });
+    expect(result.current).not.toBe(firstRef);
+    expect(result.current).toEqual({ b: undefined });
+  });
+
+  it("handles undefined without crashing", () => {
+    const { result } = renderHook(() => useShallowStableRef(undefined));
     expect(result.current).toBeUndefined();
   });
 
   it("handles null without crashing", () => {
-    const { result } = renderHook(() =>
-      useShallowStableRef(null as unknown as { a: number }),
-    );
+    const { result } = renderHook(() => useShallowStableRef(null));
     expect(result.current).toBeNull();
   });
 

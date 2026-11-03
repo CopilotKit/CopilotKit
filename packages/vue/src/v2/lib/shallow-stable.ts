@@ -1,20 +1,6 @@
+import { ɵshallowEqualRecord } from "@copilotkit/core";
 import { shallowRef, toValue, watch } from "vue";
 import type { MaybeRefOrGetter, ShallowRef } from "vue";
-
-function shallowEqualObjects(
-  first: Record<string, unknown>,
-  second: Record<string, unknown>,
-): boolean {
-  const firstKeys = Object.keys(first);
-  const secondKeys = Object.keys(second);
-  if (firstKeys.length !== secondKeys.length) return false;
-
-  for (const key of firstKeys) {
-    if (first[key] !== second[key]) return false;
-  }
-
-  return true;
-}
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return (
@@ -40,7 +26,7 @@ export function useShallowStableRef<T>(
       if (previous === next) return;
 
       if (isPlainObject(previous) && isPlainObject(next)) {
-        if (shallowEqualObjects(previous, next)) {
+        if (ɵshallowEqualRecord(previous, next)) {
           return;
         }
       }
