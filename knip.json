@@ -72,12 +72,30 @@
     "packages/a2ui-renderer": {
       "entry": ["src/index.ts!", "src/__tests__/clsx-shim.ts"]
     },
+    "packages/react-core": {
+      "entry": [
+        "{index,cli,main}.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!",
+        "src/{index,cli,main}.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!",
+        "*.d.ts",
+        "src/**/*.css",
+        "src/**/*.test-d.{ts,tsx}",
+        "scripts/**/*.{js,cjs,mjs,ts,mts}",
+        "test/**/*.{js,mjs,ts}",
+        "browser/**/*.{ts,tsx,mjs}",
+        "browser-tests/**/*.{ts,tsx,mjs}",
+        "dev/**/*.ts",
+        "type-fixtures/**/*.ts"
+      ],
+      "ignore": ["scripts/__tests__/fixtures/**"],
+      "ignoreDependencies": ["phoenix"]
+    },
     "packages/vue": {
       "entry": [
         "src/index.ts!",
         "*.d.ts",
         "src/v2/__tests__/mocks/web-inspector.ts"
-      ]
+      ],
+      "ignoreDependencies": ["phoenix"]
     }
   }
 }
