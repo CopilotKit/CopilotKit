@@ -62,6 +62,21 @@ describe("CopilotKitInspector", () => {
     );
   });
 
+  it("forwards event listeners to the web inspector element", async () => {
+    const onVisibility = vi.fn();
+    const wrapper = mount(CopilotKitInspector, {
+      attrs: { onCpkInspectorVisibilityChange: onVisibility },
+    });
+    await settleInspectorLoad();
+
+    const event = new CustomEvent("cpk-inspector-visibility-change", {
+      detail: { visible: false },
+    });
+    wrapper.get("cpk-web-inspector").element.dispatchEvent(event);
+
+    expect(onVisibility).toHaveBeenCalledWith(event);
+  });
+
   it("opens a request made before the web inspector module resolves", async () => {
     const wrapper = mount(CopilotKitInspector);
     const openRequest = { messageId: "message-early" };

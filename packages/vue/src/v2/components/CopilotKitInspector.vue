@@ -23,9 +23,27 @@ const attrs = useAttrs();
 const host = ref<HTMLSpanElement | null>(null);
 let mount: ɵInspectorMount | null = null;
 let appliedAttributes: Record<string, string> = {};
+const boundListeners = new Map<
+  string,
+  { eventName: string; listener: (event: Event) => void }
+>();
 
-// Text attributes go to the Inspector element (the host is only a mount
-// point), so markers such as `data-testid` land where callers look for them.
+function isListener(name: string, value: unknown) {
+  const isHandler = typeof value === "function" || Array.isArray(value);
+  return /^on[A-Z]/.test(name) && isHandler;
+}
+
+/** `onCpkInspectorVisibilityChange` listens to `cpk-inspector-visibility-change`, as in Vue. */
+function toEventName(name: string) {
+  return name
+    .slice(2)
+    .replace(/\B([A-Z])/g, "-$1")
+    .toLowerCase();
+}
+
+// Text attributes and listeners go to the Inspector element (the host is only
+// a mount point), so `data-testid` or `@cpk-inspector-visibility-change`
+// land where callers expect them.
 function toAttributes(source: Record<string, unknown>) {
   const attributes: Record<string, string> = {};
   for (const [name, value] of Object.entries(source)) {
@@ -36,6 +54,34 @@ function toAttributes(source: Record<string, unknown>) {
     }
   }
   return attributes;
+}
+
+function callListener(name: string, event: Event) {
+  const handler = attrs[name];
+  const handlers = Array.isArray(handler) ? handler : [handler];
+  for (const candidate of handlers) {
+    if (typeof candidate === "function") candidate(event);
+  }
+}
+
+function syncListeners(element: Element) {
+  const names = Object.keys(attrs).filter((name) =>
+    isListener(name, attrs[name]),
+  );
+  for (const [name, bound] of boundListeners) {
+    if (names.includes(name)) continue;
+    element.removeEventListener(bound.eventName, bound.listener);
+    boundListeners.delete(name);
+  }
+  for (const name of names) {
+    if (boundListeners.has(name)) continue;
+    const bound = {
+      eventName: toEventName(name),
+      listener: (event: Event) => callListener(name, event),
+    };
+    element.addEventListener(bound.eventName, bound.listener);
+    boundListeners.set(name, bound);
+  }
 }
 
 function syncAttributes() {
@@ -49,6 +95,7 @@ function syncAttributes() {
     element.setAttribute(name, value);
   }
   appliedAttributes = next;
+  syncListeners(element);
 }
 
 onMounted(() => {
@@ -67,6 +114,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  boundListeners.clear();
   mount?.dispose();
   mount = null;
 });
