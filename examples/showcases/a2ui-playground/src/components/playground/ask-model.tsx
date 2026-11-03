@@ -11,7 +11,8 @@
  * an update request changes it in place. The request itself is then sent like
  * any chat prompt.
  */
-import { useId, useState, type FormEvent } from "react";
+import { useId, useState } from "react";
+import type { FormEvent } from "react";
 import { ArrowUp } from "lucide-react";
 import type { AbstractAgent, Message } from "@ag-ui/client";
 import { useAgent } from "@copilotkit/react-core/v2";
@@ -19,11 +20,12 @@ import {
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_CHAT_TARGET,
   generativeUISurfaceMessageId,
-  type GenerativeUISurfaceContent,
 } from "@copilotkit/shared";
+import type { GenerativeUISurfaceContent } from "@copilotkit/shared";
 import { useMode } from "@/components/app/providers";
 import { useSend } from "@/components/app/use-send";
-import { runStore, type A2UIOp } from "@/lib/run-store";
+import { runStore } from "@/lib/run-store";
+import type { A2UIOp } from "@/lib/run-store";
 import { sendable } from "./sendable";
 
 /** The agent's composer tool (`GENERATE_A2UI_TOOL_NAME` in `src/agent/composer.ts`, server-only). */
@@ -151,6 +153,7 @@ export function AskModel({
       onSubmit={submit}
       className="flex-none border-t border-[var(--pg-line)] bg-[var(--pg-surface)] px-4 py-2.5"
       data-json-ask
+      data-blocked={blocked ? "" : undefined}
     >
       <div className="flex items-center gap-2">
         <input
@@ -172,7 +175,11 @@ export function AskModel({
           Ask
         </button>
       </div>
-      <p id={noteId} className="mt-1.5 text-[11.5px] text-[var(--pg-faint)]">
+      <p
+        id={noteId}
+        className="mt-1.5 text-[11.5px] text-[var(--pg-faint)]"
+        data-json-ask-note
+      >
         {blocked ??
           "Puts this surface in the chat as the latest one, then sends your request. The model updates it in place."}
       </p>

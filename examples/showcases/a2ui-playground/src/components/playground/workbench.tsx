@@ -19,9 +19,11 @@ import { Composer, focusRing } from "./composer";
 import { editorMemory } from "./json-editor";
 import { LinkContext, useLinkState, useShownLines } from "./lines";
 import { useReplay } from "./replay";
-import { LinesBeside, Thread, type OnSelect, type Selection } from "./thread";
+import { LinesBeside, Thread } from "./thread";
+import type { OnSelect, Selection } from "./thread";
 import { isHandEdited, runOf, surfaceOfTurn, useTurns } from "./turns";
-import { WritesPane, type WritesTab } from "./writes-pane";
+import { WritesPane } from "./writes-pane";
+import type { WritesTab } from "./writes-pane";
 import "./compact.css";
 
 const NARROW = "(max-width: 899px)";
@@ -170,9 +172,15 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
   }, [setCollapsed]);
   const closeCode = useCallback(() => {
     setCodeOpen(false);
-    const to = opener.current;
+    const from = opener.current;
     opener.current = null;
-    if (to?.isConnected) requestAnimationFrame(() => to.focus());
+    // The opener can be gone (an item of the "+" menu): then the "+", or the prompt in a frame too small for it.
+    const to = [
+      from,
+      document.querySelector<HTMLElement>("[data-wb-plus]"),
+      document.getElementById("wb-prompt"),
+    ].find((el) => el?.isConnected && el.getClientRects().length > 0);
+    if (to) requestAnimationFrame(() => to.focus());
   }, []);
   useEffect(() => {
     if (!narrow) setCodeOpen(false);
@@ -186,12 +194,38 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
     [openCode],
   );
 
-  // "Start without AI": the JSON tab, straight in the editor (a starter, no model).
+  // Editing by hand: the JSON tab's editor, a mode of the panel's own. It opens wide (unless the visitor
+  // narrowed it this visit), and Done goes back to the tab it came from.
   const [jsonKey, setJsonKey] = useState(0);
   const [jsonWide, setJsonWide] = useState(false);
+  const [editing, setEditingState] = useState(() => editorMemory.editing);
+  const hand = tab === "json" && editing;
+  const handFrom = useRef<WritesTab>("lines");
+  const keptNarrow = useRef(false);
+  const setEditing = (on: boolean) => {
+    if (on && !hand) handFrom.current = tab;
+    editorMemory.editing = on;
+    setEditingState(on);
+    setJsonWide(on && !keptNarrow.current);
+  };
+  const onJsonWide = (next: boolean) => {
+    keptNarrow.current = !next;
+    setJsonWide(next);
+  };
+  const doneEditing = () => {
+    const to = handFrom.current;
+    setEditing(false);
+    setTab(to);
+    requestAnimationFrame(() =>
+      document.getElementById(`wb-tab-${to}`)?.focus(),
+    );
+  };
+
+  // "Start without AI": straight into the editor (a starter, no model).
   const startWithoutAI = () => {
     replay.stop();
-    editorMemory.editing = true;
+    editorMemory.focus = !matchMedia("(pointer: coarse)").matches;
+    setEditing(true);
     setTab("json");
     setJsonKey((k) => k + 1);
     openCode();
@@ -214,16 +248,17 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
   }, [onSent, dismiss]);
 
   const writer = replaying ? replay.model : modelLabel(run?.model ?? model);
-  // A template drew the surface (its lines are decompiled), so no model wrote them.
-  const title =
-    !replaying && run?.path === "fixed"
+  // A template drew the surface (its lines are decompiled), so no model wrote them; by hand, nobody did.
+  const title = hand
+    ? "Editing by hand"
+    : !replaying && run?.path === "fixed"
       ? "From a template"
       : `${writer} writes`;
   // The tab is named for what it shows: an Express run that fell back to JSON ends in JSON lines.
   const linesLabel = shown.format === "json" ? "JSON stream" : "Express";
-  const wide = jsonWide && tab === "json";
+  const wide = jsonWide && hand;
   const covered = narrow && codeOpen;
-  const lineCount = selection.count;
+  const lineCount = hand ? 0 : selection.count;
 
   return (
     <LinkContext.Provider value={link}>
@@ -234,8 +269,9 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
           data-pane={pane ?? undefined}
           className={cn(
             "wb wb-main relative grid min-h-0 flex-1 grid-cols-1 overflow-hidden",
+            // Wide, the editor and its preview sit side by side from about 1280px.
             wide
-              ? "min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]"
+              ? "min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] min-[1100px]:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"
               : "min-[900px]:grid-cols-[minmax(0,1fr)_380px] min-[1280px]:grid-cols-[minmax(0,1fr)_460px]",
           )}
         >
@@ -280,7 +316,10 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
             }
             jsonKey={jsonKey}
             jsonWide={jsonWide}
-            onJsonWide={setJsonWide}
+            onJsonWide={onJsonWide}
+            editing={editing}
+            onEditing={setEditing}
+            onDone={doneEditing}
             onBack={closeCode}
             onCollapse={collapse}
             collapseRef={collapseBtn}

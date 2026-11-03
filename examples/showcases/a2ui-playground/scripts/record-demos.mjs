@@ -199,8 +199,11 @@ const scenes = [
       d.caption(
         "A2UI Express is now the default format: the model writes one line per component.",
       );
+      await d.click("[data-wb-plus]");
+      await d.click('[data-opens="format"]');
       await d.point('[data-format="express"]', 600);
       await sleep(1600);
+      await d.page.keyboard.press("Escape");
       await d.ask("Q3 sales by region as a dashboard", () =>
         d.caption(
           "Google's @a2ui/agent SDK compiles each line as it arrives, so the surface paints while it streams.",
@@ -211,6 +214,8 @@ const scenes = [
         "The Build tab measures the same surface both ways: Express is about half the size of JSON.",
       );
       await sleep(4200);
+      await d.click("[data-wb-plus]");
+      await d.click('[data-opens="format"]');
       await d.click('[data-format="json"]');
       d.caption("Switch to A2UI JSON and ask again.");
       await d.ask("Q3 sales by region as a dashboard");
@@ -282,9 +287,10 @@ const scenes = [
     setup: RUN_SETTINGS("express"),
     async run(d) {
       d.caption("Gemini Flash is the default model.");
-      await d.point("[data-model-picker]", 600);
+      await d.point("[data-wb-plus]", 600);
       await d.ask("Q3 sales by region as a dashboard");
-      await d.click("[data-model-picker]");
+      await d.click("[data-wb-plus]");
+      await d.click('[data-opens="model"]');
       d.caption(
         "Gemma 4 runs locally through Ollama, and GPT is one click away.",
       );

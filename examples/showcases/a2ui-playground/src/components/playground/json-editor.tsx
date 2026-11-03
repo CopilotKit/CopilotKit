@@ -91,11 +91,18 @@ type Session = {
 
 /**
  * Survives the tab switching away and back (the tab unmounts): whether the
- * tab is in edit mode and what is in the editor.
+ * tab is in edit mode and what is in the editor. `focus`: the next editor to
+ * open takes the focus (set by "Start without AI", not on a touch screen,
+ * where the keyboard would come up over the preview).
  */
-export const editorMemory: { editing: boolean; session: Session | null } = {
+export const editorMemory: {
+  editing: boolean;
+  session: Session | null;
+  focus: boolean;
+} = {
   editing: false,
   session: null,
+  focus: false,
 };
 
 const pretty = (ops: A2UIOp[]) => JSON.stringify(ops, null, 2);
@@ -107,16 +114,19 @@ type Good = {
   version: number;
 };
 
+/** `toggle`: the Edit toggle that leaves the editor, unless the editor's container has its own way out. */
 export function JsonEditPane({
   surface,
   wide,
   onWide,
   onExit,
+  toggle = true,
 }: {
   surface: SurfaceRecord | undefined;
   wide: boolean;
   onWide: (wide: boolean) => void;
   onExit: () => void;
+  toggle?: boolean;
 }) {
   const list = starters();
   // The agent's surface as it would be sent: its Blueprint frames are not A2UI and never reach the editor.
@@ -157,6 +167,17 @@ export function JsonEditPane({
     if (agentMoved && !dirty && agentText !== null)
       setSession({ source: AGENT, base: agentText, text: agentText, agentKey });
   }, [agentMoved, dirty, agentText, agentKey]);
+  // Leaving the editor: unedited text is not worth keeping, so next time it opens on the newest surface.
+  const dirtyRef = useRef(dirty);
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  });
+  useEffect(
+    () => () => {
+      if (!dirtyRef.current) editorMemory.session = null;
+    },
+    [],
+  );
 
   const manifest = useMemo(() => manifestOf(playgroundUI, [standardUI.id]), []);
   const analyze = useCallback(
@@ -208,7 +229,26 @@ export function JsonEditPane({
   const warnings = analysis.problems.filter((p) => p.severity === "warning");
   const stale = errors.length > 0;
 
+  // Screen readers hear the text turn valid or broken, not every count that changes on the way.
+  const [said, setSaid] = useState("");
+  const wasStale = useRef(stale);
+  useEffect(() => {
+    if (wasStale.current === stale) return;
+    wasStale.current = stale;
+    setSaid(
+      stale
+        ? `${errors.length} ${errors.length === 1 ? "problem" : "problems"}. The preview keeps the last valid version.`
+        : "Valid. The preview is live.",
+    );
+  }, [stale, errors.length]);
+
   const ta = useRef<HTMLTextAreaElement>(null);
+  // Not cancelled on cleanup: in development React mounts twice, and the flag is spent on the first.
+  useEffect(() => {
+    if (!editorMemory.focus) return;
+    editorMemory.focus = false;
+    requestAnimationFrame(() => ta.current?.focus({ preventScroll: true }));
+  }, []);
   const hintId = useId();
   const [caret, setCaret] = useState(0);
   const pos = lineColOf(text, caret);
@@ -260,14 +300,7 @@ export function JsonEditPane({
   return (
     <div className="pg-jed flex h-full min-h-0 flex-col" data-json-editor>
       <div className="flex flex-none flex-wrap items-center gap-2 border-b border-[var(--pg-line)] px-4 py-2.5">
-        <EditToggle
-          pressed
-          onClick={() => {
-            // Unedited text is not worth keeping: next time the editor opens on the newest surface.
-            if (!dirty) editorMemory.session = null;
-            onExit();
-          }}
-        />
+        {toggle ? <EditToggle pressed onClick={onExit} /> : null}
         <div className="relative min-w-[140px] max-w-[230px] flex-1">
           <select
             aria-label="Operations to edit"
@@ -319,9 +352,13 @@ export function JsonEditPane({
           <button
             type="button"
             onClick={() => onWide(!wide)}
-            aria-label={wide ? "Narrow the inspector" : "Widen the inspector"}
-            title={wide ? "Narrow the inspector" : "Widen the inspector"}
-            className={cn(headerButton, "w-7 justify-center px-0")}
+            aria-label={wide ? "Narrow the editor" : "Widen the editor"}
+            title={wide ? "Narrow the editor" : "Widen the editor"}
+            // Only beside the conversation: in the phone sheet there is no wider to go.
+            className={cn(
+              headerButton,
+              "w-7 justify-center px-0 max-[899px]:hidden",
+            )}
           >
             {wide ? (
               <Minimize2 className="size-3" />
@@ -358,9 +395,13 @@ export function JsonEditPane({
             onChange={setText}
             taRef={ta}
             errorLine={errorLine}
+            invalid={stale}
             onCaret={setCaret}
             describedBy={hintId}
           />
+          <span className="sr-only" role="status">
+            {said}
+          </span>
           <div className="flex h-7 flex-none items-center gap-3 border-t border-[var(--pg-line)] bg-[var(--pg-surface)] px-3 font-mono text-[11px] text-[var(--pg-faint)]">
             <span className="flex-none whitespace-nowrap tabular-nums">
               Ln {pos.line}, Col {pos.col}
@@ -567,6 +608,7 @@ function CodeEditor({
   onChange,
   taRef,
   errorLine,
+  invalid,
   onCaret,
   describedBy,
 }: {
@@ -574,6 +616,7 @@ function CodeEditor({
   onChange: (value: string) => void;
   taRef: RefObject<HTMLTextAreaElement | null>;
   errorLine: number | null;
+  invalid: boolean;
   onCaret: (offset: number) => void;
   describedBy?: string;
 }) {
@@ -624,8 +667,13 @@ function CodeEditor({
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
     const el = e.currentTarget;
+    // Shift on its way to Shift+Tab: Esc then Shift+Tab leaves the editor backwards.
+    if (["Shift", "Control", "Alt", "Meta"].includes(e.key)) return;
     if (e.key === "Escape") {
+      // A second Esc goes on to the panel, which on phones goes back to the chat.
+      if (escaped.current) return;
       escaped.current = true;
+      e.preventDefault();
       return;
     }
     if (e.key === "Tab" && !e.metaKey && !e.ctrlKey && !e.altKey) {
@@ -658,14 +706,17 @@ function CodeEditor({
         aria-hidden
       >
         <div ref={gutter} className="absolute inset-x-0 top-0">
+          {/* Over the number underneath, in the text colour: the faint numbers do not read on the red. */}
           {errorLine ? (
             <div
-              className="pg-jed-gutter-error absolute inset-x-0"
+              className="pg-jed-lines pg-jed-gutter-error absolute inset-x-0"
               style={{
                 top: PAD_PX + (errorLine - 1) * LINE_PX,
                 height: LINE_PX,
               }}
-            />
+            >
+              {errorLine}
+            </div>
           ) : null}
           <pre className="pg-jed-lines">{numbers}</pre>
         </div>
@@ -707,6 +758,7 @@ function CodeEditor({
           autoCorrect="off"
           aria-label="A2UI operations, JSON"
           aria-describedby={describedBy}
+          aria-invalid={invalid || undefined}
           data-json-input
           className="pg-jed-text pg-jed-input absolute inset-0 h-full w-full"
         />

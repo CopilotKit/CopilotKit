@@ -235,6 +235,17 @@
   }
 }
 
+/* Gen UI sizes every h2 to h4 inside a surface (1.5, 1.25 and 1em, all 600), unlayered, so it outranks the
+   catalog's own Tailwind sizes: a Heading came out at one size whatever its level, and a table's title at
+   20px beside a 13.5px chart title. Headings take their own type back here, and one that sets none keeps the
+   page's. Kept at one element's specificity so a design system's heading rules still win, and off Markdown,
+   which sizes its own headings (below). */
+:where(.a2ui-surface) :is(h2, h3, h4):where(:not(.a2-md *)) {
+  font-size: revert-layer;
+  font-weight: revert-layer;
+  line-height: revert-layer;
+}
+
 /* Markdown + code inside surfaces */
 .a2-md > * + * {
   margin-top: 0.6em;
@@ -351,7 +362,8 @@
   --pg-line-strong: oklch(1 0 0 / 14%);
   --pg-text: oklch(0.93 0.004 285);
   --pg-dim: oklch(0.66 0.012 285);
-  --pg-faint: oklch(0.48 0.012 285);
+  /* 4.5:1 or better on the bg, surface and panel: line numbers, Ln/Col and the editor's notes are set in it. */
+  --pg-faint: oklch(0.6 0.012 285);
   --pg-fixed: oklch(0.8 0.13 165);
   --pg-dynamic: oklch(0.82 0.13 72);
   --pg-data: oklch(0.78 0.11 230);
@@ -641,7 +653,10 @@ main[tabindex="-1"]:focus {
   box-shadow: inset 2px 0 0 var(--pg-jed-error);
 }
 .pg-jed-gutter-error {
-  background: color-mix(in oklch, var(--pg-jed-error) 16%, transparent);
+  padding-top: 0;
+  padding-bottom: 0;
+  background: color-mix(in oklch, var(--pg-jed-error) 16%, var(--pg-surface));
+  color: var(--pg-text);
 }
 .pg-jed-preview-stale > * {
   opacity: 0.55;

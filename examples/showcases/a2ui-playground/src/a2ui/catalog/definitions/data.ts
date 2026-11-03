@@ -163,7 +163,7 @@ export const dataDefinitions = {
   ),
   ComparisonTable: def(
     "Data display",
-    "Feature matrix comparing options side by side; values may be true/false/text; highlight marks the recommended option.",
+    "Feature matrix comparing options side by side. options are the option names as strings; rows [{feature, values}] with one value per option, in the same order, each true/false/text; highlight is the recommended option's index in options (0 is the first).",
     z.object({
       title: z.string().optional(),
       options: z.array(z.string()),

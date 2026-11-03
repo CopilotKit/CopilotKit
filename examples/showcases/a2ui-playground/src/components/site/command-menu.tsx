@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Component as ComponentIcon,
@@ -61,13 +61,29 @@ function useStandardNames(load: boolean) {
   return names;
 }
 
-/** shadcn-docs style search trigger plus a Command dialog (opens on Cmd/Ctrl+K or "/"). Icon-only below 640px. */
+const OPEN_SEARCH = "site:open-search";
+
+/**
+ * Opens the search from elsewhere on the page: the menu sheet, which holds it on small screens. The focus
+ * goes back to `returnTo` when the search closes, since the header's own trigger is hidden there.
+ */
+export function openSearch(returnTo?: HTMLElement | null) {
+  window.dispatchEvent(
+    new CustomEvent(OPEN_SEARCH, { detail: returnTo ?? null }),
+  );
+}
+
+/**
+ * shadcn-docs style search trigger plus a Command dialog (opens on Cmd/Ctrl+K, "/" or `openSearch`). The
+ * header hides the trigger under 960px, where the search is in the menu sheet; the dialog stays mounted.
+ */
 export function CommandMenu() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [warm, setWarm] = useState(false);
   const [mac, setMac] = useState(true);
   const standard = useStandardNames(open || warm);
+  const returnTo = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setMac(/Mac|iPhone|iPad/.test(navigator.platform));
@@ -85,8 +101,16 @@ export function CommandMenu() {
         setOpen((o) => !o);
       }
     };
+    const onOpen = (e: Event) => {
+      returnTo.current = (e as CustomEvent<HTMLElement | null>).detail;
+      setOpen(true);
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener(OPEN_SEARCH, onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener(OPEN_SEARCH, onOpen);
+    };
   }, []);
 
   const go = (href: string) => {
@@ -123,6 +147,13 @@ export function CommandMenu() {
       <CommandDialog
         open={open}
         onOpenChange={setOpen}
+        onCloseAutoFocus={(e) => {
+          const el = returnTo.current;
+          returnTo.current = null;
+          if (!el?.isConnected) return;
+          e.preventDefault();
+          el.focus();
+        }}
         title="Search"
         description="Jump to a page or a component"
         className="sm:max-w-[560px]"

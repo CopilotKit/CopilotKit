@@ -7,9 +7,8 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent,
-  type Ref,
 } from "react";
+import type { KeyboardEvent, Ref } from "react";
 import { ArrowLeft, PanelRightClose } from "lucide-react";
 import { highlightExpress, highlightJson } from "@/components/app/json-view";
 import { cn } from "@/lib/utils";
@@ -17,7 +16,8 @@ import type { TimelineEvent } from "@/lib/run-store";
 import { BuildPanel } from "./build-panel";
 import { focusRing } from "./composer";
 import { JsonTab } from "./json-tab";
-import { activeId, kChars, useLink, type Shown, type ShownLine } from "./lines";
+import { activeId, kChars, useLink } from "./lines";
+import type { Shown, ShownLine } from "./lines";
 
 export type WritesTab = "lines" | "json" | "run";
 
@@ -126,6 +126,9 @@ function SlidingTabs({
  * "<Model> writes": the lines of the selected surface as the model writes them (Express, or JSON for a
  * JSON run), the whole surface as JSON with the editor, and the run's timings. Beside the conversation
  * from 900px, where it collapses to a rail; on a phone it opens over it, with a way back.
+ *
+ * Editing by hand (the JSON tab's editor, or "Start without AI") is a mode of its own: no model wrote
+ * these lines, so the tabs for the model's lines and its run go, and Done goes back to them.
  */
 export const WritesPane = forwardRef<HTMLButtonElement, WritesPaneProps>(
   function WritesPane(
@@ -140,6 +143,9 @@ export const WritesPane = forwardRef<HTMLButtonElement, WritesPaneProps>(
       jsonKey,
       jsonWide,
       onJsonWide,
+      editing,
+      onEditing,
+      onDone,
       onBack,
       onCollapse,
       collapseRef,
@@ -152,7 +158,10 @@ export const WritesPane = forwardRef<HTMLButtonElement, WritesPaneProps>(
       ["json", "JSON"],
       ["run", "Run"],
     ];
-    const count = shown.lines.filter((l) => l.kind === "line").length;
+    const hand = tab === "json" && editing;
+    const count = hand
+      ? 0
+      : shown.lines.filter((l) => l.kind === "line").length;
     return (
       <section
         id="wb-writes-pane"
@@ -204,11 +213,25 @@ export const WritesPane = forwardRef<HTMLButtonElement, WritesPaneProps>(
               data-lines-label
             >
               <span className={cn(count > 0 && "max-[1279px]:hidden")}>
-                {shown.format === "json" ? "A2UI JSON" : "A2UI Express"}
+                {hand || shown.format === "json" ? "A2UI JSON" : "A2UI Express"}
               </span>
               {count ? <span className="max-[1279px]:hidden"> · </span> : null}
               {count ? `${count} ${count === 1 ? "line" : "lines"}` : ""}
             </span>
+            {hand ? (
+              <button
+                type="button"
+                onClick={onDone}
+                aria-label="Done editing"
+                data-hand-done
+                className={cn(
+                  "ml-1 inline-flex h-8 flex-none items-center rounded-md border border-[var(--pg-line)] px-3 text-[13px] font-medium text-foreground transition-colors hover:border-[var(--pg-line-strong)] hover:bg-[oklch(var(--ink)/4%)]",
+                  focusRing,
+                )}
+              >
+                Done
+              </button>
+            ) : null}
             {/* Beside the conversation only: folds the panel to the rail at the window's edge. */}
             <button
               ref={collapseRef}
@@ -228,16 +251,18 @@ export const WritesPane = forwardRef<HTMLButtonElement, WritesPaneProps>(
             </button>
           </div>
         </div>
-        <div
-          className="flex-none border-b border-[var(--pg-line)] px-4 py-2"
-          data-wb-pane-tabs
-        >
-          <SlidingTabs tabs={tabs} tab={tab} onChange={onTab} />
-        </div>
+        {hand ? null : (
+          <div
+            className="flex-none border-b border-[var(--pg-line)] px-4 py-2"
+            data-wb-pane-tabs
+          >
+            <SlidingTabs tabs={tabs} tab={tab} onChange={onTab} />
+          </div>
+        )}
         <div
           id="wb-writes-panel"
-          role="tabpanel"
-          aria-labelledby={`wb-tab-${tab}`}
+          role={hand ? undefined : "tabpanel"}
+          aria-labelledby={hand ? undefined : `wb-tab-${tab}`}
           className="flex min-h-0 flex-1 flex-col"
         >
           {tab === "lines" ? (
@@ -247,6 +272,8 @@ export const WritesPane = forwardRef<HTMLButtonElement, WritesPaneProps>(
               key={jsonKey}
               wide={jsonWide}
               onWide={onJsonWide}
+              editing={editing}
+              onEditing={onEditing}
               jsonOnly
             />
           ) : recorded ? (
@@ -276,6 +303,11 @@ type WritesPaneProps = {
   jsonKey: number;
   jsonWide: boolean;
   onJsonWide: (wide: boolean) => void;
+  /** The JSON tab's editor is open: with the JSON tab, the panel is in its editing-by-hand mode. */
+  editing: boolean;
+  onEditing: (on: boolean) => void;
+  /** Leaves editing by hand. */
+  onDone: () => void;
   /** Phones: back to the conversation. */
   onBack: () => void;
   /** 900px and up: fold the panel away, leaving the conversation the full width. */
@@ -297,10 +329,6 @@ function LinesView({ shown }: { shown: Shown }) {
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const tabbable = focusKey && ids.includes(focusKey) ? focusKey : ids[0];
   const count = lines.filter((l) => l.kind === "line").length;
-  const where =
-    shown.source === "recorded" || shown.source === "derived"
-      ? "Recorded run."
-      : null;
 
   // Follow the newest line while the model writes, unless the visitor scrolled up to read.
   useLayoutEffect(() => {
@@ -355,12 +383,12 @@ function LinesView({ shown }: { shown: Shown }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {shown.note || where ? (
+      {shown.note ? (
         <p
           className="flex-none border-b border-[var(--pg-line)] px-5 py-2.5 text-[12.5px] leading-snug text-[var(--pg-dim)] max-[899px]:px-4"
           data-lines-note
         >
-          {[where, shown.note].filter(Boolean).join(" ")}
+          {shown.note}
         </p>
       ) : null}
       <div

@@ -105,16 +105,15 @@ components:
   button-build:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.page-ground}"
-    typography: "{typography.column-title}"
     rounded: "{rounded.control}"
-    padding: "0 14px"
-    height: "36px"
+    width: "32px"
+    height: "32px"
   button-stop:
     backgroundColor: "{colors.raised-graphite}"
     textColor: "{colors.ink}"
     rounded: "{rounded.control}"
-    padding: "0 14px"
-    height: "36px"
+    width: "32px"
+    height: "32px"
   button-quiet:
     backgroundColor: "{colors.panel-graphite}"
     textColor: "{colors.ink}"
@@ -125,7 +124,7 @@ components:
     textColor: "{colors.ink}"
     typography: "{typography.prompt}"
     rounded: "{rounded.card}"
-    padding: "12px 14px"
+    padding: "8px"
   suggestion-row:
     textColor: "{colors.ink-dim}"
     rounded: "{rounded.control}"
@@ -277,7 +276,7 @@ Under 900px the conversation is the whole screen: intro, thread, composer. Sugge
 
 From 900px the writes pane collapses to a 44px rail on the right edge, with a vertical label ("Gemini Flash writes · 13 lines"); the rail, the chip under a surface and "start without AI" bring it back. The choice is remembered.
 
-Small frames (any window 700px tall or less, and a single column up to 860px tall that is not a portrait phone: every square from 320 to 800px) shrink the chrome so the answer has the room: a 48px header, the intro reduced to its h1 (centred in the empty thread at 25px while the replay's prompt types, gone once a conversation or the replay shows), the suggestions and the pickers each in one row that scrolls sideways, a one-line prompt, and "start without AI" in the picker row. The replay's answer is several screens tall there, so when its first chart lands below the fold the view eases down to it (see Motion) and rests on it. `?embed=1` is the playground in an iframe on CopilotKit's site and docs: a compact header with the mark, the theme toggle and "Open full playground" (a new tab, without `embed`), no site navigation, the writes pane starting collapsed, and one picker under the prompt, the design system, so the row fits whole without scrolling (the model and the format are in the full playground). An embed 480px tall or less (a 320 to 480 square) gives up that row and the suggestions too: the prompt is one line with Build beside it, and `?ds=` still picks the design system.
+Small frames (any window 700px tall or less, and a single column up to 860px tall that is not a portrait phone: every square from 320 to 800px) shrink the chrome so the answer has the room: a 48px header, the intro reduced to its h1 (centred in the empty thread at 25px while the replay's prompt types, gone once a conversation or the replay shows), the suggestions in one row that scrolls sideways, a one-line prompt, and nothing under it ("start without AI" is in the "+" menu). In a narrow small frame (under 900px wide, so every square embed) the answer also gets the width: 10px side gutters for the thread and composer, an 8px floor, and the generated UI drawn at 7/8 size (`zoom` on the surface itself), so a dashboard reads as a whole instead of filling the frame. The replay's answer is several screens tall there, so when its first chart lands below the fold the view eases down to it (see Motion) and rests on it. `?embed=1` is the playground in an iframe on CopilotKit's site and docs: a compact header with the mark, then two quiet 32px icon buttons: the theme toggle and Open full playground (a maximize icon, named and titled in full; a new tab, without `embed`), no site navigation, the writes pane starting collapsed, and the same "+" menu with all three pickers. An embed 480px tall or less (a 320 to 480 square) gives up the suggestions and the "+": the prompt is one line with Build beside it, and `?ds=` still picks the design system.
 
 Site pages outside the workbench use a 1400px container with 24px side padding (16px under 640px). Generated surfaces lay out by their own container width: grids drop from 4 to 2 columns at 520px, 3 to 2 at 400px, and to 1 at 260px.
 
@@ -300,7 +299,7 @@ Depth is tonal. Grounds step up in lightness (page 0.135, workbench 0.145, well 
 
 ## Shapes
 
-Gently rounded, tightening as things get smaller: 14px for cards, the prompt box, notices and the link outline; 10px for wells; 9px for the Build and Stop buttons and suggestion chips; 8px for small quiet buttons and select triggers; 6px for inline code. Pills (fully round) are reserved for things that are tags or toggles: the surface chip, the "line n" tag, sliding tabs, and suggestions when they become a chip row on phones.
+Gently rounded, tightening as things get smaller: 14px for cards, the prompt box, notices and the link outline; 10px for wells; 9px for the Build and Stop buttons and suggestion chips; 8px for small quiet buttons and menu items; 6px for inline code. Pills (fully round) are reserved for things that are tags or toggles: the surface chip, the "line n" tag, sliding tabs, and suggestions when they become a chip row on phones.
 
 Pending components are generation frames: 12px-radius rectangles outlined in round dots, the runtime's own traced line (see Motion), over a 15px dot field. Lines in the Express list are square-edged full-width rows; their active state is an inset 2px left bar, not a rounded pill.
 
@@ -325,15 +324,16 @@ One loader language, taken from the transitions.dev UI generation runtime (vendo
 
 ### Buttons
 
-- **Shape:** gently rounded (9px); 36px tall.
-- **Primary (Build it):** solid Ink fill with Page Ground text, 14px/600, 14px side padding, trailing up-arrow icon. Hover drops to 90% opacity.
-- **Stop:** replaces Build while a run goes. Raised Graphite fill, strong hairline border, Ink text, small filled square icon; hover lightens the fill.
+- **Shape:** gently rounded (9px).
+- **Primary (Build it):** a 32px square at the right end of the prompt box: solid Ink fill, a Page Ground up-arrow, its name ("Build it") for screen readers and as a tooltip. At 35% opacity while the prompt is empty (it still focuses the prompt); hover drops to 90%.
+- **Stop:** replaces Build while a run goes, the same 32px square. Raised Graphite fill, strong hairline border, a small filled Ink square; hover lightens the fill.
+- **More ("+"):** a 32px quiet square at the left end of the prompt box, an Ink Dim plus that lifts to Ink with a 5% wash on hover and while its menu is open. Its name for screen readers and its tooltip is "Settings and more".
 - **Quiet (Retry, Ask again, Cancel):** Panel Graphite or transparent with a hairline border, 12 to 13px/500, 8px radius.
 - **Focus:** every button shows a 2px Live Violet ring at 65%, offset 2px.
 
 ### Chips
 
-- **Suggestion chips:** above the prompt box until the visitor has asked something. Hairline-bordered, 9px radius, Ink Dim at 13px; hover strengthens the border, adds a 2.5% white wash, and lifts the text to Ink. A trailing mono 11px tag reads `macro` (Macro Amber) or `template` (Template Green). They wrap to at most two rows (the prompts that would start a third are hidden and leave the tab order), never scroll sideways, and on phones they are pills.
+- **Suggestion chips:** above the prompt box in an empty chat only: not while the first-visit replay plays or after it, and not once there is a conversation, where the box is for a follow-up and stands alone ("Try a prompt" in the "+" menu still lists them). Hairline-bordered, 9px radius, Ink Dim at 13px; hover strengthens the border, adds a 2.5% white wash, and lifts the text to Ink. A trailing mono 11px tag reads `macro` (Macro Amber) or `template` (Template Green). They wrap to at most two rows (the prompts that would start a third are hidden and leave the tab order), never scroll sideways, and on phones they are pills.
 - **Surface chip:** a 28px pill above each surface in the conversation with a code icon and "Express · n lines" in mono 12px, counting up as the model writes. It selects the surface (the writes pane shows its lines; on a phone it opens them). Selected: Raised Graphite and Ink with a strong hairline, and the surface's floor takes the strong hairline too. Mono meta trails it: the model, `template`, and a status (while the run goes, a pulsing violet dot and its latest step, such as "Writing A2UI Express"; after, "stopped", or "failed" in Fault Red). Before a run has a surface the row carries the status alone, and the chip joins it when the surface arrives.
 - **Prompt bubble:** right-aligned, up to 80% of the measure, Panel Graphite with a hairline border, 14px radius, 14.5px text.
 
@@ -347,13 +347,14 @@ One loader language, taken from the transitions.dev UI generation runtime (vendo
 
 ### Inputs / Fields
 
-- **Prompt box:** the composer, pinned under the conversation. Well Graphite, strong hairline border, 14px radius, with the floating composer shadow; the textarea (two rows, growing with its text) sits above a row of the model and format selects and Build or Stop. 15.5px text (16px on phones), Ink Dim placeholder. Hover raises the border to 20% white; keyboard focus turns the border Live Violet with the 3px violet glow. What scrolls behind it fades out over 24px.
-- **Select triggers (model, format):** 32px, transparent, strong hairline border, 13px Ink Dim text, 8px radius.
+- **Prompt box:** the composer, pinned under the conversation, after Claude's input: one row of "+", the textarea (one line, growing with its text to 168px) and Build or Stop, with the buttons held to its last line. Well Graphite, strong hairline border, 14px radius, 8px padding, with the floating composer shadow. 15.5px text (16px on phones), Ink Dim placeholder, shortened on phones and in small frames ("Ask for a UI, like a ramen map"). Hover raises the border to 20% white; keyboard focus turns the border Live Violet with the 3px violet glow. What scrolls behind it fades out over 24px.
+- **Under the prompt box:** until the visitor has asked something, one quiet line: "Or start without AI" (": write A2UI JSON by hand." from 1100px). Once there is a conversation, nothing: the box stands alone. Small frames drop the line from the start.
+- **"+" menu:** everything but the prompt, opening upward from the "+". First the three pickers, each a row with its current choice on the right in Ink Dim 12.5px (the design system with its swatch) and a chevron: Design system, Model, Format. Below a hairline, Start without AI (with "Write A2UI JSON by hand" under it) and Try a prompt (the starter prompts with their `macro` and `template` tags, so they stay in reach after the chips go); below another, once there is a conversation or the replay has played, New chat. A picker's choices and the prompts open in a 19rem submenu beside the menu, each choice with its note and a line on what it does, a check on the current one, and models that cannot run here dimmed with the reason. On a phone, where a submenu would run off the screen, the list takes the menu's place instead, under a "‹ Design system" row that goes back (so does the left arrow key). Panel white (Popover), hairline border, 12px radius, 4px padding, a soft 12px/32px shadow; items 13.5px with 16px Ink Dim icons and an 8px-radius 5% wash on the highlighted one. A choice, New chat and a starter prompt hand the focus back to the prompt, except on a touch screen, where that would raise the keyboard over the answer. It portals into the playground root, so it keeps the playground's colours.
 
 ### Navigation
 
-- **Site header:** pure black, 64px, sticky, hairline below. On the left the A2UI mark, 17px/600 "A2UI Playground" and a 13px Ink Muted credit, "by" with the CopilotKit kite and "CopilotKit" (under 420px the credit drops under the name at 11.5px). Then 15px/500 nav links (Playground, Components, Get started) in Ink Muted that turn Ink on hover and when current. Under 960px the links move into a right-hand drawer (320px, workbench ground, hairline left edge).
-- **Design systems:** the composer's first picker chooses what draws the surfaces: CopilotKit (the standard catalog as shipped), ChatCN (shadcn/ui's neutral palette and primitives), Material (Material 3 Expressive components in a Material scheme generated from the seed #0b57d0, light or dark with the page, Roboto Flex, on a 28px-cornered Material surface) or Bring your own (a light, square-cornered in-house set in Helvetica Neue (Arial on Windows), a system stack so the build fetches no extra font, on its own #f4f6f8 app canvas inside the floor, light in both themes). The catalog and the agent's lines never change; `src/design-systems/` swaps leaf components (never containers, so nothing inside a Card remounts) and scopes tokens on the surface host (`data-ds`). A swatch in the picker (violet, near-white, a round periwinkle, blue) names each one at a glance; Material's is the only round one.
+- **Site header:** pure black, 64px, sticky, hairline below. On the left the A2UI mark, 17px/600 "A2UI Playground" and a 13px Ink Muted credit, "by" with the CopilotKit kite and "CopilotKit" (under 420px the credit drops under the name at 11.5px). Then 15px/500 nav links (Playground, Get started; the catalog stays at /components with no link for now) in Ink Muted that turn Ink on hover and when current, and on the right the theme toggle and the search. Under 960px the header is the mark and the menu button alone: everything else is in a right-hand drawer (320px, workbench ground, hairline left edge), the links first, then Search components and the theme switch, then GitHub or the docs. Search from the drawer opens once the drawer has closed and hands the focus back to the menu button.
+- **Design systems:** the first picker in the "+" menu chooses what draws the surfaces: CopilotKit (the standard catalog as shipped), ChatCN (shadcn/ui's neutral palette and primitives), Material (Material 3 Expressive components in Google's own Material 3 color scheme, primary #0b57d0 with white and #131314 surfaces, light or dark with the page, in Roboto Flex. It stands on the floor like the others: every container card is Material's outlined card at its 12px corner, a stat is a tonal filled card, the catalog's own titles and labels take Material's type roles (weights 400 and 500, no negative tracking, a Section at title-large and a card at title-medium), a heading's context follows its title, and the chart series are blue, green, magenta, amber, cyan and olive, checked for color-vision separation in each mode) or Bring your own (a light, square-cornered in-house set in Helvetica Neue (Arial on Windows), a system stack so the build fetches no extra font, on its own #f4f6f8 app canvas inside the floor, light in both themes). The catalog and the agent's lines never change; `src/design-systems/` swaps leaf components (never containers, so nothing inside a Card remounts) and scopes tokens on the surface host (`data-ds`). A swatch in the picker and beside its row in the menu (violet, near-white, a round Google blue, blue) names each one at a glance; Material's is the only round one.
 - **Column tabs (Express, JSON, Run):** the sliding-pill tabs at 28px tall, on a 4% white track.
 - **Phone lines view:** the writes pane over the conversation, entering with a 200ms 10px rise; its head leads with a "Chat" back button and a hairline divider.
 

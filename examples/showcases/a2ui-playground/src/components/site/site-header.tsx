@@ -2,16 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type SyntheticEvent } from "react";
+import { useRef, useState } from "react";
+import type { SyntheticEvent } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { ArrowUpRight, Menu, Moon, Sun, X } from "lucide-react";
+import {
+  ArrowUpRight,
+  Maximize2,
+  Menu,
+  Moon,
+  Search,
+  Sun,
+  X,
+} from "lucide-react";
 import "@/app/site.css";
 import { readStoredDesignSystem } from "@/design-systems/context";
 import { setTheme, useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { DOCS_URL, REPO_URL } from "@/components/start/links";
 import { A2UIMark, CopilotKitKite } from "./brand";
-import { CommandMenu } from "./command-menu";
+import { CommandMenu, openSearch } from "./command-menu";
 
 type Active =
   | "home"
@@ -22,10 +31,9 @@ type Active =
   | "start";
 type Item = { id: Active; label: string; href: string };
 
-/** The workbench is the home page; the catalog and the way into your own app follow it. */
+/** The workbench is the home page; the way into your own app follows it. The catalog is left out for now, still at /components. */
 const NAV: Item[] = [
   { id: "playground", label: "Playground", href: "/" },
-  { id: "components", label: "Components", href: "/components" },
   { id: "start", label: "Get started", href: "/start" },
 ];
 
@@ -87,22 +95,25 @@ export function SiteHeader({
             />
           ))}
         </nav>
-        {/* min-w-0: the search trigger shrinks before anything here can push the header past the viewport. */}
+        {/* min-w-0: the search trigger shrinks before anything here can push the header past the viewport.
+            Under 960px all of it is in the menu sheet, so the header is the mark and the menu button. */}
         <div className="ml-auto flex min-w-0 items-center gap-2">
-          {REPO_URL ? (
-            <a
-              href={REPO_URL}
-              target="_blank"
-              rel="noreferrer"
-              aria-label="GitHub"
-              className="flex size-8 flex-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <GitHubIcon className="size-[17px]" />
-            </a>
-          ) : null}
-          <ThemeToggle />
-          <div className="min-w-0">
-            <CommandMenu />
+          <div className="flex min-w-0 items-center gap-2 max-[959px]:hidden">
+            {REPO_URL ? (
+              <a
+                href={REPO_URL}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="GitHub"
+                className="flex size-8 flex-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <GitHubIcon className="size-[17px]" />
+              </a>
+            ) : null}
+            <ThemeToggle />
+            <div className="min-w-0">
+              <CommandMenu />
+            </div>
           </div>
           <MenuSheet active={active} />
         </div>
@@ -188,15 +199,12 @@ function EmbedHeader({ query }: { query: string }) {
             onFocus={refresh}
             onClick={refresh}
             data-open-full
-            className="inline-flex h-8 flex-none items-center gap-1.5 rounded-md border border-border px-2.5 text-[13px] font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            // A quiet icon button beside the theme toggle, so the frame's header stays out of the answer's way.
+            aria-label="Open full playground (opens in a new tab)"
+            title="Open full playground"
+            className="flex size-8 flex-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            {/* Under 440px: "Open", still named in full for screen readers. */}
-            <span className="max-[439px]:hidden">Open full playground</span>
-            <span className="min-[440px]:hidden">
-              Open<span className="sr-only"> full playground</span>
-            </span>
-            <ArrowUpRight className="size-3.5" aria-hidden />
-            <span className="sr-only"> (opens in a new tab)</span>
+            <Maximize2 className="size-[16px]" aria-hidden />
           </a>
         </div>
       </div>
@@ -224,15 +232,25 @@ function ThemeToggle() {
   );
 }
 
-/** The nav as a sheet from the right, for screens under 960px. Radix handles focus, Escape and the backdrop. */
+/**
+ * Everything but the mark as a sheet from the right, for screens under 960px: the nav, search, the theme and
+ * GitHub. Radix handles focus, Escape and the backdrop.
+ */
 function MenuSheet({ active }: { active?: Active }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
+  const dark = useTheme() === "dark";
+  // Search opens once the sheet has closed, so the sheet's return of focus to its button does not take it back,
+  // and hands the focus back to the menu button when it closes.
+  const toSearch = useRef(false);
+  const trigger = useRef<HTMLButtonElement>(null);
   const row =
     "flex h-11 items-center rounded-md px-3 text-[16px] font-medium hover:bg-accent dark:hover:bg-white/[0.05]";
+  const quiet = cn(row, "gap-2.5 text-muted-foreground hover:text-foreground");
   return (
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
       <DialogPrimitive.Trigger
+        ref={trigger}
         aria-label="Open menu"
         className="flex size-9 flex-none items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground min-[960px]:hidden"
       >
@@ -240,7 +258,15 @@ function MenuSheet({ active }: { active?: Active }) {
       </DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 motion-reduce:animate-none" />
-        <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-50 flex w-[min(320px,100%)] flex-col border-l border-border bg-background dark:bg-[oklch(0.145_0.004_285)] p-4 shadow-2xl outline-none data-open:animate-in data-open:slide-in-from-right data-closed:animate-out data-closed:slide-out-to-right motion-reduce:animate-none">
+        <DialogPrimitive.Content
+          onCloseAutoFocus={(e) => {
+            if (!toSearch.current) return;
+            toSearch.current = false;
+            e.preventDefault();
+            openSearch(trigger.current);
+          }}
+          className="fixed inset-y-0 right-0 z-50 flex w-[min(320px,100%)] flex-col border-l border-border bg-background dark:bg-[oklch(0.145_0.004_285)] p-4 shadow-2xl outline-none data-open:animate-in data-open:slide-in-from-right data-closed:animate-out data-closed:slide-out-to-right motion-reduce:animate-none"
+        >
           <div className="flex h-10 items-center justify-between pl-3">
             <DialogPrimitive.Title className="text-[15px] font-semibold">
               Menu
@@ -253,7 +279,7 @@ function MenuSheet({ active }: { active?: Active }) {
             </DialogPrimitive.Close>
           </div>
           <DialogPrimitive.Description className="sr-only">
-            Pages on this site
+            Pages on this site, search and the theme
           </DialogPrimitive.Description>
           <nav aria-label="Main" className="mt-3 flex flex-col">
             {NAV.map((n) => (
@@ -266,6 +292,31 @@ function MenuSheet({ active }: { active?: Active }) {
               />
             ))}
           </nav>
+          <div className="mt-3 flex flex-col border-t border-border pt-3">
+            <button
+              type="button"
+              onClick={() => {
+                toSearch.current = true;
+                close();
+              }}
+              className={quiet}
+            >
+              <Search className="size-4" aria-hidden />
+              Search components
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme(dark ? "light" : "dark")}
+              className={quiet}
+            >
+              {dark ? (
+                <Sun className="size-4" aria-hidden />
+              ) : (
+                <Moon className="size-4" aria-hidden />
+              )}
+              {dark ? "Light theme" : "Dark theme"}
+            </button>
+          </div>
           <div className="mt-3 flex flex-col border-t border-border pt-3">
             <a
               href={REPO_URL ?? DOCS_URL}

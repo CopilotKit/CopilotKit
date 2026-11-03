@@ -108,6 +108,22 @@
   .wb-page [data-wb-empty] {
     padding: 18px 16px;
   }
+  /* In a narrow frame (the square embeds), the answer gets the width: 10px gutters, a closer floor, and the
+     generated UI drawn at 7/8 size, so a dashboard reads as a whole instead of filling the frame. `zoom` sits
+     on the surface itself: the resize box around it eases to its zoomed height, and the link outline and the
+     drawing, placed from on-screen rects outside it, stay on it. */
+  @media (max-width: 899px) {
+    .wb-page [data-thread] > div,
+    .wb-page .wb-composer > div {
+      padding-inline: 10px;
+    }
+    .wb-page .wb-floor {
+      padding: 8px;
+    }
+    .wb-page .wb-surface .t-resize > div > :is(.a2-surface-host, .a2-static) {
+      zoom: 0.875;
+    }
+  }
 
   /* The composer. */
   .wb-page .wb-composer {
@@ -141,11 +157,11 @@
   }
 
   /* One line to type in; it still grows (to four lines) for a longer prompt. */
+  .wb-page .wb-prompt {
+    padding: 6px;
+  }
   .wb-page #wb-prompt {
-    min-height: 40px;
     max-height: 104px;
-    padding-top: 9px;
-    padding-bottom: 5px;
   }
   .wb-page #wb-prompt::placeholder {
     white-space: nowrap;
@@ -154,103 +170,26 @@
   }
   @supports not (field-sizing: content) {
     .wb-page #wb-prompt {
-      height: 40px;
+      height: 36px;
     }
   }
 
-  /* The pickers on one row that scrolls sideways if it must; New chat and Build stay put at its end. */
-  .wb-page [data-wb-controls] {
-    flex-wrap: nowrap;
-    gap: 6px;
-    padding: 2px 8px 8px;
-  }
-  .wb-page [data-wb-pickers] {
-    display: flex;
-    flex: 1 1 auto;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-    margin: -4px;
-    padding: 4px 24px 4px 4px;
-    scroll-padding-inline: 4px 24px;
-    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
-  }
-  .wb-page [data-wb-pickers]::-webkit-scrollbar {
-    display: none;
-  }
-  .wb-page [data-new-chat] {
-    padding-inline: 8px;
-  }
-  .wb-page [data-new-chat] > span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-  /* An embed keeps one picker, the design system, so the row fits without scrolling and nothing reads
-     as cut off (480px tall or less, it folds away: see the end of this block). The model and the format stay in the full playground, one link away. */
-  .wb-page[data-embed] [data-model-picker],
-  .wb-page[data-embed] [data-format-picker] {
-    display: none;
-  }
-  /* "Start without AI" moves from its own line into the picker row. */
+  /* "Start without AI" under the prompt goes: it is in the "+" menu, with the pickers. */
   .wb-page [data-wb-no-ai-line] {
     display: none;
   }
-  .wb-page [data-wb-no-ai-inline] {
-    display: inline-flex;
-  }
-
-  @media (max-width: 519px) {
-    /* Build is the arrow alone; its name stays for screen readers. */
-    .wb-page [data-build] {
-      width: 36px;
-      padding: 0;
-      justify-content: center;
-    }
-    .wb-page [data-build-label] {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
-    }
-  }
 
   /* The smallest embeds (480px tall or less, a 320 to 480 square on a phone or in a docs column): the answer
-     needs every row it can get. The suggestions go (the placeholder still suggests one) and the prompt is one
-     line with Build beside it. The design system and "start without AI" are in the full playground, and
-     `?ds=` still picks the design system for the frame. */
+     needs every row it can get. The suggestions and the "+" menu go (the placeholder still suggests one),
+     leaving the prompt and Build. The pickers and "start without AI" are in the full playground, and `?ds=`
+     still picks the design system for the frame. */
   @media (max-height: 480px) {
     .wb-page[data-embed] [data-wb-chips-wrap],
-    .wb-page[data-embed] [data-wb-pickers],
-    .wb-page[data-embed] [data-new-chat] {
+    .wb-page[data-embed] [data-wb-plus] {
       display: none;
     }
-    .wb-page[data-embed] .wb-prompt {
-      display: flex;
-      align-items: flex-end;
-    }
     .wb-page[data-embed] #wb-prompt {
-      flex: 1;
-      min-width: 0;
-      min-height: 48px;
-      padding-top: 12px;
-      padding-bottom: 12px;
-    }
-    @supports not (field-sizing: content) {
-      .wb-page[data-embed] #wb-prompt {
-        height: 48px;
-      }
-    }
-    .wb-page[data-embed] [data-wb-controls] {
-      flex: none;
-      padding: 6px;
+      padding-inline: 8px;
     }
   }
 
@@ -269,5 +208,18 @@
   .wb-page [data-lines-note] {
     padding-top: 7px;
     padding-bottom: 7px;
+  }
+
+  /* Editing by hand: the editor needs the rows more than the Ask footer's explanation does (still read by
+     screen readers). It stays when it says why Ask is off. */
+  .wb-page [data-json-ask]:not([data-blocked]) [data-json-ask-note] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
