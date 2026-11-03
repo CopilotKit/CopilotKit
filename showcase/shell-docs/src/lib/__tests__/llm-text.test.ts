@@ -344,11 +344,11 @@ test("keeps only the Angular quickstart branch for the selected backend", () => 
     { frontend: "angular", framework: "langgraph-python" },
   );
 
-  expect(standalone).toContain("new BuiltInAgent");
+  expect(standalone).toContain("tanstackAIAgent(");
   expect(standalone).not.toContain("<FrameworkSetup");
   expect(langGraph).toContain("CopilotKitMiddleware");
   expect(langGraph).not.toContain("<FrameworkSetup");
-  expect(langGraph).not.toContain("new BuiltInAgent");
+  expect(langGraph).not.toContain("tanstackAIAgent(");
   expect(`${standalone}\n${langGraph}`).not.toContain("<WhenAngularBackend");
 });
 

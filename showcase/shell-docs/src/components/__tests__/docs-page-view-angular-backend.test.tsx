@@ -46,11 +46,11 @@ async function renderAngularQuickstart(frameworkOverride?: string) {
 }
 
 describe("DocsPageView Angular backend selection", () => {
-  it("renders only standalone BuiltInAgent runtime instructions at /angular", async () => {
+  it("renders only standalone tanstackAIAgent runtime instructions at /angular", async () => {
     const source = await renderAngularQuickstart();
 
     expect(source).toContain("### Create the Copilot Runtime");
-    expect(source).toContain("new BuiltInAgent");
+    expect(source).toContain("tanstackAIAgent(");
     expect(source).toContain("### Run the runtime and app");
     expect(source).not.toContain("Connect the selected agent backend");
     expect(source).not.toContain("<FrameworkSetup");
@@ -64,7 +64,7 @@ describe("DocsPageView Angular backend selection", () => {
     expect(source).toContain('<FrameworkSetup concept="agent-setup" />');
     expect(source).toContain("### Run the backend, runtime, and Angular app");
     expect(source).not.toContain("### Create the Copilot Runtime");
-    expect(source).not.toContain("new BuiltInAgent");
+    expect(source).not.toContain("tanstackAIAgent(");
     expect(source).not.toContain("<WhenAngularBackend");
   });
 });
