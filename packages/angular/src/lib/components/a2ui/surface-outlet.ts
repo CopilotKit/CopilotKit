@@ -1,16 +1,17 @@
 import { Component, computed, inject, input, output } from "@angular/core";
 import { AbstractAgent } from "@ag-ui/client";
+import { ɵrunA2UIAction } from "@copilotkit/core";
 import { COPILOT_KIT_CONFIG } from "../../config";
 import { CopilotKit } from "../../copilotkit";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { SlotOutputs } from "../../slots/slot.types";
-import { bridgeA2UIAction, logA2UIRenderError } from "./a2ui-surface-host";
-import { A2UIClientEventMessage } from "./a2ui-types";
+import { A2UIClientEventMessage, A2UISurfaceError } from "./a2ui-types";
 
 /**
  * @internal
  * Renders operations with the configured catalog's surface, sends its actions
- * to `agent` and logs its render errors.
+ * to `agent` through the configured `onAction` interceptor, and logs its
+ * render errors.
  */
 @Component({
   selector: "copilot-a2ui-surface-outlet",
@@ -44,9 +45,18 @@ export class CopilotA2UISurfaceOutlet {
   }));
 
   protected readonly outputs: SlotOutputs = {
-    action: (message: A2UIClientEventMessage) =>
-      bridgeA2UIAction(this.copilotKit, this.agent(), message),
-    error: logA2UIRenderError,
+    action: async (message: A2UIClientEventMessage) => {
+      const core = this.copilotKit?.core;
+      if (!core) return;
+      await ɵrunA2UIAction({
+        message,
+        agent: this.agent(),
+        core,
+        onAction: this.a2ui?.onAction,
+      });
+    },
+    error: (error: A2UISurfaceError) =>
+      console.warn("[A2UI Angular] render error:", error),
     rendered: () => this.rendered.emit(),
   };
 }
