@@ -179,7 +179,7 @@ function commentsAbove(source: string, lineStart: number) {
     .slice(0, lineStart)
     .split("\n")
     .slice(0, -1)
-    .toReversed();
+    .reverse();
   const comments = new Set<string>();
   for (const line of lines) {
     const trimmed = line.trim();
