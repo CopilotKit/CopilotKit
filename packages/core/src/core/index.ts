@@ -21,6 +21,17 @@ export {
   ɵsubscribeToAgentUpdates,
   ɵALL_AGENT_UPDATES,
 } from "./agent-resolver";
+export { ɵserializeContextValue, ɵgetAgentCapabilities } from "./agent-helpers";
+export type { ɵJsonSerializable, ɵAgentContextInput } from "./agent-helpers";
+export {
+  ɵrecordAnnotation,
+  ɵbuildLearnFromUserActionPayload,
+} from "./record-annotation";
+export type {
+  ɵRecordAnnotationArgs,
+  ɵRecordAnnotationResult,
+  ɵLearnFromUserActionFields,
+} from "./record-annotation";
 export type {
   ɵAgentBindingInput,
   ɵAgentResolveInput,

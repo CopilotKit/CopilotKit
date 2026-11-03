@@ -1,6 +1,7 @@
 import type { AgentCapabilities } from "@ag-ui/core";
 import { computed } from "vue";
 import type { ComputedRef } from "vue";
+import { ɵgetAgentCapabilities } from "@copilotkit/core";
 import { useAgent } from "./use-agent";
 
 /**
@@ -20,11 +21,5 @@ export function useCapabilities(
 ): ComputedRef<AgentCapabilities | undefined> {
   const { agent } = useAgent({ agentId });
 
-  return computed(() => {
-    const a = agent.value;
-    if (a && "capabilities" in a) {
-      return (a as { capabilities?: AgentCapabilities }).capabilities;
-    }
-    return undefined;
-  });
+  return computed(() => ɵgetAgentCapabilities(agent.value));
 }

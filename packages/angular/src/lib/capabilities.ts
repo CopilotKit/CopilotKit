@@ -1,5 +1,6 @@
 import { computed, type Signal } from "@angular/core";
 import type { AgentCapabilities } from "@ag-ui/core";
+import { ɵgetAgentCapabilities } from "@copilotkit/core";
 import { injectAgentStore } from "./agent";
 import { injectChatConfiguration } from "./chat-configuration";
 
@@ -15,11 +16,5 @@ export function injectCapabilities(
   const resolvedAgentId = agentId ?? injectChatConfiguration().agentId;
   const agentStore = injectAgentStore(resolvedAgentId);
 
-  return computed(() => {
-    const agent = agentStore().agent;
-    if (agent && "capabilities" in agent) {
-      return (agent as { capabilities?: AgentCapabilities }).capabilities;
-    }
-    return undefined;
-  });
+  return computed(() => ɵgetAgentCapabilities(agentStore().agent));
 }

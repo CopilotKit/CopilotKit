@@ -1,8 +1,8 @@
 import { expect, test, vi } from "vitest";
 
-import { recordAnnotation } from "../record-annotation";
+import { ɵrecordAnnotation } from "../record-annotation";
 
-test("recordAnnotation uses the caller's Runtime fetch", async () => {
+test("ɵrecordAnnotation uses the caller's Runtime fetch", async () => {
   const runtimeFetch = vi.fn().mockResolvedValue(
     new Response(JSON.stringify({ id: "annotation-1", duplicate: false }), {
       status: 200,
@@ -10,7 +10,7 @@ test("recordAnnotation uses the caller's Runtime fetch", async () => {
     }),
   );
 
-  const result = await recordAnnotation({
+  const result = await ɵrecordAnnotation({
     runtimeUrl: "https://runtime.example.com/api/copilotkit",
     headers: { Authorization: "Bearer browser-token" },
     type: "user_action",

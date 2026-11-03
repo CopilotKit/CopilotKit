@@ -3,7 +3,7 @@ import { randomUUID } from "@copilotkit/shared";
 /**
  * The result shape returned by the CopilotKit runtime `/annotate` endpoint.
  */
-export interface RecordAnnotationResult {
+export interface ɵRecordAnnotationResult {
   /** Platform-assigned id of the annotation row. */
   id: string;
   /** `true` when the platform recognized this `clientEventId` as a retry. */
@@ -11,7 +11,7 @@ export interface RecordAnnotationResult {
 }
 
 /**
- * Arguments for {@link recordAnnotation}.
+ * Arguments for {@link ɵrecordAnnotation}.
  *
  * The transport dependencies (`runtimeUrl`, `headers`) mirror what the
  * `useLearnFromUserAction` hook reads from `copilotkit` context, so the hook
@@ -20,7 +20,7 @@ export interface RecordAnnotationResult {
  * `userId` is intentionally absent — the runtime resolves the user from BFF
  * auth server-side and the browser must never send it.
  */
-export interface RecordAnnotationArgs {
+export interface ɵRecordAnnotationArgs {
   /** Runtime-aware fetch implementation. Defaults to the global fetch. */
   fetch?: typeof globalThis.fetch;
   /**
@@ -87,9 +87,7 @@ export interface RecordAnnotationArgs {
  *         status. Callers that want fire-and-forget behavior should `.catch`
  *         at the call site.
  */
-export async function recordAnnotation(
-  args: RecordAnnotationArgs,
-): Promise<RecordAnnotationResult> {
+export async function ɵrecordAnnotation(args: ɵRecordAnnotationArgs) {
   const {
     runtimeUrl,
     headers,
@@ -133,10 +131,38 @@ export async function recordAnnotation(
     );
   }
   try {
-    return JSON.parse(text) as RecordAnnotationResult;
+    return JSON.parse(text) as ɵRecordAnnotationResult;
   } catch {
     throw new Error(
       `recordAnnotation: runtime ${runtimeUrl}/annotate returned a non-JSON body (status ${response.status})`,
     );
   }
+}
+
+/** What app code records about a user action (see `useLearnFromUserAction`). */
+export interface ɵLearnFromUserActionFields {
+  /** Short, agent-readable summary of what the user did. */
+  title?: string | null;
+  /** Optional longer explanation. */
+  description?: string | null;
+  /** Free-form, JSON-serializable snapshot describing the action. */
+  data?: unknown;
+}
+
+/**
+ * Build the `user_action` annotation payload: only the fields the caller
+ * set, or `undefined` when none are set, so the wire body has no empty
+ * payload.
+ */
+export function ɵbuildLearnFromUserActionPayload({
+  title,
+  description,
+  data,
+}: ɵLearnFromUserActionFields) {
+  const payload: Record<string, unknown> = {
+    ...(title !== undefined ? { title } : {}),
+    ...(description !== undefined ? { description } : {}),
+    ...(data !== undefined ? { data } : {}),
+  };
+  return Object.keys(payload).length > 0 ? payload : undefined;
 }

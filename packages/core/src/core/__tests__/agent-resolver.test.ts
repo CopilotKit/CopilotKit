@@ -15,6 +15,8 @@ import {
   ɵvalidateAgentBinding,
 } from "../agent-resolver";
 
+function noop() {}
+
 class TestAgent extends AbstractAgent {
   run(_input: RunAgentInput): Observable<BaseEvent> {
     return new Observable<BaseEvent>();
@@ -316,8 +318,7 @@ describe("ɵgetAgentResolver", () => {
 
 describe("ɵagentUpdateHandlers", () => {
   it("maps run status to every run lifecycle callback, including run start", () => {
-    const notify = () => {};
-    const handlers = ɵagentUpdateHandlers(["OnRunStatusChanged"], notify);
+    const handlers = ɵagentUpdateHandlers(["OnRunStatusChanged"], noop);
 
     expect(Object.keys(handlers).sort()).toEqual([
       "onRunErrorEvent",
@@ -329,11 +330,9 @@ describe("ɵagentUpdateHandlers", () => {
   });
 
   it("maps messages and state to their own callbacks", () => {
-    const notify = () => {};
-
     expect(
       Object.keys(
-        ɵagentUpdateHandlers(["OnMessagesChanged", "OnStateChanged"], notify),
+        ɵagentUpdateHandlers(["OnMessagesChanged", "OnStateChanged"], noop),
       ).sort(),
     ).toEqual(["onMessagesChanged", "onStateChanged"]);
   });
