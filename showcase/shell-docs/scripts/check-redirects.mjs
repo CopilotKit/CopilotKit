@@ -503,6 +503,7 @@ for (const [from, to] of [
   ["/docs/integrations/adk/quickstart", "/google-adk/quickstart"],
   ["/docs/integrations/unselected/frontend-tools", "/frontend-tools"],
   ["/docs/integrations/something/else", "/something/else"],
+  ["/integrations", "/"],
 ]) {
   redirect(from, to, MOVED);
 }
@@ -524,7 +525,6 @@ for (const path of [
 
 // --- v2's own routes: never redirected -----------------------------------
 for (const path of [
-  "/integrations",
   "/intelligence",
   "/examples",
   "/proto/threads",
