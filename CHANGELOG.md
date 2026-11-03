@@ -16,6 +16,21 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.84.1 - 2026-11-03
+
+This patch release improves A2UI catalog serialization so that composed custom component trees are correctly recognized by agent SDKs.
+
+## Fixes
+
+- **Preserve catalog references and capabilities** in `@copilotkit/a2ui-renderer` (#8120). The serialized A2UI catalog previously dropped component-reference descriptions and callable capabilities, preventing agent SDKs from recognizing composed custom component trees. Reused Zod schemas could also generate local references to paths that no longer existed after schema wrapping. This release:
+  - Exports inline schemas before applying the REF descriptor contract, preserving property order.
+  - Includes function and theme capabilities in the serialized output.
+  - Retains support for legacy and minimal catalog objects that lack function metadata.
+  - Emits catalog schema output with available component, function, and theme schemas — including references, descriptions, defaults, and reusable types.
+  - Presents custom components and their schemas consistently across React, Angular, and Vue providers, with an option to omit schema details.
+
+These changes keep the frontend catalog as the source of truth for catalog generation, while making serialized payloads smaller and more reliable for prompt-only agents and SDKs.
+
 ## 1.84.0 - 2026-11-03
 
 ### Features
