@@ -27,7 +27,9 @@
  *   ordering and contract shape AND the real per-chunk arrival times — at
  *   the cost of not knowing which event landed in which chunk. For D6's
  *   purposes (parity comparison vs a reference, not per-event auditing) the
- *   timing profile + content is exactly the right granularity.
+ *   timing profile + content is exactly the right granularity. Opt-in A2UI
+ *   probes additionally record structural SSE events from the existing browser
+ *   fetch tee so progressive-render assertions have real per-event arrivals.
  *
  * On-wire format (confirmed by reading
  * `packages/runtime/src/v2/runtime/handlers/shared/sse-response.ts` and
@@ -543,6 +545,8 @@ function buildPageSideCounterScript(endpointPattern: string | RegExp): string {
         // blank-line record separators, increment for each
         // RUN_FINISHED-typed JSON payload observed. Returns the new
         // leftover (incomplete trailing record).
+        var probe = g.__hk_a2uiProbe;
+        if (probe) probe.batch++;
         var text = leftover + buf;
         text = text.split('\\r\\n').join('\\n');
         var idx = text.lastIndexOf('\\n\\n');
@@ -576,6 +580,11 @@ function buildPageSideCounterScript(endpointPattern: string | RegExp): string {
             var raw = dataParts.join('\\n');
             try {
               var parsed = JSON.parse(raw);
+              // Opt-in, bounded structural events recorded at fetch-reader arrival,
+              // not reconstructed from CDP's completed response body.
+              if (probe && parsed && ['RUN_STARTED', 'RUN_FINISHED', 'TOOL_CALL_START', 'TOOL_CALL_ARGS', 'TOOL_CALL_END', 'TOOL_CALL_RESULT', 'ACTIVITY_SNAPSHOT'].indexOf(parsed.type) !== -1 && probe.events.length < 2000) {
+                probe.events.push({ at: performance.now(), batch: probe.batch, payload: parsed });
+              }
               if (parsed && typeof parsed === 'object' && parsed.type === 'RUN_FINISHED') {
                 g.__hk_runsFinished = (g.__hk_runsFinished | 0) + 1;
               }

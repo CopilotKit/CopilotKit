@@ -1,3 +1,7 @@
+import {
+  startA2uiEvidence,
+  checkA2uiEvidence,
+} from "../helpers/a2ui-format.js";
 /**
  * D5 — a2ui-recovery script.
  *
@@ -306,8 +310,15 @@ export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
   return [
     {
       input: prompts.heal,
-      preFill: buildBaselineCapture(healRef),
-      assertions: buildHealAssertion(healRef),
+      preFill: async (page) => {
+        await buildBaselineCapture(healRef)(page);
+        if (ctx.a2uiFormat) await startA2uiEvidence(page);
+      },
+      assertions: async (page) => {
+        await buildHealAssertion(healRef)(page);
+        if (ctx.a2uiFormat)
+          await checkA2uiEvidence(page, ctx.a2uiFormat, "heal");
+      },
       responseTimeoutMs: RECOVERY_RESPONSE_TIMEOUT_MS,
       // The healed surface paints `render_a2ui` output; treat the turn as
       // complete when the metric surface mounts (same swap the declarative
@@ -320,8 +331,15 @@ export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
     },
     {
       input: prompts.exhaust,
-      preFill: buildBaselineCapture(exhaustRef),
-      assertions: buildExhaustAssertion(exhaustRef),
+      preFill: async (page) => {
+        await buildBaselineCapture(exhaustRef)(page);
+        if (ctx.a2uiFormat) await startA2uiEvidence(page);
+      },
+      assertions: async (page) => {
+        await buildExhaustAssertion(exhaustRef)(page);
+        if (ctx.a2uiFormat)
+          await checkA2uiEvidence(page, ctx.a2uiFormat, "exhaust");
+      },
       responseTimeoutMs: RECOVERY_RESPONSE_TIMEOUT_MS,
       // The hard-failure card renders REAL text ("Couldn't generate the
       // UI") inside the assistant bubble, so the runner's default
