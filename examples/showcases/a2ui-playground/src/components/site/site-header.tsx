@@ -22,10 +22,9 @@ type Active =
   | "start";
 type Item = { id: Active; label: string; href: string };
 
-/** The workbench is the home page; the catalog and the way into your own app follow it. */
+/** The workbench is the home page; the way into your own app follows it. The catalog is left out for now, still at /components. */
 const NAV: Item[] = [
   { id: "playground", label: "Playground", href: "/" },
-  { id: "components", label: "Components", href: "/components" },
   { id: "start", label: "Get started", href: "/start" },
 ];
 
