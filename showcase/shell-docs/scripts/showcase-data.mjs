@@ -16,8 +16,10 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   rmSync,
   symlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -99,4 +101,17 @@ for (const file of OUTPUTS) {
   }
   copyFileSync(from, join(out, file));
 }
-console.log(`[showcase-data] ${OUTPUTS.length} files -> src/data`);
+
+// Each integration's `docs_mode` alone, in registry order: small enough for
+// the client, which reads which frameworks have docs from it
+// (src/lib/live-scope.ts). A manifest without one is `generated`, as
+// shell-docs' getDocsMode() read it.
+const registry = JSON.parse(readFileSync(join(out, "registry.json"), "utf8"));
+const docsModes = Object.fromEntries(
+  registry.integrations.map((i) => [i.slug, i.docs_mode ?? "generated"]),
+);
+writeFileSync(
+  join(out, "docs-modes.json"),
+  `${JSON.stringify(docsModes, null, 2)}\n`,
+);
+console.log(`[showcase-data] ${OUTPUTS.length + 1} files -> src/data`);
