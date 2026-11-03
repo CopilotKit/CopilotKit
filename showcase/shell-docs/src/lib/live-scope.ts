@@ -78,6 +78,72 @@ export const LIVE_FRONTENDS: Record<string, FrontendId> = {
   teams: "teams",
 };
 
+/**
+ * The Slack and Teams guide (`docs/channels/<slug>`) in sidebar order, with
+ * each page's sidebar title and section (shell-docs'
+ * `channel-guide-routes.ts`). `/slack` itself opens the guide's overview and
+ * `/slack/connect` the channel's quickstart.
+ */
+export const CHANNEL_GUIDES = [
+  {
+    slug: "intelligence",
+    title: "Configure the Channel in Intelligence",
+    section: "Getting Started",
+  },
+  { slug: "tools", title: "Tools and context", section: "Build" },
+  {
+    slug: "identity-and-memory",
+    title: "Identity and Memory",
+    section: "Build",
+  },
+  {
+    slug: "rich-messages",
+    title: "Rich messages and components",
+    section: "Build",
+  },
+  {
+    slug: "posting-jsx-as-images",
+    title: "Posting JSX as images",
+    section: "Build",
+  },
+  {
+    slug: "render-and-carousel",
+    title: "Render and carousel",
+    section: "Build",
+  },
+  {
+    slug: "interactive",
+    title: "Interactive messages and approvals",
+    section: "Build",
+  },
+  {
+    slug: "commands-and-reactions",
+    title: "Commands and reactions",
+    section: "Build",
+  },
+  {
+    slug: "files-and-multimodality",
+    title: "Files and multimodal input",
+    section: "Build",
+  },
+  { slug: "threads-and-state", title: "Threads and state", section: "Build" },
+  {
+    slug: "persistence-and-scaling",
+    title: "Persistence and scaling",
+    section: "Production",
+  },
+  {
+    slug: "history-and-transcripts",
+    title: "History and transcripts",
+    section: "Production",
+  },
+  {
+    slug: "deploy-and-operate",
+    title: "Deploy and operate",
+    section: "Production",
+  },
+] as const;
+
 /** shell-docs serves the React reference at both `/reference/v2/*` and `/reference/*`. */
 export const REFERENCE_ROOT_VERSION = "v2";
 /** The other SDKs' references live in their own folders under `reference/`. */

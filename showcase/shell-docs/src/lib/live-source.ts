@@ -18,6 +18,8 @@ export const GROUP_OPEN_EXPANDED = "{group:open}";
 export const GROUP_CLOSE = "{/group}";
 
 const liveMetaSchema = metaSchema.extend({
+  /** shell-docs' frontend doc policy for the folder's pages (`frontendPolicy`). */
+  frontend: z.unknown().optional(),
   pages: z
     .array(
       z.union([
@@ -88,6 +90,39 @@ export const liveSource = loader({
   source: liveFiles,
   plugins: [lucideIconsPlugin()],
 });
+
+/** Each folder's meta.json `frontend` policy, by folder (`concepts`, `(other)`). */
+const folderPolicies = new Map(
+  liveFiles.files.flatMap((file) =>
+    file.type === "meta" && file.data.frontend !== undefined
+      ? [[file.path.replace(/\/?meta\.json$/, ""), file.data.frontend]]
+      : [],
+  ),
+);
+
+/**
+ * A page's `frontend` policy kind (`universal`, `frontend-variant`, ...), as
+ * shell-docs' `frontend-doc-policy.ts` reads it: its frontmatter, else the
+ * nearest folder whose meta.json sets one.
+ */
+export function frontendPolicy(
+  page: NonNullable<ReturnType<typeof liveSource.getPage>>,
+): string | undefined {
+  const own = policyKind((page.data as { frontend?: unknown }).frontend);
+  if (own) return own;
+  const dirs = page.path.split("/").slice(0, -1);
+  for (let depth = dirs.length; depth >= 0; depth--) {
+    const kind = policyKind(folderPolicies.get(dirs.slice(0, depth).join("/")));
+    if (kind) return kind;
+  }
+}
+
+function policyKind(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && "kind" in value) {
+    return typeof value.kind === "string" ? value.kind : undefined;
+  }
+}
 
 /**
  * One folder of the live docs (`integrations/mastra`, `cookbook`), rooted at
