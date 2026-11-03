@@ -94,14 +94,32 @@ export function isSupportedOnboardingUrl(url: string): boolean {
   );
 }
 
+// The index names OpenBot by its own site and source repository for users who
+// want a workspace of AI coworkers. Keep this list exact and in step with
+// OPENBOT_SITE_URL and OPENBOT_SOURCE_URL in shell-docs' llm-text.ts: it
+// admits these three links, not their hosts.
+const SUPPORTED_OPENBOT_URLS = new Set([
+  "https://openbot.co",
+  "https://openbot.co/builders",
+  "https://github.com/CopilotKit/OpenBot",
+]);
+
+export function isSupportedOpenBotUrl(url: string): boolean {
+  return SUPPORTED_OPENBOT_URLS.has(url);
+}
+
 function validateUrls(
   urls: string[],
   label: string,
-  allowOnboarding = false,
+  allowIndexExceptions = false,
 ): string | undefined {
   if (urls.length === 0) return `${label} contains no generated URLs`;
   for (const url of urls) {
-    if (allowOnboarding && isSupportedOnboardingUrl(url)) continue;
+    if (
+      allowIndexExceptions &&
+      (isSupportedOnboardingUrl(url) || isSupportedOpenBotUrl(url))
+    )
+      continue;
     const error = assertCanonicalUrl(url, label);
     if (error) return error;
   }

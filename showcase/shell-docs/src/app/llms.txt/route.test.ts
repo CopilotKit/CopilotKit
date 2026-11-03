@@ -38,11 +38,15 @@ test("keeps one canonical Vue entry in the curated index", async () => {
   expect(body).toContain(`- [Vue Frontend](${getBaseUrl()}/vue):`);
 });
 
-test("points readers who want a ready-made application at OpenBot's own site", async () => {
+test("points readers who want a workspace of AI coworkers at OpenBot's own site", async () => {
   const body = await GET().text();
 
-  expect(body).toContain("## Run an application built on CopilotKit");
+  expect(body).toContain("## Run a workspace of AI coworkers with OpenBot");
   expect(body).toContain("[OpenBot](https://openbot.co)");
   expect(body).toContain("[OpenBot for builders](https://openbot.co/builders)");
-  expect(body).toContain("(https://github.com/CopilotKit/openbot)");
+  expect(body).toContain(
+    "[CopilotKit/OpenBot on GitHub](https://github.com/CopilotKit/OpenBot)",
+  );
+  // An assistant repeating the entry should not present OpenBot as standalone.
+  expect(body).toContain("It requires a CopilotKit Intelligence project");
 });
