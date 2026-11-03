@@ -8,6 +8,10 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import {
+  DOCS_FOLDER_OVERRIDES,
+  DOCS_ONLY_FRAMEWORK_MODES,
+} from "@/lib/live-scope";
 
 export interface Feature {
   id: string;
@@ -184,12 +188,6 @@ export function getFeature(id: string): Feature | undefined {
   return getRegistry().feature_registry.features.find((f) => f.id === id);
 }
 
-const DOCS_ONLY_FRAMEWORK_MODES: Record<string, "generated" | "authored"> = {
-  a2a: "generated",
-  "agent-spec": "generated",
-  deepagents: "authored",
-};
-
 export function getDocsMode(slug: string): "generated" | "authored" | "hidden" {
   const integration = getIntegration(slug);
   if (integration?.docs_mode) return integration.docs_mode;
@@ -197,19 +195,6 @@ export function getDocsMode(slug: string): "generated" | "authored" | "hidden" {
 }
 
 /** The `integrations/<folder>/` that holds a framework's own docs. */
-const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
-  "langgraph-python": "langgraph",
-  "langgraph-typescript": "langgraph",
-  "langgraph-fastapi": "langgraph",
-  "google-adk": "adk",
-  "crewai-crews": "crewai-flows",
-  strands: "aws-strands",
-  "strands-typescript": "aws-strands",
-  "ms-agent-dotnet": "microsoft-agent-framework",
-  "ms-agent-python": "microsoft-agent-framework",
-  "ms-agent-harness-dotnet": "microsoft-agent-framework",
-};
-
 export function getDocsFolder(slug: string): string {
   return DOCS_FOLDER_OVERRIDES[slug] ?? slug;
 }
