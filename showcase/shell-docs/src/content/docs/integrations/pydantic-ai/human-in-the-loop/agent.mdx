@@ -48,7 +48,7 @@ Use it when the agent must not continue until a person decides, for example befo
             render: ({ args, respond, status }) => {
               return (
                 <div>
-                  <Markdown content={args.draft || 'Preparing your draft...'} />
+                  <p className="whitespace-pre-wrap">{args.draft || "Preparing your draft..."}</p>
 
                   <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
                     <button

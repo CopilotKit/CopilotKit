@@ -35,7 +35,7 @@ CopilotKit ships two complementary ways to pause an agent turn and ask the human
 | Pattern | Who decides to pause? | Backend surface |
 | --- | --- | --- |
 | `useHumanInTheLoop` | The **LLM**, by calling a registered client-side tool | A frontend-only tool description (Zod schema + `render`) |
-| `useInterrupt` | Your **agent code**, at a step that must stop for a person | An interrupt the agent emits: `interrupt()` in a LangGraph node, or a Built-in Agent tool with `interrupt: true` |
+| `useInterrupt` | Your **agent code**, at a step that must stop for a person | An interrupt the agent emits, for example `interrupt()` in a LangGraph node |
 
 **Pick `useHumanInTheLoop`** when the pause is an _agent-initiated_ decision (the model chose to ask the user) and you want the picker UI inlined into the normal tool-call flow.
 
