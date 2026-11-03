@@ -246,3 +246,22 @@ const status = (await runtime.getLicenseChecker())?.getStatus();
 ## LangGraph
 
 `LangGraphAgent` and `LangGraphHttpAgent` now come from `@ag-ui/langgraph`. That package does not handle CopilotKit's own LangGraph events. If the Python agent calls `copilotkit_emit_message`, `copilotkit_emit_state`, `copilotkit_emit_tool_call`, or `copilotkit_exit`, tell the user: those calls stop reaching the UI.
+
+## Angular
+
+`CopilotChatConfiguration` has no `_setOverride` in 2.0. The codemod rewrites `this._setOverride(threadId, explicit)` in a subclass to `this.setActiveThreadId(threadId, { explicit })`. A subclass that defines its own `_setOverride` gets a TODO: 2.0 does not call that method. Move its code into overrides of `setActiveThreadId` and `startNewThread`:
+
+```ts
+@Injectable()
+export class AuditedChatConfiguration extends CopilotChatConfiguration {
+  override setActiveThreadId(
+    threadId: string,
+    options?: { explicit?: boolean },
+  ): void {
+    console.log("thread", threadId);
+    super.setActiveThreadId(threadId, options);
+  }
+}
+```
+
+`setActiveThreadId` and `startNewThread` now log a warning when the `threadId` option controls the thread. The call is still ignored.

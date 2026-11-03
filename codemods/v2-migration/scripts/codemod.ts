@@ -1,4 +1,5 @@
 import { parse } from "codemod:ast-grep";
+import { migrateAngularChatConfiguration } from "./angular-chat-configuration.ts";
 import { migrateDeprecatedApis } from "./deprecated-apis.ts";
 import { migrateRuntimeAdapters } from "./runtime-adapters.ts";
 import type { Codemod, Edit, SgNode } from "codemod:ast-grep";
@@ -315,7 +316,9 @@ function todoLines(name: string, entry: V1Export | undefined): string[] {
  *   the removed Vue `useKatexStyles` are deleted;
  * - reads of the removed `runtime.licenseChecker` are marked;
  * - 1.x deprecations that 2.0 removed are renamed to their replacement, or
- *   marked when the replacement has a different API.
+ *   marked when the replacement has a different API;
+ * - subclasses of the Angular `CopilotChatConfiguration` call
+ *   `setActiveThreadId` instead of the removed `_setOverride`.
  */
 const codemod: Codemod<Lang> = async (root, options) => {
   const migrated = migrateRuntimeAdapters(root.root());
@@ -551,7 +554,11 @@ const codemod: Codemod<Lang> = async (root, options) => {
       : parse<Lang>(options.language, migratedPaths).root(),
     jsx,
   );
-  return deprecated ?? migratedPaths;
+  const latest = deprecated ?? migratedPaths;
+  const angular = migrateAngularChatConfiguration(
+    latest === null ? rootNode : parse<Lang>(options.language, latest).root(),
+  );
+  return angular ?? latest;
 };
 
 function collectProviderNames(
