@@ -462,7 +462,10 @@ export function useInterrupt<
     try {
       maybePromise = handler({
         event: legacyEvent,
-        interrupt: pending.kind === "standard" ? pending.interrupts[0] : null,
+        // A standard set is never empty here: this hook sets it only when it
+        // has at least one interrupt. `?? null` only satisfies the type.
+        interrupt:
+          pending.kind === "standard" ? (pending.interrupts[0] ?? null) : null,
         interrupts: pending.kind === "standard" ? [...pending.interrupts] : [],
         resolve: resolveRef.current,
         cancel: cancelRef.current,
@@ -507,7 +510,9 @@ export function useInterrupt<
 
     return renderRef.current({
       event: legacyEvent,
-      interrupt: pending.kind === "standard" ? pending.interrupts[0] : null,
+      // Never empty here (see above). `?? null` only satisfies the type.
+      interrupt:
+        pending.kind === "standard" ? (pending.interrupts[0] ?? null) : null,
       interrupts: pending.kind === "standard" ? [...pending.interrupts] : [],
       result: handlerResult,
       resolve,

@@ -15,15 +15,16 @@ import type { RenderActivityMessageConfig } from "./activity-renderer";
 // wrapped in `copilotkit.ts` instead, which already imports core at runtime
 // (see `ɵresolvePublicKeyHeaderDefaults` below and #1937's bundle-size fix).
 import type {
-  CopilotKitHeadersSource,
-  CopilotKitMessageFilter,
+  CopilotRuntimeTransport,
   SuggestionsConfig,
+  ɵA2UIBaseOptions,
+  ɵCopilotKitProviderBaseOptions,
 } from "@copilotkit/core";
 import type { OpenGenerativeUIConfig } from "./open-generative-ui";
 import type { A2UICatalog } from "./components/a2ui/a2ui-types";
 import type { ɵA2UIActionInterceptor } from "@copilotkit/core";
 
-export interface A2UIConfig {
+export interface A2UIConfig extends ɵA2UIBaseOptions {
   theme?: Record<string, unknown>;
   /**
    * The catalog surfaces render with: `basicCatalog`, or one from
@@ -33,22 +34,6 @@ export interface A2UIConfig {
   catalog?: A2UICatalog;
   /** Shown until the first surface renders. */
   loadingComponent?: Type<unknown>;
-  /**
-   * When true (the default), the full component schemas from the catalog are
-   * sent as agent context so the agent knows what components and props are
-   * available. The A2UI middleware can overwrite this with a server-side
-   * schema if configured.
-   *
-   * When false, the agent context still describes the catalog, but only by its
-   * catalog ID and the names of its custom components, without their JSON
-   * schemas. The component schema entry and the A2UI generation and design
-   * guidelines are not sent. With the CopilotKit LangGraph middleware's
-   * injected A2UI tool, the A2UI subagent then gets the component names only;
-   * a host can still give it a composition guide through the middleware's
-   * guidelines (`a2uiParams.guidelines.compositionGuide` in TypeScript,
-   * `a2ui_params["guidelines"]["composition_guide"]` in Python).
-   */
-  includeSchema?: boolean;
   recovery?: A2UIRecoveryOptions;
   /**
    * Intercept A2UI user actions before they reach the agent: return `null`
@@ -68,43 +53,35 @@ export interface A2UIRecoveryOptions {
   debugExposure?: "hidden" | "collapsed" | "verbose";
 }
 
-export interface CopilotKitConfig {
-  runtimeUrl?: string;
+/**
+ * The options of `provideCopilotKit`. The options shared with the React and
+ * Vue providers (same names) are documented on
+ * `ɵCopilotKitProviderBaseOptions` in `@copilotkit/core`.
+ */
+export interface CopilotKitConfig extends Pick<
+  ɵCopilotKitProviderBaseOptions,
+  | "runtimeUrl"
+  | "headers"
+  | "credentials"
+  | "messageFilter"
+  | "properties"
+  | "selfManagedAgents"
+  | "debug"
+  | "defaultThrottleMs"
+  | "onError"
+> {
   /**
-   * Headers sent with every runtime request: a record, or a sync or async
-   * builder evaluated when each request is sent. See #1937.
+   * Transport style for CopilotRuntime endpoints: `"single"`, `"rest"`, or
+   * `"auto"` (the default) to detect it from the runtime.
    */
-  headers?: CopilotKitHeadersSource;
-  /** Fetch credentials mode used for CopilotKit runtime requests. */
-  credentials?: RequestCredentials;
+  runtimeTransport?: CopilotRuntimeTransport;
   /**
-   * Rewrites the message list sent to runtime agents on every run.
-   *
-   * CopilotKit sends the whole thread each time. When your agent already
-   * stores the conversation, most of that payload is waste, and an agent that
-   * merges the inbound list with its own store can show the model every turn
-   * twice. Return the messages to send:
-   *
-   * ```ts
-   * provideCopilotKit({
-   *   runtimeUrl: "/api/copilotkit",
-   *   messageFilter: (messages) => messages.slice(-1),
-   * });
-   * ```
-   *
-   * The filter changes the request body only. The transcript the UI renders is
-   * untouched. Broken tool-call pairs are repaired before the request is sent,
-   * so a filter this blunt cannot strand a tool result mid-HITL.
-   *
-   * Agents reached through your CopilotRuntime honor this. An agent your app
-   * passes in directly does not, and neither Intelligence runs nor suggestion
-   * runs are ever filtered.
+   * Your CopilotKit public license key (`publicApiKey` in React and Vue).
+   * With no `runtimeUrl`, CopilotKit uses Copilot Cloud.
    */
-  messageFilter?: CopilotKitMessageFilter;
   licenseKey?: string;
-  properties?: Record<string, unknown>;
+  /** Local agents, keyed by id (`agents__unsafe_dev_only` in React and Vue). */
   agents?: Record<string, AbstractAgent>;
-  selfManagedAgents?: Record<string, AbstractAgent>;
   tools?: ClientTool[];
   renderToolCalls?: RenderToolCallConfig[];
   renderActivityMessages?: RenderActivityMessageConfig[];
@@ -198,6 +175,10 @@ export function injectCopilotKitConfig(): CopilotKitConfig {
 }
 
 /**
+ * @deprecated `CopilotKit` no longer uses this: it takes the header defaults
+ * from `ɵresolveProviderConfig` in `@copilotkit/core`, which sends any
+ * `licenseKey` (the React and Vue behavior). Kept for the exported API.
+ *
  * The public-key header default `provideCopilotKit` used to merge directly
  * into `config.headers` (main's behavior, record-only). Now that `headers`
  * can be a builder (#1937), the merge can't happen here — a builder is only

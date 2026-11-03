@@ -304,14 +304,33 @@ jobs:
             echo "- **Delegated run:** ${RUN_URL}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          # --exit-status propagates the publish run's failure to this job.
-          gh run watch "$RUN_ID" --repo "$GITHUB_REPOSITORY" --exit-status
+          # `gh run watch` also exits non-zero on a transient GitHub API error
+          # (an HTTP 500 failed rc.14's job although its publish succeeded), so
+          # its exit code is not the publish result. Watch again until the run
+          # reports completed; the status and conclusion check below is the gate.
+          STATE=""
+          for i in $(seq 1 5); do
+            if ! gh run watch "$RUN_ID" --repo "$GITHUB_REPOSITORY" 2>"$ERR"; then
+              echo "::warning::gh run watch failed on attempt ${i}; will retry:" >&2
+              cat "$ERR" >&2
+            fi
+            STATE=$(gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+              --json status,conclusion \
+              --jq '"\(.status) \(.conclusion)"' 2>"$ERR") || {
+                STATE=""
+                echo "::warning::gh run view failed on attempt ${i}; will retry:" >&2
+                cat "$ERR" >&2
+              }
+            if [ "${STATE%% *}" = "completed" ]; then
+              break
+            fi
+            sleep 10
+          done
 
-          # --exit-status catches failures, but a non-failure non-success conclusion
-          # (e.g. skipped) exits 0 with nothing published. Require success explicitly.
-          CONCLUSION=$(gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" --json conclusion --jq .conclusion)
-          if [ "$CONCLUSION" != "success" ]; then
-            echo "::error::Delegated publish run concluded '$CONCLUSION' (expected 'success')."
+          # A failed, cancelled or skipped run (nothing published) must fail this
+          # job too, so require success explicitly.
+          if [ "$STATE" != "completed success" ]; then
+            echo "::error::Delegated publish run ended as '${STATE:-unknown}' (expected 'completed success')."
             exit 1
           fi
 

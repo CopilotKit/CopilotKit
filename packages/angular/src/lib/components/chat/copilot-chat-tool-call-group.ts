@@ -10,11 +10,9 @@ import type { Signal } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import {
-  ɵcountFailedToolCalls,
   ɵformatLabel,
   ɵformatToolNames,
-  ɵgetToolCallPreview,
-  ɵgetToolCallRowStatus,
+  ɵgetToolCallGroupState,
   ɵformatCountLabel,
 } from "@copilotkit/core";
 import { ChevronRight, CopilotIcon } from "../icons/copilot-icon";
@@ -333,32 +331,18 @@ export class CopilotChatToolCallGroup {
   protected readonly labels = injectChatLabels();
   protected readonly ChevronRightIcon = ChevronRight;
 
-  protected readonly latest = computed(() => this.calls().at(-1));
+  readonly #state = computed(() =>
+    ɵgetToolCallGroupState(this.calls(), this.isActive(), this.open()),
+  );
+  protected readonly latest = computed(() => this.#state().latest);
   /**
    * Only an active group has a call in progress. Between calls nothing is
    * running, so the latest call stays the subject (or the label flickers).
    */
-  protected readonly current = computed(() =>
-    this.isActive()
-      ? (this.calls().find((call) => !call.toolMessage) ?? this.latest())
-      : undefined,
-  );
-  protected readonly preview = computed(() => {
-    const current = this.current();
-    return current ? ɵgetToolCallPreview(current) : undefined;
-  });
-  protected readonly statuses = computed(
-    () =>
-      new Map(
-        this.calls().map((call) => [
-          call.toolCall.id,
-          ɵgetToolCallRowStatus(call, this.isActive()),
-        ]),
-      ),
-  );
-  protected readonly failedCount = computed(() =>
-    ɵcountFailedToolCalls(this.calls()),
-  );
+  protected readonly current = computed(() => this.#state().current);
+  protected readonly preview = computed(() => this.#state().preview);
+  protected readonly statuses = computed(() => this.#state().statusById);
+  protected readonly failedCount = computed(() => this.#state().failedIds.size);
   protected readonly failedCountText = computed(() =>
     ɵformatLabel(this.labels.toolCallFailedCountLabel, {
       count: this.failedCount(),
@@ -382,36 +366,21 @@ export class CopilotChatToolCallGroup {
       other: this.labels.toolCallCallCountOther,
     }),
   );
-  protected readonly doneCount = computed(
-    () => this.calls().filter((call) => call.toolMessage).length,
-  );
+  protected readonly doneCount = computed(() => this.#state().done);
   protected readonly doneCountText = computed(() =>
     ɵformatLabel(this.labels.toolCallDoneCountLabel, {
       count: this.doneCount(),
     }),
   );
-  protected readonly status = computed<ToolCallRowStatus>(() => {
-    if (this.current()) return "running";
-    const statuses = [...this.statuses().values()];
-    if (statuses.includes("failed")) return "failed";
-    if (statuses.includes("stopped")) return "stopped";
-    return "done";
-  });
+  protected readonly status = computed(() => this.#state().status);
   protected readonly names = computed(() => ɵformatToolNames(this.calls()));
-  protected readonly latestStatus = computed<ToolCallRowStatus>(() => {
-    const latest = this.latest();
-    return latest ? ɵgetToolCallRowStatus(latest, this.isActive()) : "done";
-  });
-  protected readonly latestPreview = computed(() => {
-    const latest = this.latest();
-    return latest ? ɵgetToolCallPreview(latest) : undefined;
-  });
+  protected readonly latestStatus = computed(() => this.#state().latestStatus);
+  protected readonly latestPreview = computed(
+    () => this.#state().latestPreview,
+  );
   /** A lone call is the top card of a stack with nothing behind it yet. */
   protected readonly behind = computed(() =>
-    Array.from(
-      { length: this.open() ? 0 : Math.min(this.calls().length - 1, 2) },
-      (_, index) => index,
-    ),
+    Array.from({ length: this.#state().behind }, (_, index) => index),
   );
   protected readonly chevronClass = computed(() =>
     cn("cpk-tool-call-chevron", this.open() && "cpk-tool-call-chevron-open"),

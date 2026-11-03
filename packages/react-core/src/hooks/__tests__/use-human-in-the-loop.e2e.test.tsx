@@ -126,7 +126,7 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           "approved",
         );
         // Also wait for the useEffect to update statusHistory
-        const reactMajor = parseInt(React.version.split(".")[0], 10);
+        const reactMajor = parseInt(React.version.split(".")[0]!, 10);
         if (reactMajor >= 19) {
           // React 19 collapses effect updates enough that the exact
           // transition sequence is deterministic.
@@ -1561,7 +1561,7 @@ describe("HITL Run Abort", () => {
     // The handler must settle with an explicit error tool result.
     await waitFor(() => {
       expect(toolExecutionEnds.length).toBeGreaterThan(0);
-      const last = toolExecutionEnds[toolExecutionEnds.length - 1];
+      const last = toolExecutionEnds[toolExecutionEnds.length - 1]!;
       expect(last.error).toBeDefined();
       expect(last.error).not.toBe("");
     });

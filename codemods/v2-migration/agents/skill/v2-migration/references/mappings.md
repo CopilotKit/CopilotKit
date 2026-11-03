@@ -13,6 +13,20 @@ Every example imports from the 2.0 package roots. There is no `/v2` subpath in 2
 | `forwardedParameters`                                  | Removed. Set model parameters on the agent.                                                             |
 | `transcribeAudioUrl`, `textToSpeechUrl`                | Removed. Voice input goes through the runtime's transcription service.                                  |
 
+## Angular runtime config
+
+2.0 throws in production when `provideCopilotKit` gets no `runtimeUrl`, `licenseKey`, `agents`, or `selfManagedAgents`. The codemod marks these calls with a TODO. Add the runtime URL that the app uses. If the app sets it later with `updateRuntime`, also give it at startup:
+
+```ts
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const copilotKitProviders = provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+});
+```
+
+If the app has no runtime, ask the user which runtime URL to use. See [Angular: a missing runtime throws in production](https://docs.copilotkit.ai/migrate/providers-2.0#angular-a-missing-runtime-throws-in-production).
+
 ## Hooks
 
 ### `useCopilotReadable` → `useAgentContext`
@@ -129,6 +143,48 @@ import { CopilotChat } from "@copilotkit/react-core";
 function App() {
   return <CopilotChat agentId="my-agent" />;
 }
+```
+
+## Chat labels and renderer lists
+
+### Complete `CopilotChatLabels` objects
+
+2.0 adds label keys, so a complete labels object fails to type-check. Spread the defaults and keep only the keys the app changes:
+
+```ts
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import type { CopilotChatLabels } from "@copilotkit/core";
+
+export const labels: CopilotChatLabels = {
+  ...CopilotChatDefaultLabels,
+  chatInputPlaceholder: "Ask me anything...",
+};
+```
+
+If the object is only an override, type it as `Partial<CopilotChatLabels>` instead.
+
+### `renderToolCalls` and `renderActivityMessages` changed in place
+
+Both are read-only arrays in 2.0. Give the setter a new list:
+
+```tsx
+import { useCopilotKit } from "@copilotkit/react-core";
+import type { ReactToolCallRenderer } from "@copilotkit/react-core";
+
+function useExtraRenderer(renderer: ReactToolCallRenderer<unknown>) {
+  const { copilotkit } = useCopilotKit();
+  copilotkit.setRenderToolCalls([...copilotkit.renderToolCalls, renderer]);
+}
+```
+
+To add one renderer from a component, prefer `useRenderTool`.
+
+### Angular copy buttons
+
+`copied` on `CopilotChatUserMessageCopyButton` and `CopilotChatAssistantMessageCopyButton` is a read-only signal. The codemod marks each `.copied.set(...)` and `.copied.update(...)` with a TODO. To copy the text and show the check mark, call `handleCopy()` on the button. It copies the `content` input and shows the check mark for 2 seconds. If the app copies by its own logic, render its own button in the `copyButton` slot and keep the state in that button.
+
+```ts
+this.copyButton().handleCopy();
 ```
 
 ## Markdown rendering

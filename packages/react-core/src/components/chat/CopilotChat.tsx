@@ -77,7 +77,15 @@ export type CopilotChatProps = Omit<
   // CopilotChat defines its own agent-error `onError` below and never passes
   // it to the view's <div>, so the DOM `onError` attribute is left out.
   | "onError"
+  // Redeclared below, deprecated: the chat sets it from its own state
+  | "inputMode"
 > & {
+  /**
+   * @deprecated Has no effect. `CopilotChat` sets the input mode from its own
+   * transcription state. To set it yourself, render `CopilotChatView` and pass
+   * `inputMode` there.
+   */
+  inputMode?: CopilotChatViewProps["inputMode"];
   agentId?: string;
   threadId?: string;
   labels?: Partial<CopilotChatLabels>;
@@ -1255,7 +1263,8 @@ export function CopilotChat({
   // Compute the ID of the last user message for scroll-pinning logic.
   const lastUserMessageId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === "user") return messages[i].id;
+      const message = messages[i];
+      if (message?.role === "user") return message.id;
     }
     return null;
   }, [messages]);

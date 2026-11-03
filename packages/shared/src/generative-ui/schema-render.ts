@@ -328,7 +328,10 @@ export function applyDescriptionOverrides<
   for (const [key, description] of Object.entries(overrides)) {
     const [name, prop, ...rest] = key.split(".");
     // Own keys only: "__proto__" must never reach Object.prototype.
-    const component = hasOwn(components, name) ? components[name] : undefined;
+    const component =
+      name !== undefined && hasOwn(components, name)
+        ? components[name]
+        : undefined;
     if (!component || rest.length > 0) {
       unknown.push(key);
       continue;

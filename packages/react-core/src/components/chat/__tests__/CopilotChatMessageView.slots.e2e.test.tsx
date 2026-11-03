@@ -517,7 +517,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         // Slot applies to all assistant messages, so there may be multiple
         const markdownElements = screen.queryAllByTestId("custom-markdown");
         if (markdownElements.length > 0) {
-          expect(markdownElements[0].textContent).toContain("Markdown:");
+          expect(markdownElements[0]!.textContent).toContain("Markdown:");
         }
       });
     });
@@ -549,7 +549,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           "custom-assistant-toolbar",
         );
         if (toolbarElements.length > 0) {
-          expect(toolbarElements[0].textContent).toContain("Actions:");
+          expect(toolbarElements[0]!.textContent).toContain("Actions:");
         }
       });
     });
@@ -576,8 +576,8 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         // Slot applies to all assistant messages, so there may be multiple
         const copyBtns = screen.queryAllByTestId("custom-copy");
         if (copyBtns.length > 0) {
-          expect(copyBtns[0].textContent).toContain("Copy Text");
-          fireEvent.click(copyBtns[0]);
+          expect(copyBtns[0]!.textContent).toContain("Copy Text");
+          fireEvent.click(copyBtns[0]!);
         }
       });
     });
@@ -604,7 +604,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         // Slot applies to all assistant messages, so there may be multiple
         const thumbsUpElements = screen.queryAllByTestId("custom-thumbs-up");
         if (thumbsUpElements.length > 0) {
-          expect(thumbsUpElements[0].textContent).toContain("Good");
+          expect(thumbsUpElements[0]!.textContent).toContain("Good");
         }
       });
     });
@@ -632,7 +632,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         const thumbsDownElements =
           screen.queryAllByTestId("custom-thumbs-down");
         if (thumbsDownElements.length > 0) {
-          expect(thumbsDownElements[0].textContent).toContain("Bad");
+          expect(thumbsDownElements[0]!.textContent).toContain("Bad");
         }
       });
     });
@@ -659,7 +659,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         // Slot applies to all assistant messages, so there may be multiple
         const readAloudElements = screen.queryAllByTestId("custom-read-aloud");
         if (readAloudElements.length > 0) {
-          expect(readAloudElements[0].textContent).toContain("Read");
+          expect(readAloudElements[0]!.textContent).toContain("Read");
         }
       });
     });
@@ -686,7 +686,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         // Slot applies to all assistant messages, so there may be multiple
         const regenerateElements = screen.queryAllByTestId("custom-regenerate");
         if (regenerateElements.length > 0) {
-          expect(regenerateElements[0].textContent).toContain("Retry");
+          expect(regenerateElements[0]!.textContent).toContain("Retry");
         }
       });
     });
@@ -715,7 +715,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         // Slot applies to all assistant messages, so there may be multiple
         const toolCallsElements = screen.queryAllByTestId("custom-tool-calls");
         if (toolCallsElements.length > 0) {
-          expect(toolCallsElements[0].textContent).toContain("Tool Calls:");
+          expect(toolCallsElements[0]!.textContent).toContain("Tool Calls:");
         }
       });
     });
@@ -744,7 +744,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           "custom-user-renderer",
         );
         if (rendererElements.length > 0) {
-          expect(rendererElements[0].querySelector("em")).toBeDefined();
+          expect(rendererElements[0]!.querySelector("em")).toBeDefined();
         }
       });
     });
@@ -769,7 +769,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         // Slot applies to all user messages, so there may be multiple
         const toolbarElements = screen.queryAllByTestId("custom-user-toolbar");
         if (toolbarElements.length > 0) {
-          expect(toolbarElements[0].textContent).toContain("User Actions:");
+          expect(toolbarElements[0]!.textContent).toContain("User Actions:");
         }
       });
     });
@@ -796,7 +796,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         // Slot applies to all user messages, so there may be multiple
         const copyElements = screen.queryAllByTestId("custom-user-copy");
         if (copyElements.length > 0) {
-          expect(copyElements[0].textContent).toContain("Copy Mine");
+          expect(copyElements[0]!.textContent).toContain("Copy Mine");
         }
       });
     });
@@ -823,7 +823,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         // Slot applies to all user messages, so there may be multiple
         const editElements = screen.queryAllByTestId("custom-edit");
         if (editElements.length > 0) {
-          expect(editElements[0].textContent).toContain("Modify");
+          expect(editElements[0]!.textContent).toContain("Modify");
         }
       });
     });
@@ -853,7 +853,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         // Slot applies to all user messages, so there may be multiple
         const branchElements = screen.queryAllByTestId("custom-branch");
         if (branchElements.length > 0) {
-          expect(branchElements[0].textContent).toContain("Branch");
+          expect(branchElements[0]!.textContent).toContain("Branch");
         }
       });
     });

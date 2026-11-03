@@ -51,6 +51,7 @@ export const CopilotChatDefaultLabels = Object.freeze({
   chatToggleOpenLabel: "Open chat",
   chatToggleCloseLabel: "Close chat",
   chatScrollToBottomLabel: "Scroll to bottom",
+  chatConnectingLabel: "Loading conversation",
   modalHeaderTitle: "CopilotKit Chat",
   welcomeMessageText: "How can I help you today?",
   reasoningMessageThinkingLabel: "Thinking…",
@@ -90,6 +91,8 @@ export const CopilotChatDefaultLabels = Object.freeze({
   toolCallStatusFailedLabel: "Failed",
   /** Status of a tool call that stopped before it finished. */
   toolCallStatusStoppedLabel: "Stopped",
+  /** Status of a tool call whose status this version does not know. */
+  toolCallStatusUnknownLabel: "Unknown status",
   /** Summary while a tool runs. `{name}`: the tool name. */
   toolCallRunningLabel: "Running {name}",
   /** Number of failed tool calls. `{count}`: the number. */

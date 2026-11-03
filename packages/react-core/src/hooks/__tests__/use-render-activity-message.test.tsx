@@ -55,7 +55,7 @@ describe("useRenderActivityMessage", () => {
 
     expect(screen.getByTestId("activity-slot").textContent).toBe("");
     expect(warn).toHaveBeenCalledWith(
-      "Failed to parse content for activity message 'progress':",
+      "[CopilotKit] Failed to parse content for activity message 'progress':",
       expect.any(Array),
     );
   });

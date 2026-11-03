@@ -21,17 +21,26 @@ import { CopilotTooltip } from "../../directives/tooltip";
 import { CopilotInspector } from "../../inspector";
 import { injectChatLabels } from "../../chat-config";
 import { cn } from "../../utils";
+import {
+  ɵHoverMenuController,
+  ɵinspectorKiteFill,
+  ɵinspectorKiteIcon,
+  ɵinspectorShortcuts,
+} from "@copilotkit/core";
 
-// Page-lifetime preference, shared by every message and chat, as in React.
-// It is not stored, so it does not survive a reload.
-const shortcutsHidden = signal(false);
+// Core's `ɵinspectorShortcuts` holds the page-lifetime preference, shared by
+// every message and chat; this signal mirrors it for templates.
+const shortcutsHidden = signal(ɵinspectorShortcuts.hidden);
+ɵinspectorShortcuts.subscribe(() =>
+  shortcutsHidden.set(ɵinspectorShortcuts.hidden),
+);
 
 /** Whether the user hid the Inspector shortcuts until the page reloads. */
 export const inspectorShortcutsHidden = shortcutsHidden.asReadonly();
 
 /** @internal Resets the page-lifetime preference. For tests. */
 export function ɵresetInspectorShortcuts(): void {
-  shortcutsHidden.set(false);
+  ɵinspectorShortcuts.reset();
 }
 
 let nextId = 0;
@@ -91,7 +100,7 @@ let nextId = 0;
         [class]="menuClass()"
         (pointerenter)="cancelClose()"
         (pointerleave)="scheduleClose()"
-        (keydown)="openedByHover = false"
+        (keydown)="keyboardUsed()"
         (focusout)="onMenuFocusOut($event)"
       >
         <div class="cpk-dropdown-menu-label cpk-inspector-button-menu-header">
@@ -120,91 +129,36 @@ let nextId = 0;
           <svg
             aria-hidden="true"
             class="cpk-inspector-button-kite-icon cpk-inspector-button-menu-item-icon"
-            viewBox="4.57 3.36 17.8 17.8"
+            [attr.viewBox]="kite.viewBox"
             fill="none"
           >
-            <path
-              d="M6.36084 10.9855C8.34277 8.393 9.98843 5.82939 10.6204 3.75914C10.6382 3.70281 10.7043 3.67888 10.7534 3.7114C12.9536 5.16894 16.9635 6.12833 20.5086 6.15085C20.5703 6.15124 20.6124 6.2114 20.5895 6.26829C19.4109 9.25938 17.9705 14.6189 17.9148 20.7392C17.9148 20.8301 17.7873 20.8627 17.7419 20.7837C15.7236 17.2522 9.26021 12.2898 6.39414 11.1186C6.34112 11.0968 6.32556 11.0313 6.36084 10.9855Z"
-              [attr.fill]="'url(#' + svgId + '-paint0_linear)'"
-            />
-            <path
-              d="M13.0475 9.39974C9.95016 10.3806 7.11935 10.9259 6.44331 11.0498C6.40027 11.0577 6.39115 11.1172 6.43152 11.134C9.3203 12.3347 15.7516 17.2826 17.7511 20.7998C17.7551 20.8075 17.7647 20.8103 17.7728 20.8068C17.7809 20.803 17.7853 20.793 17.7819 20.7844L13.0475 9.39974Z"
-              [attr.fill]="'url(#' + svgId + '-paint1_linear)'"
-            />
-            <path
-              d="M10.762 3.705C13.4137 5.15161 16.4787 5.80132 20.545 6.14367C20.5703 6.14585 20.5787 6.18008 20.5557 6.19197C20.0359 6.45923 17.0574 7.97512 14.8455 8.78701C14.2524 9.00453 13.6564 9.20632 13.0692 9.39249C13.0562 9.39656 13.0419 9.39015 13.0369 9.37774L10.7005 3.75979C10.6849 3.72196 10.7257 3.68538 10.762 3.705Z"
-              [attr.fill]="'url(#' + svgId + '-paint2_linear)'"
-            />
-            <path
-              d="M10.7145 3.79041L17.8305 20.7659"
-              stroke="#513C9F"
-              stroke-width="0.17284"
-              stroke-linecap="round"
-            />
-            <path
-              d="M6.44531 11.0476C6.44531 11.0476 10.375 10.3422 14.0686 9.06804C17.7623 7.7939 20.5122 6.23373 20.5122 6.23373"
-              stroke="#513C9F"
-              stroke-width="0.17284"
-              stroke-linecap="round"
-            />
-            <path
-              d="M11.6914 5.93518L9.05534 14.7068M9.05534 14.7068H15.3203M9.05534 14.7068L0.15625 26.3646"
-              stroke="#ABABAB"
-              stroke-width="0.302474"
-              stroke-linecap="round"
-            />
-            <path
-              d="M6.02539 23.9646L4.85806 24.1287C5.46272 25.7287 6.70381 26.4276 8.18528 26.4276C11.8147 26.4276 10.707 22.3227 12.8103 22.3227C14.3358 22.3227 13.7155 25.6498 16.9992 25.6498C19.0029 25.6498 19.2028 23.631 18.8607 22.7625C18.8589 22.7572 18.8568 22.7524 18.8538 22.7476L18.3166 21.9253C18.2817 21.8706 18.1968 21.8912 18.1907 21.9562L18.0908 22.9529C18.0838 23.0222 18.0857 23.0913 18.0936 23.1605C18.1764 23.8491 18.2291 25.5202 16.9992 25.5202C15.7015 25.5202 15.3895 22.2362 12.8103 22.2362C9.78393 22.2362 10.1726 26.298 8.31487 26.298C7.08938 26.298 6.15447 24.9153 6.02539 23.9646Z"
-              [attr.fill]="'url(#' + svgId + '-paint3_linear)'"
-            />
+            @for (path of kite.paths; track path.d) {
+              <path
+                [attr.d]="path.d"
+                [attr.fill]="kiteFill(svgId, path) ?? null"
+                [attr.stroke]="path.stroke ?? null"
+                [attr.stroke-width]="path.strokeWidth ?? null"
+                [attr.stroke-linecap]="path.strokeLinecap ?? null"
+              />
+            }
             <defs>
-              <linearGradient
-                [attr.id]="svgId + '-paint0_linear'"
-                x1="15.5372"
-                y1="5.0278"
-                x2="12.0802"
-                y2="14.534"
-                gradientUnits="userSpaceOnUse"
-              >
-                <stop stop-color="#6430AB" />
-                <stop offset="1" stop-color="#AA89D8" />
-              </linearGradient>
-              <linearGradient
-                [attr.id]="svgId + '-paint1_linear'"
-                x1="12.8583"
-                y1="10.3858"
-                x2="8.40764"
-                y2="18.9846"
-                gradientUnits="userSpaceOnUse"
-              >
-                <stop stop-color="#005DBB" />
-                <stop offset="1" stop-color="#3D92E8" />
-              </linearGradient>
-              <linearGradient
-                [attr.id]="svgId + '-paint2_linear'"
-                x1="14.8452"
-                y1="5.02774"
-                x2="13.5047"
-                y2="9.21911"
-                gradientUnits="userSpaceOnUse"
-              >
-                <stop stop-color="#1B70C4" />
-                <stop offset="1" stop-color="#54A4F2" />
-              </linearGradient>
-              <linearGradient
-                [attr.id]="svgId + '-paint3_linear'"
-                x1="4.85806"
-                y1="24.2455"
-                x2="18.9963"
-                y2="24.2455"
-                gradientUnits="userSpaceOnUse"
-              >
-                <stop stop-color="#4497EA" />
-                <stop offset="0.254755" stop-color="#1463B2" />
-                <stop offset="0.498725" stop-color="#0A437D" />
-                <stop offset="0.666667" stop-color="#2476C8" />
-                <stop offset="0.972542" stop-color="#0C549A" />
-              </linearGradient>
+              @for (gradient of kite.gradients; track gradient.id) {
+                <linearGradient
+                  [attr.id]="svgId + '-' + gradient.id"
+                  [attr.x1]="gradient.x1"
+                  [attr.y1]="gradient.y1"
+                  [attr.x2]="gradient.x2"
+                  [attr.y2]="gradient.y2"
+                  gradientUnits="userSpaceOnUse"
+                >
+                  @for (stop of gradient.stops; track $index) {
+                    <stop
+                      [attr.offset]="stop.offset ?? null"
+                      [attr.stop-color]="stop.color"
+                    />
+                  }
+                </linearGradient>
+              }
             </defs>
           </svg>
           <span>
@@ -257,9 +211,12 @@ export class CopilotChatInspectorButton {
   protected readonly EyeOffIcon = EyeOff;
   protected readonly menuId = `cpk-inspector-menu-${nextId}`;
   protected readonly svgId = `cpk-inspector-kite-${nextId++}`;
-  protected readonly open = signal(false);
-  protected readonly dark = signal(false);
-  protected openedByHover = false;
+  protected readonly kite = ɵinspectorKiteIcon;
+  protected readonly kiteFill = ɵinspectorKiteFill;
+  readonly #menu = new ɵHoverMenuController();
+  readonly #menuState = signal(this.#menu.getSnapshot());
+  protected readonly open = computed(() => this.#menuState().open);
+  protected readonly dark = computed(() => this.#menuState().dark);
 
   readonly #inspector = inject(CopilotInspector);
   readonly #overlay = inject(Overlay);
@@ -270,7 +227,6 @@ export class CopilotChatInspectorButton {
     viewChild.required<TemplateRef<unknown>>("menu");
   private readonly _menu = viewChild(CdkMenu);
   #overlayRef?: OverlayRef;
-  #closeTimer?: ReturnType<typeof setTimeout>;
 
   protected readonly visible = computed(
     () => this.#inspector.isInspectorEnabled && !shortcutsHidden(),
@@ -295,20 +251,36 @@ export class CopilotChatInspectorButton {
   );
 
   constructor() {
+    // The controller decides when the menu is open; the overlay follows it.
+    const unsubscribe = this.#menu.subscribe(() => {
+      const state = this.#menu.getSnapshot();
+      this.#menuState.set(state);
+      if (state.open) this.attachOverlay();
+      else this.detachOverlay();
+    });
     inject(DestroyRef).onDestroy(() => {
-      this.cancelClose();
-      this.#overlayRef?.dispose();
+      unsubscribe();
+      this.#menu.dispose();
+      this.detachOverlay();
     });
   }
 
   protected onPointerEnter(event: PointerEvent): void {
-    if (this.disabled() || event.pointerType === "touch") return;
-    this.openedByHover = true;
-    this.openMenu();
+    const trigger = this._trigger()?.nativeElement;
+    if (!trigger) return;
+    this.#menu.pointerEnter({
+      pointerType: event.pointerType,
+      disabled: this.disabled(),
+      trigger,
+    });
+  }
+
+  protected keyboardUsed(): void {
+    this.#menu.keyboardUsed();
   }
 
   protected onKeydown(event: KeyboardEvent): void {
-    this.openedByHover = false;
+    this.#menu.keyboardUsed();
     if (event.key === "Enter" || event.key === " ") {
       // Like a click: open the message, not the menu.
       event.preventDefault();
@@ -332,20 +304,15 @@ export class CopilotChatInspectorButton {
 
   protected hideShortcuts(): void {
     this.closeMenu();
-    shortcutsHidden.set(true);
+    ɵinspectorShortcuts.hide();
   }
 
   protected cancelClose(): void {
-    clearTimeout(this.#closeTimer);
-    this.#closeTimer = undefined;
+    this.#menu.cancelClose();
   }
 
   protected scheduleClose(): void {
-    this.cancelClose();
-    this.#closeTimer = setTimeout(() => {
-      // Keep the menu open while the keyboard is using it.
-      if (this.openedByHover) this.closeMenu();
-    }, 180);
+    this.#menu.scheduleClose();
   }
 
   protected onMenuFocusOut(event: FocusEvent): void {
@@ -357,10 +324,18 @@ export class CopilotChatInspectorButton {
   }
 
   private openMenu(): void {
-    this.cancelClose();
+    const trigger = this._trigger()?.nativeElement;
+    if (!trigger) return;
+    this.#menu.setOpen(true, trigger);
+  }
+
+  private closeMenu(): void {
+    this.#menu.setOpen(false);
+  }
+
+  private attachOverlay(): void {
     const trigger = this._trigger()?.nativeElement;
     if (this.#overlayRef || !trigger) return;
-    this.dark.set(!!trigger.closest(".dark"));
     const positionStrategy = this.#overlay
       .position()
       .flexibleConnectedTo(trigger)
@@ -396,13 +371,10 @@ export class CopilotChatInspectorButton {
       this.closeMenu();
       if (hadFocus) this._trigger()?.nativeElement.focus();
     });
-    this.open.set(true);
   }
 
-  private closeMenu(): void {
-    this.cancelClose();
+  private detachOverlay(): void {
     this.#overlayRef?.dispose();
     this.#overlayRef = undefined;
-    this.open.set(false);
   }
 }

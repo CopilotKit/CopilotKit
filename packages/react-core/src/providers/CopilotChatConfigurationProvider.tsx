@@ -354,7 +354,7 @@ export const CopilotChatConfigurationProvider: React.FC<
       const registered = registeredModalClosersRef.current;
       const closeModal =
         registered.length > 0
-          ? registered[registered.length - 1]
+          ? registered[registered.length - 1]!
           : modalCloseRef.current;
       closeModal(false);
     }
