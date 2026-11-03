@@ -17,7 +17,12 @@
 import React from "react";
 import { createReactComponent } from "../../../adapter";
 import { DateTimeInputApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { LEAF_MARGIN, STANDARD_BORDER, STANDARD_RADIUS } from "../utils";
+import {
+  LEAF_MARGIN,
+  STANDARD_BORDER,
+  STANDARD_RADIUS,
+  getDateTimeInputType,
+} from "../utils";
 
 export const DateTimeInput = createReactComponent(
   DateTimeInputApi,
@@ -28,10 +33,7 @@ export const DateTimeInput = createReactComponent(
 
     const uniqueId = React.useId();
 
-    // Map enableDate/enableTime to input type
-    let type = "datetime-local";
-    if (props.enableDate && !props.enableTime) type = "date";
-    if (!props.enableDate && props.enableTime) type = "time";
+    const type = getDateTimeInputType(props);
 
     const style: React.CSSProperties = {
       padding: "8px",
