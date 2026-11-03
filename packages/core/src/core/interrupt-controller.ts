@@ -18,6 +18,7 @@ import {
   ɵgetAgentInterruptState,
 } from "../interrupt-state";
 import type { ɵInterruptDecision, ɵPendingInterrupt } from "../interrupt-state";
+import { isPromiseLike } from "./header-source";
 import type { CopilotKitCoreRunAgentParams } from "./run-handler";
 
 /**
@@ -83,19 +84,8 @@ export class ɵInterruptExpiredError extends Error {
   }
 }
 
-/** @internal Recognize thenables returned by interrupt predicates and handlers. */
-export function ɵisPromiseLike<TValue>(
-  value: TValue | PromiseLike<TValue>,
-): value is PromiseLike<TValue> {
-  return (
-    (typeof value === "object" || typeof value === "function") &&
-    value !== null &&
-    typeof Reflect.get(value, "then") === "function"
-  );
-}
-
-/** @internal Derive the legacy-compatible `event` for any pending interrupt. */
-export function ɵtoLegacyInterruptEvent<TValue>(
+/** Derive the legacy-compatible `event` for any pending interrupt. */
+function toLegacyEvent<TValue>(
   pending: ɵPendingInterrupt<TValue>,
 ): InterruptEvent<TValue> {
   if (pending.kind === "legacy") return pending.event;
@@ -442,7 +432,7 @@ export class ɵInterruptController<TValue = unknown, TResult = unknown> {
     this.#resumePromise = undefined;
     this.#update({ pending, accepted: false, result: null, error: null });
 
-    const event = ɵtoLegacyInterruptEvent(pending);
+    const event = toLegacyEvent(pending);
     let enabled: boolean | PromiseLike<boolean>;
     try {
       enabled = this.#options.enabled?.(event) ?? true;
@@ -450,7 +440,7 @@ export class ɵInterruptController<TValue = unknown, TResult = unknown> {
       this.#rejectInterrupt(error, generation);
       return;
     }
-    if (ɵisPromiseLike(enabled)) {
+    if (isPromiseLike(enabled)) {
       Promise.resolve(enabled).then(
         (accepted) => {
           if (accepted) this.#accept(pending, event, generation);
@@ -486,7 +476,7 @@ export class ɵInterruptController<TValue = unknown, TResult = unknown> {
       this.#failPreparation(error, generation);
       return;
     }
-    if (!ɵisPromiseLike(prepared)) {
+    if (!isPromiseLike(prepared)) {
       this.#update({ result: prepared });
       return;
     }
@@ -544,7 +534,7 @@ export class ɵInterruptController<TValue = unknown, TResult = unknown> {
       renderProps:
         pending && accepted
           ? {
-              event: ɵtoLegacyInterruptEvent(pending),
+              event: toLegacyEvent(pending),
               interrupt:
                 pending.kind === "standard"
                   ? (pending.interrupts[0] ?? null)
