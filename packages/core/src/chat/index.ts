@@ -119,6 +119,15 @@ export type {
   ɵTextareaMetrics,
 } from "./composer-layout";
 
+// Audio recorder (internal)
+export {
+  ɵAudioRecorder,
+  ɵAudioRecorderError,
+  ɵcreateWaveformRenderer,
+  ɵrmsAmplitude,
+} from "./audio-recorder";
+export type { ɵAudioRecorderState } from "./audio-recorder";
+
 // Transcription
 export { TranscriptionErrorCode, TranscriptionError } from "./transcription";
 export type {

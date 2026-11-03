@@ -128,9 +128,14 @@ beforeEach(() => {
   mockOnSubmitMessage.mockClear();
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
     () =>
+      // A partial 2D context: the input measures text, and the recorder's
+      // waveform scales, clears, and fills.
       ({
         measureText: (text: string) => ({ width: text.length * 8 }),
         font: "",
+        scale: () => {},
+        clearRect: () => {},
+        fillRect: () => {},
       }) as unknown as CanvasRenderingContext2D,
   );
 });
