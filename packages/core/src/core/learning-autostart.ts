@@ -1,30 +1,10 @@
 import { randomUUID } from "@copilotkit/shared";
 import type { CopilotKitCore } from "./core";
-import type { LearningConfig } from "./learning-bridge";
-
-/**
- * The object form of a provider's `learning` option.
- *
- * @internal Framework adapters use this type. Applications must not depend on it.
- */
-export type ɵLearningProp = LearningConfig & {
-  /**
-   * Starts a Trajectory after mount. Defaults to `true`; set `false` to call
-   * `startTrajectory()` yourself.
-   */
-  autoStart?: boolean;
-  trajectoryId?: string;
-  /**
-   * Used only by explicit custom sinks. Authenticated capture warns and ignores
-   * this option; assign Learning Spaces on the server with
-   * `getTrajectoryLearningContainerIds` on `CopilotKitIntelligence`.
-   */
-  learningContainerIds?: string[];
-};
+import type { ɵCopilotKitLearningOptions } from "./provider-config";
 
 // `learning: true` uses the default authenticated capture options. One shared
 // object keeps the config stable across renders.
-const DEFAULT_LEARNING: ɵLearningProp = Object.freeze({});
+const DEFAULT_LEARNING: ɵCopilotKitLearningOptions = Object.freeze({});
 
 const CONTAINER_IDS_WARNING =
   "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture ignores it; assign Learning Spaces on the server with getTrajectoryLearningContainerIds on CopilotKitIntelligence, and remove learningContainerIds from the capture options.";
@@ -41,7 +21,7 @@ const START_FAILED_WARNING =
  * @internal Framework adapters use this function. Applications must not depend on it.
  */
 export function ɵtoLearningConfig(
-  learning: boolean | ɵLearningProp | undefined,
+  learning: boolean | ɵCopilotKitLearningOptions | undefined,
 ) {
   if (learning === true) return DEFAULT_LEARNING;
   if (learning === false || learning === undefined) return undefined;
@@ -78,7 +58,8 @@ const UNSET = Symbol("unset");
  */
 export class ɵLearningAutoStarter {
   readonly #core: CopilotKitCore;
-  #prop: boolean | ɵLearningProp | undefined | typeof UNSET = UNSET;
+  #prop: boolean | ɵCopilotKitLearningOptions | undefined | typeof UNSET =
+    UNSET;
   #config: ReturnType<typeof ɵtoLearningConfig>;
   #autoStart = false;
   #generatedTrajectoryId: string | undefined;
@@ -92,7 +73,7 @@ export class ɵLearningAutoStarter {
   }
 
   /** Applies the latest `learning` option. Repeating the same value is a no-op. */
-  update(learning: boolean | ɵLearningProp | undefined) {
+  update(learning: boolean | ɵCopilotKitLearningOptions | undefined) {
     const config =
       learning === this.#prop ? this.#config : ɵtoLearningConfig(learning);
     const enabled = config !== undefined;

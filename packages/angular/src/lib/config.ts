@@ -17,8 +17,8 @@ import type { RenderActivityMessageConfig } from "./activity-renderer";
 import type {
   CopilotRuntimeTransport,
   SuggestionsConfig,
-  ɵLearningProp,
   ɵA2UIBaseOptions,
+  ɵCopilotKitLearningOptions,
   ɵCopilotKitProviderBaseOptions,
 } from "@copilotkit/core";
 import type { OpenGenerativeUIConfig } from "./open-generative-ui";
@@ -115,7 +115,7 @@ export interface CopilotKitConfig extends Pick<
    * @example
    * provideCopilotKit({ runtimeUrl: "/api/copilotkit", learning: true })
    */
-  learning?: boolean | ɵLearningProp;
+  learning?: boolean | ɵCopilotKitLearningOptions;
   /**
    * Set to `false` when you list `@copilotkit/core/styles.css` in your
    * `angular.json` styles, so browsers cache the CSS as a file. CopilotKit then

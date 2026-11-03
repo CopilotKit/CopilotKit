@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LearningSink } from "@copilotkit/learning";
 import { CopilotKitCore } from "../core";
 import { ɵLearningAutoStarter, ɵtoLearningConfig } from "../learning-autostart";
-import type { ɵLearningProp } from "../learning-autostart";
+import type { ɵCopilotKitLearningOptions } from "../provider-config";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -16,7 +16,7 @@ function sinkLearning({
   trajectoryId?: string;
   autoStart?: boolean;
   capture?: { clicks?: boolean };
-} = {}): ɵLearningProp {
+} = {}): ɵCopilotKitLearningOptions {
   return {
     sink,
     capture: { clicks: false, navigation: false, network: false, ...capture },

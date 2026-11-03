@@ -51,7 +51,6 @@ export type {
   ɵSuggestionsConfigInput,
 } from "./suggestions-binding";
 export { ɵLearningAutoStarter, ɵtoLearningConfig } from "./learning-autostart";
-export type { ɵLearningProp } from "./learning-autostart";
 export {
   ɵclearAgentThreadCursors,
   ɵresetAgentThreadBaseline,

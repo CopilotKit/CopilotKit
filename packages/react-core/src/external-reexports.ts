@@ -506,7 +506,6 @@ export type {
   ɵKeyboardState,
   ɵLastUserMessageState,
   ɵLearnFromUserActionFields,
-  ɵLearningProp,
   ɵLicenseBannerDetails,
   ɵLicenseBannerSeverity,
   ɵLicenseBannerSpec,
