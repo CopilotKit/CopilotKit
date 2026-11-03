@@ -1,6 +1,6 @@
 # Wiring: generative UI, provider, runtime, agent
 
-Versions this was built on: `@copilotkit/react-core`, `@copilotkit/runtime`, `@copilotkit/shared` 1.83.0 (Gen UI 2.0, A2UI 1.0), `@ag-ui/client` 1.0.2, zod 3.25 (props schemas may be zod 3 or any Standard JSON Schema library: zod 4.2+, ArkType, Valibot), Next 16.4, React 19.3. No pnpm overrides are needed. Gen UI 2.0 is marked experimental in 1.83.
+Versions this was built on: `@copilotkit/react-core`, `@copilotkit/runtime`, `@copilotkit/shared` 1.84.0 (Gen UI 2.0, A2UI 1.0), `@ag-ui/client` 1.0.2, zod 3.25 (props schemas may be zod 3 or any Standard JSON Schema library: zod 4.2+, ArkType, Valibot), Next 16.4, React 19.3. No pnpm overrides are needed. Gen UI 2.0 is marked experimental in 1.84.
 
 ## Generative UI (templates/catalog.ts)
 

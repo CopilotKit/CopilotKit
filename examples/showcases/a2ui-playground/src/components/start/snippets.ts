@@ -1,10 +1,10 @@
 /**
  * The code in the Get started prompt. The snippets type-check against the
- * installed @copilotkit/* 1.83.0 typings.
+ * installed @copilotkit/* 1.84.0 typings.
  */
 
 export const INSTALL =
-  "npm i @copilotkit/react-core@1.83.0 @copilotkit/runtime@1.83.0 zod@3.25.76";
+  "npm i @copilotkit/react-core@1.84.0 @copilotkit/runtime@1.84.0 zod@3.25.76";
 
 export const CATALOG = `"use client";
 import { createGenerativeUI, standardUI } from "@copilotkit/react-core/v2/generative-ui";

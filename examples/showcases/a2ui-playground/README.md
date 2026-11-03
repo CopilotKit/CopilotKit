@@ -2,13 +2,13 @@
 
 Watch an agent write UI. Ask for anything ("Q3 sales by region as a dashboard", "compare three noise-cancelling headphones", "a signup form with a plan choice") and the answer arrives in the chat as real, interactive UI: an **A2UI 1.0** surface rendered by **CopilotKit Gen UI 2.0**. Beside the chat you see the **A2UI Express** the model writes, one line per component, and hovering a line lights up the component it made.
 
-**Draft migration: release blocked.** This branch emits canonical `"1.0"` wire operations and uses `@a2ui/agent` 0.1.0 native streaming. It requires the coordinated CopilotKit release containing [#8155](https://github.com/CopilotKit/CopilotKit/pull/8155). The real published `@copilotkit/*` 1.83.0 pins below predate that change and reject this wire format; update them together after publication before running or deploying this branch. No legacy wire aliases are provided.
+This playground uses published `@copilotkit/*` 1.84.0 packages with canonical `"1.0"` wire operations and `@a2ui/agent` 0.1.0 native streaming. CopilotKit 1.84.0 includes the canonical protocol changes from [#8155](https://github.com/CopilotKit/CopilotKit/pull/8155).
 
 A hosted version of the pre-migration playground runs at https://web-production-d0431.up.railway.app.
 
 ## What it shows
 
-- **A2UI 1.0 on CopilotKit Gen UI 2.0.** Every operation is `{ "version": "1.0", ... }`, streamed over AG-UI as `generative-ui-surface` activities and rendered with `@copilotkit/react-core` 1.83.
+- **A2UI 1.0 on CopilotKit Gen UI 2.0.** Every operation is `{ "version": "1.0", ... }`, streamed over AG-UI as `generative-ui-surface` activities and rendered with `@copilotkit/react-core` 1.84.
 - **A2UI Express by default.** The model writes one line per component and Google's `@a2ui/agent` SDK compiles it, usually about half the size of the same UI in JSON. JSON is the alternative. Express that still fails to compile after a retry is rewritten as JSON on the same surface.
 - **Any model.** Gemini Flash (`gemini-flash-latest`) is the default; Gemma 4 runs locally through Ollama (or any OpenAI-compatible server); GPT is in the picker too.
 - **A real catalog.** The 69 Gen UI 2.0 standard components, 52 of the playground's own (shadcn/ui, TanStack Charts, MapLibre) and 3 macros, `FlightCard`, `ProductCard` and `WeatherReport`, that the server expands into standard components.
@@ -111,7 +111,7 @@ The page is light unless it is opened with `?theme=dark` (for a dark page) or th
 The same setup in your own app, in three files (`/start` copies it as one prompt for a coding agent). Install the versions this repo runs:
 
 ```bash
-npm i @copilotkit/react-core@1.83.0 @copilotkit/runtime@1.83.0 zod@3.25.76
+npm i @copilotkit/react-core@1.84.0 @copilotkit/runtime@1.84.0 zod@3.25.76
 ```
 
 1. **Catalog** (`app/genui.tsx`): `createGenerativeUI({ id, extends: [standardUI], components: { WeatherCard: { component: WeatherCard, description, props: z.object({ ... }) } } })` from `@copilotkit/react-core/v2/generative-ui`. The agent can use only what the catalog defines.

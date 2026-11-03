@@ -21,9 +21,9 @@
   "dependencies": {
     "@a2ui/agent": "0.1.0",
     "@ag-ui/client": "1.0.2",
-    "@copilotkit/react-core": "1.83.0",
-    "@copilotkit/runtime": "1.83.0",
-    "@copilotkit/shared": "1.83.0",
+    "@copilotkit/react-core": "1.84.0",
+    "@copilotkit/runtime": "1.84.0",
+    "@copilotkit/shared": "1.84.0",
     "@fontsource-variable/roboto-flex": "^5.3.0",
     "@language-lit/material3-expressive": "1.2.2",
     "@tanstack/charts": "1.1.0",
