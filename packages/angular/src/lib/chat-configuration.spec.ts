@@ -1,5 +1,6 @@
 import { inject } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
+import { CopilotKitCore } from "@copilotkit/core";
 import { test, expect, vi } from "vitest";
 import { provideCopilotKit } from "./config";
 import { CopilotKit } from "./copilotkit";
@@ -110,6 +111,28 @@ test("registers the shown thread with core and follows thread changes", () => {
   c.setActiveThreadId("picked");
 
   expect(registrations).toEqual([`open support ${minted}`, "update picked"]);
+});
+
+test("registers a thread shown before CopilotKit is created once it is", () => {
+  TestBed.configureTestingModule({
+    providers: [
+      provideCopilotKit({}),
+      provideCopilotChatConfiguration({ agentId: "support" }),
+    ],
+  });
+  const registrations: string[] = [];
+  vi.spyOn(CopilotKitCore.prototype, "registerOpenThread").mockImplementation(
+    ({ agentId, threadId }) => {
+      registrations.push(`open ${agentId} ${threadId}`);
+      return { update: () => {}, unregister: () => {} };
+    },
+  );
+  const c = TestBed.runInInjectionContext(() => injectChatConfiguration());
+  expect(registrations).toEqual([]);
+
+  TestBed.inject(CopilotKit);
+
+  expect(registrations).toEqual([`open support ${c.threadId()}`]);
 });
 
 test("drawer registration toggles drawerRegistered and unregisters", () => {
