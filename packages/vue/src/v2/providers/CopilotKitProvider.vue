@@ -485,6 +485,7 @@ const builtInActivityRenderers = computed<
         catalog: props.a2ui?.catalog,
         loadingComponent: props.a2ui?.loadingComponent,
         recovery: props.a2ui?.recovery,
+        onAction: props.a2ui?.onAction,
       }),
     );
   }

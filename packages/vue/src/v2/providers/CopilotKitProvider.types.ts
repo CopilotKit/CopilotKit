@@ -1,4 +1,5 @@
 import type { A2UIRecoveryRendererOptions } from "../components/a2ui/A2UIRecoveryStates";
+import type { ɵA2UIActionInterceptor } from "@copilotkit/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   CopilotKitCoreErrorCode,
@@ -121,6 +122,13 @@ export interface CopilotKitProviderProps {
      * much retry/debug detail to surface. When omitted, defaults apply.
      */
     recovery?: A2UIRecoveryRendererOptions;
+    /**
+     * Intercept A2UI user actions before they reach the agent: return `null`
+     * to handle an action client-side (e.g. a `navigate` event), return an
+     * action to forward that one instead, or return nothing to forward it
+     * unchanged.
+     */
+    onAction?: ɵA2UIActionInterceptor;
   };
   /** Configuration for the built-in MCP Apps renderer. */
   mcpApps?: {
