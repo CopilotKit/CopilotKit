@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useStack } from "@/components/stack/stack-provider";
+import { frontendHref, liveFrontend, scopeFromPath } from "@/lib/live-scope";
 import {
   BACKENDS,
   FRONTENDS,
@@ -47,8 +48,9 @@ export function DocsStackAgent() {
 }
 
 /**
- * The prototypes: the framework is in the URL and the frontend is the
- * page's chips, so switching opens the same page on the new framework.
+ * The prototypes: the framework and the frontend are in the URL, so
+ * switching opens the same page on the new stack, as the sidebar's stack
+ * picker (`StackRows`) does.
  */
 export function ProtoStackAgent({
   variant,
@@ -61,16 +63,31 @@ export function ProtoStackAgent({
   slug?: string;
 }) {
   const router = useRouter();
-  const { frontend, setFrontend } = useFrontend();
+  const { setFrontend } = useFrontend();
+  const pathname = usePathname() ?? "";
+  const { frontend } = scopeFromPath(pathname.split("/").filter(Boolean));
 
   const onSwitch = useCallback(
     (nextFrontend: string, nextFramework: string) => {
-      setFrontend(nextFrontend as ProtoFrontendId);
-      router.push(frameworkHref(variant, nextFramework, slug));
+      const path = pathname.split("/").filter(Boolean);
+      // The new framework keeps the URL's frontend (`/vue`) and the page.
+      const prefix = liveFrontend(path[0]) ? `/${path[0]}` : "";
+      const page =
+        nextFramework === framework
+          ? path
+          : `${prefix}${frameworkHref(variant, nextFramework, slug)}`
+              .split("/")
+              .filter(Boolean);
+      const next = nextFrontend as ProtoFrontendId;
+      // Remembered for the pages that aren't per frontend.
+      setFrontend(next);
+      router.push(
+        next === frontend ? `/${page.join("/")}` : frontendHref(page, next),
+      );
       const name = FRAMEWORKS.find((f) => f.id === nextFramework)?.name;
       return `Opened the docs for ${name} on ${nextFrontend}.`;
     },
-    [router, setFrontend, variant, slug],
+    [router, setFrontend, pathname, frontend, framework, variant, slug],
   );
 
   return (
