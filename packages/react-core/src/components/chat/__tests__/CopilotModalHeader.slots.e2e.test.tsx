@@ -285,7 +285,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       );
 
       expect(childrenFn).toHaveBeenCalled();
-      const callArgs = childrenFn.mock.calls[0][0];
+      const callArgs = childrenFn.mock.calls[0]![0];
       expect(callArgs).toHaveProperty("titleContent");
       expect(callArgs).toHaveProperty("closeButton");
       expect(callArgs).toHaveProperty("title");
@@ -304,7 +304,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
         </TestWrapper>,
       );
 
-      const callArgs = childrenFn.mock.calls[0][0];
+      const callArgs = childrenFn.mock.calls[0]![0];
       expect(callArgs.title).toBe("My Custom Title");
     });
 

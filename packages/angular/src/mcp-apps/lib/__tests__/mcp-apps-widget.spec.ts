@@ -554,6 +554,16 @@ test("shows accessible loading and missing-resource errors", async () => {
   ).toContain("No resource content in response");
 });
 
+test("shows the shared error when no agent is available", async () => {
+  configureTestingModule();
+  const fixture = TestBed.createComponent(CopilotMCPAppsWidget);
+  fixture.componentRef.setInput("data", snapshot);
+  await settle(fixture);
+  expect(
+    fixture.nativeElement.querySelector("[role='alert']")?.textContent,
+  ).toContain("No agent available to fetch resource");
+});
+
 test("shows an accessible error when the sandbox handshake times out", async () => {
   configureTestingModule(undefined, 30_000, 5);
   const agent = createAgent();

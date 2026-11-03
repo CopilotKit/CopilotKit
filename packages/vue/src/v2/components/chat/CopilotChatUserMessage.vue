@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed } from "vue";
 import type { UserMessage } from "@ag-ui/core";
-import type {
-  AudioInputPart,
-  DocumentInputPart,
-  ImageInputPart,
-  VideoInputPart,
-} from "@copilotkit/shared";
+import {
+  ɵflattenUserMessageContent,
+  ɵgetBranchNavState,
+  ɵgetUserMessageMediaFilename,
+  ɵgetUserMessageMediaParts,
+} from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
 import {
@@ -18,6 +18,7 @@ import {
 } from "../icons";
 import CopilotTooltip from "../ui/CopilotTooltip.vue";
 import CopilotChatAttachmentRenderer from "./CopilotChatAttachmentRenderer.vue";
+import { useCopyFeedback } from "./use-copy-feedback";
 import type {
   CopilotChatUserMessageBranchNavigationSlotProps,
   CopilotChatUserMessageCopyButtonSlotProps,
@@ -66,117 +67,34 @@ const emit = defineEmits<{
 
 const config = useCopilotChatConfiguration();
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
-const copied = ref(false);
-let copiedResetTimeout: ReturnType<typeof setTimeout> | null = null;
+const { copied, copy } = useCopyFeedback();
 
 // Styles live in @copilotkit/core (ui/button.css, user-message.css).
 const toolbarButtonClass =
   "cpk-button cpk-button-assistant-message-toolbar cpk-button-size-default";
 
-function flattenUserMessageContent(content?: UserMessage["content"]): string {
-  if (!content) {
-    return "";
-  }
-
-  if (typeof content === "string") {
-    return content;
-  }
-
-  return content
-    .map((part) => {
-      if (
-        part &&
-        typeof part === "object" &&
-        "type" in part &&
-        (part as { type?: unknown }).type === "text" &&
-        typeof (part as { text?: unknown }).text === "string"
-      ) {
-        return (part as { text: string }).text;
-      }
-      return "";
-    })
-    .filter((text) => text.length > 0)
-    .join("\n");
-}
-
-type MediaPart =
-  | ImageInputPart
-  | AudioInputPart
-  | VideoInputPart
-  | DocumentInputPart;
-
-function getMediaParts(content: UserMessage["content"]): MediaPart[] {
-  if (!content || typeof content === "string") return [];
-  return content.filter(
-    (part): part is MediaPart =>
-      part.type === "image" ||
-      part.type === "audio" ||
-      part.type === "video" ||
-      part.type === "document",
-  );
-}
-
-function getFilename(part: MediaPart): string | undefined {
-  const meta = part.metadata;
-  if (
-    meta != null &&
-    typeof meta === "object" &&
-    "filename" in meta &&
-    typeof meta.filename === "string"
-  ) {
-    return meta.filename;
-  }
-  return undefined;
-}
-
-const mediaParts = computed(() => getMediaParts(props.message.content));
+const mediaParts = computed(() =>
+  ɵgetUserMessageMediaParts(props.message.content),
+);
 
 const flattenedContent = computed(() =>
-  flattenUserMessageContent(props.message.content),
+  ɵflattenUserMessageContent(props.message.content),
 );
 const isMultiline = computed(() => flattenedContent.value.includes("\n"));
 const hasEditAction = computed(() => typeof props.onEditMessage === "function");
-const showBranchNavigation = computed(
-  () =>
-    props.numberOfBranches > 1 && typeof props.onSwitchToBranch === "function",
+const branchNav = computed(() =>
+  ɵgetBranchNavState({
+    branchIndex: props.branchIndex,
+    numberOfBranches: props.numberOfBranches,
+    canSwitch: typeof props.onSwitchToBranch === "function",
+  }),
 );
-
-const canGoPrev = computed(
-  () => showBranchNavigation.value && props.branchIndex > 0,
-);
-const canGoNext = computed(
-  () =>
-    showBranchNavigation.value &&
-    props.branchIndex < props.numberOfBranches - 1,
-);
-
-function resetCopiedStateWithDelay() {
-  if (copiedResetTimeout) {
-    clearTimeout(copiedResetTimeout);
-  }
-  copied.value = true;
-  copiedResetTimeout = setTimeout(() => {
-    copied.value = false;
-    copiedResetTimeout = null;
-  }, 2000);
-}
+const showBranchNavigation = computed(() => branchNav.value.show);
+const canGoPrev = computed(() => branchNav.value.canGoPrev);
+const canGoNext = computed(() => branchNav.value.canGoNext);
 
 async function handleCopyMessage() {
-  if (!flattenedContent.value) return;
-
-  if (
-    typeof navigator === "undefined" ||
-    typeof navigator.clipboard?.writeText !== "function"
-  ) {
-    return;
-  }
-
-  try {
-    await navigator.clipboard.writeText(flattenedContent.value);
-    resetCopiedStateWithDelay();
-  } catch (error) {
-    console.error("Failed to copy to clipboard:", error);
-  }
+  await copy(flattenedContent.value);
 }
 
 function handleEditMessage() {
@@ -212,12 +130,6 @@ function goNext() {
   }
   switchToBranch(props.branchIndex + 1);
 }
-
-onBeforeUnmount(() => {
-  if (copiedResetTimeout) {
-    clearTimeout(copiedResetTimeout);
-  }
-});
 </script>
 
 <template>
@@ -255,7 +167,7 @@ onBeforeUnmount(() => {
           :key="index"
           :type="part.type"
           :source="part.source"
-          :filename="getFilename(part)"
+          :filename="ɵgetUserMessageMediaFilename(part)"
         />
       </div>
 

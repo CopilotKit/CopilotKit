@@ -98,10 +98,21 @@ describe("CopilotOpenGenerativeUIRenderer", () => {
     expect(container.style.height).toBe("300px");
     expect(
       fixture.nativeElement.querySelector(
-        '[data-testid="open-generative-ui-placeholder"]',
+        '[data-testid="open-generative-ui-spinner"]',
       ),
     ).not.toBeNull();
     expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("shows no spinner or overlay once generation is done", async () => {
+    setContent(fixture, { generating: false });
+    await flushSandboxImport(fixture);
+
+    expect(
+      fixture.nativeElement.querySelector(
+        '[data-testid="open-generative-ui-progress-overlay"]',
+      ),
+    ).toBeNull();
   });
 
   it("creates a preview sandbox when styled HTML is streaming", async () => {
@@ -137,7 +148,7 @@ describe("CopilotOpenGenerativeUIRenderer", () => {
     expect(mockCreate).not.toHaveBeenCalled();
     expect(
       fixture.nativeElement.querySelector(
-        '[data-testid="open-generative-ui-placeholder"]',
+        '[data-testid="open-generative-ui-spinner"]',
       ),
     ).not.toBeNull();
   });
@@ -422,7 +433,7 @@ describe("CopilotOpenGenerativeUIRenderer", () => {
     ).toBeNull();
     expect(
       fixture.nativeElement.querySelector(
-        '[data-testid="open-generative-ui-placeholder"]',
+        '[data-testid="open-generative-ui-spinner"]',
       ),
     ).not.toBeNull();
   });

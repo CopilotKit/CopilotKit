@@ -105,7 +105,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     await flushImport();
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
-    const [, options] = mockCreate.mock.calls[0];
+    const [, options] = mockCreate.mock.calls[0]!;
     expect(options.frameContent).toBe(html);
     expect(options.frameContainer).toBeInstanceOf(HTMLElement);
   });
@@ -120,7 +120,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
     // Preview sandbox is created with empty body template
     expect(mockCreate).toHaveBeenCalledTimes(1);
-    const [, options] = mockCreate.mock.calls[0];
+    const [, options] = mockCreate.mock.calls[0]!;
     expect(options.frameContent).toBe("<head></head><body></body>");
   });
 
@@ -132,7 +132,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     await flushImport();
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
-    const [, options] = mockCreate.mock.calls[0];
+    const [, options] = mockCreate.mock.calls[0]!;
     expect(options.frameContent).toContain("<head></head>");
   });
 
@@ -144,7 +144,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     await flushImport();
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
-    const [, options] = mockCreate.mock.calls[0];
+    const [, options] = mockCreate.mock.calls[0]!;
     expect(options.frameContent).toBe("<head></head><body><p>Hello</p></body>");
   });
 
@@ -308,7 +308,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     expect(mockDestroy).toHaveBeenCalledTimes(1);
     expect(mockCreate).toHaveBeenCalledTimes(2);
 
-    const [, options] = mockCreate.mock.calls[1];
+    const [, options] = mockCreate.mock.calls[1]!;
     expect(options.frameContent).toContain("v2");
   });
 
@@ -347,7 +347,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       await flushImport();
 
       expect(mockCreate).toHaveBeenCalledTimes(1);
-      const [localApi] = mockCreate.mock.calls[0];
+      const [localApi] = mockCreate.mock.calls[0]!;
       expect(localApi).toHaveProperty("addToCart");
       expect(localApi.addToCart).toBe(handler);
     });
@@ -360,7 +360,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       await flushImport();
 
       expect(mockCreate).toHaveBeenCalledTimes(1);
-      const [localApi] = mockCreate.mock.calls[0];
+      const [localApi] = mockCreate.mock.calls[0]!;
       expect(Object.keys(localApi)).toHaveLength(0);
     });
 
@@ -426,7 +426,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       // Old sandbox destroyed, new one created with new localApi
       expect(mockDestroy).toHaveBeenCalledTimes(1);
       expect(mockCreate).toHaveBeenCalledTimes(2);
-      const [localApi] = mockCreate.mock.calls[1];
+      const [localApi] = mockCreate.mock.calls[1]!;
       expect(localApi).toHaveProperty("fn2");
       expect(localApi.fn2).toBe(handler2);
     });
@@ -455,7 +455,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       );
       await flushImport();
 
-      const [localApi] = mockCreate.mock.calls[0];
+      const [localApi] = mockCreate.mock.calls[0]!;
       expect(Object.keys(localApi)).toHaveLength(2);
       expect(localApi.fnA).toBe(handlerA);
       expect(localApi.fnB).toBe(handlerB);
@@ -474,7 +474,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
       // Preview sandbox created with empty body template
       expect(mockCreate).toHaveBeenCalledTimes(1);
-      const [localApi, options] = mockCreate.mock.calls[0];
+      const [localApi, options] = mockCreate.mock.calls[0]!;
       expect(options.frameContent).toBe("<head></head><body></body>");
       expect(Object.keys(localApi)).toHaveLength(0);
     });
@@ -583,7 +583,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       expect(mockDestroy).toHaveBeenCalledTimes(1);
       expect(mockCreate).toHaveBeenCalledTimes(2);
 
-      const [, options] = mockCreate.mock.calls[1];
+      const [, options] = mockCreate.mock.calls[1]!;
       expect(options.frameContent).toContain("<style>");
       expect(options.frameContent).toContain("Hello");
     });
@@ -628,7 +628,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
       // Preview sandbox created now that CSS is complete
       expect(mockCreate).toHaveBeenCalledTimes(1);
-      const [, options] = mockCreate.mock.calls[0];
+      const [, options] = mockCreate.mock.calls[0]!;
       expect(options.frameContent).toBe("<head></head><body></body>");
 
       // Resolve sandbox promise so preview content is applied
@@ -645,7 +645,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
           (c[0] as string).includes("document.head.innerHTML"),
       );
       expect(headCalls.length).toBeGreaterThanOrEqual(1);
-      expect(headCalls[0][0]).toContain("body { margin: 0; color: red; }");
+      expect(headCalls[0]![0]).toContain("body { margin: 0; color: red; }");
 
       // HTML body content should be rendered in the preview
       const bodyCalls = mockRun.mock.calls.filter(
@@ -654,7 +654,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
           (c[0] as string).includes("document.body.innerHTML"),
       );
       expect(bodyCalls.length).toBeGreaterThanOrEqual(1);
-      expect(bodyCalls[0][0]).toContain("Streaming content");
+      expect(bodyCalls[0]![0]).toContain("Streaming content");
     });
 
     it("does not create preview when no meaningful body content", async () => {
@@ -679,7 +679,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
       // Only final sandbox created, no preview
       expect(mockCreate).toHaveBeenCalledTimes(1);
-      const [, options] = mockCreate.mock.calls[0];
+      const [, options] = mockCreate.mock.calls[0]!;
       expect(options.frameContent).toContain("Done");
       // Final sandbox uses localApi, not empty object
       expect(options.frameContent).not.toBe("<head></head><body></body>");

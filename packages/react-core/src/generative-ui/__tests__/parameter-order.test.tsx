@@ -34,7 +34,7 @@ describe("catalog parameter order", () => {
       },
     });
     expect(
-      exportA2UICatalog(unordered).components.Numeric.properties,
+      exportA2UICatalog(unordered).components.Numeric!.properties,
     ).toHaveProperty("0");
     const ordered = createGenerativeUI({
       id: "named@1",
@@ -47,7 +47,7 @@ describe("catalog parameter order", () => {
       },
     });
     expect(
-      Object.keys(exportA2UICatalog(ordered).components.Named.properties!),
+      Object.keys(exportA2UICatalog(ordered).components.Named!.properties!),
     ).toEqual(["component", "4294967295", "01"]);
   });
 
@@ -71,13 +71,13 @@ describe("catalog parameter order", () => {
         },
       },
     });
-    expect(ordered.manifestComponents.Button.parameterOrder).toEqual([
+    expect(ordered.manifestComponents.Button!.parameterOrder).toEqual([
       "label",
       "onClick",
       "children",
       "color",
     ]);
-    const before = exportA2UICatalog(unordered).components.Button;
+    const before = exportA2UICatalog(unordered).components.Button!;
     const after = JSON.parse(JSON.stringify(exportA2UICatalog(ordered)))
       .components.Button;
     expect(after).toEqual(before);
@@ -88,7 +88,7 @@ describe("catalog parameter order", () => {
       "children",
       "color",
     ]);
-    expect(unordered.manifestComponents.Button.parameterOrder).toBeUndefined();
+    expect(unordered.manifestComponents.Button!.parameterOrder).toBeUndefined();
     expect(Object.keys(before.properties!)).toEqual([
       "component",
       "color",
@@ -137,9 +137,11 @@ describe("catalog parameter order", () => {
       overrides: { Button: { component: View } },
       components: {},
     });
-    expect(derived.manifestComponents.Button.parameterOrder).toEqual(["color"]);
+    expect(derived.manifestComponents.Button!.parameterOrder).toEqual([
+      "color",
+    ]);
     expect(derived.manifestComponents.Other).toBeUndefined();
-    expect(base.manifestComponents.Button.parameterOrder).toEqual([
+    expect(base.manifestComponents.Button!.parameterOrder).toEqual([
       "label",
       "onClick",
       "color",
@@ -159,7 +161,7 @@ describe("catalog parameter order", () => {
     ["Chart", ["data", "xKey", "series", "chartType"]],
     ["FollowUp", ["items", "onFollowUp", "title"]],
   ] as const)("exports the standard %s calling convention", (name, prefix) => {
-    const schema = exportA2UICatalog(standardUI).components[name];
+    const schema = exportA2UICatalog(standardUI).components[name]!;
     expect(Object.keys(schema.properties!).slice(1, prefix.length + 1)).toEqual(
       prefix,
     );
@@ -179,7 +181,7 @@ describe("catalog parameter order", () => {
       expect(manifest.parameterOrder, name).toHaveLength(keys.length);
       expect(new Set(manifest.parameterOrder), name).toEqual(new Set(keys));
       expect(
-        Object.keys(exported.components[name].properties!).slice(1),
+        Object.keys(exported.components[name]!.properties!).slice(1),
         name,
       ).toEqual(manifest.parameterOrder);
       const definition = standardUI.components.get(name)!;

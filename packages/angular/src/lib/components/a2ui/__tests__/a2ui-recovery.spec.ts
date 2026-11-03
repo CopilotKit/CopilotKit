@@ -58,4 +58,37 @@ describe("CopilotA2UIRecovery", () => {
     expect(details.hasAttribute("open")).toBe(true);
     expect(details.textContent).toContain("public diagnostic");
   });
+
+  it("keeps the retry timer running while streamed snapshots arrive", () => {
+    vi.useFakeTimers();
+    fixture = TestBed.createComponent(CopilotA2UIRecovery);
+    fixture.componentRef.setInput("options", { showAfterMs: 2000 });
+    fixture.componentRef.setInput("content", {
+      status: "retrying",
+      attempt: 1,
+      progressTokens: 10,
+    });
+    fixture.detectChanges();
+
+    vi.advanceTimersByTime(1500);
+    fixture.componentRef.setInput("content", {
+      status: "retrying",
+      attempt: 1,
+      progressTokens: 40,
+    });
+    fixture.detectChanges();
+    vi.advanceTimersByTime(500);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain("Retrying generation");
+  });
+
+  it("labels failure details the same way React and Vue do", () => {
+    fixture = TestBed.createComponent(CopilotA2UIRecovery);
+    fixture.componentRef.setInput("content", { status: "failed", error: "x" });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector("summary").textContent).toBe(
+      "developer details",
+    );
+  });
 });

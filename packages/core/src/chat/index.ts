@@ -30,8 +30,32 @@ export {
   ɵresolveToolCallRenderer,
   ɵresolveActivityRenderer,
   ɵresolveCustomMessageRenderers,
+  ɵfindActivityRenderer,
+  ɵmatchActivityRenderer,
+  ɵdescribeActivityRendererFailure,
+  ɵgetCustomMessageRenderProps,
+  ɵresolveCustomMessageRenderContext,
 } from "./renderers";
-export type { ɵActivityRendererQuery } from "./renderers";
+export type {
+  ɵActivityRendererQuery,
+  ɵActivityRendererLookup,
+  ɵActivityRendererFailureReason,
+  ɵCustomMessageRunSource,
+} from "./renderers";
+
+// Tool-call render props and status (internal)
+export {
+  ɵgetToolCallStatus,
+  ɵfindToolMessage,
+  ɵparseToolCallArguments,
+  ɵbuildToolCallRenderProps,
+  ɵresolveToolCallAgentId,
+  ɵdescribeUnrenderedToolCalls,
+  ɵnormalizeToolCallStatus,
+  ɵgetToolCallBadge,
+  ɵcomponentToolDescription,
+} from "./tool-call-render";
+export type { ɵToolCallCardStatus } from "./tool-call-render";
 
 // Interrupts (public)
 export { INTERRUPT_EVENT_NAME } from "./interrupt-types";
@@ -59,6 +83,7 @@ export type {
   WorkTime as ɵWorkTime,
   ToolCallRowStatus as ɵToolCallRowStatus,
   ReasoningDuration as ɵReasoningDuration,
+  ToolCallGroupAppearance as ɵToolCallGroupAppearance,
 } from "./tool-call-layout";
 export {
   getToolResults as ɵgetToolResults,
@@ -71,12 +96,17 @@ export {
   getWorkOpenState as ɵgetWorkOpenState,
   recordWorkTime as ɵrecordWorkTime,
   getToolCallRowStatus as ɵgetToolCallRowStatus,
+  getToolCallGroupState as ɵgetToolCallGroupState,
+  toolCallAppearance as ɵtoolCallAppearance,
+  TOOL_CALL_STATUS_LABEL_KEYS as ɵTOOL_CALL_STATUS_LABEL_KEYS,
+  TOOL_CALL_STATUS_ICONS as ɵTOOL_CALL_STATUS_ICONS,
   getArgumentPreview as ɵgetArgumentPreview,
   getToolCallPreview as ɵgetToolCallPreview,
   formatToolNames as ɵformatToolNames,
   countFailedToolCalls as ɵcountFailedToolCalls,
   pluralize as ɵpluralize,
   stringifyToolCallPayload as ɵstringifyToolCallPayload,
+  stringifyToolCallAttr as ɵstringifyToolCallAttr,
   formatWorkDuration as ɵformatWorkDuration,
   formatReasoningDuration as ɵformatReasoningDuration,
 } from "./tool-call-layout";
@@ -108,8 +138,23 @@ export type {
 } from "./transcription";
 
 // License state (internal)
-export { ɵresolveLicenseState, ɵresolveThreadsLicense } from "./license";
-export type { LicenseStateInput as ɵLicenseStateInput } from "./license";
+export {
+  ɵresolveLicenseState,
+  ɵresolveThreadsLicense,
+  ɵgetLicenseBannerSpec,
+  ɵLICENSE_BANNER_STYLE,
+  ɵLICENSE_BANNER_OFFSET,
+  ɵreserveLicenseBannerOffset,
+  ɵgetInlineFeatureWarningSpec,
+  ɵINLINE_FEATURE_WARNING_STYLE,
+} from "./license";
+export type {
+  LicenseStateInput as ɵLicenseStateInput,
+  ɵLicenseBannerType,
+  ɵLicenseBannerSeverity,
+  ɵLicenseBannerDetails,
+  ɵLicenseBannerSpec,
+} from "./license";
 
 // Icons
 export type {
@@ -141,3 +186,80 @@ export type {
   ɵThreadsDrawerConfig,
   ɵThreadsDrawerCallbacks,
 } from "./threads-drawer";
+// Message feedback (internal)
+export {
+  ɵMESSAGE_FEEDBACK_EVENT_NAME,
+  ɵMESSAGE_FEEDBACK_MAX_COMMENT_LENGTH,
+  ɵFEEDBACK_COMMENT_CLOSE_DELAY_MS,
+  ɵgetMessageFeedback,
+  ɵsubscribeToMessageFeedback,
+  ɵsetMessageFeedback,
+  ɵresetMessageFeedbackCache,
+  ɵisLearningFeedbackEnabled,
+  ɵsubscribeToLearningFeedbackEnabled,
+  ɵgetMessageFeedbackControls,
+  ɵFeedbackCommentController,
+} from "./message-feedback";
+export type {
+  ɵMessageFeedbackRating,
+  ɵMessageFeedback,
+  ɵMessageFeedbackScope,
+  ɵMessageFeedbackControls,
+  ɵFeedbackCommentState,
+  ɵFeedbackCommentVia,
+  ɵFeedbackCommentControllerOptions,
+} from "./message-feedback";
+
+// Viewport and scrolling (internal)
+export {
+  ɵnormalizeAutoScroll,
+  ɵMOBILE_MAX_WIDTH_QUERY,
+  ɵisMobileViewport,
+  ɵwatchMobileViewport,
+  ɵKEYBOARD_OPEN_THRESHOLD_PX,
+  ɵinitialKeyboardState,
+  ɵreadKeyboardState,
+  ɵwatchKeyboardState,
+  ɵpinMessageToTop,
+} from "./viewport";
+export type {
+  ɵAutoScrollMode,
+  ɵKeyboardState,
+  ɵPinMessageToTopOptions,
+} from "./viewport";
+
+// Message display (internal)
+export {
+  ɵformatReasoningDurationLabel,
+  ɵgetWorkSummaryText,
+  ɵflattenUserMessageContent,
+  ɵgetUserMessageMediaParts,
+  ɵgetUserMessageMediaFilename,
+  ɵgetBranchNavState,
+  ɵhasAssistantMessageText,
+  ɵshouldShowAssistantToolbar,
+  ɵCOPY_FEEDBACK_RESET_MS,
+  ɵCopyFeedback,
+} from "./message-display";
+export type {
+  ɵWorkSummaryInput,
+  ɵUserMessageMediaPart,
+  ɵBranchNavInput,
+  ɵAssistantToolbarInput,
+} from "./message-display";
+
+// Inspector shortcut (internal)
+export {
+  ɵinspectorShortcuts,
+  ɵinspectorKiteIcon,
+  ɵinspectorKiteFill,
+  ɵHOVER_MENU_CLOSE_DELAY_MS,
+  ɵHoverMenuController,
+} from "./inspector-button";
+export type {
+  ɵInspectorKiteArtwork,
+  ɵInspectorKitePath,
+  ɵInspectorKiteStop,
+  ɵInspectorKiteGradient,
+  ɵHoverMenuState,
+} from "./inspector-button";

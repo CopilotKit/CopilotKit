@@ -106,6 +106,27 @@ describe("useComponent", () => {
     expect(forwardedDeps).toBe(deps);
   });
 
+  it("forwards followUp, as React and Angular do", () => {
+    const Harness = defineComponent({
+      setup() {
+        useComponent({
+          name: "showWeatherCard",
+          render: defineComponent({ template: `<div />` }),
+          followUp: false,
+        });
+        return {};
+      },
+      template: `<div />`,
+    });
+
+    render(Harness);
+
+    const [toolConfig] = mockUseFrontendTool.mock.calls[0] as [
+      { followUp?: boolean },
+    ];
+    expect(toolConfig.followUp).toBe(false);
+  });
+
   it("creates a render function that passes args into the component", () => {
     const DemoComponent = defineComponent({
       props: {

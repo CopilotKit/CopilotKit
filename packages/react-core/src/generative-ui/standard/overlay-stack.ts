@@ -13,7 +13,7 @@ let detach: (() => void) | undefined;
 function onKeyDown(event: KeyboardEvent) {
   if (event.key !== "Escape" || overlays.length === 0) return;
   event.stopPropagation();
-  overlays[overlays.length - 1]();
+  overlays[overlays.length - 1]!();
 }
 
 /**

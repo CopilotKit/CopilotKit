@@ -1,6 +1,8 @@
 import { defineComponent, h, onMounted, ref, watch } from "vue";
 import type { PropType } from "vue";
 import {
+  ɵTOOL_CALL_STATUS_ICONS,
+  ɵTOOL_CALL_STATUS_LABEL_KEYS,
   ɵcountFailedToolCalls,
   ɵformatLabel,
   ɵgetArgumentPreview,
@@ -11,13 +13,7 @@ import type {
   ToolCallEntry,
   ɵToolCallRowStatus,
 } from "@copilotkit/core";
-import {
-  IconCheck,
-  IconChevronRight,
-  IconCircle,
-  IconLoader2,
-  IconX,
-} from "../icons";
+import { CopilotIcon, IconChevronRight } from "../icons";
 import { useCopilotId } from "../ui/use-id";
 import { useChatLabels } from "./use-chat-labels";
 
@@ -29,16 +25,7 @@ export function toolCallStatusLabel(
   labels: Readonly<CopilotChatLabels>,
   status: ɵToolCallRowStatus,
 ) {
-  switch (status) {
-    case "running":
-      return labels.toolCallStatusRunningLabel;
-    case "done":
-      return labels.toolCallStatusDoneLabel;
-    case "failed":
-      return labels.toolCallStatusFailedLabel;
-    case "stopped":
-      return labels.toolCallStatusStoppedLabel;
-  }
+  return labels[ɵTOOL_CALL_STATUS_LABEL_KEYS[status]];
 }
 
 /**
@@ -83,22 +70,15 @@ export const ToolCallStatusIcon = defineComponent({
   },
   setup(props) {
     return () =>
-      h(
-        {
-          running: IconLoader2,
-          done: IconCheck,
-          failed: IconX,
-          stopped: IconCircle,
-        }[props.status],
-        {
-          "aria-hidden": "true",
-          class: [
-            "cpk-tool-call-status-icon",
-            props.status === "running" && "cpk-tool-call-status-icon-running",
-            props.status === "failed" && "cpk-tool-call-status-icon-failed",
-          ],
-        },
-      );
+      h(CopilotIcon, {
+        name: ɵTOOL_CALL_STATUS_ICONS[props.status],
+        "aria-hidden": "true",
+        class: [
+          "cpk-tool-call-status-icon",
+          props.status === "running" && "cpk-tool-call-status-icon-running",
+          props.status === "failed" && "cpk-tool-call-status-icon-failed",
+        ],
+      });
   },
 });
 

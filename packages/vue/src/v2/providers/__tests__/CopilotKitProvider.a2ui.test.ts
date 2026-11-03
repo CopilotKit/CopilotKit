@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defineComponent, h, ref } from "vue";
+import { defineComponent, h, nextTick, ref } from "vue";
 import { mount } from "@vue/test-utils";
 import { z } from "zod-v3";
 import { Catalog } from "@a2ui/web_core/v0_9";
@@ -124,5 +124,23 @@ describe("CopilotKitProvider a2ui catalog context", () => {
     const value = capabilitiesValue(observedCore.value);
     expect(value).toContain("  - FlightCard:\n    {");
     expect(value).toContain('"airline"');
+  });
+
+  it("registers the catalog's components with core for the Inspector", () => {
+    const { observedCore } = mountProvider({
+      a2ui: { catalog: makeCustomCatalog() },
+    });
+    expect(
+      observedCore.value?.catalogComponents.map((component) => component.name),
+    ).toEqual(["FlightCard"]);
+  });
+
+  it("stops advertising a component the Inspector disables", async () => {
+    const { observedCore } = mountProvider({
+      a2ui: { catalog: makeCustomCatalog() },
+    });
+    observedCore.value?.setCatalogComponentEnabled("FlightCard", false);
+    await nextTick();
+    expect(capabilitiesValue(observedCore.value)).not.toContain("FlightCard");
   });
 });

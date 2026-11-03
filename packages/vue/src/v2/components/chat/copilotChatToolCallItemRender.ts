@@ -1,95 +1,46 @@
-import type { Message, ToolCall, ToolMessage } from "@ag-ui/core";
-import { contentToText } from "@ag-ui/core";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import { ToolCallStatus, ɵresolveToolCallRenderer } from "@copilotkit/core";
-import { partialJSONParse } from "@copilotkit/shared";
+import type { Message, ToolCall } from "@ag-ui/core";
+import {
+  ɵbuildToolCallRenderProps,
+  ɵfindToolMessage,
+  ɵresolveToolCallAgentId,
+  ɵresolveToolCallRenderer,
+} from "@copilotkit/core";
 import type { CopilotChatToolCallRenderSlotProps } from "./types";
 import type {
   VueToolCallRenderer,
   VueToolCallRendererRenderProps,
 } from "../../types";
 
-export function findToolMessage(
-  messages: Message[],
-  toolCallId: string,
-): ToolMessage | undefined {
-  return messages.find(
-    (message) =>
-      message.role === "tool" &&
-      (message as ToolMessage).toolCallId === toolCallId,
-  ) as ToolMessage | undefined;
-}
-
 export function getToolCallSlotName(toolName: string): `tool-call-${string}` {
   return `tool-call-${toolName}`;
 }
 
+/** Props for a `tool-call` / `tool-call-<name>` slot. */
 export function getToolCallRenderProps(
   toolCall: ToolCall,
   messages: Message[],
   executingToolCallIds: ReadonlySet<string>,
 ): CopilotChatToolCallRenderSlotProps {
-  const toolMessage = findToolMessage(messages, toolCall.id);
-  const parsedArgs = partialJSONParse(toolCall.function.arguments);
-
-  if (toolMessage) {
-    return {
-      name: toolCall.function.name,
-      args: parsedArgs,
-      status: ToolCallStatus.Complete,
-      result: contentToText(toolMessage.content),
-      toolCall,
-      toolMessage,
-    };
-  }
-
-  const isExecuting = executingToolCallIds.has(toolCall.id);
-  return {
-    name: toolCall.function.name,
-    args: parsedArgs,
-    status: isExecuting ? ToolCallStatus.Executing : ToolCallStatus.InProgress,
-    result: undefined,
+  const toolMessage = ɵfindToolMessage(messages, toolCall.id);
+  const { name, args, status, result } = ɵbuildToolCallRenderProps(
     toolCall,
-    toolMessage: undefined,
-  };
+    toolMessage,
+    { isExecuting: executingToolCallIds.has(toolCall.id) },
+  );
+  return { name, args, status, result, toolCall, toolMessage };
 }
 
+/** Props for a registered renderer's `render`. */
 export function getCoreRenderProps(
   toolCall: ToolCall,
   messages: Message[],
   executingToolCallIds: ReadonlySet<string>,
 ): VueToolCallRendererRenderProps<unknown> {
-  const toolMessage = findToolMessage(messages, toolCall.id);
-  const parsedArgs = partialJSONParse(toolCall.function.arguments);
-
-  if (toolMessage) {
-    return {
-      name: toolCall.function.name,
-      toolCallId: toolCall.id,
-      args: parsedArgs,
-      status: ToolCallStatus.Complete,
-      result: contentToText(toolMessage.content),
-    };
-  }
-
-  const isExecuting = executingToolCallIds.has(toolCall.id);
-  if (isExecuting) {
-    return {
-      name: toolCall.function.name,
-      toolCallId: toolCall.id,
-      args: parsedArgs,
-      status: ToolCallStatus.Executing,
-      result: undefined,
-    };
-  }
-
-  return {
-    name: toolCall.function.name,
-    toolCallId: toolCall.id,
-    args: parsedArgs && typeof parsedArgs === "object" ? parsedArgs : {},
-    status: ToolCallStatus.InProgress,
-    result: undefined,
-  };
+  return ɵbuildToolCallRenderProps(
+    toolCall,
+    ɵfindToolMessage(messages, toolCall.id),
+    { isExecuting: executingToolCallIds.has(toolCall.id) },
+  );
 }
 
 export function getToolCallMemoDeps(
@@ -97,13 +48,13 @@ export function getToolCallMemoDeps(
   messages: Message[],
   executingToolCallIds: ReadonlySet<string>,
   renderToolCalls: readonly VueToolCallRenderer<unknown>[],
-  agentId: string = DEFAULT_AGENT_ID,
+  agentId: string = ɵresolveToolCallAgentId(undefined, undefined),
 ): unknown[] {
   return [
     toolCall.id,
     toolCall.function.name,
     toolCall.function.arguments,
-    findToolMessage(messages, toolCall.id)?.content,
+    ɵfindToolMessage(messages, toolCall.id)?.content,
     executingToolCallIds.has(toolCall.id),
     ɵresolveToolCallRenderer(renderToolCalls, toolCall.function.name, agentId)
       ?.render,

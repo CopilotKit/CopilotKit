@@ -13,6 +13,20 @@ Every example imports from the 2.0 package roots. There is no `/v2` subpath in 2
 | `forwardedParameters`                                  | Removed. Set model parameters on the agent.                                                             |
 | `transcribeAudioUrl`, `textToSpeechUrl`                | Removed. Voice input goes through the runtime's transcription service.                                  |
 
+## Angular runtime config
+
+2.0 throws in production when `provideCopilotKit` gets no `runtimeUrl`, `licenseKey`, `agents`, or `selfManagedAgents`. The codemod marks these calls with a TODO. Add the runtime URL that the app uses. If the app sets it later with `updateRuntime`, also give it at startup:
+
+```ts
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const copilotKitProviders = provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+});
+```
+
+If the app has no runtime, ask the user which runtime URL to use. See [Angular: a missing runtime throws in production](https://docs.copilotkit.ai/migrate/providers-2.0#angular-a-missing-runtime-throws-in-production).
+
 ## Hooks
 
 ### `useCopilotReadable` → `useAgentContext`
@@ -131,6 +145,48 @@ function App() {
 }
 ```
 
+## Chat labels and renderer lists
+
+### Complete `CopilotChatLabels` objects
+
+2.0 adds label keys, so a complete labels object fails to type-check. Spread the defaults and keep only the keys the app changes:
+
+```ts
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import type { CopilotChatLabels } from "@copilotkit/core";
+
+export const labels: CopilotChatLabels = {
+  ...CopilotChatDefaultLabels,
+  chatInputPlaceholder: "Ask me anything...",
+};
+```
+
+If the object is only an override, type it as `Partial<CopilotChatLabels>` instead.
+
+### `renderToolCalls` and `renderActivityMessages` changed in place
+
+Both are read-only arrays in 2.0. Give the setter a new list:
+
+```tsx
+import { useCopilotKit } from "@copilotkit/react-core";
+import type { ReactToolCallRenderer } from "@copilotkit/react-core";
+
+function useExtraRenderer(renderer: ReactToolCallRenderer<unknown>) {
+  const { copilotkit } = useCopilotKit();
+  copilotkit.setRenderToolCalls([...copilotkit.renderToolCalls, renderer]);
+}
+```
+
+To add one renderer from a component, prefer `useRenderTool`.
+
+### Angular copy buttons
+
+`copied` on `CopilotChatUserMessageCopyButton` and `CopilotChatAssistantMessageCopyButton` is a read-only signal. The codemod marks each `.copied.set(...)` and `.copied.update(...)` with a TODO. To copy the text and show the check mark, call `handleCopy()` on the button. It copies the `content` input and shows the check mark for 2 seconds. If the app copies by its own logic, render its own button in the `copyButton` slot and keep the state in that button.
+
+```ts
+this.copyButton().handleCopy();
+```
+
 ## Markdown rendering
 
 2.0 renders assistant messages with `@copilotkit/markdown`, not Streamdown. It does streaming-safe GFM, tables, autolinks, and citations. It does not do syntax highlighting, KaTeX math, or mermaid diagrams. Docs: https://docs.copilotkit.ai/migrate/markdown-renderer
@@ -190,6 +246,29 @@ For Streamdown, install `streamdown` in the app and render `<Streamdown>{content
 CSS that targets `[data-streamdown]` no longer matches. Search the stylesheets for `data-streamdown` and move those rules to the `nodeRenderers` output or to `className`.
 
 Vue: delete every `useKatexStyles` import and call, including in `.vue` files. The export was removed.
+
+## Generative UI
+
+Docs: https://docs.copilotkit.ai/migrate/generative-ui-2.0
+
+`OpenGenerativeUIContentSchema` and `GenerateSandboxedUiArgsSchema` from `@copilotkit/vue` and `@copilotkit/angular` are Standard Schemas, not zod schemas. They have no `.parse`, `.safeParse`, `.shape`, or other zod members, and they cannot go into a zod schema. Validate with `["~standard"].validate(value)`. It returns `{ value }` or `{ issues }` and does not throw:
+
+```ts
+import { OpenGenerativeUIContentSchema } from "@copilotkit/vue";
+
+const result = OpenGenerativeUIContentSchema["~standard"].validate(value);
+if (result instanceof Promise) throw new Error("unexpected async schema");
+if (result.issues) throw new Error(result.issues[0]?.message);
+const content = result.value;
+```
+
+If the code composed the schema into a zod schema, write those fields in zod in the app.
+
+`filterCatalog` from `@copilotkit/a2ui-renderer` infers its type. The codemod deletes explicit type arguments. Its type parameter is now the catalog type, not the component type.
+
+Angular `CopilotA2UIRecovery` no longer exposes `lifecycle`, `retryRevealed`, `debugExposure`, `label`, `phase`, `failureDiagnostics`, or `retryDiagnostics`. Read the lifecycle with `readA2UILifecycleContent(content)` from `@copilotkit/angular`.
+
+The Open Generative UI placeholder element (test id `open-generative-ui-placeholder`) was removed. While the agent generates, tests can query `open-generative-ui-progress-overlay` and `open-generative-ui-spinner`. Once generation ends, neither shows.
 
 ## Runtime
 

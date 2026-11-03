@@ -73,6 +73,7 @@ on:
           - crewai-crews
           - langgraph-python
           - google-antigravity
+          - ag2
 
 # Default to read-only at the job level. The only step that needs write access
 # is "Post result to PR" at the end — we grant it write perms inline there.
@@ -310,7 +311,11 @@ jobs:
           # Fixture layout matches docker-compose.local.yml: feature-parity.json
           # was split into per-framework shared/d4/d5-recorded/d6 directories
           # (directory-based loading, one --fixtures per directory).
-          "$AIMOCK_BIN" --port 4010 --host 127.0.0.1 \
+          # AIMOCK_STRICT_TURN_INDEX=1: without it aimock "relaxes" turnIndex and
+          # re-serves a turnIndex:0 tool-call fixture on the follow-up turn,
+          # so agents whose follow-up is keyed on toolCallId loop forever.
+          # Mirrors the env set on the aimock service in docker-compose.local.yml.
+          AIMOCK_STRICT_TURN_INDEX=1 "$AIMOCK_BIN" --port 4010 --host 127.0.0.1 \
             --fixtures showcase/aimock/shared \
             --fixtures showcase/aimock/d4 \
             --fixtures showcase/aimock/d5-recorded \
@@ -412,6 +417,12 @@ jobs:
               export GEMINI_API_KEY=fake-gemini-key
               export ANTIGRAVITY_WORKSPACE="$RUNNER_TEMP/ag-ws"
               export ANTIGRAVITY_SAVE_DIR="$RUNNER_TEMP/ag-sessions"
+            fi
+            if [ "$SLUG" = "ag2" ]; then
+              # ag2 does not ship aimock_toggle.py; its OpenAI client reads
+              # OPENAI_BASE_URL straight from the environment.
+              export OPENAI_BASE_URL=http://localhost:4010/v1
+              export OPENAI_API_KEY=sk-aimock-dev-ci-only
             fi
             AIMOCK_URL=http://localhost:4010/v1 \
             python -m uvicorn "agent_server:app" --host 127.0.0.1 --port "$AGENT_PORT" &

@@ -100,6 +100,8 @@ describe("OpenGenerativeUIController", () => {
         phase: "placeholder",
         generating: true,
         height: 200,
+        showSpinner: true,
+        showOverlay: true,
       });
     });
 
@@ -109,6 +111,8 @@ describe("OpenGenerativeUIController", () => {
         phase: "placeholder",
         generating: true,
         height: 320,
+        showSpinner: true,
+        showOverlay: true,
       });
     });
 
@@ -129,6 +133,8 @@ describe("OpenGenerativeUIController", () => {
         phase: "final",
         generating: false,
         height: 200,
+        showSpinner: false,
+        showOverlay: false,
       });
     });
 
@@ -431,6 +437,8 @@ describe("OpenGenerativeUIController", () => {
         phase: "placeholder",
         generating: true,
         height: 360,
+        showSpinner: true,
+        showOverlay: true,
       });
     });
 

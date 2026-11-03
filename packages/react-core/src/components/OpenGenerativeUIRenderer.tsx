@@ -6,11 +6,13 @@ import React, {
   useState,
   useSyncExternalStore,
 } from "react";
-import * as z from "zod";
 import {
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
   ToolCallStatus,
+  ɵGENERATE_SANDBOXED_UI_ARGS_SCHEMA,
+  ɵOPEN_GENERATIVE_UI_CONTENT_SCHEMA,
   ɵOpenGenerativeUIController,
+  ɵPlaceholderCycler,
 } from "@copilotkit/core";
 import type {
   OpenGenerativeUIContent,
@@ -22,31 +24,14 @@ export type { OpenGenerativeUIContent, GenerateSandboxedUiArgs };
 
 export const OpenGenerativeUIActivityType = OPEN_GENERATIVE_UI_ACTIVITY_TYPE;
 
-export const OpenGenerativeUIContentSchema = z.object({
-  initialHeight: z.number().optional(),
-  generating: z.boolean().optional(),
-  css: z.string().optional(),
-  cssComplete: z.boolean().optional(),
-  html: z.array(z.string()).optional(),
-  htmlComplete: z.boolean().optional(),
-  jsFunctions: z.string().optional(),
-  jsFunctionsComplete: z.boolean().optional(),
-  jsExpressions: z.array(z.string()).optional(),
-  jsExpressionsComplete: z.boolean().optional(),
-}) satisfies z.ZodType<OpenGenerativeUIContent>;
+/** Validates Open Generative UI activity content (shared with Vue and Angular). */
+export const OpenGenerativeUIContentSchema = ɵOPEN_GENERATIVE_UI_CONTENT_SCHEMA;
 
 /**
- * Schema for the generateSandboxedUi tool call arguments.
- * Used by the frontend tool renderer to display placeholder messages.
+ * Schema for the generateSandboxedUi tool call arguments (shared with Vue and
+ * Angular). It also describes the arguments to the model as JSON Schema.
  */
-export const GenerateSandboxedUiArgsSchema = z.object({
-  initialHeight: z.number().optional(),
-  placeholderMessages: z.array(z.string()).optional(),
-  css: z.string().optional(),
-  html: z.string().optional(),
-  jsFunctions: z.string().optional(),
-  jsExpressions: z.array(z.string()).optional(),
-}) satisfies z.ZodType<GenerateSandboxedUiArgs>;
+export const GenerateSandboxedUiArgsSchema = ɵGENERATE_SANDBOXED_UI_ARGS_SCHEMA;
 
 interface OpenGenerativeUIActivityRendererProps {
   activityType: string;
@@ -105,7 +90,7 @@ export const OpenGenerativeUIActivityRenderer: React.FC<OpenGenerativeUIActivity
           overflow: "hidden",
         }}
       >
-        {state.generating && (
+        {state.showOverlay && (
           <div
             style={{
               position: "absolute",
@@ -118,21 +103,29 @@ export const OpenGenerativeUIActivityRenderer: React.FC<OpenGenerativeUIActivity
               justifyContent: "center",
             }}
           >
-            <svg
-              width="48"
-              height="48"
-              viewBox="0 0 24 24"
-              fill="none"
-              style={{ animation: "ck-spin 1s linear infinite" }}
-            >
-              <circle cx="12" cy="12" r="10" stroke="#e0e0e0" strokeWidth="3" />
-              <path
-                d="M12 2a10 10 0 0 1 10 10"
-                stroke="#999"
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
-            </svg>
+            {state.showSpinner && (
+              <svg
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                style={{ animation: "ck-spin 1s linear infinite" }}
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="#e0e0e0"
+                  strokeWidth="3"
+                />
+                <path
+                  d="M12 2a10 10 0 0 1 10 10"
+                  stroke="#999"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
+              </svg>
+            )}
             <style>{`@keyframes ck-spin { to { transform: rotate(360deg) } }`}</style>
           </div>
         )}
@@ -164,33 +157,25 @@ export const OpenGenerativeUIToolRenderer: React.FC<
       result: string;
     }
 > = function OpenGenerativeUIToolRenderer(props) {
-  const [visibleMessageIndex, setVisibleMessageIndex] = useState(0);
-  const prevMessageCountRef = useRef(0);
+  const [cycler] = useState(() => new ɵPlaceholderCycler());
+  const { message } = useSyncExternalStore(
+    cycler.subscribe,
+    cycler.getSnapshot,
+    cycler.getSnapshot,
+  );
+  const isComplete = props.status === ToolCallStatus.Complete;
 
-  const messages = props.args.placeholderMessages;
-
-  // Cycle through placeholder messages
   useEffect(() => {
-    if (!messages || messages.length === 0) return;
+    cycler.update(props.args.placeholderMessages, isComplete);
+  }, [cycler, props.args.placeholderMessages, isComplete]);
+  useEffect(() => () => cycler.dispose(), [cycler]);
 
-    // When a new message streams in, jump to it immediately
-    if (messages.length !== prevMessageCountRef.current) {
-      prevMessageCountRef.current = messages.length;
-      setVisibleMessageIndex(messages.length - 1);
-    }
-
-    // Auto-cycle every 3s while still in progress
-    if (props.status === ToolCallStatus.Complete) return;
-    const timer = setInterval(() => {
-      setVisibleMessageIndex((i) => (i + 1) % messages.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [messages?.length, props.status]);
-
-  // Don't render anything once complete — the activity renderer handles the UI
-  if (props.status === ToolCallStatus.Complete) return null;
-
-  if (!messages || messages.length === 0) return null;
+  // Before the first effect, show what the cycler starts with: the newest message.
+  const shown =
+    message ??
+    (isComplete ? undefined : props.args.placeholderMessages?.at(-1));
+  // Nothing once complete — the activity renderer handles the UI.
+  if (shown === undefined) return null;
 
   return (
     <div
@@ -200,7 +185,7 @@ export const OpenGenerativeUIToolRenderer: React.FC<
         fontSize: "14px",
       }}
     >
-      {messages[visibleMessageIndex] ?? messages[0]}
+      {shown}
     </div>
   );
 };

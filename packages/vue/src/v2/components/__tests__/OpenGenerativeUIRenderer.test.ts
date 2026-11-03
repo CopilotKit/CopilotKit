@@ -100,14 +100,21 @@ describe("OpenGenerativeUIRenderer", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders placeholder when no html", async () => {
+  it("shows the progress overlay with a spinner while generating", async () => {
     const { getByTestId, queryByTestId } = renderRenderer({
       initialHeight: 300,
     });
     await flushImport();
-    expect(getByTestId("open-generative-ui-placeholder")).not.toBeNull();
+    expect(getByTestId("open-generative-ui-spinner")).not.toBeNull();
     expect(queryByTestId("open-generative-ui-final-sandbox")).toBeNull();
     expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("shows no spinner or overlay once generation is done", async () => {
+    const { queryByTestId } = renderRenderer({ generating: false });
+    await flushImport();
+    expect(queryByTestId("open-generative-ui-progress-overlay")).toBeNull();
+    expect(queryByTestId("open-generative-ui-spinner")).toBeNull();
   });
 
   it("creates final sandbox when html is complete", async () => {

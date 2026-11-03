@@ -2,6 +2,7 @@ import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import type { Component } from "vue";
 import { h } from "vue";
 import type { WatchSource } from "vue";
+import { ɵcomponentToolDescription } from "@copilotkit/core";
 import { useFrontendTool } from "./use-frontend-tool";
 
 type InferRenderProps<T> = T extends StandardSchemaV1
@@ -17,13 +18,14 @@ export function useComponent<
     parameters?: TSchema;
     render: Component<NoInfer<InferRenderProps<TSchema>>>;
     agentId?: string;
+    followUp?: boolean;
   },
   deps?: WatchSource<unknown>[],
 ): void {
-  const prefix = `Use this tool to display the "${config.name}" component in the chat. This tool renders a visual UI component for the user.`;
-  const fullDescription = config.description
-    ? `${prefix}\n\n${config.description}`
-    : prefix;
+  const fullDescription = ɵcomponentToolDescription(
+    config.name,
+    config.description,
+  );
 
   useFrontendTool(
     {
@@ -40,6 +42,7 @@ export function useComponent<
         );
       },
       agentId: config.agentId,
+      followUp: config.followUp,
     },
     deps,
   );
