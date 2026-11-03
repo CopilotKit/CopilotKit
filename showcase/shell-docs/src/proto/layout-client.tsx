@@ -46,7 +46,7 @@ import { liveTree } from "./live-tree";
 import { trackEvent } from "@/lib/telemetry/analytics";
 import { cn } from "@/lib/cn";
 import type { LiveNav } from "@/lib/live-nav";
-import { ROOT_FRAMEWORK, scopeFromPath } from "@/lib/live-scope";
+import { ROOT_FRAMEWORK, liveFrontend, scopeFromPath } from "@/lib/live-scope";
 import { variantMeta } from "./meta";
 
 const GITHUB = "https://github.com/CopilotKit/CopilotKit";
@@ -548,15 +548,23 @@ export function ProtoLayout({
 /**
  * The live docs' unscoped pages are the built-in agent's, so the stack picker
  * reads them as that framework: switching from `/frontend-tools` to Mastra
- * opens `/mastra/frontend-tools`. The reference and cookbook aren't per
- * framework, so they take no stack picker.
+ * opens `/mastra/frontend-tools`. A frontend's URL reads as the same page
+ * (`/vue/mastra/frontend-tools` as `/mastra/frontend-tools`, `/vue` as the
+ * built-in agent's). The reference and cookbook aren't per framework, so they
+ * take no stack picker.
  */
 function liveLocation(
   loc: ReturnType<typeof locationFromPathname>["location"],
   pathname: string | null,
-) {
+): ReturnType<typeof locationFromPathname>["location"] {
   if (loc || !pathname) return loc;
   const path = pathname.split("/").filter(Boolean);
+  if (liveFrontend(path[0])) {
+    const page = `/${path.slice(1).join("/")}`;
+    return path.length > 1
+      ? liveLocation(locationFromPathname(page).location, page)
+      : { kind: "framework", framework: ROOT_FRAMEWORK, slug: "" };
+  }
   if (!path.length || path[0] === "reference" || path[0] === "cookbook")
     return loc;
   const scope = scopeFromPath(path);

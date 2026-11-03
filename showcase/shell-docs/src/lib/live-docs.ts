@@ -4,11 +4,14 @@ import {
   FRAMEWORK_WINS,
   scopedHref,
   LIVE_FRAMEWORKS,
+  LIVE_FRONTENDS,
   REFERENCE_FOLDERS,
   REFERENCE_ROOT_VERSION,
   ROOT_FRAMEWORK,
+  frontendHref,
   liveFramework,
   liveFrontend,
+  scopeFromPath,
 } from "./live-scope";
 import { liveSource, referenceSource } from "./live-source";
 
@@ -25,6 +28,25 @@ export function liveHref(href: string | undefined, scope: DocsScope) {
   const path = (url: string) => url.split(/[?#]/)[0].split("/").filter(Boolean);
   if (resolveLivePage(path(to)) || !resolveLivePage(path(href))) return to;
   return href;
+}
+
+/**
+ * Where a URL goes when its frontend lacks the page but another frontend has
+ * it: the frontend's quickstart, as shell-docs' frontend picker sent a Slack
+ * guide to Vue (`/vue/mastra/tools` opens `/vue/mastra`). So switching
+ * frontends from an Angular guide opens Vue's quickstart, not a 404.
+ */
+export function frontendFallback(path: string[]): string | null {
+  const { frontend, slug } = scopeFromPath(path);
+  if (!slug) return null;
+  const elsewhere = [...new Set(Object.values(LIVE_FRONTENDS))].some(
+    (other) =>
+      other !== frontend &&
+      resolveLivePage(
+        frontendHref(path, other, slug).split("/").filter(Boolean),
+      ),
+  );
+  return elsewhere ? frontendHref(path, frontend, "") : null;
 }
 
 /**
