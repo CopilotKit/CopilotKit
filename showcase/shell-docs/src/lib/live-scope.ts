@@ -163,7 +163,7 @@ export const REFERENCE_FOLDERS = new Set([
 ]);
 
 /** First URL segments that never take a framework or frontend prefix. */
-const UNSCOPED_SEGMENTS = new Set([
+export const UNSCOPED_SEGMENTS = new Set([
   "docs",
   "ag-ui",
   "reference",
@@ -238,7 +238,7 @@ function frameworkForFolder(folder: string, current: string | undefined) {
 }
 
 /** The URL prefix for a frontend (`react-spa` is React's old alias). */
-function frontendSegment(frontend: FrontendId) {
+export function frontendSegment(frontend: FrontendId) {
   return (
     Object.entries(LIVE_FRONTENDS).find(
       ([segment, id]) => id === frontend && segment !== "react-spa",
