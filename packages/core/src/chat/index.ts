@@ -143,3 +143,21 @@ export type {
   ɵFeedbackCommentVia,
   ɵFeedbackCommentControllerOptions,
 } from "./message-feedback";
+
+// Viewport and scrolling (internal)
+export {
+  ɵnormalizeAutoScroll,
+  ɵMOBILE_MAX_WIDTH_QUERY,
+  ɵisMobileViewport,
+  ɵwatchMobileViewport,
+  ɵKEYBOARD_OPEN_THRESHOLD_PX,
+  ɵinitialKeyboardState,
+  ɵreadKeyboardState,
+  ɵwatchKeyboardState,
+  ɵpinMessageToTop,
+} from "./viewport";
+export type {
+  ɵAutoScrollMode,
+  ɵKeyboardState,
+  ɵPinMessageToTopOptions,
+} from "./viewport";

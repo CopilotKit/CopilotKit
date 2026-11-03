@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 
 import { cn } from "../../lib/utils";
-import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import {
+  CopilotChatDefaultLabels,
+  ɵwatchMobileViewport,
+} from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
@@ -43,21 +46,9 @@ export type CopilotModalHeaderProps = Omit<
  * (desktop) so the server render and first client render agree, then syncs on
  * mount and on resize.
  */
-function useIsMobileViewport(): boolean {
+function useIsMobileViewport() {
   const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    if (
-      typeof window === "undefined" ||
-      typeof window.matchMedia !== "function"
-    ) {
-      return;
-    }
-    const mql = window.matchMedia("(max-width: 767px)");
-    const update = () => setIsMobile(mql.matches);
-    update();
-    mql.addEventListener("change", update);
-    return () => mql.removeEventListener("change", update);
-  }, []);
+  useEffect(() => ɵwatchMobileViewport(setIsMobile), []);
   return isMobile;
 }
 

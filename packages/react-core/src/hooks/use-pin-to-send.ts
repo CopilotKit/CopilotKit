@@ -1,4 +1,5 @@
 import { useContext, useEffect, useRef } from "react";
+import { ɵpinMessageToTop } from "@copilotkit/core";
 import { LastUserMessageContext } from "../components/chat/last-user-message-context";
 
 export type UsePinToSendOptions = {
@@ -8,6 +9,11 @@ export type UsePinToSendOptions = {
   topOffset?: number;
 };
 
+/**
+ * Pins the latest sent user message near the top of the chat while the reply
+ * streams below it. Core's `ɵpinMessageToTop` does the measuring and
+ * scrolling; this hook runs it once per send.
+ */
 export function usePinToSend({
   scrollRef,
   contentRef,
@@ -27,62 +33,12 @@ export function usePinToSend({
     const spacerEl = spacerRef.current;
     if (!scrollEl || !contentEl || !spacerEl) return;
 
-    const escaped =
-      typeof CSS !== "undefined" && CSS.escape
-        ? CSS.escape(id)
-        : id.replace(/[!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g, "\\$&");
-    const targetEl = contentEl.querySelector<HTMLElement>(
-      `[data-message-id="${escaped}"]`,
-    );
-    if (!targetEl) return;
-
-    // The target message's element has a top padding (e.g. `pt-10`) that
-    // creates breathing room above the visible bubble. When we "anchor at
-    // the top", we mean anchor the *bubble*, not the element's padded box.
-    // So we scroll past the padding (it goes above the viewport, hiding
-    // whatever was above the element too — including the previous message's
-    // trailing copy button).
-    const viewportHeight = scrollEl.clientHeight;
-    const userMessageHeight = targetEl.getBoundingClientRect().height;
-    const paddingTop = parseFloat(getComputedStyle(targetEl).paddingTop) || 0;
-    const bubbleHeight = Math.max(0, userMessageHeight - paddingTop);
-    const spacerHeight = Math.max(0, viewportHeight - bubbleHeight - topOffset);
-
-    spacerEl.style.height = `${spacerHeight}px`;
-
-    const raf = requestAnimationFrame(() => {
-      // Scroll so the BUBBLE is `topOffset` from the viewport top — the
-      // padding above the bubble ends up scrolled off-screen.
-      const targetTop =
-        computeOffsetTop(targetEl, scrollEl) + paddingTop - topOffset;
-      scrollEl.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+    return ɵpinMessageToTop({
+      scrollEl,
+      contentEl,
+      spacerEl,
+      messageId: id,
+      topOffset,
     });
-
-    // As content below the anchored user message changes, adjust the spacer by
-    // the same amount so total scrollable space below the bubble stays
-    // constant and the bubble stays pinned.
-    const ro = new ResizeObserver(() => {
-      if (!contentEl || !spacerEl || !scrollEl) return;
-      const contentHeight = contentEl.getBoundingClientRect().height;
-      const targetOffsetWithinContent = computeOffsetTop(targetEl, contentEl);
-      const consumedBelow =
-        contentHeight - targetOffsetWithinContent - userMessageHeight;
-      const remaining = Math.max(0, spacerHeight - consumedBelow);
-      spacerEl.style.height = `${remaining}px`;
-    });
-    ro.observe(contentEl);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-    };
   }, [id, sendNonce, scrollRef, contentRef, spacerRef, topOffset]);
-}
-
-// Compute the offset of el relative to stopAt, accounting for stopAt's current scrollTop.
-// Uses getBoundingClientRect so it works regardless of CSS positioning (including position:static).
-function computeOffsetTop(el: HTMLElement, stopAt: HTMLElement): number {
-  const elRect = el.getBoundingClientRect();
-  const stopRect = stopAt.getBoundingClientRect();
-  return elRect.top - stopRect.top + stopAt.scrollTop;
 }

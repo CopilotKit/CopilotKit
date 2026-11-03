@@ -1,11 +1,8 @@
 import { useState, useEffect } from "react";
+import { ɵinitialKeyboardState, ɵwatchKeyboardState } from "@copilotkit/core";
+import type { ɵKeyboardState } from "@copilotkit/core";
 
-export interface KeyboardState {
-  isKeyboardOpen: boolean;
-  keyboardHeight: number;
-  availableHeight: number;
-  viewportHeight: number;
-}
+export type KeyboardState = ɵKeyboardState;
 
 /**
  * Hook to detect mobile keyboard appearance and calculate available viewport height.
@@ -14,54 +11,7 @@ export interface KeyboardState {
  * @returns KeyboardState object with keyboard information
  */
 export function useKeyboardHeight(): KeyboardState {
-  const [keyboardState, setKeyboardState] = useState<KeyboardState>({
-    isKeyboardOpen: false,
-    keyboardHeight: 0,
-    availableHeight: typeof window !== "undefined" ? window.innerHeight : 0,
-    viewportHeight: typeof window !== "undefined" ? window.innerHeight : 0,
-  });
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    // Check if Visual Viewport API is available
-    const visualViewport = window.visualViewport;
-    if (!visualViewport) {
-      return;
-    }
-
-    const updateKeyboardState = () => {
-      const layoutHeight = window.innerHeight;
-      const visualHeight = visualViewport.height;
-
-      // Calculate keyboard height (difference between layout and visual viewport)
-      const keyboardHeight = Math.max(0, layoutHeight - visualHeight);
-
-      // Keyboard is considered open if the height difference is significant (> 150px)
-      const isKeyboardOpen = keyboardHeight > 150;
-
-      setKeyboardState({
-        isKeyboardOpen,
-        keyboardHeight,
-        availableHeight: visualHeight,
-        viewportHeight: layoutHeight,
-      });
-    };
-
-    // Initial state
-    updateKeyboardState();
-
-    // Listen for viewport changes
-    visualViewport.addEventListener("resize", updateKeyboardState);
-    visualViewport.addEventListener("scroll", updateKeyboardState);
-
-    return () => {
-      visualViewport.removeEventListener("resize", updateKeyboardState);
-      visualViewport.removeEventListener("scroll", updateKeyboardState);
-    };
-  }, []);
-
+  const [keyboardState, setKeyboardState] = useState(ɵinitialKeyboardState);
+  useEffect(() => ɵwatchKeyboardState(setKeyboardState), []);
   return keyboardState;
 }
