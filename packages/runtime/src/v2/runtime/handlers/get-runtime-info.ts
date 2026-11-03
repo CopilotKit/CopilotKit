@@ -145,9 +145,10 @@ export async function handleGetRuntimeInfo({
           );
           capabilities = undefined;
         }
+        const displayName = (agent as { name?: unknown }).name;
 
         const description: AgentDescription = {
-          name: (agent as { name?: string }).name ?? name,
+          name: typeof displayName === "string" ? displayName : name,
           description: agent.description,
           className: agent.constructor.name,
           ...(capabilities ? { capabilities } : {}),
