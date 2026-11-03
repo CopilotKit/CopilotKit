@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -12,7 +11,8 @@ import {
   GenerativeUISurface,
   useGenerativeUIRuntime,
 } from "@copilotkit/react-core/v2/generative-ui";
-import { ArrowLeft, Check, Copy, Download, X } from "lucide-react";
+import { ArrowLeft, Download, X } from "lucide-react";
+import { PromptPill } from "@/components/docs-mdx/prompts/prompt-pill";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -164,62 +164,6 @@ const HEADER_BUTTON =
   "size-8 rounded-lg text-fd-muted-foreground hover:bg-fd-accent hover:text-fd-foreground max-md:size-10";
 
 /**
- * copilotkit.ai's "Copy prompt" pill, the docs' hand-off to a coding agent:
- * mono, white, with the Claude and Codex marks. `compact` sits in a header.
- */
-function CopyPrompt({
-  getText,
-  disabled,
-  compact,
-}: {
-  getText: () => string | null;
-  disabled?: boolean;
-  compact?: boolean;
-}) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <Button
-      variant="outline"
-      disabled={disabled}
-      onClick={async () => {
-        const text = getText();
-        if (!text) return;
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1800);
-      }}
-      className={cn(
-        "gap-2.5 rounded-full bg-card font-mono shadow-lift",
-        compact ? "h-8 gap-2 px-3 text-xs max-md:h-10" : "h-11 px-4",
-      )}
-    >
-      {copied ? (
-        <Check className="text-primary" aria-hidden="true" />
-      ) : (
-        <Copy className="text-muted-foreground" aria-hidden="true" />
-      )}
-      <span aria-live="polite">{copied ? "Copied" : "Copy prompt"}</span>
-      <span
-        className={cn("w-px bg-border", compact ? "h-4" : "h-5")}
-        aria-hidden="true"
-      />
-      <span className="flex items-center gap-1.5" aria-hidden="true">
-        {["claude", "codex"].map((mark) => (
-          <Image
-            key={mark}
-            unoptimized
-            src={`/images/prompt-${mark}.webp`}
-            alt=""
-            width={compact ? 16 : 18}
-            height={compact ? 16 : 18}
-          />
-        ))}
-      </span>
-    </Button>
-  );
-}
-
-/**
  * The guide: a docs page the agent writes for this reader, beside the chat.
  * Its corner carries the hand-off (copy as a prompt, download as markdown);
  * the page itself is the guide target, drawn by the standard catalog, which
@@ -243,9 +187,9 @@ export function GuidePanel({
   const article = useRef<HTMLElement>(null);
   useSectionStagger(article);
   const getDocument = useGuideDocument(guide);
-  const getPrompt = () => {
+  const promptPayload = () => {
     const doc = getDocument();
-    return doc?.markdown ? handoffPrompt(doc.markdown) : null;
+    return doc?.markdown ? { text: handoffPrompt(doc.markdown) } : null;
   };
   const download = () => {
     const doc = getDocument();
@@ -304,7 +248,12 @@ export function GuidePanel({
         ) : (
           <span className="flex items-center gap-0.5 motion-safe:animate-[rise-in_320ms_cubic-bezier(0.25,1,0.5,1)_both]">
             <span className="me-1 max-sm:hidden">
-              <CopyPrompt getText={getPrompt} disabled={!ready} compact />
+              <PromptPill
+                createPrompt={promptPayload}
+                disabled={!ready}
+                viewPrompt={false}
+                compact
+              />
             </span>
             <Tooltip>
               <TooltipTrigger
@@ -373,7 +322,7 @@ export function GuidePanel({
                 your agent can read more.
               </p>
               <div className="mt-5 flex flex-wrap items-center gap-3">
-                <CopyPrompt getText={getPrompt} />
+                <PromptPill createPrompt={promptPayload} viewPrompt={false} />
                 <Button
                   variant="outline"
                   onClick={download}
