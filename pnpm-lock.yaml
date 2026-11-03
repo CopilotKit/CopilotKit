@@ -3580,8 +3580,8 @@ importers:
   packages/runtime:
     dependencies:
       '@ag-ui/a2ui-middleware':
-        specifier: 0.0.10
-        version: 0.0.10(@ag-ui/client@1.0.2)(rxjs@7.8.1)
+        specifier: 0.0.14
+        version: 0.0.14(@ag-ui/client@1.0.2)(rxjs@7.8.1)
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
@@ -3951,8 +3951,8 @@ importers:
   packages/shared:
     dependencies:
       '@ag-ui/a2ui-middleware':
-        specifier: 0.0.10
-        version: 0.0.10(@ag-ui/client@1.0.2)(rxjs@7.8.1)
+        specifier: 0.0.14
+        version: 0.0.14(@ag-ui/client@1.0.2)(rxjs@7.8.1)
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
@@ -4718,14 +4718,17 @@ packages:
       '@ag-ui/client': '>=0.0.42'
       '@ag-ui/core': '>=0.0.42'
 
-  '@ag-ui/a2ui-middleware@0.0.10':
-    resolution: {integrity: sha512-2BQFUQ9vJzUAQSR0dNW/ijhyH8KpiRWISSLTP6mIe6ENyQ2cM1/XLG38/Dcb69olcs36gtZADZzAQWcno5H6fA==}
+  '@ag-ui/a2ui-middleware@0.0.14':
+    resolution: {integrity: sha512-UEyO2jPDJEaGiSxjVAE3hvE18EGCKg/ZOozRdreGi155MIurPoAZcFFwevstZpX+8yQ9TDAncmhfMf+B+eXzvA==}
     peerDependencies:
-      '@ag-ui/client': '>=0.0.40'
+      '@ag-ui/client': '>=1.0.0'
       rxjs: 7.8.1
 
   '@ag-ui/a2ui-toolkit@0.0.4':
     resolution: {integrity: sha512-9VPmgpCAsFVICk7z23kh+Kp/BwYMxw0D0KGjOiKXhm1MAH+Wid2iC3yKsXso+q7UZZiyhWgeDUSgaAkltyLmGg==}
+
+  '@ag-ui/a2ui-toolkit@0.0.5':
+    resolution: {integrity: sha512-klYOXh+L+X8yM0EdrHJGrKmh7G1bKBvO/Zo4ryl6w5JlkXCrqkCeiSLtwB3UeN2Z1w61y1eMmzWn92q9c4/D8w==}
 
   '@ag-ui/client@0.0.36':
     resolution: {integrity: sha512-1Ey2KqK9KQpRJcnJvKPfVyLiTK4+CLBQZ085oJvr6T1nznw224j0KyzXNJ7cRjXeEGnuafmXTgpU+xEbN3xuYQ==}
@@ -28694,14 +28697,16 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@ag-ui/a2ui-middleware@0.0.10(@ag-ui/client@1.0.2)(rxjs@7.8.1)':
+  '@ag-ui/a2ui-middleware@0.0.14(@ag-ui/client@1.0.2)(rxjs@7.8.1)':
     dependencies:
-      '@ag-ui/a2ui-toolkit': 0.0.4
+      '@ag-ui/a2ui-toolkit': 0.0.5
       '@ag-ui/client': 1.0.2
       clarinet: 0.12.6
       rxjs: 7.8.1
 
   '@ag-ui/a2ui-toolkit@0.0.4': {}
+
+  '@ag-ui/a2ui-toolkit@0.0.5': {}
 
   '@ag-ui/client@0.0.36':
     dependencies:
