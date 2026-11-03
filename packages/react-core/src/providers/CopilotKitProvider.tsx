@@ -771,7 +771,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // Shared with Vue and Angular: registers the catalog's components with core
   // (for the inspector), tells this provider when one is toggled so the
   // filtered catalog above re-derives, and owns the A2UI agent context entries
-  // (scoped to `copilotkit.a2uiAgents`, #5369).
+  // (scoped to `copilotkit.ɵruntimeInfo.a2uiAgents`, #5369).
   const [a2uiCatalogController] = useState(
     () => new A2UICatalogController<Catalog<any>>(copilotkit, a2uiBasicCatalog),
   );

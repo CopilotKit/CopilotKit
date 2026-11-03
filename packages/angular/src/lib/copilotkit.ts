@@ -305,7 +305,7 @@ export class CopilotKit {
   /**
    * Shared with React and Vue: registers the catalog's components with core
    * (for the Inspector), filters out the disabled ones, and owns the A2UI agent
-   * context, scoped to `core.a2uiAgents` (#5369).
+   * context, scoped to `core.ɵruntimeInfo.a2uiAgents` (#5369).
    */
   readonly #a2uiCatalog = new A2UICatalogController<A2UICatalog>(this.core, {
     id: A2UI_BASIC_CATALOG_ID,
@@ -601,7 +601,7 @@ export class CopilotKit {
   #isA2UIActive(): boolean {
     const hasCatalog = this.#config.a2ui?.catalog !== undefined;
     if (
-      this.core.a2uiEnabled &&
+      this.core.ɵruntimeInfo.a2uiEnabled &&
       !hasCatalog &&
       !this.#warnedMissingA2UICatalog
     ) {
@@ -632,7 +632,7 @@ export class CopilotKit {
 
   #isOpenGenerativeUIActive(): boolean {
     return ɵisOpenGenerativeUIActive({
-      runtimeEnabled: this.core.openGenerativeUIEnabled,
+      runtimeEnabled: this.core.ɵruntimeInfo.openGenerativeUIEnabled,
       configured: !!this.#config.openGenerativeUI,
     });
   }

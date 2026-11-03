@@ -40,9 +40,6 @@ vi.mock("../../lib/react-core", () => {
     get ɵruntimeInfo() {
       return settledInfo;
     }
-    get a2uiAgents() {
-      return undefined;
-    }
     // Inert subscriptions that NEVER call any handler.
     subscribe() {
       return { unsubscribe: () => {} };

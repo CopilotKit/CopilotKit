@@ -103,7 +103,12 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     runtimeConnectionStatus =
       CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     get ɵruntimeInfo() {
-      return { status: this.runtimeConnectionStatus };
+      return {
+        status: this.runtimeConnectionStatus,
+        a2uiEnabled: this.a2uiEnabled,
+        a2uiAgents: this.a2uiAgents,
+        openGenerativeUIEnabled: this.openGenerativeUIEnabled,
+      };
     }
     listener?: Parameters<typeof mockSubscribe>[0];
 

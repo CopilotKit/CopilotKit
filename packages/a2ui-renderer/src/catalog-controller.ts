@@ -10,7 +10,7 @@ export type A2UICatalogCore = Pick<
   CopilotKitCore,
   | "addContext"
   | "removeContext"
-  | "a2uiAgents"
+  | "ɵruntimeInfo"
   | "setCatalogComponents"
   | "isCatalogComponentEnabled"
   | "subscribe"
@@ -138,7 +138,7 @@ export class A2UICatalogController<C extends CatalogInterface<ComponentApi>> {
       this.#filtered ?? this.#defaultCatalog,
       {
         includeSchema: this.#state.includeSchema,
-        agentIds: this.#core.a2uiAgents,
+        agentIds: this.#core.ɵruntimeInfo.a2uiAgents,
       },
     );
     const key = JSON.stringify(entries);
