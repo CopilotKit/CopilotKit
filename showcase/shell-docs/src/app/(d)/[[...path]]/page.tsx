@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DExamples } from "@/proto/examples-d";
 import { DHome } from "@/proto/home-d";
+import { FrameworkLanding } from "@/proto/framework-landing";
 import { LiveArticle } from "@/proto/live-article";
 import { CatalogReferenceArticle } from "@/components/standard-catalog/catalog-reference-page";
 import {
@@ -11,7 +12,6 @@ import {
   catalogReferenceFromPath,
 } from "@/components/standard-catalog/catalog-reference";
 import { frontendFallback, resolveLivePage } from "@/lib/live-docs";
-import { liveFramework } from "@/lib/live-scope";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import {
   HOME_DESCRIPTION,
@@ -32,6 +32,9 @@ export default async function Page({ params }: PageProps<"/[[...path]]">) {
 
   // The live docs, ported from shell-docs, at their docs.copilotkit.ai URLs.
   const live = resolveLivePage(path);
+  if (live?.overview) {
+    return <FrameworkLanding {...live} overview={live.overview} />;
+  }
   if (live) return <LiveArticle {...live} url={`/${path.join("/")}`} />;
 
   // The standard catalog's per-component pages, generated from the catalog
@@ -39,14 +42,6 @@ export default async function Page({ params }: PageProps<"/[[...path]]">) {
   const catalog = catalogReferenceFromPath(path);
   if (catalog) return <CatalogReferenceArticle {...catalog} />;
 
-  // As on docs.copilotkit.ai, Intelligence opens on its overview.
-  if (path.length === 1 && path[0] === "intelligence") {
-    redirect("/intelligence/overview");
-  }
-  // A framework without a landing page of its own opens on its quickstart.
-  if (path.length === 1 && liveFramework(path[0])) {
-    redirect(`/${path[0]}/quickstart`);
-  }
   // A page only another frontend has opens this frontend's quickstart.
   const fallback = frontendFallback(path);
   if (fallback) redirect(fallback);
@@ -86,7 +81,13 @@ export async function generateMetadata({
   }
   // The page answers 404 (`not-found.tsx` sets its own title).
   if (!live) return { robots: { index: false } };
-  const { title, description } = live.page.data;
+  // A generated framework's landing: its record's name and tagline.
+  const { title, description } = live.overview
+    ? {
+        title: live.overview.frameworkName,
+        description: live.overview.subheader,
+      }
+    : live.page.data;
   // Canonical URL, Open Graph and Twitter cards, as shell-docs sets them.
   const seo = liveDocMetadata({ title, description, path: url });
   return {
