@@ -40,7 +40,7 @@
 
 import fs from "fs";
 import path from "path";
-import matter from "gray-matter";
+import { parseFrontmatter } from "./frontmatter";
 import {
   CONTENT_DIR,
   buildFrameworkNav,
@@ -365,7 +365,7 @@ function readSearchOverride(filePath: string): boolean | null {
   }
   let data: Record<string, unknown>;
   try {
-    data = matter(raw).data as Record<string, unknown>;
+    data = parseFrontmatter(raw).data as Record<string, unknown>;
   } catch {
     // A malformed frontmatter block is the content author's problem, not a
     // reason to crash the whole index build. Fall back to the default rules.

@@ -9,7 +9,7 @@
 
 import fs from "fs";
 import path from "path";
-import matter from "gray-matter";
+import { parseFrontmatter } from "./frontmatter";
 import { resolveWithinDir } from "./safe-fs";
 import { getDocsMode } from "./registry";
 import { isRouteGroupSegment } from "./route-groups";
@@ -2577,7 +2577,7 @@ export function loadDoc(
   let data: Record<string, unknown> = {};
   let parsed: { data: Record<string, unknown> } | null = null;
   try {
-    parsed = matter(source);
+    parsed = parseFrontmatter(source);
     data = parsed.data ?? {};
   } catch (err) {
     // Malformed YAML — don't crash the page, just render with an empty
