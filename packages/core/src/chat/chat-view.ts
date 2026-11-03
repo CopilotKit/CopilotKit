@@ -15,6 +15,8 @@ export interface ɵChatViewStateInput {
   welcomeScreenEnabled: boolean;
   /** The measured height of the input overlay, in px. */
   inputContainerHeight: number;
+  /** `false` when the app turned the connecting indicator off. Default `true`. */
+  connectingIndicatorEnabled?: boolean;
 }
 
 /**
@@ -27,6 +29,9 @@ export interface ɵChatViewStateInput {
  *   the app turned it off, the first connect is loading, or a caller picked
  *   the thread (a picked thread is never greeted generically, even when
  *   empty).
+ * - `showConnectingIndicator`: a loading indicator shows while the first
+ *   connect is loading and nothing is restored yet, so restoring a thread's
+ *   history does not render as an empty panel. The first message replaces it.
  * - `paddingBottom`: room under the messages for the input overlay, plus 4px
  *   with suggestions or 32px without.
  */
@@ -38,9 +43,14 @@ export function ɵgetChatViewState(input: ɵChatViewStateInput) {
     input.welcomeScreenEnabled &&
     !input.isConnecting &&
     !input.hasExplicitThreadId;
+  const showConnectingIndicator =
+    input.isConnecting &&
+    input.messageCount === 0 &&
+    input.connectingIndicatorEnabled !== false;
   return {
     hasSuggestions,
     showWelcomeScreen,
+    showConnectingIndicator,
     paddingBottom: input.inputContainerHeight + (hasSuggestions ? 4 : 32),
   };
 }

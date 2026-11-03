@@ -299,17 +299,22 @@ export function CopilotChatView({
   // Suggestions, the welcome screen and the bottom padding follow core's
   // rules (ɵgetChatViewState): no suggestions while connecting or running, no
   // generic welcome for a connecting or caller-picked thread.
-  const { hasSuggestions, showWelcomeScreen, paddingBottom } =
-    ɵgetChatViewState({
-      messageCount: messages.length,
-      suggestionCount: Array.isArray(suggestions) ? suggestions.length : 0,
-      isRunning,
-      isConnecting,
-      hasExplicitThreadId,
-      // Type assertion needed because TypeScript doesn't fully propagate `| boolean` through WithSlots
-      welcomeScreenEnabled: (welcomeScreen as unknown) !== false,
-      inputContainerHeight,
-    });
+  const {
+    hasSuggestions,
+    showWelcomeScreen,
+    showConnectingIndicator,
+    paddingBottom,
+  } = ɵgetChatViewState({
+    messageCount: messages.length,
+    suggestionCount: Array.isArray(suggestions) ? suggestions.length : 0,
+    isRunning,
+    isConnecting,
+    hasExplicitThreadId,
+    // Type assertion needed because TypeScript doesn't fully propagate `| boolean` through WithSlots
+    welcomeScreenEnabled: (welcomeScreen as unknown) !== false,
+    inputContainerHeight,
+    connectingIndicatorEnabled: connectingIndicator !== false,
+  });
   const BoundSuggestionView = hasSuggestions
     ? renderSlot(suggestionView, CopilotChatSuggestionView, {
         suggestions,
@@ -322,11 +327,11 @@ export function CopilotChatView({
   // Show a loading indicator while a thread's initial connect is in flight
   // and nothing has been restored yet. Once the first message arrives the
   // message view takes over, even if the bootstrap stream is still replaying.
-  const showConnectingIndicator =
-    isConnecting && messages.length === 0 && connectingIndicator !== false;
   const BoundConnectingIndicator = showConnectingIndicator
     ? renderSlot(
-        connectingIndicator === true ? undefined : connectingIndicator,
+        typeof connectingIndicator === "boolean"
+          ? undefined
+          : connectingIndicator,
         CopilotChatView.ConnectingIndicator,
         {},
       )

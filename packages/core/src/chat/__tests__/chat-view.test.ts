@@ -21,6 +21,7 @@ describe("ɵgetChatViewState", () => {
     expect(viewState()).toEqual({
       hasSuggestions: true,
       showWelcomeScreen: true,
+      showConnectingIndicator: false,
       paddingBottom: 104,
     });
   });
@@ -43,6 +44,24 @@ describe("ɵgetChatViewState", () => {
 
     expect(state.hasSuggestions).toBe(false);
     expect(state.paddingBottom).toBe(132);
+  });
+
+  it("shows the connecting indicator while an empty thread connects", () => {
+    expect(viewState({ isConnecting: true }).showConnectingIndicator).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    { name: "once a message arrives", overrides: { messageCount: 1 } },
+    {
+      name: "when turned off",
+      overrides: { connectingIndicatorEnabled: false },
+    },
+  ])("hides the connecting indicator $name", ({ overrides }) => {
+    expect(
+      viewState({ isConnecting: true, ...overrides }).showConnectingIndicator,
+    ).toBe(false);
   });
 });
 
