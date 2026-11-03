@@ -68,9 +68,10 @@ function useInterrupt<
 </PropertyReference>
 
 <PropertyReference name="agentId" type="string">
-  Optional agent id. Defaults to `"default"`. React Native's `CopilotChat` does
-  not pass its `agentId` to this hook, so set `agentId` when your chat uses
-  another agent.
+  Optional agent id. Defaults to the agent of the surrounding headless
+  `CopilotChat`, then `"default"`. `CopilotPopup`, `CopilotSidebar` and
+  `CopilotModal` from `@copilotkit/react-native` wrap a headless `CopilotChat`,
+  so a hook in their children gets their agent too.
 </PropertyReference>
 
   <PropertyReference name="renderInChat" type="boolean" default="true">

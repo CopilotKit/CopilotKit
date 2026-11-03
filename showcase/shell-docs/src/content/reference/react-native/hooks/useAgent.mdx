@@ -38,11 +38,10 @@ import { useAgent } from "@copilotkit/react-native/headless";
   Configuration object for the hook.
 
 <PropertyReference name="agentId" type="string" default='"default"'>
-  ID of the agent to retrieve. If omitted, the hook uses the `agentId` of a
-  surrounding `CopilotChatConfigurationProvider`, then `"default"`. The React
-  Native `CopilotKitProvider` and `CopilotChat` do not set an agent ID for this
-  hook. Pass `agentId` for any agent other than `"default"`, or read `agent`
-  from `useCopilotChatContext()` inside a `CopilotChat`.
+  ID of the agent to retrieve. If omitted, the hook uses the agent of the
+  surrounding headless `CopilotChat` or `CopilotChatConfigurationProvider`, then
+  `"default"`. The React Native `CopilotKitProvider` does not set an agent ID,
+  so outside a chat, pass `agentId` for any agent other than `"default"`.
 </PropertyReference>
 
   <PropertyReference name="threadId" type="string">
