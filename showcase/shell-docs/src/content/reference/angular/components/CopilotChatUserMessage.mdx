@@ -9,6 +9,8 @@ description: "Angular standalone component that renders a single user message wi
 
 The copy and edit buttons always render. The branch navigation control renders only when `numberOfBranches` is greater than 1.
 
+By default, [`CopilotChatMessageView`](/reference/angular/components/CopilotChatMessageView) renders this component for every user message.
+
 The component is standalone and uses `OnPush` change detection. Reactive inputs are Angular [signals](https://angular.dev/guide/signals).
 
 ## Usage
@@ -143,26 +145,3 @@ You can override any piece of the message by projecting a named template. A proj
   </ng-template>
 </copilot-chat-user-message>
 ```
-
-## Related
-
-<Cards>
-  <Card
-    title="CopilotChatMessageView"
-    description="Renders a list of messages, routing each to assistant, user, reasoning, or activity rendering."
-    href="/reference/angular/components/CopilotChatMessageView"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="CopilotChatAssistantMessage"
-    description="Renders a single assistant message with markdown content, a toolbar, and tool calls."
-    href="/reference/angular/components/CopilotChatAssistantMessage"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="CopilotChatView"
-    description="The full chat layout: scroll container, message view, and input."
-    href="/reference/angular/components/CopilotChatView"
-    icon={<LinkIcon />}
-  />
-</Cards>

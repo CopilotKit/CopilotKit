@@ -20,13 +20,13 @@ Use this when the agent's answer has to be about data your application holds rat
 user retypes into the chat. A queue, a selection, a cart, a filtered table: the page already has it,
 and `useAgentContext` is how the agent gets it.
 
-<Callout type="warn" title="ADK needs one line on the agent side">
+<Callout type="warn" title="ADK agents must put the context in the prompt">
     Unlike the [built-in agent](/built-in-agent/agent-app-context), an ADK agent does **not** receive
     this context automatically. The AG-UI adapter stores it in ADK session state under
     `CONTEXT_STATE_KEY` (`"_ag_ui_context"`) and stops there. Nothing puts it in the prompt.
 
     An `LlmAgent` built with a plain string `instruction` therefore never sees it. The agent still
-    answers, fluently and in the right shape, from nothing — which reads like a working integration
+    answers, fluently and in the right shape, from nothing. That reads like a working integration
     until you check the answer against your own records. Step 2 below is the step that connects them.
 </Callout>
 
@@ -124,25 +124,6 @@ and `useAgentContext` is how the agent gets it.
             use_in_memory_services=True,
         )
         ```
-
-        <Callout>
-            `ctx.state` is the form to reach for because it works on every `ag-ui-adk` version. On
-            `ag-ui-adk` 0.7.0 with `google-adk` 1.22.0 or later the adapter also copies the same
-            entries into `RunConfig.custom_metadata`, so
-            `ctx.run_config.custom_metadata["ag_ui_context"]` reads them too. Neither path puts them
-            in the prompt on its own — that is still the provider's job.
-        </Callout>
-
-        <Callout>
-            A provider is also the safer form for the braces. Under a string instruction ADK runs
-            `inject_session_state` over the text; its regex matches any `{...}` run, but substitutes
-            only when the contents are a valid state name. JSON such as `{"id": 1}` is therefore left
-            verbatim, while an identifier-shaped block — a `{status}` inside one of your context
-            values — is looked up in session state and raises `KeyError` when it is not there. A
-            provider reports `bypass_state_injection=True` from `canonical_instruction` (a string
-            reports `False`), so the rendered context is never scanned at all. Checked against
-            `google-adk` at the `>=1.28.1` floor `ag-ui-adk` 0.7.0 requires.
-        </Callout>
     </Step>
 
     <Step>
@@ -164,7 +145,7 @@ and `useAgentContext` is how the agent gets it.
     </Step>
 
     <Step>
-        ### Give it a try!
+        ### Give it a try
 
         Ask your agent a question about the context. It should be able to answer.
 
@@ -174,3 +155,5 @@ and `useAgentContext` is how the agent gets it.
         changed nothing, and the agent is answering from its own invention.
     </Step>
 </Steps>
+
+On `google-adk` 1.22.0 or later, `ctx.run_config.custom_metadata["ag_ui_context"]` holds the same entries.

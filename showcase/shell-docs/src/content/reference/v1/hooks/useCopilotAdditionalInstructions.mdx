@@ -1,6 +1,6 @@
 ---
 title: "useCopilotAdditionalInstructions"
-description: "The useCopilotAdditionalInstructions hook allows you to provide additional instructions to the agent."
+description: "The useCopilotAdditionalInstructions hook gives additional instructions to the agent."
 ---
 
 {
@@ -10,36 +10,39 @@ description: "The useCopilotAdditionalInstructions hook allows you to provide ad
   * packages/react-core/src/v1-deprecated/hooks/use-copilot-additional-instructions.ts
   */
 }
+<Callout type="info">
+  In v2, use [`useAgentContext`](/reference/v2/hooks/useAgentContext) from `@copilotkit/react-core/v2`.
+</Callout>
+
 `useCopilotAdditionalInstructions` is a React hook that provides additional instructions
 to the Copilot.
- 
+
 ## Usage
- 
+
 ### Simple Usage
- 
-In its most basic usage, useCopilotAdditionalInstructions accepts a single string argument
-representing the instructions to be added to the Copilot.
- 
+
+Pass the instructions in the `instructions` field of the options object.
+
 ```tsx
 import { useCopilotAdditionalInstructions } from "@copilotkit/react-core";
- 
+
 export function MyComponent() {
   useCopilotAdditionalInstructions({
     instructions: "Do not answer questions about the weather.",
   });
 }
 ```
- 
+
 ### Conditional Usage
- 
+
 You can also conditionally add instructions based on the state of your app.
- 
+
 ```tsx
 import { useCopilotAdditionalInstructions } from "@copilotkit/react-core";
- 
+
 export function MyComponent() {
   const [showInstructions, setShowInstructions] = useState(false);
- 
+
   useCopilotAdditionalInstructions({
     available: showInstructions ? "enabled" : "disabled",
     instructions: "Do not answer questions about the weather.",
@@ -51,16 +54,20 @@ export function MyComponent() {
 
 <PropertyReference name="instructions" type="string" required > 
 The instructions to be added to the Copilot. Will be added to the instructions like so:
- 
-  ```txt
-  You are a helpful assistant.
-  Additionally, follow these instructions:
-  - Do not answer questions about the weather.
-  - Do not answer questions about the stock market.
-  ```
+
+```txt
+You are a helpful assistant.
+Additionally, follow these instructions:
+- Do not answer questions about the weather.
+- Do not answer questions about the stock market.
+```
 </PropertyReference>
 
-<PropertyReference name="available" type="'enabled' | 'disabled'"  > 
+<PropertyReference name="available" type="'enabled' | 'disabled'"  default="'enabled'"> 
 Whether the instructions are available to the Copilot.
+</PropertyReference>
+
+<PropertyReference name="dependencies" type="any[]" > 
+Values that add the instructions again when they change.
 </PropertyReference>
 

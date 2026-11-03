@@ -1,20 +1,10 @@
 
-<Tabs groupId="lg-deployment-type" items={['Local (LangGraph Studio)', 'Self hosted (FastAPI)', 'LangGraph Platform']}>
+<Tabs groupId="lg-deployment-type" items={['Local (LangGraph Studio)', 'Self hosted (FastAPI)', 'LangSmith Deployment']}>
   <Tab value="Local (LangGraph Studio)">
     For local development, you can use the [LangGraph CLI](https://docs.langchain.com/langsmith/cli) to start a development server and LangGraph studio session.
 
     <Callout type="info">
       You will need a [LangSmith account](https://smith.langchain.com) to use this method.
-    </Callout>
-
-    <Callout type="warning">
-      **Python agents only**: If you encounter a "No checkpointer set" error, prefix your command with `LANGGRAPH_API=true`:
-
-      ```bash
-      LANGGRAPH_API=true langgraph dev --host localhost --port 8000
-      ```
-
-      This tells your agent to run without a custom checkpointer, relying on LangGraph's built-in state management instead.
     </Callout>
 
     ```bash
@@ -40,6 +30,10 @@
           - **With `langgraph dev`**: Set `LANGGRAPH_API=true` to disable custom checkpointer
           - **With local FastAPI**: Don't set this flag; uses MemorySaver automatically
           - **JavaScript agents**: Not affected by this issue
+
+          ```bash
+          LANGGRAPH_API=true langgraph dev --host localhost --port 8000
+          ```
         </Accordion>
     </Accordions>
 
@@ -91,24 +85,28 @@
         """Run the uvicorn server."""
         port = int(os.getenv("PORT", "8000"))
         uvicorn.run(
-            "sample_agent.demo:app", # the path to your FastAPI file, replace this if its different
+            "server:app", # the module path of this file and its FastAPI app
             host="0.0.0.0",
             port=port,
             reload=True,
         )
 
+    if __name__ == "__main__":
+        main()
     ```
+
+    3. Run `python server.py`. Your agent URL is `http://localhost:8000/your-agent-path`.
 
   </Tab>
 
-  <Tab value="LangGraph Platform">
-    For production, you can deploy to LangGraph Platform by following the official [LangGraph Platform deployment guide](https://docs.langchain.com/langsmith/cloud).
+  <Tab value="LangSmith Deployment">
+    For production, deploy to LangSmith Deployment with the [LangSmith deployment guide](https://docs.langchain.com/langsmith/cloud).
 
-    Come back with that URL and a LangSmith API key before proceeding.
+    After you deploy, copy the API URL of the deployment. You also need a LangSmith API key.
 
     <Callout type="info">
       A successful deployment will yield an API URL (often referred to here as "deployment URL").
-      In LangGraph Platform, it will look like this: `https://{project-identifiers}.langgraph.app`.
+      In LangSmith Deployment, it looks like this: `https://{project-identifiers}.langgraph.app`.
     </Callout>
 
   </Tab>

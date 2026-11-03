@@ -31,7 +31,7 @@ The bundle uses the same released Intelligence service images as the Helm chart.
 | `realtime-gateway` | 4401 | All paths on the realtime host, including WebSocket routes and `/health`. |
 | `embeddings` | 8080 | Private Cloud Map endpoint; no public route. |
 
-All four services run in private subnets with public IP assignment disabled. The embeddings service runs even when the deployment has no Memory entitlement; app API requires its provider configuration at startup. The composite image is not an ECS task in this bundle.
+All four services run in private subnets with public IP assignment disabled. The embeddings service runs even when the deployment has no User Memory entitlement; app API requires its provider configuration at startup. The composite image is not an ECS task in this bundle.
 
 The three stacks do not create your VPC, PostgreSQL, Redis, OIDC provider, certificate, KMS keys, secret values, or application DNS records.
 
@@ -53,9 +53,18 @@ Install AWS CLI v2, Bash, `jq`, `curl`, `tar`, and Python 3 on the deployment ma
 | Identity | An HTTPS OIDC issuer and client. Register `https://<uiHostName>/auth/callback/<authProviderId>` as the callback. The default provider ID is `enterprise-sso`. |
 | Encryption | Two distinct, enabled, customer-managed symmetric KMS keys in the deployment account and region: `kmsKeyArn` for logs and `secretKmsKeyArn` for secrets. Supply full key ARNs, not aliases. |
 
-The log key policy must allow the regional CloudWatch Logs service (`logs.<region>.amazonaws.com`) to use `kms:Encrypt`, `kms:Decrypt`, `kms:ReEncrypt*`, `kms:GenerateDataKey*`, and `kms:Describe*`, scoped to the encryption context for `/ecs/<deploymentName>/*`. The secret key policy must allow account IAM permissions so the task execution roles' `kms:Decrypt` grants take effect. The [reference environment](#evaluate-with-the-reference-environment)'s `substrate.yaml` contains both policies.
+The log key policy must allow the regional CloudWatch Logs service (`logs.<region>.amazonaws.com`) to use these actions: `kms:Encrypt`, `kms:Decrypt`, `kms:ReEncrypt*`, `kms:GenerateDataKey*`, and `kms:Describe*`. Scope the grant to the encryption context for `/ecs/<deploymentName>/*`. The secret key policy must allow account IAM permissions so the task execution roles' `kms:Decrypt` grants take effect. The [reference environment](#evaluate-with-the-reference-environment)'s `substrate.yaml` contains both policies.
 
-The configurator calls `sts:GetCallerIdentity`, EC2 describe APIs for the supplied VPC, subnets, routes, and security groups, `acm:DescribeCertificate`, `kms:DescribeKey`, and `secretsmanager:DescribeSecret`. If you configure object storage, it also needs `s3:GetBucketLocation`. It checks the OIDC discovery document over HTTPS. It does not read secret values or test database credentials.
+The configurator calls these read-only APIs:
+
+- `sts:GetCallerIdentity`
+- EC2 describe APIs for the supplied VPC, subnets, routes, and security groups
+- `acm:DescribeCertificate`
+- `kms:DescribeKey`
+- `secretsmanager:DescribeSecret`
+- `s3:GetBucketLocation`, only if you configure object storage
+
+The configurator also checks the OIDC discovery document over HTTPS. It does not read secret values or test database credentials.
 
 ### Secrets
 
@@ -82,7 +91,7 @@ For RDS, the service images include the CA bundle at `/etc/cpki/rds-ca/global-bu
 | `timescaleUrlSecretArn` | Restricted runtime TimescaleDB URL for analytics. |
 | `timescaleMigratorUrlSecretArn` | Schema-owner TimescaleDB URL for analytics migrations. |
 
-Analytics defaults to disabled. To enable it, set `analyticsEnabled` to `true` and supply **both** Timescale secret ARNs. The migration task receives the owner URL and the runtime URL; app API and realtime receive only the runtime URL. Both runtime services and the migration task must reach TimescaleDB.
+Product Analytics defaults to disabled. To enable it, set `analyticsEnabled` to `true` and supply **both** Timescale secret ARNs. The migration task receives the owner URL and the runtime URL; app API and realtime receive only the runtime URL. Both runtime services and the migration task must reach TimescaleDB.
 
 ### First-install organization access
 
@@ -295,7 +304,7 @@ Now follow **Quickstart: reference environment** in `README.md` from the extract
   Supply your own Route53 hosted zone and host names. Override the substrate's `WildcardDomain` parameter: its default is a CopilotKit domain. The certificate must cover the UI, realtime, and Keycloak hosts. The imported realm includes `demo` / `Passw0rd!`; use the reference environment for evaluation only. Production uses your own identity provider and managed resources.
 </Callout>
 
-The reference environment does not add a TimescaleDB instance. Leave analytics disabled unless you supply one and both analytics secret ARNs.
+The reference environment does not add a TimescaleDB instance. Leave Product Analytics disabled unless you supply one and both analytics secret ARNs.
 
 The reference realm also does not define organization claim mappings. Its demo login can verify OIDC, but project access still needs a supported claim from the IdP and the [bootstrap mapping](#first-install-organization-access) above.
 
@@ -339,7 +348,7 @@ Use ECS service events, stopped-task reasons, and `/ecs/<deploymentName>/...` Cl
 | Migration or bootstrap fails | The stopped task and its component log group. Services do not update until each required task exits zero. |
 | ALB health fails | `/api/health`, `/healthz`, or `/health` on the correct host; task access to PostgreSQL and Redis. |
 | OIDC redirect is rejected | The exact `https://<uiHostName>/auth/callback/<authProviderId>` registered at your IdP. |
-| Realtime discovery fails | Cloud Map records and runtime security-group rules for EPMD 4369 and BEAM distribution 9000–9010. |
+| Realtime discovery fails | Cloud Map records and runtime security-group rules for EPMD 4369 and BEAM distribution 9000 to 9010. |
 
 ### Remove the deployment
 

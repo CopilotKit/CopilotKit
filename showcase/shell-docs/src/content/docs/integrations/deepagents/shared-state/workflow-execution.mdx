@@ -1,5 +1,5 @@
 ---
-title: Workflow Execution
+title: State Inputs and Outputs
 icon: "lucide/Play"
 description: Decide which state properties are received and returned to the frontend
 ---
@@ -9,14 +9,14 @@ import AngularStateWorkflow from "@/snippets/shared/angular/shared-state-workflo
 
 ## What is this?
 
+<Callout type="info">
+This page is for an agent that you build as a custom LangGraph graph. `createDeepAgent` uses middleware with a single state schema, so it has no separate input and output schemas. If you build your agent with `createDeepAgent`, see [Reading agent state](/deepagents/shared-state/in-app-agent-read).
+</Callout>
+
 Not all state properties are relevant for frontend-backend sharing.
-This guide shows how to ensure only the right portion of state is communicated back and forth.
+This guide shows how to make sure only the right portion of state is communicated back and forth.
 
 This guide is based on [LangGraph's Input/Output Schema feature](https://docs.langchain.com/oss/python/langgraph/use-graph-api#define-input-and-output-schemas)
-
-<Callout type="info">
-This pattern uses **LangGraph's input/output schema split**, which applies when you're building a custom LangGraph graph. `createDeepAgent` uses middleware with a single state schema and doesn't expose separate input/output schemas. The Python example below shows the LangGraph custom-graph approach. For the Deep Agents TypeScript equivalent of "shared state between agent and frontend", see the [shared state guides](/deepagents/shared-state/in-app-agent-read).
-</Callout>
 
 ## When should I use this?
 
@@ -29,7 +29,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
   <Step>
       ### Examine our old state
       LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
-      let's assume that the state our agent should be using, can be described like this:
+      assume that the state our agent should be using, can be described like this:
       ```python title="agent.py"
       from copilotkit import CopilotKitState
 
@@ -41,13 +41,18 @@ In addition, some state properties contain a lot of information. Syncing them ba
   </Step>
   <Step>
     ### Divide state to Input and Output
-    Our example case lists several state properties, which with its own purpose:
-      - The question is being asked by the user, expecting the llm to answer
-      - The answer is what the LLM returns
-      - The resources list will be used by the LLM to answer the question, and should not be communicated to the user, or set by them.
+    The example state has three properties. Each property has its own purpose:
+      - `question`: the user asks it, and the LLM answers it.
+      - `answer`: the LLM returns it.
+      - `resources`: the LLM uses this list to answer the question. The user does not see or set it.
 
       ```python title="agent.py"
+      from typing import List
       from copilotkit import CopilotKitState
+      from langchain_core.messages import SystemMessage
+      from langchain_core.runnables import RunnableConfig
+      from langchain_openai import ChatOpenAI
+      from langgraph.graph import StateGraph, START, END
 
       # Divide the state to 3 parts
 
@@ -93,7 +98,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
 
       # finally, before compiling the graph, we define the 3 state components
-      builder = StateGraph(OverallState, input=InputState, output=OutputState)
+      builder = StateGraph(OverallState, input_schema=InputState, output_schema=OutputState)
 
       # add all the different nodes and edges and compile the graph
       builder.add_node("answer_node", answer_node)
@@ -103,7 +108,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
       ```
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
     Now that we know which state properties our agent emits, we can inspect the state and expect the following to happen:
     - While we are able to provide a question, we will not receive it back from the agent. If we are using it in our UI, we need to remember the UI is the source of truth for it
     - Answer will change once it's returned back from the agent

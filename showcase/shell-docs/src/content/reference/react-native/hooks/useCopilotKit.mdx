@@ -13,10 +13,11 @@ description: "Low-level React hook for accessing the CopilotKit context in React
 
 <Callout type="info">
   `useCopilotKit` is a low-level hook. Most applications should use higher-level
-  hooks like `useAgent` or `useFrontendTool` instead.
+  hooks like [`useAgent`](/reference/react-native/hooks/useAgent) or
+  [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool) instead.
 </Callout>
 
-**Throws an error** if used outside of a `CopilotKitProvider`.
+**Throws an error** if used outside of a [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider).
 
 ## Signature
 
@@ -48,7 +49,7 @@ This hook takes no parameters.
   </PropertyReference>
 
   <PropertyReference name="executingToolCallIds" type="ReadonlySet<string>">
-    Set of tool call IDs currently being executed. This is tracked at the provider level to ensure tool execution events are captured even before child components mount. This is important for scenarios like human-in-the-loop reconnection, where pending tool calls may already exist when the component tree mounts.
+    Set of tool call IDs currently being executed. This is tracked at the provider level so that tool execution events are captured even before child components mount. This is important for scenarios like human-in-the-loop reconnection, where pending tool calls may already exist when the component tree mounts.
   </PropertyReference>
 </PropertyReference>
 
@@ -254,11 +255,4 @@ function ToolExecutionIndicator() {
 - **Error on Missing Provider**: Throws an error if the hook is used outside of `CopilotKitProvider`.
 - **Runtime Status Subscription**: The hook subscribes to `onRuntimeConnectionStatusChanged` events, so components re-render when the runtime connection completes or fails.
 - **Stable Core Reference**: The `copilotkit` instance is created once per provider and remains stable across re-renders. Only the `executingToolCallIds` set changes as tool calls begin and complete.
-- **Provider-Level Tool Tracking**: `executingToolCallIds` is tracked at the provider level rather than in individual components. This ensures that tool execution start events fired before child components mount are not lost.
-
-## Related
-
-- [`useAgent`](/reference/react-native/hooks/useAgent): High-level hook for accessing agent instances
-- [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool): Register frontend tools that `runTool()` can execute
-- [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider): The provider component that creates the context
-- [React (V2) reference](/reference/v2/hooks/useCopilotKit): The web equivalent this page mirrors
+- **Provider-Level Tool Tracking**: `executingToolCallIds` is tracked at the provider level rather than in individual components. As a result, tool execution start events fired before child components mount are not lost.

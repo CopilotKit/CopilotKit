@@ -59,7 +59,11 @@ If you want to copy its earlier history, [import it first](/langgraph-python/thr
    }
    ```
 
-   Use your runtime's registered agent ID and your conversation's actual thread ID. This example uses the same UUID in both systems. If your backend maps IDs instead, reuse the saved mapping on every run. LangGraph Platform requires UUID thread IDs. Do not generate a new ID or mapping when you reopen the conversation.
+   Use your runtime's registered agent ID and your conversation's actual thread ID. This example uses the same UUID in both systems.
+
+   - LangGraph Platform requires UUID thread IDs.
+   - If your backend maps IDs, reuse the saved mapping on every run.
+   - Do not generate a new ID or mapping when you reopen the conversation.
 
 3. Send a message through your app to run the agent. That run creates the Intelligence record if needed and records the supported interaction data. Opening the chat alone does not create the record or import old history.
 4. Open your runtime's project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/) and find the thread by its ID. Make sure that it contains your new message and the agent's reply. On localhost, you can also find it in Inspector's Rich Threads pane.

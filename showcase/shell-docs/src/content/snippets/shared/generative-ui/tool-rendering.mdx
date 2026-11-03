@@ -11,24 +11,20 @@ import DefaultToolRendering from "@/snippets/shared/guides/default-tool-renderin
 />
 
 <Callout>
-  This example demonstrates the implementation section applied in the <a href={`https://feature-viewer.copilotkit.ai/${props.framework || "langgraph"}/feature/agentic_chat`} target="_blank">CopilotKit feature viewer</a>.
+  This example demonstrates the implementation section applied in the <a href={`https://feature-viewer.copilotkit.ai/${props.framework || "langgraph"}/feature/backend_tool_rendering`} target="_blank">CopilotKit feature viewer</a>.
 </Callout>
 
 ## What is this?
 
-Tools are a way for the LLM to call predefined, typically, deterministic functions. CopilotKit allows you to render these tools in the UI as a custom component, which we call **Generative UI**.
+A tool is a function that the LLM can call. Most tools are deterministic. With CopilotKit, you can render these tools in the UI as a custom component, which we call **Generative UI**.
 
 ## When should I use this?
 
-Rendering tools in the UI is useful when you want to provide the user with feedback about what your agent is doing, specifically when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+Rendering tools in the UI is useful when you want to provide the user with feedback about what your agent is doing, specifically when your agent is calling tools. With CopilotKit, you can fully customize how these tools are rendered in the chat.
 
 ## Render tool calls in your frontend
 
 Use the `useRenderTool` hook to render tool calls in the UI. The name must match the name of the tool defined in your agent.
-
-<Callout type="info" title="Important">
-In order to render a tool call in the UI, the name must match the name of the tool. [Learn more](/server-tools).
-</Callout>
 
 ```tsx title="app/page.tsx"
 import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
@@ -58,6 +54,56 @@ const YourMainContent = () => {
 }
 ```
 
+Ask the agent for the weather in a city. The chat shows "Calling weather API..." while the tool runs. Then it shows "Called the weather API for" and the city.
+
 ## Default Tool Rendering
 
 <DefaultToolRendering />
+
+## Grouping tool calls
+
+Agents often call several tools in a row. By default, CopilotKit collapses
+each series of calls rendered by the built-in card from `useDefaultRenderTool()` into
+one card that reads "Used 3 tools". While a call runs, the card names it
+("Running read_file src/app.ts"), and opening it shows a row per call. Calls
+rendered by your own renderers always show on their own and split the group
+around them, unless the renderer opts in with `group: true`:
+
+```tsx title="page.tsx"
+useDefaultRenderTool({ render: MyToolRow, group: true });
+```
+
+Pick how calls show with `toolCallDisplay` on the message view:
+
+```tsx title="page.tsx"
+// "grouped" (default) | "line" | "stacked" | "turn" | "separate"
+<CopilotChat messageView={{ toolCallDisplay: "line" }} />
+```
+
+| Display      | What the user sees                                                                        |
+| ------------ | ----------------------------------------------------------------------------------------- |
+| `"grouped"`  | One card per series of calls, collapsed to "Used 3 tools". Opens to a row per call.       |
+| `"line"`     | The same grouping as a quiet line of text, like "Thought for 4 seconds".                  |
+| `"stacked"`  | The latest call on top of a stack of the earlier ones. Opens into a card per call.        |
+| `"turn"`     | The agent works in the open, then everything before the reply folds into "Worked for 9s". |
+| `"separate"` | Every call gets its own card.                                                             |
+
+To compare the displays side by side, run the
+[Tool call display stories](https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/react/storybook/stories/ToolCallDisplay.stories.tsx)
+in the React Storybook. They play a scripted run through the real message view,
+with a control to switch `toolCallDisplay`.
+
+To restyle or replace the group, use the `group` slot of the tool-calls view
+(it applies to the grouped, line and stacked displays):
+
+```tsx title="page.tsx"
+// ToolTimeline: your component, given the group's `calls` and a `renderCall` function
+<CopilotChat
+  messageView={{
+    assistantMessage: { toolCallsView: { group: ToolTimeline } },
+  }}
+/>
+```
+
+See [`CopilotChatToolCallGroup`](/reference/components/CopilotChatToolCallGroup)
+for its props and an example replacement.

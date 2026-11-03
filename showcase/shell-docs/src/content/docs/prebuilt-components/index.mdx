@@ -18,69 +18,35 @@ snippet_cell: agentic-chat
 ## Pre-built components for agentic chat
 
 CopilotKit ships three prebuilt chat surfaces that connect directly to your
-agent: [**CopilotChat**](/prebuilt-components/chat),
-[**CopilotSidebar**](/prebuilt-components/sidebar), and
-[**CopilotPopup**](/prebuilt-components/popup). Each is a wrapper around the
-same primitives with a different layout. Pick the one that fits your app; they
-all handle streaming, generative UI, and deep customization.
-
-If your chat surface needs saved conversations, history, or thread switching, drop in the [**Threads Drawer**](/prebuilt-components/copilot-threads-drawer) next to any of them — or build your own switcher with [Headless Threads](/headless-threads).
-
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-chat-ui.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>
+agent. They all handle streaming, generative UI, and deep customization.
+[Pick a surface](#pick-a-surface) below.
 
 ## The customization ladder
 
 One of CopilotKit's design principles is that **you should never have to throw the prebuilt UI away** to get the look you want. Start at the top of this ladder and step down only when you need more control.
 
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
-  <a href="/prebuilt-components/chat" className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-5 no-underline hover:border-[var(--accent)] hover:shadow-sm transition">
-    <div className="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-1">Level 1 · Easiest</div>
-    <div className="text-[var(--text)] font-semibold mb-2">Drop in as-is</div>
-    <div className="text-sm text-[var(--text-secondary)]">
-      Render `<CopilotChat>`, `<CopilotSidebar>`, or `<CopilotPopup>` and ship.
-      Streaming, tool calls, generative UI, and suggestions, all wired up.
-    </div>
-  </a>
+<Cards>
+  <Card title="Level 1: Drop in as-is" href="/prebuilt-components/chat">
+    Render `<CopilotChat>`, `<CopilotSidebar>`, or `<CopilotPopup>` and ship.
+    Streaming, tool calls, generative UI, and suggestions, all wired up.
+  </Card>
+  <Card title="Level 2: Customize with CSS" href="/custom-look-and-feel/css">
+    Override the design tokens (`--primary`, `--background`, and more) or
+    target `.copilotKit...` classes. Keep every feature, change every color.
+  </Card>
+  <Card title="Level 3: Customize via slots (subcomponents)" href="/custom-look-and-feel/slots">
+    Swap the welcome screen, message bubble, composer, disclaimer, header,
+    or toggle button with your own React component. Slots can contain slots,
+    so you can replace a part at any depth.
+  </Card>
+  <Card title="Level 4: Go fully headless" href="/custom-look-and-feel/headless-ui">
+    Compose your own chat from the low-level hooks (`useAgent`,
+    `useCopilotKit`, `useRenderToolCall`). Any layout, any design system, or
+    even non-chat surfaces.
+  </Card>
+</Cards>
 
-  <a href="/custom-look-and-feel/css" className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-5 no-underline hover:border-[var(--accent)] hover:shadow-sm transition">
-    <div className="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-1">Level 2 · Re-skin</div>
-    <div className="text-[var(--text)] font-semibold mb-2">Customize with CSS</div>
-    <div className="text-sm text-[var(--text-secondary)]">
-      Override theme tokens (`--copilot-kit-primary-color`, etc.) or target
-      `.copilotKit...` classes. Keep every feature, change every color.
-    </div>
-  </a>
-
-  <a href="/custom-look-and-feel/slots" className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-5 no-underline hover:border-[var(--accent)] hover:shadow-sm transition">
-    <div className="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-1">Level 3 · Recompose</div>
-    <div className="text-[var(--text)] font-semibold mb-2">Customize via slots (subcomponents)</div>
-    <div className="text-sm text-[var(--text-secondary)]">
-      Swap the welcome screen, message bubble, composer, disclaimer, header,
-      or toggle button with your own React component. Recursive; drill down
-      as deep as you want.
-    </div>
-  </a>
-
-  <a href="/custom-look-and-feel/headless-ui" className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-5 no-underline hover:border-[var(--accent)] hover:shadow-sm transition">
-    <div className="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-1">Level 4 · Full control</div>
-    <div className="text-[var(--text)] font-semibold mb-2">Go fully headless</div>
-    <div className="text-sm text-[var(--text-secondary)]">
-      Compose your own chat from the low-level hooks (`useAgent`,
-      `useCopilotKit`, `useRenderToolCall`). Any layout, any design system, or
-      even non-chat surfaces.
-    </div>
-  </a>
-</div>
-
-Everything below Level 1 is incremental: you can freely mix CSS variables, a custom welcome slot, and headless tool-call renderers in the same app. Nothing forces you to throw work away as your needs grow.
+Everything below Level 1 is incremental: you can freely mix CSS variables, a custom welcome slot, and headless tool-call renderers in the same app.
 
 ## Drop-in chat in a few lines
 
@@ -90,11 +56,15 @@ the agent registry. Everything else is optional configuration:
 
 <Snippet region="provider-setup" title="frontend/src/app/page.tsx: provider + chat" />
 
+The `Chat` component renders `<CopilotChat>`. `useAgenticChatSuggestions` comes from the next section:
+
+<Snippet region="chat-component" title="frontend/src/app/page.tsx: the Chat component" />
+
 ## Starter suggestions
 
 `useConfigureSuggestions` lets you seed the chat with contextual
-prompts the moment a user arrives. The example below uses a single
-"Write a sonnet" suggestion:
+prompts the moment a user arrives. The example below adds three
+starter suggestions:
 
 <Snippet region="configure-suggestions" title="frontend/src/app/page.tsx: suggestions" />
 
@@ -107,8 +77,9 @@ Each surface is a drop-in component with the same underlying primitives, differi
 - [`<CopilotPopup>`](/prebuilt-components/popup): floating bubble that overlays your page content.
 
 Add a conversation-history sidebar next to any of these with
-[Threads Drawer](/prebuilt-components/copilot-threads-drawer) — a
-drop-in thread switcher with no active-thread wiring.
+[Threads Drawer](/prebuilt-components/copilot-threads-drawer), a
+drop-in thread switcher with no active-thread wiring. To build your own
+switcher, use [Headless Threads](/headless-threads).
 
 Need to open/close the chat from your own button, or capture thumbs-up/down
 feedback? See [Open, close, and feedback](/prebuilt-components/chat-controls).

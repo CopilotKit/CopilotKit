@@ -10,7 +10,7 @@ collapsible `CopilotChatReasoningMessage` card.
 
 ## Default Behavior
 
-When reasoning events arrive, the built-in Vue card:
+When reasoning events arrive, the reasoning card:
 
 - Shows **Thinking…** with a pulsating indicator while reasoning is active.
 - Expands automatically while the latest reasoning message streams.
@@ -23,8 +23,8 @@ messages, the default message view renders them.
 
 ## Customizing the Reasoning Message
 
-Compose a custom reasoning leaf in the `reasoning-message` slot of
-`CopilotChatMessageView`. The leaf itself provides scoped `header`,
+Put `CopilotChatReasoningMessage` in the `reasoning-message` slot of
+`CopilotChatMessageView`. The reasoning card provides scoped `header`,
 `content-view`, `toggle`, and `layout` slots.
 
 | Sub-component | Vue slot | Description |
@@ -103,14 +103,11 @@ correct but the body needs a different presentation:
 </CopilotChatReasoningMessage>
 ```
 
-The Vue slot uses `content` for the raw string; React's `children` prop is not
-part of this API.
-
 ## Fully Custom Reasoning Message
 
-For complete control, replace `reasoning-message` without composing the
-built-in leaf. The slot receives the same top-level state as the default
-component:
+For complete control, replace `reasoning-message` without composing
+`CopilotChatReasoningMessage`. The slot receives the same top-level state as
+the reasoning card:
 
 | Prop | Type | Description |
 | --- | --- | --- |
@@ -130,13 +127,12 @@ component:
 ```
 
 This replacement owns expansion, Markdown rendering, duration labels, and
-accessibility; none of the built-in card behavior is retained automatically.
+accessibility. None of the reasoning card behavior is retained automatically.
 
 ## Layout Slot
 
-Vue does not use React's render-prop children pattern. The built-in reasoning
-leaf exposes a `layout` scoped slot with the message plus structured
-`header`, `contentView`, and `toggle` state:
+`CopilotChatReasoningMessage` exposes a `layout` scoped slot with the
+message plus structured `header`, `contentView`, and `toggle` state:
 
 ```vue
 <CopilotChatReasoningMessage

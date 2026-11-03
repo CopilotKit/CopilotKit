@@ -20,7 +20,7 @@ Keep your existing thread storage and native persistence configured. Intelligenc
 
 You are done when Inspector shows that Intelligence is connected and shows your first saved thread. A React Native app has no Inspector. Confirm the thread in the cloud-hosted project instead.
 
-TypeScript is the default and most fully featured runtime. It can run with or without Intelligence. Python, Go, Ruby, and C#/.NET runtimes require Intelligence, either cloud-hosted or self-hosted. Pick the language of your **runtime server** below; your agent framework and frontend stay the same.
+TypeScript is the default runtime. It can run with or without Intelligence. Python, Go, Ruby, and C#/.NET runtimes require Intelligence, either cloud-hosted or self-hosted. Pick the language of your **runtime server** below; your agent framework and frontend stay the same.
 
 ## Start with your coding agent
 
@@ -101,7 +101,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
     If no trusted user identity exists, add authentication before you continue. A fixed identity is suitable only for a local, single-user demo.
 
     <Callout type="warn" title="Protect every Runtime route before production">
-      `identifyUser` names the caller, but it is not an authentication gate. Use the handler's `onRequest` hook to reject unauthenticated requests. You must also enforce thread ownership for `threads/events`, `threads/state`, and `agent/stop`. Follow the [thread authorization guide](/auth#thread-authorization) for the complete pattern.
+      `identifyUser` names the caller, but it is not an authentication gate. Use the handler's `onRequest` hook to reject unauthenticated requests. The runtime checks thread ownership on every thread route, including `threads/events`, `threads/state`, and `agent/stop`, with the user that `identifyUser` returns. Follow the [thread authorization guide](/auth#thread-authorization) for the `onRequest` pattern.
     </Callout>
 
     A web runtime requires `identifyUser`. A Channels-only runtime has no web surface. Pass a non-empty `channels` array instead.
@@ -175,7 +175,12 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
 
     Point your frontend provider at the runtime base path. Use `/api/copilotkit` if your frontend proxies that path to the runtime. For a separate local server, use `http://localhost:8200/api/copilotkit` and allow your frontend's exact origin in the runtime's CORS configuration.
 
-    Keep your existing application authentication headers or session. The examples below connect to a TypeScript runtime. For a Python, Go, Ruby, or C#/.NET runtime from the tabs above, use `http://localhost:8200/api/copilotkit` and uncomment the `headers` line. Those native examples use a local application token: `Authorization: Bearer <APP_AUTH_TOKEN>`. This is a development token you set yourself, **not** `CPK_INTELLIGENCE_API_KEY`. Replace `<APP_AUTH_TOKEN>` with the same local token you configured on the server, and replace the local scheme with your application's authentication before deployment.
+    Keep your existing application authentication headers or session. The examples below connect to a TypeScript runtime. For a Python, Go, Ruby, or C#/.NET runtime from the tabs above:
+
+    1. Set the runtime URL to `http://localhost:8200/api/copilotkit`.
+    2. Uncomment the `headers` line. It sends a local application token: `Authorization: Bearer <APP_AUTH_TOKEN>`.
+    3. Replace `<APP_AUTH_TOKEN>` with the same local token you configured on the server. This development token is **not** `CPK_INTELLIGENCE_API_KEY`.
+    4. Before deployment, replace the local token scheme with your application's authentication.
 
     <FrontendOnly frontend="react">
       Set `useSingleEndpoint={false}` for the multi-route servers above. If you kept an existing TypeScript single-route server, keep `useSingleEndpoint={true}` instead.
@@ -284,7 +289,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
       3. Open **Rich Threads** in Inspector. Your new thread must appear in the list.
       4. Open the thread. Make sure that **Messages** contains the message that you sent.
 
-      If Home does not show **Intelligence connected**, or Threads is locked, the setup is incomplete. Follow the action shown in Inspector or review the [Inspector setup states](/inspector#project-context-and-usage).
+      If Home does not show **Intelligence connected**, or Threads is locked, the setup is incomplete. Follow the action shown in Inspector or review the [Inspector setup states](/inspector#enable-or-repair-intelligence).
     </FrontendOnly>
 
     <FrontendOnly frontend="vue">
@@ -295,7 +300,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
       3. Open **Rich Threads** in Inspector. Your new thread must appear in the list.
       4. Open the thread. Make sure that **Messages** contains the message that you sent.
 
-      If Home does not show **Intelligence connected**, or Threads is locked, the setup is incomplete. Follow the action shown in Inspector or review the [Inspector setup states](/inspector#project-context-and-usage).
+      If Home does not show **Intelligence connected**, or Threads is locked, the setup is incomplete. Follow the action shown in Inspector or review the [Inspector setup states](/inspector#enable-or-repair-intelligence).
     </FrontendOnly>
 
     <FrontendOnly frontend="angular">
@@ -306,7 +311,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
       3. Open **Rich Threads** in Inspector. Your new thread must appear in the list.
       4. Open the thread. Make sure that **Messages** contains the message that you sent.
 
-      If Home does not show **Intelligence connected**, or Threads is locked, the setup is incomplete. Follow the action shown in Inspector or review the [Inspector setup states](/inspector#project-context-and-usage).
+      If Home does not show **Intelligence connected**, or Threads is locked, the setup is incomplete. Follow the action shown in Inspector or review the [Inspector setup states](/inspector#enable-or-repair-intelligence).
     </FrontendOnly>
 
     <FrontendOnly frontend="react-native">
@@ -399,13 +404,13 @@ Install steps are on [Self-host on Kubernetes](/intelligence/self-hosting) and [
     In TypeScript, check that `intelligence` was passed to `CopilotRuntime`; otherwise it stays in SSE mode. The other runtimes have no SSE-only fallback. Check their server diagnostics and Intelligence endpoint settings.
   </Accordion>
   <Accordion title="An auth error on the first request">
-    `CPK_INTELLIGENCE_API_KEY` is empty, or it belongs to another project.
+    `CPK_INTELLIGENCE_API_KEY` is empty, or it belongs to another project. Copy the key from the `.env` that `project select` wrote into the environment of the runtime process. Then restart the runtime.
   </Accordion>
   <Accordion title="The socket stays on connecting, then reports that it did not settle in time">
     Check every endpoint in the self-hosted settings above. The realtime host differs from the API host. Native runtimes need separate `/runner` and `/client` URLs; TypeScript uses the bare `wsUrl`.
   </Accordion>
   <Accordion title="Request logs show /api/api/...">
-    `apiUrl` included an `/api` suffix.
+    `apiUrl` included an `/api` suffix. Remove `/api` from `apiUrl`.
   </Accordion>
   <Accordion title="A type error or a throw that names runner">
     This is a TypeScript configuration error: `runner` and `intelligence` are both set. Intelligence wires its own runner.

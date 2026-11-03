@@ -32,3 +32,5 @@ All tool messages are now emitted by default, so you don't need to manually call
 2. Optionally, remove manual `copilotkit_customize_config` calls when you want to emit tool calls.
 
 3. If you want to hide tool calls or messages from the chat, use `copilotkit_customize_config` and set `emit_tool_calls` or `emit_messages` to `False`. Make sure to not return these messages in your nodes so they don't become part of the message history.
+
+Run your agent and send a message. The chat shows the messages that your nodes return, and the tool calls you hid do not appear.

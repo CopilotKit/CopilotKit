@@ -5,11 +5,11 @@ description: "Vue 3 composable for handling agent interrupt events and resuming 
 
 ## Overview
 
-`useInterrupt` is a Vue 3 composable for handling agent interrupts. It supports both the AG-UI standard interrupt flow and the legacy `on_interrupt` custom-event flow, then exposes the active interrupt as reactive state plus `resolve` and `cancel` methods for resuming execution.
+`useInterrupt` is a Vue 3 composable for handling agent interrupts. It supports both the AG-UI standard interrupt flow and the `on_interrupt` custom-event flow, then exposes the active interrupt as reactive state plus `resolve` and `cancel` methods for resuming execution.
 
 By default, the composable publishes its state into [`CopilotChat`](/reference/vue/components/CopilotChat) so you can render the interrupt through the chat's `#interrupt` slot. Set `renderInChat: false` if you want to place the UI yourself.
 
-`event.value` is typed by the `TValue` type parameter, which defaults to `unknown`. Narrow it in your `handler` and `enabled` callbacks, or pass an explicit `TValue` when you call the composable.
+For an `on_interrupt` custom event, `event.value` is the event value, typed by the `TValue` type parameter, which defaults to `unknown`. For a standard AG-UI interrupt, `event.value` is the first `Interrupt` object (`{ id, reason, message?, metadata? }`), the same object as `interrupt`. Read the agent's data from `interrupt.message` or `interrupt.metadata`. Narrow `event.value` in your `handler` and `enabled` callbacks, or pass an explicit `TValue` when you call the composable.
 
 <Callout type="info">
   `resolve` and `cancel` are the primary methods. `resolveInterrupt` and
@@ -40,14 +40,15 @@ function useInterrupt<TValue = unknown, TResult = never>(
 
     The callback receives:
 
-    - `event` — the interrupt event (`{ name, value }`). `value` is typed as
-      `TValue`.
-    - `interrupt` — the primary interrupt object when the standard AG-UI flow
+    - `event`: the interrupt event (`{ name, value }`). For an `on_interrupt`
+      custom event, `value` is the event value, typed as `TValue`. For a
+      standard AG-UI interrupt, `value` is the same object as `interrupt`.
+    - `interrupt`: the primary interrupt object when the standard AG-UI flow
       is active, otherwise `null`.
-    - `interrupts` — the full standard interrupt set, or `[]` for the legacy
-      flow.
-    - `resolve(response)` — resumes the agent.
-    - `cancel()` — cancels the current interrupt when the standard flow is
+    - `interrupts`: the full standard interrupt set, or `[]` for the
+      custom-event flow.
+    - `resolve(response)`: resumes the agent.
+    - `cancel()`: cancels the current interrupt when the standard flow is
       active.
   </PropertyReference>
 
@@ -58,7 +59,7 @@ function useInterrupt<TValue = unknown, TResult = never>(
   </PropertyReference>
 
   <PropertyReference name="agentId" type="string">
-    Optional agent id. Defaults to the currently configured chat agent.
+    Optional agent id. Defaults to the agent that [`useAgent`](/reference/vue/hooks/useAgent) resolves for the current chat.
   </PropertyReference>
 
   <PropertyReference name="renderInChat" type="boolean" default="true">
@@ -94,7 +95,7 @@ function useInterrupt<TValue = unknown, TResult = never>(
   <PropertyReference name="resolve" type="InterruptResolveFn">
     Primary resume method.
 
-    - Legacy flow: resumes with `command.resume = payload` and forwards the
+    - Custom-event flow: resumes with `command.resume = payload` and forwards the
       originating interrupt event.
     - Standard flow: records the response for the addressed interrupt. When
       multiple interrupts are open, responses accumulate and the agent resumes
@@ -114,7 +115,7 @@ function useInterrupt<TValue = unknown, TResult = never>(
       Multiple open interrupts accumulate responses until all are addressed.
       If you omit `interruptId` while more than one interrupt is open, the hook
       warns and defaults to the first one.
-    - Legacy flow: dismisses the interrupt without resuming.
+    - Custom-event flow: dismisses the interrupt without resuming.
   </PropertyReference>
 
   <PropertyReference name="cancelInterrupt" type="InterruptCancelFn">
@@ -145,9 +146,9 @@ useInterrupt<Approval>();
 
 <template>
   <CopilotChat>
-    <template #interrupt="{ event, resolve }">
+    <template #interrupt="{ event, interrupt, resolve }">
       <div class="rounded border p-3">
-        <p>{{ (event.value as Approval).question }}</p>
+        <p>{{ interrupt ? interrupt.message : (event.value as Approval).question }}</p>
         <div class="mt-2 flex gap-2">
           <button @click="resolve({ approved: true })">Approve</button>
           <button @click="resolve({ approved: false })">Reject</button>
@@ -169,7 +170,8 @@ const { interrupt, result, hasInterrupt, resolve } = useInterrupt<
   { label: string }
 >({
   renderInChat: false,
-  enabled: (event) => event.value.startsWith("approval:"),
+  enabled: (event) =>
+    typeof event.value === "string" && event.value.startsWith("approval:"),
   handler: async ({ event }) => ({ label: event.value.toUpperCase() }),
 });
 </script>
@@ -198,7 +200,7 @@ const { interrupt, hasInterrupt, result, cancel, resolve } = useInterrupt({
 
 ## Behavior
 
-- Interrupts are collected from AG-UI standard interrupt events and from legacy `on_interrupt` custom events.
+- Interrupts are collected from AG-UI standard interrupt events and from `on_interrupt` custom events.
 - Standard interrupts win if both flows appear for the same run.
 - The pending interrupt is surfaced when the run finalizes.
 - Starting a new run clears pending interrupt state, and a failed run discards the in-flight interrupt.
@@ -208,24 +210,4 @@ const { interrupt, hasInterrupt, result, cancel, resolve } = useInterrupt({
 - `result` is inferred from the `handler` return type and is always `TResult | null`.
 - When `enabled` returns `false`, the interrupt is ignored: `result` and `slotProps` stay `null` and nothing is published to chat.
 - With `renderInChat` omitted or `true`, `slotProps` is published into `<CopilotChat>` for the `#interrupt` slot. With `renderInChat: false`, no chat publishing occurs and you render from the returned refs.
-- `cancel()` on legacy interrupts just dismisses without resuming.
-
-## Related
-
-<Cards>
-  <Card
-    title="useAgent"
-    description="Access and subscribe to AG-UI agent instances and events."
-    href="/reference/vue/hooks/useAgent"
-  />
-  <Card
-    title="useFrontendTool"
-    description="Register a client-side tool with an optional renderer."
-    href="/reference/vue/hooks/useFrontendTool"
-  />
-  <Card
-    title="CopilotChat"
-    description="Chat component that renders interrupt UI via the #interrupt slot."
-    href="/reference/vue/components/CopilotChat"
-  />
-</Cards>
+- `cancel()` on custom-event interrupts just dismisses without resuming.

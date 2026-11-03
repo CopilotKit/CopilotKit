@@ -20,7 +20,8 @@ Before you begin, you'll need the following:
 
 - A Google Gemini API key
 - Node.js 20+
-- Python 3.9+
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/)
 - Your favorite package manager
 
 ## Getting started
@@ -56,8 +57,8 @@ Before you begin, you'll need the following:
                 The CLI walks you through:
 
                 - **Project name**
-                - **CopilotKit Intelligence** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard ADK setup.
-                - **Framework** — pick **ADK** when prompted.
+                - **CopilotKit Intelligence**: persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard ADK setup.
+                - **Framework**: pick **ADK** when prompted.
             </Step>
             <Step>
                 ### Install dependencies
@@ -108,9 +109,9 @@ Before you begin, you'll need the following:
                 This will start both the UI and agent servers concurrently.
             </Step>
             <Step>
-                ### 🎉 Start chatting!
+                ### Start chatting
 
-                Your AI agent is now ready to use! Navigate to `localhost:3000` and start prompting it:
+                Your AI agent is now ready to use. Navigate to `localhost:3000` and start prompting it:
 
                 ```
                 Set the theme to orange
@@ -280,8 +281,8 @@ Before you begin, you'll need the following:
 
                 <Callout type="info" title="Running without the Intelligence Platform?">
                   Drop the `intelligence` and `identifyUser` options and the runtime falls back
-                  to SSE mode with an in-memory runner. Chat still works, but Threads and the
-                  Inspector stay locked and the key is never read. See
+                  to SSE mode with an in-memory runner. Chat and the Inspector still work, but
+                  Rich Threads stay locked and the key is never read. See
                   [Connect your runtime to Intelligence](/intelligence/quickstart) for the
                   full constructor and how to confirm the key is in use.
                 </Callout>
@@ -305,8 +306,7 @@ Before you begin, you'll need the following:
                 }
                 ```
 
-                `app/layout.tsx` is a server component and cannot import the provider
-                directly, so it renders your client file instead:
+                Render `Providers` in `app/layout.tsx`:
 
                 ```tsx title="app/layout.tsx"
                 import { Providers } from "./providers"; // [!code highlight]
@@ -329,13 +329,7 @@ Before you begin, you'll need the following:
                 }
                 ```
 
-                <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
-                  `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
-                  same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
-                  server of its own and an absolute `runtimeUrl` such as
-                  `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
-                  `/angular` and `/react-native` each show that setup.
-                </Callout>
+                Not using Next.js? See [React SPA](/react-spa), [Vue](/vue), [Angular](/angular), or [React Native](/react-native).
             </Step>
             <Step>
               ### Add the chat interface
@@ -402,9 +396,9 @@ Before you begin, you'll need the following:
                 </Tabs>
             </Step>
             <Step>
-                ### 🎉 Start chatting!
+                ### Start chatting
 
-                Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
+                Your AI agent is now ready to use. Navigate to `localhost:3000` and try asking it some questions:
 
                 ```
                 Can you tell me a joke?

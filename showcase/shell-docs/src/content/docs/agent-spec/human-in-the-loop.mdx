@@ -29,22 +29,16 @@ description: Create frontend tools and use them within your Agent Spec AI agent 
 
 ## What is this?
 
-Frontend tools enable you to define client-side functions that your Agent Spec agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
-the logic runs on the client side, giving you direct access to the frontend environment.
+Some agent steps need a person to decide before the run continues, such as picking one of two options. A human-in-the-loop tool shows the choice in the chat and sends the answer back to the agent.
 
-This can be utilized to let [your agent control the UI](/frontend-tools), [generative UI](/frontend-tools), or for Human-in-the-loop interactions.
-
-In this guide, we cover the use of frontend tools for Human-in-the-loop.
+A human-in-the-loop tool is a frontend tool. Your Agent Spec agent can call a frontend tool, and the tool runs in the user's browser. You can also use frontend tools to let [your agent control the UI](/frontend-tools), or for [generative UI](/generative-ui).
 
 ## When should I use this?
 
-Use frontend tools when you need your agent to interact with client-side primitives such as:
+Use a human-in-the-loop tool when the agent must wait for the user:
 
-- Reading or modifying React component state
-- Accessing browser APIs like localStorage, sessionStorage, or cookies
-- Triggering UI updates or animations
-- Interacting with third-party frontend libraries
-- Performing actions that require the user's immediate browser context
+- Approve or reject an action, such as running a command
+- Pick one of several options
 
 ## Implementation
 
@@ -57,13 +51,11 @@ Use frontend tools when you need your agent to interact with client-side primiti
     <Step>
         ### Create a frontend human-in-the-loop tool
 
-        Frontend tools can be leveraged in a variety of ways. One of those ways is to have a human-in-the-loop flow where the response
-        of the tool is gated by a user's decision.
-
-        In this example we will simulate an "approval" flow for executing a command. First, use the `useHumanInTheLoop` hook to create a tool that
-        prompts the user for approval.
+        Use `useHumanInTheLoop` to register a tool that waits for the user's choice. This example asks the user to pick one of two options:
 
         ```tsx title="page.tsx"
+        import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+        import { z } from "zod";
 
         export function Page() {
           // ...
@@ -71,20 +63,10 @@ Use frontend tools when you need your agent to interact with client-side primiti
           useHumanInTheLoop({
             name: "offerOptions",
             description: "Give the user a choice between two options and have them select one.",
-            parameters: [
-              {
-                name: "option_1",
-                type: "string",
-                description: "The first option",
-                required: true,
-              },
-              {
-                name: "option_2",
-                type: "string",
-                description: "The second option",
-                required: true,
-              },
-            ],
+            parameters: z.object({
+              option_1: z.string().describe("The first option"),
+              option_2: z.string().describe("The second option"),
+            }),
             render: ({ args, respond }) => {
               if (!respond) return <></>;
               return (
@@ -104,10 +86,36 @@ Use frontend tools when you need your agent to interact with client-side primiti
     <Step>
         ### Set up your agent
 
-        Human-in-the-loop tools are enabled through the concept of `ClientTool` in Agent Spec. Refer to the [Frontend Tools guide](/frontend-tools) for more details. In short, in your Agent Spec config, you need to provide the tool declarations, but the execution happens client-side (in your frontend).
+        Human-in-the-loop tools are enabled through the concept of `ClientTool` in Agent Spec. Your Agent Spec config declares the tool, and the tool runs in your frontend. The agent only calls tools that the config declares, so declare a `ClientTool` with the same name and inputs as the frontend tool:
+
+        ```python title="agent.py"
+        from pyagentspec.agent import Agent
+        from pyagentspec.property import Property
+        from pyagentspec.tools import ClientTool
+
+        offer_options_tool = ClientTool(
+            name="offerOptions",
+            description="Give the user a choice between two options and have them select one.",
+            inputs=[
+                Property(
+                    title="option_1",
+                    json_schema={"title": "option_1", "type": "string", "description": "The first option"},
+                ),
+                Property(
+                    title="option_2",
+                    json_schema={"title": "option_2", "type": "string", "description": "The second option"},
+                ),
+            ],
+        )
+
+        agent = Agent(
+            # ... name, system_prompt, and llm_config for your agent
+            tools=[offer_options_tool],
+        )
+        ```
     </Step>
     <Step>
-        ### Try it out!
+        ### Try it out
 
         You've now given your agent the ability to show the user two options and have them select one. The agent will then be aware of the user's choice and can use it in subsequent steps.
 

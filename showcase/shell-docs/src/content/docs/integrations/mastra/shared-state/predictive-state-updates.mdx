@@ -21,7 +21,7 @@ import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 
 ## What is this?
 
-An agent's working memory usually surfaces to the UI once, when a run finishes. But a single run can take many seconds and write a lot of content — a drafted document, a plan, a summary — that the user would rather watch appear **as it is generated**.
+An agent's working memory usually surfaces to the UI once, when a run finishes. But a single run can take many seconds and write a lot of content (a drafted document, a plan, a summary) that the user would rather watch appear **as it is generated**.
 
 **Agent-native applications** reflect what the agent is doing to the end-user **as continuously as possible.** CopilotKit enables this for Mastra by streaming working-memory updates to the frontend token-by-token, so `agent.state` grows live during the run instead of jumping to the final value at the end.
 
@@ -31,11 +31,16 @@ Use this when you want to give the user real-time feedback about what your agent
 
 - **Keep users engaged** by avoiding long loading indicators
 - **Build trust** by showing the work as it is written
-- Enable **agent steering** — letting users react before the run completes
+- Enable **agent steering**, so users can react before the run completes
 
 ## How it works
 
-Mastra injects a built-in `updateWorkingMemory` tool whenever working memory is enabled. When the agent calls it during a run, CopilotKit's Mastra integration intercepts the tool call's **streaming arguments**, parses the growing payload, and emits an initial `STATE_SNAPSHOT` followed by incremental `STATE_DELTA` updates against the working-memory schema. The frontend's `useAgent` subscription re-renders on every delta.
+Mastra injects a built-in `updateWorkingMemory` tool whenever working memory is enabled. During a run:
+
+1. The agent calls `updateWorkingMemory`.
+2. The Mastra integration reads the **streaming arguments** of the tool call.
+3. It sends one `STATE_SNAPSHOT`, then a `STATE_DELTA` for each new part, against the working-memory schema.
+4. `useAgent` renders again on each delta.
 
 <Callout type="info" title="Important">
   This guide assumes you are embedding your Mastra agent inside Copilot Runtime, like so.
@@ -90,6 +95,17 @@ Mastra injects a built-in `updateWorkingMemory` tool whenever working memory is 
       }),
     });
     ```
+
+    Register the agent in your Mastra instance. The key (`streamingAgent`) is the `agentId` that the frontend uses.
+
+    ```ts title="mastra/index.ts"
+    import { Mastra } from "@mastra/core/mastra";
+    import { streamingAgent } from "./agents/streaming-agent";
+
+    export const mastra = new Mastra({
+      agents: { streamingAgent },
+    });
+    ```
   </Step>
   <Step>
     ### Observe the stream
@@ -117,7 +133,7 @@ Mastra injects a built-in `updateWorkingMemory` tool whenever working memory is 
     ```
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
     Ask the agent to write a poem, draft an email, or explain a topic. The document panel fills in token-by-token as the agent streams, and the run-end working-memory snapshot reconciles any drift.
   </Step>
 </Steps>
