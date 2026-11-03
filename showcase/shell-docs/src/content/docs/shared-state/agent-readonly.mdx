@@ -37,6 +37,8 @@ Reach for `useAgentContext` instead of full shared state when:
 
 Think of it as "props for the agent".
 
+If the agent must also write the value, use **[shared state](/shared-state)**. To stream agent-written state to the UI during a run, see [State streaming](/shared-state/streaming).
+
 ## How it works in code
 
 <FrameworkSetup concept="agent-context-setup" />
@@ -47,8 +49,9 @@ runtime that is:
 
 - Refreshed whenever `value` changes (React re-renders).
 - Automatically removed when the component unmounts.
-- Surfaced to the agent via the backend's `CopilotKitMiddleware`, which
-  threads the entries into the model's message history on every turn.
+- Sent to the agent with every run. The Built-in Agent adds each entry to
+  the system prompt. Python LangGraph agents need `CopilotKitMiddleware`
+  to add the entries.
 
 <Snippet region="use-agent-context-call" title="frontend/src/app/page.tsx — useAgentContext" />
 
@@ -67,20 +70,6 @@ provider, a router hook, and your domain state stores.
 
 <Snippet region="context-provider-sketch" title="frontend/src/app/page.tsx — sourcing context values" />
 
-## Read-only, by design
+## Try it
 
-Because the agent never sees a setter or a mutation tool for these
-values, there's no way for a confused LLM to "update" them. That
-makes `useAgentContext` the right tool whenever the value in question
-is an input, not a field: the "context object passed to the agent on
-every turn", rather than "shared workspace you both edit".
-
-When you need both reads *and* writes, you want full
-**[shared state](/shared-state)** instead.
-
-## Related
-
-- **[Shared State (overview)](/shared-state)** — bidirectional
-  reads + writes.
-- **[State streaming](/shared-state/streaming)** — stream
-  agent-written state back to the UI during a run.
+Ask the agent: "What is my name?" It answers with the value of `userName`. Change the name in your UI and ask again: the answer changes.

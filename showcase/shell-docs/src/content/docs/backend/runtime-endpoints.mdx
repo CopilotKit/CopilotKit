@@ -4,17 +4,18 @@ icon: "lucide/Network"
 description: "The HTTP routes exposed by the CopilotKit runtime for self-hosting, proxying, and debugging."
 ---
 
-When you mount the CopilotKit runtime with `createCopilotExpressHandler`,
-`createCopilotHonoHandler`, `copilotRuntimeNextJSAppRouterEndpoint`, or any of the
-other framework adapters, it serves a small set of HTTP routes under the
-`basePath` you choose, such as `/api/copilotkit`. Most applications never call
-these routes directly. The frontend proxy (`ProxiedCopilotRuntimeAgent`) calls
-them for you. When you self-host behind a reverse proxy, lock down auth, or debug
+When you mount the [CopilotKit runtime](/backend/copilot-runtime) with
+`createCopilotRuntimeHandler`, `createCopilotExpressHandler`,
+`createCopilotHonoHandler`, or any of the other framework adapters, it serves a
+small set of HTTP routes under the `basePath` you choose, such as
+`/api/copilotkit`. Most applications never call these routes directly. The
+frontend proxy (`ProxiedCopilotRuntimeAgent`) calls them for you. See
+[Connect AG-UI agents](/backend/ag-ui) for how the proxy maps onto these routes. When you self-host behind a reverse proxy, lock down auth, or debug
 a connection failure with `curl`, use this page to confirm what the runtime
 exposes.
 
 <Callout type="info" title="Other runtime languages">
-Python, Go, Ruby, and C#/.NET runtimes require Intelligence and serve multi-route endpoints. Use `useSingleEndpoint={false}` with the React provider; do not send a single-route envelope to those servers. The JavaScript handler factories, legacy endpoints, and optional TypeScript features below are specific to the TypeScript runtime. See the [Intelligence quickstart](/intelligence/quickstart#connect-your-runtime) for native server setup.
+Python, Go, Ruby, and C#/.NET runtimes require Intelligence and serve multi-route endpoints. Use `useSingleEndpoint={false}` with the React provider; do not send a single-route envelope to those servers. The JavaScript handler factories, deprecated v1 endpoints, and optional TypeScript features below are specific to the TypeScript runtime. See the [Intelligence quickstart](/intelligence/quickstart#connect-your-runtime) for native server setup.
 </Callout>
 
 ## Provider and handler pairs
@@ -29,29 +30,29 @@ mapping:
 
 | Provider                                 | `useSingleEndpoint` | Transport                          | Needs handler | Route file                      |
 | ---------------------------------------- | ------------------- | ---------------------------------- | ------------- | ------------------------------- |
-| `<CopilotKit>` or `<CopilotKitProvider>` | omitted             | `auto` — detected from the Runtime | either        | matches the handler             |
+| `<CopilotKit>` or `<CopilotKitProvider>` | omitted             | `auto`, detected from the Runtime  | either        | matches the handler             |
 | `<CopilotKit>` or `<CopilotKitProvider>` | `{true}`            | `single`                           | single-route  | `route.ts`, `POST`              |
 | `<CopilotKit>` or `<CopilotKitProvider>` | `{false}`           | `rest`                             | multi-route   | `[[...slug]]/route.ts`, 4 verbs |
 
 `<CopilotKit>` is a backward-compatible wrapper that renders
 `<CopilotKitProvider>` internally. Both are exported from
-`@copilotkit/react-core/v2`, and since 1.70.2 both treat an omitted
+`@copilotkit/react-core/v2`, and since 1.69.0 both treat an omitted
 `useSingleEndpoint` the same way: the transport is `auto`, so the client probes
 the Runtime and matches whichever mode it serves.
 
-<Callout type="warn" title="Pinning the wrong mode 404s silently">
-  Passing `useSingleEndpoint={true}` to a multi-route Runtime sends an envelope
-  that matches no route, so the Runtime 404s while `GET /info` still returns 200
-  and the app looks connected. The Runtime's error body names the fix.
+<Callout type="warn" title="Pinning the wrong mode 404s">
+  Passing `useSingleEndpoint={true}` to a multi-route Runtime posts an `info`
+  envelope that matches no route, so discovery fails with a 404. The Runtime's
+  error body names the fix.
 
-Before 1.70.2, `<CopilotKit>` pinned the flag to `true` internally, so omitting
+Before 1.69.0, `<CopilotKit>` pinned the flag to `true` internally, so omitting
 it selected the single-route transport and 404'd against a multi-route handler.
 On those versions, pass `useSingleEndpoint={false}` explicitly.
 
 </Callout>
 
 Both ship from the same package entry point, so moving between them is an import
-change, not a migration. One prop does get renamed: `<CopilotKit>` names the
+change, not a migration. One prop differs: `<CopilotKit>` names the
 agent with `agent`, and `<CopilotKitProvider>` names it with `agentId`.
 
 ```tsx
@@ -90,7 +91,10 @@ the transport from `/info`; set it to `true` for a single-route handler or
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Multi-route (default)        | `createCopilotRuntimeHandler`, `createCopilotHonoHandler`, `createCopilotExpressHandler`, `createCopilotNodeHandler`, `createCopilotNodeListener`                                       |
 | Single-route                 | Any of the above with `mode: "single-route"`                                                                                                                                            |
-| Single-route only, no option | `copilotRuntimeNextJSAppRouterEndpoint`, `copilotRuntimeNextJSPagesRouterEndpoint`, `copilotRuntimeNodeHttpEndpoint`, `copilotRuntimeNodeExpressEndpoint`, `copilotRuntimeNestEndpoint` |
+| Single-route only (deprecated v1) | `copilotRuntimeNextJSAppRouterEndpoint`, `copilotRuntimeNextJSPagesRouterEndpoint`, `copilotRuntimeNodeHttpEndpoint`, `copilotRuntimeNodeExpressEndpoint`, `copilotRuntimeNestEndpoint` |
+
+Replace the deprecated v1 wrappers with `createCopilotRuntimeHandler` from
+`@copilotkit/runtime/v2`.
 
 <Callout type="info" title="The framework wrappers support Intelligence resources">
   Every `copilotRuntime*Endpoint` wrapper builds its handler with
@@ -143,9 +147,13 @@ operation. Given a `basePath` of `/api/copilotkit`, the routes are:
   Debugging](/troubleshooting/error-debugging).
 </Callout>
 
-An Intelligence runtime also returns `runtimeEntitlements`. `ready` includes
-the normalized feature and limit values. `degraded`, `misconfigured`, and
-`unavailable` include a structured error with a code, message, and retry flag.
+An Intelligence runtime also returns `runtimeEntitlements`. Its `status` is one
+of these values:
+
+- `ready`: includes the normalized feature and limit values.
+- `degraded`, `misconfigured`, or `unavailable`: includes a structured error
+  with a code, message, and retry flag.
+
 The `/info` request still succeeds when entitlement lookup fails so core Runtime
 behavior can continue; features that need a proven entitlement stay off. If
 Intelligence rejects the project key with a `401`, the Runtime still returns
@@ -174,8 +182,9 @@ events:
 The client opens a websocket to `realtime.clientUrl` and joins the
 `realtime.topic` channel with the `joinToken`. The AG-UI events of the run
 arrive on that channel. `CopilotKitProvider` does this for you when runtime
-info reports Intelligence. The connect route returns the same body without
-`runId`, or `204` with no body when the platform returns no connection.
+info reports Intelligence. The connect route returns the same body. `runId` is
+present only when the thread has an active run. The connect route returns `204`
+with no body when the platform returns no connection.
 
 A direct `POST` to the run route, for example from `curl` or a test script,
 gets this JSON body and no events. To read the events of a thread without a
@@ -226,20 +235,18 @@ path.
 }
 ```
 
-Every module is optional and independent. `usage.expiringSoonCount` is an
-additive V1 leaf for deadlines in the next 24 hours: `0` is a known count, while
-absence means no trusted expiry count is available. Shared removes a malformed
-expiry leaf without removing valid `used`, `limit`, or sibling modules. Older
-V1 producers may omit the leaf, and older consumers may ignore it without a
-synchronized deployment.
+Every module is optional and independent. `usage.expiringSoonCount` counts
+deadlines in the next 24 hours. `0` means none. When the field is absent,
+no trusted expiry count is available.
 
 ```bash
 curl -i http://localhost:4000/api/copilotkit/inspector-metadata
 ```
 
 <Callout type="info">
-  The runtime uses its server-side Intelligence API key for the upstream
-  request. It does not forward browser headers or cookies to Intelligence, and
+  For the Inspector metadata request, `@copilotkit/core` sends the same
+  headers and fetch credentials as your other runtime requests. The runtime
+  uses its server-side Intelligence API key for the upstream request. It does not forward browser headers or cookies to Intelligence, and
   it does not expose provider error bodies to the browser. Auth headers and
   cookies can still protect the browser-to-runtime request like any other
   runtime route.
@@ -248,7 +255,8 @@ curl -i http://localhost:4000/api/copilotkit/inspector-metadata
 ### Thread routes
 
 The runtime also serves the conversation history behind the threads UI. These
-routes exist in multi-route mode whichever runner you use:
+routes exist in multi-route mode whichever
+[runner](/backend/agent-runner) you use:
 
 | Method & path | Purpose |
 |---|---|
@@ -256,7 +264,7 @@ routes exist in multi-route mode whichever runner you use:
 | `GET /api/copilotkit/threads/:threadId/messages` | That thread's full message history. |
 | `GET /api/copilotkit/threads/:threadId/events` | That thread's compacted AG-UI event stream. |
 | `GET /api/copilotkit/threads/:threadId/state` | That thread's last state snapshot. |
-| `POST /api/copilotkit/threads/clear` | Wipe the in-memory thread history. Always answers `204`, and clears nothing on a runner that keeps no local store. |
+| `POST /api/copilotkit/threads/clear` | Clear the caller's in-memory threads. Returns `403` without `identifyUser` unless `threads: { access: "open" }` is set. Returns `204` and clears nothing on a runner that keeps no local store. |
 | `PATCH` or `DELETE /api/copilotkit/threads/:threadId` | Rename or delete a thread. Intelligence only. |
 | `POST /api/copilotkit/threads/:threadId/archive` | Archive a thread. Intelligence only. |
 | `POST /api/copilotkit/threads/subscribe` | Subscribe to thread changes. Intelligence only. |
@@ -275,22 +283,23 @@ pass `limit` and the `cursor` from the previous response. Add
 `includeArchived=true` to include archived threads. Those three parameters
 apply only with Intelligence.
 
-<Callout type="warn" title="Thread routes are not authorized for you">
-On the default `InMemoryAgentRunner` — and on anything extending it, such as
-`AgentCoreRunner` — these routes read the runner's local store and resolve no
-user at all: any caller that reaches the route reads the thread it names, `GET
-/threads` lists every thread in the process, and `POST /threads/clear` wipes
-them all. A runner that keeps no local store, such as `SqliteAgentRunner`,
-answers the four read routes with a `422` instead.
+<Callout type="warn" title="Thread routes are scoped to a user only with `identifyUser`">
+On the default `InMemoryAgentRunner`, and on anything extending it, such as
+`AgentCoreRunner`, these routes read the runner's local store. Without
+`identifyUser`, a thread id works as a capability: any caller with the id can
+read, connect to, continue, and stop that thread. `GET /threads` and
+`POST /threads/clear` return `403` unless you pass
+`threads: { access: "open" }` to `CopilotRuntime`. With `identifyUser`, every
+route reaches only the caller's own threads. A runner that keeps no local
+store, such as `SqliteAgentRunner`, answers the four read routes with a `422`
+instead.
 
-An Intelligence runtime scopes **most** of them to the user your `identifyUser`
-returns, but not all: `threads/events`, `threads/state` and
-`POST /agent/:agentId/stop/:threadId` read the thread by id alone. Guard those
-three yourself even on the platform.
+An Intelligence runtime scopes every thread route and the stop route to the
+user that `identifyUser` returns.
 
 `:threadId` is chosen by the client on the run, so it is not a secret. If more
-than one person uses your deployment, authorize these routes yourself — see
-[Thread authorization](/auth#thread-authorization).
+than one person uses your deployment, pass `identifyUser`, or authorize these
+routes yourself. See [Thread authorization](/auth#thread-authorization).
 </Callout>
 
 ### Probing the runtime with curl
@@ -311,14 +320,17 @@ host/port.
 
 ## Enable AG-UI Streams routes
 
-If the Inspector shows the Rich Threads setup view, the client did not find the
-features used to list and inspect saved Threads. This view is based on Runtime
-Threads capability, not license metadata. Complete these steps so Runtime info
-advertises those features and the Inspector can load saved history.
+This section is for Intelligence users whose Inspector shows the **Rich
+Threads** setup view instead of saved threads. That view means Runtime info
+does not advertise the routes that list and inspect saved threads. The view
+depends on the Runtime's thread routes, not on license metadata. Complete
+these steps so the Inspector can load saved threads. To connect Intelligence
+from the start, follow the
+[Intelligence quickstart](/intelligence/quickstart#connect-your-runtime).
 
 ### Start with your coding agent
 
-Use this prompt to configure Intelligence and verify that your Runtime exposes AG-UI Streams.
+Use this prompt to configure Intelligence and verify that your Runtime exposes Intelligence's AG-UI streams.
 
 <RichThreadsSetupPrompt />
 
@@ -326,7 +338,7 @@ Use this prompt to configure Intelligence and verify that your Runtime exposes A
 <Step>
 ### Choose a Runtime route mode
 
-Single-route and multi-route handlers both expose AG-UI Streams. Use single-route
+Single-route and multi-route handlers both expose Intelligence's AG-UI streams. Use single-route
 when your server should expose only one `POST` endpoint:
 
 ```ts
@@ -390,13 +402,13 @@ consumes it.
 
 Keep the key server-side. It is a project API key, so it is a different
 credential from the browser-visible `NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY` used by
-the [Inspector](/inspector) — do not substitute one for the other.
+the [Inspector](/inspector). Do not substitute one for the other.
 
 `apiUrl` and `wsUrl` default to the cloud-hosted platform. The API and
 realtime planes are deployed to **different hosts**, so one cannot be derived
 from the other by swapping the scheme. Override them only for a self-hosted or
-non-production deployment, and override **both together** — setting one alone
-points the two planes at different deployments, which logs a warning:
+non-production deployment. Override **both together**. If you set only one,
+the two planes point at different deployments and the client logs a warning:
 
 ```ts
 const intelligence = new CopilotKitIntelligence({
@@ -411,7 +423,7 @@ const intelligence = new CopilotKitIntelligence({
 <Step>
 ### Identify the signed-in application user
 
-An Intelligence-backed web Runtime exposes Threads only when it can scope them
+An Intelligence-backed web Runtime exposes threads only when it can scope them
 to an application user. Add `identifyUser` and resolve the user from a
 server-verified session or token:
 
@@ -463,7 +475,7 @@ Restart the Runtime. For multi-route, request its info endpoint:
 curl -s http://localhost:4000/api/copilotkit/info
 ```
 
-An Intelligence-backed web Runtime that is ready for AG-UI Streams includes:
+An Intelligence-backed web Runtime that is ready for Intelligence's AG-UI streams includes:
 
 ```json
 {
@@ -500,8 +512,8 @@ The response advertises the resource bridge and its thread features:
 }
 ```
 
-Reload your app after this response is available. The Inspector will replace
-the setup state with the saved Threads list. Cloud-hosted and self-hosted
+Reload your app after this response is available. The Inspector replaces
+the setup state with the saved threads list. Cloud-hosted and self-hosted
 Intelligence use the same Runtime route setup.
 
 </Step>
@@ -514,7 +526,8 @@ reverse-proxy rule or an API gateway, pass `mode: "single-route"`. In that mode
 the runtime exposes one `POST {basePath}` endpoint that accepts a JSON envelope
 `{ method, params, body }` and dispatches internally to the same handlers:
 
-```ts title="app/api/copilotkit/route.ts (Express)"
+```ts title="server.ts (Express)"
+import express from "express";
 import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
 import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
 
@@ -522,6 +535,7 @@ const runtime = new CopilotRuntime({
   agents: { default: new BuiltInAgent({ model: "openai/gpt-6-luna" }) },
 });
 
+const app = express();
 app.use(
   createCopilotExpressHandler({
     runtime,
@@ -539,11 +553,10 @@ app.use(
   and Next.js apps install nothing.
 </Callout>
 
-<Callout type="warn" title="`basePath` is required, in both modes">
-  The Express and single-route handlers each throw at mount time when `basePath`
-  is missing — `basePath must be provided for Express endpoint` and `... for
-  single-route endpoint` respectively — so the server fails to start rather than
-  serving on the wrong paths. Give it the same path the route is mounted at.
+<Callout type="warn" title="`createCopilotExpressHandler` requires `basePath`">
+  `createCopilotExpressHandler` throws `basePath must be provided for Express
+  endpoint` at mount time when `basePath` is missing, so the server fails to
+  start. Give it the same path the route is mounted at.
 </Callout>
 
 <Callout type="warn" title="Keep every runtime import on `/v2`">
@@ -583,7 +596,7 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 The frontend transport must match the runtime mode. If the runtime is in
 single-route mode but the frontend is making multi-route requests (or vice
 versa), every call 404s. Omitting the prop avoids that by construction, since
-the client then probes for the mode the runtime actually serves — so pin
+the client then probes for the mode the runtime actually serves. Pin
 `useSingleEndpoint` only when you want to skip that probe.
 </Callout>
 </FrontendOnly>
@@ -626,8 +639,9 @@ and registered agents.
 
 The Express and Hono adapters apply permissive CORS by default
 (`origin: "*"`, all standard methods, all headers) so local development works out
-of the box. Pass `cors: false` to disable the built-in middleware and handle CORS
-yourself, or pass a configuration object to scope it for production:
+of the box. With Express, pass `cors: false` to disable the built-in middleware
+and handle CORS yourself, or pass a `cors` options object to scope it for
+production. With Hono, pass `cors: { origin, credentials }` to scope it:
 
 ```ts
 createCopilotExpressHandler({
@@ -702,10 +716,6 @@ See [Auth](/auth) for the full authentication guide and
 [Thread authorization](/auth#thread-authorization) for the ownership map this
 example assumes.
 
-For Inspector metadata, Core sends these current browser-to-runtime headers and
-fetch credentials on the optional request. The Runtime then starts a separate
-server-to-Intelligence request with only its configured Intelligence API key.
-
 ## Connect route 404 on a fresh thread
 
 A frequent self-hosting symptom is a `404` from the
@@ -718,13 +728,7 @@ has sent a single message. This usually means one of two things:
    `"default"`, so register one under that key (or pass an explicit `agentId`).
 2. **`connect()` is called before any `run()` for an auto-minted thread.** Some
    persistence backends only know about a thread once a run has produced events.
-   See the [AgentRunner](/backend/agent-runner) guide and the
+   In a custom runner, make `connect()` return an empty stream for a thread it
+   has never seen, as `InMemoryAgentRunner` does. See the
+   [AgentRunner](/backend/agent-runner) guide and the
    [`/connect` 404 troubleshooting entry](/troubleshooting/common-issues#connect-route-returns-404-on-a-fresh-thread).
-
-## Related
-
-- [Copilot Runtime](/backend/copilot-runtime): setting up the runtime and adapters.
-- [AgentRunner](/backend/agent-runner): the persistence abstraction behind `run`/`connect`/`stop`.
-- [Connect AG-UI agents](/backend/ag-ui): how the frontend proxy maps onto these routes.
-- [Error Debugging](/troubleshooting/error-debugging): the `onError` codes that map to these routes.
-- [Inspector](/inspector): how trusted project context and license-aware actions appear in the Inspector.

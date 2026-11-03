@@ -306,7 +306,15 @@ The `id` names the catalog. Use a versioned id, for example `acme/shop@1`.
 - A child reference inside the props schema: mark a prop with `child()` or `childList()` from `@copilotkit/react-core/v2/generative-ui` (in Angular, from `@copilotkit/angular/generative-ui`; on React Native, from `@copilotkit/react-native/generative-ui`; in Vue, from `@copilotkit/vue/v2/generative-ui`), anywhere in the schema, for example `tabs: z.array(z.object({ title: z.string(), child: child() }))`. The engine renders the referenced components and your component receives them in place of the ids, as React nodes, as Angular `GenerativeUIChildren` handles, or as Vue `VNode`s that you render with `<component :is>`. This is how A2UI 1.0 marks references (`ComponentId`, `ChildList`); `slots` stays for the plain top-level case. `child()` and `childList()` return zod 3 schemas, so write a schema that uses them with zod 3: a zod 4 `z.object` that holds one throws when the catalog module loads ("expected a Zod schema"). With zod `^3.25` installed, `import { z } from "zod"` is zod 3; with zod 4, import it from `"zod/v3"`. The React Native setup installs zod 3.
 - `events`, `bind`, and `writable`: actions, app state, and inputs. See [Connect app state and actions](/generative-ui/components/state-and-actions).
 
-Next to `id` and `component`, every component the agent writes may carry the A2UI 1.0 envelope: `catalogId` (must be the id of your UI), `metadata` (`{ "extensions": { ... } }`, kept for your own tooling) and `accessibility` (`label`, `description`, `live`, `hidden`; `label`, `description` and `hidden` may be bindings or function values). The engine resolves `accessibility` and keeps all three out of your props. `hidden` and `live` apply to every component: when the agent sends an `accessibility` envelope for a component, the engine wraps it in an element with `aria-hidden` and `aria-live`. A component sent without an envelope gets no wrapper. A `label` or a `description` needs an element with a role, so the standard components set them on their root or on their control. In your own component, call `useGenerativeUIAccessibility()` and spread the result on the root element, or bind the result of `injectGenerativeUIAccessibility()` to the host in Angular. In Vue, put `v-bind` with the result on the root element. On React Native, the wrapper is a real `View` that applies `hidden` and `live` (a live region is announced on Android only; on iOS, announce a change with `AccessibilityInfo.announceForAccessibility`). It never applies `label` or `description`: on iOS a label on a view that is not an accessibility element names nothing, and making the wrapper one would merge every control inside it. It cannot be made layout-transparent, and it becomes the flex item of the parent: a component sized or aligned against its parent (`flex` or `flexGrow` along the parent's main axis, `alignSelf` across it, or a percentage size) resolves against the wrapper instead, so it no longer fills the parent or lines up in it. That is why the `ProductCard` above has a fixed width. A component that needs that sizing declares `accessibility: "self"`, which removes the wrapper, and must then apply `hidden` and `live` itself: set `aria-hidden` and `aria-live` from `useGenerativeUIAccessibility()` on its root view (React Native 0.71+ reads them), or map them to `accessibilityElementsHidden`, `importantForAccessibility` and `accessibilityLiveRegion`. Spreading the whole result works on 0.71+, but it also passes `aria-description`, which React Native has no prop for and ignores. With or without the wrapper, a component that needs a name or a hint reads `aria-label` and `aria-description` from `useGenerativeUIAccessibility()` and sets them on a view of its own that is an accessibility element (`accessible`), for example as `accessibilityLabel` and `accessibilityHint`. A component that must not be wrapped (a table row or cell) declares `accessibility: "self"` and applies the attributes itself.
+Next to `id` and `component`, each component that the agent writes can carry the A2UI 1.0 envelope:
+
+- `catalogId`: the id of your UI. It must match.
+- `metadata`: `{ "extensions": { ... } }`, kept for your own tools.
+- `accessibility`: `label`, `description`, `live`, and `hidden`. `label`, `description`, and `hidden` can be bindings or function values.
+
+The engine resolves `accessibility` and keeps all three fields out of your props. `hidden` and `live` apply to every component: the engine wraps the component in an element with `aria-hidden` and `aria-live`. A `label` or a `description` needs an element with a role, so the standard components set them on their root or on their control.
+
+In your own component, call `useGenerativeUIAccessibility()` and spread the result on the root element. A component that must not be wrapped (a table row or cell) declares `accessibility: "self"` and applies the attributes itself.
 
 ## Type your components
 
@@ -385,7 +393,7 @@ Next to `id` and `component`, every component the agent writes may carry the A2U
   </Tab>
 </Tabs>
 
-These work: zod 3, zod 4.2 or later, ArkType, and Valibot with `@valibot/to-json-schema`. A schema that holds `child()` or `childList()` must be zod 3, as [above](#what-a-component-can-declare). The schema must validate synchronously, because props are checked while a surface renders.
+These work: zod 3.25 or later, zod 4.2 or later, ArkType, and Valibot with `@valibot/to-json-schema`. The schema must validate synchronously, because props are checked while a surface renders.
 
 ## Combine catalogs
 
@@ -444,6 +452,8 @@ A name can come from one catalog only. Two components named `Card` throw an erro
 
 ## Export the catalog for other A2UI tools
 
+This section and the next are for catalog authors who use the catalog with other A2UI tools or with A2UI Express. To add components to your app, skip to [What the agent sees](#what-the-agent-sees).
+
 `exportA2UICatalog(ui)` writes your UI as an A2UI 1.0 catalog definition (the `catalog_definition.json` shape), for a validator, another renderer or a prompt builder:
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
@@ -481,7 +491,30 @@ A name can come from one catalog only. Two components named `Card` throw an erro
   </Tab>
 </Tabs>
 
-Every component is an entry with `component` as a `const`, its model-set props, its events as `Action` references and its slots as `ComponentId` or `ChildList` references. A prop takes its literal schema, a `DataBinding` or a `FunctionCall`, because the renderer resolves dynamic values in any prop. Every function, built-in or declared, states `returnType` and `allowedCallers`; `calc` and `series` are listed like the others, so a reader without them knows what it cannot run.
+Each component in the export is an entry with:
+
+- `component` as a `const`.
+- The props that the model sets. A prop takes its literal schema, a `DataBinding`, or a `FunctionCall`, because the renderer resolves dynamic values in any prop.
+- Its events as `Action` references.
+- Its slots as `ComponentId` or `ChildList` references.
+
+Every function states `returnType` and `allowedCallers`, built-in or declared. The export also lists `calc` and `series`. A tool that does not have these two functions can see that it cannot run them.
+
+### Who may call a function
+
+A function declaration can carry the A2UI 1.0 interface fields. `allowedCallers` is `"rendererOnly"` (event bindings and prop values), `"agentOnly"` (`callRendererFunction`) or `"rendererOrAgent"`. `requiresUserActivation: true` limits a function to a user gesture, like `openUrl`, which makes it `rendererOnly`. `returnType` names what the handler gives back, with the A2UI names (`"string"`, `"number"`, `"boolean"`, `"array"`, `"object"`, `"validationResult"`, `"any"`, `"void"`).
+
+```ts
+functions: {
+  addToCart: { parameters: z.object({ productId: z.string() }), allowedCallers: "rendererOrAgent", returnType: "object" },
+  track: { parameters: z.object({ event: z.string() }), returnType: "void" },
+  reload: { parameters: z.object({}), allowedCallers: "agentOnly" },
+},
+```
+
+If you leave out `allowedCallers`, only the UI can call the function, as in A2UI 1.0. The manifest and the exported catalog always write the value out, so a 1.0 reader sees the same thing. An event cannot match an `"agentOnly"` function, and the built-in functions are value functions of the UI.
+
+In this version, the agent cannot call renderer functions, whatever `allowedCallers` says. The engine rejects a `callRendererFunction` operation, and the prompt does not mention it. A result goes back to the model as a developer message, and not every backend keeps that message where the model reads it in order. The declaration fields go into the catalog export.
 
 ## Positional parameter order
 
@@ -503,11 +536,21 @@ const ui = createGenerativeUI({
 });
 ```
 
-`exportA2UICatalog(ui)` emits `Panel.properties` in the order `component`, `title`, `children`, `color`. Express ignores the structural `component` discriminator, so the first positional argument is the title. `parameterOrder` is CopilotKit authoring/manifest metadata, **not an A2UI JSON Schema keyword**: the portable export applies it to the actual JSON property order.
+`exportA2UICatalog(ui)` emits `Panel.properties` in the order `component`, `title`, `children`, `color`. Express ignores the structural `component` discriminator, so the first positional argument is the title. The export does not contain a `parameterOrder` key. It writes the properties in that order.
 
-Names must be unique declared props, slots or events. An ordered component cannot declare canonical integer-index names (`"0"` through `"4294967294"`): JavaScript sorts those keys numerically before other keys regardless of the requested order. Unlisted names follow in their existing declaration order: props, then slots, then events. Bound props and matched events are omitted from the model-facing signature. Catalogs without `parameterOrder` retain their existing export order. `extends`, `omit` and `overrides` preserve the declared convention.
+The rules for `parameterOrder`:
+
+- Names must be unique declared props, slots, or events.
+- An ordered component cannot declare integer names (`"0"` through `"4294967294"`). JavaScript sorts those keys numerically before other keys, whatever the requested order.
+- Unlisted names follow in declaration order: props, then slots, then events.
+- Bound props and matched events are left out of the signature that the model sees.
+- `extends`, `omit`, and React-component `overrides` keep the declared order.
+
+A catalog without `parameterOrder` keeps its export order.
 
 Treat positional order as an API contract. Changing it can change the meaning of existing Express programs; named arguments keep their meaning. Keep short prefixes stable and use named arguments for optional styling. Preserve property order when serializing or transforming a catalog for Express.
+
+The standard catalog puts content, children, labels, values, and common actions before presentation parameters. For example, its short prefixes are `Text(text?, children?)`, `Column(children?)`, `Button(label?, onClick?)`, `TextField(label?, value?)`, and `Chart(data?, xKey?, series?, chartType?)`. Other component-specific fields follow, then shared layout and typography fields. CopilotKit chose this order. A2UI does not prescribe these signatures.
 
 ## What the agent sees
 

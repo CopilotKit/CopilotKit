@@ -1,6 +1,6 @@
 ---
 title: "Headless UI"
-description: "Build any UI — chat or not — on top of the CopilotKit primitives with zero UI opinions."
+description: "Build any UI (chat or not) on top of the CopilotKit primitives with zero UI opinions."
 icon: "lucide/Settings"
 snippet_cell: headless-complete
 ---
@@ -24,9 +24,9 @@ Use headless UI when:
 
 Three hooks power it, and they're the same ones `<CopilotChat>` uses internally.
 
-- `useAgent({ agentId })` — exposes the current conversation (`messages`, `isRunning`) and the run-state object.
-- `useCopilotKit()` — returns the runtime handle you call `runAgent({ agent })` on.
-- `useRenderToolCall()` — returns a function that paints any registered tool call inline.
+- `useAgent({ agentId })`: exposes the current conversation (`messages`, `isRunning`) and the run-state object.
+- `useCopilotKit()`: returns the runtime handle you call `runAgent({ agent })` on.
+- `useRenderToolCall()`: returns a function that renders any registered tool call inline.
 
 ## Minimal example
 
@@ -34,47 +34,45 @@ Start with a hand-rolled message list and composer built from `useAgent` + `useC
 
 <Snippet cell="headless-simple" region="use-agent-simple" title="frontend/src/app/page.tsx — useAgent + useCopilotKit" />
 
-The message list is a plain `.map()` over `agent.messages`: user messages render as right-aligned bubbles, assistant messages render streamed text plus inline tool calls via `renderToolCall({ toolCall })`:
+The message list is a plain `.map()` over the user and assistant text in `agent.messages`:
 
 <Snippet cell="headless-simple" region="message-list-simple" title="frontend/src/app/page.tsx — message list" />
 
-No `<CopilotChat />`, no slots. The trade-off: you only get text and tool calls. Reasoning messages, activity messages, and custom before/after slots won't show up unless you wire them in yourself, which is exactly what the complete example covers.
+This example does not use `<CopilotChat />` or slots. The trade-off: you only get text. Tool calls, activity messages, reasoning messages, and custom before/after slots do not show up unless you wire them in yourself. The complete example wires in tool calls and activity messages.
 
 ## Complete example
 
-The `headless-complete` cell rebuilds the **full** generative-UI composition from the low-level hooks directly, without importing `<CopilotChatMessageView>`: text, tool calls, reasoning cards, A2UI + MCP Apps activity messages, and custom before/after message slots.
+The complete example rebuilds the generative-UI composition from the low-level hooks directly, without importing `<CopilotChatMessageView>`: text, tool calls with their results, and A2UI and MCP Apps activity messages.
 
-### The `useRenderedMessages` hook
+### The `MessageList` component
 
-The cell's central piece is a hand-rolled `useRenderedMessages(messages, isRunning)` that returns the same flat list of messages, each augmented with a `renderedContent: ReactNode` field. This hook is a **manual recreation of what `<CopilotChatMessageView>` does**:
+The example's central piece is a `MessageList` component. It is a **manual recreation of what `<CopilotChatMessageView>` does**. `MessageList` calls `useRenderToolCall` and `useRenderActivityMessage`, and indexes tool results by `toolCallId`:
 
-<Snippet region="use-rendered-messages-hook" title="frontend/src/app/use-rendered-messages.tsx — composition hook" />
+<Snippet region="use-rendered-messages-hook" title="chat/message-list.tsx: hooks and tool-result index" />
 
-Three low-level hooks feed it:
+Two low-level hooks feed it:
 
-- `useRenderToolCall()` — returns the renderer for any registered tool call (per-tool via `useRenderTool` / `useComponent`, plus the wildcard from `useDefaultRenderTool`).
-- `useRenderActivityMessage()` — renders A2UI + MCP Apps activity messages for the current agent scope.
-- `useRenderCustomMessages()` — invokes `renderCustomMessage` hooks registered against the active `CopilotChatConfigurationProvider`, emitting `"before"` and `"after"` slots around every message.
+- `useRenderToolCall()`: returns the renderer for any registered tool call (per-tool via `useRenderTool` / `useComponent`, plus the wildcard from `useDefaultRenderTool`).
+- `useRenderActivityMessage()`: renders A2UI + MCP Apps activity messages for the current agent scope.
+
+To add custom before/after slots, also call `useRenderCustomMessages()`. It invokes the `renderCustomMessage` hooks registered against the active `CopilotChatConfigurationProvider`, and renders `"before"` and `"after"` slots around each message.
 
 ### Per-role dispatch
 
-The role-switch mirrors `CopilotChatMessageView`'s `renderMessageBlock` exactly: assistant bodies get text and tool calls, user bodies get their text content, reasoning messages go through the `<CopilotChatReasoningMessage>` leaf, and activity messages route through `renderActivityMessage`:
+The role-switch mirrors `CopilotChatMessageView`'s `renderMessageBlock`: assistant bodies get text and tool calls, user bodies get their text content, and activity messages route through `renderActivityMessage`:
 
-<Snippet region="manual-activity-message-rendering" title="frontend/src/app/use-rendered-messages.tsx — per-role dispatch" />
+<Snippet region="manual-activity-message-rendering" title="chat/message-list.tsx: per-role dispatch" />
 
 ### Tool-call composition
 
 For each `toolCall` on an assistant message, we look up the sibling `tool`-role message (keyed by `toolCallId`) and hand both to `renderToolCall`:
 
-<Snippet region="manual-tool-call-rendering" title="frontend/src/app/use-rendered-messages.tsx — assistant + tool calls" />
+<Snippet region="manual-tool-call-rendering" title="chat/message-list.tsx: assistant + tool calls" />
 
 ### Bubble chrome
 
-The `UserBubble` and `AssistantBubble` components are **pure chrome**: they receive the pre-rendered node from `useRenderedMessages` and drop it into a styled container. No chat primitives are imported here:
+The `UserBubble` and `AssistantBubble` components are **pure chrome**: they receive content from `MessageList` and drop it into a styled container. No chat primitives are imported here:
 
 <Snippet region="custom-bubbles" title="frontend/src/app/{user,assistant}-bubble.tsx — pure chrome" />
 
-## Next steps
-
-- [Slots](/custom-look-and-feel/slots) — less work than going fully headless, often enough.
-- [CSS customization](/custom-look-and-feel/css) — when you just need to re-skin the defaults.
+To check it, ask the agent for the weather in Tokyo, so that it calls a tool. Your own bubble shows the reply, and the tool card renders inside it.

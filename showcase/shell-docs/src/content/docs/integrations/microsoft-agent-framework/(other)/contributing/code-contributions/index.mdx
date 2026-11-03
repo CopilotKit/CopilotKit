@@ -2,9 +2,7 @@
 title: Code Contributions
 ---
 
-We are grateful for your interest in contributing to CopilotKit. We welcome new contributors and appreciate your help in making CopilotKit better.
-
-This guide will help you get started as smoothly as possible.
+Set up the CopilotKit monorepo, test a change, and open a pull request.
 
 ## Step 1: Install Prerequisites
 
@@ -37,7 +35,7 @@ This guide will help you get started as smoothly as possible.
   </Step>
   <Step>
   ### Build Packages
-  To make sure everything works, let's build all packages once:
+  To make sure everything works, build all packages once:
   ```bash
   pnpm run build
   ```
@@ -63,9 +61,7 @@ You can find all `@copilotkit/*` packages under the `packages` folder of the mon
 
 ## Step 4: Test Changes in Real-Time
 
-In most cases, you want to seamlessly be able to test your changes in real-time as you develop.
-
-We have an `examples` folder in the monorepo with a few different examples using CopilotKit. You can run these examples to test your changes, as they are linked to the `@copilotkit/*` packages in the monorepo.
+Run an example from the `examples` folder. The examples use the monorepo packages, so they show your changes.
 
 For this tutorial, we'll use the `next-openai` example, specifically the Presentation Demo (`/presentation`).
 
@@ -85,19 +81,19 @@ Now navigate to http://localhost:3000/presentation and you should see the exampl
 
 ## Step 5: Formatting and Linting
 
-Before committing your changes, ensure your files are formatted properly by running the following at the root of the monorepo:
+Before committing your changes, format your files by running the following at the root of the monorepo:
 ```bash
 pnpm run format
 ```
 
-Additionally, ensure you have no linting errors:
+Then make sure you have no linting errors:
 ```bash
 pnpm run lint
 ```
 
 ## Step 6: Submit a Pull Request
 
-Now that you've made your changes, commit and push them. Then, simply head over to the [Pull Requests page](https://github.com/CopilotKit/CopilotKit/pulls) and create a pull request. Well done!
+Now that you've made your changes, commit and push them. Then, go to the [Pull Requests page](https://github.com/CopilotKit/CopilotKit/pulls) and create a pull request.
 
 {/* TODO: Add the MAF equivalent of this section. */}
 {/* ## Starting a dev environment with hot reload
@@ -122,16 +118,9 @@ You can optionally run the same example on agent framework platform by running:
 
 ## Debugging
 
-Every time you run CopilotKit on localhost, you will be able to see the **CopilotKit Dev Console** in the chat window. The Dev Console provides you with useful functionality to debug your copilot (e.g. see what state the copilot is aware of, actions it can perform, etc).
+When you run CopilotKit on localhost, the CopilotKit Inspector is on by default. Use it to see agent state, context, and the tools the agent can call. See [Inspector and dev console](/troubleshooting/inspector-dev-console).
 
-<Frame description="CopilotKit Dev Console">
-  <img
-    src="https://cdn.copilotkit.ai/docs/copilotkit/images/contributing/copilotkit-dev-console.png"
-    className="w-auto max-w-[420px]"
-  />
-</Frame>
-
-If you'd like to disable the Dev Console locally, simply set `showDevConsole` to `false` in your `<CopilotKit />` provider.
+To hide the Inspector locally, set `enableInspector={false}` on your `<CopilotKit />` provider.
 
 ## (Advanced) Package Linking
 

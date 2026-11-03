@@ -39,9 +39,11 @@ export class SupportAssistant {
 | `chatComponent`       | `Type<unknown>`              | `CopilotChat` | Replacement chat body component                |
 | `headerComponent`     | `Type<unknown> \| undefined` | `undefined`   | Replacement header component                   |
 
-The dialog traps focus, moves initial focus to its close control, closes on
-Escape, and restores focus to the launcher. It becomes full-screen on compact
-viewports and disables its entrance animation when reduced motion is
-requested. Destroying the component removes its rendered dialog and Angular
-CDK focus-trap state. Browser focus work starts after rendering and is inert
-during SSR; keep the initial `open` value unchanged until hydration completes.
+## Behavior
+
+- Focus: the dialog traps focus and moves initial focus to its close control.
+- Escape: closes the dialog. Focus returns to the launcher.
+- Compact viewports: the dialog becomes full-screen.
+- Reduced motion: the dialog has no entrance animation.
+- Destroy: removes the rendered dialog and its Angular CDK focus-trap state.
+- SSR: browser focus work starts after render and does nothing during SSR. Keep the initial `open` value unchanged until hydration completes.

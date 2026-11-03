@@ -8,8 +8,7 @@ import DefaultToolRendering from "@/snippets/shared/guides/default-tool-renderin
 
 ## What is this?
 
-Tools are a way for the LLM to call predefined, typically, deterministic functions. CopilotKit allows you to render these tools in the UI
-as a custom component, which we call **Generative UI**.
+While your AG2 agent calls a tool, the chat shows nothing until the agent replies. Render each tool call as your own component, so the user sees what the agent is doing. CopilotKit calls this **Generative UI**.
 
 <Callout type="info">
   CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
@@ -18,14 +17,14 @@ as a custom component, which we call **Generative UI**.
 ## When should I use this?
 
 Rendering tools in the UI is useful when you want to provide the user with feedback about what your agent is doing, specifically
-when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+when your agent is calling tools. CopilotKit lets you fully customize how these tools are rendered in the chat.
 
 ## Implementation
 
 <Steps>
 <Step>
 ### Run and connect your agent
-Start your AG2 backend with a `/chat` endpoint and connect CopilotKit to that endpoint.
+Start your AG2 backend with a `/chat` endpoint. To connect CopilotKit to it, follow the [quickstart](/ag2/quickstart#connect-your-own-ag2-agent).
 </Step>
 <Step>
 ### Give your agent a tool to call
@@ -81,7 +80,7 @@ we just need to add a `useRenderTool` hook to render the tool call in
 the UI.
 
 <Callout type="info" title="Important">
-  In order to render a tool call in the UI, the name of the action must match the name of the tool.
+  The `name` you pass to `useRenderTool` must match the name of the tool in your agent.
 </Callout>
 
 ```tsx title="app/page.tsx"
@@ -108,10 +107,20 @@ const YourMainContent = () => {
 }
 ```
 
+</Step>
+<Step>
+### Give it a try
 
-#### Render structured results
+Try asking the agent to get the weather for a location. You should see the custom UI component that we added
+render the tool call and display the arguments that were passed to the tool.
 
-A tool that returns structured data (a Pydantic model, a dict, a list) reaches the frontend as its serialized JSON in `result`, because the protocol has no JSON part. Parse it before rendering it as a card:
+<InlineDemo demo="tool-rendering" />
+</Step>
+</Steps>
+
+## Render structured results
+
+To render a card, return a JSON string from the tool, for example `return json.dumps({"temperature": 21, "conditions": "sunny"})`. The `result` prop holds the string that the tool returned, so parse it before you render it:
 
 ```tsx title="app/page.tsx"
 useRenderTool({
@@ -124,24 +133,6 @@ useRenderTool({
   },
 });
 ```
-</Step>
-<Step>
-### Give it a try!
-
-Try asking the agent to get the weather for a location. You should see the custom UI component that we added
-render the tool call and display the arguments that were passed to the tool.
-
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>
-</Step>
-</Steps>
 
 ## Default Tool Rendering
 

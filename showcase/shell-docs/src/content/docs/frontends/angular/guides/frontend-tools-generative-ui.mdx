@@ -11,8 +11,8 @@ chat.
 
 ## Let the agent display one of your components
 
-The simplest generative UI there is, and the only kind that needs nothing on the
-agent side. `registerComponent` registers a standalone component as a tool the
+`registerComponent` is the simplest generative UI, and you do not change your
+agent for it. It registers a standalone component as a tool the
 agent can call to show it. The agent decides when, and fills the props.
 
 ```ts title="src/app/incident-card.component.ts"
@@ -176,11 +176,14 @@ import {
 } from "@copilotkit/angular";
 import { z } from "zod";
 
-const setDashboardFilter: SandboxFunction<{ filter: string }> = {
+const dashboardFilterParameters = z.object({ filter: z.string() });
+
+const setDashboardFilter: SandboxFunction = {
   name: "setDashboardFilter",
   description: "Set the active dashboard filter",
-  parameters: z.object({ filter: z.string() }),
-  handler: async ({ filter }) => {
+  parameters: dashboardFilterParameters,
+  handler: async (args) => {
+    const { filter } = dashboardFilterParameters.parse(args);
     sessionStorage.setItem("dashboard-filter", filter);
     return { applied: filter };
   },
@@ -218,6 +221,9 @@ export const appConfig: ApplicationConfig = {
 
 MCP resource and tool requests travel through the selected AG-UI agent. The
 browser provider does not take a server URL.
+
+Ask the agent for the weather in Paris. The weather card shows "Loading
+weather for Paris", then the city and the tool result.
 
 ## Next steps
 

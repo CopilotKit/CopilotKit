@@ -129,7 +129,7 @@ for the store's full lifetime.
 
 `injectInterrupt` subscribes to one agent and exposes the pending decision as
 signals. It supports standard AG-UI interrupts and the legacy
-`on_interrupt` custom event. Use it when the store default is not enough — a
+`on_interrupt` custom event. Use it when the store default is not enough. For example, you need a
 typed payload, an `enabled` filter, or a `handler` that prepares data for the
 view.
 
@@ -197,10 +197,6 @@ The controller clears stale decisions when the thread changes. Calls to
 `resolve` or `cancel` share one in-flight resume promise, so a double click
 does not start two resume runs.
 
-The runnable Showcase uses the same controller API in its route-aware feature:
-
-<AngularSnippet region="interrupt-controller" />
-
 Use the controller's `enabled` option when several components listen to the
 same agent and each should accept only certain interrupt payloads. Use
 `handler` when the view needs async data prepared before it appears.
@@ -210,6 +206,9 @@ same agent and each should accept only certain interrupt payloads. Use
 The tool renderer appears in the tool-call flow inside chat. An interrupt
 controller is headless: bind its signals anywhere in the application, including
 a route-level dialog, side panel, or task view.
+
+Ask the agent to do the consequential action. The approval card appears in the
+chat. Click Approve, and the agent continues with `{ approved: true }`.
 
 ## Next steps
 

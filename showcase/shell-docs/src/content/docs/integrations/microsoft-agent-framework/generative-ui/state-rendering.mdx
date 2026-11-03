@@ -15,7 +15,7 @@ description: Render the state of your agent with custom UI components.
 
 ## What is this?
 
-Microsoft Agent Framework agents can maintain state throughout their execution. CopilotKit allows you to render this state in your application with custom UI components, which we call **Agentic Generative UI**. State updates can be streamed to the frontend as your agent processes requests.
+Microsoft Agent Framework agents can maintain state throughout their execution. With CopilotKit, you can render this state in your application with custom UI components, which we call **Agentic Generative UI**. State updates can be streamed to the frontend as your agent processes requests.
 
 ## When should I use this?
 
@@ -97,7 +97,7 @@ is a situation where a user and an agent are working together to solve a problem
   <Step>
     ### Stream state from your agent
 
-    To stream state updates to the frontend, wrap your agent with a `DelegatingAIAgent` that intercepts the streaming response and emits state snapshots as `DataContent`.
+    In .NET, wrap your agent with a `DelegatingAIAgent` that intercepts the streaming response and emits state snapshots as `DataContent`. In Python, pass `state_schema` and `predict_state_config` to `AgentFrameworkAgent`, so each `update_searches` call updates the state.
 
     Here's an example of a state-streaming agent wrapper:
 
@@ -123,6 +123,20 @@ is a situation where a user and an agent are working together to solve a problem
 
         var builder = WebApplication.CreateBuilder(args);
         builder.Services.AddAGUIServer();
+        // Turn the wrapper's JSON DataContent into a STATE_SNAPSHOT event
+        builder.Services.Configure<AGUIStreamOptions>(options => options.MapContent(content =>
+        {
+            if (content is not DataContent { MediaType: "application/json" } data) return null;
+            try
+            {
+                using var document = JsonDocument.Parse(data.Data);
+                return [new StateSnapshotEvent { Snapshot = document.RootElement.Clone() }];
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }));
         var app = builder.Build();
 
         string openAiApiKey = builder.Configuration["OPENAI_API_KEY"]
@@ -357,19 +371,19 @@ is a situation where a user and an agent are working together to solve a problem
     </Tabs>
 
     <Callout type="info">
-      The `DelegatingAIAgent` wrapper intercepts streaming responses, uses JSON schema response format to generate structured state, and emits it as `DataContent` which the AG-UI protocol forwards to the frontend.
+      The `DelegatingAIAgent` wrapper intercepts streaming responses, uses JSON schema response format to generate structured state, and emits it as `DataContent`. The `MapContent` mapping in `Program.cs` turns that content into a `STATE_SNAPSHOT` event for the frontend.
     </Callout>
 
     <Callout type="tip">
-      For a complete, production-ready implementation of state streaming, see the [SharedStateAgent sample](https://github.com/microsoft/agent-framework/blob/main/dotnet/samples/AGUIClientServer/AGUIDojoServer/SharedStateAgent.cs) in the Agent Framework repository.
+      For a complete implementation of state streaming, see the [SharedStateAgent sample](https://github.com/microsoft/agent-framework/blob/main/dotnet/samples/05-end-to-end/AGUIClientServer/AGUIDojoServer/SharedState/SharedStateAgent.cs) in the Agent Framework repository.
     </Callout>
   </Step>
   <Step>
     ### Render state of the agent in the chat
-    Now we can utilize `useAgent` to read the state of our agent and render it **in the chat**.
+    Use `useAgent` to read the state of your agent, and render it **in the chat** with the `messageView` slot of `CopilotChat`.
 
     ```tsx title="app/page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2";
+    import { CopilotChat, useAgent } from "@copilotkit/react-core/v2";
 
     // For type safety, define the state type matching your agent's state snapshot
     type AgentState = {
@@ -384,7 +398,7 @@ is a situation where a user and an agent are working together to solve a problem
 
       // [!code highlight:3]
       const { agent } = useAgent({
-        agentId: "sample_agent",
+        agentId: "my_agent", // must match the agent key in your CopilotRuntime
       });
 
       // styles omitted for brevity
@@ -401,15 +415,27 @@ is a situation where a user and an agent are working together to solve a problem
 
       // ...
 
-      // [!code highlight]
-      return <div>{renderedState}</div>;
+      // [!code highlight:13]
+      return (
+        <CopilotChat
+          agentId="my_agent"
+          messageView={{
+            children: ({ messageElements, interruptElement }) => (
+              <div>
+                {messageElements}
+                {renderedState}
+                {interruptElement}
+              </div>
+            ),
+          }}
+        />
+      );
     }
     ```
   </Step>
   <Step>
     ### Render state outside of the chat
-    You can also render the state of your agent **outside of the chat**. This is useful when you want to render the state of your agent anywhere
-    other than the chat.
+    You can also render the state of your agent **outside of the chat**.
 
     ```tsx title="app/page.tsx"
     import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
@@ -428,7 +454,7 @@ is a situation where a user and an agent are working together to solve a problem
 
       // [!code highlight:3]
       const { agent } = useAgent({
-        agentId: "sample_agent",
+        agentId: "my_agent", // must match the agent key in your CopilotRuntime
       })
 
       // ...
@@ -450,8 +476,8 @@ is a situation where a user and an agent are working together to solve a problem
     ```
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
 
-    You've now created a component that will render the agent's state in the chat.
+    Ask the agent: "Search for agent frameworks and for AG-UI." The two searches appear in the list. Each one shows ✅ when it is done.
   </Step>
 </Steps>

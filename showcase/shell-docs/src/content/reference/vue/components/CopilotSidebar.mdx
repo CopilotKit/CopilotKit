@@ -26,7 +26,7 @@ import "@copilotkit/vue/styles.css";
 
 ## Props
 
-All reactive props are declared with `defineProps`. `CopilotSidebar` extends the `CopilotChat` props (and through them the inherited `CopilotChatView` props) and adds two of its own.
+`CopilotSidebar` extends the `CopilotChat` props (and through them the inherited `CopilotChatView` props) and adds two of its own.
 
 ### Own props
 
@@ -41,7 +41,7 @@ All reactive props are declared with `defineProps`. `CopilotSidebar` extends the
 ### Inherited CopilotChat props
 
 <PropertyReference name="agentId" type="string">
-  ID of the agent to connect. Must match an agent configured in `CopilotKitProvider`. Falls back to the `agentId` from a wrapping `CopilotChatConfigurationProvider`, then to the default agent when omitted.
+  ID of the agent to connect. Must match an agent configured in [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider). Falls back to the `agentId` from a wrapping `CopilotChatConfigurationProvider`, then to the default agent when omitted.
 </PropertyReference>
 
 <PropertyReference name="threadId" type="string">
@@ -57,7 +57,7 @@ All reactive props are declared with `defineProps`. `CopilotSidebar` extends the
 </PropertyReference>
 
 <PropertyReference name="attachments" type="AttachmentsConfig">
-  Configuration for file attachments (accepted MIME types, upload handling, etc.). When set, the add-file action and drag-and-drop are enabled and the chat manages the attachment queue automatically.
+  Configuration for file attachments. Set `enabled: true` to turn on the add-file action and drag-and-drop. Optional fields set the accepted MIME types (`accept`), the size limit (`maxSize`), and the upload handler (`onUpload`). The chat then manages the attachment queue.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
@@ -79,7 +79,7 @@ All reactive props are declared with `defineProps`. `CopilotSidebar` extends the
 </PropertyReference>
 
 <PropertyReference name="inputMode" type='"input" | "transcribe" | "processing"' default='"input"'>
-  Initial input mode. The component manages transitions between these modes during audio transcription.
+  Accepted but not used. `CopilotSidebar` sets the input mode itself during voice transcription.
 </PropertyReference>
 
 <PropertyReference name="inputToolsMenu" type='(ToolsMenuItem | "-")[]' default="[]">
@@ -146,8 +146,8 @@ Vue uses named slots in place of React's render props and sub-component props. P
 </PropertyReference>
 
 <Callout type="info">
-  The sidebar welcome screen lays out suggestions at the top, the welcome
-  message in the middle, and the input fixed at the bottom. Override the
+  The sidebar welcome screen shows the welcome message in the middle, and the
+  suggestions and the input at the bottom. Override the
   `welcome-screen` slot to replace this layout entirely, or `welcome-message`
   to change just the greeting.
 </Callout>
@@ -234,9 +234,3 @@ function onSubmit(value: string) {
   <CopilotSidebar agent-id="my-agent" @submit-message="onSubmit" />
 </template>
 ```
-
-## Related
-
-- [`CopilotChat`](/reference/vue/components/CopilotChat) - the base chat component used internally
-- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) - provides the agent configuration `CopilotSidebar` connects to
-- [`useAgent`](/reference/vue/hooks/useAgent) - composable used internally to resolve the agent

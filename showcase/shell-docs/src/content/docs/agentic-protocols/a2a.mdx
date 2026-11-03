@@ -6,9 +6,9 @@ description: Bring your A2A agents to your users through AG-UI and CopilotKit.
 
 ## What is the A2A Protocol?
 
-A2A, or the Agent2Agent protocol, is a protocol introduced by Google for AI agents to interact and collaborate securely in a framework agnostic manner.
+You have agents that talk over [A2A](https://a2a-protocol.org/latest/), the Agent2Agent protocol, and you want users to reach them from your app's chat.
 
-CopilotKit fully supports the A2A protocol, connecting directly to A2A supporting agents or meshes with no modification of the agent needed.
+Your A2A agents need no changes. An AG-UI orchestrator agent, wrapped in the A2A middleware, sends messages to them, and CopilotKit talks to the orchestrator.
 
 <Image
   src="/images/any-agentic-backend-light.png"
@@ -31,9 +31,9 @@ CopilotKit fully supports the A2A protocol, connecting directly to A2A supportin
 
 ## How CopilotKit uses A2A agents
 
-CopilotKit uses a middleware to expose A2A agents to an AG-UI compatible coordinator. This allows you to expose your A2A agents to your users through the AG-UI protocol.
+CopilotKit uses a middleware to expose A2A agents to an AG-UI orchestrator agent. This lets you expose your A2A agents to your users through the AG-UI protocol.
 
-- **Flexibility and Interoperability**: By making a2a agents available over the AG-UI standard, any A2A agents can work seamless with CopilotKit components.
+- **Flexibility and Interoperability**: By making a2a agents available over the AG-UI standard, any A2A agent can work with CopilotKit components.
 - **Unified Communication**: While A2A agents are enabled to communicate with each other over the A2A protocol, AG-UI adds the missing tooling to expose them cleanly to the front end.
 
 To learn more, check out the [A2A](https://a2a-protocol.org/latest/) website.
@@ -48,9 +48,7 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
 
     You'll need to run your agent and connect it to CopilotKit before proceeding.
 
-    #### I already have an AG-UI agent to use as a coordinator.
-
-    Excellent! You can move on to the next step.
+    If you already have an AG-UI agent to act as the orchestrator, go to the next step.
 
     #### I want to start from scratch
 
@@ -64,12 +62,18 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
 
   </Step>
 
-<Step>
-  ### Install the A2A middleware This is already installed for you in the
-  project, but if you're adding the middleware to an existing agent, you can
-  install it with the following command: ```bash npm install
-  @ag-ui/a2a-middleware ```
-</Step>
+  <Step>
+    ### Install the A2A middleware
+
+    This is already installed for you in the project, but if you're adding the middleware to an existing agent, you can install it with the following command:
+
+    ```bash
+    npm install @ag-ui/a2a-middleware@0.0.2
+    ```
+
+    This version speaks the A2A protocol before v1.0, so your A2A agents must use a pre-1.0 A2A SDK.
+
+  </Step>
 
   <Step>
     ### Configure the A2A middleware
@@ -166,6 +170,10 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
     The tool the middleware provides for communication is called `send_message_to_a2a_agent`.
 
     ```tsx title="components/chat.tsx"
+    import { useFrontendTool } from "@copilotkit/react-core/v2";
+    import { z } from "zod";
+    import { MessageToA2A } from "./a2a/MessageToA2A";
+    import { MessageFromA2A } from "./a2a/MessageFromA2A";
 
     function YourMainContent() {
       // ...
@@ -173,19 +181,13 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
       useFrontendTool({
         name: "send_message_to_a2a_agent",
         description: "Sends a message to an A2A agent",
-        available: "frontend",
-        parameters: [
-          {
-            name: "agentName",
-            type: "string",
-            description: "The name of the A2A agent to send the message to",
-          },
-          {
-            name: "task",
-            type: "string",
-            description: "The message to send to the A2A agent",
-          },
-        ],
+        available: true,
+        parameters: z.object({
+          agentName: z
+            .string()
+            .describe("The name of the A2A agent to send the message to"),
+          task: z.string().describe("The message to send to the A2A agent"),
+        }),
         render: (actionRenderProps) => {
           return (
             <>
@@ -201,12 +203,35 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
     }
     ```
 
-    Now we define the rendering for a message sent from the orchestrator to the a2a agents.
-    Notice that the status can be `executing` or `complete`. When it's executing, the orchestrator has sent a message to the a2a agent,
-    but not received a response yet. When it's complete, the orchestrator has received a response from the a2a agent. In both cases, we render the message.
-    If status is "inProgress", we've been informed that a message will be sent, but it hasn't finished sending yet, so we don't render anything.
+    Both renderers use two small helpers. Save them next to the renderers. The starter's
+    [`agent-styles.ts`](https://github.com/CopilotKit/CopilotKit/blob/main/examples/integrations/a2a-middleware/components/a2a/agent-styles.ts)
+    also gives each agent its own colors.
+
+    ```ts title="components/a2a/agent-styles.ts"
+    export function getAgentStyle(_agentName: string) {
+      return {
+        bgColor: "bg-gray-100",
+        textColor: "text-gray-700",
+        borderColor: "border-gray-300",
+        icon: "🤖",
+        framework: "",
+      };
+    }
+
+    export function truncateTask(text: string, maxLength: number = 50): string {
+      if (text.length <= maxLength) return text;
+      return text.substring(0, maxLength) + "...";
+    }
+    ```
+
+    Now we define the rendering for a message sent from the orchestrator to the A2A agents. The renderer handles each status:
+
+    - `inProgress`: the arguments are still streaming. Render nothing.
+    - `executing`: the orchestrator sent the message and waits for an answer. Render the message.
+    - `complete`: the A2A agent answered. Render the message.
 
     ```tsx title="components/a2a/MessageToA2A.tsx"
+    import { getAgentStyle, truncateTask } from "./agent-styles";
 
     type MessageActionRenderProps = {
       status: string;
@@ -266,12 +291,14 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
     };
     ```
 
-    Last we define the rendering for a a response from the A2A agent to the orchestrator.
-    This time, we only render when status is complete, since that means we have a response. In any other state, we don't have a response yet.
-    If you wanted to, you could render a loading state when status is `executing`, but you likely wouldn't when status is `inProgress`, since
-    we haven't even sent the message yet.
+    Last, we define the rendering for a response from the A2A agent to the orchestrator. The renderer handles each status:
 
-    ```tsx title="components/a2a/MessageToA2A.tsx"
+    - `inProgress`: the message is not sent yet. Render nothing.
+    - `executing`: the orchestrator waits for an answer. Render nothing, or a loading state.
+    - `complete`: the A2A agent answered. Render the response.
+
+    ```tsx title="components/a2a/MessageFromA2A.tsx"
+    import { getAgentStyle } from "./agent-styles";
 
     type MessageActionRenderProps = {
       status: string;
@@ -392,7 +419,7 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
   </FrontendOnly>
 
   <Step>
-    ### Give it a try!
+    ### Give it a try
     Try asking your agent to research a topic, like "Please research quantum computing". You'll see that it will send messages to the research agent and the analysis agent.
     Then, it will present the complete research and analysis to the user.
   </Step>

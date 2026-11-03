@@ -114,6 +114,12 @@ export function DeploymentWatcher() {
 The same works inside an `agent.subscribe` handler, a button `onClick`, or any
 other frontend code that can reach the agent.
 
+### 4. See the card
+
+When a deployment finishes, a "Deployment finished" card with the commit sha
+appears in the chat. Then send the agent a message. The agent gets your
+message, but not the card.
+
 ## What the agent receives
 
 Activity messages stay in `agent.messages` so the transcript renders them, and

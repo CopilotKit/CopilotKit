@@ -5,7 +5,7 @@ description: "Vue 3 composable for listing and mutating CopilotKit threads"
 
 <OpsPlatformCTA
   variant="card"
-  title="useThreads needs a CopilotKit Intelligence project"
+  title="Thread rename, archive, and delete need a CopilotKit Intelligence project"
   body="Connect your runtime to a cloud-hosted project to start syncing threads."
   ctaLabel="Start cloud-hosted setup"
   surface="docs_reference_vue_use_threads"
@@ -13,9 +13,9 @@ description: "Vue 3 composable for listing and mutating CopilotKit threads"
 
 ## Overview
 
-`useThreads` is a Vue 3 composable for reading the active thread list for an agent and mutating that list from the client. It accepts reactive inputs for a required agent id, archived filter, page size, and an `enabled` flag. When `enabled` is `false`, the hook clears its thread-store context and skips `/threads` entirely; that is how the threads drawer stays idle while unlicensed.
+`useThreads` is a Vue 3 composable for reading the active thread list for an agent and mutating that list from the client. It accepts reactive inputs for a required agent id, archived filter, page size, and an `enabled` flag. When `enabled` is `false`, the hook clears its thread-store context and skips `/threads` entirely; that is how [the threads drawer](/reference/vue/components/CopilotThreadsDrawer) stays idle while unlicensed.
 
-`useThreads` activates when the connected runtime provides the thread endpoints it needs. It stays idle when the runtime explicitly reports that thread listing is unavailable.
+`useThreads` activates when the connected runtime (see [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider)) provides the thread endpoints it needs. It stays idle when the runtime explicitly reports that thread listing is unavailable.
 
 The hook returns normalized thread records with only the fields the Vue UI consumes: `id`, `agentId`, `name`, `archived`, `createdAt`, `updatedAt`, and optional `lastRunAt`. Threads are ordered by `lastRunAt`, then `updatedAt`, then `createdAt`.
 
@@ -109,7 +109,7 @@ function useThreads(input: UseThreadsInput): UseThreadsResult;
   <PropertyReference name="startNewThread" type="() => void">
     Notifies the thread store that a new thread started and clears stale
     thread-list error state. It does not mint or switch the active chat thread
-    by itself. Use `useCopilotChatConfiguration().startNewThread()` to do that.
+    by itself. Use `useCopilotChatConfiguration().value?.startNewThread()` to do that. See [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration).
   </PropertyReference>
 
   <PropertyReference name="renameThread" type="(threadId: string, name: string) => Promise<void>">
@@ -169,22 +169,6 @@ const { hasMoreThreads, fetchMoreThreads, fetchMoreError } = useThreads({
 - When the runtime URL is missing or the runtime reports thread endpoints as unsupported, `error` is set and `listError` stays focused on store failures.
 - `enabled: false` clears the thread-store context and skips `/threads`; that is what keeps unlicensed thread drawers from fetching.
 - Mutations are optimistic in the core store. Delete rolls back if the request fails.
+- On a runtime without Intelligence, `renameThread`, `archiveThread`, `unarchiveThread`, and `deleteThread` reject with `Thread mutations are not available on this CopilotKit runtime`.
 - `fetchMoreError` is tracked separately so a failed "load more" request can show inline without losing the loaded list.
 - Threads are sorted by `lastRunAt`, then `updatedAt`, then `createdAt`.
-
-## Related
-
-<Cards>
-  <Card title="CopilotKitProvider" href="/reference/vue/components/CopilotKitProvider">
-    Configure the runtime URL that powers thread syncing. For cloud-hosted Intelligence, keep `CPK_INTELLIGENCE_API_KEY` on the runtime server.
-  </Card>
-  <Card title="CopilotThreadsDrawer" href="/reference/vue/components/CopilotThreadsDrawer">
-    Use the prebuilt drawer that lists and manages threads with this composable.
-  </Card>
-  <Card title="useAgent" href="/reference/vue/hooks/useAgent">
-    Access and run the agent whose threads you are listing.
-  </Card>
-  <Card title="useCopilotChatConfiguration" href="/reference/vue/hooks/useCopilotChatConfiguration">
-    Read the shared chat configuration context.
-  </Card>
-</Cards>

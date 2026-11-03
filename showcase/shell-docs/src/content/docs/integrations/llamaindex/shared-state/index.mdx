@@ -14,17 +14,17 @@ icon: "lucide/Repeat"
 
 ## What is shared state?
 
-CoAgents maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
+Your agent and your UI share one state object. With shared state, you can:
 
-- Display the agent's current progress and intermediate results
-- Update the agent's state through UI interactions
-- React to state changes in real-time across your application
+- Display the agent's current progress and intermediate results. See [Reading agent state](/llamaindex/shared-state/in-app-agent-read).
+- Update the agent's state through UI interactions. See [Writing agent state](/llamaindex/shared-state/in-app-agent-write).
+- React to state changes in real-time across your application. See [Predictive state updates](/llamaindex/shared-state/predictive-state-updates).
 
 The foundation of this system is built on LlamaIndex's AG-UI protocol integration, which provides `initial_state` support in the workflow router.
 
 ## When should I use this?
 
-State streaming is perfect when you want to facilitate collaboration between your agent and the user. Any state that your LlamaIndex Agent
+Use shared state when the agent and the user work on the same data. Any state that your LlamaIndex Agent
 persists will be automatically shared by the UI. Similarly, any state that the user updates in the UI will be automatically reflected.
 
 This allows for a consistent experience where both the agent and the user are on the same page.

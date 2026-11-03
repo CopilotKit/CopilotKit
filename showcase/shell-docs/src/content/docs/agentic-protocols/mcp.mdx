@@ -6,13 +6,9 @@ icon: "lucide/Network"
 
 ## Introduction
 
-The Model Context Protocol is an open standard that enables developers to build secure, two-way connections between their data sources and AI-powered tools. With MCP, you can:
+Your agent needs tools and data that live in an MCP server, such as a docs search or a ticket system. Add the server to your agent, and the agent can call its tools from the chat.
 
-- Connect AI applications to your data sources
-- Enable AI tools to access and utilize your data securely
-- Build AI-powered features that have context about your application
-
-For further reading, check out the [Model Context Protocol](https://modelcontextprotocol.io/introduction) website.
+For the protocol itself, see the [Model Context Protocol](https://modelcontextprotocol.io/introduction) website. To decide whether your server needs its own UI, see [When you do (and don't) need an MCP App](#when-you-do-and-dont-need-an-mcp-app) below.
 
 <Callout type="info" title="Looking for MCP Apps?">
   If you want MCP servers to return **interactive UI components** that render
@@ -39,57 +35,6 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
   CopilotKit supports to connect agents to user-facing frontends
 </div>
 
-## When you do (and don't) need an MCP App
-
-"MCP server" covers three quite different things, and only one of them needs an [MCP App](/generative-ui/mcp-apps). Picking the wrong one means either building UI you didn't need or shipping a tool nobody can act on.
-
-Work out which kind of server you have:
-
-| Your server… | What the user should see | What to build |
-| --- | --- | --- |
-| Reads data and returns it | Nothing, or a status line — the answer belongs in the agent's reply | Plain MCP tool. No renderer needed. |
-| Changes something (writes, sends, deletes) | What is about to happen, with a way to stop it | Plain MCP tool + a renderer, plus approval for anything irreversible |
-| Has its own interface (a form, a picker, a chart to interact with) | The interface itself | An MCP App with a UI resource |
-
-### Read-only context servers
-
-The most common case, and the one that needs the least. A docs search, a database query, a "look up this customer" tool — the tool result is *context for the model*, not something the user reads directly. The agent folds it into its answer, and that answer is the UI.
-
-Connect the server and stop there. If you want the call to be visible rather than invisible, a wildcard renderer gives every tool call a status card without writing one renderer per tool:
-
-```tsx
-import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
-
-useDefaultRenderTool({
-  render: ({ name, status, parameters, result }) => (
-    <McpToolCall status={status} name={name} args={parameters} result={result} />
-  ),
-});
-```
-
-Reach for an MCP App here only if the *result* is genuinely interactive — a chart the user filters, not a table they read.
-
-### Action and mutation servers
-
-When a tool sends an email, files a ticket, or deletes a row, the user needs to see it — and usually needs to authorize it. That's still not an MCP App: it's a renderer plus human-in-the-loop.
-
-The renderer shows what happened. The approval step decides whether it happens at all, and belongs on anything the user can't undo. See [Human in the loop](/human-in-the-loop) for the approval flow, and [Tool rendering](/generative-ui/tool-rendering) for renderer options.
-
-A useful test: if you're considering an MCP App purely to render a confirmation button, you want human-in-the-loop instead. Approval is a CopilotKit concern, not a server-supplied UI.
-
-### Interactive MCP Apps
-
-An MCP App is the right answer when the *server* owns the interface — it exposes a tool with an associated UI resource, and CopilotKit fetches and renders that resource in a sandboxed iframe with no frontend code from you.
-
-That's worth it when the interaction is rich enough to need real UI (a seat picker, a configuration form, an embedded editor), and when the server author — not the app author — is the one who should define how it looks. The cost is that the server now ships and versions UI, so a read-only lookup doesn't justify it.
-
-See [MCP Apps](/generative-ui/mcp-apps) for setup.
-
-<Callout type="info">
-  These aren't exclusive. One server can expose plain tools and App-backed tools side by
-  side; CopilotKit renders each call according to whether it carries a UI resource.
-</Callout>
-
 ## Quickstart with CopilotKit
 
 <Steps>
@@ -97,7 +42,7 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
     ### Get an MCP Server
     First, we need to make sure we have an MCP server to connect to. You can use any MCP SSE endpoint you have configured.
 
-    <Accordions className="shadow-lg ring-1 ring-indigo-400 selected bg-gradient-to-r from-indigo-100/80 to-purple-200 dark:from-indigo-900/30 dark:to-purple-900/50">
+    <Accordions>
       <Accordion title="Get an MCP Server from Composio">
         Composio provides a registry of ready-to-use MCP servers with simple authentication and setup.
 
@@ -106,169 +51,195 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
     </Accordions>
 
   </Step>
-  <TailoredContent
-    className="step"
-    id="cli"
-    header={
-        <div>
-            <p className="text-xl font-semibold">Use the CopilotKit CLI</p>
-        </div>
+  <Step>
+    ### Connect to MCP Servers
+
+    Add the MCP server to the agent in your runtime route:
+
+    ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
+    import {
+      BuiltInAgent,
+      CopilotRuntime,
+      createCopilotRuntimeHandler,
+    } from "@copilotkit/runtime/v2";
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        default: new BuiltInAgent({
+          model: "openai/gpt-4o",
+          mcpServers: [
+            {
+              type: "sse",
+              // Try a sample MCP server at https://mcp.composio.dev/
+              url: "your_mcp_sse_url",
+              // Optional: send a token to the server
+              // headers: { Authorization: `Bearer ${process.env.MCP_API_KEY}` },
+            },
+          ],
+        }),
+      },
+    });
+
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
+
+    export const GET = handler;
+    export const POST = handler;
+    ```
+
+    The agent opens a client for each server at the start of a run and closes it when the run ends.
+    For the HTTP transport, multiple servers, and `mcpClients`, see [MCP servers](/built-in-agent/mcp-servers).
+  </Step>
+  <Step>
+    ### Set up the CopilotKit Provider
+
+    Wrap your application with the `CopilotKit` provider. Set `runtimeUrl` to the route above:
+
+    ```tsx
+    "use client";
+
+    import { CopilotKit } from "@copilotkit/react-core/v2";
+
+    export default function App() {
+      return (
+        <CopilotKit runtimeUrl="/api/copilotkit">
+          {/* Your app content */}
+        </CopilotKit>
+      );
     }
-  >
-    <TailoredContentOption
-      id="use-cli"
-      title="Use the CopilotKit CLI"
-      description="I have a Next.js application and want to get started quickly."
-      icon={<SquareTerminal />}
-    >
-      <Step>
-        ### Run the CLI
-        Just run this following command in your Next.js application to get started!
+    ```
+  </Step>
+  <Step>
+    ### Add the Chat Interface
 
-        <Accordions>
-            <Accordion title="Don't have a Next.js application?">
-                No problem! Just use `create-next-app` to make one quickly.
-                ```bash
-                npx create-next-app@latest
-                ```
-            </Accordion>
-        </Accordions>
+    Add the `CopilotChat` component to your page:
 
-        ```bash
-        npx copilotkit@latest init -m MCP
-        ```
-      </Step>
-    </TailoredContentOption>
-    <TailoredContentOption
-        id="do-it-manually"
-        title="Code along"
-        description="I want to deeply understand what's happening under the hood or don't have a Next.js application."
-        icon={<SquareChartGantt />}
-    >
-      <Step>
-        #### Set up the CopilotKit Provider
+    ```tsx
+    "use client";
 
-        Wrap your application with the `CopilotKit` provider:
+    import { CopilotChat } from "@copilotkit/react-core/v2";
 
-        ```tsx
-        "use client";
+    export default function ChatInterface() {
+      return (
+        <div className="flex h-screen p-4">
+          <CopilotChat
+            className="flex-grow rounded-lg w-full"
+          />
+        </div>
+      );
+    }
+    ```
+  </Step>
+  <Step>
+    ### Visualize MCP Tool Calls (Optional)
 
-        import { CopilotKit } from "@copilotkit/react-core/v2";
+    Create a component to display MCP tool calls in your UI. The `McpToolCall` component is in [Advanced Usage](#implementing-the-mcptoolcall-component):
 
-        export default function App() {
-          return (
-            <CopilotKit publicApiKey="<replace_with_your_own>">
-              {/* Your app content */}
-            </CopilotKit>
-          );
-        }
-        ```
-      </Step>
-      <Step>
-        #### Connect to MCP Servers
+    ```tsx title="ToolRenderer.tsx"
+    "use client";
 
-        Create a component to manage MCP server connections:
+    import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+    import { McpToolCall } from "./McpToolCall";
 
-        ```tsx
-        "use client";
+    export function ToolRenderer() {
+      /**
+       * useDefaultRenderTool registers the wildcard ("*") renderer,
+       * so it paints every tool call that has no renderer of its own.
+       */
+      useDefaultRenderTool({
+        render: ({ name, status, parameters, result }) => (
+          <McpToolCall status={status} name={name} args={parameters} result={result} />
+        ),
+      });
+      return null;
+    }
+    ```
+  </Step>
+  <Step>
+    ### Complete Implementation
 
-        import { useEffect } from "react";
-        import { useCopilotKit } from "@copilotkit/react-core/v2";
+    Combine all components together:
 
-        function McpServerManager() {
-          const { setMcpServers } = useCopilotKit();
+    ```tsx
+    "use client";
 
-          useEffect(() => {
-            setMcpServers([
-              {
-                // Try a sample MCP server at https://mcp.composio.dev/
-                endpoint: "your_mcp_sse_url",
-              },
-            ]);
-          }, [setMcpServers]);
+    import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+    import { ToolRenderer } from "./ToolRenderer";
 
-          return null;
-        }
+    export default function Page() {
+      return (
+        <CopilotKit runtimeUrl="/api/copilotkit">
+          <div className="flex h-screen p-4">
+            <CopilotChat
+              className="flex-grow rounded-lg w-full"
+            />
+            <ToolRenderer />
+          </div>
+        </CopilotKit>
+      );
+    }
+    ```
+  </Step>
+  <Step>
+    ### Give it a try
 
-        export default McpServerManager;
-
-        ```
-      </Step>
-      <Step>
-        #### Add the Chat Interface
-
-        Add the `CopilotChat` component to your page:
-
-        ```tsx
-        "use client";
-
-        import { CopilotChat } from "@copilotkit/react-core/v2";
-
-        export default function ChatInterface() {
-          return (
-            <div className="flex h-screen p-4">
-              <McpServerManager />
-              <CopilotChat
-                className="flex-grow rounded-lg w-full"
-              />
-            </div>
-          );
-        }
-        ```
-      </Step>
-      <Step>
-        #### Visualize MCP Tool Calls (Optional)
-
-        Create a component to display MCP tool calls in your UI:
-
-        ```tsx
-        "use client";
-
-        import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
-
-        export function ToolRenderer() {
-          /**
-           * useDefaultRenderTool registers the wildcard ("*") renderer,
-           * so it paints every tool call that has no renderer of its own.
-           */
-          useDefaultRenderTool({
-            render: ({ name, status, parameters, result }) => (
-              <McpToolCall status={status} name={name} args={parameters} result={result} />
-            ),
-          });
-          return null;
-        }
-        ```
-      </Step>
-      <Step>
-        #### Complete Implementation
-
-        Combine all components together:
-
-        ```tsx
-        "use client";
-
-        import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
-
-        export default function Page() {
-          return (
-            <CopilotKit publicApiKey="<replace_with_your_own>">
-              <div className="flex h-screen p-4">
-                <McpServerManager />
-                <CopilotChat
-                  className="flex-grow rounded-lg w-full"
-                />
-                <ToolRenderer />
-              </div>
-            </CopilotKit>
-          );
-        }
-        ```
-      </Step>
-    </TailoredContentOption>
-
-  </TailoredContent>
+    Ask the agent to use one of the server's tools. The reply uses the tool result. With `ToolRenderer`, a tool card also appears in the chat.
+  </Step>
 </Steps>
+
+## When you do (and don't) need an MCP App
+
+"MCP server" covers three different things, and only one of them needs an [MCP App](/generative-ui/mcp-apps). If you pick the wrong one, you build UI that you do not need, or you ship a tool that nobody can act on.
+
+Work out which kind of server you have:
+
+| Your server… | What the user should see | What to build |
+| --- | --- | --- |
+| Reads data and returns it | Nothing, or a status line. The answer belongs in the agent's reply. | Plain MCP tool. No renderer needed. |
+| Changes something (writes, sends, deletes) | What is about to happen, with a way to stop it | Plain MCP tool + a renderer, plus approval for anything irreversible |
+| Has its own interface (a form, a picker, a chart to interact with) | The interface itself | An MCP App with a UI resource |
+
+### Read-only context servers
+
+This is the most common case, and it needs the least work. Examples are a docs search, a database query, or a "look up this customer" tool. The tool result is *context for the model*. The user does not read it directly. The agent folds it into its answer, and that answer is the UI.
+
+Connect the server and stop there. If you want the call to be visible rather than invisible, a wildcard renderer gives every tool call a status card without writing one renderer per tool:
+
+```tsx
+import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+import { McpToolCall } from "./McpToolCall";
+
+useDefaultRenderTool({
+  render: ({ name, status, parameters, result }) => (
+    <McpToolCall status={status} name={name} args={parameters} result={result} />
+  ),
+});
+```
+
+Use an MCP App here only if the *result* is interactive, such as a chart that the user filters. A table that the user only reads does not need one.
+
+### Action and mutation servers
+
+When a tool sends an email, files a ticket, or deletes a row, the user needs to see it, and usually needs to authorize it. Use a renderer plus human-in-the-loop for this case.
+
+The renderer shows what happened. The approval step decides whether it happens at all, and belongs on anything the user can't undo. See [Human in the loop](/human-in-the-loop) for the approval flow, and [Tool rendering](/generative-ui/tool-rendering) for renderer options.
+
+A useful test: if you're considering an MCP App purely to render a confirmation button, you want human-in-the-loop instead. Approval is a CopilotKit concern, not a server-supplied UI.
+
+### Interactive MCP Apps
+
+An MCP App is the right answer when the *server* owns the interface. The server exposes a tool with an associated UI resource. CopilotKit fetches and renders that resource in a sandboxed iframe, with no frontend code from you.
+
+Use one when the interaction needs real UI (a seat picker, a configuration form, an embedded editor), and when the server author should define how it looks. The cost is that the server now ships and versions UI, so a read-only lookup does not justify it.
+
+See [MCP Apps](/generative-ui/mcp-apps) for setup.
+
+<Callout type="info">
+  These aren't exclusive. One server can expose plain tools and App-backed tools side by
+  side; CopilotKit renders each call according to whether it carries a UI resource.
+</Callout>
 
 ## Advanced Usage
 
@@ -277,8 +248,10 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
 <details>
 <summary>Click to see the McpToolCall component implementation</summary>
 
-```tsx
+```tsx title="McpToolCall.tsx"
 "use client";
+
+import { useState } from "react";
 
 interface ToolCallProps {
   status: "complete" | "inProgress" | "executing";
@@ -287,13 +260,13 @@ interface ToolCallProps {
   result?: any;
 }
 
-export default function MCPToolCall({
+export function McpToolCall({
   status,
   name = "",
   args,
   result,
 }: ToolCallProps) {
-  const [isOpen, setIsOpen] = React.useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   // Format content for display
   const format = (content: any): string => {
@@ -356,63 +329,5 @@ export default function MCPToolCall({
   );
 }
 ```
-
-</details>
-
-### Self-Hosting Option
-
-<details>
-<summary>Click here to learn how to use MCP with self-hosted runtime</summary>
-
-<Callout type="info" title="Self-Hosting vs Copilot Cloud">
-  The Copilot Runtime handles communication with LLMs, message history, and
-  state. You can self-host it or use{" "}
-  <LinkToCopilotCloud asButton={false}>Copilot Cloud</LinkToCopilotCloud>{" "}
-  (recommended). Learn more in our [Self-Hosting
-  Guide](/backend/copilot-runtime).
-</Callout>
-
-Attach the MCP servers to the agent. The agent opens a client for each server
-at the start of a run and closes it when the run ends, so nothing is cached
-between requests:
-
-```tsx title="app/api/copilotkit/route.ts"
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
-import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
-
-const runtime = new CopilotRuntime({
-  agents: {
-    default: new BuiltInAgent({
-      model: "openai/gpt-6-luna",
-      mcpServers: [
-        {
-          type: "sse",
-          url: "https://my-mcp-server.example.com/sse",
-          headers: { Authorization: `Bearer ${process.env.MCP_API_KEY}` },
-        },
-      ],
-    }),
-  },
-});
-
-export const POST = createCopilotRuntimeHandler({
-  runtime,
-  basePath: "/api/copilotkit",
-});
-```
-
-See [MCP servers](/docs/integrations/built-in-agent/mcp-servers) for the HTTP
-transport, multiple servers, and `mcpClients` — which lets you own the client
-lifecycle when you need persistent connections or per-request credentials.
-
-<Callout type="warn" title="`createMCPClient` on the v1 runtime">
-  `new CopilotRuntime({ mcpServers, createMCPClient })` from
-  `@copilotkit/runtime` is the deprecated v1 API. It still works, but it keeps
-  one client per endpoint for the life of the runtime instead of opening and
-  closing one per run. Use the agent-level configuration above for new work.
-</Callout>
 
 </details>

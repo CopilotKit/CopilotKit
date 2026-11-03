@@ -20,7 +20,7 @@ Before you begin, you'll need the following:
 
 - An OpenAI API key
 - Node.js 20+
-- Python 3.9+
+- Python 3.12+
 - Your favorite package manager
 
 ## Getting started
@@ -56,8 +56,8 @@ Before you begin, you'll need the following:
                 The CLI walks you through:
 
                 - **Project name**
-                - **CopilotKit Intelligence** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Pydantic AI setup.
-                - **Framework** — pick **Pydantic AI** when prompted.
+                - **CopilotKit Intelligence**: persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Pydantic AI setup.
+                - **Framework**: pick **Pydantic AI** when prompted.
             </Step>
             <Step>
                 ### Install dependencies
@@ -76,7 +76,7 @@ Before you begin, you'll need the following:
                 ```
 
                 <Callout type="info" title="What about other models?">
-                  The starter template is configured to use OpenAI's GPT-6 Luna by default, but you can modify it to use any language model supported by Pydantic AI.
+                  The starter uses OpenAI's `gpt-5-mini` by default. To use another model, add `COPILOTKIT_AGENT_MODEL=<provider>:<model>` to `.env`. The provider is `openai`, `anthropic`, or `google`.
                 </Callout>
             </Step>
             <Step>
@@ -231,6 +231,8 @@ Before you begin, you'll need the following:
 
                 export const GET = handler;
                 export const POST = handler;
+                export const PATCH = handler;
+                export const DELETE = handler;
                 ```
 
                 From this frontend app directory, connect the runtime to an Intelligence project:
@@ -272,8 +274,7 @@ Before you begin, you'll need the following:
                 }
                 ```
 
-                `app/layout.tsx` is a server component and cannot import the provider
-                directly, so it renders your client file instead. Keep the scaffold's
+                Render the provider from `app/layout.tsx`. Keep the scaffold's
                 `globals.css` import and add the CopilotKit stylesheet once:
 
                 ```tsx title="app/layout.tsx"
@@ -372,28 +373,19 @@ Before you begin, you'll need the following:
     </TailoredContent>
     </Step>
     <Step>
-        ### 🎉 Start chatting!
+        ### Start chatting
 
-        Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
+        Your AI agent is now ready to use. Navigate to `localhost:3000` and try asking it some questions:
 
-        ```
-        Can you tell me a joke?
-        ```
-
-        ```
-        Can you help me understand AI?
-        ```
-
-        ```
-        What do you think about React?
-        ```
+        - Can you tell me a joke?
+        - Can you help me understand AI?
+        - What do you think about React?
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
-                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
-                - Make sure your agent is running on port 8000
-                - Check that your OpenAI API key is correctly set
-                - Verify that the `@ag-ui/client` package is installed in your frontend
+                - If the runtime cannot reach the agent, make sure that `uv run main.py` is running and that the route URL is `http://localhost:8000/`.
+                - If the agent does not answer, make sure that `OPENAI_API_KEY` is set in the agent's environment.
+                - If the route fails to import `HttpAgent`, install `@ag-ui/client` in your frontend.
             </Accordion>
         </Accordions>
 
@@ -435,13 +427,3 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<WrenchIcon />}
   />
 </Cards>
-
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>

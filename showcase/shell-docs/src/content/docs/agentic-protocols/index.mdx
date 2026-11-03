@@ -4,8 +4,7 @@ icon: "lucide/Zap"
 description: "CopilotKit connects to your agents through the Agentic Protocol of your choice"
 ---
 
-CopilotKit is fully compatible with three major agentic protocols: AG-UI, MCP, and A2A.  
-Learn about these protocols and how to connect your app to agents which support them using CopilotKit.
+CopilotKit is fully compatible with three major agentic protocols: AG-UI, MCP, and A2A.
 
 <Image
   src="/images/venn-agentic-light.svg"
@@ -86,11 +85,11 @@ Learn about these protocols and how to connect your app to agents which support 
         </a>
         </FrontendOnly>
         <br />
-        (Agent–User Interaction Protocol)
+        (Agent-User Interaction Protocol)
       </td>
       <td style={{ padding: "12px", borderBottom: "1px solid light-dark(#e5e7eb, var(--border))" }}>
         The open, event-based standard that connects agents to user-facing
-        applications — enabling real-time, multimodal, interactive experiences.
+        applications. It enables real-time, multimodal, interactive experiences.
       </td>
     </tr>
     <tr>
@@ -124,7 +123,7 @@ Learn about these protocols and how to connect your app to agents which support 
         (Model Context Protocol)
       </td>
       <td style={{ padding: "12px", borderBottom: "1px solid light-dark(#e5e7eb, var(--border))" }}>
-        Open standard that lets agents securely connect to external systems —
+        Open standard that lets agents securely connect to external systems:
         tools, workflows, and data sources.
       </td>
     </tr>
@@ -172,13 +171,11 @@ Learn about these protocols and how to connect your app to agents which support 
         <br />
         <strong>[MCP Apps](/generative-ui/mcp-apps)</strong> (MCP
         Ecosystem)
-        <br />
-        <strong>Open-JSON-UI</strong> (OpenAI)
       </td>
       <td style={{ padding: "12px" }}>
         Declarative, LLM-friendly [generative UI specs](/generative-ui)
         that define <em>what</em> to render and how to structure agent responses
-        visually. CopilotKit fully supports all of these.
+        visually. CopilotKit renders A2UI and MCP Apps.
       </td>
     </tr>
   </tbody>
@@ -187,7 +184,7 @@ Learn about these protocols and how to connect your app to agents which support 
 ## **Mixing and Matching Protocols**
 
 CopilotKit lets developers connect to any of these protocols **directly or in combination.**
-CopilotKit can connect through any of the Interaction Protocols to your agentic backend.
+CopilotKit can connect to your agent backend through any of these protocols.
 
 <Image
   src="/images/any-agentic-backend-light.png"
@@ -204,9 +201,9 @@ CopilotKit can connect through any of the Interaction Protocols to your agentic 
   className="hidden dark:block mb-8 w-full mx-auto"
 />
 
-Or, since AG-UI also includes **handshakes** with both **MCP** and **A2A**, CopilotKit can connect to MCP or A2A supporting agents through AG-UI.
+AG-UI middleware connects CopilotKit to A2A agents and MCP servers through one AG-UI agent. See [A2A](/agentic-protocols/a2a) and [AG-UI middleware](/agentic-protocols/ag-ui-middleware).
 
-This means that if your host agent connects to subagents using **MCP** or **A2A**, their UI properties can be propagated all the way through to the user-facing application — while preserving **full security, policy, and observability controls.**
+This means that if your host agent connects to subagents using **MCP** or **A2A**, their UI properties can be propagated all the way through to the user-facing application.
 
 <Image
   src="/images/mcp-and-a2a-through-agui-light.png"

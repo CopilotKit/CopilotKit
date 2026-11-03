@@ -5,9 +5,14 @@ icon: "lucide/Layers3"
 doc_type: how-to
 ---
 
-`CopilotChat` covers the common conversation path. Use the lower-level Angular
-APIs when you need saved threads, user memory, file input, or a fully custom
-interface.
+This page is for Angular developers who need more than the default
+`CopilotChat`. Go to the section for your task:
+
+- [Saved threads](#resume-a-specific-thread): reopen and list conversations.
+- [User memory](#read-and-manage-memory): read and edit what the agent remembers.
+- [Attachments](#enable-attachments): accept files in the chat. For voice input
+  and media types, see [Voice and multimodal input](/angular/guides/voice-multimodal).
+- [Headless chat](#build-a-headless-chat): render your own transcript and composer.
 
 ## Resume a specific thread
 
@@ -238,9 +243,8 @@ Add error handling around `runAgent` in production and disable repeated sends
 while `isRunning()` is true. The store tears down its agent subscription with
 the owning injector.
 
-The runnable Showcase factors that flow into this signal-first controller:
-
-<AngularSnippet region="headless-chat-controller" />
+Type a message and click **Send**. Your message appears, then "Agent is
+working…", then the agent's reply.
 
 ## Next steps
 

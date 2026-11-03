@@ -6,26 +6,35 @@ description: "API reference for @copilotkit/react-native: the headless provider,
 `@copilotkit/react-native` brings CopilotKit to React Native. It ships a lightweight [provider](/reference/react-native/components/CopilotKitProvider), a set of prebuilt UI components, hooks built for React Native, and re-exports of the platform-agnostic hooks from `@copilotkit/react-core`. Everything is built on the [AG-UI](https://docs.ag-ui.com) agent protocol, with no DOM, CSS, or web framework dependencies.
 
 <Callout type="info">
-  The package root **is** the v2 API. Unlike the web SDK, which exposes v2
+  The package root **is** the v2 API. Unlike the [web SDK](/reference/v2), which exposes v2
   under a `/v2` subpath, React Native exports the v2 surface directly from
   `@copilotkit/react-native`.
 </Callout>
 
 ## Installation
 
+New to CopilotKit on React Native? Start with the [React Native quickstart](/react-native).
+
 ```sh
 npm install @copilotkit/react-native "zod@^3.25"
 ```
 
-Every entry of the package needs `zod` 3.25 or later, because `@copilotkit/react-core` requires it as a peer dependency. `@copilotkit/react-native` declares `zod` an optional peer at `>=3.0.0`, so the package manager does not enforce 3.25 for you. The command installs zod 3: the `child()` and `childList()` helpers of generative UI return zod 3 schemas, which a zod 4 schema cannot hold.
+Install the peer dependencies:
 
-The prebuilt UI components and native attachments rely on a few optional peer dependencies:
+- Importing from `@copilotkit/react-native` needs `expo-document-picker` and `expo-file-system`.
+- The prebuilt UI in `@copilotkit/react-native/components` also needs `@gorhom/bottom-sheet`, `react-native-gesture-handler`, `react-native-reanimated`, and `react-native-streamdown`.
 
 ```sh
-npm install expo-document-picker expo-file-system @gorhom/bottom-sheet react-native-gesture-handler react-native-reanimated react-native-streamdown
+npm install \
+  expo-document-picker \
+  expo-file-system \
+  @gorhom/bottom-sheet \
+  react-native-gesture-handler \
+  react-native-reanimated \
+  react-native-streamdown
 ```
 
-Importing from the package root (`@copilotkit/react-native`), as the examples on this page do, needs `expo-document-picker` and `expo-file-system`: the root re-exports `useAttachments`, which imports both, and Metro resolves them at bundle time. The other four are used by the prebuilt components in `@copilotkit/react-native/components`. An app that imports only `@copilotkit/react-native/headless` or `/generative-ui` needs none of them.
+If you build your own UI, import from `@copilotkit/react-native/headless` instead. That entry has the provider and the hooks, and it needs none of these packages.
 
 ## Polyfills
 
@@ -63,6 +72,7 @@ The package is organized into two tiers, so you can pick how much UI you write y
 
 | Tier | Import | What you get |
 |------|--------|--------------|
+| **Provider and hooks only** | `@copilotkit/react-native/headless` | [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider) and the hooks, with no chat UI and no Expo or bottom-sheet dependencies. |
 | **Headless** | `@copilotkit/react-native` | Primitives that wire up an agent and expose its state. [`CopilotChat`](/reference/react-native/components/CopilotChat) and [`CopilotModal`](/reference/react-native/components/CopilotModal) render no UI; you build the interface from React Native views. |
 | **Prebuilt UI** | `@copilotkit/react-native/components` | Drop-in chat UI: a full-screen [`CopilotChat`](/reference/react-native/components/CopilotChat#prebuilt-ui), a bottom-sheet [`CopilotModal`](/reference/react-native/components/CopilotModal#prebuilt-ui), [`CopilotMarkdown`](/reference/react-native/components/CopilotMarkdown), and [message bubbles](/reference/react-native/components/AssistantMessage). |
 
@@ -85,17 +95,10 @@ The root also exports two prebuilt chrome components: [`CopilotSidebar`](/refere
     title="Components"
     description="Provider, headless primitives, prebuilt UI, and generative UI: CopilotKitProvider, CopilotChat, CopilotModal, CopilotSidebar, CopilotPopup, message components, GenerativeUIProvider, GenerativeUIActivity, and GenerativeUISurface."
     href="/reference/react-native/components/CopilotKitProvider"
-    icon={<LinkIcon />}
   />
   <Card
     title="Hooks"
     description="Native attachments and tool rendering plus the platform-agnostic hooks re-exported from react-core: useAgent, useFrontendTool, useHumanInTheLoop, and more."
     href="/reference/react-native/hooks/useAgent"
-    icon={<LinkIcon />}
   />
 </Cards>
-
-## Related
-
-- [React Native quickstart](/react-native): create an app, install, and connect your first agent
-- [React (V2) reference](/reference/v2): the web SDK, where the re-exported hooks behave identically

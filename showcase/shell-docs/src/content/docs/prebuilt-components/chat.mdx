@@ -39,17 +39,13 @@ import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 ```
 
-<Callout type="warn">
-  `@copilotkit/react-ui` also exports a component named `CopilotChat`. That one
-  is the [deprecated v1 chat](/migrate/v2). This page documents the v2 chat,
-  which you import from `@copilotkit/react-core/v2`.
-</Callout>
+Import from `@copilotkit/react-core/v2`. The `CopilotChat` in `@copilotkit/react-ui` is the [deprecated v1 chat](/migrate/v2).
 
 <Snippet region="provider-setup" title="frontend/src/app/page.tsx — provider + chat" />
 
 ## Code example
 
-A self-contained component that renders the chat and wires in starter suggestions:
+A component that renders the chat. `useAgenticChatSuggestions` is a demo hook that wraps `useConfigureSuggestions` to add starter suggestions:
 
 <Snippet region="chat-component" title="frontend/src/app/page.tsx — the Chat component" />
 
@@ -61,8 +57,8 @@ accept the same slots and labels, plus a few wrapper-specific props.
 | Prop | Description |
 |------|-------------|
 | `agentId` | Agent slug the chat should talk to (must match an agent configured on the runtime). |
-| `labels` | User-facing copy — header title, placeholder, welcome, disclaimer. |
-| `messageView` | Slot for the message list — see [slots](/custom-look-and-feel/slots). |
+| `labels` | User-facing copy: header title, placeholder, welcome, disclaimer. |
+| `messageView` | Slot for the message list. See [slots](/custom-look-and-feel/slots). |
 | `input` | Slot for the composer area (text area, send button, disclaimer). |
 | `scrollView` | Slot for the scroll container (e.g. custom feather/gradient). |
 | `suggestionView` | Slot for the suggestion pills shown below messages. |
@@ -72,6 +68,6 @@ accept the same slots and labels, plus a few wrapper-specific props.
 
 `<CopilotChat>` is fully themable:
 
-- **CSS variables / class overrides** — see [CSS customization](/custom-look-and-feel/css)
-- **Slots (subcomponents)** — see [slots](/custom-look-and-feel/slots)
-- **Fully headless** — see [headless UI](/custom-look-and-feel/headless-ui)
+- **CSS variables / class overrides**: see [CSS customization](/custom-look-and-feel/css)
+- **Slots (subcomponents)**: see [slots](/custom-look-and-feel/slots)
+- **Fully headless**: see [headless UI](/custom-look-and-feel/headless-ui)

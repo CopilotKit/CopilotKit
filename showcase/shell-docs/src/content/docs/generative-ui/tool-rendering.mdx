@@ -14,18 +14,10 @@ import ToolRenderingPerToolExample from "@/snippets/shared/generative-ui/tool-re
 
 Tools are how an LLM invokes predefined, typically-deterministic functions.
 Tool rendering lets you decide how each of those tool calls appears in the
-chat. Instead of showing raw JSON, you register a React component that draws
-a branded card for the call (arguments, live status, and the eventual
+chat. By default, a tool call does not show in the chat. You register a
+React component that renders a branded card for the call (arguments, live status, and the eventual
 result). This is the **Generative UI** variant CopilotKit calls **tool
 rendering**.
-
-<Callout type="info">
-  **Free course:** See this pattern built end-to-end in [Build Interactive
-  Agents with Generative
-  UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/)
-  — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the
-  full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
-</Callout>
 
 ## When should I use this?
 
@@ -45,8 +37,9 @@ wildcard: every tool call renders as a tidy status card (tool name, live
 any UI. Calls the agent makes in a row are grouped into one card; see
 [Grouping tool calls](#grouping-tool-calls).
 
-Without this hook the runtime has no `*` renderer and tool calls are
-invisible; the user only sees the assistant's final text summary.
+Without this hook, the chat has no `*` renderer, and tool calls without a
+named renderer are invisible. The user only sees the assistant's final text
+summary.
 
 <Snippet
   cell="tool-rendering-default-catchall"
@@ -71,17 +64,86 @@ tool call, named or not:
   title="frontend/src/app/page.tsx — custom wildcard renderer"
 />
 
+The catch-all component reads the tool `name`, `status`, `parameters`, and
+`result`. It uses the shadcn/ui `Card` and `Badge` components:
+
+<Snippet
+  cell="tool-rendering-custom-catchall"
+  file="src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx"
+/>
+
 Here's the branded catch-all in action, where every tool call gets the same on-brand card:
 
 <InlineDemo demo="tool-rendering-custom-catchall" />
 
+## Per-tool renderers
+
+The most expressive path is one renderer per tool name. The demo registers
+four per-tool renderers: `get_weather`, `search_flights`, `get_stock_price`,
+and `roll_d20`. Each renderer
+receives the tool's parsed arguments, a live `status`, and (once the agent
+returns) the `result`.
+
+The frontend pattern is the same for every backend. This shared, docs-only
+example includes every component, type, and helper that its renderers use:
+
+<ToolRenderingPerToolExample />
+
+<Callout type="info">
+  The `name` you pass to `useRenderTool` must match the tool name the agent
+  exposes. That is how the chat matches the call to your component.
+</Callout>
+
+Per-tool renderers compose with a catch-all: named renderers claim the
+"interesting" tools and a wildcard handles everything else. In the demo,
+the catch-all component from [Custom catch-all](#custom-catch-all) handles
+every tool without a named renderer:
+
+<Snippet
+  region="catchall-renderer"
+  title="frontend/src/app/page.tsx — per-tool + catch-all"
+/>
+
+### Tool inputs and results are separate
+
+In `useRenderTool`, `parameters` contains the **inputs** the agent sent to the
+tool. It does not change into the tool's return value when `status` becomes
+`"complete"`. The completed output arrives separately as `result`, a string.
+For a tool that returns JSON, parse that string before reading its fields.
+
+For example, `get_weather` might receive `{ "location": "Paris" }` and return
+`{ "temperature": 22 }`. Read `parameters.location` for the requested city and
+the parsed `result.temperature` for the temperature. Adding `temperature` to
+the renderer's `parameters` schema does not copy it from the result.
+
+If a card says **complete** but still shows placeholder details, check whether
+those details come from `parameters` instead of the parsed `result`. Completion
+reports that the tool returned; it does not fill the card's props for you.
+
+## The backend tool definition
+
+The frontend renderer only sees what the agent sends down. Here's the
+matching backend definition for `get_weather`: expose a tool named
+`get_weather`, return structured data, and let the frontend renderer with
+the same name render the card.
+
+<Snippet
+  region="weather-tool-backend"
+  title="backend/agent.py — weather tool"
+/>
+
+<FrameworkSetup concept="tool-rendering-setup" />
+
+To check it, ask the agent for the weather in San Francisco. The `WeatherCard`
+renders with the temperature from `result`.
+
 ## Grouping tool calls
 
 Agents often call several tools in a row. By default, CopilotKit collapses
-each run of calls drawn by the built-in card from `useDefaultRenderTool()` into
+each series of calls rendered by the built-in card from `useDefaultRenderTool()` into
 one card that reads "Used 3 tools". While a call runs, the card names it
 ("Running read_file src/app.ts"), and opening it shows a row per call. Calls
-drawn by your own renderers always show on their own and split the group
+rendered by your own renderers always show on their own and split the group
 around them, unless the renderer opts in with `group: true`:
 
 ```tsx title="page.tsx"
@@ -97,7 +159,7 @@ Pick how calls show with `toolCallDisplay` on the message view:
 
 | Display      | What the user sees                                                                        |
 | ------------ | ----------------------------------------------------------------------------------------- |
-| `"grouped"`  | One card per run of calls, collapsed to "Used 3 tools". Opens to a row per call.          |
+| `"grouped"`  | One card per series of calls, collapsed to "Used 3 tools". Opens to a row per call.       |
 | `"line"`     | The same grouping as a quiet line of text, like "Thought for 4 seconds".                  |
 | `"stacked"`  | The latest call on top of a stack of the earlier ones. Opens into a card per call.        |
 | `"turn"`     | The agent works in the open, then everything before the reply folds into "Worked for 9s". |
@@ -123,62 +185,8 @@ To restyle or replace the group, use the `group` slot of the tool-calls view
 See [`CopilotChatToolCallGroup`](/reference/components/CopilotChatToolCallGroup)
 for its props and an example replacement.
 
-## Per-tool renderers
-
-The most expressive path is one renderer per tool name. The primary
-`tool-rendering` cell wires two: `get_weather` draws a branded
-`WeatherCard`, `search_flights` draws a `FlightListCard`. Each renderer
-receives the tool's parsed arguments, a live `status`, and (once the agent
-returns) the `result`:
-
-### Tool inputs and results are separate
-
-In `useRenderTool`, `parameters` contains the **inputs** the agent sent to the
-tool. It does not change into the tool's return value when `status` becomes
-`"complete"`. The completed output arrives separately as `result`, a string.
-For a tool that returns JSON, parse that string before reading its fields.
-
-For example, `get_weather` might receive `{ "location": "Paris" }` and return
-`{ "temperature": 22 }`. Read `parameters.location` for the requested city and
-the parsed `result.temperature` for the temperature. Adding `temperature` to
-the renderer's `parameters` schema does not copy it from the result.
-
-If a card says **complete** but still shows placeholder details, check whether
-those details come from `parameters` instead of the parsed `result`. Completion
-reports that the tool returned; it does not fill the card's props for you.
-
-The frontend pattern is the same for every backend. This shared, docs-only
-example includes every component, type, and helper that its renderers use:
-
-<ToolRenderingPerToolExample />
-
 <Callout type="info">
-  The `name` you pass to `useRenderTool` must match the tool name the agent
-  exposes; that's how the runtime routes the call to your component.
+  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/). This free DeepLearning.AI short course is taught by CopilotKit's CEO. It covers the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
 </Callout>
-
-Per-tool renderers compose with a catch-all: named renderers claim the
-"interesting" tools and a wildcard handles everything else. In the primary
-cell, the same `CustomCatchallRenderer` from above catches `get_stock_price`
-and `roll_dice`:
-
-<Snippet
-  region="catchall-renderer"
-  title="frontend/src/app/page.tsx — per-tool + catch-all"
-/>
-
-## The backend tool definition
-
-The frontend renderer only sees what the agent sends down. Here's the
-matching backend definition for `get_weather`: expose a tool named
-`get_weather`, return structured data, and let the frontend renderer with
-the same name paint the card.
-
-<Snippet
-  region="weather-tool-backend"
-  title="backend/agent.py — weather tool"
-/>
-
-<FrameworkSetup concept="tool-rendering-setup" />
 
 <IntegrationGrid path="generative-ui/tool-rendering" />

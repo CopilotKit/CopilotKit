@@ -109,7 +109,7 @@ Use [tool-based HITL](/microsoft-agent-framework/human-in-the-loop/tool-based) i
   </Step>
 
   <Step>
-    ### Give it a try!
+    ### Give it a try
 
     Ask the agent to delete a file. The run stops, your approval UI appears, and the tool only runs after you approve.
   </Step>
@@ -127,15 +127,15 @@ An approval-gated call arrives with `reason` set to `"tool_call"`. These fields 
 | `toolCallId` | The pending call's id. It matches the `TOOL_CALL_START` event both backends emit, so you can correlate the two. |
 | `responseSchema` | JSON Schema for the payload the agent expects. Both backends ask for a boolean `approved`. |
 
-The Python adapter also puts the whole request under `interrupt.metadata.agent_framework.function_call`, which gives you the tool `name` and its `arguments`. The .NET server does not send that field, so read the tool name from `message` if you support both.
+The Python adapter also puts the whole request under `interrupt.metadata.agent_framework.function_call`, which gives you the tool `name` and its `arguments`. The .NET server does not send that field. If you support both backends, read the tool name from `message`.
 
 ## Approving, denying, and cancelling
 
-`cancel()` and `resolve({ approved: false })` both leave the tool unrun, but they end the turn differently:
+`cancel()` and `resolve({ approved: false })` both leave the tool unrun:
 
 - `resolve({ approved: true })` resumes the agent and the tool runs.
 - `resolve({ approved: false })` hands the refusal to the agent, which continues and can reply to the user.
-- `cancel()` ends the run immediately.
+- `cancel()` marks the call as cancelled and resumes the agent. The tool does not run.
 
 <Callout type="warn">
   Do not register a frontend tool with the same name as a backend tool. Tool names must be unique across both, and a collision fails the run with `Duplicate tool name`.

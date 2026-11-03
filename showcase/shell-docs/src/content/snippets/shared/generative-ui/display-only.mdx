@@ -1,8 +1,8 @@
 ## What is this?
 
-`useComponent` lets you register a React component as a tool your agent can invoke. When the agent calls the tool, CopilotKit renders your component directly in the chat with the tool's arguments as props.
+When your agent has data to show, such as the weather for a city, it can show your React component in the chat. Register the component with `useComponent`, and the agent calls it like a tool. CopilotKit renders the component with the tool's arguments as props.
 
-This is the simplest form of Generative UI — your agent decides when to show a component, and CopilotKit renders it. No handler logic, no user interaction required.
+This is the simplest form of Generative UI: your agent decides when to show a component, and CopilotKit renders it. No handler logic, no user interaction required.
 
 ## When should I use this?
 
@@ -13,7 +13,7 @@ Use `useComponent` when you want to:
 - Render previews, status indicators, or visual feedback
 - Let the agent present information beyond plain text
 
-For components that need user interaction, see the Interactive or Interrupt-based guides.
+For components that need user input, see [Interactive](/generative-ui/your-components/interactive). To pause the agent run for a user decision, see [Human-in-the-loop](/human-in-the-loop).
 
 ## Register a component
 
@@ -55,6 +55,8 @@ function YourMainContent() {
   return <div>{/* ... */}</div>;
 }
 ```
+
+Ask the agent: "Show me the weather in Paris." The agent calls `showWeather`, and a weather card for Paris renders in the chat.
 
 ## Without parameters
 

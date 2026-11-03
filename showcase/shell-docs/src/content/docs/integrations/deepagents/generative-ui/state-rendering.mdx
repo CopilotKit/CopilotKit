@@ -15,7 +15,7 @@ description: Render your agent's state with custom UI components in real-time.
 
 ## What is this?
 
-State rendering lets you build UI that reflects your agent's state in real-time. As your agent progresses through nodes and emits state updates, your frontend renders those changes — showing progress, drafts, or intermediate results.
+State rendering lets you build UI that reflects your agent's state in real-time. As your agent progresses through nodes and emits state updates, your frontend renders those changes to show progress, drafts, or intermediate results.
 
 ## When should I use this?
 
@@ -191,7 +191,11 @@ Use state rendering when you want to:
 
     The tool then returns a `Command` that saves the completed list. Its `ToolMessage` closes the active tool call.
 
-    Keep the state key, tool name, and tool argument identical. A mismatch sends updates to the wrong state field.
+    Each setting must match your code. A mismatch sends updates to the wrong state field.
+
+    - `state_key` (`stateKey`): the state field.
+    - `tool`: the name of the tool.
+    - `tool_argument` (`toolArgument`): the argument of the tool.
   </Step>
   <Step>
     ### Render state in the UI
@@ -225,7 +229,7 @@ Use state rendering when you want to:
     ```
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
 
     Ask the agent to research a topic. The search items appear and update while the agent works.
   </Step>

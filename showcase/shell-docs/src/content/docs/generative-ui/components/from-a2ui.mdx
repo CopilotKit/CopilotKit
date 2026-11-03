@@ -170,14 +170,17 @@ After, each component is one entry, with the component, a description and plain 
   </Tab>
 </Tabs>
 
-What to change:
+What every app changes:
 
 - **Prop types are plain.** Drop `DynamicStringSchema` and the unions. Any prop takes a literal, a binding `{ "@path": "/x" }` or a function value `{ "@call": ... }`, and the engine resolves it before your component renders. A component never sees a binding object.
 - **Every component gets a `description`.** The agent reads it to pick components.
+- **The catalog id** is `id`. A surface with no `catalogId` pins to it. The run also lists the ids of the catalogs in `extends`, so an operation or a component can name `copilotkit/standard@1` or the id of any other base. Any other `catalogId` is rejected.
+
+What to change if you use them:
+
 - **Children** are `slots` (`{ children: "multiple" }`, `{ child: "single" }`) or `child()` / `childList()` inside the props schema, for example `tabs: z.array(z.object({ title: z.string(), child: child() }))`. See [Catalogs](/generative-ui/components/catalogs).
 - **The basic catalog** is `extends: [standardUI]`. Drop components with `standardUI.omit([...])` and replace one with `overrides`; see [the standard catalog](/generative-ui/components/standard-catalog#replace-a-component).
-- **The catalog id** is `id`. A surface with no `catalogId` pins to it. The run also lists the ids of the catalogs in `extends`, so an operation or a component can name `copilotkit/standard@1` or the id of any other base. Any other `catalogId` is rejected.
-- **Actions and app state** become `functions` with `useGenerativeUIFunction`, and `state` with `useGenerativeUIState`; in Angular, `registerGenerativeUIFunction` and `connectGenerativeUIState`. See [Connect app state and actions](/generative-ui/components/state-and-actions).
+- **Actions and app state** become `functions` with `useGenerativeUIFunction`, and `state` with `useGenerativeUIState`; see [Connect app state and actions](/generative-ui/components/state-and-actions).
 
 Your renderers stay as they are, apart from the props they read: a bound prop arrives resolved, and a slot or a child reference arrives as a React node, or as a `GenerativeUIChildren` handle in Angular. In Vue, a slot arrives as a named slot, and a child reference as a `VNode`.
 
@@ -193,15 +196,15 @@ The engine takes A2UI 1.0 operations only. A v0.9 shape is rejected with a reaso
 | `"action": { "name": "buy", "context": { ... } }` | `"onClick": { "event": { "name": "buy", "userMessage": "Buy it", "context": { ... } } }` or `{ "functionCall": { "@call": "addToCart", "args": { ... } } }`       |
 | `"children": ["a", "b"]`                          | The same, or a template `{ "componentId": "row", "path": "/items" }` with `{ "@call": "@index" }` inside                                                          |
 | Validation in the agent                           | `"checks": [{ "condition": { "@call": "email", "args": { ... } }, "message": "..." }]`                                                                            |
-| An agent tool call per function                   | Not in this version: the agent cannot call renderer functions; see [Who may call a function](/generative-ui/components/state-and-actions#who-may-call-a-function) |
+| An agent tool call per function                   | Not in this version: the agent cannot call renderer functions; see [Who may call a function](/generative-ui/components/catalogs#who-may-call-a-function) |
 
-A2UI 1.0 has no arithmetic. CopilotKit adds `calc` and `series` as catalog functions, listed like the others, so a renderer without them rejects the call rather than misrendering. See [Compute values in the browser](/generative-ui/components/state-and-actions#compute-values-in-the-browser).
+A2UI 1.0 has no arithmetic. CopilotKit adds `calc` and `series` as catalog functions, listed like the others. Another A2UI client that does not have them rejects the call. It does not render a wrong value. See [Compute values in the browser](/generative-ui/components/state-and-actions#compute-values-in-the-browser).
 
 ## What the agent receives
 
-A click on an `{ "event" }` action becomes a visible user message: the `userMessage`, then the context as lines. The run also carries the structured A2UI action message (`name`, `surfaceId`, `sourceComponentId`, `timestamp`, `userMessage`, `context`) in `forwardedProps.copilotkit.ui.metadata.extensions.copilotkit_action`; `envelopeToManifest` from `@copilotkit/shared` gives it back as `action`. A second click while the agent runs is dropped, so a double click does not start two runs.
+A click on an `{ "event" }` action becomes a visible user message: the `userMessage`, then the context as lines. The run also carries the A2UI action message. It has `name`, `surfaceId`, `sourceComponentId`, `timestamp`, `userMessage`, and `context`. It is in `forwardedProps.copilotkit.ui.metadata.extensions.copilotkit_action`. To read it, call `envelopeToManifest` from `@copilotkit/shared` and use `action`. A second click while the agent runs is dropped, so a double click does not start two runs.
 
-The agent cannot call renderer functions in this version: a `callRendererFunction` operation is rejected with a reason, and the prompts do not mention it. See [Who may call a function](/generative-ui/components/state-and-actions#who-may-call-a-function).
+The agent cannot call renderer functions in this version: a `callRendererFunction` operation is rejected with a reason, and the prompts do not mention it. See [Who may call a function](/generative-ui/components/catalogs#who-may-call-a-function).
 
 ## What changes in markdown mode
 
@@ -212,10 +215,6 @@ In the tool transport, the browser renders what the agent wrote. In the markdown
 - **A new fence with the same `surfaceId`** in the same reply changes the surface in place; in a later reply it makes a new chat surface.
 
 See [Markdown mode](/generative-ui/components/markdown-mode).
-
-## Map and route
-
-`Map` takes `markers` (a list, or a binding to one), `selected` (writable: bind it to read the user's choice), `zoom`, `center` and `route: true`, which draws a line through the markers in order. It needs `npm install maplibre-gl`; without the package it shows the places as a list.
 
 ## Support matrix
 

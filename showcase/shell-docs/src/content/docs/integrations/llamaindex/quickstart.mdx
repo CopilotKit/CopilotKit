@@ -29,7 +29,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_llamaindex_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
+        <SignupLink surface="docs_llamaindex_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. You will connect the app after you create it below.
     </Step>
 
     <Step>
@@ -56,8 +56,8 @@ Before you begin, you'll need the following:
                 The CLI walks you through:
 
                 - **Project name**
-                - **CopilotKit Intelligence** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard LlamaIndex setup.
-                - **Framework** — pick **LlamaIndex** when prompted.
+                - **CopilotKit Intelligence**: persistent threads and the Inspector. Choose **Yes** for a project that is wired to Intelligence. Choose **No** for a standard LlamaIndex setup. If you choose **Yes**, the CLI walks you through sign-up.
+                - **Framework**: pick **LlamaIndex** when prompted.
             </Step>
             <Step>
                 ### Install dependencies
@@ -77,7 +77,7 @@ Before you begin, you'll need the following:
                 ```
 
                 <Callout type="info" title="What about other models?">
-                  The starter template is configured to use OpenAI's GPT-6 Luna by default, but you can modify it to use any language model supported by LlamaIndex.
+                  The starter template uses OpenAI's `gpt-5-mini` by default, but you can modify it to use any language model supported by LlamaIndex.
                 </Callout>
             </Step>
             <Step>
@@ -109,9 +109,9 @@ Before you begin, you'll need the following:
                 This will start both the UI and agent servers concurrently.
             </Step>
             <Step>
-                ### 🎉 Start chatting!
+                ### Start chatting
 
-                Your AI agent is now ready to use! Navigate to `localhost:3000` and start prompting it:
+                Your AI agent is now ready to use. Navigate to `localhost:3000` and start prompting it:
 
                 ```
                 What tools do you have access to?
@@ -127,9 +127,9 @@ Before you begin, you'll need the following:
 
                 <Accordions className="mb-4">
                     <Accordion title="Troubleshooting">
-                        - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
-                        - Make sure your agent is running on port 8000
-                        - Check that your OpenAI API key is correctly set
+                        - If the chat cannot connect to the agent, use `0.0.0.0` or `127.0.0.1` instead of `localhost`.
+                        - If the chat shows a connection error, make sure that the `agent` lines in the `npm run dev` output show `Uvicorn running on http://127.0.0.1:9000`.
+                        - If the `agent` lines show an OpenAI `AuthenticationError`, make sure that `OPENAI_API_KEY` in `agent/.env` holds a valid key.
                     </Accordion>
                 </Accordions>
 
@@ -178,7 +178,7 @@ Before you begin, you'll need the following:
                 ```
 
                 <Callout type="info" title="What about other models?">
-                  This example uses OpenAI's GPT-6 Luna, but you can modify it to use any language model supported by LlamaIndex.
+                  This example uses OpenAI's `gpt-5.4`. To use another model, change `OpenAI(model=...)`, or use another LLM class that LlamaIndex supports.
                 </Callout>
             </Step>
             <Step>
@@ -244,7 +244,7 @@ Before you begin, you'll need the following:
                 ```
             </Step>
             <Step>
-                ### Setup Copilot Runtime
+                ### Add the Copilot Runtime route
 
                 Create an API route to connect CopilotKit to your LlamaIndex agent:
 
@@ -260,11 +260,12 @@ Before you begin, you'll need the following:
                   agents: {
                     my_agent: new LlamaIndexAgent({ url: "http://localhost:8000/run" }),
                   },
-                  // [!code highlight:8]
+                  // [!code highlight:9]
                   intelligence: new CopilotKitIntelligence({
                     apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
                   }),
-                  // Threads are per-user. Without this, every visitor shares one history.
+                  // Demo only: the browser sends no x-user-id header, so all visitors share
+                  // one "anonymous" history. Before you deploy, return the verified session user.
                   identifyUser: (request) => ({
                     id: request.headers.get("x-user-id") ?? "anonymous",
                     name: request.headers.get("x-user-name") ?? "Anonymous",
@@ -278,6 +279,8 @@ Before you begin, you'll need the following:
 
                 export const GET = handler;
                 export const POST = handler;
+                export const PATCH = handler;
+                export const DELETE = handler;
                ```
 
                 From this frontend app directory, connect the runtime to an Intelligence project:
@@ -319,8 +322,7 @@ Before you begin, you'll need the following:
                 }
                 ```
 
-                `app/layout.tsx` is a server component and cannot import the provider
-                directly, so it renders your client file instead:
+                Render `Providers` around your app in `app/layout.tsx`:
 
                 ```tsx title="app/layout.tsx"
                 import { Providers } from "./providers"; // [!code highlight]
@@ -347,8 +349,8 @@ Before you begin, you'll need the following:
                   `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
                   same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
                   server of its own and an absolute `runtimeUrl` such as
-                  `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
-                  `/angular` and `/react-native` each show that setup.
+                  `http://localhost:8200/api/copilotkit`. See the [React SPA](/react-spa), [Vue](/vue),
+                  [Angular](/angular), and [React Native](/react-native) guides for that setup.
                 </Callout>
             </Step>
             <Step>
@@ -416,9 +418,9 @@ Before you begin, you'll need the following:
                 </Tabs>
             </Step>
             <Step>
-                ### 🎉 Start chatting!
+                ### Start chatting
 
-                Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
+                Your AI agent is now ready to use. Navigate to `localhost:3000` and try asking it some questions:
 
                 ```
                 Can you tell me a joke?
@@ -434,10 +436,10 @@ Before you begin, you'll need the following:
 
                 <Accordions className="mb-4">
                     <Accordion title="Troubleshooting">
-                        - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
-                        - Make sure your agent is running on port 8000
-                        - Check that your OpenAI API key is correctly set
-                        - Verify that the `@ag-ui/llamaindex` package is installed in your frontend
+                        - If the chat cannot connect to the agent, use `0.0.0.0` or `127.0.0.1` instead of `localhost`.
+                        - If the chat shows a connection error, make sure that the agent terminal prints `Uvicorn running on http://localhost:8000`.
+                        - If the agent terminal shows an OpenAI `AuthenticationError`, make sure that you exported `OPENAI_API_KEY` in the terminal that runs the agent.
+                        - If the build fails with `Module not found: Can't resolve '@ag-ui/llamaindex'`, install `@ag-ui/llamaindex` in your frontend.
                     </Accordion>
                 </Accordions>
 
@@ -476,7 +478,7 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<PaintbrushIcon />}
   />
   <Card
-    title="Setup frontend actions"
+    title="Add frontend tools"
     description="Give your agent the ability to call frontend tools, directly updating your application."
     href="/llamaindex/frontend-tools"
     icon={<WrenchIcon />}

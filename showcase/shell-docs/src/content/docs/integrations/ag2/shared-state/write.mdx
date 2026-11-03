@@ -18,7 +18,7 @@ description: Write to agent's state from your application.
 
 ## What is this?
 
-This guide shows you how to write to your agent's state from your application.
+Your UI can write to the AG2 agent's state. The agent reads the new values on its next run.
 
 <Callout type="info">
   CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
@@ -33,12 +33,12 @@ You can use this when you want to keep your interface and backend agent state sy
 <Steps>
   <Step>
     ### Run and connect your agent
-    Start your AG2 backend and connect your CopilotKit frontend to the AG-UI `/chat` endpoint.
+    Start your AG2 backend and connect your CopilotKit frontend to its `/chat` endpoint, as shown in [Connect your own AG2 agent](/ag2/quickstart#connect-your-own-ag2-agent).
   </Step>
   <Step>
     ### Define the Agent State
 
-    In AG2, shared state lives in the agent's **conversation variables**. `AGUIStream` synchronizes them in both directions: state written from the UI (`agent.setState`) arrives on `RunAgentInput.state` and is merged into the variables for the run, and variable changes made by tools are streamed back as `STATE_SNAPSHOT` events automatically.
+    In AG2, shared state lives in the agent's **conversation variables**. `AGUIStream` syncs these variables in both directions. State that the UI writes with `agent.setState` arrives on `RunAgentInput.state` and merges into the variables for the run. When a tool changes a variable, `AGUIStream` sends the change back as a `STATE_SNAPSHOT` event.
 
     ```python title="agent.py"
     from typing import Annotated
@@ -85,7 +85,7 @@ You can use this when you want to keep your interface and backend agent state sy
     ```
 
     <Callout type="warn">
-      Don't set a default for a UI-written key via `Agent(variables=...)` — agent variables take precedence over the incoming `RunAgentInput.state` on every run, so they would overwrite whatever the UI wrote with `agent.setState`. Provide defaults in the UI (or via `context.variables.setdefault` inside a tool) instead.
+      Don't set a default for a UI-written key via `Agent(variables=...)`. Agent variables take precedence over the incoming `RunAgentInput.state` on every run, so they would overwrite whatever the UI wrote with `agent.setState`. Provide defaults in the UI (or via `context.variables.setdefault` inside a tool) instead.
     </Callout>
 
   </Step>
@@ -137,7 +137,7 @@ You can use this when you want to keep your interface and backend agent state sy
     ```
 
     <Callout type="warn" title="Important">
-      The `agentId` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (for example, the key `my_agent` in `agents: { my_agent: new HttpAgent({ url }) }` in your runtime route).
     </Callout>
 
   </Step>
@@ -191,5 +191,10 @@ function YourMainContent() {
 
 ### Intermediately Stream and Render Agent State
 
-By default, `AGUIStream` emits a `STATE_SNAPSHOT` at the start of the run (only when the merged variables differ from the state the client sent) and at the end of the run (if `context.variables` changed since the last snapshot). A snapshot replaces the client's state wholesale, so each one carries the client's keys and the server's variables together.
-For smoother long-running workflows, emit intermediate snapshots from an async tool with `context.send(AGUIEvent(StateSnapshotEvent(snapshot=...)))` — see [Reading agent state](/ag2/shared-state/read) for a complete example.
+By default, `AGUIStream` sends a `STATE_SNAPSHOT`:
+
+- At the start of the run, if the merged variables differ from the state the client sent.
+- At the end of the run, if `context.variables` changed since the last snapshot.
+
+A snapshot replaces the client's state wholesale, so each one carries the client's keys and the server's variables together.
+For smoother long-running workflows, emit intermediate snapshots from an async tool with `context.send(AGUIEvent(StateSnapshotEvent(snapshot=...)))`. See [Reading agent state](/ag2/shared-state/read) for a complete example.

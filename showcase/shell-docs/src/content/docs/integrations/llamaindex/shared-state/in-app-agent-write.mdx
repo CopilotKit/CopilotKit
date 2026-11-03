@@ -18,11 +18,11 @@ description: Write to agent's state from your application.
 
 ## What is this?
 
-You can easily write to your agent's state from your native application, allowing you to update the agent's working memory from your UI.
+When the user changes a setting in your UI, such as the reply language, write it to the agent's state. The agent reads the new value on its next run.
 
 ## When should I use this?
 
-You can use this when you want to provide user input or control to your agent's working memory. As your application state changes, you can update the agent state to reflect these changes.
+Use this when the user must control a value in the agent's state. As your application state changes, you can update the agent state to reflect these changes.
 
 ## Implementation
 
@@ -82,8 +82,7 @@ You can use this when you want to provide user input or control to your agent's 
   </Step>
   <Step>
     ### Use the `useAgent` Hook
-    With your agent connected and running all that is left is to call the `useAgent` hook, pass the agent's name, and
-    use `agent.setState` to update the agent state.
+    Call the `useAgent` hook with the ID of your agent. Then call `agent.setState` to update the agent state.
 
     ```tsx title="ui/app/page.tsx"
     "use client";
@@ -129,7 +128,7 @@ You can use this when you want to provide user input or control to your agent's 
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` value must match the key that you registered the agent under in your CopilotRuntime configuration (for example, `my_agent` in the quickstart).
     </Callout>
 
     <Callout type="info">
@@ -138,7 +137,7 @@ You can use this when you want to provide user input or control to your agent's 
 
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
     You can now use `agent.setState` to update the agent state and `agent.state` to read it. Try toggling the language button
     and talking to your agent. You'll see the language change to match the agent's state.
   </Step>
@@ -148,10 +147,10 @@ You can use this when you want to provide user input or control to your agent's 
 
 ### Re-run the agent with a hint about what's changed
 
-The new agent state will be used next time the agent runs.
+The agent uses the new state on its next run.
 If you want to re-run it manually, use `copilotkit.runAgent()`.
 
-The agent will be re-run with the latest updated state. You can also add a hint message before re-running.
+`copilotkit.runAgent()` runs the agent again with the new state. You can also add a hint message before re-running.
 
 ```tsx title="ui/app/page.tsx"
 import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";

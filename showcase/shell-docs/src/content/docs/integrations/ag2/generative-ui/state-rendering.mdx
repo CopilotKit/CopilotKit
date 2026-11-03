@@ -21,12 +21,12 @@ is a situation where a user and an agent are working together to solve a problem
 <Steps>
   <Step>
     ### Run and connect your agent
-    Start your AG2 backend with AG-UI streaming enabled on `/chat`.
+    Start your AG2 backend with AG-UI streaming enabled on `/chat`. If you do not have one yet, follow the [quickstart](/ag2/quickstart#connect-your-own-ag2-agent).
   </Step>
   <Step>
     ### Set up your agent with state
 
-    Store the state in the agent's conversation variables. Changes made by tools are streamed back as `STATE_SNAPSHOT` events automatically at the end of the run; for per-step updates during a long-running tool, emit intermediate snapshots with `context.send`:
+    Store the state in the agent's conversation variables (`context.variables`). When the run ends, AG2 sends the state as a `STATE_SNAPSHOT` event if a tool changed it. To update the UI after each step of a long tool, send a snapshot with `context.send`:
 
     ```python title="agent.py"
     from typing import Annotated
@@ -146,23 +146,13 @@ is a situation where a user and an agent are working together to solve a problem
     ```
 
     <Callout type="warn" title="Important">
-      The `agentId` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (for example, the key `my_agent` in `agents: { my_agent: new HttpAgent({ url }) }` in your runtime route).
     </Callout>
 
   </Step>
   <Step>
     ### Give it a try
 
-    You've now created a component that renders the agent's state in your UI.
-
-    <video
-      src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-generative-ui.mp4"
-      className="rounded-lg shadow-xl"
-      loop
-      playsInline
-      controls
-      autoPlay
-      muted
-    />
+    Ask the agent: "Search for flights to Paris and hotels in Rome." Each search appears with ❌, then changes to ✅ when `run_searches` marks it done.
   </Step>
 </Steps>

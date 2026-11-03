@@ -7,7 +7,6 @@ description: Decide which state properties are received and returned to the fron
 ## What is this?
 
 Not all state properties are relevant for frontend-backend sharing.
-This guide shows how to ensure only the right portion of state is communicated back and forth.
 
 ## When should I use this?
 
@@ -20,23 +19,23 @@ In addition, some state properties contain a lot of information. Syncing them ba
   <Step>
     ### Examine your state structure
     LlamaIndex agents using the AG-UI workflow router are stateful. As you execute tools and process messages, that state is updated and available throughout the session. For this example,
-    let's assume that the state our agent should be using can be described like this:
+    assume that the agent's state looks like this:
 
     ```python title="agent.py"
-    # Full state structure for the agent
+    # Shared state: the router sends these keys to the UI
     initial_state = {
         "question": "",         # Input from user
         "answer": "",           # Output to user
-        "resources": []         # Internal use only
     }
+    # Internal use only: the agent keeps "resources" under its own context key
     ```
   </Step>
   <Step>
     ### Organize state by purpose
     Our example case lists several state properties, each with its own purpose:
-      - The **question** is being asked by the user, expecting the LLM to answer
-      - The **answer** is what the LLM returns
-      - The **resources** list will be used by the LLM to answer the question, and should not be communicated to the user, or set by them
+      - **question**: the user asks it, and the LLM answers it.
+      - **answer**: the LLM returns it.
+      - **resources**: the LLM uses this list to answer. The user cannot see or set it.
 
     Here's a complete example showing how to structure your agent with these considerations:
 
@@ -81,7 +80,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
         ctx: Context,
         resource: Annotated[str, "The resource URL or reference to add."]
     ) -> str:
-        """Adds a resource to the internal resources list in shared state.
+        """Adds a resource to the internal resources list.
 
         Args:
             ctx: The workflow context for state management.
@@ -90,17 +89,11 @@ In addition, some state properties contain a lot of information. Syncing them ba
         Returns:
             str: A message indicating the resource was added.
         """
-        async with ctx.store.edit_state() as global_state:
-            state = global_state.get("state", {})
-            if state is None:
-                state = {}
-            
-            resources = state.get("resources", [])
-            resources.append(resource)
-            state["resources"] = resources
-            
-            global_state["state"] = state
-        
+        # The router sends only the "state" key to the UI, so a separate
+        # context key keeps the resources on the server.
+        resources = await ctx.store.get("resources", default=[])
+        await ctx.store.set("resources", [*resources, resource])
+
         return f"Resource added: {resource}"
 
     # Initialize the LLM
@@ -121,7 +114,6 @@ In addition, some state properties contain a lot of information. Syncing them ba
         initial_state={
             "question": "",       # Input: received from frontend
             "answer": "",         # Output: sent to frontend
-            "resources": []       # Internal: tracking resources
         },
     )
 
@@ -239,15 +231,12 @@ In addition, some state properties contain a lot of information. Syncing them ba
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` value must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
     </Callout>
   </Step>
   <Step>
-    ### Give it a try!
-    Now that we've organized state by purpose:
-    - The UI can set `question` and read `answer`
-    - The agent uses `resources` internally without exposing it to the frontend
-    - State updates flow efficiently between frontend and backend
+    ### Give it a try
+    Start the agent and the app. Type a question and click **Ask Question**. The **Answer** line shows the answer that the agent stored in state, and `agent.state` has no `resources` key.
   </Step>
 </Steps>
 

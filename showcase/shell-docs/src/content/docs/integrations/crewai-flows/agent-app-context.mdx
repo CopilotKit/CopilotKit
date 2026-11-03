@@ -22,13 +22,12 @@ and `useAgentContext` is how the agent gets it.
 
 <Callout type="warn" title="CrewAI needs a field on your state class">
     Unlike the [built-in agent](/built-in-agent/agent-app-context), a CrewAI Flow does **not** receive
-    this context automatically, and the gap is easy to miss because it does not look like a missing
-    field. The AG-UI adapter writes your entries into the run state under a `context` key — but
-    `CopilotKitState` does not declare `context`, and a Flow state is a Pydantic model, so the key is
-    dropped on validation before any `@start()` method runs.
+    this context automatically, and nothing fails to show it. The AG-UI adapter writes your entries
+    to a `context` key in the run state. `CopilotKitState` does not declare `context`. A Flow state is
+    a Pydantic model, so Pydantic drops the key before any `@start()` method runs.
 
     That means `self.state.context` does not exist in the shape the quickstart shows, and reading it
-    raises nothing — it is simply never there. Your crew still answers, fluently and in the right
+    raises nothing: the key is never there. Your crew still answers, fluently and in the right
     shape, from nothing. Step 2 below declares the field so the value survives, and step 3 puts it in
     front of the model.
 </Callout>
@@ -170,13 +169,13 @@ and `useAgentContext` is how the agent gets it.
         <Callout>
             Pass the rendered context through `inputs` rather than formatting it into the
             `description` string yourself. CrewAI interpolates `{placeholder}` in a task description
-            from `inputs`, so context full of JSON braces stays verbatim instead of being read as
+            from `inputs`, so context full of JSON braces stays verbatim and is not read as
             more placeholders.
         </Callout>
     </Step>
 
     <Step>
-        ### Give it a try!
+        ### Give it a try
 
         Ask your agent a question about the context. It should be able to answer.
 
@@ -185,8 +184,8 @@ and `useAgentContext` is how the agent gets it.
         empty context. Two answers that describe the same record mean the context changed nothing,
         and the agent is answering from its own invention.
 
-        A crew whose backstory forbids invention refuses instead of inventing, which looks safer and
-        is the same defect — it is still answering with nothing. Compare against the empty control
+        A crew whose backstory forbids invention refuses rather than invents, which looks safer and
+        is the same defect: it is still answering with nothing. Compare against the empty control
         either way.
     </Step>
 </Steps>

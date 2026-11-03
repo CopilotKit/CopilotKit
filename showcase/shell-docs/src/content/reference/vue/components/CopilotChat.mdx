@@ -5,7 +5,14 @@ description: "Vue 3 component that connects an agent to a chat view"
 
 ## Overview
 
-`CopilotChat` is a high-level chat container that wires an agent into [`CopilotChatView`](/reference/vue/components/CopilotChatView) while providing configuration context. It resolves the agent via [`useAgent`](/reference/vue/hooks/useAgent), subscribes to the agent's messages and running state, manages suggestions, handles input value and audio transcription, wires file attachments, and auto-clears the input after a message is submitted.
+`CopilotChat` is a high-level chat container that wires an agent into [`CopilotChatView`](/reference/vue/components/CopilotChatView) while providing configuration context. `CopilotChat` handles these for you:
+
+- Resolves the agent with [`useAgent`](/reference/vue/hooks/useAgent).
+- Shows the messages and running state of the agent.
+- Manages suggestions.
+- Handles the input value and audio transcription.
+- Manages file attachments.
+- Clears the input after a message is sent.
 
 You typically only need to specify which agent to connect and, optionally, customize labels or override one of the named slots.
 
@@ -45,7 +52,7 @@ All reactive props are declared with `defineProps`. `CopilotChat` extends `Copil
 </PropertyReference>
 
 <PropertyReference name="attachments" type="AttachmentsConfig">
-  Configuration for file attachments (accepted MIME types, upload handling, etc.). When set, the add-file action and drag-and-drop are enabled and the chat manages the attachment queue automatically.
+  Configuration for file attachments (accepted MIME types, upload handling, etc.). Set `enabled: true` to turn on the add-file action and drag-and-drop. The chat then manages the attachment queue automatically.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
@@ -85,10 +92,6 @@ function handleError(event: {
 
 <PropertyReference name="inputValue" type="string">
   Controlled value for the chat input. When provided, the chat treats the input as controlled and mirrors changes back through the `input-change` event.
-</PropertyReference>
-
-<PropertyReference name="inputMode" type='"input" | "transcribe" | "processing"' default='"input"'>
-  Initial input mode. The component manages transitions between these modes during audio transcription.
 </PropertyReference>
 
 <PropertyReference name="inputToolsMenu" type='(ToolsMenuItem | "-")[]'>
@@ -131,7 +134,7 @@ Vue uses named slots in place of React's render props and sub-component props. P
 </PropertyReference>
 
 <PropertyReference name="suggestion-view" type="CopilotChatSuggestionViewSlotProps">
-  Replaces the default suggestion pills. Receives `suggestions`, `loadingIndexes`, and `onSelectSuggestion`.
+  Replaces the default suggestion pills. Receives `suggestions`, `loadingIndexes`, and `onSelectSuggestion`. Suggestions come from [`useSuggestions`](/reference/vue/hooks/useSuggestions).
 </PropertyReference>
 
 <PropertyReference name="welcome-screen" type="CopilotChatWelcomeScreenSlotProps">
@@ -263,10 +266,3 @@ function handleSubmit(value: string) {
   <ChatView :messages="messages" @submit-message="handleSubmit" />
 </template>
 ```
-
-## Related
-
-- [`CopilotChatView`](/reference/vue/components/CopilotChatView) - the layout component used internally (also exposed as `CopilotChat.View`)
-- [`useAgent`](/reference/vue/hooks/useAgent) - composable used internally to resolve the agent
-- [`useSuggestions`](/reference/vue/hooks/useSuggestions) - composable that powers the suggestion pills
-- [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration) - reads the labels, agent id, and thread id provided by `CopilotChat`

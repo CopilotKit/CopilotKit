@@ -4,49 +4,33 @@ description: Common issues you may encounter when using LangGraph.
 icon: "lucide/LifeBuoy"
 ---
 
-Welcome to the CoAgents Troubleshooting Guide! If you're having trouble getting tool calls to work, you've come to the right place.
-
-<Callout>
-    Have an issue not listed here? Open a ticket on [GitHub](https://github.com/CopilotKit/CopilotKit/issues) or reach out on [Discord](https://discord.com/invite/6dffbvGU3D)
-    and we'll be happy to help.
-
-    We also highly encourage any open-source contributors that want to add their own troubleshooting issues to [GitHub as a pull request](https://github.com/CopilotKit/CopilotKit/blob/main/CONTRIBUTING.md).
-
-</Callout>
+Find your symptom or error below. Each section gives the cause and the fix.
 
 ## My tool calls are not being streamed
 
-This could be due to a few different reasons.
-
-First, we strongly recommend checking out our [Human In the Loop](/langgraph/human-in-the-loop) guide to follow a more in depth example of how to stream tool calls
-in your LangGraph agents. You can also check out our [travel tutorial](/langgraph/tutorials/ai-travel-app/step-6-human-in-the-loop) which talks about how to stream
-tool calls in a more complex example.
-
-If you have already done that, you can check the following:
+Check these causes:
 
 <Accordions>
     <Accordion title="You're using llm.invoke() instead of llm.ainvoke()">
-        <p>
             When you invoke your LangGraph agent, you can invoke it synchronously or asynchronously. If you invoke it synchronously,
             the tool calls will not be streamed progressively, only the final result will be streamed. If you invoke it asynchronously,
             the tool calls will be streamed progressively.
 
             ```python
-            config = copilotkit_customize_config(config, emit_tool_calls=["say_hello_to"])
             response = await llm_with_tools.ainvoke(
                 [ SystemMessage(content=system_message), *state["messages"] ],
                 config=config
             )
             ```
-        </p>
     </Accordion>
 
 </Accordions>
 
+For a full example, see [Human-in-the-loop](/langgraph/human-in-the-loop).
+
 ## Error: `'AzureOpenAI' object has no attribute 'bind_tools'`
 
-This error is typically due to the use of an incorrect import from LangGraph. Instead of importing `AzureOpenAI` import `AzureChatOpenAI` and your
-issue will be resolved.
+This error occurs when you import `AzureOpenAI` from `langchain_openai`. Import `AzureChatOpenAI` instead:
 
 ```python
 from langchain_openai import AzureOpenAI # [!code --]
@@ -58,9 +42,9 @@ from langchain_openai import AzureChatOpenAI # [!code ++]
 If you're seeing this error, it means CopilotKit couldn't find the LangGraph agent you're trying to use. Here's how to fix it:
 
 <Accordions>
-    <Accordion title="Verify your agent lock mode configuration">
-        If you're using agent lock mode,
-        check that the agent defined in `langgraph.json` matches what's defined in the CopilotKit provider:
+    <Accordion title="Verify the agent name on your provider">
+        Check that the agent defined in `langgraph.json` matches the `agent` prop on the CopilotKit provider.
+        Without an `agent` prop, CopilotKit uses the agent named `default`:
 
         ```json title="langgraph.json"
         {
@@ -134,28 +118,6 @@ If you're seeing this error, it means CopilotKit couldn't find the LangGraph age
         // Your React component
         useAgent({
             agentId: "my_agent", // [!code focus]
-        });
-        ```
-    </Accordion>
-    <Accordion title="Check your agent name in useCoAgentStateRender">
-        Make sure that the agent defined in `langgraph.json` matches the `name` you pass to the `useCoAgentStateRender` hook:
-
-        ```json title="langgraph.json"
-        {
-            "python_version": "3.12",
-            "dockerfile_lines": [],
-            "dependencies": ["."],
-            "graphs": {
-                "my_agent": "./src/agent.py:graph"// In this case, "my_agent" is the agent you're using // [!code highlight]
-            },
-            "env": ".env"
-        }
-        ```
-
-        ```tsx title="MyComponent.tsx"
-        // Your React component
-        useCoAgentStateRender({
-            name: "my_agent", // [!code focus] This must match exactly
         });
         ```
     </Accordion>
@@ -252,29 +214,28 @@ you to stream predictive state updates _in the middle of a node_. By default, Co
 generated to the frontend chat that initiated the interaction. **If this predictive state is not persisted at the end of the node, it will
 disappear in the frontend chat**.
 
-In this situation, the most likely scenario is that the `messages` property in the state is being updated in the middle of a node but those edits are not being
-persisted at the end of a node.
+Most likely, a node changes the `messages` property in the middle of the node, but it does not return the new messages at the end.
 
 <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/message-state-diagram.png" />
 
 <Accordions>
     <Accordion title="I want these messages to be persisted">
-        To fix this, you can simply persist the messages by returning the new messages at the end of the node.
+        To fix this, persist the messages by returning the new messages at the end of the node.
 
          <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
             <Tab value="Python">
                 ```python
                 from langchain_core.runnables import RunnableConfig
-                from copilotkit.langgraph import copilotkit_customize_config
+                from langchain_openai import ChatOpenAI
 
                 async def chat_node(state: AgentState, config: RunnableConfig):
-                    # 1) Call the model with CopilotKit's modified config
-                    model = ChatOpenAI(model="gpt-6-luna", reasoning_effort="none")
-                    response = await model.ainvoke(state["messages"], modifiedConfig)
+                    # 1) Call the model
+                    model = ChatOpenAI(model="gpt-5.4")
+                    response = await model.ainvoke(state["messages"], config)
 
                     # 2) Make sure to return the new messages
                     return {
-                        messages: response,
+                        "messages": response,
                     }
                 ```
             </Tab>
@@ -282,20 +243,20 @@ persisted at the end of a node.
                 ```typescript
 
                 async function chatNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-                    // 1) Call the model with CopilotKit's modified config
-                    const model = new ChatOpenAI({modelKwargs: { reasoning_effort: "none" },  temperature: 0, model: "gpt-6-luna" });
-                    const response = await model.invoke(state.messages, modifiedConfig);
+                    // 1) Call the model
+                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.4" });
+                    const response = await model.invoke(state.messages, config);
 
                     // 2) Make sure to return the new messages
                     return {
-                        messages: response,
+                        messages: [response],
                     }
                 }
                 ```
             </Tab>
         </Tabs>
     </Accordion>
-    <Accordion title="I don't want these messages to streamed at all">
+    <Accordion title="I do not want to stream these messages">
         In this case, you can reference our document on [disabling streaming](/langgraph/advanced/disabling-state-streaming). More specifically,
         you can use the copilotkit config to disable emitting messages anywhere you'd like a message to not be streamed.
 
@@ -341,8 +302,16 @@ persisted at the end of a node.
         </Tabs>
 
         <Callout title="Running a subgraph or langchain?">
-            Just make sure to pass the modified config we defined above as your `RunnableConfig` for the subgraph or langchain!
+            Just make sure to pass the modified config we defined above as your `RunnableConfig` for the subgraph or langchain.
         </Callout>
     </Accordion>
 
 </Accordions>
+
+<Callout>
+    Have an issue not listed here? Open a ticket on [GitHub](https://github.com/CopilotKit/CopilotKit/issues) or reach out on [Discord](https://discord.com/invite/6dffbvGU3D)
+    and we'll be happy to help.
+
+    We also highly encourage any open-source contributors that want to add their own troubleshooting issues to [GitHub as a pull request](https://github.com/CopilotKit/CopilotKit/blob/main/CONTRIBUTING.md).
+
+</Callout>

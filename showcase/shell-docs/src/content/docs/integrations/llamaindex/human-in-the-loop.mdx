@@ -14,21 +14,13 @@ description: Create frontend tools and use them within your LlamaIndex agent for
 
 ## What is this?
 
-Frontend tools enable you to define client-side functions that your LlamaIndex agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
-the logic runs on the client side, giving you direct access to the frontend environment.
+Some agent steps need a person's choice before the agent continues. A human-in-the-loop tool shows buttons in the chat and sends the user's pick back to the agent.
 
-This can be utilized to let [your agent control the UI](/llamaindex/frontend-tools), [generative UI](/llamaindex/frontend-tools), or for Human-in-the-loop interactions.
-
-In this guide, we cover the use of frontend tools for Human-in-the-loop.
+A human-in-the-loop tool is a frontend tool, so it runs in the browser. Frontend tools can also let [your agent control the UI](/llamaindex/frontend-tools) or show [generative UI](/llamaindex/generative-ui).
 
 ## When should I use this?
 
-Use frontend tools when you need your agent to interact with client-side primitives such as:
-- Reading or modifying React component state
-- Accessing browser APIs like localStorage, sessionStorage, or cookies
-- Triggering UI updates or animations
-- Interacting with third-party frontend libraries
-- Performing actions that require the user's immediate browser context
+Use a human-in-the-loop tool when the agent needs a decision from the user before it continues, for example a choice between two options. To let the agent call browser code without a user decision, use [frontend tools](/llamaindex/frontend-tools).
 
 ## Implementation
 
@@ -40,8 +32,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
     <Step>
         ### Add a tool to your agent
-        Add a tool to your agent that will be used to write an essay. Since the tool will be used in the frontend,
-        we'll add it to the `frontend_tools` list.
+        Add a stub for `offerOptions` to the `frontend_tools` list. The stub gives the model the tool's name and arguments. The browser runs the tool.
 
         ```python title="agent.py"
         from fastapi import FastAPI
@@ -86,11 +77,9 @@ Use frontend tools when you need your agent to interact with client-side primiti
     <Step>
         ### Create a frontend human-in-the-loop tool
 
-        Frontend tools can be leveraged in a variety of ways. One of those ways is to have a human-in-the-loop flow where the response
-        of the tool is gated by a user's decision.
+        In this example, the agent offers two options and waits for the user to pick one.
 
-        In this example we will simulate an "approval" flow for executing a command. First, use the `useHumanInTheLoop` hook to create a tool that
-        prompts the user for approval.
+        Register the tool with `useHumanInTheLoop`. Its `render` function shows two buttons. The `respond` call on the button that the user clicks sends the tool result back to the agent.
 
         ```tsx title="page.tsx"
         import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
@@ -122,14 +111,14 @@ Use frontend tools when you need your agent to interact with client-side primiti
         }
         ```
 
-        That's it! Your agent will automatically have access to all human-in-the-loop tools you've defined using `useHumanInTheLoop` in your React components.
+        Each tool that you register with `useHumanInTheLoop` also needs a stub with the same name in `frontend_tools` on the backend, as in the previous step.
 
         <Callout type="info">
-          Human-in-the-loop tools registered with `useHumanInTheLoop` are automatically forwarded to your agent through the AG-UI protocol.
+          The LlamaIndex AG-UI router gives the model only the tools in `frontend_tools`. The stub is never called, because the browser runs the tool.
         </Callout>
     </Step>
     <Step>
-        ### Try it out!
+        ### Try it out
 
         You've now given your agent the ability to show the user two options and have them select one. The agent will then be aware of the user's choice and can use it in subsequent steps.
 

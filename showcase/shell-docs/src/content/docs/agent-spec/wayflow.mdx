@@ -11,7 +11,7 @@ Wire an Agent Spec agent backed by WayFlow to CopilotKit’s UI via the AG‑UI 
 Key pieces:
 
 - Backend endpoint: `ag-ui/integrations/agent-spec/python/ag_ui_agentspec/endpoint.py`
-- Example server: `ag-ui/integrations/agent-spec/python/examples/server.py`
+- Example server: `ag-ui/integrations/agent-spec/python/examples/server/`
 - Template UI: `npx copilotkit@latest create`
 
 ## When should I use this?
@@ -20,9 +20,9 @@ Use this integration when you already have a WayFlow-based agent described by an
 
 ## Prerequisites
 
-- Python 3.10–3.14
+- Python 3.10 to 3.13
 - Node.js 20+
-- An Agent Spec config JSON/YAML file (or Python code via `pyagentspec`)
+- An Agent Spec config as JSON (or Python code via `pyagentspec`)
 
 ## Install runtime adapter
 
@@ -34,10 +34,10 @@ cd ag-ui/integrations/agent-spec/python
 uv pip install -e .[wayflow]
 ```
 
-Note that this installs `wayflowcore` from source. Alternatively, you may install it with pip:
+This installs the `ag-ui-agent-spec` adapter from source. You can also install it from PyPI:
 
 ```bash
-pip install wayflowcore
+pip install "ag-ui-agent-spec[wayflow]"
 ```
 
 ## Steps
@@ -54,7 +54,7 @@ from fastapi import FastAPI
 from ag_ui_agentspec.agent import AgentSpecAgent
 from ag_ui_agentspec.endpoint import add_agentspec_fastapi_endpoint
 
-agentspec_json = <loaded json/yaml of your Agent Spec config>
+agentspec_json = <your Agent Spec config as a JSON string>
 
 app = FastAPI()
 agent = AgentSpecAgent(agentspec_json, runtime="wayflow")
@@ -78,13 +78,15 @@ If you already have the starter, make sure your agent runs on port 8000.
 
 Then run the app (for example with `pnpm dev`) and open `http://localhost:3000`.
 
+Send a message in the chat. The agent's reply streams in, and tool calls show as they run.
+
 </Step>
 
 </Steps>
 
 ## How it works
 
-- `AgentSpecAgent(runtime="wayflow")` executes your Agent Spec agent with the WayFlow framework.
+- `AgentSpecAgent(runtime="wayflow")` executes your Agent Spec agent with the WayFlow framework, through the [Agent Spec WayFlow adapter](https://oracle.github.io/agent-spec/26.1.0/adapters/wayflow/index.html).
 - `AgUiSpanProcessor` maps Agent Spec tracing spans to AG‑UI events on a per‑request queue (`EVENT_QUEUE`).
 - The FastAPI endpoint streams those events as SSE for CopilotKit to render:
   - assistant text: `TEXT_MESSAGE_START/CONTENT/END`
@@ -99,16 +101,6 @@ Then run the app (for example with `pnpm dev`) and open `http://localhost:3000`.
 
 ## Next steps
 
-- Build richer UIs with agentic chat and generative UI.
-- Pass full chat history between turns. The adapter and processor handle messages and tool‑call lifecycle for you.
 - Check out the [LangGraph runtime](/agent-spec/langgraph)
 
 Starter template: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agent-spec (see the README for installation options)
-
-## Learn more
-
-- AG-UI docs: https://docs.ag-ui.com/introduction
-- Agent Spec docs home: https://oracle.github.io/agent-spec/development/docs_home.html
-- Specification overview: https://oracle.github.io/agent-spec/development/agentspec/index.html
-- Agent Spec tracing docs: https://oracle.github.io/agent-spec/26.1.0/agentspec/tracing.html
-- Agent Spec WayFlow adapter docs: https://oracle.github.io/agent-spec/26.1.0/adapters/wayflow/index.html

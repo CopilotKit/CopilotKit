@@ -15,7 +15,7 @@ description: Render the state of your agent with custom UI components.
 ## What is this?
 
 LlamaIndex Agents using the AG-UI workflow router are stateful. This means that as your agent progresses through its workflow, a state object is maintained throughout
-the session. CopilotKit allows you to render this state in your application with custom UI components, which we call **Agentic Generative UI**.
+the session. With CopilotKit, you can render this state in your application with custom UI components, which we call **Agentic Generative UI**.
 
 ## When should I use this?
 
@@ -145,11 +145,11 @@ is a situation where a user and an agent are working together to solve a problem
   </Step>
   <Step>
     ### Render state of the agent in the chat
-    Now we can utilize `useAgent` with a `render` function to render the state of our agent **in the chat**.
+    Use `useAgent` to read the state of your agent, and render it **in the chat** with the `messageView` slot of `CopilotChat`.
 
     ```tsx title="app/page.tsx"
     // ...
-    import { useAgent } from "@copilotkit/react-core/v2";
+    import { CopilotChat, useAgent } from "@copilotkit/react-core/v2";
     // ...
 
     // Define the state of the agent, should match the state of your LlamaIndex Agent.
@@ -163,36 +163,43 @@ is a situation where a user and an agent are working together to solve a problem
     function YourMainContent() {
       // ...
 
-      // [!code highlight:13]
-      // styles omitted for brevity
-      useAgent({
+      // [!code highlight:4]
+      const { agent } = useAgent({
         agentId: "my_agent",
-        render: ({ state }) => (
-          <div>
-            {state.searches?.map((search, index) => (
-              <div key={index}>
-                {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
-              </div>
-            ))}
-          </div>
-        ),
       });
+      const state = (agent.state ?? {}) as Partial<AgentState>;
 
-      // ...
-
-      return <div>...</div>;
+      // styles omitted for brevity
+      // [!code highlight:18]
+      return (
+        <CopilotChat
+          agentId="my_agent"
+          messageView={{
+            children: ({ messageElements, interruptElement }) => (
+              <div>
+                {messageElements}
+                {state.searches?.map((search, index) => (
+                  <div key={index}>
+                    {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
+                  </div>
+                ))}
+                {interruptElement}
+              </div>
+            ),
+          }}
+        />
+      );
     }
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` must exactly match the agent key in the `agents` map of your CopilotRuntime (for example, `my_agent` from the quickstart).
     </Callout>
 
   </Step>
   <Step>
     ### Render state outside of the chat
-    You can also render the state of your agent **outside of the chat**. This is useful when you want to render the state of your agent anywhere
-    other than the chat.
+    You can also render the state of your agent **outside of the chat**.
 
     ```tsx title="app/page.tsx"
     import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
@@ -233,14 +240,14 @@ is a situation where a user and an agent are working together to solve a problem
     ```
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` must exactly match the agent key in the `agents` map of your CopilotRuntime (for example, `my_agent` from the quickstart).
     </Callout>
 
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
 
-    You've now created a component that will render the agent's state in the chat.
+    Ask the agent: "Search for the best pizza in Rome." The search appears with ❌, then changes to ✅ when `runSearches` marks it done.
 
     <video
       src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-generative-ui.mp4"
