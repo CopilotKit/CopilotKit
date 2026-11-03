@@ -272,7 +272,7 @@ describe("standard catalog: layout and text (parity)", () => {
     callback!([{ isIntersecting: true }]);
     callback!([{ isIntersecting: true }]);
     expect(v.forwardEvent).toHaveBeenCalledTimes(1);
-    expect(v.forwardEvent.mock.calls[0][0].name).toBe("seen");
+    expect(v.forwardEvent.mock.calls[0]![0].name).toBe("seen");
   });
 });
 

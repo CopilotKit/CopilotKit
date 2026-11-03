@@ -12,7 +12,7 @@ import { anthropicText } from "@tanstack/ai-anthropic";
 import { geminiText } from "@tanstack/ai-gemini";
 import { openaiText } from "@tanstack/ai-openai";
 import { openaiCompatibleText } from "@tanstack/ai-openai/compatible";
-import { SlowToolCallStreamingAgent } from "@copilotkit/demo-agents";
+import { SlowToolCallStreamingAgent } from "./agents/slow-tool-call-streaming.js";
 import { A2UIDashboardAgent } from "./agents/a2ui-dashboard.js";
 import { A2UIRecoveryAgent } from "./agents/a2ui-recovery.js";
 

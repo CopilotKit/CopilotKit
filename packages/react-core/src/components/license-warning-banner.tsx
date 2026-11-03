@@ -36,7 +36,10 @@ interface LicenseWarningBannerProps {
   onDismiss?: () => void;
 }
 
-const BANNER_STYLES: Record<string, React.CSSProperties> = {
+const BANNER_STYLES: Record<
+  "base" | "info" | "warning" | "critical",
+  React.CSSProperties
+> = {
   base: {
     position: "fixed",
     bottom: "8px",

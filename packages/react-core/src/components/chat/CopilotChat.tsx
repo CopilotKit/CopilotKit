@@ -1255,7 +1255,8 @@ export function CopilotChat({
   // Compute the ID of the last user message for scroll-pinning logic.
   const lastUserMessageId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === "user") return messages[i].id;
+      const message = messages[i];
+      if (message?.role === "user") return message.id;
     }
     return null;
   }, [messages]);

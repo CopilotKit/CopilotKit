@@ -97,6 +97,7 @@
   },
   "devDependencies": {
     "esbuild": "^0.27.0",
+    "@copilotkit/typescript-config": "workspace:*",
     "@tanstack/intent": "^0.0.29",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^16.3.0",
@@ -114,7 +115,6 @@
     "playwright": "1.59.1",
     "react": "^19.1.0",
     "react-dom": "^19.2.0",
-    "tsconfig": "workspace:*",
     "tsdown": "^0.20.3",
     "typescript": "^5.2.3",
     "valibot": "^1.2.0",

@@ -60,10 +60,10 @@
   },
   "devDependencies": {
     "@ag-ui/core": "1.0.2",
+    "@copilotkit/typescript-config": "workspace:*",
     "@valibot/to-json-schema": "^1.5.0",
     "arktype": "^2.1.29",
     "eslint": "^8.56.0",
-    "tsconfig": "workspace:*",
     "tsdown": "^0.20.3",
     "typescript": "^5.2.3",
     "valibot": "^1.2.0",

@@ -97,7 +97,7 @@ describe("MCPAppsActivityRenderer external-activity seed", () => {
     renderAdapter(externalActivityContent(), agent);
 
     await waitFor(() => expect(bindMcpAppSpy).toHaveBeenCalledTimes(1));
-    const opts = bindMcpAppSpy.mock.calls[0][0];
+    const opts = bindMcpAppSpy.mock.calls[0]![0];
     expect(opts.messageId).toBe("external-activity-1");
   });
 

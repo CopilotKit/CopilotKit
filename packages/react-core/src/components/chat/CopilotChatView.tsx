@@ -188,12 +188,13 @@ export function CopilotChatView({
   const [fallbackThreadId, setFallbackThreadId] = useState(messages[0]?.id);
   const previousMessageIds = useRef(new Set<string>());
   useEffect(() => {
-    if (messages.length === 0) return;
+    const firstMessage = messages[0];
+    if (firstMessage === undefined) return;
     const overlaps = messages.some((message) =>
       previousMessageIds.current.has(message.id),
     );
     previousMessageIds.current = new Set(messages.map((message) => message.id));
-    if (!overlaps) setFallbackThreadId(messages[0].id);
+    if (!overlaps) setFallbackThreadId(firstMessage.id);
   }, [messages]);
   const scrollThreadId = configuredThreadId ?? fallbackThreadId;
   const [inputContainerEl, setInputContainerEl] =

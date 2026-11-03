@@ -264,7 +264,7 @@ describe("runA2UIAction onAction interceptor", () => {
     await runA2UIAction({ message, agent: "my-agent", copilotkit, onAction });
 
     expect(onAction).toHaveBeenCalledOnce();
-    expect(onAction.mock.calls[0][0]).toEqual(message.userAction);
+    expect(onAction.mock.calls[0]![0]).toEqual(message.userAction);
     expect(copilotkit.runAgent).not.toHaveBeenCalled();
     expect(copilotkit.setProperties).not.toHaveBeenCalled();
   });
@@ -277,7 +277,7 @@ describe("runA2UIAction onAction interceptor", () => {
     await runA2UIAction({ message, agent: "my-agent", copilotkit, onAction });
 
     expect(copilotkit.runAgent).toHaveBeenCalledWith({ agent: "my-agent" });
-    const forwarded = copilotkit.setProperties.mock.calls[0][0];
+    const forwarded = copilotkit.setProperties.mock.calls[0]![0];
     expect(forwarded.a2uiAction).toEqual({
       ...message,
       userAction: modified,
@@ -290,7 +290,7 @@ describe("runA2UIAction onAction interceptor", () => {
     await runA2UIAction({ message, agent: "my-agent", copilotkit });
 
     expect(copilotkit.runAgent).toHaveBeenCalledWith({ agent: "my-agent" });
-    const forwarded = copilotkit.setProperties.mock.calls[0][0];
+    const forwarded = copilotkit.setProperties.mock.calls[0]![0];
     expect(forwarded.a2uiAction).toBe(message);
   });
 
@@ -302,7 +302,7 @@ describe("runA2UIAction onAction interceptor", () => {
 
     expect(onAction).toHaveBeenCalledOnce();
     expect(copilotkit.runAgent).toHaveBeenCalledWith({ agent: "my-agent" });
-    const forwarded = copilotkit.setProperties.mock.calls[0][0];
+    const forwarded = copilotkit.setProperties.mock.calls[0]![0];
     expect(forwarded.a2uiAction).toBe(message);
   });
 });

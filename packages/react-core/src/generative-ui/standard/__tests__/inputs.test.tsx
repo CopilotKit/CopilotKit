@@ -86,15 +86,15 @@ describe("inputComponents", () => {
       "DateTimeInput",
     ]);
     for (const name of names) {
-      expect(ui.manifestComponents[name].description).toMatch(/\S/);
+      expect(ui.manifestComponents[name]!.description).toMatch(/\S/);
     }
-    expect(Object.keys(ui.manifestComponents.Button.events ?? {})).toEqual([
+    expect(Object.keys(ui.manifestComponents.Button!.events ?? {})).toEqual([
       "onClick",
     ]);
-    expect(Object.keys(ui.manifestComponents.Form.events ?? {})).toEqual([
+    expect(Object.keys(ui.manifestComponents.Form!.events ?? {})).toEqual([
       "onSubmit",
     ]);
-    expect(ui.manifestComponents.Pressable.slots).toEqual({
+    expect(ui.manifestComponents.Pressable!.slots).toEqual({
       children: "multiple",
     });
   });
@@ -354,7 +354,7 @@ describe("standard inputs: events", () => {
     });
     fireEvent.click(view.getByRole("button", { name: "Subscribe" }));
     expect(view.forwardEvent).toHaveBeenCalledTimes(1);
-    expect(view.forwardEvent.mock.calls[0][0]).toEqual({
+    expect(view.forwardEvent.mock.calls[0]![0]).toEqual({
       name: "subscribe",
       surfaceId: SURFACE_ID,
       componentId: "b",
@@ -456,7 +456,7 @@ describe("standard inputs: events", () => {
     });
     fireEvent.click(view.getByRole("button", { name: "Send" }));
     expect(sentEventNames(view)).toEqual(["signup"]);
-    expect(view.forwardEvent.mock.calls[0][0].context).toEqual({
+    expect(view.forwardEvent.mock.calls[0]![0].context).toEqual({
       email: "ada@example.com",
     });
   });
@@ -521,9 +521,9 @@ describe("standard inputs: events", () => {
     const [pressable, button] = await view.findAllByRole("button", {
       name: "Key",
     });
-    fireEvent.keyDown(button, { key: "Enter" });
+    fireEvent.keyDown(button!, { key: "Enter" });
     expect(view.forwardEvent).not.toHaveBeenCalled();
-    fireEvent.keyDown(pressable, { key: "Enter" });
+    fireEvent.keyDown(pressable!, { key: "Enter" });
     expect(sentEventNames(view)).toEqual(["outer"]);
   });
 });
@@ -693,7 +693,7 @@ describe("standard inputs: DateTimeInput", () => {
       "09:30",
       "10:00",
     ]);
-    expect(select.options[2].textContent).toBe(inWords("", "09:30", "time"));
+    expect(select.options[2]!.textContent).toBe(inWords("", "09:30", "time"));
     fireEvent.change(select, { target: { value: "09:30" } });
     expect(view.dataAt("/at")).toBe("09:30");
   });
