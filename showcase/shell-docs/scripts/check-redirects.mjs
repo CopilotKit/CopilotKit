@@ -488,6 +488,21 @@ for (const [from, to] of [
   ["/generative-ui-specs/a2ui", "/generative-ui/specs/a2ui"],
   ["/guides/anything", "/"],
   ["/learn/frontend-tools", "/concepts/frontend-tools"],
+  // Nothing is served under /docs: shell-docs' legacy prefix goes to the root.
+  ["/docs", "/"],
+  ["/docs/quickstart", "/quickstart"],
+  ["/docs/quickstart.md", "/quickstart.md"],
+  ["/docs/frontend-tools", "/frontend-tools"],
+  ["/docs/threads", "/threads"],
+  ["/docs/channels", "/channels"],
+  ["/docs/generative-ui/open-json-ui", "/generative-ui/open-json-ui"],
+  ["/docs/api", "/reference/v2"],
+  ["/docs/integrations", "/"],
+  ["/docs/integrations/langgraph", "/langgraph-python"],
+  ["/docs/integrations/mastra/quickstart", "/mastra/quickstart"],
+  ["/docs/integrations/adk/quickstart", "/google-adk/quickstart"],
+  ["/docs/integrations/unselected/frontend-tools", "/frontend-tools"],
+  ["/docs/integrations/something/else", "/something/else"],
 ]) {
   redirect(from, to, MOVED);
 }
@@ -509,12 +524,6 @@ for (const path of [
 
 // --- v2's own routes: never redirected -----------------------------------
 for (const path of [
-  "/docs",
-  "/docs/threads",
-  "/docs/channels",
-  "/docs/generative-ui/open-json-ui",
-  "/docs/integrations/langgraph",
-  "/docs/api",
   "/integrations",
   "/intelligence",
   "/examples",
