@@ -24,6 +24,12 @@ import type {
 import { parseInline } from "./inline-parser";
 
 /**
+ * GFM task-list marker at the start of a list item: `[ ]`, `[x]` or `[X]`,
+ * followed by whitespace and then content.
+ */
+const TASK_MARKER = /^\[([ xX])\][ \t]+(?=\S)/;
+
+/**
  * Parses a contiguous range of source lines into block-level draft nodes.
  *
  * @param lines - Line-split source with offsets.
@@ -399,10 +405,11 @@ function parseList(
       listStartNumber = marker.start;
     }
 
+    const task = TASK_MARKER.exec(marker.content);
     const contentLines: SourceLine[] = [
       {
         ...lines[i],
-        text: marker.content,
+        text: task ? marker.content.slice(task[0].length) : marker.content,
       },
     ];
     const contentIndent = marker.contentIndent;
@@ -482,7 +489,7 @@ function parseList(
       },
       closed:
         context.isComplete || contentLines[contentLines.length - 1].hasNewline,
-      props: {},
+      props: task ? { checked: task[1] !== " " } : {},
       children: [paragraph],
     });
 
