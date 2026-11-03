@@ -1,8 +1,15 @@
-import React, { Activity, StrictMode } from "react";
+import React, { StrictMode } from "react";
 import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
 import type { CopilotKitCoreReact } from "../../lib/react-core";
+
+// React 19.2 ships `<Activity>`, but the installed @types/react (19.1) does
+// not declare it yet, so read it off the module.
+const Activity: React.FC<{
+  mode: "visible" | "hidden";
+  children?: React.ReactNode;
+}> = Reflect.get(React, "Activity");
 
 const MISSING_CONFIG =
   "Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'";
