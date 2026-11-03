@@ -339,6 +339,15 @@ export class RunHandler {
     }
   >();
 
+  /**
+   * Live human-in-the-loop calls, keyed by the `capabilityKey` of the tool
+   * that runs them. Each value aborts its call the way an explicit stop does.
+   * When no tool with that key is registered any more, the call is aborted, so
+   * its wait rejects instead of holding the run open forever.
+   */
+  private _liveHITLCalls = new Map<string, Set<() => void>>();
+  private _orphanedHITLCheckScheduled = false;
+
   constructor(private core: CopilotKitCore) {}
 
   /**
@@ -468,6 +477,7 @@ export class RunHandler {
     this._cachedMergedTools = null;
     this.warnOnMissingToolParameters(this._propTools);
     this.syncWebMCP();
+    this.abortOrphanedHITLCalls();
   }
 
   /**
@@ -521,6 +531,7 @@ export class RunHandler {
     if (stack.length === 0) this._hookTools.delete(key);
     this._cachedMergedTools = null;
     this.syncWebMCP();
+    this.abortOrphanedHITLCalls();
   }
 
   /**
@@ -585,6 +596,7 @@ export class RunHandler {
     });
     this._cachedMergedTools = null;
     this.syncWebMCP();
+    this.abortOrphanedHITLCalls();
   }
 
   /**
@@ -619,6 +631,43 @@ export class RunHandler {
     this._cachedMergedTools = null;
     this.warnOnMissingToolParameters(this._propTools);
     this.syncWebMCP();
+    this.abortOrphanedHITLCalls();
+  }
+
+  /**
+   * After a tool is removed, abort each live human-in-the-loop call whose
+   * tool key has no registration left. The wait rejects with the
+   * human-in-the-loop abort error and the run settles, so work queued behind
+   * it (a new message, for example) can start.
+   *
+   * The check runs in a microtask: a framework that tears a tool down and
+   * registers it again in one pass (a dependency change, a keyed remount)
+   * keeps its call alive. A call aborted here is gone for good; registering
+   * the tool again later does not bring the wait back.
+   */
+  private abortOrphanedHITLCalls(): void {
+    if (this._orphanedHITLCheckScheduled || this._liveHITLCalls.size === 0) {
+      return;
+    }
+    this._orphanedHITLCheckScheduled = true;
+    queueMicrotask(() => {
+      this._orphanedHITLCheckScheduled = false;
+      for (const [key, aborts] of this._liveHITLCalls) {
+        if (this.isToolKeyRegistered(key)) continue;
+        this._liveHITLCalls.delete(key);
+        for (const abort of aborts) abort();
+      }
+    });
+  }
+
+  /** True while any registration (hook or provider) holds this tool key. */
+  private isToolKeyRegistered(key: string): boolean {
+    return (
+      this._hookTools.has(key) ||
+      this._propTools.some(
+        (tool) => this.capabilityKey(tool.name, tool.agentId) === key,
+      )
+    );
   }
 
   /**
@@ -1251,27 +1300,49 @@ export class RunHandler {
               threadId: threadId ?? null,
               controllers: new Set<AbortController>(),
             };
+            // Every human-in-the-loop call gets its own controller, so removing
+            // its tool can cancel this call alone. A restored call follows the
+            // replay signal as before; only a live call is stopped like Stop.
+            const hitlController =
+              executableTool?.type === "human-in-the-loop"
+                ? (interactionController ?? new AbortController())
+                : undefined;
+            const followReplayAbort = () => hitlController?.abort();
             const abortInteraction = () => {
-              if (!interactionController) return;
+              if (!hitlController) return;
               const stopConnectionGeneration =
                 this._connectionGenerations.get(agent);
               liveHITLStops.set(
-                interactionController.signal,
+                hitlController.signal,
                 () =>
                   this._connectionGenerations.get(agent) ===
                     stopConnectionGeneration && agent.threadId === threadId,
               );
-              interactionController.abort();
+              hitlController.abort();
             };
+            const onParentAbort = interactionController
+              ? abortInteraction
+              : followReplayAbort;
             if (interactionController) {
               interactions.controllers.add(interactionController);
               this._interactionAbortControllers.set(agent, interactions);
-              signal?.addEventListener("abort", abortInteraction, {
-                once: true,
-              });
-              if (signal?.aborted) abortInteraction();
             }
-            const executionSignal = interactionController?.signal ?? signal;
+            let toolUnregistered = false;
+            const abortUnregistered = () => {
+              toolUnregistered = true;
+              abortInteraction();
+            };
+            const hitlKey = executableTool
+              ? this.capabilityKey(executableTool.name, executableTool.agentId)
+              : "";
+            if (hitlController) {
+              signal?.addEventListener("abort", onParentAbort, { once: true });
+              if (signal?.aborted) onParentAbort();
+              const liveCalls = this._liveHITLCalls.get(hitlKey) ?? new Set();
+              liveCalls.add(abortUnregistered);
+              this._liveHITLCalls.set(hitlKey, liveCalls);
+            }
+            const executionSignal = hitlController?.signal ?? signal;
             const discardOnAbort =
               toolExecutionMode === "restore" || !!interactionController;
             try {
@@ -1311,8 +1382,13 @@ export class RunHandler {
               }
             } finally {
               executing.delete(executionKey);
+              if (hitlController) {
+                signal?.removeEventListener("abort", onParentAbort);
+                const liveCalls = this._liveHITLCalls.get(hitlKey);
+                liveCalls?.delete(abortUnregistered);
+                if (liveCalls?.size === 0) this._liveHITLCalls.delete(hitlKey);
+              }
               if (interactionController) {
-                signal?.removeEventListener("abort", abortInteraction);
                 interactions.controllers.delete(interactionController);
                 if (
                   interactions.controllers.size === 0 &&
@@ -1322,7 +1398,8 @@ export class RunHandler {
                 }
               }
             }
-            if (interactionController?.signal.aborted) return runAgentResult;
+            if (interactionController?.signal.aborted || toolUnregistered)
+              return runAgentResult;
           }
         }
       }

@@ -4,7 +4,11 @@ import { z } from "zod";
 import type { AbstractAgent } from "@ag-ui/client";
 import { useHumanInTheLoop } from "../use-human-in-the-loop";
 import { mountWithProvider } from "../../__tests__/utils/mount";
-import { StateCapturingAgent } from "../../__tests__/utils/agents";
+import {
+  SequencedRunAgent,
+  StateCapturingAgent,
+  toolCallMessage,
+} from "../../__tests__/utils/agents";
 
 /** Handler context for one tool call; core always passes the call. */
 function callContext(id: string, name = "tool") {
@@ -592,6 +596,72 @@ describe("useHumanInTheLoop", () => {
       }) as { props?: Record<string, unknown> };
 
       expect(vnode.props?.agentId).toBeUndefined();
+    });
+
+    it("lets a message queued behind an unanswered prompt send after the prompt unmounts", async () => {
+      const prompt = toolCallMessage("unmountApproval");
+      const toolCallId = (prompt as { toolCalls: { id: string }[] })
+        .toolCalls[0]!.id;
+      const agent = new SequencedRunAgent(
+        [
+          () => ({ result: undefined, newMessages: [prompt] }),
+          () => ({
+            result: undefined,
+            newMessages: [{ id: "reply", role: "assistant", content: "ok" }],
+          }),
+        ],
+        "default",
+      );
+      const RenderComp = defineComponent({
+        setup() {
+          return () => h("div");
+        },
+      });
+      const shown = ref(true);
+      const Child = defineComponent({
+        setup() {
+          useHumanInTheLoop({
+            name: "unmountApproval",
+            parameters: z.object({}),
+            render: RenderComp,
+          });
+          return () => null;
+        },
+      });
+      const { getCore } = mountWithProvider(
+        () => (shown.value ? h(Child) : null),
+        {
+          agents__unsafe_dev_only: {
+            default: agent as unknown as AbstractAgent,
+          },
+        },
+      );
+      const core = getCore();
+      const sendMessage = async (content: string) => {
+        agent.addMessage({ id: content, role: "user", content });
+        await core.runAgent({ agent: agent as unknown as AbstractAgent });
+      };
+
+      const first = sendMessage("approve this");
+      const queued = first.then(() => sendMessage("next question"));
+      await vi.waitFor(() =>
+        expect(core.ɵhumanInTheLoop.isPending(toolCallId)).toBe(true),
+      );
+
+      shown.value = false;
+      await nextTick();
+
+      await expect(queued).resolves.toBeUndefined();
+      expect(agent.messages).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            role: "tool",
+            toolCallId,
+            error: "Human-in-the-loop interaction aborted",
+          }),
+          expect.objectContaining({ id: "reply", content: "ok" }),
+        ]),
+      );
     });
 
     it("does not settle a pending HITL promise when its renderer unmounts", async () => {

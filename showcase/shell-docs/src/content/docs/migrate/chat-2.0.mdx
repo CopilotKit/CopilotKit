@@ -159,7 +159,7 @@ These changes can affect your code:
 - **`name` in a Vue `"*"` tool:** The render gets the name of the tool that the agent called, as in React. In 1.x, `name` was `"*"`.
 - **The `humanInTheLoop` prop in React and Vue:** A tool in this prop of `CopilotKitProvider` now uses all tool fields, as `useHumanInTheLoop` does. For example, `available: false` hides the tool from the agent.
 - **Renderer `args` in Vue:** A `humanInTheLoop` prop tool without `parameters` gets a renderer without `args`, as in React.
-- **Unmount:** When the provider unmounts, each call that waits for `respond` fails with the error `Human-in-the-loop interaction aborted`. The same occurs when you call `dispose()` on the core. In 1.x, these calls did not finish.
+- **Unmount:** When the provider unmounts, each call that waits for `respond` fails with the error `Human-in-the-loop interaction aborted`. The same occurs when you call `dispose()` on the core. It also occurs when the component that registered the tool unmounts and no other component registers it. In 1.x, these calls did not finish.
 
 To update your code:
 
