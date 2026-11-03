@@ -35,3 +35,6 @@ ENV PORT=3000
 COPY --from=builder /app/showcase/shell-docs-v2 ./
 EXPOSE 3000
 CMD ["node_modules/.bin/next", "start"]
+
+# Fail the build if any base or install path regresses the accepted Node runtime.
+RUN test "$(node --version)" = "v22.23.4"

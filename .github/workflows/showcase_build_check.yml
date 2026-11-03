@@ -163,6 +163,15 @@ jobs:
               - 'showcase/integrations/*/docs-links.json'
               - 'showcase/integrations/*/docs/setup/**'
               - 'showcase/integrations/*/src/**'
+            shell_docs_v2:
+              - 'showcase/shell-docs-v2/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/harness/src/shared/**'
+              - 'showcase/integrations/*/manifest.yaml'
+              - 'showcase/integrations/*/docs-links.json'
+              - 'showcase/integrations/*/docs/setup/**'
+              - 'showcase/integrations/*/src/**'
             showcase_harness:
               - 'showcase/harness/**'
               - 'showcase/shared/**'
@@ -216,6 +225,7 @@ jobs:
             {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","timeout":35,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile"},
             {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","timeout":35,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-dashboard/Dockerfile"},
             {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","timeout":35,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile"},
+            {"dispatch_name":"shell-docs-v2","filter_key":"shell_docs_v2","context":".","image":"showcase-shell-docs-v2","timeout":35,"build_args":"","dockerfile":"showcase/shell-docs-v2/Dockerfile"},
             {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","timeout":35,"build_args":"","dockerfile":"showcase/harness/Dockerfile"},
             {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","timeout":10,"build_args":"","dockerfile":"showcase/aimock/Dockerfile"},
             {"dispatch_name":"webhooks","filter_key":"eval_webhook","context":"showcase/eval-webhook","image":"showcase-eval-webhook","timeout":15,"build_args":"","dockerfile":""},
