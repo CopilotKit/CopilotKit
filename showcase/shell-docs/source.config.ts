@@ -41,7 +41,12 @@ export default defineConfig({
 const SNIPPETS_DIR = path.resolve("src/content/snippets");
 
 // Just the mdast shapes this plugin touches.
-type Node = { type: string; name?: string | null; children?: Node[] };
+type Node = {
+  type: string;
+  name?: string | null;
+  value?: string;
+  children?: Node[];
+};
 type JsxNode = Node & { attributes?: { name?: string }[] };
 type EsmNode = Node & {
   data?: { estree?: { body: EsmStatement[] } };
@@ -50,6 +55,11 @@ type EsmStatement = {
   type: string;
   source?: { value?: unknown };
   specifiers?: { type: string; local: { name: string } }[];
+};
+// The page being compiled (a VFile): its path, and where warnings go.
+type PageFile = {
+  path?: string;
+  message: (reason: string, options?: { ruleId?: string }) => unknown;
 };
 
 /**
@@ -62,7 +72,7 @@ type EsmStatement = {
 function remarkInlineSnippets(this: Processor) {
   const processor = this;
 
-  function inline(tree: Node, file: string, seen: Set<string>) {
+  function inline(tree: Node, file: string, seen: Set<string>, page: PageFile) {
     const imports = new Map<string, string>();
     for (const node of tree.children ?? []) {
       if (node.type !== "mdxjsEsm") continue;
@@ -115,7 +125,7 @@ function remarkInlineSnippets(this: Processor) {
           walk(child);
           return [child];
         }
-        return snippetContent(target, seen);
+        return snippetContent(target, seen, page);
       });
     };
     walk(tree);
@@ -142,22 +152,58 @@ function remarkInlineSnippets(this: Processor) {
     );
   }
 
-  function snippetContent(file: string, seen: Set<string>): Node[] {
+  function snippetContent(
+    file: string,
+    seen: Set<string>,
+    page: PageFile,
+  ): Node[] {
     let source: string;
     try {
       source = readFileSync(file, "utf8");
     } catch {
-      return [];
+      // Inlined as nothing, a typo'd import would ship a blank section and
+      // still build. Show it instead, as <Snippet> shows a missing region,
+      // and warn: check-live-mdx fails on the warning.
+      const name = path.relative(process.cwd(), file);
+      page.message(`Missing snippet: ${name} doesn't exist`, {
+        ruleId: MISSING_SNIPPET,
+      });
+      return [missingSnippet(name)];
     }
     const body = source.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
     const tree = processor.parse({ path: file, value: body }) as Node;
-    inline(tree, file, new Set([...seen, file]));
+    inline(tree, file, new Set([...seen, file]), page);
     return tree.children ?? [];
   }
 
-  return (tree: Node, file: { path?: string }) => {
-    if (file.path) inline(tree, file.path, new Set([file.path]));
+  return (tree: Node, file: PageFile) => {
+    if (file.path) inline(tree, file.path, new Set([file.path]), file);
   };
+}
+
+/** The warning's rule id; scripts/check-live-mdx.mjs looks for it. */
+const MISSING_SNIPPET = "missing-snippet";
+
+/** A warn callout naming the missing file (`MissingSnippet` in showcase/snippet.tsx). */
+function missingSnippet(name: string): Node {
+  return {
+    type: "mdxJsxFlowElement",
+    name: "Callout",
+    attributes: [
+      { type: "mdxJsxAttribute", name: "type", value: "warn" },
+      { type: "mdxJsxAttribute", name: "title", value: "Missing snippet" },
+      { type: "mdxJsxAttribute", name: "role", value: "alert" },
+    ],
+    children: [
+      {
+        type: "paragraph",
+        children: [
+          { type: "inlineCode", value: name },
+          { type: "text", value: " doesn't exist." },
+        ],
+      },
+    ],
+  } as Node;
 }
 
 /**
