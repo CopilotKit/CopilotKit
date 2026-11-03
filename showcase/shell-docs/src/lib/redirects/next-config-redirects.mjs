@@ -12,10 +12,11 @@
 // Next runs these before src/proxy.ts, which carries the second legacy table
 // (seo-redirects.ts). Same layering as shell-docs (config, then middleware).
 //
-// Deliberate difference from shell-docs: v2 serves its own `/docs/*`,
-// `/proto/*`, `/api/*`, `/og/*` and `/llms*` routes, so a leading
-// `:framework` param here can never capture those first segments (otherwise
-// `/:framework/threads` would turn `/docs/threads` into `/docs/AG-UI-Streams`).
+// Deliberate difference from shell-docs: a leading `:framework` param here
+// never captures `docs`, `proto`, `api`, `og` or `llms*`. v2 serves its own
+// `/api/*`, `/og/*` and `/llms*` routes, and the proxy's DOCS-wild rule
+// strips `/docs` first, so `/docs/channels` opens `/slack` instead of
+// `/slack/docs`.
 
 /** @typedef {import("next/dist/lib/load-custom-routes").Redirect} Redirect */
 

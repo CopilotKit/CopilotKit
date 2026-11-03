@@ -12,9 +12,11 @@
  * `microsoft-agent-framework`, `crewai-flows`, `unselected`) are rewritten
  * here so the historic SEO surface keeps redirecting to the canonical homes.
  *
- * Not ported, because v2 serves these paths itself: every `/docs` and
- * `/docs/*` source (DOCS-root, DOCS-wild, R2 `/docs/api`, and the
- * `/docs/integrations/*` DI-* family), R16A `/integrations` and
+ * The app serves nothing under `/docs`, so every `/docs` and `/docs/*` URL
+ * redirects to the same page at the root, as on shell-docs (DOCS-root,
+ * DOCS-wild, R2 `/docs/api`, and the `/docs/integrations/*` DI-* family).
+ *
+ * Not ported, because v2 serves these paths itself: R16A `/integrations` and
  * FI-intelligence `/intelligence`.
  *
  * Spec & Inventory: https://www.notion.so/33c3aa38185281d7b243c5cf0a7c14cb
@@ -499,7 +501,7 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
 
 const ROOT_RENAMES: RedirectEntry[] = [
   { id: "R1", source: "/api", destination: "/reference/v2" },
-  // R2 (`/docs/api`) not ported: v2 serves `/docs/*`.
+  { id: "R2", source: "/docs/api", destination: "/reference/v2" },
   { id: "R3", source: "/api-reference", destination: "/reference/v2" },
   { id: "R4", source: "/getting-started", destination: "/" },
   { id: "R5", source: "/start", destination: "/" },
@@ -770,7 +772,8 @@ const FRONTEND_PLATFORM_REDIRECTS: RedirectEntry[] = [
 // site rewrote /<fw>/<path> → /integrations/<fw>/<path> internally,
 // and authored external links sometimes leaked the rewritten form. R15
 // + R17 (above) cover the built-in-agent variant; this section covers
-// the remaining frameworks.
+// the remaining frameworks. The /docs/integrations/* variants are
+// already handled by DOCS_INTEGRATIONS_RENAMES below.
 // ---------------------------------------------------------------------------
 
 const INTEGRATIONS_PREFIX_RENAMES: RedirectEntry[] = FRAMEWORKS.filter(
@@ -869,8 +872,55 @@ const LEGACY_CHAINS_EXACT: RedirectEntry[] = [
   },
 ];
 
-// The `/docs/integrations/*` (DI-*) and `/docs` + `/docs/*` (DOCS-root,
-// DOCS-wild) tables are not ported: v2 serves `/docs/*` itself.
+// ---------------------------------------------------------------------------
+// /docs/integrations/* — legacy SHELL routing surface
+// shell-docs serves at the host root with no /docs/ prefix, so any
+// upstream URL still pointing at /docs/integrations/{fw}/... must 301
+// to /{fw-slug}/... (with the slug rename applied).
+// ---------------------------------------------------------------------------
+
+const DOCS_INTEGRATIONS_RENAMES: RedirectEntry[] = FRAMEWORKS.flatMap((fw) => {
+  const fwDest = canonicalSlug(fw);
+  // The unselected/ tree's canonical owner (Built-in Agent) is served
+  // at the root surface, so its destinations carry no framework prefix.
+  const destPrefix = destinationPrefix(fwDest);
+  return [
+    {
+      id: `DI-wild×${fw}`,
+      source: `/docs/integrations/${fw}/:path*`,
+      destination: `${destPrefix}/:path*`,
+    },
+    {
+      id: `DI-root×${fw}`,
+      source: `/docs/integrations/${fw}`,
+      destination: destinationPath(fwDest),
+    },
+  ];
+});
+
+const DOCS_INTEGRATIONS_INDEX: RedirectEntry[] = [
+  {
+    id: "DI-index",
+    source: "/docs/integrations",
+    destination: "/",
+  },
+  {
+    id: "DI-index-wild",
+    source: "/docs/integrations/:path*",
+    destination: "/:path*",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// /docs/* — legacy SHELL routing prefix on root pages
+// shell-docs has no /docs/ prefix, so /docs/foo → /foo.
+// ---------------------------------------------------------------------------
+
+const DOCS_PREFIX: RedirectEntry[] = [
+  // /docs as a bare path lands on the home.
+  { id: "DOCS-root", source: "/docs", destination: "/" },
+  // Catch-all comes LAST — see WILDCARD_REDIRECTS for placement.
+];
 
 // ---------------------------------------------------------------------------
 // /migration-guides/* → /migrate/* (4 URLs)
@@ -1183,6 +1233,9 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
     source: `/${fw}`,
     destination: destinationPath(canonicalSlug(fw)),
   })),
+  // /docs/* generic catch-all (must come AFTER /docs/integrations/* so
+  // the more specific /docs/integrations entries match first).
+  { id: "DOCS-wild", source: "/docs/:path*", destination: "/:path*" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -1199,7 +1252,10 @@ export const seoRedirects: RedirectEntry[] = [
   ...MOVED_ROOT_REDIRECTS,
   ...FRONTEND_PLATFORM_REDIRECTS,
   ...LEGACY_CHAINS_EXACT,
+  ...DOCS_INTEGRATIONS_INDEX.filter((e) => !e.source.includes(":path*")),
+  ...DOCS_INTEGRATIONS_RENAMES.filter((e) => !e.source.includes(":path*")),
   ...INTEGRATIONS_PREFIX_RENAMES.filter((e) => !e.source.includes(":path*")),
+  ...DOCS_PREFIX,
   ...MIGRATION_GUIDES,
   ...RETIRED_INTELLIGENCE_REDIRECTS,
   ...INTELLIGENCE_FOLDER_RENAMES.filter((e) => !e.source.includes(":path*")),
@@ -1207,6 +1263,8 @@ export const seoRedirects: RedirectEntry[] = [
   // 2. Generated per-framework subpath renames (exact paths)
   ...generateFrameworkRenames(),
   // 3. Wildcard catch-alls last — order matters: most-specific wildcard first
+  ...DOCS_INTEGRATIONS_RENAMES.filter((e) => e.source.includes(":path*")),
+  ...DOCS_INTEGRATIONS_INDEX.filter((e) => e.source.includes(":path*")),
   ...INTEGRATIONS_PREFIX_RENAMES.filter((e) => e.source.includes(":path*")),
   // premium/ -> intelligence/ wildcards: BEFORE the slug-rename and
   // legacy-root catch-alls so `/langgraph/premium/x` is rewritten in one
