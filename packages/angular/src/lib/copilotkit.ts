@@ -13,6 +13,7 @@ import type {
 import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
+  ɵRendererRegistry,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";
 import type { Signal, WritableSignal } from "@angular/core";
@@ -236,8 +237,17 @@ export class CopilotKit {
     ),
   });
 
-  readonly #toolCallRenderConfigs: WritableSignal<RenderToolCallConfig[]> =
-    signal([]);
+  /**
+   * App tool-call renderers and activity renderers. Config renderers are the
+   * prop list; `addRenderToolCall` adds hook entries, so the latest
+   * registration for a name and agent wins.
+   */
+  readonly #renderers = new ɵRendererRegistry<
+    RenderToolCallConfig,
+    RenderActivityMessageConfig,
+    never
+  >();
+  readonly #toolCallRenderConfigs = signal(this.#renderers.toolCalls);
   readonly #builtInToolCallRenderConfigs: WritableSignal<
     RenderToolCallConfig[]
   > = signal([]);
@@ -249,9 +259,7 @@ export class CopilotKit {
   readonly #humanInTheLoopToolRenderConfigs: WritableSignal<
     HumanInTheLoopConfig[]
   > = signal([]);
-  readonly #activityMessageRenderConfigs: WritableSignal<
-    RenderActivityMessageConfig[]
-  > = signal([]);
+  readonly #activityMessageRenderConfigs = signal(this.#renderers.activity);
   readonly #builtInActivityMessageRenderConfigs: WritableSignal<
     RenderActivityMessageConfig[]
   > = signal([]);
@@ -319,23 +327,32 @@ export class CopilotKit {
     this.#runtimeEntitlementRetryPending.set(
       this.core.runtimeEntitlementRetryPending,
     );
-    this.#config.renderToolCalls?.forEach((renderConfig) => {
-      this.addRenderToolCall(renderConfig);
-    });
-    this.#config.renderActivityMessages?.forEach((renderConfig) => {
-      this.addRenderActivityMessage(renderConfig);
-    });
-
-    this.#config.tools?.forEach((tool) => {
-      if (tool.renderer && tool.parameters) {
-        this.addRenderToolCall({
-          name: tool.name,
-          args: tool.parameters,
-          component: tool.renderer,
-          agentId: tool.agentId,
-        });
+    this.#renderers.subscribe((kind) => {
+      if (kind === "toolCalls") {
+        this.#toolCallRenderConfigs.set(this.#renderers.toolCalls);
+      } else if (kind === "activity") {
+        this.#activityMessageRenderConfigs.set(this.#renderers.activity);
       }
     });
+    const configToolRenderers: RenderToolCallConfig[] = (
+      this.#config.tools ?? []
+    ).flatMap((tool) =>
+      tool.renderer && tool.parameters
+        ? [
+            {
+              name: tool.name,
+              args: tool.parameters,
+              component: tool.renderer,
+              agentId: tool.agentId,
+            },
+          ]
+        : [],
+    );
+    this.#renderers.setPropToolCalls([
+      ...(this.#config.renderToolCalls ?? []),
+      ...configToolRenderers,
+    ]);
+    this.#renderers.setActivity(this.#config.renderActivityMessages ?? []);
 
     this.#config.frontendTools?.forEach((clientTool) => {
       this.addFrontendTool({ ...clientTool, injector: this.#rootInjector });
@@ -494,34 +511,29 @@ export class CopilotKit {
   /**
    * Register a component that draws calls of a tool the agent already has.
    *
-   * When two renderers match the same call, the one registered first wins.
+   * It replaces a renderer with the same `name` and `agentId`, so the latest
+   * registration wins, as in React and Vue.
    *
    * @param renderConfig - The tool name, its argument schema, and the
    *   component.
-   * @returns A function that removes only this renderer. Calling it more than
-   *   once does nothing.
+   * @returns A function that removes this renderer while it is still the one
+   *   registered for its name and agent. A `renderToolCalls` config entry it
+   *   replaced shows again. Calling it more than once does nothing.
    */
   addRenderToolCall(renderConfig: RenderToolCallConfig) {
-    this.#toolCallRenderConfigs.update((current) => [...current, renderConfig]);
-
-    return () => {
-      this.#toolCallRenderConfigs.update((current) =>
-        current.filter((candidate) => candidate !== renderConfig),
-      );
-    };
+    return this.#renderers.addHookToolCall(renderConfig);
   }
 
   addRenderActivityMessage(renderConfig: RenderActivityMessageConfig): void {
-    this.#activityMessageRenderConfigs.update((current) => [
-      ...current,
-      renderConfig,
-    ]);
+    this.#renderers.setActivity([...this.#renderers.activity, renderConfig]);
   }
 
   /** Remove one dynamically registered activity renderer by identity. */
   removeRenderActivityMessage(renderConfig: RenderActivityMessageConfig): void {
-    this.#activityMessageRenderConfigs.update((current) =>
-      current.filter((candidate) => candidate !== renderConfig),
+    this.#renderers.setActivity(
+      this.#renderers.activity.filter(
+        (candidate) => candidate !== renderConfig,
+      ),
     );
   }
 
@@ -828,7 +840,10 @@ export class CopilotKit {
     this.#humanInTheLoopToolRenderConfigs.update((current) =>
       current.filter(keep),
     );
-    this.#toolCallRenderConfigs.update((current) => current.filter(keep));
+    this.#renderers.removeHookToolCall(toolName, agentId);
+    this.#renderers.setPropToolCalls(
+      this.#renderers.propToolCalls.filter(keep),
+    );
   }
 
   getAgent(agentId: string): AbstractAgent | undefined {

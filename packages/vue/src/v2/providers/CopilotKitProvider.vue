@@ -577,6 +577,9 @@ watch(
       onRenderCustomMessagesChanged: () => {
         triggerRef(copilotkit);
       },
+      onRenderActivityMessagesChanged: () => {
+        triggerRef(copilotkit);
+      },
     });
     const sub4 = core.subscribe({
       onRuntimeConnectionStatusChanged: () => {
@@ -635,13 +638,11 @@ watch([allRenderToolCalls], ([renderToolCalls]) => {
 watch([allRenderCustomMessages], ([renderCustomMessages]) => {
   if (!didMountRef.value) return;
   copilotkit.value.setRenderCustomMessages(renderCustomMessages);
-  triggerRef(copilotkit);
 });
 
 watch([allRenderActivityMessages], ([renderActivityMessages]) => {
   if (!didMountRef.value) return;
   copilotkit.value.setRenderActivityMessages(renderActivityMessages);
-  triggerRef(copilotkit);
 });
 
 // The last `headersSource` reference actually handed to `core.setHeaders`.
