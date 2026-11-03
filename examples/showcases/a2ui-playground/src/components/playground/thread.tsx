@@ -18,8 +18,6 @@ import { DotOutline } from "@/a2ui/catalog/renderers/blueprint";
 import { ResizeBox } from "@/components/app/build-sequence";
 import type { Mode } from "@/components/app/providers";
 import { StaticSurface } from "@/components/app/static-surface";
-import { useDesignSystem } from "@/design-systems/context";
-import { designSystemLabel } from "@/design-systems/registry";
 import { useLandingReveal } from "@/components/app/use-landing-reveal";
 import { useSend } from "@/components/app/use-send";
 import { useUIGeneration } from "@/components/app/use-ui-generation";
@@ -543,7 +541,7 @@ function SurfaceMeta({
 }) {
   const beside = useContext(LinesBeside);
   return (
-    <div className="mb-2 flex min-h-7 min-w-0 items-center gap-3">
+    <div className="@container mb-2 flex min-h-7 min-w-0 items-center gap-3">
       {chip ? (
         <button
           type="button"
@@ -588,19 +586,8 @@ function SurfaceMeta({
           </span>
         </span>
       ) : null}
-      {chip ? <DrawnWith /> : null}
       {children}
     </div>
-  );
-}
-
-/** Which design system draws the surfaces: the A2UI above it is the same for every one. */
-function DrawnWith() {
-  const { id } = useDesignSystem();
-  return (
-    <span className="hidden flex-none font-mono text-[12px] text-[var(--pg-dim)] min-[640px]:inline">
-      <span aria-hidden>· </span>drawn with {designSystemLabel(id)}
-    </span>
   );
 }
 
@@ -637,9 +624,15 @@ function ReplayTurn({
           status={replay.status === "playing" ? "running" : "done"}
           meta={
             <>
-              Recorded run
-              <span className="max-[479px]:hidden"> · {replay.model}</span>
-              {replay.status === "playing" ? " · Writing A2UI Express" : null}
+              {/* A narrow row (a phone, or beside the editor) has room for the chip and one more thing: the step
+                  while it plays, then Play again. */}
+              <span className="@max-[400px]:hidden">{replay.model}</span>
+              {replay.status === "playing" ? (
+                <>
+                  <span className="@max-[400px]:hidden"> · </span>Writing A2UI
+                  Express
+                </>
+              ) : null}
             </>
           }
         >
