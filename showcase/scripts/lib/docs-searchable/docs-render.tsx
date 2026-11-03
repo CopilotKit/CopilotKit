@@ -448,6 +448,18 @@ function parseMetaPages(
 
       if (subMeta?.pages) {
         const subChildren = buildNavTree(subDir, subPrefix);
+        // Fumadocs makes a folder's own `index.mdx` the folder's page even
+        // when its meta.json doesn't list `"index"` (the docs app's pages
+        // don't), so count it as reachable too.
+        if (fs.existsSync(indexFile) && !subMeta.pages.includes("index")) {
+          subChildren.unshift({
+            type: "page",
+            title:
+              readTitle(indexFile) || subMeta.title || entry.replace(/-/g, " "),
+            slug: subPrefix,
+            icon: readIcon(indexFile) ?? undefined,
+          });
+        }
         const groupTitle = subMeta.title || entry.replace(/-/g, " ");
         nodes.push({
           type: "group",
