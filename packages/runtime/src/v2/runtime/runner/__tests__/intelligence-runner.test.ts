@@ -1367,6 +1367,43 @@ describe("IntelligenceAgentRunner", () => {
       expect(completions).toBe(1);
     });
 
+    it("handles a delivery stats callback that returns a rejected promise", async () => {
+      const unhandled: unknown[] = [];
+      const onUnhandled = (reason: unknown) => unhandled.push(reason);
+      process.on("unhandledRejection", onUnhandled);
+      try {
+        let calls = 0;
+        const statsRunner = new IntelligenceAgentRunner({
+          url: "ws://localhost:4000/runner",
+          onEventDeliveryStats: async () => {
+            calls++;
+            throw new Error("metrics sink down");
+          },
+        });
+        const threadId = "t-event-delivery-stats-async";
+        const input = createRunInput({
+          threadId,
+          runId: "r-event-delivery-stats-async",
+        });
+        let completions = 0;
+
+        statsRunner
+          .run({ threadId, agent: new MockAgent([]), input })
+          .subscribe({ complete: () => completions++ });
+        mockChannels[0].triggerJoin("ok", {
+          capabilities: ["runner_event_batch_v1"],
+        });
+        await vi.waitFor(() => expect(completions).toBe(1));
+        // Let a rejection that nothing handled reach the process.
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        expect(calls).toBeGreaterThan(0);
+        expect(unhandled).toEqual([]);
+      } finally {
+        process.off("unhandledRejection", onUnhandled);
+      }
+    });
+
     it("closes open lifecycles and emits one RUN_ERROR when the agent errors and then throws", async () => {
       const threadId = "t-finalize-error-then-throw";
       const input = createRunInput({

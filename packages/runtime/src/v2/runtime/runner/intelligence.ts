@@ -922,8 +922,14 @@ export class IntelligenceAgentRunner extends AgentRunner {
     const onStats = this.options.onEventDeliveryStats;
     if (!onStats) return;
     const [oldest] = this.oldestPendingEvents(state, 1);
+    const logFailure = (error: unknown) => {
+      logger.warn(
+        { err: error, threadId: state.threadId, runId: state.runId },
+        "onEventDeliveryStats callback failed",
+      );
+    };
     try {
-      onStats({
+      const result: unknown = onStats({
         threadId: state.threadId,
         runId: state.runId,
         acknowledgedEvents,
@@ -931,11 +937,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
         pendingEvents: state.pendingEvents.size,
         oldestPendingAgeMs: oldest ? Date.now() - oldest[1].queuedAt : 0,
       });
+      // An async callback type-checks against a void return. Its rejection
+      // would otherwise be unhandled, which by default ends the process.
+      if (result instanceof Promise) result.catch(logFailure);
     } catch (error) {
-      logger.warn(
-        { err: error, threadId: state.threadId, runId: state.runId },
-        "onEventDeliveryStats callback failed",
-      );
+      logFailure(error);
     }
   }
 
