@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import { AGUIConnectNotImplementedError, AbstractAgent } from "@ag-ui/client";
-import {
-  createAttachmentContent,
-  DEFAULT_AGENT_ID,
-  randomUUID,
-} from "@copilotkit/shared";
+import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 import {
   computed,
   onBeforeUnmount,
@@ -19,12 +15,12 @@ import {
 import {
   CopilotChatDefaultLabels,
   CopilotKitCoreErrorCode,
-  TranscriptionError,
+  ɵcreateChatSubmitter,
   ɵisHttpAgent,
-  ɵtranscribeAudio,
-  ɵtranscriptionErrorMessageKey,
+  ɵresolveChatNotice,
+  ɵThreadSwitchCoordinator,
 } from "@copilotkit/core";
-import type { Suggestion } from "@copilotkit/core";
+import type { Suggestion, ɵThreadSelection } from "@copilotkit/core";
 import CopilotChatConfigurationProvider from "../../providers/CopilotChatConfigurationProvider.vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { useCopilotKit } from "../../providers/useCopilotKit";
@@ -38,7 +34,6 @@ import CopilotChatView from "./CopilotChatView.vue";
 import { LastUserMessageKey } from "./last-user-message-context";
 import type { LastUserMessageState } from "./last-user-message-context";
 import type { Message } from "@ag-ui/core";
-import type { InputContent } from "@copilotkit/shared";
 import { useInspectorThreadOverride } from "../../providers/use-inspector-thread-override";
 import { CopilotKitStyles } from "../../styles/CopilotKitStyles";
 import type {
@@ -99,27 +94,23 @@ const forwardedChatViewSlotNames = computed(() =>
 const generatedThreadId = ref(randomUUID());
 const transcribeMode = ref<"input" | "transcribe" | "processing">("input");
 const inputValue = ref(props.inputValue ?? "");
-const transcriptionError = ref<string | null>(null);
-const isTranscribing = ref(false);
 const isMounted = ref(false);
 const isUnmounting = ref(false);
 
 type ActiveConnectCycle = {
   core: object;
-  agent: AbstractAgent;
-  threadId: string;
-  inspectorRequestId: string | null;
+  selection: ɵThreadSelection;
   abortController: AbortController;
   detached: boolean;
-  clearDiscardedBaseline?: () => void;
 };
 
 const activeConnectCycle = shallowRef<ActiveConnectCycle | null>(null);
-let lastConnectCycle: ActiveConnectCycle | null = null;
-const detachPromises = new WeakMap<AbstractAgent, Promise<void>>();
-// Agent clones can share cursors. Finish every old reset before connecting again.
-let pendingTeardown = Promise.resolve();
-const baselineThreadIds = new WeakMap<AbstractAgent, string>();
+// Keeps the agent on the thread this chat shows, orders the teardown of the
+// previous thread, and tracks connections a send must wait for.
+const threads = new ɵThreadSwitchCoordinator({
+  stopAgent: (params) => copilotkit.value.stopAgent(params),
+  subscribe: (subscriber) => copilotkit.value.subscribe(subscriber),
+});
 
 const resolvedAgentId = computed(
   () => props.agentId ?? existingConfig.value?.agentId ?? DEFAULT_AGENT_ID,
@@ -370,35 +361,23 @@ watch(
       return;
     }
 
-    const previousCycle = activeConnectCycle.value;
-    const inspectorTransition =
-      previousCycle !== null &&
-      previousCycle.threadId !== threadId &&
-      previousCycle.inspectorRequestId !== requestId &&
-      (previousCycle.inspectorRequestId !== null || requestId !== null);
-    if (inspectorTransition) {
-      try {
-        core.stopAgent({ agent: currentAgent });
-      } catch {
-        // No live run to stop.
-      }
-    }
-
-    // Pin the thread this chat renders onto its agent, before anything issues a
-    // request. `CopilotKitCore.connectAgent` reads `agent.threadId` synchronously
-    // to decide whether this is a fresh restore, so a later assignment would let
-    // /connect address the previous thread. Assigning inside this callback — as
-    // React does — makes the ordering unconditional instead of depending on
-    // watcher scheduling. Non-explicit threads skip /connect below, but the first
-    // runAgent still has to ship the thread the UI is rendering.
-    baselineThreadIds.set(currentAgent, currentAgent.threadId);
-    currentAgent.threadId = threadId;
+    // Pins the thread on the agent before anything issues a request:
+    // `CopilotKitCore.connectAgent` reads `agent.threadId` synchronously. A
+    // switch to a fresh, non-explicit thread (a "+ New" reset) empties the
+    // agent so the welcome screen shows; moving in or out of an inspector
+    // override stops the run.
+    const selection = threads.select({
+      agent: currentAgent,
+      threadId,
+      explicit: isExplicit,
+      inspectorRequestId: requestId,
+    });
 
     // When the caller hasn't picked a specific thread, resolvedThreadId is
     // a UUID minted locally. The backend has never seen it, so /connect
     // would always 404 — skip the call. A real thread is only created
     // once the user runs the agent for the first time.
-    if (!isExplicit) {
+    if (!selection.shouldConnect) {
       return;
     }
 
@@ -425,9 +404,7 @@ watch(
     const hasSameDeps =
       existingCycle &&
       existingCycle.core === (core as object) &&
-      existingCycle.agent === currentAgent &&
-      existingCycle.threadId === threadId &&
-      existingCycle.inspectorRequestId === requestId;
+      existingCycle.selection === selection;
 
     let cycle: ActiveConnectCycle;
     if (hasSameDeps && existingCycle) {
@@ -436,58 +413,60 @@ watch(
       const connectAbortController = new AbortController();
       cycle = {
         core: core as object,
-        agent: currentAgent,
-        threadId,
-        inspectorRequestId: requestId,
+        selection,
         abortController: connectAbortController,
         detached: false,
       };
       activeConnectCycle.value = cycle;
-      lastConnectCycle = cycle;
 
-      void pendingTeardown
-        .then(() => {
-          if (cycle.detached) return;
-          if (ɵisHttpAgent(currentAgent))
-            currentAgent.abortController = connectAbortController;
-          return core.connectAgent({ agent: currentAgent });
-        })
-        .catch((error: unknown) => {
-          if (cycle.detached) {
-            cycle.clearDiscardedBaseline?.();
-            return;
-          }
-          if (error instanceof AGUIConnectNotImplementedError) {
-            return;
-          }
-          console.error("CopilotChat: connectAgent failed", error);
-          if (requestId) {
-            failInspectorOverride(requestId);
-          }
-        })
-        .finally(() => {
-          // Whether the connect succeeded or failed, we're no longer in
-          // the transitional "connecting" state for this thread — release
-          // the welcome / suggestion gating so the view can settle.
-          //
-          // Defer one animation frame so any trailing reactive commits
-          // from the bootstrap replay (final assistant message content)
-          // paint before isConnecting flips off. Without this, suggestions
-          // can briefly render against an incompletely-laid-out message
-          // tree and visibly snap once the last text chunk lands.
-          if (cycle.detached) {
-            cycle.clearDiscardedBaseline?.();
-            return;
-          }
-          const raf =
-            typeof requestAnimationFrame === "function"
-              ? requestAnimationFrame
-              : (cb: () => void) => setTimeout(cb, 16);
-          raf(() => {
+      // Tracked, so a send waits for the thread to load instead of racing it.
+      void threads.trackConnection(selection, () =>
+        threads
+          .whenTornDown()
+          .then(() => {
             if (cycle.detached) return;
-            lastConnectedThreadId.value = cycle.threadId;
-          });
-        });
+            if (ɵisHttpAgent(currentAgent))
+              currentAgent.abortController = connectAbortController;
+            return core.connectAgent({ agent: currentAgent });
+          })
+          .catch((error: unknown) => {
+            if (cycle.detached) {
+              selection.clearDiscardedBaseline();
+              return;
+            }
+            if (error instanceof AGUIConnectNotImplementedError) {
+              return;
+            }
+            if (requestId) {
+              failInspectorOverride(requestId);
+            }
+            // The coordinator logs the failure and blocks sends on it.
+            throw error;
+          })
+          .finally(() => {
+            // Whether the connect succeeded or failed, we're no longer in
+            // the transitional "connecting" state for this thread — release
+            // the welcome / suggestion gating so the view can settle.
+            //
+            // Defer one animation frame so any trailing reactive commits
+            // from the bootstrap replay (final assistant message content)
+            // paint before isConnecting flips off. Without this, suggestions
+            // can briefly render against an incompletely-laid-out message
+            // tree and visibly snap once the last text chunk lands.
+            if (cycle.detached) {
+              selection.clearDiscardedBaseline();
+              return;
+            }
+            const raf =
+              typeof requestAnimationFrame === "function"
+                ? requestAnimationFrame
+                : (cb: () => void) => setTimeout(cb, 16);
+            raf(() => {
+              if (cycle.detached) return;
+              lastConnectedThreadId.value = selection.threadId;
+            });
+          }),
+      );
     }
 
     onCleanup(() => {
@@ -496,227 +475,94 @@ watch(
         return;
       }
 
+      const { selection: cycleSelection } = activeCycle;
       const shouldDetach =
         isUnmounting.value ||
         copilotkit.value !== activeCycle.core ||
-        agent.value !== activeCycle.agent ||
-        resolvedThreadId.value !== activeCycle.threadId;
+        agent.value !== cycleSelection.agent ||
+        resolvedThreadId.value !== cycleSelection.threadId;
       if (!shouldDetach) {
         return;
       }
 
+      cycleSelection.release();
       activeCycle.detached = true;
       activeCycle.abortController.abort();
-      const detach = activeCycle.agent
-        .detachActiveRun()
-        .catch((error: unknown) => {
-          console.error("CopilotChat: detachActiveRun failed", error);
-        });
-      detachPromises.set(activeCycle.agent, detach);
-      pendingTeardown = Promise.all([pendingTeardown, detach]).then(() => {});
-      void detach.then(() => {
-        if (detachPromises.get(activeCycle.agent) === detach)
-          detachPromises.delete(activeCycle.agent);
-      });
+      void threads.detach(cycleSelection.agent);
       activeConnectCycle.value = null;
     });
   },
   { immediate: true },
 );
 
-// Clear stale messages when the active thread switches to a fresh,
-// non-explicit thread (e.g. a "+ New" reset). Explicit thread switches
-// replay their history via the /connect cycle above, and the very first
-// resolution (mount) or an agent-store swap that keeps the same thread id
-// must never clear — only a real fresh-thread transition does.
-let lastFreshSelection:
-  | { threadId: string; agent: AbstractAgent | null }
-  | undefined;
-watch(
-  [resolvedThreadId, hasExplicitThreadId, () => agent.value],
-  ([threadId, isExplicit, currentAgent], _old, onCleanup) => {
-    const previous = lastFreshSelection;
-    const selection = { threadId, agent: currentAgent };
-    lastFreshSelection = selection;
-    if (!currentAgent) return;
-    if (isExplicit) return;
-    if (previous === undefined) return;
-    if (threadId === previous.threadId) return;
-    let active = true;
-    let resetPending = true;
-    onCleanup(() => {
-      active = false;
-    });
-    const discardedThreadId =
-      previous.agent === currentAgent
-        ? previous.threadId
-        : baselineThreadIds.get(currentAgent);
-    const clearCursor = () => {
-      if (!discardedThreadId) return;
-      if (
-        "clearReplayCursor" in currentAgent &&
-        typeof currentAgent.clearReplayCursor === "function"
-      )
-        currentAgent.clearReplayCursor(discardedThreadId);
-      if (
-        "clearReconnectCursor" in currentAgent &&
-        typeof currentAgent.clearReconnectCursor === "function"
-      )
-        currentAgent.clearReconnectCursor(discardedThreadId);
-    };
-    const clearDiscardedBaseline = () => {
-      if (
-        !active ||
-        !resetPending ||
-        isUnmounting.value ||
-        lastFreshSelection !== selection ||
-        agent.value !== currentAgent
-      )
-        return;
-      currentAgent.setMessages([]);
-      currentAgent.setState({});
-      currentAgent.pendingInterrupts = [];
-      clearCursor();
-    };
-    if (
-      lastConnectCycle?.agent === currentAgent &&
-      lastConnectCycle.threadId === discardedThreadId
-    )
-      lastConnectCycle.clearDiscardedBaseline = clearDiscardedBaseline;
-    const detach =
-      detachPromises.get(currentAgent) ?? currentAgent.detachActiveRun();
-    detachPromises.set(currentAgent, detach);
-    const finishReset = () => {
-      if (!resetPending) return;
-      // The cursor belongs to the discarded view, even after a fast reopen.
-      clearCursor();
-      clearDiscardedBaseline();
-      resetPending = false;
-    };
-    clearDiscardedBaseline();
-    pendingTeardown = Promise.all([pendingTeardown, detach])
-      .then(finishReset)
-      .catch((error: unknown) => {
-        console.error("CopilotChat: detachActiveRun failed", error);
-      })
-      .finally(() => {
-        if (detachPromises.get(currentAgent) === detach)
-          detachPromises.delete(currentAgent);
-      });
+// The send side — queueing behind the run in flight and the thread's
+// connection, the upload guard, stop, and transcription — lives in core.
+const submitter = ɵcreateChatSubmitter({
+  core: {
+    get runtimeUrl() {
+      return copilotkit.value.runtimeUrl;
+    },
+    get runtimeTransport() {
+      return copilotkit.value.runtimeTransport;
+    },
+    get credentials() {
+      return copilotkit.value.credentials;
+    },
+    resolveHeaders: () => copilotkit.value.resolveHeaders(),
+    runAgent: (params) => copilotkit.value.runAgent(params),
+    stopAgent: (params) => copilotkit.value.stopAgent(params),
   },
-  { immediate: true },
-);
+  getAgent: () => agent.value ?? undefined,
+  input: {
+    get: () => inputValue.value,
+    set: (value) => {
+      inputValue.value = value;
+    },
+  },
+  attachments: {
+    isUploading: () =>
+      attachments.value.some((attachment) => attachment.status === "uploading"),
+    consumeReady: consumeAttachments,
+  },
+  threads,
+});
+const submitterState = shallowRef(submitter.getSnapshot());
+const unsubscribeSubmitter = submitter.subscribe(() => {
+  submitterState.value = submitter.getSnapshot();
+});
+const isTranscribing = computed(() => submitterState.value.isTranscribing);
+const transcriptionError = computed(() => {
+  const { notice } = submitterState.value;
+  return notice ? ɵresolveChatNotice(notice, chatLabels.value) : null;
+});
 
 onBeforeUnmount(() => {
   isUnmounting.value = true;
+  unsubscribeSubmitter();
+  submitter.dispose();
+  threads.dispose();
 });
 
 onMounted(() => {
   isMounted.value = true;
 });
 
-watch(transcriptionError, (next, _old, onCleanup) => {
-  if (!next) {
-    return;
-  }
-  const timer = setTimeout(() => {
-    transcriptionError.value = null;
-  }, 5000);
-  onCleanup(() => clearTimeout(timer));
-});
-
-async function runCurrentAgent() {
-  const currentAgent = agent.value;
-  if (!currentAgent) {
-    return;
-  }
-
-  try {
-    const activeCycle = activeConnectCycle.value;
-    if (
-      activeCycle &&
-      activeCycle.agent === currentAgent &&
-      activeCycle.threadId === resolvedThreadId.value
-    ) {
-      activeCycle.detached = true;
-      activeCycle.abortController.abort();
-      activeConnectCycle.value = null;
-      await activeCycle.agent.detachActiveRun?.();
-    }
-    await copilotkit.value.runAgent({ agent: currentAgent });
-  } catch (error) {
-    console.error("CopilotChat: runAgent failed", error);
-  }
-}
-
 async function handleSubmitMessage(value: string) {
-  const hasUploading = attachments.value.some(
+  // A send blocked by an upload shows its notice but is not reported.
+  const isBlockedByUpload = attachments.value.some(
     (attachment) => attachment.status === "uploading",
   );
-  if (hasUploading) {
-    console.error("[CopilotKit] Cannot send while attachments are uploading");
-    return;
-  }
-
-  emit("submit-message", value);
-
-  if (!agent.value) {
-    console.error("[CopilotKit] Cannot send message: no agent available");
-    return;
-  }
-
-  const readyAttachments = consumeAttachments();
-  if (readyAttachments.length > 0) {
-    const contentParts: InputContent[] = [];
-    if (value.trim()) {
-      contentParts.push({ type: "text", text: value });
-    }
-    for (const attachment of readyAttachments) {
-      contentParts.push(createAttachmentContent(attachment));
-    }
-    agent.value.addMessage({
-      id: randomUUID(),
-      role: "user",
-      content: contentParts,
-    });
-  } else {
-    agent.value.addMessage({
-      id: randomUUID(),
-      role: "user",
-      content: value,
-    });
-  }
-
-  inputValue.value = "";
-  await runCurrentAgent();
+  if (!isBlockedByUpload) emit("submit-message", value);
+  await submitter.submit(value);
 }
 
 async function handleSelectSuggestion(suggestion: Suggestion, index: number) {
   emit("select-suggestion", suggestion, index);
-  agent.value?.addMessage({
-    id: randomUUID(),
-    role: "user",
-    content: suggestion.message,
-  });
-  await runCurrentAgent();
+  await submitter.selectSuggestion(suggestion);
 }
 
 function stopCurrentRun() {
-  const currentAgent = agent.value;
-  if (!currentAgent) {
-    return;
-  }
-
-  try {
-    copilotkit.value.stopAgent({ agent: currentAgent });
-  } catch (error) {
-    console.error("CopilotChat: stopAgent failed", error);
-    try {
-      currentAgent.abortRun();
-    } catch (abortError) {
-      console.error("CopilotChat: abortRun fallback failed", abortError);
-    }
-  }
+  submitter.stop();
 }
 
 function handleStop() {
@@ -745,7 +591,7 @@ function handleStartTranscribe() {
   if (!showTranscription.value) {
     return;
   }
-  transcriptionError.value = null;
+  submitter.showNotice(null);
   transcribeMode.value = "transcribe";
   emit("start-transcribe");
 }
@@ -754,7 +600,7 @@ function handleCancelTranscribe() {
   if (!showTranscription.value) {
     return;
   }
-  transcriptionError.value = null;
+  submitter.showNotice(null);
   transcribeMode.value = "input";
   emit("cancel-transcribe");
 }
@@ -776,26 +622,7 @@ async function handleFinishTranscribeWithAudio(audioBlob: Blob) {
     return;
   }
 
-  isTranscribing.value = true;
-  try {
-    transcriptionError.value = null;
-    const result = await ɵtranscribeAudio(copilotkit.value, audioBlob);
-    const trimmedPrevious = inputValue.value.trim();
-    inputValue.value = trimmedPrevious
-      ? `${trimmedPrevious} ${result.text}`
-      : result.text;
-  } catch (error) {
-    console.error("CopilotChat: Transcription failed", error);
-    const labels = chatLabels.value;
-    if (error instanceof TranscriptionError) {
-      const key = ɵtranscriptionErrorMessageKey(error.info);
-      transcriptionError.value = key ? labels[key] : error.info.message;
-    } else {
-      transcriptionError.value = labels.transcriptionErrorGenericText;
-    }
-  } finally {
-    isTranscribing.value = false;
-  }
+  await submitter.transcribe(audioBlob);
 }
 
 const chatViewSlotProps = computed<CopilotChatViewOverrideSlotProps>(() => ({

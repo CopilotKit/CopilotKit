@@ -11,3 +11,8 @@ export * from "./run-handler";
 export * from "./state-manager";
 export * from "./webmcp";
 export type * from "./generative-ui-debug";
+export {
+  ɵclearAgentThreadCursors,
+  ɵresetAgentThreadBaseline,
+} from "./thread-baseline";
+export type { ɵThreadBaselineResetOptions } from "./thread-baseline";

@@ -88,6 +88,30 @@ export { ɵdeduplicateMessages, ɵmessagesFingerprint } from "./messages";
 export { ɵAttachmentQueue, ɵbuildUserMessageContent } from "./attachment-queue";
 export type { ɵClipboardItem } from "./attachment-queue";
 
+// Chat session: sends, transcription, thread switches (internal)
+export {
+  ɵTRANSCRIPTION_ERROR_TIMEOUT_MS,
+  ɵappendTranscript,
+  ɵbuildUserMessage,
+  ɵcreateChatSubmitter,
+  ɵChatSubmitter,
+  ɵresolveChatNotice,
+  ɵstopAgentWithFallback,
+  ɵtranscriptionErrorNotice,
+  ɵwaitForActiveRun,
+} from "./session";
+export type {
+  ɵChatNotice,
+  ɵChatRunScope,
+  ɵChatSubmitterOptions,
+  ɵChatSubmitterSnapshot,
+} from "./session";
+export { ɵThreadSelection, ɵThreadSwitchCoordinator } from "./thread-switch";
+export type {
+  ɵConnectionWaitResult,
+  ɵThreadSelectionInput,
+} from "./thread-switch";
+
 // Chat input (internal)
 export { ɵcomposerButtonState, ɵresolveComposerKey } from "./composer";
 export type {

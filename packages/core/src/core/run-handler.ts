@@ -24,6 +24,7 @@ import {
   toToolResultContent,
 } from "./tool-result-content";
 import { createToolSchema } from "./tool-schema";
+import { ɵresetAgentThreadBaseline } from "./thread-baseline";
 import {
   ɵgetAgentInterruptState,
   ɵclearAgentInterruptState,
@@ -700,26 +701,12 @@ export class RunHandler {
       // gateway can resume from `lastSeenEventId` instead of replaying
       // the full history.
       if (isFreshRestore) {
-        agent.setMessages([]);
-        agent.setState({});
-        if (
-          previousThreadId !== undefined &&
-          previousThreadId !== incomingThreadId
-        ) {
-          agent.pendingInterrupts = [];
-        }
-        const cursorAware = agent as {
-          clearReconnectCursor?: (id: string) => void;
-          clearReplayCursor?: (id: string) => void;
-        };
-        if (incomingThreadId) {
-          if (typeof cursorAware.clearReplayCursor === "function") {
-            cursorAware.clearReplayCursor(incomingThreadId);
-          }
-          if (typeof cursorAware.clearReconnectCursor === "function") {
-            cursorAware.clearReconnectCursor(incomingThreadId);
-          }
-        }
+        ɵresetAgentThreadBaseline(agent, {
+          cursorThreadId: incomingThreadId,
+          clearPendingInterrupts:
+            previousThreadId !== undefined &&
+            previousThreadId !== incomingThreadId,
+        });
       }
 
       // Re-apply current headers (merged on top of the agent's own headers)

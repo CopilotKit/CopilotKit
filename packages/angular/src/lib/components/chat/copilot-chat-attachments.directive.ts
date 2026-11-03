@@ -98,9 +98,21 @@ export class CopilotChatAttachmentsDirective {
     this.queue.remove(id);
   }
 
-  /** Takes the ready attachments for a message and resets the file picker. */
+  /**
+   * Takes the ready attachments for a message and resets the file picker.
+   * Reads {@link ChatState.attachments}, which mirrors the queue, so
+   * attachments an app wrote to that public signal are sent too.
+   */
   consume(): Attachment[] {
-    const ready = this.queue.consumeReady();
+    const ready = this.chat
+      .attachments()
+      .filter((attachment) => attachment.status === "ready");
+    this.queue.consumeReady();
+    if (ready.length > 0) {
+      this.chat.attachments.update((attachments) =>
+        attachments.filter((attachment) => attachment.status !== "ready"),
+      );
+    }
     if (this.fileInput) {
       this.fileInput.value = "";
     }

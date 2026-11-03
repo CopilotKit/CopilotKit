@@ -827,7 +827,7 @@ describe("CopilotChat", () => {
         fixture.detectChanges();
         await vi.waitFor(() =>
           expect(log).toHaveBeenCalledWith(
-            "[CopilotKit] Failed to connect to agent:",
+            "CopilotChat: connection failed",
             error,
           ),
         );
