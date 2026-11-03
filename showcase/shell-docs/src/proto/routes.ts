@@ -51,8 +51,9 @@ export function parseLocation(
   variant: VariantId,
   path: string[],
 ): Location | null {
-  const [first = "docs", ...rest] = path;
-  if (first === "docs") return { kind: "docs", slug: rest.join("/") };
+  const [first, ...rest] = path;
+  // The home page. `/docs/*` URLs redirect to the root (seo-redirects.ts).
+  if (!first) return { kind: "docs", slug: "" };
   if (first === "examples" && variant === "d") return { kind: "examples" };
   if (first === "intelligence")
     return { kind: "intelligence", slug: rest.join("/") };
