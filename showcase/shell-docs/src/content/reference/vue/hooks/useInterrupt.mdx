@@ -125,7 +125,8 @@ function useInterrupt<TValue = unknown, TResult = never>(
   <PropertyReference name="slotProps" type="ComputedRef<InterruptRenderProps<TValue, TResult | null> | null>">
     The props published to the `<CopilotChat>` `#interrupt` slot, or `null`
     when there is no active interrupt. Shape: `{ event, interrupt, interrupts,
-    result, resolve, cancel }`.
+    result, resolve, cancel }`. The typed `#interrupt` slot declares only
+    `event`, `result`, and `resolve`, so read the others from `slotProps`.
   </PropertyReference>
 </PropertyReference>
 
@@ -146,9 +147,9 @@ useInterrupt<Approval>();
 
 <template>
   <CopilotChat>
-    <template #interrupt="{ event, interrupt, resolve }">
+    <template #interrupt="{ event, resolve }">
       <div class="rounded border p-3">
-        <p>{{ interrupt ? interrupt.message : (event.value as Approval).question }}</p>
+        <p>{{ (event.value as Approval).question }}</p>
         <div class="mt-2 flex gap-2">
           <button @click="resolve({ approved: true })">Approve</button>
           <button @click="resolve({ approved: false })">Reject</button>

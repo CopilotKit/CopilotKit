@@ -49,7 +49,7 @@ is a situation where a user and an agent are working together to solve a problem
         <Tab value="Python">
           ```python title="agent.py"
           # ...
-          from copilotkit.crewai import CopilotKitState # extends the CrewAI FlowState
+          from ag_ui_crewai import CopilotKitState # extends the CrewAI FlowState
           # ...
 
           # This is the state of the agent.
@@ -71,7 +71,7 @@ is a situation where a user and an agent are working together to solve a problem
         import asyncio
         from crewai.flow.flow import Flow, start
         from litellm import completion
-        from copilotkit.crewai import copilotkit_stream, CopilotKitState, copilotkit_emit_state
+        from ag_ui_crewai import copilotkit_stream, CopilotKitState, copilotkit_emit_state
         from typing import TypedDict
 
         class Searches(TypedDict):
