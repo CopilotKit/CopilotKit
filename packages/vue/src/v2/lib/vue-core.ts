@@ -41,7 +41,6 @@ export class CopilotKitCoreVue extends CopilotKitCore {
     null;
   private _renderCustomMessages: VueCustomMessageRenderer[] = [];
   private _renderActivityMessages: VueActivityMessageRenderer<unknown>[] = [];
-  private _interruptState: InterruptRenderProps<unknown, unknown> | null = null;
 
   constructor(config: CopilotKitCoreVueConfig) {
     // Tool handlers can change reactive state. `nextTick` lets Vue flush those
@@ -50,6 +49,17 @@ export class CopilotKitCoreVue extends CopilotKitCore {
     this._renderToolCalls = config.renderToolCalls ?? [];
     this._renderCustomMessages = config.renderCustomMessages ?? [];
     this._renderActivityMessages = config.renderActivityMessages ?? [];
+    // The props live in core's generic interrupt slot; keep the Vue
+    // subscriber event for existing listeners.
+    this.ɵsubscribeToInterruptPayload(() => {
+      void this.notifySubscribers((subscriber) => {
+        const vueSubscriber = subscriber as CopilotKitCoreVueSubscriber;
+        vueSubscriber.onInterruptStateChanged?.({
+          copilotkit: this,
+          interruptState: this.interruptState,
+        });
+      }, "Subscriber onInterruptStateChanged error:");
+    });
   }
 
   get renderCustomMessages(): Readonly<VueCustomMessageRenderer[]> {
@@ -102,7 +112,10 @@ export class CopilotKitCoreVue extends CopilotKitCore {
   }
 
   get interruptState(): InterruptRenderProps<unknown, unknown> | null {
-    return this._interruptState;
+    return this.ɵinterruptPayload as InterruptRenderProps<
+      unknown,
+      unknown
+    > | null;
   }
 
   setRenderToolCalls(renderToolCalls: VueToolCallRenderer<unknown>[]): void {
@@ -141,14 +154,7 @@ export class CopilotKitCoreVue extends CopilotKitCore {
   setInterruptState(
     interruptState: InterruptRenderProps<unknown, unknown> | null,
   ): void {
-    this._interruptState = interruptState;
-    void this.notifySubscribers((subscriber) => {
-      const vueSubscriber = subscriber as CopilotKitCoreVueSubscriber;
-      vueSubscriber.onInterruptStateChanged?.({
-        copilotkit: this,
-        interruptState: this._interruptState,
-      });
-    }, "Subscriber onInterruptStateChanged error:");
+    this.ɵsetInterruptPayload(interruptState);
   }
 
   subscribe(

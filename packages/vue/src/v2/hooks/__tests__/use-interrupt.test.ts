@@ -347,6 +347,32 @@ describe("useInterrupt", () => {
     expect(wrapper.get("[data-testid=interrupt-state]").text()).toBe("idle");
   });
 
+  it("treats a throwing enabled predicate as disabled instead of crashing", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const wrapper = mountHarness({
+      enabled: () => {
+        throw new Error("predicate");
+      },
+    });
+    emitInterrupt("hidden");
+    await nextTick();
+    expect(wrapper.get("[data-testid=interrupt-state]").text()).toBe("idle");
+  });
+
+  it("shows the interrupt with a null result when the handler throws synchronously", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const wrapper = mountHarness({
+      handler: () => {
+        throw new Error("handler");
+      },
+    });
+    emitInterrupt("visible");
+    await nextTick();
+    expect(wrapper.get("[data-testid=interrupt-state]").text()).toBe(
+      "no-result:visible",
+    );
+  });
+
   it("keeps the latest interrupt when multiple interrupts arrive within one run", async () => {
     const wrapper = mountHarness({ renderInChat: false });
 
@@ -411,6 +437,77 @@ describe("useInterrupt", () => {
       handlers.onRunFinishedEvent?.({ outcome: "interrupt", interrupts });
       handlers.onRunFinalized?.();
     }
+
+    it("picks up the agent's pending interrupts when it mounts", async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (mockAgent as any).pendingInterrupts = [INT];
+      const wrapper = mountStandardHarness();
+      await nextTick();
+      expect(wrapper.find("[data-testid=active]").exists()).toBe(true);
+    });
+
+    it("appends a tool result for a frontend tool-call interrupt before resuming", async () => {
+      const addMessage = vi.fn();
+      Object.assign(mockAgent, { messages: [], addMessage });
+      const TOOL_INT: Interrupt = {
+        id: "tool-int",
+        reason: "tool_call",
+        toolCallId: "call-1",
+      };
+      const wrapper = mountStandardHarness();
+      fireStandardInterrupt([TOOL_INT]);
+      await nextTick();
+
+      await wrapper.get("[data-testid=resolve-btn]").trigger("click");
+
+      expect(addMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          role: "tool",
+          toolCallId: "call-1",
+          content: JSON.stringify({ ok: true }),
+        }),
+      );
+      expect(runAgentMock).toHaveBeenCalledWith({
+        agent: mockAgent,
+        resume: [
+          {
+            interruptId: "tool-int",
+            status: "resolved",
+            payload: { ok: true },
+          },
+        ],
+      });
+    });
+
+    it("resumes when the only expired interrupt was cancelled", async () => {
+      const EXPIRED: Interrupt = {
+        id: "old",
+        reason: "confirmation",
+        expiresAt: "2000-01-01T00:00:00.000Z",
+      };
+      let api: ReturnType<typeof useInterrupt> | undefined;
+      mount(
+        defineComponent({
+          setup() {
+            api = useInterrupt({ renderInChat: false });
+            return () => null;
+          },
+        }),
+      );
+      fireStandardInterrupt([EXPIRED, INT]);
+      await nextTick();
+
+      await api!.cancel("old");
+      await api!.resolve("yes", INT.id);
+
+      expect(runAgentMock).toHaveBeenCalledWith({
+        agent: mockAgent,
+        resume: [
+          { interruptId: "old", status: "cancelled" },
+          { interruptId: INT.id, status: "resolved", payload: "yes" },
+        ],
+      });
+    });
 
     it("resolveInterrupt resumes with a resolved ResumeEntry", async () => {
       runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
