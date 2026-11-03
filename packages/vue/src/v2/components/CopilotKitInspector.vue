@@ -4,9 +4,9 @@ defineOptions({
   inheritAttrs: false,
 });
 
-import { onMounted, onUnmounted, shallowRef, useAttrs, watch } from "vue";
-import type { ObjectDirective } from "vue";
-import type { WebInspectorElement } from "@copilotkit/web-inspector";
+import { onBeforeUnmount, onMounted, ref, useAttrs, watch } from "vue";
+import { ɵmountInspector } from "@copilotkit/web-inspector/mount";
+import type { ɵInspectorMount } from "@copilotkit/web-inspector/mount";
 import type { CopilotKitCoreVue } from "../lib/vue-core";
 import type { VueInspectorOpenRequest } from "../providers/keys";
 
@@ -15,72 +15,77 @@ const props = defineProps<{
   openRequest?: VueInspectorOpenRequest | null;
 }>();
 
+const emit = defineEmits<{
+  "visibility-change": [visible: boolean];
+}>();
+
 const attrs = useAttrs();
-const inspectorTag = shallowRef<string | null>(null);
-const inspector = shallowRef<WebInspectorElement | null>(null);
+const host = ref<HTMLSpanElement | null>(null);
+let mount: ɵInspectorMount | null = null;
+let appliedAttributes: Record<string, string> = {};
 
-let isMounted = true;
-let configureInspector:
-  | ((
-      element: WebInspectorElement,
-      core: CopilotKitCoreVue | null,
-    ) => WebInspectorElement)
-  | null = null;
-
-const vConfigureInspector: ObjectDirective<WebInspectorElement, undefined> = {
-  created(element) {
-    configureInspector?.(element, props.core ?? null);
-    inspector.value = element;
-    if (props.openRequest) {
-      element.openInspector?.("message_toolbar", props.openRequest);
+// Text attributes go to the Inspector element (the host is only a mount
+// point), so markers such as `data-testid` land where callers look for them.
+function toAttributes(source: Record<string, unknown>) {
+  const attributes: Record<string, string> = {};
+  for (const [name, value] of Object.entries(source)) {
+    if (typeof value === "string" || typeof value === "number") {
+      attributes[name] = String(value);
+    } else if (value === true) {
+      attributes[name] = "";
     }
-  },
-};
+  }
+  return attributes;
+}
+
+function syncAttributes() {
+  const element = mount?.element;
+  if (!element) return;
+  const next = toAttributes(attrs);
+  for (const name of Object.keys(appliedAttributes)) {
+    if (!(name in next)) element.removeAttribute(name);
+  }
+  for (const [name, value] of Object.entries(next)) {
+    element.setAttribute(name, value);
+  }
+  appliedAttributes = next;
+}
 
 onMounted(() => {
-  void import("@copilotkit/web-inspector")
-    .then((mod) => {
-      if (!isMounted) return;
-
-      mod.defineWebInspector?.();
-      configureInspector = (element, core) =>
-        mod.configureWebInspectorElement(element, core, {
-          development: process.env.NODE_ENV === "development",
-          framework: "vue",
-          sdkVersion,
-        });
-      inspectorTag.value = mod.WEB_INSPECTOR_TAG;
-    })
-    .catch((error: unknown) => {
-      console.error("Failed to load CopilotKit inspector:", error);
-    });
+  if (!host.value) return;
+  mount = ɵmountInspector(host.value, props.core ?? null, {
+    load: () => import("@copilotkit/web-inspector"),
+    notificationContext: {
+      development: process.env.NODE_ENV === "development",
+      framework: "vue",
+      sdkVersion,
+    },
+  });
+  mount.onVisibility((visible) => emit("visibility-change", visible));
+  mount.onElement(syncAttributes);
+  if (props.openRequest) mount.open(props.openRequest);
 });
 
-onUnmounted(() => {
-  isMounted = false;
-  inspector.value = null;
+onBeforeUnmount(() => {
+  mount?.dispose();
+  mount = null;
 });
 
 watch(
   () => props.core,
-  (core) => {
-    if (inspector.value) inspector.value.core = core ?? null;
-  },
+  (core) => mount?.setCore(core ?? null),
 );
 
 watch(
   () => props.openRequest,
   (request) => {
-    if (request) inspector.value?.openInspector?.("message_toolbar", request);
+    if (request) mount?.open(request);
   },
 );
+
+watch(() => ({ ...attrs }), syncAttributes);
 </script>
 
 <template>
-  <component
-    :is="inspectorTag"
-    v-if="inspectorTag"
-    v-bind="attrs"
-    v-configure-inspector
-  />
+  <span ref="host" style="display: contents" />
 </template>

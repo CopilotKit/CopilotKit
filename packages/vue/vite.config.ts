@@ -40,7 +40,8 @@ export default defineConfig({
         // statically for activity registration.
         /^@copilotkit\/mcp-apps-renderer(\/.*)?$/,
         "@copilotkit/shared",
-        "@copilotkit/web-inspector",
+        // The Inspector and its `/mount` subpath stay runtime imports.
+        /^@copilotkit\/web-inspector(\/.*)?$/,
         // Keep @copilotkit/web-components (the Lit drawer element) + its subpaths
         // external. It's a runtime dependency loaded via the drawer wrapper's
         // client-only dynamic import; bundling it inline would ship a duplicate

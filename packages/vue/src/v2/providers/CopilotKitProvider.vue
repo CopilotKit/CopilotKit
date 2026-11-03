@@ -129,12 +129,16 @@ provide(
 );
 
 const shouldRenderInspector = ref(false);
+// Follows the Inspector's own show/hide, so message actions that open it are
+// hidden while a temporary dismissal hides it.
+const inspectorVisible = ref(false);
 
 function updateInspectorVisibility(): void {
   shouldRenderInspector.value = shouldEnableInspector({
     enableInspector: props.enableInspector,
     isBrowser: true,
     isDevelopment: process.env.NODE_ENV === "development",
+    hostname: window.location.hostname,
   });
 }
 
@@ -142,7 +146,9 @@ onMounted(updateInspectorVisibility);
 watch(() => props.enableInspector, updateInspectorVisibility);
 
 const inspectorOpenRequest = ref<VueInspectorOpenRequest | null>(null);
-const isInspectorEnabled = computed(() => shouldRenderInspector.value);
+const isInspectorEnabled = computed(
+  () => shouldRenderInspector.value && inspectorVisible.value,
+);
 
 function openInspector(request: VueInspectorOpenRequest) {
   inspectorOpenRequest.value = { ...request };
@@ -913,6 +919,7 @@ onUnmounted(() => {
     v-if="shouldRenderInspector"
     :core="copilotkit"
     :open-request="inspectorOpenRequest"
+    @visibility-change="inspectorVisible = $event"
   />
   <!-- License warnings — driven by server-reported status -->
   <LicenseWarningBanner v-if="licenseBannerType" :type="licenseBannerType" />
