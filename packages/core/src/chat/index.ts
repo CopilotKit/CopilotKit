@@ -119,3 +119,11 @@ export type {
   CopilotIconDefinition,
 } from "./icons";
 export { ɵcopilotIcons, ɵcopilotIconSvgAttributes } from "./icons";
+
+// Chat configuration (internal)
+export { ɵChatConfigurationStore } from "./chat-configuration";
+export type {
+  ɵChatConfigurationOptions,
+  ɵChatConfigurationSnapshot,
+  ɵOpenThreadRegistry,
+} from "./chat-configuration";

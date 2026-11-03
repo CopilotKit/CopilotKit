@@ -119,6 +119,23 @@ describe("CopilotChatConfigurationProvider", () => {
     expect(wrapper.find("[data-testid=placeholder]").text()).toBe("Inner");
   });
 
+  it("a nested non-explicit seed yields to the parent's thread, like React", () => {
+    const Display = makeDisplay();
+    const wrapper = mount(CopilotChatConfigurationProvider, {
+      props: { threadId: "outer-thread" },
+      slots: {
+        default: () =>
+          h(
+            CopilotChatConfigurationProvider,
+            { threadId: "inner-seed", hasExplicitThreadId: false },
+            { default: () => h(Display) },
+          ),
+      },
+    });
+
+    expect(wrapper.find("[data-testid=thread]").text()).toBe("outer-thread");
+  });
+
   it("creates and mutates modal state when isModalDefaultOpen is provided", async () => {
     const Toggle = defineComponent({
       setup() {
@@ -398,9 +415,12 @@ describe("CopilotChatConfiguration drawer-awareness", () => {
 });
 
 describe("CopilotChatConfiguration modal-setter presence contract", () => {
-  it("bare provider (no isModalDefaultOpen, no parent) exposes setModalOpen as undefined", () => {
+  it("bare provider (no isModalDefaultOpen, no parent) owns a modal that starts open, like React", async () => {
     const cfg = harness({ threadId: "thread-1" });
-    expect(cfg().setModalOpen).toBeUndefined();
+    expect(cfg().isModalOpen).toBe(true);
+    cfg().setModalOpen?.(false);
+    await nextTick();
+    expect(cfg().isModalOpen).toBe(false);
   });
 
   it("provider with isModalDefaultOpen exposes a working setModalOpen", async () => {
