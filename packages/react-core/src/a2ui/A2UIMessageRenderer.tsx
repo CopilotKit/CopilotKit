@@ -30,7 +30,6 @@ import type {
   ɵA2UIActionCore,
   ɵA2UIActionInterceptor,
   ɵA2UIOperation,
-  ɵA2UISurfaceContent,
   ɵA2UIUserAction,
 } from "@copilotkit/core";
 import { A2UILifecycleState } from "./A2UIRecoveryStates";
@@ -99,7 +98,7 @@ export type A2UIMessageRendererOptions = {
  */
 export function createA2UIMessageRenderer(
   options: A2UIMessageRendererOptions,
-): ReactActivityMessageRenderer<ɵA2UISurfaceContent> {
+): ReactActivityMessageRenderer<any> {
   const { theme, catalog, loadingComponent, recovery, onAction } = options;
 
   return {

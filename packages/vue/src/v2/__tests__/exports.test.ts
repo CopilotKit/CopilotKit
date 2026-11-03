@@ -24,6 +24,16 @@ describe("package exports", () => {
     expect(typeof VuePackage.MCPAppsActivityRenderer).toBe("object");
     expect(VuePackage.A2UISurfaceActivityType).toBe("a2ui-surface");
     expect(typeof VuePackage.A2UISurfaceActivityRenderer).toBe("object");
+    expect(
+      VuePackage.getOperationSurfaceId({ createSurface: { surfaceId: "s" } }),
+    ).toBe("s");
+    // Standard Schemas since 2.0 (see the generative UI migration guide).
+    expect(VuePackage.OpenGenerativeUIContentSchema["~standard"].vendor).toBe(
+      "copilotkit",
+    );
+    expect(VuePackage.GenerateSandboxedUiArgsSchema["~standard"].vendor).toBe(
+      "copilotkit",
+    );
   });
 
   it("exports the default A2UI catalog for the catalog-on-provider path", () => {
