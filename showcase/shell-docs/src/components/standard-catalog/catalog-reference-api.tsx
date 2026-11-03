@@ -1,9 +1,16 @@
 "use client";
-import React from "react";
+
+import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
+import { TypeTable } from "fumadocs-ui/components/type-table";
 import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+import { COMMON_PROPS } from "./catalog-story";
+
+// A component's description and API, read from the standard catalog's own
+// manifest (shell-docs' `catalog-reference-api.tsx`). The catalog is a client
+// module, so these render on the client.
 
 export function CatalogReferenceDescription({ name }: { name: string }) {
-  return <>{standardUI.manifestComponents[name].description}</>;
+  return <>{standardUI.manifestComponents[name]?.description}</>;
 }
 
 function schemaType(value: unknown): string {
@@ -21,61 +28,70 @@ function schemaType(value: unknown): string {
       : "object";
 }
 
+/**
+ * Props as Fumadocs' type table (as `PropertyReference` renders), the shared
+ * sizing props folded into an accordion under it, then slots and events.
+ */
 export function CatalogComponentApi({ name }: { name: string }) {
   const manifest = standardUI.manifestComponents[name];
-  const properties = manifest.props.properties as
-    | Record<string, { description?: string }>
-    | undefined;
+  if (!manifest) return null;
+  const properties = (manifest.props.properties ?? {}) as Record<
+    string,
+    { description?: string }
+  >;
+  const required = new Set(
+    Array.isArray(manifest.props.required) ? manifest.props.required : [],
+  );
+  const table = (entries: [string, { description?: string }][]) =>
+    Object.fromEntries(
+      entries.map(([key, value]) => [
+        key,
+        {
+          type: schemaType(value),
+          description: value.description,
+          required: required.has(key),
+        },
+      ]),
+    );
+  const all = Object.entries(properties);
+  const own = all.filter(([key]) => !COMMON_PROPS.has(key));
+  const common = all.filter(([key]) => COMMON_PROPS.has(key));
+  const slots = Object.entries(manifest.slots ?? {});
+  const events = Object.entries(manifest.events ?? {});
   return (
-    <div className="space-y-5">
-      <div className="overflow-auto">
-        <table>
-          <thead>
-            <tr>
-              <th>Prop</th>
-              <th>Type</th>
-              <th>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(properties ?? {}).map(([key, value]) => (
-              <tr key={key}>
-                <td>
-                  <code>{key}</code>
-                </td>
-                <td className="text-xs">
-                  <code>{schemaType(value)}</code>
-                </td>
-                <td>{value.description}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {Object.keys(manifest.slots ?? {}).length > 0 && (
-        <div>
+    <>
+      {own.length > 0 && <TypeTable type={table(own)} />}
+      {common.length > 0 && (
+        <Accordions>
+          <Accordion title={`Sizing and layout props (${common.length})`}>
+            <TypeTable type={table(common)} />
+          </Accordion>
+        </Accordions>
+      )}
+      {slots.length > 0 && (
+        <>
           <h3>Slots</h3>
           <ul>
-            {Object.entries(manifest.slots ?? {}).map(([key, kind]) => (
+            {slots.map(([key, kind]) => (
               <li key={key}>
                 <code>{key}</code> · {kind}
               </li>
             ))}
           </ul>
-        </div>
+        </>
       )}
-      {Object.keys(manifest.events ?? {}).length > 0 && (
-        <div>
+      {events.length > 0 && (
+        <>
           <h3>Events</h3>
           <ul>
-            {Object.entries(manifest.events ?? {}).map(([key, event]) => (
+            {events.map(([key, event]) => (
               <li key={key}>
                 <code>{key}</code> · {event.description}
               </li>
             ))}
           </ul>
-        </div>
+        </>
       )}
-    </div>
+    </>
   );
 }

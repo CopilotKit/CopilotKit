@@ -1,0 +1,5 @@
+# Images a page needs go through Git LFS, as the repo's png, jpg and mp4 files
+# already do (root .gitattributes). Icons stay plain files.
+*.webp filter=lfs diff=lfs merge=lfs -text
+public/images/venn-agentic-*.svg filter=lfs diff=lfs merge=lfs -text
+public/images/prompt-*.webp !filter !diff !merge -text

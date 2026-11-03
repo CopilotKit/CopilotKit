@@ -7,6 +7,7 @@ hideTOC: true
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
+
 The rest of these docs are the React docs. [Frontend tools](/frontend-tools), [generative UI](/generative-ui), [human-in-the-loop](/human-in-the-loop), [headless UI](/headless), [prebuilt components](/prebuilt-components) and the [React reference](/reference/v2) all work unchanged in a Vite or Create React App project.
 
 Exactly one instruction does not carry over: **where Copilot Runtime lives.** The quickstarts assume Next.js serves your app and the runtime from one origin, so they use a relative `runtimeUrl` of `/api/copilotkit`. A single-page app has no server and no shared origin, so that path resolves to nothing. This page covers that one difference and sends you back to the pages above for everything else.
