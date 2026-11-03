@@ -42,6 +42,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./engine": {
+      "import": {
+        "types": "./dist/engine.d.mts",
+        "default": "./dist/engine.mjs"
+      },
+      "require": {
+        "types": "./dist/engine.d.cts",
+        "default": "./dist/engine.cjs"
+      }
+    },
     "./catalog-schema": {
       "import": {
         "types": "./dist/catalog-schema.d.mts",
@@ -69,6 +79,7 @@
   },
   "dependencies": {
     "@a2ui/web_core": "0.10.4",
+    "@copilotkit/core": "workspace:*",
     "clsx": "^2.1.1",
     "zod": "^3.25.76",
     "zod-to-json-schema": "^3.25.2"

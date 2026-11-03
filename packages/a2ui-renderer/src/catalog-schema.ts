@@ -14,6 +14,7 @@
 import type { CatalogInterface, ComponentApi } from "@a2ui/web_core/v0_9";
 import { BASIC_COMPONENTS } from "@a2ui/web_core/v0_9/basic_catalog";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { A2UI_BASIC_CATALOG_ID } from "./catalog-ids";
 
 /**
  * Context description used to identify the A2UI component schema in
@@ -23,9 +24,7 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 export const A2UI_SCHEMA_CONTEXT_DESCRIPTION =
   "A2UI Component Schema — available components for generating UI surfaces. Use these component names and properties when creating A2UI operations.";
 
-/** Id of the A2UI basic catalog, which web_core does not export. */
-export const A2UI_BASIC_CATALOG_ID =
-  "https://a2ui.org/specification/v0_9/basic_catalog.json";
+export { A2UI_BASIC_CATALOG_ID } from "./catalog-ids";
 
 /** The parts of a catalog that describe it to the agent. */
 export type CatalogSchemaSource = Pick<
