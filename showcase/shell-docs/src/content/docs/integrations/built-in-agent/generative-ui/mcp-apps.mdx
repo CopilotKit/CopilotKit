@@ -90,7 +90,7 @@ On a runtime connected to [Intelligence](/intelligence/quickstart), configure th
 
 Move the server list from `MCPAppsMiddleware` to `mcpApps`. Then remove `runner`, and add `intelligence` and `identifyUser`:
 
-```typescript title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
+```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
   BuiltInAgent,
   CopilotKitIntelligence,
