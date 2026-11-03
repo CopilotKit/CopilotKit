@@ -15,6 +15,10 @@ import {
   scopeFromPath,
 } from "./live-scope";
 import { liveSource, referenceSource } from "./live-source";
+import {
+  frameworkOverviews,
+  type FrameworkOverviewData,
+} from "@/data/frameworks";
 
 export { LIVE_FRAMEWORKS, scopedHref } from "./live-scope";
 
@@ -56,6 +60,8 @@ export function frontendFallback(path: string[]): string | null {
  * live URL keeps working:
  *
  *   /frontend-tools                 docs/frontend-tools.mdx
+ *   /mastra                         docs/integrations/mastra/index.mdx
+ *   /google-adk                     src/data/frameworks/google-adk.ts
  *   /mastra/frontend-tools          docs/integrations/mastra/frontend-tools.mdx,
  *                                   else docs/frontend-tools.mdx scoped to Mastra
  *   /vue/mastra/frontend-tools      the same, scoped to Vue
@@ -72,6 +78,12 @@ export interface ResolvedLivePage {
   scope: DocsScope;
   /** Path under shell-docs' `src/content`, the source of truth for edits. */
   contentPath: string;
+  /**
+   * A generated framework's landing (`/google-adk`), drawn from its record in
+   * `src/data/frameworks`. `page` is then the framework's quickstart, which
+   * the landing's Markdown serves, as shell-docs' `llms-mdx` route did.
+   */
+  overview?: FrameworkOverviewData;
 }
 
 const docPage = (slug: string) =>
@@ -148,8 +160,7 @@ function resolveScoped(
   const fw = liveFramework(first);
   if (fw) {
     const slug = rest.join("/");
-    // A framework's root opens its quickstart (the route redirects).
-    if (!slug) return null;
+    if (!slug) return frameworkLanding(first, fw, frontend);
     const own = `integrations/${fw.folder}/${slug}`;
     const order =
       fw.mode === "authored" || FRAMEWORK_WINS.has(slug)
@@ -183,6 +194,27 @@ function resolveScoped(
     framework: pinsCell ? ROOT_FRAMEWORK : null,
     frontend,
   });
+}
+
+/**
+ * A framework's landing, as shell-docs' framework root drew it: a generated
+ * framework's overview record, else its folder's `index.mdx`.
+ */
+function frameworkLanding(
+  slug: string,
+  fw: { folder: string; mode: string },
+  frontend: FrontendId,
+): ResolvedLivePage | null {
+  const scope = { framework: slug, frontend };
+  const overview =
+    fw.mode === "generated" ? frameworkOverviews[slug] : undefined;
+  if (overview) {
+    const quickstart =
+      docPage(`integrations/${fw.folder}/quickstart`) ?? docPage("quickstart");
+    return quickstart ? { ...found(quickstart, scope), overview } : null;
+  }
+  const index = docPage(`integrations/${fw.folder}`);
+  return index ? found(index, scope) : null;
 }
 
 function found(

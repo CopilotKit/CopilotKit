@@ -16,9 +16,6 @@
  * redirects to the same page at the root, as on shell-docs (DOCS-root,
  * DOCS-wild, R2 `/docs/api`, and the `/docs/integrations/*` DI-* family).
  *
- * Not ported, because v2 serves this path itself: FI-intelligence
- * `/intelligence`.
- *
  * Spec & Inventory: https://www.notion.so/33c3aa38185281d7b243c5cf0a7c14cb
  */
 
@@ -986,7 +983,11 @@ const FOLDER_INDEX: RedirectEntry[] = [
     source: "/premium",
     destination: "/intelligence/overview",
   },
-  // FI-intelligence (`/intelligence`) not ported: v2 serves `/intelligence`.
+  {
+    id: "FI-intelligence",
+    source: "/intelligence",
+    destination: "/intelligence/overview",
+  },
   {
     id: "FI-concepts",
     source: "/concepts",
