@@ -3,8 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
 import { IconChevronRight } from "../icons";
 import StreamingMarkdownDefault from "./StreamingMarkdownDefault.vue";
-import { ɵformatLabel, ɵformatReasoningDuration } from "@copilotkit/core";
-import type { CopilotChatLabels } from "@copilotkit/core";
+import { ɵformatLabel, ɵformatReasoningDurationLabel } from "@copilotkit/core";
 import { useChatLabels } from "./use-chat-labels";
 
 const props = withDefaults(
@@ -70,31 +69,6 @@ defineSlots<{
   }) => unknown;
 }>();
 
-/** How long the model reasoned, in the chat's labels: "4 seconds", "1m 5s". */
-function formatDuration(labels: Readonly<CopilotChatLabels>, seconds: number) {
-  const duration = ɵformatReasoningDuration(seconds);
-  switch (duration.unit) {
-    case "fewSeconds":
-      return labels.reasoningMessageDurationFewSeconds;
-    case "seconds":
-      return ɵformatLabel(labels.reasoningMessageDurationSeconds, {
-        count: duration.seconds,
-      });
-    case "minutes":
-      return ɵformatLabel(
-        duration.minutes === 1
-          ? labels.reasoningMessageDurationMinutesOne
-          : labels.reasoningMessageDurationMinutesOther,
-        { count: duration.minutes },
-      );
-    case "minutesSeconds":
-      return ɵformatLabel(labels.reasoningMessageDurationMinutesSeconds, {
-        minutes: duration.minutes,
-        seconds: duration.seconds,
-      });
-  }
-}
-
 const normalizedContent = computed(() =>
   typeof props.message.content === "string" ? props.message.content : "",
 );
@@ -156,7 +130,7 @@ const label = computed(() =>
   isStreaming.value
     ? labels.value.reasoningMessageThinkingLabel
     : ɵformatLabel(labels.value.reasoningMessageThoughtForLabel, {
-        duration: formatDuration(labels.value, elapsed.value),
+        duration: ɵformatReasoningDurationLabel(elapsed.value, labels.value),
       }),
 );
 

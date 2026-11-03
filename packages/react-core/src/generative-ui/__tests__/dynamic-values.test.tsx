@@ -74,7 +74,7 @@ const ui = createGenerativeUI({
 });
 
 const setData = (path: string, value: unknown) => ({
-  version: "v1.0" as const,
+  version: "1.0" as const,
   updateDataModel: { surfaceId: "surface", path, value },
 });
 
@@ -136,7 +136,7 @@ describe("dynamic values in props", () => {
       },
     ]);
     await waitFor(() => expect(v.reportError).toHaveBeenCalled());
-    const error = v.reportError.mock.calls[0][0];
+    const error = v.reportError.mock.calls[0]![0];
     expect(error.kind).toBe("props");
     expect(error.error.message).toContain("text: value must be a number");
     expect(v.queryByTestId("text")).toBeNull();
@@ -260,7 +260,7 @@ describe("dynamic values in props", () => {
     );
     expect((await v.findByTestId("text")).textContent).toBe("from a");
     v.update({
-      version: "v1.0",
+      version: "1.0",
       updateComponents: {
         surfaceId: "surface",
         components: [
@@ -349,7 +349,7 @@ describe("dynamic values in event bindings", () => {
     );
     fireEvent.click(await v.findByRole("button", { name: "Go" }));
     await waitFor(() => expect(v.forwardEvent).toHaveBeenCalled());
-    expect(v.forwardEvent.mock.calls[0][0].context).toEqual({
+    expect(v.forwardEvent.mock.calls[0]![0].context).toEqual({
       event: "launch",
     });
   });
@@ -384,7 +384,7 @@ describe("dynamic values in event bindings", () => {
     );
     fireEvent.click(await v.findByRole("button", { name: "Buy" }));
     await waitFor(() => expect(v.forwardEvent).toHaveBeenCalled());
-    const [event] = v.forwardEvent.mock.calls[0];
+    const [event] = v.forwardEvent.mock.calls[0]!;
     expect(event.userMessage).toBe("Buy 2 for Ada");
     expect(event.context).toEqual({
       total: "$5.00",

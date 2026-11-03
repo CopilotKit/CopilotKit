@@ -74,11 +74,11 @@ const T = "thread-1";
 const TARGET_DESCRIPTION = "Next to the product list.";
 
 const create = (surfaceId: string) => ({
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId, catalogId: "shop" },
 });
 const buttonRoot = (surfaceId: string, label: string) => ({
-  version: "v1.0",
+  version: "1.0",
   updateComponents: {
     surfaceId,
     components: [{ id: "root", component: "Button", label }],
@@ -171,7 +171,7 @@ async function runOnce(copilotkit: CopilotKit, agent: CapturingAgent) {
   agent.emit(runStartedEvent());
   agent.emit(runFinishedEvent());
   await pending;
-  return CapturingAgent.inputs[index];
+  return CapturingAgent.inputs[index]!;
 }
 
 const chatSurfaces = () =>
@@ -186,8 +186,8 @@ describe("markdown transport", () => {
     ]);
 
     await waitFor(() => expect(chatSurfaces()).toHaveLength(1));
-    expect(chatSurfaces()[0].dataset.generativeUiChatSurface).toBe("s1");
-    expect(within(chatSurfaces()[0]).getByRole("button").textContent).toBe(
+    expect(chatSurfaces()[0]!.dataset.generativeUiChatSurface).toBe("s1");
+    expect(within(chatSurfaces()[0]!).getByRole("button").textContent).toBe(
       "Buy",
     );
     expect((await findProse("the offer")).closest("strong")).not.toBeNull();
@@ -228,7 +228,7 @@ describe("markdown transport", () => {
     agent.emit(textChunkEvent("m1", `${rootLine.slice(60)}\n\`\`\`\n`));
     agent.emit(runFinishedEvent({ threadId: T, runId: "r1" }));
     await waitFor(() => expect(chatSurfaces()).toHaveLength(1));
-    expect(within(chatSurfaces()[0]).getByRole("button").textContent).toBe(
+    expect(within(chatSurfaces()[0]!).getByRole("button").textContent).toBe(
       "Buy",
     );
   });
@@ -236,7 +236,7 @@ describe("markdown transport", () => {
   it("renders an inline createSurface while it streams, with its prose as chat markdown", async () => {
     const { agent } = setup();
     const line = JSON.stringify({
-      version: "v1.0",
+      version: "1.0",
       createSurface: {
         surfaceId: "s1",
         components: [
@@ -253,11 +253,11 @@ describe("markdown transport", () => {
     agent.emit(textChunkEvent("m1", `Hi\n\`\`\`a2ui\n${line.slice(0, -3)}`));
 
     await waitFor(() => expect(chatSurfaces()).toHaveLength(1));
-    expect(within(chatSurfaces()[0]).getByRole("button").textContent).toBe(
+    expect(within(chatSurfaces()[0]!).getByRole("button").textContent).toBe(
       "Buy",
     );
     const prose = await findProse("Pick one plan.");
-    expect(chatSurfaces()[0].contains(prose)).toBe(false);
+    expect(chatSurfaces()[0]!.contains(prose)).toBe(false);
     expect(screen.queryByTestId("surface-text")).toBeNull();
     agent.emit(runFinishedEvent({ threadId: T, runId: "r1" }));
   });
@@ -274,14 +274,14 @@ describe("markdown transport", () => {
     ]);
 
     await waitFor(() => expect(chatSurfaces()).toHaveLength(2));
-    expect(within(chatSurfaces()[0]).getByRole("button").textContent).toBe(
+    expect(within(chatSurfaces()[0]!).getByRole("button").textContent).toBe(
       "Buy",
     );
-    expect(within(chatSurfaces()[1]).getByRole("button").textContent).toBe(
+    expect(within(chatSurfaces()[1]!).getByRole("button").textContent).toBe(
       "Buy now",
     );
     const secondMessage = document.querySelector('[data-message-id="m2"]');
-    expect(secondMessage?.contains(chatSurfaces()[1])).toBe(true);
+    expect(secondMessage?.contains(chatSurfaces()[1]!)).toBe(true);
     expect(await findProse("Another one.")).toBeTruthy();
   });
 
@@ -313,7 +313,7 @@ describe("markdown transport", () => {
       GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
     ]);
     // The UI has a multiple slot and the mounted addToCart, but no events.
-    expect(listed.context[0].value).toBe(
+    expect(listed.context[0]!.value).toBe(
       buildGenerativeUIMarkdownGuidelines({
         components: ["Button", "Column", "Text"],
         functions: true,
@@ -324,7 +324,7 @@ describe("markdown transport", () => {
     );
     // The schema in the lines notation that ships: one line per component
     // and prop.
-    const schema = listed.context[1].value;
+    const schema = listed.context[1]!.value;
     expect(schema).toContain("Catalog shop.");
     expect(schema).toContain(`recommendations (inline): ${TARGET_DESCRIPTION}`);
     expect(schema).toContain("addToCart{ sku: string }");
@@ -338,7 +338,7 @@ describe("markdown transport", () => {
   it("sends the dropped operations of a surface in the schema of the next run", async () => {
     const { copilotkit, agent } = setup();
     const missing = {
-      version: "v1.0",
+      version: "1.0",
       updateComponents: {
         surfaceId: "s1",
         components: [{ id: "extra", component: "Missing" }],

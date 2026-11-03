@@ -20,6 +20,7 @@ import { A11yModule } from "@angular/cdk/a11y";
 import { Overlay, OverlayRef } from "@angular/cdk/overlay";
 import { ComponentPortal } from "@angular/cdk/portal";
 import { CopilotIcon, X } from "../icons/copilot-icon";
+import { ɵmorphViewTransition } from "@copilotkit/core";
 import { injectChatLabels } from "../../chat-config";
 
 /**
@@ -75,10 +76,6 @@ export class CopilotChatLightbox {
   }
 }
 
-type DocWithVT = Document & {
-  startViewTransition?: (cb: () => void) => { finished: Promise<void> };
-};
-
 let nextTransitionName = 0;
 
 /**
@@ -91,7 +88,7 @@ let nextTransitionName = 0;
 export function injectLightbox() {
   const overlay = inject(Overlay);
   const viewContainerRef = inject(ViewContainerRef);
-  const document = inject(DOCUMENT) as DocWithVT;
+  const document = inject(DOCUMENT);
   const transitionName = `cpk-lightbox-${nextTransitionName++}`;
   const isOpen = signal(false);
   let overlayRef: OverlayRef | undefined;
@@ -133,30 +130,17 @@ export function injectLightbox() {
   ): void {
     if (overlayRef) return;
     thumbnail = opener;
-    if (document.startViewTransition && opener) {
-      opener.style.viewTransitionName = transitionName;
-      document.startViewTransition(() => {
-        opener.style.viewTransitionName = "";
-        attach(content, label);
-      });
-    } else {
-      attach(content, label);
-    }
+    ɵmorphViewTransition(
+      opener,
+      transitionName,
+      () => attach(content, label),
+      "open",
+    );
   }
 
   function close(): void {
     if (!overlayRef) return;
-    const opener = thumbnail;
-    if (document.startViewTransition && opener) {
-      const transition = document.startViewTransition(() => {
-        detach();
-        opener.style.viewTransitionName = transitionName;
-      });
-      const clear = () => (opener.style.viewTransitionName = "");
-      transition.finished.then(clear, clear);
-    } else {
-      detach();
-    }
+    ɵmorphViewTransition(thumbnail, transitionName, detach, "close");
   }
 
   inject(DestroyRef).onDestroy(detach);

@@ -1,4 +1,5 @@
 import React, {
+  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -6,6 +7,7 @@ import React, {
   useReducer,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { observeElementRect, useVirtualizer } from "@tanstack/react-virtual";
 import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
@@ -32,20 +34,13 @@ import { Collapsible } from "./CopilotChatToolCallGroup";
 import { ToolCallDisplayContext } from "./tool-call-display-context";
 import type { ToolCallDisplayContextValue } from "./tool-call-display-context";
 import {
+  ɵcreateMessageViewModel,
   ɵdeduplicateMessages,
-  ɵgetToolCallLayouts,
-  ɵgetTurnWork,
-  ɵgetWorkOpenState,
-  ɵisTurnWorkOpen,
-  ɵisTurnWorking,
-  ɵrecordWorkTime,
-  ɵgetLatestTurnKey,
+  ɵduplicateMessagesWarning,
 } from "@copilotkit/core";
 import type {
   CopilotChatToolCallDisplay,
   ToolCallEntry,
-  ɵTurnWork,
-  ɵWorkTime,
 } from "@copilotkit/core";
 import { useToolCallRendererNames } from "../../hooks/use-render-tool-call";
 import type {
@@ -603,65 +598,32 @@ export function CopilotChatMessageView({
   // own message), so they're laid out here for the whole list and handed to
   // each message's tool-call view through context.
   const rendererNames = useToolCallRendererNames();
-  const toolCallLayouts = useMemo(
-    () =>
-      toolCallDisplay === "separate"
-        ? new Map()
-        : ɵgetToolCallLayouts(renderedMessages, messages, rendererNames),
-    [toolCallDisplay, renderedMessages, messages, rendererNames],
+  // The list's tool-call layout and turn state live in core. Calling `update`
+  // during render is safe: it caches by input and records each run start or
+  // end once, so repeating a render changes nothing. A user's open or close of
+  // a reply's work is the only change it reports by itself.
+  const [viewModel] = useState(ɵcreateMessageViewModel);
+  useSyncExternalStore(
+    useCallback((onChange) => viewModel.subscribe(onChange), [viewModel]),
+    () => viewModel.getSnapshot(),
+    () => viewModel.getSnapshot(),
   );
-  const turnWork = useMemo(
-    () =>
-      toolCallDisplay === "turn"
-        ? ɵgetTurnWork(renderedMessages, toolCallLayouts)
-        : undefined,
-    [toolCallDisplay, renderedMessages, toolCallLayouts],
-  );
-  const turnByFirstMessage = useMemo(() => {
-    const byFirst = new Map<string, ɵTurnWork>();
-    for (const turn of turnWork?.values() ?? []) {
-      byFirst.set(turn.firstMessageId, turn);
-    }
-    return byFirst;
-  }, [turnWork]);
-
-  // The latest reply is keyed by the user message it answers (see getTurnWork).
-  const latestTurnKey = ɵgetLatestTurnKey(renderedMessages);
-
-  // Work shows while the agent is on it and folds once the reply is done,
-  // unless the user has opened or closed it themselves.
-  const [toggledTurns, setToggledTurns] = useState<
-    ReadonlyMap<string, boolean>
-  >(() => new Map());
-  const turnState = { toggledTurns, isRunning, latestTurnKey };
-
-  // How long the agent worked, for "Worked for 9s": the sum of its runs on
-  // the reply, so waiting between them (say, for an approval) doesn't count.
-  // Only known for replies this client watched start from the user's
-  // message; a restored thread shows the tool count instead. Written during
-  // render: each write records a run starting or ending once, so repeating a
-  // render changes nothing.
-  const workTimesRef = useRef(new Map<string, ɵWorkTime>());
-  if (toolCallDisplay === "turn") {
-    ɵrecordWorkTime(workTimesRef.current, {
-      isRunning,
-      latestTurnKey,
-      lastMessageRole: renderedMessages[renderedMessages.length - 1]?.role,
-      now: Date.now(),
-    });
-  }
-
-  // Whether each working-phase message's work shows. Text that ends the reply
-  // stays out even when its message also calls a tool: it's the answer.
-  const { workOpen, workTextOpen } = useMemo(
-    () =>
-      ɵgetWorkOpenState(turnWork?.values() ?? [], {
-        toggledTurns,
-        isRunning,
-        latestTurnKey,
-      }),
-    [turnWork, toggledTurns, isRunning, latestTurnKey],
-  );
+  const {
+    layouts: toolCallLayouts,
+    turnByFirstMessage,
+    latestTurnKey,
+    workOpen,
+    workTextOpen,
+    showCursor,
+    pendingWorkSummary,
+  } = viewModel.update({
+    display: toolCallDisplay,
+    messages,
+    rendered: renderedMessages,
+    isRunning,
+    rendererNames,
+    now: Date.now(),
+  });
 
   const toolCallDisplayContext = useMemo<ToolCallDisplayContextValue>(
     () => ({
@@ -675,9 +637,9 @@ export function CopilotChatMessageView({
   );
 
   const renderWorkSummary = (turnKey: string, calls: ToolCallEntry[]) => {
-    const working = ɵisTurnWorking(turnKey, turnState);
-    const open = ɵisTurnWorkOpen(turnKey, turnState);
-    const times = workTimesRef.current.get(turnKey);
+    const working = viewModel.isTurnWorking(turnKey);
+    const open = viewModel.isTurnOpen(turnKey);
+    const times = viewModel.getWorkTime(turnKey);
     return (
       <Collapsible
         key={`work-summary-${turnKey}`}
@@ -690,10 +652,7 @@ export function CopilotChatMessageView({
             calls,
             elapsedMs: times?.elapsedMs,
             workingSince: times?.workingSince,
-            onClick: () =>
-              setToggledTurns((toggled) =>
-                new Map(toggled).set(turnKey, !open),
-              ),
+            onClick: () => viewModel.toggleTurn(turnKey),
           })}
         </div>
       </Collapsible>
@@ -809,13 +768,12 @@ export function CopilotChatMessageView({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stableGroupKey reads rowRenderKeys
   }, [rows, rowRenderKeys]);
 
-  if (
-    process.env.NODE_ENV === "development" &&
-    deduplicatedMessages.length < messages.length
-  ) {
-    console.warn(
-      `CopilotChatMessageView: Merged ${messages.length - deduplicatedMessages.length} message(s) with duplicate IDs.`,
+  if (process.env.NODE_ENV === "development") {
+    const warning = ɵduplicateMessagesWarning(
+      messages.length,
+      deduplicatedMessages.length,
     );
+    if (warning) console.warn(warning);
   }
 
   // Resolve slot values once per prop change rather than inside renderMessageBlock.
@@ -1527,20 +1485,6 @@ export function CopilotChatMessageView({
       </MessageFeedbackScopeContext.Provider>
     );
   }
-
-  // Hide the chat-level loading cursor when the last rendered message is a
-  // reasoning message — the reasoning card already shows its own loading
-  // indicator. A reasoning message the transform hid shows no indicator.
-  const lastMessage = renderedMessages[renderedMessages.length - 1];
-  // In the "turn" display the "Working" line at the top of the reply is the
-  // progress indicator; before the reply's first message it sits where the
-  // cursor would.
-  const showCursor =
-    isRunning &&
-    lastMessage?.role !== "reasoning" &&
-    toolCallDisplay !== "turn";
-  const pendingWorkSummary =
-    toolCallDisplay === "turn" && isRunning && lastMessage?.role === "user";
 
   // ---------------------------------------------------------------------------
   // Render — shared wrapper, conditional inner content (virtual vs flat)

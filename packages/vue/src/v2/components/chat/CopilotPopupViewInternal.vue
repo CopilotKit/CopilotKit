@@ -8,13 +8,20 @@ import {
   useAttrs,
   watch,
 } from "vue";
+import {
+  ɵPOPUP_ANIMATION_MS,
+  ɵbindPopupDismiss,
+  ɵdimensionToCss,
+} from "@copilotkit/core";
 import { CopilotChatDefaultLabels } from "../../providers/types";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import CopilotChatToggleButton from "./CopilotChatToggleButton.vue";
 import CopilotChatView from "./CopilotChatView.vue";
 import CopilotModalHeader from "./CopilotModalHeader.vue";
+import { forwardedSlotNames } from "./forwarded-slots";
 import type {
   CopilotChatFeatherSlotProps,
+  CopilotChatInterruptSlotProps,
   CopilotChatMessageViewSlotProps,
   CopilotChatScrollToBottomButtonSlotProps,
   CopilotChatScrollViewSlotProps,
@@ -30,7 +37,7 @@ defineOptions({ inheritAttrs: false });
 
 const DEFAULT_POPUP_WIDTH = 420;
 const DEFAULT_POPUP_HEIGHT = 560;
-const POPUP_ANIMATION_MS = 200;
+const POPUP_ANIMATION_MS = ɵPOPUP_ANIMATION_MS;
 
 const props = withDefaults(
   defineProps<Omit<CopilotPopupViewProps, "defaultOpen">>(),
@@ -61,13 +68,21 @@ defineSlots<{
   "scroll-to-bottom-button"?: (
     props: CopilotChatScrollToBottomButtonSlotProps,
   ) => unknown;
+  interrupt?: (props: CopilotChatInterruptSlotProps) => unknown;
   input?: (props: CopilotSidebarWelcomeScreenInputSlotProps) => unknown;
   "suggestion-view"?: (
     props: CopilotSidebarWelcomeScreenSuggestionViewSlotProps,
   ) => unknown;
   "welcome-screen"?: (props: CopilotChatWelcomeScreenSlotProps) => unknown;
   "welcome-message"?: () => unknown;
+  // Any other slot goes to the chat view, as on CopilotChat.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: ((props: any) => unknown) | undefined;
 }>();
+
+// Slots this component renders itself. It passes every other slot to the
+// chat view.
+const OWN_SLOTS = ["header", "toggle-button"] as const;
 
 const emit = defineEmits<{
   "submit-message": [value: string];
@@ -90,7 +105,6 @@ const containerRef = ref<HTMLElement | null>(null);
 const isRendered = ref(config.value?.isModalOpen ?? false);
 const isAnimatingOut = ref(false);
 let animationTimer: ReturnType<typeof setTimeout> | undefined;
-let focusTimer: ReturnType<typeof setTimeout> | undefined;
 
 const isPopupOpen = computed(() => config.value?.isModalOpen ?? false);
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
@@ -103,8 +117,11 @@ const popupAnimationClass = computed(() =>
 const popupStyle = computed(
   () =>
     ({
-      "--copilot-popup-width": dimensionToCss(props.width, DEFAULT_POPUP_WIDTH),
-      "--copilot-popup-height": dimensionToCss(
+      "--copilot-popup-width": ɵdimensionToCss(
+        props.width,
+        DEFAULT_POPUP_WIDTH,
+      ),
+      "--copilot-popup-height": ɵdimensionToCss(
         props.height,
         DEFAULT_POPUP_HEIGHT,
       ),
@@ -116,19 +133,6 @@ const popupStyle = computed(
       paddingRight: "env(safe-area-inset-right)",
     }) as Record<string, string>,
 );
-
-function dimensionToCss(
-  value: number | string | undefined,
-  fallback: number,
-): string {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return `${value}px`;
-  }
-  if (typeof value === "string" && value.trim().length > 0) {
-    return value;
-  }
-  return `${fallback}px`;
-}
 
 function closePopup() {
   config.value?.setModalOpen?.(false);
@@ -236,87 +240,20 @@ watch(
   { immediate: true },
 );
 
+// Escape, a click outside (when enabled), and focus once the popup opens.
 watch(
-  isPopupOpen,
-  (open, _old, onCleanup) => {
-    if (!open || typeof window === "undefined") {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closePopup();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    onCleanup(() => {
-      window.removeEventListener("keydown", handleKeyDown);
-    });
-  },
-  { immediate: true },
-);
-
-watch(
-  isPopupOpen,
-  (open, _old, onCleanup) => {
+  [isPopupOpen, () => props.clickOutsideToClose],
+  ([open, clickOutsideToClose], _old, onCleanup) => {
     if (!open) {
       return;
     }
-
-    focusTimer = setTimeout(() => {
-      if (typeof document === "undefined") {
-        return;
-      }
-      const container = containerRef.value;
-      if (container && !container.contains(document.activeElement)) {
-        container.focus({ preventScroll: true });
-      }
-    }, POPUP_ANIMATION_MS);
-
-    onCleanup(() => {
-      if (focusTimer) {
-        clearTimeout(focusTimer);
-        focusTimer = undefined;
-      }
-    });
-  },
-  { immediate: true },
-);
-
-watch(
-  [isPopupOpen, () => props.clickOutsideToClose],
-  ([open, allowClose], _old, onCleanup) => {
-    if (!open || !allowClose || typeof document === "undefined") {
-      return;
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (!target) {
-        return;
-      }
-
-      const container = containerRef.value;
-      if (container?.contains(target)) {
-        return;
-      }
-
-      const toggleButton = document.querySelector(
-        "[data-slot='chat-toggle-button']",
-      );
-      if (toggleButton?.contains(target)) {
-        return;
-      }
-
-      closePopup();
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    onCleanup(() => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-    });
+    onCleanup(
+      ɵbindPopupDismiss({
+        getContainer: () => containerRef.value,
+        onDismiss: closePopup,
+        clickOutsideToClose: clickOutsideToClose === true,
+      }),
+    );
   },
   { immediate: true },
 );
@@ -328,9 +265,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (animationTimer) {
     clearTimeout(animationTimer);
-  }
-  if (focusTimer) {
-    clearTimeout(focusTimer);
   }
 });
 </script>
@@ -385,42 +319,12 @@ onBeforeUnmount(() => {
           :on-finish-transcribe-with-audio="onFinishTranscribeWithAudio"
           v-bind="chatViewBindings"
         >
-          <template v-if="$slots['message-view']" #message-view="slotProps">
-            <slot name="message-view" v-bind="slotProps" />
-          </template>
-
-          <template v-if="$slots['scroll-view']" #scroll-view="slotProps">
-            <slot name="scroll-view" v-bind="slotProps" />
-          </template>
-
-          <template v-if="$slots.feather" #feather>
-            <slot name="feather" />
-          </template>
-
           <template
-            v-if="$slots['scroll-to-bottom-button']"
-            #scroll-to-bottom-button="slotProps"
+            v-for="slotName in forwardedSlotNames($slots, OWN_SLOTS)"
+            :key="slotName"
+            #[slotName]="slotProps"
           >
-            <slot name="scroll-to-bottom-button" v-bind="slotProps" />
-          </template>
-
-          <template v-if="$slots.input" #input="slotProps">
-            <slot name="input" v-bind="slotProps" />
-          </template>
-
-          <template
-            v-if="$slots['suggestion-view']"
-            #suggestion-view="slotProps"
-          >
-            <slot name="suggestion-view" v-bind="slotProps" />
-          </template>
-
-          <template v-if="$slots['welcome-screen']" #welcome-screen="slotProps">
-            <slot name="welcome-screen" v-bind="slotProps" />
-          </template>
-
-          <template v-if="$slots['welcome-message']" #welcome-message>
-            <slot name="welcome-message" />
+            <slot :name="slotName" v-bind="slotProps" />
           </template>
         </CopilotChatView>
       </div>

@@ -91,7 +91,8 @@ describe("CopilotSidebarView", () => {
     const sidebar = wrapper.get("[data-copilot-sidebar]");
     expect(sidebar.attributes("aria-hidden")).toBe("false");
     expect(sidebar.attributes("style")).toContain("--sidebar-width: 612px");
-    expect(wrapper.html()).toContain("margin-inline-end: 612px");
+    expect(document.body.style.marginInlineEnd).toBe("612px");
+    wrapper.unmount();
   });
 
   it("applies explicit width and renders default header and toggle button", () => {

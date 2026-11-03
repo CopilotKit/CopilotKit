@@ -9,6 +9,14 @@ export interface A2UIActions {
   processMessages: (messages: Array<Record<string, unknown>>) => void;
 
   /**
+   * Apply the latest snapshot of an operation list: validates the operations,
+   * pins `createSurface` to this provider's catalog, creates a surface that
+   * is addressed before its `createSurface`, and applies only what is new
+   * since the previous snapshot. Errors go to the provider's error state.
+   */
+  applyOperations: (operations: readonly unknown[]) => void;
+
+  /**
    * Dispatch a user action to the server. Returns the promise from `onAction`,
    * if it returned one, so callers can wait for the action to be handled.
    */

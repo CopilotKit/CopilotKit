@@ -76,7 +76,7 @@ describe("runSample", () => {
 
   it("counts a fence line the client repairs apart from one it cannot use", () => {
     const ok =
-      '{"version":"v1.0","updateComponents":{"surfaceId":"s","components":[{"id":"t","component":"Text","text":"Hi"}]}}';
+      '{"version":"1.0","updateComponents":{"surfaceId":"s","components":[{"id":"t","component":"Text","text":"Hi"}]}}';
     const oneShort = ok.slice(0, -1);
     const twoShort = ok.slice(0, -2);
     const { errors, repaired } = fenceParseErrors(

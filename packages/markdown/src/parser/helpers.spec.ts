@@ -32,6 +32,7 @@ test("normalizes options with defaults", () => {
     segmenter: true,
     enableTables: false,
     enableAutolinks: true,
+    enableMath: false,
   });
 });
 

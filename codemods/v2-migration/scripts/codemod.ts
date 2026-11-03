@@ -1,5 +1,9 @@
 import { parse } from "codemod:ast-grep";
+import { chatApiEdits } from "./chat-apis.ts";
+import { angularCopyButtonEdits } from "./angular-copy-buttons.ts";
+import { migrateAngularChatConfiguration } from "./angular-chat-configuration.ts";
 import { migrateDeprecatedApis } from "./deprecated-apis.ts";
+import { migrateGenerativeUI } from "./generative-ui.ts";
 import { migrateRuntimeAdapters } from "./runtime-adapters.ts";
 import type { Codemod, Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
@@ -311,11 +315,16 @@ function todoLines(name: string, entry: V1Export | undefined): string[] {
  *   API, and get a TODO comment otherwise;
  * - `CopilotKit` becomes `CopilotKitProvider`, and the v1-only props of
  *   `<CopilotKit>` are renamed or marked;
- * - Streamdown props on the `markdownRenderer` slot are marked, and calls of
- *   the removed Vue `useKatexStyles` are deleted;
+ * - Streamdown props on the `markdownRenderer` slot are marked, calls of the
+ *   removed Vue `useKatexStyles` are deleted, and imports of the markdown AST
+ *   types are marked;
  * - reads of the removed `runtime.licenseChecker` are marked;
  * - 1.x deprecations that 2.0 removed are renamed to their replacement, or
- *   marked when the replacement has a different API.
+ *   marked when the replacement has a different API;
+ * - subclasses of the Angular `CopilotChatConfiguration` call
+ *   `setActiveThreadId` instead of the removed `_setOverride`;
+ * - generative UI APIs that changed in 2.0 are rewritten or marked (see
+ *   `generative-ui.ts`).
  */
 const codemod: Codemod<Lang> = async (root, options) => {
   const migrated = migrateRuntimeAdapters(root.root());
@@ -541,7 +550,11 @@ const codemod: Codemod<Lang> = async (root, options) => {
   const jsx = !/\.[mc]?ts$/.test(root.filename());
   edits.push(...markdownRendererEdits(rootNode, source, jsx));
   edits.push(...katexEdits(rootNode, source));
+  edits.push(...markdownAstEdits(rootNode, source));
   edits.push(...licenseCheckerEdits(rootNode, source));
+  edits.push(...chatApiEdits(rootNode, source));
+  edits.push(...angularRuntimeConfigEdits(rootNode, source));
+  edits.push(...angularCopyButtonEdits(rootNode, source));
 
   const migratedPaths =
     edits.length === 0 ? migrated : rootNode.commitEdits(edits);
@@ -551,7 +564,17 @@ const codemod: Codemod<Lang> = async (root, options) => {
       : parse<Lang>(options.language, migratedPaths).root(),
     jsx,
   );
-  return deprecated ?? migratedPaths;
+  const latest = deprecated ?? migratedPaths;
+  const generativeUI = migrateGenerativeUI(
+    latest === null ? rootNode : parse<Lang>(options.language, latest).root(),
+  );
+  const afterGenerativeUI = generativeUI ?? latest;
+  const angular = migrateAngularChatConfiguration(
+    afterGenerativeUI === null
+      ? rootNode
+      : parse<Lang>(options.language, afterGenerativeUI).root(),
+  );
+  return angular ?? afterGenerativeUI;
 };
 
 function collectProviderNames(
@@ -761,6 +784,48 @@ function katexEdits(rootNode: Node, source: string): Edit[] {
   return edits;
 }
 
+const MARKDOWN_AST_SOURCES = [
+  "@copilotkit/markdown",
+  "@copilotkit/markdown/react",
+  "@copilotkit/markdown/vue",
+];
+
+/**
+ * Types whose unions grew in 2.0, so an exhaustive `switch` or a map keyed by
+ * every member stops type-checking.
+ */
+const MARKDOWN_AST_TYPES = new Set([
+  "StreamingMarkdownAstNode",
+  "StreamingMarkdownNodeType",
+  "StreamingMarkdownNodeRendererKey",
+  "VueStreamingMarkdownNodeRendererKey",
+]);
+
+const MARKDOWN_AST_NOTE = `The \`@copilotkit/markdown\` AST changed in 2.0. The node types include \`math\` (parsed only with the \`enableMath\` option), and a task-list item has \`checked\` and no \`[ ]\` or \`[x]\` marker in its text. Add a \`math\` case to exhaustive switches and maps keyed by node type, and read \`checked\` for task items: ${MARKDOWN_GUIDE}#code-that-reads-the-ast`;
+
+/**
+ * Marks imports of the markdown AST types. The new `math` node and the
+ * task-list `checked` field need a decision in the app's own code, so the
+ * codemod does not rewrite it.
+ */
+function markdownAstEdits(rootNode: Node, source: string): Edit[] {
+  if (!source.includes("@copilotkit/markdown")) return [];
+  const comment = `// ${TODO} ${MARKDOWN_AST_NOTE}`;
+  if (source.includes(comment)) return [];
+  const imports = rootNode.findAll({ rule: { kind: "import_statement" } });
+  const statement = imports.find((candidate) => {
+    const sourceNode = candidate.field("source");
+    if (!sourceNode || !MARKDOWN_AST_SOURCES.includes(unquote(sourceNode)))
+      return false;
+    return (specifiersOf(candidate) ?? []).some((specifier) =>
+      MARKDOWN_AST_TYPES.has(specifier.name),
+    );
+  });
+  if (!statement) return [];
+  const start = statement.range().start.index;
+  return [{ startPos: start, endPos: start, insertedText: `${comment}\n` }];
+}
+
 const LICENSE_CHECKER_NOTE =
   "`licenseChecker` was removed in 2.0. Use `await runtime.getLicenseChecker()`, which verifies the license on first use. See https://docs.copilotkit.ai/migrate/runtime-2.0#license-checker";
 
@@ -782,6 +847,83 @@ function licenseCheckerEdits(rootNode: Node, source: string): Edit[] {
     if (edit) edits.push(edit);
   }
   return edits;
+}
+
+const ANGULAR_SOURCE = "@copilotkit/angular";
+/** One of these keys gives the Angular provider a runtime to talk to. */
+const ANGULAR_RUNTIME_KEYS = new Set([
+  "runtimeUrl",
+  "licenseKey",
+  "agents",
+  "selfManagedAgents",
+]);
+const ANGULAR_RUNTIME_CONFIG_NOTE =
+  "2.0 throws in production when `provideCopilotKit` gets no `runtimeUrl`, `licenseKey`, `agents`, or `selfManagedAgents`. Add a `runtimeUrl` here. See https://docs.copilotkit.ai/migrate/providers-2.0#angular-a-missing-runtime-throws-in-production";
+
+/**
+ * Marks `provideCopilotKit()` calls whose config has no runtime: no
+ * `runtimeUrl`, `licenseKey`, `agents`, or `selfManagedAgents`. 2.0 throws for
+ * them in production. Only an object literal the codemod can read in full is
+ * marked: a spread, a computed key, or a variable can hold the missing key.
+ */
+function angularRuntimeConfigEdits(rootNode: Node, source: string): Edit[] {
+  if (!source.includes(ANGULAR_SOURCE)) return [];
+  const localNames = new Set<string>();
+  const imports = rootNode.findAll({ rule: { kind: "import_statement" } });
+  for (const statement of imports) {
+    const sourceNode = statement.field("source");
+    if (!sourceNode || unquote(sourceNode) !== ANGULAR_SOURCE) continue;
+    const specifier = specifiersOf(statement)?.find(
+      (candidate) =>
+        candidate.name === "provideCopilotKit" &&
+        !/^type\s/.test(candidate.text),
+    );
+    if (!specifier) continue;
+    localNames.add(
+      specifier.text.split(/\s+as\s+/)[1]?.trim() ?? specifier.name,
+    );
+  }
+  if (localNames.size === 0) return [];
+
+  const calls = rootNode.findAll({
+    rule: {
+      kind: "call_expression",
+      has: { field: "function", kind: "identifier" },
+    },
+  });
+  const edits: Edit[] = [];
+  for (const call of calls) {
+    const callee = call.field("function")?.text();
+    if (callee === undefined || !localNames.has(callee)) continue;
+    if (!configHasNoRuntime(call)) continue;
+    const edit = commentBefore(call, ANGULAR_RUNTIME_CONFIG_NOTE, source);
+    if (edit) edits.push(edit);
+  }
+  return edits;
+}
+
+/**
+ * True only when the call's config is visible in full and names no runtime:
+ * no argument, or one object literal with no spread and no computed key.
+ */
+function configHasNoRuntime(call: Node) {
+  const args = call.field("arguments")?.children() ?? [];
+  const values = args.filter(
+    (child) => !["(", ")", ",", "comment"].includes(child.kind()),
+  );
+  if (values.length === 0) return true;
+  const [config] = values;
+  if (values.length > 1 || config?.kind() !== "object") return false;
+  const entries = config.children().filter((child) => child.isNamed());
+  for (const entry of entries) {
+    if (entry.kind() === "comment") continue;
+    const isComputed = entry.field("key")?.kind() === "computed_property_name";
+    if (entry.kind() === "spread_element" || isComputed) return false;
+    const name = keyName(entry);
+    if (name === undefined) return false;
+    if (ANGULAR_RUNTIME_KEYS.has(name)) return false;
+  }
+  return true;
 }
 
 export default codemod;

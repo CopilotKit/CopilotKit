@@ -178,11 +178,26 @@ export class MockStepwiseAgent extends AbstractAgent {
 
   run(_input: RunAgentInput): Observable<BaseEvent> {
     return new Observable<BaseEvent>((observer) => {
-      const subscription = this.subject.subscribe(observer);
+      // Finish each run at its terminal event, as a real agent does, while
+      // keeping the shared subject for the next run in a multi-turn test. A
+      // send waits for the run in flight, so a run that never ends would hold
+      // every later send.
+      const deliver = (event: BaseEvent) => {
+        observer.next(event);
+        const isTerminal =
+          event.type === EventType.RUN_FINISHED ||
+          event.type === EventType.RUN_ERROR;
+        if (isTerminal) observer.complete();
+      };
+      const subscription = this.subject.subscribe({
+        next: deliver,
+        error: (error: unknown) => observer.error(error),
+        complete: () => observer.complete(),
+      });
       void this.enqueueDelivery(async () => {
         if (this.bufferedEvents.length > 0) {
           for (const event of this.bufferedEvents) {
-            observer.next(event);
+            deliver(event);
           }
           this.bufferedEvents = [];
         }
@@ -386,11 +401,26 @@ export class MockReconnectableAgent extends AbstractAgent {
 
   run(_input: RunAgentInput): Observable<BaseEvent> {
     return new Observable<BaseEvent>((observer) => {
-      const subscription = this.subject.subscribe(observer);
+      // Finish each run at its terminal event, as a real agent does, while
+      // keeping the shared subject for the next run in a multi-turn test. A
+      // send waits for the run in flight, so a run that never ends would hold
+      // every later send.
+      const deliver = (event: BaseEvent) => {
+        observer.next(event);
+        const isTerminal =
+          event.type === EventType.RUN_FINISHED ||
+          event.type === EventType.RUN_ERROR;
+        if (isTerminal) observer.complete();
+      };
+      const subscription = this.subject.subscribe({
+        next: deliver,
+        error: (error: unknown) => observer.error(error),
+        complete: () => observer.complete(),
+      });
       void this.enqueueDelivery(async () => {
         if (this.bufferedEvents.length > 0) {
           for (const event of this.bufferedEvents) {
-            observer.next(event);
+            deliver(event);
           }
           this.bufferedEvents = [];
         }

@@ -41,14 +41,14 @@ describe("textComponents", () => {
       "Tooltip",
     ]);
     for (const name of names) {
-      expect(ui.manifestComponents[name].description).toMatch(/\S/);
+      expect(ui.manifestComponents[name]!.description).toMatch(/\S/);
     }
-    expect(ui.manifestComponents.Text.slots).toEqual({ children: "multiple" });
-    expect(ui.manifestComponents.Tooltip.slots).toEqual({
+    expect(ui.manifestComponents.Text!.slots).toEqual({ children: "multiple" });
+    expect(ui.manifestComponents.Tooltip!.slots).toEqual({
       trigger: "single",
       content: "single",
     });
-    expect(ui.manifestComponents.Text.props).toMatchObject({
+    expect(ui.manifestComponents.Text!.props).toMatchObject({
       properties: expect.not.objectContaining({ children: expect.anything() }),
     });
   });
@@ -79,7 +79,7 @@ describe("standard text", () => {
     );
     await view.findByText("$290");
     view.update({
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: { surfaceId: SURFACE_ID, path: "/price", value: "$310" },
     });
     await view.findByText("$310");
@@ -210,7 +210,7 @@ describe("standard text", () => {
     );
     const markdown = heading.closest(".a2ui-markdown");
     expect(markdown?.getAttribute("style")).toBeNull();
-    expect(items[0].closest("ul")?.classList.contains("a2ui-std-list")).toBe(
+    expect(items[0]!.closest("ul")?.classList.contains("a2ui-std-list")).toBe(
       false,
     );
   });

@@ -1,4 +1,5 @@
 import { jsonrepair } from "jsonrepair";
+import { A2UI_VERSION } from "@copilotkit/shared";
 
 const OPERATIONS = [
   "createSurface",
@@ -18,7 +19,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
  * validates the props.
  */
 export function isOperationShape(value: unknown): boolean {
-  if (!isRecord(value) || value.version !== "v1.0") return false;
+  if (!isRecord(value) || value.version !== A2UI_VERSION) return false;
   const names = OPERATIONS.filter((name) => name in value);
   if (names.length !== 1 || Object.keys(value).length !== 2) return false;
   const body = value[names[0]];

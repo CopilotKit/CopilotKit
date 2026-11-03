@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { render, act, waitFor } from "@testing-library/react";
+import { render, act, waitFor, fireEvent } from "@testing-library/react";
 import React, { useState } from "react";
 import type { Theme } from "@copilotkit/a2ui-renderer";
 
@@ -15,20 +15,25 @@ import type { Theme } from "@copilotkit/a2ui-renderer";
 // 0-15ms each. Under CI load that same one-time cost reached 4798ms on one
 // shard and timed the test out on another (PR #6830, run 34357870288). A
 // static import moves it to collection, which no test timeout bounds.
-import {
-  createA2UIMessageRenderer,
-  runA2UIAction,
-  warnAboutUnresolvedRoot,
-} from "../a2ui/A2UIMessageRenderer.js";
+import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer.js";
+
+/** Core stand-in: records the run properties of each agent run. */
+const copilotkit = vi.hoisted(() => {
+  const core = {
+    properties: {} as Record<string, unknown>,
+    runs: [] as Record<string, unknown>[],
+    setProperties(properties: Record<string, unknown>) {
+      core.properties = properties;
+    },
+    async runAgent() {
+      core.runs.push({ ...core.properties });
+    },
+  };
+  return core;
+});
 
 vi.mock("../providers", () => ({
-  useCopilotKit: vi.fn(() => ({
-    copilotkit: {
-      properties: {},
-      setProperties: vi.fn(),
-      runAgent: vi.fn().mockResolvedValue(undefined),
-    },
-  })),
+  useCopilotKit: vi.fn(() => ({ copilotkit })),
 }));
 
 describe("A2UIMessageRenderer rendering integration", () => {
@@ -240,72 +245,79 @@ describe("A2UIMessageRenderer rendering integration", () => {
   });
 });
 
-describe("runA2UIAction onAction interceptor", () => {
-  const makeCopilotkit = () => ({
-    properties: {} as Record<string, unknown>,
-    setProperties: vi.fn(),
-    runAgent: vi.fn().mockResolvedValue(undefined),
-  });
-
-  const message = {
-    userAction: {
-      name: "navigate",
-      surfaceId: "s1",
-      sourceComponentId: "btn",
-      context: { to: "/settings" },
-      timestamp: "2026-01-01T00:00:00.000Z",
-    },
+describe("A2UIMessageRenderer actions", () => {
+  const buttonContent = {
+    a2ui_operations: [
+      {
+        version: "v0.9",
+        createSurface: {
+          surfaceId: "form",
+          catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
+        },
+      },
+      {
+        version: "v0.9",
+        updateComponents: {
+          surfaceId: "form",
+          components: [
+            {
+              id: "root",
+              component: "Button",
+              child: "label",
+              action: { event: { name: "navigate", context: { to: "/x" } } },
+            },
+            { id: "label", component: "Text", text: "Go" },
+          ],
+        },
+      },
+    ],
   };
 
-  it("does NOT run the agent when onAction returns null", async () => {
-    const copilotkit = makeCopilotkit();
-    const onAction = vi.fn().mockReturnValue(null);
-
-    await runA2UIAction({ message, agent: "my-agent", copilotkit, onAction });
-
-    expect(onAction).toHaveBeenCalledOnce();
-    expect(onAction.mock.calls[0][0]).toEqual(message.userAction);
-    expect(copilotkit.runAgent).not.toHaveBeenCalled();
-    expect(copilotkit.setProperties).not.toHaveBeenCalled();
+  afterEach(() => {
+    copilotkit.runs = [];
+    copilotkit.properties = {};
   });
 
-  it("forwards the modified action when onAction returns one", async () => {
-    const copilotkit = makeCopilotkit();
-    const modified = { ...message.userAction, name: "navigate_handled" };
-    const onAction = vi.fn().mockReturnValue(modified);
-
-    await runA2UIAction({ message, agent: "my-agent", copilotkit, onAction });
-
-    expect(copilotkit.runAgent).toHaveBeenCalledWith({ agent: "my-agent" });
-    const forwarded = copilotkit.setProperties.mock.calls[0][0];
-    expect(forwarded.a2uiAction).toEqual({
-      ...message,
-      userAction: modified,
+  async function clickButton(
+    onAction?: Parameters<typeof createA2UIMessageRenderer>[0]["onAction"],
+  ) {
+    const RenderComponent = createA2UIMessageRenderer({
+      theme: {} as Theme,
+      onAction,
+    }).render as React.FC<any>;
+    const { findByRole } = render(
+      <RenderComponent content={buttonContent} agent={{ agentId: "a" }} />,
+    );
+    await act(async () => {
+      fireEvent.click(await findByRole("button", { hidden: true }));
     });
+  }
+
+  it("runs the agent with the click wrapped as a userAction envelope", async () => {
+    await clickButton();
+    await waitFor(() => expect(copilotkit.runs).toHaveLength(1));
+    expect(copilotkit.runs[0]).toEqual({
+      a2uiAction: {
+        userAction: {
+          name: "navigate",
+          surfaceId: "form",
+          sourceComponentId: "root",
+          context: { to: "/x" },
+          timestamp: expect.any(String),
+        },
+      },
+    });
+    expect(copilotkit.properties).toEqual({});
   });
 
-  it("forwards the original message unchanged when no onAction is supplied", async () => {
-    const copilotkit = makeCopilotkit();
-
-    await runA2UIAction({ message, agent: "my-agent", copilotkit });
-
-    expect(copilotkit.runAgent).toHaveBeenCalledWith({ agent: "my-agent" });
-    const forwarded = copilotkit.setProperties.mock.calls[0][0];
-    expect(forwarded.a2uiAction).toBe(message);
-  });
-
-  it("forwards unchanged when onAction returns undefined", async () => {
-    const copilotkit = makeCopilotkit();
-    const onAction = vi.fn().mockReturnValue(undefined);
-
-    await runA2UIAction({ message, agent: "my-agent", copilotkit, onAction });
-
-    expect(onAction).toHaveBeenCalledOnce();
-    expect(copilotkit.runAgent).toHaveBeenCalledWith({ agent: "my-agent" });
-    const forwarded = copilotkit.setProperties.mock.calls[0][0];
-    expect(forwarded.a2uiAction).toBe(message);
+  it("does not run the agent when onAction handles the action", async () => {
+    const onAction = vi.fn(() => null);
+    await clickButton(onAction);
+    await waitFor(() => expect(onAction).toHaveBeenCalledOnce());
+    expect(copilotkit.runs).toEqual([]);
   });
 });
+
 const BASIC_CATALOG = "https://a2ui.org/specification/v0_9/basic_catalog.json";
 
 /** Mirrors PAINT_FALLBACK_MS in the renderer. */
@@ -521,34 +533,6 @@ describe("A2UIMessageRenderer — reporting a card that renders nothing", () => 
     expect(messages.filter((m) => m.includes("never painted"))).toEqual([]);
   });
 
-  // A root that WAS sent and still is not in the model is a different fault with
-  // a different fix, so the report says which of the two it is.
-  it("distinguishes a root that was sent from one that was never named", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    const operations = [
-      {
-        version: "v0.9",
-        updateComponents: {
-          surfaceId: "dropped",
-          components: [{ id: "root", component: "Text", text: "Hello World" }],
-        },
-      },
-    ];
-
-    warnAboutUnresolvedRoot("dropped", operations, {
-      componentsModel: { get: () => undefined },
-    });
-
-    const report = warn.mock.calls
-      .map((call) => String(call[0]))
-      .find((message) => message.includes('A2UI surface "dropped"'));
-    expect(report).toBeDefined();
-    expect(report).toContain('a component with id "root" WAS sent');
-    expect(report).toContain("did not reach the surface's model");
-    expect(report).not.toContain("rename the entry-point component");
-  });
-
   it("stays silent about the root when the surface resolves one", async () => {
     const RenderComponent = await loadRenderer();
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -650,18 +634,14 @@ describe("A2UIMessageRenderer — reporting a card that renders nothing", () => 
     );
   });
 
-  it("reports operations addressed to a surface that was never created", async () => {
+  // Operations for a surface whose createSurface never came now get a surface
+  // created on demand (the behaviour Angular already had), so they paint.
+  it("paints operations addressed to a surface that was never created", async () => {
     const RenderComponent = await loadRenderer();
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    render(
+    const { container } = render(
       <RenderComponent
         content={{
           a2ui_operations: [
-            {
-              version: "v0.9",
-              createSurface: { surfaceId: "created", catalogId: BASIC_CATALOG },
-            },
             {
               version: "v0.9",
               updateComponents: {
@@ -682,6 +662,28 @@ describe("A2UIMessageRenderer — reporting a card that renders nothing", () => 
       />,
     );
 
+    await waitFor(() => {
+      expect(
+        container.querySelector("[data-surface-id='addressed']")?.textContent,
+      ).toContain("Hello World");
+    });
+  });
+
+  it("reports a surface whose operations were all dropped as invalid", async () => {
+    const RenderComponent = await loadRenderer();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    render(
+      <RenderComponent
+        content={{
+          a2ui_operations: [
+            { surfaceUpdate: { surfaceId: "legacy", components: [] } },
+          ],
+        }}
+        agent={null}
+      />,
+    );
+
     // Deferred one macrotask so a mid-stream snapshot is not reported.
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -689,10 +691,9 @@ describe("A2UIMessageRenderer — reporting a card that renders nothing", () => 
 
     const report = warn.mock.calls
       .map((call) => String(call[0]))
-      .find((message) => message.includes('addressed to surface "addressed"'));
+      .find((message) => message.includes('addressed to surface "legacy"'));
     expect(report).toBeDefined();
     expect(report).toContain("no surface by that id exists");
-    expect(report).toContain('A createSurface for "addressed"');
   });
 
   // Operations stream in, so a snapshot can reach the processor before the

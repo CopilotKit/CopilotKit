@@ -9,6 +9,7 @@ import type {
   FrontendToolReconnectBehavior,
   WebMCPToolConfig,
 } from "@copilotkit/core";
+import { ɵcomponentToolDescription } from "@copilotkit/core";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
 import { CopilotKit } from "./copilotkit";
 
@@ -189,10 +190,9 @@ export function registerFrontendTool<
 /**
  * Registers an Angular component as a tool the agent can call to display it.
  *
- * The simplest generative-UI registration there is, and the only one that needs
- * nothing on the agent side: the tool is declared by the frontend and forwarded to
- * the agent over AG-UI, so it works the same behind a Python agent as a TypeScript
- * one. Contrast `registerRenderToolCall`, which draws a tool the agent already
+ * It needs nothing on the agent side: the tool is declared by the frontend and
+ * forwarded to the agent over AG-UI, so it works the same behind a Python agent as
+ * a TypeScript one. Contrast `registerRenderToolCall`, which draws a tool the agent already
  * has and therefore requires that tool to exist in the agent.
  *
  * The component is an ordinary `ToolRenderer`: it takes the required `toolCall`
@@ -216,15 +216,10 @@ export function registerFrontendTool<
 export function registerComponent<
   Args extends Record<string, unknown> = Record<string, unknown>,
 >(config: RegisterComponentConfig<Args>): void {
-  // The same prefix react-core and vue build, so the tool reads identically to the
-  // model whichever frontend registered the component.
-  const prefix = `Use this tool to display the "${config.name}" component in the chat. This tool renders a visual UI component for the user.`;
-
   registerFrontendTool<Args>({
     name: config.name,
-    description: config.description
-      ? `${prefix}\n\n${config.description}`
-      : prefix,
+    // The same text React and Vue build, so the model reads it the same way.
+    description: ɵcomponentToolDescription(config.name, config.description),
     parameters: config.parameters,
     component: config.component,
     agentId: config.agentId,

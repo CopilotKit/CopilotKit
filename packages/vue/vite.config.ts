@@ -30,6 +30,8 @@ export default defineConfig({
         "@ag-ui/core",
         // The framework-neutral A2UI catalog description subpath (no React).
         "@copilotkit/a2ui-renderer/catalog-schema",
+        // The framework-neutral A2UI engine subpath (no React).
+        "@copilotkit/a2ui-renderer/engine",
         // Core and its `/styles` subpath, so the stylesheet isn't bundled here.
         /^@copilotkit\/core(\/.*)?$/,
         // Keep the shared MCP Apps host + its subpaths external. The root entry

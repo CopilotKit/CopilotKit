@@ -19,7 +19,7 @@
   "packages": [
     {
       "name": "@copilotkit/a2ui-renderer",
-      "version": "1.83.0",
+      "version": "1.84.0",
       "sourceDirectory": "packages/a2ui-renderer",
       "entrypoints": [
         {
@@ -60,6 +60,26 @@
             "kind": "package-json",
             "path": "packages/a2ui-renderer/package.json",
             "selector": "exports[\"./catalog-schema\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/a2ui-renderer/engine",
+          "exportKey": "./engine",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/engine.d.mts",
+              "default": "./dist/engine.mjs"
+            },
+            "require": {
+              "types": "./dist/engine.d.cts",
+              "default": "./dist/engine.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/a2ui-renderer/package.json",
+            "selector": "exports[\"./engine\"]"
           }
         },
         {
@@ -124,7 +144,7 @@
     },
     {
       "name": "@copilotkit/agentcore-runner",
-      "version": "1.83.0",
+      "version": "1.84.0",
       "sourceDirectory": "packages/agentcore-runner",
       "entrypoints": [
         {
@@ -1030,7 +1050,7 @@
     },
     {
       "name": "@copilotkit/core",
-      "version": "1.83.0",
+      "version": "1.84.0",
       "sourceDirectory": "packages/core",
       "entrypoints": [
         {
@@ -1258,7 +1278,7 @@
     },
     {
       "name": "@copilotkit/learning",
-      "version": "1.83.0",
+      "version": "1.84.0",
       "sourceDirectory": "packages/learning",
       "entrypoints": [
         {
@@ -1334,6 +1354,20 @@
             "kind": "package-json",
             "path": "packages/markdown/package.json",
             "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/markdown/dom",
+          "exportKey": "./dom",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/dom/index.mjs",
+            "require": "./dist/dom/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/markdown/package.json",
+            "selector": "exports[\"./dom\"]"
           }
         },
         {
@@ -1442,7 +1476,7 @@
     },
     {
       "name": "@copilotkit/mcp-apps-renderer",
-      "version": "1.83.0",
+      "version": "1.84.0",
       "sourceDirectory": "packages/mcp-apps-renderer",
       "entrypoints": [
         {
@@ -1533,7 +1567,7 @@
     },
     {
       "name": "@copilotkit/react-core",
-      "version": "1.83.0",
+      "version": "1.84.0",
       "sourceDirectory": "packages/react-core",
       "entrypoints": [
         {
@@ -1654,7 +1688,7 @@
     },
     {
       "name": "@copilotkit/react-native",
-      "version": "1.83.0",
+      "version": "1.84.0",
       "sourceDirectory": "packages/react-native",
       "entrypoints": [
         {
@@ -1849,7 +1883,7 @@
     },
     {
       "name": "@copilotkit/runtime",
-      "version": "1.83.0",
+      "version": "1.84.0",
       "sourceDirectory": "packages/runtime",
       "entrypoints": [
         {
@@ -1938,7 +1972,7 @@
     },
     {
       "name": "@copilotkit/sdk-js",
-      "version": "1.83.0",
+      "version": "1.84.0",
       "sourceDirectory": "packages/sdk-js",
       "entrypoints": [
         {
@@ -2052,7 +2086,7 @@
     },
     {
       "name": "@copilotkit/shared",
-      "version": "1.83.0",
+      "version": "1.84.0",
       "sourceDirectory": "packages/shared",
       "entrypoints": [
         {
@@ -2121,7 +2155,7 @@
     },
     {
       "name": "@copilotkit/sqlite-runner",
-      "version": "1.83.0",
+      "version": "1.84.0",
       "sourceDirectory": "packages/sqlite-runner",
       "entrypoints": [
         {
@@ -2198,7 +2232,7 @@
     },
     {
       "name": "@copilotkit/voice",
-      "version": "1.83.0",
+      "version": "1.84.0",
       "sourceDirectory": "packages/voice",
       "entrypoints": [
         {
@@ -2267,7 +2301,7 @@
     },
     {
       "name": "@copilotkit/vue",
-      "version": "1.83.0",
+      "version": "1.84.0",
       "sourceDirectory": "packages/vue",
       "entrypoints": [
         {
@@ -2362,7 +2396,7 @@
     },
     {
       "name": "@copilotkit/web-components",
-      "version": "1.83.0",
+      "version": "1.84.0",
       "sourceDirectory": "packages/web-components",
       "entrypoints": [
         {
@@ -2449,7 +2483,7 @@
     },
     {
       "name": "@copilotkit/web-inspector",
-      "version": "1.83.0",
+      "version": "1.84.0",
       "sourceDirectory": "packages/web-inspector",
       "entrypoints": [
         {

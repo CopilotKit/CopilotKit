@@ -27,6 +27,22 @@ describe("StreamingMarkdownDefaultRenderer", () => {
     expect(pre?.textContent).toContain("codeblock");
   });
 
+  it("keeps the code fence language and shows the caret in a streaming code block", () => {
+    const { container } = render(
+      <StreamingMarkdownDefaultRenderer
+        content={"```ts\nconst a"}
+        isStreaming
+      />,
+    );
+    const pre = container.querySelector("pre.cpk-markdown-code-block");
+    expect(pre?.querySelector("code")?.getAttribute("data-code-info")).toBe(
+      "ts",
+    );
+    expect(
+      pre?.querySelector("code [data-streaming-markdown-caret]"),
+    ).not.toBeNull();
+  });
+
   it("renders nothing for empty content", () => {
     const { container } = render(
       <StreamingMarkdownDefaultRenderer content="" />,

@@ -115,6 +115,25 @@ describe("CopilotPopupView", () => {
     expect(reopened.find("[data-copilot-popup]").exists()).toBe(false);
   });
 
+  it("stays open for a pointer down in a chat popover outside the panel", async () => {
+    const wrapper = mountPopupView({ clickOutsideToClose: true });
+    // Popovers, such as a reply rating's comment, render in a portal.
+    const popover = document.createElement("div");
+    popover.setAttribute("data-copilotkit-popover", "");
+    const field = document.createElement("textarea");
+    popover.append(field);
+    document.body.append(popover);
+
+    field.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    await nextTick();
+    vi.advanceTimersByTime(200);
+    await nextTick();
+
+    expect(wrapper.find("[data-copilot-popup]").exists()).toBe(true);
+    popover.remove();
+    wrapper.unmount();
+  });
+
   it("ignores outside-close detection when the toggle button is clicked and supports custom slots", async () => {
     const wrapper = mountPopupView(
       {

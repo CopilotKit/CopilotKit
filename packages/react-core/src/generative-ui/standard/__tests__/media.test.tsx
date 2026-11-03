@@ -48,7 +48,7 @@ describe("mediaComponents", () => {
       "HtmlView",
     ]);
     for (const name of names) {
-      expect(ui.manifestComponents[name].description).toMatch(/\S/);
+      expect(ui.manifestComponents[name]!.description).toMatch(/\S/);
     }
   });
 });

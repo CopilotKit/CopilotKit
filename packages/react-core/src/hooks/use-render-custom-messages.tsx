@@ -1,4 +1,7 @@
-import { ɵresolveCustomMessageRenderers } from "@copilotkit/core";
+import {
+  ɵgetCustomMessageRenderProps,
+  ɵresolveCustomMessageRenderContext,
+} from "@copilotkit/core";
 import { useCopilotChatConfiguration, useCopilotKit } from "../providers";
 import type { ReactCustomMessageRendererPosition } from "../types/react-custom-message-renderer";
 import type { Message } from "@ag-ui/core";
@@ -16,12 +19,12 @@ export function useRenderCustomMessages() {
     return null;
   }
 
-  const { agentId, threadId } = config;
-
-  const customMessageRenderers = ɵresolveCustomMessageRenderers(
-    copilotkit.renderCustomMessages,
-    agentId,
-  );
+  const { threadId } = config;
+  const { agentId, renderers: customMessageRenderers } =
+    ɵresolveCustomMessageRenderContext(
+      copilotkit.renderCustomMessages,
+      config.agentId,
+    );
 
   // No renderer can ever produce output, so hand the caller nothing rather
   // than a function that always returns null. Callers gate expensive work
@@ -32,37 +35,19 @@ export function useRenderCustomMessages() {
 
   return function (params: UseRenderCustomMessagesParams) {
     const { message, position } = params;
-    const resolvedRunId =
-      copilotkit.getRunIdForMessage(agentId, threadId, message.id) ??
-      copilotkit.getRunIdsForThread(agentId, threadId).slice(-1)[0];
-    const runId = resolvedRunId ?? `missing-run-id:${message.id}`;
     const agent = copilotkit.getAgent(agentId);
     if (!agent) {
       return null;
     }
+    const props = ɵgetCustomMessageRenderProps(copilotkit, {
+      agentId,
+      threadId,
+      agent,
+      message,
+      position,
+    });
 
-    const messagesIdsInRun = resolvedRunId
-      ? agent.messages
-          .filter(
-            (msg) =>
-              copilotkit.getRunIdForMessage(agentId, threadId, msg.id) ===
-              resolvedRunId,
-          )
-          .map((msg) => msg.id)
-      : [message.id];
-
-    const rawMessageIndex = agent.messages.findIndex(
-      (msg) => msg.id === message.id,
-    );
-    const messageIndex = rawMessageIndex >= 0 ? rawMessageIndex : 0;
-    const messageIndexInRun = resolvedRunId
-      ? Math.max(messagesIdsInRun.indexOf(message.id), 0)
-      : 0;
-    const numberOfMessagesInRun = resolvedRunId ? messagesIdsInRun.length : 1;
-    const stateSnapshot = resolvedRunId
-      ? copilotkit.getStateByRun(agentId, threadId, resolvedRunId)
-      : undefined;
-
+    // Try each renderer in order and show the first that draws something.
     let result = null;
     for (const renderer of customMessageRenderers) {
       if (!renderer.render) {
@@ -71,15 +56,8 @@ export function useRenderCustomMessages() {
       const Component = renderer.render;
       result = (
         <Component
-          key={`${runId}-${message.id}-${position}`}
-          message={message}
-          position={position}
-          runId={runId}
-          messageIndex={messageIndex}
-          messageIndexInRun={messageIndexInRun}
-          numberOfMessagesInRun={numberOfMessagesInRun}
-          agentId={agentId}
-          stateSnapshot={stateSnapshot}
+          key={`${props.runId}-${message.id}-${position}`}
+          {...props}
         />
       );
       if (result) {

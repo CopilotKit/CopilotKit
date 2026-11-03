@@ -1,14 +1,16 @@
 import {
   Component,
+  DestroyRef,
   ElementRef,
   ViewEncapsulation,
+  inject,
   input,
   viewChild,
 } from "@angular/core";
 
 import { injectChatLabels } from "../../chat-config";
 import { explicitEffect } from "../../explicit-effect";
-import { renderMarkdown } from "./markdown";
+import { createAssistantMarkdownRenderer } from "./markdown";
 
 @Component({
   selector: "copilot-chat-assistant-message-renderer",
@@ -34,6 +36,8 @@ import { renderMarkdown } from "./markdown";
 })
 export class CopilotChatAssistantMessageRenderer {
   readonly content = input<string>("");
+  /** True while this message is still streaming: shows the caret. */
+  readonly isStreaming = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
   readonly labels = injectChatLabels();
 
@@ -41,20 +45,20 @@ export class CopilotChatAssistantMessageRenderer {
     viewChild<ElementRef<HTMLDivElement>>("markdownContainer");
 
   constructor() {
+    let renderer: ReturnType<typeof createAssistantMarkdownRenderer> | null =
+      null;
+    inject(DestroyRef).onDestroy(() => renderer?.destroy());
+
     explicitEffect(
       () => ({
         container: this.markdownContainer()?.nativeElement,
         content: this.content(),
+        isStreaming: this.isStreaming(),
       }),
-      ({ container, content }) => {
+      ({ container, content, isStreaming }) => {
         if (!container) return;
-        const rendered = renderMarkdown(content);
-        // The server DOM has no replaceChildren(); it only gets the text.
-        if (typeof rendered === "string") {
-          container.textContent = rendered;
-        } else {
-          container.replaceChildren(rendered);
-        }
+        renderer ??= createAssistantMarkdownRenderer(container);
+        renderer.render({ content, isStreaming });
       },
     );
   }

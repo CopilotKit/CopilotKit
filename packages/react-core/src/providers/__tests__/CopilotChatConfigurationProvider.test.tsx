@@ -625,6 +625,33 @@ describe("CopilotChatConfigurationProvider", () => {
    * set / startNewThread (welcome-screen-showing), guarded so a prop-controlled
    * threadId is never overridden.
    */
+  describe("Placeholder thread", () => {
+    it("keeps the minted thread when a seed comes and goes", () => {
+      function ThreadProbe() {
+        const config = useCopilotChatConfiguration();
+        return <span data-testid="thread">{config?.threadId}</span>;
+      }
+      function Harness({ seed }: { seed?: string }) {
+        return (
+          <CopilotChatConfigurationProvider
+            threadId={seed}
+            hasExplicitThreadId={seed === undefined ? undefined : false}
+          >
+            <ThreadProbe />
+          </CopilotChatConfigurationProvider>
+        );
+      }
+
+      const { rerender } = render(<Harness />);
+      const minted = screen.getByTestId("thread").textContent;
+      rerender(<Harness seed="seed-1" />);
+      expect(screen.getByTestId("thread").textContent).toBe("seed-1");
+      rerender(<Harness />);
+
+      expect(screen.getByTestId("thread").textContent).toBe(minted);
+    });
+  });
+
   describe("Active-thread setters", () => {
     function ThreadProbe({ id = "probe" }: { id?: string } = {}) {
       const config = useCopilotChatConfiguration();

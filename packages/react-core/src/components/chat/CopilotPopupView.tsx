@@ -10,7 +10,12 @@ import type { CopilotModalHeaderProps } from "./CopilotModalHeader";
 import { cn } from "../../lib/utils";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
-import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import {
+  CopilotChatDefaultLabels,
+  ɵPOPUP_ANIMATION_MS,
+  ɵbindPopupDismiss,
+  ɵdimensionToCss,
+} from "@copilotkit/core";
 import {
   ControlledModalOpenScope,
   CopilotChatConfigurationProvider,
@@ -29,21 +34,6 @@ export type CopilotPopupViewProps = CopilotChatViewProps & {
   height?: number | string;
   clickOutsideToClose?: boolean;
   defaultOpen?: boolean;
-};
-
-const dimensionToCss = (
-  value: number | string | undefined,
-  fallback: number,
-): string => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return `${value}px`;
-  }
-
-  if (typeof value === "string" && value.trim().length > 0) {
-    return value;
-  }
-
-  return `${fallback}px`;
 };
 
 export function CopilotPopupView({
@@ -124,88 +114,21 @@ function CopilotPopupViewInternal({
     const timeout = setTimeout(() => {
       setIsRendered(false);
       setIsAnimatingOut(false);
-    }, 200);
+    }, ɵPOPUP_ANIMATION_MS);
 
     return () => clearTimeout(timeout);
   }, [isPopupOpen, isRendered]);
 
+  // Escape, a click outside (when enabled), and focus once the popup opens.
   useEffect(() => {
     if (!isPopupOpen) {
       return;
     }
-
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setModalOpen?.(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPopupOpen, setModalOpen]);
-
-  useEffect(() => {
-    if (!isPopupOpen) {
-      return;
-    }
-
-    const focusTimer = setTimeout(() => {
-      const container = containerRef.current;
-      // Don't steal focus if something inside the popup (like the input) is already focused
-      if (container && !container.contains(document.activeElement)) {
-        container.focus({ preventScroll: true });
-      }
-    }, 200);
-
-    return () => clearTimeout(focusTimer);
-  }, [isPopupOpen]);
-
-  useEffect(() => {
-    if (!isPopupOpen || !clickOutsideToClose) {
-      return;
-    }
-
-    if (typeof document === "undefined") {
-      return;
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (!target) {
-        return;
-      }
-
-      const container = containerRef.current;
-      if (container?.contains(target)) {
-        return;
-      }
-
-      const toggleButton = document.querySelector(
-        "[data-slot='chat-toggle-button']",
-      );
-      if (toggleButton && toggleButton.contains(target)) {
-        return;
-      }
-
-      // Popovers of the chat, such as a reply rating's comment, render in a
-      // portal outside the container.
-      if (
-        target instanceof Element &&
-        target.closest("[data-copilotkit-popover]")
-      ) {
-        return;
-      }
-
-      setModalOpen?.(false);
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
+    return ɵbindPopupDismiss({
+      getContainer: () => containerRef.current,
+      onDismiss: () => setModalOpen?.(false),
+      clickOutsideToClose: clickOutsideToClose === true,
+    });
   }, [isPopupOpen, clickOutsideToClose, setModalOpen]);
 
   const headerElement = useMemo(
@@ -217,8 +140,8 @@ function CopilotPopupViewInternal({
     [toggleButton],
   );
 
-  const resolvedWidth = dimensionToCss(width, DEFAULT_POPUP_WIDTH);
-  const resolvedHeight = dimensionToCss(height, DEFAULT_POPUP_HEIGHT);
+  const resolvedWidth = ɵdimensionToCss(width, DEFAULT_POPUP_WIDTH);
+  const resolvedHeight = ɵdimensionToCss(height, DEFAULT_POPUP_HEIGHT);
 
   const popupStyle = useMemo(
     () =>

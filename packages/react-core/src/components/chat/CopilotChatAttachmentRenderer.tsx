@@ -58,7 +58,7 @@ const ImageAttachment = memo(function ImageAttachment({
         onError={() => setError(true)}
       />
       {open && (
-        <Lightbox onClose={closeLightbox}>
+        <Lightbox onClose={closeLightbox} label={labels.attachmentImageAltText}>
           <img
             style={{ viewTransitionName: vtName }}
             src={src}

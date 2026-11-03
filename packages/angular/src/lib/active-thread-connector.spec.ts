@@ -7,6 +7,7 @@ import {
   injectChatConfiguration,
   provideCopilotChatConfiguration,
 } from "./chat-configuration";
+import { CopilotKitCore, ɵThreadSwitchCoordinator } from "@copilotkit/core";
 import { AgentStore } from "./agent";
 import { connectActiveThread } from "./active-thread-connector";
 
@@ -56,7 +57,12 @@ function createConnectorFixture() {
   const agentStore = signal(makeStore(agent));
   const config = TestBed.runInInjectionContext(() => {
     const cfg = injectChatConfiguration();
-    connectActiveThread(cfg, agentStore, connect);
+    connectActiveThread(
+      cfg,
+      agentStore,
+      connect,
+      new ɵThreadSwitchCoordinator(new CopilotKitCore({})),
+    );
     return cfg;
   });
 
@@ -80,7 +86,10 @@ describe("connectActiveThread", () => {
 
       expect(agent.threadId).toBe("picked-1");
       expect(connect).toHaveBeenCalledTimes(1);
-      expect(connect).toHaveBeenCalledWith(agent);
+      expect(connect).toHaveBeenCalledWith(
+        agent,
+        expect.objectContaining({ threadId: "picked-1" }),
+      );
     });
 
     test("initial mount does not clear messages and does not connect", () => {
@@ -163,9 +172,8 @@ describe("connectActiveThread", () => {
         expect(connect).toHaveBeenCalledTimes(1);
         agent.cursors.set("saved", "late-event");
         release();
-        await detached;
-        await Promise.resolve();
-        await Promise.resolve();
+        // Let the queued teardown (detach, then reset) finish.
+        await new Promise((resolve) => setTimeout(resolve, 0));
         TestBed.tick();
         expect(connect).toHaveBeenCalledTimes(2);
         expect(connectedCursors).toEqual([null, null]);

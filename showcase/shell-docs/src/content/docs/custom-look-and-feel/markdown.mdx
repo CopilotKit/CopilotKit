@@ -157,8 +157,9 @@ under different names:
   `markdown-renderer` prop, and has a `message-renderer` scoped slot. See
   [Markdown Rendering](/markdown-rendering) and the
   [Vue `CopilotChatAssistantMessage` reference](/reference/vue/components/CopilotChatAssistantMessage).
-- **Angular** uses a `#markdownRenderer` `ng-template` (or `markdownRendererComponent`)
-  over `marked`, so there is no `nodeRenderers` prop. See the
+- **Angular** renders with `@copilotkit/markdown/dom`, plus KaTeX for math. To
+  replace the renderer, use a `#markdownRenderer` `ng-template` (or
+  `markdownRendererComponent`). There is no `nodeRenderers` prop. See the
   [Angular `CopilotChatAssistantMessage` reference](/reference/angular/components/CopilotChatAssistantMessage).
 
 ## Reference

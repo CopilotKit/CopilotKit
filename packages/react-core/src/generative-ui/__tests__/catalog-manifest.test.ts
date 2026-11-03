@@ -47,7 +47,7 @@ describe("buildCatalogManifest", () => {
       surfaces: { s1: { target: "chat" } },
     });
     expect(manifest.functions.formatCurrency).toBeUndefined();
-    expect(manifest.functions.addToCart.description).toBe("Adds");
+    expect(manifest.functions.addToCart!.description).toBe("Adds");
     expect(manifest.functions.formatDate).toBeDefined();
     expect(manifest.targets.map((t) => t.id)).toEqual(["chat", "sidebar"]);
     expect(manifest.surfaces).toEqual({ s1: { target: "chat" } });

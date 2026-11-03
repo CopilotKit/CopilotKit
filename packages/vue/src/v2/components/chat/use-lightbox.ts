@@ -1,11 +1,6 @@
 import { nextTick, ref } from "vue";
+import { ɵmorphViewTransition } from "@copilotkit/core";
 import { useCopilotId } from "../ui/use-id";
-
-type DocWithVT = Document & {
-  startViewTransition?: (cb: () => void | Promise<void>) => {
-    finished: Promise<void>;
-  };
-};
 
 /**
  * Opens and closes a lightbox, using the View Transition API to morph the
@@ -24,40 +19,27 @@ export function useLightbox() {
   const vtName = useCopilotId("cpk-lightbox").replace(/[^\w-]/g, "-");
 
   const openLightbox = () => {
-    const thumb = thumbnailRef.value;
-    const doc =
-      typeof document === "undefined" ? undefined : (document as DocWithVT);
-
-    if (doc?.startViewTransition && thumb) {
-      thumb.style.viewTransitionName = vtName;
-      doc.startViewTransition(async () => {
-        thumb.style.viewTransitionName = "";
+    ɵmorphViewTransition(
+      thumbnailRef.value,
+      vtName,
+      async () => {
         open.value = true;
         await nextTick();
-      });
-    } else {
-      open.value = true;
-    }
+      },
+      "open",
+    );
   };
 
   const closeLightbox = () => {
-    const thumb = thumbnailRef.value;
-    const doc =
-      typeof document === "undefined" ? undefined : (document as DocWithVT);
-
-    if (doc?.startViewTransition && thumb) {
-      const transition = doc.startViewTransition(async () => {
+    ɵmorphViewTransition(
+      thumbnailRef.value,
+      vtName,
+      async () => {
         open.value = false;
         await nextTick();
-        thumb.style.viewTransitionName = vtName;
-      });
-      const clear = () => {
-        thumb.style.viewTransitionName = "";
-      };
-      transition.finished.then(clear, clear);
-    } else {
-      open.value = false;
-    }
+      },
+      "close",
+    );
   };
 
   return { thumbnailRef, vtName, open, openLightbox, closeLightbox };

@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { ɵshallowEqualRecord } from "@copilotkit/core";
 
 // Reference-stability helpers, kept in their own leaf module (not in ./slots)
 // so that DOM-free consumers — e.g. CopilotChatConfigurationProvider, which is
@@ -6,22 +7,14 @@ import { useRef } from "react";
 // them without pulling in the slot rendering code (issue #4893).
 
 /**
- * Shallow equality comparison for objects.
+ * Shallow equality comparison for objects: same own keys, each holding the
+ * same value (`Object.is`). Core's `ɵshallowEqualRecord` holds the rule.
  */
 export function shallowEqual<T extends Record<string, unknown>>(
   obj1: T,
   obj2: T,
-): boolean {
-  const keys1 = Object.keys(obj1);
-  const keys2 = Object.keys(obj2);
-
-  if (keys1.length !== keys2.length) return false;
-
-  for (const key of keys1) {
-    if (obj1[key] !== obj2[key]) return false;
-  }
-
-  return true;
+) {
+  return ɵshallowEqualRecord(obj1, obj2);
 }
 
 /**

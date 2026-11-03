@@ -55,6 +55,8 @@
     "check-types": "node scripts/generate-package-version.mjs && node scripts/generate-stylesheet.mjs && tsc --noEmit",
     "test": "node scripts/generate-package-version.mjs && node scripts/generate-stylesheet.mjs && vitest run",
     "test:watch": "node scripts/generate-package-version.mjs && node scripts/generate-stylesheet.mjs && vitest --watch",
+    "link:global": "pnpm link --global",
+    "unlink:global": "pnpm unlink --global",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
   },
@@ -64,13 +66,12 @@
     "@ag-ui/core": "1.0.2",
     "@copilotkit/a2ui-renderer": "workspace:^",
     "@copilotkit/core": "workspace:^",
+    "@copilotkit/markdown": "workspace:^",
     "@copilotkit/mcp-apps-renderer": "workspace:^",
     "@copilotkit/shared": "workspace:^",
     "@copilotkit/web-components": "workspace:^",
     "@copilotkit/web-inspector": "workspace:^",
-    "dompurify": "^3.4.1",
     "katex": "^0.16.22",
-    "marked": "^12.0.2",
     "zod": "^4.2.0"
   },
   "devDependencies": {

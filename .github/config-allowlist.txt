@@ -87,7 +87,6 @@ examples/v2/vue/vite-inspector/vite.config.ts
 packages/a2ui-renderer/tsdown.config.ts
 packages/agentcore-runner/tsdown.config.ts
 packages/core/tsdown.config.ts
-packages/demo-agents/tsdown.config.ts
 packages/intelligence-delivery-core/tsdown.config.ts
 packages/intelligence-langgraph/tsdown.config.ts
 packages/intelligence-mastra/tsdown.config.ts
