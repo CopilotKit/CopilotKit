@@ -12,7 +12,7 @@ import {
   catalogReferenceFromPath,
 } from "@/components/standard-catalog/catalog-reference";
 import { frameworkHref, parseLocation } from "@/proto/routes";
-import { resolveLivePage } from "@/lib/live-docs";
+import { frontendFallback, resolveLivePage } from "@/lib/live-docs";
 import { liveFramework } from "@/lib/live-scope";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import {
@@ -49,6 +49,9 @@ export default async function Page({ params }: PageProps<"/[[...path]]">) {
   if (path.length === 1 && liveFramework(path[0])) {
     redirect(`/${path[0]}/quickstart`);
   }
+  // A page only another frontend has opens this frontend's quickstart.
+  const fallback = frontendFallback(path);
+  if (fallback) redirect(fallback);
 
   // Anything the live docs don't have falls back to the prototype's pages.
   const loc = parseLocation("d", path);
