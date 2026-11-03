@@ -61,6 +61,21 @@ const SELF_MANAGED_AGENTS_WITHOUT_LICENSE_MESSAGE =
   "Intelligence tier. Provide a `publicLicenseKey` for production " +
   "use — contact the CopilotKit team about licensing.";
 
+/**
+ * @internal The default headers for a public key: the Copilot Cloud key
+ * header, or none without a key. Adapters pass the result to
+ * `ɵwithHeaderDefaults`. It depends only on the key, so adapters can memoize
+ * it on the key.
+ *
+ * @example
+ * ɵpublicKeyHeaderDefaults("ck_pub_…"); // { "X-CopilotCloud-Public-Api-Key": "ck_pub_…" }
+ */
+export function ɵpublicKeyHeaderDefaults(
+  publicKey: string | undefined,
+): Record<string, string> {
+  return publicKey ? { [ɵCOPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicKey } : {};
+}
+
 function toRuntimeTransport(
   runtimeTransport: CopilotRuntimeTransport | undefined,
   useSingleEndpoint: boolean | undefined,
@@ -100,9 +115,7 @@ export function ɵresolveProviderConfig(input: ɵProviderConfigInput) {
   const properties = input.a2uiCatalog
     ? { ...baseProperties, a2uiCatalogAvailable: true }
     : baseProperties;
-  const headerDefaults: Record<string, string> = publicKey
-    ? { [ɵCOPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicKey }
-    : {};
+  const headerDefaults = ɵpublicKeyHeaderDefaults(publicKey);
 
   const diagnostics: ɵProviderConfigDiagnostic[] = [];
   const hasLocalAgents = Object.keys(agents).length > 0;

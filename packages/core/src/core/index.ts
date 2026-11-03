@@ -15,6 +15,7 @@ export {
   ɵCOPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   ɵCOPILOT_CLOUD_RUNTIME_URL,
   ɵSTABLE_ARRAY_WARNINGS,
+  ɵpublicKeyHeaderDefaults,
   ɵreportProviderConfigDiagnostics,
   ɵresolveProviderConfig,
   ɵtoolRendererShapeChanged,

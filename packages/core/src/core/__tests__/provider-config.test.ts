@@ -3,6 +3,7 @@ import { HttpAgent } from "@ag-ui/client";
 import {
   ɵCOPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   ɵCOPILOT_CLOUD_RUNTIME_URL,
+  ɵpublicKeyHeaderDefaults,
   ɵreportProviderConfigDiagnostics,
   ɵresolveProviderConfig,
   ɵtoolRendererShapeChanged,
@@ -148,6 +149,17 @@ describe("ɵresolveProviderConfig", () => {
           "[CopilotKit] `selfManagedAgents` is part of CopilotKit's Enterprise Intelligence tier. Provide a `publicLicenseKey` for production use — contact the CopilotKit team about licensing.",
       },
     ]);
+  });
+});
+
+describe("ɵpublicKeyHeaderDefaults", () => {
+  it("returns the key header for a key", () => {
+    expect(ɵpublicKeyHeaderDefaults("k")).toEqual({ [KEY_HEADER]: "k" });
+  });
+
+  it("returns no headers without a key", () => {
+    expect(ɵpublicKeyHeaderDefaults(undefined)).toEqual({});
+    expect(ɵpublicKeyHeaderDefaults("")).toEqual({});
   });
 });
 
