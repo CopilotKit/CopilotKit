@@ -1,0 +1,160 @@
+---
+title: Quickstart
+description: Add a chat to your app and connect it to your agent. Prototype page for the stack picker; the code is illustrative.
+---
+
+## Install
+
+<StackVariants>
+  <Variant frontend="react">
+
+```bash
+npm install @copilotkit/react-core @copilotkit/runtime
+```
+
+  </Variant>
+  <Variant frontend="angular">
+
+```bash
+npm install @copilotkit/angular @copilotkit/runtime
+```
+
+  </Variant>
+  <Variant frontend="vue">
+
+```bash
+npm install @copilotkit/vue @copilotkit/runtime
+```
+
+  </Variant>
+</StackVariants>
+
+## Add the provider
+
+Point the provider at your runtime. Everything under it can talk to your agent.
+
+<StackVariants>
+  <Variant frontend="react">
+
+```tsx title="app/page.tsx"
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <CopilotChat />
+    </CopilotKitProvider>
+  );
+}
+```
+
+  </Variant>
+  <Variant frontend="angular">
+
+```ts title="src/app/app.config.ts"
+import type { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [provideCopilotKit({ runtimeUrl: "/api/copilotkit" })],
+};
+```
+
+  </Variant>
+  <Variant frontend="vue">
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotKit } from "@copilotkit/vue";
+</script>
+
+<template>
+  <CopilotKit runtime-url="/api/copilotkit">
+    <RouterView />
+  </CopilotKit>
+</template>
+```
+
+  </Variant>
+</StackVariants>
+
+## Connect your agent
+
+The runtime brokers events between your app and your agent.
+
+<StackVariants>
+  <Variant backend="mastra">
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { getLocalAgent } from "@ag-ui/mastra";
+import { mastra } from "@/mastra";
+
+const handler = createCopilotRuntimeHandler({
+  runtime: new CopilotRuntime({
+    agents: {
+      default: getLocalAgent({ mastra, agentId: "weatherAgent" }),
+    },
+  }),
+  basePath: "/api/copilotkit",
+});
+
+export { handler as GET, handler as POST };
+```
+
+  </Variant>
+  <Variant backend="langgraph-python">
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+
+const handler = createCopilotRuntimeHandler({
+  runtime: new CopilotRuntime({
+    agents: {
+      default: new LangGraphAgent({
+        deploymentUrl: process.env.LANGGRAPH_URL!,
+        graphId: "agent",
+      }),
+    },
+  }),
+  basePath: "/api/copilotkit",
+});
+
+export { handler as GET, handler as POST };
+```
+
+  </Variant>
+  <Variant>
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { HttpAgent } from "@ag-ui/client";
+
+// Any agent that speaks AG-UI over HTTP.
+const handler = createCopilotRuntimeHandler({
+  runtime: new CopilotRuntime({
+    agents: { default: new HttpAgent({ url: process.env.AGENT_URL! }) },
+  }),
+  basePath: "/api/copilotkit",
+});
+
+export { handler as GET, handler as POST };
+```
+
+  </Variant>
+</StackVariants>
+
+## Try it
+
+Run your app and send a message in the chat. The agent answers through the
+runtime.

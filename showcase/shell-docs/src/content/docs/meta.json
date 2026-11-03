@@ -2,7 +2,6 @@
   "title": "Overview",
   "pages": [
     "---Get Started---",
-    "index",
     "quickstart",
     "cli",
     "build-with-agents",
