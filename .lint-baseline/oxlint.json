@@ -25,7 +25,7 @@
       "packages/runtime/src/runtime/handlers/shared/sse-keep-alive.ts": 1,
       "packages/runtime/src/runtime/intelligence-platform/client.ts": 4,
       "packages/runtime/src/runtime/intelligence-platform/learning-management.ts": 1,
-      "packages/web-inspector/src/index.ts": 1
+      "packages/web-inspector/src/shell/web-inspector-element.ts": 1
     },
     "copilotkit(require-disable-reason)": {
       "packages/a2ui-renderer/src/react-renderer/a2ui-react/A2uiSurface.tsx": 1,
@@ -68,8 +68,8 @@
       "packages/runtime/src/runtime/telemetry/disclosure.ts": 1,
       "packages/vue/src/v2/hooks/use-interrupt.ts": 1,
       "packages/web-components/scripts/generate-tokens.ts": 1,
-      "packages/web-inspector/src/lib/hud-config.ts": 1,
-      "packages/web-inspector/src/lib/telemetry.ts": 1
+      "packages/web-inspector/src/shared/telemetry/privacy.ts": 1,
+      "packages/web-inspector/src/shell/launcher/hud-config.ts": 1
     },
     "typescript-eslint(no-explicit-any)": {
       "packages/a2ui-renderer/src/react-renderer/core/A2UIProvider.tsx": 6,
@@ -259,8 +259,8 @@
       "packages/vue/src/v2/hooks/use-interrupt.ts": 3,
       "packages/web-components/src/threads-drawer/copilotkit-threads-drawer.ts": 4,
       "packages/web-components/src/threads-drawer/token-extraction.ts": 2,
-      "packages/web-inspector/src/index.ts": 12,
-      "packages/web-inspector/src/lib/json-block.ts": 1
+      "packages/web-inspector/src/shell/web-inspector-element.ts": 8,
+      "packages/web-inspector/src/ui/json-viewer/host-renderer.ts": 1
     },
     "typescript-eslint(require-await)": {
       "packages/angular/src/lib/agent.ts": 1,
@@ -290,7 +290,7 @@
       "packages/runtime/src/runtime/intelligence-platform/skill-registry/archive.ts": 1,
       "packages/sdk-js/src/langgraph/utils.ts": 1,
       "packages/vue/src/v2/hooks/use-human-in-the-loop.ts": 1,
-      "packages/web-inspector/src/index.ts": 4
+      "packages/web-inspector/src/domains/threads/examples/provider.ts": 4
     }
   }
 }

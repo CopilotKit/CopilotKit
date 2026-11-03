@@ -28,21 +28,23 @@
       "packages/runtime/src/runtime/handlers/shared/intelligence-utils.ts": 1,
       "packages/vue/src/v2/__tests__/utils/agents.ts": 1,
       "packages/vue/src/v2/components/a2ui/adapter.ts": 1,
-      "packages/web-inspector/src/lib/persistence.ts": 3
+      "packages/web-inspector/src/domains/learning/view.ts": 1,
+      "packages/web-inspector/src/domains/threads/view.ts": 2
     },
     "knip(files)": {
       "packages/a2ui-renderer/src/react-renderer/styles/index.d.ts": 1,
       "packages/react-core/src/components/chat/__tests__/setup.ts": 1,
       "packages/react-native/src/components/messages/index.ts": 1,
       "packages/runtime/src/runtime/runner/__tests__/integration/kind-gateway-drain-runner.ts": 1,
-      "packages/vue/src/v2/components/chat/__tests__/CopilotChatMessageView.testid.spec.ts": 1
+      "packages/vue/src/v2/components/chat/__tests__/CopilotChatMessageView.testid.spec.ts": 1,
+      "packages/web-inspector/src/shared/persistence/home-news.ts": 1
     },
     "knip(types)": {
       "packages/angular/src/lib/components/chat/copilot-chat-lightbox.ts": 1,
       "packages/react-core/src/hooks/use-interrupt.tsx": 3,
       "packages/runtime/src/runtime/__tests__/integration/servers/types.ts": 2,
       "packages/runtime/src/runtime/core/middleware.ts": 2,
-      "packages/web-inspector/src/lib/hud-config.ts": 1
+      "packages/web-inspector/src/shell/launcher/hud-config.ts": 1
     },
     "knip(unlisted)": {
       "packages/core/src/__tests__/trajectory-phoenix.test.ts": 1,
