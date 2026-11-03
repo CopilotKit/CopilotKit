@@ -8,9 +8,7 @@
 FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS builder
 WORKDIR /app/showcase/shell-docs
 
-# postinstall runs patch-package, so patches/ goes in with the lockfile.
 COPY showcase/shell-docs/package.json showcase/shell-docs/package-lock.json ./
-COPY showcase/shell-docs/patches/ ./patches/
 RUN npm ci
 
 # What showcase-data's generators read (integration registry, catalog, demo
