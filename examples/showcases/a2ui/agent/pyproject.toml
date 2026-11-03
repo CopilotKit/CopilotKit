@@ -4,9 +4,9 @@ version = "0.1.0"
 description = "Google ADK research agent for the A2UI Research Desk showcase, served over AG-UI"
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "a2ui-agent-sdk==0.9.0",
-    "a2ui-core==0.4.0",
-    "ag-ui-adk==0.11.0",
+    "a2ui-agent-sdk==0.10.0",
+    "a2ui-core==0.5.0",
+    "ag-ui-adk==0.12.0",
     "ag-ui-protocol==1.0.0",
     "composio==0.30.0",
     # composio pins this pre-release, which uv does not pick on its own.

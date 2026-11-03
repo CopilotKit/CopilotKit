@@ -1,6 +1,6 @@
 # A2UI Playground, powered by CopilotKit
 
-> **Release blocked (2026-11-02):** this draft prepares canonical A2UI `1.0` wire operations and capability keys for [CopilotKit #8155](https://github.com/CopilotKit/CopilotKit/pull/8155), which is not released. It rejects the experimental `v1.0` capability key; no compatibility alias is provided. The Python dependency manifest and lockfile retain the coherent published baseline below, which cannot run this migration. Published `a2ui-agent-sdk==0.10.0` and `a2ui-core==0.5.0` support canonical `1.0`, but the latest `ag-ui-adk==0.11.1` still excludes both versions and imports the removed `a2ui.parser.payload_fixer.parse_and_fix`. [AG-UI #3275](https://github.com/ag-ui-protocol/ag-ui/pull/3275) contains the enabling adapter changes, but a published release containing them is required before updating the pins and regenerating `uv.lock`. Do not deploy this draft or treat the run instructions as a working canonical setup yet.
+> **Draft status (2026-11-02):** canonical A2UI `1.0` support in [CopilotKit #8155](https://github.com/CopilotKit/CopilotKit/pull/8155) has merged. The latest CopilotKit npm release, `1.83.0`, does not contain it yet; this example continues to use `workspace:*` packages and needs source containing that change. The Python dependencies now use published `ag-ui-adk==0.12.0`, `a2ui-agent-sdk==0.10.0`, and `a2ui-core==0.5.0`, with a regenerated registry-only `uv.lock`. The earlier ADK dependency/import blocker is resolved by the published release containing [AG-UI #3275](https://github.com/ag-ui-protocol/ag-ui/pull/3275). The upstream Express bound event-context defect below remains, and the canonical browser stream/action round-trip is still unverified. Keep this PR draft until those behavior checks pass.
 
 A calm research desk. A Google ADK agent on Gemini answers open questions in prose, and when a view would carry the answer better (a trend, a comparison, pictures of the subject, a set of sources) it renders one from CopilotKit's standard A2UI catalog. Choose **JSON** or **Express** in the composer. Both reach the same renderer as A2UI 1.0 JSON. The **A2UI** button on a view shows those JSON operations, including compiled JSON in Express mode; it does not show raw Express source. Press it again to return to the view.
 
@@ -25,7 +25,7 @@ What it shows:
 
 ## Run it
 
-This example uses CopilotKit `workspace:*` packages and requires the canonical `1.0` foundation in PR #8155. The commands below describe the normal setup after the release blockers above are resolved; the retained published Python baseline does not satisfy this draft.
+This example uses CopilotKit `workspace:*` packages. Run it with workspace source containing the merged canonical `1.0` foundation from PR #8155; npm `1.83.0` does not contain that change. Python dependencies install directly from the published versions and committed lockfile below. The remaining Express event-context defect and unverified browser behavior still limit this draft.
 
 ```bash
 # 1. From the repo root: install and build the CopilotKit packages
@@ -119,15 +119,15 @@ Validation has a specific boundary. For complete trees created during the curren
 
 [`prompt.py`](agent/src/research_desk/prompt.py) is a substantial custom research-desk prompt: research current claims, cite sources, prefer prose when sufficient, choose focused views, and use real actions. These policies apply in both formats; syntax examples and transport instructions vary by format. The instruction to avoid a root `Card` is the app's visual rule because `SurfaceFrame` already frames the view. A `Card` root is valid A2UI; the root component's ID is `root`, but its type need not be `Card`.
 
-The Express guide includes the following compatibility instructions for SDK 0.9.0/core 0.4.0. They preserve the existing catalog contract without modifying the SDK.
+The Express guide retains the following host syntax guidance, originally introduced with SDK 0.9.0/core 0.4.0. The published baseline is now SDK 0.10.0/core 0.5.0; the bound event-context case remains an upstream defect, as recorded below. The Action wrapper and catalog schema remain host contracts.
 
-| Case                                 | Express guidance                                                                            | Why                                                                                                                                                     |
-| ------------------------------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Long component signatures            | Use named arguments such as `Text(text="Hello")`.                                           | The compiler accepts keywords, while generated SDK guidance favors positional arguments; optional styling fields make positional calls fragile.         |
-| Open-ended `calc`/`series` arguments | Use `{"@call":"calc", args:{expression:"seats * 29", seats:$/seats}}`.                      | Constructor syntax rejects additional named arguments even when the function schema permits them.                                                       |
-| A custom button function             | Use `onClick={functionCall:saveNote(title="Finding", text=$/note)}`.                        | A bare `saveNote(...)` compiles to a function value, while `onClick` requires an Action wrapper. This wrapper is also part of the host's JSON contract. |
-| Agent event context and chat text    | Use `onClick={event:{name:"followUp", userMessage:"Explain this", context:{note:$/note}}}`. | The SDK's `Event(...)` constructor drops `userMessage` and ignores named `context`; an explicit event map retains both.                                 |
-| Corner radius                        | Use a catalog token such as `radius="md"`.                                                  | SDK style normalization rejects CSS values such as `"12px"`.                                                                                            |
+| Case                                 | Express guidance                                                                            | Why                                                                                                                                                        |
+| ------------------------------------ | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Long component signatures            | Use named arguments such as `Text(text="Hello")`.                                           | The compiler accepts keywords, while generated SDK guidance favors positional arguments; optional styling fields make positional calls fragile.            |
+| Open-ended `calc`/`series` arguments | Use `{"@call":"calc", args:{expression:"seats * 29", seats:$/seats}}`.                      | Constructor syntax rejects additional named arguments even when the function schema permits them.                                                          |
+| A custom button function             | Use `onClick={functionCall:saveNote(title="Finding", text=$/note)}`.                        | A bare `saveNote(...)` compiles to a function value, while `onClick` requires an Action wrapper. This wrapper is also part of the host's JSON contract.    |
+| Agent event context and chat text    | Use `onClick={event:{name:"followUp", userMessage:"Explain this", context:{note:$/note}}}`. | Explicit maps describe the complete Action contract. SDK 0.10 currently rejects bound context values even in these maps; see the failing regression below. |
+| Corner radius                        | Use a catalog token such as `radius="md"`.                                                  | SDK style normalization rejects CSS values such as `"12px"`.                                                                                               |
 
 The SDK-specific guidance can be removed when the corresponding constructor, skill-generation, or style behavior is supported upstream. The Action wrapper and catalog adaptation remain host contracts. Compilation and validation do not execute browser functions.
 
@@ -141,15 +141,15 @@ For the captured standard catalog, this adds 20,389 characters: the complete Exp
 
 ### Published dependency baseline
 
-The following published versions were checked on **2026-10-24** and are pinned directly so imports and compatibility workarounds have an explicit baseline. The lockfiles record the resolved dependency graph. CopilotKit packages deliberately remain `workspace:*`.
+The following published versions were checked on **2026-11-02**. The Python pins and regenerated `uv.lock` now install as a coherent published dependency graph; no local SDK or adapter source is required. CopilotKit packages deliberately remain `workspace:*`. The lock update changes only the three direct pins below and the required transitive `ag-ui-a2ui-toolkit` upgrade from `0.0.5` to `0.0.6`.
 
 The root `pnpm.overrides` resolves requests for `@ag-ui/client@1.0.2` to published `1.0.3`. The example's `HttpAgent` must share the same `AbstractAgent` class identity as the workspace runtime and its middleware; mixing these patch versions fails TypeScript's private-member compatibility check. The override aligns this client across the workspace, including other consumers pinned to `1.0.2`. It leaves `0.0.x` clients and other SDK version pins unchanged. Remove the override when workspace manifests and their consumers consistently request a compatible current client version without it.
 
 | Package          | Version  |
 | ---------------- | -------- |
-| `a2ui-agent-sdk` | `0.9.0`  |
-| `a2ui-core`      | `0.4.0`  |
-| `ag-ui-adk`      | `0.11.0` |
+| `a2ui-agent-sdk` | `0.10.0` |
+| `a2ui-core`      | `0.5.0`  |
+| `ag-ui-adk`      | `0.12.0` |
 | `ag-ui-protocol` | `1.0.0`  |
 | `google-adk`     | `2.13.0` |
 | `google-genai`   | `2.33.0` |
@@ -161,9 +161,9 @@ Status as of **2026-11-02**. Earlier live checks below describe the experimental
 
 | Area                          | Status                                                 | What remains                                                                                                                                                                                                                                                                           |
 | ----------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Canonical Python dependencies | Release blocker                                        | Published ADK adapter bounds exclude SDK 0.10/core 0.5 and its removed `payload_fixer` import prevents startup. Keep the baseline lock coherent until the enabling adapter release.                                                                                                    |
+| Canonical Python dependencies | Resolved                                               | Published ADK 0.12.0 accepts SDK 0.10/core 0.5. The committed lock installs cleanly, and the agent imports and serves `/health` successfully.                                                                                                                                          |
 | Bound Express event context   | Upstream SDK blocker                                   | SDK 0.10 rejects `onClick={event:{name:"followUp",context:{note:$/note}}}` as a forbidden data binding even though `ActionEvent.context` permits dynamic values. The existing regression assertion remains; no local parser patch or schema weakening is added.                        |
-| Local JSON/Express execution  | Blocked for canonical migration                        | Full agent startup and JSON/Express browser stream/action checks require the enabling releases.                                                                                                                                                                                        |
+| Local JSON/Express execution  | Validation incomplete                                  | Published Python startup works. Express bound event context still fails; a canonical browser stream/action round-trip remains unverified.                                                                                                                                              |
 | Shared deployment             | Deployment blocker                                     | Replace the fixed demo `identifyUser` with identity from your app's verified session before serving multiple users.                                                                                                                                                                    |
 | Production startup            | Production-start blocker; development setup unaffected | `example-start` expects `.output/server/index.mjs`, but the Vite build produces `dist/server/server.js` without that `.output` entry. Fix the build artifact/start command and Node adapter setup before deployment; the emitted file may export a handler rather than start a server. |
 | Prefix recompilation          | App-specific transport contract                        | SDK 0.10 native streaming cannot seed manifest-only prior surfaces or defer destructive effects. Recompilation preserves those behaviors; it may add work as source grows.                                                                                                             |
@@ -174,7 +174,9 @@ Status as of **2026-11-02**. Earlier live checks below describe the experimental
 
 ### Verification
 
-Canonical migration verification is incomplete: the retained published dependency graph cannot start the canonical agent. Diagnostic validation used published SDK 0.10.0/core 0.5.0/toolkit 0.0.6 and the actual AG-UI #3275 source commit `0d9008f41ca6affab6208237672fc8e2b2670fc3` in an isolated environment. The full deterministic agent suite ran with **121 passed, 1 failed**; the failure is the bound event context case above. Frontend typecheck and Vite build passed against local #8155 artifacts. These checks do not validate the retained lockfile or a browser action round-trip. Historical live checks below apply only to the old baseline.
+Published dependency validation uses a fresh environment created with `uv sync --locked --group dev`: ADK 0.12.0, SDK 0.10.0, core 0.5.0, and toolkit 0.0.6 all come from PyPI. Imports, a completed canonical Express native stream, and real HTTP agent startup (`/health` returns 200) pass. No local adapter source, dependency override, or compatibility shim is needed.
+
+The full deterministic agent suite on this published graph reports **121 passed, 1 failed**, with two ADK experimental warnings. The failure is `test_explicit_action_maps_keep_user_message_context_and_client_functions`, the upstream bound event-context defect; its existing assertion remains unchanged. Frontend typecheck/build validation uses local artifacts from the canonical #8155 source, rather than a containing npm release. The canonical browser stream/action round-trip and a live model completion remain unverified. Historical live checks below apply only to the old baseline.
 
 Run these commands from the repository root:
 
