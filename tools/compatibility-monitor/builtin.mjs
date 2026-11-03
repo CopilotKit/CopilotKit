@@ -20,7 +20,10 @@ export function prepareBuiltinConsumer(source, work) {
   )
     .replace('from "../index"', 'from "@copilotkit/runtime"')
     .replace('from "../tool-spec"', 'from "@copilotkit/runtime"')
-    .replace('from "../../ai-sdk/messages"', 'from "@copilotkit/runtime/ai-sdk"')
+    .replace(
+      'from "../../ai-sdk/messages"',
+      'from "@copilotkit/runtime/ai-sdk"',
+    )
     .replace(
       '"../../../../intelligence-delivery-core/conformance/snapshots.v1.json"',
       '"./snapshots.v1.json"',
