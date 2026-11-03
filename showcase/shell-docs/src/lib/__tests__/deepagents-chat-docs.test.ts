@@ -57,7 +57,9 @@ test("raw Markdown includes both complete examples and no missing-snippet fallba
   expect(markdown).toContain("function ChatWithSuggestions");
   expect(markdown).toContain('consumerAgentId: "sample_agent"');
   expect(markdown.match(/```tsx/g)).toHaveLength(2);
-  expect(markdown).not.toMatch(/Missing snippet|snippet skipped|No demo found|Not available for/);
+  expect(markdown).not.toMatch(
+    /Missing snippet|snippet skipped|No demo found|Not available for/,
+  );
 });
 
 test("the authored MDX renders both examples and the demo-only notice as HTML", async () => {
