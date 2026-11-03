@@ -9,7 +9,11 @@ import {
   watch,
 } from "vue";
 import type { Message } from "@ag-ui/core";
-import { ɵgetChatViewState, ɵnormalizeAutoScroll } from "@copilotkit/core";
+import {
+  ɵgetChatViewState,
+  ɵisScrolledToBottom,
+  ɵnormalizeAutoScroll,
+} from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import type { Attachment } from "@copilotkit/shared";
 import { useChatLabels } from "./use-chat-labels";
@@ -30,7 +34,6 @@ import type {
 // Vertical gap between the scroll-to-bottom button and the input container.
 // Mirrors React `CopilotChatView` `SCROLL_BUTTON_OFFSET`.
 const SCROLL_BUTTON_OFFSET = 16;
-const SCROLL_BOTTOM_THRESHOLD = 12;
 
 const props = withDefaults(defineProps<CopilotChatViewProps>(), {
   messageFeedback: true,
@@ -304,9 +307,7 @@ function updateIsAtBottom() {
     return;
   }
 
-  const distance =
-    element.scrollHeight - element.scrollTop - element.clientHeight;
-  isAtBottom.value = distance <= SCROLL_BOTTOM_THRESHOLD;
+  isAtBottom.value = ɵisScrolledToBottom(element);
 }
 
 function syncInputContainerHeight() {
