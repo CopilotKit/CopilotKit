@@ -36,8 +36,8 @@ import { CopilotChatDefaultLabels } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import { useKeyboardHeight } from "../../hooks/use-keyboard-height";
 import { ScrollPinnedContext } from "./scroll-pinned-context";
-import { normalizeAutoScroll } from "./normalize-auto-scroll";
-import type { AutoScrollMode } from "./normalize-auto-scroll";
+import { ɵnormalizeAutoScroll as normalizeAutoScroll } from "@copilotkit/core";
+import type { ɵAutoScrollMode as AutoScrollMode } from "@copilotkit/core";
 import { usePinToSend } from "../../hooks/use-pin-to-send";
 
 // Vertical gap between the scroll-to-bottom button and the input container.

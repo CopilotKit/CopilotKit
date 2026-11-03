@@ -21,7 +21,7 @@ import type {
   ToolCallEntry,
 } from "@copilotkit/core";
 import type { InterruptEvent } from "../../types";
-import type { AutoScrollMode } from "./normalize-auto-scroll";
+import type { ɵAutoScrollMode as AutoScrollMode } from "@copilotkit/core";
 
 export type CopilotChatInputMode = "input" | "transcribe" | "processing";
 export type { Attachment, AttachmentsConfig, AttachmentModality };

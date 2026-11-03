@@ -101,7 +101,7 @@ export type {
   AttachmentModality,
 } from "@copilotkit/shared";
 
-export type { AutoScrollMode } from "./normalize-auto-scroll";
+export type { ɵAutoScrollMode as AutoScrollMode } from "@copilotkit/core";
 
 export {
   default as CopilotChatToolCallGroup,

@@ -9,7 +9,7 @@ import {
   watch,
 } from "vue";
 import type { Message } from "@ag-ui/core";
-import { ɵgetChatViewState } from "@copilotkit/core";
+import { ɵgetChatViewState, ɵnormalizeAutoScroll } from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import type { Attachment } from "@copilotkit/shared";
 import { useChatLabels } from "./use-chat-labels";
@@ -20,7 +20,6 @@ import CopilotChatInput from "./CopilotChatInput.vue";
 import CopilotChatAttachmentQueue from "./CopilotChatAttachmentQueue.vue";
 import CopilotChatMessageView from "./CopilotChatMessageView.vue";
 import CopilotChatSuggestionView from "./CopilotChatSuggestionView.vue";
-import { normalizeAutoScroll } from "./normalize-auto-scroll";
 import type {
   CopilotChatInputMode,
   CopilotChatInterruptSlotProps,
@@ -141,8 +140,8 @@ const localInputValue = ref(props.inputValue ?? "");
 
 // Normalize the `autoScroll` prop into the canonical mode triplet
 // (`pin-to-bottom` | `pin-to-send` | `none`). Boolean back-compat is
-// preserved by `normalizeAutoScroll` (parity with React).
-const autoScrollMode = computed(() => normalizeAutoScroll(props.autoScroll));
+// preserved by `ɵnormalizeAutoScroll` (parity with React).
+const autoScrollMode = computed(() => ɵnormalizeAutoScroll(props.autoScroll));
 const isPinToBottomMode = computed(
   () => autoScrollMode.value === "pin-to-bottom",
 );
