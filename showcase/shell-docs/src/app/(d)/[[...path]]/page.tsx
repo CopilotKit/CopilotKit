@@ -66,6 +66,17 @@ export async function generateMetadata({
       }),
     };
   }
+  // The examples playground, not the hidden `examples.mdx` page behind it.
+  if (path.length === 1 && path[0] === "examples") {
+    const title = "Examples";
+    const description =
+      "Every CopilotKit showcase demo, live, on the agent framework you use.";
+    return {
+      title,
+      description,
+      ...liveDocMetadata({ title, description, path: "/examples" }),
+    };
+  }
   const live = resolveLivePage(path);
   const catalog = live ? null : catalogReferenceFromPath(path);
   if (catalog) {
