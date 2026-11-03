@@ -2,7 +2,6 @@
   "title": "Components and surfaces",
   "icon": "lucide/LayoutTemplate",
   "pages": [
-    "index",
     "surfaces",
     "catalogs",
     "standard-catalog",

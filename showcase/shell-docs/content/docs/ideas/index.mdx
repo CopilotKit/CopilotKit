@@ -1,0 +1,36 @@
+---
+title: Picker ideas
+description: Nine ways other developer docs let readers choose their stack, each rebuilt as a clickable mock for CopilotKit.
+---
+
+Each idea comes from a docs site with the same problem: one product, many
+frameworks. Every page shows the real site, then a mock of how it would work
+here. The mocks follow the decisions so far: each agent framework has its own
+URL, the frontend switches inside the page, and Intelligence has its own
+section.
+
+| Idea                                             | Learned from           | What it solves                                     |
+| ------------------------------------------------ | ---------------------- | -------------------------------------------------- |
+| [Framework in the sidebar](/docs/ideas/sentry)   | Sentry                 | The framework scopes the URL and the page names it |
+| [Available-for tiles](/docs/ideas/clerk)         | Clerk                  | Every page shows which frameworks it covers        |
+| [Frontend chips](/docs/ideas/storybook)          | Storybook              | Switch frontend in place, under the title          |
+| [One sentence](/docs/ideas/prisma)               | Prisma                 | The page says what it uses and offers the switch   |
+| [First fork as buttons](/docs/ideas/stripe)      | Stripe                 | A page splits into variants at the top             |
+| [Two questions](/docs/ideas/expo)                | Expo                   | A friendly one-time choice on the quickstart       |
+| [Integrations directory](/docs/ideas/ai-sdk)     | Vercel AI SDK          | Every framework gets a card and a home page        |
+| [Product tabs](/docs/ideas/product-tabs)         | AWS Amplify, LangChain | Docs, Integrations, Intelligence as top sections   |
+| [Quickstart per framework](/docs/ideas/supabase) | Supabase               | A named quickstart for each framework              |
+
+## Combinations worth trying
+
+The ideas stack. Three that cover both axes, each built as a working
+[prototype](/proto):
+
+- **Sentry + Storybook + Prisma.** The framework lives in the sidebar and the
+  URL, the frontend is a row of chips under the title, and one sentence names
+  both for readers and agents.
+- **AI SDK + Clerk + Expo.** A directory gives every framework a home page,
+  each page shows which frameworks it covers, and the quickstart asks two
+  questions once.
+- **Product tabs + Supabase.** Integrations and Intelligence become top-level
+  sections, and each framework gets its own quickstart page.

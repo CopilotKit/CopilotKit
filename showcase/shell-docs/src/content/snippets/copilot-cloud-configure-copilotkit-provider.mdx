@@ -1,5 +1,3 @@
-import { Callout } from "fumadocs-ui/components/callout";
-import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
 
 The [`<CopilotKit>`](/reference/v1/components/CopilotKit) provider must wrap the Copilot-aware parts of your application.
 For most use-cases, it's appropriate to wrap the `CopilotKit` provider around the entire app, e.g. in your `layout.tsx`
@@ -14,7 +12,6 @@ For most use-cases, it's appropriate to wrap the `CopilotKit` provider around th
 
 ```tsx title="layout.tsx" showLineNumbers
 import "./globals.css";
-
 import { ReactNode } from "react";
 import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
 
