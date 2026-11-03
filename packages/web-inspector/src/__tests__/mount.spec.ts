@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CopilotKitCore } from "@copilotkit/core";
-import { ɵmountInspector } from "../mount";
-import type { ɵWebInspectorModule } from "../mount";
-import type { WebInspectorElement } from "../index";
+import { ɵmountInspector } from "../mount.js";
+import type { ɵWebInspectorModule } from "../mount.js";
+import type { WebInspectorElement } from "../index.js";
 
 const TAG = "cpk-mount-test-inspector";
 
