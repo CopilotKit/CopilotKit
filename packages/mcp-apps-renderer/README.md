@@ -35,11 +35,16 @@ If you render MCP Apps, install the renderer alongside your frontend package:
 npm install @copilotkit/mcp-apps-renderer
 ```
 
-If it is missing, the adapter reports the package name in the setup error when
-the first MCP App renders; apps without MCP Apps never load it.
+If the package is missing, the adapter fails when the first MCP App renders;
+apps without MCP Apps never load it. Whether that failure names the package
+depends on the bundler: Rollup and esbuild warn on the unresolved dynamic import
+and let the runtime `.catch()` report it, and Vite's dev server throws the same
+way. Vite production builds differ — Vite resolves the absent optional peer
+dependency to an empty module, so the `.catch()` never runs and setup fails with
+a `TypeError` (`bindMcpApp is not a function`) that does not name the package,
+and no unresolved-import warning is emitted.
 
-Two build-time exceptions, both webpack-only — Vite, Rollup and esbuild warn on
-the unresolved dynamic import and let the runtime `.catch()` report it:
+Two build-time exceptions, both webpack-only:
 
 - An Angular webpack build that includes `provideMCPApps` must install this
   package whatever the webpack version, even when the app never renders a
