@@ -37,6 +37,7 @@ type SubscriptionHandlers = {
   onRunFinishedEvent?: (params: RunFinishedParams) => void;
   onRunFinalized?: (params: { input: TestRunInput }) => void;
   onRunFailed?: () => void;
+  onRunErrorEvent?: (params: { event: { message: string } }) => void;
 };
 
 /** Captures the wire input after CopilotKit and AG-UI have prepared it. */
@@ -659,6 +660,33 @@ describe("useInterrupt", () => {
       finalizeRun();
     });
 
+    expect(screen.queryByTestId("interrupt")).toBeNull();
+  });
+
+  it("clears a shown interrupt when the run reports a RUN_ERROR event", () => {
+    render(<Harness renderInChat={false} />);
+    emitInterrupt("shown");
+    expect(screen.getByTestId("interrupt")).toBeTruthy();
+
+    act(() => {
+      handlers.onRunErrorEvent?.({ event: { message: "boom" } });
+    });
+
+    expect(screen.queryByTestId("interrupt")).toBeNull();
+  });
+
+  it("drops an interrupt instead of resuming once the agent switched threads", async () => {
+    mockAgent.threadId = "thread-a";
+    const renderSpy = vi.fn();
+    render(<Harness renderInChat={false} renderSpy={renderSpy} />);
+    emitInterrupt("old-thread");
+
+    mockAgent.threadId = "thread-b";
+    await act(async () => {
+      await renderSpy.mock.calls.at(-1)![0].resolve("yes");
+    });
+
+    expect(runAgentMock).not.toHaveBeenCalled();
     expect(screen.queryByTestId("interrupt")).toBeNull();
   });
 
