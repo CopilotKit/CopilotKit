@@ -344,7 +344,7 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
         isPinnedToBottom: false,
         initialMessages: [message("a"), message("b")],
       });
-      expect(virtualizer().options.getItemKey(0)).toBe("a");
+      expect(virtualizer().options.getItemKey(0)).toBe("copilotkit-message:a");
 
       act(() => {
         setMessages!([message("a"), message("inserted"), message("b")]);
@@ -352,8 +352,10 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
 
       // Keyed by index, row 2 would inherit whatever was measured for index
       // 2 before, and "b" would take the height cached for index 1.
-      expect(virtualizer().options.getItemKey(1)).toBe("inserted");
-      expect(virtualizer().options.getItemKey(2)).toBe("b");
+      expect(virtualizer().options.getItemKey(1)).toBe(
+        "copilotkit-message:inserted",
+      );
+      expect(virtualizer().options.getItemKey(2)).toBe("copilotkit-message:b");
     });
 
     it("keeps the same key function when a re-render rebuilds the same rows", () => {
@@ -398,6 +400,31 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
       expect(virtualizer().options.estimateSize(3)).toBe(200);
     });
 
+    it("never gives a message the key of a group, whatever its id", () => {
+      const Wrapper = ({ children }: { children: React.ReactNode }) => (
+        <div>{children}</div>
+      );
+      const groupMessages: GroupMessages = (list) => [
+        messageGroup({
+          key: "tool-1",
+          messages: list.filter((m) => m.id === "tool-1"),
+          wrapper: Wrapper,
+        }),
+        ...list.filter((m) => m.id !== "tool-1").map(messageRow),
+      ];
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [
+          message("tool-1"),
+          message("copilotkit-group:tool-1"),
+        ],
+        groupMessages,
+      });
+
+      const { getItemKey } = virtualizer().options;
+      expect(getItemKey(0)).not.toBe(getItemKey(1));
+    });
+
     it("keeps rows after a group on their own keys as the group absorbs messages", () => {
       // Folds every message whose id starts with "tool-" into one row.
       const Wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -427,7 +454,7 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
       const keyOfAnswer = () => {
         const { options } = virtualizer();
         for (let i = 0; i < 4; i++) {
-          if (options.getItemKey(i) === "answer") return i;
+          if (options.getItemKey(i) === "copilotkit-message:answer") return i;
         }
         return -1;
       };
