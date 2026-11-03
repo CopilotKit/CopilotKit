@@ -11,11 +11,12 @@ async function exercise() {
     input.consumer,
     "node_modules/@copilotkit/runtime/dist",
   );
+  const runtimeEntry = join(runtimeDist, "index.mjs");
   const {
     CopilotRuntime,
     CopilotKitIntelligence,
     createCopilotRuntimeHandler,
-  } = await import(pathToFileURL(join(runtimeDist, "index.mjs")));
+  } = await import(pathToFileURL(runtimeEntry));
   const { tanstackAIAgent } = await import(
     pathToFileURL(join(runtimeDist, "tanstack-ai.mjs"))
   );
@@ -105,7 +106,7 @@ async function exercise() {
   });
   await writeFile(
     input.result,
-    JSON.stringify({ runtimeEntry: entry, thread, learning }, null, 2),
+    JSON.stringify({ runtimeEntry, thread, learning }, null, 2),
   );
 }
 
