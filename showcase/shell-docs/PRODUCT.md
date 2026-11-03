@@ -32,8 +32,8 @@ CopilotKit is the enterprise agentic frontend stack for connecting any agent to 
 - **Fumadocs compliance is binding.** The site is built on stock Fumadocs (`fumadocs-core`, `fumadocs-ui` via `@fumadocs/base-ui`, `fumadocs-mdx`) and must stay upgradeable with minimal rewriting. Branding goes through Fumadocs' supported theming surface (its CSS variables, presets, layout options, and component props), not through forks, replacements, or overrides of Fumadocs components and behavior. Prefer Fumadocs' built-in components (Cards, Tabs, Callouts, Steps, TOC, search, page actions) over custom equivalents.
 - Standalone npm app at `showcase/shell-docs`, outside the pnpm workspace; dev server on port 3003.
 - Ships Fumadocs' built-in Orama search, generated OG images, `llms.txt` / `llms-full.txt`, markdown negotiation (`*.md` URLs and `Accept: text/markdown`), an MCP server at `/api/mcp`, and an "Ask AI" chat built on CopilotKit, scoped to CopilotKit and AG-UI questions.
-- To reach parity it must carry over from `showcase/shell-docs`: the showcase-driven per-framework docs, the framework selector, live demos, and the existing content in `showcase/shell-docs/src/content`.
-- Not yet deployed or wired into CI; `showcase/shell-docs` still serves docs.copilotkit.ai.
+- It carries the showcase-driven per-framework docs, the framework selector, live demos, and the pages in `src/content`.
+- The showcase build deploys it to docs.staging.copilotkit.ai on merge to `main`; production follows a promote.
 - **Agent backends get their own URLs** (e.g. a Mastra section under its own path). Required for co-marketing with each framework partner.
 - **Every agent backend is first-class to some degree.** How complete each one is comes from the showcase D6 results, not from a hand-kept tier list.
 - **Frontends:** React, Vue, and React Native are fully functional, first-class frontends. React SPA is not a separate frontend; its content folds into the React docs. Angular stays. Slack and Teams are channels.
