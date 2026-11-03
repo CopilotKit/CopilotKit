@@ -14,6 +14,8 @@
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
+    "@tanstack/ai": "^1.0.1",
+    "@tanstack/ai-openai": "^1.0.1",
     "clsx": "^1.2.1",
     "motion": "^11.18.1",
     "next": "15.5.24",

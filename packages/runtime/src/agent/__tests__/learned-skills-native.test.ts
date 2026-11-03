@@ -1,11 +1,13 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-import { streamText, stepCountIs } from "ai";
+import { jsonSchema, stepCountIs, streamText, tool } from "ai";
+import type { ToolSet } from "ai";
 import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
-import { z } from "zod";
 import { EventType } from "@ag-ui/client";
-import { BuiltInAgent, convertMessagesToVercelAISDKMessages } from "../index";
+import { BuiltInAgent } from "../index";
+import type { AgentToolSpec } from "../tool-spec";
+import { aiSdk, convertMessagesToVercelAISDKMessages } from "../../ai-sdk";
 import { collectEvents, createDefaultInput } from "./agent-test-helpers";
 import fixtures from "../../../../intelligence-delivery-core/conformance/snapshots.v1.json";
 
@@ -67,6 +69,50 @@ async function deliveryServer() {
   };
 }
 
+/** The learned-skills definitions as AI SDK tools, as a factory maps them. */
+function toAiSdkTools(definitions: readonly AgentToolSpec[]) {
+  const tools: ToolSet = {};
+  for (const definition of definitions) {
+    const { execute } = definition;
+    if (!execute) throw new Error(`${definition.name} has no execute`);
+    tools[definition.name] = tool({
+      description: definition.description,
+      inputSchema: jsonSchema<Record<string, unknown>>(definition.parameters),
+      execute,
+    });
+  }
+  return tools;
+}
+
+/** A factory that streams with the learned-skills tools and catalog. */
+function skillsFactoryAgent(
+  model: MockLanguageModelV3,
+  options: {
+    learnedSkills: Awaited<ReturnType<typeof deliveryServer>>["options"];
+    maxSteps?: number;
+    extraTools?: ToolSet;
+  },
+) {
+  return new BuiltInAgent({
+    type: "aisdk",
+    learnedSkills: options.learnedSkills,
+    factory: ({ input, abortSignal, learnedSkills }) =>
+      streamText({
+        model,
+        system: ["Host instructions", learnedSkills.catalog]
+          .filter(Boolean)
+          .join("\n\n"),
+        messages: convertMessagesToVercelAISDKMessages(input.messages),
+        tools: {
+          ...toAiSdkTools(learnedSkills.definitions),
+          ...options.extraTools,
+        },
+        stopWhen: stepCountIs(options.maxSteps ?? 4),
+        abortSignal,
+      }),
+  });
+}
+
 describe("native AI SDK skill delivery over canonical HTTP transport", () => {
   it.each([false, true])(
     "pauses on an interrupt with prior skill loading: %s",
@@ -97,17 +143,18 @@ describe("native AI SDK skill delivery over canonical HTTP transport", () => {
           };
         },
       });
-      const agent = new BuiltInAgent({
-        model,
+      const agent = skillsFactoryAgent(model, {
         learnedSkills: server.options,
-        tools: [
-          {
-            name: "approve",
+        extraTools: {
+          approve: tool({
             description: "Ask for approval",
-            parameters: z.object({}),
-            interrupt: true,
-          },
-        ],
+            inputSchema: jsonSchema<Record<string, never>>({
+              type: "object",
+              properties: {},
+            }),
+            needsApproval: true,
+          }),
+        },
       });
       const events = await collectEvents(
         agent.run(
@@ -128,7 +175,7 @@ describe("native AI SDK skill delivery over canonical HTTP transport", () => {
     },
   );
 
-  it("sends the catalog when a classic run has no conversation messages", async () => {
+  it("sends the catalog when a factory run has no conversation messages", async () => {
     const server = await deliveryServer();
     const model = new MockLanguageModelV3({
       doStream: async () => ({
@@ -143,7 +190,13 @@ describe("native AI SDK skill delivery over canonical HTTP transport", () => {
         }),
       }),
     });
-    const agent = new BuiltInAgent({ model, learnedSkills: server.options });
+    // The AI SDK rejects empty `messages`; the aiSdk helper moves the
+    // catalog into `messages` as a system message instead.
+    const agent = new BuiltInAgent({
+      type: "aisdk",
+      learnedSkills: server.options,
+      factory: async (ctx) => streamText({ ...(await aiSdk(ctx)), model }),
+    });
 
     const events = await collectEvents(agent.run(createDefaultInput()));
 
@@ -156,7 +209,7 @@ describe("native AI SDK skill delivery over canonical HTTP transport", () => {
     expect(prompt[0].content).toContain("copilotkit_learned_skills");
   });
 
-  it.each(["classic", "factory", "classic-single-step"] as const)(
+  it.each(["factory", "factory-single-step"] as const)(
     "%s executes both skill tools and refreshes on resume",
     async (mode) => {
       const server = await deliveryServer();
@@ -208,31 +261,10 @@ describe("native AI SDK skill delivery over canonical HTTP transport", () => {
           }),
         }),
       });
-      const agent =
-        mode !== "factory"
-          ? new BuiltInAgent({
-              model,
-              prompt: "Host instructions",
-              learnedSkills: server.options,
-              ...(mode === "classic-single-step" ? { maxSteps: 1 } : {}),
-            })
-          : new BuiltInAgent({
-              type: "aisdk",
-              learnedSkills: server.options,
-              factory: ({ input, abortSignal, learnedSkills }) =>
-                streamText({
-                  model,
-                  system: ["Host instructions", learnedSkills.catalog]
-                    .filter(Boolean)
-                    .join("\n\n"),
-                  messages: convertMessagesToVercelAISDKMessages(
-                    input.messages,
-                  ),
-                  tools: learnedSkills.tools,
-                  stopWhen: stepCountIs(4),
-                  abortSignal,
-                }),
-            });
+      const agent = skillsFactoryAgent(model, {
+        learnedSkills: server.options,
+        ...(mode === "factory-single-step" ? { maxSteps: 1 } : {}),
+      });
       const input = createDefaultInput({
         messages: [
           { id: "user", role: "user", content: "Explain the refund policy." },
@@ -247,7 +279,7 @@ describe("native AI SDK skill delivery over canonical HTTP transport", () => {
         "Use the published refund policy",
       );
       expect(JSON.stringify(results)).toContain("30 days");
-      const expectedCalls = mode === "classic-single-step" ? 1 : 2;
+      const expectedCalls = mode === "factory-single-step" ? 1 : 2;
       expect(model.doStreamCalls).toHaveLength(expectedCalls);
       const firstPrompt = JSON.stringify(model.doStreamCalls[0].prompt);
       expect(firstPrompt).toContain("Host instructions");

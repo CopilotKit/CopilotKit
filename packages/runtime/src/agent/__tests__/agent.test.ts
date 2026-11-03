@@ -5,15 +5,15 @@ import type {
   Interrupt,
   ResumeEntry,
   RunAgentInput,
+  RunFinishedEvent,
+  ToolMessage,
 } from "@ag-ui/client";
-import { z } from "zod";
 import {
   BuiltInAgent,
   createDefaultInput,
   createAgent,
   createThrowingAgent,
   createMidStreamErrorAgent,
-  createClassicAgentWithTools,
   collectEvents,
   collectEventsIncludingErrors,
   expectLifecycleWrapped,
@@ -24,8 +24,9 @@ import {
   tanstackTextChunk,
   tanstackToolCallStart,
   tanstackToolCallEnd,
-  tanstackApprovalRequested,
+  tanstackApprovalRunFinished,
   aisdkToolApprovalRequest,
+  mockCustomStream,
 } from "./agent-test-helpers";
 import type {
   AgentFactoryContext,
@@ -37,6 +38,23 @@ import type {
 // ---------------------------------------------------------------------------
 // Local helpers for parameterized tests
 // ---------------------------------------------------------------------------
+
+/** The one RUN_FINISHED event of a run. */
+function runFinished(events: BaseEvent[]) {
+  const finished = events.filter(
+    (event): event is RunFinishedEvent => event.type === EventType.RUN_FINISHED,
+  );
+  expect(finished).toHaveLength(1);
+  return finished[0]!;
+}
+
+/** The tool-role messages in `input` that answer `toolCallId`. */
+function toolMessagesFor(input: RunAgentInput | undefined, toolCallId: string) {
+  return (input?.messages ?? []).filter(
+    (message): message is ToolMessage =>
+      message.role === "tool" && message.toolCallId === toolCallId,
+  );
+}
 
 const allTypes: AgentType[] = ["aisdk", "tanstack", "custom"];
 
@@ -628,13 +646,13 @@ describe("BuiltInAgent factory interrupt() primitive", () => {
           type: EventType.TEXT_MESSAGE_START,
           messageId: "m1",
           role: "assistant",
-        } as any;
+        };
         yield {
           type: EventType.TEXT_MESSAGE_CONTENT,
           messageId: "m1",
           delta: `resolved:${JSON.stringify(responses)}`,
-        } as any;
-        yield { type: EventType.TEXT_MESSAGE_END, messageId: "m1" } as any;
+        };
+        yield { type: EventType.TEXT_MESSAGE_END, messageId: "m1" };
       },
     });
   }
@@ -642,11 +660,10 @@ describe("BuiltInAgent factory interrupt() primitive", () => {
   it("emits RUN_FINISHED with outcome:interrupt on a fresh run", async () => {
     const agent = makeCustomInterruptAgent();
     const events = await collectEvents(agent.run(createDefaultInput()));
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
-    expect(finished).toBeDefined();
-    expect(finished.outcome).toEqual({ type: "interrupt", interrupts: [INT] });
+    expect(runFinished(events).outcome).toEqual({
+      type: "interrupt",
+      interrupts: [INT],
+    });
     // No text emitted on the paused run:
     expect(events.some((e) => e.type === EventType.TEXT_MESSAGE_CONTENT)).toBe(
       false,
@@ -663,109 +680,11 @@ describe("BuiltInAgent factory interrupt() primitive", () => {
     );
     const content = events.find(
       (e) => e.type === EventType.TEXT_MESSAGE_CONTENT,
-    ) as any;
-    expect(content.delta).toContain("resolved:");
-    expect(content.delta).toContain('"ok":true');
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
-    expect(finished.outcome).toBeUndefined(); // normal completion
-  });
-});
-
-// ---------------------------------------------------------------------------
-// BuiltInAgent classic interrupt tools
-// ---------------------------------------------------------------------------
-
-describe("BuiltInAgent classic interrupt tools", () => {
-  const interruptTool = {
-    name: "confirm_action",
-    description: "Ask the human to confirm",
-    parameters: z.object({ summary: z.string() }),
-    interrupt: true as const,
-    interruptReason: "confirmation",
-    interruptMessage: "Please confirm",
-  };
-
-  it("pauses + emits outcome:interrupt (keyed by toolCallId), withholding the tool result", async () => {
-    // mock stream: assistant calls the interrupt tool, then 'finish'
-    const agent = createClassicAgentWithTools(
-      [toolCall("tc-1", "confirm_action", { summary: "delete X" }), finish()],
-      [interruptTool],
     );
-    const events = await collectEvents(
-      agent.run(
-        createDefaultInput({
-          messages: [{ id: "u1", role: "user", content: "do it" }] as any,
-        }),
-      ),
+    expect(eventField<string>(content!, "delta")).toBe(
+      `resolved:${JSON.stringify(resume)}`,
     );
-
-    expect(events.some((e) => e.type === EventType.TOOL_CALL_START)).toBe(true);
-    expect(events.some((e) => e.type === EventType.TOOL_CALL_END)).toBe(true);
-    // result withheld:
-    expect(events.some((e) => e.type === EventType.TOOL_CALL_RESULT)).toBe(
-      false,
-    );
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
-    expect(finished.outcome.type).toBe("interrupt");
-    expect(finished.outcome.interrupts[0]).toMatchObject({
-      id: "tc-1",
-      toolCallId: "tc-1",
-      reason: "confirmation",
-      message: "Please confirm",
-    });
-  });
-
-  it("on resume, injects the resume payload as the interrupt tool's result and continues", async () => {
-    // Resume run: the model just replies after the injected tool result.
-    const agent = createClassicAgentWithTools(
-      [textDelta("done"), finish()],
-      [interruptTool],
-    );
-    const input = createDefaultInput({
-      resume: [
-        {
-          interruptId: "tc-1",
-          status: "resolved",
-          payload: { approved: true },
-        },
-      ],
-      messages: [
-        { id: "u1", role: "user", content: "do it" },
-        {
-          id: "a1",
-          role: "assistant",
-          content: "",
-          toolCalls: [
-            {
-              id: "tc-1",
-              type: "function",
-              function: {
-                name: "confirm_action",
-                arguments: '{"summary":"delete X"}',
-              },
-            },
-          ],
-        },
-      ] as any,
-    });
-
-    const events = await collectEvents(agent.run(input));
-
-    // The run completes normally (no interrupt outcome on the resume run):
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
-    expect(finished.outcome).toBeUndefined();
-
-    // The synthesized tool result reached the model: a tool-role message
-    // addressing tc-1 with the resume payload must be present.
-    expect(agent.__lastModelMessages).toEqual(
-      expect.arrayContaining([expect.objectContaining({ role: "tool" })]),
-    );
+    expect(runFinished(events).outcome).toBeUndefined(); // normal completion
   });
 });
 
@@ -773,8 +692,8 @@ describe("BuiltInAgent classic interrupt tools", () => {
 // BuiltInAgent factory-mode NATIVE approval interrupts (aisdk + tanstack)
 //
 // A tool declared with the SDK's native `needsApproval: true` pauses the run:
-// AI SDK emits a `tool-approval-request` fullStream part; TanStack emits a
-// CUSTOM `approval-requested` chunk. Both surface as RUN_FINISHED
+// AI SDK emits a `tool-approval-request` fullStream part; TanStack ends the
+// turn with a RUN_FINISHED `interrupt` outcome. Both surface as RUN_FINISHED
 // outcome:interrupt, and on resume the payload is injected as that tool call's
 // native tool-result so the factory continues.
 // ---------------------------------------------------------------------------
@@ -807,13 +726,9 @@ describe("BuiltInAgent factory native approval interrupts", () => {
     expect(events.some((e) => e.type === EventType.TOOL_CALL_START)).toBe(true);
     expect(events.some((e) => e.type === EventType.TOOL_CALL_END)).toBe(true);
 
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
-    expect(finished.outcome.type).toBe("interrupt");
-    expect(finished.outcome.interrupts[0]).toMatchObject({
-      id: "tc-1",
-      toolCallId: "tc-1",
+    expect(runFinished(events).outcome).toMatchObject({
+      type: "interrupt",
+      interrupts: [{ id: "tc-1", toolCallId: "tc-1" }],
     });
   });
 
@@ -826,14 +741,10 @@ describe("BuiltInAgent factory native approval interrupts", () => {
       finish(),
     ]);
     const events = await collectEvents(agent.run(createDefaultInput()));
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
-    expect(finished.outcome.type).toBe("interrupt");
-    expect(finished.outcome.interrupts.map((i: any) => i.toolCallId)).toEqual([
-      "tc-1",
-      "tc-2",
-    ]);
+    expect(runFinished(events).outcome).toMatchObject({
+      type: "interrupt",
+      interrupts: [{ toolCallId: "tc-1" }, { toolCallId: "tc-2" }],
+    });
   });
 
   it("multiple resume entries each inject their own tool-role message", async () => {
@@ -862,12 +773,12 @@ describe("BuiltInAgent factory native approval interrupts", () => {
         }),
       ),
     );
-    const toolMsgs = captured!.messages.filter(
-      (m) => m.role === "tool",
-    ) as any[];
-    expect(toolMsgs.map((m) => m.toolCallId)).toEqual(["tc-1", "tc-2"]);
-    expect(toolMsgs[0].content).toContain("approved");
-    expect(toolMsgs[1].content).toContain("cancelled");
+    expect(toolMessagesFor(captured, "tc-1")).toMatchObject([
+      { content: JSON.stringify({ approved: true }) },
+    ]);
+    expect(toolMessagesFor(captured, "tc-2")).toMatchObject([
+      { content: JSON.stringify({ status: "cancelled" }) },
+    ]);
   });
 
   it("resume injection is idempotent — does not double-answer a tool call the client already recorded", async () => {
@@ -914,35 +825,32 @@ describe("BuiltInAgent factory native approval interrupts", () => {
               toolCallId: "tc-1",
               content: JSON.stringify({ approved: true }),
             },
-          ] as RunAgentInput["messages"],
+          ],
         }),
       ),
     );
-    const toolMsgs = captured!.messages.filter(
-      (m) => m.role === "tool" && (m as any).toolCallId === "tc-1",
-    );
-    expect(toolMsgs).toHaveLength(1);
+    expect(toolMessagesFor(captured, "tc-1")).toHaveLength(1);
   });
 
-  it("tanstack: CUSTOM approval-requested (even after RUN_FINISHED) → outcome:interrupt", async () => {
-    // The approval chunk is built from the finish event and can arrive AFTER
-    // RUN_FINISHED — assert it's still captured (ordering-robust).
+  it("tanstack: RUN_FINISHED approval outcome → outcome:interrupt", async () => {
     const agent = createAgent("tanstack", [
       tanstackToolCallStart("tc-9", "bookFlight"),
       tanstackToolCallEnd("tc-9"),
-      { type: "RUN_FINISHED" },
-      tanstackApprovalRequested("tc-9", "bookFlight", { dest: "NRT" }),
+      tanstackApprovalRunFinished("tc-9", "bookFlight", { dest: "NRT" }),
     ]);
     const events = await collectEvents(agent.run(createDefaultInput()));
 
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
-    expect(finished.outcome.type).toBe("interrupt");
-    expect(finished.outcome.interrupts[0]).toMatchObject({
-      id: "tc-9",
-      toolCallId: "tc-9",
-      message: 'Approve "bookFlight"?',
+    expect(runFinished(events).outcome).toEqual({
+      type: "interrupt",
+      interrupts: [
+        {
+          id: "tc-9",
+          toolCallId: "tc-9",
+          reason: "tool_approval",
+          message: 'Approve "bookFlight"?',
+          metadata: { toolName: "bookFlight" },
+        },
+      ],
     });
   });
 
@@ -974,16 +882,11 @@ describe("BuiltInAgent factory native approval interrupts", () => {
     );
 
     // Normal completion on the resume run (no re-interrupt).
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
-    expect(finished.outcome).toBeUndefined();
+    expect(runFinished(events).outcome).toBeUndefined();
 
-    const toolMsg = captured!.messages.find(
-      (m) => m.role === "tool" && (m as any).toolCallId === "tc-1",
-    ) as any;
-    expect(toolMsg).toBeDefined();
-    expect(toolMsg.content).toContain("approved");
+    expect(toolMessagesFor(captured, "tc-1")).toMatchObject([
+      { content: JSON.stringify({ approved: true }) },
+    ]);
   });
 
   it("tanstack: cancelled resume injects a cancellation tool-role message", async () => {
@@ -1012,10 +915,87 @@ describe("BuiltInAgent factory native approval interrupts", () => {
       ),
     );
 
-    const toolMsg = captured!.messages.find(
-      (m) => m.role === "tool" && (m as any).toolCallId === "tc-9",
-    ) as any;
-    expect(toolMsg).toBeDefined();
-    expect(toolMsg.content).toContain("cancelled");
+    expect(toolMessagesFor(captured, "tc-9")).toMatchObject([
+      { content: JSON.stringify({ status: "cancelled" }) },
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Factory config settings
+// ---------------------------------------------------------------------------
+
+describe("BuiltInAgent factory config", () => {
+  const factory = () => mockCustomStream([]);
+
+  it("reports the default capabilities when none are configured", async () => {
+    const agent = new BuiltInAgent({ type: "custom", factory });
+
+    expect(await agent.getCapabilities()).toEqual({
+      tools: { supported: true, clientProvided: true },
+      transport: { streaming: true },
+      humanInTheLoop: { interrupts: true },
+    });
+  });
+
+  it("replaces a whole capability category and keeps the other defaults", async () => {
+    const agent = new BuiltInAgent({
+      type: "custom",
+      factory,
+      capabilities: {
+        tools: { supported: true },
+        multimodal: { input: { image: true } },
+      },
+    });
+
+    expect(await agent.getCapabilities()).toEqual({
+      tools: { supported: true },
+      transport: { streaming: true },
+      humanInTheLoop: { interrupts: true },
+      multimodal: { input: { image: true } },
+    });
+  });
+
+  it("exposes the configured modelHostClass, and unknown when not set", () => {
+    expect(
+      new BuiltInAgent({ type: "custom", factory, modelHostClass: "anthropic" })
+        .modelHostClass,
+    ).toBe("anthropic");
+    expect(new BuiltInAgent({ type: "custom", factory }).modelHostClass).toBe(
+      "unknown",
+    );
+  });
+
+  it("keeps the configured settings on a clone", async () => {
+    const agent = new BuiltInAgent({
+      type: "custom",
+      factory,
+      modelHostClass: "openai",
+      capabilities: { transport: { streaming: false } },
+    });
+    const cloned = agent.clone();
+
+    expect(cloned.modelHostClass).toBe("openai");
+    expect((await cloned.getCapabilities()).transport).toEqual({
+      streaming: false,
+    });
+  });
+
+  // A JavaScript caller can still pass a config written for a release that
+  // took a `model`; TypeScript callers get a type error instead.
+  it("throws a migration error for a config with a model and no factory", () => {
+    const modelConfig = { model: "openai/gpt-5.5", prompt: "Be brief." };
+
+    expect(() => Reflect.construct(BuiltInAgent, [modelConfig])).toThrow(
+      /`model` is not supported\. Use tanstackAIAgent\(\{ adapter \}\) from "@copilotkit\/runtime\/tanstack-ai" or aiSdkAgent\(\{ model \}\) from "@copilotkit\/runtime\/ai-sdk"/,
+    );
+  });
+
+  it("throws when urlDownload is set next to a factory, where it cannot take effect", () => {
+    const config = { type: "aisdk", factory, urlDownload: "disabled" };
+
+    expect(() => Reflect.construct(BuiltInAgent, [config])).toThrow(
+      /urlDownload has no effect with a factory.*createSafeUrlDownload/,
+    );
   });
 });

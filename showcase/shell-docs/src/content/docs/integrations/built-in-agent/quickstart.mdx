@@ -24,9 +24,9 @@ Use this prompt to build a working chat with CopilotKit's built-in agent. Your c
 
 ## Prerequisites
 
-Before you begin, you'll need the following:
+Before you begin, you need:
 
-- An OpenAI API key (or Anthropic/Google — see [Model Selection](/model-selection))
+- An OpenAI API key. For Anthropic or Google, see [Model Selection](/model-selection).
 - Node.js 20.19.3+ or 22.13+
 - Your favorite package manager
 
@@ -44,7 +44,7 @@ Before you begin, you'll need the following:
         ```
 
         <Callout type="info" title="Already have an app?">
-          Keep your current setup and install CopilotKit there. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) creates a separate project; it does not modify an existing app.
+          Keep your current setup and install CopilotKit there. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) creates a separate project. It does not change an existing app.
 
           <FrontendOnly frontend="react">
           Use the [React SPA guide](/react-spa) for a client-only Vite app, or [deploy the runtime to your server framework](/runtime-server-adapter) with the React Router or TanStack Start examples.
@@ -57,15 +57,26 @@ Before you begin, you'll need the following:
     <Step>
         ### Install CopilotKit packages
 
-        ```npm
-        npm install @copilotkit/react-core @copilotkit/runtime
-        ```
+        The Built-in Agent calls the model through TanStack AI or the AI SDK. Install CopilotKit with the one you use:
+
+        <Tabs groupId="agent-sdk" items={['TanStack AI', 'AI SDK']}>
+            <Tab value="TanStack AI">
+                ```npm
+                npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+                ```
+            </Tab>
+            <Tab value="AI SDK">
+                ```npm
+                npm install @copilotkit/react-core @copilotkit/runtime ai @ai-sdk/openai
+                ```
+            </Tab>
+        </Tabs>
 
         The components used below (`CopilotKitProvider`, `CopilotSidebar`) come
         from `@copilotkit/react-core`.
 
         <Callout type="info" title="TypeScript: use bundler module resolution">
-          CopilotKit's package entry points (such as `@copilotkit/react-core/styles.css`) are published through the package `exports` map, which TypeScript's legacy `"moduleResolution": "node"` (`node10`) ignores. Under that setting, type checking fails with `Cannot find module '@copilotkit/react-core'` even though the app runs. Set `"moduleResolution": "bundler"` in `tsconfig.json`; if `module` is `commonjs` or unset, also set `"module": "esnext"`. `create-next-app` already uses `bundler`.
+          CopilotKit's package entry points (such as `@copilotkit/react-core/styles.css`) are published through the package `exports` map, which TypeScript's legacy `"moduleResolution": "node"` (`node10`) ignores. Under that setting, type checking fails with `Cannot find module '@copilotkit/react-core'` even though the app runs. Set `"moduleResolution": "bundler"` in `tsconfig.json`. If `module` is `commonjs` or not set, also set `"module": "esnext"`. `create-next-app` already uses `bundler`.
         </Callout>
     </Step>
     <Step>
@@ -84,47 +95,81 @@ Before you begin, you'll need the following:
     <Step>
         ### Setup Copilot Runtime
 
-        Create an API route with the `BuiltInAgent` and `CopilotRuntime`:
+        Create an API route that registers the Built-in Agent with `CopilotRuntime`:
 
-        <Callout type="warn" title="Already have an agent? Do not use BuiltInAgent">
-          `BuiltInAgent` is CopilotKit's *own* agent — it calls the model
-          directly. Registering it as `default` means chat talks to it, not to
-          any agent you already wrote. It replaces your agent rather than
-          connecting to it.
+        <Callout type="warn" title="Already have an agent? Do not use the Built-in Agent">
+          The Built-in Agent is CopilotKit's *own* agent. It calls the model
+          directly. If you register it as `default`, the chat talks to it, not to
+          an agent that you already wrote.
 
           If you already have a LangGraph, CrewAI, Mastra, ADK, Pydantic AI or
-          other agent, take the frontend steps from this page but get the runtime
+          other agent, use the frontend steps from this page. Get the runtime
           wiring from **your framework's** quickstart, which registers *your*
-          agent instead — for example
+          agent. For example, see
           [LangGraph (Python)](/langgraph-python/quickstart). Pick yours from
           [the docs landing](/).
         </Callout>
 
-        ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
-        import {
-          CopilotRuntime,
-          createCopilotRuntimeHandler,
-        } from "@copilotkit/runtime";
-        import { BuiltInAgent } from "@copilotkit/runtime"; // [!code highlight]
+        <Tabs groupId="agent-sdk" items={['TanStack AI', 'AI SDK']}>
+            <Tab value="TanStack AI">
+                ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
+                import {
+                  CopilotRuntime,
+                  createCopilotRuntimeHandler,
+                } from "@copilotkit/runtime";
+                import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai"; // [!code highlight]
+                import { openaiText } from "@tanstack/ai-openai"; // [!code highlight]
 
-        const builtInAgent = new BuiltInAgent({ // [!code highlight:3]
-          model: "openai:gpt-5.4-mini",
-        });
+                const builtInAgent = tanstackAIAgent({ // [!code highlight:3]
+                  adapter: () => openaiText("gpt-5.5"),
+                });
 
-        const runtime = new CopilotRuntime({
-          agents: { default: builtInAgent }, // [!code highlight],
-        });
+                const runtime = new CopilotRuntime({
+                  agents: { default: builtInAgent }, // [!code highlight]
+                });
 
-        const handler = createCopilotRuntimeHandler({
-          runtime,
-          basePath: "/api/copilotkit",
-        });
+                const handler = createCopilotRuntimeHandler({
+                  runtime,
+                  basePath: "/api/copilotkit",
+                });
 
-        export const GET = handler;
-        export const POST = handler;
-        export const PATCH = handler;
-        export const DELETE = handler;
-        ```
+                export const GET = handler;
+                export const POST = handler;
+                export const PATCH = handler;
+                export const DELETE = handler;
+                ```
+
+                The adapter is a function, so the agent creates it on the first run. The adapter reads `OPENAI_API_KEY` at that time, so your build does not need the key.
+            </Tab>
+            <Tab value="AI SDK">
+                ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+                import {
+                  CopilotRuntime,
+                  createCopilotRuntimeHandler,
+                } from "@copilotkit/runtime";
+                import { aiSdkAgent } from "@copilotkit/runtime/ai-sdk"; // [!code highlight]
+                import { openai } from "@ai-sdk/openai"; // [!code highlight]
+
+                const builtInAgent = aiSdkAgent({ // [!code highlight:3]
+                  model: openai("gpt-5.5"),
+                });
+
+                const runtime = new CopilotRuntime({
+                  agents: { default: builtInAgent }, // [!code highlight]
+                });
+
+                const handler = createCopilotRuntimeHandler({
+                  runtime,
+                  basePath: "/api/copilotkit",
+                });
+
+                export const GET = handler;
+                export const POST = handler;
+                export const PATCH = handler;
+                export const DELETE = handler;
+                ```
+            </Tab>
+        </Tabs>
     </Step>
     <Step>
         ### Configure CopilotKit Provider
@@ -226,7 +271,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Start chatting
 
-        Your AI agent is now ready to use! Try asking it some questions:
+        Your agent answers in the sidebar. Ask it something:
 
         ```
         Can you tell me a joke?
@@ -252,9 +297,9 @@ Before you begin, you'll need the following:
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
-                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
-                - Check that your API key is correctly set in the `.env` file
-                - Make sure the runtime endpoint path matches the `runtimeUrl` in your CopilotKit provider
+                - If the chat cannot connect, use `127.0.0.1` or `0.0.0.0` in place of `localhost`.
+                - Make sure that `OPENAI_API_KEY` is set in the `.env` file.
+                - Make sure that the runtime path matches the `runtimeUrl` in your CopilotKit provider.
             </Accordion>
         </Accordions>
 

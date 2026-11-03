@@ -1,6 +1,6 @@
 ---
 title: Runtime HTTP handlers in 2.0
-description: Replace the Express and Hono runtime adapters with Fetch and Node handlers in CopilotKit 2.0, and update license checks and the Node.js version.
+description: Replace the Express and Hono runtime adapters with Fetch and Node handlers in CopilotKit 2.0, move classic BuiltInAgent configs to tanstackAIAgent or aiSdkAgent, and update license checks and the Node.js version.
 ---
 
 CopilotKit 2.0 removes the runtime's Express and Hono adapters, their deprecated
@@ -155,6 +155,206 @@ export async function licenseStatus() {
 `getLicenseChecker()` returns `undefined` when the runtime does not use
 Intelligence. The codemod adds a `TODO(copilotkit-2.0)` to each read of
 `licenseChecker`. It does not rewrite the read, because the new method is async.
+
+## Classic `BuiltInAgent`
+
+In 2.0, `new BuiltInAgent({ model: "openai/gpt-5.5" })` throws when you create
+the agent. `BuiltInAgent` takes only a `factory`. For an agent that you
+configure with options, use `tanstackAIAgent` from
+`@copilotkit/runtime/tanstack-ai`. To stay on the AI SDK, use `aiSdkAgent` from
+`@copilotkit/runtime/ai-sdk`.
+
+1. Before you upgrade, run the codemod. It rewrites each classic call to
+   `tanstackAIAgent` and adds the imports:
+
+   ```bash
+   npx codemod @copilotkit/v2-migration
+   ```
+
+2. Install TanStack AI and the adapter for your provider:
+
+   ```npm
+   npm install @tanstack/ai @tanstack/ai-openai
+   ```
+
+   For Anthropic, install `@tanstack/ai-anthropic`. For Gemini, install
+   `@tanstack/ai-gemini`.
+
+3. Search for `TODO(copilotkit-2.0)`. Fix each one with the
+   [option mapping](#option-mapping).
+4. Run your type check. The adapter accepts only the model ids in its own list.
+
+`@copilotkit/runtime` does not install `ai`, `@ai-sdk/*`, or `@tanstack/ai`.
+Your app installs the SDK that it uses.
+
+### Before and after
+
+```ts ignore title="Before"
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime";
+import { z } from "zod";
+
+const getWeather = defineTool({
+  name: "getWeather",
+  description: "Get the current weather for a city.",
+  parameters: z.object({ city: z.string() }),
+  execute: async ({ city }) => ({ city, forecast: "sunny" }),
+});
+
+export const agent = new BuiltInAgent({
+  model: "openai/gpt-5.5",
+  prompt: "You are a helpful assistant.",
+  tools: [getWeather],
+  maxSteps: 5,
+  maxOutputTokens: 1024,
+});
+```
+
+```ts title="After"
+import { defineTool } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
+import { z } from "zod";
+
+const getWeather = defineTool({
+  name: "getWeather",
+  description: "Get the current weather for a city.",
+  parameters: z.object({ city: z.string() }),
+  execute: async ({ city }) => ({ city, forecast: "sunny" }),
+});
+
+export const agent = tanstackAIAgent({
+  adapter: () => openaiText("gpt-5.5"),
+  prompt: "You are a helpful assistant.",
+  tools: [getWeather],
+  maxIterations: 5,
+  modelOptions: { max_output_tokens: 1024 },
+});
+```
+
+- The adapter reads `OPENAI_API_KEY` when you create it. The function form
+  creates the adapter on the first run, so a missing key fails the run and not
+  the import.
+- `adapter` also accepts the adapter itself: `adapter: openaiText("gpt-5.5")`.
+  This form reads the key when the file loads.
+- `defineTool` tools, including tools with `interrupt: true`, do not change.
+- If you do not set `maxIterations`, a run takes up to 5 model turns, or 10
+  with learned skills.
+
+### Stay on the AI SDK
+
+`aiSdkAgent` keeps the classic option names. Replace the model string with a
+model from an AI SDK provider package:
+
+```npm
+npm install ai @ai-sdk/openai
+```
+
+```ts title="AI SDK"
+import { openai } from "@ai-sdk/openai";
+import { defineTool } from "@copilotkit/runtime";
+import { aiSdkAgent } from "@copilotkit/runtime/ai-sdk";
+import { z } from "zod";
+
+const getWeather = defineTool({
+  name: "getWeather",
+  description: "Get the current weather for a city.",
+  parameters: z.object({ city: z.string() }),
+  execute: async ({ city }) => ({ city, forecast: "sunny" }),
+});
+
+export const agent = aiSdkAgent({
+  model: openai("gpt-5.5"),
+  prompt: "You are a helpful assistant.",
+  tools: [getWeather],
+  maxSteps: 5,
+  maxOutputTokens: 1024,
+});
+```
+
+`aiSdkAgent` works with `ai` 6 and `ai` 7.
+
+### Option mapping
+
+| Classic option | `tanstackAIAgent` | `aiSdkAgent` |
+| --- | --- | --- |
+| `model: "openai/gpt-5.5"` | `adapter: () => openaiText("gpt-5.5")` from `@tanstack/ai-openai` | `model: openai("gpt-5.5")` from `@ai-sdk/openai` |
+| `model: "anthropic/claude-sonnet-4-6"` | `adapter: () => anthropicText("claude-sonnet-4-6")` from `@tanstack/ai-anthropic` | `model: anthropic("claude-sonnet-4-6")` from `@ai-sdk/anthropic` |
+| `model: "google/gemini-3.5-flash"` | `adapter: () => geminiText("gemini-3.5-flash")` from `@tanstack/ai-gemini` | `model: google("gemini-3.5-flash")` from `@ai-sdk/google` |
+| `maxSteps` | `maxIterations` | No change |
+| `temperature`, `topP`, `maxOutputTokens`, and the other sampling options | `modelOptions`, with the names that the adapter uses (OpenAI: `top_p`, `max_output_tokens`) | No change |
+| `apiKey` | An environment variable (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`), or the create function of the adapter: `createOpenaiChat("gpt-5.5", apiKey)` | `createOpenAI({ apiKey })("gpt-5.5")` |
+| `prompt`, `tools`, `mcpServers`, `learnedSkills` | No change | No change |
+
+Less common options:
+
+| Classic option | `tanstackAIAgent` | `aiSdkAgent` |
+| --- | --- | --- |
+| `providerOptions` | `modelOptions`, without the provider key | No change |
+| `toolChoice` | `toolChoice`. A named tool is `{ type: "tool", name }`. | No change |
+| `maxRetries` | `retry: { maxRetries }` | No change |
+| `mcpClients` | List the servers in `mcpServers`, or pass a TanStack AI MCP client in `mcp` | Return `client.tools()` from `tools: () => ...` |
+| `"model"` in `overridableProperties` | Also list the adapters: `adapters: { fast: () => openaiText("gpt-5.4-mini") }` | Also list the models: `models: { fast: openai("gpt-5.4-mini") }` |
+| Sampling options in `overridableProperties` | `"modelOptions"` | No change |
+| `"prompt"` in `overridableProperties` | No replacement | No replacement |
+| `urlDownload` | No option. Use `aiSdkAgent`. | No change |
+| `forwardSystemMessages`, `forwardDeveloperMessages` | No change | No change |
+
+With a model override, the client sends a name from `adapters` or `models`, for
+example `forwardedProps: { model: "fast" }`. A name that is not in the list
+keeps the default model.
+
+### What the codemod leaves to you
+
+The codemod adds a `TODO(copilotkit-2.0)` comment above:
+
+- `apiKey`, `mcpClients`, and `urlDownload`.
+- Sampling options, `providerOptions`, `toolChoice`, and `maxRetries`.
+- `"model"` in `overridableProperties`.
+- The `BasicAgentConfiguration` and `BuiltInAgentClassicConfig` types. Type the
+  config with `Parameters<typeof tanstackAIAgent>[0]`.
+
+For these calls, the codemod adds a TODO and keeps the `new BuiltInAgent` call:
+
+- A model from a provider that has no TanStack AI adapter, such as `vertex/` or
+  `minimax/`. Use `aiSdkAgent` with an AI SDK provider, for example
+  `@ai-sdk/google-vertex`.
+- A model that is not a string, for example a variable.
+
+The codemod changes `gpt-5.4` to `gpt-5.5`, because the OpenAI adapter does not
+list `gpt-5.4`.
+
+### Factory agents
+
+A `BuiltInAgent` with a `factory` keeps working. Make these changes:
+
+- Import the AI SDK helpers, such as `convertMessagesToVercelAISDKMessages`,
+  from `@copilotkit/runtime/ai-sdk`.
+- Read `ctx.learnedSkills.definitions`, not `ctx.learnedSkills.tools`. Each
+  definition is an SDK-neutral spec: `name`, `description`, `parameters`, and
+  `execute`.
+- Install `ai` and your provider package in your app.
+
+To let CopilotKit build the messages, the tools, and the system prompt, call
+`aiSdk(ctx)` in the factory. For TanStack AI, call `tanstackAI(ctx)`. Both
+include the learned skills:
+
+```ts
+import { openai } from "@ai-sdk/openai";
+import { BuiltInAgent } from "@copilotkit/runtime";
+import { aiSdk } from "@copilotkit/runtime/ai-sdk";
+import { stepCountIs, streamText } from "ai";
+
+export const agent = new BuiltInAgent({
+  type: "aisdk",
+  factory: async (ctx) => {
+    const base = await aiSdk(ctx, { prompt: "You are a helpful assistant." });
+    return streamText({ ...base, model: openai("gpt-5.5"), stopWhen: stepCountIs(10) });
+  },
+});
+```
+
+The full list of removed and moved exports is in
+[Removed deprecated APIs in 2.0](/migrate/removed-apis-2.0#classic-builtinagent).
 
 ## Node.js version
 

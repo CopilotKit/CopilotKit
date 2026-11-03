@@ -4,161 +4,243 @@ icon: "lucide/Cog"
 description: "Fine-tune your Built-in Agent's behavior with advanced options."
 ---
 
-The `BuiltInAgent` accepts a full set of configuration options to control model behavior, tool calling, and more.
-
-## Multi-step tool calling
-
-By default, the agent performs a single generation step. Set `maxSteps` to allow the agent to call tools and then continue reasoning:
-
-```typescript title="src/copilotkit.ts"
-import { BuiltInAgent, defineTool } from "@copilotkit/runtime";
-import { z } from "zod";
-
-const searchDocs = defineTool({
-  name: "searchDocs",
-  description: "Search the documentation",
-  parameters: z.object({ query: z.string() }),
-  execute: async ({ query }) => ({ results: [`Article about ${query}`] }),
-});
-
-const createTicket = defineTool({
-  name: "createTicket",
-  description: "Create a support ticket",
-  parameters: z.object({ title: z.string() }),
-  execute: async ({ title }) => ({ ticketId: "T-1", title }),
-});
-
-const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
-  maxSteps: 5, // [!code highlight]
-  tools: [searchDocs, createTicket],
-});
-```
-
-With `maxSteps: 5`, the agent can call a tool, process the result, call another tool, and so on — up to 5 iterations. This is essential for workflows where the agent needs to chain multiple tool calls.
-
-## Tool choice
-
-Control how the agent selects tools:
-
-```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
-
-const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
-  toolChoice: "auto",       // Let the model decide (default)
-  // toolChoice: "required", // Force the model to call a tool
-  // toolChoice: "none",     // Disable tool calling
-  // toolChoice: { type: "tool", toolName: "searchDocs" }, // Force a specific tool
-});
-```
+Set these options on `tanstackAIAgent` or `aiSdkAgent` to change how the agent calls the model: the prompt, the tool-calling limit, model settings, and what a client can change per request.
 
 ## System prompt
 
-Customize the agent's system prompt:
+Give the agent its instructions in `prompt`:
 
-```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
+<Tabs groupId="agent-sdk" items={['TanStack AI', 'AI SDK']}>
+<Tab value="TanStack AI">
+```typescript title="src/copilotkit.ts"
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
-const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
-  prompt: "You are a customer support agent for Acme Corp. Be concise and helpful. Always check the knowledge base before answering.", // [!code highlight]
+const agent = tanstackAIAgent({
+  adapter: () => openaiText("gpt-5.5"),
+  prompt: "You are a customer support agent for Acme Corp. Be concise.", // [!code highlight]
+});
+```
+</Tab>
+<Tab value="AI SDK">
+```typescript title="src/copilotkit.ts"
+import { aiSdkAgent } from "@copilotkit/runtime/ai-sdk";
+import { openai } from "@ai-sdk/openai";
+
+const agent = aiSdkAgent({
+  model: openai("gpt-5.5"),
+  prompt: "You are a customer support agent for Acme Corp. Be concise.", // [!code highlight]
+});
+```
+</Tab>
+</Tabs>
+
+The agent adds the context and the application state from the frontend after your prompt.
+
+## Tool-calling limit
+
+One run can have several model turns: call a tool, read the result, call another tool, then answer. The limit sets the largest number of turns in one run.
+
+<Tabs groupId="agent-sdk" items={['TanStack AI', 'AI SDK']}>
+<Tab value="TanStack AI">
+```typescript title="src/copilotkit.ts"
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
+import { createTicket, searchDocs } from "./tools";
+
+const agent = tanstackAIAgent({
+  adapter: () => openaiText("gpt-5.5"),
+  tools: [searchDocs, createTicket],
+  maxIterations: 8, // [!code highlight]
 });
 ```
 
-## Generation parameters
+Default: 5 turns, or 10 when [learned skills](#learned-skills) are available.
+</Tab>
+<Tab value="AI SDK">
+```typescript title="src/copilotkit.ts"
+import { aiSdkAgent } from "@copilotkit/runtime/ai-sdk";
+import { openai } from "@ai-sdk/openai";
+import { createTicket, searchDocs } from "./tools";
 
-Fine-tune the model's output:
-
-```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
-
-const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
-  temperature: 0.7,        // Creativity (0 = deterministic, 1+ = creative)
-  topP: 0.9,               // Nucleus sampling
-  topK: 40,                // Top-K sampling (provider-dependent)
-  maxOutputTokens: 4096,   // Maximum tokens in the response
-  presencePenalty: 0.1,    // Penalize repeated topics
-  frequencyPenalty: 0.1,   // Penalize repeated tokens
-  stopSequences: ["END"],  // Stop generation at these sequences
-  seed: 42,                // Deterministic output (provider-dependent)
-  maxRetries: 3,           // Retry on transient failures
+const agent = aiSdkAgent({
+  model: openai("gpt-5.5"),
+  tools: [searchDocs, createTicket],
+  maxSteps: 8, // [!code highlight]
 });
 ```
 
-<Callout type="info">
-Not all parameters are supported by every provider. For example, `topK` is supported by Google but not OpenAI. Unsupported parameters are ignored.
-</Callout>
+Default: 1 step, or 10 when [learned skills](#learned-skills) are available. With 1 step, the model can call a tool but cannot answer after the result. Set `maxSteps` when the agent has tools.
+</Tab>
+</Tabs>
+
+## Model settings
+
+<Tabs groupId="agent-sdk" items={['TanStack AI', 'AI SDK']}>
+<Tab value="TanStack AI">
+Put sampling settings in `modelOptions`. The adapter types them, so your editor shows the options of your provider:
+
+```typescript title="src/copilotkit.ts"
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
+
+const agent = tanstackAIAgent({
+  adapter: () => openaiText("gpt-5.5"),
+  modelOptions: { temperature: 0.3 }, // [!code highlight]
+  reasoning: "high", // [!code highlight]
+});
+```
+
+Other `chat()` options, such as `reasoning`, `toolChoice`, `metadata`, and `middleware`, pass through to every `chat()` call.
+</Tab>
+<Tab value="AI SDK">
+Set `streamText()` settings on the agent. They pass through to every call:
+
+```typescript title="src/copilotkit.ts"
+import { aiSdkAgent } from "@copilotkit/runtime/ai-sdk";
+import { openai } from "@ai-sdk/openai";
+
+const agent = aiSdkAgent({
+  model: openai("gpt-5.5"),
+  temperature: 0.3, // [!code highlight:4]
+  maxOutputTokens: 4096,
+  toolChoice: "auto",
+  maxRetries: 3,
+});
+```
+
+Other `streamText()` settings work the same way, for example `topP`, `stopSequences`, `seed`, and `headers`. A provider ignores a setting that it does not support.
+</Tab>
+</Tabs>
 
 ## Provider-specific options
 
-Pass options specific to a model provider using `providerOptions`:
+<Tabs groupId="agent-sdk" items={['TanStack AI', 'AI SDK']}>
+<Tab value="TanStack AI">
+Provider-specific settings also go in `modelOptions`. Its type comes from the adapter and the model, so your editor lists the settings of your provider. For thinking, set `reasoning`:
 
-```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
+```typescript title="src/copilotkit.ts"
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { anthropicText } from "@tanstack/ai-anthropic";
 
-// OpenAI reasoning models (o3, o4-mini) with reasoning effort
-const agent = new BuiltInAgent({
-  model: "openai:o3",
-  providerOptions: { // [!code highlight:3]
-    openai: { reasoningEffort: "high" },
-  },
+const agent = tanstackAIAgent({
+  adapter: () => anthropicText("claude-sonnet-4-6"),
+  reasoning: "high", // [!code highlight]
 });
 ```
 
-```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
+`reasoning` sets how hard the model thinks. TanStack AI maps the level to the setting of each provider.
+</Tab>
+<Tab value="AI SDK">
+Pass them in `providerOptions`, keyed by provider:
 
-// Anthropic with adaptive thinking
-const agent = new BuiltInAgent({
-  model: "anthropic:claude-sonnet-4-6",
+```typescript title="src/copilotkit.ts"
+import { aiSdkAgent } from "@copilotkit/runtime/ai-sdk";
+import { anthropic } from "@ai-sdk/anthropic";
+
+const agent = aiSdkAgent({
+  model: anthropic("claude-sonnet-4-6"),
   providerOptions: { // [!code highlight:3]
     anthropic: { thinking: { type: "adaptive" }, effort: "high" },
   },
 });
 ```
+</Tab>
+</Tabs>
 
 ## Overridable properties
 
-Allow the frontend to override specific configuration at runtime. This is useful when you want users to switch models or adjust behavior without redeploying:
+A client can change some settings for one request through `forwardedProps`. List the settings that it can change in `overridableProperties`. The agent ignores a value of the wrong type.
 
-```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
+<Tabs groupId="agent-sdk" items={['TanStack AI', 'AI SDK']}>
+<Tab value="TanStack AI">
+```typescript title="src/copilotkit.ts"
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
-const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
-  temperature: 0.5,
-  overridableProperties: ["model", "temperature", "prompt"], // [!code highlight]
+const agent = tanstackAIAgent({
+  adapter: () => openaiText("gpt-5.5"),
+  modelOptions: { temperature: 0.5 },
+  overridableProperties: ["modelOptions"], // [!code highlight]
 });
 ```
 
-The full list of overridable properties:
-`model`, `toolChoice`, `maxOutputTokens`, `temperature`, `topP`, `topK`, `presencePenalty`, `frequencyPenalty`, `stopSequences`, `seed`, `maxRetries`, `prompt`, `providerOptions`
+You can list:
+
+- `modelOptions`: an object. The agent merges it over the configured `modelOptions`.
+- `model`: a name from `adapters`.
+</Tab>
+<Tab value="AI SDK">
+```typescript title="src/copilotkit.ts"
+import { aiSdkAgent } from "@copilotkit/runtime/ai-sdk";
+import { openai } from "@ai-sdk/openai";
+
+const agent = aiSdkAgent({
+  model: openai("gpt-5.5"),
+  temperature: 0.5,
+  overridableProperties: ["temperature", "maxOutputTokens"], // [!code highlight]
+});
+```
+
+You can list `model` (a name from `models`), `toolChoice`, `maxOutputTokens`, `temperature`, `topP`, `topK`, `presencePenalty`, `frequencyPenalty`, `stopSequences`, `seed`, `maxRetries`, and `providerOptions`.
+</Tab>
+</Tabs>
+
+The frontend sends the values in `properties`, for example `properties={{ temperature: 0.2 }}`. To let a client pick the model, see [Let the client pick the model](/model-selection#let-the-client-pick-the-model).
+
+<Callout type="warn" title="forwardedProps comes from the browser">
+  Allow only settings that are safe for any user to change. Do not use them for credentials, tenant identity, or authorization.
+</Callout>
+
+## Learned skills
+
+To give the agent skills from a CopilotKit Intelligence learning container, set `learnedSkills`:
+
+```typescript title="src/copilotkit.ts"
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
+
+const agent = tanstackAIAgent({
+  adapter: () => openaiText("gpt-5.5"),
+  learnedSkills: { containerId: "support-learning" }, // [!code highlight]
+});
+```
+
+`aiSdkAgent` takes the same option. When skills are available, the default tool-calling limit is 10, so the model can load a skill and use it. See [Learned skills](/intelligence/learned-skills) for the full setup.
+
+## Capabilities
+
+The agent tells the frontend what it supports: tools, streaming, and interrupts. To change that, set `capabilities` to a `Partial<AgentCapabilities>` from AG-UI. Both one-liners take it.
+
+The agent merges your value over its defaults one category at a time. A category that you set replaces the full default category. For example, `{ tools: { supported: true } }` removes the default `clientProvided: true`, so include every field of a category that you set.
 
 ## Message forwarding
 
-Control whether system and developer messages from the conversation are forwarded to the LLM:
+By default, the agent does not send system and developer messages from the conversation to the model. A client could otherwise change the agent's instructions. To send them, set:
 
-```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
+```typescript title="src/copilotkit.ts"
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
-const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
-  forwardSystemMessages: true,    // Forward system-role messages
-  forwardDeveloperMessages: true, // Forward developer-role messages (as system messages)
+const agent = tanstackAIAgent({
+  adapter: () => openaiText("gpt-5.5"),
+  forwardSystemMessages: true, // [!code highlight:2]
+  forwardDeveloperMessages: true,
 });
 ```
 
-## URL attachments
+`aiSdkAgent` takes the same two options.
 
-When a message has an image or file given by URL, and the model cannot take that URL directly, the server downloads the file and sends its content to the model. Use `urlDownload` to control these downloads:
+## URL attachments (AI SDK)
 
-```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
+A message can have an image or a file given by URL. If the model cannot take that URL directly, the server downloads the file and sends its content to the model. The URL comes from the request, so `urlDownload` controls what the server can fetch:
 
-const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+```typescript title="src/copilotkit.ts"
+import { aiSdkAgent } from "@copilotkit/runtime/ai-sdk";
+import { openai } from "@ai-sdk/openai";
+
+const agent = aiSdkAgent({
+  model: openai("gpt-5.5"),
   urlDownload: { // [!code highlight:4]
     allowedHosts: ["cdn.example.com", "*.example-uploads.com"],
     maxBytes: 10 * 1024 * 1024,
@@ -166,67 +248,81 @@ const agent = new BuiltInAgent({
 });
 ```
 
-- **Default**: download only from public internet addresses. The server resolves the hostname and refuses loopback, private, link-local (including cloud metadata), and other non-public addresses. It connects only to the addresses it checked, checks each redirect again, and refuses a redirect from https to http. It limits each download to 20 MiB (`maxBytes`) and 30 seconds (`timeoutMs`), and each model call to 20 distinct URLs (`maxDownloads`) and 50 MiB in total (`maxTotalBytes`). The AI SDK downloads the attachments again for each step of a multi-step run, so each step counts on its own.
-- **`allowedHosts`**: download only from the hostnames you list. The addresses must still be public, and each redirect target must also be in the list. `cdn.example.com` matches only that host. `*.example-uploads.com` matches its subdomains but not `example-uploads.com` itself; list both if you need both. Matching ignores case and a trailing dot. Give hostnames only: an entry with a scheme, port, or path, and a wildcard over an IP address (`*.1.2.3.4`), are rejected when the agent is created. An empty list refuses every server-side download.
-- **`"disabled"`**: never download from the network. Any attachment URL other than `data:` that the model cannot take directly fails the run.
-- **A function**: your own AI SDK download function (`Experimental_DownloadFunction` from `ai`). Use this only if you must fetch from a private network, and check each URL yourself.
+The values of `urlDownload`:
 
-Invalid options, including an unknown option name, throw when the agent is created, not when a request arrives.
+- **`"safe"` (default)**: download only from public internet addresses. The server resolves the hostname and refuses loopback, private, link-local (including cloud metadata), and other addresses that are not public. It connects only to the addresses it examined, examines each redirect again, and refuses a redirect from https to http.
+- **An options object**: the safe downloader with your limits. `allowedHosts` limits downloads to the hostnames you list (see below).
+- **`false`**: never download. An attachment URL other than `data:` that the model cannot take directly fails the run.
+- **A function**: your own AI SDK download function (`Experimental_DownloadFunction` from `ai`). Use this only to fetch from a private network, and examine each URL yourself.
 
-URLs that the model takes directly go to the model provider unchanged. `data:` URLs are decoded by the AI SDK without a network request, in every mode. When a download fails or is refused, the client gets a short message without the URL's query or the network error; the server logs the reason with a `[BuiltInAgent]` prefix. The message is the same whether the hostname could not be resolved or resolved to a non-public address.
+The safe downloader has these limits:
 
-The default downloader needs Node.js networking modules. On a runtime without them, such as an edge runtime, every download fails; set `urlDownload` to `"disabled"` or to your own download function there.
+| Option | Default | Limit |
+| --- | --- | --- |
+| `maxBytes` | 20 MiB | Size of one download |
+| `timeoutMs` | 30 seconds | Time for one download |
+| `maxDownloads` | 20 | Different URLs in one model call |
+| `maxTotalBytes` | 50 MiB | Total size in one model call |
 
-In AI SDK factory mode you call `streamText()` yourself, so `urlDownload` does not apply; setting it there throws when the agent is created. Pass the same downloader to get the same protection, with the run's abort signal so that an aborted run stops its downloads:
+The AI SDK downloads the attachments again for each step of a run, so each step counts on its own.
 
-```typescript
-import {
-  BuiltInAgent,
-  convertMessagesToVercelAISDKMessages,
-  createSafeUrlDownload,
-} from "@copilotkit/runtime";
-import { openai } from "@ai-sdk/openai";
-import { streamText } from "ai";
+Rules for `allowedHosts`:
 
-const agent = new BuiltInAgent({
-  type: "aisdk",
-  factory: (ctx) =>
-    streamText({
-      model: openai("gpt-5.4-mini"),
-      messages: convertMessagesToVercelAISDKMessages(ctx.input.messages),
-      abortSignal: ctx.abortSignal,
-      experimental_download: createSafeUrlDownload({ signal: ctx.abortSignal }), // [!code highlight]
-    }),
-});
-```
+- The addresses must still be public, and each redirect target must also be in the list.
+- `cdn.example.com` matches only that host. `*.example-uploads.com` matches its subdomains, but not `example-uploads.com`. If you need both, list both.
+- Matching ignores case and a trailing dot.
+- Give hostnames only. The agent rejects an entry with a scheme, port, or path, and a wildcard over an IP address (`*.1.2.3.4`).
+- An empty list refuses every download.
 
-## Full configuration reference
+Invalid options, including an unknown option name, throw when you create the agent, not when a request arrives.
 
+URLs that the model takes directly go to the model provider unchanged. The AI SDK decodes `data:` URLs without a network request, in every mode. When a download fails, the client gets a short message without the query of the URL. The server logs the cause with a `[BuiltInAgent]` prefix.
+
+The safe downloader needs Node.js networking modules. On a runtime without them, such as an edge runtime, every download fails. There, set `urlDownload` to `false` or to your own download function.
+
+In a [Custom Agent](/backend/custom-agent) factory, `aiSdk(ctx)` adds the safe downloader for you, and `aiSdk(ctx, { urlDownload })` takes the same values.
+
+## Configuration reference
+
+<Tabs groupId="agent-sdk" items={['TanStack AI', 'AI SDK']}>
+<Tab value="TanStack AI">
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `model` | `string \| LanguageModel` | — | Model specifier or AI SDK instance |
-| `apiKey` | `string` | env var | API key for the provider |
-| `maxSteps` | `number` | `1` | Max tool-calling iterations |
-| `toolChoice` | `"auto" \| "required" \| "none" \| { type: "tool", toolName: string }` | `"auto"` | How tools are selected |
-| `maxOutputTokens` | `number` | — | Max tokens in response |
-| `temperature` | `number` | — | Sampling temperature |
-| `topP` | `number` | — | Nucleus sampling |
-| `topK` | `number` | — | Top-K sampling |
-| `presencePenalty` | `number` | — | Presence penalty |
-| `frequencyPenalty` | `number` | — | Frequency penalty |
-| `stopSequences` | `string[]` | — | Stop sequences |
-| `seed` | `number` | — | Random seed |
-| `maxRetries` | `number` | — | Retry count |
-| `prompt` | `string` | — | System prompt |
-| `tools` | `ToolDefinition[]` | `[]` | Server-side tools |
-| `mcpServers` | `MCPClientConfig[]` | `[]` | MCP server connections (agent-managed, per-request) |
-| `mcpClients` | `MCPClientProvider[]` | `[]` | User-managed MCP clients (persistent, user controls lifecycle) |
-| `overridableProperties` | `string[]` | `[]` | Properties the frontend can override |
-| `providerOptions` | `Record<string, any>` | — | Provider-specific options |
-| `forwardSystemMessages` | `boolean` | `false` | Forward system messages |
-| `forwardDeveloperMessages` | `boolean` | `false` | Forward developer messages |
-| `urlDownload` | `"disabled" \| SafeUrlDownloadOptions \| Experimental_DownloadFunction` | public addresses only | Server-side download of URL attachments |
+| `adapter` | adapter, or `() => adapter` | required | The text adapter, for example `() => openaiText("gpt-5.5")` |
+| `prompt` | `string` | none | System prompt |
+| `tools` | `(Tool \| ToolDefinition)[]`, or `(ctx) => tools` | none | Server tools |
+| `mcpServers` | `MCPClientConfig[]` | none | MCP servers to connect to on each run |
+| `maxIterations` | `number` | `5` (`10` with learned skills) | Largest number of model turns in one run |
+| `modelOptions` | provider options of the adapter | none | Sampling and provider settings |
+| `overridableProperties` | `("model" \| "modelOptions")[]` | none | Settings a client can change per request |
+| `adapters` | `Record<string, adapter \| () => adapter>` | none | Adapters a client can pick by name |
+| `learnedSkills` | learned-skills options | none | Skills from a learning container |
+| `forwardSystemMessages` | `boolean` | `false` | Send system messages from the conversation |
+| `forwardDeveloperMessages` | `boolean` | `false` | Send developer messages from the conversation |
+| `capabilities` | `Partial<AgentCapabilities>` | inferred | What the agent tells the frontend it supports |
+
+Other `chat()` options pass through.
+</Tab>
+<Tab value="AI SDK">
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `model` | `LanguageModel` | required | The AI SDK model, for example `openai("gpt-5.5")` |
+| `prompt` | `string` | none | System prompt |
+| `tools` | `ToolSet \| ToolDefinition[]`, or `(ctx) => tools` | none | Server tools |
+| `mcpServers` | `MCPClientConfig[]` | none | MCP servers to connect to on each run |
+| `maxSteps` | `number` | `1` (`10` with learned skills) | Largest number of model steps in one run |
+| `overridableProperties` | `string[]` | none | Settings a client can change per request |
+| `models` | `Record<string, LanguageModel>` | none | Models a client can pick by name |
+| `forwardSystemMessages` | `boolean` | `false` | Send system messages from the conversation |
+| `forwardDeveloperMessages` | `boolean` | `false` | Send developer messages as system messages |
+| `urlDownload` | `"safe" \| false \| SafeUrlDownloadOptions \| function` | `"safe"` | Server-side download of URL attachments |
+| `learnedSkills` | learned-skills options | none | Skills from a learning container |
+| `capabilities` | `Partial<AgentCapabilities>` | inferred | What the agent tells the frontend it supports |
+
+Other `streamText()` settings pass through.
+</Tab>
+</Tabs>
 
 <Callout type="info" title="Need even more control?">
-  If `BuiltInAgent`'s configuration options don't cover your needs — for example, if you want to use TanStack AI, a custom LLM backend, or async initialization — see [Custom Agent](/backend/custom-agent).
+  To write the `chat()` or `streamText()` call yourself, use a [Custom Agent](/backend/custom-agent).
 </Callout>

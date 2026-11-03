@@ -4,10 +4,12 @@ import {
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
-  convertInputToTanStackAI,
+} from "@copilotkit/runtime";
+import {
   convertMessagesToVercelAISDKMessages,
   convertToolsToVercelAITools,
-} from "@copilotkit/runtime";
+} from "@copilotkit/runtime/ai-sdk";
+import { tanstackAI } from "@copilotkit/runtime/tanstack-ai";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { streamText, tool } from "ai";
@@ -113,19 +115,16 @@ const tanstackBookFlight = toolDefinition({
 
 const tanstackAgent = new BuiltInAgent({
   type: "tanstack",
-  factory: ({ input, abortController }) => {
-    if (shouldFailRun(input)) {
+  factory: async (ctx) => {
+    if (shouldFailRun(ctx.input)) {
       throw new Error("Inspector lab: the agent run failed.");
     }
-    const { messages, systemPrompts, tools } = convertInputToTanStackAI(input);
-
-    return chat({
-      adapter: openaiText("gpt-5.5"),
-      messages,
-      systemPrompts: [BOOKING_SYSTEM_PROMPT, ...systemPrompts],
-      tools: [...tools, tanstackBookFlight],
-      abortController,
+    const base = await tanstackAI(ctx, {
+      prompt: BOOKING_SYSTEM_PROMPT,
+      tools: [tanstackBookFlight],
     });
+
+    return chat({ ...base, adapter: openaiText("gpt-5.5") });
   },
 });
 

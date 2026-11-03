@@ -74,6 +74,8 @@ try {
         dependencies: {
           ...artifacts.dependencies,
           "@copilotkit/aimock": "1.19.1",
+          "@tanstack/ai": "1.0.1",
+          "@tanstack/ai-openai": "1.0.1",
           yaml: "2.8.3",
         },
         overrides: artifacts.overrides,

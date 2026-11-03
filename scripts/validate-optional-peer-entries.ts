@@ -45,6 +45,18 @@ const KNOWN: Record<string, { reason: string; peers: string[] }> = {
   },
 };
 
+/**
+ * Entry points dedicated to a peer whose name their path does not spell out.
+ *
+ * `isDedicatedEntry` matches a path segment against the peer's last name
+ * segment, which covers `./v2/express`. `./ai-sdk` exists for `ai` and
+ * `./tanstack-ai` for `@tanstack/ai`, but neither path has an `ai` segment.
+ */
+const DEDICATED: Record<string, string[]> = {
+  "./ai-sdk": ["ai"],
+  "./tanstack-ai": ["@tanstack/ai"],
+};
+
 /** Which published format a walk is following. */
 export type Format = "esm" | "cjs";
 
@@ -231,10 +243,13 @@ export function walkEagerGraph(
  * Is `entry` the entry point dedicated to `peer`?
  *
  * `./v2/express` is dedicated to `express`; `./v2` is not. Matching on a path
- * segment keeps this derived from the exports map rather than configured.
+ * segment keeps this derived from the exports map rather than configured;
+ * `DEDICATED` lists the entries whose path cannot say it.
  */
 export function isDedicatedEntry(entry: string, peer: string): boolean {
-  const leaf = packageNameOf(peer).split("/").pop();
+  const name = packageNameOf(peer);
+  if (DEDICATED[entry]?.includes(name)) return true;
+  const leaf = name.split("/").pop();
   return entry.split("/").includes(leaf!);
 }
 

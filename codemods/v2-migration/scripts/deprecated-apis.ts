@@ -4,7 +4,8 @@ import type TSX from "codemod:ast-grep/langs/tsx";
 
 type Node = SgNode<TS | TSX>;
 
-const TODO = "TODO(copilotkit-2.0):";
+/** Every comment the codemod adds starts with this, so a user can grep for them. */
+export const TODO = "TODO(copilotkit-2.0):";
 
 /**
  * Exports that were deprecated in 1.x and removed in 2.0, and the 2.0 export
@@ -13,7 +14,6 @@ const TODO = "TODO(copilotkit-2.0):";
 const RENAMED: Record<string, Record<string, string>> = {
   "@copilotkit/runtime": {
     BasicAgent: "BuiltInAgent",
-    BasicAgentConfiguration: "BuiltInAgentClassicConfig",
   },
   "@copilotkit/runtime/node": {
     createNodeFetchHandler: "createCopilotNodeHandler",
@@ -22,6 +22,9 @@ const RENAMED: Record<string, Record<string, string>> = {
     useA2UIStore: "useA2UIContext",
   },
 };
+
+const CLASSIC_CONFIG_NOTE =
+  'Classic `BuiltInAgent` mode was removed. Pass the config to `tanstackAIAgent` from "@copilotkit/runtime/tanstack-ai", or type it with `Parameters<typeof tanstackAIAgent>[0]`. See https://docs.copilotkit.ai/migrate/runtime-2.0';
 
 const A2UI_CATALOG_NOTE =
   "v0.9 components come from the catalog. See https://docs.copilotkit.ai/generative-ui/a2ui";
@@ -32,6 +35,8 @@ const A2UI_CATALOG_NOTE =
  */
 const REMOVED: Record<string, Record<string, string>> = {
   "@copilotkit/runtime": {
+    BasicAgentConfiguration: CLASSIC_CONFIG_NOTE,
+    BuiltInAgentClassicConfig: CLASSIC_CONFIG_NOTE,
     CopilotKitRequestHandler:
       "Use `CopilotRuntimeFetchHandler`. It takes the `Request` directly, not `{ request }`.",
   },
@@ -79,7 +84,11 @@ const REMOVED_PROPS: Record<
   },
 };
 
-function own<T>(table: Record<string, T> | undefined, key: string) {
+/**
+ * `table[key]` for the table's own keys only. A plain lookup would find
+ * `Object.prototype` members for strings such as "constructor" or "toString".
+ */
+export function own<T>(table: Record<string, T> | undefined, key: string) {
   return table && Object.prototype.hasOwnProperty.call(table, key)
     ? table[key]
     : undefined;
@@ -187,8 +196,17 @@ export function migrateDeprecatedApis(
   return rootNode.commitEdits(edits);
 }
 
+/** Deletes `node` with its indentation and line break. */
+export function deleteLine(node: Node, source: string): Edit {
+  let startPos = node.range().start.index;
+  let endPos = node.range().end.index;
+  while (startPos > 0 && /[ \t]/.test(source[startPos - 1]!)) startPos--;
+  if (source[endPos] === "\n") endPos++;
+  return { startPos, endPos, insertedText: "" };
+}
+
 /** Deletes a specifier with its comma, and its line when it is alone on one. */
-function deleteSpecifier(specifier: Node, source: string): Edit {
+export function deleteSpecifier(specifier: Node, source: string): Edit {
   let startPos = specifier.range().start.index;
   let endPos = specifier.range().end.index;
   const comma = /^\s*,[ \t]*\n?/.exec(source.slice(endPos));

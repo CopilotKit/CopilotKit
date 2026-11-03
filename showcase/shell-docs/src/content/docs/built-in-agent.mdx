@@ -5,7 +5,7 @@ icon: "lucide/Server"
 doc_type: explanation
 ---
 
-The Built-in Agent is the simplest agent backend CopilotKit ships. Instead of proxying to an external framework process (LangGraph, Mastra, etc.), it instantiates `BuiltInAgent({ model, tools, prompt })` inside your runtime and runs the agent loop in-process. No separate agent server, no external framework install — direct connection to OpenAI / Anthropic / Google or any AI-SDK model with full support for tools, generative UI, and shared state.
+The Built-in Agent is the simplest agent backend CopilotKit ships. Instead of proxying to an external framework process (LangGraph, Mastra, etc.), it creates an agent with `tanstackAIAgent({ adapter, tools, prompt })` inside your runtime and runs the agent loop in-process. You need no separate agent server and no external framework. It connects directly to OpenAI, Anthropic, Google, or any model that TanStack AI or the AI SDK supports, with full support for tools, generative UI, and shared state.
 
 For the full Built-in Agent guides — quickstart, server tools, MCP servers, model selection, advanced configuration — start at the [docs root](/).
 

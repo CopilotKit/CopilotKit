@@ -43,18 +43,19 @@ npm install @daytonaio/sdk
 
 ## Define the sandbox tool
 
-Add a `runCode` [server tool](/server-tools) and register it on your `BuiltInAgent`. The
+Add a `runCode` [server tool](/server-tools) and register it on your built-in agent. The
 tool creates a fresh sandbox, runs the code, returns stdout, and cleans the sandbox up — so every call is
 isolated.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
 import {
-  BuiltInAgent, // [!code highlight]
   CopilotRuntime,
   createCopilotRuntimeHandler,
   defineTool, // [!code highlight]
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai"; // [!code highlight]
+import { openaiText } from "@tanstack/ai-openai";
 import { Daytona } from "@daytonaio/sdk"; // [!code highlight]
 import { z } from "zod";
 
@@ -81,10 +82,9 @@ const runCode = defineTool({ // [!code highlight:20]
   },
 });
 
-const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+const builtInAgent = tanstackAIAgent({
+  adapter: () => openaiText("gpt-5.4-mini"),
   tools: [runCode], // [!code highlight]
-  maxSteps: 2, // required so the agent can call the tool and then respond // [!code highlight]
 });
 
 const runtime = new CopilotRuntime({
@@ -159,8 +159,7 @@ In my existing CopilotKit Built-in Agent app, add a Daytona-backed code executio
      `ExecuteResponse` where stdout lives on `res.result` (not `res.stdout`), so return
      `{ stdout: res.result, exitCode: res.exitCode }`. Call `sandbox.delete()` in a finally
      block so the sandbox is cleaned up even on error.
-4. Register the tool on my BuiltInAgent (`tools: [runCode]`) and set `maxSteps: 2` so it can call the
-   tool and then respond.
+4. Register the tool on my built-in agent (`tools: [runCode]`).
 
 Keep my existing model and runtime setup unchanged.
 ```

@@ -56,12 +56,14 @@ Single-route mode is useful when your platform only allows one route handler, or
 If your platform supports the Fetch API natively (Bun, Deno, Cloudflare Workers, etc.), you can use `createCopilotRuntimeHandler` directly — no adapter needed.
 
 ```ts
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 // 1. Create the runtime with your agent(s)
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -83,12 +85,14 @@ For framework-specific examples, see the sections below.
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing server"]}>
 <Tab value="Multi-route">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 // Configure the runtime with your agent(s)
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -105,11 +109,13 @@ Bun.serve({ fetch: handler, port: 4000 });
 </Tab>
 <Tab value="Single-route">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -126,11 +132,13 @@ Bun.serve({ fetch: handler, port: 4000 });
 </Tab>
 <Tab value="Existing server">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -167,11 +175,13 @@ Bun.serve({
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing server"]}>
 <Tab value="Multi-route">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -187,11 +197,13 @@ Deno.serve({ port: 4000 }, handler);
 </Tab>
 <Tab value="Single-route">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -208,11 +220,13 @@ Deno.serve({ port: 4000 }, handler);
 </Tab>
 <Tab value="Existing server">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -252,11 +266,13 @@ Deno.serve({ port: 4000 }, (request) => {
   factory on each request:
 
   ```ts
-  import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+  import { CopilotRuntime } from "@copilotkit/runtime";
+  import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+  import { openaiText } from "@tanstack/ai-openai";
 
   const runtime = new CopilotRuntime({
     agents: () => ({
-      default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+      default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
     }),
   });
   ```
@@ -265,7 +281,9 @@ Deno.serve({ port: 4000 }, (request) => {
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing worker"]}>
 <Tab value="Multi-route">
 ```ts title="src/index.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 export interface Env {
   OPENAI_API_KEY: string;
@@ -275,7 +293,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const runtime = new CopilotRuntime({
       agents: {
-        default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+        default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
       },
     });
 
@@ -293,7 +311,9 @@ export default {
 </Tab>
 <Tab value="Single-route">
 ```ts title="src/index.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 export interface Env {
   OPENAI_API_KEY: string;
@@ -303,7 +323,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const runtime = new CopilotRuntime({
       agents: {
-        default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+        default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
       },
     });
 
@@ -322,7 +342,9 @@ export default {
 </Tab>
 <Tab value="Existing worker">
 ```ts title="src/index.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 export interface Env {
   OPENAI_API_KEY: string;
@@ -336,7 +358,7 @@ export default {
     if (url.pathname.startsWith("/api/copilotkit")) {
       const runtime = new CopilotRuntime({
         agents: {
-          default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+          default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
         },
       });
 
@@ -366,11 +388,13 @@ export default {
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route"]}>
 <Tab value="Multi-route">
 ```ts title="app/api/copilotkit/[...path]/route.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -385,11 +409,13 @@ export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };
 </Tab>
 <Tab value="Single-route">
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -420,12 +446,14 @@ React Router v7 in framework mode uses file-based routing with Fetch API handler
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route"]}>
 <Tab value="Multi-route">
 ```ts title="app/routes/api.copilotkit.$.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -451,12 +479,14 @@ The `$` splat segment in the filename (`api.copilotkit.$.ts`) captures all subpa
 </Tab>
 <Tab value="Single-route">
 ```ts title="app/routes/api.copilotkit.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 import type { ActionFunctionArgs } from "react-router";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -487,11 +517,13 @@ TanStack Start serves API requests from [server routes](https://tanstack.com/sta
 {/* kiira: ignore, the route path and the `server` option are typed by the routeTree.gen.ts that TanStack Start generates in the reader's project; the CopilotKit handler code is the same as the checked tabs above */}
 ```ts ignore title="src/routes/api/copilotkit/$.ts"
 import { createFileRoute } from "@tanstack/react-router";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -521,11 +553,13 @@ The `$` in the filename is TanStack Start's splat parameter, matching all subpat
 {/* kiira: ignore, the route path and the `server` option are typed by the routeTree.gen.ts that TanStack Start generates in the reader's project; the CopilotKit handler code is the same as the checked tabs above */}
 ```ts ignore title="src/routes/api/copilotkit.ts"
 import { createFileRoute } from "@tanstack/react-router";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -559,12 +593,14 @@ For vanilla Node.js HTTP servers, use the `/node` subpath which bridges Fetch to
 <Tab value="Multi-route">
 ```ts title="server.ts"
 import { createServer } from "node:http";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -584,12 +620,14 @@ createServer(listener).listen(4000, () => {
 <Tab value="Single-route">
 ```ts title="server.ts"
 import { createServer } from "node:http";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -608,12 +646,14 @@ createServer(listener).listen(4000, () => {
 <Tab value="Existing server">
 ```ts title="server.ts"
 import { createServer } from "node:http";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 import { createCopilotNodeHandler } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -676,12 +716,14 @@ npm install express
 <Tab value="Multi-route">
 ```ts title="server.ts"
 import express from "express";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -705,12 +747,14 @@ app.listen(4000, () => {
 <Tab value="Single-route">
 ```ts title="server.ts"
 import express from "express";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -735,12 +779,14 @@ app.listen(4000, () => {
 <Tab value="Existing server">
 ```ts title="server.ts"
 import express from "express";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -803,11 +849,13 @@ npm install hono @hono/node-server
 ```ts title="server.ts"
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -830,11 +878,13 @@ serve({ fetch: app.fetch, port: 4000 }, () => {
 ```ts title="server.ts"
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -858,11 +908,13 @@ serve({ fetch: app.fetch, port: 4000 }, () => {
 ```ts title="server.ts"
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -899,11 +951,13 @@ bun add elysia
 <Tab value="Multi-route">
 ```ts title="server.ts"
 import { Elysia } from "elysia";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -918,11 +972,13 @@ new Elysia()
 <Tab value="Single-route">
 ```ts title="server.ts"
 import { Elysia } from "elysia";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -942,11 +998,13 @@ new Elysia()
 <Tab value="Existing server">
 ```ts title="server.ts"
 import { Elysia } from "elysia";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -968,11 +1026,13 @@ new Elysia()
 `createCopilotRuntimeHandler` and `createCopilotNodeListener` both take lifecycle hooks for cross-cutting concerns like authentication, logging, and response modification.
 
 ```ts
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 
@@ -1025,11 +1085,13 @@ const handler = createCopilotRuntimeHandler({
 The handlers send no CORS headers by default. Pass `cors: true` for permissive defaults (`Access-Control-Allow-Origin: *`), or provide a `CopilotCorsConfig` object. The same option works on `createCopilotRuntimeHandler` (Fetch runtimes and Hono) and on `createCopilotNodeListener` (Node.js HTTP and Express):
 
 ```ts
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: tanstackAIAgent({ adapter: () => openaiText("gpt-4o-mini") }),
   },
 });
 

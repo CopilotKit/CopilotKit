@@ -43,19 +43,19 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
                 ```bash
-                npm install @copilotkit/react-native @copilotkit/runtime
+                npm install @copilotkit/react-native @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
                 npm install -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="pnpm">
                 ```bash
-                pnpm add @copilotkit/react-native @copilotkit/runtime
+                pnpm add @copilotkit/react-native @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
                 pnpm add -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="yarn">
                 ```bash
-                yarn add @copilotkit/react-native @copilotkit/runtime
+                yarn add @copilotkit/react-native @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
                 yarn add -D tsx typescript @types/node
                 ```
             </Tab>
@@ -110,13 +110,15 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
 
         ```ts title="server.ts"
         import { createServer } from "node:http";
-        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+        import { CopilotRuntime } from "@copilotkit/runtime";
+        import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+        import { openaiText } from "@tanstack/ai-openai";
         import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
         const runtime = new CopilotRuntime({
           agents: {
-            default: new BuiltInAgent({
-              model: "openai:gpt-5-mini",
+            default: tanstackAIAgent({
+              adapter: () => openaiText("gpt-5-mini"),
               prompt: "You are a helpful assistant for a React Native app.",
             }),
           },
@@ -324,7 +326,8 @@ Supporting entry points:
 |--------|-------------|
 | `@copilotkit/react-native/polyfills` | Barrel that installs every polyfill (streams, encoding, crypto, dom, location) plus the streaming-fetch shim |
 | `@copilotkit/react-native/polyfills/{streams,encoding,crypto,dom,location}` | Granular subpaths for installing a single polyfill |
-| `@copilotkit/runtime` | Server-side runtime (`CopilotRuntime` / `BuiltInAgent` / `createCopilotNodeListener`) used to host your agent |
+| `@copilotkit/runtime` | Server-side runtime (`CopilotRuntime` / `createCopilotNodeListener`) used to host your agent |
+| `@copilotkit/runtime/tanstack-ai` | `tanstackAIAgent`, the built-in agent that the quickstart server registers |
 
 <Callout type="warn" title="`CopilotChat` means two different things">
   The root barrel's `CopilotChat` and `CopilotModal` are **headless wrappers** — they render only context and `children`, no messages and no tool UI. The versions that actually draw a chat are the same-named exports from `@copilotkit/react-native/components`. If you imported `CopilotChat` expecting a chat and got a blank screen, you imported the root one.
@@ -513,25 +516,28 @@ export default function App({ runtimeUrl, token, userId }: AppProps) {
 
 ## Runtime and model wiring
 
-The runtime from the quickstart hosts a `BuiltInAgent` and serves it with `createCopilotNodeListener`, which plugs straight into Node's built-in `node:http` `createServer` — no Hono or Express dependency required. `createCopilotNodeListener({ runtime, basePath, cors })` returns a request listener.
+The runtime from the quickstart hosts a built-in agent and serves it with `createCopilotNodeListener`, which plugs straight into Node's built-in `node:http` `createServer`. It needs no Hono or Express dependency. `createCopilotNodeListener({ runtime, basePath, cors })` returns a request listener.
 
 `cors: true` adds `Access-Control-*` response headers and answers `OPTIONS` preflights. That matters for **browser** clients — Expo Web or `react-native-web` — but it has no bearing on whether a native iOS or Android build can reach the server: CORS is enforced by the browser, and React Native's native networking stack (`NSURLSession` / OkHttp) neither sends an `Origin` header nor consults `Access-Control-Allow-Origin`. Native reachability is decided by the server's bind address, LAN routing and firewall, and platform transport security — see [Connecting from a device or bench](#connecting-from-a-device-or-bench).
 
-`BuiltInAgent` accepts a model **string** in `provider:model` (or `provider/model`) form for OpenAI, Anthropic, and Google:
+`tanstackAIAgent` takes a TanStack AI adapter. Each provider has its own adapter package:
 
 ```ts
-import { BuiltInAgent } from "@copilotkit/runtime";
+import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+import { anthropicText } from "@tanstack/ai-anthropic";
+import { geminiText } from "@tanstack/ai-gemini";
+import { openaiText } from "@tanstack/ai-openai";
 
-const openai = new BuiltInAgent({ model: "openai:gpt-5-mini", prompt: "..." }); // OPENAI_API_KEY
-const anthropic = new BuiltInAgent({ model: "anthropic:claude-sonnet-4-6", prompt: "..." }); // ANTHROPIC_API_KEY
-const google = new BuiltInAgent({ model: "google:gemini-3.8-flash", prompt: "..." }); // GOOGLE_API_KEY
+const openai = tanstackAIAgent({ adapter: () => openaiText("gpt-5-mini"), prompt: "..." }); // OPENAI_API_KEY
+const anthropic = tanstackAIAgent({ adapter: () => anthropicText("claude-sonnet-4-6"), prompt: "..." }); // ANTHROPIC_API_KEY
+const google = tanstackAIAgent({ adapter: () => geminiText("gemini-3.8-flash"), prompt: "..." }); // GEMINI_API_KEY
 ```
 
-The string form reads the matching provider API key from the environment. You can also pass `apiKey` on the config, or an already-constructed AI SDK `LanguageModel` instance in place of the string.
+Each adapter reads the API key of its provider from the environment. Install the adapter package for each provider that you use, for example `npm install @tanstack/ai-anthropic`.
 
 ### OpenAI-compatible endpoints
 
-To point the string model form at an OpenAI-compatible endpoint (a gateway, Azure OpenAI, a self-hosted server, etc.), set the base-URL environment variable — the runtime honors it when it constructs the provider:
+To point the OpenAI adapter at an OpenAI-compatible endpoint (a gateway, Azure OpenAI, or a self-hosted server), set the base-URL environment variable. The OpenAI SDK reads it when the adapter creates its client:
 
 ```bash
 export OPENAI_BASE_URL=https://your-gateway.example.com/v1
@@ -539,12 +545,10 @@ export OPENAI_API_KEY=sk-...
 npx tsx server.ts
 ```
 
-On a host other than OpenAI or Azure, `openai:` models use the Chat Completions API. To keep the Responses API through a gateway in front of OpenAI, also set `COPILOTKIT_OPENAI_API=responses`. See [Model Selection](/model-selection#openai-compatible-endpoints).
+The Anthropic adapter reads `ANTHROPIC_BASE_URL` in the same way. When the variable is not set, the adapter uses the default endpoint of the provider. See [Model Selection](/model-selection) for more providers.
 
-The same applies to `ANTHROPIC_BASE_URL` and `GOOGLE_GENERATIVE_AI_BASE_URL`. When the variable is unset, the provider falls back to its default endpoint, so this is fully backward compatible — you do **not** need to build a custom model instance just to change the base URL.
-
-<Callout type="info" title="Other BuiltInAgent options">
-  Beyond `model` and `prompt`, `BuiltInAgent` accepts `maxSteps` (tool-calling iterations, default `1`), `tools` (server-executed tools via `defineTool`), `temperature`, `maxOutputTokens`, `providerOptions` (e.g. OpenAI `reasoningEffort`), and `mcpServers` / `mcpClients`. Tools that mutate the app's UI belong on the **client** via `useFrontendTool` (below), not in the server `tools` list.
+<Callout type="info" title="Other agent options">
+  Beyond `adapter` and `prompt`, `tanstackAIAgent` accepts `maxIterations` (the most model turns in one run, default `5`), `tools` (server-executed tools from `defineTool`), `modelOptions` (provider options such as `temperature`), and `mcpServers`. Tools that mutate the app's UI belong on the **client** via `useFrontendTool` (below), not in the server `tools` list.
 </Callout>
 
 ## Connecting from a device or bench
@@ -707,7 +711,7 @@ A client-executed frontend tool renders its UI **mid-run**: the tool fires, your
 
 - Tie a loading overlay strictly to `isRunning` (render nothing when it's `false`) so an errored turn can't leave it stuck on. Keep always-available controls (a home or cancel button) above the overlay so they stay tappable while the run finishes.
 - If you gate a reveal animation, trigger it on the **falling edge** of `isRunning` (true → false) rather than on the content-arrived state change — otherwise the animation plays while the overlay is still up and the user never sees it.
-- Bound the run's tail with `maxSteps` on the agent so it doesn't linger longer than needed.
+- Bound the run's tail with `maxIterations` on the agent so it doesn't linger longer than needed.
 
 ## Voice and speech-to-text
 

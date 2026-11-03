@@ -19,6 +19,8 @@ export function prepareBuiltinConsumer(source, work) {
     "utf8",
   )
     .replace('from "../index"', 'from "@copilotkit/runtime"')
+    .replace('from "../tool-spec"', 'from "@copilotkit/runtime"')
+    .replace('from "../../ai-sdk"', 'from "@copilotkit/runtime/ai-sdk"')
     .replace(
       '"../../../../intelligence-delivery-core/conformance/snapshots.v1.json"',
       '"./snapshots.v1.json"',

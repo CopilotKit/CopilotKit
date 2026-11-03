@@ -1,0 +1,32 @@
+{
+  // The root entry, `@copilotkit/runtime`, must type-check for a consumer who
+  // installed no model SDK. `ai` and `@tanstack/ai` are optional peers: only
+  // `@copilotkit/runtime/ai-sdk` and `@copilotkit/runtime/tanstack-ai` may
+  // reach for them.
+  //
+  // A `paths` entry whose target does not exist falls back to node_modules,
+  // and this workspace installs both SDKs for its own tests. So the SDKs are
+  // mapped to unresolvable.ts instead, which fails the compile the moment it
+  // is pulled in. check.mjs is the runtime half of the same claim.
+  //
+  // Run by `pnpm --filter @copilotkit/runtime check-dts`, which depends on
+  // `build`.
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2023"],
+    "types": ["node"],
+    "skipLibCheck": true,
+    "paths": {
+      "@copilotkit/runtime": ["../../dist/index.d.mts"],
+      "ai": ["./unresolvable.ts"],
+      "ai/*": ["./unresolvable.ts"],
+      "@ai-sdk/*": ["./unresolvable.ts"],
+      "@tanstack/ai*": ["./unresolvable.ts"]
+    }
+  },
+  "include": ["consumer.ts"]
+}

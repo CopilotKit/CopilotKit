@@ -184,15 +184,16 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
 
         ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
         import {
-          BuiltInAgent,
           CopilotRuntime,
           createCopilotRuntimeHandler,
         } from "@copilotkit/runtime";
+        import { tanstackAIAgent } from "@copilotkit/runtime/tanstack-ai";
+        import { openaiText } from "@tanstack/ai-openai";
 
         const runtime = new CopilotRuntime({
           agents: {
-            default: new BuiltInAgent({
-              model: "openai/gpt-4o",
+            default: tanstackAIAgent({
+              adapter: () => openaiText("gpt-4o"),
               mcpServers: [
                 {
                   // Try a sample MCP server at https://mcp.composio.dev/

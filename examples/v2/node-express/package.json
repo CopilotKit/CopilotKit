@@ -2,6 +2,7 @@
   "name": "@copilotkit/node-express",
   "version": "1.55.0-next.8",
   "private": true,
+  "type": "module",
   "scripts": {
     "example-dev": "tsx watch src/index.ts",
     "example-build": "tsc",
@@ -9,6 +10,8 @@
   },
   "dependencies": {
     "@copilotkit/runtime": "workspace:*",
+    "@tanstack/ai": "^1.0.1",
+    "@tanstack/ai-openai": "^1.0.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "zod": "^4.2.0"

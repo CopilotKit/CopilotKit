@@ -7,7 +7,9 @@
     "example-deploy": "wrangler deploy"
   },
   "dependencies": {
-    "@copilotkit/runtime": "workspace:^"
+    "@copilotkit/runtime": "workspace:^",
+    "@tanstack/ai": "^1.0.1",
+    "@tanstack/ai-openai": "^1.0.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250214.0",

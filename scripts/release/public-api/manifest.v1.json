@@ -1867,6 +1867,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/runtime/ai-sdk",
+          "exportKey": "./ai-sdk",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/ai-sdk.mjs",
+            "require": "./dist/ai-sdk.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/runtime/package.json",
+            "selector": "exports[\"./ai-sdk\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/runtime/internal/learned-skills",
           "exportKey": "./internal/learned-skills",
           "kind": "code",
@@ -1904,17 +1918,49 @@
             "path": "packages/runtime/package.json",
             "selector": "exports[\"./package.json\"]"
           }
+        },
+        {
+          "importPath": "@copilotkit/runtime/tanstack-ai",
+          "exportKey": "./tanstack-ai",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/tanstack-ai.mjs",
+            "require": "./dist/tanstack-ai.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/runtime/package.json",
+            "selector": "exports[\"./tanstack-ai\"]"
+          }
         }
       ],
       "compatibility": {
         "engines": {
           "node": "^20.19.3 || >=22.13.0"
         },
+        "peerDependencies": {
+          "ai": "^6.0.0 || ^7.0.0",
+          "@tanstack/ai": "^1.0.0"
+        },
+        "optionalPeerDependencies": [
+          "@tanstack/ai",
+          "ai"
+        ],
         "provenance": [
           {
             "kind": "package-json",
             "path": "packages/runtime/package.json",
             "selector": "engines"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/runtime/package.json",
+            "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/runtime/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
           }
         ]
       },
@@ -2609,7 +2655,6 @@
       {
         "type": "aisdk",
         "configurationKeys": [
-          "learnedSkills",
           "type",
           "factory"
         ],
@@ -2629,7 +2674,6 @@
       {
         "type": "tanstack",
         "configurationKeys": [
-          "learnedSkills",
           "type",
           "factory"
         ],
@@ -2649,7 +2693,6 @@
       {
         "type": "custom",
         "configurationKeys": [
-          "learnedSkills",
           "type",
           "factory"
         ],

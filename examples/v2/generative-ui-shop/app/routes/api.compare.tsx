@@ -19,7 +19,8 @@ const adapter = openaiText(
 );
 
 export const action = async ({ request }: Route.ActionArgs) => {
-  const { messages, forwardedProps } = await chatParamsFromRequest(request);
+  const { messages, threadId, runId, forwardedProps } =
+    await chatParamsFromRequest(request);
   const props = CompareForwardedProps.safeParse(forwardedProps);
   if (!props.success) {
     return new Response(props.error.message, { status: 400 });
@@ -42,6 +43,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
     adapter,
     systemPrompts,
     messages,
+    threadId,
+    runId,
     tools: [searchProducts, findSimilarProducts],
     outputSchema: ComparisonSchema,
     stream: true,

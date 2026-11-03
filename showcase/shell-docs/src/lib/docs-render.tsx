@@ -1764,7 +1764,6 @@ export const SNIPPET_MAP: Record<string, string> = {
   CodingAgents: "shared/coding-agents.mdx",
   CommonIssues: "shared/troubleshooting/common-issues.mdx",
   CopilotRuntime: "copilot-runtime.mdx",
-  CustomAgent: "shared/backend/custom-agent.mdx",
   DebugMode: "shared/troubleshooting/debug-mode.mdx",
   DisplayOnly: "shared/generative-ui/display-only.mdx",
   ErrorDebugging: "shared/troubleshooting/error-debugging.mdx",

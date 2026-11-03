@@ -8,13 +8,8 @@
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import type { Observable } from "rxjs";
-import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
 import { BuiltInAgent } from "../index";
-import type {
-  AgentFactoryContext,
-  BuiltInAgentFactoryConfig,
-  ToolDefinition,
-} from "../index";
+import type { AgentFactoryContext, BuiltInAgentFactoryConfig } from "../index";
 import type { MockStreamEvent } from "./test-helpers";
 
 // Re-export everything from existing test helpers
@@ -115,22 +110,28 @@ export function tanstackToolCallResult(toolCallId: string, content: unknown) {
 }
 
 /**
- * TanStack native human-in-the-loop chunk: the CUSTOM "approval-requested"
- * event emitted by `chat()` when a tool declared `needsApproval: true` is called.
+ * TanStack native human-in-the-loop chunk: the `RUN_FINISHED` that `chat()`
+ * emits when a tool declared `needsApproval: true` is called. The turn ends
+ * with an `interrupt` outcome that carries one approval per paused call.
  */
-export function tanstackApprovalRequested(
+export function tanstackApprovalRunFinished(
   toolCallId: string,
   toolName: string,
   input?: unknown,
 ) {
   return {
-    type: "CUSTOM",
-    name: "approval-requested",
-    value: {
-      toolCallId,
-      toolName,
-      input,
-      approval: { id: `approval-${toolCallId}`, needsApproval: true },
+    type: "RUN_FINISHED",
+    outcome: {
+      type: "interrupt",
+      interrupts: [
+        {
+          id: `approval-${toolCallId}`,
+          reason: "tool_call",
+          message: `Approval required to run ${toolName}`,
+          toolCallId,
+          metadata: { kind: "approval", toolName, input },
+        },
+      ],
     },
   } as const;
 }
@@ -258,170 +259,6 @@ export function createAgent(
       });
     }
   }
-}
-
-// ---------------------------------------------------------------------------
-// Classic (model-based) agent factory with a capturing mock model
-// ---------------------------------------------------------------------------
-
-/**
- * The element type of the `ReadableStream` returned by a V3 model's `doStream`.
- * Derived from `MockLanguageModelV3` so we never need a direct (non-resolvable
- * from this package) `@ai-sdk/provider` import.
- */
-type V3StreamResult = Awaited<ReturnType<MockLanguageModelV3["doStream"]>>;
-type V3StreamPart =
-  V3StreamResult["stream"] extends ReadableStream<infer P> ? P : never;
-type V3FinishPart = Extract<V3StreamPart, { type: "finish" }>;
-/** The shape of the options object the model's `doStream` is invoked with. */
-type V3CallOptions = MockLanguageModelV3["doStreamCalls"][number];
-
-function toV3FinishReason(value: unknown): V3FinishPart["finishReason"] {
-  if (value && typeof value === "object" && "unified" in value) {
-    return value as V3FinishPart["finishReason"];
-  }
-
-  const raw = typeof value === "string" ? value : undefined;
-  switch (raw) {
-    case "length":
-    case "content-filter":
-    case "tool-calls":
-    case "error":
-    case "other":
-    case "stop":
-      return { unified: raw, raw };
-    default:
-      return { unified: "stop", raw };
-  }
-}
-
-/** A BuiltInAgent augmented with a test-only seam exposing the messages the
- *  model received on its most recent `doStream` invocation. */
-export type ClassicAgentWithCapture = BuiltInAgent & {
-  /** The `prompt` (provider-level message list) passed to the mock model on its
-   *  most recent `doStream` call, or `undefined` if the model was never run. */
-  readonly __lastModelMessages: V3CallOptions["prompt"] | undefined;
-};
-
-/**
- * Translates the existing fullStream-style `MockStreamEvent` chunks (built via
- * `textDelta`, `toolCall`, `finish`, …) into the provider-level
- * `LanguageModelV3` stream parts that the REAL `streamText` consumes from a
- * model's `doStream`.
- *
- * Only the chunk kinds needed by the classic-path interrupt tests are
- * translated; anything else is passed through unchanged so it can be extended
- * later without breaking existing callers.
- */
-function toV3StreamParts(chunks: MockStreamEvent[]): V3StreamPart[] {
-  const parts: V3StreamPart[] = [];
-  let openTextId: string | undefined;
-
-  const closeTextIfOpen = () => {
-    if (openTextId !== undefined) {
-      parts.push({ type: "text-end", id: openTextId } as V3StreamPart);
-      openTextId = undefined;
-    }
-  };
-
-  let autoId = 0;
-  for (const chunk of chunks) {
-    switch (chunk.type) {
-      case "text-start": {
-        const id = (chunk.id as string | undefined) ?? `text-${autoId++}`;
-        openTextId = id;
-        parts.push({ type: "text-start", id } as V3StreamPart);
-        break;
-      }
-      case "text-delta": {
-        if (openTextId === undefined) {
-          openTextId = `text-${autoId++}`;
-          parts.push({ type: "text-start", id: openTextId } as V3StreamPart);
-        }
-        parts.push({
-          type: "text-delta",
-          id: openTextId,
-          delta: String(chunk.text ?? ""),
-        } as V3StreamPart);
-        break;
-      }
-      case "tool-call": {
-        closeTextIfOpen();
-        // Provider-level tool calls carry a stringified-JSON `input`; the
-        // fullStream builder accepts an object, so stringify it here.
-        const input =
-          typeof chunk.input === "string"
-            ? chunk.input
-            : JSON.stringify(chunk.input ?? {});
-        parts.push({
-          type: "tool-call",
-          toolCallId: String(chunk.toolCallId),
-          toolName: String(chunk.toolName),
-          input,
-        } as V3StreamPart);
-        break;
-      }
-      case "finish": {
-        closeTextIfOpen();
-        const finishPart: V3FinishPart = {
-          type: "finish",
-          finishReason: toV3FinishReason(chunk.finishReason),
-          usage: {
-            inputTokens: {
-              total: 0,
-              noCache: 0,
-              cacheRead: 0,
-              cacheWrite: 0,
-            },
-            outputTokens: { total: 0, text: 0, reasoning: 0 },
-          },
-        };
-        parts.push(finishPart);
-        break;
-      }
-      default: {
-        // Pass through any already-provider-shaped part unchanged.
-        parts.push(chunk as unknown as V3StreamPart);
-      }
-    }
-  }
-  closeTextIfOpen();
-  return parts;
-}
-
-/**
- * Creates a CLASSIC (model-based) `BuiltInAgent` driven by a mock
- * `LanguageModelV3`, wired with the given `tools`.
- *
- * The mock model surfaces `streamChunks` (the same fullStream-style chunks used
- * by the AI-SDK factory tests — `toolCall`, `textDelta`, `finish`, …) through
- * the real `streamText` pipeline, and RECORDS the messages it was invoked with.
- * Read them via `agent.__lastModelMessages` after running the agent.
- */
-export function createClassicAgentWithTools(
-  streamChunks: MockStreamEvent[],
-  tools: ToolDefinition[],
-): ClassicAgentWithCapture {
-  const model = new MockLanguageModelV3({
-    doStream: async () => ({
-      stream: simulateReadableStream({
-        chunks: toV3StreamParts(streamChunks),
-      }),
-    }),
-  });
-
-  const agent = new BuiltInAgent({ model, tools }) as ClassicAgentWithCapture;
-
-  Object.defineProperty(agent, "__lastModelMessages", {
-    configurable: true,
-    enumerable: false,
-    get() {
-      const calls = model.doStreamCalls;
-      return calls.length > 0 ? calls[calls.length - 1].prompt : undefined;
-    },
-  });
-
-  return agent;
 }
 
 // ---------------------------------------------------------------------------

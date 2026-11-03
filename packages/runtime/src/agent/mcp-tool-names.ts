@@ -1,9 +1,11 @@
-import type { ToolSet } from "ai";
-
-/** The tools that one MCP source contributed, with the label used to prefix them. */
-export interface MCPToolSource {
+/**
+ * The tools that one MCP source contributed, keyed by tool name, with the
+ * label used to prefix them. `Tool` is any tool shape: an AI SDK tool, an
+ * `AgentToolSpec`, or another SDK's tool.
+ */
+export interface MCPToolSource<Tool> {
   label: string;
-  tools: ToolSet;
+  tools: Record<string, Tool>;
 }
 
 /**
@@ -46,7 +48,7 @@ function warnOnce(message: string): void {
 export function resolveMCPToolNames(
   appToolNames: ReadonlySet<string>,
   sources: { label: string; names: string[] }[],
-  hint = " Set `name` on an `mcpServers` entry to choose its prefix. `mcpClients` entries always use `mcp<N>`.",
+  hint = " Set `name` on an `mcpServers` entry to choose its prefix.",
 ): string[][] {
   const sourceCount = new Map<string, number>();
   for (const { names } of sources) {
@@ -105,11 +107,14 @@ export function resolveMCPToolNames(
   return resolved;
 }
 
-/** Merges MCP tools into the agent's own tools under {@link resolveMCPToolNames}. */
-export function mergeMCPTools(
-  appTools: ToolSet,
-  sources: MCPToolSource[],
-): ToolSet {
+/**
+ * Merges MCP tools into the agent's own tools under {@link resolveMCPToolNames}.
+ * Works on name-keyed records of any tool type.
+ */
+export function mergeMCPTools<AppTool, MCPTool>(
+  appTools: Record<string, AppTool>,
+  sources: MCPToolSource<MCPTool>[],
+) {
   const entries = sources.map((source) => Object.entries(source.tools));
   const names = resolveMCPToolNames(
     new Set(Object.keys(appTools)),
@@ -119,7 +124,7 @@ export function mergeMCPTools(
     })),
   );
 
-  const merged: ToolSet = { ...appTools };
+  const merged: Record<string, AppTool | MCPTool> = { ...appTools };
   entries.forEach((sourceEntries, i) => {
     sourceEntries.forEach(([, tool], j) => {
       merged[names[i]![j]!] = tool;
