@@ -5,7 +5,9 @@ import {
   ɵbuildToolCallRenderProps,
   ɵdescribeUnrenderedToolCalls,
   ɵfindToolMessage,
+  ɵgetToolCallBadge,
   ɵgetToolCallStatus,
+  ɵnormalizeToolCallStatus,
   ɵparseToolCallArguments,
   ɵresolveToolCallAgentId,
 } from "../tool-call-render";
@@ -170,5 +172,30 @@ describe("ɵdescribeUnrenderedToolCalls", () => {
     expect(ɵdescribeUnrenderedToolCalls(["lookup", "lookup"], [])).toHaveLength(
       1,
     );
+  });
+});
+
+describe("ɵnormalizeToolCallStatus", () => {
+  it("reads core and Angular spellings, and anything else as unknown", () => {
+    expect(
+      ["inProgress", "in-progress", "executing", "complete", "future"].map(
+        ɵnormalizeToolCallStatus,
+      ),
+    ).toEqual(["inProgress", "inProgress", "executing", "complete", "unknown"]);
+  });
+});
+
+describe("ɵgetToolCallBadge", () => {
+  it("maps each status to a tone and a chat label", () => {
+    expect(
+      (["inProgress", "executing", "complete", "unknown"] as const).map(
+        ɵgetToolCallBadge,
+      ),
+    ).toEqual([
+      { tone: "running", labelKey: "toolCallStatusRunningLabel" },
+      { tone: "running", labelKey: "toolCallStatusRunningLabel" },
+      { tone: "done", labelKey: "toolCallStatusDoneLabel" },
+      { tone: "other", labelKey: "toolCallStatusUnknownLabel" },
+    ]);
   });
 });

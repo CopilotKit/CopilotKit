@@ -607,28 +607,61 @@ export function pluralize(
 }
 
 /**
+ * `JSON.stringify` that never fails on a tool value: a circular reference
+ * reads `"[Circular]"`, a `bigint` reads `"12n"`, and `undefined`, functions
+ * and symbols get a placeholder. Returns `undefined` only when `toJSON`
+ * throws.
+ */
+function safeJSONStringify(value: unknown, space?: number) {
+  const seen = new WeakSet<object>();
+  try {
+    const serialized = JSON.stringify(
+      value,
+      (_key, candidate: unknown) => {
+        if (typeof candidate === "bigint") return `${candidate.toString()}n`;
+        if (typeof candidate === "undefined") return "[Undefined]";
+        if (typeof candidate === "function") return "[Function]";
+        if (typeof candidate === "symbol") return candidate.toString();
+        if (typeof candidate === "object" && candidate !== null) {
+          if (seen.has(candidate)) return "[Circular]";
+          seen.add(candidate);
+        }
+        return candidate;
+      },
+      space,
+    );
+    return serialized;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * A tool call's arguments or result as display text. Strings pass through.
- * Other values are pretty-printed JSON. A value JSON cannot encode (say, a
- * circular reference) falls back to `String(value)`, then to
- * `"[unserializable]"`, so it never throws during a render.
+ * Other values are pretty-printed JSON, and a value JSON cannot encode does
+ * not fail the whole payload: a circular reference reads `"[Circular]"`, a
+ * `bigint` reads `"12n"`, and `undefined`, functions and symbols get a
+ * placeholder. It never throws during a render.
  *
  * @param value - The arguments or the result.
  */
 export function stringifyToolCallPayload(value: unknown) {
   if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch (err) {
-    console.warn(
-      "[CopilotKit] Failed to JSON.stringify tool-call payload; falling back to String():",
-      err,
-    );
-    try {
-      return String(value);
-    } catch {
-      return "[unserializable]";
-    }
-  }
+  return safeJSONStringify(value, 2) ?? "[Unserializable value]";
+}
+
+/**
+ * A tool call's arguments or result as compact text for a `data-*`
+ * attribute. `null` and `undefined` read `""`, strings pass through, and
+ * other values are one-line JSON with the same placeholders as
+ * `stringifyToolCallPayload`. A value that still cannot be encoded reads `""`.
+ *
+ * @param value - The arguments or the result.
+ */
+export function stringifyToolCallAttr(value: unknown) {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return value;
+  return safeJSONStringify(value) ?? "";
 }
 
 /**

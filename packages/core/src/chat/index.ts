@@ -41,7 +41,10 @@ export {
   ɵbuildToolCallRenderProps,
   ɵresolveToolCallAgentId,
   ɵdescribeUnrenderedToolCalls,
+  ɵnormalizeToolCallStatus,
+  ɵgetToolCallBadge,
 } from "./tool-call-render";
+export type { ɵToolCallCardStatus } from "./tool-call-render";
 
 // Interrupts (public)
 export { INTERRUPT_EVENT_NAME } from "./interrupt-types";
@@ -87,6 +90,7 @@ export {
   countFailedToolCalls as ɵcountFailedToolCalls,
   pluralize as ɵpluralize,
   stringifyToolCallPayload as ɵstringifyToolCallPayload,
+  stringifyToolCallAttr as ɵstringifyToolCallAttr,
   formatWorkDuration as ɵformatWorkDuration,
   formatReasoningDuration as ɵformatReasoningDuration,
 } from "./tool-call-layout";

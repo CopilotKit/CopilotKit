@@ -9,6 +9,7 @@ import type { Message, ToolCall, ToolMessage } from "@ag-ui/core";
 import { contentToText } from "@ag-ui/core";
 import { DEFAULT_AGENT_ID, partialJSONParse } from "@copilotkit/shared";
 import { ToolCallStatus } from "../types";
+import type { CopilotChatLabels } from "./labels";
 
 /**
  * The status of a tool call:
@@ -193,4 +194,73 @@ export function ɵdescribeUnrenderedToolCalls(
       `useDefaultRenderTool() for a built-in card that covers every tool the ` +
       `agent calls. This warning is development-only.`,
   }));
+}
+
+/**
+ * The status a tool-call card shows. `"unknown"` is a status this version
+ * does not know, as a newer runtime could send.
+ */
+export type ɵToolCallCardStatus =
+  | "inProgress"
+  | "executing"
+  | "complete"
+  | "unknown";
+
+/**
+ * Read a tool-call status from any framework's spelling: core's
+ * `ToolCallStatus` values (`"inProgress"`, `"executing"`, `"complete"`) or
+ * Angular's `"in-progress"`. Anything else is `"unknown"`.
+ *
+ * @param status - The status to read.
+ */
+export function ɵnormalizeToolCallStatus(status: string) {
+  switch (status) {
+    case "inProgress":
+    case "in-progress":
+      return "inProgress" satisfies ɵToolCallCardStatus;
+    case "executing":
+    case "complete":
+      return status satisfies ɵToolCallCardStatus;
+    default:
+      return "unknown" satisfies ɵToolCallCardStatus;
+  }
+}
+
+/**
+ * How the built-in tool-call card shows a status: the color of its dot and
+ * badge (`tone`), and the chat label for its text (`labelKey`).
+ *
+ * @param status - The status, from {@link ɵnormalizeToolCallStatus}.
+ *
+ * @example
+ * ```ts
+ * const { tone, labelKey } = ɵgetToolCallBadge(ɵnormalizeToolCallStatus(status));
+ * badge.className = `cpk-default-tool-call-badge-${tone}`;
+ * badge.textContent = labels[labelKey];
+ * ```
+ */
+export function ɵgetToolCallBadge(status: ɵToolCallCardStatus) {
+  switch (status) {
+    case "inProgress":
+    case "executing":
+      return {
+        tone: "running",
+        labelKey: "toolCallStatusRunningLabel",
+      } satisfies ToolCallBadge;
+    case "complete":
+      return {
+        tone: "done",
+        labelKey: "toolCallStatusDoneLabel",
+      } satisfies ToolCallBadge;
+    case "unknown":
+      return {
+        tone: "other",
+        labelKey: "toolCallStatusUnknownLabel",
+      } satisfies ToolCallBadge;
+  }
+}
+
+interface ToolCallBadge {
+  tone: "running" | "done" | "other";
+  labelKey: keyof CopilotChatLabels;
 }

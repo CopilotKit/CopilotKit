@@ -16,6 +16,7 @@ import {
   isTurnWorkOpen,
   pluralize,
   recordWorkTime,
+  stringifyToolCallAttr,
   stringifyToolCallPayload,
 } from "../tool-call-layout";
 import type {
@@ -467,7 +468,7 @@ describe("tool-call group helpers", () => {
     ]);
   });
 
-  it("stringifies payloads, and falls back when JSON cannot encode them", () => {
+  it("stringifies payloads, with placeholders for values JSON cannot encode", () => {
     const circular: { self?: unknown } = {};
     circular.self = circular;
     const bare: { self?: unknown } = Object.create(null);
@@ -475,8 +476,35 @@ describe("tool-call group helpers", () => {
 
     expect(stringifyToolCallPayload("raw")).toBe("raw");
     expect(stringifyToolCallPayload({ a: 1 })).toBe('{\n  "a": 1\n}');
-    expect(stringifyToolCallPayload(circular)).toBe("[object Object]");
-    expect(stringifyToolCallPayload(bare)).toBe("[unserializable]");
+    expect(stringifyToolCallPayload(circular)).toBe(
+      '{\n  "self": "[Circular]"\n}',
+    );
+    expect(stringifyToolCallPayload(bare)).toBe('{\n  "self": "[Circular]"\n}');
+    expect(stringifyToolCallPayload({ n: 12n, f: () => 1, u: undefined })).toBe(
+      '{\n  "n": "12n",\n  "f": "[Function]",\n  "u": "[Undefined]"\n}',
+    );
+  });
+
+  it("reads an unencodable payload as a placeholder", () => {
+    const throwing = {
+      toJSON() {
+        throw new Error("no");
+      },
+    };
+
+    expect(stringifyToolCallPayload(throwing)).toBe("[Unserializable value]");
+    expect(stringifyToolCallAttr(throwing)).toBe("");
+  });
+
+  it("stringifies attribute values on one line", () => {
+    const circular: { self?: unknown } = {};
+    circular.self = circular;
+
+    expect(stringifyToolCallAttr(undefined)).toBe("");
+    expect(stringifyToolCallAttr(null)).toBe("");
+    expect(stringifyToolCallAttr("3 cats")).toBe("3 cats");
+    expect(stringifyToolCallAttr({ query: "cats" })).toBe('{"query":"cats"}');
+    expect(stringifyToolCallAttr(circular)).toBe('{"self":"[Circular]"}');
   });
 });
 

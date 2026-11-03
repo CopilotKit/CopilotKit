@@ -1,5 +1,13 @@
 import React, { useContext, useState } from "react";
-import { ToolCallStatus } from "@copilotkit/core";
+import {
+  CopilotChatDefaultLabels,
+  ɵgetToolCallBadge,
+  ɵnormalizeToolCallStatus,
+  ɵstringifyToolCallAttr,
+  ɵstringifyToolCallPayload,
+} from "@copilotkit/core";
+import type { ToolCallStatus } from "@copilotkit/core";
+import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { useRenderTool } from "./use-render-tool";
 import { cn } from "../lib/utils";
 import {
@@ -53,28 +61,20 @@ const warnedUnknownStatuses = new Set<string>();
 export function mapToolCallStatus(
   status: ToolCallStatus,
 ): DefaultRenderProps["status"] {
-  switch (status) {
-    case ToolCallStatus.Complete:
-      return "complete";
-    case ToolCallStatus.Executing:
-      return "executing";
-    case ToolCallStatus.InProgress:
-      return "inProgress";
-    default: {
-      // Surface unknown / future enum values so callers know their custom
-      // renderer is being invoked with an unmapped status. Fall back to
-      // "inProgress" — the safest treat-as-pending default. Dedup by value
-      // so a stuck unmapped status doesn't spam console on every render.
-      const key = String(status);
-      if (!warnedUnknownStatuses.has(key)) {
-        warnedUnknownStatuses.add(key);
-        console.warn(
-          `[CopilotKit] Unknown ToolCallStatus "${key}" in default tool-call renderer; falling back to "inProgress".`,
-        );
-      }
-      return "inProgress";
-    }
+  const normalized = ɵnormalizeToolCallStatus(status);
+  if (normalized !== "unknown") return normalized;
+  // Surface unknown / future enum values so callers know their custom
+  // renderer is being invoked with an unmapped status. Fall back to
+  // "inProgress" — the safest treat-as-pending default. Dedup by value
+  // so a stuck unmapped status doesn't spam console on every render.
+  const key = String(status);
+  if (!warnedUnknownStatuses.has(key)) {
+    warnedUnknownStatuses.add(key);
+    console.warn(
+      `[CopilotKit] Unknown ToolCallStatus "${key}" in default tool-call renderer; falling back to "inProgress".`,
+    );
   }
+  return "inProgress";
 }
 
 /**
@@ -168,30 +168,6 @@ export function useDefaultRenderTool(
   );
 }
 
-/**
- * Guarded JSON.stringify used inside the expanded `<pre>` blocks. A circular
- * reference would otherwise crash the entire React tree on render.
- */
-function safeStringifyForPre(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch (err) {
-    console.warn(
-      "[CopilotKit] Failed to JSON.stringify tool-call payload for default renderer; falling back to String():",
-      err,
-    );
-    try {
-      return String(value);
-    } catch (innerErr) {
-      console.warn(
-        "[CopilotKit] safeStringifyForPre: value could not be stringified:",
-        innerErr,
-      );
-      return "[unserializable]";
-    }
-  }
-}
-
 export function DefaultToolCallRenderer({
   name,
   toolCallId,
@@ -200,10 +176,13 @@ export function DefaultToolCallRenderer({
   result,
 }: DefaultRenderProps): React.ReactElement {
   const group = useContext(ToolCallGroupContext);
+  const labels =
+    useCopilotChatConfiguration()?.labels ?? CopilotChatDefaultLabels;
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const isActive = status === "inProgress" || status === "executing";
-  const isComplete = status === "complete";
+  // A status a newer runtime could send reads "unknown".
+  const cardStatus = ɵnormalizeToolCallStatus(status);
+  const isComplete = cardStatus === "complete";
 
   // Inside a group of calls, a row that fits the group instead of a card.
   if (group) {
@@ -212,9 +191,9 @@ export function DefaultToolCallRenderer({
         data-testid="copilot-tool-render"
         data-tool-name={name}
         data-tool-call-id={toolCallId}
-        data-status={status}
-        data-args={safeStringifyForAttr(parameters)}
-        data-result={safeStringifyForAttr(result)}
+        data-status={cardStatus}
+        data-args={ɵstringifyToolCallAttr(parameters)}
+        data-result={ɵstringifyToolCallAttr(result)}
         name={name}
         parameters={parameters}
         result={result}
@@ -232,18 +211,18 @@ export function DefaultToolCallRenderer({
     );
   }
 
-  const statusLabel = isActive ? "Running" : isComplete ? "Done" : status;
   // Colors the status dot and badge: running, done, or anything else.
-  const tone = isActive ? "running" : isComplete ? "done" : "other";
+  const { tone, labelKey } = ɵgetToolCallBadge(cardStatus);
+  const statusLabel = labels[labelKey];
 
   return (
     <div
       data-testid="copilot-tool-render"
       data-tool-name={name}
       data-tool-call-id={toolCallId}
-      data-status={status}
-      data-args={safeStringifyForAttr(parameters)}
-      data-result={safeStringifyForAttr(result)}
+      data-status={cardStatus}
+      data-args={ɵstringifyToolCallAttr(parameters)}
+      data-result={ɵstringifyToolCallAttr(result)}
       className="cpk-default-tool-call"
     >
       <div className="cpk-default-tool-call-card">
@@ -299,19 +278,21 @@ export function DefaultToolCallRenderer({
         {isExpanded && (
           <div className="cpk-default-tool-call-details">
             <div>
-              <div className="cpk-default-tool-call-label">Arguments</div>
+              <div className="cpk-default-tool-call-label">
+                {labels.toolCallArgumentsLabel}
+              </div>
               <pre className="cpk-default-tool-call-code">
-                {safeStringifyForPre(parameters ?? {})}
+                {ɵstringifyToolCallPayload(parameters ?? {})}
               </pre>
             </div>
 
             {result !== undefined && (
               <div>
-                <div className="cpk-default-tool-call-label">Result</div>
+                <div className="cpk-default-tool-call-label">
+                  {labels.toolCallResultLabel}
+                </div>
                 <pre className="cpk-default-tool-call-code">
-                  {typeof result === "string"
-                    ? result
-                    : safeStringifyForPre(result)}
+                  {ɵstringifyToolCallPayload(result)}
                 </pre>
               </div>
             )}
@@ -320,26 +301,4 @@ export function DefaultToolCallRenderer({
       </div>
     </div>
   );
-}
-
-function safeStringifyForAttr(value: unknown): string {
-  if (value === undefined || value === null) return "";
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value);
-  } catch (err) {
-    console.warn(
-      "[CopilotKit] Failed to JSON.stringify tool-call payload for data-* attribute; falling back to String():",
-      err,
-    );
-    try {
-      return String(value);
-    } catch (innerErr) {
-      console.warn(
-        "[CopilotKit] safeStringifyForAttr: value could not be stringified:",
-        innerErr,
-      );
-      return "";
-    }
-  }
 }
