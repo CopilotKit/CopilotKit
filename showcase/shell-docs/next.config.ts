@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 interface PermanentRedirect {
   readonly source: string;
@@ -529,6 +530,9 @@ const nextConfig: NextConfig = {
   // though the config has no application imports. Keep the filter exact so
   // every other Turbopack issue remains visible.
   turbopack: {
+    // The standalone Docker build has no monorepo lockfile. Include sibling
+    // shared sources explicitly instead of relying on local root inference.
+    root: path.resolve(__dirname, ".."),
     ignoreIssue: [
       {
         path: /showcase\/shell-docs\/next\.config\.ts$/,

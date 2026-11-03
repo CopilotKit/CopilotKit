@@ -1,7 +1,17 @@
 import { isA2UIBasicFunction } from "./generative-ui/basic-functions";
 import { A2UI_CHILD_LIST_REF } from "./generative-ui/child-refs";
-import { GENERATIVE_UI_AGENT_FUNCTION_CALLS } from "./generative-ui/types";
 import type { GenerativeUIManifest } from "./generative-ui/types";
+import {
+  defaultGenerativeUIPromptSpec,
+  GUIDE_COMPONENTS,
+  generativeUIPromptFeatures,
+  selectPromptItems,
+} from "./generative-ui/prompt-spec";
+import type { GenerativeUIPromptSpec } from "./generative-ui/prompt-spec";
+export {
+  GENERATIVE_UI_MARKDOWN_WHEN_TO_SHOW,
+  GENERATIVE_UI_WHEN_TO_SHOW,
+} from "./generative-ui/prompt-spec";
 /**
  * Default A2UI generation and design guideline prompts.
  *
@@ -118,14 +128,6 @@ Design principles:
 
 Use the SAME surfaceId as the main surface. Match action names to button action event names.`;
 
-/**
- * When UI helps the user, for both transports: a light nudge to reach for UI
- * where it conveys the answer better than prose, and to stay in prose
- * otherwise.
- */
-export const GENERATIVE_UI_WHEN_TO_SHOW =
-  "Show UI when it conveys the answer better than prose: to illustrate a concept (a diagram, a chart of how something changes), to compare options side by side, to let the user explore or adjust values, or to collect input. A small, focused surface next to your explanation often lands better than a long description. Reply in prose alone for a quick fact, a short answer, or conversation, and never add UI only as decoration.";
-
 /** Description of the context entry that carries `GENERATIVE_UI_MARKDOWN_GUIDELINES`. */
 export const GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION =
   "Generative UI markdown guide: how to write UI surfaces inside ```a2ui code fences in a normal markdown reply.";
@@ -154,6 +156,11 @@ export interface GenerativeUIGuideFeatures {
   templates: boolean;
   /** A component has a "checks" prop: validation rules on inputs. */
   checks: boolean;
+  /**
+   * The component names of the catalog. A guide line that names a standard
+   * component missing from it is left out. Unset keeps every line.
+   */
+  components?: readonly string[];
 }
 
 /** Every optional rule group. Use it when the manifest is not known. */
@@ -190,6 +197,7 @@ export function generativeUIGuideFeatures(
     return Object.values(node).some(hasChildList);
   };
   return {
+    components: Object.keys(manifest.components),
     // App functions only: the built-in ones are always there and have
     // their own rules.
     functions: Object.keys(manifest.functions).some(
@@ -212,44 +220,22 @@ export function generativeUIGuideFeatures(
   };
 }
 
-/** The first rules of every markdown guideline, before the optional groups. */
-const MARKDOWN_BASE_RULES = [
-  "Write explanations as normal markdown prose outside the fences.",
-  "Open a fence with ```a2ui to show the surface in the chat, at the place of the fence.",
-  'Open a fence with ```a2ui target=<id> to show the surface in a named target. Use only target ids from the schema. When a target has "components", its surfaces can use only those components.',
-  "Inside a fence, write one JSON object per line and nothing else. No comments, no trailing commas, no pretty-printing.",
-  "Keep each operation whole on its line.",
-  'Give every operation "version":"v1.0".',
-  `Start a surface with one createSurface. Put all the initial data in "dataModel" and the "root" component in "components". Then write the children in updateComponents lines, so that they show while you write:
-  \`\`\`a2ui
-  {"version":"v1.0","createSurface":{"surfaceId":"plan-picker","dataModel":{ ...initial data... },"components":[{"id":"root","component":"<Name>","children":["seats","pick"]}]}}
-  {"version":"v1.0","updateComponents":{"surfaceId":"plan-picker","components":[ ...the children... ]}}
-  \`\`\``,
-  'Keep "dataModel" flat: top-level keys such as "seats" or "form", never one wrapper object around everything. Check that every { and [ you open in a line is closed.',
-  'Every surface renders from the component with id "root". Make every other component reachable from "root" through slots.',
-  "Use unique ids. Do not make cycles. A component cannot be its own child.",
-  'Write a component as one flat object: {"id":"title","component":"<Name>","text":"Hello"}.',
-  'Put the component name in "component" (never "type"). Put props next to it, never inside a "props" object.',
-  'A component may take "accessibility":{"label":"<1 to 3 words>","description":"<what it does>"} for screen readers: on the component it describes, when nothing visible names it. Not on every component, and "live":"polite" only on text that changes by itself.',
-  'Use only the components, props, events, and slots in the schema. A component with "includesCommonProps" also takes every prop in "commonProps".',
-  'Give a prop a literal value, or bind it to the data model with {"@path":"/x"}. Never write {"path":"/x"} as a binding.',
-  'A prop can also be a function value that updates with the data: {"@call":"formatCurrency","args":{"value":{"@path":"/total"},"currency":"EUR"}}. Use only the functions under "functions" in the schema. Write a literal when the value never changes.',
-  'formatString interpolates ${...}: {"@call":"formatString","args":{"value":"${/qty} × ${formatCurrency(value: /price, currency: \'EUR\')}"}}. Inside ${...}, a path has no quotes, a string has single quotes, and a function takes named args.',
-  '${...} is evaluated only in the value of formatString and in the item of series; in other strings it stays literal text. Inside formatString, ${...} does not support operators. For arithmetic use calc, with the values as named args: {"@call":"calc","args":{"expression":"seats * 29 * (annual ? 0.8 : 1)","seats":{"@path":"/seats"},"annual":{"@path":"/annual"}}}. Inside formatString: ${formatCurrency(value: calc(expression: \'seats * 29\', seats: /seats), currency: \'USD\')}. The UI then follows the user\'s input with no round trip.',
-  'For a computed list (chart data, template items) use series. Its description under "functions" in the schema gives the rules and an example. Bind the "data" of a Chart or the "items" of a List to it; a template path stays a literal path.',
-  'Bind a writable prop to let the user edit it: "value":{"@path":"/form/email"}. The user\'s input goes to that path.',
-  'To change data, write updateDataModel with a "path" and a "value": {"version":"v1.0","updateDataModel":{"surfaceId":"plan-picker","path":"/seats","value":12}}. Always give "value".',
-  'Set "value":null to delete the key at "path".',
-];
-
-/** The last rules of every markdown guideline, after the optional groups. */
-const MARKDOWN_CLOSING_RULES = [
-  'The schema lists the surfaces that already exist under "surfaces". "dataModel" holds the values that the user entered: read them, and do not write those paths. "rejected" lists operations that the client dropped: send corrected operations in a new fence for that surfaceId. "status":"deleted" means the surface is gone: never use its id again. "status":"failed" means its createSurface was rejected: send a corrected createSurface with that id.',
-  "Never make a surface that is only prose. Write headings, paragraphs, lists of text, intros, and summaries as markdown outside the fences, also between two fences.",
-  "Put in a fence only what markdown cannot show: charts, tables, maps, images, badges, inputs, buttons, cards with controls.",
-  "Use Card only for an interactive panel (controls, a form, a configurator). Put everything else in a plain layout component.",
-  "Never wrap the whole reply in a fence.",
-];
+/**
+ * Whether a guide line names only standard components (`GUIDE_COMPONENTS`,
+ * also in the plural) that the catalog has. With no catalog, every line fits.
+ */
+function namesOnlyCatalogComponents(catalog: readonly string[] | undefined) {
+  if (!catalog) return () => true;
+  const has = new Set(catalog);
+  return (line: string) =>
+    (line.match(/\b[A-Z][A-Za-z0-9]*\b/g) ?? []).every((word) => {
+      const name =
+        !GUIDE_COMPONENTS.has(word) && word.endsWith("s")
+          ? word.slice(0, -1)
+          : word;
+      return !GUIDE_COMPONENTS.has(name) || has.has(name);
+    });
+}
 
 /**
  * Builds the markdown-transport guideline. The model writes A2UI v1.0
@@ -258,60 +244,25 @@ const MARKDOWN_CLOSING_RULES = [
  * none of them, so the guideline stays small.
  *
  * @param features - The optional rule groups to include. Defaults to all.
+ * @param spec - The wording. Defaults to the prompts that ship.
  * @returns The guideline text, one rule per line.
  */
 export function buildGenerativeUIMarkdownGuidelines(
   features: GenerativeUIGuideFeatures = ALL_GENERATIVE_UI_GUIDE_FEATURES,
+  spec: GenerativeUIPromptSpec = defaultGenerativeUIPromptSpec(),
 ) {
-  const { functions, events, templates, checks } = features;
-  const rules = [...MARKDOWN_BASE_RULES];
-  if (events) {
-    rules.push(
-      'Give an event prop an object: {"event":{"name":"<name>","userMessage":"<text>","context":{...}}} or {"functionCall":{"@call":"<function>","args":{...}}}. Never a flat {"event":"<name>"}.',
-      functions
-        ? 'Use {"functionCall": ...} to run a function in the browser when the user clicks: an app function from the schema, or openUrl: {"functionCall":{"@call":"openUrl","args":{"url":"https://example.com"}}}. You are not told about the call.'
-        : 'Use {"functionCall": ...} to open a URL when the user clicks: {"functionCall":{"@call":"openUrl","args":{"url":"https://example.com"}}}. You are not told about the call.',
-      'Use {"event": ...} to send the interaction back to you as a user message. Put the text of that message in "userMessage": {"event":{"name":"choose","userMessage":"Show me the Team plan"}}. "userMessage" is plain text: ${...} is not interpolated in it; put values in "context".',
-      'To send input values with an event, bind them in the context: "context":{"email":{"@path":"/form/email"}}.',
-      "A button or other event prop without an event or functionCall does nothing.",
-    );
-  }
-  if (checks) {
-    rules.push(
-      'Validate an input with "checks": [{"condition":{"@call":"email","args":{"value":{"@path":"/form/email"}}},"message":"Enter a valid email"}]. The check functions are required, regex, length, numeric and email; a condition can also be a boolean {"@path"}. A failed check shows the message under the input and disables a Button that has the same checks.',
-    );
-  }
-  rules.push(
-    'A prop typed componentId takes the id of another component, and a childList takes ids ["a","b"]: "child":"card", "children":["a","b"], "tabs":[{"title":"Specs","child":"specs"}].',
-  );
-  if (templates) {
-    rules.push(
-      'To repeat a component for each item of a list, give a childList a template: "children":{"componentId":"row","path":"/items"}.',
-      'Inside a template, paths are relative to the item ("name", not "/name").',
-      'Inside a template, {"@call":"@index"} gives the position of the item, from 0. To count from 1, write {"@call":"@index","args":{"offset":1}}.',
-    );
-  }
-  rules.push(
-    "Updating a component replaces all of its props. Send every prop again.",
-    "To change a surface in this reply, write another fence with the same surfaceId. Do not send createSurface again. The surface changes where it already is. A surface in a target can also be changed from a later reply; a chat surface cannot, because the chat is a transcript: a later reply with the same surfaceId makes a new surface.",
-    "Use a new surfaceId for a different view. Never use a surfaceId again, also after the surface is deleted.",
-  );
-  if (functions && GENERATIVE_UI_AGENT_FUNCTION_CALLS) {
-    rules.push(
-      'To run an app function now, with no click, write a callRendererFunction line in a fence: {"version":"v1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}. It needs no surface.',
-      'Give every callRendererFunction a new functionCallId. Call only a function from the schema with "callers": "UI or agent" or "agent only"; a function without "callers" is for the UI only. A function with "callers": "agent only" is only for callRendererFunction: do not bind an event to it.',
-      'The result of a callRendererFunction comes back to you as a developer message: {"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}. If the call failed, it has "error" in place of "value". Then you get a new turn.',
-      "Do not guess the result of a callRendererFunction. Wait for the developer message.",
-    );
-  }
-  rules.push(...MARKDOWN_CLOSING_RULES);
-  return `You can show interactive UI in your reply. Write A2UI operations inside a fenced code block tagged a2ui.
-
-${GENERATIVE_UI_WHEN_TO_SHOW}
-
-RULES
-${rules.map((rule) => `- ${rule}`).join("\n")}
-`;
+  const { intro, rules } = spec.markdown;
+  const fits = namesOnlyCatalogComponents(features.components);
+  const selected = selectPromptItems(
+    rules,
+    generativeUIPromptFeatures(features),
+  ).filter(fits);
+  const whenToShow = spec.markdown.whenToShow
+    .split("\n")
+    .filter(fits)
+    .join("\n");
+  const when = whenToShow ? `${whenToShow}\n\n` : "";
+  return `${intro}\n\n${when}RULES\n${selected.map((rule) => `- ${rule}`).join("\n")}\n`;
 }
 
 /**

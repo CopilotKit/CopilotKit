@@ -30,17 +30,12 @@ export const chartSchema = z.object({
     .enum(["bar", "line", "area", "scatter", "pie", "donut"])
     .optional()
     .describe('Default "bar"'),
-  data: z
-    .array(z.record(z.string(), z.unknown()))
-    .optional()
-    .describe('A list of objects, or { "@path": "/x" }'),
+  data: z.array(z.record(z.string(), z.unknown())).optional(),
   xKey: z.string().optional().describe("The field of the category axis"),
   series: z
     .array(chartSeries)
     .optional()
-    .describe(
-      'The value fields: strings or { "key", "label"?, "color"? }. Default: every number field except xKey',
-    ),
+    .describe("Default: every number field except xKey"),
   stacked: z.boolean().optional(),
   layout: z
     .enum(["vertical", "horizontal"])
@@ -57,7 +52,7 @@ export const chartSchema = z.object({
     })
     .optional()
     .describe(
-      'The value axis configuration object: {label?: string, min?: number, max?: number, width?: number}. Example: {label: "Revenue (USD)", min: 0, max: 100}. In horizontal charts, label, min and max apply to the horizontal value axis, and width sets the width of the category axis on the left.',
+      'Example: {label: "Revenue (USD)", min: 0, max: 100}. In a horizontal chart it is the horizontal axis, and width sets the category axis width',
     ),
   showDots: z.boolean().optional().describe("Point markers on a line or area"),
   barRadius: z
@@ -89,7 +84,7 @@ export const chartSchema = z.object({
     .enum(["number", "currency", "percent"])
     .optional()
     .describe(
-      'Number formatting. With "percent", data values and axis min/max are fractions: 0.4 displays as 40%. For 0% to 10%, use min: 0 and max: 0.1.',
+      'With "percent", data values and axis min/max are fractions: 0.4 shows as 40%; for 0% to 10%, use min: 0 and max: 0.1.',
     ),
   currency: z.string().optional().describe('ISO code. Default "USD"'),
   title: z.string().optional(),

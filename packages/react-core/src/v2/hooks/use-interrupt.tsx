@@ -7,7 +7,11 @@ import React, {
 } from "react";
 import { randomUUID } from "@ag-ui/client";
 import type { Interrupt, Message } from "@ag-ui/client";
-import { ɵInterruptState } from "@copilotkit/core";
+import {
+  ɵInterruptState,
+  ɵgetAgentInterruptState,
+  ɵclearAgentInterruptState,
+} from "@copilotkit/core";
 import type { ɵPendingInterrupt } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { useAgent } from "./use-agent";
@@ -58,6 +62,7 @@ type UseInterruptReturn<TRenderInChat extends InterruptRenderInChat> =
       ? void
       : React.ReactElement | null | void;
 
+/** Recognize thenables returned by interrupt preprocessing handlers. */
 export function isPromiseLike<TValue>(
   value: TValue | PromiseLike<TValue>,
 ): value is PromiseLike<TValue> {
@@ -183,7 +188,6 @@ export function useInterrupt<
   const interruptStateRef = useRef(new ɵInterruptState());
 
   useEffect(() => {
-    const interruptState = interruptStateRef.current;
     let localLegacy: InterruptEvent | null = null;
     let localStandard: Interrupt[] | null = null;
 
@@ -198,20 +202,32 @@ export function useInterrupt<
           localStandard = params.interrupts;
         }
       },
-      onRunStartedEvent: () => {
+      onRunStartedEvent: (params) => {
+        // A reconnect replays RUN_STARTED without answering pending interrupts.
+        // Genuine SDK runs either have no pending batch or carry resume entries.
+        if (
+          !agent.pendingInterrupts?.length ||
+          params?.input?.resume !== undefined
+        ) {
+          ɵclearAgentInterruptState(agent);
+        }
         localLegacy = null;
         localStandard = null;
-        interruptState.clear();
+        interruptStateRef.current = new ɵInterruptState();
         setPending(null);
       },
       onRunFinalized: () => {
         // Standard wins if both somehow appear for one run.
         if (localStandard && localStandard.length > 0) {
-          interruptState.setStandard(localStandard);
-          setPending(interruptState.pending);
+          interruptStateRef.current = ɵgetAgentInterruptState(
+            agent,
+            localStandard,
+          );
+          setPending(interruptStateRef.current.pending);
         } else if (localLegacy) {
-          interruptState.setLegacy(localLegacy);
-          setPending(interruptState.pending);
+          interruptStateRef.current = new ɵInterruptState();
+          interruptStateRef.current.setLegacy(localLegacy);
+          setPending(interruptStateRef.current.pending);
         }
         localLegacy = null;
         localStandard = null;
@@ -219,17 +235,25 @@ export function useInterrupt<
       onRunFailed: () => {
         localLegacy = null;
         localStandard = null;
-        interruptState.clear();
+        interruptStateRef.current = new ɵInterruptState();
         setPending(null);
       },
     });
 
+    // Subscribe before reading so an interrupt finalized during mounting is
+    // included. The shared state retains decisions made by another adapter.
+    interruptStateRef.current = agent.pendingInterrupts?.length
+      ? ɵgetAgentInterruptState(agent)
+      : new ɵInterruptState();
+    setPending(interruptStateRef.current.pending);
+
     return () => {
       subscription.unsubscribe();
-      interruptState.clear();
+      interruptStateRef.current = new ɵInterruptState();
     };
   }, [agent]);
 
+  /** Record an explicit answer and resume once the complete batch is addressed. */
   const resolve: InterruptResolveFn = useCallback(
     async (payload, interruptId) => {
       const current = pendingRef.current;
@@ -244,7 +268,22 @@ export function useInterrupt<
           `[CopilotKit] useInterrupt: resolve()/cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first. Pass an interruptId to address a specific interrupt.`,
         );
       }
-      const decision = interruptStateRef.current.resolve(payload, interruptId);
+      if (
+        interruptStateRef.current.isCompletedToolCall(
+          interruptId,
+          agent.messages,
+        )
+      ) {
+        console.warn(
+          "[CopilotKit] useInterrupt: ignoring an answer for an already completed frontend tool call.",
+        );
+        return;
+      }
+      const decision = interruptStateRef.current.resolve(
+        payload,
+        interruptId,
+        agent.messages,
+      );
       if (decision.kind === "legacy-resume") {
         try {
           return await copilotkit.runAgent({
@@ -269,7 +308,7 @@ export function useInterrupt<
         console.error(
           `[CopilotKit] useInterrupt: interrupt ${decision.interrupt.id} expired at ${decision.interrupt.expiresAt}; not resuming.`,
         );
-        interruptStateRef.current.clear();
+        interruptStateRef.current = new ɵInterruptState();
         setPending(null);
         return;
       }
@@ -292,7 +331,7 @@ export function useInterrupt<
           "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
           err,
         );
-        interruptStateRef.current.clear();
+        interruptStateRef.current = new ɵInterruptState();
         setPending(null);
         throw err;
       }
@@ -300,6 +339,7 @@ export function useInterrupt<
     [agent, copilotkit],
   );
 
+  /** Cancel a standard interrupt or dismiss a legacy interrupt locally. */
   const cancel: InterruptCancelFn = useCallback(
     async (interruptId) => {
       const current = pendingRef.current;
@@ -314,13 +354,27 @@ export function useInterrupt<
           `[CopilotKit] useInterrupt: resolve()/cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first. Pass an interruptId to address a specific interrupt.`,
         );
       }
-      const decision = interruptStateRef.current.cancel(interruptId);
+      if (
+        interruptStateRef.current.isCompletedToolCall(
+          interruptId,
+          agent.messages,
+        )
+      ) {
+        console.warn(
+          "[CopilotKit] useInterrupt: ignoring an answer for an already completed frontend tool call.",
+        );
+        return;
+      }
+      const decision = interruptStateRef.current.cancel(
+        interruptId,
+        agent.messages,
+      );
       if (decision.kind === "dismiss") {
         // Legacy interrupts have no cancel semantics; dismiss without resuming.
         console.warn(
           "[CopilotKit] useInterrupt: cancel() is not supported for legacy on_interrupt interrupts; dismissing.",
         );
-        interruptStateRef.current.clear();
+        interruptStateRef.current = new ɵInterruptState();
         setPending(null);
         return;
       }
@@ -328,7 +382,7 @@ export function useInterrupt<
         console.error(
           `[CopilotKit] useInterrupt: interrupt ${decision.interrupt.id} expired at ${decision.interrupt.expiresAt}; not resuming.`,
         );
-        interruptStateRef.current.clear();
+        interruptStateRef.current = new ɵInterruptState();
         setPending(null);
         return;
       }
@@ -351,7 +405,7 @@ export function useInterrupt<
           "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
           err,
         );
-        interruptStateRef.current.clear();
+        interruptStateRef.current = new ɵInterruptState();
         setPending(null);
         throw err;
       }
@@ -372,7 +426,7 @@ export function useInterrupt<
   const cancelRef = useRef(cancel);
   cancelRef.current = cancel;
 
-  // Predicate evaluator: a throw is treated as "disabled" (false) and logged.
+  /** Evaluate the consumer filter, logging failures and disabling their UI. */
   const isEnabled = (event: InterruptEvent): boolean => {
     const predicate = enabledRef.current;
     if (!predicate) return true;

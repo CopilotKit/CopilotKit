@@ -57,15 +57,15 @@ const ui = createGenerativeUI({
 });
 
 const create = (surfaceId: string) => ({
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId, catalogId: "app" },
 });
 const components = (surfaceId: string, ...nodes: object[]) => ({
-  version: "v1.0",
+  version: "1.0",
   updateComponents: { surfaceId, components: nodes },
 });
 const data = (surfaceId: string, value: object) => ({
-  version: "v1.0",
+  version: "1.0",
   updateDataModel: { surfaceId, path: "/", value },
 });
 const button = (id: string, label: string) => ({
@@ -79,11 +79,11 @@ const inlineCreate = (
   dataModel: object,
   ...nodes: object[]
 ) => ({
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId, dataModel, components: nodes },
 });
 const callFunction = (functionCallId: string, sku: string) => ({
-  version: "v1.0",
+  version: "1.0",
   callRendererFunction: {
     functionCallId,
     callFunction: { "@call": "addToCart", args: { sku } },
@@ -466,7 +466,7 @@ describe("buildMarkdownSurfaces", () => {
       const message = assistant(
         "m1",
         fence([
-          { version: "v1.0", createSurface },
+          { version: "1.0", createSurface },
           components("s1", button("root", "Buy")),
         ]),
       );
@@ -488,7 +488,7 @@ describe("buildMarkdownSurfaces", () => {
       "m1",
       fence([
         {
-          version: "v1.0",
+          version: "1.0",
           createSurface: { surfaceId: "s1", catalogId: "app" },
         },
         components("s1", button("root", "Buy")),
@@ -531,7 +531,7 @@ describe("buildMarkdownSurfaces", () => {
     const complete = fence([create("s1")], { close: false });
     // The first component is complete, but the operation is not.
     const halfLine =
-      '{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Button","label":"Buy"},{"id":"mo';
+      '{"version":"1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Button","label":"Buy"},{"id":"mo';
     const message = assistant("m1", `${complete}${halfLine}`);
 
     const [surface] = build([message], true).surfaces;

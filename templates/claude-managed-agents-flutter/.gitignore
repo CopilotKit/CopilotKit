@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.local
+flutter/.sdk/
+flutter/.dart_tool/
+flutter/.flutter-plugins*
+flutter/build/
+flutter/.idea/
+flutter/.metadata
+flutter/*.iml

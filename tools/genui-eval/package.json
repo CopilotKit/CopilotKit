@@ -1,0 +1,31 @@
+{
+  "name": "genui-eval",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Measures and optimizes the A2UI output of the generative UI prompts across models",
+  "scripts": {
+    "eval": "nx run-many -t build -p @copilotkit/shared @copilotkit/core @copilotkit/runtime --output-style=static > /dev/null && tsx src/cli.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ag-ui/client": "1.0.2",
+    "@ai-sdk/openai": "^3.0.36",
+    "@ai-sdk/provider": "^3.0.8",
+    "@copilotkit/core": "workspace:*",
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
+    "ai": "^6.0.104",
+    "jsonrepair": "^3.15.0",
+    "rxjs": "7.8.1",
+    "tsx": "^4.21.0",
+    "zod": "^3.25.18"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "typescript": "5.8.2",
+    "vitest": "^3.2.4"
+  }
+}
