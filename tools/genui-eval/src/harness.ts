@@ -284,7 +284,7 @@ function buildInput(
     },
   );
   // The descriptions of the spec reach the runtime through the catalog.
-  const inline = envelope["v1.0"].inlineCatalogs?.[0];
+  const inline = envelope["1.0"].inlineCatalogs?.[0];
   if (inline) inline.components = manifest.components;
   const guide =
     transport === "markdown"

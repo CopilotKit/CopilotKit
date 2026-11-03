@@ -1,0 +1,37 @@
+<Steps>
+  <Step>
+    ### Put the rulebook in the instructions, not the values
+
+    The page publishes its typed config with `useAgentContext`, so it reaches
+    the agent as a context entry on every run. Antigravity sets an agent's
+    instructions once, when the harness session starts, so the system prompt
+    cannot be rebuilt from the config on each turn. Write one static prompt
+    that covers every value instead, and have the model read the current
+    values itself through the adapter's built-in `get_app_context()` tool,
+    which `experimental_app_context=True` turns on:
+
+    <DemoCode file="src/agents/agent_config.py" region="agent-config-setup" />
+
+    `get_app_context()` returns the current run's context entries as
+    `{"description", "value"}` objects, so the model sees the value the user
+    selected just before sending. The tool is silent: no tool card appears in
+    the chat.
+
+  </Step>
+  <Step>
+    ### Serve the agent from its own runtime route
+
+    The demo keeps agent config on a dedicated runtime,
+    `/api/copilotkit-agent-config`, that points an `HttpAgent` at the agent's
+    endpoint and registers it under both the page's agent name and `default`.
+    Nothing on the route touches the config: `useAgentContext` entries travel
+    in the run input on their own.
+
+  </Step>
+</Steps>
+
+<Callout type="warn" title="Ask for a fresh read every turn">
+  The user can change a setting between any two messages. Tell the model to
+  call `get_app_context` at the start of every turn, not once per
+  conversation. Otherwise it keeps applying the values it read first.
+</Callout>
