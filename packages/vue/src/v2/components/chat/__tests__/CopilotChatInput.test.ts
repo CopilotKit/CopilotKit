@@ -397,6 +397,32 @@ describe("CopilotChatInput", () => {
     });
   });
 
+  it("does not empty the textarea to re-measure it on each keystroke on a phone", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(max-width: 767px)",
+    }));
+    const valueSetter = vi.spyOn(HTMLTextAreaElement.prototype, "value", "set");
+    try {
+      renderWithProvider({
+        listeners: { onSubmitMessage: mockOnSubmitMessage },
+      });
+      const textarea = screen.getByRole("textbox");
+      await fireEvent.input(textarea, { target: { value: "ABCD" } });
+      const grid = textarea.closest("[data-layout]");
+      await waitFor(() => {
+        expect(grid?.getAttribute("data-layout")).toBe("expanded");
+      });
+
+      valueSetter.mockClear();
+      await fireEvent.input(textarea, { target: { value: "AEBCD" } });
+
+      expect(valueSetter).not.toHaveBeenCalledWith("");
+    } finally {
+      valueSetter.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("executes slash commands via keyboard selection", async () => {
     const handleFirst = vi.fn();
     const handleSecond = vi.fn();

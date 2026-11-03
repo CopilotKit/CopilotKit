@@ -104,6 +104,21 @@ export type {
   ɵSlashKeyResult,
 } from "./composer";
 
+// Chat input layout (internal)
+export {
+  ɵCOMPOSER_DEFAULT_MAX_ROWS,
+  ɵComposerAutosize,
+  ɵcreateComposerAutosize,
+  ɵmeasureTextarea,
+  ɵfitTextareaHeight,
+} from "./composer-layout";
+export type {
+  ɵComposerLayout,
+  ɵComposerElements,
+  ɵComposerAutosizeOptions,
+  ɵTextareaMetrics,
+} from "./composer-layout";
+
 // Transcription
 export { TranscriptionErrorCode, TranscriptionError } from "./transcription";
 export type {

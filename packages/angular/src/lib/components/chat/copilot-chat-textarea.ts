@@ -1,4 +1,3 @@
-import type { AfterViewInit } from "@angular/core";
 import {
   Component,
   input,
@@ -11,8 +10,16 @@ import {
   ViewEncapsulation,
   PLATFORM_ID,
   afterNextRender,
+  afterRenderEffect,
+  untracked,
 } from "@angular/core";
 import { isPlatformBrowser } from "@angular/common";
+import {
+  ɵCOMPOSER_DEFAULT_MAX_ROWS,
+  ɵfitTextareaHeight,
+  ɵmeasureTextarea,
+} from "@copilotkit/core";
+import type { ɵTextareaMetrics } from "@copilotkit/core";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
 import { injectChatState } from "../../chat-state";
@@ -37,7 +44,7 @@ import { injectChatState } from "../../chat-state";
   template: "",
   styles: [],
 })
-export class CopilotChatTextarea implements AfterViewInit {
+export class CopilotChatTextarea {
   private elementRef = inject(ElementRef<HTMLTextAreaElement>);
   private platformId = inject(PLATFORM_ID);
   get textareaRef() {
@@ -79,13 +86,14 @@ export class CopilotChatTextarea implements AfterViewInit {
         this.elementRef.nativeElement.focus();
       }
     });
-  }
-
-  ngAfterViewInit(): void {
-    if (!isPlatformBrowser(this.platformId)) return;
-
-    this.calculateMaxHeight();
-    this.adjustHeight();
+    // Measure again whenever `inputMaxRows` changes, not only once.
+    afterRenderEffect(() => {
+      this.inputMaxRows();
+      untracked(() => {
+        this.calculateMaxHeight();
+        this.adjustHeight();
+      });
+    });
   }
 
   onInput(event: Event): void {
@@ -107,52 +115,18 @@ export class CopilotChatTextarea implements AfterViewInit {
     this.keyDown.emit(event);
   }
 
+  private metrics: ɵTextareaMetrics | null = null;
+
+  /** Measures one row and the height of `inputMaxRows` rows. */
   private calculateMaxHeight(): void {
-    const textarea = this.elementRef.nativeElement;
-    const maxRowsValue = this.inputMaxRows() ?? 5;
-
-    // Save current value
-    const currentValue = textarea.value;
-
-    // Clear content to measure single row height
-    textarea.value = "";
-    textarea.style.height = "auto";
-
-    // Get computed styles to account for padding
-    const computedStyle = window.getComputedStyle(textarea);
-    const paddingTop = parseFloat(computedStyle.paddingTop);
-    const paddingBottom = parseFloat(computedStyle.paddingBottom);
-
-    // Calculate actual content height (without padding)
-    const contentHeight = textarea.scrollHeight - paddingTop - paddingBottom;
-
-    // Calculate max height: content height for maxRows + padding
-    const calculatedMaxHeight =
-      contentHeight * maxRowsValue + paddingTop + paddingBottom;
-    this.maxHeight.set(calculatedMaxHeight);
-
-    // Restore original value
-    textarea.value = currentValue;
-
-    // Adjust height after calculating maxHeight
-    if (currentValue) {
-      this.adjustHeight();
-    }
+    const maxRows = this.inputMaxRows() ?? ɵCOMPOSER_DEFAULT_MAX_ROWS;
+    this.metrics = ɵmeasureTextarea(this.elementRef.nativeElement, maxRows);
+    this.maxHeight.set(this.metrics.maxHeight);
   }
 
   private adjustHeight(): number {
-    const textarea = this.elementRef.nativeElement;
-    const maxHeightValue = this.maxHeight();
-
-    textarea.style.height = "auto";
-    const scrollHeight = textarea.scrollHeight;
-    if (maxHeightValue > 0) {
-      textarea.style.height = `${Math.min(scrollHeight, maxHeightValue)}px`;
-    }
-    return scrollHeight;
+    return ɵfitTextareaHeight(this.elementRef.nativeElement, this.maxHeight());
   }
-
-  private singleLineHeight = 0;
 
   /**
    * Fits the height to the text and returns the text's height and the height
@@ -162,17 +136,10 @@ export class CopilotChatTextarea implements AfterViewInit {
     if (!isPlatformBrowser(this.platformId)) {
       return { scrollHeight: 0, singleLineHeight: 0 };
     }
-    const textarea = this.elementRef.nativeElement;
-    if (this.singleLineHeight === 0) {
-      const value = textarea.value;
-      textarea.value = "";
-      textarea.style.height = "auto";
-      this.singleLineHeight = textarea.scrollHeight;
-      textarea.value = value;
-    }
+    if (!this.metrics?.singleLineHeight) this.calculateMaxHeight();
     return {
       scrollHeight: this.adjustHeight(),
-      singleLineHeight: this.singleLineHeight,
+      singleLineHeight: this.metrics?.singleLineHeight ?? 0,
     };
   }
 

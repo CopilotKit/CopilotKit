@@ -8,6 +8,7 @@ import React, {
   useImperativeHandle,
   useCallback,
   useMemo,
+  useSyncExternalStore,
 } from "react";
 import { CopilotIcon } from "../icons/CopilotIcon";
 
@@ -15,6 +16,7 @@ import {
   CopilotChatDefaultLabels,
   ɵclampSlashIndex,
   ɵcomposerButtonState,
+  ɵcreateComposerAutosize,
   ɵfilterCommands,
   ɵflattenCommandItems,
   ɵparseSlashQuery,
@@ -178,10 +180,6 @@ export function CopilotChatInput({
 
   const resolvedValue = isControlled ? (value ?? "") : internalValue;
 
-  const [layout, setLayout] = useState<"compact" | "expanded">("compact");
-  const ignoreResizeRef = useRef(false);
-  const resizeEvaluationRafRef = useRef<number | null>(null);
-  const isExpanded = mode === "input" && layout === "expanded";
   const [commandQuery, setCommandQuery] = useState<string | null>(null);
   const [slashHighlightIndex, setSlashHighlightIndex] = useState(0);
 
@@ -195,20 +193,25 @@ export function CopilotChatInput({
   const config = useCopilotChatConfiguration();
   const labels = config?.labels ?? CopilotChatDefaultLabels;
 
-  const previousModalStateRef = useRef<boolean | undefined>(undefined);
-  const measurementCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const measurementsRef = useRef({
-    singleLineHeight: 0,
-    maxHeight: 0,
-    paddingLeft: 0,
-    paddingRight: 0,
-  });
+  // Sizes the text box and picks the compact or expanded layout.
+  const [autosize] = useState(() =>
+    ɵcreateComposerAutosize({
+      getElements: () => ({
+        textarea: inputRef.current,
+        grid: gridRef.current,
+        start: addButtonContainerRef.current,
+        actions: actionsContainerRef.current,
+      }),
+    }),
+  );
+  const layout = useSyncExternalStore(
+    autosize.subscribe,
+    autosize.getSnapshot,
+    autosize.getSnapshot,
+  );
+  const isExpanded = mode === "input" && layout === "expanded";
 
-  // Cached container dimensions — invalidated on resize, lazily repopulated on next layout pass.
-  // Eliminates getComputedStyle(grid) + 2x getBoundingClientRect per compact-layout evaluation.
-  const containerCacheRef = useRef<{
-    compactWidth: number;
-  } | null>(null);
+  const previousModalStateRef = useRef<boolean | undefined>(undefined);
 
   const commandItems = useMemo(() => {
     const menu: (ToolsMenuItem | "-")[] = toolsMenu ?? [];
@@ -282,7 +285,6 @@ export function CopilotChatInput({
 
   useEffect(() => {
     if (mode !== "input") {
-      setLayout("compact");
       setCommandQuery(null);
     }
   }, [mode]);
@@ -426,12 +428,6 @@ export function CopilotChatInput({
     value: resolvedValue,
     onChange: handleChange,
     onKeyDown: handleKeyDown,
-    onCompositionStart: () => {
-      isComposingRef.current = true;
-    },
-    onCompositionEnd: () => {
-      isComposingRef.current = false;
-    },
     autoFocus: autoFocus,
     className: isExpanded
       ? "cpk-chat-input-textarea-expanded"
@@ -543,322 +539,11 @@ export function CopilotChatInput({
     }
   };
 
-  // Track whether an IME composition is active so we can avoid
-  // resetting textarea.value during measurement (which would break
-  // the composition session).
-  const isComposingRef = useRef(false);
-
-  const ensureMeasurements = useCallback(() => {
-    const textarea = inputRef.current;
-    if (!textarea || isComposingRef.current) {
-      return;
-    }
-
-    const previousValue = textarea.value;
-    const previousHeight = textarea.style.height;
-
-    textarea.style.height = "auto";
-
-    const computedStyle = window.getComputedStyle(textarea);
-    const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
-    const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
-    const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
-    const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
-
-    textarea.value = "";
-    const singleLineHeight = textarea.scrollHeight;
-    textarea.value = previousValue;
-
-    const contentHeight = singleLineHeight - paddingTop - paddingBottom;
-    const maxHeight = contentHeight * 5 + paddingTop + paddingBottom;
-
-    measurementsRef.current = {
-      singleLineHeight,
-      maxHeight,
-      paddingLeft,
-      paddingRight,
-    };
-
-    textarea.style.height = previousHeight;
-    textarea.style.maxHeight = `${maxHeight}px`;
-  }, []);
-
-  const adjustTextareaHeight = useCallback(() => {
-    const textarea = inputRef.current;
-    if (!textarea) {
-      return 0;
-    }
-
-    if (measurementsRef.current.singleLineHeight === 0) {
-      ensureMeasurements();
-    }
-
-    const { maxHeight } = measurementsRef.current;
-    if (maxHeight) {
-      textarea.style.maxHeight = `${maxHeight}px`;
-    }
-
-    textarea.style.height = "auto";
-    const scrollHeight = textarea.scrollHeight;
-    if (maxHeight) {
-      textarea.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
-    } else {
-      textarea.style.height = `${scrollHeight}px`;
-    }
-
-    return scrollHeight;
-  }, [ensureMeasurements]);
-
-  const updateLayout = useCallback((nextLayout: "compact" | "expanded") => {
-    setLayout((prev) => {
-      if (prev === nextLayout) {
-        return prev;
-      }
-      ignoreResizeRef.current = true;
-      return nextLayout;
-    });
-  }, []);
-
-  const updateContainerCache = useCallback((): {
-    compactWidth: number;
-  } | null => {
-    const grid = gridRef.current;
-    const addContainer = addButtonContainerRef.current;
-    const actionsContainer = actionsContainerRef.current;
-    if (!grid || !addContainer || !actionsContainer) return null;
-
-    const gridStyles = window.getComputedStyle(grid);
-    const paddingLeft = parseFloat(gridStyles.paddingLeft) || 0;
-    const paddingRight = parseFloat(gridStyles.paddingRight) || 0;
-    const columnGap = parseFloat(gridStyles.columnGap) || 0;
-    const gridAvailableWidth = grid.clientWidth - paddingLeft - paddingRight;
-
-    if (gridAvailableWidth <= 0) return null;
-
-    const addWidth = addContainer.getBoundingClientRect().width;
-    const actionsWidth = actionsContainer.getBoundingClientRect().width;
-    const compactWidth = Math.max(
-      gridAvailableWidth - addWidth - actionsWidth - columnGap * 2,
-      0,
-    );
-
-    if (compactWidth <= 0) return null;
-
-    const result = { compactWidth };
-    containerCacheRef.current = result;
-    return result;
-  }, []);
-
-  const evaluateLayout = useCallback(() => {
-    if (mode !== "input") {
-      updateLayout("compact");
-      return;
-    }
-
-    if (
-      typeof window !== "undefined" &&
-      typeof window.matchMedia === "function"
-    ) {
-      const isMobileViewport = window.matchMedia("(max-width: 767px)").matches;
-      if (isMobileViewport) {
-        adjustTextareaHeight();
-        updateLayout("expanded");
-        return;
-      }
-    }
-
-    const textarea = inputRef.current;
-    const grid = gridRef.current;
-    const addContainer = addButtonContainerRef.current;
-    const actionsContainer = actionsContainerRef.current;
-
-    if (!textarea) {
-      return;
-    }
-
-    if (!grid || !addContainer || !actionsContainer) {
-      // A custom `children` layout renders none of the default containers, so
-      // there is no compact or expanded layout to pick; the textarea still
-      // grows with its content.
-      adjustTextareaHeight();
-      return;
-    }
-
-    if (measurementsRef.current.singleLineHeight === 0) {
-      ensureMeasurements();
-    }
-
-    const scrollHeight = adjustTextareaHeight();
-    const baseline = measurementsRef.current.singleLineHeight;
-    const hasExplicitBreak = resolvedValue.includes("\n");
-    const renderedMultiline =
-      baseline > 0 ? scrollHeight > baseline + 1 : false;
-    let shouldExpand = hasExplicitBreak || renderedMultiline;
-
-    if (!shouldExpand) {
-      // Use cached container dimensions (lazily populated on first access, invalidated on resize).
-      const cache = containerCacheRef.current ?? updateContainerCache();
-
-      if (cache && cache.compactWidth > 0) {
-        const compactInnerWidth = Math.max(
-          cache.compactWidth -
-            (measurementsRef.current.paddingLeft || 0) -
-            (measurementsRef.current.paddingRight || 0),
-          0,
-        );
-
-        if (compactInnerWidth > 0) {
-          // Read font fresh each evaluation — getComputedStyle for style-only
-          // properties is cheap and avoids stale values after CSS/theme changes.
-          const textareaStyles = window.getComputedStyle(textarea);
-          let font = textareaStyles.font;
-          if (!font) {
-            const {
-              fontStyle,
-              fontVariant,
-              fontWeight,
-              fontSize,
-              lineHeight,
-              fontFamily,
-            } = textareaStyles;
-            if (fontSize && fontFamily) {
-              font = `${fontStyle} ${fontVariant} ${fontWeight} ${fontSize}/${lineHeight} ${fontFamily}`;
-            }
-          }
-
-          if (font?.trim()) {
-            const canvas =
-              measurementCanvasRef.current ?? document.createElement("canvas");
-            if (!measurementCanvasRef.current) {
-              measurementCanvasRef.current = canvas;
-            }
-
-            const context = canvas.getContext("2d");
-            if (context) {
-              context.font = font;
-
-              const lines =
-                resolvedValue.length > 0 ? resolvedValue.split("\n") : [""];
-              let longestWidth = 0;
-              for (const line of lines) {
-                const metrics = context.measureText(line || " ");
-                if (metrics.width > longestWidth) {
-                  longestWidth = metrics.width;
-                }
-              }
-
-              if (longestWidth > compactInnerWidth) {
-                shouldExpand = true;
-              }
-            } else if (process.env.NODE_ENV !== "production") {
-              console.warn(
-                "[CopilotChatInput] canvas.getContext('2d') returned null. " +
-                  "Text-width-based expansion will be unavailable.",
-              );
-            }
-          } else if (process.env.NODE_ENV !== "production") {
-            console.warn(
-              "[CopilotChatInput] Could not resolve textarea font for layout measurement. " +
-                "Text-width-based expansion will be skipped until the next evaluation.",
-            );
-          }
-        }
-      }
-    }
-
-    const nextLayout = shouldExpand ? "expanded" : "compact";
-    updateLayout(nextLayout);
-  }, [
-    adjustTextareaHeight,
-    ensureMeasurements,
-    mode,
-    resolvedValue,
-    updateContainerCache,
-    updateLayout,
-  ]);
-
   useLayoutEffect(() => {
-    evaluateLayout();
-  }, [evaluateLayout]);
+    autosize.evaluate(resolvedValue, mode);
+  }, [autosize, resolvedValue, mode]);
 
-  useEffect(() => {
-    if (typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const textarea = inputRef.current;
-    const grid = gridRef.current;
-    const addContainer = addButtonContainerRef.current;
-    const actionsContainer = actionsContainerRef.current;
-
-    if (!textarea || !grid || !addContainer || !actionsContainer) {
-      return;
-    }
-
-    const containerTargets = new Set<Element>([
-      grid,
-      addContainer,
-      actionsContainer,
-    ]);
-
-    const scheduleEvaluation = (invalidateCache: boolean) => {
-      if (ignoreResizeRef.current) {
-        ignoreResizeRef.current = false;
-        // Self-inflicted resize from a layout toggle — container dimensions
-        // are unchanged, so keep the cache warm.
-        return;
-      }
-
-      if (invalidateCache) {
-        containerCacheRef.current = null;
-      }
-
-      if (typeof window === "undefined") {
-        evaluateLayout();
-        return;
-      }
-
-      if (resizeEvaluationRafRef.current !== null) {
-        cancelAnimationFrame(resizeEvaluationRafRef.current);
-      }
-
-      resizeEvaluationRafRef.current = window.requestAnimationFrame(() => {
-        resizeEvaluationRafRef.current = null;
-        evaluateLayout();
-      });
-    };
-
-    // Single observer for all elements — inspect entry.target to decide
-    // whether to invalidate the container dimension cache.  Container
-    // targets (grid, buttons) changing size means compactWidth may have
-    // changed; textarea height changes (typing) do not affect it.
-    const observer = new ResizeObserver((entries) => {
-      let shouldInvalidate = false;
-      for (const entry of entries) {
-        if (containerTargets.has(entry.target)) {
-          shouldInvalidate = true;
-          break;
-        }
-      }
-      scheduleEvaluation(shouldInvalidate);
-    });
-
-    observer.observe(grid);
-    observer.observe(addContainer);
-    observer.observe(actionsContainer);
-    observer.observe(textarea);
-
-    return () => {
-      observer.disconnect();
-      if (
-        typeof window !== "undefined" &&
-        resizeEvaluationRafRef.current !== null
-      ) {
-        cancelAnimationFrame(resizeEvaluationRafRef.current);
-        resizeEvaluationRafRef.current = null;
-      }
-    };
-  }, [evaluateLayout]);
+  useEffect(() => () => autosize.dispose(), [autosize]);
 
   const slashMenuVisible = commandQuery !== null && commandItems.length > 0;
 
