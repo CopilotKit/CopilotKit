@@ -196,3 +196,19 @@ export type {
   ɵBranchNavInput,
   ɵAssistantToolbarInput,
 } from "./message-display";
+
+// Inspector shortcut (internal)
+export {
+  ɵinspectorShortcuts,
+  ɵinspectorKiteIcon,
+  ɵinspectorKiteFill,
+  ɵHOVER_MENU_CLOSE_DELAY_MS,
+  ɵHoverMenuController,
+} from "./inspector-button";
+export type {
+  ɵInspectorKiteArtwork,
+  ɵInspectorKitePath,
+  ɵInspectorKiteStop,
+  ɵInspectorKiteGradient,
+  ɵHoverMenuState,
+} from "./inspector-button";
