@@ -16,6 +16,7 @@ vi.mock("@copilotkit/web-inspector", () => {
   class MockWebInspectorElement extends HTMLElement {
     core: unknown = null;
     autoAttachCore = true;
+    openInspector = vi.fn();
   }
 
   return {

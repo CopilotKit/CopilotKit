@@ -2,6 +2,7 @@ import packageInfo from "../../package.json";
 import {
   Component,
   EnvironmentInjector,
+  computed,
   PLATFORM_ID,
   inject,
   isDevMode,
@@ -16,7 +17,10 @@ import {
 
 import { provideCopilotKit, type CopilotKitConfig } from "./config";
 import { CopilotKit } from "./copilotkit";
-import { ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE } from "./inspector";
+import {
+  CopilotInspector,
+  ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE,
+} from "./inspector";
 
 @Component({
   standalone: true,
@@ -148,6 +152,61 @@ describe("Angular inspector integration", () => {
     TestBed.resetTestingModule();
     expect(existing.isConnected).toBe(true);
     existing.remove();
+  });
+
+  it("never loads on a remote development host, even when explicitly enabled", async () => {
+    vi.stubGlobal("location", new URL("http://192.168.1.25:4200"));
+    await renderHost({ enableInspector: true });
+    expect(TestBed.inject(CopilotInspector).shouldRenderInspector).toBe(false);
+    expect(defineWebInspector).not.toHaveBeenCalled();
+  });
+
+  it("enables Inspector message actions only while the Inspector is shown", async () => {
+    await renderHost({});
+    const service = TestBed.inject(CopilotInspector);
+    const isEnabled = TestBed.runInInjectionContext(() =>
+      computed(() => service.isInspectorEnabled),
+    );
+    const inspector = document.querySelector(WEB_INSPECTOR_TAG)!;
+    expect(isEnabled()).toBe(false);
+
+    inspector.dispatchEvent(
+      new CustomEvent("cpk-inspector-visibility-change", {
+        detail: { visible: true },
+      }),
+    );
+    expect(isEnabled()).toBe(true);
+
+    inspector.dispatchEvent(
+      new CustomEvent("cpk-inspector-visibility-change", {
+        detail: { visible: false },
+      }),
+    );
+    expect(isEnabled()).toBe(false);
+  });
+
+  it("opens a request made before the Inspector loaded", async () => {
+    TestBed.configureTestingModule({
+      imports: [InspectorHost],
+      providers: [
+        provideCopilotKit({}),
+        { provide: ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE, useValue: true },
+      ],
+    });
+    const request = { messageId: "message-early", threadId: "thread-1" };
+    TestBed.inject(CopilotInspector).openInspector(request);
+    const fixture = TestBed.createComponent(InspectorHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.dynamicImportSettled();
+
+    const inspector = document.querySelector<
+      HTMLElement & { openInspector: ReturnType<typeof vi.fn> }
+    >(WEB_INSPECTOR_TAG);
+    expect(inspector?.openInspector).toHaveBeenCalledExactlyOnceWith(
+      "message_toolbar",
+      request,
+    );
   });
 
   it("removes an inspector it owns when the root service is destroyed", async () => {
