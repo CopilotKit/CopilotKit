@@ -35,13 +35,12 @@ Inspector pane callouts (`inspector-docs`).
 
 Edit these in the same change as the feature or docs page:
 
-| Surface                              | File                                                                                                |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| Hero CTA (`CONNECT_HREF`) and cards  | `showcase/shell-docs/src/components/content/landing-pages/intelligence-overview.tsx`                |
-| Body, quickstart link, hosting links | `showcase/shell-docs/src/content/snippets/shared/intelligence/overview.mdx`                         |
-| Section nav                          | `showcase/shell-docs/src/content/docs/intelligence/meta.json`                                       |
-| Root sidebar Intelligence group      | `showcase/shell-docs/src/content/docs/meta.json`                                                    |
-| Card and CTA tests                   | `showcase/shell-docs/src/components/content/landing-pages/__tests__/intelligence-overview.test.tsx` |
+| Surface                              | File                                                                        |
+| ------------------------------------ | --------------------------------------------------------------------------- |
+| Hero CTA and cards                   | `showcase/shell-docs/src/components/docs-mdx/showcase/intelligence.tsx`     |
+| Body, quickstart link, hosting links | `showcase/shell-docs/src/content/snippets/shared/intelligence/overview.mdx` |
+| Section nav                          | `showcase/shell-docs/src/content/docs/intelligence/meta.json`               |
+| Root sidebar Intelligence group      | `showcase/shell-docs/src/content/docs/meta.json`                            |
 
 The root overview page only wraps the snippet. Do not duplicate landing copy
 in `docs/intelligence/overview.mdx`.
@@ -55,25 +54,24 @@ in `docs/intelligence/overview.mdx`.
 2. Put the page in `intelligence/meta.json` and in the Intelligence group in
    `docs/meta.json` when it belongs in the sidebar.
 3. Link the page from the shared snippet. A user-facing pillar gets a card in
-   `FEATURES` in `intelligence-overview.tsx` with a unique CTA label. A
+   `INTELLIGENCE_FEATURES` in `intelligence.tsx` with a unique CTA label. A
    hosting or account page gets a link under **Choose where Intelligence
    runs**. Every link must be a real URL.
 4. Do not add a second link for the same page. One page, one landing entry.
 5. If the feature is a named pillar in the hero, add it to the subtitle.
-6. Extend the tests in the same commit. Pin the new CTA href as a literal.
+6. Run `npm run check-live-mdx intelligence` in `showcase/shell-docs`.
 
 ### Procedure 2: Rename or move a page
 
 1. Update every landing CTA that pointed at the old path: card `href`,
    quickstart link, and the links under **Choose where Intelligence runs**.
 2. Update `meta.json` files.
-3. Update the tests that pin those hrefs.
+3. Run `npm run check-live-mdx intelligence` in `showcase/shell-docs`.
 
 ### Procedure 3: Remove a feature or page
 
 1. Remove the card or snippet link, subtitle mention, and nav entry.
-2. Remove the matching test assertions.
-3. Do not leave a landing link to a deleted page.
+2. Do not leave a landing link to a deleted page.
 
 ## Decision Tree
 

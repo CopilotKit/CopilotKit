@@ -440,7 +440,7 @@ function loadKnownRoutes(): Set<string> {
       : noExt;
     // Strip route-group segments like (other), (foo) — they are removed
     // from the URL by Fumadocs/Next.js. Mirrors normalizeSlugForUrl in
-    // showcase/shell-docs/src/lib/sitemap-helpers.ts.
+    // the route groups Fumadocs drops from URLs.
     const normalized = noIndex
       .split("/")
       .filter((seg) => !/^\(.+\)$/.test(seg))
@@ -461,14 +461,14 @@ function aliasExists(importPath: string): boolean {
 }
 
 export function loadSnippetComponentNames(): Set<string> {
-  const docsRenderPath = path.join(
+  const namedSnippetsPath = path.join(
     REPO_ROOT,
-    "showcase/shell-docs/src/lib/docs-render.tsx",
+    "showcase/shell-docs/src/lib/named-snippets.ts",
   );
-  const src = fs.readFileSync(docsRenderPath, "utf-8");
-  const mapMatch = src.match(/export const SNIPPET_MAP[^{]*\{([^}]+)\}/s);
+  const src = fs.readFileSync(namedSnippetsPath, "utf-8");
+  const mapMatch = src.match(/export const NAMED_SNIPPETS[^{]*\{([^}]+)\}/s);
   if (!mapMatch)
-    throw new Error("Could not find SNIPPET_MAP in docs-render.tsx");
+    throw new Error("Could not find NAMED_SNIPPETS in named-snippets.ts");
   const keys = [...mapMatch[1].matchAll(/^\s*(\w+)\s*:/gm)].map((m) => m[1]);
   return new Set(keys);
 }

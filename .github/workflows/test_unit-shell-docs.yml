@@ -83,33 +83,26 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            showcase/scripts/package-lock.json
-            showcase/shell-docs/package-lock.json
+          cache-dependency-path: showcase/shell-docs/package-lock.json
 
-      - name: Install content generator dependencies
-        working-directory: showcase/scripts
-        run: npm ci --ignore-scripts
-
+      # shell-docs is outside the pnpm workspace and has no Nx target.
+      # postinstall only applies patches/, which these checks do not need.
       - name: Install shell-docs dependencies
         working-directory: showcase/shell-docs
         run: npm ci --ignore-scripts
 
-      # The registry generator imports catalog-flatten from the harness. Resolve
-      # its js-yaml import using the standalone scripts install, as in Docker.
-      - name: Link harness module scope
-        run: ln -s ../scripts/node_modules showcase/harness/node_modules
-
       - name: Generate docs data
         working-directory: showcase/shell-docs
-        run: npm run pretypecheck
+        run: npm run showcase-data
 
       - name: Typecheck shell-docs
         working-directory: showcase/shell-docs
-        run: npm run typecheck --ignore-scripts
+        run: npm run typecheck
 
-      # ShellDocs is outside the pnpm workspace and has no Nx target.
-      # Both test commands use the same suite; data was generated above.
-      - name: Run shell-docs smoke suite
+      - name: Lint shell-docs
         working-directory: showcase/shell-docs
-        run: npm run test:ci
+        run: npm run lint
+
+      - name: Compile every docs page
+        working-directory: showcase/shell-docs
+        run: npm run check-live-mdx

@@ -138,7 +138,7 @@ showcase/integrations/spring-ai/next.config.ts
 showcase/integrations/strands/next.config.ts
 showcase/integrations/strands-typescript/next.config.ts
 showcase/shell-dashboard/next.config.ts
-showcase/shell-docs/next.config.ts
+showcase/shell-docs/next.config.mjs
 showcase/shell-dojo/next.config.ts
 showcase/shell/next.config.ts
 showcase/vue/vite.config.ts
