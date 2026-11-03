@@ -5,8 +5,7 @@ import { appName } from "@/lib/shared";
 
 // The docs' social card (1200x630): Fumadocs' stock template on its dark
 // ground (an approved brand context), with the brand lilac in place of its
-// default accent and the official CopilotKit mark. Shared by `/og/<path>/og.png`
-// (live pages) and `/og/docs/<path>/image.png` (the /docs pages).
+// default accent and the official CopilotKit mark, for `/og/<path>/og.png`.
 
 // Inlined as a data URI so the image renderer can draw it.
 const markSrc = `data:image/svg+xml;base64,${readFileSync(

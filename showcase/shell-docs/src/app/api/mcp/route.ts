@@ -7,8 +7,7 @@ import { getPageMarkdown, listPages } from "@/lib/llms/page-tools";
 // The docs' MCP server for outside agents (Claude Code, Cursor, ...):
 // `list_pages`, `get_page`, and `search`, the tools Fumadocs' own
 // `registerSourceTools` / `registerSearchTool` register, over the live docs
-// (every docs.copilotkit.ai URL, framework-scoped ones included) and the
-// /docs pages. Connect with
+// (every docs.copilotkit.ai URL, framework-scoped ones included). Connect with
 // { "mcpServers": { "copilotkit-docs": { "url": "<site>/api/mcp" } } }.
 
 const handler = createMcpHandler(() => {

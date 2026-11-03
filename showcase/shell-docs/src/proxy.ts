@@ -3,19 +3,9 @@ import {
   type NextRequest,
   NextResponse,
 } from "next/server";
-import { isMarkdownPreferred, rewritePath } from "fumadocs-core/negotiation";
-import { docsContentRoute, docsRoute } from "@/lib/shared";
+import { isMarkdownPreferred } from "fumadocs-core/negotiation";
 import { legacyRedirect } from "@/lib/redirects/legacy-redirect";
 import { trackRequest } from "@/lib/telemetry/proxy";
-
-const { rewrite: rewriteDocs } = rewritePath(
-  `${docsRoute}{/*path}`,
-  `${docsContentRoute}{/*path}/content.md`,
-);
-const { rewrite: rewriteSuffix } = rewritePath(
-  `${docsRoute}{/*path}.md`,
-  `${docsContentRoute}{/*path}/content.md`,
-);
 
 /** Where a live page's Markdown is served (`src/app/llms.mdx/live`). */
 const LIVE_MARKDOWN_ROUTE = "/llms.mdx/live";
@@ -54,14 +44,6 @@ export default function proxy(request: NextRequest, event: NextFetchEvent) {
 
   // `<path>.md` / `.mdx`: the page as Markdown. Telemetry reads the surface
   // from the suffix.
-  const docsMarkdown = rewriteSuffix(pathname);
-  if (docsMarkdown) {
-    return trackRequest(
-      request,
-      event,
-      NextResponse.rewrite(new URL(docsMarkdown, request.nextUrl)),
-    );
-  }
   const liveMarkdown = liveMarkdownPath(pathname);
   if (liveMarkdown) {
     return trackRequest(
@@ -77,10 +59,9 @@ export default function proxy(request: NextRequest, event: NextFetchEvent) {
   // own URL.
   if (isMarkdownPreferred(request)) {
     const target =
-      rewriteDocs(pathname) ||
-      (pathname !== "/" && !NOT_LIVE_DOCS.test(pathname)
+      pathname !== "/" && !NOT_LIVE_DOCS.test(pathname)
         ? `${LIVE_MARKDOWN_ROUTE}${pathname.replace(/\/+$/, "")}`
-        : null);
+        : null;
     if (target) {
       return trackRequest(
         request,

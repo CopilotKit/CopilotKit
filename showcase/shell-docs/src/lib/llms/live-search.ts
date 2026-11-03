@@ -17,9 +17,7 @@ import { mapLimit } from "./map-limit";
 
 // Orama search over the live docs (each page once, at an unscoped live URL;
 // see `searchEntries()`) and the API reference. Serves the sidebar's search
-// dialog (`/api/search`), Ask AI, and the MCP `search` tool. The /docs pages
-// are design prototypes (an illustrative quickstart, picker ideas, the theme
-// sheet), so they stay out: a reader or agent searching would land on them.
+// dialog (`/api/search`), Ask AI, and the MCP `search` tool.
 //
 // The index is built on the first query (not at import, which `next build`
 // does while collecting routes): each page's structured data comes from its
