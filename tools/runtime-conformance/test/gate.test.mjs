@@ -248,7 +248,7 @@ test("every skip-list entry skips the matrix", () => {
     ".mcp.json",
     ".nvmrc",
     "commitlint.config.js",
-    "dangerfile.js",
+    "dangerfile.ts",
     "docs",
     "release.config.json",
     "renovate.json",

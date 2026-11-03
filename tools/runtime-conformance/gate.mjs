@@ -49,7 +49,7 @@ export const SKIP_FILES = new Set([
   "SECURITY.md",
   "VERSIONING.md",
   "commitlint.config.js",
-  "dangerfile.js",
+  "dangerfile.ts",
   "docs",
   "release.config.json",
   "renovate.json",
