@@ -108,8 +108,23 @@ export type {
 } from "./transcription";
 
 // License state (internal)
-export { ɵresolveLicenseState, ɵresolveThreadsLicense } from "./license";
-export type { LicenseStateInput as ɵLicenseStateInput } from "./license";
+export {
+  ɵresolveLicenseState,
+  ɵresolveThreadsLicense,
+  ɵgetLicenseBannerSpec,
+  ɵLICENSE_BANNER_STYLE,
+  ɵLICENSE_BANNER_OFFSET,
+  ɵreserveLicenseBannerOffset,
+  ɵgetInlineFeatureWarningSpec,
+  ɵINLINE_FEATURE_WARNING_STYLE,
+} from "./license";
+export type {
+  LicenseStateInput as ɵLicenseStateInput,
+  ɵLicenseBannerType,
+  ɵLicenseBannerSeverity,
+  ɵLicenseBannerDetails,
+  ɵLicenseBannerSpec,
+} from "./license";
 
 // Icons
 export type {

@@ -1,141 +1,62 @@
-import React, { useEffect } from "react";
-import { CopilotChatDefaultLabels, ɵformatLabel } from "@copilotkit/core";
+import { useEffect } from "react";
+import {
+  CopilotChatDefaultLabels,
+  ɵINLINE_FEATURE_WARNING_STYLE,
+  ɵLICENSE_BANNER_STYLE,
+  ɵgetInlineFeatureWarningSpec,
+  ɵgetLicenseBannerSpec,
+  ɵreserveLicenseBannerOffset,
+} from "@copilotkit/core";
+import type {
+  ɵLicenseBannerDetails,
+  ɵLicenseBannerType,
+} from "@copilotkit/core";
+import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 
-// The banner shows outside any chat, so it has no chat configuration to read
-// labels from. It always uses the default text.
-const labels = CopilotChatDefaultLabels;
+/** The chat labels in effect, or the default ones outside a chat. */
+function useLabels() {
+  return useCopilotChatConfiguration()?.labels ?? CopilotChatDefaultLabels;
+}
+
+interface LicenseWarningBannerProps extends ɵLicenseBannerDetails {
+  type: ɵLicenseBannerType;
+  onDismiss?: () => void;
+}
 
 /**
- * The "expires soon" banner text. Without a day count it says "soon", never
- * "in undefined days".
+ * The fixed license banner. Core's `ɵgetLicenseBannerSpec` picks its text,
+ * link, and severity; this component renders them.
  */
-function expiringMessage(graceRemaining: number | undefined) {
-  if (graceRemaining === undefined) return labels.licenseExpiringText;
-  const template =
-    graceRemaining === 1
-      ? labels.licenseExpiringInDaysOne
-      : labels.licenseExpiringInDaysOther;
-  return ɵformatLabel(template, { days: graceRemaining });
-}
-
-// Total reserved vertical space for the fixed license banner: banner height
-// (~36px) + bottom offset (8px) + visual gap above the chat input (~8px).
-const LICENSE_BANNER_OFFSET_PX = 52;
-const LICENSE_BANNER_OFFSET_VAR = "--copilotkit-license-banner-offset";
-
-interface LicenseWarningBannerProps {
-  type:
-    | "no_license"
-    | "expired"
-    | "expiring"
-    | "invalid"
-    | "feature_unlicensed";
-  featureName?: string;
-  expiryDate?: string;
-  graceRemaining?: number;
-  onDismiss?: () => void;
-}
-
-const BANNER_STYLES: Record<string, React.CSSProperties> = {
-  base: {
-    position: "fixed",
-    bottom: "8px",
-    left: "50%",
-    transform: "translateX(-50%)",
-    zIndex: 99999,
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "12px",
-    whiteSpace: "nowrap",
-    padding: "8px 16px",
-    fontSize: "13px",
-    fontFamily:
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
-    borderRadius: "6px",
-    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
-  },
-  info: {
-    backgroundColor: "#eff6ff",
-    border: "1px solid #93c5fd",
-    color: "#1e40af",
-  },
-  warning: {
-    backgroundColor: "#fffbeb",
-    border: "1px solid #fbbf24",
-    color: "#92400e",
-  },
-  critical: {
-    backgroundColor: "#fef2f2",
-    border: "1px solid #fca5a5",
-    color: "#991b1b",
-  },
-};
-
-function getSeverityStyle(severity: string): React.CSSProperties {
-  switch (severity) {
-    case "warning":
-      return BANNER_STYLES.warning;
-    case "critical":
-      return BANNER_STYLES.critical;
-    default:
-      return BANNER_STYLES.info;
-  }
-}
-
-function BannerShell({
-  severity,
-  message,
-  actionLabel,
-  actionUrl,
+export function LicenseWarningBanner({
+  type,
   onDismiss,
-}: {
-  severity: string;
-  message: string;
-  actionLabel: string;
-  actionUrl: string;
-  onDismiss?: () => void;
-}) {
+  ...details
+}: LicenseWarningBannerProps) {
+  const spec = ɵgetLicenseBannerSpec(type, useLabels(), details);
+
   // Publish the banner's reserved bottom offset so the chat input can lift
   // itself above it via padding-bottom: var(--copilotkit-license-banner-offset).
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const root = document.documentElement;
-    root.style.setProperty(
-      LICENSE_BANNER_OFFSET_VAR,
-      `${LICENSE_BANNER_OFFSET_PX}px`,
-    );
-    return () => {
-      root.style.removeProperty(LICENSE_BANNER_OFFSET_VAR);
-    };
-  }, []);
+  useEffect(() => ɵreserveLicenseBannerOffset(), []);
 
   return (
-    <div style={{ ...BANNER_STYLES.base, ...getSeverityStyle(severity) }}>
-      <span>{message}</span>
-      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+    <div
+      style={{
+        ...ɵLICENSE_BANNER_STYLE.base,
+        ...ɵLICENSE_BANNER_STYLE.severity[spec.severity],
+      }}
+    >
+      <span>{spec.message}</span>
+      <div style={ɵLICENSE_BANNER_STYLE.actions}>
         <a
-          href={actionUrl}
+          href={spec.actionUrl}
           target="_blank"
           rel="noopener noreferrer"
-          style={{
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: "inherit",
-          }}
+          style={ɵLICENSE_BANNER_STYLE.link}
         >
-          {actionLabel}
+          {spec.actionLabel}
         </a>
         {onDismiss && (
-          <button
-            onClick={onDismiss}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "inherit",
-              fontSize: "16px",
-            }}
-          >
+          <button onClick={onDismiss} style={ɵLICENSE_BANNER_STYLE.dismiss}>
             ×
           </button>
         )}
@@ -144,101 +65,18 @@ function BannerShell({
   );
 }
 
-export function LicenseWarningBanner({
-  type,
-  featureName,
-  expiryDate,
-  graceRemaining,
-  onDismiss,
-}: LicenseWarningBannerProps) {
-  switch (type) {
-    case "no_license":
-      return (
-        <BannerShell
-          severity="info"
-          message={labels.licensePoweredByText}
-          actionLabel={labels.licenseGetLicenseLabel}
-          actionUrl="https://copilotkit.ai/pricing"
-          onDismiss={onDismiss}
-        />
-      );
-    case "feature_unlicensed":
-      return (
-        <BannerShell
-          severity="warning"
-          message={ɵformatLabel(labels.licenseFeatureUnlicensedText, {
-            feature: featureName ?? "",
-          })}
-          actionLabel={labels.licenseGetLicenseLabel}
-          actionUrl="https://copilotkit.ai/pricing"
-          onDismiss={onDismiss}
-        />
-      );
-    case "expiring":
-      return (
-        <BannerShell
-          severity="warning"
-          message={expiringMessage(graceRemaining)}
-          actionLabel={labels.licenseRenewLabel}
-          actionUrl="https://dashboard.operations.copilotkit.ai"
-          onDismiss={onDismiss}
-        />
-      );
-    case "expired":
-      return (
-        <BannerShell
-          severity="critical"
-          message={
-            expiryDate
-              ? ɵformatLabel(labels.licenseExpiredOnDateText, {
-                  date: expiryDate,
-                })
-              : labels.licenseExpiredText
-          }
-          actionLabel={labels.licenseRenewNowLabel}
-          actionUrl="https://copilotkit.ai/pricing"
-          onDismiss={onDismiss}
-        />
-      );
-    case "invalid":
-      return (
-        <BannerShell
-          severity="critical"
-          message={labels.licenseInvalidText}
-          actionLabel={labels.licenseGetLicenseLabel}
-          actionUrl="https://copilotkit.ai/pricing"
-          onDismiss={onDismiss}
-        />
-      );
-    default:
-      return null;
-  }
-}
-
 export function InlineFeatureWarning({ featureName }: { featureName: string }) {
+  const spec = ɵgetInlineFeatureWarningSpec(featureName, useLabels());
   return (
-    <div
-      style={{
-        padding: "8px 12px",
-        backgroundColor: "#fffbeb",
-        border: "1px solid #fbbf24",
-        borderRadius: "6px",
-        fontSize: "13px",
-        color: "#92400e",
-        fontFamily:
-          "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
-      }}
-    >
-      {ɵformatLabel(labels.licenseFeatureUnlicensedText, {
-        feature: featureName,
-      })}{" "}
+    <div style={ɵINLINE_FEATURE_WARNING_STYLE.container}>
+      {spec.message}{" "}
       <a
-        href="https://copilotkit.ai/pricing"
+        href={spec.actionUrl}
         target="_blank"
         rel="noopener noreferrer"
-        style={{ color: "#b45309", textDecoration: "underline" }}
+        style={ɵINLINE_FEATURE_WARNING_STYLE.link}
       >
-        Get one at copilotkit.ai/pricing
+        {spec.actionLabel}
       </a>
     </div>
   );

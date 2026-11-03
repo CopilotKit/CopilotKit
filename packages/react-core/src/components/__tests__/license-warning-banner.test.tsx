@@ -1,39 +1,65 @@
-import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { LicenseWarningBanner } from "../license-warning-banner";
+import {
+  InlineFeatureWarning,
+  LicenseWarningBanner,
+} from "../license-warning-banner";
+import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 
-/** Renders the banner and returns its message text. */
-function bannerMessage(
-  props: React.ComponentProps<typeof LicenseWarningBanner>,
-) {
-  render(<LicenseWarningBanner {...props} />);
-  return screen.getByText(/CopilotKit license/).textContent;
-}
+// The banner text rules are covered next to core's ɵgetLicenseBannerSpec.
+describe("LicenseWarningBanner", () => {
+  it("shows the core spec's text and link", () => {
+    render(<LicenseWarningBanner type="expiring" graceRemaining={3} />);
 
-describe("LicenseWarningBanner text", () => {
-  it("says the license expires soon when the day count is not known", () => {
-    expect(bannerMessage({ type: "expiring" })).toBe(
-      "Your CopilotKit license expires soon. Please renew.",
-    );
+    expect(
+      screen.getByText(
+        "Your CopilotKit license expires in 3 days. Please renew.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Renew" }).getAttribute("href"),
+    ).toBe("https://dashboard.operations.copilotkit.ai");
   });
 
-  it.each([
-    [1, "Your CopilotKit license expires in 1 day. Please renew."],
-    [3, "Your CopilotKit license expires in 3 days. Please renew."],
-  ])("counts %i day(s) left before expiry", (graceRemaining, expected) => {
-    expect(bannerMessage({ type: "expiring", graceRemaining })).toBe(expected);
+  it("uses the configured chat labels", () => {
+    render(
+      <CopilotChatConfigurationProvider
+        labels={{ licenseInvalidText: "Token ungültig" }}
+      >
+        <LicenseWarningBanner type="invalid" />
+      </CopilotChatConfigurationProvider>,
+    );
+
+    expect(screen.getByText("Token ungültig")).toBeTruthy();
   });
 
-  it("names the expiry date when it is known", () => {
-    expect(bannerMessage({ type: "expired", expiryDate: "2026-01-31" })).toBe(
-      "Your CopilotKit license expired on 2026-01-31. Please renew at copilotkit.ai/pricing",
-    );
-  });
+  it("publishes the bottom offset while it shows", () => {
+    const root = document.documentElement;
+    const { unmount } = render(<LicenseWarningBanner type="no_license" />);
+    expect(
+      root.style.getPropertyValue("--copilotkit-license-banner-offset"),
+    ).toBe("52px");
 
-  it("leaves the date out when it is not known", () => {
-    expect(bannerMessage({ type: "expired" })).toBe(
-      "Your CopilotKit license expired. Please renew at copilotkit.ai/pricing",
+    unmount();
+
+    expect(
+      root.style.getPropertyValue("--copilotkit-license-banner-offset"),
+    ).toBe("");
+  });
+});
+
+describe("InlineFeatureWarning", () => {
+  it("uses the configured feature-unlicensed label", () => {
+    render(
+      <CopilotChatConfigurationProvider
+        labels={{
+          licenseFeatureUnlicensedText: "{feature} braucht eine Lizenz.",
+        }}
+      >
+        <InlineFeatureWarning featureName="Chat" />
+      </CopilotChatConfigurationProvider>,
     );
+
+    expect(screen.getByText(/Chat braucht eine Lizenz\./)).toBeTruthy();
   });
 });
