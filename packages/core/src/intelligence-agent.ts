@@ -911,9 +911,20 @@ export class IntelligenceAgent extends AbstractAgent {
           // Keyed on streamMode, because refreshed run credentials join with
           // the connect channel mode while still following a live run.
           if (options.streamMode === "run") {
+            // Ending the stream here skips the replay_complete that would
+            // restore the join's checkpoint, so restore it now. Otherwise a
+            // replayed event that advanced the cursor makes the next connect
+            // skip the history this replay failed to deliver.
+            if (reconnectCursor === null) {
+              this.clearReconnectCursor(input.threadId);
+            } else {
+              this.advanceLastSeenEventId(input.threadId, reconnectCursor);
+            }
+            // `input` carries the canonical identity: a run stream keeps its
+            // own run ID when refreshed credentials omit one.
             throw new IntelligenceReplayFailedError(
-              credentials.threadId,
-              credentials.runId,
+              input.threadId,
+              input.runId ?? null,
             );
           }
         }),
