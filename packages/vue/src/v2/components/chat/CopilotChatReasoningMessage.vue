@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, onBeforeUnmount, shallowRef, watch } from "vue";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
 import { IconChevronRight } from "../icons";
 import StreamingMarkdownDefault from "./StreamingMarkdownDefault.vue";
-import { ɵformatLabel, ɵformatReasoningDurationLabel } from "@copilotkit/core";
+import {
+  ɵgetReasoningHeaderLabel,
+  ɵReasoningDisclosure,
+} from "@copilotkit/core";
 import { useChatLabels } from "./use-chat-labels";
 
 const props = withDefaults(
@@ -78,66 +81,36 @@ const isLatest = computed(
 );
 const isStreaming = computed(() => !!(props.isRunning && isLatest.value));
 
-const elapsed = ref(0);
-const isOpen = ref(isStreaming.value);
-const userToggledDuringStreaming = ref(false);
-let startTimeMs: number | null = null;
-let elapsedInterval: ReturnType<typeof setInterval> | null = null;
-
-function clearElapsedInterval() {
-  if (elapsedInterval) {
-    clearInterval(elapsedInterval);
-    elapsedInterval = null;
-  }
-}
-
-function updateElapsedNow() {
-  if (startTimeMs !== null) {
-    elapsed.value = (Date.now() - startTimeMs) / 1000;
-  }
-}
-
-watch(
-  isStreaming,
-  (nextIsStreaming) => {
-    if (nextIsStreaming) {
-      if (startTimeMs === null) {
-        startTimeMs = Date.now();
-      }
-      clearElapsedInterval();
-      elapsedInterval = setInterval(updateElapsedNow, 1000);
-      userToggledDuringStreaming.value = false;
-      isOpen.value = true;
-      return;
-    }
-
-    clearElapsedInterval();
-    updateElapsedNow();
-    if (!userToggledDuringStreaming.value) {
-      isOpen.value = false;
-    }
-  },
-  { immediate: true },
-);
-
-onBeforeUnmount(() => {
-  clearElapsedInterval();
+// Open while streaming, auto-collapse when it ends unless the user toggled,
+// and the elapsed time: see core's ɵReasoningDisclosure.
+const disclosure = new ɵReasoningDisclosure({ isStreaming: isStreaming.value });
+const disclosureState = shallowRef(disclosure.getSnapshot());
+const unsubscribe = disclosure.subscribe(() => {
+  disclosureState.value = disclosure.getSnapshot();
 });
+watch(isStreaming, (next) => disclosure.setStreaming(next), {
+  immediate: true,
+});
+onBeforeUnmount(() => {
+  unsubscribe();
+  disclosure.dispose();
+});
+
+const elapsed = computed(() => disclosureState.value.elapsedSeconds);
+const isOpen = computed(() => disclosureState.value.isOpen);
 
 const labels = useChatLabels();
 /** `labels.reasoningMessageThinkingLabel` while streaming, then "Thought for …". */
 const label = computed(() =>
-  isStreaming.value
-    ? labels.value.reasoningMessageThinkingLabel
-    : ɵformatLabel(labels.value.reasoningMessageThoughtForLabel, {
-        duration: ɵformatReasoningDurationLabel(elapsed.value, labels.value),
-      }),
+  ɵgetReasoningHeaderLabel(
+    { isStreaming: isStreaming.value, elapsedSeconds: elapsed.value },
+    labels.value,
+  ),
 );
 
 function toggleOpen() {
   if (!hasContent.value) return;
-  userToggledDuringStreaming.value = true;
-  isOpen.value = !isOpen.value;
+  disclosure.toggle();
 }
 </script>
 

@@ -539,6 +539,15 @@ If a test expects no body margin in jsdom, or reads the margin from a `<style>` 
 
 The slash menu lists only menu items that have an `action`. A group with no items, such as `{ label: "Tools", items: [] }`, is not listed. Vue already worked this way.
 
+## Tools menu and reasoning in Angular
+
+Angular now uses the same rules as React and Vue for these parts of the chat:
+
+- **Tools menu:** When the chat takes files, a separator shows between the "Add file" item and the items of `toolsMenu`. In 1.x, Angular showed no separator there.
+- **Reasoning messages:** Each new stream of a reasoning message opens it again. When that stream ends, the message closes, unless the user opened or closed it during that stream. In 1.x, Angular kept the user's earlier choice for all later streams.
+
+If a test or a screenshot depends on the earlier behavior, update it.
+
 ## Attachment previews
 
 In React, the preview that opens from an attachment is now a modal dialog, as in Vue and Angular:
