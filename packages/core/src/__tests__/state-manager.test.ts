@@ -354,6 +354,11 @@ describe("StateManager - Basic State Tracking", () => {
     await agent.emitStateSnapshot(runId, { count: 0, cart: { items: [1] } });
     // The agent deletes `cart` via a full-state snapshot replacement.
     await agent.emitStateSnapshot(runId, { count: 1 });
+    // Upstream replaces the whole state — a merged snapshot would leave the
+    // deleted `cart` behind as a ghost here.
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", runId),
+    ).toEqual({ count: 1 });
     await agent.emitStateDelta(
       runId,
       [{ op: "replace", path: "/count", value: 2 }],
