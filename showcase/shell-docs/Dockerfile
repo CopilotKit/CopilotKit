@@ -55,8 +55,10 @@ RUN test "$(node --version)" = "v22.23.4"
 # Start the server from the final filesystem and fetch pages that render on
 # request: `next build` prerenders only a handful, so a module missing from
 # this stage, or a page that throws while rendering, would otherwise first
-# show up on staging. Loopback only; this needs no model, key or backend.
-RUN --network=none node --input-type=module <<'JS'
+# show up on staging. Loopback only; this needs no model, key or backend. No
+# `--network=none`: Railway, which builds the docs PR previews from this file,
+# rejects that RUN flag.
+RUN node --input-type=module <<'JS'
 import { spawn } from 'node:child_process';
 import { connect } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
