@@ -1,0 +1,159 @@
+name: static / react ui
+
+# PE-1070. Runs React Doctor and impeccable detect on every React project in
+# packages/, examples/, and showcase/, and fails on findings that are not in
+# the checked-in baseline (.lint-baseline/react-doctor.json and
+# .lint-baseline/impeccable.json). Old findings pass; new ones fail.
+# How to fix a failure or update a baseline: dev-docs/react-ui-checks.md.
+#
+# No `paths` filter on the trigger, so both jobs can be required checks. A
+# path-filtered workflow never reports on a PR it skips, and a required check
+# that never reports blocks the merge. The scope job does the path filtering
+# instead: when a PR touches no React UI path, the scan jobs are skipped, and
+# GitHub counts a skipped job as passed. push runs the full scan as a backstop.
+
+on:
+  pull_request:
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
+  push:
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scope:
+    name: React UI change scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      required: ${{ steps.scope.outputs.required }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # A pull_request checkout is GitHub's merge commit. Depth 2 gives
+          # the merge commit and both parents, which is enough to diff it
+          # against the base branch tip (its first parent).
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Find React UI changes
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+            echo "$EVENT_NAME runs the full scan."
+            exit 0
+          fi
+          # A change is in scope when it is under examples/ or showcase/,
+          # under a packages/<name>/ whose package.json lists react, or in
+          # the files the gate itself reads.
+          git diff --name-only HEAD^1 HEAD | node -e '
+            const fs = require("node:fs");
+            const files = fs.readFileSync(0, "utf8").split("\n").filter(Boolean);
+            const gateFiles = /^(examples\/|showcase\/|tools\/ui-checks\/|scripts\/lint\/|scripts\/__tests__\/react-ui-checks\.test\.ts$|\.lint-baseline\/(react-doctor|impeccable)\.json$|doctor\.config\.json$|package\.json$|\.github\/workflows\/static_react-ui\.yml$)/;
+            const fields = ["dependencies", "peerDependencies", "devDependencies"];
+            const isReactPackage = (dir) => {
+              try {
+                const manifest = JSON.parse(fs.readFileSync(`${dir}/package.json`, "utf8"));
+                return fields.some((field) => manifest[field] && "react" in manifest[field]);
+              } catch {
+                return false;
+              }
+            };
+            const hit = files.find((file) => {
+              if (gateFiles.test(file)) return true;
+              const match = /^packages\/[^/]+(?=\/)/.exec(file);
+              return match !== null && isReactPackage(match[0]);
+            });
+            console.log(`required=${hit !== undefined}`);
+            console.error(hit ? `In scope: ${hit}` : "No React UI changes. The scans are skipped.");
+          ' >> "$GITHUB_OUTPUT"
+
+  react-doctor:
+    name: React Doctor
+    needs: scope
+    if: needs.scope.outputs.required == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
+          cache: pnpm
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        # The root install gives tsx and vitest. The pinned tools come from
+        # their own lockfile in tools/ui-checks/. Neither install runs
+        # install scripts against the PR checkout.
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          npm ci --prefix tools/ui-checks --ignore-scripts --no-audit --no-fund
+
+      - name: Test the gate
+        run: pnpm exec vitest run scripts/__tests__/react-ui-checks.test.ts
+
+      - name: Run React Doctor check
+        run: pnpm run lint:react-doctor
+
+  impeccable:
+    name: impeccable detect
+    needs: scope
+    if: needs.scope.outputs.required == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DO_NOT_TRACK: "1"
+      IMPECCABLE_NO_TELEMETRY: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
+          cache: pnpm
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        # The engine binary comes from the @impeccable/cli-linux-x64 optional
+        # dependency in the lockfile, so the launcher never downloads it.
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          npm ci --prefix tools/ui-checks --ignore-scripts --no-audit --no-fund
+
+      - name: Test the gate
+        run: pnpm exec vitest run scripts/__tests__/react-ui-checks.test.ts
+
+      - name: Run impeccable check
+        run: pnpm run lint:impeccable
