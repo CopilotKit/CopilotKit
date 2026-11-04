@@ -71,8 +71,10 @@ export type A2UICommonTypes = Record<string, JsonSchema>;
  *
  * - Reused Zod schemas are inlined rather than emitted as local `$ref`s, which
  *   would dangle once properties move under `allOf[1]`.
- * - A `REF:<ref>|<description>` marker becomes a bare `$ref`, as upstream, but
- *   the shape it replaced is kept once under
+ * - A `REF:<ref>|<description>` marker becomes a bare `$ref`, as upstream.
+ *   Upstream writes a common type as a local `#/$defs/<Name>` ref, which an
+ *   inline catalog without `$defs` leaves dangling; here it is always
+ *   `common_types.json#/$defs/<Name>`, and the shape it replaced is kept once under
  *   `"common_types.json": { "$defs": { <Name>: ... } }`. Every
  *   `common_types.json#/$defs/<Name>` ref therefore resolves within the
  *   payload, both for agents that only see it as prompt text and for SDKs
@@ -287,7 +289,14 @@ const SUBSCHEMA_MAP_KEYWORDS = [
   "definitions",
 ];
 
-const COMMON_TYPE_REF = /^common_types\.json#\/\$defs\/([^/]+)$/;
+/**
+ * A reference to a whole common type, in `common_types.json` or local. From
+ * `@a2ui/web_core` 0.15 the v0.9 common types mark themselves with local
+ * `REF:#/$defs/<Name>` refs, the layout of a bundled catalog document; both
+ * forms name the same type, which this payload writes as
+ * `common_types.json#/$defs/<Name>`.
+ */
+const COMMON_TYPE_REF = /^(?:common_types\.json)?#\/\$defs\/([^/]+)$/;
 
 function isObject(value: unknown): value is JsonSchema {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -358,11 +367,11 @@ function resolveRefMarker(
   if (!marker) return node;
 
   const { description: _marker, ...shape } = node;
+  const name = COMMON_TYPE_REF.exec(marker.ref)?.[1];
   const ref: JsonSchema = {
-    $ref: marker.ref,
+    $ref: name === undefined ? marker.ref : `common_types.json#/$defs/${name}`,
     ...(marker.description ? { description: marker.description } : {}),
   };
-  const name = COMMON_TYPE_REF.exec(marker.ref)?.[1];
   if (name !== undefined) {
     const known = commonTypes[name];
     if (known === undefined) {

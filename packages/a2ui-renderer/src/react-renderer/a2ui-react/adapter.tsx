@@ -122,10 +122,26 @@ export function createReactComponent<Api extends ComponentApi>(
   }> = ({ context, buildChild, properties }) => {
     // Rebuild on wire updates as well as context changes, so a previously
     // failed binding cannot leave stale resolved props on a corrected component.
-    const binding = useMemo(
-      () => new GenericBinder<Props>(context, api.schema),
-      [context, properties],
-    );
+    // web_core reports a failed evaluation (unknown function, malformed
+    // arguments) on the surface's error channel instead of throwing. Errors
+    // dispatched while the binder resolves its initial props belong to this
+    // component, so collect them and show the failure in place.
+    const { binding, bindError } = useMemo(() => {
+      const errors: string[] = [];
+      const subscription = context.dataContext.surface?.onError.subscribe(
+        (error) => {
+          errors.push(error.message);
+        },
+      );
+      try {
+        return {
+          binding: new GenericBinder<Props>(context, api.schema),
+          bindError: errors.length > 0 ? errors.join("; ") : null,
+        };
+      } finally {
+        subscription?.unsubscribe();
+      }
+    }, [context, properties]);
 
     const subscribe = useCallback(
       (callback: () => void) => {
@@ -142,6 +158,10 @@ export function createReactComponent<Api extends ComponentApi>(
     useEffect(() => {
       return () => binding.dispose();
     }, [binding]);
+
+    if (bindError) {
+      return <ComponentFailure name={api.name} detail={bindError} />;
+    }
 
     return (
       <RenderBoundary name={api.name} snapshot={props}>
