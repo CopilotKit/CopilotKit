@@ -37,17 +37,36 @@ function findPointers(dir, found = new Map()) {
   return found;
 }
 
+// A dropped connection is retried; Railway's builder drops some of them.
+const ATTEMPTS = 3;
+// Downloads at once. All of them in parallel had connections dropped.
+const CONCURRENCY = 6;
+
+async function fetchBody(action) {
+  const response = await fetch(action.href, {
+    headers: action.header,
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return Buffer.from(await response.arrayBuffer());
+}
+
 async function download(oid, { size, paths }, action) {
   let body;
-  try {
-    const response = await fetch(action.href, {
-      headers: action.header,
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    body = Buffer.from(await response.arrayBuffer());
-  } catch (error) {
-    throw new Error(`${paths[0]}: ${error.message}`);
+  for (let attempt = 1; !body; attempt++) {
+    try {
+      body = await fetchBody(action);
+    } catch (error) {
+      // undici's "fetch failed" hides the network error in `cause`.
+      const reason = error.cause?.code ?? error.cause?.message ?? error.message;
+      if (attempt === ATTEMPTS) {
+        throw new Error(`${paths[0]}: ${error.message} (${reason})`, {
+          cause: error,
+        });
+      }
+      console.warn(`[fetch-lfs] ${paths[0]}: ${reason}, retrying`);
+      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+    }
   }
   const hash = createHash("sha256").update(body).digest("hex");
   if (body.length !== size || hash !== oid) {
@@ -81,16 +100,21 @@ for (let i = 0; i < oids.length; i += 100) {
     throw new Error(`LFS batch request to ${REPO}: HTTP ${response.status}`);
   }
   const { objects } = await response.json();
+  for (const object of objects) {
+    if (object.error) {
+      throw new Error(`${object.oid}: ${object.error.message}`);
+    }
+  }
+  const queue = [...objects];
   await Promise.all(
-    objects.map((object) => {
-      if (object.error) {
-        throw new Error(`${object.oid}: ${object.error.message}`);
+    Array.from({ length: CONCURRENCY }, async () => {
+      for (let object; (object = queue.shift()); ) {
+        await download(
+          object.oid,
+          pointers.get(object.oid),
+          object.actions.download,
+        );
       }
-      return download(
-        object.oid,
-        pointers.get(object.oid),
-        object.actions.download,
-      );
     }),
   );
 }
