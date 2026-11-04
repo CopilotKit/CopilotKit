@@ -15,10 +15,17 @@ bin="$(git rev-parse --show-toplevel)/node_modules/.bin"
 
 fork_point=$(git merge-base "$base" HEAD)
 
-# Files changed since the fork point, committed or not, that match $1.
+# Moved files are not new code, so the checks skip them. Rename detection
+# needs the whole repo (no pathspec) and no rename limit, or a large move
+# shows up as added files.
+diff_names() {
+  git -c diff.renameLimit=0 diff --name-only -M --diff-filter="$1" "$fork_point" |
+    grep -E '^(packages|examples|showcase)/' || true
+}
+
+# Files added or edited since the fork point, committed or not, that match $1.
 changed() {
-  git diff --name-only --diff-filter=ACMR "$fork_point" -- packages examples showcase |
-    grep -E "$1" || true
+  diff_names ACM | grep -E "$1" || true
 }
 
 case "$tool" in
@@ -32,7 +39,11 @@ case "$tool" in
         dir=$(dirname "$file")
         while [ "$dir" != "." ] && [ ! -f "$dir/package.json" ]; do dir=$(dirname "$dir"); done
         if [ "$dir" != "." ] && grep -q '"react"' "$dir/package.json"; then echo "$dir"; fi
-      done | sort -u | paste -sd, -
+      done | sort -u |
+        # React Doctor counts every issue in a moved file as new, so skip a
+        # project that moved. It is checked again on its next change.
+        { grep -vxFf <(diff_names R | sed -n 's#/package\.json$##p') || true; } |
+        paste -sd, -
     )
     if [ -z "$projects" ]; then echo "React Doctor: no React project changed."; exit 0; fi
     exec "$bin/react-doctor" . --project "$projects" --scope changed --base "$fork_point" \
