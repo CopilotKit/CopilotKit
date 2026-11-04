@@ -143,6 +143,14 @@ export async function verifyImageDeployment(
     });
     if (!response.ok) {
       await response.body?.cancel();
+      if (
+        (response.status === 429 ||
+          (response.status >= 500 && response.status <= 599)) &&
+        now() < deadline
+      ) {
+        await sleep(Math.min(5_000, Math.max(0, deadline - now())));
+        continue;
+      }
       throw new Error(
         `${label} deployment lookup returned HTTP ${response.status}`,
       );

@@ -211,9 +211,96 @@ describe("verifyImageDeployment", () => {
     ).rejects.toThrow(/timed out/);
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
+  it("retries transient HTTP errors after releasing each body, then verifies the selected digest", async () => {
+    const statuses = [429, 500, 503, 599];
+    const events: string[] = [];
+    let clock = 0;
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async () => {
+      const status = statuses[fetchImpl.mock.calls.length - 1];
+      events.push(`fetch ${status ?? 200}`);
+      return status
+        ? new Response(
+            new ReadableStream({
+              cancel: async () => {
+                await Promise.resolve();
+                events.push(`cancel ${status}`);
+              },
+            }),
+            { status },
+          )
+        : response();
+    });
+    await expect(
+      verifyImageDeployment("token", "fresh", expected, target, {
+        fetchImpl,
+        now: () => clock,
+        timeoutMs: 25_000,
+        sleep: async (ms) => {
+          events.push(`sleep ${ms}`);
+          clock += ms;
+        },
+      }),
+    ).resolves.toEqual({ imageDigest: PLATFORM });
+    expect(events).toEqual([
+      ...statuses.flatMap((status) => [
+        `fetch ${status}`,
+        `cancel ${status}`,
+        "sleep 5000",
+      ]),
+      "fetch 200",
+    ]);
+  });
+  it.each([429, 503])(
+    "bounds persistent HTTP %s retries to the original deadline and releases the final body",
+    async (status) => {
+      const cancel = vi.fn();
+      const fetchImpl = vi
+        .fn<typeof fetch>()
+        .mockImplementation(
+          async () => new Response(new ReadableStream({ cancel }), { status }),
+        );
+      let clock = 0;
+      const sleep = vi.fn(async (ms: number) => {
+        clock += ms;
+      });
+      await expect(
+        verifyImageDeployment("token", "fresh", expected, target, {
+          fetchImpl,
+          now: () => clock,
+          timeoutMs: 12_000,
+          sleep,
+        }),
+      ).rejects.toThrow(`lookup returned HTTP ${status}`);
+      expect(fetchImpl).toHaveBeenCalledTimes(4);
+      expect(cancel).toHaveBeenCalledTimes(4);
+      expect(sleep.mock.calls).toEqual([[5_000], [5_000], [2_000]]);
+      expect(clock).toBe(12_000);
+    },
+  );
+  it.each([400, 401, 403, 404, 499])(
+    "fails promptly for non-retryable HTTP %s and releases its body",
+    async (status) => {
+      const cancel = vi.fn();
+      const fetchImpl = vi
+        .fn<typeof fetch>()
+        .mockImplementation(
+          async () => new Response(new ReadableStream({ cancel }), { status }),
+        );
+      const sleep = vi.fn();
+      await expect(
+        verifyImageDeployment("token", "fresh", expected, target, {
+          fetchImpl,
+          sleep,
+        }),
+      ).rejects.toThrow(`lookup returned HTTP ${status}`);
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(cancel).toHaveBeenCalledTimes(1);
+      expect(sleep).not.toHaveBeenCalled();
+    },
+  );
   it("does not treat HTTP or GraphQL errors as deployment success", async () => {
     for (const reply of [
-      new Response("denied", { status: 503 }),
+      new Response("denied", { status: 403 }),
       new Response(JSON.stringify({ errors: [{ message: "denied" }] })),
     ]) {
       await expect(
