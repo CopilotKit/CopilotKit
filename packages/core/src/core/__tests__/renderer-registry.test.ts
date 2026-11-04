@@ -202,6 +202,36 @@ describe("ɵRendererRegistry built-in tool calls", () => {
   });
 });
 
+describe("ɵRendererRegistry.removeToolCall", () => {
+  it("removes the prop and hook renderers for one key, and keeps the rest", () => {
+    const { registry, changes } = createRegistry([
+      propSearch,
+      { name: "search", agentId: "research", render: "research-search" },
+      propWeather,
+    ]);
+    registry.addHookToolCall({ name: "search", render: "hook-search" });
+    registry.addBuiltInToolCall({ name: "search", render: "built-in-search" });
+    changes.length = 0;
+
+    registry.removeToolCall("search");
+
+    expect(registry.toolCalls.map((entry) => entry.render)).toEqual([
+      "research-search",
+      "prop-weather",
+      "built-in-search",
+    ]);
+    expect(changes).toEqual(["toolCalls"]);
+  });
+
+  it("does not notify when nothing has the key", () => {
+    const { registry, changes } = createRegistry([propSearch]);
+
+    registry.removeToolCall("missing");
+
+    expect(changes).toEqual([]);
+  });
+});
+
 describe("ɵRendererRegistry activity and custom renderers", () => {
   it("notifies with the kind of list that changed", () => {
     const { registry, changes } = createRegistry();

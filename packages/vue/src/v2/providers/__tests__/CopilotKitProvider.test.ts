@@ -322,7 +322,7 @@ describe("CopilotKitProvider", () => {
       expect(renderTool?.render).toStrictEqual(TestComponent);
     });
 
-    it("does not scope frontendTools-derived render entries by agentId", () => {
+    it("scopes frontendTools-derived render entries by agentId, like useFrontendTool", () => {
       const TestComponent = defineComponent({
         setup() {
           return () => h("div", "Test");
@@ -344,7 +344,7 @@ describe("CopilotKitProvider", () => {
       );
 
       expect(renderTool).toBeDefined();
-      expect(renderTool?.agentId).toBeUndefined();
+      expect(renderTool?.agentId).toBe("specific-agent");
     });
   });
 

@@ -5,6 +5,7 @@ import {
   OPEN_GENERATIVE_UI_CONTENT_SCHEMA,
 } from "../schemas";
 import {
+  addOpenGenerativeUIContexts,
   buildOpenGenerativeUIContexts,
   createOpenGenerativeUITool,
 } from "../tool";
@@ -88,5 +89,31 @@ describe("buildOpenGenerativeUIContexts", () => {
       description: "Adds an item",
       parameters: { type: "object" },
     });
+  });
+});
+
+describe("addOpenGenerativeUIContexts", () => {
+  it("adds the context entries and removes only those entries", () => {
+    const context = new Map<string, string>([["other", "kept"]]);
+    let next = 0;
+    const core = {
+      addContext: (entry: { description: string; value: string }) => {
+        const id = `ctx-${next++}`;
+        context.set(id, entry.description);
+        return id;
+      },
+      removeContext: (id: string) => {
+        context.delete(id);
+      },
+    };
+
+    const remove = addOpenGenerativeUIContexts(core, {
+      designSkill: "Use blue.",
+      sandboxFunctions: [],
+    });
+    expect([...context.keys()]).toEqual(["other", "ctx-0"]);
+
+    remove();
+    expect([...context.keys()]).toEqual(["other"]);
   });
 });

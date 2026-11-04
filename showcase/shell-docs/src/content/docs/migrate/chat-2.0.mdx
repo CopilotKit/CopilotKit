@@ -128,6 +128,12 @@ removeSearch();
 
 `useFrontendTool` in React and Vue uses this function. When a component that replaces a provider tool unmounts, the provider tool is active again.
 
+In Vue, `useFrontendTool` now logs a console warning when it replaces a tool with the same name and `agentId`, as React does.
+
+### Renderers of provider frontend tools
+
+In React and Vue, a `frontendTools` entry with a `render` and an `agentId` now gives a renderer for that agent only. In 1.x, the provider dropped the `agentId` from the renderer, so it drew calls for every agent. `useFrontendTool`, `humanInTheLoop` and Angular already kept the `agentId`. The chat still uses this renderer for another agent when no renderer matches that agent better.
+
 ## Angular copy buttons
 
 `copied` on `CopilotChatUserMessageCopyButton` and `CopilotChatAssistantMessageCopyButton` is a read-only signal in 2.0. Code that calls `copied.set()` or `copied.update()` fails to type-check. The codemod puts a TODO comment above each of these calls.

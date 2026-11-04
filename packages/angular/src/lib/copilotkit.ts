@@ -20,7 +20,9 @@ import {
   ɵbuildHumanInTheLoopTool,
   ɵLearningAutoStarter,
   ɵRendererRegistry,
+  ɵassembleActivityRenderers,
   ɵpublicKeyHeaderDefaults,
+  ɵresolveA2UIActivation,
   ɵreportProviderConfigDiagnostics,
   ɵresolveProviderConfig,
   ɵwithHeaderDefaults,
@@ -71,7 +73,7 @@ import {
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
 } from "./open-generative-ui";
 import {
-  ɵbuildOpenGenerativeUIContexts,
+  ɵaddOpenGenerativeUIContexts,
   ɵcreateOpenGenerativeUITool,
   ɵisOpenGenerativeUIActive,
 } from "@copilotkit/core";
@@ -251,7 +253,8 @@ export class CopilotKit {
   /**
    * App tool-call renderers and activity renderers. Config renderers are the
    * prop list; `addRenderToolCall` adds hook entries, so the latest
-   * registration for a name and agent wins.
+   * registration for a name and agent wins. A2UI's tool renderers are
+   * built-in entries, which app renderers with the same name replace.
    */
   readonly #renderers = new ɵRendererRegistry<
     RenderToolCallConfig,
@@ -259,9 +262,6 @@ export class CopilotKit {
     never
   >();
   readonly #toolCallRenderConfigs = signal(this.#renderers.toolCalls);
-  readonly #builtInToolCallRenderConfigs: WritableSignal<
-    RenderToolCallConfig[]
-  > = signal([]);
   readonly #clientToolCallRenderConfigs: WritableSignal<FrontendToolConfig[]> =
     signal([]);
   readonly #builtInClientToolCallRenderConfigs: WritableSignal<
@@ -276,10 +276,7 @@ export class CopilotKit {
   > = signal([]);
 
   readonly toolCallRenderConfigs: Signal<RenderToolCallConfig[]> = computed(
-    () => [
-      ...this.#toolCallRenderConfigs(),
-      ...this.#builtInToolCallRenderConfigs(),
-    ],
+    () => [...this.#toolCallRenderConfigs()],
   );
   readonly clientToolCallRenderConfigs: Signal<FrontendToolConfig[]> = computed(
     () => [
@@ -295,6 +292,8 @@ export class CopilotKit {
       ...this.#extensionActivityMessageRenderers,
       ...this.#builtInActivityMessageRenderConfigs(),
     ]);
+  /** Removes the built-in A2UI tool renderers, while they are registered. */
+  #removeA2UIToolRenderers: (() => void) | undefined;
 
   readonly #executingToolCallIds = signal(this.core.executingToolCallIds);
   /**
@@ -306,7 +305,7 @@ export class CopilotKit {
 
   /** Removes the built-in Open Generative UI tool, while it is registered. */
   #unregisterOpenGenerativeUITool: (() => void) | undefined;
-  #openGenerativeUIContextIds: string[] = [];
+  #removeOpenGenerativeUIContexts: (() => void) | undefined;
   #warnedMissingA2UICatalog = false;
   /**
    * Shared with React and Vue: registers the catalog's components with core
@@ -559,49 +558,56 @@ export class CopilotKit {
   }
 
   #syncBuiltInActivityMessageRenderers(): void {
-    const renderers: RenderActivityMessageConfig[] = [];
-
-    if (this.#isA2UIActive()) {
-      renderers.push({
-        activityType: "a2ui-surface",
-        content: anyActivityContentSchema,
-        component: CopilotA2UIActivityRenderer,
-      });
-    }
-
-    if (this.#isOpenGenerativeUIActive()) {
-      renderers.push({
-        activityType: OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
-        content: anyActivityContentSchema,
-        component: CopilotOpenGenerativeUIActivityRenderer,
-      });
-    }
-
-    this.#builtInActivityMessageRenderConfigs.set(renderers);
-    this.#syncBuiltInA2UI();
+    const a2uiActive = this.#isA2UIActive();
+    this.#builtInActivityMessageRenderConfigs.set(
+      ɵassembleActivityRenderers<RenderActivityMessageConfig>({
+        a2ui: a2uiActive
+          ? {
+              activityType: "a2ui-surface",
+              content: anyActivityContentSchema,
+              component: CopilotA2UIActivityRenderer,
+            }
+          : undefined,
+        builtIns: [
+          this.#isOpenGenerativeUIActive() && {
+            activityType: OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
+            content: anyActivityContentSchema,
+            component: CopilotOpenGenerativeUIActivityRenderer,
+          },
+        ],
+      }),
+    );
+    this.#syncBuiltInA2UI(a2uiActive);
   }
 
-  #syncBuiltInA2UI(): void {
-    if (!this.#isA2UIActive()) {
-      this.#builtInToolCallRenderConfigs.set([]);
-      this.#removeA2UIContexts();
+  #syncBuiltInA2UI(active: boolean): void {
+    this.#a2uiCatalog.update({
+      enabled: active,
+      catalog: this.#config.a2ui?.catalog,
+      includeSchema: this.#config.a2ui?.includeSchema,
+    });
+    if (!active) {
+      this.#removeA2UIToolRenderers?.();
+      this.#removeA2UIToolRenderers = undefined;
       return;
     }
-
-    this.#builtInToolCallRenderConfigs.set([
-      {
+    if (this.#removeA2UIToolRenderers) return;
+    const removers = [
+      this.#renderers.addBuiltInToolCall({
         name: RENDER_A2UI_TOOL_NAME,
         args: RenderA2UIArgsSchema,
         component: CopilotA2UIRenderToolCall,
-      },
-      {
+      }),
+      this.#renderers.addBuiltInToolCall({
         name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
         args: RenderA2UIArgsSchema,
         component: CopilotA2UIToolRenderer,
         passAgent: true,
-      },
-    ]);
-    this.#syncA2UIContexts();
+      }),
+    ];
+    this.#removeA2UIToolRenderers = () => {
+      for (const remove of removers) remove();
+    };
   }
 
   /**
@@ -610,35 +616,19 @@ export class CopilotKit {
    * renderers or agent context and says how to fix it.
    */
   #isA2UIActive(): boolean {
-    const hasCatalog = this.#config.a2ui?.catalog !== undefined;
-    if (
-      this.core.ɵruntimeInfo.a2uiEnabled &&
-      !hasCatalog &&
-      !this.#warnedMissingA2UICatalog
-    ) {
+    const { active, missingCatalog } = ɵresolveA2UIActivation({
+      runtimeEnabled: this.core.ɵruntimeInfo.a2uiEnabled,
+      hasCatalog: this.#config.a2ui?.catalog !== undefined,
+      requireCatalog: true,
+    });
+    if (missingCatalog && !this.#warnedMissingA2UICatalog) {
       this.#warnedMissingA2UICatalog = true;
       console.warn(
         "[CopilotKit] The runtime enables A2UI, but no `a2ui.catalog` is configured, so A2UI stays off. " +
           "Pass `basicCatalog` or a catalog from `createAngularCatalog`, both in `@copilotkit/angular/a2ui`.",
       );
     }
-    return hasCatalog;
-  }
-
-  #syncA2UIContexts(): void {
-    this.#a2uiCatalog.update({
-      enabled: true,
-      catalog: this.#config.a2ui?.catalog,
-      includeSchema: this.#config.a2ui?.includeSchema,
-    });
-  }
-
-  #removeA2UIContexts(): void {
-    this.#a2uiCatalog.update({
-      enabled: false,
-      catalog: this.#config.a2ui?.catalog,
-      includeSchema: this.#config.a2ui?.includeSchema,
-    });
+    return active;
   }
 
   #isOpenGenerativeUIActive(): boolean {
@@ -664,7 +654,8 @@ export class CopilotKit {
 
     if (!active) {
       this.#builtInClientToolCallRenderConfigs.set([]);
-      this.#removeOpenGenerativeUIContexts();
+      this.#removeOpenGenerativeUIContexts?.();
+      this.#removeOpenGenerativeUIContexts = undefined;
       this.#unregisterOpenGenerativeUITool?.();
       this.#unregisterOpenGenerativeUITool = undefined;
       return;
@@ -682,25 +673,14 @@ export class CopilotKit {
       );
     }
 
-    this.#syncOpenGenerativeUIContexts();
-  }
-
-  #syncOpenGenerativeUIContexts(): void {
-    this.#removeOpenGenerativeUIContexts();
-    const entries = ɵbuildOpenGenerativeUIContexts({
-      designSkill: this.#config.openGenerativeUI?.designSkill,
-      sandboxFunctions: this.#config.openGenerativeUI?.sandboxFunctions ?? [],
-    });
-    this.#openGenerativeUIContextIds = entries.map((entry) =>
-      this.core.addContext(entry),
+    this.#removeOpenGenerativeUIContexts?.();
+    this.#removeOpenGenerativeUIContexts = ɵaddOpenGenerativeUIContexts(
+      this.core,
+      {
+        designSkill: this.#config.openGenerativeUI?.designSkill,
+        sandboxFunctions: this.#config.openGenerativeUI?.sandboxFunctions ?? [],
+      },
     );
-  }
-
-  #removeOpenGenerativeUIContexts(): void {
-    for (const id of this.#openGenerativeUIContextIds) {
-      this.core.removeContext(id);
-    }
-    this.#openGenerativeUIContextIds = [];
   }
 
   /**
@@ -851,10 +831,7 @@ export class CopilotKit {
     this.#humanInTheLoopToolRenderConfigs.update((current) =>
       current.filter(keep),
     );
-    this.#renderers.removeHookToolCall(toolName, agentId);
-    this.#renderers.setPropToolCalls(
-      this.#renderers.propToolCalls.filter(keep),
-    );
+    this.#renderers.removeToolCall(toolName, agentId);
   }
 
   getAgent(agentId: string): AbstractAgent | undefined {

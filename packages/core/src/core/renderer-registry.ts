@@ -158,6 +158,26 @@ export class ɵRendererRegistry<
   }
 
   /**
+   * Remove the prop and hook renderers for `name` and `agentId`. Built-in
+   * renderers stay. Does nothing when no such renderer exists.
+   *
+   * @param name - The tool name.
+   * @param agentId - The agent the renderers belong to. Omit it for
+   *   renderers with no `agentId`.
+   */
+  removeToolCall(name: string, agentId?: string) {
+    const key = toolCallKey({ name, agentId });
+    const props = this._propToolCalls.filter(
+      (entry) => toolCallKey(entry) !== key,
+    );
+    const removedHook = this._hookToolCalls.delete(key);
+    if (!removedHook && props.length === this._propToolCalls.length) return;
+    this._propToolCalls = props;
+    this._mergedToolCalls = null;
+    this.emit("toolCalls");
+  }
+
+  /**
    * Add a built-in renderer, for a tool that a CopilotKit feature owns (for
    * example the A2UI render tool). Prop and hook renderers with the same
    * `agentId` and `name` win over it, and setting the prop renderers never

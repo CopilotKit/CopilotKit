@@ -130,7 +130,7 @@ export class CopilotKitCoreReact extends CopilotKitCore {
    *
    * @returns A function that removes the renderer.
    */
-  ɵaddBuiltInRenderToolCall(entry: ReactToolCallRenderer<any>): () => void {
+  ɵaddBuiltInRenderToolCall(entry: ReactToolCallRenderer<unknown>): () => void {
     return this._renderers.addBuiltInToolCall(entry);
   }
 

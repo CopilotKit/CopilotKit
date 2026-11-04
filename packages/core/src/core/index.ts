@@ -80,3 +80,18 @@ export type {
 } from "./provider-config";
 export { ɵRuntimeInfoStore } from "./runtime-info";
 export type { ɵRuntimeInfo } from "./runtime-info";
+export {
+  ɵassembleActivityRenderers,
+  ɵassembleProviderRegistry,
+  ɵresolveA2UIActivation,
+  ɵstableArrayPropWarning,
+} from "./provider-config";
+export type {
+  ɵA2UIActivationInput,
+  ɵActivityRenderersInput,
+  ɵProviderFrontendTool,
+  ɵProviderHumanInTheLoop,
+  ɵProviderRegistryInput,
+  ɵProviderToolRenderer,
+  ɵStableArrayProp,
+} from "./provider-config";
