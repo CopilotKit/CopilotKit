@@ -43,6 +43,12 @@ const DERIVATION: Record<GeneratedDrawerTokenKey, string> = {
   border: "border",
   ring: "ring",
   radius: "radius",
+  sidebar: "sidebar",
+  "sidebar-fg": "sidebar-foreground",
+  "sidebar-accent": "sidebar-accent",
+  "sidebar-accent-fg": "sidebar-accent-foreground",
+  "sidebar-border": "sidebar-border",
+  "sidebar-ring": "sidebar-ring",
 };
 
 function readCanonicalLightTokens(): Map<string, string> {
@@ -69,6 +75,12 @@ test("generated defaults expose every token the drawer CSS references", () => {
     "border",
     "ring",
     "radius",
+    "sidebar",
+    "sidebar-fg",
+    "sidebar-accent",
+    "sidebar-accent-fg",
+    "sidebar-border",
+    "sidebar-ring",
   ];
 
   for (const key of expectedKeys) {
@@ -112,6 +124,23 @@ test("extractLightThemeBlock captures the full block past a nested brace", () =>
   expect(block).toContain("--foreground: #000;");
   // and must NOT bleed into the sibling rule that follows the matching close
   expect(block).not.toContain("--x: 1;");
+});
+
+test("extractLightThemeBlock finds a root block scoped with :where(), not the dark one", () => {
+  const css = [
+    "[data-copilotkit]:where(:not([data-copilotkit] [data-copilotkit])) {",
+    "  --background: #fff;",
+    "}",
+    ".dark [data-copilotkit]:where(:not([data-copilotkit] [data-copilotkit])),",
+    "[data-copilotkit].dark:where(:not([data-copilotkit] [data-copilotkit])) {",
+    "  --background: #000;",
+    "}",
+    "@layer base {",
+    "  [data-copilotkit] { color: var(--foreground); }",
+    "}",
+  ].join("\n");
+
+  expect(extractLightThemeBlock(css).trim()).toBe("--background: #fff;");
 });
 
 test("extractLightThemeBlock throws on unbalanced braces rather than truncating", () => {
