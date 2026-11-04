@@ -41,7 +41,7 @@ rules:
       - showcase_deploy.yml
       - showcase_capture-previews.yml
       # test_smoke-starter.yml: workflow_run triggered by the in-repo
-      # "publish / release" workflow. Listens to release completions; no
+      # "release / publish" workflow. Listens to release completions; no
       # fork-controlled refs reach this workflow.
       - test_smoke-starter.yml
       # docs_open_release_pr.yml: workflow_run triggered by the in-repo
