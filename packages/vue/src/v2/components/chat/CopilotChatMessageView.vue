@@ -29,6 +29,7 @@ import {
   ɵdeduplicateMessages,
   ɵcreateMessageViewModel,
   ɵduplicateMessagesWarning,
+  ɵgetCustomMessageRenderProps,
   ɵgetToolCallRendererNames,
   ɵresolveActivityRenderer,
   ɵresolveCustomMessageRenderers,
@@ -343,71 +344,20 @@ watch(
   { immediate: true },
 );
 
-function getMeta(
-  message: Message,
-): Omit<MessageMetaProps, "position" | "message"> {
-  stateTick.value += 0;
-  const agentId = resolvedAgentId.value;
-  const threadId = config.value?.threadId ?? "";
-  const core = copilotkit.value;
-
-  const resolvedRunId =
-    core.getRunIdForMessage(agentId, threadId, message.id) ??
-    core.getRunIdsForThread(agentId, threadId).slice(-1)[0];
-  const runId = resolvedRunId ?? `missing-run-id:${message.id}`;
-
-  const agent = resolvedThreadAgent.value ?? core.getAgent(agentId);
-
-  const messageIdsInRun =
-    resolvedRunId && agent
-      ? agent.messages
-          .filter(
-            (msg) =>
-              core.getRunIdForMessage(agentId, threadId, msg.id) ===
-              resolvedRunId,
-          )
-          .map((msg) => msg.id)
-      : [message.id];
-
-  const rawMessageIndex = agent
-    ? agent.messages.findIndex((msg) => msg.id === message.id)
-    : -1;
-  const messageIndex = rawMessageIndex >= 0 ? rawMessageIndex : 0;
-  const messageIndexInRun = resolvedRunId
-    ? Math.max(messageIdsInRun.indexOf(message.id), 0)
-    : 0;
-  const numberOfMessagesInRun = resolvedRunId ? messageIdsInRun.length : 1;
-
-  // `getStateByRun` deep-clones the whole run state, so resolve it only when
-  // a consumer reads `stateSnapshot`, and at most once per meta object.
-  let stateSnapshot: unknown;
-  let stateSnapshotResolved = false;
-
-  return {
-    runId,
-    messageIndex,
-    messageIndexInRun,
-    numberOfMessagesInRun,
-    agentId,
-    get stateSnapshot() {
-      if (!stateSnapshotResolved) {
-        stateSnapshotResolved = true;
-        stateSnapshot = resolvedRunId
-          ? core.getStateByRun(agentId, threadId, resolvedRunId)
-          : undefined;
-      }
-      return stateSnapshot;
-    },
-  };
-}
-
-// `Object.assign` onto the meta object keeps the lazy `stateSnapshot` getter.
-// A spread would call it.
+// Core builds the props with a lazy `stateSnapshot` getter, so slots that
+// never read it do not clone the run state.
 function getMessageSlotProps(
   message: Message,
   position: MessageMetaProps["position"],
 ): MessageMetaProps {
-  return Object.assign(getMeta(message), { message, position });
+  stateTick.value += 0;
+  return ɵgetCustomMessageRenderProps(copilotkit.value, {
+    agentId: resolvedAgentId.value,
+    threadId: config.value?.threadId ?? "",
+    agent: resolvedThreadAgent.value,
+    message,
+    position,
+  });
 }
 
 // Calls a `#message-before` / `#message-after` slot with the meta object

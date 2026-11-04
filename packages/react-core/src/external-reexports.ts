@@ -223,6 +223,7 @@ export {
   ɵgetLicenseBannerSpec,
   ɵgetMessageFeedback,
   ɵgetMessageFeedbackControls,
+  ɵgetMessageRunStateSnapshot,
   ɵgetThreadsDrawerElementProps,
   ɵgetToolCallBadge,
   ɵgetToolCallGroupState,

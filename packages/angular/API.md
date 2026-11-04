@@ -130,6 +130,7 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotChatViewProps`
 - `CopilotChatViewScrollToBottomButton`
 - `CopilotChatViewScrollView`
+- `CopilotChatWorkSummary`
 - `CopilotDefaultToolRenderer`
 - `CopilotKit`
 - `CopilotKitAgentContext`
@@ -265,16 +266,13 @@ Import these symbols from `@copilotkit/angular`.
 
 ### Internal extension points
 
-The following exports exist only for CopilotKit-maintained code. Two are
-Angular DI tokens. They hook Inspector development mode and built-in
-renderers. One is a helper function. `provideCopilotKit` and `CopilotKit`
-share it, so the public-key header default has one definition. Applications
-must not depend on these exports. The `ɵ` prefix and TSDoc mark them
-internal.
+The following exports exist only for CopilotKit-maintained code. They are
+Angular DI tokens that hook Inspector development mode and built-in
+renderers. Applications must not depend on these exports. The `ɵ` prefix and
+TSDoc mark them internal.
 
 - `ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS`
 - `ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE`
-- `ɵresolvePublicKeyHeaderDefaults`
 <!-- public-api:root:end -->
 
 ## A2UI Angular catalog entry point

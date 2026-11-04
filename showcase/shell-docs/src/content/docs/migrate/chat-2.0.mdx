@@ -254,6 +254,14 @@ The status of a tool call without a result is `"executing"` only while its front
 
 A tool that has a renderer but no handler now stays `"in-progress"` until its result arrives. If your renderer shows a control only for `"executing"`, use a frontend tool or a human-in-the-loop tool with a handler.
 
+### The `"turn"` display in Angular
+
+Angular now draws `toolCallDisplay: "turn"` the same as React and Vue. Each reply starts with a summary line, such as "Working 4s" or "Worked for 9s". The tool calls, the reasoning, and the narration text of the reply fold into that line when the reply is done. Click the line to show the work again. In 1.x, Angular drew `"turn"` the same as `"grouped"`.
+
+To replace the summary line, set `workSummaryComponent` or `workSummaryTemplate` on `copilot-chat-message-view`. The slot gets `isWorking`, `isOpen`, `calls`, `elapsedMs`, `workingSince`, and `onClick`.
+
+In the Angular chat, the last tool-call group of a reply now shows "Running" while the agent runs. In 1.x, the group showed "Stopped" until the run ended.
+
 ### Tool-call arguments in React and Vue
 
 A tool-call renderer gets `args` as an object. While the agent streams the arguments, the object has the parts that arrived. After that, if the arguments are not valid JSON, `args` is `{ _raw: "<the text>" }`. If they are JSON but not an object, `args` is `{ _value: <the value> }`. In 1.x, the renderer got `{}` in both cases. Angular already used these keys.

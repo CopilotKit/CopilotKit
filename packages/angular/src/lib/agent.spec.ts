@@ -160,6 +160,8 @@ class MockAgent extends AbstractAgent {
   }
 
   emitRunInitialized() {
+    // Like `AbstractAgent`, which sets `isRunning` before this callback.
+    this.isRunning = true;
     for (const s of this.subscribers) {
       s.onRunInitialized?.({
         messages: this.messages,
@@ -197,6 +199,8 @@ class MockAgent extends AbstractAgent {
   }
 
   emitRunFinalized() {
+    // Like `AbstractAgent`, which sets `isRunning` before this callback.
+    this.isRunning = false;
     for (const s of this.subscribers) {
       s.onRunFinalized?.({
         messages: this.messages,
@@ -208,6 +212,8 @@ class MockAgent extends AbstractAgent {
   }
 
   emitRunFailed() {
+    // Like `AbstractAgent`, which sets `isRunning` before this callback.
+    this.isRunning = false;
     for (const s of this.subscribers) {
       s.onRunFailed?.({
         messages: this.messages,
