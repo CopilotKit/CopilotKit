@@ -1,0 +1,8 @@
+agent/.venv/
+agent/.pip-cache/
+agent/__pycache__/
+frontend/.npm-cache/
+frontend/node_modules/
+frontend/dist/
+frontend/tsconfig.tsbuildinfo
+frontend/.build-output.log
