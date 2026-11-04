@@ -269,6 +269,46 @@ export type ɵCustomMessageRunSource = Pick<
   "getRunIdForMessage" | "getRunIdsForThread" | "getStateByRun"
 >;
 
+/** The run that produced a message, else the thread's latest run. */
+function resolveMessageRunId(
+  core: ɵCustomMessageRunSource,
+  agentId: string,
+  threadId: string,
+  messageId: string,
+): string | undefined {
+  return (
+    core.getRunIdForMessage(agentId, threadId, messageId) ??
+    core.getRunIdsForThread(agentId, threadId).at(-1)
+  );
+}
+
+/**
+ * The agent state of the run that produced a message: the same value as
+ * {@link ɵgetCustomMessageRenderProps}'s `stateSnapshot`, without the work of
+ * placing the message in its run. Adapters use it to tell when a custom
+ * message renderer must draw again.
+ *
+ * It clones the run state on each call. With no run at all it returns
+ * `undefined`.
+ *
+ * @example
+ * ```ts
+ * const snapshot = ɵgetMessageRunStateSnapshot(core, {
+ *   agentId, threadId, messageId: message.id,
+ * });
+ * ```
+ */
+export function ɵgetMessageRunStateSnapshot(
+  core: ɵCustomMessageRunSource,
+  params: { agentId: string; threadId: string; messageId: string },
+): unknown {
+  const { agentId, threadId, messageId } = params;
+  const runId = resolveMessageRunId(core, agentId, threadId, messageId);
+  return runId === undefined
+    ? undefined
+    : core.getStateByRun(agentId, threadId, runId);
+}
+
 /**
  * The props a custom message renderer gets for one message: the run that
  * produced it, its place in the conversation and in the run, and the agent
@@ -306,9 +346,12 @@ export function ɵgetCustomMessageRenderProps(
   },
 ) {
   const { agentId, threadId, agent, message, position } = params;
-  const resolvedRunId =
-    core.getRunIdForMessage(agentId, threadId, message.id) ??
-    core.getRunIdsForThread(agentId, threadId).at(-1);
+  const resolvedRunId = resolveMessageRunId(
+    core,
+    agentId,
+    threadId,
+    message.id,
+  );
   const messages = agent?.messages ?? [];
   const messageIdsInRun =
     resolvedRunId === undefined

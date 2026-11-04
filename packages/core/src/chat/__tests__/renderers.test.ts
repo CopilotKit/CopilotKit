@@ -11,6 +11,7 @@ import {
   ɵdescribeActivityRendererFailure,
   ɵfindActivityRenderer,
   ɵgetCustomMessageRenderProps,
+  ɵgetMessageRunStateSnapshot,
   ɵmatchActivityRenderer,
   ɵresolveActivityRenderer,
   ɵresolveCustomMessageRenderContext,
@@ -425,6 +426,67 @@ describe("ɵgetCustomMessageRenderProps", () => {
       agentId: "default",
     });
     expect(props.stateSnapshot).toBeUndefined();
+  });
+
+  it("matches ɵgetMessageRunStateSnapshot for the same message", () => {
+    const { source } = createRunSource({ u1: "run-1", a2: "run-2" });
+    const params = { agentId: "agent-a", threadId: "t1" };
+
+    // a1 has no run of its own, so both fall back to the latest run.
+    for (const message of messages) {
+      const props = ɵgetCustomMessageRenderProps(source, {
+        ...params,
+        agent: { messages },
+        message,
+        position: "before",
+      });
+      expect(
+        ɵgetMessageRunStateSnapshot(source, {
+          ...params,
+          messageId: message.id,
+        }),
+      ).toEqual(props.stateSnapshot);
+    }
+  });
+});
+
+describe("ɵgetMessageRunStateSnapshot", () => {
+  it("returns the state of the run that produced the message", () => {
+    const source: ɵCustomMessageRunSource = {
+      getRunIdForMessage: (_a, _t, messageId) =>
+        messageId === "m1" ? "run-1" : undefined,
+      getRunIdsForThread: () => ["run-1", "run-2"],
+      getStateByRun: (_a, _t, runId) => ({ runId }),
+    };
+    const params = { agentId: "agent-a", threadId: "t1" };
+
+    expect(
+      ɵgetMessageRunStateSnapshot(source, { ...params, messageId: "m1" }),
+    ).toEqual({ runId: "run-1" });
+    expect(
+      ɵgetMessageRunStateSnapshot(source, { ...params, messageId: "m9" }),
+    ).toEqual({ runId: "run-2" });
+  });
+
+  it("returns undefined when the thread has no run", () => {
+    let stateReads = 0;
+    const source: ɵCustomMessageRunSource = {
+      getRunIdForMessage: () => undefined,
+      getRunIdsForThread: () => [],
+      getStateByRun: () => {
+        stateReads += 1;
+        return {};
+      },
+    };
+
+    expect(
+      ɵgetMessageRunStateSnapshot(source, {
+        agentId: "agent-a",
+        threadId: "t1",
+        messageId: "m1",
+      }),
+    ).toBeUndefined();
+    expect(stateReads).toBe(0);
   });
 });
 

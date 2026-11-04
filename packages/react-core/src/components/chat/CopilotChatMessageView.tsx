@@ -37,6 +37,7 @@ import {
   ɵcreateMessageViewModel,
   ɵdeduplicateMessages,
   ɵduplicateMessagesWarning,
+  ɵgetMessageRunStateSnapshot,
 } from "@copilotkit/core";
 import type {
   CopilotChatToolCallDisplay,
@@ -527,25 +528,15 @@ export function CopilotChatMessageView({
     return () => subscription.unsubscribe();
   }, [copilotkit]);
 
-  // Helper to get state snapshot for a message (used for memoization)
-  const getStateSnapshotForMessage = (messageId: string): unknown => {
-    if (!config) return undefined;
-    const resolvedRunId =
-      copilotkit.getRunIdForMessage(
-        config.agentId,
-        config.threadId,
-        messageId,
-      ) ??
-      copilotkit
-        .getRunIdsForThread(config.agentId, config.threadId)
-        .slice(-1)[0];
-    if (!resolvedRunId) return undefined;
-    return copilotkit.getStateByRun(
-      config.agentId,
-      config.threadId,
-      resolvedRunId,
-    );
-  };
+  // The run state a custom message renderer sees, used for memoization.
+  const getStateSnapshotForMessage = (messageId: string): unknown =>
+    config
+      ? ɵgetMessageRunStateSnapshot(copilotkit, {
+          agentId: config.agentId,
+          threadId: config.threadId,
+          messageId,
+        })
+      : undefined;
 
   const deduplicatedMessages = useMemo(
     () => ɵdeduplicateMessages(messages),

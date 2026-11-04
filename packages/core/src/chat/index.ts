@@ -34,6 +34,7 @@ export {
   ɵmatchActivityRenderer,
   ɵdescribeActivityRendererFailure,
   ɵgetCustomMessageRenderProps,
+  ɵgetMessageRunStateSnapshot,
   ɵresolveCustomMessageRenderContext,
 } from "./renderers";
 export type {
