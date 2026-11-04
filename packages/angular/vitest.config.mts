@@ -25,6 +25,11 @@ export default defineConfig(({ mode }) => ({
   test: {
     globals: true,
     environment: "jsdom",
+    // A non-loopback host keeps the CopilotKit Inspector off by default. All
+    // spec files share one document (singleThread), and an Inspector mount left
+    // pending by one test can add its element during a later test.
+    // inspector.spec.ts switches back to localhost for its own tests.
+    environmentOptions: { jsdom: { url: "http://angular-tests.invalid/" } },
     setupFiles: [r("src/test-setup.ts")], // Use absolute path
     include: ["src/**/*.{spec,test}.{ts,tsx}"],
     pool: "threads",

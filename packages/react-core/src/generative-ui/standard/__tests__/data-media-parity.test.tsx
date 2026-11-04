@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { standardUI } from "../index";
 import { renderSurface } from "./render";
@@ -17,6 +17,11 @@ const render = (
 ) => renderSurface(standardUI, ...args);
 
 describe("standard catalog: data and media (parity)", () => {
+  // Chart loads recharts with React.lazy. Its first, uncached import can take
+  // longer than waitFor's 1 s default on a loaded CI runner, so load it once
+  // here, under the 10 s hook timeout, before any test waits for a chart.
+  beforeAll(() => import("recharts"));
+
   it("Table renders columns and rows, List renders items", async () => {
     const v = render([
       { id: "root", component: "Column", children: ["t", "l"] },
