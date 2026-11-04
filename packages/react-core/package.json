@@ -66,6 +66,7 @@
     "test": "vitest run && pnpm run test:scripts",
     "test:scripts": "node --test scripts/__tests__/measure-copilotchat.test.mjs scripts/__tests__/assert-headless-purity.test.mjs scripts/__tests__/generate-external-reexports.test.mjs",
     "test:watch": "vitest",
+    "test:mutation": "stryker run",
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
@@ -98,6 +99,8 @@
   "devDependencies": {
     "esbuild": "^0.27.0",
     "@copilotkit/typescript-config": "workspace:*",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
     "@tanstack/intent": "^0.0.29",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^16.3.0",

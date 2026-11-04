@@ -92,3 +92,7 @@ tasks/
 # Transient session artifacts
 .playwright-mcp/
 .claude/scheduled_tasks.lock
+
+# Stryker mutation testing (scripts/mutation)
+.stryker-tmp
+reports/mutation
