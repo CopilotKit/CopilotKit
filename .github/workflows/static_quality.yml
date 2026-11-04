@@ -46,9 +46,12 @@ jobs:
           # base repo unchanged, so the auto-format push-back below still works.
           repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          # Full history so we can diff HEAD against the current base branch
-          # tip to scope the formatter to PR-changed files.
-          fetch-depth: 0
+          # Only the head commit. `fetch-depth: 0` fetched every branch in the
+          # repo and sometimes stalled past this job's 5-minute limit. The
+          # "Collect PR-changed files" step fetches the history it needs.
+          # blob:none makes the clone partial, so that later fetch can skip
+          # file contents too.
+          filter: blob:none
 
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
@@ -93,8 +96,22 @@ jobs:
           base_ref="${PR_BASE_REF}"
           # Fetch the current tip of the base branch so the merge-base tracks
           # main as it advances (using the PR's stored base.sha would pull in
-          # every file main has touched since the PR opened).
-          git fetch --no-tags origin "$base_ref"
+          # every file main has touched since the PR opened). --unshallow also
+          # completes the history of the shallow head checkout, so the
+          # merge-base exists. Commits and trees only (no file contents): this
+          # takes seconds. A fetch can stall on GitHub's side, so give each
+          # attempt 90 seconds and retry.
+          for attempt in 1 2 3; do
+            if timeout 90 git fetch --no-tags --filter=blob:none --unshallow \
+              origin "+refs/heads/${base_ref}:refs/remotes/origin/${base_ref}"; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "::error::Could not fetch the history of $base_ref after 3 attempts."
+              exit 1
+            fi
+            echo "Fetch attempt $attempt failed or timed out; retrying."
+          done
           # Scope to files changed between the current base-branch merge-base
           # and HEAD so advances on main don't drag unrelated files into the
           # PR. Restrict to oxfmt-supported extensions so oxfmt never errors
