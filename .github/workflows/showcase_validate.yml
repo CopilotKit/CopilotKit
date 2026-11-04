@@ -552,6 +552,13 @@ jobs:
         # `cache-dependency-path: showcase/shell/package-lock.json`.
         run: npm ci --ignore-scripts
 
+      - name: Run showcase shell unit tests
+        working-directory: showcase/shell
+        # The shell's vitest suite (`src/**/*.test.{ts,tsx}`). Its global
+        # setup generates the registry it reads. No CI job ran it before
+        # PE-1113.
+        run: npm test
+
       - name: Build showcase shell
         working-directory: showcase/shell
         run: npm run build
@@ -815,10 +822,17 @@ jobs:
           node-version: 22
 
       - name: Run showcase package Python tests
-        # Keep scope narrow: showcase/integrations/*/tests/python/ directories
-        # and Strands tests/native/ (not e2e or langgraph's own runtime). Each
-        # package has its own conftest.py that wires up import paths; we cd into
-        # the pkg dir so those apply.
+        # Keep scope narrow: showcase/integrations/*/tests/python/ directories,
+        # Strands tests/native/, and the Python test modules some packages keep
+        # directly in tests/ or in src/agents/ (not e2e or langgraph's own
+        # runtime). Each package has its own conftest.py that wires up import
+        # paths; we cd into the pkg dir so those apply.
+        #
+        # The tests/ and src/agents/ modules run in a second pytest process, so
+        # tests/conftest.py never applies to tests/python/. They had no CI entry
+        # point until PE-1113. Some of them import an agent module that builds
+        # an OpenAI client at import time, so that process gets a placeholder
+        # OPENAI_API_KEY; the tests never call the API.
         #
         # Each package runs in its own virtual environment, which holds the
         # test deps plus that package's own `requirements.txt` (if present), so
@@ -849,7 +863,13 @@ jobs:
           py_mm=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
           for pkg_dir in showcase/integrations/*/; do
             tests_dir="${pkg_dir}tests/python"
-            [ -d "$tests_dir" ] || continue
+            # Python test modules kept outside tests/python/, relative to the
+            # package dir. The globs stay literal when nothing matches.
+            extra_tests=()
+            for f in "${pkg_dir}"tests/test_*.py "${pkg_dir}"src/agents/test_*.py; do
+              [ -f "$f" ] && extra_tests+=("${f#"$pkg_dir"}")
+            done
+            [ -d "$tests_dir" ] || [ "${#extra_tests[@]}" -gt 0 ] || continue
             found=$((found + 1))
             pkg=$(basename "$pkg_dir")
             # --- Per-package Python-version gates -------------------------
@@ -867,8 +887,10 @@ jobs:
             # are tightly coupled to the modern typing module.
             # google-adk: the pinned google-adk==2.12.0 declares `requires-python >=3.11`;
             # the package Dockerfile uses Python 3.12.
+            # langgraph-python, langgraph-fastapi: the pinned langgraph-api==0.16.0
+            # declares `requires-python >=3.11`.
             # Revisit when ag_ui_strands relaxes its floor or when 3.10 is dropped.
-            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "claude-sdk-python" ] || [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ] || [ "$pkg" = "google-adk" ]; }; then
+            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "claude-sdk-python" ] || [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ] || [ "$pkg" = "google-adk" ] || [ "$pkg" = "langgraph-python" ] || [ "$pkg" = "langgraph-fastapi" ]; }; then
               echo "--- pytest: $pkg --- SKIPPED on Python $py_mm (requires >=3.11/3.12)"
               continue
             fi
@@ -913,7 +935,13 @@ jobs:
             # Also include src/ so `from agents.X import ...` works even if
             # a conftest.py omits the sys.path setup. Mirrors the local dev
             # convention (`PYTHONPATH=. python ...` in package.json scripts).
-            (cd "$pkg_dir" && env $pkg_extra_env PYTHONPATH=".:src:${PYTHONPATH:-}" "$pkg_python" -m pytest tests/python/ -v) || failed=1
+            if [ -d "$tests_dir" ]; then
+              (cd "$pkg_dir" && env $pkg_extra_env PYTHONPATH=".:src:${PYTHONPATH:-}" "$pkg_python" -m pytest tests/python/ -v) || failed=1
+            fi
+            if [ "${#extra_tests[@]}" -gt 0 ]; then
+              echo "--- pytest extra: $pkg ---"
+              (cd "$pkg_dir" && env OPENAI_API_KEY="${OPENAI_API_KEY:-sk-placeholder-not-used}" PYTHONPATH=".:src:${PYTHONPATH:-}" "$pkg_python" -m pytest "${extra_tests[@]}" -v) || failed=1
+            fi
             if [ "$pkg" = "strands" ]; then
               # A fresh process keeps tests/python/conftest.py's SDK substitutes
               # out of the real SDK tool execution and session persistence gate.
@@ -937,6 +965,19 @@ jobs:
           python -m venv "$venv"
           "$venv/bin/python" -m pip install --quiet -r showcase/shared/python/requirements-test.txt
           "$venv/bin/python" -m pytest showcase/shared/python/tests -v
+
+      - name: Run integration _shared Python tests
+        # The CVDIAG bootstrap, schema and PocketBase writer that every Python
+        # integration image copies in as `_shared`. Standard library plus
+        # pytest; the live-PocketBase cases skip without a server. No CI job
+        # ran these before PE-1113.
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          venv="${RUNNER_TEMP}/showcase-venv-integrations-shared"
+          python -m venv "$venv"
+          "$venv/bin/python" -m pip install --quiet pytest
+          "$venv/bin/python" -m pytest showcase/integrations/_shared/tests -v
 
   notify:
     # Slack #oss-alerts on any red. Never #engr (engr is sacred — release alerts only).
