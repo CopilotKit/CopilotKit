@@ -70,7 +70,14 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(HealthMiddleware)
-app.add_middleware(A2UIFormatMiddleware)
+app.add_middleware(
+    A2UIFormatMiddleware,
+    routes={
+        f"/{name}"
+        for name, spec in AGENT_REGISTRY.items()
+        if spec.a2ui_inference_format is not None
+    },
+)
 
 # Forward inbound x-* headers onto outbound httpx calls so aimock fixture
 # matching sees the in-flight test's ``x-aimock-context``. Paired with
@@ -94,20 +101,13 @@ app.add_middleware(
 app.add_middleware(CvdiagBackendMiddleware)
 
 
-@app.on_event("startup")
-def compile_authored_a2ui_template():
-    from agents.a2ui_fixed_agent import compile_flight_template
-
-    compile_flight_template()
-
-
 # Mount one ADKAgent per registered agent at /<agent_name>.
 for agent_name, spec in AGENT_REGISTRY.items():
     middleware = ADKAgent(
         adk_agent=spec.llm_agent,
         **(
-            {"a2ui": {"inference_format": "express"}}
-            if agent_name == "declarative_gen_ui"
+            {"a2ui": {"inference_format": spec.a2ui_inference_format}}
+            if spec.a2ui_inference_format is not None
             else {}
         ),
         user_id="demo_user",

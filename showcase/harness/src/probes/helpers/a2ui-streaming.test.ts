@@ -2,6 +2,7 @@ import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import { attachSseInterceptor } from "./sse-interceptor.js";
 import type { Page } from "playwright";
+import type { Page as ConversationPage } from "./conversation-runner.js";
 
 const sseEvent = (type: string, extra = {}) =>
   `data: ${JSON.stringify({ type, ...extra })}\n\n`;
@@ -446,4 +447,93 @@ it("allows the middleware's final surface snapshot after a fixed template result
   expect(() => assertA2uiEvidence(evidence, "express", "fixed")).toThrow(
     /unexpectedly invoked model generation/,
   );
+});
+
+it("retains tool lifecycles and run completion after the argument-event budget", async () => {
+  const scripts: string[] = [];
+  const cdp = {
+    send: async () => ({}),
+    on() {},
+    off() {},
+    detach: async () => {},
+  };
+  const page = {
+    addInitScript: async (script: string) => {
+      scripts.push(script);
+    },
+    context: () => ({ newCDPSession: async () => cdp }),
+    on() {},
+    off() {},
+    mainFrame() {},
+  } as unknown as Page;
+  const handle = await attachSseInterceptor(page);
+  const body =
+    sseEvent("RUN_STARTED") +
+    sseEvent("TOOL_CALL_START", {
+      toolCallId: "g",
+      toolCallName: "generate_a2ui",
+    }) +
+    Array.from({ length: 2100 }, () =>
+      sseEvent("TOOL_CALL_ARGS", { toolCallId: "g", delta: "x" }),
+    ).join("") +
+    sseEvent("ACTIVITY_SNAPSHOT", {
+      activityType: "a2ui-surface",
+      content: {},
+    }) +
+    sseEvent("TOOL_CALL_END", { toolCallId: "g" }) +
+    sseEvent("TOOL_CALL_RESULT", { toolCallId: "g", content: "{}" }) +
+    sseEvent("RUN_FINISHED");
+  const sandbox = {
+    fetch: async (_url?: string) => new Response(body),
+    TextDecoder,
+    performance,
+    __hk_a2uiProbe: {
+      events: [] as Array<{ payload: { type: string } }>,
+      batch: 0,
+    },
+  };
+  vm.runInNewContext(scripts[0]!, sandbox);
+  const response = await sandbox.fetch("http://localhost/api/copilotkit");
+  expect(await response.text()).toContain("RUN_FINISHED");
+  await new Promise((r) => setTimeout(r, 30));
+  const types = sandbox.__hk_a2uiProbe.events.map((e) => e.payload.type);
+  expect(types.filter((type) => type === "TOOL_CALL_ARGS")).toHaveLength(2000);
+  expect(types.slice(-4)).toEqual([
+    "ACTIVITY_SNAPSHOT",
+    "TOOL_CALL_END",
+    "TOOL_CALL_RESULT",
+    "RUN_FINISHED",
+  ]);
+  await handle.stop();
+});
+
+it("requires HEAL rejection initially but accepts progressive replay after reload", async () => {
+  const { buildTurns } = await import("../scripts/d5-a2ui-recovery.js");
+  let metrics = 0;
+  const page = {
+    evaluate: async (fn: () => unknown) => {
+      const body = fn.toString();
+      if (body.includes("Couldn't generate the UI"))
+        return { metric: metrics, failure: 0 };
+      if (body.includes("newSurfaceCount")) return progressive();
+      return undefined;
+    },
+  } as unknown as ConversationPage;
+  const turn = buildTurns({
+    integrationSlug: "google-adk",
+    featureType: "a2ui-recovery",
+    baseUrl: "http://localhost",
+    a2uiFormat: "express",
+  })[0]!;
+  await turn.preFill!(page);
+  metrics = 2;
+  await expect(
+    turn.assertions!(page, { bubbleIndex: 0, text: "" }),
+  ).rejects.toThrow("heal did not report a rejected first attempt");
+  metrics = 0;
+  await turn.afterReload?.(page);
+  metrics = 2;
+  await expect(
+    turn.assertions!(page, { bubbleIndex: 0, text: "" }),
+  ).resolves.toBeUndefined();
 });

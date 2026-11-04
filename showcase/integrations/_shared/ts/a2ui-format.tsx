@@ -12,7 +12,7 @@ export function A2UIFormat({
   children: (format: A2UIInferenceFormat) => React.ReactNode;
   template?: boolean;
 }) {
-  const [format, setFormat] = useState<A2UIInferenceFormat>("express");
+  const [format, setFormat] = useState<A2UIInferenceFormat | null>(null);
   useEffect(() => {
     const read = () => {
       const value = new URL(window.location.href).searchParams.get("format");
@@ -22,6 +22,8 @@ export function A2UIFormat({
     window.addEventListener("popstate", read);
     return () => window.removeEventListener("popstate", read);
   }, []);
+
+  if (format === null) return null;
 
   return (
     <div className="flex h-screen w-full flex-col">

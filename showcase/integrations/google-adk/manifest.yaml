@@ -10,7 +10,7 @@ description: >-
   end-to-end.
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/google-adk
-copilotkit_version: 1.83.0
+copilotkit_version: 1.84.1
 deployed: true
 docs_mode: generated
 sort_order: 15

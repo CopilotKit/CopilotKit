@@ -10,6 +10,7 @@ container in the tool result and forwards surfaces to the frontend renderer.
 # @region[backend-schema-json-load]
 from __future__ import annotations
 
+import copy
 import json
 from functools import lru_cache
 from pathlib import Path
@@ -51,7 +52,7 @@ def compile_flight_template() -> list[dict[str, Any]]:
     catalog_path = _SCHEMAS_DIR / "flight_catalog.generated.json"
     if not catalog_path.exists():
         raise RuntimeError(
-            "Run npm run export:a2ui-catalogs before starting the ADK server"
+            "Run npm run export:a2ui-catalogs before using Express flight templates"
         )
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
     return compile_a2ui_express(
@@ -86,7 +87,7 @@ def _build_flight_operations(
         return {
             "inferenceFormat": "express",
             "a2ui_operations": [
-                *compile_flight_template(),
+                *copy.deepcopy(compile_flight_template()),
                 {
                     "version": "v0.9",
                     "updateDataModel": {

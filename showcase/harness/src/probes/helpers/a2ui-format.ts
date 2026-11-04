@@ -22,6 +22,24 @@ export function withA2uiFormat(url: string, format?: A2uiFormat): string {
   return parsed.toString();
 }
 
+/** Scheduled probes use the page's selected default when no override was passed. */
+export async function prepareA2uiEvidence(
+  page: Page,
+  requested?: A2uiFormat,
+): Promise<A2uiFormat | undefined> {
+  const selected =
+    requested ??
+    (await page.evaluate(
+      () =>
+        (globalThis as any).document.querySelector(
+          '[data-testid="a2ui-format"]',
+        )?.value,
+    ));
+  if (selected !== "express" && selected !== "direct_json") return undefined;
+  await startA2uiEvidence(page);
+  return selected;
+}
+
 /** Reset per-turn evidence; old runs and already mounted surfaces cannot count. */
 export async function startA2uiEvidence(page: Page): Promise<void> {
   await page.evaluate(() => {
@@ -37,6 +55,7 @@ export async function startA2uiEvidence(page: Page): Promise<void> {
       events: [],
       paints: [],
       batch: 0,
+      toolArgsCount: 0,
       observer: null,
       priorSurfaces,
     } as any;

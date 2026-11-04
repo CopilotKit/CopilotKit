@@ -1,5 +1,5 @@
 import {
-  startA2uiEvidence,
+  prepareA2uiEvidence,
   checkA2uiEvidence,
 } from "../helpers/a2ui-format.js";
 /**
@@ -41,14 +41,18 @@ export function buildA2uiFixedAssertion(opts?: {
 }
 
 export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
+  let format = ctx.a2uiFormat;
+  const prepare = async (page: Page) => {
+    format = await prepareA2uiEvidence(page, ctx.a2uiFormat);
+  };
   return [
     {
       input: A2UI_FIXED_PILL_PROMPT,
-      ...(ctx.a2uiFormat ? { preFill: startA2uiEvidence } : {}),
+      preFill: prepare,
+      afterReload: prepare,
       assertions: async (page) => {
         await buildA2uiFixedAssertion()(page);
-        if (ctx.a2uiFormat)
-          await checkA2uiEvidence(page, ctx.a2uiFormat, "fixed");
+        if (format) await checkA2uiEvidence(page, format, "fixed");
       },
       responseTimeoutMs: 60_000,
       completeOnMount: {

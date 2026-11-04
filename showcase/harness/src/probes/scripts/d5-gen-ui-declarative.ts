@@ -1,5 +1,5 @@
 import {
-  startA2uiEvidence,
+  prepareA2uiEvidence,
   checkA2uiEvidence,
 } from "../helpers/a2ui-format.js";
 /**
@@ -359,12 +359,15 @@ export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
         ...(minCounts ? Object.keys(minCounts) : []),
       ]),
     );
+    let format = ctx.a2uiFormat;
+    const prepare: NonNullable<ConversationTurn["preFill"]> = async (page) => {
+      await buildBaselineCapture(baselineRef)(page);
+      format = await prepareA2uiEvidence(page, ctx.a2uiFormat);
+    };
     return {
       input: prompt,
-      preFill: async (page) => {
-        await buildBaselineCapture(baselineRef)(page);
-        if (ctx.a2uiFormat) await startA2uiEvidence(page);
-      },
+      preFill: prepare,
+      afterReload: prepare,
       assertions: async (page) => {
         await buildDeclarativeAssertion(
           tag,
@@ -372,8 +375,7 @@ export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
           baselineRef,
           minCounts,
         )(page);
-        if (ctx.a2uiFormat)
-          await checkA2uiEvidence(page, ctx.a2uiFormat, "stream");
+        if (format) await checkA2uiEvidence(page, format, "stream");
       },
       responseTimeoutMs: DECLARATIVE_RESPONSE_TIMEOUT_MS,
       completeOnMount: {

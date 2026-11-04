@@ -80,7 +80,7 @@ def test_raw_recovery_fixtures_reject_bad_blocks_and_compile_the_repair():
         (integration.parents[1] / "aimock/d6/google-adk/a2ui-recovery.json").read_text()
     )["fixtures"]
     express = [fixture for fixture in fixtures if "systemMessage" in fixture["match"]]
-    assert len(express) == 3
+    assert len(express) == 4
     for fixture in express:
         processor = create_express_processor(
             catalog,
@@ -92,5 +92,27 @@ def test_raw_recovery_fixtures_reject_bad_blocks_and_compile_the_repair():
             with pytest.raises(A2uiError):
                 processor.parse_response(source)
         else:
-            assert fixture["match"]["sequenceIndex"] == 1
+            assert fixture["match"].get("sequenceIndex") in (1, None)
             assert len(processor.parse_response(source)) >= 2
+
+
+def test_express_results_do_not_share_mutable_compiled_operations():
+    from agents.a2ui_fixed_agent import compile_flight_template
+
+    values = dict(
+        origin="SFO",
+        destination="JFK",
+        airline="United",
+        price="$289",
+        inference_format="express",
+    )
+    try:
+        first = _build_flight_operations(**values)
+        first["a2ui_operations"][0]["createSurface"]["surfaceId"] = "mutated"
+        second = _build_flight_operations(**values)
+        assert (
+            second["a2ui_operations"][0]["createSurface"]["surfaceId"]
+            == "flight-fixed-schema"
+        )
+    finally:
+        compile_flight_template.cache_clear()

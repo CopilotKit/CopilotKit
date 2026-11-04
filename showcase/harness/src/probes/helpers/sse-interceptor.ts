@@ -580,9 +580,10 @@ function buildPageSideCounterScript(endpointPattern: string | RegExp): string {
             var raw = dataParts.join('\\n');
             try {
               var parsed = JSON.parse(raw);
-              // Opt-in, bounded structural events recorded at fetch-reader arrival,
+              // Bound argument deltas, retaining snapshots and lifecycle events at fetch-reader arrival,
               // not reconstructed from CDP's completed response body.
-              if (probe && parsed && ['RUN_STARTED', 'RUN_FINISHED', 'TOOL_CALL_START', 'TOOL_CALL_ARGS', 'TOOL_CALL_END', 'TOOL_CALL_RESULT', 'ACTIVITY_SNAPSHOT'].indexOf(parsed.type) !== -1 && probe.events.length < 2000) {
+              if (probe && parsed && ['RUN_STARTED', 'RUN_FINISHED', 'TOOL_CALL_START', 'TOOL_CALL_ARGS', 'TOOL_CALL_END', 'TOOL_CALL_RESULT', 'ACTIVITY_SNAPSHOT'].indexOf(parsed.type) !== -1 && (parsed.type !== 'TOOL_CALL_ARGS' || (probe.toolArgsCount || 0) < 2000)) {
+                if (parsed.type === 'TOOL_CALL_ARGS') probe.toolArgsCount = (probe.toolArgsCount || 0) + 1;
                 probe.events.push({ at: performance.now(), batch: probe.batch, payload: parsed });
               }
               if (parsed && typeof parsed === 'object' && parsed.type === 'RUN_FINISHED') {

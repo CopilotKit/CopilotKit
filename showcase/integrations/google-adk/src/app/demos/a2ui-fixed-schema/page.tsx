@@ -4,7 +4,7 @@
  * Declarative Generative UI — A2UI Fixed Schema demo.
  *
  * In the fixed-schema flavor of A2UI, the authored component tree is compiled
- * from Express at server startup; the agent supplies flight data only. The
+ * from Express on first use; the agent supplies flight data only. The
  * flight card is ASSEMBLED from small sub-components in
  * `src/agents/a2ui_schemas/flight_schema.json` (Card > Column > [Title, Row, …]).
  *
