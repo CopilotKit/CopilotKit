@@ -69,6 +69,17 @@
       "options": {
         "command": "node --test scripts/__tests__/examples-readme-catalog.test.mjs"
       }
+    },
+    "mutation-report": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "commands": [
+          "node --test scripts/__tests__/mutation-summarize.test.mjs",
+          "node scripts/mutation/summarize.mjs packages/core packages/runtime packages/react-core"
+        ],
+        "parallel": false
+      }
     }
   },
   "tags": []
