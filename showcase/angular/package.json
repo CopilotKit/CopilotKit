@@ -21,6 +21,7 @@
     "@angular/core": "21.2.18",
     "@angular/platform-browser": "21.2.18",
     "@angular/router": "21.2.18",
+    "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/angular": "workspace:*",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/shared": "workspace:*",

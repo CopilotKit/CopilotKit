@@ -71,7 +71,10 @@ async function withEnv<T>(
  */
 
 describe("bubble-race mechanism — s1 driver production diagnostic log", () => {
-  it("emits parseable turn-settled lines and the driver parses them", async () => {
+  // Skipped (PE-1113): drives `bin/showcase test --d5 --direct` against a
+  // showcase stack running on this machine, which CI does not start. Run it
+  // by hand with the stack up.
+  it.skip("emits parseable turn-settled lines and the driver parses them", async () => {
     const result = await runBubbleRaceRepro({
       slug: "langgraph-python:agentic-chat",
       level: "d5",

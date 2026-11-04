@@ -157,6 +157,56 @@ jobs:
         if: ${{ !cancelled() }}
         run: npx nx run @copilotkit/showcase-harness:test:quarantine-ratchet
 
+      - name: Run harness integration suite
+        # `test/integration/**` (vitest.integration.config.ts): browser
+        # mechanism tests against fake pages, using the Chromium installed
+        # above. No CI job ran them before PE-1113. The bubble-race repros
+        # that need a running showcase stack are excluded in that config;
+        # the PocketBase suite skips itself without a `pocketbase` binary.
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
+        run: npx nx run @copilotkit/showcase-harness:test:integration --skip-nx-cache
+
+  hosts:
+    name: Angular and Vue host unit suites
+    # The showcase Angular and Vue hosts have vitest suites that no job ran
+    # before PE-1113 (showcase_build only builds them). Each `test` script
+    # builds the workspace packages it imports and generates the registry
+    # first, so the suites run against fresh package output.
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # Depot OIDC auth (runs-on: depot-ubuntu-*).
+      id-token: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Angular and Vue host unit suites
+        # One at a time: both `test` scripts rebuild @copilotkit/shared and
+        # @copilotkit/core, and two concurrent rebuilds would clear each
+        # other's dist/ mid-run.
+        run: pnpm nx run-many -t test -p @copilotkit/showcase-angular-host,@copilotkit/showcase-vue-host --parallel=1
+
   dashboard:
     name: shell-dashboard unit suite
     runs-on: depot-ubuntu-24.04-4

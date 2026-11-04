@@ -9,6 +9,13 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["test/integration/**/*.test.ts"],
+    // The bubble-race repros drive `bin/showcase test <slug> --d5 --direct`
+    // against a showcase stack running on this machine, so CI (which has no
+    // stack) leaves them out. Run them by hand with the stack up:
+    //   BUBBLE_RACE_LIVE=1 npx vitest run --config vitest.integration.config.ts
+    exclude: process.env.BUBBLE_RACE_LIVE
+      ? []
+      : ["test/integration/bubble-race-repro-defect-*.test.ts"],
     environment: "node",
     globals: false,
     testTimeout: 30_000,
