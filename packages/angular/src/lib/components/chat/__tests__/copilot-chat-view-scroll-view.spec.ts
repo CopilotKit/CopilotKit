@@ -46,3 +46,35 @@ describe("CopilotChatViewScrollView without auto-scroll", () => {
     expect(button()).not.toBeNull();
   });
 });
+
+describe("CopilotChatViewScrollView with auto-scroll", () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it("hides the scroll-to-bottom button again when auto-scroll is turned off and on", async () => {
+    await TestBed.configureTestingModule({
+      imports: [CopilotChatViewScrollView],
+      providers: [provideCopilotKit({})],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(CopilotChatViewScrollView);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const viewport = () =>
+      host.querySelector<HTMLElement>(".cpk-chat-view-scroll-viewport")!;
+    const button = () => host.querySelector(".cpk-chat-view-scroll-to-bottom");
+
+    setScroll(viewport(), 300); // the reader scrolls up
+    fixture.detectChanges();
+    expect(button()).not.toBeNull();
+
+    fixture.componentRef.setInput("autoScroll", false);
+    fixture.detectChanges();
+    fixture.componentRef.setInput("autoScroll", true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(button()).toBeNull();
+  });
+});

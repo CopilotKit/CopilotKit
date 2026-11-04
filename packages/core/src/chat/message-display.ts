@@ -284,12 +284,12 @@ export type ɵUserMessageMediaPart =
 
 /**
  * The text of a user message: the string content, or its text parts joined
- * by newlines. Parts that are not text, and malformed parts from untyped
- * data, add nothing.
+ * by newlines. Parts that are not text, and malformed parts or content
+ * that is not a list from untyped data, add nothing.
  */
 export function ɵflattenUserMessageContent(content?: UserMessage["content"]) {
-  if (!content) return "";
   if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
   return content
     .map((part) =>
       part?.type === "text" && typeof part.text === "string" ? part.text : "",
@@ -308,7 +308,7 @@ const isMediaPart = (
 
 /** The image, audio, video, and document parts of a user message. */
 export function ɵgetUserMessageMediaParts(content?: UserMessage["content"]) {
-  if (!content || typeof content === "string") return [];
+  if (!Array.isArray(content)) return [];
   return content.filter(isMediaPart);
 }
 

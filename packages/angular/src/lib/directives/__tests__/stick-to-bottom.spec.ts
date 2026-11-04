@@ -51,7 +51,7 @@ describe("scroll-to-bottom threshold", () => {
     expect(scroll.isAtBottom(scrolledElement(13))).toBe(false);
   });
 
-  it("reports when the reader scrolls up and back down", () => {
+  it("reports the first position, then when the reader scrolls up and back down", () => {
     const fixture = TestBed.createComponent(FollowingHost);
     fixture.detectChanges();
     const element: HTMLElement = fixture.nativeElement.querySelector(
@@ -69,7 +69,7 @@ describe("scroll-to-bottom threshold", () => {
     top = 500;
     element.dispatchEvent(new Event("scroll"));
 
-    expect(fixture.componentInstance.changes).toEqual([false, true]);
+    expect(fixture.componentInstance.changes).toEqual([true, false, true]);
   });
 
   it("gives the directive the same 12px default", () => {

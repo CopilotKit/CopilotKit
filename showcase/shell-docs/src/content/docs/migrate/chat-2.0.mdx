@@ -637,7 +637,6 @@ In Vue with `autoScroll="pin-to-send"` or `"none"`, the scroll-to-bottom button 
 
 In Angular, `StickToBottom` changed:
 
-- `isAtBottomChange` does not send the first value. It sends a value when the position changes. The position starts at the bottom.
 - With `[enabled]="false"`, `isAtBottomChange` still reports the position. The directive does not follow new content.
 - Without a `data-stick-to-bottom-content` element, the directive watches its first child element.
 - The directive does not provide `ScrollPosition` and `ResizeObserverService`. Both are still available from the root injector.

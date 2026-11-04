@@ -1,6 +1,6 @@
-import { Component, inject } from "@angular/core";
+import { Component, inject, PLATFORM_ID } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CopilotPopup } from "../copilot-popup";
 import { COPILOT_CHAT_WELCOME_LAYOUT } from "../../chat/copilot-chat-welcome-layout";
@@ -22,6 +22,11 @@ class LayoutReportingChat {
 }
 
 describe("CopilotPopup", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    TestBed.resetTestingModule();
+  });
+
   async function render(inputs: Record<string, unknown> = {}) {
     await TestBed.configureTestingModule({
       imports: [CopilotPopup],
@@ -53,6 +58,17 @@ describe("CopilotPopup", () => {
     expect(dialog.style.getPropertyValue("--copilot-popup-height")).toBe(
       "560px",
     );
+  });
+
+  it("does not move focus while it renders on the server", async () => {
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    TestBed.configureTestingModule({
+      providers: [{ provide: PLATFORM_ID, useValue: "server" }],
+    });
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector("[role=dialog]")).not.toBeNull();
+    expect(focus).not.toHaveBeenCalled();
   });
 
   it("closes on Escape and restores focus to its launcher", async () => {

@@ -540,6 +540,35 @@ describe("CopilotChat", () => {
       await queued;
     });
 
+    test("streams the latest reasoning and hides the latest reply's toolbar while the agent runs", async () => {
+      const { fixture, chat, core } = context;
+      const run = core.runAgent({ agent });
+      await vi.waitFor(() => expect(chat.isRunning()).toBe(true));
+      agent.setMessages([
+        { id: "user-1", role: "user", content: "Plan a launch" },
+        { id: "reasoning-1", role: "reasoning", content: "Weighing dates" },
+      ]);
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const reasoning = root.querySelector('[data-testid="reasoning-block"]');
+      expect(reasoning?.textContent).toContain("Thinking…");
+      expect(reasoning?.getAttribute("aria-expanded")).toBe("true");
+
+      agent.setMessages([
+        ...agent.messages,
+        { id: "assistant-1", role: "assistant", content: "Early May." },
+      ]);
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      fixture.detectChanges();
+      expect(root.querySelector("[copilotChatAssistantMessageToolbar]")).toBe(
+        null,
+      );
+
+      agent.finish();
+      await run;
+    });
+
     /** Starts a run on a chat that has a message, so the run can stop. */
     async function startStoppableRun() {
       const { fixture, chat, core } = context;

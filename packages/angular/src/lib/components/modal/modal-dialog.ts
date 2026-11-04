@@ -1,4 +1,6 @@
+import { inject, PLATFORM_ID } from "@angular/core";
 import type { ElementRef, Signal } from "@angular/core";
+import { isPlatformBrowser } from "@angular/common";
 import { ɵbindDialogFocus, ɵbindPopupDismiss } from "@copilotkit/core";
 import { explicitEffect } from "../../explicit-effect";
 
@@ -19,9 +21,13 @@ export interface ModalDialogBinding {
  * `ɵbindDialogFocus`, and close it on Escape and (when asked) on a pointer
  * down outside with core's `ɵbindPopupDismiss`.
  *
+ * Does nothing on the server: focus and DOM listeners are browser-only.
+ *
  * Call it in an injection context, such as a constructor.
  */
 export function bindModalDialog(binding: ModalDialogBinding): void {
+  if (!isPlatformBrowser(inject(PLATFORM_ID))) return;
+
   explicitEffect(
     () => binding.dialog()?.nativeElement,
     (dialog, onCleanup) => {
