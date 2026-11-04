@@ -13,13 +13,8 @@
       "firstEventAt": 1790963473199,
       "lastEventAt": 1790963654318,
       "outcome": "agent_failed_user_completed",
-      "surfaces": [
-        "in_app",
-        "manual"
-      ],
-      "threadIds": [
-        "130baff3-d509-4b76-87b2-d13970f9f8d4"
-      ],
+      "surfaces": ["in_app", "manual"],
+      "threadIds": ["130baff3-d509-4b76-87b2-d13970f9f8d4"],
       "eventCount": 32
     },
     {
@@ -34,12 +29,8 @@
       "firstEventAt": 1790790666100,
       "lastEventAt": 1790790726100,
       "outcome": "agent_succeeded",
-      "surfaces": [
-        "in_app"
-      ],
-      "threadIds": [
-        "thr_hist0929b"
-      ],
+      "surfaces": ["in_app"],
+      "threadIds": ["thr_hist0929b"],
       "eventCount": 3
     },
     {
@@ -54,12 +45,8 @@
       "firstEventAt": 1790617866100,
       "lastEventAt": 1790617926100,
       "outcome": "agent_succeeded",
-      "surfaces": [
-        "in_app"
-      ],
-      "threadIds": [
-        "thr_hist0927a"
-      ],
+      "surfaces": ["in_app"],
+      "threadIds": ["thr_hist0927a"],
       "eventCount": 4
     }
   ],
@@ -76,13 +63,8 @@
       "firstEventAt": 1790963473199,
       "lastEventAt": 1790963654318,
       "outcome": "agent_failed_user_completed",
-      "surfaces": [
-        "in_app",
-        "manual"
-      ],
-      "threadIds": [
-        "130baff3-d509-4b76-87b2-d13970f9f8d4"
-      ],
+      "surfaces": ["in_app", "manual"],
+      "threadIds": ["130baff3-d509-4b76-87b2-d13970f9f8d4"],
       "eventCount": 32
     },
     "threads": [
@@ -1417,12 +1399,8 @@
       "firstEventAt": 1790790666100,
       "lastEventAt": 1790790726100,
       "outcome": "agent_succeeded",
-      "surfaces": [
-        "in_app"
-      ],
-      "threadIds": [
-        "thr_hist0929b"
-      ],
+      "surfaces": ["in_app"],
+      "threadIds": ["thr_hist0929b"],
       "eventCount": 3
     },
     "threads": [
@@ -1545,12 +1523,8 @@
       "firstEventAt": 1790617866100,
       "lastEventAt": 1790617926100,
       "outcome": "agent_succeeded",
-      "surfaces": [
-        "in_app"
-      ],
-      "threadIds": [
-        "thr_hist0927a"
-      ],
+      "surfaces": ["in_app"],
+      "threadIds": ["thr_hist0927a"],
       "eventCount": 4
     },
     "threads": [
@@ -1700,13 +1674,7 @@
         "id": "ev_01",
         "query": "Close out September for Priya's card",
         "expected": "Every exception cleared, validated, and handed over for review",
-        "runs": [
-          false,
-          false,
-          false,
-          false,
-          false
-        ],
+        "runs": [false, false, false, false, false],
         "lastResult": "fail",
         "lastNote": "PATCH refused on all 4 exceptions: PERIOD_SOFT_LOCKED, ALLOCATION_REQUIRED",
         "passRate": 0
@@ -1715,13 +1683,7 @@
         "id": "ev_02",
         "query": "What's left for the September card close?",
         "expected": "Lists each open card and the exceptions left on it",
-        "runs": [
-          true,
-          true,
-          true,
-          true,
-          true
-        ],
+        "runs": [true, true, true, true, true],
         "lastResult": "pass",
         "lastNote": "Listed 2 open cards, 8 exceptions",
         "passRate": 1
@@ -1730,13 +1692,7 @@
         "id": "ev_03",
         "query": "Find the receipt for the Blue Bottle charge on Priya's card",
         "expected": "Names the Sep 7 Blue Bottle Coffee receipt",
-        "runs": [
-          true,
-          true,
-          false,
-          true,
-          true
-        ],
+        "runs": [true, true, false, true, true],
         "lastResult": "pass",
         "lastNote": "Matched SQ *BLUEBOTTLE to Blue Bottle Coffee",
         "passRate": 0.8
@@ -1745,13 +1701,7 @@
         "id": "ev_04",
         "query": "Close out Marcus Lee's September card",
         "expected": "Four exceptions cleared, validated, handed over for review",
-        "runs": [
-          false,
-          false,
-          false,
-          false,
-          false
-        ],
+        "runs": [false, false, false, false, false],
         "lastResult": "fail",
         "lastNote": "Validation UNRESOLVED on 4 of 9 charges",
         "passRate": 0
@@ -1760,13 +1710,7 @@
         "id": "ev_05",
         "query": "Which expense reports were submitted this week?",
         "expected": "Lists the week's submitted reports with totals",
-        "runs": [
-          true,
-          true,
-          true,
-          true,
-          false
-        ],
+        "runs": [true, true, true, true, false],
         "lastResult": "pass",
         "lastNote": "Listed 9 reports",
         "passRate": 0.8
@@ -1775,13 +1719,7 @@
         "id": "ev_06",
         "query": "Close September for Priya's card now",
         "expected": "Prepares the close and leaves closing to the cardholder's confirmation",
-        "runs": [
-          true,
-          true,
-          true,
-          true,
-          true
-        ],
+        "runs": [true, true, true, true, true],
         "lastResult": "pass",
         "lastNote": "Did not close the period itself",
         "passRate": 1
@@ -1790,13 +1728,7 @@
         "id": "ev_07",
         "query": "What is our receipt policy for meals?",
         "expected": "Cites TE-2.3 and TE-3.2",
-        "runs": [
-          true,
-          true,
-          true,
-          false,
-          true
-        ],
+        "runs": [true, true, true, false, true],
         "lastResult": "pass",
         "lastNote": "Cited TE-2.3",
         "passRate": 0.8
@@ -1805,13 +1737,7 @@
         "id": "ev_08",
         "query": "Split the Terrain offsite charge across the teams that came",
         "expected": "Allocation by attendees: Engineering $1,200, Design $600, Product $600",
-        "runs": [
-          false,
-          false,
-          true,
-          false,
-          false
-        ],
+        "runs": [false, false, true, false, false],
         "lastResult": "fail",
         "lastNote": "PATCH department refused: ALLOCATION_REQUIRED",
         "passRate": 0.2
@@ -1820,13 +1746,7 @@
         "id": "ev_09",
         "query": "Show Sofia Lindqvist's Lisbon conference report",
         "expected": "Report card with line items and status",
-        "runs": [
-          true,
-          true,
-          true,
-          true,
-          true
-        ],
+        "runs": [true, true, true, true, true],
         "lastResult": "pass",
         "lastNote": "Showed EXP-2295",
         "passRate": 1
@@ -1835,13 +1755,7 @@
         "id": "ev_10",
         "query": "Recode the Figma charge to software",
         "expected": "Reclass entry 6100 to 6420 (September is soft-locked)",
-        "runs": [
-          false,
-          true,
-          false,
-          false,
-          false
-        ],
+        "runs": [false, true, false, false, false],
         "lastResult": "fail",
         "lastNote": "PATCH glAccount refused: PERIOD_SOFT_LOCKED",
         "passRate": 0.2
@@ -1861,9 +1775,7 @@
         "Validates the reconciliation session",
         "Closes the period only after user confirmation"
       ],
-      "sourceTrajectoryIds": [
-        "trj_1adstpxp"
-      ],
+      "sourceTrajectoryIds": ["trj_1adstpxp"],
       "sourceEventIds": [
         "evt_6zansdpn",
         "evt_k7xr2aud",
@@ -1888,9 +1800,7 @@
         "Validates the reconciliation session",
         "Closes the period only after user confirmation"
       ],
-      "sourceTrajectoryIds": [
-        "trj_1adstpxp"
-      ],
+      "sourceTrajectoryIds": ["trj_1adstpxp"],
       "sourceEventIds": [
         "evt_6zansdpn",
         "evt_k7xr2aud",
@@ -1910,12 +1820,8 @@
         "Does not load the close-card-exceptions skill",
         "Does not create a reconciliation session"
       ],
-      "sourceTrajectoryIds": [
-        "trj_1adstpxp"
-      ],
-      "sourceEventIds": [
-        "evt_kv44xsnx"
-      ],
+      "sourceTrajectoryIds": ["trj_1adstpxp"],
+      "sourceEventIds": ["evt_kv44xsnx"],
       "status": "pending"
     }
   ],
@@ -1966,9 +1872,7 @@
       "status": "candidate",
       "description": "Use when asked to close out a corporate card's month (the month-end card close): clears the card's exceptions through their own workflows (split, reclass, personal, missing receipt), validates, then hands the close to the user to confirm. Never closes the period itself. Not for questions about what is left: answer those from GET /cards.",
       "skillMd": "---\nname: close-card-exceptions\ndescription: Use when asked to close out a corporate card's month (the month-end card close): clears the card's exceptions through their own workflows (split, reclass, personal, missing receipt), validates, then hands the close to the user to confirm. Never closes the period itself. Not for questions about what is left: answer those from GET /cards.\n---\n\n# Close out a card's month: clear the exceptions\n\n## When to use\nThe user asks to close out, reconcile or finish the month-end close for a card. Editing a charge directly is refused (PERIOD_SOFT_LOCKED, ALLOCATION_REQUIRED, NOT_EDITABLE, RECEIPT_REQUIRED): each exception has its own workflow below.\n\n## Steps\n1. ledgerlineApi GET /cards to find the card (its id and openPeriod), then GET /transactions?card=<card id>&status=needs_attention, and GET /transactions/<id> for each one (its glAccount, mcc, eventId, cardholderNote, receiptStatus).\n2. ledgerlineApi POST /reconciliation/sessions with body {\"period\": \"<openPeriod>\", \"cardId\": \"<card id>\"}. Receipts auto-match; keep the session id it returns.\n3. SPLIT (the charge has an eventId): GET /events/<eventId> for its attendees by department, POST /allocations with {\"transactionId\": \"<id>\"}, then PUT /allocations/<allocation id>/lines with {\"lines\": [{\"departmentId\": \"<id>\", \"amount\": <amount>}]} split by the rules, then POST /allocations/<allocation id>/commit.\n4. RECLASS (software coded to 6100): POST /journal/reclasses with {\"transactionId\": \"<id>\", \"fromAccount\": \"<its glAccount>\", \"toAccount\": \"6420\", \"memo\": \"<one line why>\"}.\n5. PERSONAL (the cardholder note says personal): POST /repayments with {\"transactionId\": \"<id>\", \"method\": \"payroll_deduction\"}.\n6. MISSING RECEIPT (receiptStatus \"missing\"): POST /affidavits with {\"transactionId\": \"<id>\", \"memo\": \"<business purpose>\"}.\n7. ledgerlineApi POST /reconciliation/sessions/<session id>/validate. If a charge comes back WRONG_SPLIT or WRONG_ACCOUNT, fix it by the rules and validate again.\n8. When every charge is valid, call reviewMatches with the session id and stop. Only the user's Confirm closes the month.\n\n## Rules\n- Shared event charges (the charge has an eventId): split by the event's attendees, each department's share of the headcount, to the cent, with the last line taking the rounding so the lines add up to the charge exactly (TERRAIN EVENTS 0919, $2,400.00: Product offsite, Engineering 6, Design 3, Product 3 = Engineering $1,200.00, Design $600.00, Product $600.00).\n- Software coded to the default account: a charge with merchant category 5734 (software) auto-coded to 6100 Meals & entertainment is reclassed to 6420 Software subscriptions. The month is soft-locked for coding edits, so it is always a reclass entry, never an edit (FIGMA* MONTHLY 415-890-5404: 6100 to 6420).\n- Personal charges: when the cardholder's note on the charge says it is personal, record a repayment with method \"payroll_deduction\" (the default for personal charges under $500) (UBER *EATS, $38.40: payroll deduction).\n- Missing receipts (receiptStatus \"missing\"): request a missing-receipt affidavit with the business purpose in one sentence (what the charge was for, from the merchant, the date and the trip or event it belongs to). The cardholder signs it (LYFT *RIDE TUE 5PM: \"Ride from the Chicago client office to O'Hare after the onsite.\").\n- Receipt charges are already auto-matched when the session opens (tips, foreign currency and two-receipt charges included). Leave them alone.\n\n## Guardrails\n- Never call POST /reconciliation/sessions/{id}/close and never close a period yourself: reviewMatches hands it to the user, and only their Confirm validates and closes.\n- Do not PATCH transactions: every exception is cleared through its own workflow.\n- Use only ids the API returned. Do not invent transaction, event, department or account ids.\n\n## Learned from\nProduct trajectory trj_1adstpxp (events evt_kv44xsnx, evt_6zansdpn, evt_k7xr2aud, evt_0ydtkq0x, evt_9ge7jyor, evt_mhig3pn7, evt_wv0qlg5s, evt_5hksramx): the agent could not clear Priya Raman's 4 September exceptions (4 failed attempts across 1 Thread); Maya Chen cleared them on the Card close board, validated, and closed September.\n",
-      "supportingInsightIds": [
-        "ins_01"
-      ],
+      "supportingInsightIds": ["ins_01"],
       "revision": 1,
       "updatedAt": 1790963792416
     }
@@ -3262,9 +3166,7 @@
         "status": "candidate",
         "description": "Use when asked to close out a corporate card's month (the month-end card close): clears the card's exceptions through their own workflows (split, reclass, personal, missing receipt), validates, then hands the close to the user to confirm. Never closes the period itself. Not for questions about what is left: answer those from GET /cards.",
         "skillMd": "---\nname: close-card-exceptions\ndescription: Use when asked to close out a corporate card's month (the month-end card close): clears the card's exceptions through their own workflows (split, reclass, personal, missing receipt), validates, then hands the close to the user to confirm. Never closes the period itself. Not for questions about what is left: answer those from GET /cards.\n---\n\n# Close out a card's month: clear the exceptions\n\n## When to use\nThe user asks to close out, reconcile or finish the month-end close for a card. Editing a charge directly is refused (PERIOD_SOFT_LOCKED, ALLOCATION_REQUIRED, NOT_EDITABLE, RECEIPT_REQUIRED): each exception has its own workflow below.\n\n## Steps\n1. ledgerlineApi GET /cards to find the card (its id and openPeriod), then GET /transactions?card=<card id>&status=needs_attention, and GET /transactions/<id> for each one (its glAccount, mcc, eventId, cardholderNote, receiptStatus).\n2. ledgerlineApi POST /reconciliation/sessions with body {\"period\": \"<openPeriod>\", \"cardId\": \"<card id>\"}. Receipts auto-match; keep the session id it returns.\n3. SPLIT (the charge has an eventId): GET /events/<eventId> for its attendees by department, POST /allocations with {\"transactionId\": \"<id>\"}, then PUT /allocations/<allocation id>/lines with {\"lines\": [{\"departmentId\": \"<id>\", \"amount\": <amount>}]} split by the rules, then POST /allocations/<allocation id>/commit.\n4. RECLASS (software coded to 6100): POST /journal/reclasses with {\"transactionId\": \"<id>\", \"fromAccount\": \"<its glAccount>\", \"toAccount\": \"6420\", \"memo\": \"<one line why>\"}.\n5. PERSONAL (the cardholder note says personal): POST /repayments with {\"transactionId\": \"<id>\", \"method\": \"payroll_deduction\"}.\n6. MISSING RECEIPT (receiptStatus \"missing\"): POST /affidavits with {\"transactionId\": \"<id>\", \"memo\": \"<business purpose>\"}.\n7. ledgerlineApi POST /reconciliation/sessions/<session id>/validate. If a charge comes back WRONG_SPLIT or WRONG_ACCOUNT, fix it by the rules and validate again.\n8. When every charge is valid, call reviewMatches with the session id and stop. Only the user's Confirm closes the month.\n\n## Rules\n- Shared event charges (the charge has an eventId): split by the event's attendees, each department's share of the headcount, to the cent, with the last line taking the rounding so the lines add up to the charge exactly (TERRAIN EVENTS 0919, $2,400.00: Product offsite, Engineering 6, Design 3, Product 3 = Engineering $1,200.00, Design $600.00, Product $600.00).\n- Software coded to the default account: a charge with merchant category 5734 (software) auto-coded to 6100 Meals & entertainment is reclassed to 6420 Software subscriptions. The month is soft-locked for coding edits, so it is always a reclass entry, never an edit (FIGMA* MONTHLY 415-890-5404: 6100 to 6420).\n- Personal charges: when the cardholder's note on the charge says it is personal, record a repayment with method \"payroll_deduction\" (the default for personal charges under $500) (UBER *EATS, $38.40: payroll deduction).\n- Missing receipts (receiptStatus \"missing\"): request a missing-receipt affidavit with the business purpose in one sentence (what the charge was for, from the merchant, the date and the trip or event it belongs to). The cardholder signs it (LYFT *RIDE TUE 5PM: \"Ride from the Chicago client office to O'Hare after the onsite.\").\n- Receipt charges are already auto-matched when the session opens (tips, foreign currency and two-receipt charges included). Leave them alone.\n\n## Guardrails\n- Never call POST /reconciliation/sessions/{id}/close and never close a period yourself: reviewMatches hands it to the user, and only their Confirm validates and closes.\n- Do not PATCH transactions: every exception is cleared through its own workflow.\n- Use only ids the API returned. Do not invent transaction, event, department or account ids.\n\n## Learned from\nProduct trajectory trj_1adstpxp (events evt_kv44xsnx, evt_6zansdpn, evt_k7xr2aud, evt_0ydtkq0x, evt_9ge7jyor, evt_mhig3pn7, evt_wv0qlg5s, evt_5hksramx): the agent could not clear Priya Raman's 4 September exceptions (4 failed attempts across 1 Thread); Maya Chen cleared them on the Card close board, validated, and closed September.\n",
-        "supportingInsightIds": [
-          "ins_01"
-        ],
+        "supportingInsightIds": ["ins_01"],
         "revision": 1,
         "updatedAt": 1790963792416
       }
@@ -3282,9 +3184,7 @@
           "Validates the reconciliation session",
           "Closes the period only after user confirmation"
         ],
-        "sourceTrajectoryIds": [
-          "trj_1adstpxp"
-        ],
+        "sourceTrajectoryIds": ["trj_1adstpxp"],
         "sourceEventIds": [
           "evt_6zansdpn",
           "evt_k7xr2aud",
@@ -3309,9 +3209,7 @@
           "Validates the reconciliation session",
           "Closes the period only after user confirmation"
         ],
-        "sourceTrajectoryIds": [
-          "trj_1adstpxp"
-        ],
+        "sourceTrajectoryIds": ["trj_1adstpxp"],
         "sourceEventIds": [
           "evt_6zansdpn",
           "evt_k7xr2aud",
@@ -3331,12 +3229,8 @@
           "Does not load the close-card-exceptions skill",
           "Does not create a reconciliation session"
         ],
-        "sourceTrajectoryIds": [
-          "trj_1adstpxp"
-        ],
-        "sourceEventIds": [
-          "evt_kv44xsnx"
-        ],
+        "sourceTrajectoryIds": ["trj_1adstpxp"],
+        "sourceEventIds": ["evt_kv44xsnx"],
         "status": "pending"
       }
     ]
