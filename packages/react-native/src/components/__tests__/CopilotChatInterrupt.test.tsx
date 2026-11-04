@@ -17,24 +17,8 @@ import type { CopilotKitCoreReact } from "@copilotkit/react-core/context";
 // interrupt element.
 vi.mock("react-native", async () => {
   const actual = await vi.importActual<any>("../../__mocks__/react-native");
-  // The typing indicator shows while the agent runs. It needs Animated.
-  const animation = () => ({ start: vi.fn(), stop: vi.fn() });
   return {
     ...actual,
-    Animated: {
-      Value: class {
-        interpolate({ outputRange }: any) {
-          return outputRange[0];
-        }
-      },
-      View: ({ children, style }: any) =>
-        React.createElement("div", { style }, children),
-      timing: animation,
-      sequence: animation,
-      loop: animation,
-      parallel: animation,
-      delay: animation,
-    },
     FlatList: ({
       data,
       renderItem,

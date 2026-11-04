@@ -205,7 +205,6 @@ import {
   clearRecall as clearLearningRecall,
   createLearningState,
   resetLearningState,
-  setRecallQuery,
 } from "../domains/learning/state.js";
 import { ensureLearningSubscription } from "../domains/learning/subscription.js";
 import { trackLearningTabClicked } from "../domains/learning/telemetry.js";

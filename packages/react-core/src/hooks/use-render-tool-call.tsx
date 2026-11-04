@@ -28,7 +28,7 @@ export interface UseRenderToolCallProps {
 interface ToolCallRendererProps {
   toolCall: ToolCall;
   toolMessage?: ToolMessage;
-  RenderComponent: ReactToolCallRenderer<unknown>["render"];
+  RenderComponent: ReactToolCallRenderer["render"];
   isExecuting: boolean;
 }
 

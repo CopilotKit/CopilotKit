@@ -2,7 +2,9 @@ name: static / quality
 
 on:
   push:
-    branches: [main]
+    # Release lines such as 2.0.0 too, so a merge that breaks the lint gate
+    # shows up on the branch and not only on the next PR.
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
     paths-ignore:
       - "README.md"
       - "examples/**"
@@ -254,6 +256,15 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Unit tests for the gate, and the check that .oxlintrc.json lists every
+      # correctness and suspicious rule of the installed oxlint.
+      - name: Test the lint gate
+        run: >-
+          pnpm exec vitest run
+          scripts/__tests__/lint-gate.test.ts
+          scripts/__tests__/lint-baseline.test.ts
+          scripts/__tests__/lint-category-rules.test.ts
 
       - name: Configure Nx Cloud environment
         run: |

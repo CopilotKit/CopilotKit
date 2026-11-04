@@ -12,8 +12,6 @@ import {
   GENERATIVE_UI_MAX_SUMMARY_REJECTIONS,
   getOperationKind,
   getOperationSurfaceId,
-  isIndexCall,
-  isPathBinding,
   validateOperation,
 } from "@copilotkit/shared";
 import type {

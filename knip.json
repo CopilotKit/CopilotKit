@@ -7,7 +7,9 @@
     "unlisted",
     "binaries",
     "exports",
-    "types"
+    "types",
+    "duplicates",
+    "enumMembers"
   ],
   "exclude": ["optionalPeerDependencies"],
   "ignoreExportsUsedInFile": true,

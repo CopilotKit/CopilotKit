@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Animated, StyleSheet } from "react-native";
 import type { ViewStyle } from "react-native";
 
@@ -21,9 +21,9 @@ const ANIMATION_DURATION = 400;
  * Uses React Native's built-in `Animated` API (no Reanimated dependency).
  */
 export function TypingIndicator({ style }: TypingIndicatorProps) {
-  const dot1 = useRef(new Animated.Value(0)).current;
-  const dot2 = useRef(new Animated.Value(0)).current;
-  const dot3 = useRef(new Animated.Value(0)).current;
+  const [dot1] = useState(() => new Animated.Value(0));
+  const [dot2] = useState(() => new Animated.Value(0));
+  const [dot3] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const createPulse = (dot: Animated.Value, delay: number) =>

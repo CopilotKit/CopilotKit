@@ -204,7 +204,7 @@ export class CopilotChatInspectorButton {
   readonly disabled = input(false);
   readonly inputClass = input<string | undefined>();
   /** Emits after the message opens in the Inspector. */
-  readonly clicked = output<void>();
+  readonly clicked = output();
 
   protected readonly labels = injectChatLabels();
   protected readonly WrenchIcon = Wrench;

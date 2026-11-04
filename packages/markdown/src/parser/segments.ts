@@ -95,7 +95,8 @@ function clusterPunctuationSegments(segments: TextSegment[]): TextSegment[] {
       return acc;
     }
 
-    return [...acc, segment];
+    acc.push(segment);
+    return acc;
   }, []);
 
   const clustered: TextSegment[] = [];

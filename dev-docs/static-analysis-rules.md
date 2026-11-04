@@ -31,6 +31,8 @@ Only errors fail the check. Warnings print as a count.
 
 Rules that need types run only in the type-aware pass over `packages/`. Build the packages first (`pnpm build`), or the baseline gets the wrong counts.
 
+An override cannot set a category, so that entry lists every rule in the `correctness` and `suspicious` categories by name. The test entry sets the same rules back to `warn`. When an oxlint upgrade adds a rule to these categories, `scripts/__tests__/lint-category-rules.test.ts` fails and names the rule. Add it to both lists, then run `pnpm lint:baseline`.
+
 The first five rules in that entry have no baseline entries. If you add one of them to a new scope, fix its errors. Do not baseline them.
 
 ## Add a custom rule

@@ -8,7 +8,7 @@ export function defineToolCallRenderer(def: {
   render: VueToolCallRendererRenderFn<unknown>;
   agentId?: string;
   group?: boolean;
-}): VueToolCallRenderer<unknown>;
+}): VueToolCallRenderer;
 
 export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
   name: string;
@@ -24,7 +24,7 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
   render: VueToolCallRendererRenderFn<unknown>;
   agentId?: string;
   group?: boolean;
-}): VueToolCallRenderer<unknown> {
+}): VueToolCallRenderer {
   // Only a "*" renderer may leave out `args`; it accepts any arguments.
   const args = def.args ?? ɵanySchema;
   return {
