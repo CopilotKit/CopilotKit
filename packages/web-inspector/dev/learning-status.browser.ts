@@ -34,9 +34,7 @@ for (const origin of [
     await page
       .getByRole("button", { name: "Close Web Inspector", exact: true })
       .click();
-    await page
-      .getByRole("button", { name: "Web Inspector", exact: true })
-      .click();
+    await page.getByRole("button", { name: /^Web Inspector/ }).click();
     const learning = page.locator('[data-inspector-service="memory"]');
     await expect(learning).toContainText("Learning status unavailable");
     await expect(
