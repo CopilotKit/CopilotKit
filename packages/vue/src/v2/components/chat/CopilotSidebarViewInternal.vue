@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import {
   computed,
-  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
   useAttrs,
   watch,
 } from "vue";
-import { ɵcreateDockedSidebar, ɵdimensionToCss } from "@copilotkit/core";
+import {
+  ɵSIDEBAR_DEFAULT_WIDTH,
+  ɵSIDEBAR_TRANSITION_MS,
+  ɵcreateDockedSidebar,
+  ɵdimensionToCss,
+  ɵwatchElementWidth,
+} from "@copilotkit/core";
 import type { ɵDockedSidebar } from "@copilotkit/core";
 import { CopilotChatDefaultLabels } from "../../providers/types";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
@@ -31,9 +36,6 @@ import type {
 } from "./types";
 
 defineOptions({ inheritAttrs: false });
-
-const DEFAULT_SIDEBAR_WIDTH = 480;
-const SIDEBAR_TRANSITION_MS = 260;
 
 const props = withDefaults(
   defineProps<Omit<CopilotSidebarViewProps, "defaultOpen">>(),
@@ -98,9 +100,8 @@ const config = useCopilotChatConfiguration();
 
 const sidebarRef = ref<HTMLElement | null>(null);
 const measuredSidebarWidth = ref<number | string>(
-  props.width ?? DEFAULT_SIDEBAR_WIDTH,
+  props.width ?? ɵSIDEBAR_DEFAULT_WIDTH,
 );
-let resizeObserver: ResizeObserver | null = null;
 
 const isSidebarOpen = computed(() => config.value?.isModalOpen ?? false);
 const resolvedSidebarWidth = computed(
@@ -130,7 +131,7 @@ const asideStyle = computed(
     }) as Record<string, string>,
 );
 const widthCss = computed(() =>
-  ɵdimensionToCss(resolvedSidebarWidth.value, DEFAULT_SIDEBAR_WIDTH),
+  ɵdimensionToCss(resolvedSidebarWidth.value, ɵSIDEBAR_DEFAULT_WIDTH),
 );
 
 // The page makes room on the docked edge (desktop only).
@@ -141,17 +142,6 @@ watch(
     dock?.set({ open, position, width });
   },
 );
-
-function updateMeasuredWidth() {
-  if (props.width !== undefined || !sidebarRef.value) {
-    return;
-  }
-
-  const nextWidth = sidebarRef.value.getBoundingClientRect().width;
-  if (nextWidth > 0) {
-    measuredSidebarWidth.value = nextWidth;
-  }
-}
 
 function closeSidebar() {
   config.value?.setModalOpen?.(false);
@@ -226,48 +216,35 @@ const chatViewEventProps = computed(() => {
   return listeners;
 });
 
+// Without a `width` prop, the page margin follows the width the CSS gives
+// the sidebar.
 watch(
-  () => props.width,
-  (nextWidth) => {
-    if (nextWidth !== undefined) {
-      measuredSidebarWidth.value = nextWidth;
-      return;
-    }
-    updateMeasuredWidth();
+  [sidebarRef, () => props.width],
+  ([element, width], _old, onCleanup) => {
+    if (width !== undefined || !element) return;
+    onCleanup(
+      ɵwatchElementWidth(element, (next) => {
+        measuredSidebarWidth.value = next;
+      }),
+    );
   },
+  { flush: "post" },
 );
 
-onMounted(async () => {
+onMounted(() => {
   dock = ɵcreateDockedSidebar(document, {
-    transitionMs: SIDEBAR_TRANSITION_MS,
+    transitionMs: ɵSIDEBAR_TRANSITION_MS,
   });
   dock.set({
     open: isSidebarOpen.value,
     position: props.position,
     width: widthCss.value,
   });
-  await nextTick();
-  updateMeasuredWidth();
-
-  if (
-    props.width !== undefined ||
-    !sidebarRef.value ||
-    typeof ResizeObserver === "undefined"
-  ) {
-    return;
-  }
-
-  resizeObserver = new ResizeObserver(() => {
-    updateMeasuredWidth();
-  });
-  resizeObserver.observe(sidebarRef.value);
 });
 
 onBeforeUnmount(() => {
   dock?.dispose();
   dock = undefined;
-  resizeObserver?.disconnect();
-  resizeObserver = null;
 });
 </script>
 
