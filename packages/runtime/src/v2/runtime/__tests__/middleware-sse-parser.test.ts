@@ -10,6 +10,75 @@ function buildSSEResponse(events: Record<string, unknown>[]): Response {
 }
 
 describe("parseSSEResponse", () => {
+  it("continues an existing snapshot message without replacing its metadata", async () => {
+    const message = {
+      id: "a",
+      role: "assistant",
+      content: "Hello",
+      name: "agent",
+    };
+    const result = await parseSSEResponse(
+      buildSSEResponse([
+        { type: "MESSAGES_SNAPSHOT", messages: [message] },
+        { type: "TEXT_MESSAGE_START", messageId: "a", role: "assistant" },
+        { type: "TEXT_MESSAGE_CONTENT", messageId: "a", delta: " world" },
+        { type: "TEXT_MESSAGE_END", messageId: "a" },
+      ]),
+    );
+    expect(result.messages).toEqual([{ ...message, content: "Hello world" }]);
+  });
+
+  it.each([false, true])(
+    "continues a snapshotted tool call (replayed start: %s)",
+    async (replayStart) => {
+      const toolCall = {
+        id: "tc",
+        type: "function",
+        function: { name: "weather", arguments: '{"city":' },
+      };
+      const result = await parseSSEResponse(
+        buildSSEResponse([
+          { type: "TEXT_MESSAGE_START", messageId: "a", role: "assistant" },
+          { type: "TEXT_MESSAGE_END", messageId: "a" },
+          {
+            type: "TOOL_CALL_START",
+            toolCallId: "tc",
+            toolCallName: "weather",
+            parentMessageId: "a",
+          },
+          {
+            type: "MESSAGES_SNAPSHOT",
+            messages: [{ id: "a", role: "assistant", toolCalls: [toolCall] }],
+          },
+          ...(replayStart
+            ? [
+                {
+                  type: "TOOL_CALL_START",
+                  toolCallId: "tc",
+                  toolCallName: "weather",
+                  parentMessageId: "a",
+                },
+              ]
+            : []),
+          { type: "TOOL_CALL_ARGS", toolCallId: "tc", delta: '"Paris"}' },
+          { type: "TOOL_CALL_END", toolCallId: "tc" },
+        ]),
+      );
+      expect(result.messages).toEqual([
+        {
+          id: "a",
+          role: "assistant",
+          toolCalls: [
+            {
+              ...toolCall,
+              function: { name: "weather", arguments: '{"city":"Paris"}' },
+            },
+          ],
+        },
+      ]);
+    },
+  );
+
   it("extracts threadId and runId from RUN_STARTED", async () => {
     const response = buildSSEResponse([
       { type: "RUN_STARTED", threadId: "t-1", runId: "r-1" },
@@ -146,6 +215,107 @@ describe("parseSSEResponse", () => {
     const result = await parseSSEResponse(response);
     expect(result.messages).toEqual(snapshotMessages);
   });
+
+  it("keeps snapshot history and subsequent text and tool events across UTF-8 byte chunks", async () => {
+    const events = [
+      { type: "RUN_STARTED", threadId: "t-1", runId: "r-1" },
+      {
+        type: "MESSAGES_SNAPSHOT",
+        messages: [{ id: "u-1", role: "user", content: "天气？" }],
+      },
+      { type: "TEXT_MESSAGE_START", messageId: "a-1", role: "assistant" },
+      { type: "TEXT_MESSAGE_CONTENT", messageId: "a-1", delta: "查一下 🌍" },
+      { type: "TEXT_MESSAGE_END", messageId: "a-1" },
+      {
+        type: "TOOL_CALL_START",
+        toolCallId: "tc-1",
+        toolCallName: "weather",
+        parentMessageId: "a-1",
+      },
+      { type: "TOOL_CALL_ARGS", toolCallId: "tc-1", delta: '{"city":"北京"}' },
+      { type: "TOOL_CALL_END", toolCallId: "tc-1" },
+      {
+        type: "TOOL_CALL_RESULT",
+        toolCallId: "tc-1",
+        messageId: "result-1",
+        content: "晴 ☀️",
+      },
+      { type: "RUN_FINISHED", threadId: "t-1", runId: "r-1" },
+    ];
+    const bytes = new TextEncoder().encode(
+      events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""),
+    );
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (const byte of bytes) controller.enqueue(Uint8Array.of(byte));
+          controller.close();
+        },
+      }),
+      { headers: { "content-type": "text/event-stream" } },
+    );
+
+    const result = await parseSSEResponse(response);
+    expect(result.messages).toEqual([
+      { id: "u-1", role: "user", content: "天气？" },
+      {
+        id: "a-1",
+        role: "assistant",
+        content: "查一下 🌍",
+        toolCalls: [{ id: "tc-1", name: "weather", args: '{"city":"北京"}' }],
+      },
+      { id: "result-1", role: "tool", content: "晴 ☀️", toolCallId: "tc-1" },
+    ]);
+  });
+
+  it("treats a later snapshot as authoritative before applying subsequent chunks", async () => {
+    const response = buildSSEResponse([
+      { type: "RUN_STARTED", threadId: "t-1", runId: "r-1" },
+      {
+        type: "MESSAGES_SNAPSHOT",
+        messages: [{ id: "removed", role: "user", content: "Old history" }],
+      },
+      { type: "TEXT_MESSAGE_CHUNK", messageId: "a-1", delta: "Draft" },
+      {
+        type: "TOOL_CALL_CHUNK",
+        toolCallId: "old-tool",
+        toolCallName: "old",
+        parentMessageId: "a-1",
+        delta: "{}",
+      },
+      {
+        type: "MESSAGES_SNAPSHOT",
+        messages: [{ id: "a-1", role: "assistant", content: "Corrected" }],
+      },
+      { type: "TEXT_MESSAGE_CHUNK", messageId: "a-2", delta: "Next reply" },
+      { type: "RUN_FINISHED", threadId: "t-1", runId: "r-1" },
+    ]);
+
+    expect((await parseSSEResponse(response)).messages).toEqual([
+      { id: "a-1", role: "assistant", content: "Corrected" },
+      { id: "a-2", role: "assistant", content: "Next reply" },
+    ]);
+  });
+
+  it.each([false, true])(
+    "clears history on an empty snapshot (subsequent message: %s)",
+    async (appendMessage) => {
+      const response = buildSSEResponse([
+        { type: "RUN_STARTED", threadId: "t-1", runId: "r-1" },
+        { type: "TEXT_MESSAGE_CHUNK", messageId: "old", delta: "Discarded" },
+        { type: "MESSAGES_SNAPSHOT", messages: [] },
+        ...(appendMessage
+          ? [{ type: "TEXT_MESSAGE_CHUNK", messageId: "new", delta: "Fresh" }]
+          : []),
+        { type: "RUN_FINISHED", threadId: "t-1", runId: "r-1" },
+      ]);
+      expect((await parseSSEResponse(response)).messages).toEqual(
+        appendMessage
+          ? [{ id: "new", role: "assistant", content: "Fresh" }]
+          : [],
+      );
+    },
+  );
 
   it("reconstructs a text message from TEXT_MESSAGE_CHUNK events", async () => {
     const response = buildSSEResponse([
