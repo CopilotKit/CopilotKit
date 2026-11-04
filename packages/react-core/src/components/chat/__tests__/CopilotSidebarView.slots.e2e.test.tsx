@@ -185,9 +185,16 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
     });
 
     it("should allow custom component for toggle button", () => {
-      const CustomToggleButton: React.FC = () => (
-        <button data-testid="custom-toggle-component">Chat</button>
-      );
+      const CustomToggleButton = React.forwardRef<
+        HTMLButtonElement,
+        CopilotChatToggleButtonProps
+      >(function CustomToggleButton(_props, ref) {
+        return (
+          <button ref={ref} data-testid="custom-toggle-component">
+            Chat
+          </button>
+        );
+      });
 
       renderSidebar({ toggleButton: CustomToggleButton });
 

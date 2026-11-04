@@ -268,9 +268,16 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
     });
 
     it("should allow custom component for toggle button", () => {
-      const CustomToggleButton: React.FC = () => (
-        <button data-testid="popup-custom-toggle-component">Open Chat</button>
-      );
+      const CustomToggleButton = React.forwardRef<
+        HTMLButtonElement,
+        CopilotChatToggleButtonProps
+      >(function CustomToggleButton(_props, ref) {
+        return (
+          <button ref={ref} data-testid="popup-custom-toggle-component">
+            Open Chat
+          </button>
+        );
+      });
 
       renderPopup({ toggleButton: CustomToggleButton });
 
