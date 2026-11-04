@@ -29,6 +29,7 @@ class ThreadedAgent extends SeededAgent {
   readonly connectedThreadIds: string[] = [];
   readonly runs: { threadId: string; messages: string[] }[] = [];
   private heldConnect: Promise<void> | undefined;
+  private heldRun: Promise<void> | undefined;
 
   constructor(private readonly histories: Record<string, Message[]>) {
     super();
@@ -50,11 +51,26 @@ class ThreadedAgent extends SeededAgent {
     return EMPTY_RESULT;
   }
 
+  /** Holds the next run open; the returned function finishes it with a reply. */
+  holdRun() {
+    let release!: () => void;
+    this.heldRun = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return release;
+  }
+
   override async runAgent(): Promise<RunAgentResult> {
     this.runs.push({
       threadId: this.threadId,
       messages: this.messages.map((m) => String(m.content)),
     });
+    const held = this.heldRun;
+    if (held) {
+      this.heldRun = undefined;
+      await held;
+      this.addMessage(text("reply", "reply"));
+    }
     return EMPTY_RESULT;
   }
 }
@@ -169,16 +185,29 @@ describe("headless CopilotChat threads", () => {
     const agent = new ThreadedAgent({ t1: [text("a", "from t1")] });
     const { unmount } = renderChat(agent, "t1");
     await waitFor(() => expect(transcript()).toEqual(["from t1"]));
-    // Core's connect detaches the previous run itself; count only what the
-    // chat's cleanup does.
+    const finishRun = agent.holdRun();
+    let sent: Promise<void> | undefined;
+    act(() => {
+      sent = chat!.submitMessage("hello");
+    });
+    await waitFor(() => expect(agent.runs).toHaveLength(1));
+    // Core detaches the previous run itself before a connect or a run; count
+    // only what the chat's cleanup does.
     const detach = vi.spyOn(agent, "detachActiveRun");
 
     unmount();
     await act(async () => {});
 
-    // The connect had settled, so a run on the agent now is not the
-    // connect's own: a reply the user asked for keeps streaming.
+    // The connect had settled, so the run in flight is not the connect's
+    // own: the reply the user asked for keeps streaming.
     expect(detach).not.toHaveBeenCalled();
+    finishRun();
+    await sent;
+    expect(agent.messages.map((m) => String(m.content))).toEqual([
+      "from t1",
+      "hello",
+      "reply",
+    ]);
   });
 
   it("keeps the messages of an agent that cannot connect, and sends on its thread", async () => {
