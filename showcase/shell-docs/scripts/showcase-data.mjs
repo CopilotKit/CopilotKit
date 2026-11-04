@@ -115,6 +115,17 @@ writeFileSync(
   `${JSON.stringify(docsModes, null, 2)}\n`,
 );
 
+// Each integration's registry category (`popular`, `agent-framework`, ...),
+// for the stack picker's `docs.framework_selected` event (src/proto/pieces.tsx),
+// which reports it as shell-docs' framework selector did.
+const frameworkCategories = Object.fromEntries(
+  registry.integrations.map((i) => [i.slug, i.category]),
+);
+writeFileSync(
+  join(out, "framework-categories.json"),
+  `${JSON.stringify(frameworkCategories, null, 2)}\n`,
+);
+
 // The examples playground's catalog (src/proto/examples.ts): each showcase
 // feature with the demos that run it, by framework. A framework the registry
 // hides, and a demo its manifest marks not supported, stay out. Only what
@@ -154,4 +165,4 @@ writeFileSync(
     features,
   }) + "\n",
 );
-console.log(`[showcase-data] ${OUTPUTS.length + 2} files -> src/data`);
+console.log(`[showcase-data] ${OUTPUTS.length + 3} files -> src/data`);

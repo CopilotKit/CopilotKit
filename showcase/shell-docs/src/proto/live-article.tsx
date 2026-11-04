@@ -14,6 +14,7 @@ import {
 import { Callout } from "fumadocs-ui/components/callout";
 import Link from "next/link";
 import { Feedback } from "@/components/feedback/client";
+import { TrackedPageActions } from "@/components/telemetry/page-actions";
 import { VisibleTOCProvider } from "@/components/layout/visible-toc";
 import { docsPageComponents } from "@/components/docs-mdx";
 import { setDocsScope } from "@/components/docs-mdx/page-store";
@@ -68,14 +69,21 @@ export async function LiveArticle({
         </>
       )}
       {data.hidePageActions ? null : (
-        <div className="flex flex-row gap-2 items-center border-b pb-6">
-          <MarkdownCopyButton markdownUrl={markdownUrl} className="font-mono" />
+        <TrackedPageActions
+          markdownUrl={markdownUrl}
+          className="flex flex-row gap-2 items-center border-b pb-6"
+        >
+          <MarkdownCopyButton
+            markdownUrl={markdownUrl}
+            className="font-mono"
+            data-page-action="copy-markdown"
+          />
           <ViewOptionsPopover
             className="font-mono"
             markdownUrl={markdownUrl}
             githubUrl={`https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${gitConfig.branch}/showcase/shell-docs/src/content/${contentPath}`}
           />
-        </div>
+        </TrackedPageActions>
       )}
       {scope.framework && typeof data.snippet_cell === "string" ? (
         <MissingDemoBanner
