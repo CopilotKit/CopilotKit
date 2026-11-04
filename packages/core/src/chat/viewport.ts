@@ -295,6 +295,8 @@ export class ɵStickToBottom {
   /** `scrollTop` right after the last instant scroll to the bottom. */
   private programmaticTop: number | null = null;
   private lastTop: number;
+  /** The largest `scrollTop` at the last read, to tell when content shrank. */
+  private lastMaxTop: number;
   private reported = true;
   private frame: number | null = null;
   private readonly observers: { disconnect(): void }[] = [];
@@ -307,6 +309,7 @@ export class ɵStickToBottom {
     this.onChange = options.onChange;
     this.follow = options.follow ?? true;
     this.lastTop = this.scrollElement.scrollTop;
+    this.lastMaxTop = this.maxTop();
 
     this.scrollElement.addEventListener("scroll", this.update);
     this.scrollElement.addEventListener("scrollend", this.handleScrollEnd);
@@ -358,7 +361,10 @@ export class ɵStickToBottom {
    */
   readonly update = () => {
     const top = this.scrollElement.scrollTop;
-    if (this.atBottom()) {
+    if (this.movedUp(top)) {
+      // Any step up leaves the bottom, also one inside the threshold.
+      this.leave();
+    } else if (this.atBottom()) {
       this.stuck = true;
       this.smoothPending = false;
     } else if (top === this.programmaticTop) {
@@ -367,11 +373,9 @@ export class ɵStickToBottom {
     } else if (this.smoothPending && top >= this.lastTop) {
       // A smooth scroll to the bottom is still moving down.
     } else {
-      this.stuck = false;
-      this.smoothPending = false;
-      this.programmaticTop = null;
+      this.leave();
     }
-    this.lastTop = top;
+    this.remember(top);
     this.report();
   };
 
@@ -392,6 +396,10 @@ export class ɵStickToBottom {
   };
 
   private readonly followContent = () => {
+    // The reader can move before the scroll event of that move arrives.
+    const top = this.scrollElement.scrollTop;
+    if (this.movedUp(top)) this.leave();
+    this.remember(top);
     if (this.follow && this.stuck) this.scrollToEnd(this.followBehavior);
     else this.report();
   };
@@ -426,8 +434,34 @@ export class ɵStickToBottom {
     }
     this.smoothPending = smooth && !this.atBottom();
     this.programmaticTop = smooth ? null : element.scrollTop;
-    this.lastTop = element.scrollTop;
+    this.remember(element.scrollTop);
     this.report();
+  }
+
+  /**
+   * `scrollTop` went down since the last read because the reader scrolled
+   * up. Not when the content (or the viewport) changed so that the browser
+   * clamped `scrollTop`, and not for the controller's own scroll.
+   */
+  private movedUp(top: number) {
+    const shrank = this.maxTop() < this.lastMaxTop;
+    return top < this.lastTop && !shrank && top !== this.programmaticTop;
+  }
+
+  private leave() {
+    this.stuck = false;
+    this.smoothPending = false;
+    this.programmaticTop = null;
+  }
+
+  private remember(top: number) {
+    this.lastTop = top;
+    this.lastMaxTop = this.maxTop();
+  }
+
+  private maxTop() {
+    const element = this.scrollElement;
+    return element.scrollHeight - element.clientHeight;
   }
 
   private atBottom() {

@@ -67,9 +67,21 @@ function scrollBox(contentHeight: number) {
       top = Math.min(Math.max(0, next), maxTop());
       element.dispatchEvent(new Event("scroll"));
     },
+    /** The reader moves the list; its scroll event has not arrived yet. */
+    moveWithoutEvent(next: number) {
+      top = Math.min(Math.max(0, next), maxTop());
+    },
     /** New content arrives; the browser fires no scroll event for it. */
     grow(by: number) {
       height += by;
+    },
+    /** Content goes away; the browser clamps `scrollTop` and fires a scroll. */
+    shrink(by: number) {
+      height -= by;
+      const clamped = Math.min(top, maxTop());
+      if (clamped === top) return;
+      top = clamped;
+      element.dispatchEvent(new Event("scroll"));
     },
     distanceFromEnd() {
       return height - top - 300;
@@ -158,6 +170,45 @@ describe("ɵStickToBottom", () => {
     expect(box.distanceFromEnd()).toBe(0);
     expect(stick.isAtBottom).toBe(true);
     expect(changes).toEqual([false, true]);
+  });
+
+  it("stops following on a small step up inside the threshold", () => {
+    const box = scrollBox(1000);
+    const { stick, changes } = create(box);
+
+    box.scrollTo(696); // 4px up, still within the 12px threshold
+    box.grow(100);
+    resizeAll();
+
+    expect(box.top).toBe(696);
+    expect(stick.isAtBottom).toBe(false);
+    expect(changes).toEqual([false]);
+  });
+
+  it("stops following when the reader moves up before the scroll event arrives", async () => {
+    vi.stubGlobal("ResizeObserver", undefined);
+    const box = scrollBox(1000);
+    const { stick } = create(box);
+
+    box.moveWithoutEvent(696);
+    box.grow(100);
+    box.content.appendChild(document.createElement("p"));
+    await Promise.resolve();
+
+    expect(box.top).toBe(696);
+    expect(stick.isAtBottom).toBe(false);
+  });
+
+  it("keeps following when shrinking content pulls the list up", () => {
+    const box = scrollBox(1000);
+    const { stick } = create(box);
+
+    box.shrink(100);
+    box.grow(300);
+    resizeAll();
+
+    expect(box.distanceFromEnd()).toBe(0);
+    expect(stick.isAtBottom).toBe(true);
   });
 
   it("keeps following when content grows before its own scroll event arrives", () => {
