@@ -10,14 +10,13 @@ import {
   watch,
 } from "vue";
 import {
-  ɵclampSlashIndex,
+  ɵComposerController,
   ɵcomposerButtonState,
   ɵcreateComposerAutosize,
-  ɵfilterCommands,
-  ɵflattenCommandItems,
-  ɵparseSlashQuery,
-  ɵresolveComposerKey,
-  ɵresolveSlashKey,
+  ɵflattenToolsMenuForDisplay,
+  ɵnormalizeToolsMenu,
+  ɵshowsComposerDisclaimer,
+  ɵsyncRecorderToMode,
 } from "@copilotkit/core";
 import {
   IconArrowUp,
@@ -43,16 +42,6 @@ import { useChatLabels } from "./use-chat-labels";
 defineOptions({ inheritAttrs: false });
 
 type MenuEntry = ToolsMenuItem | "-";
-type MenuDisplayEntry =
-  | { type: "separator"; key: string }
-  | { type: "label"; key: string; label: string; depth: number }
-  | {
-      type: "item";
-      key: string;
-      label: string;
-      depth: number;
-      action: () => void;
-    };
 
 const props = withDefaults(
   defineProps<{
@@ -124,8 +113,17 @@ const addButtonContainerRef = ref<HTMLElement | null>(null);
 const actionsContainerRef = ref<HTMLElement | null>(null);
 const slashMenuRef = ref<HTMLElement | null>(null);
 const audioRecorderRef = ref<CopilotChatAudioRecorderRef | null>(null);
-const localValue = ref(props.modelValue ?? "");
 const isComposing = ref(false);
+// The text, controlled or not, and the slash-command menu: see core's
+// ɵComposerController.
+const composer = new ɵComposerController<ToolsMenuItem>({
+  initialValue: props.modelValue ?? "",
+  onChange: (value) => emit("update:modelValue", value),
+});
+const composerState = shallowRef(composer.getSnapshot());
+composer.subscribe(() => {
+  composerState.value = composer.getSnapshot();
+});
 // Sizes the text box and picks the compact or expanded layout.
 const autosize = ɵcreateComposerAutosize({
   getElements: () => ({
@@ -140,9 +138,6 @@ const layout = shallowRef(autosize.getSnapshot());
 autosize.subscribe(() => {
   layout.value = autosize.getSnapshot();
 });
-const commandQuery = ref<string | null>(null);
-const slashHighlightIndex = ref(0);
-const previousCommandQuery = ref<string | null>(null);
 const addMenuOpen = ref(false);
 // Where focus goes as the add menu opens: its first or last item for the
 // keyboard, the menu itself for a pointer, as Radix's DropdownMenu does.
@@ -151,9 +146,13 @@ const addMenuAnchor = ref<HTMLElement | null>(null);
 const addMenuId = useCopilotId("cpk-add-menu");
 const addMenuTriggerId = `${addMenuId}-trigger`;
 
-const isControlled = computed(() => props.modelValue !== undefined);
-const inputValue = computed(() =>
-  isControlled.value ? (props.modelValue ?? "") : localValue.value,
+const inputValue = computed(() => composerState.value.value);
+const filteredCommands = computed(() => composerState.value.slashCommands);
+const slashHighlightIndex = computed(
+  () => composerState.value.slashHighlightIndex,
+);
+const slashMenuVisible = computed(
+  () => composerState.value.slashQuery !== null,
 );
 const labels = useChatLabels();
 const resolvedPlaceholder = computed(
@@ -162,8 +161,11 @@ const resolvedPlaceholder = computed(
 const isExpanded = computed(
   () => props.mode === "input" && layout.value === "expanded",
 );
-const shouldShowDisclaimer = computed(
-  () => props.showDisclaimer ?? props.positioning === "absolute",
+const shouldShowDisclaimer = computed(() =>
+  ɵshowsComposerDisclaimer({
+    showDisclaimer: props.showDisclaimer,
+    positioning: props.positioning,
+  }),
 );
 const hasSubmitAction = computed(
   () => typeof props.onSubmitMessage === "function",
@@ -208,123 +210,41 @@ const rootAttrs = computed(() => {
   return rest;
 });
 
-function isMenuGroup(
-  item: ToolsMenuItem,
-): item is ToolsMenuItem & { items: MenuEntry[] } {
-  return Array.isArray((item as ToolsMenuItem).items);
-}
-
-function createDefaultAddItem(): ToolsMenuItem | null {
-  if (!hasAddFileAction.value) {
-    return null;
-  }
-  return {
-    label: labels.value.chatInputToolbarAddButtonLabel,
-    action: () => emit("add-file"),
-  };
-}
-
-function normalizeMenuItems() {
-  const items: MenuEntry[] = [];
-  const addItem = createDefaultAddItem();
-  if (addItem) {
-    items.push(addItem);
-  }
-
-  if (props.toolsMenu.length > 0) {
-    if (items.length > 0) {
-      items.push("-");
-    }
-
-    for (const menuEntry of props.toolsMenu) {
-      if (menuEntry === "-") {
-        if (items.length === 0 || items[items.length - 1] === "-") {
-          continue;
+const menuItems = computed(() =>
+  ɵnormalizeToolsMenu<ToolsMenuItem>(
+    props.toolsMenu,
+    hasAddFileAction.value
+      ? {
+          label: labels.value.chatInputToolbarAddButtonLabel,
+          action: () => emit("add-file"),
         }
-        items.push("-");
-        continue;
-      }
-
-      items.push(menuEntry);
-    }
-  }
-
-  while (items.length > 0 && items[items.length - 1] === "-") {
-    items.pop();
-  }
-
-  return items;
-}
-
-const menuItems = computed(() => normalizeMenuItems());
+      : undefined,
+  ),
+);
 const hasMenuItems = computed(() => menuItems.value.length > 0);
-
-const commandItems = computed(() => ɵflattenCommandItems(menuItems.value));
-
-function flattenMenuDisplay(items: MenuEntry[], depth = 0, prefix = "root") {
-  const entries: MenuDisplayEntry[] = [];
-  for (const [index, item] of items.entries()) {
-    const key = `${prefix}-${index}`;
-    if (item === "-") {
-      entries.push({ type: "separator", key: `sep-${key}` });
-      continue;
-    }
-    if (isMenuGroup(item) && item.items.length > 0) {
-      entries.push({
-        type: "label",
-        key: `label-${key}`,
-        label: item.label,
-        depth,
-      });
-      entries.push(...flattenMenuDisplay(item.items, depth + 1, key));
-      continue;
-    }
-    if (item.action) {
-      entries.push({
-        type: "item",
-        key: `item-${key}`,
-        label: item.label,
-        depth,
-        action: item.action,
-      });
-    }
-  }
-  return entries;
-}
-
-const menuDisplayItems = computed(() => flattenMenuDisplay(menuItems.value));
-
-const filteredCommands = computed(() =>
-  ɵfilterCommands(commandItems.value, commandQuery.value),
+const menuDisplayItems = computed(() =>
+  ɵflattenToolsMenuForDisplay(menuItems.value),
 );
 
-const slashMenuVisible = computed(
-  () => commandQuery.value !== null && commandItems.value.length > 0,
+watch(
+  [() => props.modelValue, () => props.mode, menuItems],
+  ([value, mode, menu]) => composer.setInputs({ value, mode, menu }),
+  { immediate: true },
 );
 
 function updateInputValue(nextValue: string) {
-  if (!isControlled.value) {
-    localValue.value = nextValue;
-  }
-  emit("update:modelValue", nextValue);
+  composer.setValue(nextValue);
 }
 
-function clearInputValue() {
-  updateInputValue("");
-}
-
-function updateSlashState(value: string) {
-  commandQuery.value = ɵparseSlashQuery(value, commandItems.value.length > 0);
-}
-
-function runCommand(command: ToolsMenuItem) {
-  clearInputValue();
-  command.action?.();
-  commandQuery.value = null;
-  slashHighlightIndex.value = 0;
+function focusTextareaSoon() {
   requestAnimationFrame(() => {
     textareaRef.value?.focus();
   });
+}
+
+function runCommand(command: ToolsMenuItem) {
+  composer.runCommand(command);
+  focusTextareaSoon();
 }
 
 function submit() {
@@ -333,25 +253,15 @@ function submit() {
   }
   // In controlled mode, parent-updated modelValue can lag one tick behind
   // the actual textarea value during intense runtime/connect churn.
-  const rawValue = textareaRef.value?.value ?? inputValue.value;
-  const trimmed = rawValue.trim();
-  if (!trimmed) {
-    return;
-  }
-
-  emit("submit-message", trimmed);
-
-  if (props.clearOnSubmit) {
-    clearInputValue();
-  }
-
-  textareaRef.value?.focus();
+  const sent = composer.submit((text) => emit("submit-message", text), {
+    value: textareaRef.value?.value ?? inputValue.value,
+    clear: props.clearOnSubmit,
+  });
+  if (sent) textareaRef.value?.focus();
 }
 
 function handleInput(event: Event) {
-  const nextValue = (event.target as HTMLTextAreaElement).value;
-  updateInputValue(nextValue);
-  updateSlashState(nextValue);
+  updateInputValue((event.target as HTMLTextAreaElement).value);
 }
 
 // The button stops a run whatever the input holds. Enter differs: see
@@ -367,48 +277,28 @@ function handleSendButtonClick() {
 }
 
 function handleKeydown(event: KeyboardEvent) {
-  if (props.disabled) {
-    return;
-  }
-
-  if (isComposing.value || event.isComposing || event.keyCode === 229) {
-    return;
-  }
-
-  const slash = ɵresolveSlashKey(event, {
-    query: props.mode === "input" ? commandQuery.value : null,
-    commands: filteredCommands.value,
-    highlightIndex: slashHighlightIndex.value,
-  });
-  if (slash.type !== "none") event.preventDefault();
-  switch (slash.type) {
-    case "highlight":
-      slashHighlightIndex.value = slash.index;
-      return;
-    case "run":
-      runCommand(slash.command);
-      return;
-    case "close":
-      commandQuery.value = null;
-      return;
-    case "none":
-      break;
-  }
-
-  if (props.mode !== "input") {
+  if (props.disabled || props.mode !== "input") {
     return;
   }
 
   // Enter with text sends, also while a run is going. Enter in an empty input
   // stops the run. Read the textarea: a controlled modelValue can lag a tick.
-  const action = ɵresolveComposerKey(event, {
-    ...composerInput.value,
-    value: textareaRef.value?.value ?? inputValue.value,
-  });
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault();
-  }
-  if (action === "send") {
+  const { preventDefault, action } = composer.keyDown(
+    {
+      key: event.key,
+      shiftKey: event.shiftKey,
+      isComposing: isComposing.value || event.isComposing,
+      keyCode: event.keyCode,
+    },
+    {
+      ...composerInput.value,
+      value: textareaRef.value?.value ?? inputValue.value,
+    },
+  );
+  if (preventDefault) event.preventDefault();
+  if (action === "command") {
+    focusTextareaSoon();
+  } else if (action === "send") {
     submit();
   } else if (action === "stop") {
     emit("stop");
@@ -524,19 +414,6 @@ function handleContainerClick(event: MouseEvent) {
 }
 
 watch(
-  () => props.modelValue,
-  (next) => {
-    if (isControlled.value) {
-      localValue.value = next ?? "";
-    }
-  },
-);
-
-watch(inputValue, (value) => {
-  updateSlashState(value);
-});
-
-watch(
   [inputValue, () => props.mode],
   ([value, mode]) => {
     autosize.evaluate(value, mode);
@@ -551,88 +428,24 @@ watch(
   },
 );
 
-watch(commandItems, () => {
-  updateSlashState(inputValue.value);
-});
-
-watch(
-  [commandQuery, () => filteredCommands.value.length],
-  ([query, filteredCount]) => {
-    if (
-      query !== null &&
-      query !== previousCommandQuery.value &&
-      filteredCount > 0
-    ) {
-      slashHighlightIndex.value = 0;
-    }
-
-    previousCommandQuery.value = query;
-  },
-  { immediate: true },
-);
-
-watch(
-  [commandQuery, filteredCommands],
-  () => {
-    slashHighlightIndex.value =
-      commandQuery.value === null
-        ? 0
-        : ɵclampSlashIndex(
-            slashHighlightIndex.value,
-            filteredCommands.value.length,
-          );
-  },
-  { immediate: true },
-);
-
 watch(
   () => props.mode,
-  async (mode) => {
+  (mode) => {
     if (mode !== "input") {
-      commandQuery.value = null;
       closeAddMenu();
     }
-
-    const recorder = audioRecorderRef.value;
-    if (!recorder) {
-      return;
-    }
-
-    if (mode === "transcribe") {
-      try {
-        await recorder.start();
-      } catch (error) {
-        console.error(error);
-      }
-      return;
-    }
-
-    if (recorder.state === "recording") {
-      try {
-        await recorder.stop();
-      } catch {
-        // ignore transition stop failures
-      }
-    }
   },
-  { immediate: true },
 );
 
+// Recording follows the mode: it starts in transcribe mode and stops when the
+// mode changes. The recorder renders only in transcribe mode, so also sync
+// when it appears.
 watch(
-  audioRecorderRef,
-  async (recorder) => {
-    if (!recorder || props.mode !== "transcribe") {
-      return;
-    }
-    if (recorder.state === "idle") {
-      try {
-        await recorder.start();
-      } catch (error) {
-        console.error(error);
-      }
-    }
+  [audioRecorderRef, () => props.mode],
+  ([recorder, mode]) => {
+    void ɵsyncRecorderToMode(recorder, mode);
   },
-  { immediate: true },
+  { immediate: true, flush: "post" },
 );
 
 watch(slashHighlightIndex, async (index) => {
@@ -846,7 +659,7 @@ onBeforeUnmount(() => {
                       index === slashHighlightIndex ? 'true' : undefined
                     "
                     class="cpk-chat-input-slash-menu-item"
-                    @mouseenter="slashHighlightIndex = index"
+                    @mouseenter="composer.highlight(index)"
                     @mousedown.prevent="runCommand(command)"
                   >
                     {{ command.label }}

@@ -8,10 +8,12 @@ import {
   ɵflattenUserMessageContent,
   ɵformatReasoningDurationLabel,
   ɵgetBranchNavState,
+  ɵgetReasoningHeaderLabel,
   ɵgetUserMessageMediaFilename,
   ɵgetUserMessageMediaParts,
   ɵgetWorkSummaryText,
   ɵhasAssistantMessageText,
+  ɵReasoningDisclosure,
   ɵshouldShowAssistantToolbar,
 } from "../message-display";
 
@@ -330,5 +332,124 @@ describe("ɵCopyFeedback", () => {
     await expect(feedback.copy("Hello")).resolves.toBe(false);
 
     expect(feedback.getSnapshot()).toBe(false);
+  });
+});
+
+describe("ɵgetReasoningHeaderLabel", () => {
+  it("reads as thinking while the model reasons", () => {
+    expect(
+      ɵgetReasoningHeaderLabel(
+        { isStreaming: true, elapsedSeconds: 12 },
+        labels,
+      ),
+    ).toBe(labels.reasoningMessageThinkingLabel);
+  });
+
+  it("says how long the model thought once it stops", () => {
+    expect(
+      ɵgetReasoningHeaderLabel(
+        { isStreaming: false, elapsedSeconds: 4 },
+        labels,
+      ),
+    ).toBe("Thought for 4 seconds");
+  });
+});
+
+describe("ɵReasoningDisclosure", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const start = (isStreaming = true) => {
+    vi.useFakeTimers();
+    const disclosure = new ɵReasoningDisclosure({ isStreaming });
+    disclosure.setStreaming(isStreaming);
+    return disclosure;
+  };
+
+  it("starts closed with no time for a message that is not streaming", () => {
+    const disclosure = start(false);
+    expect(disclosure.getSnapshot()).toEqual({
+      isStreaming: false,
+      isOpen: false,
+      elapsedSeconds: 0,
+    });
+  });
+
+  it("is open while streaming and closes with the final time when it ends", () => {
+    const disclosure = start();
+    expect(disclosure.getSnapshot().isOpen).toBe(true);
+
+    vi.advanceTimersByTime(2500);
+    disclosure.setStreaming(false);
+
+    expect(disclosure.getSnapshot()).toEqual({
+      isStreaming: false,
+      isOpen: false,
+      elapsedSeconds: 2.5,
+    });
+  });
+
+  it("updates the elapsed time every tick while streaming", () => {
+    const disclosure = start();
+    const listener = vi.fn();
+    disclosure.subscribe(listener);
+
+    vi.advanceTimersByTime(3000);
+
+    expect(disclosure.getSnapshot().elapsedSeconds).toBe(3);
+    expect(listener).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps the user's choice when the stream it was toggled in ends", () => {
+    const disclosure = start();
+    disclosure.toggle();
+    disclosure.toggle();
+
+    disclosure.setStreaming(false);
+
+    expect(disclosure.getSnapshot().isOpen).toBe(true);
+  });
+
+  it("opens again and forgets the toggle when a new stream starts", () => {
+    const disclosure = start();
+    disclosure.toggle();
+    disclosure.setStreaming(false);
+    expect(disclosure.getSnapshot().isOpen).toBe(false);
+
+    disclosure.setStreaming(true);
+    expect(disclosure.getSnapshot().isOpen).toBe(true);
+    disclosure.setStreaming(false);
+    expect(disclosure.getSnapshot().isOpen).toBe(false);
+  });
+
+  it("counts a resumed stream from the first start", () => {
+    const disclosure = start();
+    vi.advanceTimersByTime(1000);
+    disclosure.setStreaming(false);
+    vi.advanceTimersByTime(5000);
+    disclosure.setStreaming(true);
+    vi.advanceTimersByTime(1000);
+    disclosure.setStreaming(false);
+
+    expect(disclosure.getSnapshot().elapsedSeconds).toBe(7);
+  });
+
+  it("stops ticking on dispose and restarts when a remount streams", () => {
+    const disclosure = start();
+    disclosure.dispose();
+    vi.advanceTimersByTime(3000);
+    expect(disclosure.getSnapshot().elapsedSeconds).toBe(0);
+
+    disclosure.setStreaming(true);
+    vi.advanceTimersByTime(1000);
+    expect(disclosure.getSnapshot().elapsedSeconds).toBe(4);
+  });
+
+  it("keeps the same snapshot while nothing changes", () => {
+    const disclosure = start(false);
+    const before = disclosure.getSnapshot();
+    disclosure.setStreaming(false);
+    expect(disclosure.getSnapshot()).toBe(before);
   });
 });

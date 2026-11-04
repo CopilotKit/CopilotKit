@@ -277,3 +277,80 @@ export function ɵcomponentToolDescription(name: string, description?: string) {
   const prefix = `Use this tool to display the "${name}" component in the chat. This tool renders a visual UI component for the user.`;
   return description ? `${prefix}\n\n${description}` : prefix;
 }
+
+/**
+ * What the default (`"*"`) tool-call renderer gets: the documented shape of
+ * `useDefaultRenderTool`'s `render`, in React and Vue.
+ */
+export interface ɵDefaultToolCallRenderProps {
+  /** The name of the tool being called. */
+  name: string;
+  /** The id of the tool call being rendered. */
+  toolCallId: string;
+  /** The parsed parameters passed to the tool call. */
+  parameters: unknown;
+  /** Current execution status of the tool call. */
+  status: "inProgress" | "executing" | "complete";
+  /** The tool call result string, available only when `status` is `"complete"`. */
+  result: string | undefined;
+}
+
+/**
+ * What a framework calls a registered `"*"` renderer with: core's raw shape
+ * (`args` and a `ToolCallStatus`), or the documented shape when a call site
+ * already adapted it.
+ */
+export interface ɵRawToolCallRenderProps {
+  name?: unknown;
+  toolCallId?: unknown;
+  args?: unknown;
+  parameters?: unknown;
+  status?: unknown;
+  result?: unknown;
+}
+
+// Unknown statuses already warned about, so a stuck status does not log on
+// every render.
+const warnedUnknownStatuses = new Set<string>();
+
+/**
+ * The status the default tool-call renderer shows. A status this version
+ * does not know (a newer runtime could send one) reads `"inProgress"`, and
+ * logs one warning per distinct value.
+ *
+ * @param status - A `ToolCallStatus`, or any framework's spelling of one.
+ */
+export function ɵtoDefaultToolCallStatus(
+  status: unknown,
+): ɵDefaultToolCallRenderProps["status"] {
+  const key = String(status);
+  const normalized = ɵnormalizeToolCallStatus(key);
+  if (normalized !== "unknown") return normalized;
+  if (!warnedUnknownStatuses.has(key)) {
+    warnedUnknownStatuses.add(key);
+    console.warn(
+      `[CopilotKit] Unknown ToolCallStatus "${key}" in default tool-call renderer; falling back to "inProgress".`,
+    );
+  }
+  return "inProgress";
+}
+
+/**
+ * Turns the props a `"*"` renderer is called with into the documented
+ * {@link ɵDefaultToolCallRenderProps}: `args` becomes `parameters`, and the
+ * status goes through {@link ɵtoDefaultToolCallStatus}. Props already in the
+ * documented shape stay as they are.
+ *
+ * @param raw - The props the renderer was called with.
+ */
+export function ɵadaptDefaultToolCallRenderProps(
+  raw: ɵRawToolCallRenderProps,
+): ɵDefaultToolCallRenderProps {
+  return {
+    name: raw.name as string,
+    toolCallId: raw.toolCallId as string,
+    parameters: raw.parameters !== undefined ? raw.parameters : raw.args,
+    status: ɵtoDefaultToolCallStatus(raw.status),
+    result: raw.result as string | undefined,
+  };
+}
