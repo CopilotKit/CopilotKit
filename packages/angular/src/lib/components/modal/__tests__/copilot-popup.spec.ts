@@ -75,28 +75,74 @@ describe("CopilotPopup", () => {
     expect(document.activeElement).toBe(launcher);
   });
 
+  /** A pointer down on the page, outside the popup. */
+  function pointerDownOutside() {
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    outside.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    outside.remove();
+  }
+
   it("honors opt-in outside-click closing", async () => {
     const fixture = await render({ clickOutsideToClose: true });
-    const backdrop: HTMLElement = fixture.nativeElement.querySelector(
-      "[data-copilot-popup-backdrop]",
-    );
 
-    backdrop.click();
+    pointerDownOutside();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector("[role=dialog]")).toBeNull();
   });
 
-  it("keeps the popup open on backdrop clicks by default", async () => {
+  it("keeps the popup open on outside clicks by default", async () => {
     const fixture = await render();
-    const backdrop: HTMLElement = fixture.nativeElement.querySelector(
-      "[data-copilot-popup-backdrop]",
-    );
 
-    backdrop.click();
+    pointerDownOutside();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector("[role=dialog]")).not.toBeNull();
+  });
+
+  it("does not treat a press on its own toggle as an outside click", async () => {
+    const fixture = await render({ clickOutsideToClose: true });
+    const launcher: HTMLButtonElement = fixture.nativeElement.querySelector(
+      "[data-copilot-popup-toggle]",
+    );
+
+    launcher.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector("[role=dialog]")).not.toBeNull();
+  });
+
+  it("closes on Escape while focus is outside the popup, as in React", async () => {
+    const fixture = await render();
+
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector("[role=dialog]")).toBeNull();
+  });
+
+  it("keeps Tab inside the popup", async () => {
+    const fixture = await render();
+    const dialog: HTMLElement =
+      fixture.nativeElement.querySelector("[role=dialog]");
+    const close: HTMLButtonElement = dialog.querySelector(
+      ".cpk-modal-header-close-button",
+    )!;
+    expect(document.activeElement).toBe(close);
+
+    const tab = new KeyboardEvent("keydown", {
+      key: "Tab",
+      bubbles: true,
+      cancelable: true,
+    });
+    close.dispatchEvent(tab);
+
+    // The close button is the only focusable element, so Tab wraps to it.
+    expect(tab.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(close);
   });
 
   it("gives its chat React's popup welcome layout", async () => {

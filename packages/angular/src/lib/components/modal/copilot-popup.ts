@@ -1,10 +1,8 @@
-import { CdkTrapFocus } from "@angular/cdk/a11y";
 import { NgComponentOutlet } from "@angular/common";
 import type { ElementRef, Type } from "@angular/core";
 import {
   ChangeDetectionStrategy,
   Component,
-  afterNextRender,
   computed,
   input,
   model,
@@ -17,12 +15,17 @@ import { COPILOT_CHAT_WELCOME_LAYOUT } from "../chat/copilot-chat-welcome-layout
 import { CopilotKitStyles } from "../copilot-kit-styles";
 import { CopilotIcon, MessageCircle, X } from "../icons/copilot-icon";
 import { injectChatLabels } from "../../chat-config";
-import { ɵdimensionToCss } from "@copilotkit/core";
+import { bindModalDialog } from "./modal-dialog";
+import {
+  ɵPOPUP_DEFAULT_HEIGHT,
+  ɵPOPUP_DEFAULT_WIDTH,
+  ɵdimensionToCss,
+} from "@copilotkit/core";
 
 /** Accessible, responsive floating chat surface with an explicit open model. */
 @Component({
   selector: "copilot-popup",
-  imports: [CdkTrapFocus, NgComponentOutlet, CopilotIcon, CopilotKitStyles],
+  imports: [NgComponentOutlet, CopilotIcon, CopilotKitStyles],
   changeDetection: ChangeDetectionStrategy.OnPush,
   viewProviders: [{ provide: COPILOT_CHAT_WELCOME_LAYOUT, useValue: "popup" }],
   host: { class: "copilot-popup-host", "data-copilotkit": "" },
@@ -32,6 +35,7 @@ import { ɵdimensionToCss } from "@copilotkit/core";
       #launcher
       type="button"
       class="copilotKitButton cpk-chat-toggle-button"
+      data-slot="chat-toggle-button"
       data-copilot-popup-toggle
       [attr.data-state]="open() ? 'open' : 'closed'"
       [attr.aria-controls]="dialogId"
@@ -62,16 +66,10 @@ import { ɵdimensionToCss } from "@copilotkit/core";
     </button>
 
     @if (open()) {
-      <div
-        class="copilot-modal-backdrop"
-        data-copilot-popup-backdrop
-        aria-hidden="true"
-        (click)="closeFromBackdrop()"
-      ></div>
       <div data-copilotkit class="cpk-popup-view">
         <section
-          cdkTrapFocus
-          [cdkTrapFocusAutoCapture]="true"
+          #dialog
+          tabindex="-1"
           class="copilotKitPopup copilotKitWindow cpk-popup-view-window cpk-popup-view-window-open"
           role="dialog"
           aria-modal="true"
@@ -80,7 +78,6 @@ import { ɵdimensionToCss } from "@copilotkit/core";
           [attr.aria-label]="headerComponent() ? resolvedTitle() : null"
           [style.--copilot-popup-width]="resolvedWidth()"
           [style.--copilot-popup-height]="resolvedHeight()"
-          (keydown.escape)="close()"
         >
           <header class="copilotKitHeader cpk-modal-header">
             <div class="cpk-modal-header-content">
@@ -100,7 +97,6 @@ import { ɵdimensionToCss } from "@copilotkit/core";
                 <button
                   #initialFocus
                   type="button"
-                  cdkFocusInitial
                   class="cpk-modal-header-close-button"
                   [attr.aria-label]="labels.modalHeaderCloseButtonLabel"
                   (click)="close()"
@@ -121,8 +117,8 @@ import { ɵdimensionToCss } from "@copilotkit/core";
     }
   `,
   // The look comes from the shared CSS (cpk-* classes). These rules add what
-  // the Angular popup does beyond React's: a backdrop that catches outside
-  // clicks, a toggle that stays on top of it, and an enter animation.
+  // the Angular popup does beyond React's: a toggle that stays on top of the
+  // popup, and an enter animation.
   styles: `
     :host {
       display: contents;
@@ -141,11 +137,6 @@ import { ɵdimensionToCss } from "@copilotkit/core";
     }
     .copilot-toggle-icon-close.copilot-toggle-icon-hidden {
       transform: scale(0.75) rotate(-90deg);
-    }
-    .copilot-modal-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 1200;
     }
     .cpk-popup-view {
       z-index: 1201;
@@ -173,8 +164,8 @@ export class CopilotPopup {
   readonly open = model(true);
   /** The header title. Default: `labels.modalHeaderTitle`. */
   readonly title = input<string | undefined>();
-  readonly width = input<number | string>(420);
-  readonly height = input<number | string>(560);
+  readonly width = input<number | string>(ɵPOPUP_DEFAULT_WIDTH);
+  readonly height = input<number | string>(ɵPOPUP_DEFAULT_HEIGHT);
   readonly clickOutsideToClose = input(false);
   readonly chatComponent = input<Type<unknown>>(CopilotChat);
   readonly headerComponent = input<Type<unknown> | undefined>();
@@ -189,32 +180,32 @@ export class CopilotPopup {
   protected readonly dialogId = `copilot-popup-${randomUUID()}`;
   protected readonly titleId = `${this.dialogId}-title`;
   protected readonly resolvedWidth = computed(() =>
-    ɵdimensionToCss(this.width(), 420),
+    ɵdimensionToCss(this.width(), ɵPOPUP_DEFAULT_WIDTH),
   );
   protected readonly resolvedHeight = computed(() =>
-    ɵdimensionToCss(this.height(), 560),
+    ɵdimensionToCss(this.height(), ɵPOPUP_DEFAULT_HEIGHT),
   );
   private readonly launcher =
     viewChild.required<ElementRef<HTMLButtonElement>>("launcher");
   private readonly initialFocus =
     viewChild<ElementRef<HTMLButtonElement>>("initialFocus");
 
+  private readonly dialog = viewChild<ElementRef<HTMLElement>>("dialog");
+
   constructor() {
-    afterNextRender(() => {
-      if (this.open()) this.focusModal();
+    // Core's dialog focus and popup dismissal, as in React and Vue.
+    bindModalDialog({
+      dialog: this.dialog,
+      initialFocus: this.initialFocus,
+      launcher: this.launcher,
+      clickOutsideToClose: this.clickOutsideToClose,
+      close: () => this.close(),
     });
   }
 
   protected toggle(): void {
     if (this.open()) this.close();
-    else {
-      this.open.set(true);
-      queueMicrotask(() => this.focusModal());
-    }
-  }
-
-  protected closeFromBackdrop(): void {
-    if (this.clickOutsideToClose()) this.close();
+    else this.open.set(true);
   }
 
   protected close(): void {
@@ -223,9 +214,5 @@ export class CopilotPopup {
     queueMicrotask(() =>
       this.launcher().nativeElement.focus({ preventScroll: true }),
     );
-  }
-
-  private focusModal(): void {
-    this.initialFocus()?.nativeElement.focus({ preventScroll: true });
   }
 }

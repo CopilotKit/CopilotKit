@@ -348,6 +348,23 @@ export type {
   ɵPinMessageToTopOptions,
 } from "./viewport";
 
+// Stick to bottom, element sizes, popup and sidebar (internal)
+export { ɵStickToBottom, ɵcreateStickToBottom } from "./viewport";
+export type { ɵStickToBottomOptions } from "./viewport";
+export {
+  ɵisContentScrolledToBottom,
+  ɵPOPUP_DEFAULT_WIDTH,
+  ɵPOPUP_DEFAULT_HEIGHT,
+  ɵSIDEBAR_DEFAULT_WIDTH,
+  ɵSIDEBAR_TRANSITION_MS,
+  ɵExitPresence,
+  ɵcreateExitPresence,
+  ɵRESIZE_SETTLE_MS,
+  ɵwatchElementHeight,
+  ɵwatchElementWidth,
+} from "./dom";
+export type { ɵExitPresenceState, ɵElementHeightState } from "./dom";
+
 // Message display (internal)
 export {
   ɵformatReasoningDurationLabel,

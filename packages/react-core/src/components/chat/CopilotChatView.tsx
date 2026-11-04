@@ -19,7 +19,12 @@ import CopilotChatInput from "./CopilotChatInput";
 import CopilotChatSuggestionView, {
   CopilotChatSuggestionViewProps,
 } from "./CopilotChatSuggestionView";
-import { ɵgetChatViewState } from "@copilotkit/core";
+import {
+  ɵgetChatViewState,
+  ɵisContentScrolledToBottom,
+  ɵisScrolledToBottom,
+  ɵwatchElementHeight,
+} from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import type { Message } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";
@@ -212,13 +217,13 @@ export function CopilotChatView({
     useState<HTMLDivElement | null>(null);
   const [inputContainerHeight, setInputContainerHeight] = useState(0);
   const [isResizing, setIsResizing] = useState(false);
-  const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Track keyboard state for mobile
   const { isKeyboardOpen, keyboardHeight, availableHeight } =
     useKeyboardHeight();
 
-  // Track input container height changes
+  // Track input container height changes. While the height settles, the
+  // scroll-to-bottom button hides (see ɵwatchElementHeight).
   useEffect(() => {
     const element = inputContainerEl;
     if (!element) {
@@ -226,46 +231,13 @@ export function CopilotChatView({
       // hold a stale value if the overlay unmounts (e.g. messages cleared
       // and the welcome screen returns).
       setInputContainerHeight(0);
+      setIsResizing(false);
       return;
     }
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const newHeight = entry.contentRect.height;
-
-        // Update height and set resizing state
-        setInputContainerHeight((prevHeight) => {
-          if (newHeight !== prevHeight) {
-            setIsResizing(true);
-
-            // Clear existing timeout
-            if (resizeTimeoutRef.current) {
-              clearTimeout(resizeTimeoutRef.current);
-            }
-
-            // Set isResizing to false after a short delay
-            resizeTimeoutRef.current = setTimeout(() => {
-              setIsResizing(false);
-            }, 250);
-
-            return newHeight;
-          }
-          return prevHeight;
-        });
-      }
+    return ɵwatchElementHeight(element, (state) => {
+      setInputContainerHeight(state.height);
+      setIsResizing(state.isResizing);
     });
-
-    resizeObserver.observe(element);
-
-    // Set initial height
-    setInputContainerHeight(element.offsetHeight);
-
-    return () => {
-      resizeObserver.disconnect();
-      if (resizeTimeoutRef.current) {
-        clearTimeout(resizeTimeoutRef.current);
-      }
-    };
   }, [inputContainerEl]);
 
   const BoundMessageView = renderSlot(messageView, CopilotChatMessageView, {
@@ -851,13 +823,10 @@ export namespace CopilotChatView {
       // empty spacer under them lets a sent message reach the top, and
       // scrolling into it would only clear the screen.
       const checkScroll = () => {
-        const hiddenBelow = contentElement
-          ? contentElement.getBoundingClientRect().bottom -
-            scrollElement.getBoundingClientRect().bottom
-          : scrollElement.scrollHeight -
-            scrollElement.scrollTop -
-            scrollElement.clientHeight;
-        setShowScrollButton(hiddenBelow >= 10);
+        const isAtBottom = contentElement
+          ? ɵisContentScrolledToBottom(scrollElement, contentElement)
+          : ɵisScrolledToBottom(scrollElement);
+        setShowScrollButton(!isAtBottom);
       };
 
       checkScroll();

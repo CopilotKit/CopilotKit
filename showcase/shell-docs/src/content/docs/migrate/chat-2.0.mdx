@@ -1,6 +1,6 @@
 ---
 title: Chat UI in 2.0
-description: Replace removed chat exports, update full label objects, renderer lists, repeated tool registrations, and writes to the Angular copy buttons, and check the default text and behavior that changed in tool-call rendering, chat configuration, agents, thread lists, sends, attachments, the Angular welcome screen, the chat input, the audio recorder, the sidebar, attachment previews, the Inspector, suggestions, interrupts, and human-in-the-loop tools.
+description: Replace removed chat exports, update full label objects, renderer lists, repeated tool registrations, and writes to the Angular copy buttons, and check the default text and behavior that changed in tool-call rendering, chat configuration, agents, thread lists, sends, attachments, the Angular welcome screen, the chat input, the audio recorder, the sidebar, scrolling, the Angular popup, attachment previews, the Inspector, suggestions, interrupts, and human-in-the-loop tools.
 ---
 
 In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilotkit/core` can fail, or a type check can fail. The Vue and Angular chat can also show different text or act differently. The cause is one of these changes:
@@ -14,6 +14,7 @@ In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilot
 - React, Vue, and Angular use the same rules for chat configuration, agents, and thread lists.
 - React, Vue, and Angular use one set of rules to send messages and upload attachments.
 - React, Vue, and Angular share one chat input, audio recorder, docked sidebar, and attachment preview.
+- React, Vue, and Angular use one set of rules to scroll the message list and to close the popup.
 - The Inspector in Vue and Angular follows the same rules as in React.
 - `useConfigureSuggestions` loads suggestions for the agent of the chat, in React and in Vue.
 - Interrupts and human-in-the-loop tools work the same in React, Vue, and Angular.
@@ -573,17 +574,40 @@ In React and Vue, a text attachment shows its base64 data decoded as UTF-8. Befo
 
 If a test reads `document.activeElement` after it opens a preview, update it to expect the close button.
 
-## Scroll to bottom in Angular
+## Scroll to bottom
 
-`StickToBottom` and `ScrollPosition` now count 12px or less from the end as the bottom. Before, the default was 10px. Vue uses 12px. The message list of `<copilot-chat-view>` also uses 12px now.
+React, Vue, and Angular count 12px or less from the end as the bottom. Before, the default was 10px in Angular, and in React with `autoScroll="none"` or `"pin-to-send"`.
 
-To keep 10px, set the threshold:
+In Angular, `StickToBottom` and `ScrollPosition` use 12px. The message list of `<copilot-chat-view>` also uses 12px, also with `[autoScroll]="false"`. To keep 10px, set the threshold:
 
 ```html title="chat.component.html"
 <div copilotStickToBottom [threshold]="10">
   <!-- messages -->
 </div>
 ```
+
+Vue and Angular keep the message list at the bottom with the same rules:
+
+- **Following:** While the reader is at the bottom, new content keeps the list at the bottom. This includes text that streams into a message. When the reader scrolls up, the list stays where it is. When the reader scrolls back to the bottom, the list follows again.
+- **Scroll-to-bottom button:** The button stays hidden while the list moves to the bottom.
+
+In Angular, `StickToBottom` changed:
+
+- `isAtBottomChange` does not send the first value. It sends a value when the position changes. The position starts at the bottom.
+- With `[enabled]="false"`, `isAtBottomChange` still reports the position. The directive does not follow new content.
+- Without a `data-stick-to-bottom-content` element, the directive watches its first child element.
+- The directive does not provide `ScrollPosition` and `ResizeObserverService`. Both are still available from the root injector.
+
+## Popup and sidebar in Angular
+
+`<copilot-popup>` and `<copilot-sidebar>` now close and move focus with the same rules as React and Vue:
+
+- **Escape:** Escape closes the popup, or the sidebar in overlay mode, also when focus is outside it. If more than one is open, Escape closes all of them.
+- **Clicks outside:** There is no invisible backdrop. A click outside the popup reaches the page. With `clickOutsideToClose`, the popup closes on the pointer down outside it. A pointer down on the toggle button or in a chat popover does not close it.
+- **Focus:** Focus moves to the close button when the dialog opens. Tab and Shift+Tab stay inside the dialog. Focus goes back to the toggle button when the dialog closes, also when the `open` model closes it.
+- **Docked margin:** After the first change, the page margin of a docked sidebar animates for 260ms.
+
+If a test clicks `[data-copilot-popup-backdrop]` or `[data-copilot-sidebar-backdrop]`, dispatch a `pointerdown` event on an element outside the popup instead.
 
 ## Inspector in Vue and Angular
 
