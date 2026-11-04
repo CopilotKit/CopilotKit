@@ -86,7 +86,23 @@ interface Envelope {
 
 const sizeOf = (value: unknown) => JSON.stringify(value ?? null).length;
 
-type Part = { type?: string; text?: string };
+type Part = {
+  type?: string;
+  text?: string;
+  source?: { type?: string; mimeType?: string };
+};
+
+/**
+ * An image the chat attached: inline base64, as CopilotChat sends a picked,
+ * dropped or pasted screenshot. URL sources and other kinds (document, audio,
+ * video, binary) are turned away: the runtime would fetch a URL for the
+ * model, so a few bytes of JSON could cost a large file's tokens on every
+ * step.
+ */
+const isInlineImage = (part: Part) =>
+  part.type === "image" &&
+  part.source?.type === "data" &&
+  (part.source.mimeType ?? "").startsWith("image/");
 
 /** A message's typed text, without its attachments. */
 function textOf(content: unknown) {
@@ -100,19 +116,24 @@ function textOf(content: unknown) {
   return JSON.stringify(content ?? "");
 }
 
-/** The attachments (every non-text part) across the conversation. */
+/**
+ * The attachments (every non-text part) across the conversation, and
+ * whether any of them isn't an inline image.
+ */
 function attachmentsIn(messages: NonNullable<Envelope["body"]>["messages"]) {
   let count = 0;
   let chars = 0;
+  let foreign = false;
   for (const m of messages ?? []) {
     if (!Array.isArray(m.content)) continue;
     for (const part of m.content as Part[]) {
       if (part?.type === "text") continue;
+      if (!part || !isInlineImage(part)) foreign = true;
       count++;
       chars += JSON.stringify(part).length;
     }
   }
-  return { count, chars };
+  return { count, chars, foreign };
 }
 
 /**
@@ -169,6 +190,9 @@ const guard: CopilotRuntimeHooks["onBeforeHandler"] = async ({
 
   const { body } = JSON.parse(raw) as Envelope;
   const attachments = attachmentsIn(body?.messages);
+  if (attachments.foreign) {
+    throw reject(400, "This chat only takes images you add to it.");
+  }
   if (
     attachments.count > MAX_ATTACHMENTS ||
     attachments.chars > MAX_ATTACHMENT_CHARS
