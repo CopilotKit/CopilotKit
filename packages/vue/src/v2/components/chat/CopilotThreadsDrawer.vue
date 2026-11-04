@@ -21,10 +21,10 @@ import type {
 // lands and is published; declared locally here because the built element types
 // in this worktree predate it.
 type CollapseChangeDetail = { collapsed: boolean };
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import {
   ɵcreateThreadsDrawerActions,
   ɵgetThreadsDrawerElementProps,
+  ɵresolveAgentId,
   ɵresolveThreadsLicense,
   ɵtoDrawerThread,
 } from "@copilotkit/core";
@@ -82,8 +82,11 @@ const threadsLicense = computed(() => ɵresolveThreadsLicense(license.value));
 const licensed = computed(() => threadsLicense.value.licensed);
 const licensePending = computed(() => threadsLicense.value.licensePending);
 
-const resolvedAgentId = computed(
-  () => props.agentId ?? config.value?.agentId ?? DEFAULT_AGENT_ID,
+const resolvedAgentId = computed(() =>
+  ɵresolveAgentId({
+    agentId: props.agentId,
+    chatAgentId: config.value?.agentId,
+  }),
 );
 const activeThreadId = computed(() => config.value?.threadId ?? null);
 

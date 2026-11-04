@@ -72,7 +72,6 @@ import {
           tabindex="-1"
           class="copilotKitPopup copilotKitWindow cpk-popup-view-window cpk-popup-view-window-open"
           role="dialog"
-          aria-modal="true"
           [attr.id]="dialogId"
           [attr.aria-labelledby]="headerComponent() ? null : titleId"
           [attr.aria-label]="headerComponent() ? resolvedTitle() : null"

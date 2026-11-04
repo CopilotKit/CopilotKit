@@ -138,8 +138,6 @@ describe("CopilotKit", () => {
     vi.clearAllMocks();
     // Core returns an unregister function from every `addTool` call.
     mockAddTool.mockImplementation(() => vi.fn());
-    document.getElementById("copilotkit-license-watermark")?.remove();
-    (globalThis as any).__copilotkitAngularLicenseWatermarkLogged = undefined;
   });
 
   it("initialises core with transformed tool and renderer config", () => {
@@ -845,15 +843,5 @@ describe("CopilotKit", () => {
 
     core.listener!.onAgentsChanged();
     expect(copilotKit.agents()).toEqual(core.agents);
-  });
-
-  it("does not add a watermark when license key is missing (watermark disabled)", () => {
-    TestBed.configureTestingModule({
-      providers: [provideCopilotKit({ runtimeUrl: "https://runtime.local" })],
-    });
-
-    TestBed.inject(CopilotKit);
-
-    expect(document.getElementById("copilotkit-license-watermark")).toBeNull();
   });
 });

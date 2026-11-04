@@ -259,7 +259,7 @@ A tool that has a renderer but no handler now stays `"in-progress"` until its re
 
 Angular now draws `toolCallDisplay: "turn"` the same as React and Vue. Each reply starts with a summary line, such as "Working 4s" or "Worked for 9s". The tool calls, the reasoning, and the narration text of the reply fold into that line when the reply is done. Click the line to show the work again. In 1.x, Angular drew `"turn"` the same as `"grouped"`.
 
-To replace the summary line, set `workSummaryComponent` or `workSummaryTemplate` on `copilot-chat-message-view`. The slot gets `isWorking`, `isOpen`, `calls`, `elapsedMs`, `workingSince`, and `onClick`.
+To replace the summary line, set `workSummaryComponent` or `workSummaryTemplate` on `copilot-chat`, `copilot-chat-view`, or `copilot-chat-message-view`. `workSummaryClass` sets the class of the line. The slot gets `isWorking`, `isOpen`, `calls`, `elapsedMs`, `workingSince`, and `onClick`.
 
 In the Angular chat, the last tool-call group of a reply now shows "Running" while the agent runs. In 1.x, the group showed "Stopped" until the run ended.
 
@@ -633,6 +633,8 @@ Vue and Angular keep the message list at the bottom with the same rules:
 - **Following:** While the reader is at the bottom, new content keeps the list at the bottom. This includes text that streams into a message. When the reader scrolls up, the list stays where it is. When the reader scrolls back to the bottom, the list follows again.
 - **Scroll-to-bottom button:** The button stays hidden while the list moves to the bottom.
 
+In Vue with `autoScroll="pin-to-send"` or `"none"`, the scroll-to-bottom button shows only while messages are below the view, as in React. Before, the empty space under the last message in `"pin-to-send"` mode also showed the button.
+
 In Angular, `StickToBottom` changed:
 
 - `isAtBottomChange` does not send the first value. It sends a value when the position changes. The position starts at the bottom.
@@ -646,6 +648,7 @@ In Angular, `StickToBottom` changed:
 
 - **Escape:** Escape closes the popup, or the sidebar in overlay mode, also when focus is outside it. If more than one is open, Escape closes all of them.
 - **Clicks outside:** There is no invisible backdrop. A click outside the popup reaches the page. With `clickOutsideToClose`, the popup closes on the pointer down outside it. A pointer down on the toggle button or in a chat popover does not close it.
+- **`aria-modal`:** The popup and the overlay sidebar do not set `aria-modal="true"`, because the page behind them stays usable. They keep `role="dialog"`. If a test reads `aria-modal`, read `role="dialog"` instead.
 - **Focus:** Focus moves to the close button when the dialog opens. Tab and Shift+Tab stay inside the dialog. Focus goes back to the toggle button when the dialog closes, also when the `open` model closes it.
 - **Docked margin:** After the first change, the page margin of a docked sidebar animates for 260ms.
 

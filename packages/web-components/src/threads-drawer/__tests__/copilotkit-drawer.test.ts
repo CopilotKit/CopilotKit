@@ -1017,49 +1017,77 @@ test("confirm-delete survives an unrelated thread change (same id still present)
   teardown();
 });
 
-// --- Fix 6: malformed-timestamp sort guard --------------------------------
+// --- Sort order matches core's sortThreadsByRecency -----------------------
+// The framework drawers pass in threads that core already sorted. These pin
+// the element to core's rule (packages/core/src/threads.ts): most recent
+// first by `lastRunAt ?? updatedAt ?? createdAt`, compared as strings, so the
+// element never reorders what core sorted.
 
-test("malformed timestamps are not coerced to epoch 0 — dated rows sort first", async () => {
+test("prefers lastRunAt over a newer updatedAt, like core", async () => {
+  // Same fixture as core's "sorts by lastRunAt when present" test.
   const { qa, teardown } = await setup({
     threads: [
-      makeThread({ id: "bad", name: "Bad", updatedAt: "not-a-date" }),
+      makeThread({
+        id: "recent-meta",
+        name: "Recent meta",
+        updatedAt: "2026-06-20T00:00:00.000Z",
+      }),
+      makeThread({
+        id: "newest-run",
+        name: "Newest run",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        lastRunAt: "2026-06-25T00:00:00.000Z",
+      }),
       makeThread({
         id: "old",
         name: "Old",
-        updatedAt: "2020-01-01T00:00:00.000Z",
-      }),
-      makeThread({
-        id: "new",
-        name: "New",
-        updatedAt: "2026-06-20T00:00:00.000Z",
+        updatedAt: "2026-03-01T00:00:00.000Z",
       }),
     ],
   });
 
   const order = qa("li.row").map((el) => el.getAttribute("data-thread-id"));
 
-  // valid dates first (most-recent-first); the unparseable row sorts last,
-  // NOT pinned to 1970 ahead of the 2020 row.
-  expect(order).toEqual(["new", "old", "bad"]);
+  expect(order).toEqual(["newest-run", "recent-meta", "old"]);
   teardown();
 });
 
-test("multiple malformed timestamps keep their incoming relative order (stable)", async () => {
+test("compares timestamps as strings, like core", async () => {
+  // As instants, 09:00Z is later than 10:00+02:00 (08:00Z). Core compares
+  // the strings, so "10:00+02:00" comes first, and so does the element.
   const { qa, teardown } = await setup({
     threads: [
-      makeThread({ id: "bad1", name: "Bad1", updatedAt: "nope" }),
       makeThread({
-        id: "good",
-        name: "Good",
-        updatedAt: "2026-06-20T00:00:00.000Z",
+        id: "utc",
+        name: "UTC",
+        updatedAt: "2026-06-20T09:00:00Z",
       }),
-      makeThread({ id: "bad2", name: "Bad2", updatedAt: "also-nope" }),
+      makeThread({
+        id: "offset",
+        name: "Offset",
+        updatedAt: "2026-06-20T10:00:00+02:00",
+      }),
+      makeThread({ id: "bad", name: "Bad", updatedAt: "not-a-date" }),
     ],
   });
 
   const order = qa("li.row").map((el) => el.getAttribute("data-thread-id"));
 
-  expect(order).toEqual(["good", "bad1", "bad2"]);
+  expect(order).toEqual(["bad", "offset", "utc"]);
+  teardown();
+});
+
+test("keeps the incoming order of threads with equal timestamps", async () => {
+  const { qa, teardown } = await setup({
+    threads: [
+      makeThread({ id: "first", name: "First" }),
+      makeThread({ id: "second", name: "Second" }),
+    ],
+  });
+
+  const order = qa("li.row").map((el) => el.getAttribute("data-thread-id"));
+
+  expect(order).toEqual(["first", "second"]);
   teardown();
 });
 

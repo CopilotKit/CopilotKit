@@ -1,13 +1,15 @@
 import { computed, ref, toValue, watch } from "vue";
 import type { MaybeRefOrGetter, Ref } from "vue";
-import { ɵsubscribeToAgentSuggestions } from "@copilotkit/core";
+import {
+  ɵresolveAgentId,
+  ɵsubscribeToAgentSuggestions,
+} from "@copilotkit/core";
 import type {
   CopilotKitCoreGetSuggestionsResult,
   Suggestion,
 } from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../providers/useCopilotChatConfiguration";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
 export interface UseSuggestionsOptions {
   agentId?: MaybeRefOrGetter<string | undefined>;
@@ -38,8 +40,11 @@ export function useSuggestions(
 ): UseSuggestionsResult {
   const { copilotkit } = useCopilotKit();
   const config = useCopilotChatConfiguration();
-  const resolvedAgentId = computed(
-    () => toValue(options.agentId) ?? config.value?.agentId ?? DEFAULT_AGENT_ID,
+  const resolvedAgentId = computed(() =>
+    ɵresolveAgentId({
+      agentId: toValue(options.agentId),
+      chatAgentId: config.value?.agentId,
+    }),
   );
 
   const suggestions = ref<Suggestion[]>([]);

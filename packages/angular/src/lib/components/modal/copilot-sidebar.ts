@@ -89,7 +89,6 @@ export type CopilotSidebarPosition = "left" | "right";
         class="copilotKitSidebar copilotKitWindow cpk-sidebar-view modal"
         data-copilot-sidebar
         role="dialog"
-        aria-modal="true"
         [attr.id]="sidebarId"
         [attr.data-position]="position()"
         [attr.aria-labelledby]="headerComponent() ? null : titleId"

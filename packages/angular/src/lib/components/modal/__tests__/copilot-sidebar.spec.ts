@@ -78,14 +78,15 @@ describe("CopilotSidebar", () => {
     expect(document.body.style.marginInlineEnd).toBe("");
   });
 
-  it("uses modal semantics and no body docking in overlay mode", async () => {
+  it("uses dialog semantics and no body docking in overlay mode", async () => {
     const fixture = await render({ mode: "overlay", position: "right" });
     const sidebar = fixture.nativeElement.querySelector(
       "[data-copilot-sidebar]",
     );
 
     expect(sidebar.getAttribute("role")).toBe("dialog");
-    expect(sidebar.getAttribute("aria-modal")).toBe("true");
+    // No backdrop blocks the page, so the dialog does not claim to be modal.
+    expect(sidebar.hasAttribute("aria-modal")).toBe(false);
     expect(sidebar.contains(document.activeElement)).toBe(true);
     expect(document.body.style.marginInlineEnd).toBe("");
   });

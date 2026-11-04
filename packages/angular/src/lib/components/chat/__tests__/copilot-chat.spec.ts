@@ -55,6 +55,14 @@ class TestReasoningMessage {
 }
 
 @Component({
+  selector: "test-work-summary",
+  template: `
+    <p data-testid="custom-work-summary">Work</p>
+  `,
+})
+class TestWorkSummary {}
+
+@Component({
   selector: "test-transcript-children",
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -428,6 +436,41 @@ describe("CopilotChat", () => {
       ).querySelector<HTMLElement>('[data-testid="custom-reasoning"]');
 
       expect(customMessage?.textContent).toBe("Rendered reasoning");
+    });
+
+    test("forwards a custom work-summary component through the prebuilt chat", async () => {
+      const { fixture } = context;
+      fixture.componentRef.setInput("toolCallDisplay", "turn");
+      fixture.componentRef.setInput("workSummaryComponent", TestWorkSummary);
+      fixture.detectChanges();
+      const call = (id: string) => ({
+        id,
+        type: "function" as const,
+        function: { name: "run_command", arguments: "{}" },
+      });
+      agent.setMessages([
+        { id: "user-1", role: "user", content: "Check the build" },
+        { id: "assistant-1", role: "assistant", content: "Looking." },
+        {
+          id: "assistant-2",
+          role: "assistant",
+          content: "",
+          toolCalls: [call("a"), call("b")],
+        },
+        { id: "tool-a", role: "tool", toolCallId: "a", content: "ok" },
+        { id: "tool-b", role: "tool", toolCallId: "b", content: "ok" },
+        { id: "assistant-3", role: "assistant", content: "Done." },
+      ]);
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      fixture.detectChanges();
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(
+        root.querySelectorAll('[data-testid="custom-work-summary"]'),
+      ).toHaveLength(1);
+      expect(root.querySelector('[data-testid="copilot-work-summary"]')).toBe(
+        null,
+      );
     });
 
     test("forwards transcript children through the prebuilt chat", async () => {

@@ -4,6 +4,7 @@ import type { Message } from "@ag-ui/core";
 import {
   ɵcreateStickToBottom,
   ɵgetChatViewState,
+  ɵisContentScrolledToBottom,
   ɵnormalizeAutoScroll,
   ɵwatchElementHeight,
 } from "@copilotkit/core";
@@ -131,6 +132,9 @@ const spacerRef = ref<HTMLElement | null>(null);
 const inputContainerRef = ref<HTMLElement | null>(null);
 const inputContainerHeight = ref(0);
 const isAtBottom = ref(true);
+// The end of the messages is in view. Without following ("pin-to-send" and
+// "none"), this, not the scroll height, decides the scroll-to-bottom button.
+const isContentAtBottom = ref(true);
 const isControlledInput = computed(() => props.inputValue !== undefined);
 const localInputValue = ref(props.inputValue ?? "");
 
@@ -205,7 +209,9 @@ const messagePaddingBottom = computed(
   () => `${viewState.value.paddingBottom}px`,
 );
 const showScrollToBottomButton = computed(
-  () => !shouldShowWelcomeScreen.value && !isAtBottom.value,
+  () =>
+    !shouldShowWelcomeScreen.value &&
+    !(isPinToBottomMode.value ? isAtBottom.value : isContentAtBottom.value),
 );
 
 // Core keeps the list at the bottom while content arrives in `pin-to-bottom`
@@ -240,6 +246,41 @@ watch(
 
 watch(isPinToBottomMode, (follow) => stickToBottom?.setFollow(follow));
 
+// Without following, the button shows while messages sit below the viewport.
+// That is the end of the messages, not the scroll height: in "pin-to-send"
+// mode an empty spacer under them lets a sent message reach the top, and
+// scrolling into it would only clear the screen (parity with React).
+function checkContentAtBottom() {
+  const scrollElement = scrollContainerRef.value;
+  const contentElement = scrollContentRef.value;
+  isContentAtBottom.value =
+    !scrollElement ||
+    !contentElement ||
+    ɵisContentScrolledToBottom(scrollElement, contentElement);
+}
+
+watch(
+  [scrollContainerRef, scrollContentRef],
+  ([scrollElement, contentElement], _old, onCleanup) => {
+    checkContentAtBottom();
+    if (!scrollElement) return;
+    scrollElement.addEventListener("scroll", checkContentAtBottom);
+    // A reply that streams past the bottom needs the button before anyone
+    // scrolls, so check again when the viewport or the messages resize.
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(checkContentAtBottom);
+    resizeObserver?.observe(scrollElement);
+    if (contentElement) resizeObserver?.observe(contentElement);
+    onCleanup(() => {
+      scrollElement.removeEventListener("scroll", checkContentAtBottom);
+      resizeObserver?.disconnect();
+    });
+  },
+  { flush: "post" },
+);
+
 // The input overlay's height becomes the bottom padding of the messages.
 watch(
   inputContainerRef,
@@ -272,6 +313,7 @@ function scrollToBottom(behavior: ScrollBehavior = "smooth") {
 
 function handleScroll() {
   stickToBottom?.update();
+  checkContentAtBottom();
 }
 
 function handleInputValueChange(value: string) {
