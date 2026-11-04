@@ -628,6 +628,8 @@ Vue and Angular keep the message list at the bottom with the same rules:
 - **Following:** While the reader is at the bottom, new content keeps the list at the bottom. This includes text that streams into a message. When the reader scrolls up, the list stays where it is. When the reader scrolls back to the bottom, the list follows again.
 - **Scroll-to-bottom button:** The button stays hidden while the list moves to the bottom.
 
+In Vue with `autoScroll="pin-to-send"` or `"none"`, the scroll-to-bottom button shows only while messages are below the view, as in React. Before, the empty space under the last message in `"pin-to-send"` mode also showed the button.
+
 In Angular, `StickToBottom` changed:
 
 - `isAtBottomChange` does not send the first value. It sends a value when the position changes. The position starts at the bottom.
