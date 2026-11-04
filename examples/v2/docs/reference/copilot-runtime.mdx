@@ -236,6 +236,10 @@ app.use(
 );
 ```
 
+`basePath` is the path left after the mount prefix. Express removes `/api/copilotkit` before the
+router sees the request, so `basePath` is `/` here. If you call `app.use()` without a prefix,
+set `basePath: "/api/copilotkit"` instead.
+
 The router mirrors the Hono REST routes and automatically enables permissive CORS (allowing all origins, headers, and methods). Adjust headers upstream if you need tighter controls.
 
 ### Express (Single-route)
