@@ -10,6 +10,7 @@ import {
   parseRunRequest,
 } from "./shared/agent-utils";
 import { handleIntelligenceRun } from "./intelligence/run";
+import { takeAnalyticsContext } from "../intelligence-platform/analytics-context";
 import { handleSseRun } from "./sse/run";
 import { getRuntimeErrorReporter } from "../core/runtime-error-reporter";
 import { enforcesThreadOwnership } from "../runner/agent-runner";
@@ -50,10 +51,13 @@ export async function handleRunAgent({
     // `a2uiCatalogAvailable` below). Middleware is applied to the agent here;
     // the run itself is kicked off later, so this is safe. The body is read
     // from a clone, so `identifyUser` can still read the original request.
-    const input = await parseRunRequest(request.clone());
-    if (input instanceof Response) {
-      return input;
+    const parsed = await parseRunRequest(request.clone());
+    if (parsed instanceof Response) {
+      return parsed;
     }
+    // An app's analytics context is for Intelligence's lock request alone, so
+    // it is taken off the input before anything hands that input to an agent.
+    const { input, analyticsContext } = takeAnalyticsContext(parsed);
 
     // A thread belongs to the identity of its first run. Running needs no
     // configured identity (anonymous runs keep working), but nobody may add to
@@ -126,6 +130,7 @@ export async function handleRunAgent({
         agentId,
         agent,
         input,
+        analyticsContext,
         startTime,
       });
     }
