@@ -1,0 +1,98 @@
+name: test / unit / repo tooling
+
+# Tests for repo tooling that no other job ran (PE-1113): scripts under
+# `scripts/`, the codemods, the custom oxlint rules, and the learned-skill
+# workspace-artifact check. Each target lists its files, so a developer runs
+# the same thing locally:
+#
+#   pnpm nx run repo-scripts:test
+#   pnpm nx run @copilotkit/v2-migration:test
+#   pnpm nx run oxlint-rules:test
+#   pnpm nx run learned-skill-conformance:test-workspace-artifacts
+#
+# `scripts/test-ci-coverage-map.mjs` records which file each step runs.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "codemods/**"
+      - "tools/oxlint-rules/**"
+      - "tools/learned-skill-conformance/**"
+      - "examples/integrations/**"
+      - "packages/core/**"
+      - "packages/learning/**"
+      - "packages/runtime/**"
+      - "packages/shared/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/test_unit-repo-tooling.yml"
+  pull_request:
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
+    paths:
+      - "scripts/**"
+      - "codemods/**"
+      - "tools/oxlint-rules/**"
+      - "tools/learned-skill-conformance/**"
+      - "examples/integrations/**"
+      - "packages/core/**"
+      - "packages/learning/**"
+      - "packages/runtime/**"
+      - "packages/shared/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/test_unit-repo-tooling.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NX_NO_CLOUD: "true"
+  NX_TUI: "false"
+
+jobs:
+  repo-tooling:
+    name: Repo tooling tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Use Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Builds @copilotkit/runtime and @copilotkit/learning first (the target's
+      # `dependsOn`): runtime-entitlement-recovery.test.ts imports runtime
+      # source that resolves those packages from their build output.
+      - name: Test repo scripts
+        run: pnpm nx run repo-scripts:test
+
+      - name: Test the v2 migration codemod
+        if: ${{ !cancelled() }}
+        run: pnpm nx run @copilotkit/v2-migration:test
+
+      - name: Test the custom oxlint rules
+        if: ${{ !cancelled() }}
+        run: pnpm nx run oxlint-rules:test
+
+      - name: Test learned-skill workspace artifacts
+        if: ${{ !cancelled() }}
+        run: pnpm nx run learned-skill-conformance:test-workspace-artifacts

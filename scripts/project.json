@@ -4,6 +4,24 @@
   "sourceRoot": "scripts",
   "projectType": "library",
   "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [
+        {
+          "projects": ["@copilotkit/runtime", "@copilotkit/learning"],
+          "target": "build"
+        }
+      ],
+      "options": {
+        "commands": [
+          "pnpm exec vitest run scripts/__tests__/agentcore-deploy-skip-backend.test.ts scripts/__tests__/agentcore-runtime-security.test.ts scripts/__tests__/lint-baseline.test.ts scripts/__tests__/lint-gate.test.ts scripts/__tests__/runtime-entitlement-recovery.test.ts scripts/__tests__/telemetry-fragment.test.ts scripts/__tests__/validate-integration-pins.test.ts scripts/doc-tests/__tests__/extract.test.ts codemods/__tests__/",
+          "node --test scripts/deprecations/v1-dist-notices.test.mjs",
+          "bash scripts/release/__tests__/detect-py-version-changes.test.sh"
+        ],
+        "parallel": false
+      }
+    },
     "validate-production-verification": {
       "executor": "nx:run-commands",
       "cache": false,
