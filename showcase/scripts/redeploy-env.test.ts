@@ -14,6 +14,7 @@ import {
   STAGING_ENV_ID,
 } from "./railway-envs";
 import * as docsVerification from "./verify-docs-deployment";
+import * as imageVerification from "./verify-image-deployment";
 
 describe("runRedeploy", () => {
   let consoleErrSpy: ReturnType<typeof vi.spyOn>;
@@ -339,7 +340,7 @@ describe("runRedeploy", () => {
     }
   });
 
-  it("treats per-service failures as non-fatal and exits 0", async () => {
+  it("fails staging on a per-service verification failure", async () => {
     // Deterministic: fail on a specific named service so the test does
     // not depend on the size of the default scope.
     const failTarget = SERVICES["showcase-mastra"].serviceId;
@@ -356,7 +357,7 @@ describe("runRedeploy", () => {
       appendSummary,
     });
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
     expect(result.failed).toBe(1);
     expect(result.succeeded + result.failed).toBe(result.attempted);
     // Failure must be visible in the summary.
@@ -381,7 +382,7 @@ describe("runRedeploy", () => {
       appendSummary,
     });
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
     expect(result.failed).toBe(1);
     expect(summary).toMatch(/FAIL/);
   });
@@ -404,10 +405,7 @@ describe("runRedeploy", () => {
   });
 
   it("a registered NON-staging third env gets fail-loud semantics (exit 1 on per-service failure)", async () => {
-    // Exit-code policy is fail-loud by DEFAULT: staging is the single
-    // documented carve-out (non-fatal; verify-deploy is its gate). A future
-    // "preview" env must inherit prod-style fatal semantics without anyone
-    // remembering to extend an env allowlist.
+    // New environments inherit fail-loud semantics without an allowlist.
     ENV_ID_BY_NAME.preview = "preview-env-id-000";
     try {
       const redeploy = vi.fn(async () => ({
@@ -422,15 +420,14 @@ describe("runRedeploy", () => {
       });
       expect(result.failed).toBe(1);
       expect(result.exitCode).toBe(1);
-      // The "non-fatal" summary note is staging-only — a fatal env must
-      // not claim its failures are non-fatal.
+      // No failed deployment should be described as non-fatal.
       expect(summary).not.toMatch(/non-fatal/);
     } finally {
       delete ENV_ID_BY_NAME.preview;
     }
   });
 
-  it("staging keeps the non-fatal note in the failure summary (the documented carve-out)", async () => {
+  it("staging describes failed verification as release-blocking", async () => {
     const redeploy = vi.fn(async () => ({
       ok: false as const,
       error: "boom",
@@ -441,8 +438,8 @@ describe("runRedeploy", () => {
       appendSummary,
       services: ["showcase-mastra"],
     });
-    expect(result.exitCode).toBe(0);
-    expect(summary).toMatch(/non-fatal/);
+    expect(result.exitCode).toBe(1);
+    expect(summary).toMatch(/verification failed/);
   });
 
   it("sanitizes per-service THROWN error messages through sanitizeErrorBody", async () => {
@@ -525,6 +522,32 @@ describe("runRedeploy", () => {
     } finally {
       stderrSpy.mockRestore();
     }
+  });
+
+  it("bounds staging deployment verification concurrency and keeps every receipt", async () => {
+    let active = 0;
+    let peak = 0;
+    const result = await runRedeploy({
+      env: "staging",
+      appendSummary,
+      concurrency: 3,
+      services: [
+        "showcase-mastra",
+        "showcase-ag2",
+        "showcase-agno",
+        "showcase-llamaindex",
+      ],
+      redeploy: async () => {
+        active++;
+        peak = Math.max(peak, active);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        active--;
+        return { ok: true };
+      },
+    });
+    expect(peak).toBe(3);
+    expect(result.records).toHaveLength(4);
+    expect(result.exitCode).toBe(0);
   });
 
   it("env=prod returns exitCode 0 when all services succeed", async () => {
@@ -702,6 +725,12 @@ describe("resolveTargetServices", () => {
 });
 
 describe("makeLiveRedeploy", () => {
+  const digest = `sha256:${"a".repeat(64)}`;
+  beforeEach(() => {
+    vi.spyOn(imageVerification, "readExpectedImage").mockReturnValue({
+      digests: [digest],
+    });
+  });
   afterEach(() => {
     // restoreAllMocks does NOT undo stubGlobal — unstub explicitly or the
     // fetch stub leaks into other files under fork reuse.
@@ -716,6 +745,112 @@ describe("makeLiveRedeploy", () => {
     vi.stubGlobal("fetch", fetchMock);
     return fetchMock;
   }
+
+  it.each(["showcase-crewai-conversational-flows", "starter-adk"])(
+    "creates a fresh staging deployment for %s instead of replaying its snapshot",
+    async (name) => {
+      const fetchMock = stubFetch(async (_url, init) => {
+        const { query } = JSON.parse(String(init?.body));
+        return new Response(
+          JSON.stringify({
+            data: query.includes("serviceInstanceDeployV2")
+              ? { serviceInstanceDeployV2: "fresh-image" }
+              : {
+                  deployment: {
+                    id: "fresh-image",
+                    serviceId: SERVICES[name].serviceId,
+                    environmentId: STAGING_ENV_ID,
+                    status: "SUCCESS",
+                    meta: { imageDigest: digest },
+                  },
+                },
+          }),
+        );
+      });
+      const result = await makeLiveRedeploy("test-token")(
+        SERVICES[name].serviceId,
+        STAGING_ENV_ID,
+      );
+      expect(result).toEqual({
+        ok: true,
+        deploymentId: "fresh-image",
+        imageDigest: digest,
+        verified: true,
+      });
+      expect(
+        JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).query,
+      ).toContain("serviceInstanceDeployV2");
+      expect(
+        JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).query,
+      ).not.toContain("serviceInstanceRedeploy");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it("records a staging agent failure when SUCCESS still serves the previous image", async () => {
+    stubFetch(async (_url, init) => {
+      const { query } = JSON.parse(String(init?.body));
+      return new Response(
+        JSON.stringify({
+          data: query.includes("serviceInstanceDeployV2")
+            ? { serviceInstanceDeployV2: "fresh-agent" }
+            : {
+                deployment: {
+                  id: "fresh-agent",
+                  serviceId: SERVICES["showcase-mastra"].serviceId,
+                  environmentId: STAGING_ENV_ID,
+                  status: "SUCCESS",
+                  meta: { imageDigest: `sha256:${"b".repeat(64)}` },
+                },
+              },
+        }),
+      );
+    });
+    await expect(
+      makeLiveRedeploy("test-token")(
+        SERVICES["showcase-mastra"].serviceId,
+        STAGING_ENV_ID,
+      ),
+    ).resolves.toMatchObject({
+      ok: false,
+      deploymentId: "fresh-agent",
+      error: expect.stringMatching(/image digest/),
+    });
+  });
+
+  it.each(["showcase-mastra", "starter-adk", "harness-workers", "webhooks"])(
+    "selects this build for %s or latest for its out-of-band image",
+    async (name) => {
+      const read = vi
+        .mocked(imageVerification.readExpectedImage)
+        .mockImplementation(() => {
+          throw new Error("stop before mutation");
+        });
+      const fetchMock = stubFetch(async () => {
+        throw new Error("must not mutate");
+      });
+      await expect(
+        makeLiveRedeploy("test-token", { expectedImageTag: "d".repeat(40) })(
+          SERVICES[name].serviceId,
+          STAGING_ENV_ID,
+        ),
+      ).rejects.toThrow("stop before mutation");
+      const repo =
+        name === "harness-workers"
+          ? "showcase-harness"
+          : name === "webhooks"
+            ? "showcase-eval-webhook"
+            : name;
+      expect(read).toHaveBeenCalledWith(
+        `ghcr.io/copilotkit/${repo}:${name === "webhooks" ? "latest" : "d".repeat(40)}`,
+        expect.objectContaining({
+          requireCommit: name !== "webhooks",
+          checkLatest: name !== "webhooks",
+        }),
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
 
   it("records the fresh deployment ID when CI verification rejects an old image", async () => {
     vi.spyOn(docsVerification, "readExpectedDocsImage").mockReturnValue({
@@ -751,6 +886,9 @@ describe("makeLiveRedeploy", () => {
   });
 
   it("creates a fresh staging docs deployment instead of replaying an old pinned image", async () => {
+    vi.spyOn(docsVerification, "verifyDocsDeployment").mockResolvedValue({
+      imageDigest: digest,
+    });
     const fetchMock = stubFetch(async () => ({
       ok: true,
       json: async () => ({
@@ -769,6 +907,8 @@ describe("makeLiveRedeploy", () => {
     expect(outcome).toEqual({
       ok: true,
       deploymentId: "fresh-docs-deployment",
+      imageDigest: digest,
+      verified: true,
     });
     const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(request.query).toContain("serviceInstanceDeployV2");
@@ -837,7 +977,19 @@ describe("makeLiveRedeploy", () => {
           }),
         };
       }
-      throw new Error("unexpected Railway mutation");
+      return new Response(
+        JSON.stringify({
+          data: {
+            deployment: {
+              id: "deployment-id",
+              serviceId: SERVICES["harness-workers"].serviceId,
+              environmentId: STAGING_ENV_ID,
+              status: "SUCCESS",
+              meta: { imageDigest: digest },
+            },
+          },
+        }),
+      );
     });
 
     const outcome = await makeLiveRedeploy("test-token")(
@@ -845,8 +997,13 @@ describe("makeLiveRedeploy", () => {
       STAGING_ENV_ID,
     );
 
-    expect(outcome).toEqual({ ok: true });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(outcome).toEqual({
+      ok: true,
+      deploymentId: "deployment-id",
+      imageDigest: digest,
+      verified: true,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     const requests = fetchMock.mock.calls.map(([, init]) =>
       JSON.parse(String(init?.body)),
     );
