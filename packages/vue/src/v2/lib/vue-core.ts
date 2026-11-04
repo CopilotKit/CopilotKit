@@ -131,7 +131,7 @@ export class CopilotKitCoreVue extends CopilotKitCore {
     this._interruptState = interruptState;
     void this.notifySubscribers((subscriber) => {
       const vueSubscriber = subscriber as CopilotKitCoreVueSubscriber;
-      vueSubscriber.onInterruptStateChanged?.({
+      return vueSubscriber.onInterruptStateChanged?.({
         copilotkit: this,
         interruptState: this._interruptState,
       });

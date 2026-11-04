@@ -137,8 +137,12 @@ export function useAttachments({
       await processSafely(files, "Paste error");
     };
 
-    document.addEventListener("paste", handlePaste);
-    return () => document.removeEventListener("paste", handlePaste);
+    // handlePaste catches and logs its own failures, so it never rejects.
+    const onPaste = (e: ClipboardEvent) => {
+      void handlePaste(e);
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
   }, [enabled, queue, processSafely]);
 
   const removeAttachment = useCallback(
