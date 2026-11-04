@@ -1,4 +1,3 @@
-import { CdkTrapFocus } from "@angular/cdk/a11y";
 import { DOCUMENT, NgComponentOutlet, NgTemplateOutlet } from "@angular/common";
 import type { ElementRef, Type } from "@angular/core";
 import {
@@ -23,11 +22,15 @@ import { CopilotKitStyles } from "../copilot-kit-styles";
 import { CopilotIcon, MessageCircle, X } from "../icons/copilot-icon";
 import { injectChatLabels } from "../../chat-config";
 import { explicitEffect } from "../../explicit-effect";
+import { bindModalDialog } from "./modal-dialog";
 import {
-  ɵMOBILE_MAX_WIDTH_QUERY,
+  ɵSIDEBAR_DEFAULT_WIDTH,
+  ɵSIDEBAR_TRANSITION_MS,
+  ɵcreateDockedSidebar,
   ɵdimensionToCss,
-  ɵdockedSidebarRegistryFor,
+  ɵwatchMobileViewport,
 } from "@copilotkit/core";
+import type { ɵDockedSidebar } from "@copilotkit/core";
 
 export type CopilotSidebarMode = "docked" | "overlay";
 export type CopilotSidebarPosition = "left" | "right";
@@ -35,13 +38,7 @@ export type CopilotSidebarPosition = "left" | "right";
 /** Responsive chat sidebar with independent overlay and single-owner docked modes. */
 @Component({
   selector: "copilot-sidebar",
-  imports: [
-    CdkTrapFocus,
-    NgComponentOutlet,
-    NgTemplateOutlet,
-    CopilotIcon,
-    CopilotKitStyles,
-  ],
+  imports: [NgComponentOutlet, NgTemplateOutlet, CopilotIcon, CopilotKitStyles],
   changeDetection: ChangeDetectionStrategy.OnPush,
   viewProviders: [
     { provide: COPILOT_CHAT_WELCOME_LAYOUT, useValue: "sidebar" },
@@ -53,6 +50,7 @@ export type CopilotSidebarPosition = "left" | "right";
       #launcher
       type="button"
       class="copilotKitButton cpk-chat-toggle-button"
+      data-slot="chat-toggle-button"
       data-copilot-sidebar-toggle
       [class.cpk-sidebar-view-toggle-button-left]="position() === 'left'"
       [attr.data-state]="open() ? 'open' : 'closed'"
@@ -84,15 +82,9 @@ export type CopilotSidebarPosition = "left" | "right";
     </button>
 
     @if (open() && isModal()) {
-      <div
-        class="copilot-sidebar-backdrop"
-        data-copilot-sidebar-backdrop
-        aria-hidden="true"
-        (click)="closeFromBackdrop()"
-      ></div>
       <section
-        cdkTrapFocus
-        [cdkTrapFocusAutoCapture]="true"
+        #dialog
+        tabindex="-1"
         data-copilotkit
         class="copilotKitSidebar copilotKitWindow cpk-sidebar-view modal"
         data-copilot-sidebar
@@ -103,7 +95,6 @@ export type CopilotSidebarPosition = "left" | "right";
         [attr.aria-labelledby]="headerComponent() ? null : titleId"
         [attr.aria-label]="headerComponent() ? resolvedTitle() : null"
         [style.--sidebar-width]="resolvedWidth()"
-        (keydown.escape)="close()"
       >
         <ng-container [ngTemplateOutlet]="sidebarContents" />
       </section>
@@ -143,7 +134,6 @@ export type CopilotSidebarPosition = "left" | "right";
               <button
                 #initialFocus
                 type="button"
-                cdkFocusInitial
                 class="cpk-modal-header-close-button"
                 [attr.aria-label]="labels.modalHeaderCloseButtonLabel"
                 (click)="close()"
@@ -163,8 +153,8 @@ export type CopilotSidebarPosition = "left" | "right";
     </ng-template>
   `,
   // The look comes from the shared CSS (cpk-* classes). These rules add what
-  // the Angular sidebar does beyond React's: a backdrop in overlay mode and an
-  // enter animation. As in React, the open sidebar covers the toggle.
+  // the Angular sidebar does beyond React's: an enter animation. As in React,
+  // the open sidebar covers the toggle.
   styles: `
     :host {
       display: contents;
@@ -180,11 +170,6 @@ export type CopilotSidebarPosition = "left" | "right";
     }
     .copilot-toggle-icon-close.copilot-toggle-icon-hidden {
       transform: scale(0.75) rotate(-90deg);
-    }
-    .copilot-sidebar-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 1200;
     }
     .cpk-sidebar-view {
       z-index: 1201;
@@ -215,7 +200,7 @@ export class CopilotSidebar {
   readonly open = model(true);
   readonly mode = input<CopilotSidebarMode>("docked");
   readonly position = input<CopilotSidebarPosition>("right");
-  readonly width = input<number | string>(480);
+  readonly width = input<number | string>(ɵSIDEBAR_DEFAULT_WIDTH);
   /** The header title. Default: `labels.modalHeaderTitle`. */
   readonly title = input<string | undefined>();
   readonly clickOutsideToClose = input(false);
@@ -232,7 +217,7 @@ export class CopilotSidebar {
   protected readonly sidebarId = `copilot-sidebar-${randomUUID()}`;
   protected readonly titleId = `${this.sidebarId}-title`;
   protected readonly resolvedWidth = computed(() =>
-    ɵdimensionToCss(this.width(), 480),
+    ɵdimensionToCss(this.width(), ɵSIDEBAR_DEFAULT_WIDTH),
   );
   protected readonly isCompact = signal(false);
   protected readonly isModal = computed(
@@ -240,74 +225,61 @@ export class CopilotSidebar {
   );
   protected readonly dockAccepted = signal(true);
 
-  private readonly owner = Symbol("copilot-sidebar");
   private readonly document = inject(DOCUMENT);
-  private readonly registry = ɵdockedSidebarRegistryFor(this.document);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly destroyRef = inject(DestroyRef);
   private readonly launcher =
     viewChild.required<ElementRef<HTMLButtonElement>>("launcher");
   private readonly initialFocus =
     viewChild<ElementRef<HTMLButtonElement>>("initialFocus");
-  private ownsDock = false;
+  private readonly dialog = viewChild<ElementRef<HTMLElement>>("dialog");
+  /** Core's page-margin owner for the docked mode, as in React and Vue. */
+  private readonly dock: ɵDockedSidebar | undefined = this.isBrowser
+    ? ɵcreateDockedSidebar(this.document, {
+        transitionMs: ɵSIDEBAR_TRANSITION_MS,
+      })
+    : undefined;
 
   constructor() {
     afterNextRender(() => {
-      if (this.open() && this.isModal()) this.focusModal();
-      const media = this.document.defaultView?.matchMedia?.(
-        ɵMOBILE_MAX_WIDTH_QUERY,
+      const stop = ɵwatchMobileViewport((isMobile) =>
+        this.isCompact.set(isMobile),
       );
-      if (!media) return;
-      const update = () => this.isCompact.set(media.matches);
-      update();
-      media.addEventListener("change", update);
-      this.destroyRef.onDestroy(() =>
-        media.removeEventListener("change", update),
-      );
+      this.destroyRef.onDestroy(stop);
     });
 
     // `position` and `resolvedWidth` are dependencies even though they are only
     // consumed on the docked path: a width or side change while docked must
-    // re-push the registry entry. On the undocked path the extra re-run is
-    // inert — `releaseDock()` is a no-op without ownership and `dockAccepted`
-    // is set to the value it already holds.
+    // move the page margin.
     explicitEffect(
       () => ({
-        shouldDock: this.isBrowser && this.open() && !this.isModal(),
+        open: this.open() && !this.isModal(),
         position: this.position(),
         width: this.resolvedWidth(),
       }),
-      ({ shouldDock, position, width }) => {
-        if (!shouldDock) {
-          this.releaseDock();
-          this.dockAccepted.set(true);
-          return;
-        }
-        if (!this.ownsDock) {
-          this.ownsDock = this.registry.acquire(this.owner);
-          this.dockAccepted.set(this.ownsDock);
-          // The registry warns that only one docked sidebar can be open.
-          if (!this.ownsDock) return;
-        }
-        this.registry.update(this.owner, { position, width });
+      (state) => {
+        if (!this.dock) return;
+        this.dock.set(state);
+        // Core warns when another docked sidebar has the margin.
+        this.dockAccepted.set(!state.open || this.dock.isDocked);
       },
     );
 
-    this.destroyRef.onDestroy(() => this.releaseDock());
+    // In overlay mode (and on mobile): core's dialog focus and dismissal.
+    bindModalDialog({
+      dialog: this.dialog,
+      initialFocus: this.initialFocus,
+      launcher: this.launcher,
+      clickOutsideToClose: this.clickOutsideToClose,
+      close: () => this.close(),
+    });
+
+    this.destroyRef.onDestroy(() => this.dock?.dispose());
   }
 
   protected toggle(): void {
     if (this.open()) this.close();
-    else {
-      this.open.set(true);
-      queueMicrotask(() => {
-        if (this.isModal()) this.focusModal();
-      });
-    }
-  }
-
-  protected closeFromBackdrop(): void {
-    if (this.clickOutsideToClose()) this.close();
+    else this.open.set(true);
   }
 
   protected close(): void {
@@ -316,15 +288,5 @@ export class CopilotSidebar {
     queueMicrotask(() =>
       this.launcher().nativeElement.focus({ preventScroll: true }),
     );
-  }
-
-  private releaseDock(): void {
-    if (!this.ownsDock) return;
-    this.registry.release(this.owner);
-    this.ownsDock = false;
-  }
-
-  private focusModal(): void {
-    this.initialFocus()?.nativeElement.focus({ preventScroll: true });
   }
 }
