@@ -54,6 +54,9 @@ async function renderHost(
 
 describe("Angular inspector integration", () => {
   beforeEach(() => {
+    // vitest.config.mts gives jsdom a non-loopback host so that other specs do
+    // not mount the Inspector. These tests need the local development host.
+    vi.stubGlobal("location", new URL("http://localhost:4200"));
     TestBed.resetTestingModule();
     document.querySelectorAll(WEB_INSPECTOR_TAG).forEach((element) => {
       element.remove();
