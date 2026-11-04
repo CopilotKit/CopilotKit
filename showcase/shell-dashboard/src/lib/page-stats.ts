@@ -8,7 +8,7 @@
  * the matrix it summarizes.
  */
 
-import { buildCellModel, catalogCellToInput } from "@/lib/cell-model";
+import { tryBuildCellModel, catalogCellToInput } from "@/lib/cell-model";
 import type { LiveStatusMap } from "@/lib/live-status";
 import type { CatalogCell } from "@/data/catalog-types";
 import type { ParityTier } from "@/components/parity-badge";
@@ -28,6 +28,8 @@ export interface HealthStats {
    * stats bar — the stats bar must mirror what the matrix shows.
    */
   noData: number;
+  /** Invalid cells are reported separately and excluded from probe counts. */
+  unavailable: number;
 }
 
 /**
@@ -115,13 +117,18 @@ export function computeHealthStats(
   let amber = 0;
   let red = 0;
   let noData = 0;
+  let unavailable = 0;
   for (const cell of cells) {
     if (
       (cell.status !== "wired" && cell.status !== "stub") ||
       cell.feature === null
     )
       continue;
-    const model = buildCellModel(liveStatus, catalogCellToInput(cell), now);
+    const model = tryBuildCellModel(liveStatus, catalogCellToInput(cell), now);
+    if (!model) {
+      unavailable++;
+      continue;
+    }
     switch (model.chipColor) {
       case "green":
         green++;
@@ -137,7 +144,7 @@ export function computeHealthStats(
         break;
     }
   }
-  return { green, amber, red, noData };
+  return { green, amber, red, noData, unavailable };
 }
 
 /**
@@ -206,7 +213,8 @@ export function computeDepthDistribution(
       cell.feature === null
     )
       continue;
-    const model = buildCellModel(liveStatus, catalogCellToInput(cell), now);
+    const model = tryBuildCellModel(liveStatus, catalogCellToInput(cell), now);
+    if (!model) continue;
     const key = DEPTH_TO_KEY[model.achievedDepth];
     dist[key]++;
   }
@@ -251,7 +259,8 @@ export function computeD6Stats(
       cell.feature === null
     )
       continue;
-    const model = buildCellModel(liveStatus, catalogCellToInput(cell), now);
+    const model = tryBuildCellModel(liveStatus, catalogCellToInput(cell), now);
+    if (!model) continue;
     switch (model.d6Effective) {
       case "green":
         green++;

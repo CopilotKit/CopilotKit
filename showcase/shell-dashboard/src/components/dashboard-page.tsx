@@ -27,7 +27,7 @@ import { OverlayToggleBar } from "@/components/overlay-toggle-bar";
 import { UnifiedCell } from "@/components/unified-cell";
 import { StatusChip } from "@/components/badges";
 import { GLYPHS } from "@/lib/glyphs";
-import { buildCellModel } from "@/lib/cell-model";
+import { tryBuildCellModel } from "@/lib/cell-model";
 import {
   computeHealthStats,
   computeParityStats,
@@ -189,37 +189,23 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
         ctx.integration.not_supported_features?.includes(ctx.feature.id) ??
         false
       );
-      // §E per-cell fault isolation: `buildCellModel` throws in `keyFor` for a
-      // catalog featureId carrying `:`/`/` (the `""` normalization upstream only
-      // covers the empty string). During React render a single throw unwinds the
-      // WHOLE grid — one bad feature id would blank the entire dashboard. Guard
-      // the per-cell build so the one bad cell degrades to a gray error marker
-      // and every other cell still paints.
-      let model: ReturnType<typeof buildCellModel>;
-      try {
-        model = buildCellModel(
-          ctx.liveStatus,
-          {
-            slug: ctx.integration.slug,
-            featureId: ctx.feature.id,
-            isSupported,
-            isWired: true, // renderCell only called when demo exists
-          },
-          now,
-        );
-      } catch (err) {
-        console.error(
-          `buildCellModel failed for ${ctx.integration.slug}/${ctx.feature.id} — degrading this cell`,
-          err,
-        );
-        // A fault on OUR side, not a verdict about the integration — same
-        // class (and same mark) as a pool-unreachable depth chip and a docs
-        // probe error, so it renders as the hollow indigo `!`.
+      // Use the same fault boundary as the aggregates and reference column.
+      const model = tryBuildCellModel(
+        ctx.liveStatus,
+        {
+          slug: ctx.integration.slug,
+          featureId: ctx.feature.id,
+          isSupported,
+          isWired: true,
+        },
+        now,
+      );
+      if (!model) {
         return (
           <StatusChip
             tone="blue"
             label={GLYPHS.fault.mark}
-            title={`Cell unavailable (invalid feature id): ${ctx.feature.id}`}
+            title={`Cell unavailable: ${ctx.integration.slug}/${ctx.feature.id}`}
             testId={`cell-error-${ctx.integration.slug}-${ctx.feature.id}`}
           />
         );
@@ -300,6 +286,16 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
               slot pattern but deliberately NOT mounted beside it: the
               banner is coverage-tab intent, not global. */}
             <WorkerSilenceBanner />
+            {healthStats.unavailable > 0 && (
+              <div
+                role="alert"
+                className="px-8 py-2 text-sm text-[var(--text-secondary)]"
+              >
+                {healthStats.unavailable}{" "}
+                {healthStats.unavailable === 1 ? "cell" : "cells"} unavailable.{" "}
+                Probe counts exclude unavailable cells.
+              </div>
+            )}
             {/* Overlay toggle — pinned below tab bar */}
             <div className="flex-shrink-0 px-8 py-3 bg-[var(--bg-surface)] border-b border-[var(--border)]">
               <OverlayToggleBar
