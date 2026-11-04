@@ -1,10 +1,11 @@
 import React from "react";
-import { screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { z } from "zod";
 import type { ActivityMessage } from "@ag-ui/core";
 import { useRenderActivityMessage } from "../use-render-activity-message";
 import type { ReactActivityMessageRenderer } from "../../types";
 import { renderWithCopilotKit } from "../../__tests__/utils/test-helpers";
+import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 
 const progressRenderer: ReactActivityMessageRenderer<{ percent: number }> = {
   activityType: "progress",
@@ -58,5 +59,30 @@ describe("useRenderActivityMessage", () => {
       "[CopilotKit] Failed to parse content for activity message 'progress':",
       expect.any(Array),
     );
+  });
+
+  it("uses the provider's default agent when no chat names one", () => {
+    // The same activity type, once for the provider's agent and once for all
+    // agents: the agent-specific renderer wins only when the hook resolves
+    // the provider's agent.
+    const researchRenderer: ReactActivityMessageRenderer<{ percent: number }> =
+      {
+        ...progressRenderer,
+        agentId: "research",
+        render: ({ content }) => (
+          <div data-testid="progress">research {content.percent}%</div>
+        ),
+      };
+
+    render(
+      <CopilotKitProvider
+        agentId="research"
+        renderActivityMessages={[progressRenderer, researchRenderer]}
+      >
+        <ActivityProbe message={createActivityMessage({ percent: 40 })} />
+      </CopilotKitProvider>,
+    );
+
+    expect(screen.getByTestId("progress").textContent).toBe("research 40%");
   });
 });

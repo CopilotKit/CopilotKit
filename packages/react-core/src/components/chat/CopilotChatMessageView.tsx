@@ -37,6 +37,7 @@ import {
   ɵcreateMessageViewModel,
   ɵdeduplicateMessages,
   ɵduplicateMessagesWarning,
+  ɵresolveAgentId,
 } from "@copilotkit/core";
 import type {
   CopilotChatToolCallDisplay,
@@ -60,8 +61,8 @@ import {
   getIntelligenceTurnAnchors,
 } from "../intelligence-indicator";
 import type { IntelligenceIndicatorView } from "../intelligence-indicator";
+import { useDefaultAgentId } from "../../context";
 import {
-  DEFAULT_AGENT_ID,
   commitRowKeyStore,
   createRowKeyStore,
   resolveRowRenderKeysById,
@@ -500,6 +501,7 @@ export function CopilotChatMessageView({
   const { renderActivityMessage } = useRenderActivityMessage();
   const { copilotkit, showIntelligenceIndicator = true } = useCopilotKit();
   const config = useCopilotChatConfiguration();
+  const providerAgentId = useDefaultAgentId();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
   // Subscribe to state changes so custom message renderers re-render when state updates.
@@ -1307,7 +1309,10 @@ export function CopilotChatMessageView({
         <IntelligenceIndicator
           key={`intelligence-${intelligenceTurnId}`}
           message={message}
-          agentId={config?.agentId ?? DEFAULT_AGENT_ID}
+          agentId={ɵresolveAgentId({
+            chatAgentId: config?.agentId,
+            providerAgentId,
+          })}
           intelligenceIndicator={intelligenceIndicator}
         />,
       );

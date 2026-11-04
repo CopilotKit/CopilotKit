@@ -141,6 +141,19 @@ export type {
   ɵConnectionWaitResult,
   ɵThreadSelectionInput,
 } from "./thread-switch";
+export {
+  ɵChatConnection,
+  ɵFreshThreadId,
+  ɵimplementsConnect,
+  ɵsubscribeToAgentErrors,
+} from "./chat-connection";
+export type {
+  ɵChatConnectHooks,
+  ɵChatConnectionHandle,
+  ɵChatConnectionOptions,
+  ɵChatConnectionSnapshot,
+  ɵChatErrorEvent,
+} from "./chat-connection";
 
 // Message list (internal)
 export {
