@@ -643,6 +643,7 @@ In Angular, `StickToBottom` changed:
 
 - **Escape:** Escape closes the popup, or the sidebar in overlay mode, also when focus is outside it. If more than one is open, Escape closes all of them.
 - **Clicks outside:** There is no invisible backdrop. A click outside the popup reaches the page. With `clickOutsideToClose`, the popup closes on the pointer down outside it. A pointer down on the toggle button or in a chat popover does not close it.
+- **`aria-modal`:** The popup and the overlay sidebar do not set `aria-modal="true"`, because the page behind them stays usable. They keep `role="dialog"`. If a test reads `aria-modal`, read `role="dialog"` instead.
 - **Focus:** Focus moves to the close button when the dialog opens. Tab and Shift+Tab stay inside the dialog. Focus goes back to the toggle button when the dialog closes, also when the `open` model closes it.
 - **Docked margin:** After the first change, the page margin of a docked sidebar animates for 260ms.
 

@@ -37,13 +37,15 @@ describe("CopilotPopup", () => {
     return fixture;
   }
 
-  it("opens by default with modal semantics and parity dimensions", async () => {
+  it("opens by default as a non-modal dialog with parity dimensions", async () => {
     const fixture = await render();
     const dialog = fixture.nativeElement.querySelector("[role=dialog]");
 
     expect(dialog).not.toBeNull();
     expect(dialog.classList.contains("copilotKitPopup")).toBe(true);
-    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    // No backdrop blocks the page, so the dialog does not claim to be modal
+    // (parity with React and Vue).
+    expect(dialog.hasAttribute("aria-modal")).toBe(false);
     expect(dialog.contains(document.activeElement)).toBe(true);
     expect(dialog.style.getPropertyValue("--copilot-popup-width")).toBe(
       "420px",
