@@ -32,7 +32,6 @@ import { ProtoStackAgent } from "@/components/ai/stack-agents";
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { FullSearchTrigger } from "fumadocs-ui/layouts/shared/slots/search-trigger";
 import { CopilotKitLogo } from "@/components/copilotkit-logo";
-import { GlyphTile } from "@/components/icons/glyph-tile";
 import { Button } from "@/components/ui/button";
 import { PanelActions } from "@/components/layout/panel-actions";
 import { AdaptiveThemeSwitch } from "@/components/layout/theme-toggle";
@@ -153,9 +152,9 @@ function SectionActions({ className, ...props }: ComponentProps<"div">) {
 }
 
 /**
- * Puts a navbar dropdown on frosted glass: a hidden marker that theme.css
- * finds to recolor Fumadocs' own popup, so it keeps the popup's rounding,
- * blur, and resize animation. Hidden, it takes no grid cell.
+ * Sets a navbar dropdown on the lilac-grey tray: a hidden marker that
+ * theme.css finds to recolor Fumadocs' own popup, so it keeps the popup's
+ * rounding and resize animation. Hidden, it takes no grid cell.
  */
 const MENU_TRAY: Extract<LinkItemType, { type: "custom" }> = {
   type: "custom",
@@ -169,21 +168,31 @@ const TILES_TRAY: Extract<LinkItemType, { type: "custom" }> = {
 };
 
 /**
- * A menu card is a pane on the frosted glass: near-opaque white with a blue
- * lift at rest (theme.css), and on hover it turns solid, rises a pixel, and
- * its lift deepens. No lilac.
+ * A menu card is a white card in the tray, as on the home (link-card.tsx):
+ * borderless at rest (theme.css), and on hover it takes the website's lilac
+ * border-action edge.
  */
 const HOVER =
-  "shadow-lift transition-[background-color,box-shadow,translate] duration-200 ease-out hover:-translate-y-px hover:bg-fd-accent hover:shadow-lift-hover motion-reduce:transition-none motion-reduce:hover:translate-y-0";
+  "group/card border-transparent transition-[border-color] duration-200 hover:border-edge-action focus-visible:border-ring motion-reduce:transition-none";
+
+/** A card's glyph: solid plum ink with no tile, lilac on hover. */
+const INK_GLYPH =
+  "text-foreground transition-colors duration-200 group-hover/card:text-primary motion-reduce:transition-none [&_svg]:size-[22px]";
 
 /**
- * Topic cards: Fumadocs draws the glyph's tile as the card's first child, so
- * it takes GlyphTile's look (GLYPH_TILE) through child selectors (written
- * out for Tailwind).
+ * Topic cards. Fumadocs draws `banner` above the title in place of its own
+ * tiled icon.
  */
-const CARD = {
-  className: `${HOVER} [&>div:first-child]:border-white/50 [&>div:first-child]:bg-(image:--glyph-tile) [&>div:first-child]:text-white [&>div:first-child]:shadow-[0_2px_6px_rgb(76_92_214/0.3)] dark:[&>div:first-child]:border-white/15`,
-};
+function card(icon: ReactNode) {
+  return {
+    className: HOVER,
+    banner: (
+      <span aria-hidden="true" className={INK_GLYPH}>
+        {icon}
+      </span>
+    ),
+  };
+}
 
 /** Integrations cards: tiles, the logo's tile over the name. */
 const TILE_CARD = `${HOVER} gap-3 p-3`;
@@ -280,7 +289,7 @@ const FEATURED_EXAMPLES = [
   },
 ];
 
-/** A compact menu card: glyph tile, title, and a one-line description. */
+/** A compact menu card: glyph, title, and a one-line description. */
 function MenuRow({
   icon,
   title,
@@ -292,7 +301,9 @@ function MenuRow({
 }) {
   return (
     <>
-      <GlyphTile>{icon}</GlyphTile>
+      <span aria-hidden="true" className={INK_GLYPH}>
+        {icon}
+      </span>
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="text-sm font-medium">{title}</span>
         <span className="truncate text-xs text-fd-muted-foreground">
@@ -305,14 +316,14 @@ function MenuRow({
 
 /**
  * The Examples menu's lead tile, two rows tall, on the home's blue stage:
- * the gallery of every demo, with its glyph on the menus' blue tile.
+ * the gallery of every demo, its glyph in white.
  */
 function GalleryTile() {
   return (
     <>
-      <GlyphTile size="lg" className="mb-auto">
+      <span aria-hidden="true" className="mb-auto text-white [&_svg]:size-6">
         <DirectoryGlyph />
-      </GlyphTile>
+      </span>
       <span className="text-lg leading-6 font-semibold text-white">
         Gallery
       </span>
@@ -350,22 +361,19 @@ function DHomeLayout({
           text: "Quickstart",
           description: "Add a chat to your app and connect it to your agent.",
           url: frameworkHref("d", framework, "quickstart"),
-          icon: <QuickstartGlyph />,
-          menu: CARD,
+          menu: card(<QuickstartGlyph />),
         },
         {
           text: "Cookbook",
           description: "Recipes for common patterns, start to finish.",
           url: "/cookbook",
-          icon: <CookbookGlyph />,
-          menu: CARD,
+          menu: card(<CookbookGlyph />),
         },
         {
           text: "Reference",
           description: "Every hook, component, and runtime API.",
           url: "/reference",
-          icon: <ReferenceGlyph />,
-          menu: CARD,
+          menu: card(<ReferenceGlyph />),
         },
         MENU_TRAY,
       ],
@@ -385,7 +393,7 @@ function DHomeLayout({
           url: "/examples",
           menu: {
             className:
-              "group/all row-span-2 gap-1 border-white/60 bg-(image:--stage-captioned) p-4 hover:shadow-lift-hover dark:border-white/10",
+              "group/all row-span-2 gap-1 border-white/60 bg-(image:--stage-captioned) p-4 transition-[border-color] duration-200 hover:border-edge-action motion-reduce:transition-none dark:border-white/10",
             children: <GalleryTile />,
           },
         },
@@ -394,7 +402,7 @@ function DHomeLayout({
             text: e.title,
             url: `/examples?feature=${e.id}`,
             menu: {
-              className: `${CARD.className} flex-row items-center gap-3 p-2.5`,
+              className: `${HOVER} flex-row items-center gap-3 p-2.5`,
               children: <MenuRow {...e} />,
             },
           }),
@@ -410,8 +418,7 @@ function DHomeLayout({
           text: i.text,
           description: i.description,
           url: i.url,
-          icon: i.icon,
-          menu: CARD,
+          menu: card(i.icon),
         })),
         MENU_TRAY,
       ],

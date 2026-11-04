@@ -136,14 +136,8 @@ html [data-copilotkit] {
    * "All demos" tile): white clears 4.5:1 along the bottom. */
   --stage-captioned:
     linear-gradient(to top, rgb(38 32 116 / 0.6), transparent 85%), var(--stage);
-  /* The navbar menus' glass tint: the stage's own hues, thinned. */
-  --menu-frost: linear-gradient(
-    145deg,
-    rgb(141 193 241 / 0.12) 4%,
-    rgb(104 111 223 / 0.1) 103%
-  );
-  /* A glyph's tile in the navbar menus: the stage, deepened so a white glyph
-   * clears 3:1 across it. */
+  /* A glyph's tile in Ask CopilotKit's suggestion cards: the stage, deepened
+   * so a white glyph clears 3:1 across it. */
   --glyph-tile: linear-gradient(145deg, #5b86de 4%, #5d5fd8 103%);
   --stage-tile: rgb(255 255 255 / 0.8);
   --stage-rim: rgb(255 255 255 / 0.95);
@@ -216,11 +210,6 @@ html.dark [data-copilotkit] {
   --stage:
     radial-gradient(ellipse at 53% 74%, #241f63a6, transparent 75%),
     linear-gradient(145deg, #1b3452 4%, #24276a 103%);
-  --menu-frost: linear-gradient(
-    145deg,
-    rgb(44 86 131 / 0.18) 4%,
-    rgb(58 63 158 / 0.15) 103%
-  );
   --glyph-tile: linear-gradient(145deg, #2c5683 4%, #3a3f9e 103%);
   --stage-tile: rgb(255 255 255 / 0.1);
   --stage-rim: rgb(255 255 255 / 0.18);
@@ -407,25 +396,19 @@ html .copilotKitChat:hover ::-webkit-scrollbar-thumb {
 }
 
 /*
- * The navbar's dropdowns: stage frost. Fumadocs' own popup already draws its
- * popover color at 80% over a backdrop blur; here the blur deepens and
- * saturates, and the glass takes the stage's sky-to-lilac as a cool tint, so
- * the white cards float on it as panes with a blue lift and a stage-blue tile
- * under each glyph. A hovered card turns solid. The menus opt in with a
- * hidden [data-menu-tray] item (src/proto/layout-client.tsx).
+ * The navbar's dropdowns: the lilac-grey tray, as under the home's card
+ * grids. Fumadocs' own popup draws its popover color at 80% over a backdrop
+ * blur; here it is the solid frame with the frame's rim, and the cards in it
+ * are the tray's white cards, borderless at rest (link-card.tsx). The menus
+ * opt in with a hidden [data-menu-tray] item (src/proto/layout-client.tsx).
  */
 [data-base-ui-portal] nav:has([data-menu-tray]) {
-  --color-fd-popover: rgb(250 250 253 / 0.55);
-  --color-fd-card: rgb(255 255 255 / 0.82);
-  --color-fd-accent: #ffffff;
-  --color-fd-muted: rgb(255 255 255 / 0.9);
-  --color-fd-border: rgb(255 255 255 / 0.9);
-  --blur-md: 28px;
-  --tw-backdrop-saturate: saturate(1.6);
-  --lift: 0 1px 2px rgb(38 32 116 / 0.06), 0 6px 16px rgb(38 32 116 / 0.07);
-  --lift-hover:
-    0 2px 4px rgb(38 32 116 / 0.06), 0 16px 32px rgb(76 92 214 / 0.22);
-  background-image: var(--menu-frost);
+  --color-fd-card: var(--tray-card);
+  --color-fd-accent: var(--tray-card);
+  background-color: var(--frame);
+  border-color: var(--frame-rim);
+  backdrop-filter: none;
+  box-shadow: var(--lift);
   /* It hangs straight out of the navbar: square on top, no top edge. */
   border-top-width: 0;
   border-top-left-radius: 0;
@@ -436,16 +419,6 @@ html .copilotKitChat:hover ::-webkit-scrollbar-thumb {
  * tiles: as many 12.5rem columns as fit, instead of Fumadocs' three wide rows. */
 [data-base-ui-portal] nav div:has(> [data-menu-tiles]) {
   grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
-}
-
-.dark [data-base-ui-portal] nav:has([data-menu-tray]) {
-  --color-fd-popover: rgb(14 14 22 / 0.62);
-  --color-fd-card: rgb(32 32 44 / 0.86);
-  --color-fd-accent: #2a2a3b;
-  --color-fd-muted: rgb(255 255 255 / 0.08);
-  --color-fd-border: rgb(255 255 255 / 0.09);
-  --lift: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 16px rgb(0 0 0 / 0.35);
-  --lift-hover: 0 2px 4px rgb(0 0 0 / 0.4), 0 16px 32px rgb(0 0 0 / 0.55);
 }
 
 /* In the sidebar, the frame's text: plum-grey rows, plum headings, and the

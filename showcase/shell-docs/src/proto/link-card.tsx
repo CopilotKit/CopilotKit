@@ -272,7 +272,7 @@ export function FamilyMenuCard({
         delay={80}
         closeDelay={160}
         className={cn(
-          "flex cursor-pointer flex-col rounded-lg border bg-fd-card text-start transition-colors hover:bg-fd-accent/80 hover:text-fd-accent-foreground data-popup-open:bg-fd-accent data-popup-open:shadow-lift-hover",
+          "flex cursor-pointer flex-col rounded-lg border bg-fd-card text-start data-popup-open:border-edge-action",
           className,
         )}
       >
