@@ -93,9 +93,12 @@ function CopilotSidebarViewInternal({
   const isSidebarOpen = configuration?.isModalOpen ?? false;
 
   const sidebarRef = useRef<HTMLDivElement | null>(null);
-  const [sidebarWidth, setSidebarWidth] = useState<number | string>(
+  const [measuredWidth, setMeasuredWidth] = useState<number | string>(
     width ?? ɵSIDEBAR_DEFAULT_WIDTH,
   );
+  // The `width` prop wins over the measured width, also when it changes
+  // after mount.
+  const sidebarWidth = width ?? measuredWidth;
 
   useEffect(() => {
     // If width is explicitly provided, don't measure
@@ -106,7 +109,7 @@ function CopilotSidebarViewInternal({
     if (!element) {
       return;
     }
-    return ɵwatchElementWidth(element, setSidebarWidth);
+    return ɵwatchElementWidth(element, setMeasuredWidth);
   }, [width]);
 
   const widthCss = ɵdimensionToCss(sidebarWidth, ɵSIDEBAR_DEFAULT_WIDTH);

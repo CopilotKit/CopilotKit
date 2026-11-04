@@ -583,6 +583,7 @@ The docked sidebar adds an inline margin to `document.body` on its side. In 2.0,
 - **One owner:** Only one open docked sidebar on a page adds the margin. A second one logs a warning and adds no margin.
 - **Margins come back:** When the sidebar closes or unmounts, the body gets back the margins that it had before. React set them to `""`.
 - **Viewport changes:** The margin goes away when the viewport becomes 767px or narrower, and comes back when it becomes wider. If the browser has no `matchMedia`, the sidebar docks. React did not dock without `matchMedia`, for example in jsdom tests.
+- **Width changes:** In React, a new `width` prop after mount now changes the width of the sidebar and the margin. Before, React kept the first `width`. Vue and Angular already did this.
 - **Vue server rendering:** Vue sets the margin when the sidebar mounts. The server-rendered HTML has no margin and no `<style>` element for it.
 
 In Angular, the sidebar becomes a modal at `(max-width: 767px)`. Before, the breakpoint was `47.999rem`, which moved with the root font size.
