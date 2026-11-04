@@ -78,6 +78,13 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     // `error`, which is a fatal setup failure.
     const [contentError, setContentError] = useState<Error | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    // True once the widget reported `initialized`. Between the resource arriving
+    // and this, the iframe is still blank (its script may be loading imports, or
+    // may have failed), so the host shows a "starting" state instead of an empty
+    // box. An internal deadline turns a failed startup into a retryable error.
+    const [isInitialized, setIsInitialized] = useState(false);
+    // Bumped by the Retry button to re-bind a fresh iframe and session.
+    const [retryCount, setRetryCount] = useState(0);
     const [iframeSize, setIframeSize] = useState<{
       width?: number;
       height?: number;
@@ -109,8 +116,11 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
 
       let mounted = true;
       setIsLoading(true);
+      setIsInitialized(false);
       setError(null);
       setContentError(null);
+      setIframeSize({});
+      setFetchedResource(null);
 
       // The host owns the iframe: create + mount it here (bindMcpApp only
       // configures the sandbox contract + talks to it through the bridge).
@@ -122,6 +132,26 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       iframe.style.display = "block";
       container.appendChild(iframe);
       iframeRef.current = iframe;
+
+      let initialized = false;
+      let failed = false;
+      let startupTimer: ReturnType<typeof setTimeout> | undefined;
+      const clearStartupTimer = () => {
+        clearTimeout(startupTimer);
+        startupTimer = undefined;
+      };
+      const failStartup = (err: Error) => {
+        if (!mounted || failed) return;
+        failed = true;
+        clearStartupTimer();
+        iframe.style.display = "none";
+        // The error and Retry must not inherit a short widget height.
+        setIframeSize({});
+        setError(err);
+        setIsLoading(false);
+        sessionRef.current?.teardown();
+        sessionRef.current = null;
+      };
 
       const setup = async () => {
         try {
@@ -160,21 +190,32 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             options: { allowSameOriginFallback },
             hooks: {
               onResource: (resource) => {
-                if (!mounted) return;
+                if (!mounted || failed) return;
                 setFetchedResource(resource);
                 setIsLoading(false);
               },
+              onSandboxReady: () => {
+                if (!mounted || initialized || failed) return;
+                clearStartupTimer();
+                startupTimer = setTimeout(() => {
+                  failStartup(
+                    new Error("The app could not start. Please try again."),
+                  );
+                }, 20_000);
+              },
+              onInitialized: () => {
+                if (!mounted || failed) return;
+                initialized = true;
+                clearStartupTimer();
+                setIsInitialized(true);
+              },
               onSizeChanged: (size) => {
-                if (mounted) setIframeSize(size);
+                if (mounted && !failed) setIframeSize(size);
               },
               onContentError: (err) => {
-                if (mounted) setContentError(err);
+                if (mounted && !failed) setContentError(err);
               },
-              onError: (err) => {
-                if (!mounted) return;
-                setError(err);
-                setIsLoading(false);
-              },
+              onError: failStartup,
             },
           });
           sessionRef.current = session;
@@ -187,10 +228,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
           session.syncContent(contentRef.current);
         } catch (err) {
           console.error("[MCPAppsRenderer] Setup error:", err);
-          if (mounted) {
-            setError(err instanceof Error ? err : new Error(String(err)));
-            setIsLoading(false);
-          }
+          failStartup(err instanceof Error ? err : new Error(String(err)));
         }
       };
 
@@ -198,6 +236,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
 
       return () => {
         mounted = false;
+        clearStartupTimer();
         sessionRef.current?.teardown();
         sessionRef.current = null;
         iframe.remove();
@@ -209,6 +248,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       copilotkit,
       messageId,
       allowSameOriginFallback,
+      retryCount,
       content.resourceUri,
       content.serverHash,
       content.serverId,
@@ -265,9 +305,34 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
         {isLoading && (
           <div style={{ padding: "1rem", color: "#666" }}>Loading...</div>
         )}
+        {!isLoading && !isInitialized && !error && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#666",
+              pointerEvents: "none",
+            }}
+          >
+            Starting app...
+          </div>
+        )}
         {(error ?? contentError) && (
           <div style={{ color: "red", padding: "1rem" }}>
             Error: {(error ?? contentError)!.message}
+            {error && (
+              <div style={{ marginTop: "0.5rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setRetryCount((count) => count + 1)}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
