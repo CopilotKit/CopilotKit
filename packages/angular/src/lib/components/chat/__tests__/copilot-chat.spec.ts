@@ -845,10 +845,22 @@ describe("CopilotChat", () => {
       });
     });
 
+    test("does not connect an agent that does not implement connect", async () => {
+      const { fixture, config, core } = createChatFixture(
+        new MockAgent("default"),
+      );
+      const connect = vi.spyOn(core, "connectAgent");
+      config.setActiveThreadId("existing", { explicit: true });
+      fixture.detectChanges();
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect(connect).not.toHaveBeenCalled();
+      expect(readShowCursor(fixture)).toBe(false);
+    });
+
     describe("connect errors", () => {
       let context: ReturnType<typeof createChatFixture>;
       beforeEach(() => {
-        context = createChatFixture();
+        context = createChatFixture(new StreamingAgent());
       });
 
       test("logs an unexpected connect failure", async () => {
@@ -883,7 +895,7 @@ describe("CopilotChat", () => {
 
     describe("inspector thread override", () => {
       test("connects to the thread the Inspector asks to view", async () => {
-        const { fixture, core } = createChatFixture();
+        const { fixture, core } = createChatFixture(new StreamingAgent());
         const connect = vi.spyOn(core, "connectAgent").mockResolvedValue({
           result: undefined,
           newMessages: [],
@@ -902,7 +914,7 @@ describe("CopilotChat", () => {
       });
 
       test("reports a failed connect to the Inspector and gives up the thread", async () => {
-        const { fixture, core } = createChatFixture();
+        const { fixture, core } = createChatFixture(new StreamingAgent());
         vi.spyOn(core, "connectAgent").mockRejectedValue(new Error("down"));
         vi.spyOn(console, "error").mockImplementation(() => {});
         const results: InspectorViewThreadResultPayload[] = [];

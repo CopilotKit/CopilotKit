@@ -8,19 +8,21 @@ import {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
 } from "../../providers/CopilotChatConfigurationProvider";
-import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
+import { randomUUID } from "@copilotkit/shared";
 import type { AttachmentsConfig } from "@copilotkit/shared";
 import {
   CopilotChatDefaultLabels,
   CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
+  ɵChatConnection,
   ɵcreateChatSubmitter,
   ɵcreateLastUserMessageTracker,
   ɵcreateThreadStore,
-  ɵisHttpAgent,
+  ɵFreshThreadId,
   ɵmessagesFingerprint,
+  ɵresolveAgentId,
   ɵresolveChatNotice,
-  ɵThreadSwitchCoordinator,
+  ɵsubscribeToAgentErrors,
 } from "@copilotkit/core";
 import type {
   CopilotChatLabels,
@@ -43,7 +45,6 @@ import {
   useLicenseContext,
 } from "../../context";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
-import type { AbstractAgent } from "@ag-ui/client";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot, useShallowStableRef } from "../../lib/slots";
 import { LastUserMessageContext } from "./last-user-message-context";
@@ -154,12 +155,16 @@ export function CopilotChat({
 
   // Apply priority: props > existing config > defaults
   const providerAgentId = useDefaultAgentId();
-  const resolvedAgentId =
-    agentId ?? existingConfig?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
+  const resolvedAgentId = ɵresolveAgentId({
+    agentId,
+    chatAgentId: existingConfig?.agentId,
+    providerAgentId,
+  });
   const providedThreadId = threadId ?? existingConfig?.threadId;
+  const [freshThreadId] = useState(() => new ɵFreshThreadId());
   const baseThreadId = useMemo(
-    () => providedThreadId ?? randomUUID(),
-    [providedThreadId],
+    () => freshThreadId.resolve(providedThreadId),
+    [freshThreadId, providedThreadId],
   );
   // "Explicit" means a caller actually picked this thread — via the
   // `threadId` prop on CopilotChat or a wrapping provider that marked its
@@ -207,50 +212,29 @@ export function CopilotChat({
 
   useEffect(() => {
     if (!onErrorRef.current) return;
-
-    const subscription = copilotkit.subscribe({
-      onError: (event) => {
-        // Only forward errors that match this chat's agent
-        if (
-          event.context?.agentId === resolvedAgentId ||
-          !event.context?.agentId
-        ) {
-          // Not returned: core awaits subscribers, so a slow user handler
-          // would hold up the run that reported the error.
-          void onErrorRef.current?.({
-            error: event.error,
-            code: event.code,
-            context: event.context,
-          });
-        }
-      },
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    return ɵsubscribeToAgentErrors(copilotkit, resolvedAgentId, (event) =>
+      onErrorRef.current?.(event),
+    );
   }, [copilotkit, resolvedAgentId]);
 
-  useEffect(() => {
-    if (!inspectorRequestId) return;
-    const requestId = inspectorRequestId;
-    const expectedThreadId = resolvedThreadId;
-    const subscription = copilotkit.subscribe({
-      onError: (event) => {
-        if (event.code !== CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED) return;
-        if (event.context?.agentId !== resolvedAgentId) return;
-        if (event.context?.threadId !== expectedThreadId) return;
-        failInspectorOverride(requestId);
-      },
-    });
-    return () => subscription.unsubscribe();
-  }, [
-    copilotkit,
-    failInspectorOverride,
-    inspectorRequestId,
-    resolvedAgentId,
-    resolvedThreadId,
-  ]);
+  // Loads the thread this chat shows. Owns the connect's abort, detach and
+  // "connecting" state, and ends a failed Inspector override.
+  const failInspectorOverrideRef = useRef(failInspectorOverride);
+  failInspectorOverrideRef.current = failInspectorOverride;
+  const [connection] = useState(
+    () =>
+      new ɵChatConnection({
+        core: copilotkit,
+        onInspectorOverrideFailed: (requestId) =>
+          failInspectorOverrideRef.current(requestId),
+      }),
+  );
+  const { threads } = connection;
+  useSyncExternalStore(
+    useCallback((onChange) => connection.subscribe(onChange), [connection]),
+    () => connection.getSnapshot(),
+    () => connection.getSnapshot(),
+  );
 
   // Transcription state
   const [transcribeMode, setTranscribeMode] =
@@ -298,32 +282,19 @@ export function CopilotChat({
     ...restProps
   } = props;
 
-  // Tracks the last threadId for which connectAgent has completed (success or
-  // failure). When the user supplies a threadId, we're in "resume existing
-  // thread" mode — the welcome screen should be suppressed until the connect
-  // resolves, otherwise switching threads flashes the welcome screen while the
-  // new thread's messages are still en route.
-  const [lastConnectedThreadId, setLastConnectedThreadId] = useState<
-    string | null
-  >(null);
-  const isConnecting =
-    hasExplicitThreadId && lastConnectedThreadId !== resolvedThreadId;
+  // When the caller picked a thread, the welcome screen stays hidden until
+  // its connect settles, so switching threads does not flash it while the
+  // thread's messages load.
+  const isConnecting = connection.isConnecting({
+    threadId: resolvedThreadId,
+    explicit: hasExplicitThreadId,
+  });
   const activeConnectCountRef = useRef(0);
-  // Keeps the agent on the thread this chat shows, orders the teardown of the
-  // previous thread, and tracks connections a send must wait for.
-  const [threads] = useState(() => new ɵThreadSwitchCoordinator(copilotkit));
   const trackConnection = useCallback(
     (connect: () => Promise<void>) => {
-      const selection = threads.current;
-      if (selection) {
-        void threads.trackConnection(selection, connect);
-        return;
-      }
-      connect().catch((error: unknown) => {
-        console.error("CopilotChat: connection failed", error);
-      });
+      void connection.track(connect);
     },
-    [threads],
+    [connection],
   );
   const pendingRunActivityReconnectRef = useRef(false);
   const runActivityReconnectGenerationRef = useRef(0);
@@ -358,11 +329,6 @@ export function CopilotChat({
       fetch: copilotkit.ɵruntimeFetch,
     }),
   );
-
-  // Latest explicitness, readable from an async connect that may resolve after
-  // the user has already switched threads (see the stale-connect guard below).
-  const hasExplicitThreadIdRef = useRef(hasExplicitThreadId);
-  hasExplicitThreadIdRef.current = hasExplicitThreadId;
 
   const rememberRecentlyLocalRunId = useCallback((runId: string) => {
     const existingTimeout = recentlyLocalRunIdsRef.current.get(runId);
@@ -428,110 +394,45 @@ export function CopilotChat({
   }, []);
 
   useEffect(() => {
-    // Pins the thread on the agent. A switch to a fresh, non-explicit thread
-    // (startNewThread, the drawer's "+ New") empties the agent so the welcome
-    // screen shows; moving in or out of an inspector override stops the run.
-    const selection = threads.select({
-      agent,
-      threadId: resolvedThreadId,
-      explicit: hasExplicitThreadId,
-      inspectorRequestId,
-    });
-
-    // When the caller hasn't picked a specific thread, resolvedThreadId is a
-    // UUID minted locally. The backend has never seen it, so /connect would
-    // always 404 — skip the call. A real thread is only created once the
-    // user runs the agent for the first time.
-    if (!selection.shouldConnect) {
-      return () => selection.release();
-    }
-
-    let detached = false;
-
-    // Create a fresh AbortController so we can cancel the HTTP request on cleanup.
-    // HttpAgent (parent of ProxiedCopilotRuntimeAgent) uses this.abortController.signal
-    // in its fetch config. Unlike runAgent(), connectAgent() does NOT create a new
-    // AbortController automatically, so we must set one before connecting.
-    const connectAbortController = new AbortController();
-    const connect = async (agentToConnect: AbstractAgent) => {
-      activeConnectCountRef.current += 1;
-      try {
-        await threads.whenTornDown();
-        if (detached) return;
-        if (ɵisHttpAgent(agentToConnect)) {
-          agentToConnect.abortController = connectAbortController;
-        }
-        await copilotkit.connectAgent({ agent: agentToConnect });
-      } catch (error) {
-        // Ignore errors from aborted connections (e.g., React StrictMode cleanup)
-        if (detached) return;
-        if (inspectorRequestId) {
-          failInspectorOverride(inspectorRequestId);
-        }
-        // Let trackConnection record unexpected failures as well as emitted
-        // core errors before any queued submission can proceed.
-        throw error;
-      } finally {
-        // Whether the connect succeeded or failed, we're no longer in the
-        // transitional "connecting" state for this thread — unblock the
-        // welcome-screen-suppression so the view can settle.
-        //
-        // Defer one animation frame so any trailing React commits from the
-        // bootstrap replay (final assistant message content) paint before
-        // isConnecting flips off. Without this, suggestions + copy button
-        // can briefly appear against an incompletely-laid-out message tree
-        // and visibly snap once the last text chunk lands.
-        if (!detached) {
-          const raf =
-            typeof requestAnimationFrame === "function"
-              ? requestAnimationFrame
-              : (cb: () => void) => setTimeout(cb, 16);
-          raf(() => {
-            if (!detached) setLastConnectedThreadId(resolvedThreadId);
-          });
-        } else if (!hasExplicitThreadIdRef.current) {
-          // This connect was superseded (the user switched away while it was
-          // still loading). If the now-current thread is a fresh non-explicit
-          // one (e.g. the drawer's "+ New"), any snapshot this connect managed
-          // to apply is stale — clear it so the welcome screen shows instead of
-          // the abandoned thread's messages. A switch to ANOTHER explicit thread
-          // is left alone: that thread's own connect owns the message reset.
-          selection.clearDiscardedBaseline();
-        }
-        activeConnectCountRef.current = Math.max(
-          0,
-          activeConnectCountRef.current - 1,
-        );
-        if (!detached && activeConnectCountRef.current === 0) {
+    // Pins the thread on the agent and connects a thread the caller picked.
+    // A switch to a fresh thread (startNewThread, the drawer's "+ New")
+    // empties the agent so the welcome screen shows; moving in or out of an
+    // Inspector override stops the run. Release aborts a connect still
+    // loading, which keeps StrictMode's remount from sending a second
+    // /connect.
+    const handle = connection.open(
+      {
+        agent,
+        threadId: resolvedThreadId,
+        explicit: hasExplicitThreadId,
+        inspectorRequestId,
+      },
+      {
+        onStart: () => {
+          activeConnectCountRef.current += 1;
+        },
+        onSettled: (current) => {
+          activeConnectCountRef.current = Math.max(
+            0,
+            activeConnectCountRef.current - 1,
+          );
+          if (!current || activeConnectCountRef.current !== 0) return;
           const startReconnect = startRunActivityReconnectRef.current;
           if (pendingRunActivityReconnectRef.current && startReconnect) {
             pendingRunActivityReconnectRef.current = false;
             startReconnect(runActivityReconnectGenerationRef.current);
           }
-        }
-      }
-    };
-    trackConnection(() => connect(agent));
-    return () => {
-      selection.release();
-      // Abort the HTTP request and detach the active run.
-      // This is critical for React StrictMode which unmounts+remounts in dev,
-      // preventing duplicate /connect requests from reaching the server.
-      detached = true;
-      connectAbortController.abort();
-      void threads.detach(agent);
-    };
-    // copilotkit is intentionally excluded — it is a stable ref that never changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        },
+      },
+    );
+    return () => handle.release();
   }, [
+    connection,
     resolvedThreadId,
     agent,
     resolvedAgentId,
     hasExplicitThreadId,
     inspectorRequestId,
-    failInspectorOverride,
-    threads,
-    trackConnection,
   ]);
 
   useEffect(() => {

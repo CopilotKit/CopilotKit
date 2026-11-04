@@ -722,8 +722,10 @@ test("in-flight thread_run_activity reconnect is detached on unmount", async () 
   });
   rendered.unmount();
 
+  // The reconnect is detached once. The initial connect settled before it, so
+  // releasing that thread leaves the agent's run alone.
   expect(rendered.agent.detachActiveRunCalls).toBe(
-    detachCallsBeforeReconnect + 2,
+    detachCallsBeforeReconnect + 1,
   );
 
   await act(async () => {

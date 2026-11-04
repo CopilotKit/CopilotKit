@@ -628,6 +628,26 @@ export function StarterPrompts() {
 
 If a test counts suggestion reloads, update the count to the behavior above.
 
+The Angular chat now loads the suggestions of its agent only when nothing else loads them:
+
+- **`configureSuggestions` (Angular):** A config loads one time. Before 2.0, the chat loaded it a second time.
+- **Agent list changes (Angular):** The chat reloads its suggestions only when its own agent registers. Before 2.0, every change to the agent list reloaded them.
+- **`addSuggestionsConfig` (Angular):** A new config does not reload the chat. Call `reloadSuggestions(agentId)`, or use `configureSuggestions`.
+
+## Thread connections
+
+React, Vue, and Angular now load a thread with the same rules.
+
+| Rule | Changed in |
+| --- | --- |
+| An agent that does not implement `connect` is not connected. Its thread shows as loaded at once, and its messages stay. | React, Angular |
+| When the chat closes or changes thread, it stops the run of a thread that still loads. A run that started after the thread loaded continues. | React, Vue |
+| An explicit thread shows as loading until it loads and the next frame paints. | Angular |
+| A move into or out of an Inspector thread stops the run. | Angular |
+| When the `threadId` input goes away, the chat starts a new thread. It does not go back to an earlier new thread. | Angular |
+
+If a test spies on `connectAgent` with an agent that does not implement `connect`, give the agent a `connect` method.
+
 ## Interrupts and human-in-the-loop
 
 React, Vue, and Angular now share one implementation of interrupts and human-in-the-loop tools. The imports and types do not change. Some behavior changes. Find the changes that apply to your app below.
