@@ -1,0 +1,176 @@
+name: test / unit / examples
+
+# Unit tests inside examples/ that no CI job ran before PE-1113.
+#
+#   - `workspace`: examples in the pnpm workspace, through their nx targets.
+#   - `node`: standalone examples that ship their own npm lockfile.
+#   - `python`: standalone Python agents that ship a uv lockfile.
+#
+# The examples already gated elsewhere (examples/v1 and canvas/mastra-pm in
+# test_e2e-public-examples.yml, the claude-managed starters, the reskinnable
+# demo, the .NET starter) are not repeated here.
+# `scripts/test-ci-coverage-map.mjs` maps each test file to its step.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/test_unit-examples.yml"
+  pull_request:
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
+    paths:
+      - "examples/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/test_unit-examples.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NX_NO_CLOUD: "true"
+  NX_TUI: "false"
+
+jobs:
+  workspace:
+    name: Workspace examples (Slack, Teams, React demo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Use Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `test` depends on `^build`, so nx builds the workspace packages each
+      # example imports first.
+      - name: Run example unit tests
+        run: pnpm nx run-many -t test -p slack-example,teams-example,demo --parallel=1
+
+  node:
+    name: "Standalone example (${{ matrix.directory }})"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - directory: examples/integrations/agentcore/infra-cdk
+            test: npx jest
+          - directory: examples/integrations/strands-typescript/agent
+            test: npm test
+          - directory: examples/showcases/claude-managed-agents
+            test: npm test
+          - directory: examples/showcases/strands-crm/agent
+            test: npm test
+          - directory: examples/showcases/strands-crm/frontend
+            test: npm test
+    defaults:
+      run:
+        working-directory: ${{ matrix.directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.directory }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run tests
+        env:
+          TEST_COMMAND: ${{ matrix.test }}
+        run: $TEST_COMMAND
+
+  node-source-checks:
+    name: Example source checks (no install)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      # Both tests only read source and manifest files.
+      - name: Run chatkit-studio migration contract
+        run: node --test examples/showcases/chatkit-studio/apps/world/e2e/migration-contract.test.cjs
+
+      - name: Run mcp-apps compatibility checks
+        if: ${{ !cancelled() }}
+        run: node --test examples/showcases/mcp-apps/compatibility.test.mjs
+
+  python:
+    name: "Python example (${{ matrix.directory }})"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # uv workspace root; its `agent` member needs Python 3.13, and
+          # pytest is not in the lock.
+          - directory: examples/integrations/a2a-a2ui
+            python: "3.13"
+            test: uv run --frozen --package a2ui --with pytest pytest a2ui_extension/tests -v
+          - directory: examples/integrations/llamaindex/agent
+            python: "3.12"
+            test: uv run --frozen python -m unittest test_message_payload -v
+          - directory: examples/integrations/ms-agent-framework-python/agent
+            python: "3.12"
+            test: uv run --frozen python -m unittest discover -s tests -v
+          - directory: examples/showcases/antigravity-repo-doctor/agent
+            python: "3.13"
+            test: uv run --frozen pytest -v
+    defaults:
+      run:
+        working-directory: ${{ matrix.directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+          cache-dependency-glob: ${{ matrix.directory }}/uv.lock
+
+      - name: Run tests
+        env:
+          TEST_COMMAND: ${{ matrix.test }}
+        run: $TEST_COMMAND

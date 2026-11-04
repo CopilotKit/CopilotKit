@@ -157,6 +157,29 @@ jobs:
         # during a build).
         run: pnpm build
 
+      - name: Install Chromium for e2e
+        run: pnpm exec playwright install chromium
+
+      - name: E2E against aimock
+        # No CI job ran these Playwright specs before PE-1113. They use the
+        # deterministic aimock server, so no LLM key is needed. The empty
+        # Intelligence variables stop playwright.config.ts from defaulting to
+        # the local Docker memory stack (localhost:7250), which CI does not
+        # start. memory-learning.spec.ts needs that stack, and
+        # ogui-routing.spec.ts is `describe.fixme`, so neither is listed.
+        env:
+          CI: "1"
+          INTELLIGENCE_API_URL: ""
+          INTELLIGENCE_GATEWAY_WS_URL: ""
+          CPK_INTELLIGENCE_API_KEY: ""
+        run: >-
+          pnpm exec playwright test
+          e2e/smoke.spec.ts
+          e2e/locked-skin.spec.ts
+          e2e/inset-layout.spec.ts
+          e2e/a2ui-canvas.spec.ts
+          e2e/exec-blocks.spec.ts
+
   agent-resolve:
     name: "agent deps resolve + subagent surface"
     runs-on: ubuntu-latest
