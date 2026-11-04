@@ -290,7 +290,6 @@ describe("ɵfindActivityRenderer", () => {
 });
 
 describe("ɵmatchActivityRenderer", () => {
-
   it("says no renderer matched", () => {
     expect(ɵmatchActivityRenderer([], query({}))).toEqual({
       ok: false,
