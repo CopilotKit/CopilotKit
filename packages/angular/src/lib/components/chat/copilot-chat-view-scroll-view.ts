@@ -10,11 +10,9 @@ import {
   ViewEncapsulation,
   signal,
   computed,
-  AfterViewInit,
-  OnDestroy,
   inject,
-  ChangeDetectorRef,
   afterNextRender,
+  viewChild,
 } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import { ScrollingModule } from "@angular/cdk/scrolling";
@@ -23,14 +21,13 @@ import { CopilotChatMessageView } from "./copilot-chat-message-view";
 import { CopilotChatViewScrollToBottomButton } from "./copilot-chat-view-scroll-to-bottom-button";
 import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
 import { StickToBottom } from "../../directives/stick-to-bottom";
-import { ScrollPosition } from "../../scroll-position";
 import { ChatState } from "../../chat-state";
+import { explicitEffect } from "../../explicit-effect";
 import { Message } from "@ag-ui/client";
 import { cn } from "../../utils";
-import { Subject } from "rxjs";
-import { takeUntil } from "rxjs/operators";
 import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
-import { ɵgetChatViewState } from "@copilotkit/core";
+import { ɵcreateStickToBottom, ɵgetChatViewState } from "@copilotkit/core";
+import type { ɵStickToBottom } from "@copilotkit/core";
 
 /**
  * ScrollView component for CopilotChatView
@@ -49,11 +46,9 @@ import { ɵgetChatViewState } from "@copilotkit/core";
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
-  providers: [ScrollPosition],
   templateUrl: "./copilot-chat-view-scroll-view.html",
 })
-export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
-  private cdr = inject(ChangeDetectorRef);
+export class CopilotChatViewScrollView {
   protected readonly chatState = inject(ChatState, { optional: true });
 
   autoScroll = input<boolean>(true);
@@ -108,6 +103,10 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   @ViewChild("contentContainer", { read: ElementRef })
   contentContainer?: ElementRef<HTMLElement>;
   @ViewChild(StickToBottom) stickToBottomDirective?: StickToBottom;
+  private readonly scrollElement =
+    viewChild<ElementRef<HTMLElement>>("scrollContainer");
+  /** Tracks the position for the button when `autoScroll` is off. */
+  private manualScroll?: ɵStickToBottom;
 
   // Default components
   protected readonly defaultMessageViewComponent = CopilotChatMessageView;
@@ -137,37 +136,36 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   // Computed class
   protected computedClass = computed(() => cn(this.inputClass()));
 
-  private destroy$ = new Subject<void>();
-  private scrollPositionService = inject(ScrollPosition);
-
   constructor() {
     afterNextRender(() => {
       this.hasMounted.set(true);
     });
-  }
 
-  ngAfterViewInit(): void {
-    if (!this.autoScroll()) {
-      // Wait for the view to be fully rendered after hasMounted is set
-      setTimeout(() => {
-        if (this.scrollContainer) {
-          // Check initial scroll position
-          const initialState = this.scrollPositionService.getScrollState(
-            this.scrollContainer.nativeElement,
-            10,
-          );
-          this.showScrollButton.set(!initialState.isAtBottom);
-
-          // Monitor scroll position for manual mode
-          this.scrollPositionService
-            .monitorScrollPosition(this.scrollContainer, 10)
-            .pipe(takeUntil(this.destroy$))
-            .subscribe((state) => {
-              this.showScrollButton.set(!state.isAtBottom);
-            });
-        }
-      }, 100);
-    }
+    // Without auto-scroll, core only tracks the position (same 12px threshold
+    // as the directive) so the scroll-to-bottom button shows when the reader
+    // is above the end.
+    explicitEffect(
+      () => ({
+        element: this.scrollElement()?.nativeElement,
+        autoScroll: this.autoScroll(),
+      }),
+      ({ element, autoScroll }, onCleanup) => {
+        if (!element || autoScroll) return;
+        const content = element.firstElementChild;
+        const controller = ɵcreateStickToBottom({
+          scrollElement: element,
+          contentElement: content instanceof HTMLElement ? content : element,
+          follow: false,
+          onChange: (isAtBottom) => this.showScrollButton.set(!isAtBottom),
+        });
+        this.manualScroll = controller;
+        this.showScrollButton.set(!controller.isAtBottom);
+        onCleanup(() => {
+          controller.dispose();
+          if (this.manualScroll === controller) this.manualScroll = undefined;
+        });
+      },
+    );
   }
 
   /**
@@ -181,9 +179,7 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
    * Scroll to bottom for manual mode
    */
   scrollToBottom(): void {
-    if (this.scrollContainer) {
-      this.scrollPositionService.scrollToBottom(this.scrollContainer, true);
-    }
+    this.manualScroll?.scrollToBottom("smooth");
   }
 
   /**
@@ -193,11 +189,6 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
     if (this.stickToBottomDirective) {
       this.stickToBottomDirective.scrollToBottom("smooth");
     }
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   // Output maps for slots

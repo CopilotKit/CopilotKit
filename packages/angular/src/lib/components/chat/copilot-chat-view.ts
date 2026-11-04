@@ -24,7 +24,6 @@ import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
 import type { Message } from "@ag-ui/client";
 import { hostStyles } from "../host-styles";
 import { CopilotKitStyles } from "../copilot-kit-styles";
-import { ResizeObserverService } from "../../resize-observer";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 import { ChatState } from "../../chat-state";
 import { CopilotIcon, Upload } from "../icons/copilot-icon";
@@ -60,7 +59,7 @@ import { ɵgetChatViewState, ɵnormalizeAutoScroll } from "@copilotkit/core";
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
-  providers: [ResizeObserverService, CopilotChatViewHandlers],
+  providers: [CopilotChatViewHandlers],
   styles: [hostStyles],
   template: `
     <copilot-kit-styles />
