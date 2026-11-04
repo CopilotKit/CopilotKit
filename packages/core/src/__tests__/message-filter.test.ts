@@ -1602,7 +1602,9 @@ describe("ProxiedCopilotRuntimeAgent messageFilter", () => {
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const sent = sentMessages(init);
-    expect(sent.map((m) => m.id)).toEqual([call.id, after.id, result.id]);
+    // Both repairs here failed, but @ag-ui/client re-pairs tool results in a
+    // run's input itself, so the result still goes out next to its call.
+    expect(sent.map((m) => m.id)).toEqual([call.id, result.id, after.id]);
     expect(sent.every((m) => m.content === "redacted")).toBe(true);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
@@ -2080,7 +2082,7 @@ describe("ProxiedCopilotRuntimeAgent tool-call pairing without a filter", () => 
     expect(sentMessages(init).map((m) => m.id)).toEqual(["from-spy"]);
   });
 
-  it("warns once, naming the repair, and sends the input unchanged when the repair throws", async () => {
+  it("warns once, naming the repair, when the repair throws", async () => {
     // Forced through the module export: no known input makes it throw.
     const keep = vi
       .spyOn(messageFilterModule, "ɵkeepToolResultsWithCalls")
@@ -2097,11 +2099,13 @@ describe("ProxiedCopilotRuntimeAgent tool-call pairing without a filter", () => 
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(keep).toHaveBeenCalledTimes(1);
+    // This repair failed, but @ag-ui/client re-pairs tool results in a run's
+    // input itself, so the result still goes out next to its call.
     expect(sentMessages(init).map((m) => m.id)).toEqual([
       "u1",
       call.id,
-      "a2",
       result.id,
+      "a2",
     ]);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
