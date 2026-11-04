@@ -995,7 +995,10 @@ function isZodSchema(schema: StandardSchemaV1): boolean {
  *
  * For Zod schemas, passes them directly to the AI SDK (Zod satisfies FlexibleSchema).
  * For non-Zod schemas, converts to JSON Schema via schemaToJsonSchema() and wraps
- * with the AI SDK's jsonSchema() helper.
+ * with the AI SDK's jsonSchema() helper, wiring the original schema's Standard
+ * Schema `validate` so tool-call arguments are validated (and any defaults or
+ * transforms applied) before `execute` runs — the same guarantee the Zod branch
+ * gets from the AI SDK.
  */
 export function convertToolDefinitionsToVercelAITools(
   tools: ToolDefinition[],
@@ -1012,11 +1015,53 @@ export function convertToolDefinitionsToVercelAITools(
         execute: tool.execute,
       });
     } else {
-      // Non-Zod: convert to JSON Schema and wrap with AI SDK's jsonSchema()
+      // Non-Zod: convert to JSON Schema and wrap with AI SDK's jsonSchema().
+      // jsonSchema() alone performs no validation, so attach the original
+      // schema's Standard Schema validate. Success is keyed on the absence
+      // of `issues` per the Standard Schema spec: some libraries (e.g.
+      // Valibot) return a partial `value` alongside `issues` on failure,
+      // so the presence of `value` is not a success signal. On success the
+      // validated value is forwarded, preserving defaults/transforms.
+      const standard = tool.parameters["~standard"];
       const jsonSchemaObj = schemaToJsonSchema(tool.parameters);
       result[tool.name] = createVercelAISDKTool({
         description: tool.description,
-        inputSchema: aiJsonSchema(jsonSchemaObj),
+        inputSchema: aiJsonSchema(jsonSchemaObj, {
+          validate: async (value) => {
+            const validation = await standard.validate(value);
+            if (validation.issues) {
+              return {
+                success: false,
+                error: new Error(
+                  `Invalid arguments for tool ${tool.name}: ${validation.issues
+                    .map((issue) => {
+                      // Prefix the field path when the schema library
+                      // reports one: Valibot/ArkType messages alone do not
+                      // name the offending argument, and this error is
+                      // returned to the model as the tool error. Path
+                      // segments are PropertyKeys (possibly wrapped in
+                      // `{ key }` objects), so stringify each segment —
+                      // a bare join would throw on symbol keys.
+                      const path = issue.path
+                        ?.map((segment) =>
+                          String(
+                            typeof segment === "object" ? segment.key : segment,
+                          ),
+                        )
+                        .join(".");
+                      return path ? `${path}: ${issue.message}` : issue.message;
+                    })
+                    .join("; ")}`,
+                ),
+              };
+            }
+            return {
+              success: true,
+              value: (validation as StandardSchemaV1.SuccessResult<unknown>)
+                .value,
+            };
+          },
+        }),
         execute: tool.execute,
       });
     }
