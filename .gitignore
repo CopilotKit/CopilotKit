@@ -95,4 +95,5 @@ tasks/
 
 # Stryker mutation testing (scripts/mutation)
 .stryker-tmp
-reports/mutation
+**/reports/mutation
+**/stryker-setup-*.js
