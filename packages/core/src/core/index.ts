@@ -80,3 +80,5 @@ export type {
 } from "./provider-config";
 export { ɵRuntimeInfoStore } from "./runtime-info";
 export type { ɵRuntimeInfo } from "./runtime-info";
+// Tool result content (internal)
+export { isContentPart as ɵisContentPart } from "./tool-result-content";
