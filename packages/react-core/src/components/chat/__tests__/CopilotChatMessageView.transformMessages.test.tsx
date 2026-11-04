@@ -320,6 +320,57 @@ describe("CopilotChatMessageView transformMessages", () => {
     await drainAnimationFrames();
   });
 
+  it("does not scroll to the bottom when older history is prepended (#8149)", async () => {
+    const scrollElement = createScrollElement();
+    const recent = userMessages(60, "recent");
+    const older = userMessages(70, "older");
+
+    let setMessages: ((next: Message[]) => void) | null = null;
+    function Harness() {
+      const [messages, update] = React.useState<Message[]>(recent);
+      setMessages = update;
+      return (
+        <ScrollElementContext.Provider value={scrollElement}>
+          <CopilotChatMessageView messages={messages} />
+        </ScrollElementContext.Provider>
+      );
+    }
+
+    renderWithCopilotKit({ children: <Harness /> });
+    const scrollToIndex = vi.spyOn(capture.current!, "scrollToIndex");
+
+    act(() => setMessages!([...older, ...recent]));
+    expect(virtualizedRowCount()).toBe(130);
+    // The first message changed, but the history still holds the old one:
+    // this is the same thread, so the reader keeps their place.
+    expect(scrollToIndex).not.toHaveBeenCalled();
+    await drainAnimationFrames();
+  });
+
+  it("scrolls to the bottom when the history shares no message with the previous one", async () => {
+    const scrollElement = createScrollElement();
+
+    let setMessages: ((next: Message[]) => void) | null = null;
+    function Harness() {
+      const [messages, update] = React.useState<Message[]>(
+        userMessages(60, "thread-a"),
+      );
+      setMessages = update;
+      return (
+        <ScrollElementContext.Provider value={scrollElement}>
+          <CopilotChatMessageView messages={messages} />
+        </ScrollElementContext.Provider>
+      );
+    }
+
+    renderWithCopilotKit({ children: <Harness /> });
+    const scrollToIndex = vi.spyOn(capture.current!, "scrollToIndex");
+
+    act(() => setMessages!(userMessages(70, "thread-b")));
+    expect(scrollToIndex).toHaveBeenCalledWith(69, { align: "end" });
+    await drainAnimationFrames();
+  });
+
   it("keeps a tool card mounted when a transform swaps a stand-in for the durable message", () => {
     // A resumed call the client could not place gets a stand-in assistant
     // message whose id is the tool call id. The durable message with the
