@@ -15,8 +15,9 @@ import * as z from "zod";
  * duplicate skeleton on retries / multi-call generations and a skeleton that
  * lingered after the surface painted — both fixed by retiring it here.
  *
- * Users can still override with their own `useRenderTool({ name: "render_a2ui" })`
- * (hook-based entries take priority over this prop-based registration).
+ * It is a built-in renderer, so a `renderToolCalls` entry or a
+ * `useRenderTool({ name: "render_a2ui" })` hook replaces it, and it never
+ * removes the app's renderers. It is removed when A2UI turns off.
  */
 export function A2UIBuiltInToolCallRenderer(): null {
   const { copilotkit } = useCopilotKit();
@@ -29,11 +30,7 @@ export function A2UIBuiltInToolCallRenderer(): null {
       render: () => <></>,
     });
 
-    const existing = (copilotkit as any)._renderToolCalls ?? [];
-    copilotkit.setRenderToolCalls([
-      ...existing.filter((rc: any) => rc.name !== RENDER_A2UI_TOOL_NAME),
-      renderer,
-    ]);
+    return copilotkit.ɵaddBuiltInRenderToolCall(renderer);
   }, [copilotkit]);
 
   return null;

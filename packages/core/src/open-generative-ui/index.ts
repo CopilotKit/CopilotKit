@@ -43,6 +43,7 @@ export {
   isOpenGenerativeUIActive as ɵisOpenGenerativeUIActive,
   createOpenGenerativeUITool as ɵcreateOpenGenerativeUITool,
   buildOpenGenerativeUIContexts as ɵbuildOpenGenerativeUIContexts,
+  addOpenGenerativeUIContexts as ɵaddOpenGenerativeUIContexts,
   OPEN_GENERATIVE_UI_DESIGN_CONTEXT_DESCRIPTION as ɵOPEN_GENERATIVE_UI_DESIGN_CONTEXT_DESCRIPTION,
   OPEN_GENERATIVE_UI_SANDBOX_FUNCTIONS_CONTEXT_DESCRIPTION as ɵOPEN_GENERATIVE_UI_SANDBOX_FUNCTIONS_CONTEXT_DESCRIPTION,
 } from "./tool";

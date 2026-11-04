@@ -129,6 +129,109 @@ describe("ɵRendererRegistry tool calls", () => {
   });
 });
 
+describe("ɵRendererRegistry built-in tool calls", () => {
+  const builtInA2UI: ToolEntry = {
+    name: "render_a2ui",
+    render: "built-in-a2ui",
+  };
+
+  it("keeps a built-in renderer when the prop renderers are replaced", () => {
+    const { registry } = createRegistry([propSearch]);
+    registry.addBuiltInToolCall(builtInA2UI);
+
+    registry.setPropToolCalls([propSearch, propWeather]);
+
+    expect(registry.toolCalls.map((entry) => entry.render)).toEqual([
+      "prop-search",
+      "prop-weather",
+      "built-in-a2ui",
+    ]);
+  });
+
+  it("keeps the prop renderers when a built-in renderer is added", () => {
+    const { registry, changes } = createRegistry([propSearch]);
+
+    registry.addBuiltInToolCall(builtInA2UI);
+
+    expect(registry.toolCalls.map((entry) => entry.render)).toEqual([
+      "prop-search",
+      "built-in-a2ui",
+    ]);
+    expect(changes).toEqual(["toolCalls"]);
+  });
+
+  it("lets a prop or hook renderer with the same key win over a built-in one", () => {
+    const { registry } = createRegistry([
+      { name: "render_a2ui", render: "prop-a2ui" },
+    ]);
+    registry.addBuiltInToolCall(builtInA2UI);
+    expect(registry.toolCalls.map((entry) => entry.render)).toEqual([
+      "prop-a2ui",
+    ]);
+
+    registry.setPropToolCalls([]);
+    registry.addHookToolCall({ name: "render_a2ui", render: "hook-a2ui" });
+    expect(registry.toolCalls.map((entry) => entry.render)).toEqual([
+      "hook-a2ui",
+    ]);
+  });
+
+  it("keeps built-in renderers from different features apart", () => {
+    const { registry } = createRegistry();
+    registry.addBuiltInToolCall(builtInA2UI);
+    const removeRenderUi = registry.addBuiltInToolCall({
+      name: "render_ui",
+      render: "built-in-render-ui",
+    });
+
+    removeRenderUi();
+
+    expect(registry.toolCalls.map((entry) => entry.render)).toEqual([
+      "built-in-a2ui",
+    ]);
+  });
+
+  it("removes a built-in renderer only while it is the current one for its key", () => {
+    const { registry } = createRegistry();
+    const removeFirst = registry.addBuiltInToolCall(builtInA2UI);
+    registry.addBuiltInToolCall({ name: "render_a2ui", render: "second" });
+
+    removeFirst();
+
+    expect(registry.toolCalls.map((entry) => entry.render)).toEqual(["second"]);
+  });
+});
+
+describe("ɵRendererRegistry.removeToolCall", () => {
+  it("removes the prop and hook renderers for one key, and keeps the rest", () => {
+    const { registry, changes } = createRegistry([
+      propSearch,
+      { name: "search", agentId: "research", render: "research-search" },
+      propWeather,
+    ]);
+    registry.addHookToolCall({ name: "search", render: "hook-search" });
+    registry.addBuiltInToolCall({ name: "search", render: "built-in-search" });
+    changes.length = 0;
+
+    registry.removeToolCall("search");
+
+    expect(registry.toolCalls.map((entry) => entry.render)).toEqual([
+      "research-search",
+      "prop-weather",
+      "built-in-search",
+    ]);
+    expect(changes).toEqual(["toolCalls"]);
+  });
+
+  it("does not notify when nothing has the key", () => {
+    const { registry, changes } = createRegistry([propSearch]);
+
+    registry.removeToolCall("missing");
+
+    expect(changes).toEqual([]);
+  });
+});
+
 describe("ɵRendererRegistry activity and custom renderers", () => {
   it("notifies with the kind of list that changed", () => {
     const { registry, changes } = createRegistry();

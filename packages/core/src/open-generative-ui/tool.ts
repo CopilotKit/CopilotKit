@@ -91,3 +91,34 @@ export function buildOpenGenerativeUIContexts({
   });
   return entries;
 }
+
+/**
+ * Add the Open Generative UI agent context entries (see
+ * {@link buildOpenGenerativeUIContexts}) to a core.
+ *
+ * @returns A function that removes the entries this call added.
+ *
+ * @example
+ * ```ts
+ * const remove = ɵaddOpenGenerativeUIContexts(core, { designSkill, sandboxFunctions });
+ * // when the feature turns off or the options change
+ * remove();
+ * ```
+ */
+export function addOpenGenerativeUIContexts(
+  core: {
+    addContext(entry: { description: string; value: string }): string;
+    removeContext(id: string): void;
+  },
+  options: {
+    designSkill?: string;
+    sandboxFunctions: readonly OpenGenerativeUISandboxFunction[];
+  },
+): () => void {
+  const ids = buildOpenGenerativeUIContexts(options).map((entry) =>
+    core.addContext(entry),
+  );
+  return () => {
+    for (const id of ids) core.removeContext(id);
+  };
+}

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ɵanySchema } from "@copilotkit/shared";
 import {
   computed,
   h,
@@ -16,25 +15,28 @@ import type { Component, FunctionalComponent } from "vue";
 import type { Catalog, ComponentApi } from "@a2ui/web_core/v0_9";
 import {
   ɵLearningAutoStarter,
-  ɵbuildHumanInTheLoopTool,
+  ɵassembleActivityRenderers,
+  ɵassembleProviderRegistry,
   ɵhitlRenderProps,
+  ɵresolveA2UIActivation,
+  ɵstableArrayPropWarning,
   ɵtoLearningConfig,
 } from "@copilotkit/core";
 import type {
   CopilotKitHeadersSource,
   FrontendTool,
+  ɵHumanInTheLoopRegistry,
   ɵRuntimeInfo,
+  ɵStableArrayProp,
 } from "@copilotkit/core";
 import {
-  ɵSTABLE_ARRAY_WARNINGS,
-  ɵbuildOpenGenerativeUIContexts,
+  ɵaddOpenGenerativeUIContexts,
   ɵcreateOpenGenerativeUITool,
   ɵisOpenGenerativeUIActive,
   ɵpublicKeyHeaderDefaults,
   ɵreportProviderConfigDiagnostics,
   ɵresolveLicenseState,
   ɵresolveProviderConfig,
-  ɵtoolRendererShapeChanged,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";
 import { shouldEnableInspector } from "@copilotkit/shared";
@@ -136,74 +138,36 @@ provide(InspectorKey, {
   openInspector,
 });
 
-const initialRenderToolCalls = props.renderToolCalls ?? [];
-const initialFrontendTools = props.frontendTools;
-const initialHumanInTheLoop = props.humanInTheLoop;
-const initialRenderCustomMessages = props.renderCustomMessages;
-const initialRenderActivityMessages = props.renderActivityMessages;
-const initialSandboxFunctions = props.openGenerativeUI?.sandboxFunctions;
-
 // Props that come from reactive state arrive as deep proxies. Zod 4 schemas
 // break behind a Vue proxy (their `_zod` property is read-only and
 // non-configurable), so read tools and renderers through their raw objects.
 const rawEntries = <T>(entries: readonly T[] | undefined): T[] =>
   [...toRaw(entries ?? [])].map((entry) => toRaw(entry));
 
-// Only the shape (agentId:name pairs) counts, so new render closures for the
-// same tools do not warn.
-watch(
-  () => props.renderToolCalls,
-  (next) => {
-    if (ɵtoolRendererShapeChanged(initialRenderToolCalls, next ?? [])) {
-      console.error(ɵSTABLE_ARRAY_WARNINGS.renderToolCalls);
-    }
-  },
-);
-
-watch(
-  () => props.frontendTools,
-  (next) => {
-    if (next !== initialFrontendTools) {
-      console.error(ɵSTABLE_ARRAY_WARNINGS.frontendTools);
-    }
-  },
-);
-
-watch(
-  () => props.humanInTheLoop,
-  (next) => {
-    if (next !== initialHumanInTheLoop) {
-      console.error(ɵSTABLE_ARRAY_WARNINGS.humanInTheLoop);
-    }
-  },
-);
-
-watch(
-  () => props.renderCustomMessages,
-  (next) => {
-    if (next !== initialRenderCustomMessages) {
-      console.error(ɵSTABLE_ARRAY_WARNINGS.renderCustomMessages);
-    }
-  },
-);
-
-watch(
-  () => props.renderActivityMessages,
-  (next) => {
-    if (next !== initialRenderActivityMessages) {
-      console.error(ɵSTABLE_ARRAY_WARNINGS.renderActivityMessages);
-    }
-  },
-);
-
-watch(
-  () => props.openGenerativeUI?.sandboxFunctions,
-  (next) => {
-    if (next !== initialSandboxFunctions) {
-      console.error(ɵSTABLE_ARRAY_WARNINGS.sandboxFunctions);
-    }
-  },
-);
+// Array props must keep their identity; core decides when a change warns
+// (for `renderToolCalls`, only a change of the agentId:name pairs).
+const stableArrayProps: Record<
+  ɵStableArrayProp,
+  () => readonly unknown[] | undefined
+> = {
+  renderToolCalls: () => props.renderToolCalls,
+  frontendTools: () => props.frontendTools,
+  humanInTheLoop: () => props.humanInTheLoop,
+  renderCustomMessages: () => props.renderCustomMessages,
+  renderActivityMessages: () => props.renderActivityMessages,
+  sandboxFunctions: () => props.openGenerativeUI?.sandboxFunctions,
+};
+for (const [name, read] of Object.entries(stableArrayProps)) {
+  const initial = read();
+  watch(read, (next) => {
+    const warning = ɵstableArrayPropWarning(
+      name as ɵStableArrayProp,
+      initial,
+      next,
+    );
+    if (warning) console.error(warning);
+  });
+}
 
 // Key fallback, Copilot Cloud URL, transport, agent merge and the catalog
 // property all come from core.
@@ -270,71 +234,43 @@ watch(
   { immediate: true },
 );
 
-const processedHumanInTheLoop = computed(() => {
-  const tools: FrontendTool[] = [];
-  const renderToolCalls: VueToolCallRenderer<unknown>[] = [];
-  // Core parks each call by tool call id until the render responds. The core
-  // is created further down, so read its registry lazily.
-  const registry = () => copilotkit.value.ɵhumanInTheLoop;
+type FrontendToolRender = NonNullable<VueFrontendTool["render"]>;
 
-  for (const tool of rawEntries(props.humanInTheLoop)) {
-    const { render: ToolComponent, ...config } = tool;
-    tools.push(ɵbuildHumanInTheLoopTool(config, registry) as FrontendTool);
-    if (ToolComponent) {
-      const render: VueToolCallRenderer<unknown>["render"] = (
-        renderProps: VueToolCallRendererRenderProps<unknown>,
-      ) =>
+// The tools and tool-call renderers for core (assembly rules from core).
+const assembledRegistry = computed<{
+  tools: FrontendTool[];
+  renderToolCalls: VueToolCallRenderer<unknown>[];
+}>(() => {
+  const assembled = ɵassembleProviderRegistry<
+    VueToolCallRenderer<unknown>,
+    FrontendToolRender,
+    unknown
+  >({
+    renderToolCalls: rawEntries(props.renderToolCalls),
+    frontendTools: rawEntries(props.frontendTools),
+    builtInFrontendTools: builtInFrontendTools.value,
+    humanInTheLoop: rawEntries(props.humanInTheLoop),
+    // Core parks each call by tool call id until the render responds. The core
+    // is created further down, so read its registry lazily.
+    humanInTheLoopRegistry: (): ɵHumanInTheLoopRegistry =>
+      copilotkit.value.ɵhumanInTheLoop,
+    wrapHumanInTheLoopRender: (ToolComponent, tool, registry) =>
+      ((renderProps: VueToolCallRendererRenderProps<unknown>) =>
         h(
           ToolComponent as Parameters<typeof h>[0],
           ɵhitlRenderProps(renderProps, tool, registry()),
-        );
-
-      renderToolCalls.push({
-        name: tool.name,
-        args: tool.parameters,
-        render,
-        ...(tool.agentId && { agentId: tool.agentId }),
-      } as VueToolCallRenderer<unknown>);
-    }
-  }
-  return { tools, renderToolCalls };
+        )) as FrontendToolRender,
+  });
+  return {
+    tools: assembled.tools,
+    renderToolCalls:
+      assembled.renderToolCalls as VueToolCallRenderer<unknown>[],
+  };
 });
-
-const allTools = computed(() => {
-  const tools: FrontendTool[] = [];
-  for (const t of rawEntries(props.frontendTools)) {
-    tools.push(t as FrontendTool);
-  }
-  for (const t of builtInFrontendTools.value) {
-    tools.push(t as FrontendTool);
-  }
-  tools.push(...processedHumanInTheLoop.value.tools);
-  return tools;
-});
-
-const allRenderToolCalls = computed(() => {
-  const combined: VueToolCallRenderer<unknown>[] = [
-    ...rawEntries(props.renderToolCalls),
-  ];
-  for (const tool of [
-    ...rawEntries(props.frontendTools),
-    ...builtInFrontendTools.value,
-  ]) {
-    if (tool.render) {
-      const args =
-        tool.parameters ?? (tool.name === "*" ? ɵanySchema : undefined);
-      if (args) {
-        combined.push({
-          name: tool.name,
-          args,
-          render: tool.render,
-        } as VueToolCallRenderer<unknown>);
-      }
-    }
-  }
-  combined.push(...processedHumanInTheLoop.value.renderToolCalls);
-  return combined;
-});
+const allTools = computed(() => assembledRegistry.value.tools);
+const allRenderToolCalls = computed(
+  () => assembledRegistry.value.renderToolCalls,
+);
 
 const allRenderCustomMessages = computed(
   () => props.renderCustomMessages ?? [],
@@ -363,9 +299,12 @@ const openGenerativeUIActive = computed(() =>
 // A catalog passed to the provider is enough to turn A2UI on: render the
 // surfaces locally and forward the catalog signal so the runtime injects the
 // render tool — no runtime-side `a2ui` config required.
-const a2uiCatalogProvided = computed(() => !!props.a2ui?.catalog);
 const a2uiActive = computed(
-  () => runtimeA2UIEnabled.value || a2uiCatalogProvided.value,
+  () =>
+    ɵresolveA2UIActivation({
+      runtimeEnabled: runtimeA2UIEnabled.value,
+      hasCatalog: !!props.a2ui?.catalog,
+    }).active,
 );
 // The catalog with components disabled in the Inspector removed; set by
 // `registerA2UICatalog` below once the core exists.
@@ -390,47 +329,36 @@ const builtInFrontendTools = computed<VueFrontendTool[]>(() => {
   ];
 });
 
-const builtInActivityRenderers = computed<
-  VueActivityMessageRenderer<unknown>[]
->(() => {
-  const renderers: VueActivityMessageRenderer<unknown>[] = [
-    {
-      activityType: MCPAppsActivityType,
-      content: MCPAppsActivityContentSchema,
-      render: (props.mcpApps?.allowSameOriginFallback
-        ? SameOriginMCPAppsActivityRenderer
-        : MCPAppsActivityRenderer) as unknown as VueActivityMessageRenderer<unknown>["render"],
-    },
-  ];
-
-  if (openGenerativeUIActive.value) {
-    renderers.push({
-      activityType: OpenGenerativeUIActivityType,
-      content: OpenGenerativeUIContentSchema,
-      render:
-        OpenGenerativeUIActivityRenderer as unknown as VueActivityMessageRenderer<unknown>["render"],
-    });
-  }
-
-  if (a2uiActive.value) {
-    renderers.unshift(
-      createA2UIMessageRenderer({
-        theme: props.a2ui?.theme ?? {},
-        catalog: a2uiFilteredCatalog.value ?? props.a2ui?.catalog,
-        loadingComponent: props.a2ui?.loadingComponent,
-        recovery: props.a2ui?.recovery,
-        onAction: props.a2ui?.onAction,
-      }),
-    );
-  }
-
-  return renderers;
-});
-
-const allRenderActivityMessages = computed(() => [
-  ...rawEntries(props.renderActivityMessages),
-  ...builtInActivityRenderers.value,
-]);
+// The app's activity renderers, then the built-in ones (order from core).
+const allRenderActivityMessages = computed(() =>
+  ɵassembleActivityRenderers<VueActivityMessageRenderer<unknown>>({
+    app: rawEntries(props.renderActivityMessages),
+    a2ui: a2uiActive.value
+      ? createA2UIMessageRenderer({
+          theme: props.a2ui?.theme ?? {},
+          catalog: a2uiFilteredCatalog.value ?? props.a2ui?.catalog,
+          loadingComponent: props.a2ui?.loadingComponent,
+          recovery: props.a2ui?.recovery,
+          onAction: props.a2ui?.onAction,
+        })
+      : undefined,
+    builtIns: [
+      {
+        activityType: MCPAppsActivityType,
+        content: MCPAppsActivityContentSchema,
+        render: (props.mcpApps?.allowSameOriginFallback
+          ? SameOriginMCPAppsActivityRenderer
+          : MCPAppsActivityRenderer) as unknown as VueActivityMessageRenderer<unknown>["render"],
+      },
+      openGenerativeUIActive.value && {
+        activityType: OpenGenerativeUIActivityType,
+        content: OpenGenerativeUIContentSchema,
+        render:
+          OpenGenerativeUIActivityRenderer as unknown as VueActivityMessageRenderer<unknown>["render"],
+      },
+    ],
+  }),
+);
 
 const learningConfig = computed(() => ɵtoLearningConfig(props.learning));
 
@@ -633,7 +561,6 @@ registerA2UICatalog(copilotkit, {
   },
 });
 
-const providerContextIds = ref<string[]>([]);
 watch(
   [
     openGenerativeUIActive,
@@ -643,17 +570,12 @@ watch(
   ([active, functions, designSkill], _previous, onCleanup) => {
     if (!active) return;
 
-    const ids = ɵbuildOpenGenerativeUIContexts({
-      designSkill,
-      sandboxFunctions: functions,
-    }).map((entry) => copilotkit.value.addContext(entry));
-
-    providerContextIds.value = ids;
-    onCleanup(() => {
-      for (const id of ids) {
-        copilotkit.value.removeContext(id);
-      }
-    });
+    onCleanup(
+      ɵaddOpenGenerativeUIContexts(copilotkit.value, {
+        designSkill,
+        sandboxFunctions: functions,
+      }),
+    );
   },
   { immediate: true },
 );
