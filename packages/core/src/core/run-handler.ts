@@ -877,7 +877,7 @@ export class RunHandler {
     ɵclearAgentInterruptState(agent);
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
-      void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
+      this._internal.suggestionEngine.clearSuggestions(agent.agentId);
     }
 
     // Re-apply current headers (merged on top of the agent's own headers) so
@@ -1468,7 +1468,7 @@ export class RunHandler {
       }
     }
 
-    void this._internal.suggestionEngine.reloadSuggestions(agentId);
+    this._internal.suggestionEngine.reloadSuggestions(agentId);
 
     return runAgentResult;
   }

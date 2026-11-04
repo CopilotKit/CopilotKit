@@ -342,9 +342,6 @@
       "packages/angular/src/lib/components/copilot-kit-styles.ts": 1,
       "packages/web-inspector/src/ui/json-viewer/host-renderer.ts": 1
     },
-    "typescript-eslint(no-meaningless-void-operator)": {
-      "packages/core/src/core/run-handler.ts": 2
-    },
     "typescript-eslint(no-misused-spread)": {
       "packages/core/src/a2ui-markdown/fence-parser.ts": 1,
       "packages/markdown/src/parser/inline-parser.ts": 1,
@@ -885,9 +882,7 @@
       "packages/web-inspector/vitest.setup.ts": 4
     },
     "typescript-eslint(no-unnecessary-type-arguments)": {
-      "packages/core/src/a2ui/lifecycle.ts": 1,
-      "packages/core/src/chat/renderers.ts": 4,
-      "packages/core/src/chat/tool-call-layout.ts": 1,
+      "packages/core/src/chat/renderers.ts": 2,
       "packages/react-core/src/hooks/use-render-tool-call.tsx": 1,
       "packages/react-core/src/providers/CopilotKitProvider.tsx": 3,
       "packages/vue/src/v2/components/chat/copilotChatToolCallItemRender.ts": 1,
