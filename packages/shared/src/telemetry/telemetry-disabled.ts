@@ -1,8 +1,23 @@
+const DISABLED_VALUES = new Set(["true", "1", "yes"]);
+
+function isDisabledValue(value: string | undefined): boolean {
+  return DISABLED_VALUES.has(value?.trim().toLowerCase() ?? "");
+}
+
+function readEnv(read: () => string | undefined): string | undefined {
+  try {
+    return read();
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Checks if telemetry is disabled via environment variables.
- * Users can opt out by setting:
- * - COPILOTKIT_TELEMETRY_DISABLED=true or COPILOTKIT_TELEMETRY_DISABLED=1
- * - DO_NOT_TRACK=true or DO_NOT_TRACK=1
+ * Users can opt out by setting either variable to `true`, `1` or `yes`, in any
+ * letter case:
+ * - COPILOTKIT_TELEMETRY_DISABLED
+ * - DO_NOT_TRACK
  *
  * Lives in its own module so that the browser-facing root entry can
  * re-export it without pulling in `telemetry-client.ts`, whose
@@ -10,13 +25,11 @@
  * bundler module graphs. See the note in `../index.ts`.
  */
 export function isTelemetryDisabled(): boolean {
+  // Each read stays a literal `process.env.X` so a bundler `define` can replace
+  // it, and is guarded on its own so one replaced value still counts in a
+  // browser that has no `process`.
   return (
-    (process.env as Record<string, string | undefined>)
-      .COPILOTKIT_TELEMETRY_DISABLED === "true" ||
-    (process.env as Record<string, string | undefined>)
-      .COPILOTKIT_TELEMETRY_DISABLED === "1" ||
-    (process.env as Record<string, string | undefined>).DO_NOT_TRACK ===
-      "true" ||
-    (process.env as Record<string, string | undefined>).DO_NOT_TRACK === "1"
+    isDisabledValue(readEnv(() => process.env.COPILOTKIT_TELEMETRY_DISABLED)) ||
+    isDisabledValue(readEnv(() => process.env.DO_NOT_TRACK))
   );
 }

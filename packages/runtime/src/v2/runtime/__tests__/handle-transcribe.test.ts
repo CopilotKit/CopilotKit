@@ -102,6 +102,23 @@ describe("handleTranscribe", () => {
     });
   });
 
+  it("rejects a JSON media type that only appears as a parameter", async () => {
+    const runtime = createMockRuntime(new MockTranscriptionService());
+    const request = new Request("https://example.com/transcribe", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain; application/json" },
+      body: "{}",
+    });
+
+    const response = await handleTranscribe({ runtime, request });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      message:
+        "Request must be multipart/form-data or application/json with base64 audio",
+    });
+  });
+
   it("should return 400 when request is not form data", async () => {
     const mockService = new MockTranscriptionService();
     const runtime = createMockRuntime(mockService);

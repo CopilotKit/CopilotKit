@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { html } from "hono/html";
 import { serve } from "@hono/node-server";
 import { createAppAuth } from "@octokit/auth-app";
 import { Octokit } from "@octokit/rest";
@@ -7,6 +8,12 @@ import crypto from "node:crypto";
 const app = new Hono();
 
 const WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET ?? "";
+// An empty key would make every signature below forgeable, so a missing secret
+// stops the boot. The process exits instead of answering `/api/health` with 200
+// for a service that cannot verify anything.
+if (!WEBHOOK_SECRET.trim()) {
+  throw new Error("GITHUB_WEBHOOK_SECRET must be set to a non-empty value");
+}
 const APP_ID = process.env.GITHUB_APP_ID ?? "1108748";
 const PRIVATE_KEY = (process.env.GITHUB_APP_PRIVATE_KEY ?? "").replace(
   /\\n/g,
@@ -153,7 +160,7 @@ app.get("/trigger/eval", async (c) => {
     );
   }
 
-  return c.html(`
+  return c.html(html`
     <!DOCTYPE html>
     <html>
     <head>
@@ -256,7 +263,7 @@ app.post("/trigger/eval", async (c) => {
     if (Date.now() - startTime > 5000) break;
   }
 
-  return c.html(`
+  return c.html(html`
     <!DOCTYPE html>
     <html>
     <head>

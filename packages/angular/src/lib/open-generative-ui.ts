@@ -1,5 +1,4 @@
 import type { StandardSchemaV1 } from "@copilotkit/shared";
-import type { FrontendToolHandlerContext } from "@copilotkit/core";
 import { z } from "zod";
 
 export const OPEN_GENERATIVE_UI_ACTIVITY_TYPE = "open-generative-ui";
@@ -54,10 +53,7 @@ export type SandboxFunction<
   name: string;
   description: string;
   parameters: StandardSchemaV1<unknown, Args>;
-  handler: (
-    args: Args,
-    context?: FrontendToolHandlerContext,
-  ) => Promise<unknown> | unknown;
+  handler: (args: Args) => Promise<unknown> | unknown;
 };
 
 export interface OpenGenerativeUIConfig {

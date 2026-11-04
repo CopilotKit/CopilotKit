@@ -45,6 +45,18 @@ export const DEFAULT_DENY_HEADER_PREFIXES: readonly string[] = [
   "x-vercel-", // Vercel
   "x-middleware-", // Next.js
   "x-copilotcloud-", // CopilotKit platform-internal
+  // Identity and access tokens that an auth proxy adds for the app itself.
+  "x-forwarded-", // Proxies, oauth2-proxy, Envoy client certificates
+  "x-amzn-oidc-", // AWS ALB
+  "x-goog-iap-", // Google IAP
+  "x-ms-client-principal", // Azure App Service / Static Web Apps
+  "x-ms-token-", // Azure App Service token store
+  "x-auth-request-", // oauth2-proxy
+  "x-goog-authenticated-user-", // Google IAP
+  "x-pomerium-", // Pomerium
+  "x-authentik-", // authentik
+  "x-arr-clientcert", // Azure App Service client certificates
+  "x-client-cert", // Mutual TLS proxies
 ];
 
 /**

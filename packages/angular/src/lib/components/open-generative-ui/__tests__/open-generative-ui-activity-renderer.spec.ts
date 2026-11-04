@@ -45,6 +45,7 @@ function setContent(
 
 describe("CopilotOpenGenerativeUIRenderer", () => {
   let fixture: ComponentFixture<CopilotOpenGenerativeUIRenderer>;
+  const setThemeHandler = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -67,7 +68,7 @@ describe("CopilotOpenGenerativeUIRenderer", () => {
                   name: "setTheme",
                   description: "Set the host theme",
                   parameters: z.object({ theme: z.string() }),
-                  handler: vi.fn(),
+                  handler: setThemeHandler,
                 },
               ],
             },
@@ -168,6 +169,21 @@ describe("CopilotOpenGenerativeUIRenderer", () => {
     ).toBeNull();
   });
 
+  it("rejects a sandbox call whose args fail the schema", async () => {
+    setContent(fixture, {
+      html: ["<body><p>Hello</p></body>"],
+      htmlComplete: true,
+    });
+    await flushSandboxImport(fixture);
+
+    const [localApi] = mockCreate.mock.calls[0];
+    await expect(localApi.setTheme({ theme: 1 })).rejects.toThrow(
+      'Invalid arguments for sandbox function "setTheme"',
+    );
+    await expect(localApi.setTheme("dark")).rejects.toThrow();
+    expect(setThemeHandler).not.toHaveBeenCalled();
+  });
+
   it("creates a final sandbox when HTML is complete", async () => {
     setContent(fixture, {
       css: ".metric { color: blue; }",
@@ -180,6 +196,8 @@ describe("CopilotOpenGenerativeUIRenderer", () => {
     expect(mockCreate).toHaveBeenCalledTimes(1);
     const [localApi, options] = mockCreate.mock.calls[0];
     expect(Object.keys(localApi)).toEqual(["setTheme"]);
+    await localApi.setTheme({ theme: "dark" });
+    expect(setThemeHandler).toHaveBeenCalledWith({ theme: "dark" });
     expect(options.frameContent).toContain("<head>");
     expect(options.frameContent).toContain(
       "<style>.metric { color: blue; }</style>",

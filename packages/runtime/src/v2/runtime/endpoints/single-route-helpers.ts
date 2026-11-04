@@ -26,6 +26,16 @@ export interface MethodCall {
 }
 
 /**
+ * True when the request's first media type, ignoring parameters, is JSON. A
+ * duplicated header arrives comma-joined, so only the first value counts.
+ */
+export function isJsonContentType(request: Request): boolean {
+  const contentType = request.headers.get("content-type") ?? "";
+  const [mediaType] = contentType.split(/[;,]/);
+  return mediaType!.trim().toLowerCase() === "application/json";
+}
+
+/**
  * Detect a single-route JSON envelope on a request the multi-route router
  * could not match.
  *
@@ -46,8 +56,7 @@ export async function detectSingleRouteEnvelope(
 ): Promise<EndpointMethod | null> {
   if (request.method !== "POST") return null;
 
-  const contentType = request.headers.get("content-type") || "";
-  if (!contentType.includes("application/json")) return null;
+  if (!isJsonContentType(request)) return null;
 
   let envelope: unknown;
   try {
@@ -66,9 +75,7 @@ export async function detectSingleRouteEnvelope(
 }
 
 export async function parseMethodCall(request: Request): Promise<MethodCall> {
-  const contentType = request.headers.get("content-type") || "";
-
-  if (!contentType.includes("application/json")) {
+  if (!isJsonContentType(request)) {
     throw createResponseError(
       "Single-route endpoint expects JSON payloads",
       415,

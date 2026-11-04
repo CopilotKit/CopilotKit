@@ -442,6 +442,7 @@ for (const mode of ["multi-route", "single-route"] as const) {
         mode === "multi-route"
           ? new Request("http://runtime/agent/test/stop/thread-1", {
               method: "POST",
+              headers: { "Content-Type": "application/json" },
             })
           : new Request("http://runtime", {
               method: "POST",

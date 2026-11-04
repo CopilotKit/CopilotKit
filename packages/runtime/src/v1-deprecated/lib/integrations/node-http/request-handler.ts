@@ -116,7 +116,7 @@ export function synthesizeBodyFromParsedBody(
 
   return {
     body: JSON.stringify(parsedBody),
-    contentType: "application/json",
+    contentType: headers.get("content-type") ?? "application/json",
   };
 }
 

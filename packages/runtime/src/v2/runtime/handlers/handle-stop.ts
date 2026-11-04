@@ -5,6 +5,10 @@ import { resolveIntelligenceUser } from "./shared/resolve-intelligence-user";
 import { isHandlerResponse } from "./shared/json-response";
 import { getPlatformErrorStatus } from "./shared/intelligence-utils";
 import { resolveLocalThreadOwner } from "./shared/thread-access";
+import {
+  createResponseError,
+  isJsonContentType,
+} from "../endpoints/single-route-helpers";
 
 interface StopAgentParameters {
   request: Request;
@@ -45,6 +49,10 @@ export async function handleStopAgent({
   agentId,
   threadId,
 }: StopAgentParameters): Promise<Response> {
+  if (!isJsonContentType(request)) {
+    return createResponseError("Stop endpoint expects JSON payloads", 415);
+  }
+
   try {
     // Parse the optional run scope for every runtime kind, from a clone so an
     // identity callback can still read the original body. No body or `{}`
@@ -94,7 +102,7 @@ export async function handleStopAgent({
     }
     const agents = await resolveAgents(runtime.agents, request);
 
-    if (!agents[agentId]) {
+    if (!Object.hasOwn(agents, agentId)) {
       return new Response(
         JSON.stringify({
           error: "Agent not found",

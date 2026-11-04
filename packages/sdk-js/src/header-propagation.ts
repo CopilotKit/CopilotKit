@@ -29,8 +29,9 @@ type HeaderMap = Record<string, string>;
 const headerStorage = new AsyncLocalStorage<HeaderMap>();
 
 /**
- * Filter incoming headers to only x-* prefixed headers.
- * Matches the CopilotKit runtime's extractForwardableHeaders() behavior.
+ * Filter incoming headers to only x-* prefixed headers. Unlike the CopilotKit
+ * runtime's extractForwardableHeaders(), this applies no denylist and drops
+ * `authorization`.
  */
 function filterForwardableHeaders(headers: HeaderMap): HeaderMap {
   const filtered: HeaderMap = {};

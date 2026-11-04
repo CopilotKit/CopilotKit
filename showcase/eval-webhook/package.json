@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "node --import tsx --test --test-timeout=60000 src/*.test.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.8",

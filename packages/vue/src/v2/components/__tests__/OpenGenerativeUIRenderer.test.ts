@@ -279,8 +279,41 @@ describe("OpenGenerativeUIRenderer", () => {
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
     const [localApi] = mockCreate.mock.calls[0]!;
-    expect(localApi).toHaveProperty("addToCart");
-    expect(localApi.addToCart).toBe(handler);
+    const api = localApi as Record<
+      string,
+      (args?: unknown) => Promise<unknown>
+    >;
+    await expect(api.addToCart!({ itemId: "a" })).resolves.toBe(42);
+    expect(handler).toHaveBeenCalledWith({ itemId: "a" });
+  });
+
+  it("rejects a call whose args fail the schema", async () => {
+    const handler = vi.fn();
+    renderRenderer(
+      {
+        html: ["<head></head><body>validated</body>"],
+        htmlComplete: true,
+      },
+      [
+        {
+          name: "tip",
+          description: "Tip",
+          parameters: z.object({ cents: z.number().max(100) }),
+          handler,
+        },
+      ],
+    );
+    await flushImport();
+    const api = mockCreate.mock.calls[0]![0] as Record<
+      string,
+      (args?: unknown) => Promise<unknown>
+    >;
+
+    await expect(api.tip!({ cents: 999999 })).rejects.toThrow(
+      'Invalid arguments for sandbox function "tip"',
+    );
+    await expect(api.tip!("cents")).rejects.toThrow();
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it("passes empty localApi with no functions", async () => {
@@ -323,8 +356,11 @@ describe("OpenGenerativeUIRenderer", () => {
     await flushImport();
     const [localApi] = mockCreate.mock.calls[0]!;
     expect(Object.keys(localApi)).toHaveLength(2);
-    expect(localApi.fnA).toBe(handlerA);
-    expect(localApi.fnB).toBe(handlerB);
+    const api = localApi as Record<string, (args?: unknown) => unknown>;
+    await api.fnA!({});
+    await api.fnB!({});
+    expect(handlerA).toHaveBeenCalledOnce();
+    expect(handlerB).toHaveBeenCalledOnce();
   });
 
   it("recreates sandbox when sandbox functions change", async () => {
@@ -375,7 +411,8 @@ describe("OpenGenerativeUIRenderer", () => {
     expect(mockCreate).toHaveBeenCalledTimes(2);
     const [localApi] = mockCreate.mock.calls[1]!;
     expect(Object.keys(localApi)).toEqual(["fnB"]);
-    expect(localApi.fnB).toBe(handlerB);
+    await (localApi as Record<string, (args?: unknown) => unknown>).fnB!({});
+    expect(handlerB).toHaveBeenCalledOnce();
   });
 
   describe("progressive streaming preview", () => {

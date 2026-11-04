@@ -334,8 +334,34 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
       expect(mockCreate).toHaveBeenCalledTimes(1);
       const [localApi] = mockCreate.mock.calls[0];
-      expect(localApi).toHaveProperty("addToCart");
-      expect(localApi.addToCart).toBe(handler);
+      await expect(localApi.addToCart({ itemId: "a" })).resolves.toBe(42);
+      expect(handler).toHaveBeenCalledWith({ itemId: "a" });
+    });
+
+    it("rejects a call whose args fail the schema, and keeps the sandbox", async () => {
+      const handler = vi.fn();
+      const fns: SandboxFunction[] = [
+        {
+          name: "tip",
+          description: "Tip",
+          parameters: z.object({ cents: z.number().max(100) }),
+          handler,
+        },
+      ];
+
+      renderWithSandboxFunctions(
+        { html: ["<head></head><body>test</body>"], htmlComplete: true },
+        fns,
+      );
+      await flushImport();
+
+      const [localApi] = mockCreate.mock.calls[0];
+      await expect(localApi.tip({ cents: 999999 })).rejects.toThrow(
+        'Invalid arguments for sandbox function "tip"',
+      );
+      await expect(localApi.tip("cents")).rejects.toThrow();
+      expect(handler).not.toHaveBeenCalled();
+      expect(mockDestroy).not.toHaveBeenCalled();
     });
 
     it("passes empty localApi when no sandbox functions", async () => {
@@ -414,7 +440,8 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       expect(mockCreate).toHaveBeenCalledTimes(2);
       const [localApi] = mockCreate.mock.calls[1];
       expect(localApi).toHaveProperty("fn2");
-      expect(localApi.fn2).toBe(handler2);
+      await localApi.fn2({});
+      expect(handler2).toHaveBeenCalledOnce();
     });
 
     it("includes multiple sandbox functions in localApi", async () => {
@@ -443,8 +470,10 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
       const [localApi] = mockCreate.mock.calls[0];
       expect(Object.keys(localApi)).toHaveLength(2);
-      expect(localApi.fnA).toBe(handlerA);
-      expect(localApi.fnB).toBe(handlerB);
+      await localApi.fnA({});
+      await localApi.fnB({});
+      expect(handlerA).toHaveBeenCalledOnce();
+      expect(handlerB).toHaveBeenCalledOnce();
     });
   });
 

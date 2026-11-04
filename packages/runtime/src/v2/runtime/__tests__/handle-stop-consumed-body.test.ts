@@ -30,6 +30,7 @@ test("stop retains its run ID when the identity callback consumes the body", asy
     runtime,
     request: new Request("http://localhost/stop", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ runId: "run-1" }),
     }),
     agentId: "default",

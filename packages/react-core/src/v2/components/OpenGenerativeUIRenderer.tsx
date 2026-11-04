@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkit/core";
+import { createSandboxLocalApi } from "@copilotkit/shared";
 import { useSandboxFunctions } from "../providers/SandboxFunctionsContext";
 import {
   processPartialHtml,
@@ -174,13 +175,10 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     const [autoHeight, setAutoHeight] = useState<number | null>(null);
     const sandboxFunctions = useSandboxFunctions();
 
-    const localApi = useMemo(() => {
-      const api: Record<string, Function> = {};
-      for (const fn of sandboxFunctions) {
-        api[fn.name] = fn.handler;
-      }
-      return api;
-    }, [sandboxFunctions]);
+    const localApi = useMemo(
+      () => createSandboxLocalApi(sandboxFunctions),
+      [sandboxFunctions],
+    );
 
     // Join html chunks only when streaming is complete
     const fullHtml =

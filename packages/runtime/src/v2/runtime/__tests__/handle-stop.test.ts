@@ -31,6 +31,7 @@ function setup(body?: unknown) {
     "http://localhost/copilotkit/agent/default/stop/thread-1",
     {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     },
   );
@@ -207,6 +208,7 @@ test.each([
       "http://localhost/agent/default/stop/thread-1",
       {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         ...(body === undefined
           ? {}
           : { body: typeof body === "string" ? body : JSON.stringify(body) }),
