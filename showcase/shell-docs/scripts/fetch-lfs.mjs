@@ -37,37 +37,40 @@ function findPointers(dir, found = new Map()) {
   return found;
 }
 
-// A dropped connection is retried; Railway's builder drops some of them.
-const ATTEMPTS = 3;
+// Railway's builder drops some connections to GitHub, so every request is
+// retried.
+const ATTEMPTS = 4;
 // Downloads at once. All of them in parallel had connections dropped.
 const CONCURRENCY = 6;
 
-async function fetchBody(action) {
-  const response = await fetch(action.href, {
-    headers: action.header,
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return Buffer.from(await response.arrayBuffer());
-}
-
-async function download(oid, { size, paths }, action) {
-  let body;
-  for (let attempt = 1; !body; attempt++) {
+async function retry(label, request) {
+  for (let attempt = 1; ; attempt++) {
     try {
-      body = await fetchBody(action);
+      return await request();
     } catch (error) {
       // undici's "fetch failed" hides the network error in `cause`.
       const reason = error.cause?.code ?? error.cause?.message ?? error.message;
       if (attempt === ATTEMPTS) {
-        throw new Error(`${paths[0]}: ${error.message} (${reason})`, {
+        const detail = reason === error.message ? "" : ` (${reason})`;
+        throw new Error(`${label}: ${error.message}${detail}`, {
           cause: error,
         });
       }
-      console.warn(`[fetch-lfs] ${paths[0]}: ${reason}, retrying`);
-      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+      console.warn(`[fetch-lfs] ${label}: ${reason}, retrying`);
+      await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
     }
   }
+}
+
+async function download(oid, { size, paths }, action) {
+  const body = await retry(paths[0], async () => {
+    const response = await fetch(action.href, {
+      headers: action.header,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return Buffer.from(await response.arrayBuffer());
+  });
   const hash = createHash("sha256").update(body).digest("hex");
   if (body.length !== size || hash !== oid) {
     throw new Error(`${paths[0]}: content does not match its LFS pointer`);
@@ -80,26 +83,26 @@ const oids = [...pointers.keys()];
 // The LFS batch API takes up to 100 objects a request.
 for (let i = 0; i < oids.length; i += 100) {
   const batch = oids.slice(i, i + 100);
-  const response = await fetch(
-    `https://github.com/${REPO}.git/info/lfs/objects/batch`,
-    {
-      method: "POST",
-      headers: {
-        Accept: "application/vnd.git-lfs+json",
-        "Content-Type": "application/vnd.git-lfs+json",
+  const objects = await retry(`LFS batch request to ${REPO}`, async () => {
+    const response = await fetch(
+      `https://github.com/${REPO}.git/info/lfs/objects/batch`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/vnd.git-lfs+json",
+          "Content-Type": "application/vnd.git-lfs+json",
+        },
+        body: JSON.stringify({
+          operation: "download",
+          transfers: ["basic"],
+          objects: batch.map((oid) => ({ oid, size: pointers.get(oid).size })),
+        }),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
       },
-      body: JSON.stringify({
-        operation: "download",
-        transfers: ["basic"],
-        objects: batch.map((oid) => ({ oid, size: pointers.get(oid).size })),
-      }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    },
-  );
-  if (!response.ok) {
-    throw new Error(`LFS batch request to ${REPO}: HTTP ${response.status}`);
-  }
-  const { objects } = await response.json();
+    );
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return (await response.json()).objects;
+  });
   for (const object of objects) {
     if (object.error) {
       throw new Error(`${object.oid}: ${object.error.message}`);
