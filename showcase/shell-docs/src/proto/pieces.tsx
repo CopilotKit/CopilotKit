@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/cn";
 import { frontendHref, liveFrontend, scopeFromPath } from "@/lib/live-scope";
+import { trackEvent } from "@/lib/telemetry/analytics";
+import frameworkCategories from "@/data/framework-categories.json";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -681,7 +683,8 @@ export function StackRows({
 }) {
   const { setFrontend } = useFrontend();
   const router = useRouter();
-  const path = usePathname().split("/").filter(Boolean);
+  const pathname = usePathname();
+  const path = pathname.split("/").filter(Boolean);
   const { frontend } = scopeFromPath(path);
   const [open, setOpen] = useState<"frontend" | "framework" | null>(null);
   const nav = useFrameworkNav(
@@ -716,7 +719,16 @@ export function StackRows({
                   if (f.id === frontend) return;
                   // Remembered for the pages that aren't per frontend.
                   setFrontend(f.id);
-                  router.push(frontendHref(path, f.id));
+                  const destination = frontendHref(path, f.id);
+                  // Shell-docs' framework selector event, same properties.
+                  trackEvent("docs.frontend_selected", {
+                    frontend: f.id,
+                    from_frontend: frontend,
+                    backend: framework,
+                    from_path: pathname,
+                    destination_path: destination,
+                  });
+                  router.push(destination);
                 }}
                 className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm hover:bg-accent"
               >
@@ -745,6 +757,13 @@ export function StackRows({
           current={framework}
           onPick={(id) => {
             setOpen(null);
+            // Shell-docs' framework selector event, same properties.
+            trackEvent("docs.framework_selected", {
+              framework: id,
+              framework_name: frameworkById(id)?.name ?? id,
+              category: (frameworkCategories as Record<string, string>)[id],
+              from_path: pathname,
+            });
             go(id);
           }}
         />
