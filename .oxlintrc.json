@@ -19,7 +19,6 @@
     ],
     "typescript/no-import-type-side-effects": "warn",
     "import/consistent-type-specifier-style": ["warn", "prefer-top-level"],
-    "typescript/no-unnecessary-type-assertion": "error",
 
     "react/self-closing-comp": "warn",
     "unicorn/prefer-optional-catch-binding": "warn",
@@ -28,6 +27,87 @@
     "unicorn/prefer-array-flat-map": "warn"
   },
   "overrides": [
+    // The lint gate (scripts/lint/gate.ts, `pnpm lint`). Package source only.
+    // Errors fail CI unless .lint-baseline/oxlint.json allows them. Rules
+    // that need types run only in the gate's `--type-aware` pass over
+    // packages/. Warnings are not gated.
+    {
+      "files": ["packages/**/*.{ts,tsx,mts,cts,js,mjs,cjs,jsx}"],
+      "rules": {
+        // The first five rules have no baseline entries. Fix new hits. Do
+        // not add them to the baseline.
+        "typescript/no-floating-promises": "error",
+        "typescript/no-misused-promises": "error",
+        "typescript/await-thenable": "error",
+        "typescript/switch-exhaustiveness-check": "error",
+        // The runtime throws a Response on purpose; the fetch handler
+        // catches it and returns it.
+        "typescript/only-throw-error": [
+          "error",
+          { "allow": [{ "from": "lib", "name": "Response" }] }
+        ],
+        "typescript/no-unnecessary-type-assertion": "error",
+        "typescript/require-await": "error",
+        "typescript/no-explicit-any": "error",
+        "typescript/ban-ts-comment": [
+          "error",
+          {
+            "ts-expect-error": "allow-with-description",
+            "ts-ignore": "allow-with-description",
+            "ts-nocheck": true,
+            "ts-check": false
+          }
+        ],
+        "copilotkit/no-swallowed-error": "error",
+        "copilotkit/require-disable-reason": "error",
+
+        // Too many hits to gate today. Shown as warnings only.
+        "typescript/no-unsafe-assignment": "warn",
+        "typescript/no-unsafe-member-access": "warn",
+        "typescript/no-unsafe-argument": "warn",
+        "typescript/no-unsafe-return": "warn",
+        "typescript/no-unsafe-call": "warn",
+        "typescript/no-unnecessary-condition": "warn"
+      }
+    },
+    // Tests and test helpers in packages/ are not gated. Keep this after the
+    // block above: a later override wins. List every rule from that block.
+    {
+      "files": [
+        "packages/**/__tests__/**",
+        "packages/**/*.test.*",
+        "packages/**/*.spec.*",
+        "packages/**/test/**",
+        "packages/**/tests/**",
+        "packages/**/e2e/**",
+        "packages/**/*.test-d.*",
+        "packages/**/fixtures/**",
+        "packages/**/type-fixtures/**",
+        "packages/**/__mocks__/**",
+        "packages/**/test-helpers/**",
+        "packages/**/vitest.config.*",
+        "packages/**/test-setup.ts"
+      ],
+      "rules": {
+        "typescript/no-floating-promises": "off",
+        "typescript/no-misused-promises": "off",
+        "typescript/await-thenable": "off",
+        "typescript/switch-exhaustiveness-check": "off",
+        "typescript/only-throw-error": "off",
+        "typescript/no-unnecessary-type-assertion": "off",
+        "typescript/require-await": "off",
+        "typescript/no-explicit-any": "off",
+        "typescript/ban-ts-comment": "off",
+        "copilotkit/no-swallowed-error": "off",
+        "copilotkit/require-disable-reason": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-return": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unnecessary-condition": "off"
+      }
+    },
     {
       "files": ["packages/**/*.{ts,tsx}"],
       "rules": {

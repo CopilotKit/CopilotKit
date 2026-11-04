@@ -129,12 +129,10 @@ export class CopilotKitCoreReact extends CopilotKitCore {
   private _notifyRenderToolCallsChanged(): void {
     void this.notifySubscribers((subscriber) => {
       const reactSubscriber = subscriber as CopilotKitCoreReactSubscriber;
-      if (reactSubscriber.onRenderToolCallsChanged) {
-        reactSubscriber.onRenderToolCallsChanged({
-          copilotkit: this,
-          renderToolCalls: this.renderToolCalls,
-        });
-      }
+      return reactSubscriber.onRenderToolCallsChanged?.({
+        copilotkit: this,
+        renderToolCalls: this.renderToolCalls,
+      });
     }, "Subscriber onRenderToolCallsChanged error:");
   }
 
@@ -146,7 +144,7 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     this._interruptElement = element;
     void this.notifySubscribers((subscriber) => {
       const reactSubscriber = subscriber as CopilotKitCoreReactSubscriber;
-      reactSubscriber.onInterruptElementChanged?.({
+      return reactSubscriber.onInterruptElementChanged?.({
         copilotkit: this,
         interruptElement: this._interruptElement,
       });

@@ -15,7 +15,7 @@ export async function handleConnectAgent({
   agentId,
 }: ConnectAgentParameters) {
   const publicApiKey = request.headers.get("x-copilotcloud-public-api-key");
-  (runtime.telemetry ?? telemetry).capture(
+  void (runtime.telemetry ?? telemetry).capture(
     "oss.runtime.copilot_request_created",
     {
       // Connect carries no run input, so there are no forwarded guardrails

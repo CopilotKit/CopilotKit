@@ -25,7 +25,7 @@ export async function handleRunAgent({
 }: RunAgentParameters) {
   const startTime = Date.now();
   const publicApiKey = request.headers.get("x-copilotcloud-public-api-key");
-  (runtime.telemetry ?? telemetry).capture(
+  void (runtime.telemetry ?? telemetry).capture(
     "oss.runtime.copilot_request_created",
     {
       "cloud.guardrails.enabled": await readGuardrailsEnabled(request),

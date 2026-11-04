@@ -100,6 +100,7 @@ const Text = createVueComponent(TextApi, ({ props }) => {
         text,
       );
     case "body":
+    case undefined:
     default:
       return h("span", { style }, text);
   }

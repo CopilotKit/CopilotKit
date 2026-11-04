@@ -292,7 +292,7 @@ export class OpenGenerativeUIController {
         );
         slot.sandbox = sandbox;
         prepareIframe(sandbox.iframe, "open-generative-ui-preview-sandbox");
-        sandbox.promise.then(() => {
+        void sandbox.promise.then(() => {
           if (slot.cancelled) return;
           slot.ready = true;
           this.#writePreview();
@@ -346,7 +346,7 @@ export class OpenGenerativeUIController {
         });
         slot.sandbox = sandbox;
         prepareIframe(sandbox.iframe, "open-generative-ui-final-sandbox");
-        sandbox.promise.then(() => {
+        void sandbox.promise.then(() => {
           if (slot.cancelled) return;
           slot.ready = true;
           void sandbox.run(HIDE_SCROLLBARS);

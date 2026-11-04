@@ -23,6 +23,7 @@ export function mapJustify(justify?: string): string {
       return "space-evenly";
     case "stretch":
       return "stretch";
+    case undefined:
     default:
       return "flex-start";
   }
@@ -36,6 +37,7 @@ export function mapAlign(align?: string): string {
       return "center";
     case "end":
       return "flex-end";
+    case undefined:
     default:
       return "stretch";
   }
