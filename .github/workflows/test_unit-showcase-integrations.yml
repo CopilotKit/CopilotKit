@@ -6,25 +6,46 @@ name: test / unit / showcase-integrations
 # pnpm workspace, so `nx run-many -t test` never discovers them and
 # `test_unit-showcase.yml` (which runs the harness suite) does not cover them
 # either. The Python half of the same tree is already gated, by the
-# `python-unit-tests` job in `showcase_validate.yml`; its TypeScript half was
-# not gated anywhere, so a `*.test.ts` next to an integration's agent code
-# could fail silently for as long as nobody ran it by hand.
+# `python-unit-tests` job in `showcase_validate.yml`; its TypeScript and .NET
+# halves were not gated anywhere, so a `*.test.ts` next to an integration's
+# agent code could fail silently for as long as nobody ran it by hand.
 #
-# This workflow closes that gap: it runs the repo's own vitest against every
-# `*.test.ts` under `showcase/integrations`, from the repo root, so the tests
-# need no dependency of their own inside each integration's package.
+# This workflow closes that gap (PE-1113 found the remaining ones):
+#   - `showcase-integrations-unit`: suites that need only the repo's own
+#     toolchain (strands-typescript agent, `_shared/ts`, a tsx regression test).
+#   - `integration-vitest`: integrations whose vitest suite imports their own
+#     npm dependencies, installed from each integration's lockfile.
+#   - `integration-dotnet`: the xUnit projects next to the .NET agents.
+#
+# `scripts/test-ci-coverage-map.mjs` maps each of these test files to the step
+# below that runs it; `static_test-ci-coverage.yml` fails when a test file has
+# no such step.
 
 on:
   pull_request:
     paths:
-      - "showcase/integrations/strands-typescript/src/agent/**"
-      - "showcase/integrations/strands-typescript/src/cvdiag/**"
+      - "showcase/integrations/strands-typescript/**"
+      - "showcase/integrations/built-in-agent/**"
+      - "showcase/integrations/claude-sdk-typescript/**"
+      - "showcase/integrations/langgraph-typescript/**"
+      - "showcase/integrations/mastra/**"
+      - "showcase/integrations/ms-agent-dotnet/**"
+      - "showcase/integrations/ms-agent-harness-dotnet/**"
+      - "showcase/integrations/_shared/**"
+      - "showcase/shared/typescript/**"
       - ".github/workflows/test_unit-showcase-integrations.yml"
   push:
     branches: [main]
     paths:
-      - "showcase/integrations/strands-typescript/src/agent/**"
-      - "showcase/integrations/strands-typescript/src/cvdiag/**"
+      - "showcase/integrations/strands-typescript/**"
+      - "showcase/integrations/built-in-agent/**"
+      - "showcase/integrations/claude-sdk-typescript/**"
+      - "showcase/integrations/langgraph-typescript/**"
+      - "showcase/integrations/mastra/**"
+      - "showcase/integrations/ms-agent-dotnet/**"
+      - "showcase/integrations/ms-agent-harness-dotnet/**"
+      - "showcase/integrations/_shared/**"
+      - "showcase/shared/typescript/**"
       - ".github/workflows/test_unit-showcase-integrations.yml"
 
 permissions:
@@ -80,3 +101,93 @@ jobs:
         # stops matching fails the job instead of reporting an empty success.
         working-directory: showcase/integrations/strands-typescript/src/agent
         run: pnpm exec vitest run --config vitest.config.ts
+
+      - name: Run strands-typescript proxy null-guard test
+        # A self-contained tsx script (the frontend has no vitest harness).
+        # It exits non-zero when a check fails.
+        working-directory: showcase/integrations/strands-typescript
+        run: node --import tsx tests/unit/forwarding-proxy-fetch-nullguard.test.mts
+
+      - name: Run the shared CVDIAG emitter tests
+        # `_shared/ts` is copied into every TypeScript integration image. It is
+        # not a workspace package, so `pnpm exec` runs from the repo root.
+        run: pnpm exec vitest run --root showcase/integrations/_shared/ts
+
+  integration-vitest:
+    name: "showcase integration vitest (${{ matrix.slug }})"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        slug:
+          - built-in-agent
+          - claude-sdk-typescript
+          - langgraph-typescript
+          - mastra
+    defaults:
+      run:
+        shell: bash
+        working-directory: showcase/integrations/${{ matrix.slug }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: showcase/integrations/${{ matrix.slug }}/**/package-lock.json
+
+      - name: Install the integration's own dependencies
+        # Each integration ships its own package-lock.json and installs with
+        # npm in its Dockerfile; `--legacy-peer-deps` matches that install.
+        run: npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+
+      - name: Install the LangGraph agent's own dependencies
+        # The agent under src/agent resolves @langchain/* from its own
+        # lockfile. Without it, vitest resolves the frontend's older
+        # @langchain/core and the agent modules fail to import.
+        if: matrix.slug == 'langgraph-typescript'
+        working-directory: showcase/integrations/langgraph-typescript/src/agent
+        run: npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+
+      - name: Run vitest
+        # Uses the vitest.config.ts beside the tests, whose `include` lists
+        # exactly which files run.
+        run: npx vitest run
+
+      - name: Run LangGraph agent node:test suite
+        if: matrix.slug == 'langgraph-typescript'
+        working-directory: showcase/integrations/langgraph-typescript/src/agent
+        run: node --import tsx --test tests/model-parameters.test.ts
+
+  integration-dotnet:
+    name: "showcase integration dotnet (${{ matrix.project }})"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - showcase/integrations/_shared/dotnet/tests/CvdiagSchema.Tests.csproj
+          - showcase/integrations/ms-agent-dotnet/agent/tests/SharedStateAgent.Tests.csproj
+          - showcase/integrations/ms-agent-harness-dotnet/agent/tests/CvdiagBackend.Tests.csproj
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Run xUnit tests
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: dotnet test "$PROJECT"

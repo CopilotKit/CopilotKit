@@ -9,7 +9,13 @@ export default defineConfig({
     // Backend instrumentation and agent state regression tests. The broader
     // suite is Playwright e2e (`test:e2e`); these run without the Next.js
     // build toolchain.
-    include: ["src/cvdiag-backend.test.ts", "src/agent/*.test.ts"],
+    include: [
+      "src/cvdiag-backend.test.ts",
+      "src/agent/*.test.ts",
+      // This integration keeps its own copy of the shared tools (see
+      // showcase/AGENTS.md on symlink drift); their tests run here.
+      "shared-tools/__tests__/*.test.ts",
+    ],
     environment: "node",
   },
   resolve: {

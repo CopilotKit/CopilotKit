@@ -12,6 +12,9 @@ export default defineConfig({
     include: [
       "src/cvdiag-backend.test.ts",
       "src/claude-agent-sdk-adapter.test.ts",
+      // This integration keeps its own copy of the shared tools (see
+      // showcase/AGENTS.md on symlink drift); their tests run here.
+      "shared-tools/__tests__/*.test.ts",
     ],
     environment: "node",
   },
