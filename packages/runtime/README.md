@@ -208,3 +208,32 @@ record `RUNNER_CONNECTION_DROPPED` before the runner reconnects.
 This recovers a lost WebSocket while the agent runtime remains alive. It does
 not restart an agent after its runtime process exits. The existing 60-second
 event acknowledgment deadline still applies.
+
+## Native history input policy (Intelligence web runs)
+
+For an agent whose native session store durably appends input messages, set
+`nativeHistoryAgents: ["your-agent-id"]` on `CopilotIntelligenceRuntime`. Keep
+this server-side setting on every runtime serving that agent, including after
+restart. Only use it when the backend restores the same session before each run.
+Unlisted agents retain full-history input.
+
+For imported MAF .NET sessions, Intelligence admission selects the policy from
+saved importer provenance. The API must support `supportsNativeHistoryDelta: 1`
+and return `inputPolicy: "native-history-delta-v1"`. Deploy that API before
+allowing imported continuation; it rejects runtimes missing this capability.
+
+Native continuation also requires an API supporting
+`GET /api/threads/:id/messages?consistency=runner-accepted`. Deploy that API
+before this runtime: it waits for Redis-accepted events to reach the SQL transcript
+and returns `consistency: "runner-accepted"`. The runtime fails before execution
+if the API does not confirm this boundary. Projection timeout is retryable; a
+partial transcript must never be used to decide which messages are new.
+
+The runtime reads saved Intelligence messages after admission and forwards new
+replay occurrences, including new identical-text messages and changed tool
+results. It preserves state, tools, context, and forwarded properties. Replay IDs
+must remain stable and unique per occurrence; they are separate from native SDK
+message IDs, which may be absent or repeated. Edits to saved non-tool messages
+and ambiguous replay IDs fail before execution. Browser replay remains complete.
+This setting applies to web runs; it does not configure managed Channels or SSE
+runtimes. Native store and browser validation remain required for each adapter.

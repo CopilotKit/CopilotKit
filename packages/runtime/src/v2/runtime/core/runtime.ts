@@ -356,6 +356,8 @@ interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOption
   lockTtlSeconds?: number;
   /** Custom Redis key prefix for the thread lock. */
   lockKeyPrefix?: string;
+  /** Web agent IDs whose native backend durably appends input to existing history. */
+  nativeHistoryAgents?: readonly string[];
   /** Interval in seconds at which the runtime renews the thread lock. Clamped to a maximum of 3000 (50 minutes). @default 15 */
   lockHeartbeatIntervalSeconds?: number;
   /**
@@ -458,6 +460,8 @@ export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   generateThreadNames: boolean;
   lockTtlSeconds: number;
   lockKeyPrefix?: string;
+  /** Web agent IDs whose native backend durably appends input to existing history. */
+  nativeHistoryAgents?: readonly string[];
   lockHeartbeatIntervalSeconds: number;
   channels: Channel[];
   learning?: CopilotRuntimeLearningConfig;
@@ -633,6 +637,7 @@ export class CopilotIntelligenceRuntime
   readonly generateThreadNames: boolean;
   readonly lockTtlSeconds: number;
   readonly lockKeyPrefix?: string;
+  readonly nativeHistoryAgents?: readonly string[];
   readonly lockHeartbeatIntervalSeconds: number;
   readonly channels: Channel[];
   readonly learning?: CopilotRuntimeLearningConfig;
@@ -765,6 +770,9 @@ export class CopilotIntelligenceRuntime
       CopilotIntelligenceRuntime.MAX_LOCK_TTL_SECONDS,
     );
     this.lockKeyPrefix = options.lockKeyPrefix;
+    this.nativeHistoryAgents = options.nativeHistoryAgents
+      ? [...options.nativeHistoryAgents]
+      : undefined;
     this.lockHeartbeatIntervalSeconds = Math.min(
       options.lockHeartbeatIntervalSeconds ?? 15,
       CopilotIntelligenceRuntime.MAX_HEARTBEAT_INTERVAL_SECONDS,
@@ -848,6 +856,8 @@ export interface CopilotRuntime extends CopilotRuntimeLike {
   lockTtlSeconds?: number;
   /** Custom Redis key prefix for the thread lock; `undefined` in SSE mode. */
   lockKeyPrefix?: string;
+  /** Web agent IDs whose native backend durably appends input to existing history. */
+  nativeHistoryAgents?: readonly string[];
   /** Thread lock heartbeat interval in seconds; `undefined` in SSE mode. */
   lockHeartbeatIntervalSeconds?: number;
   /** Declared Intelligence Channels; `undefined` in SSE mode. */
@@ -968,6 +978,12 @@ class CopilotRuntimeShim implements CopilotRuntime {
   get lockTtlSeconds(): number | undefined {
     return isIntelligenceRuntime(this.delegate)
       ? this.delegate.lockTtlSeconds
+      : undefined;
+  }
+
+  get nativeHistoryAgents(): readonly string[] | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.nativeHistoryAgents
       : undefined;
   }
 

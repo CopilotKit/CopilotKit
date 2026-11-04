@@ -1135,6 +1135,22 @@ describe("CopilotKitIntelligence", () => {
     });
   });
 
+  it("requests and retains the native replay consistency acknowledgement", async () => {
+    fetchMock.mockReturnValue(
+      jsonResponse({ messages: [], consistency: "runner-accepted" }),
+    );
+    expect(
+      await client.getThreadMessages({
+        threadId: "t-1",
+        userId: "user-1",
+        consistency: "runner-accepted",
+      }),
+    ).toEqual({ messages: [], consistency: "runner-accepted" });
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://api.example.com/api/threads/t-1/messages?userId=user-1&consistency=runner-accepted",
+    );
+  });
+
   describe("ɵgetThreadMessageIds", () => {
     it("requests only message ids from the thread messages endpoint", async () => {
       fetchMock.mockReturnValue(
