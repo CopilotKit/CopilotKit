@@ -153,6 +153,30 @@ describe("Table", () => {
     );
   });
 
+  it("heads templated TableRow children with its columns", async () => {
+    const view = renderSurface(
+      ui,
+      [
+        {
+          id: "root",
+          component: "Table",
+          columns: ["Name", "Price"],
+          children: { componentId: "row", path: "/rows" },
+        },
+        { id: "row", component: "TableRow", children: ["name", "price"] },
+        { id: "name", component: "TableCell", text: { "@path": "name" } },
+        { id: "price", component: "TableCell", text: { "@path": "price" } },
+      ],
+      { rows: [{ name: "Alpha", price: 10 }] },
+    );
+    await view.findByText("Alpha");
+    const headers = [...view.container.querySelectorAll("thead th")].map(
+      (th) => th.textContent,
+    );
+    expect(headers).toEqual(["Name", "Price"]);
+    expect(view.queryByText("No rows")).toBeNull();
+  });
+
   it("renders a header TableSection with column header cells", async () => {
     const view = renderSurface(ui, [
       { id: "root", component: "Table", children: ["head", "body"] },
