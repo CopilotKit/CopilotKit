@@ -136,9 +136,9 @@ export const CopilotSidebar = forwardRef<
 
   // Animation & open state -------------------------------------------------
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const slideAnim = useRef(
-    new Animated.Value(defaultOpen ? 0 : drawerWidth),
-  ).current;
+  const [slideAnim] = useState(
+    () => new Animated.Value(defaultOpen ? 0 : drawerWidth),
+  );
 
   // Keep the animated value in sync when drawerWidth changes while closed
   useEffect(() => {
