@@ -1,16 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "typescript",
-    "unicorn",
-    "oxc",
-    "react",
-    "import",
-    "nextjs"
-  ],
-  "jsPlugins": [
-    "../../packages/react-ui/oxlint-rules/copilotkit-plugin.mjs"
-  ],
+  "plugins": ["typescript", "unicorn", "oxc", "react", "import", "nextjs"],
+  "jsPlugins": ["../../packages/react-ui/oxlint-rules/copilotkit-plugin.mjs"],
   "categories": {
     "correctness": "warn",
     "suspicious": "warn"
@@ -23,11 +14,7 @@
       "version": "19.3.1"
     },
     "tailwindcss": {
-      "callees": [
-        "clsx",
-        "cva",
-        "cn"
-      ]
+      "callees": ["clsx", "cva", "cn"]
     }
   },
   "rules": {
@@ -37,9 +24,7 @@
   },
   "overrides": [
     {
-      "files": [
-        "src/**/*.{ts,tsx}"
-      ],
+      "files": ["src/**/*.{ts,tsx}"],
       "rules": {
         "copilotkit/no-public-env-shell-read": "error"
       }
@@ -56,8 +41,5 @@
       }
     }
   ],
-  "ignorePatterns": [
-    "node_modules/",
-    "dist/"
-  ]
+  "ignorePatterns": ["node_modules/", "dist/"]
 }
