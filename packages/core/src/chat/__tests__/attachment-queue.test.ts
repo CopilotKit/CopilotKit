@@ -172,6 +172,34 @@ describe("ɵAttachmentQueue uploads", () => {
     });
   });
 
+  it("keeps an uploaded video whose file the browser cannot read", async () => {
+    // React Native for web: `document` exists, but the queue holds the
+    // native file's description, not a `Blob` the browser could read.
+    vi.stubGlobal("document", { createElement: () => ({}) });
+    const nativeVideo = {
+      name: "clip.mp4",
+      size: 1,
+      type: "video/mp4",
+    } as unknown as File;
+    const failures: AttachmentUploadError[] = [];
+    const queue = createQueue({
+      onUpload: () => ({ type: "url", value: "https://cdn/clip.mp4" }),
+      onUploadFailed: (error) => failures.push(error),
+    });
+
+    await queue.processFiles([nativeVideo]);
+
+    expect(failures).toEqual([]);
+    expect(queue.getSnapshot()).toEqual([
+      expect.objectContaining({
+        type: "video",
+        status: "ready",
+        source: { type: "url", value: "https://cdn/clip.mp4" },
+        thumbnail: undefined,
+      }),
+    ]);
+  });
+
   it("uploads one at a time by default", async () => {
     const { files, resolveAll, started, onUpload, peak } = gatedUploads(4);
     const queue = createQueue({ onUpload });

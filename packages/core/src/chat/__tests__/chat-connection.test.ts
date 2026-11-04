@@ -64,18 +64,13 @@ class ConnectableAgent extends CursorAgent {
 /** Runs the "after paint" callbacks at once, so tests need no animation frame. */
 const immediately = (callback: () => void) => callback();
 
-/** An agent whose connect stream and runs the test drives by hand. */
-class StreamingAgent extends AbstractAgent {
-  readonly connection = new Subject<BaseEvent>();
+/** An agent without `connect`, like a plain `HttpAgent`, whose runs the test drives by hand. */
+class RunDrivenAgent extends AbstractAgent {
   output = new Subject<BaseEvent>();
   readonly inputs: RunAgentInput[] = [];
 
   constructor() {
     super({ agentId: "chat" });
-  }
-
-  protected override connect() {
-    return this.connection;
   }
 
   run(input: RunAgentInput) {
@@ -100,8 +95,19 @@ class StreamingAgent extends AbstractAgent {
   }
 }
 
+/** A {@link RunDrivenAgent} whose connect stream the test drives too. */
+class StreamingAgent extends RunDrivenAgent {
+  readonly connection = new Subject<BaseEvent>();
+
+  protected override connect() {
+    return this.connection;
+  }
+}
+
 class ConnectedHttpAgent extends HttpAgent {
   readonly connection = new Subject<BaseEvent>();
+  /** The stream of the last run, which never reaches the network. */
+  output = new Subject<BaseEvent>();
 
   constructor() {
     super({ agentId: "chat", url: "/agent" });
@@ -109,6 +115,11 @@ class ConnectedHttpAgent extends HttpAgent {
 
   protected override connect() {
     return this.connection;
+  }
+
+  override run() {
+    this.output = new Subject<BaseEvent>();
+    return this.output;
   }
 }
 
@@ -376,6 +387,42 @@ describe("ɵChatConnection release", () => {
     expect(detach).toHaveBeenCalledOnce();
   });
 
+  it("empties an agent without connect and stops its run when the chat moves to another thread", async () => {
+    const { core, connection } = createRealConnection();
+    const agent = new RunDrivenAgent();
+    connection.open({ agent, threadId: "a", explicit: true });
+    // The first thread keeps what the chat holds, such as a message sent
+    // right after mount.
+    agent.addMessage({ id: "m1", role: "user", content: "hi" });
+    await flush();
+    expect(agent.messages.map((message) => message.id)).toEqual(["m1"]);
+    const run = core.runAgent({ agent });
+    await vi.waitFor(() => expect(agent.isRunning).toBe(true));
+    const streaming = agent.output;
+
+    const { selection } = connection.open({
+      agent,
+      threadId: "b",
+      explicit: true,
+    });
+
+    expect(agent.messages).toEqual([]);
+    expect(await connection.threads.waitForConnection(selection)).toBe("ready");
+    expect(agent.isRunning).toBe(false);
+    // The old thread's reply no longer reaches the agent.
+    streaming.next({
+      type: EventType.TEXT_MESSAGE_CHUNK,
+      messageId: "late",
+      role: "assistant",
+      delta: "from a",
+    });
+    expect(agent.messages).toEqual([]);
+    expect(connection.isConnecting({ threadId: "b", explicit: true })).toBe(
+      false,
+    );
+    await run;
+  });
+
   it("leaves a run the user started after the connect running", async () => {
     const { core, connection } = createRealConnection();
     const agent = new StreamingAgent();
@@ -423,6 +470,30 @@ describe("ɵChatConnection release", () => {
     handle.release();
 
     expect(controller.signal.aborted).toBe(true);
+  });
+
+  it("does not take a run that started before the connect for the connect's own", async () => {
+    const { connection } = createRealConnection();
+    const agent = new ConnectedHttpAgent();
+    // The previous thread's teardown holds the connect back.
+    const teardown = deferred();
+    connection.threads.queueTeardown(teardown.promise);
+    const handle = connection.open({ agent, threadId: "t1", explicit: true });
+    // A run that starts meanwhile, such as a tool follow-up.
+    const earlier = agent.runAgent();
+    await vi.waitFor(() => expect(agent.isRunning).toBe(true));
+    const connectAgent = vi.spyOn(agent, "connectAgent");
+    teardown.resolve();
+    await vi.waitFor(() => expect(connectAgent).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(agent.isRunning).toBe(true));
+    const controller = agent.abortController;
+    const detach = vi.spyOn(agent, "detachActiveRun");
+
+    handle.release();
+
+    expect(controller.signal.aborted).toBe(true);
+    expect(detach).toHaveBeenCalledOnce();
+    await earlier.catch(() => {});
   });
 
   it("does not abort a successor connect that reuses the controller", async () => {

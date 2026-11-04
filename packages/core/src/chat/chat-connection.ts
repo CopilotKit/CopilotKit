@@ -3,6 +3,7 @@ import type { RunAgentInput } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 import type { CopilotKitCore } from "../core/core";
 import { CopilotKitCoreErrorCode } from "../core/core";
+import { ɵresetAgentThreadBaseline } from "../core/thread-baseline";
 import { isRunCompletionAware } from "../intelligence-agent";
 import { ɵisHttpAgent } from "../utils/http-agent";
 import type { ɵThreadSelection, ɵThreadSelectionInput } from "./thread-switch";
@@ -149,8 +150,11 @@ function defaultAfterPaint(callback: () => void) {
  * - Leaving a thread detaches the agent's run only while that run is the
  *   connect's own. A run the user started after the connect keeps running.
  * - An agent that does not implement connect is not connected, and its
- *   thread counts as loaded at once: a connect would only empty it.
- *   An `AGUIConnectNotImplementedError` from a connect is not an error.
+ *   thread counts as loaded at once. On the agent's first thread its
+ *   messages stay, so a message sent right after mount survives. A move
+ *   from another thread detaches the old thread's run and empties the agent,
+ *   as a connect would. An `AGUIConnectNotImplementedError` from a connect
+ *   is not an error.
  * - A failed connect of an Inspector override ends the override.
  * - The chat shows "connecting" for an explicit thread until its connect has
  *   settled and painted ({@link isConnecting}).
@@ -170,6 +174,8 @@ export class ɵChatConnection {
   private snapshot: ɵChatConnectionSnapshot = { connectedThreadId: null };
   private readonly listeners = new Set<() => void>();
   private readonly afterPaint: (callback: () => void) => void;
+  /** The thread each agent showed last, to tell a thread switch from a first open. */
+  private readonly openedThreads = new WeakMap<AbstractAgent, string>();
 
   constructor(private readonly options: ɵChatConnectionOptions) {
     this.threads = new ɵThreadSwitchCoordinator(options.core);
@@ -213,11 +219,19 @@ export class ɵChatConnection {
     input: ɵThreadSelectionInput,
     hooks: ɵChatConnectHooks = {},
   ): ɵChatConnectionHandle {
+    const previousThreadId = this.openedThreads.get(input.agent);
     const selection = this.threads.select(input);
+    this.openedThreads.set(selection.agent, selection.threadId);
     if (!selection.shouldConnect) {
       return { selection, release: () => selection.release() };
     }
     if (!ɵimplementsConnect(selection.agent)) {
+      if (
+        previousThreadId !== undefined &&
+        previousThreadId !== input.threadId
+      ) {
+        this.clearSwitchedThread(selection);
+      }
       this.setConnectedThreadId(selection.threadId);
       return { selection, release: () => selection.release() };
     }
@@ -244,6 +258,27 @@ export class ɵChatConnection {
     this.listeners.clear();
   }
 
+  /**
+   * What a connect does when an agent without `connect` moves to another
+   * thread: detaches the old thread's run and empties the agent. The reset
+   * runs again once the detach and every earlier teardown finished, and a
+   * send waits for it, so nothing of the old thread lands on the new one.
+   */
+  private clearSwitchedThread(selection: ɵThreadSelection) {
+    const { agent, threadId } = selection;
+    const reset = () => {
+      if (selection.isCurrent) {
+        ɵresetAgentThreadBaseline(agent, { cursorThreadId: threadId });
+      }
+    };
+    void this.threads.detach(agent);
+    reset();
+    void this.threads.trackConnection(selection, async () => {
+      await this.threads.whenTornDown();
+      reset();
+    });
+  }
+
   private setConnectedThreadId(threadId: string) {
     if (this.snapshot.connectedThreadId === threadId) return;
     this.snapshot = { connectedThreadId: threadId };
@@ -257,7 +292,10 @@ export class ɵChatConnection {
     const { core, onInspectorOverrideFailed } = this.options;
     const { agent, threadId, inspectorRequestId } = selection;
     const controller = new AbortController();
-    const ownership = new ConnectOwnership(agent);
+    // Armed right before `connectAgent`, so a run that started earlier (a
+    // tool follow-up from the previous thread, an app's `runAgent`) is not
+    // taken for the connect's run.
+    let ownership: ConnectOwnership | undefined;
     let released = false;
     let settled = false;
 
@@ -285,6 +323,7 @@ export class ɵChatConnection {
           if (released) return;
           // `connectAgent` keeps the agent's controller, unlike `runAgent`.
           if (ɵisHttpAgent(agent)) agent.abortController = controller;
+          ownership = new ConnectOwnership(agent);
           await core.connectAgent({ agent });
         } catch (error) {
           if (released || error instanceof AGUIConnectNotImplementedError) {
@@ -297,7 +336,7 @@ export class ɵChatConnection {
       })
       .finally(() => {
         settled = true;
-        ownership.stopWatching();
+        ownership?.stopWatching();
         if (released) {
           // The user moved on to a fresh thread while this one loaded:
           // clear what it applied so the fresh thread shows empty.
@@ -317,15 +356,16 @@ export class ɵChatConnection {
         released = true;
         selection.release();
         inspectorErrors?.unsubscribe();
-        const ownsRun = !settled && ownership.ownsActiveRun();
+        // Before the connect is armed it has started no run to detach.
+        const ownsRun = !settled && ownership?.ownsActiveRun() === true;
         // A connect that settled no longer owns the controller unless a run
         // replaced it; a successor connect may still be using it.
         const ownsController =
-          !ownership.replaced &&
+          ownership?.replaced !== true &&
           (!settled ||
             (ɵisHttpAgent(agent) && agent.abortController !== controller));
         if (ownsController) controller.abort();
-        ownership.stopWatching();
+        ownership?.stopWatching();
         if (ownsRun) void this.threads.detach(agent);
       },
     };
@@ -334,7 +374,9 @@ export class ɵChatConnection {
 
 /**
  * Tells whether the agent's active run is still the pipeline a connect
- * started, or whether another run replaced it.
+ * started, or whether another run replaced it. It watches from the moment it
+ * is created, and takes the first run that initializes after that for the
+ * connect's own, so create it right before the connect starts.
  */
 class ConnectOwnership {
   /** Set when another run initialized on the agent after the connect's own. */
