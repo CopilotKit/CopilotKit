@@ -19,7 +19,10 @@ The check looks for:
 - an empty `catch {}` or `.catch(() => {})`
 - a promise that nothing awaits, and other promise mistakes
 - an `oxlint-disable` or `eslint-disable` comment with no reason
-- unused files, exports, types, and dependencies (knip)
+- a condition that is always true or always false (a dead branch)
+- a file with more than 800 lines of code
+- every rule in the oxlint `correctness` and `suspicious` categories, for example an unsafe `as` cast
+- unused files, exports, types, enum members, duplicate exports, and dependencies (knip)
 
 Tests are not checked. Code outside `packages/` keeps its warnings only.
 
@@ -52,6 +55,9 @@ pnpm exec oxlint -c .oxlintrc.json --type-aware packages/core/src/index.ts
 | `no-misused-promises`                | Wrap the async call: `onClick={() => { void save(); }}`.                                                    |
 | `copilotkit(no-swallowed-error)`     | Handle the error, or rethrow it. If ignoring it is safe, write a comment inside the handler that says why.  |
 | `copilotkit(require-disable-reason)` | Add a reason after `--`, as shown below.                                                                    |
+| `no-unnecessary-condition`           | Remove the dead branch. If the value can be missing at run time, fix the type so that it says so.           |
+| `max-lines`                          | Move part of the file into a new module.                                                                    |
+| `no-unsafe-type-assertion`           | Narrow the value with a check instead of `as`.                                                              |
 | `knip(exports)`                      | Remove the unused export, or use it.                                                                        |
 
 If you must turn off a rule for one line, give the reason after `--`:

@@ -235,11 +235,31 @@ function isKnipItem(value: unknown): value is KnipItem {
 }
 
 /**
+ * One finding for a group of names that export the same thing, from the
+ * `duplicates` issue type. The name is the group joined with " = ", for
+ * example "Foo = default". The line is the line of the first name.
+ */
+function duplicateGroup(value: unknown): KnipItem[] {
+  if (!Array.isArray(value)) return [];
+  const names = value.filter(isKnipItem);
+  const first = names[0];
+  if (first === undefined) return [];
+  return [
+    { name: names.map((item) => item.name).join(" = "), line: first.line },
+  ];
+}
+
+/**
  * The items of one issue type in a knip row. Most types are a list of items.
+ * `duplicates` is a list of groups, and each group gives one item.
  * `enumMembers` and `classMembers` are a map of parent name to a list.
  */
 function knipItems(value: unknown) {
-  if (Array.isArray(value)) return value.filter(isKnipItem);
+  if (Array.isArray(value)) {
+    return value.flatMap((entry: unknown) =>
+      Array.isArray(entry) ? duplicateGroup(entry) : [entry].filter(isKnipItem),
+    );
+  }
   if (typeof value !== "object" || value === null) return [];
   return Object.values(value).flatMap((items: unknown) =>
     Array.isArray(items) ? items.filter(isKnipItem) : [],

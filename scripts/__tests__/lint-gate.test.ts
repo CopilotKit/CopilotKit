@@ -196,6 +196,19 @@ describe("knipFindings", () => {
           { name: "CopilotKitMiddlewareEvent", line: 56, col: 13, pos: 2035 },
         ],
       },
+      {
+        file: "packages/shared/src/utils/errors.ts",
+        owners: [],
+        duplicates: [
+          [
+            { name: "BANNER_ERROR_NAMES", line: 28, col: 13, pos: 1148 },
+            { name: "COPILOT_CLOUD_ERROR_NAMES", line: 38, col: 41, pos: 1535 },
+          ],
+        ],
+        enumMembers: {
+          ErrorVisibility: [{ name: "SILENT", line: 10, col: 3, pos: 387 }],
+        },
+      },
     ],
   };
 
@@ -242,6 +255,18 @@ describe("knipFindings", () => {
         file: "packages/runtime/src/runtime/core/middleware.ts",
         line: 56,
         message: "CopilotKitMiddlewareEvent",
+      },
+      {
+        rule: "knip(duplicates)",
+        file: "packages/shared/src/utils/errors.ts",
+        line: 28,
+        message: "BANNER_ERROR_NAMES = COPILOT_CLOUD_ERROR_NAMES",
+      },
+      {
+        rule: "knip(enumMembers)",
+        file: "packages/shared/src/utils/errors.ts",
+        line: 10,
+        message: "SILENT",
       },
     ]);
   });
