@@ -1020,8 +1020,9 @@ test("confirm-delete survives an unrelated thread change (same id still present)
 // --- Sort order matches core's sortThreadsByRecency -----------------------
 // The framework drawers pass in threads that core already sorted. These pin
 // the element to core's rule (packages/core/src/threads.ts): most recent
-// first by `lastRunAt ?? updatedAt ?? createdAt`, compared as strings, so the
-// element never reorders what core sorted.
+// first by `lastRunAt ?? updatedAt ?? createdAt`, compared as parsed instants
+// with unparseable timestamps last, so the element never reorders what core
+// sorted.
 
 test("prefers lastRunAt over a newer updatedAt, like core", async () => {
   // Same fixture as core's "sorts by lastRunAt when present" test.
@@ -1052,28 +1053,45 @@ test("prefers lastRunAt over a newer updatedAt, like core", async () => {
   teardown();
 });
 
-test("compares timestamps as strings, like core", async () => {
-  // As instants, 09:00Z is later than 10:00+02:00 (08:00Z). Core compares
-  // the strings, so "10:00+02:00" comes first, and so does the element.
+test("compares timestamps as instants and puts unparseable ones last, like core", async () => {
+  // As text, "10:00+02:00" sorts before "09:00Z" and "00:00Z" after
+  // "00:00.500Z". As instants, 09:00Z is later than 10:00+02:00 (08:00Z) and
+  // 00:00.500Z is later than 00:00Z.
   const { qa, teardown } = await setup({
     threads: [
+      makeThread({ id: "bad", name: "Bad", updatedAt: "not-a-date" }),
+      makeThread({
+        id: "offset",
+        name: "Offset",
+        updatedAt: "2026-06-20T10:00:00+02:00",
+      }),
       makeThread({
         id: "utc",
         name: "UTC",
         updatedAt: "2026-06-20T09:00:00Z",
       }),
       makeThread({
-        id: "offset",
-        name: "Offset",
-        updatedAt: "2026-06-20T10:00:00+02:00",
+        id: "whole-second",
+        name: "Whole second",
+        updatedAt: "2026-06-20T00:00:00Z",
       }),
-      makeThread({ id: "bad", name: "Bad", updatedAt: "not-a-date" }),
+      makeThread({
+        id: "half-second",
+        name: "Half second",
+        updatedAt: "2026-06-20T00:00:00.500Z",
+      }),
     ],
   });
 
   const order = qa("li.row").map((el) => el.getAttribute("data-thread-id"));
 
-  expect(order).toEqual(["bad", "offset", "utc"]);
+  expect(order).toEqual([
+    "utc",
+    "offset",
+    "half-second",
+    "whole-second",
+    "bad",
+  ]);
   teardown();
 });
 

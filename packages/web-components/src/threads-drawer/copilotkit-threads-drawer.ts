@@ -164,17 +164,21 @@ const iconKebab = html`
 
 /**
  * Most recent first, by `lastRunAt`, then `updatedAt`, then `createdAt`,
- * compared as strings. This is the order of `sortThreadsByRecency` in
+ * compared as parsed instants. A timestamp that does not parse sorts last, and
+ * ties keep their input order. This is the order of `sortThreadsByRecency` in
  * `@copilotkit/core` (`packages/core/src/threads.ts`), which sorts the
  * threads the framework drawers pass in, so the element keeps their order.
  * Keep the two in step: this package does not depend on core.
  */
 function sortThreadsByRecency(threads: readonly DrawerThread[]) {
-  return [...threads].sort((left, right) => {
-    const leftKey = left.lastRunAt ?? left.updatedAt ?? left.createdAt;
-    const rightKey = right.lastRunAt ?? right.updatedAt ?? right.createdAt;
-    return rightKey.localeCompare(leftKey);
-  });
+  return [...threads].sort((left, right) => recencyOf(right) - recencyOf(left));
+}
+
+function recencyOf(thread: DrawerThread): number {
+  const time = Date.parse(
+    thread.lastRunAt ?? thread.updatedAt ?? thread.createdAt,
+  );
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
 }
 
 /**
