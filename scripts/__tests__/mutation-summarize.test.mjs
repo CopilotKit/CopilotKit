@@ -39,7 +39,12 @@ const report = {
 
 test("scores count timeouts as detected and skip compile errors", () => {
   const s = summarizeReport(report);
-  assert.deepEqual(s.total, { detected: 25, survived: 11, noCoverage: 5 });
+  assert.deepEqual(s.total, {
+    detected: 25,
+    timedOut: 2,
+    survived: 11,
+    noCoverage: 5,
+  });
   assert.equal(s.score.toFixed(2), ((25 / 41) * 100).toFixed(2));
   assert.equal(s.coveredScore.toFixed(2), ((25 / 36) * 100).toFixed(2));
 });
@@ -70,6 +75,20 @@ test("finds test files that kill nothing and files with no unique kill", () => {
   );
 });
 
+test("counts single tests that kill nothing, per test file", () => {
+  const s = summarizeReport(report);
+  // a2 never kills; every test in c is idle.
+  assert.equal(s.testCount, 6);
+  assert.equal(s.idleTestCount, 4);
+  assert.deepEqual(
+    s.idleTests.map((t) => [t.path, t.idle]),
+    [
+      ["src/c.test.ts", 3],
+      ["src/a.test.ts", 1],
+    ],
+  );
+});
+
 test("a report with no test data yields no test-file findings", () => {
   const s = summarizeReport({ files: { "src/x.ts": { mutants: [] } } });
   assert.equal(s.score, null);
@@ -82,6 +101,7 @@ test("markdown lists the package score and the zero-kill test file", () => {
     { name: "@copilotkit/x", summary: summarizeReport(report) },
   ]);
   assert.match(md, /\| `@copilotkit\/x` \| \*\*61\.0%\*\* \|/);
+  assert.match(md, /\| 25 \(2\) \| 11 \| 5 \| 41 \|/);
   assert.match(md, /- `src\/c\.test\.ts` \(3 tests\)/);
   assert.match(md, /\*\*1 of 3\*\*/);
 });

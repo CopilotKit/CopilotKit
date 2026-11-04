@@ -17,12 +17,14 @@ const UNDETECTED = new Set(["Survived", "NoCoverage"]);
 export const MIN_MUTANTS_FOR_RANKING = 20;
 
 /**
- * @typedef {{ detected: number, survived: number, noCoverage: number }} Counts
+ * `timedOut` is the part of `detected` that was a timeout, not a failing test.
+ *
+ * @typedef {{ detected: number, timedOut: number, survived: number, noCoverage: number }} Counts
  */
 
 /** @returns {Counts} */
 function emptyCounts() {
-  return { detected: 0, survived: 0, noCoverage: 0 };
+  return { detected: 0, timedOut: 0, survived: 0, noCoverage: 0 };
 }
 
 /** @param {Counts} c */
@@ -43,6 +45,7 @@ export function coveredScore(c) {
  */
 function count(c, mutant) {
   if (DETECTED.has(mutant.status)) c.detected++;
+  if (mutant.status === "Timeout") c.timedOut++;
   else if (mutant.status === "Survived") c.survived++;
   else if (mutant.status === "NoCoverage") c.noCoverage++;
   // CompileError, RuntimeError and Ignored are not part of the score.
@@ -57,6 +60,9 @@ function count(c, mutant) {
  * mutant survive. Both need `disableBail: true`, or `killedBy` holds only the
  * first test that failed.
  *
+ * A single test is "idle" when it kills no mutant. `idleTests` ranks test
+ * files by how many of their tests are idle.
+ *
  * @param {any} report parsed mutation.json
  */
 export function summarizeReport(report) {
@@ -66,6 +72,8 @@ export function summarizeReport(report) {
   const testFileOf = new Map();
   /** @type {Map<string, { tests: number, kills: number, uniqueKills: number }>} */
   const testFiles = new Map();
+  /** @type {Set<string>} ids of tests that killed at least one mutant */
+  const killingTests = new Set();
 
   for (const [path, file] of Object.entries(report.testFiles ?? {})) {
     testFiles.set(path, { tests: file.tests.length, kills: 0, uniqueKills: 0 });
@@ -78,6 +86,7 @@ export function summarizeReport(report) {
       count(counts, mutant);
       count(total, mutant);
       if (!DETECTED.has(mutant.status)) continue;
+      for (const id of mutant.killedBy ?? []) killingTests.add(id);
       const killers = new Set(
         (mutant.killedBy ?? [])
           .map((id) => testFileOf.get(id))
@@ -102,7 +111,12 @@ export function summarizeReport(report) {
         b.survived + b.noCoverage - (a.survived + a.noCoverage),
     );
 
-  const tests = [...testFiles].map(([path, s]) => ({ path, ...s }));
+  const tests = [...testFiles].map(([path, s]) => ({
+    path,
+    ...s,
+    idle: report.testFiles[path].tests.filter((t) => !killingTests.has(t.id))
+      .length,
+  }));
   return {
     total,
     score: mutationScore(total),
@@ -110,6 +124,11 @@ export function summarizeReport(report) {
     files,
     worstFiles: ranked,
     testFileCount: tests.length,
+    testCount: tests.reduce((n, t) => n + t.tests, 0),
+    idleTestCount: tests.reduce((n, t) => n + t.idle, 0),
+    idleTests: tests
+      .filter((t) => t.idle > 0)
+      .sort((a, b) => b.idle - a.idle || a.path.localeCompare(b.path)),
     zeroKillTests: tests
       .filter((t) => t.kills === 0)
       .sort((a, b) => a.path.localeCompare(b.path)),
@@ -125,13 +144,13 @@ const pct = (n) => (n === null ? "n/a" : `${n.toFixed(1)}%`);
 export function renderMarkdown(packages, { worst = 15 } = {}) {
   const out = [];
   out.push(
-    "| Package | Score | Covered score | Detected | Survived | No coverage | Mutants |",
+    "| Package | Score | Covered score | Detected (of which timeouts) | Survived | No coverage | Mutants |",
   );
   out.push("| --- | --- | --- | --- | --- | --- | --- |");
   for (const { name, summary: s } of packages) {
     const t = s.total;
     out.push(
-      `| \`${name}\` | **${pct(s.score)}** | ${pct(s.coveredScore)} | ${t.detected} | ${t.survived} | ${t.noCoverage} | ${t.detected + t.survived + t.noCoverage} |`,
+      `| \`${name}\` | **${pct(s.score)}** | ${pct(s.coveredScore)} | ${t.detected} (${t.timedOut}) | ${t.survived} | ${t.noCoverage} | ${t.detected + t.survived + t.noCoverage} |`,
     );
   }
 
@@ -148,6 +167,16 @@ export function renderMarkdown(packages, { worst = 15 } = {}) {
         `| \`${f.path}\` | ${pct(f.score)} | ${f.survived} | ${f.noCoverage} | ${f.detected + f.survived + f.noCoverage} |`,
       );
     }
+    out.push(
+      "",
+      `Tests that kill no mutant: **${s.idleTestCount} of ${s.testCount}**. Test files with the most of them:`,
+      "",
+      "| Test file | Tests that kill nothing | Tests |",
+      "| --- | --- | --- |",
+      ...s.idleTests
+        .slice(0, worst)
+        .map((t) => `| \`${t.path}\` | ${t.idle} | ${t.tests} |`),
+    );
     out.push(
       "",
       `Test files that kill no mutant: **${s.zeroKillTests.length} of ${s.testFileCount}**.`,
