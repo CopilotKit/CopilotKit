@@ -6,7 +6,6 @@ import {
   ɵnormalizeToolCallStatus,
   ɵstringifyToolCallAttr,
   ɵstringifyToolCallPayload,
-  ɵtoDefaultToolCallStatus,
 } from "@copilotkit/core";
 import type {
   ToolCallStatus,
@@ -39,16 +38,6 @@ type RawRendererProps = {
   status: ToolCallStatus;
   result: string | undefined;
 };
-
-/**
- * Map a {@link ToolCallStatus} enum value to the documented string-union
- * status the {@link DefaultRenderProps} contract exposes. Unknown / future
- * enum members log a warning (once per distinct value) and fall back to
- * `"inProgress"`.
- */
-export const mapToolCallStatus: (
-  status: ToolCallStatus,
-) => DefaultRenderProps["status"] = ɵtoDefaultToolCallStatus;
 
 /**
  * Convert the framework-internal renderer props (`args`, enum status) into

@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -263,9 +264,11 @@ export function CopilotChat({
   // The send side lives in core: it builds the message, waits for the run in
   // flight, and runs the agent. A failed run also shows under the list.
   const agentRef = useRef(agent);
-  agentRef.current = agent;
   const inputTextRef = useRef(inputText);
-  inputTextRef.current = inputText;
+  useLayoutEffect(() => {
+    agentRef.current = agent;
+    inputTextRef.current = inputText;
+  });
   const [submitter] = useState(() =>
     ɵcreateChatSubmitter({
       core: withRunErrorReporting(copilotkit, setError),

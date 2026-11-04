@@ -222,9 +222,9 @@ function FeedbackCommentPopover({
   const config = useCopilotChatConfiguration();
   const labels = config?.labels ?? CopilotChatDefaultLabels;
   const contentRef = useRef<HTMLDivElement>(null);
-  // Radix reads the anchor through a ref.
-  const anchor = useRef<HTMLElement | null>(null);
-  anchor.current = comment.anchor;
+  // Radix reads the anchor through a ref. A new ref per anchor, so nothing
+  // changes a ref during render.
+  const anchor = useMemo(() => ({ current: comment.anchor }), [comment.anchor]);
   // A keyboard rating moves focus into the field, as the popover opens or,
   // when it was open already, as the field for the new rating renders.
   const { focusRequest, focusField } = comment;
@@ -490,6 +490,7 @@ export function CopilotChatAssistantMessage({
   const rating = feedback?.feedback?.rating;
   const { open: commentOpen, sync: syncComment } = comment;
   useEffect(() => {
+    // react-doctor-disable-next-line react-doctor/no-pass-data-to-parent -- syncs core's feedback controller, an external store, not a parent's state
     syncComment({ showsToolbar: shouldShowToolbar });
   }, [commentOpen, shouldShowToolbar, rating, syncComment]);
 

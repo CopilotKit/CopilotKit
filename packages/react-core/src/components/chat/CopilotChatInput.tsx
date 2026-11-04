@@ -1,4 +1,5 @@
 import type { KeyboardEvent, ChangeEvent } from "react";
+import { useLatestRef } from "../../lib/use-latest-ref";
 import React, {
   useState,
   useRef,
@@ -199,8 +200,7 @@ export function CopilotChatInput({
 
   // The text, controlled or not, and the slash-command menu: see core's
   // ɵComposerController.
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+  const onChangeRef = useLatestRef(onChange);
   const [composer] = useState(
     () =>
       new ɵComposerController<ToolsMenuItem>({

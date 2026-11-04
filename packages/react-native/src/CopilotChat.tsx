@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -255,12 +256,16 @@ export function CopilotChat({
   // A send waits for the run in flight, so the submitter re-checks the
   // upload guard against the latest attachments, not this render's.
   const attachmentsRef = useRef(selectedAttachments);
-  attachmentsRef.current = selectedAttachments;
+  useLayoutEffect(() => {
+    attachmentsRef.current = selectedAttachments;
+  });
 
   // The send side lives in core: the upload guard, the message content, and
   // waiting for the thread's connection and the run in flight.
   const agentRef = useRef(agent);
-  agentRef.current = agent;
+  useLayoutEffect(() => {
+    agentRef.current = agent;
+  });
   const [submitter] = useState(() =>
     ɵcreateChatSubmitter({
       core: copilotkit,
