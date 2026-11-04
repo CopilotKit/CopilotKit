@@ -4,7 +4,7 @@ name: test / unit-showcase
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
     paths:
       # The `test:ci` / `test:quarantine-ratchet` nx target definitions live in
       # showcase/harness/package.json, so `showcase/**` covers them too.

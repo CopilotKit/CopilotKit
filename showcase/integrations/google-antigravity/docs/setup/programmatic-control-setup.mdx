@@ -1,0 +1,36 @@
+<Steps>
+  <Step>
+    ### Install the Antigravity AG-UI adapter
+
+    ```bash
+    pip install ag-ui-antigravity google-antigravity
+    ```
+
+  </Step>
+  <Step>
+    ### Wire the agent once — chat and code share it
+
+    `copilotkit.runAgent`, `agent.subscribe` and `agent.addMessage` drive runs
+    against the same AG-UI endpoint your chat UI posts to, so there is no
+    second backend to set up: build the `AntigravityAgent` the way any chat
+    demo does and every entry point sees the same model, tools and session.
+
+    <DemoCode file="src/agents/_common.py" region="agent-setup" />
+
+    Sessions are keyed by `thread_id` inside the agent, so a headless run that
+    reuses a thread continues that conversation, and a fresh `thread_id`
+    starts a new one.
+
+  </Step>
+</Steps>
+
+<Callout type="info" title="Headless interrupts come from server tools">
+  The headless interrupt-resolver pattern — read the interrupt off the agent,
+  answer it with a `resume` — works when a Python server tool pauses with the
+  adapter's `experimental_interrupt()` (see the human-in-the-loop setup). The harness's
+  own `ask_question` built-in, which would also park on an interrupt, is
+  disabled in this showcase. For asking the user from code without a backend
+  tool, use the frontend-tool Promise pattern: register the tool with
+  `useFrontendTool` and an `async` handler, and resolve its promise when your
+  own UI has the answer.
+</Callout>

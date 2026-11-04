@@ -70,7 +70,10 @@ export interface CopilotSidebarProps extends Omit<
   /** Custom style applied to the drawer container. */
   style?: ViewStyle;
 
-  /** Content rendered inside the drawer below the chat area. */
+  /**
+   * Your chat UI, rendered inside the drawer below the header. The inner
+   * CopilotChat is headless and draws no messages or input of its own.
+   */
   children?: ReactNode;
 }
 

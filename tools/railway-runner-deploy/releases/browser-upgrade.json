@@ -1,26 +1,26 @@
 {
-  "sourceRevision": "b6f89b83d4b6dd4efd2a1bc04f999cf38ff7233b",
+  "sourceRevision": "a918ae011663c426a426243bcbc6c183f52f8d97",
   "build": {
-    "runId": 39939536423,
+    "runId": 40732403270,
     "runAttempt": 1,
     "workflowPath": ".github/workflows/intelligence-rich-threads-build.yml",
     "workflowSha256": "4337e0e43f7598ff19171ad3a73a250e404e7a8e138ae149cb30e75bda6224bf",
-    "artifactId": 12494649416,
-    "artifactSha256": "f87d87c1fc48209a9ec9c2cdea08119035389988085121db7ea239508b9727b0"
+    "artifactId": 12835822185,
+    "artifactSha256": "6ae7f6973c34ab6e2f8b1d1f3f438fff328a972f8cd6195466dcd764d5e350d7"
   },
   "baseline": {
-    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:fd82c29daf293aa0e59c77d7678ff0df45a769c9802109976d94a5b09b37227e",
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:08990847c406a71dd0424ae6f58e91bcaeee500b7e3a1a9d2d032e08f6d27b6f",
     "runtimeIdentity": {
       "protocolVersion": 1,
-      "sourceRevision": "855fb75ec8fd5bfbd0102ffe83765fe03a3953fb",
-      "sourceManifestSha256": "5c8658b5581d5282c361b8c70f18a759be7e5fcda2a8006c9c939b02c3fc03fd",
-      "compatibilitySha256": "dc176a205ac7fe4c38f6bb6e56638a6288c6912a119c49644647310e4b27b63f",
+      "sourceRevision": "b6f89b83d4b6dd4efd2a1bc04f999cf38ff7233b",
+      "sourceManifestSha256": "0587f8221abf2ede6469bf221e72a81210fcd9aaa6bead2e2db6cf9b2503bcbb",
+      "compatibilitySha256": "9b5e30ab342b11e9cf36783428e708dc5fb54cf108155aa06fac802f247f97b0",
       "policySha256": "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751"
     }
   },
   "removalBaseline": {
-    "deploymentId": "27f7ec23-6b79-429f-9574-90da478b3985",
-    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:fd82c29daf293aa0e59c77d7678ff0df45a769c9802109976d94a5b09b37227e"
+    "deploymentId": "fe7e30b4-213a-403c-994b-40c1066274ce",
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:08990847c406a71dd0424ae6f58e91bcaeee500b7e3a1a9d2d032e08f6d27b6f"
   },
   "inspector": "ghcr.io/copilotkit/rich-thread-inspector@sha256:1c5249083985cde25d8422ebc6a7ca7007d8eb92477daa5b854fe10c7ed2dd71",
   "baselineTemplateSha256": "020fbeb669a5a0fa0d3da5f120348770721a2c2f9c4e997bccae01792c6a8020",
@@ -45,12 +45,12 @@
     }
   ],
   "candidate": {
-    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:08990847c406a71dd0424ae6f58e91bcaeee500b7e3a1a9d2d032e08f6d27b6f",
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:0130216d2378373b0c98f55669ca1c9e0299f0f26e468c39261511e30793b4df",
     "runtimeIdentity": {
       "protocolVersion": 1,
-      "sourceRevision": "b6f89b83d4b6dd4efd2a1bc04f999cf38ff7233b",
-      "sourceManifestSha256": "0587f8221abf2ede6469bf221e72a81210fcd9aaa6bead2e2db6cf9b2503bcbb",
-      "compatibilitySha256": "9b5e30ab342b11e9cf36783428e708dc5fb54cf108155aa06fac802f247f97b0",
+      "sourceRevision": "a918ae011663c426a426243bcbc6c183f52f8d97",
+      "sourceManifestSha256": "d7f2246d36d19b4fc2c90b1dd2f34abc7c2254519bdf64b0ef7fcb351325e1b0",
+      "compatibilitySha256": "8406f50ec74eae7cf6fe9186bc84b6a2fee77f0ee77106be5999245fa13f3df5",
       "policySha256": "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751"
     }
   },
@@ -63,14 +63,14 @@
     "leaseSha256": "27590b62cbbf213ad0c6652f70d3d1c0611eab34edd968e5460834e47d80f485",
     "originalReceiptSha256": "294e9ebe05ceb653acc7fb91c62334d3ffeb4789614d9e4a629544c01e96d6a3"
   },
-  "baselineOperationId": "github-655515393-39914784012",
+  "baselineOperationId": "github-655515393-40551269953",
   "baselineBuild": {
-    "runId": 39913816663,
+    "runId": 39939536423,
     "runAttempt": 1,
     "workflowPath": ".github/workflows/intelligence-rich-threads-build.yml",
     "workflowSha256": "4337e0e43f7598ff19171ad3a73a250e404e7a8e138ae149cb30e75bda6224bf",
-    "artifactId": 12484600466,
-    "artifactSha256": "f770fcad398ed4c02a25e44f5b62b9e4a5e8adcf56c3d1594663c48f2c834c4a"
+    "artifactId": 12494649416,
+    "artifactSha256": "f87d87c1fc48209a9ec9c2cdea08119035389988085121db7ea239508b9727b0"
   },
   "volumeWatch": {
     "lifecycleRunId": "rich-92c9b050-5fd0-4f13-b4e5-96df2c40a20c",

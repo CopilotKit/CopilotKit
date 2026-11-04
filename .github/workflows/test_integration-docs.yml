@@ -1,7 +1,7 @@
 name: test / integration / docs
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
     paths:
       - "showcase/shell-docs/src/content/**"
       - "scripts/validate-docs-deprecated-imports.mjs"

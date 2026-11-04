@@ -2,6 +2,7 @@ packages:
   - "packages/*"
   - "tools/runtime-conformance"
   - "tools/learned-skill-conformance"
+  - "tools/genui-eval"
   - "examples/v1/*"
   - "examples/canvas/mastra-pm"
   - "examples/v1/research-canvas/agents/typescript"
