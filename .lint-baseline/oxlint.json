@@ -328,7 +328,7 @@
       "packages/vue/src/v2/components/A2UIMessageRenderer.ts": 2,
       "packages/vue/src/v2/components/chat/types.ts": 1,
       "packages/vue/src/v2/hooks/use-component.ts": 2,
-      "packages/vue/src/v2/hooks/use-render-tool.ts": 2,
+      "packages/vue/src/v2/hooks/use-render-tool.ts": 1,
       "packages/vue/src/v2/providers/CopilotKitProvider.types.ts": 2
     },
     "typescript-eslint(no-extraneous-class)": {
@@ -877,11 +877,7 @@
     },
     "typescript-eslint(no-unnecessary-type-arguments)": {
       "packages/core/src/chat/renderers.ts": 2,
-      "packages/vue/src/v2/components/chat/copilotChatToolCallItemRender.ts": 1,
-      "packages/vue/src/v2/hooks/use-frontend-tool.ts": 1,
-      "packages/vue/src/v2/hooks/use-render-tool.ts": 2,
-      "packages/vue/src/v2/lib/vue-core.ts": 9,
-      "packages/vue/src/v2/types/defineToolCallRenderer.ts": 2,
+      "packages/vue/src/v2/lib/vue-core.ts": 4,
       "packages/web-inspector/src/shared/display/display-value.ts": 1
     },
     "typescript-eslint(no-unnecessary-type-assertion)": {
