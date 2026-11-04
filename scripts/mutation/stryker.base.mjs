@@ -34,6 +34,11 @@ export function defineMutationConfig({ skip = [] } = {}) {
         Math.max(1, Math.floor(availableParallelism() / 2)),
     ),
     timeoutMS: 10_000,
+    // Mutate the real files, not a copy in a sandbox folder. Some tests import
+    // sibling packages by relative path (../../../../core/src/...), which
+    // breaks one folder deeper. Stryker restores the files when it exits; if
+    // it is killed, run `git checkout <package>/src`.
+    inPlace: true,
     tempDirName: ".stryker-tmp",
     cleanTempDir: "always",
     reporters: ["progress", "clear-text", "html", "json"],
