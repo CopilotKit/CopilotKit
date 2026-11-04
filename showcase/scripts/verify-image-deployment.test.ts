@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { parse as parseYaml } from "yaml";
 import { stepsOf } from "./__tests__/showcase-build-workflow";
 import {
   readExpectedImage,
@@ -21,6 +25,45 @@ const response = (deployment = node()) =>
   new Response(JSON.stringify({ data: { deployment } }));
 
 describe("readExpectedImage", () => {
+  it("keeps Railway request timers responsive while the registry subprocess is pending", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "image-inspection-"));
+    const gate = join(directory, "event-loop-responsive");
+    const originalPath = process.env.PATH;
+    // A real child process needs the parent event loop to release it. A sync
+    // inspector blocks that release and fails, as it blocks Railway timers.
+    writeFileSync(
+      join(directory, "docker"),
+      `#!${process.execPath}
+const fs = require("node:fs");
+const gate = ${JSON.stringify(gate)};
+const deadline = Date.now() + 300;
+const timer = setInterval(() => {
+  if (fs.existsSync(gate)) {
+    clearInterval(timer);
+    process.stdout.write(process.argv.includes("--raw")
+      ? ${JSON.stringify(JSON.stringify({ schemaVersion: 2, config: {}, layers: [] }))}
+      : ${JSON.stringify(INDEX)});
+  } else if (Date.now() >= deadline) {
+    process.stderr.write("parent event loop blocked during registry inspection");
+    process.exit(1);
+  }
+}, 5);
+`,
+      { mode: 0o755 },
+    );
+    process.env.PATH = `${directory}:${originalPath}`;
+    const release = setTimeout(() => writeFileSync(gate, "released"), 10);
+    try {
+      expect(await readExpectedImage(`${REPO}:latest`)).toEqual({
+        digests: [INDEX],
+      });
+    } finally {
+      clearTimeout(release);
+      process.env.PATH = originalPath;
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   function inspector(latest = INDEX) {
     return vi.fn((ref: string, format: "digest" | "manifest") =>
       format === "digest"
@@ -42,43 +85,48 @@ describe("readExpectedImage", () => {
           }),
     );
   }
-  it("resolves manual latest before deployment without accepting attestation identity", () => {
+  it("resolves manual latest before deployment without accepting attestation identity", async () => {
     const inspect = inspector();
-    expect(readExpectedImage(`${REPO}:latest`, {}, inspect)).toEqual(expected);
+    await expect(
+      readExpectedImage(`${REPO}:latest`, {}, inspect),
+    ).resolves.toEqual(expected);
     expect(inspect).toHaveBeenCalledTimes(2);
   });
-  it("binds a CI image to the immutable full commit and refuses an advanced latest", () => {
+  it("binds a CI image to the immutable full commit and refuses an advanced latest", async () => {
     const inspect = inspector(OLD);
-    expect(() =>
+    await expect(
       readExpectedImage(
         `${REPO}:${"d".repeat(40)}`,
         { requireCommit: true, checkLatest: true },
         inspect,
       ),
-    ).toThrow(/superseded/);
+    ).rejects.toThrow(/superseded/);
     expect(inspect).toHaveBeenCalledTimes(2);
   });
-  it("accepts a single-platform selected digest", () => {
-    expect(
+  it("accepts a single-platform selected digest", async () => {
+    await expect(
       readExpectedImage(`${REPO}@${INDEX}`, {}, (_ref, format) =>
         format === "digest"
           ? INDEX
           : JSON.stringify({ schemaVersion: 2, config: {}, layers: [] }),
       ),
-    ).toEqual({ digests: [INDEX] });
+    ).resolves.toEqual({ digests: [INDEX] });
   });
   it.each([
     `${REPO}:latest`,
     `${REPO}:short-sha`,
     "",
     "https://example.com/image",
-  ])("refuses non-commit CI references before registry access: %s", (image) => {
-    const inspect = inspector();
-    expect(() =>
-      readExpectedImage(image, { requireCommit: true }, inspect),
-    ).toThrow(/image reference/);
-    expect(inspect).not.toHaveBeenCalled();
-  });
+  ])(
+    "refuses non-commit CI references before registry access: %s",
+    async (image) => {
+      const inspect = inspector();
+      await expect(
+        readExpectedImage(image, { requireCommit: true }, inspect),
+      ).rejects.toThrow(/image reference/);
+      expect(inspect).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("verifyImageDeployment", () => {
@@ -183,4 +231,31 @@ it.each([
 ])("wires this build SHA into the %s deployment lane", (job, stepName) => {
   const step = stepsOf(job).find((candidate) => candidate.name === stepName);
   expect(step?.env?.STAGING_EXPECTED_IMAGE_TAG).toBe("${{ github.sha }}");
+});
+
+it("authenticates scheduled remediation image reads and budgets verified fleet deployment", () => {
+  const workflow = parseYaml(
+    readFileSync(
+      new URL(
+        "../../.github/workflows/showcase_reconcile_staging.yml",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const job = workflow.jobs.reconcile;
+  const deployIndex = job.steps.findIndex((step: { run?: string }) =>
+    step.run?.includes("reconcile-staging.ts"),
+  );
+  const loginIndex = job.steps.findIndex((step: { uses?: string }) =>
+    step.uses?.startsWith("docker/login-action@"),
+  );
+  expect(loginIndex).toBeGreaterThanOrEqual(0);
+  expect(loginIndex).toBeLessThan(deployIndex);
+  expect(job.steps[loginIndex].with).toEqual({
+    registry: "ghcr.io",
+    username: "${{ github.actor }}",
+    password: "${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}",
+  });
+  expect(job["timeout-minutes"]).toBe(45);
 });

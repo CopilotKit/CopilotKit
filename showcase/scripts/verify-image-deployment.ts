@@ -1,4 +1,5 @@
-import { execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { RAILWAY_GRAPHQL_ENDPOINT } from "./lib/railway-graphql";
 import { IN_PROGRESS_DEPLOY_STATUSES } from "./lib/railway-deployment";
 
@@ -8,8 +9,13 @@ export interface ExpectedImage {
   digests: string[];
 }
 
-function inspectImage(ref: string, format: "digest" | "manifest"): string {
-  return execFileSync(
+const execFileAsync = promisify(execFile);
+
+async function inspectImage(
+  ref: string,
+  format: "digest" | "manifest",
+): Promise<string> {
+  const { stdout } = await execFileAsync(
     "docker",
     [
       "buildx",
@@ -21,19 +27,23 @@ function inspectImage(ref: string, format: "digest" | "manifest"): string {
         : ["--raw"]),
     ],
     { encoding: "utf8", timeout: 30_000, maxBuffer: 4 * 1024 * 1024 },
-  ).trim();
+  );
+  return stdout.trim();
 }
 
 /** Resolve a selected image before deployment, including its runnable amd64 identity. */
-export function readExpectedImage(
+export async function readExpectedImage(
   image: string,
   options: {
     requireCommit?: boolean;
     checkLatest?: boolean;
     label?: string;
   } = {},
-  inspect: typeof inspectImage = inspectImage,
-): ExpectedImage {
+  inspect: (
+    ref: string,
+    format: "digest" | "manifest",
+  ) => string | Promise<string> = inspectImage,
+): Promise<ExpectedImage> {
   const label = options.label ?? "image";
   const match =
     /^(ghcr\.io\/copilotkit\/[a-z0-9][a-z0-9/_-]*)(?::([a-zA-Z0-9._-]+)|@(sha256:[0-9a-f]{64}))$/.exec(
@@ -48,12 +58,12 @@ export function readExpectedImage(
     );
   }
   const repository = match[1];
-  const digest = inspect(image, "digest").trim();
+  const digest = (await inspect(image, "digest")).trim();
   if (!DIGEST.test(digest))
     throw new Error(`${label} image has no valid digest`);
   if (
     options.checkLatest &&
-    inspect(`${repository}:latest`, "digest").trim() !== digest
+    (await inspect(`${repository}:latest`, "digest")).trim() !== digest
   ) {
     throw new Error(
       `${label} :latest no longer matches this build; refusing a superseded deployment`,
@@ -62,7 +72,7 @@ export function readExpectedImage(
   // Railway may report the index digest or its selected platform manifest.
   // Attestation manifests (unknown/unknown) are not runnable image identities.
   const manifest = JSON.parse(
-    inspect(`${repository}@${digest}`, "manifest"),
+    await inspect(`${repository}@${digest}`, "manifest"),
   ) as {
     schemaVersion?: number;
     manifests?: Array<{

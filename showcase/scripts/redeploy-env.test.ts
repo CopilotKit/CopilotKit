@@ -727,7 +727,7 @@ describe("resolveTargetServices", () => {
 describe("makeLiveRedeploy", () => {
   const digest = `sha256:${"a".repeat(64)}`;
   beforeEach(() => {
-    vi.spyOn(imageVerification, "readExpectedImage").mockReturnValue({
+    vi.spyOn(imageVerification, "readExpectedImage").mockResolvedValue({
       digests: [digest],
     });
   });
@@ -745,6 +745,37 @@ describe("makeLiveRedeploy", () => {
     vi.stubGlobal("fetch", fetchMock);
     return fetchMock;
   }
+
+  it.each(
+    Object.entries(SERVICES).filter(
+      ([, entry]) => entry.autoUpdates.staging === "unmanaged",
+    ),
+  )(
+    "preserves the configured pinned image when explicitly redeploying unmanaged %s",
+    async (_name, entry) => {
+      const fetchMock = stubFetch(
+        async () =>
+          new Response(
+            JSON.stringify({ data: { serviceInstanceRedeploy: true } }),
+          ),
+      );
+      await expect(
+        makeLiveRedeploy("test-token", { expectedImageTag: "d".repeat(40) })(
+          entry.serviceId,
+          STAGING_ENV_ID,
+        ),
+      ).resolves.toEqual({ ok: true });
+      expect(imageVerification.readExpectedImage).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+      expect(request.query).toContain("serviceInstanceRedeploy(");
+      expect(request.query).not.toContain("serviceInstanceDeployV2");
+      expect(request.variables).toEqual({
+        serviceId: entry.serviceId,
+        environmentId: STAGING_ENV_ID,
+      });
+    },
+  );
 
   it.each(["showcase-crewai-conversational-flows", "starter-adk"])(
     "creates a fresh staging deployment for %s instead of replaying its snapshot",
@@ -853,7 +884,7 @@ describe("makeLiveRedeploy", () => {
   );
 
   it("records the fresh deployment ID when CI verification rejects an old image", async () => {
-    vi.spyOn(docsVerification, "readExpectedDocsImage").mockReturnValue({
+    vi.spyOn(docsVerification, "readExpectedDocsImage").mockResolvedValue({
       digests: [`sha256:${"a".repeat(64)}`],
     });
     const fetchMock = stubFetch(async (_url, init) => {

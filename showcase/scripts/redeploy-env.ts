@@ -40,10 +40,10 @@
  *     print FAIL lines to stdout and land in the markdown summary written
  *     to $GITHUB_STEP_SUMMARY (mirrored to stderr). Exit-code policy is
  *     FAIL-LOUD: every per-service failure yields a non-zero exitCode.
- *     Staging creates fresh deployments and verifies the selected image and
- *     SUCCESS for each exact returned deployment ID in six bounded slots.
+ *     Managed staging images get fresh deployments and verify the selected
+ *     image and SUCCESS for each returned deployment ID in six bounded slots.
  *     Docs additionally verify serving routes; workers apply `ALWAYS`.
- *     Production retains the existing deployment-snapshot behavior.
+ *     Production and unmanaged pinned services retain snapshot redeploys.
  *   - Operator/config errors (bad env name, unknown service, missing or
  *     malformed token) ALWAYS fail loud with a non-zero exit.
  *
@@ -55,6 +55,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import {
   CI_BUILT_SERVICES,
+  effectiveStaticGatePolicy,
   ENV_IDS,
   ENV_ID_BY_NAME,
   SERVICES,
@@ -175,6 +176,10 @@ export function makeLiveRedeploy(
     if (isStaging && !service) {
       return { ok: false, error: `Unknown staging service ${serviceId}` };
     }
+    const isManagedStaging =
+      isStaging &&
+      service !== undefined &&
+      effectiveStaticGatePolicy(service[1]).image === "showcase-convention";
     const isStagingWorker =
       serviceId === SERVICES["harness-workers"].serviceId &&
       environmentId === STAGING_ENV_ID;
@@ -183,7 +188,7 @@ export function makeLiveRedeploy(
     // Resolve before issuing a mutation, including refusal of superseded builds.
     const expectedDocsImage =
       isStagingDocs && options.docsExpectedImage !== undefined
-        ? readExpectedDocsImage(options.docsExpectedImage)
+        ? await readExpectedDocsImage(options.docsExpectedImage)
         : undefined;
     // CI names its immutable build tag. Out-of-band images (webhooks) have no
     // tag from this run; resolve their configured staging :latest instead.
@@ -191,23 +196,25 @@ export function makeLiveRedeploy(
     // staging back, while post-deploy verification catches a tag moving later.
     const imageOwner = service && SERVICES[service[1].imageOf ?? service[0]];
     const commitTag =
-      isStaging && imageOwner?.ciBuilt ? options.expectedImageTag : undefined;
+      isManagedStaging && imageOwner?.ciBuilt
+        ? options.expectedImageTag
+        : undefined;
     if (commitTag !== undefined && !/^[0-9a-f]{40}$/.test(commitTag)) {
       return {
         ok: false,
         error: "staging expected image tag must be a full commit SHA",
       };
     }
-    const expectedImage = isStaging
+    const expectedImage = isManagedStaging
       ? (expectedDocsImage ??
-        readExpectedImage(
+        (await readExpectedImage(
           `ghcr.io/copilotkit/${repoNameFor(service![0], "staging")}:${commitTag ?? "latest"}`,
           {
             requireCommit: commitTag !== undefined,
             checkLatest: commitTag !== undefined,
             label: service![0],
           },
-        ))
+        )))
       : undefined;
 
     if (isStagingWorker) {
@@ -255,9 +262,10 @@ export function makeLiveRedeploy(
       }
     }
 
-    if (isStaging) {
+    if (isManagedStaging) {
       // Redeploy replays the previous image snapshot. Deploy from desired
-      // source instead, so every staging service pulls the selected image.
+      // source instead, so managed staging services pull the selected image.
+      // Independent pinned services retain their configured snapshot below.
       const deploy = await railwayMutation(
         token,
         `mutation serviceInstanceDeployV2($serviceId: String!, $environmentId: String!) {
@@ -338,9 +346,9 @@ export interface RunRedeployOpts {
 }
 
 /**
- * A single per-service redeploy outcome. Staging `status:"ok"` includes the
- * verified deployment/image receipt; other envs acknowledge the deployment
- * request. `status:"error"` carries the
+ * A single per-service redeploy outcome. Managed staging `status:"ok"` includes
+ * the verified deployment/image receipt; other environments and unmanaged
+ * services acknowledge the deployment request. `status:"error"` carries the
  * sanitized failure. Callers that must confirm a SPECIFIC service was actually
  * redeployed (e.g. reconcile-staging's per-service remediation check) match on
  * these records rather than the post-expansion `attempted` COUNT — imageOf

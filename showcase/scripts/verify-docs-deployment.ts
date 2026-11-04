@@ -12,10 +12,10 @@ import type {
 export type ExpectedDocsImage = ExpectedImage;
 
 /** Read this build's docs image, refusing superseded or unrelated references. */
-export function readExpectedDocsImage(
+export async function readExpectedDocsImage(
   image: string,
   inspect?: Parameters<typeof readExpectedImage>[2],
-): ExpectedDocsImage {
+): Promise<ExpectedDocsImage> {
   if (!image.startsWith(`${DOCS_GHCR_IMAGE}:`)) {
     throw new Error(
       "docs verification requires the full built commit image reference",
