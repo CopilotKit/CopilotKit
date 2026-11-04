@@ -3,15 +3,20 @@ import {
   ɵdescribeActivityRendererFailure,
   ɵfindActivityRenderer,
   ɵmatchActivityRenderer,
+  ɵresolveAgentId,
 } from "@copilotkit/core";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import { useDefaultAgentId } from "../context";
 import { useCopilotKit, useCopilotChatConfiguration } from "../providers";
 import { useCallback, useMemo } from "react";
 import type { ReactActivityMessageRenderer } from "../types";
 
 export function useRenderActivityMessage() {
   const { copilotkit } = useCopilotKit();
-  const agentId = useCopilotChatConfiguration()?.agentId ?? DEFAULT_AGENT_ID;
+  // The chat's agent, else the provider's default agent.
+  const agentId = ɵresolveAgentId({
+    chatAgentId: useCopilotChatConfiguration()?.agentId,
+    providerAgentId: useDefaultAgentId(),
+  });
 
   const renderers = copilotkit.renderActivityMessages;
 
