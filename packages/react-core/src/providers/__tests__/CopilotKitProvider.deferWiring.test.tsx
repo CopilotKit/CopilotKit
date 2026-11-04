@@ -34,9 +34,6 @@ vi.mock("../../lib/react-core", () => {
     ɵsubscribeToRuntimeInfo() {
       return () => {};
     }
-    get a2uiAgents() {
-      return undefined;
-    }
     ɵupdateConfig() {}
     setErrorHandler() {}
     dispose() {}

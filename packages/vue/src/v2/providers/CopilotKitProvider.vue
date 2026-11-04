@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import {
-  GENERATE_SANDBOXED_UI_DESCRIPTION,
-  randomUUID,
-  ɵanySchema,
-} from "@copilotkit/shared";
+import { randomUUID, ɵanySchema } from "@copilotkit/shared";
 import {
   computed,
   h,
@@ -17,6 +13,7 @@ import {
   watch,
 } from "vue";
 import type { Component, FunctionalComponent } from "vue";
+import type { Catalog, ComponentApi } from "@a2ui/web_core/v0_9";
 import { ToolCallStatus } from "@copilotkit/core";
 import type {
   CopilotKitHeadersSource,
@@ -24,9 +21,10 @@ import type {
   ɵRuntimeInfo,
 } from "@copilotkit/core";
 import {
-  DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
-  GENERATE_SANDBOXED_UI_TOOL_NAME,
   ɵSTABLE_ARRAY_WARNINGS,
+  ɵbuildOpenGenerativeUIContexts,
+  ɵcreateOpenGenerativeUITool,
+  ɵisOpenGenerativeUIActive,
   ɵpublicKeyHeaderDefaults,
   ɵreportProviderConfigDiagnostics,
   ɵresolveLicenseState,
@@ -34,13 +32,12 @@ import {
   ɵtoolRendererShapeChanged,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";
-import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
+import { shouldEnableInspector } from "@copilotkit/shared";
 import { CopilotKitCoreVue } from "../lib/vue-core";
 import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
 import { registerA2UIBuiltInToolCallRenderer } from "../components/a2ui/A2UIBuiltInToolCallRenderer";
-import { registerA2UICatalogContext } from "../components/a2ui/A2UICatalogContext";
+import { registerA2UICatalog } from "../components/a2ui/A2UICatalogContext";
 import {
-  GenerateSandboxedUiArgsSchema,
   OpenGenerativeUIActivityRenderer,
   OpenGenerativeUIActivityType,
   OpenGenerativeUIContentSchema,
@@ -73,10 +70,6 @@ import type {
   VueToolCallRenderer,
   VueToolCallRendererRenderProps,
 } from "../types";
-
-// Canonical A2UI viewer theme default (matches @copilotkit/a2ui-renderer).
-// Defined locally to avoid pulling React dependencies from a2ui-renderer.
-const viewerTheme: Record<string, unknown> = {};
 
 // Matches the message React's `useHumanInTheLoop` rejects with, so an aborted
 // interrupt reads the same across frameworks (see #5554).
@@ -428,8 +421,11 @@ const runtimeEntitlements = computed(
 const runtimeEntitlementRetryPending = computed(
   () => runtimeInfo.value?.runtimeEntitlementRetryPending ?? false,
 );
-const openGenerativeUIActive = computed(
-  () => runtimeOpenGenerativeUIEnabled.value || !!props.openGenerativeUI,
+const openGenerativeUIActive = computed(() =>
+  ɵisOpenGenerativeUIActive({
+    runtimeEnabled: runtimeOpenGenerativeUIEnabled.value,
+    configured: !!props.openGenerativeUI,
+  }),
 );
 // A catalog passed to the provider is enough to turn A2UI on: render the
 // surfaces locally and forward the catalog signal so the runtime injects the
@@ -437,6 +433,11 @@ const openGenerativeUIActive = computed(
 const a2uiCatalogProvided = computed(() => !!props.a2ui?.catalog);
 const a2uiActive = computed(
   () => runtimeA2UIEnabled.value || a2uiCatalogProvided.value,
+);
+// The catalog with components disabled in the Inspector removed; set by
+// `registerA2UICatalog` below once the core exists.
+const a2uiFilteredCatalog = shallowRef<Catalog<ComponentApi> | undefined>(
+  undefined,
 );
 // Forward a per-run signal when the provider has an A2UI catalog so the
 // runtime can turn A2UI on (and inject the render tool) without a separate
@@ -449,13 +450,7 @@ const builtInFrontendTools = computed<VueFrontendTool[]>(() => {
   if (!openGenerativeUIActive.value) return [];
   return [
     {
-      name: GENERATE_SANDBOXED_UI_TOOL_NAME,
-      description: GENERATE_SANDBOXED_UI_DESCRIPTION,
-      parameters: GenerateSandboxedUiArgsSchema,
-      handler: async () => "UI generated",
-      // This acknowledgement has no side effects and is safe to reconstruct.
-      reconnectBehavior: "resume-pending",
-      followUp: true,
+      ...ɵcreateOpenGenerativeUITool(),
       render:
         OpenGenerativeUIToolRenderer as unknown as VueFrontendTool["render"],
     } as VueFrontendTool,
@@ -487,10 +482,11 @@ const builtInActivityRenderers = computed<
   if (a2uiActive.value) {
     renderers.unshift(
       createA2UIMessageRenderer({
-        theme: props.a2ui?.theme ?? viewerTheme,
-        catalog: props.a2ui?.catalog,
+        theme: props.a2ui?.theme ?? {},
+        catalog: a2uiFilteredCatalog.value ?? props.a2ui?.catalog,
         loadingComponent: props.a2ui?.loadingComponent,
         recovery: props.a2ui?.recovery,
+        onAction: props.a2ui?.onAction,
       }),
     );
   }
@@ -780,11 +776,15 @@ const a2uiIncludeSchema = computed(() => props.a2ui?.includeSchema ?? true);
 // A2UI tool call renderer (progress indicator) — auto-registered when A2UI enabled
 registerA2UIBuiltInToolCallRenderer(copilotkit, () => a2uiActive.value);
 
-// A2UI catalog context, schema, and generation/design guidelines
-registerA2UICatalogContext(copilotkit, {
+// A2UI catalog: component registration for the Inspector, the filtered
+// catalog, and the agent context (schema, generation/design guidelines).
+registerA2UICatalog(copilotkit, {
   enabled: () => a2uiActive.value,
   catalog: () => props.a2ui?.catalog,
   includeSchema: () => props.a2ui?.includeSchema ?? true,
+  onFilteredCatalog: (catalog) => {
+    a2uiFilteredCatalog.value = catalog;
+  },
 });
 
 const providerContextIds = ref<string[]>([]);
@@ -797,31 +797,10 @@ watch(
   ([active, functions, designSkill], _previous, onCleanup) => {
     if (!active) return;
 
-    const ids: string[] = [];
-    ids.push(
-      copilotkit.value.addContext({
-        description:
-          "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
-        value: designSkill ?? DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
-      }),
-    );
-
-    if (functions.length > 0) {
-      const descriptors = JSON.stringify(
-        functions.map((fn) => ({
-          name: fn.name,
-          description: fn.description,
-          parameters: schemaToJsonSchema(fn.parameters),
-        })),
-      );
-      ids.push(
-        copilotkit.value.addContext({
-          description:
-            "Sandbox functions available in generated sandboxed UI code. Call via Websandbox.connection.remote.<functionName>(args).",
-          value: descriptors,
-        }),
-      );
-    }
+    const ids = ɵbuildOpenGenerativeUIContexts({
+      designSkill,
+      sandboxFunctions: functions,
+    }).map((entry) => copilotkit.value.addContext(entry));
 
     providerContextIds.value = ids;
     onCleanup(() => {

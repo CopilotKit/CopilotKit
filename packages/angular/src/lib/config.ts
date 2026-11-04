@@ -22,6 +22,7 @@ import type {
 } from "@copilotkit/core";
 import type { OpenGenerativeUIConfig } from "./open-generative-ui";
 import type { A2UICatalog } from "./components/a2ui/a2ui-types";
+import type { ɵA2UIActionInterceptor } from "@copilotkit/core";
 
 export interface A2UIConfig extends ɵA2UIBaseOptions {
   theme?: Record<string, unknown>;
@@ -34,6 +35,13 @@ export interface A2UIConfig extends ɵA2UIBaseOptions {
   /** Shown until the first surface renders. */
   loadingComponent?: Type<unknown>;
   recovery?: A2UIRecoveryOptions;
+  /**
+   * Intercept A2UI user actions before they reach the agent: return `null`
+   * to handle an action client-side (e.g. a `navigate` event), return an
+   * action to forward that one instead, or return nothing to forward it
+   * unchanged.
+   */
+  onAction?: ɵA2UIActionInterceptor;
 }
 
 export interface A2UIRecoveryOptions {

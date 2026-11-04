@@ -247,6 +247,29 @@ CSS that targets `[data-streamdown]` no longer matches. Search the stylesheets f
 
 Vue: delete every `useKatexStyles` import and call, including in `.vue` files. The export was removed.
 
+## Generative UI
+
+Docs: https://docs.copilotkit.ai/migrate/generative-ui-2.0
+
+`OpenGenerativeUIContentSchema` and `GenerateSandboxedUiArgsSchema` from `@copilotkit/vue` and `@copilotkit/angular` are Standard Schemas, not zod schemas. They have no `.parse`, `.safeParse`, `.shape`, or other zod members, and they cannot go into a zod schema. Validate with `["~standard"].validate(value)`. It returns `{ value }` or `{ issues }` and does not throw:
+
+```ts
+import { OpenGenerativeUIContentSchema } from "@copilotkit/vue";
+
+const result = OpenGenerativeUIContentSchema["~standard"].validate(value);
+if (result instanceof Promise) throw new Error("unexpected async schema");
+if (result.issues) throw new Error(result.issues[0]?.message);
+const content = result.value;
+```
+
+If the code composed the schema into a zod schema, write those fields in zod in the app.
+
+`filterCatalog` from `@copilotkit/a2ui-renderer` infers its type. The codemod deletes explicit type arguments. Its type parameter is now the catalog type, not the component type.
+
+Angular `CopilotA2UIRecovery` no longer exposes `lifecycle`, `retryRevealed`, `debugExposure`, `label`, `phase`, `failureDiagnostics`, or `retryDiagnostics`. Read the lifecycle with `readA2UILifecycleContent(content)` from `@copilotkit/angular`.
+
+The Open Generative UI placeholder element (test id `open-generative-ui-placeholder`) was removed. While the agent generates, tests can query `open-generative-ui-progress-overlay` and `open-generative-ui-spinner`. Once generation ends, neither shows.
+
 ## Runtime
 
 2.0 has no service adapters (`OpenAIAdapter`, `AnthropicAdapter`, ...) and no GraphQL endpoint. A model runs in a `BuiltInAgent`, and `createCopilotRuntimeHandler` serves the runtime. A v1 Next.js route:

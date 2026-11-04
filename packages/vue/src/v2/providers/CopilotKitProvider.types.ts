@@ -1,5 +1,6 @@
 import type { A2UIRecoveryRendererOptions } from "../components/a2ui/A2UIRecoveryStates";
 import type {
+  ɵA2UIActionInterceptor,
   ɵA2UIBaseOptions,
   ɵCopilotKitLearningOptions,
   ɵCopilotKitProviderBaseOptions,
@@ -53,6 +54,13 @@ export interface CopilotKitProviderProps extends ɵCopilotKitProviderBaseOptions
      * much retry/debug detail to surface. When omitted, defaults apply.
      */
     recovery?: A2UIRecoveryRendererOptions;
+    /**
+     * Intercept A2UI user actions before they reach the agent: return `null`
+     * to handle an action client-side (e.g. a `navigate` event), return an
+     * action to forward that one instead, or return nothing to forward it
+     * unchanged.
+     */
+    onAction?: ɵA2UIActionInterceptor;
   };
   /**
    * Global markdown renderer for assistant/reasoning messages. Either a Vue

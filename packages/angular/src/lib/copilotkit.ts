@@ -38,11 +38,6 @@ import type {
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "./tools";
-import {
-  A2UI_DEFAULT_DESIGN_GUIDELINES,
-  A2UI_DEFAULT_GENERATION_GUIDELINES,
-  schemaToJsonSchema,
-} from "@copilotkit/shared";
 import type { RenderActivityMessageConfig } from "./activity-renderer";
 import {
   ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
@@ -54,10 +49,10 @@ import { HumanInTheLoop } from "./human-in-the-loop";
 import { ensureLicenseWatermark } from "./license-watermark";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
 import {
-  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
-  buildCatalogContextValue,
-  extractCatalogComponentSchemas,
-} from "./components/a2ui/a2ui-catalog-context";
+  A2UI_BASIC_CATALOG_ID,
+  A2UICatalogController,
+} from "@copilotkit/a2ui-renderer/catalog-schema";
+import type { A2UICatalog } from "./components/a2ui/a2ui-types";
 import { CopilotA2UIRenderToolCall } from "./components/a2ui/a2ui-render-tool-call";
 import { CopilotA2UIToolRenderer } from "./components/a2ui/a2ui-tool-renderer";
 import {
@@ -67,12 +62,14 @@ import {
 } from "./components/a2ui/a2ui-tool-types";
 import type { GenerateSandboxedUiArgs } from "./open-generative-ui";
 import {
-  DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
-  GENERATE_SANDBOXED_UI_DESCRIPTION,
   GENERATE_SANDBOXED_UI_TOOL_NAME,
-  GenerateSandboxedUiArgsSchema,
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
 } from "./open-generative-ui";
+import {
+  ɵbuildOpenGenerativeUIContexts,
+  ɵcreateOpenGenerativeUITool,
+  ɵisOpenGenerativeUIActive,
+} from "@copilotkit/core";
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { CopilotInspector } from "./inspector";
@@ -305,11 +302,32 @@ export class CopilotKit {
   #unregisterOpenGenerativeUITool: (() => void) | undefined;
   #openGenerativeUIContextIds: string[] = [];
   #warnedMissingA2UICatalog = false;
-  #a2UIContextIds: string[] = [];
+  /**
+   * Shared with React and Vue: registers the catalog's components with core
+   * (for the Inspector), filters out the disabled ones, and owns the A2UI agent
+   * context, scoped to `core.ɵruntimeInfo.a2uiAgents` (#5369).
+   */
+  readonly #a2uiCatalog = new A2UICatalogController<A2UICatalog>(this.core, {
+    id: A2UI_BASIC_CATALOG_ID,
+    components: new Map(),
+  });
+  readonly #filteredA2UICatalog = signal<A2UICatalog | undefined>(undefined);
+  /**
+   * @internal
+   * The configured A2UI catalog without the components disabled in the
+   * Inspector. Surfaces render with it.
+   */
+  readonly ɵa2uiCatalog = this.#filteredA2UICatalog.asReadonly();
 
   constructor() {
     // This service creates `core`, so it owns it and stops it on destroy.
-    inject(DestroyRef).onDestroy(() => this.core.dispose());
+    inject(DestroyRef).onDestroy(() => {
+      this.#a2uiCatalog.dispose();
+      this.core.dispose();
+    });
+    this.#a2uiCatalog.subscribe(() =>
+      this.#filteredA2UICatalog.set(this.#a2uiCatalog.getSnapshot()),
+    );
     // Throws in production for a missing runtime config; otherwise warns.
     ɵreportProviderConfigDiagnostics(this.#initialConfig.diagnostics, {
       isProduction: !isDevMode(),
@@ -583,7 +601,7 @@ export class CopilotKit {
   #isA2UIActive(): boolean {
     const hasCatalog = this.#config.a2ui?.catalog !== undefined;
     if (
-      this.core.a2uiEnabled &&
+      this.core.ɵruntimeInfo.a2uiEnabled &&
       !hasCatalog &&
       !this.#warnedMissingA2UICatalog
     ) {
@@ -597,52 +615,26 @@ export class CopilotKit {
   }
 
   #syncA2UIContexts(): void {
-    this.#removeA2UIContexts();
-
-    const catalog = this.#config.a2ui?.catalog;
-    if (!catalog) return;
-    const includeSchema = this.#config.a2ui?.includeSchema !== false;
-    this.#a2UIContextIds.push(
-      this.core.addContext({
-        description:
-          "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
-        value: buildCatalogContextValue(catalog, { includeSchema }),
-      }),
-    );
-
-    if (!includeSchema) return;
-
-    this.#a2UIContextIds.push(
-      this.core.addContext({
-        description: A2UI_SCHEMA_CONTEXT_DESCRIPTION,
-        value: JSON.stringify(extractCatalogComponentSchemas(catalog)),
-      }),
-    );
-    this.#a2UIContextIds.push(
-      this.core.addContext({
-        description:
-          "A2UI generation guidelines — protocol rules, tool arguments, path rules, data model format, and form/two-way-binding instructions.",
-        value: A2UI_DEFAULT_GENERATION_GUIDELINES,
-      }),
-    );
-    this.#a2UIContextIds.push(
-      this.core.addContext({
-        description:
-          "A2UI design guidelines — visual design rules, component hierarchy tips, and action handler patterns.",
-        value: A2UI_DEFAULT_DESIGN_GUIDELINES,
-      }),
-    );
+    this.#a2uiCatalog.update({
+      enabled: true,
+      catalog: this.#config.a2ui?.catalog,
+      includeSchema: this.#config.a2ui?.includeSchema,
+    });
   }
 
   #removeA2UIContexts(): void {
-    for (const id of this.#a2UIContextIds) {
-      this.core.removeContext(id);
-    }
-    this.#a2UIContextIds = [];
+    this.#a2uiCatalog.update({
+      enabled: false,
+      catalog: this.#config.a2ui?.catalog,
+      includeSchema: this.#config.a2ui?.includeSchema,
+    });
   }
 
   #isOpenGenerativeUIActive(): boolean {
-    return !!this.#config.openGenerativeUI || this.core.openGenerativeUIEnabled;
+    return ɵisOpenGenerativeUIActive({
+      runtimeEnabled: this.core.ɵruntimeInfo.openGenerativeUIEnabled,
+      configured: !!this.#config.openGenerativeUI,
+    });
   }
 
   /** Register sandbox rendering with a side-effect-free acknowledgement safe to replay. */
@@ -650,14 +642,8 @@ export class CopilotKit {
     injector: Injector;
   } {
     return {
-      name: GENERATE_SANDBOXED_UI_TOOL_NAME,
-      description: GENERATE_SANDBOXED_UI_DESCRIPTION,
-      parameters: GenerateSandboxedUiArgsSchema,
+      ...ɵcreateOpenGenerativeUITool(),
       component: CopilotOpenGenerativeUIToolRenderer,
-      handler: async () => "UI generated",
-      // This acknowledgement has no side effects and is safe to reconstruct.
-      reconnectBehavior: "resume-pending",
-      followUp: true,
       injector: this.#rootInjector,
     };
   }
@@ -690,36 +676,12 @@ export class CopilotKit {
 
   #syncOpenGenerativeUIContexts(): void {
     this.#removeOpenGenerativeUIContexts();
-
-    const designSkill =
-      this.#config.openGenerativeUI?.designSkill ??
-      DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL;
-    this.#openGenerativeUIContextIds.push(
-      this.core.addContext({
-        description:
-          "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
-        value: designSkill,
-      }),
-    );
-
-    const sandboxFunctions =
-      this.#config.openGenerativeUI?.sandboxFunctions ?? [];
-    if (!sandboxFunctions.length) return;
-
-    const descriptors = JSON.stringify(
-      sandboxFunctions.map((fn) => ({
-        name: fn.name,
-        description: fn.description,
-        parameters: schemaToJsonSchema(fn.parameters),
-      })),
-    );
-
-    this.#openGenerativeUIContextIds.push(
-      this.core.addContext({
-        description:
-          "Sandbox functions available in generated sandboxed UI code. Call via: await Websandbox.connection.remote.<functionName>(args)",
-        value: descriptors,
-      }),
+    const entries = ɵbuildOpenGenerativeUIContexts({
+      designSkill: this.#config.openGenerativeUI?.designSkill,
+      sandboxFunctions: this.#config.openGenerativeUI?.sandboxFunctions ?? [],
+    });
+    this.#openGenerativeUIContextIds = entries.map((entry) =>
+      this.core.addContext(entry),
     );
   }
 

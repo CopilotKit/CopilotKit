@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  GENERATE_SANDBOXED_UI_DESCRIPTION,
-  randomUUID,
-  ɵanySchema,
-} from "@copilotkit/shared";
+import { randomUUID, ɵanySchema } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   FrontendTool,
@@ -42,9 +38,10 @@ import { CopilotKitInspectorContextProvider } from "../components/CopilotKitInsp
 import type { CopilotKitInspectorOpenRequest } from "../components/CopilotKitInspectorContext";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
 import {
-  DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
-  GENERATE_SANDBOXED_UI_TOOL_NAME,
   ɵSTABLE_ARRAY_WARNINGS,
+  ɵbuildOpenGenerativeUIContexts,
+  ɵcreateOpenGenerativeUITool,
+  ɵisOpenGenerativeUIActive,
   ɵpublicKeyHeaderDefaults,
   ɵreportProviderConfigDiagnostics,
   ɵresolveLicenseState,
@@ -62,12 +59,11 @@ import {
   OpenGenerativeUIContentSchema,
   OpenGenerativeUIActivityRenderer,
   OpenGenerativeUIToolRenderer,
-  GenerateSandboxedUiArgsSchema,
 } from "../components/OpenGenerativeUIRenderer";
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
+import type { A2UIActionInterceptor } from "../a2ui/A2UIMessageRenderer";
 import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryStates";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
-import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import { useGenerativeUIRoot } from "../generative-ui/use-generative-ui-root";
 import type { GenerativeUIConfig } from "../generative-ui/runtime-context";
 import {
@@ -76,7 +72,13 @@ import {
   GenerativeUIToolCallRenderer,
 } from "../generative-ui/chat";
 import { GenerativeUIRuntimeContext } from "../generative-ui/runtime-context";
-import { viewerTheme, filterCatalog, Catalog } from "@copilotkit/a2ui-renderer";
+import {
+  viewerTheme,
+  filterCatalog,
+  Catalog,
+  basicCatalog as a2uiBasicCatalog,
+} from "@copilotkit/a2ui-renderer";
+import { A2UICatalogController } from "@copilotkit/a2ui-renderer/catalog-schema";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
 import type {
@@ -91,7 +93,7 @@ import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
 import { MarkdownRendererProvider } from "./MarkdownRendererContext";
 import type { MarkdownRenderer } from "./MarkdownRendererContext";
 import { CopilotStyleOptionsProvider } from "../styles/copilot-kit-styles";
-import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
+import { shouldEnableInspector } from "@copilotkit/shared";
 
 // Stable frozen defaults keep provider effects from re-running just because a
 // caller omitted an object prop on a rerender.
@@ -228,6 +230,13 @@ export interface CopilotKitProviderProps extends ɵCopilotKitProviderBaseOptions
      * much retry/debug detail to surface. When omitted, sane defaults apply.
      */
     recovery?: A2UIRecoveryRendererOptions;
+    /**
+     * Intercept A2UI user actions before they reach the agent: return `null`
+     * to handle an action client-side (e.g. a `navigate` event), return an
+     * action to forward that one instead, or return nothing to forward it
+     * unchanged.
+     */
+    onAction?: A2UIActionInterceptor;
   };
   /**
    * Experimental. Native generative UI: `generativeUI={{ ui }}`, where `ui`
@@ -343,7 +352,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // Bumped by onCatalogComponentsChanged so the filtered catalog re-derives
   // when a component is enabled/disabled after mount.
   const [catalogToggleVersion, setCatalogToggleVersion] = useState(0);
-  const openGenUIActive = runtimeOpenGenUIEnabled || !!openGenerativeUI;
+  const openGenUIActive = ɵisOpenGenerativeUIActive({
+    runtimeEnabled: runtimeOpenGenUIEnabled,
+    configured: !!openGenerativeUI,
+  });
   // A catalog passed to the provider is enough to turn A2UI on: render the
   // surfaces locally and forward the catalog signal so the runtime injects the
   // render tool — no runtime-side `a2ui` config required.
@@ -405,14 +417,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // Raw catalog provided by the caller (typed loosely to match `a2ui.catalog?: any`).
   const rawCatalog = a2ui?.catalog as Catalog<any> | undefined;
 
-  // Derive the FILTERED catalog: only components currently enabled on core.
-  // Re-derives when enablement changes (catalogToggleVersion bump from the
-  // onCatalogComponentsChanged subscription below). Passed to BOTH the render
-  // path (createA2UIMessageRenderer) and the advertisement path (A2UICatalogContext)
-  // so a disabled component vanishes from what the model sees AND what can paint.
+  // Derive the FILTERED catalog for the render path: only components currently
+  // enabled on core. Re-derives when enablement changes (catalogToggleVersion
+  // bump from `a2uiCatalogController` below). The advertisement path is that
+  // controller, which filters with the same `filterCatalog`, so a disabled
+  // component vanishes from what the model sees AND what can paint.
   const filteredCatalog = useMemo(() => {
     if (!rawCatalog) return rawCatalog;
-    // `filterCatalog` rebuilds a real `Catalog` (reads `.functions`). Callers may
+    // Only genuine `Catalog` instances are filtered (as the controller does). Callers may
     // also pass a minimal catalog-shaped object; only filter genuine instances.
     if (!(rawCatalog instanceof Catalog)) return rawCatalog;
     const core = copilotkitRef.current;
@@ -458,6 +470,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           catalog: filteredCatalog,
           loadingComponent: a2ui?.loadingComponent,
           recovery: a2ui?.recovery,
+          onAction: a2ui?.onAction,
         }),
       );
     }
@@ -669,13 +682,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     if (!openGenUIActive) return [];
     return [
       {
-        name: GENERATE_SANDBOXED_UI_TOOL_NAME,
-        description: GENERATE_SANDBOXED_UI_DESCRIPTION,
-        parameters: GenerateSandboxedUiArgsSchema,
-        handler: async () => "UI generated",
-        // This acknowledgement has no side effects and is safe to reconstruct.
-        reconnectBehavior: "resume-pending",
-        followUp: true,
+        ...ɵcreateOpenGenerativeUITool(),
         render: OpenGenerativeUIToolRenderer,
       },
     ];
@@ -761,36 +768,31 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   );
   const generativeUIRuntime = useGenerativeUIRoot(copilotkit, generativeUI);
 
-  // Register the full A2UI catalog component list onto core so the inspector can
-  // read `core.catalogComponents`, and re-derive the filtered catalog whenever
-  // enablement changes. Descriptions are undefined here because the built
-  // ComponentApi does not carry them (see plan A2 rationale).
+  // Shared with Vue and Angular: registers the catalog's components with core
+  // (for the inspector), tells this provider when one is toggled so the
+  // filtered catalog above re-derives, and owns the A2UI agent context entries
+  // (scoped to `copilotkit.ɵruntimeInfo.a2uiAgents`, #5369).
+  const [a2uiCatalogController] = useState(
+    () => new A2UICatalogController<Catalog<any>>(copilotkit, a2uiBasicCatalog),
+  );
+  useEffect(
+    () =>
+      a2uiCatalogController.subscribe(() =>
+        setCatalogToggleVersion((v) => v + 1),
+      ),
+    [a2uiCatalogController],
+  );
   useEffect(() => {
-    if (!rawCatalog) return;
-    // Only register components for genuine `Catalog` instances, mirroring the
-    // `filteredCatalog` guard above. A non-`Catalog` catalog-shaped object is
-    // passed through UNFILTERED by `filteredCatalog`, so registering its
-    // components here would make them toggleable in the inspector while
-    // disabling never actually removes them from what the model sees — a silent
-    // enforcement divergence. Guarding here keeps registration and filtering
-    // consistent (nothing registered → nothing to toggle → nothing to filter)
-    // and also avoids a mount-time throw when `.components` isn't a Map.
-    if (!(rawCatalog instanceof Catalog)) return;
-    const components = Array.from(rawCatalog.components.values()).map(
-      (comp: { name: string; schema: unknown }) => ({
-        name: comp.name,
-        description: undefined as string | undefined,
-        schema: comp.schema,
-      }),
-    );
-    copilotkit.setCatalogComponents(components);
-    const subscription = copilotkit.subscribe({
-      onCatalogComponentsChanged: () => {
-        setCatalogToggleVersion((v) => v + 1);
-      },
+    a2uiCatalogController.update({
+      enabled: a2uiActive,
+      catalog: rawCatalog,
+      includeSchema: a2ui?.includeSchema,
     });
-    return () => subscription.unsubscribe();
-  }, [copilotkit, rawCatalog]);
+  }, [a2uiCatalogController, a2uiActive, rawCatalog, a2ui?.includeSchema]);
+  useEffect(
+    () => () => a2uiCatalogController.dispose(),
+    [a2uiCatalogController],
+  );
 
   // Project core's runtime info snapshot (one object with every `/info`
   // field, so no field can be missed — a missed `licenseStatus` once pinned
@@ -992,47 +994,19 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     };
   }, [copilotkit]);
 
-  // Register design skill as agent context for the generateSandboxedUi tool
-  const designSkill =
-    openGenerativeUI?.designSkill ?? DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL;
-
+  // Register the design skill and the sandbox functions as agent context for
+  // the generateSandboxedUi tool (entries shared with Vue and Angular).
+  const designSkill = openGenerativeUI?.designSkill;
   useLayoutEffect(() => {
     if (!copilotkit || !openGenUIActive) return;
-
-    const id = copilotkit.addContext({
-      description:
-        "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
-      value: designSkill,
-    });
+    const ids = ɵbuildOpenGenerativeUIContexts({
+      designSkill,
+      sandboxFunctions: sandboxFunctionsList,
+    }).map((entry) => copilotkit.addContext(entry));
     return () => {
-      copilotkit.removeContext(id);
+      for (const id of ids) copilotkit.removeContext(id);
     };
-  }, [copilotkit, designSkill, openGenUIActive]);
-
-  // Register sandbox functions as agent context so the LLM knows how to call them
-  const sandboxFunctionsDescriptors = useMemo(() => {
-    if (sandboxFunctionsList.length === 0) return null;
-    return JSON.stringify(
-      sandboxFunctionsList.map((fn) => ({
-        name: fn.name,
-        description: fn.description,
-        parameters: schemaToJsonSchema(fn.parameters),
-      })),
-    );
-  }, [sandboxFunctionsList]);
-
-  useLayoutEffect(() => {
-    if (!copilotkit || !sandboxFunctionsDescriptors || !openGenUIActive) return;
-
-    const id = copilotkit.addContext({
-      description:
-        "Sandbox functions available in generated sandboxed UI code. Call via: await Websandbox.connection.remote.<functionName>(args)",
-      value: sandboxFunctionsDescriptors,
-    });
-    return () => {
-      copilotkit.removeContext(id);
-    };
-  }, [copilotkit, sandboxFunctionsDescriptors, openGenUIActive]);
+  }, [copilotkit, designSkill, sandboxFunctionsList, openGenUIActive]);
 
   const contextValue = useMemo<CopilotKitContextValue>(
     () => ({
@@ -1072,12 +1046,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           <LicenseContext.Provider value={licenseState.context}>
             {a2uiActive && <A2UIBuiltInToolCallRenderer />}
             {generativeUIActive && <GenerativeUIToolCallRenderer />}
-            {a2uiActive && (
-              <A2UICatalogContext
-                catalog={filteredCatalog}
-                includeSchema={a2ui?.includeSchema}
-              />
-            )}
             <MarkdownRendererProvider renderer={markdownRenderer}>
               <CopilotKitInspectorContextProvider value={inspectorContextValue}>
                 {/*

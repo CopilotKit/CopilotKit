@@ -333,7 +333,10 @@ describe("CopilotA2UIToolRenderer with a real catalog", () => {
             },
           },
         },
-        { provide: CopilotKit, useValue: { core } },
+        {
+          provide: CopilotKit,
+          useValue: { core, ɵa2uiCatalog: () => undefined },
+        },
       ],
     });
     const fixture = TestBed.createComponent(CopilotA2UIToolRenderer);
@@ -361,11 +364,11 @@ describe("CopilotA2UIToolRenderer with a real catalog", () => {
     expect(button.textContent).toContain("Confirm");
 
     button.click();
-    await vi.waitFor(() =>
+    await vi.waitFor(() => {
       expect(core.runAgent).toHaveBeenCalledWith({
         agent: { agentId: "demo" },
-      }),
-    );
-    expect(core.setProperties).toHaveBeenLastCalledWith({ existing: true });
+      });
+      expect(core.setProperties).toHaveBeenLastCalledWith({ existing: true });
+    });
   });
 });

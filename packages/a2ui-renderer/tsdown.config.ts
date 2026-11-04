@@ -2,7 +2,12 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig([
   {
-    entry: ["src/index.ts", "src/catalog-schema.ts"],
+    entry: [
+      "src/index.ts",
+      "src/catalog-schema.ts",
+      "src/engine.ts",
+      "src/engine-core.ts",
+    ],
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,

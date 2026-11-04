@@ -9,39 +9,7 @@ export type BasicProps<Api extends ComponentApi> = ResolveA2uiProps<
   InferredComponentApiSchemaType<Api>
 >;
 
-export function mapJustify(justify?: string): string {
-  switch (justify) {
-    case "center":
-      return "center";
-    case "end":
-      return "flex-end";
-    case "spaceAround":
-      return "space-around";
-    case "spaceBetween":
-      return "space-between";
-    case "spaceEvenly":
-      return "space-evenly";
-    case "stretch":
-      return "stretch";
-    case undefined:
-    default:
-      return "flex-start";
-  }
-}
-
-export function mapAlign(align?: string): string {
-  switch (align) {
-    case "start":
-      return "flex-start";
-    case "center":
-      return "center";
-    case "end":
-      return "flex-end";
-    case undefined:
-    default:
-      return "stretch";
-  }
-}
+export { mapAlign, mapJustify } from "@copilotkit/a2ui-renderer/engine";
 
 let idCounter = 0;
 

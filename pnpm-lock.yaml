@@ -2105,6 +2105,12 @@ importers:
       '@a2ui/web_core':
         specifier: 0.10.4
         version: 0.10.4
+      '@copilotkit/core':
+        specifier: workspace:*
+        version: link:../core
+      '@copilotkit/shared':
+        specifier: workspace:*
+        version: link:../shared
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
