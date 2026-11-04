@@ -214,6 +214,13 @@ function codePointAt(
 }
 
 /** UTF-8 byte length of `text`. */
+/** Rethrow a caught value as-is when it is an `Error`; wrap anything else. */
+function asError(value: unknown) {
+  return value instanceof Error
+    ? value
+    : new Error(String(value), { cause: value });
+}
+
 function utf8Length(text: string): number {
   let bytes = 0;
   for (let i = 0; i < text.length; ) {
@@ -429,7 +436,7 @@ export class NativeMessageStream implements TextStream {
     }
     if (this.legacy) {
       await this.legacy.finish();
-      if (queueError !== undefined && this.strict) throw queueError;
+      if (queueError !== undefined && this.strict) throw asError(queueError);
       return;
     }
     // A continuation `startStream` can fail transiently, and unlike a mid-stream
@@ -494,7 +501,7 @@ export class NativeMessageStream implements TextStream {
         console.error("[native-stream] stopStream failed:", err);
       }
     }
-    if (queueError !== undefined && this.strict) throw queueError;
+    if (queueError !== undefined && this.strict) throw asError(queueError);
   }
 
   private scheduleFlush(): void {
@@ -773,7 +780,7 @@ export class NativeMessageStream implements TextStream {
       console.error("[native-stream] stopStream (rollover) failed:", err);
     }
     this.curTs = undefined;
-    if (closerError !== undefined && this.strict) throw closerError;
+    if (closerError !== undefined && this.strict) throw asError(closerError);
     return true;
   }
 

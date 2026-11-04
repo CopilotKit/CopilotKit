@@ -39,7 +39,7 @@ export function createOpenGenerativeUITool() {
     name: GENERATE_SANDBOXED_UI_TOOL_NAME,
     description: GENERATE_SANDBOXED_UI_DESCRIPTION,
     parameters: GENERATE_SANDBOXED_UI_ARGS_SCHEMA,
-    handler: async () => "UI generated",
+    handler: () => Promise.resolve("UI generated"),
     reconnectBehavior: "resume-pending" as const,
     followUp: true,
   };

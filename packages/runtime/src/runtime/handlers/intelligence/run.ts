@@ -307,7 +307,10 @@ export async function handleIntelligenceRun({
     }
   }
 
-  runtimeTelemetry.capture("oss.runtime.agent_execution_stream_started", {});
+  void runtimeTelemetry.capture(
+    "oss.runtime.agent_execution_stream_started",
+    {},
+  );
 
   // Keep the thread lock alive while the run executes. Transient renewal
   // failures are retried within the lock's remaining TTL; only a lost lock
@@ -368,9 +371,12 @@ export async function handleIntelligenceRun({
     agentErrorReported = true;
     // Analytics describes the outcome; only the application-owned reporter
     // receives diagnostics that may contain customer or upstream content.
-    runtimeTelemetry.capture("oss.runtime.agent_execution_stream_errored", {
-      error: "AGENT_EXECUTION_FAILED",
-    });
+    void runtimeTelemetry.capture(
+      "oss.runtime.agent_execution_stream_errored",
+      {
+        error: "AGENT_EXECUTION_FAILED",
+      },
+    );
     runtimeErrorReporter?.report({
       request,
       error,
@@ -427,7 +433,8 @@ export async function handleIntelligenceRun({
             error instanceof Error ? error.message : String(error);
           immediateStartupCleanup = cleanupLock("runner-start-error");
         } else {
-          cleanupLock("runner-error");
+          // cleanupLock logs its own failures, so it never rejects.
+          void cleanupLock("runner-error");
         }
         logger.error("Error running agent:", error);
       },
@@ -435,7 +442,7 @@ export async function handleIntelligenceRun({
         clearHeartbeat();
         // Preserve the existing completion count even when the stream contains
         // RUN_ERROR. Failure reporting is separate and carries only a safe code.
-        runtimeTelemetry.capture(
+        void runtimeTelemetry.capture(
           "oss.runtime.agent_execution_stream_ended",
           {},
         );

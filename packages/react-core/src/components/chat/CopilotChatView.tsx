@@ -588,7 +588,7 @@ export namespace CopilotChatView {
                 if (scrollEl.clientHeight > 0 && resumeBottom) {
                   resumeBottom = false;
                   pinIntentRef.current = true;
-                  scrollToBottom({ animation: "instant" });
+                  void scrollToBottom({ animation: "instant" });
                 }
               });
             });
@@ -617,7 +617,7 @@ export namespace CopilotChatView {
       (instant = false) => {
         readingOffsetRef.current = null;
         pinIntentRef.current = true;
-        scrollToBottom(instant ? { animation: "instant" } : undefined);
+        void scrollToBottom(instant ? { animation: "instant" } : undefined);
       },
       [scrollToBottom],
     );
