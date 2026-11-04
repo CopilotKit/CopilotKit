@@ -8,7 +8,7 @@
     "prebuild": "node scripts/showcase-data.mjs",
     "build": "next build",
     "start": "next start -p 3003",
-    "lint": "oxlint",
+    "lint": "oxlint -c ../../.oxlintrc.json",
     "typecheck": "next typegen && tsc --noEmit",
     "showcase-data": "node scripts/showcase-data.mjs",
     "check-redirects": "node scripts/check-redirects.mjs",
