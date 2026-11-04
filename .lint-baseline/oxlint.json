@@ -125,8 +125,7 @@
       "packages/web-components/src/threads-drawer/copilotkit-threads-drawer.ts": 2
     },
     "eslint(no-unused-vars)": {
-      "packages/a2ui-renderer/src/react-renderer/create-catalog.tsx": 1,
-      "packages/channels-slack/src/download-files.ts": 1
+      "packages/a2ui-renderer/src/react-renderer/create-catalog.tsx": 1
     },
     "eslint-plugin-import(no-named-as-default)": {
       "packages/react-core/src/components/chat/CopilotChatAssistantMessage.tsx": 1,

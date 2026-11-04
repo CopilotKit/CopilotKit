@@ -9,8 +9,6 @@
  * lets the app decide what to do with them. Anything it can't represent is
  * skipped with a short note so the agent knows a file was dropped and why.
  */
-import type { WebClient } from "@slack/web-api";
-
 /** The subset of a Slack file object we use. */
 export interface SlackFileRef {
   id?: string;
