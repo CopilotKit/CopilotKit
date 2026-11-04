@@ -82,7 +82,8 @@ because it is too slow. react-core runs as three jobs (`components/`,
 caches its incremental file, writes its summary to the job page and uploads
 the HTML and JSON reports as an artifact.
 
-Scheduled runs only start from the default branch. Until this workflow is on
-`main`, start it by hand with `workflow_dispatch`.
+GitHub starts scheduled runs only from the default branch, and lists a
+`workflow_dispatch` workflow only after the file is on the default branch. So
+the job starts working when `2.0.0` merges into `main`.
 
 There is no failing threshold yet. The baseline comes first.
