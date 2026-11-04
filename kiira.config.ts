@@ -44,6 +44,9 @@ export default defineConfig({
     "@ag-ui/mastra": "^2.0.1",
     "@strands-agents/sdk": "^1.22.0",
     "@mastra/client-js": "^1.57.0",
+    // Storage and memory for the Mastra agent in the integration guides.
+    "@mastra/libsql": "^1.14.3",
+    "@mastra/memory": "^1.22.0",
     deepagents: "^1.16.0",
     // BuiltInAgent factories. The runtime types TanStack AI structurally and
     // does not depend on it, so check against the release a reader installs.
