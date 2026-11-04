@@ -86,12 +86,18 @@ export class CopilotKitCoreVue extends CopilotKitCore {
     this._renderers.setCustom(renderers);
   }
 
-  /** The renderers the provider was given, without hook renderers. */
+  /**
+   * The renderers the provider was given, without hook or built-in
+   * renderers. Nothing in CopilotKit reads it now; it stays for app code.
+   */
   get propRenderToolCalls() {
     return this._renderers.propToolCalls;
   }
 
-  /** Prop and hook renderers merged; a hook renderer wins over a prop one. */
+  /**
+   * Prop, hook and built-in renderers merged. For one name and agentId, a
+   * hook renderer wins over a prop one, and both win over a built-in one.
+   */
   get renderToolCalls() {
     return this._renderers.toolCalls;
   }

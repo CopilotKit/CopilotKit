@@ -82,13 +82,17 @@ export { ɵRuntimeInfoStore } from "./runtime-info";
 export type { ɵRuntimeInfo } from "./runtime-info";
 export {
   ɵassembleActivityRenderers,
+  ɵassembleHumanInTheLoop,
   ɵassembleProviderRegistry,
+  ɵassembleProviderToolRenderers,
+  ɵassembleProviderTools,
   ɵresolveA2UIActivation,
   ɵstableArrayPropWarning,
 } from "./provider-config";
 export type {
   ɵA2UIActivationInput,
   ɵActivityRenderersInput,
+  ɵAssembledHumanInTheLoop,
   ɵProviderFrontendTool,
   ɵProviderHumanInTheLoop,
   ɵProviderRegistryInput,

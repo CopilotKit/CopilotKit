@@ -411,6 +411,39 @@ describe("CopilotKitProvider", () => {
       expect(typeof renderTool?.render).toBe("function");
     });
 
+    it("keeps the wrapped render and the tools when only renderToolCalls changes", async () => {
+      // A new wrapper is a new component type, so Vue would remount the card
+      // and lose its state.
+      const humanInTheLoop: VueHumanInTheLoop[] = [
+        {
+          name: "approvalTool",
+          parameters: z.object({}),
+          render: HitlComponent,
+        },
+      ];
+      const weather = () => [
+        { name: "weather", args: z.any(), render: HitlComponent },
+      ];
+      const { wrapper, getCore } = mountWithProvider(() => h("div"), {
+        humanInTheLoop,
+        renderToolCalls: weather(),
+      });
+      const approveRender = () =>
+        getCore().renderToolCalls.find((rc) => rc.name === "approvalTool")
+          ?.render;
+      const before = approveRender();
+      const setTools = vi.spyOn(getCore(), "setTools");
+
+      await wrapper.setProps({ renderToolCalls: weather() });
+      await flush();
+
+      expect(getCore().renderToolCalls.map((rc) => rc.name)).toContain(
+        "weather",
+      );
+      expect(approveRender()).toBe(before);
+      expect(setTools).not.toHaveBeenCalled();
+    });
+
     it("keeps the tool call pending until respond is called", async () => {
       // Reproduces OSS-803: the handler used to warn and resolve undefined
       // immediately, so the HITL UI flashed and disappeared instead of waiting

@@ -10,7 +10,9 @@ import type {
 import {
   ɵLearningAutoStarter,
   ɵassembleActivityRenderers,
-  ɵassembleProviderRegistry,
+  ɵassembleHumanInTheLoop,
+  ɵassembleProviderToolRenderers,
+  ɵassembleProviderTools,
   ɵhitlRenderProps,
   ɵresolveA2UIActivation,
   ɵstableArrayPropWarning,
@@ -549,16 +551,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [openGenUIActive]);
 
   // The tools and tool-call renderers for core (assembly rules from core).
-  const { tools: allTools, renderToolCalls: allRenderToolCalls } =
-    useMemo(() => {
-      const assembled = ɵassembleProviderRegistry<
-        ReactToolCallRenderer<any>,
+  // Human-in-the-loop renders are wrapped once per `humanInTheLoop` change: a
+  // new wrapper is a new component type, so React would remount the card.
+  const humanInTheLoopAssembly = useMemo(
+    () =>
+      ɵassembleHumanInTheLoop<
         ReactToolCallRenderer<any>["render"],
         ReactHumanInTheLoop["render"]
       >({
-        renderToolCalls: renderToolCallsList,
-        frontendTools: frontendToolsList,
-        builtInFrontendTools,
         humanInTheLoop: humanInTheLoopList,
         // Core parks each call by tool call id until the render responds.
         // The core is created further down, so read its registry lazily.
@@ -568,18 +568,33 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
             render as React.ComponentType<any>,
             ɵhitlRenderProps(props, tool, registry()),
           ),
-      });
-      return {
-        tools: assembled.tools,
-        renderToolCalls:
-          assembled.renderToolCalls as ReactToolCallRenderer[],
-      };
-    }, [
+      }),
+    [humanInTheLoopList],
+  );
+  const allTools = useMemo(
+    () =>
+      ɵassembleProviderTools({
+        frontendTools: frontendToolsList,
+        builtInFrontendTools,
+        humanInTheLoop: humanInTheLoopAssembly,
+      }),
+    [frontendToolsList, builtInFrontendTools, humanInTheLoopAssembly],
+  );
+  const allRenderToolCalls = useMemo(
+    () =>
+      ɵassembleProviderToolRenderers({
+        renderToolCalls: renderToolCallsList,
+        frontendTools: frontendToolsList,
+        builtInFrontendTools,
+        humanInTheLoop: humanInTheLoopAssembly,
+      }) as ReactToolCallRenderer[],
+    [
       renderToolCallsList,
       frontendToolsList,
       builtInFrontendTools,
-      humanInTheLoopList,
-    ]);
+      humanInTheLoopAssembly,
+    ],
+  );
 
   // One core for the provider lifetime (ref declared above so the
   // filtered-catalog memo can read enablement off it), disposed on unmount.

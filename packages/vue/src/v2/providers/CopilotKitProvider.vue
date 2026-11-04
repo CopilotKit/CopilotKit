@@ -16,7 +16,9 @@ import type { Catalog, ComponentApi } from "@a2ui/web_core/v0_9";
 import {
   ɵLearningAutoStarter,
   ɵassembleActivityRenderers,
-  ɵassembleProviderRegistry,
+  ɵassembleHumanInTheLoop,
+  ɵassembleProviderToolRenderers,
+  ɵassembleProviderTools,
   ɵhitlRenderProps,
   ɵresolveA2UIActivation,
   ɵstableArrayPropWarning,
@@ -237,18 +239,10 @@ watch(
 type FrontendToolRender = NonNullable<VueFrontendTool["render"]>;
 
 // The tools and tool-call renderers for core (assembly rules from core).
-const assembledRegistry = computed<{
-  tools: FrontendTool[];
-  renderToolCalls: VueToolCallRenderer<unknown>[];
-}>(() => {
-  const assembled = ɵassembleProviderRegistry<
-    VueToolCallRenderer<unknown>,
-    FrontendToolRender,
-    unknown
-  >({
-    renderToolCalls: rawEntries(props.renderToolCalls),
-    frontendTools: rawEntries(props.frontendTools),
-    builtInFrontendTools: builtInFrontendTools.value,
+// Human-in-the-loop renders are wrapped once per `humanInTheLoop` change: a
+// new wrapper is a new component type, so Vue would remount the card.
+const humanInTheLoopAssembly = computed(() =>
+  ɵassembleHumanInTheLoop<FrontendToolRender, unknown>({
     humanInTheLoop: rawEntries(props.humanInTheLoop),
     // Core parks each call by tool call id until the render responds. The core
     // is created further down, so read its registry lazily.
@@ -260,16 +254,23 @@ const assembledRegistry = computed<{
           ToolComponent as Parameters<typeof h>[0],
           ɵhitlRenderProps(renderProps, tool, registry()),
         )) as FrontendToolRender,
-  });
-  return {
-    tools: assembled.tools,
-    renderToolCalls:
-      assembled.renderToolCalls as VueToolCallRenderer<unknown>[],
-  };
-});
-const allTools = computed(() => assembledRegistry.value.tools);
+  }),
+);
+const allTools = computed<FrontendTool[]>(() =>
+  ɵassembleProviderTools({
+    frontendTools: rawEntries(props.frontendTools),
+    builtInFrontendTools: builtInFrontendTools.value,
+    humanInTheLoop: humanInTheLoopAssembly.value,
+  }),
+);
 const allRenderToolCalls = computed(
-  () => assembledRegistry.value.renderToolCalls,
+  () =>
+    ɵassembleProviderToolRenderers({
+      renderToolCalls: rawEntries(props.renderToolCalls),
+      frontendTools: rawEntries(props.frontendTools),
+      builtInFrontendTools: builtInFrontendTools.value,
+      humanInTheLoop: humanInTheLoopAssembly.value,
+    }) as VueToolCallRenderer<unknown>[],
 );
 
 const allRenderCustomMessages = computed(

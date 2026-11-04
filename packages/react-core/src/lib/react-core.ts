@@ -96,7 +96,10 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     return this._renderers.activity;
   }
 
-  /** Prop and hook renderers merged; a hook renderer wins over a prop one. */
+  /**
+   * Prop, hook and built-in renderers merged. For one name and agentId, a
+   * hook renderer wins over a prop one, and both win over a built-in one.
+   */
   get renderToolCalls() {
     return this._renderers.toolCalls;
   }

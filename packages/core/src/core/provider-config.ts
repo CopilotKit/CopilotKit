@@ -368,31 +368,43 @@ export function ɵassembleProviderRegistry<TRenderer, TRender, THitlRender>(
   tools: FrontendTool[];
   renderToolCalls: Array<TRenderer | ɵProviderToolRenderer<TRender>>;
 } {
+  const humanInTheLoop = ɵassembleHumanInTheLoop(input);
+  return {
+    tools: ɵassembleProviderTools({ ...input, humanInTheLoop }),
+    renderToolCalls: ɵassembleProviderToolRenderers({
+      ...input,
+      humanInTheLoop,
+    }),
+  };
+}
+
+/** @internal The tools and renderers that a provider's `humanInTheLoop` gives. */
+export interface ɵAssembledHumanInTheLoop<TRender> {
+  tools: FrontendTool[];
+  renderToolCalls: ɵProviderToolRenderer<TRender>[];
+}
+
+/**
+ * @internal The human-in-the-loop part of {@link ɵassembleProviderRegistry}:
+ * one tool per `humanInTheLoop` entry, and one renderer per entry with a
+ * `render`.
+ *
+ * Each call wraps every render again, and a new wrapper is a new component
+ * type to React and Vue, so the card remounts. Adapters memoize this result
+ * on `humanInTheLoop` alone, and pass it to {@link ɵassembleProviderTools}
+ * and {@link ɵassembleProviderToolRenderers}.
+ */
+export function ɵassembleHumanInTheLoop<TRender, THitlRender>(
+  input: Pick<
+    ɵProviderRegistryInput<unknown, TRender, THitlRender>,
+    "humanInTheLoop" | "humanInTheLoopRegistry" | "wrapHumanInTheLoopRender"
+  >,
+): ɵAssembledHumanInTheLoop<TRender> {
   const registryInput = input.humanInTheLoopRegistry;
   const registry =
     typeof registryInput === "function" ? registryInput : () => registryInput;
-  const frontendTools = [
-    ...(input.frontendTools ?? []),
-    ...(input.builtInFrontendTools ?? []),
-  ];
-  const tools: FrontendTool[] = [...frontendTools];
-  const renderToolCalls: Array<TRenderer | ɵProviderToolRenderer<TRender>> = [
-    ...(input.renderToolCalls ?? []),
-  ];
-
-  for (const tool of frontendTools) {
-    if (!tool.render) continue;
-    const args =
-      tool.parameters ?? (tool.name === "*" ? ɵanySchema : undefined);
-    if (!args) continue;
-    renderToolCalls.push({
-      name: tool.name,
-      args,
-      render: tool.render,
-      ...(tool.agentId && { agentId: tool.agentId }),
-    });
-  }
-
+  const tools: FrontendTool[] = [];
+  const renderToolCalls: ɵProviderToolRenderer<TRender>[] = [];
   for (const entry of input.humanInTheLoop ?? []) {
     const { render, ...config } = entry;
     tools.push(ɵbuildHumanInTheLoopTool(config, registry));
@@ -404,8 +416,57 @@ export function ɵassembleProviderRegistry<TRenderer, TRender, THitlRender>(
       ...(entry.agentId && { agentId: entry.agentId }),
     });
   }
-
   return { tools, renderToolCalls };
+}
+
+/**
+ * @internal The tool list of {@link ɵassembleProviderRegistry}:
+ * `frontendTools`, then `builtInFrontendTools`, then the human-in-the-loop
+ * tools. It does not read `renderToolCalls`.
+ */
+export function ɵassembleProviderTools(input: {
+  frontendTools?: readonly AnyFrontendTool[];
+  builtInFrontendTools?: readonly AnyFrontendTool[];
+  humanInTheLoop: Pick<ɵAssembledHumanInTheLoop<unknown>, "tools">;
+}): FrontendTool[] {
+  return [
+    ...(input.frontendTools ?? []),
+    ...(input.builtInFrontendTools ?? []),
+    ...input.humanInTheLoop.tools,
+  ];
+}
+
+/**
+ * @internal The renderer list of {@link ɵassembleProviderRegistry}:
+ * `renderToolCalls`, then one renderer per frontend tool with a `render`,
+ * then the human-in-the-loop renderers, which keep their identity.
+ */
+export function ɵassembleProviderToolRenderers<TRenderer, TRender>(input: {
+  renderToolCalls?: readonly TRenderer[];
+  frontendTools?: readonly ɵProviderFrontendTool<TRender>[];
+  builtInFrontendTools?: readonly ɵProviderFrontendTool<TRender>[];
+  humanInTheLoop: Pick<ɵAssembledHumanInTheLoop<TRender>, "renderToolCalls">;
+}): Array<TRenderer | ɵProviderToolRenderer<TRender>> {
+  const renderToolCalls: Array<TRenderer | ɵProviderToolRenderer<TRender>> = [
+    ...(input.renderToolCalls ?? []),
+  ];
+  for (const tool of [
+    ...(input.frontendTools ?? []),
+    ...(input.builtInFrontendTools ?? []),
+  ]) {
+    if (!tool.render) continue;
+    const args =
+      tool.parameters ?? (tool.name === "*" ? ɵanySchema : undefined);
+    if (!args) continue;
+    renderToolCalls.push({
+      name: tool.name,
+      args,
+      render: tool.render,
+      ...(tool.agentId && { agentId: tool.agentId }),
+    });
+  }
+  renderToolCalls.push(...input.humanInTheLoop.renderToolCalls);
+  return renderToolCalls;
 }
 
 /** @internal The input of {@link ɵresolveA2UIActivation}. */
