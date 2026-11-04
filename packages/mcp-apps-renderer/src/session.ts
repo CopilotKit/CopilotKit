@@ -201,10 +201,11 @@ export interface BindMcpAppOptions {
   /** Returns the current agent (may change across renders). */
   getAgent: () => AbstractAgent | undefined;
   /**
-   * CopilotKit host, for ui/message follow-up runs (issue #5819). When it can
-   * also store model context (`upsertContext` + `removeContext`, as
-   * `CopilotKitCore` does), the session announces `updateModelContext` and
-   * keeps the state widgets report through `ui/update-model-context`.
+   * CopilotKit host, for ui/message follow-up runs (issue #5819). When
+   * `options.modelContext` is on and the host can also store model context
+   * (`upsertContext` + `removeContext`, as `CopilotKitCore` does), the session
+   * announces `updateModelContext` and keeps the state widgets report through
+   * `ui/update-model-context`.
    */
   host: ɵMcpFollowUpHost & Partial<McpModelContextStore>;
   /**
@@ -285,6 +286,17 @@ export interface McpAppSessionOptions {
    * `IndexedDB` or cookies. By default widgets get an opaque origin.
    */
   allowSameOriginFallback?: boolean;
+  /**
+   * Accept `ui/update-model-context`. Default `false`.
+   *
+   * **Security.** The state a widget reports reaches the model with every
+   * later run of its conversation; the built-in agent puts it in the system
+   * prompt. The user does not see it. With this on, the widget of any MCP
+   * server the agent uses can write there. While it is off, the host does not
+   * announce `updateModelContext` and answers the request with "method not
+   * found".
+   */
+  modelContext?: boolean;
 }
 
 /** Defaults every frontend inherits unless it overrides them. */
@@ -297,6 +309,7 @@ export const MCP_APPS_SESSION_DEFAULTS: Readonly<
   hostCapabilities: { openLinks: {}, logging: {}, message: { text: {} } },
   hostContext: { platform: "web" },
   allowSameOriginFallback: false,
+  modelContext: false,
 };
 
 /**
@@ -417,9 +430,11 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
   // ui/update-model-context: the snapshot belongs to the agent and the
   // conversation the widget was opened in, captured now. An iframe still
   // mounted after the shared agent moved to another thread must not write
-  // into the new conversation. Without an activity message id, the instance
-  // gets an id of its own: a remount then starts from no snapshot.
-  const modelContextStore = ɵsupportsModelContext(host) ? host : undefined;
+  // into the new conversation. Off unless the frontend opted in.
+  const modelContextStore =
+    settings.modelContext === true && ɵsupportsModelContext(host)
+      ? host
+      : undefined;
   const boundAgent = getAgent();
   const boundAgentId = boundAgent?.agentId;
   const boundThreadId = boundAgent?.threadId;
@@ -428,9 +443,9 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
     serverHash,
     serverId,
   }))(getContent());
-  const modelContextInstanceId = messageId ?? `session:${randomUUID()}`;
   // Announce the capability only when the context is really stored, and never
-  // keep one a frontend passed in its options without the storage behind it.
+  // keep one a frontend passed in its options without the opt-in and the
+  // storage behind it.
   const { updateModelContext: _ignored, ...capabilitiesWithoutModelContext } =
     settings.hostCapabilities as Record<string, unknown>;
   const hostCapabilities = modelContextStore
@@ -910,9 +925,9 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
 
       // ui/update-model-context: keep the widget's latest state for the next
       // turns of its conversation. It adds no chat message, starts no run and
-      // goes through no queue. Only installed when the host can store it, so
-      // a host without storage answers "method not found" instead of
-      // acknowledging context it would drop.
+      // goes through no queue. Only installed when the frontend opted in and
+      // the host can store it; otherwise the widget gets "method not found"
+      // instead of an acknowledgement for context that is never kept.
       if (modelContextStore) {
         bridge.onupdatemodelcontext = async (params) => {
           if (disposed) {
@@ -934,10 +949,11 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
           // Validates and serializes first: a refused update leaves the
           // previous snapshot untouched.
           const entry = ɵbuildModelContextEntry(params, boundResource);
+          // One entry per widget resource in the conversation: another
+          // instance of the same widget, or a remount, replaces it.
           const id = ɵmodelContextKey({
             agentId: boundAgentId,
             threadId: boundThreadId,
-            instanceId: modelContextInstanceId,
             ...boundResource,
           });
           if (entry === null) {

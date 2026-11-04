@@ -136,22 +136,20 @@ describe("ɵmodelContextKey", () => {
   const base = {
     agentId: "agent",
     threadId: "thread-a",
-    instanceId: "activity-1",
     resourceUri: "ui://trains/stations",
     serverHash: "hash",
     serverId: "trains",
   };
 
-  it("is stable for the same widget instance", () => {
+  it("is stable for the same widget resource", () => {
     expect(ɵmodelContextKey(base)).toBe(ɵmodelContextKey({ ...base }));
   });
 
-  it("differs by thread, instance and resource", () => {
+  it("differs by agent, thread, server and resource", () => {
     const key = ɵmodelContextKey(base);
+    expect(ɵmodelContextKey({ ...base, agentId: "other" })).not.toBe(key);
     expect(ɵmodelContextKey({ ...base, threadId: "thread-b" })).not.toBe(key);
-    expect(ɵmodelContextKey({ ...base, instanceId: "activity-2" })).not.toBe(
-      key,
-    );
+    expect(ɵmodelContextKey({ ...base, serverId: "other" })).not.toBe(key);
     expect(ɵmodelContextKey({ ...base, resourceUri: "ui://other" })).not.toBe(
       key,
     );

@@ -109,11 +109,13 @@ async function bindAndConnect({
   host = makeHost() as Parameters<typeof bindMcpApp>[0]["host"],
   content = makeContent(),
   messageId = "activity-1",
+  modelContext = true,
 }: {
   agent?: AbstractAgent;
   host?: Parameters<typeof bindMcpApp>[0]["host"];
   content?: MCPAppsActivityContent;
   messageId?: string | undefined;
+  modelContext?: boolean;
 } = {}) {
   const iframe = document.createElement("iframe");
   document.body.appendChild(iframe);
@@ -124,6 +126,7 @@ async function bindAndConnect({
     getAgent: () => agent,
     host,
     messageId,
+    options: { modelContext },
   });
   sessions.push(session);
   await tick(60);
@@ -215,7 +218,12 @@ describe("ui/update-model-context through the session", () => {
     const host = makeHost();
     const agent = makeAgent();
     const first = await bindAndConnect({ host, agent, messageId: "a-1" });
-    const second = await bindAndConnect({ host, agent, messageId: "a-2" });
+    const second = await bindAndConnect({
+      host,
+      agent,
+      messageId: "a-2",
+      content: makeContent({ resourceUri: "ui://trains/departures" }),
+    });
 
     await updateContext(first.iframe, first.captured, {
       structuredContent: { widget: 1 },
@@ -230,6 +238,24 @@ describe("ui/update-model-context through the session", () => {
     expect(cleared.result).toEqual({});
     expect([...host.entries.values()].map((entry) => entry.value)).toEqual([
       JSON.stringify({ structuredContent: { widget: 2 } }),
+    ]);
+  });
+
+  it("keeps one entry for two instances of the same widget: the latest update wins", async () => {
+    const host = makeHost();
+    const agent = makeAgent();
+    const first = await bindAndConnect({ host, agent, messageId: "a-1" });
+    const second = await bindAndConnect({ host, agent, messageId: "a-2" });
+
+    await updateContext(first.iframe, first.captured, {
+      structuredContent: { stationId: "lyon" },
+    });
+    await updateContext(second.iframe, second.captured, {
+      structuredContent: { stationId: "paris" },
+    });
+
+    expect([...host.entries.values()].map((entry) => entry.value)).toEqual([
+      JSON.stringify({ structuredContent: { stationId: "paris" } }),
     ]);
   });
 
@@ -296,6 +322,68 @@ describe("ui/update-model-context through the session", () => {
     expect(host.entries.size).toBe(1);
   });
 
+  describe("without the modelContext opt-in", () => {
+    it("does not announce the capability, even with a context store", async () => {
+      const { iframe, captured } = await bindAndConnect({
+        modelContext: false,
+      });
+
+      const response = await request(iframe, captured, "ui/initialize", {
+        appInfo: { name: "widget", version: "1.0.0" },
+        appCapabilities: {},
+        protocolVersion: "2026-01-26",
+      });
+
+      expect(
+        response.result.hostCapabilities.updateModelContext,
+      ).toBeUndefined();
+    });
+
+    it("answers method not found and stores nothing", async () => {
+      const host = makeHost();
+      const { iframe, captured } = await bindAndConnect({
+        host,
+        modelContext: false,
+      });
+
+      const response = await updateContext(iframe, captured, {
+        structuredContent: { stationId: "lyon" },
+      });
+
+      expect(response.result).toBeUndefined();
+      expect(response.error.code).toBe(-32601);
+      expect(host.upsertContext).not.toHaveBeenCalled();
+    });
+
+    it("is off by default", async () => {
+      const iframe = document.createElement("iframe");
+      document.body.appendChild(iframe);
+      iframes.push(iframe);
+      const host = makeHost();
+      const session = bindMcpApp({
+        iframe,
+        getContent: () => makeContent(),
+        getAgent: () => makeAgent(),
+        host,
+      });
+      sessions.push(session);
+      await tick(60);
+      const captured = captureOutgoing(iframe);
+      fromIframe(iframe, {
+        jsonrpc: "2.0",
+        method: "ui/notifications/sandbox-proxy-ready",
+      });
+      await tick(30);
+
+      const response = await updateContext(iframe, captured, {
+        structuredContent: { stationId: "lyon" },
+      });
+
+      expect(response.error.code).toBe(-32601);
+      expect(host.entries.size).toBe(0);
+    });
+  });
+
   describe("a host without a context store", () => {
     const runOnlyHost = () => ({
       runAgent: vi.fn(async () => ({ result: undefined, newMessages: [] })),
@@ -311,6 +399,7 @@ describe("ui/update-model-context through the session", () => {
         getAgent: () => makeAgent(),
         host: runOnlyHost(),
         options: {
+          modelContext: true,
           hostCapabilities: { updateModelContext: { text: {} } },
         },
       });

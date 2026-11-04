@@ -208,10 +208,31 @@ await app.sendMessage({
 });
 ```
 
-CopilotKit supports it in React, Vue and Angular with no extra setup:
+It is off by default. Turn it on with `mcpApps.modelContext` in React and
+Vue, or `provideMCPApps({ modelContext: true })` in Angular:
 
-- Each update replaces the widget's previous state; two widgets keep separate
-  states. Sending no content and no `structuredContent` clears it.
+```tsx
+<CopilotKit runtimeUrl="/api/copilotkit" mcpApps={{ modelContext: true }}>
+  {children}
+</CopilotKit>
+```
+
+While it is off, CopilotKit does not announce the capability and answers the
+request with "method not found".
+
+<Callout type="warn" title="Only for MCP servers you trust">
+  With `modelContext`, the widget of any MCP server your agent uses can write
+  into the system prompt of the built-in agent, as soon as it loads and
+  without any action from the user, who does not see what it wrote. Don't
+  enable it if you connect third-party MCP servers.
+</Callout>
+
+Once it is on:
+
+- Each update replaces the widget's previous state. There is one state per
+  widget in a conversation: two different widgets keep separate states, and
+  two instances of the same widget share one. Sending no content and no
+  `structuredContent` clears it.
 - Text blocks and `structuredContent` are supported. Images, audio and
   resources are refused with an error, and so is a state whose serialized
   JSON is longer than 32,768 characters (measured on the string's length,

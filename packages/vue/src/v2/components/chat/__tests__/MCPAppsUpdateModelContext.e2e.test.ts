@@ -1,7 +1,8 @@
 /**
  * Vue counterpart of react-core's `MCPAppsUpdateModelContext.e2e.test.tsx`,
- * case for case: the widget's ui/update-model-context goes through the shared
- * session to the core, and the next run of the conversation carries it.
+ * case for case: once the app opted in with `mcpApps.modelContext`, the
+ * widget's ui/update-model-context goes through the shared session to the
+ * core, and the next run of the conversation carries it.
  */
 import {
   cleanup,
@@ -103,9 +104,13 @@ async function sendUserMessage(text: string) {
   await waitFor(() => expect(screen.getByText(text)).toBeDefined());
 }
 
-async function setupMCPActivity(agent: MockMCPProxyAgent) {
+async function setupMCPActivity(
+  agent: MockMCPProxyAgent,
+  { modelContext = true }: { modelContext?: boolean } = {},
+) {
   const agentId = agent.agentId!;
   const threadId = testId("umc-thread");
+  const mcpApps = { modelContext };
   const Host = defineComponent({
     components: {
       CopilotKitProvider,
@@ -113,10 +118,10 @@ async function setupMCPActivity(agent: MockMCPProxyAgent) {
       CopilotChat,
     },
     setup() {
-      return { agentId, threadId, agents: { [agentId]: agent } };
+      return { agentId, threadId, mcpApps, agents: { [agentId]: agent } };
     },
     template: `
-      <CopilotKitProvider runtimeUrl="/api/copilotkit" :agents__unsafe_dev_only="agents">
+      <CopilotKitProvider runtimeUrl="/api/copilotkit" :agents__unsafe_dev_only="agents" :mcp-apps="mcpApps">
         <CopilotChatConfigurationProvider :thread-id="threadId" :agent-id="agentId">
           <div style="height: 400px;">
             <CopilotChat :welcome-screen="false" />
@@ -201,6 +206,31 @@ describe("MCP Apps ui/update-model-context", () => {
   afterEach(() => {
     cleanup();
     document.body.innerHTML = "";
+  });
+
+  it("refuses the update and keeps it out of the next run without mcpApps.modelContext", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = testId("umc-opt-out");
+    const iframe = await setupMCPActivity(agent, { modelContext: false });
+
+    const initialize = await request(iframe, "ui/initialize", {
+      appInfo: { name: "stations", version: "1.0.0" },
+      appCapabilities: {},
+      protocolVersion: "2026-01-26",
+    });
+    expect(
+      initialize.result.hostCapabilities.updateModelContext,
+    ).toBeUndefined();
+
+    const refused = await request(iframe, "ui/update-model-context", SELECTION);
+    expect(refused.error.code).toBe(-32601);
+
+    const runsBefore = agent.runInputs.length;
+    await sendUserMessage("Which departures are available?");
+    await waitFor(() =>
+      expect(agent.runInputs.length).toBeGreaterThan(runsBefore),
+    );
+    expect(widgetEntry(agent.runInputs.at(-1))).toBeUndefined();
   });
 
   it("announces updateModelContext at initialize", async () => {

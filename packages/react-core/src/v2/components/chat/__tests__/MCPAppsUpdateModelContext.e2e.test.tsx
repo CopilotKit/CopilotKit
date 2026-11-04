@@ -1,8 +1,9 @@
 /**
- * ui/update-model-context through the React chat: a widget reports its state,
- * nothing is added to the chat and no run starts, and the next run of the
- * conversation (a user message, or the widget's own ui/message follow-up)
- * carries that state in `RunAgentInput.context`.
+ * ui/update-model-context through the React chat, once the app opted in with
+ * `mcpApps.modelContext`: a widget reports its state, nothing is added to the
+ * chat and no run starts, and the next run of the conversation (a user
+ * message, or the widget's own ui/message follow-up) carries that state in
+ * `RunAgentInput.context`. Without the opt-in the request is refused.
  */
 import { fireEvent, screen, waitFor, act } from "@testing-library/react";
 import { vi } from "vitest";
@@ -80,12 +81,16 @@ class MockMCPProxyAgent extends AbstractAgent {
   }
 }
 
-async function setupMCPActivity(agent: MockMCPProxyAgent) {
+async function setupMCPActivity(
+  agent: MockMCPProxyAgent,
+  { modelContext = true }: { modelContext?: boolean } = {},
+) {
   const agentId = agent.agentId!;
   renderWithCopilotKit({
     agents: { [agentId]: agent },
     agentId,
     threadId: testId("thread"),
+    mcpApps: { modelContext },
   });
 
   await sendUserMessage("Show me the stations");
@@ -172,6 +177,31 @@ const widgetEntry = (input: RunAgentInput | undefined) =>
   input?.context.find((entry) => entry.description.includes("ui://trains"));
 
 describe("MCP Apps ui/update-model-context", () => {
+  it("refuses the update and keeps it out of the next run without mcpApps.modelContext", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = testId("umc-opt-out");
+    const iframe = await setupMCPActivity(agent, { modelContext: false });
+
+    const initialize = await request(iframe, "ui/initialize", {
+      appInfo: { name: "stations", version: "1.0.0" },
+      appCapabilities: {},
+      protocolVersion: "2026-01-26",
+    });
+    expect(
+      initialize.result.hostCapabilities.updateModelContext,
+    ).toBeUndefined();
+
+    const refused = await request(iframe, "ui/update-model-context", SELECTION);
+    expect(refused.error.code).toBe(-32601);
+
+    const runsBefore = agent.runInputs.length;
+    await sendUserMessage("Which departures are available?");
+    await waitFor(() =>
+      expect(agent.runInputs.length).toBeGreaterThan(runsBefore),
+    );
+    expect(widgetEntry(agent.runInputs.at(-1))).toBeUndefined();
+  });
+
   it("announces updateModelContext at initialize", async () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = testId("umc-capability");

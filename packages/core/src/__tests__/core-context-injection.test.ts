@@ -230,11 +230,16 @@ describe("Per-thread context scoping and stable upserts", () => {
       value: "x",
       threadId: "thread-a",
     });
-    const agent = agentOnThread("test", "thread-b");
+    const sameThread = agentOnThread("test", "thread-a");
+    const otherThread = agentOnThread("test", "thread-b");
 
-    await core.connectAgent({ agent: agent as any });
+    await core.connectAgent({ agent: sameThread as any });
+    await core.connectAgent({ agent: otherThread as any });
 
-    expect(agent.connectAgentCalls[0].context).toEqual([]);
+    expect(sameThread.connectAgentCalls[0].context).toEqual([
+      { description: "Widget state", value: "x" },
+    ]);
+    expect(otherThread.connectAgentCalls[0].context).toEqual([]);
   });
 
   it("an upsert replaces the entry stored under the same id", async () => {

@@ -73,6 +73,15 @@ export const MCPAppsActivityRenderer = defineComponent({
       required: false,
       default: false,
     },
+    /**
+     * Accept `ui/update-model-context`. Set via `mcpApps.modelContext` on
+     * `CopilotKitProvider`.
+     */
+    modelContext: {
+      type: Boolean,
+      required: false,
+      default: false,
+    },
   },
   setup(props) {
     const { copilotkit } = useCopilotKit();
@@ -115,6 +124,7 @@ export const MCPAppsActivityRenderer = defineComponent({
         () => props.content.serverHash,
         () => props.content.serverId,
         () => props.allowSameOriginFallback,
+        () => props.modelContext,
       ],
       ([container, agent], _old, onCleanup) => {
         if (!agent) {
@@ -187,6 +197,7 @@ export const MCPAppsActivityRenderer = defineComponent({
               messageId: messageId.value,
               options: {
                 allowSameOriginFallback: props.allowSameOriginFallback,
+                modelContext: props.modelContext,
               },
               hooks: {
                 onResource: (resource) => {

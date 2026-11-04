@@ -48,9 +48,10 @@ export const MCP_APPS_MODEL_CONTEXT_CAPABILITY = Object.freeze({
 });
 
 /**
- * Upper bound on one widget's serialized model context, in characters. The
- * snapshot rides along with every later run of its conversation, so an
- * oversized report is refused and the previous snapshot stays in place.
+ * Upper bound on one widget's serialized model context, in characters
+ * (`string.length`, not bytes). The snapshot rides along with every later run
+ * of its conversation, so an oversized report is refused and the previous
+ * snapshot stays in place.
  */
 export const MCP_APPS_MODEL_CONTEXT_MAX_LENGTH = 32 * 1024;
 
@@ -154,14 +155,15 @@ export function ɵbuildModelContextEntry(
 }
 
 /**
- * The host-side key of one widget instance's snapshot. Built by the host from
- * what the session is bound to, never taken from the widget, so a widget can
- * only replace its own entry.
+ * The host-side key of a widget's snapshot: one per widget resource in a
+ * conversation, so instances of the same widget share it and the number of
+ * entries is bounded by the number of distinct widgets, not by how often they
+ * are opened. Built by the host from what the session is bound to, never taken
+ * from the widget, so a widget can only replace its own entry.
  */
 export function ɵmodelContextKey(parts: {
   agentId: string;
   threadId: string;
-  instanceId: string;
   resourceUri: string;
   serverHash?: string;
   serverId?: string;
@@ -169,7 +171,6 @@ export function ɵmodelContextKey(parts: {
   return `mcp-apps:model-context:${JSON.stringify([
     parts.agentId,
     parts.threadId,
-    parts.instanceId,
     parts.serverHash ?? null,
     parts.serverId ?? null,
     parts.resourceUri,

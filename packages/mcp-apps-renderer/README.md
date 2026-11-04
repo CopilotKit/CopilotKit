@@ -35,14 +35,22 @@ await app.updateModelContext({
 });
 ```
 
-- **Storage.** `bindMcpApp` stores the snapshot in the host passed as `host`
-  when it can (`upsertContext` + `removeContext`, which `CopilotKitCore`
-  provides), and only then announces
+- **Opt-in.** Off by default: the frontend enables it with
+  `options.modelContext: true` (`mcpApps.modelContext` in React and Vue,
+  `provideMCPApps({ modelContext: true })` in Angular). With it, the widget of
+  any MCP server the agent uses can write into what the model reads, the
+  built-in agent's system prompt included, without the user seeing it.
+- **Storage.** With the opt-in, `bindMcpApp` stores the snapshot in the host
+  passed as `host` when it can (`upsertContext` + `removeContext`, which
+  `CopilotKitCore` provides), and only then announces
   `hostCapabilities.updateModelContext: { text: {}, structuredContent: {} }`.
-  A host without that storage announces nothing and answers the request with
-  "method not found", never with a fake acknowledgement.
-- **Replacement.** One entry per widget instance: each update replaces the
-  previous one, and two widgets keep separate entries. An update with no
+  Without the opt-in or that storage, it announces nothing and answers the
+  request with "method not found", never with a fake acknowledgement.
+- **Replacement.** One entry per widget resource in a conversation: each
+  update replaces the previous one, two different widgets keep separate
+  entries, and two instances of the same widget share one. The number of
+  entries is bounded by the number of distinct widgets, not by how often they
+  are opened. An update with no
   content (absent or `[]`) and no `structuredContent` clears the widget's
   entry; `structuredContent: {}` is a valid, empty state.
 - **Contents.** Text blocks (in order) and `structuredContent` go into one
@@ -52,7 +60,7 @@ await app.updateModelContext({
   string's length, not its byte size) is refused too; a refused update leaves
   the previous snapshot in place.
 - **Scope.** The entry is scoped to the agent and the conversation the widget
-  was opened in, under a key the host builds (agent, thread, activity message,
+  was opened in, under a key the host builds (agent, thread, server,
   resource). An iframe still mounted after the shared agent moved to another
   thread is refused rather than writing into the new conversation. Runs,
   reconnections and suggestion requests only receive the entries of the
