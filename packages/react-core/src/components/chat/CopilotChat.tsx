@@ -223,7 +223,9 @@ export function CopilotChat({
           event.context?.agentId === resolvedAgentId ||
           !event.context?.agentId
         ) {
-          onErrorRef.current?.({
+          // Not returned: core awaits subscribers, so a slow user handler
+          // would hold up the run that reported the error.
+          void onErrorRef.current?.({
             error: event.error,
             code: event.code,
             context: event.context,
@@ -1110,6 +1112,33 @@ export function CopilotChat({
     ],
   );
 
+  // The view and DOM props expect void callbacks. These wrappers keep the
+  // async handlers fire-and-forget, as they were before.
+  const submitMessage = useCallback(
+    (value: string) => {
+      void onSubmitInput(value);
+    },
+    [onSubmitInput],
+  );
+  const selectSuggestion = useCallback(
+    (suggestion: Suggestion) => {
+      void handleSelectSuggestion(suggestion);
+    },
+    [handleSelectSuggestion],
+  );
+  const dropFiles = useCallback(
+    (e: React.DragEvent) => {
+      void handleDrop(e);
+    },
+    [handleDrop],
+  );
+  const uploadFiles = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      void handleFileUpload(e);
+    },
+    [handleFileUpload],
+  );
+
   const stopCurrentRun = useCallback(() => {
     try {
       copilotkit.stopAgent({ agent });
@@ -1228,7 +1257,7 @@ export function CopilotChat({
     // handler goes live. The `onSelectSuggestion` gate is retained as
     // defense-in-depth for any custom chatView slot that renders its own pills.
     suggestions: isReady ? autoSuggestions : [],
-    onSelectSuggestion: isReady ? handleSelectSuggestion : undefined,
+    onSelectSuggestion: isReady ? selectSuggestion : undefined,
     suggestionView: stableSuggestionView,
     ...restProps,
   };
@@ -1303,7 +1332,7 @@ export function CopilotChat({
     // `onSubmitMessage` disables the send control (canSend keys off it) and
     // makes Enter a no-op that preserves the composer text until the real
     // agent is bound.
-    onSubmitMessage: isReady ? onSubmitInput : undefined,
+    onSubmitMessage: isReady ? submitMessage : undefined,
     onStop: effectiveStopHandler,
     inputMode: effectiveMode,
     inputValue,
@@ -1322,7 +1351,7 @@ export function CopilotChat({
     dragOver,
     onDragOver: handleDragOver,
     onDragLeave: handleDragLeave,
-    onDrop: handleDrop,
+    onDrop: dropFiles,
     isConnecting,
     hasExplicitThreadId,
   };
@@ -1346,7 +1375,7 @@ export function CopilotChat({
             type="file"
             multiple
             ref={fileInputRef}
-            onChange={handleFileUpload}
+            onChange={uploadFiles}
             accept={attachmentsConfig?.accept ?? "*/*"}
             style={{ display: "none" }}
           />

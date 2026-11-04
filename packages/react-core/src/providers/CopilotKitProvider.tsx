@@ -1050,7 +1050,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     const subscription = copilotkit.subscribe({
       onError: (event) => {
         if (onErrorRef.current) {
-          onErrorRef.current(event);
+          // Not returned: core awaits subscribers, so a slow user handler
+          // would hold up the run that reported the error.
+          void onErrorRef.current(event);
         } else {
           console.error(
             `[CopilotKit] Error (${event.code}):`,

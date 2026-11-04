@@ -90,7 +90,7 @@ export class CopilotChatUserMessageCopyButton {
   handleCopy(): void {
     if (!this.content()) return;
 
-    copyToClipboard(this.content()!).then((success) => {
+    void copyToClipboard(this.content()!).then((success) => {
       if (success) {
         this.copied.set(true);
         this.clicked.emit();

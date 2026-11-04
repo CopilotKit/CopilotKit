@@ -193,7 +193,7 @@ function test(version: Version, { operator, version: bound }: Comparator) {
       return result > 0;
     case ">=":
       return result >= 0;
-    default:
+    case "=":
       return result === 0;
   }
 }

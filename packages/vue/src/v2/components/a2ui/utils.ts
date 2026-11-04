@@ -33,6 +33,7 @@ export const mapJustify = (j?: string): string => {
       return "flex-start";
     case "stretch":
       return "stretch";
+    case undefined:
     default:
       return "flex-start";
   }
@@ -48,6 +49,7 @@ export const mapAlign = (a?: string): string => {
       return "flex-end";
     case "stretch":
       return "stretch";
+    case undefined:
     default:
       return "stretch";
   }

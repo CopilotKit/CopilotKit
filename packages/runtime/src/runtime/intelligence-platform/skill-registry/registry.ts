@@ -73,7 +73,7 @@ class SingleContainerRegistry {
 
   /** Capture exactly one immutable snapshot before model work begins. */
   acquireSnapshot(): Promise<VerifiedSnapshot> {
-    if (this.#inFlight) return this.#inFlight;
+    if (this.#inFlight !== undefined) return this.#inFlight;
     if (
       this.#snapshot &&
       !this.#blocked &&
@@ -213,39 +213,43 @@ function batchLoader(client: CopilotKitIntelligence) {
     resolve: (value: LearnedSkillsSnapshotResult) => void;
     reject: (error: unknown) => void;
   }[] = [];
+  // Rejects each pending request itself, so it never rejects.
+  const flush = async () => {
+    const batch = pending;
+    pending = [];
+    try {
+      const results = await client.getLearnedSkillsSnapshots({
+        containers: batch.map(
+          ({ request: { signal: _signal, ...source } }) => source,
+        ),
+        signal: batch[0].request.signal,
+      });
+      if (
+        !Array.isArray(results) ||
+        results.length !== batch.length ||
+        results.some(
+          (result, index) =>
+            result?.containerId !== batch[index].request.containerId,
+        )
+      )
+        throw invalidSnapshot();
+      for (let index = 0; index < batch.length; index++) {
+        const result = results[index];
+        if (result.status === "error") batch[index].reject(result.error);
+        else batch[index].resolve(result);
+      }
+    } catch (error) {
+      for (const item of batch) item.reject(error);
+    }
+  };
   return (
     request: GetLearnedSkillsSnapshotRequest,
   ): Promise<LearnedSkillsSnapshotResult> =>
     new Promise((resolve, reject) => {
       pending.push({ request, resolve, reject });
       if (pending.length !== 1) return;
-      queueMicrotask(async () => {
-        const batch = pending;
-        pending = [];
-        try {
-          const results = await client.getLearnedSkillsSnapshots({
-            containers: batch.map(
-              ({ request: { signal: _signal, ...source } }) => source,
-            ),
-            signal: batch[0].request.signal,
-          });
-          if (
-            !Array.isArray(results) ||
-            results.length !== batch.length ||
-            results.some(
-              (result, index) =>
-                result?.containerId !== batch[index].request.containerId,
-            )
-          )
-            throw invalidSnapshot();
-          for (let index = 0; index < batch.length; index++) {
-            const result = results[index];
-            if (result.status === "error") batch[index].reject(result.error);
-            else batch[index].resolve(result);
-          }
-        } catch (error) {
-          for (const item of batch) item.reject(error);
-        }
+      queueMicrotask(() => {
+        void flush();
       });
     });
 }
@@ -304,7 +308,7 @@ export class SkillRegistry {
   /** Capture every container once; a failed source cannot yield a partial catalog. */
   acquireSnapshot(): Promise<VerifiedSnapshot> {
     if (!this.#multiple) return this.#sources[0].registry.acquireSnapshot();
-    if (this.#inFlight) return this.#inFlight;
+    if (this.#inFlight !== undefined) return this.#inFlight;
     this.#inFlight = Promise.all(
       this.#sources.map(({ registry }) => registry.acquireSnapshot()),
     )
