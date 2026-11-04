@@ -786,6 +786,84 @@ describe("CopilotChatInput", () => {
     expect(handleCustom).toHaveBeenCalledTimes(1);
   });
 
+  it("focuses the textarea after an add menu item is picked", async () => {
+    const { container } = renderWithProvider(
+      <CopilotChatInput
+        onAddFile={vi.fn()}
+        toolsMenu={[{ label: "Custom action", action: vi.fn() }]}
+        onSubmitMessage={mockOnSubmitMessage}
+      />,
+    );
+
+    mockLayoutMetrics(container);
+
+    const textarea = screen.getByRole("textbox");
+    const addButton = getAddMenuButton(container);
+    const user = userEvent.setup();
+    await user.click(addButton!);
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Custom action" }),
+    );
+
+    await waitFor(() => {
+      expect(addButton?.getAttribute("data-state")).toBe("closed");
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(textarea);
+    });
+  });
+
+  it("returns focus to the add menu button after a pick when no textarea is rendered", async () => {
+    const { container } = renderWithProvider(
+      <CopilotChatInput
+        mode="processing"
+        onAddFile={vi.fn()}
+        toolsMenu={[{ label: "Custom action", action: vi.fn() }]}
+        onSubmitMessage={mockOnSubmitMessage}
+      />,
+    );
+
+    mockLayoutMetrics(container);
+
+    const addButton = getAddMenuButton(container);
+    const user = userEvent.setup();
+    await user.click(addButton!);
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Custom action" }),
+    );
+
+    await waitFor(() => {
+      expect(addButton?.getAttribute("data-state")).toBe("closed");
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(addButton);
+    });
+  });
+
+  it("returns focus to the add menu button when the menu is dismissed", async () => {
+    const { container } = renderWithProvider(
+      <CopilotChatInput
+        onAddFile={vi.fn()}
+        onSubmitMessage={mockOnSubmitMessage}
+      />,
+    );
+
+    mockLayoutMetrics(container);
+
+    const addButton = getAddMenuButton(container);
+    const user = userEvent.setup();
+    await user.click(addButton!);
+    await screen.findByRole("menuitem", { name: "Add attachments" });
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(addButton?.getAttribute("data-state")).toBe("closed");
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(addButton);
+    });
+  });
+
   it("uses the configured add button label for the add menu tooltip", async () => {
     const { container } = render(
       <CopilotChatConfigurationProvider
