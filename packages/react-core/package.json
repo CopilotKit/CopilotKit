@@ -82,8 +82,8 @@
   },
   "dependencies": {
     "@a2ui/web_core": "0.10.4",
-    "@ag-ui/client": "1.0.4-canary.1792171324.0",
-    "@ag-ui/core": "1.0.4-canary.1792171324.0",
+    "@ag-ui/client": "1.0.4-canary.1793805408.0",
+    "@ag-ui/core": "1.0.4-canary.1793805408.0",
     "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/mcp-apps-renderer": "workspace:*",

@@ -85,7 +85,7 @@
     "size:headless": "node scripts/measure-headless.mjs"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.4-canary.1792171324.0",
+    "@ag-ui/client": "1.0.4-canary.1793805408.0",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/shared": "workspace:*",

@@ -11,9 +11,9 @@
     "clean": "rimraf dist .angular"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.4-canary.1792171324.0",
-    "@ag-ui/core": "1.0.4-canary.1792171324.0",
-    "@ag-ui/encoder": "1.0.4-canary.1792171324.0",
+    "@ag-ui/client": "1.0.4-canary.1793805408.0",
+    "@ag-ui/core": "1.0.4-canary.1793805408.0",
+    "@ag-ui/encoder": "1.0.4-canary.1793805408.0",
     "@ag-ui/proto": "1.0.2",
     "@a2ui/web_core": "0.10.4",
     "@angular/animations": "22.0.0",

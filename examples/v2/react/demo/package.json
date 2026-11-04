@@ -12,7 +12,7 @@
     "learning:export": "node scripts/export-learning-events.mjs"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.4-canary.1792171324.0",
+    "@ag-ui/client": "1.0.4-canary.1793805408.0",
     "@ag-ui/mcp-apps-middleware": "0.0.2",
     "@ai-sdk/openai": "3.0.36",
     "@copilotkit/core": "workspace:*",
