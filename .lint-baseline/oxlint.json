@@ -98,7 +98,7 @@
       "packages/angular/src/lib/slots/slot.utils.ts": 6,
       "packages/channels-discord/src/adapter.ts": 8,
       "packages/channels-discord/src/commands.ts": 1,
-      "packages/core/src/core/core.ts": 9,
+      "packages/core/src/core/core.ts": 10,
       "packages/core/src/core/run-handler.ts": 19,
       "packages/core/src/core/suggestion-engine.ts": 1,
       "packages/core/src/core/tool-schema.ts": 1,
@@ -125,11 +125,10 @@
       "packages/react-core/src/hooks/use-render-tool.tsx": 1,
       "packages/react-core/src/lib/react-core.ts": 13,
       "packages/react-core/src/lib/slots.tsx": 10,
-      "packages/react-core/src/providers/CopilotKitProvider.tsx": 11,
+      "packages/react-core/src/providers/CopilotKitProvider.tsx": 10,
       "packages/react-core/src/types/defineToolCallRenderer.ts": 4,
       "packages/react-core/src/types/react-custom-message-renderer.ts": 1,
       "packages/react-native/src/CopilotChat.tsx": 3,
-      "packages/react-native/src/CopilotKitProvider.tsx": 1,
       "packages/react-native/src/CopilotPopup.tsx": 1,
       "packages/react-native/src/components/CopilotChat.tsx": 1,
       "packages/react-native/src/streaming-fetch.ts": 2,
@@ -156,7 +155,7 @@
       "packages/vue/src/v2/components/chat/types.ts": 1,
       "packages/vue/src/v2/hooks/use-component.ts": 2,
       "packages/vue/src/v2/hooks/use-render-tool.ts": 2,
-      "packages/vue/src/v2/providers/CopilotKitProvider.types.ts": 3
+      "packages/vue/src/v2/providers/CopilotKitProvider.types.ts": 2
     },
     "typescript-eslint(no-unnecessary-type-assertion)": {
       "packages/a2ui-renderer/src/react-renderer/a2ui-react/catalog/basic/components/TextField.tsx": 1,

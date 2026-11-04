@@ -17,25 +17,25 @@ import {
   watch,
 } from "vue";
 import type { Component, FunctionalComponent } from "vue";
-import type { AbstractAgent } from "@ag-ui/client";
 import { ToolCallStatus } from "@copilotkit/core";
 import type {
-  CopilotKitCoreErrorCode,
   CopilotKitCoreSubscriber,
   CopilotKitHeadersSource,
   FrontendTool,
+  ɵRuntimeInfo,
 } from "@copilotkit/core";
 import {
   DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
   GENERATE_SANDBOXED_UI_TOOL_NAME,
+  ɵSTABLE_ARRAY_WARNINGS,
+  ɵpublicKeyHeaderDefaults,
+  ɵreportProviderConfigDiagnostics,
   ɵresolveLicenseState,
+  ɵresolveProviderConfig,
+  ɵtoolRendererShapeChanged,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";
 import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
-import type {
-  RuntimeEntitlementResponse,
-  RuntimeLicenseStatus,
-} from "@copilotkit/shared";
 import { CopilotKitCoreVue } from "../lib/vue-core";
 import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
 import { registerA2UIBuiltInToolCallRenderer } from "../components/a2ui/A2UIBuiltInToolCallRenderer";
@@ -75,22 +75,10 @@ import type {
   VueToolCallRendererRenderProps,
 } from "../types";
 
-const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
-const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
 // Canonical A2UI viewer theme default (matches @copilotkit/a2ui-renderer).
 // Defined locally to avoid pulling React dependencies from a2ui-renderer.
 const viewerTheme: Record<string, unknown> = {};
 
-const FRONTEND_TOOLS_STABLE_WARNING =
-  "frontendTools must be a stable array. If you want to dynamically add or remove tools, use `useFrontendTool` instead.";
-const HUMAN_IN_THE_LOOP_STABLE_WARNING =
-  "humanInTheLoop must be a stable array. If you want to dynamically add or remove human-in-the-loop tools, use `useHumanInTheLoop` instead.";
-const RENDER_CUSTOM_MESSAGES_STABLE_WARNING =
-  "renderCustomMessages must be a stable array.";
-const RENDER_ACTIVITY_MESSAGES_STABLE_WARNING =
-  "renderActivityMessages must be a stable array.";
-const SANDBOX_FUNCTIONS_STABLE_WARNING =
-  "openGenerativeUI.sandboxFunctions must be a stable array.";
 // Matches the message React's `useHumanInTheLoop` rejects with, so an aborted
 // interrupt reads the same across frameworks (see #5554).
 const HUMAN_IN_THE_LOOP_ABORTED_MESSAGE =
@@ -153,6 +141,7 @@ provide(InspectorKey, {
   openInspector,
 });
 
+const initialRenderToolCalls = props.renderToolCalls ?? [];
 const initialFrontendTools = props.frontendTools;
 const initialHumanInTheLoop = props.humanInTheLoop;
 const initialRenderCustomMessages = props.renderCustomMessages;
@@ -165,11 +154,22 @@ const initialSandboxFunctions = props.openGenerativeUI?.sandboxFunctions;
 const rawEntries = <T>(entries: readonly T[] | undefined): T[] =>
   [...toRaw(entries ?? [])].map((entry) => toRaw(entry));
 
+// Only the shape (agentId:name pairs) counts, so new render closures for the
+// same tools do not warn.
+watch(
+  () => props.renderToolCalls,
+  (next) => {
+    if (ɵtoolRendererShapeChanged(initialRenderToolCalls, next ?? [])) {
+      console.error(ɵSTABLE_ARRAY_WARNINGS.renderToolCalls);
+    }
+  },
+);
+
 watch(
   () => props.frontendTools,
   (next) => {
     if (next !== initialFrontendTools) {
-      console.error(FRONTEND_TOOLS_STABLE_WARNING);
+      console.error(ɵSTABLE_ARRAY_WARNINGS.frontendTools);
     }
   },
 );
@@ -178,7 +178,7 @@ watch(
   () => props.humanInTheLoop,
   (next) => {
     if (next !== initialHumanInTheLoop) {
-      console.error(HUMAN_IN_THE_LOOP_STABLE_WARNING);
+      console.error(ɵSTABLE_ARRAY_WARNINGS.humanInTheLoop);
     }
   },
 );
@@ -187,7 +187,7 @@ watch(
   () => props.renderCustomMessages,
   (next) => {
     if (next !== initialRenderCustomMessages) {
-      console.error(RENDER_CUSTOM_MESSAGES_STABLE_WARNING);
+      console.error(ɵSTABLE_ARRAY_WARNINGS.renderCustomMessages);
     }
   },
 );
@@ -196,7 +196,7 @@ watch(
   () => props.renderActivityMessages,
   (next) => {
     if (next !== initialRenderActivityMessages) {
-      console.error(RENDER_ACTIVITY_MESSAGES_STABLE_WARNING);
+      console.error(ɵSTABLE_ARRAY_WARNINGS.renderActivityMessages);
     }
   },
 );
@@ -205,21 +205,30 @@ watch(
   () => props.openGenerativeUI?.sandboxFunctions,
   (next) => {
     if (next !== initialSandboxFunctions) {
-      console.error(SANDBOX_FUNCTIONS_STABLE_WARNING);
+      console.error(ɵSTABLE_ARRAY_WARNINGS.sandboxFunctions);
     }
   },
 );
 
-const resolvedPublicKey = computed(
-  () => props.publicApiKey ?? props.publicLicenseKey,
+// Key fallback, Copilot Cloud URL, transport, agent merge and the catalog
+// property all come from core.
+const resolvedConfig = computed(() =>
+  ɵresolveProviderConfig({
+    runtimeUrl: props.runtimeUrl,
+    publicApiKey: props.publicApiKey,
+    publicLicenseKey: props.publicLicenseKey,
+    useSingleEndpoint: props.useSingleEndpoint,
+    agents__unsafe_dev_only: props.agents__unsafe_dev_only,
+    selfManagedAgents: props.selfManagedAgents,
+    properties: props.properties,
+    a2uiCatalog: props.a2ui?.catalog,
+  }),
 );
-const mergedAgents = computed(() => ({
-  ...props.agents__unsafe_dev_only,
-  ...props.selfManagedAgents,
-}));
-const hasLocalAgents = computed(
-  () => Object.keys(mergedAgents.value).length > 0,
-);
+// Strings, so dependents only re-run when the value really changes.
+const resolvedPublicKey = computed(() => resolvedConfig.value.publicKey);
+const chatApiEndpoint = computed(() => resolvedConfig.value.runtimeUrl);
+const runtimeTransport = computed(() => resolvedConfig.value.runtimeTransport);
+const mergedAgents = computed(() => resolvedConfig.value.agents);
 
 // Whether `headers` is a builder, as its own computed so that a re-render
 // merely passing a NEW function of the same kind (e.g. a fresh inline arrow)
@@ -248,26 +257,20 @@ const latestHeaders = (() =>
 const headersSource = computed<CopilotKitHeadersSource>(() =>
   ɵwithHeaderDefaults(
     isHeadersBuilder.value ? latestHeaders : props.headers,
-    resolvedPublicKey.value ? { [HEADER_NAME]: resolvedPublicKey.value } : {},
+    ɵpublicKeyHeaderDefaults(resolvedPublicKey.value),
   ),
 );
 
-const chatApiEndpoint = computed(
-  () =>
-    props.runtimeUrl ??
-    (resolvedPublicKey.value ? COPILOT_CLOUD_CHAT_URL : undefined),
-);
-
+// Throws in production for a missing runtime config; otherwise warns, once
+// per provider for each message.
+const loggedDiagnostics = new Set<string>();
 watch(
-  [chatApiEndpoint, resolvedPublicKey, hasLocalAgents],
-  ([endpoint, publicKey, localAgents]) => {
-    if (endpoint || publicKey || localAgents) return;
-    const msg =
-      "Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'";
-    if (process.env.NODE_ENV === "production") {
-      throw new Error(msg);
-    }
-    console.warn(msg);
+  () => resolvedConfig.value.diagnostics,
+  (diagnostics) => {
+    ɵreportProviderConfigDiagnostics(diagnostics, {
+      isProduction: process.env.NODE_ENV === "production",
+      logged: loggedDiagnostics,
+    });
   },
   { immediate: true },
 );
@@ -411,13 +414,21 @@ const allRenderToolCalls = computed(() => {
 const allRenderCustomMessages = computed(
   () => props.renderCustomMessages ?? [],
 );
-const runtimeA2UIEnabled = ref(false);
-const runtimeOpenGenerativeUIEnabled = ref(false);
-const runtimeLicenseStatus = ref<RuntimeLicenseStatus | undefined>(undefined);
-const runtimeEntitlements = ref<RuntimeEntitlementResponse | undefined>(
-  undefined,
+// Core's runtime info snapshot, projected from the core watcher below.
+const runtimeInfo = shallowRef<ɵRuntimeInfo | null>(null);
+const runtimeA2UIEnabled = computed(
+  () => runtimeInfo.value?.a2uiEnabled ?? false,
 );
-const runtimeEntitlementRetryPending = ref(false);
+const runtimeOpenGenerativeUIEnabled = computed(
+  () => runtimeInfo.value?.openGenerativeUIEnabled ?? false,
+);
+const runtimeLicenseStatus = computed(() => runtimeInfo.value?.licenseStatus);
+const runtimeEntitlements = computed(
+  () => runtimeInfo.value?.runtimeEntitlements,
+);
+const runtimeEntitlementRetryPending = computed(
+  () => runtimeInfo.value?.runtimeEntitlementRetryPending ?? false,
+);
 const openGenerativeUIActive = computed(
   () => runtimeOpenGenerativeUIEnabled.value || !!props.openGenerativeUI,
 );
@@ -431,11 +442,7 @@ const a2uiActive = computed(
 // Forward a per-run signal when the provider has an A2UI catalog so the
 // runtime can turn A2UI on (and inject the render tool) without a separate
 // `a2ui.injectA2UITool` flag on the runtime.
-const resolvedProperties = computed(() =>
-  a2uiCatalogProvided.value
-    ? { ...props.properties, a2uiCatalogAvailable: true }
-    : props.properties,
-);
+const resolvedProperties = computed(() => resolvedConfig.value.properties);
 const sandboxFunctions = computed<readonly SandboxFunction[]>(() =>
   rawEntries(props.openGenerativeUI?.sandboxFunctions),
 );
@@ -497,18 +504,6 @@ const allRenderActivityMessages = computed(() => [
   ...builtInActivityRenderers.value,
 ]);
 
-const applyDefaultThrottleMs = (core: CopilotKitCoreVue) => {
-  if (
-    props.defaultThrottleMs !== undefined &&
-    (!Number.isFinite(props.defaultThrottleMs) || props.defaultThrottleMs < 0)
-  ) {
-    console.error(
-      `CopilotKitProvider: defaultThrottleMs must be a non-negative finite number, got ${props.defaultThrottleMs}. useAgent hooks without an explicit throttleMs will fall back to unthrottled.`,
-    );
-  }
-  core.setDefaultThrottleMs(props.defaultThrottleMs);
-};
-
 function toLearningConfig(
   learning: boolean | CopilotKitLearningOptions | undefined,
 ): CopilotKitLearningOptions | undefined {
@@ -522,15 +517,13 @@ function toLearningConfig(
 
 const learningConfig = computed(() => toLearningConfig(props.learning));
 
-const createCopilotKit = () => {
-  const core = new CopilotKitCoreVue({
+const createCopilotKit = () =>
+  new CopilotKitCoreVue({
     runtimeUrl: chatApiEndpoint.value,
-    runtimeTransport:
-      props.useSingleEndpoint === true
-        ? "single"
-        : props.useSingleEndpoint === false
-          ? "rest"
-          : "auto",
+    // `/info` starts from `onMounted` (`connect()` below), so server-side
+    // setup never fetches it.
+    deferInitialConnection: true,
+    runtimeTransport: runtimeTransport.value,
     headers: headersSource.value,
     credentials: props.credentials,
     messageFilter: props.messageFilter,
@@ -541,12 +534,12 @@ const createCopilotKit = () => {
     renderActivityMessages: allRenderActivityMessages.value,
     renderCustomMessages: allRenderCustomMessages.value,
     debug: props.debug,
+    // Set at construction so child hooks can read it on first render. Core
+    // validates it.
+    defaultThrottleMs: props.defaultThrottleMs,
+    onError: props.onError,
     learning: learningConfig.value,
   });
-  // Initialize synchronously so child hooks can read the value on first render.
-  applyDefaultThrottleMs(core);
-  return core;
-};
 
 const copilotkit = shallowRef<CopilotKitCoreVue>(createCopilotKit());
 const didMountRef = ref(false);
@@ -589,24 +582,15 @@ watch(
         triggerRef(copilotkit);
       },
     });
+    runtimeInfo.value = core.ɵruntimeInfo;
+    const unsubscribeRuntimeInfo = core.ɵsubscribeToRuntimeInfo(() => {
+      runtimeInfo.value = core.ɵruntimeInfo;
+    });
+    // Consumers read runtime getters off `copilotkit` directly, so every
+    // status event invalidates them.
     const sub4 = core.subscribe({
       onRuntimeConnectionStatusChanged: () => {
-        runtimeA2UIEnabled.value = core.a2uiEnabled;
-        runtimeOpenGenerativeUIEnabled.value = core.openGenerativeUIEnabled;
-        runtimeLicenseStatus.value = core.licenseStatus;
-        runtimeEntitlements.value = core.runtimeEntitlements;
-        runtimeEntitlementRetryPending.value =
-          core.runtimeEntitlementRetryPending;
         triggerRef(copilotkit);
-      },
-    });
-    const sub5 = core.subscribe({
-      onError: (event) => {
-        void props.onError?.({
-          error: event.error,
-          code: event.code,
-          context: event.context,
-        });
       },
     });
     // `onHeadersChanged` fires only from a real `setHeaders()` call (a new
@@ -626,7 +610,7 @@ watch(
       sub2.unsubscribe();
       sub3.unsubscribe();
       sub4.unsubscribe();
-      sub5.unsubscribe();
+      unsubscribeRuntimeInfo();
       sub6.unsubscribe();
     });
   },
@@ -655,38 +639,26 @@ watch([allRenderActivityMessages], ([renderActivityMessages]) => {
   triggerRef(copilotkit);
 });
 
-// The last `headersSource` reference actually handed to `core.setHeaders`.
-// `syncRuntimeConfig` runs once (unconditionally) from `onMounted` in
-// addition to the constructor already having applied this same value.
-// `HeaderSourceResolver.setSource` itself is a no-op both for an identical
-// function reference and for a record whose normalized values equal the
-// currently applied record's (see #1937), so this reference
-// check is now a cheap pre-filter rather than the only thing preventing a
-// spurious `onHeadersChanged`. It still avoids the `setHeaders` call (and
-// its normalize + shallow-equal work) entirely on the common path where
-// nothing changed.
-let lastAppliedHeadersSource: CopilotKitHeadersSource = headersSource.value;
-
+// Every setter is a no-op when its value did not change (`setHeaders` too, for
+// the same builder or an equal record, see #1937), so this can pass every key.
 function syncRuntimeConfig() {
-  copilotkit.value.setRuntimeUrl(chatApiEndpoint.value);
-  copilotkit.value.setRuntimeTransport(
-    props.useSingleEndpoint === true
-      ? "single"
-      : props.useSingleEndpoint === false
-        ? "rest"
-        : "auto",
-  );
-  if (headersSource.value !== lastAppliedHeadersSource) {
-    lastAppliedHeadersSource = headersSource.value;
-    copilotkit.value.setHeaders(headersSource.value);
-  }
-  copilotkit.value.setCredentials(props.credentials);
-  copilotkit.value.setMessageFilter(props.messageFilter);
-  copilotkit.value.setProperties(resolvedProperties.value);
-  copilotkit.value.setAgents__unsafe_dev_only(mergedAgents.value);
-  copilotkit.value.setDebug(props.debug);
-  applyDefaultThrottleMs(copilotkit.value);
+  copilotkit.value.ɵupdateConfig({
+    messageFilter: props.messageFilter,
+    runtimeUrl: chatApiEndpoint.value,
+    runtimeTransport: runtimeTransport.value,
+    headers: headersSource.value,
+    credentials: props.credentials,
+    properties: resolvedProperties.value,
+    agents__unsafe_dev_only: mergedAgents.value,
+    debug: props.debug,
+    defaultThrottleMs: props.defaultThrottleMs,
+  });
 }
+
+watch(
+  () => props.onError,
+  (onError) => copilotkit.value.setErrorHandler(onError),
+);
 
 watch(
   [
@@ -696,7 +668,7 @@ watch(
     () => props.messageFilter,
     () => resolvedProperties.value,
     () => mergedAgents.value,
-    () => props.useSingleEndpoint,
+    () => runtimeTransport.value,
     () => props.debug,
   ],
   () => {
@@ -707,22 +679,19 @@ watch(
 
 watch(
   () => props.defaultThrottleMs,
-  () => {
+  (defaultThrottleMs) => {
     if (!didMountRef.value) return;
-    applyDefaultThrottleMs(copilotkit.value);
+    copilotkit.value.ɵupdateConfig({ defaultThrottleMs });
     triggerRef(copilotkit);
   },
 );
 
 onMounted(() => {
   syncRuntimeConfig();
-  runtimeA2UIEnabled.value = copilotkit.value.a2uiEnabled;
-  runtimeOpenGenerativeUIEnabled.value =
-    copilotkit.value.openGenerativeUIEnabled;
-  runtimeLicenseStatus.value = copilotkit.value.licenseStatus;
-  runtimeEntitlements.value = copilotkit.value.runtimeEntitlements;
-  runtimeEntitlementRetryPending.value =
-    copilotkit.value.runtimeEntitlementRetryPending;
+  // The constructor deferred `/info`; start it now that we are in the browser
+  // (`onMounted` never runs during SSR). Idempotent.
+  copilotkit.value.connect();
+  runtimeInfo.value = copilotkit.value.ɵruntimeInfo;
   didMountRef.value = true;
   // After the runtime URL is set, so CopilotKit's own runtime traffic is never
   // captured. Created here, the watchers stop (and stop capture) on unmount.

@@ -692,8 +692,10 @@ describe("useAgent defaultThrottleMs from provider", () => {
         agent,
         defaultThrottleMs: value,
       });
+      // Core validates the value (the provider no longer logs its own copy).
       expect(errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("CopilotKitProvider: defaultThrottleMs"),
+        expect.stringContaining("CopilotKitCore.setDefaultThrottleMs"),
+        expect.any(Error),
       );
       agent.setMessages([userMsg("1", "a")]);
       agent.notifyMessagesChanged();

@@ -13,6 +13,20 @@ Every example imports from the 2.0 package roots. There is no `/v2` subpath in 2
 | `forwardedParameters`                                  | Removed. Set model parameters on the agent.                                                             |
 | `transcribeAudioUrl`, `textToSpeechUrl`                | Removed. Voice input goes through the runtime's transcription service.                                  |
 
+## Angular runtime config
+
+2.0 throws in production when `provideCopilotKit` gets no `runtimeUrl`, `licenseKey`, `agents`, or `selfManagedAgents`. The codemod marks these calls with a TODO. Add the runtime URL that the app uses. If the app sets it later with `updateRuntime`, also give it at startup:
+
+```ts
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const copilotKitProviders = provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+});
+```
+
+If the app has no runtime, ask the user which runtime URL to use. See [Angular: a missing runtime throws in production](https://docs.copilotkit.ai/migrate/providers-2.0#angular-a-missing-runtime-throws-in-production).
+
 ## Hooks
 
 ### `useCopilotReadable` → `useAgentContext`

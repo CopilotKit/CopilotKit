@@ -55,6 +55,8 @@ import type { ɵMemoryStore } from "../memory";
 import { HeaderSourceResolver, isHeaderResolutionError } from "./header-source";
 import type { CopilotKitHeadersSource } from "./header-source";
 import { shallowEqualRecord } from "../utils/shallow-equal";
+import { ɵRuntimeInfoStore } from "./runtime-info";
+import type { ɵRuntimeInfo } from "./runtime-info";
 
 /**
  * Run properties that go only to the runs of some agents.
@@ -116,6 +118,18 @@ export interface CopilotKitCoreConfig {
   suggestionsConfig?: SuggestionsConfig[];
   /** Enable debug logging for the client-side event pipeline. */
   debug?: DebugConfig;
+  /**
+   * Default throttle interval (ms) for `subscribeToAgentWithOptions()`. See
+   * {@link CopilotKitCore.setDefaultThrottleMs}.
+   */
+  defaultThrottleMs?: number;
+  /**
+   * Called for every error the core reports (runtime connection failures,
+   * agent errors, tool errors). Without a handler the core logs each error
+   * with `console.error`. Change it later with
+   * {@link CopilotKitCore.setErrorHandler}.
+   */
+  onError?: CopilotKitCoreErrorHandler;
   /**
    * Turns on interaction capture (`@copilotkit/learning`). Capture starts only
    * when {@link CopilotKitCore.startTrajectory} authenticates and joins the
@@ -207,6 +221,36 @@ export enum CopilotKitCoreErrorCode {
    */
   HEADER_RESOLUTION_FAILED = "header_resolution_failed",
 }
+
+/** An error the core reports, as passed to {@link CopilotKitCoreErrorHandler}. */
+export interface CopilotKitCoreErrorEvent {
+  error: Error;
+  code: CopilotKitCoreErrorCode;
+  context: Record<string, any>;
+}
+
+/** The `onError` handler of {@link CopilotKitCoreConfig}. */
+export type CopilotKitCoreErrorHandler = (
+  event: CopilotKitCoreErrorEvent,
+) => void | Promise<void>;
+
+/**
+ * @internal The config keys {@link CopilotKitCore.ɵupdateConfig} accepts. A
+ * key that is present is applied, even when its value is `undefined` (that
+ * clears it). A key that is absent is left alone.
+ */
+export type ɵCopilotKitCoreConfigPatch = Pick<
+  CopilotKitCoreConfig,
+  | "messageFilter"
+  | "runtimeUrl"
+  | "runtimeTransport"
+  | "headers"
+  | "credentials"
+  | "properties"
+  | "agents__unsafe_dev_only"
+  | "debug"
+  | "defaultThrottleMs"
+>;
 
 export interface CopilotKitCoreSubscriber {
   onTrajectoryChanged?: (event: {
@@ -489,6 +533,8 @@ export class CopilotKitCore {
   private _scopedProperties: Map<string, ScopedProperties> = new Map();
   private _defaultThrottleMs?: number;
   private _debug?: DebugConfig;
+  private errorHandler?: CopilotKitCoreErrorHandler;
+  private readonly runtimeInfoStore: ɵRuntimeInfoStore;
 
   private subscribers: Set<CopilotKitCoreSubscriber> = new Set();
   private _disposed = false;
@@ -533,10 +579,13 @@ export class CopilotKitCore {
     tools = [],
     suggestionsConfig = [],
     debug,
+    defaultThrottleMs,
+    onError,
     learning,
     ɵwaitForFrameworkUpdates,
   }: CopilotKitCoreConfig) {
     this.waitForFrameworkUpdates = ɵwaitForFrameworkUpdates;
+    this.errorHandler = onError;
     this.headerSource = new HeaderSourceResolver((error) => {
       void this.emitError({
         error,
@@ -568,6 +617,22 @@ export class CopilotKitCore {
       this.notifyTrajectoryChanged(),
     );
 
+    this.runtimeInfoStore = new ɵRuntimeInfoStore(() => ({
+      status: this.runtimeConnectionStatus,
+      a2uiEnabled: this.a2uiEnabled,
+      a2uiAgents: this.a2uiAgents,
+      openGenerativeUIEnabled: this.openGenerativeUIEnabled,
+      licenseStatus: this.licenseStatus,
+      runtimeEntitlements: this.runtimeEntitlements,
+      runtimeEntitlementRetryPending: this.runtimeEntitlementRetryPending,
+      threadEndpoints: this.threadEndpoints,
+      intelligence: this.intelligence,
+      audioFileTranscriptionEnabled: this.audioFileTranscriptionEnabled,
+    }));
+    if (defaultThrottleMs !== undefined) {
+      this.setDefaultThrottleMs(defaultThrottleMs);
+    }
+
     this.agentRegistry.setRuntimeTransport(runtimeTransport);
     this.agentRegistry.setRuntimeUrl(runtimeUrl, {
       deferConnection: deferInitialConnection,
@@ -590,6 +655,9 @@ export class CopilotKitCore {
       // so this single hook covers both connection and intelligence changes.
       // Guarded so we never instantiate the store just to sync it.
       onRuntimeConnectionStatusChanged: () => {
+        // First, so other subscribers of this event already see the new
+        // snapshot when they read `ɵruntimeInfo`.
+        this.runtimeInfoStore.refresh();
         if (this._memoryStore) this.syncMemoryContext();
       },
       onAgentsChanged: ({ agents }) => {
@@ -703,6 +771,55 @@ export class CopilotKitCore {
         }),
       "Subscriber onError error:",
     );
+    if (this._disposed) return;
+    const handler = this.errorHandler;
+    if (!handler) {
+      console.error(`[CopilotKit] Error (${code}):`, error, context);
+      return;
+    }
+    try {
+      await handler({ error, code, context });
+    } catch (handlerError) {
+      console.error("[CopilotKit] onError handler failed:", handlerError);
+    }
+  }
+
+  /**
+   * Replace the handler called for every error the core reports. Pass
+   * `undefined` to go back to logging errors with `console.error`.
+   *
+   * @example
+   * copilotkit.setErrorHandler(({ code, error }) => report(code, error));
+   */
+  setErrorHandler(handler: CopilotKitCoreErrorHandler | undefined): void {
+    this.errorHandler = handler;
+  }
+
+  /**
+   * @internal Apply provider config in one call. Only the keys present in
+   * `patch` are applied (a present `undefined` clears that setting), in this
+   * fixed order: message filter, runtime URL, transport, headers,
+   * credentials, properties, dev agents, debug, default throttle. The message
+   * filter goes first so an agent discovered by a new connection is built
+   * with it. Each setter is a no-op when its value did not change, so
+   * framework adapters can pass every key on every sync.
+   */
+  ɵupdateConfig(patch: ɵCopilotKitCoreConfigPatch): void {
+    if ("messageFilter" in patch) this.setMessageFilter(patch.messageFilter);
+    if ("runtimeUrl" in patch) this.setRuntimeUrl(patch.runtimeUrl);
+    if ("runtimeTransport" in patch) {
+      this.setRuntimeTransport(patch.runtimeTransport ?? "auto");
+    }
+    if ("headers" in patch) this.setHeaders(patch.headers ?? {});
+    if ("credentials" in patch) this.setCredentials(patch.credentials);
+    if ("properties" in patch) this.setProperties(patch.properties ?? {});
+    if ("agents__unsafe_dev_only" in patch) {
+      this.setAgents__unsafe_dev_only(patch.agents__unsafe_dev_only ?? {});
+    }
+    if ("debug" in patch) this.setDebug(patch.debug);
+    if ("defaultThrottleMs" in patch) {
+      this.setDefaultThrottleMs(patch.defaultThrottleMs);
+    }
   }
 
   /**
@@ -934,6 +1051,23 @@ export class CopilotKitCore {
 
   get telemetryDisabled(): boolean {
     return this.agentRegistry.telemetryDisabled;
+  }
+
+  /**
+   * @internal The runtime connection status and what `/info` reported, as one
+   * frozen object. It keeps its identity until a field changes, so it works
+   * as a `getSnapshot` for `useSyncExternalStore`. Reading it is never stale.
+   */
+  get ɵruntimeInfo(): ɵRuntimeInfo {
+    return this.runtimeInfoStore.getSnapshot();
+  }
+
+  /**
+   * @internal Calls `listener` when {@link ɵruntimeInfo} changes. Returns the
+   * unsubscribe function.
+   */
+  ɵsubscribeToRuntimeInfo(listener: () => void): () => void {
+    return this.runtimeInfoStore.subscribe(listener);
   }
 
   /**
@@ -1877,6 +2011,8 @@ export class CopilotKitCore {
     this.subscribers.clear();
     this.learningConfiguredListeners.clear();
     this.generativeUIDebugListeners.clear();
+    this.runtimeInfoStore.dispose();
+    this.errorHandler = undefined;
 
     this.runHandler.dispose(Object.values(this.agentRegistry.agents));
     this.suggestionEngine.dispose();
