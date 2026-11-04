@@ -37,6 +37,7 @@ import type {
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import { resolveTrajectoryLearningContainerIds } from "../core/learning";
+import { normalizeAnalyticsContext } from "./analytics-context";
 import type {
   GetLearningContainerId,
   GetTrajectoryLearningContainerIds,
@@ -703,6 +704,13 @@ export interface AcquireThreadLockRequest {
    * request send the same ID, so the platform counts the request once.
    */
   requestId?: string;
+  /**
+   * The app's analytics context for this run, sent as `analyticsContext`.
+   * Sent only when it is a plain JSON object of at most 4 KB serialized, and
+   * otherwise dropped without failing the lock. Intelligence validates the
+   * fields; the runtime does not read them.
+   */
+  analyticsContext?: Record<string, unknown>;
   /** Custom Redis key prefix for the lock (default: "thread"). */
   lockKeyPrefix?: string;
   /** Lock TTL in seconds. When set, the lock auto-expires after this duration. */
@@ -2441,6 +2449,9 @@ export class CopilotKitIntelligence {
   async ɵacquireThreadLock(
     params: AcquireThreadLockRequest,
   ): Promise<AcquireThreadLockResponse> {
+    // Checked here as well as in the run handler: headless callers reach the
+    // lock directly, without a run handler in between.
+    const analyticsContext = normalizeAnalyticsContext(params.analyticsContext);
     return this.#request<AcquireThreadLockResponse>(
       "POST",
       `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
@@ -2457,6 +2468,7 @@ export class CopilotKitIntelligence {
         ...(params.requestId !== undefined
           ? { requestId: params.requestId }
           : {}),
+        ...(analyticsContext !== undefined ? { analyticsContext } : {}),
         ...(params.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: params.lockKeyPrefix }
           : {}),

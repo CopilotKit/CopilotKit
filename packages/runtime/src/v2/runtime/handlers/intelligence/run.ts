@@ -21,6 +21,7 @@ import {
 } from "../../core/learning";
 import { getPlatformErrorStatus } from "../shared/intelligence-utils";
 import { startThreadLockHeartbeat } from "../../intelligence-platform/thread-lock-heartbeat";
+import { normalizeAnalyticsContext } from "../../intelligence-platform/analytics-context";
 import type { ThreadSummary } from "../../intelligence-platform";
 
 /**
@@ -64,6 +65,11 @@ interface HandleIntelligenceRunParams {
   agentId: string;
   agent: AbstractAgent;
   input: RunAgentInput;
+  /**
+   * The app's analytics context, already taken off `input.forwardedProps` by
+   * `takeAnalyticsContext`. Sent on the lock request only.
+   */
+  analyticsContext?: unknown;
   startTime?: number;
 }
 
@@ -73,6 +79,7 @@ export async function handleIntelligenceRun({
   agentId,
   agent,
   input,
+  analyticsContext: forwardedAnalyticsContext,
   startTime,
 }: HandleIntelligenceRunParams): Promise<Response> {
   const runtimeTelemetry = runtime.telemetry ?? telemetry;
@@ -109,6 +116,10 @@ export async function handleIntelligenceRun({
     typeof forwardedRequestId === "string" && forwardedRequestId.length > 0
       ? forwardedRequestId
       : undefined;
+
+  // An app's analytics context labels the run in Intelligence. A missing or
+  // malformed one is left off the lock request and never fails the run.
+  const analyticsContext = normalizeAnalyticsContext(forwardedAnalyticsContext);
 
   let learningContainerId: string | undefined;
   try {
@@ -229,6 +240,7 @@ export async function handleIntelligenceRun({
       agentId,
       ...(learningContainerId !== undefined ? { learningContainerId } : {}),
       ...(requestId !== undefined ? { requestId } : {}),
+      ...(analyticsContext !== undefined ? { analyticsContext } : {}),
       ...(runtime.lockKeyPrefix !== undefined
         ? { lockKeyPrefix: runtime.lockKeyPrefix }
         : {}),
