@@ -254,7 +254,9 @@ export namespace CopilotChatUserMessage {
       <ToolbarButton
         data-testid="copilot-user-copy-button"
         title={title || labels.userMessageToolbarCopyMessageLabel}
-        onClick={handleClick}
+        onClick={(event) => {
+          void handleClick(event);
+        }}
         className={className}
         {...props}
       >

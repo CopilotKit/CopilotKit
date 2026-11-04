@@ -812,7 +812,7 @@ export function teams(opts: TeamsAdapterOptions = {}): TeamsAdapter {
 
 /** Best-effort MIME from a filename extension; defaults to PNG (the common case). */
 function mimeFromFilename(filename: string): string {
-  const ext = filename.split(".").pop()?.toLowerCase();
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
   switch (ext) {
     case "png":
       return "image/png";

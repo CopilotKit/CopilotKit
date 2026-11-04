@@ -545,6 +545,7 @@ function cardShadow(props: CardProps) {
       return SHADOW_SM;
     case "none":
       return "none";
+    case undefined:
     default:
       return props.variant === "elevated" ? SHADOW_SOFT : undefined;
   }

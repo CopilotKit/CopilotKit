@@ -71,6 +71,9 @@ export class CopilotA2UITextField extends CopilotA2UIBasicComponent<
         return "number";
       case "obscured":
         return "password";
+      case "shortText":
+      case "longText":
+      case undefined:
       default:
         return "text";
     }

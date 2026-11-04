@@ -40,7 +40,7 @@ export async function resolveIntelligenceUser(params: {
   const { runtime, request } = params;
 
   const existing = resolvedUsers.get(request);
-  if (existing) return existing;
+  if (existing !== undefined) return existing;
 
   const resolution = resolveUser(runtime, request);
   resolvedUsers.set(request, resolution);

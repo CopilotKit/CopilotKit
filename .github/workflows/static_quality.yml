@@ -46,9 +46,12 @@ jobs:
           # base repo unchanged, so the auto-format push-back below still works.
           repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          # Full history so we can diff HEAD against the current base branch
-          # tip to scope the formatter to PR-changed files.
-          fetch-depth: 0
+          # Only the head commit. `fetch-depth: 0` fetched every branch in the
+          # repo and sometimes stalled past this job's 5-minute limit. The
+          # "Collect PR-changed files" step fetches the history it needs.
+          # blob:none makes the clone partial, so that later fetch can skip
+          # file contents too.
+          filter: blob:none
 
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
@@ -93,8 +96,22 @@ jobs:
           base_ref="${PR_BASE_REF}"
           # Fetch the current tip of the base branch so the merge-base tracks
           # main as it advances (using the PR's stored base.sha would pull in
-          # every file main has touched since the PR opened).
-          git fetch --no-tags origin "$base_ref"
+          # every file main has touched since the PR opened). --unshallow also
+          # completes the history of the shallow head checkout, so the
+          # merge-base exists. Commits and trees only (no file contents): this
+          # takes seconds. A fetch can stall on GitHub's side, so give each
+          # attempt 90 seconds and retry.
+          for attempt in 1 2 3; do
+            if timeout 90 git fetch --no-tags --filter=blob:none --unshallow \
+              origin "+refs/heads/${base_ref}:refs/remotes/origin/${base_ref}"; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "::error::Could not fetch the history of $base_ref after 3 attempts."
+              exit 1
+            fi
+            echo "Fetch attempt $attempt failed or timed out; retrying."
+          done
           # Scope to files changed between the current base-branch merge-base
           # and HEAD so advances on main don't drag unrelated files into the
           # PR. Restrict to oxfmt-supported extensions so oxfmt never errors
@@ -207,7 +224,61 @@ jobs:
           git commit -m "style: auto-fix formatting"
           git push
 
+  # Fails on oxlint errors that are not in .lint-baseline/oxlint.json.
+  # How to fix a failure or update the baseline: dev-docs/static-analysis.md.
   oxlint:
+    runs-on: ubuntu-latest
+    # The full package build takes most of this. The lint itself is a few
+    # seconds.
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20.x
+          # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Nx Cloud environment
+        run: |
+          {
+            echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-quality-oxlint"
+            echo "NX_CLOUD_NO_TIMEOUTS=true"
+            echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false"
+            echo "NX_NO_CLOUD=true"
+          } >> "$GITHUB_ENV"
+
+      - name: Build packages
+        # The type-aware pass reads types across packages. Package exports
+        # point at dist/, so without a build every cross-package import is
+        # `any` and the error counts no longer match the baseline.
+        env:
+          NODE_OPTIONS: "--max-old-space-size=8192"
+        run: pnpm run build
+
+      - name: Run oxlint check
+        run: pnpm run lint
+
+  # Fails on knip findings (unused files, exports, dependencies) that are not
+  # in .lint-baseline/knip.json. knip reads source, so no build is needed.
+  # How to fix a failure or update the baseline: dev-docs/static-analysis.md.
+  knip:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -234,8 +305,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run oxlint check
-        run: pnpm run lint
+      - name: Run knip check
+        run: pnpm run lint:dead-code
 
   package-quality:
     runs-on: ubuntu-latest

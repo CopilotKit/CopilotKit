@@ -44,8 +44,9 @@ export class CopilotA2UISurfaceOutlet {
   }));
 
   protected readonly outputs: SlotOutputs = {
-    action: (message: A2UIClientEventMessage) =>
-      bridgeA2UIAction(this.copilotKit, this.agent(), message),
+    action: (message: A2UIClientEventMessage) => {
+      void bridgeA2UIAction(this.copilotKit, this.agent(), message);
+    },
     error: logA2UIRenderError,
     rendered: () => this.rendered.emit(),
   };

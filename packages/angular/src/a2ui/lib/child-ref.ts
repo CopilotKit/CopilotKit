@@ -52,6 +52,10 @@ export function normalizeChildRefs(
             normalizeChildRefs(item, behavior.element, basePath),
           )
         : value;
+    case "ACTION":
+    case "CHECKABLE":
+    case "DYNAMIC":
+    case "STATIC":
     default:
       return value;
   }
