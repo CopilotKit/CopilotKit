@@ -51,8 +51,13 @@ import {
 } from "../../components/ui/popover";
 import { useFeedbackComment, useMessageFeedback } from "./message-feedback";
 import type { FeedbackComment } from "./message-feedback";
-import { MESSAGE_FEEDBACK_MAX_COMMENT_LENGTH } from "../../lib/message-feedback";
-import type { MessageFeedbackRating } from "../../lib/message-feedback";
+import {
+  ɵMESSAGE_FEEDBACK_MAX_COMMENT_LENGTH,
+  ɵhasAssistantMessageText,
+  ɵshouldShowAssistantToolbar,
+} from "@copilotkit/core";
+import { useCopyFeedback } from "./use-copy-feedback";
+import type { ɵMessageFeedbackRating as MessageFeedbackRating } from "@copilotkit/core";
 
 export type CopilotChatFeedbackMessage = AssistantMessage & {
   rawEvent?: unknown;
@@ -411,7 +416,7 @@ export function CopilotChatAssistantMessage({
   );
 
   // Don't show toolbar if message has no content (only tool calls)
-  const hasContent = !!(message.content && message.content.trim().length > 0);
+  const hasContent = ɵhasAssistantMessageText(message.content);
   const isLatestAssistantMessage =
     message.role === "assistant" &&
     (isLatest ?? messages?.[messages.length - 1]?.id === message.id);
@@ -618,10 +623,13 @@ export function CopilotChatAssistantMessage({
     },
   );
 
-  const shouldShowToolbar =
-    toolbarVisible &&
-    (hasContent || showInspectorShortcut) &&
-    !(isRunning && isLatestAssistantMessage);
+  const shouldShowToolbar = ɵshouldShowAssistantToolbar({
+    toolbarVisible,
+    hasContent,
+    showInspectorShortcut,
+    isRunning: !!isRunning,
+    isLatest: isLatestAssistantMessage,
+  });
   // The popover shows only with the toolbar and a rating. Hiding the toolbar
   // keeps the edit; a rating removed elsewhere or Learning turned off ends it.
   const { open: commentOpen, close: closeComment } = comment;
@@ -784,35 +792,13 @@ export namespace CopilotChatAssistantMessage {
   > = ({ className, title, onClick, ...props }) => {
     const config = useCopilotChatConfiguration();
     const labels = config?.labels ?? CopilotChatDefaultLabels;
-    const [copied, setCopied] = useState(false);
-    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    useEffect(() => {
-      return () => {
-        if (timerRef.current !== null) {
-          clearTimeout(timerRef.current);
-        }
-      };
-    }, []);
+    const { copied, markCopied } = useCopyFeedback();
 
     const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
-      let success = false;
-      if (onClick) {
-        // onClick may return a boolean indicating copy success
-        const result: unknown = await Promise.resolve(onClick(event));
-        success = result === true;
-      }
-
-      if (success) {
-        setCopied(true);
-        if (timerRef.current !== null) {
-          clearTimeout(timerRef.current);
-        }
-        timerRef.current = setTimeout(() => {
-          timerRef.current = null;
-          setCopied(false);
-        }, 2000);
-      }
+      if (!onClick) return;
+      // onClick may return a boolean indicating copy success
+      const result: unknown = await Promise.resolve(onClick(event));
+      if (result === true) markCopied();
     };
 
     return (
@@ -941,7 +927,7 @@ export namespace CopilotChatAssistantMessage {
         <input
           ref={inputRef}
           value={value}
-          maxLength={MESSAGE_FEEDBACK_MAX_COMMENT_LENGTH}
+          maxLength={ɵMESSAGE_FEEDBACK_MAX_COMMENT_LENGTH}
           onChange={(event) => onChange(event.target.value)}
           placeholder={labels.assistantMessageFeedbackCommentPlaceholder}
           aria-label={labels.assistantMessageFeedbackCommentPlaceholder}

@@ -47,7 +47,6 @@
       "packages/web-inspector/src/shell/launcher/hud-config.ts": 1
     },
     "knip(unlisted)": {
-      "packages/core/src/__tests__/trajectory-phoenix.test.ts": 1,
       "packages/web-inspector/vitest.config.ts": 1
     }
   }

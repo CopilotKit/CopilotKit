@@ -1,6 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { CopilotIcon } from "../icons/CopilotIcon";
-import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import {
+  CopilotChatDefaultLabels,
+  ɵflattenUserMessageContent,
+  ɵgetBranchNavState,
+  ɵgetUserMessageMediaFilename,
+  ɵgetUserMessageMediaParts,
+} from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import { cn } from "../../lib/utils";
 import { Button } from "../../components/ui/button";
@@ -13,69 +19,8 @@ import {
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 import { copyToClipboard } from "@copilotkit/shared";
-import type {
-  ImageInputPart,
-  AudioInputPart,
-  VideoInputPart,
-  DocumentInputPart,
-} from "@copilotkit/shared";
 import { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";
-
-function flattenUserMessageContent(content?: UserMessage["content"]): string {
-  if (!content) {
-    return "";
-  }
-
-  if (typeof content === "string") {
-    return content;
-  }
-
-  return content
-    .map((part) => {
-      if (
-        part &&
-        typeof part === "object" &&
-        "type" in part &&
-        (part as { type?: unknown }).type === "text" &&
-        typeof (part as { text?: unknown }).text === "string"
-      ) {
-        return (part as { text: string }).text;
-      }
-      return "";
-    })
-    .filter((text) => text.length > 0)
-    .join("\n");
-}
-
-type MediaPart =
-  | ImageInputPart
-  | AudioInputPart
-  | VideoInputPart
-  | DocumentInputPart;
-
-function getMediaParts(content: UserMessage["content"]): MediaPart[] {
-  if (!content || typeof content === "string") return [];
-  return content.filter(
-    (part): part is MediaPart =>
-      part.type === "image" ||
-      part.type === "audio" ||
-      part.type === "video" ||
-      part.type === "document",
-  );
-}
-
-function getFilename(part: MediaPart): string | undefined {
-  const meta = part.metadata;
-  if (
-    meta != null &&
-    typeof meta === "object" &&
-    "filename" in meta &&
-    typeof meta.filename === "string"
-  ) {
-    return meta.filename;
-  }
-  return undefined;
-}
+import { useCopyFeedback } from "./use-copy-feedback";
 
 export interface CopilotChatUserMessageOnEditMessageProps {
   message: UserMessage;
@@ -124,12 +69,12 @@ export function CopilotChatUserMessage({
   ...props
 }: CopilotChatUserMessageProps) {
   const flattenedContent = useMemo(
-    () => flattenUserMessageContent(message.content),
+    () => ɵflattenUserMessageContent(message.content),
     [message.content],
   );
 
   const mediaParts = useMemo(
-    () => getMediaParts(message.content),
+    () => ɵgetUserMessageMediaParts(message.content),
     [message.content],
   );
 
@@ -173,8 +118,11 @@ export function CopilotChatUserMessage({
     },
   );
 
-  const showBranchNavigation =
-    numberOfBranches && numberOfBranches > 1 && onSwitchToBranch;
+  const { show: showBranchNavigation } = ɵgetBranchNavState({
+    branchIndex: branchIndex ?? 0,
+    numberOfBranches: numberOfBranches ?? 1,
+    canSwitch: onSwitchToBranch !== undefined,
+  });
 
   const BoundToolbar = renderSlot(toolbar, CopilotChatUserMessage.Toolbar, {
     children: (
@@ -223,7 +171,7 @@ export function CopilotChatUserMessage({
               key={index}
               type={part.type}
               source={part.source}
-              filename={getFilename(part)}
+              filename={ɵgetUserMessageMediaFilename(part)}
             />
           ))}
         </div>
@@ -293,20 +241,13 @@ export namespace CopilotChatUserMessage {
   > = ({ className, title, onClick, ...props }) => {
     const config = useCopilotChatConfiguration();
     const labels = config?.labels ?? CopilotChatDefaultLabels;
-    const [copied, setCopied] = useState(false);
+    const { copied, markCopied } = useCopyFeedback();
 
     const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
-      let success = false;
-      if (onClick) {
-        // onClick may return a boolean indicating copy success
-        const result: unknown = await Promise.resolve(onClick(event));
-        success = result === true;
-      }
-
-      if (success) {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
+      if (!onClick) return;
+      // onClick may return a boolean indicating copy success
+      const result: unknown = await Promise.resolve(onClick(event));
+      if (result === true) markCopied();
     };
 
     return (
@@ -372,12 +313,12 @@ export namespace CopilotChatUserMessage {
     const config = useCopilotChatConfiguration();
     const labels = config?.labels ?? CopilotChatDefaultLabels;
 
-    if (!numberOfBranches || numberOfBranches <= 1 || !onSwitchToBranch) {
-      return null;
-    }
-
-    const canGoPrev = currentBranch > 0;
-    const canGoNext = currentBranch < numberOfBranches - 1;
+    const { show, canGoPrev, canGoNext } = ɵgetBranchNavState({
+      branchIndex: currentBranch,
+      numberOfBranches,
+      canSwitch: onSwitchToBranch !== undefined,
+    });
+    if (!show) return null;
 
     return (
       <div

@@ -12,8 +12,8 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
-import { MESSAGE_FEEDBACK_MAX_COMMENT_LENGTH } from "../../lib/message-feedback";
-import type { MessageFeedbackRating } from "../../lib/message-feedback";
+import { ɵMESSAGE_FEEDBACK_MAX_COMMENT_LENGTH as MESSAGE_FEEDBACK_MAX_COMMENT_LENGTH } from "@copilotkit/core";
+import type { ɵMessageFeedbackRating as MessageFeedbackRating } from "@copilotkit/core";
 import CopilotPopover from "../ui/CopilotPopover.vue";
 import { IconArrowUp } from "../icons";
 import type { FeedbackComment } from "./message-feedback";
