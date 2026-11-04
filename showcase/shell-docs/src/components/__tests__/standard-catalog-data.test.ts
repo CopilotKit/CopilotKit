@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
 import { validateOperation } from "@copilotkit/shared";
+import shellDocsPackage from "../../../package.json";
 import {
   SAMPLES,
   sampleOperations,
@@ -8,6 +9,12 @@ import {
 } from "@/components/standard-catalog/catalog-data";
 
 describe("standard catalog samples", () => {
+  it("keeps the published validator and renderer pinned to the same version", () => {
+    expect(shellDocsPackage.devDependencies["@copilotkit/shared"]).toBe(
+      shellDocsPackage.dependencies["@copilotkit/react-core"],
+    );
+  });
+
   it("emits canonical operations accepted by the published renderer", () => {
     const manifest = {
       catalogId: standardUI.id,

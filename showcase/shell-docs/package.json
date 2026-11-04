@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ag-ui/core": "1.0.2",
     "@clerk/nextjs": "^7.6.2",
     "@copilotkit/react-core": "1.84.0",
     "@radix-ui/react-popover": "^1.1.15",
