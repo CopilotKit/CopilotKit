@@ -1,4 +1,4 @@
-FROM node:20-slim AS builder
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS builder
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
 WORKDIR /app
@@ -49,8 +49,10 @@ RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && node node_modules/tsx/dist/cli.mjs generate-search-index.ts \
     && cd ../shell-docs && npx next build
 
-FROM node:20-slim AS runner
-WORKDIR /app
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS runner
+# Preserve the builder layout: Turbopack's .next/node_modules aliases contain
+# relative links back to /app/shell-docs/node_modules.
+WORKDIR /app/shell-docs
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
 ENV NODE_ENV=production
@@ -66,3 +68,56 @@ COPY --from=builder /app/shell-docs/src/content ./src/content
 
 EXPOSE 10000
 CMD ["npx", "next", "start", "-p", "10000"]
+
+# Fail the build if any base or install path regresses the accepted Node runtime.
+RUN test "$(node --version)" = "v22.23.4"
+
+# Exercise the final runtime filesystem, including Turbopack's generated module
+# links. Compilation and a Node-version check cannot catch a broken MDX import.
+# Only loopback is available; this check needs no model, credentials, or backend.
+RUN --network=none node --input-type=module <<'JS'
+import { spawn } from 'node:child_process';
+import { connect } from 'node:net';
+import { setTimeout as delay } from 'node:timers/promises';
+
+const server = spawn(process.execPath, [
+  'node_modules/next/dist/bin/next', 'start',
+  '--hostname', '127.0.0.1', '--port', '10000',
+], { stdio: 'inherit' });
+
+try {
+  const deadline = Date.now() + 30_000;
+  for (;;) {
+    const listening = await new Promise((resolve) => {
+      const socket = connect(10000, '127.0.0.1');
+      socket.once('connect', () => { socket.destroy(); resolve(true); });
+      socket.once('error', () => { socket.destroy(); resolve(false); });
+    });
+    if (listening) break;
+    if (server.exitCode !== null || server.signalCode !== null) {
+      throw new Error('Docs server exited before listening');
+    }
+    if (Date.now() >= deadline) throw new Error('Docs server did not start');
+    await delay(250);
+  }
+
+  for (const [path, marker] of [
+    ['/generative-ui/components', 'Let your agent render your React components'],
+    ['/generative-ui/components/standard-catalog', 'standardUI'],
+    ['/generative-ui/components/standard-catalog/button', 'Button'],
+  ]) {
+    const response = await fetch(`http://127.0.0.1:10000${path}`, {
+      redirect: 'error', signal: AbortSignal.timeout(15_000),
+    });
+    if (response.status !== 200) {
+      throw new Error(`${path}: HTTP ${response.status}`);
+    }
+    if (!(await response.text()).includes(marker)) {
+      throw new Error(`${path}: missing expected content`);
+    }
+    console.log(`${path}: HTTP 200 and expected content`);
+  }
+} finally {
+  server.kill('SIGTERM');
+}
+JS

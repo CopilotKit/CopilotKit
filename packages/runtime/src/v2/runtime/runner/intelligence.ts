@@ -3,7 +3,7 @@ import type {
   AgentRunnerIsRunningRequest,
   AgentRunnerRunRequest,
 } from "./agent-runner";
-import { AgentRunner } from "./agent-runner";
+import { AgentRunner, ThreadAlreadyRunningError } from "./agent-runner";
 import type { AgentRunnerStopRequest } from "./agent-runner";
 import { Observable } from "rxjs";
 import type { AbstractAgent, BaseEvent, RunStartedEvent } from "@ag-ui/client";
@@ -239,12 +239,12 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
     const existing = this.threads.get(threadId);
     if (existing?.isRunning) {
-      throw new Error("Thread already running");
+      throw new ThreadAlreadyRunningError();
     }
 
     return new Observable((observer) => {
       if (this.threads.get(threadId)?.isRunning) {
-        observer.error(new Error("Thread already running"));
+        observer.error(new ThreadAlreadyRunningError());
         return;
       }
 

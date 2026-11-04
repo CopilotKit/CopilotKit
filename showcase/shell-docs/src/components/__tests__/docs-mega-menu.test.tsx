@@ -31,7 +31,7 @@ test("opens the docs menu with working guide destinations", () => {
   expect(intelligence.getAttribute("href")).toBe("/intelligence/overview");
   expect(
     screen.getByRole("link", { name: "AG-UI Streams" }).getAttribute("href"),
-  ).toBe("/threads");
+  ).toBe("/AG-UI-Streams");
   expect(
     screen.getByRole("link", { name: "User Memories" }).getAttribute("href"),
   ).toBe("/intelligence/memories");

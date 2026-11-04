@@ -2,6 +2,7 @@ packages:
   - "packages/*"
   - "tools/runtime-conformance"
   - "tools/learned-skill-conformance"
+  - "tools/genui-eval"
   - "examples/v1/*"
   - "examples/canvas/mastra-pm"
   - "examples/v1/research-canvas/agents/typescript"
@@ -51,6 +52,7 @@ packages:
   - "showcase/harness"
   - "showcase/eval-webhook"
   - "showcase/angular"
+  - "showcase/vue"
   # NOTE: `showcase/shell-dashboard` is intentionally NOT part of this
   # pnpm workspace. It's a flat, standalone Next.js app that ships its
   # own package-lock.json and is built with `npm ci` (see its Dockerfile).

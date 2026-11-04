@@ -1,9 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import {
-  CopilotChatUserMessage,
-  CopilotChatConfigurationProvider,
-  type CopilotChatUserMessageProps,
-} from "@copilotkit/react-core/v2";
+import { CopilotChatUserMessage } from "@copilotkit/react-core/v2";
+import type { CopilotChatUserMessageProps } from "@copilotkit/react-core/v2";
+import { withMessageColumn } from "./support/layouts";
 
 // Simple default message
 const simpleMessage = {
@@ -35,21 +33,25 @@ const codeMessage = {
   id: "code-user-message",
   content: `I'm getting this error in my React app:
 
-TypeError: Cannot read property 'map' of undefined
+\`TypeError: Cannot read property 'map' of undefined\`
 
 The error happens in this component:
 
+\`\`\`jsx
 function UserList({ users }) {
   return (
     <div>
-      {users.map(user => (
+      {users.map((user) => (
         <div key={user.id}>{user.name}</div>
       ))}
     </div>
   );
 }
+\`\`\`
 
-How can I fix this?`,
+How can I fix this? I've tried:
+- adding a **default prop**
+- checking \`users.length\` first`,
   timestamp: new Date(),
   role: "user" as const,
 };
@@ -65,25 +67,7 @@ const shortMessage = {
 const meta = {
   title: "UI/CopilotChatUserMessage",
   component: CopilotChatUserMessage,
-  decorators: [
-    (Story) => (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "flex-start",
-          minHeight: "100vh",
-          padding: "16px",
-        }}
-      >
-        <div style={{ width: "100%", maxWidth: "640px" }}>
-          <CopilotChatConfigurationProvider threadId="storybook-thread">
-            <Story />
-          </CopilotChatConfigurationProvider>
-        </div>
-      </div>
-    ),
-  ],
+  decorators: [withMessageColumn],
   args: {
     message: simpleMessage,
     onEditMessage: () => console.log("Edit clicked!"),
@@ -149,6 +133,35 @@ export const CodeRelatedMessage: Story = {
   args: {
     message: codeMessage,
     onEditMessage: () => alert("Edit code message clicked!"),
+  },
+};
+
+/**
+ * User text renders markdown like chat apps do: emphasis, lists, links, inline
+ * code, tables and code blocks render, line breaks stay as typed, and `#` lines
+ * and pasted HTML stay literal.
+ */
+export const MarkdownFormatting: Story = {
+  args: {
+    message: {
+      id: "markdown-user-message",
+      role: "user" as const,
+      content: `# This stays a plain line, not a heading
+Keep my line breaks
+exactly as I typed them.
+
+Can you compare **useState** and *useReducer* for [this form](https://react.dev)?
+
+1. \`useState\` for simple fields
+2. \`useReducer\` for related state
+
+| Hook | Best for |
+| --- | --- |
+| useState | independent values |
+| useReducer | complex transitions |
+
+<b>Pasted HTML shows as text.</b>`,
+    },
   },
 };
 

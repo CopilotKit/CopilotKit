@@ -25,14 +25,23 @@ export type CopilotKitMessageFilter = (
   context: { agentId: string },
 ) => Message[];
 
-interface AssistantToolCall {
-  id: string;
-}
-
+/**
+ * The string ids of a message's tool calls.
+ *
+ * Malformed entries are ignored rather than thrown on, matching
+ * {@link ɵkeepToolResultsWithCalls}: a null or primitive entry, or an entry
+ * without a string `id`, opens no pair instead of failing the repair.
+ */
 function toolCallIdsOf(message: Message): string[] {
-  const calls = (message as { toolCalls?: AssistantToolCall[] }).toolCalls;
+  const calls = (message as { toolCalls?: unknown }).toolCalls;
   if (!Array.isArray(calls)) return [];
-  return calls.map((call) => call.id).filter((id): id is string => Boolean(id));
+  const ids: string[] = [];
+  for (const call of calls) {
+    if (typeof call !== "object" || call === null) continue;
+    const id = (call as { id?: unknown }).id;
+    if (typeof id === "string" && id) ids.push(id);
+  }
+  return ids;
 }
 
 function resultCallIdOf(message: Message): string | undefined {
@@ -78,23 +87,35 @@ export function ɵrepairToolCallPairs(
   kept: Message[],
   full: Message[],
 ): Message[] {
-  // Both maps are built from the untrimmed thread: the repair has to reason
-  // about pairs the filter already broke, so the kept list cannot answer
-  // "did this call have a result".
-  const callIdToIssuer = new Map<string, Message>();
-  const callIdToResult = new Map<string, Message>();
+  // Pair each result with the nearest unmatched call before it. Providers
+  // often reuse call ids across turns, so an id alone cannot identify a pair.
+  // The untrimmed thread supplies the order the filter may have removed.
+  const pendingIssuersByCallId = new Map<string, Message[]>();
+  const issuerIdToResultsByCallId = new Map<string, Map<string, Message[]>>();
+  const resultIdToIssuer = new Map<string, Message>();
   for (const message of full) {
     for (const callId of toolCallIdsOf(message)) {
-      callIdToIssuer.set(callId, message);
+      push(pendingIssuersByCallId, callId, message);
     }
     const resultCallId = resultCallIdOf(message);
     if (resultCallId !== undefined) {
-      callIdToResult.set(resultCallId, message);
+      const pendingIssuers = pendingIssuersByCallId.get(resultCallId);
+      const issuer = pendingIssuers?.pop();
+      if (issuer) {
+        resultIdToIssuer.set(message.id, issuer);
+        let resultsByCallId = issuerIdToResultsByCallId.get(issuer.id);
+        if (!resultsByCallId) {
+          resultsByCallId = new Map();
+          issuerIdToResultsByCallId.set(issuer.id, resultsByCallId);
+        }
+        push(resultsByCallId, resultCallId, message);
+      }
     }
   }
 
   const repaired: Message[] = [];
   const emitted = new Set<string>();
+  const expandedMessages = new Set<Message>();
 
   const emit = (message: Message) => {
     if (emitted.has(message.id)) return;
@@ -105,9 +126,11 @@ export function ɵrepairToolCallPairs(
   /** Emit an assistant turn together with every result it is owed. */
   const emitWithResults = (message: Message) => {
     emit(message);
+    if (expandedMessages.has(message)) return;
+    expandedMessages.add(message);
+    const resultsByCallId = issuerIdToResultsByCallId.get(message.id);
     for (const callId of toolCallIdsOf(message)) {
-      const result = callIdToResult.get(callId);
-      if (result) emit(result);
+      for (const result of resultsByCallId?.get(callId) ?? []) emit(result);
     }
   };
 
@@ -118,7 +141,7 @@ export function ɵrepairToolCallPairs(
       continue;
     }
 
-    const issuer = callIdToIssuer.get(resultCallId);
+    const issuer = resultIdToIssuer.get(message.id);
     if (issuer) {
       // Emits the issuer first, then this result along with its siblings.
       emitWithResults(issuer);
@@ -152,9 +175,13 @@ export function ɵrepairToolCallPairs(
  *   two independent slots, including an assistant call the merge duplicated,
  *   so a duplicated call can be left unanswered. Nothing is dropped,
  *   deduplicated, or added, and only tool-role messages ever change position.
- * - Transparent entries are `activity` messages and anything that is not a
- *   plain object (`null`, arrays, primitives). They are never the anchor,
- *   never separate a call from its result, and stay in place.
+ * - Transparent entries are `activity` and `reasoning` messages and anything
+ *   that is not a plain object (`null`, arrays, primitives). They are never
+ *   the anchor, never separate a call from its result, and stay in place.
+ *   Reasoning stored between a call and its result is the next step's: in a
+ *   multi-step turn whose calls share one assistant message, Mastra leaves
+ *   `assistant(c1, c2), tool(c1), reasoning, tool(c2)`. Moving the result in
+ *   front of it leaves the reasoning trailing, and Mastra drops it.
  * - The anchor is the last non-transparent message so far that is not `tool`.
  *   Each tool call an assistant issues opens a slot for its call id, and a
  *   result pairs with slots for its `toolCallId` alone. `subagentRunId` is
@@ -189,11 +216,13 @@ export function ɵrepairToolCallPairs(
  *   results move forward: an extra result for a call that is already
  *   answered never does.
  * - A moved result goes behind its issuer, after the tool and transparent
- *   entries already following it; results moved behind one issuer keep their
- *   stored order. Any other message between a call and its result separates
- *   them, so a backward-moved result moves before it (reasoning stored
- *   between the two ends up after the result) and a forward-moved result
- *   moves past it.
+ *   entries already following it, but in front of any reasoning among those
+ *   transparent entries: reasoning belongs to the message after it, so a
+ *   moved result never lands between a reasoning message and its owner.
+ *   Results moved behind one issuer keep their stored order. Any other
+ *   message between a call and its result separates them, so a
+ *   backward-moved result moves before it and a forward-moved result moves
+ *   past it.
  * - The rule cannot tell a duplicate result from a detached one. A second
  *   result for an already-answered call moves back to an older still-open
  *   slot for its id if there is one, even across user turns; it never moves
@@ -311,11 +340,24 @@ export function ɵkeepToolResultsWithCalls(messages: Message[]): Message[] {
   const flush = () => {
     const behind = movedBehind.get(openIssuer);
     if (!behind) return;
+    // Converters give a reasoning message to the message after it, so the
+    // moved results go in front of any reasoning among the transparent
+    // entries at the tail, never between a reasoning message and its owner.
+    // Activity is stripped before sending, so it is looked past too.
+    let at = result.length;
+    for (let tail = result.length - 1; tail >= 0; tail--) {
+      if (!isTransparent(result[tail])) break;
+      if (roleOf(result[tail]) === "reasoning") at = tail;
+    }
     // Collected id by id, and within an id in pass order; emit them in
     // stored order.
-    for (const index of [...behind].sort((a, b) => a - b)) {
-      result.push(messages[index] as Message);
-    }
+    result.splice(
+      at,
+      0,
+      ...[...behind]
+        .sort((a, b) => a - b)
+        .map((index) => messages[index] as Message),
+    );
   };
   for (let index = 0; index < messages.length; index++) {
     if (moved.has(index)) continue;
@@ -337,15 +379,16 @@ function push<K, T>(map: Map<K, T[]>, key: K, value: T): void {
 }
 
 /**
- * Activity messages and anything that is not a plain object (`null`, arrays,
- * primitives) never anchor or separate.
+ * Activity and reasoning messages and anything that is not a plain object
+ * (`null`, arrays, primitives) never anchor or separate.
  */
 function isTransparent(message: unknown): boolean {
   return (
     typeof message !== "object" ||
     message === null ||
     Array.isArray(message) ||
-    (message as { role?: unknown }).role === "activity"
+    (message as { role?: unknown }).role === "activity" ||
+    (message as { role?: unknown }).role === "reasoning"
   );
 }
 

@@ -16,11 +16,31 @@
     "create-integration": "tsx create-integration/index.ts",
     "bundle-content": "tsx bundle-demo-content.ts",
     "bundle-angular-content": "tsx bundle-angular-source-content.ts",
+    "bundle-vue-content": "tsx bundle-vue-source-content.ts",
     "bundle-setup-content": "tsx bundle-setup-content.ts",
     "extract-starter": "tsx extract-starter.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "probe-backend-tool-history": "node probe-backend-tool-history.mjs"
+  },
+  "nx": {
+    "targets": {
+      "test": {
+        "inputs": [
+          "test",
+          "{projectRoot}/verify-docs-deployment.ts",
+          "{workspaceRoot}/showcase/shell-docs/src/content/docs/generative-ui/components/index.mdx",
+          "{workspaceRoot}/showcase/shell-docs/src/content/docs/generative-ui/components/standard-catalog.mdx",
+          "{workspaceRoot}/showcase/*/Dockerfile",
+          "{workspaceRoot}/showcase/integrations/*/Dockerfile",
+          "!{workspaceRoot}/showcase/pocketbase/Dockerfile",
+          "{workspaceRoot}/examples/integrations/*/Dockerfile",
+          "{workspaceRoot}/.github/workflows/showcase_build.yml",
+          "{workspaceRoot}/.github/workflows/showcase_build_check.yml",
+          "{workspaceRoot}/.github/workflows/showcase_eval-webhook_build.yml"
+        ]
+      }
+    }
   },
   "dependencies": {
     "@copilotkit/aimock": "1.37.4",

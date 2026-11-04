@@ -57,7 +57,7 @@ export interface FrameworkSearchOption {
 }
 
 const SERVER_ONLY_FRAMEWORK_NAMES: Readonly<Record<string, string>> = {
-  deepagents: "Deep Agents",
+  deepagents: "Langchain DeepAgents",
 };
 
 function fallbackFrameworkName(slug: string): string {

@@ -1,0 +1,1 @@
+A closure is a function that remembers the variables from the scope where it was created, so it can still read and change them after the outer function has returned. That is how JavaScript gives you private state, for example a counter function that keeps its own count between calls without exposing it to the rest of your code.

@@ -77,7 +77,7 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
         icon: "kite",
         featured: true,
       },
-      { href: "/threads", label: "AG-UI Streams", icon: "layers" },
+      { href: "/AG-UI-Streams", label: "AG-UI Streams", icon: "layers" },
       {
         href: "/learning",
         label: "Automatic Learning",
