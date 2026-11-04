@@ -77,8 +77,12 @@ pnpm nx run repo-scripts:mutation-report
 
 [`test_mutation.yml`](../../.github/workflows/test_mutation.yml) runs the three
 packages every Monday and on `workflow_dispatch`. It does not run on PRs
-because it is too slow. The incremental file is cached between runs. Each job
-writes its summary to the job page and uploads the HTML and JSON reports as an
-artifact.
+because it is too slow. react-core runs as three jobs (`components/`,
+`generative-ui/` and the rest) so each job stays under the timeout. Each job
+caches its incremental file, writes its summary to the job page and uploads
+the HTML and JSON reports as an artifact.
+
+Scheduled runs only start from the default branch. Until this workflow is on
+`main`, start it by hand with `workflow_dispatch`.
 
 There is no failing threshold yet. The baseline comes first.

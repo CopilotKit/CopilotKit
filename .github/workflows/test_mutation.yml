@@ -32,7 +32,7 @@ env:
 
 jobs:
   mutation:
-    name: ${{ matrix.project }}
+    name: ${{ matrix.shard }}
     runs-on: depot-ubuntu-24.04-16
     timeout-minutes: 300
     # id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
@@ -42,13 +42,31 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # react-core has about 17,800 mutants and slow jsdom tests, so it runs
+        # as three shards to stay under the job timeout. Stryker writes its
+        # incremental file only at the end, so a job that times out caches
+        # nothing. An empty `mutate` uses the package's stryker.config.mjs.
         include:
-          - project: "@copilotkit/core"
+          - shard: core
+            project: "@copilotkit/core"
             dir: packages/core
-          - project: "@copilotkit/runtime"
+            mutate: ""
+          - shard: runtime
+            project: "@copilotkit/runtime"
             dir: packages/runtime
-          - project: "@copilotkit/react-core"
+            mutate: ""
+          - shard: react-core-components
+            project: "@copilotkit/react-core"
             dir: packages/react-core
+            mutate: "src/components/**/*.ts,src/components/**/*.tsx,!src/**/__tests__/**,!src/**/*.test.ts,!src/**/*.test.tsx"
+          - shard: react-core-generative-ui
+            project: "@copilotkit/react-core"
+            dir: packages/react-core
+            mutate: "src/generative-ui/**/*.ts,src/generative-ui/**/*.tsx,!src/**/__tests__/**,!src/**/*.test.ts,!src/**/*.test.tsx"
+          - shard: react-core-rest
+            project: "@copilotkit/react-core"
+            dir: packages/react-core
+            mutate: "src/**/*.ts,src/**/*.tsx,!src/components/**,!src/generative-ui/**,!src/external-reexports.ts,!src/**/__tests__/**,!src/**/*.test.ts,!src/**/*.test.tsx"
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -76,26 +94,30 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ matrix.dir }}/reports/mutation/stryker-incremental.json
-          key: stryker-incremental-${{ matrix.dir }}-${{ github.ref_name }}-${{ github.run_id }}
+          key: stryker-incremental-${{ matrix.shard }}-${{ github.ref_name }}-${{ github.run_id }}
           restore-keys: |
-            stryker-incremental-${{ matrix.dir }}-${{ github.ref_name }}-
-            stryker-incremental-${{ matrix.dir }}-
+            stryker-incremental-${{ matrix.shard }}-${{ github.ref_name }}-
+            stryker-incremental-${{ matrix.shard }}-
 
       - name: Run mutation tests
         env:
           PROJECT: ${{ matrix.project }}
+          MUTATE: ${{ matrix.mutate }}
           STRYKER_CONCURRENCY: "14"
-        run: pnpm nx run "$PROJECT:test:mutation"
+        run: |
+          if [ -n "$MUTATE" ]; then
+            pnpm nx run "$PROJECT:test:mutation" --mutate "$MUTATE"
+          else
+            pnpm nx run "$PROJECT:test:mutation"
+          fi
 
       - name: Save Stryker incremental file
-        if: ${{ !cancelled() }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ matrix.dir }}/reports/mutation/stryker-incremental.json
-          key: stryker-incremental-${{ matrix.dir }}-${{ github.ref_name }}-${{ github.run_id }}
+          key: stryker-incremental-${{ matrix.shard }}-${{ github.ref_name }}-${{ github.run_id }}
 
       - name: Write job summary
-        if: ${{ !cancelled() }}
         env:
           DIR: ${{ matrix.dir }}
         run: node scripts/mutation/summarize.mjs "$DIR" >> "$GITHUB_STEP_SUMMARY"
@@ -104,7 +126,7 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: mutation-report-${{ strategy.job-index }}
+          name: mutation-report-${{ matrix.shard }}
           path: |
             ${{ matrix.dir }}/reports/mutation/mutation.html
             ${{ matrix.dir }}/reports/mutation/mutation.json
