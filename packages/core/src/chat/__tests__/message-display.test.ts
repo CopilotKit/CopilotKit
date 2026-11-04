@@ -140,6 +140,14 @@ describe("user message content", () => {
     expect(ɵflattenUserMessageContent(untyped)).toBe("ok");
   });
 
+  it("returns nothing for content that is neither a string nor a list", () => {
+    const untyped = JSON.parse('{"type":"text","text":"not a list"}');
+
+    expect(ɵflattenUserMessageContent(untyped)).toBe("");
+    expect(ɵflattenUserMessageContent(JSON.parse("42"))).toBe("");
+    expect(ɵgetUserMessageMediaParts(untyped)).toEqual([]);
+  });
+
   it("finds the media parts and their file names", () => {
     const media = ɵgetUserMessageMediaParts(content);
 
