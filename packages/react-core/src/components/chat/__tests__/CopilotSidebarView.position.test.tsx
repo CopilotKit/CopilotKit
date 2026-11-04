@@ -53,6 +53,30 @@ describe("CopilotSidebarView page margin", () => {
   });
 });
 
+describe("CopilotSidebarView width prop", () => {
+  const sidebarWidth = (container: HTMLElement) =>
+    (getSidebarAside(container) as HTMLElement).style.getPropertyValue(
+      "--sidebar-width",
+    );
+
+  it("applies a width that changes after mount to the sidebar and the page margin", () => {
+    const body = document.body.style;
+    const view = (width: number) => (
+      <TestWrapper>
+        <CopilotSidebarView messages={sampleMessages} width={width} />
+      </TestWrapper>
+    );
+    const { container, rerender, unmount } = render(view(400));
+    expect(sidebarWidth(container)).toBe("400px");
+
+    rerender(view(520));
+
+    expect(sidebarWidth(container)).toBe("520px");
+    expect(body.marginInlineEnd).toBe("520px");
+    unmount();
+  });
+});
+
 describe("CopilotSidebarView position prop", () => {
   describe("CopilotSidebarView", () => {
     it("defaults to right-anchored when position is omitted", () => {

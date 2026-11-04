@@ -22,7 +22,6 @@ import { useCopilotKit } from "@copilotkit/react-core/context";
 import {
   ɵcreateChatSubmitter,
   ɵgetToolResults,
-  ɵisContentPart,
   ɵmessagesFingerprint,
 } from "@copilotkit/core";
 import type { CopilotKitCore } from "@copilotkit/core";
@@ -80,50 +79,6 @@ interface ChatListItem {
     type: "function";
     function: { name: string; arguments: string };
   }>;
-}
-
-/**
- * The tool message as renderers take it. Renderers receive `result: string`,
- * which react-core derives from AG-UI 1.0 content: a string as is, or the text
- * of a list of content parts.
- *
- * Other content only comes from a producer that skipped validation: restored
- * thread history, a non-SSE transport, or app code casting on `addMessage`.
- * It is serialized, not dropped, because an empty string is a legitimate tool
- * result and a dropped one would look the same. It warns in dev. It never
- * throws, also not on circular content.
- */
-function toRenderableToolMessage(message: ToolMessage): ToolMessage {
-  const content: unknown = message.content;
-  const isProtocolContent =
-    typeof content === "string" ||
-    (Array.isArray(content) && content.every(ɵisContentPart));
-  if (isProtocolContent) return message;
-
-  // null/undefined carry no payload, so "" loses nothing, but the message is
-  // still malformed, so it warns below.
-  let serialized = "";
-  if (content !== null && content !== undefined) {
-    try {
-      serialized =
-        JSON.stringify(content) ?? Object.prototype.toString.call(content);
-    } catch {
-      // Circular or otherwise not serializable: keep something rather than
-      // drop the result, and never throw from a render path.
-      serialized = Object.prototype.toString.call(content);
-    }
-  }
-
-  if (typeof __DEV__ === "undefined" || __DEV__) {
-    console.warn(
-      `[CopilotChat] Tool message for tool call "${message.toolCallId}" had non-string ` +
-        `content (${content === null ? "null" : typeof content}), but renderers ` +
-        `receive \`result: string\`. Rendering a serialized form instead of ` +
-        `dropping it: ${serialized === "" ? "<empty>" : serialized}`,
-    );
-  }
-
-  return { ...message, content: serialized };
 }
 
 /**
@@ -224,7 +179,10 @@ export function CopilotChat({
   const toolMessages = useMemo(() => {
     const byId = new Map<string, ToolMessage>();
     for (const [toolCallId, message] of ɵgetToolResults(messages)) {
-      byId.set(toolCallId, toRenderableToolMessage(message));
+      // A copy, so the tool-call renderer's memo sees content that was
+      // replaced in place on the same message. Core turns the content into
+      // the renderer's `result` string.
+      byId.set(toolCallId, { ...message });
     }
     return byId;
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- keyed on message content, see messagesKey

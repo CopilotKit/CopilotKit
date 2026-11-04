@@ -8,6 +8,7 @@
 import type { Message, ToolCall, ToolMessage } from "@ag-ui/core";
 import { contentToText } from "@ag-ui/core";
 import { DEFAULT_AGENT_ID, partialJSONParse } from "@copilotkit/shared";
+import { isContentPart } from "../core/tool-result-content";
 import { ToolCallStatus } from "../types";
 import type { CopilotChatLabels } from "./labels";
 
@@ -126,9 +127,7 @@ export function ɵbuildToolCallRenderProps(
     return {
       ...base,
       status: ToolCallStatus.Complete,
-      // AG-UI 1.0 lets a tool result carry content parts. Renderers get a
-      // string, so they get the text parts; the message keeps the media.
-      result: contentToText(toolMessage.content),
+      result: toolResultText(toolMessage),
     } as const;
   }
   if (status === ToolCallStatus.Executing) {
@@ -139,6 +138,55 @@ export function ɵbuildToolCallRenderProps(
     status: ToolCallStatus.InProgress,
     result: undefined,
   } as const;
+}
+
+const warnedToolMessages = new WeakSet<ToolMessage>();
+
+/**
+ * The tool result as renderers take it, `result: string`. AG-UI 1.0 lets a
+ * tool result carry content parts: renderers get the text parts, and the
+ * message keeps the media.
+ *
+ * Other content only comes from a producer that skipped validation: restored
+ * thread history, a non-SSE transport, or app code casting on `addMessage`.
+ * It is serialized as JSON, not dropped, because an empty string is a
+ * legitimate tool result and a dropped one would look the same. `null` gives
+ * `""`. It warns once per message outside production, and never throws, also
+ * not on circular content.
+ */
+function toolResultText(toolMessage: ToolMessage) {
+  const content: unknown = toolMessage.content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content) && content.every(isContentPart)) {
+    return contentToText(content);
+  }
+
+  let serialized = "";
+  if (content !== null && content !== undefined) {
+    try {
+      serialized =
+        JSON.stringify(content) ?? Object.prototype.toString.call(content);
+    } catch {
+      // Circular or otherwise not serializable: keep something rather than
+      // drop the result, and never throw from a render path.
+      serialized = Object.prototype.toString.call(content);
+    }
+  }
+
+  if (
+    process.env.NODE_ENV !== "production" &&
+    !warnedToolMessages.has(toolMessage)
+  ) {
+    warnedToolMessages.add(toolMessage);
+    console.warn(
+      `[CopilotChat] Tool message for tool call "${toolMessage.toolCallId}" had ` +
+        `content outside the AG-UI protocol ` +
+        `(${content === null ? "null" : typeof content}), but renderers ` +
+        `receive \`result: string\`. Rendering a serialized form instead of ` +
+        `dropping it: ${serialized === "" ? "<empty>" : serialized}`,
+    );
+  }
+  return serialized;
 }
 
 /**

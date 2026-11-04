@@ -269,6 +269,10 @@ A tool-call renderer gets `args` as an object. While the agent streams the argum
 
 If your renderer reads `args`, make sure that it accepts these two shapes.
 
+### Tool results that are not text in React, Vue, and Angular
+
+A tool-call renderer gets `result` as a string. The result of a tool message can come from restored thread history or from code that adds messages. If that result is not a string or a list of content parts, the renderer now gets the result as JSON text, and the console shows a warning one time for each message. A `null` result gives `""`. In 1.x, an object or `null` result threw an error while the chat drew the tool call, and a list that was not content parts gave `""`. React Native already did this.
+
 ### Built-in tool-call card
 
 The built-in card (`useDefaultRenderTool` in React and Vue) changed in these ways:
@@ -579,6 +583,7 @@ The docked sidebar adds an inline margin to `document.body` on its side. In 2.0,
 - **One owner:** Only one open docked sidebar on a page adds the margin. A second one logs a warning and adds no margin.
 - **Margins come back:** When the sidebar closes or unmounts, the body gets back the margins that it had before. React set them to `""`.
 - **Viewport changes:** The margin goes away when the viewport becomes 767px or narrower, and comes back when it becomes wider. If the browser has no `matchMedia`, the sidebar docks. React did not dock without `matchMedia`, for example in jsdom tests.
+- **Width changes:** In React, a new `width` prop after mount now changes the width of the sidebar and the margin. Before, React kept the first `width`. Vue and Angular already did this.
 - **Vue server rendering:** Vue sets the margin when the sidebar mounts. The server-rendered HTML has no margin and no `<style>` element for it.
 
 In Angular, the sidebar becomes a modal at `(max-width: 767px)`. Before, the breakpoint was `47.999rem`, which moved with the root font size.
@@ -718,12 +723,12 @@ The Angular chat now loads the suggestions of its agent only when nothing else l
 
 ## Thread connections
 
-React, Vue, and Angular now load a thread with the same rules.
+React, Vue, Angular, and the React Native headless `CopilotChat` now load a thread with the same rules.
 
 | Rule | Changed in |
 | --- | --- |
 | An agent that does not implement `connect` is not connected. Its thread shows as loaded at once, and its messages stay. | React, Angular |
-| When the chat closes or changes thread, it stops the run of a thread that still loads. A run that started after the thread loaded continues. | React, Vue |
+| When the chat closes or changes thread, it stops the run of a thread that still loads. A run that started after the thread loaded continues. | React, Vue, React Native |
 | An explicit thread shows as loading until it loads and the next frame paints. | Angular |
 | A move into or out of an Inspector thread stops the run. | Angular |
 | When the `threadId` input goes away, the chat starts a new thread. It does not go back to an earlier new thread. | Angular |
