@@ -280,7 +280,7 @@ function opToAstNode(
         text: op.props["text"] as string,
         display: op.props["display"] as boolean,
       };
-    default:
+    case "citation":
       return {
         ...base,
         type: "citation",

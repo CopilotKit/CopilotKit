@@ -272,8 +272,21 @@ function renderInlineNode(
         </Text>
       );
 
+    case "document":
+    case "paragraph":
+    case "heading":
+    case "blockquote":
+    case "list":
+    case "list-item":
+    case "code-block":
+    case "table":
+    case "table-row":
+    case "table-cell":
+    case "thematic-break":
+    case "math":
     default:
-      // Fallback for any inline nodes not explicitly handled
+      // Fallback for any inline nodes not explicitly handled. Math has no
+      // React Native renderer, so it shows its source text.
       if ("text" in node && typeof (node as any).text === "string") {
         return (node as any).text;
       }
@@ -405,6 +418,7 @@ function renderNode(
       // rendering lives in renderInlineNode so block and inline paths agree.
       return <Text key={node.id}>{renderInlineNode(node, ctx)}</Text>;
 
+    case "math":
     default:
       return null;
   }

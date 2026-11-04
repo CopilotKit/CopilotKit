@@ -206,7 +206,7 @@ export function createSseEventResponse({
     const observable = await observableFactory();
 
     if (captureTelemetry) {
-      telemetry.capture("oss.runtime.agent_execution_stream_started", {});
+      void telemetry.capture("oss.runtime.agent_execution_stream_started", {});
     }
 
     if (debug?.lifecycle) {
@@ -226,139 +226,151 @@ export function createSseEventResponse({
     // fields still win, since `collectExecutionInfo` writes over this.
     const executionInfo: AgentExecutionResponseInfo = { ...executionSeed };
 
-    subscription = observable.subscribe({
-      next: async (event) => {
-        collectExecutionInfo(event, executionInfo);
+    // RxJS ignores what an observer returns, so these async handlers run
+    // fire-and-forget.
+    const onNext = async (event: BaseEvent) => {
+      collectExecutionInfo(event, executionInfo);
 
-        // Extract threadId/runId from RUN_STARTED
-        if (event.type === "RUN_STARTED") {
-          const e = event as { threadId?: string; runId?: string };
-          debugThreadId = e.threadId ?? "";
-          debugRunId = e.runId ?? "";
-        }
+      // Extract threadId/runId from RUN_STARTED
+      if (event.type === "RUN_STARTED") {
+        const e = event as { threadId?: string; runId?: string };
+        debugThreadId = e.threadId ?? "";
+        debugRunId = e.runId ?? "";
+      }
 
-        if (event.type === "RUN_ERROR") {
-          const e = event as {
-            message?: unknown;
-            threadId?: string;
-            runId?: string;
-          };
-          debugThreadId = e.threadId ?? debugThreadId;
-          debugRunId = e.runId ?? debugRunId;
-          reportAgentError(
-            new Error(
-              typeof e.message === "string"
-                ? e.message
-                : "Runner reported a run error",
-            ),
-            "sse.subscription",
-          );
-        }
+      if (event.type === "RUN_ERROR") {
+        const e = event as {
+          message?: unknown;
+          threadId?: string;
+          runId?: string;
+        };
+        debugThreadId = e.threadId ?? debugThreadId;
+        debugRunId = e.runId ?? debugRunId;
+        reportAgentError(
+          new Error(
+            typeof e.message === "string"
+              ? e.message
+              : "Runner reported a run error",
+          ),
+          "sse.subscription",
+        );
+      }
 
-        // Broadcast to debug listeners BEFORE the stream-closed gate below.
-        // Intentional: debug subscribers (e.g. the VS Code Inspector panel)
-        // should still receive trailing events after the SSE client for
-        // this request closed its connection — they're independent
-        // consumers observing the underlying runtime, not the request's
-        // response stream.
-        //
-        // Wrapped in try/catch so a buggy debug subscriber can't propagate
-        // an exception into this observer — if the throw reached the
-        // `next` callback it would get routed to `error` by RxJS, closing
-        // the SSE stream for an unrelated reason. Log via `logError` and
-        // move on.
-        if (debugEventBus) {
-          try {
-            debugEventBus.broadcast(event, {
-              agentId: agentId ?? "",
-              threadId: debugThreadId,
-              runId: debugRunId,
-            });
-          } catch (broadcastError) {
-            logError(broadcastError);
-          }
-        }
-
-        if (!request.signal.aborted && !streamClosed) {
-          try {
-            eventCount++;
-            if (debug?.events) {
-              loggedEventCount++;
-              if (debug.verbose) {
-                debugLogger!.debug({ event }, "Event emitted");
-              } else {
-                debugLogger!.debug(
-                  { type: event.type, ...summarizeEvent(event) },
-                  "Event emitted",
-                );
-              }
-            }
-            // /connect replays finished runs before the live one, so a new
-            // RUN_STARTED reopens the stream for a RUN_ERROR.
-            if (event.type === EventType.RUN_STARTED) {
-              terminalEventWritten = false;
-            } else if (
-              event.type === EventType.RUN_FINISHED ||
-              event.type === EventType.RUN_ERROR
-            ) {
-              terminalEventWritten = true;
-            }
-            await writer.write(encoder.encodeBinary(event));
-          } catch (error) {
-            if (error instanceof Error && error.name === "AbortError") {
-              streamClosed = true;
-            } else {
-              // Non-abort write failures (backpressure disconnects,
-              // transform-stream exceptions, …) were previously swallowed
-              // silently — `streamClosed` stayed `false` and the next
-              // event re-attempted a broken writer. Log and mark the
-              // stream closed so we stop trying.
-              logError(error);
-              streamClosed = true;
-            }
-          }
-        }
-      },
-      error: async (error) => {
-        if (isThreadAccessDeniedError(error)) {
-          logAccessDenied(error);
-          await writeRunError(error);
-          await closeStream();
-          return;
-        }
-        reportAgentError(error, "sse.subscription");
-        if (captureTelemetry) {
-          // Analytics gets the outcome, not the message: provider and tool
-          // errors can quote prompts, arguments or URLs. Same as Intelligence.
-          telemetry.capture("oss.runtime.agent_execution_stream_errored", {
-            ...executionInfo,
-            error: "AGENT_EXECUTION_FAILED",
+      // Broadcast to debug listeners BEFORE the stream-closed gate below.
+      // Intentional: debug subscribers (e.g. the VS Code Inspector panel)
+      // should still receive trailing events after the SSE client for
+      // this request closed its connection — they're independent
+      // consumers observing the underlying runtime, not the request's
+      // response stream.
+      //
+      // Wrapped in try/catch so a buggy debug subscriber can't propagate
+      // an exception into this observer — if the throw reached the
+      // `next` callback it would get routed to `error` by RxJS, closing
+      // the SSE stream for an unrelated reason. Log via `logError` and
+      // move on.
+      if (debugEventBus) {
+        try {
+          debugEventBus.broadcast(event, {
+            agentId: agentId ?? "",
+            threadId: debugThreadId,
+            runId: debugRunId,
           });
+        } catch (broadcastError) {
+          logError(broadcastError);
         }
-        if (debug?.lifecycle) {
-          debugLogger!.debug(
-            { error: error instanceof Error ? error.message : String(error) },
-            "SSE stream errored",
-          );
+      }
+
+      if (!request.signal.aborted && !streamClosed) {
+        try {
+          eventCount++;
+          if (debug?.events) {
+            loggedEventCount++;
+            if (debug.verbose) {
+              debugLogger!.debug({ event }, "Event emitted");
+            } else {
+              debugLogger!.debug(
+                { type: event.type, ...summarizeEvent(event) },
+                "Event emitted",
+              );
+            }
+          }
+          // /connect replays finished runs before the live one, so a new
+          // RUN_STARTED reopens the stream for a RUN_ERROR.
+          if (event.type === EventType.RUN_STARTED) {
+            terminalEventWritten = false;
+          } else if (
+            event.type === EventType.RUN_FINISHED ||
+            event.type === EventType.RUN_ERROR
+          ) {
+            terminalEventWritten = true;
+          }
+          await writer.write(encoder.encodeBinary(event));
+        } catch (error) {
+          if (error instanceof Error && error.name === "AbortError") {
+            streamClosed = true;
+          } else {
+            // Non-abort write failures (backpressure disconnects,
+            // transform-stream exceptions, …) were previously swallowed
+            // silently — `streamClosed` stayed `false` and the next
+            // event re-attempted a broken writer. Log and mark the
+            // stream closed so we stop trying.
+            logError(error);
+            streamClosed = true;
+          }
         }
-        logError(error);
+      }
+    };
+    const onError = async (error: unknown) => {
+      if (isThreadAccessDeniedError(error)) {
+        logAccessDenied(error);
         await writeRunError(error);
         await closeStream();
+        return;
+      }
+      reportAgentError(error, "sse.subscription");
+      if (captureTelemetry) {
+        // Analytics gets the outcome, not the message: provider and tool
+        // errors can quote prompts, arguments or URLs. Same as Intelligence.
+        void telemetry.capture("oss.runtime.agent_execution_stream_errored", {
+          ...executionInfo,
+          error: "AGENT_EXECUTION_FAILED",
+        });
+      }
+      if (debug?.lifecycle) {
+        debugLogger!.debug(
+          { error: error instanceof Error ? error.message : String(error) },
+          "SSE stream errored",
+        );
+      }
+      logError(error);
+      await writeRunError(error);
+      await closeStream();
+    };
+    const onComplete = async () => {
+      if (captureTelemetry) {
+        void telemetry.capture(
+          "oss.runtime.agent_execution_stream_ended",
+          executionInfo,
+        );
+      }
+      if (debug?.lifecycle) {
+        debugLogger!.debug(
+          { eventCount, loggedEventCount },
+          "SSE stream completed",
+        );
+      }
+      await closeStream();
+    };
+
+    subscription = observable.subscribe({
+      next: (event) => {
+        void onNext(event);
       },
-      complete: async () => {
-        if (captureTelemetry) {
-          telemetry.capture(
-            "oss.runtime.agent_execution_stream_ended",
-            executionInfo,
-          );
-        }
-        if (debug?.lifecycle) {
-          debugLogger!.debug(
-            { eventCount, loggedEventCount },
-            "SSE stream completed",
-          );
-        }
-        await closeStream();
+      error: (error: unknown) => {
+        void onError(error);
+      },
+      complete: () => {
+        void onComplete();
       },
     });
 

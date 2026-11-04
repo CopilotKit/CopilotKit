@@ -407,6 +407,11 @@ export async function handleGetThreadMessages({
             content: msg.content,
             toolCallId: msg.toolCallId,
           };
+        case "activity":
+        case "developer":
+        case "reasoning":
+        case "system":
+        case "user":
         default:
           return {
             id: msg.id,

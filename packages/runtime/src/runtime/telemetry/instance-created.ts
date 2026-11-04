@@ -30,15 +30,15 @@ export function fireInstanceCreatedTelemetry({
   const runtimeTelemetry = runtime.telemetry ?? telemetry;
 
   agentsPromise
-    .then((agents) => {
+    .then((agents) =>
       runtimeTelemetry.capture("oss.runtime.instance_created", {
         actionsAmount: 0,
         endpointTypes: [],
         endpointsAmount: 0,
         agentsAmount: agents ? Object.keys(agents).length : null,
         "cloud.api_key_provided": false,
-      });
-    })
+      }),
+    )
     .catch(() => {
       // Swallow — telemetry must not break runtime creation.
     });

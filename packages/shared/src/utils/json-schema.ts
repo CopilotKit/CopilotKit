@@ -232,6 +232,10 @@ function convertAttribute(attribute: Parameter): JSONSchema {
         ...(properties && { properties }),
         ...(required && required.length > 0 && { required }),
       };
+    case "string[]":
+    case "number[]":
+    case "boolean[]":
+    case undefined:
     default:
       // Handle arrays of primitive types and undefined attribute.type
       if (attribute.type?.endsWith("[]")) {
