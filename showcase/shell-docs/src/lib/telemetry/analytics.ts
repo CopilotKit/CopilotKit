@@ -1,6 +1,9 @@
 // Client-side analytics, ported from shell-docs (posthog-provider.tsx,
-// track-command-copy.ts, analytics-utils.ts). Event names and property shapes
-// match shell-docs exactly so the existing PostHog dashboards keep working.
+// track-command-copy.ts, analytics-utils.ts). Where a control carried over
+// from shell-docs, its event keeps shell-docs' name and property shape so the
+// existing PostHog dashboards keep working. Events whose control the rebuild
+// dropped (the page-prompt pill, the picker's community-frameworks link, the
+// search modal's Intelligence CTA) are no longer sent.
 //
 // Safe to import anywhere: every function no-ops on the server.
 
