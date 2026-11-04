@@ -254,6 +254,11 @@ export function ɵtoolRendererShapeChanged(
 /** @internal A provider array prop that must keep its identity. */
 export type ɵStableArrayProp = keyof typeof ɵSTABLE_ARRAY_WARNINGS;
 
+// Every field of the shape is optional, so any object entry has the shape.
+function isToolRendererShape(value: unknown): value is ɵToolRendererShape {
+  return typeof value === "object" && value !== null;
+}
+
 /**
  * @internal The warning for a provider array prop that changed after mount,
  * or `undefined` when the change is fine.
@@ -279,8 +284,8 @@ export function ɵstableArrayPropWarning(
   if (
     prop === "renderToolCalls" &&
     !ɵtoolRendererShapeChanged(
-      (initial ?? []) as readonly ɵToolRendererShape[],
-      (next ?? []) as readonly ɵToolRendererShape[],
+      (initial ?? []).filter(isToolRendererShape),
+      (next ?? []).filter(isToolRendererShape),
     )
   ) {
     return undefined;

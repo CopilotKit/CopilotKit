@@ -540,7 +540,7 @@ export function ɵnextTabStop(element: Element, skip: Element | null) {
       candidate === element ||
       (!skip?.contains(candidate) && !candidate.closest("[hidden], [inert]")),
   );
-  const index = all.indexOf(element as HTMLElement);
+  const index = all.findIndex((candidate) => candidate === element);
   return index === -1 ? null : (all[index + 1] ?? null);
 }
 

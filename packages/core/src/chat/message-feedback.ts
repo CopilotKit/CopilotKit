@@ -531,6 +531,7 @@ export class ɵFeedbackCommentController {
         keyDown: (event) => {
           const input = this.#getInput();
           // Not while the popover hides because its thumb scrolled away.
+          // oxlint-disable-next-line typescript/no-unnecessary-condition -- checkVisibility is missing in older browsers and in jsdom
           const visible = input?.checkVisibility?.(HIDDEN_TOO) !== false;
           if (
             event.key === "Tab" &&

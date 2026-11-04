@@ -76,7 +76,7 @@ export function ɵregisterFrontendTools<
         name: tool.name,
         args: tool.parameters,
         agentId: tool.agentId,
-        render: tool.render as NonNullable<TTool["render"]>,
+        render: tool.render,
       });
     }
   }

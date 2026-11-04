@@ -165,6 +165,7 @@ function toolResultText(toolMessage: ToolMessage) {
   if (content !== null && content !== undefined) {
     try {
       serialized =
+        // oxlint-disable-next-line typescript/no-unnecessary-condition -- JSON.stringify returns undefined for a function or a symbol, though its type says string
         JSON.stringify(content) ?? Object.prototype.toString.call(content);
     } catch {
       // Circular or otherwise not serializable: keep something rather than
@@ -349,12 +350,12 @@ export interface ɵDefaultToolCallRenderProps {
  * already adapted it.
  */
 export interface ɵRawToolCallRenderProps {
-  name?: unknown;
-  toolCallId?: unknown;
+  name: string;
+  toolCallId: string;
   args?: unknown;
   parameters?: unknown;
   status?: unknown;
-  result?: unknown;
+  result?: string;
 }
 
 // Unknown statuses already warned about, so a stuck status does not log on
@@ -395,10 +396,10 @@ export function ɵadaptDefaultToolCallRenderProps(
   raw: ɵRawToolCallRenderProps,
 ): ɵDefaultToolCallRenderProps {
   return {
-    name: raw.name as string,
-    toolCallId: raw.toolCallId as string,
+    name: raw.name,
+    toolCallId: raw.toolCallId,
     parameters: raw.parameters !== undefined ? raw.parameters : raw.args,
     status: ɵtoDefaultToolCallStatus(raw.status),
-    result: raw.result as string | undefined,
+    result: raw.result,
   };
 }
