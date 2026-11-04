@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.2",
+    "@ag-ui/client": "1.0.4-canary.1792171324.0",
     "@ai-sdk/openai": "^3.0.36",
     "@ai-sdk/provider": "^3.0.8",
     "@copilotkit/core": "workspace:*",
