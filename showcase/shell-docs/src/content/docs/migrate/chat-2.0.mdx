@@ -671,11 +671,12 @@ useHumanInTheLoop({
 // Inside <script setup lang="ts">
 import { h } from "vue";
 import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import type { VueHumanInTheLoopRenderProps } from "@copilotkit/vue/v2";
 import ApprovalCard from "./ApprovalCard.vue";
 
 useHumanInTheLoop({
   name: "*",
-  render: (props) =>
+  render: (props: VueHumanInTheLoopRenderProps<Record<string, unknown>>) =>
     h(ApprovalCard, {
       toolName: props.name,
       onApprove: () => props.respond?.({ approved: true }),
