@@ -126,10 +126,7 @@
     },
     "eslint(no-unused-vars)": {
       "packages/a2ui-renderer/src/react-renderer/create-catalog.tsx": 1,
-      "packages/channels-slack/src/download-files.ts": 1,
-      "packages/react-native/src/CopilotSidebar.tsx": 1,
-      "packages/react-native/src/components/CopilotModal.tsx": 1,
-      "packages/react-native/src/components/messages/AssistantMessage.tsx": 1
+      "packages/channels-slack/src/download-files.ts": 1
     },
     "eslint-plugin-import(no-named-as-default)": {
       "packages/react-core/src/components/chat/CopilotChatAssistantMessage.tsx": 1,

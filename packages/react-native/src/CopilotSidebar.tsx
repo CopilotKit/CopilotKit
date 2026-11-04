@@ -9,7 +9,6 @@ import React, {
 import type { ReactNode } from "react";
 import {
   Animated,
-  Dimensions,
   Pressable,
   StyleSheet,
   Text,
