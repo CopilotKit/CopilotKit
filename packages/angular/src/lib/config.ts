@@ -18,6 +18,7 @@ import type {
   CopilotRuntimeTransport,
   SuggestionsConfig,
   ɵA2UIBaseOptions,
+  ɵCopilotKitLearningOptions,
   ɵCopilotKitProviderBaseOptions,
 } from "@copilotkit/core";
 import type { OpenGenerativeUIConfig } from "./open-generative-ui";
@@ -98,6 +99,23 @@ export interface CopilotKitConfig extends Pick<
    * always disabled in production and during server rendering.
    */
   enableInspector?: boolean;
+  /**
+   * Turns on interaction capture (`@copilotkit/learning`). `true` records with
+   * the default options; pass an object for options. Without a sink, Core
+   * authenticates with the runtime and sends browser events to Intelligence;
+   * a custom sink keeps the standalone collector behavior.
+   *
+   * Capture starts in the browser once `CopilotKit` is created. Set
+   * `trajectoryId` to use your own ID; otherwise one is generated. Set
+   * `autoStart: false` to start capture yourself with
+   * `copilotKit.core.startTrajectory()`. Capture stops when the application
+   * is destroyed, including manually started Trajectories. Read the active ID
+   * from `copilotKit.core.trajectoryId`.
+   *
+   * @example
+   * provideCopilotKit({ runtimeUrl: "/api/copilotkit", learning: true })
+   */
+  learning?: boolean | ɵCopilotKitLearningOptions;
   /**
    * Set to `false` when you list `@copilotkit/core/styles.css` in your
    * `angular.json` styles, so browsers cache the CSS as a file. CopilotKit then

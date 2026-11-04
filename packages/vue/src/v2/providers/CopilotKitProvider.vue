@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { randomUUID, ɵanySchema } from "@copilotkit/shared";
+import { ɵanySchema } from "@copilotkit/shared";
 import {
   computed,
   h,
@@ -14,7 +14,11 @@ import {
 } from "vue";
 import type { Component, FunctionalComponent } from "vue";
 import type { Catalog, ComponentApi } from "@a2ui/web_core/v0_9";
-import { ToolCallStatus } from "@copilotkit/core";
+import {
+  ToolCallStatus,
+  ɵLearningAutoStarter,
+  ɵtoLearningConfig,
+} from "@copilotkit/core";
 import type {
   CopilotKitHeadersSource,
   FrontendTool,
@@ -59,10 +63,7 @@ import { MARKDOWN_RENDERER_KEY } from "./markdown-renderer";
 import { LicenseContextKey } from "./license-context";
 import CopilotKitInspector from "../components/CopilotKitInspector.vue";
 import LicenseWarningBanner from "../components/LicenseWarningBanner.vue";
-import type {
-  CopilotKitLearningOptions,
-  CopilotKitProviderProps,
-} from "./CopilotKitProvider.types";
+import type { CopilotKitProviderProps } from "./CopilotKitProvider.types";
 import type {
   SandboxFunction,
   VueActivityMessageRenderer,
@@ -109,12 +110,16 @@ provide(
 );
 
 const shouldRenderInspector = ref(false);
+// Follows the Inspector's own show/hide, so message actions that open it are
+// hidden while a temporary dismissal hides it.
+const inspectorVisible = ref(false);
 
 function updateInspectorVisibility(): void {
   shouldRenderInspector.value = shouldEnableInspector({
     enableInspector: props.enableInspector,
     isBrowser: true,
     isDevelopment: process.env.NODE_ENV === "development",
+    hostname: window.location?.hostname,
   });
 }
 
@@ -122,7 +127,9 @@ onMounted(updateInspectorVisibility);
 watch(() => props.enableInspector, updateInspectorVisibility);
 
 const inspectorOpenRequest = ref<VueInspectorOpenRequest | null>(null);
-const isInspectorEnabled = computed(() => shouldRenderInspector.value);
+const isInspectorEnabled = computed(
+  () => shouldRenderInspector.value && inspectorVisible.value,
+);
 
 function openInspector(request: VueInspectorOpenRequest) {
   inspectorOpenRequest.value = { ...request };
@@ -499,18 +506,7 @@ const allRenderActivityMessages = computed(() => [
   ...builtInActivityRenderers.value,
 ]);
 
-function toLearningConfig(
-  learning: boolean | CopilotKitLearningOptions | undefined,
-): CopilotKitLearningOptions | undefined {
-  // `true` uses the default authenticated capture options.
-  if (learning === true) return {};
-  if (learning === false || learning === undefined) return undefined;
-  // `autoStart` only controls the provider; Core never receives it.
-  const { autoStart: _autoStart, ...config } = learning;
-  return config;
-}
-
-const learningConfig = computed(() => toLearningConfig(props.learning));
+const learningConfig = computed(() => ɵtoLearningConfig(props.learning));
 
 const createCopilotKit = () =>
   new CopilotKitCoreVue({
@@ -680,93 +676,17 @@ onMounted(() => {
   runtimeInfo.value = copilotkit.value.ɵruntimeInfo;
   didMountRef.value = true;
   // After the runtime URL is set, so CopilotKit's own runtime traffic is never
-  // captured. Created here, the watchers stop (and stop capture) on unmount.
-  watchLearning();
+  // captured. The provider's onUnmounted disposes the starter (stops capture).
+  watch(
+    () => props.learning,
+    (learning) => learningStarter.update(learning),
+    {
+      immediate: true,
+    },
+  );
 });
 
-const learningEnabled = computed(() => learningConfig.value !== undefined);
-// `true` is the options-free form, so only an object can opt out.
-const learningAutoStart = computed(
-  () =>
-    learningEnabled.value &&
-    (typeof props.learning !== "object" || props.learning.autoStart !== false),
-);
-const suppliedTrajectoryId = computed(() =>
-  learningAutoStart.value ? learningConfig.value?.trajectoryId : undefined,
-);
-const generatesTrajectoryId = computed(
-  () => learningAutoStart.value && suppliedTrajectoryId.value === undefined,
-);
-
-function watchLearning() {
-  let learningContainerIds = learningConfig.value?.learningContainerIds;
-
-  watch(
-    [learningConfig, learningAutoStart],
-    ([config, autoStart]) => {
-      copilotkit.value.setLearningConfig(config);
-      learningContainerIds = config?.learningContainerIds;
-      // Automatic starts report unsupported options in Core. With manual
-      // starts, the provider's container option is not part of
-      // startTrajectory() options.
-      if (
-        config?.sink === undefined &&
-        !autoStart &&
-        config?.learningContainerIds !== undefined
-      ) {
-        console.warn(
-          "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture ignores it; assign Learning Spaces on the server with getTrajectoryLearningContainerIds on CopilotKitIntelligence, and remove learningContainerIds from the capture options.",
-        );
-      }
-    },
-    { immediate: true },
-  );
-
-  // Watched as a boolean so a new inline `learning` object warns once.
-  watch(
-    () =>
-      !learningAutoStart.value &&
-      learningConfig.value?.trajectoryId !== undefined,
-    (ignoresTrajectoryId) => {
-      if (!ignoresTrajectoryId) return;
-      console.warn(
-        "[CopilotKit] learning.trajectoryId is ignored when autoStart is false; pass the ID to startTrajectory() instead.",
-      );
-    },
-    { immediate: true },
-  );
-
-  // Runs only when these change, so option changes that keep generating keep
-  // the generated Trajectory; generating again starts one with a new ID.
-  watch(
-    [learningEnabled, generatesTrajectoryId, suppliedTrajectoryId],
-    ([enabled, generates, supplied], _previous, onCleanup) => {
-      if (!enabled) return;
-      let disposed = false;
-      const core = copilotkit.value;
-      const trajectoryId = generates ? randomUUID() : supplied;
-      if (trajectoryId !== undefined) {
-        void core
-          .startTrajectory({ trajectoryId, learningContainerIds })
-          .catch(() => {
-            // Expected authentication/connection failures resolve with an
-            // error result; Core reports them to LearningConfig.onError or
-            // warns once. Consume unexpected rejections without logging
-            // credentials or errors from a previous start after a new
-            // Trajectory has already started.
-            if (!disposed) {
-              console.warn("[CopilotKit] Failed to start interaction capture.");
-            }
-          });
-      }
-      onCleanup(() => {
-        disposed = true;
-        core.stopTrajectory();
-      });
-    },
-    { immediate: true },
-  );
-}
+const learningStarter = new ɵLearningAutoStarter(copilotkit.value);
 
 const a2uiTheme = computed(() => props.a2ui?.theme);
 const a2uiCatalog = computed(() => props.a2ui?.catalog);
@@ -841,6 +761,7 @@ const licenseBannerType = computed(() => licenseState.value.bannerType);
 // subscriptions. `onUnmounted` runs after the children unmount, so their
 // cleanup still reaches a live core.
 onUnmounted(() => {
+  learningStarter.dispose();
   copilotkit.value.dispose();
 });
 </script>
@@ -851,6 +772,7 @@ onUnmounted(() => {
     v-if="shouldRenderInspector"
     :core="copilotkit"
     :open-request="inspectorOpenRequest"
+    @visibility-change="inspectorVisible = $event"
   />
   <!-- License warnings — driven by server-reported status -->
   <LicenseWarningBanner v-if="licenseBannerType" :type="licenseBannerType" />

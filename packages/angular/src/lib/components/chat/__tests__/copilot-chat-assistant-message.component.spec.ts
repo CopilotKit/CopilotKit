@@ -7,6 +7,7 @@ import type { AssistantMessage } from "../copilot-chat-assistant-message.types";
 import { CopilotChatAssistantMessage } from "../copilot-chat-assistant-message";
 import { CopilotChatViewHandlers } from "../copilot-chat-view-handlers";
 import { provideCopilotKit } from "../../../config";
+import { CopilotInspector } from "../../../inspector";
 
 @Injectable()
 class ViewHandlersStub extends CopilotChatViewHandlers {
@@ -57,13 +58,23 @@ describe("CopilotChatAssistantMessage", () => {
     );
   }
 
-  /** Creates the component; `enableInspector` turns its shortcut on or off. */
-  async function setUp({ enableInspector = false } = {}) {
+  /**
+   * Creates the component. `inspectorShown` stands in for an Inspector that
+   * is enabled and visible, which turns its message shortcut on.
+   */
+  async function setUp({ inspectorShown = false } = {}) {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       imports: [CopilotChatAssistantMessage],
       providers: [
-        provideCopilotKit({ enableInspector }),
+        provideCopilotKit({}),
+        {
+          provide: CopilotInspector,
+          useValue: {
+            isInspectorEnabled: inspectorShown,
+            openInspector: vi.fn(),
+          },
+        },
         { provide: CopilotChatViewHandlers, useClass: ViewHandlersStub },
       ],
     }).compileComponents();
@@ -145,7 +156,7 @@ describe("CopilotChatAssistantMessage", () => {
     });
 
     it("shows without text for the Inspector shortcut", async () => {
-      await setUp({ enableInspector: true });
+      await setUp({ inspectorShown: true });
 
       expect(
         hasToolbar({ message: { ...assistantMessage, content: "  " } }),

@@ -1,15 +1,18 @@
 "use client";
 
-import { randomUUID, ɵanySchema } from "@copilotkit/shared";
+import { ɵanySchema } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   FrontendTool,
   ɵA2UIBaseOptions,
-  ɵCopilotKitLearningOptions,
   ɵCopilotKitProviderBaseOptions,
   ɵRuntimeInfo,
 } from "@copilotkit/core";
-import { ToolCallStatus } from "@copilotkit/core";
+import {
+  ToolCallStatus,
+  ɵLearningAutoStarter,
+  ɵtoLearningConfig,
+} from "@copilotkit/core";
 import type React from "react";
 import {
   createElement,
@@ -248,22 +251,6 @@ export interface CopilotKitProviderProps extends ɵCopilotKitProviderBaseOptions
   generativeUI?: GenerativeUIConfig;
 }
 
-type LearningProp = ɵCopilotKitLearningOptions;
-
-// `learning={true}` uses the default authenticated capture options. One shared
-// object keeps the config stable across renders.
-const DEFAULT_LEARNING: LearningProp = Object.freeze({});
-
-function toLearningConfig(
-  learning: boolean | LearningProp | undefined,
-): LearningProp | undefined {
-  if (learning === true) return DEFAULT_LEARNING;
-  if (learning === false || learning === undefined) return undefined;
-  // `autoStart` only controls the provider; Core never receives it.
-  const { autoStart: _autoStart, ...config } = learning;
-  return config;
-}
-
 // Small helper to normalize array props to a stable reference and warn
 function useStableArrayProp<T>(
   prop: T[] | undefined,
@@ -323,7 +310,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 }) => {
   // Memoized so a stable `learning` object keeps a stable config after
   // `autoStart` is removed.
-  const learningConfig = useMemo(() => toLearningConfig(learning), [learning]);
+  const learningConfig = useMemo(() => ɵtoLearningConfig(learning), [learning]);
 
   // Keep the server render and the first client render identical. The
   // Inspector only runs in local development. Resolve its host and build
@@ -337,8 +324,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         enableInspector,
         isBrowser: true,
         isDevelopment: process.env.NODE_ENV === "development",
-      }) &&
-        ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname),
+        hostname: window.location?.hostname,
+      }),
     );
   }, [enableInspector]);
 
@@ -878,81 +865,15 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   ]);
 
   // Start the Trajectory in the commit phase, after the runtime URL is set, so
-  // CopilotKit's own runtime traffic is never captured. Under StrictMode the
-  // start/stop/start sequence installs the capture hooks once.
-  const learningEnabled = learningConfig !== undefined;
-  // `true` is the options-free form, so only an object can opt out.
-  const autoStart =
-    learningEnabled &&
-    (typeof learning !== "object" || learning.autoStart !== false);
-  const suppliedTrajectoryId = autoStart
-    ? learningConfig?.trajectoryId
-    : undefined;
-  const generatesTrajectoryId = autoStart && suppliedTrajectoryId === undefined;
-  const learningContainerIdsRef = useRef(learningConfig?.learningContainerIds);
-  // Kept outside the effect so StrictMode replays and dependency changes that
-  // keep generating restart the same Trajectory.
-  const generatedTrajectoryIdRef = useRef<string | undefined>(undefined);
+  // CopilotKit's own runtime traffic is never captured. The starter keeps its
+  // generated Trajectory ID across StrictMode's dispose and replay.
+  const learningStarterRef = useRef<ɵLearningAutoStarter | null>(null);
+  learningStarterRef.current ??= new ɵLearningAutoStarter(copilotkit);
+  const learningStarter = learningStarterRef.current;
   useEffect(() => {
-    copilotkit.setLearningConfig(learningConfig);
-    learningContainerIdsRef.current = learningConfig?.learningContainerIds;
-    // Automatic starts report unsupported options in Core. With manual starts,
-    // the provider's container option is not part of startTrajectory() options.
-    if (
-      learningConfig?.sink === undefined &&
-      !autoStart &&
-      learningConfig?.learningContainerIds !== undefined
-    ) {
-      console.warn(
-        "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture ignores it; assign Learning Spaces on the server with getTrajectoryLearningContainerIds on CopilotKitIntelligence, and remove learningContainerIds from the capture options.",
-      );
-    }
-  }, [copilotkit, learningConfig, autoStart]);
-
-  // Keyed on a boolean so an inline `learning` object warns once, not per render.
-  const ignoresTrajectoryId =
-    !autoStart && learningConfig?.trajectoryId !== undefined;
-  useEffect(() => {
-    if (!ignoresTrajectoryId) return;
-    console.warn(
-      "[CopilotKit] learning.trajectoryId is ignored when autoStart is false; pass the ID to startTrajectory() instead.",
-    );
-  }, [ignoresTrajectoryId]);
-
-  useEffect(() => {
-    // Leaving generation ends its Trajectory; generating again starts a new one.
-    if (!generatesTrajectoryId) generatedTrajectoryIdRef.current = undefined;
-    if (!learningEnabled) return;
-    let disposed = false;
-    const trajectoryId = generatesTrajectoryId
-      ? (generatedTrajectoryIdRef.current ??= randomUUID())
-      : suppliedTrajectoryId;
-    if (trajectoryId !== undefined) {
-      void copilotkit
-        .startTrajectory({
-          trajectoryId,
-          learningContainerIds: learningContainerIdsRef.current,
-        })
-        .catch(() => {
-          // Expected authentication/connection failures resolve with an error
-          // result; Core reports them to LearningConfig.onError or warns once.
-          // Consume unexpected rejections without logging credentials or errors from
-          // a previous effect after a new Trajectory has already started.
-          if (!disposed) {
-            console.warn("[CopilotKit] Failed to start interaction capture.");
-          }
-        });
-    }
-    return () => {
-      disposed = true;
-      copilotkit.stopTrajectory();
-    };
-  }, [
-    copilotkit,
-    learningEnabled,
-    generatesTrajectoryId,
-    suppliedTrajectoryId,
-  ]);
+    learningStarter.update(learning);
+  }, [learningStarter, learning]);
+  useEffect(() => () => learningStarter.dispose(), [learningStarter]);
 
   // Sync render/tool arrays to the stable instance via setters.
   // On mount, the constructor already receives the correct initial values,

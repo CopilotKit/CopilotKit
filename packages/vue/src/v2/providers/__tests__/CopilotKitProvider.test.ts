@@ -5,11 +5,12 @@ import {
   createSSRApp,
   defineComponent,
   h,
+  inject,
   nextTick,
   ref,
   watchEffect,
 } from "vue";
-import type { VNode } from "vue";
+import type { ComputedRef, VNode } from "vue";
 import { renderToString } from "vue/server-renderer";
 import type {
   CopilotKitCoreSubscriber,
@@ -23,6 +24,7 @@ import { defineWebInspector } from "@copilotkit/web-inspector";
 import { z } from "zod";
 import CopilotKitProvider from "../CopilotKitProvider.vue";
 import { useCopilotKit } from "../useCopilotKit";
+import { InspectorKey } from "../keys";
 import type { VueFrontendTool } from "../../types";
 import type { VueHumanInTheLoop } from "../../types";
 import { mountWithProvider } from "../../__tests__/utils/mount";
@@ -838,7 +840,7 @@ describe("CopilotKitProvider", () => {
       vi.stubEnv("NODE_ENV", "development");
     });
 
-    it("renders by default on any development host and passes the provider core before connection", async () => {
+    it("renders by default on a loopback development host and passes the provider core before connection", async () => {
       let providerCore: CopilotKitCoreContextValue | null = null;
       const Probe = defineComponent({
         setup() {
@@ -869,6 +871,47 @@ describe("CopilotKitProvider", () => {
       expect(inspector.coreAtConnection).toBe(providerCore);
       expect(inspector.autoAttachCoreAtConnection).toBe(false);
       expect(defineWebInspector).toHaveBeenCalledTimes(1);
+      view.unmount();
+    });
+
+    it("never renders or loads on a remote development host, even when explicitly enabled", async () => {
+      vi.stubGlobal("location", new URL("http://192.168.1.25:3000"));
+      const view = render(CopilotKitProvider, {
+        props: { runtimeUrl: "/api/copilotkit", enableInspector: true },
+        slots: { default: "child" },
+      });
+
+      await settleInspectorLoad();
+      expect(view.container.querySelector("cpk-web-inspector")).toBeNull();
+      expect(defineWebInspector).not.toHaveBeenCalled();
+      view.unmount();
+    });
+
+    it("enables Inspector message actions only while the Inspector is shown", async () => {
+      let isInspectorEnabled: ComputedRef<boolean> | undefined;
+      const Probe = defineComponent({
+        setup() {
+          isInspectorEnabled = inject(InspectorKey)?.isInspectorEnabled;
+          return () => null;
+        },
+      });
+      const view = render(CopilotKitProvider, {
+        props: { runtimeUrl: "/api/copilotkit" },
+        slots: { default: Probe },
+      });
+
+      await waitFor(() => {
+        expect(isInspectorEnabled?.value).toBe(true);
+      });
+      const inspector = view.container.querySelector("cpk-web-inspector")!;
+      inspector.dispatchEvent(
+        new CustomEvent("cpk-inspector-visibility-change", {
+          detail: { visible: false },
+        }),
+      );
+      await nextTick();
+      expect(isInspectorEnabled?.value).toBe(false);
+      expect(inspector.isConnected).toBe(true);
       view.unmount();
     });
 

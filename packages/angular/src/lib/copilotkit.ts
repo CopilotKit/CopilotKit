@@ -1,4 +1,5 @@
 import type { AbstractAgent } from "@ag-ui/client";
+import { isPlatformBrowser } from "@angular/common";
 import type {
   FrontendTool,
   CopilotRuntimeTransport,
@@ -6,6 +7,7 @@ import type {
   CopilotKitHeadersSource,
   CopilotKitMessageFilter,
   SuggestionsConfig,
+  ɵSuggestionsConfigInput,
   ɵCopilotKitCoreConfigPatch,
   ɵProviderConfigInput,
   ɵRuntimeInfo,
@@ -14,6 +16,8 @@ import type { DebugConfig } from "@copilotkit/shared";
 import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
+  ɵbindSuggestionsConfig,
+  ɵLearningAutoStarter,
   ɵRendererRegistry,
   ɵpublicKeyHeaderDefaults,
   ɵreportProviderConfigDiagnostics,
@@ -27,12 +31,13 @@ import {
   Injector,
   PLATFORM_ID,
   computed,
+  effect,
   isDevMode,
   runInInjectionContext,
   signal,
   inject,
+  untracked,
 } from "@angular/core";
-import { isPlatformBrowser } from "@angular/common";
 import type {
   FrontendToolConfig,
   HumanInTheLoopConfig,
@@ -73,6 +78,7 @@ import {
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { CopilotInspector } from "./inspector";
+import { COPILOT_CHAT_CONFIGURATION } from "./chat-configuration";
 import { ɵOpenThreadBindings } from "./open-thread-bindings";
 
 /** Map Angular's option names onto core's provider config input. */
@@ -339,6 +345,7 @@ export class CopilotKit {
       logged: this.#loggedDiagnostics,
     });
     void this.#inspector.isInspectorEnabled;
+    this.#startLearning();
     // A builder is only evaluated at send time, so it can't be read here.
     // The record branch below already has its own key-header fallback.
     ensureLicenseWatermark(
@@ -742,8 +749,67 @@ export class CopilotKit {
     };
   }
 
+  /** Applies `config.learning` in the browser; capture stops on destroy. */
+  #startLearning() {
+    const { learning } = this.#config;
+    if (learning === undefined || !isPlatformBrowser(inject(PLATFORM_ID))) {
+      return;
+    }
+    const learningStarter = new ɵLearningAutoStarter(this.core);
+    learningStarter.update(learning);
+    inject(DestroyRef).onDestroy(() => learningStarter.dispose());
+  }
+
   addSuggestionsConfig(config: SuggestionsConfig): string {
     return this.core.addSuggestionsConfig(config);
+  }
+
+  /**
+   * Registers a suggestions config for as long as the calling context lives:
+   * the Angular counterpart of `useConfigureSuggestions` in React and Vue.
+   *
+   * Call it in an injection context (a constructor or field initializer), or
+   * pass `injector`. A global config (no `consumerAgentId`, or `"*"`) loads
+   * for the surrounding chat configuration's agent and every idle agent. The
+   * config is removed when that context is destroyed or `dispose()` is called.
+   * Pass a function to re-apply the config when signals it reads change;
+   * configs with equal content are no-ops.
+   *
+   * @example
+   * readonly suggestions = inject(CopilotKit).configureSuggestions(() => ({
+   *   instructions: `Suggest next steps about ${this.topic()}`,
+   *   available: "always",
+   * }));
+   */
+  configureSuggestions(
+    config:
+      | ɵSuggestionsConfigInput
+      | null
+      | undefined
+      | (() => ɵSuggestionsConfigInput | null | undefined),
+    options: { injector?: Injector } = {},
+  ) {
+    const injector = options.injector ?? inject(Injector);
+    const chatConfig = injector.get(COPILOT_CHAT_CONFIGURATION, null);
+    const readConfig = typeof config === "function" ? config : () => config;
+    const readChatAgentId = () => chatConfig?.agentId();
+    const binding = ɵbindSuggestionsConfig(this.core, untracked(readConfig), {
+      chatAgentId: untracked(readChatAgentId),
+    });
+    const watcher = effect(
+      () => {
+        const next = readConfig();
+        const chatAgentId = readChatAgentId();
+        untracked(() => binding.update(next, { chatAgentId }));
+      },
+      { injector },
+    );
+    const dispose = () => {
+      watcher.destroy();
+      binding.dispose();
+    };
+    injector.get(DestroyRef).onDestroy(dispose);
+    return { reload: () => binding.reload(), dispose };
   }
 
   removeSuggestionsConfig(id: string): void {

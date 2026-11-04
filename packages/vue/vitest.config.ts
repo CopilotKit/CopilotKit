@@ -12,12 +12,17 @@ export default defineConfig({
     reporters: [["default", { summary: false }]],
   },
   resolve: {
-    alias: {
-      "@": resolve(__dirname, "./src"),
-      "@copilotkit/web-inspector": resolve(
-        __dirname,
-        "./src/v2/__tests__/mocks/web-inspector.ts",
-      ),
-    },
+    // Exact match, so the real `@copilotkit/web-inspector/mount` subpath
+    // still resolves while the Inspector bundle itself is mocked.
+    alias: [
+      { find: "@", replacement: resolve(__dirname, "./src") },
+      {
+        find: /^@copilotkit\/web-inspector$/,
+        replacement: resolve(
+          __dirname,
+          "./src/v2/__tests__/mocks/web-inspector.ts",
+        ),
+      },
+    ],
   },
 });

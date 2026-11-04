@@ -41,6 +41,17 @@ export { ɵRendererRegistry } from "./renderer-registry";
 export type { ɵRendererKind, ɵRendererRegistryInit } from "./renderer-registry";
 export type * from "./generative-ui-debug";
 export {
+  ɵbindSuggestionsConfig,
+  ɵsubscribeToAgentSuggestions,
+} from "./suggestions-binding";
+export type {
+  ɵStaticSuggestionInput,
+  ɵSuggestionsBinding,
+  ɵSuggestionsBindingOptions,
+  ɵSuggestionsConfigInput,
+} from "./suggestions-binding";
+export { ɵLearningAutoStarter, ɵtoLearningConfig } from "./learning-autostart";
+export {
   ɵclearAgentThreadCursors,
   ɵresetAgentThreadBaseline,
 } from "./thread-baseline";
