@@ -571,8 +571,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       });
       return {
         tools: assembled.tools,
-        renderToolCalls:
-          assembled.renderToolCalls as ReactToolCallRenderer[],
+        renderToolCalls: assembled.renderToolCalls as ReactToolCallRenderer[],
       };
     }, [
       renderToolCallsList,
