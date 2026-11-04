@@ -126,7 +126,6 @@
     },
     "eslint(no-unused-vars)": {
       "packages/a2ui-renderer/src/react-renderer/create-catalog.tsx": 1,
-      "packages/angular/src/lib/components/chat/copilot-threads-drawer.ts": 2,
       "packages/channels-slack/src/download-files.ts": 1,
       "packages/react-core/src/components/chat/CopilotChatView.tsx": 3,
       "packages/react-core/src/components/chat/CopilotThreadsDrawer.tsx": 1,
@@ -886,18 +885,6 @@
       "packages/web-inspector/vitest.setup.ts": 4
     },
     "typescript-eslint(no-unnecessary-type-arguments)": {
-      "packages/angular/src/a2ui/lib/surface.ts": 1,
-      "packages/angular/src/lib/components/a2ui/a2ui-activity-renderer.ts": 1,
-      "packages/angular/src/lib/components/a2ui/surface-outlet.ts": 1,
-      "packages/angular/src/lib/components/chat/copilot-chat-assistant-message-buttons.ts": 5,
-      "packages/angular/src/lib/components/chat/copilot-chat-buttons.ts": 6,
-      "packages/angular/src/lib/components/chat/copilot-chat-input.ts": 4,
-      "packages/angular/src/lib/components/chat/copilot-chat-inspector-button.ts": 1,
-      "packages/angular/src/lib/components/chat/copilot-chat-lightbox.ts": 1,
-      "packages/angular/src/lib/components/chat/copilot-chat-suggestion-pill.ts": 1,
-      "packages/angular/src/lib/components/chat/copilot-chat-user-message-buttons.ts": 2,
-      "packages/angular/src/lib/components/chat/copilot-chat-view-scroll-to-bottom-button.ts": 1,
-      "packages/angular/src/lib/directives/stick-to-bottom.ts": 1,
       "packages/core/src/a2ui/lifecycle.ts": 1,
       "packages/core/src/chat/renderers.ts": 4,
       "packages/core/src/chat/tool-call-layout.ts": 1,

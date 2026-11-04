@@ -49,7 +49,7 @@ const chatInputToolbarSecondary =
 })
 export class CopilotChatSendButton {
   disabled = input(false);
-  clicked = output<void>();
+  clicked = output();
   readonly labels = injectChatLabels();
 
   readonly ArrowUpIcon = ArrowUp;
@@ -86,7 +86,7 @@ export class CopilotChatSendButton {
 })
 export class CopilotChatStartTranscribeButton {
   disabled = input(false);
-  clicked = output<void>();
+  clicked = output();
 
   readonly labels = injectChatLabels();
 
@@ -128,7 +128,7 @@ export class CopilotChatStartTranscribeButton {
 })
 export class CopilotChatCancelTranscribeButton {
   disabled = input(false);
-  clicked = output<void>();
+  clicked = output();
 
   readonly labels = injectChatLabels();
 
@@ -170,7 +170,7 @@ export class CopilotChatCancelTranscribeButton {
 })
 export class CopilotChatFinishTranscribeButton {
   disabled = input(false);
-  clicked = output<void>();
+  clicked = output();
 
   readonly labels = injectChatLabels();
 
@@ -212,7 +212,7 @@ export class CopilotChatFinishTranscribeButton {
 })
 export class CopilotChatAddFileButton {
   disabled = input(false);
-  clicked = output<void>();
+  clicked = output();
 
   readonly labels = injectChatLabels();
 
@@ -256,7 +256,7 @@ export class CopilotChatToolbarButton {
   customClass = input("");
   title = input("");
 
-  clicked = output<void>();
+  clicked = output();
 
   computedClass = computed(() => {
     const variantClass =

@@ -65,7 +65,7 @@ export class CopilotChatLightbox {
   readonly content = input.required<TemplateRef<unknown>>();
   /** The dialog's accessible name. */
   readonly label = input<string>();
-  readonly closed = output<void>();
+  readonly closed = output();
   readonly labels = injectChatLabels();
   readonly XIcon = X;
   private readonly closeButton =
