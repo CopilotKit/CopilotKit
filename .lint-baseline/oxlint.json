@@ -129,8 +129,7 @@
       "packages/channels-slack/src/download-files.ts": 1,
       "packages/react-native/src/CopilotSidebar.tsx": 1,
       "packages/react-native/src/components/CopilotModal.tsx": 1,
-      "packages/react-native/src/components/messages/AssistantMessage.tsx": 1,
-      "packages/web-inspector/src/shell/web-inspector-element.ts": 1
+      "packages/react-native/src/components/messages/AssistantMessage.tsx": 1
     },
     "eslint-plugin-import(no-named-as-default)": {
       "packages/react-core/src/components/chat/CopilotChatAssistantMessage.tsx": 1,
@@ -877,8 +876,7 @@
     },
     "typescript-eslint(no-unnecessary-type-arguments)": {
       "packages/core/src/chat/renderers.ts": 2,
-      "packages/vue/src/v2/lib/vue-core.ts": 4,
-      "packages/web-inspector/src/shared/display/display-value.ts": 1
+      "packages/vue/src/v2/lib/vue-core.ts": 4
     },
     "typescript-eslint(no-unnecessary-type-assertion)": {
       "packages/a2ui-renderer/src/react-renderer/a2ui-react/catalog/basic/components/TextField.tsx": 1,
