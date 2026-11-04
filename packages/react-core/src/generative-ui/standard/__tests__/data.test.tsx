@@ -1,6 +1,6 @@
 import React from "react";
 import { act, fireEvent, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createGenerativeUI } from "../../catalog";
 import { useStableValue } from "../Chart";
@@ -312,6 +312,11 @@ describe("List", () => {
 });
 
 describe("Chart", () => {
+  // Chart loads recharts with React.lazy. Its first, uncached import can take
+  // longer than waitFor's 1 s default on a loaded CI runner, so load it once
+  // here, under the 10 s hook timeout, before any test waits for a chart.
+  beforeAll(() => import("recharts"));
+
   it("draws the chart with recharts and gives the series data as a table", async () => {
     const view = renderSurface(ui, [
       {
