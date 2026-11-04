@@ -106,6 +106,8 @@ class StreamingAgent extends RunDrivenAgent {
 
 class ConnectedHttpAgent extends HttpAgent {
   readonly connection = new Subject<BaseEvent>();
+  /** The stream of the last run, which never reaches the network. */
+  output = new Subject<BaseEvent>();
 
   constructor() {
     super({ agentId: "chat", url: "/agent" });
@@ -113,6 +115,11 @@ class ConnectedHttpAgent extends HttpAgent {
 
   protected override connect() {
     return this.connection;
+  }
+
+  override run() {
+    this.output = new Subject<BaseEvent>();
+    return this.output;
   }
 }
 
@@ -463,6 +470,30 @@ describe("ɵChatConnection release", () => {
     handle.release();
 
     expect(controller.signal.aborted).toBe(true);
+  });
+
+  it("does not take a run that started before the connect for the connect's own", async () => {
+    const { connection } = createRealConnection();
+    const agent = new ConnectedHttpAgent();
+    // The previous thread's teardown holds the connect back.
+    const teardown = deferred();
+    connection.threads.queueTeardown(teardown.promise);
+    const handle = connection.open({ agent, threadId: "t1", explicit: true });
+    // A run that starts meanwhile, such as a tool follow-up.
+    const earlier = agent.runAgent();
+    await vi.waitFor(() => expect(agent.isRunning).toBe(true));
+    const connectAgent = vi.spyOn(agent, "connectAgent");
+    teardown.resolve();
+    await vi.waitFor(() => expect(connectAgent).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(agent.isRunning).toBe(true));
+    const controller = agent.abortController;
+    const detach = vi.spyOn(agent, "detachActiveRun");
+
+    handle.release();
+
+    expect(controller.signal.aborted).toBe(true);
+    expect(detach).toHaveBeenCalledOnce();
+    await earlier.catch(() => {});
   });
 
   it("does not abort a successor connect that reuses the controller", async () => {

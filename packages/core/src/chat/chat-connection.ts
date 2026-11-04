@@ -292,7 +292,10 @@ export class ɵChatConnection {
     const { core, onInspectorOverrideFailed } = this.options;
     const { agent, threadId, inspectorRequestId } = selection;
     const controller = new AbortController();
-    const ownership = new ConnectOwnership(agent);
+    // Armed right before `connectAgent`, so a run that started earlier (a
+    // tool follow-up from the previous thread, an app's `runAgent`) is not
+    // taken for the connect's run.
+    let ownership: ConnectOwnership | undefined;
     let released = false;
     let settled = false;
 
@@ -320,6 +323,7 @@ export class ɵChatConnection {
           if (released) return;
           // `connectAgent` keeps the agent's controller, unlike `runAgent`.
           if (ɵisHttpAgent(agent)) agent.abortController = controller;
+          ownership = new ConnectOwnership(agent);
           await core.connectAgent({ agent });
         } catch (error) {
           if (released || error instanceof AGUIConnectNotImplementedError) {
@@ -332,7 +336,7 @@ export class ɵChatConnection {
       })
       .finally(() => {
         settled = true;
-        ownership.stopWatching();
+        ownership?.stopWatching();
         if (released) {
           // The user moved on to a fresh thread while this one loaded:
           // clear what it applied so the fresh thread shows empty.
@@ -352,15 +356,16 @@ export class ɵChatConnection {
         released = true;
         selection.release();
         inspectorErrors?.unsubscribe();
-        const ownsRun = !settled && ownership.ownsActiveRun();
+        // Before the connect is armed it has started no run to detach.
+        const ownsRun = !settled && ownership?.ownsActiveRun() === true;
         // A connect that settled no longer owns the controller unless a run
         // replaced it; a successor connect may still be using it.
         const ownsController =
-          !ownership.replaced &&
+          ownership?.replaced !== true &&
           (!settled ||
             (ɵisHttpAgent(agent) && agent.abortController !== controller));
         if (ownsController) controller.abort();
-        ownership.stopWatching();
+        ownership?.stopWatching();
         if (ownsRun) void this.threads.detach(agent);
       },
     };
@@ -369,7 +374,9 @@ export class ɵChatConnection {
 
 /**
  * Tells whether the agent's active run is still the pipeline a connect
- * started, or whether another run replaced it.
+ * started, or whether another run replaced it. It watches from the moment it
+ * is created, and takes the first run that initializes after that for the
+ * connect's own, so create it right before the connect starts.
  */
 class ConnectOwnership {
   /** Set when another run initialized on the agent after the connect's own. */
