@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type {
   CopilotChatViewProps,
   WelcomeScreenProps,
@@ -12,8 +18,10 @@ import type { SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 import {
   CopilotChatDefaultLabels,
-  ɵPOPUP_ANIMATION_MS,
+  ɵPOPUP_DEFAULT_HEIGHT,
+  ɵPOPUP_DEFAULT_WIDTH,
   ɵbindPopupDismiss,
+  ɵcreateExitPresence,
   ɵdimensionToCss,
 } from "@copilotkit/core";
 import {
@@ -22,9 +30,6 @@ import {
   useCopilotChatConfiguration,
 } from "../../providers/CopilotChatConfigurationProvider";
 import { useModalOpenControl } from "./modal-open-control";
-
-const DEFAULT_POPUP_WIDTH = 420;
-const DEFAULT_POPUP_HEIGHT = 560;
 
 export type CopilotPopupViewProps = CopilotChatViewProps & {
   /** Accepts a className, partial props, or any component with CopilotModalHeader props — static namespace members are not required. */
@@ -96,28 +101,17 @@ function CopilotPopupViewInternal({
   const labels = configuration?.labels ?? CopilotChatDefaultLabels;
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isRendered, setIsRendered] = useState(isPopupOpen);
-  const [isAnimatingOut, setIsAnimatingOut] = useState(false);
-
+  // Core keeps the closed popup rendered while its exit animation plays.
+  const [presence] = useState(() => ɵcreateExitPresence(isPopupOpen));
+  const { isRendered, isClosing: isAnimatingOut } = useSyncExternalStore(
+    presence.subscribe,
+    presence.getState,
+    presence.getState,
+  );
   useEffect(() => {
-    if (isPopupOpen) {
-      setIsRendered(true);
-      setIsAnimatingOut(false);
-      return;
-    }
-
-    if (!isRendered) {
-      return;
-    }
-
-    setIsAnimatingOut(true);
-    const timeout = setTimeout(() => {
-      setIsRendered(false);
-      setIsAnimatingOut(false);
-    }, ɵPOPUP_ANIMATION_MS);
-
-    return () => clearTimeout(timeout);
-  }, [isPopupOpen, isRendered]);
+    presence.setOpen(isPopupOpen);
+  }, [presence, isPopupOpen]);
+  useEffect(() => () => presence.dispose(), [presence]);
 
   // Escape, a click outside (when enabled), and focus once the popup opens.
   useEffect(() => {
@@ -140,8 +134,8 @@ function CopilotPopupViewInternal({
     [toggleButton],
   );
 
-  const resolvedWidth = ɵdimensionToCss(width, DEFAULT_POPUP_WIDTH);
-  const resolvedHeight = ɵdimensionToCss(height, DEFAULT_POPUP_HEIGHT);
+  const resolvedWidth = ɵdimensionToCss(width, ɵPOPUP_DEFAULT_WIDTH);
+  const resolvedHeight = ɵdimensionToCss(height, ɵPOPUP_DEFAULT_HEIGHT);
 
   const popupStyle = useMemo(
     () =>
