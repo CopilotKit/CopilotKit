@@ -10,6 +10,9 @@
     "react/react-in-jsx-scope": "off",
     "import/no-unassigned-import": "off",
     "unicorn/no-array-sort": "off",
+    // It flags `for (const listener of [...listeners])`. That copy is on
+    // purpose: a listener can unsubscribe while the loop runs.
+    "unicorn/no-useless-spread": "off",
     "copilotkit/require-cpk-prefix": "off",
     "no-restricted-imports": "off",
 
@@ -219,7 +222,6 @@
         "unicorn/no-unnecessary-await": "error",
         "unicorn/no-useless-fallback-in-spread": "error",
         "unicorn/no-useless-length-check": "error",
-        "unicorn/no-useless-spread": "error",
         "unicorn/prefer-set-size": "error",
         "unicorn/prefer-string-starts-ends-with": "error",
         // Category: suspicious.
@@ -457,7 +459,6 @@
         "unicorn/no-unnecessary-await": "warn",
         "unicorn/no-useless-fallback-in-spread": "warn",
         "unicorn/no-useless-length-check": "warn",
-        "unicorn/no-useless-spread": "warn",
         "unicorn/prefer-set-size": "warn",
         "unicorn/prefer-string-starts-ends-with": "warn",
         // Category: suspicious.

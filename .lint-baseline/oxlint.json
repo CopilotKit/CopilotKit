@@ -202,16 +202,6 @@
       "packages/channels-slack/src/auto-close-streaming.ts": 1,
       "packages/channels-slack/src/conversation-store.ts": 1
     },
-    "eslint-plugin-unicorn(no-useless-spread)": {
-      "packages/core/src/core/core.ts": 2,
-      "packages/core/src/core/human-in-the-loop.ts": 1,
-      "packages/core/src/core/interrupt-controller.ts": 1,
-      "packages/core/src/core/webmcp.ts": 1,
-      "packages/react-core/src/generative-ui/debug-source.ts": 1,
-      "packages/react-core/src/generative-ui/surface-manager.ts": 1,
-      "packages/react-core/src/generative-ui/use-generative-ui-root.ts": 2,
-      "packages/web-inspector/src/shell/mount.ts": 2
-    },
     "eslint-plugin-unicorn(prefer-add-event-listener)": {
       "packages/core/src/chat/audio-recorder.ts": 2,
       "packages/react-native/src/streaming-fetch.ts": 4,
