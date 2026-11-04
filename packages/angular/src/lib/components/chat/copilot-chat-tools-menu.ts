@@ -10,6 +10,7 @@ import { CdkMenuModule } from "@angular/cdk/menu";
 import { OverlayModule } from "@angular/cdk/overlay";
 import { ChevronRight, CopilotIcon, Plus } from "../icons/copilot-icon";
 import type { ToolsMenuItem } from "./copilot-chat-input.types";
+import { ɵnormalizeToolsMenu } from "@copilotkit/core";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
 import { CopilotTooltip } from "../../directives/tooltip";
@@ -135,32 +136,13 @@ export class CopilotChatToolsMenu {
   addFile = computed(() => this.inputAddFile());
 
   menuItems = computed<(ToolsMenuItem | "-")[]>(() => {
-    const items: (ToolsMenuItem | "-")[] = [];
     const addFile = this.addFile();
-
-    if (addFile) {
-      items.push({
-        label: this.labels.chatInputToolbarAddButtonLabel,
-        action: addFile,
-      });
-    }
-
-    for (const item of this.toolsMenu()) {
-      if (item === "-") {
-        if (items.length === 0 || items[items.length - 1] === "-") {
-          continue;
-        }
-        items.push(item);
-      } else {
-        items.push(item);
-      }
-    }
-
-    while (items.length > 0 && items[items.length - 1] === "-") {
-      items.pop();
-    }
-
-    return items;
+    return ɵnormalizeToolsMenu<ToolsMenuItem>(
+      this.toolsMenu(),
+      addFile
+        ? { label: this.labels.chatInputToolbarAddButtonLabel, action: addFile }
+        : undefined,
+    );
   });
 
   hasItems = computed(() => this.menuItems().length > 0);

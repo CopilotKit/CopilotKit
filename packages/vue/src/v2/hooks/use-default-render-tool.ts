@@ -2,84 +2,23 @@ import { defineComponent, h, inject, ref } from "vue";
 import type { WatchSource } from "vue";
 import type { Component, VNodeChild } from "vue";
 import {
+  ɵadaptDefaultToolCallRenderProps as adaptRendererProps,
   ɵgetToolCallBadge,
   ɵnormalizeToolCallStatus,
   ɵstringifyToolCallAttr,
   ɵstringifyToolCallPayload,
 } from "@copilotkit/core";
-import type { ToolCallStatus } from "@copilotkit/core";
+import type {
+  ɵDefaultToolCallRenderProps,
+  ɵRawToolCallRenderProps,
+} from "@copilotkit/core";
 import { useRenderTool } from "./use-render-tool";
 import { ToolCallGroupContextKey } from "../components/chat/tool-call-display-context";
 import { ToolCallRow } from "../components/chat/tool-call-group-parts";
 import { useChatLabels } from "../components/chat/use-chat-labels";
 
-type DefaultRenderProps = {
-  name: string;
-  toolCallId: string;
-  parameters: unknown;
-  status: "inProgress" | "executing" | "complete";
-  result: string | undefined;
-};
-
-/**
- * Module-level dedup set so an unknown status value only emits a console
- * warning the FIRST time we encounter it. Otherwise a stuck/unmapped status
- * would log on every re-render (potentially many per second).
- */
-const warnedUnknownStatuses = new Set<string>();
-
-/**
- * Map a {@link ToolCallStatus} enum value to the documented string-union
- * status the {@link DefaultRenderProps} contract exposes. Unknown / future
- * enum members log a warning (once per distinct value) and fall back to
- * `"inProgress"`.
- */
-function mapToolCallStatus(
-  status: ToolCallStatus,
-): DefaultRenderProps["status"] {
-  const normalized = ɵnormalizeToolCallStatus(status);
-  if (normalized !== "unknown") return normalized;
-  const key = String(status);
-  if (!warnedUnknownStatuses.has(key)) {
-    warnedUnknownStatuses.add(key);
-    console.warn(
-      `[CopilotKit] Unknown ToolCallStatus "${key}" in default tool-call renderer; falling back to "inProgress".`,
-    );
-  }
-  return "inProgress";
-}
-
-/**
- * Convert framework-internal raw renderer props (`args`, enum status) to the
- * documented DefaultRenderProps shape. Idempotent on already-documented input
- * — if the caller passes `parameters` and a string-union `status`, those win.
- */
-type AdaptInput = {
-  name?: unknown;
-  toolCallId?: unknown;
-  args?: unknown;
-  parameters?: unknown;
-  status?: unknown;
-  result?: unknown;
-};
-
-function adaptRendererProps(raw: AdaptInput): DefaultRenderProps {
-  const parameters = raw.parameters !== undefined ? raw.parameters : raw.args;
-  const rawStatus = raw.status;
-  const status: DefaultRenderProps["status"] =
-    rawStatus === "inProgress" ||
-    rawStatus === "executing" ||
-    rawStatus === "complete"
-      ? rawStatus
-      : mapToolCallStatus(rawStatus as ToolCallStatus);
-  return {
-    name: raw.name as string,
-    toolCallId: raw.toolCallId as string,
-    parameters,
-    status,
-    result: raw.result as string | undefined,
-  };
-}
+type DefaultRenderProps = ɵDefaultToolCallRenderProps;
+type AdaptInput = ɵRawToolCallRenderProps;
 
 const DefaultToolCallRenderer = defineComponent({
   props: {

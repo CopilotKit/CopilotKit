@@ -375,8 +375,63 @@ export function ɵmorphViewTransition(
   transition.finished.then(clear, clear);
 }
 
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), audio[controls], video[controls], iframe, [tabindex]:not([tabindex="-1"])';
+// Elements that can take focus.
+const FOCUSABLE_ELEMENTS = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "audio[controls]",
+  "video[controls]",
+  "iframe",
+  "[tabindex]",
+];
+
+const FOCUSABLE = FOCUSABLE_ELEMENTS.map((selector) =>
+  selector === "[tabindex]" ? '[tabindex]:not([tabindex="-1"])' : selector,
+).join(", ");
+
+/**
+ * Elements Tab stops at: the focusable ones without `tabindex="-1"`. Radix
+ * focus guards, which only pass focus on, are left out.
+ */
+export const ɵTAB_STOP_SELECTOR = FOCUSABLE_ELEMENTS.map(
+  (selector) =>
+    `${selector}:not([tabindex="-1"]):not([data-radix-focus-guard])`,
+).join(", ");
+
+/**
+ * Approximately the element Tab reaches after `element`, in document order.
+ * Elements inside `skip` (for example a popover in a portal) and inside
+ * `[hidden]` or `[inert]` are passed over.
+ *
+ * @returns The next tab stop, or `null` when there is none.
+ */
+export function ɵnextTabStop(element: Element, skip: Element | null) {
+  const all = Array.from(
+    element.ownerDocument.querySelectorAll<HTMLElement>(ɵTAB_STOP_SELECTOR),
+  ).filter(
+    (candidate) =>
+      candidate === element ||
+      (!skip?.contains(candidate) && !candidate.closest("[hidden], [inert]")),
+  );
+  const index = all.indexOf(element as HTMLElement);
+  return index === -1 ? null : (all[index + 1] ?? null);
+}
+
+/**
+ * Whether focus on `element` came from the keyboard. A pointer click also
+ * focuses buttons, and this tells the two apart.
+ */
+export function ɵisFocusVisible(element: Element) {
+  try {
+    return element.matches(":focus-visible");
+  } catch {
+    // Browsers without `:focus-visible` throw on the selector.
+    return false;
+  }
+}
 
 export interface ɵDialogFocusOptions {
   /** Where focus goes on open. Default: the first focusable element. */

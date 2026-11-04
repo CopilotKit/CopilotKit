@@ -9,8 +9,10 @@ import {
   ɵdecodeTextSource,
   ɵdimensionToCss,
   ɵdockedSidebarRegistryFor,
+  ɵisFocusVisible,
   ɵisScrolledToBottom,
   ɵmorphViewTransition,
+  ɵnextTabStop,
   ɵPOPUP_ANIMATION_MS,
 } from "../dom";
 
@@ -483,5 +485,42 @@ describe("ɵisScrolledToBottom", () => {
         20,
       ),
     ).toBe(true);
+  });
+});
+
+describe("ɵnextTabStop", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("finds the next tab stop, passing over skipped, hidden and -1 elements", () => {
+    document.body.innerHTML = `
+      <button id="thumb">Thumb</button>
+      <div id="popover"><input id="field" /></div>
+      <button tabindex="-1">Not a stop</button>
+      <div hidden><button>Hidden</button></div>
+      <span data-radix-focus-guard tabindex="0"></span>
+      <a id="link" href="#">Next</a>
+    `;
+    const thumb = document.getElementById("thumb")!;
+    expect(ɵnextTabStop(thumb, document.getElementById("popover"))).toBe(
+      document.getElementById("link"),
+    );
+  });
+
+  it("is null after the last tab stop", () => {
+    document.body.innerHTML = `<button id="last">Last</button>`;
+    expect(ɵnextTabStop(document.getElementById("last")!, null)).toBeNull();
+  });
+});
+
+describe("ɵisFocusVisible", () => {
+  it("is false where the browser does not support :focus-visible", () => {
+    const element = {
+      matches: () => {
+        throw new SyntaxError("unknown pseudo-class");
+      },
+    } as unknown as Element;
+    expect(ɵisFocusVisible(element)).toBe(false);
   });
 });

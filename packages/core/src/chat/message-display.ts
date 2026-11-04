@@ -47,6 +47,162 @@ export function ɵformatReasoningDurationLabel(
   }
 }
 
+/**
+ * The header text of a reasoning message: `labels.reasoningMessageThinkingLabel`
+ * while the model reasons, then `labels.reasoningMessageThoughtForLabel`
+ * ("Thought for 4 seconds").
+ *
+ * @param state - Whether the model still reasons, and for how long it did.
+ * @param labels - The chat labels.
+ */
+export function ɵgetReasoningHeaderLabel(
+  state: Pick<ɵReasoningDisclosureState, "isStreaming" | "elapsedSeconds">,
+  labels: CopilotChatLabels,
+) {
+  if (state.isStreaming) return labels.reasoningMessageThinkingLabel;
+  return ɵformatLabel(labels.reasoningMessageThoughtForLabel, {
+    duration: ɵformatReasoningDurationLabel(state.elapsedSeconds, labels),
+  });
+}
+
+/** What a reasoning message shows. See {@link ɵReasoningDisclosure}. */
+export interface ɵReasoningDisclosureState {
+  /** The model is reasoning in this message now. */
+  readonly isStreaming: boolean;
+  /** The reasoning text shows. */
+  readonly isOpen: boolean;
+  /**
+   * Seconds since the model started reasoning. It grows every tick while the
+   * model reasons and stays at the final time after. `0` for a message that
+   * never streamed here, such as one loaded from history.
+   */
+  readonly elapsedSeconds: number;
+}
+
+/** Options for {@link ɵReasoningDisclosure}. */
+export interface ɵReasoningDisclosureOptions {
+  /** Whether the message streams when it first renders. Default: `false`. */
+  isStreaming?: boolean;
+  /** How often the elapsed time updates while streaming, in ms. Default: 1000. */
+  tickMs?: number;
+}
+
+/**
+ * The open state and reasoning timer of one reasoning message.
+ *
+ * - It opens when streaming starts and closes by itself when it ends,
+ *   unless the user toggled it during that stream: then their choice stays.
+ *   Each new stream starts open again and forgets the earlier toggle.
+ * - The elapsed time counts from the first stream start and updates every
+ *   tick while streaming. When streaming ends it takes the final time.
+ *
+ * Frameworks render from `getSnapshot()` and re-render when `subscribe()`
+ * notifies. Call `setStreaming()` whenever the streaming state may have
+ * changed, including once after mount. Call `dispose()` on unmount. The
+ * controller stays usable after `dispose()`, so a remount (React Strict
+ * Mode) can keep it: the next `setStreaming(true)` starts the timer again.
+ *
+ * @example
+ * ```ts
+ * const disclosure = new ɵReasoningDisclosure({ isStreaming });
+ * disclosure.subscribe(() => render(disclosure.getSnapshot()));
+ * disclosure.setStreaming(isStreaming);
+ * // Header click, when the message has text:
+ * disclosure.toggle();
+ * ```
+ */
+export class ɵReasoningDisclosure {
+  readonly #listeners = new Set<() => void>();
+  readonly #tickMs: number;
+  #state: ɵReasoningDisclosureState;
+  #startedAt: number | null = null;
+  #userToggled = false;
+  #timer: ReturnType<typeof setInterval> | undefined;
+
+  constructor({
+    isStreaming = false,
+    tickMs = 1000,
+  }: ɵReasoningDisclosureOptions = {}) {
+    this.#tickMs = tickMs;
+    // Not streaming until `setStreaming(true)`, which starts the timer; it
+    // only opens now, so the first render shows the right state.
+    this.#state = {
+      isStreaming: false,
+      isOpen: isStreaming,
+      elapsedSeconds: 0,
+    };
+  }
+
+  /** The current state. The same object until something changes. */
+  getSnapshot = () => this.#state;
+
+  /** Calls `listener` when the state changes. Returns the unsubscribe function. */
+  subscribe = (listener: () => void) => {
+    this.#listeners.add(listener);
+    return () => {
+      this.#listeners.delete(listener);
+    };
+  };
+
+  /** Tells the controller whether the model reasons in this message now. */
+  setStreaming = (isStreaming: boolean) => {
+    if (isStreaming) {
+      // After `dispose()` a remount restarts the timer of a running stream.
+      if (this.#timer === undefined) this.#startTimer();
+      if (this.#state.isStreaming) return;
+      this.#startedAt ??= Date.now();
+      this.#userToggled = false;
+      this.#update({ isStreaming: true, isOpen: true });
+      return;
+    }
+    if (!this.#state.isStreaming) return;
+    this.#stopTimer();
+    this.#update({
+      isStreaming: false,
+      elapsedSeconds: this.#elapsed(),
+      isOpen: this.#userToggled ? this.#state.isOpen : false,
+    });
+  };
+
+  /** Opens or closes the reasoning text, and keeps that after the stream. */
+  toggle = () => {
+    this.#userToggled = true;
+    this.#update({ isOpen: !this.#state.isOpen });
+  };
+
+  /** Stops the timer. */
+  dispose = () => {
+    this.#stopTimer();
+  };
+
+  #elapsed() {
+    return this.#startedAt === null ? 0 : (Date.now() - this.#startedAt) / 1000;
+  }
+
+  #startTimer() {
+    this.#timer = setInterval(() => {
+      this.#update({ elapsedSeconds: this.#elapsed() });
+    }, this.#tickMs);
+  }
+
+  #stopTimer() {
+    if (this.#timer === undefined) return;
+    clearInterval(this.#timer);
+    this.#timer = undefined;
+  }
+
+  #update(patch: Partial<ɵReasoningDisclosureState>) {
+    const next = { ...this.#state, ...patch };
+    const unchanged =
+      next.isStreaming === this.#state.isStreaming &&
+      next.isOpen === this.#state.isOpen &&
+      next.elapsedSeconds === this.#state.elapsedSeconds;
+    if (unchanged) return;
+    this.#state = next;
+    for (const listener of this.#listeners) listener();
+  }
+}
+
 /** Input for {@link ɵgetWorkSummaryText}. */
 export interface ɵWorkSummaryInput {
   /** The agent is still working on this reply. */

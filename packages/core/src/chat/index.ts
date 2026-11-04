@@ -383,3 +383,45 @@ export type {
   ɵInspectorKiteGradient,
   ɵHoverMenuState,
 } from "./inspector-button";
+
+// Chat component logic shared by the framework packages (internal)
+export {
+  ɵReasoningDisclosure,
+  ɵgetReasoningHeaderLabel,
+} from "./message-display";
+export type {
+  ɵReasoningDisclosureState,
+  ɵReasoningDisclosureOptions,
+} from "./message-display";
+export {
+  ɵComposerController,
+  ɵnormalizeToolsMenu,
+  ɵflattenToolsMenuForDisplay,
+  ɵsyncRecorderToMode,
+  ɵshowsComposerDisclaimer,
+} from "./composer";
+export type {
+  ɵComposerKeyAction,
+  ɵComposerSnapshot,
+  ɵComposerControllerInputs,
+  ɵComposerControllerOptions,
+  ɵComposerKeyDownResult,
+  ɵToolsMenuDisplayEntry,
+  ɵModeRecorder,
+} from "./composer";
+export { ɵisOwnFeedbackThumb } from "./message-feedback";
+export type {
+  ɵFeedbackThumb,
+  ɵFeedbackThumbAttributes,
+  ɵFeedbackThumbHandlers,
+  ɵFeedbackKeyEvent,
+} from "./message-feedback";
+export { ɵTAB_STOP_SELECTOR, ɵnextTabStop, ɵisFocusVisible } from "./dom";
+export {
+  ɵtoDefaultToolCallStatus,
+  ɵadaptDefaultToolCallRenderProps,
+} from "./tool-call-render";
+export type {
+  ɵDefaultToolCallRenderProps,
+  ɵRawToolCallRenderProps,
+} from "./tool-call-render";

@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Message, ToolCall, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "../../types";
 import {
+  ɵadaptDefaultToolCallRenderProps,
   ɵbuildToolCallRenderProps,
   ɵcomponentToolDescription,
   ɵdescribeUnrenderedToolCalls,
@@ -11,6 +12,7 @@ import {
   ɵnormalizeToolCallStatus,
   ɵparseToolCallArguments,
   ɵresolveToolCallAgentId,
+  ɵtoDefaultToolCallStatus,
 } from "../tool-call-render";
 
 function createToolCall(args: string): ToolCall {
@@ -210,5 +212,59 @@ describe("ɵcomponentToolDescription", () => {
     expect(ɵcomponentToolDescription("card", "Shows a card.")).toBe(
       `${prefix}\n\nShows a card.`,
     );
+  });
+});
+
+describe("ɵadaptDefaultToolCallRenderProps", () => {
+  it("turns core's raw props into the documented shape", () => {
+    expect(
+      ɵadaptDefaultToolCallRenderProps({
+        name: "search",
+        toolCallId: "call-1",
+        args: { query: "cats" },
+        status: ToolCallStatus.Complete,
+        result: "found",
+      }),
+    ).toEqual({
+      name: "search",
+      toolCallId: "call-1",
+      parameters: { query: "cats" },
+      status: "complete",
+      result: "found",
+    });
+  });
+
+  it("keeps props that are already in the documented shape", () => {
+    expect(
+      ɵadaptDefaultToolCallRenderProps({
+        name: "search",
+        toolCallId: "call-1",
+        parameters: { query: "dogs" },
+        args: { query: "ignored" },
+        status: "executing",
+        result: undefined,
+      }),
+    ).toMatchObject({ parameters: { query: "dogs" }, status: "executing" });
+  });
+});
+
+describe("ɵtoDefaultToolCallStatus", () => {
+  it("reads Angular's spelling of in progress", () => {
+    expect(ɵtoDefaultToolCallStatus("in-progress")).toBe("inProgress");
+  });
+
+  it("shows an unknown status as in progress and warns once per value", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(ɵtoDefaultToolCallStatus("future-status-a")).toBe("inProgress");
+      expect(ɵtoDefaultToolCallStatus("future-status-a")).toBe("inProgress");
+      expect(ɵtoDefaultToolCallStatus("future-status-b")).toBe("inProgress");
+      expect(warn.mock.calls.map(([message]) => message)).toEqual([
+        expect.stringContaining('"future-status-a"'),
+        expect.stringContaining('"future-status-b"'),
+      ]);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

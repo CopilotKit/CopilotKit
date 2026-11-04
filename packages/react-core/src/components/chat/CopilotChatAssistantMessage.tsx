@@ -1,7 +1,6 @@
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import React, {
   Fragment,
-  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -54,6 +53,7 @@ import type { FeedbackComment } from "./message-feedback";
 import {
   ɵMESSAGE_FEEDBACK_MAX_COMMENT_LENGTH,
   ɵhasAssistantMessageText,
+  ɵisOwnFeedbackThumb,
   ɵshouldShowAssistantToolbar,
 } from "@copilotkit/core";
 import { useCopyFeedback } from "./use-copy-feedback";
@@ -196,49 +196,6 @@ function BoundInspectorButton({
   );
 }
 
-/** Whether focus came from the keyboard; a pointer click also focuses buttons. */
-function isFocusVisible(element: Element): boolean {
-  try {
-    return element.matches(":focus-visible");
-  } catch {
-    return false;
-  }
-}
-
-// Checks `visibility: hidden` too, which a detached popover uses.
-const HIDDEN_TOO = { checkVisibilityCSS: true, visibilityProperty: true };
-
-// Elements Tab stops at; Radix focus guards are skipped.
-const FOCUSABLE = [
-  "a[href]",
-  "button:not([disabled])",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "textarea:not([disabled])",
-  "[tabindex]",
-]
-  .map(
-    (selector) =>
-      `${selector}:not([tabindex="-1"]):not([data-radix-focus-guard])`,
-  )
-  .join(", ");
-
-/** Approximately the element Tab reaches after `element`, outside `skip`. */
-function nextFocusable(
-  element: Element,
-  skip: Element | null,
-): HTMLElement | null {
-  const all = Array.from(
-    element.ownerDocument.querySelectorAll<HTMLElement>(FOCUSABLE),
-  ).filter(
-    (candidate) =>
-      candidate === element ||
-      (!skip?.contains(candidate) && !candidate.closest("[hidden], [inert]")),
-  );
-  const index = all.indexOf(element as HTMLElement);
-  return index === -1 ? null : (all[index + 1] ?? null);
-}
-
 /**
  * The comment popover of a rated message, pointing at the chosen thumb. Kept
  * apart so only it, not the whole message, follows chat configuration.
@@ -252,7 +209,6 @@ function FeedbackCommentPopover({
   comment,
   savedComment,
   rating,
-  anchor,
   messageId,
 }: {
   feedbackComment:
@@ -261,32 +217,18 @@ function FeedbackCommentPopover({
   comment: FeedbackComment;
   savedComment: string;
   rating: MessageFeedbackRating;
-  anchor: React.RefObject<HTMLElement | null>;
   messageId: string;
 }): React.ReactElement {
   const config = useCopilotChatConfiguration();
   const labels = config?.labels ?? CopilotChatDefaultLabels;
   const contentRef = useRef<HTMLDivElement>(null);
-  const focusInside = () =>
-    contentRef.current?.contains(document.activeElement) ?? false;
+  // Radix reads the anchor through a ref.
+  const anchor = useRef<HTMLElement | null>(null);
+  anchor.current = comment.anchor;
   // A keyboard rating moves focus into the field, as the popover opens or,
   // when it was open already, as the field for the new rating renders.
-  const { focusRequest, takeFocusRequest, inputRef } = comment;
-  const focusField = useCallback(() => {
-    if (inputRef.current && takeFocusRequest()) inputRef.current.focus();
-  }, [inputRef, takeFocusRequest]);
+  const { focusRequest, focusField } = comment;
   useEffect(() => focusField(), [focusRequest, focusField]);
-  /** Whether `target` is a thumb of this message, whose click decides itself. */
-  const isOwnThumb = (target: EventTarget | null) => {
-    const thumb =
-      target instanceof Element
-        ? target.closest("[data-copilotkit-rating]")
-        : null;
-    return (
-      thumb?.closest("[data-message-id]")?.getAttribute("data-message-id") ===
-      messageId
-    );
-  };
   return (
     <Popover
       open={comment.open}
@@ -310,34 +252,16 @@ function FeedbackCommentPopover({
         onInteractOutside={(event) => {
           // A click on a thumb removes or switches the rating, so closing must
           // not first save the draft as the answer to the rating it replaces.
-          if (isOwnThumb(event.target)) event.preventDefault();
+          if (ɵisOwnFeedbackThumb(event.target, messageId))
+            event.preventDefault();
         }}
         onEscapeKeyDown={(event) => {
-          const returnFocus = focusInside();
           // Escape in the comment closes only the comment, not a chat popup
           // around it; with focus elsewhere it also reaches that control.
-          if (returnFocus) event.stopPropagation();
-          comment.close({ save: false });
-          if (returnFocus) comment.returnFocus(anchor.current);
+          if (comment.popoverEscape(contentRef.current))
+            event.stopPropagation();
         }}
-        onKeyDown={(event) => {
-          if (event.key !== "Tab") return;
-          const focusables = Array.from(
-            contentRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [],
-          );
-          const leaving = event.shiftKey
-            ? document.activeElement === focusables[0]
-            : document.activeElement === focusables[focusables.length - 1];
-          if (!leaving || !anchor.current?.isConnected) return;
-          event.preventDefault();
-          const target = event.shiftKey
-            ? anchor.current
-            : (nextFocusable(anchor.current, contentRef.current) ??
-              anchor.current);
-          comment.close();
-          if (target === anchor.current) comment.returnFocus(target);
-          else target.focus();
-        }}
+        onKeyDown={(event) => comment.popoverKeyDown(event, contentRef.current)}
         onPointerEnter={() => comment.enter("pointer")}
         onPointerLeave={() => comment.leave("pointer")}
         className="cpk-assistant-message-feedback-popover"
@@ -352,21 +276,10 @@ function FeedbackCommentPopover({
               savedComment,
               inputRef: comment.inputRef,
               onChange: comment.setDraft,
-              onSubmit: () => {
-                comment.close();
-                comment.returnFocus(anchor.current);
-              },
+              onSubmit: comment.submit,
               onEditingChange: comment.setEditing,
-              onLeave: (next) => {
-                // Focus moving within the popover or to a thumb, which the
-                // pointer is still on, does not close it.
-                if (
-                  next &&
-                  (contentRef.current?.contains(next) || isOwnThumb(next))
-                )
-                  return;
-                comment.leave();
-              },
+              onLeave: (next) =>
+                comment.popoverFocusLeave(next, contentRef.current, messageId),
             },
           )}
         </Fragment>
@@ -426,94 +339,36 @@ export function CopilotChatAssistantMessage({
   // Set while this chat collects ratings for Learning: the thumbs record them.
   const feedback = useMessageFeedback(message);
   const comment = useFeedbackComment(feedback);
-  const rating = feedback?.feedback?.rating;
   const root = useRef<HTMLDivElement>(null);
-  // The chosen thumb the comment popover points at, and the rating the open
-  // comment answers.
-  const commentAnchor = useRef<HTMLElement | null>(null);
-  const commentRating = useRef(rating);
   // A custom thumb that calls `onClick` without an event gives no element:
   // point at the chosen thumb once it renders, before the popover reads it.
-  useLayoutEffect(() => {
-    if (comment.open && !commentAnchor.current?.isConnected && rating)
-      commentAnchor.current =
-        root.current?.querySelector<HTMLElement>(
-          `[data-copilotkit-rating="${rating}"]`,
-        ) ??
-        // A custom thumb that passes on only `aria-pressed`.
-        root.current?.querySelector<HTMLElement>(
-          'button[aria-pressed="true"]',
-        ) ??
-        null;
-  });
+  useLayoutEffect(() => comment.findAnchor(root.current));
   /**
-   * Thumbs are toggles: a new rating is saved and opens its comment, and
-   * clicking the chosen thumb again removes the rating. A keyboard click
-   * (`detail` 0) moves focus into the comment, as there is no pointer.
-   * Custom thumb slots may call `onClick` without an event.
-   *
-   * @returns Whether the app's handler should run: true for a new rating and
-   * whenever this chat does not record ratings, false when one is removed.
+   * A thumb click. A keyboard click (`detail` 0) moves focus into the
+   * comment; custom thumb slots may call `onClick` without an event.
    */
   const rate = (
     value: MessageFeedbackRating,
     event?: React.MouseEvent<HTMLButtonElement>,
-  ): boolean => {
-    if (!feedback) return true;
-    if (rating === value) {
-      comment.close({ save: false });
-      feedback.clear();
-      return false;
-    }
-    feedback.rate(value);
-    commentRating.current = value;
-    commentAnchor.current = event?.currentTarget ?? null;
-    comment.show({ comment: "", focus: event?.detail === 0 });
-    return true;
-  };
+  ) =>
+    comment.rate(value, {
+      target: event?.currentTarget ?? null,
+      keyboard: event?.detail === 0,
+    });
 
   /** Props that let the chosen thumb open and point at its comment. */
   const thumbFeedbackProps = (value: MessageFeedbackRating) => {
-    if (!feedback) return {};
-    const thumb = { "data-copilotkit-rating": value };
-    if (rating !== value) return { ...thumb, "aria-pressed": false };
-    const enter = (target: HTMLElement, via: "pointer" | "focus") => {
-      if (!comment.open) commentRating.current = value;
-      commentAnchor.current = target;
-      comment.enter(via);
-    };
+    const thumb = comment.thumb(value);
+    if (!thumb) return {};
+    const { handlers } = thumb;
+    if (!handlers) return thumb.attributes;
     return {
-      ...thumb,
-      "aria-pressed": true,
-      "aria-haspopup": "dialog" as const,
-      "aria-expanded": comment.open,
-      onPointerEnter: (event: React.PointerEvent<HTMLButtonElement>) => {
-        if (event.pointerType !== "touch")
-          enter(event.currentTarget, "pointer");
-      },
-      onPointerLeave: (event: React.PointerEvent<HTMLButtonElement>) => {
-        if (event.pointerType !== "touch") comment.leave("pointer");
-      },
-      // Keyboard focus opens the comment; Tab moves on into its field.
-      onFocus: (event: React.FocusEvent<HTMLButtonElement>) => {
-        if (isFocusVisible(event.currentTarget))
-          enter(event.currentTarget, "focus");
-      },
-      onBlur: () => comment.leave(),
-      onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => {
-        const input = comment.inputRef.current;
-        // Not while the popover hides because its thumb scrolled away.
-        if (
-          event.key === "Tab" &&
-          !event.shiftKey &&
-          comment.open &&
-          input &&
-          input.checkVisibility?.(HIDDEN_TOO) !== false
-        ) {
-          event.preventDefault();
-          input.focus();
-        }
-      },
+      ...thumb.attributes,
+      onPointerEnter: handlers.pointerEnter,
+      onPointerLeave: handlers.pointerLeave,
+      onFocus: handlers.focus,
+      onBlur: handlers.blur,
+      onKeyDown: handlers.keyDown,
     };
   };
 
@@ -632,13 +487,11 @@ export function CopilotChatAssistantMessage({
   });
   // The popover shows only with the toolbar and a rating. Hiding the toolbar
   // keeps the edit; a rating removed elsewhere or Learning turned off ends it.
-  const { open: commentOpen, close: closeComment } = comment;
+  const rating = feedback?.feedback?.rating;
+  const { open: commentOpen, sync: syncComment } = comment;
   useEffect(() => {
-    if (!commentOpen) return;
-    // Changed or removed elsewhere: the draft answered the old rating.
-    if (rating !== commentRating.current) closeComment({ save: false });
-    else if (!shouldShowToolbar) closeComment();
-  }, [commentOpen, shouldShowToolbar, rating, closeComment]);
+    syncComment({ showsToolbar: shouldShowToolbar });
+  }, [commentOpen, shouldShowToolbar, rating, syncComment]);
 
   // Floats in a portal next to the chosen thumb, so it never moves the chat.
   const feedbackComment = feedback?.feedback && shouldShowToolbar && (
@@ -647,7 +500,6 @@ export function CopilotChatAssistantMessage({
       comment={comment}
       savedComment={feedback.feedback.comment ?? ""}
       rating={feedback.feedback.rating}
-      anchor={commentAnchor}
       messageId={message.id}
     />
   );
