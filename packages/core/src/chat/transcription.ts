@@ -162,6 +162,8 @@ export function ɵtranscriptionErrorMessageKey(error: TranscriptionErrorInfo) {
       return "transcriptionErrorServiceNotConfiguredText";
     case TranscriptionErrorCode.NETWORK_ERROR:
       return "transcriptionErrorNetworkText";
+    case TranscriptionErrorCode.PROVIDER_ERROR:
+    case TranscriptionErrorCode.INVALID_REQUEST:
     default:
       return error.retryable ? "transcriptionErrorGenericText" : null;
   }

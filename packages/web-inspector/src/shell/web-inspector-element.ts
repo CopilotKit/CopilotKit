@@ -4209,7 +4209,9 @@ export class WebInspectorElement extends LitElement {
           retry: this.handlePlaygroundRetry,
           stop: this.handlePlaygroundStop,
         },
-        loadThread: this.handlePlaygroundThreadSourceChange,
+        loadThread: (event: Event) => {
+          void this.handlePlaygroundThreadSourceChange(event);
+        },
         newThread: () => this.startPlaygroundSession(true),
         dismissEphemeralNotice: () => {
           this.playground.showEphemeralNotice = false;
@@ -4852,6 +4854,7 @@ export class WebInspectorElement extends LitElement {
       case "none":
       case "unknown":
         return { status: "unavailable" };
+      case undefined:
       default:
         return null;
     }
@@ -5176,7 +5179,9 @@ export class WebInspectorElement extends LitElement {
         resizeEnd: this.handleThreadDividerPointerUp,
         viewInApp: this.handleViewInApp,
         stopViewing: this.handleStopViewing,
-        tryFromHere: this.handleTryFromHere,
+        tryFromHere: (threadId: string | null) => {
+          void this.handleTryFromHere(threadId);
+        },
         toggleThreadList: () => {
           this.threads.threadListCollapsed = !this.threads.threadListCollapsed;
           this.requestUpdate();

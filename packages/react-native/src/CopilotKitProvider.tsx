@@ -244,7 +244,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
       },
       onError: (event) => {
         if (onErrorRef.current) {
-          onErrorRef.current(event);
+          void onErrorRef.current(event);
         } else {
           console.error(
             `[CopilotKit] Error (${event.code}):`,
