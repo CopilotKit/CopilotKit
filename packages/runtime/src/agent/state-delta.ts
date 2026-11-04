@@ -43,6 +43,55 @@ function encodeJsonPointer(segments: string[]): string {
     .join("/")}`;
 }
 
+/**
+ * Whether a pointer can reach a prototype, following the rule
+ * fast-json-patch's `banPrototypeModifications` applies: a `__proto__`
+ * segment anywhere (assigning through it invokes the prototype setter
+ * instead of creating an own property, silently replacing the tracked
+ * state's prototype — invisible to JSON serialization and own-property
+ * lookups, yet readable through the prototype chain), or a `constructor`
+ * segment immediately followed by a `prototype` segment (which writes onto
+ * a constructor function's prototype). A lone `constructor` or `prototype`
+ * segment is an ordinary own property on plain-object state and is left
+ * alone. Strict JSON Patch appliers reject the forbidden forms, so
+ * forwarding such an operation would also desynchronize the tracked state
+ * from the client's state.
+ */
+function hasForbiddenPointerSegment(pointer: string): boolean {
+  const parsed = parseJsonPointer(pointer);
+  // A malformed pointer (e.g. containing an invalid escape such as `~2`)
+  // is not applied to the tracked state, but it is still forwarded, so the
+  // check must not fail open when parsing fails: fall back to a lenient
+  // split-and-unescape and judge the segments that are there. This decode
+  // serves the check only; it does not change how operations are applied.
+  const segments =
+    parsed ??
+    (pointer.startsWith("/") ? pointer.slice(1) : pointer)
+      .split("/")
+      .map((segment) => segment.replace(/~1/g, "/").replace(/~0/g, "~"));
+  return segments.some(
+    (segment, index) =>
+      segment === "__proto__" ||
+      (segment === "constructor" && segments[index + 1] === "prototype"),
+  );
+}
+
+function isForbiddenOperation(operation: StateDeltaOperation): boolean {
+  if (
+    typeof operation.path === "string" &&
+    hasForbiddenPointerSegment(operation.path)
+  ) {
+    return true;
+  }
+  if (
+    typeof operation.from === "string" &&
+    hasForbiddenPointerSegment(operation.from)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function getArrayIndex(segment: string, length: number): number | undefined {
   if (segment !== "0" && !/^[1-9]\d*$/.test(segment)) return undefined;
   const index = Number(segment);
@@ -320,6 +369,13 @@ function normalizeStateDelta(
       operation !== null && typeof operation === "object"
         ? (operation as StateDeltaOperation)
         : undefined;
+    // Operations referencing prototype-related pointer segments are
+    // dropped entirely: they are neither applied to the tracked state nor
+    // forwarded in the normalized delta. Like every other invalid
+    // operation in this module, they are skipped without throwing.
+    if (candidate && isForbiddenOperation(candidate)) {
+      continue;
+    }
     if (
       candidate?.op === "add" &&
       typeof candidate.path === "string" &&
@@ -395,3 +451,6 @@ export function createStateEventNormalizer(
     ];
   };
 }
+
+// Exposed for unit tests only; not part of the public API surface.
+export const __internals = { normalizeStateDelta };
