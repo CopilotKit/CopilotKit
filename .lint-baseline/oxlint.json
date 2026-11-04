@@ -127,12 +127,6 @@
     "eslint(no-unused-vars)": {
       "packages/a2ui-renderer/src/react-renderer/create-catalog.tsx": 1,
       "packages/channels-slack/src/download-files.ts": 1,
-      "packages/react-core/src/components/chat/CopilotChatView.tsx": 3,
-      "packages/react-core/src/components/chat/CopilotThreadsDrawer.tsx": 1,
-      "packages/react-core/src/generative-ui/chat.tsx": 1,
-      "packages/react-core/src/generative-ui/standard/composites.tsx": 1,
-      "packages/react-core/src/generative-ui/surface-manager.ts": 2,
-      "packages/react-core/src/providers/CopilotKitProvider.tsx": 1,
       "packages/react-native/src/CopilotSidebar.tsx": 1,
       "packages/react-native/src/components/CopilotModal.tsx": 1,
       "packages/react-native/src/components/messages/AssistantMessage.tsx": 1,
@@ -883,8 +877,6 @@
     },
     "typescript-eslint(no-unnecessary-type-arguments)": {
       "packages/core/src/chat/renderers.ts": 2,
-      "packages/react-core/src/hooks/use-render-tool-call.tsx": 1,
-      "packages/react-core/src/providers/CopilotKitProvider.tsx": 3,
       "packages/vue/src/v2/components/chat/copilotChatToolCallItemRender.ts": 1,
       "packages/vue/src/v2/hooks/use-frontend-tool.ts": 1,
       "packages/vue/src/v2/hooks/use-render-tool.ts": 2,

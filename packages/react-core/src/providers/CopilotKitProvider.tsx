@@ -280,7 +280,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   messageFilter,
   publicApiKey,
   publicLicenseKey,
-  licenseToken,
   properties = EMPTY_PROPERTIES,
   agents__unsafe_dev_only: agents = EMPTY_AGENTS,
   selfManagedAgents = EMPTY_AGENTS,
@@ -560,7 +559,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // Process humanInTheLoop tools to create handlers and add render components
   const processedHumanInTheLoopTools = useMemo(() => {
     const processedTools: FrontendTool[] = [];
-    const processedRenderToolCalls: ReactToolCallRenderer<unknown>[] = [];
+    const processedRenderToolCalls: ReactToolCallRenderer[] = [];
 
     // Core parks each call by tool call id until the render responds. The
     // core is created further down, so read its registry lazily.
@@ -615,7 +614,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   // Combine all render tool calls
   const allRenderToolCalls = useMemo(() => {
-    const combined: ReactToolCallRenderer<unknown>[] = [...renderToolCallsList];
+    const combined: ReactToolCallRenderer[] = [...renderToolCallsList];
 
     // Add render components from frontend tools (user-provided + built-in)
     [...frontendToolsList, ...builtInFrontendTools].forEach((tool) => {
@@ -629,7 +628,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
             name: tool.name,
             args: args,
             render: tool.render,
-          } as ReactToolCallRenderer<unknown>);
+          } as ReactToolCallRenderer);
         }
       }
     });
