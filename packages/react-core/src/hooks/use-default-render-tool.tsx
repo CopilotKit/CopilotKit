@@ -1,12 +1,17 @@
 import React, { useContext, useState } from "react";
 import {
   CopilotChatDefaultLabels,
+  ɵadaptDefaultToolCallRenderProps,
   ɵgetToolCallBadge,
   ɵnormalizeToolCallStatus,
   ɵstringifyToolCallAttr,
   ɵstringifyToolCallPayload,
+  ɵtoDefaultToolCallStatus,
 } from "@copilotkit/core";
-import type { ToolCallStatus } from "@copilotkit/core";
+import type {
+  ToolCallStatus,
+  ɵDefaultToolCallRenderProps,
+} from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { useRenderTool } from "./use-render-tool";
 import { cn } from "../lib/utils";
@@ -15,18 +20,8 @@ import {
   ToolCallRow,
 } from "../components/chat/CopilotChatToolCallGroup";
 
-export type DefaultRenderProps = {
-  /** The name of the tool being called. */
-  name: string;
-  /** The id of the tool call being rendered. */
-  toolCallId: string;
-  /** The parsed parameters passed to the tool call. */
-  parameters: unknown;
-  /** Current execution status of the tool call. */
-  status: "inProgress" | "executing" | "complete";
-  /** The tool call result string, available only when `status` is `"complete"`. */
-  result: string | undefined;
-};
+/** What a custom `useDefaultRenderTool` render receives. */
+export type DefaultRenderProps = ɵDefaultToolCallRenderProps;
 
 /**
  * Shape that `useRenderToolCall` actually invokes a registered `*` renderer
@@ -46,53 +41,23 @@ type RawRendererProps = {
 };
 
 /**
- * Module-level dedup set so an unknown status value only emits a console
- * warning the FIRST time we encounter it. Otherwise a stuck/unmapped status
- * would log on every re-render (potentially many per second).
- */
-const warnedUnknownStatuses = new Set<string>();
-
-/**
  * Map a {@link ToolCallStatus} enum value to the documented string-union
  * status the {@link DefaultRenderProps} contract exposes. Unknown / future
  * enum members log a warning (once per distinct value) and fall back to
  * `"inProgress"`.
  */
-export function mapToolCallStatus(
+export const mapToolCallStatus: (
   status: ToolCallStatus,
-): DefaultRenderProps["status"] {
-  const normalized = ɵnormalizeToolCallStatus(status);
-  if (normalized !== "unknown") return normalized;
-  // Surface unknown / future enum values so callers know their custom
-  // renderer is being invoked with an unmapped status. Fall back to
-  // "inProgress" — the safest treat-as-pending default. Dedup by value
-  // so a stuck unmapped status doesn't spam console on every render.
-  const key = String(status);
-  if (!warnedUnknownStatuses.has(key)) {
-    warnedUnknownStatuses.add(key);
-    console.warn(
-      `[CopilotKit] Unknown ToolCallStatus "${key}" in default tool-call renderer; falling back to "inProgress".`,
-    );
-  }
-  return "inProgress";
-}
+) => DefaultRenderProps["status"] = ɵtoDefaultToolCallStatus;
 
 /**
  * Convert the framework-internal renderer props (`args`, enum status) into
  * the documented {@link DefaultRenderProps} shape (`parameters`, string-union
  * status) so a user `config.render` always sees the documented contract.
  */
-export function adaptRendererProps(
+export const adaptRendererProps: (
   props: RawRendererProps,
-): DefaultRenderProps {
-  return {
-    name: props.name,
-    toolCallId: props.toolCallId,
-    parameters: props.args,
-    status: mapToolCallStatus(props.status),
-    result: props.result,
-  };
-}
+) => DefaultRenderProps = ɵadaptDefaultToolCallRenderProps;
 
 /**
  * Registers a wildcard (`"*"`) tool-call renderer via `useRenderTool`.
