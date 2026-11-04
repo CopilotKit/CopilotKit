@@ -1,4 +1,5 @@
 import { watch } from "vue";
+import { ɵregisterFrontendTools } from "@copilotkit/core";
 import type { WatchSource } from "vue";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import type { VueFrontendTool } from "../types";
@@ -14,8 +15,8 @@ const EMPTY_DEPS: WatchSource<unknown>[] = [];
  *
  * A tool with the same name and `agentId` as a tool that is already
  * registered (for example a provider `frontendTools` entry) takes its place
- * while this scope is active. When the scope is disposed, the earlier tool is
- * active again.
+ * while this scope is active, with a console warning. When the scope is
+ * disposed, the earlier tool is active again.
  *
  * @example
  * ```ts
@@ -45,26 +46,15 @@ export function useFrontendTool<T extends Record<string, unknown>>(
     ],
     (_newValues, _old, onCleanup) => {
       const core = copilotkit.value;
-      const name = tool.name;
-
       // Registrations stack in core: this one shadows an earlier tool with the
       // same name and agentId (a provider tool, or another component's), and
-      // unregistering it brings that tool back.
-      const unregister = core.addTool(tool);
-
-      // The render function is registered even when tool.parameters is
-      // undefined — tools like HITL confirm dialogs have no parameters
-      // but still need their UI rendered in the chat.
-      if (tool.render) {
-        core.addHookRenderToolCall({
-          name,
-          args: tool.parameters,
-          agentId: tool.agentId,
-          render: tool.render,
-        } as VueToolCallRenderer<unknown>);
-      }
-
-      onCleanup(unregister);
+      // unregistering it brings that tool back. The renderer stays registered
+      // so past calls still render in the chat history.
+      onCleanup(
+        ɵregisterFrontendTools(core, [tool], (renderer) =>
+          core.addHookRenderToolCall(renderer as VueToolCallRenderer<unknown>),
+        ),
+      );
     },
     { immediate: true },
   );

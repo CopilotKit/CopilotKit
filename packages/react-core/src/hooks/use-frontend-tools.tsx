@@ -1,4 +1,5 @@
 import { useLayoutEffect } from "react";
+import { ɵregisterFrontendTools } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
 
@@ -85,56 +86,14 @@ export function useFrontendTools(
   );
 
   useLayoutEffect(() => {
-    // Collapse duplicate names so the last entry wins, which matches the
-    // override behavior of useFrontendTool, and so the cleanup below removes
-    // each (name, agentId) pair exactly once.
-    const deduped = new Map<string, ReactFrontendTool<any>>();
-    for (const tool of toolList) {
-      const key = `${tool.agentId ?? ""}:${tool.name}`;
-      if (deduped.has(key)) {
-        console.warn(
-          `Tool '${tool.name}' is listed more than once for agent '${tool.agentId || "global"}' in the same useFrontendTools call. Using the last entry.`,
-        );
-      }
-      deduped.set(key, tool);
-    }
-
-    const registered = [...deduped.values()];
-    const unregisters: Array<() => void> = [];
-
-    for (const tool of registered) {
-      // Each registration hides any tool with the same name and agentId (a
-      // provider tool or another hook) until this effect cleans up.
-      if (copilotkit.getTool({ toolName: tool.name, agentId: tool.agentId })) {
-        console.warn(
-          `Tool '${tool.name}' already exists for agent '${tool.agentId || "global"}'. Overriding with latest registration.`,
-        );
-      }
-      unregisters.push(copilotkit.addTool(tool));
-
-      // Register/override renderer by name and agentId through core.
-      // The render function is registered even when tool.parameters is
-      // undefined — tools like HITL confirm dialogs have no parameters
-      // but still need their UI rendered in the chat.
-      if (tool.render) {
-        copilotkit.addHookRenderToolCall({
-          name: tool.name,
-          args: tool.parameters,
-          agentId: tool.agentId,
-          render: tool.render,
-        });
-      }
-    }
-
-    return () => {
-      // Remove exactly what this run registered. Reading the current array here
-      // would miss a tool that was dropped from it before the effect re-ran.
-      // Unregistering brings back any tool these registrations hid.
-      for (const unregister of unregisters) {
-        unregister();
-      }
-      // we are intentionally not removing the render here so that the tools can still render in the chat history
-    };
+    // Core collapses duplicate names so the last entry wins (as with
+    // useFrontendTool), hides earlier tools with the same name and agentId
+    // until cleanup, and keeps renderers so past calls still render. The
+    // cleanup removes exactly what this run registered: reading the current
+    // array would miss a tool dropped before the effect re-ran.
+    return ɵregisterFrontendTools(copilotkit, toolList, (renderer) =>
+      copilotkit.addHookRenderToolCall(renderer),
+    );
     // `signature` is the value-based key for `toolList`, so the array itself is
     // deliberately not a dependency. `available` and `webmcp` are folded into
     // the signature for the same reasons they are dependencies of

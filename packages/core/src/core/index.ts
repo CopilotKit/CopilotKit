@@ -95,3 +95,5 @@ export type {
   ɵProviderToolRenderer,
   ɵStableArrayProp,
 } from "./provider-config";
+export { ɵregisterFrontendTools } from "./frontend-tool-registration";
+export type { ɵFrontendToolRenderer } from "./frontend-tool-registration";
