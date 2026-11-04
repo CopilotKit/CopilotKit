@@ -76,8 +76,10 @@ RUN test "$(node --version)" = "v22.23.4"
 
 # Exercise the final runtime filesystem, including Turbopack's generated module
 # links. Compilation and a Node-version check cannot catch a broken MDX import.
-# Only loopback is available; this check needs no model, credentials, or backend.
-RUN --network=none node --input-type=module <<'JS'
+# It talks only to loopback and needs no model, credentials, or backend. No
+# `--network=none`: Railway, which builds the docs PR previews from this file,
+# rejects that RUN flag.
+RUN node --input-type=module <<'JS'
 import { spawn } from 'node:child_process';
 import { connect } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
