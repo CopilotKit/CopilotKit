@@ -7,7 +7,6 @@ import { provideCopilotKit, injectCopilotKitConfig } from "../../config";
 
 describe("CopilotKit config", () => {
   beforeEach(() => {
-    (globalThis as any).__copilotkitAngularLicenseWatermarkLogged = undefined;
     vi.restoreAllMocks();
   });
 
@@ -45,7 +44,7 @@ describe("CopilotKit config", () => {
     expect(fixture.componentInstance.config.headers).toBe(headers);
   });
 
-  it("does not throw or warn when license key is missing (watermark disabled)", () => {
+  it("does not throw or warn when license key is missing", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     expect(() => {
