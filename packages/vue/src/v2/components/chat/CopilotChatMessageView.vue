@@ -20,7 +20,6 @@ import type {
   UserMessage,
 } from "@ag-ui/core";
 import {
-  DEFAULT_AGENT_ID,
   commitRowKeyStore,
   createRowKeyStore,
   resolveRowRenderKeysById,
@@ -32,6 +31,7 @@ import {
   ɵgetCustomMessageRenderProps,
   ɵgetToolCallRendererNames,
   ɵresolveActivityRenderer,
+  ɵresolveAgentId,
   ɵresolveCustomMessageRenderers,
 } from "@copilotkit/core";
 import type {
@@ -157,8 +157,8 @@ const stateTick = ref(0);
 const interruptState = ref<InterruptSlotProps | null>(null);
 const componentSlots = useSlots() as Record<string, (props?: any) => unknown>;
 const forwardedSlotNames = computed(() => Object.keys(componentSlots));
-const resolvedAgentId = computed(
-  () => config.value?.agentId ?? DEFAULT_AGENT_ID,
+const resolvedAgentId = computed(() =>
+  ɵresolveAgentId({ chatAgentId: config.value?.agentId }),
 );
 const resolvedThreadAgent = computed(() => {
   // Read the registry so this recomputes when agents are added or replaced.

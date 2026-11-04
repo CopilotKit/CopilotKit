@@ -5,8 +5,8 @@ import {
   ɵdescribeActivityRendererFailure,
   ɵfindActivityRenderer,
   ɵmatchActivityRenderer,
+  ɵresolveAgentId,
 } from "@copilotkit/core";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../providers/useCopilotChatConfiguration";
 import type { VueActivityMessageRendererProps } from "../types";
@@ -23,7 +23,9 @@ import type { VueActivityMessageRendererProps } from "../types";
 export function useRenderActivityMessage() {
   const { copilotkit } = useCopilotKit();
   const config = useCopilotChatConfiguration();
-  const agentId = computed(() => config.value?.agentId ?? DEFAULT_AGENT_ID);
+  const agentId = computed(() =>
+    ɵresolveAgentId({ chatAgentId: config.value?.agentId }),
+  );
 
   function findRenderer(activityType: string) {
     return ɵfindActivityRenderer(copilotkit.value.renderActivityMessages, {
