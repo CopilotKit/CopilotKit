@@ -2,7 +2,13 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig([
   {
-    entry: { index: "src/index.ts", styles: "src/styles/index.ts" },
+    entry: {
+      index: "src/index.ts",
+      styles: "src/styles/index.ts",
+      // The chat configuration store alone, without the rest of core, so an
+      // Angular app can provide a chat configuration in its initial bundle.
+      "chat-configuration": "src/chat/chat-configuration.ts",
+    },
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,

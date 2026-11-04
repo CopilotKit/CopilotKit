@@ -1088,6 +1088,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/core/chat-configuration",
+          "exportKey": "./chat-configuration",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/chat-configuration.mjs",
+            "require": "./dist/chat-configuration.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/core/package.json",
+            "selector": "exports[\"./chat-configuration\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/core/package.json",
           "exportKey": "./package.json",
           "kind": "metadata",

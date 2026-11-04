@@ -165,6 +165,27 @@ export type {
 } from "./icons";
 export { ɵcopilotIcons, ɵcopilotIconSvgAttributes } from "./icons";
 
+// Chat configuration (internal)
+export { ɵChatConfigurationStore } from "./chat-configuration";
+export type {
+  ɵChatConfigurationOptions,
+  ɵChatConfigurationSnapshot,
+  ɵOpenThreadRegistry,
+} from "./chat-configuration";
+
+// Threads drawer binding (internal)
+export {
+  ɵtoDrawerThread,
+  ɵgetThreadsDrawerElementProps,
+  ɵfindChatInput,
+  ɵcreateThreadsDrawerActions,
+} from "./threads-drawer";
+export type {
+  ɵDrawerThread,
+  ɵThreadsDrawerThreads,
+  ɵThreadsDrawerConfig,
+  ɵThreadsDrawerCallbacks,
+} from "./threads-drawer";
 // Message feedback (internal)
 export {
   ɵMESSAGE_FEEDBACK_EVENT_NAME,

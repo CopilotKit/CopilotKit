@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { recordAnnotation } from "../record-annotation";
+import { ɵrecordAnnotation } from "../record-annotation";
 
 // Override randomUUID with a counter so each call produces a distinct,
 // predictable value (mirrors the pattern used in the hook tests).
@@ -61,7 +61,7 @@ it("POSTs the correct wire body to ${runtimeUrl}/annotate", async () => {
   ]);
   globalThis.fetch = fetch;
 
-  const result = await recordAnnotation({
+  const result = await ɵrecordAnnotation({
     runtimeUrl: "https://bff.example.com/api/copilotkit",
     headers: {},
     type: "user_action",
@@ -89,7 +89,7 @@ it("uses the caller-supplied clientEventId verbatim when provided", async () => 
   ]);
   globalThis.fetch = fetch;
 
-  await recordAnnotation({
+  await ɵrecordAnnotation({
     runtimeUrl: "https://bff.example.com/api/copilotkit",
     headers: {},
     type: "custom_annotation",
@@ -116,8 +116,8 @@ it("auto-generates a distinct clientEventId per call when not supplied", async (
     threadId: "t",
   } as const;
 
-  await recordAnnotation(base);
-  await recordAnnotation(base);
+  await ɵrecordAnnotation(base);
+  await ɵrecordAnnotation(base);
 
   expect(calls).toHaveLength(2);
   expect(calls[0]!.body!.clientEventId).not.toBe(calls[1]!.body!.clientEventId);
@@ -131,7 +131,7 @@ it("forwards the caller-supplied occurredAt in the body", async () => {
   ]);
   globalThis.fetch = fetch;
 
-  await recordAnnotation({
+  await ɵrecordAnnotation({
     runtimeUrl: "https://bff.example.com/api/copilotkit",
     headers: {},
     type: "user_action",
@@ -149,7 +149,7 @@ it("omits occurredAt from the body when not supplied", async () => {
   ]);
   globalThis.fetch = fetch;
 
-  await recordAnnotation({
+  await ɵrecordAnnotation({
     runtimeUrl: "https://bff.example.com/api/copilotkit",
     headers: {},
     type: "user_action",
@@ -166,7 +166,7 @@ it("includes Content-Type and forwards customer headers", async () => {
   ]);
   globalThis.fetch = fetch;
 
-  await recordAnnotation({
+  await ɵrecordAnnotation({
     runtimeUrl: "https://bff.example.com/api/copilotkit",
     headers: { "X-Customer": "tenant-abc" },
     type: "user_action",
@@ -187,7 +187,7 @@ it("propagates fetch rejections (network error) to the caller", async () => {
     ) as unknown as typeof globalThis.fetch;
 
   await expect(
-    recordAnnotation({
+    ɵrecordAnnotation({
       runtimeUrl: "https://bff.example.com/api/copilotkit",
       headers: {},
       type: "user_action",
@@ -201,7 +201,7 @@ it("throws with the HTTP status when the response is not ok", async () => {
   globalThis.fetch = fetch;
 
   await expect(
-    recordAnnotation({
+    ɵrecordAnnotation({
       runtimeUrl: "https://bff.example.com/api/copilotkit",
       headers: {},
       type: "user_action",
@@ -216,7 +216,7 @@ it("accepts undefined payload and omits it from the body", async () => {
   ]);
   globalThis.fetch = fetch;
 
-  await recordAnnotation({
+  await ɵrecordAnnotation({
     runtimeUrl: "https://bff.example.com/api/copilotkit",
     headers: {},
     type: "user_action",
@@ -242,7 +242,7 @@ it("throws a contextual error when the runtime returns 200 with an empty body", 
   globalThis.fetch = fakeFetch as unknown as typeof globalThis.fetch;
 
   await expect(
-    recordAnnotation({
+    ɵrecordAnnotation({
       runtimeUrl: "https://bff.example.com/api/copilotkit",
       headers: {},
       type: "user_action",
@@ -263,7 +263,7 @@ it("throws a contextual error when the runtime returns 200 with a non-JSON body"
   globalThis.fetch = fakeFetch as unknown as typeof globalThis.fetch;
 
   await expect(
-    recordAnnotation({
+    ɵrecordAnnotation({
       runtimeUrl: "https://bff.example.com/api/copilotkit",
       headers: {},
       type: "user_action",

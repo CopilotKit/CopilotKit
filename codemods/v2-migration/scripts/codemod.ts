@@ -1,6 +1,7 @@
 import { parse } from "codemod:ast-grep";
 import { chatApiEdits } from "./chat-apis.ts";
 import { angularCopyButtonEdits } from "./angular-copy-buttons.ts";
+import { migrateAngularChatConfiguration } from "./angular-chat-configuration.ts";
 import { migrateDeprecatedApis } from "./deprecated-apis.ts";
 import { migrateGenerativeUI } from "./generative-ui.ts";
 import { migrateRuntimeAdapters } from "./runtime-adapters.ts";
@@ -319,6 +320,8 @@ function todoLines(name: string, entry: V1Export | undefined): string[] {
  * - reads of the removed `runtime.licenseChecker` are marked;
  * - 1.x deprecations that 2.0 removed are renamed to their replacement, or
  *   marked when the replacement has a different API;
+ * - subclasses of the Angular `CopilotChatConfiguration` call
+ *   `setActiveThreadId` instead of the removed `_setOverride`;
  * - generative UI APIs that changed in 2.0 are rewritten or marked (see
  *   `generative-ui.ts`).
  */
@@ -563,7 +566,13 @@ const codemod: Codemod<Lang> = async (root, options) => {
   const generativeUI = migrateGenerativeUI(
     latest === null ? rootNode : parse<Lang>(options.language, latest).root(),
   );
-  return generativeUI ?? latest;
+  const afterGenerativeUI = generativeUI ?? latest;
+  const angular = migrateAngularChatConfiguration(
+    afterGenerativeUI === null
+      ? rootNode
+      : parse<Lang>(options.language, afterGenerativeUI).root(),
+  );
+  return angular ?? afterGenerativeUI;
 };
 
 function collectProviderNames(

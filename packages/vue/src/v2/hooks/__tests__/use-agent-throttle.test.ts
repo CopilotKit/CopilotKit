@@ -541,6 +541,8 @@ describe("useAgent throttleMs", () => {
   it("single notification within window does not trigger a trailing re-render", async () => {
     const renderCount = { current: 0 };
     mountHookComponent({ agent, throttleMs: 100, renderCount });
+    // The provider connects on mount, and the status change re-renders once.
+    await flushVue();
     const afterMount = renderCount.current;
     agent.setMessages([userMsg("1", "a")]);
     agent.notifyMessagesChanged();

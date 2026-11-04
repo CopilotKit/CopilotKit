@@ -21,13 +21,15 @@ describe("useAgent", () => {
 
     const Child = defineComponent({
       setup() {
-        const { agent } = useAgent({ agentId: "test-agent" });
-        return () =>
+        const { agent, isReady } = useAgent({ agentId: "test-agent" });
+        return () => [
           h(
             "span",
             { "data-testid": "agent-id" },
             agent.value?.agentId ?? "none",
-          );
+          ),
+          h("span", { "data-testid": "ready" }, String(isReady.value)),
+        ];
       },
     });
 
@@ -38,6 +40,7 @@ describe("useAgent", () => {
     });
 
     expect(wrapper.find("[data-testid=agent-id]").text()).toBe("test-agent");
+    expect(wrapper.find("[data-testid=ready]").text()).toBe("true");
   });
 
   it("uses agentId from chat configuration when no agentId prop is provided", () => {
