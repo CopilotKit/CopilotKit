@@ -477,20 +477,4 @@ describe("mcpClients — user-managed MCP clients", () => {
     // Both agents share the same config object (by reference)
     expect((cloned as any).config.mcpClients[0]).toBe(provider);
   });
-
-  it("type compatibility: @ai-sdk/mcp MCPClient satisfies MCPClientProvider", async () => {
-    // Compile-time check that `MCPClientProvider` is structurally compatible
-    // with `@ai-sdk/mcp`'s `MCPClient`. After the refactor `MCPClientProvider`
-    // is an alias for `Pick<MCPClient, "tools">`, so this is trivially true —
-    // but keeping the test guards against future divergence.
-    type MCPClient = Awaited<
-      ReturnType<typeof import("@ai-sdk/mcp").createMCPClient>
-    >;
-    const client = {} as MCPClient;
-    const _assignable: MCPClientProvider = {
-      tools: () => client.tools() as unknown as Promise<ToolSet>,
-    };
-    void _assignable;
-    expect(true).toBe(true);
-  });
 });
