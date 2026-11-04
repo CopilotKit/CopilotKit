@@ -9,14 +9,14 @@ it("keeps the Strands TypeScript agent allow-list in the frontend catalog", () =
   const contract = readFileSync(
     path.join(
       REPO_ROOT,
-      "examples/integrations/strands-typescript/agent/src/a2ui-contract.ts",
+      "examples/starters/strands-typescript/agent/src/a2ui-contract.ts",
     ),
     "utf8",
   );
   const definitions = readFileSync(
     path.join(
       REPO_ROOT,
-      "examples/integrations/strands-typescript/src/app/declarative-generative-ui/definitions.ts",
+      "examples/starters/strands-typescript/src/app/declarative-generative-ui/definitions.ts",
     ),
     "utf8",
   );

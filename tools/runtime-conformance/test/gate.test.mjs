@@ -265,7 +265,7 @@ test("every skip-list entry skips the matrix", () => {
     "community/x/README.md",
     "dev-docs/x.md",
     "docs/x.md",
-    "examples/v2/react/demo/src/app.tsx",
+    "examples/dev/by-frontend/react/demo/src/app.tsx",
     "sdk-python/copilotkit/x.py",
     "showcase/shell-docs/src/content/x.mdx",
     "skills/x/SKILL.md",
@@ -334,8 +334,8 @@ test("a workspace or project-graph manifest requires conformance, even in a skip
   // fail both, so the rule matches the file name in any directory.
   for (const path of [
     "packages/vue/package.json",
-    "examples/v2/react/demo/package.json",
-    "examples/v2/interrupts-langgraph/apps/web/project.json",
+    "examples/dev/by-frontend/react/demo/package.json",
+    "examples/dev/by-feature/a2ui-markdown/project.json",
     "tools/learned-skill-conformance/package.json",
     "tools/learned-skill-conformance/project.json",
     "packages/web-inspector/project.json",
@@ -358,7 +358,7 @@ test("other files beside a skipped manifest still skip the matrix", () => {
     "packages/vue/package.json.bak",
     "packages/vue/project.jsonc",
     "packages/vue/tsconfig.json",
-    "examples/v2/react/demo/README.md",
+    "examples/dev/by-frontend/react/demo/README.md",
     "tools/learned-skill-conformance/x.mjs",
   ]) {
     assert.equal(requiresConformance([path]), false, path);

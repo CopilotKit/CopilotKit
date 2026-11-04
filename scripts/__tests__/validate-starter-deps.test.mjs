@@ -25,14 +25,14 @@ after(() => {
 });
 
 /**
- * Build a throwaway `examples/integrations`-shaped tree and validate it.
+ * Build a throwaway `examples/starters`-shaped tree and validate it.
  * `repoFiles` are written relative to the repository root, for manifests that
  * live outside the starters (the Intelligence adapters under `packages/`).
  */
 function check(starters, repoFiles = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "starter-deps-"));
   tmpRoots.push(root);
-  const integrations = path.join(root, "examples", "integrations");
+  const integrations = path.join(root, "examples", "starters");
   const write = (full, content) => {
     fs.mkdirSync(path.dirname(full), { recursive: true });
     fs.writeFileSync(full, content);
@@ -102,7 +102,7 @@ describe("PE-129: unconstrained Python dependency", () => {
       v.manifest,
       path.join(
         "examples",
-        "integrations",
+        "starters",
         "a2a-middleware",
         "agents",
         "requirements.txt",
@@ -191,12 +191,7 @@ describe("PE-38: undeclared peer dependency", () => {
     assert.equal(v.starter, "claude-sdk-python");
     assert.equal(
       v.manifest,
-      path.join(
-        "examples",
-        "integrations",
-        "claude-sdk-python",
-        "package.json",
-      ),
+      path.join("examples", "starters", "claude-sdk-python", "package.json"),
     );
     // Name the package that needs it, so the fix is obvious from the log.
     assert.match(v.detail, /recharts/);

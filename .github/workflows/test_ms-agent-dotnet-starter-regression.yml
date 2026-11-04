@@ -4,8 +4,8 @@ on:
   pull_request:
     branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
     paths:
-      - "examples/integrations/ms-agent-framework-dotnet/agent/**"
-      - "examples/integrations/ms-agent-framework-dotnet/agent-tests/**"
+      - "examples/starters/ms-agent-framework-dotnet/agent/**"
+      - "examples/starters/ms-agent-framework-dotnet/agent-tests/**"
       - ".github/workflows/test_ms-agent-dotnet-starter-regression.yml"
 
 permissions:
@@ -38,10 +38,10 @@ jobs:
       - name: Record tested source
         run: |
           git rev-parse HEAD
-          git hash-object examples/integrations/ms-agent-framework-dotnet/agent/SharedStateAgent.cs
+          git hash-object examples/starters/ms-agent-framework-dotnet/agent/SharedStateAgent.cs
       - name: Restore regression executable
-        run: dotnet restore examples/integrations/ms-agent-framework-dotnet/agent-tests/SharedStateAgent.RegressionTests.csproj
+        run: dotnet restore examples/starters/ms-agent-framework-dotnet/agent-tests/SharedStateAgent.RegressionTests.csproj
       - name: Compile regression executable
-        run: dotnet build examples/integrations/ms-agent-framework-dotnet/agent-tests/SharedStateAgent.RegressionTests.csproj --configuration Release --no-restore --maxcpucount:1
+        run: dotnet build examples/starters/ms-agent-framework-dotnet/agent-tests/SharedStateAgent.RegressionTests.csproj --configuration Release --no-restore --maxcpucount:1
       - name: Run wrapper regression assertions
-        run: dotnet run --project examples/integrations/ms-agent-framework-dotnet/agent-tests/SharedStateAgent.RegressionTests.csproj --configuration Release --no-build --no-restore
+        run: dotnet run --project examples/starters/ms-agent-framework-dotnet/agent-tests/SharedStateAgent.RegressionTests.csproj --configuration Release --no-build --no-restore

@@ -25,6 +25,8 @@ The two checks decide what counts as new in different ways:
 - **React Doctor** reports only issues that your change adds. It uses its own `--scope changed` mode, so old issues in a file do not fail the check.
 - **impeccable** has no changed-only mode, so it scans every UI file that you changed. Old findings in those files count too. Tests and stories are not scanned.
 
+Moved files are not new code, so both checks skip them. React Doctor also skips a project that moved (its `package.json` moved), because it counts every issue in a moved file as new. The project is checked again on its next change.
+
 To fix a finding:
 
 1. Open the file at the line in the output.

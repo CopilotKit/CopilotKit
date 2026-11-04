@@ -27,14 +27,14 @@ function listMarkdownFiles(relativeDirectory: string): string[] {
 const guardedFiles = [
   "showcase/shell-docs/src/content/docs/auth.mdx",
   ...listMarkdownFiles(MAF_DOCS_ROOT),
-  "examples/integrations/ms-agent-framework-dotnet/.env.example",
-  "examples/integrations/ms-agent-framework-dotnet/README.md",
-  "examples/integrations/ms-agent-framework-dotnet/agent/Program.cs",
-  "examples/integrations/ms-agent-framework-dotnet/agent/ProverbsAgent.csproj",
-  "examples/integrations/ms-agent-framework-dotnet/agent/SharedStateAgent.cs",
-  "examples/integrations/ms-agent-framework-dotnet/docker-compose.test.yml",
-  "examples/integrations/ms-agent-framework-dotnet/docker/Dockerfile.agent",
-  "examples/integrations/ms-agent-framework-dotnet/fixtures/default.json",
+  "examples/starters/ms-agent-framework-dotnet/.env.example",
+  "examples/starters/ms-agent-framework-dotnet/README.md",
+  "examples/starters/ms-agent-framework-dotnet/agent/Program.cs",
+  "examples/starters/ms-agent-framework-dotnet/agent/ProverbsAgent.csproj",
+  "examples/starters/ms-agent-framework-dotnet/agent/SharedStateAgent.cs",
+  "examples/starters/ms-agent-framework-dotnet/docker-compose.test.yml",
+  "examples/starters/ms-agent-framework-dotnet/docker/Dockerfile.agent",
+  "examples/starters/ms-agent-framework-dotnet/fixtures/default.json",
 ];
 
 const staleGuidance = [
@@ -77,10 +77,10 @@ test("uses the current Agent Framework server and OpenAI APIs", () => {
     ),
   ];
   const starter = read(
-    "examples/integrations/ms-agent-framework-dotnet/agent/Program.cs",
+    "examples/starters/ms-agent-framework-dotnet/agent/Program.cs",
   );
   const project = read(
-    "examples/integrations/ms-agent-framework-dotnet/agent/ProverbsAgent.csproj",
+    "examples/starters/ms-agent-framework-dotnet/agent/ProverbsAgent.csproj",
   );
 
   for (const authGuide of authGuides) {
@@ -114,7 +114,7 @@ test("pins quickstart packages to the starter's tested versions", () => {
     "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/quickstart.mdx",
   );
   const project = read(
-    "examples/integrations/ms-agent-framework-dotnet/agent/ProverbsAgent.csproj",
+    "examples/starters/ms-agent-framework-dotnet/agent/ProverbsAgent.csproj",
   );
   const packages = [
     "Microsoft.Agents.AI.Hosting.AGUI.AspNetCore",

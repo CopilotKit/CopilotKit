@@ -13,7 +13,7 @@ import { withForwardedHeaders } from "@/lib/header-forwarding";
 //
 // Beautiful Chat simultaneously exercises A2UI (dynamic + fixed schema), Open
 // Generative UI, and MCP Apps. The canonical starter
-// (examples/integrations/langgraph-python) ships all three flags on a single
+// (examples/starters/langgraph-python) ships all three flags on a single
 // runtime; this restores that combined runtime for the one cell that needs it,
 // backed by the built-in (TanStack) `beautiful_chat` port.
 //

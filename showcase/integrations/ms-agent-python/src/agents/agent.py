@@ -2,7 +2,7 @@
 MS Agent Framework agent with sales todos state, weather tool, query data,
 and HITL schedule meeting tool.
 
-Adapted from examples/integrations/ms-agent-framework-python/agent/src/agent.py
+Adapted from examples/starters/ms-agent-framework-python/agent/src/agent.py
 """
 
 # @region[weather-tool-backend]

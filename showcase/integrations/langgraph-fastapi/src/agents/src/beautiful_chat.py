@@ -1,6 +1,6 @@
 """LangGraph agent backing the Beautiful Chat demo.
 
-Verbatim port of the canonical starter at /examples/integrations/langgraph-python.
+Verbatim port of the canonical starter at /examples/starters/langgraph-python.
 Reference structure (agent/main.py + agent/src/{todos,query,a2ui_fixed_schema,
 a2ui_dynamic_schema}.py) is inlined here into a single module to match the
 showcase cell's flat backend layout.

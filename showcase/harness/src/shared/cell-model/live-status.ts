@@ -871,7 +871,7 @@ export const STARTER_COLUMNS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Dashboard columns that HAVE a real starter under `examples/integrations/` but
+ * Dashboard columns that HAVE a real starter under `examples/starters/` but
  * that the starter-smoke fleet does NOT probe, so no `starter:<slug>/<level>`
  * row will ever land for them.
  *
@@ -889,21 +889,21 @@ export const STARTER_COLUMNS: ReadonlySet<string> = new Set([
  *                              matrix.
  *
  * `crewai-conversational-flows` joined them on 2026-09-15. Its starter is
- * `examples/integrations/crewai-flows` (the name drifts, so the identity is
+ * `examples/starters/crewai-flows` (the name drifts, so the identity is
  * declared in `UNPROBED_STARTER_TO_COLUMN` in the harness `starter-mapping.ts`,
  * which also carries the evidence). It is in the CI smoke matrix but is the one
  * matrix starter with no root `Dockerfile`, so `build-starters` publishes no
  * `starter-crewai-flows` image and no Railway service exists to probe.
  *
  * `google-antigravity` joined on 2026-09-28. Its starter is
- * `examples/integrations/antigravity` (name drifts; declared in
+ * `examples/starters/antigravity` (name drifts; declared in
  * `UNPROBED_STARTER_TO_COLUMN`). It is in the CI smoke matrix, but the
  * showcase package itself is not deployed yet, so `build-starters` publishes
  * no `starter-antigravity` image and no Railway service exists to probe.
  *
  * Membership is guarded against the filesystem by
  * `starter-mapping-drift.test.ts`: a column may only sit here if an
- * identically-named directory exists under `examples/integrations/`, and no
+ * identically-named directory exists under `examples/starters/`, and no
  * column outside this set may have one.
  *
  * NOTE (forward direction): the converged `SPEC-starter-ladder.md` replaces
@@ -1114,7 +1114,7 @@ export function buildStarterBadge(
 ): BadgeRender {
   if (support === "unsupported") {
     // Mapping-derived: this column has NO starter under
-    // `examples/integrations/` at all (§a). Renders the `∅` "unsupported"
+    // `examples/starters/` at all (§a). Renders the `∅` "unsupported"
     // treatment (matching depth-chip/unified-cell) as a HOLLOW chip, which is
     // distinct from BOTH the `?` no-data state AND the red smoke-failed ✗.
     // NOT data-derived, so it renders identically before and after the first

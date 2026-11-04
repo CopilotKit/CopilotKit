@@ -649,7 +649,7 @@ describe("Template Generator", () => {
       // matrix and the spec list EXAMPLE slugs, and appending the column slug
       // into them was the namespace bug this change fixes.
       "--starter-path",
-      "examples/integrations/claude-sdk-python",
+      "examples/starters/claude-sdk-python",
     ];
     const STARTER_SLUG = "claude-sdk-python";
 
@@ -1490,14 +1490,13 @@ describe("Template Generator — starter disposition (manifest producer)", () =>
     runGenerator(
       baseArgs([
         "--starter-reason",
-        "This framework has no starter template in examples/integrations.",
+        "This framework has no starter template in examples/starters.",
       ]),
     );
     const block = readManifest().starter_validation;
     expect(block).toEqual({
       supported: false,
-      reason:
-        "This framework has no starter template in examples/integrations.",
+      reason: "This framework has no starter template in examples/starters.",
     });
     // A column with no in-repo starter is not a smoke-matrix member. Appending
     // it would put a COLUMN slug into a list of EXAMPLE slugs.
@@ -1508,10 +1507,10 @@ describe("Template Generator — starter disposition (manifest producer)", () =>
   it("--starter-path emits {path} and appends basename(path) to BOTH smoke files", () => {
     cleanup();
     runGenerator(
-      baseArgs(["--starter-path", "examples/integrations/claude-sdk-python"]),
+      baseArgs(["--starter-path", "examples/starters/claude-sdk-python"]),
     );
     expect(readManifest().starter_validation).toEqual({
-      path: "examples/integrations/claude-sdk-python",
+      path: "examples/starters/claude-sdk-python",
     });
     expect(smokeMatrix()).toMatch(/^\s+- claude-sdk-python\s*$/m);
     expect(readFileSyncSpec()).toContain('slug: "claude-sdk-python"');
@@ -1525,13 +1524,13 @@ describe("Template Generator — starter disposition (manifest producer)", () =>
     runGenerator(
       baseArgs([
         "--starter-path",
-        "examples/integrations/claude-sdk-python",
+        "examples/starters/claude-sdk-python",
         "--starter-service",
         "starter-claude-sdk-python",
       ]),
     );
     expect(readManifest().starter_validation).toEqual({
-      path: "examples/integrations/claude-sdk-python",
+      path: "examples/starters/claude-sdk-python",
       service: "starter-claude-sdk-python",
     });
   });
@@ -1540,7 +1539,7 @@ describe("Template Generator — starter disposition (manifest producer)", () =>
     cleanup();
     const args = baseArgs([
       "--starter-path",
-      "examples/integrations/claude-sdk-python",
+      "examples/starters/claude-sdk-python",
     ]);
     runGenerator(args);
     const afterFirst = { matrix: smokeMatrix(), spec: readFileSyncSpec() };
@@ -1571,7 +1570,7 @@ describe("Template Generator — starter disposition (manifest producer)", () =>
       expectGeneratorError(
         baseArgs([
           "--starter-path",
-          "examples/integrations/claude-sdk-python",
+          "examples/starters/claude-sdk-python",
           "--starter-reason",
           "Both supplied, which must be rejected as a usage error.",
         ]),
@@ -1596,7 +1595,7 @@ describe("Template Generator — starter disposition (manifest producer)", () =>
     // scaffolder, rather than in someone else's CI run.
     expect(
       expectGeneratorError(
-        baseArgs(["--starter-path", "examples/integrations/no-such-starter"]),
+        baseArgs(["--starter-path", "examples/starters/no-such-starter"]),
       ),
     ).toMatch(/does not exist/);
   });
