@@ -57,17 +57,19 @@ ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
 ENV NODE_ENV=production
 ENV PORT=10000
+ENV HOSTNAME=0.0.0.0
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 
-COPY --from=builder /app/shell-docs/.next ./.next
-COPY --from=builder /app/shell-docs/node_modules ./node_modules
-COPY --from=builder /app/shell-docs/package.json ./
+# The tracing root is /app, so standalone contains shell-docs/server.js and
+# preserves the relative paths used by Turbopack's external-module aliases.
+COPY --from=builder /app/shell-docs/.next/standalone/ /app/
+COPY --from=builder /app/shell-docs/.next/static ./.next/static
 COPY --from=builder /app/shell-docs/public ./public
 COPY --from=builder /app/shell-docs/src/content ./src/content
 
 EXPOSE 10000
-CMD ["npx", "next", "start", "-p", "10000"]
+CMD ["node", "server.js"]
 
 # Fail the build if any base or install path regresses the accepted Node runtime.
 RUN test "$(node --version)" = "v22.23.4"
@@ -80,10 +82,9 @@ import { spawn } from 'node:child_process';
 import { connect } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 
-const server = spawn(process.execPath, [
-  'node_modules/next/dist/bin/next', 'start',
-  '--hostname', '127.0.0.1', '--port', '10000',
-], { stdio: 'inherit' });
+const server = spawn(process.execPath, ['server.js'], {
+  stdio: 'inherit', env: { ...process.env, HOSTNAME: '127.0.0.1' },
+});
 
 try {
   const deadline = Date.now() + 30_000;
@@ -101,6 +102,7 @@ try {
     await delay(250);
   }
 
+  let componentHtml = '';
   for (const [path, marker] of [
     ['/generative-ui/components', 'Let your agent render your React components'],
     ['/generative-ui/components/standard-catalog', 'standardUI'],
@@ -112,10 +114,43 @@ try {
     if (response.status !== 200) {
       throw new Error(`${path}: HTTP ${response.status}`);
     }
-    if (!(await response.text()).includes(marker)) {
+    const body = await response.text();
+    if (!body.includes(marker)) {
       throw new Error(`${path}: missing expected content`);
     }
+    if (path.endsWith('/button')) componentHtml = body;
     console.log(`${path}: HTTP 200 and expected content`);
+  }
+
+  // Raw Markdown reads content from disk; HTML alone cannot prove it was copied.
+  const markdownPath = '/generative-ui/components.md';
+  const markdown = await fetch(`http://127.0.0.1:10000${markdownPath}`, {
+    redirect: 'error', signal: AbortSignal.timeout(15_000),
+  });
+  if (markdown.status !== 200 ||
+      !markdown.headers.get('content-type')?.includes('text/markdown') ||
+      !(await markdown.text()).includes('Let your agent render your React components')) {
+    throw new Error(`${markdownPath}: missing expected Markdown content`);
+  }
+  console.log(`${markdownPath}: HTTP 200 and expected Markdown content`);
+
+  // Standalone does not automatically copy public or .next/static assets.
+  const assetUrls = [...new Set(
+    [...componentHtml.matchAll(/(?:src|href)="([^\"]+)"/g)]
+      .map((match) => match[1].replaceAll('&amp;', '&'))
+      .filter((url) => url.startsWith('/_next/static/')),
+  )];
+  const script = assetUrls.find((url) => /\.js(?:\?|$)/.test(url));
+  const stylesheet = assetUrls.find((url) => /\.css(?:\?|$)/.test(url));
+  if (!script || !stylesheet) throw new Error('Component page is missing JS/CSS assets');
+  for (const path of [script, stylesheet, '/images/ag-ui-overview-with-partners.png']) {
+    const asset = await fetch(`http://127.0.0.1:10000${path}`, {
+      redirect: 'error', signal: AbortSignal.timeout(15_000),
+    });
+    if (asset.status !== 200 || (await asset.arrayBuffer()).byteLength === 0) {
+      throw new Error(`${path}: missing runtime asset`);
+    }
+    console.log(`${path}: HTTP 200 and non-empty asset`);
   }
 } finally {
   server.kill('SIGTERM');
