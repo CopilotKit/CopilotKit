@@ -1,9 +1,0 @@
-{
-  "name": "@copilotkit/ui-checks-tools",
-  "private": true,
-  "description": "Pinned React Doctor and impeccable for scripts/lint/react-ui-checks.ts. Kept out of the pnpm workspace so its dependency tree does not re-resolve peers in the root lockfile.",
-  "devDependencies": {
-    "impeccable": "4.8.0",
-    "react-doctor": "0.9.22"
-  }
-}
