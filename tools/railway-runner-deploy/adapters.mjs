@@ -428,6 +428,8 @@ export function createRunner({
   };
   return {
     get: () => request("/deployment"),
+    status: () => request("/status"),
+    readRun: (id) => request(`/runs/${encodeURIComponent(id)}`),
     probe: () => request("/deployment", undefined, true),
     drain: (body) => request("/deployment/drain", body),
     recover: (body) => request("/deployment/recover", body),
