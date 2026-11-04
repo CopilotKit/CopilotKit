@@ -39,6 +39,7 @@
           "{workspaceRoot}/examples/integrations/*/Dockerfile",
           "{workspaceRoot}/.github/workflows/showcase_build.yml",
           "{workspaceRoot}/.github/workflows/showcase_build_check.yml",
+          "{workspaceRoot}/.github/workflows/showcase_reconcile_staging.yml",
           "{workspaceRoot}/.github/workflows/showcase_eval-webhook_build.yml"
         ]
       }
