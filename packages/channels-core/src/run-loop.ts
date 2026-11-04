@@ -582,8 +582,8 @@ export function ensureAssistantToolCallMessage(
     Array.isArray(last.toolCalls);
 
   if (lastIsAssistantWithCalls) {
-    const existing = (last.toolCalls ?? []).map((tc) => tc.id);
-    const allPresent = calls.every((c) => existing.includes(c.toolCallId));
+    const existing = new Set((last.toolCalls ?? []).map((tc) => tc.id));
+    const allPresent = calls.every((c) => existing.has(c.toolCallId));
     if (allPresent) return;
   }
 
