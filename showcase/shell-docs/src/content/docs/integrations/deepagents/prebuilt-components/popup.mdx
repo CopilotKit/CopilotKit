@@ -1,0 +1,82 @@
+---
+title: "CopilotPopup"
+icon: "lucide/MessageCircle"
+description: "Add a floating chat popup to your Deep Agents app."
+---
+
+`CopilotPopup` wraps `CopilotChat` in a floating panel with a launcher button.
+Connect your Deep Agent using the [Deep Agents quickstart](/deepagents/quickstart),
+then render the popup inside the same provider as the rest of your app.
+
+<Callout type="info" title="Demo availability">
+  This page does not yet include an embedded Deep Agents demo. The popup component
+  is supported; use the example below with your own connected Deep Agent.
+</Callout>
+
+## What is this?
+
+Use a popup when you want chat to overlay your page without changing its layout.
+For chat that stays within your page, use [CopilotChat](/deepagents/prebuilt-components/chat).
+
+## Basic setup
+
+Complete the [quickstart](/deepagents/quickstart) first so `/api/copilotkit`
+connects to your Deep Agent. This example uses its runtime agent ID,
+`sample_agent`. Replace both occurrences if you registered a different ID.
+
+The quickstart uses a multi-route runtime endpoint, so `useSingleEndpoint` is
+`false`. The popup starts open and uses a custom input placeholder.
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { CopilotKitProvider, CopilotPopup } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+export default function Page() {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      agentId="sample_agent"
+      useSingleEndpoint={false}
+    >
+      <main>
+        <h1>My app</h1>
+      </main>
+      <CopilotPopup
+        agentId="sample_agent"
+        defaultOpen={true}
+        labels={{ chatInputPlaceholder: "Ask the popup anything..." }}
+      />
+    </CopilotKitProvider>
+  );
+}
+```
+
+If your app already has this provider, render the popup inside it rather than
+adding a second provider.
+
+<Callout type="warn">
+  Import this popup from `@copilotkit/react-core/v2`. The component with the same
+  name in `@copilotkit/react-ui` is the [deprecated v1 popup](/migrate/v2).
+</Callout>
+
+## Configuring the popup
+
+`CopilotPopup` accepts chat slots and labels, plus popup-specific settings:
+
+| Prop | Description |
+|------|-------------|
+| `agentId` | The agent ID configured on your runtime. |
+| `defaultOpen` | Whether the popup starts open when it mounts. |
+| `labels` | Partial overrides for user-facing text. |
+| `header` | A custom popup header component or its props. |
+| `width` / `height` | The popup panel dimensions. |
+
+See the [CopilotPopup reference](/reference/components/CopilotPopup) for the
+complete API.
+
+## Styling
+
+See [CSS customization](/custom-look-and-feel/css) for styling and
+[slots](/custom-look-and-feel/slots) to replace parts of the popup UI.
