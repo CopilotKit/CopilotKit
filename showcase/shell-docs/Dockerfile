@@ -31,23 +31,28 @@ ARG BRANCH=unknown
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 
-# `npm run build` runs prebuild (showcase-data) first. Then drop what only the
-# build needed: dev dependencies, and Next's build cache (`next start` makes
-# its own .next/cache).
-RUN npm run build \
-    && npm prune --omit=dev \
-    && rm -rf .next/cache
+# `npm run build` runs prebuild (showcase-data) first.
+RUN npm run build
 
 FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS runner
 WORKDIR /app/showcase/shell-docs
 ENV NODE_ENV=production
 # The Railway docs service routes to 10000.
 ENV PORT=10000
-# Owned by `node` so the server can write its .next/cache as that user.
-COPY --from=builder --chown=node:node /app/showcase/shell-docs ./
+# server.js listens on HOSTNAME, which Docker sets to the container's name.
+ENV HOSTNAME=0.0.0.0
+# The standalone server and the files it traced, laid out from the tracing
+# root (showcase/). Next leaves out static assets and public/, and the app
+# reads src/content and src/data from disk at request time. Owned by `node`
+# so the server can write its .next/cache as that user.
+COPY --from=builder --chown=node:node /app/showcase/shell-docs/.next/standalone/ /app/showcase/
+COPY --from=builder --chown=node:node /app/showcase/shell-docs/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/showcase/shell-docs/public ./public
+COPY --from=builder --chown=node:node /app/showcase/shell-docs/src/content ./src/content
+COPY --from=builder --chown=node:node /app/showcase/shell-docs/src/data ./src/data
 USER node
 EXPOSE 10000
-CMD ["node_modules/.bin/next", "start", "-p", "10000"]
+CMD ["node", "server.js"]
 
 # Fail the build if any base or install path regresses the accepted Node runtime.
 RUN test "$(node --version)" = "v22.23.4"
@@ -63,10 +68,9 @@ import { spawn } from 'node:child_process';
 import { connect } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 
-const server = spawn(process.execPath, [
-  'node_modules/next/dist/bin/next', 'start',
-  '--hostname', '127.0.0.1', '--port', '10000',
-], { stdio: 'inherit' });
+const server = spawn(process.execPath, ['server.js'], {
+  stdio: 'inherit', env: { ...process.env, HOSTNAME: '127.0.0.1' },
+});
 
 try {
   const deadline = Date.now() + 30_000;
