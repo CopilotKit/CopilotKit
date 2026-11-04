@@ -51,7 +51,6 @@ import {
 } from "./activity-renderer";
 import { injectCopilotKitConfig } from "./config";
 import type { CopilotKitConfig } from "./config";
-import { ensureLicenseWatermark } from "./license-watermark";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
 import {
   A2UI_BASIC_CATALOG_ID,
@@ -345,13 +344,6 @@ export class CopilotKit {
     });
     void this.#inspector.isInspectorEnabled;
     this.#startLearning();
-    // A builder is only evaluated at send time, so it can't be read here.
-    // The record branch below already has its own key-header fallback.
-    ensureLicenseWatermark(
-      typeof this.#config.headers === "function"
-        ? undefined
-        : this.#config.headers,
-    );
 
     this.#runtimeInfo.set(this.core.ɵruntimeInfo);
     this.core.ɵsubscribeToRuntimeInfo(() => {
