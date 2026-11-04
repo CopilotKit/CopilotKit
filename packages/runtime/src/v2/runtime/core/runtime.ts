@@ -117,6 +117,15 @@ interface CopilotRuntimeMiddlewares {
        * for backwards compatibility.
        */
       enabled?: boolean;
+      /**
+       * Transport UI clicks as user intent for agents that accept tool results
+       * only for pending calls (for example, native persisted sessions).
+       * `user-message` records the full A2UI client envelope in input messages
+       * before persistence and consumes the forwarded action. Omitted or
+       * `tool-call` retains the middleware's legacy log_a2ui_event tool pair.
+       * This does not authorize or execute the requested action.
+       */
+      actionTransport?: "tool-call" | "user-message";
     };
   /** Auto-apply MCPAppsMiddleware to agents at run time. */
   mcpApps?: McpAppsConfig;

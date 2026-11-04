@@ -13,6 +13,7 @@ import { handleIntelligenceRun } from "./intelligence/run";
 import { handleSseRun } from "./sse/run";
 import { getRuntimeErrorReporter } from "../core/runtime-error-reporter";
 import { enforcesThreadOwnership } from "../runner/agent-runner";
+import { normalizeA2UIAction } from "./shared/a2ui-action";
 import {
   resolveLocalThreadOwner,
   threadAccessDeniedResponse,
@@ -50,7 +51,7 @@ export async function handleRunAgent({
     // `a2uiCatalogAvailable` below). Middleware is applied to the agent here;
     // the run itself is kicked off later, so this is safe. The body is read
     // from a clone, so `identifyUser` can still read the original request.
-    const input = await parseRunRequest(request.clone());
+    let input = await parseRunRequest(request.clone());
     if (input instanceof Response) {
       return input;
     }
@@ -76,6 +77,9 @@ export async function handleRunAgent({
       }
       ownerId = owner;
     }
+
+    input = normalizeA2UIAction(input, runtime.a2ui, agentId);
+    if (input instanceof Response) return input;
 
     // `<CopilotKit a2ui={{ catalog }}>` forwards this flag on every run. Its
     // presence alone is enough to turn A2UI on end-to-end — no runtime-side
