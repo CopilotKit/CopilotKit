@@ -8,6 +8,8 @@ import {
   useAttrs,
   watch,
 } from "vue";
+import { ɵcreateDockedSidebar, ɵdimensionToCss } from "@copilotkit/core";
+import type { ɵDockedSidebar } from "@copilotkit/core";
 import { CopilotChatDefaultLabels } from "../../providers/types";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import CopilotChatToggleButton from "./CopilotChatToggleButton.vue";
@@ -122,32 +124,23 @@ const asideAttrs = computed(() => {
 const asideStyle = computed(
   () =>
     ({
-      "--sidebar-width": widthToCss(resolvedSidebarWidth.value),
+      "--sidebar-width": widthCss.value,
       paddingTop: "env(safe-area-inset-top)",
       paddingBottom: "env(safe-area-inset-bottom)",
     }) as Record<string, string>,
 );
+const widthCss = computed(() =>
+  ɵdimensionToCss(resolvedSidebarWidth.value, DEFAULT_SIDEBAR_WIDTH),
+);
+
 // The page makes room on the docked edge (desktop only).
-const bodyMarginStyle = computed(() => {
-  const margin =
-    props.position === "left" ? "margin-inline-start" : "margin-inline-end";
-  return `
-@media (min-width: 768px) {
-  body {
-    ${margin}: ${widthToMargin(resolvedSidebarWidth.value)};
-    transition: ${margin} ${SIDEBAR_TRANSITION_MS}ms ease;
-  }
-}
-`;
-});
-
-function widthToCss(width: number | string): string {
-  return typeof width === "number" ? `${width}px` : width;
-}
-
-function widthToMargin(width: number | string): string {
-  return typeof width === "number" ? `${width}px` : width;
-}
+let dock: ɵDockedSidebar | undefined;
+watch(
+  [isSidebarOpen, () => props.position, widthCss],
+  ([open, position, width]) => {
+    dock?.set({ open, position, width });
+  },
+);
 
 function updateMeasuredWidth() {
   if (props.width !== undefined || !sidebarRef.value) {
@@ -245,6 +238,14 @@ watch(
 );
 
 onMounted(async () => {
+  dock = ɵcreateDockedSidebar(document, {
+    transitionMs: SIDEBAR_TRANSITION_MS,
+  });
+  dock.set({
+    open: isSidebarOpen.value,
+    position: props.position,
+    width: widthCss.value,
+  });
   await nextTick();
   updateMeasuredWidth();
 
@@ -263,16 +264,14 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  dock?.dispose();
+  dock = undefined;
   resizeObserver?.disconnect();
   resizeObserver = null;
 });
 </script>
 
 <template>
-  <component :is="'style'" v-if="isSidebarOpen">
-    {{ bodyMarginStyle }}
-  </component>
-
   <slot
     name="toggle-button"
     :is-open="isSidebarOpen"

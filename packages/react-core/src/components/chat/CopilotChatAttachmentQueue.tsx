@@ -8,7 +8,12 @@ import {
 import { CopilotIcon } from "../icons/CopilotIcon";
 import { cn } from "../../lib/utils";
 import { Lightbox, useLightbox } from "./Lightbox";
-import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import {
+  CopilotChatDefaultLabels,
+  ɵcanPreviewDocument,
+  ɵcreateObjectUrlFromSource,
+  ɵdecodeTextSource,
+} from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
 interface CopilotChatAttachmentQueueProps {
@@ -112,7 +117,10 @@ function ImagePreview({ attachment }: { attachment: Attachment }) {
         onClick={openLightbox}
       />
       {open && (
-        <Lightbox onClose={closeLightbox}>
+        <Lightbox
+          onClose={closeLightbox}
+          label={attachment.filename || "Image attachment"}
+        >
           <img
             style={{ viewTransitionName: vtName }}
             src={src}
@@ -198,7 +206,10 @@ function VideoPreview({ attachment }: { attachment: Attachment }) {
         </div>
       </button>
       {open && (
-        <Lightbox onClose={closeLightbox}>
+        <Lightbox
+          onClose={closeLightbox}
+          label={attachment.filename || "Video attachment"}
+        >
           <video
             style={{ viewTransitionName: vtName }}
             src={src}
@@ -216,43 +227,18 @@ function VideoPreview({ attachment }: { attachment: Attachment }) {
 // Document – click opens lightbox with PDF/text preview or info card
 // ---------------------------------------------------------------------------
 
-function isPdf(mimeType: string | undefined): boolean {
-  return !!mimeType && mimeType.includes("pdf");
-}
-
-function isText(mimeType: string | undefined): boolean {
-  return !!mimeType && mimeType.startsWith("text/");
-}
-
-function canPreviewInBrowser(mimeType: string | undefined): boolean {
-  return isPdf(mimeType) || isText(mimeType);
-}
-
 /**
- * Convert a base64-encoded data source to a blob: URL that browsers will
- * render inside an iframe (data: URLs are blocked for PDFs in most browsers).
+ * A URL a frame can show for the attachment. Base64 data becomes a blob:
+ * URL (browsers block data: URLs for PDFs), revoked on unmount.
  */
 function useBlobUrl(attachment: Attachment): string | null {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (attachment.source.type !== "data") return;
-    try {
-      const binary = atob(attachment.source.value);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      const blob = new Blob([bytes], {
-        type: attachment.source.mimeType || "application/octet-stream",
-      });
-      const blobUrl = URL.createObjectURL(blob);
-      setUrl(blobUrl);
-      return () => URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      console.error("[CopilotKit] Failed to decode attachment data:", error);
-      setUrl(null);
-    }
+    const objectUrl = ɵcreateObjectUrlFromSource(attachment.source);
+    setUrl(objectUrl?.url ?? null);
+    return objectUrl?.revoke;
   }, [
     attachment.source.type,
     attachment.source.value,
@@ -274,8 +260,9 @@ function DocumentLightboxContent({
   const labels = config?.labels ?? CopilotChatDefaultLabels;
   const mimeType = attachment.source.mimeType;
   const blobUrl = useBlobUrl(attachment);
+  const preview = ɵcanPreviewDocument(mimeType);
 
-  if (isPdf(mimeType)) {
+  if (preview === "pdf") {
     if (!blobUrl) return null;
     return (
       <iframe
@@ -287,19 +274,8 @@ function DocumentLightboxContent({
     );
   }
 
-  if (isText(mimeType)) {
-    // Decode base64 text content for display
-    const textContent =
-      attachment.source.type === "data"
-        ? (() => {
-            try {
-              return atob(attachment.source.value);
-            } catch {
-              return attachment.source.value;
-            }
-          })()
-        : null;
-
+  if (preview === "text") {
+    const textContent = ɵdecodeTextSource(attachment.source);
     return (
       <div
         style={{ viewTransitionName: vtName }}
@@ -357,7 +333,7 @@ function DocumentPreview({ attachment }: { attachment: Attachment }) {
     useLightbox();
 
   const mimeType = attachment.source.mimeType;
-  const previewable = canPreviewInBrowser(mimeType);
+  const previewable = ɵcanPreviewDocument(mimeType) !== null;
 
   return (
     <>
@@ -384,7 +360,10 @@ function DocumentPreview({ attachment }: { attachment: Attachment }) {
         </div>
       </div>
       {open && (
-        <Lightbox onClose={closeLightbox}>
+        <Lightbox
+          onClose={closeLightbox}
+          label={attachment.filename || labels.attachmentDocumentLabel}
+        >
           <DocumentLightboxContent attachment={attachment} vtName={vtName} />
         </Lightbox>
       )}

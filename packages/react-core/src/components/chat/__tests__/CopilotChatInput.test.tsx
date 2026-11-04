@@ -469,6 +469,24 @@ describe("CopilotChatInput", () => {
     });
   });
 
+  it("leaves an empty tools group out of the slash menu", async () => {
+    renderWithProvider(
+      <CopilotChatInput
+        onSubmitMessage={mockOnSubmitMessage}
+        toolsMenu={[
+          { label: "Empty group", items: [] },
+          { label: "Summarize", action: vi.fn() },
+        ]}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "/" } });
+
+    const menu = await screen.findByTestId("copilot-slash-menu");
+    const options = within(menu).getAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual(["Summarize"]);
+  });
+
   it("limits slash menu height when commands exceed five items", async () => {
     const tools = Array.from({ length: 6 }, (_, index) => ({
       label: `Command ${index + 1}`,

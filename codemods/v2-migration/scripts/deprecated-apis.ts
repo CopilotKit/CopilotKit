@@ -79,6 +79,22 @@ const REMOVED_PROPS: Record<
   },
 };
 
+/**
+ * Lifecycle methods that a 2.0 class no longer has, keyed by the class's
+ * export. In a subclass, `super.<method>()` is deleted and `override` is
+ * dropped from the method: the base class now does that work by itself.
+ */
+const REMOVED_SUPER_METHODS: Record<
+  string,
+  { source: string; methods: string[] }
+> = {
+  // 2.0 measures the text box from an `afterRenderEffect`.
+  CopilotChatTextarea: {
+    source: "@copilotkit/angular",
+    methods: ["ngAfterViewInit"],
+  },
+};
+
 function own<T>(table: Record<string, T> | undefined, key: string) {
   return table && Object.prototype.hasOwnProperty.call(table, key)
     ? table[key]
@@ -101,6 +117,8 @@ export function migrateDeprecatedApis(
   const renames = new Map<string, string>();
   /** Local names of the components in REMOVED_PROPS. */
   const components = new Map<string, string>();
+  /** Local names of the classes in REMOVED_SUPER_METHODS. */
+  const baseClasses = new Map<string, string>();
 
   const statements = rootNode.findAll({
     rule: {
@@ -137,6 +155,8 @@ export function migrateDeprecatedApis(
 
       const component = own(REMOVED_PROPS, name);
       if (component?.source === from) components.set(alias ?? name, name);
+      const baseClass = own(REMOVED_SUPER_METHODS, name);
+      if (baseClass?.source === from) baseClasses.set(alias ?? name, name);
 
       const target = own(renamed, name);
       if (target !== undefined) {
@@ -182,6 +202,8 @@ export function migrateDeprecatedApis(
 
   if (jsx && components.size > 0)
     edits.push(...propEdits(rootNode, components, source));
+  if (baseClasses.size > 0)
+    edits.push(...superMethodEdits(rootNode, baseClasses, source));
 
   if (edits.length === 0) return null;
   return rootNode.commitEdits(edits);
@@ -248,6 +270,71 @@ function propEdits(
         endPos: start,
         insertedText: `${comment} `,
       });
+    }
+  }
+  return edits;
+}
+
+/** Deletes a node with the whitespace before it on its line, and its line break. */
+function deleteLine(node: Node, source: string): Edit {
+  let startPos = node.range().start.index;
+  let endPos = node.range().end.index;
+  while (startPos > 0 && /[ \t]/.test(source[startPos - 1]!)) startPos--;
+  if (source[endPos] === "\n") endPos++;
+  return { startPos, endPos, insertedText: "" };
+}
+
+/**
+ * In classes that extend a class in REMOVED_SUPER_METHODS, deletes the calls
+ * of the removed methods on `super` and drops `override` from their
+ * overrides.
+ */
+function superMethodEdits(
+  rootNode: Node,
+  baseClasses: Map<string, string>,
+  source: string,
+): Edit[] {
+  const edits: Edit[] = [];
+  const classes = rootNode.findAll({
+    rule: {
+      any: [{ kind: "class_declaration" }, { kind: "class" }],
+      has: { kind: "class_heritage" },
+    },
+  });
+  for (const declaration of classes) {
+    const extendsClause = declaration.find({
+      rule: { kind: "extends_clause" },
+    });
+    const base = extendsClause?.field("value")?.text();
+    const exported = base === undefined ? undefined : baseClasses.get(base);
+    if (exported === undefined) continue;
+    const methods = REMOVED_SUPER_METHODS[exported]!.methods;
+    for (const method of methods) {
+      const calls = declaration.findAll({
+        rule: {
+          kind: "expression_statement",
+          regex: `^super\\s*\\.\\s*${method}\\s*\\(\\s*\\)\\s*;?$`,
+        },
+      });
+      for (const call of calls) edits.push(deleteLine(call, source));
+
+      const overrides = declaration.findAll({
+        rule: { kind: "method_definition" },
+      });
+      for (const definition of overrides) {
+        if (definition.field("name")?.text() !== method) continue;
+        const modifier = definition
+          .children()
+          .find((child) => child.kind() === "override_modifier");
+        if (!modifier) continue;
+        let endPos = modifier.range().end.index;
+        while (/[ \t]/.test(source[endPos] ?? "")) endPos++;
+        edits.push({
+          startPos: modifier.range().start.index,
+          endPos,
+          insertedText: "",
+        });
+      }
     }
   }
   return edits;

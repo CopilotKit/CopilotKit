@@ -1,6 +1,6 @@
 ---
 title: Chat UI in 2.0
-description: Replace removed chat exports, update full label objects, renderer lists, repeated tool registrations, and writes to the Angular copy buttons, and check the default text, tool-call rendering, chat configuration, agent, thread-list, send, attachment, and Angular welcome-screen behavior that changed in React, Vue, and Angular.
+description: Replace removed chat exports, update full label objects, renderer lists, repeated tool registrations, and writes to the Angular copy buttons, and check the default text and behavior that changed in tool-call rendering, chat configuration, agents, thread lists, sends, attachments, the Angular welcome screen, the chat input, the audio recorder, the sidebar, and attachment previews.
 ---
 
 In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilotkit/core` can fail, or a type check can fail. The Vue and Angular chat can also show different text or act differently. The cause is one of these changes:
@@ -13,8 +13,9 @@ In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilot
 - The Angular copy buttons and the license warnings changed.
 - React, Vue, and Angular use the same rules for chat configuration, agents, and thread lists.
 - React, Vue, and Angular use one set of rules to send messages and upload attachments.
+- React, Vue, and Angular share one chat input, audio recorder, docked sidebar, and attachment preview.
 
-The codemod adds a `TODO(copilotkit-2.0)` comment above a complete `CopilotChatLabels` object, above a change to a renderer list, and above a write to an Angular copy button. It changes the Angular `CopilotChatConfiguration` subclasses in [Chat configuration](#chat-configuration). It does not change the other code. Use the sections below.
+The codemod adds a `TODO(copilotkit-2.0)` comment above a complete `CopilotChatLabels` object, above a change to a renderer list, and above a write to an Angular copy button. It changes the Angular `CopilotChatConfiguration` subclasses in [Chat configuration](#chat-configuration) and the Angular text box subclasses in [Angular text box](#angular-text-box). It does not change the other code. Use the sections below.
 
 ## Removed exports
 
@@ -463,3 +464,99 @@ If a test reads the console, update these messages:
 - **Angular:** A failed thread load now logs `CopilotChat: connection failed`.
 
 The loading cursor in Vue now uses the last message that the chat shows. Before, it used the last message that the agent sent, which can be a hidden duplicate.
+
+## Angular text box
+
+`CopilotChatTextarea` no longer has an `ngAfterViewInit()` method. The text box measures its height after each render. It also measures again when `inputMaxRows` changes.
+
+If your component extends `CopilotChatTextarea`, a call to `super.ngAfterViewInit()` fails to type-check. The codemod deletes the call and removes `override` from your method:
+
+```ts ignore title="Before"
+import { Component } from "@angular/core";
+import { CopilotChatTextarea } from "@copilotkit/angular";
+
+@Component({ selector: "textarea[appTextarea]", template: "" })
+export class AppTextarea extends CopilotChatTextarea {
+  override ngAfterViewInit(): void {
+    super.ngAfterViewInit();
+    console.log("ready");
+  }
+}
+```
+
+```ts title="After"
+import { Component } from "@angular/core";
+import { CopilotChatTextarea } from "@copilotkit/angular";
+
+@Component({ selector: "textarea[appTextarea]", template: "" })
+export class AppTextarea extends CopilotChatTextarea {
+  ngAfterViewInit(): void {
+    console.log("ready");
+  }
+}
+```
+
+## Audio recorder
+
+All three packages use one recorder. `AudioRecorderError` is the same class in `@copilotkit/react-core`, `@copilotkit/vue`, and `@copilotkit/angular`, so `instanceof` works for an error from any of them.
+
+These rules changed:
+
+- **A second `start()` rejects.** While the recorder starts or records, `start()` rejects with an `AudioRecorderError` that has the message `"Recorder is already active"`. In Angular, `start()` returned without an error. In React and Vue, a second call during the microphone prompt opened a second stream.
+- **Angular `error` output:** It now emits for every failure of `start()` and `stop()`. This includes `"No active recording"` when you call `stop()` and nothing records.
+
+If your Angular code calls `start()` on a recorder that can already record, do one of these:
+
+1. Call `start()` only when `getState()` returns `"idle"`.
+2. Catch the rejection.
+
+```ts title="After"
+import type { CopilotChatAudioRecorder } from "@copilotkit/angular";
+
+export async function startRecording(recorder: CopilotChatAudioRecorder) {
+  if (recorder.getState() !== "idle") return;
+  await recorder.start();
+}
+```
+
+## Docked sidebar
+
+The docked sidebar adds an inline margin to `document.body` on its side. In 2.0, React and Vue use the same rules as Angular:
+
+- **One owner:** Only one open docked sidebar on a page adds the margin. A second one logs a warning and adds no margin.
+- **Margins come back:** When the sidebar closes or unmounts, the body gets back the margins that it had before. React set them to `""`.
+- **Viewport changes:** The margin goes away when the viewport becomes 767px or narrower, and comes back when it becomes wider. If the browser has no `matchMedia`, the sidebar docks. React did not dock without `matchMedia`, for example in jsdom tests.
+- **Vue server rendering:** Vue sets the margin when the sidebar mounts. The server-rendered HTML has no margin and no `<style>` element for it.
+
+In Angular, the sidebar becomes a modal at `(max-width: 767px)`. Before, the breakpoint was `47.999rem`, which moved with the root font size.
+
+If a test expects no body margin in jsdom, or reads the margin from a `<style>` element, update it to read `document.body.style`.
+
+## Slash commands in React
+
+The slash menu lists only menu items that have an `action`. A group with no items, such as `{ label: "Tools", items: [] }`, is not listed. Vue already worked this way.
+
+## Attachment previews
+
+In React, the preview that opens from an attachment is now a modal dialog, as in Vue and Angular:
+
+- The dialog has the file name as its accessible name.
+- Focus moves to the close button when the preview opens.
+- Tab and Shift+Tab stay inside the preview.
+- Focus goes back to the element that opened the preview when it closes.
+
+In React and Vue, a text attachment shows its base64 data decoded as UTF-8. Before, characters outside ASCII showed incorrectly.
+
+If a test reads `document.activeElement` after it opens a preview, update it to expect the close button.
+
+## Scroll to bottom in Angular
+
+`StickToBottom` and `ScrollPosition` now count 12px or less from the end as the bottom. Before, the default was 10px. Vue uses 12px.
+
+To keep 10px, set the threshold:
+
+```html title="chat.component.html"
+<div copilotStickToBottom [threshold]="10">
+  <!-- messages -->
+</div>
+```

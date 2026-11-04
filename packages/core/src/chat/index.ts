@@ -161,11 +161,73 @@ export type { ɵChatViewStateInput, ɵLastUserMessageState } from "./chat-view";
 
 // Chat input (internal)
 export { ɵcomposerButtonState, ɵresolveComposerKey } from "./composer";
+export {
+  ɵflattenCommandItems,
+  ɵfilterCommands,
+  ɵparseSlashQuery,
+  ɵnextSlashIndex,
+  ɵclampSlashIndex,
+  ɵresolveSlashKey,
+} from "./composer";
 export type {
   ɵComposerMode,
   ɵComposerInput,
   ɵComposerKeyEvent,
+  ɵCommandMenuItem,
+  ɵRunnableCommand,
+  ɵSlashMenuState,
+  ɵSlashKeyResult,
 } from "./composer";
+
+// Chat input layout (internal)
+export {
+  ɵCOMPOSER_DEFAULT_MAX_ROWS,
+  ɵComposerAutosize,
+  ɵcreateComposerAutosize,
+  ɵmeasureTextarea,
+  ɵfitTextareaHeight,
+} from "./composer-layout";
+export type {
+  ɵComposerLayout,
+  ɵComposerElements,
+  ɵComposerAutosizeOptions,
+  ɵTextareaMetrics,
+} from "./composer-layout";
+
+// Audio recorder (internal)
+export {
+  ɵAudioRecorder,
+  ɵAudioRecorderError,
+  ɵcreateWaveformRenderer,
+  ɵrmsAmplitude,
+} from "./audio-recorder";
+export type { ɵAudioRecorderState } from "./audio-recorder";
+
+// Chat DOM helpers (internal)
+export {
+  ɵdimensionToCss,
+  ɵDockedSidebarRegistry,
+  ɵdockedSidebarRegistryFor,
+  ɵDockedSidebar,
+  ɵcreateDockedSidebar,
+  ɵPOPUP_ANIMATION_MS,
+  ɵbindPopupDismiss,
+  ɵmorphViewTransition,
+  ɵbindDialogFocus,
+  ɵcanPreviewDocument,
+  ɵcreateObjectUrlFromSource,
+  ɵdecodeTextSource,
+  ɵSCROLL_BOTTOM_THRESHOLD_PX,
+  ɵisScrolledToBottom,
+} from "./dom";
+export type {
+  ɵSidebarPosition,
+  ɵDockedSidebarPlacement,
+  ɵDockedSidebarTransition,
+  ɵDockedSidebarState,
+  ɵPopupDismissOptions,
+  ɵDialogFocusOptions,
+} from "./dom";
 
 // Transcription
 export { TranscriptionErrorCode, TranscriptionError } from "./transcription";

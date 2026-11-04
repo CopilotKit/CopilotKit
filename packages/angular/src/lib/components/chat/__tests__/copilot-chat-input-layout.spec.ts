@@ -119,6 +119,44 @@ describe("CopilotChatInput layout", () => {
     expect(grid.getAttribute("data-layout")).toBe("expanded");
   });
 
+  describe("text box height", () => {
+    // jsdom has no layout: 24px a line. The shared CSS pads the text box 2px.
+    beforeEach(() => {
+      vi.spyOn(
+        HTMLTextAreaElement.prototype,
+        "scrollHeight",
+        "get",
+      ).mockImplementation(function (this: HTMLTextAreaElement) {
+        return this.value.split("\n").length * 24;
+      });
+    });
+
+    it("caps the text box at five rows by default", () => {
+      const { textarea } = render();
+      expect(textarea()!.style.maxHeight).toBe("104px");
+    });
+
+    it("measures again when textAreaMaxRows changes", () => {
+      const { fixture, textarea } = render();
+      fixture.componentRef.setInput("textAreaMaxRows", 2);
+      fixture.detectChanges();
+      expect(textarea()!.style.maxHeight).toBe("44px");
+    });
+
+    it("fits the height to the text on a narrow viewport", () => {
+      Object.defineProperty(window, "matchMedia", {
+        configurable: true,
+        writable: true,
+        value: (query: string) => ({ matches: query === "(max-width: 767px)" }),
+      });
+      // A value set by the host, with no input event from the text box.
+      const { fixture, textarea } = render();
+      fixture.componentRef.setInput("value", "one\ntwo");
+      fixture.detectChanges();
+      expect(textarea()!.style.height).toBe("48px");
+    });
+  });
+
   it("shows React's spinner instead of the textarea while processing", () => {
     const { fixture, root, textarea } = render();
     fixture.componentRef.setInput("mode", "processing");

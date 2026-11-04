@@ -14,9 +14,15 @@ import {
   afterRenderEffect,
   inject,
   DestroyRef,
+  PLATFORM_ID,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
-import { ɵcomposerButtonState, ɵresolveComposerKey } from "@copilotkit/core";
+import { CommonModule, isPlatformBrowser } from "@angular/common";
+import {
+  ɵCOMPOSER_DEFAULT_MAX_ROWS,
+  ɵcomposerButtonState,
+  ɵcreateComposerAutosize,
+  ɵresolveComposerKey,
+} from "@copilotkit/core";
 import type { ɵComposerInput } from "@copilotkit/core";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { injectChatLabels } from "../../chat-config";
@@ -551,99 +557,41 @@ export class CopilotChatInput implements OnDestroy {
     });
 
     // Re-evaluate the layout after every render that changes the text or mode.
-    afterRenderEffect(() => {
-      this.computedValue();
-      this.computedMode();
-      this.evaluateLayout();
+    afterRenderEffect(() => this.evaluateLayout());
+    const unsubscribe = this.autosize.subscribe(() =>
+      this.layout.set(this.autosize.getSnapshot()),
+    );
+    this.destroyRef.onDestroy(() => {
+      unsubscribe();
+      this.autosize.dispose();
     });
-    this.observeLayout();
   }
 
   private readonly grid = viewChild<ElementRef<HTMLElement>>("grid");
   private readonly start = viewChild<ElementRef<HTMLElement>>("start");
   private readonly actions = viewChild<ElementRef<HTMLElement>>("actions");
   private readonly destroyRef = inject(DestroyRef);
-  private measureCanvas?: HTMLCanvasElement;
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  /** Sizes the text box and picks the layout, as in React and Vue. */
+  private readonly autosize = ɵcreateComposerAutosize({
+    getElements: () => ({
+      textarea: this.textAreaRef()?.textareaRef.nativeElement,
+      grid: this.grid()?.nativeElement,
+      start: this.start()?.nativeElement,
+      actions: this.actions()?.nativeElement,
+    }),
+  });
 
   /**
    * Picks the compact or expanded layout like React's input: expanded when
    * the text has a line break, wraps, or is wider than the compact row.
    */
   evaluateLayout(): void {
-    if (this.computedMode() !== "input") return;
-    if (
-      typeof window !== "undefined" &&
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(max-width: 767px)").matches
-    ) {
-      this.layout.set("expanded");
-      return;
-    }
-
-    const textarea = this.textAreaRef();
-    const grid = this.grid()?.nativeElement;
-    const start = this.start()?.nativeElement;
-    const actions = this.actions()?.nativeElement;
-    // A custom text area or toolbar has no layout to pick.
-    if (!textarea || !grid || !start || !actions) return;
-
-    const value = this.computedValue();
-    const { scrollHeight, singleLineHeight } = textarea.measure();
-    let expand =
-      value.includes("\n") ||
-      (singleLineHeight > 0 && scrollHeight > singleLineHeight + 1);
-
-    if (!expand) {
-      const gridStyles = window.getComputedStyle(grid);
-      const columnGap = parseFloat(gridStyles.columnGap) || 0;
-      const compactWidth =
-        grid.clientWidth -
-        (parseFloat(gridStyles.paddingLeft) || 0) -
-        (parseFloat(gridStyles.paddingRight) || 0) -
-        start.getBoundingClientRect().width -
-        actions.getBoundingClientRect().width -
-        columnGap * 2;
-      const element = textarea.textareaRef.nativeElement as HTMLTextAreaElement;
-      const styles = window.getComputedStyle(element);
-      const innerWidth =
-        compactWidth -
-        (parseFloat(styles.paddingLeft) || 0) -
-        (parseFloat(styles.paddingRight) || 0);
-      if (compactWidth > 0 && innerWidth > 0 && styles.font) {
-        this.measureCanvas ??= document.createElement("canvas");
-        const context = this.measureCanvas.getContext("2d");
-        if (context) {
-          context.font = styles.font;
-          expand = value
-            .split("\n")
-            .some(
-              (line) => context.measureText(line || " ").width > innerWidth,
-            );
-        }
-      }
-    }
-    this.layout.set(expand ? "expanded" : "compact");
-  }
-
-  // The available width changes with the container, not only with the text.
-  private observeLayout(): void {
-    if (typeof ResizeObserver === "undefined") return;
-    let frame: number | undefined;
-    const observer = new ResizeObserver(() => {
-      if (frame !== undefined) cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        frame = undefined;
-        this.evaluateLayout();
-      });
-    });
-    afterNextRender(() => {
-      const grid = this.grid()?.nativeElement;
-      if (grid) observer.observe(grid);
-    });
-    this.destroyRef.onDestroy(() => {
-      observer.disconnect();
-      if (frame !== undefined) cancelAnimationFrame(frame);
-    });
+    if (!this.isBrowser) return;
+    this.autosize.setMaxRows(
+      this.textAreaMaxRows() ?? ɵCOMPOSER_DEFAULT_MAX_ROWS,
+    );
+    this.autosize.evaluate(this.computedValue(), this.computedMode());
   }
 
   // Output maps for slots

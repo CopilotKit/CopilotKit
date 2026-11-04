@@ -5,10 +5,20 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
+  shallowRef,
   useAttrs,
   watch,
 } from "vue";
-import { ɵcomposerButtonState, ɵresolveComposerKey } from "@copilotkit/core";
+import {
+  ɵclampSlashIndex,
+  ɵcomposerButtonState,
+  ɵcreateComposerAutosize,
+  ɵfilterCommands,
+  ɵflattenCommandItems,
+  ɵparseSlashQuery,
+  ɵresolveComposerKey,
+  ɵresolveSlashKey,
+} from "@copilotkit/core";
 import {
   IconArrowUp,
   IconCheck,
@@ -116,7 +126,20 @@ const slashMenuRef = ref<HTMLElement | null>(null);
 const audioRecorderRef = ref<CopilotChatAudioRecorderRef | null>(null);
 const localValue = ref(props.modelValue ?? "");
 const isComposing = ref(false);
-const layout = ref<"compact" | "expanded">("compact");
+// Sizes the text box and picks the compact or expanded layout.
+const autosize = ɵcreateComposerAutosize({
+  getElements: () => ({
+    textarea: textareaRef.value,
+    grid: gridRef.value,
+    start: addButtonContainerRef.value,
+    actions: actionsContainerRef.value,
+  }),
+  maxRows: props.maxRows,
+});
+const layout = shallowRef(autosize.getSnapshot());
+autosize.subscribe(() => {
+  layout.value = autosize.getSnapshot();
+});
 const commandQuery = ref<string | null>(null);
 const slashHighlightIndex = ref(0);
 const previousCommandQuery = ref<string | null>(null);
@@ -127,21 +150,6 @@ const addMenuInitialFocus = ref<"first" | "last" | "content">("content");
 const addMenuAnchor = ref<HTMLElement | null>(null);
 const addMenuId = useCopilotId("cpk-add-menu");
 const addMenuTriggerId = `${addMenuId}-trigger`;
-const measurements = ref({
-  singleLineHeight: 0,
-  maxHeight: 0,
-  paddingLeft: 0,
-  paddingRight: 0,
-});
-const resizeEvaluationRafRef = ref<number | null>(null);
-const ignoreResizeRef = ref(false);
-const measurementCanvasRef = ref<HTMLCanvasElement | null>(null);
-const containerCacheRef = ref<{
-  compactWidth: number;
-} | null>(null);
-const didWarnMissingFontRef = ref(false);
-const didWarnMissingCanvasContextRef = ref(false);
-let resizeObserver: ResizeObserver | null = null;
 
 const isControlled = computed(() => props.modelValue !== undefined);
 const inputValue = computed(() =>
@@ -251,35 +259,7 @@ function normalizeMenuItems() {
 const menuItems = computed(() => normalizeMenuItems());
 const hasMenuItems = computed(() => menuItems.value.length > 0);
 
-function flattenMenuForCommands(items: MenuEntry[]) {
-  const seen = new Set<string>();
-  const commands: ToolsMenuItem[] = [];
-
-  const walk = (entryList: MenuEntry[]) => {
-    for (const entry of entryList) {
-      if (entry === "-") {
-        continue;
-      }
-
-      if (isMenuGroup(entry) && entry.items.length > 0) {
-        walk(entry.items);
-        continue;
-      }
-
-      if (!entry.action || seen.has(entry.label)) {
-        continue;
-      }
-
-      seen.add(entry.label);
-      commands.push(entry);
-    }
-  };
-
-  walk(items);
-  return commands;
-}
-
-const commandItems = computed(() => flattenMenuForCommands(menuItems.value));
+const commandItems = computed(() => ɵflattenCommandItems(menuItems.value));
 
 function flattenMenuDisplay(items: MenuEntry[], depth = 0, prefix = "root") {
   const entries: MenuDisplayEntry[] = [];
@@ -314,32 +294,9 @@ function flattenMenuDisplay(items: MenuEntry[], depth = 0, prefix = "root") {
 
 const menuDisplayItems = computed(() => flattenMenuDisplay(menuItems.value));
 
-const filteredCommands = computed(() => {
-  if (commandQuery.value === null || commandItems.value.length === 0) {
-    return [] as ToolsMenuItem[];
-  }
-
-  const normalized = commandQuery.value.trim().toLowerCase();
-  if (normalized.length === 0) {
-    return commandItems.value;
-  }
-
-  const startsWith: ToolsMenuItem[] = [];
-  const contains: ToolsMenuItem[] = [];
-
-  for (const command of commandItems.value) {
-    const label = command.label.toLowerCase();
-    if (label.startsWith(normalized)) {
-      startsWith.push(command);
-      continue;
-    }
-    if (label.includes(normalized)) {
-      contains.push(command);
-    }
-  }
-
-  return [...startsWith, ...contains];
-});
+const filteredCommands = computed(() =>
+  ɵfilterCommands(commandItems.value, commandQuery.value),
+);
 
 const slashMenuVisible = computed(
   () => commandQuery.value !== null && commandItems.value.length > 0,
@@ -357,18 +314,7 @@ function clearInputValue() {
 }
 
 function updateSlashState(value: string) {
-  if (commandItems.value.length === 0) {
-    commandQuery.value = null;
-    return;
-  }
-
-  if (value.startsWith("/")) {
-    const firstLine = value.split(/\r?\n/, 1)[0] ?? "";
-    commandQuery.value = firstLine.slice(1);
-    return;
-  }
-
-  commandQuery.value = null;
+  commandQuery.value = ɵparseSlashQuery(value, commandItems.value.length > 0);
 }
 
 function runCommand(command: ToolsMenuItem) {
@@ -429,50 +375,24 @@ function handleKeydown(event: KeyboardEvent) {
     return;
   }
 
-  if (commandQuery.value !== null && props.mode === "input") {
-    if (event.key === "ArrowDown") {
-      if (filteredCommands.value.length > 0) {
-        event.preventDefault();
-        slashHighlightIndex.value =
-          slashHighlightIndex.value < 0
-            ? 0
-            : (slashHighlightIndex.value + 1) % filteredCommands.value.length;
-      }
+  const slash = ɵresolveSlashKey(event, {
+    query: props.mode === "input" ? commandQuery.value : null,
+    commands: filteredCommands.value,
+    highlightIndex: slashHighlightIndex.value,
+  });
+  if (slash.type !== "none") event.preventDefault();
+  switch (slash.type) {
+    case "highlight":
+      slashHighlightIndex.value = slash.index;
       return;
-    }
-
-    if (event.key === "ArrowUp") {
-      if (filteredCommands.value.length > 0) {
-        event.preventDefault();
-        if (slashHighlightIndex.value < 0) {
-          slashHighlightIndex.value = filteredCommands.value.length - 1;
-        } else {
-          slashHighlightIndex.value =
-            slashHighlightIndex.value <= 0
-              ? filteredCommands.value.length - 1
-              : slashHighlightIndex.value - 1;
-        }
-      }
+    case "run":
+      runCommand(slash.command);
       return;
-    }
-
-    if (event.key === "Enter") {
-      const selected =
-        slashHighlightIndex.value >= 0
-          ? filteredCommands.value[slashHighlightIndex.value]
-          : undefined;
-      if (selected) {
-        event.preventDefault();
-        runCommand(selected);
-        return;
-      }
-    }
-
-    if (event.key === "Escape") {
-      event.preventDefault();
+    case "close":
       commandQuery.value = null;
       return;
-    }
+    case "none":
+      break;
   }
 
   if (props.mode !== "input") {
@@ -603,240 +523,6 @@ function handleContainerClick(event: MouseEvent) {
   textareaRef.value?.focus();
 }
 
-function ensureMeasurements() {
-  const textarea = textareaRef.value;
-  if (!textarea || isComposing.value) {
-    return;
-  }
-
-  const previousValue = textarea.value;
-  const previousHeight = textarea.style.height;
-  textarea.style.height = "auto";
-
-  const computedStyle = window.getComputedStyle(textarea);
-  const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
-  const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
-  const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
-  const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
-
-  textarea.value = "";
-  const singleLineHeight = textarea.scrollHeight;
-  textarea.value = previousValue;
-
-  const contentHeight = singleLineHeight - paddingTop - paddingBottom;
-  const maxHeight = contentHeight * props.maxRows + paddingTop + paddingBottom;
-
-  measurements.value = {
-    singleLineHeight,
-    maxHeight,
-    paddingLeft,
-    paddingRight,
-  };
-
-  textarea.style.height = previousHeight;
-  textarea.style.maxHeight = `${maxHeight}px`;
-}
-
-function adjustTextareaHeight() {
-  const textarea = textareaRef.value;
-  if (!textarea) {
-    return 0;
-  }
-
-  if (measurements.value.singleLineHeight === 0) {
-    ensureMeasurements();
-  }
-
-  const { maxHeight } = measurements.value;
-  if (maxHeight) {
-    textarea.style.maxHeight = `${maxHeight}px`;
-  }
-
-  textarea.style.height = "auto";
-  const scrollHeight = textarea.scrollHeight;
-  textarea.style.height = `${maxHeight ? Math.min(scrollHeight, maxHeight) : scrollHeight}px`;
-  return scrollHeight;
-}
-
-function updateLayout(nextLayout: "compact" | "expanded") {
-  if (layout.value === nextLayout) {
-    return;
-  }
-  ignoreResizeRef.value = true;
-  layout.value = nextLayout;
-}
-
-function resolveTextareaFont(textarea: HTMLTextAreaElement): string | null {
-  const textareaStyles = window.getComputedStyle(textarea);
-  if (textareaStyles.font?.trim()) {
-    return textareaStyles.font;
-  }
-
-  if (textareaStyles.fontSize && textareaStyles.fontFamily) {
-    const fallbackFont =
-      `${textareaStyles.fontStyle} ${textareaStyles.fontVariant} ` +
-      `${textareaStyles.fontWeight} ${textareaStyles.fontSize}/${textareaStyles.lineHeight} ` +
-      `${textareaStyles.fontFamily}`;
-    if (fallbackFont.trim()) {
-      return fallbackFont;
-    }
-  }
-
-  if (process.env.NODE_ENV !== "production" && !didWarnMissingFontRef.value) {
-    didWarnMissingFontRef.value = true;
-    console.warn(
-      "[CopilotChatInput] Could not resolve textarea font for layout measurement. " +
-        "Text-width-based expansion will be skipped until the next container resize.",
-    );
-  }
-  return null;
-}
-
-function updateContainerCache() {
-  const grid = gridRef.value;
-  const addContainer = addButtonContainerRef.value;
-  const actionsContainer = actionsContainerRef.value;
-  if (!grid || !addContainer || !actionsContainer) {
-    containerCacheRef.value = null;
-    return null;
-  }
-
-  const gridStyles = window.getComputedStyle(grid);
-  const paddingLeft = parseFloat(gridStyles.paddingLeft) || 0;
-  const paddingRight = parseFloat(gridStyles.paddingRight) || 0;
-  const columnGap = parseFloat(gridStyles.columnGap) || 0;
-  const gridAvailableWidth = grid.clientWidth - paddingLeft - paddingRight;
-  if (gridAvailableWidth <= 0) {
-    containerCacheRef.value = null;
-    return null;
-  }
-
-  const addWidth = addContainer.getBoundingClientRect().width;
-  const actionsWidth = actionsContainer.getBoundingClientRect().width;
-  const compactWidth = Math.max(
-    gridAvailableWidth - addWidth - actionsWidth - columnGap * 2,
-    0,
-  );
-  if (compactWidth <= 0) {
-    containerCacheRef.value = null;
-    return null;
-  }
-
-  const cache = { compactWidth };
-  containerCacheRef.value = cache;
-  return cache;
-}
-
-function evaluateLayout() {
-  if (props.mode !== "input") {
-    updateLayout("compact");
-    return;
-  }
-
-  if (
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(max-width: 767px)").matches
-  ) {
-    ensureMeasurements();
-    adjustTextareaHeight();
-    updateLayout("expanded");
-    return;
-  }
-
-  const textarea = textareaRef.value;
-  if (
-    !textarea ||
-    !gridRef.value ||
-    !addButtonContainerRef.value ||
-    !actionsContainerRef.value
-  ) {
-    return;
-  }
-
-  if (measurements.value.singleLineHeight === 0) {
-    ensureMeasurements();
-  }
-
-  const scrollHeight = adjustTextareaHeight();
-  const baseline = measurements.value.singleLineHeight;
-  const hasExplicitBreak = inputValue.value.includes("\n");
-  const renderedMultiline = baseline > 0 ? scrollHeight > baseline + 1 : false;
-  let shouldExpand = hasExplicitBreak || renderedMultiline;
-
-  if (!shouldExpand) {
-    const cache = containerCacheRef.value ?? updateContainerCache();
-    if (cache && cache.compactWidth > 0) {
-      const compactInnerWidth = Math.max(
-        cache.compactWidth -
-          measurements.value.paddingLeft -
-          measurements.value.paddingRight,
-        0,
-      );
-
-      if (compactInnerWidth > 0) {
-        const canvas =
-          measurementCanvasRef.value ?? document.createElement("canvas");
-        if (!measurementCanvasRef.value) {
-          measurementCanvasRef.value = canvas;
-        }
-
-        const context = canvas.getContext("2d");
-        if (context) {
-          const resolvedFont = resolveTextareaFont(textarea);
-          if (resolvedFont) {
-            context.font = resolvedFont;
-            const lines =
-              inputValue.value.length > 0 ? inputValue.value.split("\n") : [""];
-            let longestLine = 0;
-            for (const line of lines) {
-              const width = context.measureText(line || " ").width;
-              if (width > longestLine) {
-                longestLine = width;
-              }
-            }
-            if (longestLine > compactInnerWidth) {
-              shouldExpand = true;
-            }
-          }
-        } else if (
-          process.env.NODE_ENV !== "production" &&
-          !didWarnMissingCanvasContextRef.value
-        ) {
-          didWarnMissingCanvasContextRef.value = true;
-          console.warn(
-            "[CopilotChatInput] canvas.getContext('2d') returned null. " +
-              "Text-width-based expansion will be skipped.",
-          );
-        }
-      }
-    }
-  }
-
-  updateLayout(shouldExpand ? "expanded" : "compact");
-}
-
-function scheduleLayoutEvaluation(invalidateCache: boolean) {
-  if (ignoreResizeRef.value) {
-    ignoreResizeRef.value = false;
-    return;
-  }
-
-  if (invalidateCache) {
-    containerCacheRef.value = null;
-    didWarnMissingFontRef.value = false;
-    didWarnMissingCanvasContextRef.value = false;
-  }
-
-  if (resizeEvaluationRafRef.value !== null) {
-    cancelAnimationFrame(resizeEvaluationRafRef.value);
-  }
-
-  resizeEvaluationRafRef.value = requestAnimationFrame(() => {
-    resizeEvaluationRafRef.value = null;
-    evaluateLayout();
-  });
-}
-
 watch(
   () => props.modelValue,
   (next) => {
@@ -848,13 +534,25 @@ watch(
 
 watch(inputValue, (value) => {
   updateSlashState(value);
-  evaluateLayout();
 });
 
+watch(
+  [inputValue, () => props.mode],
+  ([value, mode]) => {
+    autosize.evaluate(value, mode);
+  },
+  { flush: "post" },
+);
+
+watch(
+  () => props.maxRows,
+  (maxRows) => {
+    autosize.setMaxRows(maxRows);
+  },
+);
+
 watch(commandItems, () => {
-  if (commandItems.value.length === 0) {
-    commandQuery.value = null;
-  }
+  updateSlashState(inputValue.value);
 });
 
 watch(
@@ -876,20 +574,13 @@ watch(
 watch(
   [commandQuery, filteredCommands],
   () => {
-    if (commandQuery.value === null) {
-      slashHighlightIndex.value = 0;
-      return;
-    }
-    if (filteredCommands.value.length === 0) {
-      slashHighlightIndex.value = -1;
-      return;
-    }
-    if (
-      slashHighlightIndex.value < 0 ||
-      slashHighlightIndex.value >= filteredCommands.value.length
-    ) {
-      slashHighlightIndex.value = 0;
-    }
+    slashHighlightIndex.value =
+      commandQuery.value === null
+        ? 0
+        : ɵclampSlashIndex(
+            slashHighlightIndex.value,
+            filteredCommands.value.length,
+          );
   },
   { immediate: true },
 );
@@ -898,7 +589,6 @@ watch(
   () => props.mode,
   async (mode) => {
     if (mode !== "input") {
-      layout.value = "compact";
       commandQuery.value = null;
       closeAddMenu();
     }
@@ -970,39 +660,11 @@ onMounted(() => {
     textareaRef.value?.focus();
   }
 
-  evaluateLayout();
-
-  if (typeof ResizeObserver !== "undefined") {
-    const containerTargets = new Set<HTMLElement>();
-    if (gridRef.value) containerTargets.add(gridRef.value);
-    if (addButtonContainerRef.value)
-      containerTargets.add(addButtonContainerRef.value);
-    if (actionsContainerRef.value)
-      containerTargets.add(actionsContainerRef.value);
-
-    resizeObserver = new ResizeObserver((entries) => {
-      const shouldInvalidate = entries.some((entry) =>
-        containerTargets.has(entry.target as HTMLElement),
-      );
-      scheduleLayoutEvaluation(shouldInvalidate);
-    });
-
-    if (gridRef.value) resizeObserver.observe(gridRef.value);
-    if (addButtonContainerRef.value)
-      resizeObserver.observe(addButtonContainerRef.value);
-    if (actionsContainerRef.value)
-      resizeObserver.observe(actionsContainerRef.value);
-    if (textareaRef.value) resizeObserver.observe(textareaRef.value);
-  }
+  autosize.evaluate(inputValue.value, props.mode);
 });
 
 onBeforeUnmount(() => {
-  resizeObserver?.disconnect();
-  resizeObserver = null;
-  if (resizeEvaluationRafRef.value !== null) {
-    cancelAnimationFrame(resizeEvaluationRafRef.value);
-    resizeEvaluationRafRef.value = null;
-  }
+  autosize.dispose();
 });
 </script>
 
