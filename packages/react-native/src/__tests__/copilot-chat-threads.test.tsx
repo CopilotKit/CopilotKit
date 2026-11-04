@@ -6,7 +6,7 @@
  */
 import React from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Message, RunAgentResult } from "@ag-ui/client";
 import { CopilotChat, useCopilotChatContext } from "../CopilotChat";
 import { SeededAgent, TestCopilotKit } from "../__mocks__/test-copilotkit";
@@ -84,6 +84,7 @@ function renderChat(agent: ThreadedAgent, threadId?: string) {
   const result = render(view(threadId));
   return {
     switchTo: (id?: string) => result.rerender(view(id)),
+    unmount: result.unmount,
   };
 }
 
@@ -163,5 +164,40 @@ describe("headless CopilotChat threads", () => {
     expect(agent.runs).toEqual([
       { threadId: "t1", messages: ["from t1", "hello"] },
     ]);
+  });
+  it("leaves the agent's run running when the chat unmounts after the thread loaded", async () => {
+    const agent = new ThreadedAgent({ t1: [text("a", "from t1")] });
+    const { unmount } = renderChat(agent, "t1");
+    await waitFor(() => expect(transcript()).toEqual(["from t1"]));
+    // Core's connect detaches the previous run itself; count only what the
+    // chat's cleanup does.
+    const detach = vi.spyOn(agent, "detachActiveRun");
+
+    unmount();
+    await act(async () => {});
+
+    // The connect had settled, so a run on the agent now is not the
+    // connect's own: a reply the user asked for keeps streaming.
+    expect(detach).not.toHaveBeenCalled();
+  });
+
+  it("keeps the messages of an agent that cannot connect, and sends on its thread", async () => {
+    // An agent without connect: a connect would only empty it.
+    const agent = new (class extends SeededAgent {
+      readonly runs: string[] = [];
+      override async runAgent(): Promise<RunAgentResult> {
+        this.runs.push(this.threadId);
+        return EMPTY_RESULT;
+      }
+    })();
+    agent.setMessages([text("a", "kept")]);
+    renderChat(agent as unknown as ThreadedAgent, "t1");
+
+    await act(async () => {
+      await chat!.submitMessage("hello");
+    });
+
+    expect(transcript()).toEqual(["kept", "hello"]);
+    expect(agent.runs).toEqual(["t1"]);
   });
 });

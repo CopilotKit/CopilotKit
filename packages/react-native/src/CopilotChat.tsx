@@ -14,16 +14,17 @@ import {
   useCopilotChatConfiguration,
 } from "@copilotkit/react-core/headless";
 import { useCopilotKit } from "@copilotkit/react-core/context";
-import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
+import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
-  ɵThreadSwitchCoordinator,
+  ɵChatConnection,
+  ɵFreshThreadId,
   ɵcreateChatSubmitter,
+  ɵsubscribeToAgentErrors,
 } from "@copilotkit/core";
 import { useAttachments } from "./hooks/use-attachments";
 import type { NativeAttachmentsConfig } from "./hooks/use-attachments";
 import type { Attachment } from "@copilotkit/shared";
-import { showThread } from "./thread-connection";
 
 // ---------------------------------------------------------------------------
 // Context
@@ -204,35 +205,31 @@ export function CopilotChat({
   // thread of the chat around this one, else a UUID minted for this chat.
   // Only a thread a caller picked is "explicit" and restored from the backend.
   const providedThreadId = threadId ?? chatConfig?.threadId;
+  const [freshThreadId] = useState(() => new ɵFreshThreadId());
   const resolvedThreadId = useMemo(
-    () => providedThreadId ?? randomUUID(),
-    [providedThreadId],
+    () => freshThreadId.resolve(providedThreadId),
+    [freshThreadId, providedThreadId],
   );
   const hasExplicitThreadId = !!threadId || !!chatConfig?.hasExplicitThreadId;
-  const hasExplicitThreadIdRef = useRef(hasExplicitThreadId);
-  hasExplicitThreadIdRef.current = hasExplicitThreadId;
 
   const { agent } = useAgent({ agentId: resolvedAgentId, throttleMs });
   const { copilotkit } = useCopilotKit();
 
   // Keeps the agent on the thread this chat shows, restores a picked thread
-  // with a connect, and empties the agent on a switch to a fresh thread.
-  const [threads] = useState(() => new ɵThreadSwitchCoordinator(copilotkit));
-  useEffect(
-    () =>
-      showThread({
-        threads,
-        core: copilotkit,
-        input: {
-          agent,
-          threadId: resolvedThreadId,
-          explicit: hasExplicitThreadId,
-        },
-        isExplicitNow: () => hasExplicitThreadIdRef.current,
-      }),
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- copilotkit is a stable ref that never changes
-    [threads, agent, resolvedThreadId, hasExplicitThreadId],
+  // with a connect, and empties the agent on a switch to a fresh thread. Core
+  // owns the connect's abort and detach, as in the web chats.
+  const [connection] = useState(
+    () => new ɵChatConnection({ core: copilotkit }),
   );
+  const { threads } = connection;
+  useEffect(() => {
+    const handle = connection.open({
+      agent,
+      threadId: resolvedThreadId,
+      explicit: hasExplicitThreadId,
+    });
+    return () => handle.release();
+  }, [connection, agent, resolvedThreadId, hasExplicitThreadId]);
 
   // onError subscription -- forward core errors scoped to this chat's agent
   const onErrorRef = useRef(onError);
@@ -242,26 +239,9 @@ export function CopilotChat({
 
   useEffect(() => {
     if (!onErrorRef.current) return;
-
-    const subscription = copilotkit.subscribe({
-      onError: (event) => {
-        // Only forward errors that match this chat's agent
-        if (
-          event.context?.agentId === resolvedAgentId ||
-          !event.context?.agentId
-        ) {
-          void onErrorRef.current?.({
-            error: event.error,
-            code: event.code,
-            context: event.context,
-          });
-        }
-      },
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    return ɵsubscribeToAgentErrors(copilotkit, resolvedAgentId, (event) =>
+      onErrorRef.current?.(event),
+    );
   }, [copilotkit, resolvedAgentId]);
 
   // Attachments

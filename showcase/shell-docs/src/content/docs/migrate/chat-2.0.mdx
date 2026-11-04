@@ -718,12 +718,12 @@ The Angular chat now loads the suggestions of its agent only when nothing else l
 
 ## Thread connections
 
-React, Vue, and Angular now load a thread with the same rules.
+React, Vue, Angular, and the React Native headless `CopilotChat` now load a thread with the same rules.
 
 | Rule | Changed in |
 | --- | --- |
 | An agent that does not implement `connect` is not connected. Its thread shows as loaded at once, and its messages stay. | React, Angular |
-| When the chat closes or changes thread, it stops the run of a thread that still loads. A run that started after the thread loaded continues. | React, Vue |
+| When the chat closes or changes thread, it stops the run of a thread that still loads. A run that started after the thread loaded continues. | React, Vue, React Native |
 | An explicit thread shows as loading until it loads and the next frame paints. | Angular |
 | A move into or out of an Inspector thread stops the run. | Angular |
 | When the `threadId` input goes away, the chat starts a new thread. It does not go back to an earlier new thread. | Angular |
