@@ -5,11 +5,14 @@ import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
 import type { CopilotKitCoreReact } from "../../lib/react-core";
 
 // React 19.2 ships `<Activity>`, but the installed @types/react (19.1) does
-// not declare it yet, so read it off the module.
-const Activity: React.FC<{
-  mode: "visible" | "hidden";
-  children?: React.ReactNode;
-}> = Reflect.get(React, "Activity");
+// not declare it yet, so read it off the module. React 18 has no `<Activity>`
+// (CI runs React 18 legs), so the test that needs it is skipped there.
+const Activity:
+  | React.FC<{
+      mode: "visible" | "hidden";
+      children?: React.ReactNode;
+    }>
+  | undefined = Reflect.get(React, "Activity");
 
 const MISSING_CONFIG =
   "Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'";
@@ -70,34 +73,39 @@ describe("CopilotKitProvider core lifecycle", () => {
     await waitFor(() => expect(dispose).toHaveBeenCalledTimes(1));
   });
 
-  it("replaces a disposed core when effects mount again", async () => {
-    const tree = (mode: "visible" | "hidden", probe: React.ReactNode) => (
-      <Activity mode={mode}>
-        <CopilotKitProvider runtimeUrl="/api/copilotkit">
-          {probe}
-        </CopilotKitProvider>
-      </Activity>
-    );
-    const cores: CopilotKitCoreReact[] = [];
-    function Probe() {
-      const { copilotkit } = useCopilotKit();
-      if (!cores.includes(copilotkit)) cores.push(copilotkit);
-      return null;
-    }
-    const { rerender } = render(tree("visible", <Probe />));
-    const [first] = cores;
-    if (!first) throw new Error("no core rendered");
-    const dispose = vi.spyOn(first, "dispose");
+  it.skipIf(!Activity)(
+    "replaces a disposed core when effects mount again",
+    async () => {
+      const Boundary = Activity;
+      if (!Boundary) throw new Error("skipped when React has no <Activity>");
+      const tree = (mode: "visible" | "hidden", probe: React.ReactNode) => (
+        <Boundary mode={mode}>
+          <CopilotKitProvider runtimeUrl="/api/copilotkit">
+            {probe}
+          </CopilotKitProvider>
+        </Boundary>
+      );
+      const cores: CopilotKitCoreReact[] = [];
+      function Probe() {
+        const { copilotkit } = useCopilotKit();
+        if (!cores.includes(copilotkit)) cores.push(copilotkit);
+        return null;
+      }
+      const { rerender } = render(tree("visible", <Probe />));
+      const [first] = cores;
+      if (!first) throw new Error("no core rendered");
+      const dispose = vi.spyOn(first, "dispose");
 
-    rerender(tree("hidden", <Probe />));
-    await waitFor(() => expect(dispose).toHaveBeenCalledTimes(1));
+      rerender(tree("hidden", <Probe />));
+      await waitFor(() => expect(dispose).toHaveBeenCalledTimes(1));
 
-    await act(async () => {
-      rerender(tree("visible", <Probe />));
-    });
-    await waitFor(() => expect(cores).toHaveLength(2));
-    expect(cores[1]).not.toBe(first);
-  });
+      await act(async () => {
+        rerender(tree("visible", <Probe />));
+      });
+      await waitFor(() => expect(cores).toHaveLength(2));
+      expect(cores[1]).not.toBe(first);
+    },
+  );
 });
 
 describe("CopilotKitProvider config diagnostics", () => {
