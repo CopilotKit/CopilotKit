@@ -12,7 +12,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet } from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetFlatList,

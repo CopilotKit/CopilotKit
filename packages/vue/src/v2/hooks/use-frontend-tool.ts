@@ -61,7 +61,7 @@ export function useFrontendTool<T extends Record<string, unknown>>(
           args: tool.parameters,
           agentId: tool.agentId,
           render: tool.render,
-        } as VueToolCallRenderer<unknown>);
+        } as VueToolCallRenderer);
       }
 
       onCleanup(unregister);

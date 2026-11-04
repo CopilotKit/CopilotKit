@@ -34,7 +34,7 @@ function normalizeContainer(
 export function normalizeDisplayValue(
   value: unknown,
   depth = 0,
-  ancestors = new WeakSet<object>(),
+  ancestors = new WeakSet(),
 ): DisplayValue {
   if (value === undefined) {
     return "[undefined]";

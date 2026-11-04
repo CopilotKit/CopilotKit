@@ -31,7 +31,7 @@ import { A2UIClientEventMessage, A2UISurfaceError } from "./a2ui-types";
 export class CopilotA2UISurfaceOutlet {
   readonly operations = input<readonly unknown[]>([]);
   readonly agent = input<AbstractAgent | undefined>();
-  readonly rendered = output<void>();
+  readonly rendered = output();
 
   protected readonly a2ui = inject(COPILOT_KIT_CONFIG, { optional: true })
     ?.a2ui;

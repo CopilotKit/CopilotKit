@@ -29,7 +29,6 @@ import { defineCopilotKitThreadsDrawer } from "@copilotkit/web-components/thread
 import type {
   ArchiveDetail,
   DeleteDetail,
-  DrawerThread,
   OpenChangeDetail,
   RetryDetail,
   ThreadSelectedDetail,
@@ -45,7 +44,6 @@ type CollapseChangeDetail = { collapsed: boolean };
 import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
 import { CopilotKit } from "../../copilotkit";
 import { injectThreads } from "../../threads";
-import type { Thread } from "../../threads";
 
 /**
  * Structural directive that captures a per-row template for projection into

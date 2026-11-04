@@ -108,7 +108,7 @@ export interface ɵActivityRendererQuery {
  * ```
  */
 export function ɵresolveActivityRenderer<
-  R extends ActivityMessageRendererDef<unknown, unknown>,
+  R extends ActivityMessageRendererDef<unknown>,
 >(renderers: readonly R[], query: ɵActivityRendererQuery) {
   const match = ɵmatchActivityRenderer(renderers, query);
   if (!match.ok) return null;
@@ -139,7 +139,7 @@ export function ɵresolveActivityRenderer<
  * ```
  */
 export function ɵresolveCustomMessageRenderers<
-  R extends CustomMessageRendererDef<unknown>,
+  R extends CustomMessageRendererDef,
 >(renderers: readonly R[], agentId: string) {
   const scoped = renderers.filter((renderer) => renderer.agentId === agentId);
   const unscoped = renderers.filter(
@@ -190,7 +190,7 @@ export type ɵActivityRendererFailureReason = "none" | "invalid" | "async";
  *   schema validates asynchronously, which the chat does not support.
  */
 export function ɵmatchActivityRenderer<
-  R extends ActivityMessageRendererDef<unknown, unknown>,
+  R extends ActivityMessageRendererDef<unknown>,
 >(renderers: readonly R[], query: ɵActivityRendererQuery) {
   const renderer = ɵfindActivityRenderer(renderers, query);
   if (renderer === null) {
@@ -254,7 +254,7 @@ export function ɵdescribeActivityRendererFailure(
  * @param chatAgentId - The agent the chat is configured for, if any.
  */
 export function ɵresolveCustomMessageRenderContext<
-  R extends CustomMessageRendererDef<unknown>,
+  R extends CustomMessageRendererDef,
 >(renderers: readonly R[], chatAgentId: string | undefined) {
   const agentId = chatAgentId || DEFAULT_AGENT_ID;
   return {

@@ -44,7 +44,7 @@ export class CopilotChatSuggestionPill {
   readonly isLoading = input(false);
   readonly inputClass = input<string | undefined>();
 
-  readonly clicked = output<void>();
+  readonly clicked = output();
   protected readonly Loader2Icon = Loader2;
 
   protected readonly computedClass = computed(() =>

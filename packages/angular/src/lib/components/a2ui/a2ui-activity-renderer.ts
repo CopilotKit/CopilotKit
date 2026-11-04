@@ -81,7 +81,7 @@ import { CopilotA2UISurfaceOutlet } from "./surface-outlet";
     }
   `,
 })
-export class CopilotA2UIActivityRenderer implements ActivityRenderer<unknown> {
+export class CopilotA2UIActivityRenderer implements ActivityRenderer {
   readonly activityType = input.required<string>();
   readonly content = input.required<unknown>();
   readonly message = input.required<ActivityMessage>();

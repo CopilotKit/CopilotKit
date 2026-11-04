@@ -14,7 +14,7 @@ import type {
 } from "@copilotkit/core";
 
 export interface CopilotKitCoreVueConfig extends CopilotKitCoreConfig {
-  renderToolCalls?: VueToolCallRenderer<unknown>[];
+  renderToolCalls?: VueToolCallRenderer[];
   renderActivityMessages?: VueActivityMessageRenderer<unknown>[];
   renderCustomMessages?: VueCustomMessageRenderer[];
 }
@@ -22,7 +22,7 @@ export interface CopilotKitCoreVueConfig extends CopilotKitCoreConfig {
 export interface CopilotKitCoreVueSubscriber extends CopilotKitCoreSubscriber {
   onRenderToolCallsChanged?: (event: {
     copilotkit: CopilotKitCoreVue;
-    renderToolCalls: VueToolCallRenderer<unknown>[];
+    renderToolCalls: VueToolCallRenderer[];
   }) => void | Promise<void>;
   onRenderCustomMessagesChanged?: (event: {
     copilotkit: CopilotKitCoreVue;
@@ -34,13 +34,13 @@ export interface CopilotKitCoreVueSubscriber extends CopilotKitCoreSubscriber {
   }) => void | Promise<void>;
   onInterruptStateChanged?: (event: {
     copilotkit: CopilotKitCoreVue;
-    interruptState: InterruptRenderProps<unknown, unknown> | null;
+    interruptState: InterruptRenderProps<unknown> | null;
   }) => void | Promise<void>;
 }
 
 export class CopilotKitCoreVue extends CopilotKitCore {
   private readonly _renderers: ɵRendererRegistry<
-    VueToolCallRenderer<unknown>,
+    VueToolCallRenderer,
     VueActivityMessageRenderer<unknown>,
     VueCustomMessageRenderer
   >;
@@ -96,18 +96,15 @@ export class CopilotKitCoreVue extends CopilotKitCore {
     return this._renderers.toolCalls;
   }
 
-  get interruptState(): InterruptRenderProps<unknown, unknown> | null {
-    return this.ɵinterruptPayload as InterruptRenderProps<
-      unknown,
-      unknown
-    > | null;
+  get interruptState(): InterruptRenderProps<unknown> | null {
+    return this.ɵinterruptPayload as InterruptRenderProps<unknown> | null;
   }
 
-  setRenderToolCalls(renderToolCalls: VueToolCallRenderer<unknown>[]): void {
+  setRenderToolCalls(renderToolCalls: VueToolCallRenderer[]): void {
     this._renderers.setPropToolCalls(renderToolCalls);
   }
 
-  addHookRenderToolCall(entry: VueToolCallRenderer<unknown>): void {
+  addHookRenderToolCall(entry: VueToolCallRenderer): void {
     this._renderers.addHookToolCall(entry);
   }
 
@@ -139,7 +136,7 @@ export class CopilotKitCoreVue extends CopilotKitCore {
   }
 
   setInterruptState(
-    interruptState: InterruptRenderProps<unknown, unknown> | null,
+    interruptState: InterruptRenderProps<unknown> | null,
   ): void {
     this.ɵsetInterruptPayload(interruptState);
   }

@@ -44,7 +44,6 @@ export const GenerativeUIChatSlotContext = createContext<
 
 export function DefaultGenerativeUIChatCard({
   surfaceId,
-  isStreaming,
   error,
   children,
 }: GenerativeUIChatSurfaceProps) {

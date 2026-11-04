@@ -80,7 +80,7 @@ export class CopilotChatUserMessageCopyButton {
   readonly disabled = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
   readonly content = input<string | undefined>();
-  readonly clicked = output<void>();
+  readonly clicked = output();
   readonly CopyIcon = Copy;
   readonly CheckIcon = Check;
   readonly #copyFeedback = injectCopyFeedback();
@@ -119,7 +119,7 @@ export class CopilotChatUserMessageEditButton {
   title = input<string | undefined>();
   disabled = input<boolean>(false);
   inputClass = input<string | undefined>();
-  clicked = output<void>();
+  clicked = output();
 
   readonly EditIcon = Edit;
   readonly labels = injectChatLabels();
