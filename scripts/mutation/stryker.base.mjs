@@ -42,7 +42,13 @@ export function defineMutationConfig({ skip = [] } = {}) {
     tempDirName: ".stryker-tmp",
     cleanTempDir: "always",
     reporters: ["progress", "clear-text", "html", "json"],
-    clearTextReporter: { allowColor: false, logTests: false, maxTestsToLog: 0 },
+    // Only the score table. Every mutant and test would be 100k+ lines.
+    clearTextReporter: {
+      allowColor: false,
+      reportMutants: false,
+      reportTests: false,
+      skipFull: true,
+    },
     htmlReporter: { fileName: "reports/mutation/mutation.html" },
     jsonReporter: { fileName: "reports/mutation/mutation.json" },
     // No `break` threshold yet: this is a baseline, not a gate.
