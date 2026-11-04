@@ -1,4 +1,5 @@
 import type { Message, ToolCall, ToolMessage } from "@ag-ui/core";
+import { isForwardedToClientPlaceholder } from "@copilotkit/core";
 
 /**
  * How the chat shows tool calls.
@@ -95,7 +96,19 @@ function signatureOf(segments: ToolCallSegment[]): string {
 export function getToolResults(messages: Message[]): Map<string, ToolMessage> {
   const results = new Map<string, ToolMessage>();
   for (const message of messages) {
-    if (message.role === "tool") results.set(message.toolCallId, message);
+    if (message.role !== "tool") continue;
+    const existing = results.get(message.toolCallId);
+    // A transport placeholder is not the call's answer. A replayed history can
+    // hold the placeholder and the saved result for the same call, and the
+    // saved result may come first, so a later placeholder must not hide it.
+    if (
+      existing &&
+      !isForwardedToClientPlaceholder(existing.content) &&
+      isForwardedToClientPlaceholder(message.content)
+    ) {
+      continue;
+    }
+    results.set(message.toolCallId, message);
   }
   return results;
 }

@@ -1095,15 +1095,38 @@ export class RunHandler {
             continue;
           }
 
-          const existingResultIndex = newMessages.findIndex(
-            (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-          );
-          // Live messages may contain a remote answer received while an
-          // earlier handler awaited input; never replace it with stale replay.
+          const resultMatches = (m: Message, placeholder: boolean) =>
+            m.role === "tool" &&
+            m.toolCallId === toolCall.id &&
+            this.isFrontendPlaceholderResult(m) === placeholder;
+          // Prefer a saved canonical result over transport placeholders, in
+          // either live history or this run's new messages. A placeholder is
+          // only used to drive the existing cleanup path when no answer was
+          // saved.
           let existingResult =
-            agent.messages.find(
-              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-            ) ?? newMessages[existingResultIndex];
+            agent.messages.find((m) => resultMatches(m, false)) ??
+            newMessages.find((m) => resultMatches(m, false)) ??
+            agent.messages.find((m) => resultMatches(m, true)) ??
+            newMessages.find((m) => resultMatches(m, true));
+          const existingResultIndex = newMessages.findIndex((m) =>
+            resultMatches(m, true),
+          );
+
+          // A saved answer makes the transport placeholder obsolete. Retire it
+          // from both lists so renderers that select the first matching tool
+          // message (separate display) cannot show the placeholder text instead
+          // of the saved result. Placeholder-only history keeps its existing
+          // cleanup behavior below.
+          if (existingResult && !this.isFrontendPlaceholderResult(existingResult)) {
+            for (let i = newMessages.length - 1; i >= 0; i--) {
+              if (resultMatches(newMessages[i]!, true)) newMessages.splice(i, 1);
+            }
+            for (let i = agent.messages.length - 1; i >= 0; i--) {
+              if (resultMatches(agent.messages[i]!, true)) {
+                agent.messages.splice(i, 1);
+              }
+            }
+          }
 
           // Reusing a completed result is not handler execution. Passive tools
           // may resume saved successes but must keep unanswered placeholders.
@@ -1145,8 +1168,8 @@ export class RunHandler {
               newMessages.splice(existingResultIndex, 1);
             existingResult = undefined;
 
-            const agentMsgIdx = agent.messages.findIndex(
-              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+            const agentMsgIdx = agent.messages.findIndex((m) =>
+              resultMatches(m, true),
             );
             if (agentMsgIdx !== -1) {
               agent.messages.splice(agentMsgIdx, 1);
