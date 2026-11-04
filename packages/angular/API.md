@@ -130,6 +130,7 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotChatViewProps`
 - `CopilotChatViewScrollToBottomButton`
 - `CopilotChatViewScrollView`
+- `CopilotChatWorkSummary`
 - `CopilotDefaultToolRenderer`
 - `CopilotKit`
 - `CopilotKitAgentContext`

@@ -104,6 +104,11 @@ describe("CopilotChatMessageView", () => {
           provide: CopilotKit,
           useValue: {
             activityMessageRenderConfigs: renderers.asReadonly(),
+            // The view lays out tool calls on every render.
+            toolCallRenderConfigs: () => [],
+            clientToolCallRenderConfigs: () => [],
+            humanInTheLoopToolRenderConfigs: () => [],
+            defaultToolRenderingEnabled: true,
             getAgent,
           },
         },

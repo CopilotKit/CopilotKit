@@ -135,8 +135,7 @@ export class CopilotChat extends ChatState implements ChatRunControl {
   readonly welcomeScreen = input<boolean>(true);
   /**
    * How assistant messages show tool calls: `"grouped"` (default), `"line"`,
-   * `"stacked"` or `"separate"`. Forwarded to the message view. Angular
-   * draws `"turn"` the same as `"grouped"`.
+   * `"stacked"`, `"separate"` or `"turn"`. Forwarded to the message view.
    */
   readonly toolCallDisplay = input<CopilotChatToolCallDisplay>("grouped");
   /** Component used to render each assistant message in the prebuilt chat. */
