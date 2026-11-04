@@ -1,23 +1,14 @@
 import { computed, onScopeDispose, shallowRef, toValue, watch } from "vue";
 import type { MaybeRefOrGetter, Ref } from "vue";
 import { ɵThreadsController, ɵcreateThreadStore } from "@copilotkit/core";
+import type { ɵThreadSummary } from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 
-export interface Thread {
-  id: string;
-  agentId: string;
-  name: string | null;
-  archived: boolean;
-  createdAt: string;
-  updatedAt: string;
-  /**
-   * ISO-8601 timestamp of the most recent agent run on this thread. Absent
-   * when the thread has never been run. Prefer this over `updatedAt` for
-   * user-facing "last activity" displays — it is not bumped by metadata-only
-   * actions like rename or archive.
-   */
-  lastRunAt?: string;
-}
+/**
+ * One thread as the hook returns it. This is core's thread summary, the same
+ * type React and Angular expose, so the adapters cannot drift apart.
+ */
+export type Thread = ɵThreadSummary;
 
 export interface UseThreadsInput {
   agentId: MaybeRefOrGetter<string>;
