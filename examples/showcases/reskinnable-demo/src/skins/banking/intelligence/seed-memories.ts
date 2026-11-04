@@ -59,7 +59,11 @@ export const SEED_MEMORIES: readonly SeedMemory[] = [
     // seeding it would mean the agent already knew the answer and never offered
     // to record — the teach arc would vanish. Keep these two disjoint.
     kind: "operational",
-    scope: "project",
+    // `user`, like every other skin. The default memory posture ("isolated" in
+    // src/shell/governance.ts) grants no project scope, so a project-scoped
+    // procedure can be neither recalled nor saved there — beats 5 and 6 would
+    // both silently fail.
+    scope: "user",
     // All three steps run without a confirmation gate. The note step used to
     // open an approval card; if the presenter moved to the next beat without
     // answering it, that tool call sat unresolved and the NEXT message failed

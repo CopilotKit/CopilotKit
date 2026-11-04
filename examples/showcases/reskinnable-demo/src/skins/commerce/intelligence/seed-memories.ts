@@ -74,8 +74,8 @@ export const SEED_MEMORIES: readonly SeedMemory[] = [
     // the agent conflates this with beat 6 and starts offering to record a
     // procedure it already has.
     kind: "operational",
-    // `user`, NOT `project` — banking scopes its equivalent procedure to
-    // `project`, and that turned out to be the wrong model here. Verified
+    // `user`, NOT `project` — banking used to scope its equivalent procedure
+    // to `project`, and that turned out to be the wrong model here. Verified
     // against the running Intelligence stack: a project-scoped memory is
     // returned for EVERY user id in the instance, not just the ones in some
     // project. Since EVERY skin in this app points at one instance, a
