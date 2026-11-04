@@ -720,7 +720,12 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
         expect(screen.queryByTestId("hitl-enabled")).toBeNull();
       });
 
-      await submitMessage("Test after disable");
+      // The first run still waits for the unanswered HITL prompt, and a send
+      // waits for the run in flight (#5195), so this message stays queued.
+      // What this test pins is that the unregistered tool no longer renders.
+      const input = await screen.findByRole("textbox");
+      await fireEvent.update(input, "Test after disable");
+      await fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
 
       const messageId2 = testId("msg2");
       const toolCallId2 = testId("tc2");

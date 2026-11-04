@@ -31,6 +31,7 @@ import { CopilotIcon, Upload } from "../icons/copilot-icon";
 import { injectChatLabels } from "../../chat-config";
 import { COPILOT_CHAT_WELCOME_LAYOUT } from "./copilot-chat-welcome-layout";
 import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
+import { ɵgetChatViewState } from "@copilotkit/core";
 
 /**
  * CopilotChatView component - Angular port of the React component.
@@ -230,6 +231,8 @@ import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
           [scrollToBottomButton]="scrollToBottomButtonSlot()"
           [scrollToBottomButtonClass]="scrollToBottomButtonClass()"
           [showCursor]="showCursorSignal()"
+          [isRunning]="isRunning()"
+          [isConnecting]="isConnecting()"
           (assistantMessageThumbsUp)="assistantMessageThumbsUp.emit($event)"
           (assistantMessageThumbsDown)="assistantMessageThumbsDown.emit($event)"
           (assistantMessageReadAloud)="assistantMessageReadAloud.emit($event)"
@@ -270,6 +273,15 @@ export class CopilotChatView implements OnInit, OnChanges {
   autoScroll = input<boolean>(true);
   showCursor = input<boolean>(false);
   hasExplicitThreadId = input<boolean>(false);
+  /** `true` while the agent runs. Suggestions hide meanwhile. */
+  isRunning = input<boolean>(false);
+  /**
+   * `true` while the thread's connect is loading. The welcome screen and
+   * suggestions wait for it, so a picked thread does not flash them.
+   */
+  isConnecting = input<boolean>(false);
+  /** `false` turns the welcome screen off for an empty chat. */
+  welcomeScreen = input<boolean>(true);
 
   // MessageView slot inputs
   messageViewComponent = input<Type<any> | undefined>(undefined);
@@ -378,7 +390,16 @@ export class CopilotChatView implements OnInit, OnChanges {
     () => this.inputMeasure()?.resizing() ?? false,
   );
   protected shouldShowWelcomeScreen = computed(
-    () => this.messagesValue().length === 0 && !this.hasExplicitThreadId(),
+    () =>
+      ɵgetChatViewState({
+        messageCount: this.messagesValue().length,
+        suggestionCount: this.chatState?.suggestions?.().length ?? 0,
+        isRunning: this.isRunning(),
+        isConnecting: this.isConnecting(),
+        hasExplicitThreadId: this.hasExplicitThreadId(),
+        welcomeScreenEnabled: this.welcomeScreen(),
+        inputContainerHeight: this.inputContainerHeight(),
+      }).showWelcomeScreen,
   );
 
   // Slot resolution computed signals

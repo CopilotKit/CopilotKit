@@ -41,6 +41,11 @@ export { ɵRendererRegistry } from "./renderer-registry";
 export type { ɵRendererKind, ɵRendererRegistryInit } from "./renderer-registry";
 export type * from "./generative-ui-debug";
 export {
+  ɵclearAgentThreadCursors,
+  ɵresetAgentThreadBaseline,
+} from "./thread-baseline";
+export type { ɵThreadBaselineResetOptions } from "./thread-baseline";
+export {
   ɵCOPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   ɵCOPILOT_CLOUD_RUNTIME_URL,
   ɵSTABLE_ARRAY_WARNINGS,
