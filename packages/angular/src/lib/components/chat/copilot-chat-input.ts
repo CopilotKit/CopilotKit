@@ -714,7 +714,7 @@ export class CopilotChatInput implements OnDestroy {
     const trimmed = this.computedValue().trim();
     this.submitMessage.emit(trimmed);
 
-    this.chatState.submitInput(trimmed);
+    void this.chatState.submitInput(trimmed);
 
     if (this.chatState) this.chatState.changeInput("");
     this.textAreaRef()?.setValue("");

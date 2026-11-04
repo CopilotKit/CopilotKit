@@ -31,6 +31,18 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - **Documentation lives in shell-docs** — author CopilotKit docs in `showcase/shell-docs/src/content/`. The top-level `docs/` path is only a symlink to `showcase/shell-docs/`; never recreate the old `docs/content/docs/` tree for live documentation. AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`, not directly in this repo. See [Documentation](.claude/docs/documentation.md).
 - **Inspector UI work** — follow `skills/inspector-workbench/SKILL.md`. Start the standalone workbench and take screenshots after each visual change. Pane add/rename/remove also uses `skills/inspector-docs/SKILL.md`.
 
+## Lint gate
+
+CI fails on new lint errors in `packages/` source. Before you say that work is done, run `pnpm lint` and `pnpm lint:dead-code`. Both must end with `OK`.
+
+- Do not write `any`. Use the real type, or `unknown` and narrow it.
+- Do not write an empty `catch {}` or `.catch(() => {})`. Handle the error, rethrow it, or write a comment in the handler that says why ignoring it is safe.
+- Await each promise. For a call that must not block, write `void promise`.
+- Every `oxlint-disable` or `eslint-disable` comment needs a reason after `--`.
+- Do not edit `.lint-baseline/`. Do not run `pnpm lint:baseline` to hide an error. If the check says that the baseline is stale, run `pnpm lint:prune`.
+
+Details: [Fix a failing lint check](dev-docs/static-analysis.md).
+
 ## Private Agent Instructions
 
 Individual developers may optionally create a `private-agents.md` file at the repo root. This file is gitignored and not shared with the team -- it contains personal agent instructions, workflow overrides, or context that applies only to that developer's work. If `private-agents.md` exists, read it and follow its instructions (they take precedence over the defaults in this file where they conflict).

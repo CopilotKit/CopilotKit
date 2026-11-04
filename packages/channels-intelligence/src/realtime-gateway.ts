@@ -795,7 +795,8 @@ export async function connectRealtimeGateway(
       failUnreachable();
       return;
     }
-    startDiagnosis();
+    // Kick off the probe only; its verdict is consumed inside startDiagnosis.
+    void startDiagnosis();
   });
   connectDeadline = setTimeout(() => {
     connectDeadline = undefined;

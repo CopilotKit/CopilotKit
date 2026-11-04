@@ -45,6 +45,7 @@ export function normalizeRuntimeLicenseState(
     case "invalid":
       return "expired";
     case "unknown":
+    case undefined:
     default:
       return "unknown";
   }

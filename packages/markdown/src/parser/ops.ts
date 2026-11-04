@@ -269,7 +269,7 @@ function opToAstNode(
         url: op.props["url"] as string,
         text: op.props["text"] as string,
       };
-    default:
+    case "citation":
       return {
         ...base,
         type: "citation",

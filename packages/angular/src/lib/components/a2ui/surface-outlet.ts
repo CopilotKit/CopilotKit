@@ -50,10 +50,10 @@ export class CopilotA2UISurfaceOutlet {
   }));
 
   protected readonly outputs: SlotOutputs = {
-    action: async (message: A2UIClientEventMessage) => {
+    action: (message: A2UIClientEventMessage) => {
       const core = this.copilotKit?.core;
       if (!core) return;
-      await ɵrunA2UIAction({
+      void ɵrunA2UIAction({
         message,
         agent: this.agent(),
         core,
