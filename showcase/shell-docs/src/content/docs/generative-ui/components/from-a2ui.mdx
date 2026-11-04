@@ -122,7 +122,7 @@ See [Markdown mode](/generative-ui/components/markdown-mode).
 
 ## Map and route
 
-`Map` takes `markers` (a list, or a binding to one), `selected` (writable: bind it to read the user's choice), `zoom`, `center` and `route: true`, which draws a line through the markers in order. It needs `npm install maplibre-gl`; without the package it shows the places as a list.
+`Map` takes `markers` (a list, or a binding to one), `selected` (writable: bind it to read the user's choice), `zoom`, `center` and `route: true`, which draws a line through the markers in order. Install `maplibre-gl@^5` for it. Next.js also needs this package to bundle `standardUI`, even if no map is shown. The places list is a runtime fallback, not a workaround for a missing-package build error.
 
 ## Support matrix
 

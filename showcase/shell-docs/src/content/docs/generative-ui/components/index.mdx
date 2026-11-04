@@ -25,15 +25,17 @@ You decide what the agent can render. The agent decides what to show and fills i
 
 These steps add generative UI to a Next.js app, with an OpenAI model through TanStack AI.
 
-Already have CopilotKit running? Do step 3 only. Your runtime needs no change: when the provider sends a catalog, the runtime gives that run a `render_ui` tool and a short guide. Your agent must pass the run's tools and context to its model, as in step 2. For a LangGraph Python agent, add `CopilotKitMiddleware`.
+Already have CopilotKit running? Install `maplibre-gl@^5`, then do step 3. Your runtime needs no change: when the provider sends a catalog, the runtime gives that run a `render_ui` tool and a short guide. Your agent must pass the run's tools and context to its model, as in step 2. For a LangGraph Python agent, add `CopilotKitMiddleware`.
 
 <Steps>
   <Step>
   ### Install the packages
 
   ```bash
-  npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+  npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai maplibre-gl@^5
   ```
+
+  Next.js needs `maplibre-gl` to bundle `standardUI`, even when the page does not render a map. It is an optional peer dependency, so install it explicitly.
 
   Put your OpenAI key in `.env.local`:
 
@@ -63,6 +65,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
       const { messages, systemPrompts, tools } = convertInputToTanStackAI(input);
       return chat({
         adapter: openaiText("gpt-5.5"),
+        threadId: input.threadId,
         messages,
         systemPrompts: [
           "You are a helpful assistant. When a visual answer helps, render it with generative UI.",
@@ -84,6 +87,8 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
   export const GET = handler;
   export const POST = handler;
   ```
+
+  Pass `input.threadId` to `chat()` so TanStack AI uses the same conversation as CopilotKit. TanStack AI 1.0 requires this value.
 
   Pass on both values from `convertInputToTanStackAI`:
 
