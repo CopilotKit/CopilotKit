@@ -730,7 +730,7 @@ React, Vue, Angular, and the React Native headless `CopilotChat` now load a thre
 
 | Rule | Changed in |
 | --- | --- |
-| An agent that does not implement `connect` is not connected. Its thread shows as loaded at once, and its messages stay. | React, Angular |
+| An agent that does not implement `connect` is not connected. Its thread shows as loaded at once. On the first thread the chat opens, its messages stay. When the chat changes to another thread, the chat stops the old thread's run and clears its messages. | React, Angular |
 | When the chat closes or changes thread, it stops the run of a thread that still loads. A run that started after the thread loaded continues. | React, Vue, React Native |
 | An explicit thread shows as loading until it loads and the next frame paints. | Angular |
 | A move into or out of an Inspector thread stops the run. | Angular |

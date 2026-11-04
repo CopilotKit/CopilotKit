@@ -64,18 +64,13 @@ class ConnectableAgent extends CursorAgent {
 /** Runs the "after paint" callbacks at once, so tests need no animation frame. */
 const immediately = (callback: () => void) => callback();
 
-/** An agent whose connect stream and runs the test drives by hand. */
-class StreamingAgent extends AbstractAgent {
-  readonly connection = new Subject<BaseEvent>();
+/** An agent without `connect`, like a plain `HttpAgent`, whose runs the test drives by hand. */
+class RunDrivenAgent extends AbstractAgent {
   output = new Subject<BaseEvent>();
   readonly inputs: RunAgentInput[] = [];
 
   constructor() {
     super({ agentId: "chat" });
-  }
-
-  protected override connect() {
-    return this.connection;
   }
 
   run(input: RunAgentInput) {
@@ -97,6 +92,15 @@ class StreamingAgent extends AbstractAgent {
       runId: input.runId,
     });
     this.output.complete();
+  }
+}
+
+/** A {@link RunDrivenAgent} whose connect stream the test drives too. */
+class StreamingAgent extends RunDrivenAgent {
+  readonly connection = new Subject<BaseEvent>();
+
+  protected override connect() {
+    return this.connection;
   }
 }
 
@@ -374,6 +378,42 @@ describe("ɵChatConnection release", () => {
 
     await vi.waitFor(() => expect(agent.isRunning).toBe(false));
     expect(detach).toHaveBeenCalledOnce();
+  });
+
+  it("empties an agent without connect and stops its run when the chat moves to another thread", async () => {
+    const { core, connection } = createRealConnection();
+    const agent = new RunDrivenAgent();
+    connection.open({ agent, threadId: "a", explicit: true });
+    // The first thread keeps what the chat holds, such as a message sent
+    // right after mount.
+    agent.addMessage({ id: "m1", role: "user", content: "hi" });
+    await flush();
+    expect(agent.messages.map((message) => message.id)).toEqual(["m1"]);
+    const run = core.runAgent({ agent });
+    await vi.waitFor(() => expect(agent.isRunning).toBe(true));
+    const streaming = agent.output;
+
+    const { selection } = connection.open({
+      agent,
+      threadId: "b",
+      explicit: true,
+    });
+
+    expect(agent.messages).toEqual([]);
+    expect(await connection.threads.waitForConnection(selection)).toBe("ready");
+    expect(agent.isRunning).toBe(false);
+    // The old thread's reply no longer reaches the agent.
+    streaming.next({
+      type: EventType.TEXT_MESSAGE_CHUNK,
+      messageId: "late",
+      role: "assistant",
+      delta: "from a",
+    });
+    expect(agent.messages).toEqual([]);
+    expect(connection.isConnecting({ threadId: "b", explicit: true })).toBe(
+      false,
+    );
+    await run;
   });
 
   it("leaves a run the user started after the connect running", async () => {
