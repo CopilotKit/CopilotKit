@@ -4,6 +4,7 @@ import { expectTypeOf } from "vitest";
 import { createGenerativeUI } from "../catalog";
 import type {
   GenerativeUIConfig,
+  GenerativeUIErrorBoundaryConfig,
   GenerativeUIMarkdownConfig,
   GenerativeUIToolConfig,
 } from "../runtime-context";
@@ -66,4 +67,40 @@ export const badThemeKey: GenerativeUIConfig = {
   ui,
   // @ts-expect-error theme keys are `--a2ui-*` variables or mapStyle
   theme: { color: "red" },
+};
+
+type FallbackProps = Parameters<
+  NonNullable<GenerativeUIErrorBoundaryConfig["fallback"]>
+>[0];
+
+expectTypeOf<FallbackProps["kind"]>().toEqualTypeOf<
+  "render" | "props" | "unknown-component" | "cycle"
+>();
+// `retry` stays required, so a fallback that calls it still compiles.
+expectTypeOf<FallbackProps["retry"]>().toEqualTypeOf<() => void>();
+
+// A fallback written before `kind` existed still type-checks.
+export const fallbackWithoutKind: GenerativeUIConfig = {
+  ui,
+  errorBoundary: {
+    fallback: ({ error, retry, surfaceId, componentId }) => {
+      retry();
+      return `${surfaceId}/${componentId}: ${error.message}`;
+    },
+  },
+};
+
+export const fallbackByKind: GenerativeUIConfig = {
+  ui,
+  errorBoundary: {
+    fallback: ({ kind }) => (kind === "render" ? "Try again" : null),
+  },
+};
+
+export const unknownFallbackKind: GenerativeUIConfig = {
+  ui,
+  errorBoundary: {
+    // @ts-expect-error "operation" is an onError kind, not a fallback kind
+    fallback: ({ kind }) => (kind === "operation" ? null : "x"),
+  },
 };

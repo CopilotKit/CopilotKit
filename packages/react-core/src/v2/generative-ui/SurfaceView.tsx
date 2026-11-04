@@ -34,8 +34,8 @@ import {
   withoutRejectedNulls,
 } from "./schema";
 import {
-  DefaultNodeFallback,
   NodeBoundary,
+  NodeFallback,
   NodePlaceholder,
   SurfaceBoundary,
 } from "./boundaries";
@@ -179,8 +179,11 @@ const NodeView = memo(function NodeView({
   const properties = useComponentProperties(runtime.manager, component);
   if (ancestors.includes(scopedId(componentId, basePath))) {
     return (
-      <DefaultNodeFallback
-        message={`cyclic reference to ${componentId}`}
+      <NodeFallback
+        runtime={runtime}
+        kind="cycle"
+        reason={`cyclic reference to ${componentId}`}
+        surfaceId={surface.surfaceId}
         componentId={componentId}
       />
     );
@@ -190,8 +193,11 @@ const NodeView = memo(function NodeView({
   const definition = runtime.ui.components.get(component.type);
   if (!definition) {
     return (
-      <DefaultNodeFallback
-        message={`unknown component "${component.type}"`}
+      <NodeFallback
+        runtime={runtime}
+        kind="unknown-component"
+        reason={`unknown component "${component.type}"`}
+        surfaceId={surface.surfaceId}
         componentId={componentId}
       />
     );
@@ -893,22 +899,34 @@ function ResolvedNode({
     [surface.key, surface.surfaceId, componentId, accessibility],
   );
   const problem = dataProps.ok ? undefined : dataProps.problem;
+  // One error per problem, for onError and the fallback alike.
+  const propsError = useMemo(
+    () =>
+      problem === undefined
+        ? undefined
+        : new Error(`Invalid props: ${problem}`),
+    [problem],
+  );
 
   useEffect(() => {
-    if (problem) {
+    if (propsError) {
       reportErrorSafely(runtime, {
         kind: "props",
         surfaceId: surface.surfaceId,
         componentId,
-        error: new Error(`Invalid props: ${problem}`),
+        error: propsError,
       });
     }
-  }, [problem, runtime, surface.surfaceId, componentId]);
+  }, [propsError, runtime, surface.surfaceId, componentId]);
 
-  if (!dataProps.ok) {
+  if (propsError) {
     return (
-      <DefaultNodeFallback
+      <NodeFallback
+        runtime={runtime}
+        kind="props"
+        error={propsError}
         message={`invalid props (${problem})`}
+        surfaceId={surface.surfaceId}
         componentId={componentId}
       />
     );
