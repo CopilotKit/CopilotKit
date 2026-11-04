@@ -105,6 +105,82 @@ describe("ɵbuildToolCallRenderProps", () => {
     });
   });
 
+  describe("with tool content outside the AG-UI protocol", () => {
+    // Restored history, a non-SSE transport, or app code casting on
+    // `addMessage` can hand a tool message content that is neither a string
+    // nor a list of content parts. Renderers take `result: string`.
+    const resultOf = (content: unknown) =>
+      ɵbuildToolCallRenderProps(
+        createToolCall("{}"),
+        createToolMessage(content as ToolMessage["content"]),
+        { isExecuting: false },
+      ).result;
+
+    it.each([
+      ["an object", { status: "ok" }, '{"status":"ok"}'],
+      ["a number", 42, "42"],
+      ["an array that is not content parts", ["hello", 42], '["hello",42]'],
+      [
+        "typed records that are not content parts",
+        [{ type: "record", answer: 42 }],
+        '[{"type":"record","answer":42}]',
+      ],
+      [
+        "a media part without the mime type of its inline data",
+        [{ type: "image", source: { type: "data", value: "abc" } }],
+        '[{"type":"image","source":{"type":"data","value":"abc"}}]',
+      ],
+      ["null", null, ""],
+    ])("gives %s as JSON text, and warns", (_label, content, expected) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      expect(resultOf(content)).toBe(expected);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toContain("call-1");
+      warn.mockRestore();
+    });
+
+    it("does not throw on content that cannot be serialized", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const circular: Record<string, unknown> = {};
+      circular.self = circular;
+
+      expect(resultOf(circular)).toBe("[object Object]");
+      warn.mockRestore();
+    });
+
+    it("warns once per tool message, not on every render", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const message = createToolMessage({
+        status: "ok",
+      } as unknown as ToolMessage["content"]);
+      const build = () =>
+        ɵbuildToolCallRenderProps(createToolCall("{}"), message, {
+          isExecuting: false,
+        });
+
+      build();
+      build();
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      warn.mockRestore();
+    });
+
+    it("does not warn for a string or content parts", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      expect(resultOf("")).toBe("");
+      expect(
+        resultOf([
+          { type: "text", text: "see " },
+          { type: "document", source: { type: "file", value: "file-abc" } },
+        ]),
+      ).toBe("see ");
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+  });
+
   it("builds executing props with strictly parsed arguments", () => {
     const props = ɵbuildToolCallRenderProps(createToolCall("oops"), undefined, {
       isExecuting: true,
