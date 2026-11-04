@@ -215,7 +215,9 @@ export function CopilotChat({
           event.context?.agentId === resolvedAgentId ||
           !event.context?.agentId
         ) {
-          onErrorRef.current?.({
+          // Not returned: core awaits subscribers, so a slow user handler
+          // would hold up the run that reported the error.
+          void onErrorRef.current?.({
             error: event.error,
             code: event.code,
             context: event.context,
@@ -774,14 +776,33 @@ export function CopilotChat({
   // the same component instance, which keeps its submitter.
   useEffect(() => () => submitter.showNotice(null), [submitter]);
 
+  // The view and DOM props expect void callbacks, so these handlers keep
+  // the submitter's and the attachment handlers' promises fire-and-forget.
   const onSubmitInput = useCallback(
-    (value: string) => submitter.submit(value),
+    (value: string) => {
+      void submitter.submit(value);
+    },
     [submitter],
   );
 
   const handleSelectSuggestion = useCallback(
-    (suggestion: Suggestion) => submitter.selectSuggestion(suggestion),
+    (suggestion: Suggestion) => {
+      void submitter.selectSuggestion(suggestion);
+    },
     [submitter],
+  );
+
+  const dropFiles = useCallback(
+    (e: React.DragEvent) => {
+      void handleDrop(e);
+    },
+    [handleDrop],
+  );
+  const uploadFiles = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      void handleFileUpload(e);
+    },
+    [handleFileUpload],
   );
 
   const stopCurrentRun = useCallback(() => submitter.stop(), [submitter]);
@@ -918,7 +939,7 @@ export function CopilotChat({
     dragOver,
     onDragOver: handleDragOver,
     onDragLeave: handleDragLeave,
-    onDrop: handleDrop,
+    onDrop: dropFiles,
     isConnecting,
     hasExplicitThreadId,
   };
@@ -942,7 +963,7 @@ export function CopilotChat({
             type="file"
             multiple
             ref={fileInputRef}
-            onChange={handleFileUpload}
+            onChange={uploadFiles}
             accept={attachmentsConfig?.accept ?? "*/*"}
             style={{ display: "none" }}
           />

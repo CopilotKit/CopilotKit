@@ -151,8 +151,9 @@ export function ɵhitlRenderProps<T, TProps extends HumanInTheLoopCallProps<T>>(
     agentId: tool.agentId,
     respond:
       props.status === ToolCallStatus.Executing
-        ? async (result: unknown) => {
+        ? (result: unknown) => {
             registry.respond(props.toolCallId, result);
+            return Promise.resolve();
           }
         : undefined,
   } as Omit<TProps, "name" | "respond"> & HumanInTheLoopRenderProps<T>;

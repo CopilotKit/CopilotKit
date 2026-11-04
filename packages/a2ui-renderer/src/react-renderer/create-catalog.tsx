@@ -135,7 +135,9 @@ export function createCatalog<D extends CatalogDefinitions>(
       api,
       ({ props, buildChild, context }) => {
         const Render = renderer;
-        const dispatch = (action: any) => context.dispatchAction(action);
+        const dispatch = (action: any) => {
+          void context.dispatchAction(action);
+        };
         return (
           <Render props={props} children={buildChild} dispatch={dispatch} />
         );

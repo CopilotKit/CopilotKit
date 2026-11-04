@@ -494,6 +494,7 @@ ${getSeeMoreMarkdown(troubleshootingLink)}`;
       return `The server on ${url} could not be found. Check the URL or your network configuration.\n\n${getSeeMoreMarkdown(ERROR_CONFIG[CopilotKitErrorCode.NOT_FOUND].troubleshootingUrl)}`;
     case "ETIMEDOUT":
       return `The connection to ${url} timed out. The server might be overloaded or taking too long to respond.\n\n${getSeeMoreMarkdown(troubleshootingLink)}`;
+    case undefined:
     default:
       return;
   }

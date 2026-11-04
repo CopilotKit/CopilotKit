@@ -1,10 +1,5 @@
 import { randomUUID } from "@ag-ui/client";
-import type {
-  AbstractAgent,
-  Interrupt,
-  Message,
-  RunAgentResult,
-} from "@ag-ui/client";
+import type { AbstractAgent, Interrupt, RunAgentResult } from "@ag-ui/client";
 
 import { INTERRUPT_EVENT_NAME } from "../chat/interrupt-types";
 import type {
@@ -367,7 +362,7 @@ export class ɵInterruptController<TValue = unknown, TResult = unknown> {
           role: "tool",
           toolCallId: toolResult.toolCallId,
           content: toolResult.content,
-        } as Message);
+        });
       }
     } catch (error) {
       this.#clear(error);

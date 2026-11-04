@@ -183,16 +183,7 @@ export function useInterrupt<
   );
 
   const element = useMemo(
-    () =>
-      renderProps
-        ? renderRef.current(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            renderProps as InterruptRenderProps<
-              any,
-              InterruptResult<any, TResult>
-            >,
-          )
-        : null,
+    () => (renderProps ? renderRef.current(renderProps) : null),
     [renderProps],
   );
 

@@ -92,10 +92,7 @@ export function useInterrupt<TValue = unknown, TResult = never>(
     { runAgent: (params) => copilotkit.value.runAgent(params) },
     {
       enabled: (event) => config.enabled?.(event) ?? true,
-      handler: (props) =>
-        config.handler
-          ? (config.handler(props) as InterruptResult<TValue, TResult>)
-          : null,
+      handler: (props) => (config.handler ? config.handler(props) : null),
     },
   );
   const snapshot = shallowRef(controller.getSnapshot());
@@ -122,10 +119,7 @@ export function useInterrupt<TValue = unknown, TResult = never>(
         return;
       }
 
-      core.setInterruptState(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        nextSlotProps as InterruptRenderProps<any, any> | null,
-      );
+      core.setInterruptState(nextSlotProps);
       const publishedState = nextSlotProps;
 
       onCleanup(() => {
@@ -151,18 +145,13 @@ export function useInterrupt<TValue = unknown, TResult = never>(
 
   return {
     interrupt: computed(() => slotProps.value?.event ?? null),
-    result: computed(() => snapshot.value.result) as Ref<
-      InterruptResult<TValue, TResult>
-    >,
+    result: computed(() => snapshot.value.result),
     hasInterrupt: computed(() => slotProps.value !== null),
     resolve,
     // Aliases kept for back-compat.
     resolveInterrupt: resolve,
     cancel,
     cancelInterrupt: cancel,
-    slotProps: slotProps as ComputedRef<InterruptRenderProps<
-      TValue,
-      InterruptResult<TValue, TResult>
-    > | null>,
+    slotProps,
   };
 }

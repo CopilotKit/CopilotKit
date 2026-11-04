@@ -21,7 +21,7 @@ export function useHumanInTheLoop<
         tool.render,
         ɵhitlRenderProps<T, typeof props>(props, tool, registry),
       ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tool is a fresh object each render; depend on the fields the renderer reads
     [tool.render, tool.name, tool.description, tool.agentId, registry],
   );
 
