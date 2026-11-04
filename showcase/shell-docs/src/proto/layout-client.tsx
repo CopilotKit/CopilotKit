@@ -39,6 +39,7 @@ import { AdaptiveThemeSwitch } from "@/components/layout/theme-toggle";
 import { FRAMEWORKS, FRAMEWORK_FAMILIES } from "./data";
 import { FamilyMenuCard, IntegrationCardBody } from "./link-card";
 import { rememberFramework, useLastFramework } from "./last-framework";
+import { useMenuSwitchClick } from "./use-menu-switch-click";
 import { frameworkHref, locationFromPathname, type VariantId } from "./routes";
 import { SidebarTop, buildTree, layoutTabs } from "./variants";
 import { liveTree } from "./live-tree";
@@ -339,6 +340,7 @@ function DHomeLayout({
 }) {
   const [framework] = useLastFramework();
   const pathname = usePathname();
+  useMenuSwitchClick();
   const links: LinkItemType[] = [
     {
       type: "menu",
