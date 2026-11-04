@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./browser-test.js";
 import { learningSnapshotForState } from "./learning-state-fixtures.js";
 
 for (const origin of [
@@ -20,9 +20,6 @@ for (const origin of [
         runs: null,
       },
     };
-    await page.route("https://cdn.copilotkit.ai/notifications/**", (route) =>
-      route.fulfill({ json: { schemaVersion: 1, notifications: [] } }),
-    );
     await page.route(
       "**/inspector-learning-lab/data-error/inspector-learning?*",
       async (route) => {
@@ -40,8 +37,9 @@ for (const origin of [
     await page
       .getByRole("button", { name: "Web Inspector", exact: true })
       .click();
-    // The Learning error signal opens the inspector on Automatic Learning, and
-    // the workbench toolbar covers the sidebar top. Reach Home by keyboard.
+    // The workbench boots on the Learning view and reopening keeps it, so
+    // go to Home, where the Learning status card lives. The workbench stage
+    // toolbar overlaps the top of the sidebar, so use the keyboard.
     await page
       .getByRole("button", { name: "Home", exact: true })
       .press("Enter");
