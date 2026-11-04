@@ -15,8 +15,9 @@ import {
 import type { Component, FunctionalComponent } from "vue";
 import type { Catalog, ComponentApi } from "@a2ui/web_core/v0_9";
 import {
-  ToolCallStatus,
   ɵLearningAutoStarter,
+  ɵbuildHumanInTheLoopTool,
+  ɵhitlRenderProps,
   ɵtoLearningConfig,
 } from "@copilotkit/core";
 import type {
@@ -71,11 +72,6 @@ import type {
   VueToolCallRenderer,
   VueToolCallRendererRenderProps,
 } from "../types";
-
-// Matches the message React's `useHumanInTheLoop` rejects with, so an aborted
-// interrupt reads the same across frameworks (see #5554).
-const HUMAN_IN_THE_LOOP_ABORTED_MESSAGE =
-  "Human-in-the-loop interaction aborted";
 
 /** The MCP Apps renderer with `mcpApps.allowSameOriginFallback` applied. */
 const SameOriginMCPAppsActivityRenderer: FunctionalComponent = (_, { attrs }) =>
@@ -274,98 +270,28 @@ watch(
   { immediate: true },
 );
 
-/**
- * A human-in-the-loop tool call from the `humanInTheLoop` prop that is waiting
- * on the user. Keyed by tool call id so parallel interrupts on the same tool
- * stay independent.
- */
-type PendingHumanInTheLoop = {
-  resolve: (result: unknown) => void;
-  detachAbort?: () => void;
-};
-
-const pendingHumanInTheLoop = new Map<string, PendingHumanInTheLoop>();
-
-/** Removes a pending interaction and detaches its abort listener. */
-const takePendingHumanInTheLoop = (key: string) => {
-  const pending = pendingHumanInTheLoop.get(key);
-  if (!pending) return undefined;
-  pending.detachAbort?.();
-  pendingHumanInTheLoop.delete(key);
-  return pending;
-};
-
 const processedHumanInTheLoop = computed(() => {
   const tools: FrontendTool[] = [];
   const renderToolCalls: VueToolCallRenderer<unknown>[] = [];
+  // Core parks each call by tool call id until the render responds. The core
+  // is created further down, so read its registry lazily.
+  const registry = () => copilotkit.value.ɵhumanInTheLoop;
 
   for (const tool of rawEntries(props.humanInTheLoop)) {
-    tools.push({
-      type: "human-in-the-loop",
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.parameters,
-      followUp: tool.followUp,
-      ...(tool.agentId && { agentId: tool.agentId }),
-      // Keep the tool call pending until the render calls `respond`, matching
-      // the `useHumanInTheLoop` composable. Resolving immediately made the HITL
-      // UI flash and disappear without ever waiting for the user.
-      handler: async (_args, context) => {
-        const signal = context?.signal;
-        const key = context?.toolCall?.id ?? tool.name;
-
-        return new Promise((resolve, reject) => {
-          // Already aborted before the handler ran — reject so core records an
-          // explicit error tool result rather than silently resolving empty.
-          if (signal?.aborted) {
-            reject(new Error(HUMAN_IN_THE_LOOP_ABORTED_MESSAGE));
-            return;
-          }
-
-          const pending: PendingHumanInTheLoop = { resolve };
-          pendingHumanInTheLoop.set(key, pending);
-
-          if (signal) {
-            const onAbort = () => {
-              pendingHumanInTheLoop.delete(key);
-              reject(new Error(HUMAN_IN_THE_LOOP_ABORTED_MESSAGE));
-            };
-            signal.addEventListener("abort", onAbort, { once: true });
-            pending.detachAbort = () => {
-              signal.removeEventListener("abort", onAbort);
-            };
-          }
-        });
-      },
-    });
-    if (tool.render) {
-      const ToolComponent = tool.render;
+    const { render: ToolComponent, ...config } = tool;
+    tools.push(ɵbuildHumanInTheLoopTool(config, registry) as FrontendTool);
+    if (ToolComponent) {
       const render: VueToolCallRenderer<unknown>["render"] = (
         renderProps: VueToolCallRendererRenderProps<unknown>,
-      ) => {
-        const key = renderProps.toolCallId ?? tool.name;
-        return h(ToolComponent as Parameters<typeof h>[0], {
-          ...renderProps,
-          // `renderProps.name` is the tool that was actually invoked. It equals
-          // `tool.name` for a named registration; for a wildcard (`"*"`) it is
-          // the only place the real name exists.
-          name: tool.name === "*" ? renderProps.name : tool.name,
-          description: tool.description || "",
-          agentId: tool.agentId,
-          // `respond` is live only while the tool is executing — the one phase
-          // with a promise waiting on the user.
-          respond:
-            renderProps.status === ToolCallStatus.Executing
-              ? async (result: unknown) => {
-                  takePendingHumanInTheLoop(key)?.resolve(result);
-                }
-              : undefined,
-        });
-      };
+      ) =>
+        h(
+          ToolComponent as Parameters<typeof h>[0],
+          ɵhitlRenderProps(renderProps, tool, registry()),
+        );
 
       renderToolCalls.push({
         name: tool.name,
-        args: tool.parameters ?? ɵanySchema,
+        args: tool.parameters,
         render,
         ...(tool.agentId && { agentId: tool.agentId }),
       } as VueToolCallRenderer<unknown>);

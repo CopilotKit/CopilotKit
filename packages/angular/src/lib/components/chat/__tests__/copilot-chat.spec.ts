@@ -270,6 +270,13 @@ describe("CopilotChat", () => {
       configurable: true,
       value: () => undefined,
     });
+    // The fixtures set a licenseKey and no runtimeUrl, so CopilotKit asks
+    // Copilot Cloud for /info. Keep that request off the network: a real
+    // 401 would log runtime_info_fetch_failed into tests that spy on
+    // console.error. Tests that need a response mock fetch themselves.
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      () => new Promise<Response>(() => {}),
+    );
     TestBed.resetTestingModule();
   });
   afterEach(() => {

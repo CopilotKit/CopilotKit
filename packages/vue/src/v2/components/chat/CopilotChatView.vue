@@ -9,7 +9,11 @@ import {
   watch,
 } from "vue";
 import type { Message } from "@ag-ui/core";
-import { ɵgetChatViewState } from "@copilotkit/core";
+import {
+  ɵgetChatViewState,
+  ɵisScrolledToBottom,
+  ɵnormalizeAutoScroll,
+} from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import type { Attachment } from "@copilotkit/shared";
 import { useChatLabels } from "./use-chat-labels";
@@ -20,7 +24,6 @@ import CopilotChatInput from "./CopilotChatInput.vue";
 import CopilotChatAttachmentQueue from "./CopilotChatAttachmentQueue.vue";
 import CopilotChatMessageView from "./CopilotChatMessageView.vue";
 import CopilotChatSuggestionView from "./CopilotChatSuggestionView.vue";
-import { normalizeAutoScroll } from "./normalize-auto-scroll";
 import type {
   CopilotChatInputMode,
   CopilotChatInterruptSlotProps,
@@ -31,7 +34,6 @@ import type {
 // Vertical gap between the scroll-to-bottom button and the input container.
 // Mirrors React `CopilotChatView` `SCROLL_BUTTON_OFFSET`.
 const SCROLL_BUTTON_OFFSET = 16;
-const SCROLL_BOTTOM_THRESHOLD = 12;
 
 const props = withDefaults(defineProps<CopilotChatViewProps>(), {
   messageFeedback: true,
@@ -141,8 +143,8 @@ const localInputValue = ref(props.inputValue ?? "");
 
 // Normalize the `autoScroll` prop into the canonical mode triplet
 // (`pin-to-bottom` | `pin-to-send` | `none`). Boolean back-compat is
-// preserved by `normalizeAutoScroll` (parity with React).
-const autoScrollMode = computed(() => normalizeAutoScroll(props.autoScroll));
+// preserved by `ɵnormalizeAutoScroll` (parity with React).
+const autoScrollMode = computed(() => ɵnormalizeAutoScroll(props.autoScroll));
 const isPinToBottomMode = computed(
   () => autoScrollMode.value === "pin-to-bottom",
 );
@@ -305,9 +307,7 @@ function updateIsAtBottom() {
     return;
   }
 
-  const distance =
-    element.scrollHeight - element.scrollTop - element.clientHeight;
-  isAtBottom.value = distance <= SCROLL_BOTTOM_THRESHOLD;
+  isAtBottom.value = ɵisScrolledToBottom(element);
 }
 
 function syncInputContainerHeight() {

@@ -40,6 +40,8 @@ export type {
 export { ɵRendererRegistry } from "./renderer-registry";
 export type { ɵRendererKind, ɵRendererRegistryInit } from "./renderer-registry";
 export type * from "./generative-ui-debug";
+export * from "./interrupt-controller";
+export * from "./human-in-the-loop";
 export {
   ɵbindSuggestionsConfig,
   ɵsubscribeToAgentSuggestions,

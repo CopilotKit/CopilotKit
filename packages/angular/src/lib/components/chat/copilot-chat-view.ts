@@ -31,7 +31,7 @@ import { CopilotIcon, Upload } from "../icons/copilot-icon";
 import { injectChatLabels } from "../../chat-config";
 import { COPILOT_CHAT_WELCOME_LAYOUT } from "./copilot-chat-welcome-layout";
 import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
-import { ɵgetChatViewState } from "@copilotkit/core";
+import { ɵgetChatViewState, ɵnormalizeAutoScroll } from "@copilotkit/core";
 
 /**
  * CopilotChatView component - Angular port of the React component.
@@ -378,7 +378,10 @@ export class CopilotChatView implements OnInit, OnChanges {
 
   // Signals for reactive state
   protected messagesValue = computed(() => this.messages());
-  protected autoScrollSignal = computed(() => this.autoScroll());
+  // Core's rules for `autoScroll`; Angular has no pin-to-send mode yet.
+  protected autoScrollSignal = computed(
+    () => ɵnormalizeAutoScroll(this.autoScroll()) !== "none",
+  );
   protected showCursorSignal = computed(() => this.showCursor());
   protected disclaimerTextSignal = computed(() => this.disclaimerText());
   protected disclaimerClassSignal = computed(() => this.disclaimerClass());

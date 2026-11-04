@@ -63,7 +63,6 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     ReactActivityMessageRenderer<any>,
     ReactCustomMessageRenderer
   >;
-  private _interruptElement: React.ReactElement | null = null;
 
   constructor(config: CopilotKitCoreReactConfig) {
     super({
@@ -76,6 +75,17 @@ export class CopilotKitCoreReact extends CopilotKitCore {
       custom: config.renderCustomMessages,
     });
     this._renderers.subscribe((kind) => this.notifyRenderersChanged(kind));
+    // The element lives in core's generic interrupt slot; keep the React
+    // subscriber event for existing listeners.
+    this.ɵsubscribeToInterruptPayload(() => {
+      void this.notifySubscribers((subscriber) => {
+        const reactSubscriber = subscriber as CopilotKitCoreReactSubscriber;
+        return reactSubscriber.onInterruptElementChanged?.({
+          copilotkit: this,
+          interruptElement: this.interruptElement,
+        });
+      }, "Subscriber onInterruptElementChanged error:");
+    });
   }
 
   get renderCustomMessages() {
@@ -137,18 +147,11 @@ export class CopilotKitCoreReact extends CopilotKitCore {
   }
 
   get interruptElement(): React.ReactElement | null {
-    return this._interruptElement;
+    return this.ɵinterruptPayload as React.ReactElement | null;
   }
 
   setInterruptElement(element: React.ReactElement | null): void {
-    this._interruptElement = element;
-    void this.notifySubscribers((subscriber) => {
-      const reactSubscriber = subscriber as CopilotKitCoreReactSubscriber;
-      return reactSubscriber.onInterruptElementChanged?.({
-        copilotkit: this,
-        interruptElement: this._interruptElement,
-      });
-    }, "Subscriber onInterruptElementChanged error:");
+    this.ɵsetInterruptPayload(element);
   }
 
   // Override to accept React-specific subscriber type

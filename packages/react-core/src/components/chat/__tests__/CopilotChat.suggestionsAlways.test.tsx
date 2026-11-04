@@ -11,7 +11,7 @@ import {
   textChunkEvent,
   testId,
 } from "../../../__tests__/utils/test-helpers";
-import type { AutoScrollMode } from "../normalize-auto-scroll";
+import type { ɵAutoScrollMode as AutoScrollMode } from "@copilotkit/core";
 
 // jsdom doesn't implement scrollTo; pin-to-send mode calls it from a rAF
 // callback, so without this stub the cleanup throws an unhandled error.

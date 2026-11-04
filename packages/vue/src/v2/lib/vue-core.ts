@@ -44,7 +44,6 @@ export class CopilotKitCoreVue extends CopilotKitCore {
     VueActivityMessageRenderer<unknown>,
     VueCustomMessageRenderer
   >;
-  private _interruptState: InterruptRenderProps<unknown, unknown> | null = null;
 
   constructor(config: CopilotKitCoreVueConfig) {
     // Tool handlers can change reactive state. `nextTick` lets Vue flush those
@@ -56,6 +55,17 @@ export class CopilotKitCoreVue extends CopilotKitCore {
       custom: config.renderCustomMessages,
     });
     this._renderers.subscribe((kind) => this.notifyRenderersChanged(kind));
+    // The props live in core's generic interrupt slot; keep the Vue
+    // subscriber event for existing listeners.
+    this.ɵsubscribeToInterruptPayload(() => {
+      void this.notifySubscribers((subscriber) => {
+        const vueSubscriber = subscriber as CopilotKitCoreVueSubscriber;
+        return vueSubscriber.onInterruptStateChanged?.({
+          copilotkit: this,
+          interruptState: this.interruptState,
+        });
+      }, "Subscriber onInterruptStateChanged error:");
+    });
   }
 
   get renderCustomMessages() {
@@ -87,7 +97,10 @@ export class CopilotKitCoreVue extends CopilotKitCore {
   }
 
   get interruptState(): InterruptRenderProps<unknown, unknown> | null {
-    return this._interruptState;
+    return this.ɵinterruptPayload as InterruptRenderProps<
+      unknown,
+      unknown
+    > | null;
   }
 
   setRenderToolCalls(renderToolCalls: VueToolCallRenderer<unknown>[]): void {
@@ -128,14 +141,7 @@ export class CopilotKitCoreVue extends CopilotKitCore {
   setInterruptState(
     interruptState: InterruptRenderProps<unknown, unknown> | null,
   ): void {
-    this._interruptState = interruptState;
-    void this.notifySubscribers((subscriber) => {
-      const vueSubscriber = subscriber as CopilotKitCoreVueSubscriber;
-      return vueSubscriber.onInterruptStateChanged?.({
-        copilotkit: this,
-        interruptState: this._interruptState,
-      });
-    }, "Subscriber onInterruptStateChanged error:");
+    this.ɵsetInterruptPayload(interruptState);
   }
 
   subscribe(
