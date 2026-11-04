@@ -15,6 +15,12 @@ const config = {
     root: path.join(import.meta.dirname, ".."),
   },
 
+  // The Docker image runs the standalone server: server.js and only the files
+  // it traced, not the whole app and its node_modules. Trace from the same
+  // root, so the output keeps the showcase/ layout.
+  output: "standalone",
+  outputFileTracingRoot: path.join(import.meta.dirname, ".."),
+
   // --- Legacy URL redirects (ported from showcase/shell-docs) -------------
   // The table lives in src/lib/redirects/next-config-redirects.mjs; the
   // middleware-side table runs in src/proxy.ts after these.
