@@ -359,6 +359,7 @@ useHumanInTheLoop({
 - **Single response**: Calling `respond` resolves the pending promise once and clears the stored resolver, so subsequent calls are no-ops for that tool invocation.
 - **Built on `useFrontendTool`**: The composable forwards a `VueFrontendTool` (your tool plus the generated `handler` and a wrapping render component) to `useFrontendTool`, so the same registration lifecycle applies.
 - **Scope lifecycle**: The tool and its render component are registered while the composable's reactive scope is active and removed automatically on scope cleanup — the render component via `onScopeDispose`, and the tool via the underlying `useFrontendTool` watch's cleanup.
+- **Calls after cleanup**: If the agent calls the tool after it was removed (for example, the owning scope was disposed while the run was in flight), CopilotKit answers the call with a `Tool not found` error result and reports a `TOOL_NOT_FOUND` error, so the conversation can continue. This applies only to tools that were sent to the agent for that run, and only when the run finishes normally; an interrupted, stopped or failed run leaves the call open. A call to a name that was not sent to the agent for that run stays unanswered; register a wildcard tool (`name: "*"`) to handle those.
 - **No return value**: The composable returns `void`.
 
 ## Related

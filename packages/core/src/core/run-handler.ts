@@ -897,6 +897,35 @@ export class RunHandler {
         }
         return onRunStartedEvent?.(params);
       };
+      // Only a run that finished cleanly can leave an advertised call open by
+      // mistake. An interrupted run leaves its calls for the interrupt's
+      // answer, a stopped run ends with a `cancelled` outcome, and a failed
+      // run never finished. The state manager tracks interrupts too, but only
+      // for registered agents, not the per-thread clones that runs use. A
+      // stream can carry more than one run, so one that ends any other way
+      // keeps every call open, even if a later run finishes cleanly.
+      let finishedCleanly = false;
+      let leftCallsOpen = false;
+      const onRunFinishedEvent = agentSubscriber.onRunFinishedEvent;
+      const onRunErrorEvent = agentSubscriber.onRunErrorEvent;
+      const onCustomEvent = agentSubscriber.onCustomEvent;
+      agentSubscriber.onRunFinishedEvent = (params) => {
+        const outcome = params.event.outcome?.type;
+        if (outcome === undefined || outcome === "success") {
+          finishedCleanly = true;
+        } else {
+          leftCallsOpen = true;
+        }
+        return onRunFinishedEvent?.(params);
+      };
+      agentSubscriber.onRunErrorEvent = (params) => {
+        leftCallsOpen = true;
+        return onRunErrorEvent?.(params);
+      };
+      agentSubscriber.onCustomEvent = (params) => {
+        if (params.event.name === "on_interrupt") leftCallsOpen = true;
+        return onCustomEvent?.(params);
+      };
       // An internal continuation (a human-in-the-loop tool resolved and this is
       // the recursive follow-up) deliberately does NOT pin the originating run
       // id on the wire. Pinning it made the transport treat the follow-up as a
@@ -911,6 +940,7 @@ export class RunHandler {
       // reported under it. So external tracing still gets a single run without
       // the wire having to lie about which invocation this is.
       const pinRunIdOnWire = runId !== undefined && !continuationHandoff;
+      const tools = this.buildFrontendTools(agent.agentId);
       const agentRunInput = {
         forwardedProps: {
           ...this._internal.getPropertiesForAgent(agent.agentId),
@@ -919,7 +949,7 @@ export class RunHandler {
         },
         ...(resume !== undefined ? { resume } : {}),
         ...(pinRunIdOnWire ? { runId } : {}),
-        tools: this.buildFrontendTools(agent.agentId),
+        tools,
         context: this._internal.getContextForAgent(agent.agentId),
       };
       const runAgentResult = await agent.runAgent(
@@ -937,6 +967,10 @@ export class RunHandler {
         agent,
         runId: logicalRunId,
         runController: controller,
+        advertisedToolNames:
+          finishedCleanly && !leftCallsOpen
+            ? new Set(tools.map((tool) => tool.name))
+            : undefined,
       });
     } catch (error) {
       logicalHandoff?.cancel();
@@ -998,6 +1032,7 @@ export class RunHandler {
     toolExecutionMode = "all",
     runController,
     signal = runController?.signal,
+    advertisedToolNames,
     connectionGeneration,
   }: {
     runAgentResult: RunAgentResult;
@@ -1007,6 +1042,11 @@ export class RunHandler {
     /** Controller of the run that produced this result; follow-ups share it. */
     runController?: AbortController;
     signal?: AbortSignal;
+    /**
+     * Tools the run was offered, set only when it finished cleanly. A call to
+     * one of them that nothing handles any more is answered with an error.
+     */
+    advertisedToolNames?: ReadonlySet<string>;
     connectionGeneration?: object;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
@@ -1136,21 +1176,43 @@ export class RunHandler {
           ) {
             continue;
           }
+
+          // An advertised tool that is gone can never replace the
+          // placeholder, so clear every placeholder for the not-found answer
+          // below, unless a run result already carries a real answer. A
+          // placeholder left behind would stay the call's only result.
+          const runResults = newMessages.filter(
+            (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+          );
+          const answersRemovedTool =
+            !executableTool &&
+            !!advertisedToolNames?.has(toolCall.function.name) &&
+            runResults.every((m) => this.isFrontendPlaceholderResult(m));
+
           if (
             existingResult &&
             this.isFrontendPlaceholderResult(existingResult) &&
-            (toolExecutionMode === "restore" || executableTool?.handler)
+            (toolExecutionMode === "restore" ||
+              executableTool?.handler ||
+              answersRemovedTool)
           ) {
-            if (existingResultIndex !== -1)
-              newMessages.splice(existingResultIndex, 1);
-            existingResult = undefined;
+            if (answersRemovedTool) {
+              // All placeholders go; the arms below remove only the first.
+              // One left behind would stay the call's only result.
+              this.removePlaceholderResults(newMessages, toolCall.id);
+              this.removePlaceholderResults(agent.messages, toolCall.id);
+            } else {
+              if (existingResultIndex !== -1)
+                newMessages.splice(existingResultIndex, 1);
 
-            const agentMsgIdx = agent.messages.findIndex(
-              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-            );
-            if (agentMsgIdx !== -1) {
-              agent.messages.splice(agentMsgIdx, 1);
+              const agentMsgIdx = agent.messages.findIndex(
+                (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+              );
+              if (agentMsgIdx !== -1) {
+                agent.messages.splice(agentMsgIdx, 1);
+              }
             }
+            existingResult = undefined;
           }
 
           if (!existingResult) {
@@ -1224,6 +1286,13 @@ export class RunHandler {
                     ownsHandlerFollowUp ||= !!fallbackTool.handler;
                     needsFollowUp = true;
                   }
+                } else if (advertisedToolNames?.has(toolCall.function.name)) {
+                  await this.rejectUnregisteredTool(
+                    toolCall,
+                    message,
+                    agent,
+                    agentId,
+                  );
                 }
               }
             } finally {
@@ -1351,6 +1420,23 @@ export class RunHandler {
       insertAt++;
     }
     return insertAt;
+  }
+
+  /** Removes, in place, every placeholder result for `toolCallId`. */
+  private removePlaceholderResults(
+    messages: Message[],
+    toolCallId: string,
+  ): void {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]!;
+      if (
+        m.role === "tool" &&
+        m.toolCallId === toolCallId &&
+        this.isFrontendPlaceholderResult(m)
+      ) {
+        messages.splice(i, 1);
+      }
+    }
   }
 
   /** Identify transport placeholders that must not count as completed answers. */
@@ -1723,6 +1809,54 @@ export class RunHandler {
     }
 
     return false;
+  }
+
+  /**
+   * Answer a call to a tool the run was offered but that no frontend tool (and
+   * no wildcard) handles any more, e.g. because its component unmounted. Left
+   * open, the call has no result, and providers reject every later request in
+   * the thread. Like a failed handler, the error result starts no follow-up:
+   * the model sees it on the next turn.
+   */
+  private async rejectUnregisteredTool(
+    toolCall: ToolCall,
+    message: Message,
+    agent: AbstractAgent,
+    agentId: string,
+  ): Promise<void> {
+    const messageIndex = agent.messages.findIndex((m) => m.id === message.id);
+    if (
+      messageIndex === -1 ||
+      agent.messages.some(
+        (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+      )
+    ) {
+      return;
+    }
+
+    const error = new Error(`Tool not found: ${toolCall.function.name}`);
+    const errorMessage = toolFailureMessage(error);
+    agent.messages.splice(
+      this.toolResultInsertionIndex(agent.messages, messageIndex, toolCall.id),
+      0,
+      {
+        id: randomUUID(),
+        role: "tool",
+        toolCallId: toolCall.id,
+        content: `Error: ${errorMessage}`,
+        error: errorMessage,
+      },
+    );
+    await this._internal.emitError({
+      error,
+      code: CopilotKitCoreErrorCode.TOOL_NOT_FOUND,
+      context: {
+        agentId,
+        toolCallId: toolCall.id,
+        toolName: toolCall.function.name,
+        messageId: message.id,
+      },
+    });
   }
 
   /**
