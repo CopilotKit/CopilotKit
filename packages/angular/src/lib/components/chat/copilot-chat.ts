@@ -101,6 +101,9 @@ import type { ChatRunControl } from "./copilot-chat-run-control";
         [reasoningMessageComponent]="reasoningMessageComponent()"
         [reasoningMessageTemplate]="reasoningMessageTemplate()"
         [reasoningMessageClass]="reasoningMessageClass()"
+        [workSummaryComponent]="workSummaryComponent()"
+        [workSummaryTemplate]="workSummaryTemplate()"
+        [workSummaryClass]="workSummaryClass()"
         [messageViewChildrenComponent]="messageViewChildrenComponent()"
         [messageViewChildrenTemplate]="messageViewChildrenTemplate()"
         [messageViewChildrenClass]="messageViewChildrenClass()"
@@ -150,6 +153,16 @@ export class CopilotChat extends ChatState implements ChatRunControl {
   readonly reasoningMessageTemplate = input<TemplateRef<any> | undefined>();
   /** Class forwarded to the default or custom reasoning-message renderer. */
   readonly reasoningMessageClass = input<string | undefined>();
+  /**
+   * Component used to render the work summary row of the `"turn"` tool-call
+   * display. It gets `isWorking`, `isOpen`, `calls`, `elapsedMs`,
+   * `workingSince` and `onClick`.
+   */
+  readonly workSummaryComponent = input<Type<any> | undefined>();
+  /** Template used to render the work summary row of the `"turn"` display. */
+  readonly workSummaryTemplate = input<TemplateRef<any> | undefined>();
+  /** Class forwarded to the default or custom work summary renderer. */
+  readonly workSummaryClass = input<string | undefined>();
   /** Component rendered after the transcript messages and before the cursor. */
   readonly messageViewChildrenComponent = input<Type<any> | undefined>();
   /** Template rendered after the transcript messages and before the cursor. */

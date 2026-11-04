@@ -259,7 +259,7 @@ A tool that has a renderer but no handler now stays `"in-progress"` until its re
 
 Angular now draws `toolCallDisplay: "turn"` the same as React and Vue. Each reply starts with a summary line, such as "Working 4s" or "Worked for 9s". The tool calls, the reasoning, and the narration text of the reply fold into that line when the reply is done. Click the line to show the work again. In 1.x, Angular drew `"turn"` the same as `"grouped"`.
 
-To replace the summary line, set `workSummaryComponent` or `workSummaryTemplate` on `copilot-chat-message-view`. The slot gets `isWorking`, `isOpen`, `calls`, `elapsedMs`, `workingSince`, and `onClick`.
+To replace the summary line, set `workSummaryComponent` or `workSummaryTemplate` on `copilot-chat`, `copilot-chat-view`, or `copilot-chat-message-view`. `workSummaryClass` sets the class of the line. The slot gets `isWorking`, `isOpen`, `calls`, `elapsedMs`, `workingSince`, and `onClick`.
 
 In the Angular chat, the last tool-call group of a reply now shows "Running" while the agent runs. In 1.x, the group showed "Stopped" until the run ended.
 

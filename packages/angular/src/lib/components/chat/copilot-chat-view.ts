@@ -224,6 +224,9 @@ import { ɵgetChatViewState, ɵnormalizeAutoScroll } from "@copilotkit/core";
           [reasoningMessageComponent]="reasoningMessageComponent()"
           [reasoningMessageTemplate]="reasoningMessageTemplate()"
           [reasoningMessageClass]="reasoningMessageClass()"
+          [workSummaryComponent]="workSummaryComponent()"
+          [workSummaryTemplate]="workSummaryTemplate()"
+          [workSummaryClass]="workSummaryClass()"
           [messageViewChildrenComponent]="messageViewChildrenComponent()"
           [messageViewChildrenTemplate]="messageViewChildrenTemplate()"
           [messageViewChildrenClass]="messageViewChildrenClass()"
@@ -301,6 +304,11 @@ export class CopilotChatView implements OnInit, OnChanges {
   reasoningMessageComponent = input<Type<any> | undefined>(undefined);
   reasoningMessageTemplate = input<TemplateRef<any> | undefined>(undefined);
   reasoningMessageClass = input<string | undefined>(undefined);
+
+  // `"turn"` display work summary slot inputs, forwarded to the message view.
+  workSummaryComponent = input<Type<any> | undefined>(undefined);
+  workSummaryTemplate = input<TemplateRef<any> | undefined>(undefined);
+  workSummaryClass = input<string | undefined>(undefined);
 
   // Content rendered after the default message collection.
   messageViewChildrenComponent = input<Type<any> | undefined>(undefined);
@@ -454,6 +462,9 @@ export class CopilotChatView implements OnInit, OnChanges {
     reasoningMessageComponent: this.reasoningMessageComponent(),
     reasoningMessageTemplate: this.reasoningMessageTemplate(),
     reasoningMessageClass: this.reasoningMessageClass(),
+    workSummaryComponent: this.workSummaryComponent(),
+    workSummaryTemplate: this.workSummaryTemplate(),
+    workSummaryClass: this.workSummaryClass(),
     messageViewChildrenComponent: this.messageViewChildrenComponent(),
     messageViewChildrenTemplate: this.messageViewChildrenTemplate(),
     messageViewChildrenClass: this.messageViewChildrenClass(),
