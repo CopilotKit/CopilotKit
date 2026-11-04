@@ -898,6 +898,16 @@ function isSingleRouteResourceRoute(route: RouteInfo): boolean {
     case "memories/mutate":
     case "annotate":
       return true;
+    case "agent/connect":
+    case "agent/run":
+    case "agent/stop":
+    case "agent/suggest":
+    case "cpk-debug-events":
+    case "info":
+    case "inspector/learning":
+    case "inspector/metadata":
+    case "trajectory/connect":
+    case "transcribe":
     default:
       return false;
   }
@@ -954,6 +964,17 @@ function validateHttpMethod(
         Allow: "PATCH, DELETE",
       });
 
+    case "agent/connect":
+    case "agent/run":
+    case "agent/stop":
+    case "agent/suggest":
+    case "annotate":
+    case "memories/subscribe":
+    case "threads/archive":
+    case "threads/clear":
+    case "threads/subscribe":
+    case "trajectory/connect":
+    case "transcribe":
     default:
       if (method === "POST") return null;
       return jsonResponse({ error: "Method not allowed" }, 405, {

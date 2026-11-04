@@ -200,6 +200,16 @@ export function eventErrorKeyForCode(
     case CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT:
     case CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT:
       return "run";
+    case CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED:
+    case CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED:
+    case CopilotKitCoreErrorCode.TRANSCRIPTION_FAILED:
+    case CopilotKitCoreErrorCode.TRANSCRIPTION_SERVICE_NOT_CONFIGURED:
+    case CopilotKitCoreErrorCode.TRANSCRIPTION_INVALID_AUDIO:
+    case CopilotKitCoreErrorCode.TRANSCRIPTION_RATE_LIMITED:
+    case CopilotKitCoreErrorCode.TRANSCRIPTION_AUTH_FAILED:
+    case CopilotKitCoreErrorCode.TRANSCRIPTION_NETWORK_ERROR:
+    case CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED:
+    case CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED:
     default:
       return null;
   }

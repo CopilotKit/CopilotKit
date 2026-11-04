@@ -320,8 +320,9 @@ export class ɵThreadSwitchCoordinator {
     if (previous.agent === agent) {
       previous.setDiscardedBaselineReset(clearDiscardedBaseline);
     }
-    // Queues the detach; the reset below runs after it and every earlier teardown.
-    this.detach(agent);
+    // Queues the detach; the reset below runs after it and every earlier
+    // teardown. detach() catches its own failure, so the promise never rejects.
+    void this.detach(agent);
     clearDiscardedBaseline();
     this.setTeardown(
       this.teardown
