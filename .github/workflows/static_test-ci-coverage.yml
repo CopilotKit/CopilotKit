@@ -1,0 +1,57 @@
+name: static / test ci coverage
+
+# Fails when a test file has no CI job that runs it (PE-1113).
+#
+# A test that CI never runs looks like coverage but guards nothing, and
+# mutation testing only scores tests that run. `scripts/test-ci-coverage-map.mjs`
+# maps every tracked test file (TS/JS, Python, Go, Ruby, Java, .NET, Dart,
+# Swift, shell) to the workflow step that runs it, or to an allowlist entry
+# that says why nothing does. This job fails on a test file with neither, on a
+# rule whose workflow no longer contains the command it names, and on a rule
+# that matches no file.
+#
+# Pure Node over `git ls-files` and the workflow files: no network, a few
+# seconds of work. It runs on every pull request, with no `paths` filter,
+# because a new test file can land anywhere.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-ci-coverage:
+    name: Every test file has a CI job
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Use Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      # Runs the checker's own tests, then the checker against this checkout.
+      # Same target a developer runs locally.
+      - name: Test checker and map every test file to a CI job
+        run: pnpm nx run repo-scripts:validate-test-ci-coverage

@@ -22,6 +22,17 @@
         "parallel": false
       }
     },
+    "validate-test-ci-coverage": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "commands": [
+          "node --test scripts/__tests__/validate-test-ci-coverage.test.mjs",
+          "node scripts/validate-test-ci-coverage.mjs"
+        ],
+        "parallel": false
+      }
+    },
     "validate-production-verification": {
       "executor": "nx:run-commands",
       "cache": false,
