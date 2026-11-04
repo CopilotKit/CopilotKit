@@ -97,3 +97,5 @@ export type {
 } from "./provider-config";
 export { ɵregisterFrontendTools } from "./frontend-tool-registration";
 export type { ɵFrontendToolRenderer } from "./frontend-tool-registration";
+// Tool result content (internal)
+export { isContentPart as ɵisContentPart } from "./tool-result-content";

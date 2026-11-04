@@ -3,7 +3,9 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
+  useState,
 } from "react";
 import type { ReactNode } from "react";
 import {
@@ -13,11 +15,15 @@ import {
 } from "@copilotkit/react-core/headless";
 import { useCopilotKit } from "@copilotkit/react-core/context";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
-import type { InputContent } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import {
+  ɵThreadSwitchCoordinator,
+  ɵcreateChatSubmitter,
+} from "@copilotkit/core";
 import { useAttachments } from "./hooks/use-attachments";
 import type { NativeAttachmentsConfig } from "./hooks/use-attachments";
 import type { Attachment } from "@copilotkit/shared";
+import { showThread } from "./thread-connection";
 
 // ---------------------------------------------------------------------------
 // Context
@@ -39,9 +45,10 @@ export interface CopilotChatContextValue {
   /** Remove an attachment by ID. */
   removeAttachment: (id: string) => void;
   /**
-   * Submit a message with optional attachments.
-   * Handles consuming ready attachments, building InputContent[],
-   * calling agent.addMessage, and running the agent.
+   * Submit a message with the ready attachments and run the agent. Waits
+   * for the thread's connection and for the run in flight. Blank text, and a
+   * send while an attachment uploads, are ignored. Resolves once the run has
+   * settled.
    */
   submitMessage: (text: string) => Promise<void>;
 }
@@ -83,8 +90,10 @@ export interface CopilotChatBaseProps {
   agentName?: string;
 
   /**
-   * Thread ID for this chat session. When provided, the chat will resume
-   * the specified thread. Matches the web SDK's CopilotChat `threadId` prop.
+   * Thread ID for this chat session. When provided, the chat restores the
+   * thread from the backend and reconnects to a run in progress. Without it,
+   * the chat uses the thread of the chat around it, or a new thread. Matches
+   * the web SDK's CopilotChat `threadId` prop.
    */
   threadId?: string;
 
@@ -191,17 +200,41 @@ export function CopilotChat({
     }
   }, [agentName, agentId]);
 
-  const { agent } = useAgent({ agentId: resolvedAgentId, throttleMs });
+  // Same thread rules as the web CopilotChat: the `threadId` prop, else the
+  // thread of the chat around this one, else a UUID minted for this chat.
+  // Only a thread a caller picked is "explicit" and restored from the backend.
+  const providedThreadId = threadId ?? chatConfig?.threadId;
+  const resolvedThreadId = useMemo(
+    () => providedThreadId ?? randomUUID(),
+    [providedThreadId],
+  );
+  const hasExplicitThreadId = !!threadId || !!chatConfig?.hasExplicitThreadId;
+  const hasExplicitThreadIdRef = useRef(hasExplicitThreadId);
+  hasExplicitThreadIdRef.current = hasExplicitThreadId;
 
-  // Set threadId on the agent when provided
-  useEffect(() => {
-    if (threadId) {
-      agent.threadId = threadId;
-    }
-  }, [agent, threadId]);
+  const { agent } = useAgent({ agentId: resolvedAgentId, throttleMs });
+  const { copilotkit } = useCopilotKit();
+
+  // Keeps the agent on the thread this chat shows, restores a picked thread
+  // with a connect, and empties the agent on a switch to a fresh thread.
+  const [threads] = useState(() => new ɵThreadSwitchCoordinator(copilotkit));
+  useEffect(
+    () =>
+      showThread({
+        threads,
+        core: copilotkit,
+        input: {
+          agent,
+          threadId: resolvedThreadId,
+          explicit: hasExplicitThreadId,
+        },
+        isExplicitNow: () => hasExplicitThreadIdRef.current,
+      }),
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- copilotkit is a stable ref that never changes
+    [threads, agent, resolvedThreadId, hasExplicitThreadId],
+  );
 
   // onError subscription -- forward core errors scoped to this chat's agent
-  const { copilotkit } = useCopilotKit();
   const onErrorRef = useRef(onError);
   useEffect(() => {
     onErrorRef.current = onError;
@@ -239,60 +272,35 @@ export function CopilotChat({
     removeAttachment,
     consumeAttachments,
   } = useAttachments({ config: attachmentsConfig });
+  // A send waits for the run in flight, so the submitter re-checks the
+  // upload guard against the latest attachments, not this render's.
+  const attachmentsRef = useRef(selectedAttachments);
+  attachmentsRef.current = selectedAttachments;
 
-  // Submit handler -- mirrors web CopilotChat.tsx lines 234-288
+  // The send side lives in core: the upload guard, the message content, and
+  // waiting for the thread's connection and the run in flight.
+  const agentRef = useRef(agent);
+  agentRef.current = agent;
+  const [submitter] = useState(() =>
+    ɵcreateChatSubmitter({
+      core: copilotkit,
+      getAgent: () => agentRef.current,
+      // This chat renders no input box, so there is no text to clear or put
+      // back.
+      input: { get: () => "", set: () => {} },
+      attachments: {
+        isUploading: () =>
+          attachmentsRef.current.some((a) => a.status === "uploading"),
+        consumeReady: () => consumeAttachments(),
+      },
+      threads,
+    }),
+  );
+  // Clears the notice timer of a blocked send on unmount.
+  useEffect(() => () => submitter.showNotice(null), [submitter]);
   const submitMessage = useCallback(
-    async (value: string) => {
-      // Block if uploads in progress
-      const hasUploading = selectedAttachments.some(
-        (a) => a.status === "uploading",
-      );
-      if (hasUploading) {
-        console.error(
-          "[CopilotKit] Cannot send while attachments are uploading",
-        );
-        return;
-      }
-
-      const readyAttachments = consumeAttachments();
-
-      if (readyAttachments.length > 0) {
-        const contentParts: InputContent[] = [];
-        if (value.trim()) {
-          contentParts.push({ type: "text", text: value });
-        }
-        for (const att of readyAttachments) {
-          contentParts.push({
-            type: att.type,
-            source: att.source,
-            metadata: {
-              ...(att.filename ? { filename: att.filename } : {}),
-              ...att.metadata,
-            },
-          } as InputContent);
-        }
-        agent.addMessage({
-          id: randomUUID(),
-          role: "user",
-          content: contentParts,
-        });
-      } else {
-        agent.addMessage({
-          id: randomUUID(),
-          role: "user",
-          content: value,
-        });
-      }
-
-      try {
-        await copilotkit.runAgent({ agent });
-      } catch (error) {
-        console.error("CopilotChat: runAgent failed", error);
-      }
-    },
-    // copilotkit is intentionally excluded -- it is a stable ref that never changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent, selectedAttachments, consumeAttachments],
+    (value: string) => submitter.submit(value),
+    [submitter],
   );
 
   const contextValue: CopilotChatContextValue = {
@@ -312,7 +320,8 @@ export function CopilotChat({
   return (
     <CopilotChatConfigurationProvider
       agentId={resolvedAgentId}
-      threadId={threadId}
+      threadId={resolvedThreadId}
+      hasExplicitThreadId={hasExplicitThreadId}
     >
       <CopilotChatCtx.Provider value={contextValue}>
         {children}
