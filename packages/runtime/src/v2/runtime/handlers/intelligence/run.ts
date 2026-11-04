@@ -371,6 +371,16 @@ export async function handleIntelligenceRun({
     agent,
     input: canonicalInput,
     ...(persistedInputMessages !== undefined ? { persistedInputMessages } : {}),
+    // A stop made by this runtime (its stop route, a server-side caller) never
+    // passes through Intelligence, which would count the run as finished.
+    recordStop: (signal) =>
+      runtime.intelligence.ɵrecordRunStop({
+        threadId: canonicalThreadId,
+        runId: canonicalRunId,
+        userId,
+        agentId,
+        signal,
+      }),
   };
 
   const runtimeErrorReporter = getRuntimeErrorReporter(runtime);

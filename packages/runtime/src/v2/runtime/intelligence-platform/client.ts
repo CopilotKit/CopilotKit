@@ -38,6 +38,7 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import { resolveTrajectoryLearningContainerIds } from "../core/learning";
 import { normalizeAnalyticsContext } from "./analytics-context";
+import { sendStopRun } from "./stop-run";
 import type {
   GetLearningContainerId,
   GetTrajectoryLearningContainerIds,
@@ -2537,6 +2538,47 @@ export class CopilotKitIntelligence {
 
     // request() returns undefined for empty/204 responses
     return result ?? null;
+  }
+
+  /**
+   * @internal Records that the runtime stopped a run, by the route a
+   * browser's Stop takes: mint a thread join token, join the thread's client
+   * channel and send `stop_run`. Intelligence stores the stop for the run, so
+   * it counts the run's terminal event as cancelled rather than finished.
+   *
+   * @throws {@link PlatformRequestError} when no join token is issued, or an
+   *   error when the channel or the stop is refused or `signal` aborts.
+   */
+  async ɵrecordRunStop(params: {
+    threadId: string;
+    runId: string;
+    /** The run's end user, as `identifyUser` returned it (not project-prefixed). */
+    userId: string;
+    agentId: string;
+    signal?: AbortSignal;
+  }): Promise<void> {
+    const connection = await this.#request<
+      ThreadConnectionResponse | undefined
+    >(
+      "POST",
+      `/api/threads/${encodeURIComponent(params.threadId)}/connect`,
+      { userId: params.userId, agentId: params.agentId },
+      undefined,
+      params.signal,
+    );
+    if (!connection?.joinToken) {
+      throw new PlatformRequestError(
+        "Intelligence issued no join token to record the stop",
+        502,
+      );
+    }
+    await sendStopRun({
+      url: this.#clientWsUrl,
+      joinToken: connection.joinToken,
+      threadId: params.threadId,
+      runId: params.runId,
+      ...(params.signal ? { signal: params.signal } : {}),
+    });
   }
 }
 
