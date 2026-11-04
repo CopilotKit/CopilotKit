@@ -13,6 +13,7 @@ In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilot
 - The Angular copy buttons and the license warnings changed.
 - React, Vue, and Angular use the same rules for chat configuration, agents, and thread lists.
 - React, Vue, and Angular use one set of rules to send messages and upload attachments.
+- The React Native chat uses the same rules for threads, sends, and attachments as the web chat.
 - React, Vue, and Angular share one chat input, audio recorder, docked sidebar, and attachment preview.
 - The Inspector in Vue and Angular follows the same rules as in React.
 - `useConfigureSuggestions` loads suggestions for the agent of the chat, in React and in Vue.
@@ -437,6 +438,34 @@ const { processFiles } = useAttachments({
 const { processFiles } = useAttachments({
   config: { enabled: true, accept: "image/*", onUpload: uploadToStorage },
 });
+```
+
+## React Native chat
+
+`CopilotChat` in `@copilotkit/react-native` now uses the same thread, send, and attachment rules as the web `CopilotChat`.
+
+**Threads** in the headless `CopilotChat`:
+
+- **Restore:** With a `threadId`, the chat loads the messages of that thread from the runtime and reconnects to a run in progress. Before, the chat only set `agent.threadId`.
+- **Switch:** When `threadId` changes, the chat loads the new thread. When you remove `threadId`, the chat starts a new, empty thread.
+- **No `threadId`:** The chat uses the thread of the chat around it. If there is no chat around it, the chat makes a new thread ID. Before, the agent kept its own thread ID.
+
+**Sends:**
+
+- `submitMessage` from `useCopilotChatContext` waits until the thread loads and until the current run ends.
+- `submitMessage` does not send text that is empty or only spaces. This is also true when attachments are ready. Before, it sent an empty message, or a message with only the attachments.
+- In the full-screen `CopilotChat` from `@copilotkit/react-native/components`, a message that you send during a run waits until the run ends. Before, the chat dropped that message. Message IDs are now UUIDs, not `user-1`, `user-2`.
+
+**Attachments:** The rules in [Attachment uploads](#attachment-uploads) apply. `processFiles` does nothing when `enabled` is not `true`. All picked files show as uploading at once, and they upload one at a time.
+
+If a user can send only attachments, send a short text with them:
+
+```tsx ignore title="Before"
+await submitMessage("");
+```
+
+```tsx ignore title="After"
+await submitMessage("See the attached files.");
 ```
 
 ## Welcome screen and suggestions in Angular
