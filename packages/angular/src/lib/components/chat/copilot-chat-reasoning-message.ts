@@ -104,11 +104,12 @@ export class CopilotChatReasoningMessage {
   protected readonly open = computed(() => this.#disclosureState().isOpen);
 
   protected readonly hasContent = computed(
-    () => (this.message().content?.length ?? 0) > 0,
+    // Untyped data can leave `content` out.
+    () => (this.message().content || "").length > 0,
   );
 
   protected readonly reasoningContent = computed(
-    () => this.message().content ?? "",
+    () => this.message().content || "",
   );
 
   /**

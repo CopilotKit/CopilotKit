@@ -29,7 +29,7 @@ export function ɵsubscribeToAgentErrors(
 ) {
   const subscription = core.subscribe({
     onError: (event) => {
-      const eventAgentId = event.context?.agentId;
+      const eventAgentId = event.context.agentId;
       if (eventAgentId && eventAgentId !== agentId) return;
       void handler({
         error: event.error,
@@ -74,11 +74,10 @@ export class ɵFreshThreadId {
  * `AGUIConnectNotImplementedError`.
  */
 export function ɵimplementsConnect(agent: AbstractAgent) {
-  const base = AbstractAgent.prototype as unknown as Record<string, unknown>;
-  const candidate = agent as unknown as Record<string, unknown>;
+  const base = AbstractAgent.prototype;
   return (
-    candidate.connect !== base.connect ||
-    candidate.connectAgent !== base.connectAgent
+    Reflect.get(agent, "connect") !== Reflect.get(base, "connect") ||
+    Reflect.get(agent, "connectAgent") !== Reflect.get(base, "connectAgent")
   );
 }
 
@@ -308,8 +307,8 @@ export class ɵChatConnection {
           onError: (event) => {
             const isThisThread =
               event.code === CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED &&
-              event.context?.agentId === agent.agentId &&
-              event.context?.threadId === threadId;
+              event.context.agentId === agent.agentId &&
+              event.context.threadId === threadId;
             if (isThisThread && !released) failInspectorOverride();
           },
         })

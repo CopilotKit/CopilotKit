@@ -69,8 +69,8 @@ export class CopilotChatViewScrollView {
   reasoningMessageComponent = input<Type<any> | undefined>();
   reasoningMessageTemplate = input<TemplateRef<any> | undefined>();
   reasoningMessageClass = input<string | undefined>();
-  workSummaryComponent = input<Type<any> | undefined>();
-  workSummaryTemplate = input<TemplateRef<any> | undefined>();
+  workSummaryComponent = input<Type<unknown> | undefined>();
+  workSummaryTemplate = input<TemplateRef<unknown> | undefined>();
   workSummaryClass = input<string | undefined>();
   messageViewChildrenComponent = input<Type<any> | undefined>();
   messageViewChildrenTemplate = input<TemplateRef<any> | undefined>();

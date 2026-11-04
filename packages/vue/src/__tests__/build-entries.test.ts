@@ -12,7 +12,9 @@ const entries = (config.build?.lib as LibraryOptions).entry as Record<
   string
 >;
 
-describe("library build entries", () => {
+// The first import transforms the whole entry from source, which takes more
+// than the 5s default when the suite runs next to other packages.
+describe("library build entries", { timeout: 30_000 }, () => {
   it("builds @copilotkit/vue/v2 from the v2 module, with the v2 hooks", async () => {
     const v2 = await import(/* @vite-ignore */ entries["v2/index"]!);
 

@@ -1065,8 +1065,7 @@ export function CopilotChatMessageView({
                 const nextRect = pendingRect!;
                 pendingRect = undefined;
                 if (!instance.scrollElement?.clientHeight) return;
-                measuredWidthRef.current =
-                  instance.scrollElement?.clientWidth ?? nextRect.width;
+                measuredWidthRef.current = instance.scrollElement.clientWidth;
                 if (resizeAnchorRef.current)
                   resizeAnchorRef.current.ready = true;
                 // Flush pending row updates before invalidating the cached prefix.

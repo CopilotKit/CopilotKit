@@ -88,7 +88,7 @@ interface QueuedNativeFile {
 
 // The native descriptor behind each file the queue holds, so the app's
 // callbacks get the `NativeFileInput` they were typed for.
-const nativeFiles = new WeakMap<QueuedNativeFile, NativeFileInput>();
+const nativeFiles = new WeakMap<object, NativeFileInput>();
 
 /**
  * Wraps a native file for core's `ɵAttachmentQueue`, which is typed for the
@@ -103,11 +103,12 @@ function toQueueFile(file: NativeFileInput) {
     type: file.mimeType,
   };
   nativeFiles.set(queued, file);
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the queue is typed for the web File; it only reads name, size and type, and uploads go through onUpload with the native file
   return queued as unknown as File;
 }
 
 function toNativeFile(file: File) {
-  const native = nativeFiles.get(file as unknown as QueuedNativeFile);
+  const native = nativeFiles.get(file);
   if (!native) {
     throw new Error(`[CopilotKit] "${file.name}" was not picked natively`);
   }

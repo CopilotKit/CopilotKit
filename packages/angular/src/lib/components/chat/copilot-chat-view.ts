@@ -306,8 +306,8 @@ export class CopilotChatView implements OnInit, OnChanges {
   reasoningMessageClass = input<string | undefined>(undefined);
 
   // `"turn"` display work summary slot inputs, forwarded to the message view.
-  workSummaryComponent = input<Type<any> | undefined>(undefined);
-  workSummaryTemplate = input<TemplateRef<any> | undefined>(undefined);
+  workSummaryComponent = input<Type<unknown> | undefined>(undefined);
+  workSummaryTemplate = input<TemplateRef<unknown> | undefined>(undefined);
   workSummaryClass = input<string | undefined>(undefined);
 
   // Content rendered after the default message collection.

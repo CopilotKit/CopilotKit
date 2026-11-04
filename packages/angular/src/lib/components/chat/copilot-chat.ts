@@ -158,9 +158,9 @@ export class CopilotChat extends ChatState implements ChatRunControl {
    * display. It gets `isWorking`, `isOpen`, `calls`, `elapsedMs`,
    * `workingSince` and `onClick`.
    */
-  readonly workSummaryComponent = input<Type<any> | undefined>();
+  readonly workSummaryComponent = input<Type<unknown> | undefined>();
   /** Template used to render the work summary row of the `"turn"` display. */
-  readonly workSummaryTemplate = input<TemplateRef<any> | undefined>();
+  readonly workSummaryTemplate = input<TemplateRef<unknown> | undefined>();
   /** Class forwarded to the default or custom work summary renderer. */
   readonly workSummaryClass = input<string | undefined>();
   /** Component rendered after the transcript messages and before the cursor. */

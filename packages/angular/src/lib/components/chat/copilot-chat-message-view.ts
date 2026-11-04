@@ -273,8 +273,8 @@ export class CopilotChatMessageView {
   // `"turn"` display work summary slot inputs. A slot gets `isWorking`,
   // `isOpen`, `calls`, `elapsedMs`, `workingSince` and `onClick`, which
   // toggles the reply's work.
-  workSummaryComponent = input<Type<any> | undefined>();
-  workSummaryTemplate = input<TemplateRef<any> | undefined>();
+  workSummaryComponent = input<Type<unknown> | undefined>();
+  workSummaryTemplate = input<TemplateRef<unknown> | undefined>();
   workSummaryClass = input<string | undefined>();
 
   // Custom layout template (render prop pattern)
