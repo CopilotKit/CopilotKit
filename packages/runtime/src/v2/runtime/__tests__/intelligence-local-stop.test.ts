@@ -1,15 +1,14 @@
-import { createServer } from "node:http";
-import type { IncomingMessage, Server } from "node:http";
-import type { AddressInfo } from "node:net";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
-import { WebSocket, WebSocketServer } from "ws";
+import { WebSocket } from "ws";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { CopilotIntelligenceRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 import { STOP_RECORD_DEADLINE_MS } from "../runner/intelligence";
+import { startFakeIntelligence } from "./helpers/fake-intelligence";
+import type { ConnectMode, StopMode } from "./helpers/fake-intelligence";
 
 /**
  * A run the runtime stops itself (its stop route, or a server-side caller of
@@ -24,150 +23,8 @@ import { STOP_RECORD_DEADLINE_MS } from "../runner/intelligence";
  * socket on one port and logs what arrives, in order.
  */
 
-type Frame = [string | null, string | null, string, string, unknown];
-
 const threadId = "550e8400-e29b-41d4-a716-446655440000";
 const runId = "run-1";
-
-type ConnectMode = "ok" | "http-error";
-type StopMode = "ok" | "error" | "silent";
-
-async function startFakeIntelligence(options: {
-  connect: ConnectMode;
-  stop: StopMode;
-}) {
-  const timeline: string[] = [];
-  const connectBodies: unknown[] = [];
-  const runnerSockets: WebSocket[] = [];
-  const mintedTokens = new Set<string>();
-
-  const server: Server = createServer(async (req, res) => {
-    const chunks: Buffer[] = [];
-    for await (const chunk of req) chunks.push(chunk as Buffer);
-    const raw = Buffer.concat(chunks).toString("utf8");
-    const body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-    const url = new URL(req.url ?? "/", "http://127.0.0.1");
-    const method = req.method ?? "GET";
-    const send = (status: number, payload?: unknown) => {
-      res.writeHead(status, { "Content-Type": "application/json" });
-      res.end(payload === undefined ? "" : JSON.stringify(payload));
-    };
-    const match = url.pathname.match(/^\/api\/threads\/([^/]+)(\/[^/]+)?$/);
-    if (!match) return send(404, { error: "not found" });
-    const [, id, rest] = match;
-    if (method === "GET" && rest === undefined) {
-      return send(200, { thread: { id, name: "Existing", agentId: "test" } });
-    }
-    if (method === "GET" && rest === "/messages") {
-      return send(200, { messages: [] });
-    }
-    if (rest === "/lock" && method === "POST") {
-      return send(200, {
-        threadId: id,
-        runId: body.runId,
-        joinToken: "browser-join-token",
-        ttlSeconds: 120,
-      });
-    }
-    if (rest === "/lock" && method === "PATCH") {
-      return send(200, { ttlSeconds: 120, status: "renewed" });
-    }
-    if (rest === "/lock" && method === "DELETE") return send(204);
-    if (rest === "/connect" && method === "POST") {
-      timeline.push("POST /connect");
-      connectBodies.push(body);
-      if (options.connect === "http-error") {
-        return send(500, { error: "internal" });
-      }
-      const joinToken = `stop-token-${mintedTokens.size + 1}`;
-      mintedTokens.add(joinToken);
-      return send(200, { threadId: id, joinToken });
-    }
-    return send(404, { error: "not found" });
-  });
-
-  const sockets = new WebSocketServer({ server });
-  sockets.on("connection", (socket: WebSocket, req: IncomingMessage) => {
-    const url = new URL(req.url ?? "/", "http://127.0.0.1");
-    const isClient = url.pathname.startsWith("/client");
-    if (isClient) {
-      // The client socket admits only a token Intelligence minted, once.
-      const token = url.searchParams.get("join_token") ?? "";
-      if (!mintedTokens.delete(token)) {
-        socket.close(1008);
-        return;
-      }
-    } else {
-      runnerSockets.push(socket);
-    }
-    socket.on("message", (data) => {
-      const frame = JSON.parse(data.toString()) as Frame;
-      const [joinRef, ref, topic, event, payload] = frame;
-      const reply = (status: string) =>
-        socket.send(
-          JSON.stringify([
-            joinRef,
-            ref,
-            topic,
-            "phx_reply",
-            { status, response: {} },
-          ]),
-        );
-      if (event === "event" || event === "events") {
-        const received = (
-          event === "events"
-            ? (payload as { events: BaseEvent[] }).events
-            : [payload]
-        ) as BaseEvent[];
-        for (const item of received) timeline.push(`runner ${item.type}`);
-        reply("ok");
-        return;
-      }
-      if (isClient && event === "stop_run") {
-        timeline.push(`stop_run ${(payload as { run_id: string }).run_id}`);
-        if (options.stop === "ok") reply("ok");
-        if (options.stop === "error") reply("error");
-        return;
-      }
-      if (isClient && event === "phx_join") {
-        timeline.push(`client join ${topic}`);
-      }
-      reply("ok");
-    });
-  });
-
-  await new Promise<void>((resolve) =>
-    server.listen(0, "127.0.0.1", () => resolve()),
-  );
-  const { port } = server.address() as AddressInfo;
-
-  return {
-    apiUrl: `http://127.0.0.1:${port}`,
-    wsUrl: `ws://127.0.0.1:${port}`,
-    timeline,
-    connectBodies,
-    /** Sends the stop Intelligence relays after its own stop to the runner. */
-    relayGatewayStop() {
-      for (const socket of runnerSockets) {
-        socket.send(
-          JSON.stringify([
-            null,
-            null,
-            `ingestion:${runId}`,
-            "ag-ui",
-            { type: EventType.CUSTOM, name: "stop" },
-          ]),
-        );
-      }
-    },
-    async close() {
-      sockets.clients.forEach((socket) => socket.terminate());
-      await new Promise<void>((resolve) => sockets.close(() => resolve()));
-      server.closeAllConnections();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-    },
-  };
-}
 
 /** Starts a run and keeps producing until the test finishes it. */
 const outputs: Subject<BaseEvent>[] = [];
@@ -336,7 +193,7 @@ describe("runs that need no stop record", () => {
   it("sends none when Intelligence relayed the stop itself", async () => {
     await startRun({ connect: "ok", stop: "ok" });
 
-    fake.relayGatewayStop();
+    fake.relayGatewayStop(runId);
 
     await vi.waitFor(() => expect(fake.timeline).toContain(terminal));
     expect(fake.timeline).not.toContain("POST /connect");
