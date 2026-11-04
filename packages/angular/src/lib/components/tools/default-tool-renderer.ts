@@ -8,7 +8,13 @@ import {
   signal,
 } from "@angular/core";
 
-import { ɵgetArgumentPreview } from "@copilotkit/core";
+import {
+  ɵgetArgumentPreview,
+  ɵgetToolCallBadge,
+  ɵnormalizeToolCallStatus,
+  ɵstringifyToolCallAttr,
+  ɵstringifyToolCallPayload,
+} from "@copilotkit/core";
 import type { AngularToolCall, ToolRenderer } from "../../tools";
 import { injectChatLabels } from "../../chat-config";
 import { ChevronRight, CopilotIcon } from "../icons/copilot-icon";
@@ -28,44 +34,12 @@ import { cn } from "../../utils";
  * Unlike a plain `JSON.stringify`, a value that cannot be encoded does not
  * fail the whole payload: a circular reference reads `"[Circular]"`, a
  * `bigint` reads `"12n"`, and `undefined`, functions and symbols get a
- * placeholder. Strings pass through.
+ * placeholder. Strings pass through. Core's `ɵstringifyToolCallPayload`.
  *
  * @param value - A tool call's arguments or result.
  */
 export function safeToolValue(value: unknown): string {
-  if (typeof value === "string") return value;
-  const seen = new WeakSet<object>();
-  try {
-    const serialized = JSON.stringify(
-      value,
-      (_key, candidate: unknown) => {
-        if (typeof candidate === "bigint") return `${candidate.toString()}n`;
-        if (typeof candidate === "undefined") return "[Undefined]";
-        if (typeof candidate === "function") return "[Function]";
-        if (typeof candidate === "symbol") return candidate.toString();
-        if (typeof candidate === "object" && candidate !== null) {
-          if (seen.has(candidate)) return "[Circular]";
-          seen.add(candidate);
-        }
-        return candidate;
-      },
-      2,
-    );
-    return serialized ?? String(value);
-  } catch {
-    return "[Unserializable value]";
-  }
-}
-
-/** `data-*` attribute text for a tool call's arguments or result. */
-function attrValue(value: unknown): string {
-  if (value === undefined || value === null) return "";
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return "";
-  }
+  return ɵstringifyToolCallPayload(value);
 }
 
 let nextId = 0;
@@ -218,47 +192,24 @@ export class CopilotDefaultToolRenderer implements ToolRenderer {
   protected readonly resultText = computed(() =>
     safeToolValue(this.toolCall().result),
   );
-  protected readonly argsAttr = computed(() => attrValue(this.toolCall().args));
+  protected readonly argsAttr = computed(() =>
+    ɵstringifyToolCallAttr(this.toolCall().args),
+  );
   protected readonly resultAttr = computed(() =>
-    attrValue(this.toolCall().result),
+    ɵstringifyToolCallAttr(this.toolCall().result),
   );
   protected readonly preview = computed(() =>
     ɵgetArgumentPreview(this.toolCall().args),
   );
-  protected readonly statusValue = computed(() => {
-    switch (this.toolCall().status as string) {
-      case "in-progress":
-        return "inProgress";
-      case "executing":
-      case "complete":
-        return this.toolCall().status as string;
-      default:
-        return "unknown";
-    }
-  });
+  protected readonly statusValue = computed(() =>
+    ɵnormalizeToolCallStatus(this.toolCall().status),
+  );
+  readonly #badge = computed(() => ɵgetToolCallBadge(this.statusValue()));
   /** Colors the status dot and badge: running, done, or anything else. */
-  protected readonly tone = computed(() => {
-    switch (this.statusValue()) {
-      case "inProgress":
-      case "executing":
-        return "running";
-      case "complete":
-        return "done";
-      default:
-        return "other";
-    }
-  });
-  protected readonly statusLabel = computed(() => {
-    switch (this.tone()) {
-      case "running":
-        return this.labels.toolCallStatusRunningLabel;
-      case "done":
-        return this.labels.toolCallStatusDoneLabel;
-      case "other":
-      default:
-        return "Unknown status";
-    }
-  });
+  protected readonly tone = computed(() => this.#badge().tone);
+  protected readonly statusLabel = computed(
+    () => this.labels[this.#badge().labelKey],
+  );
   protected readonly chevronClass = computed(() =>
     cn(
       "cpk-default-tool-call-chevron",

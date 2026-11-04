@@ -30,8 +30,32 @@ export {
   ɵresolveToolCallRenderer,
   ɵresolveActivityRenderer,
   ɵresolveCustomMessageRenderers,
+  ɵfindActivityRenderer,
+  ɵmatchActivityRenderer,
+  ɵdescribeActivityRendererFailure,
+  ɵgetCustomMessageRenderProps,
+  ɵresolveCustomMessageRenderContext,
 } from "./renderers";
-export type { ɵActivityRendererQuery } from "./renderers";
+export type {
+  ɵActivityRendererQuery,
+  ɵActivityRendererLookup,
+  ɵActivityRendererFailureReason,
+  ɵCustomMessageRunSource,
+} from "./renderers";
+
+// Tool-call render props and status (internal)
+export {
+  ɵgetToolCallStatus,
+  ɵfindToolMessage,
+  ɵparseToolCallArguments,
+  ɵbuildToolCallRenderProps,
+  ɵresolveToolCallAgentId,
+  ɵdescribeUnrenderedToolCalls,
+  ɵnormalizeToolCallStatus,
+  ɵgetToolCallBadge,
+  ɵcomponentToolDescription,
+} from "./tool-call-render";
+export type { ɵToolCallCardStatus } from "./tool-call-render";
 
 // Interrupts (public)
 export { INTERRUPT_EVENT_NAME } from "./interrupt-types";
@@ -59,6 +83,7 @@ export type {
   WorkTime as ɵWorkTime,
   ToolCallRowStatus as ɵToolCallRowStatus,
   ReasoningDuration as ɵReasoningDuration,
+  ToolCallGroupAppearance as ɵToolCallGroupAppearance,
 } from "./tool-call-layout";
 export {
   getToolResults as ɵgetToolResults,
@@ -71,12 +96,17 @@ export {
   getWorkOpenState as ɵgetWorkOpenState,
   recordWorkTime as ɵrecordWorkTime,
   getToolCallRowStatus as ɵgetToolCallRowStatus,
+  getToolCallGroupState as ɵgetToolCallGroupState,
+  toolCallAppearance as ɵtoolCallAppearance,
+  TOOL_CALL_STATUS_LABEL_KEYS as ɵTOOL_CALL_STATUS_LABEL_KEYS,
+  TOOL_CALL_STATUS_ICONS as ɵTOOL_CALL_STATUS_ICONS,
   getArgumentPreview as ɵgetArgumentPreview,
   getToolCallPreview as ɵgetToolCallPreview,
   formatToolNames as ɵformatToolNames,
   countFailedToolCalls as ɵcountFailedToolCalls,
   pluralize as ɵpluralize,
   stringifyToolCallPayload as ɵstringifyToolCallPayload,
+  stringifyToolCallAttr as ɵstringifyToolCallAttr,
   formatWorkDuration as ɵformatWorkDuration,
   formatReasoningDuration as ɵformatReasoningDuration,
 } from "./tool-call-layout";

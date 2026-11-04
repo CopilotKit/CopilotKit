@@ -13,11 +13,10 @@ import { computed, provide, ref } from "vue";
 import {
   ɵformatLabel,
   ɵformatToolNames,
-  ɵgetToolCallPreview,
-  ɵgetToolCallRowStatus,
+  ɵgetToolCallGroupState,
   ɵformatCountLabel,
 } from "@copilotkit/core";
-import type { ToolCallEntry, ɵToolCallRowStatus } from "@copilotkit/core";
+import type { ToolCallEntry } from "@copilotkit/core";
 import { useCopilotId } from "../ui/use-id";
 import { ToolCallGroupContextKey } from "./tool-call-display-context";
 import type { ToolCallGroupContextValue } from "./tool-call-display-context";
@@ -59,40 +58,15 @@ const toggle = () => {
   open.value = !open.value;
 };
 
-const latest = computed(() => props.calls[props.calls.length - 1]);
-// Only an active group has a call in progress. Between calls nothing is
-// running, so the latest call stays the subject (or the label flickers).
-const current = computed(() =>
-  props.isActive
-    ? (props.calls.find((call) => !call.toolMessage) ?? latest.value)
-    : undefined,
+const state = computed(() =>
+  ɵgetToolCallGroupState(props.calls, props.isActive, open.value),
 );
-const preview = computed(() =>
-  current.value ? ɵgetToolCallPreview(current.value) : undefined,
-);
-const done = computed(
-  () => props.calls.filter((call) => call.toolMessage).length,
-);
-const statuses = computed(() =>
-  props.calls.map((call) => ɵgetToolCallRowStatus(call, props.isActive)),
-);
-const failedIds = computed(
-  () =>
-    new Set(
-      props.calls
-        .filter((_, index) => statuses.value[index] === "failed")
-        .map((call) => call.toolCall.id),
-    ),
-);
-const status = computed<ɵToolCallRowStatus>(() =>
-  current.value
-    ? "running"
-    : failedIds.value.size > 0
-      ? "failed"
-      : statuses.value.includes("stopped")
-        ? "stopped"
-        : "done",
-);
+const latest = computed(() => state.value.latest);
+const current = computed(() => state.value.current);
+const preview = computed(() => state.value.preview);
+const done = computed(() => state.value.done);
+const failedIds = computed(() => state.value.failedIds);
+const status = computed(() => state.value.status);
 const single = computed(
   () =>
     props.appearance === "line" && props.calls.length === 1 && !current.value,
@@ -103,20 +77,15 @@ provide(
   computed<ToolCallGroupContextValue>(() => ({
     appearance: props.appearance,
     failedIds: failedIds.value,
+    statusById: state.value.statusById,
     active: props.isActive,
   })),
 );
 
 // Stack: a lone call is the top card of a stack with nothing behind it yet.
-const behind = computed(() =>
-  open.value ? 0 : Math.min(props.calls.length - 1, 2),
-);
-const latestStatus = computed(() =>
-  latest.value ? ɵgetToolCallRowStatus(latest.value, props.isActive) : "done",
-);
-const latestPreview = computed(() =>
-  latest.value ? ɵgetToolCallPreview(latest.value) : undefined,
-);
+const behind = computed(() => state.value.behind);
+const latestStatus = computed(() => state.value.latestStatus);
+const latestPreview = computed(() => state.value.latestPreview);
 const runningLabel = computed(() =>
   current.value
     ? ɵformatLabel(labels.value.toolCallRunningLabel, {

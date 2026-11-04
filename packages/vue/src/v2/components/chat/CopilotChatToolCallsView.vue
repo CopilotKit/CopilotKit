@@ -4,8 +4,10 @@ import type { PropType } from "vue";
 import type { Slots, VNode } from "vue";
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import {
+  ɵgetToolCallGroupState,
   ɵgetToolCallLayouts,
   ɵgetToolCallRendererNames,
+  ɵtoolCallAppearance,
 } from "@copilotkit/core";
 import type {
   CopilotChatToolCallDisplay,
@@ -13,7 +15,6 @@ import type {
 } from "@copilotkit/core";
 import { useCopilotKit } from "../../providers/useCopilotKit";
 import type {
-  CopilotChatToolCallGroupAppearance,
   CopilotChatToolCallRenderSlotProps,
   CopilotChatToolCallsGroupSlotProps,
 } from "./types";
@@ -54,14 +55,6 @@ defineSlots<{
 
 type ToolCallSlotName = "tool-call" | `tool-call-${string}`;
 
-const appearances: Partial<
-  Record<CopilotChatToolCallDisplay, CopilotChatToolCallGroupAppearance>
-> = {
-  grouped: "card",
-  line: "line",
-  stacked: "stack",
-};
-
 const componentSlots = useSlots() as Slots;
 const { copilotkit } = useCopilotKit();
 const context = inject(ToolCallDisplayContextKey, null);
@@ -101,7 +94,7 @@ const layout = computed(() => {
 const groupActive = (trailing: boolean) =>
   trailing && (context ? context.value.isRunning : true);
 
-const appearance = computed(() => appearances[display.value] ?? "card");
+const appearance = computed(() => ɵtoolCallAppearance(display.value) ?? "card");
 
 const workOpen = computed(() => context?.value.workOpen.get(props.message.id));
 
@@ -117,15 +110,19 @@ const TurnRows = defineComponent({
   setup(rowProps, { slots }) {
     provide(
       ToolCallGroupContextKey,
-      computed<ToolCallGroupContextValue>(() => ({
-        appearance: "line",
-        failedIds: new Set(
-          rowProps.calls
-            .filter((call) => call.toolMessage?.error)
-            .map((call) => call.toolCall.id),
-        ),
-        active: rowProps.active,
-      })),
+      computed<ToolCallGroupContextValue>(() => {
+        const { failedIds, statusById } = ɵgetToolCallGroupState(
+          rowProps.calls,
+          rowProps.active,
+          false,
+        );
+        return {
+          appearance: "line",
+          failedIds,
+          statusById,
+          active: rowProps.active,
+        };
+      }),
     );
     return () => slots.default?.();
   },

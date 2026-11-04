@@ -1,4 +1,5 @@
 import { parse } from "codemod:ast-grep";
+import { chatApiEdits } from "./chat-apis.ts";
 import { angularCopyButtonEdits } from "./angular-copy-buttons.ts";
 import { migrateDeprecatedApis } from "./deprecated-apis.ts";
 import { migrateRuntimeAdapters } from "./runtime-adapters.ts";
@@ -543,6 +544,7 @@ const codemod: Codemod<Lang> = async (root, options) => {
   edits.push(...markdownRendererEdits(rootNode, source, jsx));
   edits.push(...katexEdits(rootNode, source));
   edits.push(...licenseCheckerEdits(rootNode, source));
+  edits.push(...chatApiEdits(rootNode, source));
   edits.push(...angularRuntimeConfigEdits(rootNode, source));
   edits.push(...angularCopyButtonEdits(rootNode, source));
 

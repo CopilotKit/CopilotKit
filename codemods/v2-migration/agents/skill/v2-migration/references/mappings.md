@@ -145,6 +145,40 @@ function App() {
 }
 ```
 
+## Chat labels and renderer lists
+
+### Complete `CopilotChatLabels` objects
+
+2.0 adds label keys, so a complete labels object fails to type-check. Spread the defaults and keep only the keys the app changes:
+
+```ts
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
+import type { CopilotChatLabels } from "@copilotkit/core";
+
+export const labels: CopilotChatLabels = {
+  ...CopilotChatDefaultLabels,
+  chatInputPlaceholder: "Ask me anything...",
+};
+```
+
+If the object is only an override, type it as `Partial<CopilotChatLabels>` instead.
+
+### `renderToolCalls` and `renderActivityMessages` changed in place
+
+Both are read-only arrays in 2.0. Give the setter a new list:
+
+```tsx
+import { useCopilotKit } from "@copilotkit/react-core";
+import type { ReactToolCallRenderer } from "@copilotkit/react-core";
+
+function useExtraRenderer(renderer: ReactToolCallRenderer<unknown>) {
+  const { copilotkit } = useCopilotKit();
+  copilotkit.setRenderToolCalls([...copilotkit.renderToolCalls, renderer]);
+}
+```
+
+To add one renderer from a component, prefer `useRenderTool`.
+
 ### Angular copy buttons
 
 `copied` on `CopilotChatUserMessageCopyButton` and `CopilotChatAssistantMessageCopyButton` is a read-only signal. The codemod marks each `.copied.set(...)` and `.copied.update(...)` with a TODO. To copy the text and show the check mark, call `handleCopy()` on the button. It copies the `content` input and shows the check mark for 2 seconds. If the app copies by its own logic, render its own button in the `copyButton` slot and keep the state in that button.

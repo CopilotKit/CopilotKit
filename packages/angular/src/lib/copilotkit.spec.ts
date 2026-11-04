@@ -635,6 +635,38 @@ describe("CopilotKit", () => {
     expect(copilotKit.toolCallRenderConfigs()).toEqual([]);
   });
 
+  it("lets the latest renderer for a tool name win, and restores the config one on removal", () => {
+    class ConfigRenderer {
+      toolCall = signal({} as any);
+    }
+    class LaterRenderer {
+      toolCall = signal({} as any);
+    }
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          renderToolCalls: [
+            { name: "weather", args: z.object({}), component: ConfigRenderer },
+          ],
+        }),
+      ],
+    });
+    const copilotKit = TestBed.inject(CopilotKit);
+    const components = () =>
+      copilotKit.toolCallRenderConfigs().map((config) => config.component);
+
+    const unregister = copilotKit.addRenderToolCall({
+      name: "weather",
+      args: z.object({}),
+      component: LaterRenderer,
+    });
+    expect(components()).toEqual([LaterRenderer]);
+
+    unregister();
+    expect(components()).toEqual([ConfigRenderer]);
+  });
+
   it("updates runtime configuration via core methods", () => {
     TestBed.configureTestingModule({
       providers: [provideCopilotKit({ licenseKey })],

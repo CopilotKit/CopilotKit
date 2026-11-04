@@ -8,6 +8,7 @@ import {
 import type { DefaultRenderProps } from "../use-default-render-tool";
 import { useRenderTool } from "../use-render-tool";
 import { stylesheet } from "@copilotkit/core/styles";
+import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 
 vi.mock("../use-render-tool", () => ({
   useRenderTool: vi.fn(),
@@ -248,6 +249,47 @@ describe("useDefaultRenderTool", () => {
     expect(screen.getByText("done")).toBeDefined();
   });
 
+  it("default renderer reads its status and headings from the chat labels", () => {
+    render(
+      <CopilotChatConfigurationProvider
+        labels={{
+          toolCallStatusDoneLabel: "Fertig",
+          toolCallResultLabel: "Ergebnis",
+        }}
+      >
+        <DefaultToolCallRenderer
+          name="searchDocs"
+          toolCallId="tc-labels"
+          parameters={{}}
+          status="complete"
+          result="done"
+        />
+      </CopilotChatConfigurationProvider>,
+    );
+
+    expect(screen.getByText("Fertig")).toBeDefined();
+    fireEvent.click(screen.getByText("searchDocs"));
+    expect(screen.getByText("Ergebnis")).toBeDefined();
+  });
+
+  it("default renderer shows a status it does not know as unknown", () => {
+    // A status a newer runtime could send, which the prop type does not allow.
+    const futureStatus: DefaultRenderProps["status"] = JSON.parse('"future"');
+    render(
+      <DefaultToolCallRenderer
+        name="searchDocs"
+        toolCallId="tc-future"
+        parameters={{}}
+        status={futureStatus}
+        result={undefined}
+      />,
+    );
+
+    const wrapper = screen.getByTestId("copilot-tool-render");
+    expect(wrapper.getAttribute("data-status")).toBe("unknown");
+    expect(screen.getByText("Unknown status")).toBeDefined();
+  });
+
   it("default renderer uses classes the stylesheet themes for dark mode", () => {
     render(
       <DefaultToolCallRenderer
@@ -458,36 +500,32 @@ describe("useDefaultRenderTool", () => {
     warnSpy.mockRestore();
   });
 
-  // Fix #5: circular-ref parameters must not crash the render; safe-stringify logs.
-  it("default renderer survives circular-ref parameters and logs", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    // Build a circular object.
+  // Fix #5: circular-ref parameters must not crash the render.
+  it("default renderer survives circular-ref parameters", () => {
     const circular: Record<string, unknown> = { a: 1 };
     circular.self = circular;
 
-    // The unguarded JSON.stringify in `safeStringifyForAttr` fires during
-    // initial render (data-args), and the unguarded `<pre>` JSON.stringify
-    // fires after expansion. The fix guards both — neither should throw.
-    expect(() =>
-      render(
-        <DefaultToolCallRenderer
-          name="circ"
-          toolCallId="tc-circular"
-          parameters={circular}
-          status="executing"
-          result={undefined}
-        />,
-      ),
-    ).not.toThrow();
+    render(
+      <DefaultToolCallRenderer
+        name="circ"
+        toolCallId="tc-circular"
+        parameters={circular}
+        status="executing"
+        result={undefined}
+      />,
+    );
 
-    // Expand to force the <pre> JSON.stringify path to execute.
-    const nameNode = screen.getByTestId("copilot-tool-render-name");
-    const headerButton = nameNode.closest("button");
+    const wrapper = screen.getByTestId("copilot-tool-render");
+    expect(wrapper.getAttribute("data-args")).toBe(
+      '{"a":1,"self":"[Circular]"}',
+    );
+
+    // Expand to draw the arguments block too.
+    const headerButton = screen
+      .getByTestId("copilot-tool-render-name")
+      .closest("button");
     expect(headerButton).not.toBeNull();
-    expect(() => fireEvent.click(headerButton!)).not.toThrow();
-
-    expect(warnSpy).toHaveBeenCalled();
-    warnSpy.mockRestore();
+    fireEvent.click(headerButton!);
+    expect(wrapper.textContent).toContain('"self": "[Circular]"');
   });
 });

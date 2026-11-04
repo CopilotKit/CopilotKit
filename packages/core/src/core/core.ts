@@ -276,6 +276,14 @@ export interface CopilotKitCoreSubscriber {
     result: string;
     error?: string;
   }) => void | Promise<void>;
+  /**
+   * Fired when a tool call starts or stops executing. `executingToolCallIds`
+   * is the new value of {@link CopilotKitCore.executingToolCallIds}.
+   */
+  onExecutingToolCallsChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    executingToolCallIds: ReadonlySet<string>;
+  }) => void | Promise<void>;
   onAgentsChanged?: (event: {
     copilotkit: CopilotKitCore;
     agents: Readonly<Record<string, AbstractAgent>>;
@@ -858,6 +866,28 @@ export class CopilotKitCore {
 
   get catalogComponents(): ReadonlyArray<CopilotKitCoreCatalogComponent> {
     return this.runHandler.catalogComponents;
+  }
+
+  /**
+   * Ids of the tool calls whose frontend handler runs now, across every
+   * agent. A call joins the set right after its handler is called (after
+   * `onToolExecutionStart`) and leaves it once its result is in the agent's
+   * messages. So a renderer that reads this set and the messages never sees
+   * a finished call without its result, and a human-in-the-loop `respond`
+   * shown for an executing call always reaches a waiting handler.
+   *
+   * The set is replaced on every change (never mutated), so it is safe to
+   * compare by identity. Subscribe with `onExecutingToolCallsChanged`.
+   *
+   * @example
+   * ```ts
+   * const status = core.executingToolCallIds.has(toolCall.id)
+   *   ? "executing"
+   *   : "inProgress";
+   * ```
+   */
+  get executingToolCallIds() {
+    return this.runHandler.executingToolCallIds;
   }
 
   get runtimeUrl(): string | undefined {
