@@ -1,15 +1,38 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi } from "vitest";
+import { CopilotChatDefaultLabels } from "@copilotkit/core";
 import { CopilotModalHeader } from "../CopilotModalHeader";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
-import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
+import {
+  CopilotChatConfigurationProvider,
+  useCopilotChatConfiguration,
+} from "../../../providers/CopilotChatConfigurationProvider";
 
 // Wrapper to provide required context
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <CopilotKitProvider>
     <CopilotChatConfigurationProvider threadId="test-thread">
       {children}
+    </CopilotChatConfigurationProvider>
+  </CopilotKitProvider>
+);
+
+// Shows whether the surrounding modal is open, so a test can see the close
+// button's effect.
+function ModalState() {
+  const config = useCopilotChatConfiguration();
+  return <span data-testid="modal-state">{String(config?.isModalOpen)}</span>;
+}
+
+const OpenModalWrapper: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => (
+  <CopilotKitProvider>
+    <CopilotChatConfigurationProvider threadId="test-thread" isModalDefaultOpen>
+      {children}
+      <ModalState />
     </CopilotChatConfigurationProvider>
   </CopilotKitProvider>
 );
@@ -30,10 +53,10 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const title = container.querySelector(".text-2xl");
-        expect(title).toBeDefined();
-        expect(title?.classList.contains("font-bold")).toBe(true);
-        expect(title?.classList.contains("text-blue-600")).toBe(true);
+        expect(container.querySelector(".text-2xl")).toHaveClass(
+          "font-bold",
+          "text-blue-600",
+        );
       });
 
       it("should merge titleContent classes with defaults", () => {
@@ -46,10 +69,10 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const title = container.querySelector(".custom-title-class");
-        expect(title).toBeDefined();
         // Should still have the default title class
-        expect(title?.classList.contains("cpk-modal-header-title")).toBe(true);
+        expect(container.querySelector(".custom-title-class")).toHaveClass(
+          "cpk-modal-header-title",
+        );
       });
     });
 
@@ -64,20 +87,10 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const closeBtn = container.querySelector(".bg-red-100");
-        expect(closeBtn).toBeDefined();
-        expect(closeBtn?.classList.contains("text-red-600")).toBe(true);
-      });
-
-      it("should override default rounded-full with custom border radius", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotModalHeader title="Test Title" closeButton="rounded-lg" />
-          </TestWrapper>,
+        expect(container.querySelector(".bg-red-100")).toHaveClass(
+          "cpk-modal-header-close-button",
+          "text-red-600",
         );
-
-        const closeBtn = container.querySelector(".rounded-lg");
-        expect(closeBtn).toBeDefined();
       });
     });
   });
@@ -100,9 +113,9 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const title = screen.queryByTestId("custom-title");
-        expect(title).toBeDefined();
-        expect(title?.textContent).toBe("Test Title");
+        expect(screen.getByTestId("custom-title")).toHaveTextContent(
+          "Test Title",
+        );
       });
 
       it("should pass custom onClick to titleContent", () => {
@@ -120,31 +133,27 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const title = screen.queryByTestId("clickable-title");
-        if (title) {
-          fireEvent.click(title);
-          expect(onClick).toHaveBeenCalled();
-        }
+        fireEvent.click(screen.getByTestId("clickable-title"));
+        expect(onClick).toHaveBeenCalledTimes(1);
       });
     });
 
     describe("closeButton slot", () => {
       it("should pass custom onClick that overrides default close behavior", () => {
         const customOnClick = vi.fn();
-        const { container } = render(
-          <TestWrapper>
+        render(
+          <OpenModalWrapper>
             <CopilotModalHeader
               title="Test Title"
               closeButton={{ onClick: customOnClick }}
             />
-          </TestWrapper>,
+          </OpenModalWrapper>,
         );
 
-        const closeBtn = container.querySelector('button[aria-label="Close"]');
-        if (closeBtn) {
-          fireEvent.click(closeBtn);
-          expect(customOnClick).toHaveBeenCalled();
-        }
+        fireEvent.click(screen.getByTestId("copilot-close-button"));
+
+        expect(customOnClick).toHaveBeenCalledTimes(1);
+        expect(screen.getByTestId("modal-state")).toHaveTextContent("true");
       });
 
       it("should support disabled state on closeButton", () => {
@@ -157,10 +166,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const closeBtn = container.querySelector('button[aria-label="Close"]');
-        if (closeBtn) {
-          expect(closeBtn.hasAttribute("disabled")).toBe(true);
-        }
+        expect(screen.getByTestId("copilot-close-button")).toBeDisabled();
       });
 
       it("should pass custom aria-label to closeButton", () => {
@@ -173,10 +179,9 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const closeBtn = container.querySelector(
-          'button[aria-label="Dismiss dialog"]',
+        expect(screen.getByTestId("copilot-close-button")).toHaveAccessibleName(
+          "Dismiss dialog",
         );
-        expect(closeBtn).toBeDefined();
       });
     });
   });
@@ -196,15 +201,14 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
         <TestWrapper>
           <CopilotModalHeader
             title="Custom Header"
-            titleContent={CustomTitle as any}
+            titleContent={CustomTitle}
           />
         </TestWrapper>,
       );
 
-      const custom = screen.queryByTestId("custom-title-component");
-      expect(custom).toBeDefined();
-      expect(custom?.tagName).toBe("H1");
-      expect(custom?.textContent).toBe("Custom Header");
+      const custom = screen.getByTestId("custom-title-component");
+      expect(custom.tagName).toBe("H1");
+      expect(custom).toHaveTextContent("Custom Header");
     });
 
     it("should allow custom component for closeButton", () => {
@@ -220,47 +224,38 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
         <TestWrapper>
           <CopilotModalHeader
             title="Test Title"
-            closeButton={CustomCloseButton as any}
+            closeButton={CustomCloseButton}
           />
         </TestWrapper>,
       );
 
-      const custom = screen.queryByTestId("custom-close-btn");
-      expect(custom).toBeDefined();
-      expect(custom?.textContent).toBe("X Close");
+      expect(screen.getByTestId("custom-close-btn")).toHaveTextContent(
+        "X Close",
+      );
     });
 
-    it("should call onClick when custom closeButton is clicked", () => {
-      const handleClose = vi.fn();
+    it("closes the modal through the onClick a custom closeButton receives", () => {
       const CustomCloseButton: React.FC<
         React.ButtonHTMLAttributes<HTMLButtonElement>
-      > = ({ onClick, ...props }) => (
-        <button
-          data-testid="custom-close-btn"
-          onClick={(e) => {
-            handleClose();
-            onClick?.(e);
-          }}
-          {...props}
-        >
+      > = ({ onClick }) => (
+        <button data-testid="custom-close-btn" onClick={onClick}>
           Close
         </button>
       );
 
       render(
-        <TestWrapper>
+        <OpenModalWrapper>
           <CopilotModalHeader
             title="Test Title"
-            closeButton={CustomCloseButton as any}
+            closeButton={CustomCloseButton}
           />
-        </TestWrapper>,
+        </OpenModalWrapper>,
       );
+      expect(screen.getByTestId("modal-state")).toHaveTextContent("true");
 
-      const closeBtn = screen.queryByTestId("custom-close-btn");
-      if (closeBtn) {
-        fireEvent.click(closeBtn);
-        expect(handleClose).toHaveBeenCalled();
-      }
+      fireEvent.click(screen.getByTestId("custom-close-btn"));
+
+      expect(screen.getByTestId("modal-state")).toHaveTextContent("false");
     });
   });
 
@@ -289,8 +284,6 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       expect(callArgs).toHaveProperty("titleContent");
       expect(callArgs).toHaveProperty("closeButton");
       expect(callArgs).toHaveProperty("title");
-
-      expect(screen.queryByTestId("children-render")).toBeDefined();
     });
 
     it("should pass resolved title through children render function", () => {
@@ -328,12 +321,16 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
         </TestWrapper>,
       );
 
-      const customLayout = screen.queryByTestId("custom-header-layout");
-      expect(customLayout).toBeDefined();
-      expect(container.querySelector(".left-side")).toBeDefined();
-      expect(container.querySelector(".center")).toBeDefined();
-      expect(container.querySelector(".right-side")).toBeDefined();
-      expect(customLayout?.textContent).toContain("Subtitle: Custom Layout");
+      const customLayout = screen.getByTestId("custom-header-layout");
+      expect(
+        container.querySelector(
+          ".left-side [data-testid=copilot-close-button]",
+        ),
+      ).not.toBeNull();
+      expect(
+        container.querySelector(".center [data-testid=copilot-header-title]"),
+      ).toHaveTextContent("Custom Layout");
+      expect(customLayout).toHaveTextContent("Subtitle: Custom Layout");
     });
 
     it("should allow completely custom rendering without using provided components", () => {
@@ -351,11 +348,10 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
         </TestWrapper>,
       );
 
-      const customNav = screen.queryByTestId("custom-nav");
-      expect(customNav).toBeDefined();
-      expect(customNav?.textContent).toContain("Custom Nav Header");
-      expect(screen.queryByText("Back")).toBeDefined();
-      expect(screen.queryByText("Menu")).toBeDefined();
+      expect(screen.getByTestId("custom-nav")).toHaveTextContent(
+        "BackCustom Nav HeaderMenu",
+      );
+      expect(screen.queryByTestId("copilot-modal-header")).toBeNull();
     });
   });
 
@@ -374,38 +370,8 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       );
 
       const header = container.querySelector(".custom-header-class");
-      expect(header).toBeDefined();
       expect(header?.tagName).toBe("HEADER");
-      expect(header?.classList.contains("bg-slate-100")).toBe(true);
-    });
-
-    it("should override default border and padding", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotModalHeader title="Test Title" className="border-0 p-2" />
-        </TestWrapper>,
-      );
-
-      const header = container.querySelector(".border-0");
-      expect(header).toBeDefined();
-      expect(header?.classList.contains("p-2")).toBe(true);
-    });
-
-    it("should merge multiple slot classNames correctly", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotModalHeader
-            title="Test Title"
-            className="header-custom"
-            titleContent="title-custom"
-            closeButton="close-custom"
-          />
-        </TestWrapper>,
-      );
-
-      expect(container.querySelector(".header-custom")).toBeDefined();
-      expect(container.querySelector(".title-custom")).toBeDefined();
-      expect(container.querySelector(".close-custom")).toBeDefined();
+      expect(header).toHaveClass("cpk-modal-header", "bg-slate-100");
     });
   });
 
@@ -413,44 +379,6 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
   // 6. INTEGRATION TESTS
   // ============================================================================
   describe("6. Integration Tests", () => {
-    it("should correctly render all slots with mixed customization", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotModalHeader
-            title="Full Test"
-            className="header-style"
-            titleContent="title-style"
-            closeButton="close-style"
-          />
-        </TestWrapper>,
-      );
-
-      expect(container.querySelector(".header-style")).toBeDefined();
-      expect(container.querySelector(".title-style")).toBeDefined();
-      expect(container.querySelector(".close-style")).toBeDefined();
-    });
-
-    it("should work with property objects and class strings mixed", () => {
-      const onClick = vi.fn();
-      const { container } = render(
-        <TestWrapper>
-          <CopilotModalHeader
-            title="Mixed Test"
-            titleContent="text-xl"
-            closeButton={{ onClick, className: "bg-gray-200" }}
-          />
-        </TestWrapper>,
-      );
-
-      expect(container.querySelector(".text-xl")).toBeDefined();
-
-      const closeBtn = container.querySelector(".bg-gray-200");
-      if (closeBtn) {
-        fireEvent.click(closeBtn);
-        expect(onClick).toHaveBeenCalled();
-      }
-    });
-
     it("should use default title from configuration when not provided", () => {
       render(
         <TestWrapper>
@@ -458,11 +386,9 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
         </TestWrapper>,
       );
 
-      // Should render with default "CopilotKit" title from CopilotChatDefaultLabels
-      const header = document.querySelector(
-        '[data-slot="copilot-modal-header"]',
+      expect(screen.getByTestId("copilot-header-title")).toHaveTextContent(
+        CopilotChatDefaultLabels.modalHeaderTitle,
       );
-      expect(header).toBeDefined();
     });
 
     it("should render title content correctly", () => {
@@ -472,7 +398,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
         </TestWrapper>,
       );
 
-      expect(screen.getByText("My Chat Header")).toBeDefined();
+      expect(screen.getByText("My Chat Header")).toBeInTheDocument();
     });
 
     it("should render close button with X icon", () => {
@@ -483,9 +409,8 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       );
 
       const closeBtn = container.querySelector('button[aria-label="Close"]');
-      expect(closeBtn).toBeDefined();
       // Should contain an SVG icon
-      expect(closeBtn?.querySelector("svg")).toBeDefined();
+      expect(closeBtn?.querySelector("svg")).toBeInTheDocument();
     });
   });
 });

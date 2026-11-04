@@ -1,7 +1,9 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi } from "vitest";
 import { CopilotSidebarView } from "../CopilotSidebarView";
+import type { CopilotSidebarViewProps } from "../CopilotSidebarView";
 import type { CopilotModalHeader } from "../CopilotModalHeader";
 import type { CopilotChatToggleButtonProps } from "../CopilotChatToggleButton";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
@@ -21,492 +23,178 @@ const sampleMessages = [
   { id: "2", role: "assistant" as const, content: "Hi there!" },
 ];
 
+function renderSidebar(props: Partial<CopilotSidebarViewProps> = {}) {
+  return render(
+    <TestWrapper>
+      <CopilotSidebarView messages={sampleMessages} {...props} />
+    </TestWrapper>,
+  );
+}
+
+const header = () => screen.getByTestId("copilot-modal-header");
+const sidebar = () => screen.getByTestId("copilot-sidebar");
+
+// The header's own sub-slots are covered in CopilotModalHeader.slots.e2e and
+// the chat view slots in CopilotChatView.slots.e2e. These tests pin that the
+// sidebar forwards them.
 describe("CopilotSidebarView Slot System E2E Tests", () => {
-  // ============================================================================
-  // 1. TAILWIND CLASS TESTS - HEADER SLOT (UNIQUE TO SIDEBAR)
-  // ============================================================================
-  describe("1. Tailwind Class Slot Override - Header Slot", () => {
-    describe("header slot", () => {
-      it("should apply tailwind class string to header", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              header="bg-gradient-to-r from-blue-500 to-purple-500 text-white"
-            />
-          </TestWrapper>,
-        );
+  describe("1. Header Slot", () => {
+    it("should apply tailwind class string to header", () => {
+      renderSidebar({ header: "bg-gradient-to-r from-blue-500 to-purple-500" });
 
-        const header = container.querySelector(".bg-gradient-to-r");
-        if (header) {
-          expect(header.classList.contains("from-blue-500")).toBe(true);
-          expect(header.classList.contains("text-white")).toBe(true);
-        }
-      });
-
-      it("should override default header border with custom styles", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              header="border-b-2 border-blue-500"
-            />
-          </TestWrapper>,
-        );
-
-        const header = container.querySelector(".border-b-2");
-        expect(header).toBeDefined();
-      });
+      expect(header()).toHaveClass(
+        "cpk-modal-header",
+        "bg-gradient-to-r",
+        "from-blue-500",
+      );
     });
-  });
 
-  // ============================================================================
-  // 2. PROPERTY PASSING TESTS - HEADER SLOT
-  // ============================================================================
-  describe("2. Property Passing - Header Slot", () => {
-    describe("header slot", () => {
-      it("should pass custom props to header", () => {
-        const headerProps: Partial<
-          React.ComponentProps<typeof CopilotModalHeader>
-        > & { "data-testid": string } = {
-          "data-testid": "custom-sidebar-header",
-        };
-        const { container } = render(
-          <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              header={headerProps}
-            />
-          </TestWrapper>,
-        );
+    it("should pass custom props to header", () => {
+      const onClick = vi.fn();
+      const headerProps: Partial<
+        React.ComponentProps<typeof CopilotModalHeader>
+      > & { "data-testid": string } = {
+        "data-testid": "custom-sidebar-header",
+        onClick,
+      };
+      renderSidebar({ header: headerProps });
 
-        const header = screen.queryByTestId("custom-sidebar-header");
-        expect(header).toBeDefined();
-      });
+      fireEvent.click(screen.getByTestId("custom-sidebar-header"));
 
-      it("should pass title prop through to header", () => {
-        render(
-          <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              header={{ title: "My Sidebar Chat" }}
-            />
-          </TestWrapper>,
-        );
-
-        // The title should be rendered in the header
-        expect(screen.queryByText("My Sidebar Chat")).toBeDefined();
-      });
+      expect(onClick).toHaveBeenCalledTimes(1);
     });
-  });
 
-  // ============================================================================
-  // 3. CUSTOM COMPONENT TESTS - HEADER SLOT
-  // ============================================================================
-  describe("3. Custom Component - Header Slot", () => {
+    it("passes title and header sub-slots through the header props object", () => {
+      renderSidebar({
+        header: {
+          title: "AI Assistant",
+          titleContent: "text-xl font-semibold",
+          closeButton: "sidebar-close-btn",
+        },
+      });
+
+      expect(screen.getByTestId("copilot-header-title")).toHaveTextContent(
+        "AI Assistant",
+      );
+      expect(screen.getByTestId("copilot-header-title")).toHaveClass(
+        "text-xl",
+        "font-semibold",
+      );
+      expect(screen.getByTestId("copilot-close-button")).toHaveClass(
+        "sidebar-close-btn",
+      );
+    });
+
     it("should allow custom component for header", () => {
       const CustomHeader: React.FC = () => (
-        <header
-          data-testid="custom-header-component"
-          className="custom-sidebar-header"
-        >
-          <span>Custom Sidebar Header</span>
-          <button>Custom Close</button>
+        <header data-testid="custom-header-component">
+          <span>My Custom Header</span>
         </header>
       );
 
-      render(
-        <TestWrapper>
-          <CopilotSidebarView
-            messages={sampleMessages}
-            header={CustomHeader as any}
-          />
-        </TestWrapper>,
-      );
+      renderSidebar({ header: CustomHeader });
 
-      const custom = screen.queryByTestId("custom-header-component");
-      expect(custom).toBeDefined();
-      expect(custom?.textContent).toContain("Custom Sidebar Header");
-    });
-
-    it("should allow passing header props for customization", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotSidebarView
-            messages={sampleMessages}
-            header={{
-              title: "Customized Header",
-              titleContent: "text-xl font-bold",
-              closeButton: "bg-red-500",
-            }}
-          />
-        </TestWrapper>,
-      );
-
-      expect(screen.queryByText("Customized Header")).toBeDefined();
-      expect(container.querySelector(".text-xl")).toBeDefined();
+      expect(
+        within(sidebar()).getByTestId("custom-header-component"),
+      ).toHaveTextContent("My Custom Header");
+      expect(screen.queryByTestId("copilot-modal-header")).toBeNull();
     });
   });
 
-  // ============================================================================
-  // 4. INHERITED COPILOTCHATVIEW SLOTS
-  // ============================================================================
-  describe("4. Inherited CopilotChatView Slots", () => {
-    describe("messageView slot (inherited)", () => {
-      it("should apply tailwind class string to inherited messageView", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              messageView="bg-gray-50 rounded-lg"
-            />
-          </TestWrapper>,
-        );
-
-        const messageView = container.querySelector(".bg-gray-50");
-        expect(messageView).toBeDefined();
+  describe("2. Inherited CopilotChatView Slots", () => {
+    it("forwards chat view slots to the chat view", () => {
+      const { container } = renderSidebar({
+        messageView: "message-style",
+        input: "input-style",
       });
-    });
 
-    describe("input slot (inherited)", () => {
-      it("should apply tailwind class string to inherited input", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              input="border-2 border-blue-400"
-            />
-          </TestWrapper>,
-        );
-
-        const input = container.querySelector(".border-blue-400");
-        expect(input).toBeDefined();
-      });
-    });
-
-    describe("scrollView slot (inherited)", () => {
-      it("should apply tailwind class string to inherited scrollView", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              scrollView="overflow-y-scroll bg-white"
-            />
-          </TestWrapper>,
-        );
-
-        const scrollView = container.querySelector(".overflow-y-scroll");
-        expect(scrollView).toBeDefined();
-      });
-    });
-
-    describe("suggestionView slot (inherited)", () => {
-      it("should apply tailwind class string to inherited suggestionView", () => {
-        const suggestions = [
-          { title: "Test", message: "Test message", isLoading: false },
-        ];
-
-        const { container } = render(
-          <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              suggestions={suggestions}
-              suggestionView="gap-4 p-2"
-            />
-          </TestWrapper>,
-        );
-
-        const suggestionView = container.querySelector(".gap-4");
-        if (suggestionView) {
-          expect(suggestionView.classList.contains("p-2")).toBe(true);
-        }
-      });
+      expect(
+        container.querySelector("[data-testid=copilot-message-list]"),
+      ).toHaveClass("message-style");
+      expect(container.querySelector(".cpk-chat-input")).toHaveClass(
+        "input-style",
+      );
     });
   });
 
-  // ============================================================================
-  // 5. DRILL-DOWN INTO HEADER SUB-SLOTS
-  // ============================================================================
-  describe("5. Drill-down into Header Sub-slots", () => {
-    it("should allow customizing header titleContent through props object", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotSidebarView
-            messages={sampleMessages}
-            header={{
-              title: "Sidebar Chat",
-              titleContent: "text-2xl text-purple-600 font-extrabold",
-            }}
-          />
-        </TestWrapper>,
-      );
-
-      const titleContent = container.querySelector(".text-2xl");
-      expect(titleContent).toBeDefined();
-      expect(titleContent?.classList.contains("text-purple-600")).toBe(true);
-    });
-
-    it("should allow customizing header closeButton through props object", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotSidebarView
-            messages={sampleMessages}
-            header={{
-              title: "Sidebar",
-              closeButton: "custom-close-btn",
-            }}
-          />
-        </TestWrapper>,
-      );
-
-      const closeBtn = container.querySelector(".custom-close-btn");
-      expect(closeBtn).toBeDefined();
-    });
-
-    it("should allow custom component for header via component slot", () => {
-      const CustomHeader: React.FC = () => (
-        <header data-testid="full-custom-header">
-          <span>Custom Header</span>
-          <button data-testid="sidebar-custom-close">← Back</button>
-        </header>
-      );
-
-      render(
-        <TestWrapper>
-          <CopilotSidebarView
-            messages={sampleMessages}
-            header={CustomHeader as any}
-          />
-        </TestWrapper>,
-      );
-
-      const customClose = screen.queryByTestId("sidebar-custom-close");
-      expect(customClose).toBeDefined();
-      expect(customClose?.textContent).toBe("← Back");
-    });
-  });
-
-  // ============================================================================
-  // 6. CLASSNAME AND MIXED CUSTOMIZATION
-  // ============================================================================
-  describe("6. className Override and Mixed Customization", () => {
-    it("should merge multiple slot classNames correctly", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotSidebarView
-            messages={sampleMessages}
-            header="header-style"
-            messageView="message-style"
-            input="input-style"
-          />
-        </TestWrapper>,
-      );
-
-      expect(container.querySelector(".header-style")).toBeDefined();
-      expect(container.querySelector(".message-style")).toBeDefined();
-      expect(container.querySelector(".input-style")).toBeDefined();
-    });
-
-    it("should work with property objects and class strings mixed", () => {
-      const onClick = vi.fn();
-      const { container } = render(
-        <TestWrapper>
-          <CopilotSidebarView
-            messages={sampleMessages}
-            header={{ onClick, className: "clickable-header" }}
-            input="styled-input"
-          />
-        </TestWrapper>,
-      );
-
-      expect(container.querySelector(".styled-input")).toBeDefined();
-
-      const header = container.querySelector(".clickable-header");
-      if (header) {
-        fireEvent.click(header);
-        expect(onClick).toHaveBeenCalled();
-      }
-    });
-
+  describe("3. Sidebar-specific Props", () => {
     it("should support custom width prop", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotSidebarView messages={sampleMessages} width={600} />
-        </TestWrapper>,
-      );
+      renderSidebar({ width: 600 });
 
-      const sidebar = container.querySelector("[data-copilot-sidebar]");
-      expect(sidebar).toBeDefined();
-      // Width should be applied via CSS custom property
-      expect(sidebar?.getAttribute("style")).toContain("--sidebar-width");
+      expect(sidebar().style.getPropertyValue("--sidebar-width")).toBe("600px");
     });
 
     it("should support string width prop", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotSidebarView messages={sampleMessages} width="50vw" />
-        </TestWrapper>,
-      );
+      renderSidebar({ width: "50vw" });
 
-      const sidebar = container.querySelector("[data-copilot-sidebar]");
-      expect(sidebar).toBeDefined();
+      expect(sidebar().style.getPropertyValue("--sidebar-width")).toBe("50vw");
     });
   });
 
-  // ============================================================================
-  // 7. INTEGRATION TESTS
-  // ============================================================================
-  describe("7. Integration Tests", () => {
-    it("should render sidebar with all default components", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotSidebarView messages={sampleMessages} />
-        </TestWrapper>,
-      );
+  describe("4. Integration Tests", () => {
+    it("should render the header and messages", () => {
+      renderSidebar();
 
-      const sidebar = container.querySelector("[data-copilot-sidebar]");
-      expect(sidebar).toBeDefined();
-      // Should have header
       expect(
-        container.querySelector('[data-slot="copilot-modal-header"]'),
-      ).toBeDefined();
-    });
-
-    it("should render messages in sidebar", () => {
-      render(
-        <TestWrapper>
-          <CopilotSidebarView messages={sampleMessages} />
-        </TestWrapper>,
-      );
-
-      expect(screen.queryByText("Hello")).toBeDefined();
-      expect(screen.queryByText("Hi there!")).toBeDefined();
-    });
-
-    it("should handle empty messages array", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotSidebarView messages={[]} />
-        </TestWrapper>,
-      );
-
-      const sidebar = container.querySelector("[data-copilot-sidebar]");
-      expect(sidebar).toBeDefined();
-    });
-
-    it("should combine header customization with inherited slot customization", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotSidebarView
-            messages={sampleMessages}
-            header={{
-              title: "Full Custom",
-              className: "custom-header-root",
-              titleContent: "custom-title",
-            }}
-            messageView="custom-message"
-            input="custom-input"
-            scrollView="custom-scroll"
-          />
-        </TestWrapper>,
-      );
-
-      expect(container.querySelector(".custom-header-root")).toBeDefined();
-      expect(container.querySelector(".custom-title")).toBeDefined();
-      expect(container.querySelector(".custom-message")).toBeDefined();
-      expect(container.querySelector(".custom-input")).toBeDefined();
-      expect(container.querySelector(".custom-scroll")).toBeDefined();
+        within(sidebar()).getByTestId("copilot-modal-header"),
+      ).toBeInTheDocument();
+      expect(sidebar()).toHaveTextContent("Hello");
+      expect(sidebar()).toHaveTextContent("Hi there!");
     });
   });
 
-  // ============================================================================
-  // 8. TOGGLE BUTTON SLOT TESTS
-  // ============================================================================
-  describe("8. Toggle Button Slot", () => {
-    describe("toggleButton slot - Tailwind class string", () => {
-      it("should apply tailwind class string to toggle button", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              toggleButton="bg-red-500 hover:bg-red-600"
-            />
-          </TestWrapper>,
-        );
+  describe("5. Toggle Button Slot", () => {
+    it("should apply tailwind class string to toggle button", () => {
+      renderSidebar({ toggleButton: "bg-emerald-500 hover:bg-emerald-600" });
 
-        const toggleButton = container.querySelector(".bg-red-500");
-        expect(toggleButton).toBeDefined();
-        expect(toggleButton?.classList.contains("hover:bg-red-600")).toBe(true);
-      });
+      expect(screen.getByTestId("copilot-chat-toggle")).toHaveClass(
+        "cpk-chat-toggle-button",
+        "bg-emerald-500",
+        "hover:bg-emerald-600",
+      );
     });
 
-    describe("toggleButton slot - Props object", () => {
-      it("should pass custom props to toggle button", () => {
-        const toggleButtonProps: Partial<CopilotChatToggleButtonProps> & {
-          "data-testid": string;
-        } = { "data-testid": "custom-toggle-button" };
-        const { container } = render(
-          <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              toggleButton={toggleButtonProps}
-            />
-          </TestWrapper>,
-        );
+    it("should pass custom props to toggle button", () => {
+      const toggleButtonProps: Partial<CopilotChatToggleButtonProps> & {
+        "data-testid": string;
+      } = { "data-testid": "custom-toggle", disabled: true };
 
-        const toggleButton = screen.queryByTestId("custom-toggle-button");
-        expect(toggleButton).toBeDefined();
-      });
+      renderSidebar({ toggleButton: toggleButtonProps });
 
-      it("should pass openIcon and closeIcon sub-slot props", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              toggleButton={{
-                openIcon: "text-green-500",
-                closeIcon: "text-red-500",
-              }}
-            />
-          </TestWrapper>,
-        );
-
-        // The icons should have custom classes applied
-        const openIconSlot = container.querySelector(
-          '[data-slot="chat-toggle-button-open-icon"]',
-        );
-        const closeIconSlot = container.querySelector(
-          '[data-slot="chat-toggle-button-close-icon"]',
-        );
-        expect(openIconSlot).toBeDefined();
-        expect(closeIconSlot).toBeDefined();
-      });
+      expect(screen.getByTestId("custom-toggle")).toBeDisabled();
     });
 
-    describe("toggleButton slot - Custom component", () => {
-      it("should allow custom component for toggle button", () => {
-        const CustomToggleButton: React.FC = () => (
-          <button
-            data-testid="custom-toggle-component"
-            className="custom-toggle"
-          >
-            Toggle Chat
-          </button>
-        );
-
-        render(
-          <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              toggleButton={CustomToggleButton as any}
-            />
-          </TestWrapper>,
-        );
-
-        const custom = screen.queryByTestId("custom-toggle-component");
-        expect(custom).toBeDefined();
-        expect(custom?.textContent).toBe("Toggle Chat");
+    it("should pass openIcon and closeIcon sub-slot props", () => {
+      const { container } = renderSidebar({
+        toggleButton: {
+          openIcon: "text-yellow-500",
+          closeIcon: "text-red-500",
+        },
       });
+
+      expect(
+        container.querySelector(
+          '[data-slot="chat-toggle-button-open-icon"] .text-yellow-500',
+        ),
+      ).not.toBeNull();
+      expect(
+        container.querySelector(
+          '[data-slot="chat-toggle-button-close-icon"] .text-red-500',
+        ),
+      ).not.toBeNull();
+    });
+
+    it("should allow custom component for toggle button", () => {
+      const CustomToggleButton: React.FC = () => (
+        <button data-testid="custom-toggle-component">Chat</button>
+      );
+
+      renderSidebar({ toggleButton: CustomToggleButton });
+
+      expect(screen.getByTestId("custom-toggle-component")).toHaveTextContent(
+        "Chat",
+      );
+      expect(screen.queryByTestId("copilot-chat-toggle")).toBeNull();
     });
   });
 });
