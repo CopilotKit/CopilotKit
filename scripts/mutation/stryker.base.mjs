@@ -15,7 +15,7 @@ export function defineMutationConfig({ skip = [] } = {}) {
     packageManager: "pnpm",
     plugins: ["@stryker-mutator/vitest-runner"],
     testRunner: "vitest",
-    vitest: { configFile: "vitest.config.mjs" },
+    vitest: { configFile: "vitest.mutation.config.mjs" },
     // Run only the tests that cover a mutant, and record which test killed
     // it. The per-test data is what lets us find tests that kill nothing.
     coverageAnalysis: "perTest",
