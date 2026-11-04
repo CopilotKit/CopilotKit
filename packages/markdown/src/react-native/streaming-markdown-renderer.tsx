@@ -272,6 +272,17 @@ function renderInlineNode(
         </Text>
       );
 
+    case "document":
+    case "paragraph":
+    case "heading":
+    case "blockquote":
+    case "list":
+    case "list-item":
+    case "code-block":
+    case "table":
+    case "table-row":
+    case "table-cell":
+    case "thematic-break":
     default:
       // Fallback for any inline nodes not explicitly handled
       if ("text" in node && typeof (node as any).text === "string") {

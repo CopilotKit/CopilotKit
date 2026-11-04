@@ -136,6 +136,7 @@ function formatDatePattern(date: Date, pattern: string) {
         return pad(date.getSeconds(), 2);
       case "a":
         return date.getHours() < 12 ? "AM" : "PM";
+      case undefined:
       default:
         return token;
     }

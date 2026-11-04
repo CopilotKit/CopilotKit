@@ -43,6 +43,7 @@ function toRecorderError(error: unknown) {
       return new ɵAudioRecorderError("Microphone permission denied");
     case "NotFoundError":
       return new ɵAudioRecorderError("No microphone found");
+    case undefined:
     default:
       return new ɵAudioRecorderError(
         error instanceof Error ? error.message : "Failed to start recording",

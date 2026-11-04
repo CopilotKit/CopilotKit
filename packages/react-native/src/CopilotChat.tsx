@@ -217,7 +217,7 @@ export function CopilotChat({
           event.context?.agentId === resolvedAgentId ||
           !event.context?.agentId
         ) {
-          onErrorRef.current?.({
+          void onErrorRef.current?.({
             error: event.error,
             code: event.code,
             context: event.context,

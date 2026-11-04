@@ -115,6 +115,8 @@ pnpm dev
 nx run @copilotkit/package-name:dev
 ```
 
+Before you commit, run `pnpm lint` and `pnpm lint:dead-code`. If either one fails, read [Fix a failing lint check](./dev-docs/static-analysis.md).
+
 ## Step 6: Add the changes that are ready to be committed
 
 Stage the changes that are ready to be committed:
