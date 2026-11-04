@@ -36,5 +36,6 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - [Architecture & Packages](.claude/docs/architecture.md) — package roles, request lifecycle, core concepts (AG-UI, ProxiedAgent, AgentRunner, tools, context, multi-agent)
 - [Hook Development](.claude/docs/hooks.md) — checklist for creating new hooks (docs, tests, JSDoc)
 - [Workflow & Process](.claude/docs/workflow.md) — when to plan, when to fix autonomously, verification, self-improvement loop, this should be your default mindset when working on any task
+- [Testing](.claude/docs/testing.md) — the bar for new tests: they must kill mutants; 80% mutation score on new code in core, runtime and react-core
 - [Git & PRs](.claude/docs/git.md) — worktree workflow, branching, creating PRs
 - [Documentation](.claude/docs/documentation.md) — where to author docs (CopilotKit → shell-docs; AG-UI → upstream); `docs/` is retired

@@ -16,6 +16,7 @@
 
 - Never mark a task complete without proving it works.
 - Run tests and check for regressions.
+- New tests must kill mutants in the code they cover. See [Testing](testing.md) for the bar and how to check it.
 - Diff behavior between main and your changes when relevant.
 
 ## Bug Fixing
