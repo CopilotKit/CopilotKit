@@ -77,6 +77,9 @@ export class StickToBottom implements AfterViewInit, OnDestroy {
         ? element.firstElementChild
         : element);
 
+    // The first value goes out once below, so the controller's own first
+    // report during creation is skipped.
+    let created = false;
     this.controller = ɵcreateStickToBottom({
       scrollElement: element,
       contentElement: content,
@@ -84,8 +87,14 @@ export class StickToBottom implements AfterViewInit, OnDestroy {
       follow: this.enabled(),
       initialBehavior: this.initialBehavior(),
       followBehavior: this.resizeBehavior(),
-      onChange: (isAtBottom) => this.emitIsAtBottom(isAtBottom),
+      onChange: (isAtBottom) => {
+        if (created) this.emitIsAtBottom(isAtBottom);
+      },
     });
+    created = true;
+    // A recreated directive (autoScroll off and on) starts from the real
+    // position, not the parent's last value.
+    this.emitIsAtBottom(this.controller.isAtBottom);
   }
 
   /**
