@@ -21,6 +21,10 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
+    "./mount": {
+      "import": "./dist/mount.mjs",
+      "require": "./dist/mount.cjs"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {

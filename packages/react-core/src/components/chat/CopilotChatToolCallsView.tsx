@@ -15,9 +15,12 @@ import {
   CopilotChatToolCallGroup,
   ToolCallGroupContext,
 } from "./CopilotChatToolCallGroup";
-import type { CopilotChatToolCallGroupAppearance } from "./CopilotChatToolCallGroup";
 import { ToolCallDisplayContext } from "./tool-call-display-context";
-import { ɵgetToolCallLayouts } from "@copilotkit/core";
+import {
+  ɵgetToolCallGroupState,
+  ɵgetToolCallLayouts,
+  ɵtoolCallAppearance,
+} from "@copilotkit/core";
 import type {
   CopilotChatToolCallDisplay,
   ToolCallEntry,
@@ -37,14 +40,6 @@ export type CopilotChatToolCallsViewProps = {
    * default group, or props for it (e.g. `{ appearance: "line" }`).
    */
   group?: SlotValue<typeof CopilotChatToolCallGroup>;
-};
-
-const appearances: Partial<
-  Record<CopilotChatToolCallDisplay, CopilotChatToolCallGroupAppearance>
-> = {
-  grouped: "card",
-  line: "line",
-  stacked: "stack",
 };
 
 export function CopilotChatToolCallsView({
@@ -143,10 +138,11 @@ export function CopilotChatToolCallsView({
         if (display === "turn") {
           // A row per call, in the open while the agent works; the message
           // view folds them away with the rest of the work once it's done.
-          const failedIds = new Set(
-            segment.calls
-              .filter((call) => call.toolMessage?.error)
-              .map((call) => call.toolCall.id),
+          const active = groupActive(segment.trailing);
+          const { failedIds, statusById } = ɵgetToolCallGroupState(
+            segment.calls,
+            active,
+            false,
           );
           return (
             <Collapsible
@@ -156,11 +152,7 @@ export function CopilotChatToolCallsView({
             >
               <div className="cpk-tool-calls-view-turn-rows">
                 <ToolCallGroupContext.Provider
-                  value={{
-                    appearance: "line",
-                    failedIds,
-                    active: groupActive(segment.trailing),
-                  }}
+                  value={{ appearance: "line", failedIds, statusById, active }}
                 >
                   {segment.calls.map((call) => (
                     <React.Fragment key={call.toolCall.id}>
@@ -178,7 +170,7 @@ export function CopilotChatToolCallsView({
             {renderSlot(group, CopilotChatToolCallGroup, {
               calls: segment.calls,
               renderCall,
-              appearance: appearances[display] ?? "card",
+              appearance: ɵtoolCallAppearance(display) ?? "card",
               isActive: groupActive(segment.trailing),
             })}
           </React.Fragment>

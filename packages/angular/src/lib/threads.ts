@@ -8,25 +8,9 @@ import {
   signal,
   untracked,
 } from "@angular/core";
-import type { Subscription } from "rxjs";
-import {
-  CopilotKitCoreRuntimeConnectionStatus,
-  ɵcreateThreadStore,
-  ɵselectHasNextPage,
-  ɵselectIsFetchingNextPage,
-  ɵselectIsMutating,
-  ɵselectFetchMoreError,
-  ɵselectThreads,
-  ɵselectThreadsError,
-  ɵselectThreadsIsLoading,
-} from "@copilotkit/core";
-import type {
-  ɵThread,
-  ɵThreadRuntimeContext,
-  ɵThreadStore,
-} from "@copilotkit/core";
+import { ɵThreadsController, ɵcreateThreadStore } from "@copilotkit/core";
+import type { ɵThreadsCore } from "@copilotkit/core";
 import { CopilotKit } from "./copilotkit";
-import { explicitEffect } from "./explicit-effect";
 
 /**
  * A conversation thread managed by CopilotKit Intelligence.
@@ -193,361 +177,116 @@ function toAccessor<T>(value: T | Signal<T>): () => T {
  * shape, omitting `lastRunAt` entirely when the source value is absent so the
  * field stays optional rather than `undefined`.
  */
-function projectThread(thread: ɵThread): Thread {
-  const { id, agentId, name, archived, createdAt, updatedAt, lastRunAt } =
-    thread;
-  return {
-    id,
-    agentId,
-    name,
-    archived,
-    createdAt,
-    updatedAt,
-    ...(lastRunAt !== undefined ? { lastRunAt } : {}),
-  };
-}
-
-/**
- * Owns a single core thread store, bridges its selector observables onto
- * Angular writable signals, keeps the store's runtime context in sync with the
- * ambient {@link CopilotKit} configuration, and registers/unregisters the
- * store with core for the active agent.
- *
- * One instance backs each {@link injectThreads} call. Tear-down (selector
- * unsubscribe, store stop, core unregister) runs on the host's
- * {@link DestroyRef}.
- */
 export class ThreadsStore implements InjectThreadsResult {
   readonly #copilotkit = inject(CopilotKit);
-  readonly #store: ɵThreadStore = ɵcreateThreadStore({
-    fetch: this.#copilotkit.core.ɵruntimeFetch,
-  });
-  readonly #subscriptions: Subscription[] = [];
+  // Core's ɵThreadsController owns the view model: thread projection, the
+  // configuration errors, the gated and de-duplicated context dispatch, the
+  // registry claim and the mutation guard. This class feeds it from signals
+  // and projects its snapshot into signals.
+  readonly #controller: ɵThreadsController;
+  readonly #stop: () => void;
+  readonly #unsubscribe: () => void;
 
-  readonly #threads = signal<Thread[]>([]);
-  readonly #storeIsLoading = signal<boolean>(false);
-  readonly #storeError = signal<Error | null>(null);
-  readonly #fetchMoreError = signal<Error | null>(null);
-  readonly #hasMoreThreads = signal<boolean>(false);
-  readonly #isFetchingMoreThreads = signal<boolean>(false);
-  readonly #isMutating = signal<boolean>(false);
-
-  /**
-   * Tracks whether a real runtime context has been dispatched to the store
-   * yet. The store itself starts `isLoading: false`, so before the first
-   * dispatch consumers would otherwise see an empty, non-loading list (the
-   * empty-list flash). While a runtime URL is configured and the endpoints
-   * are available but no context has been dispatched, we synthesize loading.
-   */
-  readonly #hasDispatchedContext = signal<boolean>(false);
-
-  readonly threads = this.#threads.asReadonly();
+  readonly threads: Signal<Thread[]>;
   readonly error: Signal<Error | null>;
   readonly listError: Signal<Error | null>;
-  readonly fetchMoreError = this.#fetchMoreError.asReadonly();
+  readonly fetchMoreError: Signal<Error | null>;
   readonly isLoading: Signal<boolean>;
-  readonly hasMoreThreads = this.#hasMoreThreads.asReadonly();
-  readonly isFetchingMoreThreads = this.#isFetchingMoreThreads.asReadonly();
-  readonly isMutating = this.#isMutating.asReadonly();
+  readonly hasMoreThreads: Signal<boolean>;
+  readonly isFetchingMoreThreads: Signal<boolean>;
+  readonly isMutating: Signal<boolean>;
 
   constructor(input: InjectThreadsInput, destroyRef: DestroyRef) {
     const agentId = toAccessor(input.agentId);
     const includeArchived = toAccessor(input.includeArchived);
     const limit = toAccessor(input.limit);
     const enabled = toAccessor(input.enabled);
-    // `enabled` defaults to `true`; only an explicit `false` keeps the store
-    // inert. An unset/`undefined` input is treated as enabled.
-    const isEnabled = (): boolean => enabled() !== false;
-
-    this.#bridgeSelectors();
-    this.#store.start();
-
-    // Synthesized error/loading reconcile the core store's internal state with
-    // configuration-level conditions (no runtime URL, unavailable endpoints),
-    // mirroring react-core's useThreads.
-    const runtimeUrl = this.#copilotkit.runtimeUrl;
-    const runtimeStatus = this.#copilotkit.runtimeConnectionStatus;
-    // Read `threadEndpoints`/`intelligence.wsUrl` through the CopilotKit
-    // signals (not plain `core.*` getters) so the computeds/effect re-run when
-    // `/info` populates them — even if it lands without a connection-status
-    // transition. This mirrors react-core, which lists both in its effect deps.
-    const threadEndpoints = this.#copilotkit.threadEndpoints;
-    const threadListSupported = (): boolean =>
-      threadEndpoints()?.list !== false;
-    const threadMutationsSupported = (): boolean =>
-      threadEndpoints()?.mutations !== false;
-    const threadEndpointsUnavailable = (): boolean =>
-      !!runtimeUrl() &&
-      runtimeStatus() === CopilotKitCoreRuntimeConnectionStatus.Connected &&
-      !threadListSupported();
-
-    const runtimeError = (): Error | null =>
-      runtimeUrl() ? null : new Error("Runtime URL is not configured");
-    const endpointsError = (): Error | null =>
-      threadEndpointsUnavailable()
-        ? new Error(
-            "Thread endpoints are not available on this CopilotKit runtime",
-          )
-        : null;
-    const mutationsError = (): Error | null =>
-      threadMutationsSupported()
-        ? null
-        : new Error(
-            "Thread mutations are not available on this CopilotKit runtime",
-          );
-
-    const preConnectLoading = (): boolean =>
-      isEnabled() &&
-      !!runtimeUrl() &&
-      !threadEndpointsUnavailable() &&
-      !this.#hasDispatchedContext();
-
-    // Synthesized error/loading combine configuration-level conditions with
-    // the core store's own state; expressed as pure derived signals.
-    this.error = computed(
-      () => runtimeError() ?? endpointsError() ?? this.#storeError(),
-    );
-    // listError exposes only genuine fetch/mutation errors, excluding the
-    // dev/config errors (missing runtime URL, runtime without thread
-    // endpoints). Use this for user-facing error display so dev strings are
-    // never shown to end users.
-    this.listError = computed(() => this.#storeError());
-    this.isLoading = computed(() =>
-      runtimeError() || endpointsError()
-        ? false
-        : preConnectLoading() || this.#storeIsLoading(),
-    );
-
-    // Register/unregister this store with core for the active agent so core can
-    // route realtime/agent-driven thread updates to it. Re-runs when the agent
-    // id changes; the previous registration is cleared first.
-    let registeredAgentId: string | undefined;
-    explicitEffect(
-      () => ({ nextAgentId: agentId(), enabled: isEnabled() }),
-      ({ nextAgentId, enabled }) => {
-        // Disabled (e.g. unlicensed): ensure this store is NOT registered. The
-        // registry is single-slot/last-writer-wins, so an inert store claiming
-        // the agentId slot would evict — and on destroy tear down — a co-mounted
-        // live store for the same agent. Mirrors react-core's use-threads gate.
-        if (!enabled) {
-          if (registeredAgentId !== undefined) {
-            this.#copilotkit.core.unregisterThreadStore(registeredAgentId);
-            registeredAgentId = undefined;
-          }
-          return;
-        }
-        if (registeredAgentId === nextAgentId) {
-          return;
-        }
-        if (registeredAgentId !== undefined) {
-          this.#copilotkit.core.unregisterThreadStore(registeredAgentId);
-        }
-        this.#copilotkit.core.registerThreadStore(nextAgentId, this.#store);
-        registeredAgentId = nextAgentId;
+    const service = this.#copilotkit;
+    const core = service.core;
+    // The runtime state as this service's signals project it from core.
+    const runtime: ɵThreadsCore = {
+      get runtimeUrl() {
+        return service.runtimeUrl();
       },
-    );
+      get ɵruntimeInfo() {
+        return core.ɵruntimeInfo;
+      },
+      get ɵheadersGeneration() {
+        return service.ɵheadersGeneration();
+      },
+      registerThreadStore: (agentId, store) =>
+        core.registerThreadStore(agentId, store),
+      unregisterThreadStore: (agentId) => core.unregisterThreadStore(agentId),
+    };
+    const readInput = () => ({
+      core: runtime,
+      agentId: agentId(),
+      includeArchived: includeArchived(),
+      limit: limit(),
+      enabled: enabled() !== false,
+    });
 
-    // Sync the runtime context. Defer until the runtime reports Connected so
-    // the initial context carries `intelligence.wsUrl` and avoids a redundant
-    // second list fetch + subscribe round-trip (mirrors react-core).
-    //
-    // The store dispatches `setContext` onto an `asapScheduler` queue, and its
-    // bootstrap effect issues a list fetch for every queued `contextChanged`
-    // whose state is non-null at drain time. So if this effect runs once with
-    // no URL (clearing to `null`) and again once Connected (the real context)
-    // before that queue drains, BOTH queued actions observe the latest
-    // (non-null) state and two identical list fetches fire — the second
-    // clobbering the first response. We therefore dispatch only on a
-    // meaningful change: skip a clear-to-`null` when nothing was ever
-    // dispatched (the store already holds `null`), and skip a re-dispatch of
-    // an unchanged context. This collapses the benign URL→Connected transition
-    // to a single dispatch and matches react-core's dependency-gated effect.
-    let lastDispatchedContext: string | null = null;
+    const controller = new ɵThreadsController(
+      ɵcreateThreadStore({ fetch: core.ɵruntimeFetch }),
+      untracked(readInput),
+    );
+    this.#controller = controller;
+    const snapshot = signal(controller.getSnapshot());
+    this.#unsubscribe = controller.subscribe(() => {
+      snapshot.set(controller.getSnapshot());
+    });
+    this.#stop = controller.start();
+
+    this.threads = computed(() => snapshot().threads);
+    this.error = computed(() => snapshot().error);
+    this.listError = computed(() => snapshot().listError);
+    this.fetchMoreError = computed(() => snapshot().fetchMoreError);
+    this.isLoading = computed(() => snapshot().isLoading);
+    this.hasMoreThreads = computed(() => snapshot().hasMoreThreads);
+    this.isFetchingMoreThreads = computed(
+      () => snapshot().isFetchingMoreThreads,
+    );
+    this.isMutating = computed(() => snapshot().isMutating);
+
+    this.renameThread = controller.renameThread;
+    this.archiveThread = controller.archiveThread;
+    this.unarchiveThread = controller.unarchiveThread;
+    this.deleteThread = controller.deleteThread;
+    this.fetchMoreThreads = controller.fetchMoreThreads;
+    this.refetchThreads = controller.refetchThreads;
+    this.startNewThread = controller.startNewThread;
+
+    // Re-apply on any input or runtime-state change. Keyed on the header
+    // generation, not header values (#1937).
     effect(() => {
-      // Track every reactive input the dispatched context depends on, so the
-      // effect re-runs when any of them changes — including `wsUrl`, which
-      // arrives with `/info` and (via the dedup signature below) triggers a
-      // single re-dispatch carrying the realtime URL.
-      const active = isEnabled();
-      const url = runtimeUrl();
-      const status = runtimeStatus();
-      // Keyed on the generation, not header VALUES: a builder's returned
-      // token can change on every resolution without a new source ever being
-      // set (e.g. a run refreshing the snapshot), and this must not
-      // re-dispatch the thread context on that (#1937). A real
-      // `setHeaders()` call still re-runs this effect: `ɵheadersGeneration`
-      // is set from `onHeadersChanged`, which fires only then.
-      const headersGeneration = this.#copilotkit.ɵheadersGeneration();
-      const id = agentId();
-      const archived = includeArchived();
-      const pageLimit = limit();
-      const listSupported = threadListSupported();
-      const wsUrl = this.#copilotkit.intelligence()?.wsUrl;
-
-      untracked(() => {
-        const clearContext = (): void => {
-          if (this.#hasDispatchedContext()) {
-            this.#store.setContext(null);
-          }
-          lastDispatchedContext = null;
-          this.#hasDispatchedContext.set(false);
-        };
-
-        // Disabled: stay inert. Clear any previously-dispatched context so an
-        // in-flight subscription is torn down and no further fetch is issued.
-        if (!active) {
-          clearContext();
-          return;
-        }
-
-        if (!url) {
-          clearContext();
-          return;
-        }
-
-        if (status !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
-          return;
-        }
-
-        if (!listSupported) {
-          clearContext();
-          return;
-        }
-
-        // Headers are deliberately NOT part of this context: the store's
-        // `fetch` is `ɵruntimeFetch`, which already resolves and overlays the
-        // current core headers at send time (#1937) — a header snapshot
-        // spread here would go stale the moment a builder's token rotates.
-        const context: ɵThreadRuntimeContext = {
-          runtimeUrl: url,
-          wsUrl,
-          agentId: id,
-          includeArchived: archived,
-          limit: pageLimit,
-        };
-
-        // The dedup signature adds `headersGeneration` explicitly, even
-        // though it's absent from `context` itself: a real header source
-        // change must still force exactly one re-dispatch (a fresh
-        // subscribe/refetch), even when nothing else about the context
-        // changed. Mirrors react-core's `headersKey` dependency.
-        const signature = JSON.stringify({ ...context, headersGeneration });
-        if (signature === lastDispatchedContext) {
-          return;
-        }
-
-        lastDispatchedContext = signature;
-        this.#store.setContext(context);
-        this.#hasDispatchedContext.set(true);
-      });
+      const next = readInput();
+      service.runtimeUrl();
+      service.runtimeConnectionStatus();
+      service.threadEndpoints();
+      service.ɵheadersGeneration();
+      service.intelligence();
+      untracked(() => controller.update(next));
     });
 
-    this.renameThread = this.#guardMutation(mutationsError, (threadId, name) =>
-      this.#store.renameThread(threadId, name),
-    );
-    this.archiveThread = this.#guardMutation(mutationsError, (threadId) =>
-      this.#store.archiveThread(threadId),
-    );
-    this.unarchiveThread = this.#guardMutation(mutationsError, (threadId) =>
-      this.#store.unarchiveThread(threadId),
-    );
-    this.deleteThread = this.#guardMutation(mutationsError, (threadId, _name) =>
-      this.#store.deleteThread(threadId),
-    );
-
-    destroyRef.onDestroy(() => {
-      this.teardown();
-      if (registeredAgentId !== undefined) {
-        this.#copilotkit.core.unregisterThreadStore(registeredAgentId);
-        registeredAgentId = undefined;
-      }
-    });
+    destroyRef.onDestroy(() => this.teardown());
   }
 
   readonly renameThread: (threadId: string, name: string) => Promise<void>;
   readonly archiveThread: (threadId: string) => Promise<void>;
   readonly unarchiveThread: (threadId: string) => Promise<void>;
   readonly deleteThread: (threadId: string) => Promise<void>;
+  readonly fetchMoreThreads: () => void;
+  readonly refetchThreads: () => void;
+  readonly startNewThread: () => void;
 
-  // Arrow-bound instance fields (not prototype methods) so they keep working
-  // when destructured off the result — matching the mutation members above and
-  // react-core's standalone callbacks.
-  readonly fetchMoreThreads = (): void => {
-    this.#store.fetchNextPage();
-  };
-
-  readonly refetchThreads = (): void => {
-    this.#store.refetchThreads();
-  };
-
-  readonly startNewThread = (): void => {
-    this.#store.startNewThread();
-  };
-
-  /** Unsubscribes all selector bridges and stops the underlying core store. */
+  /** Stop the store and release its registry claim. Safe to call twice. */
   teardown(): void {
-    for (const subscription of this.#subscriptions) {
-      subscription.unsubscribe();
-    }
-    this.#subscriptions.length = 0;
-    this.#store.stop();
-  }
-
-  /**
-   * Subscribes each core selector to its mirroring writable signal. The
-   * `select` operator emits the current value synchronously on subscribe, so
-   * the signals are seeded immediately and stay current thereafter.
-   */
-  #bridgeSelectors(): void {
-    this.#subscriptions.push(
-      this.#store.select(ɵselectThreads).subscribe((threads) => {
-        this.#threads.set(threads.map(projectThread));
-      }),
-      this.#store.select(ɵselectThreadsIsLoading).subscribe((value) => {
-        this.#storeIsLoading.set(value);
-      }),
-      this.#store.select(ɵselectThreadsError).subscribe((value) => {
-        this.#storeError.set(value);
-      }),
-      this.#store.select(ɵselectFetchMoreError).subscribe((value) => {
-        this.#fetchMoreError.set(value);
-      }),
-      this.#store.select(ɵselectHasNextPage).subscribe((value) => {
-        this.#hasMoreThreads.set(value);
-      }),
-      this.#store.select(ɵselectIsFetchingNextPage).subscribe((value) => {
-        this.#isFetchingMoreThreads.set(value);
-      }),
-      this.#store.select(ɵselectIsMutating).subscribe((value) => {
-        this.#isMutating.set(value);
-      }),
-    );
-  }
-
-  /**
-   * Wraps a mutation so that, when thread mutations are unavailable on the
-   * connected runtime, the call rejects with a descriptive error instead of
-   * issuing a request doomed to fail.
-   */
-  #guardMutation(
-    mutationsError: () => Error | null,
-    mutation: (threadId: string, name: string) => Promise<void>,
-  ): (threadId: string, name?: string) => Promise<void> {
-    return (threadId: string, name = "") => {
-      const error = mutationsError();
-      if (error) {
-        return Promise.reject(error);
-      }
-      return mutation(threadId, name);
-    };
+    this.#unsubscribe();
+    this.#stop();
+    this.#controller.dispose();
   }
 }
 
-/**
- * Factory for {@link ThreadsStore} instances. Provided at the root so the
- * ambient {@link CopilotKit} configuration is resolved from the application's
- * injector.
- */
 @Injectable({ providedIn: "root" })
 export class CopilotkitThreadsFactory {
   /**

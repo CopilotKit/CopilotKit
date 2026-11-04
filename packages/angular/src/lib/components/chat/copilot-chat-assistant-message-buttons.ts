@@ -2,7 +2,6 @@ import {
   Component,
   input,
   output,
-  signal,
   computed,
   ChangeDetectionStrategy,
   ViewEncapsulation,
@@ -20,7 +19,7 @@ import {
 import { CopilotTooltip } from "../../directives/tooltip";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
-import { copyToClipboard } from "@copilotkit/shared";
+import { injectCopyFeedback } from "./copy-feedback";
 
 // Base toolbar button component
 @Component({
@@ -92,19 +91,14 @@ export class CopilotChatAssistantMessageCopyButton {
   readonly clicked = output<void>();
   readonly CopyIcon = Copy;
   readonly CheckIcon = Check;
-  readonly copied = signal(false);
+  readonly #copyFeedback = injectCopyFeedback();
+  readonly copied = this.#copyFeedback.copied;
   readonly labels = injectChatLabels();
 
   handleCopy(event?: Event): void {
     event?.stopPropagation();
-    if (!this.content()) return;
-
-    copyToClipboard(this.content()!).then((success) => {
-      if (success) {
-        this.copied.set(true);
-        this.clicked.emit();
-        setTimeout(() => this.copied.set(false), 2000);
-      }
+    void this.#copyFeedback.copy(this.content() ?? "").then((copied) => {
+      if (copied) this.clicked.emit();
     });
   }
 }

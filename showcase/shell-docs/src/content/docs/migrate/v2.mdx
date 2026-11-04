@@ -363,6 +363,9 @@ npm install @langchain/core@^1.1.41 @langchain/langgraph@^1.2.9 langchain@^1.3.4
 - **No 1:1 replacement is intentional.** Where a v1 export has no 2.0
   equivalent, migrate the surrounding pattern using the linked 2.0 reference
   instead of selecting a similarly named symbol.
+- **The provider logs errors and ends its core.** Without an `onError`
+  handler, CopilotKit logs each error. The React provider disposes its core
+  when it unmounts. See [Providers in 2.0](/migrate/providers-2.0).
 
 ## Full Example
 

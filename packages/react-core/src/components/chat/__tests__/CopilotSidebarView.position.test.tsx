@@ -35,6 +35,24 @@ function getSidebarAside(container: HTMLElement) {
   return sidebar;
 }
 
+describe("CopilotSidebarView page margin", () => {
+  it("docks on its side and gives the page its own margins back on unmount", () => {
+    const body = document.body.style;
+    body.marginInlineEnd = "16px";
+    const { unmount } = render(
+      <TestWrapper>
+        <CopilotSidebarView messages={sampleMessages} width={400} />
+      </TestWrapper>,
+    );
+    expect(body.marginInlineEnd).toBe("400px");
+
+    unmount();
+
+    expect(body.marginInlineEnd).toBe("16px");
+    body.marginInlineEnd = "";
+  });
+});
+
 describe("CopilotSidebarView position prop", () => {
   describe("CopilotSidebarView", () => {
     it("defaults to right-anchored when position is omitted", () => {

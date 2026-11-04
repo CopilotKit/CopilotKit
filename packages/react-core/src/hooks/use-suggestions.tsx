@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ɵsubscribeToAgentSuggestions } from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import { useCopilotKit, useDefaultAgentId } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
@@ -26,51 +27,13 @@ export function useSuggestions({
     [agentId, config?.agentId, providerAgentId],
   );
 
-  const [suggestions, setSuggestions] = useState<Suggestion[]>(() => {
-    const result = copilotkit.getSuggestions(resolvedAgentId);
-    return result.suggestions;
-  });
-  const [isLoading, setIsLoading] = useState(() => {
-    const result = copilotkit.getSuggestions(resolvedAgentId);
-    return result.isLoading;
-  });
+  const [result, setResult] = useState(() =>
+    copilotkit.getSuggestions(resolvedAgentId),
+  );
 
   useEffect(() => {
-    const result = copilotkit.getSuggestions(resolvedAgentId);
-    setSuggestions(result.suggestions);
-    setIsLoading(result.isLoading);
-  }, [copilotkit, resolvedAgentId]);
-
-  useEffect(() => {
-    const subscription = copilotkit.subscribe({
-      onSuggestionsChanged: ({ agentId: changedAgentId, suggestions }) => {
-        if (changedAgentId !== resolvedAgentId) {
-          return;
-        }
-        setSuggestions(suggestions);
-      },
-      onSuggestionsStartedLoading: ({ agentId: changedAgentId }) => {
-        if (changedAgentId !== resolvedAgentId) {
-          return;
-        }
-        setIsLoading(true);
-      },
-      onSuggestionsFinishedLoading: ({ agentId: changedAgentId }) => {
-        if (changedAgentId !== resolvedAgentId) {
-          return;
-        }
-        setIsLoading(false);
-      },
-      onSuggestionsConfigChanged: () => {
-        const result = copilotkit.getSuggestions(resolvedAgentId);
-        setSuggestions(result.suggestions);
-        setIsLoading(result.isLoading);
-      },
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    setResult(copilotkit.getSuggestions(resolvedAgentId));
+    return ɵsubscribeToAgentSuggestions(copilotkit, resolvedAgentId, setResult);
   }, [copilotkit, resolvedAgentId]);
 
   const reloadSuggestions = useCallback(() => {
@@ -84,9 +47,9 @@ export function useSuggestions({
   }, [copilotkit, resolvedAgentId]);
 
   return {
-    suggestions,
+    suggestions: result.suggestions,
     reloadSuggestions,
     clearSuggestions,
-    isLoading,
+    isLoading: result.isLoading,
   };
 }

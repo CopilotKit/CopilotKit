@@ -1,7 +1,7 @@
 {
   "name": "@copilotkit/markdown",
   "version": "1.59.2",
-  "description": "Zero-dependency streaming markdown parser and renderer for CopilotKit",
+  "description": "Zero-dependency streaming markdown parser and renderers (React, Vue, React Native, DOM) for CopilotKit",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -27,6 +27,10 @@
     "./vue": {
       "import": "./dist/vue/index.mjs",
       "require": "./dist/vue/index.cjs"
+    },
+    "./dom": {
+      "import": "./dist/dom/index.mjs",
+      "require": "./dist/dom/index.cjs"
     },
     "./package.json": "./package.json"
   },

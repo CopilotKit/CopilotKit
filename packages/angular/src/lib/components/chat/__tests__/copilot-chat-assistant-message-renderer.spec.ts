@@ -1,38 +1,12 @@
 import { TestBed } from "@angular/core/testing";
-import DOMPurify from "dompurify";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { CopilotChatAssistantMessageRenderer } from "../copilot-chat-assistant-message-renderer";
 
-const privatePurifierSupport = vi.hoisted(() => ({ supported: true }));
-
-// Instances created with DOMPurify(window) can be made to report
-// isSupported=false while the global instance stays supported. An unsupported
-// DOMPurify instance returns its input unchanged from sanitize(), as the real
-// library does when it has no usable DOM.
-vi.mock("dompurify", async (importOriginal) => {
-  const actual = await importOriginal<{ default: typeof DOMPurify }>();
-  const realFactory = actual.default;
-  const factory = new Proxy(realFactory, {
-    apply(target, thisArg, args) {
-      const instance = Reflect.apply(target, thisArg, args);
-      return new Proxy(instance, {
-        get(inner, prop, receiver) {
-          if (!privatePurifierSupport.supported) {
-            if (prop === "isSupported") return false;
-            if (prop === "sanitize") return (dirty: string) => dirty;
-          }
-          return Reflect.get(inner, prop, receiver);
-        },
-      });
-    },
-  });
-  return { ...actual, default: factory };
-});
-
-function createRenderer(content: string) {
+function createRenderer(content: string, isStreaming = false) {
   TestBed.resetTestingModule();
   const fixture = TestBed.createComponent(CopilotChatAssistantMessageRenderer);
   fixture.componentRef.setInput("content", content);
+  fixture.componentRef.setInput("isStreaming", isStreaming);
   fixture.detectChanges();
   const root = fixture.nativeElement.querySelector("div") as HTMLElement;
   return { fixture, root };
@@ -40,6 +14,14 @@ function createRenderer(content: string) {
 
 function render(content: string): HTMLElement {
   return createRenderer(content).root;
+}
+
+/**
+ * The rendered markdown, without the stylesheet the renderer puts next to it
+ * (the same scoped fade-in and citation styles React and Vue inject).
+ */
+function markdownOutput(root: HTMLElement): HTMLElement {
+  return root.querySelector<HTMLElement>("[data-streaming-markdown-root]")!;
 }
 
 function eventHandlerAttributes(root: HTMLElement): string[] {
@@ -87,6 +69,27 @@ describe("CopilotChatAssistantMessageRenderer markdown", () => {
     );
     expect(boxes.map((box) => box.checked)).toEqual([true, false]);
     expect(boxes.every((box) => box.disabled)).toBe(true);
+  });
+
+  it("renders nothing for empty content", () => {
+    expect(render("").childNodes).toHaveLength(0);
+  });
+
+  it("shows the streaming caret only while the message streams", () => {
+    const caret = "p [data-streaming-markdown-caret]";
+    const { fixture, root } = createRenderer("Partial", true);
+    expect(root.querySelector(caret)).not.toBeNull();
+
+    fixture.componentRef.setInput("isStreaming", false);
+    fixture.detectChanges();
+    expect(root.querySelector(caret)).toBeNull();
+  });
+
+  it("wraps text in per-token segments for the fade-in", () => {
+    const root = render("Hello world");
+    expect(
+      root.querySelectorAll(".cpk-streaming-markdown-segment").length,
+    ).toBeGreaterThan(1);
   });
 
   it("replaces the rendered output when content changes", () => {
@@ -178,7 +181,9 @@ describe("CopilotChatAssistantMessageRenderer code blocks", () => {
     const html =
       "<style>body{display:none}</style><script>x()</script><iframe></iframe>";
     const root = render(`\`\`\`html\n${html}\n\`\`\``);
-    expect(root.querySelector("style, script, iframe")).toBeNull();
+    expect(
+      markdownOutput(root).querySelector("style, script, iframe"),
+    ).toBeNull();
     expect(root.querySelector("pre code")?.textContent).toContain(html);
   });
 });
@@ -241,48 +246,29 @@ describe("CopilotChatAssistantMessageRenderer sanitization", () => {
 
   it.each(cases)("neutralizes $name", ({ content, selector }) => {
     const root = render(content);
-    expect(root.querySelector(selector)).toBeNull();
+    expect(markdownOutput(root).querySelector(selector)).toBeNull();
     expect(eventHandlerAttributes(root)).toEqual([]);
     expect(scriptUrls(root)).toEqual([]);
   });
 
-  // Like server rendering: no working sanitizer and no global document, so
-  // the fallback may only write through the container it renders into.
-  function renderWithoutDomPurify(content: string): HTMLElement {
-    const { fixture, root } = createRenderer("");
-    privatePurifierSupport.supported = false;
-    vi.stubGlobal("document", undefined);
-    try {
-      fixture.componentRef.setInput("content", content);
-      fixture.detectChanges();
-      return root;
-    } finally {
-      vi.unstubAllGlobals();
-      privatePurifierSupport.supported = true;
-    }
-  }
-
-  it("renders the source as plain text when DOMPurify cannot run", () => {
-    const source = '**bold** <img src=x onerror="window.__xss=1">';
-    const root = renderWithoutDomPurify(source);
-    expect(root.children.length).toBe(0);
-    expect(root.textContent).toContain(source);
+  it("shows raw HTML as text instead of parsing it", () => {
+    const root = render("Hi <b>bold</b> there");
+    expect(root.querySelector("b")).toBeNull();
+    expect(root.textContent).toContain("<b>bold</b>");
   });
 
-  describe("when the host app configures the global DOMPurify instance", () => {
-    afterEach(() => {
-      DOMPurify.removeAllHooks();
-      DOMPurify.clearConfig();
-    });
-
-    it("ignores host hooks that keep event handlers", () => {
-      DOMPurify.addHook("uponSanitizeAttribute", (_node, data) => {
-        if (data.attrName === "onerror") {
-          data.forceKeepAttr = true;
-        }
-      });
-      const root = render('<img src=x onerror="window.__xss=5">');
-      expect(eventHandlerAttributes(root)).toEqual([]);
-    });
+  // Like server rendering: no global document, so the renderer may only
+  // create nodes through the container's own document.
+  it("renders without a global document", () => {
+    const { fixture, root } = createRenderer("");
+    vi.stubGlobal("document", undefined);
+    try {
+      fixture.componentRef.setInput("content", "**bold** and $x$");
+      fixture.detectChanges();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(root.querySelector("strong")?.textContent).toBe("bold");
+    expect(root.textContent).toContain("x");
   });
 });

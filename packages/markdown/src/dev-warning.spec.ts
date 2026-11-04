@@ -46,6 +46,15 @@ describe("warnUnsupportedRichSyntaxOnce", () => {
     expect(warn).toHaveBeenCalledOnce();
   });
 
+  it("does not flag math for a renderer that typesets it", () => {
+    warnUnsupportedRichSyntaxOnce("$$x$$", { rendersMath: true });
+    expect(warn).not.toHaveBeenCalled();
+    warnUnsupportedRichSyntaxOnce("$$x$$\n```ts\n1\n```", {
+      rendersMath: true,
+    });
+    expect(warn.mock.calls[0][0]).toContain("syntax highlighting");
+  });
+
   it("is a no-op in production", () => {
     process.env.NODE_ENV = "production";
     warnUnsupportedRichSyntaxOnce("```ts\nconst x = 1;\n```");

@@ -62,6 +62,48 @@ describe("CopilotKitInspector", () => {
     );
   });
 
+  it("forwards event listeners to the web inspector element", async () => {
+    const onVisibility = vi.fn();
+    const wrapper = mount(CopilotKitInspector, {
+      attrs: { onCpkInspectorVisibilityChange: onVisibility },
+    });
+    await settleInspectorLoad();
+
+    const event = new CustomEvent("cpk-inspector-visibility-change", {
+      detail: { visible: false },
+    });
+    wrapper.get("cpk-web-inspector").element.dispatchEvent(event);
+
+    expect(onVisibility).toHaveBeenCalledWith(event);
+  });
+
+  it("opens a request made before the web inspector module resolves", async () => {
+    const wrapper = mount(CopilotKitInspector);
+    const openRequest = { messageId: "message-early" };
+    await wrapper.setProps({ openRequest });
+
+    await settleInspectorLoad();
+
+    const inspector = wrapper.get("cpk-web-inspector")
+      .element as HTMLElement & {
+      openInspector: ReturnType<typeof vi.fn>;
+    };
+    expect(inspector.openInspector).toHaveBeenCalledExactlyOnceWith(
+      "message_toolbar",
+      openRequest,
+    );
+  });
+
+  it("emits Inspector visibility and removes the element on unmount", async () => {
+    const wrapper = mount(CopilotKitInspector, { attachTo: document.body });
+    await settleInspectorLoad();
+    expect(wrapper.emitted("visibility-change")).toEqual([[true]]);
+
+    wrapper.unmount();
+
+    expect(document.querySelector("cpk-web-inspector")).toBeNull();
+  });
+
   it("forwards Inspector open requests to the mounted element", async () => {
     const openRequest = { messageId: "message-1" };
     const wrapper = mount(CopilotKitInspector, {

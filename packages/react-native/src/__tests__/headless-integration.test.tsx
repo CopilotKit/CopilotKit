@@ -88,6 +88,12 @@ function createMockCore() {
     setMessageFilter: vi.fn(),
     setDebug: vi.fn(),
     setDefaultThrottleMs: vi.fn(),
+    ɵupdateConfig: vi.fn(),
+    ɵruntimeInfo: { status: "disconnected" },
+    ɵsubscribeToRuntimeInfo: vi.fn(() => () => {}),
+    setErrorHandler: vi.fn(),
+    connect: vi.fn(),
+    dispose: vi.fn(),
     getAgent: vi.fn(() => undefined),
     runtimeUrl: "https://api.test",
     runtimeTransport: "auto",
@@ -107,7 +113,10 @@ function createMockCore() {
 
 let mockCoreInstance: ReturnType<typeof createMockCore>;
 
-vi.mock("@copilotkit/react-core/headless", () => {
+vi.mock("@copilotkit/react-core/headless", async (importOriginal) => {
+  // The real entry, so the provider gets the real `ɵuseOwnedCore`.
+  const actual =
+    await importOriginal<typeof import("@copilotkit/react-core/headless")>();
   // Regular function (not arrow) so it's new-able
   function CopilotKitCoreReact(this: any, ...args: any[]) {
     hoisted.MockCoreConstructor(...args);
@@ -115,6 +124,7 @@ vi.mock("@copilotkit/react-core/headless", () => {
     if (instance) Object.assign(this, instance);
   }
   return {
+    ...actual,
     CopilotKitCoreReact,
     useAgent: () => {
       const ctx = require("react").useContext(hoisted.RealContext);

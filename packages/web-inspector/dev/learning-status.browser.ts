@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./browser-test.js";
 import { learningSnapshotForState } from "./learning-state-fixtures.js";
 
 for (const origin of [
@@ -35,6 +35,12 @@ for (const origin of [
       .getByRole("button", { name: "Close Web Inspector", exact: true })
       .click();
     await page.getByRole("button", { name: /^Web Inspector/ }).click();
+    // The workbench boots on the Learning view and reopening keeps it, so
+    // go to Home, where the Learning status card lives. The workbench stage
+    // toolbar overlaps the top of the sidebar, so use the keyboard.
+    await page
+      .getByRole("button", { name: "Home", exact: true })
+      .press("Enter");
     const learning = page.locator('[data-inspector-service="memory"]');
     await expect(learning).toContainText("Learning status unavailable");
     await expect(

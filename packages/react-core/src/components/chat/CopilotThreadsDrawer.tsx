@@ -28,6 +28,12 @@ import type {
 // in this worktree predate it.
 type CollapseChangeDetail = { collapsed: boolean };
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import {
+  ɵcreateThreadsDrawerActions,
+  ɵgetThreadsDrawerElementProps,
+  ɵresolveThreadsLicense,
+  ɵtoDrawerThread,
+} from "@copilotkit/core";
 import { useThreads } from "../../hooks/use-threads";
 import type { Thread } from "../../hooks/use-threads";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
@@ -131,70 +137,6 @@ export interface CopilotThreadsDrawerProps {
 }
 
 /**
- * Maps a {@link Thread} from {@link useThreads} to the element's
- * {@link DrawerThread} view shape. The shapes are structurally compatible; this
- * narrows to exactly the fields the element renders so the element never sees
- * platform-internal fields.
- */
-function toDrawerThread(thread: Thread): DrawerThread {
-  return {
-    id: thread.id,
-    name: thread.name,
-    archived: thread.archived,
-    createdAt: thread.createdAt,
-    updatedAt: thread.updatedAt,
-    ...(thread.lastRunAt !== undefined ? { lastRunAt: thread.lastRunAt } : {}),
-  };
-}
-
-/** The chat input textarea's documented `data-testid`. */
-const CHAT_INPUT_TESTID = "copilot-chat-textarea";
-/** The chat view container's documented `data-testid`. */
-const CHAT_CONTAINER_TESTID = "copilot-chat";
-
-/**
- * Returns the chat input element for focus-return after a thread is selected.
- *
- * Best-effort and SCOPED: walks up from the drawer element looking for an
- * ancestor that contains a chat-view container (`data-testid="copilot-chat"`),
- * then returns the chat input within that subtree. This avoids focusing the
- * wrong composer on a page hosting more than one chat (multi-chat dashboards),
- * where a document-global lookup would grab whichever input appears first in
- * DOM order rather than the one this drawer drives.
- *
- * Falls back to a document-global lookup when no scoping ancestor is found
- * (e.g. the drawer and chat share no common container, or headless usage),
- * and returns `null` when there is no chat input at all.
- *
- * @param origin - The drawer element to scope the search from.
- */
-function findChatInput(origin: Element | null): HTMLElement | null {
-  if (typeof document === "undefined") return null;
-
-  // The drawer lives inside (or alongside) its own chat-view container. Find the
-  // nearest such container with `closest` and scope the input lookup to it, so a
-  // page hosting multiple chats focuses THIS drawer's composer rather than
-  // whichever input appears first in DOM order. Walking up by "ancestor that
-  // *contains* a chat" would instead climb past the drawer's own container (which
-  // holds no nested chat) to the shared root and grab the first chat on the page.
-  const container = origin?.closest?.(
-    `[data-testid="${CHAT_CONTAINER_TESTID}"]`,
-  );
-  if (container) {
-    const scoped = container.querySelector<HTMLElement>(
-      `[data-testid="${CHAT_INPUT_TESTID}"]`,
-    );
-    if (scoped) return scoped;
-  }
-
-  // No scoping container found (drawer and chat share no common container, or
-  // headless usage): fall back to a document-global lookup.
-  return document.querySelector<HTMLElement>(
-    `[data-testid="${CHAT_INPUT_TESTID}"]`,
-  );
-}
-
-/**
  * React wrapper for the shadow-DOM `<copilotkit-threads-drawer>` threads drawer.
  *
  * Responsibilities:
@@ -244,31 +186,11 @@ export function CopilotThreadsDrawer({
   "data-testid": dataTestId = "copilot-threads-drawer",
 }: CopilotThreadsDrawerProps): React.ReactElement | null {
   const configuration = useCopilotChatConfiguration();
-  const { status, checkFeature } = useLicenseContext();
-
-  // Two-pronged license gate. `checkFeature` fails OPEN (returns true) when no
-  // license is configured, so it cannot by itself detect the no-license case.
-  // We therefore also require a positive license-present signal from the
-  // runtime-reported status. Only a "valid" or "expiring" license is treated
-  // as present; a resolved "none"/"expired"/"invalid" status gates the drawer
-  // to the locked view. "unknown" is unresolved, not negative (see below).
-  const licensePresent = status === "valid" || status === "expiring";
-  const featureLicensed = checkFeature("threads");
-  // `unknown` means the retryable entitlement lookup did not recover within
-  // the bounded retry. That is not a settled negative, so never lock on it:
-  // fetch the list and let the threads endpoint decide, surfacing a failure
-  // through the drawer's retryable error state rather than the upgrade CTA.
-  const entitlementUnresolved = status === "unknown";
-  const licensed = entitlementUnresolved || (licensePresent && featureLicensed);
-
-  // The runtime reports license status asynchronously: `status` is null until
-  // the first /info response lands and while a retryable entitlement lookup is
-  // recovering. Treat either pending window as "not yet unlicensed" — show the
-  // loading state, never the locked view — so a licensed drawer does not flash
-  // the upgrade CTA before its authority resolves. Only a resolved-negative
-  // status (`none`/`expired`/`invalid`, or a present license missing the
-  // `threads` feature) surfaces the locked view.
-  const licensePending = status === null;
+  // `unknown` (an entitlement lookup that did not recover) is not a settled
+  // negative, so core treats it as licensed and lets the threads endpoint
+  // decide; `null` (not reported yet) is pending, never the locked view.
+  const { licensed, licensePending } =
+    ɵresolveThreadsLicense(useLicenseContext());
 
   const providerAgentId = useDefaultAgentId();
   const resolvedAgentId =
@@ -297,7 +219,7 @@ export function CopilotThreadsDrawer({
     ...(limit !== undefined ? { limit } : {}),
   });
 
-  const drawerThreads = useMemo(() => threads.map(toDrawerThread), [threads]);
+  const drawerThreads = useMemo(() => threads.map(ɵtoDrawerThread), [threads]);
 
   const elementRef = useRef<CopilotKitThreadsDrawerElement | null>(null);
 
@@ -343,105 +265,47 @@ export function CopilotThreadsDrawer({
 
   // Prefer the host callbacks when provided; otherwise drive the surrounding
   // chat configuration directly so a bare `<CopilotThreadsDrawer>` works callback-free.
-  const setActiveThreadId = configuration?.setActiveThreadId;
-  const startNewThreadConfig = configuration?.startNewThread;
-
-  const handleThreadSelected = useCallback(
-    (threadId: string) => {
-      if (onThreadSelect) {
-        onThreadSelect(threadId);
-      } else {
-        // Selecting a row is an explicit, caller-driven thread choice: connect
-        // the chat to that backend thread (suppresses the welcome screen).
-        setActiveThreadId?.(threadId, { explicit: true });
-      }
-      // Return focus to the chat input so keyboard users land in the composer.
-      // Scope the lookup to this drawer's own chat (not document-global).
-      findChatInput(elementRef.current)?.focus();
-    },
-    [onThreadSelect, setActiveThreadId],
-  );
-
-  const handleNewThread = useCallback(() => {
-    // Reset the core thread store to a fresh, non-explicit client-side thread
-    // (clears any stale error so the welcome screen can render cleanly).
-    startNewThread();
-    if (onNewThread) {
-      onNewThread();
-    } else {
-      // No host callback: reset the surrounding chat configuration to a fresh,
-      // non-explicit thread so the welcome screen shows with no host wiring.
-      startNewThreadConfig?.();
-    }
-  }, [startNewThread, onNewThread, startNewThreadConfig]);
-
-  const handleArchive = useCallback(
-    (threadId: string) => {
-      void archiveThread(threadId).catch((err) => {
-        console.error("CopilotThreadsDrawer: archiveThread failed", err);
-      });
-    },
-    [archiveThread],
-  );
-
-  const handleUnarchive = useCallback(
-    (threadId: string) => {
-      void unarchiveThread(threadId).catch((err) => {
-        console.error("CopilotThreadsDrawer: unarchiveThread failed", err);
-      });
-    },
-    [unarchiveThread],
-  );
-
-  const handleDelete = useCallback(
-    (threadId: string) => {
-      // Deleting the active thread resets to a fresh, non-explicit thread so the
-      // user is not stranded on a now-gone conversation. Archiving the active
-      // thread keeps the user viewing it.
-      const isActive = threadId === activeThreadId;
-      // The core thread store performs the optimistic removal (and rollback on
-      // failure) in its own reducer, so the wrapper holds no removal bookkeeping
-      // of its own — it simply renders the threads the store hands it.
-      void deleteThread(threadId)
-        .then(() => {
-          if (isActive) {
-            startNewThread();
-            if (onNewThread) {
-              onNewThread();
-            } else {
-              startNewThreadConfig?.();
-            }
-          }
-        })
-        .catch((err) => {
-          console.error("CopilotThreadsDrawer: deleteThread failed", err);
-        });
-    },
-    [
-      deleteThread,
-      activeThreadId,
+  // Core owns the drawer actions. They read the latest values through refs,
+  // so they are created once.
+  const latestRef = useRef({
+    threads: {
       startNewThread,
-      onNewThread,
-      startNewThreadConfig,
-    ],
-  );
-
-  const handleFilterChange = useCallback(() => {
-    // The element owns the Active/All filter; on change we refetch so the list
-    // reflects the server.
-    refetchThreads();
-  }, [refetchThreads]);
-
-  const handleRetry = useCallback(
-    (scope: RetryDetail["scope"]) => {
-      if (scope === "fetch-more") {
-        fetchMoreThreads();
-      } else {
-        refetchThreads();
-      }
+      archiveThread,
+      unarchiveThread,
+      deleteThread,
+      fetchMoreThreads,
+      refetchThreads,
     },
-    [fetchMoreThreads, refetchThreads],
+    configuration,
+    callbacks: { onThreadSelect, onNewThread },
+  });
+  latestRef.current = {
+    threads: {
+      startNewThread,
+      archiveThread,
+      unarchiveThread,
+      deleteThread,
+      fetchMoreThreads,
+      refetchThreads,
+    },
+    configuration,
+    callbacks: { onThreadSelect, onNewThread },
+  };
+  const [actions] = useState(() =>
+    ɵcreateThreadsDrawerActions({
+      getThreads: () => latestRef.current.threads,
+      getConfig: () => latestRef.current.configuration,
+      getCallbacks: () => latestRef.current.callbacks,
+      getElement: () => elementRef.current,
+    }),
   );
+  const handleThreadSelected = actions.selectThread;
+  const handleNewThread = actions.newThread;
+  const handleArchive = actions.archive;
+  const handleUnarchive = actions.unarchive;
+  const handleDelete = actions.remove;
+  const handleFilterChange = actions.refetch;
+  const handleRetry = actions.retry;
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
@@ -454,11 +318,7 @@ export function CopilotThreadsDrawer({
     onLicensed?.();
   }, [onLicensed]);
 
-  const handleLoadMore = useCallback(() => {
-    // Advance pagination. No-op when there is no next page; the element only
-    // surfaces the "Load more" control while `hasMore` is true.
-    fetchMoreThreads();
-  }, [fetchMoreThreads]);
+  const handleLoadMore = actions.loadMore;
 
   const handleCollapseChange = useCallback(
     (collapsed: boolean) => {
@@ -579,18 +439,20 @@ export function CopilotThreadsDrawer({
   useEffect(() => {
     const el = elementRef.current;
     if (!el) return;
-    // While the license is still resolving, force the loading state so the
-    // element shows its spinner instead of an empty/unlicensed body.
-    el.loading = isLoading || licensePending;
+    // While the license is still resolving, the element shows its loading
+    // state and stays "licensed", so the locked view never flashes.
+    const elementProps = ɵgetThreadsDrawerElementProps({
+      loading: isLoading,
+      licensed,
+      licensePending,
+    });
+    el.loading = elementProps.loading;
     // Only genuine list-load/mutation errors reach the end user. Developer/
     // config errors (missing runtime URL, runtime without thread endpoints) are
     // excluded via `listError` so they never leak into the drawer's error UI.
     el.error = listError ? listError.message : null;
     el.activeThreadId = activeThreadId;
-    // Pending counts as licensed for rendering: `_renderBody` shows the locked view
-    // only when `licensed` is false, so keeping it true until the status
-    // resolves prevents the locked view from flashing (or sticking) mid-resolution.
-    el.licensed = licensed || licensePending;
+    el.licensed = elementProps.licensed;
     el.hasMore = hasMoreThreads;
     el.fetchingMore = isFetchingMoreThreads;
     // Dedicated fetch-more error channel: drives the element's inline

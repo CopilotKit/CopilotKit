@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import {
-  GENERATE_SANDBOXED_UI_DESCRIPTION,
-  randomUUID,
-  ɵanySchema,
-} from "@copilotkit/shared";
+import { ɵanySchema } from "@copilotkit/shared";
 import {
   computed,
   h,
@@ -17,31 +13,36 @@ import {
   watch,
 } from "vue";
 import type { Component, FunctionalComponent } from "vue";
-import type { AbstractAgent } from "@ag-ui/client";
-import { ToolCallStatus } from "@copilotkit/core";
+import type { Catalog, ComponentApi } from "@a2ui/web_core/v0_9";
+import {
+  ɵLearningAutoStarter,
+  ɵbuildHumanInTheLoopTool,
+  ɵhitlRenderProps,
+  ɵtoLearningConfig,
+} from "@copilotkit/core";
 import type {
-  CopilotKitCoreErrorCode,
-  CopilotKitCoreSubscriber,
   CopilotKitHeadersSource,
   FrontendTool,
+  ɵRuntimeInfo,
 } from "@copilotkit/core";
 import {
-  DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
-  GENERATE_SANDBOXED_UI_TOOL_NAME,
+  ɵSTABLE_ARRAY_WARNINGS,
+  ɵbuildOpenGenerativeUIContexts,
+  ɵcreateOpenGenerativeUITool,
+  ɵisOpenGenerativeUIActive,
+  ɵpublicKeyHeaderDefaults,
+  ɵreportProviderConfigDiagnostics,
   ɵresolveLicenseState,
+  ɵresolveProviderConfig,
+  ɵtoolRendererShapeChanged,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";
-import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
-import type {
-  RuntimeEntitlementResponse,
-  RuntimeLicenseStatus,
-} from "@copilotkit/shared";
+import { shouldEnableInspector } from "@copilotkit/shared";
 import { CopilotKitCoreVue } from "../lib/vue-core";
 import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
 import { registerA2UIBuiltInToolCallRenderer } from "../components/a2ui/A2UIBuiltInToolCallRenderer";
-import { registerA2UICatalogContext } from "../components/a2ui/A2UICatalogContext";
+import { registerA2UICatalog } from "../components/a2ui/A2UICatalogContext";
 import {
-  GenerateSandboxedUiArgsSchema,
   OpenGenerativeUIActivityRenderer,
   OpenGenerativeUIActivityType,
   OpenGenerativeUIContentSchema,
@@ -63,10 +64,7 @@ import { MARKDOWN_RENDERER_KEY } from "./markdown-renderer";
 import { LicenseContextKey } from "./license-context";
 import CopilotKitInspector from "../components/CopilotKitInspector.vue";
 import LicenseWarningBanner from "../components/LicenseWarningBanner.vue";
-import type {
-  CopilotKitLearningOptions,
-  CopilotKitProviderProps,
-} from "./CopilotKitProvider.types";
+import type { CopilotKitProviderProps } from "./CopilotKitProvider.types";
 import type {
   SandboxFunction,
   VueActivityMessageRenderer,
@@ -74,27 +72,6 @@ import type {
   VueToolCallRenderer,
   VueToolCallRendererRenderProps,
 } from "../types";
-
-const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
-const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
-// Canonical A2UI viewer theme default (matches @copilotkit/a2ui-renderer).
-// Defined locally to avoid pulling React dependencies from a2ui-renderer.
-const viewerTheme: Record<string, unknown> = {};
-
-const FRONTEND_TOOLS_STABLE_WARNING =
-  "frontendTools must be a stable array. If you want to dynamically add or remove tools, use `useFrontendTool` instead.";
-const HUMAN_IN_THE_LOOP_STABLE_WARNING =
-  "humanInTheLoop must be a stable array. If you want to dynamically add or remove human-in-the-loop tools, use `useHumanInTheLoop` instead.";
-const RENDER_CUSTOM_MESSAGES_STABLE_WARNING =
-  "renderCustomMessages must be a stable array.";
-const RENDER_ACTIVITY_MESSAGES_STABLE_WARNING =
-  "renderActivityMessages must be a stable array.";
-const SANDBOX_FUNCTIONS_STABLE_WARNING =
-  "openGenerativeUI.sandboxFunctions must be a stable array.";
-// Matches the message React's `useHumanInTheLoop` rejects with, so an aborted
-// interrupt reads the same across frameworks (see #5554).
-const HUMAN_IN_THE_LOOP_ABORTED_MESSAGE =
-  "Human-in-the-loop interaction aborted";
 
 /** The MCP Apps renderer with `mcpApps.allowSameOriginFallback` applied. */
 const SameOriginMCPAppsActivityRenderer: FunctionalComponent = (_, { attrs }) =>
@@ -129,12 +106,16 @@ provide(
 );
 
 const shouldRenderInspector = ref(false);
+// Follows the Inspector's own show/hide, so message actions that open it are
+// hidden while a temporary dismissal hides it.
+const inspectorVisible = ref(false);
 
 function updateInspectorVisibility(): void {
   shouldRenderInspector.value = shouldEnableInspector({
     enableInspector: props.enableInspector,
     isBrowser: true,
     isDevelopment: process.env.NODE_ENV === "development",
+    hostname: window.location?.hostname,
   });
 }
 
@@ -142,7 +123,9 @@ onMounted(updateInspectorVisibility);
 watch(() => props.enableInspector, updateInspectorVisibility);
 
 const inspectorOpenRequest = ref<VueInspectorOpenRequest | null>(null);
-const isInspectorEnabled = computed(() => shouldRenderInspector.value);
+const isInspectorEnabled = computed(
+  () => shouldRenderInspector.value && inspectorVisible.value,
+);
 
 function openInspector(request: VueInspectorOpenRequest) {
   inspectorOpenRequest.value = { ...request };
@@ -153,6 +136,7 @@ provide(InspectorKey, {
   openInspector,
 });
 
+const initialRenderToolCalls = props.renderToolCalls ?? [];
 const initialFrontendTools = props.frontendTools;
 const initialHumanInTheLoop = props.humanInTheLoop;
 const initialRenderCustomMessages = props.renderCustomMessages;
@@ -165,11 +149,22 @@ const initialSandboxFunctions = props.openGenerativeUI?.sandboxFunctions;
 const rawEntries = <T>(entries: readonly T[] | undefined): T[] =>
   [...toRaw(entries ?? [])].map((entry) => toRaw(entry));
 
+// Only the shape (agentId:name pairs) counts, so new render closures for the
+// same tools do not warn.
+watch(
+  () => props.renderToolCalls,
+  (next) => {
+    if (ɵtoolRendererShapeChanged(initialRenderToolCalls, next ?? [])) {
+      console.error(ɵSTABLE_ARRAY_WARNINGS.renderToolCalls);
+    }
+  },
+);
+
 watch(
   () => props.frontendTools,
   (next) => {
     if (next !== initialFrontendTools) {
-      console.error(FRONTEND_TOOLS_STABLE_WARNING);
+      console.error(ɵSTABLE_ARRAY_WARNINGS.frontendTools);
     }
   },
 );
@@ -178,7 +173,7 @@ watch(
   () => props.humanInTheLoop,
   (next) => {
     if (next !== initialHumanInTheLoop) {
-      console.error(HUMAN_IN_THE_LOOP_STABLE_WARNING);
+      console.error(ɵSTABLE_ARRAY_WARNINGS.humanInTheLoop);
     }
   },
 );
@@ -187,7 +182,7 @@ watch(
   () => props.renderCustomMessages,
   (next) => {
     if (next !== initialRenderCustomMessages) {
-      console.error(RENDER_CUSTOM_MESSAGES_STABLE_WARNING);
+      console.error(ɵSTABLE_ARRAY_WARNINGS.renderCustomMessages);
     }
   },
 );
@@ -196,7 +191,7 @@ watch(
   () => props.renderActivityMessages,
   (next) => {
     if (next !== initialRenderActivityMessages) {
-      console.error(RENDER_ACTIVITY_MESSAGES_STABLE_WARNING);
+      console.error(ɵSTABLE_ARRAY_WARNINGS.renderActivityMessages);
     }
   },
 );
@@ -205,21 +200,30 @@ watch(
   () => props.openGenerativeUI?.sandboxFunctions,
   (next) => {
     if (next !== initialSandboxFunctions) {
-      console.error(SANDBOX_FUNCTIONS_STABLE_WARNING);
+      console.error(ɵSTABLE_ARRAY_WARNINGS.sandboxFunctions);
     }
   },
 );
 
-const resolvedPublicKey = computed(
-  () => props.publicApiKey ?? props.publicLicenseKey,
+// Key fallback, Copilot Cloud URL, transport, agent merge and the catalog
+// property all come from core.
+const resolvedConfig = computed(() =>
+  ɵresolveProviderConfig({
+    runtimeUrl: props.runtimeUrl,
+    publicApiKey: props.publicApiKey,
+    publicLicenseKey: props.publicLicenseKey,
+    useSingleEndpoint: props.useSingleEndpoint,
+    agents__unsafe_dev_only: props.agents__unsafe_dev_only,
+    selfManagedAgents: props.selfManagedAgents,
+    properties: props.properties,
+    a2uiCatalog: props.a2ui?.catalog,
+  }),
 );
-const mergedAgents = computed(() => ({
-  ...props.agents__unsafe_dev_only,
-  ...props.selfManagedAgents,
-}));
-const hasLocalAgents = computed(
-  () => Object.keys(mergedAgents.value).length > 0,
-);
+// Strings, so dependents only re-run when the value really changes.
+const resolvedPublicKey = computed(() => resolvedConfig.value.publicKey);
+const chatApiEndpoint = computed(() => resolvedConfig.value.runtimeUrl);
+const runtimeTransport = computed(() => resolvedConfig.value.runtimeTransport);
+const mergedAgents = computed(() => resolvedConfig.value.agents);
 
 // Whether `headers` is a builder, as its own computed so that a re-render
 // merely passing a NEW function of the same kind (e.g. a fresh inline arrow)
@@ -248,122 +252,46 @@ const latestHeaders = (() =>
 const headersSource = computed<CopilotKitHeadersSource>(() =>
   ɵwithHeaderDefaults(
     isHeadersBuilder.value ? latestHeaders : props.headers,
-    resolvedPublicKey.value ? { [HEADER_NAME]: resolvedPublicKey.value } : {},
+    ɵpublicKeyHeaderDefaults(resolvedPublicKey.value),
   ),
 );
 
-const chatApiEndpoint = computed(
-  () =>
-    props.runtimeUrl ??
-    (resolvedPublicKey.value ? COPILOT_CLOUD_CHAT_URL : undefined),
-);
-
+// Throws in production for a missing runtime config; otherwise warns, once
+// per provider for each message.
+const loggedDiagnostics = new Set<string>();
 watch(
-  [chatApiEndpoint, resolvedPublicKey, hasLocalAgents],
-  ([endpoint, publicKey, localAgents]) => {
-    if (endpoint || publicKey || localAgents) return;
-    const msg =
-      "Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'";
-    if (process.env.NODE_ENV === "production") {
-      throw new Error(msg);
-    }
-    console.warn(msg);
+  () => resolvedConfig.value.diagnostics,
+  (diagnostics) => {
+    ɵreportProviderConfigDiagnostics(diagnostics, {
+      isProduction: process.env.NODE_ENV === "production",
+      logged: loggedDiagnostics,
+    });
   },
   { immediate: true },
 );
 
-/**
- * A human-in-the-loop tool call from the `humanInTheLoop` prop that is waiting
- * on the user. Keyed by tool call id so parallel interrupts on the same tool
- * stay independent.
- */
-type PendingHumanInTheLoop = {
-  resolve: (result: unknown) => void;
-  detachAbort?: () => void;
-};
-
-const pendingHumanInTheLoop = new Map<string, PendingHumanInTheLoop>();
-
-/** Removes a pending interaction and detaches its abort listener. */
-const takePendingHumanInTheLoop = (key: string) => {
-  const pending = pendingHumanInTheLoop.get(key);
-  if (!pending) return undefined;
-  pending.detachAbort?.();
-  pendingHumanInTheLoop.delete(key);
-  return pending;
-};
-
 const processedHumanInTheLoop = computed(() => {
   const tools: FrontendTool[] = [];
   const renderToolCalls: VueToolCallRenderer<unknown>[] = [];
+  // Core parks each call by tool call id until the render responds. The core
+  // is created further down, so read its registry lazily.
+  const registry = () => copilotkit.value.ɵhumanInTheLoop;
 
   for (const tool of rawEntries(props.humanInTheLoop)) {
-    tools.push({
-      type: "human-in-the-loop",
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.parameters,
-      followUp: tool.followUp,
-      ...(tool.agentId && { agentId: tool.agentId }),
-      // Keep the tool call pending until the render calls `respond`, matching
-      // the `useHumanInTheLoop` composable. Resolving immediately made the HITL
-      // UI flash and disappear without ever waiting for the user.
-      handler: async (_args, context) => {
-        const signal = context?.signal;
-        const key = context?.toolCall?.id ?? tool.name;
-
-        return new Promise((resolve, reject) => {
-          // Already aborted before the handler ran — reject so core records an
-          // explicit error tool result rather than silently resolving empty.
-          if (signal?.aborted) {
-            reject(new Error(HUMAN_IN_THE_LOOP_ABORTED_MESSAGE));
-            return;
-          }
-
-          const pending: PendingHumanInTheLoop = { resolve };
-          pendingHumanInTheLoop.set(key, pending);
-
-          if (signal) {
-            const onAbort = () => {
-              pendingHumanInTheLoop.delete(key);
-              reject(new Error(HUMAN_IN_THE_LOOP_ABORTED_MESSAGE));
-            };
-            signal.addEventListener("abort", onAbort, { once: true });
-            pending.detachAbort = () => {
-              signal.removeEventListener("abort", onAbort);
-            };
-          }
-        });
-      },
-    });
-    if (tool.render) {
-      const ToolComponent = tool.render;
+    const { render: ToolComponent, ...config } = tool;
+    tools.push(ɵbuildHumanInTheLoopTool(config, registry) as FrontendTool);
+    if (ToolComponent) {
       const render: VueToolCallRenderer<unknown>["render"] = (
         renderProps: VueToolCallRendererRenderProps<unknown>,
-      ) => {
-        const key = renderProps.toolCallId ?? tool.name;
-        return h(ToolComponent as Parameters<typeof h>[0], {
-          ...renderProps,
-          // `renderProps.name` is the tool that was actually invoked. It equals
-          // `tool.name` for a named registration; for a wildcard (`"*"`) it is
-          // the only place the real name exists.
-          name: tool.name === "*" ? renderProps.name : tool.name,
-          description: tool.description || "",
-          agentId: tool.agentId,
-          // `respond` is live only while the tool is executing — the one phase
-          // with a promise waiting on the user.
-          respond:
-            renderProps.status === ToolCallStatus.Executing
-              ? async (result: unknown) => {
-                  takePendingHumanInTheLoop(key)?.resolve(result);
-                }
-              : undefined,
-        });
-      };
+      ) =>
+        h(
+          ToolComponent as Parameters<typeof h>[0],
+          ɵhitlRenderProps(renderProps, tool, registry()),
+        );
 
       renderToolCalls.push({
         name: tool.name,
-        args: tool.parameters ?? ɵanySchema,
+        args: tool.parameters,
         render,
         ...(tool.agentId && { agentId: tool.agentId }),
       } as VueToolCallRenderer<unknown>);
@@ -411,15 +339,26 @@ const allRenderToolCalls = computed(() => {
 const allRenderCustomMessages = computed(
   () => props.renderCustomMessages ?? [],
 );
-const runtimeA2UIEnabled = ref(false);
-const runtimeOpenGenerativeUIEnabled = ref(false);
-const runtimeLicenseStatus = ref<RuntimeLicenseStatus | undefined>(undefined);
-const runtimeEntitlements = ref<RuntimeEntitlementResponse | undefined>(
-  undefined,
+// Core's runtime info snapshot, projected from the core watcher below.
+const runtimeInfo = shallowRef<ɵRuntimeInfo | null>(null);
+const runtimeA2UIEnabled = computed(
+  () => runtimeInfo.value?.a2uiEnabled ?? false,
 );
-const runtimeEntitlementRetryPending = ref(false);
-const openGenerativeUIActive = computed(
-  () => runtimeOpenGenerativeUIEnabled.value || !!props.openGenerativeUI,
+const runtimeOpenGenerativeUIEnabled = computed(
+  () => runtimeInfo.value?.openGenerativeUIEnabled ?? false,
+);
+const runtimeLicenseStatus = computed(() => runtimeInfo.value?.licenseStatus);
+const runtimeEntitlements = computed(
+  () => runtimeInfo.value?.runtimeEntitlements,
+);
+const runtimeEntitlementRetryPending = computed(
+  () => runtimeInfo.value?.runtimeEntitlementRetryPending ?? false,
+);
+const openGenerativeUIActive = computed(() =>
+  ɵisOpenGenerativeUIActive({
+    runtimeEnabled: runtimeOpenGenerativeUIEnabled.value,
+    configured: !!props.openGenerativeUI,
+  }),
 );
 // A catalog passed to the provider is enough to turn A2UI on: render the
 // surfaces locally and forward the catalog signal so the runtime injects the
@@ -428,14 +367,15 @@ const a2uiCatalogProvided = computed(() => !!props.a2ui?.catalog);
 const a2uiActive = computed(
   () => runtimeA2UIEnabled.value || a2uiCatalogProvided.value,
 );
+// The catalog with components disabled in the Inspector removed; set by
+// `registerA2UICatalog` below once the core exists.
+const a2uiFilteredCatalog = shallowRef<Catalog<ComponentApi> | undefined>(
+  undefined,
+);
 // Forward a per-run signal when the provider has an A2UI catalog so the
 // runtime can turn A2UI on (and inject the render tool) without a separate
 // `a2ui.injectA2UITool` flag on the runtime.
-const resolvedProperties = computed(() =>
-  a2uiCatalogProvided.value
-    ? { ...props.properties, a2uiCatalogAvailable: true }
-    : props.properties,
-);
+const resolvedProperties = computed(() => resolvedConfig.value.properties);
 const sandboxFunctions = computed<readonly SandboxFunction[]>(() =>
   rawEntries(props.openGenerativeUI?.sandboxFunctions),
 );
@@ -443,13 +383,7 @@ const builtInFrontendTools = computed<VueFrontendTool[]>(() => {
   if (!openGenerativeUIActive.value) return [];
   return [
     {
-      name: GENERATE_SANDBOXED_UI_TOOL_NAME,
-      description: GENERATE_SANDBOXED_UI_DESCRIPTION,
-      parameters: GenerateSandboxedUiArgsSchema,
-      handler: async () => "UI generated",
-      // This acknowledgement has no side effects and is safe to reconstruct.
-      reconnectBehavior: "resume-pending",
-      followUp: true,
+      ...ɵcreateOpenGenerativeUITool(),
       render:
         OpenGenerativeUIToolRenderer as unknown as VueFrontendTool["render"],
     } as VueFrontendTool,
@@ -481,10 +415,11 @@ const builtInActivityRenderers = computed<
   if (a2uiActive.value) {
     renderers.unshift(
       createA2UIMessageRenderer({
-        theme: props.a2ui?.theme ?? viewerTheme,
-        catalog: props.a2ui?.catalog,
+        theme: props.a2ui?.theme ?? {},
+        catalog: a2uiFilteredCatalog.value ?? props.a2ui?.catalog,
         loadingComponent: props.a2ui?.loadingComponent,
         recovery: props.a2ui?.recovery,
+        onAction: props.a2ui?.onAction,
       }),
     );
   }
@@ -497,40 +432,15 @@ const allRenderActivityMessages = computed(() => [
   ...builtInActivityRenderers.value,
 ]);
 
-const applyDefaultThrottleMs = (core: CopilotKitCoreVue) => {
-  if (
-    props.defaultThrottleMs !== undefined &&
-    (!Number.isFinite(props.defaultThrottleMs) || props.defaultThrottleMs < 0)
-  ) {
-    console.error(
-      `CopilotKitProvider: defaultThrottleMs must be a non-negative finite number, got ${props.defaultThrottleMs}. useAgent hooks without an explicit throttleMs will fall back to unthrottled.`,
-    );
-  }
-  core.setDefaultThrottleMs(props.defaultThrottleMs);
-};
+const learningConfig = computed(() => ɵtoLearningConfig(props.learning));
 
-function toLearningConfig(
-  learning: boolean | CopilotKitLearningOptions | undefined,
-): CopilotKitLearningOptions | undefined {
-  // `true` uses the default authenticated capture options.
-  if (learning === true) return {};
-  if (learning === false || learning === undefined) return undefined;
-  // `autoStart` only controls the provider; Core never receives it.
-  const { autoStart: _autoStart, ...config } = learning;
-  return config;
-}
-
-const learningConfig = computed(() => toLearningConfig(props.learning));
-
-const createCopilotKit = () => {
-  const core = new CopilotKitCoreVue({
+const createCopilotKit = () =>
+  new CopilotKitCoreVue({
     runtimeUrl: chatApiEndpoint.value,
-    runtimeTransport:
-      props.useSingleEndpoint === true
-        ? "single"
-        : props.useSingleEndpoint === false
-          ? "rest"
-          : "auto",
+    // `/info` starts from `onMounted` (`connect()` below), so server-side
+    // setup never fetches it.
+    deferInitialConnection: true,
+    runtimeTransport: runtimeTransport.value,
     headers: headersSource.value,
     credentials: props.credentials,
     messageFilter: props.messageFilter,
@@ -541,12 +451,12 @@ const createCopilotKit = () => {
     renderActivityMessages: allRenderActivityMessages.value,
     renderCustomMessages: allRenderCustomMessages.value,
     debug: props.debug,
+    // Set at construction so child hooks can read it on first render. Core
+    // validates it.
+    defaultThrottleMs: props.defaultThrottleMs,
+    onError: props.onError,
     learning: learningConfig.value,
   });
-  // Initialize synchronously so child hooks can read the value on first render.
-  applyDefaultThrottleMs(core);
-  return core;
-};
 
 const copilotkit = shallowRef<CopilotKitCoreVue>(createCopilotKit());
 const didMountRef = ref(false);
@@ -556,27 +466,17 @@ const executingToolCallIds = ref<ReadonlySet<string>>(new Set());
 watch(
   copilotkit,
   (core, _, onCleanup) => {
+    // Core keeps a call executing until its result is in the messages, so
+    // the status never drops back to in-progress between the two.
+    executingToolCallIds.value = core.executingToolCallIds;
     const sub1 = core.subscribe({
-      onToolExecutionStart: ({
-        toolCallId,
-      }: Parameters<
-        NonNullable<CopilotKitCoreSubscriber["onToolExecutionStart"]>
-      >[0]) => {
-        executingToolCallIds.value = new Set(executingToolCallIds.value).add(
-          toolCallId,
-        );
-      },
-      onToolExecutionEnd: ({
-        toolCallId,
-      }: Parameters<
-        NonNullable<CopilotKitCoreSubscriber["onToolExecutionEnd"]>
-      >[0]) => {
-        setTimeout(() => {
-          const next = new Set(executingToolCallIds.value);
-          next.delete(toolCallId);
-          executingToolCallIds.value = next;
-          triggerRef(copilotkit);
-        }, 0);
+      onExecutingToolCallsChanged: ({ executingToolCallIds: ids }) => {
+        const hasFinishedCall = ids.size < executingToolCallIds.value.size;
+        executingToolCallIds.value = ids;
+        // Core adds the result to `agent.messages` without a messages event,
+        // so re-read the agents once a call finishes. Not on start: that
+        // re-runs the agent subscriptions mid-run and drops a pending update.
+        if (hasFinishedCall) triggerRef(copilotkit);
       },
     });
     const sub2 = core.subscribe({
@@ -588,25 +488,19 @@ watch(
       onRenderCustomMessagesChanged: () => {
         triggerRef(copilotkit);
       },
-    });
-    const sub4 = core.subscribe({
-      onRuntimeConnectionStatusChanged: () => {
-        runtimeA2UIEnabled.value = core.a2uiEnabled;
-        runtimeOpenGenerativeUIEnabled.value = core.openGenerativeUIEnabled;
-        runtimeLicenseStatus.value = core.licenseStatus;
-        runtimeEntitlements.value = core.runtimeEntitlements;
-        runtimeEntitlementRetryPending.value =
-          core.runtimeEntitlementRetryPending;
+      onRenderActivityMessagesChanged: () => {
         triggerRef(copilotkit);
       },
     });
-    const sub5 = core.subscribe({
-      onError: (event) => {
-        void props.onError?.({
-          error: event.error,
-          code: event.code,
-          context: event.context,
-        });
+    runtimeInfo.value = core.ɵruntimeInfo;
+    const unsubscribeRuntimeInfo = core.ɵsubscribeToRuntimeInfo(() => {
+      runtimeInfo.value = core.ɵruntimeInfo;
+    });
+    // Consumers read runtime getters off `copilotkit` directly, so every
+    // status event invalidates them.
+    const sub4 = core.subscribe({
+      onRuntimeConnectionStatusChanged: () => {
+        triggerRef(copilotkit);
       },
     });
     // `onHeadersChanged` fires only from a real `setHeaders()` call (a new
@@ -626,7 +520,7 @@ watch(
       sub2.unsubscribe();
       sub3.unsubscribe();
       sub4.unsubscribe();
-      sub5.unsubscribe();
+      unsubscribeRuntimeInfo();
       sub6.unsubscribe();
     });
   },
@@ -646,47 +540,33 @@ watch([allRenderToolCalls], ([renderToolCalls]) => {
 watch([allRenderCustomMessages], ([renderCustomMessages]) => {
   if (!didMountRef.value) return;
   copilotkit.value.setRenderCustomMessages(renderCustomMessages);
-  triggerRef(copilotkit);
 });
 
 watch([allRenderActivityMessages], ([renderActivityMessages]) => {
   if (!didMountRef.value) return;
   copilotkit.value.setRenderActivityMessages(renderActivityMessages);
-  triggerRef(copilotkit);
 });
 
-// The last `headersSource` reference actually handed to `core.setHeaders`.
-// `syncRuntimeConfig` runs once (unconditionally) from `onMounted` in
-// addition to the constructor already having applied this same value.
-// `HeaderSourceResolver.setSource` itself is a no-op both for an identical
-// function reference and for a record whose normalized values equal the
-// currently applied record's (see #1937), so this reference
-// check is now a cheap pre-filter rather than the only thing preventing a
-// spurious `onHeadersChanged`. It still avoids the `setHeaders` call (and
-// its normalize + shallow-equal work) entirely on the common path where
-// nothing changed.
-let lastAppliedHeadersSource: CopilotKitHeadersSource = headersSource.value;
-
+// Every setter is a no-op when its value did not change (`setHeaders` too, for
+// the same builder or an equal record, see #1937), so this can pass every key.
 function syncRuntimeConfig() {
-  copilotkit.value.setRuntimeUrl(chatApiEndpoint.value);
-  copilotkit.value.setRuntimeTransport(
-    props.useSingleEndpoint === true
-      ? "single"
-      : props.useSingleEndpoint === false
-        ? "rest"
-        : "auto",
-  );
-  if (headersSource.value !== lastAppliedHeadersSource) {
-    lastAppliedHeadersSource = headersSource.value;
-    copilotkit.value.setHeaders(headersSource.value);
-  }
-  copilotkit.value.setCredentials(props.credentials);
-  copilotkit.value.setMessageFilter(props.messageFilter);
-  copilotkit.value.setProperties(resolvedProperties.value);
-  copilotkit.value.setAgents__unsafe_dev_only(mergedAgents.value);
-  copilotkit.value.setDebug(props.debug);
-  applyDefaultThrottleMs(copilotkit.value);
+  copilotkit.value.ɵupdateConfig({
+    messageFilter: props.messageFilter,
+    runtimeUrl: chatApiEndpoint.value,
+    runtimeTransport: runtimeTransport.value,
+    headers: headersSource.value,
+    credentials: props.credentials,
+    properties: resolvedProperties.value,
+    agents__unsafe_dev_only: mergedAgents.value,
+    debug: props.debug,
+    defaultThrottleMs: props.defaultThrottleMs,
+  });
 }
+
+watch(
+  () => props.onError,
+  (onError) => copilotkit.value.setErrorHandler(onError),
+);
 
 watch(
   [
@@ -696,7 +576,7 @@ watch(
     () => props.messageFilter,
     () => resolvedProperties.value,
     () => mergedAgents.value,
-    () => props.useSingleEndpoint,
+    () => runtimeTransport.value,
     () => props.debug,
   ],
   () => {
@@ -707,111 +587,32 @@ watch(
 
 watch(
   () => props.defaultThrottleMs,
-  () => {
+  (defaultThrottleMs) => {
     if (!didMountRef.value) return;
-    applyDefaultThrottleMs(copilotkit.value);
+    copilotkit.value.ɵupdateConfig({ defaultThrottleMs });
     triggerRef(copilotkit);
   },
 );
 
 onMounted(() => {
   syncRuntimeConfig();
-  runtimeA2UIEnabled.value = copilotkit.value.a2uiEnabled;
-  runtimeOpenGenerativeUIEnabled.value =
-    copilotkit.value.openGenerativeUIEnabled;
-  runtimeLicenseStatus.value = copilotkit.value.licenseStatus;
-  runtimeEntitlements.value = copilotkit.value.runtimeEntitlements;
-  runtimeEntitlementRetryPending.value =
-    copilotkit.value.runtimeEntitlementRetryPending;
+  // The constructor deferred `/info`; start it now that we are in the browser
+  // (`onMounted` never runs during SSR). Idempotent.
+  copilotkit.value.connect();
+  runtimeInfo.value = copilotkit.value.ɵruntimeInfo;
   didMountRef.value = true;
   // After the runtime URL is set, so CopilotKit's own runtime traffic is never
-  // captured. Created here, the watchers stop (and stop capture) on unmount.
-  watchLearning();
+  // captured. The provider's onUnmounted disposes the starter (stops capture).
+  watch(
+    () => props.learning,
+    (learning) => learningStarter.update(learning),
+    {
+      immediate: true,
+    },
+  );
 });
 
-const learningEnabled = computed(() => learningConfig.value !== undefined);
-// `true` is the options-free form, so only an object can opt out.
-const learningAutoStart = computed(
-  () =>
-    learningEnabled.value &&
-    (typeof props.learning !== "object" || props.learning.autoStart !== false),
-);
-const suppliedTrajectoryId = computed(() =>
-  learningAutoStart.value ? learningConfig.value?.trajectoryId : undefined,
-);
-const generatesTrajectoryId = computed(
-  () => learningAutoStart.value && suppliedTrajectoryId.value === undefined,
-);
-
-function watchLearning() {
-  let learningContainerIds = learningConfig.value?.learningContainerIds;
-
-  watch(
-    [learningConfig, learningAutoStart],
-    ([config, autoStart]) => {
-      copilotkit.value.setLearningConfig(config);
-      learningContainerIds = config?.learningContainerIds;
-      // Automatic starts report unsupported options in Core. With manual
-      // starts, the provider's container option is not part of
-      // startTrajectory() options.
-      if (
-        config?.sink === undefined &&
-        !autoStart &&
-        config?.learningContainerIds !== undefined
-      ) {
-        console.warn(
-          "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture ignores it; assign Learning Spaces on the server with getTrajectoryLearningContainerIds on CopilotKitIntelligence, and remove learningContainerIds from the capture options.",
-        );
-      }
-    },
-    { immediate: true },
-  );
-
-  // Watched as a boolean so a new inline `learning` object warns once.
-  watch(
-    () =>
-      !learningAutoStart.value &&
-      learningConfig.value?.trajectoryId !== undefined,
-    (ignoresTrajectoryId) => {
-      if (!ignoresTrajectoryId) return;
-      console.warn(
-        "[CopilotKit] learning.trajectoryId is ignored when autoStart is false; pass the ID to startTrajectory() instead.",
-      );
-    },
-    { immediate: true },
-  );
-
-  // Runs only when these change, so option changes that keep generating keep
-  // the generated Trajectory; generating again starts one with a new ID.
-  watch(
-    [learningEnabled, generatesTrajectoryId, suppliedTrajectoryId],
-    ([enabled, generates, supplied], _previous, onCleanup) => {
-      if (!enabled) return;
-      let disposed = false;
-      const core = copilotkit.value;
-      const trajectoryId = generates ? randomUUID() : supplied;
-      if (trajectoryId !== undefined) {
-        void core
-          .startTrajectory({ trajectoryId, learningContainerIds })
-          .catch(() => {
-            // Expected authentication/connection failures resolve with an
-            // error result; Core reports them to LearningConfig.onError or
-            // warns once. Consume unexpected rejections without logging
-            // credentials or errors from a previous start after a new
-            // Trajectory has already started.
-            if (!disposed) {
-              console.warn("[CopilotKit] Failed to start interaction capture.");
-            }
-          });
-      }
-      onCleanup(() => {
-        disposed = true;
-        core.stopTrajectory();
-      });
-    },
-    { immediate: true },
-  );
-}
+const learningStarter = new ɵLearningAutoStarter(copilotkit.value);
 
 const a2uiTheme = computed(() => props.a2ui?.theme);
 const a2uiCatalog = computed(() => props.a2ui?.catalog);
@@ -821,11 +622,15 @@ const a2uiIncludeSchema = computed(() => props.a2ui?.includeSchema ?? true);
 // A2UI tool call renderer (progress indicator) — auto-registered when A2UI enabled
 registerA2UIBuiltInToolCallRenderer(copilotkit, () => a2uiActive.value);
 
-// A2UI catalog context, schema, and generation/design guidelines
-registerA2UICatalogContext(copilotkit, {
+// A2UI catalog: component registration for the Inspector, the filtered
+// catalog, and the agent context (schema, generation/design guidelines).
+registerA2UICatalog(copilotkit, {
   enabled: () => a2uiActive.value,
   catalog: () => props.a2ui?.catalog,
   includeSchema: () => props.a2ui?.includeSchema ?? true,
+  onFilteredCatalog: (catalog) => {
+    a2uiFilteredCatalog.value = catalog;
+  },
 });
 
 const providerContextIds = ref<string[]>([]);
@@ -838,31 +643,10 @@ watch(
   ([active, functions, designSkill], _previous, onCleanup) => {
     if (!active) return;
 
-    const ids: string[] = [];
-    ids.push(
-      copilotkit.value.addContext({
-        description:
-          "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
-        value: designSkill ?? DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
-      }),
-    );
-
-    if (functions.length > 0) {
-      const descriptors = JSON.stringify(
-        functions.map((fn) => ({
-          name: fn.name,
-          description: fn.description,
-          parameters: schemaToJsonSchema(fn.parameters),
-        })),
-      );
-      ids.push(
-        copilotkit.value.addContext({
-          description:
-            "Sandbox functions available in generated sandboxed UI code. Call via Websandbox.connection.remote.<functionName>(args).",
-          value: descriptors,
-        }),
-      );
-    }
+    const ids = ɵbuildOpenGenerativeUIContexts({
+      designSkill,
+      sandboxFunctions: functions,
+    }).map((entry) => copilotkit.value.addContext(entry));
 
     providerContextIds.value = ids;
     onCleanup(() => {
@@ -903,6 +687,7 @@ const licenseBannerType = computed(() => licenseState.value.bannerType);
 // subscriptions. `onUnmounted` runs after the children unmount, so their
 // cleanup still reaches a live core.
 onUnmounted(() => {
+  learningStarter.dispose();
   copilotkit.value.dispose();
 });
 </script>
@@ -913,6 +698,7 @@ onUnmounted(() => {
     v-if="shouldRenderInspector"
     :core="copilotkit"
     :open-request="inspectorOpenRequest"
+    @visibility-change="inspectorVisible = $event"
   />
   <!-- License warnings — driven by server-reported status -->
   <LicenseWarningBanner v-if="licenseBannerType" :type="licenseBannerType" />

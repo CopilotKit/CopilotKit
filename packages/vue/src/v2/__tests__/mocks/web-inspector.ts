@@ -12,6 +12,12 @@ export class WebInspectorElement extends HTMLElement {
   connectedCallback() {
     this.autoAttachCoreAtConnection = this.autoAttachCore;
     this.coreAtConnection = this.core;
+    // The real element reports that it is shown after its first render.
+    this.dispatchEvent(
+      new CustomEvent("cpk-inspector-visibility-change", {
+        detail: { visible: true },
+      }),
+    );
   }
 }
 

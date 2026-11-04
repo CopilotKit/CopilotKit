@@ -6,11 +6,18 @@ import type {
   CustomMessageRendererDef,
   ToolCallRendererDef,
 } from "../renderer-types";
+import type { Message } from "@ag-ui/core";
 import {
+  ɵdescribeActivityRendererFailure,
+  ɵfindActivityRenderer,
+  ɵgetCustomMessageRenderProps,
+  ɵmatchActivityRenderer,
   ɵresolveActivityRenderer,
+  ɵresolveCustomMessageRenderContext,
   ɵresolveCustomMessageRenderers,
   ɵresolveToolCallRenderer,
 } from "../renderers";
+import type { ɵCustomMessageRunSource } from "../renderers";
 
 /** `render` is a label, so a test can say which renderer won. */
 function toolRenderer(
@@ -259,5 +266,182 @@ describe("ɵresolveCustomMessageRenderers", () => {
     const renderers = [customRenderer("other", "agent-b")];
 
     expect(ɵresolveCustomMessageRenderers(renderers, "agent-a")).toEqual([]);
+  });
+});
+
+/** An activity query for agent-a's "surface" message. */
+function query(content: unknown) {
+  return { activityType: "surface", agentId: "agent-a", content };
+}
+
+describe("ɵfindActivityRenderer", () => {
+  it("picks by the same rules without validating content", () => {
+    const renderers = [
+      activityRenderer("strict", "surface", { content: doubledCountSchema }),
+    ];
+
+    expect(
+      ɵfindActivityRenderer(renderers, {
+        activityType: "surface",
+        agentId: "agent-a",
+      })?.render,
+    ).toBe("strict");
+  });
+});
+
+describe("ɵmatchActivityRenderer", () => {
+  it("says no renderer matched", () => {
+    expect(ɵmatchActivityRenderer([], query({}))).toEqual({
+      ok: false,
+      reason: "none",
+    });
+  });
+
+  it("says the content failed the schema, with its issues", () => {
+    const strict = activityRenderer("strict", "surface", {
+      content: doubledCountSchema,
+    });
+
+    const match = ɵmatchActivityRenderer([strict], query({ label: "x" }));
+
+    expect(match.ok).toBe(false);
+    expect(match.ok ? undefined : match.reason).toBe("invalid");
+  });
+
+  it("says the schema validates asynchronously", () => {
+    const async = activityRenderer("async", "surface", {
+      content: asyncSchema,
+    });
+
+    const match = ɵmatchActivityRenderer([async], query({ count: 1 }));
+
+    expect(match.ok ? undefined : match.reason).toBe("async");
+  });
+
+  it("returns the validated content on success", () => {
+    const counter = activityRenderer("counter", "surface", {
+      content: doubledCountSchema,
+    });
+
+    expect(ɵmatchActivityRenderer([counter], query({ count: 2 }))).toEqual({
+      ok: true,
+      renderer: counter,
+      content: 4,
+    });
+  });
+});
+
+describe("ɵdescribeActivityRendererFailure", () => {
+  it("explains a rejected or async content, and nothing when no renderer matched", () => {
+    const issues = [{ message: "count is required" }];
+
+    expect(
+      ɵdescribeActivityRendererFailure("surface", { reason: "none" }),
+    ).toBeNull();
+    expect(
+      ɵdescribeActivityRendererFailure("surface", {
+        reason: "invalid",
+        issues,
+      }),
+    ).toEqual({
+      message:
+        "[CopilotKit] Failed to parse content for activity message 'surface':",
+      details: [issues],
+    });
+    expect(
+      ɵdescribeActivityRendererFailure("surface", { reason: "async" })?.message,
+    ).toBe(
+      "[CopilotKit] Async content validation is not supported for activity message 'surface'.",
+    );
+  });
+});
+
+describe("ɵgetCustomMessageRenderProps", () => {
+  const messages: Message[] = [
+    { id: "u1", role: "user", content: "hi" },
+    { id: "a1", role: "assistant", content: "one" },
+    { id: "a2", role: "assistant", content: "two" },
+  ];
+
+  /** Runs by message id; counts how often the run state is cloned. */
+  function createRunSource(runs: Record<string, string>) {
+    let stateReads = 0;
+    const source: ɵCustomMessageRunSource = {
+      getRunIdForMessage: (_agentId, _threadId, messageId) => runs[messageId],
+      getRunIdsForThread: () => [...new Set(Object.values(runs))],
+      getStateByRun: (_agentId, _threadId, runId) => {
+        stateReads += 1;
+        return { runId };
+      },
+    };
+    return { source, stateReads: () => stateReads };
+  }
+
+  it("places the message in its run and reads the run state lazily", () => {
+    const { source, stateReads } = createRunSource({
+      u1: "run-1",
+      a1: "run-2",
+      a2: "run-2",
+    });
+
+    const props = ɵgetCustomMessageRenderProps(source, {
+      agentId: "agent-a",
+      threadId: "t1",
+      agent: { messages },
+      message: messages[2]!,
+      position: "after",
+    });
+
+    expect(props).toMatchObject({
+      runId: "run-2",
+      messageIndex: 2,
+      messageIndexInRun: 1,
+      numberOfMessagesInRun: 2,
+      agentId: "agent-a",
+      position: "after",
+    });
+    expect(stateReads()).toBe(0);
+    expect(props.stateSnapshot).toEqual({ runId: "run-2" });
+    expect(props.stateSnapshot).toEqual({ runId: "run-2" });
+    expect(stateReads()).toBe(1);
+  });
+
+  it("uses a placeholder run when core knows no run for the message", () => {
+    const { source } = createRunSource({});
+
+    const props = ɵgetCustomMessageRenderProps(source, {
+      agentId: "default",
+      threadId: "t1",
+      agent: undefined,
+      message: messages[1]!,
+      position: "before",
+    });
+
+    expect(props).toMatchObject({
+      runId: "missing-run-id:a1",
+      messageIndex: 0,
+      messageIndexInRun: 0,
+      numberOfMessagesInRun: 1,
+      agentId: "default",
+    });
+    expect(props.stateSnapshot).toBeUndefined();
+  });
+});
+
+describe("ɵresolveCustomMessageRenderContext", () => {
+  it("uses the default agent for a chat with no agent id", () => {
+    const renderers: CustomMessageRendererDef<string>[] = [
+      { render: "for-default", agentId: "default" },
+      { render: "for-other", agentId: "other" },
+      { render: "global" },
+    ];
+
+    const context = ɵresolveCustomMessageRenderContext(renderers, "");
+
+    expect(context.agentId).toBe("default");
+    expect(context.renderers.map(({ render }) => render)).toEqual([
+      "for-default",
+      "global",
+    ]);
   });
 });

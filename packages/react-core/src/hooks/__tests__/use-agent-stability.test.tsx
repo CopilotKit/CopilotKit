@@ -10,6 +10,19 @@ import {
   ProxiedCopilotRuntimeAgent,
 } from "@copilotkit/core";
 
+/** Core's `ɵruntimeInfo` snapshot, built from a fake core's runtime fields. */
+function runtimeInfoOf(core: {
+  runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+  threadEndpoints?: unknown;
+  intelligence?: unknown;
+}) {
+  return {
+    status: core.runtimeConnectionStatus,
+    threadEndpoints: core.threadEndpoints,
+    intelligence: core.intelligence,
+  };
+}
+
 // Mock the CopilotKit context to control copilotkit state directly
 vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
@@ -29,6 +42,7 @@ describe("useAgent stability during runtime connection", () => {
   let mockCopilotkit: {
     getAgent: ReturnType<typeof vi.fn>;
     runtimeUrl: string | undefined;
+    readonly ɵruntimeInfo: unknown;
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
     runtimeTransport: string;
     credentials: RequestCredentials | undefined;
@@ -45,6 +59,9 @@ describe("useAgent stability during runtime connection", () => {
     mockCopilotkit = {
       getAgent: vi.fn(() => undefined),
       runtimeUrl: "http://localhost:3000/api/copilotkit",
+      get ɵruntimeInfo() {
+        return runtimeInfoOf(this);
+      },
       runtimeConnectionStatus:
         CopilotKitCoreRuntimeConnectionStatus.Disconnected,
       runtimeTransport: "rest",
@@ -192,7 +209,6 @@ describe("useAgent stability during runtime connection", () => {
 
     // Phase 1: Disconnected — provisional created
     const { rerender } = render(<AgentTracker />);
-    const provisionalThreadId = agentInstances[0]!.threadId;
 
     // Phase 2: Connecting
     mockCopilotkit.runtimeConnectionStatus =
@@ -222,8 +238,10 @@ describe("useAgent stability during runtime connection", () => {
     // CopilotChat's connect guard ensures connect fires only once (when Connected),
     // so the agent reference change doesn't cause a duplicate connect.
     expect(agentInstances.length).toBe(2);
-    // First instance was the provisional
-    expect(agentInstances[0]!.threadId).toBe(provisionalThreadId);
+    // First instance was the provisional. The hand-off then syncs it with
+    // the registered agent, so its threadId follows the registered one.
+    expect(agentInstances[0]).toBeInstanceOf(ProxiedCopilotRuntimeAgent);
+    expect(agentInstances[0]!.threadId).toBe(registeredAgent.threadId);
     // Second instance is the registered agent
     expect(agentInstances[1]).toBe(registeredAgent);
   });

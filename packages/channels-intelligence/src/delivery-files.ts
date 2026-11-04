@@ -15,7 +15,7 @@ type ManagedImageMime = "image/gif" | "image/jpeg" | "image/png" | "image/webp";
 export function managedImageMimeType(
   filename: string,
 ): ManagedImageMime | undefined {
-  const extension = filename.split(".").pop()?.toLowerCase();
+  const extension = filename.split(".").pop()?.toLowerCase() ?? "";
   switch (extension) {
     case "gif":
       return "image/gif";

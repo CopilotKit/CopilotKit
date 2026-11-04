@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { h } from "vue";
 import { mount } from "@vue/test-utils";
 import type { Message } from "@ag-ui/core";
@@ -22,21 +22,31 @@ function cssRule(selector: string): string {
   return stylesheet.slice(body, stylesheet.indexOf("}", body));
 }
 
+/** Mounted sidebars. Only one docked sidebar may own the page margin. */
+const mounted: { unmount: () => void }[] = [];
+afterEach(() => {
+  for (const wrapper of mounted.splice(0)) wrapper.unmount();
+});
+
 function mountSidebarView(props: Record<string, unknown> = {}) {
-  return mount(CopilotKitProvider, {
+  const wrapper = mount(CopilotKitProvider, {
     props: { runtimeUrl: "/api/copilotkit" },
     slots: {
       default: () =>
         h(CopilotSidebarView, { messages: sampleMessages, ...props }),
     },
   });
+  mounted.push(wrapper);
+  return wrapper;
 }
 
 function mountSidebar(props: Record<string, unknown> = {}) {
-  return mount(CopilotKitProvider, {
+  const wrapper = mount(CopilotKitProvider, {
     props: { agents__unsafe_dev_only: { default: new StateCapturingAgent() } },
     slots: { default: () => h(CopilotSidebar, props) },
   });
+  mounted.push(wrapper);
+  return wrapper;
 }
 
 describe("CopilotSidebarView position prop", () => {
@@ -87,12 +97,26 @@ describe("CopilotSidebarView position prop", () => {
     });
 
     it("makes room for the sidebar on the edge it docks to", () => {
-      const left = mountSidebarView({ position: "left", width: 400 });
-      expect(left.html()).toContain("margin-inline-start: 400px");
-      expect(left.html()).not.toContain("margin-inline-end");
+      const body = document.body.style;
+      mountSidebarView({ position: "left", width: 400 });
+      expect(body.marginInlineStart).toBe("400px");
+      expect(body.marginInlineEnd).toBe("");
+      mounted.pop()?.unmount();
 
-      const right = mountSidebarView({ width: 400 });
-      expect(right.html()).toContain("margin-inline-end: 400px");
+      mountSidebarView({ width: 400 });
+      expect(body.marginInlineEnd).toBe("400px");
+    });
+
+    it("gives the page its own margins back on unmount", () => {
+      const body = document.body.style;
+      body.marginInlineEnd = "16px";
+      mountSidebarView({ width: 400 });
+      expect(body.marginInlineEnd).toBe("400px");
+
+      mounted.pop()?.unmount();
+
+      expect(body.marginInlineEnd).toBe("16px");
+      body.marginInlineEnd = "";
     });
   });
 

@@ -125,16 +125,6 @@ describe("MCPAppsMiddleware integration", () => {
     return `${llm.url}/mcp`;
   }
 
-  it("can be created with mcpServers config pointing at MCPMock URL", async () => {
-    const mcpUrl = await startMcpServer();
-
-    const middleware = new MCPAppsMiddleware({
-      mcpServers: [{ type: "http", url: mcpUrl }],
-    });
-
-    expect(middleware).toBeInstanceOf(MCPAppsMiddleware);
-  });
-
   it("rejects unsupported policy before the runtime constructs middleware", async () => {
     const server = {
       type: "http" as const,

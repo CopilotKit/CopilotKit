@@ -19,6 +19,7 @@ import CopilotChatInput from "./CopilotChatInput";
 import CopilotChatSuggestionView, {
   CopilotChatSuggestionViewProps,
 } from "./CopilotChatSuggestionView";
+import { ɵgetChatViewState } from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import type { Message } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";
@@ -35,8 +36,8 @@ import { CopilotChatDefaultLabels } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import { useKeyboardHeight } from "../../hooks/use-keyboard-height";
 import { ScrollPinnedContext } from "./scroll-pinned-context";
-import { normalizeAutoScroll } from "./normalize-auto-scroll";
-import type { AutoScrollMode } from "./normalize-auto-scroll";
+import { ɵnormalizeAutoScroll as normalizeAutoScroll } from "@copilotkit/core";
+import type { ɵAutoScrollMode as AutoScrollMode } from "@copilotkit/core";
 import { usePinToSend } from "../../hooks/use-pin-to-send";
 
 // Vertical gap between the scroll-to-bottom button and the input container.
@@ -295,15 +296,25 @@ export function CopilotChatView({
     bottomAnchored: true,
   } as CopilotChatInputProps);
 
-  // Hide suggestions while a thread is connecting or a run is in flight.
-  // Otherwise, mid-replay (bootstrap stream from /connect) or mid-run, the
-  // suggestions would render against a still-assembling message tree and
-  // visibly jump as each final text chunk reflows the layout.
-  const hasSuggestions =
-    !isConnecting &&
-    !isRunning &&
-    Array.isArray(suggestions) &&
-    suggestions.length > 0;
+  // Suggestions, the welcome screen and the bottom padding follow core's
+  // rules (ɵgetChatViewState): no suggestions while connecting or running, no
+  // generic welcome for a connecting or caller-picked thread.
+  const {
+    hasSuggestions,
+    showWelcomeScreen,
+    showConnectingIndicator,
+    paddingBottom,
+  } = ɵgetChatViewState({
+    messageCount: messages.length,
+    suggestionCount: Array.isArray(suggestions) ? suggestions.length : 0,
+    isRunning,
+    isConnecting,
+    hasExplicitThreadId,
+    // Type assertion needed because TypeScript doesn't fully propagate `| boolean` through WithSlots
+    welcomeScreenEnabled: (welcomeScreen as unknown) !== false,
+    inputContainerHeight,
+    connectingIndicatorEnabled: connectingIndicator !== false,
+  });
   const BoundSuggestionView = hasSuggestions
     ? renderSlot(suggestionView, CopilotChatSuggestionView, {
         suggestions,
@@ -316,11 +327,11 @@ export function CopilotChatView({
   // Show a loading indicator while a thread's initial connect is in flight
   // and nothing has been restored yet. Once the first message arrives the
   // message view takes over, even if the bootstrap stream is still replaying.
-  const showConnectingIndicator =
-    isConnecting && messages.length === 0 && connectingIndicator !== false;
   const BoundConnectingIndicator = showConnectingIndicator
     ? renderSlot(
-        connectingIndicator === true ? undefined : connectingIndicator,
+        typeof connectingIndicator === "boolean"
+          ? undefined
+          : connectingIndicator,
         CopilotChatView.ConnectingIndicator,
         {},
       )
@@ -335,7 +346,7 @@ export function CopilotChatView({
       <div
         data-testid="copilot-scroll-content"
         style={{
-          paddingBottom: `${inputContainerHeight + (hasSuggestions ? 4 : 32)}px`,
+          paddingBottom: `${paddingBottom}px`,
         }}
       >
         <div className="cpk-chat-view-feed">
@@ -351,19 +362,7 @@ export function CopilotChatView({
     ),
   });
 
-  // Welcome screen logic
-  const isEmpty = messages.length === 0;
-  // Type assertion needed because TypeScript doesn't fully propagate `| boolean` through WithSlots
-  const welcomeScreenDisabled = (welcomeScreen as unknown) === false;
-  // Suppress the welcome screen (1) while the initial connect is in flight
-  // and (2) whenever the caller has picked a specific thread. The caller-
-  // managed case targets a conversation directly, so the generic welcome
-  // greeting is never the right thing to show — even for a thread that
-  // happens to have no messages yet.
-  const shouldShowWelcomeScreen =
-    isEmpty && !welcomeScreenDisabled && !isConnecting && !hasExplicitThreadId;
-
-  if (shouldShowWelcomeScreen) {
+  if (showWelcomeScreen) {
     // Create a separate input for welcome screen with static positioning and disclaimer visible
     const BoundInputForWelcome = renderSlot(input, CopilotChatInput, {
       onSubmitMessage,
@@ -588,7 +587,7 @@ export namespace CopilotChatView {
                 if (scrollEl.clientHeight > 0 && resumeBottom) {
                   resumeBottom = false;
                   pinIntentRef.current = true;
-                  scrollToBottom({ animation: "instant" });
+                  void scrollToBottom({ animation: "instant" });
                 }
               });
             });
@@ -617,7 +616,7 @@ export namespace CopilotChatView {
       (instant = false) => {
         readingOffsetRef.current = null;
         pinIntentRef.current = true;
-        scrollToBottom(instant ? { animation: "instant" } : undefined);
+        void scrollToBottom(instant ? { animation: "instant" } : undefined);
       },
       [scrollToBottom],
     );

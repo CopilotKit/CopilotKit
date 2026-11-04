@@ -30,6 +30,7 @@ import { cn } from "../../utils";
 import { Subject } from "rxjs";
 import { takeUntil } from "rxjs/operators";
 import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
+import { ɵgetChatViewState } from "@copilotkit/core";
 
 /**
  * ScrollView component for CopilotChatView
@@ -77,6 +78,10 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   messageViewChildrenTemplate = input<TemplateRef<any> | undefined>();
   messageViewChildrenClass = input<string | undefined>();
   showCursor = input<boolean>(false);
+  /** `true` while the agent runs. Suggestions hide meanwhile. */
+  isRunning = input<boolean>(false);
+  /** `true` while the thread's connect is loading. Suggestions hide meanwhile. */
+  isConnecting = input<boolean>(false);
   /**
    * How assistant messages show tool calls: `"grouped"` (default), `"line"`,
    * `"stacked"` or `"separate"`. Forwarded to the message view.
@@ -113,13 +118,21 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   protected hasMounted = signal(false);
   protected showScrollButton = signal(false);
   protected isAtBottom = signal(true);
-  protected hasSuggestions = computed(
-    () =>
-      !this.showCursor() && (this.chatState?.suggestions?.() ?? []).length > 0,
+  // Suggestions and the bottom padding follow core's rules: no suggestions
+  // while connecting or running.
+  private readonly viewState = computed(() =>
+    ɵgetChatViewState({
+      messageCount: this.messages().length,
+      suggestionCount: this.chatState?.suggestions?.().length ?? 0,
+      isRunning: this.isRunning(),
+      isConnecting: this.isConnecting(),
+      hasExplicitThreadId: false,
+      welcomeScreenEnabled: false,
+      inputContainerHeight: this.inputContainerHeight(),
+    }),
   );
-  protected paddingBottom = computed(
-    () => this.inputContainerHeight() + (this.hasSuggestions() ? 4 : 32),
-  );
+  protected hasSuggestions = computed(() => this.viewState().hasSuggestions);
+  protected paddingBottom = computed(() => this.viewState().paddingBottom);
 
   // Computed class
   protected computedClass = computed(() => cn(this.inputClass()));

@@ -32,6 +32,26 @@ export type {
   OpenGenerativeUIControllerOptions as ɵOpenGenerativeUIControllerOptions,
 } from "./controller";
 export { loadWebsandbox as ɵloadWebsandbox } from "./websandbox";
+
+// Schemas, built-in tool, agent context and placeholder rotation (internal)
+export {
+  OPEN_GENERATIVE_UI_CONTENT_SCHEMA as ɵOPEN_GENERATIVE_UI_CONTENT_SCHEMA,
+  GENERATE_SANDBOXED_UI_ARGS_SCHEMA as ɵGENERATE_SANDBOXED_UI_ARGS_SCHEMA,
+} from "./schemas";
+export type { OpenGenerativeUISchema as ɵOpenGenerativeUISchema } from "./schemas";
+export {
+  isOpenGenerativeUIActive as ɵisOpenGenerativeUIActive,
+  createOpenGenerativeUITool as ɵcreateOpenGenerativeUITool,
+  buildOpenGenerativeUIContexts as ɵbuildOpenGenerativeUIContexts,
+  OPEN_GENERATIVE_UI_DESIGN_CONTEXT_DESCRIPTION as ɵOPEN_GENERATIVE_UI_DESIGN_CONTEXT_DESCRIPTION,
+  OPEN_GENERATIVE_UI_SANDBOX_FUNCTIONS_CONTEXT_DESCRIPTION as ɵOPEN_GENERATIVE_UI_SANDBOX_FUNCTIONS_CONTEXT_DESCRIPTION,
+} from "./tool";
+export type { OpenGenerativeUISandboxFunction as ɵOpenGenerativeUISandboxFunction } from "./tool";
+export {
+  PlaceholderCycler as ɵPlaceholderCycler,
+  PLACEHOLDER_CYCLE_MS as ɵPLACEHOLDER_CYCLE_MS,
+} from "./placeholder";
+export type { PlaceholderCyclerSnapshot as ɵPlaceholderCyclerSnapshot } from "./placeholder";
 export type {
   SandboxLocalApi as ɵSandboxLocalApi,
   SandboxFunctionHandle as ɵSandboxFunctionHandle,

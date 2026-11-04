@@ -7,7 +7,6 @@
     "target": "ES2022",
     "outDir": "dist",
     "rootDir": "src",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@copilotkit/core": ["../core/dist/index.d.mts", "../core/src/index.ts"],

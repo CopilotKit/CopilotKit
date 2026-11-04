@@ -128,9 +128,14 @@ beforeEach(() => {
   mockOnSubmitMessage.mockClear();
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
     () =>
+      // A partial 2D context: the input measures text, and the recorder's
+      // waveform scales, clears, and fills.
       ({
         measureText: (text: string) => ({ width: text.length * 8 }),
         font: "",
+        scale: () => {},
+        clearRect: () => {},
+        fillRect: () => {},
       }) as unknown as CanvasRenderingContext2D,
   );
 });
@@ -397,6 +402,32 @@ describe("CopilotChatInput", () => {
     });
   });
 
+  it("does not empty the textarea to re-measure it on each keystroke on a phone", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(max-width: 767px)",
+    }));
+    const valueSetter = vi.spyOn(HTMLTextAreaElement.prototype, "value", "set");
+    try {
+      renderWithProvider({
+        listeners: { onSubmitMessage: mockOnSubmitMessage },
+      });
+      const textarea = screen.getByRole("textbox");
+      await fireEvent.input(textarea, { target: { value: "ABCD" } });
+      const grid = textarea.closest("[data-layout]");
+      await waitFor(() => {
+        expect(grid?.getAttribute("data-layout")).toBe("expanded");
+      });
+
+      valueSetter.mockClear();
+      await fireEvent.input(textarea, { target: { value: "AEBCD" } });
+
+      expect(valueSetter).not.toHaveBeenCalledWith("");
+    } finally {
+      valueSetter.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("executes slash commands via keyboard selection", async () => {
     const handleFirst = vi.fn();
     const handleSecond = vi.fn();
@@ -475,6 +506,31 @@ describe("CopilotChatInput", () => {
       expect(updated[0]?.getAttribute("aria-selected")).toBe("true");
       expect(updated[0]?.textContent?.startsWith("Open CopilotKit")).toBe(true);
     });
+  });
+
+  it("opens the slash menu for typed text once commands arrive", async () => {
+    const toolsMenu = ref<{ label: string; action: () => void }[]>([]);
+    const Host = defineComponent({
+      setup: () => () =>
+        h(
+          CopilotChatConfigurationProvider,
+          { threadId: TEST_THREAD_ID },
+          {
+            default: () => h(CopilotChatInput, { toolsMenu: toolsMenu.value }),
+          },
+        ),
+    });
+    render(Host);
+
+    await fireEvent.input(screen.getByRole("textbox"), {
+      target: { value: "/sum" },
+    });
+    expect(screen.queryByTestId("copilot-slash-menu")).toBeNull();
+
+    toolsMenu.value = [{ label: "Summarize", action: vi.fn() }];
+
+    const menu = await screen.findByTestId("copilot-slash-menu");
+    expect(within(menu).getByRole("option").textContent).toContain("Summarize");
   });
 
   it("limits slash menu height when commands exceed five items", async () => {

@@ -1567,3 +1567,60 @@ describe("HITL Run Abort", () => {
     });
   });
 });
+
+describe("HITL parallel calls of one hook tool", () => {
+  it("gives each call its own respond, keyed by tool call id", async () => {
+    let core: ReturnType<typeof useCopilotKit>["copilotkit"] | undefined;
+    const Host: React.FC = () => {
+      core = useCopilotKit().copilotkit;
+      useHumanInTheLoop({
+        name: "parallelApproval",
+        description: "Approve",
+        render: ({ respond, toolCallId }) =>
+          respond ? (
+            <button
+              data-testid={`respond-${toolCallId}`}
+              onClick={() => respond(`answer-${toolCallId}`)}
+            >
+              respond
+            </button>
+          ) : null,
+      });
+      return null;
+    };
+    renderWithCopilotKit({ children: <Host /> });
+
+    const tool = core!.getTool({ toolName: "parallelApproval" })!;
+    const call = (id: string) => ({
+      toolCall: {
+        id,
+        type: "function" as const,
+        function: { name: "parallelApproval", arguments: "{}" },
+      },
+    });
+    const first = tool.handler!({}, call("a"));
+    const second = tool.handler!({}, call("b"));
+
+    const Renderer = core!.renderToolCalls.find(
+      (renderer) => renderer.name === "parallelApproval",
+    )!.render;
+    for (const id of ["b", "a"]) {
+      const view = renderWithCopilotKit({
+        children: (
+          <Renderer
+            name="parallelApproval"
+            toolCallId={id}
+            status={ToolCallStatus.Executing}
+            args={{}}
+            result={undefined}
+          />
+        ),
+      });
+      fireEvent.click(view.getByTestId(`respond-${id}`));
+      view.unmount();
+    }
+
+    await expect(first).resolves.toBe("answer-a");
+    await expect(second).resolves.toBe("answer-b");
+  });
+});

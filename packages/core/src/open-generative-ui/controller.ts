@@ -56,6 +56,13 @@ export interface OpenGenerativeUIState {
   generating: boolean;
   /** The measured height of the final UI, else `initialHeight`, else 200. */
   height: number;
+  /** Show the progress spinner: while the agent is still generating. */
+  showSpinner: boolean;
+  /**
+   * Cover the container with the translucent progress overlay that blocks
+   * interaction: while the agent is still generating.
+   */
+  showOverlay: boolean;
 }
 
 export interface OpenGenerativeUIControllerOptions {
@@ -166,6 +173,8 @@ export class OpenGenerativeUIController {
     phase: "placeholder",
     generating: true,
     height: DEFAULT_HEIGHT,
+    showSpinner: true,
+    showOverlay: true,
   };
 
   constructor(options: OpenGenerativeUIControllerOptions = {}) {
@@ -292,7 +301,7 @@ export class OpenGenerativeUIController {
         );
         slot.sandbox = sandbox;
         prepareIframe(sandbox.iframe, "open-generative-ui-preview-sandbox");
-        sandbox.promise.then(() => {
+        void sandbox.promise.then(() => {
           if (slot.cancelled) return;
           slot.ready = true;
           this.#writePreview();
@@ -346,7 +355,7 @@ export class OpenGenerativeUIController {
         });
         slot.sandbox = sandbox;
         prepareIframe(sandbox.iframe, "open-generative-ui-final-sandbox");
-        sandbox.promise.then(() => {
+        void sandbox.promise.then(() => {
           if (slot.cancelled) return;
           slot.ready = true;
           void sandbox.run(HIDE_SCROLLBARS);
@@ -448,14 +457,17 @@ export class OpenGenerativeUIController {
   #updateState(): void {
     const content = this.#content ?? {};
     const derived = this.#derived;
+    const generating = content.generating !== false;
     const next: OpenGenerativeUIState = {
       phase: derived.fullHtml
         ? "final"
         : derived.previewBody
           ? "preview"
           : "placeholder",
-      generating: content.generating !== false,
+      generating,
       height: this.#measuredHeight ?? content.initialHeight ?? DEFAULT_HEIGHT,
+      showSpinner: generating,
+      showOverlay: generating,
     };
     const current = this.#state;
     if (

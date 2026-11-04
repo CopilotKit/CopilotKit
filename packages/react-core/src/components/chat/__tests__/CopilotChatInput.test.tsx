@@ -469,6 +469,24 @@ describe("CopilotChatInput", () => {
     });
   });
 
+  it("leaves an empty tools group out of the slash menu", async () => {
+    renderWithProvider(
+      <CopilotChatInput
+        onSubmitMessage={mockOnSubmitMessage}
+        toolsMenu={[
+          { label: "Empty group", items: [] },
+          { label: "Summarize", action: vi.fn() },
+        ]}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "/" } });
+
+    const menu = await screen.findByTestId("copilot-slash-menu");
+    const options = within(menu).getAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual(["Summarize"]);
+  });
+
   it("limits slash menu height when commands exceed five items", async () => {
     const tools = Array.from({ length: 6 }, (_, index) => ({
       label: `Command ${index + 1}`,
@@ -549,19 +567,9 @@ describe("CopilotChatInput", () => {
       />,
     );
 
-    // Should show cancel button (X icon) - find by svg class
-    const cancelIcon = container.querySelector("svg.lucide-x");
-    expect(cancelIcon).toBeDefined();
-
-    // Should show finish button (checkmark icon) - find by svg class
-    const finishIcon = container.querySelector("svg.lucide-check");
-    expect(finishIcon).toBeDefined();
-
     // Should show cancel button (X icon) and finish button (check icon)
-    const cancelButton = container.querySelector("svg.lucide-x");
-    const finishButton = container.querySelector("svg.lucide-check");
-    expect(cancelButton).toBeDefined();
-    expect(finishButton).toBeDefined();
+    expect(container.querySelector("svg.lucide-x")).not.toBeNull();
+    expect(container.querySelector("svg.lucide-check")).not.toBeNull();
 
     // Should NOT show transcribe button (mic icon) in transcribe mode
     const transcribeIcon = container.querySelector("svg.lucide-mic");
@@ -606,7 +614,7 @@ describe("CopilotChatInput", () => {
 
     // Should show recording indicator (canvas element)
     const recordingIndicator = container.querySelector("canvas");
-    expect(recordingIndicator).toBeDefined();
+    expect(recordingIndicator).not.toBeNull();
 
     // Should NOT show textarea in transcribe mode
     expect(screen.queryByRole("textbox")).toBeNull();

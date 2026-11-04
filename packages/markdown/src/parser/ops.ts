@@ -194,8 +194,12 @@ function opToAstNode(
         tight: op.props["tight"] as boolean,
         children,
       };
-    case "list-item":
-      return { ...base, type: "list-item", children };
+    case "list-item": {
+      const checked = op.props["checked"] as boolean | undefined;
+      return checked === undefined
+        ? { ...base, type: "list-item", children }
+        : { ...base, type: "list-item", checked, children };
+    }
     case "code-block":
       return {
         ...base,
@@ -269,7 +273,14 @@ function opToAstNode(
         url: op.props["url"] as string,
         text: op.props["text"] as string,
       };
-    default:
+    case "math":
+      return {
+        ...base,
+        type: "math",
+        text: op.props["text"] as string,
+        display: op.props["display"] as boolean,
+      };
+    case "citation":
       return {
         ...base,
         type: "citation",

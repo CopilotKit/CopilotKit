@@ -1,5 +1,5 @@
 import React, { forwardRef, useImperativeHandle, useRef } from "react";
-import { render, fireEvent, screen } from "@testing-library/react";
+import { render, fireEvent, screen, within } from "@testing-library/react";
 import { vi } from "vitest";
 import "@testing-library/jest-dom";
 import type { SlotValue } from "../slots";
@@ -235,13 +235,7 @@ describe("renderSlot", () => {
 
       expect(ref.current).toBeInstanceOf(HTMLInputElement);
       // Check if the custom component was actually used
-      const customInput = screen.queryByTestId("custom-input");
-      if (customInput) {
-        expect(customInput).toBe(ref.current);
-      } else {
-        // If custom component wasn't used, this is a bug in renderSlot
-        expect(ref.current).toBeInstanceOf(HTMLInputElement);
-      }
+      expect(screen.getByTestId("custom-input")).toBe(ref.current);
     });
 
     test("works with useImperativeHandle", () => {
@@ -470,18 +464,16 @@ describe("renderSlot", () => {
         return <div>{value}</div>;
       };
 
-      const element1 = renderSlot(undefined, TrackedComponent, {
-        value: "test",
-      });
-      const element2 = renderSlot(undefined, TrackedComponent, {
-        value: "test",
-      });
+      const { rerender } = render(
+        renderSlot(undefined, TrackedComponent, { value: "test" }),
+      );
+      // Shallowly equal props: the memoized wrapper skips the render.
+      rerender(renderSlot(undefined, TrackedComponent, { value: "test" }));
+      expect(renderSpy).toHaveBeenCalledTimes(1);
 
-      render(element1);
-      render(element2);
-
+      rerender(renderSlot(undefined, TrackedComponent, { value: "next" }));
       expect(renderSpy).toHaveBeenCalledTimes(2);
-      expect(renderSpy).toHaveBeenCalledWith("test");
+      expect(renderSpy).toHaveBeenLastCalledWith("next");
     });
 
     test("handles large prop objects efficiently", () => {
@@ -536,13 +528,9 @@ describe("renderSlot", () => {
       });
       render(element);
 
-      const customElement = screen.queryByTestId("definitely-custom");
-      if (customElement) {
-        expect(customElement).toHaveTextContent("custom content");
-      } else {
-        // Fallback assertion to show what actually renders
-        expect(screen.getByText("custom content")).toBeInTheDocument();
-      }
+      expect(screen.getByTestId("definitely-custom")).toHaveTextContent(
+        "custom content",
+      );
     });
 
     test("React.createElement vs JSX differences", () => {
@@ -578,12 +566,11 @@ describe("renderSlot", () => {
       render(element);
 
       // Check if nested structure is preserved
-      const wrapper = screen.queryByTestId("nested-wrapper");
-      const inner = screen.queryByTestId("nested-inner");
-
-      if (wrapper && inner) {
-        expect(inner).toHaveTextContent("nested content");
-      }
+      expect(
+        within(screen.getByTestId("nested-wrapper")).getByTestId(
+          "nested-inner",
+        ),
+      ).toHaveTextContent("nested content");
     });
   });
 });

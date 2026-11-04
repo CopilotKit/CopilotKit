@@ -4,11 +4,12 @@ import type {
   ReactToolCallRenderer,
 } from "../types";
 import type { ReactCustomMessageRenderer } from "../types/react-custom-message-renderer";
-import { CopilotKitCore } from "@copilotkit/core";
+import { CopilotKitCore, ɵRendererRegistry } from "@copilotkit/core";
 import type {
   CopilotKitCoreConfig,
   CopilotKitCoreSubscriber,
   CopilotKitCoreSubscription,
+  ɵRendererKind,
 } from "@copilotkit/core";
 
 export interface CopilotKitCoreReactConfig extends CopilotKitCoreConfig {
@@ -23,7 +24,15 @@ export interface CopilotKitCoreReactConfig extends CopilotKitCoreConfig {
 export interface CopilotKitCoreReactSubscriber extends CopilotKitCoreSubscriber {
   onRenderToolCallsChanged?: (event: {
     copilotkit: CopilotKitCore;
-    renderToolCalls: ReactToolCallRenderer<any>[];
+    renderToolCalls: readonly ReactToolCallRenderer<any>[];
+  }) => void | Promise<void>;
+  onRenderActivityMessagesChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    renderActivityMessages: readonly ReactActivityMessageRenderer<any>[];
+  }) => void | Promise<void>;
+  onRenderCustomMessagesChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    renderCustomMessages: readonly ReactCustomMessageRenderer[];
   }) => void | Promise<void>;
   onInterruptElementChanged?: (event: {
     copilotkit: CopilotKitCore;
@@ -49,108 +58,100 @@ function waitForReactCommit() {
 }
 
 export class CopilotKitCoreReact extends CopilotKitCore {
-  private _renderToolCalls: ReactToolCallRenderer<any>[] = [];
-  private _hookRenderToolCalls: Map<string, ReactToolCallRenderer<any>> =
-    new Map();
-  private _cachedMergedRenderToolCalls: ReactToolCallRenderer<any>[] | null =
-    null;
-  private _renderCustomMessages: ReactCustomMessageRenderer[] = [];
-  private _renderActivityMessages: ReactActivityMessageRenderer<any>[] = [];
-  private _interruptElement: React.ReactElement | null = null;
+  private readonly _renderers: ɵRendererRegistry<
+    ReactToolCallRenderer<any>,
+    ReactActivityMessageRenderer<any>,
+    ReactCustomMessageRenderer
+  >;
 
   constructor(config: CopilotKitCoreReactConfig) {
     super({
       ...config,
       ɵwaitForFrameworkUpdates: waitForReactCommit,
     });
-    this._renderToolCalls = config.renderToolCalls ?? [];
-    this._renderCustomMessages = config.renderCustomMessages ?? [];
-    this._renderActivityMessages = config.renderActivityMessages ?? [];
+    this._renderers = new ɵRendererRegistry({
+      toolCalls: config.renderToolCalls,
+      activity: config.renderActivityMessages,
+      custom: config.renderCustomMessages,
+    });
+    this._renderers.subscribe((kind) => this.notifyRenderersChanged(kind));
+    // The element lives in core's generic interrupt slot; keep the React
+    // subscriber event for existing listeners.
+    this.ɵsubscribeToInterruptPayload(() => {
+      void this.notifySubscribers((subscriber) => {
+        const reactSubscriber = subscriber as CopilotKitCoreReactSubscriber;
+        return reactSubscriber.onInterruptElementChanged?.({
+          copilotkit: this,
+          interruptElement: this.interruptElement,
+        });
+      }, "Subscriber onInterruptElementChanged error:");
+    });
   }
 
-  get renderCustomMessages(): Readonly<ReactCustomMessageRenderer[]> {
-    return this._renderCustomMessages;
+  get renderCustomMessages() {
+    return this._renderers.custom;
   }
 
-  get renderActivityMessages(): Readonly<ReactActivityMessageRenderer<any>>[] {
-    return this._renderActivityMessages;
+  get renderActivityMessages() {
+    return this._renderers.activity;
   }
 
-  get renderToolCalls(): Readonly<ReactToolCallRenderer<any>>[] {
-    if (this._hookRenderToolCalls.size === 0) {
-      return this._renderToolCalls;
-    }
-    if (this._cachedMergedRenderToolCalls) {
-      return this._cachedMergedRenderToolCalls;
-    }
-    // Merge: hook entries override prop entries with the same key
-    const merged = new Map<string, ReactToolCallRenderer<any>>();
-    for (const rc of this._renderToolCalls) {
-      merged.set(`${rc.agentId ?? ""}:${rc.name}`, rc);
-    }
-    for (const [key, rc] of this._hookRenderToolCalls) {
-      merged.set(key, rc);
-    }
-    this._cachedMergedRenderToolCalls = Array.from(merged.values());
-    return this._cachedMergedRenderToolCalls;
+  /** Prop and hook renderers merged; a hook renderer wins over a prop one. */
+  get renderToolCalls() {
+    return this._renderers.toolCalls;
   }
 
   setRenderActivityMessages(
     renderers: ReactActivityMessageRenderer<any>[],
   ): void {
-    this._renderActivityMessages = renderers;
+    this._renderers.setActivity(renderers);
   }
 
   setRenderCustomMessages(renderers: ReactCustomMessageRenderer[]): void {
-    this._renderCustomMessages = renderers;
+    this._renderers.setCustom(renderers);
   }
 
   setRenderToolCalls(renderToolCalls: ReactToolCallRenderer<any>[]): void {
-    this._renderToolCalls = renderToolCalls;
-    this._cachedMergedRenderToolCalls = null;
-    this._notifyRenderToolCallsChanged();
+    this._renderers.setPropToolCalls(renderToolCalls);
   }
 
   addHookRenderToolCall(entry: ReactToolCallRenderer<any>): void {
-    const key = `${entry.agentId ?? ""}:${entry.name}`;
-    this._hookRenderToolCalls.set(key, entry);
-    this._cachedMergedRenderToolCalls = null;
-    this._notifyRenderToolCallsChanged();
+    this._renderers.addHookToolCall(entry);
   }
 
   removeHookRenderToolCall(name: string, agentId?: string): void {
-    const key = `${agentId ?? ""}:${name}`;
-    if (this._hookRenderToolCalls.delete(key)) {
-      this._cachedMergedRenderToolCalls = null;
-      this._notifyRenderToolCallsChanged();
-    }
+    this._renderers.removeHookToolCall(name, agentId);
   }
 
-  private _notifyRenderToolCallsChanged(): void {
+  private notifyRenderersChanged(kind: ɵRendererKind): void {
     void this.notifySubscribers((subscriber) => {
       const reactSubscriber = subscriber as CopilotKitCoreReactSubscriber;
-      if (reactSubscriber.onRenderToolCallsChanged) {
-        reactSubscriber.onRenderToolCallsChanged({
-          copilotkit: this,
-          renderToolCalls: this.renderToolCalls,
-        });
+      switch (kind) {
+        case "toolCalls":
+          return reactSubscriber.onRenderToolCallsChanged?.({
+            copilotkit: this,
+            renderToolCalls: this.renderToolCalls,
+          });
+        case "activity":
+          return reactSubscriber.onRenderActivityMessagesChanged?.({
+            copilotkit: this,
+            renderActivityMessages: this.renderActivityMessages,
+          });
+        case "custom":
+          return reactSubscriber.onRenderCustomMessagesChanged?.({
+            copilotkit: this,
+            renderCustomMessages: this.renderCustomMessages,
+          });
       }
-    }, "Subscriber onRenderToolCallsChanged error:");
+    }, `Subscriber renderer change (${kind}) error:`);
   }
 
   get interruptElement(): React.ReactElement | null {
-    return this._interruptElement;
+    return this.ɵinterruptPayload as React.ReactElement | null;
   }
 
   setInterruptElement(element: React.ReactElement | null): void {
-    this._interruptElement = element;
-    void this.notifySubscribers((subscriber) => {
-      const reactSubscriber = subscriber as CopilotKitCoreReactSubscriber;
-      reactSubscriber.onInterruptElementChanged?.({
-        copilotkit: this,
-        interruptElement: this._interruptElement,
-      });
-    }, "Subscriber onInterruptElementChanged error:");
+    this.ɵsetInterruptPayload(element);
   }
 
   // Override to accept React-specific subscriber type

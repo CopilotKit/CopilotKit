@@ -18,6 +18,12 @@ import {
 } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import type { Attachment } from "@copilotkit/shared";
+import { CopilotChatView } from "../copilot-chat-view";
+import {
+  emitInspectorViewThread,
+  onInspectorViewThreadResult,
+} from "@copilotkit/core";
+import type { InspectorViewThreadResultPayload } from "@copilotkit/core";
 import { CopilotChat } from "../copilot-chat";
 import { provideCopilotKit } from "../../../config";
 import {
@@ -264,6 +270,13 @@ describe("CopilotChat", () => {
       configurable: true,
       value: () => undefined,
     });
+    // The fixtures set a licenseKey and no runtimeUrl, so CopilotKit asks
+    // Copilot Cloud for /info. Keep that request off the network: a real
+    // 401 would log runtime_info_fetch_failed into tests that spy on
+    // console.error. Tests that need a response mock fetch themselves.
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      () => new Promise<Response>(() => {}),
+    );
     TestBed.resetTestingModule();
   });
   afterEach(() => {
@@ -283,6 +296,26 @@ describe("CopilotChat", () => {
 
         expect(config.hasExplicitThreadId()).toBe(false);
         expect(welcomeScreen()).not.toBeNull();
+      });
+
+      test("hides the welcome screen when [welcomeScreen] is false", () => {
+        const { fixture, welcomeScreen } = context;
+
+        fixture.componentRef.setInput("welcomeScreen", false);
+        fixture.detectChanges();
+
+        expect(welcomeScreen()).toBeNull();
+      });
+
+      test("passes [autoScroll] through to the chat view", () => {
+        const { fixture } = context;
+
+        fixture.componentRef.setInput("autoScroll", false);
+        fixture.detectChanges();
+
+        const view = fixture.debugElement.query(By.directive(CopilotChatView))
+          .componentInstance as CopilotChatView;
+        expect(view.autoScroll()).toBe(false);
       });
 
       test("hides the welcome screen once the configuration activates an explicit thread", () => {
@@ -827,7 +860,7 @@ describe("CopilotChat", () => {
         fixture.detectChanges();
         await vi.waitFor(() =>
           expect(log).toHaveBeenCalledWith(
-            "[CopilotKit] Failed to connect to agent:",
+            "CopilotChat: connection failed",
             error,
           ),
         );
@@ -845,6 +878,55 @@ describe("CopilotChat", () => {
         await vi.waitFor(() => expect(connect).toHaveBeenCalledOnce());
         await vi.waitFor(() => expect(readShowCursor(fixture)).toBe(false));
         expect(log).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("inspector thread override", () => {
+      test("connects to the thread the Inspector asks to view", async () => {
+        const { fixture, core } = createChatFixture();
+        const connect = vi.spyOn(core, "connectAgent").mockResolvedValue({
+          result: undefined,
+          newMessages: [],
+        });
+
+        const claimed = emitInspectorViewThread({
+          requestId: "inspect-1",
+          threadId: "inspected",
+          agentId: "default",
+        });
+        fixture.detectChanges();
+
+        expect(claimed).toBe(true);
+        await vi.waitFor(() => expect(connect).toHaveBeenCalledOnce());
+        expect(connect.mock.calls[0]![0].agent.threadId).toBe("inspected");
+      });
+
+      test("reports a failed connect to the Inspector and gives up the thread", async () => {
+        const { fixture, core } = createChatFixture();
+        vi.spyOn(core, "connectAgent").mockRejectedValue(new Error("down"));
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        const results: InspectorViewThreadResultPayload[] = [];
+        const off = onInspectorViewThreadResult((payload) =>
+          results.push(payload),
+        );
+
+        emitInspectorViewThread({
+          requestId: "inspect-2",
+          threadId: "inspected",
+          agentId: "default",
+        });
+        fixture.detectChanges();
+
+        await vi.waitFor(() =>
+          expect(results.at(-1)).toEqual({
+            requestId: "inspect-2",
+            threadId: "inspected",
+            agentId: "default",
+            ok: false,
+            reason: "connect-failed",
+          }),
+        );
+        off();
       });
     });
 

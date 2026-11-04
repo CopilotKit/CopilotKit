@@ -2,122 +2,31 @@ import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
-import { ToolCallStatus } from "@copilotkit/core";
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { ɵbuildHumanInTheLoopTool, ɵhitlRenderProps } from "@copilotkit/core";
+import { useCallback, useLayoutEffect } from "react";
 import React from "react";
 import { useFrontendTool } from "./use-frontend-tool";
-
-/** Registration name of a catch-all tool: handles any otherwise-unhandled call. */
-const WILDCARD_TOOL_NAME = "*";
 
 export function useHumanInTheLoop<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(tool: ReactHumanInTheLoop<T>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
-  const resolvePromiseRef = useRef<((result: unknown) => void) | null>(null);
-  // Cleanup that detaches the pending abort listener; cleared whenever the
-  // promise settles (via respond() or abort) so the listener can't fire twice
-  // or leak after the interaction is done.
-  const cleanupAbortRef = useRef<(() => void) | null>(null);
-
-  const respond = useCallback(async (result: unknown) => {
-    if (resolvePromiseRef.current) {
-      cleanupAbortRef.current?.();
-      cleanupAbortRef.current = null;
-      resolvePromiseRef.current(result);
-      resolvePromiseRef.current = null;
-    }
-  }, []);
-
-  const handler = useCallback(
-    async (_args: T, context?: { signal?: AbortSignal }) => {
-      const signal = context?.signal;
-      return new Promise((resolve, reject) => {
-        // If the run was already aborted before the handler ran, reject
-        // immediately so core records an explicit error tool result instead of
-        // silently resolving to an empty string.
-        if (signal?.aborted) {
-          reject(new Error("Human-in-the-loop interaction aborted"));
-          return;
-        }
-
-        resolvePromiseRef.current = resolve;
-
-        if (signal) {
-          const onAbort = () => {
-            cleanupAbortRef.current = null;
-            resolvePromiseRef.current = null;
-            reject(new Error("Human-in-the-loop interaction aborted"));
-          };
-          signal.addEventListener("abort", onAbort, { once: true });
-          cleanupAbortRef.current = () => {
-            signal.removeEventListener("abort", onAbort);
-          };
-        }
-      });
-    },
-    [],
-  );
+  // Core parks each call by tool call id, so parallel calls of this tool
+  // (or of a "*" catch-all) each get their own `respond`.
+  const registry = copilotkit.ɵhumanInTheLoop;
 
   const RenderComponent: ReactToolCallRenderer<T>["render"] = useCallback(
-    (props) => {
-      const ToolComponent = tool.render;
-
-      // Build the HITL render props per status. `props` already carries
-      // `toolCallId`; we overwrite `name`/`description` with the tool's
-      // registration values and add the registration `agentId`, so the HITL
-      // render always receives the full prop contract. `respond` is only live
-      // while the tool is executing.
-      //
-      // A catch-all registration is the exception: `"*"` is not the name of
-      // anything the agent called, so the incoming `props.name` — the tool
-      // actually being handled — is kept instead. It is what lets one
-      // catch-all render serve N tools.
-      const name = tool.name === WILDCARD_TOOL_NAME ? props.name : tool.name;
-
-      if (props.status === ToolCallStatus.InProgress) {
-        const enhancedProps = {
-          ...props,
-          name,
-          description: tool.description || "",
-          agentId: tool.agentId,
-          respond: undefined,
-        };
-        return React.createElement(ToolComponent, enhancedProps);
-      } else if (props.status === ToolCallStatus.Executing) {
-        const enhancedProps = {
-          ...props,
-          name,
-          description: tool.description || "",
-          agentId: tool.agentId,
-          respond,
-        };
-        return React.createElement(ToolComponent, enhancedProps);
-      } else if (props.status === ToolCallStatus.Complete) {
-        const enhancedProps = {
-          ...props,
-          name,
-          description: tool.description || "",
-          agentId: tool.agentId,
-          respond: undefined,
-        };
-        return React.createElement(ToolComponent, enhancedProps);
-      }
-
-      // ToolCallStatus has only the three states handled above, so this point
-      // is unreachable and `props` narrows to `never`. The assignment turns a
-      // newly-added status into a compile error here — forcing it to get its
-      // own branch above — instead of silently rendering without `respond`.
-      const exhaustiveCheck: never = props;
-      return exhaustiveCheck;
-    },
-    [tool.render, tool.name, tool.description, tool.agentId, respond],
+    (props) =>
+      React.createElement(
+        tool.render,
+        ɵhitlRenderProps<T, typeof props>(props, tool, registry),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tool is a fresh object each render; depend on the fields the renderer reads
+    [tool.render, tool.name, tool.description, tool.agentId, registry],
   );
 
   const frontendTool: ReactFrontendTool<T> = {
-    ...tool,
-    type: "human-in-the-loop",
-    handler,
+    ...ɵbuildHumanInTheLoopTool<T>(tool, registry),
     render: RenderComponent,
   };
 

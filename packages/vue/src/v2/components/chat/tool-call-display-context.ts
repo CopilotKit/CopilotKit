@@ -1,5 +1,8 @@
 import type { ComputedRef, InjectionKey } from "vue";
-import type { ɵToolCallDisplayContextValue } from "@copilotkit/core";
+import type {
+  ɵToolCallDisplayContextValue,
+  ɵToolCallRowStatus,
+} from "@copilotkit/core";
 
 /**
  * Provided by the message view so each message's tool calls follow the view's
@@ -18,6 +21,8 @@ export const ToolCallDisplayContextKey: InjectionKey<
 export interface ToolCallGroupContextValue {
   appearance: "card" | "line" | "stack";
   failedIds: ReadonlySet<string>;
+  /** Each call's row status, by call id. */
+  statusById: ReadonlyMap<string, ɵToolCallRowStatus>;
   /** The agent may still finish the group's calls; see `isActive`. */
   active: boolean;
 }

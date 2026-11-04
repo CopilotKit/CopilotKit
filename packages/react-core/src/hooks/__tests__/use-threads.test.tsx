@@ -15,6 +15,19 @@ import {
   ɵMAX_SOCKET_RETRIES,
 } from "@copilotkit/core";
 
+/** Core's `ɵruntimeInfo` snapshot, built from a fake core's runtime fields. */
+function runtimeInfoOf(core: {
+  runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+  threadEndpoints?: unknown;
+  intelligence?: unknown;
+}) {
+  return {
+    status: core.runtimeConnectionStatus,
+    threadEndpoints: core.threadEndpoints,
+    intelligence: core.intelligence,
+  };
+}
+
 vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
 }));
@@ -213,6 +226,9 @@ function setupCopilotKit(runtimeUrl = "http://localhost:4000") {
   mockUseCopilotKit.mockReturnValue({
     copilotkit: {
       runtimeUrl,
+      get ɵruntimeInfo() {
+        return runtimeInfoOf(this);
+      },
       runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
       headers: { Authorization: "Bearer test-token" },
       threadEndpoints: supportedThreadEndpoints,
@@ -396,6 +412,9 @@ describe("useThreads", () => {
     mockUseCopilotKit.mockReturnValue({
       copilotkit: {
         runtimeUrl: "http://localhost:4000",
+        get ɵruntimeInfo() {
+          return runtimeInfoOf(this);
+        },
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connected,
         headers: {},
@@ -416,6 +435,9 @@ describe("useThreads", () => {
     mockUseCopilotKit.mockReturnValue({
       copilotkit: {
         runtimeUrl: "http://localhost:4000",
+        get ɵruntimeInfo() {
+          return runtimeInfoOf(this);
+        },
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connected,
         headers: { Authorization: "Bearer test-token" },
@@ -449,6 +471,9 @@ describe("useThreads", () => {
     mockUseCopilotKit.mockReturnValue({
       copilotkit: {
         runtimeUrl: "http://localhost:4000",
+        get ɵruntimeInfo() {
+          return runtimeInfoOf(this);
+        },
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connected,
         headers: { Authorization: "Bearer test-token" },
@@ -482,6 +507,9 @@ describe("useThreads", () => {
     mockUseCopilotKit.mockReturnValue({
       copilotkit: {
         runtimeUrl: "http://localhost:4000",
+        get ɵruntimeInfo() {
+          return runtimeInfoOf(this);
+        },
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connected,
         headers: { Authorization: "Bearer test-token" },
@@ -881,6 +909,9 @@ describe("useThreads", () => {
     mockUseCopilotKit.mockReturnValue({
       copilotkit: {
         runtimeUrl: "http://localhost:4000",
+        get ɵruntimeInfo() {
+          return runtimeInfoOf(this);
+        },
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connected,
         headers: { Authorization: "Bearer test-token" },
@@ -919,6 +950,9 @@ describe("useThreads", () => {
     mockUseCopilotKit.mockReturnValue({
       copilotkit: {
         runtimeUrl: "http://localhost:4000",
+        get ɵruntimeInfo() {
+          return runtimeInfoOf(this);
+        },
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connecting,
         headers: { Authorization: "Bearer test-token" },
@@ -961,6 +995,9 @@ describe("useThreads", () => {
     mockUseCopilotKit.mockReturnValue({
       copilotkit: {
         runtimeUrl: "http://localhost:4000",
+        get ɵruntimeInfo() {
+          return runtimeInfoOf(this);
+        },
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connected,
         headers: { Authorization: "Bearer test-token" },

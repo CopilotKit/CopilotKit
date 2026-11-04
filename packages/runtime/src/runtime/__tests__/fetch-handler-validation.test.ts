@@ -309,7 +309,9 @@ describe("fetch-handler validation — multi-route edge cases", () => {
 
   it("CORS headers present on 500 error responses", async () => {
     const agent: unknown = {
-      execute: vi.fn().mockRejectedValue(new Error("boom")),
+      setMessages: () => {
+        throw new Error("boom");
+      },
       clone: () => agent,
     };
     const errorRuntime = createRuntime({ default: agent as AbstractAgent });
@@ -323,9 +325,13 @@ describe("fetch-handler validation — multi-route edge cases", () => {
       post("http://localhost/api/agent/default/run", {
         threadId: "t1",
         runId: "r1",
+        state: {},
+        messages: [],
+        tools: [],
+        context: [],
       }),
     );
-    expect(response).toBeInstanceOf(Response);
+    expect(response.status).toBe(500);
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 

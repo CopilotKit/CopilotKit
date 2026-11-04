@@ -18,6 +18,10 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
+    "./chat-configuration": {
+      "import": "./dist/chat-configuration.mjs",
+      "require": "./dist/chat-configuration.cjs"
+    },
     "./styles": {
       "import": "./dist/styles.mjs",
       "require": "./dist/styles.cjs"
@@ -61,6 +65,7 @@
     "arktype": "^2.1.29",
     "cross-env": "^10.1.0",
     "esbuild": "^0.27.0",
+    "jsdom": "^29.1.0",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "valibot": "^1.2.0",

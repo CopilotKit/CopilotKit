@@ -243,7 +243,7 @@ Before you begin, you'll need the following:
           import {
             CopilotRuntime,
             createCopilotRuntimeHandler,
-          } from "@copilotkit/runtime/v2";
+          } from "@copilotkit/runtime";
           import type { NextRequest } from "next/server";
 
           const runtime = new CopilotRuntime({
@@ -267,20 +267,19 @@ Before you begin, you'll need the following:
         <Step>
           ### Mount CopilotKit in React
 
-          Wrap your app with `CopilotKit` and target the agent name you registered in the runtime route.
+          Wrap your app with `CopilotKitProvider` and target the agent name you registered in the runtime route.
 
           ```tsx title="app/layout.tsx"
-          import { CopilotKit } from "@copilotkit/react-core/v2";
-          import "@copilotkit/react-core/v2/styles.css";
+          import { CopilotKitProvider } from "@copilotkit/react-core";
           import "./globals.css";
 
           export default function RootLayout({ children }: { children: React.ReactNode }) {
             return (
               <html lang="en">
                 <body>
-                  <CopilotKit runtimeUrl="/api/copilotkit" agent="antigravity_agent">
+                  <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="antigravity_agent">
                     {children}
-                  </CopilotKit>
+                  </CopilotKitProvider>
                 </body>
               </html>
             );
@@ -300,7 +299,7 @@ Before you begin, you'll need the following:
           ```tsx title="app/page.tsx"
           "use client";
 
-          import { CopilotSidebar } from "@copilotkit/react-core/v2";
+          import { CopilotSidebar } from "@copilotkit/react-core";
 
           export default function Page() {
             return (

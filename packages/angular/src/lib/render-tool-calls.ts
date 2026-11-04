@@ -7,14 +7,8 @@ import {
   input,
   ChangeDetectionStrategy,
 } from "@angular/core";
-import type {
-  AssistantMessage,
-  Message,
-  ToolCall,
-  ToolMessage,
-} from "@ag-ui/client";
+import type { AssistantMessage, Message, ToolCall } from "@ag-ui/client";
 import type { AbstractAgent } from "@ag-ui/client";
-import { contentToText } from "@ag-ui/client";
 import { CopilotKit } from "./copilotkit";
 import type {
   FrontendToolConfig,
@@ -23,9 +17,14 @@ import type {
   AngularToolCall,
   RenderToolCallConfig,
 } from "./tools";
-import { DEFAULT_AGENT_ID, partialJSONParse } from "@copilotkit/shared";
-import { ɵresolveToolCallRenderer } from "@copilotkit/core";
-import { HumanInTheLoop } from "./human-in-the-loop";
+import {
+  ToolCallStatus,
+  ɵbuildToolCallRenderProps,
+  ɵfindToolMessage,
+  ɵparseToolCallArguments,
+  ɵresolveToolCallAgentId,
+  ɵresolveToolCallRenderer,
+} from "@copilotkit/core";
 import { CopilotDefaultToolRenderer } from "./components/tools/default-tool-renderer";
 import { TOOL_CALL_RENDER_CONTEXT } from "./components/tools/tool-call-render-context";
 import type { ToolCallRenderContext } from "./components/tools/tool-call-render-context";
@@ -53,28 +52,15 @@ export type ToolCallHandler =
   | HumanInTheLoopToolCallHandler
   | BuiltInToolCallHandler;
 
-/** Parse tool-call arguments without allowing malformed payloads to escape. */
+/**
+ * Parse tool-call arguments without allowing malformed payloads to escape.
+ * See `ɵparseToolCallArguments` in `@copilotkit/core` for the rules.
+ */
 export function parseToolCallArguments(
   rawArguments: string,
   allowPartial = false,
 ): Record<string, unknown> {
-  try {
-    const parsed = allowPartial
-      ? partialJSONParse(rawArguments)
-      : JSON.parse(rawArguments);
-
-    if (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      !Array.isArray(parsed)
-    ) {
-      return parsed as Record<string, unknown>;
-    }
-
-    return { _value: parsed };
-  } catch {
-    return { _raw: rawArguments };
-  }
+  return ɵparseToolCallArguments(rawArguments, { partial: allowPartial });
 }
 
 interface PickToolCallHandlerOptions {
@@ -203,7 +189,6 @@ export function pickToolCallHandler(
 })
 export class RenderToolCall {
   readonly #copilotKit = inject(CopilotKit);
-  readonly #hitl = inject(HumanInTheLoop);
   readonly #injector = inject(Injector);
   readonly toolCall = input.required<ToolCall>();
   /** The assistant message the call belongs to (or whose group it joined). */
@@ -235,9 +220,7 @@ export class RenderToolCall {
   protected pickRenderer(name: string): ToolCallHandler | undefined {
     return pickToolCallHandler({
       name,
-      // React and Vue look up renderers for the default agent when the chat
-      // names none, so a renderer scoped to it wins over a global one.
-      agentId: this.agentId() ?? this.#messageAgentId() ?? DEFAULT_AGENT_ID,
+      agentId: ɵresolveToolCallAgentId(this.agentId(), this.#messageAgentId()),
       application: this.#copilotKit.toolCallRenderConfigs(),
       frontend: this.#copilotKit.clientToolCallRenderConfigs(),
       humanInTheLoop: this.#copilotKit.humanInTheLoopToolRenderConfigs(),
@@ -248,34 +231,30 @@ export class RenderToolCall {
   protected buildToolCall<Args extends Record<string, unknown>>(
     toolCall: ToolCall,
   ): AngularToolCall<Args> {
-    const args = parseToolCallArguments(
-      toolCall.function.arguments,
-      this.isLoading(),
-    ) as Args;
-    const message = this.#getToolMessage(toolCall.id);
-
-    if (message) {
-      return {
-        name: toolCall.function.name,
-        args,
-        status: "complete",
-        result: contentToText(message.content),
-      };
-    } else if (this.isLoading()) {
-      return {
-        name: toolCall.function.name,
-        args,
-        status: "in-progress",
-        result: undefined,
-      };
-    } else {
-      return {
-        name: toolCall.function.name,
-        args,
-        status: "executing",
-        result: undefined,
-      };
+    const props = this.#buildCoreProps(toolCall);
+    const name = toolCall.function.name;
+    // Core parses the arguments into an object; `Args` is the renderer's
+    // declared shape for them.
+    const args = props.args as Args;
+    switch (props.status) {
+      case ToolCallStatus.Complete:
+        return { name, args, status: "complete", result: props.result };
+      case ToolCallStatus.Executing:
+        return { name, args, status: "executing", result: undefined };
+      case ToolCallStatus.InProgress:
+        return { name, args, status: "in-progress", result: undefined };
     }
+  }
+
+  /** Status, arguments and result from core, using its executing calls. */
+  #buildCoreProps(toolCall: ToolCall) {
+    return ɵbuildToolCallRenderProps(
+      toolCall,
+      ɵfindToolMessage(this.messages(), toolCall.id),
+      {
+        isExecuting: this.#copilotKit.executingToolCallIds().has(toolCall.id),
+      },
+    );
   }
 
   protected buildRendererInputs<Args extends Record<string, unknown>>(
@@ -318,46 +297,13 @@ export class RenderToolCall {
   protected buildHumanInTheLoopToolCall<Args extends Record<string, unknown>>(
     toolCall: ToolCall,
   ): HumanInTheLoopToolCall<Args> {
-    const args = parseToolCallArguments(
-      toolCall.function.arguments,
-      this.isLoading(),
-    ) as Args;
-    const message = this.#getToolMessage(toolCall.id);
+    const toolCallWithStatus = this.buildToolCall<Args>(toolCall);
+    // Keyed by call id, so a catch-all ("*") and parallel calls of one tool
+    // each reach their own parked call.
     const respond = (result: unknown) => {
-      this.#hitl.addResult(toolCall.id, toolCall.function.name, result);
+      this.#copilotKit.core.ɵhumanInTheLoop.respond(toolCall.id, result);
     };
-
-    if (message) {
-      return {
-        name: toolCall.function.name,
-        args,
-        status: "complete",
-        result: contentToText(message.content),
-        respond,
-      };
-    } else if (this.isLoading()) {
-      return {
-        name: toolCall.function.name,
-        args,
-        status: "in-progress",
-        result: undefined,
-        respond,
-      };
-    } else {
-      return {
-        name: toolCall.function.name,
-        args,
-        status: "executing",
-        result: undefined,
-        respond,
-      };
-    }
-  }
-
-  #getToolMessage(toolCallId: string): ToolMessage | undefined {
-    return this.messages().find(
-      (m): m is ToolMessage => m.role === "tool" && m.toolCallId === toolCallId,
-    );
+    return { ...toolCallWithStatus, respond };
   }
 
   #messageAgentId(): string | undefined {

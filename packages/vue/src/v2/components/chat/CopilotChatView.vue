@@ -9,6 +9,11 @@ import {
   watch,
 } from "vue";
 import type { Message } from "@ag-ui/core";
+import {
+  ɵgetChatViewState,
+  ɵisScrolledToBottom,
+  ɵnormalizeAutoScroll,
+} from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import type { Attachment } from "@copilotkit/shared";
 import { useChatLabels } from "./use-chat-labels";
@@ -19,7 +24,6 @@ import CopilotChatInput from "./CopilotChatInput.vue";
 import CopilotChatAttachmentQueue from "./CopilotChatAttachmentQueue.vue";
 import CopilotChatMessageView from "./CopilotChatMessageView.vue";
 import CopilotChatSuggestionView from "./CopilotChatSuggestionView.vue";
-import { normalizeAutoScroll } from "./normalize-auto-scroll";
 import type {
   CopilotChatInputMode,
   CopilotChatInterruptSlotProps,
@@ -30,7 +34,6 @@ import type {
 // Vertical gap between the scroll-to-bottom button and the input container.
 // Mirrors React `CopilotChatView` `SCROLL_BUTTON_OFFSET`.
 const SCROLL_BUTTON_OFFSET = 16;
-const SCROLL_BOTTOM_THRESHOLD = 12;
 
 const props = withDefaults(defineProps<CopilotChatViewProps>(), {
   messageFeedback: true,
@@ -140,8 +143,8 @@ const localInputValue = ref(props.inputValue ?? "");
 
 // Normalize the `autoScroll` prop into the canonical mode triplet
 // (`pin-to-bottom` | `pin-to-send` | `none`). Boolean back-compat is
-// preserved by `normalizeAutoScroll` (parity with React).
-const autoScrollMode = computed(() => normalizeAutoScroll(props.autoScroll));
+// preserved by `ɵnormalizeAutoScroll` (parity with React).
+const autoScrollMode = computed(() => ɵnormalizeAutoScroll(props.autoScroll));
 const isPinToBottomMode = computed(
   () => autoScrollMode.value === "pin-to-bottom",
 );
@@ -167,13 +170,23 @@ const effectiveKeyboardHeight = computed(() =>
 const resolvedInputValue = computed(() =>
   isControlledInput.value ? (props.inputValue ?? "") : localInputValue.value,
 );
-const hasSuggestions = computed(
-  () =>
-    !props.isConnecting &&
-    !props.isRunning &&
-    Array.isArray(props.suggestions) &&
-    props.suggestions.length > 0,
+// Suggestions, the welcome screen and the bottom padding follow core's rules:
+// no suggestions while connecting or running, no generic welcome for a
+// connecting or caller-picked thread.
+const viewState = computed(() =>
+  ɵgetChatViewState({
+    messageCount: props.messages.length,
+    suggestionCount: Array.isArray(props.suggestions)
+      ? props.suggestions.length
+      : 0,
+    isRunning: props.isRunning,
+    isConnecting: props.isConnecting,
+    hasExplicitThreadId: props.hasExplicitThreadId,
+    welcomeScreenEnabled: props.welcomeScreen !== false,
+    inputContainerHeight: inputContainerHeight.value,
+  }),
 );
+const hasSuggestions = computed(() => viewState.value.hasSuggestions);
 const hasAttachments = computed(
   () => Array.isArray(props.attachments) && props.attachments.length > 0,
 );
@@ -191,18 +204,12 @@ const forwardedMessageViewSlotNames = computed(() =>
   ),
 );
 const shouldShowWelcomeScreen = computed(
-  () =>
-    props.messages.length === 0 &&
-    props.welcomeScreen !== false &&
-    !props.isConnecting &&
-    !props.hasExplicitThreadId,
+  () => viewState.value.showWelcomeScreen,
 );
-// Mirrors React: `paddingBottom = inputContainerHeight + (hasSuggestions ? 4 : 32)`.
-// React intentionally does NOT add bonus padding for attachments — the
-// attachment queue lives inside the input overlay, so its height is already
-// captured by the overlay's measured `inputContainerHeight`.
+// No bonus padding for attachments: the attachment queue lives inside the
+// input overlay, so its height is already in `inputContainerHeight`.
 const messagePaddingBottom = computed(
-  () => `${inputContainerHeight.value + (hasSuggestions.value ? 4 : 32)}px`,
+  () => `${viewState.value.paddingBottom}px`,
 );
 const showScrollToBottomButton = computed(
   () => !shouldShowWelcomeScreen.value && !isAtBottom.value,
@@ -300,9 +307,7 @@ function updateIsAtBottom() {
     return;
   }
 
-  const distance =
-    element.scrollHeight - element.scrollTop - element.clientHeight;
-  isAtBottom.value = distance <= SCROLL_BOTTOM_THRESHOLD;
+  isAtBottom.value = ɵisScrolledToBottom(element);
 }
 
 function syncInputContainerHeight() {
