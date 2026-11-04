@@ -73,6 +73,23 @@ function measuredRow(index: number, height: number): Element {
   } as unknown as Element;
 }
 
+/** A row element attached to the document, as the virtualizer sees it on screen. */
+function attachedRow(index: number, height: number): Element {
+  return {
+    isConnected: true,
+    dataset: { index: String(index) },
+    getBoundingClientRect: () => ({ height }) as DOMRect,
+  } as unknown as Element;
+}
+
+/** The fields measureElement reads off the virtualizer, for a list `height` px tall. */
+function listOfHeight(height: number): CapturedVirtualizer {
+  return {
+    scrollElement: { clientHeight: height },
+    options: { count: 2 },
+  } as unknown as CapturedVirtualizer;
+}
+
 function message(id: string): Message {
   return { id, role: "user", content: id } as Message;
 }
@@ -346,13 +363,45 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
       expect(options.estimateSize(2)).toBe(300);
     });
 
-    it("ignores rows that report no height", () => {
+    it("ignores rows that report no height while the list is hidden", () => {
       renderMessageView({ isPinnedToBottom: false });
       const { options } = virtualizer();
 
       options.measureElement(measuredRow(0, 300), undefined, virtualizer());
       options.measureElement(measuredRow(1, 0), undefined, virtualizer());
 
+      expect(options.estimateSize(2)).toBe(300);
+    });
+
+    it("measures a row that renders nothing as 0 in a visible list", () => {
+      renderMessageView({ isPinnedToBottom: false });
+      const { options } = virtualizer();
+
+      // An assistant turn holding only tool calls without a renderer, or its
+      // tool result, renders nothing. It must not take the 100 px estimate:
+      // thousands of them left long blank stretches in a tool-heavy thread.
+      options.measureElement(attachedRow(0, 300), undefined, listOfHeight(600));
+      expect(
+        options.measureElement(attachedRow(1, 0), undefined, listOfHeight(600)),
+      ).toBe(0);
+
+      // And it counts toward the estimate for rows not yet measured.
+      expect(options.estimateSize(2)).toBe(150);
+    });
+
+    it("keeps a row's last height while the list is hidden", () => {
+      renderMessageView({ isPinnedToBottom: false });
+      const { options } = virtualizer();
+
+      options.measureElement(attachedRow(0, 300), undefined, listOfHeight(600));
+      // In a display:none tab every row measures 0; that says nothing about
+      // its size.
+      expect(
+        options.measureElement(attachedRow(0, 0), undefined, listOfHeight(0)),
+      ).toBe(300);
+      expect(
+        options.measureElement(attachedRow(1, 0), undefined, listOfHeight(0)),
+      ).toBe(100);
       expect(options.estimateSize(2)).toBe(300);
     });
 

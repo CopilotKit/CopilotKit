@@ -1127,13 +1127,19 @@ export function CopilotChatMessageView({
       captureResizeAnchor(instance);
       const height = el?.getBoundingClientRect().height ?? 0;
       const index = Number((el as HTMLElement | null)?.dataset?.index);
-      if (height > 0 && Number.isInteger(index)) {
+      // Every row measures 0 while the chat is hidden (a display:none tab) or
+      // the row is detached; those keep their last visible measurement. In a
+      // visible list, 0 is a real size: a message that renders nothing, such
+      // as an assistant turn holding only tool calls without a renderer, or
+      // its tool results. Treating those as hidden gave each one the 100 px
+      // estimate, which left long blank stretches in tool-heavy threads.
+      const hidden = !el?.isConnected || !instance.scrollElement?.clientHeight;
+      if ((height > 0 || !hidden) && Number.isInteger(index)) {
         const { total, sizes } = measuredRef.current;
         measuredRef.current.total = total - (sizes.get(index) ?? 0) + height;
         sizes.set(index, height);
       }
-      // A hidden row keeps its last visible measurement.
-      return height > 0
+      return height > 0 || !hidden
         ? height
         : (measuredRef.current.sizes.get(index) ?? 100);
     },
