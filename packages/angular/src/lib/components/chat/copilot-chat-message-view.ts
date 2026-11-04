@@ -108,7 +108,7 @@ import type {
         <copilot-chat-reasoning-message
           [message]="asReasoningMessage(message)"
           [messages]="messagesValue()"
-          [isRunning]="isLoadingValue()"
+          [isRunning]="isRunningValue()"
           [inputClass]="reasoningMessageClass()"
         />
       }
@@ -147,7 +147,7 @@ import type {
                 [message]="message"
                 [messages]="messagesValue()"
                 [agentId]="agentId()"
-                [isLoading]="isLoadingValue()"
+                [isLoading]="isRunningValue()"
                 [inputClass]="assistantMessageClass()"
                 (thumbsUp)="handleAssistantThumbsUp($event)"
                 (thumbsDown)="handleAssistantThumbsDown($event)"
@@ -332,6 +332,7 @@ export class CopilotChatMessageView {
    * runs; a view used on its own may set `isLoading` instead.
    */
   readonly #isRunning = computed(() => this.showCursor() || this.isLoading());
+  protected readonly isRunningValue = this.#isRunning;
 
   readonly #copilotKit = inject(CopilotKit);
   // The list's tool-call layout and turn state live in core. A user's open or
@@ -408,7 +409,7 @@ export class CopilotChatMessageView {
     return {
       message,
       messages: this.messagesValue(),
-      isLoading: this.isLoadingValue(),
+      isLoading: this.#isRunning(),
       inputClass: this.assistantMessageClass(),
     };
   }
@@ -417,7 +418,7 @@ export class CopilotChatMessageView {
     return {
       message,
       messages: this.messagesValue(),
-      isRunning: this.isLoadingValue(),
+      isRunning: this.#isRunning(),
       inputClass: this.reasoningMessageClass(),
     };
   }
@@ -427,7 +428,7 @@ export class CopilotChatMessageView {
       messages: this.messagesValue(),
       state: this.state(),
       agentId: this.agentId(),
-      isRunning: this.isLoadingValue(),
+      isRunning: this.#isRunning(),
       inputClass: this.childrenClass(),
     };
   }
