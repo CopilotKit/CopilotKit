@@ -91,6 +91,7 @@ export const ChoicePicker = createReactComponent(
                 <button
                   type="button"
                   key={i}
+                  aria-pressed={isSelected}
                   onClick={() => onToggle(opt.value)}
                   style={{
                     padding: "4px 12px",
