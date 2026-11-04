@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Static dependency-declaration check for the starters under
- * `examples/integrations/`.
+ * `examples/starters/`.
  *
  * WHY THIS EXISTS (PE-140)
  * ------------------------
@@ -11,13 +11,13 @@
  * be broken at the dependency-install step and we would learn about it from a
  * developer. That happened twice:
  *
- *   PE-129  `examples/integrations/a2a-middleware/agents/requirements.txt`
+ *   PE-129  `examples/starters/a2a-middleware/agents/requirements.txt`
  *           declared `a2a-sdk[http-server]` with no version constraint at all.
  *           When a2a-sdk published 1.x it dropped `a2a.server.apps`, and two of
  *           the three agents died on import. No commit of ours was involved.
  *           -> caught here by RULE `python-unconstrained`.
  *
- *   PE-38   `examples/integrations/claude-sdk-python/package.json` used
+ *   PE-38   `examples/starters/claude-sdk-python/package.json` used
  *           `recharts`, which declares `react-is` as a peerDependency, but never
  *           declared `react-is` itself. npm papered over it by auto-installing
  *           the unmet peer, recording it in the lockfile as `"peer": true`.
@@ -255,7 +255,7 @@ function checkNpmFloatingTags(starter, dir, violations) {
           starter,
           rule: "npm-floating-tag",
           subject: name,
-          manifest: path.join("examples/integrations", starter, "package.json"),
+          manifest: path.join("examples/starters", starter, "package.json"),
           detail: `${field}."${name}" is declared as "${value}", which resolves to whatever is published on the day a developer clones.`,
           fix: `Pin ${name} to the range the starter is known to work against.`,
         });
@@ -298,12 +298,12 @@ function checkUndeclaredPeers(starter, dir, violations) {
       starter,
       rule: "undeclared-peer",
       subject: name,
-      manifest: path.join("examples/integrations", starter, "package.json"),
+      manifest: path.join("examples/starters", starter, "package.json"),
       detail:
         `package-lock.json installs "${name}@${entry.version}" only to satisfy an unmet peer dependency of ` +
         `${requiredBy.length ? requiredBy.join(", ") : "another package"}, and package.json does not declare it. ` +
         `Resolvers that do not auto-install peers get a different version, or none.`,
-      fix: `Add "${name}" to dependencies in examples/integrations/${starter}/package.json and refresh the lockfile.`,
+      fix: `Add "${name}" to dependencies in examples/starters/${starter}/package.json and refresh the lockfile.`,
     });
   }
 }
@@ -492,7 +492,7 @@ function checkAdapterFloors(integrationsDir, repoRoot, violations) {
     for (const [starter, lockRel] of Object.entries(starters)) {
       const dir = path.join(integrationsDir, starter);
       if (!fs.existsSync(dir)) continue;
-      const manifest = path.join("examples/integrations", starter, lockRel);
+      const manifest = path.join("examples/starters", starter, lockRel);
       const missing = [path.join(repoRoot, adapter), path.join(dir, lockRel)]
         .filter((p) => !fs.existsSync(p))
         .map((p) => path.relative(repoRoot, p));
@@ -522,7 +522,7 @@ function checkAdapterFloors(integrationsDir, repoRoot, violations) {
             subject: name,
             manifest,
             detail: `The starter locks ${name} ${version}, but ${adapter} requires "${range}". Adding the Intelligence adapter to this starter fails to resolve.`,
-            fix: `Raise the ${name} pin in examples/integrations/${starter} into "${range}" and refresh the lockfile.`,
+            fix: `Raise the ${name} pin in examples/starters/${starter} into "${range}" and refresh the lockfile.`,
           });
         }
       }
@@ -578,11 +578,11 @@ function checkNextWorkerLeak(starter, dir, violations) {
     starter,
     rule: "next-turbopack-worker-leak",
     subject: `next@${version}`,
-    manifest: path.join("examples/integrations", starter, "package.json"),
+    manifest: path.join("examples/starters", starter, "package.json"),
     detail:
       `${locked ? "package-lock.json installs" : "package.json allows"} next@${version}. ` +
       `Its Turbopack dev server can start PostCSS workers until the machine runs out of memory.`,
-    fix: `Pin next to ${NEXT_WORKER_LEAK_FIXED} or later in examples/integrations/${starter}/package.json and refresh the lockfile.`,
+    fix: `Pin next to ${NEXT_WORKER_LEAK_FIXED} or later in examples/starters/${starter}/package.json and refresh the lockfile.`,
   });
 }
 
@@ -605,14 +605,14 @@ function checkNextAgentRules(starter, dir, violations) {
     rule: "next-agent-rules",
     subject: config ?? "next.config",
     manifest: path.join(
-      "examples/integrations",
+      "examples/starters",
       starter,
       config ?? "next.config.ts",
     ),
     detail:
       `next@${next.version} writes AGENTS.md and CLAUDE.md into the project when \`next dev\` detects an AI coding agent, ` +
       `so a user's project changes after its first run.`,
-    fix: `Set agentRules: false in examples/integrations/${starter}/${config ?? "next.config.ts"}.`,
+    fix: `Set agentRules: false in examples/starters/${starter}/${config ?? "next.config.ts"}.`,
   });
 }
 
@@ -642,7 +642,7 @@ function main() {
     path.dirname(fileURLToPath(import.meta.url)),
     "..",
   );
-  const integrationsDir = path.join(repoRoot, "examples", "integrations");
+  const integrationsDir = path.join(repoRoot, "examples", "starters");
   const violations = validateStarterDeps(integrationsDir, repoRoot);
 
   const failures = [];

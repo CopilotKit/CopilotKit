@@ -8,13 +8,13 @@ import {
   resolveVerifiedRuntimeUser,
   VERIFIED_RUNTIME_USER_HEADER,
   withVerifiedRuntimeUserHeader,
-} from "../../examples/integrations/agentcore/infra-cdk/lambdas/copilotkit-runtime/src/identity";
-import type { ApiGatewayRuntimeEvent } from "../../examples/integrations/agentcore/infra-cdk/lambdas/copilotkit-runtime/src/identity";
+} from "../../examples/starters/agentcore/infra-cdk/lambdas/copilotkit-runtime/src/identity";
+import type { ApiGatewayRuntimeEvent } from "../../examples/starters/agentcore/infra-cdk/lambdas/copilotkit-runtime/src/identity";
 
 /** Read a tracked AgentCore source file from the repository root. */
 function readAgentCoreSource(relativePath: string): string {
   return readFileSync(
-    resolve(process.cwd(), "examples/integrations/agentcore", relativePath),
+    resolve(process.cwd(), "examples/starters/agentcore", relativePath),
     "utf8",
   );
 }

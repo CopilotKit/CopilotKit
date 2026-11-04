@@ -489,7 +489,7 @@ describe("what the shipped scan must not flag", () => {
     const dir = createTempDir();
     const list = path.join(dir, "allowlist.json");
     fs.writeFileSync(list, JSON.stringify(allowlist));
-    // `examples/slack/README.md` names a family, not a version.
+    // `examples/templates/slack/README.md` names a family, not a version.
     fs.writeFileSync(
       path.join(dir, "README.md"),
       "Gemini (`google/gemini-2.5-*`) models are supported.\n",

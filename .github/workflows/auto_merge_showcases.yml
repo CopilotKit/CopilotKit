@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "examples/showcases/**"
+      - "examples/demos/**"
 
 permissions:
   contents: write
@@ -52,12 +52,12 @@ jobs:
             });
 
             const allShowcases = files.every(f =>
-              f.filename.startsWith('examples/showcases/')
+              f.filename.startsWith('examples/demos/')
             );
 
             if (!allShowcases) {
               const outside = files
-                .filter(f => !f.filename.startsWith('examples/showcases/'))
+                .filter(f => !f.filename.startsWith('examples/demos/'))
                 .map(f => f.filename);
               core.info(`Files outside showcases: ${outside.join(', ')}`);
             }

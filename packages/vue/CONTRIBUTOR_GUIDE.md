@@ -93,7 +93,7 @@ Feature coverage and catalog ownership belong to
 [`showcase/shared/frontend-registry.json`](../../showcase/shared/frontend-registry.json)
 and the existing Showcase generation and validation workflows. Read
 [`showcase/AGENTS.md`](../../showcase/AGENTS.md) before changing a Showcase cell.
-The Vue Storybook under [`examples/v2/vue/storybook`](../../examples/v2/vue/storybook)
+The Vue Storybook under [`examples/dev/by-frontend/vue/storybook`](../../examples/dev/by-frontend/vue/storybook)
 is useful for component development, but is not the canonical integration or
 long-form documentation owner.
 

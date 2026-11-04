@@ -21,11 +21,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ```shell
 git clone https://github.com/CopilotKit/CopilotKit.git
 cd CopilotKit
+git checkout b035323c4e53e9b2089226287655b39eeb95d572
 pnpm install
 ```
 
-The completed example lives at `examples/v1/travel`. Its main parts
-are:
+The completed example lives at `examples/v1/travel` in that commit. Its
+main parts are:
 
 - `app/`: the Next.js page and runtime route
 - `components/`: the map, chat UI, and approval cards

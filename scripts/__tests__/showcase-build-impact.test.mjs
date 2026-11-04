@@ -127,7 +127,7 @@ test("manual single-service dispatch stays narrow even when the workflow changes
 test("mixed verifier and application changes still build the affected application", () => {
   const files = [
     "showcase/scripts/verify-prod-resweep.ts",
-    "examples/integrations/ms-agent-framework-dotnet/agent/Program.cs",
+    "examples/starters/ms-agent-framework-dotnet/agent/Program.cs",
   ];
   assert.deepEqual(selected("detect-changes", files), []);
   assert.deepEqual(

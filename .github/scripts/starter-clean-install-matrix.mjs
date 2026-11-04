@@ -6,13 +6,13 @@
  * WHY THIS IS COMPUTED AND NOT WRITTEN DOWN (PE-140)
  * --------------------------------------------------
  * `test_smoke-starter.yml` carries a hand-maintained list of starter slugs.
- * Twenty-two starters live under `examples/integrations/`; that list names
+ * Twenty-two starters live under `examples/starters/`; that list names
  * fourteen. Both starters that reached a developer broken — a2a-middleware
  * (PE-129) and claude-sdk-python (PE-38) — were in the eight the list omits.
  * The hole was not that the smoke job was wrong, it was that the list was a
  * list.
  *
- * So this matrix is DERIVED: every directory under examples/integrations/ that
+ * So this matrix is DERIVED: every directory under examples/starters/ that
  * the smoke matrix does not already build. Add a starter and it is covered on
  * the next run with no edit here. Drop one from the smoke matrix and it lands
  * here instead. Neither list can quietly stop covering a starter.
@@ -32,7 +32,7 @@ const repoRoot = path.resolve(
   "..",
   "..",
 );
-const integrationsDir = path.join(repoRoot, "examples", "integrations");
+const integrationsDir = path.join(repoRoot, "examples", "starters");
 const smokeWorkflow = path.join(
   repoRoot,
   ".github",
@@ -91,7 +91,7 @@ function main() {
   const uncovered = starters.filter((s) => !covered.includes(s));
 
   if (process.argv.includes("--explain")) {
-    console.log(`starters under examples/integrations/: ${starters.length}`);
+    console.log(`starters under examples/starters/: ${starters.length}`);
     console.log(
       `built by test_smoke-starter.yml (${covered.length}): ${covered.join(", ")}`,
     );

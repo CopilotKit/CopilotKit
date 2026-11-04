@@ -77,10 +77,10 @@ interface CLIArgs {
   starter: StarterDisposition;
 }
 
-/** A real in-repo starter under `examples/integrations/<dir>`. */
+/** A real in-repo starter under `examples/starters/<dir>`. */
 interface StarterPathDisposition {
   kind: "path";
-  /** Repo-root-relative, e.g. `examples/integrations/my-starter`. */
+  /** Repo-root-relative, e.g. `examples/starters/my-starter`. */
   path: string;
   /** The deployed Railway service, when one is already provisioned. */
   service?: string;
@@ -266,7 +266,7 @@ export function parseArgs(): CLIArgs {
     );
     console.error("\nStarter disposition (EXACTLY ONE is required):");
     console.error(
-      "  --starter-path    examples/integrations/<dir> for an in-repo starter",
+      "  --starter-path    examples/starters/<dir> for an in-repo starter",
     );
     console.error(
       "  --starter-service <name>  the Railway service, only with --starter-path",
@@ -305,7 +305,7 @@ export function parseArgs(): CLIArgs {
       hasPath
         ? "Error: --starter-path and --starter-reason are mutually exclusive."
         : "Error: a starter disposition is required. Pass exactly one of " +
-            "--starter-path <examples/integrations/dir> or " +
+            "--starter-path <examples/starters/dir> or " +
             "--starter-reason '<why this framework has no starter>'.",
     );
     process.exit(1);
@@ -963,8 +963,7 @@ function generateHealthRoute(args: CLIArgs): string {
 
   // LangGraph Platform (dev server default `:8123`) exposes `/ok`; our
   // custom FastAPI backends expose `/health`. Individual starters may
-  // override the port (e.g. `examples/v2/interrupts-langgraph` uses
-  // `:8125`) — the template's constant below is only the default for
+  // override the port — the template's constant below is only the default for
   // newly-generated packages.
   const probePath = isLangGraph ? "/ok" : "/health";
 
@@ -1911,8 +1910,8 @@ See the LangGraph Python reference implementation for patterns.
 
   console.log(`\nPackage created at: showcase/integrations/${args.slug}/`);
 
-  // Auto-migrate agent code from examples/integrations/ if available
-  console.log("\n--- Migrating agent code from examples/integrations/ ---\n");
+  // Auto-migrate agent code from examples/starters/ if available
+  console.log("\n--- Migrating agent code from examples/starters/ ---\n");
   try {
     const { migrateForSlug } =
       await import("../migrate-integration-examples.js");
@@ -1924,7 +1923,7 @@ See the LangGraph Python reference implementation for patterns.
       process.exit(1);
     } else if (migResult.files.length > 0) {
       console.log(
-        `  Migrated ${migResult.files.length} agent files from examples/integrations/`,
+        `  Migrated ${migResult.files.length} agent files from examples/starters/`,
       );
       for (const f of migResult.files) console.log(`    ${f}`);
     } else if (migResult.skipped.length > 0) {
@@ -2163,7 +2162,7 @@ export function updateWorkflows(args: CLIArgs) {
   // CONDITIONAL on a declared in-repo starter. A column with no starter is not
   // a smoke-matrix member, and adding one would make the drift assertions
   // unsatisfiable: the matrix's members are EXAMPLE slugs
-  // (`examples/integrations/<x>`) while this scaffolder only ever creates
+  // (`examples/starters/<x>`) while this scaffolder only ever creates
   // `showcase/integrations/<slug>`. It used to append UNCONDITIONALLY and in
   // the WRONG NAMESPACE — the column slug into a list of example slugs — which
   // the 6 recorded name drifts (`adk`→`google-adk`, `langgraph-js`→

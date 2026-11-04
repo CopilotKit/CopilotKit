@@ -1,7 +1,7 @@
 """
 Strands agent with sales pipeline state, weather tool, and HITL support.
 
-Adapted from examples/integrations/strands-python/agent/main.py
+Adapted from examples/starters/strands-python/agent/main.py
 
 All module-level side effects (agent construction, model init,
 ``_agents_by_thread`` patching) are deferred to ``build_showcase_agent()``

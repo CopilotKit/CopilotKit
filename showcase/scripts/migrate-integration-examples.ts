@@ -1,6 +1,6 @@
-// Migration Script: examples/integrations → showcase/integrations
+// Migration Script: examples/starters → showcase/integrations
 //
-// Copies agent code from existing examples/integrations/<name>/
+// Copies agent code from existing examples/starters/<name>/
 // into the corresponding showcase/integrations/<slug>/src/agents/
 //
 // Usage (standalone):
@@ -19,10 +19,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
-const EXAMPLES_DIR = path.join(REPO_ROOT, "examples", "integrations");
+const EXAMPLES_DIR = path.join(REPO_ROOT, "examples", "starters");
 const PACKAGES_DIR = path.join(__dirname, "..", "integrations");
 
-// Map from examples/integrations dir name → showcase package slug
+// Map from examples/starters dir name → showcase package slug
 const SLUG_MAP: Record<string, string> = {
   "langgraph-python": "langgraph-python",
   "langgraph-js": "langgraph-typescript",
@@ -259,7 +259,7 @@ function main() {
   const singleIdx = args.indexOf("--integration");
   const singleName = singleIdx >= 0 ? args[singleIdx + 1] : null;
 
-  console.log("Migration: examples/integrations → showcase/integrations\n");
+  console.log("Migration: examples/starters → showcase/integrations\n");
   if (DRY_RUN) console.log("DRY RUN — no files will be copied\n");
   if (REDO) console.log("REDO MODE — will wipe and re-import\n");
 

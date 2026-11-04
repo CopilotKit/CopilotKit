@@ -277,7 +277,7 @@
           "properties": {
             "path": {
               "type": "string",
-              "description": "Repo-root-relative path to the in-repo starter, e.g. examples/integrations/<starter-slug>"
+              "description": "Repo-root-relative path to the in-repo starter, e.g. examples/starters/<starter-slug>"
             },
             "service": {
               "type": "string",

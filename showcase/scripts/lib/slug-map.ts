@@ -36,7 +36,7 @@
 export type ShowcaseSlug = string;
 
 /**
- * Semantic alias: a directory name under `examples/integrations/` (or
+ * Semantic alias: a directory name under `examples/starters/` (or
  * `integrations/` in older trees). Intentionally distinct at the type
  * level from ShowcaseSlug so the SLUG_MAP / SLUG_TO_EXAMPLES /
  * FALLBACK_MAP signatures read unambiguously. Structurally `string`
@@ -141,10 +141,10 @@ function freezeMap2D<K extends string, V>(
  *
  * Entry shape:
  *   - slug           — the `showcase/integrations/<slug>/` directory name
- *   - bornInShowcase — true iff the package has no examples/integrations
+ *   - bornInShowcase — true iff the package has no examples/starters
  *                      counterpart (skip instead of warn downstream).
  *                      When true, `examples` MUST be empty.
- *   - examples       — candidate dir names under `examples/integrations/`
+ *   - examples       — candidate dir names under `examples/starters/`
  *                      (or `integrations/` in older trees). The FIRST
  *                      entry is treated as the preferred fallback.
  *   - fallback       — if true, expose an entry in FALLBACK_MAP that
@@ -197,7 +197,7 @@ type SlugEntry =
     };
 
 const ENTRIES: readonly SlugEntry[] = [
-  // Born-in-showcase packages have no examples/integrations counterpart.
+  // Born-in-showcase packages have no examples/starters counterpart.
   { slug: "ag2", bornInShowcase: true, examples: [], fallback: false },
   {
     slug: "claude-sdk-python",
@@ -220,7 +220,7 @@ const ENTRIES: readonly SlugEntry[] = [
   },
   { slug: "spring-ai", bornInShowcase: true, examples: [], fallback: false },
 
-  // Packages with a straightforward examples/integrations counterpart
+  // Packages with a straightforward examples/starters counterpart
   // whose dir name matches SLUG_MAP's examples→slug direction.
   {
     slug: "langgraph-python",
@@ -322,9 +322,9 @@ for (const e of ENTRIES) {
 }
 
 /**
- * Packages intentionally without a Dojo (examples/integrations)
+ * Packages intentionally without a Dojo (examples/starters)
  * counterpart. They are the single source of truth for:
- *   - audit.ts  → skip the "missing examples/integrations counterpart"
+ *   - audit.ts  → skip the "missing examples/starters counterpart"
  *                 anomaly;
  *   - validate-pins.ts → emit [SKIP] instead of [WARN].
  *
@@ -337,14 +337,14 @@ export const BORN_IN_SHOWCASE: ReadonlySet<ShowcaseSlug> = freezeSet(
 );
 
 /**
- * Forward map: examples/integrations directory name → showcase slug.
+ * Forward map: examples/starters directory name → showcase slug.
  * Mirrors migrate-integration-examples.ts (which does not export its
  * SLUG_MAP). Kept as a Map for O(1) lookup and so `.get()` returns
  * `ShowcaseSlug | undefined` unambiguously.
  *
  * This map is NOT derived from ENTRIES: it represents the historical
  * migration intent at the time showcase was split from
- * examples/integrations, and validate-pins.ts's comments explicitly
+ * examples/starters, and validate-pins.ts's comments explicitly
  * call out that it is "known stale". FALLBACK_MAP (derived from
  * ENTRIES) documents the corrections where SLUG_MAP no longer matches
  * the current slug under `showcase/integrations/`.
@@ -380,7 +380,7 @@ for (const [, slug] of SLUG_MAP) {
 
 /**
  * Reverse / corrected map used by audit.ts: showcase slug → candidate
- * examples/integrations dir name(s). Dead entries that pointed at
+ * examples/starters dir name(s). Dead entries that pointed at
  * non-existent showcase packages (crewai-flows, agent-spec-langgraph,
  * mcp-apps) are intentionally excluded so audit.ts no longer emits
  * phantom "no examples source" anomalies for them.

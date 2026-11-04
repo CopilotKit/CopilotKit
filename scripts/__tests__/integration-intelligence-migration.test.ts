@@ -7,7 +7,7 @@ import * as ts from "typescript";
 import { expect, test } from "vitest";
 
 const repoRoot = path.resolve(__dirname, "..", "..");
-const integrationsDir = path.join(repoRoot, "examples", "integrations");
+const integrationsDir = path.join(repoRoot, "examples", "starters");
 
 const MANAGED_API_KEY = "CPK_INTELLIGENCE_API_KEY";
 const MANAGED_API_KEY_SENTINEL = "cpk_secret_must_not_reach_browser_assets";
@@ -2698,7 +2698,7 @@ function workflowSteps(contents: string): WorkflowStep[] {
 /** Assert the parity workflow preserves filters and runs red contracts second. */
 function expectIntegrationParityWorkflowContract(contents: string): void {
   const expectedPaths = [
-    "examples/integrations/**",
+    "examples/starters/**",
     "scripts/__tests__/integration-intelligence-migration.test.ts",
     "scripts/__tests__/starter-model-env-contract.test.ts",
     ".github/workflows/integrations_parity.yml",
@@ -3692,7 +3692,7 @@ test("integration parity workflow preserves filters and runs parity before the e
 
 test("integration parity workflow helper rejects missing filters and reversed contract order", () => {
   const paths = [
-    "examples/integrations/**",
+    "examples/starters/**",
     "scripts/__tests__/integration-intelligence-migration.test.ts",
     ".github/workflows/integrations_parity.yml",
   ];

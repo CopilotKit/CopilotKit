@@ -32,7 +32,7 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
  * mounts `createCopilotEndpoint` in its default `mode:"multi-route"` at
  * `basePath:"/api/copilotkit"` via a catch-all
  * `src/app/api/copilotkit/[[...slug]]/route.ts` (verified across
- * `examples/integrations/<slug>/`, empirically proven by a local build+curl
+ * `examples/starters/<slug>/`, empirically proven by a local build+curl
  * gate). `matchRoute`
  * (`packages/runtime/src/v2/runtime/core/fetch-router.ts`) dispatches by URL
  * path: `/info` → runtime info, `/agent/:agentId/run` → an agent run. The
@@ -223,7 +223,7 @@ if (STARTER_LEVELS.indexOf("agent") >= STARTER_LEVELS.indexOf("chat")) {
 /**
  * LAST-RESORT agent id for the path-based chat rung when `/info` advertises
  * no readable `agents` map. Most starters register `{ default: ... }`
- * (`examples/integrations/<slug>/src/app/api/copilotkit/[[...slug]]/route.ts`),
+ * (`examples/starters/<slug>/src/app/api/copilotkit/[[...slug]]/route.ts`),
  * so `default` is the EXPECTED resolved value for those 11 starters — NOT an
  * error. But some starters register DYNAMIC non-`default` keys: mastra wires
  * `MastraAgent.getLocalAgents(...)`, whose keys are the Mastra agent names
