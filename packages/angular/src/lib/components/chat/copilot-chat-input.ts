@@ -22,6 +22,7 @@ import {
   ɵcomposerButtonState,
   ɵcreateComposerAutosize,
   ɵresolveComposerKey,
+  ɵsyncRecorderToMode,
 } from "@copilotkit/core";
 import type { ɵComposerInput } from "@copilotkit/core";
 import { CopilotSlot } from "../../slots/copilot-slot";
@@ -540,13 +541,14 @@ export class CopilotChatInput implements OnDestroy {
       }),
       ({ recorder, mode }) => {
         if (!recorder) return;
-        if (mode === "transcribe") {
-          if (recorder.getState() === "idle") {
-            recorder.start().catch((error) => console.error(error));
-          }
-        } else if (recorder.getState() === "recording") {
-          recorder.stop().catch((error) => console.error(error));
-        }
+        void ɵsyncRecorderToMode(
+          {
+            state: recorder.getState(),
+            start: () => recorder.start(),
+            stop: () => recorder.stop(),
+          },
+          mode,
+        );
       },
     );
 
@@ -625,14 +627,12 @@ export class CopilotChatInput implements OnDestroy {
    * (for example CJK input) is left to the browser.
    */
   handleKeyDown(event: KeyboardEvent): void {
-    const isImeComposition = event.isComposing || event.keyCode === 229;
-    if (isImeComposition) return;
-
     // Enter never adds a line break, also when there is nothing to send.
-    const isPlainEnter = event.key === "Enter" && !event.shiftKey;
-    if (isPlainEnter) event.preventDefault();
-
-    const action = ɵresolveComposerKey(event, this.composerInput());
+    const { action, preventDefault } = ɵresolveComposerKey(
+      event,
+      this.composerInput(),
+    );
+    if (preventDefault) event.preventDefault();
     if (action === "send") this.send();
     if (action === "stop") this.stopRun();
   }

@@ -13,6 +13,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { Message } from "@ag-ui/client";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
+  ɵagentUpdateHandlers,
   ɵgetAgentResolver,
   ɵresolveAgentId,
   ɵsnapshotAgentState,
@@ -63,33 +64,22 @@ export class AgentStore {
     this.messages = this.#messages.asReadonly();
     this.state = this.#state.asReadonly();
 
+    // Core's `useAgent` handler map, with notifies that update the signals
+    // synchronously (not batched per microtask like React and Vue), so a
+    // reader right after an agent event already sees it. `AbstractAgent` sets
+    // `isRunning` before it calls the run callbacks, so every callback reads
+    // the run status from the agent.
+    const syncIsRunning = () => this.#isRunning.set(abstractAgent.isRunning);
     this.#subscription = subscribeToAgent(abstractAgent, {
-      onMessagesChanged: () => {
-        this.#isRunning.set(abstractAgent.isRunning);
+      ...ɵagentUpdateHandlers(["OnRunStatusChanged"], syncIsRunning),
+      ...ɵagentUpdateHandlers(["OnMessagesChanged"], () => {
+        syncIsRunning();
         this.#messages.set([...abstractAgent.messages]);
-      },
-      onStateChanged: () => {
-        this.#isRunning.set(abstractAgent.isRunning);
+      }),
+      ...ɵagentUpdateHandlers(["OnStateChanged"], () => {
+        syncIsRunning();
         this.#state.set(ɵsnapshotAgentState(abstractAgent.state));
-      },
-      onRunInitialized: () => {
-        this.#isRunning.set(true);
-      },
-      onRunStartedEvent: () => {
-        this.#isRunning.set(abstractAgent.isRunning);
-      },
-      onRunFinalized: () => {
-        this.#isRunning.set(false);
-      },
-      onRunFailed: () => {
-        this.#isRunning.set(false);
-      },
-      // Protocol-level RUN_ERROR event (distinct from onRunFailed which
-      // handles local exceptions like network errors).
-      onRunErrorEvent: () => {
-        // A replayed error does not end the connection restoring history.
-        this.#isRunning.set(abstractAgent.isRunning);
-      },
+      }),
     });
     // Preserve the store projection as the agent's first subscriber so its
     // synchronous message/state updates keep their existing timing.

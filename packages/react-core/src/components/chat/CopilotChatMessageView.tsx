@@ -37,6 +37,8 @@ import {
   ɵcreateMessageViewModel,
   ɵdeduplicateMessages,
   ɵduplicateMessagesWarning,
+  ɵgetMessageRunStateSnapshot,
+  ɵresolveAgentId,
 } from "@copilotkit/core";
 import type {
   CopilotChatToolCallDisplay,
@@ -60,8 +62,8 @@ import {
   getIntelligenceTurnAnchors,
 } from "../intelligence-indicator";
 import type { IntelligenceIndicatorView } from "../intelligence-indicator";
+import { useDefaultAgentId } from "../../context";
 import {
-  DEFAULT_AGENT_ID,
   commitRowKeyStore,
   createRowKeyStore,
   resolveRowRenderKeysById,
@@ -500,6 +502,7 @@ export function CopilotChatMessageView({
   const { renderActivityMessage } = useRenderActivityMessage();
   const { copilotkit, showIntelligenceIndicator = true } = useCopilotKit();
   const config = useCopilotChatConfiguration();
+  const providerAgentId = useDefaultAgentId();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
   // Subscribe to state changes so custom message renderers re-render when state updates.
@@ -527,25 +530,15 @@ export function CopilotChatMessageView({
     return () => subscription.unsubscribe();
   }, [copilotkit]);
 
-  // Helper to get state snapshot for a message (used for memoization)
-  const getStateSnapshotForMessage = (messageId: string): unknown => {
-    if (!config) return undefined;
-    const resolvedRunId =
-      copilotkit.getRunIdForMessage(
-        config.agentId,
-        config.threadId,
-        messageId,
-      ) ??
-      copilotkit
-        .getRunIdsForThread(config.agentId, config.threadId)
-        .slice(-1)[0];
-    if (!resolvedRunId) return undefined;
-    return copilotkit.getStateByRun(
-      config.agentId,
-      config.threadId,
-      resolvedRunId,
-    );
-  };
+  // The run state a custom message renderer sees, used for memoization.
+  const getStateSnapshotForMessage = (messageId: string): unknown =>
+    config
+      ? ɵgetMessageRunStateSnapshot(copilotkit, {
+          agentId: config.agentId,
+          threadId: config.threadId,
+          messageId,
+        })
+      : undefined;
 
   const deduplicatedMessages = useMemo(
     () => ɵdeduplicateMessages(messages),
@@ -1072,8 +1065,7 @@ export function CopilotChatMessageView({
                 const nextRect = pendingRect!;
                 pendingRect = undefined;
                 if (!instance.scrollElement?.clientHeight) return;
-                measuredWidthRef.current =
-                  instance.scrollElement?.clientWidth ?? nextRect.width;
+                measuredWidthRef.current = instance.scrollElement.clientWidth;
                 if (resizeAnchorRef.current)
                   resizeAnchorRef.current.ready = true;
                 // Flush pending row updates before invalidating the cached prefix.
@@ -1307,7 +1299,10 @@ export function CopilotChatMessageView({
         <IntelligenceIndicator
           key={`intelligence-${intelligenceTurnId}`}
           message={message}
-          agentId={config?.agentId ?? DEFAULT_AGENT_ID}
+          agentId={ɵresolveAgentId({
+            chatAgentId: config?.agentId,
+            providerAgentId,
+          })}
           intelligenceIndicator={intelligenceIndicator}
         />,
       );

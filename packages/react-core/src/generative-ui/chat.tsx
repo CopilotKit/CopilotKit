@@ -153,11 +153,8 @@ export function GenerativeUIToolCallRenderer(): null {
       args: z.any(),
       render: () => <></>,
     });
-    const existing = (copilotkit as any)._renderToolCalls ?? [];
-    copilotkit.setRenderToolCalls([
-      ...existing.filter((rc: any) => rc.name !== GENERATIVE_UI_RENDER_TOOL),
-      renderer,
-    ]);
+    // Built-in: app renderers win over it, and it goes when the feature does.
+    return copilotkit.ɵaddBuiltInRenderToolCall(renderer);
   }, [copilotkit]);
   return null;
 }

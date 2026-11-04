@@ -24,7 +24,6 @@ import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
 import type { Message } from "@ag-ui/client";
 import { hostStyles } from "../host-styles";
 import { CopilotKitStyles } from "../copilot-kit-styles";
-import { ResizeObserverService } from "../../resize-observer";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 import { ChatState } from "../../chat-state";
 import { CopilotIcon, Upload } from "../icons/copilot-icon";
@@ -60,7 +59,7 @@ import { ɵgetChatViewState, ɵnormalizeAutoScroll } from "@copilotkit/core";
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
-  providers: [ResizeObserverService, CopilotChatViewHandlers],
+  providers: [CopilotChatViewHandlers],
   styles: [hostStyles],
   template: `
     <copilot-kit-styles />
@@ -225,6 +224,9 @@ import { ɵgetChatViewState, ɵnormalizeAutoScroll } from "@copilotkit/core";
           [reasoningMessageComponent]="reasoningMessageComponent()"
           [reasoningMessageTemplate]="reasoningMessageTemplate()"
           [reasoningMessageClass]="reasoningMessageClass()"
+          [workSummaryComponent]="workSummaryComponent()"
+          [workSummaryTemplate]="workSummaryTemplate()"
+          [workSummaryClass]="workSummaryClass()"
           [messageViewChildrenComponent]="messageViewChildrenComponent()"
           [messageViewChildrenTemplate]="messageViewChildrenTemplate()"
           [messageViewChildrenClass]="messageViewChildrenClass()"
@@ -302,6 +304,11 @@ export class CopilotChatView implements OnInit, OnChanges {
   reasoningMessageComponent = input<Type<any> | undefined>(undefined);
   reasoningMessageTemplate = input<TemplateRef<any> | undefined>(undefined);
   reasoningMessageClass = input<string | undefined>(undefined);
+
+  // `"turn"` display work summary slot inputs, forwarded to the message view.
+  workSummaryComponent = input<Type<unknown> | undefined>(undefined);
+  workSummaryTemplate = input<TemplateRef<unknown> | undefined>(undefined);
+  workSummaryClass = input<string | undefined>(undefined);
 
   // Content rendered after the default message collection.
   messageViewChildrenComponent = input<Type<any> | undefined>(undefined);
@@ -455,6 +462,9 @@ export class CopilotChatView implements OnInit, OnChanges {
     reasoningMessageComponent: this.reasoningMessageComponent(),
     reasoningMessageTemplate: this.reasoningMessageTemplate(),
     reasoningMessageClass: this.reasoningMessageClass(),
+    workSummaryComponent: this.workSummaryComponent(),
+    workSummaryTemplate: this.workSummaryTemplate(),
+    workSummaryClass: this.workSummaryClass(),
     messageViewChildrenComponent: this.messageViewChildrenComponent(),
     messageViewChildrenTemplate: this.messageViewChildrenTemplate(),
     messageViewChildrenClass: this.messageViewChildrenClass(),

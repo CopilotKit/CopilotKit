@@ -7,8 +7,11 @@ import type {
 import CopilotChatView from "./CopilotChatView";
 import {
   CopilotChatDefaultLabels,
+  ɵSIDEBAR_DEFAULT_WIDTH,
+  ɵSIDEBAR_TRANSITION_MS,
   ɵcreateDockedSidebar,
   ɵdimensionToCss,
+  ɵwatchElementWidth,
 } from "@copilotkit/core";
 import type { ɵDockedSidebar } from "@copilotkit/core";
 import {
@@ -23,9 +26,6 @@ import { CopilotModalHeader } from "./CopilotModalHeader";
 import type { CopilotModalHeaderProps } from "./CopilotModalHeader";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
-
-const DEFAULT_SIDEBAR_WIDTH = 480;
-const SIDEBAR_TRANSITION_MS = 260;
 
 export type CopilotSidebarViewProps = CopilotChatViewProps & {
   /** Accepts a className, partial props, or any component with CopilotModalHeader props — static namespace members are not required. */
@@ -93,45 +93,26 @@ function CopilotSidebarViewInternal({
   const isSidebarOpen = configuration?.isModalOpen ?? false;
 
   const sidebarRef = useRef<HTMLDivElement | null>(null);
-  const [sidebarWidth, setSidebarWidth] = useState<number | string>(
-    width ?? DEFAULT_SIDEBAR_WIDTH,
+  const [measuredWidth, setMeasuredWidth] = useState<number | string>(
+    width ?? ɵSIDEBAR_DEFAULT_WIDTH,
   );
+  // The `width` prop wins over the measured width, also when it changes
+  // after mount.
+  const sidebarWidth = width ?? measuredWidth;
 
   useEffect(() => {
     // If width is explicitly provided, don't measure
     if (width !== undefined) {
       return;
     }
-
-    if (typeof window === "undefined") {
-      return;
-    }
-
     const element = sidebarRef.current;
     if (!element) {
       return;
     }
-
-    const updateWidth = () => {
-      const rect = element.getBoundingClientRect();
-      if (rect.width > 0) {
-        setSidebarWidth(rect.width);
-      }
-    };
-
-    updateWidth();
-
-    if (typeof ResizeObserver !== "undefined") {
-      const observer = new ResizeObserver(() => updateWidth());
-      observer.observe(element);
-      return () => observer.disconnect();
-    }
-
-    window.addEventListener("resize", updateWidth);
-    return () => window.removeEventListener("resize", updateWidth);
+    return ɵwatchElementWidth(element, setMeasuredWidth);
   }, [width]);
 
-  const widthCss = ɵdimensionToCss(sidebarWidth, DEFAULT_SIDEBAR_WIDTH);
+  const widthCss = ɵdimensionToCss(sidebarWidth, ɵSIDEBAR_DEFAULT_WIDTH);
 
   // The page makes room on the docked edge (desktop only). Layout effects run
   // before paint, so defaultOpen={true} never shows a layout shift: the
@@ -139,7 +120,7 @@ function CopilotSidebarViewInternal({
   const dockRef = useRef<ɵDockedSidebar | null>(null);
   useLayoutEffect(() => {
     const dock = ɵcreateDockedSidebar(document, {
-      transitionMs: SIDEBAR_TRANSITION_MS,
+      transitionMs: ɵSIDEBAR_TRANSITION_MS,
     });
     dockRef.current = dock;
     return () => {

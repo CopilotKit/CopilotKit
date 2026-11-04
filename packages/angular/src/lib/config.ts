@@ -7,13 +7,11 @@ import type {
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "./tools";
-import { LICENSE_WATERMARK_ENABLED } from "./license-watermark";
 import type { RenderActivityMessageConfig } from "./activity-renderer";
 // Type-only: a VALUE import here would pull the whole `@copilotkit/core`
 // dist into the app's startup graph, since `config.ts` sits on it
-// (`provideCopilotKit` runs at bootstrap). The public-key header default is
-// wrapped in `copilotkit.ts` instead, which already imports core at runtime
-// (see `ɵresolvePublicKeyHeaderDefaults` below and #1937's bundle-size fix).
+// (`provideCopilotKit` runs at bootstrap). `copilotkit.ts` takes the
+// public-key header defaults from core (#1937's bundle-size fix).
 import type {
   CopilotRuntimeTransport,
   SuggestionsConfig,
@@ -125,65 +123,6 @@ export interface CopilotKitConfig extends Pick<
   injectStyles?: boolean;
 }
 
-const COPILOT_CLOUD_PUBLIC_API_KEY_HEADER = "X-CopilotCloud-Public-Api-Key";
-const COPILOT_CLOUD_PUBLIC_API_KEY_REGEX = /^ck_pub_[0-9a-f]{32}$/i;
-const LICENSE_WATERMARK_LOG_FLAG = "__copilotkitAngularLicenseWatermarkLogged";
-
-type ResolvedLicense = {
-  key?: string;
-  valid: boolean;
-  warning?: string;
-};
-
-function logLicenseWatermarkWarning(message: string): void {
-  const globalWindow = globalThis as typeof globalThis & {
-    [LICENSE_WATERMARK_LOG_FLAG]?: boolean;
-  };
-  if (globalWindow[LICENSE_WATERMARK_LOG_FLAG]) {
-    return;
-  }
-  globalWindow[LICENSE_WATERMARK_LOG_FLAG] = true;
-
-  console.warn(
-    [
-      "========================================",
-      "[CopilotKit] License Required",
-      message,
-      "Get your CopilotCloud license key and add it as `licenseKey` to remove this watermark.",
-      "========================================",
-    ].join("\n"),
-  );
-}
-
-function resolveLicense(config: CopilotKitConfig): ResolvedLicense {
-  // A builder is only evaluated at send time, so it can't be read here. Rely
-  // on `licenseKey` in that case (same fallback the record branch already has).
-  const headerKey =
-    typeof config.headers === "function"
-      ? undefined
-      : config.headers?.[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER];
-  const key = config.licenseKey ?? headerKey;
-
-  if (!key) {
-    return {
-      valid: false,
-      warning:
-        "No CopilotCloud license key was found. A watermark will be shown until one is added.",
-    };
-  }
-
-  if (!COPILOT_CLOUD_PUBLIC_API_KEY_REGEX.test(key)) {
-    return {
-      key,
-      valid: false,
-      warning:
-        "Your CopilotCloud license key appears invalid. A watermark will be shown until a valid key is added.",
-    };
-  }
-
-  return { key, valid: true };
-}
-
 export const COPILOT_KIT_CONFIG = new InjectionToken<CopilotKitConfig>(
   "COPILOT_KIT_CONFIG",
 );
@@ -192,40 +131,7 @@ export function injectCopilotKitConfig(): CopilotKitConfig {
   return inject(COPILOT_KIT_CONFIG);
 }
 
-/**
- * @deprecated `CopilotKit` no longer uses this: it takes the header defaults
- * from `ɵresolveProviderConfig` in `@copilotkit/core`, which sends any
- * `licenseKey` (the React and Vue behavior). Kept for the exported API.
- *
- * The public-key header default `provideCopilotKit` used to merge directly
- * into `config.headers` (main's behavior, record-only). Now that `headers`
- * can be a builder (#1937), the merge can't happen here — a builder is only
- * evaluated at send time — so `copilotkit.ts` applies these defaults itself,
- * via `ɵwithHeaderDefaults`, where `CopilotKitCore` is constructed and
- * wherever `setHeaders` is called. Kept in this file (rather than
- * `copilotkit.ts`) so the license-key condition has one definition, shared
- * with `resolveLicense`'s watermark check below; this function itself stays
- * a plain computation with no `@copilotkit/core` value import.
- */
-export function ɵresolvePublicKeyHeaderDefaults(
-  config: CopilotKitConfig,
-): Record<string, string> {
-  const resolvedLicense = resolveLicense(config);
-  return !resolvedLicense.valid || !resolvedLicense.key
-    ? {}
-    : { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: resolvedLicense.key };
-}
-
 export function provideCopilotKit(config: CopilotKitConfig = {}): Provider {
-  const resolvedLicense = resolveLicense(config);
-  if (
-    LICENSE_WATERMARK_ENABLED &&
-    !resolvedLicense.valid &&
-    resolvedLicense.warning
-  ) {
-    logLicenseWatermarkWarning(resolvedLicense.warning);
-  }
-
   return {
     provide: COPILOT_KIT_CONFIG,
     useValue: config,

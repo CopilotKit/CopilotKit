@@ -1,5 +1,5 @@
 import type { ReasoningMessage, Message } from "@ag-ui/core";
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { CopilotIcon } from "../icons/CopilotIcon";
 import { cn } from "../../lib/utils";
 import { StreamingMarkdownDefaultRenderer } from "./StreamingMarkdownDefaultRenderer";
@@ -7,8 +7,8 @@ import type { WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 import {
   CopilotChatDefaultLabels,
-  ɵformatLabel,
-  ɵformatReasoningDurationLabel,
+  ɵgetReasoningHeaderLabel,
+  ɵReasoningDisclosure,
 } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
@@ -58,62 +58,27 @@ export function CopilotChatReasoningMessage({
   const isStreaming = !!(isRunning && isLatest);
   const hasContent = !!(message.content && message.content.length > 0);
 
-  // Track elapsed time while streaming
-  const startTimeRef = useRef<number | null>(null);
-  const [elapsed, setElapsed] = useState(0);
-
+  // Open while streaming, auto-collapse when it ends unless the user
+  // toggled, and the elapsed time: see core's ɵReasoningDisclosure.
+  const [disclosure] = useState(
+    () => new ɵReasoningDisclosure({ isStreaming }),
+  );
+  const { isOpen, elapsedSeconds: elapsed } = useSyncExternalStore(
+    disclosure.subscribe,
+    disclosure.getSnapshot,
+    disclosure.getSnapshot,
+  );
   useEffect(() => {
-    if (isStreaming && startTimeRef.current === null) {
-      startTimeRef.current = Date.now();
-    }
+    disclosure.setStreaming(isStreaming);
+  }, [disclosure, isStreaming]);
+  useEffect(() => disclosure.dispose, [disclosure]);
 
-    if (!isStreaming && startTimeRef.current !== null) {
-      // Final snapshot of elapsed time
-      setElapsed((Date.now() - startTimeRef.current) / 1000);
-      return;
-    }
+  const handleToggle = hasContent ? disclosure.toggle : undefined;
 
-    if (!isStreaming) return;
-
-    // Tick every second while streaming
-    const timer = setInterval(() => {
-      if (startTimeRef.current !== null) {
-        setElapsed((Date.now() - startTimeRef.current) / 1000);
-      }
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [isStreaming]);
-
-  // Default to open while streaming, auto-collapse when streaming ends.
-  // Track whether the user has manually toggled so auto-collapse doesn't
-  // override their explicit intent (prevents flaky test failures on CI
-  // where async forceUpdate timing can race with click handlers).
-  const [isOpen, setIsOpen] = useState(isStreaming);
-  const userToggledRef = useRef(false);
-
-  useEffect(() => {
-    if (isStreaming) {
-      // Reset user-toggle tracking when a new streaming session starts
-      userToggledRef.current = false;
-      setIsOpen(true);
-    } else if (!userToggledRef.current) {
-      // Auto-collapse only if the user hasn't manually toggled
-      setIsOpen(false);
-    }
-  }, [isStreaming]);
-
-  const handleToggle = hasContent
-    ? () => {
-        userToggledRef.current = true;
-        setIsOpen((prev) => !prev);
-      }
-    : undefined;
-
-  const label = isStreaming
-    ? labels.reasoningMessageThinkingLabel
-    : ɵformatLabel(labels.reasoningMessageThoughtForLabel, {
-        duration: ɵformatReasoningDurationLabel(elapsed, labels),
-      });
+  const label = ɵgetReasoningHeaderLabel(
+    { isStreaming, elapsedSeconds: elapsed },
+    labels,
+  );
 
   const boundHeader = renderSlot(header, CopilotChatReasoningMessage.Header, {
     isOpen,

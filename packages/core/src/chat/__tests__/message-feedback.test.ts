@@ -335,6 +335,7 @@ describe("ɵFeedbackCommentController", () => {
       open: true,
       draft: "Saved",
       focusRequest: 0,
+      anchor: null,
     });
   });
 

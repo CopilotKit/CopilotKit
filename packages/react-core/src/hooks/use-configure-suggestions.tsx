@@ -1,8 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useCopilotKit, useDefaultAgentId } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import { ɵbindSuggestionsConfig } from "@copilotkit/core";
+import { ɵbindSuggestionsConfig, ɵresolveAgentId } from "@copilotkit/core";
 import type {
   ɵSuggestionsBinding,
   ɵSuggestionsConfigInput,
@@ -28,8 +27,10 @@ export function useConfigureSuggestions(
   const { copilotkit } = useCopilotKit();
   const chatConfig = useCopilotChatConfiguration();
   const providerAgentId = useDefaultAgentId();
-  const chatAgentId =
-    chatConfig?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
+  const chatAgentId = ɵresolveAgentId({
+    chatAgentId: chatConfig?.agentId,
+    providerAgentId,
+  });
   const extraDeps = deps ?? [];
 
   const bindingRef = useRef<ɵSuggestionsBinding | null>(null);

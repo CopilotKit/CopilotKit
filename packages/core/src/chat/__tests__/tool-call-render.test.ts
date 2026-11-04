@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Message, ToolCall, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "../../types";
 import {
+  ɵadaptDefaultToolCallRenderProps,
   ɵbuildToolCallRenderProps,
   ɵcomponentToolDescription,
   ɵdescribeUnrenderedToolCalls,
@@ -11,6 +12,7 @@ import {
   ɵnormalizeToolCallStatus,
   ɵparseToolCallArguments,
   ɵresolveToolCallAgentId,
+  ɵtoDefaultToolCallStatus,
 } from "../tool-call-render";
 
 function createToolCall(args: string): ToolCall {
@@ -100,6 +102,82 @@ describe("ɵbuildToolCallRenderProps", () => {
       args: { q: "cats" },
       status: ToolCallStatus.Complete,
       result: "3 cats",
+    });
+  });
+
+  describe("with tool content outside the AG-UI protocol", () => {
+    // Restored history, a non-SSE transport, or app code casting on
+    // `addMessage` can hand a tool message content that is neither a string
+    // nor a list of content parts. Renderers take `result: string`.
+    const resultOf = (content: unknown) =>
+      ɵbuildToolCallRenderProps(
+        createToolCall("{}"),
+        createToolMessage(content as ToolMessage["content"]),
+        { isExecuting: false },
+      ).result;
+
+    it.each([
+      ["an object", { status: "ok" }, '{"status":"ok"}'],
+      ["a number", 42, "42"],
+      ["an array that is not content parts", ["hello", 42], '["hello",42]'],
+      [
+        "typed records that are not content parts",
+        [{ type: "record", answer: 42 }],
+        '[{"type":"record","answer":42}]',
+      ],
+      [
+        "a media part without the mime type of its inline data",
+        [{ type: "image", source: { type: "data", value: "abc" } }],
+        '[{"type":"image","source":{"type":"data","value":"abc"}}]',
+      ],
+      ["null", null, ""],
+    ])("gives %s as JSON text, and warns", (_label, content, expected) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      expect(resultOf(content)).toBe(expected);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toContain("call-1");
+      warn.mockRestore();
+    });
+
+    it("does not throw on content that cannot be serialized", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const circular: Record<string, unknown> = {};
+      circular.self = circular;
+
+      expect(resultOf(circular)).toBe("[object Object]");
+      warn.mockRestore();
+    });
+
+    it("warns once per tool message, not on every render", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const message = createToolMessage({
+        status: "ok",
+      } as unknown as ToolMessage["content"]);
+      const build = () =>
+        ɵbuildToolCallRenderProps(createToolCall("{}"), message, {
+          isExecuting: false,
+        });
+
+      build();
+      build();
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      warn.mockRestore();
+    });
+
+    it("does not warn for a string or content parts", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      expect(resultOf("")).toBe("");
+      expect(
+        resultOf([
+          { type: "text", text: "see " },
+          { type: "document", source: { type: "file", value: "file-abc" } },
+        ]),
+      ).toBe("see ");
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
     });
   });
 
@@ -210,5 +288,59 @@ describe("ɵcomponentToolDescription", () => {
     expect(ɵcomponentToolDescription("card", "Shows a card.")).toBe(
       `${prefix}\n\nShows a card.`,
     );
+  });
+});
+
+describe("ɵadaptDefaultToolCallRenderProps", () => {
+  it("turns core's raw props into the documented shape", () => {
+    expect(
+      ɵadaptDefaultToolCallRenderProps({
+        name: "search",
+        toolCallId: "call-1",
+        args: { query: "cats" },
+        status: ToolCallStatus.Complete,
+        result: "found",
+      }),
+    ).toEqual({
+      name: "search",
+      toolCallId: "call-1",
+      parameters: { query: "cats" },
+      status: "complete",
+      result: "found",
+    });
+  });
+
+  it("keeps props that are already in the documented shape", () => {
+    expect(
+      ɵadaptDefaultToolCallRenderProps({
+        name: "search",
+        toolCallId: "call-1",
+        parameters: { query: "dogs" },
+        args: { query: "ignored" },
+        status: "executing",
+        result: undefined,
+      }),
+    ).toMatchObject({ parameters: { query: "dogs" }, status: "executing" });
+  });
+});
+
+describe("ɵtoDefaultToolCallStatus", () => {
+  it("reads Angular's spelling of in progress", () => {
+    expect(ɵtoDefaultToolCallStatus("in-progress")).toBe("inProgress");
+  });
+
+  it("shows an unknown status as in progress and warns once per value", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(ɵtoDefaultToolCallStatus("future-status-a")).toBe("inProgress");
+      expect(ɵtoDefaultToolCallStatus("future-status-a")).toBe("inProgress");
+      expect(ɵtoDefaultToolCallStatus("future-status-b")).toBe("inProgress");
+      expect(warn.mock.calls.map(([message]) => message)).toEqual([
+        expect.stringContaining('"future-status-a"'),
+        expect.stringContaining('"future-status-b"'),
+      ]);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

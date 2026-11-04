@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { AGUIConnectNotImplementedError, AbstractAgent } from "@ag-ui/client";
-import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 import {
   computed,
   onBeforeUnmount,
@@ -14,14 +12,15 @@ import {
 } from "vue";
 import {
   CopilotChatDefaultLabels,
-  CopilotKitCoreErrorCode,
+  ɵChatConnection,
   ɵcreateChatSubmitter,
   ɵcreateLastUserMessageTracker,
-  ɵisHttpAgent,
+  ɵFreshThreadId,
+  ɵresolveAgentId,
   ɵresolveChatNotice,
-  ɵThreadSwitchCoordinator,
+  ɵsubscribeToAgentErrors,
 } from "@copilotkit/core";
-import type { Suggestion, ɵThreadSelection } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 import CopilotChatConfigurationProvider from "../../providers/CopilotChatConfigurationProvider.vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { useCopilotKit } from "../../providers/useCopilotKit";
@@ -92,29 +91,35 @@ const forwardedChatViewSlotNames = computed(() =>
   Object.keys(componentSlots).filter((slotName) => slotName !== "chat-view"),
 );
 
-const generatedThreadId = ref(randomUUID());
 const transcribeMode = ref<"input" | "transcribe" | "processing">("input");
 const inputValue = ref(props.inputValue ?? "");
 const isMounted = ref(false);
-const isUnmounting = ref(false);
 
-type ActiveConnectCycle = {
-  core: object;
-  selection: ɵThreadSelection;
-  abortController: AbortController;
-  detached: boolean;
-};
-
-const activeConnectCycle = shallowRef<ActiveConnectCycle | null>(null);
-// Keeps the agent on the thread this chat shows, orders the teardown of the
-// previous thread, and tracks connections a send must wait for.
-const threads = new ɵThreadSwitchCoordinator({
-  stopAgent: (params) => copilotkit.value.stopAgent(params),
-  subscribe: (subscriber) => copilotkit.value.subscribe(subscriber),
+// Loads the thread this chat shows: keeps the agent on it, orders the
+// teardown of the previous thread, owns the connect's abort and detach, and
+// tracks connections a send must wait for.
+const connection = new ɵChatConnection({
+  core: {
+    connectAgent: (params) => copilotkit.value.connectAgent(params),
+    stopAgent: (params) => copilotkit.value.stopAgent(params),
+    subscribe: (subscriber) => copilotkit.value.subscribe(subscriber),
+  },
+  onInspectorOverrideFailed: (requestId) => failInspectorOverride(requestId),
 });
+const { threads } = connection;
+const connectionState = shallowRef(connection.getSnapshot());
+connection.subscribe(() => {
+  connectionState.value = connection.getSnapshot();
+});
+// The locally minted thread used while no thread is provided. A new one is
+// minted each time the provided thread goes away.
+const freshThreadId = new ɵFreshThreadId();
 
-const resolvedAgentId = computed(
-  () => props.agentId ?? existingConfig.value?.agentId ?? DEFAULT_AGENT_ID,
+const resolvedAgentId = computed(() =>
+  ɵresolveAgentId({
+    agentId: props.agentId,
+    chatAgentId: existingConfig.value?.agentId,
+  }),
 );
 // "Provided" — supplied by either the caller's prop or a wrapping
 // CopilotChatConfigurationProvider. Distinct from `resolvedThreadId`, which
@@ -124,8 +129,8 @@ const resolvedAgentId = computed(
 const providedThreadId = computed(
   () => props.threadId ?? existingConfig.value?.threadId,
 );
-const baseThreadId = computed(
-  () => providedThreadId.value ?? generatedThreadId.value,
+const baseThreadId = computed(() =>
+  freshThreadId.resolve(providedThreadId.value),
 );
 // "Explicit" means the caller actually picked this thread — via the
 // `threadId` prop on CopilotChat or a wrapping provider that flagged its
@@ -145,12 +150,14 @@ const resolvedThreadId = computed(
 const hasExplicitThreadId = computed(
   () => inspectorThreadId.value !== null || baseHasExplicitThreadId.value,
 );
-const lastConnectedThreadId = ref<string | null>(null);
-const isConnecting = computed(
-  () =>
-    hasExplicitThreadId.value &&
-    lastConnectedThreadId.value !== resolvedThreadId.value,
-);
+// An explicit thread shows as connecting until its connect has settled.
+const isConnecting = computed(() => {
+  void connectionState.value;
+  return connection.isConnecting({
+    threadId: resolvedThreadId.value,
+    explicit: hasExplicitThreadId.value,
+  });
+});
 const stableLabels = useShallowStableRef(computed(() => props.labels));
 const resolvedLabels = computed(() => stableLabels.value);
 // The labels this chat shows, the same merge its configuration provider makes.
@@ -264,60 +271,12 @@ watch(
 );
 
 watch(
-  [() => props.threadId, () => existingConfig.value?.threadId],
-  ([threadId, inheritedThreadId], previousValues) => {
-    if (threadId || inheritedThreadId) {
-      return;
-    }
-
-    if (previousValues && (previousValues[0] || previousValues[1])) {
-      generatedThreadId.value = randomUUID();
-    }
-  },
-);
-
-watch(
   [() => copilotkit.value, resolvedAgentId, () => props.onError],
   ([core, agentId, onError], _old, onCleanup) => {
     if (!onError) {
       return;
     }
-
-    const subscription = core.subscribe({
-      onError: (event) => {
-        if (event.context?.agentId === agentId || !event.context?.agentId) {
-          void onError({
-            error: event.error,
-            code: event.code,
-            context: event.context,
-          });
-        }
-      },
-    });
-
-    onCleanup(() => subscription.unsubscribe());
-  },
-  { immediate: true },
-);
-
-watch(
-  [
-    () => copilotkit.value,
-    resolvedAgentId,
-    resolvedThreadId,
-    inspectorRequestId,
-  ],
-  ([core, agentId, threadId, requestId], _old, onCleanup) => {
-    if (!requestId) return;
-    const subscription = core.subscribe({
-      onError: (event) => {
-        if (event.code !== CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED) return;
-        if (event.context?.agentId !== agentId) return;
-        if (event.context?.threadId !== threadId) return;
-        failInspectorOverride(requestId);
-      },
-    });
-    onCleanup(() => subscription.unsubscribe());
+    onCleanup(ɵsubscribeToAgentErrors(core, agentId, onError));
   },
   { immediate: true },
 );
@@ -332,150 +291,24 @@ watch(
     inspectorRequestId,
   ],
   (
-    [mounted, core, currentAgent, threadId, isExplicit, requestId],
+    [mounted, _core, currentAgent, threadId, isExplicit, requestId],
     _old,
     onCleanup,
   ) => {
-    if (!mounted) {
+    if (!mounted || typeof window === "undefined" || !currentAgent) {
       return;
     }
-    if (typeof window === "undefined") {
-      return;
-    }
-    if (!currentAgent) {
-      return;
-    }
-
-    // Pins the thread on the agent before anything issues a request:
-    // `CopilotKitCore.connectAgent` reads `agent.threadId` synchronously. A
-    // switch to a fresh, non-explicit thread (a "+ New" reset) empties the
-    // agent so the welcome screen shows; moving in or out of an inspector
-    // override stops the run.
-    const selection = threads.select({
+    // Pins the thread on the agent before anything issues a request, and
+    // connects a thread the caller picked. A switch to a fresh thread (a
+    // "+ New" reset) empties the agent so the welcome screen shows; moving in
+    // or out of an Inspector override stops the run.
+    const handle = connection.open({
       agent: currentAgent,
       threadId,
       explicit: isExplicit,
       inspectorRequestId: requestId,
     });
-
-    // When the caller hasn't picked a specific thread, resolvedThreadId is
-    // a UUID minted locally. The backend has never seen it, so /connect
-    // would always 404 — skip the call. A real thread is only created
-    // once the user runs the agent for the first time.
-    if (!selection.shouldConnect) {
-      return;
-    }
-
-    const abstractAgentPrototype = AbstractAgent.prototype as unknown as {
-      connect?: unknown;
-      connectAgent?: unknown;
-    };
-    const inspectableAgent = currentAgent as unknown as {
-      connect?: unknown;
-      connectAgent?: unknown;
-    };
-    const hasCustomConnect =
-      inspectableAgent.connect !== abstractAgentPrototype.connect;
-    const hasCustomConnectAgent =
-      inspectableAgent.connectAgent !== abstractAgentPrototype.connectAgent;
-    if (!hasCustomConnect && !hasCustomConnectAgent) {
-      // No custom connect to wait for — mark as connected so the welcome
-      // suppression / suggestion gating release immediately.
-      lastConnectedThreadId.value = threadId;
-      return;
-    }
-
-    const existingCycle = activeConnectCycle.value;
-    const hasSameDeps =
-      existingCycle &&
-      existingCycle.core === (core as object) &&
-      existingCycle.selection === selection;
-
-    let cycle: ActiveConnectCycle;
-    if (hasSameDeps && existingCycle) {
-      cycle = existingCycle;
-    } else {
-      const connectAbortController = new AbortController();
-      cycle = {
-        core: core as object,
-        selection,
-        abortController: connectAbortController,
-        detached: false,
-      };
-      activeConnectCycle.value = cycle;
-
-      // Tracked, so a send waits for the thread to load instead of racing it.
-      void threads.trackConnection(selection, () =>
-        threads
-          .whenTornDown()
-          .then(() => {
-            if (cycle.detached) return;
-            if (ɵisHttpAgent(currentAgent))
-              currentAgent.abortController = connectAbortController;
-            return core.connectAgent({ agent: currentAgent });
-          })
-          .catch((error: unknown) => {
-            if (cycle.detached) {
-              selection.clearDiscardedBaseline();
-              return;
-            }
-            if (error instanceof AGUIConnectNotImplementedError) {
-              return;
-            }
-            if (requestId) {
-              failInspectorOverride(requestId);
-            }
-            // The coordinator logs the failure and blocks sends on it.
-            throw error;
-          })
-          .finally(() => {
-            // Whether the connect succeeded or failed, we're no longer in
-            // the transitional "connecting" state for this thread — release
-            // the welcome / suggestion gating so the view can settle.
-            //
-            // Defer one animation frame so any trailing reactive commits
-            // from the bootstrap replay (final assistant message content)
-            // paint before isConnecting flips off. Without this, suggestions
-            // can briefly render against an incompletely-laid-out message
-            // tree and visibly snap once the last text chunk lands.
-            if (cycle.detached) {
-              selection.clearDiscardedBaseline();
-              return;
-            }
-            const raf =
-              typeof requestAnimationFrame === "function"
-                ? requestAnimationFrame
-                : (cb: () => void) => setTimeout(cb, 16);
-            raf(() => {
-              if (cycle.detached) return;
-              lastConnectedThreadId.value = selection.threadId;
-            });
-          }),
-      );
-    }
-
-    onCleanup(() => {
-      const activeCycle = activeConnectCycle.value;
-      if (!activeCycle || activeCycle !== cycle) {
-        return;
-      }
-
-      const { selection: cycleSelection } = activeCycle;
-      const shouldDetach =
-        isUnmounting.value ||
-        copilotkit.value !== activeCycle.core ||
-        agent.value !== cycleSelection.agent ||
-        resolvedThreadId.value !== cycleSelection.threadId;
-      if (!shouldDetach) {
-        return;
-      }
-
-      cycleSelection.release();
-      activeCycle.detached = true;
-      activeCycle.abortController.abort();
-      void threads.detach(cycleSelection.agent);
-      activeConnectCycle.value = null;
-    });
+    onCleanup(() => handle.release());
   },
   { immediate: true },
 );
@@ -522,10 +355,9 @@ const transcriptionError = computed(() => {
 });
 
 onBeforeUnmount(() => {
-  isUnmounting.value = true;
   unsubscribeSubmitter();
   submitter.dispose();
-  threads.dispose();
+  connection.dispose();
 });
 
 onMounted(() => {

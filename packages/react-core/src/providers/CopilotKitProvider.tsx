@@ -1,17 +1,21 @@
 "use client";
 
-import { ɵanySchema } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
-  FrontendTool,
   ɵA2UIBaseOptions,
   ɵCopilotKitProviderBaseOptions,
   ɵRuntimeInfo,
+  ɵStableArrayProp,
 } from "@copilotkit/core";
 import {
   ɵLearningAutoStarter,
-  ɵbuildHumanInTheLoopTool,
+  ɵassembleActivityRenderers,
+  ɵassembleHumanInTheLoop,
+  ɵassembleProviderToolRenderers,
+  ɵassembleProviderTools,
   ɵhitlRenderProps,
+  ɵresolveA2UIActivation,
+  ɵstableArrayPropWarning,
   ɵtoLearningConfig,
 } from "@copilotkit/core";
 import type React from "react";
@@ -42,15 +46,13 @@ import { CopilotKitInspectorContextProvider } from "../components/CopilotKitInsp
 import type { CopilotKitInspectorOpenRequest } from "../components/CopilotKitInspectorContext";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
 import {
-  ɵSTABLE_ARRAY_WARNINGS,
-  ɵbuildOpenGenerativeUIContexts,
+  ɵaddOpenGenerativeUIContexts,
   ɵcreateOpenGenerativeUITool,
   ɵisOpenGenerativeUIActive,
   ɵpublicKeyHeaderDefaults,
   ɵreportProviderConfigDiagnostics,
   ɵresolveLicenseState,
   ɵresolveProviderConfig,
-  ɵtoolRendererShapeChanged,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";
 import {
@@ -246,25 +248,20 @@ export interface CopilotKitProviderProps extends ɵCopilotKitProviderBaseOptions
   generativeUI?: GenerativeUIConfig;
 }
 
-// Small helper to normalize array props to a stable reference and warn
+// Normalize an array prop to a stable reference, and warn (rule from core)
+// when it changes after mount.
 function useStableArrayProp<T>(
   prop: T[] | undefined,
-  warningMessage?: string,
-  isMeaningfulChange?: (initial: T[], next: T[]) => boolean,
+  name: ɵStableArrayProp,
 ): T[] {
   const empty = useMemo<T[]>(() => [], []);
   const value = prop ?? empty;
   const initial = useRef(value);
 
   useEffect(() => {
-    if (
-      warningMessage &&
-      value !== initial.current &&
-      (isMeaningfulChange ? isMeaningfulChange(initial.current, value) : true)
-    ) {
-      console.error(warningMessage);
-    }
-  }, [value, warningMessage]);
+    const warning = ɵstableArrayPropWarning(name, initial.current, value);
+    if (warning) console.error(warning);
+  }, [value, name]);
 
   return value;
 }
@@ -340,8 +337,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // A catalog passed to the provider is enough to turn A2UI on: render the
   // surfaces locally and forward the catalog signal so the runtime injects the
   // render tool — no runtime-side `a2ui` config required.
-  const a2uiCatalogProvided = !!a2ui?.catalog;
-  const a2uiActive = runtimeA2UIEnabled || a2uiCatalogProvided;
+  const a2uiActive = ɵresolveA2UIActivation({
+    runtimeEnabled: runtimeA2UIEnabled,
+    hasCatalog: !!a2ui?.catalog,
+  }).active;
   const generativeUIActive = !!generativeUI?.ui;
   const runtimeLicenseStatus = runtimeInfo?.licenseStatus;
   const runtimeEntitlements = runtimeInfo?.runtimeEntitlements;
@@ -370,23 +369,22 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   );
 
   // Normalize array props to stable references with clear dev warnings
+  // renderToolCalls warns only when its shape (names + agentId) changes, so
+  // parents can pass updated closures (e.g., Storybook state).
   const renderToolCallsList = useStableArrayProp<ReactToolCallRenderer<any>>(
     renderToolCalls,
-    ɵSTABLE_ARRAY_WARNINGS.renderToolCalls,
-    // Only warn if the shape (names+agentId) changed. Allow identity changes
-    // to support updated closures from parents (e.g., Storybook state).
-    ɵtoolRendererShapeChanged,
+    "renderToolCalls",
   );
 
   const renderCustomMessagesList =
     useStableArrayProp<ReactCustomMessageRenderer>(
       renderCustomMessages,
-      ɵSTABLE_ARRAY_WARNINGS.renderCustomMessages,
+      "renderCustomMessages",
     );
 
   const renderActivityMessagesList = useStableArrayProp<
     ReactActivityMessageRenderer<any>
-  >(renderActivityMessages, ɵSTABLE_ARRAY_WARNINGS.renderActivityMessages);
+  >(renderActivityMessages, "renderActivityMessages");
 
   // Stable core instance ref, declared here (before the activity-renderer memo)
   // so the filtered-catalog memo can read enablement off the current instance.
@@ -418,66 +416,53 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   const mcpAppsAllowSameOrigin = mcpApps?.allowSameOriginFallback === true;
 
-  // Built-in activity renderers that are always included
-  const builtInActivityRenderers = useMemo<
-    ReactActivityMessageRenderer<any>[]
-  >(() => {
-    const renderers: ReactActivityMessageRenderer<any>[] = [
-      {
-        activityType: MCPAppsActivityType,
-        content: MCPAppsActivityContentSchema,
-        render: mcpAppsAllowSameOrigin
-          ? SameOriginMCPAppsActivityRenderer
-          : MCPAppsActivityRenderer,
-      },
-    ];
-
-    if (openGenUIActive) {
-      renderers.push({
-        activityType: OpenGenerativeUIActivityType,
-        content: OpenGenerativeUIContentSchema,
-        render: OpenGenerativeUIActivityRenderer,
-      });
-    }
-
-    if (a2uiActive) {
-      // The a2ui-surface renderer owns the WHOLE generative-UI lifecycle (OSS-162):
-      // building skeleton → retrying → hard-failure → painted surface, all on one
-      // activity, swapped in place. `recovery` tunes the pre-paint UX (timing +
-      // debug exposure); the server can override debugExposure via the middleware.
-      renderers.unshift(
-        createA2UIMessageRenderer({
-          theme: a2ui?.theme ?? viewerTheme,
-          catalog: filteredCatalog,
-          loadingComponent: a2ui?.loadingComponent,
-          recovery: a2ui?.recovery,
-          onAction: a2ui?.onAction,
-        }),
-      );
-    }
-
-    if (generativeUIActive) {
-      renderers.push(
-        createGenerativeUIActivityRenderer(),
-        createGenerativeUIFunctionCallActivityRenderer(),
-      );
-    }
-
-    return renderers;
-  }, [
-    a2uiActive,
-    openGenUIActive,
-    generativeUIActive,
-    a2ui,
-    filteredCatalog,
-    mcpAppsAllowSameOrigin,
-  ]);
-
-  // Combine user-provided activity renderers with built-in ones
-  // User-provided renderers take precedence (come first) so they can override built-ins
-  const allActivityRenderers = useMemo(() => {
-    return [...renderActivityMessagesList, ...builtInActivityRenderers];
-  }, [renderActivityMessagesList, builtInActivityRenderers]);
+  // The app's activity renderers, then the built-in ones (order from core).
+  const allActivityRenderers = useMemo(
+    () =>
+      ɵassembleActivityRenderers<ReactActivityMessageRenderer<any>>({
+        app: renderActivityMessagesList,
+        // The a2ui-surface renderer owns the WHOLE generative-UI lifecycle
+        // (OSS-162): building skeleton → retrying → hard-failure → painted
+        // surface, all on one activity, swapped in place. `recovery` tunes the
+        // pre-paint UX (timing + debug exposure); the server can override
+        // debugExposure via the middleware.
+        a2ui: a2uiActive
+          ? createA2UIMessageRenderer({
+              theme: a2ui?.theme ?? viewerTheme,
+              catalog: filteredCatalog,
+              loadingComponent: a2ui?.loadingComponent,
+              recovery: a2ui?.recovery,
+              onAction: a2ui?.onAction,
+            })
+          : undefined,
+        builtIns: [
+          {
+            activityType: MCPAppsActivityType,
+            content: MCPAppsActivityContentSchema,
+            render: mcpAppsAllowSameOrigin
+              ? SameOriginMCPAppsActivityRenderer
+              : MCPAppsActivityRenderer,
+          },
+          openGenUIActive && {
+            activityType: OpenGenerativeUIActivityType,
+            content: OpenGenerativeUIContentSchema,
+            render: OpenGenerativeUIActivityRenderer,
+          },
+          generativeUIActive && createGenerativeUIActivityRenderer(),
+          generativeUIActive &&
+            createGenerativeUIFunctionCallActivityRenderer(),
+        ],
+      }),
+    [
+      renderActivityMessagesList,
+      a2uiActive,
+      openGenUIActive,
+      generativeUIActive,
+      a2ui,
+      filteredCatalog,
+      mcpAppsAllowSameOrigin,
+    ],
+  );
 
   // Key fallback, Copilot Cloud URL, transport, agent merge and the catalog
   // property all come from core.
@@ -543,49 +528,16 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   const frontendToolsList = useStableArrayProp<ReactFrontendTool>(
     frontendTools,
-    ɵSTABLE_ARRAY_WARNINGS.frontendTools,
+    "frontendTools",
   );
   const humanInTheLoopList = useStableArrayProp<ReactHumanInTheLoop>(
     humanInTheLoop,
-    ɵSTABLE_ARRAY_WARNINGS.humanInTheLoop,
+    "humanInTheLoop",
   );
   const sandboxFunctionsList = useStableArrayProp<SandboxFunction>(
     openGenerativeUI?.sandboxFunctions,
-    ɵSTABLE_ARRAY_WARNINGS.sandboxFunctions,
+    "sandboxFunctions",
   );
-
-  // Note: warnings for array identity changes are handled by useStableArrayProp
-
-  // Process humanInTheLoop tools to create handlers and add render components
-  const processedHumanInTheLoopTools = useMemo(() => {
-    const processedTools: FrontendTool[] = [];
-    const processedRenderToolCalls: ReactToolCallRenderer[] = [];
-
-    // Core parks each call by tool call id until the render responds. The
-    // core is created further down, so read its registry lazily.
-    const registry = () => copilotkitRef.current!.ɵhumanInTheLoop;
-    humanInTheLoopList.forEach((tool) => {
-      const { render, ...config } = tool;
-      processedTools.push(ɵbuildHumanInTheLoopTool(config, registry));
-
-      if (render) {
-        const RenderComponent: React.ComponentType<any> = (props) =>
-          createElement(
-            render as React.ComponentType<any>,
-            ɵhitlRenderProps(props, tool, registry()),
-          );
-
-        processedRenderToolCalls.push({
-          name: tool.name,
-          args: tool.parameters,
-          render: RenderComponent,
-          ...(tool.agentId && { agentId: tool.agentId }),
-        });
-      }
-    });
-
-    return { tools: processedTools, renderToolCalls: processedRenderToolCalls };
-  }, [humanInTheLoopList]);
 
   // Built-in frontend tool for generateSandboxedUi — registered only when the runtime has openGenerativeUI enabled
   const builtInFrontendTools = useMemo<ReactFrontendTool[]>(() => {
@@ -598,51 +550,51 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     ];
   }, [openGenUIActive]);
 
-  // Combine all tools for CopilotKitCore
-  const allTools = useMemo(() => {
-    const tools: FrontendTool[] = [];
-
-    // Add frontend tools (user-provided + built-in)
-    tools.push(...frontendToolsList);
-    tools.push(...builtInFrontendTools);
-
-    // Add processed human-in-the-loop tools
-    tools.push(...processedHumanInTheLoopTools.tools);
-
-    return tools;
-  }, [frontendToolsList, builtInFrontendTools, processedHumanInTheLoopTools]);
-
-  // Combine all render tool calls
-  const allRenderToolCalls = useMemo(() => {
-    const combined: ReactToolCallRenderer[] = [...renderToolCallsList];
-
-    // Add render components from frontend tools (user-provided + built-in)
-    [...frontendToolsList, ...builtInFrontendTools].forEach((tool) => {
-      if (tool.render) {
-        // For wildcard tools without parameters, default to a schema that
-        // accepts any value
-        const args =
-          tool.parameters || (tool.name === "*" ? ɵanySchema : undefined);
-        if (args) {
-          combined.push({
-            name: tool.name,
-            args: args,
-            render: tool.render,
-          } as ReactToolCallRenderer);
-        }
-      }
-    });
-
-    // Add render components from human-in-the-loop tools
-    combined.push(...processedHumanInTheLoopTools.renderToolCalls);
-
-    return combined;
-  }, [
-    renderToolCallsList,
-    frontendToolsList,
-    builtInFrontendTools,
-    processedHumanInTheLoopTools,
-  ]);
+  // The tools and tool-call renderers for core (assembly rules from core).
+  // Human-in-the-loop renders are wrapped once per `humanInTheLoop` change: a
+  // new wrapper is a new component type, so React would remount the card.
+  const humanInTheLoopAssembly = useMemo(
+    () =>
+      ɵassembleHumanInTheLoop<
+        ReactToolCallRenderer<any>["render"],
+        ReactHumanInTheLoop["render"]
+      >({
+        humanInTheLoop: humanInTheLoopList,
+        // Core parks each call by tool call id until the render responds.
+        // The core is created further down, so read its registry lazily.
+        humanInTheLoopRegistry: () => copilotkitRef.current!.ɵhumanInTheLoop,
+        wrapHumanInTheLoopRender: (render, tool, registry) => (props) =>
+          createElement(
+            render as React.ComponentType<any>,
+            ɵhitlRenderProps(props, tool, registry()),
+          ),
+      }),
+    [humanInTheLoopList],
+  );
+  const allTools = useMemo(
+    () =>
+      ɵassembleProviderTools({
+        frontendTools: frontendToolsList,
+        builtInFrontendTools,
+        humanInTheLoop: humanInTheLoopAssembly,
+      }),
+    [frontendToolsList, builtInFrontendTools, humanInTheLoopAssembly],
+  );
+  const allRenderToolCalls = useMemo(
+    () =>
+      ɵassembleProviderToolRenderers({
+        renderToolCalls: renderToolCallsList,
+        frontendTools: frontendToolsList,
+        builtInFrontendTools,
+        humanInTheLoop: humanInTheLoopAssembly,
+      }) as ReactToolCallRenderer[],
+    [
+      renderToolCallsList,
+      frontendToolsList,
+      builtInFrontendTools,
+      humanInTheLoopAssembly,
+    ],
+  );
 
   // One core for the provider lifetime (ref declared above so the
   // filtered-catalog memo can read enablement off it), disposed on unmount.
@@ -843,13 +795,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const designSkill = openGenerativeUI?.designSkill;
   useLayoutEffect(() => {
     if (!copilotkit || !openGenUIActive) return;
-    const ids = ɵbuildOpenGenerativeUIContexts({
+    return ɵaddOpenGenerativeUIContexts(copilotkit, {
       designSkill,
       sandboxFunctions: sandboxFunctionsList,
-    }).map((entry) => copilotkit.addContext(entry));
-    return () => {
-      for (const id of ids) copilotkit.removeContext(id);
-    };
+    });
   }, [copilotkit, designSkill, sandboxFunctionsList, openGenUIActive]);
 
   const contextValue = useMemo<CopilotKitContextValue>(

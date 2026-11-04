@@ -2,8 +2,7 @@ import { computed, watch } from "vue";
 import type { WatchSource } from "vue";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../providers/useCopilotChatConfiguration";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import { ɵbindSuggestionsConfig } from "@copilotkit/core";
+import { ɵbindSuggestionsConfig, ɵresolveAgentId } from "@copilotkit/core";
 import type { ɵSuggestionsConfigInput } from "@copilotkit/core";
 
 /**
@@ -27,8 +26,8 @@ export function useConfigureSuggestions(
 ): void {
   const { copilotkit } = useCopilotKit();
   const chatConfig = useCopilotChatConfiguration();
-  const chatAgentId = computed(
-    () => chatConfig.value?.agentId ?? DEFAULT_AGENT_ID,
+  const chatAgentId = computed(() =>
+    ɵresolveAgentId({ chatAgentId: chatConfig.value?.agentId }),
   );
   const extraDeps = deps ?? [];
 

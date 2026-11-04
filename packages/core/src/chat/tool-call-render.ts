@@ -8,6 +8,7 @@
 import type { Message, ToolCall, ToolMessage } from "@ag-ui/core";
 import { contentToText } from "@ag-ui/core";
 import { DEFAULT_AGENT_ID, partialJSONParse } from "@copilotkit/shared";
+import { isContentPart } from "../core/tool-result-content";
 import { ToolCallStatus } from "../types";
 import type { CopilotChatLabels } from "./labels";
 
@@ -126,9 +127,7 @@ export function ɵbuildToolCallRenderProps(
     return {
       ...base,
       status: ToolCallStatus.Complete,
-      // AG-UI 1.0 lets a tool result carry content parts. Renderers get a
-      // string, so they get the text parts; the message keeps the media.
-      result: contentToText(toolMessage.content),
+      result: toolResultText(toolMessage),
     } as const;
   }
   if (status === ToolCallStatus.Executing) {
@@ -139,6 +138,56 @@ export function ɵbuildToolCallRenderProps(
     status: ToolCallStatus.InProgress,
     result: undefined,
   } as const;
+}
+
+const warnedToolMessages = new WeakSet<ToolMessage>();
+
+/**
+ * The tool result as renderers take it, `result: string`. AG-UI 1.0 lets a
+ * tool result carry content parts: renderers get the text parts, and the
+ * message keeps the media.
+ *
+ * Other content only comes from a producer that skipped validation: restored
+ * thread history, a non-SSE transport, or app code casting on `addMessage`.
+ * It is serialized as JSON, not dropped, because an empty string is a
+ * legitimate tool result and a dropped one would look the same. `null` gives
+ * `""`. It warns once per message outside production, and never throws, also
+ * not on circular content.
+ */
+function toolResultText(toolMessage: ToolMessage) {
+  const content: unknown = toolMessage.content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content) && content.every(isContentPart)) {
+    return contentToText(content);
+  }
+
+  let serialized = "";
+  if (content !== null && content !== undefined) {
+    try {
+      serialized =
+        // oxlint-disable-next-line typescript/no-unnecessary-condition -- JSON.stringify returns undefined for a function or a symbol, though its type says string
+        JSON.stringify(content) ?? Object.prototype.toString.call(content);
+    } catch {
+      // Circular or otherwise not serializable: keep something rather than
+      // drop the result, and never throw from a render path.
+      serialized = Object.prototype.toString.call(content);
+    }
+  }
+
+  if (
+    process.env.NODE_ENV !== "production" &&
+    !warnedToolMessages.has(toolMessage)
+  ) {
+    warnedToolMessages.add(toolMessage);
+    console.warn(
+      `[CopilotChat] Tool message for tool call "${toolMessage.toolCallId}" had ` +
+        `content outside the AG-UI protocol ` +
+        `(${content === null ? "null" : typeof content}), but renderers ` +
+        `receive \`result: string\`. Rendering a serialized form instead of ` +
+        `dropping it: ${serialized === "" ? "<empty>" : serialized}`,
+    );
+  }
+  return serialized;
 }
 
 /**
@@ -276,4 +325,81 @@ interface ToolCallBadge {
 export function ɵcomponentToolDescription(name: string, description?: string) {
   const prefix = `Use this tool to display the "${name}" component in the chat. This tool renders a visual UI component for the user.`;
   return description ? `${prefix}\n\n${description}` : prefix;
+}
+
+/**
+ * What the default (`"*"`) tool-call renderer gets: the documented shape of
+ * `useDefaultRenderTool`'s `render`, in React and Vue.
+ */
+export interface ɵDefaultToolCallRenderProps {
+  /** The name of the tool being called. */
+  name: string;
+  /** The id of the tool call being rendered. */
+  toolCallId: string;
+  /** The parsed parameters passed to the tool call. */
+  parameters: unknown;
+  /** Current execution status of the tool call. */
+  status: "inProgress" | "executing" | "complete";
+  /** The tool call result string, available only when `status` is `"complete"`. */
+  result: string | undefined;
+}
+
+/**
+ * What a framework calls a registered `"*"` renderer with: core's raw shape
+ * (`args` and a `ToolCallStatus`), or the documented shape when a call site
+ * already adapted it.
+ */
+export interface ɵRawToolCallRenderProps {
+  name: string;
+  toolCallId: string;
+  args?: unknown;
+  parameters?: unknown;
+  status?: unknown;
+  result?: string;
+}
+
+// Unknown statuses already warned about, so a stuck status does not log on
+// every render.
+const warnedUnknownStatuses = new Set<string>();
+
+/**
+ * The status the default tool-call renderer shows. A status this version
+ * does not know (a newer runtime could send one) reads `"inProgress"`, and
+ * logs one warning per distinct value.
+ *
+ * @param status - A `ToolCallStatus`, or any framework's spelling of one.
+ */
+export function ɵtoDefaultToolCallStatus(
+  status: unknown,
+): ɵDefaultToolCallRenderProps["status"] {
+  const key = String(status);
+  const normalized = ɵnormalizeToolCallStatus(key);
+  if (normalized !== "unknown") return normalized;
+  if (!warnedUnknownStatuses.has(key)) {
+    warnedUnknownStatuses.add(key);
+    console.warn(
+      `[CopilotKit] Unknown ToolCallStatus "${key}" in default tool-call renderer; falling back to "inProgress".`,
+    );
+  }
+  return "inProgress";
+}
+
+/**
+ * Turns the props a `"*"` renderer is called with into the documented
+ * {@link ɵDefaultToolCallRenderProps}: `args` becomes `parameters`, and the
+ * status goes through {@link ɵtoDefaultToolCallStatus}. Props already in the
+ * documented shape stay as they are.
+ *
+ * @param raw - The props the renderer was called with.
+ */
+export function ɵadaptDefaultToolCallRenderProps(
+  raw: ɵRawToolCallRenderProps,
+): ɵDefaultToolCallRenderProps {
+  return {
+    name: raw.name,
+    toolCallId: raw.toolCallId,
+    parameters: raw.parameters !== undefined ? raw.parameters : raw.args,
+    status: ɵtoDefaultToolCallStatus(raw.status),
+    result: raw.result,
+  };
 }

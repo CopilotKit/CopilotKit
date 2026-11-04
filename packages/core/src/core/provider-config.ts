@@ -2,9 +2,12 @@ import type { AbstractAgent } from "@ag-ui/client";
 import {
   COPILOT_CLOUD_CHAT_URL,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
+  ɵanySchema,
 } from "@copilotkit/shared";
 import type { DebugConfig } from "@copilotkit/shared";
-import type { CopilotRuntimeTransport } from "../types";
+import type { CopilotRuntimeTransport, FrontendTool } from "../types";
+import { ɵbuildHumanInTheLoopTool } from "./human-in-the-loop";
+import type { ɵHumanInTheLoopRegistry } from "./human-in-the-loop";
 import type { CopilotKitCoreErrorHandler } from "./core";
 import type { CopilotKitHeadersSource } from "./header-source";
 import type { LearningConfig } from "./learning-bridge";
@@ -248,6 +251,306 @@ export function ɵtoolRendererShapeChanged(
   }
   return false;
 }
+/** @internal A provider array prop that must keep its identity. */
+export type ɵStableArrayProp = keyof typeof ɵSTABLE_ARRAY_WARNINGS;
+
+// Every field of the shape is optional, so any object entry has the shape.
+function isToolRendererShape(value: unknown): value is ɵToolRendererShape {
+  return typeof value === "object" && value !== null;
+}
+
+/**
+ * @internal The warning for a provider array prop that changed after mount,
+ * or `undefined` when the change is fine.
+ *
+ * `renderToolCalls` warns only when its shape changes (see
+ * {@link ɵtoolRendererShapeChanged}), so new render closures for the same
+ * tools are fine. Every other prop warns on a new array.
+ *
+ * @param prop - Which prop changed.
+ * @param initial - The value at mount. `undefined` counts as an empty list.
+ * @param next - The new value.
+ *
+ * @example
+ * const warning = ɵstableArrayPropWarning("frontendTools", initial, next);
+ * if (warning) console.error(warning);
+ */
+export function ɵstableArrayPropWarning(
+  prop: ɵStableArrayProp,
+  initial: readonly unknown[] | undefined,
+  next: readonly unknown[] | undefined,
+): string | undefined {
+  if (next === initial) return undefined;
+  if (
+    prop === "renderToolCalls" &&
+    !ɵtoolRendererShapeChanged(
+      (initial ?? []).filter(isToolRendererShape),
+      (next ?? []).filter(isToolRendererShape),
+    )
+  ) {
+    return undefined;
+  }
+  return ɵSTABLE_ARRAY_WARNINGS[prop];
+}
+
+/** @internal A tool-call renderer the provider builds from a tool. */
+export interface ɵProviderToolRenderer<TRender> {
+  name: string;
+  args: unknown;
+  render: TRender;
+  agentId?: string;
+}
+
+// oxlint-disable-next-line typescript/no-explicit-any -- tools of any argument shape; a handler's `args` type is contravariant
+type AnyFrontendTool = FrontendTool<any>;
+
+/** @internal A provider `frontendTools` entry, with its framework render. */
+export type ɵProviderFrontendTool<TRender> = AnyFrontendTool & {
+  render?: TRender;
+};
+
+/** @internal A provider `humanInTheLoop` entry, with its framework render. */
+export type ɵProviderHumanInTheLoop<THitlRender> = Omit<
+  AnyFrontendTool,
+  "handler" | "type"
+> & {
+  render?: THitlRender;
+};
+
+/** @internal The input of {@link ɵassembleProviderRegistry}. */
+export interface ɵProviderRegistryInput<TRenderer, TRender, THitlRender> {
+  /** The provider's `renderToolCalls`. They come first, unchanged. */
+  renderToolCalls?: readonly TRenderer[];
+  /** The provider's `frontendTools`. */
+  frontendTools?: readonly ɵProviderFrontendTool<TRender>[];
+  /** Tools a built-in feature adds, such as Open Generative UI. */
+  builtInFrontendTools?: readonly ɵProviderFrontendTool<TRender>[];
+  /** The provider's `humanInTheLoop`. */
+  humanInTheLoop?: readonly ɵProviderHumanInTheLoop<THitlRender>[];
+  /**
+   * The registry that parks human-in-the-loop calls. Pass a getter when the
+   * core does not exist yet.
+   */
+  humanInTheLoopRegistry:
+    | ɵHumanInTheLoopRegistry
+    | (() => ɵHumanInTheLoopRegistry);
+  /**
+   * Wrap a human-in-the-loop render into a tool-call render. The wrapper
+   * passes `ɵhitlRenderProps(props, tool, registry())` to `render`.
+   */
+  wrapHumanInTheLoopRender: (
+    render: THitlRender,
+    tool: ɵProviderHumanInTheLoop<THitlRender>,
+    registry: () => ɵHumanInTheLoopRegistry,
+  ) => TRender;
+}
+
+/**
+ * @internal Build the tool list and the tool-call renderer list of a
+ * provider from its props.
+ *
+ * - Tools: `frontendTools`, then `builtInFrontendTools`, then one tool per
+ *   `humanInTheLoop` entry (see `ɵbuildHumanInTheLoopTool`).
+ * - Renderers: `renderToolCalls`, then one renderer per frontend tool with a
+ *   `render`, then one per human-in-the-loop entry with a `render`. A tool
+ *   renderer keeps the tool's `agentId`. A frontend tool without
+ *   `parameters` gets a renderer only when it is the `"*"` wildcard, which
+ *   then accepts any arguments.
+ *
+ * @example
+ * const { tools, renderToolCalls } = ɵassembleProviderRegistry({
+ *   renderToolCalls: props.renderToolCalls,
+ *   frontendTools: props.frontendTools,
+ *   humanInTheLoop: props.humanInTheLoop,
+ *   humanInTheLoopRegistry: () => core.ɵhumanInTheLoop,
+ *   wrapHumanInTheLoopRender: (Render, tool, registry) => (props) =>
+ *     <Render {...ɵhitlRenderProps(props, tool, registry())} />,
+ * });
+ */
+export function ɵassembleProviderRegistry<TRenderer, TRender, THitlRender>(
+  input: ɵProviderRegistryInput<TRenderer, TRender, THitlRender>,
+): {
+  tools: FrontendTool[];
+  renderToolCalls: Array<TRenderer | ɵProviderToolRenderer<TRender>>;
+} {
+  const humanInTheLoop = ɵassembleHumanInTheLoop(input);
+  return {
+    tools: ɵassembleProviderTools({ ...input, humanInTheLoop }),
+    renderToolCalls: ɵassembleProviderToolRenderers({
+      ...input,
+      humanInTheLoop,
+    }),
+  };
+}
+
+/** @internal The tools and renderers that a provider's `humanInTheLoop` gives. */
+export interface ɵAssembledHumanInTheLoop<TRender> {
+  tools: FrontendTool[];
+  renderToolCalls: ɵProviderToolRenderer<TRender>[];
+}
+
+/**
+ * @internal The human-in-the-loop part of {@link ɵassembleProviderRegistry}:
+ * one tool per `humanInTheLoop` entry, and one renderer per entry with a
+ * `render`.
+ *
+ * Each call wraps every render again, and a new wrapper is a new component
+ * type to React and Vue, so the card remounts. Adapters memoize this result
+ * on `humanInTheLoop` alone, and pass it to {@link ɵassembleProviderTools}
+ * and {@link ɵassembleProviderToolRenderers}.
+ */
+export function ɵassembleHumanInTheLoop<TRender, THitlRender>(
+  input: Pick<
+    ɵProviderRegistryInput<unknown, TRender, THitlRender>,
+    "humanInTheLoop" | "humanInTheLoopRegistry" | "wrapHumanInTheLoopRender"
+  >,
+): ɵAssembledHumanInTheLoop<TRender> {
+  const registryInput = input.humanInTheLoopRegistry;
+  const registry =
+    typeof registryInput === "function" ? registryInput : () => registryInput;
+  const tools: FrontendTool[] = [];
+  const renderToolCalls: ɵProviderToolRenderer<TRender>[] = [];
+  for (const entry of input.humanInTheLoop ?? []) {
+    const { render, ...config } = entry;
+    tools.push(ɵbuildHumanInTheLoopTool(config, registry));
+    if (!render) continue;
+    renderToolCalls.push({
+      name: entry.name,
+      args: entry.parameters,
+      render: input.wrapHumanInTheLoopRender(render, entry, registry),
+      ...(entry.agentId && { agentId: entry.agentId }),
+    });
+  }
+  return { tools, renderToolCalls };
+}
+
+/**
+ * @internal The tool list of {@link ɵassembleProviderRegistry}:
+ * `frontendTools`, then `builtInFrontendTools`, then the human-in-the-loop
+ * tools. It does not read `renderToolCalls`.
+ */
+export function ɵassembleProviderTools(input: {
+  frontendTools?: readonly AnyFrontendTool[];
+  builtInFrontendTools?: readonly AnyFrontendTool[];
+  humanInTheLoop: Pick<ɵAssembledHumanInTheLoop<unknown>, "tools">;
+}): FrontendTool[] {
+  return [
+    ...(input.frontendTools ?? []),
+    ...(input.builtInFrontendTools ?? []),
+    ...input.humanInTheLoop.tools,
+  ];
+}
+
+/**
+ * @internal The renderer list of {@link ɵassembleProviderRegistry}:
+ * `renderToolCalls`, then one renderer per frontend tool with a `render`,
+ * then the human-in-the-loop renderers, which keep their identity.
+ */
+export function ɵassembleProviderToolRenderers<TRenderer, TRender>(input: {
+  renderToolCalls?: readonly TRenderer[];
+  frontendTools?: readonly ɵProviderFrontendTool<TRender>[];
+  builtInFrontendTools?: readonly ɵProviderFrontendTool<TRender>[];
+  humanInTheLoop: Pick<ɵAssembledHumanInTheLoop<TRender>, "renderToolCalls">;
+}): Array<TRenderer | ɵProviderToolRenderer<TRender>> {
+  const renderToolCalls: Array<TRenderer | ɵProviderToolRenderer<TRender>> = [
+    ...(input.renderToolCalls ?? []),
+  ];
+  for (const tool of [
+    ...(input.frontendTools ?? []),
+    ...(input.builtInFrontendTools ?? []),
+  ]) {
+    if (!tool.render) continue;
+    const args =
+      tool.parameters ?? (tool.name === "*" ? ɵanySchema : undefined);
+    if (!args) continue;
+    renderToolCalls.push({
+      name: tool.name,
+      args,
+      render: tool.render,
+      ...(tool.agentId && { agentId: tool.agentId }),
+    });
+  }
+  renderToolCalls.push(...input.humanInTheLoop.renderToolCalls);
+  return renderToolCalls;
+}
+
+/** @internal The input of {@link ɵresolveA2UIActivation}. */
+export interface ɵA2UIActivationInput {
+  /** The runtime reports `a2uiEnabled`. */
+  runtimeEnabled: boolean;
+  /** The provider has an `a2ui.catalog`. */
+  hasCatalog: boolean;
+  /**
+   * Keep A2UI off without a catalog, even when the runtime enables it.
+   * Angular sets it: it has no default catalog to render surfaces with.
+   */
+  requireCatalog?: boolean;
+}
+
+/**
+ * @internal Whether the provider turns on A2UI: its built-in renderers and
+ * its agent context.
+ *
+ * A2UI is active when the runtime enables it or the provider has a catalog.
+ * With `requireCatalog`, only a catalog turns it on. `missingCatalog` is
+ * true when the runtime enables A2UI but `requireCatalog` keeps it off;
+ * the provider should tell the developer to configure a catalog.
+ *
+ * @example
+ * ɵresolveA2UIActivation({ runtimeEnabled: true, hasCatalog: false });
+ * // { active: true, missingCatalog: false }
+ * ɵresolveA2UIActivation({ runtimeEnabled: true, hasCatalog: false, requireCatalog: true });
+ * // { active: false, missingCatalog: true }
+ */
+export function ɵresolveA2UIActivation({
+  runtimeEnabled,
+  hasCatalog,
+  requireCatalog = false,
+}: ɵA2UIActivationInput) {
+  if (requireCatalog) {
+    return {
+      active: hasCatalog,
+      missingCatalog: runtimeEnabled && !hasCatalog,
+    };
+  }
+  return { active: runtimeEnabled || hasCatalog, missingCatalog: false };
+}
+
+/** @internal The input of {@link ɵassembleActivityRenderers}. */
+export interface ɵActivityRenderersInput<R> {
+  /** The app's activity renderers. They come first, so they win. */
+  app?: readonly R[];
+  /** The A2UI surface renderer, when A2UI is active. */
+  a2ui?: R;
+  /** The other built-in renderers, in order. */
+  builtIns?: readonly (R | undefined | false)[];
+}
+
+/**
+ * @internal The provider's activity renderer list: the app's renderers, then
+ * the A2UI renderer, then the other built-in renderers. Missing entries are
+ * left out.
+ *
+ * @example
+ * ɵassembleActivityRenderers({
+ *   app: props.renderActivityMessages,
+ *   a2ui: a2uiActive ? a2uiRenderer : undefined,
+ *   builtIns: [mcpAppsRenderer, openGenUIActive && openGenUIRenderer],
+ * });
+ */
+export function ɵassembleActivityRenderers<R>({
+  app = [],
+  a2ui,
+  builtIns = [],
+}: ɵActivityRenderersInput<R>): R[] {
+  const renderers = [...app];
+  if (a2ui) renderers.push(a2ui);
+  for (const renderer of builtIns) {
+    if (renderer) renderers.push(renderer);
+  }
+  return renderers;
+}
+
 /** @internal The object form of the provider `learning` option. */
 export type ɵCopilotKitLearningOptions = LearningConfig & {
   /**

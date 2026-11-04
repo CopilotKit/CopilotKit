@@ -14,6 +14,23 @@ class Host {
   readonly stick = viewChild.required(StickToBottom);
 }
 
+@Component({
+  imports: [StickToBottom],
+  template: `
+    <div
+      copilotStickToBottom
+      [debounceMs]="0"
+      [initialBehavior]="'instant'"
+      (isAtBottomChange)="changes.push($event)"
+    >
+      <div data-stick-to-bottom-content>Messages</div>
+    </div>
+  `,
+})
+class FollowingHost {
+  readonly changes: boolean[] = [];
+}
+
 /** jsdom has no layout: give the element the sizes a browser would report. */
 function scrolledElement(distanceFromEnd: number) {
   const element = document.createElement("div");
@@ -32,6 +49,27 @@ describe("scroll-to-bottom threshold", () => {
     const scroll = TestBed.inject(ScrollPosition);
     expect(scroll.isAtBottom(scrolledElement(12))).toBe(true);
     expect(scroll.isAtBottom(scrolledElement(13))).toBe(false);
+  });
+
+  it("reports the first position, then when the reader scrolls up and back down", () => {
+    const fixture = TestBed.createComponent(FollowingHost);
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement.querySelector(
+      "[copilotStickToBottom]",
+    );
+    let top = 0;
+    Object.defineProperties(element, {
+      scrollHeight: { configurable: true, value: 1000 },
+      clientHeight: { configurable: true, value: 500 },
+      scrollTop: { configurable: true, get: () => top },
+    });
+
+    top = 200;
+    element.dispatchEvent(new Event("scroll"));
+    top = 500;
+    element.dispatchEvent(new Event("scroll"));
+
+    expect(fixture.componentInstance.changes).toEqual([true, false, true]);
   });
 
   it("gives the directive the same 12px default", () => {

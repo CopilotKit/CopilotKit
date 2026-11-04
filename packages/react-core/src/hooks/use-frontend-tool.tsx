@@ -1,4 +1,5 @@
 import { useLayoutEffect } from "react";
+import { ɵregisterFrontendTools } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
 import { useDepsVersion } from "./tool-registration";
@@ -38,35 +39,13 @@ export function useFrontendTool<
   const depsVersion = useDepsVersion(deps);
 
   useLayoutEffect(() => {
-    const name = tool.name;
-
     // This registration hides any tool with the same name and agentId (a
     // provider tool or another hook) until this effect cleans up. Unregistering
-    // brings the hidden tool back.
-    if (copilotkit.getTool({ toolName: name, agentId: tool.agentId })) {
-      console.warn(
-        `Tool '${name}' already exists for agent '${tool.agentId || "global"}'. Overriding with latest registration.`,
-      );
-    }
-    const unregister = copilotkit.addTool(tool);
-
-    // Register/override renderer by name and agentId through core.
-    // The render function is registered even when tool.parameters is
-    // undefined — tools like HITL confirm dialogs have no parameters
-    // but still need their UI rendered in the chat.
-    if (tool.render) {
-      copilotkit.addHookRenderToolCall({
-        name,
-        args: tool.parameters,
-        agentId: tool.agentId,
-        render: tool.render,
-      });
-    }
-
-    return () => {
-      unregister();
-      // we are intentionally not removing the render here so that the tools can still render in the chat history
-    };
+    // brings the hidden tool back. The renderer stays registered so past calls
+    // still render in the chat history.
+    return ɵregisterFrontendTools(copilotkit, [tool], (renderer) =>
+      copilotkit.addHookRenderToolCall(renderer),
+    );
     // Depend on stable keys by default and allow callers to opt into
     // additional dependencies for dynamic tool configuration.
     // tool.available is included so toggling availability re-registers the tool.

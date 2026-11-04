@@ -86,12 +86,18 @@ export class CopilotKitCoreVue extends CopilotKitCore {
     this._renderers.setCustom(renderers);
   }
 
-  /** The renderers the provider was given, without hook renderers. */
+  /**
+   * The renderers the provider was given, without hook or built-in
+   * renderers. Nothing in CopilotKit reads it now; it stays for app code.
+   */
   get propRenderToolCalls() {
     return this._renderers.propToolCalls;
   }
 
-  /** Prop and hook renderers merged; a hook renderer wins over a prop one. */
+  /**
+   * Prop, hook and built-in renderers merged. For one name and agentId, a
+   * hook renderer wins over a prop one, and both win over a built-in one.
+   */
   get renderToolCalls() {
     return this._renderers.toolCalls;
   }
@@ -110,6 +116,17 @@ export class CopilotKitCoreVue extends CopilotKitCore {
 
   removeHookRenderToolCall(name: string, agentId?: string): void {
     this._renderers.removeHookToolCall(name, agentId);
+  }
+
+  /**
+   * @internal Add a renderer for a tool a built-in feature owns (A2UI,
+   * generative UI). Prop and hook renderers with the same name and agent win
+   * over it, and `setRenderToolCalls` never removes it.
+   *
+   * @returns A function that removes the renderer.
+   */
+  ɵaddBuiltInRenderToolCall(entry: VueToolCallRenderer): () => void {
+    return this._renderers.addBuiltInToolCall(entry);
   }
 
   private notifyRenderersChanged(kind: ɵRendererKind): void {

@@ -25,12 +25,15 @@ function toolCallKey(entry: { name: string; agentId?: string }) {
  * Holds the renderers of one provider and tells subscribers when a list
  * changes.
  *
- * Tool-call renderers come from two places. Prop renderers are the list the
+ * Tool-call renderers come from three places. Prop renderers are the list the
  * provider was given (`setPropToolCalls`). Hook renderers are added one at a
- * time (`addHookToolCall`), for example by `useRenderTool`. Each renderer has
- * a key made of its `agentId` and `name`. A hook renderer replaces a prop
- * renderer with the same key, and a later hook renderer replaces an earlier
- * one with the same key, so the latest registration wins.
+ * time (`addHookToolCall`), for example by `useRenderTool`. Built-in
+ * renderers are added by CopilotKit features such as A2UI
+ * (`addBuiltInToolCall`). Each renderer has a key made of its `agentId` and
+ * `name`. A hook renderer replaces a prop renderer with the same key, and a
+ * later hook renderer replaces an earlier one with the same key, so the
+ * latest registration wins. A built-in renderer shows only when no prop or
+ * hook renderer has its key, so an app can always replace it.
  *
  * Fields are TypeScript `private`, not `#private`, so the registry keeps
  * working behind a Vue reactive proxy.
@@ -58,6 +61,7 @@ export class ɵRendererRegistry<
 > {
   private _propToolCalls: readonly TTool[];
   private _hookToolCalls = new Map<string, TTool>();
+  private _builtInToolCalls = new Map<string, TTool>();
   private _mergedToolCalls: readonly TTool[] | null = null;
   private _activity: readonly TActivity[];
   private _custom: readonly TCustom[];
@@ -75,12 +79,15 @@ export class ɵRendererRegistry<
   }
 
   /**
-   * Every tool-call renderer: prop renderers, then hook renderers, with one
-   * entry per `agentId` + `name` key. A prop renderer that a hook renderer
-   * replaces keeps its position in the list.
+   * Every tool-call renderer: prop renderers, then hook renderers, then
+   * built-in renderers, with one entry per `agentId` + `name` key. A prop
+   * renderer that a hook renderer replaces keeps its position in the list. A
+   * built-in renderer is left out when a prop or hook renderer has its key.
    */
   get toolCalls() {
-    if (this._hookToolCalls.size === 0) return this._propToolCalls;
+    if (this._hookToolCalls.size === 0 && this._builtInToolCalls.size === 0) {
+      return this._propToolCalls;
+    }
     if (this._mergedToolCalls) return this._mergedToolCalls;
 
     const merged = new Map<string, TTool>();
@@ -89,6 +96,9 @@ export class ɵRendererRegistry<
     }
     for (const [key, entry] of this._hookToolCalls) {
       merged.set(key, entry);
+    }
+    for (const [key, entry] of this._builtInToolCalls) {
+      if (!merged.has(key)) merged.set(key, entry);
     }
     this._mergedToolCalls = [...merged.values()];
     return this._mergedToolCalls;
@@ -145,6 +155,58 @@ export class ɵRendererRegistry<
     if (!this._hookToolCalls.delete(toolCallKey({ name, agentId }))) return;
     this._mergedToolCalls = null;
     this.emit("toolCalls");
+  }
+
+  /**
+   * Remove the prop and hook renderers for `name` and `agentId`. Built-in
+   * renderers stay. Does nothing when no such renderer exists.
+   *
+   * @param name - The tool name.
+   * @param agentId - The agent the renderers belong to. Omit it for
+   *   renderers with no `agentId`.
+   */
+  removeToolCall(name: string, agentId?: string) {
+    const key = toolCallKey({ name, agentId });
+    const props = this._propToolCalls.filter(
+      (entry) => toolCallKey(entry) !== key,
+    );
+    const removedHook = this._hookToolCalls.delete(key);
+    if (!removedHook && props.length === this._propToolCalls.length) return;
+    this._propToolCalls = props;
+    this._mergedToolCalls = null;
+    this.emit("toolCalls");
+  }
+
+  /**
+   * Add a built-in renderer, for a tool that a CopilotKit feature owns (for
+   * example the A2UI render tool). Prop and hook renderers with the same
+   * `agentId` and `name` win over it, and setting the prop renderers never
+   * removes it.
+   *
+   * @param entry - The renderer to add. It replaces an earlier built-in
+   *   renderer with the same key.
+   * @returns A function that removes this renderer, if it is still the
+   *   built-in renderer for its key. Calling it more than once does nothing.
+   *
+   * @example
+   * ```ts
+   * const remove = registry.addBuiltInToolCall({ name: "render_a2ui", render: Nothing });
+   * // when the feature turns off
+   * remove();
+   * ```
+   */
+  addBuiltInToolCall(entry: TTool) {
+    const key = toolCallKey(entry);
+    this._builtInToolCalls.set(key, entry);
+    this._mergedToolCalls = null;
+    this.emit("toolCalls");
+
+    return () => {
+      if (this._builtInToolCalls.get(key) !== entry) return;
+      this._builtInToolCalls.delete(key);
+      this._mergedToolCalls = null;
+      this.emit("toolCalls");
+    };
   }
 
   /**

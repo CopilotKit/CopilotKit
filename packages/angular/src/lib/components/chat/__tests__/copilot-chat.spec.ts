@@ -55,6 +55,14 @@ class TestReasoningMessage {
 }
 
 @Component({
+  selector: "test-work-summary",
+  template: `
+    <p data-testid="custom-work-summary">Work</p>
+  `,
+})
+class TestWorkSummary {}
+
+@Component({
   selector: "test-transcript-children",
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -430,6 +438,41 @@ describe("CopilotChat", () => {
       expect(customMessage?.textContent).toBe("Rendered reasoning");
     });
 
+    test("forwards a custom work-summary component through the prebuilt chat", async () => {
+      const { fixture } = context;
+      fixture.componentRef.setInput("toolCallDisplay", "turn");
+      fixture.componentRef.setInput("workSummaryComponent", TestWorkSummary);
+      fixture.detectChanges();
+      const call = (id: string) => ({
+        id,
+        type: "function" as const,
+        function: { name: "run_command", arguments: "{}" },
+      });
+      agent.setMessages([
+        { id: "user-1", role: "user", content: "Check the build" },
+        { id: "assistant-1", role: "assistant", content: "Looking." },
+        {
+          id: "assistant-2",
+          role: "assistant",
+          content: "",
+          toolCalls: [call("a"), call("b")],
+        },
+        { id: "tool-a", role: "tool", toolCallId: "a", content: "ok" },
+        { id: "tool-b", role: "tool", toolCallId: "b", content: "ok" },
+        { id: "assistant-3", role: "assistant", content: "Done." },
+      ]);
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      fixture.detectChanges();
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(
+        root.querySelectorAll('[data-testid="custom-work-summary"]'),
+      ).toHaveLength(1);
+      expect(root.querySelector('[data-testid="copilot-work-summary"]')).toBe(
+        null,
+      );
+    });
+
     test("forwards transcript children through the prebuilt chat", async () => {
       const { fixture } = context;
       fixture.componentRef.setInput(
@@ -495,6 +538,35 @@ describe("CopilotChat", () => {
       });
       agent.finish();
       await queued;
+    });
+
+    test("streams the latest reasoning and hides the latest reply's toolbar while the agent runs", async () => {
+      const { fixture, chat, core } = context;
+      const run = core.runAgent({ agent });
+      await vi.waitFor(() => expect(chat.isRunning()).toBe(true));
+      agent.setMessages([
+        { id: "user-1", role: "user", content: "Plan a launch" },
+        { id: "reasoning-1", role: "reasoning", content: "Weighing dates" },
+      ]);
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const reasoning = root.querySelector('[data-testid="reasoning-block"]');
+      expect(reasoning?.textContent).toContain("Thinking…");
+      expect(reasoning?.getAttribute("aria-expanded")).toBe("true");
+
+      agent.setMessages([
+        ...agent.messages,
+        { id: "assistant-1", role: "assistant", content: "Early May." },
+      ]);
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      fixture.detectChanges();
+      expect(root.querySelector("[copilotChatAssistantMessageToolbar]")).toBe(
+        null,
+      );
+
+      agent.finish();
+      await run;
     });
 
     /** Starts a run on a chat that has a message, so the run can stop. */
@@ -845,10 +917,22 @@ describe("CopilotChat", () => {
       });
     });
 
+    test("does not connect an agent that does not implement connect", async () => {
+      const { fixture, config, core } = createChatFixture(
+        new MockAgent("default"),
+      );
+      const connect = vi.spyOn(core, "connectAgent");
+      config.setActiveThreadId("existing", { explicit: true });
+      fixture.detectChanges();
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect(connect).not.toHaveBeenCalled();
+      expect(readShowCursor(fixture)).toBe(false);
+    });
+
     describe("connect errors", () => {
       let context: ReturnType<typeof createChatFixture>;
       beforeEach(() => {
-        context = createChatFixture();
+        context = createChatFixture(new StreamingAgent());
       });
 
       test("logs an unexpected connect failure", async () => {
@@ -883,7 +967,7 @@ describe("CopilotChat", () => {
 
     describe("inspector thread override", () => {
       test("connects to the thread the Inspector asks to view", async () => {
-        const { fixture, core } = createChatFixture();
+        const { fixture, core } = createChatFixture(new StreamingAgent());
         const connect = vi.spyOn(core, "connectAgent").mockResolvedValue({
           result: undefined,
           newMessages: [],
@@ -902,7 +986,7 @@ describe("CopilotChat", () => {
       });
 
       test("reports a failed connect to the Inspector and gives up the thread", async () => {
-        const { fixture, core } = createChatFixture();
+        const { fixture, core } = createChatFixture(new StreamingAgent());
         vi.spyOn(core, "connectAgent").mockRejectedValue(new Error("down"));
         vi.spyOn(console, "error").mockImplementation(() => {});
         const results: InspectorViewThreadResultPayload[] = [];

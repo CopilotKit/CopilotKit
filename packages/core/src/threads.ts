@@ -264,11 +264,17 @@ function sortThreadsByRecency(threads: ThreadRecord[]): ThreadRecord[] {
   // Prefer lastRunAt so the order reflects actual agent activity and stays
   // stable when a user performs metadata-only actions like archive or rename.
   // Fall back to updatedAt (and then createdAt) for threads that have never run.
-  return [...threads].sort((left, right) => {
-    const leftKey = left.lastRunAt ?? left.updatedAt ?? left.createdAt;
-    const rightKey = right.lastRunAt ?? right.updatedAt ?? right.createdAt;
-    return rightKey.localeCompare(leftKey);
-  });
+  // Compare parsed instants, not strings: "…:00Z" and "…:00.500Z", or two
+  // offsets for one instant, do not order correctly as text. A timestamp that
+  // does not parse sorts last; ties keep their input order.
+  return [...threads].sort((left, right) => recencyOf(right) - recencyOf(left));
+}
+
+function recencyOf(thread: ThreadRecord): number {
+  const time = Date.parse(
+    thread.lastRunAt ?? thread.updatedAt ?? thread.createdAt,
+  );
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
 }
 
 function upsertThread(

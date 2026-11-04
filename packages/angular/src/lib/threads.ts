@@ -9,38 +9,20 @@ import {
   untracked,
 } from "@angular/core";
 import { ɵThreadsController, ɵcreateThreadStore } from "@copilotkit/core";
-import type { ɵThreadsCore } from "@copilotkit/core";
+import type { ɵThreadSummary, ɵThreadsCore } from "@copilotkit/core";
 import { CopilotKit } from "./copilotkit";
 
 /**
  * A conversation thread managed by CopilotKit Intelligence.
  *
- * Each thread has a unique `id`, an optional human-readable `name`, and
- * timestamp fields tracking creation and update times. This mirrors the
- * `Thread` projection exposed by react-core's `useThreads` so framework
- * wrappers share an identical shape.
+ * Each thread has a unique `id`, the `agentId` it belongs to, an optional
+ * human-readable `name` (`null` when unnamed), an `archived` flag, and the
+ * ISO-8601 `createdAt` and `updatedAt` timestamps. `lastRunAt` is the time of
+ * the most recent agent run, absent when the thread has never run; prefer it
+ * over `updatedAt` for "last activity", since rename and archive do not bump
+ * it. The shape is core's, shared with React and Vue.
  */
-export interface Thread {
-  /** Stable, server-assigned thread identifier. */
-  id: string;
-  /** The agent this thread belongs to. */
-  agentId: string;
-  /** Human-readable name, or `null` when the thread is unnamed. */
-  name: string | null;
-  /** `true` when the thread has been archived. */
-  archived: boolean;
-  /** ISO-8601 creation timestamp. */
-  createdAt: string;
-  /** ISO-8601 timestamp of the most recent metadata update. */
-  updatedAt: string;
-  /**
-   * ISO-8601 timestamp of the most recent agent run on this thread. Absent
-   * when the thread has never been run. Prefer this over `updatedAt` for
-   * user-facing "last activity" displays — it is not bumped by metadata-only
-   * actions like rename or archive.
-   */
-  lastRunAt?: string;
-}
+export type Thread = ɵThreadSummary;
 
 /**
  * Configuration for {@link injectThreads}.

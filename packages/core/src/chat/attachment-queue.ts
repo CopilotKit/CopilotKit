@@ -276,7 +276,11 @@ export class ɵAttachmentQueue {
           };
       const thumbnail =
         placeholder.type === "video"
-          ? await generateVideoThumbnail(file)
+          ? await generateVideoThumbnail(file).catch(() => {
+              // A thumbnail is optional: the file itself uploaded, so a
+              // failure to draw one shows the video without it.
+              return undefined;
+            })
           : undefined;
       const isStillQueued = this.attachments.some(
         (attachment) => attachment.id === placeholder.id,
