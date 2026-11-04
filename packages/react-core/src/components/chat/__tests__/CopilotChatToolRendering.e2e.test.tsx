@@ -640,8 +640,7 @@ describe("Partial Args Accumulation", () => {
 
     // Let React update with the partial data
     await waitFor(() => {
-      const tool = screen.queryByTestId("complex-tool");
-      expect(tool).toBeDefined();
+      expect(screen.getByTestId("complex-tool")).not.toBeNull();
     });
 
     agent.emit({

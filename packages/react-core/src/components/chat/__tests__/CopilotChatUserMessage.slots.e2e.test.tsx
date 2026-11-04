@@ -1,7 +1,9 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi } from "vitest";
 import { CopilotChatUserMessage } from "../CopilotChatUserMessage";
+import type { CopilotChatUserMessageProps } from "../CopilotChatUserMessage";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import type { UserMessage } from "@ag-ui/core";
@@ -21,279 +23,101 @@ const createUserMessage = (content: string): UserMessage => ({
   content,
 });
 
+// Props that make the edit button and branch navigation render.
+const withAllButtons = {
+  onEditMessage: () => {},
+  branchIndex: 1,
+  numberOfBranches: 3,
+  onSwitchToBranch: () => {},
+} satisfies Partial<CopilotChatUserMessageProps>;
+
+function renderMessage(props: Partial<CopilotChatUserMessageProps> = {}) {
+  return render(
+    <TestWrapper>
+      <CopilotChatUserMessage message={createUserMessage("Hello")} {...props} />
+    </TestWrapper>,
+  );
+}
+
+const slotElements = {
+  messageRenderer: () =>
+    document.querySelector<HTMLElement>(".cpk-user-message-bubble"),
+  toolbar: () => screen.getByTestId("copilot-user-toolbar"),
+  copyButton: () => screen.getByTestId("copilot-user-copy-button"),
+  editButton: () => screen.getByTestId("copilot-edit-button"),
+  branchNavigation: () => screen.getByTestId("copilot-branch-navigation"),
+};
+const slotNames = Object.keys(slotElements) as (keyof typeof slotElements)[];
+
 describe("CopilotChatUserMessage Slot System E2E Tests", () => {
-  // ============================================================================
-  // 1. TAILWIND CLASS TESTS
-  // ============================================================================
   describe("1. Tailwind Class Slot Override", () => {
-    describe("messageRenderer slot", () => {
-      it("should apply tailwind class string to messageRenderer", () => {
-        const message = createUserMessage("Hello");
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              messageRenderer="bg-blue-500 text-white rounded-xl"
-            />
-          </TestWrapper>,
-        );
+    it.each(slotNames)("should apply tailwind class string to %s", (slot) => {
+      renderMessage({ ...withAllButtons, [slot]: "bg-slate-100 px-2" });
 
-        const renderer = container.querySelector(".bg-blue-500");
-        expect(renderer).toBeDefined();
-        expect(renderer?.classList.contains("text-white")).toBe(true);
-        expect(renderer?.classList.contains("rounded-xl")).toBe(true);
-      });
-    });
-
-    describe("toolbar slot", () => {
-      it("should apply tailwind class string to toolbar", () => {
-        const message = createUserMessage("Hello");
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              toolbar="bg-gray-50 border rounded"
-            />
-          </TestWrapper>,
-        );
-
-        const toolbar = container.querySelector(".bg-gray-50");
-        expect(toolbar).toBeDefined();
-        expect(toolbar?.classList.contains("border")).toBe(true);
-      });
-    });
-
-    describe("copyButton slot", () => {
-      it("should apply tailwind class string to copyButton", () => {
-        const message = createUserMessage("Hello");
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              copyButton="text-indigo-500 hover:text-indigo-700"
-            />
-          </TestWrapper>,
-        );
-
-        const copyBtn = container.querySelector(".text-indigo-500");
-        expect(copyBtn).toBeDefined();
-      });
-    });
-
-    describe("editButton slot", () => {
-      it("should apply tailwind class string to editButton", () => {
-        const onEditMessage = vi.fn();
-        const message = createUserMessage("Hello");
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              onEditMessage={onEditMessage}
-              editButton="text-yellow-500"
-            />
-          </TestWrapper>,
-        );
-
-        const editBtn = container.querySelector(".text-yellow-500");
-        expect(editBtn).toBeDefined();
-      });
-    });
-
-    describe("branchNavigation slot", () => {
-      it("should apply tailwind class string to branchNavigation", () => {
-        const onSwitchToBranch = vi.fn();
-        const message = createUserMessage("Hello");
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              branchIndex={0}
-              numberOfBranches={3}
-              onSwitchToBranch={onSwitchToBranch}
-              branchNavigation="bg-slate-100 px-2 py-1"
-            />
-          </TestWrapper>,
-        );
-
-        const branchNav = container.querySelector(".bg-slate-100");
-        expect(branchNav).toBeDefined();
-        expect(branchNav?.classList.contains("px-2")).toBe(true);
-      });
+      expect(slotElements[slot]()).toHaveClass("bg-slate-100", "px-2");
     });
   });
 
-  // ============================================================================
-  // 2. PROPERTY PASSING TESTS
-  // ============================================================================
   describe("2. Property Passing (onClick, disabled, etc.)", () => {
-    describe("messageRenderer slot", () => {
-      it("should pass custom props to messageRenderer", () => {
-        const message = createUserMessage("Hello");
-        const messageRendererProps: Partial<
-          React.ComponentProps<typeof CopilotChatUserMessage.MessageRenderer>
-        > & { "data-testid": string } = {
-          "data-testid": "custom-message-renderer",
-        };
-        render(
-          <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              messageRenderer={messageRendererProps}
-            />
-          </TestWrapper>,
-        );
-
-        const renderer = screen.queryByTestId("custom-message-renderer");
-        expect(renderer).toBeDefined();
+    it.each(slotNames)("should pass a className object to %s", (slot) => {
+      renderMessage({
+        ...withAllButtons,
+        [slot]: { className: "from-object" },
       });
+
+      expect(slotElements[slot]()).toHaveClass("from-object");
     });
 
-    describe("toolbar slot", () => {
-      it("should pass custom onClick to toolbar", () => {
-        const onClick = vi.fn();
-        const message = createUserMessage("Hello");
-        const toolbarProps = { onClick, "data-testid": "custom-toolbar" };
-        render(
-          <TestWrapper>
-            <CopilotChatUserMessage message={message} toolbar={toolbarProps} />
-          </TestWrapper>,
-        );
+    it("should pass custom onClick to toolbar", () => {
+      const onClick = vi.fn();
+      renderMessage({ toolbar: { onClick } });
 
-        const toolbar = screen.queryByTestId("custom-toolbar");
-        if (toolbar) {
-          fireEvent.click(toolbar);
-          expect(onClick).toHaveBeenCalled();
-        }
-      });
+      fireEvent.click(screen.getByTestId("copilot-user-toolbar"));
+
+      expect(onClick).toHaveBeenCalledTimes(1);
     });
 
-    describe("copyButton slot", () => {
-      it("should pass custom onClick that wraps default behavior", () => {
-        const customOnClick = vi.fn();
-        const message = createUserMessage("Hello");
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              copyButton={{ onClick: customOnClick }}
-            />
-          </TestWrapper>,
-        );
+    it("should pass custom onClick to copyButton", () => {
+      const customOnClick = vi.fn();
+      renderMessage({ copyButton: { onClick: customOnClick } });
 
-        const copyBtn = container.querySelector('button[aria-label*="Copy"]');
-        if (copyBtn) {
-          fireEvent.click(copyBtn);
-          expect(customOnClick).toHaveBeenCalled();
-        }
-      });
+      fireEvent.click(screen.getByTestId("copilot-user-copy-button"));
 
-      it("should support disabled state on copyButton", () => {
-        const message = createUserMessage("Hello");
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              copyButton={{ disabled: true }}
-            />
-          </TestWrapper>,
-        );
-
-        const copyBtn = container.querySelector('button[aria-label*="Copy"]');
-        if (copyBtn) {
-          expect(copyBtn.hasAttribute("disabled")).toBe(true);
-        }
-      });
+      expect(customOnClick).toHaveBeenCalledTimes(1);
     });
 
-    describe("editButton slot", () => {
-      it("should call custom onClick on editButton", () => {
-        const customOnClick = vi.fn();
-        const onEditMessage = vi.fn();
-        const message = createUserMessage("Hello");
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              onEditMessage={onEditMessage}
-              editButton={{ onClick: customOnClick }}
-            />
-          </TestWrapper>,
-        );
+    it("a custom onClick on editButton replaces onEditMessage", () => {
+      const customOnClick = vi.fn();
+      const onEditMessage = vi.fn();
+      renderMessage({ onEditMessage, editButton: { onClick: customOnClick } });
 
-        const editBtn = container.querySelector('button[aria-label*="Edit"]');
-        if (editBtn) {
-          fireEvent.click(editBtn);
-          expect(customOnClick).toHaveBeenCalled();
-        }
-      });
+      fireEvent.click(screen.getByTestId("copilot-edit-button"));
 
-      it("should support disabled state on editButton", () => {
-        const onEditMessage = vi.fn();
-        const message = createUserMessage("Hello");
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              onEditMessage={onEditMessage}
-              editButton={{ disabled: true }}
-            />
-          </TestWrapper>,
-        );
-
-        const editBtn = container.querySelector('button[aria-label*="Edit"]');
-        if (editBtn) {
-          expect(editBtn.hasAttribute("disabled")).toBe(true);
-        }
-      });
+      expect(customOnClick).toHaveBeenCalledTimes(1);
+      expect(onEditMessage).not.toHaveBeenCalled();
     });
 
-    describe("branchNavigation slot", () => {
-      it("should pass custom props to branchNavigation", () => {
-        const onSwitchToBranch = vi.fn();
-        const message = createUserMessage("Hello");
-        const branchNavigationProps: Partial<
-          React.ComponentProps<typeof CopilotChatUserMessage.BranchNavigation>
-        > & { "data-testid": string } = { "data-testid": "custom-branch-nav" };
-        render(
-          <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              branchIndex={1}
-              numberOfBranches={3}
-              onSwitchToBranch={onSwitchToBranch}
-              branchNavigation={branchNavigationProps}
-            />
-          </TestWrapper>,
-        );
+    it.each(["copyButton", "editButton"] as const)(
+      "should support disabled state on %s",
+      (slot) => {
+        renderMessage({ ...withAllButtons, [slot]: { disabled: true } });
 
-        const branchNav = screen.queryByTestId("custom-branch-nav");
-        expect(branchNav).toBeDefined();
-      });
-    });
+        expect(slotElements[slot]()).toBeDisabled();
+      },
+    );
   });
 
-  // ============================================================================
-  // 3. CUSTOM COMPONENT TESTS
-  // ============================================================================
   describe("3. Custom Component Receiving Sub-components", () => {
     it("should allow custom component for messageRenderer", () => {
       const CustomRenderer: React.FC<{ content: string }> = ({ content }) => (
         <div data-testid="custom-renderer">[{content}]</div>
       );
 
-      const message = createUserMessage("Hello");
-      render(
-        <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            messageRenderer={CustomRenderer as any}
-          />
-        </TestWrapper>,
-      );
+      renderMessage({ messageRenderer: CustomRenderer });
 
-      const custom = screen.queryByTestId("custom-renderer");
-      expect(custom).toBeDefined();
-      expect(custom?.textContent).toBe("[Hello]");
+      expect(screen.getByTestId("custom-renderer")).toHaveTextContent(
+        "[Hello]",
+      );
     });
 
     it("should allow custom component for toolbar", () => {
@@ -306,69 +130,32 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
         </div>
       );
 
-      const message = createUserMessage("Hello");
-      render(
-        <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            toolbar={CustomToolbar as any}
-          />
-        </TestWrapper>,
-      );
+      renderMessage({ toolbar: CustomToolbar });
 
-      const custom = screen.queryByTestId("custom-toolbar-component");
-      expect(custom).toBeDefined();
-      expect(custom?.textContent).toContain("Actions");
+      const custom = screen.getByTestId("custom-toolbar-component");
+      expect(custom).toHaveTextContent("Actions:");
+      // The custom toolbar still receives the bound buttons as children.
+      expect(
+        within(custom).getByTestId("copilot-user-copy-button"),
+      ).toBeInTheDocument();
     });
 
-    it("should allow custom component for copyButton", () => {
-      const CustomCopyButton: React.FC<
-        React.ButtonHTMLAttributes<HTMLButtonElement>
-      > = (props) => (
-        <button data-testid="custom-copy-btn" {...props}>
-          Copy It
-        </button>
-      );
+    it.each(["copyButton", "editButton"] as const)(
+      "should allow custom component for %s",
+      (slot) => {
+        const CustomButton: React.FC<
+          React.ButtonHTMLAttributes<HTMLButtonElement>
+        > = (props) => (
+          <button data-testid="custom-btn" {...props}>
+            Custom
+          </button>
+        );
 
-      const message = createUserMessage("Hello");
-      render(
-        <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            copyButton={CustomCopyButton as any}
-          />
-        </TestWrapper>,
-      );
+        renderMessage({ ...withAllButtons, [slot]: CustomButton });
 
-      const custom = screen.queryByTestId("custom-copy-btn");
-      expect(custom).toBeDefined();
-      expect(custom?.textContent).toBe("Copy It");
-    });
-
-    it("should allow custom component for editButton", () => {
-      const CustomEditButton: React.FC<
-        React.ButtonHTMLAttributes<HTMLButtonElement>
-      > = (props) => (
-        <button data-testid="custom-edit-btn" {...props}>
-          Modify
-        </button>
-      );
-
-      const onEditMessage = vi.fn();
-      const message = createUserMessage("Hello");
-      render(
-        <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            onEditMessage={onEditMessage}
-            editButton={CustomEditButton as any}
-          />
-        </TestWrapper>,
-      );
-
-      const custom = screen.queryByTestId("custom-edit-btn");
-      expect(custom).toBeDefined();
-    });
+        expect(screen.getByTestId("custom-btn")).toHaveTextContent("Custom");
+      },
+    );
 
     it("should allow custom component for branchNavigation", () => {
       const CustomBranchNav: React.FC<{
@@ -380,68 +167,52 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
         </div>
       );
 
-      const onSwitchToBranch = vi.fn();
-      const message = createUserMessage("Hello");
-      render(
-        <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            branchIndex={1}
-            numberOfBranches={3}
-            onSwitchToBranch={onSwitchToBranch}
-            branchNavigation={CustomBranchNav as any}
-          />
-        </TestWrapper>,
-      );
+      renderMessage({ ...withAllButtons, branchNavigation: CustomBranchNav });
 
-      const custom = screen.queryByTestId("custom-branch-nav");
-      expect(custom).toBeDefined();
-      expect(custom?.textContent).toBe("Branch 2 of 3");
+      expect(screen.getByTestId("custom-branch-nav")).toHaveTextContent(
+        "Branch 2 of 3",
+      );
     });
   });
 
-  // ============================================================================
-  // 4. CHILDREN RENDER FUNCTION (DRILL-DOWN) TESTS
-  // ============================================================================
   describe("4. Children Render Function for Drill-down", () => {
     it("should provide all bound sub-components via children render function", () => {
-      const message = createUserMessage("Hello");
-      const onEditMessage = vi.fn();
-      const onSwitchToBranch = vi.fn();
-      const childrenFn = vi.fn((props) => (
-        <div data-testid="children-render">
-          <div data-testid="received-renderer">{props.messageRenderer}</div>
-          <div data-testid="received-toolbar">{props.toolbar}</div>
-          <div data-testid="received-copy">{props.copyButton}</div>
-          <div data-testid="received-edit">{props.editButton}</div>
-          <div data-testid="received-branch">{props.branchNavigation}</div>
-        </div>
-      ));
-
       render(
         <TestWrapper>
           <CopilotChatUserMessage
-            message={message}
-            onEditMessage={onEditMessage}
-            branchIndex={0}
-            numberOfBranches={2}
-            onSwitchToBranch={onSwitchToBranch}
+            message={createUserMessage("Hello")}
+            {...withAllButtons}
           >
-            {childrenFn}
+            {({
+              messageRenderer,
+              copyButton,
+              editButton,
+              branchNavigation,
+            }) => (
+              <div>
+                <div data-testid="message-area">{messageRenderer}</div>
+                <div data-testid="actions-row">
+                  {editButton}
+                  {copyButton}
+                  {branchNavigation}
+                </div>
+              </div>
+            )}
           </CopilotChatUserMessage>
         </TestWrapper>,
       );
 
-      expect(childrenFn).toHaveBeenCalled();
-      const callArgs = childrenFn.mock.calls[0]![0];
-      expect(callArgs).toHaveProperty("messageRenderer");
-      expect(callArgs).toHaveProperty("toolbar");
-      expect(callArgs).toHaveProperty("copyButton");
-      expect(callArgs).toHaveProperty("editButton");
-      expect(callArgs).toHaveProperty("branchNavigation");
-      expect(callArgs).toHaveProperty("message");
-
-      expect(screen.queryByTestId("children-render")).toBeDefined();
+      expect(screen.getByTestId("message-area")).toHaveTextContent("Hello");
+      const actions = screen.getByTestId("actions-row");
+      expect(
+        within(actions).getByTestId("copilot-edit-button"),
+      ).toBeInTheDocument();
+      expect(
+        within(actions).getByTestId("copilot-user-copy-button"),
+      ).toBeInTheDocument();
+      expect(
+        within(actions).getByTestId("copilot-branch-navigation"),
+      ).toBeInTheDocument();
     });
 
     it("should pass message and branch info through children render function", () => {
@@ -471,163 +242,29 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
       expect(callArgs.branchIndex).toBe(1);
       expect(callArgs.numberOfBranches).toBe(3);
     });
-
-    it("should allow reorganizing sub-components in children render", () => {
-      const message = createUserMessage("Hello");
-      const onEditMessage = vi.fn();
-
-      const { container } = render(
-        <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            onEditMessage={onEditMessage}
-          >
-            {({ messageRenderer, toolbar, copyButton, editButton }) => (
-              <div data-testid="custom-layout">
-                <div className="message-area">{messageRenderer}</div>
-                <div className="actions-row">
-                  {editButton}
-                  {copyButton}
-                </div>
-                <div className="toolbar-area">{toolbar}</div>
-              </div>
-            )}
-          </CopilotChatUserMessage>
-        </TestWrapper>,
-      );
-
-      const customLayout = screen.queryByTestId("custom-layout");
-      expect(customLayout).toBeDefined();
-      expect(container.querySelector(".message-area")).toBeDefined();
-      expect(container.querySelector(".actions-row")).toBeDefined();
-      expect(container.querySelector(".toolbar-area")).toBeDefined();
-    });
   });
 
-  // ============================================================================
-  // 5. CLASSNAME OVERRIDE TESTS
-  // ============================================================================
   describe("5. className Override with Tailwind Strings", () => {
-    it("should override root className while preserving default layout classes", () => {
-      const message = createUserMessage("Hello");
-      const { container } = render(
-        <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            className="custom-root-class bg-purple-50"
-          />
-        </TestWrapper>,
+    it("adds the root className to the default classes", () => {
+      renderMessage({ className: "custom-root-class bg-purple-50" });
+
+      expect(screen.getByTestId("copilot-user-message")).toHaveClass(
+        "cpk-user-message",
+        "custom-root-class",
+        "bg-purple-50",
       );
-
-      const root = container.querySelector(".custom-root-class");
-      expect(root).toBeDefined();
-      expect(root?.classList.contains("bg-purple-50")).toBe(true);
-    });
-
-    it("should allow tailwind utilities to override default styles", () => {
-      const message = createUserMessage("Hello");
-      const { container } = render(
-        <TestWrapper>
-          <CopilotChatUserMessage message={message} className="pt-0" />
-        </TestWrapper>,
-      );
-
-      // pt-0 should override the default pt-10
-      const root = container.querySelector(".pt-0");
-      expect(root).toBeDefined();
-    });
-
-    it("should merge multiple slot classNames correctly", () => {
-      const onEditMessage = vi.fn();
-      const message = createUserMessage("Hello");
-      const { container } = render(
-        <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            onEditMessage={onEditMessage}
-            className="root-custom"
-            messageRenderer="renderer-custom"
-            toolbar="toolbar-custom"
-            copyButton="copy-custom"
-            editButton="edit-custom"
-          />
-        </TestWrapper>,
-      );
-
-      expect(container.querySelector(".root-custom")).toBeDefined();
-      expect(container.querySelector(".renderer-custom")).toBeDefined();
-      expect(container.querySelector(".toolbar-custom")).toBeDefined();
-      expect(container.querySelector(".copy-custom")).toBeDefined();
-      expect(container.querySelector(".edit-custom")).toBeDefined();
     });
   });
 
-  // ============================================================================
-  // 6. INTEGRATION / RECURSIVE SLOT TESTS
-  // ============================================================================
   describe("6. Integration and Recursive Slot Application", () => {
-    it("should correctly render all slots with mixed customization", () => {
-      const onEditMessage = vi.fn();
-      const onSwitchToBranch = vi.fn();
-      const message = createUserMessage("Hello world");
-
-      const { container } = render(
-        <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            onEditMessage={onEditMessage}
-            branchIndex={0}
-            numberOfBranches={2}
-            onSwitchToBranch={onSwitchToBranch}
-            messageRenderer="renderer-style"
-            toolbar="toolbar-style"
-            copyButton="copy-style"
-            editButton="edit-style"
-            branchNavigation="branch-style"
-          />
-        </TestWrapper>,
-      );
-
-      expect(container.querySelector(".renderer-style")).toBeDefined();
-      expect(container.querySelector(".toolbar-style")).toBeDefined();
-      expect(container.querySelector(".copy-style")).toBeDefined();
-      expect(container.querySelector(".edit-style")).toBeDefined();
-      expect(container.querySelector(".branch-style")).toBeDefined();
-    });
-
-    it("should work with property objects and class strings mixed", () => {
-      const onClick = vi.fn();
-      const message = createUserMessage("Hello world");
-
-      const { container } = render(
-        <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            messageRenderer="text-lg font-bold"
-            toolbar={{ onClick, className: "flex gap-4" }}
-          />
-        </TestWrapper>,
-      );
-
-      expect(container.querySelector(".text-lg")).toBeDefined();
-
-      const toolbar = container.querySelector(".flex.gap-4");
-      if (toolbar) {
-        fireEvent.click(toolbar);
-        expect(onClick).toHaveBeenCalled();
-      }
-    });
-
     it("should correctly display user message content", () => {
-      const message = createUserMessage("This is my message content");
+      renderMessage({
+        message: createUserMessage("This is my message content"),
+      });
 
-      render(
-        <TestWrapper>
-          <CopilotChatUserMessage message={message} />
-        </TestWrapper>,
-      );
-
-      expect(screen.getByText("This is my message content")).toBeDefined();
+      expect(
+        screen.getByText("This is my message content"),
+      ).toBeInTheDocument();
     });
   });
 
@@ -635,21 +272,14 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
   // from the labels config.
   describe("branch navigation accessible names", () => {
     it("names the previous and next buttons with the default labels", () => {
-      render(
-        <TestWrapper>
-          <CopilotChatUserMessage
-            message={createUserMessage("Hello")}
-            branchIndex={1}
-            numberOfBranches={3}
-            onSwitchToBranch={vi.fn()}
-          />
-        </TestWrapper>,
-      );
+      renderMessage(withAllButtons);
 
       expect(
         screen.getByRole("button", { name: "Previous branch" }),
-      ).toBeDefined();
-      expect(screen.getByRole("button", { name: "Next branch" })).toBeDefined();
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Next branch" }),
+      ).toBeInTheDocument();
     });
 
     it("uses the configured labels", () => {
@@ -664,9 +294,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
           >
             <CopilotChatUserMessage
               message={createUserMessage("Hello")}
-              branchIndex={1}
-              numberOfBranches={3}
-              onSwitchToBranch={vi.fn()}
+              {...withAllButtons}
             />
           </CopilotChatConfigurationProvider>
         </CopilotKitProvider>,
@@ -674,10 +302,10 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
 
       expect(
         screen.getByRole("button", { name: "Vorherige Antwort" }),
-      ).toBeDefined();
+      ).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: "Nächste Antwort" }),
-      ).toBeDefined();
+      ).toBeInTheDocument();
     });
   });
 });

@@ -559,19 +559,13 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
         expect(agent.lastRunParameters).toBeDefined();
       });
 
-      const messageId = testId("msg");
       agent.emit(runStartedEvent());
-      agent.emit(
-        toolCallResultEvent({
-          toolCallId: testId("tc"),
-          messageId: `${messageId}_result`,
-          content: JSON.stringify({}),
-        }),
-      );
       agent.emit(runFinishedEvent());
       agent.complete();
 
-      expect(agent.lastRunParameters?.tools).toBeDefined();
+      expect(
+        agent.lastRunParameters?.tools?.map((tool) => tool.name),
+      ).toContain("inspectionTool");
     });
   });
 
@@ -2034,14 +2028,19 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
         expect(screen.getByText("Test wildcard")).toBeDefined();
       });
 
+      // One assistant message holds both calls, and the result answers the first.
+      const messageId = testId("msg");
+      const toolCallId1 = testId("tc1");
+      const toolCallId2 = testId("tc2");
+
       agent.emit(runStartedEvent());
 
       // Test 1: Call first undefined tool
       agent.emit(
         toolCallChunkEvent({
-          toolCallId: testId("tc1"),
+          toolCallId: toolCallId1,
           toolCallName: "undefinedTool",
-          parentMessageId: testId("msg"),
+          parentMessageId: messageId,
           delta: '{"someParam":"value","anotherParam":123}',
         }),
       );
@@ -2065,9 +2064,9 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       // Test 2: Call another undefined tool to verify wildcard catches multiple
       agent.emit(
         toolCallChunkEvent({
-          toolCallId: testId("tc2"),
+          toolCallId: toolCallId2,
           toolCallName: "anotherUnknownTool",
-          parentMessageId: testId("msg"),
+          parentMessageId: messageId,
           delta: '{"differentArg":"test"}',
         }),
       );
@@ -2083,7 +2082,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       // Send result for first tool
       agent.emit(
         toolCallResultEvent({
-          toolCallId: testId("tc1"),
+          toolCallId: toolCallId1,
           messageId: testId("msg_result"),
           content: "Tool executed successfully",
         }),
@@ -2091,10 +2090,9 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
 
       // Check result is displayed
       await waitFor(() => {
-        const resultEl = screen.queryByTestId("wildcard-result");
-        if (resultEl) {
-          expect(resultEl.textContent).toContain("Tool executed successfully");
-        }
+        expect(screen.getByTestId("wildcard-result").textContent).toContain(
+          "Tool executed successfully",
+        );
       });
 
       agent.emit(runFinishedEvent());
