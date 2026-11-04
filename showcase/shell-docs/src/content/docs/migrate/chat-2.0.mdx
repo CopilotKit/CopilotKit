@@ -97,6 +97,12 @@ copilotkit.setRenderToolCalls([...copilotkit.renderToolCalls, searchRenderer]);
 
 To add one tool-call renderer from a component, use `useRenderTool`.
 
+### Built-in tool-call renderers
+
+A2UI and generative UI hide their own tool calls (`render_a2ui`, `render_ui`) with a renderer that draws nothing. In 1.x, in React, this renderer replaced the provider's `renderToolCalls` list, and the renderers of `frontendTools` and `humanInTheLoop`. Those tool calls then showed nothing. Now the built-in renderer is added next to your renderers. It goes away when its feature turns off.
+
+If you give a renderer for `render_a2ui` or `render_ui` in `renderToolCalls`, your renderer is used instead of the built-in one.
+
 ## Tool registration
 
 `CopilotKitCore.addTool` now returns a function that removes this registration. If a tool with the same name and `agentId` is already registered, the newer tool is active. In 1.x, the second call did nothing. When you call the returned function, the earlier tool is active again.

@@ -70,6 +70,24 @@ describe("CopilotKitProvider a2ui catalog auto-enable", () => {
     expect(a2uiRenderer).toBeDefined();
   });
 
+  it("keeps the built-in render_a2ui renderer and the app's renderers together when the app's renderers change", async () => {
+    const catalog = { id: "test", components: new Map() };
+    const weather = { name: "weather", args: z.any(), render: () => null };
+    const { wrapper, observedCore } = mountProvider({
+      a2ui: { catalog },
+      renderToolCalls: [weather],
+    });
+    const names = () =>
+      observedCore.value?.renderToolCalls.map((renderer) => renderer.name);
+    expect(names()).toEqual(["weather", "render_a2ui"]);
+
+    await wrapper.setProps({
+      renderToolCalls: [weather, { ...weather, name: "search" }],
+    });
+
+    expect(names()).toEqual(["weather", "search", "render_a2ui"]);
+  });
+
   it("does not register an a2ui-surface renderer when no catalog is provided and runtime has not signaled a2uiEnabled", () => {
     const { observedCore } = mountProvider({ a2ui: { theme: {} } });
 

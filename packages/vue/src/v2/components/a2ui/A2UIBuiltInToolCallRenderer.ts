@@ -15,12 +15,9 @@ import { defineToolCallRenderer } from "../../types/defineToolCallRenderer";
  * by `createA2UIMessageRenderer`. A skeleton per tool call would duplicate on
  * retries and multi-call generations and linger after the surface painted.
  *
- * The renderer is registered via the props-based `setRenderToolCalls`
- * mechanism (not `useRenderTool`).
- *
- * This ensures user-registered `useRenderTool({ name: "render_a2ui", ... })`
- * hooks automatically override the built-in, since the merge logic in
- * vue-core.ts gives hook-based entries priority over prop-based entries.
+ * It is a built-in renderer, so a `renderToolCalls` entry or a
+ * `useRenderTool({ name: "render_a2ui" })` hook replaces it, and setting the
+ * provider's renderers never removes it.
  *
  * Call from the provider's setup function and pass a cleanup callback.
  */
@@ -40,19 +37,7 @@ export function registerA2UIBuiltInToolCallRenderer(
         render: () => null,
       });
 
-      // Register via props-based mechanism so useRenderTool hooks take priority
-      const existing = core.propRenderToolCalls;
-      core.setRenderToolCalls([
-        ...existing.filter((rc) => rc.name !== RENDER_A2UI_TOOL_NAME),
-        renderer,
-      ]);
-
-      onCleanup(() => {
-        const current = core.propRenderToolCalls;
-        core.setRenderToolCalls(
-          current.filter((rc) => rc.name !== RENDER_A2UI_TOOL_NAME),
-        );
-      });
+      onCleanup(core.ɵaddBuiltInRenderToolCall(renderer));
     },
     { immediate: true },
   );

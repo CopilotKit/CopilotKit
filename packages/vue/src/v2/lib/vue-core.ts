@@ -115,6 +115,17 @@ export class CopilotKitCoreVue extends CopilotKitCore {
     this._renderers.removeHookToolCall(name, agentId);
   }
 
+  /**
+   * @internal Add a renderer for a tool a built-in feature owns (A2UI,
+   * generative UI). Prop and hook renderers with the same name and agent win
+   * over it, and `setRenderToolCalls` never removes it.
+   *
+   * @returns A function that removes the renderer.
+   */
+  ɵaddBuiltInRenderToolCall(entry: VueToolCallRenderer<unknown>): () => void {
+    return this._renderers.addBuiltInToolCall(entry);
+  }
+
   private notifyRenderersChanged(kind: ɵRendererKind): void {
     void this.notifySubscribers((subscriber) => {
       const vueSubscriber = subscriber as CopilotKitCoreVueSubscriber;
