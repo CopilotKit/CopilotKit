@@ -114,6 +114,9 @@
   color: #d8d9ff;
 }
 @source "../**/*.{ts,tsx}";
+/* Test ids such as "m-1" would otherwise become margin utilities. */
+@source not "../**/__tests__/**";
+@source not "../**/*.{spec,test}.{ts,tsx}";
 
 @layer base {
   :host {
